@@ -1,0 +1,109 @@
+# 文档10：测试框架与策略需求文档
+## 1. 文档标识
+- 模块名称：测试框架与策略
+- 版本：V1.0
+- 依赖模块：所有其他模块
+
+## 2. 模块目标
+提供框架的测试框架与策略，支持单元测试、集成测试、端到端测试，确保各模块功能正确性、兼容性与稳定性。
+
+## 3. 技术栈
+- 测试框架：pytest、pytest-asyncio（异步测试）
+- Mock工具：pytest-mock、unittest.mock
+- 覆盖率工具：pytest-cov
+- 属性测试：hypothesis
+
+## 4. 功能性需求
+### 4.1 测试框架搭建
+- 测试目录结构：
+  ```
+  tests/
+    unit/              # 单元测试
+      test_config/     # 配置系统单元测试
+      test_llm/        # 模型集成单元测试
+      ...
+    integration/       # 集成测试
+      test_agent_workflow/  # Agent+工作流集成测试
+      test_tool_llm/        # 工具+模型集成测试
+      ...
+    e2e/               # 端到端测试
+      test_full_session/    # 完整会话测试
+      ...
+    conftest.py        # 全局fixture
+    pytest.ini         # pytest配置
+  ```
+- pytest配置（`pytest.ini`）：
+  ```ini
+  [pytest]
+  testpaths = tests
+  python_files = test_*.py
+  python_classes = Test*
+  python_functions = test_*
+  addopts = --cov=src --cov-report=html:cov_html --cov-report=term
+  asyncio_mode = auto
+  ```
+
+### 4.2 单元测试支持
+- 为各模块提供单元测试fixture（`conftest.py`）：
+  - `mock_config_loader`：Mock `IConfigLoader`，返回预设配置
+  - `mock_llm_client`：Mock `ILLMClient`，返回预设LLM响应
+  - `mock_tool_manager`：Mock `IToolManager`，注册测试工具
+  - `mock_session_store`：Mock `ISessionStore`，内存存储会话
+- 单元测试覆盖目标：核心业务逻辑（如配置继承、提示词合并、工作流节点）覆盖率≥90%
+
+### 4.3 集成测试支持
+- 集成测试场景：
+  1. Agent核心+模型集成：验证LLM调用与工作流协同
+  2. Agent核心+工具系统：验证工具调用与结果处理
+  3. 配置系统+模型集成：验证模型配置加载与合并
+  4. 会话管理+过程记录：验证会话持久化与事件记录
+- 集成测试fixture：
+  - `test_agent_config`：加载测试用Agent配置
+  - `test_session`：创建测试会话，自动清理
+- 覆盖目标：集成场景覆盖率≥80%
+
+### 4.4 端到端测试支持
+- 端到端测试场景：
+  1. 完整会话流程：创建会话→用户输入→Agent推理→工具调用→最终输出→销毁会话
+  2. 会话恢复流程：创建会话→执行部分步骤→恢复会话→继续执行
+  3. 异常处理流程：LLM调用失败→工具调用失败→错误反馈
+- 测试工具：
+  - 使用`testclient`模拟TUI输入输出
+  - 使用真实配置（测试环境），但Mock外部依赖（如LLM API、MCP服务）
+- 覆盖目标：核心场景覆盖率≥70%
+
+### 4.5 性能测试
+- 性能测试场景：
+  1. LLM调用延迟：测试不同模型的调用耗时（Mock环境）
+  2. 工具调用并发：测试多工具并行调用的性能
+  3. 会话加载速度：测试大会话（100+轮）的恢复耗时
+- 测试工具：`pytest-benchmark`
+- 性能指标：
+  - LLM调用延迟≤500ms（Mock环境）
+  - 会话加载速度≤1s（100轮历史）
+  - 并行工具调用耗时≤最长工具耗时（无等待）
+
+### 4.6 测试报告
+- 生成多格式测试报告：
+  - 覆盖率报告：HTML（`cov_html/`）、终端输出
+  - 测试结果报告：JUnit XML（`test-results.xml`），适配CI/CD
+  - 性能报告：Benchmark CSV（`benchmark-results.csv`）
+- 报告集成：支持在CI/CD流程中自动生成并上传报告
+
+## 5. 非功能性需求
+- **可重复性**：测试用例可重复执行，结果一致（无随机因素）
+- **隔离性**：测试用例之间相互隔离，不共享状态
+- **速度**：单元测试执行时间≤10分钟，集成测试≤30分钟
+
+## 6. 依赖接口
+- 所有模块的接口（用于Mock与测试）
+
+## 7. 提供接口
+- 无（测试框架仅用于内部测试，不提供对外接口）
+
+## 8. 测试要点
+- 测试框架正确性：fixture加载、报告生成
+- 单元测试完整性：核心逻辑的边界条件测试
+- 集成测试正确性：模块间交互的正确性
+- 端到端测试完整性：完整流程的覆盖
+- 性能测试稳定性：多次执行的性能指标波动

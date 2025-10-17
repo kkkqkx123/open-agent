@@ -1,0 +1,84 @@
+# 文档3：模型集成需求文档
+## 1. 文档标识
+- 模块名称：模型集成
+- 版本：V1.0
+- 依赖模块：基础架构与环境配置、配置系统
+
+## 2. 模块目标
+实现多LLM模型的统一集成，支持OpenAI API格式兼容模型、Gemini、Anthropic等，提供灵活的模型配置与HTTP请求控制，确保模型调用的安全性与可扩展性。
+
+## 3. 技术栈
+- 核心库：langchain（ChatOpenAI/ChatGoogleGenerativeAI/ChatAnthropic）
+- HTTP客户端：requests/aiohttp（异步支持）
+- 数据验证：pydantic（模型配置校验）
+
+## 4. 功能性需求
+### 4.1 多模型支持
+#### 4.1.1 模型客户端抽象
+- 定义`ILLMClient`接口，包含：
+  - `generate(messages: list[BaseMessage], parameters: dict) -> BaseMessage`（非流式）
+  - `stream_generate(messages: list[BaseMessage], parameters: dict) -> AsyncGenerator[BaseMessage, None]`（流式）
+  - `get_token_count(text: str) -> int`（Token计算）
+- 实现3类客户端：
+  1. `OpenAIClient`：支持OpenAI及API兼容模型（如Azure OpenAI、智谱）
+  2. `GeminiClient`：基于ChatGoogleGenerativeAI，支持Gemini系列模型
+  3. `AnthropicClient`：基于ChatAnthropic，支持Claude系列模型
+
+#### 4.1.2 模型工厂
+- 实现`LLMFactory`：根据配置中的`model_type`（如`openai`/`gemini`/`anthropic`）创建对应`ILLMClient`实例
+- 支持客户端缓存（`cache_client: bool = True`），避免重复创建连接
+
+### 4.2 可定制HTTP标头
+#### 4.2.1 标头配置规则
+- 支持在模型配置中定义HTTP标头（键值对），如：
+  ```yaml
+  headers:
+    X-API-Key: "${AGENT_OPENAI_KEY}"
+    User-Agent: "ModularAgent/1.0"
+    X-Custom-Header: "custom-value"
+  ```
+- 标头白名单控制：仅允许配置`X-API-Key`、`X-Custom-Header`、`User-Agent`、`Authorization`（4类标头）
+- 敏感标头强制环境变量引用：`Authorization`、`X-API-Key`必须使用`${ENV_VAR}`格式，禁止硬编码
+
+#### 4.2.2 标头校验
+- 加载配置时，校验标头格式（如`Authorization`需符合`Bearer {token}`格式）
+- 敏感标头值脱敏：日志中显示为`***`，避免泄露密钥
+
+### 4.3 模型配置管理
+#### 4.3.1 配置字段
+- 模型配置需包含以下字段（Pydantic校验）：
+  - 基础信息：`model_type`（模型类型）、`model_name`（模型名称，如`gpt-4-turbo`）、`base_url`（API地址）
+  - 认证信息：`api_key`（敏感，环境变量引用）、`headers`（HTTP标头）
+  - 生成参数：`temperature`（温度）、`max_tokens`（最大输出Token）、`top_p`（Top P）、`stop`（停止词）
+- 支持配置继承（参考原文档`_group.yaml`）：个体配置继承组配置，覆盖特定字段（如`temperature`）
+
+#### 4.3.2 配置加载与验证
+- 通过`IConfigLoader`加载模型配置（默认路径`configs/llms/`）
+- 配置验证：`base_url`需为合法HTTP/HTTPS地址，`api_key`格式符合模型要求（如OpenAI的`sk-`前缀）
+
+### 4.4 模型调用辅助
+- 实现`LLMCallHook`：调用前后的钩子函数，支持：
+  - 调用前：参数校验（如`max_tokens`不超过模型上限）
+  - 调用后：Token统计（输入/输出Token数）、耗时记录
+- 支持模型降级：主模型调用失败（如超时、限流）时，自动切换到备用模型（配置`fallback_model: str`）
+
+## 5. 非功能性需求
+- **安全性**：敏感信息（API Key、标头）全程脱敏，日志/配置文件中不泄露
+- **兼容性**：支持同步/异步调用（`generate`/`stream_generate`），适配不同上层场景
+- **可测试性**：提供`MockLLMClient`，模拟模型返回（如工具调用格式、流式输出）
+
+## 6. 依赖接口
+- `IConfigLoader`（基础架构模块）：加载模型配置文件
+- `IConfigSystem`（配置系统模块）：处理配置继承、环境变量替换
+- `IMetricsCollector`（日志与指标模块）：记录模型调用耗时、Token数
+
+## 7. 提供接口
+- `ILLMClient`：模型调用接口（`generate`/`stream_generate`/`get_token_count`）
+- `LLMFactory`：工厂接口（`create_client(config: LLMConfig) -> ILLMClient`、`get_cached_client(model_name: str) -> ILLMClient`）
+- `ILLMCallHook`：钩子接口（`pre_call(parameters: dict) -> dict`、`post_call(response: BaseMessage, metrics: dict) -> None`）
+
+## 8. 测试要点
+- 多模型调用测试：验证OpenAI/Gemini/Anthropic客户端的正确性
+- 标头测试：白名单校验、敏感标头环境变量引用
+- 降级测试：主模型失败时，备用模型切换正确性
+- 配置继承测试：组配置与个体配置的覆盖逻辑

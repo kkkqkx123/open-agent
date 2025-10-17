@@ -1,0 +1,122 @@
+# 文档6：配置系统需求文档
+## 1. 文档标识
+- 模块名称：配置系统
+- 版本：V1.0
+- 依赖模块：基础架构与环境配置
+
+## 2. 模块目标
+实现框架所有配置的统一管理，支持配置分离、分组继承、验证与环境变量注入，确保配置的灵活性、安全性与可维护性。
+
+## 3. 技术栈
+- 配置格式：YAML（支持锚点、引用）
+- 数据验证：pydantic（配置模型定义）
+- 环境变量：python-dotenv（.env文件加载）
+
+## 4. 功能性需求
+### 4.1 配置文件分离与结构
+- 配置按功能分离，存储在`configs/`目录下，结构如下：
+  ```
+  configs/
+    global.yaml          # 全局配置（日志级别、敏感标头白名单）
+    llms/                # 模型配置
+      _group.yaml        # 模型组配置（如openai_group）
+      gpt4.yaml          # 个体模型配置
+      gemini-pro.yaml
+    tool_sets/           # 工具集配置
+      data_analysis.yaml
+      search.yaml
+    agents/              # Agent配置
+      _group.yaml        # Agent组配置（如coder_agents）
+      code_agent.yaml    # 个体Agent配置
+      data_agent.yaml
+    prompt_registry.yaml # 提示词注册表
+  ```
+- 全局配置（`global.yaml`）包含：
+  - 日志配置（`log_level`、`log_outputs`）
+  - 敏感信息配置（`secret_patterns`、`secret_keys`）
+  - 环境配置（`env`、`debug`）
+
+### 4.2 配置分组与继承
+#### 4.2.1 分组定义
+- 支持在对应配置目录下创建`_group.yaml`，定义组配置（如`llms/_group.yaml`、`agents/_group.yaml`）
+- 组配置包含通用字段，供个体配置继承，如：
+  ```yaml
+  # llms/_group.yaml
+  openai_group:
+    base_url: "https://api.openai.com/v1"
+    headers:
+      User-Agent: "ModularAgent/1.0"
+    parameters:
+      temperature: 0.7
+  ```
+
+#### 4.2.2 继承规则
+- 个体配置通过`group`字段指定继承的组，如：
+  ```yaml
+  # llms/gpt4.yaml
+  group: openai_group
+  model_name: "gpt-4-turbo"
+  parameters:
+    temperature: 0.3  # 覆盖组配置
+    max_tokens: 4096  # 新增字段
+  ```
+- 继承逻辑：
+  1. 个体配置继承组配置的所有字段
+  2. 个体配置中明确的字段：简单类型（字符串/数字）直接覆盖，嵌套字典（如`parameters`）深度合并
+  3. 继承层级：最多支持“组→个体”两级，避免过度复杂
+
+### 4.3 配置验证
+- 为各类型配置定义Pydantic模型，确保配置完整性与合法性：
+  - `GlobalConfig`：全局配置模型（`log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]`）
+  - `LLMConfig`：模型配置模型（`model_name: str`、`base_url: HttpUrl`、`api_key: SecretStr`）
+  - `AgentConfig`：Agent配置模型（`llm: str`、`tool_sets: list[str]`、`prompts: dict`）
+- 验证时机：配置加载后自动校验，缺失必填字段或格式错误时，报错并显示具体错误位置（如“llms/gpt4.yaml: model_name字段缺失”）
+
+### 4.4 环境变量注入与敏感信息处理
+- 支持配置中引用环境变量，格式为`${ENV_VAR:DEFAULT}`（默认值可选），如：
+  ```yaml
+  api_key: "${AGENT_OPENAI_KEY}"
+  port: "${AGENT_PORT:8000}"
+  ```
+- 敏感信息处理：
+  - 强制要求敏感字段（`api_key`、`Authorization`）使用环境变量引用，禁止硬编码
+  - 加载后敏感字段自动脱敏（`SecretStr`类型），打印/日志中显示为`***`
+
+### 4.5 配置加载与合并
+- 实现`ConfigSystem`：
+  - 加载流程：先加载全局配置→再加载各模块组配置→最后加载个体配置，自动处理继承与合并
+  - 配置合并：Agent配置中引用的模型、工具集、提示词，自动加载对应配置并合并（如`AgentConfig.llm`引用`gpt4`，则合并`gpt4.yaml`配置）
+  - 热重载：开发环境支持配置热重载（`hot_reload: bool = True`），修改配置文件后自动重新加载，无需重启应用
+
+### 4.6 工作流配置支持
+- 支持加载工作流YAML配置（路径`configs/workflows/`），模型定义：
+  ```python
+  class WorkflowConfig(BaseModel):
+      name: str
+      description: str
+      max_steps: int
+      timeout: int
+      nodes: list[NodeConfig]
+      edges: list[EdgeConfig]
+  ```
+- 节点/边配置验证：`node.type`需为预定义类型（`llm_call`/`tool_execution`/`condition_node`），`edge.condition`需为合法Jinja2表达式
+
+## 5. 非功能性需求
+- **安全性**：敏感信息全程环境变量注入，不落地存储
+- **可维护性**：配置按模块分离，继承逻辑简化批量配置管理
+- **可扩展性**：新增配置类型时，只需定义新Pydantic模型，无需修改加载逻辑
+
+## 6. 依赖接口
+- `IConfigLoader`（基础架构模块）：加载YAML配置文件、.env文件
+- `ILogger`（日志与指标模块）：记录配置加载日志、验证错误
+
+## 7. 提供接口
+- `IConfigSystem`：核心接口（`load_global_config() -> GlobalConfig`、`load_llm_config(name: str) -> LLMConfig`、`load_agent_config(name: str) -> AgentConfig`、`load_workflow_config(name: str) -> WorkflowConfig`）
+- `IConfigMerger`：合并接口（`merge_group_config(group_config: dict, individual_config: dict) -> dict`、`deep_merge(dict1: dict, dict2: dict) -> dict`）
+- `IConfigValidator`：验证接口（`validate_config(config: dict, model: Type[BaseModel]) -> BaseModel`）
+
+## 8. 测试要点
+- 继承测试：组配置与个体配置的覆盖、深度合并逻辑
+- 环境变量测试：引用、默认值、敏感字段脱敏
+- 验证测试：必填字段缺失、格式错误的报错
+- 热重载测试：配置修改后的自动重新加载

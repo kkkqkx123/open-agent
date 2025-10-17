@@ -1,0 +1,56 @@
+# 文档1：基础架构与环境配置需求文档
+## 1. 文档标识
+- 模块名称：基础架构与环境配置
+- 版本：V1.0
+- 依赖模块：无（启动依赖）
+
+## 2. 模块目标
+搭建框架运行的基础环境，提供全局基础设施服务（配置加载、依赖注入、环境管理），为其他模块提供运行支撑。
+
+## 3. 技术栈
+- 语言与环境：cpython3.13、uv+venv（环境管理）
+- 核心库：`dependency-injector`（依赖注入）、`python-dotenv`（环境变量）、`pydantic`（数据验证）
+
+## 4. 功能性需求
+### 4.1 环境管理
+- 支持通过`uv venv`创建隔离环境，自动生成`requirements.txt`或`pyproject.toml`
+- 提供环境检查命令（`agent env check`），验证Python版本、依赖库版本是否符合要求
+- 支持多环境配置（开发/测试/生产），通过环境变量`AGENT_ENV`切换【预留框架即可，之后统一使用dev环境】
+
+### 4.2 依赖注入容器
+- 实现全局依赖注入容器，支持以下服务的注册与获取：
+  - 配置加载服务（`IConfigLoader`）
+  - 日志服务（`ILogger`）
+  - 指标收集服务（`IMetricsCollector`）
+- 支持按环境动态绑定接口实现（如开发环境绑定`MockLLMClient`，生产环境绑定`RealLLMClient`）
+- 提供`get_service(service_type: Type[T]) -> T`方法，供上层模块获取依赖
+
+### 4.3 全局配置加载
+- 支持加载全局配置文件（`configs/global.yaml`），包含：
+  - 日志级别、日志输出目标（控制台/文件）
+  - 敏感信息脱敏规则（`secret_patterns`）
+  - 环境变量前缀（`ENV_PREFIX: "AGENT_"`）
+- 支持配置文件热重载（开发环境启用，生产环境可选），修改配置后无需重启应用
+- 自动解析配置中的环境变量引用（如`${AGENT_OPENAI_KEY}`），支持默认值（如`${AGENT_PORT:8000}`）
+
+### 4.4 架构分层保障
+- 强制遵循四层架构（用户界面层→应用服务层→领域核心层→基础设施层），提供层间依赖检查工具
+- 禁止下层模块依赖上层模块（如基础设施层不能依赖应用服务层），提供静态代码检查规则
+
+## 5. 非功能性需求
+- **兼容性**：确保在cpython3.13及以上版本运行，uv版本≥0.1.0
+- **可维护性**：依赖注入容器的服务注册逻辑集中管理，不分散在业务代码中
+- **可测试性**：提供`TestContainer`，自动注入Mock服务，简化单元测试
+
+## 6. 依赖接口
+- 无（作为基础模块，为其他模块提供接口）
+
+## 7. 提供接口
+- `IConfigLoader`：配置加载接口（`load(config_path: str) -> dict`、`reload() -> None`）
+- `IDependencyContainer`：依赖注入接口（`register(interface: Type, impl: Type) -> None`、`get(service_type: Type[T]) -> T`）
+- `IEnvironmentChecker`：环境检查接口（`check_dependencies() -> list[CheckResult]`）
+
+## 8. 测试要点
+- 环境检查测试：验证Python版本、依赖库版本不匹配时的提示
+- 配置加载测试：环境变量替换、热重载、默认值生效
+- 依赖注入测试：服务注册、多环境绑定、Mock服务注入

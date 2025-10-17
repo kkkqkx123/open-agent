@@ -1,0 +1,101 @@
+# 文档5：提示词管理需求文档
+## 1. 文档标识
+- 模块名称：提示词管理
+- 版本：V1.0
+- 依赖模块：基础架构与环境配置、配置系统
+
+## 2. 模块目标
+实现提示词的资产化管理，支持简单/复合提示词，提供统一的注册、加载、合并机制，确保提示词可复用、可维护，且能正确注入Agent工作流。
+
+## 3. 技术栈
+- 文件处理：pathlib（目录扫描）、markdown（提示词文件解析）
+- 数据验证：pydantic（提示词元信息校验）
+
+## 4. 功能性需求
+### 4.1 提示词资产分类
+- 将提示词分为3类，存储在不同目录，作用域独立：
+  1. **系统提示词**：定义Agent核心身份/角色（如“你是数据分析专家”），存储路径`prompts/system/`
+  2. **规则提示词**：定义Agent行为约束（如“拒绝敏感问题”“输出JSON格式”），存储路径`prompts/rules/`
+  3. **用户指令**：具体任务模板（如“分析以下数据并生成图表”），存储路径`prompts/user_commands/`
+- 3类提示词无重名冲突（同一名称在不同目录可共存），加载时按类别区分
+
+### 4.2 提示词格式与加载
+#### 4.2.1 简单提示词
+- 单个`.md`文件，包含提示词内容，文件名即为提示词名称（如`assistant.md`→名称`assistant`）
+- 文件格式：首行可添加元信息（可选，用`---`包裹），后续为提示词内容：
+  ```markdown
+  ---
+  description: 通用助手提示词，定义Agent基础角色
+  ---
+  你是一个通用助手，负责解答用户问题，语言简洁明了。
+  ```
+
+#### 4.2.2 复合提示词
+- 以目录为单位，目录名即为提示词名称（如`coder/`→名称`coder`），目录内包含：
+  - `index.md`：主提示词文件（必填）
+  - 子章节文件：以2位数字前缀命名（如`01_code_style.md`、`02_error_handling.md`），按前缀顺序合并
+- 加载逻辑：先读取`index.md`，再按数字顺序合并子章节文件，生成完整提示词
+- 示例结构：
+  ```
+  prompts/system/
+    coder/
+      index.md          # 主文件：“你是代码生成专家，负责生成高质量代码”
+      01_code_style.md  # 子章节：“代码风格遵循PEP8”
+      02_error_handling.md  # 子章节：“需包含异常处理逻辑”
+  ```
+
+### 4.3 提示词注册与校验
+- 实现`PromptRegistry`：中央注册表，存储所有提示词的元信息（名称、类别、描述、路径）
+- 注册表配置：`configs/prompt_registry.yaml`，手动注册提示词（避免扫描冗余文件），如：
+  ```yaml
+  system:
+    - name: assistant
+      path: prompts/system/assistant.md
+      description: 通用助手系统提示词
+    - name: coder
+      path: prompts/system/coder/
+      description: 代码生成专家系统提示词
+  rules:
+    - name: safety
+      path: prompts/rules/safety.md
+      description: 安全规则提示词
+  user_commands:
+    - name: data_analysis
+      path: prompts/user_commands/data_analysis.md
+      description: 数据分析用户指令
+  ```
+- 加载校验：
+  - 路径校验：注册的`path`必须存在，否则报错退出
+  - 重名校验：同一类别内不允许重名提示词，否则报错退出
+
+### 4.4 提示词加载与合并
+- 实现`PromptLoader`：
+  - 按类别加载：`load_prompt(category: str, name: str) -> str`（如`load_prompt("system", "coder")`）
+  - 复合提示词合并：按`index.md`+子章节顺序合并，子章节间添加分隔符（如`\n---\n`）
+  - 缓存机制：加载后的提示词缓存（`cache: bool = True`），避免重复读取文件
+
+### 4.5 提示词注入逻辑
+- 实现`PromptInjector`：在Agent任务启动时，将提示词注入`AgentState`
+  - 注入时机：工作流初始化阶段（`workflow_start_node`），早于LLM调用，避免影响缓存命中率
+  - 注入顺序：系统提示词→规则提示词→用户指令，按顺序添加到`AgentState.messages`（类型为`SystemMessage`）
+  - Schema注入：工具提示词（工具Schema）在工具调用前注入，添加到`AgentState.messages`（类型为`ToolMessage`）
+
+## 5. 非功能性需求
+- **可维护性**：提示词按类别/功能拆分，复合提示词支持模块化编辑
+- **可复用性**：同一提示词可被多个Agent引用（如`safety`规则提示词）
+- **可测试性**：提供`PromptTester`，验证提示词加载、合并的正确性
+
+## 6. 依赖接口
+- `IConfigLoader`（基础架构模块）：加载注册表配置、提示词文件
+- `IConfigSystem`（配置系统模块）：获取Agent引用的提示词列表（`system_prompt`、`rules`、`user_command`）
+
+## 7. 提供接口
+- `IPromptRegistry`：注册接口（`get_prompt_meta(category: str, name: str) -> PromptMeta`、`list_prompts(category: str) -> list[PromptMeta]`）
+- `IPromptLoader`：加载接口（`load_prompt(category: str, name: str) -> str`、`clear_cache() -> None`）
+- `IPromptInjector`：注入接口（`inject_prompts(state: AgentState, config: AgentConfig) -> AgentState`）
+
+## 8. 测试要点
+- 提示词加载测试：简单/复合提示词的加载、合并正确性
+- 注册校验测试：重名、路径不存在场景的报错
+- 注入测试：提示词注入顺序、时机的正确性
+- 缓存测试：重复加载时的缓存命中情况
