@@ -9,7 +9,6 @@
 ```yaml
 # requirements.txt 新增
 langgraph >= 0.1.0
-langgraph-studio >= 0.1.0
 ```
 
 ### 2. 移除的组件
