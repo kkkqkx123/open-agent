@@ -1,0 +1,18 @@
+# Agent组配置
+default_group:
+  tool_sets: ["basic"]
+  system_prompt: "You are a helpful assistant."
+  rules: ["be_helpful", "be_accurate"]
+  user_command: "help"
+
+code_group:
+  tool_sets: ["code_analysis", "file_operations"]
+  system_prompt: "You are a code analysis assistant."
+  rules: ["analyze_code", "suggest_improvements"]
+  user_command: "analyze"
+
+data_group:
+  tool_sets: ["data_processing", "visualization"]
+  system_prompt: "You are a data analysis assistant."
+  rules: ["process_data", "create_visualizations"]
+  user_command: "analyze_data"

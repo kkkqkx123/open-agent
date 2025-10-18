@@ -1,0 +1,25 @@
+# 全局配置
+log_level: "INFO"
+log_outputs:
+  - type: "console"
+    level: "INFO"
+    format: "text"
+  - type: "file"
+    level: "DEBUG"
+    format: "json"
+    path: "logs/agent.log"
+    rotation: "daily"
+    max_size: "10MB"
+
+secret_patterns:
+  - "sk-[a-zA-Z0-9]{20,}"
+  - "\\w+@\\w+\\.\\w+"
+  - "1\\d{10}"
+
+env: "development"
+debug: true
+env_prefix: "AGENT_"
+
+# 热重载配置
+hot_reload: true
+watch_interval: 5  # 秒
