@@ -15,7 +15,7 @@ dependencies = [
     # 配置管理
     "pydantic >= 2.0.0",
     "python-dotenv >= 1.0.0",
-    "pyyaml >= 6.0.0",
+    "pyyaml>=6.0.0",
     "watchdog>=3.0.0",
     # 依赖注入
     "dependency-injector >= 4.0.0",
@@ -39,6 +39,8 @@ dependencies = [
     "hypothesis>=6.142.1",
     "pytest-benchmark>=5.1.0",
     "types-pyyaml>=6.0.12.20250915",
+    "flake8>=7.3.0",
+    "psutil>=7.1.0",
 ]
 
 [project.optional-dependencies]

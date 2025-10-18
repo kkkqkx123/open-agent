@@ -124,6 +124,9 @@ class EnvironmentChecker(IEnvironmentChecker):
                 elif package == "python-dotenv":
                     import dotenv
                     version = getattr(dotenv, "__version__", "unknown")
+                elif package == "pyyaml":
+                    import yaml
+                    version = getattr(yaml, "__version__", "unknown")
                 else:
                     module = importlib.import_module(package.replace("-", "_"))
                     version = getattr(module, "__version__", "unknown")
