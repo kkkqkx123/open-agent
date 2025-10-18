@@ -16,6 +16,8 @@ from .models.agent_config import AgentConfig
 from .models.tool_config import ToolConfig
 from .utils.env_resolver import EnvResolver
 from .utils.file_watcher import FileWatcher
+from .error_recovery import ConfigErrorRecovery, ConfigValidatorWithRecovery
+from .config_callback_manager import get_global_callback_manager, trigger_config_callbacks
 
 
 class IConfigSystem(ABC):
@@ -107,7 +109,9 @@ class ConfigSystem(IConfigSystem):
         config_loader: IConfigLoader,
         config_merger: IConfigMerger,
         config_validator: IConfigValidator,
-        base_path: str = "configs"
+        base_path: str = "configs",
+        enable_error_recovery: bool = True,
+        enable_callback_manager: bool = True
     ):
         """初始化配置系统
         
@@ -116,6 +120,8 @@ class ConfigSystem(IConfigSystem):
             config_merger: 配置合并器
             config_validator: 配置验证器
             base_path: 配置基础路径
+            enable_error_recovery: 是否启用错误恢复
+            enable_callback_manager: 是否启用回调管理
         """
         self._config_loader = config_loader
         self._config_merger = config_merger
@@ -133,6 +139,17 @@ class ConfigSystem(IConfigSystem):
         self._file_watcher: Optional[FileWatcher] = None
         self._watch_callbacks: List[Callable[[str, Dict[str, Any]], None]] = []
         
+        # 错误恢复
+        self._error_recovery: Optional[ConfigErrorRecovery] = None
+        if enable_error_recovery:
+            self._error_recovery = ConfigErrorRecovery()
+            self._validator_with_recovery = ConfigValidatorWithRecovery(self._error_recovery)
+        
+        # 回调管理器
+        self._callback_manager = None
+        if enable_callback_manager:
+            self._callback_manager = get_global_callback_manager()
+        
         # 线程锁
         self._lock = threading.RLock()
     
@@ -146,9 +163,26 @@ class ConfigSystem(IConfigSystem):
             if self._global_config is not None:
                 return self._global_config
             
-            # 加载配置文件
+            # 加载配置文件（带错误恢复）
             config_path = "global.yaml"
-            config_data = self._config_loader.load(config_path)
+            config_data = None
+            
+            try:
+                config_data = self._config_loader.load(config_path)
+            except Exception as e:
+                if self._error_recovery:
+                    # 尝试错误恢复
+                    full_path = self._base_path / config_path
+                    if self._error_recovery.recover_config(str(full_path), e):
+                        # 恢复成功，再次尝试加载
+                        try:
+                            config_data = self._config_loader.load(config_path)
+                        except Exception as recovery_error:
+                            raise ConfigurationError(f"全局配置恢复后仍然无法加载: {recovery_error}")
+                    else:
+                        raise ConfigurationError(f"无法恢复全局配置文件: {e}")
+                else:
+                    raise ConfigurationError(f"加载全局配置文件失败: {e}")
             
             # 验证配置
             result = self._config_validator.validate_global_config(config_data)
@@ -341,6 +375,11 @@ class ConfigSystem(IConfigSystem):
             rel_path = Path(file_path).relative_to(self._base_path)
             config_path = str(rel_path).replace('\\', '/')
             
+            # 保存旧配置（用于回调）
+            old_config = None
+            if config_path in self._config_loader._configs:
+                old_config = self._config_loader._configs[config_path].copy()
+            
             # 重新加载配置
             # 先从缓存中移除，确保重新加载
             cache_keys_to_remove = []
@@ -355,15 +394,40 @@ class ConfigSystem(IConfigSystem):
             if config_path == "global.yaml":
                 self._global_config = None
             
-            # 重新加载配置文件
-            new_config = self._config_loader.load(config_path)
+            # 尝试重新加载配置文件（带错误恢复）
+            new_config = None
+            try:
+                new_config = self._config_loader.load(config_path)
+            except Exception as e:
+                if self._error_recovery:
+                    # 尝试错误恢复
+                    if self._error_recovery.recover_config(file_path, e):
+                        # 恢复成功，再次尝试加载
+                        try:
+                            new_config = self._config_loader.load(config_path)
+                        except Exception as recovery_error:
+                            print(f"错误: 配置恢复后仍然无法加载 {config_path}: {recovery_error}")
+                            return
+                    else:
+                        print(f"错误: 无法恢复配置文件 {config_path}: {e}")
+                        return
+                else:
+                    print(f"错误: 加载配置文件失败 {config_path}: {e}")
+                    return
             
-            # 通知回调
+            # 通知传统回调
             for callback in self._watch_callbacks:
                 try:
                     callback(config_path, new_config)
                 except Exception as e:
                     print(f"警告: 配置变化回调执行失败: {e}")
+            
+            # 通知新的回调管理器
+            if self._callback_manager:
+                try:
+                    trigger_config_callbacks(config_path, old_config, new_config, "file_watcher")
+                except Exception as e:
+                    print(f"警告: 配置回调管理器执行失败: {e}")
         
         except Exception as e:
             print(f"警告: 处理配置文件变化失败 {file_path}: {e}")

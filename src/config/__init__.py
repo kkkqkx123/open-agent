@@ -4,6 +4,15 @@ from .config_system import IConfigSystem, ConfigSystem
 from .config_merger import IConfigMerger, ConfigMerger
 from .config_validator import IConfigValidator, ConfigValidator, ValidationResult
 from .config_validator_tool import ConfigValidatorTool
+from .error_recovery import ConfigErrorRecovery, ConfigBackupManager, ConfigValidatorWithRecovery
+from .config_callback_manager import (
+    ConfigCallbackManager, 
+    ConfigChangeContext, 
+    CallbackPriority,
+    register_config_callback,
+    unregister_config_callback,
+    trigger_config_callbacks
+)
 
 __all__ = [
     "IConfigSystem",
@@ -14,4 +23,13 @@ __all__ = [
     "ConfigValidator",
     "ValidationResult",
     "ConfigValidatorTool",
+    "ConfigErrorRecovery",
+    "ConfigBackupManager",
+    "ConfigValidatorWithRecovery",
+    "ConfigCallbackManager",
+    "ConfigChangeContext",
+    "CallbackPriority",
+    "register_config_callback",
+    "unregister_config_callback",
+    "trigger_config_callbacks",
 ]
