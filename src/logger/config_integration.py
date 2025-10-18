@@ -30,6 +30,9 @@ class LoggingConfigIntegration:
             if self._initialized:
                 return
             
+            # 加载初始配置
+            self._load_initial_config()
+            
             # 注册配置变更回调
             register_config_callback(
                 "logging_config_integration",
@@ -40,6 +43,54 @@ class LoggingConfigIntegration:
             
             self._initialized = True
             self._logger.info("日志系统与配置系统集成已初始化")
+    
+    def _load_initial_config(self) -> None:
+        """加载初始配置"""
+        try:
+            # 尝试从配置文件加载
+            from ..infrastructure.config_loader import YamlConfigLoader
+            from ..config.models.global_config import GlobalConfig
+            
+            config_loader = YamlConfigLoader()
+            config_data = config_loader.load("global.yaml")
+            
+            # 创建全局配置对象
+            global_config = GlobalConfig(**config_data)
+            
+            # 设置全局配置
+            set_global_config(global_config)
+            
+        except Exception as e:
+            # 如果加载配置失败，使用默认配置
+            self._error_handler.handle_error(
+                ErrorType.SYSTEM_ERROR,
+                e,
+                {
+                    "operation": "load_initial_config"
+                }
+            )
+            
+            # 使用默认配置
+            from ..config.models.global_config import GlobalConfig, LogOutputConfig
+            default_config = GlobalConfig(
+                log_level="INFO",
+                log_outputs=[
+                    LogOutputConfig(
+                        type="console",
+                        level="INFO",
+                        format="text",
+                        path=None,
+                        rotation=None,
+                        max_size=None
+                    )
+                ],
+                env="development",
+                debug=True,
+                env_prefix="AGENT_",
+                hot_reload=True,
+                watch_interval=5
+            )
+            set_global_config(default_config)
     
     def _handle_config_change(self, context: ConfigChangeContext) -> None:
         """处理配置变更
@@ -147,7 +198,7 @@ def initialize_logging_integration() -> None:
 def _extend_metrics_collector() -> None:
     """扩展指标收集器"""
     def record_config_change(
-        self: MetricsCollector, 
+        self: 'MetricsCollector', 
         config_path: str, 
         old_config: Dict[str, Any], 
         new_config: Dict[str, Any]

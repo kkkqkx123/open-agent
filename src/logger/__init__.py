@@ -1,6 +1,7 @@
 """日志与指标模块"""
 
-from .logger import ILogger, Logger, LogLevel, get_logger, set_global_config
+from .log_level import LogLevel
+from .logger import ILogger, Logger, get_logger, set_global_config
 from .metrics import IMetricsCollector, MetricsCollector, get_global_metrics_collector
 from .error_handler import (
     IGlobalErrorHandler, 

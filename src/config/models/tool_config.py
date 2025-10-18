@@ -1,7 +1,7 @@
 """工具配置模型"""
 
 from typing import List, Dict, Any, Optional
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 
 from .base import BaseConfig
 
@@ -28,21 +28,24 @@ class ToolConfig(BaseConfig):
     enabled: bool = Field(True, description="是否启用")
     parallel: bool = Field(False, description="是否支持并行执行")
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v: str) -> str:
         """验证名称"""
         if not v or not v.strip():
             raise ValueError('工具名称不能为空')
         return v.strip()
     
-    @validator('timeout')
+    @field_validator('timeout')
+    @classmethod
     def validate_timeout(cls, v: int) -> int:
         """验证超时时间"""
         if v < 1:
             raise ValueError('超时时间必须大于0秒')
         return v
     
-    @validator('max_retries')
+    @field_validator('max_retries')
+    @classmethod
     def validate_max_retries(cls, v: int) -> int:
         """验证最大重试次数"""
         if v < 0:

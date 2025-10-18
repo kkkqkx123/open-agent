@@ -1,7 +1,7 @@
 """LLM配置模型"""
 
 from typing import Dict, Any, Optional, List
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 
 from .base import BaseConfig
 
@@ -24,7 +24,8 @@ class LLMConfig(BaseConfig):
     # 继承配置
     group: Optional[str] = Field(None, description="所属组名称")
     
-    @validator('model_type')
+    @field_validator('model_type')
+    @classmethod
     def validate_model_type(cls, v: str) -> str:
         """验证模型类型"""
         allowed_types = ['openai', 'gemini', 'anthropic', 'claude', 'local']
@@ -32,7 +33,8 @@ class LLMConfig(BaseConfig):
             raise ValueError(f'模型类型必须是以下之一: {allowed_types}')
         return v.lower()
     
-    @validator('base_url')
+    @field_validator('base_url')
+    @classmethod
     def validate_base_url(cls, v: Optional[str]) -> Optional[str]:
         """验证基础URL"""
         if v is not None and not v.startswith(('http://', 'https://')):

@@ -4,44 +4,12 @@ import os
 import threading
 from abc import ABC, abstractmethod
 from datetime import datetime
-from enum import Enum
 from typing import Any, Dict, List, Optional, Callable
 
 from ..config.models.global_config import GlobalConfig
 from .handlers.base_handler import BaseHandler
 from .redactor import LogRedactor
-
-
-class LogLevel(Enum):
-    """日志级别枚举"""
-    DEBUG = 10
-    INFO = 20
-    WARNING = 30
-    ERROR = 40
-    CRITICAL = 50
-
-    @classmethod
-    def from_string(cls, level_str: str) -> 'LogLevel':
-        """从字符串创建日志级别"""
-        level_map = {
-            'DEBUG': cls.DEBUG,
-            'INFO': cls.INFO,
-            'WARNING': cls.WARNING,
-            'WARN': cls.WARNING,
-            'ERROR': cls.ERROR,
-            'CRITICAL': cls.CRITICAL,
-            'FATAL': cls.CRITICAL
-        }
-        
-        upper_level = level_str.upper()
-        if upper_level not in level_map:
-            raise ValueError(f"无效的日志级别: {level_str}")
-        
-        return level_map[upper_level]
-
-    def __str__(self) -> str:
-        """返回日志级别的字符串表示"""
-        return self.name
+from .log_level import LogLevel
 
 
 class ILogger(ABC):
@@ -318,6 +286,7 @@ class Logger(ILogger):
 # 全局日志记录器注册表
 _loggers: Dict[str, Logger] = {}
 _loggers_lock = threading.RLock()
+_global_config: Optional[GlobalConfig] = None
 
 
 def get_logger(name: str, config: Optional[GlobalConfig] = None) -> Logger:
@@ -332,7 +301,11 @@ def get_logger(name: str, config: Optional[GlobalConfig] = None) -> Logger:
     """
     with _loggers_lock:
         if name not in _loggers:
+            # 如果没有提供配置，使用全局配置
+            if config is None and _global_config is not None:
+                config = _global_config
             _loggers[name] = Logger(name, config)
+            return _loggers[name]
         return _loggers[name]
 
 
@@ -342,6 +315,9 @@ def set_global_config(config: GlobalConfig) -> None:
     Args:
         config: 全局配置
     """
+    global _global_config
+    _global_config = config
+    
     with _loggers_lock:
         for logger in _loggers.values():
             logger._config = config

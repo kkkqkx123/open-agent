@@ -4,7 +4,7 @@ import sys
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
-from ..logger import LogLevel
+from ..log_level import LogLevel
 
 
 class BaseHandler(ABC):

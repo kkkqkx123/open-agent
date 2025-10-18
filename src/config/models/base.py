@@ -2,22 +2,22 @@
 
 from abc import ABC
 from typing import Any, Dict, Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class BaseConfig(BaseModel, ABC):
     """基础配置模型"""
     
-    class Config:
-        """Pydantic配置"""
-        extra = "forbid"  # 禁止额外字段
-        validate_assignment = True  # 赋值时验证
-        use_enum_values = True  # 使用枚举值
-        case_sensitive = False  # 不区分大小写
+    model_config = ConfigDict(
+        extra="forbid",  # 禁止额外字段
+        validate_assignment=True,  # 赋值时验证
+        use_enum_values=True,  # 使用枚举值
+        case_sensitive=False,  # 不区分大小写
+    )
         
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
-        return self.dict(exclude_none=True)
+        return self.model_dump(exclude_none=True)
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "BaseConfig":

@@ -12,7 +12,7 @@ from src.infrastructure.config_loader import YamlConfigLoader
 from src.config.config_system import ConfigSystem
 from src.config.config_merger import ConfigMerger
 from src.config.config_validator import ConfigValidator
-from src.logging import (
+from src.logger import (
     get_logger, 
     initialize_logging_integration,
     get_global_error_handler,
@@ -192,7 +192,7 @@ debug: false
         initialize_logging_integration()
         
         # 获取指标收集器
-        from src.logging import get_global_metrics_collector
+        from src.logger import get_global_metrics_collector
         metrics_collector = get_global_metrics_collector()
         
         # 记录指标
@@ -322,7 +322,7 @@ debug: false
             assert "输入参数有误" in message
         
         # 4. 记录指标
-        from src.logging import get_global_metrics_collector
+        from src.logger import get_global_metrics_collector
         metrics_collector = get_global_metrics_collector()
         metrics_collector.record_llm_metric("gpt-4", 100, 50, 2.0)
         

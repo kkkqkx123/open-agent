@@ -2,8 +2,8 @@
 
 import pytest
 
-from src.logging.redactor import LogRedactor, CustomLogRedactor
-from src.logging.logger import LogLevel
+from src.logger.redactor import LogRedactor, CustomLogRedactor
+from src.logger.logger import LogLevel
 
 
 class TestLogRedactor:

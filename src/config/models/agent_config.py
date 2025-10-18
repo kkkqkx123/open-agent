@@ -1,7 +1,7 @@
 """Agent配置模型"""
 
 from typing import List, Dict, Any, Optional
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 
 from .base import BaseConfig
 
@@ -30,35 +30,40 @@ class AgentConfig(BaseConfig):
     timeout: int = Field(60, description="超时时间（秒）")
     retry_count: int = Field(3, description="重试次数")
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v: str) -> str:
         """验证名称"""
         if not v or not v.strip():
             raise ValueError('Agent名称不能为空')
         return v.strip()
     
-    @validator('llm')
+    @field_validator('llm')
+    @classmethod
     def validate_llm(cls, v: str) -> str:
         """验证LLM配置名称"""
         if not v or not v.strip():
             raise ValueError('LLM配置名称不能为空')
         return v.strip()
     
-    @validator('max_iterations')
+    @field_validator('max_iterations')
+    @classmethod
     def validate_max_iterations(cls, v: int) -> int:
         """验证最大迭代次数"""
         if v < 1:
             raise ValueError('最大迭代次数必须大于0')
         return v
     
-    @validator('timeout')
+    @field_validator('timeout')
+    @classmethod
     def validate_timeout(cls, v: int) -> int:
         """验证超时时间"""
         if v < 1:
             raise ValueError('超时时间必须大于0秒')
         return v
     
-    @validator('retry_count')
+    @field_validator('retry_count')
+    @classmethod
     def validate_retry_count(cls, v: int) -> int:
         """验证重试次数"""
         if v < 0:

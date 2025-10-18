@@ -185,7 +185,7 @@ Based on the overall project plan (docs/plan/overall-plan.md):
 ```mermaid
 graph TD
     A[Infrastructure & Environment Configuration] --> B[Configuration System]
-    A --> C[Logging & Metrics]
+    A --> C[Logger & Metrics]
     B --> D[Model Integration]
     B --> E[Tool System]
     B --> F[Prompt Management]

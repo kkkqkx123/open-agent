@@ -1,5 +1,6 @@
 """配置回调管理器单元测试"""
 
+from datetime import datetime
 import pytest
 from unittest.mock import Mock
 
@@ -27,7 +28,8 @@ class TestConfigChangeContext:
             config_path="test.yaml",
             old_config=old_config,
             new_config=new_config,
-            source="test"
+            source="test",
+            timestamp=datetime.now()
         )
         
         assert context.config_path == "test.yaml"
@@ -44,7 +46,8 @@ class TestConfigChangeContext:
         context = ConfigChangeContext(
             config_path="test.yaml",
             old_config=old_config,
-            new_config=new_config
+            new_config=new_config,
+            timestamp=datetime.now()
         )
         
         context_dict = context.to_dict()

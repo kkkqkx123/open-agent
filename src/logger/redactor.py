@@ -4,7 +4,7 @@ import re
 import hashlib
 from typing import List, Optional, Pattern, Dict, Any
 
-from .logger import LogLevel
+from .log_level import LogLevel
 
 
 class LogRedactor:
@@ -15,21 +15,21 @@ class LogRedactor:
         # OpenAI API Key
         (r'sk-[a-zA-Z0-9]{20,}', 'sk-***'),
         # 邮箱地址
-        (r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '***@***.***'),
+        (r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b', '***@***.***'),
         # 手机号（中国）
         (r'1[3-9]\d{9}', '1*********'),
         # 身份证号
         (r'\b[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]\b', '***************'),
         # 密码字段
-        (r'(["\']?password["\']?\s*[:=]\s*["\']?)[^"\',\s}]+', r'\1***'),
+        (r'(["\']?password["\']?\s*[:=]\s*["\']?)[^"\',\s}]+', r'\1***PASSWORD***'),
         # Token
-        (r'["\']?token["\']?\s*[:=]\s*["\']?[a-zA-Z0-9_-]{20,}', r'\1***'),
+        (r'(["\']?token["\']?\s*[:=]\s*["\']?)[a-zA-Z0-9_-]{20,}', r'\1***TOKEN***'),
         # API Key通用模式
-        (r'["\']?api[_-]?key["\']?\s*[:=]\s*["\']?[a-zA-Z0-9_-]{16,}', r'\1***'),
+        (r'(["\']?api[_-]?key["\']?\s*[:=]\s*["\']?)[a-zA-Z0-9_-]{16,}', r'\1***APIKEY***'),
         # Secret Key
-        (r'["\']?secret[_-]?key["\']?\s*[:=]\s*["\']?[a-zA-Z0-9_-]{16,}', r'\1***'),
+        (r'(["\']?secret[_-]?key["\']?\s*[:=]\s*["\']?)[a-zA-Z0-9_-]{16,}', r'\1***SECRET***'),
         # Access Token
-        (r'["\']?access[_-]?token["\']?\s*[:=]\s*["\']?[a-zA-Z0-9._-]{20,}', r'\1***'),
+        (r'(["\']?access[_-]?token["\']?\s*[:=]\s*["\']?)[a-zA-Z0-9._-]{20,}', r'\1***ACCESSTOKEN***'),
         # Bearer Token
         (r'Bearer\s+[a-zA-Z0-9._-]{20,}', 'Bearer ***'),
         # JWT Token

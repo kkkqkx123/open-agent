@@ -4,7 +4,7 @@ import sys
 from typing import Any, Dict, Optional
 
 from .text_formatter import TextFormatter
-from ..logger import LogLevel
+from ..log_level import LogLevel
 
 
 class ColorFormatter(TextFormatter):

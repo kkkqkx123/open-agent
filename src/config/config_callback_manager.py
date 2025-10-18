@@ -47,16 +47,34 @@ class ConfigCallback:
     once: bool = False  # 是否只执行一次
     filter_paths: Optional[List[str]] = None  # 路径过滤器
     enabled: bool = True
+    _executed: bool = False  # 是否已经执行过（内部使用）
     
     def should_execute(self, config_path: str) -> bool:
         """检查是否应该执行回调"""
         if not self.enabled:
             return False
         
+        # 如果是一次性回调且已经执行过，则不再执行
+        if self.once and self._executed:
+            return False
+        
         if self.filter_paths:
+            import fnmatch
+            import os
+            
+            # 获取文件名（不含路径）
+            filename = os.path.basename(config_path)
+            
             for path_pattern in self.filter_paths:
-                if config_path.endswith(path_pattern):
-                    return True
+                # 如果模式包含路径分隔符，使用完整路径匹配
+                if '/' in path_pattern or '\\' in path_pattern:
+                    if fnmatch.fnmatch(config_path.replace('\\', '/'), path_pattern.replace('\\', '/')):
+                        return True
+                else:
+                    # 如果模式只是文件名模式，只匹配文件名，且路径不能包含目录分隔符
+                    if '/' not in config_path and '\\' not in config_path:
+                        if fnmatch.fnmatch(filename, path_pattern):
+                            return True
             return False
         
         return True
@@ -189,6 +207,20 @@ class ConfigCallbackManager:
         callbacks_to_remove = []
         
         with self._lock:
+            # 首先检查并移除已执行的一次性回调
+            for callback_id in list(self._execution_order):
+                if callback_id in self._callbacks:
+                    callback = self._callbacks[callback_id]
+                    if callback.once and callback._executed:
+                        callbacks_to_remove.append(callback_id)
+            
+            # 移除已执行的一次性回调
+            for callback_id in callbacks_to_remove:
+                self.unregister_callback(callback_id)
+            
+            callbacks_to_remove = []  # 重置列表
+            
+            # 然后执行剩余的回调
             for callback_id in self._execution_order:
                 callback = self._callbacks[callback_id]
                 
@@ -203,17 +235,13 @@ class ConfigCallbackManager:
                     # 记录成功执行
                     self._record_execution_success(callback_id, context)
                     
-                    # 如果是一次性回调，标记为待删除
+                    # 如果是一次性回调，标记为已执行
                     if callback.once:
-                        callbacks_to_remove.append(callback_id)
+                        callback._executed = True
                 
                 except Exception as e:
                     # 记录执行失败
                     self._record_execution_error(callback_id, context, e)
-        
-        # 移除一次性回调
-        for callback_id in callbacks_to_remove:
-            self.unregister_callback(callback_id)
     
     def _update_execution_order(self) -> None:
         """更新回调执行顺序（按优先级排序）"""

@@ -266,10 +266,10 @@ class IMetricsCollector(ABC):
 
 
 # 全局指标收集器实例
-_global_metrics_collector: Optional[MetricsCollector] = None
+_global_metrics_collector: Optional['MetricsCollector'] = None
 
 
-def get_global_metrics_collector() -> MetricsCollector:
+def get_global_metrics_collector() -> 'MetricsCollector':
     """获取全局指标收集器实例
     
     Returns:

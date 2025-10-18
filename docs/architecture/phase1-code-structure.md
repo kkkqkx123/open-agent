@@ -24,7 +24,7 @@ open-agent/
 │   ├── __init__.py
 │   ├── infrastructure/        # 基础设施层
 │   ├── config/                # 配置系统
-│   ├── logging/               # 日志与指标
+│   ├── logger/               # 日志与指标
 │   └── common/                # 公共模块
 ├── tests/                     # 测试目录
 │   ├── unit/                  # 单元测试
@@ -77,10 +77,10 @@ src/config/
     └── schema_loader.py       # 配置模式加载器
 ```
 
-### 2.3 日志与指标 (src/logging/)
+### 2.3 日志与指标 (src/logger/)
 
 ```
-src/logging/
+src/logger/
 ├── __init__.py
 ├── logger.py                  # 日志记录器
 ├── metrics.py                 # 指标收集器
@@ -280,7 +280,7 @@ class ConfigSystem:
         return individual_config
 ```
 
-### 3.4 src/logging/logger.py
+### 3.4 src/logger/logger.py
 
 ```python
 """日志记录器实现"""
@@ -386,17 +386,17 @@ tests/
 │   │   ├── test_config_system.py
 │   │   ├── test_config_merger.py
 │   │   └── test_config_validator.py
-│   └── logging/              # 日志系统测试
+│   └── logger/              # 日志系统测试
 │       ├── test_logger.py
 │       ├── test_metrics.py
 │       └── test_error_handler.py
 ├── integration/              # 集成测试
 │   ├── test_config_integration.py
-│   ├── test_logging_integration.py
+│   ├── test_logger_integration.py
 │   └── test_infrastructure_integration.py
 ├── fixtures/                 # 测试夹具
 │   ├── config_fixtures.py
-│   ├── logging_fixtures.py
+│   ├── logger_fixtures.py
 │   └── infrastructure_fixtures.py
 └── conftest.py              # 测试配置
 ```

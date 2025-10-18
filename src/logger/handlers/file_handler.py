@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional, Union
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 
 from .base_handler import BaseHandler
-from ..logger import LogLevel
+from ..log_level import LogLevel
 from ..formatters.text_formatter import TextFormatter
 from ..formatters.json_formatter import JsonFormatter
 

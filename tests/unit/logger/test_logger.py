@@ -5,9 +5,9 @@ import tempfile
 import os
 from unittest.mock import Mock, patch
 
-from src.logging.logger import Logger, LogLevel, get_logger, set_global_config
-from src.logging.redactor import LogRedactor
-from src.config.models.global_config import GlobalConfig
+from src.logger.logger import Logger, LogLevel, get_logger, set_global_config
+from src.logger.redactor import LogRedactor
+from src.config.models.global_config import GlobalConfig, LogOutputConfig
 
 
 class TestLogger:
@@ -19,11 +19,14 @@ class TestLogger:
         return GlobalConfig(
             log_level="INFO",
             log_outputs=[
-                {"type": "console", "level": "INFO", "format": "text"}
+                LogOutputConfig(type="console", level="INFO", format="text", path=None, rotation=None, max_size=None)
             ],
             secret_patterns=["sk-.*"],
             env="test",
-            debug=False
+            debug=False,
+            env_prefix="AGENT_",
+            hot_reload=False,
+            watch_interval=5
         )
     
     @pytest.fixture
@@ -172,7 +175,7 @@ class TestGlobalLogger:
         logger3 = get_logger("another_test")
         assert logger1 is not logger3
     
-    @patch('src.logging.logger._loggers')
+    @patch('src.logger.logger._loggers')
     def test_set_global_config(self, mock_loggers):
         """测试设置全局配置"""
         mock_logger = Mock()
@@ -181,11 +184,14 @@ class TestGlobalLogger:
         config = GlobalConfig(
             log_level="DEBUG",
             log_outputs=[
-                {"type": "console", "level": "DEBUG", "format": "text"}
+                LogOutputConfig(type="console", level="DEBUG", format="text", path=None, rotation=None, max_size=None)
             ],
             secret_patterns=["sk-.*"],
             env="test",
-            debug=True
+            debug=True,
+            env_prefix="AGENT_",
+            hot_reload=False,
+            watch_interval=5
         )
         
         set_global_config(config)

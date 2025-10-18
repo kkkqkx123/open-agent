@@ -4,7 +4,7 @@ import sys
 from typing import Any, Dict, Optional
 
 from .base_handler import BaseHandler
-from ..logger import LogLevel
+from ..log_level import LogLevel
 from ..formatters.text_formatter import TextFormatter
 from ..formatters.color_formatter import ColorFormatter
 
@@ -23,11 +23,10 @@ class ConsoleHandler(BaseHandler):
         
         # 获取配置
         self.use_colors = config.get('use_colors', True) if config else True
-        self.stream = config.get('stream', 'stdout') if config else 'stdout'
         self.format_type = config.get('format', 'text') if config else 'text'
         
         # 设置输出流
-        if self.stream == 'stderr':
+        if config and config.get('stream') == 'stderr':
             self.stream = sys.stderr
         else:
             self.stream = sys.stdout

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, Dict
 
 from .base_formatter import BaseFormatter
-from ..logger import LogLevel
+from ..log_level import LogLevel
 
 
 class JsonFormatter(BaseFormatter):

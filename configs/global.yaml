@@ -1,5 +1,5 @@
 # 全局配置
-log_level: "INFO"
+log_level: "ERROR"
 log_outputs:
   - type: "console"
     level: "INFO"
@@ -22,4 +22,4 @@ env_prefix: "AGENT_"
 
 # 热重载配置
 hot_reload: true
-watch_interval: 5  # 秒
+watch_interval: 5  # 5秒

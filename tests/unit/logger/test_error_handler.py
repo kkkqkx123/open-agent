@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.logging.error_handler import (
+from src.logger.error_handler import (
     ErrorType,
     ErrorContext,
     GlobalErrorHandler,
@@ -16,7 +16,7 @@ from src.logging.error_handler import (
 class TestErrorType:
     """错误类型测试类"""
     
-    def test_error_type_values(self):
+    def test_error_type_values(self) -> None:
         """测试错误类型值"""
         assert ErrorType.USER_ERROR.value == "user_error"
         assert ErrorType.SYSTEM_ERROR.value == "system_error"
@@ -31,7 +31,7 @@ class TestErrorType:
 class TestErrorContext:
     """错误上下文测试类"""
     
-    def test_error_context_creation(self):
+    def test_error_context_creation(self) -> None:
         """测试错误上下文创建"""
         error = ValueError("Test error")
         context = ErrorContext(
@@ -46,7 +46,7 @@ class TestErrorContext:
         assert context.traceback is not None
         assert context.timestamp is None  # 在处理时设置
     
-    def test_error_context_to_dict(self):
+    def test_error_context_to_dict(self) -> None:
         """测试错误上下文转换为字典"""
         error = ValueError("Test error")
         context = ErrorContext(
@@ -72,7 +72,7 @@ class TestErrorContext:
 class TestGlobalErrorHandler:
     """全局错误处理器测试类"""
     
-    def test_error_handler_creation(self):
+    def test_error_handler_creation(self) -> None:
         """测试错误处理器创建"""
         handler = GlobalErrorHandler()
         
@@ -90,7 +90,7 @@ class TestGlobalErrorHandler:
         assert "输入参数有误" in message
         assert "Test error" in message
     
-    def test_handle_error_with_custom_handler(self):
+    def test_handle_error_with_custom_handler(self) -> None:
         """测试使用自定义处理器处理错误"""
         handler = GlobalErrorHandler()
         
@@ -121,12 +121,12 @@ class TestGlobalErrorHandler:
         
         assert handler._classify_error(CustomError()) == ErrorType.UNKNOWN_ERROR
     
-    def test_wrap_with_error_handler(self):
+    def test_wrap_with_error_handler(self) -> None:
         """测试用错误处理器包装函数"""
         handler = GlobalErrorHandler()
         
         @handler.wrap_with_error_handler
-        def failing_function():
+        def failing_function() -> None:
             raise ValueError("Test error")
         
         with pytest.raises(RuntimeError) as exc_info:
@@ -135,7 +135,7 @@ class TestGlobalErrorHandler:
         assert "输入参数有误" in str(exc_info.value)
         assert "Test error" in str(exc_info.value)
     
-    def test_error_history(self):
+    def test_error_history(self) -> None:
         """测试错误历史"""
         handler = GlobalErrorHandler()
         
@@ -155,7 +155,7 @@ class TestGlobalErrorHandler:
         assert history[1]['error_class'] == "RuntimeError"
         assert history[1]['error_message'] == "Error 2"
     
-    def test_clear_error_history(self):
+    def test_clear_error_history(self) -> None:
         """测试清除错误历史"""
         handler = GlobalErrorHandler()
         

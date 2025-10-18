@@ -6,7 +6,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from .file_handler import FileHandler
-from ..logger import LogLevel
+from ..log_level import LogLevel
 from ..formatters.json_formatter import JsonFormatter
 
 
@@ -104,8 +104,7 @@ class JsonConsoleHandler(JsonHandler):
         super().__init__(level, config)
         
         # 设置输出流
-        self.stream = config.get('stream', 'stdout') if config else 'stdout'
-        if self.stream == 'stderr':
+        if config and config.get('stream') == 'stderr':
             self.stream = sys.stderr
         else:
             self.stream = sys.stdout
