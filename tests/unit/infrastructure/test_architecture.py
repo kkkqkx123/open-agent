@@ -1,5 +1,6 @@
 """架构检查器单元测试"""
 
+import ast
 import pytest
 import tempfile
 from pathlib import Path
@@ -92,7 +93,7 @@ from typing import List, Dict
 from .models import Entity
 from src.infrastructure.repository import Repository
 """
-        tree = checker._parse_code(code)
+        tree = ast.parse(code)
         imports = checker._extract_imports(tree, current_file)
         
         # 应该过滤掉外部库导入，只保留项目内部导入
@@ -241,7 +242,7 @@ class Entity:
     id: str
     name: str
 """)
-        
+
         # 创建基础设施层文件（违规：依赖应用层）
         (src_path / "infrastructure" / "repository.py").write_text("""
 from src.domain.entities import Entity
@@ -251,7 +252,7 @@ class Repository:
     def get(self, id: str) -> Entity:
         pass
 """)
-        
+
         # 创建应用层文件
         (src_path / "application" / "service.py").write_text("""
 from src.domain.entities import Entity
@@ -261,7 +262,7 @@ class ApplicationService:
     def __init__(self, repository: Repository):
         self.repository = repository
 """)
-        
+
         # 创建表现层文件
         (src_path / "presentation" / "cli.py").write_text("""
 from src.application.service import ApplicationService
@@ -270,7 +271,7 @@ class CLI:
     def __init__(self, service: ApplicationService):
         self.service = service
 """)
-    
+
     def _create_circular_dependency_files(self, temp_dir):
         """创建循环依赖文件"""
         src_path = Path(temp_dir) / "src"
@@ -284,7 +285,7 @@ class ModuleA:
     def __init__(self):
         self.b = ModuleB()
 """)
-        
+
         (src_path / "module_b.py").write_text("""
 from src.module_a import ModuleA
 
@@ -292,7 +293,7 @@ class ModuleB:
     def __init__(self):
         self.a = ModuleA()
 """)
-    
+
     def _create_compliant_files(self, temp_dir):
         """创建合规的文件结构"""
         src_path = Path(temp_dir) / "src"
@@ -311,7 +312,7 @@ class Entity:
     id: str
     name: str
 """)
-        
+
         # 创建基础设施层文件（依赖领域层）
         (src_path / "infrastructure" / "repository.py").write_text("""
 from src.domain.entities import Entity
@@ -320,7 +321,7 @@ class Repository:
     def get(self, id: str) -> Entity:
         pass
 """)
-        
+
         # 创建应用层文件（依赖领域层和基础设施层）
         (src_path / "application" / "service.py").write_text("""
 from src.domain.entities import Entity
@@ -330,7 +331,7 @@ class ApplicationService:
     def __init__(self, repository: Repository):
         self.repository = repository
 """)
-        
+
         # 创建表现层文件（依赖应用层）
         (src_path / "presentation" / "cli.py").write_text("""
 from src.application.service import ApplicationService

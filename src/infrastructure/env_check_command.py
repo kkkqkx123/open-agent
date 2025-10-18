@@ -2,6 +2,7 @@
 
 import click
 import json
+from typing import Tuple
 from typing import Dict, Any
 from rich.console import Console
 from rich.table import Table
@@ -9,17 +10,18 @@ from rich.panel import Panel
 from rich.text import Text
 
 from .environment import IEnvironmentChecker, EnvironmentChecker
+from typing import Optional
 from .types import CheckResult
 
 
 class EnvironmentCheckCommand:
     """环境检查命令"""
     
-    def __init__(self, checker: IEnvironmentChecker = None):
+    def __init__(self, checker: Optional[IEnvironmentChecker] = None):
         self.checker = checker or EnvironmentChecker()
         self.console = Console()
     
-    def run(self, format_type: str = "table", output_file: str = None) -> None:
+    def run(self, format_type: str = "table", output_file: Optional[str] = None) -> None:
         """运行环境检查"""
         # 执行检查
         results = self.checker.check_dependencies()
@@ -94,7 +96,7 @@ class EnvironmentCheckCommand:
                 )
                 self.console.print(panel)
     
-    def _print_json_report(self, report: Dict[str, Any], output_file: str = None) -> None:
+    def _print_json_report(self, report: Dict[str, Any], output_file: Optional[str] = None) -> None:
         """打印JSON格式报告"""
         json_output = json.dumps(report, indent=2)
         
@@ -129,7 +131,10 @@ def check_env(format: str, output: str, python_version: str) -> None:
     
     # 创建环境检查器
     if python_version:
-        version_tuple = tuple(map(int, python_version.split('.')))
+        parts = python_version.split('.')
+        if len(parts) < 3:
+            parts += ['0'] * (3 - len(parts))
+        version_tuple = (int(parts[0]), int(parts[1]), int(parts[2]))
         checker = EnvironmentChecker(min_python_version=version_tuple)
     else:
         checker = EnvironmentChecker()

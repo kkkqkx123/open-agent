@@ -40,6 +40,11 @@ class IEnvironmentChecker(ABC):
     def check_system_resources(self) -> List[CheckResult]:
         """检查系统资源"""
         pass
+    
+    @abstractmethod
+    def generate_report(self) -> Dict[str, Any]:
+        """生成环境检查报告"""
+        pass
 
 
 class EnvironmentChecker(IEnvironmentChecker):
@@ -207,6 +212,7 @@ class EnvironmentChecker(IEnvironmentChecker):
                     mem_total = int([line for line in meminfo.split('\n') if 'MemTotal' in line][0].split()[1])
                     mem_available = int([line for line in meminfo.split('\n') if 'MemAvailable' in line][0].split()[1])
                     mem_gb = mem_available / (1024 * 1024)
+                    mem_gb_result: Union[float, str] = mem_gb
             elif system == "Darwin":  # macOS
                 result = subprocess.run(['vm_stat'], capture_output=True, text=True)
                 if result.returncode == 0:
@@ -215,8 +221,9 @@ class EnvironmentChecker(IEnvironmentChecker):
                     free_pages = int([line for line in vm_stat.split('\n') if 'Pages free:' in line][0].split(':')[1].strip().replace('.', ''))
                     page_size = 4096  # macOS默认页面大小
                     mem_gb = (free_pages * page_size) / (1024 * 1024 * 1024)
+                    mem_gb_result: Union[float, str] = mem_gb
                 else:
-                    mem_gb: Union[float, str] = "unknown"
+                    mem_gb_result: Union[float, str] = "unknown"
             elif system == "Windows":
                 import psutil  # type: ignore
                 mem = psutil.virtual_memory()
@@ -260,11 +267,17 @@ class EnvironmentChecker(IEnvironmentChecker):
         try:
             current_path = Path.cwd()
             if hasattr(os, 'statvfs'):
-                stat = os.statvfs(current_path)
+                import statvfs  # type: ignore
+                stat = os.statvfs(str(current_path))  # type: ignore
                 free_gb = (stat.f_bavail * stat.f_frsize) / (1024 * 1024 * 1024)
             else:
                 # Windows 系统使用其他方法
-                free_gb = 1.0  # 默认值
+                try:
+                    import shutil
+                    free_bytes = shutil.disk_usage(str(current_path)).free
+                    free_gb = free_bytes / (1024 * 1024 * 1024)
+                except Exception:
+                    free_gb = 1.0  # 默认值
             
             if free_gb >= 1.0:  # 至少1GB可用磁盘空间
                 results.append(CheckResult(

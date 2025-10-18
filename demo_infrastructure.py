@@ -22,7 +22,7 @@ from src.infrastructure import (
 )
 
 
-def demo_dependency_container():
+def demo_dependency_container() -> None:
     """演示依赖注入容器"""
     print("\n=== 依赖注入容器演示 ===")
     
@@ -31,11 +31,11 @@ def demo_dependency_container():
     
     # 定义测试接口和实现
     class IService:
-        def get_name(self):
-            pass
+        def get_name(self) -> str:
+            return ""
     
     class TestService(IService):
-        def get_name(self):
+        def get_name(self) -> str:
             return "TestService"
     
     # 注册服务
@@ -47,11 +47,11 @@ def demo_dependency_container():
     
     # 演示多环境支持
     class DevService(IService):
-        def get_name(self):
+        def get_name(self) -> str:
             return "DevService"
     
     class ProdService(IService):
-        def get_name(self):
+        def get_name(self) -> str:
             return "ProdService"
     
     container.register(IService, DevService, "development")
@@ -66,7 +66,7 @@ def demo_dependency_container():
     print(f"生产环境服务: {prod_service.get_name()}")
 
 
-def demo_config_loader():
+def demo_config_loader() -> None:
     """演示配置加载器"""
     print("\n=== 配置加载器演示 ===")
     
@@ -102,7 +102,7 @@ def demo_config_loader():
             del os.environ["DEMO_API_KEY"]
 
 
-def demo_environment_checker():
+def demo_environment_checker() -> None:
     """演示环境检查器"""
     print("\n=== 环境检查器演示 ===")
     
@@ -127,7 +127,7 @@ def demo_environment_checker():
     print(f"  错误: {report['summary']['error']}")
 
 
-def demo_architecture_checker():
+def demo_architecture_checker() -> None:
     """演示架构检查器"""
     print("\n=== 架构检查器演示 ===")
     
@@ -145,7 +145,7 @@ def demo_architecture_checker():
     print(f"\n检测到的层级: {list(graph['layers'].keys())}")
 
 
-def demo_environment_command():
+def demo_environment_command() -> None:
     """演示环境检查命令"""
     print("\n=== 环境检查命令演示 ===")
     
@@ -160,7 +160,7 @@ def demo_environment_command():
         print("环境检查完成（可能有警告或错误）")
 
 
-def main():
+def main() -> None:
     """主演示函数"""
     print("基础架构与环境配置演示")
     print("=" * 50)

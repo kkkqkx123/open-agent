@@ -38,7 +38,7 @@ debug: true
             
             # 设置依赖注入容器
             container = DependencyContainer()
-            container.register(
+            container.register_factory(
                 YamlConfigLoader,
                 lambda: YamlConfigLoader(str(config_path)),
                 lifetime="singleton"
@@ -213,7 +213,7 @@ timeout: 30
         
         # 定义测试接口和实现
         class IService:
-            pass
+            env: str
         
         class DevService(IService):
             def __init__(self):
@@ -249,7 +249,10 @@ timeout: 30
         container = DependencyContainer()
         
         with pytest.raises(ServiceNotRegisteredError):
-            container.get("NonExistentService")
+            # 使用类型而不是字符串
+            class NonExistentService:
+                pass
+            container.get(NonExistentService)
         
         # 测试配置文件不存在错误
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -285,6 +285,5 @@ class DependencyContainer(IDependencyContainer):
         """获取所有已注册的服务类型"""
         with self._lock:
             services: Set[Type] = set(self._services.keys())
-            for env_services in self._environment_services.values():
-                services.update(env_services.keys())
+            services.update(self._environment_services.keys())
             return list(services)

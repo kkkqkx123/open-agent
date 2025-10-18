@@ -41,6 +41,11 @@ class IConfigLoader(ABC):
     def stop_watching(self) -> None:
         """停止监听配置变化"""
         pass
+    
+    @abstractmethod
+    def _handle_file_change(self, file_path: str) -> None:
+        """处理文件变化事件"""
+        pass
 
 
 class ConfigFileHandler(FileSystemEventHandler):
@@ -51,7 +56,7 @@ class ConfigFileHandler(FileSystemEventHandler):
     
     def on_modified(self, event) -> None:
         """文件修改事件处理"""
-        if not event.is_directory and event.src_path.endswith(('.yaml', '.yml')):
+        if not event.is_directory and isinstance(event.src_path, str) and event.src_path.endswith(('.yaml', '.yml')):
             self.config_loader._handle_file_change(event.src_path)
 
 

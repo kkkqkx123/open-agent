@@ -4,8 +4,9 @@ import os
 import tempfile
 import shutil
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Type, TypeVar, ContextManager
 from contextlib import contextmanager
+from types import TracebackType
 
 from .container import IDependencyContainer, DependencyContainer
 from .config_loader import IConfigLoader, YamlConfigLoader
@@ -14,8 +15,21 @@ from .architecture import ArchitectureChecker
 from .exceptions import InfrastructureError
 
 
-class TestContainer:
+class TestContainer(ContextManager["TestContainer"]):
     """测试容器，用于集成测试"""
+    
+    def __enter__(self) -> "TestContainer":
+        """进入上下文管理器"""
+        return self
+    
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType]
+    ) -> None:
+        """退出上下文管理器，自动清理"""
+        self.cleanup()
     
     def __init__(self, temp_dir: Optional[str] = None):
         self.temp_dir = temp_dir or tempfile.mkdtemp()
@@ -26,7 +40,7 @@ class TestContainer:
     def _setup_services(self) -> None:
         """设置测试服务"""
         # 注册配置加载器
-        self.container.register(
+        self.container.register_factory(
             IConfigLoader,
             lambda: YamlConfigLoader(str(self.temp_path / "configs")),
             lifetime="singleton"
@@ -40,7 +54,7 @@ class TestContainer:
         )
         
         # 注册架构检查器
-        self.container.register(
+        self.container.register_factory(
             ArchitectureChecker,
             lambda: ArchitectureChecker(str(self.temp_path / "src")),
             lifetime="singleton"
@@ -195,9 +209,11 @@ class CLI:
         if self.temp_path.exists():
             shutil.rmtree(self.temp_path)
     
+    
+    
     @contextmanager
     def context(self):
-        """上下文管理器，自动清理"""
+        """上下文管理器，自动清理（保留向后兼容性）"""
         try:
             yield self
         finally:

@@ -5,6 +5,7 @@ import os
 import tempfile
 import json
 from pathlib import Path
+from typing import cast
 
 from src.infrastructure import (
     DependencyContainer,
@@ -98,7 +99,7 @@ class TestEndToEndWorkflow:
         """测试错误恢复工作流"""
         with TestContainer() as container:
             # 1. 创建有问题的配置
-            container.create_test_config("configs/invalid.yaml", """
+            container.create_test_file("configs/invalid.yaml", """
 invalid_yaml: [
     unclosed_array
 """)
@@ -220,8 +221,8 @@ invalid_yaml: [
                     return self.config_loader.load(self.config_path)
             
             # 注册不同环境的配置服务
-            di_container.register(ConfigService, lambda: ConfigService("global.yaml"), "development")
-            di_container.register(ConfigService, lambda: ConfigService("production.yaml"), "production")
+            di_container.register_factory(ConfigService, lambda: ConfigService("global.yaml"), "development")
+            di_container.register_factory(ConfigService, lambda: ConfigService("production.yaml"), "production")
             
             # 3. 测试开发环境
             di_container.set_environment("development")
@@ -308,7 +309,10 @@ invalid_yaml: [
             container.create_test_config("configs/global.yaml", updated_config)
             
             # 4. 手动触发重载
-            config_loader._handle_file_change(str(container.temp_path / "configs" / "global.yaml"))
+            # 使用类型断言来访问私有方法
+            from src.infrastructure.config_loader import YamlConfigLoader
+            yaml_config_loader = cast(YamlConfigLoader, config_loader)
+            yaml_config_loader._handle_file_change(str(container.temp_path / "configs" / "global.yaml"))
             
             # 5. 验证重载
             assert "global.yaml" in reloaded_configs
