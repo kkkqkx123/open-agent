@@ -41,8 +41,8 @@ class ConfigBackupManager:
             if not source_path.exists():
                 raise ConfigurationError(f"配置文件不存在: {config_path}")
             
-            # 生成备份文件名
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # 生成备份文件名（包含微秒以避免冲突）
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             backup_name = f"{source_path.stem}_{timestamp}{source_path.suffix}"
             backup_path = self.backup_dir / backup_name
             
@@ -153,13 +153,13 @@ class ConfigErrorRecovery:
     
     def _register_default_strategies(self) -> None:
         """注册默认恢复策略"""
-        # 策略1: 从备份恢复
+        # 策略1: 从备份恢复（最高优先级）
         self.recovery_strategies.append(self._recover_from_backup)
         
         # 策略2: 重置为默认配置
         self.recovery_strategies.append(self._reset_to_default)
         
-        # 策略3: 创建空配置文件
+        # 策略3: 创建空配置文件（最低优先级）
         self.recovery_strategies.append(self._create_empty_config)
     
     def recover_config(self, config_path: str, error: Exception) -> bool:
@@ -172,13 +172,6 @@ class ConfigErrorRecovery:
         Returns:
             是否成功恢复
         """
-        # 先创建备份（如果文件存在）
-        if Path(config_path).exists():
-            try:
-                self.backup_manager.create_backup(config_path)
-            except Exception:
-                pass  # 忽略备份错误
-        
         # 尝试各种恢复策略
         for strategy in self.recovery_strategies:
             try:
@@ -252,9 +245,9 @@ class ConfigErrorRecovery:
             # 确保目录存在
             Path(config_path).parent.mkdir(parents=True, exist_ok=True)
             
-            # 创建空文件
+            # 创建空文件（使用英文注释避免编码问题）
             with open(config_path, 'w', encoding='utf-8') as f:
-                f.write("# 配置文件 - 自动创建\n")
+                f.write("# Configuration file - auto created\n")
             
             return True
         except Exception:
@@ -266,7 +259,8 @@ class ConfigErrorRecovery:
         Args:
             strategy: 恢复策略函数
         """
-        self.recovery_strategies.append(strategy)
+        # 将自定义策略插入到列表开头，使其优先执行
+        self.recovery_strategies.insert(0, strategy)
     
     def can_recover(self, config_path: str) -> bool:
         """检查是否可以恢复配置

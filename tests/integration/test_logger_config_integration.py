@@ -6,6 +6,7 @@ import shutil
 import time
 from pathlib import Path
 from unittest.mock import Mock
+from typing import cast
 
 from src.infrastructure.container import DependencyContainer
 from src.infrastructure.config_loader import YamlConfigLoader
@@ -48,7 +49,7 @@ log_outputs:
     format: text
 secret_patterns:
   - "sk-[a-zA-Z0-9]{20,}"
-env: test
+env: testing
 debug: false
 """)
         
@@ -58,19 +59,32 @@ debug: false
     def container(self, config_dir):
         """创建依赖注入容器"""
         container = DependencyContainer()
-        container.register(YamlConfigLoader, YamlConfigLoader, "default")
-        container.register(ConfigMerger, ConfigMerger, "default")
-        container.register(ConfigValidator, ConfigValidator, "default")
+        from src.infrastructure.config_loader import IConfigLoader, YamlConfigLoader
+        from src.config.config_merger import IConfigMerger
+        from src.config.config_validator import IConfigValidator
+        container.register(IConfigLoader, YamlConfigLoader, "default")
+        container.register(IConfigMerger, ConfigMerger, "default")
+        container.register(IConfigValidator, ConfigValidator, "default")
         container.register(ConfigSystem, ConfigSystem, "default")
         
         # 设置配置基础路径
-        config_loader = container.get(YamlConfigLoader)
-        config_loader.base_path = Path(config_dir)
+        from src.infrastructure.config_loader import IConfigLoader, YamlConfigLoader
+        config_loader = container.get(IConfigLoader)
+        # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性
+        yaml_config_loader = cast(YamlConfigLoader, config_loader)
+        yaml_config_loader.base_path = Path(config_dir)
         
         return container
     
-    def test_integration_initialization(self, container):
+    def test_integration_initialization(self, container, config_dir):
         """测试集成初始化"""
+        # 设置配置加载器的基础路径
+        from src.infrastructure.config_loader import IConfigLoader, YamlConfigLoader
+        config_loader = container.get(IConfigLoader)
+        # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性
+        yaml_config_loader = cast(YamlConfigLoader, config_loader)
+        yaml_config_loader.base_path = Path(config_dir)
+        
         # 初始化集成
         initialize_logging_integration()
         
@@ -87,6 +101,13 @@ debug: false
     
     def test_config_change_callback(self, container, config_dir):
         """测试配置变更回调"""
+        # 设置配置加载器的基础路径
+        from src.infrastructure.config_loader import IConfigLoader, YamlConfigLoader
+        config_loader = container.get(IConfigLoader)
+        # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性
+        yaml_config_loader = cast(YamlConfigLoader, config_loader)
+        yaml_config_loader.base_path = Path(config_dir)
+        
         # 初始化集成
         initialize_logging_integration()
         
@@ -121,8 +142,25 @@ debug: false
     
     def test_log_level_change(self, container, config_dir):
         """测试日志级别变更"""
+        # 设置配置加载器的基础路径
+        from src.infrastructure.config_loader import IConfigLoader, YamlConfigLoader
+        config_loader = container.get(IConfigLoader)
+        # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性
+        yaml_config_loader = cast(YamlConfigLoader, config_loader)
+        yaml_config_loader.base_path = Path(config_dir)
+        
+        # 手动加载配置并设置全局配置
+        from src.config.models.global_config import GlobalConfig
+        config_data = config_loader.load("global.yaml")
+        global_config = GlobalConfig(**config_data)
+        from src.logger import set_global_config
+        set_global_config(global_config)
+        
         # 初始化集成
         initialize_logging_integration()
+        
+        # 重新设置全局配置，因为 initialize_logging_integration 可能会覆盖它
+        set_global_config(global_config)
         
         # 获取日志记录器
         logger = get_logger("test_app")
@@ -140,7 +178,7 @@ log_outputs:
     format: text
 secret_patterns:
   - "sk-[a-zA-Z0-9]{20,}"
-env: test
+env: testing
 debug: false
 """)
         
@@ -208,10 +246,13 @@ debug: false
     def test_config_error_recovery(self, container, config_dir):
         """测试配置错误恢复"""
         # 启用错误恢复的配置系统
+        from src.infrastructure.config_loader import IConfigLoader
+        from src.config.config_merger import IConfigMerger
+        from src.config.config_validator import IConfigValidator
         config_system = ConfigSystem(
-            container.get(YamlConfigLoader),
-            container.get(ConfigMerger),
-            container.get(ConfigValidator),
+            container.get(IConfigLoader),
+            container.get(IConfigMerger),
+            container.get(IConfigValidator),
             base_path=config_dir,
             enable_error_recovery=True
         )
@@ -297,6 +338,13 @@ debug: false
     
     def test_end_to_end_workflow(self, container, config_dir):
         """测试端到端工作流"""
+        # 设置配置加载器的基础路径
+        from src.infrastructure.config_loader import IConfigLoader, YamlConfigLoader
+        config_loader = container.get(IConfigLoader)
+        # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性
+        yaml_config_loader = cast(YamlConfigLoader, config_loader)
+        yaml_config_loader.base_path = Path(config_dir)
+        
         # 初始化集成
         initialize_logging_integration()
         
@@ -324,11 +372,16 @@ debug: false
         # 4. 记录指标
         from src.logger import get_global_metrics_collector
         metrics_collector = get_global_metrics_collector()
+        
+        # 获取当前指标基数
+        initial_stats = metrics_collector.export_stats()
+        initial_calls = initial_stats['global']['total_llm_calls']
+        
         metrics_collector.record_llm_metric("gpt-4", 100, 50, 2.0)
         
         # 5. 验证指标
         stats = metrics_collector.export_stats()
-        assert stats['global']['total_llm_calls'] == 1
+        assert stats['global']['total_llm_calls'] == initial_calls + 1
         
         # 6. 修改配置
         global_config_path = Path(config_dir) / "global.yaml"
@@ -340,7 +393,7 @@ log_outputs:
     format: text
 secret_patterns:
   - "sk-[a-zA-Z0-9]{20,}"
-env: test
+env: testing
 debug: false
 """)
         

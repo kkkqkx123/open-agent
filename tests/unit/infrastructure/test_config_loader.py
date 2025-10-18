@@ -15,13 +15,13 @@ from src.infrastructure.exceptions import ConfigurationError
 class TestYamlConfigLoader:
     """YAML配置加载器测试"""
     
-    def test_load_valid_yaml(self, sample_config: Any) -> None:
+    def test_load_valid_yaml(self, test_config: Any) -> None:
         """测试加载有效YAML配置"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test.yaml"
             
             with open(config_path, 'w', encoding='utf-8') as f:
-                yaml.dump(sample_config, f)
+                yaml.dump(test_config, f)
             
             loader = YamlConfigLoader(temp_dir)
             config = loader.load("test.yaml")
@@ -119,13 +119,13 @@ class TestYamlConfigLoader:
             if "TEST_PORT" in os.environ:
                 del os.environ["TEST_PORT"]
     
-    def test_config_caching(self, sample_config: Any) -> None:
+    def test_config_caching(self, test_config: Any) -> None:
         """测试配置缓存"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test.yaml"
             
             with open(config_path, 'w', encoding='utf-8') as f:
-                yaml.dump(sample_config, f)
+                yaml.dump(test_config, f)
             
             loader = YamlConfigLoader(temp_dir)
             
@@ -137,20 +137,20 @@ class TestYamlConfigLoader:
             
             assert config1 is config2
     
-    def test_reload(self, sample_config: Any) -> None:
+    def test_reload(self, test_config: Any) -> None:
         """测试重新加载配置"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test.yaml"
             
             # 创建初始配置
             with open(config_path, 'w', encoding='utf-8') as f:
-                yaml.dump(sample_config, f)
+                yaml.dump(test_config, f)
             
             loader = YamlConfigLoader(temp_dir)
             config1 = loader.load("test.yaml")
             
             # 修改配置文件
-            updated_config = sample_config.copy()
+            updated_config = test_config.copy()
             updated_config["log_level"] = "DEBUG"
             
             with open(config_path, 'w', encoding='utf-8') as f:
@@ -163,13 +163,13 @@ class TestYamlConfigLoader:
             assert config1["log_level"] == "INFO"
             assert config2["log_level"] == "DEBUG"
     
-    def test_watch_for_changes(self, sample_config: Any) -> None:
+    def test_watch_for_changes(self, test_config: Any) -> None:
         """测试配置文件变化监听"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test.yaml"
             
             with open(config_path, 'w', encoding='utf-8') as f:
-                yaml.dump(sample_config, f)
+                yaml.dump(test_config, f)
             
             loader = YamlConfigLoader(temp_dir)
             
@@ -178,7 +178,7 @@ class TestYamlConfigLoader:
             loader.watch_for_changes(callback)
             
             # 模拟文件变化
-            updated_config = sample_config.copy()
+            updated_config = test_config.copy()
             updated_config["log_level"] = "DEBUG"
             
             with open(config_path, 'w', encoding='utf-8') as f:
@@ -199,13 +199,13 @@ class TestYamlConfigLoader:
             assert args[0] == "test.yaml"
             assert args[1]["log_level"] == "DEBUG"
     
-    def test_get_cached_config(self, sample_config: Any) -> None:
+    def test_get_cached_config(self, test_config: Any) -> None:
         """测试获取缓存配置"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test.yaml"
             
             with open(config_path, 'w', encoding='utf-8') as f:
-                yaml.dump(sample_config, f)
+                yaml.dump(test_config, f)
             
             loader = YamlConfigLoader(temp_dir)
             
@@ -222,13 +222,13 @@ class TestYamlConfigLoader:
             nonexistent = loader.get_cached_config("nonexistent.yaml")
             assert nonexistent is None
     
-    def test_clear_cache(self, sample_config: Any) -> None:
+    def test_clear_cache(self, test_config: Any) -> None:
         """测试清除缓存"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test.yaml"
             
             with open(config_path, 'w', encoding='utf-8') as f:
-                yaml.dump(sample_config, f)
+                yaml.dump(test_config, f)
             
             loader = YamlConfigLoader(temp_dir)
             

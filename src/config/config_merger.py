@@ -61,10 +61,18 @@ class ConfigMerger(IConfigMerger):
         Returns:
             合并后的配置
         """
-        # 深度合并配置，个体配置覆盖组配置
+        # 先深度合并配置
         result = self.deep_merge(group_config.copy(), individual_config)
         
-        # 保留组标识字段，用于后续处理
+        # 对于特定字段，个体配置应该完全覆盖组配置而不是合并
+        override_fields = ['tools', 'tool_sets']  # 这些字段个体配置优先
+        for field in override_fields:
+            if field in individual_config:
+                result[field] = individual_config[field]
+        
+        # 保留组标识字段用于调试，但确保它来自个体配置
+        if 'group' in individual_config:
+            result['group'] = individual_config['group']
         
         return result
     

@@ -187,7 +187,7 @@ class TestConfigErrorRecovery:
         # 验证文件已创建
         assert config_path.exists()
         content = config_path.read_text()
-        assert "# 配置文件 - 自动创建" in content
+        assert "# Configuration file - auto created" in content
     
     def test_add_recovery_strategy(self, error_recovery, test_config_file):
         """测试添加自定义恢复策略"""

@@ -12,7 +12,6 @@ class BaseConfig(BaseModel, ABC):
         extra="forbid",  # 禁止额外字段
         validate_assignment=True,  # 赋值时验证
         use_enum_values=True,  # 使用枚举值
-        case_sensitive=False,  # 不区分大小写
     )
         
     def to_dict(self) -> Dict[str, Any]:

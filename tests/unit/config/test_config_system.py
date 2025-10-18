@@ -212,6 +212,9 @@ class TestConfigSystem:
     
     def test_reload_configs(self):
         """测试重新加载配置"""
+        # 设置环境变量
+        os.environ["AGENT_OPENAI_KEY"] = "test_key"
+        
         # 加载配置
         global_config1 = self.config_system.load_global_config()
         llm_config1 = self.config_system.load_llm_config("gpt4")
@@ -234,6 +237,10 @@ class TestConfigSystem:
         assert global_config1.log_level == global_config2.log_level
         assert llm_config1.model_name == llm_config2.model_name
         assert agent_config1.name == agent_config2.name
+        
+        # 清理环境变量
+        if "AGENT_OPENAI_KEY" in os.environ:
+            del os.environ["AGENT_OPENAI_KEY"]
     
     def test_get_config_path(self):
         """测试获取配置路径"""
@@ -303,6 +310,9 @@ class TestConfigSystem:
     
     def test_load_config_with_inheritance(self):
         """测试加载配置并处理继承"""
+        # 设置环境变量
+        os.environ["AGENT_OPENAI_KEY"] = "test_key"
+        
         config_data = self.config_system._load_config_with_inheritance("llms", "gpt4")
         
         # 验证继承结果
@@ -314,6 +324,10 @@ class TestConfigSystem:
         assert config_data["parameters"]["temperature"] == 0.3  # 个体配置覆盖
         assert config_data["parameters"]["max_tokens"] == 2000  # 继承自组配置
         assert config_data["parameters"]["top_p"] == 0.9  # 个体配置新增
+        
+        # 清理环境变量
+        if "AGENT_OPENAI_KEY" in os.environ:
+            del os.environ["AGENT_OPENAI_KEY"]
     
     def test_load_config_with_inheritance_no_group(self):
         """测试加载配置（无组继承）"""

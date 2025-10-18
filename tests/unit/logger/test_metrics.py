@@ -186,7 +186,7 @@ class TestSessionMetric:
         session.llm_calls.append(LLMMetric("gpt-4", input_tokens=10, output_tokens=50, total_time=2.0))
         session.llm_calls.append(LLMMetric("gpt-3.5", input_tokens=50, output_tokens=25, total_time=1.0))
         
-        assert session.total_tokens == 225  # (100+50) + (50+25)
+        assert session.total_tokens == 135  # (10+50) + (50+25)
     
     def test_record_message_and_error(self):
         """测试记录消息和错误"""
@@ -219,7 +219,7 @@ class TestSessionMetric:
         assert session_dict['total_errors'] == 1
         assert session_dict['total_llm_calls'] == 1
         assert session_dict['total_tool_calls'] == 5
-        assert session_dict['total_tokens'] == 150
+        assert session_dict['total_tokens'] == 60
         assert len(session_dict['llm_calls']) == 1
         assert len(session_dict['tool_calls']) == 1
 
@@ -248,7 +248,7 @@ class TestMetricsCollector:
         stats = collector.export_stats()
         
         assert stats['global']['total_llm_calls'] == 3
-        assert stats['global']['total_tokens'] == 475  # (100+50) + (200+100) + (50+25)
+        assert stats['global']['total_tokens'] == 525  # (100+50) + (200+100) + (50+25)
         assert stats['global']['models']['gpt-4']['calls'] == 2
         assert stats['global']['models']['gpt-4']['tokens'] == 450
         assert stats['global']['models']['gpt-3.5']['calls'] == 1
