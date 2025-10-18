@@ -29,21 +29,21 @@ class ToolConfig(BaseConfig):
     parallel: bool = Field(False, description="是否支持并行执行")
     
     @validator('name')
-    def validate_name(cls, v):
+    def validate_name(cls, v: str) -> str:
         """验证名称"""
         if not v or not v.strip():
             raise ValueError('工具名称不能为空')
         return v.strip()
     
     @validator('timeout')
-    def validate_timeout(cls, v):
+    def validate_timeout(cls, v: int) -> int:
         """验证超时时间"""
         if v < 1:
             raise ValueError('超时时间必须大于0秒')
         return v
     
     @validator('max_retries')
-    def validate_max_retries(cls, v):
+    def validate_max_retries(cls, v: int) -> int:
         """验证最大重试次数"""
         if v < 0:
             raise ValueError('最大重试次数不能为负数')

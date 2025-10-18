@@ -3,7 +3,7 @@
 import os
 import threading
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Callable, List
+from typing import Dict, Any, Optional, Callable, List, cast
 from pathlib import Path
 
 from ..infrastructure.config_loader import IConfigLoader
@@ -176,7 +176,7 @@ class ConfigSystem(IConfigSystem):
         with self._lock:
             cache_key = f"llm_{name}"
             if cache_key in self._cache:
-                return self._cache[cache_key]
+                return cast(LLMConfig, self._cache[cache_key])
             
             # 加载配置并处理继承
             config_data = self._load_config_with_inheritance("llms", name)
@@ -203,7 +203,7 @@ class ConfigSystem(IConfigSystem):
         with self._lock:
             cache_key = f"agent_{name}"
             if cache_key in self._cache:
-                return self._cache[cache_key]
+                return cast(AgentConfig, self._cache[cache_key])
             
             # 加载配置并处理继承
             config_data = self._load_config_with_inheritance("agents", name)
@@ -230,7 +230,7 @@ class ConfigSystem(IConfigSystem):
         with self._lock:
             cache_key = f"tool_{name}"
             if cache_key in self._cache:
-                return self._cache[cache_key]
+                return cast(ToolConfig, self._cache[cache_key])
             
             # 加载配置并处理继承
             config_data = self._load_config_with_inheritance("tool-sets", name)

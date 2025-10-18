@@ -121,8 +121,8 @@ class Redactor:
         
         return result
     
-    def redact_dict(self, data: Dict[str, Any], level: LogLevel = LogLevel.INFO, 
-                   recursive: bool = True) -> Dict[str, Any]:
+    def redact_dict(self, data: Dict[str, Any], level: LogLevel = LogLevel.INFO,
+                   recursive: bool = True) -> Any:
         """脱敏字典
         
         Args:
@@ -154,8 +154,8 @@ class Redactor:
         
         return result
     
-    def redact_list(self, data: List[Any], level: LogLevel = LogLevel.INFO, 
-                   recursive: bool = True) -> List[Any]:
+    def redact_list(self, data: List[Any], level: LogLevel = LogLevel.INFO,
+                   recursive: bool = True) -> Any:
         """脱敏列表
         
         Args:

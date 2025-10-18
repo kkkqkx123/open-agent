@@ -2,7 +2,7 @@
 
 import os
 import re
-from typing import Any, Dict, Union
+from typing import Any, Dict, Union, Optional
 
 
 class EnvResolver:
@@ -71,18 +71,19 @@ class EnvResolver:
         # 使用正则表达式替换所有环境变量
         return self.env_var_pattern.sub(replace_env_var, text)
     
-    def get_env_var(self, name: str, default: str = None) -> str:
+    def get_env_var(self, name: str, default: Optional[str] = None) -> str:
         """获取环境变量
-        
+         
         Args:
             name: 变量名
             default: 默认值
-            
+             
         Returns:
             环境变量值或默认值
         """
         full_name = f"{self.prefix}{name}" if self.prefix else name
-        return os.getenv(full_name, default)
+        result = os.getenv(full_name, default)
+        return result if result is not None else ""
     
     def set_env_var(self, name: str, value: str) -> None:
         """设置环境变量
@@ -106,7 +107,7 @@ class EnvResolver:
         full_name = f"{self.prefix}{name}" if self.prefix else name
         return full_name in os.environ
     
-    def list_env_vars(self, pattern: str = None) -> Dict[str, str]:
+    def list_env_vars(self, pattern: Optional[str] = None) -> Dict[str, str]:
         """列出环境变量
         
         Args:
@@ -133,7 +134,7 @@ class EnvResolver:
         
         return result
     
-    def clear_env_vars(self, pattern: str = None) -> None:
+    def clear_env_vars(self, pattern: Optional[str] = None) -> None:
         """清除环境变量
         
         Args:

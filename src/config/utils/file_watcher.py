@@ -3,7 +3,7 @@
 import os
 import time
 import threading
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Any
 from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
@@ -24,7 +24,7 @@ class FileWatcher:
         """
         self.watch_path = Path(watch_path)
         self.patterns = patterns or ['*.yaml', '*.yml']
-        self.observers = []
+        self.observers: List[BaseObserver] = []
         self.callbacks: Dict[str, List[Callable[[str], None]]] = {}
         self._lock = threading.RLock()
         self._debounce_time = 0.1  # 100ms防抖时间
@@ -131,7 +131,7 @@ class _ConfigFileHandler(FileSystemEventHandler):
         """
         self.watcher = watcher
     
-    def on_modified(self, event) -> None:
+    def on_modified(self, event: Any) -> None:
         """文件修改事件处理
         
         Args:

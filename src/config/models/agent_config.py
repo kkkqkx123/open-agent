@@ -31,35 +31,35 @@ class AgentConfig(BaseConfig):
     retry_count: int = Field(3, description="重试次数")
     
     @validator('name')
-    def validate_name(cls, v):
+    def validate_name(cls, v: str) -> str:
         """验证名称"""
         if not v or not v.strip():
             raise ValueError('Agent名称不能为空')
         return v.strip()
     
     @validator('llm')
-    def validate_llm(cls, v):
+    def validate_llm(cls, v: str) -> str:
         """验证LLM配置名称"""
         if not v or not v.strip():
             raise ValueError('LLM配置名称不能为空')
         return v.strip()
     
     @validator('max_iterations')
-    def validate_max_iterations(cls, v):
+    def validate_max_iterations(cls, v: int) -> int:
         """验证最大迭代次数"""
         if v < 1:
             raise ValueError('最大迭代次数必须大于0')
         return v
     
     @validator('timeout')
-    def validate_timeout(cls, v):
+    def validate_timeout(cls, v: int) -> int:
         """验证超时时间"""
         if v < 1:
             raise ValueError('超时时间必须大于0秒')
         return v
     
     @validator('retry_count')
-    def validate_retry_count(cls, v):
+    def validate_retry_count(cls, v: int) -> int:
         """验证重试次数"""
         if v < 0:
             raise ValueError('重试次数不能为负数')

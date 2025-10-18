@@ -25,7 +25,7 @@ class LLMConfig(BaseConfig):
     group: Optional[str] = Field(None, description="所属组名称")
     
     @validator('model_type')
-    def validate_model_type(cls, v):
+    def validate_model_type(cls, v: str) -> str:
         """验证模型类型"""
         allowed_types = ['openai', 'gemini', 'anthropic', 'claude', 'local']
         if v.lower() not in allowed_types:
@@ -33,7 +33,7 @@ class LLMConfig(BaseConfig):
         return v.lower()
     
     @validator('base_url')
-    def validate_base_url(cls, v):
+    def validate_base_url(cls, v: Optional[str]) -> Optional[str]:
         """验证基础URL"""
         if v is not None and not v.startswith(('http://', 'https://')):
             raise ValueError('基础URL必须以http://或https://开头')

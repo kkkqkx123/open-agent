@@ -16,7 +16,7 @@ class LogOutputConfig(BaseConfig):
     max_size: Optional[str] = Field(None, description="最大文件大小")
     
     @validator('type')
-    def validate_type(cls, v):
+    def validate_type(cls, v: str) -> str:
         """验证输出类型"""
         allowed_types = ['console', 'file']
         if v not in allowed_types:
@@ -24,7 +24,7 @@ class LogOutputConfig(BaseConfig):
         return v
     
     @validator('level')
-    def validate_level(cls, v):
+    def validate_level(cls, v: str) -> str:
         """验证日志级别"""
         allowed_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
         if v.upper() not in allowed_levels:
@@ -32,7 +32,7 @@ class LogOutputConfig(BaseConfig):
         return v.upper()
     
     @validator('format')
-    def validate_format(cls, v):
+    def validate_format(cls, v: str) -> str:
         """验证日志格式"""
         allowed_formats = ['text', 'json']
         if v not in allowed_formats:
@@ -60,7 +60,7 @@ class GlobalConfig(BaseConfig):
     watch_interval: int = Field(5, description="配置监听间隔（秒）")
     
     @validator('log_level')
-    def validate_log_level(cls, v):
+    def validate_log_level(cls, v: str) -> str:
         """验证日志级别"""
         allowed_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
         if v.upper() not in allowed_levels:
@@ -68,7 +68,7 @@ class GlobalConfig(BaseConfig):
         return v.upper()
     
     @validator('env')
-    def validate_env(cls, v):
+    def validate_env(cls, v: str) -> str:
         """验证环境名称"""
         allowed_envs = ['development', 'testing', 'staging', 'production']
         if v.lower() not in allowed_envs:
@@ -76,7 +76,7 @@ class GlobalConfig(BaseConfig):
         return v.lower()
     
     @validator('watch_interval')
-    def validate_watch_interval(cls, v):
+    def validate_watch_interval(cls, v: int) -> int:
         """验证监听间隔"""
         if v < 1:
             raise ValueError('监听间隔必须大于0秒')

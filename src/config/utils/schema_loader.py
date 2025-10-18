@@ -1,7 +1,7 @@
 """配置模式加载器"""
 
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, cast
 from pathlib import Path
 
 
@@ -38,8 +38,12 @@ class SchemaLoader:
             with open(schema_file, 'r', encoding='utf-8') as f:
                 schema = json.load(f)
             
+            # 确保 schema 是字典类型
+            if not isinstance(schema, dict):
+                raise ValueError(f"模式文件 {schema_file} 必须包含 JSON 对象")
+            
             self._schemas[schema_name] = schema
-            return schema
+            return cast(Dict[str, Any], schema)
         
         except json.JSONDecodeError as e:
             raise ValueError(f"无效的JSON模式文件 {schema_file}: {e}")
@@ -116,11 +120,12 @@ class SchemaLoader:
         try:
             schema = self.load_schema(schema_name)
             properties = schema.get('properties', {})
-            return properties.get(field_name)
+            field_info = properties.get(field_name)
+            return cast(Optional[Dict[str, Any]], field_info)
         except Exception:
-            return None
+            return cast(Optional[Dict[str, Any]], None)
     
-    def list_schemas(self) -> list:
+    def list_schemas(self) -> List[str]:
         """列出所有可用的模式
         
         Returns:
