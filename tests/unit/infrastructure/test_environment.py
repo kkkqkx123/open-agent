@@ -99,16 +99,35 @@ class TestEnvironmentChecker:
                 "configs/agents/_group.yaml"  # 这个文件不存在
             ]
             
-            # 模拟配置文件路径
-            with patch('src.infrastructure.environment.Path.exists') as mock_exists:
-                def exists_side_effect(path: Any) -> bool:
-                    path_str = str(path)
-                    return "global.yaml" in path_str or "_group.yaml" in path_str and "llms" in path_str
+            # 直接修改checker的config_files属性来测试，而不是模拟Path.exists
+            original_config_files = checker.config_files.copy()
+            checker.config_files = [
+                "configs/global.yaml",  # 存在
+                "configs/llms/_group.yaml",  # 存在
+                "configs/agents/_group.yaml" # 不存在，但应该是可选的
+            ]
+            
+            # 临时创建测试文件来验证逻辑
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # 创建测试配置目录结构
+                config_dir = Path(temp_dir) / "configs"
+                config_dir.mkdir()
+                (config_dir / "global.yaml").write_text("log_level: INFO")
                 
-                mock_exists.side_effect = exists_side_effect
+                llm_dir = config_dir / "llms"
+                llm_dir.mkdir()
+                (llm_dir / "_group.yaml").write_text("openai_group: {}")
                 
-                with patch('os.access', return_value=True):
+                # 保存原始base_path并临时修改
+                import os
+                original_cwd = os.getcwd()
+                os.chdir(temp_dir)
+                
+                try:
                     results = checker.check_config_files()
+                finally:
+                    os.chdir(original_cwd)
+                    checker.config_files = original_config_files
             
             assert len(results) == 3
             
@@ -156,13 +175,16 @@ MemTotal:        8000000 kB
 MemAvailable:    4000000 kB
 """
         
+        # 创建一个模拟的statvfs函数
+        mock_statvfs_func = MagicMock()
+        mock_stat = MagicMock()
+        mock_stat.f_bavail = 1000000  # 可用块数
+        mock_stat.f_frsize = 4096     # 块大小
+        mock_statvfs_func.return_value = mock_stat
+        
         with patch('builtins.open', mock_open_read_data(meminfo_content)):
-            with patch('os.statvfs') as mock_statvfs:
-                mock_stat = MagicMock()
-                mock_stat.f_bavail = 1000000  # 可用块数
-                mock_stat.f_frsize = 4096     # 块大小
-                mock_statvfs.return_value = mock_stat
-                
+            # 直接在os模块上添加statvfs属性，然后进行模拟
+            with patch('src.infrastructure.environment.os', new=MagicMock(statvfs=mock_statvfs_func)):
                 checker = EnvironmentChecker()
                 results = checker.check_system_resources()
                 

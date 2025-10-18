@@ -13,7 +13,8 @@ from src.infrastructure import (
     EnvironmentChecker,
     ArchitectureChecker,
     TestContainer,
-    EnvironmentCheckCommand
+    EnvironmentCheckCommand,
+    IEnvironmentChecker
 )
 from src.infrastructure.types import CheckResult
 
@@ -122,6 +123,8 @@ invalid_yaml: [
             assert valid_config["log_level"] == "INFO"
             
             # 4. 测试架构违规检测和恢复
+            # 先设置基础模块，因为违规文件需要依赖这些模块
+            container.setup_basic_modules()
             container.create_test_files_with_violations()
             
             arch_checker = container.get_architecture_checker()
@@ -132,8 +135,6 @@ invalid_yaml: [
             assert any(not r.is_pass() for r in layer_violations)
             
             # 5. 创建合规架构并验证恢复
-            container.setup_basic_modules()
-            
             # 重新检查架构
             arch_results = arch_checker.check_architecture()
             
@@ -173,7 +174,7 @@ invalid_yaml: [
             # 多次获取服务（测试单例效果）
             for _ in range(100):
                 di_container.get(YamlConfigLoader)
-                di_container.get(EnvironmentChecker)
+                di_container.get(IEnvironmentChecker)
                 di_container.get(ArchitectureChecker)
             
             end_time = time.time()

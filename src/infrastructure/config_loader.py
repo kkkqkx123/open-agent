@@ -56,11 +56,35 @@ class ConfigFileHandler(FileSystemEventHandler):
     
     def __init__(self, config_loader: 'YamlConfigLoader') -> None:
         self.config_loader = config_loader
+        self._last_processed: Dict[str, float] = {}  # 用于去重处理
+        self._debounce_time = 0.1  # 100ms防抖时间
+        self._manual_trigger = False  # 标记是否是手动触发
     
     def on_modified(self, event: Any) -> None:
         """文件修改事件处理"""
         if not event.is_directory and isinstance(event.src_path, str) and event.src_path.endswith(('.yaml', '.yml')):
+            import time
+            current_time = time.time()
+            file_path = event.src_path
+            
+            # 如果是手动触发，则跳过自动处理
+            if self._manual_trigger:
+                self._manual_trigger = False
+                return
+            
+            # 检查是否在防抖时间内已经处理过此文件
+            if file_path in self._last_processed:
+                if current_time - self._last_processed[file_path] < self._debounce_time:
+                    return  # 忽略过于频繁的事件
+            
+            # 更新最后处理时间
+            self._last_processed[file_path] = current_time
             self.config_loader._handle_file_change(event.src_path)
+    
+    def trigger_manual(self, file_path: str) -> None:
+        """手动触发文件变化处理"""
+        self._manual_trigger = True
+        self.config_loader._handle_file_change(file_path)
 
 
 class YamlConfigLoader(IConfigLoader):
@@ -78,6 +102,10 @@ class YamlConfigLoader(IConfigLoader):
     def load(self, config_path: str) -> Dict[str, Any]:
         """加载配置文件"""
         with self._lock:
+            # 检查缓存中是否已有配置
+            if config_path in self._configs:
+                return self._configs[config_path]
+            
             # 构建完整路径
             full_path = self.base_path / config_path
             
@@ -108,6 +136,9 @@ class YamlConfigLoader(IConfigLoader):
             # 重新加载所有缓存的配置
             for config_path in list(self._configs.keys()):
                 try:
+                    # 先从缓存中移除，这样load会重新读取文件
+                    del self._configs[config_path]
+                    # 重新加载
                     self.load(config_path)
                 except ConfigurationError as e:
                     # 记录错误但继续加载其他配置
@@ -157,23 +188,29 @@ class YamlConfigLoader(IConfigLoader):
     
     def _resolve_env_var_string(self, text: str) -> str:
         """解析字符串中的环境变量"""
-        # 首先处理带默认值的环境变量 ${VAR:default}
-        def replace_with_default(match: Any) -> str:
-            var_name = match.group(1)
-            default_value = match.group(2)
-            return os.getenv(var_name, default_value)
+        import re
+        from typing import Any
         
-        text = self._env_var_default_pattern.sub(replace_with_default, text)
+        # 使用单一正则表达式匹配所有环境变量（包括带默认值的）
+        def replace_env_var(match: Any) -> str:
+            var_expr = match.group(1)
+            
+            # 检查是否包含默认值
+            if ':' in var_expr:
+                var_name, default_value = var_expr.split(':', 1)
+                return os.getenv(var_name, default_value)
+            else:
+                # 普通环境变量
+                value = os.getenv(var_expr)
+                if value is None:
+                    raise ConfigurationError(f"Environment variable not found: {var_expr}")
+                return value
         
-        # 然后处理普通环境变量 ${VAR}
-        def replace_simple(match: Any) -> str:
-            var_name = match.group(1)
-            value = os.getenv(var_name)
-            if value is None:
-                raise ConfigurationError(f"Environment variable not found: {var_name}")
-            return value
+        # 使用单一模式匹配所有环境变量
+        env_pattern = re.compile(r'\$\{([^}]+)\}')
+        text = env_pattern.sub(replace_env_var, text)
         
-        return self._env_var_pattern.sub(replace_simple, text)
+        return text
     
     def _handle_file_change(self, file_path: str) -> None:
         """处理文件变化事件"""
@@ -183,6 +220,9 @@ class YamlConfigLoader(IConfigLoader):
             config_path = str(rel_path).replace('\\', '/')
             
             # 重新加载配置
+            # 先从缓存中移除，确保重新加载
+            if config_path in self._configs:
+                del self._configs[config_path]
             new_config = self.load(config_path)
             
             # 通知回调

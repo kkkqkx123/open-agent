@@ -175,7 +175,7 @@ class DependencyContainer(IDependencyContainer):
             # 处理单例模式
             if registration.lifetime == ServiceLifetime.SINGLETON:
                 if service_type in self._instances:
-                    return self._instances[service_type]  # type: ignore
+                    return self._instances[service_type] # type: ignore
             
             # 创建服务实例
             self._creating.add(service_type)
@@ -225,6 +225,9 @@ class DependencyContainer(IDependencyContainer):
                 return self._create_with_injection(registration.implementation)
             
             raise ServiceCreationError("No factory or implementation available")
+        except CircularDependencyError:
+            # 如果是循环依赖错误，直接抛出，不要包装
+            raise
         except Exception as e:
             raise ServiceCreationError(f"Failed to create service: {e}")
     
@@ -243,6 +246,24 @@ class DependencyContainer(IDependencyContainer):
             # 尝试从容器获取依赖
             if param.annotation != param.empty:
                 dependency_type = param.annotation
+                
+                # 如果注解是字符串，尝试解析为类型
+                if isinstance(dependency_type, str):
+                    # 尝试从当前模块获取类型
+                    import sys
+                    current_module = sys.modules[implementation.__module__]
+                    try:
+                        # 获取局部和全局命名空间
+                        globalns = getattr(current_module, '__dict__', {})
+                        localns = {implementation.__name__: implementation}
+                        
+                        # 使用eval解析字符串类型注解
+                        resolved_type = eval(dependency_type, globalns, localns)
+                        dependency_type = resolved_type
+                    except:
+                        # 如果无法解析，保持原字符串类型
+                        pass
+                
                 if self.has_service(dependency_type):
                     kwargs[param_name] = self.get(dependency_type)
                 elif param.default != param.empty:

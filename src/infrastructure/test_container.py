@@ -18,6 +18,8 @@ from .exceptions import InfrastructureError
 class TestContainer(ContextManager["TestContainer"]):
     """测试容器，用于集成测试"""
     
+    __test__ = False  # 告诉pytest这不是一个测试类
+    
     def __enter__(self) -> "TestContainer":
         """进入上下文管理器"""
         return self
@@ -42,6 +44,13 @@ class TestContainer(ContextManager["TestContainer"]):
         # 注册配置加载器
         self.container.register_factory(
             IConfigLoader,  # type: ignore
+            lambda: YamlConfigLoader(str(self.temp_path / "configs")),
+            lifetime="singleton"
+        )
+        
+        # 同时注册YamlConfigLoader具体类型，以便在测试中可以直接获取
+        self.container.register_factory(
+            YamlConfigLoader,
             lambda: YamlConfigLoader(str(self.temp_path / "configs")),
             lifetime="singleton"
         )

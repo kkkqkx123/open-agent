@@ -82,24 +82,41 @@ class TestArchitectureChecker:
     
     def test_extract_imports(self) -> None:
         """测试提取导入语句"""
-        checker = ArchitectureChecker()
-        current_file = Path("src/domain/entities.py")
-        
-        # 测试import语句
-        code = """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # 创建测试文件结构
+            src_path = Path(temp_dir) / "src"
+            src_path.mkdir()
+            
+            # 创建目录结构
+            domain_path = src_path / "domain"
+            domain_path.mkdir()
+            (domain_path / "__init__.py").touch()
+            (domain_path / "entities.py").touch()
+            (domain_path / "models.py").touch()  # 添加 models.py 文件
+            
+            infra_path = src_path / "infrastructure"
+            infra_path.mkdir()
+            (infra_path / "__init__.py").touch()
+            (infra_path / "repository.py").touch()
+            
+            checker = ArchitectureChecker(str(src_path))
+            current_file = src_path / "domain" / "entities.py"
+            
+            # 测试import语句
+            code = """
 import os
 import sys
 from typing import List, Dict
 from .models import Entity
 from src.infrastructure.repository import Repository
 """
-        tree = ast.parse(code)
-        imports = checker._extract_imports(tree, current_file)
-        
-        # 应该过滤掉外部库导入，只保留项目内部导入
-        assert len(imports) >= 1
-        assert any("models.py" in imp for imp in imports)
-        assert any("repository.py" in imp for imp in imports)
+            tree = ast.parse(code)
+            imports = checker._extract_imports(tree, current_file)
+            
+            # 应该过滤掉外部库导入，只保留项目内部导入
+            assert len(imports) >= 1
+            assert any("models.py" in imp for imp in imports)
+            assert any("repository.py" in imp for imp in imports)
     
     def test_resolve_import_path(self) -> None:
         """测试解析导入路径"""
@@ -112,6 +129,7 @@ from src.infrastructure.repository import Repository
             domain_path.mkdir()
             (domain_path / "__init__.py").touch()
             (domain_path / "entities.py").touch()
+            (domain_path / "models.py").touch()  # 添加 models.py 文件
             
             infra_path = src_path / "infrastructure"
             infra_path.mkdir()

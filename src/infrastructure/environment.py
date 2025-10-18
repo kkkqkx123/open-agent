@@ -4,6 +4,7 @@ import sys
 import os
 import platform
 import subprocess
+import shutil
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Tuple, Union
 from pathlib import Path
@@ -104,13 +105,12 @@ class EnvironmentChecker(IEnvironmentChecker):
             return CheckResult(
                 component="python_version",
                 status="ERROR",
-                message=f"Python version {sys.version.split()[0]} is below required {self.min_python_version}",
+                message=f"Python version {sys.version.split()[0]} is below required {'.'.join(map(str, self.min_python_version))}",
                 details={
                     "current_version": ".".join(map(str, current_version)),
                     "required_version": ".".join(map(str, self.min_python_version))
                 }
             )
-    
     def check_required_packages(self) -> List[CheckResult]:
         """检查必需包"""
         results = []
@@ -127,9 +127,21 @@ class EnvironmentChecker(IEnvironmentChecker):
                 elif package == "pyyaml":
                     import yaml
                     version = getattr(yaml, "__version__", "unknown")
+                elif package == "click":
+                    # 使用importlib.metadata来避免弃用警告
+                    try:
+                        from importlib.metadata import version as get_version
+                        version = get_version(package)
+                    except Exception:
+                        version = "unknown"
                 else:
                     module = importlib.import_module(package.replace("-", "_"))
-                    version = getattr(module, "__version__", "unknown")
+                    # 尝试使用importlib.metadata.version，如果失败则回退到__version__
+                    try:
+                        from importlib.metadata import version as get_version
+                        version = get_version(package)
+                    except Exception:
+                        version = getattr(module, "__version__", "unknown")
                 
                 results.append(CheckResult(
                     component=f"package_{package}",
@@ -271,17 +283,23 @@ class EnvironmentChecker(IEnvironmentChecker):
         # 检查磁盘空间
         try:
             current_path = Path.cwd()
-            if hasattr(os, 'statvfs'):
-                import statvfs  # type: ignore
-                stat = os.statvfs(str(current_path))  # type: ignore
-                free_gb = (stat.f_bavail * stat.f_frsize) / (1024 * 1024 * 1024)
-            else:
-                # Windows 系统使用其他方法
-                try:
-                    import shutil
-                    free_bytes = shutil.disk_usage(str(current_path)).free
-                    free_gb = free_bytes / (1024 * 1024 * 1024)
-                except Exception:
+            # 使用shutil.disk_usage，它在所有平台上都可用
+            try:
+                free_bytes = shutil.disk_usage(str(current_path)).free
+                free_gb = free_bytes / (1024 * 1024 * 1024)
+            except (OSError, AttributeError) as e:
+                # 如果shutil.disk_usage失败，尝试使用平台特定的方法
+                if platform.system() != "Windows" and hasattr(os, 'statvfs'):
+                    # Unix-like系统 (Linux, macOS) - 使用getattr避免静态分析错误
+                    statvfs_func = getattr(os, 'statvfs', None)
+                    if statvfs_func:
+                        stat = statvfs_func(str(current_path))
+                        free_gb = (stat.f_bavail * stat.f_frsize) / (1024 * 1024 * 1024)
+                    else:
+                        # 如果getattr失败，使用默认值
+                        free_gb = 1.0  # 默认值
+                else:
+                    # Windows或其他不支持statvfs的系统，使用默认值
                     free_gb = 1.0  # 默认值
             
             if free_gb >= 1.0:  # 至少1GB可用磁盘空间

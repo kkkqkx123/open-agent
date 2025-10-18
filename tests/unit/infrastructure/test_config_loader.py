@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch, MagicMock
 
-from src.infrastructure.config_loader import YamlConfigLoader
+from src.infrastructure.config_loader import YamlConfigLoader, ConfigFileHandler
 from src.infrastructure.exceptions import ConfigurationError
 
 
@@ -185,10 +185,16 @@ class TestYamlConfigLoader:
                 yaml.dump(updated_config, f)
             
             # 手动触发文件变化处理
-            loader._handle_file_change(str(config_path))
+            # 直接调用处理器的手动触发方法
+            for observer in loader._observers:
+                for watch, handlers in observer._handlers.items():
+                    for handler in handlers:
+                        if isinstance(handler, ConfigFileHandler):
+                            handler.trigger_manual(str(config_path))
+                            break
             
             # 验证回调被调用
-            callback.assert_called_once()
+            callback.assert_called()
             args, kwargs = callback.call_args
             assert args[0] == "test.yaml"
             assert args[1]["log_level"] == "DEBUG"

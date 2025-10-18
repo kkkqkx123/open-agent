@@ -1,0 +1,893 @@
+tests\integration\test_end_to_end_workflow.py FFFF..                                                             [  7%]
+tests\integration\test_infrastructure_integration.py ........F                                                   [ 18%]
+tests\unit\infrastructure\test_architecture.py ...FFF...                                                         [ 30%]
+tests\unit\infrastructure\test_config_loader.py ....FF.F....                                                     [ 45%]
+tests\unit\infrastructure\test_container.py ........F....                                                        [ 61%]
+tests\unit\infrastructure\test_environment.py .F...F.F....                                                       [ 76%]
+tests\unit\infrastructure\test_test_container.py ...................                                             [100%]
+
+====================================================== FAILURES ======================================================= 
+_____________________________ TestEndToEndWorkflow.test_complete_infrastructure_workflow ______________________________ 
+
+self = <src.infrastructure.container.DependencyContainer object at 0x000002817F41D7F0>
+registration = <src.infrastructure.types.ServiceRegistration object at 0x000002817F4AA3F0>
+
+    def _create_instance(self, registration: ServiceRegistration) -> Any:
+        """创建服务实例"""
+        try:
+            # 使用工厂方法创建
+            if registration.factory is not None:
+                return registration.factory()
+
+            # 使用实现类创建
+            if registration.implementation is not type(None):
+>               return self._create_with_injection(registration.implementation)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+src\infrastructure\container.py:225:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <src.infrastructure.container.DependencyContainer object at 0x000002817F41D7F0>
+implementation = <class 'tests.integration.test_end_to_end_workflow.TestEndToEndWorkflow.test_complete_infrastructure_workflow.<locals>.CustomService'>
+
+    def _create_with_injection(self, implementation: Type) -> Any:
+        """通过依赖注入创建实例"""
+        # 获取构造函数参数
+        sig = signature(implementation.__init__)
+        parameters = sig.parameters
+
+        # 准备参数
+        kwargs = {}
+        for param_name, param in parameters.items():
+            if param_name == 'self':
+                continue
+
+            # 尝试从容器获取依赖
+            if param.annotation != param.empty:
+                dependency_type = param.annotation
+                if self.has_service(dependency_type):
+                    kwargs[param_name] = self.get(dependency_type)
+                elif param.default != param.empty:
+                    # 使用默认值
+                    kwargs[param_name] = param.default
+                else:
+>                   raise ServiceCreationError(
+                        f"Cannot resolve dependency {dependency_type} for parameter {param_name}"
+E                       src.infrastructure.exceptions.ServiceCreationError: Cannot resolve dependency <class 'src.infrastructure.config_loader.YamlConfigLoader'> for parameter config_loader
+
+src\infrastructure\container.py:252: ServiceCreationError
+
+During handling of the above exception, another exception occurred:
+
+self = <tests.integration.test_end_to_end_workflow.TestEndToEndWorkflow object at 0x000002817E2BBB10>
+
+    def test_complete_infrastructure_workflow(self) -> None:
+        """测试完整的基础设施工作流"""
+        with TestContainer() as container:
+            # 1. 设置环境
+            container.set_environment_variable("AGENT_OPENAI_KEY", "test_key_123")
+            container.set_environment_variable("AGENT_ENV", "test")
+
+            # 2. 设置基础配置
+            container.setup_basic_configs()
+
+            # 3. 设置基础模块结构
+            container.setup_basic_modules()
+
+            # 4. 环境检查
+            env_checker = container.get_environment_checker()
+            env_results = env_checker.check_dependencies()
+
+            # 验证环境检查结果
+            assert len(env_results) > 0
+            env_summary = env_checker.generate_report()
+            assert env_summary["summary"]["total"] > 0
+
+            # 5. 配置加载
+            config_loader = container.get_config_loader()
+
+            # 加载全局配置
+            global_config = config_loader.load("global.yaml")
+            assert global_config["log_level"] == "INFO"
+            assert global_config["env"] == "test"
+
+            # 加载LLM配置
+            llm_config = config_loader.load("llms/_group.yaml")
+            assert "openai_group" in llm_config
+
+            # 测试环境变量解析
+            container.create_test_config("configs/api.yaml", {
+                "api_key": "${AGENT_OPENAI_KEY}",
+                "environment": "${AGENT_ENV}",
+                "timeout": 30
+            })
+
+            api_config = config_loader.load("api.yaml")
+            assert api_config["api_key"] == "test_key_123"
+            assert api_config["environment"] == "test"
+
+            # 6. 架构检查
+            arch_checker = container.get_architecture_checker()
+            arch_results = arch_checker.check_architecture()
+
+            # 验证架构检查结果
+            assert len(arch_results) >= 2
+
+            # 7. 依赖注入容器集成
+            di_container = container.get_container()
+
+            # 注册自定义服务
+            class CustomService:
+                def __init__(self, config_loader: YamlConfigLoader):
+                    self.config_loader = config_loader
+
+                def get_config(self, path: str) -> Any:
+                    return self.config_loader.load(path)
+
+            di_container.register(CustomService, CustomService)
+
+            # 获取并使用自定义服务
+>           custom_service = di_container.get(CustomService)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\integration\test_end_to_end_workflow.py:90:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src\infrastructure\container.py:183: in get
+    instance = self._create_instance(registration)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <src.infrastructure.container.DependencyContainer object at 0x000002817F41D7F0>
+registration = <src.infrastructure.types.ServiceRegistration object at 0x000002817F4AA3F0>
+
+    def _create_instance(self, registration: ServiceRegistration) -> Any:
+        """创建服务实例"""
+        try:
+            # 使用工厂方法创建
+            if registration.factory is not None:
+                return registration.factory()
+
+            # 使用实现类创建
+            if registration.implementation is not type(None):
+                return self._create_with_injection(registration.implementation)
+
+            raise ServiceCreationError("No factory or implementation available")
+        except Exception as e:
+>           raise ServiceCreationError(f"Failed to create service: {e}")
+E           src.infrastructure.exceptions.ServiceCreationError: Failed to create service: Cannot resolve dependency <class 'src.infrastructure.config_loader.YamlConfigLoader'> for parameter config_loader
+
+src\infrastructure\container.py:229: ServiceCreationError
+__________________________________ TestEndToEndWorkflow.test_error_recovery_workflow __________________________________ 
+
+self = <tests.integration.test_end_to_end_workflow.TestEndToEndWorkflow object at 0x000002817F428050>
+
+        def test_error_recovery_workflow(self) -> None:
+            """测试错误恢复工作流"""
+            with TestContainer() as container:
+                # 1. 创建有问题的配置
+                container.create_test_file("configs/invalid.yaml", """
+    invalid_yaml: [
+        unclosed_array
+    """)
+
+                config_loader = container.get_config_loader()
+
+                # 2. 尝试加载无效配置
+                from src.infrastructure.exceptions import ConfigurationError
+
+                with pytest.raises(ConfigurationError):
+                    config_loader.load("invalid.yaml")
+
+                # 3. 创建有效配置并验证恢复
+                container.create_test_config("configs/valid.yaml", {
+                    "log_level": "INFO",
+                    "env": "test"
+                })
+
+                valid_config = config_loader.load("valid.yaml")
+                assert valid_config["log_level"] == "INFO"
+
+                # 4. 测试架构违规检测和恢复
+                container.create_test_files_with_violations()
+
+                arch_checker = container.get_architecture_checker()
+                arch_results = arch_checker.check_architecture()
+
+                # 应该检测到违规
+                layer_violations = [r for r in arch_results if r.component == "architecture_layer"]
+>               assert any(not r.is_pass() for r in layer_violations)
+E               assert False
+E                +  where False = any(<generator object TestEndToEndWorkflow.test_error_recovery_workflow.<locals>.<genexpr> at 0x000002817F57B370>)
+
+tests\integration\test_end_to_end_workflow.py:132: AssertionError
+______________________________ TestEndToEndWorkflow.test_performance_benchmark_workflow _______________________________ 
+
+self = <tests.integration.test_end_to_end_workflow.TestEndToEndWorkflow object at 0x000002817E2B2EA0>
+
+    def test_performance_benchmark_workflow(self) -> None:
+        """测试性能基准工作流"""
+        with TestContainer() as container:
+            container.setup_basic_configs()
+
+            # 1. 配置加载性能测试
+            config_loader = container.get_config_loader()
+
+            import time
+            start_time = time.time()
+
+            # 多次加载配置（测试缓存效果）
+            for _ in range(50):
+                config_loader.load("global.yaml")
+                config_loader.load("llms/_group.yaml")
+                config_loader.load("agents/_group.yaml")
+                config_loader.load("tool-sets/_group.yaml")
+
+            end_time = time.time()
+            avg_load_time = (end_time - start_time) / (50 * 4)
+
+            # 平均加载时间应小于10ms
+            assert avg_load_time < 0.01, f"Average load time: {avg_load_time:.3f}s"
+
+            # 2. 依赖注入性能测试
+            di_container = container.get_container()
+
+            start_time = time.time()
+
+            # 多次获取服务（测试单例效果）
+            for _ in range(100):
+>               di_container.get(YamlConfigLoader)
+
+tests\integration\test_end_to_end_workflow.py:175:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <src.infrastructure.container.DependencyContainer object at 0x000002817F42BED0>
+service_type = <class 'src.infrastructure.config_loader.YamlConfigLoader'>
+
+    def get(self, service_type: Type[T]) -> T:
+        """获取服务实例"""
+        with self._lock:
+            # 检查循环依赖
+            if service_type in self._creating:
+                raise CircularDependencyError(f"Circular dependency detected for {service_type}")
+
+            # 查找服务注册
+            registration = self._find_registration(service_type)
+            if registration is None:
+>               raise ServiceNotRegisteredError(f"Service {service_type} not registered")
+E               src.infrastructure.exceptions.ServiceNotRegisteredError: Service <class 'src.infrastructure.config_loader.YamlConfigLoader'> not registered
+
+src\infrastructure\container.py:169: ServiceNotRegisteredError
+________________________________ TestEndToEndWorkflow.test_multi_environment_workflow _________________________________ 
+
+>   di_container.register_factory(ConfigService, lambda: ConfigService("global.yaml"), "development")
+                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\integration\test_end_to_end_workflow.py:224:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests\integration\test_end_to_end_workflow.py:218: in __init__
+    self.config_loader = di_container.get(YamlConfigLoader)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <src.infrastructure.container.DependencyContainer object at 0x000002817F554050>
+service_type = <class 'src.infrastructure.config_loader.YamlConfigLoader'>
+
+    def get(self, service_type: Type[T]) -> T:
+        """获取服务实例"""
+        with self._lock:
+            # 检查循环依赖
+            if service_type in self._creating:
+                raise CircularDependencyError(f"Circular dependency detected for {service_type}")
+
+            # 查找服务注册
+            registration = self._find_registration(service_type)
+            if registration is None:
+>               raise ServiceNotRegisteredError(f"Service {service_type} not registered")
+E               src.infrastructure.exceptions.ServiceNotRegisteredError: Service <class 'src.infrastructure.config_loader.YamlConfigLoader'> not registered
+
+src\infrastructure\container.py:169: ServiceNotRegisteredError
+
+During handling of the above exception, another exception occurred:
+
+self = <tests.integration.test_end_to_end_workflow.TestEndToEndWorkflow object at 0x000002817E2B3100>
+
+    def test_multi_environment_workflow(self) -> None:
+        """测试多环境工作流"""
+        with TestContainer() as container:
+            # 1. 设置不同环境的配置
+            container.create_test_config("configs/global.yaml", {
+                "log_level": "INFO",
+                "env": "development",
+                "debug": True
+            })
+
+            container.create_test_config("configs/production.yaml", {
+                "log_level": "WARNING",
+                "env": "production",
+                "debug": False
+            })
+
+            # 2. 设置依赖注入容器的多环境支持
+            di_container = container.get_container()
+
+            class ConfigService:
+                def __init__(self, config_path: str):
+                    self.config_path = config_path
+                    self.config_loader = di_container.get(YamlConfigLoader)
+
+                def get_config(self) -> Any:
+                    return self.config_loader.load(self.config_path)
+
+            # 注册不同环境的配置服务
+            di_container.register_factory(ConfigService, lambda: ConfigService("global.yaml"), "development")
+            di_container.register_factory(ConfigService, lambda: ConfigService("production.yaml"), "production")        
+
+            # 3. 测试开发环境
+            di_container.set_environment("development")
+>           dev_service = di_container.get(ConfigService)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\integration\test_end_to_end_workflow.py:229:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src\infrastructure\container.py:183: in get
+    instance = self._create_instance(registration)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <src.infrastructure.container.DependencyContainer object at 0x000002817F554050>
+registration = <src.infrastructure.types.ServiceRegistration object at 0x000002817F5499B0>
+
+    def _create_instance(self, registration: ServiceRegistration) -> Any:
+        """创建服务实例"""
+        try:
+            # 使用工厂方法创建
+            if registration.factory is not None:
+                return registration.factory()
+
+            # 使用实现类创建
+            if registration.implementation is not type(None):
+                return self._create_with_injection(registration.implementation)
+
+            raise ServiceCreationError("No factory or implementation available")
+        except Exception as e:
+>           raise ServiceCreationError(f"Failed to create service: {e}")
+E           src.infrastructure.exceptions.ServiceCreationError: Failed to create service: Service <class 'src.infrastructure.config_loader.YamlConfigLoader'> not registered
+
+src\infrastructure\container.py:229: ServiceCreationError
+_____________________________ TestInfrastructureIntegration.test_performance_integration ______________________________ 
+
+self = <tests.integration.test_infrastructure_integration.TestInfrastructureIntegration object at 0x000002817E312F50>   
+
+    def test_performance_integration(self) -> None:
+        """测试性能集成"""
+        with TestContainer() as container:
+            container.setup_basic_configs()
+
+            config_loader = container.get_config_loader()
+
+            # 测试配置加载性能
+            start_time = time.time()
+            for _ in range(100):
+                config_loader.load("global.yaml")
+            end_time = time.time()
+
+            # 缓存应该使后续加载更快
+            avg_time = (end_time - start_time) / 100
+            assert avg_time < 0.01  # 平均每次加载应小于10ms
+
+            # 测试依赖注入性能
+            di_container = container.get_container()
+
+            start_time = time.time()
+            for _ in range(100):
+>               di_container.get(YamlConfigLoader)
+
+tests\integration\test_infrastructure_integration.py:300:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <src.infrastructure.container.DependencyContainer object at 0x000002817F503980>
+service_type = <class 'src.infrastructure.config_loader.YamlConfigLoader'>
+
+    def get(self, service_type: Type[T]) -> T:
+        """获取服务实例"""
+        with self._lock:
+            # 检查循环依赖
+            if service_type in self._creating:
+                raise CircularDependencyError(f"Circular dependency detected for {service_type}")
+
+            # 查找服务注册
+            registration = self._find_registration(service_type)
+            if registration is None:
+>               raise ServiceNotRegisteredError(f"Service {service_type} not registered")
+E               src.infrastructure.exceptions.ServiceNotRegisteredError: Service <class 'src.infrastructure.config_loader.YamlConfigLoader'> not registered
+
+src\infrastructure\container.py:169: ServiceNotRegisteredError
+____________________________________ TestArchitectureChecker.test_extract_imports _____________________________________ 
+
+self = <tests.unit.infrastructure.test_architecture.TestArchitectureChecker object at 0x000002817E2B35C0>
+
+        def test_extract_imports(self) -> None:
+            """测试提取导入语句"""
+            checker = ArchitectureChecker()
+            current_file = Path("src/domain/entities.py")
+
+            # 测试import语句
+            code = """
+    import os
+    import sys
+    from typing import List, Dict
+    from .models import Entity
+    from src.infrastructure.repository import Repository
+    """
+            tree = ast.parse(code)
+            imports = checker._extract_imports(tree, current_file)
+
+            # 应该过滤掉外部库导入，只保留项目内部导入
+>           assert len(imports) >= 1
+E           assert 0 >= 1
+E            +  where 0 = len(set())
+
+tests\unit\infrastructure\test_architecture.py:100: AssertionError
+__________________________________ TestArchitectureChecker.test_resolve_import_path ___________________________________ 
+
+self = <tests.unit.infrastructure.test_architecture.TestArchitectureChecker object at 0x000002817F450710>
+
+    def test_resolve_import_path(self) -> None:
+        """测试解析导入路径"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            src_path = Path(temp_dir) / "src"
+            src_path.mkdir()
+
+            # 创建测试文件结构
+            domain_path = src_path / "domain"
+            domain_path.mkdir()
+            (domain_path / "__init__.py").touch()
+            (domain_path / "entities.py").touch()
+
+            infra_path = src_path / "infrastructure"
+            infra_path.mkdir()
+            (infra_path / "__init__.py").touch()
+            (infra_path / "repository.py").touch()
+
+            checker = ArchitectureChecker(str(src_path))
+            current_file = src_path / "domain" / "test.py"
+
+            # 测试相对导入
+            import_path = checker._resolve_import_path(".models", current_file)
+>           assert import_path is not None
+E           assert None is not None
+
+tests\unit\infrastructure\test_architecture.py:126: AssertionError
+_________________________________ TestArchitectureChecker.test_check_layer_violations _________________________________ 
+
+self = <tests.unit.infrastructure.test_architecture.TestArchitectureChecker object at 0x000002817E3039B0>
+
+    def test_check_layer_violations(self) -> None:
+        """测试层级违规检查"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # 创建测试文件结构
+            self._create_test_files(temp_dir)
+
+            checker = ArchitectureChecker(str(Path(temp_dir) / "src"))
+            checker._build_import_graph()
+            checker._map_files_to_layers()
+
+            violations = checker._check_layer_violations()
+
+            # 应该检测到违规
+>           assert len(violations) > 0
+E           assert 0 > 0
+E            +  where 0 = len([])
+
+tests\unit\infrastructure\test_architecture.py:151: AssertionError
+------------------------------------------------ Captured stdout call ------------------------------------------------- 
+Warning: Failed to parse C:\Users\33530\AppData\Local\Temp\tmpz45fzo42\src\infrastructure\repository.py: 'utf-8' codec can't decode byte 0xb9 in position 102: invalid start byte
+__________________________________ TestYamlConfigLoader.test_resolve_nested_env_vars __________________________________ 
+
+self = <tests.unit.infrastructure.test_config_loader.TestYamlConfigLoader object at 0x000002817F450050>
+
+    def test_resolve_nested_env_vars(self) -> None:
+        """测试嵌套环境变量解析"""
+        os.environ["TEST_HOST"] = "localhost"
+        os.environ["TEST_PORT"] = "8000"
+
+        try:
+            loader = YamlConfigLoader()
+
+            config = {
+                "server": {
+                    "host": "${TEST_HOST}",
+                    "port": "${TEST_PORT}",
+                    "endpoints": [
+                        "http://${TEST_HOST}:${TEST_PORT}/api",
+                        {"path": "/health", "url": "http://${TEST_HOST}:${TEST_PORT}/health"}
+                    ]
+                }
+            }
+
+            resolved = loader.resolve_env_vars(config)
+
+            assert resolved["server"]["host"] == "localhost"
+            assert resolved["server"]["port"] == "8000"
+>           assert resolved["server"]["endpoints"][0] == "http://localhost:8000/api"
+E           AssertionError: assert 'http://${TEST_PORT/api' == 'http://localhost:8000/api'
+E
+E             - http://localhost:8000/api
+E             + http://${TEST_PORT/api
+
+tests\unit\infrastructure\test_config_loader.py:112: AssertionError
+______________________________________ TestYamlConfigLoader.test_config_caching _______________________________________ 
+
+self = <tests.unit.infrastructure.test_config_loader.TestYamlConfigLoader object at 0x000002817F4308D0>
+sample_config = {'debug': True, 'env': 'test', 'log_level': 'INFO', 'log_outputs': [{'format': 'text', 'level': 'INFO', 'type': 'console'}], ...}
+
+    def test_config_caching(self, sample_config: Any) -> None:
+        """测试配置缓存"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "test.yaml"
+
+            with open(config_path, 'w', encoding='utf-8') as f:
+                yaml.dump(sample_config, f)
+
+            loader = YamlConfigLoader(temp_dir)
+
+            # 第一次加载
+            config1 = loader.load("test.yaml")
+
+            # 第二次加载应该使用缓存
+            config2 = loader.load("test.yaml")
+
+>           assert config1 is config2
+E           AssertionError: assert {'debug': True, 'env': 'test', 'log_level': 'INFO', 'log_outputs': [{'format': 'text', 'level': 'INFO', 'type': 'console'}], ...} is {'debug': True, 'env': 'test', 'log_level': 'INFO', 'log_outputs': [{'format': 'text', 'level': 'INFO', 'type': 'console'}], ...}
+
+tests\unit\infrastructure\test_config_loader.py:138: AssertionError
+_____________________________________ TestYamlConfigLoader.test_watch_for_changes _____________________________________ 
+
+self = <MagicMock id='2755210497056'>
+
+    def assert_called_once(self):
+        """assert that the mock was called only once.
+        """
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to have been called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'mock' to have been called once. Called 2 times.
+E           Calls: [call('test.yaml', {'debug': True, 'env': 'test', 'log_level': 'DEBUG', 'log_outputs': [{'format': 'text', 'level': 'INFO', 'type': 'console'}], 'secret_patterns': ['sk-[a-zA-Z0-9]{20,}', '\\w+@\\w+\\.\\w+']}),
+E            call('test.yaml', {'debug': True, 'env': 'test', 'log_level': 'DEBUG', 'log_outputs': [{'format': 'text', 'level': 'INFO', 'type': 'console'}], 'secret_patterns': ['sk-[a-zA-Z0-9]{20,}', '\\w+@\\w+\\.\\w+']})].
+
+C:\Python313\Lib\unittest\mock.py:958: AssertionError
+
+During handling of the above exception, another exception occurred:
+
+self = <tests.unit.infrastructure.test_config_loader.TestYamlConfigLoader object at 0x000002817E313950>
+sample_config = {'debug': True, 'env': 'test', 'log_level': 'INFO', 'log_outputs': [{'format': 'text', 'level': 'INFO', 'type': 'console'}], ...}
+
+    def test_watch_for_changes(self, sample_config: Any) -> None:
+        """测试配置文件变化监听"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "test.yaml"
+
+            with open(config_path, 'w', encoding='utf-8') as f:
+                yaml.dump(sample_config, f)
+
+            loader = YamlConfigLoader(temp_dir)
+
+            # 模拟回调函数
+            callback = MagicMock()
+            loader.watch_for_changes(callback)
+
+            # 模拟文件变化
+            updated_config = sample_config.copy()
+            updated_config["log_level"] = "DEBUG"
+
+            with open(config_path, 'w', encoding='utf-8') as f:
+                yaml.dump(updated_config, f)
+
+            # 手动触发文件变化处理
+            loader._handle_file_change(str(config_path))
+
+            # 验证回调被调用
+>           callback.assert_called_once()
+E           AssertionError: Expected 'mock' to have been called once. Called 2 times.
+E           Calls: [call('test.yaml', {'debug': True, 'env': 'test', 'log_level': 'DEBUG', 'log_outputs': [{'format': 'text', 'level': 'INFO', 'type': 'console'}], 'secret_patterns': ['sk-[a-zA-Z0-9]{20,}', '\\w+@\\w+\\.\\w+']}),
+E            call('test.yaml', {'debug': True, 'env': 'test', 'log_level': 'DEBUG', 'log_outputs': [{'format': 'text', 'level': 'INFO', 'type': 'console'}], 'secret_patterns': ['sk-[a-zA-Z0-9]{20,}', '\\w+@\\w+\\.\\w+']})].
+E
+E           pytest introspection follows:
+E
+E           Args:
+E           assert ('test.yaml',...sole'}], ...}) == ()
+E
+E             Left contains 2 more items, first extra item: 'test.yaml'
+E             Use -v to get more diff
+
+tests\unit\infrastructure\test_config_loader.py:191: AssertionError
+_____________________________ TestDependencyContainer.test_circular_dependency_detection ______________________________
+
+self = <src.infrastructure.container.DependencyContainer object at 0x000002817F5402D0>
+registration = <src.infrastructure.types.ServiceRegistration object at 0x000002817F46CDE0>
+
+    def _create_instance(self, registration: ServiceRegistration) -> Any:
+        """创建服务实例"""
+        try:
+            # 使用工厂方法创建
+            if registration.factory is not None:
+                return registration.factory()
+
+            # 使用实现类创建
+            if registration.implementation is not type(None):
+>               return self._create_with_injection(registration.implementation)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+src\infrastructure\container.py:225:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <src.infrastructure.container.DependencyContainer object at 0x000002817F5402D0>
+implementation = <class 'tests.unit.infrastructure.test_container.CircularDependencyA'>
+
+    def _create_with_injection(self, implementation: Type) -> Any:
+        """通过依赖注入创建实例"""
+        # 获取构造函数参数
+        sig = signature(implementation.__init__)
+        parameters = sig.parameters
+
+        # 准备参数
+        kwargs = {}
+        for param_name, param in parameters.items():
+            if param_name == 'self':
+                continue
+
+            # 尝试从容器获取依赖
+            if param.annotation != param.empty:
+                dependency_type = param.annotation
+                if self.has_service(dependency_type):
+                    kwargs[param_name] = self.get(dependency_type)
+                elif param.default != param.empty:
+                    # 使用默认值
+                    kwargs[param_name] = param.default
+                else:
+>                   raise ServiceCreationError(
+                        f"Cannot resolve dependency {dependency_type} for parameter {param_name}"
+E                       src.infrastructure.exceptions.ServiceCreationError: Cannot resolve dependency CircularDependencyB for parameter b
+
+src\infrastructure\container.py:252: ServiceCreationError
+
+During handling of the above exception, another exception occurred:
+
+self = <tests.unit.infrastructure.test_container.TestDependencyContainer object at 0x000002817E313C50>
+
+    def test_circular_dependency_detection(self) -> None:
+        """测试循环依赖检测"""
+        container = DependencyContainer()
+        container.register(CircularDependencyA, CircularDependencyA)
+        container.register(CircularDependencyB, CircularDependencyB)
+
+        with pytest.raises(CircularDependencyError):
+>           container.get(CircularDependencyA)
+
+tests\unit\infrastructure\test_container.py:151:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src\infrastructure\container.py:183: in get
+    instance = self._create_instance(registration)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <src.infrastructure.container.DependencyContainer object at 0x000002817F5402D0>
+registration = <src.infrastructure.types.ServiceRegistration object at 0x000002817F46CDE0>
+
+    def _create_instance(self, registration: ServiceRegistration) -> Any:
+        """创建服务实例"""
+        try:
+            # 使用工厂方法创建
+            if registration.factory is not None:
+                return registration.factory()
+
+            # 使用实现类创建
+            if registration.implementation is not type(None):
+                return self._create_with_injection(registration.implementation)
+
+            raise ServiceCreationError("No factory or implementation available")
+        except Exception as e:
+>           raise ServiceCreationError(f"Failed to create service: {e}")
+E           src.infrastructure.exceptions.ServiceCreationError: Failed to create service: Cannot resolve dependency CircularDependencyB for parameter b
+
+src\infrastructure\container.py:229: ServiceCreationError
+________________________________ TestEnvironmentChecker.test_check_python_version_fail ________________________________ 
+
+self = <tests.unit.infrastructure.test_environment.TestEnvironmentChecker object at 0x000002817F428CD0>
+
+    def test_check_python_version_fail(self) -> None:
+        """测试Python版本检查失败"""
+        # 设置一个不可能满足的高版本要求
+        checker = EnvironmentChecker(min_python_version=(99, 0, 0))
+        result = checker.check_python_version()
+
+        assert result.is_error()
+        assert "is below required" in result.message
+>       assert "99.0.0" in result.message
+E       AssertionError: assert '99.0.0' in 'Python version 3.13.7 is below required (99, 0, 0)'
+E        +  where 'Python version 3.13.7 is below required (99, 0, 0)' = <src.infrastructure.types.CheckResult object at 0x000002817F46C670>.message
+
+tests\unit\infrastructure\test_environment.py:35: AssertionError
+___________________________________ TestEnvironmentChecker.test_check_config_files ____________________________________ 
+
+self = <tests.unit.infrastructure.test_environment.TestEnvironmentChecker object at 0x000002817F431590>
+
+    def test_check_config_files(self) -> None:
+        """测试配置文件检查"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # 创建测试配置文件
+            config_dir = Path(temp_dir) / "configs"
+            config_dir.mkdir()
+
+            global_config = config_dir / "global.yaml"
+            global_config.write_text("log_level: INFO")
+
+            llm_dir = config_dir / "llms"
+            llm_dir.mkdir()
+            group_config = llm_dir / "_group.yaml"
+            group_config.write_text("openai_group: {}")
+
+            # 创建检查器并设置配置路径
+            checker = EnvironmentChecker()
+            checker.config_files = [
+                "configs/global.yaml",
+                "configs/llms/_group.yaml",
+                "configs/agents/_group.yaml"  # 这个文件不存在
+            ]
+
+            # 模拟配置文件路径
+            with patch('src.infrastructure.environment.Path.exists') as mock_exists:
+                def exists_side_effect(path: Any) -> bool:
+                    path_str = str(path)
+                    return "global.yaml" in path_str or "_group.yaml" in path_str and "llms" in path_str
+
+                mock_exists.side_effect = exists_side_effect
+
+                with patch('os.access', return_value=True):
+>                   results = checker.check_config_files()
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\unit\infrastructure\test_environment.py:111:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src\infrastructure\environment.py:158: in check_config_files
+    if file_path.exists():
+       ^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\unittest\mock.py:1169: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\unittest\mock.py:1173: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='exists' id='2755210502432'>, args = (), kwargs = {}
+effect = <function TestEnvironmentChecker.test_check_config_files.<locals>.exists_side_effect at 0x000002817F542F20>    
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+    
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+                raise effect
+            elif not _callable(effect):
+                result = next(effect)
+                if _is_exception(result):
+                    raise result
+            else:
+>               result = effect(*args, **kwargs)
+                         ^^^^^^^^^^^^^^^^^^^^^^^
+E               TypeError: TestEnvironmentChecker.test_check_config_files.<locals>.exists_side_effect() missing 1 required positional argument: 'path'
+
+C:\Python313\Lib\unittest\mock.py:1234: TypeError
+______________________________ TestEnvironmentChecker.test_check_system_resources_linux _______________________________ 
+
+self = <tests.unit.infrastructure.test_environment.TestEnvironmentChecker object at 0x000002817E313E50>
+mock_system = <MagicMock name='system' id='2755210503776'>
+
+        @patch('platform.system')
+        def test_check_system_resources_linux(self, mock_system: Any) -> None:
+            """测试Linux系统资源检查"""
+            mock_system.return_value = "Linux"
+
+            # 模拟/proc/meminfo内容
+            meminfo_content = """
+    MemTotal:        8000000 kB
+    MemAvailable:    4000000 kB
+    """
+
+            with patch('builtins.open', mock_open_read_data(meminfo_content)):
+>               with patch('os.statvfs') as mock_statvfs:
+                     ^^^^^^^^^^^^^^^^^^^
+
+tests\unit\infrastructure\test_environment.py:160:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+C:\Python313\Lib\unittest\mock.py:1497: in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <unittest.mock._patch object at 0x000002817F548910>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+
+        original = DEFAULT
+        local = False
+
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'os' (frozen)> does not have the attribute 'statvfs'
+
+C:\Python313\Lib\unittest\mock.py:1467: AttributeError
+================================================== warnings summary =================================================== 
+src\infrastructure\test_container.py:18
+  D:\项目\agent\open-agent\src\infrastructure\test_container.py:18: PytestCollectionWarning: cannot collect test class 'TestContainer' because it has a __init__ constructor (from: tests/integration/test_end_to_end_workflow.py)
+    class TestContainer(ContextManager["TestContainer"]):
+
+src\infrastructure\test_container.py:18
+  D:\项目\agent\open-agent\src\infrastructure\test_container.py:18: PytestCollectionWarning: cannot collect test class 'TestContainer' because it has a __init__ constructor (from: tests/integration/test_infrastructure_integration.py)       
+    class TestContainer(ContextManager["TestContainer"]):
+
+src\infrastructure\test_container.py:18
+  D:\项目\agent\open-agent\src\infrastructure\test_container.py:18: PytestCollectionWarning: cannot collect test class 'TestContainer' because it has a __init__ constructor (from: tests/unit/infrastructure/test_test_container.py)
+    class TestContainer(ContextManager["TestContainer"]):
+
+tests/integration/test_end_to_end_workflow.py: 6 warnings
+tests/integration/test_infrastructure_integration.py: 3 warnings
+tests/unit/infrastructure/test_environment.py: 3 warnings
+  D:\项目\agent\open-agent\src\infrastructure\environment.py:132: DeprecationWarning: The '__version__' attribute is deprecated and will be removed in Click 9.1. Use feature detection or 'importlib.metadata.version("click")' instead.       
+    version = getattr(module, "__version__", "unknown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================================================== tests coverage ==================================================== 
+___________________________________ coverage: platform win32, python 3.13.7-final-0 ___________________________________ 
+
+Name                                      Stmts   Miss  Cover
+-------------------------------------------------------------
+src\infrastructure\__init__.py                9      0   100%
+src\infrastructure\architecture.py          148     10    93%
+src\infrastructure\config_loader.py         133     12    91%
+src\infrastructure\container.py             139     17    88%
+src\infrastructure\env_check_command.py      78     19    76%
+src\infrastructure\environment.py           142     30    79%
+src\infrastructure\exceptions.py             14      0   100%
+src\infrastructure\test_container.py         85      3    96%
+src\infrastructure\types.py                  25      0   100%
+-------------------------------------------------------------
+TOTAL                                       773     91    88%
+Coverage HTML written to dir cov_html
+=============================================== short test summary info ===============================================
+FAILED tests/integration/test_end_to_end_workflow.py::TestEndToEndWorkflow::test_complete_infrastructure_workflow - src.infrastructure.exceptions.ServiceCreationError: Failed to create service: Cannot resolve dependency <class 'src...      
+FAILED tests/integration/test_end_to_end_workflow.py::TestEndToEndWorkflow::test_error_recovery_workflow - assert False 
+FAILED tests/integration/test_end_to_end_workflow.py::TestEndToEndWorkflow::test_performance_benchmark_workflow - src.infrastructure.exceptions.ServiceNotRegisteredError: Service <class 'src.infrastructure.config_loader.YamlConfi...        
+FAILED tests/integration/test_end_to_end_workflow.py::TestEndToEndWorkflow::test_multi_environment_workflow - src.infrastructure.exceptions.ServiceCreationError: Failed to create service: Service <class 'src.infrastructure.co...
+FAILED tests/integration/test_infrastructure_integration.py::TestInfrastructureIntegration::test_performance_integration - src.infrastructure.exceptions.ServiceNotRegisteredError: Service <class 'src.infrastructure.config_loader.YamlConfi...
+FAILED tests/unit/infrastructure/test_architecture.py::TestArchitectureChecker::test_extract_imports - assert 0 >= 1    
+FAILED tests/unit/infrastructure/test_architecture.py::TestArchitectureChecker::test_resolve_import_path - assert None is not None
+FAILED tests/unit/infrastructure/test_architecture.py::TestArchitectureChecker::test_check_layer_violations - assert 0 > 0
+FAILED tests/unit/infrastructure/test_config_loader.py::TestYamlConfigLoader::test_resolve_nested_env_vars - AssertionError: assert 'http://${TEST_PORT/api' == 'http://localhost:8000/api'
+FAILED tests/unit/infrastructure/test_config_loader.py::TestYamlConfigLoader::test_config_caching - AssertionError: assert {'debug': True, 'env': 'test', 'log_level': 'INFO', 'log_outputs': [{'format': 'text', 'leve...
+FAILED tests/unit/infrastructure/test_config_loader.py::TestYamlConfigLoader::test_watch_for_changes - AssertionError: Expected 'mock' to have been called once. Called 2 times.
+FAILED tests/unit/infrastructure/test_container.py::TestDependencyContainer::test_circular_dependency_detection - src.infrastructure.exceptions.ServiceCreationError: Failed to create service: Cannot resolve dependency CircularDep...        
+FAILED tests/unit/infrastructure/test_environment.py::TestEnvironmentChecker::test_check_python_version_fail - AssertionError: assert '99.0.0' in 'Python version 3.13.7 is below required (99, 0, 0)'
+FAILED tests/unit/infrastructure/test_environment.py::TestEnvironmentChecker::test_check_config_files - TypeError: TestEnvironmentChecker.test_check_config_files.<locals>.exists_side_effect() missing 1 required position...
+FAILED tests/unit/infrastructure/test_environment.py::TestEnvironmentChecker::test_check_system_resources_linux - AttributeError: <module 'os' (frozen)> does not have the attribute 'statvfs'
+===================================== 15 failed, 65 passed, 15 warnings in 1.90s ====================================== 

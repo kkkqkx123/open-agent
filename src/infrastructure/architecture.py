@@ -114,8 +114,19 @@ class ArchitectureChecker:
                 continue
             
             try:
-                with open(py_file, 'r', encoding='utf-8') as f:
-                    content = f.read()
+                # 尝试多种编码方式
+                content = None
+                for encoding in ['utf-8', 'gbk', 'gb2312', 'latin-1']:
+                    try:
+                        with open(py_file, 'r', encoding=encoding) as f:
+                            content = f.read()
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                
+                if content is None:
+                    print(f"Warning: Failed to decode {py_file} with any encoding")
+                    continue
                 
                 tree = ast.parse(content)
                 imports = self._extract_imports(tree, py_file)
@@ -132,13 +143,21 @@ class ArchitectureChecker:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     import_path = self._resolve_import_path(alias.name, current_file)
-                    if import_path:
+                    if import_path is not None:
                         imports.add(import_path)
             
             elif isinstance(node, ast.ImportFrom):
                 if node.module:
-                    import_path = self._resolve_import_path(node.module, current_file)
-                    if import_path:
+                    # 构建完整的模块名，包括相对导入的点
+                    module_name = '.' * node.level + (node.module or '')
+                    import_path = self._resolve_import_path(module_name, current_file)
+                    if import_path is not None:
+                        imports.add(import_path)
+                else:
+                    # 处理 from . import xxx 的情况
+                    module_name = '.' * node.level
+                    import_path = self._resolve_import_path(module_name, current_file)
+                    if import_path is not None:
                         imports.add(import_path)
         
         return imports
@@ -150,7 +169,7 @@ class ArchitectureChecker:
             level = len(module_name) - len(module_name.lstrip('.'))
             module_name = module_name.lstrip('.')
             
-            # 计算相对路径
+            # 计算相对路径 - 从当前文件的目录开始，向上移动 (level-1) 层
             parent_dir = current_file.parent
             for _ in range(level - 1):
                 parent_dir = parent_dir.parent
@@ -162,20 +181,30 @@ class ArchitectureChecker:
         else:
             # 处理绝对导入
             if module_name.startswith('src'):
-                import_path = self.base_path.parent / module_name.replace('.', '/')
+                # 确保我们使用正确的基础路径
+                import_path = self.base_path / module_name.replace('.', '/').replace('src/', '', 1)
             else:
                 # 外部库导入，跳过
                 return None
         
-        # 查找对应的Python文件
+        # 查找对应的Python文件 - 优先查找.py文件
+        py_file = Path(str(import_path) + '.py')
+        if py_file.exists():
+            return str(py_file)
+        
+        # 如果.py文件不存在，尝试查找包目录
         if import_path.is_dir():
             init_file = import_path / '__init__.py'
             if init_file.exists():
                 return str(init_file)
-        else:
-            py_file = Path(str(import_path) + '.py')
-            if py_file.exists():
-                return str(py_file)
+        
+        # 尝试查找包目录（如果import_path不是目录）
+        if import_path.parent.exists():
+            # 只有当模块名为空时（即 from . import xxx）才返回父目录的__init__.py
+            if not module_name:
+                init_file = import_path.parent / '__init__.py'
+                if init_file.exists():
+                    return str(init_file)
         
         return None
     
@@ -190,8 +219,13 @@ class ArchitectureChecker:
     
     def _determine_layer(self, file_path: str) -> Optional[str]:
         """确定文件所属层级"""
-        path_obj = Path(file_path)
-        relative_path = path_obj.relative_to(self.base_path.parent)
+        try:
+            path_obj = Path(file_path)
+            relative_path = path_obj.relative_to(self.base_path.parent)
+        except ValueError:
+            # 如果无法计算相对路径，尝试直接匹配
+            path_obj = Path(file_path)
+            relative_path = path_obj
         
         for layer_name, rule in self.layer_rules.items():
             for pattern in rule.path_patterns:
@@ -205,14 +239,18 @@ class ArchitectureChecker:
         pattern_parts = pattern.split('/')
         path_parts = path.parts
         
-        if len(pattern_parts) != len(path_parts):
+        # 处理绝对路径和相对路径
+        if len(path_parts) >= len(pattern_parts):
+            # 从后向前匹配
+            for i in range(1, len(pattern_parts) + 1):
+                pattern_part = pattern_parts[-i]
+                path_part = path_parts[-i]
+                
+                if pattern_part != '*' and pattern_part != path_part:
+                    return False
+            return True
+        else:
             return False
-        
-        for pattern_part, path_part in zip(pattern_parts, path_parts):
-            if pattern_part != '*' and pattern_part != path_part:
-                return False
-        
-        return True
     
     def _check_layer_violations(self) -> List[Dict[str, Any]]:
         """检查层级违规"""
