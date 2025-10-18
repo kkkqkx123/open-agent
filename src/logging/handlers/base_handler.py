@@ -40,12 +40,9 @@ class BaseHandler(ABC):
         if record['level'].value < self.level.value:
             return
         
-        # 格式化日志记录
-        formatted_record = self.format(record)
-        
         # 输出日志记录
         try:
-            self.emit(formatted_record)
+            self.emit(record)
         except Exception:
             # 避免日志处理器出错导致程序崩溃
             self.handleError(record)
@@ -60,10 +57,14 @@ class BaseHandler(ABC):
             格式化后的日志记录
         """
         if self._formatter:
-            return self._formatter.format(record)
+            # 如果有格式化器，将格式化后的字符串添加到记录中
+            formatted_msg = self._formatter.format(record)
+            formatted_record = record.copy()
+            formatted_record['formatted_message'] = formatted_msg
+            return formatted_record
         return record
     
-    def set_formatter(self, formatter) -> None:
+    def set_formatter(self, formatter: Any) -> None:
         """设置格式化器
         
         Args:

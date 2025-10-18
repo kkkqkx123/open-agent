@@ -48,27 +48,27 @@ class ILogger(ABC):
     """日志记录器接口"""
     
     @abstractmethod
-    def debug(self, message: str, **kwargs) -> None:
+    def debug(self, message: str, **kwargs: Any) -> None:
         """记录调试日志"""
         pass
     
     @abstractmethod
-    def info(self, message: str, **kwargs) -> None:
+    def info(self, message: str, **kwargs: Any) -> None:
         """记录信息日志"""
         pass
     
     @abstractmethod
-    def warning(self, message: str, **kwargs) -> None:
+    def warning(self, message: str, **kwargs: Any) -> None:
         """记录警告日志"""
         pass
     
     @abstractmethod
-    def error(self, message: str, **kwargs) -> None:
+    def error(self, message: str, **kwargs: Any) -> None:
         """记录错误日志"""
         pass
     
     @abstractmethod
-    def critical(self, message: str, **kwargs) -> None:
+    def critical(self, message: str, **kwargs: Any) -> None:
         """记录严重错误日志"""
         pass
     
@@ -121,23 +121,23 @@ class Logger(ILogger):
             self._level = LogLevel.from_string(config.log_level)
             self._setup_handlers_from_config(config)
     
-    def debug(self, message: str, **kwargs) -> None:
+    def debug(self, message: str, **kwargs: Any) -> None:
         """记录调试日志"""
         self._log(LogLevel.DEBUG, message, **kwargs)
     
-    def info(self, message: str, **kwargs) -> None:
+    def info(self, message: str, **kwargs: Any) -> None:
         """记录信息日志"""
         self._log(LogLevel.INFO, message, **kwargs)
     
-    def warning(self, message: str, **kwargs) -> None:
+    def warning(self, message: str, **kwargs: Any) -> None:
         """记录警告日志"""
         self._log(LogLevel.WARNING, message, **kwargs)
     
-    def error(self, message: str, **kwargs) -> None:
+    def error(self, message: str, **kwargs: Any) -> None:
         """记录错误日志"""
         self._log(LogLevel.ERROR, message, **kwargs)
     
-    def critical(self, message: str, **kwargs) -> None:
+    def critical(self, message: str, **kwargs: Any) -> None:
         """记录严重错误日志"""
         self._log(LogLevel.CRITICAL, message, **kwargs)
     
@@ -163,7 +163,7 @@ class Logger(ILogger):
         with self._lock:
             self._redactor = redactor
     
-    def _log(self, level: LogLevel, message: str, **kwargs) -> None:
+    def _log(self, level: LogLevel, message: str, **kwargs: Any) -> None:
         """内部日志记录方法
         
         Args:
@@ -200,7 +200,7 @@ class Logger(ILogger):
         """
         return level.value >= self._level.value
     
-    def _create_log_record(self, level: LogLevel, message: str, **kwargs) -> Dict[str, Any]:
+    def _create_log_record(self, level: LogLevel, message: str, **kwargs: Any) -> Dict[str, Any]:
         """创建日志记录
         
         Args:
@@ -255,15 +255,24 @@ class Logger(ILogger):
         from .handlers.json_handler import JsonHandler
         
         for output_config in config.log_outputs:
-            handler_type = output_config.get("type", "console")
-            handler_level = LogLevel.from_string(output_config.get("level", "INFO"))
+            # 处理不同类型的配置对象
+            if isinstance(output_config, dict):
+                handler_type = output_config.get("type", "console")
+                handler_level = LogLevel.from_string(output_config.get("level", "INFO"))
+                handler_config = output_config
+            else:
+                # 假设是对象类型，使用属性访问
+                handler_type = getattr(output_config, 'type', 'console')
+                handler_level = LogLevel.from_string(getattr(output_config, 'level', 'INFO'))
+                handler_config = output_config.__dict__ if hasattr(output_config, '__dict__') else {}
             
+            handler: BaseHandler
             if handler_type == "console":
-                handler = ConsoleHandler(handler_level, output_config)
+                handler = ConsoleHandler(handler_level, handler_config)
             elif handler_type == "file":
-                handler = FileHandler(handler_level, output_config)
+                handler = FileHandler(handler_level, handler_config)
             elif handler_type == "json":
-                handler = JsonHandler(handler_level, output_config)
+                handler = JsonHandler(handler_level, handler_config)
             else:
                 continue  # 跳过未知类型的处理器
             

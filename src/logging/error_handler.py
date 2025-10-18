@@ -3,6 +3,7 @@
 import functools
 import traceback
 from abc import ABC, abstractmethod
+from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
@@ -41,7 +42,7 @@ class ErrorContext:
         self.error = error
         self.context = context or {}
         self.traceback = traceback.format_exc()
-        self.timestamp = None  # 将在处理时设置
+        self.timestamp: Optional[datetime] = None  # 将在处理时设置
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典
@@ -187,7 +188,7 @@ class GlobalErrorHandler(IGlobalErrorHandler):
     def wrap_with_error_handler(self, func: Callable) -> Callable:
         """用错误处理器包装函数"""
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 return func(*args, **kwargs)
             except Exception as e:
@@ -365,7 +366,7 @@ def register_error_handler(
     get_global_error_handler().register_error_handler(error_class, handler)
 
 
-def error_handler(error_type: Optional[ErrorType] = None):
+def error_handler(error_type: Optional[ErrorType] = None) -> Callable[[Callable], Callable]:
     """错误处理装饰器
     
     Args:
@@ -376,7 +377,7 @@ def error_handler(error_type: Optional[ErrorType] = None):
     """
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 return func(*args, **kwargs)
             except Exception as e:

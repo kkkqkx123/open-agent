@@ -104,7 +104,7 @@ class JsonFormatter(BaseFormatter):
         
         return extra_fields
     
-    def _json_serializer(self, obj: Any) -> str:
+    def _json_serializer(self, obj: Any) -> Any:
         """JSON序列化器，处理不可序列化的对象
         
         Args:

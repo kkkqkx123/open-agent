@@ -46,6 +46,11 @@ class IConfigLoader(ABC):
         pass
     
     @abstractmethod
+    def get_config(self, config_path: str) -> Optional[Dict[str, Any]]:
+        """获取缓存中的配置，如果不存在则返回None"""
+        pass
+    
+    @abstractmethod
     def _handle_file_change(self, file_path: str) -> None:
         """处理文件变化事件"""
         pass
@@ -129,6 +134,11 @@ class YamlConfigLoader(IConfigLoader):
                 raise ConfigurationError(f"Invalid YAML in {config_path}: {e}")
             except Exception as e:
                 raise ConfigurationError(f"Failed to load {config_path}: {e}")
+    
+    def get_config(self, config_path: str) -> Optional[Dict[str, Any]]:
+        """获取缓存中的配置，如果不存在则返回None"""
+        with self._lock:
+            return self._configs.get(config_path)
     
     def reload(self) -> None:
         """重新加载所有配置"""

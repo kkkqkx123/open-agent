@@ -265,6 +265,22 @@ class IMetricsCollector(ABC):
         pass
 
 
+# 全局指标收集器实例
+_global_metrics_collector: Optional[MetricsCollector] = None
+
+
+def get_global_metrics_collector() -> MetricsCollector:
+    """获取全局指标收集器实例
+    
+    Returns:
+        全局指标收集器实例
+    """
+    global _global_metrics_collector
+    if _global_metrics_collector is None:
+        _global_metrics_collector = MetricsCollector()
+    return _global_metrics_collector
+
+
 class MetricsCollector(IMetricsCollector):
     """指标收集器实现"""
     
@@ -282,7 +298,7 @@ class MetricsCollector(IMetricsCollector):
         self._sessions: Dict[str, SessionMetric] = {}
         
         # 全局统计
-        self._global_stats = {
+        self._global_stats: Dict[str, Any] = {
             'total_sessions': 0,
             'total_llm_calls': 0,
             'total_tool_calls': 0,
@@ -293,7 +309,7 @@ class MetricsCollector(IMetricsCollector):
         }
         
         # 时间序列数据（用于趋势分析）
-        self._time_series = {
+        self._time_series: Dict[str, deque] = {
             'llm_calls': deque(maxlen=max_history),
             'tool_calls': deque(maxlen=max_history),
             'errors': deque(maxlen=max_history)

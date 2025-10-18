@@ -42,7 +42,10 @@ class ConsoleHandler(BaseHandler):
             record: 日志记录
         """
         try:
-            msg = self.format(record)
+            # 获取格式化后的消息
+            formatted_record = self.format(record)
+            msg = formatted_record.get('formatted_message', str(record))
+            
             self.stream.write(msg + '\n')
             self.stream.flush()
         except Exception:
@@ -64,7 +67,7 @@ class ConsoleHandler(BaseHandler):
         self.use_colors = use_colors
         self._setup_formatter()
     
-    def set_stream(self, stream) -> None:
+    def set_stream(self, stream: Any) -> None:
         """设置输出流
         
         Args:

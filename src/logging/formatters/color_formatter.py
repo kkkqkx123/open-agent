@@ -1,7 +1,7 @@
 """彩色日志格式化器"""
 
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from .text_formatter import TextFormatter
 from ..logger import LogLevel
@@ -43,7 +43,7 @@ class ColorFormatter(TextFormatter):
         self, 
         datefmt: str = "%Y-%m-%d %H:%M:%S",
         fmt: str = "{timestamp} [{level}] {name}: {message}",
-        use_colors: bool = None
+        use_colors: Optional[bool] = None
     ):
         """初始化彩色格式化器
         

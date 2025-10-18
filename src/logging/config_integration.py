@@ -10,13 +10,13 @@ from ..config import (
 )
 from .logger import get_logger, set_global_config
 from .error_handler import get_global_error_handler, ErrorType
-from .metrics import get_global_metrics_collector
+from .metrics import get_global_metrics_collector, MetricsCollector
 
 
 class LoggingConfigIntegration:
     """日志系统与配置系统集成"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化集成"""
         self._logger = get_logger("logging_integration")
         self._error_handler = get_global_error_handler()
@@ -100,11 +100,12 @@ class LoggingConfigIntegration:
             set_global_config(global_config)
             
             # 记录配置变更指标
-            self._metrics_collector.record_config_change(
-                "global.yaml",
-                old_config,
-                new_config
-            )
+            if hasattr(self._metrics_collector, 'record_config_change'):
+                self._metrics_collector.record_config_change(
+                    "global.yaml",
+                    old_config,
+                    new_config
+                )
         
         except Exception as e:
             self._error_handler.handle_error(
@@ -146,7 +147,7 @@ def initialize_logging_integration() -> None:
 def _extend_metrics_collector() -> None:
     """扩展指标收集器"""
     def record_config_change(
-        self, 
+        self: MetricsCollector, 
         config_path: str, 
         old_config: Dict[str, Any], 
         new_config: Dict[str, Any]
@@ -163,7 +164,7 @@ def _extend_metrics_collector() -> None:
     
     # 动态添加方法到指标收集器
     from .metrics import MetricsCollector
-    MetricsCollector.record_config_change = record_config_change
+    MetricsCollector.record_config_change = record_config_change  # type: ignore
 
 
 # 初始化时扩展指标收集器

@@ -65,7 +65,7 @@ class ConfigCallback:
 class ConfigCallbackManager:
     """配置回调管理器"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化回调管理器"""
         self._callbacks: Dict[str, ConfigCallback] = {}
         self._execution_order: List[str] = []

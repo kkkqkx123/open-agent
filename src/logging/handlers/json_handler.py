@@ -23,6 +23,7 @@ class JsonHandler(FileHandler):
         # 强制设置格式类型为JSON
         if config is None:
             config = {}
+        config = dict(config) if config else {}
         config['format'] = 'json'
         
         super().__init__(level, config)
@@ -48,8 +49,9 @@ class JsonHandler(FileHandler):
             record: 日志记录
         """
         try:
-            # 格式化为JSON
+            # 获取格式化后的消息
             formatted_record = self.format(record)
+            msg = formatted_record.get('formatted_message', str(record))
             
             # 创建一个标准logging记录来使用内置处理器
             log_record = logging.LogRecord(
@@ -57,7 +59,7 @@ class JsonHandler(FileHandler):
                 level=record['level'].value,
                 pathname='',
                 lineno=0,
-                msg=formatted_record,
+                msg=msg,
                 args=(),
                 exc_info=None
             )
@@ -115,11 +117,14 @@ class JsonConsoleHandler(JsonHandler):
             record: 日志记录
         """
         try:
-            # 格式化为JSON
-            formatted_record = self.format(record)
+            # 直接使用格式化器格式化为JSON
+            if self._formatter:
+                formatted_msg = self._formatter.format(record)
+            else:
+                formatted_msg = str(record)
             
             # 写入控制台
-            self.stream.write(formatted_record + '\n')
+            self.stream.write(formatted_msg + '\n')
             self.stream.flush()
         except Exception:
             self.handleError(record)

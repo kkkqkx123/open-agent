@@ -377,8 +377,9 @@ class ConfigSystem(IConfigSystem):
             
             # 保存旧配置（用于回调）
             old_config = None
-            if config_path in self._config_loader._configs:
-                old_config = self._config_loader._configs[config_path].copy()
+            cached_config = self._config_loader.get_config(config_path)
+            if cached_config:
+                old_config = cached_config.copy()
             
             # 重新加载配置
             # 先从缓存中移除，确保重新加载

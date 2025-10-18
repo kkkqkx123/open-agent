@@ -36,7 +36,7 @@ class LogRedactor:
         (r'eyJ[a-zA-Z0-9._-]*\.eyJ[a-zA-Z0-9._-]*\.[a-zA-Z0-9._-]*', 'JWT.***.***'),
     ]
     
-    def __init__(self, patterns: Optional[List[Pattern]] = None, hash_sensitive: bool = False):
+    def __init__(self, patterns: Optional[List[tuple[Pattern, str]]] = None, hash_sensitive: bool = False):
         """初始化日志脱敏器
         
         Args:
@@ -47,7 +47,7 @@ class LogRedactor:
         self.hash_sensitive = hash_sensitive
         self._cache: Dict[str, str] = {}
     
-    def _compile_default_patterns(self) -> List[Pattern]:
+    def _compile_default_patterns(self) -> List[tuple[Pattern, str]]:
         """编译默认模式
         
         Returns:
@@ -218,7 +218,7 @@ class CustomLogRedactor(LogRedactor):
         
         super().__init__(patterns, hash_sensitive)
     
-    def _load_patterns_from_config(self) -> Optional[List[Pattern]]:
+    def _load_patterns_from_config(self) -> Optional[List[tuple[Pattern, str]]]:
         """从配置加载模式
         
         Returns:

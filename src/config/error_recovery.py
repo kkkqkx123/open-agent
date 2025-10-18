@@ -115,7 +115,7 @@ class ConfigBackupManager:
             })
         
         # 按时间戳排序（最新的在前）
-        backups.sort(key=lambda b: b['timestamp'], reverse=True)
+        backups.sort(key=lambda b: str(b['timestamp']), reverse=True)
         return backups
     
     def _cleanup_old_backups(self, config_stem: str) -> None:

@@ -4,7 +4,7 @@ import os
 import sys
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 
 from .base_handler import BaseHandler
@@ -32,6 +32,7 @@ class FileHandler(BaseHandler):
         self.max_size = config.get('max_size', '10MB') if config else '10MB'
         self.backup_count = config.get('backup_count', 5) if config else 5
         self.encoding = config.get('encoding', 'utf-8') if config else 'utf-8'
+        self._file_handler: Union[RotatingFileHandler, TimedRotatingFileHandler]
         
         # 确保日志目录存在
         log_dir = Path(self.file_path).parent
@@ -50,7 +51,10 @@ class FileHandler(BaseHandler):
             record: 日志记录
         """
         try:
-            msg = self.format(record)
+            # 获取格式化后的消息
+            formatted_record = self.format(record)
+            msg = formatted_record.get('formatted_message', str(record))
+            
             # 创建一个标准logging记录来使用内置处理器
             log_record = logging.LogRecord(
                 name=record.get('name', ''),
@@ -98,7 +102,7 @@ class FileHandler(BaseHandler):
             )
         else:
             # 不轮转
-            self._file_handler = RotatingFileHandler(
+            self._file_handler = RotatingFileHandler(  # type: ignore
                 filename=self.file_path,
                 maxBytes=max_bytes * 100,  # 设置一个很大的值，基本不会轮转
                 backupCount=0,
