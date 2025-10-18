@@ -5,6 +5,7 @@ import os
 import tempfile
 import yaml
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch, MagicMock
 
 from src.infrastructure.config_loader import YamlConfigLoader
@@ -14,7 +15,7 @@ from src.infrastructure.exceptions import ConfigurationError
 class TestYamlConfigLoader:
     """YAML配置加载器测试"""
     
-    def test_load_valid_yaml(self, sample_config):
+    def test_load_valid_yaml(self, sample_config: Any) -> None:
         """测试加载有效YAML配置"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test.yaml"
@@ -29,7 +30,7 @@ class TestYamlConfigLoader:
             assert len(config["log_outputs"]) == 1
             assert config["env"] == "test"
     
-    def test_load_nonexistent_file(self):
+    def test_load_nonexistent_file(self) -> None:
         """测试加载不存在的文件"""
         with tempfile.TemporaryDirectory() as temp_dir:
             loader = YamlConfigLoader(temp_dir)
@@ -37,7 +38,7 @@ class TestYamlConfigLoader:
             with pytest.raises(ConfigurationError, match="Configuration file not found"):
                 loader.load("nonexistent.yaml")
     
-    def test_load_invalid_yaml(self):
+    def test_load_invalid_yaml(self) -> None:
         """测试加载无效YAML"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "invalid.yaml"
@@ -50,7 +51,7 @@ class TestYamlConfigLoader:
             with pytest.raises(ConfigurationError, match="Invalid YAML"):
                 loader.load("invalid.yaml")
     
-    def test_resolve_env_vars(self):
+    def test_resolve_env_vars(self) -> None:
         """测试环境变量解析"""
         os.environ["TEST_API_KEY"] = "secret_key"
         os.environ["TEST_PORT"] = "8000"
@@ -85,7 +86,7 @@ class TestYamlConfigLoader:
             if "TEST_PORT" in os.environ:
                 del os.environ["TEST_PORT"]
     
-    def test_resolve_nested_env_vars(self):
+    def test_resolve_nested_env_vars(self) -> None:
         """测试嵌套环境变量解析"""
         os.environ["TEST_HOST"] = "localhost"
         os.environ["TEST_PORT"] = "8000"
@@ -118,7 +119,7 @@ class TestYamlConfigLoader:
             if "TEST_PORT" in os.environ:
                 del os.environ["TEST_PORT"]
     
-    def test_config_caching(self, sample_config):
+    def test_config_caching(self, sample_config: Any) -> None:
         """测试配置缓存"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test.yaml"
@@ -136,7 +137,7 @@ class TestYamlConfigLoader:
             
             assert config1 is config2
     
-    def test_reload(self, sample_config):
+    def test_reload(self, sample_config: Any) -> None:
         """测试重新加载配置"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test.yaml"
@@ -162,7 +163,7 @@ class TestYamlConfigLoader:
             assert config1["log_level"] == "INFO"
             assert config2["log_level"] == "DEBUG"
     
-    def test_watch_for_changes(self, sample_config):
+    def test_watch_for_changes(self, sample_config: Any) -> None:
         """测试配置文件变化监听"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test.yaml"
@@ -192,7 +193,7 @@ class TestYamlConfigLoader:
             assert args[0] == "test.yaml"
             assert args[1]["log_level"] == "DEBUG"
     
-    def test_get_cached_config(self, sample_config):
+    def test_get_cached_config(self, sample_config: Any) -> None:
         """测试获取缓存配置"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test.yaml"
@@ -215,7 +216,7 @@ class TestYamlConfigLoader:
             nonexistent = loader.get_cached_config("nonexistent.yaml")
             assert nonexistent is None
     
-    def test_clear_cache(self, sample_config):
+    def test_clear_cache(self, sample_config: Any) -> None:
         """测试清除缓存"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test.yaml"
@@ -237,7 +238,7 @@ class TestYamlConfigLoader:
             # 验证缓存已清除
             assert loader.get_cached_config("test.yaml") is None
     
-    def test_validate_config_structure(self):
+    def test_validate_config_structure(self) -> None:
         """测试配置结构验证"""
         loader = YamlConfigLoader()
         
@@ -260,7 +261,7 @@ class TestYamlConfigLoader:
         assert result.is_error()
         assert "log_level" in result.details["missing_keys"]
     
-    def test_stop_watching(self):
+    def test_stop_watching(self) -> None:
         """测试停止监听"""
         with tempfile.TemporaryDirectory() as temp_dir:
             loader = YamlConfigLoader(temp_dir)

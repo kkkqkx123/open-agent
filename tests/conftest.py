@@ -10,7 +10,7 @@ sys.path.insert(0, str(src_path))
 
 
 @pytest.fixture
-def sample_config():
+def sample_config() -> dict:
     """示例配置数据"""
     return {
         "log_level": "INFO",
@@ -31,7 +31,7 @@ def sample_config():
 
 
 @pytest.fixture
-def sample_llm_config():
+def sample_llm_config() -> dict:
     """示例LLM配置数据"""
     return {
         "group": "openai_group",

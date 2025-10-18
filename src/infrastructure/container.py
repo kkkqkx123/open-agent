@@ -170,12 +170,12 @@ class DependencyContainer(IDependencyContainer):
             
             # 处理已注册的实例
             if registration.instance is not None:
-                return registration.instance
+                return registration.instance  # type: ignore
             
             # 处理单例模式
             if registration.lifetime == ServiceLifetime.SINGLETON:
                 if service_type in self._instances:
-                    return self._instances[service_type]
+                    return self._instances[service_type]  # type: ignore
             
             # 创建服务实例
             self._creating.add(service_type)
@@ -186,7 +186,7 @@ class DependencyContainer(IDependencyContainer):
                 if registration.lifetime == ServiceLifetime.SINGLETON:
                     self._instances[service_type] = instance
                 
-                return instance
+                return instance  # type: ignore
             finally:
                 self._creating.discard(service_type)
     

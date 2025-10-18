@@ -5,7 +5,7 @@ import os
 import tempfile
 import json
 from pathlib import Path
-from typing import cast
+from typing import cast, Any, Dict
 
 from src.infrastructure import (
     DependencyContainer,
@@ -21,7 +21,7 @@ from src.infrastructure.types import CheckResult
 class TestEndToEndWorkflow:
     """端到端工作流测试"""
     
-    def test_complete_infrastructure_workflow(self):
+    def test_complete_infrastructure_workflow(self) -> None:
         """测试完整的基础设施工作流"""
         with TestContainer() as container:
             # 1. 设置环境
@@ -81,7 +81,7 @@ class TestEndToEndWorkflow:
                 def __init__(self, config_loader: YamlConfigLoader):
                     self.config_loader = config_loader
                 
-                def get_config(self, path: str):
+                def get_config(self, path: str) -> Any:
                     return self.config_loader.load(path)
             
             di_container.register(CustomService, CustomService)
@@ -95,7 +95,7 @@ class TestEndToEndWorkflow:
             container.clear_environment_variable("AGENT_OPENAI_KEY")
             container.clear_environment_variable("AGENT_ENV")
     
-    def test_error_recovery_workflow(self):
+    def test_error_recovery_workflow(self) -> None:
         """测试错误恢复工作流"""
         with TestContainer() as container:
             # 1. 创建有问题的配置
@@ -141,7 +141,7 @@ invalid_yaml: [
             layer_violations = [r for r in arch_results if r.component == "architecture_layer"]
             # 注意：由于测试容器中可能还有其他违规文件，这里不强制要求全部通过
     
-    def test_performance_benchmark_workflow(self):
+    def test_performance_benchmark_workflow(self) -> None:
         """测试性能基准工作流"""
         with TestContainer() as container:
             container.setup_basic_configs()
@@ -193,7 +193,7 @@ invalid_yaml: [
             check_time = end_time - start_time
             assert check_time < 1.0, f"Environment check time: {check_time:.3f}s"
     
-    def test_multi_environment_workflow(self):
+    def test_multi_environment_workflow(self) -> None:
         """测试多环境工作流"""
         with TestContainer() as container:
             # 1. 设置不同环境的配置
@@ -217,7 +217,7 @@ invalid_yaml: [
                     self.config_path = config_path
                     self.config_loader = di_container.get(YamlConfigLoader)
                 
-                def get_config(self):
+                def get_config(self) -> Any:
                     return self.config_loader.load(self.config_path)
             
             # 注册不同环境的配置服务
@@ -244,7 +244,7 @@ invalid_yaml: [
             dev_config2 = dev_service2.get_config()
             assert dev_config2["env"] == "development"
     
-    def test_environment_check_command_integration(self):
+    def test_environment_check_command_integration(self) -> None:
         """测试环境检查命令集成"""
         with TestContainer() as container:
             container.setup_basic_configs()
@@ -284,7 +284,7 @@ invalid_yaml: [
                 if os.path.exists(json_file):
                     os.unlink(json_file)
     
-    def test_configuration_hot_reload_workflow(self):
+    def test_configuration_hot_reload_workflow(self) -> None:
         """测试配置热重载工作流"""
         with TestContainer() as container:
             container.setup_basic_configs()
@@ -297,7 +297,7 @@ invalid_yaml: [
             
             # 2. 设置热重载监听
             reloaded_configs = {}
-            def on_reload(config_path, config_data):
+            def on_reload(config_path: str, config_data: Dict[str, Any]) -> None:
                 reloaded_configs[config_path] = config_data
             
             config_loader.watch_for_changes(on_reload)

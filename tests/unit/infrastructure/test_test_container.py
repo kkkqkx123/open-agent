@@ -3,7 +3,9 @@
 import pytest
 import tempfile
 import yaml
+import os
 from pathlib import Path
+from typing import Any
 
 from src.infrastructure.test_container import TestContainer
 from src.infrastructure import IConfigLoader, IEnvironmentChecker, ArchitectureChecker
@@ -12,7 +14,7 @@ from src.infrastructure import IConfigLoader, IEnvironmentChecker, ArchitectureC
 class TestTestContainer:
     """测试容器测试"""
     
-    def test_init_with_temp_dir(self):
+    def test_init_with_temp_dir(self) -> None:
         """测试使用临时目录初始化"""
         with tempfile.TemporaryDirectory() as temp_dir:
             container = TestContainer(temp_dir)
@@ -21,7 +23,7 @@ class TestTestContainer:
             assert container.temp_path == Path(temp_dir)
             assert container.container is not None
     
-    def test_init_without_temp_dir(self):
+    def test_init_without_temp_dir(self) -> None:
         """测试不指定临时目录初始化"""
         container = TestContainer()
         
@@ -29,7 +31,7 @@ class TestTestContainer:
         assert container.temp_path.exists()
         assert container.container is not None
     
-    def test_get_container(self):
+    def test_get_container(self) -> None:
         """测试获取依赖注入容器"""
         container = TestContainer()
         di_container = container.get_container()
@@ -37,7 +39,7 @@ class TestTestContainer:
         assert di_container is not None
         assert di_container is container.container
     
-    def test_create_test_config(self):
+    def test_create_test_config(self) -> None:
         """测试创建测试配置文件"""
         container = TestContainer()
         
@@ -57,7 +59,7 @@ class TestTestContainer:
         assert loaded_config["log_level"] == "DEBUG"
         assert loaded_config["env"] == "test"
     
-    def test_create_test_file(self):
+    def test_create_test_file(self) -> None:
         """测试创建测试文件"""
         container = TestContainer()
         
@@ -72,7 +74,7 @@ class TestTestContainer:
         
         assert file_content == content
     
-    def test_create_test_module(self):
+    def test_create_test_module(self) -> None:
         """测试创建测试模块"""
         container = TestContainer()
         
@@ -95,7 +97,7 @@ def test_function():
         
         assert "test_function" in module_content
     
-    def test_get_config_loader(self):
+    def test_get_config_loader(self) -> None:
         """测试获取配置加载器"""
         container = TestContainer()
         
@@ -103,7 +105,7 @@ def test_function():
         assert config_loader is not None
         assert isinstance(config_loader, IConfigLoader)
     
-    def test_get_environment_checker(self):
+    def test_get_environment_checker(self) -> None:
         """测试获取环境检查器"""
         container = TestContainer()
         
@@ -111,7 +113,7 @@ def test_function():
         assert env_checker is not None
         assert isinstance(env_checker, IEnvironmentChecker)
     
-    def test_get_architecture_checker(self):
+    def test_get_architecture_checker(self) -> None:
         """测试获取架构检查器"""
         container = TestContainer()
         
@@ -119,7 +121,7 @@ def test_function():
         assert arch_checker is not None
         assert isinstance(arch_checker, ArchitectureChecker)
     
-    def test_setup_basic_configs(self):
+    def test_setup_basic_configs(self) -> None:
         """测试设置基础配置文件"""
         container = TestContainer()
         
@@ -154,7 +156,7 @@ def test_function():
         tool_group_config = container.temp_path / "configs" / "tool-sets" / "_group.yaml"
         assert tool_group_config.exists()
     
-    def test_setup_basic_modules(self):
+    def test_setup_basic_modules(self) -> None:
         """测试设置基础模块结构"""
         container = TestContainer()
         
@@ -184,7 +186,7 @@ def test_function():
         assert pres_init.exists()
         assert pres_cli.exists()
     
-    def test_cleanup(self):
+    def test_cleanup(self) -> None:
         """测试清理测试环境"""
         container = TestContainer()
         
@@ -196,7 +198,7 @@ def test_function():
         container.cleanup()
         assert not container.temp_path.exists()
     
-    def test_context_manager(self):
+    def test_context_manager(self) -> None:
         """测试上下文管理器"""
         with TestContainer() as container:
             # 创建一些文件
@@ -206,7 +208,7 @@ def test_function():
         # 退出上下文后应该自动清理
         assert not container.temp_path.exists()
     
-    def test_set_environment_variable(self):
+    def test_set_environment_variable(self) -> None:
         """测试设置环境变量"""
         container = TestContainer()
         
@@ -221,7 +223,7 @@ def test_function():
         container.clear_environment_variable("TEST_VAR")
         assert os.environ.get("TEST_VAR") is None
     
-    def test_clear_environment_variable(self):
+    def test_clear_environment_variable(self) -> None:
         """测试清除环境变量"""
         import os
         
@@ -234,7 +236,7 @@ def test_function():
         container.clear_environment_variable("TEST_VAR")
         assert os.environ.get("TEST_VAR") is None
     
-    def test_create_test_files_with_violations(self):
+    def test_create_test_files_with_violations(self) -> None:
         """测试创建有架构违规的测试文件"""
         container = TestContainer()
         
@@ -262,7 +264,7 @@ def test_function():
             content = f.read()
             assert "from src.application.service" in content
     
-    def test_integration_with_config_loader(self):
+    def test_integration_with_config_loader(self) -> None:
         """测试与配置加载器的集成"""
         container = TestContainer()
         container.setup_basic_configs()
@@ -278,7 +280,7 @@ def test_function():
         llm_config = config_loader.load("llms/_group.yaml")
         assert "openai_group" in llm_config
     
-    def test_integration_with_environment_checker(self):
+    def test_integration_with_environment_checker(self) -> None:
         """测试与环境检查器的集成"""
         container = TestContainer()
         container.setup_basic_configs()
@@ -293,7 +295,7 @@ def test_function():
         config_results = [r for r in results if r.component.startswith("config_file_")]
         assert len(config_results) > 0
     
-    def test_integration_with_architecture_checker(self):
+    def test_integration_with_architecture_checker(self) -> None:
         """测试与架构检查器的集成"""
         container = TestContainer()
         container.setup_basic_modules()

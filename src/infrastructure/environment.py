@@ -206,13 +206,15 @@ class EnvironmentChecker(IEnvironmentChecker):
         
         # 检查可用内存
         try:
+            mem_gb_result: Union[float, str] = "unknown"  # 初始化变量
+            
             if system == "Linux":
                 with open('/proc/meminfo', 'r') as f:
                     meminfo = f.read()
                     mem_total = int([line for line in meminfo.split('\n') if 'MemTotal' in line][0].split()[1])
                     mem_available = int([line for line in meminfo.split('\n') if 'MemAvailable' in line][0].split()[1])
                     mem_gb = mem_available / (1024 * 1024)
-                    mem_gb_result: Union[float, str] = mem_gb
+                    mem_gb_result = mem_gb
             elif system == "Darwin":  # macOS
                 result = subprocess.run(['vm_stat'], capture_output=True, text=True)
                 if result.returncode == 0:
@@ -221,16 +223,16 @@ class EnvironmentChecker(IEnvironmentChecker):
                     free_pages = int([line for line in vm_stat.split('\n') if 'Pages free:' in line][0].split(':')[1].strip().replace('.', ''))
                     page_size = 4096  # macOS默认页面大小
                     mem_gb = (free_pages * page_size) / (1024 * 1024 * 1024)
-                    mem_gb_result: Union[float, str] = mem_gb
+                    mem_gb_result = mem_gb
                 else:
-                    mem_gb_result: Union[float, str] = "unknown"
+                    mem_gb_result = "unknown"
             elif system == "Windows":
                 import psutil  # type: ignore
                 mem = psutil.virtual_memory()
                 mem_gb = mem.available / (1024 * 1024 * 1024)
-                mem_gb_result: Union[float, str] = mem_gb
+                mem_gb_result = mem_gb
             else:
-                mem_gb_result: Union[float, str] = "unknown"
+                mem_gb_result = "unknown"
             
             if isinstance(mem_gb_result, (int, float)):
                 if mem_gb_result >= 1.0:  # 至少1GB可用内存

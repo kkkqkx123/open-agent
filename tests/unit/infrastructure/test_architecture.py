@@ -12,7 +12,7 @@ from src.infrastructure.types import CheckResult
 class TestArchitectureChecker:
     """架构检查器测试"""
     
-    def test_define_layer_rules(self):
+    def test_define_layer_rules(self) -> None:
         """测试分层规则定义"""
         checker = ArchitectureChecker()
         rules = checker.layer_rules
@@ -49,7 +49,7 @@ class TestArchitectureChecker:
         assert "application" in pres_rule.allowed_dependencies
         assert len(pres_rule.forbidden_dependencies) == 0
     
-    def test_match_path_pattern(self):
+    def test_match_path_pattern(self) -> None:
         """测试路径模式匹配"""
         checker = ArchitectureChecker()
         
@@ -66,7 +66,7 @@ class TestArchitectureChecker:
         path = Path("src/domain/subdir/file.py")
         assert not checker._match_path_pattern(path, "src/domain/*")
     
-    def test_determine_layer(self):
+    def test_determine_layer(self) -> None:
         """测试确定文件所属层级"""
         checker = ArchitectureChecker()
         
@@ -80,7 +80,7 @@ class TestArchitectureChecker:
         assert checker._determine_layer("src/unknown/file.py") is None
         assert checker._determine_layer("other/path/file.py") is None
     
-    def test_extract_imports(self):
+    def test_extract_imports(self) -> None:
         """测试提取导入语句"""
         checker = ArchitectureChecker()
         current_file = Path("src/domain/entities.py")
@@ -101,7 +101,7 @@ from src.infrastructure.repository import Repository
         assert any("models.py" in imp for imp in imports)
         assert any("repository.py" in imp for imp in imports)
     
-    def test_resolve_import_path(self):
+    def test_resolve_import_path(self) -> None:
         """测试解析导入路径"""
         with tempfile.TemporaryDirectory() as temp_dir:
             src_path = Path(temp_dir) / "src"
@@ -135,7 +135,7 @@ from src.infrastructure.repository import Repository
             import_path = checker._resolve_import_path("os", current_file)
             assert import_path is None
     
-    def test_check_layer_violations(self):
+    def test_check_layer_violations(self) -> None:
         """测试层级违规检查"""
         with tempfile.TemporaryDirectory() as temp_dir:
             # 创建测试文件结构
@@ -158,7 +158,7 @@ from src.infrastructure.repository import Repository
             assert "to_layer" in violation
             assert "violation_type" in violation
     
-    def test_check_circular_dependencies(self):
+    def test_check_circular_dependencies(self) -> None:
         """测试循环依赖检查"""
         with tempfile.TemporaryDirectory() as temp_dir:
             # 创建循环依赖文件
@@ -177,7 +177,7 @@ from src.infrastructure.repository import Repository
             assert isinstance(cycle, list)
             assert len(cycle) >= 2
     
-    def test_check_architecture(self):
+    def test_check_architecture(self) -> None:
         """测试完整架构检查"""
         with tempfile.TemporaryDirectory() as temp_dir:
             # 创建合规的文件结构
@@ -194,7 +194,7 @@ from src.infrastructure.repository import Repository
                 assert isinstance(result, CheckResult)
                 assert result.component in ["architecture_layer", "circular_dependency"]
     
-    def test_generate_dependency_graph(self):
+    def test_generate_dependency_graph(self) -> None:
         """测试生成依赖图报告"""
         with tempfile.TemporaryDirectory() as temp_dir:
             # 创建测试文件结构
@@ -224,7 +224,7 @@ from src.infrastructure.repository import Repository
                 assert "allowed_dependencies" in layer_info
                 assert "forbidden_dependencies" in layer_info
     
-    def _create_test_files(self, temp_dir):
+    def _create_test_files(self, temp_dir: str) -> None:
         """创建测试文件"""
         src_path = Path(temp_dir) / "src"
         
@@ -272,7 +272,7 @@ class CLI:
         self.service = service
 """)
 
-    def _create_circular_dependency_files(self, temp_dir):
+    def _create_circular_dependency_files(self, temp_dir: str) -> None:
         """创建循环依赖文件"""
         src_path = Path(temp_dir) / "src"
         src_path.mkdir()
@@ -294,7 +294,7 @@ class ModuleB:
         self.a = ModuleA()
 """)
 
-    def _create_compliant_files(self, temp_dir):
+    def _create_compliant_files(self, temp_dir: str) -> None:
         """创建合规的文件结构"""
         src_path = Path(temp_dir) / "src"
         

@@ -5,6 +5,7 @@ import sys
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch, MagicMock
 
 from src.infrastructure.environment import EnvironmentChecker
@@ -14,7 +15,7 @@ from src.infrastructure.types import CheckResult
 class TestEnvironmentChecker:
     """环境检查器测试"""
     
-    def test_check_python_version_pass(self):
+    def test_check_python_version_pass(self) -> None:
         """测试Python版本检查通过"""
         checker = EnvironmentChecker(min_python_version=(3, 10, 0))
         result = checker.check_python_version()
@@ -23,7 +24,7 @@ class TestEnvironmentChecker:
         assert "Python version" in result.message
         assert "meets requirement" in result.message
     
-    def test_check_python_version_fail(self):
+    def test_check_python_version_fail(self) -> None:
         """测试Python版本检查失败"""
         # 设置一个不可能满足的高版本要求
         checker = EnvironmentChecker(min_python_version=(99, 0, 0))
@@ -33,7 +34,7 @@ class TestEnvironmentChecker:
         assert "is below required" in result.message
         assert "99.0.0" in result.message
     
-    def test_check_required_packages(self):
+    def test_check_required_packages(self) -> None:
         """检查必需包"""
         checker = EnvironmentChecker()
         results = checker.check_required_packages()
@@ -46,7 +47,7 @@ class TestEnvironmentChecker:
             assert result.component.startswith("package_")
             assert "version" in result.details
     
-    def test_check_missing_package(self):
+    def test_check_missing_package(self) -> None:
         """测试缺失包检查"""
         checker = EnvironmentChecker()
         checker.required_packages = ["nonexistent_package_12345"]
@@ -58,7 +59,7 @@ class TestEnvironmentChecker:
         assert "not installed" in results[0].message
     
     @patch('importlib.util.find_spec')
-    def test_check_package_with_version(self, mock_find_spec):
+    def test_check_package_with_version(self, mock_find_spec: Any) -> None:
         """测试带版本信息的包检查"""
         # 模拟包存在且有版本信息
         mock_module = MagicMock()
@@ -75,7 +76,7 @@ class TestEnvironmentChecker:
             assert results[0].is_pass()
             assert results[0].details["version"] == "1.0.0"
     
-    def test_check_config_files(self):
+    def test_check_config_files(self) -> None:
         """测试配置文件检查"""
         with tempfile.TemporaryDirectory() as temp_dir:
             # 创建测试配置文件
@@ -100,7 +101,7 @@ class TestEnvironmentChecker:
             
             # 模拟配置文件路径
             with patch('src.infrastructure.environment.Path.exists') as mock_exists:
-                def exists_side_effect(path):
+                def exists_side_effect(path: Any) -> bool:
                     path_str = str(path)
                     return "global.yaml" in path_str or "_group.yaml" in path_str and "llms" in path_str
                 
@@ -123,7 +124,7 @@ class TestEnvironmentChecker:
             missing_result = next(r for r in results if "agents/_group.yaml" in r.component)
             assert missing_result.is_warning()
     
-    def test_check_system_resources(self):
+    def test_check_system_resources(self) -> None:
         """测试系统资源检查"""
         checker = EnvironmentChecker()
         results = checker.check_system_resources()
@@ -145,7 +146,7 @@ class TestEnvironmentChecker:
         assert disk_result.component == "disk_space"
     
     @patch('platform.system')
-    def test_check_system_resources_linux(self, mock_system):
+    def test_check_system_resources_linux(self, mock_system: Any) -> None:
         """测试Linux系统资源检查"""
         mock_system.return_value = "Linux"
         
@@ -170,7 +171,7 @@ MemAvailable:    4000000 kB
                 assert memory_result.details["available_gb"] >= 1.0
     
     @patch('platform.system')
-    def test_check_system_resources_memory_warning(self, mock_system):
+    def test_check_system_resources_memory_warning(self, mock_system: Any) -> None:
         """测试内存不足警告"""
         mock_system.return_value = "Linux"
         
@@ -188,7 +189,7 @@ MemAvailable:    500000 kB
             assert memory_result.is_warning()
             assert "Low available memory" in memory_result.message
     
-    def test_check_environment_variables(self):
+    def test_check_environment_variables(self) -> None:
         """测试环境变量检查"""
         # 设置测试环境变量
         os.environ["TEST_VAR"] = "test_value"
@@ -224,7 +225,7 @@ MemAvailable:    500000 kB
             if "SECRET_KEY" in os.environ:
                 del os.environ["SECRET_KEY"]
     
-    def test_check_dependencies(self):
+    def test_check_dependencies(self) -> None:
         """测试完整依赖检查"""
         checker = EnvironmentChecker()
         results = checker.check_dependencies()
@@ -235,7 +236,7 @@ MemAvailable:    500000 kB
         assert any(r.component.startswith("config_file_") for r in results)
         assert any(r.component in ["operating_system", "memory", "disk_space"] for r in results)
     
-    def test_generate_report(self):
+    def test_generate_report(self) -> None:
         """测试生成环境检查报告"""
         checker = EnvironmentChecker()
         report = checker.generate_report()
@@ -263,7 +264,7 @@ MemAvailable:    500000 kB
             assert "details" in detail
 
 
-def mock_open_read_data(data):
+def mock_open_read_data(data: str) -> Any:
     """模拟open函数返回数据"""
     from unittest.mock import mock_open
     return mock_open(read_data=data)

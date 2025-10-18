@@ -41,21 +41,21 @@ class TestContainer(ContextManager["TestContainer"]):
         """设置测试服务"""
         # 注册配置加载器
         self.container.register_factory(
-            IConfigLoader,
+            IConfigLoader,  # type: ignore
             lambda: YamlConfigLoader(str(self.temp_path / "configs")),
             lifetime="singleton"
         )
         
         # 注册环境检查器
         self.container.register(
-            IEnvironmentChecker,
+            IEnvironmentChecker,  # type: ignore
             EnvironmentChecker,
             lifetime="singleton"
         )
         
         # 注册架构检查器
         self.container.register_factory(
-            ArchitectureChecker,
+            ArchitectureChecker,  # type: ignore
             lambda: ArchitectureChecker(str(self.temp_path / "src")),
             lifetime="singleton"
         )
@@ -97,11 +97,11 @@ class TestContainer(ContextManager["TestContainer"]):
     
     def get_config_loader(self) -> IConfigLoader:
         """获取配置加载器"""
-        return self.container.get(IConfigLoader)
+        return self.container.get(IConfigLoader)  # type: ignore
     
     def get_environment_checker(self) -> IEnvironmentChecker:
         """获取环境检查器"""
-        return self.container.get(IEnvironmentChecker)
+        return self.container.get(IEnvironmentChecker)  # type: ignore
     
     def get_architecture_checker(self) -> ArchitectureChecker:
         """获取架构检查器"""
@@ -212,7 +212,7 @@ class CLI:
     
     
     @contextmanager
-    def context(self):
+    def context(self) -> Any:
         """上下文管理器，自动清理（保留向后兼容性）"""
         try:
             yield self

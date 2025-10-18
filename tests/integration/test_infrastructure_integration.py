@@ -5,6 +5,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
+from typing import Dict, Any
 
 from src.infrastructure import (
     DependencyContainer,
@@ -22,7 +23,7 @@ from src.infrastructure.exceptions import (
 class TestInfrastructureIntegration:
     """基础设施模块集成测试"""
     
-    def test_container_with_config_loader_integration(self):
+    def test_container_with_config_loader_integration(self) -> None:
         """测试依赖注入容器与配置加载器的集成"""
         with tempfile.TemporaryDirectory() as temp_dir:
             # 创建测试配置
@@ -56,7 +57,7 @@ debug: true
             config_loader2 = container.get(YamlConfigLoader)
             assert config_loader is config_loader2
     
-    def test_config_loader_with_env_vars_integration(self):
+    def test_config_loader_with_env_vars_integration(self) -> None:
         """测试配置加载器与环境变量的集成"""
         with tempfile.TemporaryDirectory() as temp_dir:
             # 设置环境变量
@@ -90,7 +91,7 @@ timeout: 30
                 if "TEST_PORT" in os.environ:
                     del os.environ["TEST_PORT"]
     
-    def test_config_hot_reload_integration(self):
+    def test_config_hot_reload_integration(self) -> None:
         """测试配置热重载功能"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "configs"
@@ -103,7 +104,7 @@ timeout: 30
             
             # 设置变化监听
             changed_configs = {}
-            def on_config_change(config_path, config_data):
+            def on_config_change(config_path: str, config_data: Dict[str, Any]) -> None:
                 changed_configs[config_path] = config_data
             
             loader.watch_for_changes(on_config_change)
@@ -128,7 +129,7 @@ timeout: 30
             
             loader.stop_watching()
     
-    def test_environment_checker_integration(self):
+    def test_environment_checker_integration(self) -> None:
         """测试环境检查器集成"""
         checker = EnvironmentChecker()
         
@@ -152,7 +153,7 @@ timeout: 30
         assert "details" in report
         assert report["summary"]["total"] == len(results)
     
-    def test_architecture_checker_integration(self):
+    def test_architecture_checker_integration(self) -> None:
         """测试架构检查器集成"""
         with tempfile.TemporaryDirectory() as temp_dir:
             # 创建测试项目结构
@@ -181,7 +182,7 @@ timeout: 30
             assert "import_graph" in graph
             assert "layer_mapping" in graph
     
-    def test_test_container_full_integration(self):
+    def test_test_container_full_integration(self) -> None:
         """测试测试容器的完整集成"""
         with TestContainer() as container:
             # 设置基础配置和模块
@@ -207,7 +208,7 @@ timeout: 30
             di_container = container.get_container()
             assert di_container is not None
     
-    def test_multi_environment_dependency_injection(self):
+    def test_multi_environment_dependency_injection(self) -> None:
         """测试多环境依赖注入"""
         container = DependencyContainer()
         
@@ -216,11 +217,11 @@ timeout: 30
             env: str
         
         class DevService(IService):
-            def __init__(self):
+            def __init__(self) -> None:
                 self.env = "development"
         
         class ProdService(IService):
-            def __init__(self):
+            def __init__(self) -> None:
                 self.env = "production"
         
         # 注册不同环境的实现
@@ -243,7 +244,7 @@ timeout: 30
         assert dev_service2.env == "development"
         assert dev_service2 is not dev_service  # 应该是新实例
     
-    def test_error_handling_integration(self):
+    def test_error_handling_integration(self) -> None:
         """测试错误处理集成"""
         # 测试服务未注册错误
         container = DependencyContainer()
@@ -274,7 +275,7 @@ timeout: 30
             with pytest.raises(ConfigurationError):
                 loader.load("test.yaml")
     
-    def test_performance_integration(self):
+    def test_performance_integration(self) -> None:
         """测试性能集成"""
         with TestContainer() as container:
             container.setup_basic_configs()
@@ -303,7 +304,7 @@ timeout: 30
             avg_time = (end_time - start_time) / 100
             assert avg_time < 0.001  # 平均每次获取应小于1ms
     
-    def _create_compliant_architecture(self, src_path: Path):
+    def _create_compliant_architecture(self, src_path: Path) -> None:
         """创建合规的架构结构"""
         # 创建目录结构
         for layer in ["domain", "infrastructure", "application", "presentation"]:

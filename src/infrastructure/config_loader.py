@@ -5,13 +5,16 @@ import re
 import yaml  # type: ignore
 import threading
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Callable, List
+from typing import Dict, Any, Optional, Callable, List, TypeVar
 from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 from .exceptions import ConfigurationError
 from .types import CheckResult
+
+# 定义类型变量
+ConfigValue = TypeVar('ConfigValue', Dict[str, Any], List[Any], str, Any)
 
 
 class IConfigLoader(ABC):
@@ -54,7 +57,7 @@ class ConfigFileHandler(FileSystemEventHandler):
     def __init__(self, config_loader: 'YamlConfigLoader') -> None:
         self.config_loader = config_loader
     
-    def on_modified(self, event) -> None:
+    def on_modified(self, event: Any) -> None:
         """文件修改事件处理"""
         if not event.is_directory and isinstance(event.src_path, str) and event.src_path.endswith(('.yaml', '.yml')):
             self.config_loader._handle_file_change(event.src_path)
@@ -135,16 +138,22 @@ class YamlConfigLoader(IConfigLoader):
             self._observers.clear()
             self._callbacks.clear()
     
-    def resolve_env_vars(self, config: Any) -> Any:
+    def resolve_env_vars(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """解析环境变量"""
-        if isinstance(config, dict):
-            return {k: self.resolve_env_vars(v) for k, v in config.items()}
-        elif isinstance(config, list):
-            return [self.resolve_env_vars(item) for item in config]
-        elif isinstance(config, str):
-            return self._resolve_env_var_string(config)
-        else:
-            return config
+        def _resolve_recursive(value: Any) -> Any:
+            if isinstance(value, dict):
+                return {k: _resolve_recursive(v) for k, v in value.items()}
+            elif isinstance(value, list):
+                return [_resolve_recursive(item) for item in value]
+            elif isinstance(value, str):
+                return self._resolve_env_var_string(value)
+            else:
+                return value
+        
+        result = _resolve_recursive(config)
+        # 确保返回类型是 Dict[str, Any]
+        assert isinstance(result, dict)
+        return result
     
     def _resolve_env_var_string(self, text: str) -> str:
         """解析字符串中的环境变量"""
