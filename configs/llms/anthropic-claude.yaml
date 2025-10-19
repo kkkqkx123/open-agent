@@ -1,0 +1,24 @@
+# Anthropic Claude 配置
+model_type: anthropic
+model_name: claude-3-sonnet-20240229
+base_url: "https://api.anthropic.com"
+api_key: "${ANTHROPIC_API_KEY}"
+
+parameters:
+  temperature: 0.7
+  max_tokens: 2000
+  timeout: 30
+  max_retries: 3
+  stream: false
+
+# 降级配置
+fallback_enabled: true
+fallback_models:
+  - openai-gpt3.5-turbo
+max_fallback_attempts: 3
+
+# 元数据
+metadata:
+  provider: anthropic
+  version: "1.0"
+  description: "Anthropic Claude 3 Sonnet 模型"

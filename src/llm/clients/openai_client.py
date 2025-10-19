@@ -1,0 +1,322 @@
+"""OpenAI客户端实现"""
+
+import json
+import time
+from typing import Dict, Any, Optional, List, AsyncGenerator
+import asyncio
+
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+
+from .base import BaseLLMClient
+from ..models import LLMResponse, TokenUsage
+from ..config import OpenAIConfig
+from ..exceptions import (
+    LLMCallError,
+    LLMTimeoutError,
+    LLMRateLimitError,
+    LLMAuthenticationError,
+    LLMModelNotFoundError,
+    LLMTokenLimitError,
+    LLMContentFilterError,
+    LLMServiceUnavailableError,
+    LLMInvalidRequestError
+)
+
+
+class OpenAIClient(BaseLLMClient):
+    """OpenAI客户端实现"""
+    
+    def __init__(self, config: OpenAIConfig) -> None:
+        """
+        初始化OpenAI客户端
+        
+        Args:
+            config: OpenAI配置
+        """
+        super().__init__(config)
+        
+        # 获取解析后的HTTP标头
+        resolved_headers = config.get_resolved_headers()
+        
+        # 创建LangChain ChatOpenAI实例
+        self._client = ChatOpenAI(
+            model=config.model_name,
+            openai_api_key=config.api_key,
+            openai_api_base=config.base_url,
+            openai_organization=config.organization,
+            temperature=config.temperature,
+            max_tokens=config.max_tokens,
+            top_p=config.top_p,
+            frequency_penalty=config.frequency_penalty,
+            presence_penalty=config.presence_penalty,
+            timeout=config.timeout,
+            max_retries=config.max_retries,
+            request_timeout=config.timeout,
+            default_headers=resolved_headers,
+            model_kwargs={
+                "functions": config.functions,
+                "function_call": config.function_call
+            } if config.functions else {}
+        )
+    
+    def _do_generate(
+        self,
+        messages: List[BaseMessage],
+        parameters: Dict[str, Any],
+        **kwargs
+    ) -> LLMResponse:
+        """执行生成操作"""
+        try:
+            # 调用OpenAI API
+            response = self._client.invoke(messages, **parameters)
+            
+            # 提取Token使用情况
+            token_usage = self._extract_token_usage(response)
+            
+            # 提取函数调用信息
+            function_call = self._extract_function_call(response)
+            
+            # 创建响应对象
+            return self._create_response(
+                content=response.content,
+                message=response,
+                token_usage=token_usage,
+                finish_reason=self._extract_finish_reason(response),
+                function_call=function_call
+            )
+            
+        except Exception as e:
+            # 处理OpenAI特定错误
+            raise self._handle_openai_error(e)
+    
+    async def _do_generate_async(
+        self,
+        messages: List[BaseMessage],
+        parameters: Dict[str, Any],
+        **kwargs
+    ) -> LLMResponse:
+        """执行异步生成操作"""
+        try:
+            # 调用OpenAI API
+            response = await self._client.ainvoke(messages, **parameters)
+            
+            # 提取Token使用情况
+            token_usage = self._extract_token_usage(response)
+            
+            # 提取函数调用信息
+            function_call = self._extract_function_call(response)
+            
+            # 创建响应对象
+            return self._create_response(
+                content=response.content,
+                message=response,
+                token_usage=token_usage,
+                finish_reason=self._extract_finish_reason(response),
+                function_call=function_call
+            )
+            
+        except Exception as e:
+            # 处理OpenAI特定错误
+            raise self._handle_openai_error(e)
+    
+    def stream_generate(
+        self,
+        messages: List[BaseMessage],
+        parameters: Optional[Dict[str, Any]] = None,
+        **kwargs
+    ) -> AsyncGenerator[str, None]:
+        """流式生成文本响应"""
+        # 验证输入
+        self._validate_messages(messages)
+        self._validate_token_limit(messages)
+        
+        # 合并参数
+        merged_params = self._merge_parameters(parameters)
+        
+        # 调用前置钩子
+        self._call_before_hooks(messages, merged_params, **kwargs)
+        
+        try:
+            # 流式生成
+            stream = self._client.stream(messages, **merged_params)
+            
+            # 收集完整响应
+            full_content = ""
+            for chunk in stream:
+                if chunk.content:
+                    full_content += chunk.content
+                    yield chunk.content
+            
+            # 创建最终响应
+            token_usage = TokenUsage()  # 流式响应可能不提供token使用情况
+            response = self._create_response(
+                content=full_content,
+                message=AIMessage(content=full_content),
+                token_usage=token_usage
+            )
+            
+            # 调用后置钩子
+            self._call_after_hooks(response, messages, merged_params, **kwargs)
+            
+        except Exception as e:
+            # 处理OpenAI特定错误
+            llm_error = self._handle_openai_error(e)
+            
+            # 尝试通过钩子恢复
+            fallback_response = self._call_error_hooks(llm_error, messages, merged_params, **kwargs)
+            if fallback_response is not None:
+                return
+            
+            # 抛出错误
+            raise llm_error
+    
+    async def stream_generate_async(
+        self,
+        messages: List[BaseMessage],
+        parameters: Optional[Dict[str, Any]] = None,
+        **kwargs
+    ) -> AsyncGenerator[str, None]:
+        """异步流式生成文本响应"""
+        # 验证输入
+        self._validate_messages(messages)
+        self._validate_token_limit(messages)
+        
+        # 合并参数
+        merged_params = self._merge_parameters(parameters)
+        
+        # 调用前置钩子
+        self._call_before_hooks(messages, merged_params, **kwargs)
+        
+        try:
+            # 异步流式生成
+            stream = self._client.astream(messages, **merged_params)
+            
+            # 收集完整响应
+            full_content = ""
+            async for chunk in stream:
+                if chunk.content:
+                    full_content += chunk.content
+                    yield chunk.content
+            
+            # 创建最终响应
+            token_usage = TokenUsage()  # 流式响应可能不提供token使用情况
+            response = self._create_response(
+                content=full_content,
+                message=AIMessage(content=full_content),
+                token_usage=token_usage
+            )
+            
+            # 调用后置钩子
+            self._call_after_hooks(response, messages, merged_params, **kwargs)
+            
+        except Exception as e:
+            # 处理OpenAI特定错误
+            llm_error = self._handle_openai_error(e)
+            
+            # 尝试通过钩子恢复
+            fallback_response = self._call_error_hooks(llm_error, messages, merged_params, **kwargs)
+            if fallback_response is not None:
+                return
+            
+            # 抛出错误
+            raise llm_error
+    
+    def get_token_count(self, text: str) -> int:
+        """计算文本的token数量"""
+        from ..token_counter import TokenCounterFactory
+        
+        # 使用Token计算器
+        counter = TokenCounterFactory.create_counter("openai", self.config.model_name)
+        return counter.count_tokens(text)
+    
+    def get_messages_token_count(self, messages: List[BaseMessage]) -> int:
+        """计算消息列表的token数量"""
+        from ..token_counter import TokenCounterFactory
+        
+        # 使用Token计算器
+        counter = TokenCounterFactory.create_counter("openai", self.config.model_name)
+        return counter.count_messages_tokens(messages)
+    
+    def supports_function_calling(self) -> bool:
+        """检查是否支持函数调用"""
+        return True
+    
+    def _extract_token_usage(self, response: Any) -> TokenUsage:
+        """提取Token使用情况"""
+        if hasattr(response, 'usage_metadata') and response.usage_metadata:
+            usage = response.usage_metadata
+            return TokenUsage(
+                prompt_tokens=usage.get('input_tokens', 0),
+                completion_tokens=usage.get('output_tokens', 0),
+                total_tokens=usage.get('total_tokens', 0)
+            )
+        elif hasattr(response, 'response_metadata') and response.response_metadata:
+            metadata = response.response_metadata
+            if 'token_usage' in metadata:
+                usage = metadata['token_usage']
+                return TokenUsage(
+                    prompt_tokens=usage.get('prompt_tokens', 0),
+                    completion_tokens=usage.get('completion_tokens', 0),
+                    total_tokens=usage.get('total_tokens', 0)
+                )
+        
+        # 默认返回0
+        return TokenUsage()
+    
+    def _extract_function_call(self, response: Any) -> Optional[Dict[str, Any]]:
+        """提取函数调用信息"""
+        if hasattr(response, 'additional_kwargs') and 'function_call' in response.additional_kwargs:
+            return response.additional_kwargs['function_call']
+        return None
+    
+    def _extract_finish_reason(self, response: Any) -> Optional[str]:
+        """提取完成原因"""
+        if hasattr(response, 'response_metadata') and response.response_metadata:
+            metadata = response.response_metadata
+            return metadata.get('finish_reason')
+        return None
+    
+    def _handle_openai_error(self, error: Exception) -> LLMCallError:
+        """处理OpenAI特定错误"""
+        error_str = str(error).lower()
+        
+        # 尝试从错误中提取更多信息
+        if hasattr(error, 'response'):
+            response = error.response
+            if hasattr(response, 'status_code'):
+                status_code = response.status_code
+                
+                if status_code == 401:
+                    return LLMAuthenticationError("OpenAI API密钥无效")
+                elif status_code == 429:
+                    retry_after = None
+                    if hasattr(response, 'headers') and 'retry-after' in response.headers:
+                        retry_after = int(response.headers['retry-after'])
+                    return LLMRateLimitError("OpenAI API频率限制", retry_after=retry_after)
+                elif status_code == 404:
+                    return LLMModelNotFoundError(self.config.model_name)
+                elif status_code == 400:
+                    return LLMInvalidRequestError("OpenAI API请求无效")
+                elif status_code == 500 or status_code == 502 or status_code == 503:
+                    return LLMServiceUnavailableError("OpenAI服务不可用")
+        
+        # 根据错误消息判断
+        if "timeout" in error_str or "timed out" in error_str:
+            return LLMTimeoutError(str(error), timeout=self.config.timeout)
+        elif "rate limit" in error_str or "too many requests" in error_str:
+            return LLMRateLimitError(str(error))
+        elif "authentication" in error_str or "unauthorized" in error_str or "invalid api key" in error_str:
+            return LLMAuthenticationError(str(error))
+        elif "model not found" in error_str or "not found" in error_str:
+            return LLMModelNotFoundError(self.config.model_name)
+        elif "token" in error_str and "limit" in error_str:
+            return LLMTokenLimitError(str(error))
+        elif "content filter" in error_str or "content policy" in error_str:
+            return LLMContentFilterError(str(error))
+        elif "service unavailable" in error_str or "503" in error_str:
+            return LLMServiceUnavailableError(str(error))
+        elif "invalid request" in error_str or "bad request" in error_str:
+            return LLMInvalidRequestError(str(error))
+        else:
+            return LLMCallError(str(error))

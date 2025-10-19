@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, Callable
 from datetime import datetime
 
-from ..infrastructure.exceptions import ConfigurationError
+from infrastructure.exceptions import ConfigurationError
 
 
 class ConfigBackupManager:
