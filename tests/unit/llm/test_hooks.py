@@ -234,7 +234,7 @@ class TestFallbackHook:
         parameters = {"temperature": 0.7, "_attempt_count": 1}
         error = LLMTimeoutError("测试超时")
         
-        with patch('src.llm.hooks.get_global_factory') as mock_get_factory:
+        with patch('src.llm.factory.get_global_factory') as mock_get_factory:
             mock_factory = Mock()
             mock_client = Mock()
             mock_response = LLMResponse(

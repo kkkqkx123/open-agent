@@ -47,9 +47,7 @@ class AnthropicClient(BaseLLMClient):
         if config.max_tokens is not None:
             model_kwargs["max_tokens"] = config.max_tokens
         
-        # 采样参数
-        if config.top_p is not None:
-            model_kwargs["top_p"] = config.top_p
+        # 注意：top_p应该作为直接参数，而不是model_kwargs
         if config.top_k is not None:
             model_kwargs["top_k"] = config.top_k
         
@@ -87,9 +85,9 @@ class AnthropicClient(BaseLLMClient):
             model=config.model_name, # type: ignore
             api_key=config.api_key,
             temperature=config.temperature,
+            top_p=config.top_p,
             timeout=config.timeout,
             max_retries=config.max_retries,
-            default_headers=resolved_headers,
             model_kwargs=model_kwargs,
         )
     

@@ -81,7 +81,16 @@ class LLMFactory(ILLMClientFactory):
         """
         # 转换配置
         if isinstance(config, dict):
-            client_config = LLMClientConfig.from_dict(config)
+            # 验证基本配置字段
+            if not config.get("model_type"):
+                raise LLMClientCreationError("配置中缺少model_type字段")
+            if not config.get("model_name"):
+                raise LLMClientCreationError("配置中缺少model_name字段")
+            
+            try:
+                client_config = LLMClientConfig.from_dict(config)
+            except Exception as e:
+                raise LLMClientCreationError(f"配置转换失败: {e}")
         else:
             # 如果已经是LLMClientConfig实例，直接使用
             client_config = config
@@ -100,6 +109,10 @@ class LLMFactory(ILLMClientFactory):
             if client_config.fallback_enabled and client_config.fallback_models:
                 from .fallback_client import FallbackClientWrapper
                 client = FallbackClientWrapper(client, client_config.fallback_models)
+            
+            # 自动缓存客户端
+            if self.config.cache_enabled:
+                self.cache_client(client_config.model_name, client)
             
             return client
         except Exception as e:

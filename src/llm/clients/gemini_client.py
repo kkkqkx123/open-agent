@@ -96,7 +96,6 @@ class GeminiClient(BaseLLMClient):
             timeout=config.timeout,
             max_retries=config.max_retries,
             request_timeout=config.timeout,
-            default_headers=resolved_headers,
             **model_kwargs
         )
     

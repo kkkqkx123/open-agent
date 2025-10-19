@@ -123,7 +123,6 @@ class ChatCompletionAdapter(APIFormatAdapter):
                 top_p=self.config.top_p,
                 timeout=self.config.timeout,
                 max_retries=self.config.max_retries,
-                default_headers=resolved_headers,
                 model_kwargs=model_kwargs
             )
     

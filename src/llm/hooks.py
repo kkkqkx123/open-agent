@@ -211,10 +211,13 @@ class FallbackHook(ILLMCallHook):
     ) -> None:
         """记录调用开始"""
         # 记录当前尝试次数
-        if "_attempt_count" not in kwargs:
-            kwargs["_attempt_count"] = 1
+        if parameters is None:
+            parameters = {}
+            
+        if "_attempt_count" not in parameters:
+            parameters["_attempt_count"] = 1
         else:
-            kwargs["_attempt_count"] += 1
+            parameters["_attempt_count"] += 1
     
     def after_call(
         self,
@@ -236,11 +239,11 @@ class FallbackHook(ILLMCallHook):
     ) -> Optional[LLMResponse]:
         """尝试降级处理"""
         # 检查是否应该重试
-        if not self._should_retry(error, kwargs):
+        if not self._should_retry(error, **kwargs):
             return None
         
         # 获取当前尝试次数
-        attempt_count = kwargs.get("_attempt_count", 1)
+        attempt_count = parameters.get("_attempt_count", 1) if parameters else kwargs.get("_attempt_count", 1)
         
         # 检查是否超过最大尝试次数
         if attempt_count >= self.max_attempts:
@@ -285,7 +288,7 @@ class FallbackHook(ILLMCallHook):
             logger.error(f"降级到模型 {fallback_model} 失败: {fallback_error}")
             return None
     
-    def _should_retry(self, error: Exception, kwargs: Dict[str, Any]) -> bool:
+    def _should_retry(self, error: Exception, **kwargs) -> bool:
         """判断是否应该重试"""
         # 检查错误类型是否可重试
         retryable_errors = (
@@ -338,8 +341,11 @@ class RetryHook(ILLMCallHook):
     ) -> None:
         """记录调用开始"""
         # 记录当前重试次数
-        if "_retry_count" not in kwargs:
-            kwargs["_retry_count"] = 0
+        if parameters is None:
+            parameters = {}
+            
+        if "_retry_count" not in parameters:
+            parameters["_retry_count"] = 0
     
     def after_call(
         self,
@@ -365,7 +371,7 @@ class RetryHook(ILLMCallHook):
             return None
         
         # 获取当前重试次数
-        retry_count = kwargs.get("_retry_count", 0)
+        retry_count = parameters.get("_retry_count", 0) if parameters else kwargs.get("_retry_count", 0)
         
         # 检查是否超过最大重试次数
         if retry_count >= self.max_retries:
@@ -381,7 +387,10 @@ class RetryHook(ILLMCallHook):
         time.sleep(delay)
         
         # 更新重试计数
-        kwargs["_retry_count"] = retry_count + 1
+        if parameters is not None:
+            parameters["_retry_count"] = retry_count + 1
+        else:
+            kwargs["_retry_count"] = retry_count + 1
         
         # 这里不能直接重试，因为钩子不能重新调用原方法
         # 实际实现需要在客户端中处理重试逻辑
@@ -410,7 +419,7 @@ class CompositeHook(ILLMCallHook):
         Args:
             hooks: 钩子列表
         """
-        self.hooks = hooks
+        self.hooks = list(hooks)  # 创建副本以避免引用问题
     
     def before_call(
         self,
@@ -459,7 +468,8 @@ class CompositeHook(ILLMCallHook):
     
     def add_hook(self, hook: ILLMCallHook) -> None:
         """添加钩子"""
-        self.hooks.append(hook)
+        if hook not in self.hooks:
+            self.hooks.append(hook)
     
     def remove_hook(self, hook: ILLMCallHook) -> None:
         """移除钩子"""

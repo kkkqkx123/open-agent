@@ -26,7 +26,7 @@ class HeaderValidator:
     }
     
     # 环境变量引用模式
-    ENV_VAR_PATTERN = re.compile(r'^\$\{([^}]+)(?::([^}]*))?\}$')
+    ENV_VAR_PATTERN = re.compile(r'^\$\{([^}:]+)(?::([^}]*))?\}$')
     
     def __init__(self) -> None:
         """初始化标头验证器"""
@@ -144,8 +144,8 @@ class HeaderValidator:
             if header_lower in self.SENSITIVE_HEADERS:
                 # 敏感标头脱敏
                 if header_lower == 'authorization' and header_value.startswith('Bearer '):
-                    # Authorization标头特殊处理：保留Bearer前缀，脱敏token
-                    sanitized_headers[header_name] = "Bearer ***"
+                    # Authorization标头完全脱敏
+                    sanitized_headers[header_name] = "***"
                 else:
                     sanitized_headers[header_name] = "***"
             elif self._is_env_var_reference(header_value):
@@ -164,6 +164,7 @@ class HeaderValidator:
         """提取环境变量名称"""
         match = self.ENV_VAR_PATTERN.match(value.strip())
         if match:
+            # 只返回环境变量名称，不包括默认值部分
             return match.group(1)
         return None
     
@@ -193,7 +194,13 @@ class HeaderValidator:
         
         # 检查Bearer格式
         if value.lower().startswith('bearer '):
-            return len(value) > 7  # 确保有token
+            # 确保有token，不仅仅是"Bearer "
+            parts = value.split(' ', 1)
+            return len(parts) > 1 and parts[1].strip() != ''
+        
+        # 如果只是"Bearer"而没有token，则无效
+        if value.lower() == 'bearer':
+            return False
         
         # 检查其他可能的格式
         return len(value) > 0

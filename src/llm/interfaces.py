@@ -62,10 +62,8 @@ class ILLMClient(ABC):
         """
         pass
     
-    
-    
     @abstractmethod
-    async def stream_generate_async(
+    def stream_generate_async(
         self,
         messages: List[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
@@ -83,6 +81,7 @@ class ILLMClient(ABC):
             str: 生成的文本片段
         """
         pass
+    
     @abstractmethod
     def stream_generate(
         self,

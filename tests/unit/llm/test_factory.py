@@ -56,34 +56,29 @@ class TestLLMFactory:
         }
         
         # 创建客户端
-        with patch('src.llm.clients.mock_client.MockLLMClient') as mock_client:
-            mock_instance = Mock()
-            mock_client.return_value = mock_instance
-            
-            client = factory.create_client(config_dict)
-            
-            # 验证客户端被创建
-            mock_client.assert_called_once()
-            assert client == mock_instance
+        client = factory.create_client(config_dict)
+        
+        # 验证客户端被创建
+        assert client is not None
+        assert client.config.model_name == "test-model"
+        assert client.config.model_type == "mock"
     
     def test_create_client_with_config(self, factory):
         """测试使用配置对象创建客户端"""
         # 创建配置对象
-        client_config = LLMClientConfig(
+        from src.llm.config import MockConfig
+        client_config = MockConfig(
             model_type="mock",
             model_name="test-model"
         )
         
         # 创建客户端
-        with patch('src.llm.clients.mock_client.MockLLMClient') as mock_client:
-            mock_instance = Mock()
-            mock_client.return_value = mock_instance
-            
-            client = factory.create_client(client_config)
-            
-            # 验证客户端被创建
-            mock_client.assert_called_once()
-            assert client == mock_instance
+        client = factory.create_client(client_config)
+        
+        # 验证客户端被创建
+        assert client is not None
+        assert client.config.model_name == "test-model"
+        assert client.config.model_type == "mock"
     
     def test_create_client_unsupported_type(self, factory):
         """测试创建不支持的客户端类型"""
@@ -105,30 +100,40 @@ class TestLLMFactory:
             "model_name": "test-model"
         }
         
-        # 模拟创建错误
-        with patch('src.llm.clients.mock_client.MockLLMClient', side_effect=Exception("创建失败")):
+        # 临时替换客户端类为会抛出异常的类
+        original_client_class = factory._client_types["mock"]
+        
+        class FailingMockClient:
+            def __init__(self, config):
+                raise Exception("创建失败")
+        
+        try:
+            # 注册会失败的客户端类
+            factory._client_types["mock"] = FailingMockClient
+            
             # 应该抛出错误
             with pytest.raises(LLMClientCreationError):
                 factory.create_client(config_dict)
+        finally:
+            # 恢复原始客户端类
+            factory._client_types["mock"] = original_client_class
     
     def test_create_client_from_config(self, factory):
         """测试从配置创建客户端"""
         # 创建配置对象
-        client_config = LLMClientConfig(
+        from src.llm.config import MockConfig
+        client_config = MockConfig(
             model_type="mock",
             model_name="test-model"
         )
         
         # 创建客户端
-        with patch('src.llm.clients.mock_client.MockLLMClient') as mock_client:
-            mock_instance = Mock()
-            mock_client.return_value = mock_instance
-            
-            client = factory.create_client_from_config(client_config)
-            
-            # 验证客户端被创建
-            mock_client.assert_called_once_with(client_config)
-            assert client == mock_instance
+        client = factory.create_client_from_config(client_config)
+        
+        # 验证客户端被创建
+        assert client is not None
+        assert client.config.model_name == "test-model"
+        assert client.config.model_type == "mock"
     
     def test_get_cached_client(self, factory):
         """测试获取缓存的客户端"""
@@ -212,18 +217,17 @@ class TestLLMFactory:
         }
         
         # 创建客户端
-        with patch('src.llm.clients.mock_client.MockLLMClient') as mock_client:
-            mock_instance = Mock()
-            mock_client.return_value = mock_instance
-            
-            client = factory.get_or_create_client("test-model", config_dict)
-            
-            # 验证客户端被创建
-            mock_client.assert_called_once()
-            assert client == mock_instance
-            
-            # 验证客户端被缓存
-            assert factory.get_cached_client("test-model") == mock_instance
+        client = factory.get_or_create_client("test-model", config_dict)
+        
+        # 验证客户端被创建
+        assert client is not None
+        assert client.config.model_name == "test-model"
+        assert client.config.model_type == "mock"
+        
+        # 验证客户端被缓存
+        cached_client = factory.get_cached_client("test-model")
+        assert cached_client is not None
+        assert cached_client.config.model_name == "test-model"
     
     def test_get_or_create_client_cached(self, factory):
         """测试获取已缓存的客户端"""
