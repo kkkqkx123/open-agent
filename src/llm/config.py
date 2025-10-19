@@ -237,7 +237,6 @@ class LLMClientConfig:
         
         # 根据模型类型创建特定配置
         if model_type == 'openai':
-            from . import OpenAIConfig
             return OpenAIConfig(
                 model_type=model_type,
                 model_name=model_name,
@@ -260,7 +259,6 @@ class LLMClientConfig:
                 metadata=config_dict.get('metadata', {})
             )
         elif model_type == 'gemini':
-            from . import GeminiConfig
             return GeminiConfig(
                 model_type=model_type,
                 model_name=model_name,
@@ -283,7 +281,6 @@ class LLMClientConfig:
                 metadata=config_dict.get('metadata', {})
             )
         elif model_type in ['anthropic', 'claude']:
-            from . import AnthropicConfig
             return AnthropicConfig(
                 model_type=model_type,
                 model_name=model_name,
@@ -306,7 +303,6 @@ class LLMClientConfig:
                 metadata=config_dict.get('metadata', {})
             )
         elif model_type == 'mock':
-            from . import MockConfig
             return MockConfig(
                 model_type=model_type,
                 model_name=model_name,

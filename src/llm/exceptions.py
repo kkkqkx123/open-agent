@@ -1,5 +1,7 @@
 """LLM模块异常定义"""
 
+from typing import Optional
+
 
 class LLMError(Exception):
     """LLM模块基础异常"""
@@ -23,9 +25,9 @@ class LLMCallError(LLMError):
         self,
         message: str,
         error_type: str = "unknown",
-        error_code: str = None,
+        error_code: Optional[str] = None,
         is_retryable: bool = False,
-        retry_after: int = None
+        retry_after: Optional[int] = None
     ) -> None:
         """
         初始化LLM调用错误
@@ -47,7 +49,7 @@ class LLMCallError(LLMError):
 class LLMTimeoutError(LLMCallError):
     """LLM调用超时错误"""
     
-    def __init__(self, message: str = "LLM调用超时", timeout: int = None) -> None:
+    def __init__(self, message: str = "LLM调用超时", timeout: Optional[int] = None) -> None:
         """
         初始化超时错误
         
@@ -62,7 +64,7 @@ class LLMTimeoutError(LLMCallError):
 class LLMRateLimitError(LLMCallError):
     """LLM调用频率限制错误"""
     
-    def __init__(self, message: str = "LLM调用频率限制", retry_after: int = None) -> None:
+    def __init__(self, message: str = "LLM调用频率限制", retry_after: Optional[int] = None) -> None:
         """
         初始化频率限制错误
         
@@ -109,7 +111,7 @@ class LLMModelNotFoundError(LLMCallError):
 class LLMTokenLimitError(LLMCallError):
     """LLM Token限制错误"""
     
-    def __init__(self, message: str = "Token数量超过限制", token_count: int = None, limit: int = None) -> None:
+    def __init__(self, message: str = "Token数量超过限制", token_count: Optional[int] = None, limit: Optional[int] = None) -> None:
         """
         初始化Token限制错误
         
@@ -170,7 +172,7 @@ class LLMConfigurationError(LLMError):
 class LLMFallbackError(LLMError):
     """LLM降级错误"""
     
-    def __init__(self, message: str, original_error: Exception = None) -> None:
+    def __init__(self, message: str, original_error: Optional[Exception] = None) -> None:
         """
         初始化降级错误
         

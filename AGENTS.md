@@ -270,3 +270,6 @@ From the PRD documents:
 
 ## Language
 Always use Chinese in the code and documentation.
+
+## Coding Specifications
+Must follow mypy type specifications. For example function must be annotated with type hints.

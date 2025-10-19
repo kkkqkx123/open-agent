@@ -3,6 +3,7 @@
 import random
 import time
 import asyncio
+from typing import Dict, Any, Optional, List, AsyncGenerator, Generator
 from typing import Dict, Any, Optional, List, AsyncGenerator
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
@@ -100,22 +101,13 @@ class MockLLMClient(BaseLLMClient):
             finish_reason="stop"
         )
     
-    def stream_generate(
+    def _do_stream_generate(
         self,
         messages: List[BaseMessage],
-        parameters: Optional[Dict[str, Any]] = None,
+        parameters: Dict[str, Any],
         **kwargs
-    ) -> AsyncGenerator[str, None]:
-        """流式生成文本响应"""
-        # 验证输入
-        self._validate_messages(messages)
-        
-        # 合并参数
-        merged_params = self._merge_parameters(parameters)
-        
-        # 调用前置钩子
-        self._call_before_hooks(messages, merged_params, **kwargs)
-        
+    ) -> Generator[str, None, None]:
+        """执行流式生成操作"""
         try:
             # 模拟错误
             self._maybe_throw_error()
@@ -135,88 +127,42 @@ class MockLLMClient(BaseLLMClient):
                     yield word + " "
                 else:
                     yield word
-            
-            # 创建最终响应
-            token_usage = self._estimate_token_usage(content)
-            response = self._create_response(
-                content=content,
-                message=AIMessage(content=content),
-                token_usage=token_usage
-            )
-            
-            # 调用后置钩子
-            self._call_after_hooks(response, messages, merged_params, **kwargs)
-            
+                    
         except Exception as e:
-            # 处理错误
-            llm_error = self._handle_mock_error(e)
-            
-            # 尝试通过钩子恢复
-            fallback_response = self._call_error_hooks(llm_error, messages, merged_params, **kwargs)
-            if fallback_response is not None:
-                return
-            
-            # 抛出错误
-            raise llm_error
-    
-    async def stream_generate_async(
+            raise self._handle_mock_error(e)
+
+    def _do_stream_generate_async(
         self,
         messages: List[BaseMessage],
-        parameters: Optional[Dict[str, Any]] = None,
+        parameters: Dict[str, Any],
         **kwargs
     ) -> AsyncGenerator[str, None]:
-        """异步流式生成文本响应"""
-        # 验证输入
-        self._validate_messages(messages)
-        
-        # 合并参数
-        merged_params = self._merge_parameters(parameters)
-        
-        # 调用前置钩子
-        self._call_before_hooks(messages, merged_params, **kwargs)
-        
-        try:
-            # 模拟错误
-            self._maybe_throw_error()
-            
-            # 生成完整响应
-            content = self._generate_response_content(messages)
-            
-            # 模拟流式输出
-            words = content.split()
-            for i, word in enumerate(words):
-                # 模拟延迟
-                if self.response_delay > 0:
-                    await asyncio.sleep(self.response_delay / len(words))
+        """执行异步流式生成操作"""
+        async def _async_generator():
+            try:
+                # 模拟错误
+                self._maybe_throw_error()
                 
-                # 输出单词（添加空格，除了最后一个）
-                if i < len(words) - 1:
-                    yield word + " "
-                else:
-                    yield word
-            
-            # 创建最终响应
-            token_usage = self._estimate_token_usage(content)
-            response = self._create_response(
-                content=content,
-                message=AIMessage(content=content),
-                token_usage=token_usage
-            )
-            
-            # 调用后置钩子
-            self._call_after_hooks(response, messages, merged_params, **kwargs)
-            
-        except Exception as e:
-            # 处理错误
-            llm_error = self._handle_mock_error(e)
-            
-            # 尝试通过钩子恢复
-            fallback_response = self._call_error_hooks(llm_error, messages, merged_params, **kwargs)
-            if fallback_response is not None:
-                return
-            
-            # 抛出错误
-            raise llm_error
+                # 生成完整响应
+                content = self._generate_response_content(messages)
+                
+                # 模拟流式输出
+                words = content.split()
+                for i, word in enumerate(words):
+                    # 模拟延迟
+                    if self.response_delay > 0:
+                        await asyncio.sleep(self.response_delay / len(words))
+                    
+                    # 输出单词（添加空格，除了最后一个）
+                    if i < len(words) - 1:
+                        yield word + " "
+                    else:
+                        yield word
+                        
+            except Exception as e:
+                raise self._handle_mock_error(e)
+        
+        return _async_generator()
     
     def get_token_count(self, text: str) -> int:
         """计算文本的token数量"""
@@ -246,7 +192,7 @@ class MockLLMClient(BaseLLMClient):
         
         # 获取最后一条消息的内容
         last_message = messages[-1]
-        content = last_message.content.lower()
+        content = str(last_message.content).lower()
         
         # 根据内容选择响应模板
         if "代码" in content or "code" in content or "编程" in content:

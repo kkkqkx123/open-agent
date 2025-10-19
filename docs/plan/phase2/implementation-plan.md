@@ -141,8 +141,9 @@ graph TD
 #### 模型集成接口
 ```python
 class ILLMClient(ABC):
-    def generate(self, messages: list[BaseMessage], parameters: dict) -> BaseMessage
-    def stream_generate(self, messages: list[BaseMessage], parameters: dict) -> AsyncGenerator[BaseMessage, None]
+    def generate(self, messages: list[BaseMessage], parameters: dict) -> LLMResponse
+    def generate_async(self, messages: list[BaseMessage], parameters: dict) -> LLMResponse
+    def stream_generate_async(self, messages: list[BaseMessage], parameters: dict) -> AsyncGenerator[str, None]
     def get_token_count(self, text: str) -> int
 
 class LLMFactory:

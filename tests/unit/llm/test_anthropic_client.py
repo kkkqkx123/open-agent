@@ -8,6 +8,7 @@ from src.llm.clients.anthropic_client import AnthropicClient
 from src.llm.config import AnthropicConfig
 from src.llm.models import TokenUsage
 from src.llm.exceptions import (
+    LLMCallError,
     LLMTimeoutError,
     LLMRateLimitError,
     LLMAuthenticationError,
@@ -183,7 +184,8 @@ class TestAnthropicClient:
     def test_generate_authentication_error(self, client):
         """测试认证错误"""
         # 模拟认证错误
-        error = Exception("Invalid API key")
+        error = Mock(spec=Exception)
+        error.__str__ = Mock(return_value="Invalid API key")
         error.response = Mock()
         error.response.status_code = 401
         
@@ -197,7 +199,8 @@ class TestAnthropicClient:
     def test_generate_rate_limit_error(self, client):
         """测试频率限制错误"""
         # 模拟频率限制错误
-        error = Exception("Rate limit exceeded")
+        error = Mock(spec=Exception)
+        error.__str__ = Mock(return_value="Rate limit exceeded")
         error.response = Mock()
         error.response.status_code = 429
         error.response.headers = {'retry-after': '60'}
@@ -214,7 +217,8 @@ class TestAnthropicClient:
     def test_generate_model_not_found_error(self, client):
         """测试模型未找到错误"""
         # 模拟模型未找到错误
-        error = Exception("Model not found")
+        error = Mock(spec=Exception)
+        error.__str__ = Mock(return_value="Model not found")
         error.response = Mock()
         error.response.status_code = 404
         
@@ -329,7 +333,8 @@ class TestAnthropicClient:
     def test_handle_anthropic_error_with_status_code(self, client):
         """测试处理带状态码的Anthropic错误"""
         # 测试401错误
-        error = Exception("Unauthorized")
+        error = Mock(spec=Exception)
+        error.__str__ = Mock(return_value="Unauthorized")
         error.response = Mock()
         error.response.status_code = 401
         

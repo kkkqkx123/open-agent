@@ -1,7 +1,7 @@
 """LLM模块核心接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, AsyncGenerator, Union
+from typing import Dict, Any, Optional, List, AsyncGenerator, Union, Coroutine, Generator
 from datetime import datetime
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
@@ -11,6 +11,16 @@ from .models import LLMResponse, TokenUsage
 
 class ILLMClient(ABC):
     """LLM客户端接口"""
+    
+    @abstractmethod
+    def __init__(self, config: Any) -> None:
+        """
+        初始化客户端
+        
+        Args:
+            config: 客户端配置
+        """
+        pass
     
     @abstractmethod
     def generate(
@@ -52,25 +62,7 @@ class ILLMClient(ABC):
         """
         pass
     
-    @abstractmethod
-    def stream_generate(
-        self,
-        messages: List[BaseMessage],
-        parameters: Optional[Dict[str, Any]] = None,
-        **kwargs
-    ) -> AsyncGenerator[str, None]:
-        """
-        流式生成文本响应
-        
-        Args:
-            messages: 消息列表
-            parameters: 生成参数
-            **kwargs: 其他参数
-            
-        Yields:
-            str: 生成的文本片段
-        """
-        pass
+    
     
     @abstractmethod
     async def stream_generate_async(
@@ -81,6 +73,25 @@ class ILLMClient(ABC):
     ) -> AsyncGenerator[str, None]:
         """
         异步流式生成文本响应
+        
+        Args:
+            messages: 消息列表
+            parameters: 生成参数
+            **kwargs: 其他参数
+            
+        Yields:
+            str: 生成的文本片段
+        """
+        pass
+    @abstractmethod
+    def stream_generate(
+        self,
+        messages: List[BaseMessage],
+        parameters: Optional[Dict[str, Any]] = None,
+        **kwargs
+    ) -> Generator[str, None, None]:
+        """
+        流式生成文本响应
         
         Args:
             messages: 消息列表

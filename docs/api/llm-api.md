@@ -38,14 +38,6 @@ class ILLMClient(ABC):
     ) -> LLMResponse:
         """异步生成文本响应"""
         
-    def stream_generate(
-        self,
-        messages: List[BaseMessage],
-        parameters: Optional[Dict[str, Any]] = None,
-        **kwargs
-    ) -> AsyncGenerator[str, None]:
-        """流式生成文本响应"""
-        
     async def stream_generate_async(
         self,
         messages: List[BaseMessage],

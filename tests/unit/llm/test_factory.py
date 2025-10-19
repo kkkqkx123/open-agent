@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, patch
 
-from src.llm.factory import LLMFactory, get_global_factory, set_global_factory, create_client
+from src.llm.factory import LLMFactory, get_global_factory, set_global_factory, create_client, get_cached_client
 from src.llm.config import LLMModuleConfig, LLMClientConfig
 from src.llm.exceptions import LLMClientCreationError, UnsupportedModelTypeError
 

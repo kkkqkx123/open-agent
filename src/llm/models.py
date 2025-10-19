@@ -80,9 +80,21 @@ class LLMMessage:
         if hasattr(message, 'additional_kwargs') and 'function_call' in message.additional_kwargs:
             function_call = message.additional_kwargs['function_call']
         
+        # 处理内容类型 - LangChain消息内容可以是字符串或列表
+        content = message.content
+        if isinstance(content, list):
+            # 如果是列表，提取文本内容
+            content = ' '.join(
+                item.get('text', '') if isinstance(item, dict) else str(item)
+                for item in content
+                if isinstance(item, (dict, str))
+            )
+        elif not isinstance(content, str):
+            content = str(content)
+        
         return cls(
             role=role,
-            content=message.content,
+            content=content,
             name=getattr(message, 'name', None),
             function_call=function_call,
             metadata=getattr(message, 'additional_kwargs', {})

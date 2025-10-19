@@ -2,6 +2,7 @@
 
 import json
 import time
+from typing import Dict, Any, Optional, List, AsyncGenerator, Generator
 from typing import Dict, Any, Optional, List, AsyncGenerator
 import asyncio
 
@@ -50,7 +51,7 @@ class GeminiClient(BaseLLMClient):
             timeout=config.timeout,
             max_retries=config.max_retries,
             request_timeout=config.timeout,
-            headers=resolved_headers
+            default_headers=resolved_headers
         )
     
     def _convert_messages(self, messages: List[BaseMessage]) -> List[BaseMessage]:
@@ -69,11 +70,11 @@ class GeminiClient(BaseLLMClient):
         return converted_messages
     
     def _do_generate(
-        self,
-        messages: List[BaseMessage],
-        parameters: Dict[str, Any],
-        **kwargs
-    ) -> LLMResponse:
+       self,
+       messages: List[BaseMessage],
+       parameters: Dict[str, Any],
+       **kwargs: Any
+   ) -> LLMResponse:
         """执行生成操作"""
         try:
             # 转换消息格式
@@ -102,11 +103,11 @@ class GeminiClient(BaseLLMClient):
             raise self._handle_gemini_error(e)
     
     async def _do_generate_async(
-        self,
-        messages: List[BaseMessage],
-        parameters: Dict[str, Any],
-        **kwargs
-    ) -> LLMResponse:
+       self,
+       messages: List[BaseMessage],
+       parameters: Dict[str, Any],
+       **kwargs: Any
+   ) -> LLMResponse:
         """执行异步生成操作"""
         try:
             # 转换消息格式
@@ -134,113 +135,7 @@ class GeminiClient(BaseLLMClient):
             # 处理Gemini特定错误
             raise self._handle_gemini_error(e)
     
-    def stream_generate(
-        self,
-        messages: List[BaseMessage],
-        parameters: Optional[Dict[str, Any]] = None,
-        **kwargs
-    ) -> AsyncGenerator[str, None]:
-        """流式生成文本响应"""
-        # 验证输入
-        self._validate_messages(messages)
-        self._validate_token_limit(messages)
-        
-        # 合并参数
-        merged_params = self._merge_parameters(parameters)
-        
-        # 调用前置钩子
-        self._call_before_hooks(messages, merged_params, **kwargs)
-        
-        try:
-            # 转换消息格式
-            converted_messages = self._convert_messages(messages)
-            
-            # 流式生成
-            stream = self._client.stream(converted_messages, **merged_params)
-            
-            # 收集完整响应
-            full_content = ""
-            for chunk in stream:
-                if chunk.content:
-                    full_content += chunk.content
-                    yield chunk.content
-            
-            # 创建最终响应
-            token_usage = TokenUsage()  # 流式响应可能不提供token使用情况
-            response = self._create_response(
-                content=full_content,
-                message=AIMessage(content=full_content),
-                token_usage=token_usage
-            )
-            
-            # 调用后置钩子
-            self._call_after_hooks(response, messages, merged_params, **kwargs)
-            
-        except Exception as e:
-            # 处理Gemini特定错误
-            llm_error = self._handle_gemini_error(e)
-            
-            # 尝试通过钩子恢复
-            fallback_response = self._call_error_hooks(llm_error, messages, merged_params, **kwargs)
-            if fallback_response is not None:
-                return
-            
-            # 抛出错误
-            raise llm_error
     
-    async def stream_generate_async(
-        self,
-        messages: List[BaseMessage],
-        parameters: Optional[Dict[str, Any]] = None,
-        **kwargs
-    ) -> AsyncGenerator[str, None]:
-        """异步流式生成文本响应"""
-        # 验证输入
-        self._validate_messages(messages)
-        self._validate_token_limit(messages)
-        
-        # 合并参数
-        merged_params = self._merge_parameters(parameters)
-        
-        # 调用前置钩子
-        self._call_before_hooks(messages, merged_params, **kwargs)
-        
-        try:
-            # 转换消息格式
-            converted_messages = self._convert_messages(messages)
-            
-            # 异步流式生成
-            stream = self._client.astream(converted_messages, **merged_params)
-            
-            # 收集完整响应
-            full_content = ""
-            async for chunk in stream:
-                if chunk.content:
-                    full_content += chunk.content
-                    yield chunk.content
-            
-            # 创建最终响应
-            token_usage = TokenUsage()  # 流式响应可能不提供token使用情况
-            response = self._create_response(
-                content=full_content,
-                message=AIMessage(content=full_content),
-                token_usage=token_usage
-            )
-            
-            # 调用后置钩子
-            self._call_after_hooks(response, messages, merged_params, **kwargs)
-            
-        except Exception as e:
-            # 处理Gemini特定错误
-            llm_error = self._handle_gemini_error(e)
-            
-            # 尝试通过钩子恢复
-            fallback_response = self._call_error_hooks(llm_error, messages, merged_params, **kwargs)
-            if fallback_response is not None:
-                return
-            
-            # 抛出错误
-            raise llm_error
     
     def get_token_count(self, text: str) -> int:
         """计算文本的token数量"""
@@ -342,3 +237,52 @@ class GeminiClient(BaseLLMClient):
             return LLMInvalidRequestError(str(error))
         else:
             return LLMCallError(str(error))
+    
+    def _do_stream_generate(
+       self,
+       messages: List[BaseMessage],
+       parameters: Dict[str, Any],
+       **kwargs: Any
+   ) -> Generator[str, None, None]:
+        """执行流式生成操作"""
+        try:
+            # 转换消息格式
+            converted_messages = self._convert_messages(messages)
+            
+            # 流式生成
+            stream = self._client.stream(converted_messages, **parameters)
+            
+            # 收集完整响应
+            for chunk in stream:
+                if chunk.content:
+                    yield chunk.content
+                    
+        except Exception as e:
+            # 处理Gemini特定错误
+            raise self._handle_gemini_error(e)
+
+    def _do_stream_generate_async(
+       self,
+       messages: List[BaseMessage],
+       parameters: Dict[str, Any],
+       **kwargs: Any
+   ) -> AsyncGenerator[str, None]:
+        """执行异步流式生成操作"""
+        async def _async_generator() -> AsyncGenerator[str, None]:
+           try:
+               # 转换消息格式
+               converted_messages = self._convert_messages(messages)
+               
+               # 异步流式生成
+               stream = self._client.astream(converted_messages, **parameters)
+               
+               # 收集完整响应
+               async for chunk in stream:
+                   if chunk.content:
+                       yield chunk.content
+                       
+           except Exception as e:
+               # 处理Gemini特定错误
+               raise self._handle_gemini_error(e)
+        
+        return _async_generator()
