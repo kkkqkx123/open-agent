@@ -1,0 +1,29 @@
+# 数据库查询工具配置
+name: database_query
+tool_type: mcp
+description: 通过MCP服务器执行数据库查询
+enabled: true
+timeout: 30
+mcp_server_url: "http://localhost:8080/mcp"
+dynamic_schema: true
+refresh_interval: 300  # 5分钟刷新一次Schema
+parameters_schema:
+  type: object
+  properties:
+    query:
+      type: string
+      description: SQL查询语句
+    database:
+      type: string
+      description: 数据库名称
+      default: "default"
+    limit:
+      type: integer
+      description: 返回结果的最大行数
+      default: 100
+  required:
+    - query
+metadata:
+  category: "database"
+  tags: ["database", "sql", "mcp"]
+  server_info: "本地MCP数据库服务器"

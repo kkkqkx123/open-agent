@@ -1,0 +1,36 @@
+# 天气查询工具配置
+name: weather
+tool_type: native
+description: 查询指定城市的天气信息
+enabled: true
+timeout: 15
+api_url: "https://api.openweathermap.org/data/2.5/weather"
+method: GET
+auth_method: api_key
+api_key: "${OPENWEATHER_API_KEY}"
+headers:
+  User-Agent: "ModularAgent/1.0"
+  Content-Type: "application/json"
+retry_count: 3
+retry_delay: 1.0
+parameters_schema:
+  type: object
+  properties:
+    q:
+      type: string
+      description: 城市名称，如 "Beijing,CN" 或 "London"
+    units:
+      type: string
+      description: 温度单位，可选值: metric(摄氏度), imperial(华氏度), kelvin(开尔文)
+      enum: ["metric", "imperial", "kelvin"]
+      default: "metric"
+    lang:
+      type: string
+      description: 返回结果的语言，如 "zh_cn", "en"
+      default: "zh_cn"
+  required:
+    - q
+metadata:
+  category: "weather"
+  tags: ["weather", "api", "external"]
+  documentation_url: "https://openweathermap.org/api"

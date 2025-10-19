@@ -56,11 +56,12 @@ uv add flake8
 
 ### Code Quality Tools
 (usually mypy is enough. if I didn't ask you to use reaminging tools, you can skip them)
+If I don't ask you to check whole codebase, always use --follow-imports=silent to avoid check reletive files.
 ```bash
-# Type checking with mypy
+# Type checking with mypy(whole codebase)
 mypy .
-# or: `mypy . --show-error-codes`
-# or explicitly specify source files, such as: `mypy src/infrastructure/container.py`
+# or add `--follow-imports=silent` to check specific files
+mypy file_reletive_path --follow-imports=silent
 
 # Code formatting with black
 black src/ tests/

@@ -5,33 +5,36 @@ from typing import Optional
 
 class LLMError(Exception):
     """LLM模块基础异常"""
+
     pass
 
 
 class LLMClientCreationError(LLMError):
     """LLM客户端创建错误"""
+
     pass
 
 
 class UnsupportedModelTypeError(LLMError):
     """不支持的模型类型错误"""
+
     pass
 
 
 class LLMCallError(LLMError):
     """LLM调用错误"""
-    
+
     def __init__(
         self,
         message: str,
         error_type: str = "unknown",
         error_code: Optional[str] = None,
         is_retryable: bool = False,
-        retry_after: Optional[int] = None
+        retry_after: Optional[int] = None,
     ) -> None:
         """
         初始化LLM调用错误
-        
+
         Args:
             message: 错误消息
             error_type: 错误类型
@@ -48,11 +51,13 @@ class LLMCallError(LLMError):
 
 class LLMTimeoutError(LLMCallError):
     """LLM调用超时错误"""
-    
-    def __init__(self, message: str = "LLM调用超时", timeout: Optional[int] = None) -> None:
+
+    def __init__(
+        self, message: str = "LLM调用超时", timeout: Optional[int] = None
+    ) -> None:
         """
         初始化超时错误
-        
+
         Args:
             message: 错误消息
             timeout: 超时时间（秒）
@@ -63,30 +68,29 @@ class LLMTimeoutError(LLMCallError):
 
 class LLMRateLimitError(LLMCallError):
     """LLM调用频率限制错误"""
-    
-    def __init__(self, message: str = "LLM调用频率限制", retry_after: Optional[int] = None) -> None:
+
+    def __init__(
+        self, message: str = "LLM调用频率限制", retry_after: Optional[int] = None
+    ) -> None:
         """
         初始化频率限制错误
-        
+
         Args:
             message: 错误消息
             retry_after: 重试等待时间（秒）
         """
         super().__init__(
-            message, 
-            "rate_limit_exceeded", 
-            is_retryable=True, 
-            retry_after=retry_after
+            message, "rate_limit_exceeded", is_retryable=True, retry_after=retry_after
         )
 
 
 class LLMAuthenticationError(LLMCallError):
     """LLM认证错误"""
-    
+
     def __init__(self, message: str = "LLM认证失败") -> None:
         """
         初始化认证错误
-        
+
         Args:
             message: 错误消息
         """
@@ -95,11 +99,11 @@ class LLMAuthenticationError(LLMCallError):
 
 class LLMModelNotFoundError(LLMCallError):
     """LLM模型未找到错误"""
-    
+
     def __init__(self, model_name: str) -> None:
         """
         初始化模型未找到错误
-        
+
         Args:
             model_name: 模型名称
         """
@@ -110,11 +114,16 @@ class LLMModelNotFoundError(LLMCallError):
 
 class LLMTokenLimitError(LLMCallError):
     """LLM Token限制错误"""
-    
-    def __init__(self, message: str = "Token数量超过限制", token_count: Optional[int] = None, limit: Optional[int] = None) -> None:
+
+    def __init__(
+        self,
+        message: str = "Token数量超过限制",
+        token_count: Optional[int] = None,
+        limit: Optional[int] = None,
+    ) -> None:
         """
         初始化Token限制错误
-        
+
         Args:
             message: 错误消息
             token_count: 实际Token数量
@@ -127,11 +136,11 @@ class LLMTokenLimitError(LLMCallError):
 
 class LLMContentFilterError(LLMCallError):
     """LLM内容过滤错误"""
-    
+
     def __init__(self, message: str = "内容被过滤") -> None:
         """
         初始化内容过滤错误
-        
+
         Args:
             message: 错误消息
         """
@@ -140,11 +149,11 @@ class LLMContentFilterError(LLMCallError):
 
 class LLMServiceUnavailableError(LLMCallError):
     """LLM服务不可用错误"""
-    
+
     def __init__(self, message: str = "LLM服务不可用") -> None:
         """
         初始化服务不可用错误
-        
+
         Args:
             message: 错误消息
         """
@@ -153,11 +162,11 @@ class LLMServiceUnavailableError(LLMCallError):
 
 class LLMInvalidRequestError(LLMCallError):
     """LLM无效请求错误"""
-    
+
     def __init__(self, message: str = "无效请求") -> None:
         """
         初始化无效请求错误
-        
+
         Args:
             message: 错误消息
         """
@@ -166,16 +175,19 @@ class LLMInvalidRequestError(LLMCallError):
 
 class LLMConfigurationError(LLMError):
     """LLM配置错误"""
+
     pass
 
 
 class LLMFallbackError(LLMError):
     """LLM降级错误"""
-    
-    def __init__(self, message: str, original_error: Optional[Exception] = None) -> None:
+
+    def __init__(
+        self, message: str, original_error: Optional[Exception] = None
+    ) -> None:
         """
         初始化降级错误
-        
+
         Args:
             message: 错误消息
             original_error: 原始错误

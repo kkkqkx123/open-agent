@@ -1,0 +1,22 @@
+# 计算器工具配置
+name: calculator
+tool_type: builtin
+description: 执行基本数学计算的工具
+function_path: examples.tools.calculator:calculate
+enabled: true
+timeout: 10
+parameters_schema:
+  type: object
+  properties:
+    expression:
+      type: string
+      description: 要计算的数学表达式，如 "2 + 3 * 4"
+    precision:
+      type: integer
+      description: 结果的小数位数，默认为2
+      default: 2
+  required:
+    - expression
+metadata:
+  category: "math"
+  tags: ["calculator", "math", "basic"]

@@ -5,6 +5,7 @@ from enum import Enum
 
 class LogLevel(Enum):
     """日志级别枚举"""
+
     DEBUG = 10
     INFO = 20
     WARNING = 30
@@ -12,22 +13,22 @@ class LogLevel(Enum):
     CRITICAL = 50
 
     @classmethod
-    def from_string(cls, level_str: str) -> 'LogLevel':
+    def from_string(cls, level_str: str) -> "LogLevel":
         """从字符串创建日志级别"""
         level_map = {
-            'DEBUG': cls.DEBUG,
-            'INFO': cls.INFO,
-            'WARNING': cls.WARNING,
-            'WARN': cls.WARNING,
-            'ERROR': cls.ERROR,
-            'CRITICAL': cls.CRITICAL,
-            'FATAL': cls.CRITICAL
+            "DEBUG": cls.DEBUG,
+            "INFO": cls.INFO,
+            "WARNING": cls.WARNING,
+            "WARN": cls.WARNING,
+            "ERROR": cls.ERROR,
+            "CRITICAL": cls.CRITICAL,
+            "FATAL": cls.CRITICAL,
         }
-        
+
         upper_level = level_str.upper()
         if upper_level not in level_map:
             raise ValueError(f"无效的日志级别: {level_str}")
-        
+
         return level_map[upper_level]
 
     def __str__(self) -> str:

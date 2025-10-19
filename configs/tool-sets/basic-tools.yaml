@@ -1,0 +1,12 @@
+# 基础工具集配置
+name: basic_tools
+description: 包含基本计算和信息查询的工具集
+enabled: true
+tools:
+  - calculator
+  - weather
+metadata:
+  category: "basic"
+  tags: ["basic", "common", "starter"]
+  version: "1.0.0"
+  author: "ModularAgent Team"

@@ -16,7 +16,7 @@ from .exceptions import (
     CircularDependencyError,
     ConfigurationError,
     EnvironmentCheckError,
-    ArchitectureViolationError
+    ArchitectureViolationError,
 )
 from .types import CheckResult, ServiceLifetime
 
@@ -38,5 +38,5 @@ __all__ = [
     "EnvironmentCheckError",
     "ArchitectureViolationError",
     "CheckResult",
-    "ServiceLifetime"
+    "ServiceLifetime",
 ]
