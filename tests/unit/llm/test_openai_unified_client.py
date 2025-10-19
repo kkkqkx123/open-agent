@@ -7,6 +7,8 @@ from src.llm.clients.openai.config import OpenAIConfig
 from src.llm.clients.openai.unified_client import OpenAIUnifiedClient
 from src.llm.clients.openai.adapters.chat_completion import ChatCompletionAdapter
 from src.llm.clients.openai.adapters.responses_api import ResponsesAPIAdapter
+from langchain_core.messages import BaseMessage
+from typing import List, cast
 
 
 class TestOpenAIUnifiedClient:
@@ -197,7 +199,9 @@ class TestOpenAIUnifiedClient:
         # 测试消息Token计数
         from langchain_core.messages import HumanMessage
         messages = [HumanMessage(content="Hello, world!")]
-        messages_token_count = client.get_messages_token_count(messages)
+        # 显式转换类型以解决不变性问题
+        base_messages: List[BaseMessage] = cast(List[BaseMessage], messages)
+        messages_token_count = client.get_messages_token_count(base_messages)
         assert isinstance(messages_token_count, int)
         assert messages_token_count > 0
 

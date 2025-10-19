@@ -6,7 +6,7 @@ from unittest.mock import patch, Mock
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
 from src.llm import LLMFactory, LLMModuleConfig
-from src.llm.clients.openai_client import OpenAIClient
+from src.llm.clients.openai.unified_client import OpenAIUnifiedClient
 from src.llm.clients.gemini_client import GeminiClient
 from src.llm.clients.anthropic_client import AnthropicClient
 from src.llm.clients.mock_client import MockLLMClient
@@ -36,7 +36,7 @@ class TestLLMIntegration:
         
         with patch('src.llm.clients.openai_client.ChatOpenAI'):
             openai_client = factory.create_client(openai_config)
-            assert isinstance(openai_client, OpenAIClient)
+            assert isinstance(openai_client, OpenAIUnifiedClient)
         
         # 测试创建Gemini客户端
         gemini_config = {

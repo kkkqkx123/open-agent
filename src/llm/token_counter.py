@@ -1,7 +1,7 @@
 """Token计算器"""
 
 import re
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 from abc import ABC, abstractmethod
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
@@ -45,6 +45,30 @@ class ITokenCounter(ABC):
             Dict[str, Any]: 模型信息
         """
         pass
+
+
+def _extract_content_as_string(content: Union[str, List[Union[str, Dict[str, Any]]]]) -> str:
+    """
+    将消息内容提取为字符串
+    
+    Args:
+        content: 消息内容，可能是字符串或列表
+        
+    Returns:
+        str: 提取的字符串内容
+    """
+    if isinstance(content, str):
+        return content
+    elif isinstance(content, list):
+        text_parts = []
+        for item in content:
+            if isinstance(item, str):
+                text_parts.append(item)
+            elif isinstance(item, dict) and 'text' in item:
+                text_parts.append(item['text'])
+        return ''.join(text_parts)
+    else:
+        return str(content)
 
 
 class OpenAITokenCounter(ITokenCounter):
@@ -113,7 +137,7 @@ class OpenAITokenCounter(ITokenCounter):
             for message in messages:
                 # 计算消息内容的token
                 total_tokens += tokens_per_message
-                total_tokens += len(self._encoding.encode(message.content))
+                total_tokens += len(self._encoding.encode(_extract_content_as_string(message.content)))
                 
                 # 如果有名称，添加名称的token
                 if hasattr(message, 'name') and message.name:
@@ -183,7 +207,7 @@ class GeminiTokenCounter(ITokenCounter):
         total_tokens = 0
         
         for message in messages:
-            total_tokens += self.count_tokens(message.content)
+            total_tokens += self.count_tokens(_extract_content_as_string(message.content))
             # 添加格式化的token（每个消息大约4个token）
             total_tokens += 4
         
@@ -247,7 +271,7 @@ class AnthropicTokenCounter(ITokenCounter):
         total_tokens = 0
         
         for message in messages:
-            total_tokens += self.count_tokens(message.content)
+            total_tokens += self.count_tokens(_extract_content_as_string(message.content))
             # 添加格式化的token（每个消息大约4个token）
             total_tokens += 4
         
@@ -309,7 +333,7 @@ class MockTokenCounter(ITokenCounter):
         total_tokens = 0
         
         for message in messages:
-            total_tokens += self.count_tokens(message.content)
+            total_tokens += self.count_tokens(_extract_content_as_string(message.content))
             # 添加格式化的token（每个消息大约4个token）
             total_tokens += 4
         
