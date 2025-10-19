@@ -2,7 +2,7 @@
 
 import json
 import time
-from typing import Dict, Any, Optional, List, AsyncGenerator, Generator
+from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Union
 import asyncio
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
@@ -23,7 +23,6 @@ from ..exceptions import (
     LLMInvalidRequestError,
 )
 
-
 class AnthropicClient(BaseLLMClient):
     """Anthropic客户端实现"""
 
@@ -36,20 +35,13 @@ class AnthropicClient(BaseLLMClient):
         """
         super().__init__(config)
 
-        # 获取解析后的HTTP标头
-        resolved_headers = config.get_resolved_headers()
-
         # 创建LangChain ChatAnthropic实例
-        # 准备模型参数
-        model_kwargs = {}
+        # 准备模型参数，使用联合类型来满足mypy的类型检查
+        model_kwargs: Dict[str, Union[str, int, float, List[str], List[Dict[str, Any]], Dict[str, Any], bool]] = {}
 
         # 基础参数
         if config.max_tokens is not None:
             model_kwargs["max_tokens"] = config.max_tokens
-
-        # 注意：top_p应该作为直接参数，而不是model_kwargs
-        if config.top_k is not None:
-            model_kwargs["top_k"] = config.top_k
 
         # 停止序列
         if config.stop_sequences is not None:
@@ -81,15 +73,25 @@ class AnthropicClient(BaseLLMClient):
         if config.user is not None:
             model_kwargs["user"] = config.user
 
-        self._client = ChatAnthropic(
-            model=config.model_name,  # type: ignore
-            api_key=config.api_key,
-            temperature=config.temperature,
-            top_p=config.top_p,
-            timeout=config.timeout,
-            max_retries=config.max_retries,
-            model_kwargs=model_kwargs,
-        )
+        # Gemini特定参数（可能不需要，但保留以兼容配置）
+        if config.top_k is not None:
+            model_kwargs["top_k"] = config.top_k
+
+        # 为ChatAnthropic准备参数，需要处理api_key可能为None的情况
+        client_kwargs = {
+            "model_name": config.model_name,
+            "temperature": config.temperature,
+            "top_p": config.top_p,
+            "timeout": config.timeout,
+            "max_retries": config.max_retries,
+            **model_kwargs
+        }
+
+        # 只有当api_key不为None时才添加
+        if config.api_key is not None:
+            client_kwargs["api_key"] = config.api_key
+
+        self._client = ChatAnthropic(**client_kwargs)
 
     def _convert_messages(self, messages: List[BaseMessage]) -> List[BaseMessage]:
         """转换消息格式以适应Anthropic API"""
@@ -405,4 +407,4 @@ class AnthropicClient(BaseLLMClient):
                 # 处理Anthropic特定错误
                 raise self._handle_anthropic_error(e)
 
-        return _async_generator()
+        return _async_generator()

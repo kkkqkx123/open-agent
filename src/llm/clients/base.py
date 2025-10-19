@@ -106,7 +106,7 @@ class BaseLLMClient(ILLMClient):
 
         return None
 
-    def _measure_time(self, func: Any, *args: Any, **kwargs: Any) -> Any:
+    def _measure_time(self, func: Any, *args: Any, **kwargs: Any) -> tuple[LLMResponse, float]:
         """测量函数执行时间"""
         start_time = time.time()
         try:
@@ -474,4 +474,4 @@ class BaseLLMClient(ILLMClient):
                 metadata=self.config.metadata or {},
             )
 
-        return self._model_info.to_dict()
+        return self._model_info.to_dict()

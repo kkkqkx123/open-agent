@@ -51,10 +51,11 @@ class LoggingConfigIntegration:
             config_loader = None
             try:
                 from ..infrastructure.container import DependencyContainer
+                from ..infrastructure.config_loader import YamlConfigLoader
 
                 container = DependencyContainer()
-                if container.has_service(IConfigLoader):
-                    config_loader = container.get(IConfigLoader)
+                if container.has_service(YamlConfigLoader):
+                    config_loader = container.get(YamlConfigLoader)
             except:
                 pass
 

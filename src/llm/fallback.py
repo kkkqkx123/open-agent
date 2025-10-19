@@ -69,7 +69,7 @@ class FallbackManager:
         self.timeout = timeout
 
         # 统计信息
-        self.stats = {
+        self.stats: Dict[str, Any] = {
             "total_fallbacks": 0,
             "successful_fallbacks": 0,
             "failed_fallbacks": 0,
@@ -81,7 +81,7 @@ class FallbackManager:
         primary_client: ILLMClient,
         messages: List[Any],
         parameters: Optional[Dict[str, Any]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> LLMResponse:
         """
         执行降级策略
@@ -98,7 +98,7 @@ class FallbackManager:
         Raises:
             LLMFallbackError: 降级失败
         """
-        self.stats["total_fallbacks"] += 1
+        self.stats["total_fallbacks"] = self.stats["total_fallbacks"] + 1
 
         try:
             # 首先尝试主客户端
@@ -131,7 +131,7 @@ class FallbackManager:
         messages: List[Any],
         parameters: Optional[Dict[str, Any]],
         primary_error: Exception,
-        **kwargs,
+        **kwargs: Any,
     ) -> LLMResponse:
         """顺序降级"""
         last_error = primary_error
@@ -161,7 +161,7 @@ class FallbackManager:
                 response.metadata["fallback_attempt"] = i + 1
 
                 # 更新统计
-                self.stats["successful_fallbacks"] += 1
+                self.stats["successful_fallbacks"] = self.stats["successful_fallbacks"] + 1
                 self._update_model_usage(model.name, True)
 
                 logger.info(f"降级成功: {model.name}")
@@ -173,7 +173,7 @@ class FallbackManager:
                 self._update_model_usage(model.name, False)
 
         # 所有降级都失败
-        self.stats["failed_fallbacks"] += 1
+        self.stats["failed_fallbacks"] = self.stats["failed_fallbacks"] + 1
         raise LLMFallbackError("所有降级模型都失败", last_error)
 
     def _parallel_fallback(
@@ -181,7 +181,7 @@ class FallbackManager:
         messages: List[Any],
         parameters: Optional[Dict[str, Any]],
         primary_error: Exception,
-        **kwargs,
+        **kwargs: Any,
     ) -> LLMResponse:
         """并行降级"""
         import concurrent.futures
@@ -226,7 +226,7 @@ class FallbackManager:
                     response.metadata["fallback_strategy"] = self.strategy.value
 
                     # 更新统计
-                    self.stats["successful_fallbacks"] += 1
+                    self.stats["successful_fallbacks"] = self.stats["successful_fallbacks"] + 1
                     self._update_model_usage(model.name, True)
 
                     logger.info(f"并行降级成功: {model.name}")
@@ -239,7 +239,7 @@ class FallbackManager:
                     self._update_model_usage(model.name, False)
 
         # 所有降级都失败
-        self.stats["failed_fallbacks"] += 1
+        self.stats["failed_fallbacks"] = self.stats["failed_fallbacks"] + 1
         raise LLMFallbackError("所有并行降级模型都失败", primary_error)
 
     def _random_fallback(
@@ -247,7 +247,7 @@ class FallbackManager:
         messages: List[Any],
         parameters: Optional[Dict[str, Any]],
         primary_error: Exception,
-        **kwargs,
+        **kwargs: Any,
     ) -> LLMResponse:
         """随机降级"""
         import random
@@ -290,7 +290,7 @@ class FallbackManager:
                 response.metadata["fallback_attempt"] = i + 1
 
                 # 更新统计
-                self.stats["successful_fallbacks"] += 1
+                self.stats["successful_fallbacks"] = self.stats["successful_fallbacks"] + 1
                 self._update_model_usage(model.name, True)
 
                 logger.info(f"随机降级成功: {model.name}")
@@ -302,7 +302,7 @@ class FallbackManager:
                 self._update_model_usage(model.name, False)
 
         # 所有降级都失败
-        self.stats["failed_fallbacks"] += 1
+        self.stats["failed_fallbacks"] = self.stats["failed_fallbacks"] + 1
         raise LLMFallbackError("所有随机降级模型都失败", last_error)
 
     def _priority_fallback(
@@ -310,7 +310,7 @@ class FallbackManager:
         messages: List[Any],
         parameters: Optional[Dict[str, Any]],
         primary_error: Exception,
-        **kwargs,
+        **kwargs: Any,
     ) -> LLMResponse:
         """优先级降级"""
         # 按优先级排序的模型已经存储在self.fallback_models中
@@ -321,7 +321,7 @@ class FallbackManager:
         model_name: str,
         messages: List[Any],
         parameters: Optional[Dict[str, Any]],
-        **kwargs,
+        **kwargs: Any,
     ) -> LLMResponse:
         """尝试调用降级模型"""
         fallback_client = self._get_fallback_client(model_name)
@@ -363,18 +363,20 @@ class FallbackManager:
         if model_name not in self.stats["model_usage"]:
             self.stats["model_usage"][model_name] = {"success": 0, "failure": 0}
 
+        model_stats: Dict[str, int] = self.stats["model_usage"][model_name]
         if success:
-            self.stats["model_usage"][model_name]["success"] += 1
+            model_stats["success"] = model_stats["success"] + 1
         else:
-            self.stats["model_usage"][model_name]["failure"] += 1
+            model_stats["failure"] = model_stats["failure"] + 1
 
     def get_stats(self) -> Dict[str, Any]:
         """获取统计信息"""
-        total = self.stats["total_fallbacks"]
+        total: int = self.stats["total_fallbacks"]
         if total == 0:
             return self.stats.copy()
 
-        success_rate = self.stats["successful_fallbacks"] / total
+        successful_fallbacks: int = self.stats["successful_fallbacks"]
+        success_rate: float = successful_fallbacks / total
 
         return {**self.stats, "success_rate": success_rate}
 

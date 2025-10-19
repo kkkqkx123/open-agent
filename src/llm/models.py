@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
 from enum import Enum
 
-# from langchain_core.messages import BaseMessage
+from langchain_core.messages import BaseMessage
 
 
 class MessageRole(Enum):

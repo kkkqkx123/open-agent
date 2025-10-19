@@ -27,7 +27,7 @@ class FallbackClientWrapper(ILLMClient):
         self.fallback_models = fallback_models
 
         # 创建降级模型配置
-        fallback_model_configs = []
+        fallback_model_configs: List[FallbackModel] = []
         for model_name in fallback_models:
             fallback_model_configs.append(
                 FallbackModel(
@@ -45,7 +45,7 @@ class FallbackClientWrapper(ILLMClient):
         )
 
     def generate(
-        self, messages: List[Any], parameters: Optional[Dict[str, Any]] = None, **kwargs
+        self, messages: List[Any], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
     ) -> LLMResponse:
         """
         生成文本响应（带降级支持）
@@ -72,7 +72,7 @@ class FallbackClientWrapper(ILLMClient):
                 raise LLMFallbackError("所有模型调用都失败", fallback_error)
 
     async def generate_async(
-        self, messages: List[Any], parameters: Optional[Dict[str, Any]] = None, **kwargs
+        self, messages: List[Any], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
     ) -> LLMResponse:
         """
         异步生成文本响应（带降级支持）
@@ -103,7 +103,7 @@ class FallbackClientWrapper(ILLMClient):
                 raise LLMFallbackError("所有模型异步调用都失败", fallback_error)
 
     def stream_generate(
-        self, messages: List[Any], parameters: Optional[Dict[str, Any]] = None, **kwargs
+        self, messages: List[Any], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
     ) -> Generator[str, None, None]:
         """
         流式生成文本响应（带降级支持）
@@ -136,8 +136,8 @@ class FallbackClientWrapper(ILLMClient):
                 logger.error(f"流式降级失败: {fallback_error}")
                 raise LLMFallbackError("流式降级失败", fallback_error)
 
-    async def stream_generate_async(
-        self, messages: List[Any], parameters: Optional[Dict[str, Any]] = None, **kwargs
+    def stream_generate_async(
+        self, messages: List[Any], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """
         异步流式生成文本响应（带降级支持）
@@ -154,10 +154,10 @@ class FallbackClientWrapper(ILLMClient):
         async def _async_generator() -> AsyncGenerator[str, None]:
             try:
                 # 首先尝试主客户端
-                stream = await self.primary_client.stream_generate_async(
+                async_gen = self.primary_client.stream_generate_async(
                     messages, parameters, **kwargs
                 )
-                async for chunk in stream:
+                async for chunk in async_gen:
                     yield chunk
             except Exception as primary_error:
                 logger.warning(f"主客户端异步流式调用失败: {primary_error}")
@@ -225,7 +225,7 @@ class FallbackClientWrapper(ILLMClient):
         messages: List[Any],
         parameters: Optional[Dict[str, Any]],
         primary_error: Exception,
-        **kwargs,
+        **kwargs: Any,
     ) -> LLMResponse:
         """
         尝试降级调用
@@ -277,7 +277,7 @@ class FallbackClientWrapper(ILLMClient):
         messages: List[Any],
         parameters: Optional[Dict[str, Any]],
         primary_error: Exception,
-        **kwargs,
+        **kwargs: Any,
     ) -> LLMResponse:
         """
         尝试异步降级调用

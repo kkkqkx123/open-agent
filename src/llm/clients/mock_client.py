@@ -52,7 +52,7 @@ class MockLLMClient(BaseLLMClient):
         }
 
     def _do_generate(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs
+        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行生成操作"""
         # 模拟响应延迟
@@ -77,7 +77,7 @@ class MockLLMClient(BaseLLMClient):
         )
 
     async def _do_generate_async(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs
+        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行异步生成操作"""
         # 模拟响应延迟
@@ -102,7 +102,7 @@ class MockLLMClient(BaseLLMClient):
         )
 
     def _do_stream_generate(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs
+        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> Generator[str, None, None]:
         """执行流式生成操作"""
         try:
@@ -124,7 +124,7 @@ class MockLLMClient(BaseLLMClient):
             raise self._handle_mock_error(e)
 
     async def _do_stream_generate_async(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs
+        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
         try:

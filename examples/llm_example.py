@@ -26,7 +26,7 @@ from src.llm.exceptions import (
 )
 
 
-def basic_example():
+def basic_example() -> None:
     """基本使用示例"""
     print("=== 基本使用示例 ===")
     
@@ -58,7 +58,7 @@ def basic_example():
     print()
 
 
-def streaming_example():
+def streaming_example() -> None:
     """流式生成示例"""
     print("=== 流式生成示例 ===")
     
@@ -84,7 +84,7 @@ def streaming_example():
     print("\n")
 
 
-async def async_example():
+async def async_example() -> None:
     """异步生成示例"""
     print("=== 异步生成示例 ===")
     
@@ -112,7 +112,7 @@ async def async_example():
     print()
 
 
-async def async_streaming_example():
+async def async_streaming_example() -> None:
     """异步流式生成示例"""
     print("=== 异步流式生成示例 ===")
     
@@ -138,7 +138,7 @@ async def async_streaming_example():
     print("\n")
 
 
-def hooks_example():
+def hooks_example() -> None:
     """钩子机制示例"""
     print("=== 钩子机制示例 ===")
     
@@ -180,7 +180,7 @@ def hooks_example():
     print()
 
 
-def error_handling_example():
+def error_handling_example() -> None:
     """错误处理示例"""
     print("=== 错误处理示例 ===")
     
@@ -211,7 +211,7 @@ def error_handling_example():
     print()
 
 
-def token_calculation_example():
+def token_calculation_example() -> None:
     """Token计算示例"""
     print("=== Token计算示例 ===")
     
@@ -241,7 +241,7 @@ def token_calculation_example():
     print()
 
 
-def factory_example():
+def factory_example() -> None:
     """工厂模式示例"""
     print("=== 工厂模式示例 ===")
     
@@ -280,7 +280,7 @@ def factory_example():
     print()
 
 
-def model_info_example():
+def model_info_example() -> None:
     """模型信息示例"""
     print("=== 模型信息示例 ===")
     
@@ -305,7 +305,7 @@ def model_info_example():
     print()
 
 
-async def main():
+async def main() -> None:
     """主函数"""
     print("LLM模块使用示例")
     print("=" * 50)

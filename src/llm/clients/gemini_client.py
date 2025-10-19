@@ -2,7 +2,7 @@
 
 import json
 import time
-from typing import Dict, Any, Optional, List, AsyncGenerator, Generator
+from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Union
 import asyncio
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
@@ -23,7 +23,6 @@ from ..exceptions import (
     LLMInvalidRequestError,
 )
 
-
 class GeminiClient(BaseLLMClient):
     """Gemini客户端实现"""
 
@@ -36,12 +35,9 @@ class GeminiClient(BaseLLMClient):
         """
         super().__init__(config)
 
-        # 获取解析后的HTTP标头
-        resolved_headers = config.get_resolved_headers()
-
         # 创建LangChain ChatGoogleGenerativeAI实例
-        # 准备模型参数
-        model_kwargs = {}
+        # 准备模型参数，使用联合类型来满足mypy的类型检查
+        model_kwargs: Dict[str, Union[str, int, float, List[str], List[Dict[str, Any]], Dict[str, Any], bool]] = {}
 
         # 基础参数
         if config.max_tokens is not None:
@@ -89,15 +85,21 @@ class GeminiClient(BaseLLMClient):
         if config.user is not None:
             model_kwargs["user"] = config.user
 
-        self._client = ChatGoogleGenerativeAI(
-            model=config.model_name,
-            google_api_key=config.api_key,
-            temperature=config.temperature,
-            timeout=config.timeout,
-            max_retries=config.max_retries,
-            request_timeout=config.timeout,
-            **model_kwargs,
-        )
+        # 为ChatGoogleGenerativeAI准备参数，需要处理api_key可能为None的情况
+        client_kwargs = {
+            "model": config.model_name,
+            "temperature": config.temperature,
+            "timeout": config.timeout,
+            "max_retries": config.max_retries,
+            "request_timeout": config.timeout,
+            **model_kwargs
+        }
+
+        # 只有当api_key不为None时才添加
+        if config.api_key is not None:
+            client_kwargs["google_api_key"] = config.api_key
+
+        self._client = ChatGoogleGenerativeAI(**client_kwargs)
 
     def _convert_messages(self, messages: List[BaseMessage]) -> List[BaseMessage]:
         """转换消息格式以适应Gemini API"""
@@ -224,7 +226,11 @@ class GeminiClient(BaseLLMClient):
             hasattr(response, "additional_kwargs")
             and "function_call" in response.additional_kwargs
         ):
-            return response.additional_kwargs["function_call"]
+            result = response.additional_kwargs["function_call"]
+            if isinstance(result, dict):
+                return result
+            else:
+                return None
         return None
 
     def _extract_finish_reason(self, response: Any) -> Optional[str]:
@@ -284,7 +290,7 @@ class GeminiClient(BaseLLMClient):
                         return LLMModelNotFoundError(self.config.model_name)
                     elif status_code == 400:
                         return LLMInvalidRequestError("Gemini API请求无效")
-                    elif status_code == 500 or status_code == 502 or status_code == 503:
+                    elif status_code == 50 or status_code == 502 or status_code == 503:
                         return LLMServiceUnavailableError("Gemini服务不可用")
         except (AttributeError, ValueError, TypeError):
             # 如果访问属性时出错，忽略并继续执行其他错误检查
@@ -370,4 +376,4 @@ class GeminiClient(BaseLLMClient):
                 # 处理Gemini特定错误
                 raise self._handle_gemini_error(e)
 
-        return _async_generator()
+        return _async_generator()
