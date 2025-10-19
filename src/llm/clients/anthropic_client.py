@@ -42,20 +42,55 @@ class AnthropicClient(BaseLLMClient):
         # 创建LangChain ChatAnthropic实例
         # 准备模型参数
         model_kwargs = {}
-        if config.functions:
-            model_kwargs["functions"] = config.functions
-            if config.function_call is not None:
-                model_kwargs["function_call"] = config.function_call
+        
+        # 基础参数
+        if config.max_tokens is not None:
+            model_kwargs["max_tokens"] = config.max_tokens
+        
+        # 采样参数
+        if config.top_p is not None:
+            model_kwargs["top_p"] = config.top_p
+        if config.top_k is not None:
+            model_kwargs["top_k"] = config.top_k
+        
+        # 停止序列
+        if config.stop_sequences is not None:
+            model_kwargs["stop_sequences"] = config.stop_sequences
+        
+        # 工具调用参数
+        if config.tools:
+            model_kwargs["tools"] = config.tools
+            if config.tool_choice is not None:
+                model_kwargs["tool_choice"] = config.tool_choice
+        
+        # 系统指令
+        if config.system is not None:
+            model_kwargs["system"] = config.system
+        
+        # 思考配置
+        if config.thinking_config is not None:
+            model_kwargs["thinking_config"] = config.thinking_config
+        
+        # 响应格式
+        if config.response_format is not None:
+            model_kwargs["response_format"] = config.response_format
+        
+        # 元数据
+        if config.metadata is not None:
+            model_kwargs["metadata"] = config.metadata
+        
+        # 用户标识
+        if config.user is not None:
+            model_kwargs["user"] = config.user
         
         self._client = ChatAnthropic(
             model=config.model_name, # type: ignore
             api_key=config.api_key,
             temperature=config.temperature,
-            max_tokens=config.max_tokens, # type: ignore
             timeout=config.timeout,
             max_retries=config.max_retries,
             default_headers=resolved_headers,
-            model_kwargs=model_kwargs
+            model_kwargs=model_kwargs,
         )
     
     def _convert_messages(self, messages: List[BaseMessage]) -> List[BaseMessage]:
@@ -180,8 +215,6 @@ class AnthropicClient(BaseLLMClient):
         except Exception as e:
             # 处理Anthropic特定错误
             raise self._handle_anthropic_error(e)
-    
-    
     
     def get_token_count(self, text: str) -> int:
         """计算文本的token数量"""

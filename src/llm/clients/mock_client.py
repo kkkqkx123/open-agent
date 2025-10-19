@@ -60,7 +60,7 @@ class MockLLMClient(BaseLLMClient):
         self._maybe_throw_error()
         
         # 生成响应内容
-        content = self._generate_response_content(messages)
+        content = self._generate_response_content(messages, parameters)
         
         # 估算Token使用情况
         token_usage = self._estimate_token_usage(content)
@@ -88,7 +88,7 @@ class MockLLMClient(BaseLLMClient):
         self._maybe_throw_error()
         
         # 生成响应内容
-        content = self._generate_response_content(messages)
+        content = self._generate_response_content(messages, parameters)
         
         # 估算Token使用情况
         token_usage = self._estimate_token_usage(content)
@@ -113,7 +113,7 @@ class MockLLMClient(BaseLLMClient):
             self._maybe_throw_error()
             
             # 生成完整响应
-            content = self._generate_response_content(messages)
+            content = self._generate_response_content(messages, parameters)
             
             # 模拟流式输出
             words = content.split()
@@ -144,7 +144,7 @@ class MockLLMClient(BaseLLMClient):
                 self._maybe_throw_error()
                 
                 # 生成完整响应
-                content = self._generate_response_content(messages)
+                content = self._generate_response_content(messages, parameters)
                 
                 # 模拟流式输出
                 words = content.split()
@@ -185,7 +185,7 @@ class MockLLMClient(BaseLLMClient):
         # Mock客户端支持函数调用
         return True
     
-    def _generate_response_content(self, messages: List[BaseMessage]) -> str:
+    def _generate_response_content(self, messages: List[BaseMessage], parameters: Dict[str, Any]) -> str:
         """生成响应内容"""
         if not messages:
             return self._response_templates["default"]
@@ -194,7 +194,88 @@ class MockLLMClient(BaseLLMClient):
         last_message = messages[-1]
         content = str(last_message.content).lower()
         
-        # 根据内容选择响应模板
+        # 根据参数调整响应内容
+        response_content = self._get_base_response(content)
+        
+        # 根据参数调整响应
+        if parameters.get('temperature', 0.7) > 0.8:
+            response_content += " [高温度随机响应]"
+        elif parameters.get('temperature', 0.7) < 0.3:
+            response_content += " [低温度确定性响应]"
+        
+        if parameters.get('max_tokens'):
+            response_content += f" [最大token限制: {parameters['max_tokens']}]"
+        
+        if parameters.get('top_p'):
+            response_content += f" [Top-P: {parameters['top_p']}]"
+        
+        if parameters.get('top_k'):
+            response_content += f" [Top-K: {parameters['top_k']}]"
+        
+        if parameters.get('frequency_penalty', 0) != 0:
+            response_content += f" [频率惩罚: {parameters['frequency_penalty']}]"
+        
+        if parameters.get('presence_penalty', 0) != 0:
+            response_content += f" [存在惩罚: {parameters['presence_penalty']}]"
+        
+        if parameters.get('stop'):
+            response_content += f" [停止序列: {parameters['stop']}]"
+        
+        if parameters.get('stop_sequences'):
+            response_content += f" [停止序列: {parameters['stop_sequences']}]"
+        
+        if parameters.get('tool_choice'):
+            response_content += f" [工具选择: {parameters['tool_choice']}]"
+        
+        if parameters.get('response_format'):
+            response_content += f" [响应格式: {parameters['response_format']}]"
+        
+        if parameters.get('system'):
+            response_content += f" [系统指令: {parameters['system']}]"
+        
+        if parameters.get('system_instruction'):
+            response_content += f" [系统指令: {parameters['system_instruction']}]"
+        
+        if parameters.get('thinking_config'):
+            response_content += f" [思考配置: {parameters['thinking_config']}]"
+        
+        if parameters.get('reasoning'):
+            response_content += f" [推理配置: {parameters['reasoning']}]"
+        
+        if parameters.get('verbosity'):
+            response_content += f" [详细程度: {parameters['verbosity']}]"
+        
+        if parameters.get('candidate_count'):
+            response_content += f" [候选数量: {parameters['candidate_count']}]"
+        
+        if parameters.get('response_mime_type'):
+            response_content += f" [响应MIME类型: {parameters['response_mime_type']}]"
+        
+        if parameters.get('safety_settings'):
+            response_content += f" [安全设置: {parameters['safety_settings']}]"
+        
+        if parameters.get('service_tier'):
+            response_content += f" [服务层: {parameters['service_tier']}]"
+        
+        if parameters.get('safety_identifier'):
+            response_content += f" [安全标识符: {parameters['safety_identifier']}]"
+        
+        if parameters.get('store'):
+            response_content += " [存储: 启用]"
+        
+        if parameters.get('web_search_options'):
+            response_content += f" [网络搜索选项: {parameters['web_search_options']}]"
+        
+        if parameters.get('seed'):
+            response_content += f" [种子: {parameters['seed']}]"
+        
+        if parameters.get('user'):
+            response_content += f" [用户: {parameters['user']}]"
+        
+        return response_content
+    
+    def _get_base_response(self, content: str) -> str:
+        """根据内容选择基础响应模板"""
         if "代码" in content or "code" in content or "编程" in content:
             return self._response_templates["coding"]
         elif "分析" in content or "analysis" in content or "数据" in content:

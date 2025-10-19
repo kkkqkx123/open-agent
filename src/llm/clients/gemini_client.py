@@ -40,17 +40,64 @@ class GeminiClient(BaseLLMClient):
         resolved_headers = config.get_resolved_headers()
         
         # 创建LangChain ChatGoogleGenerativeAI实例
+        # 准备模型参数
+        model_kwargs = {}
+        
+        # 基础参数
+        if config.max_tokens is not None:
+            model_kwargs["max_tokens"] = config.max_tokens
+        if config.max_output_tokens is not None:
+            model_kwargs["max_output_tokens"] = config.max_output_tokens
+        
+        # 采样参数
+        if config.top_p is not None:
+            model_kwargs["top_p"] = config.top_p
+        if config.top_k is not None:
+            model_kwargs["top_k"] = config.top_k
+        
+        # 停止序列
+        if config.stop_sequences is not None:
+            model_kwargs["stop_sequences"] = config.stop_sequences
+        
+        # 候选数量
+        if config.candidate_count is not None:
+            model_kwargs["candidate_count"] = config.candidate_count
+        
+        # 系统指令
+        if config.system_instruction is not None:
+            model_kwargs["system_instruction"] = config.system_instruction
+        
+        # 响应MIME类型
+        if config.response_mime_type is not None:
+            model_kwargs["response_mime_type"] = config.response_mime_type
+        
+        # 思考配置
+        if config.thinking_config is not None:
+            model_kwargs["thinking_config"] = config.thinking_config
+        
+        # 安全设置
+        if config.safety_settings is not None:
+            model_kwargs["safety_settings"] = config.safety_settings
+        
+        # 工具调用参数
+        if config.tools:
+            model_kwargs["tools"] = config.tools
+            if config.tool_choice is not None:
+                model_kwargs["tool_choice"] = config.tool_choice
+        
+        # 用户标识
+        if config.user is not None:
+            model_kwargs["user"] = config.user
+        
         self._client = ChatGoogleGenerativeAI(
             model=config.model_name,
             google_api_key=config.api_key,
             temperature=config.temperature,
-            max_tokens=config.max_tokens,
-            top_p=config.top_p,
-            top_k=getattr(config, 'parameters', {}).get('top_k', 40),
             timeout=config.timeout,
             max_retries=config.max_retries,
             request_timeout=config.timeout,
-            default_headers=resolved_headers
+            default_headers=resolved_headers,
+            **model_kwargs
         )
     
     def _convert_messages(self, messages: List[BaseMessage]) -> List[BaseMessage]:
@@ -133,8 +180,6 @@ class GeminiClient(BaseLLMClient):
         except Exception as e:
             # 处理Gemini特定错误
             raise self._handle_gemini_error(e)
-    
-    
     
     def get_token_count(self, text: str) -> int:
         """计算文本的token数量"""

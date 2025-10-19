@@ -1,0 +1,2 @@
+配置、客户端中应当支持配置所有主要参数，
+包括thinking, top_p, temperature, max_tokens, top_k, 上下文长度、返回内容格式等。

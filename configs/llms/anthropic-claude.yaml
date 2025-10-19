@@ -5,11 +5,40 @@ base_url: "https://api.anthropic.com"
 api_key: "${ANTHROPIC_API_KEY}"
 
 parameters:
+  # 基础生成参数
   temperature: 0.7
   max_tokens: 2000
+  top_p: 1.0
+  top_k: null  # Anthropic支持top_k采样
+  
+  # 停止序列
+  stop_sequences: null  # 字符串数组，最多4个序列
+  
+  # 工具调用参数
+  tool_choice: null  # "auto", "any", "none" 或特定工具对象
+  tools: null  # 工具列表
+  
+  # 系统指令
+  system: null  # 系统指令文本
+  
+  # 流式控制
+  stream: false
+  
+  # 思考配置（新模型支持）
+  thinking_config: null  # {"thinking_budget": integer}
+  
+  # 响应格式
+  response_format: null  # 响应格式配置
+  
+  # 元数据
+  metadata: null  # 用户自定义元数据
+  
+  # 其他参数
+  user: null  # 用户标识符
+  
+  # 连接参数
   timeout: 30
   max_retries: 3
-  stream: false
 
 # 降级配置
 fallback_enabled: true

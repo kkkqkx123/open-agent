@@ -25,14 +25,45 @@ class LLMClientConfig:
     _resolved_headers: Optional[Dict[str, str]] = field(default=None, init=False)
     _sanitized_headers: Optional[Dict[str, str]] = field(default=None, init=False)
     
-    # 参数配置
+    # 基础生成参数
     temperature: float = 0.7
     max_tokens: Optional[int] = None
     top_p: float = 1.0
+    
+    # OpenAI特定参数
+    max_completion_tokens: Optional[int] = None
     frequency_penalty: float = 0.0
     presence_penalty: float = 0.0
+    stop: Optional[Union[str, List[str]]] = None
+    top_logprobs: Optional[int] = None
+    tool_choice: Optional[Union[str, Dict[str, Any]]] = None
+    tools: Optional[List[Dict[str, Any]]] = None
+    response_format: Optional[Dict[str, Any]] = None
+    stream_options: Optional[Dict[str, Any]] = None
+    service_tier: Optional[str] = None
+    safety_identifier: Optional[str] = None
+    store: bool = False
+    reasoning: Optional[Dict[str, Any]] = None
+    verbosity: Optional[str] = None
+    web_search_options: Optional[Dict[str, Any]] = None
+    seed: Optional[int] = None
+    user: Optional[str] = None
     
-    # 高级配置
+    # Anthropic特定参数
+    stop_sequences: Optional[List[str]] = None
+    system: Optional[str] = None
+    thinking_config: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
+    
+    # Gemini特定参数
+    max_output_tokens: Optional[int] = None
+    top_k: Optional[int] = None
+    candidate_count: Optional[int] = None
+    system_instruction: Optional[Dict[str, Any]] = None
+    response_mime_type: Optional[str] = None
+    safety_settings: Optional[Dict[str, Any]] = None
+    
+    # 通用参数
     stream: bool = False
     functions: Optional[List[Dict[str, Any]]] = None
     function_call: Optional[Union[str, Dict[str, str]]] = None
@@ -43,7 +74,7 @@ class LLMClientConfig:
     max_fallback_attempts: int = 3
     
     # 元数据
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata_config: Dict[str, Any] = field(default_factory=dict)
     
     @classmethod
     def from_llm_config(cls, config: LLMConfig) -> 'LLMClientConfig':
@@ -62,15 +93,44 @@ class LLMClientConfig:
             temperature=parameters.get('temperature', 0.7),
             max_tokens=parameters.get('max_tokens'),
             top_p=parameters.get('top_p', 1.0),
+            # OpenAI参数
+            max_completion_tokens=parameters.get('max_completion_tokens'),
             frequency_penalty=parameters.get('frequency_penalty', 0.0),
             presence_penalty=parameters.get('presence_penalty', 0.0),
+            stop=parameters.get('stop'),
+            top_logprobs=parameters.get('top_logprobs'),
+            tool_choice=parameters.get('tool_choice'),
+            tools=parameters.get('tools'),
+            response_format=parameters.get('response_format'),
+            stream_options=parameters.get('stream_options'),
+            service_tier=parameters.get('service_tier'),
+            safety_identifier=parameters.get('safety_identifier'),
+            store=parameters.get('store', False),
+            reasoning=parameters.get('reasoning'),
+            verbosity=parameters.get('verbosity'),
+            web_search_options=parameters.get('web_search_options'),
+            seed=parameters.get('seed'),
+            user=parameters.get('user'),
+            # Anthropic参数
+            stop_sequences=parameters.get('stop_sequences'),
+            system=parameters.get('system'),
+            thinking_config=parameters.get('thinking_config'),
+            metadata=parameters.get('metadata'),
+            # Gemini参数
+            max_output_tokens=parameters.get('max_output_tokens'),
+            top_k=parameters.get('top_k'),
+            candidate_count=parameters.get('candidate_count'),
+            system_instruction=parameters.get('system_instruction'),
+            response_mime_type=parameters.get('response_mime_type'),
+            safety_settings=parameters.get('safety_settings'),
+            # 通用参数
             stream=parameters.get('stream', False),
             functions=parameters.get('functions'),
             function_call=parameters.get('function_call'),
             fallback_enabled=parameters.get('fallback_enabled', True),
             fallback_models=parameters.get('fallback_models', []),
             max_fallback_attempts=parameters.get('max_fallback_attempts', 3),
-            metadata=parameters.get('metadata', {})
+            metadata_config=parameters.get('metadata', {})
         )
     
     def to_dict(self) -> Dict[str, Any]:
@@ -82,13 +142,12 @@ class LLMClientConfig:
             "max_retries": self.max_retries,
             "temperature": self.temperature,
             "top_p": self.top_p,
-            "frequency_penalty": self.frequency_penalty,
-            "presence_penalty": self.presence_penalty,
             "stream": self.stream,
             "fallback_enabled": self.fallback_enabled,
             "max_fallback_attempts": self.max_fallback_attempts
         }
         
+        # 基础参数
         if self.base_url:
             result["base_url"] = self.base_url
             
@@ -101,7 +160,92 @@ class LLMClientConfig:
             
         if self.max_tokens:
             result["max_tokens"] = self.max_tokens
+        
+        # OpenAI参数
+        if self.max_completion_tokens:
+            result["max_completion_tokens"] = self.max_completion_tokens
             
+        if self.frequency_penalty != 0.0:
+            result["frequency_penalty"] = self.frequency_penalty
+            
+        if self.presence_penalty != 0.0:
+            result["presence_penalty"] = self.presence_penalty
+            
+        if self.stop:
+            result["stop"] = self.stop
+            
+        if self.top_logprobs:
+            result["top_logprobs"] = self.top_logprobs
+            
+        if self.tool_choice:
+            result["tool_choice"] = self.tool_choice
+            
+        if self.tools:
+            result["tools"] = self.tools
+            
+        if self.response_format:
+            result["response_format"] = self.response_format
+            
+        if self.stream_options:
+            result["stream_options"] = self.stream_options
+            
+        if self.service_tier:
+            result["service_tier"] = self.service_tier
+            
+        if self.safety_identifier:
+            result["safety_identifier"] = self.safety_identifier
+            
+        if self.store:
+            result["store"] = self.store
+            
+        if self.reasoning:
+            result["reasoning"] = self.reasoning
+            
+        if self.verbosity:
+            result["verbosity"] = self.verbosity
+            
+        if self.web_search_options:
+            result["web_search_options"] = self.web_search_options
+            
+        if self.seed:
+            result["seed"] = self.seed
+            
+        if self.user:
+            result["user"] = self.user
+        
+        # Anthropic参数
+        if self.stop_sequences:
+            result["stop_sequences"] = self.stop_sequences
+            
+        if self.system:
+            result["system"] = self.system
+            
+        if self.thinking_config:
+            result["thinking_config"] = self.thinking_config
+            
+        if self.metadata:
+            result["metadata"] = self.metadata
+        
+        # Gemini参数
+        if self.max_output_tokens:
+            result["max_output_tokens"] = self.max_output_tokens
+            
+        if self.top_k:
+            result["top_k"] = self.top_k
+            
+        if self.candidate_count:
+            result["candidate_count"] = self.candidate_count
+            
+        if self.system_instruction:
+            result["system_instruction"] = self.system_instruction
+            
+        if self.response_mime_type:
+            result["response_mime_type"] = self.response_mime_type
+            
+        if self.safety_settings:
+            result["safety_settings"] = self.safety_settings
+        
+        # 通用参数
         if self.functions:
             result["functions"] = self.functions
             
@@ -111,8 +255,8 @@ class LLMClientConfig:
         if self.fallback_models:
             result["fallback_models"] = self.fallback_models
             
-        if self.metadata:
-            result["metadata"] = self.metadata
+        if self.metadata_config:
+            result["metadata_config"] = self.metadata_config
             
         return result
     
@@ -208,15 +352,40 @@ class LLMClientConfig:
             temperature=self.temperature,
             max_tokens=self.max_tokens,
             top_p=self.top_p,
+            max_completion_tokens=self.max_completion_tokens,
             frequency_penalty=self.frequency_penalty,
             presence_penalty=self.presence_penalty,
+            stop=self.stop,
+            top_logprobs=self.top_logprobs,
+            tool_choice=self.tool_choice,
+            tools=self.tools.copy() if self.tools else None,
+            response_format=self.response_format,
+            stream_options=self.stream_options,
+            service_tier=self.service_tier,
+            safety_identifier=self.safety_identifier,
+            store=self.store,
+            reasoning=self.reasoning,
+            verbosity=self.verbosity,
+            web_search_options=self.web_search_options,
+            seed=self.seed,
+            user=self.user,
+            stop_sequences=self.stop_sequences,
+            system=self.system,
+            thinking_config=self.thinking_config,
+            metadata=self.metadata,
+            max_output_tokens=self.max_output_tokens,
+            top_k=self.top_k,
+            candidate_count=self.candidate_count,
+            system_instruction=self.system_instruction,
+            response_mime_type=self.response_mime_type,
+            safety_settings=self.safety_settings,
             stream=self.stream,
             functions=self.functions.copy() if self.functions else None,
             function_call=self.function_call,
             fallback_enabled=self.fallback_enabled,
             fallback_models=self.fallback_models.copy(),
             max_fallback_attempts=self.max_fallback_attempts,
-            metadata=self.metadata.copy()
+            metadata_config=self.metadata_config.copy()
         )
         
         # 更新参数
@@ -224,7 +393,7 @@ class LLMClientConfig:
             if hasattr(new_config, key):
                 setattr(new_config, key, value)
             else:
-                new_config.metadata[key] = value
+                new_config.metadata_config[key] = value
                 
         return new_config
     
@@ -248,15 +417,30 @@ class LLMClientConfig:
                 temperature=config_dict.get('temperature', 0.7),
                 max_tokens=config_dict.get('max_tokens'),
                 top_p=config_dict.get('top_p', 1.0),
+                max_completion_tokens=config_dict.get('max_completion_tokens'),
                 frequency_penalty=config_dict.get('frequency_penalty', 0.0),
                 presence_penalty=config_dict.get('presence_penalty', 0.0),
+                stop=config_dict.get('stop'),
+                top_logprobs=config_dict.get('top_logprobs'),
+                tool_choice=config_dict.get('tool_choice'),
+                tools=config_dict.get('tools'),
+                response_format=config_dict.get('response_format'),
+                stream_options=config_dict.get('stream_options'),
+                service_tier=config_dict.get('service_tier'),
+                safety_identifier=config_dict.get('safety_identifier'),
+                store=config_dict.get('store', False),
+                reasoning=config_dict.get('reasoning'),
+                verbosity=config_dict.get('verbosity'),
+                web_search_options=config_dict.get('web_search_options'),
+                seed=config_dict.get('seed'),
+                user=config_dict.get('user'),
                 stream=config_dict.get('stream', False),
                 functions=config_dict.get('functions'),
                 function_call=config_dict.get('function_call'),
                 fallback_enabled=config_dict.get('fallback_enabled', True),
                 fallback_models=config_dict.get('fallback_models', []),
                 max_fallback_attempts=config_dict.get('max_fallback_attempts', 3),
-                metadata=config_dict.get('metadata', {})
+                metadata_config=config_dict.get('metadata', {})
             )
         elif model_type == 'gemini':
             return GeminiConfig(
@@ -270,15 +454,20 @@ class LLMClientConfig:
                 temperature=config_dict.get('temperature', 0.7),
                 max_tokens=config_dict.get('max_tokens'),
                 top_p=config_dict.get('top_p', 1.0),
-                frequency_penalty=config_dict.get('frequency_penalty', 0.0),
-                presence_penalty=config_dict.get('presence_penalty', 0.0),
+                max_output_tokens=config_dict.get('max_output_tokens'),
+                top_k=config_dict.get('top_k'),
+                candidate_count=config_dict.get('candidate_count'),
+                system_instruction=config_dict.get('system_instruction'),
+                response_mime_type=config_dict.get('response_mime_type'),
+                thinking_config=config_dict.get('thinking_config'),
+                safety_settings=config_dict.get('safety_settings'),
                 stream=config_dict.get('stream', False),
                 functions=config_dict.get('functions'),
                 function_call=config_dict.get('function_call'),
                 fallback_enabled=config_dict.get('fallback_enabled', True),
                 fallback_models=config_dict.get('fallback_models', []),
                 max_fallback_attempts=config_dict.get('max_fallback_attempts', 3),
-                metadata=config_dict.get('metadata', {})
+                metadata_config=config_dict.get('metadata', {})
             )
         elif model_type in ['anthropic', 'claude']:
             return AnthropicConfig(
@@ -292,15 +481,17 @@ class LLMClientConfig:
                 temperature=config_dict.get('temperature', 0.7),
                 max_tokens=config_dict.get('max_tokens'),
                 top_p=config_dict.get('top_p', 1.0),
-                frequency_penalty=config_dict.get('frequency_penalty', 0.0),
-                presence_penalty=config_dict.get('presence_penalty', 0.0),
+                stop_sequences=config_dict.get('stop_sequences'),
+                system=config_dict.get('system'),
+                thinking_config=config_dict.get('thinking_config'),
+                response_format=config_dict.get('response_format'),
                 stream=config_dict.get('stream', False),
                 functions=config_dict.get('functions'),
                 function_call=config_dict.get('function_call'),
                 fallback_enabled=config_dict.get('fallback_enabled', True),
                 fallback_models=config_dict.get('fallback_models', []),
                 max_fallback_attempts=config_dict.get('max_fallback_attempts', 3),
-                metadata=config_dict.get('metadata', {})
+                metadata_config=config_dict.get('metadata', {})
             )
         elif model_type == 'mock':
             return MockConfig(
@@ -314,15 +505,13 @@ class LLMClientConfig:
                 temperature=config_dict.get('temperature', 0.7),
                 max_tokens=config_dict.get('max_tokens'),
                 top_p=config_dict.get('top_p', 1.0),
-                frequency_penalty=config_dict.get('frequency_penalty', 0.0),
-                presence_penalty=config_dict.get('presence_penalty', 0.0),
                 stream=config_dict.get('stream', False),
                 functions=config_dict.get('functions'),
                 function_call=config_dict.get('function_call'),
                 fallback_enabled=config_dict.get('fallback_enabled', True),
                 fallback_models=config_dict.get('fallback_models', []),
                 max_fallback_attempts=config_dict.get('max_fallback_attempts', 3),
-                metadata=config_dict.get('metadata', {}),
+                metadata_config=config_dict.get('metadata', {}),
                 response_delay=config_dict.get('response_delay', 0.1),
                 error_rate=config_dict.get('error_rate', 0.0),
                 error_types=config_dict.get('error_types', ['timeout', 'rate_limit'])
@@ -340,15 +529,13 @@ class LLMClientConfig:
                 temperature=config_dict.get('temperature', 0.7),
                 max_tokens=config_dict.get('max_tokens'),
                 top_p=config_dict.get('top_p', 1.0),
-                frequency_penalty=config_dict.get('frequency_penalty', 0.0),
-                presence_penalty=config_dict.get('presence_penalty', 0.0),
                 stream=config_dict.get('stream', False),
                 functions=config_dict.get('functions'),
                 function_call=config_dict.get('function_call'),
                 fallback_enabled=config_dict.get('fallback_enabled', True),
                 fallback_models=config_dict.get('fallback_models', []),
                 max_fallback_attempts=config_dict.get('max_fallback_attempts', 3),
-                metadata=config_dict.get('metadata', {})
+                metadata_config=config_dict.get('metadata', {})
             )
 
 

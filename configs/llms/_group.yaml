@@ -6,7 +6,27 @@ openai_group:
   parameters:
     temperature: 0.7
     max_tokens: 2000
+    max_completion_tokens: null
     top_p: 1.0
+    frequency_penalty: 0.0
+    presence_penalty: 0.0
+    stop: null
+    top_logprobs: null
+    tool_choice: null
+    tools: null
+    response_format: null
+    stream: false
+    stream_options: null
+    service_tier: "auto"
+    safety_identifier: null
+    store: false
+    reasoning: null
+    verbosity: "medium"
+    web_search_options: null
+    seed: null
+    user: null
+    timeout: 30
+    max_retries: 3
 
 gemini_group:
   base_url: "https://generativelanguage.googleapis.com/v1"
@@ -15,3 +35,39 @@ gemini_group:
   parameters:
     temperature: 0.7
     max_tokens: 2048
+    max_output_tokens: null
+    top_p: 1.0
+    top_k: 40
+    stop_sequences: null
+    candidate_count: 1
+    system_instruction: null
+    response_mime_type: null
+    thinking_config: null
+    stream: false
+    safety_settings: null
+    tool_choice: null
+    tools: null
+    user: null
+    timeout: 30
+    max_retries: 3
+
+anthropic_group:
+  base_url: "https://api.anthropic.com"
+  headers:
+    User-Agent: "ModularAgent/1.0"
+  parameters:
+    temperature: 0.7
+    max_tokens: 2000
+    top_p: 1.0
+    top_k: null
+    stop_sequences: null
+    tool_choice: null
+    tools: null
+    system: null
+    thinking_config: null
+    response_format: null
+    stream: false
+    metadata: null
+    user: null
+    timeout: 30
+    max_retries: 3

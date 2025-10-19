@@ -43,12 +43,74 @@ class OpenAIClient(BaseLLMClient):
         # 创建LangChain ChatOpenAI实例
         # 准备模型参数
         model_kwargs: Dict[str, Any] = {}
+        
+        # 基础参数
         if config.max_tokens is not None:
             model_kwargs["max_tokens"] = config.max_tokens
-        if config.functions:
-            model_kwargs["functions"] = config.functions
+        if config.max_completion_tokens is not None:
+            model_kwargs["max_completion_tokens"] = config.max_completion_tokens
+        
+        # 惩罚参数
+        if config.frequency_penalty != 0.0:
+            model_kwargs["frequency_penalty"] = config.frequency_penalty
+        if config.presence_penalty != 0.0:
+            model_kwargs["presence_penalty"] = config.presence_penalty
+        
+        # 停止序列
+        if config.stop is not None:
+            model_kwargs["stop"] = config.stop
+        
+        # 采样参数
+        if config.top_logprobs is not None:
+            model_kwargs["logprobs"] = config.top_logprobs
+        
+        # 工具调用参数
+        if config.tools:
+            model_kwargs["functions"] = config.tools
             if config.function_call is not None:
                 model_kwargs["function_call"] = config.function_call
+        if config.tool_choice is not None:
+            model_kwargs["tool_choice"] = config.tool_choice
+        
+        # 响应格式
+        if config.response_format is not None:
+            model_kwargs["response_format"] = config.response_format
+        
+        # 流式选项
+        if config.stream_options is not None:
+            model_kwargs["stream_options"] = config.stream_options
+        
+        # 服务层
+        if config.service_tier is not None:
+            model_kwargs["service_tier"] = config.service_tier
+        
+        # 安全标识符
+        if config.safety_identifier is not None:
+            model_kwargs["safety_identifier"] = config.safety_identifier
+        
+        # 存储选项
+        if config.store:
+            model_kwargs["store"] = config.store
+        
+        # 推理参数
+        if config.reasoning is not None:
+            model_kwargs["reasoning"] = config.reasoning
+        
+        # 详细程度
+        if config.verbosity is not None:
+            model_kwargs["verbosity"] = config.verbosity
+        
+        # 网络搜索选项
+        if config.web_search_options is not None:
+            model_kwargs["web_search_options"] = config.web_search_options
+        
+        # 种子
+        if config.seed is not None:
+            model_kwargs["seed"] = config.seed
+        
+        # 用户标识
+        if config.user is not None:
+            model_kwargs["user"] = config.user
         
         # 转换 api_key 为 SecretStr 类型
         api_key = SecretStr(config.api_key) if config.api_key else None
@@ -57,11 +119,9 @@ class OpenAIClient(BaseLLMClient):
             model=config.model_name,
             api_key=api_key,
             base_url=config.base_url,
-            organization=config.organization,
+            organization=getattr(config, 'organization', None),
             temperature=config.temperature,
             top_p=config.top_p,
-            frequency_penalty=config.frequency_penalty,
-            presence_penalty=config.presence_penalty,
             timeout=config.timeout,
             max_retries=config.max_retries,
             default_headers=resolved_headers,
@@ -127,8 +187,6 @@ class OpenAIClient(BaseLLMClient):
         except Exception as e:
             # 处理OpenAI特定错误
             raise self._handle_openai_error(e)
-    
-    
     
     def get_token_count(self, text: str) -> int:
         """计算文本的token数量"""

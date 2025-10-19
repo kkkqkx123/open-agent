@@ -482,7 +482,7 @@ class BaseLLMClient(ILLMClient):
                 type=self.config.model_type,
                 supports_function_calling=self.supports_function_calling(),
                 supports_streaming=True,
-                metadata=self.config.metadata
+                metadata=self.config.metadata or {}
             )
         
         return self._model_info.to_dict()
