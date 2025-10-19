@@ -406,7 +406,8 @@ class LLMClientConfig:
         
         # 根据模型类型创建特定配置
         if model_type == 'openai':
-            return OpenAIConfig(
+            from .clients.openai.config import OpenAIConfig as ExtendedOpenAIConfig
+            return ExtendedOpenAIConfig(
                 model_type=model_type,
                 model_name=model_name,
                 base_url=config_dict.get('base_url'),

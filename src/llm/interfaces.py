@@ -173,7 +173,7 @@ class ILLMCallHook(ABC):
     @abstractmethod
     def after_call(
         self,
-        response: LLMResponse,
+        response: Optional[LLMResponse],
         messages: List[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs

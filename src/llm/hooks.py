@@ -59,13 +59,13 @@ class LoggingHook(ILLMCallHook):
     
     def after_call(
         self,
-        response: LLMResponse,
+        response: Optional[LLMResponse],
         messages: List[Any],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs
     ) -> None:
         """记录调用后的日志"""
-        if not self.log_responses:
+        if not self.log_responses or response is None:
             return
         
         # 记录响应信息
@@ -123,12 +123,15 @@ class MetricsHook(ILLMCallHook):
     
     def after_call(
         self,
-        response: LLMResponse,
+        response: Optional[LLMResponse],
         messages: List[Any],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs
     ) -> None:
         """记录调用完成"""
+        if response is None:
+            return
+            
         self.metrics["successful_calls"] += 1
         
         # 记录Token使用
@@ -215,7 +218,7 @@ class FallbackHook(ILLMCallHook):
     
     def after_call(
         self,
-        response: LLMResponse,
+        response: Optional[LLMResponse],
         messages: List[Any],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs
@@ -340,7 +343,7 @@ class RetryHook(ILLMCallHook):
     
     def after_call(
         self,
-        response: LLMResponse,
+        response: Optional[LLMResponse],
         messages: List[Any],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs
@@ -424,7 +427,7 @@ class CompositeHook(ILLMCallHook):
     
     def after_call(
         self,
-        response: LLMResponse,
+        response: Optional[LLMResponse],
         messages: List[Any],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs

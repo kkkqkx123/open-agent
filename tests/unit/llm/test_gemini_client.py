@@ -8,6 +8,7 @@ from src.llm.clients.gemini_client import GeminiClient
 from src.llm.config import GeminiConfig
 from src.llm.models import TokenUsage
 from src.llm.exceptions import (
+    LLMCallError,
     LLMTimeoutError,
     LLMRateLimitError,
     LLMAuthenticationError,
@@ -17,6 +18,14 @@ from src.llm.exceptions import (
     LLMServiceUnavailableError,
     LLMInvalidRequestError
 )
+
+
+class MockHTTPError(Exception):
+    """模拟HTTP错误的异常类"""
+    
+    def __init__(self, message, response=None):
+        super().__init__(message)
+        self.response = response
 
 
 class TestGeminiClient:
@@ -180,9 +189,9 @@ class TestGeminiClient:
     def test_generate_authentication_error(self, client):
         """测试认证错误"""
         # 模拟认证错误
-        error = Exception("Invalid API key")
-        error.response = Mock()
-        error.response.status_code = 401
+        mock_response = Mock()
+        mock_response.status_code = 401
+        error = MockHTTPError("Invalid API key", response=mock_response)
         
         client._client.invoke = Mock(side_effect=error)
         
@@ -194,10 +203,10 @@ class TestGeminiClient:
     def test_generate_rate_limit_error(self, client):
         """测试频率限制错误"""
         # 模拟频率限制错误
-        error = Exception("Rate limit exceeded")
-        error.response = Mock()
-        error.response.status_code = 429
-        error.response.headers = {'retry-after': '60'}
+        mock_response = Mock()
+        mock_response.status_code = 429
+        mock_response.headers = {'retry-after': '60'}
+        error = MockHTTPError("Rate limit exceeded", response=mock_response)
         
         client._client.invoke = Mock(side_effect=error)
         
@@ -211,9 +220,9 @@ class TestGeminiClient:
     def test_generate_model_not_found_error(self, client):
         """测试模型未找到错误"""
         # 模拟模型未找到错误
-        error = Exception("Model not found")
-        error.response = Mock()
-        error.response.status_code = 404
+        mock_response = Mock()
+        mock_response.status_code = 404
+        error = MockHTTPError("Model not found", response=mock_response)
         
         client._client.invoke = Mock(side_effect=error)
         
@@ -326,35 +335,39 @@ class TestGeminiClient:
     def test_handle_gemini_error_with_status_code(self, client):
         """测试处理带状态码的Gemini错误"""
         # 测试401错误
-        error = Exception("Unauthorized")
-        error.response = Mock()
-        error.response.status_code = 401
+        mock_response = Mock()
+        mock_response.status_code = 401
+        error = MockHTTPError("Unauthorized", response=mock_response)
         
         llm_error = client._handle_gemini_error(error)
         assert isinstance(llm_error, LLMAuthenticationError)
         
         # 测试429错误
-        error.response.status_code = 429
-        error.response.headers = {'retry-after': '30'}
+        mock_response.status_code = 429
+        mock_response.headers = {'retry-after': '30'}
+        error = MockHTTPError("Rate limit exceeded", response=mock_response)
         
         llm_error = client._handle_gemini_error(error)
         assert isinstance(llm_error, LLMRateLimitError)
         assert llm_error.retry_after == 30
         
         # 测试404错误
-        error.response.status_code = 404
+        mock_response.status_code = 404
+        error = MockHTTPError("Model not found", response=mock_response)
         
         llm_error = client._handle_gemini_error(error)
         assert isinstance(llm_error, LLMModelNotFoundError)
         
         # 测试400错误
-        error.response.status_code = 400
+        mock_response.status_code = 400
+        error = MockHTTPError("Bad request", response=mock_response)
         
         llm_error = client._handle_gemini_error(error)
         assert isinstance(llm_error, LLMInvalidRequestError)
         
         # 测试503错误
-        error.response.status_code = 503
+        mock_response.status_code = 503
+        error = MockHTTPError("Service unavailable", response=mock_response)
         
         llm_error = client._handle_gemini_error(error)
         assert isinstance(llm_error, LLMServiceUnavailableError)

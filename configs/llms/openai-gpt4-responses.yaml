@@ -1,0 +1,28 @@
+# OpenAI GPT-4 Responses API配置
+model_type: openai
+model_name: gpt-4
+api_format: responses  # 使用Responses API
+base_url: "https://api.openai.com/v1"
+api_key: "${OPENAI_API_KEY}"
+
+parameters:
+  temperature: 0.7
+  max_tokens: 2000
+  timeout: 30
+  max_retries: 3
+
+api_formats:
+  chat_completion:
+    endpoint: "/chat/completions"
+    supports_multiple_choices: true
+    legacy_structured_output: true
+  responses:
+    endpoint: "/responses"
+    supports_reasoning: true
+    native_storage: true
+    structured_output_format: "text.format"
+
+# 降级配置
+fallback_enabled: true
+fallback_formats:
+  - chat_completion  # 如果Responses API失败，降级到Chat Completion

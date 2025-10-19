@@ -30,8 +30,8 @@ class LLMFactory(ILLMClientFactory):
         """注册默认客户端类型"""
         # 延迟导入避免循环依赖
         try:
-            from .clients.openai_client import OpenAIClient
-            self._client_types["openai"] = OpenAIClient
+            from .clients.openai.unified_client import OpenAIUnifiedClient
+            self._client_types["openai"] = OpenAIUnifiedClient
         except ImportError:
             pass
             
