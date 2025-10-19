@@ -3,7 +3,6 @@
 import json
 import time
 from typing import Dict, Any, Optional, List, AsyncGenerator, Generator
-from typing import Dict, Any, Optional, List, AsyncGenerator
 import asyncio
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
@@ -47,7 +46,7 @@ class GeminiClient(BaseLLMClient):
             temperature=config.temperature,
             max_tokens=config.max_tokens,
             top_p=config.top_p,
-            top_k=config.parameters.get('top_k', 40),
+            top_k=getattr(config, 'parameters', {}).get('top_k', 40),
             timeout=config.timeout,
             max_retries=config.max_retries,
             request_timeout=config.timeout,
@@ -91,7 +90,7 @@ class GeminiClient(BaseLLMClient):
             
             # 创建响应对象
             return self._create_response(
-                content=response.content,
+                content=self._extract_content(response),
                 message=response,
                 token_usage=token_usage,
                 finish_reason=self._extract_finish_reason(response),
@@ -124,7 +123,7 @@ class GeminiClient(BaseLLMClient):
             
             # 创建响应对象
             return self._create_response(
-                content=response.content,
+                content=self._extract_content(response),
                 message=response,
                 token_usage=token_usage,
                 finish_reason=self._extract_finish_reason(response),
@@ -191,32 +190,62 @@ class GeminiClient(BaseLLMClient):
         """提取完成原因"""
         if hasattr(response, 'response_metadata') and response.response_metadata:
             metadata = response.response_metadata
-            return metadata.get('finish_reason')
+            finish_reason = metadata.get('finish_reason')
+            if isinstance(finish_reason, str):
+                return finish_reason
         return None
+    
+    def _extract_content(self, response: Any) -> str:
+        """提取响应内容，处理多种内容格式"""
+        content = response.content
+        
+        # 如果内容是字符串，直接返回
+        if isinstance(content, str):
+            return content
+        
+        # 如果内容是列表，提取文本内容
+        if isinstance(content, list):
+            text_parts = []
+            for item in content:
+                if isinstance(item, str):
+                    text_parts.append(item)
+                elif isinstance(item, dict) and 'text' in item:
+                    text_parts.append(item['text'])
+                # 忽略其他类型的元素
+            return ''.join(text_parts)
+        
+        # 其他类型转换为字符串
+        return str(content)
     
     def _handle_gemini_error(self, error: Exception) -> LLMCallError:
         """处理Gemini特定错误"""
         error_str = str(error).lower()
         
         # 尝试从错误中提取更多信息
-        if hasattr(error, 'response'):
-            response = error.response
-            if hasattr(response, 'status_code'):
-                status_code = response.status_code
-                
-                if status_code == 401 or status_code == 403:
-                    return LLMAuthenticationError("Gemini API密钥无效或权限不足")
-                elif status_code == 429:
-                    retry_after = None
-                    if hasattr(response, 'headers') and 'retry-after' in response.headers:
-                        retry_after = int(response.headers['retry-after'])
-                    return LLMRateLimitError("Gemini API频率限制", retry_after=retry_after)
-                elif status_code == 404:
-                    return LLMModelNotFoundError(self.config.model_name)
-                elif status_code == 400:
-                    return LLMInvalidRequestError("Gemini API请求无效")
-                elif status_code == 500 or status_code == 502 or status_code == 503:
-                    return LLMServiceUnavailableError("Gemini服务不可用")
+        try:
+            # 检查是否有response属性
+            response = getattr(error, 'response', None)
+            if response is not None:
+                # 检查是否有status_code属性
+                status_code = getattr(response, 'status_code', None)
+                if status_code is not None:
+                    if status_code == 401 or status_code == 403:
+                        return LLMAuthenticationError("Gemini API密钥无效或权限不足")
+                    elif status_code == 429:
+                        retry_after = None
+                        headers = getattr(response, 'headers', None)
+                        if headers and 'retry-after' in headers:
+                            retry_after = int(headers['retry-after'])
+                        return LLMRateLimitError("Gemini API频率限制", retry_after=retry_after)
+                    elif status_code == 404:
+                        return LLMModelNotFoundError(self.config.model_name)
+                    elif status_code == 400:
+                        return LLMInvalidRequestError("Gemini API请求无效")
+                    elif status_code == 500 or status_code == 502 or status_code == 503:
+                        return LLMServiceUnavailableError("Gemini服务不可用")
+        except (AttributeError, ValueError, TypeError):
+            # 如果访问属性时出错，忽略并继续执行其他错误检查
+            pass
         
         # 根据错误消息判断
         if "timeout" in error_str or "timed out" in error_str:
@@ -255,7 +284,10 @@ class GeminiClient(BaseLLMClient):
             # 收集完整响应
             for chunk in stream:
                 if chunk.content:
-                    yield chunk.content
+                    # 使用_extract_content方法确保返回字符串类型
+                    content = self._extract_content(chunk)
+                    if content:
+                        yield content
                     
         except Exception as e:
             # 处理Gemini特定错误
@@ -279,7 +311,10 @@ class GeminiClient(BaseLLMClient):
                # 收集完整响应
                async for chunk in stream:
                    if chunk.content:
-                       yield chunk.content
+                        # 使用_extract_content方法确保返回字符串类型
+                        content = self._extract_content(chunk)
+                        if content:
+                            yield content
                        
            except Exception as e:
                # 处理Gemini特定错误

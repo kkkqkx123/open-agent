@@ -332,38 +332,41 @@ class BaseLLMClient(ILLMClient):
         Yields:
             str: 生成的文本片段
         """
-        # 验证输入
-        self._validate_messages(messages)
-        self._validate_token_limit(messages)
-        
-        # 合并参数
-        merged_params = self._merge_parameters(parameters)
-        
-        # 调用前置钩子
-        self._call_before_hooks(messages, merged_params, **kwargs)
-        
-        try:
-           # 调用内部异步流式生成方法
-           async_gen = self._do_stream_generate_async(messages, merged_params, **kwargs)
-           async for chunk in async_gen:
-               yield chunk
-                
-        except Exception as e:
-            # 转换为LLM错误
-            if not isinstance(e, LLMCallError):
-                llm_error = self._handle_api_error(e)
-            else:
-                llm_error = e
+        async def _async_generator() -> AsyncGenerator[str, None]:
+            # 验证输入
+            self._validate_messages(messages)
+            self._validate_token_limit(messages)
             
-            # 尝试通过钩子恢复
-            fallback_response = self._call_error_hooks(llm_error, messages, merged_params, **kwargs)
-            if fallback_response is not None:
-                # 如果钩子返回了响应，则返回模拟的流式内容
-                for chunk in fallback_response.content.split():
-                    yield chunk + " "
-            else:
-                # 抛出错误
-                raise llm_error
+            # 合并参数
+            merged_params = self._merge_parameters(parameters)
+            
+            # 调用前置钩子
+            self._call_before_hooks(messages, merged_params, **kwargs)
+            
+            try:
+                # 调用内部异步流式生成方法
+                async_gen = self._do_stream_generate_async(messages, merged_params, **kwargs)
+                async for chunk in async_gen:
+                    yield chunk
+                    
+            except Exception as e:
+                # 转换为LLM错误
+                if not isinstance(e, LLMCallError):
+                    llm_error = self._handle_api_error(e)
+                else:
+                    llm_error = e
+                
+                # 尝试通过钩子恢复
+                fallback_response = self._call_error_hooks(llm_error, messages, merged_params, **kwargs)
+                if fallback_response is not None:
+                    # 如果钩子返回了响应，则返回模拟的流式内容
+                    for chunk in fallback_response.content.split():
+                        yield chunk + " "
+                else:
+                    # 抛出错误
+                    raise llm_error
+        
+        return _async_generator()
 
     def stream_generate(
        self,

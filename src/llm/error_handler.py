@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Dict, Any, Optional, Type, Union
+from typing import Dict, Any, Optional, Type, Union, Callable
 from abc import ABC, abstractmethod
 
 from .exceptions import (
@@ -56,6 +56,7 @@ class BaseErrorHandler(IErrorHandler):
     def __init__(self) -> None:
         """初始化错误处理器"""
         self._error_mappings = self._init_error_mappings()
+        self._custom_error_handlers = self._init_custom_handlers()
         self._retryable_errors = {
             LLMTimeoutError,
             LLMRateLimitError,
@@ -75,6 +76,10 @@ class BaseErrorHandler(IErrorHandler):
             # 这些将在子类中具体实现
         }
     
+    def _init_custom_handlers(self) -> Dict[Type[Exception], Callable[[Exception], LLMCallError]]:
+        """初始化自定义错误处理器"""
+        return {}
+    
     def handle_error(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> LLMCallError:
         """
         处理错误
@@ -86,8 +91,13 @@ class BaseErrorHandler(IErrorHandler):
         Returns:
             LLMCallError: 处理后的错误
         """
-        # 首先尝试类型映射
+        # 首先尝试自定义错误处理器
         error_type = type(error)
+        if error_type in self._custom_error_handlers:
+            handler = self._custom_error_handlers[error_type]
+            return handler(error)
+        
+        # 然后尝试类型映射
         if error_type in self._error_mappings:
             llm_error_class = self._error_mappings[error_type]
             return llm_error_class(str(error))
@@ -159,42 +169,37 @@ class BaseErrorHandler(IErrorHandler):
 class OpenAIErrorHandler(BaseErrorHandler):
     """OpenAI错误处理器"""
     
-    def _init_error_mappings(self) -> Dict[Type[Exception], Type[LLMCallError]]:
-        """初始化OpenAI特定的错误映射"""
-        mappings = super()._init_error_mappings()
+    def _init_custom_handlers(self) -> Dict[Type[Exception], Callable[[Exception], LLMCallError]]:
+        """初始化OpenAI特定的自定义错误处理器"""
+        handlers = super()._init_custom_handlers()
         
-        # OpenAI特定错误
+        # OpenAI特定错误处理器
         try:
             from openai import OpenAIError
-            
-            mappings[OpenAIError] = self._handle_openai_error
+            handlers[OpenAIError] = self._handle_openai_error
         except ImportError:
             pass
         
-        return mappings
+        return handlers
     
     def _handle_openai_error(self, error: Exception) -> LLMCallError:
         """处理OpenAI特定错误"""
         try:
             # 尝试解析OpenAI错误
-            if hasattr(error, 'response'):
-                response = error.response
-                if hasattr(response, 'status_code'):
-                    status_code = response.status_code
-                    
-                    if status_code == 401:
-                        return LLMAuthenticationError("OpenAI API密钥无效")
-                    elif status_code == 429:
-                        retry_after = None
-                        if hasattr(response, 'headers') and 'retry-after' in response.headers:
-                            retry_after = int(response.headers['retry-after'])
-                        return LLMRateLimitError("OpenAI API频率限制", retry_after=retry_after)
-                    elif status_code == 404:
-                        return LLMModelNotFoundError("OpenAI模型未找到")
-                    elif status_code == 400:
-                        return LLMInvalidRequestError("OpenAI API请求无效")
-                    elif status_code in [500, 502, 503]:
-                        return LLMServiceUnavailableError("OpenAI服务不可用")
+            # 使用更安全的方式检查属性
+            error_str = str(error).lower()
+            
+            # 基于错误消息判断
+            if "401" in error_str or "unauthorized" in error_str or "authentication" in error_str:
+                return LLMAuthenticationError("OpenAI API密钥无效")
+            elif "429" in error_str or "rate limit" in error_str or "too many requests" in error_str:
+                return LLMRateLimitError("OpenAI API频率限制")
+            elif "404" in error_str or "not found" in error_str:
+                return LLMModelNotFoundError("OpenAI模型未找到")
+            elif "400" in error_str or "bad request" in error_str:
+                return LLMInvalidRequestError("OpenAI API请求无效")
+            elif "500" in error_str or "502" in error_str or "503" in error_str or "service unavailable" in error_str:
+                return LLMServiceUnavailableError("OpenAI服务不可用")
             
             # 基于错误消息判断
             return super()._handle_error_by_message(error)
@@ -212,15 +217,9 @@ class GeminiErrorHandler(BaseErrorHandler):
         mappings = super()._init_error_mappings()
         
         # Gemini特定错误
-        try:
-            import google.generativeai as genai
-            
-            mappings[genai.GenerationConfigError] = LLMInvalidRequestError
-            mappings[genai.ContentFilterError] = LLMContentFilterError
-            mappings[genai.StopCandidateException] = LLMCallError
-            
-        except ImportError:
-            pass
+        # 注意：由于项目使用 langchain-google-genai 而不是直接的 google-generativeai，
+        # 我们无法直接导入 Gemini 特定的异常类，因此依赖基于错误消息的处理
+        # 如果需要更精确的错误处理，可以考虑添加 google-generativeai 依赖
         
         return mappings
     
@@ -242,43 +241,37 @@ class GeminiErrorHandler(BaseErrorHandler):
 class AnthropicErrorHandler(BaseErrorHandler):
     """Anthropic错误处理器"""
     
-    def _init_error_mappings(self) -> Dict[Type[Exception], Type[LLMCallError]]:
-        """初始化Anthropic特定的错误映射"""
-        mappings = super()._init_error_mappings()
+    def _init_custom_handlers(self) -> Dict[Type[Exception], Callable[[Exception], LLMCallError]]:
+        """初始化Anthropic特定的自定义错误处理器"""
+        handlers = super()._init_custom_handlers()
         
-        # Anthropic特定错误
+        # Anthropic特定错误处理器
         try:
             from anthropic import APIError
-            
-            mappings[APIError] = self._handle_anthropic_error
-            
+            handlers[APIError] = self._handle_anthropic_error
         except ImportError:
             pass
         
-        return mappings
+        return handlers
     
     def _handle_anthropic_error(self, error: Exception) -> LLMCallError:
         """处理Anthropic特定错误"""
         try:
             # 尝试解析Anthropic错误
-            if hasattr(error, 'response'):
-                response = error.response
-                if hasattr(response, 'status_code'):
-                    status_code = response.status_code
-                    
-                    if status_code == 401 or status_code == 403:
-                        return LLMAuthenticationError("Anthropic API密钥无效或权限不足")
-                    elif status_code == 429:
-                        retry_after = None
-                        if hasattr(response, 'headers') and 'retry-after' in response.headers:
-                            retry_after = int(response.headers['retry-after'])
-                        return LLMRateLimitError("Anthropic API频率限制", retry_after=retry_after)
-                    elif status_code == 404:
-                        return LLMModelNotFoundError("Anthropic模型未找到")
-                    elif status_code == 400:
-                        return LLMInvalidRequestError("Anthropic API请求无效")
-                    elif status_code in [500, 502, 503]:
-                        return LLMServiceUnavailableError("Anthropic服务不可用")
+            # 使用更安全的方式检查属性
+            error_str = str(error).lower()
+            
+            # 基于错误消息判断
+            if "401" in error_str or "403" in error_str or "unauthorized" in error_str or "forbidden" in error_str:
+                return LLMAuthenticationError("Anthropic API密钥无效或权限不足")
+            elif "429" in error_str or "rate limit" in error_str or "too many requests" in error_str:
+                return LLMRateLimitError("Anthropic API频率限制")
+            elif "404" in error_str or "not found" in error_str:
+                return LLMModelNotFoundError("Anthropic模型未找到")
+            elif "400" in error_str or "bad request" in error_str:
+                return LLMInvalidRequestError("Anthropic API请求无效")
+            elif "500" in error_str or "502" in error_str or "503" in error_str or "service unavailable" in error_str:
+                return LLMServiceUnavailableError("Anthropic服务不可用")
             
             # 基于错误消息判断
             return super()._handle_error_by_message(error)
@@ -339,7 +332,7 @@ class ErrorContext:
         self.model_type = model_type
         self.request_id = request_id
         self.timestamp = None
-        self.metadata = {}
+        self.metadata: Dict[str, Any] = {}
     
     def to_dict(self) -> Dict[str, Any]:
         """

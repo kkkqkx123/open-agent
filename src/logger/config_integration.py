@@ -166,7 +166,7 @@ class LoggingConfigIntegration:
             
             # 记录配置变更指标
             if hasattr(self._metrics_collector, 'record_config_change'):
-                self._metrics_collector.record_config_change(
+                self._metrics_collector.record_config_change(  # type: ignore
                     "global.yaml",
                     old_config,
                     new_config

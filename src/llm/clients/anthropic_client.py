@@ -3,7 +3,6 @@
 import json
 import time
 from typing import Dict, Any, Optional, List, AsyncGenerator, Generator
-from typing import Dict, Any, Optional, List, AsyncGenerator
 import asyncio
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
@@ -41,14 +40,22 @@ class AnthropicClient(BaseLLMClient):
         resolved_headers = config.get_resolved_headers()
         
         # 创建LangChain ChatAnthropic实例
+        # 准备模型参数
+        model_kwargs = {}
+        if config.functions:
+            model_kwargs["functions"] = config.functions
+            if config.function_call is not None:
+                model_kwargs["function_call"] = config.function_call
+        
         self._client = ChatAnthropic(
-            model=config.model_name,
+            model=config.model_name, # type: ignore
             api_key=config.api_key,
             temperature=config.temperature,
-            top_p=config.top_p,
+            max_tokens=config.max_tokens, # type: ignore
             timeout=config.timeout,
             max_retries=config.max_retries,
-            default_headers=resolved_headers
+            default_headers=resolved_headers,
+            model_kwargs=model_kwargs
         )
     
     def _convert_messages(self, messages: List[BaseMessage]) -> List[BaseMessage]:

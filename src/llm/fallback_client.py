@@ -1,6 +1,6 @@
 """降级客户端包装器"""
 
-from typing import Dict, Any, Optional, List, AsyncGenerator
+from typing import Dict, Any, Optional, List, AsyncGenerator, Generator
 import logging
 
 from .interfaces import ILLMClient
@@ -104,12 +104,12 @@ class FallbackClientWrapper(ILLMClient):
                 logger.error(f"所有异步降级尝试都失败: {fallback_error}")
                 raise LLMFallbackError("所有模型异步调用都失败", fallback_error)
     
-    async def stream_generate(
+    def stream_generate(
         self,
         messages: List[Any],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs
-    ) -> AsyncGenerator[str, None]:
+    ) -> Generator[str, None, None]:
         """
         流式生成文本响应（带降级支持）
         
@@ -121,26 +121,21 @@ class FallbackClientWrapper(ILLMClient):
         Yields:
             str: 生成的文本片段
         """
-        async def _async_generator() -> AsyncGenerator[str, None]:
+        try:
+            # 首先尝试主客户端
+            for chunk in self.primary_client.stream_generate(messages, parameters, **kwargs):
+                yield chunk
+        except Exception as primary_error:
+            logger.warning(f"主客户端流式调用失败: {primary_error}")
+            
+            # 流式降级比较复杂，这里简化为非流式降级
             try:
-                # 首先尝试主客户端
-                stream_coro = self.primary_client.stream_generate(messages, parameters, **kwargs)
-                stream = await stream_coro
-                async for chunk in stream:
-                    yield chunk
-            except Exception as primary_error:
-                logger.warning(f"主客户端流式调用失败: {primary_error}")
-                
-                # 流式降级比较复杂，这里简化为非流式降级
-                try:
-                    response = await self._try_fallback_async(messages, parameters, primary_error, **kwargs)
-                    # 将完整响应作为单个块返回
-                    yield response.content
-                except Exception as fallback_error:
-                    logger.error(f"流式降级失败: {fallback_error}")
-                    raise LLMFallbackError("流式降级失败", fallback_error)
-        
-        return _async_generator()
+                response = self._try_fallback(messages, parameters, primary_error, **kwargs)
+                # 将完整响应作为单个块返回
+                yield response.content
+            except Exception as fallback_error:
+                logger.error(f"流式降级失败: {fallback_error}")
+                raise LLMFallbackError("流式降级失败", fallback_error)
     
     async def stream_generate_async(
         self,
@@ -162,8 +157,7 @@ class FallbackClientWrapper(ILLMClient):
         async def _async_generator() -> AsyncGenerator[str, None]:
             try:
                 # 首先尝试主客户端
-                stream_coro = self.primary_client.stream_generate_async(messages, parameters, **kwargs)
-                stream = await stream_coro
+                stream = await self.primary_client.stream_generate_async(messages, parameters, **kwargs)
                 async for chunk in stream:
                     yield chunk
             except Exception as primary_error:
