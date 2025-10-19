@@ -20,7 +20,7 @@ from src.tools.types.builtin_tool import BuiltinTool
 from src.tools.config import BuiltinToolConfig
 
 
-def demo_basic_usage():
+def demo_basic_usage() -> None:
     """演示基本使用"""
     print("=== 工具系统基本使用演示 ===\n")
     
@@ -35,7 +35,7 @@ def demo_basic_usage():
         executor = ToolExecutor(tool_manager, logger)
         
         # 创建一个简单的内置工具
-        def greet(name: str, language: str = "中文"):
+        def greet(name: str, language: str = "中文") -> str:
             """问候函数"""
             greetings = {
                 "中文": f"你好, {name}!",
@@ -92,7 +92,7 @@ def demo_basic_usage():
         print()
 
 
-def demo_parallel_execution():
+def demo_parallel_execution() -> None:
     """演示并行执行"""
     print("=== 并行执行演示 ===\n")
     
@@ -104,7 +104,7 @@ def demo_parallel_execution():
         executor = ToolExecutor(tool_manager, logger)
         
         # 创建一个计算工具
-        def calculate(expression: str):
+        def calculate(expression: str) -> str:
             """简单计算器"""
             try:
                 # 注意：实际应用中应使用安全的表达式解析器
@@ -150,7 +150,7 @@ def demo_parallel_execution():
         print()
 
 
-async def demo_async_execution():
+async def demo_async_execution() -> None:
     """演示异步执行"""
     print("=== 异步执行演示 ===\n")
     
@@ -162,7 +162,7 @@ async def demo_async_execution():
         executor = ToolExecutor(tool_manager, logger)
         
         # 创建一个异步工具
-        async def async_fetch_data(url: str, delay: float = 1.0):
+        async def async_fetch_data(url: str, delay: float = 1.0) -> str:
             """模拟异步获取数据"""
             await asyncio.sleep(delay)
             return f"从 {url} 获取的数据 (延迟 {delay}秒)"
@@ -201,7 +201,7 @@ async def demo_async_execution():
         print()
 
 
-async def demo_async_parallel_execution():
+async def demo_async_parallel_execution() -> None:
     """演示异步并行执行"""
     print("=== 异步并行执行演示 ===\n")
     
@@ -213,7 +213,7 @@ async def demo_async_parallel_execution():
         executor = ToolExecutor(tool_manager, logger)
         
         # 创建一个异步工具
-        async def async_process(task_id: int, duration: float):
+        async def async_process(task_id: int, duration: float) -> str:
             """模拟异步处理任务"""
             await asyncio.sleep(duration)
             return f"任务 {task_id} 完成 (耗时 {duration}秒)"
@@ -255,7 +255,7 @@ async def demo_async_parallel_execution():
         print()
 
 
-def demo_formatter():
+def demo_formatter() -> None:
     """演示工具格式化"""
     print("=== 工具格式化演示 ===\n")
     
@@ -263,7 +263,7 @@ def demo_formatter():
         tool_manager = container.get_tool_manager()
         
         # 创建一个示例工具
-        def search(query: str, limit: int = 10):
+        def search(query: str, limit: int = 10) -> str:
             """搜索函数"""
             return f"搜索 '{query}' 的前 {limit} 个结果"
         
@@ -317,7 +317,7 @@ def demo_formatter():
         print()
 
 
-def demo_error_handling():
+def demo_error_handling() -> None:
     """演示错误处理"""
     print("=== 错误处理演示 ===\n")
     
@@ -329,7 +329,7 @@ def demo_error_handling():
         executor = ToolExecutor(tool_manager, logger)
         
         # 创建一个会出错的工具
-        def error_function(should_error: bool = False):
+        def error_function(should_error: bool = False) -> str:
             """可能出错的函数"""
             if should_error:
                 raise ValueError("这是一个测试错误")
@@ -382,7 +382,7 @@ def demo_error_handling():
         print()
 
 
-async def main():
+async def main() -> None:
     """主函数"""
     print("🔧 工具系统演示\n")
     

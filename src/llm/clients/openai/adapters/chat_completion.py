@@ -1,6 +1,6 @@
 """Chat Completion API适配器"""
 
-from typing import Dict, Any, Generator, AsyncGenerator, List
+from typing import Dict, Any, Generator, AsyncGenerator, List, Optional
 
 from langchain_core.messages import BaseMessage
 from langchain_openai import ChatOpenAI
@@ -32,7 +32,8 @@ class ChatCompletionAdapter(APIFormatAdapter):
             config: OpenAI配置
         """
         super().__init__(config)
-        self.converter = ChatCompletionConverter()
+        self.converter: ChatCompletionConverter = ChatCompletionConverter()
+        self._client: Optional[ChatOpenAI] = None
 
     def initialize_client(self) -> None:
         """初始化LangChain ChatOpenAI客户端"""
@@ -128,12 +129,14 @@ class ChatCompletionAdapter(APIFormatAdapter):
                 model_kwargs=model_kwargs,
             )
 
-    def generate(self, messages: List[BaseMessage], **kwargs) -> Any:
+    def generate(self, messages: List[BaseMessage], **kwargs: Any) -> Any:
         """生成响应"""
         self.initialize_client()
 
         try:
             # 调用ChatOpenAI
+            if self._client is None:
+                raise ValueError("客户端未初始化")
             response = self._client.invoke(messages, **kwargs)
 
             # 转换响应格式
@@ -143,12 +146,14 @@ class ChatCompletionAdapter(APIFormatAdapter):
             # 错误处理
             raise self._handle_openai_error(e)
 
-    async def generate_async(self, messages: List[BaseMessage], **kwargs) -> Any:
+    async def generate_async(self, messages: List[BaseMessage], **kwargs: Any) -> Any:
         """异步生成响应"""
         self.initialize_client()
 
         try:
             # 调用ChatOpenAI
+            if self._client is None:
+                raise ValueError("客户端未初始化")
             response = await self._client.ainvoke(messages, **kwargs)
 
             # 转换响应格式
@@ -159,13 +164,15 @@ class ChatCompletionAdapter(APIFormatAdapter):
             raise self._handle_openai_error(e)
 
     def stream_generate(
-        self, messages: List[BaseMessage], **kwargs
+        self, messages: List[BaseMessage], **kwargs: Any
     ) -> Generator[str, None, None]:
         """流式生成"""
         self.initialize_client()
 
         try:
             # 流式生成
+            if self._client is None:
+                raise ValueError("客户端未初始化")
             stream = self._client.stream(messages, **kwargs)
 
             # 收集完整响应
@@ -181,7 +188,7 @@ class ChatCompletionAdapter(APIFormatAdapter):
             raise self._handle_openai_error(e)
 
     async def stream_generate_async(
-        self, messages: List[BaseMessage], **kwargs
+        self, messages: List[BaseMessage], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """异步流式生成"""
         self.initialize_client()
@@ -189,6 +196,8 @@ class ChatCompletionAdapter(APIFormatAdapter):
         async def _async_generator() -> AsyncGenerator[str, None]:
             try:
                 # 异步流式生成
+                if self._client is None:
+                    raise ValueError("客户端未初始化")
                 stream = self._client.astream(messages, **kwargs)
 
                 # 收集完整响应

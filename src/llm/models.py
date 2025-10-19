@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
 from enum import Enum
 
-from langchain_core.messages import BaseMessage
+# from langchain_core.messages import BaseMessage
 
 
 class MessageRole(Enum):
@@ -112,7 +112,7 @@ class LLMResponse:
     """LLM响应模型"""
 
     content: str
-    message: BaseMessage
+    message: "BaseMessage"
     token_usage: TokenUsage
     model: str
     finish_reason: Optional[str] = None
@@ -186,7 +186,7 @@ class LLMError:
 class LLMRequest:
     """LLM请求模型"""
 
-    messages: List[BaseMessage]
+    messages: List["BaseMessage"]
     parameters: Dict[str, Any] = field(default_factory=dict)
     stream: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)

@@ -70,7 +70,8 @@ class MCPClient:
                 if response.status != 200:
                     raise ValueError(f"获取工具Schema失败: {response.status}")
 
-                return await response.json()
+                result: Dict[str, Any] = await response.json()
+                return result
 
         except aiohttp.ClientError as e:
             raise ValueError(f"MCP客户端错误: {str(e)}")
@@ -125,18 +126,19 @@ class MCPClient:
                 if response.status != 200:
                     raise ValueError(f"获取工具列表失败: {response.status}")
 
-                return await response.json()
+                result: List[Dict[str, Any]] = await response.json()
+                return result
 
         except aiohttp.ClientError as e:
             raise ValueError(f"MCP客户端错误: {str(e)}")
         except Exception as e:
             raise ValueError(f"获取工具列表错误: {str(e)}")
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "MCPClient":
         """异步上下文管理器入口"""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """异步上下文管理器出口"""
         await self._close_session()
 
@@ -163,7 +165,7 @@ class MCPTool(BaseTool):
             server_url=config.mcp_server_url, timeout=config.timeout
         )
 
-    def execute(self, **kwargs) -> Any:
+    def execute(self, **kwargs: Any) -> Any:
         """同步执行工具（通过异步实现）
 
         Args:
@@ -180,7 +182,7 @@ class MCPTool(BaseTool):
         finally:
             loop.close()
 
-    async def execute_async(self, **kwargs) -> Any:
+    async def execute_async(self, **kwargs: Any) -> Any:
         """异步执行工具
 
         Args:

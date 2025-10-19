@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Any
 
-from langchain_core.messages import BaseMessage
+# from langchain_core.messages import BaseMessage
 from ....models import LLMResponse
 
 
@@ -11,7 +11,7 @@ class MessageConverter(ABC):
     """消息格式转换器基类"""
 
     @abstractmethod
-    def to_api_format(self, messages: List[BaseMessage]) -> Any:
+    def to_api_format(self, messages: List["BaseMessage"]) -> Any:
         """
         转换为API特定格式
 

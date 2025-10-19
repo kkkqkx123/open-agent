@@ -5,7 +5,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, Tuple
 import asyncio
 import time
 import json
@@ -32,7 +32,7 @@ class BaseTool(ABC):
         self.parameters_schema = parameters_schema
 
     @abstractmethod
-    def execute(self, **kwargs) -> Any:
+    def execute(self, **kwargs: Any) -> Any:
         """同步执行工具
 
         Args:
@@ -44,7 +44,7 @@ class BaseTool(ABC):
         pass
 
     @abstractmethod
-    async def execute_async(self, **kwargs) -> Any:
+    async def execute_async(self, **kwargs: Any) -> Any:
         """异步执行工具
 
         Args:
@@ -131,7 +131,7 @@ class BaseTool(ABC):
             metadata=metadata,
         )
 
-    def _measure_execution_time(self, func, *args, **kwargs):
+    def _measure_execution_time(self, func: Any, *args: Any, **kwargs: Any) -> Tuple[Any, float]:
         """测量函数执行时间
 
         Args:
@@ -151,7 +151,7 @@ class BaseTool(ABC):
             execution_time = time.time() - start_time
             raise e
 
-    async def _measure_execution_time_async(self, func, *args, **kwargs):
+    async def _measure_execution_time_async(self, func: Any, *args: Any, **kwargs: Any) -> Tuple[Any, float]:
         """测量异步函数执行时间
 
         Args:
@@ -171,7 +171,7 @@ class BaseTool(ABC):
             execution_time = time.time() - start_time
             raise e
 
-    def safe_execute(self, **kwargs) -> ToolResult:
+    def safe_execute(self, **kwargs: Any) -> ToolResult:
         """安全执行工具（同步）
 
         Args:
@@ -195,7 +195,7 @@ class BaseTool(ABC):
         except Exception as e:
             return self._create_result(success=False, error=str(e))
 
-    async def safe_execute_async(self, **kwargs) -> ToolResult:
+    async def safe_execute_async(self, **kwargs: Any) -> ToolResult:
         """安全执行工具（异步）
 
         Args:

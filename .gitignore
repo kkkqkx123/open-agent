@@ -45,3 +45,4 @@ Thumbs.db
 sessions/
 logs/
 cov_html/
+docs/issue/mypy.txt

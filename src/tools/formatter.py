@@ -29,9 +29,9 @@ class FunctionCallingFormatter(IToolFormatter):
         Returns:
             Dict[str, Any]: 格式化后的工具描述
         """
-        functions = []
+        functions: List[Dict[str, Any]] = []
         for tool in tools:
-            function = {
+            function: Dict[str, Any] = {
                 "name": tool.name,
                 "description": tool.description,
                 "parameters": tool.get_schema(),
@@ -82,10 +82,12 @@ class FunctionCallingFormatter(IToolFormatter):
             and "function_call" in response.additional_kwargs
         ):
             function_call = response.additional_kwargs["function_call"]
+            arguments: Dict[str, Any] = json.loads(function_call["arguments"])
+            call_id: Optional[str] = function_call.get("id")
             return ToolCall(
                 name=function_call["name"],
-                arguments=json.loads(function_call["arguments"]),
-                call_id=function_call.get("id"),
+                arguments=arguments,
+                call_id=call_id,
             )
 
         # 检查是否有tool_calls属性（多工具调用，在additional_kwargs中）
@@ -98,10 +100,12 @@ class FunctionCallingFormatter(IToolFormatter):
                 # 返回第一个工具调用
                 tool_call = tool_calls[0]
                 function = tool_call["function"]
+                arguments = json.loads(function["arguments"])
+                call_id = tool_call.get("id")
                 return ToolCall(
                     name=function["name"],
-                    arguments=json.loads(function["arguments"]),
-                    call_id=tool_call.get("id"),
+                    arguments=arguments,
+                    call_id=call_id,
                 )
 
         # 尝试从内容中解析JSON格式的工具调用
@@ -120,10 +124,12 @@ class FunctionCallingFormatter(IToolFormatter):
                 if content.startswith("{") and content.endswith("}"):
                     data = json.loads(content)
                     if "name" in data and "parameters" in data:
+                        arguments = data["parameters"]
+                        call_id = data.get("call_id")
                         return ToolCall(
                             name=data["name"],
-                            arguments=data["parameters"],
-                            call_id=data.get("call_id"),
+                            arguments=arguments,
+                            call_id=call_id,
                         )
             except json.JSONDecodeError:
                 pass
@@ -146,12 +152,12 @@ class StructuredOutputFormatter(IToolFormatter):
         Returns:
             Dict[str, Any]: 格式化后的工具描述
         """
-        tool_descriptions = []
+        tool_descriptions: List[str] = []
         for tool in tools:
-            desc = f"- {tool.name}: {tool.description}"
+            desc: str = f"- {tool.name}: {tool.description}"
             tool_descriptions.append(desc)
 
-        prompt = f"""
+        prompt: str = f"""
 请按以下JSON格式调用工具：
 {{
     "name": "工具名称",
@@ -211,10 +217,12 @@ class StructuredOutputFormatter(IToolFormatter):
         try:
             data = json.loads(content)
             if "name" in data and "parameters" in data:
+                arguments: Dict[str, Any] = data["parameters"]
+                call_id: Optional[str] = data.get("call_id")
                 return ToolCall(
                     name=data["name"],
-                    arguments=data["parameters"],
-                    call_id=data.get("call_id"),
+                    arguments=arguments,
+                    call_id=call_id,
                 )
         except json.JSONDecodeError:
             pass
@@ -227,10 +235,12 @@ class StructuredOutputFormatter(IToolFormatter):
                 json_str = json_match.group(0)
                 data = json.loads(json_str)
                 if "name" in data and "parameters" in data:
+                    arguments = data["parameters"]
+                    call_id = data.get("call_id")
                     return ToolCall(
                         name=data["name"],
-                        arguments=data["parameters"],
-                        call_id=data.get("call_id"),
+                        arguments=arguments,
+                        call_id=call_id,
                     )
         except (json.JSONDecodeError, AttributeError):
             pass
@@ -244,7 +254,7 @@ class ToolFormatter(IToolFormatter):
     根据模型能力自动选择合适的格式化策略。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化工具格式化器"""
         self.function_calling_formatter = FunctionCallingFormatter()
         self.structured_output_formatter = StructuredOutputFormatter()
@@ -259,7 +269,8 @@ class ToolFormatter(IToolFormatter):
             Dict[str, Any]: 格式化后的工具描述
         """
         # 默认使用Function Calling格式
-        return self.function_calling_formatter.format_for_llm(tools)
+        result: Dict[str, Any] = self.function_calling_formatter.format_for_llm(tools)
+        return result
 
     def detect_strategy(self, llm_client: ILLMClient) -> str:
         """检测模型支持的输出策略
@@ -271,7 +282,8 @@ class ToolFormatter(IToolFormatter):
             str: 策略类型
         """
         # 使用Function Calling格式化器的检测逻辑
-        return self.function_calling_formatter.detect_strategy(llm_client)
+        result: str = self.function_calling_formatter.detect_strategy(llm_client)
+        return result
 
     def parse_llm_response(self, response: BaseMessage) -> ToolCall:
         """解析LLM的工具调用响应
@@ -287,11 +299,13 @@ class ToolFormatter(IToolFormatter):
         """
         # 首先尝试Function Calling解析
         try:
-            return self.function_calling_formatter.parse_llm_response(response)
+            result: ToolCall = self.function_calling_formatter.parse_llm_response(response)
+            return result
         except ValueError:
             # 如果失败，尝试结构化输出解析
             try:
-                return self.structured_output_formatter.parse_llm_response(response)
+                result = self.structured_output_formatter.parse_llm_response(response)
+                return result
             except ValueError:
                 # 如果都失败，抛出异常
                 raise ValueError("无法解析LLM响应为工具调用")
@@ -311,10 +325,13 @@ class ToolFormatter(IToolFormatter):
         Raises:
             ValueError: 不支持的策略
         """
+        result: Dict[str, Any]
         if strategy == "function_calling":
-            return self.function_calling_formatter.format_for_llm(tools)
+            result = self.function_calling_formatter.format_for_llm(tools)
+            return result
         elif strategy == "structured_output":
-            return self.structured_output_formatter.format_for_llm(tools)
+            result = self.structured_output_formatter.format_for_llm(tools)
+            return result
         else:
             raise ValueError(f"不支持的格式化策略: {strategy}")
 
@@ -333,9 +350,12 @@ class ToolFormatter(IToolFormatter):
         Raises:
             ValueError: 不支持的策略或解析失败
         """
+        result: ToolCall
         if strategy == "function_calling":
-            return self.function_calling_formatter.parse_llm_response(response)
+            result = self.function_calling_formatter.parse_llm_response(response)
+            return result
         elif strategy == "structured_output":
-            return self.structured_output_formatter.parse_llm_response(response)
+            result = self.structured_output_formatter.parse_llm_response(response)
+            return result
         else:
             raise ValueError(f"不支持的格式化策略: {strategy}")

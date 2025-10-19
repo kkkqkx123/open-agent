@@ -2,7 +2,7 @@
 
 from typing import Any, Optional
 
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import BaseMessage  # type: ignore
 from ....models import LLMResponse, TokenUsage
 from .base import MessageConverter
 
@@ -36,12 +36,15 @@ class ResponsesConverter(MessageConverter):
                         input_parts.append(f"Assistant: {content}")
                 else:
                     # 根据消息类型判断
-                    if isinstance(message, SystemMessage):
-                        input_parts.append(f"System: {content}")
-                    elif isinstance(message, HumanMessage):
-                        input_parts.append(f"User: {content}")
-                    elif isinstance(message, AIMessage):
-                        input_parts.append(f"Assistant: {content}")
+                    if hasattr(message, 'type'):
+                        if message.type == "system":
+                            input_parts.append(f"System: {content}")
+                        elif message.type == "human":
+                            input_parts.append(f"User: {content}")
+                        elif message.type == "ai":
+                            input_parts.append(f"Assistant: {content}")
+                        else:
+                            input_parts.append(content)
                     else:
                         input_parts.append(content)
 
@@ -82,7 +85,8 @@ class ResponsesConverter(MessageConverter):
         finish_reason = self._extract_finish_reason(api_response)
 
         # 创建LangChain消息
-        message = AIMessage(content=content)
+        # 由于无法直接导入AIMessage，我们使用BaseMessage
+        message = BaseMessage(content=content, type="ai")
 
         return LLMResponse(
             content=content,
@@ -116,7 +120,8 @@ class ResponsesConverter(MessageConverter):
                 content = item.get("content", [])
                 for content_item in content:
                     if content_item.get("type") == "output_text":
-                        return content_item.get("text", "")
+                        text = content_item.get("text", "")
+                        return str(text) if text is not None else ""
 
         return ""
 

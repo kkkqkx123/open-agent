@@ -34,7 +34,7 @@ class NativeToolConfig(ToolConfig):
     retry_count: int = 3
     retry_delay: float = 1.0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
         # 设置tool_type
         self.tool_type = "native"
@@ -51,7 +51,7 @@ class MCPToolConfig(ToolConfig):
     dynamic_schema: bool = False
     refresh_interval: Optional[int] = None  # Schema刷新间隔（秒）
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
         # 设置tool_type
         self.tool_type = "mcp"
@@ -64,7 +64,7 @@ class BuiltinToolConfig(ToolConfig):
     # 内置工具的配置通常比较简单，大部分信息从函数推断
     function_path: Optional[str] = None  # 函数路径（用于动态加载）
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
         # 设置tool_type
         self.tool_type = "builtin"
@@ -105,7 +105,7 @@ def create_native_tool_config(
     api_key: Optional[str] = None,
     timeout: int = 30,
     enabled: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> NativeToolConfig:
     """创建原生工具配置
 
@@ -148,7 +148,7 @@ def create_mcp_tool_config(
     dynamic_schema: bool = False,
     timeout: int = 30,
     enabled: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> MCPToolConfig:
     """创建MCP工具配置
 
@@ -184,7 +184,7 @@ def create_builtin_tool_config(
     function_path: Optional[str] = None,
     timeout: int = 30,
     enabled: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> BuiltinToolConfig:
     """创建内置工具配置
 
@@ -212,7 +212,7 @@ def create_builtin_tool_config(
 
 
 def create_tool_set_config(
-    name: str, description: str, tools: List[str], enabled: bool = True, **kwargs
+    name: str, description: str, tools: List[str], enabled: bool = True, **kwargs: Any
 ) -> ToolSetConfig:
     """创建工具集配置
 

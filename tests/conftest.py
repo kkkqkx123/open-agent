@@ -3,6 +3,7 @@
 import pytest
 import sys
 from pathlib import Path
+from typing import Any, Dict, Generator
 
 # 添加src目录到Python路径
 src_path = Path(__file__).parent / "src"
@@ -11,7 +12,7 @@ if str(src_path) not in sys.path:
 
 
 @pytest.fixture(scope="session")
-def test_config():
+def test_config() -> Dict[str, Any]:
     """测试配置"""
     return {
         "log_level": "INFO",
@@ -23,7 +24,7 @@ def test_config():
 
 
 @pytest.fixture(autouse=True)
-def setup_test_environment():
+def setup_test_environment() -> Generator[None, None, None]:
     """设置测试环境"""
     # 设置环境变量
     import os

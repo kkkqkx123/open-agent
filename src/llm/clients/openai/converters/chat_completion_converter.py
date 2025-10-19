@@ -2,7 +2,7 @@
 
 from typing import Any, Optional
 
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import BaseMessage  # type: ignore
 from ....models import LLMResponse, TokenUsage
 from .base import MessageConverter
 

@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 from dataclasses import dataclass
 
 from ..llm.interfaces import ILLMClient
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import BaseMessage  # type: ignore
 
 if TYPE_CHECKING:
     from .base import BaseTool

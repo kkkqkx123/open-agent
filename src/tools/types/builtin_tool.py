@@ -39,7 +39,7 @@ class BuiltinTool(BaseTool):
         self.config = config
         self.is_async = inspect.iscoroutinefunction(func)
 
-    def _infer_schema(self, func: Callable) -> Dict[str, Any]:
+    def _infer_schema(self, func: Callable[..., Any]) -> Dict[str, Any]:
         """从函数签名推断参数Schema
 
         Args:
@@ -86,7 +86,7 @@ class BuiltinTool(BaseTool):
 
         return {"type": "object", "properties": properties, "required": required}
 
-    def execute(self, **kwargs) -> Any:
+    def execute(self, **kwargs: Any) -> Any:
         """同步执行工具
 
         Args:
@@ -115,7 +115,7 @@ class BuiltinTool(BaseTool):
         except Exception as e:
             raise ValueError(f"内置工具执行错误: {str(e)}")
 
-    async def execute_async(self, **kwargs) -> Any:
+    async def execute_async(self, **kwargs: Any) -> Any:
         """异步执行工具
 
         Args:
@@ -204,7 +204,7 @@ class BuiltinTool(BaseTool):
 
             # 保留原函数属性
             @wraps(func)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
                 return func(*args, **kwargs)
 
             # 将工具实例附加到函数上

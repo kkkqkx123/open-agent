@@ -243,9 +243,9 @@ class ToolExecutor(IToolExecutor):
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # 处理异常结果
-        processed_results = []
+        processed_results: List[ToolResult] = []
         for i, result in enumerate(results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 tool_call = tool_calls[i]
                 error_msg = f"异步并行执行异常: {str(result)}"
                 self.logger.error(

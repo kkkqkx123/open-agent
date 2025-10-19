@@ -1,7 +1,6 @@
 """Responses API适配器"""
 
-from typing import Dict, Any, Generator, AsyncGenerator, List, Optional
-
+from typing import Dict, Any, Generator, AsyncGenerator, List, Optional, Union, cast
 from langchain_core.messages import BaseMessage
 
 from .base import APIFormatAdapter
@@ -18,6 +17,7 @@ from ....exceptions import (
     LLMServiceUnavailableError,
     LLMInvalidRequestError,
 )
+from ....models import LLMResponse
 
 
 class ResponsesAPIAdapter(APIFormatAdapter):
@@ -33,13 +33,15 @@ class ResponsesAPIAdapter(APIFormatAdapter):
         super().__init__(config)
         self.converter = ResponsesConverter()
         self._conversation_history: List[Dict[str, Any]] = []
+        # 显式声明_client的类型
+        self._client: Optional[OpenAIResponsesClient] = None
 
     def initialize_client(self) -> None:
         """初始化Responses API客户端"""
         if self._client is None:
             self._client = OpenAIResponsesClient(self.config)
 
-    def generate(self, messages: List[BaseMessage], **kwargs) -> Any:
+    def generate(self, messages: List[BaseMessage], **kwargs: Any) -> LLMResponse:
         """生成响应"""
         self.initialize_client()
 
@@ -51,11 +53,14 @@ class ResponsesAPIAdapter(APIFormatAdapter):
 
         try:
             # 调用Responses API
-            api_response = self._client.create_response_sync(
-                input_text=input_text,
-                previous_response_id=previous_response_id,
-                **kwargs,
-            )
+            if self._client is not None:
+                api_response = self._client.create_response_sync(
+                    input_text=input_text,
+                    previous_response_id=previous_response_id,
+                    **kwargs,
+                )
+            else:
+                raise LLMCallError("客户端未初始化")
 
             # 转换响应格式
             llm_response = self.converter.from_api_format(api_response)
@@ -69,7 +74,7 @@ class ResponsesAPIAdapter(APIFormatAdapter):
             # 错误处理
             raise self._handle_openai_error(e)
 
-    async def generate_async(self, messages: List[BaseMessage], **kwargs) -> Any:
+    async def generate_async(self, messages: List[BaseMessage], **kwargs: Any) -> LLMResponse:
         """异步生成响应"""
         self.initialize_client()
 
@@ -81,11 +86,14 @@ class ResponsesAPIAdapter(APIFormatAdapter):
 
         try:
             # 调用Responses API
-            api_response = await self._client.create_response(
-                input_text=input_text,
-                previous_response_id=previous_response_id,
-                **kwargs,
-            )
+            if self._client is not None:
+                api_response = await self._client.create_response(
+                    input_text=input_text,
+                    previous_response_id=previous_response_id,
+                    **kwargs,
+                )
+            else:
+                raise LLMCallError("客户端未初始化")
 
             # 转换响应格式
             llm_response = self.converter.from_api_format(api_response)
@@ -100,7 +108,7 @@ class ResponsesAPIAdapter(APIFormatAdapter):
             raise self._handle_openai_error(e)
 
     def stream_generate(
-        self, messages: List[BaseMessage], **kwargs
+        self, messages: List[BaseMessage], **kwargs: Any
     ) -> Generator[str, None, None]:
         """流式生成"""
         self.initialize_client()
@@ -113,22 +121,25 @@ class ResponsesAPIAdapter(APIFormatAdapter):
 
         try:
             # 调用Responses API流式接口
-            for chunk in self._client.create_stream_response_sync(
-                input_text=input_text,
-                previous_response_id=previous_response_id,
-                **kwargs,
-            ):
-                # 提取文本内容
-                content = self._extract_stream_content(chunk)
-                if content:
-                    yield content
+            if self._client is not None:
+                for chunk in self._client.create_stream_response_sync(
+                    input_text=input_text,
+                    previous_response_id=previous_response_id,
+                    **kwargs,
+                ):
+                    # 提取文本内容
+                    content = self._extract_stream_content(chunk)
+                    if content:
+                        yield content
+            else:
+                raise LLMCallError("客户端未初始化")
 
         except Exception as e:
             # 错误处理
             raise self._handle_openai_error(e)
 
     async def stream_generate_async(
-        self, messages: List[BaseMessage], **kwargs
+        self, messages: List[BaseMessage], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """异步流式生成"""
         self.initialize_client()
@@ -142,15 +153,18 @@ class ResponsesAPIAdapter(APIFormatAdapter):
         async def _async_generator() -> AsyncGenerator[str, None]:
             try:
                 # 调用Responses API流式接口
-                async for chunk in self._client.create_stream_response(
-                    input_text=input_text,
-                    previous_response_id=previous_response_id,
-                    **kwargs,
-                ):
-                    # 提取文本内容
-                    content = self._extract_stream_content(chunk)
-                    if content:
-                        yield content
+                if self._client is not None:
+                    async for chunk in self._client.create_stream_response(
+                        input_text=input_text,
+                        previous_response_id=previous_response_id,
+                        **kwargs,
+                    ):
+                        # 提取文本内容
+                        content = self._extract_stream_content(chunk)
+                        if content:
+                            yield content
+                else:
+                    raise LLMCallError("客户端未初始化")
 
             except Exception as e:
                 # 错误处理
@@ -214,7 +228,9 @@ class ResponsesAPIAdapter(APIFormatAdapter):
                 content = item.get("content", [])
                 for content_item in content:
                     if content_item.get("type") == "output_text":
-                        return content_item.get("text", "")
+                        text = content_item.get("text", "")
+                        # 确保返回的是字符串类型
+                        return str(text) if text is not None else ""
 
         return ""
 

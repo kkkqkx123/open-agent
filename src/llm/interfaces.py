@@ -13,7 +13,7 @@ from typing import (
 )
 from datetime import datetime
 
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import BaseMessage  # type: ignore
 
 from .models import LLMResponse, TokenUsage
 
@@ -36,7 +36,7 @@ class ILLMClient(ABC):
         self,
         messages: List[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> LLMResponse:
         """
         生成文本响应
@@ -56,7 +56,7 @@ class ILLMClient(ABC):
         self,
         messages: List[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> LLMResponse:
         """
         异步生成文本响应
@@ -76,7 +76,7 @@ class ILLMClient(ABC):
         self,
         messages: List[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> AsyncGenerator[str, None]:
         """
         异步流式生成文本响应
@@ -96,7 +96,7 @@ class ILLMClient(ABC):
         self,
         messages: List[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Generator[str, None, None]:
         """
         流式生成文本响应
@@ -166,7 +166,7 @@ class ILLMCallHook(ABC):
         self,
         messages: List[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """
         调用前的钩子
@@ -184,7 +184,7 @@ class ILLMCallHook(ABC):
         response: Optional[LLMResponse],
         messages: List[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """
         调用后的钩子
@@ -203,7 +203,7 @@ class ILLMCallHook(ABC):
         error: Exception,
         messages: List[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Optional[LLMResponse]:
         """
         错误处理钩子

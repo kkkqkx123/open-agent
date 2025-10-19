@@ -54,6 +54,15 @@ uv add flake8
 
 ## Development Commands
 
+### Environmet Management
+```bash
+# Install a package(use uv add to sync with uv.lock and pyproject.toml)
+uv add package_name
+
+# Check if a certain package is installed
+uv pip list | findstr package_name
+```
+
 ### Code Quality Tools
 (usually mypy is enough. if I didn't ask you to use reaminging tools, you can skip them)
 If I don't ask you to check whole codebase, always use --follow-imports=silent to avoid check reletive files.
@@ -62,6 +71,7 @@ If I don't ask you to check whole codebase, always use --follow-imports=silent t
 mypy .
 # or add `--follow-imports=silent` to check specific files
 mypy file_reletive_path --follow-imports=silent
+# Sometimes mypy can't find some packages. If uv pip list | findstr package_name shows it has been installed, you can ignore this mypy error, as it is a false alarm.
 
 # Code formatting with black
 black src/ tests/
@@ -273,4 +283,4 @@ From the PRD documents:
 Always use Chinese in the code and documentation.
 
 ## Coding Specifications
-Must follow mypy type specifications. For example function must be annotated with type hints.
+Must follow mypy type specifications. For example, function must be annotated with type hints.

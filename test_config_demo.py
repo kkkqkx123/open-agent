@@ -2,9 +2,9 @@
 
 import sys
 import os
-sys.path.insert(0, 'src')
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-def test_config_loading():
+def test_config_loading() -> None:
     print("=== 配置加载与验证功能演示 ===\n")
     
     # 设置环境变量
@@ -13,10 +13,10 @@ def test_config_loading():
     os.environ['ANTHROPIC_API_KEY'] = 'test-anthropic-key'
     
     try:
-        from config.config_system import ConfigSystem
-        from infrastructure.config_loader import YamlConfigLoader
-        from config.config_merger import ConfigMerger
-        from config.config_validator import ConfigValidator
+        from src.config.config_system import ConfigSystem
+        from src.infrastructure.config_loader import YamlConfigLoader
+        from src.config.config_merger import ConfigMerger
+        from src.config.config_validator import ConfigValidator
         
         # 创建配置系统组件
         config_loader = YamlConfigLoader("configs")
@@ -131,7 +131,7 @@ def test_config_loading():
         
         # 直接测试配置加载器
         try:
-            from infrastructure.config_loader import YamlConfigLoader
+            from src.infrastructure.config_loader import YamlConfigLoader
             
             config_loader = YamlConfigLoader("configs")
             

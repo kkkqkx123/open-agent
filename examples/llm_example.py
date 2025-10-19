@@ -7,7 +7,8 @@ LLM模块使用示例
 
 import asyncio
 import os
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage
+from typing import List, cast
 
 # 导入LLM模块
 from src.llm import (
@@ -41,7 +42,7 @@ def basic_example():
     client = create_client(config)
     
     # 创建消息
-    messages = [
+    messages: List[BaseMessage] = [
         HumanMessage(content="请解释什么是人工智能？")
     ]
     
@@ -72,7 +73,7 @@ def streaming_example():
     client = create_client(config)
     
     # 创建消息
-    messages = [
+    messages: List[BaseMessage] = [
         HumanMessage(content="请写一个关于春天的短诗")
     ]
     
@@ -97,11 +98,11 @@ async def async_example():
     
     client = create_client(config)
     
+    
     # 创建消息
-    messages = [
+    messages: List[BaseMessage] = [
         HumanMessage(content="请介绍一下机器学习的基本概念")
     ]
-    
     # 异步生成
     print("发送异步请求...")
     response = await client.generate_async(messages)
@@ -126,7 +127,7 @@ async def async_streaming_example():
     client = create_client(config)
     
     # 创建消息
-    messages = [
+    messages: List[BaseMessage] = [
         HumanMessage(content="请解释量子计算的基本原理")
     ]
     
@@ -159,11 +160,12 @@ def hooks_example():
     composite_hook = CompositeHook([logging_hook, metrics_hook])
     
     # 添加钩子
-    client.add_hook(composite_hook)
+    # 忽略类型检查以访问add_hook方法
+    client.add_hook(composite_hook)  # type: ignore
     
     # 发送多个请求
     for i in range(3):
-        messages = [HumanMessage(content=f"请回答问题 {i+1}")]
+        messages: List[BaseMessage] = [HumanMessage(content=f"请回答问题 {i+1}")]
         response = client.generate(messages)
         print(f"请求 {i+1} 完成")
     
@@ -194,7 +196,7 @@ def error_handling_example():
     client = create_client(config)
     
     # 尝试生成响应
-    messages = [HumanMessage(content="这个问题会失败")]
+    messages: List[BaseMessage] = [HumanMessage(content="这个问题会失败")]
     
     try:
         response = client.generate(messages)
@@ -228,7 +230,7 @@ def token_calculation_example():
     print(f"Token数量: {token_count}")
     
     # 计算消息Token数量
-    messages = [
+    messages: List[BaseMessage] = [
         SystemMessage(content="你是一个有用的AI助手。"),
         HumanMessage(content="请介绍一下Python编程语言。"),
         HumanMessage(content="Python有哪些主要特性？")

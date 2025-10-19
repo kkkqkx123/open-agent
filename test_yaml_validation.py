@@ -5,7 +5,7 @@ import yaml
 import os
 from pathlib import Path
 
-def validate_yaml_files():
+def validate_yaml_files() -> bool:
     """验证YAML配置文件"""
     print("验证YAML配置文件...")
     
@@ -64,7 +64,7 @@ def validate_yaml_files():
     
     return all_valid
 
-def summarize_improvements():
+def summarize_improvements() -> None:
     """总结改进内容"""
     print("参数支持改进总结:")
     print("=" * 50)
@@ -121,7 +121,7 @@ def summarize_improvements():
     
     print(f"\n总计新增参数: {sum(len(params) for params in improvements.values())}")
 
-def main():
+def main() -> int:
     """主函数"""
     print("LLM参数支持验证报告")
     print("=" * 50)

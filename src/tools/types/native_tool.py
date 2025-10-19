@@ -166,7 +166,7 @@ class NativeTool(BaseTool):
         else:
             return response_data
 
-    def execute(self, **kwargs) -> Any:
+    def execute(self, **kwargs: Any) -> Any:
         """同步执行工具（通过异步实现）
 
         Args:
@@ -183,7 +183,7 @@ class NativeTool(BaseTool):
         finally:
             loop.close()
 
-    async def execute_async(self, **kwargs) -> Any:
+    async def execute_async(self, **kwargs: Any) -> Any:
         """异步执行工具
 
         Args:
@@ -229,10 +229,10 @@ class NativeTool(BaseTool):
             # 清理会话
             await self._close_session()
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "NativeTool":
         """异步上下文管理器入口"""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """异步上下文管理器出口"""
         await self._close_session()

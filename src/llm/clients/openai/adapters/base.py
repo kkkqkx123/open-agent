@@ -1,10 +1,11 @@
 """API格式适配器基类"""
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Generator, AsyncGenerator, Optional
+from typing import List, Dict, Any, Generator, AsyncGenerator, Optional, TYPE_CHECKING
 
-from langchain_core.messages import BaseMessage
-from ....models import LLMResponse
+if TYPE_CHECKING:
+    from ....models import LLMResponse
+    from langchain_core.messages import BaseMessage # type: ignore
 
 
 class APIFormatAdapter(ABC):
@@ -18,7 +19,7 @@ class APIFormatAdapter(ABC):
             config: OpenAI配置
         """
         self.config = config
-        self._client = None
+        self._client: Any = None
 
     @abstractmethod
     def initialize_client(self) -> None:
@@ -26,27 +27,27 @@ class APIFormatAdapter(ABC):
         pass
 
     @abstractmethod
-    def generate(self, messages: List[BaseMessage], **kwargs) -> LLMResponse:
+    def generate(self, messages: List["BaseMessage"], **kwargs: Any) -> "LLMResponse":
         """同步生成响应"""
         pass
 
     @abstractmethod
     async def generate_async(
-        self, messages: List[BaseMessage], **kwargs
-    ) -> LLMResponse:
+        self, messages: List["BaseMessage"], **kwargs: Any
+    ) -> "LLMResponse":
         """异步生成响应"""
         pass
 
     @abstractmethod
     def stream_generate(
-        self, messages: List[BaseMessage], **kwargs
+        self, messages: List["BaseMessage"], **kwargs: Any
     ) -> Generator[str, None, None]:
         """同步流式生成"""
         pass
 
     @abstractmethod
     async def stream_generate_async(
-        self, messages: List[BaseMessage], **kwargs
+        self, messages: List["BaseMessage"], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """异步流式生成"""
         pass
@@ -57,7 +58,7 @@ class APIFormatAdapter(ABC):
         pass
 
     @abstractmethod
-    def get_messages_token_count(self, messages: List[BaseMessage]) -> int:
+    def get_messages_token_count(self, messages: List["BaseMessage"]) -> int:
         """计算消息列表token数量"""
         pass
 

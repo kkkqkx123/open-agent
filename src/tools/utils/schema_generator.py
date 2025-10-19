@@ -264,6 +264,7 @@ class SchemaGenerator:
         Returns:
             Dict[str, Any]: 响应Schema
         """
+        schema: Dict[str, Any] = {}
         if response_type in cls.TYPE_MAPPING:
             schema = cls.TYPE_MAPPING[response_type].copy()
         elif hasattr(response_type, "__origin__") and response_type.__origin__ is list:

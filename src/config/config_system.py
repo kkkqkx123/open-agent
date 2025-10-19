@@ -356,7 +356,7 @@ class ConfigSystem(IConfigSystem):
         """
         # 加载个体配置
         individual_path = self.get_config_path(config_type, name)
-        individual_config = self._config_loader.load(individual_path)
+        individual_config: Dict[str, Any] = self._config_loader.load(individual_path)
 
         # 检查是否有组配置
         if "group" in individual_config:

@@ -1,6 +1,7 @@
 """配置系统与基础架构模块集成示例"""
 
 import os
+from typing import Dict, Any
 from src.infrastructure import DependencyContainer
 from src.infrastructure.config_loader import YamlConfigLoader
 from src.config import ConfigSystem, ConfigMerger, ConfigValidator, ConfigValidatorTool
@@ -32,7 +33,7 @@ def setup_dependency_container(config_path: str = "configs") -> DependencyContai
     return container
 
 
-def main():
+def main() -> None:
     """主函数"""
     print("配置系统与基础架构模块集成示例")
     print("=" * 50)
@@ -115,7 +116,7 @@ def main():
         # 监听配置变化
         print("\n设置配置变化监听...")
         
-        def config_change_callback(path, config):
+        def config_change_callback(path: str, config: Dict[str, Any]) -> None:
             print(f"🔄 配置文件变化: {path}")
         
         config_system.watch_for_changes(config_change_callback)

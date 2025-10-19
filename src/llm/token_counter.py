@@ -4,7 +4,16 @@ import re
 from typing import Dict, Any, Optional, List, Union
 from abc import ABC, abstractmethod
 
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+# 为了类型检查，定义一个虚拟的Encoding类型
+try:
+    import tiktoken
+    from tiktoken import Encoding
+except ImportError:
+    # 当tiktoken不可用时，创建一个虚拟类型
+    class Encoding:  # type: ignore[no-redef]
+        pass
+
+from langchain_core.messages import BaseMessage  # type: ignore
 
 
 class ITokenCounter(ABC):
@@ -84,7 +93,7 @@ class OpenAITokenCounter(ITokenCounter):
             model_name: 模型名称
         """
         self.model_name = model_name
-        self._encoding = None
+        self._encoding: Optional[Encoding] = None
         self._load_encoding()
 
     def _load_encoding(self) -> None:
