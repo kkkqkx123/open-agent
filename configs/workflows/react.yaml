@@ -1,0 +1,85 @@
+
+name: react_workflow
+description: ReAct工作流模式，支持推理-行动-观察循环
+version: 1.0
+
+state_schema:
+  messages: List[BaseMessage]
+  tool_calls: List[ToolCall]
+  tool_results: List[ToolResult]
+  iteration_count: int
+  max_iterations: int
+
+nodes:
+  analyze:
+    type: analysis_node
+    config:
+      llm_client: openai-gpt4
+      system_prompt: |
+        你是一个智能助手，负责分析用户输入并决定是否需要调用工具。
+        
+        请根据用户的请求：
+        1. 如果需要获取外部信息或执行操作，请调用相应的工具
+        2. 如果可以直接回答，请提供详细的回答
+        3. 始终保持友好和专业的语调
+        
+        分析用户意图后，选择最合适的行动。
+      max_tokens: 2000
+      temperature: 0.7
+      tool_threshold: 0.5
+      available_tools: []
+
+  execute_tool:
+    type: tool_node
+    config:
+      tool_manager: default
+      timeout: 30
+      max_parallel_calls: 1
+      retry_on_failure: false
+      continue_on_error: true
+
+  final_answer:
+    type: llm_node
+    config:
+      llm_client: openai-gpt4
+      system_prompt: |
+        你是一个智能助手，请根据上下文信息提供准确、有用的回答。
+        
+        请遵循以下原则：
+        1. 基于提供的工具执行结果和上下文信息回答问题
+        2. 如果信息不足，请明确说明需要什么额外信息
+        3. 保持回答简洁明了，重点突出
+        4. 如果有多个步骤的结果，请按逻辑顺序组织回答
+        5. 始终保持友好和专业的语调
+      max_tokens: 2000
+      temperature: 0.3
+      include_tool_results: true
+
+edges:
+  - from: start
+    to: analyze
+    type: simple
+    
+  - from: analyze
+    to: execute_tool
+    condition: has_tool_calls
+    type: conditional
+    
+  - from: analyze
+    to: final_answer
+    condition: no_tool_calls
+    type: conditional
+    
+  - from: execute_tool
+    to: analyze
+    type: simple
+
+entry_point: analyze
+
+additional_config:
+  max_iterations: 10
+  timeout: 300
+  enable_streaming: true
+content>
+<line_count>68</line_count>
+</write_to_file>

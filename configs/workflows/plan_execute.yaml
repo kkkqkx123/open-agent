@@ -1,0 +1,135 @@
+
+name: plan_execute_workflow
+description: Plan-and-Execute工作流模式，先生成计划然后分步执行
+version: 1.0
+
+state_schema:
+  messages: List[BaseMessage]
+  tool_calls: List[ToolCall]
+  tool_results: List[ToolResult]
+  iteration_count: int
+  max_iterations: int
+  plan: List[str]
+  current_step_index: int
+
+nodes:
+  create_plan:
+    type: llm_node
+    config:
+      llm_client: openai-gpt4
+      system_prompt: |
+        你是一个计划制定助手，负责将用户的复杂任务分解为具体的执行步骤。
+        
+        请根据用户的请求：
+        1. 分析任务需求
+        2. 将任务分解为3-7个具体的执行步骤
+        3. 每个步骤应该是可执行的、具体的
+        4. 按照逻辑顺序排列步骤
+        
+        必须以JSON格式返回计划，格式如下：
+        {
+          "plan": [
+            "步骤1的描述",
+            "步骤2的描述",
+            ...
+          ]
+        }
+      max_tokens: 1500
+      temperature: 0.3
+
+  execute_step:
+    type: analysis_node
+    config:
+      llm_client: openai-gpt4
+      system_prompt_template: |
+        你正在执行计划的第 {current_step_index} 步。
+        
+        当前步骤：{current_step}
+        
+        请分析这一步是否需要调用工具，如果需要请调用相应的工具。
+        如果不需要工具，请直接完成这一步的任务。
+      max_tokens: 2000
+      temperature: 0.5
+
+  execute_tool:
+    type: tool_node
+    config:
+      tool_manager: default
+      timeout: 30
+      max_parallel_calls: 1
+      continue_on_error: true
+
+  check_completion:
+    type: condition_node
+    config:
+      conditions:
+        - type: iteration_count_greater_than
+          parameters:
+            count: 0
+          next_node: execute_step
+        - type: custom
+          parameters:
+            expression: len(state.plan) > 0 and state.current_step_index >= len(state.plan)
+          next_node: summarize_results
+      default_next_node: execute_step
+
+  summarize_results:
+    type: llm_node
+    config:
+      llm_client: openai-gpt4
+      system_prompt: |
+        你是一个结果总结助手，负责总结整个执行过程的结果。
+        
+        请根据以下信息：
+        1. 用户的原始请求
+        2. 执行的计划步骤
+        3. 每一步的执行结果
+        
+        提供一个完整的、结构化的总结，包括：
+        - 执行过程的概述
+        - 关键结果和发现
+        - 最终答案或解决方案
+        - 如果有未完成的部分，说明原因
+        
+        请保持回答的专业性和准确性。
+      max_tokens: 2500
+      temperature: 0.3
+      include_tool_results: true
+
+edges:
+  - from: start
+    to: create_plan
+    type: simple
+    
+  - from: create_plan
+    to: execute_step
+    type: simple
+    
+  - from: execute_step
+    to: execute_tool
+    condition: has_tool_calls
+    type: conditional
+    
+  - from: execute_step
+    to: check_completion
+    condition: no_tool_calls
+    type: conditional
+    
+  - from: execute_tool
+    to: check_completion
+    type: simple
+    
+  - from: check_completion
+    to: summarize_results
+    type: conditional
+
+entry_point: create_plan
+
+additional_config:
+  max_iterations: 15
+  timeout: 600
+  enable_streaming: true
+  plan_max_steps: 7
+content>
+<line_count>103</line_count>
+</write_to_file>

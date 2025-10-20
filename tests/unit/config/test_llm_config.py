@@ -1,15 +1,16 @@
 """LLM配置模型测试"""
 
 import unittest
+from typing import Any, Dict
 from src.config.models.llm_config import LLMConfig
 
 
 class TestLLMConfig(unittest.TestCase):
     """LLM配置模型测试类"""
 
-    def test_llm_config_creation(self):
+    def test_llm_config_creation(self) -> None:
         """测试LLM配置创建"""
-        config_data = {
+        config_data: Dict[str, Any] = {
             "model_type": "openai",
             "model_name": "gpt-4",
             "api_key": "test_key",
@@ -27,9 +28,9 @@ class TestLLMConfig(unittest.TestCase):
         self.assertTrue(config.supports_caching)
         self.assertEqual(config.cache_config["ttl_seconds"], 3600)
 
-    def test_llm_config_default_values(self):
+    def test_llm_config_default_values(self) -> None:
         """测试LLM配置默认值"""
-        config_data = {
+        config_data: Dict[str, Any] = {
             "model_type": "openai",
             "model_name": "gpt-4"
         }
@@ -42,9 +43,9 @@ class TestLLMConfig(unittest.TestCase):
         self.assertEqual(config.cache_config, {})  # 默认值
         self.assertTrue(config.fallback_enabled)  # 默认值
 
-    def test_llm_config_provider_inference(self):
+    def test_llm_config_provider_inference(self) -> None:
         """测试提供商推断"""
-        config_data = {
+        config_data: Dict[str, Any] = {
             "model_type": "openai",
             "model_name": "gpt-4",
             "provider": "openai"
@@ -56,9 +57,9 @@ class TestLLMConfig(unittest.TestCase):
         self.assertEqual(config.provider, "openai")
         self.assertEqual(config.get_provider_name(), "openai")
 
-    def test_llm_config_provider_inference_without_explicit_provider(self):
+    def test_llm_config_provider_inference_without_explicit_provider(self) -> None:
         """测试没有显式提供商时的推断"""
-        config_data = {
+        config_data: Dict[str, Any] = {
             "model_type": "gemini",
             "model_name": "gemini-pro"
         }
@@ -69,9 +70,9 @@ class TestLLMConfig(unittest.TestCase):
         self.assertIsNone(config.provider)
         self.assertEqual(config.get_provider_name(), "gemini")
 
-    def test_llm_config_supports_api_caching(self):
+    def test_llm_config_supports_api_caching(self) -> None:
         """测试API缓存支持检查"""
-        config_data = {
+        config_data: Dict[str, Any] = {
             "model_type": "openai",
             "model_name": "gpt-4",
             "supports_caching": True
@@ -86,9 +87,9 @@ class TestLLMConfig(unittest.TestCase):
         
         self.assertFalse(config.supports_api_caching())
 
-    def test_llm_config_cache_config_methods(self):
+    def test_llm_config_cache_config_methods(self) -> None:
         """测试缓存配置方法"""
-        config_data = {
+        config_data: Dict[str, Any] = {
             "model_type": "anthropic",
             "model_name": "claude-3",
             "cache_config": {
@@ -108,9 +109,9 @@ class TestLLMConfig(unittest.TestCase):
         config.set_cache_config("new_param", "value")
         self.assertEqual(config.get_cache_config("new_param"), "value")
 
-    def test_llm_config_cache_ttl_and_max_size(self):
+    def test_llm_config_cache_ttl_and_max_size(self) -> None:
         """测试缓存TTL和最大大小"""
-        config_data = {
+        config_data: Dict[str, Any] = {
             "model_type": "openai",
             "model_name": "gpt-4",
             "cache_config": {
@@ -131,9 +132,9 @@ class TestLLMConfig(unittest.TestCase):
         self.assertEqual(config.get_cache_ttl(), 3600)  # 默认值
         self.assertEqual(config.get_cache_max_size(), 1000)  # 默认值
 
-    def test_llm_config_is_openai_compatible(self):
+    def test_llm_config_is_openai_compatible(self) -> None:
         """测试OpenAI兼容性检查"""
-        config_data = {
+        config_data: Dict[str, Any] = {
             "model_type": "openai",
             "model_name": "gpt-4"
         }
@@ -149,9 +150,9 @@ class TestLLMConfig(unittest.TestCase):
         config = LLMConfig(**config_data)
         self.assertFalse(config.is_openai_compatible())
 
-    def test_llm_config_is_gemini(self):
+    def test_llm_config_is_gemini(self) -> None:
         """测试Gemini检查"""
-        config_data = {
+        config_data: Dict[str, Any] = {
             "model_type": "gemini",
             "model_name": "gemini-pro"
         }
@@ -163,9 +164,9 @@ class TestLLMConfig(unittest.TestCase):
         config = LLMConfig(**config_data)
         self.assertFalse(config.is_gemini())
 
-    def test_llm_config_is_anthropic(self):
+    def test_llm_config_is_anthropic(self) -> None:
         """测试Anthropic检查"""
-        config_data = {
+        config_data: Dict[str, Any] = {
             "model_type": "anthropic",
             "model_name": "claude-3"
         }
@@ -181,9 +182,9 @@ class TestLLMConfig(unittest.TestCase):
         config = LLMConfig(**config_data)
         self.assertFalse(config.is_anthropic())
 
-    def test_llm_config_fallback_methods(self):
+    def test_llm_config_fallback_methods(self) -> None:
         """测试降级方法"""
-        config_data = {
+        config_data: Dict[str, Any] = {
             "model_type": "openai",
             "model_name": "gpt-4",
             "fallback_enabled": True,
@@ -197,9 +198,9 @@ class TestLLMConfig(unittest.TestCase):
         self.assertEqual(config.get_fallback_models(), ["gpt-3.5-turbo", "gpt-4-turbo"])
         self.assertEqual(config.get_max_fallback_attempts(), 5)
 
-    def test_llm_config_metadata_methods(self):
+    def test_llm_config_metadata_methods(self) -> None:
         """测试元数据方法"""
-        config_data = {
+        config_data: Dict[str, Any] = {
             "model_type": "openai",
             "model_name": "gpt-4",
             "metadata": {"version": "v1", "region": "us-east-1"}
@@ -216,9 +217,9 @@ class TestLLMConfig(unittest.TestCase):
         config.set_metadata("new_key", "new_value")
         self.assertEqual(config.get_metadata("new_key"), "new_value")
 
-    def test_llm_config_parameter_methods(self):
+    def test_llm_config_parameter_methods(self) -> None:
         """测试参数方法"""
-        config_data = {
+        config_data: Dict[str, Any] = {
             "model_type": "openai",
             "model_name": "gpt-4",
             "parameters": {"temperature": 0.7, "max_tokens": 100}
@@ -235,9 +236,9 @@ class TestLLMConfig(unittest.TestCase):
         config.set_parameter("new_param", "value")
         self.assertEqual(config.get_parameter("new_param"), "value")
 
-    def test_llm_config_merge_parameters(self):
+    def test_llm_config_merge_parameters(self) -> None:
         """测试参数合并"""
-        config_data = {
+        config_data: Dict[str, Any] = {
             "model_type": "openai",
             "model_name": "gpt-4",
             "parameters": {"temperature": 0.7, "max_tokens": 100}
@@ -253,48 +254,56 @@ class TestLLMConfig(unittest.TestCase):
         self.assertEqual(merged["max_tokens"], 100)  # 保留
         self.assertEqual(merged["top_p"], 0.9)  # 新增
 
-    def test_llm_config_validation_model_type(self):
+    def test_llm_config_validation_model_type(self) -> None:
         """测试模型类型验证"""
+        # 使用字典解包来避免Pylance类型检查问题
+        invalid_config: Dict[str, Any] = {
+            "model_type": "invalid_type",
+            "model_name": "test-model"
+        }
         with self.assertRaises(ValueError):
-            LLMConfig(
-                model_type="invalid_type",
-                model_name="test-model"
-            )
+            LLMConfig(**invalid_config)
 
         # 测试有效类型
         valid_types = ["openai", "gemini", "anthropic", "claude", "local"]
         for model_type in valid_types:
-            config = LLMConfig(
-                model_type=model_type,
-                model_name="test-model"
-            )
+            valid_config: Dict[str, Any] = {
+                "model_type": model_type,
+                "model_name": "test-model"
+            }
+            config = LLMConfig(**valid_config)
             self.assertEqual(config.model_type, model_type.lower())
 
-    def test_llm_config_validation_base_url(self):
+    def test_llm_config_validation_base_url(self) -> None:
         """测试基础URL验证"""
+        # 使用字典解包来避免Pylance类型检查问题
+        invalid_config: Dict[str, Any] = {
+            "model_type": "openai",
+            "model_name": "gpt-4",
+            "base_url": "invalid_url"
+        }
         with self.assertRaises(ValueError):
-            LLMConfig(
-                model_type="openai",
-                model_name="gpt-4",
-                base_url="invalid_url"
-            )
+            LLMConfig(**invalid_config)
 
         # 测试有效URL
-        config = LLMConfig(
-            model_type="openai",
-            model_name="gpt-4",
-            base_url="https://api.openai.com/v1"
-        )
+        valid_config: Dict[str, Any] = {
+            "model_type": "openai",
+            "model_name": "gpt-4",
+            "base_url": "https://api.openai.com/v1"
+        }
+        config = LLMConfig(**valid_config)
         self.assertEqual(config.base_url, "https://api.openai.com/v1")
 
-    def test_llm_config_get_headers(self):
+    def test_llm_config_get_headers(self) -> None:
         """测试获取请求头"""
-        config = LLMConfig(
-            model_type="openai",
-            model_name="gpt-4",
-            api_key="test_key",
-            headers={"User-Agent": "test-agent"}
-        )
+        # 使用字典解包来避免Pylance类型检查问题
+        config_data: Dict[str, Any] = {
+            "model_type": "openai",
+            "model_name": "gpt-4",
+            "api_key": "test_key",
+            "headers": {"User-Agent": "test-agent"}
+        }
+        config = LLMConfig(**config_data)
         
         headers = config.get_headers()
         
@@ -304,21 +313,23 @@ class TestLLMConfig(unittest.TestCase):
         self.assertEqual(headers["User-Agent"], "test-agent")
 
         # 测试不同提供商的API密钥头
-        config_gemini = LLMConfig(
-            model_type="gemini",
-            model_name="gemini-pro",
-            api_key="gemini_key"
-        )
+        gemini_config: Dict[str, Any] = {
+            "model_type": "gemini",
+            "model_name": "gemini-pro",
+            "api_key": "gemini_key"
+        }
+        config_gemini = LLMConfig(**gemini_config)
         
         headers_gemini = config_gemini.get_headers()
         self.assertIn("x-goog-api-key", headers_gemini)
         self.assertEqual(headers_gemini["x-goog-api-key"], "gemini_key")
 
-        config_anthropic = LLMConfig(
-            model_type="anthropic",
-            model_name="claude-3",
-            api_key="anthropic_key"
-        )
+        anthropic_config: Dict[str, Any] = {
+            "model_type": "anthropic",
+            "model_name": "claude-3",
+            "api_key": "anthropic_key"
+        }
+        config_anthropic = LLMConfig(**anthropic_config)
         
         headers_anthropic = config_anthropic.get_headers()
         self.assertIn("x-api-key", headers_anthropic)
