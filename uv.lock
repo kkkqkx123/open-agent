@@ -1037,6 +1037,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
     { name = "rich" },
+    { name = "tiktoken" },
     { name = "types-pyyaml" },
     { name = "watchdog" },
 ]
@@ -1097,6 +1098,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "requests", specifier = ">=2.30.0" },
     { name = "rich", specifier = ">=13.9.4" },
+    { name = "tiktoken", specifier = ">=0.12.0" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20250915" },
     { name = "watchdog", specifier = ">=3.0.0" },
 ]

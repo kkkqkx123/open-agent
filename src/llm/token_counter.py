@@ -1,17 +1,13 @@
 """Token计算器"""
 
 import re
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING, Protocol
 from abc import ABC, abstractmethod
 
-# 为了类型检查，定义一个虚拟的Encoding类型
-try:
-    import tiktoken
-    from tiktoken import Encoding
-except ImportError:
-    # 当tiktoken不可用时，创建一个虚拟类型
-    class Encoding:  # type: ignore[no-redef]
-        pass
+# 定义编码器协议
+class EncodingProtocol(Protocol):
+    """编码器协议，用于类型检查"""
+    def encode(self, text: str) -> List[int]: ...
 
 from langchain_core.messages import BaseMessage  # type: ignore
 
@@ -93,7 +89,7 @@ class OpenAITokenCounter(ITokenCounter):
             model_name: 模型名称
         """
         self.model_name = model_name
-        self._encoding: Optional[Encoding] = None
+        self._encoding: Optional[EncodingProtocol] = None
         self._load_encoding()
 
     def _load_encoding(self) -> None:
@@ -103,10 +99,10 @@ class OpenAITokenCounter(ITokenCounter):
 
             # 尝试获取模型特定的编码器
             try:
-                self._encoding = tiktoken.encoding_for_model(self.model_name)
+                self._encoding = tiktoken.encoding_for_model(self.model_name)  # type: ignore
             except KeyError:
                 # 如果模型没有特定编码器，使用默认的
-                self._encoding = tiktoken.get_encoding("cl100k_base")
+                self._encoding = tiktoken.get_encoding("cl100k_base")  # type: ignore
 
         except ImportError:
             # 如果没有安装tiktoken，使用简单的估算

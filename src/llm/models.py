@@ -1,11 +1,12 @@
 """LLM模块数据模型定义"""
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum
 
-from langchain_core.messages import BaseMessage
+if TYPE_CHECKING:
+    from langchain_core.messages import BaseMessage
 
 
 class MessageRole(Enum):
@@ -65,7 +66,7 @@ class LLMMessage:
         return result
 
     @classmethod
-    def from_base_message(cls, message: BaseMessage) -> "LLMMessage":
+    def from_base_message(cls, message: "BaseMessage") -> "LLMMessage":
         """从LangChain BaseMessage创建LLMMessage"""
         from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 

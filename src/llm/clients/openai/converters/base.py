@@ -1,9 +1,11 @@
 """消息格式转换器基类"""
 
 from abc import ABC, abstractmethod
-from typing import List, Any
+from typing import List, Any, TYPE_CHECKING
 
-# from langchain_core.messages import BaseMessage
+if TYPE_CHECKING:
+    from langchain_core.messages import BaseMessage
+
 from ....models import LLMResponse
 
 
