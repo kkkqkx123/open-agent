@@ -3,7 +3,7 @@
 提供依赖注入、配置加载、环境检查等基础功能。
 """
 
-from .container import IDependencyContainer, DependencyContainer
+from .container import IDependencyContainer, DependencyContainer, get_global_container
 from .config_loader import IConfigLoader, YamlConfigLoader
 from .environment import IEnvironmentChecker, EnvironmentChecker
 from .env_check_command import EnvironmentCheckCommand
@@ -23,6 +23,7 @@ from .types import CheckResult, ServiceLifetime
 __all__ = [
     "IDependencyContainer",
     "DependencyContainer",
+    "get_global_container",
     "IConfigLoader",
     "YamlConfigLoader",
     "IEnvironmentChecker",

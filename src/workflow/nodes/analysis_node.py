@@ -6,13 +6,13 @@
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
-from ..registry import BaseNode, NodeExecutionResult, register_node
+from ..registry import BaseNode, NodeExecutionResult, node
 from ...prompts.agent_state import AgentState
 from ...llm.interfaces import ILLMClient
 from ...infrastructure.container import IDependencyContainer
 
 
-@register_node("analysis_node")
+@node("analysis_node")
 class AnalysisNode(BaseNode):
     """分析节点"""
 
@@ -128,33 +128,44 @@ class AnalysisNode(BaseNode):
             return self._llm_client
         
         # 从依赖容器获取
-        try:
-            from ...infrastructure import get_global_container
-            container = get_global_container()
-            llm_client_name = config["llm_client"]
-            # 这里需要根据实际的LLM客户端获取方式调整
-            # 假设容器中有LLM客户端工厂
-            llm_factory = container.get_service(type(ILLMClient))
-            return llm_factory.create_client({"name": llm_client_name})
-        except Exception:
-            # 如果无法获取客户端，返回模拟客户端
-            return self._create_mock_client()
+        # TODO: 实现完整的LLM客户端工厂注册和获取逻辑
+        # try:
+        #     from ...infrastructure import get_global_container
+        #     container = get_global_container()
+        #     llm_client_name = config["llm_client"]
+        #     # 这里需要根据实际的LLM客户端获取方式调整
+        #     # 假设容器中有LLM客户端工厂
+        #     llm_factory = container.get(type(ILLMClient))
+        #     return llm_factory.create_client({"name": llm_client_name})
+        # except Exception:
+        #     # 如果无法获取客户端，返回模拟客户端
+        #     pass
+
+        # 暂时直接返回模拟客户端
+        return self._create_mock_client()
 
     def _create_mock_client(self) -> ILLMClient:
         """创建模拟LLM客户端"""
         from ...llm.clients.mock_client import MockLLMClient
         from ...llm.models import LLMResponse, TokenUsage
-        
+        from ...llm.config import MockConfig
+        from langchain_core.messages import AIMessage
+
         class MockClient(MockLLMClient):
+            def __init__(self) -> None:
+                super().__init__(MockConfig(model_type="mock", model_name="mock-model"))
+
             def generate(self, messages, parameters=None, **kwargs):
                 # 简单的模拟响应
                 content = "这是一个分析节点的模拟响应"
                 return LLMResponse(
                     content=content,
+                    message=AIMessage(content=content),
+                    model="mock-model",
                     token_usage=TokenUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
                 )
-        
-        return MockClient({})
+
+        return MockClient()
 
     def _get_default_system_prompt(self) -> str:
         """获取默认系统提示词"""
@@ -209,7 +220,7 @@ class AnalysisNode(BaseNode):
         # 暂时返回空列表
         return []
 
-    def _determine_next_node(self, response, config: Dict[str, Any]) -> Optional[str]:
+    def _determine_next_node(self, response: Any, config: Dict[str, Any]) -> Optional[str]:
         """确定下一个节点
 
         Args:

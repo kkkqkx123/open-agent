@@ -6,11 +6,11 @@
 from typing import Dict, Any, Optional, List, Callable
 from dataclasses import dataclass
 
-from ..registry import BaseNode, NodeExecutionResult, register_node
+from ..registry import BaseNode, NodeExecutionResult, node
 from ...prompts.agent_state import AgentState
 
 
-@register_node("condition_node")
+@node("condition_node")
 class ConditionNode(BaseNode):
     """条件判断节点"""
 
@@ -137,16 +137,19 @@ class ConditionNode(BaseNode):
         """检查是否有工具调用"""
         if not state.messages:
             return False
-        
+
         last_message = state.messages[-1]
-        if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
-            return True
-        
+        # 检查是否有tool_calls属性
+        if hasattr(last_message, 'tool_calls'):
+            tool_calls = getattr(last_message, 'tool_calls', None)
+            if tool_calls:
+                return True
+
         # 检查消息内容
         if hasattr(last_message, 'content'):
-            content = str(last_message.content)
+            content = str(getattr(last_message, 'content', ''))
             return "tool_call" in content.lower() or "调用工具" in content
-        
+
         return False
 
     def _no_tool_calls(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
@@ -186,7 +189,7 @@ class ConditionNode(BaseNode):
         
         for message in state.messages:
             if hasattr(message, 'content'):
-                content = str(message.content)
+                content = str(getattr(message, 'content', ''))
                 if not case_sensitive:
                     content = content.lower()
                 if search_text in content:

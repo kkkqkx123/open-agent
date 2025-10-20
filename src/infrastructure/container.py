@@ -260,8 +260,12 @@ class DependencyContainer(IDependencyContainer):
                         resolved_type = eval(dependency_type, globalns, localns)
                         dependency_type = resolved_type
                     except:
-                        # 如果无法解析，保持原字符串类型
-                        pass
+                        # 如果无法解析，跳过依赖注入
+                        continue
+
+                if not isinstance(dependency_type, type):
+                    # 如果不是类型对象，跳过
+                    continue
 
                 if self.has_service(dependency_type):
                     kwargs[param_name] = self.get(dependency_type)
@@ -307,3 +311,19 @@ class DependencyContainer(IDependencyContainer):
             services: Set[Type] = set(self._services.keys())
             services.update(self._environment_services.keys())
             return list(services)
+
+
+# 全局依赖注入容器实例
+_global_container: Optional[DependencyContainer] = None
+
+
+def get_global_container() -> DependencyContainer:
+    """获取全局依赖注入容器
+
+    Returns:
+        DependencyContainer: 全局依赖注入容器
+    """
+    global _global_container
+    if _global_container is None:
+        _global_container = DependencyContainer()
+    return _global_container
