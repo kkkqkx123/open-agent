@@ -412,6 +412,8 @@ class ConfigSystem(IConfigSystem):
                     merged_config = self._config_merger.merge_group_config(
                         group_config, individual_config
                     )
+                    # 重新添加group字段，因为在合并过程中它被移除了
+                    merged_config["group"] = group_name
                     return merged_config
             except Exception as e:
                 # 如果加载组配置失败，记录警告但继续使用个体配置

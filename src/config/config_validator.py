@@ -307,12 +307,12 @@ class ConfigValidator(IConfigValidator):
             # 检查模型类型和名称的匹配性
             model_type = config.get("model_type")
             model_name = config.get("model_name")
-            
-            if model_type == "openai" and not model_name.startswith(("gpt-", "text-", "code-")):
+
+            if model_type == "openai" and model_name and not model_name.startswith(("gpt-", "text-", "code-")):
                 result.add_warning(f"OpenAI模型名称 {model_name} 可能不符合命名规范")
-            elif model_type == "anthropic" and not "claude" in model_name.lower():
+            elif model_type == "anthropic" and model_name and not "claude" in model_name.lower():
                 result.add_warning(f"Anthropic模型名称 {model_name} 可能不符合命名规范")
-            elif model_type == "gemini" and not "gemini" in model_name.lower():
+            elif model_type == "gemini" and model_name and not "gemini" in model_name.lower():
                 result.add_warning(f"Gemini模型名称 {model_name} 可能不符合命名规范")
 
         return result

@@ -81,9 +81,9 @@ class ConfigMerger(IConfigMerger):
             if field in individual_config:
                 result[field] = individual_config[field]
 
-        # 保留组标识字段用于调试，但确保它来自个体配置
-        if "group" in individual_config:
-            result["group"] = individual_config["group"]
+        # 移除组标识字段，因为它已经完成了合并任务
+        if "group" in result:
+            del result["group"]
 
         return result
 
