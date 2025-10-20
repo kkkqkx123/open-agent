@@ -156,7 +156,6 @@ class WorkflowConfig:
                     "config": node.config,
                 }
                 for name, node in self.nodes.items()
-                if node.description
             },
             "edges": [edge.to_dict() for edge in self.edges],
         }

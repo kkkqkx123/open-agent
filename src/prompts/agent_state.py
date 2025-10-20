@@ -26,6 +26,7 @@ class AgentState:
     tool_results: List[ToolResult] = field(default_factory=list)
     current_step: str = ""
     max_iterations: int = 10
+    iteration_count: int = 0
     
     def add_message(self, message: object) -> None:
         """添加消息"""
@@ -43,3 +44,4 @@ except ImportError:
     @dataclass
     class HumanMessage(BaseMessage):
         type: str = "human"
+        tool_calls: Optional[List[Dict[str, Any]]] = None

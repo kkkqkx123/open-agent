@@ -12,6 +12,7 @@ from .registry import NodeRegistry, get_global_registry
 from .edges.simple_edge import SimpleEdge
 from .edges.conditional_edge import ConditionalEdge
 from ...prompts.agent_state import AgentState
+from .performance import get_global_optimizer, optimize_workflow_loading
 
 
 class WorkflowBuilder:
@@ -39,6 +40,7 @@ class WorkflowBuilder:
             "no_errors": self._no_errors_condition,
         }
     
+    @optimize_workflow_loading
     def load_workflow_config(self, config_path: str) -> WorkflowConfig:
         """加载工作流配置
         
@@ -110,15 +112,15 @@ class WorkflowBuilder:
                 node_instance = self.node_registry.get_node_instance(node_config.type)
                 
                 # 创建节点执行函数
-                def create_node_function(node):
+                def create_node_function(node, current_node_name, current_node_config):
                     def node_function(state: AgentState) -> AgentState:
-                        result = node.execute(state, node_config.config)
+                        result = node.execute(state, current_node_config.config)
                         # 更新状态中的当前步骤
-                        state.current_step = node_name
+                        state.current_step = current_node_name
                         return result.state
                     return node_function
                 
-                workflow.add_node(node_name, create_node_function(node_instance))
+                workflow.add_node(node_name, create_node_function(node_instance, node_name, node_config))
                 
             except Exception as e:
                 raise ValueError(f"注册节点 '{node_name}' 失败: {e}")
@@ -161,10 +163,17 @@ class WorkflowBuilder:
         condition_func = self._create_condition_function(edge_config.condition)
         
         # 添加条件边
+        # 创建条件映射，确保条件函数返回正确的节点名称
+        def conditional_wrapper(state: AgentState) -> str:
+            if condition_func(state):
+                return edge_config.to_node
+            # 如果条件不满足，返回END或默认节点
+            return "END"
+        
         workflow.add_conditional_edges(
             edge_config.from_node,
-            condition_func,
-            {edge_config.to_node: edge_config.to_node}
+            conditional_wrapper,
+            {edge_config.to_node: edge_config.to_node, "END": "END"}
         )
     
     def _create_condition_function(self, condition: str) -> Callable:

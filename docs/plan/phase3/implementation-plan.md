@@ -211,25 +211,6 @@ class WorkflowBuilder:
 
 #### 2.2.1 插件式节点系统（2天）
 ```python
-# 节点自动发现和注册
-def discover_nodes() -> None:
-    """自动发现并注册节点"""
-    node_registry = NodeRegistry()
-    
-    # 扫描nodes目录
-    nodes_package = importlib.import_module("src.workflow.nodes")
-    for name in dir(nodes_package):
-        obj = getattr(nodes_package, name)
-        if (isinstance(obj, type) and 
-            issubclass(obj, BaseNode) and 
-            obj != BaseNode):
-            node_registry.register_node(obj.__name__.lower(), obj)
-            
-    # 扫描外部插件
-    for entry_point in pkg_resources.iter_entry_points('modular_agent.nodes'):
-        node_class = entry_point.load()
-        node_registry.register_node(entry_point.name, node_class)
-
 # 配置驱动的节点注册
 def register_nodes_from_config(config: Dict) -> None:
     """从配置注册节点"""

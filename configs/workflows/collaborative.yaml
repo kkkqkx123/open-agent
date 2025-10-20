@@ -1,0 +1,194 @@
+name: collaborative_workflow
+description: 协作工作流模式，支持多Agent协作完成任务
+version: 1.0
+
+state_schema:
+  messages: List[BaseMessage]
+  tool_calls: List[ToolCall]
+  tool_results: List[ToolResult]
+  iteration_count: int
+  max_iterations: int
+  current_agent: str
+  agent_tasks: Dict[str, Any]
+  collaboration_history: List[Dict[str, Any]]
+
+nodes:
+  coordinator:
+    type: analysis_node
+    config:
+      llm_client: openai-gpt4
+      system_prompt: |
+        你是一个协调员Agent，负责分析任务并分配给合适的专业Agent。
+        
+        可用的专业Agent：
+        - researcher: 负责信息收集和研究
+        - analyst: 负责数据分析和解释
+        - writer: 负责内容创作和整理
+        - reviewer: 负责质量审核和改进
+        
+        请根据用户请求：
+        1. 分析任务需求
+        2. 确定需要哪些专业Agent参与
+        3. 为每个Agent分配具体任务
+        4. 制定协作计划
+        
+        输出格式应为JSON，包含agent_tasks字段。
+      max_tokens: 2000
+      temperature: 0.3
+
+  researcher:
+    type: analysis_node
+    config:
+      llm_client: openai-gpt4
+      system_prompt: |
+        你是一个研究Agent，负责信息收集和研究工作。
+        
+        你的任务：
+        1. 根据分配的任务收集相关信息
+        2. 使用适当的工具获取数据
+        3. 整理和分析收集到的信息
+        4. 提供详细的研究报告
+        
+        请确保信息准确、全面，并注明信息来源。
+      max_tokens: 2500
+      temperature: 0.2
+      available_tools: []
+
+  analyst:
+    type: analysis_node
+    config:
+      llm_client: openai-gpt4
+      system_prompt: |
+        你是一个分析Agent，负责数据分析和解释工作。
+        
+        你的任务：
+        1. 分析研究Agent提供的数据
+        2. 识别关键模式和趋势
+        3. 提供深入的洞察和解释
+        4. 为决策提供数据支持
+        
+        请使用适当的分析方法，确保结论有数据支撑。
+      max_tokens: 2000
+      temperature: 0.1
+
+  writer:
+    type: llm_node
+    config:
+      llm_client: openai-gpt4
+      system_prompt: |
+        你是一个写作Agent，负责内容创作和整理工作。
+        
+        你的任务：
+        1. 整合研究和分析结果
+        2. 创作清晰、结构化的内容
+        3. 确保内容逻辑连贯、易于理解
+        4. 适应目标受众的需求
+        
+        请确保内容准确、专业，并具有良好的可读性。
+      max_tokens: 3000
+      temperature: 0.4
+      include_tool_results: true
+
+  reviewer:
+    type: llm_node
+    config:
+      llm_client: openai-gpt4
+      system_prompt: |
+        你是一个审核Agent，负责质量审核和改进工作。
+        
+        你的任务：
+        1. 审核内容的准确性和完整性
+        2. 检查逻辑结构和表达清晰度
+        3. 提供改进建议
+        4. 确保内容符合质量标准
+        
+        请提供具体的审核意见和改进建议。
+      max_tokens: 1500
+      temperature: 0.1
+      include_tool_results: true
+
+  check_collaboration_complete:
+    type: condition_node
+    config:
+      conditions:
+        - type: custom
+          parameters:
+            expression: "len([agent for agent, task in state.agent_tasks.items() if task.get('status') != 'completed']) == 0"
+          next_node: synthesize_results
+        - type: custom
+          parameters:
+            expression: "state.current_agent == 'researcher' and not state.agent_tasks.get('researcher', {}).get('completed')"
+          next_node: researcher
+        - type: custom
+          parameters:
+            expression: "state.current_agent == 'analyst' and not state.agent_tasks.get('analyst', {}).get('completed')"
+          next_node: analyst
+        - type: custom
+          parameters:
+            expression: "state.current_agent == 'writer' and not state.agent_tasks.get('writer', {}).get('completed')"
+          next_node: writer
+        - type: custom
+          parameters:
+            expression: "state.current_agent == 'reviewer' and not state.agent_tasks.get('reviewer', {}).get('completed')"
+          next_node: reviewer
+      default_next_node: synthesize_results
+
+  synthesize_results:
+    type: llm_node
+    config:
+      llm_client: openai-gpt4
+      system_prompt: |
+        你是一个综合Agent，负责整合所有Agent的工作成果。
+        
+        请根据以下信息：
+        1. 各个专业Agent的工作成果
+        2. 协作过程中的关键决策
+        3. 用户原始需求
+        
+        提供一个完整的、综合性的解决方案，包括：
+        - 问题分析和解决方案
+        - 关键发现和洞察
+        - 实施建议和后续步骤
+        
+        确保回答全面、准确，并直接回应用户的需求。
+      max_tokens: 3000
+      temperature: 0.2
+      include_tool_results: true
+
+edges:
+  - from: start
+    to: coordinator
+    type: simple
+    
+  - from: coordinator
+    to: check_collaboration_complete
+    type: simple
+    
+  - from: researcher
+    to: check_collaboration_complete
+    type: simple
+    
+  - from: analyst
+    to: check_collaboration_complete
+    type: simple
+    
+  - from: writer
+    to: check_collaboration_complete
+    type: simple
+    
+  - from: reviewer
+    to: check_collaboration_complete
+    type: simple
+
+entry_point: coordinator
+
+additional_config:
+  max_iterations: 20
+  timeout: 900
+  enable_streaming: true
+  collaboration_mode: "sequential"  # sequential, parallel, or hybrid
+  agent_timeout: 180  # 每个Agent的超时时间（秒）
+  quality_threshold: 0.8  # 质量阈值
+content>
+<line_count>155</line_count>
+</write_to_file>
