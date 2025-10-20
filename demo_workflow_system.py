@@ -20,7 +20,7 @@ from src.workflow.nodes.condition_node import ConditionNode
 from src.prompts.agent_state import AgentState, HumanMessage
 
 
-def demo_basic_workflow():
+def demo_basic_workflow() -> None:
     """演示基本工作流使用"""
     print("=" * 60)
     print("工作流系统演示 - 基本使用")
@@ -42,16 +42,18 @@ def demo_basic_workflow():
         
         # 获取工作流配置信息
         config = manager.get_workflow_config(workflow_id)
-        print(f"  - 名称: {config.name}")
-        print(f"  - 描述: {config.description}")
-        print(f"  - 版本: {config.version}")
-        print(f"  - 节点数: {len(config.nodes)}")
-        print(f"  - 边数: {len(config.edges)}")
+        if config:
+            print(f"  - 名称: {config.name}")
+            print(f"  - 描述: {config.description}")
+            print(f"  - 版本: {config.version}")
+            print(f"  - 节点数: {len(config.nodes)}")
+            print(f"  - 边数: {len(config.edges)}")
         
         # 获取工作流元数据
         metadata = manager.get_workflow_metadata(workflow_id)
-        print(f"  - 配置路径: {metadata.get('config_path')}")
-        print(f"  - 加载时间: {metadata.get('loaded_at')}")
+        if metadata:
+            print(f"  - 配置路径: {metadata.get('config_path')}")
+            print(f"  - 加载时间: {metadata.get('loaded_at')}")
         
     except Exception as e:
         print(f"✗ 工作流加载失败: {e}")
@@ -80,7 +82,7 @@ def demo_basic_workflow():
             tool_results = result.tool_results
             current_step = result.current_step
         
-        print(f"  - 最终消息数: {len(messages)}")
+        print(f" - 最终消息数: {len(messages)}")
         print(f"  - 工具结果数: {len(tool_results)}")
         print(f"  - 当前步骤: {current_step}")
         
@@ -88,7 +90,8 @@ def demo_basic_workflow():
         if messages:
             last_message = messages[-1]
             if hasattr(last_message, 'content'):
-                print(f"  - 最终响应: {last_message.content[:100]}...")
+                content = getattr(last_message, 'content', '')
+                print(f" - 最终响应: {content[:100]}...")
         
     except Exception as e:
         print(f"✗ 工作流执行失败: {e}")
@@ -97,14 +100,17 @@ def demo_basic_workflow():
     # 显示工作流统计
     print("\n工作流统计:")
     workflows = manager.list_workflows()
-    print(f"  - 已加载工作流数: {len(workflows)}")
+    print(f" - 已加载工作流数: {len(workflows)}")
     
     for wf_id in workflows:
         metadata = manager.get_workflow_metadata(wf_id)
-        print(f"  - {metadata['name']}: 使用 {metadata['usage_count']} 次")
+        if metadata:
+            name = metadata.get('name', 'Unknown')
+            usage_count = metadata.get('usage_count', 0)
+            print(f" - {name}: 使用 {usage_count} 次")
 
 
-def demo_plan_execute_workflow():
+def demo_plan_execute_workflow() -> None:
     """演示Plan-and-Execute工作流"""
     print("\n" + "=" * 60)
     print("工作流系统演示 - Plan-and-Execute模式")
@@ -121,14 +127,15 @@ def demo_plan_execute_workflow():
         
         # 获取工作流配置信息
         config = manager.get_workflow_config(workflow_id)
-        print(f"  - 名称: {config.name}")
-        print(f"  - 描述: {config.description}")
-        print(f"  - 节点数: {len(config.nodes)}") # type: ignore
-        
-        # 显示节点信息
-        print("\n工作流节点:")
-        for node_name, node_config in config.nodes.items(): # type: ignore
-            print(f"  - {node_name}: {node_config.type}")
+        if config:
+            print(f"  - 名称: {config.name}")
+            print(f" - 描述: {config.description}")
+            print(f"  - 节点数: {len(config.nodes)}") # type: ignore
+            
+            # 显示节点信息
+            print("\n工作流节点:")
+            for node_name, node_config in config.nodes.items(): # type: ignore
+                print(f" - {node_name}: {node_config.type}")
         
     except Exception as e:
         print(f"✗ 工作流加载失败: {e}")
@@ -151,8 +158,7 @@ def demo_plan_execute_workflow():
     except Exception as e:
         print(f"✗ 工作流执行失败: {e}")
 
-
-def demo_custom_node():
+def demo_custom_node() -> None:
     """演示自定义节点"""
     print("\n" + "=" * 60)
     print("工作流系统演示 - 自定义节点")
@@ -262,8 +268,8 @@ def demo_custom_node():
         # 显示消息内容
         for i, message in enumerate(messages):
             if hasattr(message, 'content'):
-                print(f"  消息 {i+1}: {message.content}") # type: ignore
-    
+                print(f" 消息 {i+1}: {message.content}") # type: ignore
+        
     except Exception as e:
         print(f"✗ 演示失败: {e}")
     
@@ -272,7 +278,7 @@ def demo_custom_node():
         Path(temp_path).unlink()
 
 
-def main():
+def main() -> None:
     """主函数"""
     print("工作流系统演示")
     print("基于LangGraph的YAML配置化工作流系统")
@@ -297,6 +303,7 @@ def main():
         print(f"\n演示过程中发生错误: {e}")
         import traceback
         traceback.print_exc()
+
 
 
 if __name__ == "__main__":

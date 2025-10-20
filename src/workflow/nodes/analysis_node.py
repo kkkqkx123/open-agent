@@ -155,7 +155,7 @@ class AnalysisNode(BaseNode):
             def __init__(self) -> None:
                 super().__init__(MockConfig(model_type="mock", model_name="mock-model"))
 
-            def generate(self, messages, parameters=None, **kwargs):
+            def generate(self, messages: Any, parameters: Any = None, **kwargs: Any) -> LLMResponse:
                 # 简单的模拟响应
                 content = "这是一个分析节点的模拟响应"
                 return LLMResponse(

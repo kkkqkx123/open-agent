@@ -7,8 +7,16 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
 from ..registry import BaseNode, NodeExecutionResult, node
-from ...prompts.agent_state import AgentState
+from ...prompts.agent_state import AgentState, BaseMessage
 from ...llm.interfaces import ILLMClient
+
+
+@dataclass
+class SimpleAIMessage(BaseMessage):
+    """简单的AI消息类，用于在没有LangChain时的后备实现"""
+    def __init__(self, content: str):
+        self.content = content
+        self.type = "ai"
 
 
 @node("llm_node")
@@ -165,23 +173,45 @@ class LLMNode(BaseNode):
         from ...llm.clients.mock_client import MockLLMClient
         from ...llm.models import LLMResponse, TokenUsage
         from ...llm.config import MockConfig
-        from langchain_core.messages import AIMessage
+        
+        try:
+            from langchain_core.messages import AIMessage
+            
+            class LangChainMockClientImpl(MockLLMClient):
+                def __init__(self) -> None:
+                    super().__init__(MockConfig(model_type="mock", model_name="mock-model"))
 
-        class MockClient(MockLLMClient):
-            def __init__(self) -> None:
-                super().__init__(MockConfig(model_type="mock", model_name="mock-model"))
+                def generate(self, messages: Any, parameters: Optional[Dict[str, Any]] = None, **kwargs: Any) -> "LLMResponse":
+                    # 简单的模拟响应
+                    content = "这是一个LLM节点的模拟响应"
+                    return LLMResponse(
+                        content=content,
+                        message=AIMessage(content=content),
+                        model="mock-model",
+                        token_usage=TokenUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+                    )
+            
+            return LangChainMockClientImpl()
+        except ImportError:
+            # 如果LangChain不可用，使用我们定义的简单消息类
+            class NoLangChainMockClientImpl(MockLLMClient):
+                def __init__(self) -> None:
+                    super().__init__(MockConfig(model_type="mock", model_name="mock-model"))
 
-            def generate(self, messages, parameters=None, **kwargs):
-                # 简单的模拟响应
-                content = "这是一个LLM节点的模拟响应"
-                return LLMResponse(
-                    content=content,
-                    message=AIMessage(content=content),
-                    model="mock-model",
-                    token_usage=TokenUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-                )
-
-        return MockClient()
+                def generate(self, messages: Any, parameters: Optional[Dict[str, Any]] = None, **kwargs: Any) -> "LLMResponse":
+                    # 简单的模拟响应
+                    content = "这是一个LLM节点的模拟响应"
+                    # 为避免类型检查错误，我们直接创建一个兼容BaseMessage的对象
+                    message = SimpleAIMessage(content=content)
+                    # 使用setattr来确保对象兼容LLMResponse期望的类型
+                    return LLMResponse(
+                        content=content,
+                        message=message,  # type: ignore
+                        model="mock-model",
+                        token_usage=TokenUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+                    )
+            
+            return NoLangChainMockClientImpl()
 
     def _build_system_prompt(self, state: AgentState, config: Dict[str, Any]) -> str:
         """构建系统提示词
@@ -207,7 +237,7 @@ class LLMNode(BaseNode):
             tool_results_text = self._format_tool_results(state.tool_results)
             base_prompt += f"\n\n工具执行结果：\n{tool_results_text}"
         
-        return base_prompt
+        return base_prompt  # type: ignore
 
     def _process_prompt_template(self, template: str, state: AgentState, config: Dict[str, Any]) -> str:
         """处理提示词模板
@@ -351,7 +381,7 @@ class LLMNode(BaseNode):
         
         return parameters
 
-    def _determine_next_node(self, response, config: Dict[str, Any]) -> Optional[str]:
+    def _determine_next_node(self, response: Any, config: Dict[str, Any]) -> Optional[str]:
         """确定下一个节点
 
         Args:
@@ -366,7 +396,7 @@ class LLMNode(BaseNode):
         
         # 检查是否配置了下一个节点
         if "next_node" in config:
-            return config["next_node"]
+            return str(config["next_node"])
         
         # 检查响应内容是否需要进一步处理
         content = getattr(response, 'content', '')

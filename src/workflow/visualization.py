@@ -83,8 +83,9 @@ class LangGraphStudioVisualizer(IWorkflowVisualizer):
         Args:
             studio_port: Studio端口
         """
+        from subprocess import Popen
         self.studio_port = studio_port
-        self.studio_process = None
+        self.studio_process: Optional[Popen[str]] = None
         self._studio_thread = None
         self._temp_dir = Path("./temp_visualizations")
         self._temp_dir.mkdir(exist_ok=True)
@@ -193,21 +194,23 @@ class LangGraphStudioVisualizer(IWorkflowVisualizer):
             }
             
             # 添加节点特定的元数据
-            if node_config.type == "analysis_node":
-                node_data["metadata"]["category"] = "analysis"
-                node_data["metadata"]["color"] = "#4CAF50"
-            elif node_config.type == "tool_node":
-                node_data["metadata"]["category"] = "tool"
-                node_data["metadata"]["color"] = "#2196F3"
-            elif node_config.type == "llm_node":
-                node_data["metadata"]["category"] = "llm"
-                node_data["metadata"]["color"] = "#FF9800"
-            elif node_config.type == "condition_node":
-                node_data["metadata"]["category"] = "condition"
-                node_data["metadata"]["color"] = "#9C27B0"
-            else:
-                node_data["metadata"]["category"] = "custom"
-                node_data["metadata"]["color"] = "#607D8B"
+            metadata = node_data["metadata"]
+            if isinstance(metadata, dict):
+                if node_config.type == "analysis_node":
+                    metadata["category"] = "analysis"
+                    metadata["color"] = "#4CAF50"
+                elif node_config.type == "tool_node":
+                    metadata["category"] = "tool"
+                    metadata["color"] = "#2196F3"
+                elif node_config.type == "llm_node":
+                    metadata["category"] = "llm"
+                    metadata["color"] = "#FF9800"
+                elif node_config.type == "condition_node":
+                    metadata["category"] = "condition"
+                    metadata["color"] = "#9C27B0"
+                else:
+                    metadata["category"] = "custom"
+                    metadata["color"] = "#607D8B"
             
             nodes.append(node_data)
         
@@ -220,17 +223,19 @@ class LangGraphStudioVisualizer(IWorkflowVisualizer):
                 "type": edge_config.type.value,
                 "condition": edge_config.condition,
                 "metadata": {
-                    "description": edge_config.description
+                    "description": edge_config.description or ""
                 }
             }
             
             # 添加边特定的元数据
-            if edge_config.type.value == "conditional":
-                edge_data["metadata"]["style"] = "dashed"
-                edge_data["metadata"]["color"] = "#F44336"
-            else:
-                edge_data["metadata"]["style"] = "solid"
-                edge_data["metadata"]["color"] = "#795548"
+            metadata = edge_data["metadata"]  # type: ignore
+            if isinstance(metadata, dict):
+                if edge_config.type.value == "conditional":
+                    metadata["style"] = "dashed"
+                    metadata["color"] = "#F44336"
+                else:
+                    metadata["style"] = "solid"
+                    metadata["color"] = "#795548"
             
             edges.append(edge_data)
         

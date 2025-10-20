@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List
 from pathlib import Path
 
-from prompts.agent_state import AgentState
+from .agent_state import AgentState
 
 from .models import PromptMeta, PromptConfig
 

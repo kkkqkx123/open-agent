@@ -202,12 +202,12 @@ class ConditionalEdge:
             return False
         
         last_message = state.messages[-1]
-        if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+        if hasattr(last_message, 'tool_calls') and getattr(last_message, 'tool_calls', None):
             return True
         
         # 检查消息内容
         if hasattr(last_message, 'content'):
-            content = str(last_message.content)
+            content = str(getattr(last_message, 'content', ''))
             return "tool_call" in content.lower() or "调用工具" in content
         
         return False
@@ -246,7 +246,7 @@ class ConditionalEdge:
         
         for message in state.messages:
             if hasattr(message, 'content'):
-                content = str(message.content).lower()
+                content = str(getattr(message, 'content', '')).lower()
                 if search_text in content:
                     return True
         
@@ -258,7 +258,8 @@ class ConditionalEdge:
             return False
         
         iteration_count = getattr(state, 'iteration_count', 0)
-        return iteration_count == self.condition_parameters["count"]
+        count = self.condition_parameters["count"]
+        return bool(iteration_count == count)
     
     def _iteration_count_greater_than(self, state: AgentState) -> bool:
         """检查迭代次数是否大于指定值"""
@@ -266,7 +267,8 @@ class ConditionalEdge:
             return False
         
         iteration_count = getattr(state, 'iteration_count', 0)
-        return iteration_count > self.condition_parameters["count"]
+        count = self.condition_parameters["count"]
+        return bool(iteration_count > count)
     
     def _custom_condition(self, state: AgentState) -> bool:
         """执行自定义条件"""

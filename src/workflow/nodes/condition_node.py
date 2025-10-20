@@ -130,7 +130,7 @@ class ConditionNode(BaseNode):
             raise ValueError(f"未知的条件类型: {condition_type}")
         
         condition_func = self._condition_functions[condition_type]
-        return condition_func(state, parameters, condition_config)
+        return condition_func(state, parameters, condition_config)  # type: ignore
 
     # 内置条件函数
     def _has_tool_calls(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
@@ -203,7 +203,8 @@ class ConditionNode(BaseNode):
             return False
         
         iteration_count = getattr(state, 'iteration_count', 0)
-        return iteration_count == parameters["count"]
+        count = parameters["count"]
+        return bool(iteration_count == count)
 
     def _iteration_count_greater_than(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """检查迭代次数是否大于指定值"""
@@ -211,7 +212,8 @@ class ConditionNode(BaseNode):
             return False
         
         iteration_count = getattr(state, 'iteration_count', 0)
-        return iteration_count > parameters["count"]
+        count = parameters["count"]
+        return bool(iteration_count > count)
 
     def _custom_condition(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """执行自定义条件"""
@@ -249,7 +251,7 @@ class ConditionNode(BaseNode):
         except Exception as e:
             # 记录错误但不中断执行
             print(f"自定义条件执行失败: {e}")
-            return False
+            return False  # type: ignore
 
     def register_condition_function(self, name: str, func: Callable) -> None:
         """注册自定义条件函数

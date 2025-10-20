@@ -428,12 +428,12 @@ class HybridTokenCalculator(ITokenCalculator):
         """
         total = self._stats["local_count"] + self._stats["api_count"]
         fallback_rate = (
-            self._stats["fallback_count"] / total * 100 
-            if total > 0 else 0
+            float(self._stats["fallback_count"]) / total * 100
+            if total > 0 else 0.0
         )
         degradation_rate = (
-            self._stats["degradation_count"] / total * 100 
-            if total > 0 else 0
+            float(self._stats["degradation_count"]) / total * 100
+            if total > 0 else 0.0
         )
         
         stats = {
@@ -448,7 +448,8 @@ class HybridTokenCalculator(ITokenCalculator):
         
         # 如果启用了对话跟踪，添加对话统计信息
         if self._conversation_tracker:
-            stats["conversation_stats"] = self._conversation_tracker.get_stats()
+            conversation_stats = self._conversation_tracker.get_stats()
+            stats["conversation_stats"] = conversation_stats  # type: ignore
         
         return stats
     

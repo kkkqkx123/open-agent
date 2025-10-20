@@ -161,9 +161,11 @@ class WorkflowConfig:
         }
 
         # 添加节点描述（如果有）
-        for name, node in self.nodes.items():
-            if node.description:
-                result["nodes"][name]["description"] = node.description
+        nodes = result["nodes"]
+        if isinstance(nodes, dict):
+            for name, node in self.nodes.items():
+                if node.description:
+                    nodes[name]["description"] = node.description
 
         if self.entry_point:
             result["entry_point"] = self.entry_point

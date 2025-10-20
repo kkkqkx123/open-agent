@@ -1,7 +1,8 @@
 """Agent状态定义"""
 
 from dataclasses import dataclass, field
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Dict
+from typing import TYPE_CHECKING
 
 # Define BaseMessage for fallback when LangChain is not available
 @dataclass
@@ -33,15 +34,27 @@ class AgentState:
         self.messages.append(message)
 
 
-try:
-    from langchain_core.messages import SystemMessage, HumanMessage  # type: ignore
-except ImportError:
-    # 如果LangChain不可用，定义简单的消息类
-    @dataclass
-    class SystemMessage(BaseMessage):
-        type: str = "system"
+# 定义消息类型别名
+if TYPE_CHECKING:
+    try:
+        from langchain_core.messages import SystemMessage as _SystemMessage, HumanMessage as _HumanMessage
+        SystemMessage: type = _SystemMessage
+        HumanMessage: type = _HumanMessage
+    except ImportError:
+        SystemMessage: type = None  # type: ignore
+        HumanMessage: type = None  # type: ignore
+else:
+    try:
+        from langchain_core.messages import SystemMessage as _SystemMessage, HumanMessage as _HumanMessage  # type: ignore
+        SystemMessage = _SystemMessage
+        HumanMessage = _HumanMessage
+    except ImportError:
+        # 如果LangChain不可用，定义简单的消息类
+        @dataclass
+        class SystemMessage(BaseMessage):
+            type: str = "system"
 
-    @dataclass
-    class HumanMessage(BaseMessage):
-        type: str = "human"
-        tool_calls: Optional[List[Dict[str, Any]]] = None
+        @dataclass
+        class HumanMessage(BaseMessage):
+            type: str = "human"
+            tool_calls: Optional[List[Dict[str, Any]]] = None

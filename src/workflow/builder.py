@@ -181,12 +181,12 @@ class WorkflowBuilder:
         # 使用唯一的函数名避免冲突
         wrapper_name = f"conditional_wrapper_{edge_config.from_node}_{edge_config.to_node}"
         
-        def make_conditional_wrapper(from_node: str, to_node: str, cond_func: Callable):
+        def make_conditional_wrapper(from_node: str, to_node: str, cond_func: Callable) -> Callable[[AgentState], str]:
             def conditional_wrapper(state: AgentState) -> str:
                 if cond_func(state):
                     return str(to_node)
                 # 如果条件不满足，返回END或默认节点
-                return self.END
+                return str(self.END)  # type: ignore
             conditional_wrapper.__name__ = wrapper_name
             return conditional_wrapper
         

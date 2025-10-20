@@ -70,9 +70,9 @@ class TestContainer(ContextManager["TestContainer"]):
         )
 
         # 注册日志记录器（使用延迟导入以避免循环导入）
-        def create_logger():
+        def create_logger() -> Any:  # type: ignore
             from ..logger import get_logger
-            return get_logger("test")
+            return get_logger("test")  # type: ignore
         
         self.container.register_factory(
             "ILogger",  # type: ignore
@@ -81,8 +81,9 @@ class TestContainer(ContextManager["TestContainer"]):
         )
 
         # 注册工具管理器（使用延迟导入以避免循环导入）
-        def create_tool_manager():
+        def create_tool_manager() -> Any:  # type: ignore
             from ..tools import ToolManager
+            from ..logger import ILogger
             return ToolManager(
                 self.container.get(IConfigLoader),  # type: ignore
                 self.container.get(ILogger) # type: ignore
@@ -153,7 +154,7 @@ class TestContainer(ContextManager["TestContainer"]):
         """获取架构检查器"""
         return self.container.get(ArchitectureChecker)
 
-    def get_tool_manager(self):
+    def get_tool_manager(self) -> Any:  # type: ignore
         """获取工具管理器"""
         from ..tools import IToolManager, ToolManager
         # 由于循环导入问题，我们直接创建一个新的工具管理器实例
@@ -162,7 +163,7 @@ class TestContainer(ContextManager["TestContainer"]):
         logger = get_logger("test")
         return ToolManager(config_loader, logger)
 
-    def get_logger(self):
+    def get_logger(self) -> Any:  # type: ignore
         """获取日志记录器"""
         from ..logger import ILogger, get_logger
         # 由于循环导入问题，直接返回一个logger实例

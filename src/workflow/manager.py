@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, Union, AsyncGenerator
+from typing import Dict, Any, Optional, List, Union, AsyncGenerator, Generator
 from pathlib import Path
 import uuid
 from datetime import datetime
@@ -87,7 +87,7 @@ class IWorkflowManager(ABC):
         workflow_id: str,
         initial_state: Optional[AgentState] = None,
         **kwargs: Any
-    ) -> Union[AsyncGenerator[AgentState, None], Any]:
+    ) -> Generator[AgentState, None, None]:
         """流式运行工作流
 
         Args:
@@ -240,7 +240,7 @@ class WorkflowManager(IWorkflowManager):
         # 运行工作流
         try:
             result = workflow.invoke(initial_state, **kwargs)
-            return result
+            return result  # type: ignore
         except Exception as e:
             # 记录错误并重新抛出
             self._log_workflow_error(workflow_id, e)
@@ -280,7 +280,7 @@ class WorkflowManager(IWorkflowManager):
             else:
                 # 如果不支持异步，使用同步方式
                 result = workflow.invoke(initial_state, **kwargs)
-            return result
+            return result  # type: ignore
         except Exception as e:
             # 记录错误并重新抛出
             self._log_workflow_error(workflow_id, e)
@@ -291,7 +291,7 @@ class WorkflowManager(IWorkflowManager):
         workflow_id: str,
         initial_state: Optional[AgentState] = None,
         **kwargs: Any
-    ) -> Union[AsyncGenerator[AgentState, None], Any]:
+    ) -> Generator[AgentState, None, None]:
         """流式运行工作流
 
         Args:

@@ -27,11 +27,11 @@ class PerformanceMetrics:
     duration_ms: Optional[float] = None
     success: bool = True
     error: Optional[str] = None
-    metadata: Dict[str, Any] = None
+    metadata: Optional[Dict[str, Any]] = None
 
     def __post_init__(self) -> None:
         if self.metadata is None:
-            self.metadata = {}
+            self.metadata: Dict[str, Any] = {}
 
     def finish(self, success: bool = True, error: Optional[str] = None) -> None:
         """完成性能测量"""
@@ -114,19 +114,27 @@ class PerformanceMonitor:
             failed_metrics = [m for m in metrics if not m.success]
 
             if successful_metrics:
-                durations = [m.duration_ms for m in successful_metrics]
-                stats = {
-                    "total_calls": len(metrics),
-                    "successful_calls": len(successful_metrics),
-                    "failed_calls": len(failed_metrics),
-                    "success_rate": len(successful_metrics) / len(metrics),
-                    "avg_duration_ms": sum(durations) / len(durations),
-                    "min_duration_ms": min(durations),
-                    "max_duration_ms": max(durations),
-                    "median_duration_ms": sorted(durations)[len(durations) // 2],
-                    "p95_duration_ms": sorted(durations)[int(len(durations) * 0.95)],
-                    "p99_duration_ms": sorted(durations)[int(len(durations) * 0.99)]
-                }
+               durations = [m.duration_ms for m in successful_metrics if m.duration_ms is not None]
+               if durations:  # 确保durations列表不为空
+                   stats = {
+                       "total_calls": len(metrics),
+                       "successful_calls": len(successful_metrics),
+                       "failed_calls": len(failed_metrics),
+                       "success_rate": len(successful_metrics) / len(metrics),
+                       "avg_duration_ms": sum(durations) / len(durations),
+                       "min_duration_ms": min(durations),
+                       "max_duration_ms": max(durations),
+                       "median_duration_ms": sorted(durations)[len(durations) // 2],
+                       "p95_duration_ms": sorted(durations)[min(int(len(durations) * 0.95), len(durations) - 1)],
+                       "p99_duration_ms": sorted(durations)[min(int(len(durations) * 0.99), len(durations) - 1)]
+                   }
+               else:
+                   stats = {
+                       "total_calls": len(metrics),
+                       "successful_calls": len(successful_metrics),
+                       "failed_calls": len(failed_metrics),
+                       "success_rate": len(successful_metrics) / len(metrics) if len(metrics) > 0 else 0.0
+                   }
             else:
                 stats = {
                     "total_calls": len(metrics),
@@ -150,16 +158,19 @@ class PerformanceMonitor:
                 self._metrics.clear()
 
 
-def performance_monitor(monitor: PerformanceMonitor, operation: str):
+def performance_monitor(monitor: PerformanceMonitor, operation: str) -> Callable[[F], F]:
     """性能监控装饰器
 
     Args:
         monitor: 性能监控器
         operation: 操作名称
+        
+    Returns:
+        装饰器函数
     """
     def decorator(func: F) -> F:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             metric = monitor.start_measurement(operation)
             try:
                 result = func(*args, **kwargs)
@@ -168,8 +179,8 @@ def performance_monitor(monitor: PerformanceMonitor, operation: str):
             except Exception as e:
                 metric.finish(success=False, error=str(e))
                 raise
-        return wrapper
-    return decorator
+        return wrapper  # type: ignore
+    return decorator  # type: ignore
 
 
 class WorkflowCache:
@@ -189,7 +200,7 @@ class WorkflowCache:
         self._ttl_seconds = ttl_seconds
         self._lock = threading.RLock()
 
-    def _generate_key(self, *args, **kwargs) -> str:
+    def _generate_key(self, *args: Any, **kwargs: Any) -> str:
         """生成缓存键
 
         Args:
@@ -207,7 +218,7 @@ class WorkflowCache:
         key_str = json.dumps(key_data, sort_keys=True, default=str)
         return hashlib.md5(key_str.encode()).hexdigest()
 
-    def get(self, *args, **kwargs) -> Optional[Any]:
+    def get(self, *args: Any, **kwargs: Any) -> Optional[Any]:
         """获取缓存值
 
         Args:
@@ -232,7 +243,7 @@ class WorkflowCache:
             self._access_times[key] = datetime.now()
             return self._cache[key]
 
-    def set(self, value: Any, *args, **kwargs) -> None:
+    def set(self, value: Any, *args: Any, **kwargs: Any) -> None:
         """设置缓存值
 
         Args:
@@ -312,15 +323,18 @@ class WorkflowCache:
             }
 
 
-def cached(cache: WorkflowCache):
+def cached(cache: WorkflowCache) -> Callable[[F], F]:
     """缓存装饰器
 
     Args:
         cache: 缓存实例
+        
+    Returns:
+        装饰器函数
     """
     def decorator(func: F) -> F:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # 尝试从缓存获取
             cached_result = cache.get(*args, **kwargs)
             if cached_result is not None:
@@ -330,8 +344,8 @@ def cached(cache: WorkflowCache):
             result = func(*args, **kwargs)
             cache.set(result, *args, **kwargs)
             return result
-        return wrapper
-    return decorator
+        return wrapper  # type: ignore
+    return decorator  # type: ignore
 
 
 class ParallelExecutor:
@@ -408,9 +422,10 @@ class WorkflowOptimizer:
             # 尝试从缓存获取
             cached_config = self._config_cache.get(config_path)
             if cached_config is not None:
-                metric.metadata["cache_hit"] = True
+                if metric.metadata is not None:
+                    metric.metadata["cache_hit"] = True
                 metric.finish(success=True)
-                return cached_config
+                return cached_config  # type: ignore
             
             # 从文件加载配置
             with open(config_path, 'r', encoding='utf-8') as f:
@@ -420,9 +435,10 @@ class WorkflowOptimizer:
             # 缓存配置
             self._config_cache.set(config_data, config_path)
             
-            metric.metadata["cache_hit"] = False
+            if metric.metadata is not None:
+                metric.metadata["cache_hit"] = False
             metric.finish(success=True)
-            return config_data
+            return config_data  # type: ignore
             
         except Exception as e:
             metric.finish(success=False, error=str(e))
@@ -466,7 +482,7 @@ class WorkflowOptimizer:
         Returns:
             Dict[str, Any]: 性能报告
         """
-        report = {
+        report: Dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "operations": {}
         }
@@ -477,7 +493,7 @@ class WorkflowOptimizer:
         # 添加缓存统计
         report["cache_stats"] = self._config_cache.get_stats()
         
-        return report
+        return report  # type: ignore
 
     def cleanup(self) -> None:
         """清理资源"""
@@ -514,7 +530,7 @@ def optimize_workflow_loading(func: F) -> F:
     optimizer = get_global_optimizer()
     
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         # 获取配置路径
         config_path = None
         if "config_path" in kwargs:
@@ -540,4 +556,4 @@ def optimize_workflow_loading(func: F) -> F:
         # 回退到原始函数
         return func(*args, **kwargs)
     
-    return wrapper
+    return wrapper  # type: ignore

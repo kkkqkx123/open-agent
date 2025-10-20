@@ -8,7 +8,12 @@ from .models import PromptMeta, PromptConfig
 from .registry import PromptRegistry
 from .loader import PromptLoader
 from .injector import PromptInjector
-from .agent_state import AgentState, ToolResult, SystemMessage, HumanMessage
+from .agent_state import AgentState, ToolResult
+try:
+    from .agent_state import SystemMessage, HumanMessage
+except ImportError:
+    # 如果导入失败，跳过这些类
+    pass
 from .langgraph_integration import create_agent_workflow, create_simple_workflow
 
 __all__ = [

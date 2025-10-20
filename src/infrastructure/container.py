@@ -236,7 +236,7 @@ class DependencyContainer(IDependencyContainer):
         parameters = sig.parameters
 
         # 准备参数
-        kwargs = {}
+        kwargs: Dict[str, Any] = {}
         for param_name, param in parameters.items():
             if param_name == "self":
                 continue

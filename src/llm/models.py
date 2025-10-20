@@ -68,7 +68,19 @@ class LLMMessage:
     @classmethod
     def from_base_message(cls, message: "BaseMessage") -> "LLMMessage":
         """从LangChain BaseMessage创建LLMMessage"""
-        from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+        try:
+            from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+        except ImportError:
+            # 如果无法导入langchain，使用默认值
+            role = MessageRole.USER
+            content = str(getattr(message, "content", ""))
+            return cls(
+                role=role,
+                content=content,
+                name=getattr(message, "name", None),
+                function_call=None,
+                metadata=getattr(message, "additional_kwargs", {}),
+            )
 
         if isinstance(message, HumanMessage):
             role = MessageRole.USER

@@ -36,20 +36,25 @@ def create_agent_workflow(
     def inject_prompts_node(state: AgentState) -> AgentState:
         """提示词注入节点"""
         config = get_agent_config()  # 从配置获取
-        return prompt_injector.inject_prompts(state, config)
+        result = prompt_injector.inject_prompts(state, config)
+        return result  # type: ignore
         
     def call_llm_node(state: AgentState) -> AgentState:
         """LLM调用节点"""
         if llm_client is None:
             # 模拟LLM响应
-            from .agent_state import HumanMessage
-            response = HumanMessage(content="这是一个模拟的LLM响应")
+            try:
+                from .agent_state import HumanMessage
+                response = HumanMessage(content="这是一个模拟的LLM响应")
+            except ImportError:
+                # 如果无法导入HumanMessage，使用基本的消息结构
+                response = {"content": "这是一个模拟的LLM响应", "type": "human"}
             state.add_message(response)
         else:
             # 使用注入后的提示词调用LLM
             response = llm_client.generate(state.messages)
             state.add_message(response)
-        return state
+        return state  # type: ignore
         
     # 构建工作流
     if StateGraph is not None:  # 确保 StateGraph 可用
@@ -78,7 +83,7 @@ def create_simple_workflow(prompt_injector: IPromptInjector) -> Dict[str, Any]:
         state = prompt_injector.inject_prompts(initial_state, config)
         
         # 这里可以添加更多的处理步骤
-        return state
+        return state  # type: ignore
     
     return {
         "run": run_workflow,

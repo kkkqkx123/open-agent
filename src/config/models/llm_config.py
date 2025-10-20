@@ -235,11 +235,13 @@ class LLMConfig(BaseConfig):
 
     def get_cache_ttl(self) -> int:
         """获取缓存TTL（秒）"""
-        return self.get_cache_config("ttl_seconds", 3600)
+        result = self.get_cache_config("ttl_seconds", 3600)
+        return int(result) if result is not None else 3600
 
     def get_cache_max_size(self) -> int:
         """获取缓存最大大小"""
-        return self.get_cache_config("max_size", 1000)
+        result = self.get_cache_config("max_size", 1000)
+        return int(result) if result is not None else 1000
 
     def is_fallback_enabled(self) -> bool:
         """检查是否启用降级"""
