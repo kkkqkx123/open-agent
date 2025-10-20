@@ -56,7 +56,10 @@ class ToolManager(IToolManager):
 
         try:
             # 加载工具配置
+            self.logger.info("Loading tool configs")
+            self.logger.info("Calling _load_tool_configs")
             tool_configs = self._load_tool_configs()
+            self.logger.info(f"Loaded {len(tool_configs)} tool configs")
 
             # 创建工具实例
             for config in tool_configs:
@@ -97,13 +100,20 @@ class ToolManager(IToolManager):
         try:
             # 加载工具配置目录
             tools_config_dir = Path("configs/tools")
+            self.logger.info(f"Checking tools config directory: {tools_config_dir}")
+            self.logger.info(f"Tools config directory exists: {tools_config_dir.exists()}")
+            self.logger.info(f"Tools config directory str: {str(tools_config_dir)}")
             if not tools_config_dir.exists():
                 self.logger.warning("工具配置目录不存在: configs/tools")
                 return configs
 
             # 遍历工具配置文件
-            for config_file in tools_config_dir.glob("*.yaml"):
+            config_files = list(tools_config_dir.glob("*.yaml"))
+            self.logger.info(f"Found {len(config_files)} config files")
+            for config_file in config_files:
                 try:
+                    self.logger.info(f"Loading config from {config_file}")
+                    self.logger.info(f"Config file str: {str(config_file)}")
                     config_data = self.config_loader.load(str(config_file))
                     tool_config = self._parse_tool_config(config_data)
                     configs.append(tool_config)

@@ -9,7 +9,7 @@ from langchain_core.messages import BaseMessage  # type: ignore
 from .base import ITokenCalculator
 from ..token_parsers.base import TokenUsage
 from ..token_parsers import OpenAIParser, GeminiParser, AnthropicParser
-from ..token_counter import _extract_content_as_string
+from ..utils.encodingProtocol import extract_content_as_string
 
 logger = logging.getLogger(__name__)
 
@@ -17,18 +17,29 @@ logger = logging.getLogger(__name__)
 class ApiTokenCalculator(ITokenCalculator):
     """API Token计算器，基于API响应解析token使用信息"""
     
-    def __init__(self, model_name: str = "gpt-3.5-turbo", provider: str = "openai"):
+    def __init__(self, model_name: str = "gpt-3.5-turbo", provider: str = "openai", 
+                 supports_caching: bool = True):
         """
         初始化API Token计算器
         
         Args:
             model_name: 模型名称
             provider: 提供商名称
+            supports_caching: 是否支持缓存
         """
         self.model_name = model_name
         self.provider = provider
+        self.supports_caching = supports_caching
         self._last_usage: Optional[TokenUsage] = None
         self._usage_cache: Dict[str, TokenUsage] = {}
+        
+        # 统计信息
+        self._stats = {
+            "total_requests": 0,
+            "api_success": 0,
+            "api_failed": 0,
+            "fallback_to_local": 0
+        }
         
         # 初始化解析器
         self._parsers = {
@@ -53,14 +64,24 @@ class ApiTokenCalculator(ITokenCalculator):
         Returns:
             int: token数量
         """
+        self._stats["total_requests"] += 1
+        
+        if not self.supports_caching:
+            # 如果不支持缓存，使用简单估算
+            self._stats["fallback_to_local"] += 1
+            logger.warning(f"不支持缓存，使用简单估算: {text[:50]}...")
+            return len(text) // 4
+        
         # 生成缓存key
         cache_key = self._generate_cache_key(text)
         
         # 检查缓存
         if cache_key in self._usage_cache:
+            self._stats["api_success"] += 1
             return self._usage_cache[cache_key].total_tokens
         
         # 如果没有缓存数据，使用简单估算
+        self._stats["fallback_to_local"] += 1
         logger.warning(f"没有找到文本的API使用数据，使用简单估算: {text[:50]}...")
         return len(text) // 4
     
@@ -74,6 +95,13 @@ class ApiTokenCalculator(ITokenCalculator):
         Returns:
             int: token数量
         """
+        self._stats["total_requests"] += 1
+        
+        if not self.supports_caching:
+            # 如果不支持缓存，使用简单估算
+            self._stats["fallback_to_local"] += 1
+            return self._count_messages_estimation(messages)
+        
         # 将消息转换为文本进行缓存查找
         text_context = self._messages_to_text(messages)
         return self.count_tokens(text_context)
@@ -90,8 +118,10 @@ class ApiTokenCalculator(ITokenCalculator):
             "provider": self.provider,
             "calculator_type": "api",
             "parser": self._parser.get_provider_name() if self._parser else "unknown",
+            "supports_caching": self.supports_caching,
             "cache_size": len(self._usage_cache),
-            "has_last_usage": self._last_usage is not None
+            "has_last_usage": self._last_usage is not None,
+            "stats": self._stats
         }
     
     def update_from_api_response(self, response: Dict[str, Any], 
@@ -106,22 +136,27 @@ class ApiTokenCalculator(ITokenCalculator):
         Returns:
             bool: 是否成功更新
         """
+        self._stats["total_requests"] += 1
+        
         try:
             # 使用对应的解析器解析响应
             if not self._parser:
                 logger.warning(f"没有可用的解析器")
+                self._stats["api_failed"] += 1
                 return False
                 
             usage = self._parser.parse_response(response)
             if not usage:
                 logger.warning(f"无法解析 {self.provider} API响应")
+                self._stats["api_failed"] += 1
                 return False
             
             # 更新最后一次使用情况
             self._last_usage = usage
+            self._stats["api_success"] += 1
             
-            # 如果有上下文，更新缓存
-            if context:
+            # 如果支持缓存且有上下文，更新缓存
+            if self.supports_caching and context:
                 cache_key = self._generate_cache_key(context)
                 self._usage_cache[cache_key] = usage
                 logger.debug(f"已缓存API使用数据，key: {cache_key}")
@@ -130,6 +165,7 @@ class ApiTokenCalculator(ITokenCalculator):
             
         except Exception as e:
             logger.error(f"更新API响应失败: {e}")
+            self._stats["api_failed"] += 1
             return False
     
     def get_last_api_usage(self) -> Optional[TokenUsage]:
@@ -149,6 +185,45 @@ class ApiTokenCalculator(ITokenCalculator):
             bool: 是否有可用的API使用数据
         """
         return self._last_usage is not None
+    
+    def is_supported(self) -> bool:
+        """
+        检查是否支持API计算
+        
+        Returns:
+            bool: 是否支持API计算
+        """
+        return self.supports_caching
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        获取统计信息
+        
+        Returns:
+            Dict[str, Any]: 统计信息
+        """
+        total = self._stats["total_requests"]
+        success_rate = (
+            self._stats["api_success"] / total * 100 
+            if total > 0 else 0
+        )
+        
+        return {
+            **self._stats,
+            "success_rate_percent": success_rate,
+            "cache_size": len(self._usage_cache),
+            "supports_caching": self.supports_caching
+        }
+    
+    def reset_stats(self) -> None:
+        """重置统计信息"""
+        self._stats = {
+            "total_requests": 0,
+            "api_success": 0,
+            "api_failed": 0,
+            "fallback_to_local": 0
+        }
+        logger.debug("已重置API计算器统计信息")
     
     def _generate_cache_key(self, content: str) -> str:
         """
@@ -175,9 +250,35 @@ class ApiTokenCalculator(ITokenCalculator):
         """
         texts = []
         for message in messages:
-            content = _extract_content_as_string(message.content)
+            content = extract_content_as_string(message.content)
             texts.append(f"{message.type}:{content}")
         return "\n".join(texts)
+    
+    def _count_messages_estimation(self, messages: List[BaseMessage]) -> int:
+        """
+        估算消息列表的token数量
+        
+        Args:
+            messages: 消息列表
+            
+        Returns:
+            int: 估算的token数量
+        """
+        total_tokens = 0
+        
+        for message in messages:
+            # 每条消息内容的token
+            content = extract_content_as_string(message.content)
+            content_tokens = len(content) // 4
+            total_tokens += content_tokens
+            
+            # 添加格式化的token（每个消息4个token）
+            total_tokens += 4
+        
+        # 添加回复的token（3个token）
+        total_tokens += 3
+        
+        return total_tokens
     
     def clear_cache(self) -> None:
         """清空缓存"""
@@ -196,5 +297,6 @@ class ApiTokenCalculator(ITokenCalculator):
             "cache_size": len(self._usage_cache),
             "has_last_usage": self._last_usage is not None,
             "provider": self.provider,
-            "model_name": self.model_name
+            "model_name": self.model_name,
+            "supports_caching": self.supports_caching
         }

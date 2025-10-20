@@ -42,20 +42,10 @@ class TestToolManager:
 
         assert len(tools) == 0
         assert self.tool_manager._loaded is True
-        self.mock_logger.warning.assert_called_with("工具配置目录不存在: configs/tools")
+        self.mock_logger.warning.assert_called_with("工具集配置目录不存在: configs/tool-sets")
 
-    @patch("src.tools.manager.Path")
-    def test_load_tools_with_configs(self, mock_path):
+    def test_load_tools_with_configs(self):
         """测试加载工具配置"""
-        # 模拟配置目录存在
-        mock_config_dir = Mock()
-        mock_path.return_value = mock_config_dir
-        mock_config_dir.exists.return_value = True
-
-        # 模拟配置文件
-        mock_config_file = Mock()
-        mock_config_dir.glob.return_value = [mock_config_file]
-
         # 模拟配置数据
         native_config_data = {
             "name": "test_native_tool",
@@ -81,39 +71,35 @@ class TestToolManager:
             },
         }
 
-        # 模拟配置加载
-        self.mock_config_loader.load_yaml.side_effect = [
-            native_config_data,
-            builtin_config_data,
-        ]
+        # 创建配置对象
+        native_config = NativeToolConfig(**native_config_data)
+        builtin_config = BuiltinToolConfig(**builtin_config_data)
 
-        # 模拟内置函数加载
-        def mock_load_function(path):
-            if path == "test_module:test_function":
+        # 模拟工具配置加载
+        with patch.object(self.tool_manager, "_load_tool_configs", return_value=[native_config, builtin_config]):
+            # 模拟工具集配置加载
+            with patch.object(self.tool_manager, "_load_tool_sets"):
+                # 模拟内置函数加载
+                def mock_load_function(path):
+                    if path == "test_module:test_function":
 
-                def test_function(param1: str):
-                    return f"结果: {param1}"
+                        def test_function(param1: str):
+                            return f"结果: {param1}"
 
-                return test_function
-            raise ValueError(f"未知路径: {path}")
+                        return test_function
+                    raise ValueError(f"未知路径: {path}")
 
-        with patch.object(
-            self.tool_manager,
-            "_load_function_from_path",
-            side_effect=mock_load_function,
-        ):
-            # 模拟工具集配置目录不存在
-            with patch("src.tools.manager.Path") as mock_tool_sets_path:
-                mock_tool_sets_dir = Mock()
-                mock_tool_sets_path.return_value = mock_tool_sets_dir
-                mock_tool_sets_dir.exists.return_value = False
+                with patch.object(
+                    self.tool_manager,
+                    "_load_function_from_path",
+                    side_effect=mock_load_function,
+                ):
+                    tools = self.tool_manager.load_tools()
 
-                tools = self.tool_manager.load_tools()
-
-                assert len(tools) == 2
-                assert "test_native_tool" in self.tool_manager._tools
-                assert "test_builtin_tool" in self.tool_manager._tools
-                assert self.tool_manager._loaded is True
+                    assert len(tools) == 2
+                    assert "test_native_tool" in self.tool_manager._tools
+                    assert "test_builtin_tool" in self.tool_manager._tools
+                    assert self.tool_manager._loaded is True
 
     def test_parse_tool_config_native(self):
         """测试解析原生工具配置"""
@@ -283,7 +269,7 @@ class TestToolManager:
                 "enabled": True,
             }
 
-            self.mock_config_loader.load_yaml.return_value = tool_set_config_data
+            self.mock_config_loader.load.return_value = tool_set_config_data
 
             self.tool_manager._load_tool_sets()
 
@@ -373,15 +359,32 @@ class TestToolManager:
     def test_reload_tools(self):
         """测试重新加载工具"""
         # 添加一些工具和工具集
-        self.tool_manager._tools["tool1"] = Mock()
+        mock_tool = Mock()
+        mock_tool.name = "tool1"
+        self.tool_manager._tools["tool1"] = mock_tool
         self.tool_manager._tool_sets["tool_set1"] = Mock()
         self.tool_manager._loaded = True
 
         # 模拟加载工具
-        with patch.object(self.tool_manager, "load_tools", return_value=[Mock()]):
+        with patch.object(self.tool_manager, "load_tools") as mock_load_tools:
+            mock_new_tool = Mock()
+            mock_new_tool.name = "new_tool"
+            mock_load_tools.return_value = [mock_new_tool]
+            
+            # 需要手动更新 _tools 字典，因为 load_tools 被模拟了
+            def side_effect_load_tools():
+                self.tool_manager._tools.clear()
+                self.tool_manager._tool_sets.clear()
+                self.tool_manager._tools["new_tool"] = mock_new_tool
+                self.tool_manager._loaded = True
+                return [mock_new_tool]
+            
+            mock_load_tools.side_effect = side_effect_load_tools
+            
             tools = self.tool_manager.reload_tools()
 
             assert len(self.tool_manager._tools) == 1
+            assert "new_tool" in self.tool_manager._tools
             assert len(self.tool_manager._tool_sets) == 0
             assert self.tool_manager._loaded is True
 

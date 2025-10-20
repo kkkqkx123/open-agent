@@ -6,7 +6,7 @@
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 @dataclass(kw_only=True)
@@ -87,10 +87,9 @@ class ToolRegistryConfig(BaseModel):
     tools: List[Union[NativeToolConfig, MCPToolConfig, BuiltinToolConfig]] = []
     tool_sets: List[ToolSetConfig] = []
 
-    class Config:
-        """Pydantic配置"""
-
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True
+    )
 
 
 # 工具配置工厂函数

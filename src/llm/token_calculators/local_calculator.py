@@ -7,7 +7,7 @@ from langchain_core.messages import BaseMessage  # type: ignore
 
 from .base import ITokenCalculator
 from ..token_parsers.base import TokenUsage
-from ..token_counter import _extract_content_as_string, EncodingProtocol
+from ..utils.encodingProtocol import extract_content_as_string, EncodingProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ class LocalTokenCalculator(ITokenCalculator):
             # 计算消息内容的token
             total_tokens += tokens_per_message
             total_tokens += len(
-                self._encoding.encode(_extract_content_as_string(message.content))
+                self._encoding.encode(extract_content_as_string(message.content))
             )
             
             # 如果有名称，添加名称的token
@@ -116,7 +116,7 @@ class LocalTokenCalculator(ITokenCalculator):
         for message in messages:
             # 每条消息内容的token
             content_tokens = self.count_tokens(
-                _extract_content_as_string(message.content)
+                extract_content_as_string(message.content)
             )
             total_tokens += content_tokens
             
