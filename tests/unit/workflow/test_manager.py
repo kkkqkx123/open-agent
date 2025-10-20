@@ -228,6 +228,12 @@ class TestWorkflowManager:
             name="test_workflow",
             description="测试工作流"
         )
+        # 添加工作流元数据（这是修复的关键）
+        manager._workflow_metadata[workflow_id] = {
+            "name": "test_workflow",
+            "description": "测试工作流",
+            "usage_count": 0
+        }
         
         # 运行工作流应该抛出异常
         with pytest.raises(Exception, match="测试错误"):

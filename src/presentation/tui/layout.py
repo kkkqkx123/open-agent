@@ -19,6 +19,7 @@ class LayoutRegion(Enum):
     SIDEBAR = "sidebar"
     MAIN = "main"
     INPUT = "input"
+    LANGGRAPH = "langgraph"
 
 
 @dataclass
@@ -142,6 +143,13 @@ class LayoutManager(ILayoutManager):
                 max_size=5,
                 ratio=1,
                 resizable=False
+            ),
+            LayoutRegion.LANGGRAPH: RegionConfig(
+                name="LangGraph面板",
+                min_size=15,
+                max_size=30,
+                ratio=1,
+                resizable=True
             )
         }
         
@@ -173,10 +181,11 @@ class LayoutManager(ILayoutManager):
             Layout(name="input", size=3)
         )
         
-        # 主体部分分割为左右两部分
+        # 主体部分分割为三部分
         layout["body"].split_row(
             Layout(name="sidebar", size=30),
-            Layout(name="main")
+            Layout(name="main"),
+            Layout(name="langgraph", size=25)
         )
         
         # 设置区域内容
@@ -271,6 +280,21 @@ class LayoutManager(ILayoutManager):
             self.layout["input"].update(input_content)
         else:
             self.layout["input"].update(self._create_default_input())
+        
+        # 更新LangGraph面板
+        if self.layout:
+            try:
+                _ = self.layout["langgraph"]
+                langgraph_exists = True
+            except KeyError:
+                langgraph_exists = False
+            
+            if langgraph_exists:
+                langgraph_content = self.region_contents.get(LayoutRegion.LANGGRAPH)
+                if langgraph_content:
+                    self.layout["langgraph"].update(langgraph_content)
+                else:
+                    self.layout["langgraph"].update(self._create_default_langgraph())
     
     def _create_default_header(self) -> Panel:
         """创建默认标题栏"""
@@ -324,6 +348,20 @@ class LayoutManager(ILayoutManager):
             input_text,
             title="输入",
             border_style="green"
+        )
+    
+    def _create_default_langgraph(self) -> Panel:
+        """创建默认LangGraph面板"""
+        content = Text("LangGraph状态面板\n\n", style="bold")
+        content.append("当前节点: 未运行\n", style="dim")
+        content.append("执行路径: 无历史\n", style="dim")
+        content.append("状态快照: 无快照\n\n", style="dim")
+        content.append("Studio: 未启动", style="dim")
+        
+        return Panel(
+            content,
+            title="LangGraph状态",
+            border_style="cyan"
         )
     
     def update_region_content(self, region: LayoutRegion, content: Any) -> None:

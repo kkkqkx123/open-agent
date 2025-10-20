@@ -15,9 +15,15 @@ from rich.markdown import Markdown
 
 from .layout import LayoutManager, LayoutRegion, LayoutConfig, RegionConfig
 from .config import get_tui_config, TUIConfig
-from ...infrastructure.container import get_global_container
-from ...session.manager import ISessionManager
-from ...prompts.agent_state import AgentState, HumanMessage, BaseMessage
+from .components import (
+    SidebarComponent,
+    LangGraphPanelComponent,
+    MainContentComponent,
+    InputPanelComponent
+)
+from src.infrastructure.container import get_global_container
+from src.session.manager import ISessionManager
+from src.prompts.agent_state import AgentState, HumanMessage, BaseMessage
 
 
 class TUIApp:
@@ -45,8 +51,23 @@ class TUIApp:
         self.message_history: List[Dict[str, Any]] = []
         self.current_workflow: Optional[Any] = None
         
+        # 初始化组件
+        self.sidebar_component = SidebarComponent(self.config)
+        self.langgraph_component = LangGraphPanelComponent(self.config)
+        self.main_content_component = MainContentComponent(self.config)
+        self.input_component = InputPanelComponent(self.config)
+        
+        # 设置组件回调
+        self._setup_component_callbacks()
+        
         # 初始化依赖
         self._initialize_dependencies()
+    
+    def _setup_component_callbacks(self) -> None:
+        """设置组件回调函数"""
+        # 设置输入组件回调
+        self.input_component.set_submit_callback(self._handle_input_submit)
+        self.input_component.set_command_callback(self._handle_command)
     
     def _initialize_dependencies(self) -> None:
         """初始化依赖注入"""
@@ -109,14 +130,29 @@ class TUIApp:
         if not self.live:
             return
         
+        # 更新组件状态
+        self._update_components()
+        
         # 更新各个区域的内容
         self._update_header()
         self._update_sidebar()
         self._update_main_content()
+        self._update_langgraph_panel()
         self._update_input_area()
         
         # 刷新显示
         self.live.refresh()
+    
+    def _update_components(self) -> None:
+        """更新组件状态"""
+        # 更新所有组件的状态
+        self.sidebar_component.update_from_state(self.current_state)
+        self.langgraph_component.update_from_state(
+            self.current_state,
+            current_node=getattr(self.current_state, 'current_step', '未运行') if self.current_state else '未运行',
+            node_status="running" if self.current_state and self.current_state.iteration_count < self.current_state.max_iterations else "idle"
+        )
+        self.main_content_component.update_from_state(self.current_state)
     
     def _update_header(self) -> None:
         """更新标题栏"""
@@ -147,85 +183,27 @@ class TUIApp:
         if not self.layout_manager.is_region_visible(LayoutRegion.SIDEBAR):
             return
         
-        # 创建会话信息树
-        tree = Tree("会话信息", style="bold green")
-        
-        if self.session_id:
-            tree.add(f"ID: {self.session_id[:8]}...")
-            
-            if self.current_state:
-                tree.add(f"消息数: {len(self.current_state.messages)}")
-                tree.add(f"工具调用: {len(self.current_state.tool_results)}")
-                tree.add(f"当前步骤: {getattr(self.current_state, 'current_step', '未知')}")
-            
-            # 添加快捷键信息
-            shortcuts = tree.add("快捷键")
-            shortcuts.add("Ctrl+C - 退出")
-            shortcuts.add("Ctrl+H - 帮助")
-            shortcuts.add("Ctrl+S - 保存会话")
-        else:
-            tree.add("无活动会话")
-            tree.add("按 Ctrl+N 创建新会话")
-        
-        sidebar_panel = Panel(
-            tree,
-            title="会话",
-            border_style=self.config.theme.secondary_color
-        )
-        
+        # 使用侧边栏组件
+        sidebar_panel = self.sidebar_component.render()
         self.layout_manager.update_region_content(LayoutRegion.SIDEBAR, sidebar_panel)
     
     def _update_main_content(self) -> None:
         """更新主内容区"""
-        if self.message_history:
-            # 显示消息历史
-            content = Text()
-            
-            for msg in self.message_history[-10:]:  # 显示最近10条消息
-                if msg["type"] == "user":
-                    content.append(f"用户: {msg['content']}\n", style="blue")
-                elif msg["type"] == "assistant":
-                    content.append(f"助手: {msg['content']}\n", style="green")
-                elif msg["type"] == "system":
-                    content.append(f"系统: {msg['content']}\n", style="yellow")
-                content.append("\n")
-        else:
-            # 显示欢迎信息
-            content = Text()
-            content.append("欢迎使用模块化代理框架TUI界面\n\n", style="bold cyan")
-            content.append("功能特性:\n", style="bold")
-            content.append("• 多LLM支持 (OpenAI, Gemini, Anthropic)\n", style="dim")
-            content.append("• 灵活的工具系统\n", style="dim")
-            content.append("• 会话管理和持久化\n", style="dim")
-            content.append("• 响应式布局\n", style="dim")
-            content.append("\n")
-            content.append("开始使用:\n", style="bold")
-            content.append("1. 按 Ctrl+N 创建新会话\n", style="dim")
-            content.append("2. 按 Ctrl+O 打开现有会话\n", style="dim")
-            content.append("3. 按 Ctrl+H 查看帮助\n", style="dim")
-        
-        main_panel = Panel(
-            content,
-            title="主内容",
-            border_style=self.config.theme.text_color
-        )
-        
+        # 使用主内容组件
+        main_panel = self.main_content_component.render()
         self.layout_manager.update_region_content(LayoutRegion.MAIN, main_panel)
     
     def _update_input_area(self) -> None:
         """更新输入区域"""
-        if self.input_buffer:
-            input_text = Text(f"> {self.input_buffer}", style="bold green")
-        else:
-            input_text = Text("> 在此输入消息...", style="dim")
-        
-        input_panel = Panel(
-            input_text,
-            title="输入",
-            border_style=self.config.theme.secondary_color
-        )
-        
+        # 使用输入组件
+        input_panel = self.input_component.render()
         self.layout_manager.update_region_content(LayoutRegion.INPUT, input_panel)
+    
+    def _update_langgraph_panel(self) -> None:
+        """更新LangGraph面板"""
+        # 使用LangGraph组件
+        langgraph_panel = self.langgraph_component.render()
+        self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, langgraph_panel)
     
     def _show_welcome_message(self) -> None:
         """显示欢迎信息"""
@@ -325,3 +303,138 @@ class TUIApp:
     def get_current_breakpoint(self) -> str:
         """获取当前断点"""
         return self.layout_manager.get_current_breakpoint()
+    
+    def _handle_input_submit(self, input_text: str) -> None:
+        """处理输入提交
+        
+        Args:
+            input_text: 输入文本
+        """
+        # 添加用户消息到历史
+        self.add_user_message(input_text)
+        
+        # 添加到主内容组件
+        self.main_content_component.add_user_message(input_text)
+        
+        # 更新状态
+        if self.current_state:
+            human_message = HumanMessage(content=input_text)
+            self.current_state.add_message(human_message)
+        
+        # 这里可以添加处理用户输入的逻辑
+        # 例如：调用工作流处理输入
+        self._process_user_input(input_text)
+    
+    def _handle_command(self, command: str, args: List[str]) -> None:
+        """处理命令
+        
+        Args:
+            command: 命令名称
+            args: 命令参数
+        """
+        if command == "help":
+            self._show_help()
+        elif command == "clear":
+            self._clear_screen()
+        elif command == "exit":
+            self._exit_app()
+        elif command == "save":
+            self._save_session()
+        elif command == "load":
+            if args:
+                self._load_session(args[0])
+        elif command == "new":
+            self._create_new_session()
+        elif command == "pause":
+            self._pause_workflow()
+        elif command == "resume":
+            self._resume_workflow()
+        elif command == "stop":
+            self._stop_workflow()
+        elif command == "studio":
+            self._open_studio()
+        else:
+            self.console.print(f"[red]未知命令: {command}[/red]")
+    
+    def _process_user_input(self, input_text: str) -> None:
+        """处理用户输入
+        
+        Args:
+            input_text: 用户输入
+        """
+        # 这里可以添加实际的处理逻辑
+        # 例如：调用工作流处理输入
+        # 暂时添加一个简单的回复
+        self.add_assistant_message(f"收到您的输入: {input_text}")
+        self.main_content_component.add_assistant_message(f"收到您的输入: {input_text}")
+    
+    def _show_help(self) -> None:
+        """显示帮助信息"""
+        help_text = self.input_component.command_processor.get_command_help()
+        self.add_system_message(help_text)
+        self.main_content_component.add_assistant_message(help_text)
+    
+    def _clear_screen(self) -> None:
+        """清空屏幕"""
+        self.message_history = []
+        self.main_content_component.clear_all()
+        self.add_system_message("屏幕已清空")
+    
+    def _exit_app(self) -> None:
+        """退出应用"""
+        self.running = False
+    
+    def _save_session(self) -> None:
+        """保存会话"""
+        if self.session_id and self.current_state and self.session_manager:
+            try:
+                self.session_manager.save_session(self.session_id, self.current_workflow, self.current_state)
+                self.add_system_message(f"会话 {self.session_id[:8]}... 已保存")
+            except Exception as e:
+                self.add_system_message(f"保存会话失败: {e}")
+        else:
+            self.add_system_message("无活动会话可保存")
+    
+    def _load_session(self, session_id: str) -> None:
+        """加载会话
+        
+        Args:
+            session_id: 会话ID
+        """
+        if not self.session_manager:
+            self.add_system_message("会话管理器未初始化")
+            return
+        
+        try:
+            self.current_workflow, self.current_state = self.session_manager.restore_session(session_id)
+            self.session_id = session_id
+            self.message_history = []
+            self.add_system_message(f"会话 {session_id[:8]}... 已加载")
+        except Exception as e:
+            self.add_system_message(f"加载会话失败: {e}")
+    
+    def _create_new_session(self) -> None:
+        """创建新会话"""
+        # 这里可以添加创建新会话的逻辑
+        self.session_id = None
+        self.current_state = AgentState()
+        self.current_workflow = None
+        self.message_history = []
+        self.main_content_component.clear_all()
+        self.add_system_message("已创建新会话")
+    
+    def _pause_workflow(self) -> None:
+        """暂停工作流"""
+        self.add_system_message("工作流已暂停")
+    
+    def _resume_workflow(self) -> None:
+        """恢复工作流"""
+        self.add_system_message("工作流已恢复")
+    
+    def _stop_workflow(self) -> None:
+        """停止工作流"""
+        self.add_system_message("工作流已停止")
+    
+    def _open_studio(self) -> None:
+        """打开Studio"""
+        self.add_system_message("Studio功能尚未实现")

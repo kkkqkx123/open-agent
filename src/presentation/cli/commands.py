@@ -13,7 +13,7 @@ from .help import HelpManager
 
 
 # 创建CLI组
-cli = click.Group()
+cli = click.Group(name="模块化代理框架", help="模块化代理框架命令行工具")
 console = Console()
 help_manager = HelpManager()
 
@@ -239,6 +239,18 @@ def help_command(ctx: click.Context, command: Optional[str]) -> None:
         help_manager.show_command_help(command)
     else:
         help_manager.show_main_help()
+
+
+@cli.command("run")
+@click.pass_context
+def run(ctx: click.Context) -> None:
+    """启动TUI交互界面"""
+    try:
+        from ..tui.app import TUIApp
+        app = TUIApp()
+        app.run()
+    except Exception as e:
+        handle_cli_error(e, ctx.obj.get("verbose", False), "启动TUI界面失败")
 
 
 @cli.command("quickstart")

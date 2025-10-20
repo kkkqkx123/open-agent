@@ -191,7 +191,10 @@ class NodeRegistry:
         Returns:
             List[str]: 节点类型列表
         """
-        return list(self._nodes.keys())
+        # 合并节点类和节点实例的类型
+        all_nodes = set(self._nodes.keys())
+        all_nodes.update(self._node_instances.keys())
+        return list(all_nodes)
 
     def get_node_schema(self, node_type: str) -> Dict[str, Any]:
         """获取节点配置Schema

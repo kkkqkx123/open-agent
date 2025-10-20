@@ -62,6 +62,9 @@ class TestWorkflowBuilder:
             "name": "test_workflow",
             "description": "测试工作流",
             "nodes": {
+                "start": {
+                    "type": "mock_node"
+                },
                 "analyze": {
                     "type": "mock_node"
                 }
@@ -116,7 +119,7 @@ class TestWorkflowBuilder:
         finally:
             Path(temp_path).unlink()
 
-    @patch('src.workflow.builder.StateGraph')
+    @patch('langgraph.graph.StateGraph')
     def test_build_workflow_without_langgraph(self, mock_state_graph):
         """测试在没有LangGraph的情况下构建工作流"""
         # 模拟LangGraph不可用
@@ -131,14 +134,16 @@ class TestWorkflowBuilder:
         with pytest.raises(ImportError, match="LangGraph未安装"):
             builder.build_workflow(config)
 
-    @patch('src.workflow.builder.StateGraph')
+    @patch('langgraph.graph.StateGraph')
     def test_build_workflow_valid(self, mock_state_graph_class):
         """测试构建有效的工作流"""
         # 模拟LangGraph的StateGraph
         mock_workflow = Mock()
         mock_state_graph_class.return_value = mock_workflow
         
-        builder = WorkflowBuilder()
+        # 使用独立的节点注册表
+        registry = NodeRegistry()
+        builder = WorkflowBuilder(registry)
         
         # 注册模拟节点
         builder.node_registry.register_node(MockNode)
@@ -148,6 +153,7 @@ class TestWorkflowBuilder:
             name="test_workflow",
             description="测试工作流",
             nodes={
+                "start": NodeConfig(type="mock_node"),
                 "analyze": NodeConfig(type="mock_node")
             },
             edges=[
@@ -157,7 +163,7 @@ class TestWorkflowBuilder:
                     type=EdgeType.SIMPLE
                 )
             ],
-            entry_point="analyze"
+            entry_point="start"
         )
         
         # 构建工作流
@@ -165,21 +171,23 @@ class TestWorkflowBuilder:
         
         # 验证调用
         mock_state_graph_class.assert_called_once_with(AgentState)
-        mock_workflow.add_node.assert_called_once()
+        assert mock_workflow.add_node.call_count == 2  # 应该添加两个节点
         mock_workflow.add_edge.assert_called_once()
-        mock_workflow.set_entry_point.assert_called_once_with("analyze")
+        mock_workflow.set_entry_point.assert_called_once_with("start")
         mock_workflow.compile.assert_called_once()
         
         assert result == mock_workflow.compile.return_value
 
-    @patch('src.workflow.builder.StateGraph')
+    @patch('langgraph.graph.StateGraph')
     def test_build_workflow_with_conditional_edge(self, mock_state_graph_class):
         """测试构建包含条件边的工作流"""
         # 模拟LangGraph的StateGraph
         mock_workflow = Mock()
         mock_state_graph_class.return_value = mock_workflow
         
-        builder = WorkflowBuilder()
+        # 使用独立的节点注册表
+        registry = NodeRegistry()
+        builder = WorkflowBuilder(registry)
         
         # 注册模拟节点
         builder.node_registry.register_node(MockNode)
@@ -189,10 +197,16 @@ class TestWorkflowBuilder:
             name="test_workflow",
             description="测试工作流",
             nodes={
+                "start": NodeConfig(type="mock_node"),
                 "analyze": NodeConfig(type="mock_node"),
                 "execute_tool": NodeConfig(type="mock_node")
             },
             edges=[
+                EdgeConfig(
+                    from_node="start",
+                    to_node="analyze",
+                    type=EdgeType.SIMPLE
+                ),
                 EdgeConfig(
                     from_node="analyze",
                     to_node="execute_tool",
@@ -200,7 +214,7 @@ class TestWorkflowBuilder:
                     condition="has_tool_calls"
                 )
             ],
-            entry_point="analyze"
+            entry_point="start"
         )
         
         # 构建工作流
@@ -209,13 +223,15 @@ class TestWorkflowBuilder:
         # 验证调用
         mock_workflow.add_conditional_edges.assert_called_once()
 
-    @patch('src.workflow.builder.StateGraph')
+    @patch('langgraph.graph.StateGraph')
     def test_build_workflow_unknown_node_type(self, mock_state_graph_class):
         """测试构建包含未知节点类型的工作流"""
         mock_workflow = Mock()
         mock_state_graph_class.return_value = mock_workflow
         
-        builder = WorkflowBuilder()
+        # 使用独立的节点注册表
+        registry = NodeRegistry()
+        builder = WorkflowBuilder(registry)
         
         # 创建工作流配置（包含未注册的节点类型）
         config = WorkflowConfig(
@@ -229,13 +245,15 @@ class TestWorkflowBuilder:
         with pytest.raises(ValueError, match="注册节点 'analyze' 失败"):
             builder.build_workflow(config)
 
-    @patch('src.workflow.builder.StateGraph')
+    @patch('langgraph.graph.StateGraph')
     def test_build_workflow_conditional_edge_without_condition(self, mock_state_graph_class):
         """测试构建缺少条件的条件边"""
         mock_workflow = Mock()
         mock_state_graph_class.return_value = mock_workflow
         
-        builder = WorkflowBuilder()
+        # 使用独立的节点注册表
+        registry = NodeRegistry()
+        builder = WorkflowBuilder(registry)
         
         # 注册模拟节点
         builder.node_registry.register_node(MockNode)
@@ -245,29 +263,38 @@ class TestWorkflowBuilder:
             name="test_workflow",
             description="测试工作流",
             nodes={
+                "start": NodeConfig(type="mock_node"),
                 "analyze": NodeConfig(type="mock_node"),
                 "execute_tool": NodeConfig(type="mock_node")
             },
             edges=[
+                EdgeConfig(
+                    from_node="start",
+                    to_node="analyze",
+                    type=EdgeType.SIMPLE
+                ),
                 EdgeConfig(
                     from_node="analyze",
                     to_node="execute_tool",
                     type=EdgeType.CONDITIONAL,
                     condition=None
                 )
-            ]
+            ],
+            entry_point="start"
         )
         
         with pytest.raises(ValueError, match="缺少条件表达式"):
             builder.build_workflow(config)
 
-    @patch('src.workflow.builder.StateGraph')
+    @patch('langgraph.graph.StateGraph')
     def test_determine_entry_point_from_config(self, mock_state_graph_class):
         """测试从配置确定入口点"""
         mock_workflow = Mock()
         mock_state_graph_class.return_value = mock_workflow
         
-        builder = WorkflowBuilder()
+        # 使用独立的节点注册表
+        registry = NodeRegistry()
+        builder = WorkflowBuilder(registry)
         
         # 注册模拟节点
         builder.node_registry.register_node(MockNode)
@@ -286,13 +313,15 @@ class TestWorkflowBuilder:
         
         mock_workflow.set_entry_point.assert_called_once_with("analyze")
 
-    @patch('src.workflow.builder.StateGraph')
+    @patch('langgraph.graph.StateGraph')
     def test_determine_entry_point_auto_detect(self, mock_state_graph_class):
         """测试自动检测入口点"""
         mock_workflow = Mock()
         mock_state_graph_class.return_value = mock_workflow
         
-        builder = WorkflowBuilder()
+        # 使用独立的节点注册表
+        registry = NodeRegistry()
+        builder = WorkflowBuilder(registry)
         
         # 注册模拟节点
         builder.node_registry.register_node(MockNode)
@@ -302,10 +331,16 @@ class TestWorkflowBuilder:
             name="test_workflow",
             description="测试工作流",
             nodes={
+                "start": NodeConfig(type="mock_node"),
                 "analyze": NodeConfig(type="mock_node"),
                 "execute_tool": NodeConfig(type="mock_node")
             },
             edges=[
+                EdgeConfig(
+                    from_node="start",
+                    to_node="analyze",
+                    type=EdgeType.SIMPLE
+                ),
                 EdgeConfig(
                     from_node="analyze",
                     to_node="execute_tool",
@@ -316,8 +351,8 @@ class TestWorkflowBuilder:
         
         builder.build_workflow(config)
         
-        # analyze节点没有入边，应该被选为入口点
-        mock_workflow.set_entry_point.assert_called_once_with("analyze")
+        # start节点没有入边，应该被选为入口点
+        mock_workflow.set_entry_point.assert_called_once_with("start")
 
     def test_has_tool_call_condition(self):
         """测试has_tool_call条件函数"""
@@ -410,12 +445,24 @@ class TestWorkflowBuilder:
         """测试列出可用节点类型"""
         builder = WorkflowBuilder()
         
+        # 创建一个新的模拟节点类，避免名称冲突
+        class NewMockNode(BaseNode):
+            @property
+            def node_type(self) -> str:
+                return "new_mock_node"
+            
+            def execute(self, state: AgentState, config: dict) -> NodeExecutionResult:
+                return NodeExecutionResult(state=state)
+            
+            def get_config_schema(self) -> dict:
+                return {"type": "object", "properties": {}}
+        
         # 注册节点
-        builder.node_registry.register_node(MockNode)
+        builder.node_registry.register_node(NewMockNode)
         
         nodes = builder.list_available_nodes()
         
-        assert "mock_node" in nodes
+        assert "new_mock_node" in nodes
 
     def test_get_workflow_config(self):
         """测试获取工作流配置"""
