@@ -74,6 +74,25 @@ class IEventCollector(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_events_by_time_range(
+        self,
+        session_id: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
+        """按时间范围获取事件
+
+        Args:
+            session_id: 会话ID
+            start_time: 开始时间
+            end_time: 结束时间
+
+        Returns:
+            List[Dict[str, Any]]: 指定时间范围内的事件列表
+        """
+        pass
+
 
 class EventCollector(IEventCollector):
     """事件收集器实现"""

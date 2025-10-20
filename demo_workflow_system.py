@@ -11,13 +11,13 @@ from pathlib import Path
 # 添加src目录到Python路径
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from workflow.manager import WorkflowManager
-from workflow.registry import NodeRegistry, register_node
-from workflow.nodes.analysis_node import AnalysisNode
-from workflow.nodes.tool_node import ToolNode
-from workflow.nodes.llm_node import LLMNode
-from workflow.nodes.condition_node import ConditionNode
-from prompts.agent_state import AgentState, HumanMessage
+from src.workflow.manager import WorkflowManager
+from src.workflow.registry import NodeRegistry, register_node
+from src.workflow.nodes.analysis_node import AnalysisNode
+from src.workflow.nodes.tool_node import ToolNode
+from src.workflow.nodes.llm_node import LLMNode
+from src.workflow.nodes.condition_node import ConditionNode
+from src.prompts.agent_state import AgentState, HumanMessage
 
 
 def demo_basic_workflow():
@@ -68,13 +68,25 @@ def demo_basic_workflow():
     try:
         result = manager.run_workflow(workflow_id, initial_state)
         print(f"✓ 工作流执行完成")
-        print(f"  - 最终消息数: {len(result.messages)}")
-        print(f"  - 工具结果数: {len(result.tool_results)}")
-        print(f"  - 当前步骤: {result.current_step}")
+        
+        # 处理不同类型的结果
+        if isinstance(result, dict):
+            messages = result.get('messages', [])
+            tool_results = result.get('tool_results', [])
+            current_step = result.get('current_step', '')
+        else:
+            # AgentState 对象
+            messages = result.messages
+            tool_results = result.tool_results
+            current_step = result.current_step
+        
+        print(f"  - 最终消息数: {len(messages)}")
+        print(f"  - 工具结果数: {len(tool_results)}")
+        print(f"  - 当前步骤: {current_step}")
         
         # 显示最终消息
-        if result.messages:
-            last_message = result.messages[-1]
+        if messages:
+            last_message = messages[-1]
             if hasattr(last_message, 'content'):
                 print(f"  - 最终响应: {last_message.content[:100]}...")
         
@@ -111,11 +123,11 @@ def demo_plan_execute_workflow():
         config = manager.get_workflow_config(workflow_id)
         print(f"  - 名称: {config.name}")
         print(f"  - 描述: {config.description}")
-        print(f"  - 节点数: {len(config.nodes)}")
+        print(f"  - 节点数: {len(config.nodes)}") # type: ignore
         
         # 显示节点信息
         print("\n工作流节点:")
-        for node_name, node_config in config.nodes.items():
+        for node_name, node_config in config.nodes.items(): # type: ignore
             print(f"  - {node_name}: {node_config.type}")
         
     except Exception as e:
@@ -146,10 +158,10 @@ def demo_custom_node():
     print("工作流系统演示 - 自定义节点")
     print("=" * 60)
     
-    from workflow.registry import BaseNode, NodeExecutionResult, register_node
+    from src.workflow.registry import BaseNode, NodeExecutionResult, register_node, node
     
     # 定义自定义节点
-    @register_node("custom_greeting_node")
+    @node("custom_greeting_node")
     class CustomGreetingNode(BaseNode):
         @property
         def node_type(self) -> str:
@@ -238,12 +250,19 @@ def demo_custom_node():
         result = manager.run_workflow(workflow_id, initial_state)
         
         print(f"✓ 工作流执行完成")
-        print(f"  - 最终消息数: {len(result.messages)}")
+        
+        # 处理不同类型的结果
+        if isinstance(result, dict):
+            messages = result.get('messages', [])
+        else:
+            messages = result.messages
+        
+        print(f"  - 最终消息数: {len(messages)}")
         
         # 显示消息内容
-        for i, message in enumerate(result.messages):
+        for i, message in enumerate(messages):
             if hasattr(message, 'content'):
-                print(f"  消息 {i+1}: {message.content}")
+                print(f"  消息 {i+1}: {message.content}") # type: ignore
     
     except Exception as e:
         print(f"✗ 演示失败: {e}")

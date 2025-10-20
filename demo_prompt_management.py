@@ -84,7 +84,8 @@ def main():
     print(f"   注入了 {len(state.messages)} 条消息:")
     for i, message in enumerate(state.messages):
         message_type = type(message).__name__
-        content_preview = message.content[:50] + "..." if len(message.content) > 50 else message.content
+        content = getattr(message, 'content', str(message))
+        content_preview = content[:50] + "..." if len(content) > 50 else content
         print(f"     {i+1}. [{message_type}] {content_preview}")
     
     # 10. 测试缓存机制

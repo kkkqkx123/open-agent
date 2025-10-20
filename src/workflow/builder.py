@@ -7,11 +7,15 @@ from typing import Dict, Any, Optional, List, Callable
 from pathlib import Path
 import yaml
 
+from typing import Dict, Any, Optional, List, Callable, Union
+from pathlib import Path
+import yaml
+
 from .config import WorkflowConfig
 from .registry import NodeRegistry, get_global_registry
 from .edges.simple_edge import SimpleEdge
 from .edges.conditional_edge import ConditionalEdge
-from ...prompts.agent_state import AgentState
+from ..prompts.agent_state import AgentState
 from .performance import get_global_optimizer, optimize_workflow_loading
 
 
@@ -38,6 +42,7 @@ class WorkflowBuilder:
             "max_iterations_reached": self._max_iterations_reached_condition,
             "has_errors": self._has_errors_condition,
             "no_errors": self._no_errors_condition,
+            "plan_completed": self._plan_completed_condition,
         }
     
     @optimize_workflow_loading
@@ -69,7 +74,7 @@ class WorkflowBuilder:
         
         return workflow_config
     
-    def build_workflow(self, config: WorkflowConfig):
+    def build_workflow(self, config: WorkflowConfig) -> Any:
         """根据配置构建工作流
         
         Args:
@@ -79,12 +84,14 @@ class WorkflowBuilder:
             编译后的工作流
         """
         try:
-            from langgraph.graph import StateGraph, END
+            from langgraph.graph import StateGraph, END  # type: ignore
+            # 将END存储为实例变量以便在其他方法中使用
+            self.END = END
         except ImportError:
             raise ImportError("LangGraph未安装，无法构建工作流")
         
         # 创建状态图
-        workflow = StateGraph(AgentState)
+        workflow = StateGraph(AgentState)  # type: ignore
         
         # 注册节点
         self._register_nodes(workflow, config)
@@ -97,9 +104,9 @@ class WorkflowBuilder:
         workflow.set_entry_point(entry_point)
         
         # 编译工作流
-        return workflow.compile()
+        return workflow.compile()  # type: ignore
     
-    def _register_nodes(self, workflow, config: WorkflowConfig) -> None:
+    def _register_nodes(self, workflow: Any, config: WorkflowConfig) -> None:
         """注册节点到工作流
         
         Args:
@@ -112,20 +119,27 @@ class WorkflowBuilder:
                 node_instance = self.node_registry.get_node_instance(node_config.type)
                 
                 # 创建节点执行函数
-                def create_node_function(node, current_node_name, current_node_config):
-                    def node_function(state: AgentState) -> AgentState:
+                def create_node_function(node: Any, current_node_name: str, current_node_config: Any) -> Callable[[AgentState], Dict[str, Any]]:
+                    def node_function(state: AgentState) -> Dict[str, Any]:
                         result = node.execute(state, current_node_config.config)
                         # 更新状态中的当前步骤
                         state.current_step = current_node_name
-                        return result.state
+                        # 返回状态更新，而不是整个状态对象
+                        return {
+                            "messages": result.state.messages,
+                            "tool_results": result.state.tool_results,
+                            "current_step": result.state.current_step,
+                            "max_iterations": result.state.max_iterations,
+                            "iteration_count": result.state.iteration_count
+                        }
                     return node_function
                 
-                workflow.add_node(node_name, create_node_function(node_instance, node_name, node_config))
+                workflow.add_node(node_name, create_node_function(node_instance, node_name, node_config))  # type: ignore
                 
             except Exception as e:
                 raise ValueError(f"注册节点 '{node_name}' 失败: {e}")
     
-    def _add_edges(self, workflow, config: WorkflowConfig) -> None:
+    def _add_edges(self, workflow: Any, config: WorkflowConfig) -> None:
         """添加边到工作流
         
         Args:
@@ -140,16 +154,16 @@ class WorkflowBuilder:
             else:
                 raise ValueError(f"未知的边类型: {edge_config.type.value}")
     
-    def _add_simple_edge(self, workflow, edge_config) -> None:
+    def _add_simple_edge(self, workflow: Any, edge_config: Any) -> None:
         """添加简单边
         
         Args:
             workflow: LangGraph工作流
             edge_config: 边配置
         """
-        workflow.add_edge(edge_config.from_node, edge_config.to_node)
+        workflow.add_edge(edge_config.from_node, edge_config.to_node)  # type: ignore
     
-    def _add_conditional_edge(self, workflow, edge_config) -> None:
+    def _add_conditional_edge(self, workflow: Any, edge_config: Any) -> None:
         """添加条件边
         
         Args:
@@ -164,16 +178,28 @@ class WorkflowBuilder:
         
         # 添加条件边
         # 创建条件映射，确保条件函数返回正确的节点名称
-        def conditional_wrapper(state: AgentState) -> str:
-            if condition_func(state):
-                return edge_config.to_node
-            # 如果条件不满足，返回END或默认节点
-            return "END"
+        # 使用唯一的函数名避免冲突
+        wrapper_name = f"conditional_wrapper_{edge_config.from_node}_{edge_config.to_node}"
+        
+        def make_conditional_wrapper(from_node: str, to_node: str, cond_func: Callable):
+            def conditional_wrapper(state: AgentState) -> str:
+                if cond_func(state):
+                    return str(to_node)
+                # 如果条件不满足，返回END或默认节点
+                return self.END
+            conditional_wrapper.__name__ = wrapper_name
+            return conditional_wrapper
+        
+        conditional_wrapper = make_conditional_wrapper(
+            edge_config.from_node, 
+            edge_config.to_node, 
+            condition_func
+        )
         
         workflow.add_conditional_edges(
             edge_config.from_node,
             conditional_wrapper,
-            {edge_config.to_node: edge_config.to_node, "END": "END"}
+            {edge_config.to_node: edge_config.to_node, self.END: self.END}
         )
     
     def _create_condition_function(self, condition: str) -> Callable:
@@ -236,12 +262,12 @@ class WorkflowBuilder:
             return False
         
         last_message = state.messages[-1]
-        if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+        if hasattr(last_message, 'tool_calls') and getattr(last_message, 'tool_calls', None):
             return True
         
         # 检查消息内容
         if hasattr(last_message, 'content'):
-            content = str(last_message.content)
+            content = str(getattr(last_message, 'content', ''))
             return "tool_call" in content.lower() or "调用工具" in content
         
         return False
@@ -270,6 +296,22 @@ class WorkflowBuilder:
     def _no_errors_condition(self, state: AgentState, params: str = "") -> bool:
         """检查是否没有错误"""
         return not self._has_errors_condition(state, params)
+    
+    def _plan_completed_condition(self, state: AgentState, params: str = "") -> bool:
+        """检查计划是否已完成"""
+        try:
+            # 检查状态中是否有计划信息
+            if not hasattr(state, 'plan') or not hasattr(state, 'current_step_index'):
+                return False
+            
+            plan = getattr(state, 'plan', [])
+            current_step_index = getattr(state, 'current_step_index', 0)
+            
+            # 如果计划为空或当前步骤索引超出计划范围，则认为计划已完成
+            return len(plan) > 0 and current_step_index >= len(plan)
+        except Exception:
+            # 如果出现任何错误，返回False以确保安全
+            return False
     
     def _evaluate_custom_condition(self, state: AgentState, condition: str) -> bool:
         """评估自定义条件

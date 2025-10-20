@@ -515,11 +515,29 @@ def optimize_workflow_loading(func: F) -> F:
     
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
+        # 获取配置路径
+        config_path = None
         if "config_path" in kwargs:
-            return optimizer.optimize_config_loading(kwargs["config_path"])
+            config_path = kwargs["config_path"]
         elif args:
-            return optimizer.optimize_config_loading(args[0])
-        else:
-            return func(*args, **kwargs)
+            config_path = args[0]
+        
+        # 如果有配置路径，尝试优化加载
+        if config_path:
+            try:
+                # 使用优化的配置加载
+                config_data = optimizer.optimize_config_loading(config_path)
+                # 如果返回的是配置数据，需要转换为WorkflowConfig
+                if isinstance(config_data, dict):
+                    from .config import WorkflowConfig
+                    return WorkflowConfig.from_dict(config_data)
+                # 如果返回的已经是WorkflowConfig，直接返回
+                return config_data
+            except Exception:
+                # 如果优化失败，回退到原始函数
+                pass
+        
+        # 回退到原始函数
+        return func(*args, **kwargs)
     
     return wrapper

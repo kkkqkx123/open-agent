@@ -12,8 +12,8 @@ from datetime import datetime
 from .config import WorkflowConfig
 from .builder import WorkflowBuilder
 from .registry import NodeRegistry, get_global_registry
-from ...prompts.agent_state import AgentState
-from ...infrastructure.config_loader import IConfigLoader
+from ..prompts.agent_state import AgentState
+from ..infrastructure.config_loader import IConfigLoader
 
 
 class IWorkflowManager(ABC):

@@ -69,6 +69,43 @@ class TestContainer(ContextManager["TestContainer"]):
             lifetime="singleton",
         )
 
+        # 注册日志记录器（使用延迟导入以避免循环导入）
+        def create_logger():
+            from ..logger import get_logger
+            return get_logger("test")
+        
+        self.container.register_factory(
+            "ILogger",  # type: ignore
+            create_logger,
+            lifetime="singleton",
+        )
+
+        # 注册工具管理器（使用延迟导入以避免循环导入）
+        def create_tool_manager():
+            from ..tools import ToolManager
+            return ToolManager(
+                self.container.get(IConfigLoader),  # type: ignore
+                self.container.get(ILogger) # type: ignore
+            )
+
+        # 为避免循环导入，我们使用一个动态创建的类型作为占位符
+        import types
+        IToolManagerPlaceholder = types.new_class("IToolManager")
+        ToolManagerPlaceholder = types.new_class("ToolManager")
+
+        self.container.register_factory(
+            IToolManagerPlaceholder,
+            create_tool_manager,
+            lifetime="singleton",
+        )
+
+        # 同时注册ToolManager具体类型
+        self.container.register_factory(
+            ToolManagerPlaceholder,
+            create_tool_manager,
+            lifetime="singleton",
+        )
+
     def get_container(self) -> IDependencyContainer:
         """获取依赖注入容器"""
         return self.container
@@ -115,6 +152,21 @@ class TestContainer(ContextManager["TestContainer"]):
     def get_architecture_checker(self) -> ArchitectureChecker:
         """获取架构检查器"""
         return self.container.get(ArchitectureChecker)
+
+    def get_tool_manager(self):
+        """获取工具管理器"""
+        from ..tools import IToolManager, ToolManager
+        # 由于循环导入问题，我们直接创建一个新的工具管理器实例
+        config_loader = self.container.get(IConfigLoader)  # type: ignore
+        from ..logger import get_logger
+        logger = get_logger("test")
+        return ToolManager(config_loader, logger)
+
+    def get_logger(self):
+        """获取日志记录器"""
+        from ..logger import ILogger, get_logger
+        # 由于循环导入问题，直接返回一个logger实例
+        return get_logger("test")
 
     def setup_basic_configs(self) -> None:
         """设置基础配置文件"""

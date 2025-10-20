@@ -219,7 +219,7 @@ class Player(IPlayer):
             return {"error": "会话没有事件记录"}
 
         # 基本统计
-        analysis = {
+        analysis: Dict[str, Any] = {
             "session_id": session_id,
             "total_events": len(events),
             "event_types": {},
@@ -262,7 +262,7 @@ class Player(IPlayer):
         analysis["node_info"]["executed_nodes"] = len(node_start_events)
         
         # 计算节点执行时间
-        node_times = {}
+        node_times: Dict[str, List[float]] = {}
         for start_event in node_start_events:
             node_name = start_event["data"].get("node_name")
             start_time = datetime.fromisoformat(start_event["timestamp"])

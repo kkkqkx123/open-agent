@@ -175,11 +175,13 @@ class SessionManager(ISessionManager):
         }
 
         # 保存会话信息
-        self.session_store.save_session(session_id, {
+        workflow_config = self.workflow_manager.get_workflow_config(workflow_id)
+        session_data = {
             "metadata": session_metadata,
             "state": self._serialize_state(initial_state),
-            "workflow_config": self.workflow_manager.get_workflow_config(workflow_id).to_dict()
-        })
+            "workflow_config": workflow_config.to_dict() if workflow_config else {}
+        }
+        self.session_store.save_session(session_id, session_data)
 
         # 提交初始状态到Git（如果提供了Git管理器）
         if self.git_manager:

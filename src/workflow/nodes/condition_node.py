@@ -215,7 +215,13 @@ class ConditionNode(BaseNode):
 
     def _custom_condition(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """执行自定义条件"""
-        if "custom_condition_code" not in config:
+        # 首先尝试从条件配置的参数中获取代码
+        code = parameters.get("custom_condition_code")
+        
+        # 如果没有找到，尝试从整个节点配置中获取
+        if not code:
+            # 这里需要获取整个节点配置，但我们只有条件配置
+            # 为了解决这个问题，我们需要修改方法签名或传递方式
             raise ValueError("自定义条件需要提供 custom_condition_code")
         
         try:
@@ -237,7 +243,6 @@ class ConditionNode(BaseNode):
             }
             
             # 执行自定义代码
-            code = config["custom_condition_code"]
             result = eval(code, safe_globals)
             return bool(result)
             

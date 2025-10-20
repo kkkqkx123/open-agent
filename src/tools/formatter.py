@@ -6,7 +6,7 @@
 
 import json
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Sequence
 
 from src.llm.interfaces import ILLMClient
 from langchain_core.messages import BaseMessage
@@ -20,7 +20,7 @@ class FunctionCallingFormatter(IToolFormatter):
     将工具格式化为LLM Function Calling格式。
     """
 
-    def format_for_llm(self, tools: List[BaseTool]) -> Dict[str, Any]:
+    def format_for_llm(self, tools: Sequence[BaseTool]) -> Dict[str, Any]:
         """将工具格式化为LLM可识别的格式
 
         Args:
@@ -143,7 +143,7 @@ class StructuredOutputFormatter(IToolFormatter):
     将工具格式化为结构化输出提示词格式。
     """
 
-    def format_for_llm(self, tools: List[BaseTool]) -> Dict[str, Any]:
+    def format_for_llm(self, tools: Sequence[BaseTool]) -> Dict[str, Any]:
         """将工具格式化为LLM可识别的格式
 
         Args:
@@ -259,7 +259,7 @@ class ToolFormatter(IToolFormatter):
         self.function_calling_formatter = FunctionCallingFormatter()
         self.structured_output_formatter = StructuredOutputFormatter()
 
-    def format_for_llm(self, tools: List[BaseTool]) -> Dict[str, Any]:
+    def format_for_llm(self, tools: Sequence[BaseTool]) -> Dict[str, Any]:
         """将工具格式化为LLM可识别的格式
 
         Args:
@@ -311,7 +311,7 @@ class ToolFormatter(IToolFormatter):
                 raise ValueError("无法解析LLM响应为工具调用")
 
     def format_for_llm_with_strategy(
-        self, tools: List[BaseTool], strategy: str
+        self, tools: Sequence[BaseTool], strategy: str
     ) -> Dict[str, Any]:
         """使用指定策略格式化工具
 

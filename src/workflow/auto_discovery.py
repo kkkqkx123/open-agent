@@ -5,16 +5,16 @@
 
 import importlib
 import inspect
-from typing import List, Type, Dict, Any
+from typing import List, Type, Dict, Any, Optional
 from pathlib import Path
 
-from .registry import BaseNode, get_global_registry
+from .registry import BaseNode, get_global_registry, NodeRegistry
 
 
 class NodeDiscovery:
     """节点发现器"""
     
-    def __init__(self, registry=None) -> None:
+    def __init__(self, registry: Optional[NodeRegistry] = None) -> None:
         """初始化节点发现器
         
         Args:
@@ -31,7 +31,7 @@ class NodeDiscovery:
         Returns:
             List[Type[BaseNode]]: 发现的节点类列表
         """
-        discovered_nodes = []
+        discovered_nodes: List[Type[BaseNode]] = []
         
         try:
             # 导入包
@@ -84,14 +84,16 @@ class NodeDiscovery:
         results = {}
         
         for node_class in nodes:
+            node_type = None
             try:
                 # 获取节点类型
-                node_type = getattr(node_class, 'node_type', None)
-                if not node_type:
-                    # 如果没有node_type属性，使用类名
+                # 通过实例化临时对象来获取node_type属性的值
+                temp_instance = object.__new__(node_class)
+                try:
+                    node_type = temp_instance.node_type
+                except (AttributeError, NotImplementedError):
+                    # 如果无法获取node_type，则使用类名
                     node_type = node_class.__name__.lower().replace('node', '')
-                    # 设置node_type属性
-                    node_class.node_type = node_type
                 
                 # 注册节点
                 self.registry.register_node(node_class)
@@ -99,6 +101,9 @@ class NodeDiscovery:
                 
             except Exception as e:
                 print(f"注册节点 {node_class.__name__} 失败: {e}")
+                # 确保node_type在异常处理中已定义
+                if node_type is None:
+                    node_type = getattr(node_class, '__name__', 'unknown').lower().replace('node', '')
                 results[node_type] = False
                 
         return results
@@ -112,7 +117,7 @@ class NodeDiscovery:
         Returns:
             Dict[str, Any]: 发现和注册结果
         """
-        results = {
+        results: Dict[str, Any] = {
             "discovered": {},
             "registered": {},
             "failed": []
@@ -138,7 +143,7 @@ class NodeDiscovery:
         return results
 
 
-def auto_register_nodes(package_paths: List[str] = None) -> Dict[str, Any]:
+def auto_register_nodes(package_paths: Optional[List[str]] = None) -> Dict[str, Any]:
     """自动注册节点的便捷函数
     
     Args:

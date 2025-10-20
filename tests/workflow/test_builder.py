@@ -6,6 +6,7 @@
 import pytest
 from unittest.mock import Mock, patch
 from pathlib import Path
+from typing import List, Dict, Any
 
 from src.workflow.builder import WorkflowBuilder
 from src.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
@@ -361,10 +362,10 @@ class TestWorkflowBuilder:
         class MockMessage:
             def __init__(self, content: str):
                 self.content = content
-                self.tool_calls = []
+                self.tool_calls: List[Dict[str, Any]] = []
 
         message = MockMessage("Test message")
-        message.tool_calls = [{"name": "test_tool", "args": {}}]
+        message.tool_calls = [{"name": "test_tool", "args": {}}]  # type: ignore
         state.add_message(message)
         
         result = self.builder._has_tool_call_condition(state)

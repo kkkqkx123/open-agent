@@ -70,6 +70,13 @@ nodes:
         - type: custom
           parameters:
             expression: len(state.plan) > 0 and state.current_step_index >= len(state.plan)
+            custom_condition_code: |
+              try:
+                  plan = getattr(state, 'plan', [])
+                  current_step_index = getattr(state, 'current_step_index', 0)
+                  return len(plan) > 0 and current_step_index >= len(plan)
+              except:
+                  return False
           next_node: summarize_results
       default_next_node: execute_step
 
@@ -97,10 +104,6 @@ nodes:
       include_tool_results: true
 
 edges:
-  - from: start
-    to: create_plan
-    type: simple
-    
   - from: create_plan
     to: execute_step
     type: simple
@@ -121,6 +124,7 @@ edges:
     
   - from: check_completion
     to: summarize_results
+    condition: plan_completed
     type: conditional
 
 entry_point: create_plan
@@ -130,6 +134,3 @@ additional_config:
   timeout: 600
   enable_streaming: true
   plan_max_steps: 7
-content>
-<line_count>103</line_count>
-</write_to_file>

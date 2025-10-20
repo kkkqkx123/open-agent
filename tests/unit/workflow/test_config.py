@@ -171,7 +171,7 @@ class TestWorkflowConfig:
         assert workflow_config.name == "test_workflow"
         assert workflow_config.description == "测试工作流"
         assert workflow_config.version == "2.0"
-        assert workflow_config.state_schema.custom_field == "str"
+        assert workflow_config.state_schema.additional_fields["custom_field"] == "str"
         assert "analyze" in workflow_config.nodes
         assert len(workflow_config.edges) == 1
         assert workflow_config.entry_point == "analyze"

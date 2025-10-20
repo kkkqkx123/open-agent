@@ -15,7 +15,7 @@ class NodeExecutionResult:
     """节点执行结果"""
     state: AgentState
     next_node: Optional[str] = None
-    metadata: Dict[str, Any] = None
+    metadata: Optional[Dict[str, Any]] = None
 
     def __post_init__(self) -> None:
         if self.metadata is None:
@@ -106,7 +106,19 @@ class NodeRegistry:
         Raises:
             ValueError: 节点类型已存在
         """
-        node_type = node_class.node_type
+        if node_class is None:
+            raise ValueError("节点类不能为None")
+        
+        # 尝试获取节点类型，如果失败则抛出明确的错误
+        try:
+            # 创建临时实例来获取 node_type 属性值
+            temp_instance = node_class()
+            node_type = temp_instance.node_type
+        except AttributeError as e:
+            raise ValueError(f"节点类缺少 node_type 属性: {e}")
+        except Exception as e:
+            raise ValueError(f"获取节点类型失败: {e}")
+        
         if node_type in self._nodes:
             raise ValueError(f"节点类型 '{node_type}' 已存在")
         
@@ -121,7 +133,17 @@ class NodeRegistry:
         Raises:
             ValueError: 节点类型已存在
         """
-        node_type = node.node_type
+        if node is None:
+            raise ValueError("节点实例不能为None")
+        
+        # 尝试获取节点类型，如果失败则抛出明确的错误
+        try:
+            node_type = node.node_type
+        except AttributeError as e:
+            raise ValueError(f"节点实例缺少 node_type 属性: {e}")
+        except Exception as e:
+            raise ValueError(f"获取节点类型失败: {e}")
+        
         if node_type in self._node_instances:
             raise ValueError(f"节点实例 '{node_type}' 已存在")
         
@@ -230,6 +252,9 @@ def register_node(node_class: Type[BaseNode]) -> None:
     Args:
         node_class: 节点类
     """
+    if node_class is None:
+        raise ValueError("节点类不能为None")
+    
     get_global_registry().register_node(node_class)
 
 
@@ -239,6 +264,9 @@ def register_node_instance(node: BaseNode) -> None:
     Args:
         node: 节点实例
     """
+    if node is None:
+        raise ValueError("节点实例不能为None")
+    
     get_global_registry().register_node_instance(node)
 
 
@@ -265,13 +293,21 @@ def node(node_type: str) -> Callable:
         Callable: 装饰器函数
     """
     def decorator(node_class: Type[BaseNode]) -> Type[BaseNode]:
-        # 设置节点类型
-        original_node_type = node_class.node_type
-        node_class.node_type = node_type
+        # 创建一个新的类，覆盖 node_type 属性
+        class WrappedNode(node_class):  # type: ignore
+            @property
+            def node_type(self) -> str:
+                return node_type
+        
+        # 保持原始类的名称和文档
+        WrappedNode.__name__ = node_class.__name__
+        WrappedNode.__qualname__ = node_class.__qualname__
+        if hasattr(node_class, '__doc__'):
+            WrappedNode.__doc__ = node_class.__doc__
         
         # 注册到全局注册表
-        register_node(node_class)
+        register_node(WrappedNode)
         
-        return node_class
+        return WrappedNode
     
     return decorator

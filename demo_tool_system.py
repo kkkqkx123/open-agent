@@ -60,7 +60,8 @@ def demo_basic_usage() -> None:
                     }
                 },
                 "required": ["name"]
-            }
+            },
+            tool_type="builtin"
         )
         
         # 创建并注册工具
@@ -122,7 +123,8 @@ def demo_parallel_execution() -> None:
                     "expression": {"type": "string", "description": "数学表达式"}
                 },
                 "required": ["expression"]
-            }
+            },
+            tool_type="builtin"
         )
         
         calculator_tool = BuiltinTool(calculate, config)
@@ -177,7 +179,8 @@ async def demo_async_execution() -> None:
                     "delay": {"type": "number", "description": "延迟时间(秒)", "default": 1.0}
                 },
                 "required": ["url"]
-            }
+            },
+            tool_type="builtin"
         )
         
         async_tool = BuiltinTool(async_fetch_data, config)
@@ -228,7 +231,8 @@ async def demo_async_parallel_execution() -> None:
                     "duration": {"type": "number", "description": "处理时间(秒)"}
                 },
                 "required": ["task_id", "duration"]
-            }
+            },
+            tool_type="builtin"
         )
         
         async_tool = BuiltinTool(async_process, config)
@@ -277,7 +281,8 @@ def demo_formatter() -> None:
                     "limit": {"type": "integer", "description": "结果数量限制", "default": 10}
                 },
                 "required": ["query"]
-            }
+            },
+            tool_type="builtin"
         )
         
         search_tool = BuiltinTool(search, config)
@@ -343,7 +348,8 @@ def demo_error_handling() -> None:
                 "properties": {
                     "should_error": {"type": "boolean", "description": "是否触发错误", "default": False}
                 }
-            }
+            },
+            tool_type="builtin"
         )
         
         error_tool = BuiltinTool(error_function, config)

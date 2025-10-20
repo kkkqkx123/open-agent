@@ -7,7 +7,8 @@ from src.workflow.registry import (
     NodeExecutionResult,
     register_node,
     get_node,
-    get_global_registry
+    get_global_registry,
+    node
 )
 from src.prompts.agent_state import AgentState
 
@@ -177,7 +178,7 @@ class TestGlobalRegistry:
 
     def test_register_node_decorator(self):
         """测试节点注册装饰器"""
-        @register_node("decorated_node")
+        @node("decorated_node")
         class DecoratedNode(BaseNode):
             @property
             def node_type(self) -> str:
@@ -196,7 +197,7 @@ class TestGlobalRegistry:
 
     def test_get_node_from_global_registry(self):
         """测试从全局注册表获取节点"""
-        @register_node("global_test_node")
+        @node("global_test_node")
         class GlobalTestNode(BaseNode):
             @property
             def node_type(self) -> str:
@@ -208,10 +209,10 @@ class TestGlobalRegistry:
             def get_config_schema(self) -> dict:
                 return {}
         
-        node = get_node("global_test_node")
+        node_instance = get_node("global_test_node")
         
-        assert isinstance(node, GlobalTestNode)
-        assert node.node_type == "global_test_node"
+        assert isinstance(node_instance, GlobalTestNode)
+        assert node_instance.node_type == "global_test_node"
 
     def test_get_node_nonexistent(self):
         """测试获取不存在的节点"""

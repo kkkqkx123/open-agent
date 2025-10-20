@@ -56,10 +56,6 @@ nodes:
       include_tool_results: true
 
 edges:
-  - from: start
-    to: analyze
-    type: simple
-    
   - from: analyze
     to: execute_tool
     condition: has_tool_calls
@@ -80,6 +76,3 @@ additional_config:
   max_iterations: 10
   timeout: 300
   enable_streaming: true
-content>
-<line_count>68</line_count>
-</write_to_file>

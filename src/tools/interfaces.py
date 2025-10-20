@@ -5,7 +5,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Sequence, Union, TYPE_CHECKING
 from dataclasses import dataclass
 
 from ..llm.interfaces import ILLMClient
@@ -114,7 +114,7 @@ class IToolFormatter(ABC):
     """工具格式化器接口"""
 
     @abstractmethod
-    def format_for_llm(self, tools: List["BaseTool"]) -> Dict[str, Any]:
+    def format_for_llm(self, tools: Sequence["BaseTool"]) -> Dict[str, Any]:
         """将工具格式化为LLM可识别的格式
 
         Args:
