@@ -23,6 +23,9 @@ class LLMConfig(BaseConfig):
 
     # 继承配置
     group: Optional[str] = Field(None, description="所属组名称")
+    
+    # Token计数器配置
+    token_counter: Optional[str] = Field(None, description="Token计数器配置名称")
 
     # 内部状态
     _resolved_headers: Optional[Dict[str, str]] = None

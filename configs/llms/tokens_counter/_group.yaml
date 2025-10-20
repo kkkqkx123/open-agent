@@ -1,0 +1,52 @@
+# Token计数器组配置
+
+# 默认缓存配置
+default_cache:
+  ttl_seconds: 3600  # 缓存TTL（秒）
+  max_size: 1000     # 最大缓存条目数
+
+# 默认校准配置
+default_calibration:
+  min_data_points: 3   # 最小校准数据点数
+  max_data_points: 100 # 最大校准数据点数
+
+# 默认监控配置
+default_monitoring:
+  enabled: true
+  stats_interval: 300  # 统计信息记录间隔（秒）
+
+# OpenAI组配置
+openai_group:
+  model_type: openai
+  enhanced: true
+  cache: default_cache
+  calibration: default_calibration
+  monitoring: default_monitoring
+  metadata:
+    provider: openai
+    version: "2.0"
+    description: "OpenAI Token计数器组"
+
+# Gemini组配置
+gemini_group:
+  model_type: gemini
+  enhanced: true
+  cache: default_cache
+  calibration: default_calibration
+  monitoring: default_monitoring
+  metadata:
+    provider: google
+    version: "2.0"
+    description: "Gemini Token计数器组"
+
+# Anthropic组配置
+anthropic_group:
+  model_type: anthropic
+  enhanced: true
+  cache: default_cache
+  calibration: default_calibration
+  monitoring: default_monitoring
+  metadata:
+    provider: anthropic
+    version: "2.0"
+    description: "Anthropic Token计数器组"

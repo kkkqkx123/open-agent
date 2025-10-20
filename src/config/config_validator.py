@@ -8,6 +8,7 @@ from .models.global_config import GlobalConfig
 from .models.llm_config import LLMConfig
 from .models.agent_config import AgentConfig
 from .models.tool_config import ToolConfig
+from .models.token_counter_config import TokenCounterConfig
 
 
 class ValidationResult:
@@ -121,6 +122,18 @@ class IConfigValidator(ABC):
     @abstractmethod
     def validate_global_config(self, config: Dict[str, Any]) -> ValidationResult:
         """验证全局配置
+
+        Args:
+            config: 配置字典
+
+        Returns:
+            验证结果
+        """
+        pass
+
+    @abstractmethod
+    def validate_token_counter_config(self, config: Dict[str, Any]) -> ValidationResult:
+        """验证Token计数器配置
 
         Args:
             config: 配置字典
@@ -265,6 +278,42 @@ class ConfigValidator(IConfigValidator):
             # 检查环境配置
             if config.get("env") == "production" and config.get("debug"):
                 result.add_warning("生产环境不建议启用调试模式")
+
+        return result
+
+    def validate_token_counter_config(self, config: Dict[str, Any]) -> ValidationResult:
+        """验证Token计数器配置
+
+        Args:
+            config: 配置字典
+
+        Returns:
+            验证结果
+        """
+        result = self.validate_config(config, TokenCounterConfig)
+
+        # 额外的业务逻辑验证
+        if result.is_valid:
+            # 检查增强模式配置
+            if config.get("enhanced", False):
+                # 增强模式建议配置缓存
+                if not config.get("cache"):
+                    result.add_warning("增强模式建议配置缓存以提高性能")
+                
+                # 增强模式建议配置校准
+                if not config.get("calibration"):
+                    result.add_warning("增强模式建议配置校准以提高准确性")
+
+            # 检查模型类型和名称的匹配性
+            model_type = config.get("model_type")
+            model_name = config.get("model_name")
+            
+            if model_type == "openai" and not model_name.startswith(("gpt-", "text-", "code-")):
+                result.add_warning(f"OpenAI模型名称 {model_name} 可能不符合命名规范")
+            elif model_type == "anthropic" and not "claude" in model_name.lower():
+                result.add_warning(f"Anthropic模型名称 {model_name} 可能不符合命名规范")
+            elif model_type == "gemini" and not "gemini" in model_name.lower():
+                result.add_warning(f"Gemini模型名称 {model_name} 可能不符合命名规范")
 
         return result
 

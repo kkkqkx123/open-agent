@@ -14,6 +14,7 @@ from .models.global_config import GlobalConfig
 from .models.llm_config import LLMConfig
 from .models.agent_config import AgentConfig
 from .models.tool_config import ToolConfig
+from .models.token_counter_config import TokenCounterConfig
 from .utils.env_resolver import EnvResolver
 from .utils.file_watcher import FileWatcher
 from .error_recovery import ConfigErrorRecovery, ConfigValidatorWithRecovery
@@ -68,6 +69,18 @@ class IConfigSystem(ABC):
 
         Returns:
             工具配置对象
+        """
+        pass
+
+    @abstractmethod
+    def load_token_counter_config(self, name: str) -> "TokenCounterConfig":
+        """加载Token计数器配置
+
+        Args:
+            name: 配置名称
+
+        Returns:
+            Token计数器配置对象
         """
         pass
 
@@ -285,6 +298,33 @@ class ConfigSystem(IConfigSystem):
 
             # 创建配置对象
             config = ToolConfig(**config_data)
+            self._cache[cache_key] = config
+            return config
+
+    def load_token_counter_config(self, name: str) -> TokenCounterConfig:
+        """加载Token计数器配置
+
+        Args:
+            name: 配置名称
+
+        Returns:
+            Token计数器配置对象
+        """
+        with self._lock:
+            cache_key = f"token_counter_{name}"
+            if cache_key in self._cache:
+                return cast(TokenCounterConfig, self._cache[cache_key])
+
+            # 加载配置并处理继承
+            config_data = self._load_config_with_inheritance("llms/tokens_counter", name)
+
+            # 验证配置
+            result = self._config_validator.validate_token_counter_config(config_data)
+            if not result.is_valid:
+                raise ConfigurationError(f"Token计数器配置验证失败: {result.errors}")
+
+            # 创建配置对象
+            config = TokenCounterConfig(**config_data)
             self._cache[cache_key] = config
             return config
 

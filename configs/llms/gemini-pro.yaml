@@ -4,6 +4,7 @@ model_name: gemini-pro
 base_url: "https://generativelanguage.googleapis.com/v1"
 api_key: "${GEMINI_API_KEY}"
 group: gemini_group
+token_counter: gemini_pro
 
 parameters:
   # 基础生成参数
