@@ -12,6 +12,7 @@ class LLMConfig(BaseConfig):
     # 基础配置
     model_type: str = Field(..., description="模型类型：openai, gemini, anthropic等")
     model_name: str = Field(..., description="模型名称：gpt-4, gemini-pro等")
+    provider: Optional[str] = Field(None, description="提供商名称")
 
     # API配置
     base_url: Optional[str] = Field(None, description="API基础URL")
@@ -21,11 +22,23 @@ class LLMConfig(BaseConfig):
     # 参数配置
     parameters: Dict[str, Any] = Field(default_factory=dict, description="模型参数")
 
+    # 缓存配置
+    supports_caching: bool = Field(False, description="是否支持缓存")
+    cache_config: Dict[str, Any] = Field(default_factory=dict, description="缓存配置")
+
     # 继承配置
     group: Optional[str] = Field(None, description="所属组名称")
     
     # Token计数器配置
     token_counter: Optional[str] = Field(None, description="Token计数器配置名称")
+
+    # 降级配置
+    fallback_enabled: bool = Field(True, description="是否启用降级")
+    fallback_models: List[str] = Field(default_factory=list, description="降级模型列表")
+    max_fallback_attempts: int = Field(3, description="最大降级尝试次数")
+
+    # 元数据
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="元数据")
 
     # 内部状态
     _resolved_headers: Optional[Dict[str, str]] = None
@@ -73,12 +86,46 @@ class LLMConfig(BaseConfig):
         from ...llm.header_validator import HeaderProcessor
 
         processor = HeaderProcessor()
+        
+        # 分离认证头和普通头，因为认证头可能包含直接的API密钥
+        original_headers = self.headers.copy()
+        auth_headers = {}
+        
+        if self.api_key:
+            # 检查API密钥是否是环境变量引用格式
+            from ...llm.header_validator import HeaderValidator
+            validator = HeaderValidator()
+            
+            if validator._is_env_var_reference(self.api_key):
+                # 如果是环境变量引用，解析后再使用
+                resolved_key = validator._resolve_env_var(self.api_key)
+                if resolved_key:
+                    if self.model_type == "openai":
+                        auth_headers["Authorization"] = f"Bearer {resolved_key}"
+                    elif self.model_type == "gemini":
+                        auth_headers["x-goog-api-key"] = resolved_key
+                    elif self.model_type in ["anthropic", "claude"]:
+                        auth_headers["x-api-key"] = resolved_key
+            else:
+                # 如果是直接的API密钥，直接使用
+                if self.model_type == "openai":
+                    auth_headers["Authorization"] = f"Bearer {self.api_key}"
+                elif self.model_type == "gemini":
+                    auth_headers["x-goog-api-key"] = self.api_key
+                elif self.model_type in ["anthropic", "claude"]:
+                    auth_headers["x-api-key"] = self.api_key
+
+        # 只验证非认证头
         resolved_headers, sanitized_headers, is_valid, errors = (
-            processor.process_headers(self.headers)
+            processor.process_headers(original_headers)
         )
 
         if not is_valid:
             raise ValueError(f"HTTP标头验证失败: {'; '.join(errors)}")
+
+        # 将认证头添加到已验证的标头中
+        resolved_headers.update(auth_headers)
+        sanitized_headers.update({k: "***" for k in auth_headers.keys()})  # 对认证头进行脱敏
 
         # 缓存解析后的标头
         self._resolved_headers = resolved_headers
@@ -94,6 +141,14 @@ class LLMConfig(BaseConfig):
         """设置参数值"""
         self.parameters[key] = value
 
+    def get_cache_config(self, key: str, default: Any = None) -> Any:
+        """获取缓存配置值"""
+        return self.cache_config.get(key, default)
+
+    def set_cache_config(self, key: str, value: Any) -> None:
+        """设置缓存配置值"""
+        self.cache_config[key] = value
+
     def get_headers(self) -> Dict[str, str]:
         """获取请求头（已解析环境变量）"""
         # 如果已经解析过，直接返回
@@ -105,30 +160,12 @@ class LLMConfig(BaseConfig):
 
         # 处理API密钥
         if self.api_key:
-            # 延迟导入避免循环依赖
-            from ...llm.header_validator import HeaderValidator
-
-            validator = HeaderValidator()
-
-            if validator._is_env_var_reference(self.api_key):
-                # 解析环境变量
-                resolved_key = validator._resolve_env_var(self.api_key)
-                if resolved_key:
-                    # 根据模型类型设置不同的认证头
-                    if self.model_type == "openai":
-                        headers["Authorization"] = f"Bearer {resolved_key}"
-                    elif self.model_type == "gemini":
-                        headers["x-goog-api-key"] = resolved_key
-                    elif self.model_type == "anthropic":
-                        headers["x-api-key"] = resolved_key
-            else:
-                # 直接使用API密钥
-                if self.model_type == "openai":
-                    headers["Authorization"] = f"Bearer {self.api_key}"
-                elif self.model_type == "gemini":
-                    headers["x-goog-api-key"] = self.api_key
-                elif self.model_type == "anthropic":
-                    headers["x-api-key"] = self.api_key
+            if self.model_type == "openai":
+                headers["Authorization"] = f"Bearer {self.api_key}"
+            elif self.model_type == "gemini":
+                headers["x-goog-api-key"] = self.api_key
+            elif self.model_type in ["anthropic", "claude"]:
+                headers["x-api-key"] = self.api_key
 
         # 解析其他标头中的环境变量
         from ...llm.header_validator import HeaderValidator
@@ -187,3 +224,39 @@ class LLMConfig(BaseConfig):
     def is_anthropic(self) -> bool:
         """检查是否为Anthropic模型"""
         return self.model_type in ["anthropic", "claude"]
+
+    def get_provider_name(self) -> str:
+        """获取提供商名称"""
+        return self.provider or self.model_type
+
+    def supports_api_caching(self) -> bool:
+        """检查是否支持API级缓存"""
+        return self.supports_caching
+
+    def get_cache_ttl(self) -> int:
+        """获取缓存TTL（秒）"""
+        return self.get_cache_config("ttl_seconds", 3600)
+
+    def get_cache_max_size(self) -> int:
+        """获取缓存最大大小"""
+        return self.get_cache_config("max_size", 1000)
+
+    def is_fallback_enabled(self) -> bool:
+        """检查是否启用降级"""
+        return self.fallback_enabled
+
+    def get_fallback_models(self) -> List[str]:
+        """获取降级模型列表"""
+        return self.fallback_models.copy()
+
+    def get_max_fallback_attempts(self) -> int:
+        """获取最大降级尝试次数"""
+        return self.max_fallback_attempts
+
+    def get_metadata(self, key: str, default: Any = None) -> Any:
+        """获取元数据值"""
+        return self.metadata.get(key, default)
+
+    def set_metadata(self, key: str, value: Any) -> None:
+        """设置元数据值"""
+        self.metadata[key] = value

@@ -588,12 +588,23 @@ class TokenCounterFactory:
         model_type = model_config.get("model_type", "openai")
         model_name = model_config.get("model_name", "gpt-3.5-turbo")
         
+        # 从新的LLM配置中提取缓存设置
+        supports_caching = model_config.get("supports_caching", False)
+        cache_config = model_config.get("cache_config", {})
+        
         # 从配置中提取token相关设置
         token_config = {
-            "supports_token_caching": model_config.get("supports_token_caching", True),
+            "supports_token_caching": supports_caching,
             "track_conversation": model_config.get("track_conversation", False),
             "max_context_tokens": model_config.get("max_tokens", 2000),
-            "enhanced": True  # 默认使用增强版本
+            "enhanced": True,  # 默认使用增强版本
+            # 添加缓存配置
+            "cache": {
+                "enabled": cache_config.get("enabled", supports_caching),
+                "ttl_seconds": cache_config.get("ttl_seconds", 3600),
+                "max_size": cache_config.get("max_size", 1000),
+                "clear_on_init": cache_config.get("clear_on_init", False)
+            }
         }
         
         return TokenCounterFactory.create_counter(model_type, model_name, True, token_config)

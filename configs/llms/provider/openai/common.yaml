@@ -1,0 +1,56 @@
+# OpenAI Provider通用配置模板
+provider_type: openai
+base_url: "https://api.openai.com/v1"
+headers:
+  User-Agent: "ModularAgent/1.0"
+
+# 缓存配置
+supports_caching: false  # OpenAI不直接支持API级缓存
+cache_config:
+  enabled: false
+  ttl_seconds: 3600
+  max_size: 1000
+
+# 通用参数模板
+default_parameters:
+  temperature: 0.7
+  max_tokens: 2000
+  max_completion_tokens: null
+  top_p: 1.0
+  frequency_penalty: 0.0
+  presence_penalty: 0.0
+  stop: null
+  top_logprobs: null
+  tool_choice: null
+  tools: null
+  response_format: null
+  stream: false
+  stream_options: null
+  service_tier: "auto"
+  safety_identifier: null
+  store: false
+  reasoning: null
+  verbosity: "medium"
+  web_search_options: null
+  seed: null
+  user: null
+  timeout: 30
+  max_retries: 3
+
+# 降级配置
+fallback_config:
+  enabled: true
+  max_attempts: 3
+
+# 元数据
+metadata:
+  provider: openai
+  version: "1.0"
+  description: "OpenAI Provider通用配置"
+  supported_features:
+    - function_calling
+    - streaming
+    - json_mode
+    - vision
+  unsupported_features:
+    - api_caching

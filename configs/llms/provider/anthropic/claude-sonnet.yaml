@@ -1,0 +1,34 @@
+# Anthropic Claude Sonnet 配置
+# 继承自 provider/anthropic/common.yaml
+
+model_type: anthropic
+model_name: claude-3-sonnet-20240229
+provider: anthropic
+base_url: "https://api.anthropic.com"
+api_key: "${ANTHROPIC_API_KEY}"
+token_counter: anthropic_claude
+
+# 只覆盖需要修改的参数，其他从common.yaml继承
+parameters:
+  # 基础生成参数（覆盖common.yaml中的默认值）
+  temperature: 0.7
+  max_tokens: 2000
+  top_p: 1.0
+  
+  # 其他参数保持默认值，无需重复配置
+
+# 缓存配置继承自provider配置，可以覆盖
+supports_caching: true  # Anthropic支持缓存控制
+
+# 降级配置
+fallback_enabled: true
+fallback_models:
+  - openai-gpt3.5-turbo
+max_fallback_attempts: 3
+
+# 元数据
+metadata:
+  provider: anthropic
+  version: "1.0"
+  description: "Anthropic Claude 3 Sonnet 模型"
+  model_family: "claude-3"

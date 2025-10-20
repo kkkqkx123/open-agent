@@ -1,0 +1,63 @@
+# Gemini Provider通用配置模板
+provider_type: gemini
+base_url: "https://generativelanguage.googleapis.com/v1"
+headers:
+  User-Agent: "ModularAgent/1.0"
+
+# 缓存配置
+supports_caching: true  # Gemini明确支持缓存API
+cache_config:
+  enabled: true
+  ttl_seconds: 3600
+  max_size: 1000
+  cache_type: "content_cache"  # 内容缓存类型
+
+# 通用参数模板
+default_parameters:
+  temperature: 0.7
+  max_tokens: 2048
+  max_output_tokens: null
+  top_p: 1.0
+  top_k: 40
+  stop_sequences: null
+  candidate_count: 1
+  system_instruction: null
+  response_mime_type: null
+  thinking_config: null
+  stream: false
+  safety_settings: null
+  tool_choice: null
+  tools: null
+  user: null
+  timeout: 30
+  max_retries: 3
+
+# 缓存相关参数
+cache_parameters:
+  content_cache:
+    enabled: true
+    ttl: "3600s"  # 缓存生存时间，如"3600s", "1h"
+    display_name: null  # 缓存显示名称
+    system_instruction: null  # 缓存的系统指令
+  generation_config:
+    cached_content: null  # 使用的缓存内容名称
+
+# 降级配置
+fallback_config:
+  enabled: true
+  max_attempts: 3
+
+# 元数据
+metadata:
+  provider: google
+  version: "1.0"
+  description: "Gemini Provider通用配置"
+  supported_features:
+    - function_calling
+    - streaming
+    - api_caching
+    - content_cache
+    - vision
+    - code_execution
+  unsupported_features:
+    - json_mode  # 通过response_mime_type实现
