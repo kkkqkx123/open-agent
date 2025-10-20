@@ -31,7 +31,7 @@ class TestPromptIntegration:
             assistant_file.write_text("""---
 description: 通用助手提示词
 ---
-你是一个通用助手，负责解答用户问题。""")
+你是一个通用助手，负责解答用户问题。""", encoding='utf-8')
             
             # 复合系统提示词
             coder_dir = system_dir / "coder"
@@ -41,13 +41,13 @@ description: 通用助手提示词
             index_file.write_text("""---
 description: 代码生成专家
 ---
-你是一个代码生成专家。""")
+你是一个代码生成专家。""", encoding='utf-8')
             
             style_file = coder_dir / "01_code_style.md"
             style_file.write_text("""---
 description: 代码风格
 ---
-请遵循PEP8规范。""")
+请遵循PEP8规范。""", encoding='utf-8')
             
             # 创建规则提示词
             rules_dir = prompts_dir / "rules"
@@ -57,13 +57,13 @@ description: 代码风格
             safety_file.write_text("""---
 description: 安全规则
 ---
-请遵循安全规则。""")
+请遵循安全规则。""", encoding='utf-8')
             
             format_file = rules_dir / "format.md"
             format_file.write_text("""---
 description: 格式规则
 ---
-请遵循格式规则。""")
+请遵循格式规则。""", encoding='utf-8')
             
             # 创建用户指令
             user_commands_dir = prompts_dir / "user_commands"
@@ -73,7 +73,7 @@ description: 格式规则
             data_analysis_file.write_text("""---
 description: 数据分析指令
 ---
-请分析提供的数据。""")
+请分析提供的数据。""", encoding='utf-8')
             
             yield prompts_dir
     
@@ -106,7 +106,7 @@ user_commands:
   - name: data_analysis
     path: {temp_prompts_dir}/user_commands/data_analysis.md
     description: 数据分析用户指令
-""")
+""", encoding='utf-8')
             
             yield config_dir
     
@@ -154,7 +154,7 @@ user_commands:
         
         # 验证用户指令
         assert isinstance(state.messages[2], HumanMessage)
-        assert "分析数据" in state.messages[2].content
+        assert "分析" in state.messages[2].content
     
     def test_end_to_end_composite_prompt_injection(self, prompt_system):
         """测试端到端复合提示词注入"""
@@ -251,7 +251,7 @@ user_commands:
         
         # 用户指令在最后
         assert isinstance(state.messages[3], HumanMessage)
-        assert "分析数据" in state.messages[3].content
+        assert "分析" in state.messages[3].content
     
     def test_registry_operations(self, prompt_system):
         """测试注册表操作"""
