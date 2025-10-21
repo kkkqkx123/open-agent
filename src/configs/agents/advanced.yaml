@@ -1,0 +1,16 @@
+capabilities:
+- 对话
+- 计算
+- 天气查询
+- 数据库操作
+- 网络搜索
+- 代码生成
+description: 功能强大的Agent，支持多种工具和复杂任务处理
+model: gpt-4
+name: 高级Agent
+system_prompt: 你是一个高级AI助手，具备强大的问题解决能力和工具使用技能。
+tools:
+- calculator
+- weather
+- database
+- web_search

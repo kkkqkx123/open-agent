@@ -4,6 +4,7 @@ import asyncio
 from typing import Optional, Dict, Any, List, Union
 from pathlib import Path
 
+from blessed import Terminal
 from rich.console import Console
 from rich.live import Live
 from rich.text import Text
@@ -45,6 +46,9 @@ class TUIApp:
             config_path: 配置文件路径
         """
         self.console = Console()
+        
+        # 初始化blessed终端
+        self.terminal = Terminal()
         
         # 加载配置
         self.config = get_tui_config(config_path)
@@ -149,21 +153,23 @@ class TUIApp:
         try:
             self.running = True
             
-            # 获取终端尺寸
-            terminal_size = self.console.size
-            
-            # 创建布局
-            layout = self.layout_manager.create_layout(terminal_size)
-            
-            # 启动Live显示
-            with Live(layout, console=self.console, refresh_per_second=self.config.behavior.refresh_rate) as live:
-                self.live = live
+            # 设置终端模式
+            with self.terminal.cbreak(), self.terminal.hidden_cursor():
+                # 获取终端尺寸
+                terminal_size = self.console.size
                 
-                # 显示欢迎信息
-                self._show_welcome_message()
+                # 创建布局
+                layout = self.layout_manager.create_layout(terminal_size)
                 
-                # 主事件循环
-                self._run_event_loop()
+                # 启动Live显示
+                with Live(layout, console=self.console, refresh_per_second=self.config.behavior.refresh_rate) as live:
+                    self.live = live
+                    
+                    # 显示欢迎信息
+                    self._show_welcome_message()
+                    
+                    # 主事件循环
+                    self._run_event_loop()
                 
         except KeyboardInterrupt:
             self._handle_shutdown()
@@ -176,24 +182,193 @@ class TUIApp:
     
     def _run_event_loop(self) -> None:
         """运行主事件循环"""
-        # 简化的事件循环，实际应用中可以使用更复杂的输入处理
+        import sys
+        import threading
+        import time
+        import queue
+        
+        # 创建一个队列来处理输入
+        input_queue = queue.Queue()
+        
+        def input_reader():
+            """输入读取线程"""
+            try:
+                while self.running:
+                    with self.terminal.cbreak():
+                        try:
+                            # 读取单个字符
+                            char = sys.stdin.read(1)
+                            if char:
+                                input_queue.put(char)
+                        except (UnicodeDecodeError, IOError):
+                            # 忽略编码错误，继续读取
+                            continue
+            except Exception:
+                pass
+        
+        # 启动输入读取线程
+        input_thread = threading.Thread(target=input_reader, daemon=True)
+        input_thread.start()
+        
         while self.running:
             try:
-                # 模拟用户输入（实际应用中需要真实的输入处理）
-                import time
-                time.sleep(0.1)
+                # 处理队列中的输入
+                try:
+                    while not input_queue.empty():
+                        char = input_queue.get_nowait()
+                        
+                        # 处理特殊字符
+                        if char == '\x1b':  # ESC
+                            key_str = "escape"
+                        elif char == '\x0d':  # Enter (CR)
+                            key_str = "enter"
+                        elif char == '\x7f':  # Backspace
+                            key_str = "backspace"
+                        elif char == '\x09':  # Tab
+                            key_str = "tab"
+                        elif char == '\x1b':  # ESC序列开始
+                            # 尝试读取更多字符来识别方向键等
+                            try:
+                                if not input_queue.empty():
+                                    next_char = input_queue.get_nowait()
+                                    if next_char == '[':
+                                        # 方向键序列
+                                        if not input_queue.empty():
+                                            direction = input_queue.get_nowait()
+                                            if direction == 'A':
+                                                key_str = "up"
+                                            elif direction == 'B':
+                                                key_str = "down"
+                                            elif direction == 'C':
+                                                key_str = "right"
+                                            elif direction == 'D':
+                                                key_str = "left"
+                                            else:
+                                                key_str = ""
+                                        else:
+                                            key_str = ""
+                                    else:
+                                        key_str = ""
+                                else:
+                                    key_str = "escape"
+                            except queue.Empty:
+                                key_str = "escape"
+                        else:
+                            # 普通字符（包括中文）
+                            key_str = f"char:{char}"
+                        
+                        # 处理按键
+                        if key_str:
+                            # 首先让输入组件处理按键
+                            result = self.input_component.handle_key(key_str)
+                            
+                            # 如果输入组件返回了结果，处理它
+                            if result is not None:
+                                self._handle_input_result(result)
+                            
+                            # 让TUI应用处理全局快捷键
+                            self.handle_key(key_str)
+                            
+                except queue.Empty:
+                    pass
                 
-                # 处理快捷键（这里需要实际的键盘输入处理）
-                # 在实际实现中，需要集成键盘输入库如keyboard或prompt_toolkit
-                
-                # 更新UI
+                # 定期更新UI
                 self._update_ui()
+                time.sleep(0.05)  # 减少CPU使用率
                 
             except KeyboardInterrupt:
                 break
             except Exception as e:
-                self.console.print(f"[red]事件循环错误: {e}[/red]")
+                # 只显示非编码相关的错误
+                if "codec" not in str(e) and "decode" not in str(e):
+                    self.console.print(f"[red]事件循环错误: {e}[/red]")
                 break
+    
+    def _convert_key_to_string(self, key) -> str:
+        """将blessed的按键对象转换为字符串格式（保留用于兼容性）
+        
+        Args:
+            key: blessed的按键对象
+            
+        Returns:
+            str: 按键字符串
+        """
+        if not key:
+            return ""
+        
+        try:
+            # 处理特殊按键
+            if key.name:
+                if key.name == 'KEY_ENTER':
+                    return "enter"
+                elif key.name == 'KEY_ESCAPE':
+                    return "escape"
+                elif key.name == 'KEY_UP':
+                    return "up"
+                elif key.name == 'KEY_DOWN':
+                    return "down"
+                elif key.name == 'KEY_LEFT':
+                    return "left"
+                elif key.name == 'KEY_RIGHT':
+                    return "right"
+                elif key.name == 'KEY_BACKSPACE':
+                    return "backspace"
+                elif key.name == 'KEY_DELETE':
+                    return "delete"
+                elif key.name == 'KEY_HOME':
+                    return "home"
+                elif key.name == 'KEY_END':
+                    return "end"
+                elif key.name == 'KEY_TAB':
+                    return "tab"
+                elif key.name.startswith('KEY_F'):
+                    # 功能键
+                    return key.name.lower().replace('key_', '')
+                elif key.is_sequence:
+                    # 其他序列键（如Alt组合键）
+                    if 'alt' in key.name.lower():
+                        return f"alt+{key.name.split('_')[-1].lower()}"
+                    elif 'ctrl' in key.name.lower():
+                        return f"ctrl+{key.name.split('_')[-1].lower()}"
+            
+            # 处理普通字符（包括中文）
+            if key.is_sequence:
+                return ""
+            else:
+                # 支持所有可打印字符，包括中文
+                char_str = str(key)
+                if char_str and char_str.isprintable():
+                    return f"char:{char_str}"
+                else:
+                    return ""
+                    
+        except (UnicodeError, AttributeError):
+            # 处理编码错误或属性错误
+            return ""
+    
+    def _handle_input_result(self, result: str) -> None:
+        """处理输入组件返回的结果
+        
+        Args:
+            result: 输入组件返回的结果
+        """
+        if result == "CLEAR_SCREEN":
+            self._clear_screen()
+        elif result == "EXIT":
+            self.running = False
+        elif result and result.startswith("LOAD_SESSION:"):
+            session_id = result.split(":", 1)[1]
+            self._load_session(session_id)
+        elif result in ["SAVE_SESSION", "NEW_SESSION", "PAUSE_WORKFLOW",
+                      "RESUME_WORKFLOW", "STOP_WORKFLOW", "OPEN_STUDIO",
+                      "OPEN_SESSIONS", "OPEN_AGENTS"]:
+            # 处理命令
+            command = result.lower()
+            self._handle_command(command, [])
+        elif result:
+            # 显示命令结果
+            self.add_system_message(result)
+            self.main_content_component.add_assistant_message(result)
     
     def handle_key(self, key: str) -> bool:
         """处理键盘输入
@@ -550,8 +725,13 @@ class TUIApp:
         
         # 更新状态
         if self.current_state:
-            human_message = HumanMessage(content=content)
-            self.current_state.add_message(human_message)
+            try:
+                human_message = HumanMessage(content=content)
+                self.current_state.add_message(human_message)
+            except Exception:
+                # 如果HumanMessage不可用，创建一个简单的消息对象
+                simple_message = type('SimpleMessage', (), {'content': content})()
+                self.current_state.add_message(simple_message)
     
     def add_assistant_message(self, content: str) -> None:
         """添加助手消息"""
@@ -593,8 +773,13 @@ class TUIApp:
         
         # 更新状态
         if self.current_state:
-            human_message = HumanMessage(content=input_text)
-            self.current_state.add_message(human_message)
+            try:
+                human_message = HumanMessage(content=input_text)
+                self.current_state.add_message(human_message)
+            except Exception:
+                # 如果HumanMessage不可用，创建一个简单的消息对象
+                simple_message = type('SimpleMessage', (), {'content': input_text})()
+                self.current_state.add_message(simple_message)
         
         # 这里可以添加处理用户输入的逻辑
         # 例如：调用工作流处理输入

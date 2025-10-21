@@ -562,6 +562,22 @@ class InputPanelComponent:
         if not text.strip():
             return None
         
+        # 检查多行输入逻辑
+        if text.endswith('\\'):
+            # 末尾为'\'，执行换行操作（不忽略空格）
+            # 移除末尾的'\'并添加换行符
+            text_without_backslash = text[:-1]
+            self.input_buffer.set_text(text_without_backslash + '\n')
+            return None
+        elif text.endswith(' '):
+            # 末尾是空格，直接提交
+            pass  # 继续执行提交逻辑
+        elif '\n' in text:
+            # 包含换行符，检查是否在多行模式
+            # 如果不在多行模式，继续编辑
+            if not self.input_buffer.multiline_mode:
+                return None
+        
         # 检查是否是命令
         if self.command_processor.is_command(text):
             # 执行命令
