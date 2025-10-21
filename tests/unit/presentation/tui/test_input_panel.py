@@ -4,9 +4,11 @@ import pytest
 from unittest.mock import Mock, MagicMock
 from typing import List, Dict, Any
 
-from src.presentation.tui.components.input_panel import (
-    InputHistory, CommandProcessor, InputBuffer, InputPanelComponent
+from src.presentation.tui.components.input_panel_component import (
+    InputHistory, InputBuffer
 )
+from src.presentation.tui.components.input_panel import InputPanel
+from src.presentation.tui.components.input_panel_component import SlashCommandProcessor as CommandProcessor
 
 
 class TestInputHistory:
@@ -481,12 +483,12 @@ class TestInputPanelComponent:
         from src.presentation.tui.config import TUIConfig
         
         config = TUIConfig.__new__(TUIConfig)  # 创建一个空的配置对象
-        panel = InputPanelComponent(config)
+        panel = InputPanel(config)
         
         assert panel.config == config
         assert panel.input_buffer is not None
         assert panel.input_history is not None
-        assert panel.command_processor is not None
+        assert panel.command_processors is not None
         assert panel.is_processing is False
         assert panel.show_help is False
         assert panel.placeholder == "在此输入消息... (使用 /help 查看命令)"
@@ -495,16 +497,16 @@ class TestInputPanelComponent:
     
     def test_input_panel_component_init_without_config(self):
         """测试无配置初始化输入面板组件"""
-        panel = InputPanelComponent()
+        panel = InputPanel()
         
         assert panel.config is None
         assert panel.input_buffer is not None
         assert panel.input_history is not None
-        assert panel.command_processor is not None
+        assert panel.command_processors is not None
     
     def test_set_callbacks(self):
         """测试设置回调函数"""
-        panel = InputPanelComponent()
+        panel = InputPanel()
         
         def submit_callback(text):
             pass
@@ -520,7 +522,7 @@ class TestInputPanelComponent:
     
     def test_handle_key_enter_empty(self):
         """测试回车键处理（空输入）"""
-        panel = InputPanelComponent()
+        panel = InputPanel()
         
         result = panel.handle_key("enter")
         
@@ -529,7 +531,7 @@ class TestInputPanelComponent:
     
     def test_handle_key_enter_command(self):
         """测试回车键处理（命令输入）"""
-        panel = InputPanelComponent()
+        panel = InputPanel()
         
         # 设置输入为命令
         panel.input_buffer.set_text("/help")
@@ -551,7 +553,7 @@ class TestInputPanelComponent:
     
     def test_handle_key_enter_text(self):
         """测试回车键处理（普通文本）"""
-        panel = InputPanelComponent()
+        panel = InputPanel()
         
         # 设置输入为普通文本
         panel.input_buffer.set_text("hello world")
@@ -570,7 +572,7 @@ class TestInputPanelComponent:
     
     def test_handle_key_navigation(self):
         """测试导航键处理"""
-        panel = InputPanelComponent()
+        panel = InputPanel()
         panel.input_history.add_entry("previous input")
         
         # 测试向上键
@@ -591,7 +593,7 @@ class TestInputPanelComponent:
     
     def test_handle_key_editing(self):
         """测试编辑键处理"""
-        panel = InputPanelComponent()
+        panel = InputPanel()
         panel.input_buffer.set_text("hello")
         
         # 测试退格键
@@ -608,7 +610,7 @@ class TestInputPanelComponent:
     
     def test_handle_key_tab(self):
         """测试Tab键处理"""
-        panel = InputPanelComponent()
+        panel = InputPanel()
         panel.input_buffer.set_text("/hel")  # 不完整的命令
         
         # 测试Tab自动补全（虽然实现可能不完整，但至少不报错）
@@ -616,7 +618,7 @@ class TestInputPanelComponent:
     
     def test_handle_key_multiline_toggle(self):
         """测试多行模式切换键"""
-        panel = InputPanelComponent()
+        panel = InputPanel()
         
         initial_mode = panel.input_buffer.multiline_mode
         panel.handle_key("ctrl+m")  # 切换多行模式
@@ -624,7 +626,7 @@ class TestInputPanelComponent:
     
     def test_set_processing(self):
         """测试设置处理状态"""
-        panel = InputPanelComponent()
+        panel = InputPanel()
         
         panel.set_processing(True)
         assert panel.is_processing is True
@@ -634,7 +636,7 @@ class TestInputPanelComponent:
     
     def test_render(self):
         """测试渲染方法"""
-        panel = InputPanelComponent()
+        panel = InputPanel()
         
         # 验证渲染方法不抛出异常
         rendered = panel.render()

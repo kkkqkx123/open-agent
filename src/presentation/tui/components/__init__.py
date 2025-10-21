@@ -3,7 +3,7 @@
 from .sidebar import SidebarComponent
 from .langgraph_panel import LangGraphPanelComponent
 from .main_content import MainContentComponent
-from .input_panel import InputPanelComponent
+from .input_panel import InputPanel
 from .session_dialog import SessionManagerDialog
 from .agent_dialog import AgentSelectDialog
 from .workflow_control import WorkflowControlPanel
@@ -17,11 +17,20 @@ from .history_replay import HistoryReplayPanel
 from .performance_analyzer import PerformanceAnalyzerPanel
 from .studio_integration import StudioIntegrationPanel
 
+# 导入输入面板子模块
+from .input_panel_component import (
+    InputHistory,
+    InputBuffer,
+    BaseCommandProcessor,
+    FileSelectorProcessor,
+    WorkflowSelectorProcessor,
+    SlashCommandProcessor
+)
+
 __all__ = [
     "SidebarComponent",
     "LangGraphPanelComponent",
     "MainContentComponent",
-    "InputPanelComponent",
     "SessionManagerDialog",
     "AgentSelectDialog",
     "WorkflowControlPanel",
@@ -33,5 +42,12 @@ __all__ = [
     "NodeDebuggerPanel",
     "HistoryReplayPanel",
     "PerformanceAnalyzerPanel",
-    "StudioIntegrationPanel"
+    "StudioIntegrationPanel",
+    # 输入面板子模块
+    "InputHistory",
+    "InputBuffer",
+    "BaseCommandProcessor",
+    "FileSelectorProcessor",
+    "WorkflowSelectorProcessor",
+    "SlashCommandProcessor"
 ]

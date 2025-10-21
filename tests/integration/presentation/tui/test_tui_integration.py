@@ -10,7 +10,7 @@ from src.presentation.tui.config import TUIConfig, get_tui_config
 from src.presentation.tui.state_manager import StateManager
 from src.presentation.tui.layout import LayoutManager
 from src.presentation.tui.event_engine import EventEngine
-from src.presentation.tui.components.input_panel import InputPanelComponent
+from src.presentation.tui.components.input_panel import InputPanel
 from src.presentation.tui.subviews.analytics import AnalyticsSubview
 
 
@@ -124,7 +124,7 @@ class TestTUIIntegration:
     def test_input_component_with_state_integration(self):
         """测试输入组件与状态管理器的集成"""
         # 初始化组件
-        input_component = InputPanelComponent()
+        input_component = InputPanel()
         state_manager = StateManager()
         
         # 设置回调，连接输入组件和状态管理器
@@ -156,7 +156,7 @@ class TestTUIIntegration:
             
             # 初始化事件引擎和输入组件
             event_engine = EventEngine(mock_term_instance, get_tui_config())
-            input_component = InputPanelComponent()
+            input_component = InputPanel()
             
             # 设置输入组件处理器
             mock_result_handler = Mock()
@@ -199,7 +199,7 @@ class TestTUIIntegration:
         state_manager = StateManager()
         
         # 创建输入组件并设置回调
-        input_component = InputPanelComponent()
+        input_component = InputPanel()
         
         def submit_callback(text):
             # 当输入提交时，更新状态管理器
@@ -229,7 +229,7 @@ class TestTUIIntegration:
         layout_manager = LayoutManager(config.layout)
         
         # 创建一些组件
-        input_component = InputPanelComponent(config)
+        input_component = InputPanel(config)
         state_manager = StateManager()
         
         # 验证布局管理器可以与组件协作

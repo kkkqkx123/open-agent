@@ -210,7 +210,7 @@ class TestTUIDependencyInjectionIntegration:
         """测试配置依赖在组件中的使用"""
         from src.presentation.tui.layout import LayoutManager
         from src.presentation.tui.state_manager import StateManager
-        from src.presentation.tui.components.input_panel import InputPanelComponent
+        from src.presentation.tui.components.input_panel import InputPanel
         from src.presentation.tui.subviews.analytics import AnalyticsSubview
         
         # 获取配置
@@ -223,7 +223,7 @@ class TestTUIDependencyInjectionIntegration:
         state_manager = StateManager()
         # StateManager不直接使用TUIConfig，但依赖其他配置
         
-        input_component = InputPanelComponent(config)
+        input_component = InputPanel(config)
         assert input_component.config == config
         
         analytics_subview = AnalyticsSubview(config)
@@ -232,7 +232,7 @@ class TestTUIDependencyInjectionIntegration:
     def test_component_to_component_integration_with_config(self):
         """测试使用配置的组件间集成"""
         from src.presentation.tui.state_manager import StateManager
-        from src.presentation.tui.components.input_panel import InputPanelComponent
+        from src.presentation.tui.components.input_panel import InputPanel
         from src.presentation.tui.subviews.analytics import AnalyticsSubview
         
         # 获取配置
@@ -242,7 +242,7 @@ class TestTUIDependencyInjectionIntegration:
         state_manager = StateManager()
         
         # 创建输入组件
-        input_component = InputPanelComponent(config)
+        input_component = InputPanel(config)
         
         # 创建分析子界面
         analytics_subview = AnalyticsSubview(config)
@@ -337,7 +337,7 @@ class TestTUIModuleInitializationIntegration:
         """测试子模块集成"""
         from src.presentation.tui.components import (
             SidebarComponent, LangGraphPanelComponent, MainContentComponent, 
-            InputPanelComponent
+            InputPanel
         )
         from src.presentation.tui.subviews import (
             BaseSubview, AnalyticsSubview, VisualizationSubview, 
@@ -348,7 +348,7 @@ class TestTUIModuleInitializationIntegration:
         config = get_tui_config()
         
         # 测试组件初始化
-        input_comp = InputPanelComponent(config)
+        input_comp = InputPanel(config)
         analytics_sub = AnalyticsSubview(config)
         
         assert input_comp is not None

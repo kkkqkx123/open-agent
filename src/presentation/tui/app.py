@@ -13,7 +13,7 @@ from .components import (
     SidebarComponent,
     LangGraphPanelComponent,
     MainContentComponent,
-    InputPanelComponent,
+    InputPanel,
     SessionManagerDialog,
     AgentSelectDialog
 )
@@ -134,7 +134,7 @@ class TUIApp:
         self.sidebar_component = SidebarComponent(self.config)
         self.langgraph_component = LangGraphPanelComponent(self.config)
         self.main_content_component = MainContentComponent(self.config)
-        self.input_component = InputPanelComponent(self.config)
+        self.input_component = InputPanel(self.config)
         
         # 初始化对话框
         self.session_dialog = SessionManagerDialog(self.config)
