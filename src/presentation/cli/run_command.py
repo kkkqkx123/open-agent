@@ -88,7 +88,7 @@ class RunCommand:
             border_style="green"
         )
         self.console.print(panel)
-        self.console.print()
+        # 移除额外的空行打印
     
     def _run_interactive_loop(self, session_id: str, workflow: Any, state: AgentState, session_manager: ISessionManager) -> None:
         """运行交互式循环"""
@@ -161,10 +161,17 @@ class RunCommand:
         try:
             # 这里需要根据具体的工作流实现来调整
             # 假设工作流有async_run方法
-            if hasattr(workflow, 'async_run'):
-                result = await workflow.async_run(state)
-                return result  # type: ignore
-            elif hasattr(workflow, 'run'):
+            if hasattr(workflow, 'async_run') and callable(workflow.async_run):
+                # 检查是否是协程函数
+                import inspect
+                if inspect.iscoroutinefunction(workflow.async_run):
+                    result = await workflow.async_run(state)
+                    return result  # type: ignore
+                else:
+                    # 如果不是协程函数，直接调用
+                    result = workflow.async_run(state)
+                    return result  # type: ignore
+            elif hasattr(workflow, 'run') and callable(workflow.run):
                 result = workflow.run(state)
                 return result  # type: ignore
             else:

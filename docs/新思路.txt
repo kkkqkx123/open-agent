@@ -22,3 +22,7 @@ injection提示词：用于破限
 多种工具调用格式及配套提示词
 
 所有工作流都要给出demo，放在workflow_demo目录中
+
+系统提示词：尽量在项目根目录执行命令
+
+AGENT：scout
