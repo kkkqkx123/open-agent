@@ -110,6 +110,30 @@ class ISessionManager(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """获取会话信息
+
+        Args:
+            session_id: 会话ID
+
+        Returns:
+            Optional[Dict[str, Any]]: 会话信息，如果不存在则返回None
+        """
+        pass
+
+    @abstractmethod
+    def session_exists(self, session_id: str) -> bool:
+        """检查会话是否存在
+
+        Args:
+            session_id: 会话ID
+
+        Returns:
+            bool: 会话是否存在
+        """
+        pass
+
 
 class SessionManager(ISessionManager):
     """会话管理器实现"""
@@ -281,6 +305,14 @@ class SessionManager(ISessionManager):
                     "author": "system"
                 }]
             return []
+
+    def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """获取会话信息"""
+        return self.get_session(session_id)
+
+    def session_exists(self, session_id: str) -> bool:
+        """检查会话是否存在"""
+        return self.get_session(session_id) is not None
 
     def _serialize_state(self, state: AgentState) -> Dict[str, Any]:
         """序列化状态"""
