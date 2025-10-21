@@ -1,0 +1,8 @@
+python -c "from src.presentation.tui.app import TUIApp; app = TUIApp(); print('TUIApp instantiated successfully')"
+
+警告: 加载配置文件失败，使用默认配置: could not determine a constructor for the tag 'tag:yaml.org,2002:python/tuple'
+  in "C:\Users\33530\.modular-agent\tui_config.yaml", line 48, column 12
+初始化依赖失败: Service <class 'src.session.manager.ISessionManager'> not registered
+TUIApp instantiated successfully
+
+编写ps1脚本，将configs目录同步到C:\Users\33530\.modular-agent

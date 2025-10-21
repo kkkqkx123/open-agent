@@ -139,7 +139,7 @@ class ErrorFeedbackSystem:
         if len(self.notifications) > self.max_notifications:
             self.notifications = self.notifications[-self.max_notifications:]
     
-    def add_info(self, message: str, title: Optional[str] = None, **kwargs) -> None:
+    def add_info(self, message: str, title: Optional[str] = None, **kwargs: Any) -> None:
         """添加信息通知
         
         Args:
@@ -155,7 +155,7 @@ class ErrorFeedbackSystem:
         )
         self.add_notification(notification)
     
-    def add_success(self, message: str, title: Optional[str] = None, **kwargs) -> None:
+    def add_success(self, message: str, title: Optional[str] = None, **kwargs: Any) -> None:
         """添加成功通知
         
         Args:
@@ -171,7 +171,7 @@ class ErrorFeedbackSystem:
         )
         self.add_notification(notification)
     
-    def add_warning(self, message: str, title: Optional[str] = None, **kwargs) -> None:
+    def add_warning(self, message: str, title: Optional[str] = None, **kwargs: Any) -> None:
         """添加警告通知
         
         Args:
@@ -188,7 +188,7 @@ class ErrorFeedbackSystem:
         )
         self.add_notification(notification)
     
-    def add_error(self, message: str, title: Optional[str] = None, details: Optional[str] = None, **kwargs) -> None:
+    def add_error(self, message: str, title: Optional[str] = None, details: Optional[str] = None, **kwargs: Any) -> None:
         """添加错误通知
         
         Args:
@@ -207,7 +207,7 @@ class ErrorFeedbackSystem:
         )
         self.add_notification(notification)
     
-    def add_loading(self, message: str, title: Optional[str] = None, **kwargs) -> None:
+    def add_loading(self, message: str, title: Optional[str] = None, **kwargs: Any) -> None:
         """添加加载通知
         
         Args:
@@ -340,7 +340,7 @@ class ErrorFeedbackSystem:
 class LoadingIndicator:
     """加载指示器"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.is_loading = False
         self.message = "加载中..."
         self.progress = 0.0
@@ -392,7 +392,7 @@ class LoadingIndicator:
             TextColumn("[progress.description]{task.description}"),
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
         )
-        progress.add_task(self.message, completed=self.progress, total=self.total)
+        progress.add_task(self.message, completed=int(self.progress), total=int(self.total))
         
         return Panel(
             progress,
@@ -494,19 +494,19 @@ class ErrorFeedbackPanel:
         """
         self.loading_indicator.finish(message)
     
-    def add_info(self, message: str, **kwargs) -> None:
+    def add_info(self, message: str, **kwargs: Any) -> None:
         """添加信息通知"""
         self.feedback_system.add_info(message, **kwargs)
     
-    def add_success(self, message: str, **kwargs) -> None:
+    def add_success(self, message: str, **kwargs: Any) -> None:
         """添加成功通知"""
         self.feedback_system.add_success(message, **kwargs)
     
-    def add_warning(self, message: str, **kwargs) -> None:
+    def add_warning(self, message: str, **kwargs: Any) -> None:
         """添加警告通知"""
         self.feedback_system.add_warning(message, **kwargs)
     
-    def add_error(self, message: str, **kwargs) -> None:
+    def add_error(self, message: str, **kwargs: Any) -> None:
         """添加错误通知"""
         self.feedback_system.add_error(message, **kwargs)
     

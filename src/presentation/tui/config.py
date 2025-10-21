@@ -33,18 +33,62 @@ class BehaviorConfig:
 
 
 @dataclass
+class SubviewConfig:
+    """子界面配置"""
+    enabled: bool = True
+    auto_refresh: bool = True
+    refresh_interval: float = 1.0  # 秒
+    max_data_points: int = 100
+    
+    # 分析监控子界面配置
+    analytics_show_details: bool = True
+    analytics_show_system_metrics: bool = True
+    analytics_show_execution_history: bool = True
+    
+    # 可视化调试子界面配置
+    visualization_show_details: bool = True
+    visualization_show_execution_path: bool = True
+    visualization_auto_refresh: bool = True
+    
+    # 系统管理子界面配置
+    system_show_studio_controls: bool = True
+    system_show_port_config: bool = True
+    system_show_config_management: bool = True
+    
+    # 错误反馈子界面配置
+    errors_auto_collect: bool = True
+    errors_include_stacktrace: bool = True
+    errors_max_errors: int = 100
+
+
+@dataclass
+class ShortcutConfig:
+    """快捷键配置"""
+    analytics: str = "alt+1"
+    visualization: str = "alt+2"
+    system: str = "alt+3"
+    errors: str = "alt+4"
+    back: str = "escape"
+    help: str = "f1"
+
+
+@dataclass
 class TUIConfig:
     """TUI完整配置"""
     layout: LayoutConfig
     theme: ThemeConfig
     behavior: BehaviorConfig
+    subview: SubviewConfig
+    shortcuts: ShortcutConfig
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         return {
             "layout": self._layout_to_dict(),
             "theme": asdict(self.theme),
-            "behavior": asdict(self.behavior)
+            "behavior": asdict(self.behavior),
+            "subview": asdict(self.subview),
+            "shortcuts": asdict(self.shortcuts)
         }
     
     def _layout_to_dict(self) -> Dict[str, Any]:
@@ -73,6 +117,8 @@ class TUIConfig:
         layout_data = data.get("layout", {})
         theme_data = data.get("theme", {})
         behavior_data = data.get("behavior", {})
+        subview_data = data.get("subview", {})
+        shortcuts_data = data.get("shortcuts", {})
         
         # 重建布局配置
         regions = {}
@@ -100,10 +146,18 @@ class TUIConfig:
         # 重建行为配置
         behavior_config = BehaviorConfig(**behavior_data)
         
+        # 重建子界面配置
+        subview_config = SubviewConfig(**subview_data)
+        
+        # 重建快捷键配置
+        shortcuts_config = ShortcutConfig(**shortcuts_data)
+        
         return cls(
             layout=layout_config,
             theme=theme_config,
-            behavior=behavior_config
+            behavior=behavior_config,
+            subview=subview_config,
+            shortcuts=shortcuts_config
         )
 
 
@@ -227,10 +281,18 @@ class ConfigManager:
         # 默认行为配置
         behavior_config = BehaviorConfig()
         
+        # 默认子界面配置
+        subview_config = SubviewConfig()
+        
+        # 默认快捷键配置
+        shortcuts_config = ShortcutConfig()
+        
         return TUIConfig(
             layout=layout_config,
             theme=theme_config,
-            behavior=behavior_config
+            behavior=behavior_config,
+            subview=subview_config,
+            shortcuts=shortcuts_config
         )
     
     def export_config(self, export_path: Path, format: str = "yaml") -> None:

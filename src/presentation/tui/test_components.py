@@ -26,7 +26,7 @@ from src.prompts.agent_state import AgentState, HumanMessage, ToolResult
 class ComponentTester:
     """组件测试器"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化组件测试器"""
         self.console = Console()
         self.config = get_tui_config()

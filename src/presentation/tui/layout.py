@@ -20,6 +20,7 @@ class LayoutRegion(Enum):
     MAIN = "main"
     INPUT = "input"
     LANGGRAPH = "langgraph"
+    STATUS = "status"
 
 
 @dataclass
@@ -126,8 +127,8 @@ class LayoutManager(ILayoutManager):
             ),
             LayoutRegion.SIDEBAR: RegionConfig(
                 name="侧边栏",
-                min_size=20,
-                max_size=40,
+                min_size=15,  # 减小最小尺寸
+                max_size=25,  # 减小最大尺寸
                 ratio=1,
                 resizable=True
             ),
@@ -149,7 +150,15 @@ class LayoutManager(ILayoutManager):
                 min_size=15,
                 max_size=30,
                 ratio=1,
-                resizable=True
+                resizable=True,
+                visible=False  # 默认隐藏
+            ),
+            LayoutRegion.STATUS: RegionConfig(
+                name="状态栏",
+                min_size=1,
+                max_size=1,
+                ratio=1,
+                resizable=False
             )
         }
         
@@ -178,14 +187,14 @@ class LayoutManager(ILayoutManager):
         layout.split_column(
             Layout(name="header", size=3),
             Layout(name="body"),
-            Layout(name="input", size=3)
+            Layout(name="input", size=3),
+            Layout(name="status", size=1)  # 添加状态栏
         )
         
-        # 主体部分分割为三部分
+        # 主体部分分割为两部分（移除LangGraph面板）
         layout["body"].split_row(
-            Layout(name="sidebar", size=30),
-            Layout(name="main"),
-            Layout(name="langgraph", size=25)
+            Layout(name="sidebar", size=25),  # 减小侧边栏宽度
+            Layout(name="main")
         )
         
         # 设置区域内容
@@ -201,14 +210,16 @@ class LayoutManager(ILayoutManager):
             layout.split_column(
                 Layout(name="header", size=3),
                 Layout(name="main"),
-                Layout(name="input", size=3)
+                Layout(name="input", size=3),
+                Layout(name="status", size=1)
             )
         else:  # medium
             # 分割为上下两部分，底部包含侧边栏
             layout.split_column(
                 Layout(name="header", size=3),
                 Layout(name="main"),
-                Layout(name="bottom", size=10)
+                Layout(name="bottom", size=10),
+                Layout(name="status", size=1)
             )
             
             # 底部分割为左右两部分
@@ -295,6 +306,21 @@ class LayoutManager(ILayoutManager):
                     self.layout["langgraph"].update(langgraph_content)
                 else:
                     self.layout["langgraph"].update(self._create_default_langgraph())
+        
+        # 更新状态栏
+        if self.layout:
+            try:
+                _ = self.layout["status"]
+                status_exists = True
+            except KeyError:
+                status_exists = False
+            
+            if status_exists:
+                status_content = self.region_contents.get(LayoutRegion.STATUS)
+                if status_content:
+                    self.layout["status"].update(status_content)
+                else:
+                    self.layout["status"].update(self._create_default_status())
     
     def _create_default_header(self) -> Panel:
         """创建默认标题栏"""
@@ -362,6 +388,20 @@ class LayoutManager(ILayoutManager):
             content,
             title="LangGraph状态",
             border_style="cyan"
+        )
+    
+    def _create_default_status(self) -> Panel:
+        """创建默认状态栏"""
+        status_text = Text()
+        status_text.append("快捷键: ", style="bold")
+        status_text.append("Alt+1=分析, Alt+2=可视化, Alt+3=系统, Alt+4=错误, ESC=返回", style="dim")
+        status_text.append(" | ", style="dim")
+        status_text.append("状态: 就绪", style="green")
+        
+        return Panel(
+            status_text,
+            style="dim",
+            border_style="dim"
         )
     
     def update_region_content(self, region: LayoutRegion, content: Any) -> None:

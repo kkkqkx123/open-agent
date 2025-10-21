@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from typing import List, Any, Optional, Dict
 from typing import TYPE_CHECKING
+from datetime import datetime
+
 
 # Define BaseMessage for fallback when LangChain is not available
 @dataclass
@@ -28,6 +30,9 @@ class AgentState:
     current_step: str = ""
     max_iterations: int = 10
     iteration_count: int = 0
+    workflow_name: str = ""
+    start_time: Optional[datetime] = None
+    errors: List[Dict[str, Any]] = field(default_factory=list)
     
     def add_message(self, message: object) -> None:
         """添加消息"""

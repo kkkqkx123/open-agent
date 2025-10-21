@@ -1,7 +1,7 @@
 """TUI应用程序主文件"""
 
 import asyncio
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from pathlib import Path
 
 from rich.console import Console
@@ -21,7 +21,14 @@ from .components import (
     MainContentComponent,
     InputPanelComponent,
     SessionManagerDialog,
-    AgentSelectDialog
+    AgentSelectDialog,
+    SidebarComponent
+)
+from .subviews import (
+    AnalyticsSubview,
+    VisualizationSubview,
+    SystemSubview,
+    ErrorFeedbackSubview
 )
 from src.infrastructure.container import get_global_container
 from src.session.manager import ISessionManager
@@ -67,6 +74,18 @@ class TUIApp:
         self.show_session_dialog = False
         self.show_agent_dialog = False
         
+        # 子界面状态管理
+        self.current_subview: Optional[str] = None  # None, "analytics", "visualization", "system", "errors"
+        
+        # 初始化子界面组件
+        self.analytics_view = AnalyticsSubview(self.config)
+        self.visualization_view = VisualizationSubview(self.config)
+        self.system_view = SystemSubview(self.config)
+        self.errors_view = ErrorFeedbackSubview(self.config)
+        
+        # 设置子界面回调
+        self._setup_subview_callbacks()
+        
         # 设置组件回调
         self._setup_component_callbacks()
         self._setup_dialog_callbacks()
@@ -79,6 +98,22 @@ class TUIApp:
         # 设置输入组件回调
         self.input_component.set_submit_callback(self._handle_input_submit)
         self.input_component.set_command_callback(self._handle_command)
+    
+    def _setup_subview_callbacks(self) -> None:
+        """设置子界面回调函数"""
+        # 设置分析监控子界面回调
+        self.analytics_view.set_callback("data_refreshed", self._on_analytics_data_refreshed)
+        
+        # 设置可视化调试子界面回调
+        self.visualization_view.set_callback("node_selected", self._on_visualization_node_selected)
+        
+        # 设置系统管理子界面回调
+        self.system_view.set_callback("studio_started", self._on_studio_started)
+        self.system_view.set_callback("studio_stopped", self._on_studio_stopped)
+        self.system_view.set_callback("config_reloaded", self._on_config_reloaded)
+        
+        # 设置错误反馈子界面回调
+        self.errors_view.set_callback("feedback_submitted", self._on_error_feedback_submitted)
     
     def _setup_dialog_callbacks(self) -> None:
         """设置对话框回调函数"""
@@ -94,7 +129,7 @@ class TUIApp:
         """初始化依赖注入"""
         try:
             container = get_global_container()
-            self.session_manager = container.get(ISessionManager)
+            self.session_manager = container.get(ISessionManager)  # type: ignore
             
             # 设置会话对话框的会话管理器
             self.session_dialog.set_session_manager(self.session_manager)
@@ -144,6 +179,9 @@ class TUIApp:
                 import time
                 time.sleep(0.1)
                 
+                # 处理快捷键（这里需要实际的键盘输入处理）
+                # 在实际实现中，需要集成键盘输入库如keyboard或prompt_toolkit
+                
                 # 更新UI
                 self._update_ui()
                 
@@ -153,27 +191,154 @@ class TUIApp:
                 self.console.print(f"[red]事件循环错误: {e}[/red]")
                 break
     
+    def handle_key(self, key: str) -> bool:
+        """处理键盘输入
+        
+        Args:
+            key: 按键字符串
+            
+        Returns:
+            bool: True表示已处理，False表示需要传递到下层
+        """
+        # 如果在子界面中，优先让子界面处理按键
+        if self.current_subview:
+            subview = self._get_current_subview()
+            if subview and subview.handle_key(key):
+                return True
+        
+        # 处理全局快捷键
+        if key == "escape":
+            # ESC键返回主界面
+            if self.current_subview:
+                self.current_subview = None
+                return True
+            elif self.show_session_dialog:
+                self.show_session_dialog = False
+                return True
+            elif self.show_agent_dialog:
+                self.show_agent_dialog = False
+                return True
+        
+        # 子界面快捷键
+        elif key == "alt+1":
+            self.current_subview = "analytics"
+            return True
+        elif key == "alt+2":
+            self.current_subview = "visualization"
+            return True
+        elif key == "alt+3":
+            self.current_subview = "system"
+            return True
+        elif key == "alt+4":
+            self.current_subview = "errors"
+            return True
+        
+        return False
+    
+    def _get_current_subview(self) -> Optional[Any]:
+        """获取当前子界面对象
+        
+        Returns:
+            BaseSubview: 当前子界面对象
+        """
+        if self.current_subview == "analytics":
+            return self.analytics_view
+        elif self.current_subview == "visualization":
+            return self.visualization_view
+        elif self.current_subview == "system":
+            return self.system_view
+        elif self.current_subview == "errors":
+            return self.errors_view
+        return None
+    
     def _update_ui(self) -> None:
         """更新UI显示"""
         if not self.live:
             return
         
-        # 更新组件状态
-        self._update_components()
-        
-        # 检查是否显示对话框
-        if self.show_session_dialog or self.show_agent_dialog:
+        # 检查是否显示子界面
+        if self.current_subview:
+            self._render_subview()
+        elif self.show_session_dialog or self.show_agent_dialog:
             self._update_dialogs()
         else:
-            # 更新各个区域的内容
-            self._update_header()
-            self._update_sidebar()
-            self._update_main_content()
-            self._update_langgraph_panel()
-            self._update_input_area()
+            # 更新主界面
+            self._update_main_view()
         
         # 刷新显示
         self.live.refresh()
+    
+    def _render_subview(self) -> None:
+        """渲染子界面"""
+        if self.current_subview == "analytics":
+            content = self.analytics_view.render()
+        elif self.current_subview == "visualization":
+            content = self.visualization_view.render()
+        elif self.current_subview == "system":
+            content = self.system_view.render()
+        elif self.current_subview == "errors":
+            content = self.errors_view.render()
+        else:
+            # 未知子界面，返回主界面
+            self.current_subview = None
+            self._update_main_view()
+            return
+        
+        # 更新布局显示子界面
+        self.layout_manager.update_region_content(LayoutRegion.MAIN, content)
+        
+        # 隐藏其他区域
+        self.layout_manager.update_region_content(LayoutRegion.SIDEBAR, "")
+        self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, "")
+        self.layout_manager.update_region_content(LayoutRegion.STATUS, "")
+        
+        # 更新标题栏显示子界面信息
+        self._update_subview_header()
+    
+    def _update_main_view(self) -> None:
+        """更新主界面"""
+        # 更新组件状态
+        self._update_components()
+        
+        # 更新各个区域的内容
+        self._update_header()
+        self._update_sidebar()
+        self._update_main_content()
+        self._update_input_area()
+        self._update_status_bar()
+    
+    def _update_subview_header(self) -> None:
+        """更新子界面标题栏"""
+        title_text = Text("模块化代理框架", style="bold cyan")
+        
+        if self.current_subview == "analytics":
+            subtitle_text = Text(" - 分析监控", style="bold green")
+        elif self.current_subview == "visualization":
+            subtitle_text = Text(" - 可视化调试", style="bold cyan")
+        elif self.current_subview == "system":
+            subtitle_text = Text(" - 系统管理", style="bold blue")
+        elif self.current_subview == "errors":
+            subtitle_text = Text(" - 错误反馈", style="bold red")
+        else:
+            subtitle_text = Text(" - TUI界面", style="dim")
+        
+        if self.session_id:
+            session_info = Text(f" | 会话: {self.session_id[:8]}...", style="yellow")
+        else:
+            session_info = Text(" | 未连接", style="red")
+        
+        header_content = Text()
+        header_content.append(title_text)
+        header_content.append(subtitle_text)
+        header_content.append(session_info)
+        
+        header_panel = Panel(
+            header_content,
+            style=self.config.theme.primary_color,
+            border_style=self.config.theme.primary_color
+        )
+        
+        self.layout_manager.update_region_content(LayoutRegion.HEADER, header_panel)
     
     def _update_components(self) -> None:
         """更新组件状态"""
@@ -185,6 +350,60 @@ class TUIApp:
             node_status="running" if self.current_state and self.current_state.iteration_count < self.current_state.max_iterations else "idle"
         )
         self.main_content_component.update_from_state(self.current_state)
+        
+        # 更新子界面数据
+        self._update_subviews_data()
+    
+    def _update_subviews_data(self) -> None:
+        """更新子界面数据"""
+        # 更新分析监控子界面数据
+        if self.current_state:
+            # 性能数据
+            performance_data = {
+                "total_requests": getattr(self.current_state, 'total_requests', 0),
+                "avg_response_time": getattr(self.current_state, 'avg_response_time', 0.0),
+                "success_rate": getattr(self.current_state, 'success_rate', 100.0),
+                "error_count": getattr(self.current_state, 'error_count', 0),
+                "tokens_used": getattr(self.current_state, 'tokens_used', 0),
+                "cost_estimate": getattr(self.current_state, 'cost_estimate', 0.0)
+            }
+            self.analytics_view.update_performance_data(performance_data)
+            
+            # 系统指标
+            system_metrics = {
+                "cpu_usage": getattr(self.current_state, 'cpu_usage', 0.0),
+                "memory_usage": getattr(self.current_state, 'memory_usage', 0.0),
+                "disk_usage": getattr(self.current_state, 'disk_usage', 0.0),
+                "network_io": getattr(self.current_state, 'network_io', 0.0)
+            }
+            self.analytics_view.update_system_metrics(system_metrics)
+        
+        # 更新可视化调试子界面数据
+        if self.current_state and hasattr(self.current_state, 'workflow_data'):
+            workflow_data = {
+                "nodes": getattr(self.current_state, 'workflow_nodes', []),
+                "edges": getattr(self.current_state, 'workflow_edges', []),
+                "current_node": getattr(self.current_state, 'current_step', None),
+                "execution_path": getattr(self.current_state, 'execution_path', []),
+                "node_states": getattr(self.current_state, 'node_states', {})
+            }
+            self.visualization_view.update_workflow_data(workflow_data)
+        
+        # 更新系统管理子界面数据
+        studio_status = {
+            "running": getattr(self.current_state, 'studio_running', False),
+            "port": getattr(self.current_state, 'studio_port', 8079),
+            "url": getattr(self.current_state, 'studio_url', ""),
+            "start_time": getattr(self.current_state, 'studio_start_time', None),
+            "version": "1.0.0",
+            "connected_clients": getattr(self.current_state, 'studio_clients', 0)
+        }
+        self.system_view.update_studio_status(studio_status)
+        
+        # 更新错误反馈子界面数据
+        if self.current_state and hasattr(self.current_state, 'errors') and getattr(self.current_state, 'errors', None):
+            for error in self.current_state.errors:
+                self.errors_view.add_error(error)
     
     def _update_header(self) -> None:
         """更新标题栏"""
@@ -404,11 +623,32 @@ class TUIApp:
         elif command == "stop":
             self._stop_workflow()
         elif command == "studio":
-            self._open_studio()
+            # 重定向到系统管理子界面
+            self.current_subview = "system"
         elif command == "sessions":
             self._open_session_dialog()
         elif command == "agents":
             self._open_agent_dialog()
+        elif command == "performance":
+            # 重定向到分析监控子界面
+            self.current_subview = "analytics"
+        elif command == "debug":
+            # 重定向到可视化调试子界面
+            self.current_subview = "visualization"
+        elif command == "errors":
+            # 重定向到错误反馈子界面
+            self.current_subview = "errors"
+        # 子界面切换命令
+        elif command == "analytics":
+            self.current_subview = "analytics"
+        elif command == "visualization":
+            self.current_subview = "visualization"
+        elif command == "system":
+            self.current_subview = "system"
+        elif command == "errors":
+            self.current_subview = "errors"
+        elif command == "main":
+            self.current_subview = None
         else:
             self.console.print(f"[red]未知命令: {command}[/red]")
     
@@ -426,7 +666,38 @@ class TUIApp:
     
     def _show_help(self) -> None:
         """显示帮助信息"""
-        help_text = self.input_component.command_processor.get_command_help()
+        help_text = """
+可用命令:
+  /help - 显示帮助
+  /clear - 清空屏幕
+  /exit - 退出应用
+  /save - 保存会话
+  /load <session_id> - 加载会话
+  /new - 创建新会话
+  /pause - 暂停工作流
+  /resume - 恢复工作流
+  /stop - 停止工作流
+  /studio - 打开系统管理界面
+  /sessions - 打开会话管理
+  /agents - 打开Agent选择
+  /performance - 打开分析监控界面
+  /debug - 打开可视化调试界面
+  /errors - 打开错误反馈界面
+  
+子界面命令:
+  /analytics - 打开分析监控界面
+  /visualization - 打开可视化调试界面
+  /system - 打开系统管理界面
+  /errors - 打开错误反馈界面
+  /main - 返回主界面
+
+快捷键:
+  Alt+1 - 分析监控
+  Alt+2 - 可视化调试
+  Alt+3 - 系统管理
+  Alt+4 - 错误反馈
+  ESC - 返回主界面
+"""
         self.add_system_message(help_text)
         self.main_content_component.add_assistant_message(help_text)
     
@@ -521,7 +792,7 @@ class TUIApp:
             success = self.create_session(workflow_config, agent_config)
             if success:
                 self.show_session_dialog = False
-                self.add_system_message(f"已创建新会话 {self.session_id[:8]}...")
+                self.add_system_message(f"已创建新会话 {self.session_id[:8]}..." if self.session_id else "已创建新会话")
             else:
                 self.add_system_message("创建会话失败")
         except Exception as e:
@@ -546,14 +817,13 @@ class TUIApp:
         except Exception as e:
             self.add_system_message(f"删除会话失败: {e}")
     
-    def _on_agent_selected(self, agent_config) -> None:
+    def _on_agent_selected(self, agent_config: Any) -> None:
         """Agent选择回调"""
         try:
             # 更新侧边栏的Agent信息
-            self.sidebar_component.agent_info.update_agent_info(
+            self.sidebar_component.update_agent_info(
                 name=agent_config.name,
                 model=agent_config.model,
-                tools=agent_config.get_tool_list(),
                 status="就绪"
             )
             
@@ -561,3 +831,75 @@ class TUIApp:
             self.add_system_message(f"已选择Agent: {agent_config.name}")
         except Exception as e:
             self.add_system_message(f"选择Agent失败: {e}")
+    
+    # 子界面回调方法
+    def _on_analytics_data_refreshed(self, data: Dict[str, Any]) -> None:
+        """分析监控数据刷新回调"""
+        # 这里可以添加数据刷新后的处理逻辑
+        pass
+    
+    def _on_visualization_node_selected(self, node_id: str) -> None:
+        """可视化节点选择回调"""
+        # 这里可以添加节点选择后的处理逻辑
+        pass
+    
+    def _on_studio_started(self, studio_status: Dict[str, Any]) -> None:
+        """Studio启动回调"""
+        self.add_system_message(f"Studio已启动: {studio_status.get('url', 'Unknown')}")
+    
+    def _on_studio_stopped(self, studio_status: Dict[str, Any]) -> None:
+        """Studio停止回调"""
+        self.add_system_message("Studio已停止")
+    
+    def _on_config_reloaded(self, config_data: Dict[str, Any]) -> None:
+        """配置重载回调"""
+        self.add_system_message("配置已重载")
+    
+    def _on_error_feedback_submitted(self, feedback_data: Dict[str, Any]) -> None:
+        """错误反馈提交回调"""
+        error_id = feedback_data.get("error_id", "Unknown")
+        self.add_system_message(f"错误反馈已提交: {error_id}")
+    
+    def switch_to_subview(self, subview_name: str) -> None:
+        """切换到指定子界面
+        
+        Args:
+            subview_name: 子界面名称
+        """
+        valid_subviews = ["analytics", "visualization", "system", "errors"]
+        if subview_name in valid_subviews:
+            self.current_subview = subview_name
+        else:
+            self.add_system_message(f"无效的子界面: {subview_name}")
+    
+    def return_to_main_view(self) -> None:
+        """返回主界面"""
+        self.current_subview = None
+    
+    def _update_status_bar(self) -> None:
+        """更新状态栏"""
+        from rich.text import Text
+        from rich.panel import Panel
+        
+        status_text = Text()
+        status_text.append("快捷键: ", style="bold")
+        status_text.append("Alt+1=分析, Alt+2=可视化, Alt+3=系统, Alt+4=错误, ESC=返回", style="dim")
+        status_text.append(" | ", style="dim")
+        
+        # 显示当前状态
+        if self.current_subview:
+            status_text.append(f"当前界面: {self.current_subview}", style="cyan")
+        else:
+            status_text.append("状态: 就绪", style="green")
+        
+        # 显示会话信息
+        if self.session_id:
+            status_text.append(f" | 会话: {self.session_id[:8]}...", style="yellow")
+        
+        status_panel = Panel(
+            status_text,
+            style="dim",
+            border_style="dim"
+        )
+        
+        self.layout_manager.update_region_content(LayoutRegion.STATUS, status_panel)
