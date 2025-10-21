@@ -309,6 +309,8 @@ class TUIApp:
         """
         if self.state_manager.current_subview:
             self.subview_controller.return_to_main_view()
+            # 立即同步状态管理器的状态
+            self.state_manager.current_subview = None
             return True
         elif self.state_manager.show_session_dialog:
             self.state_manager.set_show_session_dialog(False)
@@ -329,7 +331,8 @@ class TUIApp:
             bool: 切换是否成功
         """
         if self.subview_controller.switch_to_subview(subview_name):
-            # 状态管理器的状态会在update_ui中同步
+            # 立即同步状态管理器的状态
+            self.state_manager.current_subview = subview_name
             return True
         return False
     
