@@ -145,6 +145,8 @@ class CommandProcessor:
         self.register_command("resume", self._cmd_resume, "恢复工作流")
         self.register_command("stop", self._cmd_stop, "停止工作流")
         self.register_command("studio", self._cmd_studio, "打开Studio", ["sg"])
+        self.register_command("sessions", self._cmd_sessions, "打开会话管理", ["sess"])
+        self.register_command("agents", self._cmd_agents, "打开Agent选择", ["ag"])
     
     def register_command(
         self,
@@ -314,6 +316,14 @@ class CommandProcessor:
     def _cmd_studio(self, args: List[str], context: Optional[Dict[str, Any]] = None) -> str:
         """Studio命令"""
         return "OPEN_STUDIO"
+    
+    def _cmd_sessions(self, args: List[str], context: Optional[Dict[str, Any]] = None) -> str:
+        """会话管理命令"""
+        return "OPEN_SESSIONS"
+    
+    def _cmd_agents(self, args: List[str], context: Optional[Dict[str, Any]] = None) -> str:
+        """Agent选择命令"""
+        return "OPEN_AGENTS"
 
 
 class InputBuffer:
@@ -577,7 +587,8 @@ class InputPanelComponent:
                 if self.on_command:
                     self.on_command("load", [session_id])
             elif result and result in ["SAVE_SESSION", "NEW_SESSION", "PAUSE_WORKFLOW",
-                          "RESUME_WORKFLOW", "STOP_WORKFLOW", "OPEN_STUDIO"]:
+                          "RESUME_WORKFLOW", "STOP_WORKFLOW", "OPEN_STUDIO",
+                          "OPEN_SESSIONS", "OPEN_AGENTS"]:
                 if self.on_command:
                     self.on_command(result.lower(), [])
             else:

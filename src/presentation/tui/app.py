@@ -19,7 +19,9 @@ from .components import (
     SidebarComponent,
     LangGraphPanelComponent,
     MainContentComponent,
-    InputPanelComponent
+    InputPanelComponent,
+    SessionManagerDialog,
+    AgentSelectDialog
 )
 from src.infrastructure.container import get_global_container
 from src.session.manager import ISessionManager
@@ -57,8 +59,17 @@ class TUIApp:
         self.main_content_component = MainContentComponent(self.config)
         self.input_component = InputPanelComponent(self.config)
         
+        # 初始化对话框
+        self.session_dialog = SessionManagerDialog(self.config)
+        self.agent_dialog = AgentSelectDialog(self.config)
+        
+        # 对话框状态
+        self.show_session_dialog = False
+        self.show_agent_dialog = False
+        
         # 设置组件回调
         self._setup_component_callbacks()
+        self._setup_dialog_callbacks()
         
         # 初始化依赖
         self._initialize_dependencies()
@@ -69,11 +80,28 @@ class TUIApp:
         self.input_component.set_submit_callback(self._handle_input_submit)
         self.input_component.set_command_callback(self._handle_command)
     
+    def _setup_dialog_callbacks(self) -> None:
+        """设置对话框回调函数"""
+        # 设置会话对话框回调
+        self.session_dialog.set_session_selected_callback(self._on_session_selected)
+        self.session_dialog.set_session_created_callback(self._on_session_created)
+        self.session_dialog.set_session_deleted_callback(self._on_session_deleted)
+        
+        # 设置Agent对话框回调
+        self.agent_dialog.set_agent_selected_callback(self._on_agent_selected)
+    
     def _initialize_dependencies(self) -> None:
         """初始化依赖注入"""
         try:
             container = get_global_container()
             self.session_manager = container.get(ISessionManager)
+            
+            # 设置会话对话框的会话管理器
+            self.session_dialog.set_session_manager(self.session_manager)
+            
+            # 加载Agent配置
+            self.agent_dialog.load_agent_configs()
+            
         except Exception as e:
             self.console.print(f"[red]初始化依赖失败: {e}[/red]")
     
@@ -133,12 +161,16 @@ class TUIApp:
         # 更新组件状态
         self._update_components()
         
-        # 更新各个区域的内容
-        self._update_header()
-        self._update_sidebar()
-        self._update_main_content()
-        self._update_langgraph_panel()
-        self._update_input_area()
+        # 检查是否显示对话框
+        if self.show_session_dialog or self.show_agent_dialog:
+            self._update_dialogs()
+        else:
+            # 更新各个区域的内容
+            self._update_header()
+            self._update_sidebar()
+            self._update_main_content()
+            self._update_langgraph_panel()
+            self._update_input_area()
         
         # 刷新显示
         self.live.refresh()
@@ -204,6 +236,26 @@ class TUIApp:
         # 使用LangGraph组件
         langgraph_panel = self.langgraph_component.render()
         self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, langgraph_panel)
+    
+    def _update_dialogs(self) -> None:
+        """更新对话框显示"""
+        if self.show_session_dialog:
+            # 显示会话管理对话框，覆盖整个主内容区
+            dialog_panel = self.session_dialog.render()
+            self.layout_manager.update_region_content(LayoutRegion.MAIN, dialog_panel)
+            
+            # 隐藏其他区域
+            self.layout_manager.update_region_content(LayoutRegion.SIDEBAR, "")
+            self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, "")
+            
+        elif self.show_agent_dialog:
+            # 显示Agent选择对话框，覆盖整个主内容区
+            dialog_panel = self.agent_dialog.render()
+            self.layout_manager.update_region_content(LayoutRegion.MAIN, dialog_panel)
+            
+            # 隐藏其他区域
+            self.layout_manager.update_region_content(LayoutRegion.SIDEBAR, "")
+            self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, "")
     
     def _show_welcome_message(self) -> None:
         """显示欢迎信息"""
@@ -353,6 +405,10 @@ class TUIApp:
             self._stop_workflow()
         elif command == "studio":
             self._open_studio()
+        elif command == "sessions":
+            self._open_session_dialog()
+        elif command == "agents":
+            self._open_agent_dialog()
         else:
             self.console.print(f"[red]未知命令: {command}[/red]")
     
@@ -438,3 +494,70 @@ class TUIApp:
     def _open_studio(self) -> None:
         """打开Studio"""
         self.add_system_message("Studio功能尚未实现")
+    
+    def _open_session_dialog(self) -> None:
+        """打开会话管理对话框"""
+        self.show_session_dialog = True
+        self.session_dialog.refresh_sessions()
+        self.add_system_message("已打开会话管理对话框")
+    
+    def _open_agent_dialog(self) -> None:
+        """打开Agent选择对话框"""
+        self.show_agent_dialog = True
+        self.add_system_message("已打开Agent选择对话框")
+    
+    def _on_session_selected(self, session_id: str) -> None:
+        """会话选择回调"""
+        try:
+            self._load_session(session_id)
+            self.show_session_dialog = False
+            self.add_system_message(f"已切换到会话 {session_id[:8]}...")
+        except Exception as e:
+            self.add_system_message(f"切换会话失败: {e}")
+    
+    def _on_session_created(self, workflow_config: str, agent_config: Optional[str]) -> None:
+        """会话创建回调"""
+        try:
+            success = self.create_session(workflow_config, agent_config)
+            if success:
+                self.show_session_dialog = False
+                self.add_system_message(f"已创建新会话 {self.session_id[:8]}...")
+            else:
+                self.add_system_message("创建会话失败")
+        except Exception as e:
+            self.add_system_message(f"创建会话失败: {e}")
+    
+    def _on_session_deleted(self, session_id: str) -> None:
+        """会话删除回调"""
+        try:
+            if self.session_manager:
+                success = self.session_manager.delete_session(session_id)
+                if success:
+                    self.add_system_message(f"已删除会话 {session_id[:8]}...")
+                    # 如果删除的是当前会话，重置状态
+                    if self.session_id == session_id:
+                        self.session_id = None
+                        self.current_state = None
+                        self.current_workflow = None
+                        self.message_history = []
+                        self.main_content_component.clear_all()
+                else:
+                    self.add_system_message("删除会话失败")
+        except Exception as e:
+            self.add_system_message(f"删除会话失败: {e}")
+    
+    def _on_agent_selected(self, agent_config) -> None:
+        """Agent选择回调"""
+        try:
+            # 更新侧边栏的Agent信息
+            self.sidebar_component.agent_info.update_agent_info(
+                name=agent_config.name,
+                model=agent_config.model,
+                tools=agent_config.get_tool_list(),
+                status="就绪"
+            )
+            
+            self.show_agent_dialog = False
+            self.add_system_message(f"已选择Agent: {agent_config.name}")
+        except Exception as e:
+            self.add_system_message(f"选择Agent失败: {e}")

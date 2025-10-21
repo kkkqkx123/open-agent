@@ -1,0 +1,38 @@
+{
+  "ports": [
+    {
+      "port": 8123,
+      "service": "studio",
+      "session_id": null,
+      "status": "free",
+      "allocated_time": "2025-10-21T08:53:56.366283"
+    },
+    {
+      "port": 8224,
+      "service": "api",
+      "session_id": null,
+      "status": "free",
+      "allocated_time": "2025-10-21T08:53:57.375678"
+    }
+  ],
+  "port_ranges": {
+    "studio": [
+      8123,
+      8223
+    ],
+    "api": [
+      8224,
+      8324
+    ],
+    "debug": [
+      8325,
+      8425
+    ]
+  },
+  "default_ports": {
+    "studio": 8123,
+    "api": 8224,
+    "debug": 8325
+  },
+  "updated_at": "2025-10-21T08:53:57.376708"
+}
