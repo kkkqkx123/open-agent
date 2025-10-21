@@ -135,12 +135,26 @@ def version(ctx: click.Context) -> None:
     """显示版本信息"""
     try:
         # 从pyproject.toml读取版本信息
-        import tomllib
         from pathlib import Path
         
         pyproject_path = Path(__file__).parent.parent.parent.parent / "pyproject.toml"
-        with open(pyproject_path, "rb") as f:
-            data = tomllib.load(f)
+        
+        # 尝试使用tomllib (Python 3.11+) 或 tomli
+        try:
+            import tomllib
+            with open(pyproject_path, "rb") as f:
+                data = tomllib.load(f)
+        except ImportError:
+            try:
+                import tomli
+                with open(pyproject_path, "rb") as f:
+                    data = tomli.load(f)
+            except ImportError:
+                # 如果都没有，使用简单的字符串解析
+                version = "unknown"
+                name = "modular-agent"
+                console.print(f"[bold cyan]{name}[/bold cyan] version [bold green]{version}[/bold green]")
+                return
         
         version = data.get("project", {}).get("version", "unknown")
         name = data.get("project", {}).get("name", "modular-agent")
@@ -219,8 +233,21 @@ def setup_container(config_path: Optional[str] = None) -> None:
         workflow_manager = WorkflowManager(container.get(IConfigLoader))
         container.register_instance(WorkflowManager, workflow_manager)
     
-    # 注册会话管理器
+    # 注册会话管理器 - 确保所有依赖都已注册
     if not container.has_service(ISessionManager):
+        # 确保依赖服务已注册
+        if not container.has_service(WorkflowManager):
+            workflow_manager = WorkflowManager(container.get(IConfigLoader))
+            container.register_instance(WorkflowManager, workflow_manager)
+        if not container.has_service(FileSessionStore):
+            from pathlib import Path
+            session_store = FileSessionStore(Path("./sessions"))
+            container.register_instance(FileSessionStore, session_store)
+        if not container.has_service(GitManager):
+            from ...session.git_manager import create_git_manager
+            git_manager = create_git_manager(use_mock=True)
+            container.register_instance(GitManager, git_manager)
+            
         session_manager = SessionManager(
             workflow_manager=container.get(WorkflowManager),
             session_store=container.get(FileSessionStore),
