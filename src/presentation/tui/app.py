@@ -38,12 +38,16 @@ from src.prompts.agent_state import AgentState, HumanMessage, BaseMessage
 class TUIApp:
     """TUI应用程序"""
     
-    def __init__(self) -> None:
-        """初始化TUI应用程序"""
+    def __init__(self, config_path: Optional[Path] = None) -> None:
+        """初始化TUI应用程序
+        
+        Args:
+            config_path: 配置文件路径
+        """
         self.console = Console()
         
         # 加载配置
-        self.config = get_tui_config()
+        self.config = get_tui_config(config_path)
         
         # 使用配置创建布局管理器
         self.layout_manager = LayoutManager(self.config.layout)

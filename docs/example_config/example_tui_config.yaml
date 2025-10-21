@@ -1,0 +1,115 @@
+# TUI配置文件示例
+# 这个文件展示了TUI界面的各种配置选项
+
+# 布局配置
+layout:
+  regions:
+    header:
+      name: "标题栏"
+      min_size: 3
+      max_size: 5
+      ratio: 0.1
+      resizable: false
+      visible: true
+    
+    sidebar:
+      name: "侧边栏"
+      min_size: 20
+      max_size: 40
+      ratio: 0.25
+      resizable: true
+      visible: true
+    
+    main:
+      name: "主内容区"
+      min_size: 40
+      max_size: null
+      ratio: 0.5
+      resizable: true
+      visible: true
+    
+    input:
+      name: "输入区"
+      min_size: 3
+      max_size: 8
+      ratio: 0.1
+      resizable: false
+      visible: true
+    
+    langgraph:
+      name: "LangGraph面板"
+      min_size: 15
+      max_size: 30
+      ratio: 0.15
+      resizable: true
+      visible: true
+    
+    status:
+      name: "状态栏"
+      min_size: 1
+      max_size: 3
+      ratio: 0.05
+      resizable: false
+      visible: true
+  
+  min_terminal_width: 80
+  min_terminal_height: 24
+  responsive_breakpoints:
+    small: 80
+    medium: 100
+    large: 120
+
+# 主题配置
+theme:
+  name: "default"
+  primary_color: "blue"
+  secondary_color: "green"
+  accent_color: "cyan"
+  text_color: "white"
+  border_style: "round"
+  background_color: null
+
+# 行为配置
+behavior:
+  auto_save: true
+  auto_save_interval: 300
+  max_history: 1000
+  scroll_speed: 5
+  animation_enabled: true
+  refresh_rate: 10
+
+# 子界面配置
+subview:
+  enabled: true
+  auto_refresh: true
+  refresh_interval: 1.0
+  max_data_points: 100
+  
+  # 分析监控子界面配置
+  analytics_show_details: true
+  analytics_show_system_metrics: true
+  analytics_show_execution_history: true
+  
+  # 可视化调试子界面配置
+  visualization_show_details: true
+  visualization_show_execution_path: true
+  visualization_auto_refresh: true
+  
+  # 系统管理子界面配置
+  system_show_studio_controls: true
+  system_show_port_config: true
+  system_show_config_management: true
+  
+  # 错误反馈子界面配置
+  errors_auto_collect: true
+  errors_include_stacktrace: true
+  errors_max_errors: 100
+
+# 快捷键配置
+shortcuts:
+  analytics: "alt+1"
+  visualization: "alt+2"
+  system: "alt+3"
+  errors: "alt+4"
+  back: "escape"
+  help: "f1"

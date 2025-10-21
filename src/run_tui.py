@@ -7,6 +7,10 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.absolute()
 sys.path.insert(0, str(project_root))
 
+# 设置依赖注入容器
+from src.presentation.cli.commands import setup_container
+setup_container()
+
 # 导入并运行TUI应用
 from src.presentation.tui.app import TUIApp
 

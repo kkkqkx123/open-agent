@@ -187,7 +187,8 @@ class ConfigManager:
                     if self.config_path.suffix.lower() == '.json':
                         data = json.load(f)
                     else:
-                        data = yaml.safe_load(f)
+                        # 使用yaml.load而不是safe_load以支持python/tuple标签
+                        data = yaml.load(f, Loader=yaml.FullLoader)
                 
                 self.config = TUIConfig.from_dict(data)
                 return self.config
@@ -326,7 +327,8 @@ class ConfigManager:
                 if import_path.suffix.lower() == '.json':
                     data = json.load(f)
                 else:
-                    data = yaml.safe_load(f)
+                    # 使用yaml.load而不是safe_load以支持python/tuple标签
+                    data = yaml.load(f, Loader=yaml.FullLoader)
             
             self.config = TUIConfig.from_dict(data)
             self.save_config()
@@ -339,22 +341,28 @@ class ConfigManager:
 _global_config_manager: Optional[ConfigManager] = None
 
 
-def get_config_manager() -> ConfigManager:
+def get_config_manager(config_path: Optional[Path] = None) -> ConfigManager:
     """获取全局配置管理器
+    
+    Args:
+        config_path: 配置文件路径
     
     Returns:
         ConfigManager: 配置管理器实例
     """
     global _global_config_manager
     if _global_config_manager is None:
-        _global_config_manager = ConfigManager()
+        _global_config_manager = ConfigManager(config_path)
     return _global_config_manager
 
 
-def get_tui_config() -> TUIConfig:
+def get_tui_config(config_path: Optional[Path] = None) -> TUIConfig:
     """获取TUI配置
+    
+    Args:
+        config_path: 配置文件路径
     
     Returns:
         TUIConfig: TUI配置对象
     """
-    return get_config_manager().get_config()
+    return get_config_manager(config_path).get_config()

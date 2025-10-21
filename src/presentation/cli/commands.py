@@ -2,6 +2,7 @@
 
 import click
 from typing import Optional
+from pathlib import Path
 from rich.console import Console
 
 from ...infrastructure.container import get_global_container
@@ -242,12 +243,17 @@ def help_command(ctx: click.Context, command: Optional[str]) -> None:
 
 
 @cli.command("run")
+@click.option(
+    "--config", 
+    type=click.Path(exists=True, path_type=Path), 
+    help="指定TUI配置文件路径"
+)
 @click.pass_context
-def run(ctx: click.Context) -> None:
+def run(ctx: click.Context, config: Optional[Path] = None) -> None:
     """启动TUI交互界面"""
     try:
         from ..tui.app import TUIApp
-        app = TUIApp()
+        app = TUIApp(config)
         app.run()
     except Exception as e:
         handle_cli_error(e, ctx.obj.get("verbose", False), "启动TUI界面失败")

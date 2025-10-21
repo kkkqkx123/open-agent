@@ -1,0 +1,4 @@
+放到$HOME/.modular-agent/tui_config.yaml目录
+python src/run_tui.py
+
+或使用python src/run_tui.py --config /path/to/config.yaml
