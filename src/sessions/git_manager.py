@@ -204,15 +204,27 @@ class GitManager(IGitManager):
 
                 commit_hash, author, date, message = parts[:4]
 
-                # 尝试解析元数据（可能在下一行）
+                # 尝试解析元数据（可能在下一行或下下行）
                 metadata = {}
-                if i + 1 < len(lines) and lines[i + 1].startswith("元数据: "):
-                    try:
-                        metadata_str = lines[i + 1][len("元数据: "):]
-                        metadata = json.loads(metadata_str)
-                        i += 1  # 跳过元数据行
-                    except json.JSONDecodeError:
-                        pass
+                # 检查下一行是否是空行，再下一行是否是元数据
+                next_index = i + 1
+                if next_index < len(lines):
+                    if lines[next_index].strip() == "" and next_index + 1 < len(lines) and lines[next_index + 1].startswith("元数据: "):
+                        # 跳过空行，处理元数据行
+                        try:
+                            metadata_str = lines[next_index + 1][len("元数据: "):]
+                            metadata = json.loads(metadata_str)
+                            i += 2  # 跳过空行和元数据行
+                        except json.JSONDecodeError:
+                            i += 1  # 只跳过空行
+                    elif lines[next_index].startswith("元数据: "):
+                        # 下一行直接是元数据
+                        try:
+                            metadata_str = lines[next_index][len("元数据: "):]
+                            metadata = json.loads(metadata_str)
+                            i += 1  # 跳过元数据行
+                        except json.JSONDecodeError:
+                            pass
                 elif "\n\n元数据: " in message:
                     # 处理在同一行的情况（向后兼容）
                     message_parts = message.split("\n\n元数据: ", 1)

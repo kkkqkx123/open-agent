@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 import json
 import shutil
+import copy
 
 
 class ISessionStore(ABC):
@@ -97,13 +98,11 @@ class FileSessionStore(ISessionStore):
 
     def save_session(self, session_id: str, session_data: Dict[str, Any]) -> bool:
         """保存会话数据"""
+        session_file = self._get_session_file(session_id)
+        temp_file = session_file.with_suffix(".tmp")
+        
         try:
-            session_file = self._get_session_file(session_id)
-            
             # 创建临时文件
-            temp_file = session_file.with_suffix(".tmp")
-            
-            # 写入临时文件
             with open(temp_file, 'w', encoding='utf-8') as f:
                 json.dump(session_data, f, ensure_ascii=False, indent=2)
             
@@ -112,6 +111,12 @@ class FileSessionStore(ISessionStore):
             
             return True
         except Exception:
+            # 清理临时文件
+            try:
+                if temp_file.exists():
+                    temp_file.unlink()
+            except Exception:
+                pass
             return False
 
     def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
@@ -180,7 +185,7 @@ class MemorySessionStore(ISessionStore):
     def save_session(self, session_id: str, session_data: Dict[str, Any]) -> bool:
         """保存会话数据"""
         try:
-            self._sessions[session_id] = session_data.copy()
+            self._sessions[session_id] = copy.deepcopy(session_data)
             return True
         except Exception:
             return False

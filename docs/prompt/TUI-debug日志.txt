@@ -1,1 +1,1 @@
-依然无法成功。先为TUI的相关模块添加debug日志信息(使用src\logger\模块)，以辅助调试
+依然无法成功。新增专门的debug测试，为TUI的相关模块添加debug日志信息(参考src\logger\模块)，以辅助调试

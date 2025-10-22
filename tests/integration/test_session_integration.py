@@ -210,7 +210,7 @@ class TestSessionIntegration:
         workflow_event_collector = WorkflowEventCollector(event_collector, session_id)
         base_time = datetime.now()
         
-        with patch('src.session.event_collector.datetime') as mock_datetime:
+        with patch('src.sessions.event_collector.datetime') as mock_datetime:
             mock_datetime.now.side_effect = [
                 base_time,
                 base_time + timedelta(seconds=1),
@@ -441,7 +441,7 @@ class TestSessionIntegration:
         workflow_event_collector = WorkflowEventCollector(event_collector, session_id)
         base_time = datetime.now()
         
-        with patch('src.session.event_collector.datetime') as mock_datetime:
+        with patch('src.sessions.event_collector.datetime') as mock_datetime:
             mock_datetime.now.side_effect = [
                 base_time,
                 base_time + timedelta(seconds=1),

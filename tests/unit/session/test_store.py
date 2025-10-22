@@ -305,13 +305,13 @@ class TestMemorySessionStore:
         """测试保存会话出错"""
         session_id = "test-session-id"
         
-        # 创建一个自定义字典类，其 copy 方法会抛出异常
-        class FailingCopyDict(dict):
-            def copy(self):
-                raise Exception("复制失败")
+        # 创建一个自定义字典类，其 deepcopy 方法会抛出异常
+        class FailingDeepCopyDict(dict):
+            def __deepcopy__(self, memo):
+                raise Exception("深拷贝失败")
         
         # 使用自定义字典
-        failing_dict = FailingCopyDict()
+        failing_dict = FailingDeepCopyDict()
         result = memory_store.save_session(session_id, failing_dict)
         assert result is False
 

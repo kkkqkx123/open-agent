@@ -316,9 +316,13 @@ class TestSessionManager:
         """测试生成会话ID"""
         workflow_config_path = "configs/workflows/react_workflow.yaml"
         
-        with patch('src.session.manager.datetime') as mock_datetime:
-            mock_datetime.now.return_value.strftime.return_value = "251022-174800"
-            with patch('src.session.manager.uuid') as mock_uuid:
+        # 创建mock的datetime对象
+        mock_now = Mock()
+        mock_now.strftime.side_effect = lambda fmt: "251022" if fmt == "%y%m%d" else "174800"
+        
+        with patch('src.sessions.manager.datetime') as mock_datetime:
+            mock_datetime.now.return_value = mock_now
+            with patch('src.sessions.manager.uuid') as mock_uuid:
                 mock_uuid.uuid4.return_value.__str__.return_value = "1f73e8-1234-5678-9abc-def123456789"
                 
                 session_id = session_manager._generate_session_id(workflow_config_path)

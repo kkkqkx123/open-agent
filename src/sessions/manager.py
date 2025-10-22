@@ -299,10 +299,6 @@ class SessionManager(ISessionManager):
                     "timestamp": session_data["metadata"].get("created_at"),
                     "message": "会话创建",
                     "author": "system"
-                }, {
-                    "timestamp": session_data["metadata"].get("updated_at"),
-                    "message": "最后更新",
-                    "author": "system"
                 }]
             return []
 
@@ -438,6 +434,10 @@ class SessionManager(ISessionManager):
             str: workflow名称（全小写，无后缀）
         """
         try:
+            # 检查路径是否为空
+            if not workflow_config_path or not workflow_config_path.strip():
+                return "unknown"
+                
             # 从路径中提取文件名（不含扩展名）
             from pathlib import Path
             config_file = Path(workflow_config_path)
