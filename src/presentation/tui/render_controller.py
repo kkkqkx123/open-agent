@@ -1,6 +1,6 @@
 """TUI渲染控制器"""
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from rich.console import Console
 from rich.live import Live
 from rich.text import Text
@@ -44,6 +44,7 @@ class RenderController:
         self.layout_manager = layout_manager
         self.config = config
         self.live: Optional[Live] = None
+        self._needs_refresh: bool = False  # 新增刷新标记
         
         # 组件
         self.sidebar_component = components.get("sidebar")
@@ -60,6 +61,9 @@ class RenderController:
         self.visualization_view = subviews.get("visualization")
         self.system_view = subviews.get("system")
         self.errors_view = subviews.get("errors")
+        
+        # 注册布局变化回调
+        self.layout_manager.register_layout_changed_callback(self._on_layout_changed)
     
     def set_live(self, live: Live) -> None:
         """设置Live对象
@@ -87,8 +91,10 @@ class RenderController:
             # 更新主界面
             self._update_main_view(state_manager)
         
-        # 刷新显示
-        self.live.refresh()
+        # 只有在需要时才刷新显示，避免闪烁
+        if self._needs_refresh:
+            self.live.refresh()
+            self._needs_refresh = False  # 重置刷新标记
     
     def _render_subview(self, state_manager: Any) -> None:
         """渲染子界面
@@ -351,5 +357,56 @@ class RenderController:
         
         self.layout_manager.update_region_content(LayoutRegion.MAIN, welcome_panel)
         
-        if self.live:
-            self.live.refresh()
+        # 设置刷新标记而不是立即刷新
+        self._needs_refresh = True
+    
+    def _on_layout_changed(self, breakpoint: str, terminal_size: Tuple[int, int]) -> None:
+        """布局变化回调处理
+        
+        Args:
+            breakpoint: 新的断点
+            terminal_size: 终端尺寸
+        """
+        # 移除立即刷新，避免双重刷新导致闪烁
+        # 让主循环的update_ui()处理刷新
+        
+        # 根据新布局调整组件显示
+        self._adjust_components_to_layout(breakpoint, terminal_size)
+        
+        # 标记需要刷新，让主循环处理
+        self._needs_refresh = True
+    
+    def _adjust_components_to_layout(self, breakpoint: str, terminal_size: Tuple[int, int]) -> None:
+        """根据布局调整组件
+        
+        Args:
+            breakpoint: 当前断点
+            terminal_size: 终端尺寸
+        """
+        # 根据断点调整组件显示策略
+        if breakpoint == "small":
+            # 小屏幕优化
+            self._optimize_for_small_screen()
+        elif breakpoint == "medium":
+            # 中等屏幕优化
+            self._optimize_for_medium_screen()
+        else:
+            # 大屏幕优化
+            self._optimize_for_large_screen()
+    
+    def _optimize_for_small_screen(self) -> None:
+        """小屏幕优化"""
+        # 可以在这里添加小屏幕特定的优化逻辑
+        # 例如：简化组件显示、减少信息密度等
+        pass
+    
+    def _optimize_for_medium_screen(self) -> None:
+        """中等屏幕优化"""
+        # 可以在这里添加中等屏幕特定的优化逻辑
+        pass
+    
+    def _optimize_for_large_screen(self) -> None:
+        """大屏幕优化"""
+        # 可以在这里添加大屏幕特定的优化逻辑
+        # 例如：显示更多信息、启用更多功能等
+        pass

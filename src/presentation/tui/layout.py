@@ -1,9 +1,11 @@
 """TUI响应式布局管理器"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, Any, Optional, Tuple, List, Callable
 from dataclasses import dataclass
 from enum import Enum
+import time
+import logging
 
 from rich.console import Console
 from rich.layout import Layout
@@ -114,6 +116,13 @@ class LayoutManager(ILayoutManager):
         self.terminal_size: Tuple[int, int] = (80, 24)
         self.region_contents: Dict[LayoutRegion, Any] = {}
         self.current_breakpoint: str = "small"
+        
+        # 新增属性用于优化
+        self.layout_changed_callbacks: List[Callable[[str, Tuple[int, int]], None]] = []
+        self.region_content_cache: Dict[LayoutRegion, Any] = {}
+        self.last_resize_time: float = 0
+        self.resize_debounce_delay: float = 0.1  # 100ms防抖延迟
+        self.breakpoint_buffer_threshold: int = 5  # 断点切换缓冲阈值
         
     def _create_default_config(self) -> LayoutConfig:
         """创建默认布局配置"""
@@ -257,70 +266,52 @@ class LayoutManager(ILayoutManager):
             return
         
         # 更新标题栏
-        header_content = self.region_contents.get(LayoutRegion.HEADER)
-        if header_content:
-            self.layout["header"].update(header_content)
-        else:
-            self.layout["header"].update(self._create_default_header())
+        if self.layout is not None and self._has_region("header"):
+            header_content = self.region_contents.get(LayoutRegion.HEADER)
+            if header_content:
+                self.layout["header"].update(header_content)
+            else:
+                self.layout["header"].update(self._create_default_header())
         
         # 更新侧边栏
-        if self.layout:
-            try:
-                _ = self.layout["sidebar"]
-                sidebar_exists = True
-            except KeyError:
-                sidebar_exists = False
-            
-            if sidebar_exists:
-                sidebar_content = self.region_contents.get(LayoutRegion.SIDEBAR)
-                if sidebar_content:
-                    self.layout["sidebar"].update(sidebar_content)
-                else:
-                    self.layout["sidebar"].update(self._create_default_sidebar())
+        if self.layout is not None and self._has_region("sidebar"):
+            sidebar_content = self.region_contents.get(LayoutRegion.SIDEBAR)
+            if sidebar_content:
+                self.layout["sidebar"].update(sidebar_content)
+            else:
+                self.layout["sidebar"].update(self._create_default_sidebar())
         
         # 更新主内容区
-        main_content = self.region_contents.get(LayoutRegion.MAIN)
-        if main_content:
-            self.layout["main"].update(main_content)
-        else:
-            self.layout["main"].update(self._create_default_main())
+        if self.layout is not None and self._has_region("main"):
+            main_content = self.region_contents.get(LayoutRegion.MAIN)
+            if main_content:
+                self.layout["main"].update(main_content)
+            else:
+                self.layout["main"].update(self._create_default_main())
         
         # 更新输入栏
-        input_content = self.region_contents.get(LayoutRegion.INPUT)
-        if input_content:
-            self.layout["input"].update(input_content)
-        else:
-            self.layout["input"].update(self._create_default_input())
+        if self.layout is not None and self._has_region("input"):
+            input_content = self.region_contents.get(LayoutRegion.INPUT)
+            if input_content:
+                self.layout["input"].update(input_content)
+            else:
+                self.layout["input"].update(self._create_default_input())
         
         # 更新LangGraph面板
-        if self.layout:
-            try:
-                _ = self.layout["langgraph"]
-                langgraph_exists = True
-            except KeyError:
-                langgraph_exists = False
-            
-            if langgraph_exists:
-                langgraph_content = self.region_contents.get(LayoutRegion.LANGGRAPH)
-                if langgraph_content:
-                    self.layout["langgraph"].update(langgraph_content)
-                else:
-                    self.layout["langgraph"].update(self._create_default_langgraph())
+        if self.layout is not None and self._has_region("langgraph"):
+            langgraph_content = self.region_contents.get(LayoutRegion.LANGGRAPH)
+            if langgraph_content:
+                self.layout["langgraph"].update(langgraph_content)
+            else:
+                self.layout["langgraph"].update(self._create_default_langgraph())
         
         # 更新状态栏
-        if self.layout:
-            try:
-                _ = self.layout["status"]
-                status_exists = True
-            except KeyError:
-                status_exists = False
-            
-            if status_exists:
-                status_content = self.region_contents.get(LayoutRegion.STATUS)
-                if status_content:
-                    self.layout["status"].update(status_content)
-                else:
-                    self.layout["status"].update(self._create_default_status())
+        if self.layout is not None and self._has_region("status"):
+            status_content = self.region_contents.get(LayoutRegion.STATUS)
+            if status_content:
+                self.layout["status"].update(status_content)
+            else:
+                self.layout["status"].update(self._create_default_status())
     
     def _create_default_header(self) -> Panel:
         """创建默认标题栏"""
@@ -411,61 +402,166 @@ class LayoutManager(ILayoutManager):
             self._update_layout_regions()
     
     def resize_layout(self, terminal_size: Tuple[int, int]) -> None:
-        """调整布局大小"""
-        old_breakpoint = self.current_breakpoint
-        self.terminal_size = terminal_size
-        self.current_breakpoint = self._determine_breakpoint(terminal_size)
+        """改进的布局调整方法"""
+        current_time = time.time()
         
-        # 如果断点发生变化，重新创建布局
-        if old_breakpoint != self.current_breakpoint:
-            self.create_layout(terminal_size)
-        elif self.layout:
-            # 否则只调整区域大小
-            self._adjust_region_sizes()
+        # 防抖处理，避免频繁调整
+        if current_time - self.last_resize_time < self.resize_debounce_delay:
+            return
+        
+        self.last_resize_time = current_time
+        old_breakpoint = self.current_breakpoint
+        
+        # 缓存当前内容
+        self._cache_region_contents()
+        
+        self.terminal_size = terminal_size
+        new_breakpoint = self._determine_breakpoint(terminal_size)
+        
+        if old_breakpoint != new_breakpoint:
+            # 断点变化，使用渐进式过渡
+            self.current_breakpoint = new_breakpoint
+            self._gradual_layout_transition(old_breakpoint, new_breakpoint)
+        else:
+            # 相同断点，只调整尺寸
+            self._adjust_region_sizes_gradual()
+        
+        # 恢复缓存的内容
+        self._restore_region_contents()
+        
+        # 触发布局变化回调
+        self._trigger_layout_changed_callbacks()
     
     def _determine_breakpoint(self, terminal_size: Tuple[int, int]) -> str:
-        """确定响应式断点"""
+        """改进的断点检测，添加缓冲机制"""
         width, height = terminal_size
         
+        # 使用配置中的断点设置
+        breakpoints = self.config.responsive_breakpoints or {
+            "xlarge": (140, 50),
+            "large": (120, 40),
+            "medium": (100, 30),
+            "small": (80, 24)
+        }
+        
+        # 首先找到最适合的断点（不考虑缓冲）
+        target_breakpoint = None
         for breakpoint_name, (min_width, min_height) in sorted(
-            self.config.responsive_breakpoints.items() if self.config.responsive_breakpoints else {}.items(),
+            breakpoints.items(),
             key=lambda x: x[1][0],  # 按宽度排序
             reverse=True
         ):
             if width >= min_width and height >= min_height:
-                return breakpoint_name
+                target_breakpoint = breakpoint_name
+                break
         
-        return "small"
+        if not target_breakpoint:
+            target_breakpoint = "small"
+        
+        # 如果没有当前断点，直接返回目标断点
+        if not self.current_breakpoint:
+            return target_breakpoint
+        
+        # 如果目标断点与当前断点相同，检查缓冲机制
+        if target_breakpoint == self.current_breakpoint:
+            return target_breakpoint
+        
+        # 如果目标断点比当前断点高（升级），直接切换
+        breakpoint_order = ["small", "medium", "large", "xlarge"]
+        current_index = breakpoint_order.index(self.current_breakpoint)
+        target_index = breakpoint_order.index(target_breakpoint)
+        
+        if target_index > current_index:
+            # 升级断点，直接切换
+            return target_breakpoint
+        else:
+            # 降级断点，检查缓冲机制
+            current_threshold = breakpoints.get(self.current_breakpoint)
+            if current_threshold:
+                # 如果仍在当前断点的缓冲范围内，保持当前断点
+                if (width >= current_threshold[0] - self.breakpoint_buffer_threshold and 
+                    height >= current_threshold[1] - self.breakpoint_buffer_threshold):
+                    return self.current_breakpoint
+                else:
+                    # 超出缓冲范围，降级
+                    return target_breakpoint
+        
+        return target_breakpoint
     
     def _adjust_region_sizes(self) -> None:
-        """调整区域大小"""
+        """调整区域大小（保留原方法以兼容性）"""
+        self._adjust_region_sizes_gradual()
+    
+    def _adjust_region_sizes_gradual(self) -> None:
+        """改进的区域尺寸调整"""
         if not self.layout:
             return
         
+        # 计算最优尺寸
+        optimal_sizes = self._calculate_optimal_sizes()
+        
+        # 应用尺寸调整
+        for region_name, size in optimal_sizes.items():
+            if self.layout is not None and self._has_region(region_name) and size is not None:
+                try:
+                    self.layout[region_name].size = size
+                except (KeyError, AttributeError, TypeError):
+                    # 忽略无法调整的区域
+                    pass
+    
+    def _calculate_optimal_sizes(self) -> Dict[str, Optional[int]]:
+        """计算各区域最优尺寸"""
         width, height = self.terminal_size
         
-        # 根据终端尺寸调整各区域大小
-        if self.current_breakpoint == "small":
-            # 小屏幕布局
-            header_size = min(3, height // 8)
-            input_size = min(3, height // 8)
-            
-            if self._has_region("header"):
-                self.layout["header"].size = header_size
-            if self._has_region("input"):
-                self.layout["input"].size = input_size
+        # 固定尺寸区域
+        header_size = 3
+        input_size = 3
+        status_size = 1
+        
+        # 可用空间计算
+        available_height = height - header_size - input_size - status_size
+        
+        if self.current_breakpoint in ["small", "medium"]:
+            # 紧凑布局
+            if self.current_breakpoint == "small":
+                # 小屏幕：隐藏侧边栏
+                return {
+                    "header": header_size,
+                    "main": available_height,
+                    "input": input_size,
+                    "status": status_size,
+                    "sidebar": None,
+                    "langgraph": None
+                }
+            else:
+                # 中等屏幕：底部显示侧边栏
+                sidebar_size = min(15, available_height // 3)
+                main_size = available_height - sidebar_size
+                return {
+                    "header": header_size,
+                    "main": main_size,
+                    "sidebar": sidebar_size,
+                    "input": input_size,
+                    "status": status_size,
+                    "langgraph": None
+                }
         else:
-            # 大屏幕布局
-            header_size = 3
-            input_size = 3
-            sidebar_size = min(30, width // 4)
+            # 完整布局
+            sidebar_size = min(25, width // 4)
             
-            if self._has_region("header"):
-                self.layout["header"].size = header_size
-            if self._has_region("input"):
-                self.layout["input"].size = input_size
-            if self._has_region("sidebar"):
-                self.layout["sidebar"].size = sidebar_size
+            # 检查是否需要显示LangGraph面板
+            langgraph_size = None
+            if self.config.regions[LayoutRegion.LANGGRAPH].visible:
+                langgraph_size = min(30, width // 5)
+            
+            return {
+                "header": header_size,
+                "sidebar": sidebar_size,
+                "main": available_height,
+                "langgraph": langgraph_size,
+                "input": input_size,
+                "status": status_size
+            }
     
     def get_region_size(self, region: LayoutRegion) -> Tuple[int, int]:
         """获取区域尺寸"""
@@ -500,3 +596,140 @@ class LayoutManager(ILayoutManager):
         if self.current_breakpoint == "small" and region == LayoutRegion.SIDEBAR:
             return False
         return self.config.regions[region].visible
+    
+    # 新增的优化方法
+    
+    def register_layout_changed_callback(self, callback: Callable[[str, Tuple[int, int]], None]) -> None:
+        """注册布局变化回调
+        
+        Args:
+            callback: 回调函数，接收断点和终端尺寸参数
+        """
+        self.layout_changed_callbacks.append(callback)
+    
+    def unregister_layout_changed_callback(self, callback: Callable[[str, Tuple[int, int]], None]) -> bool:
+        """取消注册布局变化回调
+        
+        Args:
+            callback: 要取消的回调函数
+            
+        Returns:
+            bool: 是否成功取消
+        """
+        try:
+            self.layout_changed_callbacks.remove(callback)
+            return True
+        except ValueError:
+            return False
+    
+    def _trigger_layout_changed_callbacks(self) -> None:
+        """触发布局变化回调"""
+        for callback in self.layout_changed_callbacks:
+            try:
+                callback(self.current_breakpoint, self.terminal_size)
+            except Exception as e:
+                logging.warning(f"布局变化回调执行失败: {e}")
+    
+    def _cache_region_contents(self) -> None:
+        """缓存区域内容"""
+        if not self.layout:
+            return
+        
+        for region in LayoutRegion:
+            region_name = region.value
+            if self.layout is not None and self._has_region(region_name):
+                try:
+                    # 获取当前区域内容
+                    region_layout = self.layout[region_name]
+                    if hasattr(region_layout, 'renderable'):
+                        self.region_content_cache[region] = region_layout.renderable
+                except (KeyError, AttributeError, TypeError):
+                    continue
+    
+    def _restore_region_contents(self) -> None:
+        """恢复区域内容"""
+        if not self.layout:
+            return
+        
+        for region, content in self.region_content_cache.items():
+            region_name = region.value
+            if self.layout is not None and self._has_region(region_name) and content:
+                try:
+                    self.layout[region_name].update(content)
+                except (KeyError, AttributeError, TypeError):
+                    continue
+        
+        # 清空缓存
+        self.region_content_cache.clear()
+    
+    def _gradual_layout_transition(self, old_breakpoint: str, new_breakpoint: str) -> None:
+        """渐进式布局过渡"""
+        # 创建新布局结构
+        self.layout = self._create_layout_structure(new_breakpoint)
+        
+        # 渐进式调整区域尺寸
+        self._transition_region_sizes(old_breakpoint, new_breakpoint)
+        
+        # 渐进式调整区域可见性
+        self._transition_region_visibility(old_breakpoint, new_breakpoint)
+    
+    def _create_layout_structure(self, breakpoint: str) -> Layout:
+        """根据断点创建布局结构"""
+        layout = Layout()
+        
+        if breakpoint in ["small", "medium"]:
+            layout = self._create_compact_layout(layout)
+        else:
+            layout = self._create_full_layout(layout)
+        
+        return layout
+    
+    def _transition_region_sizes(self, old_breakpoint: str, new_breakpoint: str) -> None:
+        """渐进式调整区域尺寸"""
+        # 根据新旧断点计算过渡尺寸
+        transition_sizes = self._calculate_transition_sizes(old_breakpoint, new_breakpoint)
+        
+        for region_name, target_size in transition_sizes.items():
+            if self.layout is not None and self._has_region(region_name) and target_size is not None:
+                try:
+                    # 直接设置目标尺寸（简化版本，实际可以添加动画）
+                    self.layout[region_name].size = target_size
+                except (KeyError, AttributeError, TypeError):
+                    continue
+    
+    def _transition_region_visibility(self, old_breakpoint: str, new_breakpoint: str) -> None:
+        """渐进式调整区域可见性"""
+        old_visibility = self._get_breakpoint_visibility(old_breakpoint)
+        new_visibility = self._get_breakpoint_visibility(new_breakpoint)
+        
+        for region in LayoutRegion:
+            old_visible = old_visibility.get(region, False)
+            new_visible = new_visibility.get(region, False)
+            
+            if old_visible != new_visible:
+                # 这里可以添加淡入淡出效果，目前直接切换
+                pass
+    
+    def _calculate_transition_sizes(self, old_breakpoint: str, new_breakpoint: str) -> Dict[str, Optional[int]]:
+        """计算过渡尺寸"""
+        return self._calculate_optimal_sizes()
+    
+    def _get_breakpoint_visibility(self, breakpoint: str) -> Dict[LayoutRegion, bool]:
+        """获取断点对应的区域可见性"""
+        visibility = {}
+        
+        for region in LayoutRegion:
+            if breakpoint == "small":
+                # 小屏幕：只显示header, main, input, status
+                visibility[region] = region in [
+                    LayoutRegion.HEADER, LayoutRegion.MAIN, 
+                    LayoutRegion.INPUT, LayoutRegion.STATUS
+                ]
+            elif breakpoint == "medium":
+                # 中等屏幕：显示header, main, sidebar, input, status
+                visibility[region] = region != LayoutRegion.LANGGRAPH
+            else:
+                # 大屏幕：显示所有区域（根据配置）
+                visibility[region] = self.config.regions[region].visible
+        
+        return visibility
