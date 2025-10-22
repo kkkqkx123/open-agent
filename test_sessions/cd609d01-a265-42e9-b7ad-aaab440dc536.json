@@ -1,0 +1,94 @@
+{
+  "metadata": {
+    "session_id": "cd609d01-a265-42e9-b7ad-aaab440dc536",
+    "workflow_config_path": "configs/workflows/react.yaml",
+    "workflow_id": "react_workflow_20251022_163452_cb0b2dff",
+    "agent_config": {},
+    "created_at": "2025-10-22T16:34:52.741002",
+    "updated_at": "2025-10-22T16:34:52.757394",
+    "status": "active"
+  },
+  "state": {
+    "messages": [
+      {
+        "type": "HumanMessage",
+        "content": "会话 cd609d01... 的消息",
+        "additional_kwargs": {}
+      }
+    ],
+    "tool_results": [],
+    "current_step": "",
+    "max_iterations": 10,
+    "iteration_count": 0
+  },
+  "workflow_config": {
+    "name": "react_workflow",
+    "description": "ReAct工作流模式，支持推理-行动-观察循环",
+    "version": 1.0,
+    "state_schema": {
+      "messages": "List[BaseMessage]",
+      "tool_calls": "List[ToolCall]",
+      "tool_results": "List[ToolResult]",
+      "iteration_count": "int",
+      "max_iterations": "int"
+    },
+    "nodes": {
+      "analyze": {
+        "type": "analysis_node",
+        "config": {
+          "llm_client": "openai-gpt4",
+          "system_prompt": "你是一个智能助手，负责分析用户输入并决定是否需要调用工具。\n\n请根据用户的请求：\n1. 如果需要获取外部信息或执行操作，请调用相应的工具\n2. 如果可以直接回答，请提供详细的回答\n3. 始终保持友好和专业的语调\n\n分析用户意图后，选择最合适的行动。\n",
+          "max_tokens": 2000,
+          "temperature": 0.7,
+          "tool_threshold": 0.5,
+          "available_tools": []
+        }
+      },
+      "execute_tool": {
+        "type": "tool_node",
+        "config": {
+          "tool_manager": "default",
+          "timeout": 30,
+          "max_parallel_calls": 1,
+          "retry_on_failure": false,
+          "continue_on_error": true
+        }
+      },
+      "final_answer": {
+        "type": "llm_node",
+        "config": {
+          "llm_client": "openai-gpt4",
+          "system_prompt": "你是一个智能助手，请根据上下文信息提供准确、有用的回答。\n\n请遵循以下原则：\n1. 基于提供的工具执行结果和上下文信息回答问题\n2. 如果信息不足，请明确说明需要什么额外信息\n3. 保持回答简洁明了，重点突出\n4. 如果有多个步骤的结果，请按逻辑顺序组织回答\n5. 始终保持友好和专业的语调\n",
+          "max_tokens": 2000,
+          "temperature": 0.3,
+          "include_tool_results": true
+        }
+      }
+    },
+    "edges": [
+      {
+        "from": "analyze",
+        "to": "execute_tool",
+        "type": "conditional",
+        "condition": "has_tool_calls"
+      },
+      {
+        "from": "analyze",
+        "to": "final_answer",
+        "type": "conditional",
+        "condition": "no_tool_calls"
+      },
+      {
+        "from": "execute_tool",
+        "to": "analyze",
+        "type": "simple"
+      }
+    ],
+    "entry_point": "analyze",
+    "additional_config": {
+      "max_iterations": 10,
+      "timeout": 300,
+      "enable_streaming": true
+    }
+  }
+}

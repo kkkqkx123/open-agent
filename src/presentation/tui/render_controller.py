@@ -51,6 +51,8 @@ class RenderController:
         self.langgraph_component = components.get("langgraph")
         self.main_content_component = components.get("main_content")
         self.input_component = components.get("input")
+        self.workflow_control_panel = components.get("workflow_control")
+        self.error_feedback_panel = components.get("error_feedback")
         
         # 对话框
         self.session_dialog = components.get("session_dialog")
@@ -90,6 +92,9 @@ class RenderController:
         else:
             # 更新主界面
             self._update_main_view(state_manager)
+        
+        # 检查并显示错误反馈面板
+        self._check_error_feedback_panel()
         
         # 只有在需要时才刷新显示，避免闪烁
         if self._needs_refresh:
@@ -144,6 +149,9 @@ class RenderController:
         self._update_input_area()
         self._update_langgraph_panel()
         self._update_status_bar(state_manager)
+        
+        # 更新错误反馈面板
+        self._update_error_feedback_panel()
     
     def _update_subview_header(self, state_manager: Any) -> None:
         """更新子界面标题栏
@@ -204,6 +212,10 @@ class RenderController:
         
         # 更新子界面数据
         self._update_subviews_data(state_manager)
+        
+        # 更新工作流控制面板
+        if self.workflow_control_panel and state_manager.current_state:
+            self.workflow_control_panel.update_from_agent_state(state_manager.current_state)
     
     def _update_subviews_data(self, state_manager: Any) -> None:
         """更新子界面数据
@@ -286,7 +298,11 @@ class RenderController:
     
     def _update_langgraph_panel(self) -> None:
         """更新LangGraph面板"""
-        if self.langgraph_component:
+        # 优先显示工作流控制面板
+        if self.workflow_control_panel:
+            workflow_panel = self.workflow_control_panel.render()
+            self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, workflow_panel)
+        elif self.langgraph_component:
             langgraph_panel = self.langgraph_component.render()
             self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, langgraph_panel)
     
@@ -333,6 +349,9 @@ class RenderController:
             # 隐藏其他区域
             self.layout_manager.update_region_content(LayoutRegion.SIDEBAR, "")
             self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, "")
+            # 隐藏错误反馈面板
+            if self.error_feedback_panel:
+                self.layout_manager.update_region_content(LayoutRegion.STATUS, "")
             
         elif state_manager.show_agent_dialog and self.agent_dialog:
             # 显示Agent选择对话框，覆盖整个主内容区
@@ -409,4 +428,23 @@ class RenderController:
         """大屏幕优化"""
         # 可以在这里添加大屏幕特定的优化逻辑
         # 例如：显示更多信息、启用更多功能等
+        pass
+    
+    def _check_error_feedback_panel(self) -> None:
+        """检查并显示错误反馈面板"""
+        if not self.error_feedback_panel or not self.live:
+            return
+        
+        # 获取错误反馈面板内容
+        error_panel = self.error_feedback_panel.render()
+        if error_panel:
+            # 将错误面板显示在状态栏位置
+            self.layout_manager.update_region_content(LayoutRegion.STATUS, error_panel)
+            # 标记需要刷新
+            self._needs_refresh = True
+    
+    def _update_error_feedback_panel(self) -> None:
+        """更新错误反馈面板"""
+        # 这个方法可以用来定期更新错误反馈面板的状态
+        # 目前错误反馈面板是事件驱动的，不需要定期更新
         pass

@@ -1,0 +1,9 @@
+name: 数据分析师
+llm: gpt-4
+group: data_group
+tools: []
+system_prompt: 你是一个专业的数据分析助手，能够处理各种数据分析和可视化任务。
+description: 专业的数据分析Agent，擅长数据处理、分析和可视化
+max_iterations: 20
+timeout: 180
+retry_count: 3

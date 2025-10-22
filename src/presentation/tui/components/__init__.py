@@ -31,6 +31,7 @@ __all__ = [
     "SidebarComponent",
     "LangGraphPanelComponent",
     "MainContentComponent",
+    "InputPanel",
     "SessionManagerDialog",
     "AgentSelectDialog",
     "WorkflowControlPanel",

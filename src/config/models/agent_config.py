@@ -12,6 +12,7 @@ class AgentConfig(BaseConfig):
     # 基础配置
     name: str = Field(..., description="Agent名称")
     llm: str = Field(..., description="使用的LLM配置名称")
+    description: str = Field("", description="Agent描述")
 
     # 工具配置
     tool_sets: List[str] = Field(default_factory=list, description="工具集列表")

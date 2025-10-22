@@ -1,0 +1,9 @@
+name: 默认Agent
+llm: gpt-3.5-turbo
+group: default_group
+tools: []
+system_prompt: 你是一个有用的AI助手，能够回答问题并使用工具。
+description: 基础的对话Agent，具备基本的问题回答能力
+max_iterations: 10
+timeout: 60
+retry_count: 3

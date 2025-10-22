@@ -15,7 +15,10 @@ from .components import (
     MainContentComponent,
     InputPanel,
     SessionManagerDialog,
-    AgentSelectDialog
+    AgentSelectDialog,
+    WorkflowControlPanel,
+    ErrorFeedbackPanel,
+    ConfigReloadPanel
 )
 from .subviews import (
     AnalyticsSubview,
@@ -91,7 +94,7 @@ class TUIApp:
         except Exception as e:
             self.console.print(f"[red]初始化依赖失败: {e}[/red]")
     
-    def _setup_container_services(self, container) -> None:
+    def _setup_container_services(self, container: Any) -> None:
         """设置容器中的必要服务"""
         from ...infrastructure.config_loader import YamlConfigLoader, IConfigLoader
         from ...session.store import FileSessionStore
@@ -136,6 +139,15 @@ class TUIApp:
         self.main_content_component = MainContentComponent(self.config)
         self.input_component = InputPanel(self.config)
         
+        # 初始化工作流控制面板
+        self.workflow_control_panel = WorkflowControlPanel(self.config)
+        
+        # 初始化错误反馈面板
+        self.error_feedback_panel = ErrorFeedbackPanel(self.config)
+        
+        # 初始化配置重载面板
+        self.config_reload_panel = ConfigReloadPanel(self.config)
+        
         # 初始化对话框
         self.session_dialog = SessionManagerDialog(self.config)
         self.agent_dialog = AgentSelectDialog(self.config)
@@ -153,6 +165,9 @@ class TUIApp:
             "langgraph": self.langgraph_component,
             "main_content": self.main_content_component,
             "input": self.input_component,
+            "workflow_control": self.workflow_control_panel,
+            "error_feedback": self.error_feedback_panel,
+            "config_reload": self.config_reload_panel,
             "session_dialog": self.session_dialog,
             "agent_dialog": self.agent_dialog
         }
@@ -199,6 +214,15 @@ class TUIApp:
         self.session_dialog.set_session_created_callback(self._on_session_created)
         self.session_dialog.set_session_deleted_callback(self._on_session_deleted)
         self.agent_dialog.set_agent_selected_callback(self._on_agent_selected)
+        
+        # 设置工作流控制回调
+        self.workflow_control_panel.set_control_action_callback(self._on_workflow_action)
+        
+        # 设置错误反馈回调
+        self.error_feedback_panel.set_user_action_callback(self._on_error_action)
+        
+        # 设置配置重载回调
+        self.config_reload_panel.set_config_updated_callback(self._on_config_updated)
         
         # 设置子界面回调
         self.subview_controller.setup_subview_callbacks(self.callback_manager)
@@ -269,7 +293,7 @@ class TUIApp:
         except KeyboardInterrupt:
             self._handle_shutdown()
         except Exception as e:
-            self.console.print(f"[red]TUI运行错误: {e}[/red]")
+            self._handle_critical_error(e)
             raise
         finally:
             self.running = False
@@ -396,6 +420,8 @@ class TUIApp:
             self._switch_to_subview(command)
         elif command == "main":
             self.subview_controller.return_to_main_view()
+        elif command in ["pause", "resume", "stop", "start"]:
+            self._handle_workflow_command(command)
         else:
             # 其他命令交给命令处理器处理
             self.command_processor.process_command(command, args)
@@ -454,17 +480,39 @@ class TUIApp:
     def _on_session_selected(self, session_id: str) -> None:
         """会话选择回调"""
         try:
+            # 保存当前会话（如果有）
+            if self.state_manager.session_id and self.state_manager.current_state:
+                self.session_handler.save_session(
+                    self.state_manager.session_id,
+                    self.state_manager.current_workflow,
+                    self.state_manager.current_state
+                )
+            
+            # 加载新会话
             self._load_session(session_id)
             self.state_manager.set_show_session_dialog(False)
             self.state_manager.add_system_message(f"已切换到会话 {session_id[:8]}...")
+            self.add_success_notification(f"已切换到会话 {session_id[:8]}...")
+            
+            # 更新侧边栏显示会话信息
+            if self.sidebar_component and self.session_handler:
+                session_info = self.session_handler.get_session_info(session_id)
+                if session_info:
+                    self.sidebar_component.update_session_info(
+                        session_id=session_id,
+                        workflow_config=session_info.get("workflow_config_path", ""),
+                        status="已加载"
+                    )
         except Exception as e:
-            self.state_manager.add_system_message(f"切换会话失败: {e}")
+            self._handle_session_error(e, "切换")
     
     def _on_session_created(self, workflow_config: str, agent_config: Optional[str]) -> None:
         """会话创建回调"""
         try:
+            # 创建会话
             session_id = self.session_handler.create_session(workflow_config, {} if agent_config else None)
             if session_id:
+                # 加载会话以获取工作流和状态
                 result = self.session_handler.load_session(session_id)
                 if result:
                     workflow, state = result
@@ -474,10 +522,25 @@ class TUIApp:
                     self.state_manager.message_history = []
                     self.state_manager.set_show_session_dialog(False)
                     self.state_manager.add_system_message(f"已创建新会话 {session_id[:8]}...")
+                    self.add_success_notification(f"会话 {session_id[:8]}... 创建成功")
+                    
+                    # 更新侧边栏显示会话信息
+                    if self.sidebar_component:
+                        self.sidebar_component.update_session_info(
+                            session_id=session_id,
+                            workflow_config=workflow_config,
+                            status="运行中"
+                        )
+                else:
+                    error_msg = "加载新会话失败"
+                    self.state_manager.add_system_message(error_msg)
+                    self.add_error_notification(error_msg, title="会话加载错误")
             else:
-                self.state_manager.add_system_message("创建会话失败")
+                error_msg = "创建会话失败"
+                self.state_manager.add_system_message(error_msg)
+                self.add_error_notification(error_msg, title="会话创建错误")
         except Exception as e:
-            self.state_manager.add_system_message(f"创建会话失败: {e}")
+            self._handle_session_error(e, "创建")
     
     def _on_session_deleted(self, session_id: str) -> None:
         """会话删除回调"""
@@ -485,17 +548,26 @@ class TUIApp:
             success = self.session_handler.delete_session(session_id)
             if success:
                 self.state_manager.add_system_message(f"已删除会话 {session_id[:8]}...")
+                self.add_success_notification(f"会话 {session_id[:8]}... 已删除")
+                
                 # 如果删除的是当前会话，重置状态
                 if self.state_manager.session_id == session_id:
                     self.state_manager.session_id = None
                     self.state_manager.current_state = None
                     self.state_manager.current_workflow = None
                     self.state_manager.message_history = []
-                    self.main_content_component.clear_all()
+                    if self.main_content_component:
+                        self.main_content_component.clear_all()
+                    
+                    # 更新侧边栏清除会话信息
+                    if self.sidebar_component:
+                        self.sidebar_component.clear_session_info()
             else:
-                self.state_manager.add_system_message("删除会话失败")
+                error_msg = "删除会话失败"
+                self.state_manager.add_system_message(error_msg)
+                self.add_error_notification(error_msg, title="会话删除错误")
         except Exception as e:
-            self.state_manager.add_system_message(f"删除会话失败: {e}")
+            self._handle_session_error(e, "删除")
     
     def _run_main_loop(self) -> None:
         """运行主循环"""
@@ -566,6 +638,45 @@ class TUIApp:
         error_id = feedback_data.get("error_id", "Unknown")
         self.state_manager.add_system_message(f"错误反馈已提交: {error_id}")
     
+    def _handle_workflow_command(self, command: str) -> None:
+        """处理工作流控制命令
+        
+        Args:
+            command: 命令名称
+        """
+        if command == "pause":
+            self.workflow_control_panel.handle_action("pause")
+            self.state_manager.add_system_message("工作流已暂停")
+        elif command == "resume":
+            self.workflow_control_panel.handle_action("resume")
+            self.state_manager.add_system_message("工作流已恢复")
+        elif command == "stop":
+            self.workflow_control_panel.handle_action("stop")
+            self.state_manager.add_system_message("工作流已停止")
+        elif command == "start":
+            self.workflow_control_panel.handle_action("start")
+            self.state_manager.add_system_message("工作流已启动")
+    
+    def _on_workflow_action(self, action: str) -> None:
+        """工作流动作回调
+        
+        Args:
+            action: 动作名称
+        """
+        # 更新状态管理器中的工作流状态
+        if action == "pause":
+            if self.state_manager.current_state:
+                setattr(self.state_manager.current_state, 'workflow_status', 'paused')
+        elif action == "resume":
+            if self.state_manager.current_state:
+                setattr(self.state_manager.current_state, 'workflow_status', 'running')
+        elif action == "stop":
+            if self.state_manager.current_state:
+                setattr(self.state_manager.current_state, 'workflow_status', 'stopped')
+        elif action == "start":
+            if self.state_manager.current_state:
+                setattr(self.state_manager.current_state, 'workflow_status', 'running')
+    
     def update_ui(self) -> None:
         """更新UI显示"""
         # 同步状态管理器中的子界面状态
@@ -578,3 +689,71 @@ class TUIApp:
         
         # 使用渲染控制器更新UI
         self.render_controller.update_ui(self.state_manager)
+    
+    def _on_error_action(self, notification_id: str, action: str) -> None:
+        """错误反馈动作回调
+        
+        Args:
+            notification_id: 通知ID
+            action: 动作名称
+        """
+        if action == "重试":
+            self.state_manager.add_system_message(f"重试操作: {notification_id}")
+        elif action == "忽略":
+            self.state_manager.add_system_message(f"忽略错误: {notification_id}")
+        elif action == "详情":
+            self.state_manager.add_system_message(f"查看详情: {notification_id}")
+    
+    def _on_config_updated(self, config_data: Any) -> None:
+        """配置更新回调
+        
+        Args:
+            config_data: 新配置数据
+        """
+        self.state_manager.add_system_message("配置已更新")
+    
+    def _handle_critical_error(self, error: Exception) -> None:
+        """处理关键错误
+        
+        Args:
+            error: 错误对象
+        """
+        self.console.print(f"[red]关键错误: {error}[/red]")
+        if self.error_feedback_panel:
+            self.error_feedback_panel.add_error(
+                f"关键错误: {error}",
+                title="系统错误",
+                details=str(error)
+            )
+    
+    def _handle_session_error(self, error: Exception, operation: str) -> None:
+        """处理会话错误
+        
+        Args:
+            error: 错误对象
+            operation: 操作类型
+        """
+        error_msg = f"{operation}会话时发生错误: {error}"
+        self.state_manager.add_system_message(error_msg)
+        self.add_error_notification(error_msg, title=f"会话{operation}错误")
+    
+    def add_success_notification(self, message: str, title: Optional[str] = None) -> None:
+        """添加成功通知
+        
+        Args:
+            message: 消息内容
+            title: 标题
+        """
+        if self.error_feedback_panel:
+            self.error_feedback_panel.add_success(message, title=title)
+    
+    def add_error_notification(self, message: str, title: Optional[str] = None, details: Optional[str] = None) -> None:
+        """添加错误通知
+        
+        Args:
+            message: 消息内容
+            title: 标题
+            details: 详细信息
+        """
+        if self.error_feedback_panel:
+            self.error_feedback_panel.add_error(message, title=title, details=details)

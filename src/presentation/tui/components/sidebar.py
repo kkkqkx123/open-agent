@@ -66,6 +66,14 @@ class SidebarComponent:
         # Agent基本信息
         self.agent_info = AgentInfo()
         
+        # 会话信息
+        self.session_info = {
+            "session_id": None,
+            "workflow_config": "",
+            "status": "未连接",
+            "created_time": None
+        }
+        
         # 工作流状态
         self.workflow_status = {
             "name": "未加载",
@@ -149,6 +157,29 @@ class SidebarComponent:
         """
         self.core_metrics.update(metrics)
     
+    def update_session_info(self, session_id: str, workflow_config: str, status: str) -> None:
+        """更新会话信息
+        
+        Args:
+            session_id: 会话ID
+            workflow_config: 工作流配置
+            status: 会话状态
+        """
+        self.session_info["session_id"] = session_id
+        self.session_info["workflow_config"] = workflow_config
+        self.session_info["status"] = status
+        if not self.session_info["created_time"]:
+            self.session_info["created_time"] = datetime.now()
+    
+    def clear_session_info(self) -> None:
+        """清除会话信息"""
+        self.session_info = {
+            "session_id": None,
+            "workflow_config": "",
+            "status": "未连接",
+            "created_time": None
+        }
+    
     def render(self) -> Panel:
         """渲染精简侧边栏
         
@@ -173,6 +204,15 @@ class SidebarComponent:
         table = Table(show_header=False, box=None, padding=(0, 1))
         table.add_column("属性", style="bold", width=12)
         table.add_column("值", style="dim")
+        
+        # 会话信息
+        if self.session_info["session_id"]:
+            table.add_row("", "", style="bold blue")  # 分隔线
+            table.add_row("💾 会话", self.session_info["session_id"][:8] + "...", style="bold blue")
+            table.add_row("状态", self._get_session_status_text(self.session_info["status"]))
+            if self.session_info["workflow_config"]:
+                workflow_name = self.session_info["workflow_config"].split('/')[-1]
+                table.add_row("工作流", workflow_name)
         
         # Agent基本信息
         table.add_row("", "", style="bold cyan")  # 分隔线
@@ -264,3 +304,35 @@ class SidebarComponent:
         bar = "█" * filled_length + "░" * (bar_length - filled_length)
         
         return f"[green]{bar}[/green] {progress}%"
+    
+    def _get_session_status_text(self, status: str) -> Text:
+        """获取会话状态文本
+        
+        Args:
+            status: 会话状态
+            
+        Returns:
+            Text: 状态文本
+        """
+        status_colors = {
+            "未连接": "dim",
+            "已加载": "green",
+            "运行中": "yellow",
+            "已暂停": "orange",
+            "已完成": "blue",
+            "错误": "red"
+        }
+        
+        status_icons = {
+            "未连接": "🔌",
+            "已加载": "✅",
+            "运行中": "▶️",
+            "已暂停": "⏸️",
+            "已完成": "🏁",
+            "错误": "❌"
+        }
+        
+        color = status_colors.get(status, "white")
+        icon = status_icons.get(status, "❓")
+        
+        return Text(f"{icon} {status}", style=color)

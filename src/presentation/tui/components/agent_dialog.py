@@ -27,9 +27,13 @@ class AgentConfigItem:
         self.config_data = config_data
         self.name = config_data.get("name", Path(config_path).stem)
         self.description = config_data.get("description", "无描述")
-        self.model = config_data.get("model", "未知模型")
+        # 使用llm字段而不是model字段，符合AgentConfig模型
+        self.model = config_data.get("llm", config_data.get("model", "未知模型"))
         self.tools = config_data.get("tools", [])
+        self.tool_sets = config_data.get("tool_sets", [])
         self.system_prompt = config_data.get("system_prompt", "")
+        self.rules = config_data.get("rules", [])
+        self.user_command = config_data.get("user_command", "")
         self.capabilities = config_data.get("capabilities", [])
     
     def get_summary(self) -> str:
@@ -38,7 +42,12 @@ class AgentConfigItem:
         Returns:
             str: 配置摘要
         """
-        return f"{self.name} - {self.model} ({len(self.tools)} 工具)"
+        tool_count = len(self.get_tool_list())
+        tool_set_count = len(self.tool_sets) if self.tool_sets else 0
+        tool_info = f"{tool_count} 工具"
+        if tool_set_count > 0:
+            tool_info += f", {tool_set_count} 工具集"
+        return f"{self.name} - {self.model} ({tool_info})"
     
     def get_tool_list(self) -> List[str]:
         """获取工具列表
@@ -66,7 +75,7 @@ class AgentConfigItem:
 class AgentListSection:
     """Agent列表组件"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.agents: List[AgentConfigItem] = []
         self.selected_index = 0
         self.filter_text = ""
@@ -174,7 +183,7 @@ class AgentListSection:
 class AgentDetailSection:
     """Agent详情组件"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.current_agent: Optional[AgentConfigItem] = None
     
     def update_agent(self, agent: Optional[AgentConfigItem]) -> None:
@@ -279,8 +288,12 @@ class AgentSelectDialog:
             config_path.mkdir(parents=True, exist_ok=True)
             self._create_default_configs(config_path)
         
-        # 加载所有YAML配置文件
+        # 加载所有YAML配置文件（排除_group.yaml）
         for yaml_file in config_path.glob("*.yaml"):
+            # 跳过组配置文件
+            if yaml_file.name.startswith("_group"):
+                continue
+                
             try:
                 with open(yaml_file, 'r', encoding='utf-8') as f:
                     config_data = yaml.safe_load(f)
@@ -302,28 +315,34 @@ class AgentSelectDialog:
         Args:
             config_dir: 配置目录
         """
-        # 默认Agent配置
+        # 默认Agent配置 - 符合AgentConfig模型
         default_config = {
             "name": "默认Agent",
-            "description": "基础的对话Agent，具备基本的问题回答能力",
-            "model": "gpt-3.5-turbo",
+            "llm": "gpt-3.5-turbo",
+            "group": "default_group",
             "tools": ["calculator", "weather"],
             "system_prompt": "你是一个有用的AI助手，能够回答问题并使用工具。",
-            "capabilities": ["对话", "计算", "天气查询"]
+            "description": "基础的对话Agent，具备基本的问题回答能力",
+            "max_iterations": 10,
+            "timeout": 60,
+            "retry_count": 3
         }
         
         default_file = config_dir / "default.yaml"
         with open(default_file, 'w', encoding='utf-8') as f:
             yaml.dump(default_config, f, default_flow_style=False, allow_unicode=True)
         
-        # 高级Agent配置
+        # 高级Agent配置 - 符合AgentConfig模型
         advanced_config = {
             "name": "高级Agent",
-            "description": "功能强大的Agent，支持多种工具和复杂任务处理",
-            "model": "gpt-4",
+            "llm": "gpt-4",
+            "group": "code_group",
             "tools": ["calculator", "weather", "database", "web_search"],
             "system_prompt": "你是一个高级AI助手，具备强大的问题解决能力和工具使用技能。",
-            "capabilities": ["对话", "计算", "天气查询", "数据库操作", "网络搜索", "代码生成"]
+            "description": "功能强大的Agent，支持多种工具和复杂任务处理",
+            "max_iterations": 15,
+            "timeout": 120,
+            "retry_count": 5
         }
         
         advanced_file = config_dir / "advanced.yaml"
@@ -394,7 +413,7 @@ class AgentSelectDialog:
             list_panel = self.agent_list.render()
             detail_panel = self.agent_detail.render()
             
-            content = Columns([list_panel, detail_panel], equal=True)
+            content: Any = Columns([list_panel, detail_panel], equal=True)
             title = "选择Agent (方向键=选择, Enter=确认, Esc=关闭)"
         elif self.current_mode == "confirm":
             if self.selected_agent:

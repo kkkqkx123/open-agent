@@ -3,7 +3,7 @@
 包含会话创建、选择、切换和管理功能
 """
 
-from typing import Optional, Dict, Any, List, Callable
+from typing import Optional, Dict, Any, List, Callable, cast, Union
 from datetime import datetime
 from pathlib import Path
 
@@ -22,7 +22,7 @@ from src.session.manager import ISessionManager
 class SessionListComponent:
     """会话列表组件"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.sessions: List[Dict[str, Any]] = []
         self.selected_index = 0
         self.sort_by = "created_at"  # created_at, name, status
@@ -72,7 +72,7 @@ class SessionListComponent:
             Optional[Dict[str, Any]]: 选中的会话信息
         """
         if 0 <= self.selected_index < len(self.sessions):
-            return self.sessions[self.selected_index]
+            return cast(Dict[str, Any], self.sessions[self.selected_index])
         return None
     
     def render(self) -> Table:
@@ -152,7 +152,7 @@ class SessionListComponent:
 class SessionCreateDialog:
     """会话创建对话框"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.workflow_configs: List[str] = []
         self.agent_configs: List[str] = []
         self.selected_workflow = 0
@@ -196,7 +196,7 @@ class SessionCreateDialog:
             Optional[str]: 工作流配置路径
         """
         if 0 <= self.selected_workflow < len(self.workflow_configs):
-            return self.workflow_configs[self.selected_workflow]
+            return cast(str, self.workflow_configs[self.selected_workflow])
         return None
     
     def get_selected_agent(self) -> Optional[str]:
@@ -206,7 +206,7 @@ class SessionCreateDialog:
             Optional[str]: Agent配置路径
         """
         if 0 <= self.selected_agent < len(self.agent_configs):
-            return self.agent_configs[self.selected_agent]
+            return cast(str, self.agent_configs[self.selected_agent])
         return None
     
     def render(self) -> Panel:
@@ -362,6 +362,14 @@ class SessionManagerDialog:
             if selected and self.on_session_selected:
                 self.on_session_selected(selected["session_id"])
                 return "SESSION_SELECTED"
+        elif key == "s":  # 快速切换会话
+            selected = self.session_list.get_selected_session()
+            if selected:
+                if self.on_session_selected:
+                    self.on_session_selected(selected["session_id"])
+                return "SESSION_SWITCHED"
+        elif key == "c":  # 创建新会话
+            self.switch_to_create_mode()
         elif key == "n":
             self.switch_to_create_mode()
         elif key == "d":
@@ -415,9 +423,12 @@ class SessionManagerDialog:
         Returns:
             Panel: 对话框面板
         """
+        # 声明 content 变量的类型，可以是 Table、Panel 或 Text
+        content: Union[Table, Panel, Text]
+        
         if self.current_mode == "list":
             content = self.session_list.render()
-            title = "会话管理 (Enter=选择, N=新建, D=删除, R=刷新, Esc=关闭)"
+            title = "会话管理 (Enter=选择, S=切换, N=新建, D=删除, R=刷新, Esc=关闭)"
         elif self.current_mode == "create":
             content = self.create_dialog.render()
             title = "创建新会话 (方向键=选择, Enter=创建, Esc=取消)"
