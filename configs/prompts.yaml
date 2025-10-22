@@ -1,25 +1,25 @@
 # 提示词注册表配置
 system:
   - name: assistant
-    path: prompts/system/assistant.md
+    path: configs/prompts/system/assistant.md
     description: 通用助手系统提示词
   - name: coder
-    path: prompts/system/coder/
+    path: configs/prompts/system/coder/
     description: 代码生成专家系统提示词
     is_composite: true
 
 rules:
   - name: safety
-    path: prompts/rules/safety.md
+    path: configs/prompts/rules/safety.md
     description: 安全规则提示词
   - name: format
-    path: prompts/rules/format.md
+    path: configs/prompts/rules/format.md
     description: 输出格式规则提示词
 
 user_commands:
   - name: data_analysis
-    path: prompts/user_commands/data_analysis.md
+    path: configs/prompts/user_commands/data_analysis.md
     description: 数据分析用户指令
   - name: code_review
-    path: prompts/user_commands/code_review.md
+    path: configs/prompts/user_commands/code_review.md
     description: 代码审查用户指令
