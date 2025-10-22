@@ -5,7 +5,7 @@
 
 from typing import List, Tuple, Optional, Dict, Any
 from .base_command_processor import BaseCommandProcessor
-from ...logger.tui_logger import get_tui_debug_logger
+from ...logger import get_tui_silent_logger
 
 
 class WorkflowSelectorProcessor(BaseCommandProcessor):
@@ -19,7 +19,7 @@ class WorkflowSelectorProcessor(BaseCommandProcessor):
         self._load_default_workflows()
         
         # 更新调试日志记录器
-        self.tui_logger = get_tui_debug_logger("workflow_selector_processor")
+        self.tui_logger = get_tui_silent_logger("workflow_selector_processor")
     
     def _load_default_workflows(self) -> None:
         """加载默认工作流"""

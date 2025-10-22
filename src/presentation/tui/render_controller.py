@@ -6,6 +6,7 @@ from rich.live import Live
 from rich.text import Text
 from rich.panel import Panel
 
+from .logger import get_tui_silent_logger
 from .layout import LayoutManager, LayoutRegion
 from .components import (
     SidebarComponent,
@@ -41,6 +42,7 @@ class RenderController:
             subviews: 子界面字典
             config: TUI配置
         """
+        self.tui_logger = get_tui_silent_logger("render_controller")
         self.layout_manager = layout_manager
         self.config = config
         self.live: Optional[Live] = None
@@ -118,9 +120,13 @@ class RenderController:
         
         # 只有在需要时才刷新显示，避免闪烁
         if self._needs_refresh:
-            self.live.refresh()
-            self._needs_refresh = False # 重置刷新标记
-            self._render_stats['total_updates'] += 1
+            # 使用更保守的刷新策略，避免频繁刷新
+            current_time = time.time()
+            if current_time - self._render_stats['last_update_time'] >= 0.05:  # 至少50ms间隔
+                self.live.refresh()
+                self._needs_refresh = False # 重置刷新标记
+                self._render_stats['total_updates'] += 1
+                self._render_stats['last_update_time'] = current_time
             
             # 更新性能统计
             current_time = time.time()

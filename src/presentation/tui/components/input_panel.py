@@ -18,7 +18,7 @@ from .input_panel_component import (
     WorkflowSelectorProcessor,
     SlashCommandProcessor
 )
-from ..logger.tui_logger import get_tui_debug_logger
+from ..logger import get_tui_silent_logger
 
 
 class InputPanel:
@@ -36,7 +36,7 @@ class InputPanel:
         self.config = config
         
         # 初始化TUI调试日志记录器
-        self.tui_logger = get_tui_debug_logger("input_panel")
+        self.tui_logger = get_tui_silent_logger("input_panel")
         
         # 初始化子组件
         self.input_buffer = InputBuffer()

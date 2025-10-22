@@ -5,7 +5,7 @@
 
 from typing import List
 
-from ...logger.tui_logger import get_tui_debug_logger
+from ...logger import get_tui_silent_logger
 
 
 class InputBuffer:
@@ -20,7 +20,7 @@ class InputBuffer:
         self.current_line = 0
         
         # 初始化TUI调试日志记录器
-        self.tui_logger = get_tui_debug_logger("input_buffer")
+        self.tui_logger = get_tui_silent_logger("input_buffer")
     
     def insert_text(self, text: str) -> None:
         """插入文本

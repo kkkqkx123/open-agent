@@ -5,7 +5,7 @@
 
 from typing import List, Tuple, Optional, Dict, Any, Callable
 from .base_command_processor import BaseCommandProcessor
-from ...logger.tui_logger import get_tui_debug_logger
+from ...logger import get_tui_silent_logger
 
 
 class SlashCommandProcessor(BaseCommandProcessor):
@@ -22,7 +22,7 @@ class SlashCommandProcessor(BaseCommandProcessor):
         self._register_builtin_commands()
         
         # 更新调试日志记录器
-        self.tui_logger = get_tui_debug_logger("slash_command_processor")
+        self.tui_logger = get_tui_silent_logger("slash_command_processor")
     
     def _register_builtin_commands(self) -> None:
         """注册内置命令"""

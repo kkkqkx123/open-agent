@@ -6,7 +6,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Optional, Dict, Any
 
-from ...logger.tui_logger import get_tui_debug_logger
+from ...logger import get_tui_silent_logger
 
 
 class BaseCommandProcessor(ABC):
@@ -21,7 +21,7 @@ class BaseCommandProcessor(ABC):
         self.trigger_char = trigger_char
         
         # 初始化TUI调试日志记录器
-        self.tui_logger = get_tui_debug_logger("base_command_processor")
+        self.tui_logger = get_tui_silent_logger("base_command_processor")
     
     @abstractmethod
     def is_command(self, input_text: str) -> bool:

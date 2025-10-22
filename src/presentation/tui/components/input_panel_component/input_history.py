@@ -5,7 +5,7 @@
 
 from typing import List
 
-from ...logger.tui_logger import get_tui_debug_logger
+from ...logger import get_tui_silent_logger
 
 
 class InputHistory:
@@ -23,7 +23,7 @@ class InputHistory:
         self.temp_input = ""  # 临时保存当前输入
         
         # 初始化TUI调试日志记录器
-        self.tui_logger = get_tui_debug_logger("input_history")
+        self.tui_logger = get_tui_silent_logger("input_history")
     
     def add_entry(self, input_text: str) -> None:
         """添加历史记录

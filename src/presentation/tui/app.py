@@ -42,7 +42,7 @@ from src.sessions.manager import ISessionManager
 from src.prompts.agent_state import AgentState, HumanMessage
 
 # 导入TUI日志系统
-from .logger import get_tui_debug_logger, TUILoggerManager
+from .logger import get_tui_silent_logger, TUILoggerManager
 
 
 class TUIApp:
@@ -55,13 +55,14 @@ class TUIApp:
              config_path: 配置文件路径
          """
         # 初始化TUI调试日志记录器
-        self.tui_logger = get_tui_debug_logger("app")
+        self.tui_logger = get_tui_silent_logger("app")
         self.tui_manager = TUILoggerManager()
         
         # 如果环境变量设置了TUI_DEBUG，启用调试模式
         import os
         if os.getenv("TUI_DEBUG", "0").lower() in ("1", "true", "yes"):
             self.tui_logger.set_debug_mode(True)
+            self.tui_manager.set_debug_mode(True)
         
         self.console = Console()
         self.terminal = Terminal()
@@ -102,10 +103,11 @@ class TUIApp:
         # 添加最小刷新间隔以避免过度刷新
         import time
         self._last_update_time = 0
-        self._min_update_interval = 0.05  # 50ms最小间隔
+        self._min_update_interval = 0.05  # 50ms最小间隔，进一步减少抖动
         
         # 初始化终端尺寸跟踪
         self.previous_terminal_size = None
+        self._resize_threshold = 5  # 终端尺寸变化阈值，避免频繁调整
     
     def _initialize_dependencies(self) -> None:
         """初始化依赖注入"""
@@ -714,10 +716,12 @@ class TUIApp:
                     
                     # 如果终端尺寸发生变化，通知布局管理器
                     if self.previous_terminal_size is not None:
-                        if (abs(current_terminal_size.width - self.previous_terminal_size[0]) > 2 or 
-                            abs(current_terminal_size.height - self.previous_terminal_size[1]) > 2):
+                        if (abs(current_terminal_size.width - self.previous_terminal_size[0]) > self._resize_threshold or 
+                            abs(current_terminal_size.height - self.previous_terminal_size[1]) > self._resize_threshold):
                             # 终端尺寸变化较大，更新布局
                             self.layout_manager.resize_layout((current_terminal_size.width, current_terminal_size.height))
+                            # 增加延迟，避免频繁调整
+                            time.sleep(0.1)
                     
                     self.previous_terminal_size = (current_terminal_size.width, current_terminal_size.height)
                     
@@ -726,7 +730,7 @@ class TUIApp:
                     self._last_update_time = current_time
                 
                 # 短暂休眠以减少CPU使用率
-                time.sleep(0.01)  # 减少休眠时间以提高响应性，但限制更新频率
+                time.sleep(0.02)  # 增加休眠时间到20ms，减少抖动
                 
             except KeyboardInterrupt:
                 self.tui_logger.debug_component_event("TUIApp", "main_loop_keyboard_interrupt")

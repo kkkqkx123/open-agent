@@ -121,8 +121,8 @@ class LayoutManager(ILayoutManager):
         self.layout_changed_callbacks: List[Callable[[str, Tuple[int, int]], None]] = []
         self.region_content_cache: Dict[LayoutRegion, Any] = {}
         self.last_resize_time: float = 0
-        self.resize_debounce_delay: float = 0.1  # 100ms防抖延迟
-        self.breakpoint_buffer_threshold: int = 5  # 断点切换缓冲阈值
+        self.resize_debounce_delay: float = 0.05  # 50ms防抖延迟，减少频繁调整
+        self.breakpoint_buffer_threshold: int = 3  # 增加断点切换缓冲阈值，减少频繁切换
         
     def _create_default_config(self) -> LayoutConfig:
         """创建默认布局配置"""
@@ -400,6 +400,8 @@ class LayoutManager(ILayoutManager):
         # 检查内容是否真正发生变化
         if self.region_contents.get(region) != content:
             self.region_contents[region] = content
+            # 立即更新布局对象中的内容
+            self._update_layout_regions_for_region(region, content)
     
     def _update_layout_regions_for_region(self, region: LayoutRegion, content: Any) -> None:
         """只更新指定区域的内容
@@ -436,25 +438,30 @@ class LayoutManager(ILayoutManager):
         self.last_resize_time = current_time
         old_breakpoint = self.current_breakpoint
         
-        # 缓存当前内容
-        self._cache_region_contents()
-        
-        self.terminal_size = terminal_size
-        new_breakpoint = self._determine_breakpoint(terminal_size)
-        
-        if old_breakpoint != new_breakpoint:
-            # 断点变化，使用渐进式过渡
-            self.current_breakpoint = new_breakpoint
-            self._gradual_layout_transition(old_breakpoint, new_breakpoint)
-        else:
-            # 相同断点，只调整尺寸
-            self._adjust_region_sizes_gradual()
-        
-        # 恢复缓存的内容
-        self._restore_region_contents()
-        
-        # 触发布局变化回调
-        self._trigger_layout_changed_callbacks()
+        # 只有在尺寸变化较大时才处理（增加阈值）
+        if (abs(terminal_size[0] - self.terminal_size[0]) > 10 or 
+            abs(terminal_size[1] - self.terminal_size[1]) > 5):
+            
+            # 缓存当前内容
+            self._cache_region_contents()
+            
+            self.terminal_size = terminal_size
+            new_breakpoint = self._determine_breakpoint(terminal_size)
+            
+            # 只有在断点真正变化时才重建布局
+            if old_breakpoint != new_breakpoint:
+                # 断点变化，使用渐进式过渡
+                self.current_breakpoint = new_breakpoint
+                self._gradual_layout_transition(old_breakpoint, new_breakpoint)
+            else:
+                # 相同断点但尺寸变化较大，只调整尺寸
+                self._adjust_region_sizes_gradual()
+            
+            # 恢复缓存的内容
+            self._restore_region_contents()
+            
+            # 触发布局变化回调
+            self._trigger_layout_changed_callbacks()
     
     def _determine_breakpoint(self, terminal_size: Tuple[int, int]) -> str:
         """改进的断点检测，添加缓冲机制"""

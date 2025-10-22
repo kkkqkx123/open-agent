@@ -6,7 +6,7 @@
 import os
 from typing import List, Tuple, Optional, Dict, Any
 from .base_command_processor import BaseCommandProcessor
-from ...logger.tui_logger import get_tui_debug_logger
+from ...logger import get_tui_silent_logger
 
 
 class FileSelectorProcessor(BaseCommandProcessor):
@@ -19,7 +19,7 @@ class FileSelectorProcessor(BaseCommandProcessor):
         self.file_cache: Dict[str, List[str]] = {}
         
         # 更新调试日志记录器
-        self.tui_logger = get_tui_debug_logger("file_selector_processor")
+        self.tui_logger = get_tui_silent_logger("file_selector_processor")
     
     def is_command(self, input_text: str) -> bool:
         """检查输入是否是文件选择命令
