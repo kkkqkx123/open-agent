@@ -11,7 +11,7 @@ from .components import (
     SidebarComponent,
     LangGraphPanelComponent,
     MainContentComponent,
-    InputPanelComponent,
+    InputPanel,
     SessionManagerDialog,
     AgentSelectDialog
 )

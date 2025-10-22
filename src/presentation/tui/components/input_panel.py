@@ -133,11 +133,8 @@ class InputPanel:
         elif text.endswith(' '):
             # 末尾是空格，直接提交
             pass  # 继续执行提交逻辑
-        elif '\n' in text:
-            # 包含换行符，检查是否在多行模式
-            # 如果不在多行模式，继续编辑
-            if not self.input_buffer.multiline_mode:
-                return None
+        # 移除对包含换行符但不在多行模式的限制
+        # 普通文本输入（包括包含换行符的）都应该可以提交
         
         # 检查是否是命令
         command_result = self._process_command(text)

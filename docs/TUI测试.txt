@@ -1,0 +1,1 @@
+cd d:/项目/agent/open-agent && python -m src.presentation.tui.test_components ; "(Roo/PS Workaround: 9)" > $null ; start-sleep -milliseconds 200

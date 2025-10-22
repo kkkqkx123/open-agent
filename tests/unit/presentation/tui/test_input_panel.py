@@ -491,7 +491,7 @@ class TestInputPanelComponent:
         assert panel.command_processors is not None
         assert panel.is_processing is False
         assert panel.show_help is False
-        assert panel.placeholder == "在此输入消息... (使用 /help 查看命令)"
+        assert panel.placeholder == "在此输入消息... (使用 /help 查看命令, @选择文件, #选择工作流)"
         assert panel.on_submit is None
         assert panel.on_command is None
     
@@ -616,6 +616,61 @@ class TestInputPanelComponent:
         # 测试Tab自动补全（虽然实现可能不完整，但至少不报错）
         panel.handle_key("tab")
     
+    def test_handle_key_enter_multiline_scenarios(self):
+        """测试回车键处理的各种多行输入场景"""
+        panel = InputPanel()
+        
+        # 测试1: 以反斜杠结尾的输入（应该继续编辑）
+        panel.input_buffer.set_text("line1\\")
+        result = panel.handle_key("enter")
+        assert result is None
+        assert panel.input_buffer.get_text() == "line1\n"
+        
+        # 测试2: 以空格结尾的输入（应该提交）
+        panel.input_buffer.clear()
+        panel.input_buffer.set_text("hello ")
+        mock_submit = Mock()
+        panel.set_submit_callback(mock_submit)
+        
+        result = panel.handle_key("enter")
+        assert result is None
+        mock_submit.assert_called_once_with("hello ")
+        assert panel.input_buffer.is_empty() is True
+        
+        # 测试3: 包含换行符但不在多行模式（现在应该可以提交）- 这是主要的修复
+        panel.input_buffer.clear()
+        panel.input_buffer.set_text("line1\nline2")
+        panel.input_buffer.multiline_mode = False
+        mock_submit2 = Mock()
+        panel.set_submit_callback(mock_submit2)
+        
+        result = panel.handle_key("enter")
+        assert result is None
+        mock_submit2.assert_called_once_with("line1\nline2")  # 现在应该提交
+        assert panel.input_buffer.is_empty() is True  # 输入应该被清空
+        
+        # 测试4: 普通单行文本（应该提交）
+        panel.input_buffer.clear()
+        panel.input_buffer.set_text("hello world")
+        mock_submit3 = Mock()
+        panel.set_submit_callback(mock_submit3)
+        
+        result = panel.handle_key("enter")
+        assert result is None
+        mock_submit3.assert_called_once_with("hello world")
+        assert panel.input_buffer.is_empty() is True
+        
+        # 测试5: 普通单行文本（应该提交）
+        panel.input_buffer.clear()
+        panel.input_buffer.set_text("hello world")
+        mock_submit4 = Mock()
+        panel.set_submit_callback(mock_submit4)
+        
+        result = panel.handle_key("enter")
+        assert result is None
+        mock_submit4.assert_called_once_with("hello world")
+        assert panel.input_buffer.is_empty() is True
+
     def test_handle_key_multiline_toggle(self):
         """测试多行模式切换键"""
         panel = InputPanel()
@@ -646,3 +701,61 @@ class TestInputPanelComponent:
         panel.set_processing(True)
         rendered = panel.render()
         assert rendered is not None
+
+    def test_callback_event_handling(self):
+        """测试回调事件处理"""
+        panel = InputPanel()
+        
+        # 跟踪回调调用
+        submit_calls = []
+        command_calls = []
+        
+        def submit_callback(text: str) -> None:
+            submit_calls.append(text)
+        
+        def command_callback(cmd: str, args: List[str]) -> None:
+            command_calls.append((cmd, args))
+        
+        # 设置回调
+        panel.set_submit_callback(submit_callback)
+        panel.set_command_callback(command_callback)
+        
+        # 测试普通消息提交
+        panel.input_buffer.set_text("hello world")
+        result = panel.handle_key("enter")
+        
+        assert result is None  # 普通消息返回None
+        assert len(submit_calls) == 1
+        assert submit_calls[0] == "hello world"
+        assert len(command_calls) == 0
+        assert panel.input_buffer.is_empty()  # 输入应该被清空
+        
+        # 测试命令处理
+        panel.input_buffer.set_text("/help")
+        result = panel.handle_key("enter")
+        
+        assert result is not None  # 命令返回结果
+        assert "可用命令" in result
+        assert len(submit_calls) == 1  # 没有新的提交
+        assert len(command_calls) == 0  # 命令通过结果返回，不通过命令回调
+        assert panel.input_buffer.is_empty()  # 输入应该被清空
+        
+        # 测试多行输入提交
+        panel.input_buffer.set_text("line1\nline2")
+        result = panel.handle_key("enter")
+        
+        assert result is None  # 多行消息返回None
+        assert len(submit_calls) == 2
+        assert submit_calls[1] == "line1\nline2"
+        assert len(command_calls) == 0
+        assert panel.input_buffer.is_empty()  # 输入应该被清空
+        
+        # 测试反斜杠续行（不提交）
+        panel.input_buffer.set_text("continue\\")
+        result = panel.handle_key("enter")
+        
+        assert result is None  # 续行返回None
+        assert len(submit_calls) == 2  # 没有新的提交
+        assert len(command_calls) == 0
+        assert not panel.input_buffer.is_empty()  # 输入不应该被清空
+        assert panel.input_buffer.get_text() == "continue\n"  # 应该添加换行符

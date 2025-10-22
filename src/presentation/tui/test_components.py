@@ -18,7 +18,7 @@ from .components import (
     SidebarComponent,
     LangGraphPanelComponent,
     MainContentComponent,
-    InputPanelComponent
+    InputPanel
 )
 from src.prompts.agent_state import AgentState, HumanMessage, ToolResult
 
@@ -35,7 +35,7 @@ class ComponentTester:
         self.sidebar = SidebarComponent(self.config)
         self.langgraph = LangGraphPanelComponent(self.config)
         self.main_content = MainContentComponent(self.config)
-        self.input_panel = InputPanelComponent(self.config)
+        self.input_panel = InputPanel(self.config)
         
         # 创建测试状态
         self.test_state = self._create_test_state()
@@ -140,12 +140,30 @@ class ComponentTester:
         """测试输入面板组件"""
         self.console.print("\n[bold cyan]测试输入面板组件[/bold cyan]")
         
+        # 设置提交回调来测试普通消息
+        submitted_messages = []
+        
+        def mock_submit(text: str) -> None:
+            """模拟提交回调"""
+            submitted_messages.append(text)
+            self.console.print(f"[green]✅ 消息已提交: {text}[/green]")
+        
+        def mock_command(cmd: str, args: list) -> None:
+            """模拟命令回调"""
+            self.console.print(f"[blue]🔧 命令已执行: {cmd} {args}[/blue]")
+        
+        self.input_panel.set_submit_callback(mock_submit)
+        self.input_panel.set_command_callback(mock_command)
+        
         # 测试命令处理
         commands = [
             "/help",
             "/history",
             "/clear",
-            "普通消息输入"
+            "普通消息输入",
+            "line1\\",  # 测试多行输入
+            "hello ",  # 测试空格结尾
+            "line1\nline2"  # 测试包含换行符
         ]
         
         for cmd in commands:
@@ -162,6 +180,18 @@ class ComponentTester:
             result = self.input_panel.handle_key("enter")
             if result:
                 self.console.print(f"[yellow]处理结果: {result}[/yellow]")
+            
+            # 检查输入缓冲区状态
+            if not self.input_panel.input_buffer.is_empty():
+                self.console.print(f"[dim]输入缓冲区内容: {self.input_panel.input_buffer.get_text()}[/dim]")
+        
+        # 显示提交的消息统计
+        if submitted_messages:
+            self.console.print(f"\n[green]总共提交了 {len(submitted_messages)} 条消息:[/green]")
+            for i, msg in enumerate(submitted_messages, 1):
+                self.console.print(f"  {i}. {msg}")
+        else:
+            self.console.print("\n[dim]没有提交任何消息[/dim]")
     
     def test_all_components(self) -> None:
         """测试所有组件"""
