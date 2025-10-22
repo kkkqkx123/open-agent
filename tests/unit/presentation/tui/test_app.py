@@ -7,7 +7,7 @@ from typing import Optional
 
 from src.presentation.tui.app import TUIApp
 from src.presentation.tui.config import TUIConfig
-from src.session.manager import ISessionManager
+from src.sessions.manager import ISessionManager
 
 
 class TestTUIApp:

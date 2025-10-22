@@ -6,8 +6,9 @@ import tempfile
 import shutil
 from pathlib import Path
 from datetime import datetime
+from unittest.mock import patch
 
-from src.session.store import FileSessionStore, MemorySessionStore, ISessionStore
+from src.sessions.store import FileSessionStore, MemorySessionStore, ISessionStore
 
 
 class TestFileSessionStore:
@@ -81,7 +82,7 @@ class TestFileSessionStore:
         session_id = "test-session-id"
         
         # 模拟写入错误
-        with pytest.mock.patch('builtins.open', side_effect=IOError("写入失败")):
+        with patch('builtins.open', side_effect=IOError("写入失败")):
             result = file_store.save_session(session_id, sample_session_data)
             assert result is False
 
@@ -150,7 +151,7 @@ class TestFileSessionStore:
         file_store.save_session(session_id, sample_session_data)
         
         # 模拟删除错误
-        with pytest.mock.patch.object(Path, 'unlink', side_effect=IOError("删除失败")):
+        with patch.object(Path, 'unlink', side_effect=IOError("删除失败")):
             result = file_store.delete_session(session_id)
             assert result is False
 
@@ -236,7 +237,7 @@ class TestFileSessionStore:
         session_id = "test-session-id"
         
         # 模拟临时文件替换失败
-        with pytest.mock.patch.object(Path, 'replace', side_effect=IOError("替换失败")):
+        with patch.object(Path, 'replace', side_effect=IOError("替换失败")):
             result = file_store.save_session(session_id, sample_session_data)
             assert result is False
         
@@ -304,10 +305,15 @@ class TestMemorySessionStore:
         """测试保存会话出错"""
         session_id = "test-session-id"
         
-        # 模拟复制错误
-        with pytest.mock.patch.object(dict, 'copy', side_effect=Exception("复制失败")):
-            result = memory_store.save_session(session_id, {})
-            assert result is False
+        # 创建一个自定义字典类，其 copy 方法会抛出异常
+        class FailingCopyDict(dict):
+            def copy(self):
+                raise Exception("复制失败")
+        
+        # 使用自定义字典
+        failing_dict = FailingCopyDict()
+        result = memory_store.save_session(session_id, failing_dict)
+        assert result is False
 
     def test_get_session(self, memory_store, sample_session_data):
         """测试获取会话"""

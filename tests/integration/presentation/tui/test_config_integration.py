@@ -8,7 +8,7 @@ import yaml
 
 from src.presentation.tui.config import ConfigManager, get_tui_config, get_config_manager
 from src.infrastructure.container import get_global_container
-from src.session.manager import ISessionManager
+from src.sessions.manager import ISessionManager
 
 
 class TestTUIConfigIntegration:

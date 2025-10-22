@@ -47,8 +47,8 @@ def create_agent_workflow(
                 from .agent_state import HumanMessage
                 response = HumanMessage(content="这是一个模拟的LLM响应")
             except ImportError:
-                # 如果无法导入HumanMessage，使用基本的消息结构
-                response = {"content": "这是一个模拟的LLM响应", "type": "human"}
+                # 如果无法导入HumanMessage，使用BaseMessage
+                response = BaseMessage(content="这是一个模拟的LLM响应", type="human")
             state.add_message(response)
         else:
             # 使用注入后的提示词调用LLM

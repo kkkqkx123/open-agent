@@ -189,19 +189,32 @@ class GitManager(IGitManager):
                 return []
 
             commits = []
-            for line in result.stdout.strip().split("\n"):
+            lines = result.stdout.strip().split("\n")
+            i = 0
+            while i < len(lines):
+                line = lines[i]
                 if not line:
+                    i += 1
                     continue
 
                 parts = line.split("|", 3)
                 if len(parts) < 4:
+                    i += 1
                     continue
 
                 commit_hash, author, date, message = parts[:4]
 
-                # 尝试解析元数据
+                # 尝试解析元数据（可能在下一行）
                 metadata = {}
-                if "\n\n元数据: " in message:
+                if i + 1 < len(lines) and lines[i + 1].startswith("元数据: "):
+                    try:
+                        metadata_str = lines[i + 1][len("元数据: "):]
+                        metadata = json.loads(metadata_str)
+                        i += 1  # 跳过元数据行
+                    except json.JSONDecodeError:
+                        pass
+                elif "\n\n元数据: " in message:
+                    # 处理在同一行的情况（向后兼容）
                     message_parts = message.split("\n\n元数据: ", 1)
                     message = message_parts[0]
                     try:
@@ -216,6 +229,7 @@ class GitManager(IGitManager):
                     "message": message,
                     "metadata": metadata
                 })
+                i += 1
 
             return commits
         except Exception:

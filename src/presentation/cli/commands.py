@@ -7,7 +7,7 @@ from rich.console import Console
 
 from ...infrastructure.container import get_global_container
 from ...infrastructure.config_loader import IConfigLoader
-from ...session.manager import ISessionManager
+from ...sessions.manager import ISessionManager
 from ...infrastructure.env_check_command import EnvironmentCheckCommand
 from .error_handler import handle_cli_error, handle_cli_warning, handle_cli_success, handle_cli_info
 from .help import HelpManager
@@ -204,10 +204,10 @@ def setup_container(config_path: Optional[str] = None) -> None:
     """设置依赖注入容器"""
     from ...infrastructure.container import DependencyContainer
     from ...infrastructure.config_loader import YamlConfigLoader
-    from ...session.manager import SessionManager
-    from ...session.store import FileSessionStore
+    from ...sessions.manager import SessionManager
+    from ...sessions.store import FileSessionStore
     from ...workflow.manager import WorkflowManager
-    from ...session.git_manager import GitManager
+    from ...sessions.git_manager import GitManager
     
     container = get_global_container()
     
@@ -224,7 +224,7 @@ def setup_container(config_path: Optional[str] = None) -> None:
     
     # 注册Git管理器
     if not container.has_service(GitManager):
-        from ...session.git_manager import create_git_manager
+        from ...sessions.git_manager import create_git_manager
         git_manager = create_git_manager(use_mock=True)  # 使用模拟管理器避免Git依赖
         container.register_instance(GitManager, git_manager)
     
@@ -244,7 +244,7 @@ def setup_container(config_path: Optional[str] = None) -> None:
             session_store = FileSessionStore(Path("./sessions"))
             container.register_instance(FileSessionStore, session_store)
         if not container.has_service(GitManager):
-            from ...session.git_manager import create_git_manager
+            from ...sessions.git_manager import create_git_manager
             git_manager = create_git_manager(use_mock=True)
             container.register_instance(GitManager, git_manager)
             

@@ -43,7 +43,6 @@ ENV/
 Thumbs.db
 
 # Project specific
-sessions/
 logs/
 cov_html/
 docs/issue/mypy.txt

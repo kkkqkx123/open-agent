@@ -7,9 +7,9 @@ from datetime import datetime
 import tempfile
 import shutil
 
-from src.session.manager import SessionManager, ISessionManager
-from src.session.store import ISessionStore
-from src.session.git_manager import IGitManager
+from src.sessions.manager import SessionManager, ISessionManager
+from src.sessions.store import ISessionStore
+from src.sessions.git_manager import IGitManager
 from src.workflow.manager import IWorkflowManager
 from src.workflow.config import WorkflowConfig
 from src.prompts.agent_state import AgentState, BaseMessage
@@ -52,7 +52,7 @@ class TestSessionManager:
         git_manager.init_repo.return_value = True
         git_manager.commit_changes.return_value = True
         git_manager.get_commit_history.return_value = []
-        return manager
+        return git_manager
 
     @pytest.fixture
     def session_manager(self, mock_workflow_manager, mock_session_store, temp_dir):

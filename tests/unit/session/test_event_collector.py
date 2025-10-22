@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
-from src.session.event_collector import EventCollector, WorkflowEventCollector, IEventCollector, EventType
+from src.sessions.event_collector import EventCollector, WorkflowEventCollector, IEventCollector, EventType
 
 
 class TestEventCollector:
@@ -224,7 +224,7 @@ class TestEventCollector:
         session_id = "test-session"
         base_time = datetime.now()
         
-        with patch('src.session.event_collector.datetime') as mock_datetime:
+        with patch('src.sessions.event_collector.datetime') as mock_datetime:
             # 模拟不同时间点
             mock_datetime.now.side_effect = [
                 base_time,
@@ -268,7 +268,7 @@ class TestEventCollector:
         session_id = "test-session"
         base_time = datetime.now()
         
-        with patch('src.session.event_collector.datetime') as mock_datetime:
+        with patch('src.sessions.event_collector.datetime') as mock_datetime:
             mock_datetime.now.side_effect = [
                 base_time,
                 base_time + timedelta(minutes=1),
@@ -305,7 +305,7 @@ class TestEventCollector:
         session_id = "test-session"
         base_time = datetime.now()
         
-        with patch('src.session.event_collector.datetime') as mock_datetime:
+        with patch('src.sessions.event_collector.datetime') as mock_datetime:
             mock_datetime.now.side_effect = [
                 base_time,
                 base_time + timedelta(minutes=1),

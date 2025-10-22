@@ -35,7 +35,7 @@ from .subview_controller import SubviewController
 from .session_handler import SessionHandler
 
 from src.infrastructure.container import get_global_container
-from src.session.manager import ISessionManager
+from src.sessions.manager import ISessionManager
 from src.prompts.agent_state import AgentState, HumanMessage
 
 
@@ -97,10 +97,10 @@ class TUIApp:
     def _setup_container_services(self, container: Any) -> None:
         """设置容器中的必要服务"""
         from ...infrastructure.config_loader import YamlConfigLoader, IConfigLoader
-        from ...session.store import FileSessionStore
+        from ...sessions.store import FileSessionStore
         from ...workflow.manager import WorkflowManager
-        from ...session.git_manager import GitManager, create_git_manager
-        from ...session.manager import SessionManager
+        from ...sessions.git_manager import GitManager, create_git_manager
+        from ...sessions.manager import SessionManager
         
         # 注册配置加载器
         if not container.has_service(IConfigLoader):
@@ -381,10 +381,13 @@ class TUIApp:
             # 处理命令
             command = result.lower()
             self.command_processor.process_command(command, [])
-        elif result:
+        elif result and not result.startswith("USER_INPUT:"):
             # 显示命令结果
             self.state_manager.add_system_message(result)
             self.main_content_component.add_assistant_message(result)
+        elif result and result.startswith("USER_INPUT:"):
+            # 处理用户输入（已经通过回调处理过，这里不需要额外操作）
+            pass
     
     def _handle_input_submit(self, input_text: str) -> None:
         """处理输入提交

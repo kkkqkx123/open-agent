@@ -1,7 +1,7 @@
 """TUI会话处理器"""
 
 from typing import Optional, Dict, Any, Callable, List
-from src.session.manager import ISessionManager
+from src.sessions.manager import ISessionManager
 
 
 class SessionHandler:

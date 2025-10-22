@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.infrastructure.container import get_global_container
-from src.session.manager import ISessionManager
+from src.sessions.manager import ISessionManager
 from src.presentation.tui.session_handler import SessionHandler
 from src.presentation.tui.state_manager import StateManager
 from src.prompts.agent_state import AgentState, HumanMessage
@@ -25,10 +25,10 @@ async def test_session_creation():
         
         # 设置必要的服务
         from src.infrastructure.config_loader import YamlConfigLoader, IConfigLoader
-        from src.session.store import FileSessionStore
+        from src.sessions.store import FileSessionStore
         from src.workflow.manager import WorkflowManager
-        from src.session.git_manager import GitManager, create_git_manager
-        from src.session.manager import SessionManager
+        from src.sessions.git_manager import GitManager, create_git_manager
+        from src.sessions.manager import SessionManager
         
         # 注册配置加载器
         if not container.has_service(IConfigLoader):

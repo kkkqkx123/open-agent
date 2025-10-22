@@ -5,7 +5,7 @@ from unittest.mock import Mock, MagicMock
 from typing import Optional, Dict, Any, List
 
 from src.presentation.tui.state_manager import StateManager
-from src.session.manager import ISessionManager
+from src.sessions.manager import ISessionManager
 from src.prompts.agent_state import AgentState
 
 

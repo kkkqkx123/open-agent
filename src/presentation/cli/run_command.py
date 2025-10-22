@@ -9,7 +9,7 @@ from rich.text import Text
 
 from ...infrastructure.container import get_global_container
 from ...infrastructure.config_loader import IConfigLoader
-from ...session.manager import ISessionManager
+from ...sessions.manager import ISessionManager
 from ...workflow.manager import IWorkflowManager
 from ...prompts.agent_state import AgentState, HumanMessage
 

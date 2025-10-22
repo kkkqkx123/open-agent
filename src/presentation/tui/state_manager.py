@@ -1,7 +1,7 @@
 """TUI状态管理器"""
 
 from typing import Optional, Dict, Any, List
-from src.session.manager import ISessionManager
+from src.sessions.manager import ISessionManager
 from src.prompts.agent_state import AgentState, HumanMessage
 
 
@@ -151,8 +151,9 @@ class StateManager:
                 human_message = HumanMessage(content=content)
                 self.current_state.add_message(human_message)
             except Exception:
-                # 如果HumanMessage不可用，创建一个简单的消息对象
-                simple_message = type('SimpleMessage', (), {'content': content})()
+                # 如果HumanMessage不可用，使用BaseMessage
+                from src.prompts.agent_state import BaseMessage
+                simple_message = BaseMessage(content=content)
                 self.current_state.add_message(simple_message)
     
     def add_assistant_message(self, content: str) -> None:

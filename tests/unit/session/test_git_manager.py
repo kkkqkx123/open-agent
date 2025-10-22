@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime
 from unittest.mock import Mock, patch, MagicMock
 
-from src.session.git_manager import GitManager, MockGitManager, IGitManager, create_git_manager
+from src.sessions.git_manager import GitManager, MockGitManager, IGitManager, create_git_manager
 
 
 class TestGitManager:

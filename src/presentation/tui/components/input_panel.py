@@ -155,8 +155,9 @@ class InputPanel:
             
             if self.on_submit:
                 self.on_submit(text)
-        
-        return None
+            
+            # 返回带有特殊前缀的文本，表示这是用户输入
+            return f"USER_INPUT:{text}"
     
     def _process_command(self, text: str) -> Optional[str]:
         """处理命令

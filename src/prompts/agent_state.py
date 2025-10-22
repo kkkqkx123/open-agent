@@ -25,7 +25,7 @@ class ToolResult:
 @dataclass
 class AgentState:
     """Agent状态定义"""
-    messages: List[object] = field(default_factory=list)
+    messages: List[BaseMessage] = field(default_factory=list)
     tool_results: List[ToolResult] = field(default_factory=list)
     current_step: str = ""
     max_iterations: int = 10
@@ -34,7 +34,7 @@ class AgentState:
     start_time: Optional[datetime] = None
     errors: List[Dict[str, Any]] = field(default_factory=list)
     
-    def add_message(self, message: object) -> None:
+    def add_message(self, message: BaseMessage) -> None:
         """添加消息"""
         self.messages.append(message)
 

@@ -8,11 +8,11 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
-from src.session.manager import SessionManager
-from src.session.store import FileSessionStore, MemorySessionStore
-from src.session.git_manager import MockGitManager
-from src.session.player import Player
-from src.session.event_collector import EventCollector, WorkflowEventCollector, EventType
+from src.sessions.manager import SessionManager
+from src.sessions.store import FileSessionStore, MemorySessionStore
+from src.sessions.git_manager import MockGitManager, IGitManager
+from src.sessions.player import Player
+from src.sessions.event_collector import EventCollector, WorkflowEventCollector, EventType
 from src.workflow.manager import IWorkflowManager
 from src.workflow.config import WorkflowConfig
 from src.prompts.agent_state import AgentState, BaseMessage
@@ -50,7 +50,19 @@ class TestSessionIntegration:
     def session_components(self, temp_dir, mock_workflow_manager):
         """创建会话组件"""
         session_store = FileSessionStore(temp_dir / "sessions")
-        git_manager = MockGitManager()
+        git_manager = Mock(spec=IGitManager)
+        git_manager.init_repo.return_value = True
+        git_manager.commit_changes.return_value = True
+        # 模拟返回一些提交历史
+        git_manager.get_commit_history.return_value = [
+            {
+                "hash": "mock_hash_1",
+                "author": "Test User",
+                "timestamp": "2023-01-01T00:00:00",
+                "message": "初始化会话仓库",
+                "metadata": {}
+            }
+        ]
         event_collector = EventCollector()
         player = Player(event_collector)
         
@@ -110,6 +122,9 @@ class TestSessionIntegration:
         
         # 创建会话
         session_id = session_manager.create_session("configs/workflows/test.yaml")
+        
+        # 使用实际的会话ID创建工作流事件收集器
+        workflow_event_collector = WorkflowEventCollector(event_collector, session_id)
         
         # 模拟工作流执行过程
         workflow_event_collector.collect_workflow_start("test_workflow", {"param": "value"})
@@ -429,10 +444,10 @@ class TestSessionIntegration:
         with patch('src.session.event_collector.datetime') as mock_datetime:
             mock_datetime.now.side_effect = [
                 base_time,
-                base_time + timedelta(minutes=1),
-                base_time + timedelta(minutes=2),
-                base_time + timedelta(minutes=3),
-                base_time + timedelta(minutes=4)
+                base_time + timedelta(seconds=1),
+                base_time + timedelta(seconds=2),
+                base_time + timedelta(seconds=3),
+                base_time + timedelta(seconds=4)
             ]
             
             workflow_event_collector.collect_workflow_start("test_workflow", {})
@@ -441,8 +456,8 @@ class TestSessionIntegration:
             workflow_event_collector.collect_workflow_end("test_workflow", {})
         
         # 查询中间时间范围的事件
-        start_time = base_time + timedelta(seconds=30)
-        end_time = base_time + timedelta(minutes=3, seconds=30)
+        start_time = base_time + timedelta(milliseconds=500)
+        end_time = base_time + timedelta(seconds=3, milliseconds=500)
         
         filtered_events = event_collector.get_events_by_time_range(
             session_id, start_time, end_time
