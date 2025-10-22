@@ -84,27 +84,31 @@ class RenderController:
         """
         self.live = live
     
-    def update_ui(self, state_manager: Any) -> None:
+    def update_ui(self, state_manager: Any) -> bool:
         """更新UI显示
         
         Args:
             state_manager: 状态管理器
+            
+        Returns:
+            bool: 是否需要刷新显示
         """
         import time
         start_time = time.time()
         
-        if not self.live:
-            return
-        
         # 检查状态变化以决定是否需要刷新
         current_state_hash = self._get_state_hash(state_manager)
-        if current_state_hash == self._last_render_state.get('hash'):
+        if current_state_hash == self._last_render_state.get('main_view_hash'):
             # 状态没有变化，跳过更新
             self._render_stats['skipped_updates'] += 1
-            return
+            return False
         
-        # 更新状态哈希
+        # 更新状态哈希 - 同时更新两个键以保持一致性
         self._last_render_state['hash'] = current_state_hash
+        self._last_render_state['main_view_hash'] = current_state_hash
+        
+        # 重置刷新标记
+        self._needs_refresh = False
         
         # 检查是否显示子界面
         if state_manager.current_subview:
@@ -118,8 +122,8 @@ class RenderController:
         # 检查并显示错误反馈面板
         self._check_error_feedback_panel()
         
-        # 只有在需要时才刷新显示，避免闪烁
-        if self._needs_refresh:
+        # 只有在有live对象且需要时才刷新显示，避免闪烁
+        if self._needs_refresh and self.live:
             # 使用更保守的刷新策略，避免频繁刷新
             current_time = time.time()
             if current_time - self._render_stats['last_update_time'] >= 0.05:  # 至少50ms间隔
@@ -140,6 +144,8 @@ class RenderController:
                         0.9 * self._render_stats['avg_update_interval'] + 0.1 * interval
             
             self._render_stats['last_update_time'] = current_time
+        
+        return self._needs_refresh
     
     def _render_subview(self, state_manager: Any) -> None:
         """渲染子界面
@@ -181,37 +187,12 @@ class RenderController:
             # 未知子界面，返回主界面
             state_manager.current_subview = None
             self._update_main_view(state_manager)
-    
     def _update_main_view(self, state_manager: Any) -> None:
         """更新主界面
         
         Args:
             state_manager: 状态管理器
         """
-        # 生成当前主界面状态的哈希值
-        import hashlib
-        import json
-        
-        # 创建主界面状态表示
-        main_view_state = {
-            'current_subview': state_manager.current_subview,
-            'show_session_dialog': getattr(state_manager, 'show_session_dialog', False),
-            'show_agent_dialog': getattr(state_manager, 'show_agent_dialog', False),
-            'session_id': getattr(state_manager, 'session_id', None),
-            'message_history_length': len(getattr(state_manager, 'message_history', [])),
-            'current_state': str(getattr(state_manager, 'current_state', None)),
-        }
-        
-        main_view_hash = hashlib.md5(json.dumps(main_view_state, sort_keys=True, default=str).encode()).hexdigest()
-        
-        # 检查主界面状态是否发生变化
-        if self._last_render_state.get('main_view_hash') == main_view_hash:
-            # 主界面状态未变化，跳过更新
-            return
-        
-        # 更新主界面状态哈希
-        self._last_render_state['main_view_hash'] = main_view_hash
-        
         # 更新组件状态
         self._update_components(state_manager)
         
@@ -224,6 +205,10 @@ class RenderController:
         self._update_status_bar(state_manager)
         
         # 更新错误反馈面板
+        self._update_error_feedback_panel()
+        
+        # 标记需要刷新，因为主界面内容已更新
+        self._needs_refresh = True
         self._update_error_feedback_panel()
     
     def _update_subview_header(self, state_manager: Any) -> None:
@@ -296,6 +281,9 @@ class RenderController:
         # 更新工作流控制面板
         if self.workflow_control_panel and state_manager.current_state:
             self.workflow_control_panel.update_from_agent_state(state_manager.current_state)
+            
+        # 标记需要刷新，因为主界面内容已更新
+        self._needs_refresh = True
     
     def _update_subviews_data(self, state_manager: Any) -> None:
         """更新子界面数据

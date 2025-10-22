@@ -103,11 +103,14 @@ class TUIApp:
         # 添加最小刷新间隔以避免过度刷新
         import time
         self._last_update_time = 0
-        self._min_update_interval = 0.05  # 50ms最小间隔，进一步减少抖动
+        # 移除固定的时间间隔检查，改为基于内容变化的更新
         
         # 初始化终端尺寸跟踪
         self.previous_terminal_size = None
         self._resize_threshold = 5  # 终端尺寸变化阈值，避免频繁调整
+        
+        # 用于跟踪是否需要更新UI
+        self._needs_ui_update = True
     
     def _initialize_dependencies(self) -> None:
         """初始化依赖注入"""
@@ -335,8 +338,8 @@ class TUIApp:
                 # 创建布局
                 layout = self.layout_manager.create_layout(terminal_size)
                 
-                # 启动Live显示
-                with Live(layout, console=self.console, refresh_per_second=self.config.behavior.refresh_rate, screen=True) as live:
+                # 启动Live显示 - 设置为极低的刷新率，主要依赖手动刷新
+                with Live(layout, console=self.console, refresh_per_second=0.1, screen=True) as live:  # 降低到0.1 FPS
                     self.live = live
                     self.render_controller.set_live(live)
                     
@@ -708,29 +711,34 @@ class TUIApp:
         # 主循环负责更新UI
         while self.running:
             try:
-                current_time = time.time()
-                # 检查是否达到了最小更新间隔
-                if current_time - self._last_update_time >= self._min_update_interval:
-                    # 获取当前终端尺寸以检测是否发生变化
-                    current_terminal_size = self.console.size
-                    
-                    # 如果终端尺寸发生变化，通知布局管理器
-                    if self.previous_terminal_size is not None:
-                        if (abs(current_terminal_size.width - self.previous_terminal_size[0]) > self._resize_threshold or 
-                            abs(current_terminal_size.height - self.previous_terminal_size[1]) > self._resize_threshold):
-                            # 终端尺寸变化较大，更新布局
-                            self.layout_manager.resize_layout((current_terminal_size.width, current_terminal_size.height))
-                            # 增加延迟，避免频繁调整
-                            time.sleep(0.1)
-                    
-                    self.previous_terminal_size = (current_terminal_size.width, current_terminal_size.height)
-                    
-                    # 更新UI
-                    self.update_ui()
-                    self._last_update_time = current_time
+                # 获取当前终端尺寸以检测是否发生变化
+                current_terminal_size = self.console.size
                 
-                # 短暂休眠以减少CPU使用率
-                time.sleep(0.02)  # 增加休眠时间到20ms，减少抖动
+                # 如果终端尺寸发生变化，通知布局管理器
+                if self.previous_terminal_size is not None:
+                    if (abs(current_terminal_size.width - self.previous_terminal_size[0]) > self._resize_threshold or
+                        abs(current_terminal_size.height - self.previous_terminal_size[1]) > self._resize_threshold):
+                        # 终端尺寸变化较大，更新布局
+                        self.layout_manager.resize_layout((current_terminal_size.width, current_terminal_size.height))
+                        # 更新UI以反映布局变化
+                        self.update_ui()
+                        if self.live:  # 确保live对象存在
+                            self.live.refresh()  # 强制刷新显示
+                        time.sleep(0.1)  # 休眠更长时间以避免频繁调整
+                
+                self.previous_terminal_size = (current_terminal_size.width, current_terminal_size.height)
+                
+                # 更新UI，并获取是否需要刷新的标志
+                needs_refresh = self.update_ui()
+                if needs_refresh:
+                    # 只有当内容真正变化时才刷新UI
+                    if self.live:  # 确保live对象存在
+                        self.live.refresh()
+                    # 如果需要刷新，使用较短的休眠时间以保持响应性
+                    time.sleep(0.01)
+                else:
+                    # 如果不需要刷新，使用较长的休眠时间以减少CPU使用
+                    time.sleep(0.05)
                 
             except KeyboardInterrupt:
                 self.tui_logger.debug_component_event("TUIApp", "main_loop_keyboard_interrupt")
@@ -838,12 +846,8 @@ class TUIApp:
             if self.state_manager.current_state:
                 setattr(self.state_manager.current_state, 'workflow_status', 'running')
     
-    def update_ui(self) -> None:
+    def update_ui(self) -> bool:
         """更新UI显示"""
-        # 只在调试模式下记录更新UI的开始和结束日志
-        if self.tui_manager.is_debug_enabled():
-            self.tui_logger.debug_render_operation("main", "update_ui_start")
-        
         # 同步状态管理器中的子界面状态
         current_subview_name = self.subview_controller.get_current_subview_name()
         if self.state_manager.current_subview != current_subview_name:
@@ -856,12 +860,14 @@ class TUIApp:
         # 同步对话框状态 - 暂时保持原有状态，因为对话框没有is_visible方法
         # 这里可以根据实际需要添加对话框状态检测逻辑
         
-        # 使用渲染控制器更新UI
-        self.render_controller.update_ui(self.state_manager)
+        # 使用渲染控制器更新UI，并检查是否真正需要刷新
+        needs_refresh = self.render_controller.update_ui(self.state_manager)
         
-        # 只在调试模式下记录更新UI的完成日志
-        if self.tui_manager.is_debug_enabled():
-            self.tui_logger.debug_render_operation("main", "update_ui_complete")
+        # 只在真正需要刷新时才记录日志，减少日志噪音
+        if needs_refresh and self.tui_manager.is_debug_enabled():
+            self.tui_logger.debug_render_operation("main", "update_ui_refresh_needed")
+        
+        return needs_refresh
     
     def _on_error_action(self, notification_id: str, action: str) -> None:
         """错误反馈动作回调
