@@ -38,16 +38,28 @@ from src.infrastructure.container import get_global_container
 from src.sessions.manager import ISessionManager
 from src.prompts.agent_state import AgentState, HumanMessage
 
+# 导入TUI日志系统
+from .logger import get_tui_debug_logger, TUILoggerManager
+
 
 class TUIApp:
     """TUI应用程序，作为顶层协调器"""
     
     def __init__(self, config_path: Optional[Path] = None) -> None:
         """初始化TUI应用程序
+         
+         Args:
+             config_path: 配置文件路径
+         """
+        # 初始化TUI调试日志记录器
+        self.tui_logger = get_tui_debug_logger("app")
+        self.tui_manager = TUILoggerManager()
         
-        Args:
-            config_path: 配置文件路径
-        """
+        # 如果环境变量设置了TUI_DEBUG，启用调试模式
+        import os
+        if os.getenv("TUI_DEBUG", "0").lower() in ("1", "true", "yes"):
+            self.tui_logger.set_debug_mode(True)
+        
         self.console = Console()
         self.terminal = Terminal()
         self.running = False
@@ -268,6 +280,7 @@ class TUIApp:
     
     def run(self) -> None:
         """运行TUI应用程序"""
+        self.tui_logger.debug_component_event("TUIApp", "run_start")
         try:
             self.running = True
             
@@ -291,11 +304,14 @@ class TUIApp:
                     self._run_main_loop()
                 
         except KeyboardInterrupt:
+            self.tui_logger.debug_component_event("TUIApp", "keyboard_interrupt")
             self._handle_shutdown()
         except Exception as e:
+            self.tui_logger.debug_error_handling("run_exception", str(e))
             self._handle_critical_error(e)
             raise
         finally:
+            self.tui_logger.debug_component_event("TUIApp", "run_end")
             self.running = False
             self.live = None
     
@@ -308,18 +324,24 @@ class TUIApp:
         Returns:
             bool: 是否处理了该按键
         """
+        self.tui_logger.debug_key_event(key, True, "global_handler")
+        
         # 如果在子界面中，优先让子界面处理按键
         if self.state_manager.current_subview:
+            self.tui_logger.debug_key_event(key, True, f"subview_{self.state_manager.current_subview}")
             return self.subview_controller.handle_key(key)
         
         # 处理对话框中的按键
         if self.state_manager.show_session_dialog:
+            self.tui_logger.debug_key_event(key, True, "session_dialog")
             result = self.session_dialog.handle_key(key)
             return result is not None
         elif self.state_manager.show_agent_dialog:
+            self.tui_logger.debug_key_event(key, True, "agent_dialog")
             result = self.agent_dialog.handle_key(key)
             return result is not None
         
+        self.tui_logger.debug_key_event(key, False, "global_handler")
         return False
     
     def _handle_escape_key(self, key: str) -> bool:
@@ -331,18 +353,25 @@ class TUIApp:
         Returns:
             bool: 是否处理了该按键
         """
+        self.tui_logger.debug_key_event(key, True, "escape_handler")
+        
         if self.state_manager.current_subview:
+            old_subview = self.state_manager.current_subview
             self.subview_controller.return_to_main_view()
             # 立即同步状态管理器的状态
             self.state_manager.current_subview = None
+            self.tui_logger.debug_subview_navigation(old_subview, "main", action="escape")
             return True
         elif self.state_manager.show_session_dialog:
             self.state_manager.set_show_session_dialog(False)
+            self.tui_logger.debug_component_event("escape", "close_session_dialog")
             return True
         elif self.state_manager.show_agent_dialog:
             self.state_manager.set_show_agent_dialog(False)
+            self.tui_logger.debug_component_event("escape", "close_agent_dialog")
             return True
         
+        self.tui_logger.debug_key_event(key, False, "escape_handler")
         return False
     
     def _switch_to_subview(self, subview_name: str) -> bool:
@@ -354,9 +383,16 @@ class TUIApp:
         Returns:
             bool: 切换是否成功
         """
+        self.tui_logger.debug_subview_navigation(
+            self.state_manager.current_subview or "main",
+            subview_name
+        )
+        
         if self.subview_controller.switch_to_subview(subview_name):
             # 立即同步状态管理器的状态
+            old_subview = self.state_manager.current_subview
             self.state_manager.current_subview = subview_name
+            self.tui_logger.debug_ui_state_change("subview", old_subview, subview_name)
             return True
         return False
     
@@ -395,6 +431,8 @@ class TUIApp:
         Args:
             input_text: 输入文本
         """
+        self.tui_logger.debug_input_handling("user_input", input_text)
+        
         # 添加用户消息到历史
         self.state_manager.add_user_message(input_text)
         
@@ -411,23 +449,31 @@ class TUIApp:
             command: 命令名称
             args: 命令参数
         """
+        self.tui_logger.debug_input_handling("command", command, args=args)
+        
         # 特殊处理一些需要直接操作状态的命令
         if command == "sessions":
             self.state_manager.set_show_session_dialog(True)
             self.session_dialog.refresh_sessions()
             self.state_manager.add_system_message("已打开会话管理对话框")
+            self.tui_logger.debug_component_event("command", "open_sessions_dialog")
         elif command == "agents":
             self.state_manager.set_show_agent_dialog(True)
             self.state_manager.add_system_message("已打开Agent选择对话框")
+            self.tui_logger.debug_component_event("command", "open_agents_dialog")
         elif command in ["analytics", "visualization", "system", "errors"]:
             self._switch_to_subview(command)
+            self.tui_logger.debug_component_event("command", "switch_subview", subview=command)
         elif command == "main":
             self.subview_controller.return_to_main_view()
+            self.tui_logger.debug_component_event("command", "return_to_main_view")
         elif command in ["pause", "resume", "stop", "start"]:
             self._handle_workflow_command(command)
+            self.tui_logger.debug_workflow_operation(f"workflow_{command}")
         else:
             # 其他命令交给命令处理器处理
             self.command_processor.process_command(command, args)
+            self.tui_logger.debug_component_event("command", "process_other_command", command=command)
     
     def _process_user_input(self, input_text: str) -> None:
         """处理用户输入
@@ -435,12 +481,15 @@ class TUIApp:
         Args:
             input_text: 用户输入
         """
+        self.tui_logger.debug_input_handling("process_user_input", input_text)
+        
         # 这里可以添加实际的处理逻辑
         # 例如：调用工作流处理输入
         # 暂时添加一个简单的回复
         response = f"收到您的输入: {input_text}"
         self.state_manager.add_assistant_message(response)
         self.main_content_component.add_assistant_message(response)
+        self.tui_logger.debug_component_event("main_content", "add_assistant_message", response=response)
     
     def _load_session(self, session_id: str) -> None:
         """加载会话
@@ -448,6 +497,8 @@ class TUIApp:
         Args:
             session_id: 会话ID
         """
+        self.tui_logger.debug_session_operation("load_session_start", session_id)
+        
         if self.session_handler:
             result = self.session_handler.load_session(session_id)
             if result:
@@ -456,35 +507,47 @@ class TUIApp:
                 self.state_manager.current_workflow = workflow
                 self.state_manager.current_state = state
                 self.state_manager.message_history = []
+                self.tui_logger.debug_session_operation("load_session_success", session_id)
                 self.state_manager.add_system_message(f"会话 {session_id[:8]}... 已加载")
             else:
+                self.tui_logger.debug_session_operation("load_session_failed", session_id)
                 self.state_manager.add_system_message("加载会话失败")
         else:
+            self.tui_logger.debug_session_operation("session_handler_not_initialized", session_id)
             self.state_manager.add_system_message("会话处理器未初始化")
     
     def _handle_shutdown(self) -> None:
         """处理关闭事件"""
+        self.tui_logger.debug_component_event("TUIApp", "shutdown_start")
+        
         # 保存会话
         if self.state_manager.session_id and self.state_manager.current_state and self.session_handler:
+            self.tui_logger.debug_session_operation("save_on_shutdown", self.state_manager.session_id)
             success = self.session_handler.save_session(
                 self.state_manager.session_id,
                 self.state_manager.current_workflow,
                 self.state_manager.current_state
             )
             if success:
+                self.tui_logger.debug_session_operation("save_success", self.state_manager.session_id)
                 self.console.print("[green]会话已保存[/green]")
             else:
+                self.tui_logger.debug_session_operation("save_failed", self.state_manager.session_id)
                 self.console.print("[red]保存会话失败[/red]")
         
         self.console.print("[yellow]正在关闭TUI界面...[/yellow]")
+        self.tui_logger.debug_component_event("TUIApp", "shutdown_complete")
         self.running = False
     
     # 回调方法
     def _on_session_selected(self, session_id: str) -> None:
         """会话选择回调"""
+        self.tui_logger.debug_session_operation("session_selected", session_id)
+        
         try:
             # 保存当前会话（如果有）
             if self.state_manager.session_id and self.state_manager.current_state:
+                self.tui_logger.debug_session_operation("save_before_switch", self.state_manager.session_id)
                 self.session_handler.save_session(
                     self.state_manager.session_id,
                     self.state_manager.current_workflow,
@@ -506,15 +569,20 @@ class TUIApp:
                         workflow_config=session_info.get("workflow_config_path", ""),
                         status="已加载"
                     )
+                    self.tui_logger.debug_component_event("sidebar", "update_session_info", session_id=session_id)
         except Exception as e:
+            self.tui_logger.debug_error_handling("session_selected", str(e))
             self._handle_session_error(e, "切换")
     
     def _on_session_created(self, workflow_config: str, agent_config: Optional[str]) -> None:
         """会话创建回调"""
+        self.tui_logger.debug_session_operation("session_created", f"workflow_config: {workflow_config}")
+        
         try:
             # 创建会话
             session_id = self.session_handler.create_session(workflow_config, {} if agent_config else None)
             if session_id:
+                self.tui_logger.debug_session_operation("session_created_success", session_id)
                 # 加载会话以获取工作流和状态
                 result = self.session_handler.load_session(session_id)
                 if result:
@@ -534,27 +602,35 @@ class TUIApp:
                             workflow_config=workflow_config,
                             status="运行中"
                         )
+                        self.tui_logger.debug_component_event("sidebar", "update_session_info", session_id=session_id, status="running")
                 else:
                     error_msg = "加载新会话失败"
+                    self.tui_logger.debug_session_operation("session_load_failed", session_id)
                     self.state_manager.add_system_message(error_msg)
                     self.add_error_notification(error_msg, title="会话加载错误")
             else:
                 error_msg = "创建会话失败"
+                self.tui_logger.debug_session_operation("session_creation_failed", "none")
                 self.state_manager.add_system_message(error_msg)
                 self.add_error_notification(error_msg, title="会话创建错误")
         except Exception as e:
+            self.tui_logger.debug_error_handling("session_created", str(e))
             self._handle_session_error(e, "创建")
     
     def _on_session_deleted(self, session_id: str) -> None:
         """会话删除回调"""
+        self.tui_logger.debug_session_operation("session_deleted", session_id)
+        
         try:
             success = self.session_handler.delete_session(session_id)
             if success:
+                self.tui_logger.debug_session_operation("session_deleted_success", session_id)
                 self.state_manager.add_system_message(f"已删除会话 {session_id[:8]}...")
                 self.add_success_notification(f"会话 {session_id[:8]}... 已删除")
                 
                 # 如果删除的是当前会话，重置状态
                 if self.state_manager.session_id == session_id:
+                    self.tui_logger.debug_session_operation("reset_current_session", session_id)
                     self.state_manager.session_id = None
                     self.state_manager.current_state = None
                     self.state_manager.current_workflow = None
@@ -565,21 +641,26 @@ class TUIApp:
                     # 更新侧边栏清除会话信息
                     if self.sidebar_component:
                         self.sidebar_component.clear_session_info()
+                        self.tui_logger.debug_component_event("sidebar", "clear_session_info")
             else:
                 error_msg = "删除会话失败"
+                self.tui_logger.debug_session_operation("session_deleted_failed", session_id)
                 self.state_manager.add_system_message(error_msg)
                 self.add_error_notification(error_msg, title="会话删除错误")
         except Exception as e:
+            self.tui_logger.debug_error_handling("session_deleted", str(e))
             self._handle_session_error(e, "删除")
     
     def _run_main_loop(self) -> None:
         """运行主循环"""
+        self.tui_logger.debug_component_event("TUIApp", "main_loop_start")
         import time
         
         # 启动事件循环线程
         import threading
         event_thread = threading.Thread(target=self.event_engine.start_event_loop, daemon=True)
         event_thread.start()
+        self.tui_logger.debug_component_event("event_engine", "event_loop_started")
         
         # 主循环负责更新UI
         while self.running:
@@ -591,13 +672,29 @@ class TUIApp:
                 time.sleep(0.05)
                 
             except KeyboardInterrupt:
+                self.tui_logger.debug_component_event("TUIApp", "main_loop_keyboard_interrupt")
                 break
             except Exception as e:
+                self.tui_logger.debug_error_handling("main_loop", str(e))
                 self.console.print(f"[red]主循环错误: {e}[/red]")
                 break
         
         # 停止事件引擎
         self.event_engine.stop()
+        self.tui_logger.debug_component_event("TUIApp", "main_loop_end")
+    
+    def enable_tui_debug(self, enabled: bool = True) -> None:
+        """启用或禁用TUI调试模式
+        
+        Args:
+            enabled: 是否启用调试模式
+        """
+        self.tui_logger.set_debug_mode(enabled)
+        self.tui_manager.set_debug_mode(enabled)
+        if enabled:
+            self.state_manager.add_system_message("TUI调试模式已启用")
+        else:
+            self.state_manager.add_system_message("TUI调试模式已禁用")
     
     def _on_agent_selected(self, agent_config: Any) -> None:
         """Agent选择回调"""
@@ -682,16 +779,23 @@ class TUIApp:
     
     def update_ui(self) -> None:
         """更新UI显示"""
+        self.tui_logger.debug_render_operation("main", "update_ui_start")
+        
         # 同步状态管理器中的子界面状态
         current_subview_name = self.subview_controller.get_current_subview_name()
         if self.state_manager.current_subview != current_subview_name:
+            old_subview = self.state_manager.current_subview
             self.state_manager.current_subview = current_subview_name
+            self.tui_logger.debug_ui_state_change(
+                "subview", old_subview, current_subview_name
+            )
         
         # 同步对话框状态 - 暂时保持原有状态，因为对话框没有is_visible方法
         # 这里可以根据实际需要添加对话框状态检测逻辑
         
         # 使用渲染控制器更新UI
         self.render_controller.update_ui(self.state_manager)
+        self.tui_logger.debug_render_operation("main", "update_ui_complete")
     
     def _on_error_action(self, notification_id: str, action: str) -> None:
         """错误反馈动作回调

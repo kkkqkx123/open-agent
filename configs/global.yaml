@@ -1,8 +1,8 @@
 # 全局配置
-log_level: "ERROR"
+log_level: "DEBUG"
 log_outputs:
   - type: "console"
-    level: "INFO"
+    level: "DEBUG"
     format: "text"
   - type: "file"
     level: "DEBUG"

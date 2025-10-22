@@ -1,0 +1,141 @@
+"""TUI日志管理器"""
+
+import os
+import threading
+from typing import Optional, Dict, Any
+from pathlib import Path
+
+from src.logger.logger import get_logger, Logger
+from src.config.models.global_config import GlobalConfig
+
+
+class TUILoggerManager:
+    """TUI日志管理器，负责管理TUI界面的调试日志"""
+    
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __new__(cls):
+        """单例模式"""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+                    cls._instance._initialized = False
+        return cls._instance
+    
+    def __init__(self):
+        """初始化TUI日志管理器"""
+        if not self._initialized:
+            self._loggers: Dict[str, Logger] = {}
+            self._config: Optional[GlobalConfig] = None
+            self._debug_enabled = os.getenv("TUI_DEBUG", "0").lower() in ("1", "true", "yes")
+            self._initialized = True
+    
+    def initialize(self, config: Optional[GlobalConfig] = None) -> None:
+        """初始化日志管理器
+        
+        Args:
+            config: 全局配置
+        """
+        self._config = config
+        if config:
+            self._debug_enabled = config.debug or os.getenv("TUI_DEBUG", "0").lower() in ("1", "true", "yes")
+    
+    def get_logger(self, name: str) -> Logger:
+        """获取或创建日志记录器
+        
+        Args:
+            name: 日志记录器名称
+            
+        Returns:
+            日志记录器实例
+        """
+        if name not in self._loggers:
+            # 创建带前缀的logger名称以区分TUI日志
+            full_name = f"tui.{name}"
+            logger = get_logger(full_name, self._config)
+            
+            # 如果启用了TUI调试模式，将日志级别设置为DEBUG
+            if self._debug_enabled:
+                from src.logger.log_level import LogLevel
+                logger.set_level(LogLevel.DEBUG)
+            
+            self._loggers[name] = logger
+        
+        return self._loggers[name]
+    
+    def set_debug_mode(self, enabled: bool) -> None:
+        """设置调试模式
+        
+        Args:
+            enabled: 是否启用调试模式
+        """
+        self._debug_enabled = enabled
+        
+        # 更新所有现有logger的级别
+        if self._debug_enabled:
+            from src.logger.log_level import LogLevel
+            for logger in self._loggers.values():
+                logger.set_level(LogLevel.DEBUG)
+    
+    def is_debug_enabled(self) -> bool:
+        """检查是否启用了调试模式
+        
+        Returns:
+            是否启用调试模式
+        """
+        return self._debug_enabled
+    
+    def create_file_logger(self, name: str, log_file_path: Path) -> Logger:
+        """创建文件日志记录器
+        
+        Args:
+            name: 日志记录器名称
+            log_file_path: 日志文件路径
+            
+        Returns:
+            日志记录器实例
+        """
+        from src.logger.handlers.file_handler import FileHandler
+        from src.logger.log_level import LogLevel
+        
+        # 确保日志目录存在
+        log_file_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # 创建文件处理器
+        file_handler = FileHandler(
+            level=LogLevel.DEBUG if self._debug_enabled else LogLevel.INFO,
+            config={
+                "type": "file",
+                "level": "DEBUG" if self._debug_enabled else "INFO",
+                "file_path": str(log_file_path),
+                "max_size": "10MB",
+                "backup_count": 5
+            }
+        )
+        
+        # 获取logger并添加文件处理器
+        logger = self.get_logger(name)
+        logger.add_handler(file_handler)
+        
+        return logger
+
+
+# 全局TUI日志管理器实例
+tui_logger_manager = TUILoggerManager()
+
+
+def get_tui_logger(name: str) -> Logger:
+    """获取TUI日志记录器
+    
+    Args:
+        name: 日志记录器名称
+        
+    Returns:
+        日志记录器实例
+    """
+    return tui_logger_manager.get_logger(name)
+
+
+TUI_LOGGER_NAME = "tui"

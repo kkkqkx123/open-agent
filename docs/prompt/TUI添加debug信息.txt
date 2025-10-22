@@ -1,0 +1,3 @@
+当前TUI的错误集中在src\presentation\tui\components\input_panel_component\目录
+src\presentation\tui\components\input_panel.py
+为输入相关模块添加debug信息，参考 @/docs/TUI调试日志使用指南.md 和src\presentation\tui\logger\目录

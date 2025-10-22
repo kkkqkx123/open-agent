@@ -6,6 +6,8 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Optional, Dict, Any
 
+from ...logger.tui_logger import get_tui_debug_logger
+
 
 class BaseCommandProcessor(ABC):
     """基础命令处理器抽象类"""
@@ -17,6 +19,9 @@ class BaseCommandProcessor(ABC):
             trigger_char: 触发字符 (如 '@', '#', '/')
         """
         self.trigger_char = trigger_char
+        
+        # 初始化TUI调试日志记录器
+        self.tui_logger = get_tui_debug_logger("base_command_processor")
     
     @abstractmethod
     def is_command(self, input_text: str) -> bool:

@@ -16,6 +16,9 @@ class FileSelectorProcessor(BaseCommandProcessor):
         super().__init__("@")
         self.current_directory = os.getcwd()
         self.file_cache: Dict[str, List[str]] = {}
+        
+        # 更新调试日志记录器
+        self.tui_logger = get_tui_debug_logger("file_selector_processor")
     
     def is_command(self, input_text: str) -> bool:
         """检查输入是否是文件选择命令
@@ -26,7 +29,9 @@ class FileSelectorProcessor(BaseCommandProcessor):
         Returns:
             bool: 是否是文件选择命令
         """
-        return input_text.startswith("@")
+        result = input_text.startswith("@")
+        self.tui_logger.debug_input_handling("is_command", f"Checking if '{input_text}' is a file command: {result}")
+        return result
     
     def parse_command(self, input_text: str) -> Tuple[str, List[str]]:
         """解析文件选择命令
@@ -37,8 +42,11 @@ class FileSelectorProcessor(BaseCommandProcessor):
         Returns:
             Tuple[str, List[str]]: 文件路径和参数列表
         """
+        self.tui_logger.debug_input_handling("parse_command", f"Parsing command: {input_text}")
         command_text = self._remove_trigger_char(input_text)
-        return self._split_command_and_args(command_text)
+        result = self._split_command_and_args(command_text)
+        self.tui_logger.debug_input_handling("parse_command", f"Parsed command result: {result}")
+        return result
     
     def execute_command(self, input_text: str, context: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """执行文件选择命令
@@ -50,10 +58,14 @@ class FileSelectorProcessor(BaseCommandProcessor):
         Returns:
             Optional[str]: 执行结果或错误信息
         """
+        self.tui_logger.debug_input_handling("execute_command", f"Executing file command: {input_text}")
+        
         file_path, args = self.parse_command(input_text)
         
         if not file_path:
-            return "请指定文件路径"
+            result = "请指定文件路径"
+            self.tui_logger.debug_input_handling("execute_command", f"Command result: {result}")
+            return result
         
         # 处理相对路径
         if not os.path.isabs(file_path):
@@ -61,9 +73,13 @@ class FileSelectorProcessor(BaseCommandProcessor):
         else:
             full_path = file_path
         
+        self.tui_logger.debug_input_handling("execute_command", f"Resolved path: {full_path}")
+        
         # 检查文件是否存在
         if not os.path.exists(full_path):
-            return f"文件不存在: {full_path}"
+            result = f"文件不存在: {full_path}"
+            self.tui_logger.debug_input_handling("execute_command", f"Command result: {result}")
+            return result
         
         # 如果是目录，列出内容
         if os.path.isdir(full_path):
@@ -76,11 +92,16 @@ class FileSelectorProcessor(BaseCommandProcessor):
                         result += f"  {i}. {file_type} {file}\n"
                     if len(files) > 10:
                         result += f"  ... 还有 {len(files) - 10} 个文件\n"
+                    self.tui_logger.debug_input_handling("execute_command", f"Directory listing result: {len(files)} items")
                     return result
                 else:
-                    return f"目录 {full_path} 为空"
+                    result = f"目录 {full_path} 为空"
+                    self.tui_logger.debug_input_handling("execute_command", f"Command result: {result}")
+                    return result
             except PermissionError:
-                return f"无权限访问目录: {full_path}"
+                result = f"无权限访问目录: {full_path}"
+                self.tui_logger.debug_input_handling("execute_command", f"Command result: {result}")
+                return result
         
         # 如果是文件，返回文件信息
         if os.path.isfile(full_path):
@@ -90,11 +111,17 @@ class FileSelectorProcessor(BaseCommandProcessor):
                 import datetime
                 mtime_str = datetime.datetime.fromtimestamp(file_mtime).strftime("%Y-%m-%d %H:%M:%S")
                 
-                return f"文件: {full_path}\n大小: {file_size} 字节\n修改时间: {mtime_str}"
+                result = f"文件: {full_path}\n大小: {file_size} 字节\n修改时间: {mtime_str}"
+                self.tui_logger.debug_input_handling("execute_command", f"File info result: size={file_size}, modified={mtime_str}")
+                return result
             except Exception as e:
-                return f"获取文件信息失败: {str(e)}"
+                result = f"获取文件信息失败: {str(e)}"
+                self.tui_logger.debug_input_handling("execute_command", f"Command result: {result}")
+                return result
         
-        return f"无法处理路径: {full_path}"
+        result = f"无法处理路径: {full_path}"
+        self.tui_logger.debug_input_handling("execute_command", f"Command result: {result}")
+        return result
     
     def get_suggestions(self, partial_input: str) -> List[str]:
         """获取文件路径补全建议
@@ -105,14 +132,19 @@ class FileSelectorProcessor(BaseCommandProcessor):
         Returns:
             List[str]: 补全建议列表
         """
+        self.tui_logger.debug_input_handling("get_suggestions", f"Getting suggestions for: {partial_input}")
+        
         if not self.is_command(partial_input):
+            self.tui_logger.debug_input_handling("get_suggestions", "Not a file command, returning empty list")
             return []
         
         command_text = self._remove_trigger_char(partial_input)
         
         # 如果没有输入，返回当前目录的文件
         if not command_text:
-            return self._get_directory_files(self.current_directory)
+            suggestions = self._get_directory_files(self.current_directory)
+            self.tui_logger.debug_input_handling("get_suggestions", f"Returning all files in current directory: {len(suggestions)} items")
+            return suggestions
         
         # 解析路径
         if os.path.isabs(command_text):
@@ -126,9 +158,12 @@ class FileSelectorProcessor(BaseCommandProcessor):
         if os.path.isdir(directory):
             files = self._get_directory_files(directory)
             # 过滤匹配前缀的文件
-            return [f"@{os.path.join(os.path.dirname(command_text), file)}" 
-                   for file in files if file.startswith(prefix)]
+            suggestions = [f"@{os.path.join(os.path.dirname(command_text), file)}"
+                          for file in files if file.startswith(prefix)]
+            self.tui_logger.debug_input_handling("get_suggestions", f"Returning filtered suggestions: {len(suggestions)} items for prefix '{prefix}'")
+            return suggestions
         
+        self.tui_logger.debug_input_handling("get_suggestions", "Directory not found, returning empty list")
         return []
     
     def _get_directory_files(self, directory: str) -> List[str]:

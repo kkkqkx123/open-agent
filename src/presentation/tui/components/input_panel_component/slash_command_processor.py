@@ -19,6 +19,9 @@ class SlashCommandProcessor(BaseCommandProcessor):
         
         # 注册内置命令
         self._register_builtin_commands()
+        
+        # 更新调试日志记录器
+        self.tui_logger = get_tui_debug_logger("slash_command_processor")
     
     def _register_builtin_commands(self) -> None:
         """注册内置命令"""
@@ -45,7 +48,9 @@ class SlashCommandProcessor(BaseCommandProcessor):
         Returns:
             bool: 是否是斜杠命令
         """
-        return input_text.startswith('/')
+        result = input_text.startswith('/')
+        self.tui_logger.debug_input_handling("is_command", f"Checking if '{input_text}' is a slash command: {result}")
+        return result
     
     def parse_command(self, input_text: str) -> Tuple[str, List[str]]:
         """解析斜杠命令
@@ -56,14 +61,19 @@ class SlashCommandProcessor(BaseCommandProcessor):
         Returns:
             Tuple[str, List[str]]: 命令名称和参数列表
         """
+        self.tui_logger.debug_input_handling("parse_command", f"Parsing slash command: {input_text}")
         command_text = self._remove_trigger_char(input_text)
         command_name, args = self._split_command_and_args(command_text)
         
         # 检查别名
         if command_name in self.command_aliases:
+            original_name = command_name
             command_name = self.command_aliases[command_name]
+            self.tui_logger.debug_input_handling("parse_command", f"Resolved alias '{original_name}' to '{command_name}'")
         
-        return command_name, args
+        result = command_name, args
+        self.tui_logger.debug_input_handling("parse_command", f"Parsed command result: {result}")
+        return result
     
     def execute_command(self, input_text: str, context: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """执行斜杠命令
@@ -75,22 +85,33 @@ class SlashCommandProcessor(BaseCommandProcessor):
         Returns:
             Optional[str]: 执行结果或错误信息
         """
+        self.tui_logger.debug_input_handling("execute_command", f"Executing slash command: {input_text}")
+        
         command_name, args = self.parse_command(input_text)
         
         if not command_name:
-            return "无效的命令格式"
+            result = "无效的命令格式"
+            self.tui_logger.debug_input_handling("execute_command", f"Command result: {result}")
+            return result
         
         if command_name not in self.commands:
-            return f"未知命令: {command_name}"
+            result = f"未知命令: {command_name}"
+            self.tui_logger.debug_input_handling("execute_command", f"Command result: {result}")
+            return result
         
         try:
             handler = self.commands[command_name]
+            self.tui_logger.debug_input_handling("execute_command", f"Executing handler for command: {command_name}")
             if context:
-                return handler(args, context)
+                result = handler(args, context)
             else:
-                return handler(args)
+                result = handler(args)
+            self.tui_logger.debug_input_handling("execute_command", f"Command execution result: {result}")
+            return result
         except Exception as e:
-            return f"命令执行错误: {str(e)}"
+            result = f"命令执行错误: {str(e)}"
+            self.tui_logger.debug_input_handling("execute_command", f"Command execution error: {result}")
+            return result
     
     def get_suggestions(self, partial_input: str) -> List[str]:
         """获取命令补全建议
@@ -101,20 +122,27 @@ class SlashCommandProcessor(BaseCommandProcessor):
         Returns:
             List[str]: 补全建议列表
         """
+        self.tui_logger.debug_input_handling("get_suggestions", f"Getting slash command suggestions for: {partial_input}")
+        
         if not self.is_command(partial_input):
+            self.tui_logger.debug_input_handling("get_suggestions", "Not a slash command, returning empty list")
             return []
         
         command_text = self._remove_trigger_char(partial_input)
         
         # 如果没有输入，返回所有命令
         if not command_text:
-            return [f"/{cmd}" for cmd in self.commands.keys()]
+            suggestions = [f"/{cmd}" for cmd in self.commands.keys()]
+            self.tui_logger.debug_input_handling("get_suggestions", f"Returning all commands: {len(suggestions)} items")
+            return suggestions
         
         # 查找匹配的命令
-        matches = [cmd for cmd in self.commands.keys() 
+        matches = [cmd for cmd in self.commands.keys()
                   if cmd.startswith(command_text)]
+        suggestions = [f"/{cmd}" for cmd in matches]
         
-        return [f"/{cmd}" for cmd in matches]
+        self.tui_logger.debug_input_handling("get_suggestions", f"Returning filtered suggestions: {len(suggestions)} items for prefix '{command_text}'")
+        return suggestions
     
     def register_command(
         self,

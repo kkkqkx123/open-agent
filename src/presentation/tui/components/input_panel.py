@@ -18,6 +18,7 @@ from .input_panel_component import (
     WorkflowSelectorProcessor,
     SlashCommandProcessor
 )
+from ..logger.tui_logger import get_tui_debug_logger
 
 
 class InputPanel:
@@ -33,6 +34,9 @@ class InputPanel:
             config: TUI配置
         """
         self.config = config
+        
+        # 初始化TUI调试日志记录器
+        self.tui_logger = get_tui_debug_logger("input_panel")
         
         # 初始化子组件
         self.input_buffer = InputBuffer()
@@ -79,36 +83,52 @@ class InputPanel:
         Returns:
             Optional[str]: 提交的文本或命令结果
         """
+        self.tui_logger.debug_key_event(key, True, "input_panel")
+        
         if self.is_processing:
+            self.tui_logger.debug_input_handling("key_handling", f"Processing blocked: {key}")
             return None
         
         # 处理特殊按键
         if key == "enter":
-            return self._handle_enter()
+            result = self._handle_enter()
+            self.tui_logger.debug_input_handling("enter_key", f"Handled enter key, result: {result}")
+            return result
         elif key == "up":
             self._handle_up()
+            self.tui_logger.debug_input_handling("up_key", "Handled up key")
         elif key == "down":
             self._handle_down()
+            self.tui_logger.debug_input_handling("down_key", "Handled down key")
         elif key == "left":
             self.input_buffer.move_cursor("left")
+            self.tui_logger.debug_input_handling("left_key", "Handled left key")
         elif key == "right":
             self.input_buffer.move_cursor("right")
+            self.tui_logger.debug_input_handling("right_key", "Handled right key")
         elif key == "backspace":
             self.input_buffer.delete_char(backward=True)
+            self.tui_logger.debug_input_handling("backspace_key", "Handled backspace key")
         elif key == "delete":
             self.input_buffer.delete_char(backward=False)
+            self.tui_logger.debug_input_handling("delete_key", "Handled delete key")
         elif key == "home":
             self.input_buffer.move_cursor("home")
+            self.tui_logger.debug_input_handling("home_key", "Handled home key")
         elif key == "end":
             self.input_buffer.move_cursor("end")
+            self.tui_logger.debug_input_handling("end_key", "Handled end key")
         elif key == "tab":
             self._handle_tab()
+            self.tui_logger.debug_input_handling("tab_key", "Handled tab key")
         elif key == "ctrl+m":
             self.input_buffer.toggle_multiline()
+            self.tui_logger.debug_input_handling("ctrl+m_key", "Toggled multiline mode")
         elif key.startswith("char:"):
             # 普通字符输入
             char = key[5:]  # 移除 "char:" 前缀
             self.input_buffer.insert_text(char)
+            self.tui_logger.debug_input_handling("char_input", f"Inserted character: {char}")
         
         return None
     
@@ -119,8 +139,10 @@ class InputPanel:
             Optional[str]: 提交的文本或命令结果
         """
         text = self.input_buffer.get_text()
+        self.tui_logger.debug_input_handling("enter_handling", f"Processing text: {text}")
         
         if not text.strip():
+            self.tui_logger.debug_input_handling("enter_handling", "Text is empty, returning None")
             return None
         
         # 检查多行输入逻辑
@@ -129,9 +151,11 @@ class InputPanel:
             # 移除末尾的'\'并添加换行符
             text_without_backslash = text[:-1]
             self.input_buffer.set_text(text_without_backslash + '\n')
+            self.tui_logger.debug_input_handling("enter_handling", "Processed multiline continuation")
             return None
         elif text.endswith(' '):
             # 末尾是空格，直接提交
+            self.tui_logger.debug_input_handling("enter_handling", "Text ends with space, submitting")
             pass  # 继续执行提交逻辑
         # 移除对包含换行符但不在多行模式的限制
         # 普通文本输入（包括包含换行符的）都应该可以提交
@@ -139,6 +163,7 @@ class InputPanel:
         # 检查是否是命令
         command_result = self._process_command(text)
         if command_result is not None:
+            self.tui_logger.debug_input_handling("command_processing", f"Command result: {command_result}")
             # 添加到历史记录
             self.input_history.add_entry(text)
             
@@ -149,6 +174,7 @@ class InputPanel:
             return command_result
         else:
             # 普通消息
+            self.tui_logger.debug_input_handling("message_processing", f"Processing user message: {text}")
             self.input_history.add_entry(text)
             self.input_buffer.clear()
             self.input_history.reset_navigation()
@@ -157,7 +183,9 @@ class InputPanel:
                 self.on_submit(text)
             
             # 返回带有特殊前缀的文本，表示这是用户输入
-            return f"USER_INPUT:{text}"
+            result = f"USER_INPUT:{text}"
+            self.tui_logger.debug_input_handling("message_submit", f"Submitted user input: {result}")
+            return result
     
     def _process_command(self, text: str) -> Optional[str]:
         """处理命令
@@ -168,18 +196,23 @@ class InputPanel:
         Returns:
             Optional[str]: 命令结果或None（如果不是命令）
         """
+        self.tui_logger.debug_input_handling("command_processing", f"Processing command: {text}")
+        
         # 检查是否是命令
         if not text or text[0] not in self.command_processors:
+            self.tui_logger.debug_input_handling("command_processing", f"Text is not a command: {text[0] if text else 'empty'}")
             return None
         
         # 获取对应的命令处理器
         processor = self.command_processors[text[0]]
+        self.tui_logger.debug_input_handling("command_processing", f"Using processor: {type(processor).__name__}")
         
         # 执行命令
         context = {
             'input_history': self.input_history
         }
         result = processor.execute_command(text, context)
+        self.tui_logger.debug_input_handling("command_processing", f"Command result: {result}")
         
         # 处理特殊命令结果
         if result == "CLEAR_SCREEN":
@@ -188,6 +221,7 @@ class InputPanel:
             return "EXIT"
         elif result and result.startswith("LOAD_SESSION:"):
             session_id = result.split(":", 1)[1]
+            self.tui_logger.debug_session_operation("load", session_id)
             if self.on_command:
                 self.on_command("load", [session_id])
         elif result and result.startswith("SELECT_WORKFLOW:"):
@@ -195,15 +229,18 @@ class InputPanel:
             parts = result.split(":", 2)
             workflow_id = parts[1]
             args = parts[2].split("|") if len(parts) > 2 and parts[2] else []
+            self.tui_logger.debug_workflow_operation(f"select_workflow: {workflow_id}")
             if self.on_command:
                 self.on_command("workflow", [workflow_id] + args)
         elif result and result in ["SAVE_SESSION", "NEW_SESSION", "PAUSE_WORKFLOW",
                       "RESUME_WORKFLOW", "STOP_WORKFLOW", "OPEN_STUDIO",
                       "OPEN_SESSIONS", "OPEN_AGENTS"]:
+            self.tui_logger.debug_session_operation(result.lower(), None)
             if self.on_command:
                 self.on_command(result.lower(), [])
         else:
             # 显示命令结果
+            self.tui_logger.debug_input_handling("command_result", f"Returning command result: {result}")
             return str(result) if result is not None else None
         
         return None
@@ -211,21 +248,27 @@ class InputPanel:
     def _handle_up(self) -> None:
         """处理向上键"""
         current_text = self.input_buffer.get_text()
+        self.tui_logger.debug_input_handling("history_navigation", f"Handling up key, current text: {current_text}")
         history_text = self.input_history.navigate_up(current_text)
         self.input_buffer.set_text(history_text)
+        self.tui_logger.debug_input_handling("history_navigation", f"Set history text: {history_text}")
     
     def _handle_down(self) -> None:
         """处理向下键"""
         current_text = self.input_buffer.get_text()
+        self.tui_logger.debug_input_handling("history_navigation", f"Handling down key, current text: {current_text}")
         history_text = self.input_history.navigate_down(current_text)
         self.input_buffer.set_text(history_text)
+        self.tui_logger.debug_input_handling("history_navigation", f"Set history text: {history_text}")
     
     def _handle_tab(self) -> None:
         """处理Tab键（命令自动补全）"""
         current_text = self.input_buffer.get_text()
+        self.tui_logger.debug_input_handling("tab_completion", f"Handling tab completion, current text: {current_text}")
         
         # 检查是否是命令
         if not current_text or current_text[0] not in self.command_processors:
+            self.tui_logger.debug_input_handling("tab_completion", "Not a command, skipping completion")
             return
         
         # 获取对应的命令处理器
@@ -233,16 +276,19 @@ class InputPanel:
         
         # 获取补全建议
         suggestions = processor.get_suggestions(current_text)
+        self.tui_logger.debug_input_handling("tab_completion", f"Got {len(suggestions)} suggestions: {suggestions}")
         
         if len(suggestions) == 1:
             # 唯一匹配，自动补全
             self.input_buffer.set_text(suggestions[0])
+            self.tui_logger.debug_input_handling("tab_completion", f"Auto-completed to: {suggestions[0]}")
         elif len(suggestions) > 1:
             # 多个匹配，显示建议（这里可以扩展为显示补全菜单）
             # 暂时选择第一个公共前缀
             common_prefix = self._find_common_prefix([s[1:] for s in suggestions])
             if common_prefix and len(common_prefix) > len(current_text[1:]):
                 self.input_buffer.set_text(current_text[0] + common_prefix)
+                self.tui_logger.debug_input_handling("tab_completion", f"Completed to common prefix: {current_text[0] + common_prefix}")
     
     def _find_common_prefix(self, strings: List[str]) -> str:
         """查找字符串的公共前缀
