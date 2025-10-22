@@ -5,6 +5,7 @@
 
 from typing import List, Tuple, Optional, Dict, Any, Callable
 from .base_command_processor import BaseCommandProcessor
+from ...logger.tui_logger import get_tui_debug_logger
 
 
 class SlashCommandProcessor(BaseCommandProcessor):

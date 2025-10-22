@@ -5,6 +5,7 @@
 
 from typing import List, Tuple, Optional, Dict, Any
 from .base_command_processor import BaseCommandProcessor
+from ...logger.tui_logger import get_tui_debug_logger
 
 
 class WorkflowSelectorProcessor(BaseCommandProcessor):

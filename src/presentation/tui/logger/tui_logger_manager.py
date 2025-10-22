@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any
 from pathlib import Path
 
 from src.logger.logger import get_logger, Logger
-from src.config.models.global_config import GlobalConfig
+from src.config.models.global_config import GlobalConfig, LogOutputConfig
 
 
 class TUILoggerManager:
@@ -15,22 +15,23 @@ class TUILoggerManager:
     _instance = None
     _lock = threading.Lock()
     
-    def __new__(cls):
+    def __new__(cls) -> 'TUILoggerManager':
         """单例模式"""
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
                     cls._instance = super().__new__(cls)
+                    # Initialize instance attributes
                     cls._instance._initialized = False
         return cls._instance
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化TUI日志管理器"""
         if not self._initialized:
             self._loggers: Dict[str, Logger] = {}
             self._config: Optional[GlobalConfig] = None
-            self._debug_enabled = os.getenv("TUI_DEBUG", "0").lower() in ("1", "true", "yes")
-            self._initialized = True
+            self._debug_enabled: bool = os.getenv("TUI_DEBUG", "0").lower() in ("1", "true", "yes")
+            self._initialized: bool = True
     
     def initialize(self, config: Optional[GlobalConfig] = None) -> None:
         """初始化日志管理器
@@ -41,6 +42,50 @@ class TUILoggerManager:
         self._config = config
         if config:
             self._debug_enabled = config.debug or os.getenv("TUI_DEBUG", "0").lower() in ("1", "true", "yes")
+            
+            # 根据全局配置设置日志输出
+            for log_output in config.log_outputs:
+                if log_output.type == "file" and log_output.path:
+                    # 为TUI创建专门的文件日志记录器
+                    self._setup_tui_file_logger(log_output)
+    
+    def _setup_tui_file_logger(self, log_output_config: LogOutputConfig) -> None:
+        """根据配置设置TUI文件日志记录器
+        
+        Args:
+            log_output_config: 日志输出配置
+        """
+        try:
+            from pathlib import Path
+            from src.logger.handlers.file_handler import FileHandler
+            from src.logger.log_level import LogLevel
+            
+            # 修改日志文件路径，为TUI创建专门的日志文件
+            original_path = Path(log_output_config.path)
+            tui_log_path = original_path.parent / f"tui_{original_path.name}"
+            
+            # 创建文件处理器
+            file_handler_config = {
+                "type": "file",
+                "level": log_output_config.level or "INFO",
+                "file_path": str(tui_log_path),
+                "format": log_output_config.format or "text",
+                "rotation": log_output_config.rotation,
+                "max_size": log_output_config.max_size,
+                "backup_count": 5
+            }
+            
+            file_handler = FileHandler(
+                level=LogLevel.from_string(log_output_config.level or "INFO"),
+                config=file_handler_config
+            )
+            
+            # 为所有已存在的TUI日志记录器添加文件处理器
+            for logger in self._loggers.values():
+                logger.add_handler(file_handler)
+                
+        except Exception as e:
+            print(f"TUI日志管理器设置文件处理器失败: {e}")
     
     def get_logger(self, name: str) -> Logger:
         """获取或创建日志记录器

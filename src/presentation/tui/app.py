@@ -35,6 +35,9 @@ from .subview_controller import SubviewController
 from .session_handler import SessionHandler
 
 from src.infrastructure.container import get_global_container
+from src.infrastructure.config_loader import IConfigLoader
+from src.config.models.global_config import GlobalConfig
+from src.logger.logger import set_global_config
 from src.sessions.manager import ISessionManager
 from src.prompts.agent_state import AgentState, HumanMessage
 
@@ -74,6 +77,9 @@ class TUIApp:
         # 初始化依赖
         self.session_manager: Optional[ISessionManager] = None
         self._initialize_dependencies()
+        
+        # 初始化全局配置并设置日志系统
+        self._initialize_global_config()
         
         # 初始化各个管理器
         self.state_manager = StateManager(self.session_manager)
@@ -143,6 +149,33 @@ class TUIApp:
                 git_manager=container.get(GitManager)
             )
             container.register_instance(ISessionManager, session_manager)
+    
+    def _initialize_global_config(self) -> None:
+        """初始化全局配置并设置日志系统"""
+        try:
+            container = get_global_container()
+            config_loader = container.get(IConfigLoader)
+            
+            # 加载全局配置
+            global_config_data = config_loader.load("global.yaml")
+            
+            # 创建全局配置对象
+            from pydantic import parse_obj_as
+            global_config = GlobalConfig(**global_config_data)
+            
+            # 设置全局配置到日志系统
+            set_global_config(global_config)
+            
+            # 初始化TUI日志管理器
+            self.tui_manager.initialize(global_config)
+            
+            # 记录调试信息
+            self.tui_logger.info("全局配置已初始化", config_path="global.yaml")
+            
+        except Exception as e:
+            self.console.print(f"[red]初始化全局配置失败: {e}[/red]")
+            # 即使初始化失败也继续运行，使用默认配置
+            self.tui_logger.error(f"初始化全局配置失败: {e}")
     
     def _initialize_components(self) -> None:
         """初始化组件"""

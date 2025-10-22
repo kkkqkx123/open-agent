@@ -196,6 +196,15 @@ class TUIDebugLogger:
         """
         self.logger.error(message, **kwargs)
     
+    def debug(self, message: str, **kwargs: Any) -> None:
+        """记录调试日志
+        
+        Args:
+            message: 日志消息
+            **kwargs: 附加信息
+        """
+        self.logger.debug(message, **kwargs)
+    
     def set_debug_mode(self, enabled: bool) -> None:
         """设置调试模式
         
