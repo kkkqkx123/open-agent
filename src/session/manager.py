@@ -168,12 +168,12 @@ class SessionManager(ISessionManager):
         initial_state: Optional[AgentState] = None
     ) -> str:
         """创建新会话"""
-        # 生成会话ID
-        session_id = str(uuid.uuid4())
-
         # 加载工作流配置
         workflow_id = self.workflow_manager.load_workflow(workflow_config_path)
         workflow = self.workflow_manager.create_workflow(workflow_id)
+        
+        # 生成符合新命名规则的会话ID
+        session_id = self._generate_session_id(workflow_config_path)
 
         # 准备初始状态
         if initial_state is None:
@@ -336,7 +336,10 @@ class SessionManager(ISessionManager):
             ],
             "current_step": getattr(state, "current_step", ""),
             "max_iterations": getattr(state, "max_iterations", 10),
-            "iteration_count": getattr(state, "iteration_count", 0)
+            "iteration_count": getattr(state, "iteration_count", 0),
+            "workflow_name": getattr(state, "workflow_name", ""),
+            "start_time": state.start_time.isoformat() if state.start_time else None,
+            "errors": getattr(state, "errors", [])
         }
 
     def _deserialize_state(self, state_data: Dict[str, Any]) -> AgentState:
@@ -380,5 +383,75 @@ class SessionManager(ISessionManager):
         state.current_step = state_data.get("current_step", "")
         state.max_iterations = state_data.get("max_iterations", 10)
         state.iteration_count = state_data.get("iteration_count", 0)
-
+        state.workflow_name = state_data.get("workflow_name", "")
+        
+        # 恢复开始时间
+        start_time_str = state_data.get("start_time")
+        if start_time_str:
+            try:
+                state.start_time = datetime.fromisoformat(start_time_str)
+            except (ValueError, TypeError):
+                state.start_time = None
+        else:
+            state.start_time = None
+            
+        # 恢复错误列表
+        state.errors = state_data.get("errors", [])
+        
         return state
+
+    def _generate_session_id(self, workflow_config_path: str) -> str:
+        """生成符合新命名规则的会话ID
+        
+        格式: workflow名称(全小写)+年月日(如251022)+时分秒+uuid前6位
+        例如: react-251022-174800-1f73e8
+        
+        Args:
+            workflow_config_path: 工作流配置文件路径
+            
+        Returns:
+            str: 生成的会话ID
+        """
+        # 生成基础UUID
+        base_uuid = str(uuid.uuid4())
+        uuid_prefix = base_uuid[:6]
+        
+        # 获取当前时间
+        now = datetime.now()
+        date_str = now.strftime("%y%m%d")  # 年月日，如251022
+        time_str = now.strftime("%H%M%S")  # 时分秒，如174800
+        
+        # 从配置路径提取workflow名称
+        workflow_name = self._extract_workflow_name(workflow_config_path)
+        
+        # 组合生成session_id
+        session_id = f"{workflow_name}-{date_str}-{time_str}-{uuid_prefix}"
+        return session_id
+    
+    def _extract_workflow_name(self, workflow_config_path: str) -> str:
+        """从工作流配置路径提取workflow名称
+        
+        Args:
+            workflow_config_path: 工作流配置文件路径
+            
+        Returns:
+            str: workflow名称（全小写，无后缀）
+        """
+        try:
+            # 从路径中提取文件名（不含扩展名）
+            from pathlib import Path
+            config_file = Path(workflow_config_path)
+            base_name = config_file.stem  # 不含扩展名的文件名
+            
+            # 转换为小写并移除下划线和后缀，保持简洁
+            # 例如: "react_workflow" -> "react"
+            workflow_name = base_name.lower().replace("_", "")
+            
+            # 移除常见的后缀如"workflow"
+            if workflow_name.endswith("workflow"):
+                workflow_name = workflow_name[:-8]  # 移除"workflow"(8个字符)
+                
+            return workflow_name
+        except Exception:
+            # 如果提取失败，返回默认值
+            return "unknown"
