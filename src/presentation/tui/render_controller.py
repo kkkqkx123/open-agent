@@ -44,7 +44,14 @@ class RenderController:
         self.layout_manager = layout_manager
         self.config = config
         self.live: Optional[Live] = None
-        self._needs_refresh: bool = False  # 新增刷新标记
+        self._needs_refresh: bool = False # 新增刷新标记
+        self._last_render_state: Dict[str, Any] = {}  # 用于跟踪上次渲染状态
+        self._render_stats: Dict[str, Any] = {
+            'total_updates': 0,
+            'skipped_updates': 0,
+            'last_update_time': 0,
+            'avg_update_interval': 0
+        }  # 渲染统计信息
         
         # 组件
         self.sidebar_component = components.get("sidebar")
@@ -81,8 +88,21 @@ class RenderController:
         Args:
             state_manager: 状态管理器
         """
+        import time
+        start_time = time.time()
+        
         if not self.live:
             return
+        
+        # 检查状态变化以决定是否需要刷新
+        current_state_hash = self._get_state_hash(state_manager)
+        if current_state_hash == self._last_render_state.get('hash'):
+            # 状态没有变化，跳过更新
+            self._render_stats['skipped_updates'] += 1
+            return
+        
+        # 更新状态哈希
+        self._last_render_state['hash'] = current_state_hash
         
         # 检查是否显示子界面
         if state_manager.current_subview:
@@ -99,7 +119,21 @@ class RenderController:
         # 只有在需要时才刷新显示，避免闪烁
         if self._needs_refresh:
             self.live.refresh()
-            self._needs_refresh = False  # 重置刷新标记
+            self._needs_refresh = False # 重置刷新标记
+            self._render_stats['total_updates'] += 1
+            
+            # 更新性能统计
+            current_time = time.time()
+            if self._render_stats['last_update_time'] > 0:
+                interval = current_time - self._render_stats['last_update_time']
+                if self._render_stats['avg_update_interval'] == 0:
+                    self._render_stats['avg_update_interval'] = interval
+                else:
+                    # 使用移动平均来平滑更新间隔
+                    self._render_stats['avg_update_interval'] = \
+                        0.9 * self._render_stats['avg_update_interval'] + 0.1 * interval
+            
+            self._render_stats['last_update_time'] = current_time
     
     def _render_subview(self, state_manager: Any) -> None:
         """渲染子界面
@@ -118,16 +152,25 @@ class RenderController:
             content = self.errors_view.render()
         
         if content:
-            # 更新布局显示子界面
-            self.layout_manager.update_region_content(LayoutRegion.MAIN, content)
+            # 检查内容是否真正变化了
+            import hashlib
+            content_hash = hashlib.md5(str(content).encode() if content else b'').hexdigest()
             
-            # 隐藏其他区域
-            self.layout_manager.update_region_content(LayoutRegion.SIDEBAR, "")
-            self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, "")
-            self.layout_manager.update_region_content(LayoutRegion.STATUS, "")
-            
-            # 更新标题栏显示子界面信息
-            self._update_subview_header(state_manager)
+            if self._last_render_state.get('subview_content_hash') != content_hash:
+                # 更新布局显示子界面
+                self.layout_manager.update_region_content(LayoutRegion.MAIN, content)
+                
+                # 隐藏其他区域
+                self.layout_manager.update_region_content(LayoutRegion.SIDEBAR, "")
+                self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, "")
+                self.layout_manager.update_region_content(LayoutRegion.STATUS, "")
+                
+                # 更新标题栏显示子界面信息
+                self._update_subview_header(state_manager)
+                
+                # 标记需要刷新
+                self._needs_refresh = True
+                self._last_render_state['subview_content_hash'] = content_hash
         else:
             # 未知子界面，返回主界面
             state_manager.current_subview = None
@@ -139,6 +182,30 @@ class RenderController:
         Args:
             state_manager: 状态管理器
         """
+        # 生成当前主界面状态的哈希值
+        import hashlib
+        import json
+        
+        # 创建主界面状态表示
+        main_view_state = {
+            'current_subview': state_manager.current_subview,
+            'show_session_dialog': getattr(state_manager, 'show_session_dialog', False),
+            'show_agent_dialog': getattr(state_manager, 'show_agent_dialog', False),
+            'session_id': getattr(state_manager, 'session_id', None),
+            'message_history_length': len(getattr(state_manager, 'message_history', [])),
+            'current_state': str(getattr(state_manager, 'current_state', None)),
+        }
+        
+        main_view_hash = hashlib.md5(json.dumps(main_view_state, sort_keys=True, default=str).encode()).hexdigest()
+        
+        # 检查主界面状态是否发生变化
+        if self._last_render_state.get('main_view_hash') == main_view_hash:
+            # 主界面状态未变化，跳过更新
+            return
+        
+        # 更新主界面状态哈希
+        self._last_render_state['main_view_hash'] = main_view_hash
+        
         # 更新组件状态
         self._update_components(state_manager)
         
@@ -182,13 +249,20 @@ class RenderController:
         header_content.append(subtitle_text)
         header_content.append(session_info)
         
-        header_panel = Panel(
-            header_content,
-            style=self.config.theme.primary_color,
-            border_style=self.config.theme.primary_color
-        )
+        # 检查内容是否发生变化
+        import hashlib
+        content_hash = hashlib.md5(str(header_content).encode()).hexdigest()
         
-        self.layout_manager.update_region_content(LayoutRegion.HEADER, header_panel)
+        if self._last_render_state.get('subview_header_content_hash') != content_hash:
+            header_panel = Panel(
+                header_content,
+                style=self.config.theme.primary_color,
+                border_style=self.config.theme.primary_color
+            )
+            
+            self.layout_manager.update_region_content(LayoutRegion.HEADER, header_panel)
+            self._last_render_state['subview_header_content_hash'] = content_hash
+            self._needs_refresh = True
     
     def _update_components(self, state_manager: Any) -> None:
         """更新组件状态
@@ -244,8 +318,17 @@ class RenderController:
         # 更新错误反馈子界面数据
         if self.errors_view and state_manager.current_state:
             errors = state_manager.get_errors()
-            for error in errors:
-                self.errors_view.add_error(error)
+            # 检查错误列表是否发生变化
+            import hashlib
+            import json
+            errors_hash = hashlib.md5(json.dumps(errors, sort_keys=True, default=str).encode()).hexdigest()
+            if self._last_render_state.get('errors_hash') != errors_hash:
+                # 清除旧错误并添加新错误
+                self.errors_view.error_list = []  # 直接清空错误列表
+                self.errors_view._update_stats()  # 更新统计
+                for error in errors:
+                    self.errors_view.add_error(error)
+                self._last_render_state['errors_hash'] = errors_hash
     
     def _update_header(self, state_manager: Any) -> None:
         """更新标题栏
@@ -253,6 +336,7 @@ class RenderController:
         Args:
             state_manager: 状态管理器
         """
+        # 创建新的标题内容
         title_text = Text("模块化代理框架", style="bold cyan")
         subtitle_text = Text("TUI界面", style="dim")
         
@@ -267,13 +351,20 @@ class RenderController:
         header_content.append(subtitle_text)
         header_content.append(session_info)
         
-        header_panel = Panel(
-            header_content,
-            style=self.config.theme.primary_color,
-            border_style=self.config.theme.primary_color
-        )
+        # 检查内容是否发生变化
+        import hashlib
+        content_hash = hashlib.md5(str(header_content).encode()).hexdigest()
         
-        self.layout_manager.update_region_content(LayoutRegion.HEADER, header_panel)
+        if self._last_render_state.get('header_content_hash') != content_hash:
+            header_panel = Panel(
+                header_content,
+                style=self.config.theme.primary_color,
+                border_style=self.config.theme.primary_color
+            )
+            
+            self.layout_manager.update_region_content(LayoutRegion.HEADER, header_panel)
+            self._last_render_state['header_content_hash'] = content_hash
+            self._needs_refresh = True
     
     def _update_sidebar(self) -> None:
         """更新侧边栏"""
@@ -282,29 +373,64 @@ class RenderController:
         
         if self.sidebar_component:
             sidebar_panel = self.sidebar_component.render()
-            self.layout_manager.update_region_content(LayoutRegion.SIDEBAR, sidebar_panel)
+            # 检查内容是否发生变化
+            import hashlib
+            content_hash = hashlib.md5(str(sidebar_panel).encode() if sidebar_panel else b'').hexdigest()
+            
+            if self._last_render_state.get('sidebar_content_hash') != content_hash:
+                self.layout_manager.update_region_content(LayoutRegion.SIDEBAR, sidebar_panel)
+                self._last_render_state['sidebar_content_hash'] = content_hash
+                self._needs_refresh = True
     
     def _update_main_content(self) -> None:
         """更新主内容区"""
         if self.main_content_component:
             main_panel = self.main_content_component.render()
-            self.layout_manager.update_region_content(LayoutRegion.MAIN, main_panel)
+            # 检查内容是否发生变化
+            import hashlib
+            content_hash = hashlib.md5(str(main_panel).encode() if main_panel else b'').hexdigest()
+            
+            if self._last_render_state.get('main_content_hash') != content_hash:
+                self.layout_manager.update_region_content(LayoutRegion.MAIN, main_panel)
+                self._last_render_state['main_content_hash'] = content_hash
+                self._needs_refresh = True
     
     def _update_input_area(self) -> None:
         """更新输入区域"""
         if self.input_component:
             input_panel = self.input_component.render()
-            self.layout_manager.update_region_content(LayoutRegion.INPUT, input_panel)
+            # 检查内容是否发生变化
+            import hashlib
+            content_hash = hashlib.md5(str(input_panel).encode() if input_panel else b'').hexdigest()
+            
+            if self._last_render_state.get('input_content_hash') != content_hash:
+                self.layout_manager.update_region_content(LayoutRegion.INPUT, input_panel)
+                self._last_render_state['input_content_hash'] = content_hash
+                self._needs_refresh = True
     
     def _update_langgraph_panel(self) -> None:
         """更新LangGraph面板"""
         # 优先显示工作流控制面板
         if self.workflow_control_panel:
             workflow_panel = self.workflow_control_panel.render()
-            self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, workflow_panel)
+            # 检查内容是否发生变化
+            import hashlib
+            content_hash = hashlib.md5(str(workflow_panel).encode() if workflow_panel else b'').hexdigest()
+            
+            if self._last_render_state.get('langgraph_content_hash') != content_hash:
+                self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, workflow_panel)
+                self._last_render_state['langgraph_content_hash'] = content_hash
+                self._needs_refresh = True
         elif self.langgraph_component:
             langgraph_panel = self.langgraph_component.render()
-            self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, langgraph_panel)
+            # 检查内容是否发生变化
+            import hashlib
+            content_hash = hashlib.md5(str(langgraph_panel).encode() if langgraph_panel else b'').hexdigest()
+            
+            if self._last_render_state.get('langgraph_content_hash') != content_hash:
+                self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, langgraph_panel)
+                self._last_render_state['langgraph_content_hash'] = content_hash
+                self._needs_refresh = True
     
     def _update_status_bar(self, state_manager: Any) -> None:
         """更新状态栏
@@ -327,13 +453,20 @@ class RenderController:
         if state_manager.session_id:
             status_text.append(f" | 会话: {state_manager.session_id[:8]}...", style="yellow")
         
-        status_panel = Panel(
-            status_text,
-            style="dim",
-            border_style="dim"
-        )
+        # 检查内容是否发生变化
+        import hashlib
+        content_hash = hashlib.md5(str(status_text).encode()).hexdigest()
         
-        self.layout_manager.update_region_content(LayoutRegion.STATUS, status_panel)
+        if self._last_render_state.get('status_content_hash') != content_hash:
+            status_panel = Panel(
+                status_text,
+                style="dim",
+                border_style="dim"
+            )
+            
+            self.layout_manager.update_region_content(LayoutRegion.STATUS, status_panel)
+            self._last_render_state['status_content_hash'] = content_hash
+            self._needs_refresh = True
     
     def _update_dialogs(self, state_manager: Any) -> None:
         """更新对话框显示
@@ -344,23 +477,39 @@ class RenderController:
         if state_manager.show_session_dialog and self.session_dialog:
             # 显示会话管理对话框，覆盖整个主内容区
             dialog_panel = self.session_dialog.render()
-            self.layout_manager.update_region_content(LayoutRegion.MAIN, dialog_panel)
+            # 检查内容是否发生变化
+            import hashlib
+            content_hash = hashlib.md5(str(dialog_panel).encode() if dialog_panel else b'').hexdigest()
             
-            # 隐藏其他区域
-            self.layout_manager.update_region_content(LayoutRegion.SIDEBAR, "")
-            self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, "")
-            # 隐藏错误反馈面板
-            if self.error_feedback_panel:
-                self.layout_manager.update_region_content(LayoutRegion.STATUS, "")
+            if self._last_render_state.get('dialog_session_content_hash') != content_hash:
+                self.layout_manager.update_region_content(LayoutRegion.MAIN, dialog_panel)
+                
+                # 隐藏其他区域
+                self.layout_manager.update_region_content(LayoutRegion.SIDEBAR, "")
+                self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, "")
+                # 隐藏错误反馈面板
+                if self.error_feedback_panel:
+                    self.layout_manager.update_region_content(LayoutRegion.STATUS, "")
+                
+                self._last_render_state['dialog_session_content_hash'] = content_hash
+                self._needs_refresh = True
             
         elif state_manager.show_agent_dialog and self.agent_dialog:
             # 显示Agent选择对话框，覆盖整个主内容区
             dialog_panel = self.agent_dialog.render()
-            self.layout_manager.update_region_content(LayoutRegion.MAIN, dialog_panel)
+            # 检查内容是否发生变化
+            import hashlib
+            content_hash = hashlib.md5(str(dialog_panel).encode() if dialog_panel else b'').hexdigest()
             
-            # 隐藏其他区域
-            self.layout_manager.update_region_content(LayoutRegion.SIDEBAR, "")
-            self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, "")
+            if self._last_render_state.get('dialog_agent_content_hash') != content_hash:
+                self.layout_manager.update_region_content(LayoutRegion.MAIN, dialog_panel)
+                
+                # 隐藏其他区域
+                self.layout_manager.update_region_content(LayoutRegion.SIDEBAR, "")
+                self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, "")
+                
+                self._last_render_state['dialog_agent_content_hash'] = content_hash
+                self._needs_refresh = True
     
     def show_welcome_message(self) -> None:
         """显示欢迎信息"""
@@ -374,10 +523,41 @@ class RenderController:
             border_style="cyan"
         )
         
-        self.layout_manager.update_region_content(LayoutRegion.MAIN, welcome_panel)
+        # 检查内容是否发生变化
+        import hashlib
+        content_hash = hashlib.md5(str(welcome_panel).encode() if welcome_panel else b'').hexdigest()
         
-        # 设置刷新标记而不是立即刷新
-        self._needs_refresh = True
+        if self._last_render_state.get('welcome_content_hash') != content_hash:
+            self.layout_manager.update_region_content(LayoutRegion.MAIN, welcome_panel)
+            self._last_render_state['welcome_content_hash'] = content_hash
+            # 设置刷新标记而不是立即刷新
+            self._needs_refresh = True
+    
+    def _get_state_hash(self, state_manager: Any) -> str:
+        """获取状态管理器的哈希值，用于检测状态变化
+        
+        Args:
+            state_manager: 状态管理器
+            
+        Returns:
+            str: 状态哈希值
+        """
+        import hashlib
+        import json
+        
+        # 创建状态的表示
+        state_repr = {
+            'current_subview': state_manager.current_subview,
+            'show_session_dialog': getattr(state_manager, 'show_session_dialog', False),
+            'show_agent_dialog': getattr(state_manager, 'show_agent_dialog', False),
+            'session_id': getattr(state_manager, 'session_id', None),
+            'message_history_length': len(getattr(state_manager, 'message_history', [])),
+            'current_state': str(getattr(state_manager, 'current_state', None)),
+        }
+        
+        # 序列化并生成哈希
+        state_str = json.dumps(state_repr, sort_keys=True, default=str)
+        return hashlib.md5(state_str.encode()).hexdigest()
     
     def _on_layout_changed(self, breakpoint: str, terminal_size: Tuple[int, int]) -> None:
         """布局变化回调处理
@@ -386,14 +566,20 @@ class RenderController:
             breakpoint: 新的断点
             terminal_size: 终端尺寸
         """
-        # 移除立即刷新，避免双重刷新导致闪烁
-        # 让主循环的update_ui()处理刷新
+        # 检查断点或终端尺寸是否真正发生变化
+        import hashlib
+        layout_state = f"{breakpoint}_{terminal_size[0]}_{terminal_size[1]}"
+        layout_hash = hashlib.md5(layout_state.encode()).hexdigest()
         
-        # 根据新布局调整组件显示
-        self._adjust_components_to_layout(breakpoint, terminal_size)
-        
-        # 标记需要刷新，让主循环处理
-        self._needs_refresh = True
+        if self._last_render_state.get('layout_hash') != layout_hash:
+            # 根据新布局调整组件显示
+            self._adjust_components_to_layout(breakpoint, terminal_size)
+            
+            # 更新布局状态哈希
+            self._last_render_state['layout_hash'] = layout_hash
+            
+            # 标记需要刷新，让主循环处理
+            self._needs_refresh = True
     
     def _adjust_components_to_layout(self, breakpoint: str, terminal_size: Tuple[int, int]) -> None:
         """根据布局调整组件
@@ -438,13 +624,27 @@ class RenderController:
         # 获取错误反馈面板内容
         error_panel = self.error_feedback_panel.render()
         if error_panel:
-            # 将错误面板显示在状态栏位置
-            self.layout_manager.update_region_content(LayoutRegion.STATUS, error_panel)
-            # 标记需要刷新
-            self._needs_refresh = True
+            # 检查内容是否发生变化
+            import hashlib
+            content_hash = hashlib.md5(str(error_panel).encode() if error_panel else b'').hexdigest()
+            
+            if self._last_render_state.get('error_feedback_content_hash') != content_hash:
+                # 将错误面板显示在状态栏位置
+                self.layout_manager.update_region_content(LayoutRegion.STATUS, error_panel)
+                self._last_render_state['error_feedback_content_hash'] = content_hash
+                # 标记需要刷新
+                self._needs_refresh = True
     
     def _update_error_feedback_panel(self) -> None:
         """更新错误反馈面板"""
         # 这个方法可以用来定期更新错误反馈面板的状态
         # 目前错误反馈面板是事件驱动的，不需要定期更新
         pass
+    
+    def get_render_stats(self) -> Dict[str, Any]:
+        """获取渲染性能统计信息
+        
+        Returns:
+            Dict[str, Any]: 渲染统计信息
+        """
+        return self._render_stats

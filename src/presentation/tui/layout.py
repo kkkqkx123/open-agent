@@ -397,9 +397,33 @@ class LayoutManager(ILayoutManager):
     
     def update_region_content(self, region: LayoutRegion, content: Any) -> None:
         """更新区域内容"""
-        self.region_contents[region] = content
-        if self.layout:
-            self._update_layout_regions()
+        # 检查内容是否真正发生变化
+        if self.region_contents.get(region) != content:
+            self.region_contents[region] = content
+    
+    def _update_layout_regions_for_region(self, region: LayoutRegion, content: Any) -> None:
+        """只更新指定区域的内容
+         
+        Args:
+            region: 区域类型
+            content: 区域内容
+        """
+        if not self.layout:
+            return
+        
+        # 将区域枚举转换为布局名称
+        region_name = region.value
+        
+        # 检查布局中是否存在该区域
+        if not self._has_region(region_name):
+            return
+        
+        # 更新指定区域的内容
+        try:
+            self.layout[region_name].update(content)
+        except (KeyError, AttributeError, TypeError):
+            # 如果更新失败，记录错误但不抛出异常
+            pass
     
     def resize_layout(self, terminal_size: Tuple[int, int]) -> None:
         """改进的布局调整方法"""

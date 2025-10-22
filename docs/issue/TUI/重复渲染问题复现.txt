@@ -1,0 +1,5 @@
+python -m src.run_tui
+
+type logs\agent.log
+
+运行TUI时必须加上timeout参数(1秒)，以免重复渲染导致过多垃圾信息
