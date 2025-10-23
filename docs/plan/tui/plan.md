@@ -165,7 +165,7 @@ if size_changed:
   - 需重点审查与 `RenderController` 和 `SubviewController` 的区域命名一致性。
 
 - **安全措施：**
-  - 提交前备份原始 `layout.py` 文件；
+  - 提交前备份原始 `layout.py` 文件【已备份为layout.py.bak】；
   - 提供一键回滚脚本，在生产环境异常时快速恢复旧版布局；
   - 建议先在内部测试终端部署 A/B 对比版本，监控以下指标：
     - 重绘频率（FPS）

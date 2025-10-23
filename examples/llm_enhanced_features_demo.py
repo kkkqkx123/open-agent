@@ -144,6 +144,11 @@ def demo_performance_monitoring():
     """演示性能监控"""
     print("\n=== 性能监控演示 ===")
     
+    # 导入必要的模块
+    from src.llm.models import LLMResponse, TokenUsage
+    from datetime import datetime
+    from langchain_core.messages import AIMessage
+    
     # 创建指标钩子
     metrics_hook = MetricsHook(
         enable_performance_tracking=True,
@@ -152,17 +157,25 @@ def demo_performance_monitoring():
     
     # 模拟一些调用数据
     for i in range(5):
+        # 模拟调用前记录
+        metrics_hook.before_call(
+            messages=[f"Message {i}"],
+            parameters={"temperature": 0.7}
+        )
+        
         # 模拟成功调用
-        mock_response = type('MockResponse', (), {
-            'model': 'gpt-4',
-            'response_time': 1.5 + i * 0.2,
-            'token_usage': type('TokenUsage', (), {
-                'total_tokens': 100 + i * 10
-            })(),
-            'timestamp': type('Timestamp', (), {
-                'strftime': lambda fmt: '2024-01-01 10:00'
-            })()
-        })()
+        mock_response = LLMResponse(
+            content=f"模拟响应 {i}",
+            message=AIMessage(content=f"模拟响应 {i}"),
+            token_usage=TokenUsage(
+                prompt_tokens=50 + i * 5,
+                completion_tokens=50 + i * 5,
+                total_tokens=100 + i * 10
+            ),
+            model='gpt-4',
+            response_time=1.5 + i * 0.2,
+            timestamp=datetime.now()
+        )
         
         metrics_hook.after_call(
             response=mock_response,
