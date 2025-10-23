@@ -113,8 +113,26 @@ class TUIDebugLogger:
             **kwargs: 附加信息
         """
         if self.tui_manager.is_debug_enabled():
+            # 对于char:类型按键，显示更详细的信息
+            display_key = key
+            if key.startswith("char:"):
+                char_value = key[5:]  # 移除"char:"前缀
+                if char_value == '\n':
+                    display_key = f"{key} (Enter/Newline)"
+                elif char_value == '\x1b':
+                    display_key = f"{key} (Escape)"
+                elif char_value == '\x7f':
+                    display_key = f"{key} (Backspace)"
+                elif char_value == '\t':
+                    display_key = f"{key} (Tab)"
+                elif char_value == ' ':
+                    display_key = f"{key} (Space)"
+                else:
+                    # 显示字符的ASCII码
+                    display_key = f"{key} (ASCII: {ord(char_value) if char_value else 0})"
+            
             self.logger.debug(
-                f"TUI按键事件: {key}, handled: {handled}, context: {context}",
+                f"TUI按键事件: {display_key}, handled: {handled}, context: {context}",
                 key=key,
                 handled=handled,
                 context=context,

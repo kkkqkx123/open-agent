@@ -134,6 +134,8 @@ class InputPanel:
         if key != "enter":
             return "REFRESH_UI"
         
+        # 对于Enter键，已经在上面的_handle_enter()中返回了结果，不会执行到这里
+        # 添加此行以避免静态分析警告
         return None
     
     def _handle_enter(self) -> Optional[str]:
@@ -161,6 +163,25 @@ class InputPanel:
             # 末尾是空格，直接提交
             self.tui_logger.debug_input_handling("enter_handling", "Text ends with space, submitting")
             pass  # 继续执行提交逻辑
+        elif self.input_buffer.multiline_mode:
+            # 在多行模式下，检查当前行是否为空
+            # 获取当前行（最后一行）
+            if '\n' in text:
+                last_line = text.split('\n')[-1]
+            else:
+                last_line = text
+            
+            # 如果最后一行为空或只包含空白字符，则提交输入
+            if not last_line.strip():
+                self.tui_logger.debug_input_handling("enter_handling", "Submitting in multiline mode (last line is empty)")
+                # 清除末尾的换行符以准备提交
+                text = text.rstrip('\n')
+                self.input_buffer.set_text(text)
+                # 继续执行到后面的提交逻辑
+            else:  # 最后一行非空，插入换行符
+                self.input_buffer.insert_text('\n')
+                self.tui_logger.debug_input_handling("enter_handling", "Inserted newline in multiline mode")
+                return None
         # 移除对包含换行符但不在多行模式的限制
         # 普通文本输入（包括包含换行符的）都应该可以提交
         

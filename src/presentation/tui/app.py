@@ -472,8 +472,10 @@ class TUIApp:
             self.state_manager.add_system_message(result)
             self.main_content_component.add_assistant_message(result)
         elif result and result.startswith("USER_INPUT:"):
-            # 处理用户输入（已经通过回调处理过，这里不需要额外操作）
-            pass
+            # 处理用户输入
+            input_text = result[len("USER_INPUT:"):]  # 移除前缀，获取实际输入文本
+            self.tui_logger.debug_input_handling("user_input_received", f"Received user input: {input_text}")
+            # 用户输入已经通过回调处理，这里可以添加额外的处理逻辑
     
     def _handle_input_submit(self, input_text: str) -> None:
         """处理输入提交

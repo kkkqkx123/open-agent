@@ -148,7 +148,6 @@ class InputBuffer:
         else:
             text = self.buffer
         
-        self.tui_logger.debug_input_handling("get_text", f"Retrieved text: {text}")
         return text
     
     def set_text(self, text: str) -> None:

@@ -168,6 +168,8 @@ class EventEngine:
             return "escape"
         elif char == '\x0d':  # Enter (CR)
             return "enter"
+        elif char == '\n':  # Enter (LF)
+            return "enter"
         elif char == '\x7f':  # Backspace
             return "backspace"
         elif char == '\x09':  # Tab
