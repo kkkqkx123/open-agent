@@ -388,6 +388,7 @@ class RenderController:
                 self.layout_manager.update_region_content(LayoutRegion.MAIN, main_panel)
                 self._last_render_state['main_content_hash'] = content_hash
                 self._needs_refresh = True
+                self.tui_logger.debug_render_operation("main_content", "content_updated", hash=content_hash[:8])
     
     def _update_input_area(self) -> None:
         """更新输入区域"""
@@ -401,6 +402,7 @@ class RenderController:
                 self.layout_manager.update_region_content(LayoutRegion.INPUT, input_panel)
                 self._last_render_state['input_content_hash'] = content_hash
                 self._needs_refresh = True
+                self.tui_logger.debug_render_operation("input_area", "content_updated", hash=content_hash[:8])
     
     def _update_langgraph_panel(self) -> None:
         """更新LangGraph面板"""
@@ -539,15 +541,33 @@ class RenderController:
         import hashlib
         import json
         
-        # 创建状态的表示
+        # 创建状态的表示，包含更多细节以检测变化
         state_repr = {
             'current_subview': state_manager.current_subview,
             'show_session_dialog': getattr(state_manager, 'show_session_dialog', False),
             'show_agent_dialog': getattr(state_manager, 'show_agent_dialog', False),
             'session_id': getattr(state_manager, 'session_id', None),
             'message_history_length': len(getattr(state_manager, 'message_history', [])),
+            # 添加最后一条消息的内容哈希，确保新消息被检测到
+            'last_message_hash': '',
             'current_state': str(getattr(state_manager, 'current_state', None)),
         }
+        
+        # 添加最后一条消息的内容哈希
+        message_history = getattr(state_manager, 'message_history', [])
+        if message_history:
+            last_msg = message_history[-1]
+            msg_content = f"{last_msg.get('type', '')}:{last_msg.get('content', '')}"
+            state_repr['last_message_hash'] = hashlib.md5(msg_content.encode()).hexdigest()
+        
+        # 添加输入缓冲区状态检测
+        if hasattr(self, 'input_component') and self.input_component:
+            input_buffer = self.input_component.input_buffer
+            if input_buffer:
+                input_text = input_buffer.get_text()
+                state_repr['input_buffer_text'] = input_text
+                state_repr['input_buffer_cursor'] = input_buffer.cursor_position
+                state_repr['input_buffer_multiline'] = input_buffer.multiline_mode
         
         # 序列化并生成哈希
         state_str = json.dumps(state_repr, sort_keys=True, default=str)

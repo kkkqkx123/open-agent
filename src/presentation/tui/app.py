@@ -454,6 +454,10 @@ class TUIApp:
             self.state_manager.add_system_message("屏幕已清空")
         elif result == "EXIT":
             self.running = False
+        elif result == "REFRESH_UI":
+            # 处理UI刷新请求 - 强制更新UI
+            self.tui_logger.debug_render_operation("input_result", "refresh_ui_requested")
+            # 不需要做任何额外操作，主循环会检测到状态变化并刷新UI
         elif result and result.startswith("LOAD_SESSION:"):
             session_id = result.split(":", 1)[1]
             self._load_session(session_id)
@@ -734,6 +738,7 @@ class TUIApp:
                     # 只有当内容真正变化时才刷新UI
                     if self.live:  # 确保live对象存在
                         self.live.refresh()
+                        self.tui_logger.debug_render_operation("main_loop", "ui_refreshed")
                     # 如果需要刷新，使用较短的休眠时间以保持响应性
                     time.sleep(0.01)
                 else:

@@ -130,6 +130,10 @@ class InputPanel:
             self.input_buffer.insert_text(char)
             self.tui_logger.debug_input_handling("char_input", f"Inserted character: {char}")
         
+        # 对于非提交按键，返回特殊标记表示需要刷新UI
+        if key != "enter":
+            return "REFRESH_UI"
+        
         return None
     
     def _handle_enter(self) -> Optional[str]:

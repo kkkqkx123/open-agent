@@ -398,10 +398,17 @@ class LayoutManager(ILayoutManager):
     def update_region_content(self, region: LayoutRegion, content: Any) -> None:
         """更新区域内容"""
         # 检查内容是否真正发生变化
-        if self.region_contents.get(region) != content:
+        old_content = self.region_contents.get(region)
+        if old_content != content:
             self.region_contents[region] = content
             # 立即更新布局对象中的内容
             self._update_layout_regions_for_region(region, content)
+            
+            # 添加调试日志
+            import hashlib
+            old_hash = hashlib.md5(str(old_content).encode() if old_content else b'').hexdigest()[:8]
+            new_hash = hashlib.md5(str(content).encode() if content else b'').hexdigest()[:8]
+            print(f"[DEBUG] 布局区域 {region.value} 内容已更新: {old_hash} -> {new_hash}")
     
     def _update_layout_regions_for_region(self, region: LayoutRegion, content: Any) -> None:
         """只更新指定区域的内容
