@@ -34,6 +34,11 @@ class RegionConfig:
     ratio: int = 1
     resizable: bool = True
     visible: bool = True
+    # 新增尺寸约束
+    min_width: Optional[int] = None
+    max_width: Optional[int] = None
+    min_height: Optional[int] = None
+    max_height: Optional[int] = None
 
 
 @dataclass
@@ -43,6 +48,11 @@ class LayoutConfig:
     min_terminal_width: int = 80
     min_terminal_height: int = 24
     responsive_breakpoints: Optional[Dict[str, Tuple[int, int]]] = None
+    # 新增配置项
+    resize_threshold: Tuple[int, int] = (6, 3)  # (width, height) 变化阈值
+    resize_throttle_ms: int = 30  # resize 事件节流时间
+    sidebar_width_range: Tuple[int, int] = (20, 40)  # 侧边栏宽度范围
+    langgraph_width_range: Tuple[int, int] = (15, 30)  # LangGraph 区域宽度范围
     
     def __post_init__(self) -> None:
         if self.responsive_breakpoints is None:
@@ -116,13 +126,17 @@ class LayoutManager(ILayoutManager):
         self.terminal_size: Tuple[int, int] = (80, 24)
         self.region_contents: Dict[LayoutRegion, Any] = {}
         self.current_breakpoint: str = "small"
+        self._last_breakpoint: str = "small"  # 记录上一次断点
         
         # 新增属性用于优化
         self.layout_changed_callbacks: List[Callable[[str, Tuple[int, int]], None]] = []
         self.region_content_cache: Dict[LayoutRegion, Any] = {}
         self.last_resize_time: float = 0
-        self.resize_debounce_delay: float = 0.05  # 50ms防抖延迟，减少频繁调整
+        self.resize_debounce_delay: float = self.config.resize_throttle_ms / 1000.0  # 转换为秒
         self.breakpoint_buffer_threshold: int = 3  # 增加断点切换缓冲阈值，减少频繁切换
+        
+        # 记录区域父级方向，用于尺寸计算
+        self.region_parent_direction: Dict[str, str] = {}
         
     def _create_default_config(self) -> LayoutConfig:
         """创建默认布局配置"""
@@ -132,27 +146,34 @@ class LayoutManager(ILayoutManager):
                 min_size=3,
                 max_size=5,
                 ratio=1,
-                resizable=False
+                resizable=False,
+                min_height=3,
+                max_height=5
             ),
             LayoutRegion.SIDEBAR: RegionConfig(
                 name="侧边栏",
-                min_size=15,  # 减小最小尺寸
-                max_size=25,  # 减小最大尺寸
+                min_size=15,
+                max_size=25,
                 ratio=1,
-                resizable=True
+                resizable=True,
+                min_width=15,
+                max_width=40
             ),
             LayoutRegion.MAIN: RegionConfig(
                 name="主内容区",
                 min_size=30,
                 ratio=3,
-                resizable=True
+                resizable=True,
+                min_width=30
             ),
             LayoutRegion.INPUT: RegionConfig(
                 name="输入栏",
                 min_size=3,
                 max_size=5,
                 ratio=1,
-                resizable=False
+                resizable=False,
+                min_height=3,
+                max_height=5
             ),
             LayoutRegion.LANGGRAPH: RegionConfig(
                 name="LangGraph面板",
@@ -160,14 +181,18 @@ class LayoutManager(ILayoutManager):
                 max_size=30,
                 ratio=1,
                 resizable=True,
-                visible=False  # 默认隐藏
+                visible=False,  # 默认隐藏
+                min_width=15,
+                max_width=30
             ),
             LayoutRegion.STATUS: RegionConfig(
                 name="状态栏",
                 min_size=1,
                 max_size=1,
                 ratio=1,
-                resizable=False
+                resizable=False,
+                min_height=1,
+                max_height=1
             )
         }
         
@@ -200,11 +225,30 @@ class LayoutManager(ILayoutManager):
             Layout(name="status", size=1)  # 添加状态栏
         )
         
-        # 主体部分分割为两部分（移除LangGraph面板）
-        layout["body"].split_row(
-            Layout(name="sidebar", size=25),  # 减小侧边栏宽度
-            Layout(name="main")
-        )
+        # 主体部分分割为三部分（包含LangGraph面板）
+        if self.config.regions[LayoutRegion.LANGGRAPH].visible:
+            layout["body"].split_row(
+                Layout(name="sidebar", size=25),
+                Layout(name="main"),
+                Layout(name="langgraph", size=20)
+            )
+            # 记录区域父级方向
+            self.region_parent_direction["sidebar"] = "row"
+            self.region_parent_direction["main"] = "row"
+            self.region_parent_direction["langgraph"] = "row"
+        else:
+            layout["body"].split_row(
+                Layout(name="sidebar", size=25),
+                Layout(name="main")
+            )
+            # 记录区域父级方向
+            self.region_parent_direction["sidebar"] = "row"
+            self.region_parent_direction["main"] = "row"
+        
+        # 记录垂直布局区域
+        self.region_parent_direction["header"] = "column"
+        self.region_parent_direction["input"] = "column"
+        self.region_parent_direction["status"] = "column"
         
         # 设置区域内容
         self._update_layout_regions()
@@ -222,20 +266,33 @@ class LayoutManager(ILayoutManager):
                 Layout(name="input", size=3),
                 Layout(name="status", size=1)
             )
+            # 记录区域父级方向
+            self.region_parent_direction["header"] = "column"
+            self.region_parent_direction["main"] = "column"
+            self.region_parent_direction["input"] = "column"
+            self.region_parent_direction["status"] = "column"
         else:  # medium
-            # 分割为上下两部分，底部包含侧边栏
+            # 分割为上下三部分，保留输入区域
             layout.split_column(
                 Layout(name="header", size=3),
-                Layout(name="main"),
-                Layout(name="bottom", size=10),
+                Layout(name="content"),  # 内容区域，包含main和sidebar
+                Layout(name="input", size=3),
                 Layout(name="status", size=1)
             )
             
-            # 底部分割为左右两部分
-            layout["bottom"].split_row(
-                Layout(name="sidebar"),
-                Layout(name="info")
+            # 内容区域分割为左右两部分
+            layout["content"].split_row(
+                Layout(name="main"),
+                Layout(name="sidebar")
             )
+            
+            # 记录区域父级方向
+            self.region_parent_direction["header"] = "column"
+            self.region_parent_direction["content"] = "column"
+            self.region_parent_direction["input"] = "column"
+            self.region_parent_direction["status"] = "column"
+            self.region_parent_direction["main"] = "row"
+            self.region_parent_direction["sidebar"] = "row"
         
         # 设置区域内容
         self._update_layout_regions()
@@ -452,30 +509,47 @@ class LayoutManager(ILayoutManager):
         self.last_resize_time = current_time
         old_breakpoint = self.current_breakpoint
         
-        # 只有在尺寸变化较大时才处理（增加阈值）
-        if (abs(terminal_size[0] - self.terminal_size[0]) > 10 or 
-            abs(terminal_size[1] - self.terminal_size[1]) > 5):
-            
+        # 检查断点是否变化
+        new_breakpoint = self._determine_breakpoint(terminal_size)
+        
+        # 如果断点变化，强制重建布局
+        if old_breakpoint != new_breakpoint:
             # 缓存当前内容
             self._cache_region_contents()
             
             self.terminal_size = terminal_size
-            new_breakpoint = self._determine_breakpoint(terminal_size)
+            self.current_breakpoint = new_breakpoint
+            self._last_breakpoint = new_breakpoint
             
-            # 只有在断点真正变化时才重建布局
-            if old_breakpoint != new_breakpoint:
-                # 断点变化，使用渐进式过渡
-                self.current_breakpoint = new_breakpoint
-                self._gradual_layout_transition(old_breakpoint, new_breakpoint)
-            else:
-                # 相同断点但尺寸变化较大，只调整尺寸
-                self._adjust_region_sizes_gradual()
+            # 重建布局
+            self.layout = self._create_layout_structure(new_breakpoint)
             
             # 恢复缓存的内容
             self._restore_region_contents()
             
             # 触发布局变化回调
             self._trigger_layout_changed_callbacks()
+        else:
+            # 检查尺寸变化是否超过阈值
+            width_delta = abs(terminal_size[0] - self.terminal_size[0])
+            height_delta = abs(terminal_size[1] - self.terminal_size[1])
+            
+            if (width_delta >= self.config.resize_threshold[0] or 
+                height_delta >= self.config.resize_threshold[1]):
+                
+                # 缓存当前内容
+                self._cache_region_contents()
+                
+                self.terminal_size = terminal_size
+                
+                # 相同断点但尺寸变化较大，只调整尺寸
+                self._adjust_region_sizes_gradual()
+                
+                # 恢复缓存的内容
+                self._restore_region_contents()
+                
+                # 触发布局变化回调
+                self._trigger_layout_changed_callbacks()
     
     def _determine_breakpoint(self, terminal_size: Tuple[int, int]) -> str:
         """改进的断点检测，添加缓冲机制"""
@@ -579,34 +653,56 @@ class LayoutManager(ILayoutManager):
                     "langgraph": None
                 }
             else:
-                # 中等屏幕：底部显示侧边栏
-                sidebar_size = min(15, available_height // 3)
-                main_size = available_height - sidebar_size
+                # 中等屏幕：侧边栏在右侧
+                # 侧边栏宽度基于终端总宽度比例计算，而不是高度
+                sidebar_width = self._clamp_width(
+                    int(width * 0.22),  # 22% 的宽度
+                    self.config.sidebar_width_range[0],
+                    self.config.sidebar_width_range[1]
+                )
+                main_width = width - sidebar_width
+                
                 return {
                     "header": header_size,
-                    "main": main_size,
-                    "sidebar": sidebar_size,
+                    "main": available_height,
+                    "sidebar": sidebar_width,
                     "input": input_size,
                     "status": status_size,
                     "langgraph": None
                 }
         else:
             # 完整布局
-            sidebar_size = min(25, width // 4)
+            # 侧边栏宽度基于终端总宽度比例计算
+            sidebar_width = self._clamp_width(
+                int(width * 0.22),  # 22% 的宽度
+                self.config.sidebar_width_range[0],
+                self.config.sidebar_width_range[1]
+            )
             
             # 检查是否需要显示LangGraph面板
-            langgraph_size = None
+            langgraph_width = None
             if self.config.regions[LayoutRegion.LANGGRAPH].visible:
-                langgraph_size = min(30, width // 5)
+                langgraph_width = self._clamp_width(
+                    int(width * 0.18),  # 18% 的宽度
+                    self.config.langgraph_width_range[0],
+                    self.config.langgraph_width_range[1]
+                )
+            
+            # 主区域宽度 = 总宽 - 左右栏占用
+            main_width = width - sidebar_width - (langgraph_width or 0)
             
             return {
                 "header": header_size,
-                "sidebar": sidebar_size,
+                "sidebar": sidebar_width,
                 "main": available_height,
-                "langgraph": langgraph_size,
+                "langgraph": langgraph_width,
                 "input": input_size,
                 "status": status_size
             }
+    
+    def _clamp_width(self, width: int, min_width: int, max_width: int) -> int:
+        """限制宽度在指定范围内"""
+        return max(min_width, min(width, max_width))
     
     def get_region_size(self, region: LayoutRegion) -> Tuple[int, int]:
         """获取区域尺寸"""
@@ -619,15 +715,42 @@ class LayoutManager(ILayoutManager):
         
         # 获取区域的实际尺寸
         region_layout = self.layout[region_name]
-        if hasattr(region_layout, 'size') and region_layout.size:
-            # 简化逻辑，直接返回基于终端尺寸和区域大小的结果
-            # 这里假设区域是布局的直接子元素
-            if hasattr(self.layout, 'split') and self.layout.split == "column":
-                # 垂直布局
+        if hasattr(region_layout, 'size') and region_layout.size is not None:
+            # 根据父级方向决定返回的尺寸
+            parent_direction = self.region_parent_direction.get(region_name, "column")
+            
+            if parent_direction == "column":
+                # 垂直布局：区域占据全宽，高度为设定值
                 return (self.terminal_size[0], region_layout.size)
             else:
-                # 水平布局
-                return (region_layout.size, self.terminal_size[1])
+                # 水平布局：区域宽度为设定值，高度为父容器高度
+                # 需要计算父容器的可用高度
+                if region_name in ["sidebar", "main", "langgraph"]:
+                    # 这些区域在body或content中，需要减去header、input、status的高度
+                    available_height = self.terminal_size[1] - 3 - 3 - 1  # header + input + status
+                    return (region_layout.size, available_height)
+                else:
+                    return (region_layout.size, self.terminal_size[1])
+        
+        # 如果没有设置size，尝试从计算的最优尺寸中获取
+        optimal_sizes = self._calculate_optimal_sizes()
+        if region_name in optimal_sizes and optimal_sizes[region_name] is not None:
+            size = optimal_sizes[region_name]
+            # 确保size是int类型
+            if size is None:
+                size = 0
+            parent_direction = self.region_parent_direction.get(region_name, "column")
+            
+            if parent_direction == "column":
+                # 垂直布局：区域占据全宽，高度为设定值
+                return (self.terminal_size[0], size)
+            else:
+                # 水平布局：区域宽度为设定值，高度为父容器高度
+                if region_name in ["sidebar", "main", "langgraph"]:
+                    available_height = self.terminal_size[1] - 3 - 3 - 1  # header + input + status
+                    return (size, available_height)
+                else:
+                    return (size, self.terminal_size[1])
         
         # 默认返回终端尺寸
         return self.terminal_size
@@ -641,6 +764,32 @@ class LayoutManager(ILayoutManager):
         if self.current_breakpoint == "small" and region == LayoutRegion.SIDEBAR:
             return False
         return self.config.regions[region].visible
+    
+    def set_region_visible(self, region_name: str, visible: bool) -> None:
+        """设置区域可见性
+        
+        Args:
+            region_name: 区域名称
+            visible: 是否可见
+        """
+        try:
+            region = LayoutRegion(region_name)
+            self.config.regions[region].visible = visible
+            
+            # 如果是LangGraph区域且当前是大屏布局，需要重建布局
+            if region == LayoutRegion.LANGGRAPH and self.current_breakpoint in ["large", "xlarge"]:
+                self._cache_region_contents()
+                self.layout = self._create_layout_structure(self.current_breakpoint)
+                self._restore_region_contents()
+                self._trigger_layout_changed_callbacks()
+        except ValueError:
+            # 无效的区域名称
+            pass
+    
+    def trigger_rerender(self) -> None:
+        """触发重新渲染"""
+        if self.layout:
+            self._update_layout_regions()
     
     # 新增的优化方法
     
