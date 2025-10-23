@@ -404,11 +404,18 @@ class LayoutManager(ILayoutManager):
             # 立即更新布局对象中的内容
             self._update_layout_regions_for_region(region, content)
             
-            # 添加调试日志
-            import hashlib
-            old_hash = hashlib.md5(str(old_content).encode() if old_content else b'').hexdigest()[:8]
-            new_hash = hashlib.md5(str(content).encode() if content else b'').hexdigest()[:8]
-            print(f"[DEBUG] 布局区域 {region.value} 内容已更新: {old_hash} -> {new_hash}")
+            # 使用TUI静默日志记录器记录调试信息
+            try:
+                from .logger import get_tui_silent_logger
+                logger = get_tui_silent_logger("layout")
+                import hashlib
+                old_hash = hashlib.md5(str(old_content).encode() if old_content else b'').hexdigest()[:8]
+                new_hash = hashlib.md5(str(content).encode() if content else b'').hexdigest()[:8]
+                logger.debug_render_operation("layout", f"region_{region.value}_updated", 
+                                           old_hash=old_hash, new_hash=new_hash)
+            except Exception:
+                # 如果日志记录失败，静默忽略，避免影响TUI运行
+                pass
     
     def _update_layout_regions_for_region(self, region: LayoutRegion, content: Any) -> None:
         """只更新指定区域的内容

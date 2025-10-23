@@ -61,7 +61,8 @@ class TUILoggerManager:
             from src.logger.log_level import LogLevel
             
             # 修改日志文件路径，为TUI创建专门的日志文件
-            original_path = Path(log_output_config.path)
+            # log_output_config.path 在这里保证不为 None，因为调用方已经检查过
+            original_path = Path(log_output_config.path)  # type: ignore[arg-type]
             tui_log_path = original_path.parent / f"tui_{original_path.name}"
             
             # 创建文件处理器
