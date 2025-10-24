@@ -3,10 +3,10 @@
 import pytest
 from unittest.mock import Mock, patch
 
-from src.llm.clients.openai.config import OpenAIConfig
-from src.llm.clients.openai.unified_client import OpenAIUnifiedClient
-from src.llm.clients.openai.adapters.chat_completion import ChatCompletionAdapter
-from src.llm.clients.openai.adapters.responses_api import ResponsesAPIAdapter
+from src.infrastructure.llm.clients.openai.config import OpenAIConfig
+from src.infrastructure.llm.clients.openai.unified_client import OpenAIUnifiedClient
+from src.infrastructure.llm.clients.openai.adapters.chat_completion import ChatCompletionAdapter
+from src.infrastructure.llm.clients.openai.adapters.responses_api import ResponsesAPIAdapter
 from langchain_core.messages import BaseMessage
 from typing import List, cast
 

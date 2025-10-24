@@ -6,8 +6,8 @@ from typing import Dict, Any, cast
 
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-from src.llm.token_calculators.hybrid_calculator import HybridTokenCalculator
-from src.llm.token_parsers.base import TokenUsage
+from src.infrastructure.llm.token_calculators.hybrid_calculator import HybridTokenCalculator
+from src.infrastructure.llm.token_parsers.base import TokenUsage
 
 
 class TestDegradationStrategy(unittest.TestCase):

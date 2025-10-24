@@ -10,8 +10,8 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..'))
 
 # 更新导入，使用新的模块结构
-from src.llm.token_parsers.base import TokenUsage
-from src.llm.token_counter import (
+from src.infrastructure.llm.token_parsers.base import TokenUsage
+from src.infrastructure.llm.token_counter import (
     EnhancedOpenAITokenCounter,
     EnhancedGeminiTokenCounter,
     EnhancedAnthropicTokenCounter,

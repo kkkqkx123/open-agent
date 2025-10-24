@@ -3,15 +3,15 @@
 import pytest
 from unittest.mock import Mock, patch
 
-from src.llm.factory import (
+from src.infrastructure.llm.factory import (
     LLMFactory,
     get_global_factory,
     set_global_factory,
     create_client,
     get_cached_client,
 )
-from src.llm.config import LLMModuleConfig, LLMClientConfig
-from src.llm.exceptions import LLMClientCreationError, UnsupportedModelTypeError
+from src.infrastructure.llm.config import LLMModuleConfig, LLMClientConfig
+from src.infrastructure.llm.exceptions import LLMClientCreationError, UnsupportedModelTypeError
 
 
 class TestLLMFactory:
@@ -69,7 +69,7 @@ class TestLLMFactory:
     def test_create_client_with_config(self, factory):
         """测试使用配置对象创建客户端"""
         # 创建配置对象
-        from src.llm.config import MockConfig
+        from src.infrastructure.llm.config import MockConfig
 
         client_config = MockConfig(model_type="mock", model_name="test-model")
 
@@ -116,7 +116,7 @@ class TestLLMFactory:
     def test_create_client_from_config(self, factory):
         """测试从配置创建客户端"""
         # 创建配置对象
-        from src.llm.config import MockConfig
+        from src.infrastructure.llm.config import MockConfig
 
         client_config = MockConfig(model_type="mock", model_name="test-model")
 
@@ -281,7 +281,7 @@ class TestLLMFactory:
         config_dict = {"model_type": "mock", "model_name": "test-model"}
 
         # 创建客户端
-        with patch("src.llm.factory.get_global_factory") as mock_get_factory:
+        with patch("src.infrastructure.llm.factory.get_global_factory") as mock_get_factory:
             mock_factory = Mock()
             mock_client = Mock()
             mock_factory.create_client.return_value = mock_client
@@ -296,7 +296,7 @@ class TestLLMFactory:
     def test_get_cached_client_with_global_factory(self):
         """测试使用全局工厂获取缓存的客户端"""
         # 使用全局工厂
-        with patch("src.llm.factory.get_global_factory") as mock_get_factory:
+        with patch("src.infrastructure.llm.factory.get_global_factory") as mock_get_factory:
             mock_factory = Mock()
             mock_client = Mock()
             mock_factory.get_cached_client.return_value = mock_client

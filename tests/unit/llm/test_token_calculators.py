@@ -5,11 +5,11 @@ import pytest
 from unittest.mock import Mock, patch
 from langchain_core.messages import HumanMessage, AIMessage
 
-from src.llm.token_calculators.base import ITokenCalculator
-from src.llm.token_calculators.local_calculator import LocalTokenCalculator
-from src.llm.token_calculators.api_calculator import ApiTokenCalculator
-from src.llm.token_calculators.hybrid_calculator import HybridTokenCalculator
-from src.llm.token_parsers.base import TokenUsage
+from src.infrastructure.llm.token_calculators.base import ITokenCalculator
+from src.infrastructure.llm.token_calculators.local_calculator import LocalTokenCalculator
+from src.infrastructure.llm.token_calculators.api_calculator import ApiTokenCalculator
+from src.infrastructure.llm.token_calculators.hybrid_calculator import HybridTokenCalculator
+from src.infrastructure.llm.token_parsers.base import TokenUsage
 
 
 class TestLocalTokenCalculator:

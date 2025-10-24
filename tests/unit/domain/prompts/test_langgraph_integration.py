@@ -180,7 +180,7 @@ class TestCreateAgentWorkflow:
         
         # 测试节点函数
         test_state = AgentState()
-        test_state.messages = ["existing_message"]
+        test_state.messages = [HumanMessage(content="existing_message")]
         result_state = call_llm_func(test_state)
         
         # 验证调用

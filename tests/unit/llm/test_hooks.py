@@ -5,15 +5,15 @@ import time
 from unittest.mock import Mock, patch, MagicMock
 from langchain_core.messages import HumanMessage, AIMessage
 
-from src.llm.hooks import (
+from src.infrastructure.llm.hooks import (
     LoggingHook,
     MetricsHook,
     FallbackHook,
     RetryHook,
     CompositeHook,
 )
-from src.llm.models import LLMResponse, TokenUsage
-from src.llm.exceptions import (
+from src.infrastructure.llm.models import LLMResponse, TokenUsage
+from src.infrastructure.llm.exceptions import (
     LLMTimeoutError,
     LLMRateLimitError,
     LLMServiceUnavailableError,
@@ -34,7 +34,7 @@ class TestLoggingHook:
         messages = [HumanMessage(content="测试消息")]
         parameters = {"temperature": 0.7}
 
-        with patch("src.llm.hooks.logger") as mock_logger:
+        with patch("src.infrastructure.llm.hooks.logger") as mock_logger:
             hook.before_call(messages, parameters)
 
             # 验证日志被记录
@@ -56,7 +56,7 @@ class TestLoggingHook:
             response_time=1.5,
         )
 
-        with patch("src.llm.hooks.logger") as mock_logger:
+        with patch("src.infrastructure.llm.hooks.logger") as mock_logger:
             hook.after_call(response, messages, parameters)
 
             # 验证日志被记录
@@ -69,7 +69,7 @@ class TestLoggingHook:
         parameters = {"temperature": 0.7}
         error = Exception("测试错误")
 
-        with patch("src.llm.hooks.logger") as mock_logger:
+        with patch("src.infrastructure.llm.hooks.logger") as mock_logger:
             result = hook.on_error(error, messages, parameters)
 
             # 验证日志被记录
@@ -83,7 +83,7 @@ class TestLoggingHook:
         """测试禁用日志"""
         hook = LoggingHook(log_requests=False, log_responses=False, log_errors=False)
 
-        with patch("src.llm.hooks.logger") as mock_logger:
+        with patch("src.infrastructure.llm.hooks.logger") as mock_logger:
             hook.before_call([], {})
             hook.after_call(None, [], {})
             hook.on_error(Exception("test"), [], {})
@@ -240,7 +240,7 @@ class TestFallbackHook:
         parameters = {"temperature": 0.7, "_attempt_count": 1}
         error = LLMTimeoutError("测试超时")
 
-        with patch("src.llm.factory.get_global_factory") as mock_get_factory:
+        with patch("src.infrastructure.llm.factory.get_global_factory") as mock_get_factory:
             mock_factory = Mock()
             mock_client = Mock()
             mock_response = LLMResponse(
@@ -516,7 +516,7 @@ class TestCompositeHook:
         # 设置第一个钩子抛出异常
         hooks[0].before_call.side_effect = Exception("钩子错误")
 
-        with patch("src.llm.hooks.logger") as mock_logger:
+        with patch("src.infrastructure.llm.hooks.logger") as mock_logger:
             # 调用组合钩子
             composite_hook.before_call(messages, parameters)
 

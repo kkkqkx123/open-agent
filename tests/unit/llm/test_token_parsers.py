@@ -2,10 +2,10 @@
 
 import pytest
 from datetime import datetime
-from src.llm.token_parsers.base import TokenUsage, ITokenParser
-from src.llm.token_parsers.openai_parser import OpenAIParser
-from src.llm.token_parsers.gemini_parser import GeminiParser
-from src.llm.token_parsers.anthropic_parser import AnthropicParser
+from src.infrastructure.llm.token_parsers.base import TokenUsage, ITokenParser
+from src.infrastructure.llm.token_parsers.openai_parser import OpenAIParser
+from src.infrastructure.llm.token_parsers.gemini_parser import GeminiParser
+from src.infrastructure.llm.token_parsers.anthropic_parser import AnthropicParser
 
 
 class TestTokenUsage:

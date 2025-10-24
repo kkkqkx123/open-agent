@@ -4,10 +4,10 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-from src.infrastructrue.llm.clients.anthropic import AnthropicClient
-from src.infrastructrue.llm.config import AnthropicConfig
-from src.infrastructrue.llm.models import TokenUsage
-from src.infrastructrue.llm.exceptions import (
+from src.infrastructure.llm.clients.anthropic import AnthropicClient
+from src.infrastructure.llm.config import AnthropicConfig
+from src.infrastructure.llm.models import TokenUsage
+from src.infrastructure.llm.exceptions import (
     LLMCallError,
     LLMTimeoutError,
     LLMRateLimitError,

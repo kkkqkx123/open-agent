@@ -4,10 +4,10 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-from src.llm.clients.gemini_client import GeminiClient
-from src.llm.config import GeminiConfig
-from src.llm.models import TokenUsage
-from src.llm.exceptions import (
+from src.infrastructure.llm.clients.gemini import GeminiClient
+from src.infrastructure.llm.config import GeminiConfig
+from src.infrastructure.llm.models import TokenUsage
+from src.infrastructure.llm.exceptions import (
     LLMCallError,
     LLMTimeoutError,
     LLMRateLimitError,
@@ -47,12 +47,12 @@ class TestGeminiClient:
     @pytest.fixture
     def client(self, config):
         """创建客户端实例"""
-        with patch("src.llm.clients.gemini_client.ChatGoogleGenerativeAI"):
+        with patch("src.infrastructure.llm.clients.gemini.ChatGoogleGenerativeAI"):
             return GeminiClient(config)
 
     def test_init(self, config):
         """测试初始化"""
-        with patch("src.llm.clients.gemini_client.ChatGoogleGenerativeAI") as mock_chat:
+        with patch("src.infrastructure.llm.clients.gemini.ChatGoogleGenerativeAI") as mock_chat:
             client = GeminiClient(config)
 
             # 验证ChatGoogleGenerativeAI被正确调用

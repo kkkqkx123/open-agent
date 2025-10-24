@@ -4,8 +4,8 @@ import os
 import pytest
 from unittest.mock import patch
 
-from src.llm.header_validator import HeaderValidator, HeaderProcessor
-from src.llm.exceptions import LLMConfigurationError
+from src.infrastructure.llm.header_validator import HeaderValidator, HeaderProcessor
+from src.infrastructure.llm.exceptions import LLMConfigurationError
 
 
 class TestHeaderValidator:
@@ -227,8 +227,8 @@ class TestHeaderIntegration:
             LLMConfig(**invalid_config)
 
     def test_llm_client_config_header_validation(self):
-        """测试LLM客户端配置标头验证"""
-        from src.llm.config import LLMClientConfig
+        # 测试LLM客户端配置标头验证"""
+        from src.infrastructure.llm.config import LLMClientConfig
 
         # 有效配置
         valid_config = LLMClientConfig(

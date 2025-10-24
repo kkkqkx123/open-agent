@@ -4,10 +4,10 @@ import pytest
 from unittest.mock import Mock, patch
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-from src.llm.clients.mock_client import MockLLMClient
-from src.llm.config import MockConfig
-from src.llm.models import TokenUsage
-from src.llm.exceptions import (
+from src.infrastructure.llm.clients.mock import MockLLMClient
+from src.infrastructure.llm.config import MockConfig
+from src.infrastructure.llm.models import TokenUsage
+from src.infrastructure.llm.exceptions import (
     LLMTimeoutError,
     LLMRateLimitError,
     LLMServiceUnavailableError,
