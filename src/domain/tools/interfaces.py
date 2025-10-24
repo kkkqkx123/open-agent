@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from ...infrastructure.llm.interfaces import ILLMClient
+    from src.infrastructure.llm.interfaces import ILLMClient
 from langchain_core.messages import BaseMessage  # type: ignore
 
 if TYPE_CHECKING:

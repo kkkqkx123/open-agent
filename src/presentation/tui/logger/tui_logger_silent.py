@@ -4,9 +4,9 @@ import os
 from typing import Any, Dict, Optional
 from pathlib import Path
 
-from src.logger.logger import Logger
-from src.logger.log_level import LogLevel
-from src.logger.handlers.file_handler import FileHandler
+from src.infrastructure.logger.logger import Logger
+from src.infrastructure.logger.log_level import LogLevel
+from src.infrastructure.logger.handlers.file_handler import FileHandler
 from .tui_logger_manager import TUILoggerManager
 
 

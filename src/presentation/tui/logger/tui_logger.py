@@ -3,7 +3,7 @@
 from typing import Any, Dict, Optional
 from pathlib import Path
 
-from src.logger.logger import Logger
+from src.infrastructure.logger.logger import Logger
 from .tui_logger_manager import get_tui_logger, TUILoggerManager
 
 

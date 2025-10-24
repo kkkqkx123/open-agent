@@ -16,7 +16,7 @@ from .token_calculators import (
     ApiTokenCalculator,
     HybridTokenCalculator
 )
-from .utils.encodingProtocol import EncodingProtocol, extract_content_as_string
+from .utils.encoding_protocol import EncodingProtocol, extract_content_as_string
 
 # 重新导出以保持向后兼容
 __all__ = [

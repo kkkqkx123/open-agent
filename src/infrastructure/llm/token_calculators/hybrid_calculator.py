@@ -546,7 +546,7 @@ class HybridTokenCalculator(ITokenCalculator):
         Returns:
             str: 转换后的文本
         """
-        from ..utils.encodingProtocol import extract_content_as_string
+        from ..utils.encoding_protocol import extract_content_as_string
         
         texts = []
         for message in messages:

@@ -12,10 +12,12 @@ from pathlib import Path
 
 from src.infrastructure.config_loader import IConfigLoader
 from src.infrastructure.exceptions import InfrastructureError
-from src.logger.logger import ILogger
+from src.infrastructure.logger.logger import ILogger
 from .interfaces import IToolManager
-from .base import BaseTool
-from .types import NativeTool, MCPTool, BuiltinTool
+from src.domain.tools.base import BaseTool
+from src.domain.tools.types.native_tool import NativeTool
+from src.domain.tools.types.mcp_tool import MCPTool
+from src.domain.tools.types.builtin_tool import BuiltinTool
 from .config import (
     ToolConfig,
     NativeToolConfig,

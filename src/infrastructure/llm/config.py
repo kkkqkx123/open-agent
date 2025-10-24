@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, List, Union, Tuple
 from pathlib import Path
 
-from ..config.models.llm_config import LLMConfig
+from src.config.models.llm_config import LLMConfig
 
 
 @dataclass

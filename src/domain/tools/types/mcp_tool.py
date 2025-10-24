@@ -13,7 +13,7 @@ import aiohttp
 from pydantic import BaseModel
 
 from ..base import BaseTool
-from ..config import MCPToolConfig
+from src.infrastructure.tools.config import MCPToolConfig
 
 
 class MCPClient:

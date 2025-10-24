@@ -7,34 +7,23 @@
 - 内置工具 (BuiltinTool)
 """
 
-from .interfaces import IToolManager, IToolFormatter, IToolExecutor
+from .interfaces import IToolManager, IToolFormatter, IToolExecutor, ToolCall, ToolResult
 from .base import BaseTool
 from .types.native_tool import NativeTool
 from .types.mcp_tool import MCPTool
 from .types.builtin_tool import BuiltinTool
-from .manager import ToolManager
-from .formatter import ToolFormatter
-from .executor import ToolExecutor
-from .config import ToolConfig, NativeToolConfig, MCPToolConfig, BuiltinToolConfig
 
 __all__ = [
     # 接口
     "IToolManager",
     "IToolFormatter",
     "IToolExecutor",
+    "ToolCall",
+    "ToolResult",
     # 基类
     "BaseTool",
     # 工具类型
     "NativeTool",
     "MCPTool",
     "BuiltinTool",
-    # 管理器
-    "ToolManager",
-    "ToolFormatter",
-    "ToolExecutor",
-    # 配置
-    "ToolConfig",
-    "NativeToolConfig",
-    "MCPToolConfig",
-    "BuiltinToolConfig",
 ]

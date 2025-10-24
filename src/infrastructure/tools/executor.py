@@ -9,9 +9,10 @@ import time
 from typing import Any, Dict, List, Optional, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from src.logger.logger import ILogger
-from .interfaces import IToolExecutor, IToolManager, ToolCall, ToolResult
-from .base import BaseTool
+from src.infrastructure.logger.logger import ILogger
+from .interfaces import IToolExecutor, IToolManager
+from src.domain.tools.interfaces import ToolCall, ToolResult
+from src.domain.tools.base import BaseTool
 
 
 class ToolExecutor(IToolExecutor):

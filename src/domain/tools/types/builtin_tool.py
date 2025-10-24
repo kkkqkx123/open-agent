@@ -10,7 +10,7 @@ from typing import Any, Dict, Callable, Optional, Union
 from functools import wraps
 
 from ..base import BaseTool
-from ..config import BuiltinToolConfig
+from src.infrastructure.tools.config import BuiltinToolConfig
 
 
 class BuiltinTool(BaseTool):

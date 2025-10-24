@@ -8,8 +8,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Sequence, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..domain.tools.base import BaseTool
-    from ..domain.tools.interfaces import ToolCall, ToolResult
+    from src.domain.tools.base import BaseTool
+    from src.domain.tools.interfaces import ToolCall, ToolResult
 
 
 class IToolManager(ABC):

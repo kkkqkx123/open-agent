@@ -7,7 +7,7 @@ from langchain_core.messages import BaseMessage  # type: ignore
 
 from .base import ITokenCalculator
 from ..token_parsers.base import TokenUsage
-from ..utils.encodingProtocol import extract_content_as_string, EncodingProtocol
+from ..utils.encoding_protocol import extract_content_as_string, EncodingProtocol
 
 logger = logging.getLogger(__name__)
 

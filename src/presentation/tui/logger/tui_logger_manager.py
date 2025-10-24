@@ -5,7 +5,7 @@ import threading
 from typing import Optional, Dict, Any
 from pathlib import Path
 
-from src.logger.logger import get_logger, Logger
+from src.infrastructure.logger.logger import get_logger, Logger
 from src.config.models.global_config import GlobalConfig, LogOutputConfig
 
 
@@ -57,8 +57,8 @@ class TUILoggerManager:
         """
         try:
             from pathlib import Path
-            from src.logger.handlers.file_handler import FileHandler
-            from src.logger.log_level import LogLevel
+            from src.infrastructure.logger.handlers.file_handler import FileHandler
+            from src.infrastructure.logger.log_level import LogLevel
             
             # 修改日志文件路径，为TUI创建专门的日志文件
             # log_output_config.path 在这里保证不为 None，因为调用方已经检查过
@@ -104,7 +104,7 @@ class TUILoggerManager:
             
             # 如果启用了TUI调试模式，将日志级别设置为DEBUG
             if self._debug_enabled:
-                from src.logger.log_level import LogLevel
+                from src.infrastructure.logger.log_level import LogLevel
                 logger.set_level(LogLevel.DEBUG)
             
             self._loggers[name] = logger
@@ -121,7 +121,7 @@ class TUILoggerManager:
         
         # 更新所有现有logger的级别
         if self._debug_enabled:
-            from src.logger.log_level import LogLevel
+            from src.infrastructure.logger.log_level import LogLevel
             for logger in self._loggers.values():
                 logger.set_level(LogLevel.DEBUG)
     
@@ -143,8 +143,8 @@ class TUILoggerManager:
         Returns:
             日志记录器实例
         """
-        from src.logger.handlers.file_handler import FileHandler
-        from src.logger.log_level import LogLevel
+        from src.infrastructure.logger.handlers.file_handler import FileHandler
+        from src.infrastructure.logger.log_level import LogLevel
         
         # 确保日志目录存在
         log_file_path.parent.mkdir(parents=True, exist_ok=True)
