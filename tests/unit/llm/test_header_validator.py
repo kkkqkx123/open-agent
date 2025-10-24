@@ -191,7 +191,7 @@ class TestHeaderIntegration:
 
     def test_llm_config_header_validation(self):
         """测试LLM配置标头验证"""
-        from src.config.models.llm_config import LLMConfig
+        from src.infrastructure.config.models.llm_config import LLMConfig
 
         # 有效配置
         valid_config = {
@@ -210,7 +210,7 @@ class TestHeaderIntegration:
 
     def test_llm_config_header_validation_failure(self):
         """测试LLM配置标头验证失败"""
-        from src.config.models.llm_config import LLMConfig
+        from src.infrastructure.config.models.llm_config import LLMConfig
 
         # 无效配置
         invalid_config = {

@@ -10,9 +10,9 @@ from typing import cast
 
 from src.infrastructure.container import DependencyContainer
 from src.infrastructure.config_loader import YamlConfigLoader
-from src.config.config_system import ConfigSystem
-from src.config.config_merger import ConfigMerger
-from src.config.config_validator import ConfigValidator
+from src.infrastructure.config.config_system import ConfigSystem
+from src.infrastructure.config.config_merger import ConfigMerger
+from src.infrastructure.config.config_validator import ConfigValidator
 from src.logger import (
     get_logger,
     initialize_logging_integration,
@@ -62,8 +62,8 @@ debug: false
         """创建依赖注入容器"""
         container = DependencyContainer()
         from src.infrastructure.config_loader import IConfigLoader, YamlConfigLoader
-        from src.config.config_merger import IConfigMerger
-        from src.config.config_validator import IConfigValidator
+        from src.infrastructure.config.config_merger import IConfigMerger
+        from src.infrastructure.config.config_validator import IConfigValidator
 
         container.register(IConfigLoader, YamlConfigLoader, "default")
         container.register(IConfigMerger, ConfigMerger, "default")
@@ -157,7 +157,7 @@ debug: false
         yaml_config_loader.base_path = Path(config_dir)
 
         # 手动加载配置并设置全局配置
-        from src.config.models.global_config import GlobalConfig
+        from src.infrastructure.config.models.global_config import GlobalConfig
 
         config_data = config_loader.load("global.yaml")
         global_config = GlobalConfig(**config_data)
@@ -259,8 +259,8 @@ debug: false
         """测试配置错误恢复"""
         # 启用错误恢复的配置系统
         from src.infrastructure.config_loader import IConfigLoader
-        from src.config.config_merger import IConfigMerger
-        from src.config.config_validator import IConfigValidator
+        from src.infrastructure.config.config_merger import IConfigMerger
+        from src.infrastructure.config.config_validator import IConfigValidator
 
         config_system = ConfigSystem(
             container.get(IConfigLoader),

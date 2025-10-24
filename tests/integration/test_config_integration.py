@@ -8,10 +8,10 @@ import threading
 from pathlib import Path
 from unittest.mock import Mock
 
-from src.config.config_system import ConfigSystem
-from src.config.config_merger import ConfigMerger
-from src.config.config_validator import ConfigValidator
-from src.config.config_validator_tool import ConfigValidatorTool
+from src.infrastructure.config.config_system import ConfigSystem
+from src.infrastructure.config.config_merger import ConfigMerger
+from src.infrastructure.config.config_validator import ConfigValidator
+from src.infrastructure.config.config_validator_tool import ConfigValidatorTool
 from src.infrastructure.config_loader import YamlConfigLoader
 from src.infrastructure.container import DependencyContainer
 from src.infrastructure.exceptions import ConfigurationError

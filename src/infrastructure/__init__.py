@@ -20,6 +20,27 @@ from .exceptions import (
 )
 from .types import CheckResult, ServiceLifetime
 
+# 导入配置系统相关服务
+from .config import (
+    IConfigSystem,
+    ConfigSystem,
+    IConfigMerger,
+    ConfigMerger,
+    IConfigValidator,
+    ConfigValidator,
+    ValidationResult,
+    ConfigValidatorTool,
+    ConfigErrorRecovery,
+    ConfigBackupManager,
+    ConfigValidatorWithRecovery,
+    ConfigCallbackManager,
+    ConfigChangeContext,
+    CallbackPriority,
+    register_config_callback,
+    unregister_config_callback,
+    trigger_config_callbacks,
+)
+
 __all__ = [
     "IDependencyContainer",
     "DependencyContainer",
@@ -40,4 +61,22 @@ __all__ = [
     "ArchitectureViolationError",
     "CheckResult",
     "ServiceLifetime",
+    # 配置系统相关
+    "IConfigSystem",
+    "ConfigSystem",
+    "IConfigMerger",
+    "ConfigMerger",
+    "IConfigValidator",
+    "ConfigValidator",
+    "ValidationResult",
+    "ConfigValidatorTool",
+    "ConfigErrorRecovery",
+    "ConfigBackupManager",
+    "ConfigValidatorWithRecovery",
+    "ConfigCallbackManager",
+    "ConfigChangeContext",
+    "CallbackPriority",
+    "register_config_callback",
+    "unregister_config_callback",
+    "trigger_config_callbacks",
 ]

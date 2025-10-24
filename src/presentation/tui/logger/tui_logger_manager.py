@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any
 from pathlib import Path
 
 from src.infrastructure.logger.logger import get_logger, Logger
-from src.config.models.global_config import GlobalConfig, LogOutputConfig
+from src.infrastructure.config.models.global_config import GlobalConfig, LogOutputConfig
 
 
 class TUILoggerManager:

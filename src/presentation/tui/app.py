@@ -36,7 +36,7 @@ from .session_handler import SessionHandler
 
 from src.infrastructure.container import get_global_container
 from src.infrastructure.config_loader import IConfigLoader
-from src.config.models.global_config import GlobalConfig
+from src.infrastructure.config.models.global_config import GlobalConfig
 from src.infrastructure.logger.logger import set_global_config
 from src.application.sessions.manager import ISessionManager
 from src.domain.prompts.agent_state import AgentState, HumanMessage

@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 from src.logger.logger import Logger, LogLevel, get_logger, set_global_config
 from src.logger.redactor import LogRedactor
-from src.config.models.global_config import GlobalConfig, LogOutputConfig
+from src.infrastructure.config.models.global_config import GlobalConfig, LogOutputConfig
 
 
 class TestLogger:

@@ -3,7 +3,7 @@
 import threading
 from typing import Dict, Any, Optional
 
-from src.config.config_callback_manager import ConfigChangeContext, register_config_callback, CallbackPriority
+from src.infrastructure.config.config_callback_manager import ConfigChangeContext, register_config_callback, CallbackPriority
 from .logger import get_logger, set_global_config
 from .error_handler import get_global_error_handler, ErrorType
 from .metrics import get_global_metrics_collector, MetricsCollector
@@ -45,7 +45,7 @@ class LoggingConfigIntegration:
         try:
             # 尝试从配置文件加载
             from ..infrastructure.config_loader import IConfigLoader
-            from src.config.models.global_config import GlobalConfig
+            from src.infrastructure.config.models.global_config import GlobalConfig
 
             # 尝试从容器获取配置加载器
             config_loader = None
@@ -80,7 +80,7 @@ class LoggingConfigIntegration:
             )
 
             # 使用默认配置
-            from src.config.models.global_config import GlobalConfig, LogOutputConfig
+            from src.infrastructure.config.models.global_config import GlobalConfig, LogOutputConfig
 
             default_config = GlobalConfig(
                 log_level="INFO",
@@ -156,7 +156,7 @@ class LoggingConfigIntegration:
                 self._logger.info("敏感信息脱敏模式已变更")
 
             # 更新全局配置
-            from src.config.models.global_config import GlobalConfig
+            from src.infrastructure.config.models.global_config import GlobalConfig
 
             global_config = GlobalConfig(**new_config)
             set_global_config(global_config)

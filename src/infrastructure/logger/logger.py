@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Callable
 
-from src.config.models.global_config import GlobalConfig
+from src.infrastructure.config.models.global_config import GlobalConfig
 from .handlers.base_handler import BaseHandler
 from .redactor import LogRedactor
 from .log_level import LogLevel

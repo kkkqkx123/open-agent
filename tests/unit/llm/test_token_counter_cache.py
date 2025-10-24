@@ -9,7 +9,7 @@ from src.llm.token_counter import (
     EnhancedAnthropicTokenCounter,
     ApiTokenCalculator
 )
-from src.config.models.llm_config import LLMConfig
+from src.infrastructure.config.models.llm_config import LLMConfig
 from src.llm.token_parsers.base import TokenUsage
 
 

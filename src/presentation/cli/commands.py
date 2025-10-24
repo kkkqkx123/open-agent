@@ -216,6 +216,31 @@ def setup_container(config_path: Optional[str] = None) -> None:
         config_loader = YamlConfigLoader()
         container.register_instance(IConfigLoader, config_loader)
     
+    # 注册配置系统服务
+    from ...infrastructure.config import (
+        IConfigSystem, ConfigSystem, IConfigMerger, ConfigMerger, 
+        IConfigValidator, ConfigValidator
+    )
+    
+    # 注册配置合并器
+    if not container.has_service(IConfigMerger):
+        config_merger = ConfigMerger()
+        container.register_instance(IConfigMerger, config_merger)
+    
+    # 注册配置验证器
+    if not container.has_service(IConfigValidator):
+        config_validator = ConfigValidator()
+        container.register_instance(IConfigValidator, config_validator)
+    
+    # 注册配置系统
+    if not container.has_service(IConfigSystem):
+        config_system = ConfigSystem(
+            config_loader=container.get(IConfigLoader),
+            config_merger=container.get(IConfigMerger),
+            config_validator=container.get(IConfigValidator)
+        )
+        container.register_instance(IConfigSystem, config_system)
+    
     # 注册会话存储
     if not container.has_service(FileSessionStore):
         from pathlib import Path
