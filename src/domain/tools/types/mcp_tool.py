@@ -13,7 +13,7 @@ import aiohttp
 from pydantic import BaseModel
 
 from ..base import BaseTool
-from src.infrastructure.tools.config import MCPToolConfig
+
 
 
 class MCPClient:
@@ -149,7 +149,9 @@ class MCPTool(BaseTool):
     通过MCP服务器提供的工具实现。
     """
 
-    def __init__(self, config: MCPToolConfig):
+    def __init__(self, config: "MCPToolConfig"):
+        # 延迟导入以避免循环依赖
+        from src.infrastructure.tools.config import MCPToolConfig
         """初始化MCP工具
 
         Args:

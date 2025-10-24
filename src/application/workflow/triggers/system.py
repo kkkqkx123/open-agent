@@ -10,7 +10,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from .base import ITrigger, TriggerEvent, TriggerHandler, TriggerType
-from ...prompts.agent_state import AgentState
+from src.domain.prompts.agent_state import AgentState
 
 
 class TriggerSystem:
@@ -87,8 +87,8 @@ class TriggerSystem:
                     "type": trigger.trigger_type.value,
                     "enabled": trigger.is_enabled(),
                     "config": trigger.get_config(),
-                    "last_triggered": trigger.get_last_triggered(),
-                    "trigger_count": trigger.get_trigger_count()
+                    "last_triggered": getattr(trigger, 'get_last_triggered', lambda: None)(),
+                    "trigger_count": getattr(trigger, 'get_trigger_count', lambda: 0)()
                 }
                 for trigger in self._triggers.values()
             ]
@@ -160,11 +160,11 @@ class TriggerSystem:
                         self._add_event_to_history(event)
                         
                         # 更新触发器信息
-                        if hasattr(trigger, '_update_trigger_info'):
-                            trigger._update_trigger_info()
-                        
+                        trigger.update_trigger_info()
+                    
                 except Exception as e:
                     # 记录错误但不中断其他触发器
+                    from .base import TriggerEvent
                     error_event = TriggerEvent(
                         id="",
                         trigger_id=trigger.trigger_id,
@@ -314,12 +314,12 @@ class TriggerSystem:
         # 处理事件
         self._handler.handle_event(event)
 
-    def __enter__(self):
+    def __enter__(self) -> "TriggerSystem":
         """上下文管理器入口"""
         self.start()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """上下文管理器出口"""
         self.stop()
 
@@ -327,7 +327,7 @@ class TriggerSystem:
 class WorkflowTriggerSystem(TriggerSystem):
     """工作流触发器系统"""
 
-    def __init__(self, workflow_manager, max_workers: int = 4) -> None:
+    def __init__(self, workflow_manager: Any, max_workers: int = 4) -> None:
         """初始化工作流触发器系统
 
         Args:
@@ -364,8 +364,9 @@ class WorkflowTriggerSystem(TriggerSystem):
         Returns:
             bool: 是否成功注册
         """
-        # 为触发器添加工作流上下文
-        trigger._config["workflow_id"] = workflow_id
+        # 为触发器添加工作流上下文，使用get_config和更新配置的方法
+        config = trigger.get_config()
+        config["workflow_id"] = workflow_id
         return self.register_trigger(trigger)
 
     def unregister_workflow_trigger(self, workflow_id: str, trigger_id: str) -> bool:

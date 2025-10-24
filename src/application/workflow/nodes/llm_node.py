@@ -7,8 +7,8 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
 from ..registry import BaseNode, NodeExecutionResult, node
-from ...prompts.agent_state import AgentState, BaseMessage
-from ...llm.interfaces import ILLMClient
+from src.domain.prompts.agent_state import AgentState, BaseMessage
+from src.infrastructure.llm.interfaces import ILLMClient
 
 
 @dataclass
@@ -61,8 +61,35 @@ class LLMNode(BaseNode):
         # 调用LLM
         response = llm_client.generate(messages=messages, parameters=parameters)
         
-        # 更新状态
-        state.add_message(response)
+        # 更新状态 - 需要将LLMResponse转换为AgentState兼容的消息格式
+        # 检查LLMResponse中的message是否是langchain的消息类型
+        try:
+            from langchain_core.messages import BaseMessage as LangChainBaseMessage
+            if isinstance(response.message, LangChainBaseMessage):
+                # 如果是langchain消息，需要转换为domain层的BaseMessage
+                from src.domain.prompts.agent_state import BaseMessage as DomainBaseMessage
+                # 创建一个兼容的BaseMessage对象
+                if hasattr(response.message, 'content'):
+                    compatible_message = DomainBaseMessage(
+                        content=str(response.message.content),
+                        type=getattr(response.message, 'type', 'ai')
+                    )
+                else:
+                    compatible_message = DomainBaseMessage(
+                        content=response.content,
+                        type='ai'
+                    )
+            else:
+                compatible_message = response.message
+        except ImportError:
+            # 如果无法导入langchain，使用LLMResponse的message属性
+            from src.domain.prompts.agent_state import BaseMessage as DomainBaseMessage
+            compatible_message = DomainBaseMessage(
+                content=response.content,
+                type='ai'
+            )
+        
+        state.add_message(compatible_message)
         
         # 确定下一步
         next_node = self._determine_next_node(response, config)
@@ -170,9 +197,9 @@ class LLMNode(BaseNode):
 
     def _create_mock_client(self) -> ILLMClient:
         """创建模拟LLM客户端"""
-        from ...llm.clients.mock_client import MockLLMClient
-        from ...llm.models import LLMResponse, TokenUsage
-        from ...llm.config import MockConfig
+        from src.infrastructure.llm.clients.mock import MockLLMClient
+        from src.infrastructure.llm.models import LLMResponse, TokenUsage
+        from src.infrastructure.llm.config import MockConfig
         
         try:
             from langchain_core.messages import AIMessage

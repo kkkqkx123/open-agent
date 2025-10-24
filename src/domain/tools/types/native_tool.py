@@ -10,10 +10,11 @@ from typing import Any, Dict, Optional, Union
 from urllib.parse import urljoin
 
 import aiohttp
+from infrastructure.tools.config import NativeToolConfig
 from pydantic import BaseModel
 
 from ..base import BaseTool
-from src.infrastructure.tools.config import NativeToolConfig
+
 
 
 class HTTPAuth(BaseModel):
@@ -30,8 +31,10 @@ class NativeTool(BaseTool):
     用于调用外部API的工具，支持多种HTTP方法和认证方式。
     """
 
-    def __init__(self, config: NativeToolConfig):
+    def __init__(self, config: "NativeToolConfig"):
         """初始化原生工具
+        # 延迟导入以避免循环依赖
+        from src.infrastructure.tools.config import NativeToolConfig
 
         Args:
             config: 原生工具配置

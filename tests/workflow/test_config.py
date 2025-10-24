@@ -7,7 +7,7 @@ import pytest
 import yaml
 from pathlib import Path
 
-from src.workflow.config import (
+from src.domain.workflow.config import (
     WorkflowConfig,
     NodeConfig,
     EdgeConfig,

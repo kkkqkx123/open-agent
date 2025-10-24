@@ -7,8 +7,8 @@ from typing import Dict, Any, Optional, List
 import time
 
 from ..registry import BaseNode, NodeExecutionResult, node
-from ...prompts.agent_state import AgentState
-from ...tools.interfaces import IToolManager, ToolCall, ToolResult
+from src.domain.prompts.agent_state import AgentState
+from src.domain.tools.interfaces import IToolManager, ToolCall, ToolResult
 
 
 @node("tool_node")
@@ -72,7 +72,7 @@ class ToolNode(BaseNode):
                 tool_results.append(result)
                 
                 # 添加到状态
-                from ...prompts.agent_state import ToolResult as StateToolResult
+                from src.domain.prompts.agent_state import ToolResult as StateToolResult
                 state_tool_result = StateToolResult(
                     tool_name=tool_call.name,
                     success=result.success,
@@ -86,7 +86,7 @@ class ToolNode(BaseNode):
                 execution_errors.append(error_msg)
                 
                 # 记录错误结果
-                from ...prompts.agent_state import ToolResult as StateToolResult
+                from src.domain.prompts.agent_state import ToolResult as StateToolResult
                 error_result = StateToolResult(
                     tool_name=tool_call.name,
                     success=False,
@@ -175,7 +175,7 @@ class ToolNode(BaseNode):
 
     def _create_mock_tool_manager(self) -> IToolManager:
         """创建模拟工具管理器"""
-        from ...tools.base import BaseTool
+        from src.domain.tools.base import BaseTool
         
         class MockTool(BaseTool):
             def __init__(self, name: str):

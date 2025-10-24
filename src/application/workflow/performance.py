@@ -31,7 +31,7 @@ class PerformanceMetrics:
 
     def __post_init__(self) -> None:
         if self.metadata is None:
-            self.metadata: Dict[str, Any] = {}
+            self.metadata = {}
 
     def finish(self, success: bool = True, error: Optional[str] = None) -> None:
         """完成性能测量"""
@@ -422,8 +422,7 @@ class WorkflowOptimizer:
             # 尝试从缓存获取
             cached_config = self._config_cache.get(config_path)
             if cached_config is not None:
-                if metric.metadata is not None:
-                    metric.metadata["cache_hit"] = True
+                metric.metadata["cache_hit"] = True  # type: ignore
                 metric.finish(success=True)
                 return cached_config  # type: ignore
             
@@ -435,8 +434,7 @@ class WorkflowOptimizer:
             # 缓存配置
             self._config_cache.set(config_data, config_path)
             
-            if metric.metadata is not None:
-                metric.metadata["cache_hit"] = False
+            metric.metadata["cache_hit"] = False # type: ignore
             metric.finish(success=True)
             return config_data  # type: ignore
             

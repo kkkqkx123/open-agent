@@ -10,7 +10,7 @@ from typing import Any, Dict, Callable, Optional, Union
 from functools import wraps
 
 from ..base import BaseTool
-from src.infrastructure.tools.config import BuiltinToolConfig
+
 
 
 class BuiltinTool(BaseTool):
@@ -19,7 +19,9 @@ class BuiltinTool(BaseTool):
     用于包装项目内部Python函数的工具实现。
     """
 
-    def __init__(self, func: Callable, config: BuiltinToolConfig):
+    def __init__(self, func: Callable, config: "BuiltinToolConfig"):
+        # 延迟导入以避免循环依赖
+        from src.infrastructure.tools.config import BuiltinToolConfig
         """初始化内置工具
 
         Args:

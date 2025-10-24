@@ -10,7 +10,7 @@ from enum import Enum
 from datetime import datetime
 import uuid
 
-from ...prompts.agent_state import AgentState
+from src.domain.prompts.agent_state import AgentState
 
 
 class TriggerType(Enum):
@@ -104,6 +104,26 @@ class ITrigger(ABC):
     def disable(self) -> None:
         """禁用触发器"""
         pass
+    @abstractmethod
+    def create_event(
+        self,
+        data: Dict[str, Any],
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> TriggerEvent:
+        """创建触发器事件
+
+        Args:
+            data: 事件数据
+            metadata: 事件元数据
+
+        Returns:
+            TriggerEvent: 触发器事件
+        """
+        pass
+    @abstractmethod
+    def update_trigger_info(self) -> None:
+        """更新触发器信息"""
+        pass
 
 
 class BaseTrigger(ITrigger):
@@ -157,6 +177,9 @@ class BaseTrigger(ITrigger):
         """禁用触发器"""
         self._enabled = False
 
+    def update_trigger_info(self) -> None:
+        """更新触发器信息"""
+        self._update_trigger_info()
     def get_last_triggered(self) -> Optional[datetime]:
         """获取最后触发时间
 
@@ -184,7 +207,7 @@ class BaseTrigger(ITrigger):
         Returns:
             bool: 是否在速率限制内
         """
-        rate_limit = self._config.get("rate_limit")
+        rate_limit: Optional[float] = self._config.get("rate_limit")
         if not rate_limit:
             return True
 
@@ -200,7 +223,7 @@ class BaseTrigger(ITrigger):
         Returns:
             bool: 是否超过最大触发次数
         """
-        max_triggers = self._config.get("max_triggers")
+        max_triggers: Optional[int] = self._config.get("max_triggers")
         if not max_triggers:
             return True
 

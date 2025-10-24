@@ -15,7 +15,7 @@ from ...domain.workflow.config import WorkflowConfig
 from .registry import NodeRegistry, get_global_registry
 from .edges.simple_edge import SimpleEdge
 from .edges.conditional_edge import ConditionalEdge
-from ..prompts.agent_state import AgentState
+from src.domain.prompts.agent_state import AgentState
 from .performance import get_global_optimizer, optimize_workflow_loading
 
 
