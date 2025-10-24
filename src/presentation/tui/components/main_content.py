@@ -18,7 +18,7 @@ from rich.align import Align
 from rich.console import Console, ConsoleOptions, RenderResult
 from rich.spinner import Spinner
 
-from src.prompts.agent_state import AgentState, BaseMessage, ToolResult
+from src.domain.prompts.agent_state import AgentState, BaseMessage, ToolResult
 from ..config import TUIConfig
 
 

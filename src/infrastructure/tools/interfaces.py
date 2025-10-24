@@ -1,40 +1,15 @@
 """
-工具系统核心接口定义
+工具系统基础设施接口定义
 
-定义了工具管理、格式化和执行的核心接口，确保模块间的松耦合设计。
+定义了工具管理、格式化和执行的基础设施接口。
 """
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Sequence, Union, TYPE_CHECKING
-from dataclasses import dataclass
-
-from ..llm.interfaces import ILLMClient
-from langchain_core.messages import BaseMessage  # type: ignore
 
 if TYPE_CHECKING:
-    from .base import BaseTool
-
-
-@dataclass
-class ToolCall:
-    """工具调用请求"""
-
-    name: str
-    arguments: Dict[str, Any]
-    call_id: Optional[str] = None
-    timeout: Optional[int] = None
-
-
-@dataclass
-class ToolResult:
-    """工具执行结果"""
-
-    success: bool
-    output: Optional[Any] = None
-    error: Optional[str] = None
-    tool_name: Optional[str] = None
-    execution_time: Optional[float] = None
-    metadata: Optional[Dict[str, Any]] = None
+    from ..domain.tools.base import BaseTool
+    from ..domain.tools.interfaces import ToolCall, ToolResult
 
 
 class IToolManager(ABC):
@@ -126,7 +101,7 @@ class IToolFormatter(ABC):
         pass
 
     @abstractmethod
-    def detect_strategy(self, llm_client: ILLMClient) -> str:
+    def detect_strategy(self, llm_client: Any) -> str:
         """检测模型支持的输出策略
 
         Args:
@@ -138,7 +113,7 @@ class IToolFormatter(ABC):
         pass
 
     @abstractmethod
-    def parse_llm_response(self, response: BaseMessage) -> ToolCall:
+    def parse_llm_response(self, response: Any) -> "ToolCall":
         """解析LLM的工具调用响应
 
         Args:
@@ -157,7 +132,7 @@ class IToolExecutor(ABC):
     """工具执行器接口"""
 
     @abstractmethod
-    def execute(self, tool_call: ToolCall) -> ToolResult:
+    def execute(self, tool_call: "ToolCall") -> "ToolResult":
         """执行工具调用
 
         Args:
@@ -169,7 +144,7 @@ class IToolExecutor(ABC):
         pass
 
     @abstractmethod
-    async def execute_async(self, tool_call: ToolCall) -> ToolResult:
+    async def execute_async(self, tool_call: "ToolCall") -> "ToolResult":
         """异步执行工具调用
 
         Args:
@@ -181,7 +156,7 @@ class IToolExecutor(ABC):
         pass
 
     @abstractmethod
-    def execute_parallel(self, tool_calls: List[ToolCall]) -> List[ToolResult]:
+    def execute_parallel(self, tool_calls: List["ToolCall"]) -> List["ToolResult"]:
         """并行执行多个工具调用
 
         Args:
@@ -194,8 +169,8 @@ class IToolExecutor(ABC):
 
     @abstractmethod
     async def execute_parallel_async(
-        self, tool_calls: List[ToolCall]
-    ) -> List[ToolResult]:
+        self, tool_calls: List["ToolCall"]
+    ) -> List["ToolResult"]:
         """异步并行执行多个工具调用
 
         Args:

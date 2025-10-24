@@ -6,14 +6,14 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
 
-from src.tools.manager import ToolManager
-from src.tools.config import (
+from src.infrastructure.tools.manager import ToolManager
+from src.infrastructure.tools.config import (
     NativeToolConfig,
     MCPToolConfig,
     BuiltinToolConfig,
     ToolSetConfig,
 )
-from src.tools.types.builtin_tool import BuiltinTool
+from src.domain.tools.types.builtin_tool import BuiltinTool
 
 
 class TestToolManager:

@@ -5,9 +5,9 @@ from pathlib import Path
 from unittest.mock import Mock, patch, mock_open
 from tempfile import TemporaryDirectory
 
-from src.prompts.loader import PromptLoader
-from src.prompts.interfaces import IPromptRegistry
-from src.prompts.models import PromptMeta
+from src.domain.prompts.loader import PromptLoader
+from src.domain.prompts.interfaces import IPromptRegistry
+from src.domain.prompts.models import PromptMeta
 
 
 class TestPromptLoader:

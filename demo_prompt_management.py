@@ -7,12 +7,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.infrastructure.config_loader import YamlConfigLoader
-from src.prompts.registry import PromptRegistry
-from src.prompts.loader import PromptLoader
-from src.prompts.injector import PromptInjector
-from src.prompts.models import PromptConfig
-from src.prompts.agent_state import AgentState
-from src.prompts.langgraph_integration import create_simple_workflow
+from src.domain.prompts.registry import PromptRegistry
+from src.domain.prompts.loader import PromptLoader
+from src.domain.prompts.injector import PromptInjector
+from src.domain.prompts.models import PromptConfig
+from src.domain.prompts.agent_state import AgentState
+from src.domain.prompts.langgraph_integration import create_simple_workflow
 
 
 def main():

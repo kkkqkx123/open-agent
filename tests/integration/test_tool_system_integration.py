@@ -8,12 +8,12 @@ import pytest
 import asyncio
 from unittest.mock import Mock, patch, AsyncMock
 
-from src.tools.manager import ToolManager
-from src.tools.executor import ToolExecutor
-from src.tools.formatter import ToolFormatter
-from src.tools.interfaces import ToolCall, ToolResult
-from src.tools.config import BuiltinToolConfig
-from src.tools.types.builtin_tool import BuiltinTool
+from src.infrastructure.tools.manager import ToolManager
+from src.infrastructure.tools.executor import ToolExecutor
+from src.infrastructure.tools.formatter import ToolFormatter
+from src.domain.tools.interfaces import ToolCall, ToolResult
+from src.infrastructure.tools.config import BuiltinToolConfig
+from src.domain.tools.types.builtin_tool import BuiltinTool
 
 
 class TestToolSystemIntegration:

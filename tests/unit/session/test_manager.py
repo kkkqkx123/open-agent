@@ -7,12 +7,12 @@ from datetime import datetime
 import tempfile
 import shutil
 
-from src.sessions.manager import SessionManager, ISessionManager
-from src.sessions.store import ISessionStore
-from src.sessions.git_manager import IGitManager
-from src.workflow.manager import IWorkflowManager
-from src.workflow.config import WorkflowConfig
-from src.prompts.agent_state import AgentState, BaseMessage
+from src.application.sessions.manager import SessionManager, ISessionManager
+from src.domain.sessions.store import ISessionStore
+from src.application.sessions.git_manager import IGitManager
+from src.application.workflow.manager import IWorkflowManager
+from src.domain.workflow.config import WorkflowConfig
+from src.domain.prompts.agent_state import AgentState, BaseMessage
 
 
 class TestSessionManager:

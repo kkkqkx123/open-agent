@@ -13,7 +13,7 @@ import aiohttp
 from pydantic import BaseModel
 
 from ..base import BaseTool
-from ..config import NativeToolConfig
+from ...infrastructure.tools.config import NativeToolConfig
 
 
 class HTTPAuth(BaseModel):

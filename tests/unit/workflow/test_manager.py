@@ -6,10 +6,10 @@ from pathlib import Path
 import tempfile
 import yaml
 
-from src.workflow.manager import WorkflowManager, IWorkflowManager
-from src.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
-from src.workflow.registry import NodeRegistry, BaseNode, NodeExecutionResult
-from src.prompts.agent_state import AgentState
+from src.application.workflow.manager import WorkflowManager, IWorkflowManager
+from src.domain.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
+from src.application.workflow.registry import NodeRegistry, BaseNode, NodeExecutionResult
+from src.domain.prompts.agent_state import AgentState
 
 
 class MockNode(BaseNode):

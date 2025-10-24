@@ -7,8 +7,8 @@ import asyncio
 import warnings
 from unittest.mock import Mock, patch
 
-from src.tools.types.builtin_tool import BuiltinTool
-from src.tools.config import BuiltinToolConfig
+from src.domain.tools.types.builtin_tool import BuiltinTool
+from src.infrastructure.tools.config import BuiltinToolConfig
 
 # 抑制协程未被等待的警告，这是测试中的正常现象
 warnings.filterwarnings("ignore", category=RuntimeWarning)

@@ -4,15 +4,15 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from typing import Any, Dict
 
-from src.prompts.langgraph_integration import (
+from src.domain.prompts.langgraph_integration import (
     get_agent_config,
     create_agent_workflow,
     create_simple_workflow,
     LANGGRAPH_AVAILABLE
 )
-from src.prompts.interfaces import IPromptInjector
-from src.prompts.models import PromptConfig
-from src.prompts.agent_state import AgentState, HumanMessage
+from src.domain.prompts.interfaces import IPromptInjector
+from src.domain.prompts.models import PromptConfig
+from src.domain.prompts.agent_state import AgentState, HumanMessage
 
 
 class TestGetAgentConfig:

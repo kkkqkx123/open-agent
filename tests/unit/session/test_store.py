@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime
 from unittest.mock import patch
 
-from src.sessions.store import FileSessionStore, MemorySessionStore, ISessionStore
+from src.domain.sessions.store import FileSessionStore, MemorySessionStore, ISessionStore
 
 
 class TestFileSessionStore:
