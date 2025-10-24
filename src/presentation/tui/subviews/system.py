@@ -111,10 +111,19 @@ class SystemSubview(BaseSubview):
         info_panel = self._create_system_info_panel()
         
         # 组合布局
+        # 创建垂直布局用于config_panel和info_panel
+        from rich.layout import Layout
+        
+        vertical_layout = Layout()
+        vertical_layout.split_column(
+            Layout(config_panel),
+            Layout(info_panel)
+        )
+        
         return Columns([
             studio_panel,
             port_panel,
-            Columns([config_panel, info_panel], vertical=True)
+            vertical_layout
         ], equal=True)
     
     def _create_studio_panel(self) -> Panel:

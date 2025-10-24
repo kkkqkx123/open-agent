@@ -139,8 +139,10 @@ class BaseSubview(ABC):
         """
         from rich.spinner import Spinner
         
+        # 创建一个简单的加载状态文本，不使用动画spinner
         content = Text()
-        content.append(Spinner("dots", text=message))
+        content.append("⚫ ")  # 使用静态圆点代替动画spinner
+        content.append(message)
         return Panel(
             content,
             title=self.get_title(),

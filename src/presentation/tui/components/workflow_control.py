@@ -16,7 +16,7 @@ from rich.console import Console, ConsoleOptions, RenderResult
 from rich.tree import Tree
 
 from ..config import TUIConfig
-from src.prompts.agent_state import AgentState
+from src.domain.prompts.agent_state import AgentState
 
 
 class WorkflowState(Enum):
@@ -399,18 +399,15 @@ class WorkflowControlPanel:
             status_text.append(f"\\n当前步骤: {self.controller.current_step}")
         
         if self.controller.total_steps > 0:
-            progress = Progress(
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            )
-            progress.add_task(
-                "进度",
-                completed=self.controller.completed_steps,
-                total=self.controller.total_steps
-            )
+            # 计算进度百分比
+            percentage = (self.controller.completed_steps / self.controller.total_steps) * 100
+            # 创建简单的进度条文本表示
+            bar_width = 20
+            filled_width = int(bar_width * self.controller.completed_steps / self.controller.total_steps)
+            bar = "█" * filled_width + "░" * (bar_width - filled_width)
+            
             status_text.append("\\n")
-            status_text.append(progress)
+            status_text.append(f"进度: {bar} {percentage:.0f}% ({self.controller.completed_steps}/{self.controller.total_steps})")
         
         # 显示时间信息
         if self.controller.start_time:

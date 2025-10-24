@@ -19,7 +19,7 @@ from rich.layout import Layout
 from rich.columns import Columns
 
 from ..config import TUIConfig
-from src.prompts.agent_state import AgentState
+from src.domain.prompts.agent_state import AgentState
 
 
 class NodeType(Enum):

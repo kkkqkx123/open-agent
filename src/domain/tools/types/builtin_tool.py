@@ -19,9 +19,8 @@ class BuiltinTool(BaseTool):
     用于包装项目内部Python函数的工具实现。
     """
 
-    def __init__(self, func: Callable, config: "BuiltinToolConfig"):
-        # 延迟导入以避免循环依赖
-        from src.infrastructure.tools.config import BuiltinToolConfig
+    def __init__(self, func: Callable, config: Any):
+        
         """初始化内置工具
 
         Args:
@@ -244,6 +243,7 @@ class BuiltinTool(BaseTool):
         tool_name = name or func.__name__
         tool_description = description or func.__doc__ or f"内置工具: {tool_name}"
 
+        from src.infrastructure.tools.config import BuiltinToolConfig
         config = BuiltinToolConfig(
             name=tool_name,
             tool_type="builtin",
@@ -277,6 +277,7 @@ class BuiltinTool(BaseTool):
             Returns:
                 Callable: 装饰后的函数
             """
+            from src.infrastructure.tools.config import BuiltinToolConfig
             config = BuiltinToolConfig(
                 name=name,
                 tool_type="builtin",

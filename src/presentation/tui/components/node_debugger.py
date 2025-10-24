@@ -19,7 +19,7 @@ from rich.columns import Columns
 from rich.layout import Layout
 
 from ..config import TUIConfig
-from src.prompts.agent_state import AgentState
+from src.domain.prompts.agent_state import AgentState
 
 
 class DebugMode(Enum):
@@ -532,10 +532,15 @@ class NodeDebuggerPanel:
         # 底部：详细信息
         if self.show_variables or self.show_call_stack or self.show_messages:
             layout.split_row(
-                Layout(name="variables", display=self.show_variables),
-                Layout(name="call_stack", display=self.show_call_stack),
-                Layout(name="messages", display=self.show_messages)
+                Layout(name="variables"),
+                Layout(name="call_stack"),
+                Layout(name="messages")
             )
+            
+            # 设置布局可见性
+            layout["variables"].visible = self.show_variables
+            layout["call_stack"].visible = self.show_call_stack
+            layout["messages"].visible = self.show_messages
             
             if self.show_variables:
                 layout["variables"].update(self._render_variables())

@@ -15,7 +15,7 @@ from rich.align import Align
 from rich.columns import Columns
 from rich.console import Console, ConsoleOptions, RenderResult
 
-from src.prompts.agent_state import AgentState
+from src.domain.prompts.agent_state import AgentState
 from ..config import TUIConfig
 
 

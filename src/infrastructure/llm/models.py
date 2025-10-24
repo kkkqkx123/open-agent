@@ -5,8 +5,7 @@ from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum
 
-if TYPE_CHECKING:
-    from langchain_core.messages import BaseMessage
+from typing import Any as BaseMessage
 
 
 class MessageRole(Enum):
@@ -70,6 +69,43 @@ class LLMMessage:
         """从LangChain BaseMessage创建LLMMessage"""
         try:
             from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+            
+            if isinstance(message, HumanMessage):
+                role = MessageRole.USER
+            elif isinstance(message, AIMessage):
+                role = MessageRole.ASSISTANT
+            elif isinstance(message, SystemMessage):
+                role = MessageRole.SYSTEM
+            else:
+                role = MessageRole.USER  # 默认为用户角色
+
+            # 提取函数调用信息
+            function_call = None
+            if (
+                hasattr(message, "additional_kwargs")
+                and "function_call" in message.additional_kwargs
+            ):
+                function_call = message.additional_kwargs["function_call"]
+
+            # 处理内容类型 - LangChain消息内容可以是字符串或列表
+            content = message.content
+            if isinstance(content, list):
+                # 如果是列表，提取文本内容
+                content = " ".join(
+                    item.get("text", "") if isinstance(item, dict) else str(item)
+                    for item in content
+                    if isinstance(item, (dict, str))
+                )
+            elif not isinstance(content, str):
+                content = str(content)
+
+            return cls(
+                role=role,
+                content=content,
+                name=getattr(message, "name", None),
+                function_call=function_call,
+                metadata=getattr(message, "additional_kwargs", {}),
+            )
         except ImportError:
             # 如果无法导入langchain，使用默认值
             role = MessageRole.USER
@@ -81,43 +117,6 @@ class LLMMessage:
                 function_call=None,
                 metadata=getattr(message, "additional_kwargs", {}),
             )
-
-        if isinstance(message, HumanMessage):
-            role = MessageRole.USER
-        elif isinstance(message, AIMessage):
-            role = MessageRole.ASSISTANT
-        elif isinstance(message, SystemMessage):
-            role = MessageRole.SYSTEM
-        else:
-            role = MessageRole.USER  # 默认为用户角色
-
-        # 提取函数调用信息
-        function_call = None
-        if (
-            hasattr(message, "additional_kwargs")
-            and "function_call" in message.additional_kwargs
-        ):
-            function_call = message.additional_kwargs["function_call"]
-
-        # 处理内容类型 - LangChain消息内容可以是字符串或列表
-        content = message.content
-        if isinstance(content, list):
-            # 如果是列表，提取文本内容
-            content = " ".join(
-                item.get("text", "") if isinstance(item, dict) else str(item)
-                for item in content
-                if isinstance(item, (dict, str))
-            )
-        elif not isinstance(content, str):
-            content = str(content)
-
-        return cls(
-            role=role,
-            content=content,
-            name=getattr(message, "name", None),
-            function_call=function_call,
-            metadata=getattr(message, "additional_kwargs", {}),
-        )
 
 
 @dataclass

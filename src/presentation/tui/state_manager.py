@@ -2,7 +2,7 @@
 
 from typing import Optional, Dict, Any, List
 from src.application.sessions.manager import ISessionManager
-from src.prompts.agent_state import AgentState, HumanMessage
+from src.domain.prompts.agent_state import AgentState, HumanMessage
 
 
 class StateManager:
@@ -152,7 +152,7 @@ class StateManager:
                 self.current_state.add_message(human_message)
             except Exception:
                 # 如果HumanMessage不可用，使用BaseMessage
-                from src.prompts.agent_state import BaseMessage
+                from src.domain.prompts.agent_state import BaseMessage
                 simple_message = BaseMessage(content=content)
                 self.current_state.add_message(simple_message)
     

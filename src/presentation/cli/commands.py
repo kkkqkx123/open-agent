@@ -5,10 +5,10 @@ from typing import Optional
 from pathlib import Path
 from rich.console import Console
 
-from ...infrastructure.container import get_global_container
-from ...infrastructure.config_loader import IConfigLoader
-from ...sessions.manager import ISessionManager
-from ...infrastructure.env_check_command import EnvironmentCheckCommand
+from src.infrastructure.container import get_global_container
+from src.infrastructure.config_loader import IConfigLoader
+from src.application.sessions.manager import ISessionManager
+from src.infrastructure.env_check_command import EnvironmentCheckCommand
 from .error_handler import handle_cli_error, handle_cli_warning, handle_cli_success, handle_cli_info
 from .help import HelpManager
 
@@ -204,10 +204,10 @@ def setup_container(config_path: Optional[str] = None) -> None:
     """设置依赖注入容器"""
     from ...infrastructure.container import DependencyContainer
     from ...infrastructure.config_loader import YamlConfigLoader
-    from ...sessions.manager import SessionManager
-    from ...sessions.store import FileSessionStore
+    from src.application.sessions.manager import SessionManager
+    from src.domain.sessions.store import FileSessionStore
     from src.application.workflow.manager import WorkflowManager
-    from ...sessions.git_manager import GitManager
+    from src.application.sessions.git_manager import GitManager
     
     container = get_global_container()
     
@@ -249,7 +249,7 @@ def setup_container(config_path: Optional[str] = None) -> None:
     
     # 注册Git管理器
     if not container.has_service(GitManager):
-        from ...sessions.git_manager import create_git_manager
+        from src.application.sessions.git_manager import create_git_manager
         git_manager = create_git_manager(use_mock=True)  # 使用模拟管理器避免Git依赖
         container.register_instance(GitManager, git_manager)
     
@@ -269,7 +269,7 @@ def setup_container(config_path: Optional[str] = None) -> None:
             session_store = FileSessionStore(Path("./sessions"))
             container.register_instance(FileSessionStore, session_store)
         if not container.has_service(GitManager):
-            from ...sessions.git_manager import create_git_manager
+            from src.application.sessions.git_manager import create_git_manager
             git_manager = create_git_manager(use_mock=True)
             container.register_instance(GitManager, git_manager)
             

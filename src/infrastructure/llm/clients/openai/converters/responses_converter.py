@@ -85,12 +85,19 @@ class ResponsesConverter(MessageConverter):
         finish_reason = self._extract_finish_reason(api_response)
 
         # 创建LangChain消息
-        # 由于无法直接导入AIMessage，我们使用BaseMessage
-        message = BaseMessage(content=content, type="ai")
+        try:
+            from langchain_core.messages import AIMessage
+            message = AIMessage(content=content)
+        except ImportError:
+            # 如果无法导入langchain，使用domain层的BaseMessage
+            from src.domain.prompts.agent_state import BaseMessage
+            message = BaseMessage(content=content, type="ai")
 
+        # 确保消息对象兼容LLMResponse期望的类型
+        # 使用类型转换来处理不同类型的BaseMessage
         return LLMResponse(
             content=content,
-            message=message,
+            message=message, # type: ignore
             token_usage=token_usage,
             model=api_response.get("model", "unknown"),
             finish_reason=finish_reason,

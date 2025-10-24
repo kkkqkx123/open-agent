@@ -149,9 +149,8 @@ class MCPTool(BaseTool):
     通过MCP服务器提供的工具实现。
     """
 
-    def __init__(self, config: "MCPToolConfig"):
-        # 延迟导入以避免循环依赖
-        from src.infrastructure.tools.config import MCPToolConfig
+    def __init__(self, config: Any):
+        
         """初始化MCP工具
 
         Args:
@@ -245,6 +244,7 @@ class MCPTool(BaseTool):
                 schema = await client.get_tool_schema(tool_name)
 
                 # 创建配置
+                from src.infrastructure.tools.config import MCPToolConfig
                 config = MCPToolConfig(
                     name=tool_name,
                     tool_type="mcp",
