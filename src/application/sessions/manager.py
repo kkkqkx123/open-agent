@@ -11,9 +11,10 @@ import json
 from datetime import datetime
 
 from ..workflow.manager import IWorkflowManager
-from ..workflow.config import WorkflowConfig
-from ..prompts.agent_state import AgentState
-from .store import ISessionStore
+from ..workflow.manager import IWorkflowManager
+from ...domain.workflow.config import WorkflowConfig
+from ...domain.prompts.agent_state import AgentState
+from ...domain.sessions.store import ISessionStore
 from .git_manager import IGitManager
 
 
@@ -348,24 +349,24 @@ class SessionManager(ISessionManager):
                 # 尝试创建适当的消息类型
                 msg_type = msg_data.get("type", "BaseMessage")
                 if msg_type == "HumanMessage":
-                    from ..prompts.agent_state import HumanMessage
+                    from ...domain.prompts.agent_state import HumanMessage
                     msg = HumanMessage(content=msg_data.get("content", ""))
                 elif msg_type == "SystemMessage":
-                    from ..prompts.agent_state import SystemMessage
+                    from ...domain.prompts.agent_state import SystemMessage
                     msg = SystemMessage(content=msg_data.get("content", ""))
                 else:
-                    from ..prompts.agent_state import BaseMessage
+                    from ...domain.prompts.agent_state import BaseMessage
                     msg = BaseMessage(content=msg_data.get("content", ""))
 
                 state.add_message(msg)
             except Exception:
                 # 如果创建消息失败，创建基本消息
-                from ..prompts.agent_state import BaseMessage
+                from ...domain.prompts.agent_state import BaseMessage
                 msg = BaseMessage(content=msg_data.get("content", ""))
                 state.add_message(msg)
 
         # 恢复工具结果
-        from ..prompts.agent_state import ToolResult
+        from ...domain.prompts.agent_state import ToolResult
         for result_data in state_data.get("tool_results", []):
             result = ToolResult(
                 tool_name=result_data.get("tool_name", ""),

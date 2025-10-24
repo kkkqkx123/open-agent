@@ -206,7 +206,7 @@ def setup_container(config_path: Optional[str] = None) -> None:
     from ...infrastructure.config_loader import YamlConfigLoader
     from ...sessions.manager import SessionManager
     from ...sessions.store import FileSessionStore
-    from ...workflow.manager import WorkflowManager
+    from src.application.workflow.manager import WorkflowManager
     from ...sessions.git_manager import GitManager
     
     container = get_global_container()

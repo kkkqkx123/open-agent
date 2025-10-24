@@ -1,7 +1,7 @@
 """TUI状态管理器"""
 
 from typing import Optional, Dict, Any, List
-from src.sessions.manager import ISessionManager
+from src.application.sessions.manager import ISessionManager
 from src.prompts.agent_state import AgentState, HumanMessage
 
 

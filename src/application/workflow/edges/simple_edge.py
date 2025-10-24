@@ -6,7 +6,7 @@
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
-from ..config import EdgeConfig
+from ...domain.workflow.config import EdgeConfig
 
 
 @dataclass
@@ -45,7 +45,7 @@ class SimpleEdge:
         Returns:
             EdgeConfig: 边配置
         """
-        from ..config import EdgeType
+        from ...domain.workflow.config import EdgeType
         return EdgeConfig(
             from_node=self.from_node,
             to_node=self.to_node,

@@ -38,8 +38,8 @@ from src.infrastructure.container import get_global_container
 from src.infrastructure.config_loader import IConfigLoader
 from src.config.models.global_config import GlobalConfig
 from src.infrastructure.logger.logger import set_global_config
-from src.sessions.manager import ISessionManager
-from src.prompts.agent_state import AgentState, HumanMessage
+from src.application.sessions.manager import ISessionManager
+from src.domain.prompts.agent_state import AgentState, HumanMessage
 
 # 导入TUI日志系统
 from .logger import get_tui_silent_logger, TUILoggerManager
@@ -127,11 +127,11 @@ class TUIApp:
     
     def _setup_container_services(self, container: Any) -> None:
         """设置容器中的必要服务"""
-        from ...infrastructure.config_loader import YamlConfigLoader, IConfigLoader
-        from ...sessions.store import FileSessionStore
-        from ...workflow.manager import WorkflowManager
-        from ...sessions.git_manager import GitManager, create_git_manager
-        from ...sessions.manager import SessionManager
+        from src.infrastructure.config_loader import YamlConfigLoader, IConfigLoader
+        from src.domain.sessions.store import FileSessionStore
+        from src.application.workflow.manager import WorkflowManager
+        from src.application.sessions.git_manager import GitManager, create_git_manager
+        from src.application.sessions.manager import SessionManager
         
         # 注册配置加载器
         if not container.has_service(IConfigLoader):

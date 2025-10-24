@@ -10,7 +10,7 @@ from rich.text import Text
 from ...infrastructure.container import get_global_container
 from ...infrastructure.config_loader import IConfigLoader
 from ...sessions.manager import ISessionManager
-from ...workflow.manager import IWorkflowManager
+from src.application.workflow.manager import IWorkflowManager
 from ...prompts.agent_state import AgentState, HumanMessage
 
 

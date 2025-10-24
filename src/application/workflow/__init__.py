@@ -4,7 +4,7 @@
 """
 
 from .manager import IWorkflowManager, WorkflowManager
-from .config import WorkflowConfig, NodeConfig, EdgeConfig, StateSchemaConfig
+from ...domain.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, StateSchemaConfig
 from .registry import NodeRegistry, BaseNode, NodeExecutionResult, register_node, get_node, get_global_registry
 from .builder import WorkflowBuilder
 from .nodes import AnalysisNode, ToolNode, LLMNode, ConditionNode

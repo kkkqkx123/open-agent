@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional, List, Callable, Union
 from pathlib import Path
 import yaml
 
-from .config import WorkflowConfig
+from ...domain.workflow.config import WorkflowConfig
 from .registry import NodeRegistry, get_global_registry
 from .edges.simple_edge import SimpleEdge
 from .edges.conditional_edge import ConditionalEdge

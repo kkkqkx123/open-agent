@@ -8,6 +8,8 @@ try:
     LANGGRAPH_AVAILABLE = True
 except ImportError:
     LANGGRAPH_AVAILABLE = False
+    # 如果LangChain不可用，使用本地定义的BaseMessage
+    from .agent_state import BaseMessage
     StateGraph = None  # 提供一个默认值以避免未绑定变量错误
 
 from .interfaces import IPromptInjector
@@ -49,11 +51,11 @@ def create_agent_workflow(
             except ImportError:
                 # 如果无法导入HumanMessage，使用BaseMessage
                 response = BaseMessage(content="这是一个模拟的LLM响应", type="human")
-            state.add_message(response)
+            state.add_message(response)  # type: ignore
         else:
             # 使用注入后的提示词调用LLM
             response = llm_client.generate(state.messages)
-            state.add_message(response)
+            state.add_message(response)  # type: ignore
         return state  # type: ignore
         
     # 构建工作流
