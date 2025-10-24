@@ -9,8 +9,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.layout import Layout
 
-from .layout import LayoutManager, LayoutRegion, LayoutConfig, RegionConfig
-from .config import get_tui_config, TUIConfig
+from ..layout import LayoutManager, LayoutRegion, LayoutConfig, RegionConfig
+from ..config import get_tui_config, TUIConfig
 
 
 class LayoutTester:
@@ -89,7 +89,7 @@ class LayoutTester:
         print(f"自动保存: {config.behavior.auto_save}")
         
         # 测试配置更新
-        from .config import get_config_manager
+        from ..config import get_config_manager
         config_manager = get_config_manager()
         
         # 更新主题配置

@@ -6,7 +6,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from .layout import LayoutManager, LayoutRegion, LayoutConfig, RegionConfig
+from ..layout import LayoutManager, LayoutRegion, LayoutConfig, RegionConfig
 
 
 class LayoutOptimizationTester:

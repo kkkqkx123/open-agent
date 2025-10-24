@@ -13,14 +13,14 @@ from rich.text import Text
 from rich.layout import Layout
 from rich.live import Live
 
-from .config import get_tui_config
-from .components import (
+from ..config import get_tui_config
+from ..components import (
     SidebarComponent,
     LangGraphPanelComponent,
     MainContentComponent,
     InputPanel
 )
-from src.prompts.agent_state import AgentState, HumanMessage, ToolResult
+from src.domain.prompts.agent_state import AgentState, HumanMessage, ToolResult
 
 
 class ComponentTester:

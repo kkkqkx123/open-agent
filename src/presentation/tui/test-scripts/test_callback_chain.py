@@ -3,9 +3,9 @@
 from typing import Optional, List
 from unittest.mock import Mock
 
-from .config import get_tui_config
-from .components import InputPanel
-from .event_engine import EventEngine
+from ..config import get_tui_config
+from ..components import InputPanel
+from ..event_engine import EventEngine
 from blessed import Terminal
 
 

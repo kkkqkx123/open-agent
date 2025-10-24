@@ -4,9 +4,9 @@ import time
 from typing import Tuple
 from unittest.mock import Mock, MagicMock
 
-from .layout import LayoutManager, LayoutRegion
-from .render_controller import RenderController
-from .config import get_tui_config
+from ..layout import LayoutManager, LayoutRegion
+from ..render_controller import RenderController
+from ..config import get_tui_config
 
 
 class FlickerTestHelper:

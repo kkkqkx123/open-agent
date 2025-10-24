@@ -3,11 +3,11 @@
 from typing import Optional, List
 from unittest.mock import Mock, MagicMock
 
-from .config import get_tui_config
-from .components import InputPanel
-from .event_engine import EventEngine
-from .state_manager import StateManager
-from .components import MainContentComponent
+from ..config import get_tui_config
+from ..components import InputPanel
+from ..event_engine import EventEngine
+from ..state_manager import StateManager
+from ..components import MainContentComponent
 from blessed import Terminal
 
 
@@ -91,7 +91,7 @@ class MockTUIApp:
         
         # 如果有结果，处理它
         if result is not None:
-            self.event_engine.input_result_handler(result)
+            self.event_engine.input_result_handler(result) # type: ignore
     
     def get_summary(self) -> str:
         """获取处理摘要"""
