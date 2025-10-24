@@ -1,6 +1,6 @@
 """TUI状态管理器"""
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Callable
 from src.application.sessions.manager import ISessionManager
 from src.domain.prompts.agent_state import AgentState, HumanMessage
 
@@ -21,10 +21,24 @@ class StateManager:
         self.message_history: List[Dict[str, Any]] = []
         self.input_buffer = ""
         
+        # 钩子列表
+        self._user_message_hooks = []
+        self._assistant_message_hooks = []
+        self._tool_call_hooks = []
+        
         # UI状态
         self._show_session_dialog = False
         self._show_agent_dialog = False
-        self.current_subview: Optional[str] = None  # None, "analytics", "visualization", "system", "errors"
+        self.current_subview: Optional[str] = None  # None, "analytics", "system", "errors"
+    
+    def add_user_message_hook(self, hook: Callable[[str], None]) -> None:
+        self._user_message_hooks.append(hook)
+    
+    def add_assistant_message_hook(self, hook: Callable[[str], None]) -> None:
+        self._assistant_message_hooks.append(hook)
+    
+    def add_tool_call_hook(self, hook: Callable[[str, dict, Optional[dict]], None]) -> None:
+        self._tool_call_hooks.append(hook)
     
     def create_session(self, workflow_config: str, agent_config: Optional[str] = None) -> bool:
         """创建新会话
@@ -155,6 +169,13 @@ class StateManager:
                 from src.domain.prompts.agent_state import BaseMessage
                 simple_message = BaseMessage(content=content)
                 self.current_state.add_message(simple_message)
+        
+        # 触发钩子
+        for hook in self._user_message_hooks:
+            try:
+                hook(content)
+            except Exception:
+                pass # 忽略钩子错误
     
     def add_assistant_message(self, content: str) -> None:
         """添加助手消息
@@ -166,6 +187,35 @@ class StateManager:
             "type": "assistant",
             "content": content
         })
+        
+        # 触发钩子
+        for hook in self._assistant_message_hooks:
+            try:
+                hook(content)
+            except Exception:
+                pass # 忽略钩子错误
+    
+    def add_tool_call(self, tool_name: str, tool_input: dict, tool_output: Optional[dict] = None) -> None:
+        """添加工具调用记录
+        
+        Args:
+            tool_name: 工具名称
+            tool_input: 工具输入
+            tool_output: 工具输出（可选）
+        """
+        self.message_history.append({
+            "type": "tool_call",
+            "tool_name": tool_name,
+            "tool_input": tool_input,
+            "tool_output": tool_output
+        })
+        
+        # 触发钩子
+        for hook in self._tool_call_hooks:
+            try:
+                hook(tool_name, tool_input, tool_output)
+            except Exception:
+                pass # 忽略钩子错误
     
     def add_system_message(self, content: str) -> None:
         """添加系统消息

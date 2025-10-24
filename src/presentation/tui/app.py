@@ -40,6 +40,8 @@ from src.infrastructure.config.models.global_config import GlobalConfig
 from src.infrastructure.logger.logger import set_global_config
 from src.application.sessions.manager import ISessionManager
 from src.domain.prompts.agent_state import AgentState, HumanMessage
+from src.application.history.manager import HistoryManager
+from src.domain.history.interfaces import IHistoryManager
 
 # 导入TUI日志系统
 from .logger import get_tui_silent_logger, TUILoggerManager
@@ -88,6 +90,26 @@ class TUIApp:
         self.session_handler = SessionHandler(self.session_manager)
         self.command_processor = CommandProcessor(self)
         
+        # 集成历史存储
+        if get_global_container().has_service(IHistoryManager):
+            history_manager = get_global_container().get(IHistoryManager)
+            from src.application.history.adapters.tui_adapter import TUIHistoryAdapter
+            self.history_adapter = TUIHistoryAdapter(
+                history_manager=history_manager,
+                state_manager=self.state_manager
+            )
+            
+            # 注册钩子
+            self.state_manager.add_user_message_hook(
+                self.history_adapter.on_user_message
+            )
+            self.state_manager.add_assistant_message_hook(
+                self.history_adapter.on_assistant_message
+            )
+            self.state_manager.add_tool_call_hook(
+                self.history_adapter.on_tool_call
+            )
+        
         # 初始化组件
         self._initialize_components()
         
@@ -132,6 +154,8 @@ class TUIApp:
         from src.application.workflow.manager import WorkflowManager
         from src.application.sessions.git_manager import GitManager, create_git_manager
         from src.application.sessions.manager import SessionManager
+        from src.infrastructure.history.storage.file_storage import FileHistoryStorage
+        from src.application.history.manager import HistoryManager
         
         # 注册配置加载器
         if not container.has_service(IConfigLoader):
@@ -144,15 +168,26 @@ class TUIApp:
             session_store = FileSessionStore(Path("./sessions"))
             container.register_instance(FileSessionStore, session_store)
         
+        # 注册历史存储
+        if not container.has_service(FileHistoryStorage):
+            from pathlib import Path
+            history_store = FileHistoryStorage(Path("./history"))
+            container.register_instance(FileHistoryStorage, history_store)
+        
         # 注册Git管理器
         if not container.has_service(GitManager):
-            git_manager = create_git_manager(use_mock=True)  # 使用模拟管理器避免Git依赖
+            git_manager = create_git_manager(use_mock=True) # 使用模拟管理器避免Git依赖
             container.register_instance(GitManager, git_manager)
         
         # 注册工作流管理器
         if not container.has_service(WorkflowManager):
             workflow_manager = WorkflowManager(container.get(IConfigLoader))
             container.register_instance(WorkflowManager, workflow_manager)
+        
+        # 注册历史管理器
+        if not container.has_service(IHistoryManager):
+            history_manager = HistoryManager(container.get(FileHistoryStorage))
+            container.register_instance(IHistoryManager, history_manager)
         
         # 注册会话管理器
         if not container.has_service(ISessionManager):
