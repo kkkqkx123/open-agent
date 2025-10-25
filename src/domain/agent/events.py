@@ -29,3 +29,7 @@ class AgentEventManager:
         if event in self._handlers:
             for handler in self._handlers[event]:
                 handler(data)
+
+    def clear_handlers(self) -> None:
+        """清除所有事件处理器"""
+        self._handlers.clear()

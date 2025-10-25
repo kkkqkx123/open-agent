@@ -9,7 +9,7 @@ import yaml
 from src.application.workflow.builder import WorkflowBuilder
 from src.domain.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
 from src.application.workflow.registry import NodeRegistry, BaseNode, NodeExecutionResult
-from src.domain.prompts.agent_state import AgentState
+from src.domain.workflow.state import WorkflowState
 
 
 class MockNode(BaseNode):
@@ -22,7 +22,7 @@ class MockNode(BaseNode):
     def node_type(self) -> str:
         return self._node_type
     
-    def execute(self, state: AgentState, config: dict) -> NodeExecutionResult:
+    def execute(self, state: WorkflowState, config: dict) -> NodeExecutionResult:
         return NodeExecutionResult(state=state)
     
     def get_config_schema(self) -> dict:
@@ -170,7 +170,7 @@ class TestWorkflowBuilder:
         result = builder.build_workflow(config)
         
         # 验证调用
-        mock_state_graph_class.assert_called_once_with(AgentState)
+        mock_state_graph_class.assert_called_once_with(WorkflowState)
         assert mock_workflow.add_node.call_count == 2  # 应该添加两个节点
         mock_workflow.add_edge.assert_called_once()
         mock_workflow.set_entry_point.assert_called_once_with("start")
@@ -359,7 +359,7 @@ class TestWorkflowBuilder:
         builder = WorkflowBuilder()
         
         # 测试有工具调用的情况
-        state_with_tool_calls = AgentState()
+        state_with_tool_calls = WorkflowState()
         mock_message = Mock()
         mock_message.tool_calls = [{"name": "test_tool"}]
         state_with_tool_calls.messages = [mock_message]
@@ -367,7 +367,7 @@ class TestWorkflowBuilder:
         assert builder._has_tool_call_condition(state_with_tool_calls) is True
         
         # 测试没有工具调用的情况
-        state_without_tool_calls = AgentState()
+        state_without_tool_calls = WorkflowState()
         mock_message_no_tools = Mock()
         mock_message_no_tools.tool_calls = None
         state_without_tool_calls.messages = [mock_message_no_tools]
@@ -379,7 +379,7 @@ class TestWorkflowBuilder:
         builder = WorkflowBuilder()
         
         # 测试有工具调用的情况
-        state_with_tool_calls = AgentState()
+        state_with_tool_calls = WorkflowState()
         mock_message = Mock()
         mock_message.tool_calls = [{"name": "test_tool"}]
         state_with_tool_calls.messages = [mock_message]
@@ -387,7 +387,7 @@ class TestWorkflowBuilder:
         assert builder._no_tool_call_condition(state_with_tool_calls) is False
         
         # 测试没有工具调用的情况
-        state_without_tool_calls = AgentState()
+        state_without_tool_calls = WorkflowState()
         mock_message_no_tools = Mock()
         mock_message_no_tools.tool_calls = None
         state_without_tool_calls.messages = [mock_message_no_tools]
@@ -399,14 +399,14 @@ class TestWorkflowBuilder:
         builder = WorkflowBuilder()
         
         # 测试有工具结果的情况
-        state_with_results = AgentState()
+        state_with_results = WorkflowState()
         mock_result = Mock()
         state_with_results.tool_results = [mock_result]
         
         assert builder._has_tool_result_condition(state_with_results) is True
         
         # 测试没有工具结果的情况
-        state_without_results = AgentState()
+        state_without_results = WorkflowState()
         state_without_results.tool_results = []
         
         assert builder._has_tool_result_condition(state_without_results) is False
@@ -416,14 +416,14 @@ class TestWorkflowBuilder:
         builder = WorkflowBuilder()
         
         # 测试达到最大迭代次数
-        state_max_reached = AgentState()
+        state_max_reached = WorkflowState()
         state_max_reached.iteration_count = 10
         state_max_reached.max_iterations = 10
         
         assert builder._max_iterations_reached_condition(state_max_reached) is True
         
         # 测试未达到最大迭代次数
-        state_not_max = AgentState()
+        state_not_max = WorkflowState()
         state_not_max.iteration_count = 5
         state_not_max.max_iterations = 10
         
@@ -451,7 +451,7 @@ class TestWorkflowBuilder:
             def node_type(self) -> str:
                 return "new_mock_node"
             
-            def execute(self, state: AgentState, config: dict) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict:

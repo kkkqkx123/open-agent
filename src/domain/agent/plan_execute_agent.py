@@ -105,8 +105,10 @@ class PlanExecuteAgent(BaseAgent):
             step_result = await self._execute_plan_step(state, plan_step)
             
             # 更新状态
+            from ..workflow.state import MessageRole
             state.add_memory(BaseMessage(
                 content=f"Step {plan_step['step']}: {step_result}",
+                role=MessageRole.AI,
                 type="plan_execution"
             ))
             

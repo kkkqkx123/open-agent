@@ -138,9 +138,10 @@ class TestBaseAgent:
         
         # 模拟工具执行结果
         mock_tool_result = ToolResult(
-            tool_name="calculator",
-            result="4",
+            success=True,
+            output="4",
             error=None,
+            tool_name="calculator",
             metadata={}
         )
         self.mock_tool_executor.execute_tool_async = AsyncMock(return_value=mock_tool_result)
@@ -157,7 +158,7 @@ class TestBaseAgent:
         # 验证结果
         assert isinstance(result, ToolResult)
         assert result.tool_name == "calculator"
-        assert result.result == "4"
+        assert result.output == "4"
     
     async def test_execute_tool_async_with_error(self):
         """测试异步工具执行时发生错误"""
@@ -169,9 +170,10 @@ class TestBaseAgent:
         
         # 模拟工具执行错误
         mock_tool_result = ToolResult(
-            tool_name="calculator",
-            result=None,
+            success=False,
+            output=None,
             error="Division by zero",
+            tool_name="calculator",
             metadata={}
         )
         self.mock_tool_executor.execute_tool_async = AsyncMock(return_value=mock_tool_result)

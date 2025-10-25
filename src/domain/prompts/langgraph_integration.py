@@ -14,7 +14,7 @@ except ImportError:
 
 from .interfaces import IPromptInjector
 from .models import PromptConfig
-from .agent_state import AgentState
+from ..workflow.state import WorkflowState
 
 
 def get_agent_config() -> PromptConfig:
@@ -35,13 +35,13 @@ def create_agent_workflow(
     if not LANGGRAPH_AVAILABLE:
         raise ImportError("LangGraph未安装，无法创建工作流")
     
-    def inject_prompts_node(state: AgentState) -> AgentState:
+    def inject_prompts_node(state: WorkflowState) -> WorkflowState:
         """提示词注入节点"""
         config = get_agent_config()  # 从配置获取
         result = prompt_injector.inject_prompts(state, config)
         return result  # type: ignore
         
-    def call_llm_node(state: AgentState) -> AgentState:
+    def call_llm_node(state: WorkflowState) -> WorkflowState:
         """LLM调用节点"""
         if llm_client is None:
             # 模拟LLM响应
@@ -60,7 +60,7 @@ def create_agent_workflow(
         
     # 构建工作流
     if StateGraph is not None:  # 确保 StateGraph 可用
-        workflow = StateGraph(AgentState)
+        workflow = StateGraph(WorkflowState)
         
         workflow.add_node("inject_prompts", inject_prompts_node)
         workflow.add_node("call_llm", call_llm_node)
@@ -75,10 +75,10 @@ def create_agent_workflow(
 
 def create_simple_workflow(prompt_injector: IPromptInjector) -> Dict[str, Any]:
     """创建简单工作流（不依赖LangGraph）"""
-    def run_workflow(initial_state: Optional[AgentState] = None) -> AgentState:
+    def run_workflow(initial_state: Optional[WorkflowState] = None) -> WorkflowState:
         """运行简单工作流"""
         if initial_state is None:
-            initial_state = AgentState()
+            initial_state = WorkflowState()
             
         # 注入提示词
         config = get_agent_config()

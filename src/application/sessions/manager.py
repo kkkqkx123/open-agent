@@ -565,25 +565,43 @@ class SessionManager(ISessionManager):
             try:
                 # 尝试创建适当的消息类型
                 msg_type = msg_data.get("type", "BaseMessage")
+                role_str = msg_data.get("role", "human")
+                from ...domain.prompts.agent_state import MessageRole
+                try:
+                    role = MessageRole(role_str)
+                except ValueError:
+                    role = MessageRole.HUMAN
+
                 if msg_type == "HumanMessage":
                     from src.domain.prompts.agent_state import HumanMessage
                     msg = HumanMessage(content=msg_data.get("content", ""))
                 elif msg_type == "SystemMessage":
                     from src.domain.prompts.agent_state import SystemMessage
                     msg = SystemMessage(content=msg_data.get("content", ""))
+                elif msg_type == "AIMessage":
+                    from src.domain.prompts.agent_state import AIMessage
+                    msg = AIMessage(content=msg_data.get("content", ""))
+                elif msg_type == "ToolMessage":
+                    from src.domain.prompts.agent_state import ToolMessage
+                    msg = ToolMessage(content=msg_data.get("content", ""))
                 else:
                     from src.domain.prompts.agent_state import BaseMessage
-                    msg = BaseMessage(content=msg_data.get("content", ""))
+                    msg = BaseMessage(content=msg_data.get("content", ""), role=role)
 
                 state.add_message(msg)
             except Exception:
                 # 如果创建消息失败，创建基本消息
-                from ...domain.prompts.agent_state import BaseMessage
-                msg = BaseMessage(content=msg_data.get("content", ""))
+                from ...domain.prompts.agent_state import BaseMessage, MessageRole
+                role_str = msg_data.get("role", "human")
+                try:
+                    role = MessageRole(role_str)
+                except ValueError:
+                    role = MessageRole.HUMAN
+                msg = BaseMessage(content=msg_data.get("content", ""), role=role)
                 state.add_message(msg)
 
         # 恢复工具结果
-        from ...domain.prompts.agent_state import ToolResult
+        from src.domain.prompts.agent_state import ToolResult
         for result_data in state_data.get("tool_results", []):
             result = ToolResult(
                 tool_name=result_data.get("tool_name", ""),

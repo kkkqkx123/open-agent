@@ -42,9 +42,13 @@ class AgentConfigLoader:
             from .config import MemoryConfig
             agent_config.memory_config = MemoryConfig(
                 enabled=memory_config_data.get("enabled", True),
-                max_size=memory_config_data.get("max_size", 10),
+                max_tokens=memory_config_data.get("max_tokens", 2000),
+                max_messages=memory_config_data.get("max_messages", 50),
                 retention_time=memory_config_data.get("retention_time", 3600)
             )
+        else:
+            # 使用默认的 MemoryConfig
+            pass
         
         self._agent_configs[config_name] = agent_config
         return agent_config

@@ -33,18 +33,18 @@ tools:
         }
         
         # 加载配置
-        config = self.config_loader.load_config("test_agent")
+        config = self.config_loader.load_agent_config("test_agent")
         
         # 验证配置加载器被调用
         self.mock_config_loader.load_config.assert_called_once_with("agents/test_agent.yaml")
-        
+
         # 验证返回的配置
         assert isinstance(config, AgentConfig)
         assert config.name == "test_agent"
         assert config.agent_type == "react"
         assert config.system_prompt == "Test system prompt"
         assert config.tools == ["calculator", "web_search"]
-    
+
     @patch("builtins.open", new_callable=mock_open, read_data="""
 name: test_agent
 agent_type: plan_execute
@@ -64,9 +64,9 @@ timeout: 30
             "max_iterations": 5,
             "timeout": 30
         }
-        
+
         # 加载配置
-        config = self.config_loader.load_config("test_agent")
+        config = self.config_loader.load_agent_config("test_agent")
         
         # 验证返回的配置
         assert isinstance(config, AgentConfig)
@@ -88,7 +88,7 @@ timeout: 30
         
         # 应该抛出验证错误
         with pytest.raises(ValueError, match="system_prompt"):
-            self.config_loader.load_config("test_agent")
+            self.config_loader.load_agent_config("test_agent")
     
     def test_load_nonexistent_config(self):
         """测试加载不存在的配置"""
@@ -97,7 +97,7 @@ timeout: 30
         
         # 应该抛出FileNotFoundError
         with pytest.raises(FileNotFoundError):
-            self.config_loader.load_config("nonexistent_agent")
+            self.config_loader.load_agent_config("nonexistent_agent")
     
     def test_load_config_with_environment_variables(self):
         """测试加载包含环境变量的配置"""
@@ -112,7 +112,7 @@ timeout: 30
         # 模拟环境变量
         with patch.dict("os.environ", {"API_KEY": "test_key", "TOOL_NAME": "calculator"}):
             # 加载配置
-            config = self.config_loader.load_config("test_agent")
+            config = self.config_loader.load_agent_config("test_agent")
             
             # 验证配置加载器被调用
             self.mock_config_loader.load_config.assert_called_once_with("agents/test_agent.yaml")

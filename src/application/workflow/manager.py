@@ -12,7 +12,7 @@ from datetime import datetime
 from src.domain.workflow.config import WorkflowConfig
 from .builder import WorkflowBuilder
 from .registry import NodeRegistry, get_global_registry
-from src.domain.prompts.agent_state import AgentState
+from ...domain.workflow.state import WorkflowState
 from src.infrastructure.config_loader import IConfigLoader
 
 
@@ -47,10 +47,10 @@ class IWorkflowManager(ABC):
     def run_workflow(
         self,
         workflow_id: str,
-        initial_state: Optional[AgentState] = None,
+        initial_state: Optional[WorkflowState] = None,
         event_collector: Optional[Any] = None,
         **kwargs: Any
-    ) -> AgentState:
+    ) -> WorkflowState:
         """运行工作流
 
         Args:
@@ -60,7 +60,7 @@ class IWorkflowManager(ABC):
             **kwargs: 其他参数
 
         Returns:
-            AgentState: 最终状态
+            WorkflowState: 最终状态
         """
         pass
 
@@ -68,10 +68,10 @@ class IWorkflowManager(ABC):
     async def run_workflow_async(
         self,
         workflow_id: str,
-        initial_state: Optional[AgentState] = None,
+        initial_state: Optional[WorkflowState] = None,
         event_collector: Optional[Any] = None,
         **kwargs: Any
-    ) -> AgentState:
+    ) -> WorkflowState:
         """异步运行工作流
 
         Args:
@@ -81,7 +81,7 @@ class IWorkflowManager(ABC):
             **kwargs: 其他参数
 
         Returns:
-            AgentState: 最终状态
+            WorkflowState: 最终状态
         """
         pass
 
@@ -89,10 +89,10 @@ class IWorkflowManager(ABC):
     def stream_workflow(
         self,
         workflow_id: str,
-        initial_state: Optional[AgentState] = None,
+        initial_state: Optional[WorkflowState] = None,
         event_collector: Optional[Any] = None,
         **kwargs: Any
-    ) -> Generator[AgentState, None, None]:
+    ) -> Generator[WorkflowState, None, None]:
         """流式运行工作流
 
         Args:
@@ -102,7 +102,7 @@ class IWorkflowManager(ABC):
             **kwargs: 其他参数
 
         Yields:
-            AgentState: 中间状态
+            WorkflowState: 中间状态
         """
         pass
 
@@ -243,10 +243,10 @@ class WorkflowManager(IWorkflowManager):
     def run_workflow(
         self,
         workflow_id: str,
-        initial_state: Optional[AgentState] = None,
+        initial_state: Optional[WorkflowState] = None,
         event_collector: Optional[Any] = None,
         **kwargs: Any
-    ) -> AgentState:
+    ) -> WorkflowState:
         """运行工作流
 
         Args:
@@ -256,14 +256,14 @@ class WorkflowManager(IWorkflowManager):
             **kwargs: 其他参数
 
         Returns:
-            AgentState: 最终状态
+            WorkflowState: 最终状态
         """
         workflow = self.create_workflow(workflow_id)
         config = self._workflow_configs[workflow_id]
         
         # 准备初始状态
         if initial_state is None:
-            initial_state = AgentState()
+            initial_state = WorkflowState()
         
         # 设置初始参数
         if hasattr(initial_state, 'max_iterations'):
@@ -295,10 +295,10 @@ class WorkflowManager(IWorkflowManager):
     async def run_workflow_async(
         self,
         workflow_id: str,
-        initial_state: Optional[AgentState] = None,
+        initial_state: Optional[WorkflowState] = None,
         event_collector: Optional[Any] = None,
         **kwargs: Any
-    ) -> AgentState:
+    ) -> WorkflowState:
         """异步运行工作流
 
         Args:
@@ -308,14 +308,14 @@ class WorkflowManager(IWorkflowManager):
             **kwargs: 其他参数
 
         Returns:
-            AgentState: 最终状态
+            WorkflowState: 最终状态
         """
         workflow = self.create_workflow(workflow_id)
         config = self._workflow_configs[workflow_id]
         
         # 准备初始状态
         if initial_state is None:
-            initial_state = AgentState()
+            initial_state = WorkflowState()
         
         # 设置初始参数
         if hasattr(initial_state, 'max_iterations'):
@@ -351,10 +351,10 @@ class WorkflowManager(IWorkflowManager):
     def stream_workflow(
         self,
         workflow_id: str,
-        initial_state: Optional[AgentState] = None,
+        initial_state: Optional[WorkflowState] = None,
         event_collector: Optional[Any] = None,
         **kwargs: Any
-    ) -> Generator[AgentState, None, None]:
+    ) -> Generator[WorkflowState, None, None]:
         """流式运行工作流
 
         Args:
@@ -364,14 +364,14 @@ class WorkflowManager(IWorkflowManager):
             **kwargs: 其他参数
 
         Yields:
-            AgentState: 中间状态
+            WorkflowState: 中间状态
         """
         workflow = self.create_workflow(workflow_id)
         config = self._workflow_configs[workflow_id]
         
         # 准备初始状态
         if initial_state is None:
-            initial_state = AgentState()
+            initial_state = WorkflowState()
         
         # 设置初始参数
         if hasattr(initial_state, 'max_iterations'):

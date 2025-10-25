@@ -110,9 +110,10 @@ Plan:
         
         # 模拟工具执行结果
         mock_tool_result = ToolResult(
-            tool_name="calculator",
-            result="78.54",
+            success=True,
+            output="78.54",
             error=None,
+            tool_name="calculator",
             metadata={}
         )
         self.mock_tool_executor.execute_tool_async = AsyncMock(return_value=mock_tool_result)

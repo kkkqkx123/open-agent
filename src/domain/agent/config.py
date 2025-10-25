@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from src.infrastructure.config.models.base import BaseConfig  # 使用正确的BaseConfig路径
 
 
@@ -10,7 +10,8 @@ from src.infrastructure.config.models.base import BaseConfig  # 使用正确的B
 class MemoryConfig:
     """记忆配置"""
     enabled: bool = True
-    max_size: int = 10
+    max_tokens: int = 2000
+    max_messages: int = 50
     retention_time: int = 3600  # 1小时
 
 
@@ -23,7 +24,7 @@ class AgentConfig(BaseConfig):
     # 智能配置
     system_prompt: str = ""
     decision_strategy: str = ""  # 决策策略
-    memory_config: Optional[MemoryConfig] = None  # 记忆配置
+    memory_config: MemoryConfig = Field(default_factory=MemoryConfig)  # 记忆配置
     
     # 工具配置
     tools: List[str] = field(default_factory=list)
@@ -42,5 +43,3 @@ class AgentConfig(BaseConfig):
     
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
-        if self.memory_config is None:
-            self.memory_config = MemoryConfig()

@@ -7,6 +7,7 @@ import time
 from .interfaces import IAgent
 from .events import AgentEventManager, AgentEvent
 from ..prompts.agent_state import AgentState
+from ..tools.interfaces import ToolCall, ToolResult
 
 
 if TYPE_CHECKING:
@@ -23,24 +24,24 @@ class BaseAgent(IAgent, ABC):
         self.event_manager = event_manager or AgentEventManager()
         self._execution_stats = {
             "total_executions": 0,
-            "total_time": 0.0,
-            "avg_time": 0.0
+            "total_errors": 0,
+            "average_execution_time": 0.0
         }
     
     async def execute(self, state: AgentState) -> AgentState:
         start_time = time.time()
-        
+
         # 发布执行开始事件
         self.event_manager.publish(AgentEvent.EXECUTION_STARTED, {
             "agent_id": self.config.name,
             "state": state,
             "config": self.config
         })
-        
+
         try:
             # 基础执行逻辑
             result = await self._execute_logic(state)
-            
+
             # 发布执行完成事件
             execution_time = time.time() - start_time
             self.event_manager.publish(AgentEvent.EXECUTION_COMPLETED, {
@@ -50,10 +51,10 @@ class BaseAgent(IAgent, ABC):
                 "config": self.config,
                 "execution_time": execution_time
             })
-            
+
             # 更新执行统计
-            self._update_stats(execution_time)
-            
+            self._update_stats(execution_time, success=True)
+
             return result
         except Exception as e:
             execution_time = time.time() - start_time
@@ -65,7 +66,10 @@ class BaseAgent(IAgent, ABC):
                 "config": self.config,
                 "execution_time": execution_time
             })
-            
+
+            # 更新执行统计
+            self._update_stats(execution_time, success=False)
+
             # 重新抛出异常
             raise e
     
@@ -82,18 +86,35 @@ class BaseAgent(IAgent, ABC):
         # 基础能力列表
         return []
     
-    def _update_stats(self, execution_time: float) -> None:
+    def _update_stats(self, execution_time: float, success: bool = True) -> None:
         """更新执行统计信息"""
         self._execution_stats["total_executions"] += 1
+        if not success:
+            self._execution_stats["total_errors"] += 1
         self._execution_stats["total_time"] += execution_time
-        self._execution_stats["avg_time"] = (
+        self._execution_stats["average_execution_time"] = (
             self._execution_stats["total_time"] / self._execution_stats["total_executions"]
         )
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    @property
+    def execution_stats(self) -> Dict[str, Any]:
+        return self._execution_stats
+
+    def get_execution_stats(self) -> Dict[str, Any]:
         """获取执行统计信息"""
-        return self._execution_stats.copy()
-    
+        stats = self._execution_stats.copy()
+        total_executions = stats["total_executions"]
+        if total_executions > 0:
+            stats["success_rate"] = (total_executions - stats["total_errors"]) / total_executions
+        else:
+            stats["success_rate"] = 0.0
+        return stats
+
+    async def execute_tool_async(self, tool_call: Dict[str, Any]) -> ToolResult:
+        """异步执行工具调用"""
+        tool_call_obj = ToolCall(name=tool_call["name"], arguments=tool_call["arguments"])
+        return await self.tool_executor.execute_async(tool_call_obj)
+
     async def execute_with_retry(self, state: AgentState, max_retries: int = 3) -> AgentState:
         """带重试机制的执行方法"""
         last_exception = None

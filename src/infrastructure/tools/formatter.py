@@ -14,7 +14,6 @@ from .interfaces import IToolFormatter
 from src.domain.tools.interfaces import ToolCall
 from src.domain.tools.base import BaseTool
 
-
 class FunctionCallingFormatter(IToolFormatter):
     """Function Calling格式化策略
 

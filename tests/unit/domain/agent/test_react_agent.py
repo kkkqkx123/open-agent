@@ -45,9 +45,10 @@ class TestReActAgent:
         
         # 模拟工具执行结果
         mock_tool_result = ToolResult(
-            tool_name="calculator",
-            result="4",
-            error=None,
+        success=True,
+        output="4",
+        error=None,
+        tool_name="calculator",
             metadata={}
         )
         self.mock_tool_executor.execute_tool_async = AsyncMock(return_value=mock_tool_result)
@@ -101,9 +102,10 @@ class TestReActAgent:
         
         # 模拟工具执行错误
         mock_tool_result = ToolResult(
-            tool_name="calculator",
-            result=None,
-            error="Division by zero error",
+        success=False,
+        output=None,
+        error="Division by zero error",
+        tool_name="calculator",
             metadata={}
         )
         self.mock_tool_executor.execute_tool_async = AsyncMock(return_value=mock_tool_result)

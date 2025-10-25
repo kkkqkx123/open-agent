@@ -2,8 +2,8 @@
 
 import pytest
 from src.domain.agent.state_manager import AgentStateManager
-from src.domain.prompts.agent_state import AgentState
-from src.domain.tools.base import ToolResult
+from src.domain.prompts.agent_state import AgentState, ToolResult
+from src.domain.workflow.state import HumanMessage, AIMessage
 
 
 class TestAgentStateManager:
@@ -38,10 +38,9 @@ class TestAgentStateManager:
         initial_state = AgentState()
         
         # 创建一些记忆项
-        from src.domain.prompts.message import Message
         messages = [
-            Message(role="user", content="Hello"),
-            Message(role="assistant", content="Hi there!")
+            HumanMessage(content="Hello"),
+        AIMessage(content="Hi there!")
         ]
         
         updated_state = self.state_manager.update_state_with_memory(initial_state, messages)
@@ -56,9 +55,10 @@ class TestAgentStateManager:
         
         # 创建工具结果
         tool_result = ToolResult(
-            tool_name="calculator",
-            result="4",
-            error=None,
+        tool_name="calculator",
+        success=True,
+        result="4",
+        error=None,
             metadata={"operation": "addition"}
         )
         
@@ -121,9 +121,8 @@ class TestAgentStateManager:
         )
         
         # 添加一些内容
-        from src.domain.prompts.message import Message
-        initial_state.memory.append(Message(role="user", content="Calculate 2+2"))
-        initial_state.tool_results.append(ToolResult(tool_name="calculator", result="4"))
+        initial_state.memory.append(HumanMessage(content="Calculate 2+2"))
+        initial_state.tool_results.append(ToolResult(tool_name="calculator", success=True, result="4"))
         initial_state.errors.append({"type": "TestError", "message": "Test error"})
         initial_state.iteration_count = 5
         

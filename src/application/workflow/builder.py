@@ -15,7 +15,7 @@ from ...domain.workflow.config import WorkflowConfig
 from .registry import NodeRegistry, get_global_registry
 from .edges.simple_edge import SimpleEdge
 from .edges.conditional_edge import ConditionalEdge
-from src.domain.prompts.agent_state import AgentState
+from ...domain.workflow.state import WorkflowState
 from .performance import get_global_optimizer, optimize_workflow_loading
 
 
@@ -91,7 +91,7 @@ class WorkflowBuilder:
             raise ImportError("LangGraph未安装，无法构建工作流")
         
         # 创建状态图
-        workflow = StateGraph(AgentState)  # type: ignore
+        workflow = StateGraph(WorkflowState)  # type: ignore
         
         # 注册节点
         self._register_nodes(workflow, config)
@@ -119,8 +119,8 @@ class WorkflowBuilder:
                 node_instance = self.node_registry.get_node_instance(node_config.type)
                 
                 # 创建节点执行函数
-                def create_node_function(node: Any, current_node_name: str, current_node_config: Any) -> Callable[[AgentState], Dict[str, Any]]:
-                    def node_function(state: AgentState) -> Dict[str, Any]:
+                def create_node_function(node: Any, current_node_name: str, current_node_config: Any) -> Callable[[WorkflowState], Dict[str, Any]]:
+                    def node_function(state: WorkflowState) -> Dict[str, Any]:
                         result = node.execute(state, current_node_config.config)
                         # 更新状态中的当前步骤
                         state.current_step = current_node_name
@@ -181,8 +181,8 @@ class WorkflowBuilder:
         # 使用唯一的函数名避免冲突
         wrapper_name = f"conditional_wrapper_{edge_config.from_node}_{edge_config.to_node}"
         
-        def make_conditional_wrapper(from_node: str, to_node: str, cond_func: Callable) -> Callable[[AgentState], str]:
-            def conditional_wrapper(state: AgentState) -> str:
+        def make_conditional_wrapper(from_node: str, to_node: str, cond_func: Callable) -> Callable[[WorkflowState], str]:
+            def conditional_wrapper(state: WorkflowState) -> str:
                 if cond_func(state):
                     return str(to_node)
                 # 如果条件不满足，返回END或默认节点
@@ -256,7 +256,7 @@ class WorkflowBuilder:
         raise ValueError("无法确定工作流入口点")
     
     # 内置条件函数
-    def _has_tool_call_condition(self, state: AgentState, params: str = "") -> bool:
+    def _has_tool_call_condition(self, state: WorkflowState, params: str = "") -> bool:
         """检查是否有工具调用"""
         if not state.messages:
             return False
@@ -272,32 +272,32 @@ class WorkflowBuilder:
         
         return False
     
-    def _no_tool_call_condition(self, state: AgentState, params: str = "") -> bool:
+    def _no_tool_call_condition(self, state: WorkflowState, params: str = "") -> bool:
         """检查是否没有工具调用"""
         return not self._has_tool_call_condition(state, params)
     
-    def _has_tool_result_condition(self, state: AgentState, params: str = "") -> bool:
+    def _has_tool_result_condition(self, state: WorkflowState, params: str = "") -> bool:
         """检查是否有工具执行结果"""
         return len(state.tool_results) > 0
     
-    def _max_iterations_reached_condition(self, state: AgentState, params: str = "") -> bool:
+    def _max_iterations_reached_condition(self, state: WorkflowState, params: str = "") -> bool:
         """检查是否达到最大迭代次数"""
         iteration_count = getattr(state, 'iteration_count', 0)
         max_iterations = getattr(state, 'max_iterations', 10)
         return iteration_count >= max_iterations
     
-    def _has_errors_condition(self, state: AgentState, params: str = "") -> bool:
+    def _has_errors_condition(self, state: WorkflowState, params: str = "") -> bool:
         """检查是否有错误"""
         for result in state.tool_results:
             if not result.success:
                 return True
         return False
     
-    def _no_errors_condition(self, state: AgentState, params: str = "") -> bool:
+    def _no_errors_condition(self, state: WorkflowState, params: str = "") -> bool:
         """检查是否没有错误"""
         return not self._has_errors_condition(state, params)
     
-    def _plan_completed_condition(self, state: AgentState, params: str = "") -> bool:
+    def _plan_completed_condition(self, state: WorkflowState, params: str = "") -> bool:
         """检查计划是否已完成"""
         try:
             # 检查状态中是否有计划信息
@@ -313,7 +313,7 @@ class WorkflowBuilder:
             # 如果出现任何错误，返回False以确保安全
             return False
     
-    def _evaluate_custom_condition(self, state: AgentState, condition: str) -> bool:
+    def _evaluate_custom_condition(self, state: WorkflowState, condition: str) -> bool:
         """评估自定义条件
         
         Args:
