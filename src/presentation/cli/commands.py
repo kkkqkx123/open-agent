@@ -200,6 +200,25 @@ def _print_sessions_table(sessions: list) -> None:
     console.print(table)
 
 
+
+def _register_history_services(container) -> None:
+    """注册历史存储服务"""
+    try:
+        # 获取配置加载器
+        config_loader = container.get(IConfigLoader)
+        
+        # 加载历史配置
+        history_config = config_loader.load("history.yaml")
+        
+        # 注册历史存储服务
+        from src.infrastructure.history.service_registration import register_history_services
+        register_history_services(container, history_config)
+        
+    except Exception as e:
+        # 如果历史配置不存在或加载失败，忽略错误
+        # 历史存储是可选功能
+        pass
+
 def setup_container(config_path: Optional[str] = None) -> None:
     """设置依赖注入容器"""
     from ...infrastructure.container import DependencyContainer
@@ -279,6 +298,9 @@ def setup_container(config_path: Optional[str] = None) -> None:
             git_manager=container.get(GitManager)
         )
         container.register_instance(ISessionManager, session_manager)
+    
+    # 注册历史存储服务
+    _register_history_services(container)
 
 
 # 自动设置容器
@@ -316,4 +338,7 @@ def run(ctx: click.Context, config: Optional[Path] = None) -> None:
 def quickstart(ctx: click.Context) -> None:
     """显示快速开始指南"""
     help_manager.show_quick_start()
+
+
+
 

@@ -1,0 +1,8 @@
+# 历史存储配置
+history:
+  enabled: true
+  storage_type: "file"
+  storage_path: "${HISTORY_PATH:./history}"
+  index_enabled: false  # 第一阶段禁用索引
+  auto_compress: false  # 第一阶段禁用压缩
+  backup_enabled: false  # 第一阶段禁用备份
