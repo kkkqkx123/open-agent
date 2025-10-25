@@ -1,0 +1,240 @@
+.loading-spinner-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  width: 100%;
+}
+
+.loading-spinner-wrapper {
+  width: 100%;
+  min-height: 100px;
+}
+
+/* 自定义加载动画 */
+.loading-spinner-container .ant-spin-dot {
+  font-size: 20px;
+}
+
+.loading-spinner-container .ant-spin-dot-item {
+  background-color: #1890ff;
+}
+
+.loading-spinner-container.ant-spin-small .ant-spin-dot {
+  font-size: 14px;
+}
+
+.loading-spinner-container.ant-spin-large .ant-spin-dot {
+  font-size: 32px;
+}
+
+/* 全屏加载 */
+.loading-spinner-fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.dark .loading-spinner-fullscreen {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+/* 内联加载 */
+.loading-spinner-inline {
+  display: inline-flex;
+  min-height: auto;
+  padding: 8px;
+}
+
+/* 卡片加载 */
+.loading-spinner-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.dark .loading-spinner-card {
+  background: #1f1f1f;
+}
+
+/* 页面加载 */
+.loading-spinner-page {
+  min-height: 60vh;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loading-spinner-page .ant-spin-text {
+  font-size: 16px;
+  color: #666;
+  margin-top: 16px;
+}
+
+.dark .loading-spinner-page .ant-spin-text {
+  color: #999;
+}
+
+/* 骨架屏加载 */
+.loading-skeleton {
+  width: 100%;
+}
+
+.loading-skeleton .ant-skeleton {
+  padding: 16px;
+}
+
+.loading-skeleton .ant-skeleton-title {
+  width: 60%;
+  margin-bottom: 16px;
+}
+
+.loading-skeleton .ant-skeleton-paragraph {
+  margin-bottom: 16px;
+}
+
+.loading-skeleton .ant-skeleton-paragraph > li {
+  width: 100%;
+}
+
+.loading-skeleton .ant-skeleton-paragraph > li:last-child {
+  width: 80%;
+}
+
+/* 进度条加载 */
+.loading-progress {
+  width: 100%;
+  max-width: 400px;
+}
+
+.loading-progress .ant-progress-text {
+  font-size: 12px;
+  color: #666;
+}
+
+.dark .loading-progress .ant-progress-text {
+  color: #999;
+}
+
+/* 自定义加载文字 */
+.loading-text {
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.dark .loading-text {
+  color: #999;
+}
+
+/* 加载失败状态 */
+.loading-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: #ff4d4f;
+  font-size: 14px;
+}
+
+.loading-error .error-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+/* 加载空状态 */
+.loading-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: #999;
+  font-size: 14px;
+}
+
+.loading-empty .empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: #d9d9d9;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .loading-spinner-container {
+    min-height: 150px;
+  }
+  
+  .loading-spinner-page {
+    min-height: 50vh;
+  }
+  
+  .loading-spinner-page .ant-spin-text {
+    font-size: 14px;
+  }
+  
+  .loading-skeleton {
+    padding: 12px;
+  }
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.loading-spinner-container {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.loading-spinner-page {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* 高对比度模式 */
+@media (prefers-contrast: high) {
+  .loading-spinner-container .ant-spin-dot-item {
+    background-color: #000;
+  }
+  
+  .dark .loading-spinner-container .ant-spin-dot-item {
+    background-color: #fff;
+  }
+}
+
+/* 减少动画模式 */
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner-container,
+  .loading-spinner-page {
+    animation: none;
+  }
+  
+  .ant-spin-dot {
+    animation: none !important;
+  }
+}
