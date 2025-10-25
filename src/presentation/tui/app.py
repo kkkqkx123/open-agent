@@ -371,7 +371,7 @@ class TUIApp:
                 terminal_size = self.console.size
                 
                 # 创建布局
-                layout = self.layout_manager.create_layout(terminal_size)
+                layout = self.layout_manager.create_layout((terminal_size.width, terminal_size.height))
                 
                 # 启动Live显示 - 设置为极低的刷新率，主要依赖手动刷新
                 with Live(layout, console=self.console, refresh_per_second=0.1, screen=True) as live:  # 降低到0.1 FPS
@@ -380,6 +380,8 @@ class TUIApp:
                     
                     # 显示欢迎信息
                     self.render_controller.show_welcome_message()
+                    # 初始化previous_terminal_size
+                    self.previous_terminal_size = (terminal_size.width, terminal_size.height)
                     
                     # 启动事件循环
                     self._run_main_loop()
