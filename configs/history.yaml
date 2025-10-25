@@ -1,8 +1,37 @@
-# 历史存储配置
 history:
   enabled: true
-  storage_type: "file"
-  storage_path: "${HISTORY_PATH:./history}"
-  index_enabled: false  # 第一阶段禁用索引
-  auto_compress: false  # 第一阶段禁用压缩
-  backup_enabled: false  # 第一阶段禁用备份
+  storage:
+    type: "file"
+    base_path: "./history"
+  
+  token_tracking:
+    enabled: true
+    prefer_api: true
+    track_conversation: true
+  
+  cost_tracking:
+    enabled: true
+    currency: "USD"
+    pricing:
+      openai:gpt-4:
+        prompt_price_per_1k: 0.03
+        completion_price_per_1k: 0.06
+      openai:gpt-4-turbo:
+        prompt_price_per_1k: 0.01
+        completion_price_per_1k: 0.03
+      openai:gpt-3.5-turbo:
+        prompt_price_per_1k: 0.005
+        completion_price_per_1k: 0.015
+      anthropic:claude-3-sonnet:
+        prompt_price_per_1k: 0.015
+        completion_price_per_1k: 0.045
+      anthropic:claude-3-opus:
+        prompt_price_per_1k: 0.015
+        completion_price_per_1k: 0.075
+      google:gemini-pro:
+        prompt_price_per_1k: 0.0005
+        completion_price_per_1k: 0.0015
+  
+  retention:
+    max_session_age_days: 30
+    max_records_per_session: 10000

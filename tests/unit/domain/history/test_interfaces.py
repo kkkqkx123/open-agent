@@ -2,11 +2,12 @@
 
 import pytest
 from abc import ABC
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Any
 from src.domain.history.interfaces import IHistoryManager
 
 if TYPE_CHECKING:
     from src.domain.history.models import MessageRecord, ToolCallRecord, HistoryQuery, HistoryResult
+    from src.domain.history.llm_models import LLMRequestRecord, LLMResponseRecord, TokenUsageRecord, CostRecord
 
 
 class TestIHistoryManager:
@@ -20,7 +21,12 @@ class TestIHistoryManager:
     def test_abstract_methods(self) -> None:
         """测试抽象方法"""
         abstract_methods = IHistoryManager.__abstractmethods__
-        expected_methods = {'record_message', 'record_tool_call', 'query_history'}
+        expected_methods = {
+            'record_message', 'record_tool_call', 'query_history',
+            'record_llm_request', 'record_llm_response', 'record_token_usage',
+            'record_cost', 'get_token_statistics', 'get_cost_statistics',
+            'get_llm_statistics'
+        }
         
         assert abstract_methods == expected_methods
 
@@ -42,6 +48,27 @@ class TestIHistoryManager:
             
             def query_history(self, query: 'HistoryQuery') -> 'HistoryResult':
                 return None  # type: ignore
+            
+            def record_llm_request(self, record: 'LLMRequestRecord') -> None:
+                pass
+            
+            def record_llm_response(self, record: 'LLMResponseRecord') -> None:
+                pass
+            
+            def record_token_usage(self, record: 'TokenUsageRecord') -> None:
+                pass
+            
+            def record_cost(self, record: 'CostRecord') -> None:
+                pass
+            
+            def get_token_statistics(self, session_id: str) -> Dict[str, Any]:
+                return {}
+            
+            def get_cost_statistics(self, session_id: str) -> Dict[str, Any]:
+                return {}
+            
+            def get_llm_statistics(self, session_id: str) -> Dict[str, Any]:
+                return {}
 
         # 应该能够实例化具体实现
         manager = ConcreteHistoryManager()
