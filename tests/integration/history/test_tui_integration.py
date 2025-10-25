@@ -21,7 +21,7 @@ class TestTUIIntegration:
         """端到端消息记录测试"""
         with tempfile.TemporaryDirectory() as temp_dir:
             # 设置存储
-            storage = FileHistoryStorage(Path(temp_dir))
+            storage = FileHistoryStorage(Path(str(temp_dir)))
             manager = HistoryManager(storage)
             
             # 设置状态管理器
@@ -77,7 +77,7 @@ class TestTUIIntegration:
     def test_multiple_sessions_isolation(self) -> None:
         """多会话隔离测试"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            storage = FileHistoryStorage(Path(temp_dir))
+            storage = FileHistoryStorage(Path(str(temp_dir)))
             manager = HistoryManager(storage)
             
             # 创建第一个会话
@@ -122,7 +122,7 @@ class TestTUIIntegration:
     def test_no_session_id_behavior(self) -> None:
         """无会话ID行为测试"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            storage = FileHistoryStorage(Path(temp_dir))
+            storage = FileHistoryStorage(Path(str(temp_dir)))
             manager = HistoryManager(storage)
             
             # 创建无会话ID的状态管理器
@@ -190,7 +190,7 @@ class TestTUIIntegration:
         """错误处理集成测试"""
         with tempfile.TemporaryDirectory() as temp_dir:
             # 创建只读目录来模拟写入错误
-            readonly_dir = Path(temp_dir) / "readonly"
+            readonly_dir = Path(str(temp_dir)) / "readonly"
             readonly_dir.mkdir()
             readonly_dir.chmod(0o444)  # 只读权限
             
@@ -216,7 +216,7 @@ class TestTUIIntegration:
     def test_unicode_and_special_characters(self) -> None:
         """Unicode和特殊字符集成测试"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            storage = FileHistoryStorage(Path(temp_dir))
+            storage = FileHistoryStorage(Path(str(temp_dir)))
             manager = HistoryManager(storage)
             
             state_manager = StateManager()
@@ -266,7 +266,7 @@ class TestTUIIntegration:
     def test_large_data_handling(self) -> None:
         """大数据处理集成测试"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            storage = FileHistoryStorage(Path(temp_dir))
+            storage = FileHistoryStorage(Path(str(temp_dir)))
             manager = HistoryManager(storage)
             
             state_manager = StateManager()

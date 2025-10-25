@@ -33,9 +33,17 @@ class FileHistoryStorage:
     def _get_session_file(self, session_id: Optional[str]) -> Path:
         if session_id is None:
             # 返回一个无效路径，用于测试
-            return self.base_path / "sessions" / "invalid" / "None.jsonl"
+            result = self.base_path / "sessions" / "invalid" / "None.jsonl"
+            # 确保返回的是 Path 对象
+            if not isinstance(result, Path):
+                raise TypeError(f"Expected Path, got {type(result)}")
+            return result
         
         date_prefix = datetime.now().strftime("%Y%m")
         session_dir = self.base_path / "sessions" / date_prefix
         session_dir.mkdir(parents=True, exist_ok=True)
-        return session_dir / f"{session_id}.jsonl"
+        result = session_dir / f"{session_id}.jsonl"
+        # 确保返回的是 Path 对象
+        if not isinstance(result, Path):
+            raise TypeError(f"Expected Path, got {type(result)}")
+        return result
