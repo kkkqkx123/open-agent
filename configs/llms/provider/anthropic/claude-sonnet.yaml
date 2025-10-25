@@ -8,22 +8,82 @@ base_url: "https://api.anthropic.com"
 api_key: "${ANTHROPIC_API_KEY}"
 token_counter: anthropic_claude
 
-# 只覆盖需要修改的参数，其他从common.yaml继承
+# 继承provider通用配置，只覆盖特定参数
 parameters:
-  # 基础生成参数（覆盖common.yaml中的默认值）
+  # 基础生成参数
   temperature: 0.7
   max_tokens: 2000
   top_p: 1.0
+  top_k: null
+  stop_sequences: null
   
-  # 其他参数保持默认值，无需重复配置
+  # 工具调用参数
+  tool_choice: null
+  tools: null
+  
+  # 系统参数
+  system: null
+  thinking_config: null
+  
+  # 响应格式
+  response_format: null
+  
+  # 流式和控制参数
+  stream: false
+  metadata: null
+  user: null
+  
+  # 连接参数 - Claude Sonnet响应时间适中
+  timeout: 35
+  max_retries: 4
 
-# 缓存配置继承自provider配置，可以覆盖
+# Claude Sonnet特定的重试配置（覆盖组配置）
+retry_config:
+  base_delay: 1.5                  # Claude频率限制适中，设置适中的基础延迟
+  max_delay: 70.0                  # Claude响应稳定，设置适中的最大延迟
+  jitter: true
+  exponential_base: 2.0
+  retry_on_status_codes:
+    - 429  # 频率限制
+    - 500  # 服务器内部错误
+    - 502  # 网关错误
+    - 503  # 服务不可用
+    - 504  # 网关超时
+  retry_on_errors:
+    - "timeout"
+    - "rate_limit"
+    - "service_unavailable"
+    - "overloaded_error"  # Claude特有的过载错误
+
+# Claude Sonnet特定的超时配置（覆盖组配置）
+timeout_config:
+  request_timeout: 35              # Claude响应时间适中，设置适中的请求超时
+  connect_timeout: 12              # 连接超时时间
+  read_timeout: 35                 # 读取超时时间
+  write_timeout: 30                # 写入超时时间
+
+# 缓存配置（继承自provider配置）
 supports_caching: true  # Anthropic支持缓存控制
+cache_config:
+  enabled: true
+  ttl_seconds: 3600
+  max_size: 1000
+  cache_control_type: "ephemeral"  # ephemeral 或 persistent
+
+# 缓存相关参数
+cache_parameters:
+  cache_control:
+    type: "ephemeral"  # CacheControlEphemeral
+    max_tokens: null   # 可选：缓存的最大token数
+  cache_creation:
+    enabled: false     # 是否创建持久缓存
+    ttl: null         # 缓存生存时间
 
 # 降级配置
 fallback_enabled: true
 fallback_models:
-  - openai-gpt3.5-turbo
+  - anthropic-claude-haiku
+  - anthropic-claude-instant
 max_fallback_attempts: 3
 
 # 元数据
@@ -32,3 +92,12 @@ metadata:
   version: "1.0"
   description: "Anthropic Claude 3 Sonnet 模型"
   model_family: "claude-3"
+  capabilities:
+    - text_generation
+    - function_calling
+    - streaming
+    - thinking_mode
+    - api_caching
+    - vision
+  limitations:
+    - no_direct_json_mode

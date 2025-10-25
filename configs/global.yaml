@@ -23,3 +23,40 @@ env_prefix: "AGENT_"
 # 热重载配置
 hot_reload: true
 watch_interval: 5  # 5秒
+
+# LLM全局配置
+llm:
+  # 默认超时和重试配置
+  default_timeout: 30
+  default_max_retries: 3
+  
+  # 全局重试配置
+  retry_config:
+    base_delay: 1.0                 # 基础延迟时间（秒）
+    max_delay: 60.0                 # 最大延迟时间（秒）
+    jitter: true                    # 是否添加随机抖动
+    exponential_base: 2.0           # 指数退避基数
+    retry_on_status_codes:          # 需要重试的HTTP状态码
+      - 429  # 频率限制
+      - 500  # 服务器内部错误
+      - 502  # 网关错误
+      - 503  # 服务不可用
+      - 504  # 网关超时
+    retry_on_errors:                # 需要重试的错误类型
+      - "timeout"
+      - "rate_limit"
+      - "service_unavailable"
+  
+  # 全局超时配置
+  timeout_config:
+    request_timeout: 60             # 请求超时时间（秒）
+    connect_timeout: 10             # 连接超时时间（秒）
+    read_timeout: 45                # 读取超时时间（秒）
+    write_timeout: 15               # 写入超时时间（秒）
+  
+  # 性能优化配置
+  performance:
+    max_concurrent_requests: 10     # 最大并发请求数
+    request_queue_size: 100         # 请求队列大小
+    connection_pool_size: 20        # 连接池大小
+    connection_keep_alive: true     # 保持连接活跃

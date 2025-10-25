@@ -27,6 +27,26 @@ openai_group:
     user: null
     timeout: 30
     max_retries: 3
+  
+  # OpenAI特定的重试配置
+  retry_config:
+    base_delay: 1.0
+    max_delay: 30.0              # OpenAI通常响应较快，设置较小的最大延迟
+    jitter: true
+    exponential_base: 2.0
+    retry_on_status_codes:
+      - 429  # 频率限制
+      - 500  # 服务器内部错误
+      - 502  # 网关错误
+      - 503  # 服务不可用
+      - 504  # 网关超时
+  
+  # OpenAI特定的超时配置
+  timeout_config:
+    request_timeout: 30
+    connect_timeout: 10
+    read_timeout: 30
+    write_timeout: 30
 
 gemini_group:
   base_url: "https://generativelanguage.googleapis.com/v1"
@@ -50,6 +70,26 @@ gemini_group:
     user: null
     timeout: 30
     max_retries: 3
+  
+  # Gemini特定的重试配置
+  retry_config:
+    base_delay: 1.5                # Gemini频率限制较严格，增加基础延迟
+    max_delay: 45.0
+    jitter: true
+    exponential_base: 2.0
+    retry_on_status_codes:
+      - 429  # 频率限制
+      - 500  # 服务器内部错误
+      - 502  # 网关错误
+      - 503  # 服务不可用
+      - 504  # 网关超时
+  
+  # Gemini特定的超时配置
+  timeout_config:
+    request_timeout: 30
+    connect_timeout: 10
+    read_timeout: 30
+    write_timeout: 30
 
 anthropic_group:
   base_url: "https://api.anthropic.com"
@@ -71,3 +111,23 @@ anthropic_group:
     user: null
     timeout: 30
     max_retries: 3
+  
+  # Anthropic特定的重试配置
+  retry_config:
+    base_delay: 1.0
+    max_delay: 35.0              # Anthropic响应时间适中
+    jitter: true
+    exponential_base: 2.0
+    retry_on_status_codes:
+      - 429  # 频率限制
+      - 500  # 服务器内部错误
+      - 502  # 网关错误
+      - 503  # 服务不可用
+      - 504  # 网关超时
+  
+  # Anthropic特定的超时配置
+  timeout_config:
+    request_timeout: 30
+    connect_timeout: 10
+    read_timeout: 30
+    write_timeout: 30

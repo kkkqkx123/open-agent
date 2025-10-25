@@ -55,9 +55,34 @@ parameters:
   seed: null
   user: null
   
-  # 连接参数
-  timeout: 30
-  max_retries: 3
+  # 连接参数 - GPT-4可能需要更长的超时时间
+  timeout: 60
+  max_retries: 5
+
+# GPT-4特定的重试配置（覆盖组配置）
+retry_config:
+  base_delay: 2.0                  # GPT-4频率限制更严格，增加基础延迟
+  max_delay: 120.0                 # GPT-4可能需要更长的重试等待时间
+  jitter: true
+  exponential_base: 2.0
+  retry_on_status_codes:
+    - 429  # 频率限制
+    - 500  # 服务器内部错误
+    - 502  # 网关错误
+    - 503  # 服务不可用
+    - 504  # 网关超时
+  retry_on_errors:
+    - "timeout"
+    - "rate_limit"
+    - "service_unavailable"
+    - "insufficient_quota"  # GPT-4特有的配额不足错误
+
+# GPT-4特定的超时配置（覆盖组配置）
+timeout_config:
+  request_timeout: 60              # GPT-4响应时间较长，增加请求超时
+  connect_timeout: 15              # 连接超时也适当增加
+  read_timeout: 60                 # 读取超时时间
+  write_timeout: 30                # 写入超时时间
 
 # 缓存配置（继承自provider配置）
 supports_caching: false  # OpenAI不直接支持API级缓存
