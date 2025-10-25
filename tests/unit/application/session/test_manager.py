@@ -1,11 +1,13 @@
 """会话管理器单元测试"""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, mock_open
 from pathlib import Path
 from datetime import datetime
 import tempfile
 import shutil
+import json
+import hashlib
 
 from src.application.sessions.manager import SessionManager, ISessionManager
 from src.domain.sessions.store import ISessionStore
@@ -31,8 +33,13 @@ class TestSessionManager:
         manager = Mock(spec=IWorkflowManager)
         manager.load_workflow.return_value = "test_workflow_id"
         manager.create_workflow.return_value = Mock()
-        manager.get_workflow_config.return_value = Mock(spec=WorkflowConfig)
-        manager.get_workflow_config.return_value.to_dict.return_value = {"name": "test"}
+        
+        # 模拟工作流配置
+        mock_config = Mock(spec=WorkflowConfig)
+        mock_config.version = "1.0.0"
+        mock_config.to_dict.return_value = {"name": "test", "version": "1.0.0"}
+        manager.get_workflow_config.return_value = mock_config
+        
         return manager
 
     @pytest.fixture
@@ -105,12 +112,14 @@ class TestSessionManager:
         initial_state = AgentState()
         initial_state.add_message(BaseMessage(content="测试消息"))
         
-        with patch.object(session_manager, '_generate_session_id', return_value="test-session-id"):
-            session_id = session_manager.create_session(
-                workflow_config_path=workflow_config_path,
-                agent_config=agent_config,
-                initial_state=initial_state
-            )
+        # 模拟配置文件校验和计算
+        with patch('builtins.open', mock_open(read_data=b'test config content')):
+            with patch.object(session_manager, '_generate_session_id', return_value="test-session-id"):
+                session_id = session_manager.create_session(
+                    workflow_config_path=workflow_config_path,
+                    agent_config=agent_config,
+                    initial_state=initial_state
+                )
         
         assert session_id == "test-session-id"
         
@@ -125,16 +134,23 @@ class TestSessionManager:
         assert "metadata" in call_args[1]
         assert "state" in call_args[1]
         assert "workflow_config" in call_args[1]
+        
+        # 验证增强的元数据
+        metadata = call_args[1]["metadata"]
+        assert "workflow_config_path" in metadata
+        assert "workflow_version" in metadata
+        assert "workflow_checksum" in metadata
 
     def test_create_session_with_git(self, session_manager_with_git, mock_workflow_manager, 
                                    mock_session_store, mock_git_manager):
         """测试带Git管理器创建会话"""
         workflow_config_path = "configs/workflows/test.yaml"
         
-        with patch.object(session_manager_with_git, '_generate_session_id', return_value="test-session-id"):
-            session_id = session_manager_with_git.create_session(
-                workflow_config_path=workflow_config_path
-            )
+        with patch('builtins.open', mock_open(read_data=b'test config content')):
+            with patch.object(session_manager_with_git, '_generate_session_id', return_value="test-session-id"):
+                session_id = session_manager_with_git.create_session(
+                    workflow_config_path=workflow_config_path
+                )
         
         # 验证Git管理器调用
         mock_git_manager.init_repo.assert_called_once()
@@ -151,11 +167,23 @@ class TestSessionManager:
         assert result == expected_session
         mock_session_store.get_session.assert_called_once_with(session_id)
 
-    def test_restore_session(self, session_manager, mock_workflow_manager, mock_session_store):
-        """测试恢复会话"""
+    def test_restore_session_with_config_path(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试使用配置路径恢复会话"""
         session_id = "test-session-id"
+        workflow_config_path = "configs/workflows/test.yaml"
+        
+        # 计算正确的校验和
+        test_content = b'test config content'
+        expected_checksum = hashlib.md5(test_content).hexdigest()
+        
         session_data = {
-            "metadata": {"workflow_id": "test_workflow_id"},
+            "metadata": {
+                "session_id": session_id,
+                "workflow_id": "old_workflow_id",
+                "workflow_config_path": workflow_config_path,
+                "workflow_version": "1.0.0",
+                "workflow_checksum": expected_checksum
+            },
             "state": {
                 "messages": [],
                 "tool_results": [],
@@ -169,11 +197,306 @@ class TestSessionManager:
         }
         mock_session_store.get_session.return_value = session_data
         
-        workflow, state = session_manager.restore_session(session_id)
+        # 模拟配置文件存在
+        with patch('pathlib.Path.exists', return_value=True):
+            # 模拟配置文件校验和计算
+            with patch('builtins.open', mock_open(read_data=b'test config content')):
+                # 模拟工作流管理器重新加载工作流
+                mock_workflow_manager.load_workflow.return_value = "new_workflow_id"
+                mock_workflow_manager.create_workflow.return_value = Mock()
+                
+                workflow, state = session_manager.restore_session(session_id)
         
         assert workflow is not None
         assert isinstance(state, AgentState)
-        mock_workflow_manager.create_workflow.assert_called_once_with("test_workflow_id")
+        
+        # 验证使用了配置路径重新加载
+        mock_workflow_manager.load_workflow.assert_called_with(workflow_config_path)
+        mock_workflow_manager.create_workflow.assert_called_with("new_workflow_id")
+
+    def test_restore_session_fallback_to_original_id(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试回退到原始workflow_id"""
+        session_id = "test-session-id"
+        workflow_config_path = "configs/workflows/test.yaml"
+        
+        # 计算正确的校验和
+        test_content = b'test config content'
+        expected_checksum = hashlib.md5(test_content).hexdigest()
+        
+        session_data = {
+            "metadata": {
+                "session_id": session_id,
+                "workflow_id": "original_workflow_id",
+                "workflow_config_path": workflow_config_path,
+                "workflow_version": "1.0.0",
+                "workflow_checksum": expected_checksum
+            },
+            "state": {
+                "messages": [],
+                "tool_results": [],
+                "current_step": "",
+                "max_iterations": 10,
+                "iteration_count": 0,
+                "workflow_name": "",
+                "start_time": None,
+                "errors": []
+            }
+        }
+        mock_session_store.get_session.return_value = session_data
+        
+        # 模拟配置文件存在但加载失败
+        with patch('pathlib.Path.exists', return_value=True):
+            with patch('builtins.open', mock_open(read_data=b'test config content')):
+                # 第一次加载失败，第二次使用原始ID成功
+                mock_workflow_manager.load_workflow.side_effect = [Exception("加载失败"), None]
+                mock_workflow_manager.create_workflow.return_value = Mock()
+                
+                workflow, state = session_manager.restore_session(session_id)
+        
+        assert workflow is not None
+        assert isinstance(state, AgentState)
+        
+        # 验证最终使用了原始workflow_id
+        mock_workflow_manager.create_workflow.assert_called_with("original_workflow_id")
+
+    def test_restore_session_final_fallback(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试最终回退策略"""
+        session_id = "test-session-id"
+        workflow_config_path = "configs/workflows/test.yaml"
+        
+        # 计算正确的校验和
+        test_content = b'test config content'
+        expected_checksum = hashlib.md5(test_content).hexdigest()
+        
+        session_data = {
+            "metadata": {
+                "session_id": session_id,
+                "workflow_id": "original_workflow_id",
+                "workflow_config_path": workflow_config_path,
+                "workflow_version": "1.0.0",
+                "workflow_checksum": expected_checksum
+            },
+            "state": {
+                "messages": [],
+                "tool_results": [],
+                "current_step": "",
+                "max_iterations": 10,
+                "iteration_count": 0,
+                "workflow_name": "",
+                "start_time": None,
+                "errors": []
+            }
+        }
+        mock_session_store.get_session.return_value = session_data
+        
+        # 模拟配置文件存在
+        with patch('pathlib.Path.exists', return_value=True):
+            with patch('builtins.open', mock_open(read_data=b'test config content')):
+                # 前两次都失败，第三次成功
+                mock_workflow_manager.load_workflow.side_effect = [
+                    Exception("第一次失败"), 
+                    None  # 第三次成功
+                ]
+                mock_workflow_manager.create_workflow.side_effect = [
+                    Exception("创建失败"),  # 第二次失败
+                    Mock()  # 第三次成功
+                ]
+                
+                # 模拟更新会话元数据
+                mock_session_store.save_session.return_value = True
+                
+                workflow, state = session_manager.restore_session(session_id)
+        
+        assert workflow is not None
+        assert isinstance(state, AgentState)
+        
+        # 验证最终重新加载并更新了元数据
+        assert mock_workflow_manager.load_workflow.call_count == 2
+        mock_session_store.save_session.assert_called()
+
+    def test_restore_session_all_strategies_fail(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试所有恢复策略都失败"""
+        session_id = "test-session-id"
+        workflow_config_path = "configs/workflows/test.yaml"
+        
+        # 计算正确的校验和
+        test_content = b'test config content'
+        expected_checksum = hashlib.md5(test_content).hexdigest()
+        
+        session_data = {
+            "metadata": {
+                "session_id": session_id,
+                "workflow_id": "original_workflow_id",
+                "workflow_config_path": workflow_config_path,
+                "workflow_version": "1.0.0",
+                "workflow_checksum": expected_checksum
+            },
+            "state": {
+                "messages": [],
+                "tool_results": [],
+                "current_step": "",
+                "max_iterations": 10,
+                "iteration_count": 0,
+                "workflow_name": "",
+                "start_time": None,
+                "errors": []
+            }
+        }
+        mock_session_store.get_session.return_value = session_data
+        
+        # 模拟配置文件存在
+        with patch('pathlib.Path.exists', return_value=True):
+            with patch('builtins.open', mock_open(read_data=b'test config content')):
+                # 所有策略都失败
+                mock_workflow_manager.load_workflow.side_effect = Exception("总是失败")
+                mock_workflow_manager.create_workflow.side_effect = Exception("总是失败")
+                
+                with pytest.raises(ValueError, match="无法恢复会话"):
+                    session_manager.restore_session(session_id)
+
+    def test_restore_session_config_file_not_exists(self, session_manager, mock_session_store):
+        """测试配置文件不存在的情况"""
+        session_id = "test-session-id"
+        workflow_config_path = "configs/workflows/nonexistent.yaml"
+        
+        session_data = {
+            "metadata": {
+                "session_id": session_id,
+                "workflow_id": "original_workflow_id",
+                "workflow_config_path": workflow_config_path,
+                "workflow_version": "1.0.0",
+                "workflow_checksum": "abc123"
+            },
+            "state": {
+                "messages": [],
+                "tool_results": [],
+                "current_step": "",
+                "max_iterations": 10,
+                "iteration_count": 0,
+                "workflow_name": "",
+                "start_time": None,
+                "errors": []
+            }
+        }
+        mock_session_store.get_session.return_value = session_data
+        
+        # 模拟配置文件不存在
+        with patch('pathlib.Path.exists', return_value=False):
+            with pytest.raises(FileNotFoundError, match="工作流配置文件不存在"):
+                session_manager.restore_session(session_id)
+
+    def test_validate_workflow_consistency(self, session_manager, mock_workflow_manager):
+        """测试工作流配置一致性验证"""
+        # 计算正确的校验和
+        test_content = b'test config content'
+        expected_checksum = hashlib.md5(test_content).hexdigest()
+        
+        metadata = {
+            "workflow_config_path": "configs/workflows/test.yaml",
+            "workflow_version": "1.0.0",
+            "workflow_checksum": expected_checksum
+        }
+        workflow_id = "test_workflow_id"
+        
+        # 模拟配置文件
+        with patch('builtins.open', mock_open(read_data=test_content)):
+            # 配置一致的情况
+            mock_config = Mock(spec=WorkflowConfig)
+            mock_config.version = "1.0.0"
+            mock_workflow_manager.get_workflow_config.return_value = mock_config
+            
+            result = session_manager._validate_workflow_consistency(metadata, workflow_id)
+            assert result is True
+            
+            # 版本不一致的情况
+            mock_config.version = "2.0.0"
+            result = session_manager._validate_workflow_consistency(metadata, workflow_id)
+            assert result is False
+            
+            # 配置不存在的情况
+            mock_workflow_manager.get_workflow_config.return_value = None
+            result = session_manager._validate_workflow_consistency(metadata, workflow_id)
+            assert result is False
+
+    def test_calculate_config_checksum(self, session_manager):
+        """测试配置文件校验和计算"""
+        config_path = "configs/workflows/test.yaml"
+        test_content = b"test config content"
+        expected_checksum = hashlib.md5(test_content).hexdigest()
+        
+        with patch('builtins.open', mock_open(read_data=test_content)):
+            result = session_manager._calculate_config_checksum(config_path)
+            assert result == expected_checksum
+        
+        # 测试文件读取失败的情况
+        with patch('builtins.open', side_effect=Exception("读取失败")):
+            result = session_manager._calculate_config_checksum(config_path)
+            assert result == ""
+
+    def test_update_session_workflow_info(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试更新会话工作流信息"""
+        session_id = "test-session-id"
+        new_workflow_id = "new_workflow_id"
+        workflow_config_path = "configs/workflows/test.yaml"
+        
+        session_data = {
+            "metadata": {
+                "session_id": session_id,
+                "workflow_id": "old_workflow_id",
+                "workflow_config_path": workflow_config_path,
+                "workflow_version": "1.0.0",
+                "workflow_checksum": "old_checksum"
+            },
+            "state": {}
+        }
+        mock_session_store.get_session.return_value = session_data
+        
+        # 模拟新的工作流配置
+        mock_config = Mock(spec=WorkflowConfig)
+        mock_config.version = "2.0.0"
+        mock_workflow_manager.get_workflow_config.return_value = mock_config
+        
+        # 模拟配置文件校验和计算
+        with patch('builtins.open', mock_open(read_data=b'new config content')):
+            session_manager._update_session_workflow_info(session_id, new_workflow_id)
+        
+        # 验证会话数据被更新
+        mock_session_store.save_session.assert_called_once()
+        call_args = mock_session_store.save_session.call_args[0]
+        updated_data = call_args[1]
+        
+        assert updated_data["metadata"]["workflow_id"] == new_workflow_id
+        assert updated_data["metadata"]["workflow_version"] == "2.0.0"
+        assert "recovery_info" in updated_data["metadata"]
+        assert updated_data["metadata"]["recovery_info"]["reason"] == "workflow_recovery"
+
+    def test_log_recovery_failure(self, session_manager, mock_session_store, temp_dir):
+        """测试恢复失败日志记录"""
+        session_id = "test-session-id"
+        error = Exception("测试错误")
+        
+        # 创建恢复日志目录
+        log_dir = temp_dir / "recovery_logs"
+        log_dir.mkdir(exist_ok=True)
+        
+        session_manager._log_recovery_failure(session_id, error)
+        
+        # 验证恢复尝试计数
+        assert session_manager._get_recovery_attempts(session_id) == 1
+        
+        # 验证日志文件被创建
+        log_file = log_dir / f"{session_id}_recovery.log"
+        assert log_file.exists()
+        
+        # 验证日志内容
+        with open(log_file, "r", encoding="utf-8") as f:
+            log_content = f.read()
+            log_data = json.loads(log_content.strip())
+            
+        assert log_data["session_id"] == session_id
+        assert log_data["error_type"] == "Exception"
+        assert log_data["error_message"] == "测试错误"
+        assert log_data["recovery_attempts"] == 1
 
     def test_restore_session_not_exists(self, session_manager, mock_session_store):
         """测试恢复不存在的会话"""
@@ -221,11 +544,15 @@ class TestSessionManager:
         session_dir = temp_dir / session_id
         session_dir.mkdir(exist_ok=True)
         
+        # 添加恢复尝试记录
+        session_manager._recovery_attempts[session_id] = 3
+        
         result = session_manager.delete_session(session_id)
         
         assert result is True
         mock_session_store.delete_session.assert_called_once_with(session_id)
         assert not session_dir.exists()
+        assert session_id not in session_manager._recovery_attempts
 
     def test_delete_session_error(self, session_manager, mock_session_store):
         """测试删除会话出错"""
@@ -320,9 +647,9 @@ class TestSessionManager:
         mock_now = Mock()
         mock_now.strftime.side_effect = lambda fmt: "251022" if fmt == "%y%m%d" else "174800"
         
-        with patch('src.sessions.manager.datetime') as mock_datetime:
+        with patch('src.application.sessions.manager.datetime') as mock_datetime:
             mock_datetime.now.return_value = mock_now
-            with patch('src.sessions.manager.uuid') as mock_uuid:
+            with patch('src.application.sessions.manager.uuid') as mock_uuid:
                 mock_uuid.uuid4.return_value.__str__.return_value = "1f73e8-1234-5678-9abc-def123456789"
                 
                 session_id = session_manager._generate_session_id(workflow_config_path)
@@ -389,3 +716,14 @@ class TestSessionManager:
         assert result.current_step == "测试步骤"
         assert result.workflow_name == "test_workflow"
         assert result.start_time == datetime(2023, 1, 1, 0, 0, 0)
+
+    def test_get_recovery_attempts(self, session_manager):
+        """测试获取恢复尝试次数"""
+        session_id = "test-session-id"
+        
+        # 初始状态
+        assert session_manager._get_recovery_attempts(session_id) == 0
+        
+        # 添加尝试记录
+        session_manager._recovery_attempts[session_id] = 3
+        assert session_manager._get_recovery_attempts(session_id) == 3

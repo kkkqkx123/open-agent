@@ -8,14 +8,18 @@ from typing import Dict, Any, Optional, List, Tuple
 from pathlib import Path
 import uuid
 import json
+import hashlib
+import logging
 from datetime import datetime
 
-from ..workflow.manager import IWorkflowManager
 from ..workflow.manager import IWorkflowManager
 from ...domain.workflow.config import WorkflowConfig
 from ...domain.prompts.agent_state import AgentState
 from ...domain.sessions.store import ISessionStore
 from .git_manager import IGitManager
+
+# 设置日志
+logger = logging.getLogger(__name__)
 
 
 class ISessionManager(ABC):
@@ -158,6 +162,7 @@ class SessionManager(ISessionManager):
         self.session_store = session_store
         self.git_manager = git_manager
         self.storage_path = storage_path or Path("./sessions")
+        self._recovery_attempts: Dict[str, int] = {}
 
         # 确保存储目录存在
         self.storage_path.mkdir(parents=True, exist_ok=True)
@@ -172,6 +177,7 @@ class SessionManager(ISessionManager):
         # 加载工作流配置
         workflow_id = self.workflow_manager.load_workflow(workflow_config_path)
         workflow = self.workflow_manager.create_workflow(workflow_id)
+        workflow_config = self.workflow_manager.get_workflow_config(workflow_id)
         
         # 生成符合新命名规则的会话ID
         session_id = self._generate_session_id(workflow_config_path)
@@ -188,11 +194,13 @@ class SessionManager(ISessionManager):
         if self.git_manager:
             self.git_manager.init_repo(session_dir)
 
-        # 保存会话元数据
+        # 保存增强的会话元数据
         session_metadata = {
             "session_id": session_id,
             "workflow_config_path": workflow_config_path,
             "workflow_id": workflow_id,
+            "workflow_version": workflow_config.version if workflow_config else "1.0.0",
+            "workflow_checksum": self._calculate_config_checksum(workflow_config_path),
             "agent_config": agent_config or {},
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
@@ -200,7 +208,6 @@ class SessionManager(ISessionManager):
         }
 
         # 保存会话信息
-        workflow_config = self.workflow_manager.get_workflow_config(workflow_id)
         session_data = {
             "metadata": session_metadata,
             "state": self._serialize_state(initial_state),
@@ -223,19 +230,27 @@ class SessionManager(ISessionManager):
         return self.session_store.get_session(session_id)
 
     def restore_session(self, session_id: str) -> Tuple[Any, AgentState]:
-        """恢复会话"""
-        session_data = self.session_store.get_session(session_id)
-        if not session_data:
-            raise ValueError(f"会话 {session_id} 不存在")
-
-        # 重建工作流
-        workflow_id = session_data["metadata"]["workflow_id"]
-        workflow = self.workflow_manager.create_workflow(workflow_id)
-
-        # 恢复状态
-        state = self._deserialize_state(session_data["state"])
-
-        return workflow, state
+        """改进的会话恢复方法"""
+        try:
+            session_data = self.session_store.get_session(session_id)
+            if not session_data:
+                raise ValueError(f"会话 {session_id} 不存在")
+            
+            metadata = session_data["metadata"]
+            config_path = metadata["workflow_config_path"]
+            
+            # 检查配置文件是否存在
+            if not Path(config_path).exists():
+                raise FileNotFoundError(f"工作流配置文件不存在: {config_path}")
+            
+            # 使用改进的恢复策略
+            return self._restore_workflow_with_fallback(metadata, session_data)
+            
+        except Exception as e:
+            logger.error(f"会话恢复失败: session_id={session_id}, error={e}")
+            # 记录详细的恢复失败信息
+            self._log_recovery_failure(session_id, e)
+            raise
 
     def save_session(self, session_id: str, workflow: Any, state: AgentState) -> bool:
         """保存会话"""
@@ -276,6 +291,10 @@ class SessionManager(ISessionManager):
                 import shutil
                 shutil.rmtree(session_dir)
 
+            # 清理恢复尝试记录
+            if session_id in self._recovery_attempts:
+                del self._recovery_attempts[session_id]
+
             return True
         except Exception:
             return False
@@ -310,6 +329,152 @@ class SessionManager(ISessionManager):
     def session_exists(self, session_id: str) -> bool:
         """检查会话是否存在"""
         return self.get_session(session_id) is not None
+
+    def _restore_workflow_with_fallback(self, metadata: Dict[str, Any], session_data: Dict[str, Any]) -> Tuple[Any, AgentState]:
+        """带回退机制的工作流恢复"""
+        session_id = metadata.get("session_id", "unknown")
+        config_path = metadata["workflow_config_path"]
+        
+        # 策略1: 优先使用配置路径重新加载
+        try:
+            workflow_id = self.workflow_manager.load_workflow(config_path)
+            workflow = self.workflow_manager.create_workflow(workflow_id)
+            
+            # 验证配置一致性
+            if not self._validate_workflow_consistency(metadata, workflow_id):
+                logger.warning(f"工作流配置已变更，使用新配置恢复会话 {session_id}")
+                
+            # 恢复状态
+            state = self._deserialize_state(session_data["state"])
+            
+            # 重置恢复尝试计数
+            if session_id in self._recovery_attempts:
+                del self._recovery_attempts[session_id]
+                
+            return workflow, state
+            
+        except Exception as e:
+            # 策略2: 回退到原始workflow_id
+            logger.warning(f"基于配置路径恢复失败，尝试使用原始workflow_id: {e}")
+            try:
+                original_workflow_id = metadata["workflow_id"]
+                workflow = self.workflow_manager.create_workflow(original_workflow_id)
+                
+                # 恢复状态
+                state = self._deserialize_state(session_data["state"])
+                
+                # 重置恢复尝试计数
+                if session_id in self._recovery_attempts:
+                    del self._recovery_attempts[session_id]
+                    
+                return workflow, state
+                
+            except Exception as e2:
+                # 策略3: 最终回退 - 重新加载并更新元数据
+                logger.error(f"会话恢复失败，尝试重新创建工作流: {e2}")
+                try:
+                    workflow_id = self.workflow_manager.load_workflow(config_path)
+                    workflow = self.workflow_manager.create_workflow(workflow_id)
+                    
+                    # 更新会话元数据
+                    self._update_session_workflow_info(session_id, workflow_id)
+                    
+                    # 恢复状态
+                    state = self._deserialize_state(session_data["state"])
+                    
+                    # 重置恢复尝试计数
+                    if session_id in self._recovery_attempts:
+                        del self._recovery_attempts[session_id]
+                        
+                    return workflow, state
+                    
+                except Exception as e3:
+                    # 所有策略都失败
+                    logger.error(f"所有恢复策略都失败: {e3}")
+                    raise ValueError(f"无法恢复会话 {session_id}: 所有恢复策略都失败")
+
+    def _validate_workflow_consistency(self, metadata: Dict[str, Any], workflow_id: str) -> bool:
+        """验证工作流配置一致性"""
+        current_config = self.workflow_manager.get_workflow_config(workflow_id)
+        if not current_config:
+            return False
+        
+        # 检查版本
+        if metadata.get("workflow_version") != current_config.version:
+            return False
+        
+        # 检查配置校验和
+        current_checksum = self._calculate_config_checksum(
+            metadata["workflow_config_path"]
+        )
+        return metadata.get("workflow_checksum") == current_checksum
+
+    def _calculate_config_checksum(self, config_path: str) -> str:
+        """计算配置文件校验和"""
+        try:
+            with open(config_path, 'rb') as f:
+                return hashlib.md5(f.read()).hexdigest()
+        except Exception as e:
+            logger.warning(f"计算配置文件校验和失败: {config_path}, error: {e}")
+            return ""
+
+    def _update_session_workflow_info(self, session_id: str, new_workflow_id: str) -> None:
+        """更新会话中的工作流信息"""
+        session_data = self.session_store.get_session(session_id)
+        if not session_data:
+            return
+        
+        workflow_config = self.workflow_manager.get_workflow_config(new_workflow_id)
+        session_data["metadata"].update({
+            "workflow_id": new_workflow_id,
+            "workflow_version": workflow_config.version if workflow_config else "unknown",
+            "workflow_checksum": self._calculate_config_checksum(
+                session_data["metadata"]["workflow_config_path"]
+            ),
+            "updated_at": datetime.now().isoformat(),
+            "recovery_info": {
+                "recovered_at": datetime.now().isoformat(),
+                "original_workflow_id": session_data["metadata"].get("workflow_id"),
+                "reason": "workflow_recovery"
+            }
+        })
+        
+        self.session_store.save_session(session_id, session_data)
+
+    def _log_recovery_failure(self, session_id: str, error: Exception) -> None:
+        """记录恢复失败信息"""
+        recovery_attempts = self._get_recovery_attempts(session_id) + 1
+        self._recovery_attempts[session_id] = recovery_attempts
+        
+        recovery_log = {
+            "session_id": session_id,
+            "timestamp": datetime.now().isoformat(),
+            "error_type": type(error).__name__,
+            "error_message": str(error),
+            "recovery_attempts": recovery_attempts
+        }
+        
+        # 保存恢复日志
+        self._save_recovery_log(recovery_log)
+
+    def _get_recovery_attempts(self, session_id: str) -> int:
+        """获取恢复尝试次数"""
+        return self._recovery_attempts.get(session_id, 0)
+
+    def _save_recovery_log(self, recovery_log: Dict[str, Any]) -> None:
+        """保存恢复日志"""
+        try:
+            log_dir = self.storage_path / "recovery_logs"
+            log_dir.mkdir(exist_ok=True)
+            
+            session_id = recovery_log["session_id"]
+            log_file = log_dir / f"{session_id}_recovery.log"
+            
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(recovery_log, ensure_ascii=False) + "\n")
+                
+        except Exception as e:
+            logger.error(f"保存恢复日志失败: {e}")
 
     def _serialize_state(self, state: AgentState) -> Dict[str, Any]:
         """序列化状态"""
