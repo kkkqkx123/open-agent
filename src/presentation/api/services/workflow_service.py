@@ -4,6 +4,7 @@ from datetime import datetime
 import asyncio
 
 from src.application.workflow.manager import IWorkflowManager
+from src.domain.prompts.agent_state import AgentState
 from ..data_access.workflow_dao import WorkflowDAO
 from ..cache.memory_cache import MemoryCache
 from ..models.requests import WorkflowCreateRequest, WorkflowUpdateRequest, WorkflowRunRequest
@@ -11,7 +12,7 @@ from ..models.responses import WorkflowResponse, WorkflowListResponse, WorkflowE
 from ..utils.pagination import paginate_list, calculate_pagination, validate_page_params
 from ..utils.serialization import serialize_workflow_data
 from ..utils.validation import (
-    validate_workflow_id, validate_page_params, validate_sort_params,
+    validate_workflow_id, validate_page_params as validate_page_params_func, validate_sort_params,
     sanitize_string, validate_config_path
 )
 
@@ -39,13 +40,13 @@ class WorkflowService:
     ) -> WorkflowListResponse:
         """获取工作流列表"""
         # 验证参数
-        is_valid, error_msg = validate_page_params(page, page_size)
+        is_valid, error_msg = validate_page_params_func(page, page_size)
         if not is_valid:
             raise ValueError(error_msg)
         
         is_valid, error_msg = validate_sort_params(sort_by, sort_order)
         if not is_valid:
-            raise ValueError(error_msg)
+            raise ValueError(error_msg or "排序参数无效")
         
         # 检查缓存
         cache_key = f"workflows:list:{page}:{page_size}:{search}:{sort_by}:{sort_order}"
@@ -141,7 +142,7 @@ class WorkflowService:
         await self.cache.delete("workflows:list:*")
         
         # 返回创建的工作流
-        result = await self.get_workflow(workflow_data["workflow_id"])
+        result = await self.get_workflow(str(workflow_data["workflow_id"]))
         if not result:
             raise RuntimeError("创建工作流失败")
         
@@ -207,7 +208,11 @@ class WorkflowService:
         
         try:
             # 获取初始状态
-            initial_state = request.initial_state if request else None
+            initial_state_dict = request.initial_state if request else None
+            # 转换为 AgentState
+            initial_state = None
+            if initial_state_dict:
+                initial_state = AgentState(**initial_state_dict)
             
             # 运行工作流
             result = self.workflow_manager.run_workflow(
@@ -223,7 +228,8 @@ class WorkflowService:
                 status="completed",
                 started_at=started_at,
                 completed_at=completed_at,
-                result=result
+                result=result.__dict__ if hasattr(result, '__dict__') else {"result": str(result)},
+                error=None
             )
             
         except Exception as e:
@@ -235,6 +241,7 @@ class WorkflowService:
                 status="error",
                 started_at=started_at,
                 completed_at=completed_at,
+                result=None,
                 error=str(e)
             )
     
@@ -262,10 +269,14 @@ class WorkflowService:
         
         try:
             # 获取初始状态
-            initial_state = request.initial_state if request else None
+            initial_state_dict = request.initial_state if request else None
+            # 转换为 AgentState
+            initial_state = None
+            if initial_state_dict:
+                initial_state = AgentState(**initial_state_dict)
             
             # 流式运行工作流
-            async for state in self.workflow_manager.stream_workflow(
+            for state in self.workflow_manager.stream_workflow(
                 workflow_id,
                 initial_state=initial_state
             ):
@@ -308,7 +319,7 @@ class WorkflowService:
         cache_key = f"workflow:viz:{workflow_id}"
         cached_viz = await self.cache.get(cache_key)
         if cached_viz:
-            return cached_viz
+            return cached_viz if isinstance(cached_viz, dict) else {}
         
         # 获取工作流配置
         config = self.workflow_manager.get_workflow_config(workflow_id)
@@ -321,7 +332,7 @@ class WorkflowService:
         # 缓存结果
         await self.cache.set(cache_key, visualization, ttl=300)
         
-        return visualization
+        return visualization or {}
     
     async def unload_workflow(self, workflow_id: str) -> bool:
         """卸载工作流"""

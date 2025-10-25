@@ -1,5 +1,5 @@
 """序列化工具"""
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 
@@ -75,10 +75,10 @@ def safe_json_dumps(data: Any) -> str:
     import json
     
     class DateTimeEncoder(json.JSONEncoder):
-        def default(self, obj):
-            if isinstance(obj, datetime):
-                return obj.isoformat()
-            return super().default(obj)
+        def default(self, o: Any) -> Any:
+            if isinstance(o, datetime):
+                return o.isoformat()
+            return super().default(o)
     
     try:
         return json.dumps(data, cls=DateTimeEncoder, ensure_ascii=False)
@@ -96,12 +96,12 @@ def safe_json_loads(json_str: str) -> Any:
         return {"error": "无效的JSON数据"}
 
 
-def filter_sensitive_data(data: Dict[str, Any], sensitive_keys: Optional[list] = None) -> Dict[str, Any]:
+def filter_sensitive_data(data: Dict[str, Any], sensitive_keys: Optional[List[str]] = None) -> Dict[str, Any]:
     """过滤敏感数据"""
     if not sensitive_keys:
         sensitive_keys = ["password", "token", "api_key", "secret"]
     
-    filtered_data = {}
+    filtered_data: Dict[str, Any] = {}
     for key, value in data.items():
         if any(sensitive in key.lower() for sensitive in sensitive_keys):
             filtered_data[key] = "***"

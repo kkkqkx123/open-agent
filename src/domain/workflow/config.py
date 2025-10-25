@@ -143,6 +143,9 @@ class WorkflowConfig:
             }
         )
 
+    def model_dump(self) -> Dict[str, Any]:
+        """转换为字典（Pydantic兼容方法）"""
+        return self.to_dict()
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         result = {

@@ -1,9 +1,13 @@
 """中间件配置"""
+import os
 import time
 import uuid
-from typing import Callable
-from fastapi import Request, Response
-from fastapi.middleware.base import BaseHTTPMiddleware
+
+from fastapi import Request, Response, FastAPI
+from fastapi.middleware.cors import CORSMiddleware as FastAPICORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.types import ASGIApp
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.base import RequestResponseEndpoint
 import logging
 
@@ -98,7 +102,6 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             )
             
             # 返回标准错误响应
-            from fastapi.responses import JSONResponse
             return JSONResponse(
                 status_code=500,
                 content={
@@ -110,47 +113,8 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             )
 
 
-class CORSMiddleware(BaseHTTPMiddleware):
-    """CORS中间件"""
-    
-    def __init__(
-        self,
-        app,
-        allow_origins: list = None,
-        allow_methods: list = None,
-        allow_headers: list = None,
-        allow_credentials: bool = True,
-    ):
-        super().__init__(app)
-        self.allow_origins = allow_origins or ["*"]
-        self.allow_methods = allow_methods or ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-        self.allow_headers = allow_headers or ["*"]
-        self.allow_credentials = allow_credentials
-    
-    async def dispatch(
-        self, 
-        request: Request, 
-        call_next: RequestResponseEndpoint
-    ) -> Response:
-        origin = request.headers.get("origin")
-        
-        # 处理预检请求
-        if request.method == "OPTIONS":
-            response = Response()
-        else:
-            response = await call_next(request)
-        
-        # 设置CORS头
-        if origin and (self.allow_origins == ["*"] or origin in self.allow_origins):
-            response.headers["Access-Control-Allow-Origin"] = origin
-        
-        response.headers["Access-Control-Allow-Methods"] = ", ".join(self.allow_methods)
-        response.headers["Access-Control-Allow-Headers"] = ", ".join(self.allow_headers)
-        
-        if self.allow_credentials:
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-        
-        return response
+# 使用 FastAPI 内置的 CORSMiddleware 的别名
+CORSMiddleware = FastAPICORSMiddleware
 
 
 class SecurityMiddleware(BaseHTTPMiddleware):
@@ -170,7 +134,6 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         
         # 在生产环境中添加HSTS
-        import os
         if os.getenv("ENVIRONMENT") == "production":
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         
@@ -180,10 +143,10 @@ class SecurityMiddleware(BaseHTTPMiddleware):
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """限流中间件"""
     
-    def __init__(self, app, requests_per_minute: int = 60):
+    def __init__(self, app: ASGIApp, requests_per_minute: int = 60) -> None:
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
-        self.requests = {}  # IP地址 -> 请求时间列表
+        self.requests: dict[str, list[float]] = {}  # IP地址 -> 请求时间列表
     
     async def dispatch(
         self, 
@@ -207,7 +170,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         
         # 检查是否超过限制
         if len(self.requests[client_ip]) >= self.requests_per_minute:
-            from fastapi.responses import JSONResponse
             return JSONResponse(
                 status_code=429,
                 content={
@@ -223,7 +185,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-def setup_middleware(app):
+def setup_middleware(app: FastAPI) -> None:
     """设置中间件"""
     # 注意：中间件的添加顺序很重要，后添加的先执行
     

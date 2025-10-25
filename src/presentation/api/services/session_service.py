@@ -3,12 +3,13 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 from src.application.sessions.manager import ISessionManager
+from src.domain.prompts.agent_state import AgentState
 from ..data_access.session_dao import SessionDAO
 from ..data_access.history_dao import HistoryDAO
 from ..cache.memory_cache import MemoryCache
 from ..models.requests import SessionCreateRequest, SessionUpdateRequest
 from ..models.responses import SessionResponse, SessionListResponse, SessionHistoryResponse
-from ..utils.pagination import paginate_list, calculate_pagination, validate_page_params
+from ..utils.pagination import paginate_list, calculate_pagination
 from ..utils.serialization import serialize_session_data
 from ..utils.validation import (
     validate_session_id, validate_page_params, validate_sort_params,
@@ -31,6 +32,66 @@ class SessionService:
         self.history_dao = history_dao
         self.cache = cache
     
+    def _dict_to_agent_state(self, state_dict: Optional[Dict[str, Any]]) -> Optional[AgentState]:
+        """将字典转换为AgentState对象"""
+        if state_dict is None:
+            return None
+        
+        agent_state = AgentState()
+        
+        # 设置基本属性
+        agent_state.current_step = state_dict.get("current_step", "")
+        agent_state.max_iterations = state_dict.get("max_iterations", 10)
+        agent_state.iteration_count = state_dict.get("iteration_count", 0)
+        agent_state.workflow_name = state_dict.get("workflow_name", "")
+        agent_state.errors = state_dict.get("errors", [])
+        
+        # 处理开始时间
+        start_time_str = state_dict.get("start_time")
+        if start_time_str:
+            try:
+                agent_state.start_time = datetime.fromisoformat(start_time_str)
+            except (ValueError, TypeError):
+                agent_state.start_time = None
+        
+        # 处理消息
+        from src.domain.prompts.agent_state import BaseMessage
+        for msg_data in state_dict.get("messages", []):
+            try:
+                msg_type = msg_data.get("type", "base")
+                content = msg_data.get("content", "")
+                
+                if msg_type == "system":
+                    from src.domain.prompts.agent_state import SystemMessage
+                    message = SystemMessage(content=content)
+                elif msg_type == "human":
+                    from src.domain.prompts.agent_state import HumanMessage
+                    message = HumanMessage(content=content)
+                else:
+                    message = BaseMessage(content=content)
+                
+                agent_state.add_message(message)
+            except Exception:
+                # 如果创建消息失败，跳过
+                continue
+        
+        # 处理工具结果
+        from src.domain.prompts.agent_state import ToolResult
+        for result_data in state_dict.get("tool_results", []):
+            try:
+                tool_result = ToolResult(
+                    tool_name=result_data.get("tool_name", ""),
+                    success=result_data.get("success", False),
+                    result=result_data.get("result"),
+                    error=result_data.get("error")
+                )
+                agent_state.tool_results.append(tool_result)
+            except Exception:
+                # 如果创建工具结果失败，跳过
+                continue
+        
+        return agent_state
+    
     async def list_sessions(
         self,
         page: int = 1,
@@ -44,11 +105,11 @@ class SessionService:
         # 验证参数
         is_valid, error_msg = validate_page_params(page, page_size)
         if not is_valid:
-            raise ValueError(error_msg)
+            raise ValueError(error_msg or "分页参数无效")
         
         is_valid, error_msg = validate_sort_params(sort_by, sort_order)
         if not is_valid:
-            raise ValueError(error_msg)
+            raise ValueError(error_msg or "排序参数无效")
         
         # 检查缓存
         cache_key = f"sessions:list:{page}:{page_size}:{status}:{search}:{sort_by}:{sort_order}"
@@ -127,10 +188,11 @@ class SessionService:
             raise ValueError("工作流配置路径不能为空")
         
         # 创建会话
+        agent_state = self._dict_to_agent_state(request.initial_state)
         session_id = self.session_manager.create_session(
             workflow_config_path=request.workflow_config_path,
             agent_config=request.agent_config,
-            initial_state=request.initial_state
+            initial_state=agent_state
         )
         
         # 保存到数据库
@@ -233,10 +295,17 @@ class SessionService:
             return False
         
         # 保存状态
+        state_dict = session_data.get("state")
+        agent_state = self._dict_to_agent_state(state_dict) if state_dict else None
+        
+        # 如果转换失败，创建一个新的空状态
+        if agent_state is None:
+            agent_state = AgentState()
+        
         success = self.session_manager.save_session(
             session_id,
             session_data.get("workflow"),
-            session_data.get("state")
+            agent_state
         )
         
         if success:
@@ -276,7 +345,7 @@ class SessionService:
         cache_key = f"session:stats:{session_id}"
         cached_stats = await self.cache.get(cache_key)
         if cached_stats:
-            return cached_stats
+            return cached_stats  # type: ignore
         
         # 获取统计信息
         stats = self.history_dao.get_session_statistics(session_id)

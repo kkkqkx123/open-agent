@@ -133,6 +133,18 @@ class IWorkflowManager(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_workflow_visualization(self, workflow_id: str) -> Dict[str, Any]:
+        """获取工作流可视化数据
+
+        Args:
+            workflow_id: 工作流ID
+
+        Returns:
+            Dict[str, Any]: 可视化数据
+        """
+        pass
+
 
 class WorkflowManager(IWorkflowManager):
     """工作流管理器实现"""
@@ -364,6 +376,47 @@ class WorkflowManager(IWorkflowManager):
         del self._workflow_metadata[workflow_id]
         
         return True
+
+    def get_workflow_visualization(self, workflow_id: str) -> Dict[str, Any]:
+        """获取工作流可视化数据
+
+        Args:
+            workflow_id: 工作流ID
+
+        Returns:
+            Dict[str, Any]: 可视化数据
+        """
+        config = self.get_workflow_config(workflow_id)
+        if not config:
+            return {}
+        
+        # 转换配置为可视化数据
+        return {
+            "workflow_id": workflow_id,
+            "name": config.name,
+            "description": config.description,
+            "version": config.version,
+            "nodes": [
+                {
+                    "id": node_id,
+                    "type": node.type,
+                    "config": node.config,
+                    "description": node.description
+                }
+                for node_id, node in config.nodes.items()
+            ],
+            "edges": [
+                {
+                    "from": edge.from_node,
+                    "to": edge.to_node,
+                    "type": edge.type.value,
+                    "condition": edge.condition,
+                    "description": edge.description
+                }
+                for edge in config.edges
+            ],
+            "entry_point": config.entry_point
+        }
 
     def get_workflow_metadata(self, workflow_id: str) -> Optional[Dict[str, Any]]:
         """获取工作流元数据

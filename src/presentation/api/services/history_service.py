@@ -1,6 +1,6 @@
 """历史服务"""
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import io
 import csv
 
@@ -149,7 +149,7 @@ class HistoryService:
         cache_key = f"history:export:{session_id}:{format}"
         cached_result = await self.cache.get(cache_key)
         if cached_result:
-            return cached_result
+            return cached_result  # type: ignore
         
         # 导出数据
         try:
@@ -183,7 +183,7 @@ class HistoryService:
             "session_id": session_id,
             "message_id": message_id,
             "note": sanitize_string(note, 500) if note else None,
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now()
         }
         
         # 存储书签
@@ -194,7 +194,13 @@ class HistoryService:
         # 清除相关缓存
         await self.cache.delete(f"history:bookmarks:{session_id}")
         
-        return BookmarkResponse(**bookmark)
+        return BookmarkResponse(
+            bookmark_id=str(bookmark["bookmark_id"]),
+            session_id=str(bookmark["session_id"]),
+            message_id=str(bookmark["message_id"]),
+            note=bookmark["note"] if bookmark["note"] is None else str(bookmark["note"]),
+            created_at=bookmark["created_at"]  # type: ignore
+        )
     
     async def get_bookmarks(
         self,
@@ -254,7 +260,7 @@ class HistoryService:
         cache_key = f"history:stats:{session_id}"
         cached_stats = await self.cache.get(cache_key)
         if cached_stats:
-            return cached_stats
+            return cached_stats  # type: ignore
         
         # 获取统计信息
         stats = self.history_dao.get_session_statistics(session_id)

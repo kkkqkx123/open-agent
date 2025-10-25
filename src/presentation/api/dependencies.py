@@ -1,6 +1,7 @@
 """依赖注入配置"""
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
+import asyncio
 
 from fastapi import Depends
 
@@ -73,7 +74,17 @@ async def get_session_manager() -> ISessionManager:
     # 这里应该从依赖注入容器中获取
     # 暂时返回一个模拟实例
     from ...application.sessions.manager import SessionManager
-    return SessionManager()
+    from ...application.workflow.manager import WorkflowManager
+    from ...domain.sessions.store import FileSessionStore
+    
+    # 创建必要的依赖
+    workflow_manager = WorkflowManager()
+    session_store = FileSessionStore(Path("./sessions"))
+    
+    return SessionManager(
+        workflow_manager=workflow_manager,
+        session_store=session_store
+    )
 
 
 async def get_workflow_manager() -> IWorkflowManager:
@@ -148,12 +159,12 @@ async def get_history_service(
     return _history_service
 
 
-def get_websocket_service():
+def get_websocket_service() -> Any:
     """获取WebSocket服务"""
     return websocket_service
 
 
-async def initialize_dependencies():
+async def initialize_dependencies() -> None:
     """初始化依赖项"""
     # 初始化数据库
     session_dao = get_session_dao()
@@ -163,7 +174,7 @@ async def initialize_dependencies():
     await workflow_dao.initialize()
     
     # 初始化缓存清理任务
-    async def cleanup_cache():
+    async def cleanup_cache() -> None:
         while True:
             await asyncio.sleep(300)  # 每5分钟清理一次
             await _cache.cleanup_expired()
