@@ -1,10 +1,11 @@
 """工作流管理器测试"""
 
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import Mock, patch, AsyncMock, mock_open
 from pathlib import Path
 import tempfile
 import yaml
+import hashlib
 
 from src.application.workflow.manager import WorkflowManager, IWorkflowManager
 from src.domain.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
@@ -530,3 +531,130 @@ class TestWorkflowManager:
         assert len(metadata["errors"]) == 1
         assert metadata["errors"][0]["error_type"] == "Exception"
         assert metadata["errors"][0]["error_message"] == "测试错误"
+
+    def test_get_workflow_summary_success(self):
+        """测试成功获取工作流摘要"""
+        manager = WorkflowManager()
+        
+        # 添加工作流配置和元数据
+        workflow_id = "test_workflow_id"
+        config = WorkflowConfig(
+            name="test_workflow",
+            description="测试工作流",
+            version="1.0.0"
+        )
+        manager._workflow_configs[workflow_id] = config
+        manager._workflow_metadata[workflow_id] = {
+            "config_path": "configs/workflows/test.yaml",
+            "loaded_at": "2023-01-01T00:00:00",
+            "last_used": "2023-01-01T01:00:00",
+            "usage_count": 5
+        }
+        
+        # 模拟配置文件存在并计算校验和
+        with patch('pathlib.Path.exists', return_value=True):
+            with patch('builtins.open', mock_open(read_data=b'test config content')):
+                result = manager.get_workflow_summary(workflow_id)
+        
+        # 验证结果
+        assert result["workflow_id"] == workflow_id
+        assert result["name"] == "test_workflow"
+        assert result["description"] == "测试工作流"
+        assert result["version"] == "1.0.0"
+        assert result["config_path"] == "configs/workflows/test.yaml"
+        assert result["loaded_at"] == "2023-01-01T00:00:00"
+        assert result["last_used"] == "2023-01-01T01:00:00"
+        assert result["usage_count"] == 5
+        assert "checksum" in result
+
+    def test_get_workflow_summary_not_found(self):
+        """测试获取不存在的工作流摘要"""
+        manager = WorkflowManager()
+        
+        result = manager.get_workflow_summary("nonexistent")
+        
+        assert result == {}
+
+    def test_get_workflow_summary_file_not_exists(self):
+        """测试配置文件不存在时获取工作流摘要"""
+        manager = WorkflowManager()
+        
+        # 添加工作流配置和元数据
+        workflow_id = "test_workflow_id"
+        config = WorkflowConfig(
+            name="test_workflow",
+            description="测试工作流",
+            version="1.0.0"
+        )
+        manager._workflow_configs[workflow_id] = config
+        manager._workflow_metadata[workflow_id] = {
+            "config_path": "configs/workflows/nonexistent.yaml"
+        }
+        
+        # 模拟配置文件不存在
+        with patch('pathlib.Path.exists', return_value=False):
+            result = manager.get_workflow_summary(workflow_id)
+        
+        # 验证结果
+        assert result["workflow_id"] == workflow_id
+        assert result["name"] == "test_workflow"
+        assert result["checksum"] == ""  # 文件不存在时校验和为空
+
+    def test_run_workflow_with_event_collector(self):
+        """测试带事件收集器运行工作流"""
+        # 模拟工作流
+        mock_workflow = Mock()
+        mock_workflow.invoke.return_value = AgentState()
+        
+        manager = WorkflowManager()
+        
+        # 添加工作流配置
+        workflow_id = "test_workflow_id"
+        config = WorkflowConfig(
+            name="test_workflow",
+            description="测试工作流"
+        )
+        manager._workflow_configs[workflow_id] = config
+        manager._workflows[workflow_id] = mock_workflow
+        
+        # 模拟事件收集器
+        mock_event_collector = Mock()
+        
+        # 运行工作流
+        initial_state = AgentState()
+        result = manager.run_workflow(workflow_id, initial_state, mock_event_collector)
+        
+        # 验证结果
+        assert isinstance(result, AgentState)
+        
+        # 验证事件收集器被调用
+        mock_event_collector.collect_workflow_start.assert_called_once()
+        mock_event_collector.collect_workflow_end.assert_called_once()
+
+    def test_run_workflow_with_event_collector_error(self):
+        """测试带事件收集器运行工作流时发生错误"""
+        # 模拟工作流抛出异常
+        mock_workflow = Mock()
+        mock_workflow.invoke.side_effect = Exception("测试错误")
+        
+        manager = WorkflowManager()
+        
+        # 添加工作流配置
+        workflow_id = "test_workflow_id"
+        config = WorkflowConfig(
+            name="test_workflow",
+            description="测试工作流"
+        )
+        manager._workflow_configs[workflow_id] = config
+        manager._workflows[workflow_id] = mock_workflow
+        manager._workflow_metadata[workflow_id] = {}
+        
+        # 模拟事件收集器
+        mock_event_collector = Mock()
+        
+        # 运行工作流应该抛出异常
+        with pytest.raises(Exception, match="测试错误"):
+            manager.run_workflow(workflow_id, event_collector=mock_event_collector)
+        
+        # 验证错误事件被收集
+        mock_event_collector.collect_error.assert_called_once()

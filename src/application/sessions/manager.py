@@ -69,12 +69,11 @@ class ISessionManager(ABC):
         pass
 
     @abstractmethod
-    def save_session(self, session_id: str, workflow: Any, state: AgentState) -> bool:
+    def save_session(self, session_id: str, state: AgentState) -> bool:
         """保存会话
 
         Args:
             session_id: 会话ID
-            workflow: 工作流实例
             state: 当前状态
 
         Returns:
@@ -139,6 +138,21 @@ class ISessionManager(ABC):
         """
         pass
 
+    @abstractmethod
+    def save_session_with_metrics(self, session_id: str, state: AgentState, 
+                                 workflow_metrics: Dict[str, Any]) -> bool:
+        """保存会话状态和工作流指标
+
+        Args:
+            session_id: 会话ID
+            state: 当前状态
+            workflow_metrics: 工作流指标
+
+        Returns:
+            bool: 是否成功保存
+        """
+        pass
+
 
 class SessionManager(ISessionManager):
     """会话管理器实现"""
@@ -194,13 +208,14 @@ class SessionManager(ISessionManager):
         if self.git_manager:
             self.git_manager.init_repo(session_dir)
 
+        # 获取工作流摘要
+        workflow_summary = self.workflow_manager.get_workflow_summary(workflow_id)
+        
         # 保存增强的会话元数据
         session_metadata = {
             "session_id": session_id,
             "workflow_config_path": workflow_config_path,
-            "workflow_id": workflow_id,
-            "workflow_version": workflow_config.version if workflow_config else "1.0.0",
-            "workflow_checksum": self._calculate_config_checksum(workflow_config_path),
+            "workflow_summary": workflow_summary,  # 只保存摘要
             "agent_config": agent_config or {},
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
@@ -210,8 +225,7 @@ class SessionManager(ISessionManager):
         # 保存会话信息
         session_data = {
             "metadata": session_metadata,
-            "state": self._serialize_state(initial_state),
-            "workflow_config": workflow_config.to_dict() if workflow_config else {}
+            "state": self._serialize_state(initial_state)
         }
         self.session_store.save_session(session_id, session_data)
 
@@ -252,7 +266,7 @@ class SessionManager(ISessionManager):
             self._log_recovery_failure(session_id, e)
             raise
 
-    def save_session(self, session_id: str, workflow: Any, state: AgentState) -> bool:
+    def save_session(self, session_id: str, state: AgentState) -> bool:
         """保存会话"""
         try:
             session_data = self.session_store.get_session(session_id)
@@ -330,6 +344,39 @@ class SessionManager(ISessionManager):
         """检查会话是否存在"""
         return self.get_session(session_id) is not None
 
+    def save_session_with_metrics(self, session_id: str, state: AgentState, 
+                                 workflow_metrics: Dict[str, Any]) -> bool:
+        """保存会话状态和工作流指标"""
+        try:
+            session_data = self.session_store.get_session(session_id)
+            if not session_data:
+                return False
+
+            # 更新状态
+            session_data["state"] = self._serialize_state(state)
+            session_data["metadata"]["updated_at"] = datetime.now().isoformat()
+            
+            # 添加工作流指标
+            if "workflow_metrics" not in session_data:
+                session_data["workflow_metrics"] = {}
+            session_data["workflow_metrics"].update(workflow_metrics)
+
+            # 保存会话数据
+            self.session_store.save_session(session_id, session_data)
+
+            # 提交更改到Git（如果提供了Git管理器）
+            if self.git_manager:
+                session_dir = self.storage_path / session_id
+                self.git_manager.commit_changes(
+                    session_dir,
+                    "更新会话状态和指标",
+                    {"session_id": session_id}
+                )
+
+            return True
+        except Exception:
+            return False
+
     def _restore_workflow_with_fallback(self, metadata: Dict[str, Any], session_data: Dict[str, Any]) -> Tuple[Any, AgentState]:
         """带回退机制的工作流恢复"""
         session_id = metadata.get("session_id", "unknown")
@@ -354,21 +401,25 @@ class SessionManager(ISessionManager):
             return workflow, state
             
         except Exception as e:
-            # 策略2: 回退到原始workflow_id
-            logger.warning(f"基于配置路径恢复失败，尝试使用原始workflow_id: {e}")
+            # 策略2: 回退到工作流摘要中的workflow_id（如果存在）
+            logger.warning(f"基于配置路径恢复失败，尝试使用工作流摘要中的workflow_id: {e}")
             try:
-                original_workflow_id = metadata["workflow_id"]
-                workflow = self.workflow_manager.create_workflow(original_workflow_id)
-                
-                # 恢复状态
-                state = self._deserialize_state(session_data["state"])
-                
-                # 重置恢复尝试计数
-                if session_id in self._recovery_attempts:
-                    del self._recovery_attempts[session_id]
+                workflow_summary = metadata.get("workflow_summary", {})
+                original_workflow_id = workflow_summary.get("workflow_id")
+                if original_workflow_id:
+                    workflow = self.workflow_manager.create_workflow(original_workflow_id)
                     
-                return workflow, state
-                
+                    # 恢复状态
+                    state = self._deserialize_state(session_data["state"])
+                    
+                    # 重置恢复尝试计数
+                    if session_id in self._recovery_attempts:
+                        del self._recovery_attempts[session_id]
+                        
+                    return workflow, state
+                else:
+                    raise ValueError("工作流摘要中未找到workflow_id")
+                    
             except Exception as e2:
                 # 策略3: 最终回退 - 重新加载并更新元数据
                 logger.error(f"会话恢复失败，尝试重新创建工作流: {e2}")
@@ -399,15 +450,20 @@ class SessionManager(ISessionManager):
         if not current_config:
             return False
         
+        # 获取当前工作流摘要
+        current_summary = self.workflow_manager.get_workflow_summary(workflow_id)
+        if not current_summary:
+            return False
+        
+        # 获取保存的工作流摘要
+        saved_summary = metadata.get("workflow_summary", {})
+        
         # 检查版本
-        if metadata.get("workflow_version") != current_config.version:
+        if saved_summary.get("version") != current_config.version:
             return False
         
         # 检查配置校验和
-        current_checksum = self._calculate_config_checksum(
-            metadata["workflow_config_path"]
-        )
-        return metadata.get("workflow_checksum") == current_checksum
+        return saved_summary.get("checksum") == current_summary.get("checksum")
 
     def _calculate_config_checksum(self, config_path: str) -> str:
         """计算配置文件校验和"""
@@ -424,17 +480,13 @@ class SessionManager(ISessionManager):
         if not session_data:
             return
         
-        workflow_config = self.workflow_manager.get_workflow_config(new_workflow_id)
+        workflow_summary = self.workflow_manager.get_workflow_summary(new_workflow_id)
         session_data["metadata"].update({
-            "workflow_id": new_workflow_id,
-            "workflow_version": workflow_config.version if workflow_config else "unknown",
-            "workflow_checksum": self._calculate_config_checksum(
-                session_data["metadata"]["workflow_config_path"]
-            ),
+            "workflow_summary": workflow_summary,
             "updated_at": datetime.now().isoformat(),
             "recovery_info": {
                 "recovered_at": datetime.now().isoformat(),
-                "original_workflow_id": session_data["metadata"].get("workflow_id"),
+                "original_workflow_id": session_data["metadata"].get("workflow_summary", {}).get("workflow_id"),
                 "reason": "workflow_recovery"
             }
         })
@@ -514,13 +566,13 @@ class SessionManager(ISessionManager):
                 # 尝试创建适当的消息类型
                 msg_type = msg_data.get("type", "BaseMessage")
                 if msg_type == "HumanMessage":
-                    from ...domain.prompts.agent_state import HumanMessage
+                    from src.domain.prompts.agent_state import HumanMessage
                     msg = HumanMessage(content=msg_data.get("content", ""))
                 elif msg_type == "SystemMessage":
-                    from ...domain.prompts.agent_state import SystemMessage
+                    from src.domain.prompts.agent_state import SystemMessage
                     msg = SystemMessage(content=msg_data.get("content", ""))
                 else:
-                    from ...domain.prompts.agent_state import BaseMessage
+                    from src.domain.prompts.agent_state import BaseMessage
                     msg = BaseMessage(content=msg_data.get("content", ""))
 
                 state.add_message(msg)

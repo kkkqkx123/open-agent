@@ -9,11 +9,11 @@ from pathlib import Path
 import uuid
 from datetime import datetime
 
-from ...domain.workflow.config import WorkflowConfig
+from src.domain.workflow.config import WorkflowConfig
 from .builder import WorkflowBuilder
 from .registry import NodeRegistry, get_global_registry
-from ...domain.prompts.agent_state import AgentState
-from ...infrastructure.config_loader import IConfigLoader
+from src.domain.prompts.agent_state import AgentState
+from src.infrastructure.config_loader import IConfigLoader
 
 
 class IWorkflowManager(ABC):
@@ -48,6 +48,7 @@ class IWorkflowManager(ABC):
         self,
         workflow_id: str,
         initial_state: Optional[AgentState] = None,
+        event_collector: Optional[Any] = None,
         **kwargs: Any
     ) -> AgentState:
         """运行工作流
@@ -55,6 +56,7 @@ class IWorkflowManager(ABC):
         Args:
             workflow_id: 工作流ID
             initial_state: 初始状态
+            event_collector: 可选的事件收集器
             **kwargs: 其他参数
 
         Returns:
@@ -67,6 +69,7 @@ class IWorkflowManager(ABC):
         self,
         workflow_id: str,
         initial_state: Optional[AgentState] = None,
+        event_collector: Optional[Any] = None,
         **kwargs: Any
     ) -> AgentState:
         """异步运行工作流
@@ -74,6 +77,7 @@ class IWorkflowManager(ABC):
         Args:
             workflow_id: 工作流ID
             initial_state: 初始状态
+            event_collector: 可选的事件收集器
             **kwargs: 其他参数
 
         Returns:
@@ -86,6 +90,7 @@ class IWorkflowManager(ABC):
         self,
         workflow_id: str,
         initial_state: Optional[AgentState] = None,
+        event_collector: Optional[Any] = None,
         **kwargs: Any
     ) -> Generator[AgentState, None, None]:
         """流式运行工作流
@@ -93,6 +98,7 @@ class IWorkflowManager(ABC):
         Args:
             workflow_id: 工作流ID
             initial_state: 初始状态
+            event_collector: 可选的事件收集器
             **kwargs: 其他参数
 
         Yields:
@@ -142,6 +148,18 @@ class IWorkflowManager(ABC):
 
         Returns:
             Dict[str, Any]: 可视化数据
+        """
+        pass
+
+    @abstractmethod
+    def get_workflow_summary(self, workflow_id: str) -> Dict[str, Any]:
+        """获取工作流配置摘要（名称、版本、校验指纹等）
+
+        Args:
+            workflow_id: 工作流ID
+
+        Returns:
+            Dict[str, Any]: 工作流摘要信息
         """
         pass
 
@@ -226,6 +244,7 @@ class WorkflowManager(IWorkflowManager):
         self,
         workflow_id: str,
         initial_state: Optional[AgentState] = None,
+        event_collector: Optional[Any] = None,
         **kwargs: Any
     ) -> AgentState:
         """运行工作流
@@ -233,35 +252,51 @@ class WorkflowManager(IWorkflowManager):
         Args:
             workflow_id: 工作流ID
             initial_state: 初始状态
+            event_collector: 可选的事件收集器
             **kwargs: 其他参数
 
         Returns:
             AgentState: 最终状态
         """
         workflow = self.create_workflow(workflow_id)
+        config = self._workflow_configs[workflow_id]
         
         # 准备初始状态
         if initial_state is None:
             initial_state = AgentState()
         
         # 设置初始参数
-        config = self._workflow_configs[workflow_id]
         if hasattr(initial_state, 'max_iterations'):
             initial_state.max_iterations = config.additional_config.get('max_iterations', 10)
+        
+        # 收集工作流开始事件
+        if event_collector:
+            event_collector.collect_workflow_start(config.name, config.to_dict())
         
         # 运行工作流
         try:
             result = workflow.invoke(initial_state, **kwargs)
+            
+            # 收集工作流结束事件
+            if event_collector:
+                event_collector.collect_workflow_end(config.name, {"status": "success", "result": result.to_dict() if hasattr(result, 'to_dict') else str(result)})
+            
             return result  # type: ignore
         except Exception as e:
             # 记录错误并重新抛出
             self._log_workflow_error(workflow_id, e)
+            
+            # 收集错误事件
+            if event_collector:
+                event_collector.collect_error(e, {"workflow_id": workflow_id, "workflow_name": config.name})
+            
             raise
 
     async def run_workflow_async(
         self,
         workflow_id: str,
         initial_state: Optional[AgentState] = None,
+        event_collector: Optional[Any] = None,
         **kwargs: Any
     ) -> AgentState:
         """异步运行工作流
@@ -269,21 +304,26 @@ class WorkflowManager(IWorkflowManager):
         Args:
             workflow_id: 工作流ID
             initial_state: 初始状态
+            event_collector: 可选的事件收集器
             **kwargs: 其他参数
 
         Returns:
             AgentState: 最终状态
         """
         workflow = self.create_workflow(workflow_id)
+        config = self._workflow_configs[workflow_id]
         
         # 准备初始状态
         if initial_state is None:
             initial_state = AgentState()
         
         # 设置初始参数
-        config = self._workflow_configs[workflow_id]
         if hasattr(initial_state, 'max_iterations'):
             initial_state.max_iterations = config.additional_config.get('max_iterations', 10)
+        
+        # 收集工作流开始事件
+        if event_collector:
+            event_collector.collect_workflow_start(config.name, config.to_dict())
         
         # 异步运行工作流
         try:
@@ -292,16 +332,27 @@ class WorkflowManager(IWorkflowManager):
             else:
                 # 如果不支持异步，使用同步方式
                 result = workflow.invoke(initial_state, **kwargs)
+            
+            # 收集工作流结束事件
+            if event_collector:
+                event_collector.collect_workflow_end(config.name, {"status": "success", "result": result.to_dict() if hasattr(result, 'to_dict') else str(result)})
+            
             return result  # type: ignore
         except Exception as e:
             # 记录错误并重新抛出
             self._log_workflow_error(workflow_id, e)
+            
+            # 收集错误事件
+            if event_collector:
+                event_collector.collect_error(e, {"workflow_id": workflow_id, "workflow_name": config.name})
+            
             raise
 
     def stream_workflow(
         self,
         workflow_id: str,
         initial_state: Optional[AgentState] = None,
+        event_collector: Optional[Any] = None,
         **kwargs: Any
     ) -> Generator[AgentState, None, None]:
         """流式运行工作流
@@ -309,21 +360,26 @@ class WorkflowManager(IWorkflowManager):
         Args:
             workflow_id: 工作流ID
             initial_state: 初始状态
+            event_collector: 可选的事件收集器
             **kwargs: 其他参数
 
         Yields:
             AgentState: 中间状态
         """
         workflow = self.create_workflow(workflow_id)
+        config = self._workflow_configs[workflow_id]
         
         # 准备初始状态
         if initial_state is None:
             initial_state = AgentState()
         
         # 设置初始参数
-        config = self._workflow_configs[workflow_id]
         if hasattr(initial_state, 'max_iterations'):
             initial_state.max_iterations = config.additional_config.get('max_iterations', 10)
+        
+        # 收集工作流开始事件
+        if event_collector:
+            event_collector.collect_workflow_start(config.name, config.to_dict())
         
         # 流式运行工作流
         try:
@@ -334,9 +390,19 @@ class WorkflowManager(IWorkflowManager):
                 # 如果不支持流式，直接返回最终结果
                 result = workflow.invoke(initial_state, **kwargs)
                 yield result
+            
+            # 收集工作流结束事件
+            if event_collector:
+                event_collector.collect_workflow_end(config.name, {"status": "success"})
+                
         except Exception as e:
             # 记录错误并重新抛出
             self._log_workflow_error(workflow_id, e)
+            
+            # 收集错误事件
+            if event_collector:
+                event_collector.collect_error(e, {"workflow_id": workflow_id, "workflow_name": config.name})
+            
             raise
 
     def list_workflows(self) -> List[str]:
@@ -416,6 +482,44 @@ class WorkflowManager(IWorkflowManager):
                 for edge in config.edges
             ],
             "entry_point": config.entry_point
+        }
+
+    def get_workflow_summary(self, workflow_id: str) -> Dict[str, Any]:
+        """获取工作流配置摘要（名称、版本、校验指纹等）
+
+        Args:
+            workflow_id: 工作流ID
+
+        Returns:
+            Dict[str, Any]: 工作流摘要信息
+        """
+        config = self.get_workflow_config(workflow_id)
+        if not config:
+            return {}
+        
+        metadata = self._workflow_metadata.get(workflow_id, {})
+        config_path = metadata.get("config_path", "")
+        
+        # 计算配置文件校验和
+        checksum = ""
+        if config_path and Path(config_path).exists():
+            try:
+                import hashlib
+                with open(config_path, 'rb') as f:
+                    checksum = hashlib.md5(f.read()).hexdigest()
+            except Exception:
+                checksum = ""
+        
+        return {
+            "workflow_id": workflow_id,
+            "name": config.name,
+            "version": config.version,
+            "description": config.description,
+            "config_path": config_path,
+            "checksum": checksum,
+            "loaded_at": metadata.get("loaded_at"),
+            "last_used": metadata.get("last_used"),
+            "usage_count": metadata.get("usage_count", 0)
         }
 
     def get_workflow_metadata(self, workflow_id: str) -> Optional[Dict[str, Any]]:

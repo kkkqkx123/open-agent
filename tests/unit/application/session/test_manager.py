@@ -133,13 +133,14 @@ class TestSessionManager:
         assert call_args[0] == "test-session-id"
         assert "metadata" in call_args[1]
         assert "state" in call_args[1]
-        assert "workflow_config" in call_args[1]
+        assert "workflow_config" not in call_args[1]  # 确保没有保存完整配置
         
         # 验证增强的元数据
         metadata = call_args[1]["metadata"]
         assert "workflow_config_path" in metadata
-        assert "workflow_version" in metadata
-        assert "workflow_checksum" in metadata
+        assert "workflow_summary" in metadata
+        assert metadata["workflow_summary"]["name"] == "test"
+        assert metadata["workflow_summary"]["version"] == "1.0.0"
 
     def test_create_session_with_git(self, session_manager_with_git, mock_workflow_manager, 
                                    mock_session_store, mock_git_manager):
@@ -179,10 +180,13 @@ class TestSessionManager:
         session_data = {
             "metadata": {
                 "session_id": session_id,
-                "workflow_id": "old_workflow_id",
                 "workflow_config_path": workflow_config_path,
-                "workflow_version": "1.0.0",
-                "workflow_checksum": expected_checksum
+                "workflow_summary": {
+                    "workflow_id": "old_workflow_id",
+                    "name": "test_workflow",
+                    "version": "1.0.0",
+                    "checksum": expected_checksum
+                }
             },
             "state": {
                 "messages": [],
@@ -226,10 +230,13 @@ class TestSessionManager:
         session_data = {
             "metadata": {
                 "session_id": session_id,
-                "workflow_id": "original_workflow_id",
                 "workflow_config_path": workflow_config_path,
-                "workflow_version": "1.0.0",
-                "workflow_checksum": expected_checksum
+                "workflow_summary": {
+                    "workflow_id": "original_workflow_id",
+                    "name": "test_workflow",
+                    "version": "1.0.0",
+                    "checksum": expected_checksum
+                }
             },
             "state": {
                 "messages": [],
@@ -271,10 +278,13 @@ class TestSessionManager:
         session_data = {
             "metadata": {
                 "session_id": session_id,
-                "workflow_id": "original_workflow_id",
                 "workflow_config_path": workflow_config_path,
-                "workflow_version": "1.0.0",
-                "workflow_checksum": expected_checksum
+                "workflow_summary": {
+                    "workflow_id": "original_workflow_id",
+                    "name": "test_workflow",
+                    "version": "1.0.0",
+                    "checksum": expected_checksum
+                }
             },
             "state": {
                 "messages": [],
@@ -326,10 +336,13 @@ class TestSessionManager:
         session_data = {
             "metadata": {
                 "session_id": session_id,
-                "workflow_id": "original_workflow_id",
                 "workflow_config_path": workflow_config_path,
-                "workflow_version": "1.0.0",
-                "workflow_checksum": expected_checksum
+                "workflow_summary": {
+                    "workflow_id": "original_workflow_id",
+                    "name": "test_workflow",
+                    "version": "1.0.0",
+                    "checksum": expected_checksum
+                }
             },
             "state": {
                 "messages": [],
@@ -362,10 +375,13 @@ class TestSessionManager:
         session_data = {
             "metadata": {
                 "session_id": session_id,
-                "workflow_id": "original_workflow_id",
                 "workflow_config_path": workflow_config_path,
-                "workflow_version": "1.0.0",
-                "workflow_checksum": "abc123"
+                "workflow_summary": {
+                    "workflow_id": "original_workflow_id",
+                    "name": "test_workflow",
+                    "version": "1.0.0",
+                    "checksum": "abc123"
+                }
             },
             "state": {
                 "messages": [],
@@ -393,8 +409,10 @@ class TestSessionManager:
         
         metadata = {
             "workflow_config_path": "configs/workflows/test.yaml",
-            "workflow_version": "1.0.0",
-            "workflow_checksum": expected_checksum
+            "workflow_summary": {
+                "version": "1.0.0",
+                "checksum": expected_checksum
+            }
         }
         workflow_id = "test_workflow_id"
         
@@ -404,6 +422,10 @@ class TestSessionManager:
             mock_config = Mock(spec=WorkflowConfig)
             mock_config.version = "1.0.0"
             mock_workflow_manager.get_workflow_config.return_value = mock_config
+            mock_workflow_manager.get_workflow_summary.return_value = {
+                "version": "1.0.0",
+                "checksum": expected_checksum
+            }
             
             result = session_manager._validate_workflow_consistency(metadata, workflow_id)
             assert result is True
@@ -415,6 +437,7 @@ class TestSessionManager:
             
             # 配置不存在的情况
             mock_workflow_manager.get_workflow_config.return_value = None
+            mock_workflow_manager.get_workflow_summary.return_value = None
             result = session_manager._validate_workflow_consistency(metadata, workflow_id)
             assert result is False
 
@@ -442,31 +465,36 @@ class TestSessionManager:
         session_data = {
             "metadata": {
                 "session_id": session_id,
-                "workflow_id": "old_workflow_id",
                 "workflow_config_path": workflow_config_path,
-                "workflow_version": "1.0.0",
-                "workflow_checksum": "old_checksum"
+                "workflow_summary": {
+                    "workflow_id": "old_workflow_id",
+                    "name": "test_workflow",
+                    "version": "1.0.0",
+                    "checksum": "old_checksum"
+                }
             },
             "state": {}
         }
         mock_session_store.get_session.return_value = session_data
         
-        # 模拟新的工作流配置
-        mock_config = Mock(spec=WorkflowConfig)
-        mock_config.version = "2.0.0"
-        mock_workflow_manager.get_workflow_config.return_value = mock_config
+        # 模拟新的工作流摘要
+        workflow_summary = {
+            "workflow_id": new_workflow_id,
+            "name": "test_workflow",
+            "version": "2.0.0",
+            "checksum": "new_checksum"
+        }
+        mock_workflow_manager.get_workflow_summary.return_value = workflow_summary
         
-        # 模拟配置文件校验和计算
-        with patch('builtins.open', mock_open(read_data=b'new config content')):
-            session_manager._update_session_workflow_info(session_id, new_workflow_id)
+        session_manager._update_session_workflow_info(session_id, new_workflow_id)
         
         # 验证会话数据被更新
         mock_session_store.save_session.assert_called_once()
         call_args = mock_session_store.save_session.call_args[0]
         updated_data = call_args[1]
         
-        assert updated_data["metadata"]["workflow_id"] == new_workflow_id
-        assert updated_data["metadata"]["workflow_version"] == "2.0.0"
+        assert updated_data["metadata"]["workflow_summary"]["workflow_id"] == new_workflow_id
+        assert updated_data["metadata"]["workflow_summary"]["version"] == "2.0.0"
         assert "recovery_info" in updated_data["metadata"]
         assert updated_data["metadata"]["recovery_info"]["reason"] == "workflow_recovery"
 
@@ -509,7 +537,6 @@ class TestSessionManager:
     def test_save_session(self, session_manager, mock_session_store):
         """测试保存会话"""
         session_id = "test-session-id"
-        workflow = Mock()
         state = AgentState()
         state.add_message(BaseMessage(content="测试消息"))
         
@@ -519,7 +546,7 @@ class TestSessionManager:
         }
         mock_session_store.get_session.return_value = session_data
         
-        result = session_manager.save_session(session_id, workflow, state)
+        result = session_manager.save_session(session_id, state)
         
         assert result is True
         mock_session_store.save_session.assert_called_once()
@@ -527,12 +554,11 @@ class TestSessionManager:
     def test_save_session_not_exists(self, session_manager, mock_session_store):
         """测试保存不存在的会话"""
         session_id = "non-existent-session"
-        workflow = Mock()
         state = AgentState()
         
         mock_session_store.get_session.return_value = None
         
-        result = session_manager.save_session(session_id, workflow, state)
+        result = session_manager.save_session(session_id, state)
         
         assert result is False
 
@@ -727,3 +753,125 @@ class TestSessionManager:
         # 添加尝试记录
         session_manager._recovery_attempts[session_id] = 3
         assert session_manager._get_recovery_attempts(session_id) == 3
+
+    def test_save_session_with_metrics(self, session_manager, mock_session_store):
+        """测试保存会话状态和工作流指标"""
+        session_id = "test-session-id"
+        state = AgentState()
+        state.add_message(BaseMessage(content="测试消息"))
+        workflow_metrics = {
+            "execution_time": 5.2,
+            "nodes_executed": 3,
+            "success": True
+        }
+        
+        session_data = {
+            "metadata": {"session_id": session_id, "updated_at": "2023-01-01T00:00:00"},
+            "state": {}
+        }
+        mock_session_store.get_session.return_value = session_data
+        
+        result = session_manager.save_session_with_metrics(session_id, state, workflow_metrics)
+        
+        assert result is True
+        mock_session_store.save_session.assert_called_once()
+        
+        # 验证工作流指标被保存
+        call_args = mock_session_store.save_session.call_args[0]
+        saved_data = call_args[1]
+        assert "workflow_metrics" in saved_data
+        assert saved_data["workflow_metrics"]["execution_time"] == 5.2
+        assert saved_data["workflow_metrics"]["nodes_executed"] == 3
+        assert saved_data["workflow_metrics"]["success"] is True
+
+    def test_save_session_with_metrics_not_exists(self, session_manager, mock_session_store):
+        """测试保存不存在的会话（带指标）"""
+        session_id = "non-existent-session"
+        state = AgentState()
+        workflow_metrics = {"execution_time": 1.0}
+        
+        mock_session_store.get_session.return_value = None
+        
+        result = session_manager.save_session_with_metrics(session_id, state, workflow_metrics)
+        
+        assert result is False
+
+    def test_create_session_with_workflow_summary(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试创建会话时保存工作流摘要"""
+        workflow_config_path = "configs/workflows/test.yaml"
+        
+        # 模拟工作流摘要
+        workflow_summary = {
+            "workflow_id": "test_workflow_id",
+            "name": "test_workflow",
+            "version": "1.0.0",
+            "description": "测试工作流",
+            "config_path": workflow_config_path,
+            "checksum": "abc123",
+            "loaded_at": "2023-01-01T00:00:00",
+            "last_used": None,
+            "usage_count": 0
+        }
+        mock_workflow_manager.get_workflow_summary.return_value = workflow_summary
+        
+        with patch.object(session_manager, '_generate_session_id', return_value="test-session-id"):
+            session_id = session_manager.create_session(workflow_config_path=workflow_config_path)
+        
+        assert session_id == "test-session-id"
+        
+        # 验证工作流摘要被保存
+        mock_session_store.save_session.assert_called_once()
+        call_args = mock_session_store.save_session.call_args[0]
+        saved_data = call_args[1]
+        
+        assert "workflow_summary" in saved_data["metadata"]
+        assert saved_data["metadata"]["workflow_summary"]["name"] == "test_workflow"
+        assert saved_data["metadata"]["workflow_summary"]["version"] == "1.0.0"
+        # 确保没有保存完整的workflow_config
+        assert "workflow_config" not in saved_data
+
+    def test_restore_session_with_workflow_summary_fallback(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试使用工作流摘要回退恢复会话"""
+        session_id = "test-session-id"
+        workflow_config_path = "configs/workflows/test.yaml"
+        
+        # 模拟工作流摘要
+        workflow_summary = {
+            "workflow_id": "original_workflow_id",
+            "name": "test_workflow",
+            "version": "1.0.0"
+        }
+        
+        session_data = {
+            "metadata": {
+                "session_id": session_id,
+                "workflow_config_path": workflow_config_path,
+                "workflow_summary": workflow_summary
+            },
+            "state": {
+                "messages": [],
+                "tool_results": [],
+                "current_step": "",
+                "max_iterations": 10,
+                "iteration_count": 0,
+                "workflow_name": "",
+                "start_time": None,
+                "errors": []
+            }
+        }
+        mock_session_store.get_session.return_value = session_data
+        
+        # 模拟配置文件存在但加载失败
+        with patch('pathlib.Path.exists', return_value=True):
+            with patch('builtins.open', mock_open(read_data=b'test config content')):
+                # 第一次加载失败，第二次使用摘要中的workflow_id成功
+                mock_workflow_manager.load_workflow.side_effect = [Exception("加载失败"), None]
+                mock_workflow_manager.create_workflow.return_value = Mock()
+                
+                workflow, state = session_manager.restore_session(session_id)
+        
+        assert workflow is not None
+        assert isinstance(state, AgentState)
+        
+        # 验证最终使用了摘要中的workflow_id
+        mock_workflow_manager.create_workflow.assert_called_with("original_workflow_id")
