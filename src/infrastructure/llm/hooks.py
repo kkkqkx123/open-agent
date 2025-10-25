@@ -906,6 +906,8 @@ class SmartRetryHook(ILLMCallHook):
         jitter: bool = True,
         exponential_base: float = 2.0,
         retry_on_status_codes: Optional[List[int]] = None,
+        retry_config: Optional[Dict[str, Any]] = None,
+        retry_on_errors: Optional[List[str]] = None,
     ) -> None:
         """
         初始化智能重试钩子
@@ -917,13 +919,27 @@ class SmartRetryHook(ILLMCallHook):
             jitter: 是否添加随机抖动
             exponential_base: 指数退避基数
             retry_on_status_codes: 需要重试的HTTP状态码列表
+            retry_config: 重试配置字典（新的配置格式）
+            retry_on_errors: 需要重试的错误类型列表
         """
-        self.max_retries = max_retries
-        self.base_delay = base_delay
-        self.max_delay = max_delay
-        self.jitter = jitter
-        self.exponential_base = exponential_base
-        self.retry_on_status_codes = retry_on_status_codes or [429, 500, 502, 503, 504]
+        # 如果提供了新的重试配置，使用它
+        if retry_config:
+            self.max_retries = retry_config.get("max_retries", max_retries)
+            self.base_delay = retry_config.get("base_delay", base_delay)
+            self.max_delay = retry_config.get("max_delay", max_delay)
+            self.jitter = retry_config.get("jitter", jitter)
+            self.exponential_base = retry_config.get("exponential_base", exponential_base)
+            self.retry_on_status_codes = retry_config.get("retry_on_status_codes", retry_on_status_codes or [429, 500, 502, 503, 504])
+            self.retry_on_errors = retry_config.get("retry_on_errors", retry_on_errors or ["timeout", "rate_limit", "service_unavailable"])
+        else:
+            # 使用传统参数
+            self.max_retries = max_retries
+            self.base_delay = base_delay
+            self.max_delay = max_delay
+            self.jitter = jitter
+            self.exponential_base = exponential_base
+            self.retry_on_status_codes = retry_on_status_codes or [429, 500, 502, 503, 504]
+            self.retry_on_errors = retry_on_errors or ["timeout", "rate_limit", "service_unavailable"]
         
         # 错误统计
         self.retry_stats = {
@@ -1059,7 +1075,14 @@ class SmartRetryHook(ILLMCallHook):
             LLMServiceUnavailableError,
         )
         
-        if isinstance(error, retryable_errors):
+        # 如果配置了retry_on_errors，使用配置的错误类型
+        if hasattr(self, 'retry_on_errors') and self.retry_on_errors:
+            # 检查错误类型是否在配置的可重试错误列表中
+            error_type = type(error).__name__.lower()
+            for retry_error in self.retry_on_errors:
+                if retry_error.lower() in error_type or retry_error.lower() in str(error).lower():
+                    return {"should_retry": True, "reason": f"配置的可重试错误类型: {retry_error}"}
+        elif isinstance(error, retryable_errors):
             return {"should_retry": True, "reason": f"可重试错误类型: {type(error).__name__}"}
         
         # 检查HTTP状态码

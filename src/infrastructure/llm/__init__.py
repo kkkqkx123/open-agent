@@ -39,7 +39,7 @@ from .exceptions import (
     LLMConfigurationError,
     LLMFallbackError,
 )
-from .hooks import LoggingHook, MetricsHook, FallbackHook, RetryHook, CompositeHook
+from .hooks import LoggingHook, MetricsHook, RetryHook, CompositeHook
 from .fallback import (
     FallbackManager,
     FallbackStrategy,
@@ -88,7 +88,6 @@ __all__ = [
     # 钩子
     "LoggingHook",
     "MetricsHook",
-    "FallbackHook",
     "RetryHook",
     "CompositeHook",
     # 降级

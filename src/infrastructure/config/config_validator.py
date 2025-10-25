@@ -202,6 +202,44 @@ class ConfigValidator(IConfigValidator):
                 "openai"
             ]:
                 result.add_warning("未配置基础URL，可能使用默认值")
+            
+            # 验证重试配置
+            retry_config = config.get("retry_config", {})
+            if isinstance(retry_config, dict):
+                max_retries = retry_config.get("max_retries")
+                if max_retries is not None and (not isinstance(max_retries, int) or max_retries < 0):
+                    result.add_error("retry_config.max_retries必须是非负整数")
+                
+                base_delay = retry_config.get("base_delay")
+                if base_delay is not None and (not isinstance(base_delay, (int, float)) or base_delay <= 0):
+                    result.add_error("retry_config.base_delay必须是正数")
+                
+                max_delay = retry_config.get("max_delay")
+                if max_delay is not None and (not isinstance(max_delay, (int, float)) or max_delay <= 0):
+                    result.add_error("retry_config.max_delay必须是正数")
+                
+                exponential_base = retry_config.get("exponential_base")
+                if exponential_base is not None and (not isinstance(exponential_base, (int, float)) or exponential_base <= 1):
+                    result.add_error("retry_config.exponential_base必须大于1")
+            
+            # 验证超时配置
+            timeout_config = config.get("timeout_config", {})
+            if isinstance(timeout_config, dict):
+                request_timeout = timeout_config.get("request_timeout")
+                if request_timeout is not None and (not isinstance(request_timeout, int) or request_timeout <= 0):
+                    result.add_error("timeout_config.request_timeout必须是正整数")
+                
+                connect_timeout = timeout_config.get("connect_timeout")
+                if connect_timeout is not None and (not isinstance(connect_timeout, int) or connect_timeout <= 0):
+                    result.add_error("timeout_config.connect_timeout必须是正整数")
+                
+                read_timeout = timeout_config.get("read_timeout")
+                if read_timeout is not None and (not isinstance(read_timeout, int) or read_timeout <= 0):
+                    result.add_error("timeout_config.read_timeout必须是正整数")
+                
+                write_timeout = timeout_config.get("write_timeout")
+                if write_timeout is not None and (not isinstance(write_timeout, int) or write_timeout <= 0):
+                    result.add_error("timeout_config.write_timeout必须是正整数")
 
         return result
 

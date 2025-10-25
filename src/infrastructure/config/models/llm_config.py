@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional, List, Tuple
 from pydantic import Field, field_validator, model_validator
 
 from .base import BaseConfig
+from .retry_timeout_config import RetryConfig, TimeoutConfig
 
 
 class LLMConfig(BaseConfig):
@@ -21,6 +22,10 @@ class LLMConfig(BaseConfig):
 
     # 参数配置
     parameters: Dict[str, Any] = Field(default_factory=dict, description="模型参数")
+
+    # 重试和超时配置
+    retry_config: RetryConfig = Field(default_factory=RetryConfig, description="重试配置")
+    timeout_config: TimeoutConfig = Field(default_factory=TimeoutConfig, description="超时配置")
 
     # 缓存配置
     supports_caching: bool = Field(False, description="是否支持缓存")
@@ -131,6 +136,31 @@ class LLMConfig(BaseConfig):
         self._resolved_headers = resolved_headers
         self._sanitized_headers = sanitized_headers
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_legacy_timeout_retry_params(self) -> "LLMConfig":
+        """验证并迁移旧的超时和重试参数"""
+        # 检查是否存在旧的timeout和max_retries参数
+        if self.parameters:
+            # 迁移timeout参数
+            if "timeout" in self.parameters:
+                timeout_value = self.parameters["timeout"]
+                if isinstance(timeout_value, (int, float)) and timeout_value > 0:
+                    # 更新timeout_config
+                    self.timeout_config.request_timeout = int(timeout_value)
+                    # 从parameters中移除，避免重复
+                    del self.parameters["timeout"]
+            
+            # 迁移max_retries参数
+            if "max_retries" in self.parameters:
+                max_retries_value = self.parameters["max_retries"]
+                if isinstance(max_retries_value, int) and max_retries_value >= 0:
+                    # 更新retry_config
+                    self.retry_config.max_retries = max_retries_value
+                    # 从parameters中移除，避免重复
+                    del self.parameters["max_retries"]
+        
         return self
 
     def get_parameter(self, key: str, default: Any = None) -> Any:
@@ -262,3 +292,11 @@ class LLMConfig(BaseConfig):
     def set_metadata(self, key: str, value: Any) -> None:
         """设置元数据值"""
         self.metadata[key] = value
+
+    def get_timeout(self) -> int:
+        """获取超时时间（向后兼容）"""
+        return self.timeout_config.request_timeout
+
+    def get_max_retries(self) -> int:
+        """获取最大重试次数（向后兼容）"""
+        return self.retry_config.max_retries

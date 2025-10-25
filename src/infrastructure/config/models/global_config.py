@@ -44,6 +44,91 @@ class LogOutputConfig(BaseConfig):
         return v
 
 
+class LLMGlobalConfig(BaseConfig):
+    """LLM全局配置"""
+
+    # 默认超时和重试配置
+    default_timeout: int = Field(30, description="默认超时时间（秒）", ge=1, le=300)
+    default_max_retries: int = Field(3, description="默认最大重试次数", ge=0, le=10)
+    
+    # 全局重试配置
+    retry_config: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "base_delay": 1.0,
+            "max_delay": 60.0,
+            "jitter": True,
+            "exponential_base": 2.0,
+            "retry_on_status_codes": [429, 500, 502, 503, 504],
+            "retry_on_errors": ["timeout", "rate_limit", "service_unavailable"],
+        },
+        description="全局重试配置"
+    )
+    
+    # 全局超时配置
+    timeout_config: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "request_timeout": 30,
+            "connect_timeout": 10,
+            "read_timeout": 30,
+            "write_timeout": 30,
+        },
+        description="全局超时配置"
+    )
+    
+    # 性能优化配置
+    performance: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "max_concurrent_requests": 10,
+            "request_queue_size": 100,
+            "connection_pool_size": 20,
+            "connection_keep_alive": True,
+        },
+        description="性能优化配置"
+    )
+
+    @field_validator("retry_config")
+    @classmethod
+    def validate_retry_config(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        """验证重试配置"""
+        if not isinstance(v, dict):
+            raise ValueError("retry_config必须是字典")
+        
+        # 验证基础延迟时间
+        if "base_delay" in v:
+            base_delay = v["base_delay"]
+            if not isinstance(base_delay, (int, float)) or base_delay <= 0:
+                raise ValueError("retry_config.base_delay必须是正数")
+        
+        # 验证最大延迟时间
+        if "max_delay" in v:
+            max_delay = v["max_delay"]
+            if not isinstance(max_delay, (int, float)) or max_delay <= 0:
+                raise ValueError("retry_config.max_delay必须是正数")
+        
+        # 验证指数退避基数
+        if "exponential_base" in v:
+            exponential_base = v["exponential_base"]
+            if not isinstance(exponential_base, (int, float)) or exponential_base <= 1:
+                raise ValueError("retry_config.exponential_base必须大于1")
+        
+        return v
+
+    @field_validator("timeout_config")
+    @classmethod
+    def validate_timeout_config(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        """验证超时配置"""
+        if not isinstance(v, dict):
+            raise ValueError("timeout_config必须是字典")
+        
+        # 验证请求超时时间
+        if "request_timeout" in v:
+            request_timeout = v["request_timeout"]
+            if not isinstance(request_timeout, int) or request_timeout <= 0:
+                raise ValueError("timeout_config.request_timeout必须是正整数")
+        
+        return v
+
+
 class GlobalConfig(BaseConfig):
     """全局配置模型"""
 
@@ -66,6 +151,11 @@ class GlobalConfig(BaseConfig):
     # 热重载配置
     hot_reload: bool = Field(True, description="是否启用热重载")
     watch_interval: int = Field(5, description="配置监听间隔（秒）")
+    
+    # LLM全局配置
+    llm: LLMGlobalConfig = Field(
+        default_factory=LLMGlobalConfig, description="LLM全局配置"
+    )
 
     @field_validator("log_level")
     @classmethod
@@ -107,3 +197,7 @@ class GlobalConfig(BaseConfig):
             if output_config.type == output_type:
                 return output_config
         return None
+    
+    def get_llm_config(self) -> LLMGlobalConfig:
+        """获取LLM全局配置"""
+        return self.llm

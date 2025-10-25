@@ -117,6 +117,17 @@ class ChatCompletionAdapter(APIFormatAdapter):
             # 转换 api_key 为 SecretStr 类型
             api_key = SecretStr(self.config.api_key) if self.config.api_key else None
 
+            # 构建超时配置
+            timeout_config = getattr(self.config, 'timeout_config', None)
+            if timeout_config and hasattr(timeout_config, 'get_client_timeout_kwargs'):
+                # 使用新的超时配置
+                timeout_kwargs = timeout_config.get_client_timeout_kwargs()
+                # LangChain OpenAI客户端接受一个整体超时值
+                timeout_value = timeout_kwargs.get('request_timeout', self.config.timeout)
+            else:
+                # 使用旧的超时配置
+                timeout_value = self.config.timeout
+            
             self._client = ChatOpenAI(
                 model=self.config.model_name,
                 api_key=api_key,
@@ -124,7 +135,7 @@ class ChatCompletionAdapter(APIFormatAdapter):
                 organization=getattr(self.config, "organization", None),
                 temperature=self.config.temperature,
                 top_p=self.config.top_p,
-                timeout=self.config.timeout,
+                timeout=timeout_value,
                 max_retries=self.config.max_retries,
                 model_kwargs=model_kwargs,
             )
