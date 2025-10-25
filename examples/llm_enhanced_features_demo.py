@@ -11,18 +11,18 @@ logging.basicConfig(
 )
 
 # 导入增强的LLM组件
-from src.llm.config_manager import LLMConfigManager, get_global_config_manager
-from src.llm.hooks import (
-    SmartRetryHook, 
-    StructuredLoggingHook, 
+from src.infrastructure.llm.config_manager import LLMConfigManager, get_global_config_manager
+from src.infrastructure.llm.hooks import (
+    SmartRetryHook,
+    StructuredLoggingHook,
     MetricsHook,
     CompositeHook
 )
-from src.llm.error_handler import (
-    ErrorContext, 
+from src.infrastructure.llm.error_handler import (
+    ErrorContext,
     get_global_error_stats_manager
 )
-from src.llm.factory import get_global_factory
+from src.infrastructure.llm.factory import get_global_factory
 
 
 def demo_enhanced_config_management():
@@ -145,7 +145,7 @@ def demo_performance_monitoring():
     print("\n=== 性能监控演示 ===")
     
     # 导入必要的模块
-    from src.llm.models import LLMResponse, TokenUsage
+    from src.infrastructure.llm.models import LLMResponse, TokenUsage
     from datetime import datetime
     from langchain_core.messages import AIMessage
     
@@ -202,7 +202,7 @@ def demo_config_validation():
     """演示配置验证"""
     print("\n=== 配置验证演示 ===")
     
-    from src.llm.config_manager import ConfigValidator, ConfigValidationRule
+    from src.infrastructure.llm.config_manager import ConfigValidator, ConfigValidationRule
     
     # 创建验证器
     validator = ConfigValidator()

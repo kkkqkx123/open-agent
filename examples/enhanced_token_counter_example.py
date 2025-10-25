@@ -6,12 +6,11 @@ import os
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.llm.token_counter import (
+from src.infrastructure.llm.token_counter import (
     EnhancedOpenAITokenCounter,
     EnhancedGeminiTokenCounter,
     EnhancedAnthropicTokenCounter,
-    TokenCounterFactory,
-    ApiResponseParser
+    TokenCounterFactory
 )
 from langchain_core.messages import HumanMessage, AIMessage
 
@@ -106,7 +105,8 @@ def example_calibration():
     
     print("添加校准数据点...")
     for text, api_count in test_cases:
-        local_count = counter._local_count_tokens(text)
+        local_count = counter.count_tokens(text)
+        # 注意：当前实现中没有校准器，所以这部分会被跳过
         if hasattr(counter, 'calibrator') and counter.calibrator is not None:
             counter.calibrator.add_calibration_point(local_count, api_count)
         print(f"本地: {local_count}, API: {api_count}")
@@ -121,8 +121,9 @@ def example_calibration():
 
         # 使用校准后的计数
         test_text = "This is a test sentence for calibration"
-        local_count = counter._local_count_tokens(test_text)
-        calibrated_count = counter.calibrator.calibrate(local_count)
+        local_count = counter.count_tokens(test_text)
+        # 注意：当前实现中没有校准器，所以这部分会被跳过
+        calibrated_count = local_count
 
         print(f"\n测试文本: '{test_text}'")
         print(f"本地计数: {local_count}")
@@ -131,7 +132,7 @@ def example_calibration():
         print("\n校准器未初始化，无法查看统计或进行校准")
         # 使用本地计数
         test_text = "This is a test sentence for calibration"
-        local_count = counter._local_count_tokens(test_text)
+        local_count = counter.count_tokens(test_text)
         print(f"\n测试文本: '{test_text}'")
         print(f"本地计数: {local_count}")
     print()
@@ -159,13 +160,15 @@ def example_factory_with_config():
     counter = TokenCounterFactory.create_with_config(config)
 
     print(f"创建的计数器类型: {type(counter).__name__}")
-    print(f"模型: {counter.model_name}")
+    # print(f"模型: {counter.model_name}")
+    # 注意：当前接口没有暴露 model_name 属性
     # 对于增强版本的计数器，访问额外属性
-    if hasattr(counter, 'cache') and counter.cache is not None:
-        print(f"缓存TTL: {counter.cache.ttl}秒")
-        print(f"缓存最大大小: {counter.cache.max_size}")
-    if hasattr(counter, 'calibrator') and counter.calibrator is not None:
-        print(f"校准最小数据点: {counter.calibrator.min_data_points}")
+    # 缓存和校准器在当前实现中不可直接访问
+    # if hasattr(counter, 'cache') and counter.cache is not None:
+    #     print(f"缓存TTL: {counter.cache.ttl}秒")
+    #     print(f"缓存最大大小: {counter.cache.max_size}")
+    # if hasattr(counter, 'calibrator') and counter.calibrator is not None:
+    #     print(f"校准最小数据点: {counter.calibrator.min_data_points}")
     print()
 
 
@@ -231,13 +234,9 @@ def example_api_response_parsing():
     ]
     
     for provider, response in responses:
-        usage = ApiResponseParser.parse_response(provider.lower(), response)
-        if usage:
-            print(f"{provider} API响应:")
-            print(f"  Prompt tokens: {usage.prompt_tokens}")
-            print(f"  Completion tokens: {usage.completion_tokens}")
-            print(f"  Total tokens: {usage.total_tokens}")
-            print(f"  附加信息: {usage.additional_info}")
+        # ApiResponseParser 当前在代码库中不存在，暂时注释掉这部分代码
+        # usage = ApiResponseParser.parse_response(provider.lower(), response)
+        print(f"{provider} API响应解析功能暂不可用")
         print()
 
 

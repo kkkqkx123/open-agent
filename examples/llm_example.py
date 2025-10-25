@@ -11,7 +11,7 @@ from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage
 from typing import List, cast
 
 # 导入LLM模块
-from src.llm import (
+from src.infrastructure.llm import (
     LLMFactory,
     LLMModuleConfig,
     LoggingHook,
@@ -19,7 +19,7 @@ from src.llm import (
     CompositeHook,
     create_client
 )
-from src.llm.exceptions import (
+from src.infrastructure.llm.exceptions import (
     LLMTimeoutError,
     LLMRateLimitError,
     LLMAuthenticationError

@@ -4,7 +4,7 @@ import os
 from typing import Dict, Any
 from src.infrastructure import DependencyContainer
 from src.infrastructure.config_loader import YamlConfigLoader
-from src.config import ConfigSystem, ConfigMerger, ConfigValidator, ConfigValidatorTool
+from src.infrastructure.config import ConfigSystem, ConfigMerger, ConfigValidator, ConfigValidatorTool
 
 
 def setup_dependency_container(config_path: str = "configs") -> DependencyContainer:
