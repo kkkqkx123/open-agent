@@ -5,6 +5,7 @@ from typing import Dict, Any, Optional, List, Union, Tuple
 from pathlib import Path
 
 from src.infrastructure.config.models.llm_config import LLMConfig
+from src.infrastructure.config.models.connection_pool_config import ConnectionPoolConfig
 
 
 @dataclass
@@ -74,6 +75,11 @@ class LLMClientConfig:
     fallback_models: List[str] = field(default_factory=list)
     max_fallback_attempts: int = 3
 
+    # 连接池配置
+    connection_pool_config: ConnectionPoolConfig = field(
+        default_factory=ConnectionPoolConfig
+    )
+
     # 元数据
     metadata_config: Dict[str, Any] = field(default_factory=dict)
 
@@ -131,6 +137,7 @@ class LLMClientConfig:
             fallback_enabled=parameters.get("fallback_enabled", True),
             fallback_models=parameters.get("fallback_models", []),
             max_fallback_attempts=parameters.get("max_fallback_attempts", 3),
+            connection_pool_config=config.connection_pool_config,
             metadata_config=parameters.get("metadata", {}),
         )
 
@@ -255,6 +262,9 @@ class LLMClientConfig:
 
         if self.fallback_models:
             result["fallback_models"] = self.fallback_models
+
+        if self.connection_pool_config:
+            result["connection_pool_config"] = self.connection_pool_config.model_dump()
 
         if self.metadata_config:
             result["metadata_config"] = self.metadata_config
@@ -390,6 +400,7 @@ class LLMClientConfig:
             fallback_enabled=self.fallback_enabled,
             fallback_models=self.fallback_models.copy(),
             max_fallback_attempts=self.max_fallback_attempts,
+            connection_pool_config=self.connection_pool_config,
             metadata_config=self.metadata_config.copy(),
         )
 
@@ -447,6 +458,7 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
                 metadata_config=config_dict.get("metadata", {}),
             )
         elif model_type == "gemini":
@@ -474,6 +486,7 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
                 metadata_config=config_dict.get("metadata", {}),
             )
         elif model_type in ["anthropic", "claude"]:
@@ -498,6 +511,7 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
                 metadata_config=config_dict.get("metadata", {}),
             )
         elif model_type == "mock":
@@ -518,6 +532,7 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
                 metadata_config=config_dict.get("metadata", {}),
                 response_delay=config_dict.get("response_delay", 0.1),
                 error_rate=config_dict.get("error_rate", 0.0),
@@ -542,6 +557,7 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
                 metadata_config=config_dict.get("metadata", {}),
             )
 
@@ -578,6 +594,12 @@ class LLMModuleConfig:
     metrics_enabled: bool = True
     performance_tracking: bool = True
 
+    # 连接池配置
+    connection_pool_enabled: bool = True
+    default_max_connections: int = 10
+    default_max_keepalive: int = 10
+    default_connection_timeout: float = 30.0
+
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> "LLMModuleConfig":
         """从字典创建配置"""
@@ -598,6 +620,10 @@ class LLMModuleConfig:
             request_queue_size=config_dict.get("request_queue_size", 100),
             metrics_enabled=config_dict.get("metrics_enabled", True),
             performance_tracking=config_dict.get("performance_tracking", True),
+            connection_pool_enabled=config_dict.get("connection_pool_enabled", True),
+            default_max_connections=config_dict.get("default_max_connections", 10),
+            default_max_keepalive=config_dict.get("default_max_keepalive", 10),
+            default_connection_timeout=config_dict.get("default_connection_timeout", 30.0),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -619,6 +645,10 @@ class LLMModuleConfig:
             "request_queue_size": self.request_queue_size,
             "metrics_enabled": self.metrics_enabled,
             "performance_tracking": self.performance_tracking,
+            "connection_pool_enabled": self.connection_pool_enabled,
+            "default_max_connections": self.default_max_connections,
+            "default_max_keepalive": self.default_max_keepalive,
+            "default_connection_timeout": self.default_connection_timeout,
         }
 
 

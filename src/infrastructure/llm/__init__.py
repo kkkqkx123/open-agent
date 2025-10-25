@@ -46,6 +46,12 @@ from .fallback import (
     FallbackModel,
     ConditionalFallback,
 )
+from .pool.interfaces import IConnectionPool
+from .pool.connection_pool import HTTPConnectionPool, connection_pool_manager
+from .pool.factory import ConnectionPoolFactory
+from .memory.memory_manager import MemoryManager, memory_manager_factory
+from .plugins.interfaces import ILLMPlugin, IPluginManager
+from .plugins.plugin_manager import PluginManager, plugin_manager_factory
 
 __all__ = [
     # 接口
@@ -95,6 +101,19 @@ __all__ = [
     "FallbackStrategy",
     "FallbackModel",
     "ConditionalFallback",
+    # 连接池
+    "IConnectionPool",
+    "HTTPConnectionPool",
+    "connection_pool_manager",
+    "ConnectionPoolFactory",
+    # 内存管理
+    "MemoryManager",
+    "memory_manager_factory",
+    # 插件系统
+    "ILLMPlugin",
+    "IPluginManager",
+    "PluginManager",
+    "plugin_manager_factory",
     # 异常
     "LLMError",
     "LLMClientCreationError",

@@ -5,6 +5,7 @@ from pydantic import Field, field_validator, model_validator
 
 from .base import BaseConfig
 from .retry_timeout_config import RetryConfig, TimeoutConfig
+from .connection_pool_config import ConnectionPoolConfig
 
 
 class LLMConfig(BaseConfig):
@@ -45,6 +46,11 @@ class LLMConfig(BaseConfig):
     # 元数据
     metadata: Dict[str, Any] = Field(default_factory=dict, description="元数据")
 
+    # 连接池配置
+    connection_pool_config: ConnectionPoolConfig = Field(
+        default_factory=ConnectionPoolConfig, description="连接池配置"
+    )
+    
     # 内部状态
     _resolved_headers: Optional[Dict[str, str]] = None
     _sanitized_headers: Optional[Dict[str, str]] = None
