@@ -1,8 +1,8 @@
-"""EnhancedWorkflowBuilder测试"""
+"""WorkflowBuilder测试"""
 
 import pytest
 from unittest.mock import Mock, AsyncMock
-from src.application.workflow.enhanced_builder import EnhancedWorkflowBuilder, AgentNodeExecutor
+from src.application.workflow.builder import WorkflowBuilder, AgentNodeExecutor
 from src.domain.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
 from src.domain.workflow.state import WorkflowState, BaseMessage, MessageRole
 from src.domain.agent.interfaces import IAgent, IAgentFactory
@@ -58,12 +58,12 @@ def mock_agent_factory():
 
 @pytest.fixture
 def enhanced_builder(mock_agent_factory):
-    """创建EnhancedWorkflowBuilder实例"""
-    return EnhancedWorkflowBuilder(agent_factory=mock_agent_factory)
+    """创建WorkflowBuilder实例"""
+    return WorkflowBuilder(agent_factory=mock_agent_factory)
 
 
 def test_enhanced_builder_init(enhanced_builder):
-    """测试EnhancedWorkflowBuilder初始化"""
+    """测试WorkflowBuilder初始化"""
     assert enhanced_builder.agent_factory is not None
     assert enhanced_builder.node_registry is not None
     assert isinstance(enhanced_builder.workflow_templates, dict)

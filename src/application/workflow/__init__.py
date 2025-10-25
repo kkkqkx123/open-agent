@@ -1,14 +1,21 @@
 """工作流系统模块
 
-基于LangGraph的YAML配置化工作流系统，支持ReAct等工作流模式。
-重构后提供统一的工作流创建接口和改进的状态管理。
+基于LangGraph的增强工作流系统，支持ReAct等工作流模式。
+提供统一的工作流创建接口、模板系统、Agent集成和改进的状态管理。
+新版本WorkflowBuilder支持：
+- 配置驱动的构建过程
+- 工作流模板系统
+- Agent节点自动注册
+- 多种配置输入格式
+- 向后兼容的API
 """
 
 from .manager import IWorkflowManager, WorkflowManager
 from ...domain.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, StateSchemaConfig
 from ...domain.workflow.state import WorkflowState, AgentState
 from .registry import NodeRegistry, BaseNode, NodeExecutionResult, register_node, get_node, get_global_registry
-from .builder import WorkflowBuilder
+from .builder import WorkflowBuilder, INodeExecutor, AgentNodeExecutor
+from .interfaces import IWorkflowBuilder
 from .factory import (
     IWorkflowFactory,
     UnifiedWorkflowFactory,
@@ -64,6 +71,9 @@ __all__ = [
     
     # 构建器
     "WorkflowBuilder",
+    "IWorkflowBuilder",
+    "INodeExecutor",
+    "AgentNodeExecutor",
     
     # 工厂接口
     "get_global_factory",
