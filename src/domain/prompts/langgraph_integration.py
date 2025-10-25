@@ -14,7 +14,7 @@ except ImportError:
 
 from .interfaces import IPromptInjector
 from .models import PromptConfig
-from ..workflow.state import WorkflowState
+from ..workflow.state import WorkflowState, MessageRole
 
 
 def get_agent_config() -> PromptConfig:
@@ -50,7 +50,7 @@ def create_agent_workflow(
                 response = HumanMessage(content="这是一个模拟的LLM响应")
             except ImportError:
                 # 如果无法导入HumanMessage，使用BaseMessage
-                response = BaseMessage(content="这是一个模拟的LLM响应", type="human")
+                response = BaseMessage(content="这是一个模拟的LLM响应", role=MessageRole.HUMAN, type="human")
             state.add_message(response)  # type: ignore
         else:
             # 使用注入后的提示词调用LLM

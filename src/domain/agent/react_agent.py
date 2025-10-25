@@ -3,7 +3,7 @@
 import asyncio
 from typing import Any, Dict, List
 from .base import BaseAgent
-from ..prompts.agent_state import AgentState, BaseMessage, ToolResult
+from ..workflow.state import WorkflowState, BaseMessage, ToolResult, MessageRole
 from src.domain.tools.interfaces import ToolCall
 from .events import AgentEvent
 
@@ -13,16 +13,24 @@ class ReActAgent(BaseAgent):
     ReAct (Reasoning + Acting) 算法结合了推理和行动，通过交替进行推理和行动来解决问题
     """
     
-    async def _execute_logic(self, state: AgentState) -> AgentState:
-        """执行ReAct算法：Reasoning + Acting"""
-        current_iteration = 0
+    async def _execute_logic(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
+        """执行ReAct算法：Reasoning + Acting
         
-        while current_iteration < state.max_iterations and current_iteration < self.config.max_iterations:
+        Args:
+            state: 当前工作流状态
+            config: 执行配置
+            
+        Returns:
+            WorkflowState: 更新后的状态
+        """
+        current_iteration = 0
+        max_iterations = config.get("max_iterations", self.config.max_iterations)
+        
+        while current_iteration < state.max_iterations and current_iteration < max_iterations:
             # 1. 分析当前状态并进行推理
             reasoning_result = await self._reason(state)
             
             # 将推理结果添加到记忆中
-            from ..workflow.state import MessageRole
             state.add_memory(BaseMessage(content=f"Thought: {reasoning_result}", role=MessageRole.AI, type="reasoning"))
             
             # 2. 决策下一步行动
@@ -75,13 +83,75 @@ class ReActAgent(BaseAgent):
         
         return state
     
-    def can_handle(self, state: AgentState) -> bool:
-        """判断Agent是否能处理当前状态"""
+    def can_handle(self, state: WorkflowState) -> bool:
+        """判断Agent是否能处理当前状态
+        
+        Args:
+            state: 工作流状态
+            
+        Returns:
+            bool: 是否能处理
+        """
         # ReAct Agent可以处理需要推理和行动的任务
+        return self.validate_state(state)
+    
+    def validate_state(self, state: WorkflowState) -> bool:
+        """验证状态是否适合此Agent
+        
+        Args:
+            state: 工作流状态
+            
+        Returns:
+            bool: 是否适合
+        """
+        # 检查基本状态
+        if not state.messages:
+            return False
+        
+        # 检查是否有有效的LLM客户端
+        if not self.llm_client:
+            return False
+        
         return True
     
-    async def _reason(self, state: AgentState) -> str:
-        """执行推理步骤"""
+    def get_capabilities(self) -> Dict[str, Any]:
+        """获取Agent能力描述
+        
+        Returns:
+            Dict[str, Any]: 能力描述字典
+        """
+        capabilities = super().get_capabilities()
+        capabilities.update({
+            "algorithm": "ReAct",
+            "supported_tasks": self._get_supported_tasks(),
+            "reasoning_enabled": True,
+            "tool_execution_enabled": True
+        })
+        return capabilities
+    
+    def _get_supported_tasks(self) -> List[str]:
+        """获取支持的任务类型
+        
+        Returns:
+            List[str]: 支持的任务类型列表
+        """
+        return [
+            "reasoning",
+            "tool_execution",
+            "problem_solving",
+            "information_gathering",
+            "step_by_step_processing"
+        ]
+    
+    async def _reason(self, state: WorkflowState) -> str:
+        """执行推理步骤
+        
+        Args:
+            state: 当前工作流状态
+            
+        Returns:
+            str: 推理结果
+        """
         # 使用LLM进行推理
         from langchain_core.messages import HumanMessage, SystemMessage  # type: ignore
         
@@ -113,8 +183,16 @@ class ReActAgent(BaseAgent):
             state.add_error({"error": error_msg, "type": "reasoning_error"})
             return "Unable to reason due to an error. Proceeding with default action."
     
-    async def _decide_action(self, state: AgentState, reasoning_result: str) -> Dict[str, Any]:
-        """决定下一步行动"""
+    async def _decide_action(self, state: WorkflowState, reasoning_result: str) -> Dict[str, Any]:
+        """决定下一步行动
+        
+        Args:
+            state: 当前工作流状态
+            reasoning_result: 推理结果
+            
+        Returns:
+            Dict[str, Any]: 行动决策
+        """
         # 根据推理结果决定行动
         from langchain_core.messages import HumanMessage  # type: ignore
         
@@ -150,8 +228,16 @@ class ReActAgent(BaseAgent):
             state.add_error({"error": error_msg, "type": "action_decision_error"})
             return {"action": "other", "details": "Default action due to error"}
     
-    async def _execute_tool(self, state: AgentState, tool_call_str: str) -> ToolResult:
-        """执行工具调用"""
+    async def _execute_tool(self, state: WorkflowState, tool_call_str: str) -> ToolResult:
+        """执行工具调用
+        
+        Args:
+            state: 当前工作流状态
+            tool_call_str: 工具调用字符串
+            
+        Returns:
+            ToolResult: 工具执行结果
+        """
         try:
             # 使用工具执行器执行工具调用
             # 在实际实现中，需要解析工具调用字符串并创建ToolCall对象
@@ -168,7 +254,7 @@ class ReActAgent(BaseAgent):
                 # 执行工具
                 tool_result = await self.tool_executor.execute_async(tool_call)
                 
-                # 将domain.tools.interfaces.ToolResult转换为domain.prompts.agent_state.ToolResult
+                # 将domain.tools.interfaces.ToolResult转换为domain.workflow.state.ToolResult
                 return ToolResult(
                     tool_name=tool_result.tool_name or "unknown_tool",
                     success=tool_result.success,
@@ -183,7 +269,3 @@ class ReActAgent(BaseAgent):
             error_msg = f"Tool execution error: {str(e)}"
             state.add_error({"error": error_msg, "type": "tool_execution_error"})
             return ToolResult(tool_name="unknown_tool", success=False, result=None, error=error_msg)
-    
-    def get_capabilities(self) -> List[str]:
-        """获取Agent的能力列表"""
-        return ["reasoning", "tool_execution", "react_algorithm"]

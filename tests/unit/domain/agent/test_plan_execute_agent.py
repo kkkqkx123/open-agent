@@ -51,7 +51,7 @@ Plan:
         self.mock_llm_client.generate_response_async = AsyncMock(return_value=mock_plan_response)
         
         # 执行Agent
-        result_state = await self.plan_execute_agent.execute(input_state)
+        result_state = await self.plan_execute_agent.execute(input_state, {})
         
         # 验证LLM被调用
         assert self.mock_llm_client.generate_response_async.called
@@ -82,7 +82,7 @@ Plan:
         self.mock_llm_client.generate_response_async = AsyncMock(return_value=mock_step_response)
         
         # 执行Agent
-        result_state = await self.plan_execute_agent.execute(input_state)
+        result_state = await self.plan_execute_agent.execute(input_state, {})
         
         # 验证状态更新
         assert result_state.context.get("current_step_index") == 1
@@ -119,7 +119,7 @@ Plan:
         self.mock_tool_executor.execute_tool_async = AsyncMock(return_value=mock_tool_result)
         
         # 执行Agent
-        result_state = await self.plan_execute_agent.execute(input_state)
+        result_state = await self.plan_execute_agent.execute(input_state, {})
         
         # 验证工具被调用
         assert self.mock_tool_executor.execute_tool_async.called
@@ -148,7 +148,7 @@ Plan:
         self.mock_llm_client.generate_response_async = AsyncMock(return_value=mock_final_response)
         
         # 执行Agent
-        result_state = await self.plan_execute_agent.execute(input_state)
+        result_state = await self.plan_execute_agent.execute(input_state, {})
         
         # 验证状态更新
         assert result_state.context.get("current_plan") is None  # 计划完成应清除

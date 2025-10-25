@@ -24,13 +24,19 @@ class TestAgentManager:
                 self.llm_client = llm_client
                 self.tool_executor = tool_executor
             
-            async def execute(self, state):
+            async def execute(self, state, config):
                 return state
-            
+
             def can_handle(self, state):
                 return True
-            
+
             def get_capabilities(self):
+                return {}
+
+            def validate_state(self, state):
+                return True
+
+            def get_available_tools(self):
                 return []
         
         # 注册Agent类型
