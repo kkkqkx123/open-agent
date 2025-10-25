@@ -1,7 +1,7 @@
 """Agent事件定义"""
 
 from enum import Enum
-from typing import Dict, Any
+from typing import Dict, Any, Callable, List
 
 
 class AgentEvent(Enum):
@@ -14,11 +14,11 @@ class AgentEvent(Enum):
 
 class AgentEventManager:
     """Agent事件管理器实现"""
+
+    def __init__(self) -> None:
+        self._handlers: Dict[AgentEvent, List[Callable]] = {}
     
-    def __init__(self):
-        self._handlers = {}
-    
-    def subscribe(self, event_type: AgentEvent, handler: callable) -> None:
+    def subscribe(self, event_type: AgentEvent, handler: Callable) -> None:
         """订阅Agent事件"""
         if event_type not in self._handlers:
             self._handlers[event_type] = []

@@ -1,9 +1,14 @@
 """Agent管理器实现"""
 
-from typing import Any, Dict, Type, Optional
+from typing import Any, Dict, Type, Optional, TYPE_CHECKING
 from .interfaces import IAgent, IAgentManager, IAgentEventManager
 from .config import AgentConfig
 from .events import AgentEventManager, AgentEvent
+from src.domain.prompts.agent_state import AgentState
+
+if TYPE_CHECKING:
+    from src.infrastructure.llm.interfaces import ILLMClient
+    from src.infrastructure.tools.executor import IToolExecutor
 
 
 class AgentManager(IAgentManager):
@@ -19,7 +24,7 @@ class AgentManager(IAgentManager):
             raise ValueError(f"Unknown agent type: {config.agent_type}")
         
         agent_class = self.agent_types[config.agent_type]
-        agent = agent_class(config, self.llm_client, self.tool_executor, self.event_manager)
+        agent = agent_class(config, self.llm_client, self.tool_executor, self.event_manager)  # type: ignore
         
         # 注册事件处理器
         self._setup_agent_events(agent, config.name)

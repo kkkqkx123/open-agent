@@ -3,7 +3,7 @@
 from typing import Any, Dict, List
 from .base import BaseAgent
 from ..prompts.agent_state import AgentState, BaseMessage, ToolResult
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage  # type: ignore
 from src.domain.tools.interfaces import ToolCall
 from .events import AgentEvent
 

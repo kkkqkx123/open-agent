@@ -252,3 +252,10 @@ class AgentExecutionNode(BaseNode):
         else:
             # config_based - 默认不切换
             return False
+
+
+async def agent_execution_node(state: AgentState) -> AgentState:
+    """Agent执行节点函数版本，用于测试和简单调用"""
+    node = AgentExecutionNode()
+    result = node.execute(state, {})
+    return result.state

@@ -8,7 +8,7 @@ from .config import AgentConfig
 class AgentStateManager:
     """Agent状态管理器"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._states: Dict[str, AgentState] = {}
         self._default_state = AgentState()
     

@@ -93,9 +93,9 @@ class TestAgentExecutionNode:
         # 配置get_service返回模拟的AgentManager
         mock_get_service.return_value = mock_agent_manager
         
-        # 准备输入状态（上下文为None）
+        # 准备输入状态（上下文为空）
         input_state = AgentState()
-        input_state.context = None
+        input_state.context = {}
         
         # 执行节点
         result_state = await agent_execution_node(input_state)

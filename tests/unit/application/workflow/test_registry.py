@@ -1,7 +1,7 @@
 """节点注册系统测试"""
 
 import pytest
-from src.workflow.registry import (
+from src.application.workflow.registry import (
     NodeRegistry,
     BaseNode,
     NodeExecutionResult,
@@ -10,7 +10,7 @@ from src.workflow.registry import (
     get_global_registry,
     node
 )
-from src.prompts.agent_state import AgentState
+from src.domain.prompts.agent_state import AgentState
 
 
 class MockNode(BaseNode):

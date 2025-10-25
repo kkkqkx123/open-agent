@@ -63,10 +63,10 @@ class TestAgentManager:
     
     def test_register_agent_type(self):
         """测试注册Agent类型"""
-        mock_agent_class = Mock()
-        
-        self.agent_manager.register_agent_type("test_type", mock_agent_class)
-        
+        mock_agent_class = Mock(spec=IAgent)
+
+        self.agent_manager.register_agent_type("test_type", mock_agent_class)  # type: ignore
+
         assert self.agent_manager.agent_types["test_type"] == mock_agent_class
     
     async def test_execute_agent(self):

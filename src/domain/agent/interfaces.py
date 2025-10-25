@@ -1,8 +1,10 @@
 """Agent接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Type
-from ...domain.prompts.agent_state import AgentState
+from typing import Any, Dict, List, Optional, Type, Callable
+from src.domain.prompts.agent_state import AgentState
+from .config import AgentConfig
+from .events import AgentEvent
 
 
 class IAgent(ABC):
@@ -35,7 +37,7 @@ class IAgentManager(ABC):
 
 class IAgentEventManager(ABC):
     @abstractmethod
-    def subscribe(self, event_type: 'AgentEvent', handler: callable) -> None:
+    def subscribe(self, event_type: AgentEvent, handler: Callable) -> None:
         """订阅Agent事件"""
     
     @abstractmethod

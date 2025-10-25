@@ -82,7 +82,7 @@ class ReActAgent(BaseAgent):
     async def _reason(self, state: AgentState) -> str:
         """执行推理步骤"""
         # 使用LLM进行推理
-        from langchain_core.messages import HumanMessage, SystemMessage
+        from langchain_core.messages import HumanMessage, SystemMessage  # type: ignore
         
         # 构建推理请求
         reasoning_prompt = f"""
@@ -115,7 +115,7 @@ class ReActAgent(BaseAgent):
     async def _decide_action(self, state: AgentState, reasoning_result: str) -> Dict[str, Any]:
         """决定下一步行动"""
         # 根据推理结果决定行动
-        from langchain_core.messages import HumanMessage
+        from langchain_core.messages import HumanMessage  # type: ignore
         
         action_decision_prompt = f"""
         Based on the reasoning: "{reasoning_result}"

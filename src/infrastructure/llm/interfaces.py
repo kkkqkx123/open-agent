@@ -10,6 +10,7 @@ from typing import (
     Union,
     Coroutine,
     Generator,
+    Sequence,
 )
 from datetime import datetime
 
@@ -34,7 +35,7 @@ class ILLMClient(ABC):
     @abstractmethod
     def generate(
         self,
-        messages: List[BaseMessage],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
@@ -54,7 +55,7 @@ class ILLMClient(ABC):
     @abstractmethod
     async def generate_async(
         self,
-        messages: List[BaseMessage],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
@@ -74,7 +75,7 @@ class ILLMClient(ABC):
     @abstractmethod
     def stream_generate_async(
         self,
-        messages: List[BaseMessage],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> AsyncGenerator[str, None]:
@@ -94,7 +95,7 @@ class ILLMClient(ABC):
     @abstractmethod
     def stream_generate(
         self,
-        messages: List[BaseMessage],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Generator[str, None, None]:
@@ -125,7 +126,7 @@ class ILLMClient(ABC):
         pass
 
     @abstractmethod
-    def get_messages_token_count(self, messages: List[BaseMessage]) -> int:
+    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
         """
         计算消息列表的token数量
 
@@ -164,7 +165,7 @@ class ILLMCallHook(ABC):
     @abstractmethod
     def before_call(
         self,
-        messages: List[BaseMessage],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -182,7 +183,7 @@ class ILLMCallHook(ABC):
     def after_call(
         self,
         response: Optional[LLMResponse],
-        messages: List[BaseMessage],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -201,7 +202,7 @@ class ILLMCallHook(ABC):
     def on_error(
         self,
         error: Exception,
-        messages: List[BaseMessage],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Optional[LLMResponse]:

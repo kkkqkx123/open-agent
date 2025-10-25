@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, ConfigDict
-from ...config.models.base import BaseConfig  # 使用正确的BaseConfig路径
+from src.infrastructure.config.models.base import BaseConfig  # 使用正确的BaseConfig路径
 
 
 @dataclass
@@ -40,7 +40,7 @@ class AgentConfig(BaseConfig):
     # 其他配置
     metadata: Dict[str, Any] = field(default_factory=dict)
     
-    def __init__(self, **data):
+    def __init__(self, **data: Any) -> None:
         super().__init__(**data)
         if self.memory_config is None:
             self.memory_config = MemoryConfig()

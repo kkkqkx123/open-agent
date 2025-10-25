@@ -2,7 +2,7 @@
 
 from typing import Dict, List
 from .config import AgentConfig
-from ...src.infrastructure.config_loader import IConfigLoader  # 使用现有的配置加载器接口
+from src.infrastructure.config_loader import IConfigLoader  # 使用现有的配置加载器接口
 
 
 class AgentConfigLoader:
