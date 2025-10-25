@@ -37,14 +37,14 @@ class LLMFactory(ILLMClientFactory):
             pass
 
         try:
-            from .clients.gemini_client import GeminiClient
+            from .clients.gemini import GeminiClient
 
             self._client_types["gemini"] = GeminiClient
         except ImportError:
             pass
 
         try:
-            from .clients.anthropic_client import AnthropicClient
+            from .clients.anthropic import AnthropicClient
 
             self._client_types["anthropic"] = AnthropicClient
             self._client_types["claude"] = AnthropicClient
@@ -52,7 +52,7 @@ class LLMFactory(ILLMClientFactory):
             pass
 
         try:
-            from .clients.mock_client import MockLLMClient
+            from .clients.mock import MockLLMClient
 
             self._client_types["mock"] = MockLLMClient
         except ImportError:
