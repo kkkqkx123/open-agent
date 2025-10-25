@@ -45,24 +45,26 @@ class TestFileHistoryStorage:
         """测试存储消息记录"""
         with tempfile.TemporaryDirectory() as temp_dir:
             base_path = Path(temp_dir)
-            storage = FileHistoryStorage(base_path)
             
-            record = MessageRecord(
-                record_id="msg-1",
-                session_id="test-session",
-                timestamp=datetime(2023, 10, 25, 12, 0, 0),
-                message_type=MessageType.USER,
-                content="测试消息",
-                metadata={"source": "test"}
-            )
-            
-            result = storage.store_record(record)
-            
-            assert result is True
-            
-            # 验证文件是否创建并包含正确内容
-            with patch('datetime.datetime') as mock_datetime:
+            # 使用模拟日期来确保一致性
+            with patch('src.infrastructure.history.storage.file_storage.datetime') as mock_datetime:
                 mock_datetime.now.return_value.strftime.return_value = "202310"
+                storage = FileHistoryStorage(base_path)
+                
+                record = MessageRecord(
+                    record_id="msg-1",
+                    session_id="test-session",
+                    timestamp=datetime(2023, 10, 25, 12, 0, 0),
+                    message_type=MessageType.USER,
+                    content="测试消息",
+                    metadata={"source": "test"}
+                )
+                
+                result = storage.store_record(record)
+                
+                assert result is True
+                
+                # 验证文件是否创建并包含正确内容
                 session_file = storage._get_session_file("test-session")
                 
                 assert session_file.exists()
@@ -81,25 +83,27 @@ class TestFileHistoryStorage:
         """测试存储工具调用记录"""
         with tempfile.TemporaryDirectory() as temp_dir:
             base_path = Path(temp_dir)
-            storage = FileHistoryStorage(base_path)
             
-            record = ToolCallRecord(
-                record_id="tool-1",
-                session_id="test-session",
-                timestamp=datetime(2023, 10, 25, 12, 0, 0),
-                tool_name="test_tool",
-                tool_input={"param1": "value1", "param2": 123},
-                tool_output={"result": "success"},
-                metadata={"execution_time": 1.5}
-            )
-            
-            result = storage.store_record(record)
-            
-            assert result is True
-            
-            # 验证文件内容
-            with patch('datetime.datetime') as mock_datetime:
+            # 使用模拟日期来确保一致性
+            with patch('src.infrastructure.history.storage.file_storage.datetime') as mock_datetime:
                 mock_datetime.now.return_value.strftime.return_value = "202310"
+                storage = FileHistoryStorage(base_path)
+                
+                record = ToolCallRecord(
+                    record_id="tool-1",
+                    session_id="test-session",
+                    timestamp=datetime(2023, 10, 25, 12, 0, 0),
+                    tool_name="test_tool",
+                    tool_input={"param1": "value1", "param2": 123},
+                    tool_output={"result": "success"},
+                    metadata={"execution_time": 1.5}
+                )
+                
+                result = storage.store_record(record)
+                
+                assert result is True
+                
+                # 验证文件内容
                 session_file = storage._get_session_file("test-session")
                 
                 with open(session_file, 'r', encoding='utf-8') as f:
@@ -118,37 +122,39 @@ class TestFileHistoryStorage:
         """测试存储多条记录"""
         with tempfile.TemporaryDirectory() as temp_dir:
             base_path = Path(temp_dir)
-            storage = FileHistoryStorage(base_path)
             
-            records: List[Union[MessageRecord, ToolCallRecord]] = [
-                MessageRecord(
-                    record_id="msg-1",
-                    session_id="test-session",
-                    timestamp=datetime(2023, 10, 25, 12, 0, 0),
-                    content="消息1"
-                ),
-                ToolCallRecord(
-                    record_id="tool-1",
-                    session_id="test-session",
-                    timestamp=datetime(2023, 10, 25, 12, 1, 0),
-                    tool_name="test_tool"
-                ),
-                MessageRecord(
-                    record_id="msg-2",
-                    session_id="test-session",
-                    timestamp=datetime(2023, 10, 25, 12, 2, 0),
-                    content="消息2"
-                )
-            ]
-            
-            # 存储所有记录
-            for record in records:
-                result = storage.store_record(record)
-                assert result is True
-            
-            # 验证文件包含所有记录
-            with patch('datetime.datetime') as mock_datetime:
+            # 使用模拟日期来确保一致性
+            with patch('src.infrastructure.history.storage.file_storage.datetime') as mock_datetime:
                 mock_datetime.now.return_value.strftime.return_value = "202310"
+                storage = FileHistoryStorage(base_path)
+                
+                records: List[Union[MessageRecord, ToolCallRecord]] = [
+                    MessageRecord(
+                        record_id="msg-1",
+                        session_id="test-session",
+                        timestamp=datetime(2023, 10, 25, 12, 0, 0),
+                        content="消息1"
+                    ),
+                    ToolCallRecord(
+                        record_id="tool-1",
+                        session_id="test-session",
+                        timestamp=datetime(2023, 10, 25, 12, 1, 0),
+                        tool_name="test_tool"
+                    ),
+                    MessageRecord(
+                        record_id="msg-2",
+                        session_id="test-session",
+                        timestamp=datetime(2023, 10, 25, 12, 2, 0),
+                        content="消息2"
+                    )
+                ]
+                
+                # 存储所有记录
+                for record in records:
+                    result = storage.store_record(record)
+                    assert result is True
+                
+                # 验证文件包含所有记录
                 session_file = storage._get_session_file("test-session")
                 
                 with open(session_file, 'r', encoding='utf-8') as f:
@@ -164,36 +170,48 @@ class TestFileHistoryStorage:
         """测试存储不同会话的记录"""
         with tempfile.TemporaryDirectory() as temp_dir:
             base_path = Path(temp_dir)
-            storage = FileHistoryStorage(base_path)
             
-            record1 = MessageRecord(
-                record_id="msg-1",
-                session_id="session-1",
-                timestamp=datetime(2023, 10, 25, 12, 0, 0),
-                content="会话1消息"
-            )
-            
-            record2 = MessageRecord(
-                record_id="msg-2",
-                session_id="session-2",
-                timestamp=datetime(2023, 10, 25, 12, 0, 0),
-                content="会话2消息"
-            )
-            
-            # 存储记录
-            storage.store_record(record1)
-            storage.store_record(record2)
-            
-            # 验证创建了不同的文件
-            with patch('datetime.datetime') as mock_datetime:
+            # 使用模拟日期来确保一致性
+            with patch('src.infrastructure.history.storage.file_storage.datetime') as mock_datetime:
                 mock_datetime.now.return_value.strftime.return_value = "202310"
+                storage = FileHistoryStorage(base_path)
                 
+                record1 = MessageRecord(
+                    record_id="msg-1",
+                    session_id="session-1",
+                    timestamp=datetime(2023, 10, 25, 12, 0, 0),
+                    content="会话1消息"
+                )
+                
+                record2 = MessageRecord(
+                    record_id="msg-2",
+                    session_id="session-2",
+                    timestamp=datetime(2023, 10, 25, 12, 0, 0),
+                    content="会话2消息"
+                )
+                
+                # 存储记录
+                storage.store_record(record1)
+                storage.store_record(record2)
+                
+                # 验证创建了不同的文件
                 session1_file = storage._get_session_file("session-1")
                 session2_file = storage._get_session_file("session-2")
                 
                 assert session1_file.exists()
                 assert session2_file.exists()
                 assert session1_file != session2_file
+                
+                # 验证文件内容
+                with open(session1_file, 'r', encoding='utf-8') as f:
+                    content1 = f.read()
+                    assert "会话1消息" in content1
+                    assert "会话2消息" not in content1
+                
+                with open(session2_file, 'r', encoding='utf-8') as f:
+                    content2 = f.read()
+                    assert "会话2消息" in content2
+                    assert "会话1消息" not in content2
 
     def test_store_record_handles_exceptions(self) -> None:
         """测试存储记录时处理异常"""
@@ -217,38 +235,40 @@ class TestFileHistoryStorage:
         """测试线程安全性"""
         with tempfile.TemporaryDirectory() as temp_dir:
             base_path = Path(temp_dir)
-            storage = FileHistoryStorage(base_path)
             
-            results = []
-            
-            def store_record_worker(record_id: str) -> None:
-                record = MessageRecord(
-                    record_id=record_id,
-                    session_id="test-session",
-                    timestamp=datetime.now(),
-                    content=f"消息{record_id}"
-                )
-                result = storage.store_record(record)
-                results.append(result)
-            
-            # 创建多个线程同时写入
-            threads = []
-            for i in range(10):
-                thread = threading.Thread(target=store_record_worker, args=(f"msg-{i}",))
-                threads.append(thread)
-                thread.start()
-            
-            # 等待所有线程完成
-            for thread in threads:
-                thread.join()
-            
-            # 验证所有操作都成功
-            assert all(results)
-            assert len(results) == 10
-            
-            # 验证文件包含所有记录
-            with patch('datetime.datetime') as mock_datetime:
+            # 使用模拟日期来确保一致性
+            with patch('src.infrastructure.history.storage.file_storage.datetime') as mock_datetime:
                 mock_datetime.now.return_value.strftime.return_value = "202310"
+                storage = FileHistoryStorage(base_path)
+                
+                results = []
+                
+                def store_record_worker(record_id: str) -> None:
+                    record = MessageRecord(
+                        record_id=record_id,
+                        session_id="test-session",
+                        timestamp=datetime.now(),
+                        content=f"消息{record_id}"
+                    )
+                    result = storage.store_record(record)
+                    results.append(result)
+                
+                # 创建多个线程同时写入
+                threads = []
+                for i in range(10):
+                    thread = threading.Thread(target=store_record_worker, args=(f"msg-{i}",))
+                    threads.append(thread)
+                    thread.start()
+                
+                # 等待所有线程完成
+                for thread in threads:
+                    thread.join()
+                
+                # 验证所有操作都成功
+                assert all(results)
+                assert len(results) == 10
+                
+                # 验证文件包含所有记录
                 session_file = storage._get_session_file("test-session")
                 
                 with open(session_file, 'r', encoding='utf-8') as f:
@@ -259,22 +279,24 @@ class TestFileHistoryStorage:
         """测试Unicode内容存储"""
         with tempfile.TemporaryDirectory() as temp_dir:
             base_path = Path(temp_dir)
-            storage = FileHistoryStorage(base_path)
             
-            record = MessageRecord(
-                record_id="msg-unicode",
-                session_id="test-session",
-                timestamp=datetime.now(),
-                content="测试中文内容 🚀 emoji",
-                metadata={"note": "备注中文"}
-            )
-            
-            result = storage.store_record(record)
-            assert result is True
-            
-            # 验证Unicode内容正确保存
-            with patch('datetime.datetime') as mock_datetime:
+            # 使用模拟日期来确保一致性
+            with patch('src.infrastructure.history.storage.file_storage.datetime') as mock_datetime:
                 mock_datetime.now.return_value.strftime.return_value = "202310"
+                storage = FileHistoryStorage(base_path)
+                
+                record = MessageRecord(
+                    record_id="msg-unicode",
+                    session_id="test-session",
+                    timestamp=datetime.now(),
+                    content="测试中文内容 🚀 emoji",
+                    metadata={"note": "备注中文"}
+                )
+                
+                result = storage.store_record(record)
+                assert result is True
+                
+                # 验证Unicode内容正确保存
                 session_file = storage._get_session_file("test-session")
                 
                 with open(session_file, 'r', encoding='utf-8') as f:

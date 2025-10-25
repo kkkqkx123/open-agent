@@ -246,25 +246,22 @@ class TestTUIIntegration:
                 session_file = storage._get_session_file("unicode-session")
                 
                 with open(session_file, 'r', encoding='utf-8') as f:
-                    content = f.read()
+                    lines = f.readlines()
                     
-                    # 验证所有特殊字符都存在（考虑JSON转义）
-                    for msg in unicode_messages:
-                        # 对于特殊字符，检查JSON转义后的版本
-                        if "\\n" in msg:
-                            assert "\\n" in content or "\n" in content
-                        elif "\\t" in msg:
-                            assert "\\t" in content or "\t" in content
-                        elif '"' in msg:
-                            assert '\\"' in content or '"' in content
-                        elif "'" in msg:
-                            assert "'" in content
-                        elif "\\" in msg:
-                            assert "\\\\" in content or "\\" in content
-                        else:
-                            # 对于其他Unicode字符，直接检查
-                            assert msg in content
-                        assert f"回复: {msg}" in content or f"回复: {msg.replace('\\', '\\\\')}" in content
+                    # 验证所有消息都被保存
+                    assert len(lines) == len(unicode_messages) * 2  # 每条消息都有用户和助手回复
+                    
+                    # 解析每条记录并验证内容
+                    for i, msg in enumerate(unicode_messages):
+                        # 用户消息
+                        user_record = json.loads(lines[i * 2].strip())
+                        assert user_record['message_type'] == 'user'
+                        assert user_record['content'] == msg
+                        
+                        # 助手回复
+                        assistant_record = json.loads(lines[i * 2 + 1].strip())
+                        assert assistant_record['message_type'] == 'assistant'
+                        assert assistant_record['content'] == f"回复: {msg}"
 
     def test_large_data_handling(self) -> None:
         """大数据处理集成测试"""
