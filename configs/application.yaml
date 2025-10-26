@@ -1,0 +1,189 @@
+# 应用程序配置
+version: "1.0"
+
+# 应用程序基本信息
+application:
+  name: "ModularAgent"
+  version: "1.0.0"
+  environment: "${ENV:development}"
+  description: "模块化智能体框架"
+
+# 组件组装配置
+assembly:
+  # LLM层组装
+  llm:
+    factory: "infrastructure.llm.factory.LLMFactory"
+    config_path: "configs/llms"
+    
+  # Tool层组装
+  tools:
+    manager: "infrastructure.tools.manager.ToolManager"
+    config_path: "configs/tools"
+    
+  # Agent层组装
+  agents:
+    factory: "domain.agent.factory.AgentFactory"
+    config_path: "configs/agents"
+    
+  # Workflow层组装
+  workflows:
+    builder: "application.workflow.builder.WorkflowBuilder"
+    templates_path: "configs/workflows"
+    
+  # 状态管理组装
+  state:
+    manager: "domain.agent.state_manager.AgentStateManager"
+    persistence: "infrastructure.persistence.file.FilePersistenceStrategy"
+
+# 依赖注入配置
+dependencies:
+  # 单例服务
+  singletons:
+    - "IConfigLoader"
+    - "ILLMFactory"
+    - "IToolManager"
+    - "IAgentFactory"
+    - "IStateManager"
+    - "IWorkflowTemplateRegistry"
+  
+  # 作用域服务
+  scoped:
+    - "IWorkflowBuilder"
+    - "ISessionManager"
+    - "IAgentManager"
+
+# 服务注册配置
+services:
+  # 配置加载器
+  IConfigLoader:
+    implementation: "infrastructure.config_loader.YamlConfigLoader"
+    lifetime: "singleton"
+    parameters:
+      base_path: "configs"
+  
+  # LLM工厂
+  ILLMFactory:
+    implementation: "infrastructure.llm.factory.LLMFactory"
+    lifetime: "singleton"
+    dependencies:
+      - "IConfigLoader"
+  
+  # 工具管理器
+  IToolManager:
+    implementation: "infrastructure.tools.manager.ToolManager"
+    lifetime: "singleton"
+    dependencies:
+      - "IConfigLoader"
+  
+  # Agent工厂
+  IAgentFactory:
+    implementation: "domain.agent.factory.AgentFactory"
+    lifetime: "singleton"
+    dependencies:
+      - "ILLMFactory"
+      - "IToolExecutor"
+  
+  # 状态管理器
+  IStateManager:
+    implementation: "domain.agent.state_manager.AgentStateManager"
+    lifetime: "singleton"
+  
+  # Workflow构建器
+  IWorkflowBuilder:
+    implementation: "application.workflow.builder.WorkflowBuilder"
+    lifetime: "scoped"
+    dependencies:
+      - "IAgentFactory"
+  
+  # Workflow模板注册表
+  IWorkflowTemplateRegistry:
+    implementation: "application.workflow.templates.registry.WorkflowTemplateRegistry"
+    lifetime: "singleton"
+  
+  # 会话管理器
+  ISessionManager:
+    implementation: "application.sessions.manager.SessionManager"
+    lifetime: "scoped"
+    dependencies:
+      - "IWorkflowManager"
+      - "IStateManager"
+  
+  # Agent管理器
+  IAgentManager:
+    implementation: "domain.agent.manager.AgentManager"
+    lifetime: "scoped"
+    dependencies:
+      - "ILLMClient"
+      - "IToolExecutor"
+
+# 环境特定配置
+environments:
+  development:
+    log_level: "DEBUG"
+    hot_reload: true
+    debug: true
+    
+  testing:
+    log_level: "INFO"
+    hot_reload: false
+    debug: true
+    
+  production:
+    log_level: "WARNING"
+    hot_reload: false
+    debug: false
+
+# 启动配置
+startup:
+  # 自动注册的服务
+  auto_register:
+    - "workflow_templates"
+    - "agent_types"
+    - "tool_types"
+  
+  # 健康检查
+  health_check:
+    enabled: true
+    endpoints:
+      - "/health"
+      - "/ready"
+      - "/metrics"
+  
+  # 启动钩子
+  hooks:
+    before_startup:
+      - "validate_configuration"
+      - "initialize_logging"
+    after_startup:
+      - "register_signal_handlers"
+      - "start_background_tasks"
+
+# 性能配置
+performance:
+  # 缓存配置
+  cache:
+    enabled: true
+    ttl: 3600  # 1小时
+    max_size: 1000
+  
+  # 连接池配置
+  connection_pool:
+    max_connections: 10
+    timeout: 30
+  
+  # 异步配置
+  async:
+    max_workers: 4
+    queue_size: 100
+
+# 安全配置
+security:
+  # 密钥管理
+  secrets:
+    provider: "environment"
+    prefix: "AGENT_"
+  
+  # 访问控制
+  access_control:
+    enabled: false
+    default_policy: "allow"

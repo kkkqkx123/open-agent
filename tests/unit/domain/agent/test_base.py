@@ -26,14 +26,14 @@ class TestBaseAgent:
         
         # 创建BaseAgent实例（通过子类实现，因为BaseAgent是抽象类）
         class ConcreteAgent(BaseAgent):
-            async def execute(self, state):
+            async def execute(self, state, config):
                 return state
-            
+
             def can_handle(self, state):
                 return True
-            
+
             def get_capabilities(self):
-                return ["base_capability"]
+                return {"base_capability": True}
         
         self.base_agent = ConcreteAgent(
             config=config,
@@ -97,18 +97,18 @@ class TestBaseAgent:
             def __init__(self, config, llm_client, tool_executor, event_manager=None):
                 super().__init__(config, llm_client, tool_executor, event_manager)
                 self.call_count = 0
-            
-            async def execute(self, state):
+
+            async def execute(self, state, config):
                 self.call_count += 1
                 if self.call_count <= 2:  # 前两次失败
                     raise Exception(f"Test error {self.call_count}")
                 return state  # 第三次成功
-            
+
             def can_handle(self, state):
                 return True
-            
+
             def get_capabilities(self):
-                return ["retry_capability"]
+                return {"retry_capability": True}
         
         retry_agent = RetryAgent(
             config=config,
@@ -121,7 +121,7 @@ class TestBaseAgent:
         input_state = AgentState()
         
         # 执行（应该成功，因为有重试机制）
-        result_state = await retry_agent.execute(input_state)
+        result_state = await retry_agent.execute(input_state, {})
         
         # 验证重试了3次（2次失败 + 1次成功）
         assert retry_agent.call_count == 3
