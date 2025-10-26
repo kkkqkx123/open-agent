@@ -52,16 +52,16 @@ class TestReActAgent:
             metadata={}
         )
         self.mock_tool_executor.execute_tool_async = AsyncMock(return_value=mock_tool_result)
-        
+
         # 执行Agent
-        result_state = await self.react_agent.execute(input_state)
-        
+        result_state = await self.react_agent.execute(input_state, {})
+
         # 验证LLM被调用
         assert self.mock_llm_client.generate_response_async.called
         assert self.mock_tool_executor.execute_tool_async.called
         
         # 验证状态更新
-        assert len(result_state.memory) > 0
+        assert len(result_state.memory) > 0  # type: ignore
         assert result_state.iteration_count == 1
     
     async def test_execute_with_final_answer(self):
@@ -76,16 +76,16 @@ class TestReActAgent:
         mock_final_response = Mock()
         mock_final_response.content = "Final Answer: The result of 2+2 is 4."
         self.mock_llm_client.generate_response_async = AsyncMock(return_value=mock_final_response)
-        
+
         # 执行Agent
-        result_state = await self.react_agent.execute(input_state)
-        
+        result_state = await self.react_agent.execute(input_state, {})
+
         # 验证LLM被调用
         assert self.mock_llm_client.generate_response_async.called
         
         # 验证状态更新
-        assert len(result_state.memory) > 0
-        assert "Final Answer" in result_state.memory[-1].content
+        assert len(result_state.memory) > 0  # type: ignore
+        assert "Final Answer" in result_state.memory[-1].content  # type: ignore
     
     async def test_execute_with_tool_error(self):
         """测试执行时工具出错的场景"""
@@ -109,18 +109,18 @@ class TestReActAgent:
             metadata={}
         )
         self.mock_tool_executor.execute_tool_async = AsyncMock(return_value=mock_tool_result)
-        
+
         # 执行Agent
-        result_state = await self.react_agent.execute(input_state)
-        
+        result_state = await self.react_agent.execute(input_state, {})
+
         # 验证状态更新包含错误信息
         assert len(result_state.errors) > 0
         assert "Division by zero error" in str(result_state.errors[-1])
     
     def test_can_handle_returns_true(self):
         """测试can_handle方法返回True"""
-        state = AgentState()
-        assert self.react_agent.can_handle(state) is True
+        state: AgentState = AgentState()
+        assert self.react_agent.can_handle(state) is True  # type: ignore
     
     def test_get_capabilities(self):
         """测试获取Agent能力列表"""

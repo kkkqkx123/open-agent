@@ -14,8 +14,8 @@ from src.application.workflow.factory import (
     create_react_workflow,
     create_plan_execute_workflow
 )
-from src.domain.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
-from src.domain.workflow.state import WorkflowState
+from src.application.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
+from src.application.workflow.state import WorkflowState
 from src.domain.prompts.interfaces import IPromptInjector
 
 
@@ -237,7 +237,8 @@ class TestUnifiedWorkflowFactory:
         factory.register_predefined_config("test", config)
         
         retrieved = factory.get_predefined_config("test")
-        
+
+        assert retrieved is not None
         assert retrieved is config
         assert retrieved.name == "test"
     

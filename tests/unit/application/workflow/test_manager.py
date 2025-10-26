@@ -8,7 +8,7 @@ import yaml
 import hashlib
 
 from src.application.workflow.manager import WorkflowManager, IWorkflowManager
-from src.domain.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
+from src.application.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
 from src.application.workflow.registry import NodeRegistry, BaseNode, NodeExecutionResult
 from src.domain.prompts.agent_state import AgentState
 

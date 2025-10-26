@@ -165,7 +165,7 @@ class BuiltinTool(BaseTool):
 
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         # 创建一个函数来运行异步函数
-                        def run_async():
+                        def run_async() -> Any:
                             return asyncio.run(self.func(**kwargs))
                         future = executor.submit(run_async)
                         return future.result()
@@ -179,7 +179,7 @@ class BuiltinTool(BaseTool):
 
                             with concurrent.futures.ThreadPoolExecutor() as executor:
                                 # 创建一个函数来运行异步函数
-                                def run_async():
+                                def run_async() -> Any:
                                     return asyncio.run(self.func(**kwargs))
                                 future = executor.submit(run_async)
                                 return future.result()

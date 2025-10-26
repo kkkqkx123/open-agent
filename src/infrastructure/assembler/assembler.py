@@ -126,7 +126,7 @@ class ComponentAssembler(IComponentAssembler):
         """
         type_mapping = {
             "ILLMFactory": self._get_type_from_module("..llm.interfaces", "ILLMClientFactory"),
-            "IToolManager": self._get_type_from_module("..tools.interfaces", "IToolManager"),
+            "IToolFactory": self._get_type_from_module("...domain.tools.interfaces", "IToolFactory"),
             "IAgentFactory": self._get_type_from_module("...domain.agent.interfaces", "IAgentFactory"),
             "IToolExecutor": self._get_type_from_module("..tools.interfaces", "IToolExecutor"),
         }
@@ -204,20 +204,12 @@ class ComponentAssembler(IComponentAssembler):
         from ..llm.factory import LLMFactory
         self._factories["llm_factory"] = LLMFactory(llm_config)
         
-        # 2. 创建工具管理器
+        # 2. 创建工具工厂
         tools_config = components_config.get("tools", {})
-        from ..tools.manager import ToolManager
-        from ..logger.logger import Logger
+        from ...domain.tools.factory import ToolFactory
         
-        # 确保config_loader不为None
-        if self.config_loader is None:
-            from ..config_loader import YamlConfigLoader
-            self.config_loader = YamlConfigLoader()
-        
-        # 创建Logger实例
-        simple_logger = Logger("ToolManager")
-        
-        self._factories["tool_manager"] = ToolManager(self.config_loader, simple_logger)
+        # 创建工具工厂
+        self._factories["tool_factory"] = ToolFactory(tools_config)
         
         logger.info("基础工厂创建完成")
     
@@ -240,7 +232,7 @@ class ComponentAssembler(IComponentAssembler):
         # 创建工具执行器
         tool_executor_logger = Logger("ToolExecutor")
         tool_executor = ToolExecutor(
-            tool_manager=self._factories["tool_manager"],
+            tool_manager=self._factories["tool_factory"],  # 直接使用ToolFactory
             logger=tool_executor_logger
         )
         
@@ -277,10 +269,10 @@ class ComponentAssembler(IComponentAssembler):
             instance=self._factories["llm_factory"]
         )
         
-        from ..tools.interfaces import IToolManager
+        from ...domain.tools.interfaces import IToolFactory
         self.container.register_instance(
-            interface=IToolManager,
-            instance=self._factories["tool_manager"]
+            interface=IToolFactory,
+            instance=self._factories["tool_factory"]
         )
         
         # 注册业务服务

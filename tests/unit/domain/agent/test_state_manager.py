@@ -3,7 +3,7 @@
 import pytest
 from src.domain.agent.state_manager import AgentStateManager
 from src.domain.prompts.agent_state import AgentState, ToolResult
-from src.domain.workflow.state import HumanMessage, AIMessage
+from src.application.workflow.state import HumanMessage, AIMessage
 
 
 class TestAgentStateManager:
@@ -57,7 +57,7 @@ class TestAgentStateManager:
         tool_result = ToolResult(
         tool_name="calculator",
         success=True,
-        result="4",
+        output="4",
         error=None,
             metadata={"operation": "addition"}
         )
@@ -66,8 +66,8 @@ class TestAgentStateManager:
         
         assert len(updated_state.tool_results) == 1
         assert updated_state.tool_results[0].tool_name == "calculator"
-        assert updated_state.tool_results[0].result == "4"
-        assert updated_state.tool_results[0].metadata["operation"] == "addition"
+        assert updated_state.tool_results[0].output == "4"
+        assert updated_state.tool_results[0].metadata is not None and updated_state.tool_results[0].metadata["operation"] == "addition"
     
     def test_update_state_with_error(self):
         """测试更新状态的错误信息"""
@@ -122,7 +122,7 @@ class TestAgentStateManager:
         
         # 添加一些内容
         initial_state.memory.append(HumanMessage(content="Calculate 2+2"))
-        initial_state.tool_results.append(ToolResult(tool_name="calculator", success=True, result="4"))
+        initial_state.tool_results.append(ToolResult(tool_name="calculator", success=True, output="4"))
         initial_state.errors.append({"type": "TestError", "message": "Test error"})
         initial_state.iteration_count = 5
         

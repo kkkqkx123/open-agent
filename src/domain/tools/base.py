@@ -41,6 +41,16 @@ class BaseTool(ITool, ABC):
         """工具描述"""
         return self._description
 
+    @property
+    def parameters_schema(self) -> Dict[str, Any]:
+        """参数Schema"""
+        return self._parameters_schema
+
+    @parameters_schema.setter
+    def parameters_schema(self, value: Dict[str, Any]) -> None:
+        """设置参数Schema"""
+        self._parameters_schema = value
+
     @abstractmethod
     def execute(self, **kwargs: Any) -> Any:
         """同步执行工具

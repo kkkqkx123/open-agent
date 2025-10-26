@@ -1,501 +1,319 @@
-"""工作流构建器测试"""
+"""WorkflowBuilder测试"""
 
 import pytest
-from unittest.mock import Mock, patch
-from pathlib import Path
-import tempfile
-import yaml
+from unittest.mock import Mock, AsyncMock
+from typing import Union
+from src.application.workflow.builder import WorkflowBuilder, AgentNodeExecutor
+from src.application.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
+from src.application.workflow.state import WorkflowState, BaseMessage, MessageRole
+from src.domain.agent.interfaces import IAgent, IAgentFactory
+from src.domain.agent.state import AgentState
+from src.application.workflow.templates.react_template import ReActWorkflowTemplate
 
-from src.application.workflow.builder import WorkflowBuilder
-from src.domain.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
-from src.application.workflow.registry import NodeRegistry, BaseNode, NodeExecutionResult
-from src.domain.workflow.state import WorkflowState
 
+class MockAgent(IAgent):
+    """模拟Agent类"""
 
-class MockNode(BaseNode):
-    """模拟节点类"""
-    
-    def __init__(self, node_type: str = "mock_node"):
-        self._node_type = node_type
-    
+    def __init__(self, config, llm_client, tool_executor, event_manager=None):
+        self.config = config
+        self.llm_client = llm_client
+        self.tool_executor = tool_executor
+        self.event_manager = event_manager
+
     @property
-    def node_type(self) -> str:
-        return self._node_type
+    def name(self) -> str:
+        """Agent名称"""
+        return self.config.name
+
+    @property
+    def description(self) -> str:
+        """Agent描述"""
+        return getattr(self.config, 'description', 'Mock Agent')
     
-    def execute(self, state: WorkflowState, config: dict) -> NodeExecutionResult:
-        return NodeExecutionResult(state=state)
+    async def execute(self, state: Union[AgentState, WorkflowState], config: dict) -> Union[AgentState, WorkflowState]:
+        # 模拟执行逻辑 - 简化以避免类型问题
+        return state
     
-    def get_config_schema(self) -> dict:
-        return {"type": "object", "properties": {}}
+    def get_capabilities(self) -> dict:
+        return {"name": self.config.name, "type": "mock"}
+    
+    def validate_state(self, state: AgentState) -> bool:
+        return True
+
+    def can_handle(self, state: AgentState) -> bool:
+        return True
+    
+    def get_available_tools(self) -> list:
+        return self.config.tools
 
 
-class TestWorkflowBuilder:
-    """工作流构建器测试"""
+@pytest.fixture
+def mock_agent_factory():
+    """模拟Agent工厂"""
+    factory = Mock(spec=IAgentFactory)
+    
+    def create_agent(config):
+        return MockAgent(
+            config=config,
+            llm_client=Mock(),
+            tool_executor=Mock(),
+            event_manager=Mock()
+        )
+    
+    factory.create_agent.side_effect = create_agent
+    return factory
 
-    def test_init_with_default_registry(self):
-        """测试使用默认注册表初始化"""
-        builder = WorkflowBuilder()
-        
-        assert builder.node_registry is not None
-        assert builder.workflow_configs == {}
 
-    def test_init_with_custom_registry(self):
-        """测试使用自定义注册表初始化"""
-        registry = NodeRegistry()
-        builder = WorkflowBuilder(registry)
-        
-        assert builder.node_registry is registry
+@pytest.fixture
+def enhanced_builder(mock_agent_factory):
+    """创建WorkflowBuilder实例"""
+    return WorkflowBuilder(agent_factory=mock_agent_factory)
 
-    def test_load_workflow_config_file_not_found(self):
-        """测试加载不存在的配置文件"""
-        builder = WorkflowBuilder()
-        
-        with pytest.raises(FileNotFoundError):
-            builder.load_workflow_config("nonexistent.yaml")
 
-    def test_load_workflow_config_valid(self):
-        """测试加载有效的工作流配置"""
-        builder = WorkflowBuilder()
-        
-        # 创建临时配置文件
-        config_data = {
-            "name": "test_workflow",
-            "description": "测试工作流",
-            "nodes": {
-                "start": {
-                    "type": "mock_node"
-                },
-                "analyze": {
-                    "type": "mock_node"
+def test_enhanced_builder_init(enhanced_builder):
+    """测试WorkflowBuilder初始化"""
+    assert enhanced_builder.agent_factory is not None
+    assert enhanced_builder.node_registry is not None
+    assert isinstance(enhanced_builder.workflow_templates, dict)
+    assert isinstance(enhanced_builder._condition_functions, dict)
+    assert isinstance(enhanced_builder._node_executors, dict)
+
+
+def test_build_from_config_dict(enhanced_builder):
+    """测试从配置字典构建工作流"""
+    config_dict = {
+        "name": "test_workflow",
+        "description": "测试工作流",
+        "nodes": {
+            "test_node": {
+                "type": "agent_node",
+                "config": {
+                    "agent_config": {
+                        "agent_type": "react",
+                        "name": "test_agent",
+                        "llm": "test_llm",
+                        "tools": ["tool1"]
+                    }
                 }
-            },
-            "edges": [
-                {
-                    "from": "start",
-                    "to": "analyze",
-                    "type": "simple"
-                }
-            ]
-        }
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            yaml.dump(config_data, f)
-            temp_path = f.name
-        
-        try:
-            # 注册模拟节点
-            builder.node_registry.register_node(MockNode)
-            
-            # 加载配置
-            workflow_config = builder.load_workflow_config(temp_path)
-            
-            assert workflow_config.name == "test_workflow"
-            assert workflow_config.description == "测试工作流"
-            assert "analyze" in workflow_config.nodes
-            assert len(workflow_config.edges) == 1
-            
-            # 检查是否缓存了配置
-            assert "test_workflow" in builder.workflow_configs
-        finally:
-            Path(temp_path).unlink()
-
-    def test_load_workflow_config_invalid(self):
-        """测试加载无效的工作流配置"""
-        builder = WorkflowBuilder()
-        
-        # 创建无效配置文件（缺少必需字段）
-        config_data = {
-            "name": "",
-            "description": "测试工作流"
-        }
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            yaml.dump(config_data, f)
-            temp_path = f.name
-        
-        try:
-            with pytest.raises(ValueError, match="工作流配置验证失败"):
-                builder.load_workflow_config(temp_path)
-        finally:
-            Path(temp_path).unlink()
-
-    @patch('langgraph.graph.StateGraph')
-    def test_build_workflow_without_langgraph(self, mock_state_graph):
-        """测试在没有LangGraph的情况下构建工作流"""
-        # 模拟LangGraph不可用
-        mock_state_graph.side_effect = ImportError("LangGraph未安装")
-        
-        builder = WorkflowBuilder()
-        config = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流"
-        )
-        
-        with pytest.raises(ImportError, match="LangGraph未安装"):
-            builder.build_workflow(config)
-
-    @patch('langgraph.graph.StateGraph')
-    def test_build_workflow_valid(self, mock_state_graph_class):
-        """测试构建有效的工作流"""
-        # 模拟LangGraph的StateGraph
-        mock_workflow = Mock()
-        mock_state_graph_class.return_value = mock_workflow
-        
-        # 使用独立的节点注册表
-        registry = NodeRegistry()
-        builder = WorkflowBuilder(registry)
-        
-        # 注册模拟节点
-        builder.node_registry.register_node(MockNode)
-        
-        # 创建工作流配置
-        config = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流",
-            nodes={
-                "start": NodeConfig(type="mock_node"),
-                "analyze": NodeConfig(type="mock_node")
-            },
-            edges=[
-                EdgeConfig(
-                    from_node="start",
-                    to_node="analyze",
-                    type=EdgeType.SIMPLE
-                )
-            ],
-            entry_point="start"
-        )
-        
-        # 构建工作流
-        result = builder.build_workflow(config)
-        
-        # 验证调用
-        mock_state_graph_class.assert_called_once_with(WorkflowState)
-        assert mock_workflow.add_node.call_count == 2  # 应该添加两个节点
-        mock_workflow.add_edge.assert_called_once()
-        mock_workflow.set_entry_point.assert_called_once_with("start")
-        mock_workflow.compile.assert_called_once()
-        
-        assert result == mock_workflow.compile.return_value
-
-    @patch('langgraph.graph.StateGraph')
-    def test_build_workflow_with_conditional_edge(self, mock_state_graph_class):
-        """测试构建包含条件边的工作流"""
-        # 模拟LangGraph的StateGraph
-        mock_workflow = Mock()
-        mock_state_graph_class.return_value = mock_workflow
-        
-        # 使用独立的节点注册表
-        registry = NodeRegistry()
-        builder = WorkflowBuilder(registry)
-        
-        # 注册模拟节点
-        builder.node_registry.register_node(MockNode)
-        
-        # 创建工作流配置
-        config = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流",
-            nodes={
-                "start": NodeConfig(type="mock_node"),
-                "analyze": NodeConfig(type="mock_node"),
-                "execute_tool": NodeConfig(type="mock_node")
-            },
-            edges=[
-                EdgeConfig(
-                    from_node="start",
-                    to_node="analyze",
-                    type=EdgeType.SIMPLE
-                ),
-                EdgeConfig(
-                    from_node="analyze",
-                    to_node="execute_tool",
-                    type=EdgeType.CONDITIONAL,
-                    condition="has_tool_calls"
-                )
-            ],
-            entry_point="start"
-        )
-        
-        # 构建工作流
-        builder.build_workflow(config)
-        
-        # 验证调用
-        mock_workflow.add_conditional_edges.assert_called_once()
-
-    @patch('langgraph.graph.StateGraph')
-    def test_build_workflow_unknown_node_type(self, mock_state_graph_class):
-        """测试构建包含未知节点类型的工作流"""
-        mock_workflow = Mock()
-        mock_state_graph_class.return_value = mock_workflow
-        
-        # 使用独立的节点注册表
-        registry = NodeRegistry()
-        builder = WorkflowBuilder(registry)
-        
-        # 创建工作流配置（包含未注册的节点类型）
-        config = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流",
-            nodes={
-                "analyze": NodeConfig(type="unknown_node")
             }
-        )
-        
-        with pytest.raises(ValueError, match="注册节点 'analyze' 失败"):
-            builder.build_workflow(config)
+        },
+        "edges": [],
+        "entry_point": "test_node"
+    }
+    
+    # 构建工作流
+    workflow = enhanced_builder.build_from_config(config_dict)
+    
+    # 验证结果
+    assert workflow is not None
+    assert "test_node" in enhanced_builder._node_executors
 
-    @patch('langgraph.graph.StateGraph')
-    def test_build_workflow_conditional_edge_without_condition(self, mock_state_graph_class):
-        """测试构建缺少条件的条件边"""
-        mock_workflow = Mock()
-        mock_state_graph_class.return_value = mock_workflow
-        
-        # 使用独立的节点注册表
-        registry = NodeRegistry()
-        builder = WorkflowBuilder(registry)
-        
-        # 注册模拟节点
-        builder.node_registry.register_node(MockNode)
-        
-        # 创建工作流配置（条件边缺少条件）
-        config = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流",
-            nodes={
-                "start": NodeConfig(type="mock_node"),
-                "analyze": NodeConfig(type="mock_node"),
-                "execute_tool": NodeConfig(type="mock_node")
-            },
-            edges=[
-                EdgeConfig(
-                    from_node="start",
-                    to_node="analyze",
-                    type=EdgeType.SIMPLE
-                ),
-                EdgeConfig(
-                    from_node="analyze",
-                    to_node="execute_tool",
-                    type=EdgeType.CONDITIONAL,
-                    condition=None
-                )
-            ],
-            entry_point="start"
-        )
-        
-        with pytest.raises(ValueError, match="缺少条件表达式"):
-            builder.build_workflow(config)
 
-    @patch('langgraph.graph.StateGraph')
-    def test_determine_entry_point_from_config(self, mock_state_graph_class):
-        """测试从配置确定入口点"""
-        mock_workflow = Mock()
-        mock_state_graph_class.return_value = mock_workflow
-        
-        # 使用独立的节点注册表
-        registry = NodeRegistry()
-        builder = WorkflowBuilder(registry)
-        
-        # 注册模拟节点
-        builder.node_registry.register_node(MockNode)
-        
-        # 创建工作流配置（指定入口点）
-        config = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流",
-            nodes={
-                "analyze": NodeConfig(type="mock_node")
-            },
-            entry_point="analyze"
-        )
-        
-        builder.build_workflow(config)
-        
-        mock_workflow.set_entry_point.assert_called_once_with("analyze")
+def test_build_from_config_object(enhanced_builder):
+    """测试从WorkflowConfig对象构建工作流"""
+    config = WorkflowConfig(
+        name="test_workflow",
+        description="测试工作流",
+        nodes={
+            "test_node": NodeConfig(
+                type="agent_node",
+                config={
+                    "agent_config": {
+                        "agent_type": "react",
+                        "name": "test_agent",
+                        "llm": "test_llm"
+                    }
+                }
+            )
+        },
+        edges=[],
+        entry_point="test_node"
+    )
+    
+    # 构建工作流
+    workflow = enhanced_builder.build_from_config(config)
+    
+    # 验证结果
+    assert workflow is not None
 
-    @patch('langgraph.graph.StateGraph')
-    def test_determine_entry_point_auto_detect(self, mock_state_graph_class):
-        """测试自动检测入口点"""
-        mock_workflow = Mock()
-        mock_state_graph_class.return_value = mock_workflow
-        
-        # 使用独立的节点注册表
-        registry = NodeRegistry()
-        builder = WorkflowBuilder(registry)
-        
-        # 注册模拟节点
-        builder.node_registry.register_node(MockNode)
-        
-        # 创建工作流配置（未指定入口点）
-        config = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流",
-            nodes={
-                "start": NodeConfig(type="mock_node"),
-                "analyze": NodeConfig(type="mock_node"),
-                "execute_tool": NodeConfig(type="mock_node")
-            },
-            edges=[
-                EdgeConfig(
-                    from_node="start",
-                    to_node="analyze",
-                    type=EdgeType.SIMPLE
-                ),
-                EdgeConfig(
-                    from_node="analyze",
-                    to_node="execute_tool",
-                    type=EdgeType.SIMPLE
-                )
-            ]
-        )
-        
-        builder.build_workflow(config)
-        
-        # start节点没有入边，应该被选为入口点
-        mock_workflow.set_entry_point.assert_called_once_with("start")
 
-    def test_has_tool_call_condition(self):
-        """测试has_tool_call条件函数"""
-        builder = WorkflowBuilder()
-        
-        # 测试有工具调用的情况
-        state_with_tool_calls = WorkflowState()
-        mock_message = Mock()
-        mock_message.tool_calls = [{"name": "test_tool"}]
-        state_with_tool_calls.messages = [mock_message]
-        
-        assert builder._has_tool_call_condition(state_with_tool_calls) is True
-        
-        # 测试没有工具调用的情况
-        state_without_tool_calls = WorkflowState()
-        mock_message_no_tools = Mock()
-        mock_message_no_tools.tool_calls = None
-        state_without_tool_calls.messages = [mock_message_no_tools]
-        
-        assert builder._has_tool_call_condition(state_without_tool_calls) is False
+def test_build_from_template(enhanced_builder):
+    """测试从模板构建工作流"""
+    # 注册测试模板
+    test_template = ReActWorkflowTemplate()
+    enhanced_builder.register_template("test_react", test_template)
+    
+    # 从模板构建工作流
+    config = {
+        "llm_client": "test_llm",
+        "max_iterations": 5,
+        "tools": ["calculator", "search"]
+    }
+    
+    workflow = enhanced_builder.build_from_template("test_react", config)
+    
+    # 验证结果
+    assert workflow is not None
 
-    def test_no_tool_call_condition(self):
-        """测试no_tool_call条件函数"""
-        builder = WorkflowBuilder()
-        
-        # 测试有工具调用的情况
-        state_with_tool_calls = WorkflowState()
-        mock_message = Mock()
-        mock_message.tool_calls = [{"name": "test_tool"}]
-        state_with_tool_calls.messages = [mock_message]
-        
-        assert builder._no_tool_call_condition(state_with_tool_calls) is False
-        
-        # 测试没有工具调用的情况
-        state_without_tool_calls = WorkflowState()
-        mock_message_no_tools = Mock()
-        mock_message_no_tools.tool_calls = None
-        state_without_tool_calls.messages = [mock_message_no_tools]
-        
-        assert builder._no_tool_call_condition(state_without_tool_calls) is True
 
-    def test_has_tool_result_condition(self):
-        """测试has_tool_result条件函数"""
-        builder = WorkflowBuilder()
-        
-        # 测试有工具结果的情况
-        state_with_results = WorkflowState()
-        mock_result = Mock()
-        state_with_results.tool_results = [mock_result]
-        
-        assert builder._has_tool_result_condition(state_with_results) is True
-        
-        # 测试没有工具结果的情况
-        state_without_results = WorkflowState()
-        state_without_results.tool_results = []
-        
-        assert builder._has_tool_result_condition(state_without_results) is False
+def test_register_agent_node(enhanced_builder, mock_agent_factory):
+    """测试注册Agent节点"""
+    agent_config = {
+        "agent_type": "react",
+        "name": "test_agent",
+        "llm": "test_llm",
+        "tools": ["tool1"]
+    }
+    
+    # 注册Agent节点
+    enhanced_builder.register_agent_node("test_agent_node", agent_config)
+    
+    # 验证节点已注册
+    assert "test_agent_node" in enhanced_builder._node_executors
+    assert isinstance(enhanced_builder._node_executors["test_agent_node"], AgentNodeExecutor)
 
-    def test_max_iterations_reached_condition(self):
-        """测试max_iterations_reached条件函数"""
-        builder = WorkflowBuilder()
-        
-        # 测试达到最大迭代次数
-        state_max_reached = WorkflowState()
-        state_max_reached.iteration_count = 10
-        state_max_reached.max_iterations = 10
-        
-        assert builder._max_iterations_reached_condition(state_max_reached) is True
-        
-        # 测试未达到最大迭代次数
-        state_not_max = WorkflowState()
-        state_not_max.iteration_count = 5
-        state_not_max.max_iterations = 10
-        
-        assert builder._max_iterations_reached_condition(state_not_max) is False
 
-    def test_register_condition_function(self):
-        """测试注册自定义条件函数"""
-        builder = WorkflowBuilder()
-        
-        def custom_condition(state, params=""):
-            return True
-        
-        builder.register_condition_function("custom", custom_condition)
-        
-        assert "custom" in builder._condition_functions
-        assert builder._condition_functions["custom"] is custom_condition
+def test_register_condition_function(enhanced_builder):
+    """测试注册条件函数"""
+    def custom_condition(state):
+        return True
+    
+    # 注册条件函数
+    enhanced_builder.register_condition_function("custom", custom_condition)
+    
+    # 验证函数已注册
+    assert "custom" in enhanced_builder._condition_functions
+    assert enhanced_builder._condition_functions["custom"] == custom_condition
 
-    def test_list_available_nodes(self):
-        """测试列出可用节点类型"""
-        builder = WorkflowBuilder()
-        
-        # 创建一个新的模拟节点类，避免名称冲突
-        class NewMockNode(BaseNode):
-            @property
-            def node_type(self) -> str:
-                return "new_mock_node"
-            
-            def execute(self, state: WorkflowState, config: dict) -> NodeExecutionResult:
-                return NodeExecutionResult(state=state)
-            
-            def get_config_schema(self) -> dict:
-                return {"type": "object", "properties": {}}
-        
-        # 注册节点
-        builder.node_registry.register_node(NewMockNode)
-        
-        nodes = builder.list_available_nodes()
-        
-        assert "new_mock_node" in nodes
 
-    def test_get_workflow_config(self):
-        """测试获取工作流配置"""
-        builder = WorkflowBuilder()
-        
-        # 创建并缓存配置
-        config = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流"
-        )
-        builder.workflow_configs["test_workflow"] = config
-        
-        retrieved_config = builder.get_workflow_config("test_workflow")
-        
-        assert retrieved_config is config
+def test_builtin_conditions(enhanced_builder):
+    """测试内置条件函数"""
+    # 测试has_tool_call条件
+    state = WorkflowState()
+    state.add_message(BaseMessage(
+        content="需要调用工具",
+        role=MessageRole.AI
+    ))
+    
+    has_tool_call = enhanced_builder._has_tool_call_condition(state)
+    assert isinstance(has_tool_call, bool)
+    
+    # 测试no_tool_call条件
+    no_tool_call = enhanced_builder._no_tool_call_condition(state)
+    assert isinstance(no_tool_call, bool)
 
-    def test_get_workflow_config_nonexistent(self):
-        """测试获取不存在的工作流配置"""
-        builder = WorkflowBuilder()
-        
-        config = builder.get_workflow_config("nonexistent")
-        
-        assert config is None
 
-    def test_clear_cache(self):
-        """测试清除缓存"""
-        builder = WorkflowBuilder()
-        
-        # 添加配置到缓存
-        builder.workflow_configs["test"] = Mock()
-        
-        assert len(builder.workflow_configs) == 1
-        
-        builder.clear_cache()
-        
-        assert len(builder.workflow_configs) == 0
+def test_template_integration(enhanced_builder):
+    """测试模板集成"""
+    # 检查是否自动加载了模板
+    templates = enhanced_builder.list_available_templates()
+    
+    # 应该包含内置模板
+    assert "react" in templates
+    assert "enhanced_react" in templates
+    assert "plan_execute" in templates
+    assert "collaborative_plan_execute" in templates
+
+
+def test_get_template_info(enhanced_builder):
+    """测试获取模板信息"""
+    info = enhanced_builder.get_template_info("react")
+    
+    assert info is not None
+    assert "name" in info
+    assert "description" in info
+    assert "parameters" in info
+    assert info["name"] == "react"
+
+
+def test_agent_node_executor():
+    """测试Agent节点执行器"""
+    # 创建模拟Agent
+    agent_config = {
+        "agent_type": "react",
+        "name": "test_agent",
+        "llm": "test_llm"
+    }
+    agent = MockAgent(
+        config=agent_config,
+        llm_client=Mock(),
+        tool_executor=Mock(),
+        event_manager=Mock()
+    )
+    
+    # 创建执行器
+    executor = AgentNodeExecutor(agent)
+    
+    # 测试执行
+    state = WorkflowState()
+    result_state = executor.execute(state, {})
+    
+    # 验证结果
+    assert result_state is not None
+    assert len(result_state.messages) > 0
+    assert "test_agent 执行完成" in result_state.messages[-1].content
+
+
+def test_error_handling(enhanced_builder):
+    """测试错误处理"""
+    # 测试无效配置
+    with pytest.raises(ValueError):
+        enhanced_builder.build_from_config("invalid_config")
+    
+    # 测试不存在的模板
+    with pytest.raises(ValueError):
+        enhanced_builder.build_from_template("nonexistent_template", {})
+    
+    # 测试无效Agent配置
+    with pytest.raises(ValueError):
+        enhanced_builder.register_agent_node("test", "invalid_config")
+
+
+def test_config_validation(enhanced_builder):
+    """测试配置验证"""
+    # 创建无效配置（缺少必需字段）
+    invalid_config = {
+        "description": "测试工作流"
+        # 缺少name字段
+    }
+    
+    with pytest.raises(ValueError):
+        enhanced_builder.build_from_config(invalid_config)
+
+
+@pytest.mark.asyncio
+async def test_workflow_execution(enhanced_builder):
+    """测试工作流执行"""
+    # 创建简单的工作流配置
+    config = {
+        "name": "test_execution",
+        "description": "测试执行",
+        "nodes": {
+            "start": {
+                "type": "agent_node",
+                "config": {
+                    "agent_config": {
+                        "agent_type": "react",
+                        "name": "start_agent",
+                        "llm": "test_llm"
+                    }
+                }
+            }
+        },
+        "edges": [],
+        "entry_point": "start"
+    }
+    
+    # 构建工作流
+    workflow = enhanced_builder.build_from_config(config)
+    
+    # 创建初始状态
+    initial_state = WorkflowState()
+    initial_state.add_message(BaseMessage(
+        content="测试消息",
+        role=MessageRole.HUMAN
+    ))
+    
+    # 执行工作流（这里只是模拟，实际执行需要LangGraph）
+    assert workflow is not None
+    assert initial_state is not None

@@ -54,8 +54,14 @@ class ITool(ABC):
         """工具描述"""
         pass
 
+    @property
     @abstractmethod
-    def execute(self, **kwargs) -> Any:
+    def parameters_schema(self) -> Dict[str, Any]:
+        """参数Schema"""
+        pass
+
+    @abstractmethod
+    def execute(self, **kwargs: Any) -> Any:
         """执行工具"""
         pass
 

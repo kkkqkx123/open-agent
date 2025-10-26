@@ -2,10 +2,12 @@
 
 import pytest
 from unittest.mock import Mock, AsyncMock
+from typing import Union
 from src.domain.agent.factory import AgentFactory
 from src.domain.agent.config import AgentConfig
 from src.domain.agent.interfaces import IAgent
-from src.domain.workflow.state import WorkflowState
+from src.domain.agent.state import AgentState
+from src.application.workflow.state import WorkflowState
 from src.infrastructure.llm.interfaces import ILLMClient
 from src.infrastructure.tools.manager import IToolManager
 
@@ -18,17 +20,27 @@ class MockAgent(IAgent):
         self.llm_client = llm_client
         self.tool_executor = tool_executor
         self.event_manager = event_manager
-    
-    async def execute(self, state: WorkflowState, config: dict) -> WorkflowState:
+
+    @property
+    def name(self) -> str:
+        """Agent名称"""
+        return self.config.name
+
+    @property
+    def description(self) -> str:
+        """Agent描述"""
+        return getattr(self.config, 'description', 'Mock Agent')
+
+    async def execute(self, state: Union[AgentState, WorkflowState], config: dict) -> Union[AgentState, WorkflowState]:
         return state
     
     def get_capabilities(self) -> dict:
         return {"name": self.config.name, "type": "mock"}
     
-    def validate_state(self, state: WorkflowState) -> bool:
+    def validate_state(self, state: AgentState) -> bool:
         return True
-    
-    def can_handle(self, state: WorkflowState) -> bool:
+
+    def can_handle(self, state: AgentState) -> bool:
         return True
     
     def get_available_tools(self) -> list:

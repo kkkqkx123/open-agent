@@ -86,7 +86,7 @@ Plan:
         
         # 验证状态更新
         assert result_state.context.get("current_step_index") == 1
-        assert len(result_state.memory) > 0
+        assert len(result_state.memory) > 0  # type: ignore
     
     async def test_execute_with_tool_in_step(self):
         """测试在计划步骤中使用工具的场景"""
@@ -152,7 +152,7 @@ Plan:
         
         # 验证状态更新
         assert result_state.context.get("current_plan") is None  # 计划完成应清除
-        assert "Final Answer" in result_state.memory[-1].content
+        assert "Final Answer" in result_state.memory[-1].content  # type: ignore
     
     def test_can_handle_returns_true(self):
         """测试can_handle方法返回True"""

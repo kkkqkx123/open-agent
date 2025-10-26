@@ -20,6 +20,7 @@ from .base import BaseTool
 from .types.native_tool import NativeTool
 from .types.mcp_tool import MCPTool
 from .types.builtin_tool import BuiltinTool
+from .factory import ToolFactory, ToolConfig, get_global_factory, set_global_factory, create_tool
 
 __all__ = [
     # 接口
@@ -36,4 +37,11 @@ __all__ = [
     "NativeTool",
     "MCPTool",
     "BuiltinTool",
+    # 工厂
+    "ToolFactory",
+    "ToolConfig",
+    "get_global_factory",
+    "set_global_factory",
+    "create_tool",
+    
 ]

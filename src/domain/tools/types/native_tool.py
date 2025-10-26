@@ -72,7 +72,7 @@ class NativeTool(BaseTool):
         Returns:
             Dict[str, str]: HTTP请求头
         """
-        headers = self.config.headers.copy()
+        headers: Dict[str, str] = self.config.headers.copy()
 
         # 添加认证头
         if self.config.auth_method == "api_key" and self.config.api_key:
@@ -82,7 +82,8 @@ class NativeTool(BaseTool):
 
         # 从参数中添加动态头
         if "headers" in parameters:
-            headers.update(parameters["headers"])
+            for key, value in parameters["headers"].items():
+                headers[str(key)] = str(value)
 
         return headers
 
@@ -95,7 +96,7 @@ class NativeTool(BaseTool):
         Returns:
             str: 完整的请求URL
         """
-        base_url = self.config.api_url
+        base_url = str(self.config.api_url)
 
         # 处理URL路径参数
         if "path_params" in parameters:

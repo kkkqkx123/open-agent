@@ -1,0 +1,6 @@
+分析当前项目如何集成langgraph的checkpoint功能。当前项目已导入checkpoint-sqlite依赖。分析如何进一步实现。
+此外，测试时使用内存存储checkpoint，使用时应当使用sqlite存储
+
+给出分析结果和简要的执行方案，写入docs\plan\checkout目录
+
+checkout应当是session层级的。因为单个会话中可能使用多个workflow

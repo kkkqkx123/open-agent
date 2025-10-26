@@ -88,7 +88,7 @@ class TestAgentManager:
         input_state = AgentState()
         
         # 执行Agent
-        result = await self.agent_manager.execute_agent("test_agent", input_state)
+        result = await self.agent_manager.execute_agent("test_agent", input_state)  # type: ignore
         
         # 验证Agent被执行
         mock_agent.execute.assert_called_once_with(input_state)
@@ -101,7 +101,7 @@ class TestAgentManager:
         with pytest.raises(ValueError, match="Agent not found: nonexistent_agent"):
             import asyncio
             # 使用asyncio.run来运行异步方法
-            asyncio.run(self.agent_manager.execute_agent("nonexistent_agent", input_state))
+            asyncio.run(self.agent_manager.execute_agent("nonexistent_agent", input_state))  # type: ignore
     
     def test_register_agent(self):
         """测试注册Agent实例"""
