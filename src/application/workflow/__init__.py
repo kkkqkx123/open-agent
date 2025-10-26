@@ -3,7 +3,8 @@
 提供工作流管理、创建和执行功能。
 """
 
-from .interfaces import IWorkflowManager, IWorkflowFactory
+from .interfaces import IWorkflowManager
+from .factory import IWorkflowFactory
 from .manager import WorkflowManager
 from .factory import WorkflowFactory
 from .builder_adapter import WorkflowBuilderAdapter

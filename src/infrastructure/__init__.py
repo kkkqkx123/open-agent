@@ -41,6 +41,44 @@ from .config import (
     trigger_config_callbacks,
 )
 
+# 导入配置接口
+from .config_interfaces import (
+    IConfigLoader,
+    IConfigInheritanceHandler,
+)
+
+# 导入配置继承和迁移功能
+from .config_inheritance import (
+    IConfigInheritanceHandler,
+    ConfigInheritanceHandler,
+    InheritanceConfigLoader,
+)
+
+from .config_models import (
+    BaseConfigModel,
+    WorkflowConfigModel,
+    AgentConfigModel,
+    ToolConfigModel,
+    LLMConfigModel,
+    GraphConfigModel,
+    ConfigType,
+    ConfigMetadata,
+    ConfigInheritance,
+    ValidationRule,
+    create_config_model,
+    validate_config_with_model,
+)
+
+from .config_migration import (
+    MigrationResult,
+    ConfigMigrationTool,
+    migrate_workflow_config,
+    migrate_agent_config,
+    migrate_tool_config,
+    migrate_llm_config,
+    migrate_graph_config,
+)
+
 __all__ = [
     "IDependencyContainer",
     "DependencyContainer",
@@ -79,4 +117,6 @@ __all__ = [
     "register_config_callback",
     "unregister_config_callback",
     "trigger_config_callbacks",
+    # 配置接口相关
+    "IConfigInheritanceHandler",
 ]

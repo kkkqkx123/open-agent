@@ -135,7 +135,7 @@ class GraphBuilder:
         # 配置检查点
         checkpointer = self._get_checkpointer(config)
         
-        # 编译图
+        # 编译图 - 支持异步执行
         graph = builder.compile(
             checkpointer=checkpointer,
             interrupt_before=config.interrupt_before,

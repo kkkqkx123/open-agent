@@ -1,0 +1,72 @@
+# 基础工作流配置
+metadata:
+  name: "base_workflow"
+  version: "1.0.0"
+  description: "基础工作流配置模板"
+  author: "system"
+
+config_type: "workflow"
+workflow_name: "base_workflow"
+description: "基础工作流配置"
+max_iterations: 10
+timeout: 300
+
+# 基础状态模式
+state_schema:
+  name: "BaseWorkflowState"
+  fields:
+    messages:
+      type: "List[dict]"
+      default: []
+      reducer: "extend"
+      description: "消息列表"
+    input:
+      type: "str"
+      default: ""
+      description: "输入文本"
+    output:
+      type: "str"
+      default: ""
+      description: "输出文本"
+    errors:
+      type: "List[str]"
+      default: []
+      reducer: "extend"
+      description: "错误列表"
+
+# 基础节点配置
+nodes:
+  start_node:
+    function: "start_node"
+    config:
+      description: "开始节点"
+    description: "工作流的起始节点"
+  
+  end_node:
+    function: "end_node"
+    config:
+      description: "结束节点"
+    description: "工作流的结束节点"
+
+# 基础边配置
+edges:
+  - from: "start_node"
+    to: "end_node"
+    type: "simple"
+    description: "从开始到结束"
+
+# 入口点
+entry_point: "start_node"
+
+# 验证规则
+validation_rules:
+  - field: "metadata.name"
+    rule_type: "required"
+    message: "工作流名称不能为空"
+  - field: "entry_point"
+    rule_type: "required"
+    message: "入口节点不能为空"
+  - field: "max_iterations"
+    rule_type: "range"
+    value: [1, 100]
+    message: "最大迭代次数必须在1-100之间"

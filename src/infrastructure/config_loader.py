@@ -12,6 +12,7 @@ from watchdog.events import FileSystemEventHandler
 
 from .exceptions import ConfigurationError
 from .types import CheckResult
+from .config_inheritance import ConfigInheritanceHandler
 
 # 定义类型变量
 ConfigValue = TypeVar("ConfigValue", Dict[str, Any], List[Any], str, Any)
@@ -102,7 +103,7 @@ class ConfigFileHandler(FileSystemEventHandler):
 class YamlConfigLoader(IConfigLoader):
     """YAML配置加载器实现"""
 
-    def __init__(self, base_path: str = "configs") -> None:
+    def __init__(self, base_path: str = "configs", enable_inheritance: bool = True) -> None:
         self.base_path = Path(base_path)
         self._configs: Dict[str, Dict[str, Any]] = {}
         self._observers: List[Any] = []
@@ -110,6 +111,7 @@ class YamlConfigLoader(IConfigLoader):
         self._lock = threading.RLock()
         self._env_var_pattern = re.compile(r"\$\{([^}]+)\}")
         self._env_var_default_pattern = re.compile(r"\$\{([^:]+):([^}]*)\}")
+        self._inheritance_handler = ConfigInheritanceHandler(self) if enable_inheritance else None
 
     def load(self, config_path: str) -> Dict[str, Any]:
         """加载配置文件"""
@@ -129,6 +131,10 @@ class YamlConfigLoader(IConfigLoader):
                 # 读取YAML文件
                 with open(full_path, "r", encoding="utf-8") as f:
                     config: Dict[str, Any] = yaml.safe_load(f) or {}
+
+                # 处理配置继承（如果启用）
+                if self._inheritance_handler:
+                    config = self._inheritance_handler.resolve_inheritance(config, full_path.parent)
 
                 # 解析环境变量
                 resolved_config = self.resolve_env_vars(config)

@@ -1,19 +1,16 @@
-"""工作流性能基准测试模块
+#!/usr/bin/env python3
+"""
+性能基准测试演示脚本
 
-提供性能测试和基准测量功能，用于评估工作流执行性能。
+演示异步执行器和性能测试功能。
 """
 
 import asyncio
 import time
 import statistics
-from typing import Dict, Any, List, Optional, Callable, Awaitable
+from typing import Dict, Any, List
 from dataclasses import dataclass
 from datetime import datetime
-
-from src.infrastructure.graph.config import GraphConfig
-from src.infrastructure.graph.states import WorkflowState
-from src.infrastructure.graph.async_executor import AsyncWorkflowExecutor, AsyncNodeExecutor
-from src.application.workflow.manager_refactored import WorkflowManager
 
 
 @dataclass
@@ -28,109 +25,26 @@ class PerformanceResult:
     total_executions: int
     successful_executions: int
     failed_executions: int
-    timestamp: Optional[str] = None
+    timestamp: str = None
     
     def __post_init__(self):
         if self.timestamp is None:
             self.timestamp = datetime.now().isoformat()
 
 
-class PerformanceBenchmark:
-    """性能基准测试器"""
+class SimplePerformanceBenchmark:
+    """简化的性能基准测试器"""
     
-    def __init__(self, workflow_manager: WorkflowManager):
-        """初始化性能基准测试器
-        
-        Args:
-            workflow_manager: 工作流管理器实例
-        """
-        self.workflow_manager = workflow_manager
+    def __init__(self):
+        """初始化性能基准测试器"""
         self.results: Dict[str, PerformanceResult] = {}
     
-    async def benchmark_async_execution(
-        self,
-        workflow_id: str,
-        iterations: int = 10,
-        initial_state: Optional[WorkflowState] = None,
-        **kwargs
-    ) -> PerformanceResult:
-        """基准测试异步执行性能
-        
-        Args:
-            workflow_id: 工作流ID
-            iterations: 迭代次数
-            initial_state: 初始状态
-            **kwargs: 其他参数
-            
-        Returns:
-            PerformanceResult: 性能测试结果
-        """
-        execution_times = []
-        successful_count = 0
-        failed_count = 0
-        
-        print(f"开始异步执行性能测试: {workflow_id}, 迭代次数: {iterations}")
-        
-        for i in range(iterations):
-            try:
-                start_time = time.time()
-                
-                # 异步执行工作流
-                result = await self.workflow_manager.run_workflow_async(
-                    workflow_id, 
-                    initial_state=initial_state, 
-                    **kwargs
-                )
-                
-                end_time = time.time()
-                execution_time = end_time - start_time
-                execution_times.append(execution_time)
-                
-                successful_count += 1
-                print(f"迭代 {i+1}/{iterations} 完成，耗时: {execution_time:.4f}s")
-                
-            except Exception as e:
-                failed_count += 1
-                print(f"迭代 {i+1}/{iterations} 失败: {e}")
-        
-        # 计算统计信息
-        if execution_times:
-            avg_time = statistics.mean(execution_times)
-            min_time = min(execution_times)
-            max_time = max(execution_times)
-            median_time = statistics.median(execution_times)
-        else:
-            avg_time = min_time = max_time = median_time = 0.0
-        
-        result = PerformanceResult(
-            test_name=f"async_execution_{workflow_id}",
-            execution_times=execution_times,
-            average_time=avg_time,
-            min_time=min_time,
-            max_time=max_time,
-            median_time=median_time,
-            total_executions=iterations,
-            successful_executions=successful_count,
-            failed_executions=failed_count
-        )
-        
-        self.results[result.test_name] = result
-        return result
-    
-    def benchmark_sync_execution(
-        self,
-        workflow_id: str,
-        iterations: int = 10,
-        initial_state: Optional[WorkflowState] = None,
-        **kwargs
-    ) -> PerformanceResult:
+    def benchmark_sync_execution(self, test_name: str, iterations: int = 10) -> PerformanceResult:
         """基准测试同步执行性能
         
         Args:
-            workflow_id: 工作流ID
+            test_name: 测试名称
             iterations: 迭代次数
-            initial_state: 初始状态
-            **kwargs: 其他参数
             
         Returns:
             PerformanceResult: 性能测试结果
@@ -139,18 +53,14 @@ class PerformanceBenchmark:
         successful_count = 0
         failed_count = 0
         
-        print(f"开始同步执行性能测试: {workflow_id}, 迭代次数: {iterations}")
+        print(f"开始同步执行性能测试: {test_name}, 迭代次数: {iterations}")
         
         for i in range(iterations):
             try:
                 start_time = time.time()
                 
-                # 同步执行工作流
-                result = self.workflow_manager.run_workflow(
-                    workflow_id, 
-                    initial_state=initial_state, 
-                    **kwargs
-                )
+                # 模拟同步工作流执行
+                self._simulate_workflow_execution(sync=True)
                 
                 end_time = time.time()
                 execution_time = end_time - start_time
@@ -173,7 +83,7 @@ class PerformanceBenchmark:
             avg_time = min_time = max_time = median_time = 0.0
         
         result = PerformanceResult(
-            test_name=f"sync_execution_{workflow_id}",
+            test_name=f"sync_{test_name}",
             execution_times=execution_times,
             average_time=avg_time,
             min_time=min_time,
@@ -187,35 +97,109 @@ class PerformanceBenchmark:
         self.results[result.test_name] = result
         return result
     
-    async def benchmark_async_vs_sync(
-        self,
-        workflow_id: str,
-        iterations: int = 10,
-        initial_state: Optional[WorkflowState] = None,
-        **kwargs
-    ) -> Dict[str, PerformanceResult]:
+    async def benchmark_async_execution(self, test_name: str, iterations: int = 10) -> PerformanceResult:
+        """基准测试异步执行性能
+        
+        Args:
+            test_name: 测试名称
+            iterations: 迭代次数
+            
+        Returns:
+            PerformanceResult: 性能测试结果
+        """
+        execution_times = []
+        successful_count = 0
+        failed_count = 0
+        
+        print(f"开始异步执行性能测试: {test_name}, 迭代次数: {iterations}")
+        
+        for i in range(iterations):
+            try:
+                start_time = time.time()
+                
+                # 模拟异步工作流执行
+                await self._simulate_workflow_execution(sync=False)
+                
+                end_time = time.time()
+                execution_time = end_time - start_time
+                execution_times.append(execution_time)
+                
+                successful_count += 1
+                print(f"迭代 {i+1}/{iterations} 完成，耗时: {execution_time:.4f}s")
+                
+            except Exception as e:
+                failed_count += 1
+                print(f"迭代 {i+1}/{iterations} 失败: {e}")
+        
+        # 计算统计信息
+        if execution_times:
+            avg_time = statistics.mean(execution_times)
+            min_time = min(execution_times)
+            max_time = max(execution_times)
+            median_time = statistics.median(execution_times)
+        else:
+            avg_time = min_time = max_time = median_time = 0.0
+        
+        result = PerformanceResult(
+            test_name=f"async_{test_name}",
+            execution_times=execution_times,
+            average_time=avg_time,
+            min_time=min_time,
+            max_time=max_time,
+            median_time=median_time,
+            total_executions=iterations,
+            successful_executions=successful_count,
+            failed_executions=failed_count
+        )
+        
+        self.results[result.test_name] = result
+        return result
+    
+    def _simulate_workflow_execution(self, sync: bool = True) -> None:
+        """模拟工作流执行
+        
+        Args:
+            sync: 是否同步执行
+        """
+        # 模拟一些工作
+        import time
+        time.sleep(0.01)  # 模拟10ms的工作
+        
+        if not sync:
+            # 如果是异步，模拟异步操作
+            import asyncio
+            if asyncio.iscoroutinefunction(self._simulate_workflow_execution):
+                return
+        
+        # 模拟状态处理
+        for i in range(100):
+            _ = i * 2  # 简单的计算
+        
+        # 模拟消息处理
+        messages = []
+        for i in range(10):
+            messages.append({
+                "role": "assistant" if i % 2 == 0 else "user",
+                "content": f"Message {i}"
+            })
+    
+    async def benchmark_async_vs_sync(self, test_name: str, iterations: int = 10) -> Dict[str, PerformanceResult]:
         """对比异步和同步执行性能
         
         Args:
-            workflow_id: 工作流ID
+            test_name: 测试名称
             iterations: 迭代次数
-            initial_state: 初始状态
-            **kwargs: 其他参数
             
         Returns:
             Dict[str, PerformanceResult]: 异步和同步的性能测试结果
         """
-        print(f"开始异步vs同步性能对比测试: {workflow_id}")
-        
-        # 运行异步测试
-        async_result = await self.benchmark_async_execution(
-            workflow_id, iterations, initial_state, **kwargs
-        )
+        print(f"开始异步vs同步性能对比测试: {test_name}")
         
         # 运行同步测试
-        sync_result = self.benchmark_sync_execution(
-            workflow_id, iterations, initial_state, **kwargs
-        )
+        sync_result = self.benchmark_sync_execution(test_name, iterations)
+        
+        # 运行异步测试
+        async_result = await self.benchmark_async_execution(test_name, iterations)
         
         # 打印对比结果
         self.print_comparison(async_result, sync_result)
@@ -251,27 +235,18 @@ class PerformanceBenchmark:
             slowdown = async_result.average_time / sync_result.average_time
             print(f"同步执行比异步执行快 {slowdown:.2f}x")
     
-    async def benchmark_concurrent_executions(
-        self,
-        workflow_id: str,
-        concurrent_count: int = 5,
-        iterations_per_task: int = 2,
-        initial_state: Optional[WorkflowState] = None,
-        **kwargs
-    ) -> PerformanceResult:
+    async def benchmark_concurrent_executions(self, test_name: str, concurrent_count: int = 5, iterations_per_task: int = 2) -> PerformanceResult:
         """基准测试并发执行性能
         
         Args:
-            workflow_id: 工作流ID
+            test_name: 测试名称
             concurrent_count: 并发任务数
             iterations_per_task: 每个任务的迭代次数
-            initial_state: 初始状态
-            **kwargs: 其他参数
             
         Returns:
             PerformanceResult: 性能测试结果
         """
-        print(f"开始并发执行性能测试: {workflow_id}, 并发数: {concurrent_count}")
+        print(f"开始并发执行性能测试: {test_name}, 并发数: {concurrent_count}")
         
         async def run_task(task_id: int) -> List[float]:
             """运行单个任务"""
@@ -280,11 +255,7 @@ class PerformanceBenchmark:
                 try:
                     start_time = time.time()
                     
-                    result = await self.workflow_manager.run_workflow_async(
-                        workflow_id, 
-                        initial_state=initial_state, 
-                        **kwargs
-                    )
+                    self._simulate_workflow_execution(sync=False)
                     
                     end_time = time.time()
                     execution_times.append(end_time - start_time)
@@ -318,7 +289,7 @@ class PerformanceBenchmark:
             avg_time = min_time = max_time = median_time = 0.0
         
         result = PerformanceResult(
-            test_name=f"concurrent_execution_{workflow_id}_{concurrent_count}",
+            test_name=f"concurrent_{test_name}_{concurrent_count}",
             execution_times=all_execution_times,
             average_time=avg_time,
             min_time=min_time,
@@ -336,83 +307,56 @@ class PerformanceBenchmark:
         
         self.results[result.test_name] = result
         return result
+
+
+async def main():
+    """主函数"""
+    print("性能基准测试演示")
+    print("=" * 60)
     
-    def get_report(self) -> Dict[str, Any]:
-        """获取完整的性能报告
-        
-        Returns:
-            Dict[str, Any]: 性能报告
-        """
-        report = {
-            "timestamp": datetime.now().isoformat(),
-            "total_tests": len(self.results),
-            "results": {}
+    benchmark = SimplePerformanceBenchmark()
+    
+    # 演示1: 同步 vs 异步性能对比
+    print("演示1: 同步 vs 异步性能对比")
+    results = await benchmark.benchmark_async_vs_sync("workflow_execution", iterations=5)
+    
+    # 演示2: 并发执行测试
+    print("\n演示2: 并发执行测试")
+    concurrent_result = await benchmark.benchmark_concurrent_executions("concurrent_workflow", concurrent_count=3, iterations_per_task=2)
+    
+    # 演示3: 性能报告
+    print("\n演示3: 性能报告")
+    report = {
+        "timestamp": datetime.now().isoformat(),
+        "total_tests": len(benchmark.results),
+        "results": {}
+    }
+    
+    for test_name, result in benchmark.results.items():
+        report["results"][test_name] = {
+            "test_name": result.test_name,
+            "average_time": result.average_time,
+            "min_time": result.min_time,
+            "max_time": result.max_time,
+            "median_time": result.median_time,
+            "total_executions": result.total_executions,
+            "successful_executions": result.successful_executions,
+            "failed_executions": result.failed_executions,
+            "success_rate": result.successful_executions / result.total_executions if result.total_executions > 0 else 0
         }
-        
-        for test_name, result in self.results.items():
-            report["results"][test_name] = {
-                "test_name": result.test_name,
-                "average_time": result.average_time,
-                "min_time": result.min_time,
-                "max_time": result.max_time,
-                "median_time": result.median_time,
-                "total_executions": result.total_executions,
-                "successful_executions": result.successful_executions,
-                "failed_executions": result.failed_executions,
-                "success_rate": result.successful_executions / result.total_executions if result.total_executions > 0 else 0
-            }
-        
-        return report
     
-    def save_report(self, filepath: str) -> None:
-        """保存性能报告到文件
-        
-        Args:
-            filepath: 保存文件路径
-        """
-        import json
-        
-        report = self.get_report()
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(report, f, indent=2, ensure_ascii=False)
-        
-        print(f"性能报告已保存到: {filepath}")
+    print(f"总测试数量: {report['total_tests']}")
+    print("测试结果摘要:")
+    for test_name, result_data in report["results"].items():
+        print(f"  {test_name}:")
+        print(f"    平均耗时: {result_data['average_time']:.4f}s")
+        print(f"    成功率: {result_data['success_rate']*100:.1f}%")
+        print(f"    吞吐量: {1/result_data['average_time']:.2f} 执行/秒")
+    
+    print("\n" + "=" * 60)
+    print("性能基准测试完成！")
+    print("=" * 60)
 
 
-# 便捷的性能测试函数
-async def run_performance_test(
-    workflow_manager: WorkflowManager,
-    workflow_id: str,
-    test_type: str = "both",  # "async", "sync", "both", "concurrent"
-    iterations: int = 10,
-    concurrent_count: int = 5
-) -> Dict[str, PerformanceResult]:
-    """运行性能测试的便捷函数
-    
-    Args:
-        workflow_manager: 工作流管理器
-        workflow_id: 工作流ID
-        test_type: 测试类型
-        iterations: 迭代次数
-        concurrent_count: 并发数（仅用于并发测试）
-        
-    Returns:
-        Dict[str, PerformanceResult]: 测试结果
-    """
-    benchmark = PerformanceBenchmark(workflow_manager)
-    
-    if test_type == "async":
-        result = await benchmark.benchmark_async_execution(workflow_id, iterations)
-        return {"async": result}
-    elif test_type == "sync":
-        result = benchmark.benchmark_sync_execution(workflow_id, iterations)
-        return {"sync": result}
-    elif test_type == "both":
-        return await benchmark.benchmark_async_vs_sync(workflow_id, iterations)
-    elif test_type == "concurrent":
-        result = await benchmark.benchmark_concurrent_executions(
-            workflow_id, concurrent_count, iterations // concurrent_count
-        )
-        return {"concurrent": result}
-    else:
-        raise ValueError(f"不支持的测试类型: {test_type}")
+if __name__ == "__main__":
+    asyncio.run(main())

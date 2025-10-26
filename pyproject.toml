@@ -104,3 +104,31 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 explicit_package_bases = true
+# 严格模式配置
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+show_error_codes = true
+show_error_context = true
+# 针对特定包的配置
+[[tool.mypy.overrides]]
+module = "yaml"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "langgraph.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "graphviz"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "rich.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "blessed.*"
+ignore_missing_imports = true

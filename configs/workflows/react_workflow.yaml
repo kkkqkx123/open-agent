@@ -1,0 +1,141 @@
+# ReAct工作流配置 - 继承自基础工作流
+inherits_from: "base_workflow.yaml"
+
+metadata:
+  name: "react_workflow"
+  version: "1.1.0"
+  description: "ReAct模式工作流"
+  author: "system"
+
+workflow_name: "react_workflow"
+description: "ReAct模式工作流，支持思考-行动-观察循环"
+
+# 覆盖基础配置
+max_iterations: 20
+timeout: 600
+
+# 扩展状态模式
+state_schema:
+  name: "ReActWorkflowState"
+  fields:
+    # 继承基础字段
+    messages:
+      type: "List[dict]"
+      default: []
+      reducer: "extend"
+      description: "消息列表"
+    input:
+      type: "str"
+      default: ""
+      description: "输入文本"
+    output:
+      type: "str"
+      default: ""
+      description: "输出文本"
+    errors:
+      type: "List[str]"
+      default: []
+      reducer: "extend"
+      description: "错误列表"
+    
+    # ReAct特定字段
+    thought:
+      type: "str"
+      default: ""
+      description: "思考内容"
+    action:
+      type: "str"
+      default: ""
+      description: "行动内容"
+    observation:
+      type: "str"
+      default: ""
+      description: "观察结果"
+    steps:
+      type: "List[dict]"
+      default: []
+      reducer: "extend"
+      description: "步骤列表"
+
+# 扩展节点配置
+nodes:
+  # 继承基础节点
+  start_node:
+    function: "start_node"
+    config:
+      description: "开始节点"
+    description: "工作流的起始节点"
+  
+  end_node:
+    function: "end_node"
+    config:
+      description: "结束节点"
+    description: "工作流的结束节点"
+  
+  # ReAct特定节点
+  think_node:
+    function: "think_node"
+    config:
+      description: "思考节点"
+      system_prompt: "请分析问题并制定解决策略"
+    description: "ReAct思考阶段"
+  
+  act_node:
+    function: "act_node"
+    config:
+      description: "行动节点"
+      tool_selection: "auto"
+    description: "ReAct行动阶段"
+  
+  observe_node:
+    function: "observe_node"
+    config:
+      description: "观察节点"
+      result_processing: "analyze"
+    description: "ReAct观察阶段"
+
+# 扩展边配置
+edges:
+  # 继承基础边
+  - from: "start_node"
+    to: "think_node"
+    type: "simple"
+    description: "从开始到思考"
+  
+  - from: "think_node"
+    to: "act_node"
+    type: "simple"
+    description: "从思考到行动"
+  
+  - from: "act_node"
+    to: "observe_node"
+    type: "simple"
+    description: "从行动到观察"
+  
+  - from: "observe_node"
+    to: "end_node"
+    type: "conditional"
+    condition: "is_complete"
+    description: "根据完成情况决定是否结束"
+  
+  - from: "observe_node"
+    to: "think_node"
+    type: "conditional"
+    condition: "needs_more_thinking"
+    description: "如果需要更多思考，返回思考节点"
+
+# 覆盖入口点
+entry_point: "start_node"
+
+# 额外的验证规则
+validation_rules:
+  - field: "metadata.name"
+    rule_type: "required"
+    message: "工作流名称不能为空"
+  - field: "entry_point"
+    rule_type: "required"
+    message: "入口节点不能为空"
+  - field: "max_iterations"
+    rule_type: "range"
+    value: [1, 50]
+    message: "ReAct工作流的最大迭代次数必须在1-50之间"

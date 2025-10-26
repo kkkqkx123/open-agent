@@ -3,12 +3,13 @@
 提供工作流相关服务的注册和配置。
 """
 
-from typing import Type
+from typing import Type, Optional
 from src.infrastructure.container import IDependencyContainer, ServiceLifetime
 from src.infrastructure.config_loader import IConfigLoader
 from src.infrastructure.graph.registry import NodeRegistry
 from src.infrastructure.graph.states import StateFactory, StateSerializer
-from .interfaces import IWorkflowManager, IWorkflowFactory
+from .interfaces import IWorkflowManager
+from .factory import IWorkflowFactory
 from .manager import WorkflowManager
 from .factory import WorkflowFactory
 from .builder_adapter import WorkflowBuilderAdapter
@@ -137,7 +138,7 @@ class WorkflowModule:
         # 在开发环境中，可以启用额外的调试功能
         container.register_factory(
             WorkflowBuilderAdapter,
-            lambda: WorkflowBuilderAdapter(enable_debug=True),
+            lambda: WorkflowBuilderAdapter(),
             environment="development",
             lifetime=ServiceLifetime.TRANSIENT
         )
@@ -152,7 +153,7 @@ class WorkflowModule:
         # 在生产环境中，可以启用性能优化
         container.register_factory(
             WorkflowFactory,
-            lambda: WorkflowFactory(enable_caching=True, enable_metrics=True),
+            lambda: WorkflowFactory(),
             environment="production",
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -161,8 +162,8 @@ class WorkflowModule:
 def configure_workflow_container(
     container: IDependencyContainer,
     environment: str = "default",
-    config_loader: IConfigLoader = None,
-    node_registry: NodeRegistry = None
+    config_loader: Optional[IConfigLoader] = None,
+    node_registry: Optional[NodeRegistry] = None
 ) -> None:
     """配置工作流容器
     
