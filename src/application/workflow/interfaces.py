@@ -291,3 +291,98 @@ class IWorkflowExecutor(ABC):
             WorkflowState: 中间状态
         """
         pass
+
+
+class IWorkflowTemplate(ABC):
+    """工作流模板接口"""
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """模板名称"""
+        pass
+
+    @property
+    @abstractmethod
+    def description(self) -> str:
+        """模板描述"""
+        pass
+
+    @abstractmethod
+    def create_template(self, config: Dict[str, Any]) -> WorkflowConfig:
+        """创建模板实例
+
+        Args:
+            config: 配置参数
+
+        Returns:
+            WorkflowConfig: 工作流配置
+        """
+        pass
+
+    @abstractmethod
+    def get_parameters(self) -> List[Dict[str, Any]]:
+        """获取模板参数定义
+
+        Returns:
+            List[Dict[str, Any]]: 参数定义列表
+        """
+        pass
+
+    @abstractmethod
+    def validate_parameters(self, config: Dict[str, Any]) -> List[str]:
+        """验证参数
+
+        Args:
+            config: 参数配置
+
+        Returns:
+            List[str]: 验证错误列表
+        """
+        pass
+
+
+class IWorkflowTemplateRegistry(ABC):
+    """工作流模板注册表接口"""
+
+    @abstractmethod
+    def register_template(self, template: IWorkflowTemplate) -> None:
+        """注册模板
+
+        Args:
+            template: 模板实例
+        """
+        pass
+
+    @abstractmethod
+    def get_template(self, name: str) -> Optional[IWorkflowTemplate]:
+        """获取模板
+
+        Args:
+            name: 模板名称
+
+        Returns:
+            Optional[IWorkflowTemplate]: 模板实例，如果不存在则返回None
+        """
+        pass
+
+    @abstractmethod
+    def list_templates(self) -> List[str]:
+        """列出所有已注册的模板
+
+        Returns:
+            List[str]: 模板名称列表
+        """
+        pass
+
+    @abstractmethod
+    def unregister_template(self, name: str) -> bool:
+        """卸载模板
+
+        Args:
+            name: 模板名称
+
+        Returns:
+            bool: 是否成功卸载
+        """
+        pass

@@ -13,34 +13,41 @@ logger = logging.getLogger(__name__)
 
 # 导入消息类型
 try:
-    from langchain_core.messages import BaseMessage as LCBaseMessage, HumanMessage as LCHumanMessage, AIMessage as LCAIMessage, SystemMessage as LCSystemMessage, ToolMessage as LCToolMessage
+    from langchain_core.messages import BaseMessage as LCBaseMessage, HumanMessage as LCHumanMessage, AIMessage as LCAIMessage, SystemMessage as LCSystemMessage, ToolMessage as LCToolMessage  # type: ignore
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     logger.warning("LangChain not available, using fallback message types")
     LANGCHAIN_AVAILABLE = False
     
-    # 后备消息类型定义
-    class LCBaseMessage:
+    # 后备消息类型定义 - 使用不同的类名避免冲突
+    class FallbackLCBaseMessage:
         def __init__(self, content: str, type: str = "base"):
             self.content = content
             self.type = type
     
-    class LCHumanMessage(LCBaseMessage):
+    class FallbackLCHumanMessage(FallbackLCBaseMessage):
         def __init__(self, content: str):
             super().__init__(content, "human")
     
-    class LCAIMessage(LCBaseMessage):
+    class FallbackLCAIMessage(FallbackLCBaseMessage):
         def __init__(self, content: str):
             super().__init__(content, "ai")
     
-    class LCSystemMessage(LCBaseMessage):
+    class FallbackLCSystemMessage(FallbackLCBaseMessage):
         def __init__(self, content: str):
             super().__init__(content, "system")
     
-    class LCToolMessage(LCBaseMessage):
+    class FallbackLCToolMessage(FallbackLCBaseMessage):
         def __init__(self, content: str, tool_call_id: str = ""):
             super().__init__(content, "tool")
             self.tool_call_id = tool_call_id
+    
+    # 创建别名以便后续使用
+    LCBaseMessage = FallbackLCBaseMessage
+    LCHumanMessage = FallbackLCHumanMessage
+    LCAIMessage = FallbackLCAIMessage
+    LCSystemMessage = FallbackLCSystemMessage
+    LCToolMessage = FallbackLCToolMessage
 
 # 重新定义消息类型，以避免与langchain_core冲突
 class BaseMessage:
@@ -260,7 +267,7 @@ def create_plan_execute_state(
 
 
 # 消息创建函数
-def create_message(content: str, role: str, **kwargs) -> BaseMessage:
+def create_message(content: str, role: str, **kwargs: Any) -> BaseMessage:
     """创建消息
     
     Args:

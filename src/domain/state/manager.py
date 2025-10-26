@@ -259,7 +259,7 @@ class AgentToWorkflowConverter(IStateConverter):
                 from ...application.workflow.state import SystemMessage
                 msg = SystemMessage(content=agent_msg.content)
             else:
-                msg = BaseMessage(content=agent_msg.content, role=role)
+                msg = BaseMessage(content=agent_msg.content, type=role)
             
             workflow_state.add_message(msg)
         

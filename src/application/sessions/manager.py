@@ -586,7 +586,7 @@ class SessionManager(ISessionManager):
                     msg = ToolMessage(content=msg_data.get("content", ""))
                 else:
                     from src.application.workflow.state import BaseMessage
-                    msg = BaseMessage(content=msg_data.get("content", ""), role=role)
+                    msg = BaseMessage(content=msg_data.get("content", ""), type=role)
 
                 state.add_message(msg)
             except Exception:
@@ -597,7 +597,7 @@ class SessionManager(ISessionManager):
                     role = MessageRole(role_str)
                 except ValueError:
                     role = MessageRole.HUMAN
-                msg = BaseMessage(content=msg_data.get("content", ""), role=role)
+                msg = BaseMessage(content=msg_data.get("content", ""), type=role)
                 state.add_message(msg)
 
         # 恢复工具结果

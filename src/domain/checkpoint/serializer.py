@@ -5,7 +5,7 @@
 
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from .interfaces import ICheckpointSerializer
@@ -30,15 +30,19 @@ class DefaultCheckpointSerializer(ICheckpointSerializer):
             state: 工作流状态对象
 
         Returns:
-            Dict[str, Any]: 序列化后的状态数据
+            序列化后的状态数据
         """
         try:
             if hasattr(state, 'to_dict'):
                 # 如果状态对象有to_dict方法，使用它
-                return state.to_dict()
+                to_dict_result = state.to_dict()
+                if isinstance(to_dict_result, dict):
+                    return to_dict_result
+                else:
+                    return {'value': str(to_dict_result), 'type': type(to_dict_result).__name__}
             elif hasattr(state, '__dict__'):
                 # 如果是普通对象，序列化其属性
-                result = {}
+                result: Dict[str, Any] = {}
                 for key, value in state.__dict__.items():
                     if not key.startswith('_'):  # 跳过私有属性
                         result[key] = self._serialize_value(value)
@@ -154,19 +158,19 @@ class DefaultCheckpointSerializer(ICheckpointSerializer):
         else:
             return str(value)
 
-    def _deserialize_messages(self, messages_data: Any) -> list:
+    def _deserialize_messages(self, messages_data: Any) -> List[Any]:
         """反序列化消息列表
 
         Args:
             messages_data: 消息数据
 
         Returns:
-            list: 反序列化后的消息列表
+            反序列化后的消息列表
         """
         if not isinstance(messages_data, list):
             return []
 
-        messages = []
+        messages: List[Any] = []
         for msg_data in messages_data:
             try:
                 # 尝试创建适当的消息类型
@@ -176,6 +180,7 @@ class DefaultCheckpointSerializer(ICheckpointSerializer):
                     role = msg_data.get('role', 'human')
 
                     # 消息类型已经从 application.workflow.state 导入
+                    msg: Any
                     if msg_type == 'HumanMessage':
                         msg = HumanMessage(content=content)
                     elif msg_type == 'SystemMessage':
@@ -187,9 +192,9 @@ class DefaultCheckpointSerializer(ICheckpointSerializer):
                     else:
                         # 尝试解析角色
                         if role in [MessageRole.HUMAN, MessageRole.AI, MessageRole.SYSTEM, MessageRole.TOOL]:
-                            msg = BaseMessage(content=content, role=role)
+                            msg = BaseMessage(content=content, type=role)
                         else:
-                            msg = BaseMessage(content=content, role=MessageRole.HUMAN)
+                            msg = BaseMessage(content=content, type=MessageRole.HUMAN)
 
                     messages.append(msg)
                 else:
@@ -246,7 +251,7 @@ class JSONCheckpointSerializer(ICheckpointSerializer):
             state: 工作流状态对象
 
         Returns:
-            Dict[str, Any]: 序列化后的状态数据
+            序列化后的状态数据
         """
         try:
             # 使用默认序列化器进行基本序列化
@@ -254,7 +259,11 @@ class JSONCheckpointSerializer(ICheckpointSerializer):
             serialized = default_serializer.serialize(state)
 
             # 确保所有数据都可以JSON序列化
-            return json.loads(json.dumps(serialized, default=str, ensure_ascii=False))
+            result = json.loads(json.dumps(serialized, default=str, ensure_ascii=False))
+            if isinstance(result, dict):
+                return result
+            else:
+                return {'value': str(result), 'type': type(result).__name__}
         except Exception as e:
             logger.error(f"JSON序列化失败: {e}")
             return {'error': str(e), 'original_type': type(state).__name__}

@@ -9,21 +9,24 @@ from typing_extensions import TypedDict
 
 # 导入消息类型
 try:
-    from langchain_core.messages import BaseMessage as LCBaseMessage
+    from langchain_core.messages import BaseMessage as LCBaseMessage  # type: ignore
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     LANGCHAIN_AVAILABLE = False
     
-    # 后备消息类型定义
-    class LCBaseMessage:
+    # 后备消息类型定义 - 使用不同的类名避免冲突
+    class FallbackLCBaseMessage:
         def __init__(self, content: str, type: str = "base"):
             self.content = content
             self.type = type
+    
+    # 创建别名以便后续使用
+    LCBaseMessage = FallbackLCBaseMessage
 
 # 统一的消息类型定义
 class BaseMessage:
     """统一消息基类"""
-    def __init__(self, content: str, type: str = "base", **kwargs):
+    def __init__(self, content: str, type: str = "base", **kwargs: Any):
         self.content = content
         self.type = type
         for key, value in kwargs.items():
@@ -101,7 +104,7 @@ def create_base_state(
     }
 
 
-def create_message(content: str, role: str, **kwargs) -> BaseMessage:
+def create_message(content: str, role: str, **kwargs: Any) -> BaseMessage:
     """创建消息
     
     Args:
@@ -124,7 +127,7 @@ def create_message(content: str, role: str, **kwargs) -> BaseMessage:
         return BaseMessage(content=content, type=role)
 
 
-def adapt_langchain_message(message) -> BaseMessage:
+def adapt_langchain_message(message: Any) -> BaseMessage:
     """适配LangChain消息到内部消息格式
     
     Args:

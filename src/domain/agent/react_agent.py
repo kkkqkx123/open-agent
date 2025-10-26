@@ -37,7 +37,7 @@ class ReActAgent(BaseAgent):
             reasoning_result = await self._reason(state)
             
             # 将推理结果添加到记忆中
-            state.add_memory(BaseMessage(content=f"Thought: {reasoning_result}", role=MessageRole.AI, type="reasoning"))
+            state.add_memory(BaseMessage(content=f"Thought: {reasoning_result}", type="reasoning"))
             
             # 2. 决策下一步行动
             action_result = await self._decide_action(state, reasoning_result)
@@ -67,15 +67,15 @@ class ReActAgent(BaseAgent):
                 
                 # 将观察结果添加到记忆中
                 observation = f"Action: {tool_call_str}\nObservation: {tool_result.output}"
-                state.add_memory(BaseMessage(content=observation, role=MessageRole.TOOL, type="observation"))
+                state.add_memory(BaseMessage(content=observation, type="observation"))
             elif action_result.get("action") == "final_answer":
                 # 如果是最终答案，添加到状态并退出循环
                 answer = action_result.get("answer", "No answer provided")
-                state.add_memory(BaseMessage(content=answer, role=MessageRole.AI, type="final_answer"))
+                state.add_memory(BaseMessage(content=answer, type="final_answer"))
                 break
             else:
                 # 其他行动类型
-                state.add_memory(BaseMessage(content=f"Action: {action_result}", role=MessageRole.AI, type="action"))
+                state.add_memory(BaseMessage(content=f"Action: {action_result}", type="action"))
             
             current_iteration += 1
             state.iteration_count = current_iteration

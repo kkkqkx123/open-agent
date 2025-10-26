@@ -9,6 +9,9 @@ from enum import Enum
 import uuid
 import re
 
+# Type alias for custom validation function to simplify complex type annotation
+CustomValidationFunction = Callable[[Any, Optional[Dict[str, Any]]], bool]
+
 from domain.workflow.entities import BusinessWorkflow
 from .exceptions import WorkflowValidationError
 
@@ -230,7 +233,7 @@ class WorkflowRule:
     description: str = ""
     
     # 规则定义
-    field: str = ""  # 规则作用的字段
+    target_field: str = ""  # 规则作用的字段
     operator: RuleOperator = RuleOperator.EQUALS
     value: Any = None  # 比较值
     
@@ -240,7 +243,7 @@ class WorkflowRule:
     error_message: str = ""  # 错误消息
     
     # 高级配置
-    custom_function: Optional[Callable[[Any, Optional[Dict[str, Any]]], bool]] = None  # 自定义验证函数
+    custom_function: Optional[CustomValidationFunction] = None  # 自定义验证函数
     config: Dict[str, Any] = field(default_factory=dict)
     
     def __post_init__(self) -> None:
@@ -248,11 +251,11 @@ class WorkflowRule:
         if not self.name:
             raise WorkflowValidationError("规则名称不能为空")
         
-        if not self.field:
+        if not self.target_field:
             raise WorkflowValidationError("规则字段不能为空")
         
         if not self.error_message:
-            self.error_message = f"字段 '{self.field}' 验证失败"
+            self.error_message = f"字段 '{self.target_field}' 验证失败"
     
     def validate_value(self, value: Any, context: Optional[Dict[str, Any]] = None) -> bool:
         """验证值
@@ -317,7 +320,7 @@ class WorkflowRule:
         if not self.name:
             errors.append("规则名称不能为空")
         
-        if not self.field:
+        if not self.target_field:
             errors.append("规则字段不能为空")
         
         if self.operator == RuleOperator.IN and not isinstance(self.value, (list, tuple, set)):
