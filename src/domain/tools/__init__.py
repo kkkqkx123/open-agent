@@ -7,7 +7,15 @@
 - 内置工具 (BuiltinTool)
 """
 
-from .interfaces import IToolManager, IToolFormatter, IToolExecutor, ToolCall, ToolResult
+from .interfaces import (
+    ITool, 
+    IToolRegistry, 
+    IToolFormatter, 
+    IToolExecutor, 
+    IToolFactory,
+    ToolCall, 
+    ToolResult
+)
 from .base import BaseTool
 from .types.native_tool import NativeTool
 from .types.mcp_tool import MCPTool
@@ -15,9 +23,11 @@ from .types.builtin_tool import BuiltinTool
 
 __all__ = [
     # 接口
-    "IToolManager",
+    "ITool",
+    "IToolRegistry",
     "IToolFormatter",
     "IToolExecutor",
+    "IToolFactory",
     "ToolCall",
     "ToolResult",
     # 基类

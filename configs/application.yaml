@@ -8,113 +8,50 @@ application:
   environment: "${ENV:development}"
   description: "模块化智能体框架"
 
-# 组件组装配置
-assembly:
-  # LLM层组装
+# 组件配置 - 简化的配置驱动组装
+components:
+  # LLM配置
   llm:
-    factory: "infrastructure.llm.factory.LLMFactory"
     config_path: "configs/llms"
+    default_provider: "openai"
     
-  # Tool层组装
+  # 工具配置
   tools:
-    manager: "infrastructure.tools.manager.ToolManager"
     config_path: "configs/tools"
+    auto_discovery: true
     
-  # Agent层组装
+  # Agent配置
   agents:
-    factory: "domain.agent.factory.AgentFactory"
     config_path: "configs/agents"
+    default_type: "react"
     
-  # Workflow层组装
+  # 工作流配置
   workflows:
-    builder: "application.workflow.builder.WorkflowBuilder"
-    templates_path: "configs/workflows"
+    config_path: "configs/workflows"
+    template_path: "configs/workflows/_templates.yaml"
     
-  # 状态管理组装
-  state:
-    manager: "domain.agent.state_manager.AgentStateManager"
-    persistence: "infrastructure.persistence.file.FilePersistenceStrategy"
+  # 会话配置
+  sessions:
+    storage_type: "file"
+    storage_path: "sessions"
+    auto_save: true
 
 # 依赖注入配置
 dependencies:
   # 单例服务
   singletons:
     - "IConfigLoader"
-    - "ILLMFactory"
+    - "ILLMClientFactory"
     - "IToolManager"
     - "IAgentFactory"
-    - "IStateManager"
-    - "IWorkflowTemplateRegistry"
-  
+    - "ISessionStore"
+    - "IWorkflowManager"
+    
   # 作用域服务
   scoped:
     - "IWorkflowBuilder"
     - "ISessionManager"
     - "IAgentManager"
-
-# 服务注册配置
-services:
-  # 配置加载器
-  IConfigLoader:
-    implementation: "infrastructure.config_loader.YamlConfigLoader"
-    lifetime: "singleton"
-    parameters:
-      base_path: "configs"
-  
-  # LLM工厂
-  ILLMFactory:
-    implementation: "infrastructure.llm.factory.LLMFactory"
-    lifetime: "singleton"
-    dependencies:
-      - "IConfigLoader"
-  
-  # 工具管理器
-  IToolManager:
-    implementation: "infrastructure.tools.manager.ToolManager"
-    lifetime: "singleton"
-    dependencies:
-      - "IConfigLoader"
-  
-  # Agent工厂
-  IAgentFactory:
-    implementation: "domain.agent.factory.AgentFactory"
-    lifetime: "singleton"
-    dependencies:
-      - "ILLMFactory"
-      - "IToolExecutor"
-  
-  # 状态管理器
-  IStateManager:
-    implementation: "domain.agent.state_manager.AgentStateManager"
-    lifetime: "singleton"
-  
-  # Workflow构建器
-  IWorkflowBuilder:
-    implementation: "application.workflow.builder.WorkflowBuilder"
-    lifetime: "scoped"
-    dependencies:
-      - "IAgentFactory"
-  
-  # Workflow模板注册表
-  IWorkflowTemplateRegistry:
-    implementation: "application.workflow.templates.registry.WorkflowTemplateRegistry"
-    lifetime: "singleton"
-  
-  # 会话管理器
-  ISessionManager:
-    implementation: "application.sessions.manager.SessionManager"
-    lifetime: "scoped"
-    dependencies:
-      - "IWorkflowManager"
-      - "IStateManager"
-  
-  # Agent管理器
-  IAgentManager:
-    implementation: "domain.agent.manager.AgentManager"
-    lifetime: "scoped"
-    dependencies:
-      - "ILLMClient"
-      - "IToolExecutor"
 
 # 环境特定配置
 environments:

@@ -10,10 +10,10 @@ import asyncio
 import time
 import json
 
-from .interfaces import ToolResult
+from .interfaces import ITool, ToolResult
 
 
-class BaseTool(ABC):
+class BaseTool(ITool, ABC):
     """工具基类
 
     所有工具类型的基础抽象类，定义了工具的基本接口和通用功能。
@@ -27,9 +27,19 @@ class BaseTool(ABC):
             description: 工具描述
             parameters_schema: 参数JSON Schema
         """
-        self.name = name
-        self.description = description
-        self.parameters_schema = parameters_schema
+        self._name = name
+        self._description = description
+        self._parameters_schema = parameters_schema
+
+    @property
+    def name(self) -> str:
+        """工具名称"""
+        return self._name
+
+    @property
+    def description(self) -> str:
+        """工具描述"""
+        return self._description
 
     @abstractmethod
     def execute(self, **kwargs: Any) -> Any:
@@ -61,46 +71,51 @@ class BaseTool(ABC):
         Returns:
             Dict[str, Any]: 工具参数Schema
         """
-        return self.parameters_schema
+        return self._parameters_schema
 
-    def validate_parameters(self, parameters: Dict[str, Any]) -> None:
+    def validate_parameters(self, parameters: Dict[str, Any]) -> bool:
         """验证参数
 
         Args:
             parameters: 待验证的参数
 
-        Raises:
-            ValueError: 参数验证失败
+        Returns:
+            bool: 验证是否成功
         """
-        # 基础参数验证逻辑
-        required_params = self.parameters_schema.get("required", [])
+        try:
+            # 基础参数验证逻辑
+            required_params = self._parameters_schema.get("required", [])
 
-        # 检查必需参数
-        for param in required_params:
-            if param not in parameters:
-                raise ValueError(f"缺少必需参数: {param}")
+            # 检查必需参数
+            for param in required_params:
+                if param not in parameters:
+                    return False
 
-        # 检查参数类型
-        properties = self.parameters_schema.get("properties", {})
-        for param_name, param_value in parameters.items():
-            if param_name in properties:
-                param_schema = properties[param_name]
-                expected_type = param_schema.get("type")
+            # 检查参数类型
+            properties = self._parameters_schema.get("properties", {})
+            for param_name, param_value in parameters.items():
+                if param_name in properties:
+                    param_schema = properties[param_name]
+                    expected_type = param_schema.get("type")
 
-                if expected_type == "string" and not isinstance(param_value, str):
-                    raise ValueError(f"参数 {param_name} 应为字符串类型")
-                elif expected_type == "number" and not isinstance(
-                    param_value, (int, float)
-                ):
-                    raise ValueError(f"参数 {param_name} 应为数字类型")
-                elif expected_type == "integer" and not isinstance(param_value, int):
-                    raise ValueError(f"参数 {param_name} 应为整数类型")
-                elif expected_type == "boolean" and not isinstance(param_value, bool):
-                    raise ValueError(f"参数 {param_name} 应为布尔类型")
-                elif expected_type == "array" and not isinstance(param_value, list):
-                    raise ValueError(f"参数 {param_name} 应为数组类型")
-                elif expected_type == "object" and not isinstance(param_value, dict):
-                    raise ValueError(f"参数 {param_name} 应为对象类型")
+                    if expected_type == "string" and not isinstance(param_value, str):
+                        return False
+                    elif expected_type == "number" and not isinstance(
+                        param_value, (int, float)
+                    ):
+                        return False
+                    elif expected_type == "integer" and not isinstance(param_value, int):
+                        return False
+                    elif expected_type == "boolean" and not isinstance(param_value, bool):
+                        return False
+                    elif expected_type == "array" and not isinstance(param_value, list):
+                        return False
+                    elif expected_type == "object" and not isinstance(param_value, dict):
+                        return False
+
+            return True
+        except Exception:
+            return False
 
     def _create_result(
         self,
@@ -182,7 +197,8 @@ class BaseTool(ABC):
         """
         try:
             # 验证参数
-            self.validate_parameters(kwargs)
+            if not self.validate_parameters(kwargs):
+                return self._create_result(success=False, error="参数验证失败")
 
             # 执行并测量时间
             result, execution_time = self._measure_execution_time(
@@ -206,7 +222,8 @@ class BaseTool(ABC):
         """
         try:
             # 验证参数
-            self.validate_parameters(kwargs)
+            if not self.validate_parameters(kwargs):
+                return self._create_result(success=False, error="参数验证失败")
 
             # 执行并测量时间
             result, execution_time = await self._measure_execution_time_async(
@@ -228,7 +245,7 @@ class BaseTool(ABC):
         return {
             "name": self.name,
             "description": self.description,
-            "parameters": self.parameters_schema,
+            "parameters": self._parameters_schema,
         }
 
     def __str__(self) -> str:

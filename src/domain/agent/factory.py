@@ -12,10 +12,10 @@ from .config import AgentConfig
 from .react_agent import ReActAgent
 from .plan_execute_agent import PlanExecuteAgent
 from .base import BaseAgent
-from ..workflow.state import WorkflowState
-from src.infrastructure.llm.interfaces import ILLMClient
-from src.infrastructure.tools.interfaces import IToolExecutor
-from src.infrastructure.tools.manager import IToolManager
+from ..state.interfaces import IStateManager
+from ...application.workflow.state import WorkflowState
+from ...infrastructure.llm.interfaces import ILLMClient
+from ...infrastructure.tools.interfaces import IToolExecutor
 from .events import AgentEventManager
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,7 @@ class AgentFactory(IAgentFactory):
         self,
         llm_factory: Any,  # ILLMFactory
         tool_executor: IToolExecutor,
+        state_manager: Optional[IStateManager] = None,
         event_manager: Optional[AgentEventManager] = None
     ):
         """初始化Agent工厂
@@ -38,10 +39,12 @@ class AgentFactory(IAgentFactory):
         Args:
             llm_factory: LLM工厂实例
             tool_executor: 工具执行器实例
+            state_manager: 状态管理器实例（可选）
             event_manager: 事件管理器实例（可选）
         """
         self.llm_factory = llm_factory
         self.tool_executor = tool_executor
+        self.state_manager = state_manager
         self.event_manager = event_manager or AgentEventManager()
         
         # 注册支持的Agent类型
@@ -227,7 +230,7 @@ class AgentFactory(IAgentFactory):
         config: AgentConfig,
         llm_client: ILLMClient,
         tool_executor: IToolExecutor
-        ) -> IAgent:
+    ) -> IAgent:
         """创建Agent实例
 
         Args:
@@ -242,10 +245,10 @@ class AgentFactory(IAgentFactory):
 
         # 创建Agent实例
         agent = agent_class(
-        config=config,
-        llm_client=llm_client,
-        tool_executor=tool_executor,
-        event_manager=self.event_manager
+            config=config,
+            llm_client=llm_client,
+            tool_executor=tool_executor,
+            event_manager=self.event_manager
         )
 
         return agent
@@ -303,7 +306,7 @@ def set_global_factory(factory: AgentFactory) -> None:
     """设置全局Agent工厂实例
     
     Args:
-        factory: Agent工厂实例
+        factory: 工厂实例
     """
     global _global_factory
     _global_factory = factory

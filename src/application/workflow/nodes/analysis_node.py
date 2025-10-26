@@ -68,25 +68,28 @@ class AnalysisNode(BaseNode):
             from langchain_core.messages import BaseMessage as LangChainBaseMessage
             if isinstance(response.message, LangChainBaseMessage):
                 # 如果是langchain消息，需要转换为domain层的BaseMessage
-                from src.domain.prompts.agent_state import BaseMessage as DomainBaseMessage
+                from src.domain.prompts.agent_state import BaseMessage as DomainBaseMessage, MessageRole
                 # 创建一个兼容的BaseMessage对象
                 if hasattr(response.message, 'content'):
                     compatible_message = DomainBaseMessage(
                         content=str(response.message.content),
+                        role=MessageRole.AI,
                         type=getattr(response.message, 'type', 'ai')
                     )
                 else:
                     compatible_message = DomainBaseMessage(
                         content=response.content,
+                        role=MessageRole.AI,
                         type='ai'
                     )
             else:
                 compatible_message = response.message
         except ImportError:
             # 如果无法导入langchain，使用LLMResponse的message属性
-            from src.domain.prompts.agent_state import BaseMessage as DomainBaseMessage
+            from src.domain.prompts.agent_state import BaseMessage as DomainBaseMessage, MessageRole
             compatible_message = DomainBaseMessage(
                 content=response.content,
+                role=MessageRole.AI,
                 type='ai'
             )
         

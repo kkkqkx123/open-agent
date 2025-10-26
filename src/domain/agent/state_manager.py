@@ -94,7 +94,7 @@ class AgentStateManager:
                 state.add_memory(message)
             else:
                 # 如果不是BaseMessage类型，创建HumanMessage
-                from ..workflow.state import HumanMessage
+                from src.application.workflow.state import HumanMessage
                 human_msg = HumanMessage(content=str(message))
                 state.add_memory(human_msg)
         return state

@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Union, Sequence
 
 from src.infrastructure.llm.interfaces import ILLMClient
 from langchain_core.messages import BaseMessage
-from .interfaces import IToolFormatter
+from src.domain.tools.interfaces import IToolFormatter
 from src.domain.tools.interfaces import ToolCall
 from src.domain.tools.base import BaseTool
 

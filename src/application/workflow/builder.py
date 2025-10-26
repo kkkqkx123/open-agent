@@ -3,14 +3,17 @@
 提供更简洁、更灵活的Workflow构建功能，支持配置驱动的构建过程。
 """
 
-from typing import Dict, Any, Optional, List, Callable, Union
+from typing import Dict, Any, Optional, List, Callable, Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...domain.agent.interfaces import IAgent
 from pathlib import Path
 import yaml
 import logging
 from abc import ABC, abstractmethod
 
 from src.application.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
-from src.application.workflow.state import WorkflowState
+from src.application.workflow.state import WorkflowState, AgentState
 from ...domain.agent.interfaces import IAgent, IAgentFactory
 from .registry import NodeRegistry, get_global_registry
 from .interfaces import IWorkflowBuilder, IWorkflowTemplate
@@ -46,7 +49,9 @@ class AgentNodeExecutor(INodeExecutor):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
         
-        return loop.run_until_complete(self.agent.execute(state, config))
+        result = loop.run_until_complete(self.agent.execute(state, config))
+        # 确保返回WorkflowState类型
+        return result  # type: ignore
 
 
 class WorkflowBuilder(IWorkflowBuilder):

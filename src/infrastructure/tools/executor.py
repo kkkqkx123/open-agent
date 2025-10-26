@@ -10,9 +10,7 @@ from typing import Any, Dict, List, Optional, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from src.infrastructure.logger.logger import ILogger
-from .interfaces import IToolExecutor, IToolManager
-from src.domain.tools.interfaces import ToolCall, ToolResult
-from src.domain.tools.base import BaseTool
+from src.domain.tools.interfaces import IToolExecutor, ITool, ToolCall, ToolResult
 
 
 class ToolExecutor(IToolExecutor):
@@ -23,7 +21,7 @@ class ToolExecutor(IToolExecutor):
 
     def __init__(
         self,
-        tool_manager: IToolManager,
+        tool_manager: Any,  # IToolManager
         logger: ILogger,
         default_timeout: int = 30,
         max_workers: int = 4,
@@ -63,6 +61,15 @@ class ToolExecutor(IToolExecutor):
             # 记录调用开始
             self.logger.info(f"开始执行工具: {tool_call.name}")
 
+            # 验证参数
+            if not tool.validate_parameters(tool_call.arguments):
+                return ToolResult(
+                    success=False,
+                    error="参数验证失败",
+                    tool_name=tool_call.name,
+                    execution_time=time.time() - start_time
+                )
+
             # 执行工具
             if hasattr(tool, "safe_execute"):
                 result = tool.safe_execute(**tool_call.arguments)
@@ -70,7 +77,9 @@ class ToolExecutor(IToolExecutor):
                 # 使用工具的execute方法
                 output = tool.execute(**tool_call.arguments)
                 result = ToolResult(
-                    success=True, output=output, tool_name=tool_call.name
+                    success=True, 
+                    output=output, 
+                    tool_name=tool_call.name
                 )
 
             # 计算执行时间
@@ -121,6 +130,15 @@ class ToolExecutor(IToolExecutor):
 
             # 记录调用开始
             self.logger.info(f"开始异步执行工具: {tool_call.name}")
+
+            # 验证参数
+            if not tool.validate_parameters(tool_call.arguments):
+                return ToolResult(
+                    success=False,
+                    error="参数验证失败",
+                    tool_name=tool_call.name,
+                    execution_time=time.time() - start_time
+                )
 
             # 执行工具
             if hasattr(tool, "safe_execute_async"):

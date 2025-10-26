@@ -11,6 +11,12 @@ from enum import Enum
 if TYPE_CHECKING:
     from src.domain.agent.config import AgentConfig
 
+# 导入Domain层的ToolResult，确保类型一致性
+from src.domain.tools.interfaces import ToolResult
+
+# 为了向后兼容，保留AgentState别名
+AgentState = None  # 占位符，将在类定义后赋值
+
 
 class WorkflowStatus(Enum):
     """工作流状态枚举"""
@@ -79,28 +85,6 @@ class ToolMessage(BaseMessage):
     type: str = "tool"
     tool_call_id: str = ""
     tool_name: str = ""
-
-
-@dataclass
-class ToolResult:
-    """工具执行结果"""
-    tool_name: str
-    success: bool
-    result: Any
-    error: Optional[str] = None
-    execution_time: Optional[float] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
-        return {
-            "tool_name": self.tool_name,
-            "success": self.success,
-            "result": self.result,
-            "error": self.error,
-            "execution_time": self.execution_time,
-            "metadata": self.metadata
-        }
 
 
 @dataclass
@@ -231,7 +215,7 @@ class WorkflowState:
             "context": self.context,
             "current_task": self.current_task,
             "task_history": self.task_history,
-            "tool_results": [result.to_dict() for result in self.tool_results],
+            "tool_results": [result.__dict__ for result in self.tool_results],
             "current_step": self.current_step,
             "max_iterations": self.max_iterations,
             "iteration_count": self.iteration_count,
@@ -251,7 +235,7 @@ class WorkflowState:
 
 
 # 为了向后兼容，保留AgentState别名
-AgentState = WorkflowState
+AgentState = WorkflowState  # type: ignore
 
 
 # 消息类型检查函数

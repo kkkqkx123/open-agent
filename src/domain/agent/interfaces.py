@@ -1,25 +1,41 @@
 """Agent接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Type, Callable
-from src.domain.workflow.state import WorkflowState
+from typing import Any, Dict, List, Optional, Type, Callable, Union, Union
+from .state import AgentState
 from .config import AgentConfig
 from .events import AgentEvent
+from ...application.workflow.state import WorkflowState
+
+# 导入WorkflowState用于类型兼容性
+from src.application.workflow.state import WorkflowState
 
 
 class IAgent(ABC):
     """Agent接口定义"""
     
+    @property
     @abstractmethod
-    async def execute(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
+    def name(self) -> str:
+        """Agent名称"""
+        pass
+    
+    @property
+    @abstractmethod
+    def description(self) -> str:
+        """Agent描述"""
+        pass
+    
+    @abstractmethod
+    async def execute(self, state: Union[AgentState, WorkflowState], config: Dict[str, Any]) -> Union[AgentState, WorkflowState]:
         """执行Agent逻辑，返回更新后的状态
-        
+
         Args:
-            state: 当前工作流状态
+            state: 当前Agent状态
             config: 执行配置
-            
+
         Returns:
-            WorkflowState: 更新后的状态
+            AgentState或WorkflowState: 更新后的状态
         """
         pass
     
@@ -33,11 +49,11 @@ class IAgent(ABC):
         pass
     
     @abstractmethod
-    def validate_state(self, state: WorkflowState) -> bool:
+    def validate_state(self, state: AgentState) -> bool:
         """验证状态是否适合此Agent
         
         Args:
-            state: 工作流状态
+            state: Agent状态
             
         Returns:
             bool: 是否适合
@@ -45,11 +61,11 @@ class IAgent(ABC):
         pass
     
     @abstractmethod
-    def can_handle(self, state: WorkflowState) -> bool:
+    def can_handle(self, state: AgentState) -> bool:
         """判断Agent是否能处理当前状态
         
         Args:
-            state: 工作流状态
+            state: Agent状态
             
         Returns:
             bool: 是否能处理
@@ -129,7 +145,7 @@ class IAgentManager(ABC):
         pass
     
     @abstractmethod
-    async def execute_agent(self, agent_id: str, input_state: WorkflowState) -> WorkflowState:
+    async def execute_agent(self, agent_id: str, input_state: AgentState) -> AgentState:
         """执行指定Agent
         
         Args:
@@ -137,7 +153,7 @@ class IAgentManager(ABC):
             input_state: 输入状态
             
         Returns:
-            WorkflowState: 输出状态
+            AgentState: 输出状态
         """
         pass
     

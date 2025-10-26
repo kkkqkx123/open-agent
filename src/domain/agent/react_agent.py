@@ -1,11 +1,13 @@
 """ReAct Agent实现"""
 
 import asyncio
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 from .base import BaseAgent
-from ..workflow.state import WorkflowState, BaseMessage, ToolResult, MessageRole
+from .state import AgentState, AgentMessage
+from src.domain.tools.interfaces import ToolResult
 from src.domain.tools.interfaces import ToolCall
 from .events import AgentEvent
+from ...application.workflow.state import WorkflowState, BaseMessage, MessageRole
 
 
 class ReActAgent(BaseAgent):
@@ -13,7 +15,7 @@ class ReActAgent(BaseAgent):
     ReAct (Reasoning + Acting) 算法结合了推理和行动，通过交替进行推理和行动来解决问题
     """
     
-    async def _execute_logic(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
+    async def _execute_logic(self, state: Union[AgentState, WorkflowState], config: Dict[str, Any]) -> Union[AgentState, WorkflowState]:
         """执行ReAct算法：Reasoning + Acting
         
         Args:
@@ -23,6 +25,10 @@ class ReActAgent(BaseAgent):
         Returns:
             WorkflowState: 更新后的状态
         """
+        # ReAct Agent主要设计用于WorkflowState，如果是AgentState则抛出错误
+        if isinstance(state, AgentState):
+            raise TypeError("ReActAgent requires WorkflowState, got AgentState")
+
         current_iteration = 0
         max_iterations = config.get("max_iterations", self.config.max_iterations)
         
@@ -60,7 +66,7 @@ class ReActAgent(BaseAgent):
                 state.tool_results.append(tool_result)
                 
                 # 将观察结果添加到记忆中
-                observation = f"Action: {tool_call_str}\nObservation: {tool_result.result}"
+                observation = f"Action: {tool_call_str}\nObservation: {tool_result.output}"
                 state.add_memory(BaseMessage(content=observation, role=MessageRole.TOOL, type="observation"))
             elif action_result.get("action") == "final_answer":
                 # 如果是最终答案，添加到状态并退出循环
@@ -83,7 +89,7 @@ class ReActAgent(BaseAgent):
         
         return state
     
-    def can_handle(self, state: WorkflowState) -> bool:
+    def can_handle(self, state: AgentState) -> bool:
         """判断Agent是否能处理当前状态
         
         Args:
@@ -95,7 +101,7 @@ class ReActAgent(BaseAgent):
         # ReAct Agent可以处理需要推理和行动的任务
         return self.validate_state(state)
     
-    def validate_state(self, state: WorkflowState) -> bool:
+    def validate_state(self, state: AgentState) -> bool:
         """验证状态是否适合此Agent
         
         Args:
@@ -258,14 +264,14 @@ class ReActAgent(BaseAgent):
                 return ToolResult(
                     tool_name=tool_result.tool_name or "unknown_tool",
                     success=tool_result.success,
-                    result=tool_result.output,
+                    output=tool_result.output,
                     error=tool_result.error
                 )
             else:
                 # 如果没有工具执行器或工具调用为空，返回模拟结果
                 result = f"Tool executed: {tool_call_str}"
-                return ToolResult(tool_name="unknown_tool", success=True, result=result)
+                return ToolResult(tool_name="unknown_tool", success=True, output=result)
         except Exception as e:
             error_msg = f"Tool execution error: {str(e)}"
             state.add_error({"error": error_msg, "type": "tool_execution_error"})
-            return ToolResult(tool_name="unknown_tool", success=False, result=None, error=error_msg)
+            return ToolResult(tool_name="unknown_tool", success=False, output=None, error=error_msg)

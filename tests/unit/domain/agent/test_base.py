@@ -121,7 +121,7 @@ class TestBaseAgent:
         input_state = AgentState()
         
         # 执行（应该成功，因为有重试机制）
-        result_state = await retry_agent.execute(input_state, {})
+        result_state = await retry_agent.execute(input_state, {})  # type: ignore
         
         # 验证重试了3次（2次失败 + 1次成功）
         assert retry_agent.call_count == 3

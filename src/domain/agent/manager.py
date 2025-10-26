@@ -4,7 +4,7 @@ from typing import Any, Dict, Type, Optional, List, TYPE_CHECKING
 from .interfaces import IAgent, IAgentManager, IAgentEventManager
 from .config import AgentConfig
 from .events import AgentEventManager, AgentEvent
-from ..workflow.state import WorkflowState
+from .state import AgentState
 
 if TYPE_CHECKING:
     from src.infrastructure.llm.interfaces import ILLMClient
@@ -56,7 +56,7 @@ class AgentManager(IAgentManager):
         
         return agent
     
-    async def execute_agent(self, agent_id: str, input_state: WorkflowState) -> WorkflowState:
+    async def execute_agent(self, agent_id: str, input_state: AgentState) -> AgentState:
         """执行指定Agent
         
         Args:

@@ -1,7 +1,7 @@
 """
 工具系统核心接口定义
 
-定义了工具管理、格式化和执行的核心接口，确保模块间的松耦合设计。
+定义了工具系统的核心业务接口和数据模型，确保模块间的松耦合设计。
 """
 
 from abc import ABC, abstractmethod
@@ -39,76 +39,58 @@ class ToolResult:
     metadata: Optional[Dict[str, Any]] = None
 
 
-class IToolManager(ABC):
-    """工具管理器接口"""
+class ITool(ABC):
+    """工具接口定义"""
 
+    @property
     @abstractmethod
-    def load_tools(self) -> List["BaseTool"]:
-        """加载所有可用工具
+    def name(self) -> str:
+        """工具名称"""
+        pass
 
-        Returns:
-            List[BaseTool]: 已加载的工具列表
-        """
+    @property
+    @abstractmethod
+    def description(self) -> str:
+        """工具描述"""
         pass
 
     @abstractmethod
-    def get_tool(self, name: str) -> "BaseTool":
-        """根据名称获取工具
-
-        Args:
-            name: 工具名称
-
-        Returns:
-            BaseTool: 工具实例
-
-        Raises:
-            ValueError: 工具不存在
-        """
+    def execute(self, **kwargs) -> Any:
+        """执行工具"""
         pass
 
     @abstractmethod
-    def get_tool_set(self, name: str) -> List["BaseTool"]:
-        """获取工具集
-
-        Args:
-            name: 工具集名称
-
-        Returns:
-            List[BaseTool]: 工具集中的工具列表
-
-        Raises:
-            ValueError: 工具集不存在
-        """
+    def get_schema(self) -> Dict[str, Any]:
+        """获取参数模式"""
         pass
 
     @abstractmethod
-    def register_tool(self, tool: "BaseTool") -> None:
-        """注册新工具
+    def validate_parameters(self, parameters: Dict[str, Any]) -> bool:
+        """验证参数"""
+        pass
 
-        Args:
-            tool: 工具实例
 
-        Raises:
-            ValueError: 工具名称已存在
-        """
+class IToolRegistry(ABC):
+    """工具注册表接口"""
+
+    @abstractmethod
+    def register_tool(self, tool: ITool) -> None:
+        """注册工具"""
+        pass
+
+    @abstractmethod
+    def get_tool(self, name: str) -> Optional[ITool]:
+        """获取工具"""
         pass
 
     @abstractmethod
     def list_tools(self) -> List[str]:
-        """列出所有可用工具名称
-
-        Returns:
-            List[str]: 工具名称列表
-        """
+        """列出所有工具"""
         pass
 
     @abstractmethod
-    def list_tool_sets(self) -> List[str]:
-        """列出所有可用工具集名称
-
-        Returns:
-            List[str]: 工具集名称列表
-        """
+    def unregister_tool(self, name: str) -> bool:
+        """注销工具"""
         pass
 
 
@@ -116,42 +98,18 @@ class IToolFormatter(ABC):
     """工具格式化器接口"""
 
     @abstractmethod
-    def format_for_llm(self, tools: Sequence["BaseTool"]) -> Dict[str, Any]:
-        """将工具格式化为LLM可识别的格式
-
-        Args:
-            tools: 工具列表
-
-        Returns:
-            Dict[str, Any]: 格式化后的工具描述
-        """
+    def format_for_llm(self, tools: Sequence[ITool]) -> Dict[str, Any]:
+        """将工具格式化为LLM可识别的格式"""
         pass
 
     @abstractmethod
     def detect_strategy(self, llm_client: "ILLMClient") -> str:
-        """检测模型支持的输出策略
-
-        Args:
-            llm_client: LLM客户端实例
-
-        Returns:
-            str: 策略类型 ("function_calling" 或 "structured_output")
-        """
+        """检测模型支持的输出策略"""
         pass
 
     @abstractmethod
     def parse_llm_response(self, response: BaseMessage) -> ToolCall:
-        """解析LLM的工具调用响应
-
-        Args:
-            response: LLM响应消息
-
-        Returns:
-            ToolCall: 解析后的工具调用
-
-        Raises:
-            ValueError: 响应格式不正确
-        """
+        """解析LLM的工具调用响应"""
         pass
 
 
@@ -160,50 +118,41 @@ class IToolExecutor(ABC):
 
     @abstractmethod
     def execute(self, tool_call: ToolCall) -> ToolResult:
-        """执行工具调用
-
-        Args:
-            tool_call: 工具调用请求
-
-        Returns:
-            ToolResult: 执行结果
-        """
+        """执行工具调用"""
         pass
 
     @abstractmethod
     async def execute_async(self, tool_call: ToolCall) -> ToolResult:
-        """异步执行工具调用
-
-        Args:
-            tool_call: 工具调用请求
-
-        Returns:
-            ToolResult: 执行结果
-        """
+        """异步执行工具调用"""
         pass
 
     @abstractmethod
     def execute_parallel(self, tool_calls: List[ToolCall]) -> List[ToolResult]:
-        """并行执行多个工具调用
-
-        Args:
-            tool_calls: 工具调用请求列表
-
-        Returns:
-            List[ToolResult]: 执行结果列表
-        """
+        """并行执行多个工具调用"""
         pass
 
     @abstractmethod
     async def execute_parallel_async(
         self, tool_calls: List[ToolCall]
     ) -> List[ToolResult]:
-        """异步并行执行多个工具调用
+        """异步并行执行多个工具调用"""
+        pass
 
-        Args:
-            tool_calls: 工具调用请求列表
 
-        Returns:
-            List[ToolResult]: 执行结果列表
-        """
+class IToolFactory(ABC):
+    """工具工厂接口"""
+
+    @abstractmethod
+    def create_tool(self, tool_config: Dict[str, Any]) -> ITool:
+        """创建工具实例"""
+        pass
+
+    @abstractmethod
+    def register_tool_type(self, tool_type: str, tool_class: type) -> None:
+        """注册工具类型"""
+        pass
+
+    @abstractmethod
+    def get_supported_types(self) -> List[str]:
+        """获取支持的工具类型"""
         pass

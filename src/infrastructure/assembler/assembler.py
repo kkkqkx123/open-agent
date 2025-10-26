@@ -4,16 +4,12 @@
 """
 
 import logging
-import importlib
-from typing import Dict, Any, List, Optional, Type, Set, Tuple
-from inspect import isclass, signature
+from typing import Dict, Any, Optional, Type
+from pathlib import Path
 
 from .interfaces import IComponentAssembler
 from .exceptions import (
     AssemblyError,
-    ComponentNotFoundError,
-    DependencyResolutionError,
-    CircularDependencyError,
     ConfigurationError
 )
 from ..container import IDependencyContainer, ServiceLifetime, DependencyContainer
@@ -23,9 +19,15 @@ logger = logging.getLogger(__name__)
 
 
 class ComponentAssembler(IComponentAssembler):
-    """组件组装器实现
+    """简化的组件组装器实现
     
-    负责根据配置自动组装组件，支持依赖解析和生命周期管理。
+    根据架构文档建议，实现配置驱动的组装流程：
+    1) 读取配置 → 验证Schema
+    2) LLMFactory 根据 llm 配置创建/缓存模型实例
+    3) ToolFactory 根据 tools 配置创建工具
+    4) AgentFactory 组合 LLM + Tools + Prompt
+    5) WorkflowBuilder 把 Agents 装配成 StateGraph
+    6) SessionFactory 创建 Checkpointer
     """
     
     def __init__(
@@ -41,10 +43,7 @@ class ComponentAssembler(IComponentAssembler):
         """
         self.container = container or DependencyContainer()
         self.config_loader = config_loader
-        self._assembly_plan: Dict[str, Any] = {}
-        self._dependency_graph: Dict[str, Set[str]] = {}
-        self._resolved_types: Dict[str, Type] = {}
-        self._assembly_order: List[str] = []
+        self._factories: Dict[str, Any] = {}
         
         logger.info("ComponentAssembler初始化完成")
     
@@ -68,25 +67,14 @@ class ComponentAssembler(IComponentAssembler):
             if errors:
                 raise ConfigurationError(f"配置验证失败: {'; '.join(errors)}")
             
-            # 2. 构建组装计划
-            self._build_assembly_plan(config)
+            # 2. 创建基础工厂
+            self._create_base_factories(config)
             
-            # 3. 解析依赖关系
-            self._resolve_dependency_graph()
+            # 3. 创建业务工厂
+            self._create_business_factories(config)
             
-            # 4. 确定组装顺序
-            self._determine_assembly_order()
-            
-            # 5. 注册服务
-            services_config = config.get("services", {})
-            self.register_services(services_config)
-            
-            # 6. 注册依赖关系
-            dependencies_config = config.get("dependencies", {})
-            self.register_dependencies(dependencies_config)
-            
-            # 7. 执行启动钩子
-            self._execute_startup_hooks(config)
+            # 4. 注册服务到容器
+            self._register_services()
             
             logger.info("组件组装完成")
             return self.container
@@ -101,49 +89,8 @@ class ComponentAssembler(IComponentAssembler):
         Args:
             services_config: 服务配置
         """
-        logger.info("开始注册服务")
-        
-        for service_name, service_config in services_config.items():
-            try:
-                # 解析服务类型
-                service_type = self._resolve_type(service_name)
-                if not service_type:
-                    logger.warning(f"无法解析服务类型: {service_name}")
-                    continue
-                
-                # 解析实现类型
-                implementation_name = service_config.get("implementation")
-                if not implementation_name:
-                    logger.warning(f"服务 {service_name} 缺少实现配置")
-                    continue
-                
-                implementation_type = self._resolve_type(implementation_name)
-                if not implementation_type:
-                    logger.warning(f"无法解析实现类型: {implementation_name}")
-                    continue
-                
-                # 获取生命周期
-                lifetime_str = service_config.get("lifetime", "singleton")
-                lifetime = self._parse_lifetime(lifetime_str)
-                
-                # 获取环境
-                environment = service_config.get("environment", "default")
-                
-                # 注册服务
-                self.container.register(
-                    interface=service_type,
-                    implementation=implementation_type,
-                    environment=environment,
-                    lifetime=lifetime
-                )
-                
-                logger.debug(f"注册服务: {service_name} -> {implementation_name}")
-                
-            except Exception as e:
-                logger.error(f"注册服务 {service_name} 失败: {e}")
-                raise AssemblyError(f"注册服务 {service_name} 失败: {e}")
-        
-        logger.info("服务注册完成")
+        # 此方法保留用于向后兼容，但实际组装逻辑在assemble方法中
+        logger.info("register_services调用，但实际组装在assemble方法中完成")
     
     def register_dependencies(self, dependencies_config: Dict[str, Any]) -> None:
         """注册依赖关系
@@ -151,25 +98,8 @@ class ComponentAssembler(IComponentAssembler):
         Args:
             dependencies_config: 依赖配置
         """
-        logger.info("开始注册依赖关系")
-        
-        # 注册单例服务
-        singletons = dependencies_config.get("singletons", [])
-        for service_name in singletons:
-            service_type = self._resolve_type(service_name)
-            if service_type and not self.container.has_service(service_type):
-                # 如果服务未注册，尝试自动注册
-                self._auto_register_service(service_type, ServiceLifetime.SINGLETON)
-        
-        # 注册作用域服务
-        scoped = dependencies_config.get("scoped", [])
-        for service_name in scoped:
-            service_type = self._resolve_type(service_name)
-            if service_type and not self.container.has_service(service_type):
-                # 如果服务未注册，尝试自动注册
-                self._auto_register_service(service_type, ServiceLifetime.SCOPED)
-        
-        logger.info("依赖关系注册完成")
+        # 此方法保留用于向后兼容，但实际组装逻辑在assemble方法中完成
+        logger.info("register_dependencies调用，但实际组装在assemble方法中完成")
     
     def resolve_dependencies(self, service_type: Type) -> Any:
         """解析依赖
@@ -183,9 +113,42 @@ class ComponentAssembler(IComponentAssembler):
         try:
             return self.container.get(service_type)
         except Exception as e:
-            raise DependencyResolutionError(f"解析依赖 {service_type} 失败: {e}")
-    
-    def validate_configuration(self, config: Dict[str, Any]) -> List[str]:
+            raise AssemblyError(f"解析依赖 {service_type} 失败: {e}")
+
+    def _resolve_type(self, service_name: str) -> Optional[Type]:
+        """根据服务名称解析类型
+
+        Args:
+            service_name: 服务名称
+
+        Returns:
+            Optional[Type]: 服务类型，如果不存在则返回None
+        """
+        type_mapping = {
+            "ILLMFactory": self._get_type_from_module("..llm.interfaces", "ILLMClientFactory"),
+            "IToolManager": self._get_type_from_module("..tools.interfaces", "IToolManager"),
+            "IAgentFactory": self._get_type_from_module("...domain.agent.interfaces", "IAgentFactory"),
+            "IToolExecutor": self._get_type_from_module("..tools.interfaces", "IToolExecutor"),
+        }
+        return type_mapping.get(service_name)
+
+    def _get_type_from_module(self, module_path: str, type_name: str) -> Optional[Type]:
+        """从模块中获取类型
+
+        Args:
+            module_path: 模块路径
+            type_name: 类型名称
+
+        Returns:
+            Optional[Type]: 类型对象
+        """
+        try:
+            module = __import__(module_path, fromlist=[type_name])
+            return getattr(module, type_name, None)
+        except (ImportError, AttributeError):
+            return None
+
+    def validate_configuration(self, config: Dict[str, Any]) -> list[str]:
         """验证配置
         
         Args:
@@ -203,21 +166,15 @@ class ComponentAssembler(IComponentAssembler):
         if "application" not in config:
             errors.append("缺少应用程序配置")
         
-        # 验证服务配置
-        services_config = config.get("services", {})
-        for service_name, service_config in services_config.items():
-            if not isinstance(service_config, dict):
-                errors.append(f"服务 {service_name} 配置必须是字典类型")
-                continue
-            
-            if "implementation" not in service_config:
-                errors.append(f"服务 {service_name} 缺少实现配置")
+        if "components" not in config:
+            errors.append("缺少组件配置")
         
-        # 验证依赖配置
-        dependencies_config = config.get("dependencies", {})
-        for category, services in dependencies_config.items():
-            if not isinstance(services, list):
-                errors.append(f"依赖配置 {category} 必须是列表类型")
+        # 验证组件配置
+        components_config = config.get("components", {})
+        required_components = ["llm", "tools", "agents", "workflows", "sessions"]
+        for component in required_components:
+            if component not in components_config:
+                errors.append(f"缺少组件配置: {component}")
         
         return errors
     
@@ -228,188 +185,235 @@ class ComponentAssembler(IComponentAssembler):
             Dict[str, Any]: 组装计划
         """
         return {
-            "assembly_order": self._assembly_order,
-            "dependency_graph": {
-                k: list(v) for k, v in self._dependency_graph.items()
-            },
-            "resolved_types": list(self._resolved_types.keys())
+            "factories": list(self._factories.keys()),
+            "description": "简化的配置驱动组装流程"
         }
     
-    def _build_assembly_plan(self, config: Dict[str, Any]) -> None:
-        """构建组装计划
+    def _create_base_factories(self, config: Dict[str, Any]) -> None:
+        """创建基础工厂
         
         Args:
             config: 配置字典
         """
-        self._assembly_plan = config.copy()
+        logger.info("创建基础工厂")
         
-        # 预解析所有类型
-        services_config = config.get("services", {})
-        for service_name in services_config.keys():
-            self._resolve_type(service_name)
+        components_config = config.get("components", {})
+        
+        # 1. 创建LLM工厂
+        llm_config = components_config.get("llm", {})
+        from ..llm.factory import LLMFactory
+        self._factories["llm_factory"] = LLMFactory(llm_config)
+        
+        # 2. 创建工具管理器
+        tools_config = components_config.get("tools", {})
+        from ..tools.manager import ToolManager
+        from ..logger.logger import Logger
+        
+        # 确保config_loader不为None
+        if self.config_loader is None:
+            from ..config_loader import YamlConfigLoader
+            self.config_loader = YamlConfigLoader()
+        
+        # 创建Logger实例
+        simple_logger = Logger("ToolManager")
+        
+        self._factories["tool_manager"] = ToolManager(self.config_loader, simple_logger)
+        
+        logger.info("基础工厂创建完成")
     
-    def _resolve_dependency_graph(self) -> None:
-        """解析依赖关系图"""
-        self._dependency_graph.clear()
-        
-        services_config = self._assembly_plan.get("services", {})
-        for service_name, service_config in services_config.items():
-            dependencies = service_config.get("dependencies", [])
-            self._dependency_graph[service_name] = set(dependencies)
-    
-    def _determine_assembly_order(self) -> None:
-        """确定组装顺序（拓扑排序）"""
-        # 简单的拓扑排序实现
-        visited = set()
-        temp_visited = set()
-        order = []
-        
-        def visit(node: str) -> None:
-            if node in temp_visited:
-                raise CircularDependencyError(f"检测到循环依赖: {node}")
-            if node in visited:
-                return
-            
-            temp_visited.add(node)
-            for dependency in self._dependency_graph.get(node, []):
-                visit(dependency)
-            temp_visited.remove(node)
-            visited.add(node)
-            order.append(node)
-        
-        for node in self._dependency_graph:
-            if node not in visited:
-                visit(node)
-        
-        self._assembly_order = order
-    
-    def _resolve_type(self, type_name: str) -> Optional[Type]:
-        """解析类型名称为类型对象
-        
-        Args:
-            type_name: 类型名称
-            
-        Returns:
-            Optional[Type]: 类型对象，如果解析失败则返回None
-        """
-        if type_name in self._resolved_types:
-            return self._resolved_types[type_name]
-        
-        try:
-            # 分割模块路径和类名
-            parts = type_name.split(".")
-            if len(parts) < 2:
-                return None
-            
-            module_path = ".".join(parts[:-1])
-            class_name = parts[-1]
-            
-            # 导入模块
-            module = importlib.import_module(module_path)
-            
-            # 获取类
-            cls = getattr(module, class_name)
-            
-            # 缓存结果
-            self._resolved_types[type_name] = cls
-            
-            return cls
-        except (ImportError, AttributeError) as e:
-            logger.warning(f"无法解析类型 {type_name}: {e}")
-            return None
-    
-    def _parse_lifetime(self, lifetime_str: str) -> str:
-        """解析生命周期字符串
-        
-        Args:
-            lifetime_str: 生命周期字符串
-            
-        Returns:
-            str: 生命周期常量
-        """
-        lifetime_map = {
-            "singleton": ServiceLifetime.SINGLETON,
-            "scoped": ServiceLifetime.SCOPED,
-            "transient": ServiceLifetime.TRANSIENT
-        }
-        return lifetime_map.get(lifetime_str.lower(), ServiceLifetime.SINGLETON)
-    
-    def _auto_register_service(self, service_type: Type, lifetime: str) -> None:
-        """自动注册服务
-        
-        Args:
-            service_type: 服务类型
-            lifetime: 生命周期
-        """
-        try:
-            # 尝试查找默认实现
-            implementation_name = service_type.__module__ + ".impl." + service_type.__name__
-            implementation_type = self._resolve_type(implementation_name)
-            
-            if implementation_type:
-                self.container.register(
-                    interface=service_type,
-                    implementation=implementation_type,
-                    lifetime=lifetime
-                )
-                logger.debug(f"自动注册服务: {service_type.__name__}")
-            else:
-                # 如果找不到实现，注册自身
-                self.container.register(
-                    interface=service_type,
-                    implementation=service_type,
-                    lifetime=lifetime
-                )
-                logger.debug(f"自动注册服务（自身）: {service_type.__name__}")
-        except Exception as e:
-            logger.warning(f"自动注册服务 {service_type.__name__} 失败: {e}")
-    
-    def _execute_startup_hooks(self, config: Dict[str, Any]) -> None:
-        """执行启动钩子
+    def _create_business_factories(self, config: Dict[str, Any]) -> None:
+        """创建业务工厂
         
         Args:
             config: 配置字典
         """
-        startup_config = config.get("startup", {})
-        hooks_config = startup_config.get("hooks", {})
+        logger.info("创建业务工厂")
         
-        # 执行启动前钩子
-        before_hooks = hooks_config.get("before_startup", [])
-        for hook_name in before_hooks:
-            try:
-                self._execute_hook(hook_name)
-                logger.debug(f"执行启动前钩子: {hook_name}")
-            except Exception as e:
-                logger.warning(f"执行启动前钩子 {hook_name} 失败: {e}")
+        components_config = config.get("components", {})
         
-        # 执行启动后钩子
-        after_hooks = hooks_config.get("after_startup", [])
-        for hook_name in after_hooks:
-            try:
-                self._execute_hook(hook_name)
-                logger.debug(f"执行启动后钩子: {hook_name}")
-            except Exception as e:
-                logger.warning(f"执行启动后钩子 {hook_name} 失败: {e}")
+        # 3. 创建Agent工厂
+        agents_config = components_config.get("agents", {})
+        from ...domain.agent.factory import AgentFactory
+        from ...infrastructure.tools.executor import ToolExecutor
+        from ..logger.logger import Logger
+        
+        # 创建工具执行器
+        tool_executor_logger = Logger("ToolExecutor")
+        tool_executor = ToolExecutor(
+            tool_manager=self._factories["tool_manager"],
+            logger=tool_executor_logger
+        )
+        
+        self._factories["agent_factory"] = AgentFactory(
+            llm_factory=self._factories["llm_factory"],
+            tool_executor=tool_executor
+        )
+        
+        # 4. 创建工作流构建器
+        workflows_config = components_config.get("workflows", {})
+        from ...application.workflow.builder import WorkflowBuilder
+        self._factories["workflow_builder"] = WorkflowBuilder(
+            agent_factory=self._factories["agent_factory"]
+        )
+        
+        # 5. 创建状态管理器
+        from ...domain.state.manager import StateManager
+        self._factories["state_manager"] = StateManager()
+        
+        # 6. 创建会话工厂
+        sessions_config = components_config.get("sessions", {})
+        self._factories["session_factory"] = SessionFactory(sessions_config)
+        
+        logger.info("业务工厂创建完成")
     
-    def _execute_hook(self, hook_name: str) -> None:
-        """执行钩子
+    def _register_services(self) -> None:
+        """注册服务到容器"""
+        logger.info("注册服务到容器")
+        
+        # 注册基础服务
+        from ..llm.interfaces import ILLMClientFactory
+        self.container.register_instance(
+            interface=ILLMClientFactory,
+            instance=self._factories["llm_factory"]
+        )
+        
+        from ..tools.interfaces import IToolManager
+        self.container.register_instance(
+            interface=IToolManager,
+            instance=self._factories["tool_manager"]
+        )
+        
+        # 注册业务服务
+        from ...domain.agent.interfaces import IAgentFactory
+        self.container.register_instance(
+            interface=IAgentFactory,
+            instance=self._factories["agent_factory"]
+        )
+        
+        from ...application.workflow.interfaces import IWorkflowBuilder
+        self.container.register_instance(
+            interface=IWorkflowBuilder,
+            instance=self._factories["workflow_builder"]
+        )
+        
+        # 注册状态管理器
+        from ...domain.state.interfaces import IStateManager
+        self.container.register_instance(
+            interface=IStateManager,
+            instance=self._factories["state_manager"]
+        )
+        
+        # 注册会话管理器
+        from ...application.sessions.manager import SessionManager, ISessionManager
+        from ...domain.sessions.store import ISessionStore
+        from ...domain.sessions.store import FileSessionStore
+        
+        # 创建会话存储
+        storage_path = Path(self._factories["session_factory"].storage_path)
+        session_store = FileSessionStore(storage_path)
+        
+        # 创建工作流管理器
+        from ...application.workflow.manager import WorkflowManager, IWorkflowManager
+        workflow_manager = WorkflowManager(self._factories["workflow_builder"])
+        
+        session_manager = SessionManager(
+            workflow_manager=workflow_manager,
+            session_store=session_store
+        )
+        
+        self.container.register_instance(
+            interface=ISessionManager,
+            instance=session_manager
+        )
+        
+        self.container.register_instance(
+            interface=IWorkflowManager,
+            instance=workflow_manager
+        )
+        
+        self.container.register_instance(
+            interface=ISessionStore,
+            instance=session_store
+        )
+        
+        logger.info("服务注册完成")
+
+
+class SessionFactory:
+    """会话工厂实现"""
+    
+    def __init__(self, config: Dict[str, Any]):
+        """初始化会话工厂
         
         Args:
-            hook_name: 钩子名称
+            config: 会话配置
         """
-        # 这里可以实现具体的钩子逻辑
-        # 例如：validate_configuration, initialize_logging等
-        if hook_name == "validate_configuration":
-            # 配置验证逻辑
-            pass
-        elif hook_name == "initialize_logging":
-            # 日志初始化逻辑
-            pass
-        elif hook_name == "register_signal_handlers":
-            # 信号处理器注册逻辑
-            pass
-        elif hook_name == "start_background_tasks":
-            # 后台任务启动逻辑
-            pass
+        self.config = config
+        self.storage_type = config.get("storage_type", "file")
+        self.storage_path = config.get("storage_path", "sessions")
+        self.auto_save = config.get("auto_save", True)
+        
+        logger.info(f"SessionFactory初始化完成，存储类型: {self.storage_type}")
+    
+    def create_session_store(self) -> Any:
+        """创建会话存储实例
+        
+        Returns:
+            会话存储实例
+        """
+        if self.storage_type == "file":
+            from ...domain.sessions.store import FileSessionStore
+            return FileSessionStore(Path(self.storage_path))
         else:
-            logger.warning(f"未知的钩子: {hook_name}")
+            raise ValueError(f"不支持的存储类型: {self.storage_type}")
+    
+    def create_checkpointer(self) -> Any:
+        """创建检查点实例
+        
+        Returns:
+            检查点实例
+        """
+        # 这里可以根据配置创建不同类型的检查点
+        # 目前返回一个简单的检查点实现
+        return SimpleCheckpointer(self.auto_save)
+
+
+class SimpleCheckpointer:
+    """简单的检查点实现"""
+    
+    def __init__(self, auto_save: bool = True):
+        """初始化检查点
+        
+        Args:
+            auto_save: 是否自动保存
+        """
+        self.auto_save = auto_save
+        self.checkpoints: Dict[str, Any] = {}
+    
+    def save_checkpoint(self, checkpoint_id: str, data: Any) -> None:
+        """保存检查点
+        
+        Args:
+            checkpoint_id: 检查点ID
+            data: 检查点数据
+        """
+        self.checkpoints[checkpoint_id] = data
+    
+    def load_checkpoint(self, checkpoint_id: str) -> Any:
+        """加载检查点
+        
+        Args:
+            checkpoint_id: 检查点ID
+            
+        Returns:
+            检查点数据
+        """
+        return self.checkpoints.get(checkpoint_id)
+    
+    def list_checkpoints(self) -> list[str]:
+        """列出所有检查点ID
+        
+        Returns:
+            检查点ID列表
+        """
+        return list(self.checkpoints.keys())

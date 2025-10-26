@@ -1,12 +1,13 @@
 """Agent基类定义"""
 
 from abc import ABC
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
 import asyncio
 import time
 from .interfaces import IAgent
+from .state import AgentState, AgentMessage, AgentStatus
+from ...application.workflow.state import WorkflowState
 from .events import AgentEventManager, AgentEvent
-from ..workflow.state import WorkflowState
 from ..tools.interfaces import ToolCall, ToolResult
 
 
@@ -45,37 +46,59 @@ class BaseAgent(IAgent, ABC):
             "average_execution_time": 0.0
         }
     
-    async def execute(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
+    @property
+    def name(self) -> str:
+        """Agent名称"""
+        return self.config.name
+    
+    @property
+    def description(self) -> str:
+        """Agent描述"""
+        return self.config.description
+    
+    async def execute(self, state: Union[AgentState, WorkflowState], config: Dict[str, Any]) -> Union[AgentState, WorkflowState]:
         """执行Agent逻辑，返回更新后的状态
-        
+
         Args:
-            state: 当前工作流状态
+            state: 当前Agent状态
             config: 执行配置
-            
+
         Returns:
-            WorkflowState: 更新后的状态
+            AgentState: 更新后的状态
         """
         start_time = time.time()
 
+        # 设置Agent基本信息
+        state.agent_id = self.name
+        if isinstance(state, AgentState):
+            state.agent_type = self.config.agent_type
+
         # 发布执行开始事件
         self.event_manager.publish(AgentEvent.EXECUTION_STARTED, {
-            "agent_id": self.config.name,
+            "agent_id": self.name,
             "state": state,
             "config": config
         })
 
         try:
-            # 验证状态
-            if not self.validate_state(state):
-                raise ValueError(f"状态验证失败，Agent {self.config.name} 无法处理当前状态")
-            
+            # 验证状态 - 只对AgentState进行验证，WorkflowState由工作流管理
+            if isinstance(state, AgentState) and not self.validate_state(state):
+                raise ValueError(f"状态验证失败，Agent {self.name} 无法处理当前状态")
+
+            # 设置状态为思考中/运行中
+            if isinstance(state, AgentState):
+                state.set_status(AgentStatus.THINKING)
+            elif isinstance(state, WorkflowState):
+                from ...application.workflow.state import WorkflowStatus
+                state.set_status(WorkflowStatus.RUNNING)
+
             # 基础执行逻辑
             result = await self._execute_logic(state, config)
 
             # 发布执行完成事件
             execution_time = time.time() - start_time
             self.event_manager.publish(AgentEvent.EXECUTION_COMPLETED, {
-                "agent_id": self.config.name,
+                "agent_id": self.name,
                 "input_state": state,
                 "output_state": result,
                 "config": config,
@@ -88,9 +111,18 @@ class BaseAgent(IAgent, ABC):
             return result
         except Exception as e:
             execution_time = time.time() - start_time
+            
+            # 设置状态为错误
+            if isinstance(state, AgentState):
+                state.set_status(AgentStatus.ERROR)
+            elif isinstance(state, WorkflowState):
+                from ...application.workflow.state import WorkflowStatus
+                state.set_status(WorkflowStatus.FAILED)
+            state.add_error({"error": str(e), "type": type(e).__name__})
+            
             # 发布错误事件
             self.event_manager.publish(AgentEvent.ERROR_OCCURRED, {
-                "agent_id": self.config.name,
+                "agent_id": self.name,
                 "error": str(e),
                 "state": state,
                 "config": config,
@@ -103,24 +135,24 @@ class BaseAgent(IAgent, ABC):
             # 重新抛出异常
             raise e
     
-    async def _execute_logic(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
+    async def _execute_logic(self, state: Union[AgentState, WorkflowState], config: Dict[str, Any]) -> Union[AgentState, WorkflowState]:
         """执行逻辑的具体实现，子类需要重写此方法
         
         Args:
-            state: 当前工作流状态
+            state: 当前Agent状态
             config: 执行配置
             
         Returns:
-            WorkflowState: 更新后的状态
+            AgentState: 更新后的状态
         """
         # 基础执行逻辑，子类应该重写此方法
         return state
     
-    def validate_state(self, state: WorkflowState) -> bool:
+    def validate_state(self, state: AgentState) -> bool:
         """验证状态是否适合此Agent
         
         Args:
-            state: 工作流状态
+            state: Agent状态
             
         Returns:
             bool: 是否适合
@@ -128,11 +160,11 @@ class BaseAgent(IAgent, ABC):
         # 基础验证逻辑，子类可以重写
         return True
     
-    def can_handle(self, state: WorkflowState) -> bool:
+    def can_handle(self, state: AgentState) -> bool:
         """判断Agent是否能处理当前状态
         
         Args:
-            state: 工作流状态
+            state: Agent状态
             
         Returns:
             bool: 是否能处理
@@ -147,9 +179,9 @@ class BaseAgent(IAgent, ABC):
             Dict[str, Any]: 能力描述字典
         """
         return {
-            "name": self.config.name,
+            "name": self.name,
             "type": self.config.agent_type,
-            "description": self.config.description,
+            "description": self.description,
             "tools": self.get_available_tools(),
             "max_iterations": self.config.max_iterations,
             "supported_tasks": self._get_supported_tasks()
@@ -225,20 +257,20 @@ class BaseAgent(IAgent, ABC):
         return await self.tool_executor.execute_async(tool_call_obj)
 
     async def execute_with_retry(
-        self, 
-        state: WorkflowState, 
-        config: Dict[str, Any], 
+        self,
+        state: Union[AgentState, WorkflowState],
+        config: Dict[str, Any],
         max_retries: int = 3
-    ) -> WorkflowState:
+    ) -> Union[AgentState, WorkflowState]:
         """带重试机制的执行方法
         
         Args:
-            state: 工作流状态
+            state: Agent状态
             config: 执行配置
             max_retries: 最大重试次数
             
         Returns:
-            WorkflowState: 更新后的状态
+            AgentState: 更新后的状态
         """
         last_exception = None
         
@@ -257,3 +289,32 @@ class BaseAgent(IAgent, ABC):
         
         # 这行代码理论上不会执行，但为了类型安全添加
         raise Exception("Unknown error after retries")
+    
+    def create_message(self, content: str, role: str = "assistant", **kwargs: Any) -> AgentMessage:
+        """创建Agent消息
+        
+        Args:
+            content: 消息内容
+            role: 消息角色
+            **kwargs: 其他参数
+            
+        Returns:
+            AgentMessage: 创建的消息
+        """
+        return AgentMessage(
+            content=content,
+            role=role,
+            metadata=kwargs
+        )
+    
+    def add_message_to_state(self, state: AgentState, content: str, role: str = "assistant", **kwargs: Any) -> None:
+        """向状态添加消息
+        
+        Args:
+            state: Agent状态
+            content: 消息内容
+            role: 消息角色
+            **kwargs: 其他参数
+        """
+        message = self.create_message(content, role, **kwargs)
+        state.add_message(message)
