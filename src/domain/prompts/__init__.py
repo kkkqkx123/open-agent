@@ -8,7 +8,7 @@ from .models import PromptMeta, PromptConfig
 from .registry import PromptRegistry
 from .loader import PromptLoader
 from .injector import PromptInjector
-from .agent_state import AgentState, ToolResult
+from ...application.workflow.state import AgentState, ToolResult
 try:
     from .agent_state import SystemMessage, HumanMessage
 except ImportError:

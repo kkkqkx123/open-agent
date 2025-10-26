@@ -13,34 +13,57 @@ logger = logging.getLogger(__name__)
 
 # 导入消息类型
 try:
-    from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
+    from langchain_core.messages import BaseMessage as LCBaseMessage, HumanMessage as LCHumanMessage, AIMessage as LCAIMessage, SystemMessage as LCSystemMessage, ToolMessage as LCToolMessage
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     logger.warning("LangChain not available, using fallback message types")
     LANGCHAIN_AVAILABLE = False
     
     # 后备消息类型定义
-    class BaseMessage:
+    class LCBaseMessage:
         def __init__(self, content: str, type: str = "base"):
             self.content = content
             self.type = type
     
-    class HumanMessage(BaseMessage):
+    class LCHumanMessage(LCBaseMessage):
         def __init__(self, content: str):
             super().__init__(content, "human")
     
-    class AIMessage(BaseMessage):
+    class LCAIMessage(LCBaseMessage):
         def __init__(self, content: str):
             super().__init__(content, "ai")
     
-    class SystemMessage(BaseMessage):
+    class LCSystemMessage(LCBaseMessage):
         def __init__(self, content: str):
             super().__init__(content, "system")
     
-    class ToolMessage(BaseMessage):
+    class LCToolMessage(LCBaseMessage):
         def __init__(self, content: str, tool_call_id: str = ""):
             super().__init__(content, "tool")
             self.tool_call_id = tool_call_id
+
+# 重新定义消息类型，以避免与langchain_core冲突
+class BaseMessage:
+    def __init__(self, content: str, type: str = "base"):
+        self.content = content
+        self.type = type
+
+class HumanMessage(BaseMessage):
+    def __init__(self, content: str):
+        super().__init__(content, "human")
+
+class AIMessage(BaseMessage):
+    def __init__(self, content: str):
+        super().__init__(content, "ai")
+
+class SystemMessage(BaseMessage):
+    def __init__(self, content: str):
+        super().__init__(content, "system")
+
+class ToolMessage(BaseMessage):
+    def __init__(self, content: str, tool_call_id: str = ""):
+        super().__init__(content, "tool")
+        self.tool_call_id = tool_call_id
 
 
 class MessageRole:
@@ -52,64 +75,64 @@ class MessageRole:
 
 
 # 基础状态定义 - 符合LangGraph TypedDict模式
-class BaseGraphState(TypedDict):
+class BaseGraphState(TypedDict, total=False):
     """基础图状态"""
     # 使用reducer确保消息列表是追加而不是覆盖
     messages: Annotated[List[BaseMessage], operator.add]
-    
+
     # 可选字段
     metadata: Dict[str, Any]
 
 
-class AgentState(BaseGraphState):
+class AgentState(BaseGraphState, total=False):
     """Agent状态 - 扩展基础状态"""
     # Agent特定的状态字段
     input: str
     output: Optional[str]
-    
+
     # 工具相关状态
     tool_calls: Annotated[List[Dict[str, Any]], operator.add]
     tool_results: Annotated[List[Dict[str, Any]], operator.add]
-    
+
     # 迭代控制
     iteration_count: Annotated[int, operator.add]
     max_iterations: int
-    
+
     # 错误处理
     errors: Annotated[List[str], operator.add]
-    
+
     # 完成标志
     complete: bool
 
 
-class WorkflowState(AgentState):
+class WorkflowState(AgentState, total=False):
     """工作流状态 - 扩展Agent状态"""
     # 工作流特定字段
     workflow_id: str
     step_name: Optional[str]
-    
+
     # 分析结果
     analysis: Optional[str]
-    
+
     # 决策结果
     decision: Optional[str]
-    
+
     # 上下文信息
     context: Dict[str, Any]
 
 
-class ReActState(WorkflowState):
+class ReActState(WorkflowState, total=False):
     """ReAct模式状态"""
     # ReAct特定的状态字段
     thought: Optional[str]
     action: Optional[str]
     observation: Optional[str]
-    
+
     # 步骤跟踪
     steps: Annotated[List[Dict[str, Any]], operator.add]
 
 
-class PlanExecuteState(WorkflowState):
+class PlanExecuteState(WorkflowState, total=False):
     """计划执行状态"""
     # 计划执行特定字段
     plan: Optional[str]
@@ -157,24 +180,27 @@ def create_workflow_state(
     max_iterations: int = 10
 ) -> WorkflowState:
     """创建工作流状态
-    
+
     Args:
         workflow_id: 工作流ID
         input_text: 输入文本
         max_iterations: 最大迭代次数
-        
+
     Returns:
         WorkflowState实例
     """
-    base_state = create_agent_state(input_text, max_iterations)
-    base_state.update({
+    base_agent_state = create_agent_state(input_text, max_iterations)
+    
+    # 创建完整的工作流状态
+    workflow_state: WorkflowState = {
+        **base_agent_state,
         "workflow_id": workflow_id,
         "step_name": None,
         "analysis": None,
         "decision": None,
         "context": {}
-    })
-    return base_state
+    }
+    return workflow_state
 
 
 def create_react_state(
@@ -183,23 +209,26 @@ def create_react_state(
     max_iterations: int = 10
 ) -> ReActState:
     """创建ReAct状态
-    
+
     Args:
         workflow_id: 工作流ID
         input_text: 输入文本
         max_iterations: 最大迭代次数
-        
+
     Returns:
         ReActState实例
     """
-    base_state = create_workflow_state(workflow_id, input_text, max_iterations)
-    base_state.update({
+    base_workflow_state = create_workflow_state(workflow_id, input_text, max_iterations)
+    
+    # 创建完整的ReAct状态
+    react_state: ReActState = {
+        **base_workflow_state,
         "thought": None,
         "action": None,
         "observation": None,
         "steps": []
-    })
-    return base_state
+    }
+    return react_state
 
 
 def create_plan_execute_state(
@@ -208,23 +237,26 @@ def create_plan_execute_state(
     max_iterations: int = 10
 ) -> PlanExecuteState:
     """创建计划执行状态
-    
+
     Args:
         workflow_id: 工作流ID
         input_text: 输入文本
         max_iterations: 最大迭代次数
-        
+
     Returns:
         PlanExecuteState实例
     """
-    base_state = create_workflow_state(workflow_id, input_text, max_iterations)
-    base_state.update({
+    base_workflow_state = create_workflow_state(workflow_id, input_text, max_iterations)
+    
+    # 创建完整的计划执行状态
+    plan_execute_state: PlanExecuteState = {
+        **base_workflow_state,
         "plan": None,
         "steps": [],
         "current_step": None,
         "step_results": []
-    })
-    return base_state
+    }
+    return plan_execute_state
 
 
 # 消息创建函数

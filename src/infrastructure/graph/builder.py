@@ -16,8 +16,6 @@ from .config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
 from .state import WorkflowState, AgentState
 from src.domain.agent.interfaces import IAgent, IAgentFactory
 from .registry import NodeRegistry, get_global_registry
-from src.application.workflow.interfaces import IWorkflowBuilder, IWorkflowTemplate
-from src.application.workflow.templates.registry import get_global_template_registry
 
 logger = logging.getLogger(__name__)
 
@@ -52,15 +50,31 @@ class AgentNodeExecutor(INodeExecutor):
         # 这里需要异步执行，但在同步上下文中我们需要处理
         import asyncio
         
+        # 检查当前是否有运行的事件循环
         try:
-            # 获取或创建事件循环
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
+            # 如果在事件循环中，使用 run_coroutine_threadsafe
+            import concurrent.futures
+            import threading
+            if threading.current_thread() is threading.main_thread():
+                # 在主线程的事件循环中，使用新的事件循环
+                new_loop = asyncio.new_event_loop()
+                try:
+                    asyncio.set_event_loop(new_loop)
+                    result = new_loop.run_until_complete(self.agent.execute(state, config))
+                finally:
+                    new_loop.close()
+                    # 恢复原来的事件循环
+                    asyncio.set_event_loop(loop)
+            else:
+                # 在非主线程中，使用线程池执行
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self.agent.execute(state, config))
+                    result = future.result()
         except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            # 没有运行的事件循环，可以直接运行
+            result = asyncio.run(self.agent.execute(state, config))
         
-        # 执行Agent逻辑
-        result = loop.run_until_complete(self.agent.execute(state))
         return result
 
 
@@ -76,10 +90,10 @@ class GraphBuilder:
         
         Args:
             node_registry: 节点注册表
-            template_registry: 模板注册表
+            template_registry: 模板注册表（可选，用于扩展）
         """
         self.node_registry = node_registry or get_global_registry()
-        self.template_registry = template_registry or get_global_template_registry()
+        self.template_registry = template_registry
         self._checkpointer_cache: Dict[str, Any] = {}
     
     def build_graph(self, config: GraphConfig) -> Any:
@@ -104,6 +118,7 @@ class GraphBuilder:
         state_class = config.get_state_class()
         
         # 创建StateGraph
+        from langgraph.graph import StateGraph
         builder = StateGraph(state_class)
         
         # 添加节点
@@ -114,6 +129,7 @@ class GraphBuilder:
         
         # 设置入口点
         if config.entry_point:
+            from langgraph.graph import START
             builder.add_edge(START, config.entry_point)
         
         # 配置检查点
@@ -137,11 +153,8 @@ class GraphBuilder:
             
             if node_function:
                 # 根据LangGraph最佳实践添加节点
-                if node_config.input_state:
-                    # 如果指定了输入状态类型
-                    builder.add_node(node_name, node_function, input=node_config.input_state)
-                else:
-                    builder.add_node(node_name, node_function)
+                # 修复LangGraph API调用，移除input参数，因为StateGraph不支持此参数
+                builder.add_node(node_name, node_function)
                 
                 logger.debug(f"添加节点: {node_name}")
             else:
@@ -153,50 +166,61 @@ class GraphBuilder:
             if edge.type == EdgeType.SIMPLE:
                 # 简单边
                 if edge.to_node == "__end__":
-                    builder.add_edge(edge.from_node, END)
+                    if LANGGRAPH_AVAILABLE:
+                        from langgraph.graph import END
+                        builder.add_edge(edge.from_node, END)
                 else:
                     builder.add_edge(edge.from_node, edge.to_node)
             elif edge.type == EdgeType.CONDITIONAL:
                 # 条件边
-                condition_function = self._get_condition_function(edge.condition)
-                if condition_function:
-                    if edge.path_map:
-                        builder.add_conditional_edges(
-                            edge.from_node, 
-                            condition_function,
-                            path_map=edge.path_map
-                        )
+                if edge.condition is not None:  # 修复类型问题
+                    condition_function = self._get_condition_function(edge.condition)
+                    if condition_function:
+                        if edge.path_map:
+                            builder.add_conditional_edges(
+                                edge.from_node, 
+                                condition_function,
+                                path_map=edge.path_map
+                            )
+                        else:
+                            builder.add_conditional_edges(edge.from_node, condition_function)
                     else:
-                        builder.add_conditional_edges(edge.from_node, condition_function)
+                        logger.warning(f"无法找到条件函数: {edge.condition}")
                 else:
-                    logger.warning(f"无法找到条件函数: {edge.condition}")
+                    logger.warning(f"条件边缺少条件表达式: {edge.from_node} -> {edge.to_node}")
             
             logger.debug(f"添加边: {edge.from_node} -> {edge.to_node}")
     
     def _get_node_function(self, node_config: NodeConfig) -> Optional[Callable]:
         """获取节点函数"""
         # 首先从注册表获取
-        node_class = self.node_registry.get_node(node_config.function_name)
-        if node_class:
-            # 创建节点实例
-            node_instance = node_class()
-            return node_instance.execute
+        try:
+            node_class = self.node_registry.get_node_class(node_config.function_name)  # 修复方法名
+            if node_class:
+                # 创建节点实例
+                node_instance = node_class()
+                return node_instance.execute
+        except ValueError:
+            # 节点类型不存在，继续尝试其他方法
+            pass
         
-        # 然后尝试从模板获取
-        template = self.template_registry.get_template(node_config.function_name)
-        if template:
-            return template.get_node_function()
+        # 尝试从模板获取（如果提供了模板注册表）
+        if self.template_registry and hasattr(self.template_registry, 'get_template'):
+            try:
+                template = self.template_registry.get_template(node_config.function_name)
+                if template and hasattr(template, 'get_node_function'):
+                    return template.get_node_function()
+            except (AttributeError, ValueError):
+                # 模板不存在或没有get_node_function方法，继续尝试其他方法
+                pass
         
         # 最后尝试作为内置函数
         return self._get_builtin_function(node_config.function_name)
     
     def _get_condition_function(self, condition_name: str) -> Optional[Callable]:
         """获取条件函数"""
-        # 从注册表获取条件函数
-        condition_func = self.node_registry.get_condition_function(condition_name)
-        if condition_func:
-            return condition_func
-        
+        # 检查节点注册表是否有条件函数
+        # 注意：NodeRegistry 中没有 get_condition_function 方法，所以跳过这部分
         # 尝试作为内置条件函数
         return self._get_builtin_condition(condition_name)
     
@@ -229,11 +253,15 @@ class GraphBuilder:
         
         checkpointer = None
         if config.checkpointer == "memory":
-            checkpointer = InMemorySaver()
+            if LANGGRAPH_AVAILABLE:
+                from langgraph.checkpoint.memory import InMemorySaver
+                checkpointer = InMemorySaver()
         elif config.checkpointer.startswith("sqlite:"):
             # sqlite:/path/to/db.sqlite
-            db_path = config.checkpointer[7:]  # 移除 "sqlite:" 前缀
-            checkpointer = SqliteSaver.from_conn_string(f"sqlite:///{db_path}")
+            if LANGGRAPH_AVAILABLE:
+                from langgraph.checkpoint.sqlite import SqliteSaver
+                db_path = config.checkpointer[7:]  # 移除 "sqlite:" 前缀
+                checkpointer = SqliteSaver.from_conn_string(f"sqlite:///{db_path}")
         
         if checkpointer:
             self._checkpointer_cache[config.checkpointer] = checkpointer
@@ -302,17 +330,6 @@ class GraphBuilder:
         """
         return config.validate()
 
-    def build_workflow(self, config: GraphConfig) -> Any:
-        """构建工作流（向后兼容方法）
-
-        Args:
-            config: 工作流配置
-
-        Returns:
-            编译后的工作流
-        """
-        return self.build_graph(config)
-
     def load_workflow_config(self, config_path: str) -> GraphConfig:
         """加载工作流配置
 
@@ -329,4 +346,7 @@ class GraphBuilder:
 
 
 # 为了向后兼容，保留旧的类名
-WorkflowBuilder = GraphBuilder
+# 注意：这里不再直接创建别名，而是通过工厂函数来避免循环导入
+def get_workflow_builder(*args, **kwargs):
+    """获取工作流构建器实例（向后兼容）"""
+    return GraphBuilder(*args, **kwargs)

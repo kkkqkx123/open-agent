@@ -1,7 +1,7 @@
 """Agent状态管理器"""
 
 from typing import Dict, Optional, Any, List
-from .state import AgentState
+from .state import AgentState, AgentMessage
 from .config import AgentConfig
 
 
@@ -16,9 +16,10 @@ class AgentStateManager:
         """创建新的Agent状态"""
         state = AgentState()
         state.agent_id = agent_id
-        state.agent_config = config
+        state.agent_type = config.agent_type
+        state.custom_fields["agent_config"] = config
         state.context = initial_context or {}
-        
+
         self._states[agent_id] = state
         return state
     
@@ -51,7 +52,13 @@ class AgentStateManager:
         """向Agent状态添加记忆"""
         state = self.get_state(agent_id)
         if state:
-            state.add_memory(memory)
+            if isinstance(memory, AgentMessage):
+                state.add_message(memory)
+            else:
+                # 如果不是AgentMessage类型，创建HumanMessage
+                from .state import AgentMessage
+                agent_msg = AgentMessage(content=str(memory), role="human")
+                state.add_message(agent_msg)
     
     def add_log(self, agent_id: str, log: Dict[str, Any]) -> None:
         """向Agent状态添加日志"""
@@ -81,8 +88,8 @@ class AgentStateManager:
         """创建初始状态"""
         state = AgentState()
         state.agent_id = agent_id
-        state.agent_config = config  # type: ignore
-        state.workflow_name = workflow_name
+        state.custom_fields["agent_config"] = config
+        state.custom_fields["workflow_name"] = workflow_name
         state.max_iterations = config.get('max_iterations', 10)
         self._states[agent_id] = state
         return state
@@ -90,13 +97,12 @@ class AgentStateManager:
     def update_state_with_memory(self, state: AgentState, messages: List[Any]) -> AgentState:
         """更新状态的记忆部分"""
         for message in messages:
-            if hasattr(message, 'to_dict'):
-                state.add_memory(message)
+            if isinstance(message, AgentMessage):
+                state.add_message(message)
             else:
-                # 如果不是BaseMessage类型，创建HumanMessage
-                from ...infrastructure.graph.state import HumanMessage
-                human_msg = HumanMessage(content=str(message))
-                state.add_memory(human_msg)
+                # 如果不是AgentMessage类型，创建AgentMessage
+                agent_msg = AgentMessage(content=str(message), role="human")
+                state.add_message(agent_msg)
         return state
 
     def update_state_with_tool_result(self, state: AgentState, tool_result: Any) -> AgentState:
@@ -121,7 +127,7 @@ class AgentStateManager:
     def reset_state_for_new_task(self, state: AgentState) -> AgentState:
         """为新任务重置状态"""
         state.current_task = None
-        state.memory.clear()
+        state.messages.clear()
         state.tool_results.clear()
         state.errors.clear()
         state.iteration_count = 0

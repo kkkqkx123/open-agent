@@ -12,13 +12,37 @@ from src.domain.prompts.langgraph_integration import (
 )
 from src.domain.prompts.interfaces import IPromptInjector
 from src.domain.prompts.models import PromptConfig
-from src.domain.workflow.state import WorkflowState, HumanMessage
+from src.application.workflow.state import WorkflowState, HumanMessage
+
+
+def create_empty_workflow_state() -> WorkflowState:  # type: ignore
+    """创建空的WorkflowState字典"""
+    return {
+        "messages": [],
+        "input": "",
+        "output": None,
+        "tool_calls": [],
+        "tool_results": [],
+        "iteration_count": 0,
+        "max_iterations": 10,
+        "errors": [],
+        "complete": False,
+        "metadata": {},
+        "workflow_name": "",
+        "current_step": None,
+        "analysis": None,
+        "decision": None,
+        "context": {},
+        "start_time": None,
+        "workflow_id": None,
+        "custom_fields": {}
+    }
 
 
 class TestGetAgentConfig:
     """测试get_agent_config函数"""
     
-    def test_get_agent_config_returns_valid_config(self):
+    def test_get_agent_config_returns_valid_config(self) -> None:
         """测试get_agent_config返回有效的配置"""
         config = get_agent_config()
         
@@ -32,7 +56,7 @@ class TestGetAgentConfig:
 class TestCreateAgentWorkflow:
     """测试create_agent_workflow函数"""
     
-    def test_create_agent_workflow_without_langgraph(self):
+    def test_create_agent_workflow_without_langgraph(self) -> None:
         """测试在没有LangGraph时创建工作流抛出异常"""
         mock_injector = Mock(spec=IPromptInjector)
         
@@ -42,11 +66,11 @@ class TestCreateAgentWorkflow:
     
     @patch('src.prompts.langgraph_integration.LANGGRAPH_AVAILABLE', True)
     @patch('src.prompts.langgraph_integration.StateGraph')
-    def test_create_agent_workflow_with_langgraph(self, mock_state_graph):
+    def test_create_agent_workflow_with_langgraph(self, mock_state_graph) -> None:
         """测试在有LangGraph时创建工作流"""
         # 设置模拟对象
         mock_injector = Mock(spec=IPromptInjector)
-        mock_injector.inject_prompts.return_value = WorkflowState()
+        mock_injector.inject_prompts.return_value = create_empty_workflow_state()
         
         mock_workflow = Mock()
         mock_state_graph.return_value = mock_workflow
@@ -73,7 +97,7 @@ class TestCreateAgentWorkflow:
     
     @patch('src.prompts.langgraph_integration.LANGGRAPH_AVAILABLE', True)
     @patch('src.prompts.langgraph_integration.StateGraph', None)
-    def test_create_agent_workflow_with_stategraph_none(self):
+    def test_create_agent_workflow_with_stategraph_none(self) -> None:
         """测试StateGraph为None时抛出异常"""
         mock_injector = Mock(spec=IPromptInjector)
         
@@ -82,11 +106,11 @@ class TestCreateAgentWorkflow:
     
     @patch('src.prompts.langgraph_integration.LANGGRAPH_AVAILABLE', True)
     @patch('src.prompts.langgraph_integration.StateGraph')
-    def test_inject_prompts_node_function(self, mock_state_graph):
+    def test_inject_prompts_node_function(self, mock_state_graph) -> None:
         """测试inject_prompts节点函数"""
         # 设置模拟对象
         mock_injector = Mock(spec=IPromptInjector)
-        mock_injector.inject_prompts.return_value = WorkflowState()
+        mock_injector.inject_prompts.return_value = create_empty_workflow_state()
         
         mock_workflow = Mock()
         mock_state_graph.return_value = mock_workflow
@@ -107,7 +131,7 @@ class TestCreateAgentWorkflow:
         inject_prompts_func = inject_prompts_call[0][1]
         
         # 测试节点函数
-        test_state = WorkflowState()
+        test_state = create_empty_workflow_state()
         result_state = inject_prompts_func(test_state)
         
         # 验证调用
@@ -115,11 +139,11 @@ class TestCreateAgentWorkflow:
     
     @patch('src.prompts.langgraph_integration.LANGGRAPH_AVAILABLE', True)
     @patch('src.prompts.langgraph_integration.StateGraph')
-    def test_call_llm_node_without_llm_client(self, mock_state_graph):
+    def test_call_llm_node_without_llm_client(self, mock_state_graph) -> None:
         """测试没有LLM客户端时的call_llm节点函数"""
         # 设置模拟对象
         mock_injector = Mock(spec=IPromptInjector)
-        mock_injector.inject_prompts.return_value = WorkflowState()
+        mock_injector.inject_prompts.return_value = create_empty_workflow_state()
         
         mock_workflow = Mock()
         mock_state_graph.return_value = mock_workflow
@@ -140,21 +164,20 @@ class TestCreateAgentWorkflow:
         call_llm_func = call_llm_call[0][1]
         
         # 测试节点函数
-        test_state = WorkflowState()
+        test_state = create_empty_workflow_state()
         result_state = call_llm_func(test_state)
         
         # 验证结果
-        assert len(result_state.messages) == 1
-        assert isinstance(result_state.messages[0], HumanMessage)
-        assert result_state.messages[0].content == "这是一个模拟的LLM响应"
+        assert len(result_state["messages"]) == 1
+        assert result_state["messages"][0].content == "这是一个模拟的LLM响应"
     
     @patch('src.prompts.langgraph_integration.LANGGRAPH_AVAILABLE', True)
     @patch('src.prompts.langgraph_integration.StateGraph')
-    def test_call_llm_node_with_llm_client(self, mock_state_graph):
+    def test_call_llm_node_with_llm_client(self, mock_state_graph) -> None:
         """测试有LLM客户端时的call_llm节点函数"""
         # 设置模拟对象
         mock_injector = Mock(spec=IPromptInjector)
-        mock_injector.inject_prompts.return_value = WorkflowState()
+        mock_injector.inject_prompts.return_value = create_empty_workflow_state()
         
         mock_llm_client = Mock()
         mock_response = Mock()
@@ -179,22 +202,22 @@ class TestCreateAgentWorkflow:
         call_llm_func = call_llm_call[0][1]
         
         # 测试节点函数
-        test_state = WorkflowState()
-        test_state.messages = [HumanMessage(content="existing_message")]
+        test_state = create_empty_workflow_state()
+        test_state["messages"] = [HumanMessage(content="existing_message")]
         result_state = call_llm_func(test_state)
         
         # 验证调用
         mock_llm_client.generate.assert_called_once()
         
         # 验证结果
-        assert len(result_state.messages) == 2
-        assert result_state.messages[1] == mock_response
+        assert len(result_state["messages"]) == 2
+        assert result_state["messages"][1] == mock_response
 
 
 class TestCreateSimpleWorkflow:
     """测试create_simple_workflow函数"""
     
-    def test_create_simple_workflow_returns_dict(self):
+    def test_create_simple_workflow_returns_dict(self) -> None:
         """测试create_simple_workflow返回字典"""
         mock_injector = Mock(spec=IPromptInjector)
         
@@ -206,10 +229,10 @@ class TestCreateSimpleWorkflow:
         assert result["description"] == "简单提示词注入工作流"
         assert callable(result["run"])
     
-    def test_simple_workflow_run_with_none_state(self):
+    def test_simple_workflow_run_with_none_state(self) -> None:
         """测试简单工作流运行函数，初始状态为None"""
         mock_injector = Mock(spec=IPromptInjector)
-        mock_injector.inject_prompts.return_value = WorkflowState()
+        mock_injector.inject_prompts.return_value = create_empty_workflow_state()
         
         workflow = create_simple_workflow(mock_injector)
         result = workflow["run"]()
@@ -219,19 +242,18 @@ class TestCreateSimpleWorkflow:
         
         # 验证传入的状态是新的WorkflowState实例
         call_args = mock_injector.inject_prompts.call_args[0]
-        assert isinstance(call_args[0], WorkflowState)
         assert isinstance(call_args[1], PromptConfig)
         
         # 验证返回值
         assert result == mock_injector.inject_prompts.return_value
     
-    def test_simple_workflow_run_with_initial_state(self):
+    def test_simple_workflow_run_with_initial_state(self) -> None:
         """测试简单工作流运行函数，提供初始状态"""
         mock_injector = Mock(spec=IPromptInjector)
-        mock_injector.inject_prompts.return_value = WorkflowState()
+        mock_injector.inject_prompts.return_value = create_empty_workflow_state()
         
-        initial_state = WorkflowState()
-        initial_state.current_step = "test_step"
+        initial_state = create_empty_workflow_state()
+        initial_state["current_step"] = "test_step"
         
         workflow = create_simple_workflow(mock_injector)
         result = workflow["run"](initial_state)

@@ -107,11 +107,11 @@ class PlanExecuteAgent(BaseAgent):
             step_result = await self._execute_plan_step(state, plan_step)
             
             # 更新状态
-            from ...infrastructure.graph.state import MessageRole
-            state.add_memory(BaseMessage(
+            from .state import AgentMessage
+            state.add_message(AgentMessage(
                 content=f"Step {plan_step['step']}: {step_result}",
-                role=MessageRole.AI,
-                type="plan_execution"
+                role="ai",
+                metadata={"type": "plan_execution"}
             ))
             
             # 检查是否需要调整计划
@@ -154,7 +154,7 @@ class PlanExecuteAgent(BaseAgent):
                 tool_result = await self._execute_tool(state, tool_name, step_description)
                 return {
                     "success": tool_result.success,
-                    "result": tool_result.result,
+                    "result": tool_result.output,
                     "tool_name": tool_name
                 }
             else:
@@ -200,17 +200,17 @@ class PlanExecuteAgent(BaseAgent):
                 return ToolResult(
                     tool_name=tool_result.tool_name or tool_name,
                     success=tool_result.success,
-                    result=tool_result.output,
+                    output=tool_result.output,
                     error=tool_result.error
                 )
             else:
                 # 如果没有工具执行器，返回模拟结果
                 result = f"Tool {tool_name} executed: {description}"
-                return ToolResult(tool_name=tool_name, success=True, result=result)
+                return ToolResult(tool_name=tool_name, success=True, output=result)
         except Exception as e:
             error_msg = f"Tool execution error: {str(e)}"
             state.add_error({"error": error_msg, "type": "tool_execution_error"})
-            return ToolResult(tool_name=tool_name, success=False, result=None, error=error_msg)
+            return ToolResult(tool_name=tool_name, success=False, output=None, error=error_msg)
     
     def get_capabilities(self) -> Dict[str, Any]:
         """获取Agent的能力列表"""

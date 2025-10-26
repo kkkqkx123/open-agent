@@ -10,10 +10,10 @@ import uuid
 from datetime import datetime
 
 from src.infrastructure.graph.config import WorkflowConfig
-from src.infrastructure.graph.builder import WorkflowBuilder
 from src.infrastructure.graph.registry import NodeRegistry, get_global_registry
 from src.infrastructure.graph.state import WorkflowState, create_workflow_state
 from src.infrastructure.config_loader import IConfigLoader
+from .builder_adapter import WorkflowBuilderAdapter
 
 
 class IWorkflowManager(ABC):
@@ -171,7 +171,7 @@ class WorkflowManager(IWorkflowManager):
         self,
         config_loader: Optional[IConfigLoader] = None,
         node_registry: Optional[NodeRegistry] = None,
-        workflow_builder: Optional[WorkflowBuilder] = None
+        workflow_builder: Optional[Any] = None
     ) -> None:
         """初始化工作流管理器
 
@@ -182,7 +182,7 @@ class WorkflowManager(IWorkflowManager):
         """
         self.config_loader = config_loader
         self.node_registry = node_registry or get_global_registry()
-        self.workflow_builder = workflow_builder or WorkflowBuilder(self.node_registry)
+        self.workflow_builder = workflow_builder or WorkflowBuilderAdapter(self.node_registry)
         
         # 工作流存储
         self._workflows: Dict[str, Any] = {}
@@ -205,7 +205,7 @@ class WorkflowManager(IWorkflowManager):
         workflow_id = self._generate_workflow_id(workflow_config.name)
         
         # 创建工作流实例
-        workflow = self.workflow_builder.build_workflow(workflow_config)
+        workflow = self.workflow_builder.build_graph(workflow_config)
         
         # 存储工作流
         self._workflows[workflow_id] = workflow
@@ -555,7 +555,7 @@ class WorkflowManager(IWorkflowManager):
         try:
             # 重新加载配置
             workflow_config = self.workflow_builder.load_workflow_config(config_path)
-            workflow = self.workflow_builder.build_workflow(workflow_config)
+            workflow = self.workflow_builder.build_graph(workflow_config)
             
             # 更新存储
             self._workflows[workflow_id] = workflow

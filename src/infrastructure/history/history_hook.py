@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Sequence
 from langchain_core.messages import BaseMessage
 
 from src.infrastructure.llm.interfaces import ILLMCallHook
@@ -49,7 +49,7 @@ class HistoryRecordingHook(ILLMCallHook):
         self.pending_requests: Dict[str, LLMRequestRecord] = {}
         self.logger = logging.getLogger(__name__)
     
-    def before_call(self, messages: List[BaseMessage], 
+    def before_call(self, messages: Sequence[BaseMessage],
                    parameters: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
         """
         在LLM调用前记录请求
@@ -72,7 +72,7 @@ class HistoryRecordingHook(ILLMCallHook):
                 provider=kwargs.get("provider", "unknown"),
                 messages=self._convert_messages(messages),
                 parameters=parameters or {},
-                estimated_tokens=self.token_tracker.estimate_tokens(messages),
+                estimated_tokens=self.token_tracker.estimate_tokens(list(messages)),
                 metadata=kwargs.get("metadata", {})
             )
             
@@ -87,8 +87,8 @@ class HistoryRecordingHook(ILLMCallHook):
         except Exception as e:
             self.logger.error(f"记录LLM请求失败: {e}")
     
-    def after_call(self, response: Optional[LLMResponse], 
-                  messages: List[BaseMessage], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
+    def after_call(self, response: Optional[LLMResponse],
+                  messages: Sequence[BaseMessage], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
         """
         在LLM调用后记录响应、Token使用和成本
         
@@ -152,7 +152,7 @@ class HistoryRecordingHook(ILLMCallHook):
         except Exception as e:
             self.logger.error(f"记录LLM响应失败: {e}")
     
-    def on_error(self, error: Exception, messages: List[BaseMessage], 
+    def on_error(self, error: Exception, messages: Sequence[BaseMessage],
                  parameters: Optional[Dict[str, Any]] = None, **kwargs: Any) -> Optional[LLMResponse]:
         """
         记录错误（可选实现）
@@ -199,12 +199,12 @@ class HistoryRecordingHook(ILLMCallHook):
         # 不尝试恢复错误
         return None
     
-    def _convert_messages(self, messages: List[BaseMessage]) -> List[Dict[str, Any]]:
+    def _convert_messages(self, messages: Sequence[BaseMessage]) -> List[Dict[str, Any]]:
         """
         将BaseMessage转换为字典格式
         
         Args:
-            messages: 消息列表
+            messages: 消息序列
             
         Returns:
             List[Dict[str, Any]]: 转换后的消息列表

@@ -65,7 +65,10 @@ class ToolNode(BaseNode):
                 
                 # 执行工具
                 start_time = time.time()
-                result = tool_manager.get_tool(tool_call.name).execute(**tool_call.arguments)
+                tool = tool_manager.get_tool(tool_call.name)
+                if tool is None:
+                    raise ValueError(f"Tool '{tool_call.name}' not found")
+                result = tool.execute(**tool_call.arguments)
                 execution_time = time.time() - start_time
                 
                 # 记录结果
