@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, List
-from src.application.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
+from src.infrastructure.graph.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
 from ..interfaces import IWorkflowTemplate
 
 
@@ -48,7 +48,8 @@ class ReActWorkflowTemplate(IWorkflowTemplate):
         # 创建节点配置
         nodes = {
             "analyze": NodeConfig(
-                type="agent_node",
+                name="analyze",
+                function_name="agent_node",
                 config={
                     "agent_config": {
                         "agent_type": "react",
@@ -64,7 +65,8 @@ class ReActWorkflowTemplate(IWorkflowTemplate):
                 description="分析用户输入并决定下一步行动"
             ),
             "execute_tool": NodeConfig(
-                type="tool_node",
+                name="execute_tool",
+                function_name="tool_node",
                 config={
                     "tool_manager": "default",
                     "timeout": 30,
@@ -75,7 +77,8 @@ class ReActWorkflowTemplate(IWorkflowTemplate):
                 description="执行工具调用"
             ),
             "finalize": NodeConfig(
-                type="agent_node",
+                name="finalize",
+                function_name="agent_node",
                 config={
                     "agent_config": {
                         "agent_type": "react",
@@ -303,7 +306,8 @@ class EnhancedReActTemplate(ReActWorkflowTemplate):
         if enable_error_recovery:
             # 添加错误恢复节点
             base_config.nodes["error_recovery"] = NodeConfig(
-                type="agent_node",
+                name="error_recovery",
+                function_name="agent_node",
                 config={
                     "agent_config": {
                         "agent_type": "react",

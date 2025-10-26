@@ -4,8 +4,11 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Type, Optional, Callable
+from typing import Dict, Any, List, Type, Optional, Callable, TYPE_CHECKING
 from dataclasses import dataclass
+
+if TYPE_CHECKING:
+    from src.domain.agent.state import AgentState
 
 from .state import WorkflowState
 
@@ -13,7 +16,7 @@ from .state import WorkflowState
 @dataclass
 class NodeExecutionResult:
     """节点执行结果"""
-    state: WorkflowState
+    state: "AgentState"
     next_node: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
@@ -32,7 +35,7 @@ class BaseNode(ABC):
         pass
 
     @abstractmethod
-    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: "AgentState", config: Dict[str, Any]) -> NodeExecutionResult:
         """执行节点逻辑
 
         Args:

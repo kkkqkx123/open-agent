@@ -13,7 +13,7 @@ from rich.table import Table
 from rich.progress import Progress, BarColumn, TextColumn
 from rich.align import Align
 
-from src.domain.prompts.agent_state import AgentState
+from src.application.workflow.state import AgentState
 from ..config import TUIConfig
 
 

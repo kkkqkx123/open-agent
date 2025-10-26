@@ -16,7 +16,7 @@ from rich.console import Console, ConsoleOptions, RenderResult
 from rich.tree import Tree
 
 from ..config import TUIConfig
-from src.domain.prompts.agent_state import AgentState
+from src.application.workflow.state import AgentState
 
 
 class WorkflowState(Enum):

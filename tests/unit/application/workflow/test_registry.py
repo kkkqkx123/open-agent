@@ -10,7 +10,7 @@ from src.application.workflow.registry import (
     get_global_registry,
     node
 )
-from src.domain.prompts.agent_state import AgentState
+from src.application.workflow.state import AgentState
 
 
 class MockNode(BaseNode):

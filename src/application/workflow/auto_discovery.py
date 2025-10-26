@@ -8,7 +8,7 @@ import inspect
 from typing import List, Type, Dict, Any, Optional
 from pathlib import Path
 
-from .registry import BaseNode, get_global_registry, NodeRegistry
+from src.infrastructure.graph.registry import BaseNode, get_global_registry, NodeRegistry
 
 
 class NodeDiscovery:
@@ -165,9 +165,9 @@ def register_builtin_nodes() -> None:
     """注册内置节点"""
     # 导入所有内置节点模块，确保装饰器注册生效
     try:
-        from .nodes.analysis_node import AnalysisNode
-        from .nodes.tool_node import ToolNode
-        from .nodes.llm_node import LLMNode
-        from .nodes.condition_node import ConditionNode
+        from src.infrastructure.graph.nodes.analysis_node import AnalysisNode
+        from src.infrastructure.graph.nodes.tool_node import ToolNode
+        from src.infrastructure.graph.nodes.llm_node import LLMNode
+        from src.infrastructure.graph.nodes.condition_node import ConditionNode
     except ImportError as e:
         print(f"导入内置节点失败: {e}")

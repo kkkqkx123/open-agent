@@ -2,10 +2,10 @@
 from typing import Optional, Dict, Any, List, AsyncGenerator
 from datetime import datetime
 import asyncio
-
 from src.application.workflow.manager import IWorkflowManager
-from src.domain.prompts.agent_state import AgentState
+from src.application.workflow.state import AgentState
 from ..data_access.workflow_dao import WorkflowDAO
+
 from ..cache.memory_cache import MemoryCache
 from ..models.requests import WorkflowCreateRequest, WorkflowUpdateRequest, WorkflowRunRequest
 from ..models.responses import WorkflowResponse, WorkflowListResponse, WorkflowExecutionResponse

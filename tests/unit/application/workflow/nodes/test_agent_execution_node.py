@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
 from src.application.workflow.nodes.agent_execution_node import agent_execution_node
-from src.domain.prompts.agent_state import AgentState
+from src.application.workflow.state import AgentState
 from src.domain.agent import IAgentManager
 
 

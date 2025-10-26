@@ -1,10 +1,10 @@
 """会话服务"""
 from typing import Optional, Dict, Any, List
 from datetime import datetime
-
 from src.application.sessions.manager import ISessionManager
-from src.domain.prompts.agent_state import AgentState
+from src.application.workflow.state import AgentState
 from ..data_access.session_dao import SessionDAO
+
 from ..data_access.history_dao import HistoryDAO
 from ..cache.memory_cache import MemoryCache
 from ..models.requests import SessionCreateRequest, SessionUpdateRequest

@@ -6,7 +6,7 @@ from unittest.mock import Mock
 from src.domain.prompts.injector import PromptInjector
 from src.domain.prompts.interfaces import IPromptLoader
 from src.domain.prompts.models import PromptConfig
-from src.domain.prompts.agent_state import AgentState, SystemMessage, HumanMessage
+from src.application.workflow.state import AgentState, SystemMessage, HumanMessage
 
 
 class TestPromptInjector:

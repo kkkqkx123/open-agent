@@ -9,10 +9,10 @@ from pathlib import Path
 import logging
 
 from src.infrastructure.graph.config import WorkflowConfig
-from src.infrastructure.graph.state import WorkflowState, create_message, MessageRole
+from src.infrastructure.graph.state import WorkflowState, create_message, MessageRole, create_workflow_state
 from ...domain.prompts.interfaces import IPromptInjector
 from ...domain.prompts.models import PromptConfig
-from src.infrastructure.graph.builder import WorkflowBuilder
+from src.infrastructure.graph.builder import GraphBuilder
 from src.infrastructure.graph.registry import NodeRegistry, get_global_registry
 from .manager import WorkflowManager
 
@@ -49,7 +49,7 @@ class UnifiedWorkflowFactory(IWorkflowFactory):
     def __init__(
         self,
         node_registry: Optional[NodeRegistry] = None,
-        workflow_builder: Optional[WorkflowBuilder] = None
+        workflow_builder: Optional[GraphBuilder] = None
     ) -> None:
         """初始化工作流工厂
         
@@ -58,7 +58,7 @@ class UnifiedWorkflowFactory(IWorkflowFactory):
             workflow_builder: 工作流构建器
         """
         self.node_registry = node_registry or get_global_registry()
-        self.workflow_builder = workflow_builder or WorkflowBuilder(self.node_registry)
+        self.workflow_builder = workflow_builder or GraphBuilder(self.node_registry)
         self._predefined_configs: Dict[str, WorkflowConfig] = {}
         self._load_predefined_configs()
     
@@ -213,7 +213,7 @@ class UnifiedWorkflowFactory(IWorkflowFactory):
         def run_workflow(initial_state: Optional[WorkflowState] = None) -> WorkflowState:
             """运行简单工作流"""
             if initial_state is None:
-                initial_state = WorkflowState()
+                initial_state = create_workflow_state(workflow_id="simple", input_text="")
             
             # 注入提示词
             config = self._get_simple_prompt_config()
@@ -268,7 +268,7 @@ class UnifiedWorkflowFactory(IWorkflowFactory):
     def _create_default_configs(self) -> None:
         """创建默认预定义配置"""
         # 创建简单的ReAct配置
-        from src.application.workflow.config import NodeConfig, EdgeConfig, EdgeType
+        from src.infrastructure.graph.config import NodeConfig, EdgeConfig, EdgeType
 
         react_config = WorkflowConfig(
             name="react",
@@ -276,20 +276,23 @@ class UnifiedWorkflowFactory(IWorkflowFactory):
             version="1.0",
             nodes={
                 "analyze": NodeConfig(
-                    type="analysis_node",
+                    name="analyze",
+                    function_name="analysis_node",
                     config={
                         "llm_client": "default",
                         "system_prompt": "分析用户输入并决定是否需要调用工具"
                     }
                 ),
                 "execute_tool": NodeConfig(
-                    type="tool_node",
+                    name="execute_tool",
+                    function_name="tool_node",
                     config={
                         "tool_manager": "default"
                     }
                 ),
                 "final_answer": NodeConfig(
-                    type="llm_node",
+                    name="final_answer",
+                    function_name="llm_node",
                     config={
                         "llm_client": "default",
                         "system_prompt": "根据上下文信息提供准确回答"

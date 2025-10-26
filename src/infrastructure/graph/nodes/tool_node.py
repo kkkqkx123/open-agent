@@ -8,14 +8,14 @@ import time
 
 from ..registry import BaseNode, NodeExecutionResult, node
 from src.domain.agent.state import AgentState
-from src.domain.tools.interfaces import IToolManager, ToolCall, ToolResult
+from src.domain.tools.interfaces import ITool, IToolRegistry, ToolCall, ToolResult
 
 
 @node("tool_node")
 class ToolNode(BaseNode):
     """工具执行节点"""
 
-    def __init__(self, tool_manager: Optional[IToolManager] = None) -> None:
+    def __init__(self, tool_manager: Optional[IToolRegistry] = None) -> None:
         """初始化工具节点
 
         Args:
@@ -72,12 +72,11 @@ class ToolNode(BaseNode):
                 tool_results.append(result)
                 
                 # 添加到状态
-                from src.domain.prompts.agent_state import ToolResult as StateToolResult
-                state_tool_result = StateToolResult(
-                    tool_name=tool_call.name,
+                state_tool_result = ToolResult(
                     success=result.success,
-                    result=result.output,
-                    error=result.error
+                    output=result.output,
+                    error=result.error,
+                    tool_name=tool_call.name
                 )
                 state.tool_results.append(state_tool_result)
                 
@@ -86,22 +85,21 @@ class ToolNode(BaseNode):
                 execution_errors.append(error_msg)
                 
                 # 记录错误结果
-                from src.domain.prompts.agent_state import ToolResult as StateToolResult
-                error_result = StateToolResult(
-                    tool_name=tool_call.name,
+                error_result = ToolResult(
                     success=False,
-                    result=None,
-                    error=error_msg
+                    output=None,
+                    error=error_msg,
+                    tool_name=tool_call.name
                 )
                 state.tool_results.append(error_result)
-        
+
         # 确定下一步
         next_node = self._determine_next_node(tool_results, execution_errors, config)
         
         return NodeExecutionResult(
-            state=state,
-            next_node=next_node,
-            metadata={
+            state,
+            next_node,
+            {
                 "tool_calls_count": len(tool_calls),
                 "successful_calls": len(tool_results),
                 "failed_calls": len(execution_errors),
@@ -148,7 +146,7 @@ class ToolNode(BaseNode):
             "required": ["tool_manager"]
         }
 
-    def _get_tool_manager(self, config: Dict[str, Any]) -> IToolManager:
+    def _get_tool_manager(self, config: Dict[str, Any]) -> IToolRegistry:
         """获取工具管理器
 
         Args:
@@ -173,15 +171,14 @@ class ToolNode(BaseNode):
         # 暂时直接返回模拟工具管理器
         return self._create_mock_tool_manager()
 
-    def _create_mock_tool_manager(self) -> IToolManager:
+    def _create_mock_tool_manager(self) -> IToolRegistry:
         """创建模拟工具管理器"""
         from src.domain.tools.base import BaseTool
         
         class MockTool(BaseTool):
             def __init__(self, name: str):
-                self.name = name
-                self.description = f"模拟工具 {name}"
-                super().__init__(name, self.description, {"type": "object", "properties": {}})
+                description = f"模拟工具 {name}"
+                super().__init__(name, description, {"type": "object", "properties": {}})
             
             def execute(self, **kwargs: Any) -> Any:
                 return f"模拟工具 {self.name} 的执行结果"
@@ -192,21 +189,18 @@ class ToolNode(BaseNode):
             def get_schema(self) -> Dict[str, Any]:
                 return {"type": "object", "properties": {}}
         
-        class MockToolManager(IToolManager):
-            def get_tool(self, name: str) -> BaseTool:
-                return MockTool(name)
-            
-            def load_tools(self) -> List[BaseTool]:
-                return []
-            
-            def get_tool_set(self, name: str) -> List[BaseTool]:
-                return []
-            
-            def register_tool(self, tool: BaseTool) -> None:
+        class MockToolManager(IToolRegistry):
+            def register_tool(self, tool: "ITool") -> None:
                 pass
-            
+
+            def get_tool(self, name: str) -> Optional["ITool"]:
+                return MockTool(name)
+
             def list_tools(self) -> List[str]:
-                return []
+                return ["mock_tool"]
+
+            def unregister_tool(self, name: str) -> bool:
+                return True
             
             def list_tool_sets(self) -> List[str]:
                 return []

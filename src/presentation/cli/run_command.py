@@ -11,7 +11,7 @@ from ...infrastructure.container import get_global_container
 from ...infrastructure.config_loader import IConfigLoader
 from src.application.sessions.manager import ISessionManager
 from src.application.workflow.manager import IWorkflowManager
-from src.domain.prompts.agent_state import AgentState, HumanMessage
+from src.application.workflow.state import AgentState, HumanMessage
 
 
 class RunCommand:

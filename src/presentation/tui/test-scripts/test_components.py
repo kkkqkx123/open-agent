@@ -20,7 +20,7 @@ from ..components import (
     MainContentComponent,
     InputPanel
 )
-from src.domain.prompts.agent_state import AgentState, HumanMessage, ToolResult
+from src.application.workflow.state import AgentState, HumanMessage, ToolResult
 
 
 class ComponentTester:

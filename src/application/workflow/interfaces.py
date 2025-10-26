@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
-from src.application.workflow.config import WorkflowConfig
+from src.infrastructure.graph.config import WorkflowConfig
 
 
 class IWorkflowBuilder(ABC):

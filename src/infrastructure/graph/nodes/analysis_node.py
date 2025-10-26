@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
 from ..registry import BaseNode, NodeExecutionResult, node
-from src.domain.agent.state import AgentState
+from src.domain.agent.state import AgentState, AgentMessage
 from src.infrastructure.llm.interfaces import ILLMClient
 from src.infrastructure.container import IDependencyContainer
 
@@ -67,32 +67,26 @@ class AnalysisNode(BaseNode):
         try:
             from langchain_core.messages import BaseMessage as LangChainBaseMessage
             if isinstance(response.message, LangChainBaseMessage):
-                # 如果是langchain消息，需要转换为domain层的BaseMessage
-                from src.domain.prompts.agent_state import BaseMessage as DomainBaseMessage, MessageRole
-                # 创建一个兼容的BaseMessage对象
+                # 如果是langchain消息，需要转换为AgentMessage
                 if hasattr(response.message, 'content'):
-                    compatible_message = DomainBaseMessage(
+                    compatible_message = AgentMessage(
                         content=str(response.message.content),
-                        role=MessageRole.AI,
-                        type=getattr(response.message, 'type', 'ai')
+                        role='ai'
                     )
                 else:
-                    compatible_message = DomainBaseMessage(
+                    compatible_message = AgentMessage(
                         content=response.content,
-                        role=MessageRole.AI,
-                        type='ai'
+                        role='ai'
                     )
             else:
                 compatible_message = response.message
         except ImportError:
             # 如果无法导入langchain，使用LLMResponse的message属性
-            from src.domain.prompts.agent_state import BaseMessage as DomainBaseMessage, MessageRole
-            compatible_message = DomainBaseMessage(
+            compatible_message = AgentMessage(
                 content=response.content,
-                role=MessageRole.AI,
-                type='ai'
+                role='ai'
             )
-        
+
         state.add_message(compatible_message)
         
         # 分析响应，确定下一步

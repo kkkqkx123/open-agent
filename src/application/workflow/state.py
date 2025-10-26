@@ -3,7 +3,7 @@
 定义工作流中使用的各种状态类型和数据结构。
 """
 
-from typing import Dict, Any, List, Optional, Annotated, Union
+from typing import Dict, Any, List, Optional, Annotated, Union, TYPE_CHECKING, cast
 from dataclasses import dataclass
 import operator
 import logging
@@ -13,35 +13,38 @@ from typing_extensions import TypedDict
 logger = logging.getLogger(__name__)
 
 # 导入消息类型
-try:
+if TYPE_CHECKING:
     from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
-    LANGCHAIN_AVAILABLE = True
-except ImportError:
-    logger.warning("LangChain not available, using fallback message types")
-    LANGCHAIN_AVAILABLE = False
-    
-    # 后备消息类型定义
-    class BaseMessage:
-        def __init__(self, content: str, type: str = "base"):
-            self.content = content
-            self.type = type
-    
-    class HumanMessage(BaseMessage):
-        def __init__(self, content: str):
-            super().__init__(content, "human")
-    
-    class AIMessage(BaseMessage):
-        def __init__(self, content: str):
-            super().__init__(content, "ai")
-    
-    class SystemMessage(BaseMessage):
-        def __init__(self, content: str):
-            super().__init__(content, "system")
-    
-    class ToolMessage(BaseMessage):
-        def __init__(self, content: str, tool_call_id: str = ""):
-            super().__init__(content, "tool")
-            self.tool_call_id = tool_call_id
+else:
+    try:
+        from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
+        LANGCHAIN_AVAILABLE = True
+    except ImportError:
+        logger.warning("LangChain not available, using fallback message types")
+        LANGCHAIN_AVAILABLE = False
+
+        # 后备消息类型定义
+        class BaseMessage:
+            def __init__(self, content: str, type: str = "base"):
+                self.content = content
+                self.type = type
+
+        class HumanMessage(BaseMessage):
+            def __init__(self, content: str):
+                super().__init__(content, "human")
+
+        class AIMessage(BaseMessage):
+            def __init__(self, content: str):
+                super().__init__(content, "ai")
+
+        class SystemMessage(BaseMessage):
+            def __init__(self, content: str):
+                super().__init__(content, "system")
+
+        class ToolMessage(BaseMessage):
+            def __init__(self, content: str, tool_call_id: str = ""):
+                super().__init__(content, "tool")
+                self.tool_call_id = tool_call_id
 
 
 class MessageRole:
@@ -54,7 +57,7 @@ class MessageRole:
 
 class ToolResult:
     """工具执行结果"""
-    def __init__(self, tool_name: str, success: bool, output: Any = None, error: str = None):
+    def __init__(self, tool_name: str, success: bool, output: Any = None, error: Optional[str] = None):
         self.tool_name = tool_name
         self.success = success
         self.output = output
@@ -184,17 +187,18 @@ def create_workflow_state(
     max_iterations: int = 10
 ) -> WorkflowState:
     """创建工作流状态
-    
+
     Args:
         workflow_name: 工作流名称
         input_text: 输入文本
         max_iterations: 最大迭代次数
-        
+
     Returns:
         WorkflowState实例
     """
     base_state = create_agent_state(input_text, max_iterations)
-    base_state.update({
+    return cast(WorkflowState, {
+        **base_state,
         "workflow_name": workflow_name,
         "current_step": None,
         "analysis": None,
@@ -202,9 +206,8 @@ def create_workflow_state(
         "context": {},
         "start_time": datetime.now(),
         "workflow_id": None,
-        "custom_fields": {}
+    "custom_fields": {}
     })
-    return base_state
 
 
 def create_react_state(
@@ -213,23 +216,23 @@ def create_react_state(
     max_iterations: int = 10
 ) -> ReActState:
     """创建ReAct状态
-    
+
     Args:
         workflow_name: 工作流名称
         input_text: 输入文本
         max_iterations: 最大迭代次数
-        
+
     Returns:
         ReActState实例
     """
     base_state = create_workflow_state(workflow_name, input_text, max_iterations)
-    base_state.update({
+    return cast(ReActState, {
+        **base_state,
         "thought": None,
         "action": None,
         "observation": None,
-        "steps": []
+    "steps": []
     })
-    return base_state
 
 
 def create_plan_execute_state(
@@ -238,23 +241,23 @@ def create_plan_execute_state(
     max_iterations: int = 10
 ) -> PlanExecuteState:
     """创建计划执行状态
-    
+
     Args:
         workflow_name: 工作流名称
         input_text: 输入文本
         max_iterations: 最大迭代次数
-        
+
     Returns:
         PlanExecuteState实例
     """
     base_state = create_workflow_state(workflow_name, input_text, max_iterations)
-    base_state.update({
+    return cast(PlanExecuteState, {
+        **base_state,
         "plan": None,
         "steps": [],
         "current_step": None,
-        "step_results": []
+    "step_results": []
     })
-    return base_state
 
 
 # 消息创建函数

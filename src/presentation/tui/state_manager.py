@@ -2,7 +2,7 @@
 
 from typing import Optional, Dict, Any, List, Callable
 from src.application.sessions.manager import ISessionManager
-from src.domain.prompts.agent_state import AgentState, HumanMessage
+from src.application.workflow.state import AgentState, HumanMessage
 
 
 class StateManager:

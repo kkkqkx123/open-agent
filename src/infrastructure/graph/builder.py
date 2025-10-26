@@ -293,14 +293,39 @@ class GraphBuilder:
     
     def validate_config(self, config: GraphConfig) -> List[str]:
         """验证图配置
-        
+
         Args:
             config: 图配置
-            
+
         Returns:
             验证错误列表
         """
         return config.validate()
+
+    def build_workflow(self, config: GraphConfig) -> Any:
+        """构建工作流（向后兼容方法）
+
+        Args:
+            config: 工作流配置
+
+        Returns:
+            编译后的工作流
+        """
+        return self.build_graph(config)
+
+    def load_workflow_config(self, config_path: str) -> GraphConfig:
+        """加载工作流配置
+
+        Args:
+            config_path: 配置文件路径
+
+        Returns:
+            工作流配置
+        """
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config_data = yaml.safe_load(f)
+
+        return GraphConfig.from_dict(config_data)
 
 
 # 为了向后兼容，保留旧的类名

@@ -13,7 +13,7 @@ from src.application.sessions.manager import SessionManager
 from src.application.workflow.manager import WorkflowManager
 from src.domain.sessions.store import FileSessionStore
 from src.domain.workflow.config import WorkflowConfig
-from src.domain.prompts.agent_state import AgentState, BaseMessage
+from src.application.workflow.state import AgentState, BaseMessage
 from src.infrastructure.config_loader import YamlConfigLoader
 
 

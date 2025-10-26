@@ -12,7 +12,7 @@ from datetime import datetime
 from src.infrastructure.graph.config import WorkflowConfig
 from src.infrastructure.graph.builder import WorkflowBuilder
 from src.infrastructure.graph.registry import NodeRegistry, get_global_registry
-from src.infrastructure.graph.state import WorkflowState
+from src.infrastructure.graph.state import WorkflowState, create_workflow_state
 from src.infrastructure.config_loader import IConfigLoader
 
 
@@ -263,11 +263,11 @@ class WorkflowManager(IWorkflowManager):
         
         # 准备初始状态
         if initial_state is None:
-            initial_state = WorkflowState()
+            initial_state = create_workflow_state(workflow_id=workflow_id, input_text="")
         
         # 设置初始参数
         if hasattr(initial_state, 'max_iterations'):
-            initial_state.max_iterations = config.additional_config.get('max_iterations', 10)
+            initial_state["max_iterations"] = config.additional_config.get('max_iterations', 10)
         
         # 收集工作流开始事件
         if event_collector:
@@ -315,11 +315,11 @@ class WorkflowManager(IWorkflowManager):
         
         # 准备初始状态
         if initial_state is None:
-            initial_state = WorkflowState()
+            initial_state = create_workflow_state(workflow_id=workflow_id, input_text="")
         
         # 设置初始参数
         if hasattr(initial_state, 'max_iterations'):
-            initial_state.max_iterations = config.additional_config.get('max_iterations', 10)
+            initial_state["max_iterations"] = config.additional_config.get('max_iterations', 10)
         
         # 收集工作流开始事件
         if event_collector:
@@ -371,11 +371,11 @@ class WorkflowManager(IWorkflowManager):
         
         # 准备初始状态
         if initial_state is None:
-            initial_state = WorkflowState()
+            initial_state = create_workflow_state(workflow_id=workflow_id, input_text="")
         
         # 设置初始参数
         if hasattr(initial_state, 'max_iterations'):
-            initial_state.max_iterations = config.additional_config.get('max_iterations', 10)
+            initial_state["max_iterations"] = config.additional_config.get('max_iterations', 10)
         
         # 收集工作流开始事件
         if event_collector:
@@ -465,7 +465,7 @@ class WorkflowManager(IWorkflowManager):
             "nodes": [
                 {
                     "id": node_id,
-                    "type": node.type,
+                    "type": node.function_name,
                     "config": node.config,
                     "description": node.description
                 }

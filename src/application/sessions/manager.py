@@ -14,7 +14,7 @@ from datetime import datetime
 
 from ..workflow.manager import IWorkflowManager
 from ...domain.workflow.config import WorkflowConfig
-from ...domain.prompts.agent_state import AgentState
+from ...application.workflow.state import AgentState
 from ...domain.sessions.store import ISessionStore
 from .git_manager import IGitManager
 
@@ -566,32 +566,32 @@ class SessionManager(ISessionManager):
                 # 尝试创建适当的消息类型
                 msg_type = msg_data.get("type", "BaseMessage")
                 role_str = msg_data.get("role", "human")
-                from ...domain.prompts.agent_state import MessageRole
+                from ...application.workflow.state import MessageRole
                 try:
                     role = MessageRole(role_str)
                 except ValueError:
                     role = MessageRole.HUMAN
 
                 if msg_type == "HumanMessage":
-                    from src.domain.prompts.agent_state import HumanMessage
+                    from src.application.workflow.state import HumanMessage
                     msg = HumanMessage(content=msg_data.get("content", ""))
                 elif msg_type == "SystemMessage":
-                    from src.domain.prompts.agent_state import SystemMessage
+                    from src.application.workflow.state import SystemMessage
                     msg = SystemMessage(content=msg_data.get("content", ""))
                 elif msg_type == "AIMessage":
-                    from src.domain.prompts.agent_state import AIMessage
+                    from src.application.workflow.state import AIMessage
                     msg = AIMessage(content=msg_data.get("content", ""))
                 elif msg_type == "ToolMessage":
-                    from src.domain.prompts.agent_state import ToolMessage
+                    from src.application.workflow.state import ToolMessage
                     msg = ToolMessage(content=msg_data.get("content", ""))
                 else:
-                    from src.domain.prompts.agent_state import BaseMessage
+                    from src.application.workflow.state import BaseMessage
                     msg = BaseMessage(content=msg_data.get("content", ""), role=role)
 
                 state.add_message(msg)
             except Exception:
                 # 如果创建消息失败，创建基本消息
-                from ...domain.prompts.agent_state import BaseMessage, MessageRole
+                from ...application.workflow.state import BaseMessage, MessageRole
                 role_str = msg_data.get("role", "human")
                 try:
                     role = MessageRole(role_str)
@@ -601,12 +601,12 @@ class SessionManager(ISessionManager):
                 state.add_message(msg)
 
         # 恢复工具结果
-        from src.domain.prompts.agent_state import ToolResult
+        from src.application.workflow.state import ToolResult
         for result_data in state_data.get("tool_results", []):
             result = ToolResult(
                 tool_name=result_data.get("tool_name", ""),
                 success=result_data.get("success", False),
-                result=result_data.get("result"),
+                output=result_data.get("result"),
                 error=result_data.get("error")
             )
             state.tool_results.append(result)

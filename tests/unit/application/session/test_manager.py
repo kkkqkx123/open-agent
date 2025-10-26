@@ -14,7 +14,7 @@ from src.domain.sessions.store import ISessionStore
 from src.application.sessions.git_manager import IGitManager
 from src.application.workflow.manager import IWorkflowManager
 from src.domain.workflow.config import WorkflowConfig
-from src.domain.prompts.agent_state import AgentState, BaseMessage
+from src.application.workflow.state import AgentState, BaseMessage
 
 
 class TestSessionManager:

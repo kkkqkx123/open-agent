@@ -90,7 +90,7 @@ class ResponsesConverter(MessageConverter):
             message = AIMessage(content=content)
         except ImportError:
             # 如果无法导入langchain，使用domain层的BaseMessage
-            from src.domain.prompts.agent_state import BaseMessage
+            from src.application.workflow.state import BaseMessage
             message = BaseMessage(content=content, type="ai")
 
         # 确保消息对象兼容LLMResponse期望的类型

@@ -184,7 +184,7 @@ class WorkflowTransition:
     def _evaluate_simple_condition(self, context: Dict[str, Any]) -> bool:
         """评估简单条件"""
         # 这是一个简化的实现，实际项目中可能需要使用更强大的表达式引擎
-        condition = self.condition.strip()
+        condition = self.condition.strip() if self.condition else ""
         
         # 替换变量
         for key, value in context.items():
@@ -253,7 +253,7 @@ class WorkflowRule:
         if not self.error_message:
             self.error_message = f"字段 '{self.field}' 验证失败"
     
-    def validate_value(self, value: Any, context: Dict[str, Any] = None) -> bool:
+    def validate_value(self, value: Any, context: Optional[Dict[str, Any]] = None) -> bool:
         """验证值
         
         Args:
@@ -268,7 +268,7 @@ class WorkflowRule:
         
         # 如果有自定义函数，使用自定义函数
         if self.custom_function:
-            return self._validate_with_custom_function(value, context)
+            return self._validate_with_custom_function(value, context or {})
         
         # 使用内置操作符验证
         return self._validate_with_operator(value)
@@ -303,7 +303,7 @@ class WorkflowRule:
         
         return False
     
-    def _validate_with_custom_function(self, value: Any, context: Dict[str, Any] = None) -> bool:
+    def _validate_with_custom_function(self, value: Any, context: Optional[Dict[str, Any]] = None) -> bool:
         """使用自定义函数验证"""
         # 这里应该根据函数名调用相应的验证函数
         # 简化实现，实际项目中需要更复杂的函数注册机制
@@ -403,7 +403,7 @@ class WorkflowTemplate:
         """自定义转换"""
         import copy
         
-        customized = copy.deepcopy(step)
+        customized = copy.deepcopy(transition)
         customized.id = str(uuid.uuid4())  # 生成新的ID
         
         # 应用参数替换

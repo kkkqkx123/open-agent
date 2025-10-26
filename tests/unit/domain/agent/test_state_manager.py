@@ -2,8 +2,7 @@
 
 import pytest
 from src.domain.agent.state_manager import AgentStateManager
-from src.domain.prompts.agent_state import AgentState, ToolResult
-from src.application.workflow.state import HumanMessage, AIMessage
+from src.application.workflow.state import AgentState, ToolResult, HumanMessage, AIMessage
 
 
 class TestAgentStateManager:

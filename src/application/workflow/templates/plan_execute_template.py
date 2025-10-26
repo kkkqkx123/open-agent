@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, List
-from src.application.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
+from src.infrastructure.graph.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
 from ..interfaces import IWorkflowTemplate
 
 
@@ -48,7 +48,8 @@ class PlanExecuteWorkflowTemplate(IWorkflowTemplate):
         # 创建节点配置
         nodes = {
             "planning": NodeConfig(
-                type="agent_node",
+                name="planning",
+                function_name="agent_node",
                 config={
                     "agent_config": {
                         "agent_type": "react",
@@ -64,7 +65,8 @@ class PlanExecuteWorkflowTemplate(IWorkflowTemplate):
                 description="分析需求并制定执行计划"
             ),
             "execute_step": NodeConfig(
-                type="agent_node",
+                name="execute_step",
+                function_name="agent_node",
                 config={
                     "agent_config": {
                         "agent_type": "react",
@@ -80,7 +82,8 @@ class PlanExecuteWorkflowTemplate(IWorkflowTemplate):
                 description="执行计划中的当前步骤"
             ),
             "review": NodeConfig(
-                type="agent_node",
+                name="review",
+                function_name="agent_node",
                 config={
                     "agent_config": {
                         "agent_type": "react",
@@ -96,7 +99,8 @@ class PlanExecuteWorkflowTemplate(IWorkflowTemplate):
                 description="审查执行结果并决定下一步"
             ),
             "finalize": NodeConfig(
-                type="agent_node",
+                name="finalize",
+                function_name="agent_node",
                 config={
                     "agent_config": {
                         "agent_type": "react",
@@ -353,7 +357,8 @@ class CollaborativePlanExecuteTemplate(PlanExecuteWorkflowTemplate):
         for i, collaborator in enumerate(collaborators):
             node_name = f"collaborator_{i}"
             base_config.nodes[node_name] = NodeConfig(
-                type="agent_node",
+                name=node_name,
+                function_name="agent_node",
                 config={
                     "agent_config": {
                         "agent_type": collaborator.get("agent_type", "react"),

@@ -11,7 +11,7 @@ from typing import List, Dict, Any
 from src.application.workflow.builder import WorkflowBuilder
 from src.domain.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
 from src.application.workflow.registry import NodeRegistry, BaseNode, NodeExecutionResult
-from src.domain.prompts.agent_state import AgentState
+from src.application.workflow.state import AgentState
 
 
 class MockNode(BaseNode):

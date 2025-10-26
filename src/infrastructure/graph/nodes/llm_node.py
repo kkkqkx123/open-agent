@@ -7,16 +7,11 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
 from ..registry import BaseNode, NodeExecutionResult, node
-from src.domain.agent.state import AgentState, AgentMessage as BaseMessage
+from src.domain.agent.state import AgentState, AgentMessage
 from src.infrastructure.llm.interfaces import ILLMClient
 
 
-@dataclass
-class SimpleAIMessage(BaseMessage):
-    """简单的AI消息类，用于在没有LangChain时的后备实现"""
-    def __init__(self, content: str):
-        self.content = content
-        self.type = "ai"
+# SimpleAIMessage removed - using AgentMessage directly
 
 
 @node("llm_node")
@@ -66,32 +61,26 @@ class LLMNode(BaseNode):
         try:
             from langchain_core.messages import BaseMessage as LangChainBaseMessage
             if isinstance(response.message, LangChainBaseMessage):
-                # 如果是langchain消息，需要转换为domain层的BaseMessage
-                from src.domain.prompts.agent_state import BaseMessage as DomainBaseMessage, MessageRole
-                # 创建一个兼容的BaseMessage对象
+                # 如果是langchain消息，需要转换为AgentMessage
                 if hasattr(response.message, 'content'):
-                    compatible_message = DomainBaseMessage(
+                    compatible_message = AgentMessage(
                         content=str(response.message.content),
-                        role=MessageRole.AI,
-                        type=getattr(response.message, 'type', 'ai')
+                        role='ai'
                     )
                 else:
-                    compatible_message = DomainBaseMessage(
+                    compatible_message = AgentMessage(
                         content=response.content,
-                        role=MessageRole.AI,
-                        type='ai'
+                        role='ai'
                     )
             else:
                 compatible_message = response.message
         except ImportError:
             # 如果无法导入langchain，使用LLMResponse的message属性
-            from src.domain.prompts.agent_state import BaseMessage as DomainBaseMessage, MessageRole
-            compatible_message = DomainBaseMessage(
+            compatible_message = AgentMessage(
                 content=response.content,
-                role=MessageRole.AI,
-                type='ai'
+                role='ai'
             )
-        
+
         state.add_message(compatible_message)
         
         # 确定下一步
@@ -232,7 +221,7 @@ class LLMNode(BaseNode):
                     # 简单的模拟响应
                     content = "这是一个LLM节点的模拟响应"
                     # 为避免类型检查错误，我们直接创建一个兼容BaseMessage的对象
-                    message = SimpleAIMessage(content=content)
+                    message = AgentMessage(content=content, role='ai')
                     # 使用setattr来确保对象兼容LLMResponse期望的类型
                     return LLMResponse(
                         content=content,

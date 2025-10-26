@@ -11,7 +11,7 @@ from src.domain.prompts.registry import PromptRegistry
 from src.domain.prompts.loader import PromptLoader
 from src.domain.prompts.injector import PromptInjector
 from src.domain.prompts.models import PromptConfig
-from src.domain.prompts.agent_state import AgentState
+from src.application.workflow.state import AgentState
 from src.domain.prompts.langgraph_integration import create_simple_workflow
 
 
