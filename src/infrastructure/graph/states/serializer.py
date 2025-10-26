@@ -172,7 +172,7 @@ class StateSerializer:
         """
         start_time = time.time()
         
-        # 计算状态哈希
+        # 计算状态哈希（基于原始状态，不包含时间戳）
         state_hash = self._calculate_state_hash(state)
         
         # 检查缓存
@@ -180,11 +180,25 @@ class StateSerializer:
             cached_result = self._get_from_cache(state_hash)
             if cached_result:
                 self._stats["cache_hits"] += 1
-                return cached_result
+                # 如果启用元数据，我们需要重新添加元数据
+                if include_metadata:
+                    # 从缓存中获取的数据已经包含了元数据
+                    return cached_result
+                else:
+                    # 如果不包含元数据，需要序列化原始状态但不包含元数据
+                    serialized_data = self._prepare_state_for_serialization(
+                        state, include_metadata=False
+                    )
+                    if format == self.FORMAT_JSON:
+                        return json.dumps(serialized_data, ensure_ascii=False, indent=2, default=str)
+                    elif format == self.FORMAT_COMPACT_JSON:
+                        return json.dumps(serialized_data, ensure_ascii=False, separators=(',', ':'))
+                    elif format == self.FORMAT_PICKLE:
+                        return pickle.dumps(serialized_data)
         
         self._stats["cache_misses"] += 1
         
-        # 准备序列化数据
+        # 准备序列化数据（会处理所有嵌套的消息对象）
         serialized_data = self._prepare_state_for_serialization(
             state, include_metadata
         )
@@ -282,10 +296,14 @@ class StateSerializer:
         # 计算差异
         diff = self._compute_state_diff(old_state, new_state)
         
+        # 序列化差异（先处理消息对象）
+        added_serialized = self._prepare_state_for_serialization(diff.added, include_metadata=False)
+        modified_serialized = self._prepare_state_for_serialization(diff.modified, include_metadata=False)
+        
         # 序列化差异
         diff_dict = {
-            "added": diff.added,
-            "modified": diff.modified,
+            "added": added_serialized,
+            "modified": modified_serialized,
             "removed": list(diff.removed),  # 转换set为list
             "timestamp": diff.timestamp
         }
@@ -350,27 +368,44 @@ class StateSerializer:
         Returns:
             优化后的状态
         """
-        optimized = state.copy()
+        # 使用准备用于序列化的方法，这会处理消息对象
+        prepared_state = self._prepare_state_for_serialization(state, include_metadata=False)
+        
+        optimized = prepared_state.copy()
         
         # 移除空的可累加字段
         additive_fields = ["messages", "tool_calls", "tool_results", "errors", "steps", "step_results"]
+        fields_to_remove = []
         for field in additive_fields:
             if field in optimized and not optimized[field]:
-                del optimized[field]
+                fields_to_remove.append(field)
+        
+        for field in fields_to_remove:
+            del optimized[field]
+        
+        # 移除空列表
+        empty_list_fields = [key for key, value in optimized.items()
+                            if isinstance(value, list) and len(value) == 0]
+        for field in empty_list_fields:
+            del optimized[field]
         
         # 移除None值
         none_fields = [key for key, value in optimized.items() if value is None]
         for field in none_fields:
             del optimized[field]
         
-        # 压缩大消息列表
+        # 压缩大消息列表（此时消息已经序列化为字典）
         if "messages" in optimized and len(optimized["messages"]) > 100:
-            optimized["messages"] = self._compress_messages(optimized["messages"])
+            optimized["messages"] = optimized["messages"][-50:]  # 保留最近50条
         
         # 压缩大图状态
         if "graph_states" in optimized and len(optimized["graph_states"]) > 50:
-            optimized["graph_states"] = self._compress_graph_states(optimized["graph_states"])
+            # 对图状态进行采样
+            graph_state_items = list(optimized["graph_states"].items())
+            sampled_items = graph_state_items[-25:]  # 保留最近25个
+            optimized["graph_states"] = {k: v for k, v in sampled_items}
         
+        return optimized
         return optimized
     
     def get_performance_stats(self) -> Dict[str, Any]:
@@ -419,7 +454,9 @@ class StateSerializer:
         """
         # 使用稳定的序列化格式计算哈希
         try:
-            serialized = json.dumps(state, sort_keys=True, separators=(',', ':'), default=str)
+            # 准备状态用于序列化（会处理消息对象）
+            prepared_state = self._prepare_state_for_serialization(state, include_metadata=False)
+            serialized = json.dumps(prepared_state, sort_keys=True, separators=(',', ':'), default=str)
             return hashlib.md5(serialized.encode()).hexdigest()
         except (TypeError, ValueError):
             # 如果序列化失败，使用字符串表示
@@ -440,13 +477,11 @@ class StateSerializer:
         Returns:
             准备好的序列化数据
         """
-        serialized = state.copy()
+        serialized = {}
         
-        # 序列化消息列表（使用缓存）
-        if "messages" in serialized:
-            serialized["messages"] = self._serialize_messages_cached(
-                serialized["messages"]
-            )
+        # 递归处理状态中的所有字段
+        for key, value in state.items():
+            serialized[key] = self._process_value_for_serialization(value)
         
         # 处理日期时间对象
         datetime_fields = ["start_time", "end_time"]
@@ -454,15 +489,6 @@ class StateSerializer:
             if field in serialized and serialized[field] is not None:
                 if isinstance(serialized[field], datetime):
                     serialized[field] = serialized[field].isoformat()
-        
-        # 处理图状态字典
-        if "graph_states" in serialized:
-            graph_states = {}
-            for graph_id, graph_state in serialized["graph_states"].items():
-                graph_states[graph_id] = self._prepare_state_for_serialization(
-                    graph_state, include_metadata
-                )
-            serialized["graph_states"] = graph_states
         
         # 添加序列化元数据
         if include_metadata:
@@ -473,6 +499,31 @@ class StateSerializer:
             }
         
         return serialized
+    
+    def _process_value_for_serialization(self, value: Any) -> Any:
+        """递归处理值以用于序列化
+        
+        Args:
+            value: 要处理的值
+            
+        Returns:
+            处理后的值
+        """
+        if isinstance(value, list):
+            # 处理列表
+            return [self._process_value_for_serialization(item) for item in value]
+        elif isinstance(value, dict):
+            # 处理字典
+            processed_dict = {}
+            for k, v in value.items():
+                processed_dict[k] = self._process_value_for_serialization(v)
+            return processed_dict
+        elif hasattr(value, 'content') and hasattr(value, 'type'):
+            # 处理消息对象
+            return self.serialize_message(value)
+        else:
+            # 其他值保持不变
+            return value
     
     def _serialize_messages_cached(self, messages: List[BaseMessage]) -> List[Dict[str, Any]]:
         """序列化消息列表（带缓存）
@@ -579,7 +630,7 @@ class StateSerializer:
         for key, new_value in new_state.items():
             if key not in old_state:
                 added[key] = new_value
-            elif old_state[key] != new_value:
+            elif self._deep_equal(old_state[key], new_value) is False:
                 # 对于大列表，只记录差异部分
                 if isinstance(new_value, list) and len(new_value) > 100:
                     old_list = old_state[key]
@@ -604,6 +655,42 @@ class StateSerializer:
             removed=removed,
             timestamp=time.time()
         )
+    
+    def _deep_equal(self, obj1: Any, obj2: Any) -> bool:
+        """深度比较两个对象是否相等，特别处理消息对象
+        
+        Args:
+            obj1: 对象1
+            obj2: 对象2
+            
+        Returns:
+            是否相等
+        """
+        if type(obj1) != type(obj2):
+            return False
+        
+        if isinstance(obj1, (str, int, float, bool, type(None))):
+            return obj1 == obj2
+        
+        if isinstance(obj1, (list, tuple)):
+            if len(obj1) != len(obj2):
+                return False
+            return all(self._deep_equal(a, b) for a, b in zip(obj1, obj2))
+        
+        if isinstance(obj1, dict):
+            if set(obj1.keys()) != set(obj2.keys()):
+                return False
+            return all(self._deep_equal(obj1[key], obj2[key]) for key in obj1.keys())
+        
+        # 处理消息对象
+        if hasattr(obj1, '__dict__') and hasattr(obj2, '__dict__'):
+            # 如果是消息对象，比较其属性
+            if hasattr(obj1, 'content') and hasattr(obj2, 'content'):
+                return obj1.content == obj2.content and obj1.type == obj2.type
+            # 对于其他自定义对象，比较其字典表示
+            return self._deep_equal(obj1.__dict__, obj2.__dict__)
+        
+        return obj1 == obj2
     
     def _apply_state_diff(
         self,

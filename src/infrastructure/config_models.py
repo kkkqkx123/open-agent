@@ -4,9 +4,11 @@
 """
 
 from typing import Dict, Any, List, Optional, Union
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
+from pydantic.config import ConfigDict
 from pathlib import Path
 from enum import Enum
+import yaml
 
 
 class ConfigType(str, Enum):
@@ -64,13 +66,13 @@ class BaseConfigModel(BaseModel):
     # 自定义字段
     additional_config: Dict[str, Any] = Field(default_factory=dict, description="额外配置")
     
-    class Config:
-        """Pydantic配置"""
-        extra = "allow"  # 允许额外字段
-        validate_assignment = True  # 赋值时验证
-        use_enum_values = True  # 使用枚举值
+    model_config = ConfigDict(
+        extra="allow",  # 允许额外字段
+        validate_assignment=True,  # 赋值时验证
+        use_enum_values=True  # 使用枚举值
+    )
     
-    @validator('metadata', pre=True)
+    @field_validator('metadata', mode='before')
     def validate_metadata(cls, v):
         """验证元数据"""
         if isinstance(v, dict):
@@ -226,14 +228,14 @@ class WorkflowConfigModel(BaseConfigModel):
     interrupt_before: List[str] = Field(default_factory=list, description="中断前节点")
     interrupt_after: List[str] = Field(default_factory=list, description="中断后节点")
     
-    @validator('max_iterations')
+    @field_validator('max_iterations')
     def validate_max_iterations(cls, v):
         """验证最大迭代次数"""
         if v <= 0:
             raise ValueError("最大迭代次数必须大于0")
         return v
     
-    @validator('timeout')
+    @field_validator('timeout')
     def validate_timeout(cls, v):
         """验证超时时间"""
         if v <= 0:

@@ -234,7 +234,7 @@ class DependencyContainer(IDependencyContainer):
             # 设置服务状态
             self._service_status[interface] = ServiceStatus.REGISTERED
             
-            logger.debug(f"注册服务: {interface.__name__} -> {implementation.__name__}")
+            logger.debug(f"注册服务: {interface.__name__ if hasattr(interface, '__name__') else str(interface)} -> {implementation.__name__ if hasattr(implementation, '__name__') else str(implementation)}")
     
     def register_factory(
         self,
@@ -264,7 +264,7 @@ class DependencyContainer(IDependencyContainer):
             # 设置服务状态
             self._service_status[interface] = ServiceStatus.REGISTERED
             
-            logger.debug(f"注册工厂服务: {interface.__name__}")
+            logger.debug(f"注册工厂服务: {interface.__name__ if hasattr(interface, '__name__') else str(interface)}")
     
     def register_instance(
         self,
