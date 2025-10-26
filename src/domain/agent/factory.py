@@ -15,7 +15,7 @@ from .base import BaseAgent
 from ..state.interfaces import IStateManager
 from ...application.workflow.state import WorkflowState
 from ...infrastructure.llm.interfaces import ILLMClient
-from ...infrastructure.tools.interfaces import IToolExecutor
+from ..tools.interfaces import IToolExecutor
 from .events import AgentEventManager
 
 logger = logging.getLogger(__name__)
@@ -208,7 +208,7 @@ class AgentFactory(IAgentFactory):
         try:
             # 从LLM工厂获取客户端
             llm_config = {"model_name": llm_name}
-            return self.llm_factory.create_client(llm_config)
+            return cast(ILLMClient, self.llm_factory.create_client(llm_config))
         except Exception as e:
             raise ValueError(f"获取LLM客户端失败 ({llm_name}): {e}")
     

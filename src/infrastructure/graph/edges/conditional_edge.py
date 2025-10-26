@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, Callable, List
 from dataclasses import dataclass
 from enum import Enum
 
-from src.application.workflow.config import EdgeConfig
+from ..config import EdgeConfig
 from src.domain.prompts.agent_state import AgentState
 
 
@@ -73,7 +73,7 @@ class ConditionalEdge:
         Returns:
             EdgeConfig: 边配置
         """
-        from src.application.workflow.config import EdgeType
+        from ..config import EdgeType
         return EdgeConfig(
             from_node=self.from_node,
             to_node=self.to_node,

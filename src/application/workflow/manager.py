@@ -9,10 +9,10 @@ from pathlib import Path
 import uuid
 from datetime import datetime
 
-from src.application.workflow.config import WorkflowConfig
-from .builder import WorkflowBuilder
-from .registry import NodeRegistry, get_global_registry
-from src.application.workflow.state import WorkflowState
+from src.infrastructure.graph.config import WorkflowConfig
+from src.infrastructure.graph.builder import WorkflowBuilder
+from src.infrastructure.graph.registry import NodeRegistry, get_global_registry
+from src.infrastructure.graph.state import WorkflowState
 from src.infrastructure.config_loader import IConfigLoader
 
 
