@@ -171,7 +171,19 @@ class LLMConfig(BaseConfig):
 
     def get_parameter(self, key: str, default: Any = None) -> Any:
         """获取参数值"""
-        return self.parameters.get(key, default)
+        # 首先从parameters中获取
+        if key in self.parameters:
+            return self.parameters[key]
+        
+        # 如果是timeout参数，从timeout_config中获取
+        if key == "timeout" and hasattr(self.timeout_config, 'request_timeout'):
+            return self.timeout_config.request_timeout
+        
+        # 如果是max_retries参数，从retry_config中获取
+        if key == "max_retries" and hasattr(self.retry_config, 'max_retries'):
+            return self.retry_config.max_retries
+            
+        return default
 
     def set_parameter(self, key: str, value: Any) -> None:
         """设置参数值"""

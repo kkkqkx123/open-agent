@@ -5,8 +5,8 @@ import tempfile
 import os
 from unittest.mock import Mock, patch
 
-from src.logger.logger import Logger, LogLevel, get_logger, set_global_config
-from src.logger.redactor import LogRedactor
+from src.infrastructure.logger.logger import Logger, LogLevel, get_logger, set_global_config
+from src.infrastructure.logger.redactor import LogRedactor
 from src.infrastructure.config.models.global_config import GlobalConfig, LogOutputConfig
 
 

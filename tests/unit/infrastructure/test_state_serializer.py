@@ -123,7 +123,7 @@ class TestStateSerializer:
         deserialized = self.serializer.deserialize_message(serialized)
         assert isinstance(deserialized, ToolMessage)
         assert deserialized.content == "Tool result"
-        assert deserialized.tool_call_id == "call_123"
+        assert deserialized.tool_call_id == "call_123"  # type: ignore
     
     def test_state_diff_serialization(self):
         """测试状态差异序列化"""

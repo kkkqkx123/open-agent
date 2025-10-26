@@ -151,7 +151,7 @@ class TestMockLLMClient:
 
         # 收集流式输出
         chunks = []
-        stream = await client.stream_generate_async(messages)
+        stream = client.stream_generate_async(messages)
         async for chunk in stream:
             chunks.append(chunk)
 

@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.logger.error_handler import (
+from src.infrastructure.logger.error_handler import (
     ErrorType,
     ErrorContext,
     GlobalErrorHandler,

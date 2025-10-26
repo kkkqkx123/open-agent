@@ -2,8 +2,10 @@
 
 import time
 import logging
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List, Tuple, Sequence
 from datetime import datetime
+
+from langchain_core.messages import BaseMessage
 
 from .interfaces import ILLMCallHook
 from .models import LLMResponse, LLMError
@@ -52,7 +54,7 @@ class LoggingHook(ILLMCallHook):
 
     def before_call(
         self,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -68,7 +70,7 @@ class LoggingHook(ILLMCallHook):
     def after_call(
         self,
         response: Optional[LLMResponse],
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -84,7 +86,7 @@ class LoggingHook(ILLMCallHook):
     def on_error(
         self,
         error: Exception,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Optional[LLMResponse]:
@@ -102,7 +104,7 @@ class LoggingHook(ILLMCallHook):
 
     def _log_structured_request(
         self,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -138,7 +140,7 @@ class LoggingHook(ILLMCallHook):
     def _log_structured_response(
         self,
         response: LLMResponse,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -180,7 +182,7 @@ class LoggingHook(ILLMCallHook):
     def _log_structured_error(
         self,
         error: Exception,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -217,7 +219,7 @@ class LoggingHook(ILLMCallHook):
 
     def _log_simple_request(
         self,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -232,7 +234,7 @@ class LoggingHook(ILLMCallHook):
     def _log_simple_response(
         self,
         response: LLMResponse,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -250,7 +252,7 @@ class LoggingHook(ILLMCallHook):
     def _log_simple_error(
         self,
         error: Exception,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -360,7 +362,7 @@ class MetricsHook(ILLMCallHook):
 
     def before_call(
         self,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -372,7 +374,7 @@ class MetricsHook(ILLMCallHook):
     def after_call(
         self,
         response: Optional[LLMResponse],
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -415,7 +417,7 @@ class MetricsHook(ILLMCallHook):
     def on_error(
         self,
         error: Exception,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Optional[LLMResponse]:
@@ -539,7 +541,7 @@ class MetricsHook(ILLMCallHook):
     def _add_to_history(
         self,
         response: LLMResponse,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -563,7 +565,7 @@ class MetricsHook(ILLMCallHook):
     def _add_error_to_history(
         self,
         error: Exception,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -779,7 +781,7 @@ class FallbackHook(ILLMCallHook):
 
     def before_call(
         self,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -796,7 +798,7 @@ class FallbackHook(ILLMCallHook):
     def after_call(
         self,
         response: Optional[LLMResponse],
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -807,7 +809,7 @@ class FallbackHook(ILLMCallHook):
     def on_error(
         self,
         error: Exception,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Optional[LLMResponse]:
@@ -951,7 +953,7 @@ class SmartRetryHook(ILLMCallHook):
 
     def before_call(
         self,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -967,7 +969,7 @@ class SmartRetryHook(ILLMCallHook):
     def after_call(
         self,
         response: Optional[LLMResponse],
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -982,7 +984,7 @@ class SmartRetryHook(ILLMCallHook):
     def on_error(
         self,
         error: Exception,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Optional[LLMResponse]:
@@ -1174,7 +1176,7 @@ class CompositeHook(ILLMCallHook):
 
     def before_call(
         self,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -1188,7 +1190,7 @@ class CompositeHook(ILLMCallHook):
     def after_call(
         self,
         response: Optional[LLMResponse],
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -1202,7 +1204,7 @@ class CompositeHook(ILLMCallHook):
     def on_error(
         self,
         error: Exception,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Optional[LLMResponse]:

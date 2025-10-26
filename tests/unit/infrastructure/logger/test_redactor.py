@@ -1,9 +1,8 @@
 """日志脱敏器单元测试"""
 
-import pytest
 
-from src.logger.redactor import LogRedactor, CustomLogRedactor
-from src.logger.logger import LogLevel
+from infrastructure.logger.redactor import CustomLogRedactor, LogRedactor
+from src.infrastructure.logger.logger import LogLevel
 
 
 class TestLogRedactor:

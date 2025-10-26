@@ -517,6 +517,7 @@ class ConfigSystem(IConfigSystem):
         Returns:
             合并后的配置
         """
+        
         # 从common配置中提取默认参数
         default_parameters = common_config.get("default_parameters", {})
         cache_config = common_config.get("cache_config", {})

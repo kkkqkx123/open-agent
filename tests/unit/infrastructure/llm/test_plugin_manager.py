@@ -59,7 +59,7 @@ class TestPluginManager:
         # 获取插件
         retrieved_plugin = manager.get_plugin("test_plugin")
         assert retrieved_plugin is plugin
-        assert retrieved_plugin.name == "test_plugin"
+        assert retrieved_plugin.name == "test_plugin"  # type: ignore[union-attr]
     
     @pytest.mark.asyncio
     async def test_unregister_plugin(self):

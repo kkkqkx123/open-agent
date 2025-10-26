@@ -352,7 +352,7 @@ class TestOptimizedStateManager:
         """测试大状态处理"""
         # 创建大状态
         large_state = {
-            "messages": [HumanMessage(content=f"Message {i}") for in range(200)],
+            "messages": [HumanMessage(content=f"Message {i}") for i in range(200)],
             "data_array": list(range(100)),
             "nested": {
                 "level1": {
@@ -370,7 +370,7 @@ class TestOptimizedStateManager:
         
         # 验证状态被正确处理
         assert len(result["messages"]) == 200
-        assert len(result["data_array"]) == 1000
+        assert len(result["data_array"]) == 100
         assert result["nested"]["level1"]["level2"]["data"] == "deep_value"
 
 

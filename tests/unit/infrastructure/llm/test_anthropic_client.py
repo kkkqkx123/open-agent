@@ -47,23 +47,23 @@ class TestAnthropicClient:
     @pytest.fixture
     def client(self, config):
         """创建客户端实例"""
-        with patch("src.llm.clients.anthropic_client.ChatAnthropic"):
+        with patch("src.infrastructure.llm.clients.anthropic.ChatAnthropic"):
             return AnthropicClient(config)
 
     def test_init(self, config):
         """测试初始化"""
-        with patch("src.llm.clients.anthropic_client.ChatAnthropic") as mock_chat:
+        with patch("src.infrastructure.llm.clients.anthropic.ChatAnthropic") as mock_chat:
             client = AnthropicClient(config)
 
             # 验证ChatAnthropic被正确调用
             mock_chat.assert_called_once_with(
-                model=config.model_name,
+                model_name=config.model_name,
                 api_key=config.api_key,
                 temperature=config.temperature,
                 timeout=config.timeout,
                 max_retries=config.max_retries,
-                default_headers={"x-api-key": "test-api-key"},
-                model_kwargs={"max_tokens": 1000, "top_p": 1.0},
+                max_tokens=1000,
+                top_p=1.0,
             )
 
     def test_convert_messages(self, client):

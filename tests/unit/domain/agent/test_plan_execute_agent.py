@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, AsyncMock
 from src.domain.agent import PlanExecuteAgent, AgentConfig
-from src.application.workflow.state import AgentState
+from src.domain.agent.state import AgentState
 from src.domain.tools.base import ToolResult
 
 
@@ -34,8 +34,7 @@ class TestPlanExecuteAgent:
         """测试执行包含计划生成的场景"""
         # 准备输入状态
         input_state = AgentState(
-            current_task="Write a short story about a robot learning to paint",
-            memory=[]
+            current_task="Write a short story about a robot learning to paint"
         )
         
         # 模拟LLM响应 - 计划生成
@@ -65,7 +64,6 @@ Plan:
         # 准备输入状态，包含已有计划
         input_state = AgentState(
             current_task="Write a short story about a robot learning to paint",
-            memory=[],
             context={
                 "current_plan": [
                     "Think about the theme of the story",
@@ -93,7 +91,6 @@ Plan:
         # 准备输入状态
         input_state = AgentState(
             current_task="Calculate the area of a circle with radius 5",
-            memory=[],
             context={
                 "current_plan": [
                     "Use calculator to compute π * r^2 where r = 5",
@@ -133,7 +130,6 @@ Plan:
         # 准备输入状态，已经是最后一个步骤
         input_state = AgentState(
             current_task="Summarize the findings",
-            memory=[],
             context={
                 "current_plan": [
                     "Summarize the findings"

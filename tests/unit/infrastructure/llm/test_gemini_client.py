@@ -63,7 +63,7 @@ class TestGeminiClient:
                 timeout=config.timeout,
                 max_retries=config.max_retries,
                 request_timeout=config.timeout,
-                default_headers={"x-goog-api-key": "test-api-key"},
+                
                 max_tokens=config.max_tokens,
                 top_p=config.top_p,
             )

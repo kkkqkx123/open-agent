@@ -6,13 +6,14 @@ from typing import Dict, Any
 import pytest
 
 try:
-    from langgraph.graph import StateGraph
+    from langgraph.graph import StateGraph  # type: ignore
 except ImportError:
     # 模拟StateGraph用于测试
-    class StateGraph:
-        def __init__(self):
+    class StateGraph:  # type: ignore
+        def __init__(self, state_schema=None):
             self.nodes = []
             self.edges = []
+            self.state_schema = state_schema
 
 # 导入我们自己的类
 from src.infrastructure.graph.graph_cache import GraphCache, CacheEvictionPolicy, calculate_config_hash
@@ -68,7 +69,7 @@ class TestGraphCache:
     def test_ttl_eviction(self):
         """测试TTL过期淘汰"""
         # 设置一个很短的TTL
-        short_ttl_cache = GraphCache(max_size=10, ttl_seconds=0.1)
+        short_ttl_cache = GraphCache(max_size=10, ttl_seconds=1)
         
         # 缓存图
         short_ttl_cache.cache_graph(self.config_hash, self.test_graph)
@@ -78,7 +79,7 @@ class TestGraphCache:
         assert result is not None
         
         # 等待超过TTL时间
-        time.sleep(0.2)
+        time.sleep(2)
         
         # 再次获取应该失败（已过期）
         result = short_ttl_cache.get_graph(self.config_hash)
@@ -192,10 +193,10 @@ class TestGraphCache:
         config1 = calculate_config_hash({"graph": "test_1"})
         config2 = calculate_config_hash({"graph": "test_2"})
         config3 = calculate_config_hash({"graph": "other_3"})
-        
+
         self.cache.cache_graph(config1, StateGraph())
-        self.cache_graph(config2, StateGraph())
-        self.cache_graph(config3, StateGraph())
+        self.cache.cache_graph(config2, StateGraph())
+        self.cache.cache_graph(config3, StateGraph())
         
         # 验证所有图都存在
         assert self.cache.get_graph(config1) is not None
@@ -215,15 +216,15 @@ class TestGraphCache:
     def test_clear_cache(self):
         """测试清除缓存"""
         # 缓存一些图
-        self.cache_graph(self.config_hash, self.test_graph)
-        
+        self.cache.cache_graph(self.config_hash, self.test_graph)
+
         # 验证缓存中有内容
         stats_before = self.cache.get_cache_stats()
         assert stats_before["size"] > 0
-        
+
         # 清除缓存
         self.cache.clear()
-        
+
         # 验证缓存被清空
         stats_after = self.cache.get_cache_stats()
         assert stats_after["size"] == 0
@@ -231,11 +232,11 @@ class TestGraphCache:
     def test_cache_entries_info(self):
         """测试缓存条目信息"""
         # 缓存一个图
-        self.cache_graph(self.config_hash, self.test_graph)
-        
+        self.cache.cache_graph(self.config_hash, self.test_graph)
+
         # 获取缓存条目信息
         entries = self.cache.get_cache_entries()
-        
+
         assert len(entries) == 1
         entry = entries[0]
         assert entry["config_hash"] == self.config_hash
@@ -247,13 +248,13 @@ class TestGraphCache:
     def test_optimize_cache(self):
         """测试缓存优化"""
         # 创建一个短TTL的缓存
-        short_ttl_cache = GraphCache(max_size=10, ttl_seconds=0.1)
+        short_ttl_cache = GraphCache(max_size=10, ttl_seconds=1)
         
         # 缓存一个图
         short_ttl_cache.cache_graph(self.config_hash, self.test_graph)
         
         # 等待过期
-        time.sleep(0.2)
+        time.sleep(2)
         
         # 优化缓存（应该移除过期条目）
         optimization_result = short_ttl_cache.optimize_cache()

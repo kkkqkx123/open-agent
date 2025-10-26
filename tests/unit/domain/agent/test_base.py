@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, AsyncMock
 from src.domain.agent import BaseAgent, AgentConfig
-from src.application.workflow.state import AgentState
+from src.domain.agent.state import AgentState
 from src.domain.tools.base import ToolResult
 
 

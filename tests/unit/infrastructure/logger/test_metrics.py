@@ -5,7 +5,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from src.logger.metrics import (
+from src.infrastructure.logger.metrics import (
     LLMMetric,
     ToolMetric,
     SessionMetric,

@@ -41,7 +41,7 @@ class MemoryCheckpointAdapter:
         Returns:
             Dict[str, Any]: LangGraph配置
         """
-        config = {"configurable": {"thread_id": session_id}}
+        config = {"configurable": {"thread_id": session_id, "checkpoint_ns": ""}}
         if checkpoint_id:
             config["configurable"]["checkpoint_id"] = checkpoint_id
         return config
@@ -130,7 +130,13 @@ class MemoryCheckpointAdapter:
             Optional[Tuple[Dict[str, Any], Dict[str, Any]]]: checkpoint和元数据
         """
         try:
-            return self.checkpointer.get(config)  # type: ignore
+            result = self.checkpointer.get(config)  # type: ignore
+            if result:
+                # LangGraph的get方法返回的是字典，我们需要转换为元组格式
+                # 将Checkpoint对象转换为字典
+                checkpoint_dict = dict(result) if hasattr(result, '__dict__') else result
+                return (checkpoint_dict, {})  # type: ignore
+            return None
         except Exception as e:
             logger.error(f"获取checkpoint失败: {e}")
             return None
@@ -146,7 +152,12 @@ class MemoryCheckpointAdapter:
             List[Tuple[Dict[str, Any], Dict[str, Any]]]: checkpoint列表
         """
         try:
-            return list(self.checkpointer.list(config, limit=limit))  # type: ignore
+            checkpoint_tuples = list(self.checkpointer.list(config, limit=limit))  # type: ignore
+            result = []
+            for checkpoint_tuple in checkpoint_tuples:
+                # CheckpointTuple有config, checkpoint, metadata等属性
+                result.append((checkpoint_tuple.checkpoint, checkpoint_tuple.metadata))
+            return result
         except Exception as e:
             logger.error(f"列出checkpoint失败: {e}")
             return []
@@ -161,8 +172,12 @@ class MemoryCheckpointAdapter:
             bool: 是否删除成功
         """
         try:
-            self.checkpointer.delete(config)  # type: ignore
-            return True
+            # LangGraph的InMemorySaver使用delete_thread方法，只需要thread_id
+            thread_id = config.get("configurable", {}).get("thread_id")
+            if thread_id:
+                self.checkpointer.delete_thread(thread_id)  # type: ignore
+                return True
+            return False
         except Exception as e:
             logger.error(f"删除checkpoint失败: {e}")
             return False
@@ -203,6 +218,9 @@ class MemoryCheckpointStore(ICheckpointStore):
             state = checkpoint_data['state_data']
             metadata = checkpoint_data.get('metadata', {})
             
+            # 将workflow_id添加到metadata中，因为LangGraph的channel_values在获取时为空
+            metadata['workflow_id'] = workflow_id
+            
             # 创建LangGraph配置
             config = self._adapter._create_langgraph_config(session_id)
             
@@ -242,14 +260,29 @@ class MemoryCheckpointStore(ICheckpointStore):
         """
         try:
             config = self._adapter._create_langgraph_config(session_id, checkpoint_id)
-            result = self._adapter.get(config)
             
-            if result:
-                checkpoint, metadata = result
+            # 使用list方法获取checkpoint，因为get方法的channel_values为空
+            checkpoints = self._adapter.list(config)
+            
+            if checkpoints:
+                # 获取最新的checkpoint（第一个）
+                checkpoint, metadata = checkpoints[0]
+                
+                # 如果指定了checkpoint_id，找到匹配的checkpoint
+                if checkpoint_id:
+                    for cp, meta in checkpoints:
+                        if cp.get('id') == checkpoint_id:
+                            checkpoint, metadata = cp, meta
+                            break
+                
+                # 从metadata中获取workflow_id，因为LangGraph的channel_values为空
+                # 我们在保存时将workflow_id放在metadata中
+                workflow_id = metadata.get('workflow_id')
+                
                 return {
                     'id': checkpoint.get('id'),
                     'session_id': session_id,
-                    'workflow_id': checkpoint.get('channel_values', {}).get('workflow_id'),
+                    'workflow_id': workflow_id,
                     'state_data': self._adapter._extract_state_from_checkpoint(checkpoint),
                     'metadata': metadata,
                     'created_at': checkpoint.get('ts'),
@@ -275,15 +308,20 @@ class MemoryCheckpointStore(ICheckpointStore):
             
             result = []
             for checkpoint, metadata in checkpoints:
+                # 从metadata中获取workflow_id
+                workflow_id = metadata.get('workflow_id')
                 result.append({
                     'id': checkpoint.get('id'),
                     'session_id': session_id,
-                    'workflow_id': checkpoint.get('channel_values', {}).get('workflow_id'),
+                    'workflow_id': workflow_id,
                     'state_data': self._adapter._extract_state_from_checkpoint(checkpoint),
                     'metadata': metadata,
                     'created_at': checkpoint.get('ts'),
                     'updated_at': checkpoint.get('ts')
                 })
+            
+            # 按创建时间倒序排列
+            result.sort(key=lambda x: x.get('created_at', ''), reverse=True)
             return result
         except Exception as e:
             logger.error(f"列出checkpoint失败: {e}")
@@ -314,8 +352,36 @@ class MemoryCheckpointStore(ICheckpointStore):
             bool: 是否删除成功
         """
         try:
-            config = self._adapter._create_langgraph_config(session_id, checkpoint_id)
-            return self._adapter.delete(config)
+            if checkpoint_id:
+                # LangGraph的InMemorySaver不支持删除单个checkpoint
+                # 我们通过重新保存除要删除的checkpoint之外的所有checkpoint来模拟
+                checkpoints = await self.list_by_session(session_id)
+                
+                # 找到要保留的checkpoint（除要删除的之外）
+                checkpoints_to_keep = []
+                for checkpoint in checkpoints:
+                    if checkpoint['id'] != checkpoint_id:
+                        # 重新构造checkpoint数据
+                        checkpoint_data = {
+                            'session_id': session_id,
+                            'workflow_id': checkpoint['workflow_id'],
+                            'state_data': checkpoint['state_data'],
+                            'metadata': checkpoint['metadata']
+                        }
+                        checkpoints_to_keep.append(checkpoint_data)
+                
+                # 删除整个会话
+                await self.delete_by_session(session_id)
+                
+                # 重新保存需要保留的checkpoint
+                for checkpoint_data in checkpoints_to_keep:
+                    await self.save(checkpoint_data)
+                
+                return True
+            else:
+                # 删除整个会话的所有checkpoint
+                config = self._adapter._create_langgraph_config(session_id)
+                return self._adapter.delete(config)
         except Exception as e:
             logger.error(f"删除checkpoint失败: {e}")
             return False
@@ -347,15 +413,31 @@ class MemoryCheckpointStore(ICheckpointStore):
             if len(checkpoints) <= max_count:
                 return 0
             
-            # 删除超出数量的旧checkpoint
-            checkpoints_to_delete = checkpoints[max_count:]
-            deleted_count = 0
+            # 由于LangGraph的InMemorySaver不支持删除单个checkpoint，
+            # 我们需要重新实现这个方法
+            # 保存需要保留的checkpoint
+            checkpoints_to_keep = checkpoints[:max_count]
             
-            for checkpoint in checkpoints_to_delete:
-                if await self.delete_by_session(session_id, checkpoint['id']):
-                    deleted_count += 1
+            # 获取需要保留的checkpoint数据
+            checkpoints_data = []
+            for checkpoint in checkpoints_to_keep:
+                # 重新构造checkpoint数据
+                checkpoint_data = {
+                    'session_id': session_id,
+                    'workflow_id': checkpoint['workflow_id'],
+                    'state_data': checkpoint['state_data'],
+                    'metadata': checkpoint['metadata']
+                }
+                checkpoints_data.append(checkpoint_data)
             
-            return deleted_count
+            # 删除整个会话
+            await self.delete_by_session(session_id)
+            
+            # 重新保存需要保留的checkpoint
+            for checkpoint_data in checkpoints_data:
+                await self.save(checkpoint_data)
+            
+            return len(checkpoints) - max_count
         except Exception as e:
             logger.error(f"清理旧checkpoint失败: {e}")
             return 0

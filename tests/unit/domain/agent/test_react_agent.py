@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, AsyncMock
 from src.domain.agent import ReActAgent, AgentConfig
-from src.application.workflow.state import AgentState
+from src.domain.agent.state import AgentState
 from src.domain.tools.base import ToolResult
 
 
@@ -34,8 +34,7 @@ class TestReActAgent:
         """测试执行包含推理和行动的场景"""
         # 准备输入状态
         input_state = AgentState(
-            current_task="Calculate 2+2",
-            memory=[]
+            current_task="Calculate 2+2"
         )
         
         # 模拟LLM响应 - 推理步骤
@@ -68,8 +67,7 @@ class TestReActAgent:
         """测试执行包含最终答案的场景"""
         # 准备输入状态
         input_state = AgentState(
-            current_task="What is 2+2?",
-            memory=[]
+            current_task="What is 2+2?"
         )
         
         # 模拟LLM响应 - 最终答案
@@ -91,8 +89,7 @@ class TestReActAgent:
         """测试执行时工具出错的场景"""
         # 准备输入状态
         input_state = AgentState(
-            current_task="Calculate 2/0",
-            memory=[]
+            current_task="Calculate 2/0"
         )
         
         # 模拟LLM响应

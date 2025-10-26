@@ -13,9 +13,10 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
 
-from infrastructure.graph.states import (
+from src.infrastructure.graph.states import (
     BaseGraphState, AgentState, WorkflowState,
     StateSerializer, create_optimized_state_manager,
+    HumanMessage, AIMessage,
     create_base_state, create_agent_state, create_workflow_state
 )
 
@@ -23,7 +24,7 @@ from infrastructure.graph.states import (
 class TestStateSerializationPerformance:
     """状态序列化性能测试类"""
     
-    def setup_method(self):
+    def setup_method(self) -> None:
         """设置测试方法"""
         # 创建测试数据
         self.test_states = self._create_test_states()
@@ -41,7 +42,7 @@ class TestStateSerializationPerformance:
         for i in range(5):
             # 基础状态
             base_state = create_base_state(
-                messages=[{"content": f"Test message {j}", "type": "human"} for j in range(10 * (i + 1))],
+                messages=[HumanMessage(content=f"Test message {j}") for j in range(10 * (i + 1))],
                 current_step=f"step_{i}"
             )
             
@@ -64,7 +65,7 @@ class TestStateSerializationPerformance:
         
         return states
     
-    def test_serialization_performance_comparison(self):
+    def test_serialization_performance_comparison(self) -> None:
         """测试序列化性能对比"""
         print("\n=== 序列化性能对比测试 ===")
         
@@ -131,7 +132,7 @@ class TestStateSerializationPerformance:
         
         print("✓ 序列化正确性验证通过")
     
-    def test_deserialization_performance(self):
+    def test_deserialization_performance(self) -> None:
         """测试反序列化性能"""
         print("\n=== 反序列化性能测试 ===")
         
@@ -168,7 +169,7 @@ class TestStateSerializationPerformance:
             improvement = (basic_avg - enhanced_avg) / basic_avg * 100
             print(f"反序列化性能提升: {improvement:.2f}%")
     
-    def test_diff_serialization_performance(self):
+    def test_diff_serialization_performance(self) -> None:
         """测试差异序列化性能"""
         print("\n=== 差异序列化性能测试 ===")
         
@@ -182,7 +183,7 @@ class TestStateSerializationPerformance:
             new_state = state_sequence[-1].copy()
             # 添加消息
             if "messages" in new_state:
-                new_state["messages"].append({"content": f"New message {i}", "type": "ai"})
+                new_state["messages"].append(AIMessage(content=f"New message {i}"))
             # 更新其他字段
             new_state["current_step"] = f"step_{i}"
             new_state["iteration_count"] = i
@@ -245,7 +246,7 @@ class TestStateSerializationPerformance:
         
         print("✓ 差异序列化正确性验证通过")
     
-    def test_optimized_manager_performance(self):
+    def test_optimized_manager_performance(self) -> None:
         """测试优化状态管理器性能"""
         print("\n=== 优化状态管理器性能测试 ===")
         
@@ -261,7 +262,7 @@ class TestStateSerializationPerformance:
             updates = {
                 "current_step": f"step_{i}",
                 "iteration_count": i,
-                "messages": current_state.get("messages", []) + [{"content": f"Message {i}", "type": "ai"}]
+                "messages": current_state.get("messages", []) + [AIMessage(content=f"Message {i}")]
             }
             
             start_time = time.time()
@@ -281,7 +282,7 @@ class TestStateSerializationPerformance:
             updates = {
                 "current_step": f"step_{i}",
                 "iteration_count": i,
-                "messages": managed_state.get("messages", []) + [{"content": f"Message {i}", "type": "ai"}]
+                "messages": managed_state.get("messages", []) + [AIMessage(content=f"Message {i}")]
             }
             
             start_time = time.time()
@@ -308,7 +309,7 @@ class TestStateSerializationPerformance:
         performance_stats = manager.get_performance_stats()
         print(f"性能统计: {performance_stats}")
     
-    def test_cache_performance(self):
+    def test_cache_performance(self) -> None:
         """测试缓存性能"""
         print("\n=== 缓存性能测试 ===")
         
@@ -342,7 +343,7 @@ class TestStateSerializationPerformance:
         stats = self.enhanced_serializer.get_performance_stats()
         print(f"缓存统计: {stats['cache_stats']}")
     
-    def test_large_state_performance(self):
+    def test_large_state_performance(self) -> None:
         """测试大状态性能"""
         print("\n=== 大状态性能测试 ===")
         
@@ -356,7 +357,7 @@ class TestStateSerializationPerformance:
         
         # 添加大量消息
         large_state["messages"] = [
-            {"content": f"Large message {i}", "type": "human" if i % 2 == 0 else "ai"}
+            HumanMessage(content=f"Large message {i}") if i % 2 == 0 else AIMessage(content=f"Large message {i}")
             for i in range(1000)
         ]
         
@@ -392,7 +393,7 @@ class TestStateSerializationPerformance:
         print(f"优化后大小: {optimized_size} bytes")
 
 
-def run_performance_tests():
+def run_performance_tests() -> None:
     """运行所有性能测试"""
     test = TestStateSerializationPerformance()
     test.setup_method()

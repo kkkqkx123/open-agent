@@ -23,11 +23,13 @@ class FileHistoryStorage:
                     def custom_serializer(obj):
                         if hasattr(obj, 'value'):  # 枚举类型
                             return obj.value
-                        elif isinstance(obj, datetime):  # datetime类型
+                        elif hasattr(obj, 'isoformat'):  # datetime类型
                             return obj.isoformat()
                         return str(obj)
                     
-                    json.dump(record.__dict__, f, ensure_ascii=False, default=custom_serializer)
+                    # 先序列化为字符串，然后再写入文件
+                    json_str = json.dumps(record.__dict__, ensure_ascii=False, default=custom_serializer)
+                    f.write(json_str)
                     f.write('\n')
             return True
         except Exception:

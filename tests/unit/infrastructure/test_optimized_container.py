@@ -11,7 +11,7 @@ from src.infrastructure.exceptions import ServiceNotRegisteredError, ServiceCrea
 
 class TestService:
     """测试服务类"""
-    def __init__(self, dependency: 'DependencyService' = None):
+    def __init__(self, dependency: 'DependencyService' = None):  # type: ignore
         self.dependency = dependency
         self.created_at = time.time()
 
@@ -24,7 +24,7 @@ class DependencyService:
 
 class ServiceWithMultipleDeps:
     """具有多个依赖的服务类"""
-    def __init__(self, dep1: DependencyService, dep2: TestService = None):
+    def __init__(self, dep1: DependencyService, dep2: TestService = None):  # type: ignore
         self.dep1 = dep1
         self.dep2 = dep2
 
@@ -163,7 +163,7 @@ class TestOptimizedDependencyContainer:
         # 创建一个有TTL限制的容器
         container = OptimizedDependencyContainer(
             max_cache_size=2,
-            cache_ttl_seconds=0.1  # 短TTL用于测试
+            cache_ttl_seconds=1  # 短TTL用于测试
         )
         
         container.register(TestService, TestService)
@@ -276,7 +276,7 @@ class TestOptimizedDependencyContainer:
         """测试缓存TL过期"""
         # 创建短TTL的容器
         container = OptimizedDependencyContainer(
-            cache_ttl_seconds=0.1,
+            cache_ttl_seconds=1,
             max_cache_size=10
         )
         
@@ -301,7 +301,7 @@ class TestOptimizedDependencyContainer:
     def test_different_service_lifetimes(self):
         """测试不同的服务生命周期"""
         # 注册为单例
-        self.container.register_singleton(TestService, TestService)
+        self.container.register(TestService, TestService, lifetime="singleton")
         
         service1 = self.container.get(TestService)
         service2 = self.container.get(TestService)
