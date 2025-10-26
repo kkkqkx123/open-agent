@@ -7,7 +7,7 @@ from .state import AgentState, AgentMessage
 from src.domain.tools.interfaces import ToolResult
 from src.domain.tools.interfaces import ToolCall
 from .events import AgentEvent
-from ...application.workflow.state import WorkflowState, BaseMessage, MessageRole
+from ...infrastructure.graph.state import BaseMessage, MessageRole
 
 
 class ReActAgent(BaseAgent):
@@ -15,7 +15,7 @@ class ReActAgent(BaseAgent):
     ReAct (Reasoning + Acting) 算法结合了推理和行动，通过交替进行推理和行动来解决问题
     """
     
-    async def _execute_logic(self, state: Union[AgentState, WorkflowState], config: Dict[str, Any]) -> Union[AgentState, WorkflowState]:
+    async def _execute_logic(self, state: Any, config: Dict[str, Any]) -> Any:
         """执行ReAct算法：Reasoning + Acting
         
         Args:
@@ -149,7 +149,7 @@ class ReActAgent(BaseAgent):
             "step_by_step_processing"
         ]
     
-    async def _reason(self, state: WorkflowState) -> str:
+    async def _reason(self, state: Any) -> str:
         """执行推理步骤
         
         Args:
@@ -189,7 +189,7 @@ class ReActAgent(BaseAgent):
             state.add_error({"error": error_msg, "type": "reasoning_error"})
             return "Unable to reason due to an error. Proceeding with default action."
     
-    async def _decide_action(self, state: WorkflowState, reasoning_result: str) -> Dict[str, Any]:
+    async def _decide_action(self, state: Any, reasoning_result: str) -> Dict[str, Any]:
         """决定下一步行动
         
         Args:
@@ -234,7 +234,7 @@ class ReActAgent(BaseAgent):
             state.add_error({"error": error_msg, "type": "action_decision_error"})
             return {"action": "other", "details": "Default action due to error"}
     
-    async def _execute_tool(self, state: WorkflowState, tool_call_str: str) -> ToolResult:
+    async def _execute_tool(self, state: Any, tool_call_str: str) -> ToolResult:
         """执行工具调用
         
         Args:

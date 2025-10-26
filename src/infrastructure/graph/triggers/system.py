@@ -10,7 +10,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from .base import ITrigger, TriggerEvent, TriggerHandler, TriggerType
-from src.domain.prompts.agent_state import AgentState
+from src.domain.agent.state import AgentState
 
 
 class TriggerSystem:

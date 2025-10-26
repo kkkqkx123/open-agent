@@ -9,7 +9,7 @@ import time
 import re
 
 from .base import BaseTrigger, TriggerType
-from src.domain.prompts.agent_state import AgentState
+from src.domain.agent.state import AgentState
 
 
 class TimeTrigger(BaseTrigger):

@@ -1,12 +1,13 @@
-"""LangGraph状态定义
+"""工作流状态定义
 
-提供符合LangGraph最佳实践的状态定义和管理。
+定义工作流中使用的各种状态类型和数据结构。
 """
 
 from typing import Dict, Any, List, Optional, Annotated, Union
 from dataclasses import dataclass
 import operator
 import logging
+from datetime import datetime
 from typing_extensions import TypedDict
 
 logger = logging.getLogger(__name__)
@@ -51,9 +52,27 @@ class MessageRole:
     TOOL = "tool"
 
 
-# 基础状态定义 - 符合LangGraph TypedDict模式
-class BaseGraphState(TypedDict):
-    """基础图状态"""
+class ToolResult:
+    """工具执行结果"""
+    def __init__(self, tool_name: str, success: bool, output: Any = None, error: str = None):
+        self.tool_name = tool_name
+        self.success = success
+        self.output = output
+        self.error = error
+
+
+class WorkflowStatus:
+    """工作流状态枚举"""
+    NOT_STARTED = "not_started"
+    RUNNING = "running"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class BaseWorkflowState(TypedDict):
+    """基础工作流状态"""
     # 使用reducer确保消息列表是追加而不是覆盖
     messages: Annotated[List[BaseMessage], operator.add]
     
@@ -61,7 +80,7 @@ class BaseGraphState(TypedDict):
     metadata: Dict[str, Any]
 
 
-class AgentState(BaseGraphState):
+class AgentState(BaseWorkflowState):
     """Agent状态 - 扩展基础状态"""
     # Agent特定的状态字段
     input: str
@@ -85,8 +104,8 @@ class AgentState(BaseGraphState):
 class WorkflowState(AgentState):
     """工作流状态 - 扩展Agent状态"""
     # 工作流特定字段
-    workflow_id: str
-    step_name: Optional[str]
+    workflow_name: str
+    current_step: Optional[str]
     
     # 分析结果
     analysis: Optional[str]
@@ -96,6 +115,14 @@ class WorkflowState(AgentState):
     
     # 上下文信息
     context: Dict[str, Any]
+    
+    # 工作流执行信息
+    start_time: Optional[datetime]
+    max_iterations: int
+    iteration_count: int
+    workflow_id: Optional[str]
+    errors: List[str]
+    custom_fields: Dict[str, Any]
 
 
 class ReActState(WorkflowState):
@@ -152,14 +179,14 @@ def create_agent_state(
 
 
 def create_workflow_state(
-    workflow_id: str,
+    workflow_name: str,
     input_text: str,
     max_iterations: int = 10
 ) -> WorkflowState:
     """创建工作流状态
     
     Args:
-        workflow_id: 工作流ID
+        workflow_name: 工作流名称
         input_text: 输入文本
         max_iterations: 最大迭代次数
         
@@ -168,31 +195,34 @@ def create_workflow_state(
     """
     base_state = create_agent_state(input_text, max_iterations)
     base_state.update({
-        "workflow_id": workflow_id,
-        "step_name": None,
+        "workflow_name": workflow_name,
+        "current_step": None,
         "analysis": None,
         "decision": None,
-        "context": {}
+        "context": {},
+        "start_time": datetime.now(),
+        "workflow_id": None,
+        "custom_fields": {}
     })
     return base_state
 
 
 def create_react_state(
-    workflow_id: str,
+    workflow_name: str,
     input_text: str,
     max_iterations: int = 10
 ) -> ReActState:
     """创建ReAct状态
     
     Args:
-        workflow_id: 工作流ID
+        workflow_name: 工作流名称
         input_text: 输入文本
         max_iterations: 最大迭代次数
         
     Returns:
         ReActState实例
     """
-    base_state = create_workflow_state(workflow_id, input_text, max_iterations)
+    base_state = create_workflow_state(workflow_name, input_text, max_iterations)
     base_state.update({
         "thought": None,
         "action": None,
@@ -203,21 +233,21 @@ def create_react_state(
 
 
 def create_plan_execute_state(
-    workflow_id: str,
+    workflow_name: str,
     input_text: str,
     max_iterations: int = 10
 ) -> PlanExecuteState:
     """创建计划执行状态
     
     Args:
-        workflow_id: 工作流ID
+        workflow_name: 工作流名称
         input_text: 输入文本
         max_iterations: 最大迭代次数
         
     Returns:
         PlanExecuteState实例
     """
-    base_state = create_workflow_state(workflow_id, input_text, max_iterations)
+    base_state = create_workflow_state(workflow_name, input_text, max_iterations)
     base_state.update({
         "plan": None,
         "steps": [],
@@ -251,137 +281,25 @@ def create_message(content: str, role: str, **kwargs) -> BaseMessage:
         return BaseMessage(content=content, type=role)
 
 
-# 状态更新函数
-def update_state_with_message(state: Dict[str, Any], message: BaseMessage) -> Dict[str, Any]:
-    """用消息更新状态
+def adapt_langchain_message(message) -> BaseMessage:
+    """适配LangChain消息到内部消息格式
     
     Args:
-        state: 当前状态
-        message: 新消息
+        message: LangChain消息对象
         
     Returns:
-        更新后的状态
+        BaseMessage实例
     """
-    return {"messages": [message]}
-
-
-def update_state_with_tool_result(
-    state: Dict[str, Any], 
-    tool_call: Dict[str, Any], 
-    result: Any
-) -> Dict[str, Any]:
-    """用工具结果更新状态
-    
-    Args:
-        state: 当前状态
-        tool_call: 工具调用信息
-        result: 工具执行结果
-        
-    Returns:
-        更新后的状态
-    """
-    return {
-        "tool_results": [{"tool_call": tool_call, "result": result}]
-    }
-
-
-def update_state_with_error(state: Dict[str, Any], error: str) -> Dict[str, Any]:
-    """用错误信息更新状态
-    
-    Args:
-        state: 当前状态
-        error: 错误信息
-        
-    Returns:
-        更新后的状态
-    """
-    return {"errors": [error]}
-
-
-# 状态验证函数
-def validate_state(state: Dict[str, Any], state_type: type) -> List[str]:
-    """验证状态
-    
-    Args:
-        state: 要验证的状态
-        state_type: 状态类型
-        
-    Returns:
-        验证错误列表
-    """
-    errors = []
-    
-    # 检查必需字段
-    if "messages" not in state:
-        errors.append("缺少messages字段")
-    
-    if state_type == AgentState:
-        required_fields = ["input", "max_iterations"]
-        for field in required_fields:
-            if field not in state:
-                errors.append(f"缺少必需字段: {field}")
-    
-    elif state_type == WorkflowState:
-        required_fields = ["workflow_id", "input", "max_iterations"]
-        for field in required_fields:
-            if field not in state:
-                errors.append(f"缺少必需字段: {field}")
-    
-    return errors
-
-
-# 状态序列化函数
-def serialize_state(state: Dict[str, Any]) -> Dict[str, Any]:
-    """序列化状态
-    
-    Args:
-        state: 要序列化的状态
-        
-    Returns:
-        序列化后的状态
-    """
-    serialized = state.copy()
-    
-    # 序列化消息
-    if "messages" in serialized:
-        serialized["messages"] = [
-            {
-                "content": msg.content,
-                "type": msg.type,
-                "tool_call_id": getattr(msg, "tool_call_id", "")
-            }
-            for msg in serialized["messages"]
-        ]
-    
-    return serialized
-
-
-def deserialize_state(serialized_state: Dict[str, Any]) -> Dict[str, Any]:
-    """反序列化状态
-    
-    Args:
-        serialized_state: 序列化的状态
-        
-    Returns:
-        反序列化后的状态
-    """
-    state = serialized_state.copy()
-    
-    # 反序列化消息
-    if "messages" in state:
-        messages = []
-        for msg_data in state["messages"]:
-            message = create_message(
-                content=msg_data["content"],
-                role=msg_data["type"],
-                tool_call_id=msg_data.get("tool_call_id", "")
-            )
-            messages.append(message)
-        state["messages"] = messages
-    
-    return state
-
-
-# 向后兼容的别名
-WorkflowState = WorkflowState
-AgentState = AgentState
+    if hasattr(message, 'content') and hasattr(message, 'type'):
+        if message.type == 'human':
+            return HumanMessage(content=message.content)
+        elif message.type == 'ai':
+            return AIMessage(content=message.content)
+        elif message.type == 'system':
+            return SystemMessage(content=message.content)
+        elif message.type == 'tool':
+            return ToolMessage(content=message.content, tool_call_id=getattr(message, 'tool_call_id', ''))
+        else:
+            return BaseMessage(content=message.content, type=message.type)
+    else:
+        return BaseMessage(content=str(message), type="base")

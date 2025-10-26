@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List, Callable
 from dataclasses import dataclass
 
 from ..registry import BaseNode, NodeExecutionResult, node
-from src.domain.prompts.agent_state import AgentState
+from src.domain.agent.state import AgentState
 
 
 @node("condition_node")

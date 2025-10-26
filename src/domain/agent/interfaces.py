@@ -1,14 +1,10 @@
 """Agent接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Type, Callable, Union, Union
+from typing import Any, Dict, List, Optional, Type, Callable, Union
 from .state import AgentState
 from .config import AgentConfig
 from .events import AgentEvent
-from ...application.workflow.state import WorkflowState
-
-# 导入WorkflowState用于类型兼容性
-from src.application.workflow.state import WorkflowState
 
 
 class IAgent(ABC):
@@ -27,15 +23,15 @@ class IAgent(ABC):
         pass
     
     @abstractmethod
-    async def execute(self, state: Union[AgentState, WorkflowState], config: Dict[str, Any]) -> Union[AgentState, WorkflowState]:
+    async def execute(self, state: Any, config: Dict[str, Any]) -> Any:
         """执行Agent逻辑，返回更新后的状态
 
         Args:
-            state: 当前Agent状态
-            config: 执行配置
+        state: 当前状态
+        config: 执行配置
 
         Returns:
-            AgentState或WorkflowState: 更新后的状态
+        Any: 更新后的状态
         """
         pass
     

@@ -9,7 +9,7 @@ from pathlib import Path
 import logging
 
 from src.infrastructure.graph.config import WorkflowConfig
-from src.application.workflow.state import WorkflowState, create_message, MessageRole
+from src.infrastructure.graph.state import WorkflowState, create_message, MessageRole
 from ...domain.prompts.interfaces import IPromptInjector
 from ...domain.prompts.models import PromptConfig
 from src.infrastructure.graph.builder import WorkflowBuilder

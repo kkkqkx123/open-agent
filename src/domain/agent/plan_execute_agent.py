@@ -2,7 +2,9 @@
 
 from typing import Any, Dict, List
 from .base import BaseAgent
-from ..prompts.agent_state import AgentState, BaseMessage, ToolResult
+from .state import AgentState
+from ...infrastructure.graph.state import BaseMessage
+from src.domain.tools.interfaces import ToolResult
 from langchain_core.messages import HumanMessage, SystemMessage  # type: ignore
 from src.domain.tools.interfaces import ToolCall
 from .events import AgentEvent
@@ -13,7 +15,7 @@ class PlanExecuteAgent(BaseAgent):
     Plan-and-Execute算法先制定计划，然后逐步执行计划
     """
     
-    async def _execute_logic(self, state: AgentState) -> AgentState:
+    async def _execute_logic(self, state: Any, config: Dict[str, Any]) -> Any:
         """执行Plan-and-Execute算法"""
         # 1. 根据目标制定计划
         plan = await self._create_plan(state)
@@ -105,7 +107,7 @@ class PlanExecuteAgent(BaseAgent):
             step_result = await self._execute_plan_step(state, plan_step)
             
             # 更新状态
-            from ..workflow.state import MessageRole
+            from ...infrastructure.graph.state import MessageRole
             state.add_memory(BaseMessage(
                 content=f"Step {plan_step['step']}: {step_result}",
                 role=MessageRole.AI,
@@ -210,6 +212,6 @@ class PlanExecuteAgent(BaseAgent):
             state.add_error({"error": error_msg, "type": "tool_execution_error"})
             return ToolResult(tool_name=tool_name, success=False, result=None, error=error_msg)
     
-    def get_capabilities(self) -> List[str]:
+    def get_capabilities(self) -> Dict[str, Any]:
         """获取Agent的能力列表"""
-        return ["planning", "execution", "plan_execute_algorithm"]
+        return {"capabilities": ["planning", "execution", "plan_execute_algorithm"]}

@@ -6,7 +6,6 @@ import asyncio
 import time
 from .interfaces import IAgent
 from .state import AgentState, AgentMessage, AgentStatus
-from ...application.workflow.state import WorkflowState
 from .events import AgentEventManager, AgentEvent
 from ..tools.interfaces import ToolCall, ToolResult
 
@@ -56,7 +55,7 @@ class BaseAgent(IAgent, ABC):
         """Agent描述"""
         return self.config.description
     
-    async def execute(self, state: Union[AgentState, WorkflowState], config: Dict[str, Any]) -> Union[AgentState, WorkflowState]:
+    async def execute(self, state: Any, config: Dict[str, Any]) -> Any:
         """执行Agent逻辑，返回更新后的状态
 
         Args:
@@ -86,11 +85,12 @@ class BaseAgent(IAgent, ABC):
                 raise ValueError(f"状态验证失败，Agent {self.name} 无法处理当前状态")
 
             # 设置状态为思考中/运行中
-            if isinstance(state, AgentState):
-                state.set_status(AgentStatus.THINKING)
-            elif isinstance(state, WorkflowState):
-                from ...application.workflow.state import WorkflowStatus
-                state.set_status(WorkflowStatus.RUNNING)
+            if hasattr(state, 'set_status'):
+                if isinstance(state, AgentState):
+                    state.set_status(AgentStatus.THINKING)
+                else:
+                    # 假设是工作流状态，设置运行中
+                    state.set_status(getattr(state, 'RUNNING', 'running'))
 
             # 基础执行逻辑
             result = await self._execute_logic(state, config)
@@ -113,11 +113,12 @@ class BaseAgent(IAgent, ABC):
             execution_time = time.time() - start_time
             
             # 设置状态为错误
-            if isinstance(state, AgentState):
-                state.set_status(AgentStatus.ERROR)
-            elif isinstance(state, WorkflowState):
-                from ...application.workflow.state import WorkflowStatus
-                state.set_status(WorkflowStatus.FAILED)
+            if hasattr(state, 'set_status'):
+                if isinstance(state, AgentState):
+                    state.set_status(AgentStatus.ERROR)
+                else:
+                    # 假设是工作流状态，设置失败
+                    state.set_status(getattr(state, 'FAILED', 'failed'))
             state.add_error({"error": str(e), "type": type(e).__name__})
             
             # 发布错误事件
@@ -135,7 +136,7 @@ class BaseAgent(IAgent, ABC):
             # 重新抛出异常
             raise e
     
-    async def _execute_logic(self, state: Union[AgentState, WorkflowState], config: Dict[str, Any]) -> Union[AgentState, WorkflowState]:
+    async def _execute_logic(self, state: Any, config: Dict[str, Any]) -> Any:
         """执行逻辑的具体实现，子类需要重写此方法
         
         Args:
@@ -258,10 +259,10 @@ class BaseAgent(IAgent, ABC):
 
     async def execute_with_retry(
         self,
-        state: Union[AgentState, WorkflowState],
+        state: Any,
         config: Dict[str, Any],
         max_retries: int = 3
-    ) -> Union[AgentState, WorkflowState]:
+    ) -> Any:
         """带重试机制的执行方法
         
         Args:

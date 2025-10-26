@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
 from ..registry import BaseNode, NodeExecutionResult, node
-from src.domain.prompts.agent_state import AgentState, BaseMessage
+from src.domain.agent.state import AgentState, AgentMessage as BaseMessage
 from src.infrastructure.llm.interfaces import ILLMClient
 
 

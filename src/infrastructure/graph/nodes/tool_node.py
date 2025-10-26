@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List
 import time
 
 from ..registry import BaseNode, NodeExecutionResult, node
-from src.domain.prompts.agent_state import AgentState
+from src.domain.agent.state import AgentState
 from src.domain.tools.interfaces import IToolManager, ToolCall, ToolResult
 
 

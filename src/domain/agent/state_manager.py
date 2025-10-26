@@ -1,7 +1,7 @@
 """Agent状态管理器"""
 
 from typing import Dict, Optional, Any, List
-from ..prompts.agent_state import AgentState
+from .state import AgentState
 from .config import AgentConfig
 
 
@@ -94,7 +94,7 @@ class AgentStateManager:
                 state.add_memory(message)
             else:
                 # 如果不是BaseMessage类型，创建HumanMessage
-                from src.application.workflow.state import HumanMessage
+                from ...infrastructure.graph.state import HumanMessage
                 human_msg = HumanMessage(content=str(message))
                 state.add_memory(human_msg)
         return state

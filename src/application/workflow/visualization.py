@@ -12,8 +12,8 @@ import time
 import threading
 from datetime import datetime
 
-from src.application.workflow.config import WorkflowConfig
-from .builder import WorkflowBuilder
+from src.infrastructure.graph.config import WorkflowConfig
+from src.infrastructure.graph.builder import WorkflowBuilder
 
 
 class IWorkflowVisualizer(ABC):
@@ -186,7 +186,7 @@ class LangGraphStudioVisualizer(IWorkflowVisualizer):
         for node_name, node_config in config.nodes.items():
             node_data = {
                 "id": node_name,
-                "type": node_config.type,
+                "type": node_config.function_name,
                 "config": node_config.config,
                 "metadata": {
                     "description": node_config.description
@@ -196,16 +196,16 @@ class LangGraphStudioVisualizer(IWorkflowVisualizer):
             # 添加节点特定的元数据
             metadata = node_data["metadata"]
             if isinstance(metadata, dict):
-                if node_config.type == "analysis_node":
+                if node_config.function_name == "analysis_node":
                     metadata["category"] = "analysis"
                     metadata["color"] = "#4CAF50"
-                elif node_config.type == "tool_node":
+                elif node_config.function_name == "tool_node":
                     metadata["category"] = "tool"
                     metadata["color"] = "#2196F3"
-                elif node_config.type == "llm_node":
+                elif node_config.function_name == "llm_node":
                     metadata["category"] = "llm"
                     metadata["color"] = "#FF9800"
-                elif node_config.type == "condition_node":
+                elif node_config.function_name == "condition_node":
                     metadata["category"] = "condition"
                     metadata["color"] = "#9C27B0"
                 else:

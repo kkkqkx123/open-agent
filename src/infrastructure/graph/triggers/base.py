@@ -10,7 +10,7 @@ from enum import Enum
 from datetime import datetime
 import uuid
 
-from src.domain.prompts.agent_state import AgentState
+from src.domain.agent.state import AgentState
 
 
 class TriggerType(Enum):

@@ -13,7 +13,6 @@ from .react_agent import ReActAgent
 from .plan_execute_agent import PlanExecuteAgent
 from .base import BaseAgent
 from ..state.interfaces import IStateManager
-from ...application.workflow.state import WorkflowState
 from ...infrastructure.llm.interfaces import ILLMClient
 from ..tools.interfaces import IToolExecutor
 from .events import AgentEventManager

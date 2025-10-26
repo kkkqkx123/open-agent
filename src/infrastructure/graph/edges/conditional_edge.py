@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from ..config import EdgeConfig
-from src.domain.prompts.agent_state import AgentState
+from src.domain.agent.state import AgentState
 
 
 class ConditionType(Enum):

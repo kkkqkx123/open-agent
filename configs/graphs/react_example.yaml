@@ -1,0 +1,130 @@
+# ReAct工作流示例 - 符合LangGraph最佳实践
+name: "ReAct工作流示例"
+description: "基于ReAct模式的思考-行动-观察循环工作流"
+version: "1.0"
+
+# 状态定义 - 使用TypedDict模式和reducer
+state_schema:
+  name: "ReActState"
+  fields:
+    messages:
+      type: "List[BaseMessage]"
+      reducer: "operator.add"
+      description: "对话消息历史"
+    
+    input:
+      type: "str"
+      description: "用户输入"
+    
+    thought:
+      type: "str"
+      description: "当前思考"
+    
+    action:
+      type: "str"
+      description: "选择的行动"
+    
+    observation:
+      type: "str"
+      description: "行动观察结果"
+    
+    tool_calls:
+      type: "List[dict]"
+      reducer: "operator.add"
+      description: "工具调用历史"
+    
+    tool_results:
+      type: "List[dict]"
+      reducer: "operator.add"
+      description: "工具执行结果"
+    
+    iteration_count:
+      type: "int"
+      reducer: "operator.add"
+      default: 0
+      description: "迭代计数"
+    
+    max_iterations:
+      type: "int"
+      default: 10
+      description: "最大迭代次数"
+    
+    complete:
+      type: "bool"
+      default: false
+      description: "完成标志"
+
+# 节点定义
+nodes:
+  think:
+    function: "analysis_node"
+    description: "分析当前状态并生成思考"
+    config:
+      prompt_template: "基于当前信息，我需要思考下一步行动：{context}"
+    
+  act:
+    function: "llm_node"
+    description: "基于思考选择并执行行动"
+    config:
+      model: "gpt-4"
+      temperature: 0.1
+      tools: ["calculator", "search"]
+    
+  observe:
+    function: "tool_node"
+    description: "执行工具并观察结果"
+    config:
+      timeout: 30
+    
+  decide:
+    function: "condition_node"
+    description: "决定是否继续或结束"
+    config:
+      completion_threshold: 0.8
+
+# 边定义
+edges:
+  # 简单边
+  - from: "__start__"
+    to: "think"
+    type: "simple"
+    description: "开始思考"
+  
+  - from: "think"
+    to: "act"
+    type: "simple"
+    description: "思考后行动"
+  
+  - from: "act"
+    to: "observe"
+    type: "simple"
+    description: "行动后观察"
+  
+  - from: "observe"
+    to: "decide"
+    type: "simple"
+    description: "观察后决策"
+  
+  # 条件边
+  - from: "decide"
+    type: "conditional"
+    condition: "should_continue"
+    path_map: ["think", "__end__"]
+    description: "决定是否继续循环"
+
+# 入口点
+entry_point: "think"
+
+# 检查点配置
+checkpointer: "memory"
+
+# 中断配置（用于人工干预）
+interrupt_before: ["act"]
+interrupt_after: ["observe"]
+
+# 额外配置
+additional_config:
+  retry_attempts: 3
+  retry_delay: 1.0
+  logging_level: "INFO"
+  enable_tracing: true
