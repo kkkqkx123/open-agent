@@ -181,7 +181,7 @@ class TestGlobalLogger:
         logger3 = get_logger("another_test")
         assert logger1 is not logger3
 
-    @patch("src.logger.logger._loggers")
+    @patch("src.infrastructure.logger.logger._loggers")
     def test_set_global_config(self, mock_loggers):
         """测试设置全局配置"""
         mock_logger = Mock()

@@ -293,6 +293,8 @@ class TestFallbackHook:
         assert result["should_retry"] is True
         result = hook._should_retry(LLMRateLimitError("频率限制"))
         assert result["should_retry"] is True
+        result = hook._should_retry(LLMServiceUnavailableError("服务不可用"))
+        assert result["should_retry"] is True
         assert hook._should_retry(LLMServiceUnavailableError("服务不可用")) is True
 
         # 不可重试错误

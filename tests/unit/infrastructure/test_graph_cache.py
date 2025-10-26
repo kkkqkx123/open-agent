@@ -32,7 +32,7 @@ class TestGraphCache:
         )
         
         # 创建测试图
-        self.test_graph = StateGraph()
+        self.test_graph = StateGraph(state_schema=dict)
         self.test_graph.nodes = ["node1", "node2"]
         self.test_graph.edges = [("node1", "node2")]
         
@@ -94,9 +94,9 @@ class TestGraphCache:
         config2 = calculate_config_hash({"graph": "2"})
         config3 = calculate_config_hash({"graph": "3"})
         
-        graph1 = StateGraph()
-        graph2 = StateGraph()
-        graph3 = StateGraph()
+        graph1 = StateGraph(state_schema=dict)
+        graph2 = StateGraph(state_schema=dict)
+        graph3 = StateGraph(state_schema=dict)
         
         lru_cache.cache_graph(config1, graph1)  # 最早的
         lru_cache.cache_graph(config2, graph2)  # 中间的
@@ -122,9 +122,9 @@ class TestGraphCache:
         config2 = calculate_config_hash({"graph": "2"})
         config3 = calculate_config_hash({"graph": "3"})
         
-        graph1 = StateGraph()
-        graph2 = StateGraph()
-        graph3 = StateGraph()
+        graph1 = StateGraph(state_schema=dict)
+        graph2 = StateGraph(state_schema=dict)
+        graph3 = StateGraph(state_schema=dict)
         
         lfu_cache.cache_graph(config1, graph1)  # 访问1次
         lfu_cache.cache_graph(config2, graph2)  # 访问1次
@@ -137,7 +137,7 @@ class TestGraphCache:
         
         # 添加新图会导致淘汰最少访问的config3
         config4 = calculate_config_hash({"graph": "4"})
-        graph4 = StateGraph()
+        graph4 = StateGraph(state_schema=dict)
         lfu_cache.cache_graph(config4, graph4)
         
         # 验证config3被移除（最少访问）
@@ -194,9 +194,9 @@ class TestGraphCache:
         config2 = calculate_config_hash({"graph": "test_2"})
         config3 = calculate_config_hash({"graph": "other_3"})
 
-        self.cache.cache_graph(config1, StateGraph())
-        self.cache.cache_graph(config2, StateGraph())
-        self.cache.cache_graph(config3, StateGraph())
+        self.cache.cache_graph(config1, StateGraph(state_schema=dict))
+        self.cache.cache_graph(config2, StateGraph(state_schema=dict))
+        self.cache.cache_graph(config3, StateGraph(state_schema=dict))
         
         # 验证所有图都存在
         assert self.cache.get_graph(config1) is not None
@@ -274,7 +274,7 @@ class TestGraphCache:
             try:
                 # 缓存和获取图
                 test_hash = calculate_config_hash({"graph": f"worker_{threading.current_thread().ident}"})
-                test_graph = StateGraph()
+                test_graph = StateGraph(state_schema=dict)
                 self.cache.cache_graph(test_hash, test_graph)
                 
                 result = self.cache.get_graph(test_hash)
@@ -323,7 +323,7 @@ class TestGraphCache:
         # 添加超过限制的图
         for i in range(5):
             config_hash = calculate_config_hash({"graph": f"test_{i}"})
-            graph = StateGraph()
+            graph = StateGraph(state_schema=dict)
             small_cache.cache_graph(config_hash, graph)
         
         # 验证缓存大小不超过限制
@@ -342,9 +342,9 @@ class TestGraphCache:
             config2 = calculate_config_hash({"graph": f"{policy.value}_2"})
             config3 = calculate_config_hash({"graph": f"{policy.value}_3"})
             
-            graph1 = StateGraph()
-            graph2 = StateGraph()
-            graph3 = StateGraph()
+            graph1 = StateGraph(state_schema=dict)
+            graph2 = StateGraph(state_schema=dict)
+            graph3 = StateGraph(state_schema=dict)
             
             cache.cache_graph(config1, graph1)
             cache.cache_graph(config2, graph2)

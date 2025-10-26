@@ -85,8 +85,13 @@ class LogRedactor:
             脱敏后的文本
         """
         # DEBUG级别不脱敏
-        if level == LogLevel.DEBUG:
+        if level.value == LogLevel.DEBUG.value:
             return text
+
+        # 检查缓存（DEBUG级别不缓存）
+        cache_key = f"{text}_{level.value}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
 
         redacted_text = text
 
@@ -99,6 +104,8 @@ class LogRedactor:
                 # 使用固定替换
                 redacted_text = pattern.sub(replacement, redacted_text)
 
+        # 缓存结果
+        self._cache[cache_key] = redacted_text
         return redacted_text
 
     def _hash_replace(self, match: re.Match) -> str:

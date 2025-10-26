@@ -815,7 +815,8 @@ class FallbackHook(ILLMCallHook):
     ) -> Optional[LLMResponse]:
         """尝试降级处理"""
         # 检查是否应该重试
-        if not self._should_retry(error, **kwargs):
+        retry_decision = self._should_retry(error, **kwargs)
+        if not retry_decision["should_retry"]:
             return None
 
         # 获取当前尝试次数
@@ -868,7 +869,7 @@ class FallbackHook(ILLMCallHook):
             logger.error(f"降级到模型 {fallback_model} 失败: {fallback_error}")
             return None
 
-    def _should_retry(self, error: Exception, **kwargs: Any) -> bool:
+    def _should_retry(self, error: Exception, **kwargs: Any) -> Dict[str, Any]:
         """判断是否应该重试"""
         # 检查错误类型是否可重试
         retryable_errors = (
@@ -877,7 +878,11 @@ class FallbackHook(ILLMCallHook):
             LLMServiceUnavailableError,
         )
 
-        return isinstance(error, retryable_errors)
+        should_retry = isinstance(error, retryable_errors)
+        return {
+            "should_retry": should_retry,
+            "reason": f"Error type: {type(error).__name__}" if should_retry else f"Non-retryable error: {type(error).__name__}"
+        }
 
     def _get_next_fallback_model(self, attempt_count: int) -> Optional[str]:
         """获取下一个降级模型"""

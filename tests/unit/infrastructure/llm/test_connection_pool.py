@@ -91,4 +91,4 @@ class TestConnectionPoolManager:
         
         # 应该创建新的池实例
         new_pool = manager.get_pool()
-        assert pool is new_pool  # 同一实例，但内部连接已清理
+        assert pool is not new_pool  # 应该是不同的实例

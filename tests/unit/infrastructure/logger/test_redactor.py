@@ -2,7 +2,7 @@
 
 
 from infrastructure.logger.redactor import CustomLogRedactor, LogRedactor
-from src.infrastructure.logger.logger import LogLevel
+from src.infrastructure.logger.log_level import LogLevel
 
 
 class TestLogRedactor:

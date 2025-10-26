@@ -397,7 +397,10 @@ class OptimizedDependencyContainer(DependencyContainer):
                         pass
         
         # 调用父类的创建方法
-        return super()._create_instance(service_type, self._find_registration(service_type))
+        registration = self._find_registration(service_type)
+        if registration is None:
+            raise ServiceNotRegisteredError(f"Service {service_type} not registered")
+        return super()._create_instance(service_type, registration)
     
     def _is_cached(self, service_type: Type) -> bool:
         """检查服务是否已缓存
@@ -409,6 +412,29 @@ class OptimizedDependencyContainer(DependencyContainer):
             是否已缓存
         """
         return service_type in self._service_cache
+    
+    def _find_registration(self, service_type: Type) -> Optional[ServiceRegistration]:
+        """查找服务注册"""
+        # 首先查找当前环境的注册
+        if service_type in self._environment_services:
+            env_services = self._environment_services[service_type]
+            if self._environment in env_services:
+                return env_services[self._environment]
+        
+        # 查找默认注册
+        if service_type in self._services:
+            return self._services[service_type]
+        
+        # 查找其他环境的默认注册
+        if service_type in self._environment_services:
+            env_services = self._environment_services[service_type]
+            if "default" in env_services:
+                return env_services["default"]
+            # 返回任意一个注册
+            if env_services:
+                return next(iter(env_services.values()))
+        
+        return None
     
     def _estimate_instance_size(self, instance: Any) -> int:
         """估算实例大小

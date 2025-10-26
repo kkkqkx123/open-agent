@@ -395,6 +395,20 @@ class DependencyContainer(IDependencyContainer):
         """检查服务是否已注册"""
         return self._find_registration(service_type) is not None
     
+    def get_registered_services(self) -> List[Type]:
+        """获取已注册的服务列表
+        
+        Returns:
+            已注册的服务类型列表
+        """
+        with self._lock:
+            services = list(self._services.keys())
+            # 添加环境特定的服务
+            for env_services in self._environment_services.values():
+                services.extend(env_services.keys())
+            # 去重
+            return list(set(services))
+    
     def clear(self) -> None:
         """清除所有服务和缓存"""
         with self._lock:
