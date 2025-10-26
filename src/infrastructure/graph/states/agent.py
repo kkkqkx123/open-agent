@@ -3,40 +3,50 @@
 提供Agent执行过程中的状态管理。
 """
 
-from typing import Dict, Any, List, Annotated, Optional
+from typing import Dict, Any, List, Annotated, Optional, cast
 import operator
 from typing_extensions import TypedDict
 
-from .base import BaseGraphState, create_base_state, create_message
+from .base import BaseGraphState, BaseMessage, create_base_state, create_message
 
 
-class AgentState(BaseGraphState, total=False):
-    """Agent状态
-    
+# Agent状态类型定义
+AgentState = Dict[str, Any]
+
+# 类型注解
+class _AgentState(TypedDict, total=False):
+    """Agent状态类型注解
+
     扩展基础状态，添加Agent特定的字段。
     """
+    # 基础字段
+    messages: Annotated[List[BaseMessage], operator.add]
+    metadata: Dict[str, Any]
+    execution_context: Dict[str, Any]
+    current_step: str
+
     # Agent特定的状态字段
     input: str
     output: Optional[str]
-    
+
     # 工具相关状态
     tool_calls: Annotated[List[Dict[str, Any]], operator.add]
     tool_results: Annotated[List[Dict[str, Any]], operator.add]
-    
+
     # 迭代控制
     iteration_count: Annotated[int, operator.add]
     max_iterations: int
-    
+
     # 错误处理
     errors: Annotated[List[str], operator.add]
-    
+
     # 完成标志
     complete: bool
-    
+
     # Agent配置
     agent_id: str
     agent_config: Dict[str, Any]
-    
+
     # 执行结果
     execution_result: Optional[Dict[str, Any]]
 
@@ -195,7 +205,7 @@ def is_agent_complete(state: AgentState) -> bool:
     Returns:
         是否完成
     """
-    return state.get("complete", False)
+    return cast(bool, state.get("complete", False))
 
 
 def has_agent_reached_max_iterations(state: AgentState) -> bool:
@@ -207,7 +217,7 @@ def has_agent_reached_max_iterations(state: AgentState) -> bool:
     Returns:
         是否达到最大迭代次数
     """
-    current_count = state.get("iteration_count", 0)
-    max_iterations = state.get("max_iterations", 10)
-    
+    current_count = cast(int, state.get("iteration_count", 0))
+    max_iterations = cast(int, state.get("max_iterations", 10))
+
     return current_count >= max_iterations

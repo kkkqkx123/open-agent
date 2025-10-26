@@ -3,24 +3,51 @@
 提供计划执行模式的状态管理。
 """
 
-from typing import Dict, Any, List, Annotated, Optional
+from typing import Dict, Any, List, Annotated, Optional, cast
 import operator
 from typing_extensions import TypedDict
 
+from .base import BaseMessage
 from .workflow import WorkflowState, create_workflow_state
 
 
-class PlanExecuteState(WorkflowState, total=False):
-    """计划执行状态
-    
+# 计划执行状态类型定义
+PlanExecuteState = Dict[str, Any]
+
+# 类型注解
+class _PlanExecuteState(TypedDict, total=False):
+    """计划执行状态类型注解
+
     扩展工作流状态，添加计划执行特定的字段。
     """
+    # 基础字段 (继承自WorkflowState)
+    messages: Annotated[List[BaseMessage], operator.add]
+    metadata: Dict[str, Any]
+    execution_context: Dict[str, Any]
+    current_step: str
+    input: str
+    output: Optional[str]
+    tool_calls: Annotated[List[Dict[str, Any]], operator.add]
+    tool_results: Annotated[List[Dict[str, Any]], operator.add]
+    iteration_count: Annotated[int, operator.add]
+    max_iterations: int
+    errors: Annotated[List[str], operator.add]
+    complete: bool
+    agent_id: str
+    agent_config: Dict[str, Any]
+    execution_result: Optional[Dict[str, Any]]
+    workflow_id: str
+    workflow_name: str
+    workflow_config: Dict[str, Any]
+    current_graph: str
+    analysis: Optional[str]
+    decision: Optional[str]
+
     # 计划执行特定字段
     plan: Optional[str]
     steps: Annotated[List[str], operator.add]
-    current_step: Optional[str]
     step_results: Annotated[List[Dict[str, Any]], operator.add]
-    
+
     # 计划执行配置
     max_steps: int
     current_step_index: int
@@ -60,7 +87,7 @@ def create_plan_execute_state(
         **workflow_state,
         "plan": None,
         "steps": [],
-        "current_step": None,
+        "current_step": "",
         "step_results": [],
         "max_steps": max_steps,
         "current_step_index": 0,
@@ -166,12 +193,12 @@ def get_next_step(state: PlanExecuteState) -> Optional[str]:
     Returns:
         下一个步骤，如果没有则返回None
     """
-    steps = state.get("steps", [])
-    current_step_index = state.get("current_step_index", 0)
-    
+    steps = cast(List[str], state.get("steps", []))
+    current_step_index = cast(int, state.get("current_step_index", 0))
+
     if current_step_index < len(steps):
         return steps[current_step_index]
-    
+
     return None
 
 
@@ -197,9 +224,9 @@ def has_plan_execute_reached_max_steps(state: PlanExecuteState) -> bool:
     Returns:
         是否达到最大步骤数
     """
-    current_step_index = state.get("current_step_index", 0)
-    max_steps = state.get("max_steps", 10)
-    
+    current_step_index = cast(int, state.get("current_step_index", 0))
+    max_steps = cast(int, state.get("max_steps", 10))
+
     return current_step_index >= max_steps
 
 
@@ -212,7 +239,7 @@ def is_plan_complete(state: PlanExecuteState) -> bool:
     Returns:
         计划是否完成
     """
-    return state.get("plan_complete", False)
+    return cast(bool, state.get("plan_complete", False))
 
 
 def is_execution_complete(state: PlanExecuteState) -> bool:
@@ -224,7 +251,7 @@ def is_execution_complete(state: PlanExecuteState) -> bool:
     Returns:
         执行是否完成
     """
-    return state.get("execution_complete", False)
+    return cast(bool, state.get("execution_complete", False))
 
 
 def get_plan_execute_progress(state: PlanExecuteState) -> Dict[str, Any]:

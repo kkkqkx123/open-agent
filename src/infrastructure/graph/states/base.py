@@ -61,20 +61,25 @@ class MessageRole:
     TOOL = "tool"
 
 
-class BaseGraphState(TypedDict, total=False):
-    """基础图状态
-    
+# 基础图状态类型定义
+# 使用Dict[str, Any]以支持字典操作，同时保持类型兼容性
+BaseGraphState = Dict[str, Any]
+
+# 类型注解，用于IDE提示和文档
+class _BaseGraphState(TypedDict, total=False):
+    """基础图状态类型注解
+
     所有状态类型的基础类，提供通用的状态字段。
     """
     # 使用reducer确保消息列表是追加而不是覆盖
     messages: Annotated[List[BaseMessage], operator.add]
-    
+
     # 可选字段
     metadata: Dict[str, Any]
-    
+
     # 执行上下文
     execution_context: Dict[str, Any]
-    
+
     # 当前步骤
     current_step: str
 
@@ -86,13 +91,13 @@ def create_base_state(
     current_step: str = "start"
 ) -> BaseGraphState:
     """创建基础状态
-    
+
     Args:
         messages: 初始消息列表
         metadata: 元数据
         execution_context: 执行上下文
         current_step: 当前步骤
-        
+
     Returns:
         BaseGraphState实例
     """

@@ -10,6 +10,7 @@ from .react import ReActState
 from .plan_execute import PlanExecuteState
 from .factory import StateFactory
 from .serializer import StateSerializer
+from .optimized_manager import OptimizedStateManager, create_optimized_state_manager
 
 __all__ = [
     "BaseGraphState",
@@ -18,5 +19,7 @@ __all__ = [
     "ReActState",
     "PlanExecuteState",
     "StateFactory",
-    "StateSerializer"
+    "StateSerializer",
+    "OptimizedStateManager",
+    "create_optimized_state_manager"
 ]

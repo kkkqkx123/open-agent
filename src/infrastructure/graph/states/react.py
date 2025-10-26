@@ -3,23 +3,51 @@
 提供ReAct（Reasoning and Acting）模式的状态管理。
 """
 
-from typing import Dict, Any, List, Annotated, Optional
+from typing import Dict, Any, List, Annotated, Optional, cast
 import operator
 from typing_extensions import TypedDict
 
+from .base import BaseMessage
 from .workflow import WorkflowState, create_workflow_state
 
 
-class ReActState(WorkflowState, total=False):
-    """ReAct模式状态
-    
+# ReAct状态类型定义
+ReActState = Dict[str, Any]
+
+# 类型注解
+class _ReActState(TypedDict, total=False):
+    """ReAct模式状态类型注解
+
     扩展工作流状态，添加ReAct特定的字段。
     """
+    # 基础字段 (继承自WorkflowState)
+    messages: Annotated[List[BaseMessage], operator.add]
+    metadata: Dict[str, Any]
+    execution_context: Dict[str, Any]
+    current_step: str
+    input: str
+    output: Optional[str]
+    tool_calls: Annotated[List[Dict[str, Any]], operator.add]
+    tool_results: Annotated[List[Dict[str, Any]], operator.add]
+    iteration_count: Annotated[int, operator.add]
+    max_iterations: int
+    errors: Annotated[List[str], operator.add]
+    complete: bool
+    agent_id: str
+    agent_config: Dict[str, Any]
+    execution_result: Optional[Dict[str, Any]]
+    workflow_id: str
+    workflow_name: str
+    workflow_config: Dict[str, Any]
+    current_graph: str
+    analysis: Optional[str]
+    decision: Optional[str]
+
     # ReAct特定的状态字段
     thought: Optional[str]
     action: Optional[str]
     observation: Optional[str]
-    
+
     # 步骤跟踪
     steps: Annotated[List[Dict[str, Any]], operator.add]
     
@@ -184,9 +212,9 @@ def has_react_reached_max_steps(state: ReActState) -> bool:
     Returns:
         是否达到最大步骤数
     """
-    current_step_index = state.get("current_step_index", 0)
-    max_steps = state.get("max_steps", 10)
-    
+    current_step_index = cast(int, state.get("current_step_index", 0))
+    max_steps = cast(int, state.get("max_steps", 10))
+
     return current_step_index >= max_steps
 
 

@@ -6,7 +6,7 @@
 from typing import Dict, Any, List, Optional, Type, Union
 from datetime import datetime
 
-from .base import BaseGraphState, create_base_state, create_message
+from .base import BaseGraphState, BaseMessage, create_base_state, create_message
 from .agent import AgentState, create_agent_state
 from .workflow import WorkflowState, create_workflow_state
 from .react import ReActState, create_react_state
@@ -158,9 +158,9 @@ class StateFactory:
     
     @staticmethod
     def create_state_by_type(
-        state_type: str,
-        **kwargs
-    ) -> Union[BaseGraphState, AgentState, WorkflowState, ReActState, PlanExecuteState]:
+    state_type: str,
+    **kwargs: Any
+    ) -> Dict[str, Any]:
         """根据类型创建状态
         
         Args:
@@ -185,10 +185,10 @@ class StateFactory:
         if not creator:
             raise ValueError(f"不支持的状态类型: {state_type}")
         
-        return creator(**kwargs)
+        return creator(**kwargs)  # type: ignore
     
     @staticmethod
-    def create_message(content: str, role: str, **kwargs):
+    def create_message(content: str, role: str, **kwargs: Any) -> BaseMessage:
         """创建消息
         
         Args:

@@ -3,27 +3,49 @@
 提供工作流执行过程中的状态管理。
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Annotated, cast
+import operator
 from datetime import datetime
 from typing_extensions import TypedDict
 
+from .base import BaseMessage
 from .agent import AgentState, create_agent_state
 
 
-class WorkflowState(AgentState, total=False):
-    """工作流状态
-    
+# 工作流状态类型定义
+WorkflowState = Dict[str, Any]
+
+# 类型注解
+class _WorkflowState(TypedDict, total=False):
+    """工作流状态类型注解
+
     扩展Agent状态，添加工作流特定的字段。
     """
+    # 基础字段 (从BaseGraphState和AgentState继承)
+    messages: Annotated[List[BaseMessage], operator.add]
+    metadata: Dict[str, Any]
+    execution_context: Dict[str, Any]
+    current_step: str
+    input: str
+    output: Optional[str]
+    tool_calls: Annotated[List[Dict[str, Any]], operator.add]
+    tool_results: Annotated[List[Dict[str, Any]], operator.add]
+    iteration_count: Annotated[int, operator.add]
+    max_iterations: int
+    errors: Annotated[List[str], operator.add]
+    complete: bool
+    agent_id: str
+    agent_config: Dict[str, Any]
+    execution_result: Optional[Dict[str, Any]]
+
     # 工作流特定字段
     workflow_id: str
     workflow_name: str
     workflow_config: Dict[str, Any]
-    
+
     # 当前执行信息
     current_graph: str
-    current_step: Optional[str]
-    
+
     # 分析和决策结果
     analysis: Optional[str]
     decision: Optional[str]
@@ -73,7 +95,7 @@ def create_workflow_state(
         "workflow_name": workflow_name,
         "workflow_config": workflow_config or {},
         "current_graph": "",
-        "current_step": None,
+        "current_step": "",
         "analysis": None,
         "decision": None,
         "context": {},
@@ -220,12 +242,12 @@ def get_workflow_duration(state: WorkflowState) -> Optional[float]:
     Returns:
         执行时长（秒），如果未完成则返回None
     """
-    start_time = state.get("start_time")
-    end_time = state.get("end_time")
-    
+    start_time = cast(datetime, state.get("start_time"))
+    end_time = cast(datetime, state.get("end_time"))
+
     if start_time and end_time:
         return (end_time - start_time).total_seconds()
-    
+
     return None
 
 
@@ -239,7 +261,7 @@ def get_graph_state(state: WorkflowState, graph_id: str) -> Optional[AgentState]
     Returns:
         图状态，如果不存在则返回None
     """
-    graph_states = state.get("graph_states", {})
+    graph_states = cast(Dict[str, AgentState], state.get("graph_states", {}))
     return graph_states.get(graph_id)
 
 
