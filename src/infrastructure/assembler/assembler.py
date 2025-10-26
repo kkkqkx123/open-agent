@@ -16,8 +16,7 @@ from .exceptions import (
     CircularDependencyError,
     ConfigurationError
 )
-from ..container import IDependencyContainer, ServiceLifetime
-from ..container import EnhancedDependencyContainer
+from ..container import IDependencyContainer, ServiceLifetime, DependencyContainer
 from ..config_loader import IConfigLoader
 
 logger = logging.getLogger(__name__)
@@ -40,7 +39,7 @@ class ComponentAssembler(IComponentAssembler):
             container: 依赖注入容器
             config_loader: 配置加载器
         """
-        self.container = container or EnhancedDependencyContainer()
+        self.container = container or DependencyContainer()
         self.config_loader = config_loader
         self._assembly_plan: Dict[str, Any] = {}
         self._dependency_graph: Dict[str, Set[str]] = {}

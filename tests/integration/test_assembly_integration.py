@@ -7,10 +7,11 @@ import pytest
 import tempfile
 import os
 from pathlib import Path
+from typing import cast
 
 from src.bootstrap import ApplicationBootstrap
 from src.infrastructure.assembler import ComponentAssembler
-from infrastructure.container import EnhancedDependencyContainer
+from infrastructure.container import DependencyContainer, ILifecycleAware
 from src.infrastructure.config_loader import YamlConfigLoader
 
 
@@ -107,7 +108,7 @@ default_tools:
         app_config = config_loader.load(config_path)
         
         # 创建组装器
-        container = EnhancedDependencyContainer()
+        container = DependencyContainer()
         assembler = ComponentAssembler(container, config_loader)
         
         # 组装组件
@@ -136,8 +137,9 @@ default_tools:
         
         # 验证启动状态
         assert bootstrap.is_running()
-        assert bootstrap.get_startup_time() is not None
-        assert bootstrap.get_startup_time() > 0
+        startup_time = bootstrap.get_startup_time()
+        assert startup_time is not None
+        assert startup_time > 0
         
         # 验证容器
         assert container is not None
@@ -149,7 +151,7 @@ default_tools:
     
     def test_enhanced_container_lifecycle(self, temp_config_dir):
         """测试增强容器的生命周期管理"""
-        from infrastructure.container import ILifecycleAware
+        from src.infrastructure.container import ILifecycleAware
         
         # 创建生命周期感知的服务
         class TestService(ILifecycleAware):
@@ -164,26 +166,28 @@ default_tools:
                 self.disposed = True
         
         # 创建容器
-        container = EnhancedDependencyContainer()
+        container = DependencyContainer()
         
         # 注册服务
         container.register_instance(ITestService, TestService())
         
         # 获取服务
         service = container.get(ITestService)
-        assert service.initialized
-        assert not service.disposed
+        # 类型断言，因为我们知道它是TestService实例
+        test_service = cast(TestService, service)
+        assert test_service.initialized
+        assert not test_service.disposed
         
         # 释放容器
         container.dispose()
-        assert service.disposed
+        assert test_service.disposed
     
     def test_enhanced_container_scoped_services(self, temp_config_dir):
         """测试增强容器的作用域服务"""
-        from infrastructure.container import ServiceLifetime
+        from src.infrastructure.container import ServiceLifetime
         
         # 创建容器
-        container = EnhancedDependencyContainer()
+        container = DependencyContainer()
         
         # 注册作用域服务
         container.register(ITestService, TestService, lifetime=ServiceLifetime.SCOPED)
@@ -201,10 +205,10 @@ default_tools:
     
     def test_circular_dependency_detection(self, temp_config_dir):
         """测试循环依赖检测"""
-        from infrastructure.container import CircularDependencyError
+        from src.infrastructure.exceptions import CircularDependencyError
         
         # 创建容器
-        container = EnhancedDependencyContainer()
+        container = DependencyContainer()
         
         # 注册有循环依赖的服务
         container.register(IServiceA, ServiceA)
@@ -217,7 +221,7 @@ default_tools:
     def test_dependency_analysis(self, temp_config_dir):
         """测试依赖关系分析"""
         # 创建容器
-        container = EnhancedDependencyContainer()
+        container = DependencyContainer()
         
         # 注册服务
         container.register(IServiceA, ServiceA)
@@ -257,9 +261,17 @@ class IServiceC:
 
 
 # 测试实现
-class TestService(ITestService):
+class TestService(ITestService, ILifecycleAware):
     """测试服务实现"""
-    pass
+    def __init__(self):
+        self.initialized = False
+        self.disposed = False
+    
+    def initialize(self):
+        self.initialized = True
+    
+    def dispose(self):
+        self.disposed = True
 
 
 class ServiceA(IServiceA):

@@ -6,13 +6,14 @@
 import threading
 import weakref
 import time
+import logging
 from abc import ABC, abstractmethod
 from typing import Type, TypeVar, Dict, Any, Optional, List, Set, Callable, Union
 from inspect import isclass, signature
 from contextlib import contextmanager
 from enum import Enum
 
-from .container import IDependencyContainer, ServiceRegistration, ServiceLifetime, T
+from .types import ServiceRegistration, ServiceLifetime, T
 from .exceptions import (
     ServiceNotRegisteredError,
     ServiceCreationError,
@@ -20,6 +21,64 @@ from .exceptions import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class IDependencyContainer(ABC):
+    """依赖注入容器接口"""
+
+    @abstractmethod
+    def register(
+        self,
+        interface: Type,
+        implementation: Type,
+        environment: str = "default",
+        lifetime: str = ServiceLifetime.SINGLETON,
+    ) -> None:
+        """注册服务实现"""
+        pass
+
+    @abstractmethod
+    def register_factory(
+        self,
+        interface: Type,
+        factory: Callable[[], Any],
+        environment: str = "default",
+        lifetime: str = ServiceLifetime.SINGLETON,
+    ) -> None:
+        """注册服务工厂"""
+        pass
+
+    @abstractmethod
+    def register_instance(
+        self, interface: Type, instance: Any, environment: str = "default"
+    ) -> None:
+        """注册服务实例"""
+        pass
+
+    @abstractmethod
+    def get(self, service_type: Type[T]) -> T:
+        """获取服务实例"""
+        pass
+
+    @abstractmethod
+    def get_environment(self) -> str:
+        """获取当前环境"""
+        pass
+
+    @abstractmethod
+    def set_environment(self, env: str) -> None:
+        """设置当前环境"""
+        pass
+
+    @abstractmethod
+    def has_service(self, service_type: Type) -> bool:
+        """检查服务是否已注册"""
+        pass
+
+    @abstractmethod
+    def clear(self) -> None:
+        """清除所有服务和缓存"""
+        pass
 
 
 class ServiceStatus(Enum):
@@ -104,7 +163,7 @@ class DefaultServiceTracker(IServiceTracker):
             return result
 
 
-class EnhancedDependencyContainer(IDependencyContainer):
+class DependencyContainer(IDependencyContainer):
     """增强的依赖注入容器实现
     
     提供更完善的生命周期管理和循环依赖检测功能。
@@ -310,9 +369,9 @@ class EnhancedDependencyContainer(IDependencyContainer):
     @contextmanager
     def scope(self):
         """作用域上下文管理器"""
+        old_scope_id = self._current_scope_id
         scope_id = self.create_scope()
         try:
-            old_scope_id = self._current_scope_id
             self._current_scope_id = scope_id
             yield scope_id
         finally:
@@ -660,3 +719,19 @@ class EnhancedDependencyContainer(IDependencyContainer):
         
         # 清除实例缓存
         self._instances.clear()
+
+
+# 全局依赖注入容器实例
+_global_container: Optional[DependencyContainer] = None
+
+
+def get_global_container() -> DependencyContainer:
+    """获取全局依赖注入容器
+
+    Returns:
+        DependencyContainer: 全局依赖注入容器
+    """
+    global _global_container
+    if _global_container is None:
+        _global_container = DependencyContainer()
+    return _global_container

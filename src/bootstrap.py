@@ -11,8 +11,7 @@ import threading
 from typing import Dict, Any, Optional, List, Callable
 from pathlib import Path
 
-from src.infrastructure.container import get_global_container
-from infrastructure.container import EnhancedDependencyContainer
+from src.infrastructure.container import get_global_container, DependencyContainer, IDependencyContainer
 from src.infrastructure.config_loader import YamlConfigLoader
 from src.infrastructure.assembler import ComponentAssembler, AssemblyError
 from src.infrastructure.exceptions import InfrastructureError
@@ -34,7 +33,7 @@ class ApplicationBootstrap:
             config_path: 应用配置文件路径
         """
         self.config_path = config_path
-        self.container = EnhancedDependencyContainer()
+        self.container = DependencyContainer()
         self.config_loader = YamlConfigLoader()
         self.assembler = ComponentAssembler(self.container, self.config_loader)
         self._shutdown_handlers: List[Callable] = []
@@ -47,7 +46,7 @@ class ApplicationBootstrap:
         
         logger.info(f"ApplicationBootstrap初始化完成，配置路径: {config_path}")
     
-    def bootstrap(self) -> DependencyContainer:
+    def bootstrap(self) -> IDependencyContainer:
         """启动应用程序
         
         Returns:
@@ -363,8 +362,14 @@ class ApplicationBootstrap:
             
             # 注册Agent工厂
             if not self.container.has_service(IAgentFactory):
-                llm_factory = self.container.get(self.assembler._resolve_type("ILLMFactory"))
-                tool_executor = self.container.get(self.assembler._resolve_type("IToolExecutor"))
+                llm_factory_type = self.assembler._resolve_type("ILLMFactory")
+                tool_executor_type = self.assembler._resolve_type("IToolExecutor")
+                if llm_factory_type is None:
+                    raise ValueError("无法解析 ILLMFactory 类型")
+                if tool_executor_type is None:
+                    raise ValueError("无法解析 IToolExecutor 类型")
+                llm_factory = self.container.get(llm_factory_type)
+                tool_executor = self.container.get(tool_executor_type)
                 
                 agent_factory = AgentFactory(llm_factory, tool_executor)
                 self.container.register_instance(IAgentFactory, agent_factory)
@@ -438,7 +443,7 @@ def get_global_bootstrap() -> ApplicationBootstrap:
     return _global_bootstrap
 
 
-def bootstrap_application(config_path: str = "configs/application.yaml") -> DependencyContainer:
+def bootstrap_application(config_path: str = "configs/application.yaml") -> IDependencyContainer:
     """启动应用程序的便捷函数
     
     Args:
