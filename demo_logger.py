@@ -11,18 +11,18 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.infrastructure.container import DependencyContainer
 from src.infrastructure.config_loader import YamlConfigLoader
-from src.config.config_system import ConfigSystem
-from src.config.config_merger import ConfigMerger
-from src.config.config_validator import ConfigValidator
-from src.logger import (
-    get_logger, 
+from src.infrastructure.config.config_system import ConfigSystem
+from src.infrastructure.config.config_merger import ConfigMerger
+from src.infrastructure.config.config_validator import ConfigValidator
+from src.infrastructure.logger import (
+    get_logger,
     initialize_logging_integration,
     get_global_error_handler,
     ErrorType,
     error_handler
 )
-from src.config import register_config_callback, CallbackPriority
-from src.config.config_callback_manager import ConfigChangeContext
+from src.infrastructure.config import register_config_callback, CallbackPriority
+from src.infrastructure.config.config_callback_manager import ConfigChangeContext
 
 
 def main() -> None:
@@ -33,8 +33,8 @@ def main() -> None:
     print("1. 初始化依赖注入容器...")
     container = DependencyContainer()
     from src.infrastructure.config_loader import IConfigLoader
-    from src.config.config_merger import IConfigMerger
-    from src.config.config_validator import IConfigValidator
+    from src.infrastructure.config.config_merger import IConfigMerger
+    from src.infrastructure.config.config_validator import IConfigValidator
     container.register_factory(IConfigLoader, YamlConfigLoader)  # type: ignore
     container.register_factory(IConfigMerger, ConfigMerger)  # type: ignore
     container.register_factory(IConfigValidator, ConfigValidator)  # type: ignore
@@ -43,8 +43,8 @@ def main() -> None:
     # 2. 获取服务
     print("2. 获取服务...")
     from src.infrastructure.config_loader import IConfigLoader
-    from src.config.config_merger import IConfigMerger
-    from src.config.config_validator import IConfigValidator
+    from src.infrastructure.config.config_merger import IConfigMerger
+    from src.infrastructure.config.config_validator import IConfigValidator
     config_loader = container.get(IConfigLoader)  # type: ignore
     config_merger = container.get(IConfigMerger)  # type: ignore
     config_validator = container.get(IConfigValidator)  # type: ignore

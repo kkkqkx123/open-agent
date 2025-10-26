@@ -1,0 +1,73 @@
+# Checkpoint配置组定义
+
+# 默认配置
+default:
+  enabled: true
+  storage_type: "sqlite"  # "sqlite" | "memory"
+  auto_save: true
+  save_interval: 5  # 每5步保存一次
+  max_checkpoints: 100
+  retention_days: 30
+  trigger_conditions:
+    - "tool_call"
+    - "state_change"
+    - "error"
+  db_path: "${CHECKPOINT_DB_PATH:./data/checkpoints.db}"
+  compression: false
+
+# 测试环境配置
+test:
+  storage_type: "memory"
+  auto_save: false
+  max_checkpoints: 10
+  trigger_conditions:
+    - "manual"
+  compression: false
+
+# 开发环境配置
+development:
+  enabled: true
+  storage_type: "sqlite"
+  auto_save: true
+  save_interval: 3
+  max_checkpoints: 50
+  retention_days: 7
+  trigger_conditions:
+    - "tool_call"
+    - "state_change"
+    - "error"
+  db_path: "${CHECKPOINT_DB_PATH:./data/dev_checkpoints.db}"
+  compression: false
+
+# 生产环境配置
+production:
+  enabled: true
+  storage_type: "sqlite"
+  auto_save: true
+  save_interval: 3
+  max_checkpoints: 1000
+  retention_days: 90
+  trigger_conditions:
+    - "tool_call"
+    - "state_change"
+    - "error"
+    - "node_complete"
+  db_path: "${CHECKPOINT_DB_PATH:./data/prod_checkpoints.db}"
+  compression: true
+
+# 调试环境配置
+debug:
+  enabled: true
+  storage_type: "sqlite"
+  auto_save: true
+  save_interval: 1  # 每步都保存
+  max_checkpoints: 200
+  retention_days: 3
+  trigger_conditions:
+    - "tool_call"
+    - "state_change"
+    - "error"
+    - "node_start"
+    - "node_complete"
+  db_path: "${CHECKPOINT_DB_PATH:./data/debug_checkpoints.db}"
+  compression: false

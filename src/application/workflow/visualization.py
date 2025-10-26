@@ -12,7 +12,7 @@ import time
 import threading
 from datetime import datetime
 
-from ...domain.workflow.config import WorkflowConfig
+from src.application.workflow.config import WorkflowConfig
 from .builder import WorkflowBuilder
 
 

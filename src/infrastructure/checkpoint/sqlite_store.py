@@ -1,0 +1,423 @@
+"""基于LangGraph标准的SQLite checkpoint存储实现
+
+使用LangGraph原生的AsyncSqliteSaver，符合LangGraph最佳实践。
+"""
+
+import aiosqlite
+import json
+import logging
+import uuid
+from typing import Dict, Any, Optional, List, Tuple
+from datetime import datetime
+from pathlib import Path
+
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from langgraph.checkpoint.sqlite import SqliteSaver
+
+from ...domain.checkpoint.interfaces import ICheckpointStore, ICheckpointSerializer
+
+logger = logging.getLogger(__name__)
+
+
+class LangGraphCheckpointAdapter:
+    """LangGraph checkpoint适配器
+    
+    将LangGraph原生的checkpoint存储适配到项目的接口。
+    """
+    
+    def __init__(self, checkpointer, serializer: Optional[ICheckpointSerializer] = None):
+        """初始化适配器
+        
+        Args:
+            checkpointer: LangGraph原生的checkpointer
+            serializer: 状态序列化器
+        """
+        self.checkpointer = checkpointer
+        self.serializer = serializer
+    
+    def _create_langgraph_config(self, session_id: str, checkpoint_id: Optional[str] = None) -> Dict[str, Any]:
+        """创建LangGraph标准配置
+        
+        Args:
+            session_id: 会话ID
+            checkpoint_id: 可选的checkpoint ID
+            
+        Returns:
+            Dict[str, Any]: LangGraph配置
+        """
+        config = {"configurable": {"thread_id": session_id}}
+        if checkpoint_id:
+            config["configurable"]["checkpoint_id"] = checkpoint_id
+        return config
+    
+    def _create_langgraph_checkpoint(self, state: Any, workflow_id: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """创建LangGraph标准checkpoint
+        
+        Args:
+            state: 工作流状态
+            workflow_id: 工作流ID
+            metadata: 元数据
+            
+        Returns:
+            Dict[str, Any]: LangGraph checkpoint
+        """
+        # 序列化状态
+        if self.serializer:
+            serialized_state = self.serializer.serialize(state)
+        else:
+            serialized_state = {"state": state} if hasattr(state, '__dict__') else {"raw": str(state)}
+        
+        return {
+            "v": 4,
+            "ts": datetime.now().isoformat(),
+            "id": str(uuid.uuid4()),
+            "channel_values": {
+                "state": serialized_state,
+                "workflow_id": workflow_id,
+                **metadata
+            },
+            "channel_versions": {
+                "__start__": 2,
+                "state": 1,
+                "workflow_id": 1
+            },
+            "versions_seen": {
+                "__start__": {"__start__": 1},
+                "state": {"__start__": 1}
+            }
+        }
+    
+    def _extract_state_from_checkpoint(self, checkpoint: Dict[str, Any]) -> Any:
+        """从LangGraph checkpoint提取状态
+        
+        Args:
+            checkpoint: LangGraph checkpoint
+            
+        Returns:
+            Any: 提取的状态
+        """
+        channel_values = checkpoint.get("channel_values", {})
+        state_data = channel_values.get("state")
+        
+        if self.serializer and state_data:
+            return self.serializer.deserialize(state_data)
+        
+        return state_data
+    
+    async def put(self, config: Dict[str, Any], checkpoint: Dict[str, Any], 
+                  metadata: Dict[str, Any], new_versions: Dict[str, Any]) -> bool:
+        """保存checkpoint
+        
+        Args:
+            config: 配置
+            checkpoint: checkpoint数据
+            metadata: 元数据
+            new_versions: 新版本信息
+            
+        Returns:
+            bool: 是否保存成功
+        """
+        try:
+            if hasattr(self.checkpointer, 'aput'):
+                await self.checkpointer.aput(config, checkpoint, metadata, new_versions)
+            else:
+                self.checkpointer.put(config, checkpoint, metadata, new_versions)
+            return True
+        except Exception as e:
+            logger.error(f"保存checkpoint失败: {e}")
+            return False
+    
+    async def get(self, config: Dict[str, Any]) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
+        """获取checkpoint
+        
+        Args:
+            config: 配置
+            
+        Returns:
+            Optional[Tuple[Dict[str, Any], Dict[str, Any]]]: checkpoint和元数据
+        """
+        try:
+            if hasattr(self.checkpointer, 'aget'):
+                return await self.checkpointer.aget(config)
+            else:
+                return self.checkpointer.get(config)
+        except Exception as e:
+            logger.error(f"获取checkpoint失败: {e}")
+            return None
+    
+    async def list(self, config: Dict[str, Any], limit: Optional[int] = None) -> List[Tuple[Dict[str, Any], Dict[str, Any]]]:
+        """列出checkpoint
+        
+        Args:
+            config: 配置
+            limit: 限制数量
+            
+        Returns:
+            List[Tuple[Dict[str, Any], Dict[str, Any]]]: checkpoint列表
+        """
+        try:
+            if hasattr(self.checkpointer, 'alist'):
+                checkpoints = []
+                async for checkpoint in self.checkpointer.alist(config, limit=limit):
+                    checkpoints.append(checkpoint)
+                return checkpoints
+            else:
+                return list(self.checkpointer.list(config, limit=limit))
+        except Exception as e:
+            logger.error(f"列出checkpoint失败: {e}")
+            return []
+    
+    async def delete(self, config: Dict[str, Any]) -> bool:
+        """删除checkpoint
+        
+        Args:
+            config: 配置
+            
+        Returns:
+            bool: 是否删除成功
+        """
+        try:
+            if hasattr(self.checkpointer, 'adelete'):
+                await self.checkpointer.adelete(config)
+            else:
+                self.checkpointer.delete(config)
+            return True
+        except Exception as e:
+            logger.error(f"删除checkpoint失败: {e}")
+            return False
+
+
+class SQLiteCheckpointStore(ICheckpointStore):
+    """基于LangGraph标准的SQLite checkpoint存储实现
+    
+    使用LangGraph原生的AsyncSqliteSaver，符合LangGraph最佳实践。
+    """
+    
+    def __init__(self, db_path: Path, serializer: Optional[ICheckpointSerializer] = None):
+        """初始化SQLite存储
+        
+        Args:
+            db_path: SQLite数据库文件路径
+            serializer: 状态序列化器
+        """
+        self.db_path = db_path
+        self.serializer = serializer
+        
+        # 确保数据库目录存在
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # 创建LangGraph原生存储
+        self._checkpointer = AsyncSqliteSaver.from_conn_string(str(self.db_path))
+        self._adapter = LangGraphCheckpointAdapter(self._checkpointer, serializer)
+        
+        logger.debug(f"SQLite checkpoint存储初始化完成: {self.db_path}")
+    
+    async def save(self, checkpoint_data: Dict[str, Any]) -> bool:
+        """保存checkpoint数据
+        
+        Args:
+            checkpoint_data: checkpoint数据字典，包含session_id, workflow_id, state_data, metadata
+            
+        Returns:
+            bool: 是否保存成功
+        """
+        try:
+            session_id = checkpoint_data['session_id']
+            workflow_id = checkpoint_data['workflow_id']
+            state = checkpoint_data['state_data']
+            metadata = checkpoint_data.get('metadata', {})
+            
+            # 创建LangGraph配置
+            config = self._adapter._create_langgraph_config(session_id)
+            
+            # 创建LangGraph checkpoint
+            checkpoint = self._adapter._create_langgraph_checkpoint(state, workflow_id, metadata)
+            
+            # 保存checkpoint
+            return await self._adapter.put(config, checkpoint, metadata, {})
+        except Exception as e:
+            logger.error(f"保存checkpoint失败: {e}")
+            return False
+    
+    async def load(self, checkpoint_id: str) -> Optional[Dict[str, Any]]:
+        """加载checkpoint数据
+        
+        Args:
+            checkpoint_id: checkpoint ID
+            
+        Returns:
+            Optional[Dict[str, Any]]: checkpoint数据，如果不存在则返回None
+        """
+        # 注意：LangGraph的checkpoint ID需要配合thread_id使用
+        # 这里我们需要从checkpoint_id中提取session_id，或者使用其他方式
+        # 暂时返回None，需要在实际使用时完善
+        logger.warning("load方法需要配合session_id使用，建议使用load_by_session方法")
+        return None
+    
+    async def load_by_session(self, session_id: str, checkpoint_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """根据会话ID加载checkpoint
+        
+        Args:
+            session_id: 会话ID
+            checkpoint_id: 可选的checkpoint ID
+            
+        Returns:
+            Optional[Dict[str, Any]]: checkpoint数据
+        """
+        try:
+            config = self._adapter._create_langgraph_config(session_id, checkpoint_id)
+            result = await self._adapter.get(config)
+            
+            if result:
+                checkpoint, metadata = result
+                return {
+                    'id': checkpoint.get('id'),
+                    'session_id': session_id,
+                    'workflow_id': checkpoint.get('channel_values', {}).get('workflow_id'),
+                    'state_data': self._adapter._extract_state_from_checkpoint(checkpoint),
+                    'metadata': metadata,
+                    'created_at': checkpoint.get('ts'),
+                    'updated_at': checkpoint.get('ts')
+                }
+            return None
+        except Exception as e:
+            logger.error(f"加载checkpoint失败: {e}")
+            return None
+    
+    async def list_by_session(self, session_id: str) -> List[Dict[str, Any]]:
+        """列出会话的所有checkpoint
+        
+        Args:
+            session_id: 会话ID
+            
+        Returns:
+            List[Dict[str, Any]]: checkpoint列表，按创建时间倒序排列
+        """
+        try:
+            config = self._adapter._create_langgraph_config(session_id)
+            checkpoints = await self._adapter.list(config)
+            
+            result = []
+            for checkpoint, metadata in checkpoints:
+                result.append({
+                    'id': checkpoint.get('id'),
+                    'session_id': session_id,
+                    'workflow_id': checkpoint.get('channel_values', {}).get('workflow_id'),
+                    'state_data': self._adapter._extract_state_from_checkpoint(checkpoint),
+                    'metadata': metadata,
+                    'created_at': checkpoint.get('ts'),
+                    'updated_at': checkpoint.get('ts')
+                })
+            return result
+        except Exception as e:
+            logger.error(f"列出checkpoint失败: {e}")
+            return []
+    
+    async def delete(self, checkpoint_id: str) -> bool:
+        """删除checkpoint
+        
+        Args:
+            checkpoint_id: checkpoint ID
+            
+        Returns:
+            bool: 是否删除成功
+        """
+        # 注意：LangGraph需要thread_id来删除checkpoint
+        # 这里需要从checkpoint_id中提取session_id
+        logger.warning("delete方法需要配合session_id使用，建议使用delete_by_session方法")
+        return False
+    
+    async def delete_by_session(self, session_id: str, checkpoint_id: Optional[str] = None) -> bool:
+        """根据会话ID删除checkpoint
+        
+        Args:
+            session_id: 会话ID
+            checkpoint_id: 可选的checkpoint ID，如果为None则删除所有
+            
+        Returns:
+            bool: 是否删除成功
+        """
+        try:
+            config = self._adapter._create_langgraph_config(session_id, checkpoint_id)
+            return await self._adapter.delete(config)
+        except Exception as e:
+            logger.error(f"删除checkpoint失败: {e}")
+            return False
+    
+    async def get_latest(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """获取会话的最新checkpoint
+        
+        Args:
+            session_id: 会话ID
+            
+        Returns:
+            Optional[Dict[str, Any]]: 最新的checkpoint数据，如果不存在则返回None
+        """
+        checkpoints = await self.list_by_session(session_id)
+        return checkpoints[0] if checkpoints else None
+    
+    async def cleanup_old_checkpoints(self, session_id: str, max_count: int) -> int:
+        """清理旧的checkpoint，保留最新的max_count个
+        
+        Args:
+            session_id: 会话ID
+            max_count: 保留的最大数量
+            
+        Returns:
+            int: 删除的checkpoint数量
+        """
+        try:
+            checkpoints = await self.list_by_session(session_id)
+            if len(checkpoints) <= max_count:
+                return 0
+            
+            # 删除超出数量的旧checkpoint
+            checkpoints_to_delete = checkpoints[max_count:]
+            deleted_count = 0
+            
+            for checkpoint in checkpoints_to_delete:
+                if await self.delete_by_session(session_id, checkpoint['id']):
+                    deleted_count += 1
+            
+            return deleted_count
+        except Exception as e:
+            logger.error(f"清理旧checkpoint失败: {e}")
+            return 0
+    
+    async def get_checkpoints_by_workflow(self, session_id: str, workflow_id: str) -> List[Dict[str, Any]]:
+        """获取指定工作流的所有checkpoint
+        
+        Args:
+            session_id: 会话ID
+            workflow_id: 工作流ID
+            
+        Returns:
+            List[Dict[str, Any]]: checkpoint列表，按创建时间倒序排列
+        """
+        checkpoints = await self.list_by_session(session_id)
+        return [cp for cp in checkpoints if cp.get('workflow_id') == workflow_id]
+    
+    async def get_checkpoint_count(self, session_id: str) -> int:
+        """获取会话的checkpoint数量
+        
+        Args:
+            session_id: 会话ID
+            
+        Returns:
+            int: checkpoint数量
+        """
+        checkpoints = await self.list_by_session(session_id)
+        return len(checkpoints)
+    
+    async def close(self):
+        """关闭数据库连接"""
+        # 上下文管理器会自动处理关闭
+        logger.debug("SQLite checkpoint数据库连接已关闭")
+    
+    def get_langgraph_checkpointer(self):
+        """获取LangGraph原生的checkpointer
+        
+        Returns:
+            LangGraph原生的checkpointer实例
+        """
+        return self._checkpointer
