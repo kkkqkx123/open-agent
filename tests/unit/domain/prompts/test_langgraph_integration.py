@@ -12,7 +12,8 @@ from src.domain.prompts.langgraph_integration import (
 )
 from src.domain.prompts.interfaces import IPromptInjector
 from src.domain.prompts.models import PromptConfig
-from src.application.workflow.state import WorkflowState, HumanMessage
+from src.infrastructure.graph.states import WorkflowState
+from src.infrastructure.graph.states.base import HumanMessage
 
 
 def create_empty_workflow_state() -> WorkflowState:  # type: ignore

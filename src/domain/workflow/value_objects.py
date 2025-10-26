@@ -4,11 +4,12 @@
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, List, Optional, Callable, Union, TYPE_CHECKING
 from enum import Enum
 import uuid
 import re
 
+from domain.workflow.entities import BusinessWorkflow
 from .exceptions import WorkflowValidationError
 
 
@@ -239,7 +240,7 @@ class WorkflowRule:
     error_message: str = ""  # 错误消息
     
     # 高级配置
-    custom_function: Optional[str] = None  # 自定义验证函数名
+    custom_function: Optional[Callable[[Any, Optional[Dict[str, Any]]], bool]] = None  # 自定义验证函数
     config: Dict[str, Any] = field(default_factory=dict)
     
     def __post_init__(self) -> None:
@@ -305,8 +306,8 @@ class WorkflowRule:
     
     def _validate_with_custom_function(self, value: Any, context: Optional[Dict[str, Any]] = None) -> bool:
         """使用自定义函数验证"""
-        # 这里应该根据函数名调用相应的验证函数
-        # 简化实现，实际项目中需要更复杂的函数注册机制
+        if self.custom_function is not None and callable(self.custom_function):
+            return self.custom_function(value, context)
         return True
     
     def validate(self) -> List[str]:
@@ -357,15 +358,16 @@ class WorkflowTemplate:
     
     def create_workflow(self, name: str, description: str, **kwargs) -> "BusinessWorkflow":
         """从模板创建工作流
-        
+
         Args:
             name: 工作流名称
             description: 工作流描述
             **kwargs: 参数覆盖
-            
+
         Returns:
             创建的工作流实例
         """
+        # Import here to avoid circular imports
         from .entities import BusinessWorkflow
         
         # 合并参数

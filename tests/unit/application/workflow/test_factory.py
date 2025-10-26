@@ -15,7 +15,7 @@ from src.application.workflow.factory import (
     create_plan_execute_workflow
 )
 from src.application.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
-from src.application.workflow.state import WorkflowState
+from src.infrastructure.graph.states import WorkflowState
 from src.domain.prompts.interfaces import IPromptInjector
 
 

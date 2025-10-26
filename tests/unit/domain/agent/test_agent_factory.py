@@ -7,7 +7,7 @@ from src.domain.agent.factory import AgentFactory
 from src.domain.agent.config import AgentConfig
 from src.domain.agent.interfaces import IAgent
 from src.domain.agent.state import AgentState
-from src.application.workflow.state import WorkflowState
+from src.infrastructure.graph.states import WorkflowState
 from src.infrastructure.llm.interfaces import ILLMClient
 from src.infrastructure.tools.manager import IToolManager
 

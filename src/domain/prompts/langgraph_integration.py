@@ -14,7 +14,8 @@ except ImportError:
 
 from .interfaces import IPromptInjector
 from .models import PromptConfig
-from src.application.workflow.state import WorkflowState, MessageRole
+from src.infrastructure.graph.states import WorkflowState
+from src.infrastructure.graph.states.base import MessageRole
 
 
 def get_agent_config() -> PromptConfig:

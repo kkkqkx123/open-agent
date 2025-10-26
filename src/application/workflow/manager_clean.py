@@ -3,10 +3,11 @@
 负责工作流的加载、创建、执行和管理。
 """
 
-from typing import Dict, Any, Optional, List, Union, AsyncGenerator, Generator
+from typing import Dict, Any, Optional, List, Generator
 from pathlib import Path
 import uuid
 from datetime import datetime
+import logging
 
 from src.infrastructure.graph.config import WorkflowConfig
 from src.infrastructure.graph.registry import NodeRegistry, get_global_registry
@@ -15,153 +16,7 @@ from src.infrastructure.config_loader import IConfigLoader
 from .builder_adapter import WorkflowBuilderAdapter
 from .interfaces import IWorkflowManager
 
-
-class WorkflowManager(IWorkflowManager):
-    """工作流管理器接口"""
-
-    @abstractmethod
-    def load_workflow(self, config_path: str) -> str:
-        """加载工作流配置
-
-        Args:
-            config_path: 配置文件路径
-
-        Returns:
-            str: 工作流ID
-        """
-        pass
-
-    @abstractmethod
-    def create_workflow(self, workflow_id: str) -> Any:
-        """创建工作流实例
-
-        Args:
-            workflow_id: 工作流ID
-
-        Returns:
-            Any: 工作流实例
-        """
-        pass
-
-    @abstractmethod
-    def run_workflow(
-        self,
-        workflow_id: str,
-        initial_state: Optional[WorkflowState] = None,
-        event_collector: Optional[Any] = None,
-        **kwargs: Any
-    ) -> WorkflowState:
-        """运行工作流
-
-        Args:
-            workflow_id: 工作流ID
-            initial_state: 初始状态
-            event_collector: 可选的事件收集器
-            **kwargs: 其他参数
-
-        Returns:
-            WorkflowState: 最终状态
-        """
-        pass
-
-    @abstractmethod
-    async def run_workflow_async(
-        self,
-        workflow_id: str,
-        initial_state: Optional[WorkflowState] = None,
-        event_collector: Optional[Any] = None,
-        **kwargs: Any
-    ) -> WorkflowState:
-        """异步运行工作流
-
-        Args:
-            workflow_id: 工作流ID
-            initial_state: 初始状态
-            event_collector: 可选的事件收集器
-            **kwargs: 其他参数
-
-        Returns:
-            WorkflowState: 最终状态
-        """
-        pass
-
-    @abstractmethod
-    def stream_workflow(
-        self,
-        workflow_id: str,
-        initial_state: Optional[WorkflowState] = None,
-        event_collector: Optional[Any] = None,
-        **kwargs: Any
-    ) -> Generator[WorkflowState, None, None]:
-        """流式运行工作流
-
-        Args:
-            workflow_id: 工作流ID
-            initial_state: 初始状态
-            event_collector: 可选的事件收集器
-            **kwargs: 其他参数
-
-        Yields:
-            WorkflowState: 中间状态
-        """
-        pass
-
-    @abstractmethod
-    def list_workflows(self) -> List[str]:
-        """列出所有已加载的工作流
-
-        Returns:
-            List[str]: 工作流ID列表
-        """
-        pass
-
-    @abstractmethod
-    def get_workflow_config(self, workflow_id: str) -> Optional[WorkflowConfig]:
-        """获取工作流配置
-
-        Args:
-            workflow_id: 工作流ID
-
-        Returns:
-            Optional[WorkflowConfig]: 工作流配置
-        """
-        pass
-
-    @abstractmethod
-    def unload_workflow(self, workflow_id: str) -> bool:
-        """卸载工作流
-
-        Args:
-            workflow_id: 工作流ID
-
-        Returns:
-            bool: 是否成功卸载
-        """
-        pass
-
-    @abstractmethod
-    def get_workflow_visualization(self, workflow_id: str) -> Dict[str, Any]:
-        """获取工作流可视化数据
-
-        Args:
-            workflow_id: 工作流ID
-
-        Returns:
-            Dict[str, Any]: 可视化数据
-        """
-        pass
-
-    @abstractmethod
-    def get_workflow_summary(self, workflow_id: str) -> Dict[str, Any]:
-        """获取工作流配置摘要（名称、版本、校验指纹等）
-
-        Args:
-            workflow_id: 工作流ID
-
-        Returns:
-            Dict[str, Any]: 工作流摘要信息
-        """
-        pass
+logger = logging.getLogger(__name__)
 
 
 class WorkflowManager(IWorkflowManager):

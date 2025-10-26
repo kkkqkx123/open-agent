@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 from pathlib import Path
 from typing import List, Dict, Any
 
-from src.application.workflow.builder import WorkflowBuilder
+from src.application.workflow.builder_adapter import WorkflowBuilderAdapter
 from src.domain.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
 from src.application.workflow.registry import NodeRegistry, BaseNode, NodeExecutionResult
 from src.application.workflow.state import AgentState
