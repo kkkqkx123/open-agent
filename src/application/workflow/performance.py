@@ -543,7 +543,7 @@ def optimize_workflow_loading(func: F) -> F:
                 config_data = optimizer.optimize_config_loading(config_path)
                 # 如果返回的是配置数据，需要转换为WorkflowConfig
                 if isinstance(config_data, dict):
-                    from ...domain.workflow.config import WorkflowConfig
+                    from src.application.workflow.config import WorkflowConfig
                     return WorkflowConfig.from_dict(config_data)
                 # 如果返回的已经是WorkflowConfig，直接返回
                 return config_data

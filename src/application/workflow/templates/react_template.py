@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, List
-from src.domain.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
+from src.application.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
 from ..interfaces import IWorkflowTemplate
 
 

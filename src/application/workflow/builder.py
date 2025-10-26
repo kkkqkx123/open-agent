@@ -9,8 +9,8 @@ import yaml
 import logging
 from abc import ABC, abstractmethod
 
-from ...domain.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
-from ...domain.workflow.state import WorkflowState
+from src.application.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
+from src.application.workflow.state import WorkflowState
 from ...domain.agent.interfaces import IAgent, IAgentFactory
 from .registry import NodeRegistry, get_global_registry
 from .interfaces import IWorkflowBuilder, IWorkflowTemplate

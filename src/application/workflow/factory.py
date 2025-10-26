@@ -8,8 +8,8 @@ from typing import Any, Dict, Optional, List, Union
 from pathlib import Path
 import logging
 
-from ...domain.workflow.config import WorkflowConfig
-from ...domain.workflow.state import WorkflowState, create_message, MessageRole
+from src.application.workflow.config import WorkflowConfig
+from src.application.workflow.state import WorkflowState, create_message, MessageRole
 from ...domain.prompts.interfaces import IPromptInjector
 from ...domain.prompts.models import PromptConfig
 from .builder import WorkflowBuilder
@@ -268,7 +268,7 @@ class UnifiedWorkflowFactory(IWorkflowFactory):
     def _create_default_configs(self) -> None:
         """创建默认预定义配置"""
         # 创建简单的ReAct配置
-        from ...domain.workflow.config import NodeConfig, EdgeConfig, EdgeType
+        from src.application.workflow.config import NodeConfig, EdgeConfig, EdgeType
 
         react_config = WorkflowConfig(
             name="react",

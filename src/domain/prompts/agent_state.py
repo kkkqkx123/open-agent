@@ -5,7 +5,7 @@
 """
 
 # 导入新的状态定义，提供向后兼容性
-from ..workflow.state import (
+from src.application.workflow.state import (
     WorkflowState as AgentState,
     BaseMessage,
     SystemMessage,

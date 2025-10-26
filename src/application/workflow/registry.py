@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Type, Optional, Callable
 from dataclasses import dataclass
 
-from ...domain.workflow.state import WorkflowState
+from src.application.workflow.state import WorkflowState
 
 
 @dataclass

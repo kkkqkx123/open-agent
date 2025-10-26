@@ -1,7 +1,7 @@
 """工作流配置模型测试"""
 
 import pytest
-from src.domain.workflow.config import (
+from src.application.workflow.config import (
     WorkflowConfig,
     NodeConfig,
     EdgeConfig,
