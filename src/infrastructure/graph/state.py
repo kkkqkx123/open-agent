@@ -3,7 +3,7 @@
 提供符合LangGraph最佳实践的状态定义和管理。
 """
 
-from typing import Dict, Any, List, Optional, Annotated, Union
+from typing import Any, List, Optional, Annotated, Union
 from dataclasses import dataclass
 import operator
 import logging
@@ -88,7 +88,7 @@ class BaseGraphState(TypedDict, total=False):
     messages: Annotated[List[BaseMessage], operator.add]
 
     # 可选字段
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class AgentState(BaseGraphState, total=False):
@@ -98,8 +98,8 @@ class AgentState(BaseGraphState, total=False):
     output: Optional[str]
 
     # 工具相关状态
-    tool_calls: Annotated[List[Dict[str, Any]], operator.add]
-    tool_results: Annotated[List[Dict[str, Any]], operator.add]
+    tool_calls: Annotated[List[dict[str, Any]], operator.add]
+    tool_results: Annotated[List[dict[str, Any]], operator.add]
 
     # 迭代控制
     iteration_count: Annotated[int, operator.add]
@@ -125,7 +125,7 @@ class WorkflowState(AgentState, total=False):
     decision: Optional[str]
 
     # 上下文信息
-    context: Dict[str, Any]
+    context: dict[str, Any]
 
 
 class ReActState(WorkflowState, total=False):
@@ -136,7 +136,7 @@ class ReActState(WorkflowState, total=False):
     observation: Optional[str]
 
     # 步骤跟踪
-    steps: Annotated[List[Dict[str, Any]], operator.add]
+    steps: Annotated[List[dict[str, Any]], operator.add]
 
 
 class PlanExecuteState(WorkflowState, total=False):
@@ -145,7 +145,7 @@ class PlanExecuteState(WorkflowState, total=False):
     plan: Optional[str]
     steps: Annotated[List[str], operator.add]
     current_step: Optional[str]
-    step_results: Annotated[List[Dict[str, Any]], operator.add]
+    step_results: Annotated[List[dict[str, Any]], operator.add]
 
 
 # 状态工厂函数
@@ -291,7 +291,7 @@ def create_message(content: str, role: str, **kwargs: Any) -> BaseMessage:
 
 
 # 状态更新函数
-def update_state_with_message(state: Dict[str, Any], message: BaseMessage) -> Dict[str, Any]:
+def update_state_with_message(state: dict[str, Any], message: BaseMessage) -> dict[str, Any]:
     """用消息更新状态
     
     Args:
@@ -305,10 +305,10 @@ def update_state_with_message(state: Dict[str, Any], message: BaseMessage) -> Di
 
 
 def update_state_with_tool_result(
-    state: Dict[str, Any], 
-    tool_call: Dict[str, Any], 
+    state: dict[str, Any], 
+    tool_call: dict[str, Any], 
     result: Any
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """用工具结果更新状态
     
     Args:
@@ -324,7 +324,7 @@ def update_state_with_tool_result(
     }
 
 
-def update_state_with_error(state: Dict[str, Any], error: str) -> Dict[str, Any]:
+def update_state_with_error(state: dict[str, Any], error: str) -> dict[str, Any]:
     """用错误信息更新状态
     
     Args:
@@ -338,7 +338,7 @@ def update_state_with_error(state: Dict[str, Any], error: str) -> Dict[str, Any]
 
 
 # 状态验证函数
-def validate_state(state: Dict[str, Any], state_type: type) -> List[str]:
+def validate_state(state: dict[str, Any], state_type: type) -> List[str]:
     """验证状态
     
     Args:
@@ -370,7 +370,7 @@ def validate_state(state: Dict[str, Any], state_type: type) -> List[str]:
 
 
 # 状态序列化函数
-def serialize_state(state: Dict[str, Any]) -> Dict[str, Any]:
+def serialize_state(state: dict[str, Any]) -> dict[str, Any]:
     """序列化状态
     
     Args:
@@ -395,7 +395,7 @@ def serialize_state(state: Dict[str, Any]) -> Dict[str, Any]:
     return serialized
 
 
-def deserialize_state(serialized_state: Dict[str, Any]) -> Dict[str, Any]:
+def deserialize_state(serialized_state: dict[str, Any]) -> dict[str, Any]:
     """反序列化状态
     
     Args:

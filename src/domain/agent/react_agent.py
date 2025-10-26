@@ -23,11 +23,11 @@ class ReActAgent(BaseAgent):
             config: 执行配置
             
         Returns:
-            WorkflowState: 更新后的状态
+            AgentState: 更新后的状态
         """
-        # ReAct Agent主要设计用于WorkflowState，如果是AgentState则抛出错误
-        if isinstance(state, AgentState):
-            raise TypeError("ReActAgent requires WorkflowState, got AgentState")
+        # ReAct Agent现在可以处理AgentState
+        if not isinstance(state, AgentState):
+            raise TypeError(f"ReActAgent requires AgentState, got {type(state)}")
 
         current_iteration = 0
         max_iterations = config.get("max_iterations", self.config.max_iterations)
@@ -36,8 +36,12 @@ class ReActAgent(BaseAgent):
             # 1. 分析当前状态并进行推理
             reasoning_result = await self._reason(state)
             
-            # 将推理结果添加到记忆中
-            state.add_memory(BaseMessage(content=f"Thought: {reasoning_result}", type="reasoning"))
+            # 将推理结果添加到消息中
+            state.add_message(AgentMessage(
+                content=f"Thought: {reasoning_result}",
+                role="assistant",
+                metadata={"type": "reasoning"}
+            ))
             
             # 2. 决策下一步行动
             action_result = await self._decide_action(state, reasoning_result)
@@ -65,17 +69,34 @@ class ReActAgent(BaseAgent):
                 # 将工具执行结果添加到状态中
                 state.tool_results.append(tool_result)
                 
-                # 将观察结果添加到记忆中
+                # 将观察结果添加到消息中
                 observation = f"Action: {tool_call_str}\nObservation: {tool_result.output}"
-                state.add_memory(BaseMessage(content=observation, type="observation"))
+                state.add_message(AgentMessage(
+                    content=observation,
+                    role="assistant",
+                    metadata={"type": "observation"}
+                ))
+                
+                # 工具调用后增加迭代计数并继续循环
+                current_iteration += 1
+                state.iteration_count = current_iteration
+                continue
             elif action_result.get("action") == "final_answer":
                 # 如果是最终答案，添加到状态并退出循环
                 answer = action_result.get("answer", "No answer provided")
-                state.add_memory(BaseMessage(content=answer, type="final_answer"))
+                state.add_message(AgentMessage(
+                    content=answer,
+                    role="assistant",
+                    metadata={"type": "final_answer"}
+                ))
                 break
             else:
                 # 其他行动类型
-                state.add_memory(BaseMessage(content=f"Action: {action_result}", type="action"))
+                state.add_message(AgentMessage(
+                    content=f"Action: {action_result}",
+                    role="assistant",
+                    metadata={"type": "action"}
+                ))
             
             current_iteration += 1
             state.iteration_count = current_iteration
@@ -93,7 +114,7 @@ class ReActAgent(BaseAgent):
         """判断Agent是否能处理当前状态
         
         Args:
-            state: 工作流状态
+            state: Agent状态
             
         Returns:
             bool: 是否能处理
@@ -105,13 +126,13 @@ class ReActAgent(BaseAgent):
         """验证状态是否适合此Agent
         
         Args:
-            state: 工作流状态
+            state: Agent状态
             
         Returns:
             bool: 是否适合
         """
         # 检查基本状态
-        if not state.messages:
+        if not state.current_task:
             return False
         
         # 检查是否有有效的LLM客户端
@@ -129,6 +150,7 @@ class ReActAgent(BaseAgent):
         capabilities = super().get_capabilities()
         capabilities.update({
             "algorithm": "ReAct",
+            "react_algorithm": True,
             "supported_tasks": self._get_supported_tasks(),
             "reasoning_enabled": True,
             "tool_execution_enabled": True
@@ -149,11 +171,11 @@ class ReActAgent(BaseAgent):
             "step_by_step_processing"
         ]
     
-    async def _reason(self, state: Any) -> str:
+    async def _reason(self, state: AgentState) -> str:
         """执行推理步骤
         
         Args:
-            state: 当前工作流状态
+            state: 当前Agent状态
             
         Returns:
             str: 推理结果
@@ -170,7 +192,9 @@ class ReActAgent(BaseAgent):
         3. What is the next logical step?
         4. Why is this step important?
         
-        Current state: {str(state.__dict__)}
+        Current task: {state.current_task}
+        Context: {state.context}
+        Messages: {[msg.content for msg in state.messages[-3:]]}  # 最近3条消息
         """
         
         messages = [
@@ -180,6 +204,7 @@ class ReActAgent(BaseAgent):
         
         # 调用LLM进行推理
         try:
+            # 使用正确的方法名
             response = await self.llm_client.generate_async(messages)
             reasoning_result = response.content
             return reasoning_result
@@ -189,11 +214,11 @@ class ReActAgent(BaseAgent):
             state.add_error({"error": error_msg, "type": "reasoning_error"})
             return "Unable to reason due to an error. Proceeding with default action."
     
-    async def _decide_action(self, state: Any, reasoning_result: str) -> Dict[str, Any]:
+    async def _decide_action(self, state: AgentState, reasoning_result: str) -> Dict[str, Any]:
         """决定下一步行动
         
         Args:
-            state: 当前工作流状态
+            state: 当前Agent状态
             reasoning_result: 推理结果
             
         Returns:
@@ -217,6 +242,7 @@ class ReActAgent(BaseAgent):
         messages = [HumanMessage(content=action_decision_prompt)]
         
         try:
+            # 使用正确的方法名
             response = await self.llm_client.generate_async(messages)
             # 解析行动决策
             action_decision = response.content.strip()
@@ -227,6 +253,14 @@ class ReActAgent(BaseAgent):
             elif any(tool in action_decision for tool in self.config.tools):
                 return {"action": "tool_call", "tool_call": action_decision}
             else:
+                # 尝试解析JSON格式
+                try:
+                    import json
+                    parsed = json.loads(action_decision)
+                    if isinstance(parsed, dict) and "action" in parsed:
+                        return parsed
+                except:
+                    pass
                 return {"action": "other", "details": action_decision}
         except Exception as e:
             # 记录错误并返回默认行动
@@ -234,11 +268,11 @@ class ReActAgent(BaseAgent):
             state.add_error({"error": error_msg, "type": "action_decision_error"})
             return {"action": "other", "details": "Default action due to error"}
     
-    async def _execute_tool(self, state: Any, tool_call_str: str) -> ToolResult:
+    async def _execute_tool(self, state: AgentState, tool_call_str: str) -> ToolResult:
         """执行工具调用
         
         Args:
-            state: 当前工作流状态
+            state: 当前Agent状态
             tool_call_str: 工具调用字符串
             
         Returns:
@@ -260,7 +294,7 @@ class ReActAgent(BaseAgent):
                 # 执行工具
                 tool_result = await self.tool_executor.execute_async(tool_call)
                 
-                # 将domain.tools.interfaces.ToolResult转换为domain.workflow.state.ToolResult
+                # 将domain.tools.interfaces.ToolResult转换为domain.tools.interfaces.ToolResult
                 return ToolResult(
                     tool_name=tool_result.tool_name or "unknown_tool",
                     success=tool_result.success,
@@ -273,5 +307,6 @@ class ReActAgent(BaseAgent):
                 return ToolResult(tool_name="unknown_tool", success=True, output=result)
         except Exception as e:
             error_msg = f"Tool execution error: {str(e)}"
+            # 添加错误到状态和返回错误工具结果
             state.add_error({"error": error_msg, "type": "tool_execution_error"})
             return ToolResult(tool_name="unknown_tool", success=False, output=None, error=error_msg)

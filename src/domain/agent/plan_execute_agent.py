@@ -17,8 +17,17 @@ class PlanExecuteAgent(BaseAgent):
     
     async def _execute_logic(self, state: Any, config: Dict[str, Any]) -> Any:
         """执行Plan-and-Execute算法"""
-        # 1. 根据目标制定计划
-        plan = await self._create_plan(state)
+        # 检查是否已有计划
+        if "current_plan" in state.context:
+            # 如果已有计划，直接执行计划
+            plan = self._convert_context_to_plan(state.context)
+        else:
+            # 1. 根据目标制定计划
+            plan = await self._create_plan(state)
+            
+            # 将计划保存到状态中
+            state.context["current_plan"] = [step["description"] for step in plan]
+            state.context["current_step_index"] = 0
         
         # 发布计划创建事件
         self.event_manager.publish(AgentEvent.DECISION_MADE, {
@@ -38,13 +47,45 @@ class PlanExecuteAgent(BaseAgent):
     def can_handle(self, state: AgentState) -> bool:
         """判断Agent是否能处理当前状态"""
         # Plan-Execute Agent适合需要复杂规划的任务
+        return self.validate_state(state)
+    
+    def validate_state(self, state: AgentState) -> bool:
+        """验证状态是否适合此Agent
+        
+        Args:
+            state: Agent状态
+            
+        Returns:
+            bool: 是否适合
+        """
+        # 检查基本状态
+        if not state.current_task:
+            return False
+        
+        # 检查是否有有效的LLM客户端
+        if not self.llm_client:
+            return False
+        
         return True
+    
+    def _convert_context_to_plan(self, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """将上下文中的计划转换为计划对象"""
+        current_plan = context.get("current_plan", [])
+        return [
+            {
+                "step": i + 1,
+                "description": step,
+                "tool": "default_tool",
+                "expected_result": f"Step {i + 1} completed"
+            }
+            for i, step in enumerate(current_plan)
+        ]
     
     async def _create_plan(self, state: AgentState) -> List[Dict[str, Any]]:
         """根据目标创建计划"""
         # 构建规划请求
         planning_prompt = f"""
-        Based on the following information, create a detailed plan to achieve the goal:
+        Based on following information, create a detailed plan to achieve goal:
         
         Current task: {state.current_task}
         Available tools: {self.config.tools}
@@ -69,11 +110,33 @@ class PlanExecuteAgent(BaseAgent):
         ]
         
         try:
+            # 使用正确的方法名
             response = await self.llm_client.generate_async(messages)
             plan_str = response.content.strip()
             
             # 在实际实现中，需要解析JSON格式的计划
-            # 这里简化为返回一个模拟计划
+            # 这里简化为返回一个模拟计划，但基于LLM响应内容
+            if "1." in plan_str:
+                # 尝试从响应中提取步骤
+                lines = plan_str.split('\n')
+                steps = []
+                step_num = 1
+                for line in lines:
+                    line = line.strip()
+                    if line and (line.startswith(f"{step_num}.") or f"{step_num}." in line):
+                        description = line.split(f"{step_num}.")[1].strip() if f"{step_num}." in line else line
+                        steps.append({
+                            "step": step_num,
+                            "description": description,
+                            "tool": "default_tool",
+                            "expected_result": f"Step {step_num} completed"
+                        })
+                        step_num += 1
+                
+                if steps:
+                    return steps
+            
+            # 默认计划
             return [
                 {
                     "step": 1,
@@ -97,10 +160,12 @@ class PlanExecuteAgent(BaseAgent):
     
     async def _execute_plan(self, state: AgentState, plan: List[Dict[str, Any]]) -> AgentState:
         """执行计划"""
-        current_step = 0
+        # 获取当前步骤索引，如果不存在则为0
+        current_step_index = state.context.get("current_step_index", 0)
         
-        for plan_step in plan:
-            if current_step >= state.max_iterations or current_step >= self.config.max_iterations:
+        # 从当前步骤开始执行
+        for plan_step in plan[current_step_index:]:
+            if current_step_index >= state.max_iterations or current_step_index >= self.config.max_iterations:
                 break
                 
             # 执行计划步骤
@@ -114,6 +179,10 @@ class PlanExecuteAgent(BaseAgent):
                 metadata={"type": "plan_execution"}
             ))
             
+            # 更新当前步骤索引
+            current_step_index += 1
+            state.context["current_step_index"] = current_step_index
+            
             # 检查是否需要调整计划
             if not step_result.get("success", False):
                 # 如果步骤失败，可能需要调整计划
@@ -122,13 +191,16 @@ class PlanExecuteAgent(BaseAgent):
                     "type": "plan_execution_error"
                 })
                 break
-            
-            current_step += 1
+        
+        # 如果所有步骤都完成，清除计划
+        if current_step_index >= len(plan):
+            state.context.pop("current_plan", None)
+            state.context.pop("current_step_index", None)
         
         # 更新状态中的任务历史
         state.task_history.append({
             "agent_id": self.config.name,
-            "iterations": current_step,
+            "iterations": current_step_index,
             "final_state": "completed",
             "plan": plan
         })
@@ -152,10 +224,11 @@ class PlanExecuteAgent(BaseAgent):
                 
                 # 执行工具调用
                 tool_result = await self._execute_tool(state, tool_name, step_description)
+                
                 return {
                     "success": tool_result.success,
                     "result": tool_result.output,
-                    "tool_name": tool_name
+                    "tool_name": tool_result.tool_name
                 }
             else:
                 # 执行非工具操作
@@ -167,7 +240,9 @@ class PlanExecuteAgent(BaseAgent):
                 
                 messages = [HumanMessage(content=execution_prompt)]
                 
+                # 使用正确的方法名
                 response = await self.llm_client.generate_async(messages)
+                
                 return {
                     "success": True,
                     "result": response.content,
@@ -196,7 +271,7 @@ class PlanExecuteAgent(BaseAgent):
                 # 执行工具
                 tool_result = await self.tool_executor.execute_async(tool_call)
                 
-                # 将domain.tools.interfaces.ToolResult转换为domain.prompts.agent_state.ToolResult
+                # 将domain.tools.interfaces.ToolResult转换为domain.tools.interfaces.ToolResult
                 return ToolResult(
                     tool_name=tool_result.tool_name or tool_name,
                     success=tool_result.success,
@@ -214,4 +289,20 @@ class PlanExecuteAgent(BaseAgent):
     
     def get_capabilities(self) -> Dict[str, Any]:
         """获取Agent的能力列表"""
-        return {"capabilities": ["planning", "execution", "plan_execute_algorithm"]}
+        capabilities = super().get_capabilities()
+        capabilities.update({
+            "plan_execute_algorithm": True,
+            "capabilities": ["planning", "execution", "plan_execute_algorithm"],
+            "supported_tasks": self._get_supported_tasks()
+        })
+        return capabilities
+    
+    def _get_supported_tasks(self) -> List[str]:
+        """获取支持的任务类型"""
+        return [
+            "planning",
+            "execution",
+            "step_execution",
+            "complex_task_decomposition",
+            "sequential_processing"
+        ]

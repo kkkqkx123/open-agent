@@ -7,7 +7,7 @@ from src.domain.agent.factory import AgentFactory
 from src.domain.agent.config import AgentConfig
 from src.domain.agent.interfaces import IAgent
 from src.domain.agent.state import AgentState
-from src.infrastructure.graph.states import WorkflowState
+from src.infrastructure.graph import WorkflowState
 from src.infrastructure.llm.interfaces import ILLMClient
 from src.infrastructure.tools.manager import IToolManager
 
@@ -72,7 +72,7 @@ def agent_factory(mock_llm_factory, mock_tool_manager):
 def test_agent_factory_init(agent_factory, mock_llm_factory, mock_tool_manager):
     """测试AgentFactory初始化"""
     assert agent_factory.llm_factory == mock_llm_factory
-    assert agent_factory.tool_manager == mock_tool_manager
+    assert agent_factory.tool_executor == mock_tool_manager
     assert "react" in agent_factory.get_supported_types()
     assert "plan_execute" in agent_factory.get_supported_types()
 

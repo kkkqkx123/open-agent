@@ -47,16 +47,17 @@ Plan:
 4. Write the story
 5. Review and refine
 """
-        self.mock_llm_client.generate_response_async = AsyncMock(return_value=mock_plan_response)
+        self.mock_llm_client.generate_async = AsyncMock(return_value=mock_plan_response)
         
         # 执行Agent
-        result_state = await self.plan_execute_agent.execute(input_state, {})
+        result_state = await self.plan_execute_agent.execute(input_state, {"max_iterations": 1})
         
         # 验证LLM被调用
-        assert self.mock_llm_client.generate_response_async.called
+        assert self.mock_llm_client.generate_async.called
         
         # 验证状态更新
         assert result_state.context.get("current_plan") is not None
+        assert result_state.context.get("current_step_index") == 0
         assert len(result_state.task_history) > 0
     
     async def test_execute_with_plan_execution(self):
@@ -77,14 +78,15 @@ Plan:
         # 模拟LLM响应 - 执行步骤
         mock_step_response = Mock()
         mock_step_response.content = "The theme explores creativity and self-expression in artificial beings."
-        self.mock_llm_client.generate_response_async = AsyncMock(return_value=mock_step_response)
+        self.mock_llm_client.generate_async = AsyncMock(return_value=mock_step_response)
         
         # 执行Agent
-        result_state = await self.plan_execute_agent.execute(input_state, {})
+        result_state = await self.plan_execute_agent.execute(input_state, {"max_iterations": 1})
         
         # 验证状态更新
         assert result_state.context.get("current_step_index") == 1
-        assert len(result_state.memory) > 0  # type: ignore
+        assert len(result_state.messages) > 0
+        assert "Step 1" in result_state.messages[0].content
     
     async def test_execute_with_tool_in_step(self):
         """测试在计划步骤中使用工具的场景"""
@@ -103,7 +105,7 @@ Plan:
         # 模拟LLM响应 - 需要使用工具
         mock_step_response = Mock()
         mock_step_response.content = "Action: calculator[{'operation': 'multiply', 'operands': ['3.14159', '25']}]"
-        self.mock_llm_client.generate_response_async = AsyncMock(return_value=mock_step_response)
+        self.mock_llm_client.generate_async = AsyncMock(return_value=mock_step_response)
         
         # 模拟工具执行结果
         mock_tool_result = ToolResult(
@@ -113,13 +115,13 @@ Plan:
             tool_name="calculator",
             metadata={}
         )
-        self.mock_tool_executor.execute_tool_async = AsyncMock(return_value=mock_tool_result)
+        self.mock_tool_executor.execute_async = AsyncMock(return_value=mock_tool_result)
         
         # 执行Agent
-        result_state = await self.plan_execute_agent.execute(input_state, {})
+        result_state = await self.plan_execute_agent.execute(input_state, {"max_iterations": 1})
         
         # 验证工具被调用
-        assert self.mock_tool_executor.execute_tool_async.called
+        assert self.mock_tool_executor.execute_async.called
         
         # 验证状态更新
         assert result_state.context.get("current_step_index") == 1
@@ -141,23 +143,24 @@ Plan:
         # 模拟LLM响应 - 最终总结
         mock_final_response = Mock()
         mock_final_response.content = "Final Answer: The project was completed successfully with all objectives met."
-        self.mock_llm_client.generate_response_async = AsyncMock(return_value=mock_final_response)
+        self.mock_llm_client.generate_async = AsyncMock(return_value=mock_final_response)
         
         # 执行Agent
-        result_state = await self.plan_execute_agent.execute(input_state, {})
+        result_state = await self.plan_execute_agent.execute(input_state, {"max_iterations": 1})
         
         # 验证状态更新
         assert result_state.context.get("current_plan") is None  # 计划完成应清除
-        assert "Final Answer" in result_state.memory[-1].content  # type: ignore
+        assert "Final Answer" in result_state.messages[-1].content
     
     def test_can_handle_returns_true(self):
         """测试can_handle方法返回True"""
-        state = AgentState()
+        state = AgentState(current_task="Test task")
         assert self.plan_execute_agent.can_handle(state) is True
     
     def test_get_capabilities(self):
         """测试获取Agent能力列表"""
         capabilities = self.plan_execute_agent.get_capabilities()
         assert "plan_execute_algorithm" in capabilities
-        assert "planning" in capabilities
-        assert "step_execution" in capabilities
+        assert capabilities["plan_execute_algorithm"] is True
+        assert "planning" in capabilities["supported_tasks"]
+        assert "execution" in capabilities["supported_tasks"]

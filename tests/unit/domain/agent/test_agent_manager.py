@@ -24,6 +24,14 @@ class TestAgentManager:
                 self.llm_client = llm_client
                 self.tool_executor = tool_executor
             
+            @property
+            def name(self) -> str:
+                return self.config.name
+            
+            @property
+            def description(self) -> str:
+                return getattr(self.config, 'description', 'Mock Agent')
+            
             async def execute(self, state, config):
                 return state
 
@@ -91,7 +99,7 @@ class TestAgentManager:
         result = await self.agent_manager.execute_agent("test_agent", input_state)  # type: ignore
         
         # 验证Agent被执行
-        mock_agent.execute.assert_called_once_with(input_state)
+        mock_agent.execute.assert_called_once_with(input_state, {})
         assert result is not None
     
     def test_execute_nonexistent_agent_raises_error(self):

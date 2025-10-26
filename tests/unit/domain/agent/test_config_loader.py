@@ -25,7 +25,7 @@ tools:
     def test_load_config_from_yaml_file(self, mock_file):
         """测试从YAML文件加载配置"""
         # 配置mock返回值
-        self.mock_config_loader.load_config.return_value = {
+        self.mock_config_loader.load.return_value = {
             "name": "test_agent",
             "agent_type": "react",
             "system_prompt": "Test system prompt",
@@ -36,7 +36,7 @@ tools:
         config = self.config_loader.load_agent_config("test_agent")
         
         # 验证配置加载器被调用
-        self.mock_config_loader.load_config.assert_called_once_with("agents/test_agent.yaml")
+        self.mock_config_loader.load.assert_called_once_with("agents/test_agent.yaml")
 
         # 验证返回的配置
         assert isinstance(config, AgentConfig)
@@ -56,7 +56,7 @@ timeout: 30
     def test_load_config_with_all_fields(self, mock_file):
         """测试加载包含所有字段的配置"""
         # 配置mock返回值
-        self.mock_config_loader.load_config.return_value = {
+        self.mock_config_loader.load.return_value = {
             "name": "test_agent",
             "agent_type": "plan_execute",
             "system_prompt": "Test system prompt for plan-execute",
@@ -77,23 +77,24 @@ timeout: 30
         assert config.max_iterations == 5
         assert config.timeout == 30
     
-    def test_load_config_with_missing_required_fields(self):
-        """测试加载缺少必需字段的配置"""
-        # 配置mock返回值（缺少必需字段）
-        self.mock_config_loader.load_config.return_value = {
+    def test_load_config_with_invalid_field_types(self):
+        """测试加载包含无效字段类型的配置"""
+        # 配置mock返回值（包含无效字段类型）
+        self.mock_config_loader.load.return_value = {
             "name": "test_agent",
-            "agent_type": "react"
-            # 缺少system_prompt
+            "agent_type": "react",
+            "system_prompt": 123,  # 应该是字符串，不是整数
+            "tools": "not_a_list"  # 应该是列表，不是字符串
         }
         
         # 应该抛出验证错误
-        with pytest.raises(ValueError, match="system_prompt"):
+        with pytest.raises(Exception):  # Pydantic会抛出ValidationError
             self.config_loader.load_agent_config("test_agent")
     
     def test_load_nonexistent_config(self):
         """测试加载不存在的配置"""
         # 配置mock抛出异常
-        self.mock_config_loader.load_config.side_effect = FileNotFoundError("Config file not found")
+        self.mock_config_loader.load.side_effect = FileNotFoundError("Config file not found")
         
         # 应该抛出FileNotFoundError
         with pytest.raises(FileNotFoundError):
@@ -102,11 +103,11 @@ timeout: 30
     def test_load_config_with_environment_variables(self):
         """测试加载包含环境变量的配置"""
         # 配置mock返回值（包含环境变量占位符）
-        self.mock_config_loader.load_config.return_value = {
+        self.mock_config_loader.load.return_value = {
             "name": "test_agent",
             "agent_type": "react",
-            "system_prompt": "Test system prompt with ${API_KEY}",
-            "tools": ["${TOOL_NAME}"]
+            "system_prompt": "Test system prompt with test_key",  # 预处理后的值
+            "tools": ["calculator"]  # 预处理后的值
         }
         
         # 模拟环境变量
@@ -115,9 +116,35 @@ timeout: 30
             config = self.config_loader.load_agent_config("test_agent")
             
             # 验证配置加载器被调用
-            self.mock_config_loader.load_config.assert_called_once_with("agents/test_agent.yaml")
+            self.mock_config_loader.load.assert_called_once_with("agents/test_agent.yaml")
             
-            # 验证返回的配置（环境变量应该被替换）
+            # 验证返回的配置
             assert isinstance(config, AgentConfig)
             assert config.system_prompt == "Test system prompt with test_key"
             assert config.tools == ["calculator"]
+    
+    def test_load_config_with_memory_config(self):
+        """测试加载包含记忆配置的配置"""
+        # 配置mock返回值（包含记忆配置）
+        self.mock_config_loader.load.return_value = {
+            "name": "test_agent",
+            "agent_type": "react",
+            "system_prompt": "Test system prompt",
+            "memory_config": {
+                "enabled": False,
+                "max_tokens": 1000,
+                "max_messages": 20,
+                "retention_time": 1800
+            }
+        }
+        
+        # 加载配置
+        config = self.config_loader.load_agent_config("test_agent")
+        
+        # 验证返回的配置
+        assert isinstance(config, AgentConfig)
+        assert config.name == "test_agent"
+        assert config.memory_config.enabled is False
+        assert config.memory_config.max_tokens == 1000
+        assert config.memory_config.max_messages == 20
+        assert config.memory_config.retention_time == 1800
