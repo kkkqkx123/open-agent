@@ -14,6 +14,7 @@ from ..tools.interfaces import ToolResult
 class AgentStatus(Enum):
     """Agent状态枚举"""
     IDLE = "idle"
+    RUNNING = "running"
     THINKING = "thinking"
     ACTING = "acting"
     WAITING = "waiting"

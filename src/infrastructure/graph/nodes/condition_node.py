@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from ..registry import BaseNode, NodeExecutionResult, node
 from src.domain.agent.state import AgentState
+from src.infrastructure.graph.adapters import get_state_adapter, get_message_adapter
 
 
 @node("condition_node")
@@ -250,7 +251,7 @@ class ConditionNode(BaseNode):
         except Exception as e:
             # 记录错误但不中断执行
             print(f"自定义条件执行失败: {e}")
-            return False  # type: ignore
+            return False
 
     def register_condition_function(self, name: str, func: Callable) -> None:
         """注册自定义条件函数

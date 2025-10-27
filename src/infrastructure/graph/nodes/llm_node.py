@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from ..registry import BaseNode, NodeExecutionResult, node
 from src.domain.agent.state import AgentState, AgentMessage
 from src.infrastructure.llm.interfaces import ILLMClient
+from src.infrastructure.graph.adapters import get_state_adapter, get_message_adapter
 
 
 # SimpleAIMessage removed - using AgentMessage directly

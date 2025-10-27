@@ -9,6 +9,7 @@ import time
 from ..registry import BaseNode, NodeExecutionResult, node
 from src.domain.agent.state import AgentState
 from src.domain.tools.interfaces import ITool, IToolRegistry, ToolCall, ToolResult
+from src.infrastructure.graph.adapters import get_state_adapter, get_message_adapter
 
 
 @node("tool_node")
