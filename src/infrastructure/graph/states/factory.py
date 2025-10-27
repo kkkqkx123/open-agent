@@ -322,6 +322,8 @@ class StateFactory:
             errors.append("缺少messages字段")
         
         # 类型特定验证
+        # 由于 ReActState 和 PlanExecuteState 都是 Dict[str, Any] 的类型别名，
+        # 我们需要使用不同的方式来区分它们
         if state_type == Dict[str, Any]:  # AgentState类型
             required_fields = ["input", "agent_id", "max_iterations"]
             for field in required_fields:
@@ -334,13 +336,15 @@ class StateFactory:
                 if field not in state:
                     errors.append(f"缺少必需字段: {field}")
         
-        elif state_type == ReActState:
+        elif state_type.__name__ == "ReActState" or "max_steps" in state or "thought" in state:
+            # ReActState 类型或包含 ReAct 特定字段
             required_fields = ["workflow_id", "workflow_name", "input", "max_iterations", "max_steps"]
             for field in required_fields:
                 if field not in state:
                     errors.append(f"缺少必需字段: {field}")
         
-        elif state_type == PlanExecuteState:
+        elif state_type.__name__ == "PlanExecuteState" or "plan" in state or "step_results" in state:
+            # PlanExecuteState 类型或包含 PlanExecute 特定字段
             required_fields = ["workflow_id", "workflow_name", "input", "max_iterations", "max_steps"]
             for field in required_fields:
                 if field not in state:

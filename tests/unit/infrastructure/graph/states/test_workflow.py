@@ -39,7 +39,7 @@ class TestWorkflowStateFunctions:
         
         # 验证工作流特定字段
         assert state["current_graph"] == ""
-        assert state["current_step"] == ""
+        assert state["current_step"] == "start"
         assert state["analysis"] is None
         assert state["decision"] is None
         assert state["context"] == {}

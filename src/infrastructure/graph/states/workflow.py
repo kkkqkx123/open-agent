@@ -115,6 +115,10 @@ def create_workflow_state(
         "workflow_id": workflow_id,
         "workflow_name": workflow_name,
         "workflow_config": workflow_config or {},
+        "current_graph": "",
+        "analysis": None,
+        "decision": None,
+        "context": {},
         "start_time": datetime.now(),
         "end_time": None,
         "graph_states": {},
@@ -305,3 +309,142 @@ def update_graph_state(state: WorkflowState, graph_id: str, graph_state: Dict[st
         **state,
         "graph_states": graph_states
     }
+
+
+def update_workflow_state_with_analysis(
+    state: WorkflowState,
+    analysis: str
+) -> WorkflowState:
+    """用分析结果更新工作流状态
+    
+    Args:
+        state: 当前工作流状态
+        analysis: 分析结果
+        
+    Returns:
+        更新后的工作流状态
+    """
+    return {
+        **state,
+        "analysis": analysis
+    }
+
+
+def update_workflow_state_with_decision(
+    state: WorkflowState,
+    decision: str
+) -> WorkflowState:
+    """用决策结果更新工作流状态
+    
+    Args:
+        state: 当前工作流状态
+        decision: 决策结果
+        
+    Returns:
+        更新后的工作流状态
+    """
+    return {
+        **state,
+        "decision": decision
+    }
+
+
+def update_workflow_state_with_context(
+    state: WorkflowState,
+    context_key: str,
+    context_value: Any
+) -> WorkflowState:
+    """用上下文信息更新工作流状态
+    
+    Args:
+        state: 当前工作流状态
+        context_key: 上下文键
+        context_value: 上下文值
+        
+    Returns:
+        更新后的工作流状态
+    """
+    context = state.get("context", {})
+    context[context_key] = context_value
+    
+    return {
+        **state,
+        "context": context
+    }
+
+
+def update_workflow_state_with_custom_field(
+    state: WorkflowState,
+    field_key: str,
+    field_value: Any
+) -> WorkflowState:
+    """用自定义字段更新工作流状态
+    
+    Args:
+        state: 当前工作流状态
+        field_key: 字段键
+        field_value: 字段值
+        
+    Returns:
+        更新后的工作流状态
+    """
+    custom_fields = state.get("custom_fields", {})
+    custom_fields[field_key] = field_value
+    
+    return {
+        **state,
+        "custom_fields": custom_fields
+    }
+
+
+def complete_workflow(state: WorkflowState) -> WorkflowState:
+    """完成工作流
+    
+    Args:
+        state: 当前工作流状态
+        
+    Returns:
+        更新后的工作流状态
+    """
+    return {
+        **state,
+        "end_time": datetime.now(),
+        "complete": True
+    }
+
+
+def get_workflow_duration(state: WorkflowState) -> Optional[float]:
+    """获取工作流执行时长
+    
+    Args:
+        state: 工作流状态
+        
+    Returns:
+        执行时长（秒）或None
+    """
+    start_time = state.get("start_time")
+    end_time = state.get("end_time")
+    
+    if start_time and end_time:
+        return (end_time - start_time).total_seconds()
+    return None
+
+
+def has_all_graphs_completed(state: WorkflowState, graph_ids: List[str]) -> bool:
+    """检查所有图是否完成
+    
+    Args:
+        state: 工作流状态
+        graph_ids: 图ID列表
+        
+    Returns:
+        是否所有图都已完成
+    """
+    graph_states = state.get("graph_states", {})
+    
+    for graph_id in graph_ids:
+        graph_state = graph_states.get(graph_id)
+        if not graph_state or not graph_state.get("complete", False):
+            return False
+    
+    return True

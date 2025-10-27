@@ -118,8 +118,11 @@ class TestAsyncNodeExecutor:
         mock_node_instance.execute.assert_called_once_with(sample_state, config)
     
     @pytest.mark.asyncio
-    async def test_execute_with_builtin_llm_node(self, executor: AsyncNodeExecutor, sample_state: dict[str, Any]) -> None:
+    async def test_execute_with_builtin_llm_node(self, executor: AsyncNodeExecutor, mock_registry: Mock, sample_state: dict[str, Any]) -> None:
         """测试执行内置LLM节点"""
+        # 配置注册表返回None，强制使用内置执行器
+        mock_registry.get_node_class.return_value = None
+        
         config = {"type": "llm_node"}
         result = await executor.execute(sample_state, config)  # type: ignore
         
@@ -129,8 +132,11 @@ class TestAsyncNodeExecutor:
         assert result["messages"][-1].type == "ai"
     
     @pytest.mark.asyncio
-    async def test_execute_with_builtin_tool_node(self, executor: AsyncNodeExecutor, sample_state: dict[str, Any]) -> None:
+    async def test_execute_with_builtin_tool_node(self, executor: AsyncNodeExecutor, mock_registry: Mock, sample_state: dict[str, Any]) -> None:
         """测试执行内置工具节点"""
+        # 配置注册表返回None，强制使用内置执行器
+        mock_registry.get_node_class.return_value = None
+        
         # 添加工具调用到状态
         sample_state["tool_calls"] = [{"name": "test_tool", "args": {}}]
         
@@ -142,8 +148,11 @@ class TestAsyncNodeExecutor:
         assert len(result["tool_results"]) > 0
     
     @pytest.mark.asyncio
-    async def test_execute_with_builtin_analysis_node(self, executor: AsyncNodeExecutor, sample_state: dict[str, Any]) -> None:
+    async def test_execute_with_builtin_analysis_node(self, executor: AsyncNodeExecutor, mock_registry: Mock, sample_state: dict[str, Any]) -> None:
         """测试执行内置分析节点"""
+        # 配置注册表返回None，强制使用内置执行器
+        mock_registry.get_node_class.return_value = None
+        
         config = {"type": "analysis_node"}
         result = await executor.execute(sample_state, config)  # type: ignore
         
@@ -152,8 +161,11 @@ class TestAsyncNodeExecutor:
         assert result["analysis"] == "分析结果"
     
     @pytest.mark.asyncio
-    async def test_execute_with_builtin_condition_node(self, executor: AsyncNodeExecutor, sample_state: dict[str, Any]) -> None:
+    async def test_execute_with_builtin_condition_node(self, executor: AsyncNodeExecutor, mock_registry: Mock, sample_state: dict[str, Any]) -> None:
         """测试执行内置条件节点"""
+        # 配置注册表返回None，强制使用内置执行器
+        mock_registry.get_node_class.return_value = None
+        
         config = {"type": "condition_node"}
         result = await executor.execute(sample_state, config)  # type: ignore
         

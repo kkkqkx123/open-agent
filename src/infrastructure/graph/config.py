@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Annotated, Callable, Union, Literal
 from enum import Enum
 import operator
+import types
 from typing_extensions import TypedDict
 
 
@@ -55,7 +56,8 @@ class GraphStateConfig:
         if field_defaults:
             namespace.update(field_defaults)
         
-        DynamicState = type(self.name, (TypedDict,), namespace)
+        # 使用 types.new_class 替代 type() 来避免 MRO 解析错误
+        DynamicState = types.new_class(self.name, (TypedDict,), {}, lambda ns: ns.update(namespace))
         return DynamicState
     
     def _parse_type_string(self, type_str: str) -> type:

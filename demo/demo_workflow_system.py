@@ -17,7 +17,7 @@ from src.infrastructure.graph.nodes.analysis_node import AnalysisNode
 from src.infrastructure.graph.nodes.tool_node import ToolNode
 from src.infrastructure.graph.nodes.llm_node import LLMNode
 from src.infrastructure.graph.nodes.condition_node import ConditionNode
-from src.infrastructure.graph.states.agent import AgentState, create_agent_state
+from src.infrastructure.graph.adapters.state_adapter import GraphAgentState, create_graph_agent_state
 from src.infrastructure.graph.states.base import HumanMessage
 
 
@@ -62,7 +62,7 @@ def demo_basic_workflow() -> None:
     
     # 创建初始状态
     print("\n创建初始状态...")
-    initial_state = create_agent_state(input_text="请帮我查询今天的天气情况", agent_id="demo_basic")
+    initial_state = create_graph_agent_state(input_text="请帮我查询今天的天气情况", agent_id="demo_basic")
     print(f"✓ 初始状态创建完成，消息数: {len(initial_state['messages'])}")
     
     # 运行工作流
@@ -137,7 +137,7 @@ def demo_plan_execute_workflow() -> None:
     
     # 创建初始状态
     print("\n创建初始状态...")
-    initial_state = create_agent_state(input_text="请帮我分析当前市场趋势并给出投资建议", agent_id="demo_plan")
+    initial_state = create_graph_agent_state(input_text="请帮我分析当前市场趋势并给出投资建议", agent_id="demo_plan")
     print(f"✓ 初始状态创建完成")
     
     # 运行工作流
@@ -245,7 +245,7 @@ def demo_custom_node() -> None:
         
         # 运行工作流
         print(f"\n运行工作流...")
-        initial_state = create_agent_state(input_text="", agent_id="demo_custom")
+        initial_state = create_graph_agent_state(input_text="", agent_id="demo_custom")
         result = manager.run_workflow(workflow_id, initial_state)
         
         print(f"✓ 工作流执行完成")

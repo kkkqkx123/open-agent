@@ -394,8 +394,9 @@ class TestStateSerializer:
 
     def test_compute_state_diff(self, serializer, sample_state):
         """测试计算状态差异"""
-        old_state = sample_state.copy()
-        new_state = sample_state.copy()
+        import copy
+        old_state = copy.deepcopy(sample_state)
+        new_state = copy.deepcopy(sample_state)
         new_state["output"] = "新输出"
         new_state["new_field"] = "新字段"
         new_state["messages"].append(AIMessage(content="新消息"))
@@ -405,7 +406,9 @@ class TestStateSerializer:
         assert isinstance(diff, StateDiff)
         assert "new_field" in diff.added
         assert "output" in diff.modified
-        assert len(diff.added["messages"]) == 1  # 只新增了一条消息
+        # messages字段已存在，只是内容发生变化，应该在modified中
+        assert "messages" in diff.modified
+        assert len(diff.modified["messages"]) == 3  # 从2条增加到3条
 
     def test_deep_equal_true(self, serializer):
         """测试深度比较（真）"""

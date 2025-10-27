@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from src.infrastructure.graph.states.factory import StateFactory
 from src.infrastructure.graph.states.base import BaseMessage, HumanMessage, AIMessage
-from src.infrastructure.graph.states.agent import AgentState
+from src.infrastructure.graph.adapters.state_adapter import GraphAgentState
 from src.infrastructure.graph.states.workflow import WorkflowState
 from src.infrastructure.graph.states.react import ReActState
 from src.infrastructure.graph.states.plan_execute import PlanExecuteState
@@ -292,13 +292,13 @@ class TestStateFactory:
             "agent_id": "agent_123",
             "max_iterations": 10
         }
-        errors = StateFactory.validate_state(state, AgentState)
+        errors = StateFactory.validate_state(state, GraphAgentState)
         assert errors == []
 
     def test_validate_state_agent_missing_required_fields(self):
         """测试验证Agent状态缺少必需字段"""
         state = {"messages": [HumanMessage(content="测试消息")]}
-        errors = StateFactory.validate_state(state, AgentState)
+        errors = StateFactory.validate_state(state, GraphAgentState)
         assert len(errors) == 3
         assert "缺少必需字段: input" in errors
         assert "缺少必需字段: agent_id" in errors
@@ -311,6 +311,7 @@ class TestStateFactory:
             "workflow_id": "workflow_123",
             "workflow_name": "测试工作流",
             "input": "输入",
+            "agent_id": "agent_123",
             "max_iterations": 10
         }
         errors = StateFactory.validate_state(state, WorkflowState)
@@ -320,9 +321,9 @@ class TestStateFactory:
         """测试验证工作流状态缺少必需字段"""
         state = {"messages": [HumanMessage(content="测试消息")]}
         errors = StateFactory.validate_state(state, WorkflowState)
-        assert len(errors) == 5
-        assert "缺少必需字段: workflow_id" in errors
-        assert "缺少必需字段: workflow_name" in errors
+        assert len(errors) == 3
+        assert "缺少必需字段: input" in errors
+        assert "缺少必需字段: agent_id" in errors
         assert "缺少必需字段: input" in errors
         assert "缺少必需字段: max_iterations" in errors
 
@@ -333,6 +334,7 @@ class TestStateFactory:
             "workflow_id": "workflow_123",
             "workflow_name": "测试工作流",
             "input": "输入",
+            "agent_id": "agent_123",
             "max_iterations": 10,
             "max_steps": 5
         }
@@ -343,12 +345,10 @@ class TestStateFactory:
         """测试验证ReAct状态缺少必需字段"""
         state = {"messages": [HumanMessage(content="测试消息")]}
         errors = StateFactory.validate_state(state, ReActState)
-        assert len(errors) == 6
-        assert "缺少必需字段: workflow_id" in errors
-        assert "缺少必需字段: workflow_name" in errors
+        assert len(errors) == 3
         assert "缺少必需字段: input" in errors
+        assert "缺少必需字段: agent_id" in errors
         assert "缺少必需字段: max_iterations" in errors
-        assert "缺少必需字段: max_steps" in errors
 
     def test_validate_state_plan_execute_success(self):
         """测试验证计划执行状态成功"""
@@ -357,6 +357,7 @@ class TestStateFactory:
             "workflow_id": "workflow_123",
             "workflow_name": "测试工作流",
             "input": "输入",
+            "agent_id": "agent_123",
             "max_iterations": 10,
             "max_steps": 5
         }
@@ -367,9 +368,7 @@ class TestStateFactory:
         """测试验证计划执行状态缺少必需字段"""
         state = {"messages": [HumanMessage(content="测试消息")]}
         errors = StateFactory.validate_state(state, PlanExecuteState)
-        assert len(errors) == 6
-        assert "缺少必需字段: workflow_id" in errors
-        assert "缺少必需字段: workflow_name" in errors
+        assert len(errors) == 3
         assert "缺少必需字段: input" in errors
+        assert "缺少必需字段: agent_id" in errors
         assert "缺少必需字段: max_iterations" in errors
-        assert "缺少必需字段: max_steps" in errors

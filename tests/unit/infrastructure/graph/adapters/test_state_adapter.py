@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Dict, Any
 
 from src.domain.agent.state import AgentState as DomainAgentState, AgentMessage as DomainAgentMessage, AgentStatus
-from src.infrastructure.graph.states.agent import AgentState as GraphAgentState
+from src.infrastructure.graph.adapters.state_adapter import GraphAgentState
 from src.infrastructure.graph.adapters.state_adapter import StateAdapter
 from src.domain.tools.interfaces import ToolResult
 

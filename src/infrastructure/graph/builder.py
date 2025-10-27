@@ -7,6 +7,9 @@ from typing import Dict, Any, Optional, List, Callable, Union, TYPE_CHECKING
 from pathlib import Path
 import yaml
 import logging
+import asyncio
+import concurrent.futures
+import threading
 from abc import ABC, abstractmethod
 
 if TYPE_CHECKING:
@@ -47,15 +50,10 @@ class AgentNodeExecutor(INodeExecutor):
     
     def execute(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
         """执行Agent节点"""
-        # 这里需要异步执行，但在同步上下文中我们需要处理
-        import asyncio
-        
         # 检查当前是否有运行的事件循环
         try:
             loop = asyncio.get_running_loop()
             # 如果在事件循环中，使用 run_coroutine_threadsafe
-            import concurrent.futures
-            import threading
             if threading.current_thread() is threading.main_thread():
                 # 在主线程的事件循环中，使用新的事件循环
                 new_loop = asyncio.new_event_loop()

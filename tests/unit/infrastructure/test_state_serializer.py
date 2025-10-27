@@ -9,7 +9,7 @@ import pytest
 
 from src.infrastructure.graph.states.serializer import StateSerializer, StateDiff
 from src.infrastructure.graph.states.base import BaseGraphState, BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
-from src.infrastructure.graph.states.agent import AgentState
+from src.infrastructure.graph.adapters.state_adapter import GraphAgentState
 from src.infrastructure.graph.states.workflow import WorkflowState
 
 
