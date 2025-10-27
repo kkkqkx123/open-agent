@@ -91,7 +91,7 @@ class TestLLMNode:
         assert isinstance(result, NodeExecutionResult)
         assert len(result.state.messages) == 3  # 原有2条消息 + 新增1条
         assert result.state.messages[-1].content == "LLM生成的响应"
-        assert result.state.messages[-1].role == "assistant"
+        assert result.state.messages[-1].role == "ai"
         assert result.next_node is None
         assert result.metadata is not None
         assert "llm_response" in result.metadata
@@ -118,7 +118,7 @@ class TestLLMNode:
         # 创建需要进一步处理的响应
         llm_response = LLMResponse(
             content="需要更多信息来回答这个问题",
-            message=AgentMessage(content="需要更多信息来回答这个问题", role="assistant"),
+            message=AgentMessage(content="需要更多信息来回答这个问题", role="ai"),
             model="test-model",
             token_usage=TokenUsage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
         )
@@ -223,8 +223,8 @@ class TestLLMNode:
     def test_format_tool_results(self, node: LLMNode) -> None:
         """测试格式化工具结果"""
         tool_results = [
-            Mock(success=True, tool_name="tool1", result="结果1", error=None),
-            Mock(success=False, tool_name="tool2", result=None, error="错误信息")
+            Mock(success=True, tool_name="tool1", output="结果1", error=None),
+            Mock(success=False, tool_name="tool2", output=None, error="错误信息")
         ]
 
         formatted = node._format_tool_results(tool_results)

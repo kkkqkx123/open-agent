@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, List
 
 from src.infrastructure.graph.nodes.tool_node import ToolNode
 from src.infrastructure.graph.registry import NodeExecutionResult
-from src.application.workflow.state import AgentState
+from src.domain.agent.state import AgentState
 from src.domain.tools.interfaces import IToolRegistry, ToolCall, ToolResult
 
 
@@ -26,18 +26,28 @@ class TestToolNode:
     @pytest.fixture
     def sample_state(self):
         """示例状态"""
-        return {
-            "messages": [],
-            "metadata": {},
-            "input": "测试输入",
-            "output": None,
-            "tool_calls": [{"name": "test_tool", "arguments": {"param": "value"}}],
-            "tool_results": [],
-            "iteration_count": 0,
-            "max_iterations": 10,
-            "errors": [],
-            "complete": False
-        }
+        from src.domain.agent.state import AgentState, AgentMessage
+        from src.domain.tools.interfaces import ToolCall
+        
+        state = AgentState(
+            agent_id="test-agent",
+            agent_type="test",
+            messages=[],
+            tool_results=[],
+            max_iterations=10,
+            iteration_count=0,
+            errors=[]
+        )
+        
+        # 添加工具调用到消息的metadata中
+        message = AgentMessage(
+            content="测试输入",
+            role="human"
+        )
+        message.metadata["tool_calls"] = [{"name": "test_tool", "arguments": {"param": "value"}}]
+        state.messages.append(message)
+        
+        return state
 
     @pytest.fixture
     def sample_config(self):
@@ -85,7 +95,7 @@ class TestToolNode:
     def test_execute_no_tool_calls(self, node, sample_state, sample_config):
         """测试执行无工具调用"""
         # 清空工具调用
-        sample_state.tool_calls = []
+        sample_state.messages[-1].metadata["tool_calls"] = []
         
         # 执行
         result = node.execute(sample_state, sample_config)
@@ -183,10 +193,10 @@ class TestToolNode:
     def test_extract_tool_calls_from_messages(self, node, sample_state, sample_config):
         """测试从消息中提取工具调用"""
         # 修改状态以包含工具调用消息
-        message = Mock()
-        message.tool_calls = [{"name": "message_tool", "arguments": {}}]
+        from src.domain.agent.state import AgentMessage
+        message = AgentMessage(content="测试消息", role="human")
+        message.metadata["tool_calls"] = [{"name": "message_tool", "arguments": {}}]
         sample_state.messages = [message]
-        sample_state.tool_calls = []  # 清空原有的工具调用
         
         # 执行
         tool_calls = node._extract_tool_calls(sample_state, sample_config)
@@ -199,11 +209,12 @@ class TestToolNode:
     def test_extract_tool_calls_from_text(self, node, sample_state, sample_config):
         """测试从文本中提取工具调用"""
         # 修改状态以包含工具调用文本
-        message = Mock()
-        message.content = "调用工具:test_tool(param1=value1, param2=value2)"
-        message.tool_calls = None
+        from src.domain.agent.state import AgentMessage
+        message = AgentMessage(
+            content="调用工具:test_tool(param1=value1, param2=value2)", 
+            role="human"
+        )
         sample_state.messages = [message]
-        sample_state.tool_calls = []  # 清空原有的工具调用
         
         # 执行
         tool_calls = node._extract_tool_calls(sample_state, sample_config)

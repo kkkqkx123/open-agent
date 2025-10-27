@@ -3,14 +3,99 @@
 提供域层AgentState与图系统状态之间的转换功能。
 """
 
-from typing import Dict, Any, List, Optional, cast, Union
+from typing import Dict, Any, List, Optional, cast, Union, Annotated
 from datetime import datetime
 from dataclasses import asdict
+import operator
+from typing_extensions import TypedDict
 
 from src.domain.agent.state import AgentState as DomainAgentState, AgentMessage as DomainAgentMessage, AgentStatus
-from src.infrastructure.graph.states.agent import AgentState as GraphAgentState, create_agent_state as create_graph_agent_state
 from src.infrastructure.graph.states.base import BaseMessage as GraphBaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
 from src.domain.tools.interfaces import ToolResult
+
+
+# 图系统状态类型定义
+GraphAgentState = Dict[str, Any]
+
+# 类型注解
+class _GraphAgentState(TypedDict, total=False):
+    """图系统Agent状态类型注解"""
+    # 基础字段
+    messages: Annotated[List[GraphBaseMessage], operator.add]
+    metadata: Dict[str, Any]
+    execution_context: Dict[str, Any]
+    current_step: str
+
+    # Agent特定的状态字段
+    input: str
+    output: Optional[str]
+
+    # 工具相关状态
+    tool_calls: Annotated[List[Dict[str, Any]], operator.add]
+    tool_results: Annotated[List[Dict[str, Any]], operator.add]
+
+    # 迭代控制
+    iteration_count: Annotated[int, operator.add]
+    max_iterations: int
+
+    # 错误处理
+    errors: Annotated[List[str], operator.add]
+
+    # 完成标志
+    complete: bool
+
+    # Agent配置
+    agent_id: str
+    agent_config: Dict[str, Any]
+
+    # 执行结果
+    execution_result: Optional[Dict[str, Any]]
+
+
+def create_graph_agent_state(
+    input_text: str,
+    agent_id: str,
+    agent_config: Optional[Dict[str, Any]] = None,
+    max_iterations: int = 10,
+    messages: Optional[List[GraphBaseMessage]] = None
+) -> GraphAgentState:
+    """创建图系统Agent状态
+    
+    Args:
+        input_text: 输入文本
+        agent_id: Agent ID
+        agent_config: Agent配置
+        max_iterations: 最大迭代次数
+        messages: 初始消息列表
+        
+    Returns:
+        GraphAgentState实例
+    """
+    if messages is None:
+        messages = [HumanMessage(content=input_text)]
+    
+    # 创建基础状态
+    base_state = {
+        "messages": messages,
+        "metadata": {},
+        "execution_context": {},
+        "current_step": "start"
+    }
+    
+    return {
+        **base_state,
+        "input": input_text,
+        "output": None,
+        "tool_calls": [],
+        "tool_results": [],
+        "iteration_count": 0,
+        "max_iterations": max_iterations,
+        "errors": [],
+        "complete": False,
+        "agent_id": agent_id,
+        "agent_config": agent_config or {},
+        "execution_result": None
+    }
 
 
 class StateAdapter:

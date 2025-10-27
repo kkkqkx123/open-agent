@@ -6,8 +6,7 @@ from typing import Any, Dict, Optional, List
 
 from src.infrastructure.graph.nodes.analysis_node import AnalysisNode
 from src.infrastructure.graph.registry import NodeExecutionResult
-from src.application.workflow.state import AgentState
-from src.domain.agent.state import AgentMessage
+from src.domain.agent.state import AgentState, AgentMessage
 from src.infrastructure.llm.interfaces import ILLMClient
 from src.infrastructure.llm.models import LLMResponse, TokenUsage
 from src.infrastructure.llm.config import LLMConfig
@@ -29,16 +28,15 @@ class TestAnalysisNode:
     @pytest.fixture
     def sample_state(self):
         """示例状态"""
-        # 使用图节点系统中的状态类型
-        from src.infrastructure.graph.state import create_agent_state, HumanMessage, AIMessage
-        state = create_agent_state(
-            input_text="用户输入",
-            max_iterations=10,
+        # 使用域层的状态类型
+        from src.domain.agent.state import AgentState, AgentMessage
+        state = AgentState(
             messages=[
-                HumanMessage(content="用户输入"),
-                AIMessage(content="AI响应")
+                AgentMessage(content="用户输入", role="user"),
+                AgentMessage(content="AI响应", role="assistant")
             ]
         )
+        return state
         return state
 
     @pytest.fixture

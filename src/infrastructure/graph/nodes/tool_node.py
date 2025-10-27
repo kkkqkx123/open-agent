@@ -72,17 +72,24 @@ class ToolNode(BaseNode):
                 result = tool.execute(**tool_call.arguments)
                 execution_time = time.time() - start_time
                 
+                # 将结果包装为ToolResult对象
+                if isinstance(result, ToolResult):
+                    tool_result = result
+                else:
+                    # 如果返回的是字符串或其他类型，包装为ToolResult
+                    tool_result = ToolResult(
+                        success=True,
+                        output=result,
+                        error=None,
+                        tool_name=tool_call.name,
+                        execution_time=execution_time
+                    )
+                
                 # 记录结果
-                tool_results.append(result)
+                tool_results.append(tool_result)
                 
                 # 添加到状态
-                state_tool_result = ToolResult(
-                    success=result.success,
-                    output=result.output,
-                    error=result.error,
-                    tool_name=tool_call.name
-                )
-                state.tool_results.append(state_tool_result)
+                state.tool_results.append(tool_result)
                 
             except Exception as e:
                 error_msg = f"工具 '{tool_call.name}' 执行失败: {str(e)}"
@@ -237,6 +244,18 @@ class ToolNode(BaseNode):
                         arguments=tool_call.get("arguments", {}),
                         call_id=tool_call.get("id"),
                         timeout=config.get("timeout")
+                        ))
+            
+            # 检查metadata中是否有工具调用
+            elif hasattr(last_message, 'metadata') and last_message.metadata and "tool_calls" in last_message.metadata:
+                tool_calls_attr = last_message.metadata["tool_calls"]
+                if tool_calls_attr:
+                    for tool_call in tool_calls_attr:
+                        tool_calls.append(ToolCall(
+                            name=tool_call.get("name", ""),
+                            arguments=tool_call.get("arguments", {}),
+                            call_id=tool_call.get("id"),
+                            timeout=config.get("timeout")
                         ))
 
             # 检查消息内容中是否包含工具调用信息

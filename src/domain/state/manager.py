@@ -11,7 +11,7 @@ import logging
 
 from .interfaces import IStateManager, IStateConverter, IStateValidator
 from ..agent.state import AgentState
-from ...application.workflow.state import WorkflowState
+# WorkflowState已移除，使用域层状态定义
 
 logger = logging.getLogger(__name__)
 
@@ -222,12 +222,41 @@ class StateManager(IStateManager):
 class AgentToWorkflowConverter(IStateConverter):
     """AgentState到WorkflowState的转换器"""
     
-    def convert(self, source_state: AgentState, target_type: Type) -> WorkflowState:
+    def convert(self, source_state: AgentState, target_type: Type) -> Dict[str, Any]:
         """转换AgentState为WorkflowState"""
-        if target_type != WorkflowState:
-            raise ValueError(f"不支持的目标类型: {target_type.__name__}")
+        # 创建WorkflowState（使用字典表示）
+        workflow_state: Dict[str, Any] = {
+            "agent_id": source_state.agent_id,
+            "messages": [
+                {
+                    "content": msg.content,
+                    "role": msg.role,
+                    "timestamp": msg.timestamp.isoformat() if msg.timestamp else None,
+                    "metadata": msg.metadata
+                }
+                for msg in source_state.messages
+            ],
+            "current_task": source_state.current_task,
+            "tool_results": [
+                {
+                    "tool_name": result.tool_name,
+                    "success": result.success,
+                    "output": result.output,
+                    "error": result.error
+                }
+                for result in source_state.tool_results
+            ],
+            "current_step": source_state.current_step,
+            "max_iterations": source_state.max_iterations,
+            "iteration_count": source_state.iteration_count,
+            "status": source_state.status.value,
+            "start_time": source_state.start_time.isoformat() if source_state.start_time else None,
+            "last_update_time": source_state.last_update_time.isoformat() if source_state.last_update_time else None,
+            "errors": source_state.errors,
+            "custom_fields": source_state.custom_fields
+        }
         
-        # 创建WorkflowState
+        return workflow_state
         workflow_state = WorkflowState()
         
         # 复制基本信息
@@ -283,12 +312,62 @@ class AgentToWorkflowConverter(IStateConverter):
 class WorkflowToAgentConverter(IStateConverter):
     """WorkflowState到AgentState的转换器"""
     
-    def convert(self, source_state: WorkflowState, target_type: Type) -> AgentState:
+    def convert(self, source_state: Dict[str, Any], target_type: Type) -> AgentState:
         """转换WorkflowState为AgentState"""
         if target_type != AgentState:
             raise ValueError(f"不支持的目标类型: {target_type.__name__}")
         
         # 创建AgentState
+        agent_state = AgentState()
+        
+        # 转换基本信息
+        agent_state.agent_id = source_state.get("agent_id", "")
+        agent_state.agent_type = source_state.get("agent_config", {}).get("agent_type", "")
+        agent_state.current_task = source_state.get("current_task")
+        agent_state.current_step = source_state.get("current_step", "")
+        agent_state.max_iterations = source_state.get("max_iterations", 10)
+        agent_state.iteration_count = source_state.get("iteration_count", 0)
+        
+        # 转换消息
+        messages_data = source_state.get("messages", [])
+        for msg_data in messages_data:
+            message = AgentMessage(
+                content=msg_data.get("content", ""),
+                role=msg_data.get("role", ""),
+                timestamp=datetime.fromisoformat(msg_data["timestamp"]) if msg_data.get("timestamp") else None,
+                metadata=msg_data.get("metadata", {})
+            )
+            agent_state.messages.append(message)
+        
+        # 转换工具结果
+        tool_results_data = source_state.get("tool_results", [])
+        for result_data in tool_results_data:
+            tool_result = ToolResult(
+                tool_name=result_data.get("tool_name", ""),
+                success=result_data.get("success", False),
+                output=result_data.get("output"),
+                error=result_data.get("error")
+            )
+            agent_state.tool_results.append(tool_result)
+        
+        # 转换状态
+        status_value = source_state.get("status", "idle")
+        try:
+            agent_state.status = AgentStatus(status_value)
+        except ValueError:
+            agent_state.status = AgentStatus.IDLE
+        
+        # 转换时间信息
+        if source_state.get("start_time"):
+            agent_state.start_time = datetime.fromisoformat(source_state["start_time"])
+        if source_state.get("last_update_time"):
+            agent_state.last_update_time = datetime.fromisoformat(source_state["last_update_time"])
+        
+        # 转换错误和自定义字段
+        agent_state.errors = source_state.get("errors", [])
+        agent_state.custom_fields = source_state.get("custom_fields", {})
+        
+        return agent_state
         agent_state = AgentState()
         
         # 复制基本信息
@@ -364,10 +443,10 @@ class AgentStateValidator(IStateValidator):
 class WorkflowStateValidator(IStateValidator):
     """WorkflowState验证器"""
     
-    def validate(self, state: WorkflowState) -> bool:
+    def validate(self, state: Dict[str, Any]) -> bool:
         """验证WorkflowState"""
         # 基本验证
-        if not state.workflow_id:
+        if not state.get("workflow_id"):
             logger.warning("WorkflowState缺少workflow_id")
             return False
         

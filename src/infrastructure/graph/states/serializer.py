@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from collections import OrderedDict
 
 from .base import BaseGraphState, BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
-from .agent import AgentState
 from .workflow import WorkflowState
 from .react import ReActState
 from .plan_execute import PlanExecuteState

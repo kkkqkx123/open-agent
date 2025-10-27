@@ -1,0 +1,1 @@
+应当使用 src/domain/agent/state.py 中的域层状态定义，并使用 src/infrastructure/graph/adapters/ 中的适配器进行状态转换

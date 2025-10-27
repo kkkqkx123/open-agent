@@ -10,9 +10,10 @@ from typing import Dict, Any, Optional, List
 from src.application.workflow.factory import WorkflowFactory, IWorkflowFactory
 from src.infrastructure.graph.config import WorkflowConfig
 from src.infrastructure.graph.states import (
-    BaseGraphState, AgentState, WorkflowState, 
+    BaseGraphState, WorkflowState,
     ReActState, PlanExecuteState, StateFactory
 )
+from src.domain.agent.state import AgentState as DomainAgentState
 from src.infrastructure.graph.registry import NodeRegistry
 from src.infrastructure.container import IDependencyContainer
 
@@ -41,10 +42,23 @@ class TestIWorkflowFactory(unittest.TestCase):
         class ConcreteWorkflowFactory(IWorkflowFactory):
             def create_workflow(self, config: WorkflowConfig, initial_state: Optional[Dict[str, Any]] = None) -> Any:
                 return Mock()
-            
+
             def create_state(self, state_type: str, **kwargs) -> Dict[str, Any]:
                 return {}
-        
+
+            def create_workflow_state(self, workflow_id: str, workflow_name: str, input_text: str, workflow_config: Optional[Dict[str, Any]] = None, max_iterations: int = 10) -> WorkflowState:
+                return Mock(spec=WorkflowState)
+
+            def create_workflow_from_config(self, config_path: str, initial_state: Optional[Dict[str, Any]] = None) -> Any:
+                return Mock()
+
+            def clone_workflow(self, workflow: Any) -> Any:
+                return workflow
+
+            @property
+            def builder_adapter(self):
+                return Mock()
+
         # 应该能够实例化
         factory = ConcreteWorkflowFactory()
         self.assertIsInstance(factory, IWorkflowFactory)
@@ -188,7 +202,7 @@ class TestWorkflowFactory(unittest.TestCase):
     def test_create_agent_state(self, mock_state_factory):
         """测试创建Agent状态"""
         # 设置模拟
-        mock_state = Mock(spec=AgentState)
+        mock_state = Mock(spec=DomainAgentState)
         mock_state_factory.create_agent_state.return_value = mock_state
         
         # 创建Agent状态

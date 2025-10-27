@@ -11,7 +11,6 @@ from src.infrastructure.graph.nodes.agent_execution_node import (
     agent_execution_node
 )
 from src.infrastructure.graph.registry import NodeExecutionResult
-from src.application.workflow.state import AgentState as WorkflowAgentState
 from src.domain.agent.state import AgentState, AgentStatus, AgentMessage
 from src.domain.agent import IAgentManager, IAgentEventManager, AgentEvent
 from src.infrastructure.container import get_global_container

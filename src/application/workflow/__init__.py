@@ -10,9 +10,10 @@ from .factory import WorkflowFactory
 from .builder_adapter import WorkflowBuilderAdapter
 from .di_config import WorkflowModule, configure_workflow_container
 from src.infrastructure.graph.states import (
-    BaseGraphState, AgentState, WorkflowState, 
+    BaseGraphState, WorkflowState,
     ReActState, PlanExecuteState, StateFactory, StateSerializer
 )
+from src.domain.agent.state import AgentState
 
 __all__ = [
     # 接口

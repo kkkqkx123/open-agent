@@ -8,9 +8,10 @@ from abc import ABC, abstractmethod
 import logging
 
 from src.infrastructure.graph.states import (
-    BaseGraphState, AgentState, WorkflowState, 
+    BaseGraphState, WorkflowState,
     ReActState, PlanExecuteState, StateFactory
 )
+from src.domain.agent.state import AgentState as DomainAgentState
 from src.infrastructure.graph.config import WorkflowConfig
 from src.infrastructure.graph.registry import NodeRegistry
 from src.infrastructure.container import IDependencyContainer
@@ -223,24 +224,27 @@ class WorkflowFactory(IWorkflowFactory):
         agent_id: str,
         agent_config: Optional[Dict[str, Any]] = None,
         max_iterations: int = 10
-    ) -> AgentState:
+    ) -> DomainAgentState:
         """创建Agent状态
-        
+
         Args:
             input_text: 输入文本
             agent_id: Agent ID
             agent_config: Agent配置
             max_iterations: 最大迭代次数
-            
+
         Returns:
             Agent状态
         """
-        return StateFactory.create_agent_state(
-            input_text=input_text,
-            agent_id=agent_id,
-            agent_config=agent_config,
-            max_iterations=max_iterations
-        )
+        # 创建域层Agent状态
+        domain_state = DomainAgentState()
+        domain_state.agent_id = agent_id
+        domain_state.agent_type = agent_config.get("agent_type", "") if agent_config else ""
+        domain_state.current_task = input_text
+        domain_state.max_iterations = max_iterations
+        domain_state.context = agent_config or {}
+
+        return domain_state
     
     def create_react_state(
         self,

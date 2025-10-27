@@ -3,14 +3,18 @@
 提供统一的状态创建和初始化方法。
 """
 
-from typing import Dict, Any, List, Optional, Type, Union
+from typing import Dict, Any, List, Optional, Type, Union, cast
 from datetime import datetime
+from typing_extensions import TypedDict
 
 from .base import BaseGraphState, BaseMessage, create_base_state, create_message
-from .agent import AgentState, create_agent_state
 from .workflow import WorkflowState, create_workflow_state
 from .react import ReActState, create_react_state
 from .plan_execute import PlanExecuteState, create_plan_execute_state
+
+
+# Agent状态类型定义（用于类型注解）
+AgentState = Dict[str, Any]
 
 
 class StateFactory:
@@ -64,13 +68,23 @@ class StateFactory:
         Returns:
             AgentState实例
         """
-        return create_agent_state(
+        # 使用工作流状态创建函数来创建Agent状态
+        workflow_state = create_workflow_state(
+            workflow_id=agent_id,
+            workflow_name=f"agent_{agent_id}",
             input_text=input_text,
-            agent_id=agent_id,
-            agent_config=agent_config,
+            workflow_config=agent_config,
             max_iterations=max_iterations,
             messages=messages
         )
+        
+        # 移除工作流特定的字段，保留Agent状态字段
+        agent_state = {
+            key: value for key, value in workflow_state.items()
+            if key not in ["workflow_id", "workflow_name", "workflow_config", "start_time", "end_time", "graph_states"]
+        }
+        
+        return agent_state
     
     @staticmethod
     def create_workflow_state(
@@ -158,8 +172,8 @@ class StateFactory:
     
     @staticmethod
     def create_state_by_type(
-    state_type: str,
-    **kwargs: Any
+        state_type: str,
+        **kwargs: Any
     ) -> Dict[str, Any]:
         """根据类型创建状态
         
@@ -308,7 +322,7 @@ class StateFactory:
             errors.append("缺少messages字段")
         
         # 类型特定验证
-        if state_type == AgentState:
+        if state_type == Dict[str, Any]:  # AgentState类型
             required_fields = ["input", "agent_id", "max_iterations"]
             for field in required_fields:
                 if field not in state:
