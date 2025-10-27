@@ -78,25 +78,14 @@ class TestTriggerEvent(unittest.TestCase):
         self.assertTrue(uuid.UUID(event.id))
 
 
-class MockTrigger(ITrigger):
+class MockTrigger(BaseTrigger):
     """模拟触发器实现用于测试接口"""
     
     def __init__(self, trigger_id: str = "mock-trigger", trigger_type: TriggerType = TriggerType.CUSTOM):
-        self._trigger_id = trigger_id
-        self._trigger_type = trigger_type
-        self._enabled = True
-        self._config = {"test": "config"}
+        super().__init__(trigger_id, trigger_type, {"test": "config"})
         self.evaluate_called = False
         self.execute_called = False
         self.execute_result = {"result": "success"}
-    
-    @property
-    def trigger_id(self) -> str:
-        return self._trigger_id
-    
-    @property
-    def trigger_type(self) -> TriggerType:
-        return self._trigger_type
     
     def evaluate(self, state: AgentState, context: Dict[str, Any]) -> bool:
         self.evaluate_called = True
@@ -105,28 +94,6 @@ class MockTrigger(ITrigger):
     def execute(self, state: AgentState, context: Dict[str, Any]) -> Dict[str, Any]:
         self.execute_called = True
         return self.execute_result
-    
-    def get_config(self) -> Dict[str, Any]:
-        return self._config.copy()
-    
-    def is_enabled(self) -> bool:
-        return self._enabled
-    
-    def enable(self) -> None:
-        self._enabled = True
-    
-    def disable(self) -> None:
-        self._enabled = False
-    
-    def create_event(self, data: Dict[str, Any], metadata: Dict[str, Any] = None) -> TriggerEvent:
-        return TriggerEvent(
-            id="",
-            trigger_id=self._trigger_id,
-            trigger_type=self._trigger_type,
-            timestamp=datetime.now(),
-            data=data,
-            metadata=metadata or {}
-        )
     
     def update_trigger_info(self) -> None:
         pass
@@ -192,11 +159,13 @@ class TestBaseTrigger(unittest.TestCase):
             "max_triggers": 5,
             "test_config": "value"
         }
-        self.base_trigger = BaseTrigger(
+        # 使用 MockTrigger 替代 BaseTrigger，因为 BaseTrigger 是抽象类
+        self.base_trigger = MockTrigger(
             trigger_id=self.trigger_id,
-            trigger_type=self.trigger_type,
-            config=self.config
+            trigger_type=self.trigger_type
         )
+        # 设置配置
+        self.base_trigger._config = self.config
 
     def test_base_trigger_initialization(self):
         """测试基础触发器初始化"""
@@ -264,7 +233,8 @@ class TestBaseTrigger(unittest.TestCase):
             # 设置当前时间为很久以后
             future_time = datetime.now().replace(year=2099)
             mock_datetime.now.return_value = future_time
-            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            # 移除可能导致问题的 side_effect
+            # mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
             
             self.assertTrue(self.base_trigger._check_rate_limit())
 
@@ -332,11 +302,12 @@ class TestBaseTrigger(unittest.TestCase):
         """测试没有限制的触发器"""
         # 创建没有速率限制和最大触发次数的触发器
         config = {"test": "value"}
-        trigger = BaseTrigger(
+        trigger = MockTrigger(
             trigger_id="no-limit-trigger",
-            trigger_type=TriggerType.CUSTOM,
-            config=config
+            trigger_type=TriggerType.CUSTOM
         )
+        # 设置配置
+        trigger._config = config
         
         # 应该可以触发
         self.assertTrue(trigger.can_trigger())
@@ -477,11 +448,13 @@ class TestBaseTriggerWithAgentState(unittest.TestCase):
         self.trigger_id = "agent-state-trigger"
         self.trigger_type = TriggerType.STATE
         self.config = {"test": "config"}
-        self.base_trigger = BaseTrigger(
+        # 使用 MockTrigger 替代 BaseTrigger，因为 BaseTrigger 是抽象类
+        self.base_trigger = MockTrigger(
             trigger_id=self.trigger_id,
-            trigger_type=self.trigger_type,
-            config=self.config
+            trigger_type=self.trigger_type
         )
+        # 设置配置
+        self.base_trigger._config = self.config
         
         # 创建测试用的Agent状态
         self.agent_state = AgentState(

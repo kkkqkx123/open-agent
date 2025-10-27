@@ -15,6 +15,21 @@ from src.infrastructure.graph.async_executor import (
 from src.infrastructure.graph.config import GraphConfig
 from src.infrastructure.graph.state import WorkflowState, BaseMessage
 from src.infrastructure.graph.registry import NodeRegistry, BaseNode
+class MockAsyncIterator:
+    """模拟异步迭代器类"""
+    def __init__(self, chunks):
+        self.chunks = chunks
+        self.index = 0
+    
+    def __aiter__(self):
+        return self
+    
+    async def __anext__(self):
+        if self.index < len(self.chunks):
+            result = self.chunks[self.index]
+            self.index += 1
+            return result
+        raise StopAsyncIteration
 
 
 class TestIAsyncNodeExecutor:
@@ -254,15 +269,29 @@ class TestAsyncWorkflowExecutor:
         # 创建模拟图
         mock_graph = Mock()
         mock_graph.ainvoke = None  # 没有ainvoke方法
-        mock_graph.astream = AsyncMock()
         
-        # 设置流式返回
-        async def mock_stream() -> AsyncGenerator[dict[str, Any], None]:
-            yield {"step": "1"}
-            yield {"step": "2"}
-            yield sample_state
+        # 创建异步迭代器类
+        class MockAsyncIterator:
+            def __init__(self, chunks):
+                self.chunks = chunks
+                self.index = 0
+            
+            def __aiter__(self):
+                return self
+            
+            async def __anext__(self):
+                if self.index < len(self.chunks):
+                    result = self.chunks[self.index]
+                    self.index += 1
+                    return result
+                raise StopAsyncIteration
         
-        mock_graph.astream.return_value = mock_stream()
+        # 创建异步迭代器实例
+        chunks = [{"step": "1"}, {"step": "2"}, sample_state]
+        mock_iterator = MockAsyncIterator(chunks)
+        
+        # 设置 astream 方法返回异步迭代器
+        mock_graph.astream = Mock(return_value=mock_iterator)
         
         # 执行
         result = await executor.execute(mock_graph, sample_state)  # type: ignore
@@ -303,17 +332,15 @@ class TestAsyncWorkflowExecutor:
         """测试流式执行"""
         # 创建模拟图
         mock_graph = Mock()
-        mock_graph.astream = AsyncMock()
-        
         # 设置流式返回和回调
         callback = Mock()
         chunks = [{"step": "1"}, {"step": "2"}, sample_state]
         
-        async def mock_stream() -> AsyncGenerator[dict[str, Any], None]:
-            for chunk in chunks:
-                yield chunk
+        # 创建异步迭代器实例
+        mock_iterator = MockAsyncIterator(chunks)
         
-        mock_graph.astream.return_value = mock_stream()
+        # 设置 astream 方法返回异步迭代器
+        mock_graph.astream = Mock(return_value=mock_iterator)
         
         # 执行
         result = await executor.execute_with_streaming(mock_graph, sample_state, callback)  # type: ignore

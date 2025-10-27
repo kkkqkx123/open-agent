@@ -364,9 +364,16 @@ class WorkflowTriggerSystem(TriggerSystem):
         Returns:
             bool: 是否成功注册
         """
-        # 为触发器添加工作流上下文，使用get_config和更新配置的方法
-        config = trigger.get_config()
-        config["workflow_id"] = workflow_id
+        # 为触发器添加工作流上下文
+        # 由于get_config返回副本，我们需要直接修改触发器的内部配置
+        if hasattr(trigger, '_config'):
+            trigger._config["workflow_id"] = workflow_id
+        else:
+            # 如果触发器没有_config属性，使用set_config方法（如果存在）
+            config = trigger.get_config()
+            config["workflow_id"] = workflow_id
+            if hasattr(trigger, 'set_config'):
+                trigger.set_config(config)
         return self.register_trigger(trigger)
 
     def unregister_workflow_trigger(self, workflow_id: str, trigger_id: str) -> bool:

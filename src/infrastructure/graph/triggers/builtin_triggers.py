@@ -55,6 +55,9 @@ class TimeTrigger(BaseTrigger):
     def execute(self, state: AgentState, context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作"""
         self._update_trigger_info()
+        # 对于间隔时间触发器，需要计算下一次触发时间
+        if self._trigger_time.isdigit():
+            self._calculate_next_trigger()
         
         return {
             "trigger_time": self._trigger_time,

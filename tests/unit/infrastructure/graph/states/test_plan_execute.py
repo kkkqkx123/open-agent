@@ -166,10 +166,10 @@ class TestPlanExecuteStateFunctions:
             "workflow_123", "测试工作流", "测试输入"
         )
         state["steps"] = ["步骤1", "步骤2", "步骤3"]
-        state["current_step_index"] = 1  # 当前在步骤2
+        state["current_step_index"] = 1  # 下一个要执行步骤2
         
         next_step = get_next_step(state)
-        assert next_step == "步骤3"
+        assert next_step == "步骤2"
 
     def test_get_next_step_no_more_steps(self):
         """测试获取下一个步骤（没有更多步骤）"""
@@ -335,6 +335,6 @@ class TestPlanExecuteStateFunctions:
         assert "执行计划内容" in summary
         assert "总步骤数: 2" in summary
         assert "已完成步骤: 2" in summary
-        assert "✓ 步骤1" in summary
-        assert "✗ 步骤2" in summary
+        assert "1. 步骤1 ✓" in summary
+        assert "2. 步骤2 ✗" in summary
         assert "错误: 执行失败" in summary

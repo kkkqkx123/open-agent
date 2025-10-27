@@ -402,7 +402,12 @@ class TestGraphConfig:
 
     def test_validate_success(self):
         """测试验证成功"""
-        state_schema = GraphStateConfig(name="TestState")
+        state_schema = GraphStateConfig(
+            name="TestState",
+            fields={
+                "messages": StateFieldConfig(type="List[str]", reducer="operator.add")
+            }
+        )
         nodes = {
             "node1": NodeConfig(name="node1", function_name="func1"),
             "node2": NodeConfig(name="node2", function_name="func2")

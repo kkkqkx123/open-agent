@@ -131,11 +131,11 @@ class AsyncWorkflowExecutor(IAsyncWorkflowExecutor):
         """异步执行工作流"""
         try:
             # 检查图是否支持异步执行
-            if hasattr(graph, 'ainvoke'):
+            if hasattr(graph, 'ainvoke') and callable(getattr(graph, 'ainvoke')):
                 # 使用LangGraph的异步invoke方法
                 result = await graph.ainvoke(initial_state, **kwargs)
                 return result
-            elif hasattr(graph, 'astream'):
+            elif hasattr(graph, 'astream') and callable(getattr(graph, 'astream')):
                 # 使用LangGraph的异步stream方法
                 async for chunk in graph.astream(initial_state, **kwargs):
                     # 处理流式结果
@@ -162,7 +162,7 @@ class AsyncWorkflowExecutor(IAsyncWorkflowExecutor):
     ) -> WorkflowState:
         """异步执行工作流并支持流式回调"""
         try:
-            if hasattr(graph, 'astream'):
+            if hasattr(graph, 'astream') and callable(getattr(graph, 'astream')):
                 # 使用LangGraph的异步流式执行
                 final_state = initial_state
                 async for chunk in graph.astream(initial_state, **kwargs):

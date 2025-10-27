@@ -1,7 +1,7 @@
 """图构建器单元测试"""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch, MagicMock, call, AsyncMock
 from typing import Any, Dict, Optional
 from pathlib import Path
 import tempfile
@@ -43,6 +43,7 @@ class TestAgentNodeExecutor:
     def mock_agent(self) -> Mock:
         """模拟Agent"""
         agent = Mock(spec=IAgent)
+        agent.execute = AsyncMock()
         return agent
     
     @pytest.fixture
@@ -81,13 +82,14 @@ class TestAgentNodeExecutor:
     @patch('src.infrastructure.graph.builder.asyncio.run')
     def test_execute_with_new_event_loop(self, mock_run: Mock, executor: AgentNodeExecutor, sample_state: dict[str, Any], sample_config: dict[str, Any]) -> None:
         """测试在新事件循环中执行"""
-        # 配置模拟
+        # 配置模拟 - 使用 AsyncMock 正确处理异步方法
+        executor.agent.execute = AsyncMock(return_value=sample_state)
         mock_run.return_value = sample_state
-        
+
         # 模拟没有运行的事件循环
         with patch('src.infrastructure.graph.builder.asyncio.get_running_loop', side_effect=RuntimeError):
             result = executor.execute(sample_state, sample_config)  # type: ignore
-        
+
         # 验证
         assert result == sample_state
         mock_run.assert_called_once()
@@ -97,18 +99,19 @@ class TestAgentNodeExecutor:
     @patch('src.infrastructure.graph.builder.asyncio.run')
     def test_execute_in_main_thread(self, mock_run: Mock, mock_set_loop: Mock, mock_new_loop: Mock, executor: AgentNodeExecutor, sample_state: dict[str, Any], sample_config: dict[str, Any]) -> None:
         """测试在主线程中执行"""
-        # 配置模拟
+        # 配置模拟 - 使用 AsyncMock 正确处理异步方法
+        executor.agent.execute = AsyncMock(return_value=sample_state)
         mock_loop = Mock()
         mock_new_loop.return_value = mock_loop
         mock_run.return_value = sample_state
-        
+
         # 模拟在主线程中，但没有运行的事件循环
         with patch('src.infrastructure.graph.builder.threading.current_thread') as mock_thread:
             mock_thread.return_value = Mock()
             with patch('src.infrastructure.graph.builder.threading.main_thread', mock_thread.return_value):
                 with patch('src.infrastructure.graph.builder.asyncio.get_running_loop', side_effect=RuntimeError):
                     result = executor.execute(sample_state, sample_config)  # type: ignore  # type: ignore
-        
+
         # 验证
         assert result == sample_state
         mock_run.assert_called_once()
@@ -117,19 +120,20 @@ class TestAgentNodeExecutor:
     @patch('src.infrastructure.graph.builder.asyncio.run')
     def test_execute_in_non_main_thread(self, mock_run: Mock, mock_executor: Mock, executor: AgentNodeExecutor, sample_state: dict[str, Any], sample_config: dict[str, Any]) -> None:
         """测试在非主线程中执行"""
-        # 配置模拟
+        # 配置模拟 - 使用 AsyncMock 正确处理异步方法
+        executor.agent.execute = AsyncMock(return_value=sample_state)
         mock_run.return_value = sample_state
         mock_thread = Mock()
         mock_future = Mock()
         mock_future.result.return_value = sample_state
         mock_executor.return_value.__enter__.return_value.submit.return_value = mock_future
-        
+
         # 模拟在非主线程中
         with patch('src.infrastructure.graph.builder.threading.current_thread', return_value=mock_thread):
             with patch('src.infrastructure.graph.builder.threading.main_thread', return_value=Mock()):
                 with patch('src.infrastructure.graph.builder.asyncio.get_running_loop', return_value=Mock()):
                     result = executor.execute(sample_state, sample_config)  # type: ignore  # type: ignore
-        
+
         # 验证
         assert result == sample_state
 
@@ -208,13 +212,9 @@ class TestGraphBuilder:
     @patch('src.infrastructure.graph.builder.LANGGRAPH_AVAILABLE', True)
     def test_build_graph_success(self, builder: GraphBuilder, sample_config: GraphConfig) -> None:
         """测试成功构建图"""
-        # 模拟状态类
-        mock_state_class = Mock()
-        sample_config.get_state_class = Mock(return_value=mock_state_class)  # type: ignore
-        
         # 执行
         result = builder.build_graph(sample_config)
-        
+
         # 验证
         # 由于实际返回的是 CompiledStateGraph 对象，我们验证它不为 None 即可
         assert result is not None

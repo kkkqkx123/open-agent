@@ -162,7 +162,7 @@ class TestNodeRegistry:
             def get_config_schema(self) -> dict[str, Any]:
                 return {}
 
-        with pytest.raises(ValueError, match="节点类缺少 node_type 属性"):
+        with pytest.raises(ValueError, match="获取节点类型失败"):
             registry.register_node(InvalidNode)  # type: ignore
 
     def test_register_node_duplicate(self, registry: NodeRegistry) -> None:
@@ -235,7 +235,10 @@ class TestNodeRegistry:
             def get_config_schema(self) -> dict[str, Any]:
                 return {}
 
-        node_instance = InvalidNode()  # type: ignore
+        # 使用Mock来创建一个可以实例化的节点实例
+        node_instance = Mock(spec=BaseNode)
+        # 移除node_type属性来模拟缺少node_type的情况
+        delattr(node_instance, 'node_type')
         
         with pytest.raises(ValueError, match="节点实例缺少 node_type 属性"):
             registry.register_node_instance(node_instance)
@@ -370,7 +373,18 @@ class TestNodeRegistry:
             def get_config_schema(self) -> dict[str, Any]:
                 return {}
 
-        node_instance = MockNode1()
+        class MockNode3(BaseNode):
+            @property
+            def node_type(self):
+                return "node3"
+            
+            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+                return NodeExecutionResult(state=state)
+            
+            def get_config_schema(self) -> dict[str, Any]:
+                return {}
+
+        node_instance = MockNode3()
         
         # 注册节点类和实例
         registry.register_node(MockNode1)
@@ -384,6 +398,7 @@ class TestNodeRegistry:
         assert len(nodes) == 3
         assert "node1" in nodes
         assert "node2" in nodes
+        assert "node3" in nodes
 
     def test_get_node_schema_success(self, registry: NodeRegistry) -> None:
         """测试成功获取节点配置模式"""

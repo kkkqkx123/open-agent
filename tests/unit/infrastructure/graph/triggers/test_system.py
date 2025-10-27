@@ -395,7 +395,10 @@ class TestTriggerSystem(unittest.TestCase):
         
         # 检查事件类型统计
         event_types = stats["event_types"]
-        self.assertEqual(event_types["custom"], 3)  # 所有触发器都是CUSTOM类型
+        # 实际触发的事件类型应该与触发器的类型一致
+        self.assertEqual(event_types["state"], 1)  # trigger1是STATE类型
+        self.assertEqual(event_types["event"], 1)  # trigger3是EVENT类型
+        self.assertEqual(event_types["custom"], 1)  # trigger4是CUSTOM类型
         
         # 检查处理器统计
         handlers = stats["handlers"]
@@ -499,12 +502,8 @@ class TestWorkflowTriggerSystem(unittest.TestCase):
         workflow_id = "test-workflow-1"
         trigger = MockTrigger("workflow-trigger-1")
         
-        # 注册触发器
-        self.workflow_trigger_system.register_trigger(trigger)
-        
-        # 为触发器添加工作流ID
-        config = trigger.get_config()
-        config["workflow_id"] = workflow_id
+        # 使用register_workflow_trigger注册触发器，这样会正确设置workflow_id
+        self.workflow_trigger_system.register_workflow_trigger(workflow_id, trigger)
         
         # 注销工作流触发器
         result = self.workflow_trigger_system.unregister_workflow_trigger(workflow_id, "workflow-trigger-1")
@@ -513,9 +512,7 @@ class TestWorkflowTriggerSystem(unittest.TestCase):
         
         # 尝试注销不匹配的工作流ID
         trigger2 = MockTrigger("workflow-trigger-2")
-        self.workflow_trigger_system.register_trigger(trigger2)
-        config2 = trigger2.get_config()
-        config2["workflow_id"] = "different-workflow"
+        self.workflow_trigger_system.register_workflow_trigger("different-workflow", trigger2)
         
         result = self.workflow_trigger_system.unregister_workflow_trigger(workflow_id, "workflow-trigger-2")
         self.assertFalse(result)  # 应该失败，因为工作流ID不匹配
@@ -530,14 +527,10 @@ class TestWorkflowTriggerSystem(unittest.TestCase):
         trigger2 = MockTrigger("trigger-2")
         trigger3 = MockTrigger("trigger-3")
         
-        self.workflow_trigger_system.register_trigger(trigger1)
-        self.workflow_trigger_system.register_trigger(trigger2)
-        self.workflow_trigger_system.register_trigger(trigger3)
-        
-        # 为触发器设置工作流ID
-        trigger1.get_config()["workflow_id"] = workflow_id1
-        trigger2.get_config()["workflow_id"] = workflow_id1
-        trigger3.get_config()["workflow_id"] = workflow_id2
+        # 使用register_workflow_trigger方法注册，这样会正确设置workflow_id
+        self.workflow_trigger_system.register_workflow_trigger(workflow_id1, trigger1)
+        self.workflow_trigger_system.register_workflow_trigger(workflow_id1, trigger2)
+        self.workflow_trigger_system.register_workflow_trigger(workflow_id2, trigger3)
         
         # 获取特定工作流的触发器
         workflow1_triggers = self.workflow_trigger_system.get_workflow_triggers(workflow_id1)
