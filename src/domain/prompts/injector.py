@@ -34,7 +34,7 @@ class PromptInjector(IPromptInjector):
         try:
             prompt_content = self.loader.load_prompt("system", prompt_name)
             system_message = SystemMessage(content=prompt_content)
-            state.messages.insert(0, system_message)  # 系统消息在最前面
+            state["messages"].insert(0, system_message)  # 系统消息在最前面
         except Exception as e:
             raise ValueError(f"注入系统提示词失败 {prompt_name}: {e}")
 
@@ -44,7 +44,7 @@ class PromptInjector(IPromptInjector):
         """注入规则提示词"""
         # 找到插入位置：系统消息之后，其他消息之前
         insert_index = 0
-        for i, message in enumerate(state.messages):
+        for i, message in enumerate(state["messages"]):
             if isinstance(message, SystemMessage):
                 insert_index = i + 1
             else:
@@ -54,7 +54,7 @@ class PromptInjector(IPromptInjector):
             try:
                 rule_content = self.loader.load_prompt("rules", rule_name)
                 rule_message = SystemMessage(content=rule_content)
-                state.messages.insert(insert_index, rule_message)  # 规则消息在系统消息之后
+                state["messages"].insert(insert_index, rule_message)  # 规则消息在系统消息之后
                 insert_index += 1
             except Exception as e:
                 raise ValueError(f"注入规则提示词失败 {rule_name}: {e}")
@@ -66,7 +66,7 @@ class PromptInjector(IPromptInjector):
         try:
             command_content = self.loader.load_prompt("user_commands", command_name)
             user_message = HumanMessage(content=command_content)
-            state.messages.append(user_message)  # 用户指令在最后
+            state["messages"].append(user_message)  # 用户指令在最后
         except Exception as e:
             raise ValueError(f"注入用户指令失败 {command_name}: {e}")
             

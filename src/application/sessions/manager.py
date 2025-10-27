@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Any, Optional, List, Tuple
 from pathlib import Path
 import uuid
 import json
@@ -13,8 +13,8 @@ import logging
 from datetime import datetime
 
 from ..workflow.manager import IWorkflowManager
-from ...domain.workflow.config import WorkflowConfig
-from ...application.workflow.state import AgentState
+from ...infrastructure.graph.config import GraphConfig as WorkflowConfig
+from ...infrastructure.graph.states import AgentState
 from ...domain.sessions.store import ISessionStore
 from .git_manager import IGitManager
 
@@ -29,7 +29,7 @@ class ISessionManager(ABC):
     def create_session(
         self,
         workflow_config_path: str,
-        agent_config: Optional[Dict[str, Any]] = None,
+        agent_config: Optional[dict[str, Any]] = None,
         initial_state: Optional[AgentState] = None
     ) -> str:
         """创建新会话
@@ -45,14 +45,14 @@ class ISessionManager(ABC):
         pass
 
     @abstractmethod
-    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def get_session(self, session_id: str) -> Optional[dict[str, Any]]:
         """获取会话信息
 
         Args:
             session_id: 会话ID
 
         Returns:
-            Optional[Dict[str, Any]]: 会话信息，如果不存在则返回None
+            Optional[dict[str, Any]]: 会话信息，如果不存在则返回None
         """
         pass
 
@@ -94,35 +94,35 @@ class ISessionManager(ABC):
         pass
 
     @abstractmethod
-    def list_sessions(self) -> List[Dict[str, Any]]:
+    def list_sessions(self) -> List[dict[str, Any]]:
         """列出所有会话
 
         Returns:
-            List[Dict[str, Any]]: 会话列表
+            List[dict[str, Any]]: 会话列表
         """
         pass
 
     @abstractmethod
-    def get_session_history(self, session_id: str) -> List[Dict[str, Any]]:
+    def get_session_history(self, session_id: str) -> List[dict[str, Any]]:
         """获取会话历史
 
         Args:
             session_id: 会话ID
 
         Returns:
-            List[Dict[str, Any]]: 会话历史记录
+            List[dict[str, Any]]: 会话历史记录
         """
         pass
 
     @abstractmethod
-    def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def get_session_info(self, session_id: str) -> Optional[dict[str, Any]]:
         """获取会话信息
 
         Args:
             session_id: 会话ID
 
         Returns:
-            Optional[Dict[str, Any]]: 会话信息，如果不存在则返回None
+            Optional[dict[str, Any]]: 会话信息，如果不存在则返回None
         """
         pass
 
@@ -140,7 +140,7 @@ class ISessionManager(ABC):
 
     @abstractmethod
     def save_session_with_metrics(self, session_id: str, state: AgentState, 
-                                 workflow_metrics: Dict[str, Any]) -> bool:
+                                 workflow_metrics: dict[str, Any]) -> bool:
         """保存会话状态和工作流指标
 
         Args:
@@ -176,7 +176,7 @@ class SessionManager(ISessionManager):
         self.session_store = session_store
         self.git_manager = git_manager
         self.storage_path = storage_path or Path("./sessions")
-        self._recovery_attempts: Dict[str, int] = {}
+        self._recovery_attempts: dict[str, int] = {}
 
         # 确保存储目录存在
         self.storage_path.mkdir(parents=True, exist_ok=True)
@@ -184,7 +184,7 @@ class SessionManager(ISessionManager):
     def create_session(
         self,
         workflow_config_path: str,
-        agent_config: Optional[Dict[str, Any]] = None,
+        agent_config: Optional[dict[str, Any]] = None,
         initial_state: Optional[AgentState] = None
     ) -> str:
         """创建新会话"""
@@ -198,7 +198,16 @@ class SessionManager(ISessionManager):
 
         # 准备初始状态
         if initial_state is None:
-            initial_state = AgentState()
+            initial_state = {
+                "messages": [],
+                "tool_results": [],
+                "iteration_count": 0,
+                "max_iterations": 10,
+                "start_time": None,
+                "current_step": "",
+                "workflow_name": "",
+                "errors": []
+            }
 
         # 创建会话目录
         session_dir = self.storage_path / session_id
@@ -239,7 +248,7 @@ class SessionManager(ISessionManager):
 
         return session_id
 
-    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def get_session(self, session_id: str) -> Optional[dict[str, Any]]:
         """获取会话信息"""
         return self.session_store.get_session(session_id)
 
@@ -313,14 +322,14 @@ class SessionManager(ISessionManager):
         except Exception:
             return False
 
-    def list_sessions(self) -> List[Dict[str, Any]]:
+    def list_sessions(self) -> List[dict[str, Any]]:
         """列出所有会话"""
         sessions = self.session_store.list_sessions()
         # 按创建时间倒序排列
         sessions.sort(key=lambda x: x.get("created_at", ""), reverse=True)
         return sessions
 
-    def get_session_history(self, session_id: str) -> List[Dict[str, Any]]:
+    def get_session_history(self, session_id: str) -> List[dict[str, Any]]:
         """获取会话历史"""
         if self.git_manager:
             session_dir = self.storage_path / session_id
@@ -336,7 +345,7 @@ class SessionManager(ISessionManager):
                 }]
             return []
 
-    def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def get_session_info(self, session_id: str) -> Optional[dict[str, Any]]:
         """获取会话信息"""
         return self.get_session(session_id)
 
@@ -345,7 +354,7 @@ class SessionManager(ISessionManager):
         return self.get_session(session_id) is not None
 
     def save_session_with_metrics(self, session_id: str, state: AgentState, 
-                                 workflow_metrics: Dict[str, Any]) -> bool:
+                                 workflow_metrics: dict[str, Any]) -> bool:
         """保存会话状态和工作流指标"""
         try:
             session_data = self.session_store.get_session(session_id)
@@ -377,7 +386,7 @@ class SessionManager(ISessionManager):
         except Exception:
             return False
 
-    def _restore_workflow_with_fallback(self, metadata: Dict[str, Any], session_data: Dict[str, Any]) -> Tuple[Any, AgentState]:
+    def _restore_workflow_with_fallback(self, metadata: dict[str, Any], session_data: dict[str, Any]) -> Tuple[Any, AgentState]:
         """带回退机制的工作流恢复"""
         session_id = metadata.get("session_id", "unknown")
         config_path = metadata["workflow_config_path"]
@@ -444,7 +453,7 @@ class SessionManager(ISessionManager):
                     logger.error(f"所有恢复策略都失败: {e3}")
                     raise ValueError(f"无法恢复会话 {session_id}: 所有恢复策略都失败")
 
-    def _validate_workflow_consistency(self, metadata: Dict[str, Any], workflow_id: str) -> bool:
+    def _validate_workflow_consistency(self, metadata: dict[str, Any], workflow_id: str) -> bool:
         """验证工作流配置一致性"""
         current_config = self.workflow_manager.get_workflow_config(workflow_id)
         if not current_config:
@@ -463,7 +472,9 @@ class SessionManager(ISessionManager):
             return False
         
         # 检查配置校验和
-        return saved_summary.get("checksum") == current_summary.get("checksum")
+        saved_checksum = saved_summary.get("checksum")
+        current_checksum = current_summary.get("checksum")
+        return saved_checksum == current_checksum
 
     def _calculate_config_checksum(self, config_path: str) -> str:
         """计算配置文件校验和"""
@@ -513,7 +524,7 @@ class SessionManager(ISessionManager):
         """获取恢复尝试次数"""
         return self._recovery_attempts.get(session_id, 0)
 
-    def _save_recovery_log(self, recovery_log: Dict[str, Any]) -> None:
+    def _save_recovery_log(self, recovery_log: dict[str, Any]) -> None:
         """保存恢复日志"""
         try:
             log_dir = self.storage_path / "recovery_logs"
@@ -528,7 +539,7 @@ class SessionManager(ISessionManager):
         except Exception as e:
             logger.error(f"保存恢复日志失败: {e}")
 
-    def _serialize_state(self, state: AgentState) -> Dict[str, Any]:
+    def _serialize_state(self, state: AgentState) -> dict[str, Any]:
         """序列化状态"""
         return {
             "messages": [
@@ -537,7 +548,7 @@ class SessionManager(ISessionManager):
                     "content": getattr(msg, "content", ""),
                     "additional_kwargs": getattr(msg, "additional_kwargs", {})
                 }
-                for msg in state.messages
+                for msg in state.get("messages", [])
             ],
             "tool_results": [
                 {
@@ -546,31 +557,37 @@ class SessionManager(ISessionManager):
                     "result": result.result,
                     "error": result.error
                 }
-                for result in state.tool_results
+                for result in state.get("tool_results", [])
             ],
-            "current_step": getattr(state, "current_step", ""),
-            "max_iterations": getattr(state, "max_iterations", 10),
-            "iteration_count": getattr(state, "iteration_count", 0),
-            "workflow_name": getattr(state, "workflow_name", ""),
-            "start_time": state.start_time.isoformat() if state.start_time else None,
-            "errors": getattr(state, "errors", [])
+            "current_step": state.get("current_step", ""),
+            "max_iterations": state.get("max_iterations", 10),
+            "iteration_count": state.get("iteration_count", 0),
+            "workflow_name": state.get("workflow_name", ""),
+            "start_time": state.get("start_time"),
+            "errors": state.get("errors", [])
         }
 
-    def _deserialize_state(self, state_data: Dict[str, Any]) -> AgentState:
+    def _deserialize_state(self, state_data: dict[str, Any]) -> dict[str, Any]:
         """反序列化状态"""
-        state = AgentState()
+        state = {
+            "messages": [],
+            "tool_results": [],
+            "current_step": "",
+            "max_iterations": 10,
+            "iteration_count": 0,
+            "workflow_name": "",
+            "start_time": None,
+            "errors": []
+        }
 
         # 恢复消息
+        from ...application.workflow.state import BaseMessage
         for msg_data in state_data.get("messages", []):
+            msg: BaseMessage
             try:
                 # 尝试创建适当的消息类型
                 msg_type = msg_data.get("type", "BaseMessage")
                 role_str = msg_data.get("role", "human")
-                from ...application.workflow.state import MessageRole
-                try:
-                    role = MessageRole(role_str)
-                except ValueError:
-                    role = MessageRole.HUMAN
 
                 if msg_type == "HumanMessage":
                     from src.application.workflow.state import HumanMessage
@@ -585,20 +602,14 @@ class SessionManager(ISessionManager):
                     from src.application.workflow.state import ToolMessage
                     msg = ToolMessage(content=msg_data.get("content", ""))
                 else:
-                    from src.application.workflow.state import BaseMessage
-                    msg = BaseMessage(content=msg_data.get("content", ""), type=role)
+                    msg = BaseMessage(content=msg_data.get("content", ""), type=role_str)
 
-                state.add_message(msg)
+                state["messages"].append(msg)
             except Exception:
                 # 如果创建消息失败，创建基本消息
-                from ...application.workflow.state import BaseMessage, MessageRole
                 role_str = msg_data.get("role", "human")
-                try:
-                    role = MessageRole(role_str)
-                except ValueError:
-                    role = MessageRole.HUMAN
-                msg = BaseMessage(content=msg_data.get("content", ""), type=role)
-                state.add_message(msg)
+                msg = BaseMessage(content=msg_data.get("content", ""), type=role_str)
+                state["messages"].append(msg)
 
         # 恢复工具结果
         from src.application.workflow.state import ToolResult
@@ -609,27 +620,27 @@ class SessionManager(ISessionManager):
                 output=result_data.get("result"),
                 error=result_data.get("error")
             )
-            state.tool_results.append(result)
+            state["tool_results"].append(result)
 
         # 恢复其他属性
-        state.current_step = state_data.get("current_step", "")
-        state.max_iterations = state_data.get("max_iterations", 10)
-        state.iteration_count = state_data.get("iteration_count", 0)
-        state.workflow_name = state_data.get("workflow_name", "")
-        
+        state["current_step"] = state_data.get("current_step", "")
+        state["max_iterations"] = state_data.get("max_iterations", 10)
+        state["iteration_count"] = state_data.get("iteration_count", 0)
+        state["workflow_name"] = state_data.get("workflow_name", "")
+
         # 恢复开始时间
         start_time_str = state_data.get("start_time")
         if start_time_str:
             try:
-                state.start_time = datetime.fromisoformat(start_time_str)
+                state["start_time"] = datetime.fromisoformat(start_time_str)
             except (ValueError, TypeError):
-                state.start_time = None
+                state["start_time"] = None
         else:
-            state.start_time = None
-            
+            state["start_time"] = None
+
         # 恢复错误列表
-        state.errors = state_data.get("errors", [])
-        
+        state["errors"] = state_data.get("errors", [])
+
         return state
 
     def _generate_session_id(self, workflow_config_path: str) -> str:

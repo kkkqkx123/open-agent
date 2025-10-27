@@ -7,24 +7,20 @@ import tempfile
 import yaml
 
 from src.application.workflow.factory import (
-    UnifiedWorkflowFactory,
-    get_global_factory,
-    create_workflow_from_config,
-    create_simple_workflow,
-    create_react_workflow,
-    create_plan_execute_workflow
+    WorkflowFactory,
+    IWorkflowFactory
 )
-from src.application.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
+from src.infrastructure.graph.config import GraphConfig as WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
 from src.infrastructure.graph.states import WorkflowState
 from src.domain.prompts.interfaces import IPromptInjector
 
 
-class TestUnifiedWorkflowFactory:
+class TestWorkflowFactory:
     """统一工作流工厂测试"""
     
     def test_init_with_default_components(self):
         """测试使用默认组件初始化"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         
         assert factory.node_registry is not None
         assert factory.workflow_builder is not None
@@ -35,7 +31,7 @@ class TestUnifiedWorkflowFactory:
         mock_registry = Mock()
         mock_builder = Mock()
         
-        factory = UnifiedWorkflowFactory(
+        factory = WorkflowFactory(
             node_registry=mock_registry,
             workflow_builder=mock_builder
         )
@@ -45,7 +41,7 @@ class TestUnifiedWorkflowFactory:
     
     def test_create_from_config_success(self):
         """测试从配置成功创建工作流"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         
         # 创建模拟配置
         config = WorkflowConfig(
@@ -67,7 +63,7 @@ class TestUnifiedWorkflowFactory:
     
     def test_create_from_config_failure(self):
         """测试从配置创建工作流失败"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         
         config = WorkflowConfig(name="test", description="测试")
         factory.workflow_builder.build_workflow = Mock(side_effect=Exception("构建失败"))
@@ -77,7 +73,7 @@ class TestUnifiedWorkflowFactory:
     
     def test_create_simple_workflow(self):
         """测试创建简单工作流"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         mock_injector = Mock(spec=IPromptInjector)
         mock_injector.inject_prompts.return_value = WorkflowState()
         
@@ -91,7 +87,7 @@ class TestUnifiedWorkflowFactory:
     
     def test_create_simple_workflow_with_llm_client(self):
         """测试创建带LLM客户端的简单工作流"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         mock_injector = Mock(spec=IPromptInjector)
         mock_injector.inject_prompts.return_value = WorkflowState()
         mock_llm_client = Mock()
@@ -111,7 +107,7 @@ class TestUnifiedWorkflowFactory:
     
     def test_create_react_workflow_with_config(self):
         """测试使用配置创建ReAct工作流"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         
         # 添加ReAct配置
         react_config = WorkflowConfig(
@@ -132,14 +128,14 @@ class TestUnifiedWorkflowFactory:
     
     def test_create_react_workflow_no_config(self):
         """测试创建ReAct工作流但没有配置"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         
         with pytest.raises(ValueError, match="ReAct工作流配置未找到"):
             factory.create_react()
     
     def test_create_plan_execute_workflow(self):
         """测试创建Plan-Execute工作流"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         
         # 添加Plan-Execute配置
         plan_config = WorkflowConfig(
@@ -160,7 +156,7 @@ class TestUnifiedWorkflowFactory:
     
     def test_create_collaborative_workflow(self):
         """测试创建协作工作流"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         
         # 添加协作配置
         collab_config = WorkflowConfig(
@@ -181,7 +177,7 @@ class TestUnifiedWorkflowFactory:
     
     def test_create_from_file(self):
         """测试从文件创建工作流"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         
         # 创建临时配置文件
         config_data = {
@@ -217,7 +213,7 @@ class TestUnifiedWorkflowFactory:
     
     def test_list_predefined_workflows(self):
         """测试列出预定义工作流"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         
         # 添加一些配置
         factory.register_predefined_config("react", Mock())
@@ -231,7 +227,7 @@ class TestUnifiedWorkflowFactory:
     
     def test_get_predefined_config(self):
         """测试获取预定义配置"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         
         config = WorkflowConfig(name="test", description="测试")
         factory.register_predefined_config("test", config)
@@ -244,7 +240,7 @@ class TestUnifiedWorkflowFactory:
     
     def test_get_predefined_config_not_found(self):
         """测试获取不存在的预定义配置"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         
         result = factory.get_predefined_config("nonexistent")
         
@@ -252,7 +248,7 @@ class TestUnifiedWorkflowFactory:
     
     def test_register_predefined_config(self):
         """测试注册预定义配置"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         
         config = WorkflowConfig(name="new_workflow", description="新工作流")
         factory.register_predefined_config("new_workflow", config)
@@ -336,7 +332,7 @@ class TestSimpleWorkflowExecution:
     
     def test_simple_workflow_run_without_initial_state(self):
         """测试简单工作流运行，无初始状态"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         mock_injector = Mock(spec=IPromptInjector)
         
         # 模拟注入器返回状态
@@ -353,7 +349,7 @@ class TestSimpleWorkflowExecution:
     
     def test_simple_workflow_run_with_initial_state(self):
         """测试简单工作流运行，有初始状态"""
-        factory = UnifiedWorkflowFactory()
+        factory = WorkflowFactory()
         mock_injector = Mock(spec=IPromptInjector)
         
         # 创建初始状态

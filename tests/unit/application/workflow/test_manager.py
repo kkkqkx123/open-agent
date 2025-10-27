@@ -8,9 +8,11 @@ import yaml
 import hashlib
 
 from src.application.workflow.manager import WorkflowManager, IWorkflowManager
-from src.application.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
-from src.application.workflow.registry import NodeRegistry, BaseNode, NodeExecutionResult
-from src.domain.prompts.agent_state import AgentState
+from src.infrastructure.graph.config import GraphConfig as WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
+from src.infrastructure.graph.registry import NodeRegistry
+from src.infrastructure.graph.registry import BaseNode
+from src.infrastructure.graph.registry import NodeExecutionResult
+from src.infrastructure.graph.states import AgentState
 
 
 class MockNode(BaseNode):

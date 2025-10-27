@@ -6,8 +6,8 @@ import time
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch, MagicMock
 
-from src.sessions.player import Player, IPlayer
-from src.sessions.event_collector import IEventCollector, EventType
+from src.application.sessions.player import Player, IPlayer
+from src.application.sessions.event_collector import IEventCollector, EventType
 
 
 class TestPlayer:

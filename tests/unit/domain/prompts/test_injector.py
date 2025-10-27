@@ -54,26 +54,26 @@ class TestPromptInjector:
         """测试注入系统提示词"""
         state = injector.inject_system_prompt(empty_state, "assistant")
         
-        assert len(state.messages) == 1
-        assert isinstance(state.messages[0], SystemMessage)
-        assert state.messages[0].content == "你是一个通用助手。"
+        assert len(state["messages"]) == 1
+        assert isinstance(state["messages"][0], SystemMessage)
+        assert state["messages"][0].content == "你是一个通用助手。"
     
     def test_inject_rule_prompts(self, injector, empty_state) -> None:
         """测试注入规则提示词"""
         state = injector.inject_rule_prompts(empty_state, ["safety", "format"])
         
-        assert len(state.messages) == 2
-        assert all(isinstance(msg, SystemMessage) for msg in state.messages)
-        assert state.messages[0].content == "请遵循安全规则。"
-        assert state.messages[1].content == "请遵循格式规则。"
+        assert len(state["messages"]) == 2
+        assert all(isinstance(msg, SystemMessage) for msg in state["messages"])
+        assert state["messages"][0].content == "请遵循安全规则。"
+        assert state["messages"][1].content == "请遵循格式规则。"
     
     def test_inject_user_command(self, injector, empty_state) -> None:
         """测试注入用户指令"""
         state = injector.inject_user_command(empty_state, "data_analysis")
         
-        assert len(state.messages) == 1
-        assert isinstance(state.messages[0], HumanMessage)
-        assert state.messages[0].content == "请分析数据。"
+        assert len(state["messages"]) == 1
+        assert isinstance(state["messages"][0], HumanMessage)
+        assert state["messages"][0].content == "请分析数据。"
     
     def test_inject_prompts_all_types(self, injector, empty_state) -> None:
         """测试注入所有类型的提示词"""
@@ -85,21 +85,21 @@ class TestPromptInjector:
         
         state = injector.inject_prompts(empty_state, config)
         
-        assert len(state.messages) == 4
+        assert len(state["messages"]) == 4
         
         # 验证消息顺序：系统提示词在最前面
-        assert isinstance(state.messages[0], SystemMessage)
-        assert state.messages[0].content == "你是一个通用助手。"
+        assert isinstance(state["messages"][0], SystemMessage)
+        assert state["messages"][0].content == "你是一个通用助手。"
         
         # 验证规则提示词在中间
-        assert isinstance(state.messages[1], SystemMessage)
-        assert state.messages[1].content == "请遵循安全规则。"
-        assert isinstance(state.messages[2], SystemMessage)
-        assert state.messages[2].content == "请遵循格式规则。"
+        assert isinstance(state["messages"][1], SystemMessage)
+        assert state["messages"][1].content == "请遵循安全规则。"
+        assert isinstance(state["messages"][2], SystemMessage)
+        assert state["messages"][2].content == "请遵循格式规则。"
         
         # 验证用户指令在最后
-        assert isinstance(state.messages[3], HumanMessage)
-        assert state.messages[3].content == "请分析数据。"
+        assert isinstance(state["messages"][3], HumanMessage)
+        assert state["messages"][3].content == "请分析数据。"
     
     def test_inject_prompts_partial_config(self, injector, empty_state) -> None:
         """测试部分配置的提示词注入"""
@@ -107,9 +107,9 @@ class TestPromptInjector:
         config = PromptConfig(system_prompt="coder")
         state = injector.inject_prompts(empty_state, config)
         
-        assert len(state.messages) == 1
-        assert isinstance(state.messages[0], SystemMessage)
-        assert state.messages[0].content == "你是一个代码生成专家。"
+        assert len(state["messages"]) == 1
+        assert isinstance(state["messages"][0], SystemMessage)
+        assert state["messages"][0].content == "你是一个代码生成专家。"
         
         # 清空状态
         state = {
@@ -129,9 +129,9 @@ class TestPromptInjector:
         config = PromptConfig(rules=["safety"])
         state = injector.inject_prompts(state, config)
         
-        assert len(state.messages) == 1
-        assert isinstance(state.messages[0], SystemMessage)
-        assert state.messages[0].content == "请遵循安全规则。"
+        assert len(state["messages"]) == 1
+        assert isinstance(state["messages"][0], SystemMessage)
+        assert state["messages"][0].content == "请遵循安全规则。"
         
         # 清空状态
         state = {
@@ -151,16 +151,16 @@ class TestPromptInjector:
         config = PromptConfig(user_command="code_review")
         state = injector.inject_prompts(state, config)
         
-        assert len(state.messages) == 1
-        assert isinstance(state.messages[0], HumanMessage)
-        assert state.messages[0].content == "请审查代码。"
+        assert len(state["messages"]) == 1
+        assert isinstance(state["messages"][0], HumanMessage)
+        assert state["messages"][0].content == "请审查代码。"
     
     def test_inject_prompts_empty_config(self, injector, empty_state) -> None:
         """测试空配置的提示词注入"""
         config = PromptConfig()
         state = injector.inject_prompts(empty_state, config)
         
-        assert len(state.messages) == 0
+        assert len(state["messages"]) == 0
     
     def test_inject_system_prompt_error(self, injector, empty_state) -> None:
         """测试注入系统提示词错误"""
@@ -207,16 +207,16 @@ class TestPromptInjector:
         
         state = injector.inject_prompts(existing_state, config)
         
-        assert len(state.messages) == 3
+        assert len(state["messages"]) == 3
         
         # 验证系统提示词在最前面
-        assert isinstance(state.messages[0], SystemMessage)
-        assert state.messages[0].content == "你是一个通用助手。"
+        assert isinstance(state["messages"][0], SystemMessage)
+        assert state["messages"][0].content == "你是一个通用助手。"
         
         # 验证规则提示词在中间
-        assert isinstance(state.messages[1], SystemMessage)
-        assert state.messages[1].content == "请遵循安全规则。"
+        assert isinstance(state["messages"][1], SystemMessage)
+        assert state["messages"][1].content == "请遵循安全规则。"
         
         # 验证原有消息在最后
-        assert isinstance(state.messages[2], HumanMessage)
-        assert state.messages[2].content == "用户问题"
+        assert isinstance(state["messages"][2], HumanMessage)
+        assert state["messages"][2].content == "用户问题"

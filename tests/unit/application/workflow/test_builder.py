@@ -3,9 +3,11 @@
 import pytest
 from unittest.mock import Mock, AsyncMock
 from typing import Union
-from src.application.workflow.builder import WorkflowBuilder, AgentNodeExecutor
-from src.application.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
-from src.application.workflow.state import WorkflowState, BaseMessage, MessageRole
+from src.application.workflow.builder_adapter import WorkflowBuilderAdapter as WorkflowBuilder
+from src.infrastructure.graph.builder import AgentNodeExecutor
+from src.infrastructure.graph.config import GraphConfig as WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
+from src.infrastructure.graph.states import WorkflowState
+from src.infrastructure.graph.state import BaseMessage, MessageRole
 from src.domain.agent.interfaces import IAgent, IAgentFactory
 from src.domain.agent.state import AgentState
 from src.application.workflow.templates.react_template import ReActWorkflowTemplate

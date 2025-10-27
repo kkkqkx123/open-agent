@@ -1,7 +1,7 @@
 """节点注册系统测试"""
 
 import pytest
-from src.application.workflow.registry import (
+from src.infrastructure.graph.registry import (
     NodeRegistry,
     BaseNode,
     NodeExecutionResult,

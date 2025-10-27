@@ -111,6 +111,11 @@ class AgentState(BaseGraphState, total=False):
     # 完成标志
     complete: bool
 
+    # 额外字段
+    start_time: Optional[str]
+    current_step: Optional[str]
+    workflow_name: Optional[str]
+
 
 class WorkflowState(AgentState, total=False):
     """工作流状态 - 扩展Agent状态"""

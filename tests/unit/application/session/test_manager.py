@@ -13,7 +13,7 @@ from src.application.sessions.manager import SessionManager, ISessionManager
 from src.domain.sessions.store import ISessionStore
 from src.application.sessions.git_manager import IGitManager
 from src.application.workflow.manager import IWorkflowManager
-from src.domain.workflow.config import WorkflowConfig
+from src.infrastructure.graph.config import GraphConfig as WorkflowConfig
 from src.application.workflow.state import AgentState, BaseMessage
 
 

@@ -33,9 +33,12 @@ class TestToolManager:
         assert len(self.tool_manager._tools) == 0
         assert len(self.tool_manager._tool_sets) == 0
 
-    @patch("src.tools.manager.Path")
+    @patch("src.infrastructure.tools.manager.Path")
     def test_load_tools_no_config_dir(self, mock_path):
         """测试没有配置目录的情况"""
+        # 模拟配置加载器返回空字典
+        self.mock_config_loader.load.return_value = {}
+        
         mock_path.return_value.exists.return_value = False
 
         tools = self.tool_manager.load_tools()
@@ -232,7 +235,7 @@ class TestToolManager:
         def test_function(param1: str):
             return f"结果: {param1}"
 
-        with patch("src.tools.manager.importlib.import_module") as mock_import:
+        with patch("src.infrastructure.tools.manager.importlib.import_module") as mock_import:
             mock_module = Mock()
             mock_module.test_function = test_function
             mock_import.return_value = mock_module
@@ -252,7 +255,7 @@ class TestToolManager:
     def test_load_tool_sets(self):
         """测试加载工具集配置"""
         # 模拟工具集配置目录存在
-        with patch("src.tools.manager.Path") as mock_path:
+        with patch("src.infrastructure.tools.manager.Path") as mock_path:
             mock_config_dir = Mock()
             mock_path.return_value = mock_config_dir
             mock_config_dir.exists.return_value = True
@@ -280,10 +283,13 @@ class TestToolManager:
             ]
 
     def test_get_tool(self):
+        # 模拟配置加载器返回空字典
+        self.mock_config_loader.load.return_value = {}
         """测试获取工具"""
         # 添加一个工具到管理器
         mock_tool = Mock()
         mock_tool.name = "test_tool"
+        mock_tool.description = "测试工具"
         self.tool_manager._tools["test_tool"] = mock_tool
 
         # 测试获取存在的工具
@@ -295,6 +301,8 @@ class TestToolManager:
             self.tool_manager.get_tool("nonexistent_tool")
 
     def test_get_tool_set(self):
+        # 模拟配置加载器返回空字典
+        self.mock_config_loader.load.return_value = {}
         """测试获取工具集"""
         # 添加一个工具集到管理器
         mock_tool_set_config = Mock()
@@ -324,6 +332,7 @@ class TestToolManager:
         """测试注册工具"""
         mock_tool = Mock()
         mock_tool.name = "test_tool"
+        mock_tool.description = "测试工具"
 
         # 测试注册新工具
         self.tool_manager.register_tool(mock_tool)
@@ -335,6 +344,8 @@ class TestToolManager:
             self.tool_manager.register_tool(mock_tool)
 
     def test_list_tools(self):
+        # 模拟配置加载器返回空字典
+        self.mock_config_loader.load.return_value = {}
         """测试列出工具"""
         # 添加工具到管理器
         self.tool_manager._tools["tool1"] = Mock()
@@ -346,6 +357,8 @@ class TestToolManager:
         assert "tool2" in tools
 
     def test_list_tool_sets(self):
+        # 模拟配置加载器返回空字典
+        self.mock_config_loader.load.return_value = {}
         """测试列出工具集"""
         # 添加工具集到管理器
         self.tool_manager._tool_sets["tool_set1"] = Mock()
@@ -389,10 +402,13 @@ class TestToolManager:
             assert self.tool_manager._loaded is True
 
     def test_get_tool_info(self):
+        # 模拟配置加载器返回空字典
+        self.mock_config_loader.load.return_value = {}
         """测试获取工具信息"""
         # 添加一个工具到管理器
         mock_tool = Mock()
         mock_tool.name = "test_tool"
+        mock_tool.description = "测试工具"
         mock_tool.to_dict.return_value = {
             "name": "test_tool",
             "description": "测试工具",
@@ -405,6 +421,8 @@ class TestToolManager:
 
     def test_get_tool_set_info(self):
         """测试获取工具集信息"""
+        # 模拟配置加载器返回空字典
+        self.mock_config_loader.load.return_value = {}
         # 添加一个工具集到管理器
         mock_tool_set_config = Mock()
         mock_tool_set_config.name = "test_tool_set"

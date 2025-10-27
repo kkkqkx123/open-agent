@@ -91,6 +91,9 @@ class BaseTool(ITool, ABC):
 
         Returns:
             bool: 验证是否成功
+            
+        Raises:
+            ValueError: 参数验证失败
         """
         try:
             # 基础参数验证逻辑
@@ -99,7 +102,7 @@ class BaseTool(ITool, ABC):
             # 检查必需参数
             for param in required_params:
                 if param not in parameters:
-                    return False
+                    raise ValueError(f"缺少必需参数: {param}")
 
             # 检查参数类型
             properties = self._parameters_schema.get("properties", {})
@@ -109,23 +112,26 @@ class BaseTool(ITool, ABC):
                     expected_type = param_schema.get("type")
 
                     if expected_type == "string" and not isinstance(param_value, str):
-                        return False
+                        raise ValueError(f"参数 {param_name} 应为字符串类型")
                     elif expected_type == "number" and not isinstance(
                         param_value, (int, float)
                     ):
-                        return False
+                        raise ValueError(f"参数 {param_name} 应为数字类型")
                     elif expected_type == "integer" and not isinstance(param_value, int):
-                        return False
+                        raise ValueError(f"参数 {param_name} 应为整数类型")
                     elif expected_type == "boolean" and not isinstance(param_value, bool):
-                        return False
+                        raise ValueError(f"参数 {param_name} 应为布尔类型")
                     elif expected_type == "array" and not isinstance(param_value, list):
-                        return False
+                        raise ValueError(f"参数 {param_name} 应为数组类型")
                     elif expected_type == "object" and not isinstance(param_value, dict):
-                        return False
+                        raise ValueError(f"参数 {param_name} 应为对象类型")
 
             return True
-        except Exception:
-            return False
+        except ValueError:
+            # 重新抛出 ValueError
+            raise
+        except Exception as e:
+            raise ValueError(f"参数验证失败: {str(e)}")
 
     def _create_result(
         self,
@@ -207,8 +213,7 @@ class BaseTool(ITool, ABC):
         """
         try:
             # 验证参数
-            if not self.validate_parameters(kwargs):
-                return self._create_result(success=False, error="参数验证失败")
+            self.validate_parameters(kwargs)
 
             # 执行并测量时间
             result, execution_time = self._measure_execution_time(
@@ -232,8 +237,7 @@ class BaseTool(ITool, ABC):
         """
         try:
             # 验证参数
-            if not self.validate_parameters(kwargs):
-                return self._create_result(success=False, error="参数验证失败")
+            self.validate_parameters(kwargs)
 
             # 执行并测量时间
             result, execution_time = await self._measure_execution_time_async(

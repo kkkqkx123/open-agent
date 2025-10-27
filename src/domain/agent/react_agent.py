@@ -69,6 +69,14 @@ class ReActAgent(BaseAgent):
                 # 将工具执行结果添加到状态中
                 state.tool_results.append(tool_result)
                 
+                # 如果工具执行失败，将错误信息添加到状态中
+                if not tool_result.success and tool_result.error:
+                    state.add_error({
+                        "error": tool_result.error,
+                        "type": "tool_execution_error",
+                        "tool_name": tool_result.tool_name
+                    })
+                
                 # 将观察结果添加到消息中
                 observation = f"Action: {tool_call_str}\nObservation: {tool_result.output}"
                 state.add_message(AgentMessage(

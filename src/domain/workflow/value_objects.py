@@ -12,7 +12,8 @@ import re
 # Type alias for custom validation function to simplify complex type annotation
 CustomValidationFunction = Callable[[Any, Optional[Dict[str, Any]]], bool]
 
-from domain.workflow.entities import BusinessWorkflow
+if TYPE_CHECKING:
+    from domain.workflow.entities import BusinessWorkflow
 from .exceptions import WorkflowValidationError
 
 
