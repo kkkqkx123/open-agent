@@ -168,6 +168,9 @@ class ConditionalEdge:
             "has_errors": ConditionType.HAS_ERRORS,
             "no_error": ConditionType.NO_ERRORS,
             "no_errors": ConditionType.NO_ERRORS,
+            "message_contains": ConditionType.MESSAGE_CONTAINS,
+            "iteration_count_equals": ConditionType.ITERATION_COUNT_EQUALS,
+            "iteration_count_greater_than": ConditionType.ITERATION_COUNT_GREATER_THAN,
         }
         
         # 检查是否为内置条件

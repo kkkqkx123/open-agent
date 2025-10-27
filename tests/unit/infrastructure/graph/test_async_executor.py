@@ -3,7 +3,7 @@
 import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from typing import Any, Dict
+from typing import Any, Dict, AsyncGenerator
 
 from src.infrastructure.graph.async_executor import (
     IAsyncNodeExecutor,
@@ -20,53 +20,53 @@ from src.infrastructure.graph.registry import NodeRegistry, BaseNode
 class TestIAsyncNodeExecutor:
     """异步节点执行器接口测试"""
     
-    def test_interface_methods(self):
+    def test_interface_methods(self) -> None:
         """测试接口方法定义"""
         # 确保接口是抽象的
         with pytest.raises(TypeError):
-            IAsyncNodeExecutor()
+            IAsyncNodeExecutor()  # type: ignore
     
-    def test_execute_method_signature(self):
+    def test_execute_method_signature(self) -> None:
         """测试execute方法签名"""
         # 检查方法签名
         assert hasattr(IAsyncNodeExecutor, 'execute')
         method = IAsyncNodeExecutor.execute
-        assert method.__isabstractmethod__
+        assert method.__isabstractmethod__  # type: ignore
 
 
 class TestIAsyncWorkflowExecutor:
     """异步工作流执行器接口测试"""
     
-    def test_interface_methods(self):
+    def test_interface_methods(self) -> None:
         """测试接口方法定义"""
         # 确保接口是抽象的
         with pytest.raises(TypeError):
-            IAsyncWorkflowExecutor()
+            IAsyncWorkflowExecutor()  # type: ignore
     
-    def test_execute_method_signature(self):
+    def test_execute_method_signature(self) -> None:
         """测试execute方法签名"""
         # 检查方法签名
         assert hasattr(IAsyncWorkflowExecutor, 'execute')
         method = IAsyncWorkflowExecutor.execute
-        assert method.__isabstractmethod__
+        assert method.__isabstractmethod__  # type: ignore
 
 
 class TestAsyncNodeExecutor:
     """异步节点执行器测试"""
-    
+
     @pytest.fixture
-    def mock_registry(self):
+    def mock_registry(self) -> Mock:
         """模拟节点注册表"""
         registry = Mock(spec=NodeRegistry)
         return registry
-    
+
     @pytest.fixture
-    def executor(self, mock_registry):
+    def executor(self, mock_registry: Mock) -> AsyncNodeExecutor:
         """创建异步节点执行器实例"""
         return AsyncNodeExecutor(mock_registry)
-    
+
     @pytest.fixture
-    def sample_state(self):
+    def sample_state(self) -> dict[str, Any]:
         """示例状态"""
         return {
             "messages": [BaseMessage(content="测试消息", type="human")],
@@ -75,7 +75,7 @@ class TestAsyncNodeExecutor:
         }
     
     @pytest.mark.asyncio
-    async def test_execute_with_registered_node(self, executor, mock_registry, sample_state):
+    async def test_execute_with_registered_node(self, executor: AsyncNodeExecutor, mock_registry: Mock, sample_state: dict[str, Any]) -> None:
         """测试执行已注册的节点"""
         # 创建模拟节点类
         mock_node_class = Mock()
@@ -88,7 +88,7 @@ class TestAsyncNodeExecutor:
         
         # 执行
         config = {"type": "test_node"}
-        result = await executor.execute(sample_state, config)
+        result = await executor.execute(sample_state, config)  # type: ignore
         
         # 验证
         assert result == sample_state
@@ -96,7 +96,7 @@ class TestAsyncNodeExecutor:
         mock_node_instance.execute_async.assert_called_once_with(sample_state, config)
     
     @pytest.mark.asyncio
-    async def test_execute_with_sync_node(self, executor, mock_registry, sample_state):
+    async def test_execute_with_sync_node(self, executor: AsyncNodeExecutor, mock_registry: Mock, sample_state: dict[str, Any]) -> None:
         """测试执行同步节点"""
         # 创建模拟节点类
         mock_node_class = Mock()
@@ -111,17 +111,17 @@ class TestAsyncNodeExecutor:
         
         # 执行
         config = {"type": "sync_node"}
-        result = await executor.execute(sample_state, config)
+        result = await executor.execute(sample_state, config)  # type: ignore
         
         # 验证
         assert result == sample_state
         mock_node_instance.execute.assert_called_once_with(sample_state, config)
     
     @pytest.mark.asyncio
-    async def test_execute_with_builtin_llm_node(self, executor, sample_state):
+    async def test_execute_with_builtin_llm_node(self, executor: AsyncNodeExecutor, sample_state: dict[str, Any]) -> None:
         """测试执行内置LLM节点"""
         config = {"type": "llm_node"}
-        result = await executor.execute(sample_state, config)
+        result = await executor.execute(sample_state, config)  # type: ignore
         
         # 验证结果包含新消息
         assert "messages" in result
@@ -129,52 +129,52 @@ class TestAsyncNodeExecutor:
         assert result["messages"][-1].type == "ai"
     
     @pytest.mark.asyncio
-    async def test_execute_with_builtin_tool_node(self, executor, sample_state):
+    async def test_execute_with_builtin_tool_node(self, executor: AsyncNodeExecutor, sample_state: dict[str, Any]) -> None:
         """测试执行内置工具节点"""
         # 添加工具调用到状态
         sample_state["tool_calls"] = [{"name": "test_tool", "args": {}}]
         
         config = {"type": "tool_node"}
-        result = await executor.execute(sample_state, config)
+        result = await executor.execute(sample_state, config)  # type: ignore
         
         # 验证结果包含工具结果
         assert "tool_results" in result
         assert len(result["tool_results"]) > 0
     
     @pytest.mark.asyncio
-    async def test_execute_with_builtin_analysis_node(self, executor, sample_state):
+    async def test_execute_with_builtin_analysis_node(self, executor: AsyncNodeExecutor, sample_state: dict[str, Any]) -> None:
         """测试执行内置分析节点"""
         config = {"type": "analysis_node"}
-        result = await executor.execute(sample_state, config)
+        result = await executor.execute(sample_state, config)  # type: ignore
         
         # 验证结果包含分析
         assert "analysis" in result
         assert result["analysis"] == "分析结果"
     
     @pytest.mark.asyncio
-    async def test_execute_with_builtin_condition_node(self, executor, sample_state):
+    async def test_execute_with_builtin_condition_node(self, executor: AsyncNodeExecutor, sample_state: dict[str, Any]) -> None:
         """测试执行内置条件节点"""
         config = {"type": "condition_node"}
-        result = await executor.execute(sample_state, config)
+        result = await executor.execute(sample_state, config)  # type: ignore
         
         # 验证结果包含条件结果
         assert "condition_result" in result
-        assert result["condition_result"] is True
+        assert result["condition_result"] is True  # type: ignore
     
     @pytest.mark.asyncio
-    async def test_execute_with_unknown_node(self, executor, sample_state):
+    async def test_execute_with_unknown_node(self, executor: AsyncNodeExecutor, sample_state: dict[str, Any]) -> None:
         """测试执行未知节点类型"""
         # 配置注册表返回None
-        executor.node_registry.get_node_class.side_effect = ValueError("未知节点类型")
+        executor.node_registry.get_node_class.side_effect = ValueError("未知节点类型")  # type: ignore
         
         config = {"type": "unknown_node"}
-        result = await executor.execute(sample_state, config)
+        result = await executor.execute(sample_state, config)  # type: ignore
         
         # 验证返回原始状态
         assert result == sample_state
     
     @pytest.mark.asyncio
-    async def test_execute_with_exception(self, executor, mock_registry, sample_state):
+    async def test_execute_with_exception(self, executor: AsyncNodeExecutor, mock_registry: Mock, sample_state: dict[str, Any]) -> None:
         """测试执行时发生异常"""
         # 配置注册表抛出异常
         mock_registry.get_node_class.side_effect = Exception("测试异常")
@@ -183,9 +183,9 @@ class TestAsyncNodeExecutor:
         
         # 验证异常被抛出
         with pytest.raises(Exception, match="测试异常"):
-            await executor.execute(sample_state, config)
+            await executor.execute(sample_state, config)  # type: ignore
     
-    def test_get_builtin_executor(self, executor):
+    def test_get_builtin_executor(self, executor: AsyncNodeExecutor) -> None:
         """测试获取内置执行器"""
         # 测试所有内置类型
         builtin_types = ["llm_node", "tool_node", "analysis_node", "condition_node"]
@@ -202,19 +202,19 @@ class TestAsyncNodeExecutor:
 
 class TestAsyncWorkflowExecutor:
     """异步工作流执行器测试"""
-    
+
     @pytest.fixture
-    def mock_node_executor(self):
+    def mock_node_executor(self) -> Mock:
         """模拟节点执行器"""
         return Mock(spec=IAsyncNodeExecutor)
-    
+
     @pytest.fixture
-    def executor(self, mock_node_executor):
+    def executor(self, mock_node_executor: Mock) -> AsyncWorkflowExecutor:
         """创建异步工作流执行器实例"""
         return AsyncWorkflowExecutor(mock_node_executor)
-    
+
     @pytest.fixture
-    def sample_state(self):
+    def sample_state(self) -> dict[str, Any]:
         """示例状态"""
         return {
             "messages": [BaseMessage(content="测试消息", type="human")],
@@ -223,21 +223,21 @@ class TestAsyncWorkflowExecutor:
         }
     
     @pytest.mark.asyncio
-    async def test_execute_with_ainvoke(self, executor, sample_state):
+    async def test_execute_with_ainvoke(self, executor: AsyncWorkflowExecutor, sample_state: dict[str, Any]) -> None:
         """测试使用ainvoke方法执行"""
         # 创建模拟图
         mock_graph = Mock()
         mock_graph.ainvoke = AsyncMock(return_value=sample_state)
         
         # 执行
-        result = await executor.execute(mock_graph, sample_state)
+        result = await executor.execute(mock_graph, sample_state)  # type: ignore
         
         # 验证
         assert result == sample_state
         mock_graph.ainvoke.assert_called_once_with(sample_state)
     
     @pytest.mark.asyncio
-    async def test_execute_with_astream(self, executor, sample_state):
+    async def test_execute_with_astream(self, executor: AsyncWorkflowExecutor, sample_state: dict[str, Any]) -> None:
         """测试使用astream方法执行"""
         # 创建模拟图
         mock_graph = Mock()
@@ -245,7 +245,7 @@ class TestAsyncWorkflowExecutor:
         mock_graph.astream = AsyncMock()
         
         # 设置流式返回
-        async def mock_stream():
+        async def mock_stream() -> AsyncGenerator[dict[str, Any], None]:
             yield {"step": "1"}
             yield {"step": "2"}
             yield sample_state
@@ -253,14 +253,14 @@ class TestAsyncWorkflowExecutor:
         mock_graph.astream.return_value = mock_stream()
         
         # 执行
-        result = await executor.execute(mock_graph, sample_state)
+        result = await executor.execute(mock_graph, sample_state)  # type: ignore
         
         # 验证
         assert result == sample_state
         mock_graph.astream.assert_called_once_with(sample_state)
     
     @pytest.mark.asyncio
-    async def test_execute_with_sync_invoke(self, executor, sample_state):
+    async def test_execute_with_sync_invoke(self, executor: AsyncWorkflowExecutor, sample_state: dict[str, Any]) -> None:
         """测试使用同步invoke方法执行"""
         # 创建模拟图
         mock_graph = Mock()
@@ -269,14 +269,14 @@ class TestAsyncWorkflowExecutor:
         mock_graph.invoke = Mock(return_value=sample_state)
         
         # 执行
-        result = await executor.execute(mock_graph, sample_state)
+        result = await executor.execute(mock_graph, sample_state)  # type: ignore
         
         # 验证
         assert result == sample_state
         mock_graph.invoke.assert_called_once_with(sample_state, {})
     
     @pytest.mark.asyncio
-    async def test_execute_with_exception(self, executor, sample_state):
+    async def test_execute_with_exception(self, executor: AsyncWorkflowExecutor, sample_state: dict[str, Any]) -> None:
         """测试执行时发生异常"""
         # 创建模拟图
         mock_graph = Mock()
@@ -284,10 +284,10 @@ class TestAsyncWorkflowExecutor:
         
         # 验证异常被抛出
         with pytest.raises(Exception, match="测试异常"):
-            await executor.execute(mock_graph, sample_state)
+            await executor.execute(mock_graph, sample_state)  # type: ignore
     
     @pytest.mark.asyncio
-    async def test_execute_with_streaming(self, executor, sample_state):
+    async def test_execute_with_streaming(self, executor: AsyncWorkflowExecutor, sample_state: dict[str, Any]) -> None:
         """测试流式执行"""
         # 创建模拟图
         mock_graph = Mock()
@@ -297,14 +297,14 @@ class TestAsyncWorkflowExecutor:
         callback = Mock()
         chunks = [{"step": "1"}, {"step": "2"}, sample_state]
         
-        async def mock_stream():
+        async def mock_stream() -> AsyncGenerator[dict[str, Any], None]:
             for chunk in chunks:
                 yield chunk
         
         mock_graph.astream.return_value = mock_stream()
         
         # 执行
-        result = await executor.execute_with_streaming(mock_graph, sample_state, callback)
+        result = await executor.execute_with_streaming(mock_graph, sample_state, callback)  # type: ignore
         
         # 验证
         assert result == sample_state
@@ -312,7 +312,7 @@ class TestAsyncWorkflowExecutor:
         mock_graph.astream.assert_called_once_with(sample_state)
     
     @pytest.mark.asyncio
-    async def test_execute_with_streaming_sync(self, executor, sample_state):
+    async def test_execute_with_streaming_sync(self, executor: AsyncWorkflowExecutor, sample_state: dict[str, Any]) -> None:
         """测试同步流式执行"""
         # 创建模拟图
         mock_graph = Mock()
@@ -322,7 +322,7 @@ class TestAsyncWorkflowExecutor:
         callback = Mock()
         
         # 执行
-        result = await executor.execute_with_streaming(mock_graph, sample_state, callback)
+        result = await executor.execute_with_streaming(mock_graph, sample_state, callback)  # type: ignore
         
         # 验证
         assert result == sample_state
@@ -334,22 +334,22 @@ class TestAsyncGraphBuilder:
     """异步图构建器测试"""
     
     @pytest.fixture
-    def mock_base_builder(self):
+    def mock_base_builder(self) -> Mock:
         """模拟基础构建器"""
         return Mock()
     
     @pytest.fixture
-    def builder(self, mock_base_builder):
+    def builder(self, mock_base_builder: Mock) -> AsyncGraphBuilder:
         """创建异步图构建器实例"""
         return AsyncGraphBuilder(mock_base_builder)
     
     @pytest.fixture
-    def sample_config(self):
+    def sample_config(self) -> Mock:
         """示例配置"""
         config = Mock(spec=GraphConfig)
         return config
     
-    def test_build_graph(self, builder, mock_base_builder, sample_config):
+    def test_build_graph(self, builder: AsyncGraphBuilder, mock_base_builder: Mock, sample_config: Mock) -> None:
         """测试构建图"""
         # 配置模拟
         mock_graph = Mock()
@@ -362,7 +362,7 @@ class TestAsyncGraphBuilder:
         assert result == mock_graph
         mock_base_builder.build_graph.assert_called_once_with(sample_config)
     
-    def test_build_async_workflow_executor(self, builder):
+    def test_build_async_workflow_executor(self, builder: AsyncGraphBuilder) -> None:
         """测试构建异步工作流执行器"""
         # 执行
         result = builder.build_async_workflow_executor()
@@ -371,7 +371,7 @@ class TestAsyncGraphBuilder:
         assert isinstance(result, AsyncWorkflowExecutor)
         assert isinstance(result.node_executor, AsyncNodeExecutor)
     
-    def test_build_async_node_executor(self, builder):
+    def test_build_async_node_executor(self, builder: AsyncGraphBuilder) -> None:
         """测试构建异步节点执行器"""
         # 执行
         result = builder.build_async_node_executor()

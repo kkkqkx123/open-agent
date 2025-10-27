@@ -33,38 +33,38 @@ from src.infrastructure.graph.state import (
 class TestMessageClasses:
     """消息类测试"""
 
-    def test_base_message(self):
+    def test_base_message(self) -> None:
         """测试基础消息"""
         message = BaseMessage(content="测试内容", type="test")
         assert message.content == "测试内容"
         assert message.type == "test"
 
-    def test_human_message(self):
+    def test_human_message(self) -> None:
         """测试人类消息"""
         message = HumanMessage(content="人类消息")
         assert message.content == "人类消息"
         assert message.type == "human"
 
-    def test_ai_message(self):
+    def test_ai_message(self) -> None:
         """测试AI消息"""
         message = AIMessage(content="AI消息")
         assert message.content == "AI消息"
         assert message.type == "ai"
 
-    def test_system_message(self):
+    def test_system_message(self) -> None:
         """测试系统消息"""
         message = SystemMessage(content="系统消息")
         assert message.content == "系统消息"
         assert message.type == "system"
 
-    def test_tool_message(self):
+    def test_tool_message(self) -> None:
         """测试工具消息"""
         message = ToolMessage(content="工具消息", tool_call_id="tool_123")
         assert message.content == "工具消息"
         assert message.type == "tool"
         assert message.tool_call_id == "tool_123"
 
-    def test_message_role_constants(self):
+    def test_message_role_constants(self) -> None:
         """测试消息角色常量"""
         assert MessageRole.HUMAN == "human"
         assert MessageRole.AI == "ai"
@@ -75,7 +75,7 @@ class TestMessageClasses:
 class TestStateTypeDefinitions:
     """状态类型定义测试"""
 
-    def test_base_graph_state(self):
+    def test_base_graph_state(self) -> None:
         """测试基础图状态"""
         # BaseGraphState是TypedDict的别名，测试其结构
         state: BaseGraphState = {
@@ -85,7 +85,7 @@ class TestStateTypeDefinitions:
         assert "messages" in state
         assert "metadata" in state
 
-    def test_agent_state(self):
+    def test_agent_state(self) -> None:
         """测试Agent状态"""
         # AgentState是BaseGraphState的扩展，测试其结构
         state: AgentState = {
@@ -104,7 +104,7 @@ class TestStateTypeDefinitions:
         assert "tool_calls" in state
         assert "iteration_count" in state
 
-    def test_workflow_state(self):
+    def test_workflow_state(self) -> None:
         """测试工作流状态"""
         # WorkflowState是AgentState的扩展，测试其结构
         state: WorkflowState = {
@@ -125,7 +125,7 @@ class TestStateTypeDefinitions:
         assert "analysis" in state
         assert "context" in state
 
-    def test_react_state(self):
+    def test_react_state(self) -> None:
         """测试ReAct状态"""
         # ReActState是WorkflowState的扩展，测试其结构
         state: ReActState = {
@@ -148,7 +148,7 @@ class TestStateTypeDefinitions:
         assert "observation" in state
         assert "steps" in state
 
-    def test_plan_execute_state(self):
+    def test_plan_execute_state(self) -> None:
         """测试计划执行状态"""
         # PlanExecuteState是WorkflowState的扩展，测试其结构
         state: PlanExecuteState = {
@@ -174,15 +174,25 @@ class TestStateTypeDefinitions:
 class TestStateFactoryFunctions:
     """状态工厂函数测试"""
 
-    def test_create_agent_state(self):
+    def test_create_agent_state(self) -> None:
         """测试创建Agent状态"""
         state = create_agent_state(
             input_text="测试输入",
             max_iterations=5,
             messages=[HumanMessage(content="人类消息")]
         )
-        
+
         assert isinstance(state, dict)
+        assert "input" in state
+        assert "max_iterations" in state
+        assert "messages" in state
+        assert "output" in state
+        assert "tool_calls" in state
+        assert "tool_results" in state
+        assert "iteration_count" in state
+        assert "errors" in state
+        assert "complete" in state
+        assert "metadata" in state
         assert state["input"] == "测试输入"
         assert state["max_iterations"] == 5
         assert len(state["messages"]) == 1
@@ -196,23 +206,31 @@ class TestStateFactoryFunctions:
         assert state["complete"] is False
         assert state["metadata"] == {}
 
-    def test_create_agent_state_default_messages(self):
+    def test_create_agent_state_default_messages(self) -> None:
         """测试创建Agent状态（默认消息）"""
         state = create_agent_state(input_text="测试输入")
-        
+
+        assert "messages" in state
         assert len(state["messages"]) == 1
         assert state["messages"][0].content == "测试输入"
         assert state["messages"][0].type == "human"
 
-    def test_create_workflow_state(self):
+    def test_create_workflow_state(self) -> None:
         """测试创建工作流状态"""
         state = create_workflow_state(
             workflow_id="workflow_123",
             input_text="测试输入",
             max_iterations=5
         )
-        
+
         assert isinstance(state, dict)
+        assert "workflow_id" in state
+        assert "input" in state
+        assert "max_iterations" in state
+        assert "step_name" in state
+        assert "analysis" in state
+        assert "decision" in state
+        assert "context" in state
         assert state["workflow_id"] == "workflow_123"
         assert state["input"] == "测试输入"
         assert state["max_iterations"] == 5
@@ -221,15 +239,22 @@ class TestStateFactoryFunctions:
         assert state["decision"] is None
         assert state["context"] == {}
 
-    def test_create_react_state(self):
+    def test_create_react_state(self) -> None:
         """测试创建ReAct状态"""
         state = create_react_state(
             workflow_id="workflow_123",
             input_text="测试输入",
             max_iterations=5
         )
-        
+
         assert isinstance(state, dict)
+        assert "workflow_id" in state
+        assert "input" in state
+        assert "max_iterations" in state
+        assert "thought" in state
+        assert "action" in state
+        assert "observation" in state
+        assert "steps" in state
         assert state["workflow_id"] == "workflow_123"
         assert state["input"] == "测试输入"
         assert state["max_iterations"] == 5
@@ -238,15 +263,22 @@ class TestStateFactoryFunctions:
         assert state["observation"] is None
         assert state["steps"] == []
 
-    def test_create_plan_execute_state(self):
+    def test_create_plan_execute_state(self) -> None:
         """测试创建计划执行状态"""
         state = create_plan_execute_state(
             workflow_id="workflow_123",
             input_text="测试输入",
             max_iterations=5
         )
-        
+
         assert isinstance(state, dict)
+        assert "workflow_id" in state
+        assert "input" in state
+        assert "max_iterations" in state
+        assert "plan" in state
+        assert "steps" in state
+        assert "current_step" in state
+        assert "step_results" in state
         assert state["workflow_id"] == "workflow_123"
         assert state["input"] == "测试输入"
         assert state["max_iterations"] == 5
@@ -259,25 +291,25 @@ class TestStateFactoryFunctions:
 class TestMessageFactoryFunction:
     """消息工厂函数测试"""
 
-    def test_create_message_human(self):
+    def test_create_message_human(self) -> None:
         """测试创建人类消息"""
         message = create_message(content="人类消息", role=MessageRole.HUMAN)
         assert isinstance(message, HumanMessage)
         assert message.content == "人类消息"
 
-    def test_create_message_ai(self):
+    def test_create_message_ai(self) -> None:
         """测试创建AI消息"""
         message = create_message(content="AI消息", role=MessageRole.AI)
         assert isinstance(message, AIMessage)
         assert message.content == "AI消息"
 
-    def test_create_message_system(self):
+    def test_create_message_system(self) -> None:
         """测试创建系统消息"""
         message = create_message(content="系统消息", role=MessageRole.SYSTEM)
         assert isinstance(message, SystemMessage)
         assert message.content == "系统消息"
 
-    def test_create_message_tool(self):
+    def test_create_message_tool(self) -> None:
         """测试创建工具消息"""
         message = create_message(
             content="工具消息", 
@@ -288,7 +320,7 @@ class TestMessageFactoryFunction:
         assert message.content == "工具消息"
         assert message.tool_call_id == "tool_123"
 
-    def test_create_message_custom_role(self):
+    def test_create_message_custom_role(self) -> None:
         """测试创建自定义角色消息"""
         message = create_message(content="自定义消息", role="custom")
         assert isinstance(message, BaseMessage)
@@ -299,7 +331,7 @@ class TestMessageFactoryFunction:
 class TestStateUpdateFunctions:
     """状态更新函数测试"""
 
-    def test_update_state_with_message(self):
+    def test_update_state_with_message(self) -> None:
         """测试用消息更新状态"""
         original_state = {"existing_key": "value"}
         message = HumanMessage(content="新消息")
@@ -311,7 +343,7 @@ class TestStateUpdateFunctions:
         assert updated_state["messages"][0].content == "新消息"
         assert updated_state["messages"][0].type == "human"
 
-    def test_update_state_with_tool_result(self):
+    def test_update_state_with_tool_result(self) -> None:
         """测试用工具结果更新状态"""
         original_state = {"existing_key": "value"}
         tool_call = {"name": "test_tool", "args": {}}
@@ -324,7 +356,7 @@ class TestStateUpdateFunctions:
         assert updated_state["tool_results"][0]["tool_call"] == tool_call
         assert updated_state["tool_results"][0]["result"] == result
 
-    def test_update_state_with_error(self):
+    def test_update_state_with_error(self) -> None:
         """测试用错误信息更新状态"""
         original_state = {"existing_key": "value"}
         error = "错误信息"
@@ -339,7 +371,7 @@ class TestStateUpdateFunctions:
 class TestStateValidationFunctions:
     """状态验证函数测试"""
 
-    def test_validate_state_base_graph_state_success(self):
+    def test_validate_state_base_graph_state_success(self) -> None:
         """测试验证基础图状态成功"""
         state = {
             "messages": [BaseMessage(content="测试", type="test")],
@@ -349,7 +381,7 @@ class TestStateValidationFunctions:
         errors = validate_state(state, BaseGraphState)
         assert errors == []
 
-    def test_validate_state_base_graph_state_missing_messages(self):
+    def test_validate_state_base_graph_state_missing_messages(self) -> None:
         """测试验证基础图状态缺少消息"""
         state = {
             "metadata": {"key": "value"}
@@ -359,7 +391,7 @@ class TestStateValidationFunctions:
         assert len(errors) == 1
         assert "缺少messages字段" in errors
 
-    def test_validate_state_agent_state_success(self):
+    def test_validate_state_agent_state_success(self) -> None:
         """测试验证Agent状态成功"""
         state = {
             "messages": [BaseMessage(content="测试", type="test")],
@@ -371,7 +403,7 @@ class TestStateValidationFunctions:
         errors = validate_state(state, AgentState)
         assert errors == []
 
-    def test_validate_state_agent_state_missing_required_fields(self):
+    def test_validate_state_agent_state_missing_required_fields(self) -> None:
         """测试验证Agent状态缺少必需字段"""
         state = {
             "messages": [BaseMessage(content="测试", type="test")],
@@ -383,7 +415,7 @@ class TestStateValidationFunctions:
         assert "缺少必需字段: input" in errors
         assert "缺少必需字段: max_iterations" in errors
 
-    def test_validate_state_workflow_state_success(self):
+    def test_validate_state_workflow_state_success(self) -> None:
         """测试验证工作流状态成功"""
         state = {
             "messages": [BaseMessage(content="测试", type="test")],
@@ -396,7 +428,7 @@ class TestStateValidationFunctions:
         errors = validate_state(state, WorkflowState)
         assert errors == []
 
-    def test_validate_state_workflow_state_missing_required_fields(self):
+    def test_validate_state_workflow_state_missing_required_fields(self) -> None:
         """测试验证工作流状态缺少必需字段"""
         state = {
             "messages": [BaseMessage(content="测试", type="test")],
@@ -413,7 +445,7 @@ class TestStateValidationFunctions:
 class TestStateSerializationFunctions:
     """状态序列化函数测试"""
 
-    def test_serialize_state(self):
+    def test_serialize_state(self) -> None:
         """测试序列化状态"""
         state = {
             "messages": [
@@ -436,7 +468,7 @@ class TestStateSerializationFunctions:
         assert serialized["input"] == "输入"
         assert serialized["metadata"] == {"key": "value"}
 
-    def test_deserialize_state(self):
+    def test_deserialize_state(self) -> None:
         """测试反序列化状态"""
         serialized_state = {
             "messages": [
@@ -459,7 +491,7 @@ class TestStateSerializationFunctions:
         assert deserialized["input"] == "输入"
         assert deserialized["metadata"] == {"key": "value"}
 
-    def test_serialize_deserialize_roundtrip(self):
+    def test_serialize_deserialize_roundtrip(self) -> None:
         """测试序列化和反序列化往返"""
         original_state = {
             "messages": [

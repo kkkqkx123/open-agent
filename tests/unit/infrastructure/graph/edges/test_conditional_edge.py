@@ -360,7 +360,7 @@ class TestConditionalEdge:
         
         # 创建包含指定文本的消息状态
         message = Mock()
-        message.content = "这是一个测试消息"
+        message.content = "This is a test message"
         state = Mock(spec=AgentState)
         state.messages = [message]
         
@@ -379,7 +379,7 @@ class TestConditionalEdge:
         
         # 创建不包含指定文本的消息状态
         message = Mock()
-        message.content = "这是一个消息"
+        message.content = "This is a message"
         state = Mock(spec=AgentState)
         state.messages = [message]
         
