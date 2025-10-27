@@ -165,7 +165,7 @@ class AgentExecutionNode(BaseNode):
             from src.infrastructure.container import get_global_container
             container = get_global_container()
             # 使用正确的容器方法
-            agent_manager = container.get(IAgentManager)
+            agent_manager: IAgentManager = container.get(IAgentManager)  # type: ignore
             return agent_manager
         except Exception as e:
             # 如果无法从容器获取，抛出异常
@@ -185,11 +185,10 @@ class AgentExecutionNode(BaseNode):
             from src.infrastructure.container import get_global_container
             container = get_global_container()
             # 尝试获取事件管理器服务
-            event_manager = container.get(IAgentEventManager)
+            event_manager: IAgentEventManager = container.get(IAgentEventManager)  # type: ignore
             return event_manager
         except Exception:
             # 如果无法获取，返回None
-            return None
             return None
     
     def _determine_next_node(self, state: AgentState, config: Dict[str, Any]) -> Optional[str]:
@@ -204,14 +203,16 @@ class AgentExecutionNode(BaseNode):
         """
         # 检查任务是否完成
         if self._is_task_completed(state):
-            return config.get("on_task_completed", None)
+            next_node = config.get("on_task_completed", None)
+            return str(next_node) if next_node is not None else None
         
         # 检查是否需要切换到其他Agent
         if self._needs_agent_switch(state, config):
             return "agent_selection_node"  # 返回到Agent选择节点
         
         # 默认返回None，表示继续当前工作流
-        return config.get("default_next_node", None)
+        default_next = config.get("default_next_node", None)
+        return str(default_next) if default_next is not None else None
     
     def _is_task_completed(self, state: AgentState) -> bool:
         """检查任务是否完成
