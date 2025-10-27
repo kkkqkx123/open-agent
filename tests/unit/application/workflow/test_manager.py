@@ -153,8 +153,8 @@ class TestWorkflowManager(unittest.TestCase):
         # 创建初始状态
         initial_state = Mock(spec=WorkflowState)
         # 为initial_state添加字典接口支持
-        initial_state.__setitem__ = Mock()
-        initial_state.__getitem__ = Mock()
+        type(initial_state).__setitem__ = Mock()
+        type(initial_state).__getitem__ = Mock()
         
         # 运行工作流
         result = self.manager.run_workflow(workflow_id, initial_state=initial_state)

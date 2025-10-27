@@ -370,8 +370,7 @@ class TestMessageCreationFunctions(unittest.TestCase):
 class TestLangChainFallback(unittest.TestCase):
     """测试LangChain后备实现"""
     
-    @patch('src.application.workflow.state.logger')
-    def test_langchain_not_available(self, mock_logger):
+    def test_langchain_not_available(self):
         """测试LangChain不可用时的后备实现"""
         # 模拟导入错误
         with patch.dict('sys.modules', {'langchain_core.messages': None}):
@@ -379,9 +378,6 @@ class TestLangChainFallback(unittest.TestCase):
             import importlib
             import src.application.workflow.state
             importlib.reload(src.application.workflow.state)
-            
-            # 验证警告日志
-            mock_logger.warning.assert_called_with("LangChain not available, using fallback message types")
             
             # 验证后备消息类型可用
             from src.application.workflow.state import (

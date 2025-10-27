@@ -57,6 +57,8 @@ class TestWorkflowModule(unittest.TestCase):
         # 创建模拟依赖
         mock_config_loader = Mock(spec=IConfigLoader)
         mock_node_registry = Mock(spec=NodeRegistry)
+        # 配置has_service返回False（服务未注册）
+        self.mock_container.has_service.return_value = False
         
         # 注册服务
         WorkflowModule.register_services_with_dependencies(
