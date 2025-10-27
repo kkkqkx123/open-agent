@@ -20,19 +20,14 @@ class TestConditionNode:
     @pytest.fixture
     def sample_state(self):
         """示例状态"""
-        return AgentState(
-            messages=[],
-            input="测试输入",
-            output=None,
-            tool_calls=[],
-            tool_results=[],
-            iteration_count=0,
-            max_iterations=10,
-            errors=[],
-            complete=False,
-            context={},
-            current_step="condition_check"
-        )
+        state = AgentState()
+        state.messages = []
+        state.current_task = "测试输入"
+        state.max_iterations = 10
+        state.iteration_count = 0
+        state.tool_results = []
+        state.errors = []
+        return state
 
     @pytest.fixture
     def sample_config(self):
@@ -70,8 +65,11 @@ class TestConditionNode:
 
     def test_execute_with_matching_condition(self, node, sample_state, sample_config):
         """测试执行匹配条件"""
-        # 修改状态以匹配条件
-        sample_state.tool_calls = [{"name": "test_tool"}]
+        # 修改状态以匹配条件 - 使用属性访问
+        from src.domain.agent.state import AgentMessage
+        message = AgentMessage(content="测试消息", role="ai")
+        message.metadata = {"tool_calls": [{"name": "test_tool"}]}
+        sample_state.messages = [message]
         
         # 执行
         result = node.execute(sample_state, sample_config)
@@ -80,13 +78,17 @@ class TestConditionNode:
         assert isinstance(result, NodeExecutionResult)
         assert result.state == sample_state
         assert result.next_node == "execute_tool"
+        assert result.metadata is not None
         assert "condition_met" in result.metadata
         assert result.metadata["condition_met"] == "has_tool_calls"
 
     def test_execute_with_default_condition(self, node, sample_state, sample_config):
         """测试执行默认条件"""
-        # 确保没有条件匹配
-        sample_state.tool_calls = []
+        # 确保没有条件匹配 - 使用属性访问
+        from src.domain.agent.state import AgentMessage
+        message = AgentMessage(content="测试消息", role="ai")
+        message.metadata = {}
+        sample_state.messages = [message]
         
         # 执行
         result = node.execute(sample_state, sample_config)
@@ -95,6 +97,7 @@ class TestConditionNode:
         assert isinstance(result, NodeExecutionResult)
         assert result.state == sample_state
         assert result.next_node == "default_node"
+        assert result.metadata is not None
         assert "condition_met" in result.metadata
         assert result.metadata["condition_met"] is None
 
@@ -128,8 +131,11 @@ class TestConditionNode:
             "next_node": "execute_tool"
         }
         
-        # 修改状态以匹配条件
-        sample_state.tool_calls = [{"name": "test_tool"}]
+        # 修改状态以匹配条件 - 使用属性访问
+        from src.domain.agent.state import AgentMessage
+        message = AgentMessage(content="测试消息", role="ai")
+        message.metadata = {"tool_calls": [{"name": "test_tool"}]}
+        sample_state.messages = [message]
         
         # 评估条件
         result = node._evaluate_condition(condition_config, sample_state)
@@ -150,9 +156,11 @@ class TestConditionNode:
         parameters = {}
         config = {}
         
-        # 修改状态以包含工具调用
-        sample_state.messages = [Mock()]
-        sample_state.messages[-1].tool_calls = [{"name": "test_tool"}]
+        # 修改状态以包含工具调用 - 使用属性访问
+        from src.domain.agent.state import AgentMessage
+        message = AgentMessage(content="测试消息", role="ai")
+        message.metadata = {"tool_calls": [{"name": "test_tool"}]}
+        sample_state.messages = [message]
         
         result = node._has_tool_calls(sample_state, parameters, config)
         assert result is True
@@ -162,9 +170,11 @@ class TestConditionNode:
         parameters = {}
         config = {}
         
-        # 修改状态以不包含工具调用
-        sample_state.messages = [Mock()]
-        sample_state.messages[-1].tool_calls = []
+        # 修改状态以不包含工具调用 - 使用属性访问
+        from src.domain.agent.state import AgentMessage
+        message = AgentMessage(content="测试消息", role="ai")
+        message.metadata = {}
+        sample_state.messages = [message]
         
         result = node._has_tool_calls(sample_state, parameters, config)
         assert result is False
@@ -174,9 +184,11 @@ class TestConditionNode:
         parameters = {}
         config = {}
         
-        # 修改状态以不包含工具调用
-        sample_state.messages = [Mock()]
-        sample_state.messages[-1].tool_calls = []
+        # 修改状态以不包含工具调用 - 使用属性访问
+        from src.domain.agent.state import AgentMessage
+        message = AgentMessage(content="测试消息", role="ai")
+        message.metadata = {}
+        sample_state.messages = [message]
         
         result = node._no_tool_calls(sample_state, parameters, config)
         assert result is True
@@ -186,9 +198,11 @@ class TestConditionNode:
         parameters = {}
         config = {}
         
-        # 修改状态以包含工具调用
-        sample_state.messages = [Mock()]
-        sample_state.messages[-1].tool_calls = [{"name": "test_tool"}]
+        # 修改状态以包含工具调用 - 使用属性访问
+        from src.domain.agent.state import AgentMessage
+        message = AgentMessage(content="测试消息", role="ai")
+        message.metadata = {"tool_calls": [{"name": "test_tool"}]}
+        sample_state.messages = [message]
         
         result = node._no_tool_calls(sample_state, parameters, config)
         assert result is False
@@ -198,8 +212,10 @@ class TestConditionNode:
         parameters = {}
         config = {}
         
-        # 修改状态以包含工具结果
-        sample_state.tool_results = [{"result": "test_result"}]
+        # 修改状态以包含工具结果 - 使用属性访问
+        from src.domain.tools.interfaces import ToolResult
+        tool_result = ToolResult(tool_name="test_tool", success=True, output="test_result")
+        sample_state.tool_results = [tool_result]
         
         result = node._has_tool_results(sample_state, parameters, config)
         assert result is True
@@ -209,7 +225,7 @@ class TestConditionNode:
         parameters = {}
         config = {}
         
-        # 修改状态以不包含工具结果
+        # 修改状态以不包含工具结果 - 使用属性访问
         sample_state.tool_results = []
         
         result = node._has_tool_results(sample_state, parameters, config)
@@ -220,7 +236,7 @@ class TestConditionNode:
         parameters = {}
         config = {}
         
-        # 修改状态以达到最大迭代次数
+        # 修改状态以达到最大迭代次数 - 使用属性访问
         sample_state.iteration_count = 10
         sample_state.max_iterations = 10
         
@@ -232,7 +248,7 @@ class TestConditionNode:
         parameters = {}
         config = {}
         
-        # 修改状态以未达到最大迭代次数
+        # 修改状态以未达到最大迭代次数 - 使用属性访问
         sample_state.iteration_count = 5
         sample_state.max_iterations = 10
         
@@ -244,9 +260,10 @@ class TestConditionNode:
         parameters = {}
         config = {}
         
-        # 修改状态以包含错误
-        sample_state.tool_results = [Mock()]
-        sample_state.tool_results[0].success = False
+        # 修改状态以包含错误 - 使用属性访问
+        from src.domain.tools.interfaces import ToolResult
+        tool_result = ToolResult(tool_name="test_tool", success=False, error="测试错误")
+        sample_state.tool_results = [tool_result]
         
         result = node._has_errors(sample_state, parameters, config)
         assert result is True
@@ -256,9 +273,10 @@ class TestConditionNode:
         parameters = {}
         config = {}
         
-        # 修改状态以不包含错误
-        sample_state.tool_results = [Mock()]
-        sample_state.tool_results[0].success = True
+        # 修改状态以不包含错误 - 使用属性访问
+        from src.domain.tools.interfaces import ToolResult
+        tool_result = ToolResult(tool_name="test_tool", success=True, output="测试结果")
+        sample_state.tool_results = [tool_result]
         
         result = node._has_errors(sample_state, parameters, config)
         assert result is False
@@ -268,9 +286,10 @@ class TestConditionNode:
         parameters = {}
         config = {}
         
-        # 修改状态以不包含错误
-        sample_state.tool_results = [Mock()]
-        sample_state.tool_results[0].success = True
+        # 修改状态以不包含错误 - 使用属性访问
+        from src.domain.tools.interfaces import ToolResult
+        tool_result = ToolResult(tool_name="test_tool", success=True, output="测试结果")
+        sample_state.tool_results = [tool_result]
         
         result = node._no_errors(sample_state, parameters, config)
         assert result is True
@@ -280,21 +299,22 @@ class TestConditionNode:
         parameters = {}
         config = {}
         
-        # 修改状态以包含错误
-        sample_state.tool_results = [Mock()]
-        sample_state.tool_results[0].success = False
+        # 修改状态以包含错误 - 使用属性访问
+        from src.domain.tools.interfaces import ToolResult
+        tool_result = ToolResult(tool_name="test_tool", success=False, error="测试错误")
+        sample_state.tool_results = [tool_result]
         
         result = node._no_errors(sample_state, parameters, config)
         assert result is False
 
     def test_message_contains_true(self, node, sample_state):
         """测试消息包含条件（真）"""
-        parameters = {"text": "test"}
+        parameters = {"text": "测试"}
         config = {}
         
-        # 修改状态以包含指定文本
-        message = Mock()
-        message.content = "这是一个测试消息"
+        # 修改状态以包含指定文本 - 使用属性访问
+        from src.domain.agent.state import AgentMessage
+        message = AgentMessage(content="这是一个测试消息", role="ai")
         sample_state.messages = [message]
         
         result = node._message_contains(sample_state, parameters, config)
@@ -305,9 +325,9 @@ class TestConditionNode:
         parameters = {"text": "test"}
         config = {}
         
-        # 修改状态以不包含指定文本
-        message = Mock()
-        message.content = "这是一个消息"
+        # 修改状态以不包含指定文本 - 使用属性访问
+        from src.domain.agent.state import AgentMessage
+        message = AgentMessage(content="这是一个消息", role="ai")
         sample_state.messages = [message]
         
         result = node._message_contains(sample_state, parameters, config)
@@ -318,7 +338,7 @@ class TestConditionNode:
         parameters = {"count": 5}
         config = {}
         
-        # 修改状态以匹配迭代次数
+        # 修改状态以匹配迭代次数 - 使用属性访问
         sample_state.iteration_count = 5
         
         result = node._iteration_count_equals(sample_state, parameters, config)
@@ -329,7 +349,7 @@ class TestConditionNode:
         parameters = {"count": 5}
         config = {}
         
-        # 修改状态以不匹配迭代次数
+        # 修改状态以不匹配迭代次数 - 使用属性访问
         sample_state.iteration_count = 3
         
         result = node._iteration_count_equals(sample_state, parameters, config)
@@ -340,7 +360,7 @@ class TestConditionNode:
         parameters = {"count": 5}
         config = {}
         
-        # 修改状态以满足条件
+        # 修改状态以满足条件 - 使用属性访问
         sample_state.iteration_count = 7
         
         result = node._iteration_count_greater_than(sample_state, parameters, config)
@@ -351,7 +371,7 @@ class TestConditionNode:
         parameters = {"count": 5}
         config = {}
         
-        # 修改状态以不满足条件
+        # 修改状态以不满足条件 - 使用属性访问
         sample_state.iteration_count = 3
         
         result = node._iteration_count_greater_than(sample_state, parameters, config)

@@ -63,31 +63,35 @@ class AnalysisNode(BaseNode):
         )
         
         # 更新状态 - 需要将LLMResponse转换为AgentState兼容的消息格式
-        # 检查LLMResponse中的message是否是langchain的消息类型
-        try:
-            from langchain_core.messages import BaseMessage as LangChainBaseMessage
-            if isinstance(response.message, LangChainBaseMessage):
-                # 如果是langchain消息，需要转换为AgentMessage
-                if hasattr(response.message, 'content'):
-                    compatible_message = AgentMessage(
-                        content=str(response.message.content),
-                        role='ai'
-                    )
-                else:
-                    compatible_message = AgentMessage(
-                        content=response.content,
-                        role='ai'
-                    )
+        # 检查LLMResponse中的message类型并转换为AgentMessage
+        if hasattr(response, 'message') and response.message is not None:
+            # 如果response有message属性，检查其类型
+            if hasattr(response.message, 'content'):
+                # 如果message有content属性，使用它
+                compatible_message = AgentMessage(
+                    content=str(response.message.content),
+                    role='ai'
+                )
             else:
-                compatible_message = response.message
-        except ImportError:
-            # 如果无法导入langchain，使用LLMResponse的message属性
+                # 否则使用response的content
+                compatible_message = AgentMessage(
+                    content=response.content,
+                    role='ai'
+                )
+        else:
+            # 如果没有message属性，直接使用content
             compatible_message = AgentMessage(
                 content=response.content,
                 role='ai'
             )
 
-        state.add_message(compatible_message)
+        # 使用对象属性访问来更新消息
+        if hasattr(state, 'add_message'):
+            # 如果state是具有add_message方法的对象
+            state.add_message(compatible_message)
+        elif hasattr(state, 'messages'):
+            # 如果state有messages属性，直接添加消息
+            state.messages.append(compatible_message)
         
         # 分析响应，确定下一步
         next_node = self._determine_next_node(response, config)
@@ -173,7 +177,6 @@ class AnalysisNode(BaseNode):
         from src.infrastructure.llm.clients.mock import MockLLMClient
         from src.infrastructure.llm.models import LLMResponse, TokenUsage
         from src.infrastructure.llm.config import MockConfig
-        from langchain_core.messages import AIMessage
 
         class MockClient(MockLLMClient):
             def __init__(self) -> None:
@@ -182,9 +185,11 @@ class AnalysisNode(BaseNode):
             def generate(self, messages: Any, parameters: Any = None, **kwargs: Any) -> LLMResponse:
                 # 简单的模拟响应
                 content = "这是一个分析节点的模拟响应"
+                # 使用AgentMessage作为消息类型
+                message = AgentMessage(content=content, role='ai')
                 return LLMResponse(
                     content=content,
-                    message=AIMessage(content=content),
+                    message=message,
                     model="mock-model",
                     token_usage=TokenUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
                 )
@@ -215,15 +220,23 @@ class AnalysisNode(BaseNode):
         messages = []
         
         # 添加系统消息
-        try:
-            from langchain_core.messages import SystemMessage
-            messages.append(SystemMessage(content=system_prompt))
-        except ImportError:
-            # 如果LangChain不可用，使用简单消息
-            messages.append({"role": "system", "content": system_prompt})
+        # 使用简单的消息格式，避免依赖LangChain
+        messages.append({"role": "system", "content": system_prompt})
         
         # 添加历史消息
-        messages.extend(state.messages)
+        # 处理不同类型的state.messages
+        if hasattr(state, 'messages'):
+            # 如果state有messages属性，转换为兼容格式
+            for msg in state.messages:
+                if isinstance(msg, AgentMessage):
+                    # 如果是AgentMessage，转换为字典格式
+                    messages.append({"role": msg.role, "content": msg.content})
+                else:
+                    # 如果是其他类型，直接添加
+                    messages.append(msg)
+        else:
+            # 如果无法识别state的类型，默认为空列表
+            messages.extend([])
         
         return messages
 

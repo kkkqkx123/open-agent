@@ -58,6 +58,7 @@ class BaseMessage:
     def __init__(self, content: str, type: str = "base"):
         self.content = content
         self.type = type
+        self.tool_calls = []
 
 class HumanMessage(BaseMessage):
     def __init__(self, content: str):

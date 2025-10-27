@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, List
 
 from src.infrastructure.graph.nodes.tool_node import ToolNode
 from src.infrastructure.graph.registry import NodeExecutionResult
-from src.domain.agent.state import AgentState
+from src.application.workflow.state import AgentState
 from src.domain.tools.interfaces import IToolRegistry, ToolCall, ToolResult
 
 
@@ -26,19 +26,18 @@ class TestToolNode:
     @pytest.fixture
     def sample_state(self):
         """示例状态"""
-        return AgentState(
-            messages=[],
-            input="测试输入",
-            output=None,
-            tool_calls=[{"name": "test_tool", "arguments": {"param": "value"}}],
-            tool_results=[],
-            iteration_count=0,
-            max_iterations=10,
-            errors=[],
-            complete=False,
-            context={},
-            current_step="tool_execution"
-        )
+        return {
+            "messages": [],
+            "metadata": {},
+            "input": "测试输入",
+            "output": None,
+            "tool_calls": [{"name": "test_tool", "arguments": {"param": "value"}}],
+            "tool_results": [],
+            "iteration_count": 0,
+            "max_iterations": 10,
+            "errors": [],
+            "complete": False
+        }
 
     @pytest.fixture
     def sample_config(self):
@@ -79,6 +78,7 @@ class TestToolNode:
         assert result.state.tool_results[0].success is True
         assert result.state.tool_results[0].output == "工具执行结果"
         assert result.next_node == "analyze"
+        assert result.metadata is not None
         assert "tool_calls_count" in result.metadata
         assert result.metadata["tool_calls_count"] == 1
 
@@ -94,6 +94,7 @@ class TestToolNode:
         assert isinstance(result, NodeExecutionResult)
         assert result.state == sample_state
         assert result.next_node == "analyze"
+        assert result.metadata is not None
         assert "message" in result.metadata
         assert result.metadata["message"] == "没有找到工具调用"
 
@@ -109,6 +110,7 @@ class TestToolNode:
         assert isinstance(result, NodeExecutionResult)
         assert len(result.state.tool_results) == 1
         assert result.state.tool_results[0].success is False
+        assert result.state.tool_results[0].error is not None
         assert "not found" in result.state.tool_results[0].error
         assert result.next_node == "analyze"
 
@@ -126,8 +128,10 @@ class TestToolNode:
         assert isinstance(result, NodeExecutionResult)
         assert len(result.state.tool_results) == 1
         assert result.state.tool_results[0].success is False
+        assert result.state.tool_results[0].error is not None
         assert "工具执行错误" in result.state.tool_results[0].error
         assert result.next_node == "analyze"
+        assert result.metadata is not None
         assert "errors" in result.metadata
 
     def test_execute_continue_on_error_false(self, node, mock_tool_manager, sample_state):

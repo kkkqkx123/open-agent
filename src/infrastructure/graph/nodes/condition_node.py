@@ -139,9 +139,9 @@ class ConditionNode(BaseNode):
             return False
 
         last_message = state.messages[-1]
-        # 检查是否有tool_calls属性
-        if hasattr(last_message, 'tool_calls'):
-            tool_calls = getattr(last_message, 'tool_calls', None)
+        # 检查消息的metadata中是否有tool_calls
+        if hasattr(last_message, 'metadata') and last_message.metadata:
+            tool_calls = last_message.metadata.get("tool_calls")
             if tool_calls:
                 return True
 
@@ -162,9 +162,8 @@ class ConditionNode(BaseNode):
 
     def _max_iterations_reached(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """检查是否达到最大迭代次数"""
-        # 假设状态中有迭代计数
-        iteration_count = getattr(state, 'iteration_count', 0)
-        max_iterations = getattr(state, 'max_iterations', 10)
+        iteration_count = state.iteration_count
+        max_iterations = state.max_iterations
         return iteration_count >= max_iterations
 
     def _has_errors(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
@@ -202,7 +201,7 @@ class ConditionNode(BaseNode):
         if "count" not in parameters:
             return False
         
-        iteration_count = getattr(state, 'iteration_count', 0)
+        iteration_count = state.iteration_count
         count = parameters["count"]
         return bool(iteration_count == count)
 
@@ -211,7 +210,7 @@ class ConditionNode(BaseNode):
         if "count" not in parameters:
             return False
         
-        iteration_count = getattr(state, 'iteration_count', 0)
+        iteration_count = state.iteration_count
         count = parameters["count"]
         return bool(iteration_count > count)
 

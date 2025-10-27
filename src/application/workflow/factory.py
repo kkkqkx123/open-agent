@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 class IWorkflowFactory(ABC):
     """工作流工厂接口"""
-    
+
     @abstractmethod
     def create_workflow(
         self,
@@ -29,16 +29,16 @@ class IWorkflowFactory(ABC):
         initial_state: Optional[Dict[str, Any]] = None
     ) -> Any:
         """创建工作流实例
-        
+
         Args:
             config: 工作流配置
             initial_state: 初始状态
-            
+
         Returns:
             工作流实例
         """
         pass
-    
+
     @abstractmethod
     def create_state(
         self,
@@ -46,14 +46,72 @@ class IWorkflowFactory(ABC):
         **kwargs
     ) -> Dict[str, Any]:
         """创建状态
-        
+
         Args:
             state_type: 状态类型
             **kwargs: 状态参数
-            
+
         Returns:
             状态实例
         """
+        pass
+
+    @abstractmethod
+    def create_workflow_state(
+        self,
+        workflow_id: str,
+        workflow_name: str,
+        input_text: str,
+        workflow_config: Optional[Dict[str, Any]] = None,
+        max_iterations: int = 10
+    ) -> WorkflowState:
+        """创建工作流状态
+
+        Args:
+            workflow_id: 工作流ID
+            workflow_name: 工作流名称
+            input_text: 输入文本
+            workflow_config: 工作流配置
+            max_iterations: 最大迭代次数
+
+        Returns:
+            工作流状态
+        """
+        pass
+
+    @abstractmethod
+    def create_workflow_from_config(
+        self,
+        config_path: str,
+        initial_state: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        """从配置文件创建工作流
+
+        Args:
+            config_path: 配置文件路径
+            initial_state: 初始状态
+
+        Returns:
+            工作流实例
+        """
+        pass
+
+    @abstractmethod
+    def clone_workflow(self, workflow: Any) -> Any:
+        """克隆工作流
+
+        Args:
+            workflow: 原工作流实例
+
+        Returns:
+            克隆的工作流实例
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def builder_adapter(self) -> 'WorkflowBuilderAdapter':
+        """获取构建器适配器"""
         pass
 
 

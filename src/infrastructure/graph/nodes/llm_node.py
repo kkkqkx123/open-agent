@@ -57,31 +57,30 @@ class LLMNode(BaseNode):
         response = llm_client.generate(messages=messages, parameters=parameters)
         
         # 更新状态 - 需要将LLMResponse转换为AgentState兼容的消息格式
-        # 检查LLMResponse中的message是否是langchain的消息类型
-        try:
-            from langchain_core.messages import BaseMessage as LangChainBaseMessage
-            if isinstance(response.message, LangChainBaseMessage):
-                # 如果是langchain消息，需要转换为AgentMessage
-                if hasattr(response.message, 'content'):
-                    compatible_message = AgentMessage(
-                        content=str(response.message.content),
-                        role='ai'
-                    )
-                else:
-                    compatible_message = AgentMessage(
-                        content=response.content,
-                        role='ai'
-                    )
+        # 检查LLMResponse中的message类型并转换为AgentMessage
+        if hasattr(response, 'message') and response.message is not None:
+            # 如果response有message属性，检查其类型
+            if hasattr(response.message, 'content'):
+                # 如果message有content属性，使用它
+                compatible_message = AgentMessage(
+                    content=str(response.message.content),
+                    role='ai'
+                )
             else:
-                compatible_message = response.message
-        except ImportError:
-            # 如果无法导入langchain，使用LLMResponse的message属性
+                # 否则使用response的content
+                compatible_message = AgentMessage(
+                    content=response.content,
+                    role='ai'
+                )
+        else:
+            # 如果没有message属性，直接使用content
             compatible_message = AgentMessage(
                 content=response.content,
                 role='ai'
             )
 
-        state.add_message(compatible_message)
+        # 手动将消息添加到状态中
+        state.messages.append(compatible_message)
         
         # 确定下一步
         next_node = self._determine_next_node(response, config)
@@ -193,44 +192,24 @@ class LLMNode(BaseNode):
         from src.infrastructure.llm.models import LLMResponse, TokenUsage
         from src.infrastructure.llm.config import MockConfig
         
-        try:
-            from langchain_core.messages import AIMessage
-            
-            class LangChainMockClientImpl(MockLLMClient):
-                def __init__(self) -> None:
-                    super().__init__(MockConfig(model_type="mock", model_name="mock-model"))
+        # 使用我们定义的简单消息类，避免依赖LangChain
+        class MockClientImpl(MockLLMClient):
+            def __init__(self) -> None:
+                super().__init__(MockConfig(model_type="mock", model_name="mock-model"))
 
-                def generate(self, messages: Any, parameters: Optional[Dict[str, Any]] = None, **kwargs: Any) -> "LLMResponse":
-                    # 简单的模拟响应
-                    content = "这是一个LLM节点的模拟响应"
-                    return LLMResponse(
-                        content=content,
-                        message=AIMessage(content=content),
-                        model="mock-model",
-                        token_usage=TokenUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-                    )
-            
-            return LangChainMockClientImpl()
-        except ImportError:
-            # 如果LangChain不可用，使用我们定义的简单消息类
-            class NoLangChainMockClientImpl(MockLLMClient):
-                def __init__(self) -> None:
-                    super().__init__(MockConfig(model_type="mock", model_name="mock-model"))
-
-                def generate(self, messages: Any, parameters: Optional[Dict[str, Any]] = None, **kwargs: Any) -> "LLMResponse":
-                    # 简单的模拟响应
-                    content = "这是一个LLM节点的模拟响应"
-                    # 为避免类型检查错误，我们直接创建一个兼容BaseMessage的对象
-                    message = AgentMessage(content=content, role='ai')
-                    # 使用setattr来确保对象兼容LLMResponse期望的类型
-                    return LLMResponse(
-                        content=content,
-                        message=message,  # type: ignore
-                        model="mock-model",
-                        token_usage=TokenUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-                    )
-            
-            return NoLangChainMockClientImpl()
+            def generate(self, messages: Any, parameters: Optional[Dict[str, Any]] = None, **kwargs: Any) -> "LLMResponse":
+                # 简单的模拟响应
+                content = "这是一个LLM节点的模拟响应"
+                # 使用AgentMessage作为消息类型
+                message = AgentMessage(content=content, role='ai')
+                return LLMResponse(
+                    content=content,
+                    message=message,
+                    model="mock-model",
+                    token_usage=TokenUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+                )
+        
+        return MockClientImpl()
 
     def _build_system_prompt(self, state: AgentState, config: Dict[str, Any]) -> str:
         """构建系统提示词
@@ -279,7 +258,7 @@ class LLMNode(BaseNode):
         
         result = template
         for key, value in variables.items():
-            result = result.replace(f"{{{key}}}", value)
+            result = result.replace(f"{{{key}}}", str(value))
         
         return result
 
@@ -308,13 +287,26 @@ class LLMNode(BaseNode):
         
         formatted_results = []
         for i, result in enumerate(tool_results, 1):
-            status = "成功" if result.success else "失败"
-            result_text = f"工具 {i}: {result.tool_name} - {status}\n"
+            # 处理字典格式的工具结果
+            if isinstance(result, dict):
+                success = result.get("success", True)
+                tool_name = result.get("tool_name", f"工具{i}")
+                result_value = result.get("result")
+                error = result.get("error")
+            else:
+                # 处理对象格式的工具结果
+                success = result.success
+                tool_name = result.tool_name
+                result_value = result.result
+                error = result.error
             
-            if result.success and result.result:
-                result_text += f"结果: {result.result}\n"
-            elif not result.success and result.error:
-                result_text += f"错误: {result.error}\n"
+            status = "成功" if success else "失败"
+            result_text = f"工具 {i}: {tool_name} - {status}\n"
+            
+            if success and result_value:
+                result_text += f"结果: {result_value}\n"
+            elif not success and error:
+                result_text += f"错误: {error}\n"
             
             formatted_results.append(result_text)
         
@@ -333,19 +325,22 @@ class LLMNode(BaseNode):
         messages = []
         
         # 添加系统消息
-        try:
-            from langchain_core.messages import SystemMessage
-            messages.append(SystemMessage(content=system_prompt))
-        except ImportError:
-            # 如果LangChain不可用，使用简单消息
-            messages.append({"role": "system", "content": system_prompt})
+        # 使用简单的消息格式，避免依赖LangChain
+        messages.append({"role": "system", "content": system_prompt})
         
         # 添加历史消息（考虑上下文窗口大小）
         context_messages = self._truncate_messages_for_context(
-            state.messages, 
+            state.messages,
             system_prompt
         )
-        messages.extend(context_messages)
+        # 将AgentMessage转换为兼容的消息格式
+        for msg in context_messages:
+            if isinstance(msg, AgentMessage):
+                # 如果是AgentMessage，转换为字典格式
+                messages.append({"role": msg.role, "content": msg.content})
+            else:
+                # 如果是其他类型，直接添加
+                messages.append(msg)
         
         return messages
 

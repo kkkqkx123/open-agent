@@ -64,15 +64,21 @@ class AgentExecutionNode(BaseNode):
             # 使用AgentManager执行Agent（同步版本）
             # 由于AgentManager的execute_agent是异步的，我们需要使用事件循环来运行它
             import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                # 如果没有事件循环，创建一个新的
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
             
-            # 运行异步方法
-            updated_state = loop.run_until_complete(agent_manager.execute_agent(agent_id, state))
+            # 使用更现代的事件循环处理方式
+            try:
+                # 尝试获取当前运行的事件循环
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                # 如果没有运行的事件循环，创建一个新的并运行
+                loop = asyncio.new_event_loop()
+                try:
+                    updated_state = loop.run_until_complete(agent_manager.execute_agent(agent_id, state))
+                finally:
+                    loop.close()
+            else:
+                # 如果有运行的事件循环，直接运行
+                updated_state = loop.run_until_complete(agent_manager.execute_agent(agent_id, state))
             
             # 确定下一个节点
             next_node = self._determine_next_node(updated_state, config)
