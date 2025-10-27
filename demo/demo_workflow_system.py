@@ -11,13 +11,14 @@ from pathlib import Path
 # 添加src目录到Python路径
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from src.workflow.manager import WorkflowManager
-from src.workflow.registry import NodeRegistry, register_node
-from src.workflow.nodes.analysis_node import AnalysisNode
-from src.workflow.nodes.tool_node import ToolNode
-from src.workflow.nodes.llm_node import LLMNode
-from src.workflow.nodes.condition_node import ConditionNode
-from src.prompts.agent_state import AgentState, HumanMessage
+from src.application.workflow.manager import WorkflowManager
+from src.infrastructure.graph.registry import NodeRegistry, register_node, BaseNode, NodeExecutionResult, node
+from src.infrastructure.graph.nodes.analysis_node import AnalysisNode
+from src.infrastructure.graph.nodes.tool_node import ToolNode
+from src.infrastructure.graph.nodes.llm_node import LLMNode
+from src.infrastructure.graph.nodes.condition_node import ConditionNode
+from src.infrastructure.graph.states.agent import AgentState, create_agent_state
+from src.infrastructure.graph.states.base import HumanMessage
 
 
 def demo_basic_workflow() -> None:
@@ -31,7 +32,7 @@ def demo_basic_workflow() -> None:
     
     # 列出可用的节点类型
     print("\n可用的节点类型:")
-    for node_type in manager.workflow_builder.list_available_nodes():
+    for node_type in manager.node_registry.list_nodes():
         print(f"  - {node_type}")
     
     # 加载ReAct工作流
@@ -61,9 +62,8 @@ def demo_basic_workflow() -> None:
     
     # 创建初始状态
     print("\n创建初始状态...")
-    initial_state = AgentState()
-    initial_state.add_message(HumanMessage(content="请帮我查询今天的天气情况"))
-    print(f"✓ 初始状态创建完成，消息数: {len(initial_state.messages)}")
+    initial_state = create_agent_state(input_text="请帮我查询今天的天气情况", agent_id="demo_basic")
+    print(f"✓ 初始状态创建完成，消息数: {len(initial_state['messages'])}")
     
     # 运行工作流
     print("\n运行工作流...")
@@ -71,16 +71,10 @@ def demo_basic_workflow() -> None:
         result = manager.run_workflow(workflow_id, initial_state)
         print(f"✓ 工作流执行完成")
         
-        # 处理不同类型的结果
-        if isinstance(result, dict):
-            messages = result.get('messages', [])
-            tool_results = result.get('tool_results', [])
-            current_step = result.get('current_step', '')
-        else:
-            # AgentState 对象
-            messages = result.messages
-            tool_results = result.tool_results
-            current_step = result.current_step
+        # 处理结果
+        messages = result.get('messages', [])
+        tool_results = result.get('tool_results', [])
+        current_step = result.get('current_step', '')
         
         print(f" - 最终消息数: {len(messages)}")
         print(f"  - 工具结果数: {len(tool_results)}")
@@ -135,7 +129,7 @@ def demo_plan_execute_workflow() -> None:
             # 显示节点信息
             print("\n工作流节点:")
             for node_name, node_config in config.nodes.items(): # type: ignore
-                print(f" - {node_name}: {node_config.type}")
+                print(f" - {node_name}: {node_config.function_name}")
         
     except Exception as e:
         print(f"✗ 工作流加载失败: {e}")
@@ -143,8 +137,7 @@ def demo_plan_execute_workflow() -> None:
     
     # 创建初始状态
     print("\n创建初始状态...")
-    initial_state = AgentState()
-    initial_state.add_message(HumanMessage(content="请帮我分析当前市场趋势并给出投资建议"))
+    initial_state = create_agent_state(input_text="请帮我分析当前市场趋势并给出投资建议", agent_id="demo_plan")
     print(f"✓ 初始状态创建完成")
     
     # 运行工作流
@@ -152,8 +145,8 @@ def demo_plan_execute_workflow() -> None:
     try:
         result = manager.run_workflow(workflow_id, initial_state)
         print(f"✓ 工作流执行完成")
-        print(f"  - 最终消息数: {len(result.messages)}")
-        print(f"  - 工具结果数: {len(result.tool_results)}")
+        print(f"  - 最终消息数: {len(result.get('messages', []))}")
+        print(f"  - 工具结果数: {len(result.get('tool_results', []))}")
         
     except Exception as e:
         print(f"✗ 工作流执行失败: {e}")
@@ -164,7 +157,7 @@ def demo_custom_node() -> None:
     print("工作流系统演示 - 自定义节点")
     print("=" * 60)
     
-    from src.workflow.registry import BaseNode, NodeExecutionResult, register_node, node
+    # Already imported at top
     
     # 定义自定义节点
     @node("custom_greeting_node")
@@ -173,16 +166,16 @@ def demo_custom_node() -> None:
         def node_type(self) -> str:
             return "custom_greeting_node"
         
-        def execute(self, state: AgentState, config: dict) -> NodeExecutionResult:
+        def execute(self, state: AgentState, config: dict) -> NodeExecutionResult:  # type: ignore
             # 获取配置中的问候语
             greeting = config.get("greeting", "你好")
-            
+
             # 添加问候消息
             greeting_message = HumanMessage(content=f"{greeting}！这是一个自定义节点的问候。")
-            state.add_message(greeting_message)
-            
+            state['messages'].append(greeting_message)
+
             return NodeExecutionResult(
-                state=state,
+                state=state,  # type: ignore
                 next_node=config.get("next_node")
             )
         
@@ -252,7 +245,7 @@ def demo_custom_node() -> None:
         
         # 运行工作流
         print(f"\n运行工作流...")
-        initial_state = AgentState()
+        initial_state = create_agent_state(input_text="", agent_id="demo_custom")
         result = manager.run_workflow(workflow_id, initial_state)
         
         print(f"✓ 工作流执行完成")

@@ -3,7 +3,7 @@
 提供所有状态类型的基础定义。
 """
 
-from typing import Dict, Any, List, Annotated, Optional
+from typing import Dict, Any, List, Annotated, Optional, Sequence
 import operator
 from typing_extensions import TypedDict
 
@@ -26,9 +26,10 @@ except ImportError:
 # 统一的消息类型定义
 class BaseMessage:
     """统一消息基类"""
-    def __init__(self, content: str, type: str = "base", **kwargs: Any):
+    def __init__(self, content: str, type: str = "base", tool_call_id: Optional[str] = None, **kwargs: Any):
         self.content = content
         self.type = type
+        self.tool_call_id = tool_call_id
         for key, value in kwargs.items():
             setattr(self, key, value)
 
@@ -85,7 +86,7 @@ class _BaseGraphState(TypedDict, total=False):
 
 
 def create_base_state(
-    messages: Optional[List[BaseMessage]] = None,
+    messages: Optional[Sequence[BaseMessage]] = None,
     metadata: Optional[Dict[str, Any]] = None,
     execution_context: Optional[Dict[str, Any]] = None,
     current_step: str = "start"
@@ -102,7 +103,7 @@ def create_base_state(
         BaseGraphState实例
     """
     return {
-        "messages": messages or [],
+        "messages": list(messages) if messages is not None else [],
         "metadata": metadata or {},
         "execution_context": execution_context or {},
         "current_step": current_step

@@ -8,7 +8,7 @@
 import asyncio
 import time
 import statistics
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -25,7 +25,7 @@ class PerformanceResult:
     total_executions: int
     successful_executions: int
     failed_executions: int
-    timestamp: str = None
+    timestamp: Optional[str] = None
     
     def __post_init__(self):
         if self.timestamp is None:
@@ -60,7 +60,7 @@ class SimplePerformanceBenchmark:
                 start_time = time.time()
                 
                 # 模拟同步工作流执行
-                self._simulate_workflow_execution(sync=True)
+                asyncio.run(self._simulate_workflow_execution())
                 
                 end_time = time.time()
                 execution_time = end_time - start_time
@@ -118,7 +118,7 @@ class SimplePerformanceBenchmark:
                 start_time = time.time()
                 
                 # 模拟异步工作流执行
-                await self._simulate_workflow_execution(sync=False)
+                await self._simulate_workflow_execution()
                 
                 end_time = time.time()
                 execution_time = end_time - start_time
@@ -155,33 +155,24 @@ class SimplePerformanceBenchmark:
         self.results[result.test_name] = result
         return result
     
-    def _simulate_workflow_execution(self, sync: bool = True) -> None:
+    async def _simulate_workflow_execution(self) -> None:
         """模拟工作流执行
-        
-        Args:
-            sync: 是否同步执行
         """
         # 模拟一些工作
-        import time
-        time.sleep(0.01)  # 模拟10ms的工作
-        
-        if not sync:
-            # 如果是异步，模拟异步操作
-            import asyncio
-            if asyncio.iscoroutinefunction(self._simulate_workflow_execution):
-                return
-        
+        import asyncio
+        await asyncio.sleep(0.01)  # 模拟10ms的工作
+
         # 模拟状态处理
         for i in range(100):
             _ = i * 2  # 简单的计算
-        
+
         # 模拟消息处理
         messages = []
         for i in range(10):
             messages.append({
                 "role": "assistant" if i % 2 == 0 else "user",
                 "content": f"Message {i}"
-            })
+    })
     
     async def benchmark_async_vs_sync(self, test_name: str, iterations: int = 10) -> Dict[str, PerformanceResult]:
         """对比异步和同步执行性能
@@ -255,7 +246,7 @@ class SimplePerformanceBenchmark:
                 try:
                     start_time = time.time()
                     
-                    self._simulate_workflow_execution(sync=False)
+                    await self._simulate_workflow_execution()
                     
                     end_time = time.time()
                     execution_times.append(end_time - start_time)

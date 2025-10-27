@@ -1,4 +1,4 @@
-"""简化的状态序列化性能演示
+"""状态序列化性能演示
 
 演示增强的状态序列化器的性能改进。
 """
@@ -10,6 +10,10 @@ from typing import Dict, Any, List
 
 # 直接导入我们实现的模块
 from src.infrastructure.graph.states.serializer import StateSerializer
+from src.infrastructure.graph.states.optimized_manager import OptimizedStateManager, create_optimized_state_manager
+from src.infrastructure.graph.states.base import create_base_state, BaseMessage, HumanMessage, AIMessage
+from src.infrastructure.graph.states.agent import create_agent_state
+from src.infrastructure.graph.states.workflow import create_workflow_state
 
 
 def create_test_states() -> List[Dict[str, Any]]:
@@ -19,41 +23,25 @@ def create_test_states() -> List[Dict[str, Any]]:
     # 创建不同大小的状态
     for i in range(3):
         # 基础状态
-        base_state = {
-            "messages": [{"content": f"Test message {j}", "type": "human"} for j in range(10 * (i + 1))],
-            "current_step": f"step_{i}",
-            "metadata": {"test": True, "index": i}
-        }
+        base_state = create_base_state(
+            messages=[HumanMessage(content=f"Test message {j}") for j in range(10 * (i + 1))],
+            current_step=f"step_{i}"
+        )
         
         # Agent状态
-        agent_state = {
-            "input": f"Test input {i}",
-            "output": None,
-            "agent_id": f"agent_{i}",
-            "agent_config": {"max_iterations": 10},
-            "iteration_count": 0,
-            "max_iterations": 10,
-            "errors": [],
-            "complete": False,
-            "execution_result": None
-        }
+        agent_state = create_agent_state(
+            input_text=f"Test input {i}",
+            agent_id=f"agent_{i}",
+            max_iterations=10
+        )
         
         # Workflow状态
-        workflow_state = {
-            "workflow_id": f"workflow_{i}",
-            "workflow_name": f"Test Workflow {i}",
-            "input_text": f"Test workflow input {i}",
-            "workflow_config": {"test": True},
-            "current_graph": "",
-            "current_step": None,
-            "analysis": None,
-            "decision": None,
-            "context": {},
-            "start_time": None,
-            "end_time": None,
-            "graph_states": {},
-            "custom_fields": {}
-        }
+        workflow_state = create_workflow_state(
+            workflow_id=f"workflow_{i}",
+            workflow_name=f"Test Workflow {i}",
+            input_text=f"Test workflow input {i}",
+            max_iterations=5
+        )
         
         states.extend([base_state, agent_state, workflow_state])
     
@@ -123,6 +111,9 @@ def test_serialization_performance():
     basic_avg = statistics.mean(basic_times)
     enhanced_no_cache_avg = statistics.mean(enhanced_no_cache_times)
     enhanced_cache_avg_2 = statistics.mean(enhanced_cache_times_2)
+
+    improvement_no_cache = 0.0
+    improvement_cache_hit = 0.0
     
     print(f"\n性能统计:")
     print(f"  基本序列化器平均时间: {basic_avg:.6f}s")
@@ -167,14 +158,12 @@ def test_diff_serialization_performance():
     print("\n=== 差异序列化性能测试 ===")
     
     # 创建状态序列
-    base_state = {
-        "workflow_id": "diff_test",
-        "workflow_name": "Diff Test Workflow",
-        "input_text": "Test input",
-        "messages": [{"content": "Initial message", "type": "human"}],
-        "current_step": "start",
-        "iteration_count": 0
-    }
+    base_state = create_workflow_state(
+        workflow_id="diff_test",
+        workflow_name="Diff Test Workflow",
+        input_text="Test input",
+        max_iterations=10
+    )
     
     state_sequence = [base_state.copy()]
     
@@ -182,7 +171,8 @@ def test_diff_serialization_performance():
     for i in range(5):
         new_state = state_sequence[-1].copy()
         # 添加消息
-        new_state["messages"].append({"content": f"New message {i}", "type": "ai"})
+        if "messages" in new_state:
+            new_state["messages"].append(AIMessage(content=f"New message {i}"))
         # 更新其他字段
         new_state["current_step"] = f"step_{i}"
         new_state["iteration_count"] = i
@@ -221,6 +211,9 @@ def test_diff_serialization_performance():
     diff_avg_time = statistics.mean(diff_times)
     full_avg_size = statistics.mean(full_sizes)
     diff_avg_size = statistics.mean(diff_sizes)
+
+    time_improvement = 0.0
+    size_improvement = 0.0
     
     print(f"\n差异序列化统计:")
     print(f"  完整序列化平均时间: {full_avg_time:.6f}s")
@@ -262,18 +255,74 @@ def test_diff_serialization_performance():
     }
 
 
+def test_optimized_manager_performance():
+    """测试优化状态管理器性能"""
+    print("\n=== 优化状态管理器性能测试 ===")
+    
+    # 创建测试状态
+    test_state = create_workflow_state(
+        workflow_id="manager_test",
+        workflow_name="Manager Test Workflow",
+        input_text="Test input",
+        max_iterations=10
+    )
+    
+    state_id = "test_state"
+    
+    # 创建优化管理器
+    manager = create_optimized_state_manager(enable_pooling=True)
+    managed_state = manager.create_state(state_id, test_state.copy())
+    
+    print(f"初始状态消息数量: {len(managed_state.get('messages', []))}")
+    
+    # 测试优化更新
+    print("\n1. 优化状态更新性能")
+    update_times = []
+    for i in range(20):
+        updates = {
+            "current_step": f"step_{i}",
+            "iteration_count": i,
+            "messages": managed_state.get("messages", []) + [AIMessage(content=f"Message {i}")]
+        }
+        
+        start_time = time.time()
+        managed_state = manager.update_state_incremental(state_id, managed_state, updates)
+        end_time = time.time()
+        update_times.append(end_time - start_time)
+    
+    avg_update_time = statistics.mean(update_times)
+    print(f"  平均更新时间: {avg_update_time:.6f}s")
+    print(f"  最终状态消息数量: {len(managed_state.get('messages', []))}")
+    
+    # 获取性能统计
+    print("\n2. 性能统计")
+    performance_stats = manager.get_performance_stats()
+    memory_stats = manager.get_memory_usage_stats()
+    
+    print(f"  总更新次数: {performance_stats['manager_stats']['total_updates']}")
+    print(f"  对象池命中率: {performance_stats['pool_efficiency']['hit_rate']}")
+    print(f"  内存节省: {memory_stats['memory_saved_bytes']} bytes")
+    print(f"  对象池大小: {memory_stats['pool_size']}")
+    
+    return {
+        "avg_update_time": avg_update_time,
+        "total_updates": performance_stats['manager_stats']['total_updates'],
+        "pool_hit_rate": performance_stats['pool_efficiency']['hit_rate'],
+        "memory_saved": memory_stats['memory_saved_bytes']
+    }
+
+
 def test_cache_performance():
     """测试缓存性能"""
     print("\n=== 缓存性能测试 ===")
     
     # 创建测试状态
-    test_state = {
-        "workflow_id": "cache_test",
-        "workflow_name": "Cache Test Workflow",
-        "input_text": "Test input",
-        "messages": [{"content": "Test message", "type": "human"}],
-        "current_step": "start"
-    }
+    test_state = create_workflow_state(
+        workflow_id="cache_test",
+        workflow_name="Cache Test Workflow",
+        input_text="Test input",
+        max_iterations=10
+    )
     
     # 测试缓存命中率
     print("1. 缓存命中率测试")
@@ -335,6 +384,7 @@ def main():
     
     results["serialization"] = test_serialization_performance()
     results["diff"] = test_diff_serialization_performance()
+    results["manager"] = test_optimized_manager_performance()
     results["cache"] = test_cache_performance()
     
     # 总结
@@ -349,7 +399,11 @@ def main():
     print(f"   时间提升: {results['diff']['time_improvement']:.2f}%")
     print(f"   大小提升: {results['diff']['size_improvement']:.2f}%")
     
-    print(f"\n3. 缓存性能:")
+    print(f"\n3. 状态管理器性能:")
+    print(f"   平均更新时间: {results['manager']['avg_update_time']:.6f}s")
+    print(f"   对象池命中率: {results['manager']['pool_hit_rate']}")
+    
+    print(f"\n4. 缓存性能:")
     print(f"   缓存命中率: {results['cache']['cache_hit_rate']}")
     print(f"   缓存大小: {results['cache']['cache_size']}")
     

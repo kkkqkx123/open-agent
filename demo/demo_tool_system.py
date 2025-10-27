@@ -14,10 +14,10 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from src.infrastructure import TestContainer
-from src.tools.interfaces import ToolCall
-from src.tools.formatter import ToolFormatter
-from src.tools.types.builtin_tool import BuiltinTool
-from src.tools.config import BuiltinToolConfig
+from src.domain.tools.interfaces import ToolCall
+from src.infrastructure.tools.formatter import ToolFormatter
+from src.domain.tools.types.builtin_tool import BuiltinTool
+from src.infrastructure.tools.config import BuiltinToolConfig
 
 
 def demo_basic_usage() -> None:
@@ -31,7 +31,7 @@ def demo_basic_usage() -> None:
         logger = container.get_logger()
         
         # 创建工具执行器
-        from src.tools.executor import ToolExecutor
+        from src.infrastructure.tools.executor import ToolExecutor
         executor = ToolExecutor(tool_manager, logger)
         
         # 创建一个简单的内置工具
@@ -101,7 +101,7 @@ def demo_parallel_execution() -> None:
         tool_manager = container.get_tool_manager()
         logger = container.get_logger()
         
-        from src.tools.executor import ToolExecutor
+        from src.infrastructure.tools.executor import ToolExecutor
         executor = ToolExecutor(tool_manager, logger)
         
         # 创建一个计算工具
@@ -160,7 +160,7 @@ async def demo_async_execution() -> None:
         tool_manager = container.get_tool_manager()
         logger = container.get_logger()
         
-        from src.tools.executor import ToolExecutor
+        from src.infrastructure.tools.executor import ToolExecutor
         executor = ToolExecutor(tool_manager, logger)
         
         # 创建一个异步工具
@@ -212,7 +212,7 @@ async def demo_async_parallel_execution() -> None:
         tool_manager = container.get_tool_manager()
         logger = container.get_logger()
         
-        from src.tools.executor import ToolExecutor
+        from src.infrastructure.tools.executor import ToolExecutor
         executor = ToolExecutor(tool_manager, logger)
         
         # 创建一个异步工具
@@ -330,7 +330,7 @@ def demo_error_handling() -> None:
         tool_manager = container.get_tool_manager()
         logger = container.get_logger()
         
-        from src.tools.executor import ToolExecutor
+        from src.infrastructure.tools.executor import ToolExecutor
         executor = ToolExecutor(tool_manager, logger)
         
         # 创建一个会出错的工具

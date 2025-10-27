@@ -17,7 +17,8 @@ def demo_yaml_loading():
     print("=" * 60)
     print("演示: YAML配置文件加载")
     print("=" * 60)
-    
+
+    base_config = {}
     try:
         # 加载基础工作流配置
         base_config_path = Path("configs/workflows/base_workflow.yaml")

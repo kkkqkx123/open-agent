@@ -11,7 +11,7 @@ from src.domain.prompts.registry import PromptRegistry
 from src.domain.prompts.loader import PromptLoader
 from src.domain.prompts.injector import PromptInjector
 from src.domain.prompts.models import PromptConfig
-from src.application.workflow.state import AgentState
+from src.application.workflow.state import AgentState  # type: ignore
 from src.domain.prompts.langgraph_integration import create_simple_workflow
 
 
@@ -78,11 +78,11 @@ def main():
         user_command="data_analysis"
     )
     
-    state = AgentState()
-    state = injector.inject_prompts(state, config)
-    
-    print(f"   注入了 {len(state.messages)} 条消息:")
-    for i, message in enumerate(state.messages):
+    state = {}  # type: ignore
+    state = injector.inject_prompts(state, config)  # type: ignore
+
+    print(f"   注入了 {len(state['messages'])} 条消息:")
+    for i, message in enumerate(state['messages']):
         message_type = type(message).__name__
         content = getattr(message, 'content', str(message))
         content_preview = content[:50] + "..." if len(content) > 50 else content
