@@ -297,7 +297,7 @@ class LLMNode(BaseNode):
                 # 处理对象格式的工具结果
                 success = result.success
                 tool_name = result.tool_name
-                result_value = result.result
+                result_value = result.output  # 使用output属性而不是result
                 error = result.error
             
             status = "成功" if success else "失败"

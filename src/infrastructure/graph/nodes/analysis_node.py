@@ -92,6 +92,9 @@ class AnalysisNode(BaseNode):
         elif hasattr(state, 'messages'):
             # 如果state有messages属性，直接添加消息
             state.messages.append(compatible_message)
+        elif isinstance(state, dict) and 'messages' in state:
+            # 如果state是字典且包含messages键，添加消息到列表中
+            state['messages'].append(compatible_message)
         
         # 分析响应，确定下一步
         next_node = self._determine_next_node(response, config)
@@ -230,6 +233,41 @@ class AnalysisNode(BaseNode):
             for msg in state.messages:
                 if isinstance(msg, AgentMessage):
                     # 如果是AgentMessage，转换为字典格式
+                    messages.append({"role": msg.role, "content": msg.content})
+                elif hasattr(msg, 'content') and hasattr(msg, 'type'):
+                    # 处理LangChain风格的消息类型（如HumanMessage, AIMessage）
+                    role_map = {
+                        'human': 'user',
+                        'ai': 'assistant', 
+                        'system': 'system',
+                        'tool': 'tool'
+                    }
+                    role = role_map.get(getattr(msg, 'type', 'human'), 'user')
+                    messages.append({"role": role, "content": msg.content})
+                elif hasattr(msg, 'content') and hasattr(msg, 'role'):
+                    # 如果已经有role属性，直接使用
+                    messages.append({"role": msg.role, "content": msg.content})
+                else:
+                    # 如果是其他类型，直接添加
+                    messages.append(msg)
+        elif isinstance(state, dict) and 'messages' in state:
+            # 如果state是字典且包含messages键
+            for msg in state['messages']:
+                if isinstance(msg, AgentMessage):
+                    # 如果是AgentMessage，转换为字典格式
+                    messages.append({"role": msg.role, "content": msg.content})
+                elif hasattr(msg, 'content') and hasattr(msg, 'type'):
+                    # 处理LangChain风格的消息类型（如HumanMessage, AIMessage）
+                    role_map = {
+                        'human': 'user',
+                        'ai': 'assistant', 
+                        'system': 'system',
+                        'tool': 'tool'
+                    }
+                    role = role_map.get(getattr(msg, 'type', 'human'), 'user')
+                    messages.append({"role": role, "content": msg.content})
+                elif hasattr(msg, 'content') and hasattr(msg, 'role'):
+                    # 如果已经有role属性，直接使用
                     messages.append({"role": msg.role, "content": msg.content})
                 else:
                     # 如果是其他类型，直接添加

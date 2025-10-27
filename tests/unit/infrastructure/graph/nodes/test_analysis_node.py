@@ -97,8 +97,16 @@ class TestAnalysisNode:
             # 如果无法识别state的类型，默认为空列表
             messages = []
         
+        # 系统消息不会被添加到状态中，只用于LLM调用
+        # 所以状态中应该只有原有2条消息 + 新增1条 = 3条消息
+        # 系统消息只用于LLM调用，不会添加到状态中
         assert len(messages) == 3  # 原有2条消息 + 新增1条
-        assert messages[-1].content == "分析结果"
+        # 检查最后一条消息的内容
+        last_message = messages[-1]
+        if hasattr(last_message, 'content'):
+            assert last_message.content == "分析结果"
+        elif isinstance(last_message, dict):
+            assert last_message.get('content') == "分析结果"
         assert result.next_node is None
         assert result.metadata is not None
         assert "llm_response" in result.metadata
@@ -185,9 +193,17 @@ class TestAnalysisNode:
         messages = node._prepare_messages(sample_state, system_prompt)
         
         assert isinstance(messages, list)
-        assert len(messages) == 3  # 系统消息 + 2条原有消息
-        # 检查系统消息类型（可能因LangChain可用性而不同）
-        assert hasattr(messages[0], 'content') or isinstance(messages[0], dict)
+        # 系统消息 + 2条原有消息 = 3条消息
+        assert len(messages) == 3
+        # 检查系统消息类型（应该是一个字典）
+        assert isinstance(messages[0], dict)
+        assert messages[0]["role"] == "system"
+        assert messages[0]["content"] == "系统提示词"
+        # 检查历史消息是否被正确转换
+        assert messages[1]["role"] == "user"  # HumanMessage转换为user
+        assert messages[1]["content"] == "用户输入"
+        assert messages[2]["role"] == "assistant"  # AIMessage转换为assistant
+        assert messages[2]["content"] == "AI响应"
 
     def test_get_tool_functions(self, node):
         """测试获取工具函数"""
