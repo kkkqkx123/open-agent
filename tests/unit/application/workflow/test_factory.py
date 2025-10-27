@@ -1,372 +1,400 @@
-"""工作流工厂测试"""
+"""工作流工厂测试
 
-import pytest
-from unittest.mock import Mock, patch
-from pathlib import Path
-import tempfile
-import yaml
+测试工作流工厂的功能。
+"""
 
-from src.application.workflow.factory import (
-    WorkflowFactory,
-    IWorkflowFactory
+import unittest
+from unittest.mock import Mock, MagicMock, patch
+from typing import Dict, Any, Optional, List
+
+from src.application.workflow.factory import WorkflowFactory, IWorkflowFactory
+from src.infrastructure.graph.config import WorkflowConfig
+from src.infrastructure.graph.states import (
+    BaseGraphState, AgentState, WorkflowState, 
+    ReActState, PlanExecuteState, StateFactory
 )
-from src.infrastructure.graph.config import GraphConfig as WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
-from src.infrastructure.graph.states import WorkflowState
-from src.domain.prompts.interfaces import IPromptInjector
+from src.infrastructure.graph.registry import NodeRegistry
+from src.infrastructure.container import IDependencyContainer
 
 
-class TestWorkflowFactory:
-    """统一工作流工厂测试"""
+class TestIWorkflowFactory(unittest.TestCase):
+    """测试工作流工厂接口"""
     
-    def test_init_with_default_components(self):
-        """测试使用默认组件初始化"""
-        factory = WorkflowFactory()
+    def test_interface_is_abstract(self):
+        """测试接口是抽象的"""
+        from abc import ABC
+        self.assertTrue(issubclass(IWorkflowFactory, ABC))
         
-        assert factory.node_registry is not None
-        assert factory.workflow_builder is not None
-        assert isinstance(factory._predefined_configs, dict)
+        # 尝试实例化应该失败
+        with self.assertRaises(TypeError):
+            IWorkflowFactory()  # type: ignore
     
-    def test_init_with_custom_components(self):
-        """测试使用自定义组件初始化"""
-        mock_registry = Mock()
-        mock_builder = Mock()
+    def test_interface_methods_exist(self):
+        """测试接口方法存在"""
+        methods = ['create_workflow', 'create_state']
         
-        factory = WorkflowFactory(
-            node_registry=mock_registry,
-            workflow_builder=mock_builder
-        )
-        
-        assert factory.node_registry is mock_registry
-        assert factory.workflow_builder is mock_builder
+        for method in methods:
+            self.assertTrue(hasattr(IWorkflowFactory, method))
     
-    def test_create_from_config_success(self):
-        """测试从配置成功创建工作流"""
-        factory = WorkflowFactory()
-        
-        # 创建模拟配置
-        config = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流",
-            nodes={
-                "start": NodeConfig(type="mock_node")
-            }
-        )
-        
-        # 模拟构建器返回
-        mock_workflow = Mock()
-        factory.workflow_builder.build_workflow = Mock(return_value=mock_workflow)
-        
-        result = factory.create_from_config(config)
-        
-        assert result is mock_workflow
-        factory.workflow_builder.build_workflow.assert_called_once_with(config)
-    
-    def test_create_from_config_failure(self):
-        """测试从配置创建工作流失败"""
-        factory = WorkflowFactory()
-        
-        config = WorkflowConfig(name="test", description="测试")
-        factory.workflow_builder.build_workflow = Mock(side_effect=Exception("构建失败"))
-        
-        with pytest.raises(Exception, match="构建失败"):
-            factory.create_from_config(config)
-    
-    def test_create_simple_workflow(self):
-        """测试创建简单工作流"""
-        factory = WorkflowFactory()
-        mock_injector = Mock(spec=IPromptInjector)
-        mock_injector.inject_prompts.return_value = WorkflowState()
-        
-        result = factory.create_simple(mock_injector)
-        
-        assert isinstance(result, dict)
-        assert "run" in result
-        assert "description" in result
-        assert result["description"] == "简单提示词注入工作流"
-        assert callable(result["run"])
-    
-    def test_create_simple_workflow_with_llm_client(self):
-        """测试创建带LLM客户端的简单工作流"""
-        factory = WorkflowFactory()
-        mock_injector = Mock(spec=IPromptInjector)
-        mock_injector.inject_prompts.return_value = WorkflowState()
-        mock_llm_client = Mock()
-        mock_llm_client.generate.return_value = Mock()
-        
-        result = factory.create_simple(mock_injector, mock_llm_client)
-        
-        assert isinstance(result, dict)
-        assert "run" in result
-        
-        # 测试运行工作流
-        initial_state = WorkflowState()
-        final_state = result["run"](initial_state)
-        
-        # 验证LLM被调用
-        mock_llm_client.generate.assert_called_once()
-    
-    def test_create_react_workflow_with_config(self):
-        """测试使用配置创建ReAct工作流"""
-        factory = WorkflowFactory()
-        
-        # 添加ReAct配置
-        react_config = WorkflowConfig(
-            name="react",
-            description="ReAct工作流",
-            nodes={"analyze": NodeConfig(type="analysis_node")}
-        )
-        factory.register_predefined_config("react", react_config)
-        
-        # 模拟构建器返回
-        mock_workflow = Mock()
-        factory.workflow_builder.build_workflow = Mock(return_value=mock_workflow)
-        
-        result = factory.create_react()
-        
-        assert result is mock_workflow
-        factory.workflow_builder.build_workflow.assert_called_once_with(react_config)
-    
-    def test_create_react_workflow_no_config(self):
-        """测试创建ReAct工作流但没有配置"""
-        factory = WorkflowFactory()
-        
-        with pytest.raises(ValueError, match="ReAct工作流配置未找到"):
-            factory.create_react()
-    
-    def test_create_plan_execute_workflow(self):
-        """测试创建Plan-Execute工作流"""
-        factory = WorkflowFactory()
-        
-        # 添加Plan-Execute配置
-        plan_config = WorkflowConfig(
-            name="plan_execute",
-            description="Plan-Execute工作流",
-            nodes={"plan": NodeConfig(type="llm_node")}
-        )
-        factory.register_predefined_config("plan_execute", plan_config)
-        
-        # 模拟构建器返回
-        mock_workflow = Mock()
-        factory.workflow_builder.build_workflow = Mock(return_value=mock_workflow)
-        
-        result = factory.create_plan_execute()
-        
-        assert result is mock_workflow
-        factory.workflow_builder.build_workflow.assert_called_once_with(plan_config)
-    
-    def test_create_collaborative_workflow(self):
-        """测试创建协作工作流"""
-        factory = WorkflowFactory()
-        
-        # 添加协作配置
-        collab_config = WorkflowConfig(
-            name="collaborative",
-            description="协作工作流",
-            nodes={"coordinator": NodeConfig(type="analysis_node")}
-        )
-        factory.register_predefined_config("collaborative", collab_config)
-        
-        # 模拟构建器返回
-        mock_workflow = Mock()
-        factory.workflow_builder.build_workflow = Mock(return_value=mock_workflow)
-        
-        result = factory.create_collaborative()
-        
-        assert result is mock_workflow
-        factory.workflow_builder.build_workflow.assert_called_once_with(collab_config)
-    
-    def test_create_from_file(self):
-        """测试从文件创建工作流"""
-        factory = WorkflowFactory()
-        
-        # 创建临时配置文件
-        config_data = {
-            "name": "file_workflow",
-            "description": "从文件创建的工作流",
-            "nodes": {
-                "start": {"type": "mock_node"}
-            }
-        }
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            yaml.dump(config_data, f)
-            temp_path = f.name
-        
-        try:
-            # 模拟加载和构建
-            mock_config = WorkflowConfig(
-                name="file_workflow",
-                description="从文件创建的工作流"
-            )
-            mock_workflow = Mock()
+    def test_concrete_implementation(self):
+        """测试具体实现必须实现所有方法"""
+        class ConcreteWorkflowFactory(IWorkflowFactory):
+            def create_workflow(self, config: WorkflowConfig, initial_state: Optional[Dict[str, Any]] = None) -> Any:
+                return Mock()
             
-            factory.workflow_builder.load_workflow_config = Mock(return_value=mock_config)
-            factory.workflow_builder.build_workflow = Mock(return_value=mock_workflow)
+            def create_state(self, state_type: str, **kwargs) -> Dict[str, Any]:
+                return {}
+        
+        # 应该能够实例化
+        factory = ConcreteWorkflowFactory()
+        self.assertIsInstance(factory, IWorkflowFactory)
+
+
+class TestWorkflowFactory(unittest.TestCase):
+    """测试工作流工厂实现"""
+    
+    def setUp(self):
+        """设置测试环境"""
+        self.mock_container = Mock(spec=IDependencyContainer)
+        self.mock_node_registry = Mock(spec=NodeRegistry)
+        
+        self.factory = WorkflowFactory(
+            container=self.mock_container,
+            node_registry=self.mock_node_registry
+        )
+        
+        # 创建模拟的工作流配置
+        self.mock_workflow_config = Mock(spec=WorkflowConfig)
+        self.mock_workflow_config.name = "test_workflow"
+        self.mock_workflow_config.description = "Test workflow"
+        self.mock_workflow_config.version = "1.0.0"
+        
+        # 创建模拟的工作流实例
+        self.mock_workflow = Mock()
+    
+    def test_init(self):
+        """测试初始化"""
+        self.assertEqual(self.factory.container, self.mock_container)
+        self.assertEqual(self.factory.node_registry, self.mock_node_registry)
+        self.assertIsNone(self.factory._builder_adapter)
+    
+    def test_init_with_defaults(self):
+        """测试使用默认值初始化"""
+        factory = WorkflowFactory()
+        self.assertIsNone(factory.container)
+        self.assertIsNone(factory.node_registry)
+        self.assertIsNone(factory._builder_adapter)
+    
+    def test_builder_adapter_property(self):
+        """测试构建器适配器属性（延迟初始化）"""
+        # 第一次访问应该创建适配器
+        with patch('src.application.workflow.factory.WorkflowBuilderAdapter') as mock_adapter_class:
+            mock_adapter = Mock()
+            mock_adapter_class.return_value = mock_adapter
             
-            result = factory.create_from_file(temp_path)
+            adapter = self.factory.builder_adapter
             
-            assert result is mock_workflow
-            factory.workflow_builder.load_workflow_config.assert_called_once_with(temp_path)
-            factory.workflow_builder.build_workflow.assert_called_once_with(mock_config)
-        finally:
-            Path(temp_path).unlink()
+            # 验证适配器创建
+            mock_adapter_class.assert_called_once_with(node_registry=self.mock_node_registry)
+            self.assertEqual(adapter, mock_adapter)
+            
+            # 第二次访问应该返回同一个实例
+            adapter2 = self.factory.builder_adapter
+            self.assertEqual(adapter, adapter2)
+            mock_adapter_class.assert_called_once()  # 仍然只调用一次
     
-    def test_list_predefined_workflows(self):
-        """测试列出预定义工作流"""
-        factory = WorkflowFactory()
+    @patch('src.application.workflow.factory.WorkflowBuilderAdapter')
+    def test_create_workflow(self, mock_adapter_class):
+        """测试创建工作流"""
+        # 设置模拟
+        mock_adapter = Mock()
+        mock_adapter_class.return_value = mock_adapter
+        mock_adapter.build_graph.return_value = self.mock_workflow
         
-        # 添加一些配置
-        factory.register_predefined_config("react", Mock())
-        factory.register_predefined_config("plan_execute", Mock())
+        # 创建工作流
+        result = self.factory.create_workflow(self.mock_workflow_config)
         
-        workflows = factory.list_predefined_workflows()
+        # 验证结果
+        self.assertEqual(result, self.mock_workflow)
         
-        assert "react" in workflows
-        assert "plan_execute" in workflows
-        assert len(workflows) == 2
+        # 验证调用
+        mock_adapter.build_graph.assert_called_once_with(self.mock_workflow_config)
     
-    def test_get_predefined_config(self):
-        """测试获取预定义配置"""
-        factory = WorkflowFactory()
-        
-        config = WorkflowConfig(name="test", description="测试")
-        factory.register_predefined_config("test", config)
-        
-        retrieved = factory.get_predefined_config("test")
-
-        assert retrieved is not None
-        assert retrieved is config
-        assert retrieved.name == "test"
-    
-    def test_get_predefined_config_not_found(self):
-        """测试获取不存在的预定义配置"""
-        factory = WorkflowFactory()
-        
-        result = factory.get_predefined_config("nonexistent")
-        
-        assert result is None
-    
-    def test_register_predefined_config(self):
-        """测试注册预定义配置"""
-        factory = WorkflowFactory()
-        
-        config = WorkflowConfig(name="new_workflow", description="新工作流")
-        factory.register_predefined_config("new_workflow", config)
-        
-        assert "new_workflow" in factory._predefined_configs
-        assert factory._predefined_configs["new_workflow"] is config
-
-
-class TestGlobalFactory:
-    """全局工厂测试"""
-    
-    def test_get_global_factory_singleton(self):
-        """测试全局工厂单例"""
-        factory1 = get_global_factory()
-        factory2 = get_global_factory()
-        
-        assert factory1 is factory2
-        assert isinstance(factory1, UnifiedWorkflowFactory)
-    
-    @patch('src.application.workflow.factory.get_global_factory')
-    def test_create_workflow_from_config(self, mock_get_factory):
-        """测试从配置创建工作流的便捷函数"""
-        mock_factory = Mock()
-        mock_get_factory.return_value = mock_factory
-        
-        config = WorkflowConfig(name="test", description="测试")
-        mock_workflow = Mock()
-        mock_factory.create_from_config.return_value = mock_workflow
-        
-        result = create_workflow_from_config(config)
-        
-        assert result is mock_workflow
-        mock_factory.create_from_config.assert_called_once_with(config)
-    
-    @patch('src.application.workflow.factory.get_global_factory')
-    def test_create_simple_workflow(self, mock_get_factory):
-        """测试创建简单工作流的便捷函数"""
-        mock_factory = Mock()
-        mock_get_factory.return_value = mock_factory
-        
-        mock_injector = Mock(spec=IPromptInjector)
-        mock_workflow = {"run": Mock(), "description": "测试"}
-        mock_factory.create_simple.return_value = mock_workflow
-        
-        result = create_simple_workflow(mock_injector)
-        
-        assert result is mock_workflow
-        mock_factory.create_simple.assert_called_once_with(mock_injector, None)
-    
-    @patch('src.application.workflow.factory.get_global_factory')
-    def test_create_react_workflow(self, mock_get_factory):
-        """测试创建ReAct工作流的便捷函数"""
-        mock_factory = Mock()
-        mock_get_factory.return_value = mock_factory
-        
-        mock_workflow = Mock()
-        mock_factory.create_react.return_value = mock_workflow
-        
-        result = create_react_workflow()
-        
-        assert result is mock_workflow
-        mock_factory.create_react.assert_called_once_with(None)
-    
-    @patch('src.application.workflow.factory.get_global_factory')
-    def test_create_plan_execute_workflow(self, mock_get_factory):
-        """测试创建Plan-Execute工作流的便捷函数"""
-        mock_factory = Mock()
-        mock_get_factory.return_value = mock_factory
-        
-        mock_workflow = Mock()
-        mock_factory.create_plan_execute.return_value = mock_workflow
-        
-        result = create_plan_execute_workflow()
-        
-        assert result is mock_workflow
-        mock_factory.create_plan_execute.assert_called_once_with(None)
-
-
-class TestSimpleWorkflowExecution:
-    """简单工作流执行测试"""
-    
-    def test_simple_workflow_run_without_initial_state(self):
-        """测试简单工作流运行，无初始状态"""
-        factory = WorkflowFactory()
-        mock_injector = Mock(spec=IPromptInjector)
-        
-        # 模拟注入器返回状态
-        expected_state = WorkflowState()
-        expected_state.current_step = "injected"
-        mock_injector.inject_prompts.return_value = expected_state
-        
-        workflow = factory.create_simple(mock_injector)
-        result = workflow["run"]()
-        
-        assert result is expected_state
-        assert result.current_step == "injected"
-        mock_injector.inject_prompts.assert_called_once()
-    
-    def test_simple_workflow_run_with_initial_state(self):
-        """测试简单工作流运行，有初始状态"""
-        factory = WorkflowFactory()
-        mock_injector = Mock(spec=IPromptInjector)
+    @patch('src.application.workflow.factory.WorkflowBuilderAdapter')
+    def test_create_workflow_with_initial_state(self, mock_adapter_class):
+        """测试使用初始状态创建工作流"""
+        # 设置模拟
+        mock_adapter = Mock()
+        mock_adapter_class.return_value = mock_adapter
+        mock_adapter.build_graph.return_value = self.mock_workflow
         
         # 创建初始状态
-        initial_state = WorkflowState()
-        initial_state.current_step = "initial"
+        initial_state = {"test": "value"}
         
-        # 模拟注入器返回状态
-        expected_state = WorkflowState()
-        expected_state.current_step = "processed"
-        mock_injector.inject_prompts.return_value = expected_state
+        # 创建工作流
+        result = self.factory.create_workflow(self.mock_workflow_config, initial_state)
         
-        workflow = factory.create_simple(mock_injector)
-        result = workflow["run"](initial_state)
+        # 验证结果
+        self.assertEqual(result, self.mock_workflow)
         
-        assert result is expected_state
-        assert result.current_step == "processed"
+        # 验证调用
+        mock_adapter.build_graph.assert_called_once_with(self.mock_workflow_config)
+    
+    @patch('src.application.workflow.factory.StateFactory')
+    def test_create_state(self, mock_state_factory):
+        """测试创建状态"""
+        # 设置模拟
+        mock_state = {"test": "state"}
+        mock_state_factory.create_state_by_type.return_value = mock_state
         
-        # 验证传入的是初始状态
-        call_args = mock_injector.inject_prompts.call_args[0]
-        assert call_args[0] is initial_state
+        # 创建状态
+        result = self.factory.create_state("workflow", test_param="value")
+        
+        # 验证结果
+        self.assertEqual(result, mock_state)
+        
+        # 验证调用
+        mock_state_factory.create_state_by_type.assert_called_once_with("workflow", test_param="value")
+    
+    @patch('src.application.workflow.factory.StateFactory')
+    def test_create_workflow_state(self, mock_state_factory):
+        """测试创建工作流状态"""
+        # 设置模拟
+        mock_state = Mock(spec=WorkflowState)
+        mock_state_factory.create_workflow_state.return_value = mock_state
+        
+        # 创建工作流状态
+        result = self.factory.create_workflow_state(
+            workflow_id="test_id",
+            workflow_name="test_workflow",
+            input_text="test input",
+            workflow_config={"test": "config"},
+            max_iterations=20
+        )
+        
+        # 验证结果
+        self.assertEqual(result, mock_state)
+        
+        # 验证调用
+        mock_state_factory.create_workflow_state.assert_called_once_with(
+            workflow_id="test_id",
+            workflow_name="test_workflow",
+            input_text="test input",
+            workflow_config={"test": "config"},
+            max_iterations=20
+        )
+    
+    @patch('src.application.workflow.factory.StateFactory')
+    def test_create_agent_state(self, mock_state_factory):
+        """测试创建Agent状态"""
+        # 设置模拟
+        mock_state = Mock(spec=AgentState)
+        mock_state_factory.create_agent_state.return_value = mock_state
+        
+        # 创建Agent状态
+        result = self.factory.create_agent_state(
+            input_text="test input",
+            agent_id="test_agent",
+            agent_config={"test": "config"},
+            max_iterations=15
+        )
+        
+        # 验证结果
+        self.assertEqual(result, mock_state)
+        
+        # 验证调用
+        mock_state_factory.create_agent_state.assert_called_once_with(
+            input_text="test input",
+            agent_id="test_agent",
+            agent_config={"test": "config"},
+            max_iterations=15
+        )
+    
+    @patch('src.application.workflow.factory.StateFactory')
+    def test_create_react_state(self, mock_state_factory):
+        """测试创建ReAct状态"""
+        # 设置模拟
+        mock_state = Mock(spec=ReActState)
+        mock_state_factory.create_react_state.return_value = mock_state
+        
+        # 创建ReAct状态
+        result = self.factory.create_react_state(
+            workflow_id="test_id",
+            workflow_name="test_workflow",
+            input_text="test input",
+            max_iterations=12,
+            max_steps=8
+        )
+        
+        # 验证结果
+        self.assertEqual(result, mock_state)
+        
+        # 验证调用
+        mock_state_factory.create_react_state.assert_called_once_with(
+            workflow_id="test_id",
+            workflow_name="test_workflow",
+            input_text="test input",
+            max_iterations=12,
+            max_steps=8
+        )
+    
+    @patch('src.application.workflow.factory.StateFactory')
+    def test_create_plan_execute_state(self, mock_state_factory):
+        """测试创建计划执行状态"""
+        # 设置模拟
+        mock_state = Mock(spec=PlanExecuteState)
+        mock_state_factory.create_plan_execute_state.return_value = mock_state
+        
+        # 创建计划执行状态
+        result = self.factory.create_plan_execute_state(
+            workflow_id="test_id",
+            workflow_name="test_workflow",
+            input_text="test input",
+            max_iterations=25,
+            max_steps=15
+        )
+        
+        # 验证结果
+        self.assertEqual(result, mock_state)
+        
+        # 验证调用
+        mock_state_factory.create_plan_execute_state.assert_called_once_with(
+            workflow_id="test_id",
+            workflow_name="test_workflow",
+            input_text="test input",
+            max_iterations=25,
+            max_steps=15
+        )
+    
+    @patch('src.application.workflow.factory.WorkflowBuilderAdapter')
+    def test_create_workflow_from_config(self, mock_adapter_class):
+        """测试从配置文件创建工作流"""
+        # 设置模拟
+        mock_adapter = Mock()
+        mock_adapter_class.return_value = mock_adapter
+        mock_adapter.load_workflow_config.return_value = self.mock_workflow_config
+        mock_adapter.build_graph.return_value = self.mock_workflow
+        
+        # 创建初始状态
+        initial_state = {"test": "value"}
+        
+        # 从配置创建工作流
+        result = self.factory.create_workflow_from_config(
+            "test_config.yaml",
+            initial_state
+        )
+        
+        # 验证结果
+        self.assertEqual(result, self.mock_workflow)
+        
+        # 验证调用
+        mock_adapter.load_workflow_config.assert_called_once_with("test_config.yaml")
+        mock_adapter.build_graph.assert_called_once_with(self.mock_workflow_config)
+    
+    @patch('src.application.workflow.factory.WorkflowBuilderAdapter')
+    def test_validate_workflow_config(self, mock_adapter_class):
+        """测试验证工作流配置"""
+        # 设置模拟
+        mock_adapter = Mock()
+        mock_adapter_class.return_value = mock_adapter
+        mock_adapter.validate_config.return_value = ["error1", "error2"]
+        
+        # 验证配置
+        result = self.factory.validate_workflow_config(self.mock_workflow_config)
+        
+        # 验证结果
+        self.assertEqual(result, ["error1", "error2"])
+        
+        # 验证调用
+        mock_adapter.validate_config.assert_called_once_with(self.mock_workflow_config)
+    
+    def test_initialize_workflow_with_state(self):
+        """测试使用初始状态初始化工作流"""
+        # 测试基本实现（目前直接返回工作流）
+        result = self.factory._initialize_workflow_with_state(
+            self.mock_workflow,
+            {"test": "state"},
+            self.mock_workflow_config
+        )
+        
+        # 验证结果
+        self.assertEqual(result, self.mock_workflow)
+    
+    def test_get_supported_state_types(self):
+        """测试获取支持的状态类型"""
+        result = self.factory.get_supported_state_types()
+        
+        # 验证结果
+        expected_types = ["base", "agent", "workflow", "react", "plan_execute"]
+        self.assertEqual(result, expected_types)
+    
+    def test_clone_workflow(self):
+        """测试克隆工作流"""
+        # 测试基本实现（目前直接返回原工作流）
+        result = self.factory.clone_workflow(self.mock_workflow)
+        
+        # 验证结果
+        self.assertEqual(result, self.mock_workflow)
+    
+    def test_get_workflow_info(self):
+        """测试获取工作流信息"""
+        # 创建模拟工作流
+        mock_workflow = Mock()
+        mock_workflow.__class__.__name__ = "TestWorkflow"
+        mock_workflow.__class__.__module__ = "test.module"
+        
+        # 获取工作流信息
+        result = self.factory.get_workflow_info(mock_workflow)
+        
+        # 验证结果
+        expected_info = {
+            "type": "TestWorkflow",
+            "module": "test.module"
+        }
+        self.assertEqual(result, expected_info)
+    
+    def test_get_workflow_info_with_graph(self):
+        """测试获取工作流信息（包含图信息）"""
+        # 创建模拟工作流和图
+        mock_graph = Mock()
+        mock_graph.nodes = ["node1", "node2"]
+        mock_graph.edges = ["edge1", "edge2"]
+        
+        mock_workflow = Mock()
+        mock_workflow.__class__.__name__ = "TestWorkflow"
+        mock_workflow.__class__.__module__ = "test.module"
+        mock_workflow.get_graph.return_value = mock_graph
+        
+        # 获取工作流信息
+        result = self.factory.get_workflow_info(mock_workflow)
+        
+        # 验证结果
+        expected_info = {
+            "type": "TestWorkflow",
+            "module": "test.module",
+            "node_count": "2",
+            "edge_count": "2"
+        }
+        self.assertEqual(result, expected_info)
+    
+    def test_get_workflow_info_with_graph_error(self):
+        """测试获取工作流信息（图访问出错）"""
+        # 创建模拟工作流
+        mock_workflow = Mock()
+        mock_workflow.__class__.__name__ = "TestWorkflow"
+        mock_workflow.__class__.__module__ = "test.module"
+        mock_workflow.get_graph.side_effect = Exception("Graph access error")
+        
+        # 获取工作流信息
+        result = self.factory.get_workflow_info(mock_workflow)
+        
+        # 验证结果（应该忽略错误）
+        expected_info = {
+            "type": "TestWorkflow",
+            "module": "test.module"
+        }
+        self.assertEqual(result, expected_info)
+
+
+if __name__ == '__main__':
+    unittest.main()

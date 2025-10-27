@@ -1,662 +1,470 @@
-"""工作流管理器测试"""
+"""工作流管理器测试
 
-import pytest
-from unittest.mock import Mock, patch, AsyncMock, mock_open
+测试工作流管理器的功能。
+"""
+
+import unittest
+from unittest.mock import Mock, MagicMock, patch, mock_open
 from pathlib import Path
-import tempfile
-import yaml
-import hashlib
+from datetime import datetime
+import uuid
 
-from src.application.workflow.manager import WorkflowManager, IWorkflowManager
-from src.infrastructure.graph.config import GraphConfig as WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
+from src.application.workflow.manager import WorkflowManager
+from src.infrastructure.graph.config import WorkflowConfig
+from src.infrastructure.graph.states import WorkflowState, StateFactory
 from src.infrastructure.graph.registry import NodeRegistry
-from src.infrastructure.graph.registry import BaseNode
-from src.infrastructure.graph.registry import NodeExecutionResult
-from src.infrastructure.graph.states import AgentState
+from src.infrastructure.config_loader import IConfigLoader
+from src.application.workflow.interfaces import IEventCollector
 
 
-class MockNode(BaseNode):
-    """模拟节点类"""
+class TestWorkflowManager(unittest.TestCase):
+    """测试工作流管理器"""
     
-    def __init__(self, node_type: str = "mock_node"):
-        self._node_type = node_type
-    
-    @property
-    def node_type(self) -> str:
-        return self._node_type
-    
-    def execute(self, state: AgentState, config: dict) -> NodeExecutionResult:
-        return NodeExecutionResult(state=state)
-    
-    def get_config_schema(self) -> dict:
-        return {"type": "object", "properties": {}}
-
-
-class TestWorkflowManager:
-    """工作流管理器测试"""
-
-    def test_init_with_default_components(self):
-        """测试使用默认组件初始化"""
-        manager = WorkflowManager()
+    def setUp(self):
+        """设置测试环境"""
+        self.mock_config_loader = Mock(spec=IConfigLoader)
+        self.mock_node_registry = Mock(spec=NodeRegistry)
+        self.mock_workflow_builder = Mock()
         
-        assert manager.node_registry is not None
-        assert manager.workflow_builder is not None
-        assert manager.config_loader is None
-        assert manager._workflows == {}
-        assert manager._workflow_configs == {}
-        assert manager._workflow_metadata == {}
-
-    def test_init_with_custom_components(self):
-        """测试使用自定义组件初始化"""
-        config_loader = Mock()
-        node_registry = NodeRegistry()
-        workflow_builder = Mock()
-        
-        manager = WorkflowManager(
-            config_loader=config_loader,
-            node_registry=node_registry,
-            workflow_builder=workflow_builder
+        self.manager = WorkflowManager(
+            config_loader=self.mock_config_loader,
+            node_registry=self.mock_node_registry,
+            workflow_builder=self.mock_workflow_builder
         )
         
-        assert manager.config_loader is config_loader
-        assert manager.node_registry is node_registry
-        assert manager.workflow_builder is workflow_builder
-
-    def test_load_workflow_success(self):
-        """测试成功加载工作流"""
-        # 创建临时配置文件
-        config_data = {
-            "name": "test_workflow",
-            "description": "测试工作流",
-            "nodes": {
-                "analyze": {
-                    "type": "mock_node"
-                }
-            },
-            "edges": [
-                {
-                    "from": "start",
-                    "to": "analyze",
-                    "type": "simple"
-                }
-            ]
-        }
+        # 创建模拟的工作流配置
+        self.mock_workflow_config = Mock(spec=WorkflowConfig)
+        self.mock_workflow_config.name = "test_workflow"
+        self.mock_workflow_config.description = "Test workflow"
+        self.mock_workflow_config.version = "1.0.0"
+        self.mock_workflow_config.additional_config = {"max_iterations": 10}
+        self.mock_workflow_config.nodes = {"node1": Mock()}
+        self.mock_workflow_config.edges = [Mock()]
+        self.mock_workflow_config.entry_point = "node1"
+        self.mock_workflow_config.to_dict.return_value = {"name": "test_workflow"}
         
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            yaml.dump(config_data, f)
-            temp_path = f.name
-        
-        try:
-            # 模拟工作流构建器
-            mock_workflow = Mock()
-            mock_workflow_builder = Mock()
-            mock_workflow_builder.load_workflow_config.return_value = WorkflowConfig.from_dict(config_data)
-            mock_workflow_builder.build_workflow.return_value = mock_workflow
-            
-            # 创建管理器
-            node_registry = NodeRegistry()
-            node_registry.register_node(MockNode)
-            
-            manager = WorkflowManager(
-                node_registry=node_registry,
-                workflow_builder=mock_workflow_builder
-            )
-            
-            # 加载工作流
-            workflow_id = manager.load_workflow(temp_path)
-            
-            # 验证结果
-            assert workflow_id is not None
-            assert workflow_id in manager._workflows
-            assert workflow_id in manager._workflow_configs
-            assert workflow_id in manager._workflow_metadata
-            
-            # 验证元数据
-            metadata = manager._workflow_metadata[workflow_id]
-            assert metadata["name"] == "test_workflow"
-            assert metadata["description"] == "测试工作流"
-            assert "loaded_at" in metadata
-            assert metadata["usage_count"] == 0
-            
-        finally:
-            Path(temp_path).unlink()
-
-    def test_load_workflow_file_not_found(self):
-        """测试加载不存在的工作流文件"""
+        # 创建模拟的工作流实例
+        self.mock_workflow = Mock()
+        self.mock_workflow.invoke.return_value = Mock(spec=WorkflowState)
+        self.mock_workflow.ainvoke = Mock()
+        self.mock_workflow.stream.return_value = [Mock(spec=WorkflowState)]
+    
+    def test_init(self):
+        """测试初始化"""
+        self.assertEqual(self.manager.config_loader, self.mock_config_loader)
+        self.assertEqual(self.manager.node_registry, self.mock_node_registry)
+        self.assertEqual(self.manager.workflow_builder, self.mock_workflow_builder)
+        self.assertEqual(len(self.manager._workflows), 0)
+        self.assertEqual(len(self.manager._workflow_configs), 0)
+        self.assertEqual(len(self.manager._workflow_metadata), 0)
+    
+    def test_init_with_defaults(self):
+        """测试使用默认值初始化"""
         manager = WorkflowManager()
+        self.assertIsNone(manager.config_loader)
+        self.assertIsNotNone(manager.node_registry)
+        self.assertIsNotNone(manager.workflow_builder)
+    
+    def test_load_workflow(self):
+        """测试加载工作流"""
+        # 设置模拟
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
         
-        with pytest.raises(FileNotFoundError):
-            manager.load_workflow("nonexistent.yaml")
-
-    def test_create_workflow_success(self):
-        """测试成功创建工作流实例"""
-        manager = WorkflowManager()
+        # 执行测试
+        workflow_id = self.manager.load_workflow("test_config.yaml")
         
-        # 添加模拟工作流
-        workflow_id = "test_workflow_id"
-        mock_workflow = Mock()
-        manager._workflows[workflow_id] = mock_workflow
-        manager._workflow_configs[workflow_id] = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流"
-        )
-        manager._workflow_metadata[workflow_id] = {
-            "usage_count": 0
-        }
+        # 验证结果
+        self.assertIsNotNone(workflow_id)
+        self.assertIn(workflow_id, self.manager._workflows)
+        self.assertIn(workflow_id, self.manager._workflow_configs)
+        self.assertIn(workflow_id, self.manager._workflow_metadata)
+        
+        # 验证调用
+        self.mock_workflow_builder.load_workflow_config.assert_called_once_with("test_config.yaml")
+        self.mock_workflow_builder.build_graph.assert_called_once_with(self.mock_workflow_config)
+        
+        # 验证元数据
+        metadata = self.manager._workflow_metadata[workflow_id]
+        self.assertEqual(metadata["name"], "test_workflow")
+        self.assertEqual(metadata["description"], "Test workflow")
+        self.assertEqual(metadata["version"], "1.0.0")
+        self.assertEqual(metadata["config_path"], "test_config.yaml")
+        self.assertIsNotNone(metadata["loaded_at"])
+        self.assertIsNone(metadata["last_used"])
+        self.assertEqual(metadata["usage_count"], 0)
+    
+    def test_create_workflow(self):
+        """测试创建工作流实例"""
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
+        
+        # 重置使用计数
+        self.manager._workflow_metadata[workflow_id]["usage_count"] = 0
         
         # 创建工作流实例
-        result = manager.create_workflow(workflow_id)
+        workflow = self.manager.create_workflow(workflow_id)
         
-        assert result is mock_workflow
+        # 验证结果
+        self.assertEqual(workflow, self.mock_workflow)
         
         # 验证使用统计更新
-        assert manager._workflow_metadata[workflow_id]["usage_count"] == 1
-        assert "last_used" in manager._workflow_metadata[workflow_id]
-
+        metadata = self.manager._workflow_metadata[workflow_id]
+        self.assertIsNotNone(metadata["last_used"])
+        self.assertEqual(metadata["usage_count"], 1)
+    
     def test_create_workflow_not_found(self):
-        """测试创建不存在的工作流实例"""
-        manager = WorkflowManager()
+        """测试创建不存在的工作流"""
+        with self.assertRaises(ValueError) as context:
+            self.manager.create_workflow("nonexistent_workflow")
         
-        with pytest.raises(ValueError, match="工作流 'nonexistent' 不存在"):
-            manager.create_workflow("nonexistent")
-
-    @patch('src.workflow.manager.WorkflowManager.create_workflow')
-    def test_run_workflow_success(self, mock_create_workflow):
-        """测试成功运行工作流"""
-        # 模拟工作流
-        mock_workflow = Mock()
-        mock_workflow.invoke.return_value = AgentState()
-        mock_create_workflow.return_value = mock_workflow
+        self.assertIn("不存在", str(context.exception))
+    
+    def test_run_workflow(self):
+        """测试运行工作流"""
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
         
-        manager = WorkflowManager()
-        
-        # 添加工作流配置
-        workflow_id = "test_workflow_id"
-        manager._workflow_configs[workflow_id] = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流",
-            additional_config={"max_iterations": 5}
-        )
+        # 创建模拟的事件收集器
+        mock_event_collector = Mock(spec=IEventCollector)
         
         # 运行工作流
-        initial_state = AgentState()
-        result = manager.run_workflow(workflow_id, initial_state)
+        result = self.manager.run_workflow(workflow_id, event_collector=mock_event_collector)
         
         # 验证结果
-        assert isinstance(result, AgentState)
-        mock_create_workflow.assert_called_once_with(workflow_id)
-        mock_workflow.invoke.assert_called_once()
-
-    @patch('src.workflow.manager.WorkflowManager.create_workflow')
-    def test_run_workflow_without_initial_state(self, mock_create_workflow):
-        """测试不提供初始状态运行工作流"""
-        # 模拟工作流
-        mock_workflow = Mock()
-        mock_workflow.invoke.return_value = AgentState()
-        mock_create_workflow.return_value = mock_workflow
+        self.assertIsNotNone(result)
         
-        manager = WorkflowManager()
-        
-        # 添加工作流配置
-        workflow_id = "test_workflow_id"
-        manager._workflow_configs[workflow_id] = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流"
-        )
-        
-        # 运行工作流（不提供初始状态）
-        result = manager.run_workflow(workflow_id)
-        
-        # 验证结果
-        assert isinstance(result, AgentState)
-        mock_workflow.invoke.assert_called_once()
-        
-        # 验证传递给invoke的参数是AgentState实例
-        call_args = mock_workflow.invoke.call_args[0]
-        assert isinstance(call_args[0], AgentState)
-
-    @patch('src.workflow.manager.WorkflowManager.create_workflow')
-    def test_run_workflow_error(self, mock_create_workflow):
-        """测试运行工作流时发生错误"""
-        # 模拟工作流抛出异常
-        mock_workflow = Mock()
-        mock_workflow.invoke.side_effect = Exception("测试错误")
-        mock_create_workflow.return_value = mock_workflow
-        
-        manager = WorkflowManager()
-        
-        # 添加工作流配置
-        workflow_id = "test_workflow_id"
-        manager._workflow_configs[workflow_id] = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流"
-        )
-        # 添加工作流元数据（这是修复的关键）
-        manager._workflow_metadata[workflow_id] = {
-            "name": "test_workflow",
-            "description": "测试工作流",
-            "usage_count": 0
-        }
-        
-        # 运行工作流应该抛出异常
-        with pytest.raises(Exception, match="测试错误"):
-            manager.run_workflow(workflow_id)
-        
-        # 验证错误被记录
-        metadata = manager._workflow_metadata[workflow_id]
-        assert "errors" in metadata
-        assert len(metadata["errors"]) == 1
-        assert metadata["errors"][0]["error_message"] == "测试错误"
-
-    @pytest.mark.asyncio
-    @patch('src.workflow.manager.WorkflowManager.create_workflow')
-    async def test_run_workflow_async_success(self, mock_create_workflow):
-        """测试异步成功运行工作流"""
-        # 模拟异步工作流
-        mock_workflow = AsyncMock()
-        mock_workflow.ainvoke.return_value = AgentState()
-        mock_create_workflow.return_value = mock_workflow
-        
-        manager = WorkflowManager()
-        
-        # 添加工作流配置
-        workflow_id = "test_workflow_id"
-        manager._workflow_configs[workflow_id] = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流"
-        )
-        
-        # 异步运行工作流
-        result = await manager.run_workflow_async(workflow_id)
-        
-        # 验证结果
-        assert isinstance(result, AgentState)
-        mock_create_workflow.assert_called_once_with(workflow_id)
-        mock_workflow.ainvoke.assert_called_once()
-
-    @pytest.mark.asyncio
-    @patch('src.workflow.manager.WorkflowManager.create_workflow')
-    async def test_run_workflow_async_fallback_to_sync(self, mock_create_workflow):
-        """测试异步运行工作流时回退到同步方式"""
-        # 模拟不支持异步的工作流
-        mock_workflow = Mock()
-        mock_workflow.invoke.return_value = AgentState()
-        # 模拟没有ainvoke方法
-        del mock_workflow.ainvoke
-        mock_create_workflow.return_value = mock_workflow
-        
-        manager = WorkflowManager()
-        
-        # 添加工作流配置
-        workflow_id = "test_workflow_id"
-        manager._workflow_configs[workflow_id] = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流"
-        )
-        
-        # 异步运行工作流
-        result = await manager.run_workflow_async(workflow_id)
-        
-        # 验证结果
-        assert isinstance(result, AgentState)
-        mock_workflow.invoke.assert_called_once()
-
-    @patch('src.workflow.manager.WorkflowManager.create_workflow')
-    def test_stream_workflow_success(self, mock_create_workflow):
-        """测试成功流式运行工作流"""
-        # 模拟支持流式的工作流
-        mock_workflow = Mock()
-        mock_workflow.stream.return_value = [AgentState(), AgentState()]
-        mock_create_workflow.return_value = mock_workflow
-        
-        manager = WorkflowManager()
-        
-        # 添加工作流配置
-        workflow_id = "test_workflow_id"
-        manager._workflow_configs[workflow_id] = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流"
-        )
-        
-        # 流式运行工作流
-        results = list(manager.stream_workflow(workflow_id))
-        
-        # 验证结果
-        assert len(results) == 2
-        assert all(isinstance(r, AgentState) for r in results)
-        mock_workflow.stream.assert_called_once()
-
-    @patch('src.workflow.manager.WorkflowManager.create_workflow')
-    def test_stream_workflow_fallback_to_invoke(self, mock_create_workflow):
-        """测试流式运行工作流时回退到invoke方式"""
-        # 模拟不支持流式的工作流
-        mock_workflow = Mock()
-        mock_workflow.invoke.return_value = AgentState()
-        # 模拟没有stream方法
-        del mock_workflow.stream
-        mock_create_workflow.return_value = mock_workflow
-        
-        manager = WorkflowManager()
-        
-        # 添加工作流配置
-        workflow_id = "test_workflow_id"
-        manager._workflow_configs[workflow_id] = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流"
-        )
-        
-        # 流式运行工作流
-        results = list(manager.stream_workflow(workflow_id))
-        
-        # 验证结果
-        assert len(results) == 1
-        assert isinstance(results[0], AgentState)
-        mock_workflow.invoke.assert_called_once()
-
-    def test_list_workflows(self):
-        """测试列出工作流"""
-        manager = WorkflowManager()
-        
-        # 添加工作流
-        manager._workflows["workflow1"] = Mock()
-        manager._workflows["workflow2"] = Mock()
-        
-        workflows = manager.list_workflows()
-        
-        assert len(workflows) == 2
-        assert "workflow1" in workflows
-        assert "workflow2" in workflows
-
-    def test_get_workflow_config(self):
-        """测试获取工作流配置"""
-        manager = WorkflowManager()
-        
-        # 添加工作流配置
-        workflow_id = "test_workflow_id"
-        config = WorkflowConfig(name="test_workflow", description="测试工作流")
-        manager._workflow_configs[workflow_id] = config
-        
-        # 获取配置
-        result = manager.get_workflow_config(workflow_id)
-        
-        assert result is config
-
-    def test_get_workflow_config_not_found(self):
-        """测试获取不存在的工作流配置"""
-        manager = WorkflowManager()
-        
-        result = manager.get_workflow_config("nonexistent")
-        
-        assert result is None
-
-    def test_unload_workflow_success(self):
-        """测试成功卸载工作流"""
-        manager = WorkflowManager()
-        
-        # 添加工作流
-        workflow_id = "test_workflow_id"
-        manager._workflows[workflow_id] = Mock()
-        manager._workflow_configs[workflow_id] = Mock()
-        manager._workflow_metadata[workflow_id] = Mock()
-        
-        # 卸载工作流
-        result = manager.unload_workflow(workflow_id)
-        
-        assert result is True
-        assert workflow_id not in manager._workflows
-        assert workflow_id not in manager._workflow_configs
-        assert workflow_id not in manager._workflow_metadata
-
-    def test_unload_workflow_not_found(self):
-        """测试卸载不存在的工作流"""
-        manager = WorkflowManager()
-        
-        result = manager.unload_workflow("nonexistent")
-        
-        assert result is False
-
-    def test_get_workflow_metadata(self):
-        """测试获取工作流元数据"""
-        manager = WorkflowManager()
-        
-        # 添加工作流元数据
-        workflow_id = "test_workflow_id"
-        metadata = {"name": "test_workflow"}
-        manager._workflow_metadata[workflow_id] = metadata
-        
-        # 获取元数据
-        result = manager.get_workflow_metadata(workflow_id)
-        
-        assert result is metadata
-
-    def test_get_workflow_metadata_not_found(self):
-        """测试获取不存在的工作流元数据"""
-        manager = WorkflowManager()
-        
-        result = manager.get_workflow_metadata("nonexistent")
-        
-        assert result is None
-
-    def test_reload_workflow_success(self):
-        """测试成功重新加载工作流"""
-        # 创建临时配置文件
-        config_data = {
-            "name": "test_workflow",
-            "description": "测试工作流",
-            "version": "2.0"
-        }
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            yaml.dump(config_data, f)
-            temp_path = f.name
-        
-        try:
-            # 模拟工作流构建器
-            mock_workflow = Mock()
-            mock_workflow_builder = Mock()
-            mock_workflow_builder.load_workflow_config.return_value = WorkflowConfig.from_dict(config_data)
-            mock_workflow_builder.build_workflow.return_value = mock_workflow
-            
-            manager = WorkflowManager(workflow_builder=mock_workflow_builder)
-            
-            # 添加工作流
-            workflow_id = "test_workflow_id"
-            manager._workflows[workflow_id] = Mock()
-            manager._workflow_configs[workflow_id] = WorkflowConfig(
-                name="test_workflow",
-                description="测试工作流",
-                version="1.0"
-            )
-            manager._workflow_metadata[workflow_id] = {
-                "config_path": temp_path,
-                "version": "1.0"
-            }
-            
-            # 重新加载工作流
-            result = manager.reload_workflow(workflow_id)
-            
-            assert result is True
-            assert manager._workflow_configs[workflow_id].version == "2.0"
-            assert manager._workflow_metadata[workflow_id]["version"] == "2.0"
-            
-        finally:
-            Path(temp_path).unlink()
-
-    def test_reload_workflow_not_found(self):
-        """测试重新加载不存在的工作流"""
-        manager = WorkflowManager()
-        
-        result = manager.reload_workflow("nonexistent")
-        
-        assert result is False
-
-    def test_reload_workflow_no_config_path(self):
-        """测试重新加载没有配置路径的工作流"""
-        manager = WorkflowManager()
-        
-        # 添加工作流（没有配置路径）
-        workflow_id = "test_workflow_id"
-        manager._workflow_configs[workflow_id] = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流"
-        )
-        manager._workflow_metadata[workflow_id] = {}
-        
-        result = manager.reload_workflow(workflow_id)
-        
-        assert result is False
-
-    def test_generate_workflow_id(self):
-        """测试生成工作流ID"""
-        manager = WorkflowManager()
-        
-        workflow_id = manager._generate_workflow_id("test_workflow")
-        
-        assert workflow_id.startswith("test_workflow_")
-        assert len(workflow_id) > len("test_workflow_")
-
-    def test_log_workflow_error(self):
-        """测试记录工作流错误"""
-        manager = WorkflowManager()
-        
-        # 添加工作流元数据
-        workflow_id = "test_workflow_id"
-        manager._workflow_metadata[workflow_id] = {}
-        
-        # 记录错误
-        error = Exception("测试错误")
-        manager._log_workflow_error(workflow_id, error)
-        
-        # 验证错误被记录
-        metadata = manager._workflow_metadata[workflow_id]
-        assert "errors" in metadata
-        assert len(metadata["errors"]) == 1
-        assert metadata["errors"][0]["error_type"] == "Exception"
-        assert metadata["errors"][0]["error_message"] == "测试错误"
-
-    def test_get_workflow_summary_success(self):
-        """测试成功获取工作流摘要"""
-        manager = WorkflowManager()
-        
-        # 添加工作流配置和元数据
-        workflow_id = "test_workflow_id"
-        config = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流",
-            version="1.0.0"
-        )
-        manager._workflow_configs[workflow_id] = config
-        manager._workflow_metadata[workflow_id] = {
-            "config_path": "configs/workflows/test.yaml",
-            "loaded_at": "2023-01-01T00:00:00",
-            "last_used": "2023-01-01T01:00:00",
-            "usage_count": 5
-        }
-        
-        # 模拟配置文件存在并计算校验和
-        with patch('pathlib.Path.exists', return_value=True):
-            with patch('builtins.open', mock_open(read_data=b'test config content')):
-                result = manager.get_workflow_summary(workflow_id)
-        
-        # 验证结果
-        assert result["workflow_id"] == workflow_id
-        assert result["name"] == "test_workflow"
-        assert result["description"] == "测试工作流"
-        assert result["version"] == "1.0.0"
-        assert result["config_path"] == "configs/workflows/test.yaml"
-        assert result["loaded_at"] == "2023-01-01T00:00:00"
-        assert result["last_used"] == "2023-01-01T01:00:00"
-        assert result["usage_count"] == 5
-        assert "checksum" in result
-
-    def test_get_workflow_summary_not_found(self):
-        """测试获取不存在的工作流摘要"""
-        manager = WorkflowManager()
-        
-        result = manager.get_workflow_summary("nonexistent")
-        
-        assert result == {}
-
-    def test_get_workflow_summary_file_not_exists(self):
-        """测试配置文件不存在时获取工作流摘要"""
-        manager = WorkflowManager()
-        
-        # 添加工作流配置和元数据
-        workflow_id = "test_workflow_id"
-        config = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流",
-            version="1.0.0"
-        )
-        manager._workflow_configs[workflow_id] = config
-        manager._workflow_metadata[workflow_id] = {
-            "config_path": "configs/workflows/nonexistent.yaml"
-        }
-        
-        # 模拟配置文件不存在
-        with patch('pathlib.Path.exists', return_value=False):
-            result = manager.get_workflow_summary(workflow_id)
-        
-        # 验证结果
-        assert result["workflow_id"] == workflow_id
-        assert result["name"] == "test_workflow"
-        assert result["checksum"] == ""  # 文件不存在时校验和为空
-
-    def test_run_workflow_with_event_collector(self):
-        """测试带事件收集器运行工作流"""
-        # 模拟工作流
-        mock_workflow = Mock()
-        mock_workflow.invoke.return_value = AgentState()
-        
-        manager = WorkflowManager()
-        
-        # 添加工作流配置
-        workflow_id = "test_workflow_id"
-        config = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流"
-        )
-        manager._workflow_configs[workflow_id] = config
-        manager._workflows[workflow_id] = mock_workflow
-        
-        # 模拟事件收集器
-        mock_event_collector = Mock()
-        
-        # 运行工作流
-        initial_state = AgentState()
-        result = manager.run_workflow(workflow_id, initial_state, mock_event_collector)
-        
-        # 验证结果
-        assert isinstance(result, AgentState)
-        
-        # 验证事件收集器被调用
+        # 验证调用
+        self.mock_workflow.invoke.assert_called_once()
         mock_event_collector.collect_workflow_start.assert_called_once()
         mock_event_collector.collect_workflow_end.assert_called_once()
-
-    def test_run_workflow_with_event_collector_error(self):
-        """测试带事件收集器运行工作流时发生错误"""
-        # 模拟工作流抛出异常
-        mock_workflow = Mock()
-        mock_workflow.invoke.side_effect = Exception("测试错误")
+    
+    def test_run_workflow_with_initial_state(self):
+        """测试使用初始状态运行工作流"""
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
         
-        manager = WorkflowManager()
+        # 创建初始状态
+        initial_state = Mock(spec=WorkflowState)
+        # 为initial_state添加字典接口支持
+        initial_state.__setitem__ = Mock()
+        initial_state.__getitem__ = Mock()
         
-        # 添加工作流配置
-        workflow_id = "test_workflow_id"
-        config = WorkflowConfig(
-            name="test_workflow",
-            description="测试工作流"
-        )
-        manager._workflow_configs[workflow_id] = config
-        manager._workflows[workflow_id] = mock_workflow
-        manager._workflow_metadata[workflow_id] = {}
+        # 运行工作流
+        result = self.manager.run_workflow(workflow_id, initial_state=initial_state)
         
-        # 模拟事件收集器
-        mock_event_collector = Mock()
+        # 验证结果
+        self.assertIsNotNone(result)
+        
+        # 验证调用
+        self.mock_workflow.invoke.assert_called_once()
+        args, kwargs = self.mock_workflow.invoke.call_args
+        self.assertEqual(args[0], initial_state)
+    
+    def test_run_workflow_error(self):
+        """测试运行工作流时出错"""
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
+        
+        # 设置工作流抛出异常
+        test_error = Exception("Test error")
+        self.mock_workflow.invoke.side_effect = test_error
+        
+        # 创建模拟的事件收集器
+        mock_event_collector = Mock(spec=IEventCollector)
         
         # 运行工作流应该抛出异常
-        with pytest.raises(Exception, match="测试错误"):
-            manager.run_workflow(workflow_id, event_collector=mock_event_collector)
+        with self.assertRaises(Exception) as context:
+            self.manager.run_workflow(workflow_id, event_collector=mock_event_collector)
         
-        # 验证错误事件被收集
+        self.assertEqual(str(context.exception), "Test error")
+        
+        # 验证错误收集
         mock_event_collector.collect_error.assert_called_once()
+        
+        # 验证错误记录
+        metadata = self.manager._workflow_metadata[workflow_id]
+        self.assertIn("errors", metadata)
+        self.assertEqual(len(metadata["errors"]), 1)
+        self.assertEqual(metadata["errors"][0]["error_type"], "Exception")
+        self.assertEqual(metadata["errors"][0]["error_message"], "Test error")
+    
+    def test_run_workflow_async(self):
+        """测试异步运行工作流"""
+        import asyncio
+        from unittest.mock import AsyncMock
+        
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
+        
+        # 设置异步返回值
+        async_result = Mock(spec=WorkflowState)
+        self.mock_workflow.ainvoke = AsyncMock(return_value=async_result)
+        
+        # 运行异步工作流
+        async def run_test():
+            return await self.manager.run_workflow_async(workflow_id)
+        
+        result = asyncio.run(run_test())
+        
+        # 验证结果
+        self.assertIsNotNone(result)
+        self.assertEqual(result, async_result)
+    
+    def test_stream_workflow(self):
+        """测试流式运行工作流"""
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
+        
+        # 流式运行工作流
+        results = list(self.manager.stream_workflow(workflow_id))
+        
+        # 验证结果
+        self.assertEqual(len(results), 1)
+        
+        # 验证调用
+        self.mock_workflow.stream.assert_called_once()
+    
+    def test_stream_workflow_without_stream_support(self):
+        """测试工作流不支持流式运行"""
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
+        
+        # 移除stream方法
+        del self.mock_workflow.stream
+        
+        # 流式运行工作流
+        results = list(self.manager.stream_workflow(workflow_id))
+        
+        # 验证结果
+        self.assertEqual(len(results), 1)
+        
+        # 验证调用
+        self.mock_workflow.invoke.assert_called_once()
+    
+    def test_list_workflows(self):
+        """测试列出工作流"""
+        # 初始状态应该为空
+        self.assertEqual(self.manager.list_workflows(), [])
+        
+        # 加载工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id1 = self.manager.load_workflow("test_config1.yaml")
+        workflow_id2 = self.manager.load_workflow("test_config2.yaml")
+        
+        # 列出工作流
+        workflows = self.manager.list_workflows()
+        
+        # 验证结果
+        self.assertEqual(len(workflows), 2)
+        self.assertIn(workflow_id1, workflows)
+        self.assertIn(workflow_id2, workflows)
+    
+    def test_get_workflow_config(self):
+        """测试获取工作流配置"""
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
+        
+        # 获取配置
+        config = self.manager.get_workflow_config(workflow_id)
+        
+        # 验证结果
+        self.assertEqual(config, self.mock_workflow_config)
+        
+        # 获取不存在的配置
+        config = self.manager.get_workflow_config("nonexistent")
+        self.assertIsNone(config)
+    
+    def test_unload_workflow(self):
+        """测试卸载工作流"""
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
+        
+        # 卸载工作流
+        result = self.manager.unload_workflow(workflow_id)
+        
+        # 验证结果
+        self.assertTrue(result)
+        self.assertNotIn(workflow_id, self.manager._workflows)
+        self.assertNotIn(workflow_id, self.manager._workflow_configs)
+        self.assertNotIn(workflow_id, self.manager._workflow_metadata)
+        
+        # 卸载不存在的工作流
+        result = self.manager.unload_workflow("nonexistent")
+        self.assertFalse(result)
+    
+    def test_get_workflow_visualization(self):
+        """测试获取工作流可视化数据"""
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
+        
+        # 获取可视化数据
+        viz_data = self.manager.get_workflow_visualization(workflow_id)
+        
+        # 验证结果
+        self.assertEqual(viz_data["workflow_id"], workflow_id)
+        self.assertEqual(viz_data["name"], "test_workflow")
+        self.assertEqual(viz_data["description"], "Test workflow")
+        self.assertEqual(viz_data["version"], "1.0.0")
+        self.assertIn("nodes", viz_data)
+        self.assertIn("edges", viz_data)
+        self.assertEqual(viz_data["entry_point"], "node1")
+        
+        # 获取不存在的工作流可视化
+        viz_data = self.manager.get_workflow_visualization("nonexistent")
+        self.assertEqual(viz_data, {})
+    
+    def test_get_workflow_summary(self):
+        """测试获取工作流摘要"""
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
+        
+        # 获取摘要
+        summary = self.manager.get_workflow_summary(workflow_id)
+        
+        # 验证结果
+        self.assertEqual(summary["workflow_id"], workflow_id)
+        self.assertEqual(summary["name"], "test_workflow")
+        self.assertEqual(summary["version"], "1.0.0")
+        self.assertEqual(summary["description"], "Test workflow")
+        self.assertEqual(summary["config_path"], "test_config.yaml")
+        self.assertIn("checksum", summary)
+        self.assertIn("loaded_at", summary)
+        self.assertIn("last_used", summary)
+        self.assertEqual(summary["usage_count"], 0)
+        
+        # 获取不存在的工作流摘要
+        summary = self.manager.get_workflow_summary("nonexistent")
+        self.assertEqual(summary, {})
+    
+    @patch('builtins.open', new_callable=mock_open, read_data=b"test content")
+    @patch('pathlib.Path.exists')
+    def test_get_workflow_summary_with_checksum(self, mock_exists, mock_file):
+        """测试获取工作流摘要（包含校验和）"""
+        # 设置文件存在
+        mock_exists.return_value = True
+        
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
+        
+        # 获取摘要
+        summary = self.manager.get_workflow_summary(workflow_id)
+        
+        # 验证校验和
+        self.assertNotEqual(summary["checksum"], "")
+        # 使用实际计算的MD5值而不是硬编码的值
+        import hashlib
+        expected_checksum = hashlib.md5(b"test content").hexdigest()
+        self.assertEqual(summary["checksum"], expected_checksum)
+    
+    def test_get_workflow_metadata(self):
+        """测试获取工作流元数据"""
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
+        
+        # 获取元数据
+        metadata = self.manager.get_workflow_metadata(workflow_id)
+        
+        # 验证结果
+        self.assertIsNotNone(metadata)
+        if metadata is not None:
+            self.assertEqual(metadata["name"], "test_workflow")
+        
+        # 获取不存在的元数据
+        metadata = self.manager.get_workflow_metadata("nonexistent")
+        self.assertIsNone(metadata)
+    
+    @patch('pathlib.Path.exists')
+    def test_reload_workflow(self, mock_path_exists):
+        """测试重新加载工作流"""
+        # 设置文件存在
+        mock_path_exists.return_value = True
+        
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
+        
+        # 创建新的配置
+        new_config = Mock(spec=WorkflowConfig)
+        new_config.name = "test_workflow"
+        new_config.version = "2.0.0"
+        new_workflow = Mock()
+        
+        self.mock_workflow_builder.load_workflow_config.return_value = new_config
+        self.mock_workflow_builder.build_graph.return_value = new_workflow
+        
+        # 重新加载工作流
+        result = self.manager.reload_workflow(workflow_id)
+        
+        # 验证结果
+        self.assertTrue(result)
+        self.assertEqual(self.manager._workflows[workflow_id], new_workflow)
+        self.assertEqual(self.manager._workflow_configs[workflow_id], new_config)
+        
+        # 验证元数据更新
+        metadata = self.manager._workflow_metadata[workflow_id]
+        self.assertEqual(metadata["version"], "2.0.0")
+        
+        # 重新加载不存在的工作流
+        result = self.manager.reload_workflow("nonexistent")
+        self.assertFalse(result)
+    
+    def test_generate_workflow_id(self):
+        """测试生成工作流ID"""
+        workflow_id = self.manager._generate_workflow_id("test_workflow")
+        
+        # 验证ID格式
+        self.assertTrue(workflow_id.startswith("test_workflow_"))
+        self.assertIn("_", workflow_id)
+        self.assertGreater(len(workflow_id), len("test_workflow_"))
+    
+    def test_log_workflow_error(self):
+        """测试记录工作流错误"""
+        # 先加载一个工作流
+        self.mock_workflow_builder.load_workflow_config.return_value = self.mock_workflow_config
+        self.mock_workflow_builder.build_graph.return_value = self.mock_workflow
+        workflow_id = self.manager.load_workflow("test_config.yaml")
+        
+        # 记录错误
+        test_error = Exception("Test error")
+        self.manager._log_workflow_error(workflow_id, test_error)
+        
+        # 验证错误记录
+        metadata = self.manager._workflow_metadata[workflow_id]
+        self.assertIn("errors", metadata)
+        self.assertEqual(len(metadata["errors"]), 1)
+        self.assertEqual(metadata["errors"][0]["error_type"], "Exception")
+        self.assertEqual(metadata["errors"][0]["error_message"], "Test error")
+        self.assertIn("timestamp", metadata["errors"][0])
+
+
+if __name__ == '__main__':
+    unittest.main()
