@@ -14,8 +14,9 @@ from datetime import datetime
 
 from ..workflow.manager import IWorkflowManager
 from ...infrastructure.graph.config import GraphConfig as WorkflowConfig
-from ...infrastructure.graph.states import AgentState
+from ...infrastructure.graph.state import AgentState
 from ...domain.sessions.store import ISessionStore
+from ...domain.tools.interfaces import ToolResult
 from .git_manager import IGitManager
 
 # 设置日志
@@ -474,7 +475,12 @@ class SessionManager(ISessionManager):
         # 检查配置校验和
         saved_checksum = saved_summary.get("checksum")
         current_checksum = current_summary.get("checksum")
-        return saved_checksum == current_checksum
+        
+        # 确保返回明确的布尔值
+        if saved_checksum is None or current_checksum is None:
+            return False
+        
+        return bool(saved_checksum == current_checksum)
 
     def _calculate_config_checksum(self, config_path: str) -> str:
         """计算配置文件校验和"""
@@ -552,10 +558,10 @@ class SessionManager(ISessionManager):
             ],
             "tool_results": [
                 {
-                    "tool_name": result.tool_name,
-                    "success": result.success,
-                    "result": result.result,
-                    "error": result.error
+                    "tool_name": result.get("tool_name", "") if isinstance(result, dict) else getattr(result, "tool_name", ""),
+                    "success": result.get("success", False) if isinstance(result, dict) else getattr(result, "success", False),
+                    "result": result.get("result") if isinstance(result, dict) else getattr(result, "output", None),
+                    "error": result.get("error") if isinstance(result, dict) else getattr(result, "error", None)
                 }
                 for result in state.get("tool_results", [])
             ],
@@ -567,9 +573,9 @@ class SessionManager(ISessionManager):
             "errors": state.get("errors", [])
         }
 
-    def _deserialize_state(self, state_data: dict[str, Any]) -> dict[str, Any]:
+    def _deserialize_state(self, state_data: dict[str, Any]) -> AgentState:
         """反序列化状态"""
-        state = {
+        state: AgentState = {
             "messages": [],
             "tool_results": [],
             "current_step": "",
@@ -577,11 +583,16 @@ class SessionManager(ISessionManager):
             "iteration_count": 0,
             "workflow_name": "",
             "start_time": None,
-            "errors": []
+            "errors": [],
+            "input": "",
+            "output": None,
+            "tool_calls": [],
+            "complete": False,
+            "metadata": {}
         }
 
         # 恢复消息
-        from ...application.workflow.state import BaseMessage
+        from ...infrastructure.graph.state import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
         for msg_data in state_data.get("messages", []):
             msg: BaseMessage
             try:
@@ -590,16 +601,12 @@ class SessionManager(ISessionManager):
                 role_str = msg_data.get("role", "human")
 
                 if msg_type == "HumanMessage":
-                    from src.application.workflow.state import HumanMessage
                     msg = HumanMessage(content=msg_data.get("content", ""))
                 elif msg_type == "SystemMessage":
-                    from src.application.workflow.state import SystemMessage
                     msg = SystemMessage(content=msg_data.get("content", ""))
                 elif msg_type == "AIMessage":
-                    from src.application.workflow.state import AIMessage
                     msg = AIMessage(content=msg_data.get("content", ""))
                 elif msg_type == "ToolMessage":
-                    from src.application.workflow.state import ToolMessage
                     msg = ToolMessage(content=msg_data.get("content", ""))
                 else:
                     msg = BaseMessage(content=msg_data.get("content", ""), type=role_str)
@@ -612,14 +619,13 @@ class SessionManager(ISessionManager):
                 state["messages"].append(msg)
 
         # 恢复工具结果
-        from src.application.workflow.state import ToolResult
         for result_data in state_data.get("tool_results", []):
-            result = ToolResult(
-                tool_name=result_data.get("tool_name", ""),
-                success=result_data.get("success", False),
-                output=result_data.get("result"),
-                error=result_data.get("error")
-            )
+            result = {
+                "tool_name": result_data.get("tool_name", ""),
+                "success": result_data.get("success", False),
+                "result": result_data.get("result"),
+                "error": result_data.get("error")
+            }
             state["tool_results"].append(result)
 
         # 恢复其他属性
@@ -632,7 +638,12 @@ class SessionManager(ISessionManager):
         start_time_str = state_data.get("start_time")
         if start_time_str:
             try:
-                state["start_time"] = datetime.fromisoformat(start_time_str)
+                # 如果已经是字符串格式，直接使用
+                if isinstance(start_time_str, str):
+                    state["start_time"] = start_time_str
+                else:
+                    # 否则转换为ISO格式字符串
+                    state["start_time"] = start_time_str.isoformat()
             except (ValueError, TypeError):
                 state["start_time"] = None
         else:
