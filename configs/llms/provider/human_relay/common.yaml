@@ -1,0 +1,44 @@
+# HumanRelay通用配置
+model_type: human_relay
+base_url: null  # 不使用API端点
+
+parameters:
+  mode: "single"  # single 或 multi
+  frontend_timeout: 300  # 前端等待超时时间（秒）
+  max_history_length: 50  # 多轮对话最大历史长度
+
+# HumanRelay特定配置
+human_relay_config:
+  prompt_template: |
+    请将以下提示词输入到Web LLM中，并将回复粘贴回来：
+    
+    {prompt}
+    
+    回复：
+  incremental_prompt_template: |
+    请继续对话，将以下提示词输入到Web LLM中：
+    
+    {incremental_prompt}
+    
+    对话历史：
+    {conversation_history}
+    
+    回复：
+  frontend_interface:
+    interface_type: "tui"  # tui 或 web
+    tui_config:
+      prompt_style: "highlight"
+      input_area_height: 10
+    web_config:
+      endpoint: "/api/human-relay"
+      websocket: true
+
+# 元数据
+metadata:
+  provider: human_relay
+  version: "1.0"
+  description: "HumanRelay LLM - 通过前端与Web LLM交互"
+  capabilities:
+    - human_interaction
+    - web_llm_integration
+    - configurable_modes

@@ -1,0 +1,12 @@
+# HumanRelay单轮对话模式配置
+inherits_from: "../common.yaml"
+model_name: human-relay-s
+
+parameters:
+  mode: "single"
+
+metadata:
+  description: "HumanRelay单轮对话模式"
+  capabilities:
+    - human_interaction
+    - web_llm_integration
