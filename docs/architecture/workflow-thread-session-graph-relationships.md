@@ -181,36 +181,43 @@ async def create_session_with_thread(self, ...):
 
 ## 架构改进建议
 
-### 1. 职责边界重构
+### 1. 职责边界重构（推荐方案）
 
-**解决方案**:
-- **Workflow**: 纯配置管理，不涉及执行状态
-- **Graph**: 纯执行引擎，接收状态，输出状态
-- **Session**: 执行实例管理，负责状态持久化
-- **Thread**: 状态版本管理，支持分支和回滚
+**解决方案**: 将Session提升为工作单元容器，管理多个线程执行
 
 **重构后的职责**:
+- **Session**: 工作单元容器，管理多个线程的协调和生命周期
+- **Thread**: 执行单元，负责单个工作流的执行和状态版本管理
+- **Workflow**: 纯配置管理，不涉及执行状态
+- **Graph**: 纯执行引擎，接收状态，输出状态
+
 ```python
 class ISessionManager(ABC):
-    def create_execution_context(self, workflow_config_path: str) -> str:
-        """创建执行上下文，返回session_id"""
+    """Session管理器接口"""
+    
+    async def create_multi_thread_session(
+        self,
+        workflow_configs: Dict[str, str],  # 线程名 -> 工作流配置
+        thread_dependencies: Dict[str, List[str]]  # 线程依赖关系
+    ) -> str:
+        """创建多线程会话"""
         pass
-
-    def save_execution_state(self, session_id: str, state: AgentState) -> bool:
-        """保存执行状态"""
+    
+    async def add_thread_to_session(
+        self,
+        session_id: str,
+        thread_name: str,
+        workflow_config: str
+    ) -> bool:
+        """向会话添加新线程"""
         pass
-
-    def restore_execution_context(self, session_id: str) -> Tuple[Any, AgentState]:
-        """恢复执行上下文"""
+    
+    async def get_session_threads(self, session_id: str) -> Dict[str, Any]:
+        """获取会话的所有线程信息"""
         pass
-
-class IThreadManager(ABC):
-    def create_state_branch(self, session_id: str, checkpoint_id: str, branch_name: str) -> str:
-        """创建状态分支，返回新session_id"""
-        pass
-
-    def get_state_history(self, session_id: str) -> List[Dict[str, Any]]:
-        """获取状态历史"""
+    
+    async def coordinate_threads(self, session_id: str) -> bool:
+        """协调会话中的多个线程"""
         pass
 ```
 
@@ -236,23 +243,25 @@ class IStateManager(ABC):
         pass
 ```
 
-### 3. 事务性映射管理
+### 3. 事务性操作管理
 
 **解决方案**:
-- SessionThreadMapper实现事务性操作
-- 失败时自动回滚，保证数据一致性
+- 实现事务性操作，保证数据一致性
+- 失败时自动回滚，避免数据不一致
 
-**改进的映射管理**:
+**改进的事务管理**:
 ```python
-class SessionThreadMapper:
-    async def create_session_with_thread(self, ...):
+class TransactionalSessionManager:
+    async def create_session_with_threads(self, ...):
         async with self._transaction():
             try:
-                session_id = await self.session_manager.create_session(...)
-                thread_id = await self.thread_manager.create_thread(...)
-                await self._save_mapping(session_id, thread_id)
+                # 原子性创建session和threads
+                session_id = await self.create_session(...)
+                for thread_config in thread_configs:
+                    thread_id = await self.create_thread(...)
+                    await self._link_thread_to_session(session_id, thread_id)
                 await self._transaction.commit()
-                return session_id, thread_id
+                return session_id
             except Exception:
                 await self._transaction.rollback()
                 raise
@@ -296,12 +305,33 @@ WorkflowManager → NodeRegistry → Graph Components
 
 ### 优化后依赖关系
 ```
-SessionManager → IWorkflowManager (接口依赖)
-SessionManager → IStateManager (统一状态管理)
-ThreadManager → ICheckpointManager (抽象存储)
-SessionThreadMapper → ITransactionManager (事务支持)
+EnhancedSessionManager → IWorkflowManager (接口依赖)
+EnhancedSessionManager → IStateManager (统一状态管理)
+EnhancedSessionManager → IThreadManager (线程管理)
 WorkflowManager → IGraphBuilder (执行引擎)
 ```
+
+## 实施计划
+
+### 阶段1：接口设计和基础重构（2-3周）
+1. **设计增强的Session接口**：定义多线程会话管理接口
+2. **统一状态管理**：创建StateManager统一状态序列化逻辑
+3. **事务性操作基础**：实现基础的事务管理框架
+
+### 阶段2：核心功能实现（3-4周）
+1. **多线程会话管理**：实现Session管理多个Thread的功能
+2. **线程协调机制**：实现线程间的依赖和协调逻辑
+3. **状态同步机制**：实现多线程状态同步和冲突解决
+
+### 阶段3：迁移和测试（2-3周）
+1. **API兼容性**：保持向后兼容的API设计
+2. **数据迁移**：实现现有数据的迁移工具
+3. **全面测试**：单元测试、集成测试、性能测试
+
+### 阶段4：优化和部署（1-2周）
+1. **性能优化**：优化多线程管理的性能
+2. **监控和日志**：增强监控和日志记录
+3. **生产部署**：逐步部署到生产环境
 
 ## 测试策略
 
@@ -329,15 +359,11 @@ WorkflowManager → IGraphBuilder (执行引擎)
 3. **映射关系脆弱**: 缺乏事务保证，数据一致性差
 4. **恢复机制不稳**: 多层依赖导致恢复失败率高
 
-通过上述改进方案，可以实现：
-- 清晰的组件职责边界和依赖关系
-- 统一的状态管理和事务性操作
-- 健壮的恢复机制和错误处理
-- 更好的可测试性和可维护性
+通过将Session提升为工作单元容器，管理多个线程执行的方案，可以实现：
 
-建议按照以下优先级实施：
-1. **高优先级**: 状态管理统一和事务性映射
-2. **中优先级**: 职责边界重构和接口优化
-3. **低优先级**: 恢复机制增强和性能优化
+- **更合理的抽象层次**: Session作为工作单元，Thread作为执行单元
+- **支持复杂工作流**: 可以管理并行、串行、分支等多种执行模式
+- **更好的资源管理**: Session统一管理所有子线程的资源
+- **清晰的职责边界**: 各组件职责明确，减少耦合
 
-这些改进将显著提升系统的架构质量和运行稳定性。
+建议按照上述实施计划逐步推进架构改进，这将显著提升系统的架构质量和运行稳定性。
