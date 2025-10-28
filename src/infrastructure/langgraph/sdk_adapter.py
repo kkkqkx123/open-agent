@@ -7,7 +7,7 @@ import logging
 
 from ...application.threads.session_thread_mapper import ISessionThreadMapper
 from ...application.threads.query_manager import ThreadQueryManager
-from ...infrastructure.checkpoint.factory import CheckpointManager
+from ...application.checkpoint.manager import CheckpointManager
 from ...application.sessions.manager import ISessionManager
 from ...domain.threads.interfaces import IThreadManager
 
@@ -77,12 +77,16 @@ class CompleteLangGraphSDKAdapter:
         
         # 如果有初始状态，保存为checkpoint
         if initial_state:
-            checkpoint_id = await self.checkpoint_manager.save_checkpoint(
-                thread_id, 
+            logger.info(f"保存初始状态到checkpoint: {initial_state}")
+            checkpoint_id = await self.checkpoint_manager.create_checkpoint(
+                thread_id,
+                thread_id, # workflow_id
                 initial_state,
                 metadata={"created_at": datetime.now().isoformat()}
             )
             logger.info(f"创建初始checkpoint: {checkpoint_id}")
+        else:
+            logger.info("没有初始状态需要保存")
         
         result = {
             "thread_id": thread_id,
@@ -107,24 +111,47 @@ class CompleteLangGraphSDKAdapter:
             
         Returns:
             Thread状态
+            
+        Raises:
+            ValueError: 当Thread不存在时
         """
+        # 首先检查thread是否存在
+        thread_exists = await self.thread_manager.thread_exists(thread_id)
+        if not thread_exists:
+            raise ValueError(f"Thread不存在: {thread_id}")
+            
         if checkpoint_id:
             # 获取特定checkpoint的状态
             checkpoint = await self.checkpoint_manager.get_checkpoint(thread_id, checkpoint_id)
+            logger.debug(f"获取特定checkpoint: {checkpoint}")
             if not checkpoint:
                 raise ValueError(f"Checkpoint不存在: {checkpoint_id}")
-            return checkpoint["state"]
+            # 从checkpoint中获取状态数据（使用state_data而不是state）
+            state_data = checkpoint.get("state_data", {})
+            logger.debug(f"从checkpoint获取状态数据: {state_data}")
+            return state_data
         else:
-            # 获取最新状态
-            # 从checkpoint manager获取最新checkpoint
+            # 优先从thread manager获取状态
+            state = await self.thread_manager.get_thread_state(thread_id)
+            logger.info(f"从thread manager获取状态: {state}")
+            
+            # 如果thread manager有状态，直接返回
+            if state:
+                return state
+                
+            # 如果thread manager没有状态，尝试从checkpoint manager获取最新checkpoint
             checkpoints = await self.checkpoint_manager.list_checkpoints(thread_id)
+            logger.info(f"获取到 {len(checkpoints)} 个checkpoints for thread_id: {thread_id}")
             if checkpoints:
                 latest_checkpoint = checkpoints[0]  # 假设列表是按时间倒序排列
-                return latest_checkpoint["state"]
+                logger.info(f"最新checkpoint: {latest_checkpoint}")
+                # 从checkpoint中获取状态数据（使用state_data而不是state）
+                state_data = latest_checkpoint.get("state_data", {})
+                logger.info(f"从最新checkpoint获取状态数据: {state_data}")
+                return state_data
             else:
-                # 如果没有checkpoint，尝试从thread manager获取状态
-                state = await self.thread_manager.get_thread_state(thread_id)
-                return state or {}
+                # 如果都没有，返回空字典
+                return {}
     
     async def threads_update_state(
         self, 
@@ -143,7 +170,15 @@ class CompleteLangGraphSDKAdapter:
             
         Returns:
             更新结果
+            
+        Raises:
+            RuntimeError: 当Thread不存在或更新失败时
         """
+        # 首先检查thread是否存在
+        thread_exists = await self.thread_manager.thread_exists(thread_id)
+        if not thread_exists:
+            raise RuntimeError(f"Thread不存在: {thread_id}")
+            
         # 更新thread状态
         success = await self.thread_manager.update_thread_state(thread_id, values)
         if not success:
@@ -156,8 +191,9 @@ class CompleteLangGraphSDKAdapter:
             "updated_by": "sdk_adapter"
         })
         
-        new_checkpoint_id = await self.checkpoint_manager.save_checkpoint(
+        new_checkpoint_id = await self.checkpoint_manager.create_checkpoint(
             thread_id,
+            thread_id, # workflow_id
             values,
             metadata=checkpoint_metadata
         )
@@ -191,22 +227,41 @@ class CompleteLangGraphSDKAdapter:
             状态历史列表
         """
         # 获取checkpoints历史
-        checkpoints = await self.checkpoint_manager.list_checkpoints(
-            thread_id, 
-            limit=limit, 
-            before=before, 
-            after=after
-        )
+        checkpoints = await self.checkpoint_manager.list_checkpoints(thread_id)
+        
+        # 调试信息
+        logger.debug(f"获取到 {len(checkpoints)} 个checkpoints for thread_id: {thread_id}")
+        for i, cp in enumerate(checkpoints):
+            logger.debug(f"Checkpoint {i}: {cp}")
         
         # 转换为状态历史格式
         history = []
         for checkpoint in checkpoints:
-            history.append({
-                "values": checkpoint["state"],
-                "checkpoint_id": checkpoint["checkpoint_id"],
+            # 从checkpoint获取状态数据
+            state_data = checkpoint.get("state_data", {})
+            
+            history_item = {
+                "values": state_data,
+                "checkpoint_id": checkpoint.get("id", checkpoint.get("checkpoint_id", "")),
                 "metadata": checkpoint.get("metadata", {}),
                 "created_at": checkpoint.get("created_at", datetime.now().isoformat())
-            })
+            }
+            
+            # 添加额外的checkpoint信息
+            if "step_count" in checkpoint:
+                history_item["step"] = checkpoint["step_count"]
+            if "trigger_reason" in checkpoint:
+                history_item["trigger_reason"] = checkpoint["trigger_reason"]
+            
+            history.append(history_item)
+        
+        # 按创建时间倒序排列（最新的在前）
+        # 如果没有created_at字段，将它们排在最后
+        history.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        
+        # 应用限制
+        if limit and limit < len(history):
+            history = history[:limit]
         
         logger.info(f"获取Thread历史成功: {thread_id}, 共{len(history)}条记录")
         return history
@@ -231,7 +286,7 @@ class CompleteLangGraphSDKAdapter:
                 thread.update(thread_info)
             
             # 获取最后活动时间
-            checkpoints = await self.checkpoint_manager.list_checkpoints(thread["thread_id"], limit=1)
+            checkpoints = await self.checkpoint_manager.list_checkpoints(thread["thread_id"])
             if checkpoints:
                 thread["last_active"] = checkpoints[0].get("created_at", datetime.now().isoformat())
             else:
@@ -251,8 +306,10 @@ class CompleteLangGraphSDKAdapter:
         Returns:
             删除是否成功
         """
-        # 删除checkpoint
-        await self.checkpoint_manager.delete_all_checkpoints(thread_id)
+        # 删除所有相关的checkpoints
+        checkpoints = await self.checkpoint_manager.list_checkpoints(thread_id)
+        for checkpoint in checkpoints:
+            await self.checkpoint_manager.delete_checkpoint(thread_id, checkpoint.get('id', checkpoint.get('checkpoint_id', '')))
         
         # 删除thread
         success = await self.thread_manager.delete_thread(thread_id)
@@ -280,14 +337,26 @@ class CompleteLangGraphSDKAdapter:
             
         Returns:
             新Thread信息
+            
+        Raises:
+            ValueError: 当原Thread不存在时
         """
+        # 首先检查thread是否存在
+        thread_exists = await self.thread_manager.thread_exists(thread_id)
+        if not thread_exists:
+            raise ValueError(f"原Thread不存在: {thread_id}")
+            
         # 获取原thread信息
         original_thread_info = await self.thread_manager.get_thread_info(thread_id)
         if not original_thread_info:
-            raise ValueError(f"原Thread不存在: {thread_id}")
+            raise ValueError(f"原Thread信息不存在: {thread_id}")
         
         # 获取最新的状态
         original_state = await self.threads_get_state(thread_id)
+        
+        # 创建状态的深拷贝，确保独立性
+        import copy
+        state_copy = copy.deepcopy(original_state) if original_state else {}
         
         # 创建新thread
         new_thread_metadata = new_metadata or {}
@@ -305,7 +374,7 @@ class CompleteLangGraphSDKAdapter:
         result = await self.threads_create(
             graph_id=new_graph_id,
             metadata=new_thread_metadata,
-            initial_state=original_state
+            initial_state=state_copy
         )
         
         logger.info(f"复制Thread成功: {thread_id} -> {result['thread_id']}")
@@ -353,7 +422,7 @@ class CompleteLangGraphSDKAdapter:
         # 添加额外信息
         for result in results:
             # 获取最后活动时间
-            checkpoints = await self.checkpoint_manager.list_checkpoints(result["thread_id"], limit=1)
+            checkpoints = await self.checkpoint_manager.list_checkpoints(result["thread_id"])
             if checkpoints:
                 result["last_active"] = checkpoints[0].get("created_at", datetime.now().isoformat())
             else:
@@ -385,17 +454,26 @@ class CompleteLangGraphSDKAdapter:
         
         # 按时间顺序返回事件
         for checkpoint in reversed(checkpoints):  # 最新的在前
+            # 从checkpoint获取状态数据，如果为空则从thread manager获取
+            state_data = checkpoint.get("state_data", {})
+            if not state_data:
+                # 尝试从thread manager获取当前状态
+                state_data = await self.thread_manager.get_thread_state(thread_id)
+                if not state_data:
+                    state_data = {}
+            
             event = {
                 "event": "checkpoint",
                 "thread_id": thread_id,
-                "checkpoint_id": checkpoint["checkpoint_id"],
-                "state": checkpoint["state"],
+                "checkpoint_id": checkpoint.get("id", checkpoint.get("checkpoint_id", "")),
+                "state": state_data,
                 "metadata": checkpoint.get("metadata", {}),
                 "timestamp": checkpoint.get("created_at", datetime.now().isoformat())
             }
             
             if include_base_state:
-                event["base_state"] = checkpoint["state"]
+                # 使用state_data而不是可能不存在的state字段
+                event["base_state"] = checkpoint.get("state_data", {})
             
             if not events or event["event"] in events:
                 yield event

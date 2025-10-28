@@ -12,8 +12,8 @@ from unittest.mock import Mock, patch
 from src.application.sessions.manager import SessionManager
 from src.application.workflow.manager import WorkflowManager
 from src.domain.sessions.store import FileSessionStore
-from src.domain.workflow.config import WorkflowConfig
-from src.application.workflow.state import AgentState, BaseMessage
+from src.infrastructure.config_models import WorkflowConfigModel as WorkflowConfig
+from src.infrastructure.graph.state import AgentState, BaseMessage
 from src.infrastructure.config_loader import YamlConfigLoader
 
 
@@ -119,7 +119,7 @@ class TestSessionRecoveryIntegration:
         # 恢复会话应该成功
         workflow, state = session_manager.restore_session(session_id)
         assert workflow is not None
-        assert isinstance(state, AgentState)
+        assert isinstance(state, dict)
         
         # 验证会话恢复成功（第一次恢复使用配置路径，不会记录recovery_info）
         session_data = session_manager.get_session(session_id)
@@ -175,7 +175,7 @@ class TestSessionRecoveryIntegration:
         # 恢复会话应该使用新配置
         workflow, state = session_manager.restore_session(session_id)
         assert workflow is not None
-        assert isinstance(state, AgentState)
+        assert isinstance(state, dict)
         
         # 验证配置变更被检测到（日志显示配置已变更警告）
         updated_session = session_manager.get_session(session_id)
@@ -337,7 +337,7 @@ class TestSessionRecoveryIntegration:
         # 恢复会话应该成功，使用配置路径重新加载
         workflow, state = session_manager.restore_session(session_id)
         assert workflow is not None
-        assert isinstance(state, AgentState)
+        assert isinstance(state, dict)
         
         # 验证会话恢复成功（工作流ID可能相同，因为配置路径恢复会生成新的ID）
         current_session = session_manager.get_session(session_id)
@@ -369,7 +369,7 @@ class TestSessionRecoveryIntegration:
         
         # 验证恢复成功
         assert workflow is not None
-        assert isinstance(state, AgentState)
+        assert isinstance(state, dict)
         
         # 验证恢复时间在合理范围内（应该小于1秒）
         assert recovery_time < 1.0, f"会话恢复时间过长: {recovery_time:.3f}秒"

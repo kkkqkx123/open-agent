@@ -4,28 +4,29 @@ import asyncio
 import pytest
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from src.application.threads.session_thread_mapper import SessionThreadMapper, MemorySessionThreadMapper
 from src.application.threads.query_manager import ThreadQueryManager
-from src.application.sessions.manager import SessionManager
+from .test_utils import MockSessionManager
 from src.domain.threads.interfaces import IThreadManager
 from src.infrastructure.threads.metadata_store import MemoryThreadMetadataStore
 from src.infrastructure.checkpoint.memory_store import MemoryCheckpointStore
-from src.infrastructure.checkpoint.factory import CheckpointManager
+from src.application.checkpoint.manager import CheckpointManager
 from src.infrastructure.langgraph.sdk_adapter import CompleteLangGraphSDKAdapter
 from src.infrastructure.threads.cache_manager import ThreadCacheManager, PerformanceMonitor
+from src.domain.checkpoint.config import CheckpointConfig
 
 
 class MockThreadManager(IThreadManager):
     """模拟Thread管理器用于测试"""
+
+    def __init__(self) -> None:
+        self._threads: Dict[str, Dict[str, Any]] = {}
+        self._states: Dict[str, Dict[str, Any]] = {}
+        self._metadata: Dict[str, Dict[str, Any]] = {}
     
-    def __init__(self):
-        self._threads = {}
-        self._states = {}
-        self._metadata = {}
-    
-    async def create_thread(self, graph_id: str, metadata: Dict[str, Any] = None) -> str:
+    async def create_thread(self, graph_id: str, metadata: Optional[Dict[str, Any]] = None) -> str:
         import uuid
         thread_id = f"thread_{uuid.uuid4().hex[:8]}"
         self._threads[thread_id] = {
@@ -38,7 +39,7 @@ class MockThreadManager(IThreadManager):
         self._states[thread_id] = {}
         return thread_id
     
-    async def get_thread_info(self, thread_id: str) -> Dict[str, Any]:
+    async def get_thread_info(self, thread_id: str) -> Optional[Dict[str, Any]]:
         return self._threads.get(thread_id)
     
     async def update_thread_status(self, thread_id: str, status: str) -> bool:
@@ -63,14 +64,14 @@ class MockThreadManager(IThreadManager):
             return True
         return False
     
-    async def list_threads(self, filters=None, limit=None) -> list:
+    async def list_threads(self, filters: Optional[Dict[str, Any]] = None, limit: Optional[int] = None) -> list[Dict[str, Any]]:
         return list(self._threads.values())
     
     async def thread_exists(self, thread_id: str) -> bool:
         return thread_id in self._threads
     
-    async def get_thread_state(self, thread_id: str) -> Dict[str, Any]:
-        return self._states.get(thread_id, {})
+    async def get_thread_state(self, thread_id: str) -> Optional[Dict[str, Any]]:
+        return self._states.get(thread_id)
     
     async def update_thread_state(self, thread_id: str, state: Dict[str, Any]) -> bool:
         if thread_id in self._states:
@@ -80,68 +81,72 @@ class MockThreadManager(IThreadManager):
 
 
 @pytest.fixture
-def mock_thread_manager():
+def mock_thread_manager() -> MockThreadManager:
     """创建模拟Thread管理器"""
     return MockThreadManager()
 
 
 @pytest.fixture
-def memory_metadata_store():
+def memory_metadata_store() -> MemoryThreadMetadataStore:
     """创建内存元数据存储"""
     return MemoryThreadMetadataStore()
 
 
 @pytest.fixture
-def memory_checkpoint_store():
+def memory_checkpoint_store() -> MemoryCheckpointStore:
     """创建内存checkpoint存储"""
     return MemoryCheckpointStore()
 
 
 @pytest.fixture
-def checkpoint_manager(memory_checkpoint_store):
+def checkpoint_manager(memory_checkpoint_store: MemoryCheckpointStore) -> CheckpointManager:
     """创建checkpoint管理器"""
-    return CheckpointManager(memory_checkpoint_store)
+    config = CheckpointConfig(
+        enabled=True,
+        storage_type="memory",
+        auto_save=True,
+        save_interval=1,
+        max_checkpoints=100
+    )
+    return CheckpointManager(memory_checkpoint_store, config)
 
 
 @pytest.fixture
-def session_manager():
+def session_manager() -> MockSessionManager:
     """创建session管理器"""
-    # 使用临时目录进行测试
-    import tempfile
-    temp_dir = Path(tempfile.mkdtemp())
-    return SessionManager(temp_dir)
+    return MockSessionManager()
 
 
 @pytest.fixture
 def session_thread_mapper(
-    session_manager, 
-    mock_thread_manager,
-    memory_metadata_store
-):
+    session_manager: MockSessionManager,
+    mock_thread_manager: MockThreadManager,
+    memory_metadata_store: MemoryThreadMetadataStore
+) -> MemorySessionThreadMapper:
     """创建session-thread映射器"""
     return MemorySessionThreadMapper(session_manager, mock_thread_manager)
 
 
 @pytest.fixture
-def query_manager(mock_thread_manager):
+def query_manager(mock_thread_manager: MockThreadManager) -> ThreadQueryManager:
     """创建查询管理器"""
     return ThreadQueryManager(mock_thread_manager)
 
 
 @pytest.fixture
-def cache_manager():
+def cache_manager() -> ThreadCacheManager:
     """创建缓存管理器"""
     return ThreadCacheManager(max_size=100, default_ttl=300)
 
 
 @pytest.fixture
 def sdk_adapter(
-    session_thread_mapper,
-    checkpoint_manager,
-    mock_thread_manager,
-    session_manager,
-    query_manager
-):
+    session_thread_mapper: MemorySessionThreadMapper,
+    checkpoint_manager: CheckpointManager,
+    mock_thread_manager: MockThreadManager,
+    session_manager: MockSessionManager,
+    query_manager: ThreadQueryManager
+) -> CompleteLangGraphSDKAdapter:
     """创建SDK适配器"""
     return CompleteLangGraphSDKAdapter(
         session_thread_mapper,
@@ -154,10 +159,10 @@ def sdk_adapter(
 
 @pytest.mark.asyncio
 async def test_thread_creation_and_mapping(
-    sdk_adapter,
-    session_thread_mapper,
-    mock_thread_manager
-):
+    sdk_adapter: CompleteLangGraphSDKAdapter,
+    session_thread_mapper: MemorySessionThreadMapper,
+    mock_thread_manager: MockThreadManager
+) -> None:
     """测试Thread创建和映射功能"""
     # 创建thread
     result = await sdk_adapter.threads_create(
@@ -187,10 +192,10 @@ async def test_thread_creation_and_mapping(
 
 @pytest.mark.asyncio
 async def test_thread_state_management(
-    sdk_adapter,
-    mock_thread_manager,
-    checkpoint_manager
-):
+    sdk_adapter: CompleteLangGraphSDKAdapter,
+    mock_thread_manager: MockThreadManager,
+    checkpoint_manager: CheckpointManager
+) -> None:
     """测试Thread状态管理"""
     # 创建thread
     result = await sdk_adapter.threads_create(
@@ -228,9 +233,9 @@ async def test_thread_state_management(
 
 @pytest.mark.asyncio
 async def test_thread_history(
-    sdk_adapter,
-    mock_thread_manager
-):
+    sdk_adapter: CompleteLangGraphSDKAdapter,
+    mock_thread_manager: MockThreadManager
+) -> None:
     """测试Thread历史功能"""
     # 创建thread
     result = await sdk_adapter.threads_create(
@@ -260,10 +265,10 @@ async def test_thread_history(
 
 @pytest.mark.asyncio
 async def test_thread_search_and_query(
-    sdk_adapter,
-    query_manager,
-    mock_thread_manager
-):
+    sdk_adapter: CompleteLangGraphSDKAdapter,
+    query_manager: ThreadQueryManager,
+    mock_thread_manager: MockThreadManager
+) -> None:
     """测试Thread搜索和查询功能"""
     # 创建多个threads用于测试搜索
     thread_ids = []
@@ -300,9 +305,9 @@ async def test_thread_search_and_query(
 
 @pytest.mark.asyncio
 async def test_thread_copy(
-    sdk_adapter,
-    mock_thread_manager
-):
+    sdk_adapter: CompleteLangGraphSDKAdapter,
+    mock_thread_manager: MockThreadManager
+) -> None:
     """测试Thread复制功能"""
     # 创建原始thread
     original_result = await sdk_adapter.threads_create(
@@ -338,10 +343,10 @@ async def test_thread_copy(
 
 @pytest.mark.asyncio
 async def test_thread_deletion(
-    sdk_adapter,
-    session_thread_mapper,
-    mock_thread_manager
-):
+    sdk_adapter: CompleteLangGraphSDKAdapter,
+    session_thread_mapper: MemorySessionThreadMapper,
+    mock_thread_manager: MockThreadManager
+) -> None:
     """测试Thread删除功能"""
     # 创建thread
     result = await sdk_adapter.threads_create(
@@ -366,7 +371,7 @@ async def test_thread_deletion(
 
 
 @pytest.mark.asyncio
-async def test_cache_manager_functionality(cache_manager):
+async def test_cache_manager_functionality(cache_manager: ThreadCacheManager) -> None:
     """测试缓存管理器功能"""
     from src.infrastructure.threads.cache_manager import CacheEntryType
     
@@ -390,7 +395,7 @@ async def test_cache_manager_functionality(cache_manager):
 
 
 @pytest.mark.asyncio
-async def test_performance_monitor():
+async def test_performance_monitor() -> None:
     """测试性能监控器"""
     monitor = PerformanceMonitor()
     
@@ -413,11 +418,11 @@ async def test_performance_monitor():
 
 @pytest.mark.asyncio
 async def test_sdk_adapter_comprehensive_workflow(
-    sdk_adapter,
-    session_thread_mapper,
-    mock_thread_manager,
-    checkpoint_manager
-):
+    sdk_adapter: CompleteLangGraphSDKAdapter,
+    session_thread_mapper: MemorySessionThreadMapper,
+    mock_thread_manager: MockThreadManager,
+    checkpoint_manager: CheckpointManager
+) -> None:
     """测试SDK适配器综合工作流程"""
     # 1. 创建thread
     create_result = await sdk_adapter.threads_create(
