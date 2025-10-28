@@ -1,7 +1,9 @@
 """降级客户端包装器"""
 
-from typing import Dict, Any, Optional, List, AsyncGenerator, Generator
+from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Sequence
 import logging
+
+from langchain_core.messages import BaseMessage  # type: ignore
 
 from .interfaces import ILLMClient
 from .models import LLMResponse
@@ -45,7 +47,7 @@ class FallbackClientWrapper(ILLMClient):
         )
 
     def generate(
-        self, messages: List[Any], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
     ) -> LLMResponse:
         """
         生成文本响应（带降级支持）
@@ -72,7 +74,7 @@ class FallbackClientWrapper(ILLMClient):
                 raise LLMFallbackError("所有模型调用都失败", fallback_error)
 
     async def generate_async(
-        self, messages: List[Any], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
     ) -> LLMResponse:
         """
         异步生成文本响应（带降级支持）
@@ -103,7 +105,7 @@ class FallbackClientWrapper(ILLMClient):
                 raise LLMFallbackError("所有模型异步调用都失败", fallback_error)
 
     def stream_generate(
-        self, messages: List[Any], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
     ) -> Generator[str, None, None]:
         """
         流式生成文本响应（带降级支持）
@@ -137,7 +139,7 @@ class FallbackClientWrapper(ILLMClient):
                 raise LLMFallbackError("流式降级失败", fallback_error)
 
     def stream_generate_async(
-        self, messages: List[Any], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """
         异步流式生成文本响应（带降级支持）
@@ -159,6 +161,7 @@ class FallbackClientWrapper(ILLMClient):
                 )
                 async for chunk in async_gen:
                     yield chunk
+
             except Exception as primary_error:
                 logger.warning(f"主客户端异步流式调用失败: {primary_error}")
 
@@ -187,7 +190,7 @@ class FallbackClientWrapper(ILLMClient):
         """
         return self.primary_client.get_token_count(text)
 
-    def get_messages_token_count(self, messages: List[Any]) -> int:
+    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
         """
         计算消息列表的token数量
 
@@ -222,7 +225,7 @@ class FallbackClientWrapper(ILLMClient):
 
     def _try_fallback(
         self,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]],
         primary_error: Exception,
         **kwargs: Any,
@@ -274,7 +277,7 @@ class FallbackClientWrapper(ILLMClient):
 
     async def _try_fallback_async(
         self,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]],
         primary_error: Exception,
         **kwargs: Any,

@@ -12,7 +12,7 @@ class ITokenCalculator(ABC):
     """Token计算器接口"""
     
     @abstractmethod
-    def count_tokens(self, text: str) -> int:
+    def count_tokens(self, text: str) -> Optional[int]:
         """
         计算文本的token数量
         
@@ -20,12 +20,12 @@ class ITokenCalculator(ABC):
             text: 输入文本
             
         Returns:
-            int: token数量
+            Optional[int]: token数量，如果无法计算则返回None
         """
         pass
     
     @abstractmethod
-    def count_messages_tokens(self, messages: List[BaseMessage]) -> int:
+    def count_messages_tokens(self, messages: List[BaseMessage]) -> Optional[int]:
         """
         计算消息列表的token数量
         
@@ -33,7 +33,7 @@ class ITokenCalculator(ABC):
             messages: 消息列表
             
         Returns:
-            int: token数量
+            Optional[int]: token数量，如果无法计算则返回None
         """
         pass
     

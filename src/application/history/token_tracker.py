@@ -43,7 +43,7 @@ class TokenUsageTracker:
             TokenUsageRecord: Token使用记录
         """
         # 计算token使用量
-        total_tokens = self.token_counter.count_messages_tokens(messages)
+        total_tokens = self.token_counter.count_messages_tokens(messages) or 0
         
         # 创建使用记录
         record = TokenUsageRecord(
@@ -117,7 +117,7 @@ class TokenUsageTracker:
         Returns:
             int: 估算的Token数量
         """
-        return self.token_counter.count_messages_tokens(messages)
+        return self.token_counter.count_messages_tokens(messages) or 0
     
     def get_session_token_usage(self, session_id: str) -> Dict[str, Any]:
         """
@@ -138,5 +138,5 @@ class TokenUsageTracker:
             "prompt_tokens": sum(record.prompt_tokens for record in self.usage_history 
                                if record.session_id == session_id),
             "completion_tokens": sum(record.completion_tokens for record in self.usage_history 
-                                   if record.session_id == session_id),
+                                    if record.session_id == session_id),
         }

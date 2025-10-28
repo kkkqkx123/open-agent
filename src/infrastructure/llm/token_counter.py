@@ -65,10 +65,10 @@ class OpenAITokenCounter(ITokenCounter):
         return None
 
     def count_tokens(self, text: str) -> int:
-        return self._calculator.count_tokens(text)
+        return self._calculator.count_tokens(text) or 0
 
     def count_messages_tokens(self, messages: List[BaseMessage]) -> int:
-        return self._calculator.count_messages_tokens(messages)
+        return self._calculator.count_messages_tokens(messages) or 0
 
     def get_model_info(self) -> Dict[str, Any]:
         return self._calculator.get_model_info()
@@ -107,10 +107,10 @@ class GeminiTokenCounter(ITokenCounter):
         return None
 
     def count_tokens(self, text: str) -> int:
-        return self._calculator.count_tokens(text)
+        return self._calculator.count_tokens(text) or 0
 
     def count_messages_tokens(self, messages: List[BaseMessage]) -> int:
-        return self._calculator.count_messages_tokens(messages)
+        return self._calculator.count_messages_tokens(messages) or 0
 
     def get_model_info(self) -> Dict[str, Any]:
         return self._calculator.get_model_info()
@@ -149,10 +149,10 @@ class AnthropicTokenCounter(ITokenCounter):
         return None
 
     def count_tokens(self, text: str) -> int:
-        return self._calculator.count_tokens(text)
+        return self._calculator.count_tokens(text) or 0
 
     def count_messages_tokens(self, messages: List[BaseMessage]) -> int:
-        return self._calculator.count_messages_tokens(messages)
+        return self._calculator.count_messages_tokens(messages) or 0
 
     def get_model_info(self) -> Dict[str, Any]:
         return self._calculator.get_model_info()

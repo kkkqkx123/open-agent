@@ -54,7 +54,7 @@ class ApiTokenCalculator(ITokenCalculator):
             logger.warning(f"未找到提供商 {provider} 的解析器，使用OpenAI解析器")
             self._parser = self._parsers["openai"]
     
-    def count_tokens(self, text: str) -> int:
+    def count_tokens(self, text: str) -> Optional[int]:
         """
         计算文本的token数量（基于缓存的API响应）
         
@@ -62,15 +62,15 @@ class ApiTokenCalculator(ITokenCalculator):
             text: 输入文本
             
         Returns:
-            int: token数量
+            Optional[int]: token数量，如果没有可用数据则返回None
         """
         self._stats["total_requests"] += 1
         
         if not self.supports_caching:
-            # 如果不支持缓存，使用简单估算
+            # 如果不支持缓存，返回None
             self._stats["fallback_to_local"] += 1
-            logger.warning(f"不支持缓存，使用简单估算: {text[:50]}...")
-            return len(text) // 4
+            logger.warning(f"不支持缓存，返回None: {text[:50]}...")
+            return None
         
         # 生成缓存key
         cache_key = self._generate_cache_key(text)
@@ -80,12 +80,12 @@ class ApiTokenCalculator(ITokenCalculator):
             self._stats["api_success"] += 1
             return self._usage_cache[cache_key].total_tokens
         
-        # 如果没有缓存数据，使用简单估算
+        # 如果没有缓存数据，返回None
         self._stats["fallback_to_local"] += 1
-        logger.warning(f"没有找到文本的API使用数据，使用简单估算: {text[:50]}...")
-        return len(text) // 4
+        logger.warning(f"没有找到文本的API使用数据，返回None: {text[:50]}...")
+        return None
     
-    def count_messages_tokens(self, messages: List[BaseMessage]) -> int:
+    def count_messages_tokens(self, messages: List[BaseMessage]) -> Optional[int]:
         """
         计算消息列表的token数量（基于缓存的API响应）
         
@@ -93,14 +93,14 @@ class ApiTokenCalculator(ITokenCalculator):
             messages: 消息列表
             
         Returns:
-            int: token数量
+            Optional[int]: token数量，如果没有可用数据则返回None
         """
         self._stats["total_requests"] += 1
         
         if not self.supports_caching:
-            # 如果不支持缓存，使用简单估算
+            # 如果不支持缓存，返回None
             self._stats["fallback_to_local"] += 1
-            return self._count_messages_estimation(messages)
+            return None
         
         # 将消息转换为文本进行缓存查找
         text_context = self._messages_to_text(messages)
@@ -253,32 +253,6 @@ class ApiTokenCalculator(ITokenCalculator):
             content = extract_content_as_string(message.content)
             texts.append(f"{message.type}:{content}")
         return "\n".join(texts)
-    
-    def _count_messages_estimation(self, messages: List[BaseMessage]) -> int:
-        """
-        估算消息列表的token数量
-        
-        Args:
-            messages: 消息列表
-            
-        Returns:
-            int: 估算的token数量
-        """
-        total_tokens = 0
-        
-        for message in messages:
-            # 每条消息内容的token
-            content = extract_content_as_string(message.content)
-            content_tokens = len(content) // 4
-            total_tokens += content_tokens
-            
-            # 添加格式化的token（每个消息4个token）
-            total_tokens += 4
-        
-        # 添加回复的token（3个token）
-        total_tokens += 3
-        
-        return total_tokens
     
     def clear_cache(self) -> None:
         """清空缓存"""

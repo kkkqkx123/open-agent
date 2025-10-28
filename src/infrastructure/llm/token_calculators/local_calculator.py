@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class LocalTokenCalculator(ITokenCalculator):
-    """本地Token计算器，移植现有的本地计算逻辑"""
+    """本地Token计算器，有tiktoken时统一使用tiktoken计算，否则采用除4估算"""
     
     def __init__(self, model_name: str = "gpt-3.5-turbo", provider: str = "openai"):
         """
@@ -30,26 +30,24 @@ class LocalTokenCalculator(ITokenCalculator):
     
     def _load_encoding(self) -> None:
         """加载编码器"""
-        if self.provider == "openai":
+        try:
+            import tiktoken
+            
+            # 尝试获取模型特定的编码器
             try:
-                import tiktoken
+                self._encoding = tiktoken.encoding_for_model(self.model_name)
+            except KeyError:
+                # 如果模型没有特定编码器，使用默认的
+                self._encoding = tiktoken.get_encoding("cl100k_base")
                 
-                # 尝试获取模型特定的编码器
-                try:
-                    self._encoding = tiktoken.encoding_for_model(self.model_name)  # type: ignore
-                except KeyError:
-                    # 如果模型没有特定编码器，使用默认的
-                    self._encoding = tiktoken.get_encoding("cl100k_base")  # type: ignore
-                    
-            except ImportError:
-                # 如果没有安装tiktoken，使用简单的估算
-                self._encoding = None
-                logger.warning("tiktoken not available, falling back to estimation")
-        else:
-            # 其他提供商使用简单估算
+            logger.info(f"使用tiktoken编码器: {self._encoding.name}")
+                
+        except ImportError:
+            # 如果没有安装tiktoken，使用简单的估算
             self._encoding = None
+            logger.warning("tiktoken not available, falling back to estimation (len(text) // 4)")
     
-    def count_tokens(self, text: str) -> int:
+    def count_tokens(self, text: str) -> Optional[int]:
         """
         计算文本的token数量
         
@@ -57,7 +55,7 @@ class LocalTokenCalculator(ITokenCalculator):
             text: 输入文本
             
         Returns:
-            int: token数量
+            Optional[int]: token数量，本地计算器总是能返回结果
         """
         if self._encoding:
             return len(self._encoding.encode(text))
@@ -65,7 +63,7 @@ class LocalTokenCalculator(ITokenCalculator):
             # 简单估算：大约4个字符=1个token
             return len(text) // 4
     
-    def count_messages_tokens(self, messages: List[BaseMessage]) -> int:
+    def count_messages_tokens(self, messages: List[BaseMessage]) -> Optional[int]:
         """
         计算消息列表的token数量
         
@@ -73,17 +71,18 @@ class LocalTokenCalculator(ITokenCalculator):
             messages: 消息列表
             
         Returns:
-            int: token数量
+            Optional[int]: token数量，本地计算器总是能返回结果
         """
-        if self.provider == "openai" and self._encoding:
-            return self._count_openai_messages_tokens(messages)
+        if self._encoding:
+            return self._count_messages_tokens_with_encoding(messages)
         else:
-            return self._count_generic_messages_tokens(messages)
+            return self._count_messages_tokens_estimation(messages)
     
-    def _count_openai_messages_tokens(self, messages: List[BaseMessage]) -> int:
-        """计算OpenAI消息格式的token数量"""
+    def _count_messages_tokens_with_encoding(self, messages: List[BaseMessage]) -> int:
+        """使用编码器计算消息格式的token数量"""
         if not self._encoding:
-            return self._count_generic_messages_tokens(messages)
+            # 如果编码器不可用，回退到估算方法
+            return self._count_messages_tokens_estimation(messages)
             
         total_tokens = 0
         
@@ -109,8 +108,8 @@ class LocalTokenCalculator(ITokenCalculator):
         
         return total_tokens
     
-    def _count_generic_messages_tokens(self, messages: List[BaseMessage]) -> int:
-        """计算通用消息格式的token数量"""
+    def _count_messages_tokens_estimation(self, messages: List[BaseMessage]) -> int:
+        """使用估算方法计算消息格式的token数量"""
         total_tokens = 0
         
         for message in messages:
@@ -118,7 +117,8 @@ class LocalTokenCalculator(ITokenCalculator):
             content_tokens = self.count_tokens(
                 extract_content_as_string(message.content)
             )
-            total_tokens += content_tokens
+            if content_tokens is not None:
+                total_tokens += content_tokens
             
             # 添加格式化的token（每个消息4个token）
             total_tokens += 4
@@ -135,7 +135,9 @@ class LocalTokenCalculator(ITokenCalculator):
         Returns:
             Dict[str, Any]: 模型信息
         """
-        encoding_name = "cl100k_base" if (self.provider == "openai" and self._encoding) else "estimated"
+        encoding_name = "estimated"
+        if self._encoding:
+            encoding_name = getattr(self._encoding, 'name', 'tiktoken')
         
         return {
             "model_name": self.model_name,

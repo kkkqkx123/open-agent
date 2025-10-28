@@ -50,12 +50,12 @@ class ConversationTokenTracker:
             source = "precomputed"
         elif api_response:
             # 使用API返回的token数
-            actual_token_count = self.token_counter.count_messages_tokens([message])
+            actual_token_count = self.token_counter.count_messages_tokens([message]) or 0
             source = "api"
             self._stats["total_api_updates"] += 1
         else:
             # 使用本地估算
-            actual_token_count = self.token_counter.count_messages_tokens([message])
+            actual_token_count = self.token_counter.count_messages_tokens([message]) or 0
             source = "local"
             self._stats["total_local_calculations"] += 1
         

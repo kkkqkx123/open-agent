@@ -178,7 +178,7 @@ class ConfigFileHandler(FileSystemEventHandler):
         if event.is_directory:
             return
         
-        file_path = Path(event.src_path)
+        file_path = Path(str(event.src_path))
         
         # 检查是否是配置文件
         if not self._is_config_file(file_path):
@@ -234,7 +234,7 @@ class LLMConfigManager:
         self.validator = ConfigValidator()
         
         # 热重载相关
-        self._observer: Optional[Observer] = None
+        self._observer: Optional[Any] = None
         self._lock = Lock()
         
         # 回调函数
@@ -366,8 +366,8 @@ class LLMConfigManager:
         try:
             self._observer = Observer()
             handler = ConfigFileHandler(self)
-            self._observer.schedule(handler, str(self.config_dir), recursive=False)
-            self._observer.start()
+            self._observer.schedule(handler, str(self.config_dir), recursive=False)  # type: ignore
+            self._observer.start()  # type: ignore
             logger.info("配置热重载已启动")
         except Exception as e:
             logger.error(f"启动热重载失败: {e}")
