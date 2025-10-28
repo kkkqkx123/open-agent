@@ -5,7 +5,6 @@ import asyncio
 from datetime import datetime
 import logging
 
-from ...application.threads.session_thread_mapper import ISessionThreadMapper
 from ...application.threads.query_manager import ThreadQueryManager
 from ...application.checkpoint.manager import CheckpointManager
 from ...application.sessions.manager import ISessionManager
@@ -18,8 +17,7 @@ class CompleteLangGraphSDKAdapter:
     """完整的LangGraph SDK适配器"""
     
     def __init__(
-        self, 
-        session_thread_mapper: ISessionThreadMapper,
+        self,
         checkpoint_manager: CheckpointManager,
         thread_manager: IThreadManager,
         session_manager: ISessionManager,
@@ -28,21 +26,19 @@ class CompleteLangGraphSDKAdapter:
         """初始化完整的LangGraph SDK适配器
         
         Args:
-            session_thread_mapper: Session-Thread映射管理器
             checkpoint_manager: Checkpoint管理器
             thread_manager: Thread管理器
             session_manager: Session管理器
             query_manager: Thread查询管理器（可选）
         """
-        self.mapper = session_thread_mapper
         self.checkpoint_manager = checkpoint_manager
         self.thread_manager = thread_manager
         self.session_manager = session_manager
         self.query_manager = query_manager or ThreadQueryManager(thread_manager)
     
     async def threads_create(
-        self, 
-        graph_id: str, 
+        self,
+        graph_id: str,
         supersteps: Optional[List] = None,
         metadata: Optional[Dict[str, Any]] = None,
         initial_state: Optional[Dict[str, Any]] = None
@@ -64,16 +60,8 @@ class CompleteLangGraphSDKAdapter:
         if initial_state:
             thread_metadata["initial_state"] = initial_state
         
-        # 这里需要将graph_id映射到workflow_config_path
-        # 暂时使用一个通用的配置路径，实际实现中需要根据graph_id映射
-        workflow_config_path = f"configs/workflows/{graph_id}.yaml"
-        
-        # 创建Session和Thread的映射
-        session_id, thread_id = await self.mapper.create_session_with_thread(
-            workflow_config_path, 
-            thread_metadata,
-            initial_state=initial_state
-        )
+        # 直接创建Thread，不再需要Session-Thread映射
+        thread_id = await self.thread_manager.create_thread(graph_id, thread_metadata)
         
         # 如果有初始状态，保存为checkpoint
         if initial_state:
@@ -90,7 +78,6 @@ class CompleteLangGraphSDKAdapter:
         
         result = {
             "thread_id": thread_id,
-            "session_id": session_id,
             "graph_id": graph_id,
             "created_at": datetime.now().isoformat()
         }
@@ -315,11 +302,6 @@ class CompleteLangGraphSDKAdapter:
         success = await self.thread_manager.delete_thread(thread_id)
         
         if success:
-            # 删除session-thread映射
-            session_id = await self.mapper.get_session_for_thread(thread_id)
-            if session_id:
-                await self.mapper.delete_mapping(session_id)
-            
             logger.info(f"删除Thread成功: {thread_id}")
         
         return success

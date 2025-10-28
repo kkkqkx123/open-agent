@@ -311,6 +311,7 @@ class ComponentAssembler(IComponentAssembler):
         )
         
         # 注册会话管理器
+        # 注册会话相关服务
         from ...application.sessions.manager import SessionManager, ISessionManager
         from ...domain.sessions.store import ISessionStore
         from ...domain.sessions.store import FileSessionStore
@@ -322,16 +323,6 @@ class ComponentAssembler(IComponentAssembler):
         # 创建工作流管理器
         from ...application.workflow.manager import WorkflowManager, IWorkflowManager
         workflow_manager = WorkflowManager(self._factories["workflow_builder"])
-        
-        session_manager = SessionManager(
-            workflow_manager=workflow_manager,
-            session_store=session_store
-        )
-        
-        self.container.register_instance(
-            interface=ISessionManager,
-            instance=session_manager
-        )
         
         self.container.register_instance(
             interface=IWorkflowManager,
@@ -349,7 +340,6 @@ class ComponentAssembler(IComponentAssembler):
         from ...domain.checkpoint.config import CheckpointConfig
         from ...domain.checkpoint.interfaces import ICheckpointStore
         from ...infrastructure.checkpoint.memory_store import MemoryCheckpointStore
-        
         # 创建Checkpoint存储
         checkpoint_store = MemoryCheckpointStore()
         
@@ -378,7 +368,6 @@ class ComponentAssembler(IComponentAssembler):
         from ...domain.threads.interfaces import IThreadManager
         from ...domain.threads.manager import ThreadManager
         from ...infrastructure.threads.metadata_store import MemoryThreadMetadataStore, IThreadMetadataStore
-        from ...application.threads.session_thread_mapper import SessionThreadMapper, ISessionThreadMapper
         from ...application.threads.branch_manager import BranchManager
         from ...application.threads.snapshot_manager import SnapshotManager
         from ...application.threads.collaboration_manager import CollaborationManager
@@ -437,12 +426,20 @@ class ComponentAssembler(IComponentAssembler):
             instance=collaboration_manager
         )
         
-        # 创建并注册Session-Thread映射器
-        session_thread_mapper = SessionThreadMapper(session_manager, thread_manager)
-        self.container.register_instance(
-            interface=ISessionThreadMapper,
-            instance=session_thread_mapper
+        # 现在可以创建SessionManager，因为它需要thread_manager实例
+        session_manager = SessionManager(
+            workflow_manager=workflow_manager,
+            session_store=session_store,
+            thread_manager=thread_manager,  # 现在thread_manager已创建
+            state_manager=self._factories["state_manager"]
         )
+        
+        self.container.register_instance(
+            interface=ISessionManager,
+            instance=session_manager
+        )
+        
+        # Session-Thread映射器已删除，Session将直接管理多个Thread
         
         logger.info("服务注册完成")
     

@@ -13,7 +13,6 @@ from src.domain.sessions.store import ISessionStore
 from src.infrastructure.graph.state import AgentState
 from src.infrastructure.graph.config import WorkflowConfig
 from src.infrastructure.graph.states.workflow import WorkflowState
-from src.application.threads.session_thread_mapper import ISessionThreadMapper, MemorySessionThreadMapper
 from src.domain.threads.interfaces import IThreadManager
 from src.infrastructure.threads.metadata_store import MemoryThreadMetadataStore
 from src.infrastructure.checkpoint.memory_store import MemoryCheckpointStore
@@ -167,6 +166,41 @@ class MockSessionManager(ISessionManager):
         self.session_store = MockSessionStore()
         self.storage_path.mkdir(parents=True, exist_ok=True)
     
+    async def create_session_with_threads(
+        self,
+        workflow_configs: Dict[str, str],  # 线程名 -> 工作流配置路径
+        dependencies: Optional[Dict[str, List[str]]] = None,  # 线程依赖关系
+        agent_config: Optional[dict[str, Any]] = None,
+        initial_states: Optional[Dict[str, AgentState]] = None # 每个线程的初始状态
+    ) -> str:
+        """原子性创建Session和多个Thread"""
+        # 简化实现，只创建一个会话
+        session_id = f"session_{uuid.uuid4().hex[:8]}"
+        
+        # 使用第一个工作流配置
+        first_config = next(iter(workflow_configs.values()))
+        
+        session_metadata = {
+            "session_id": session_id,
+            "workflow_configs": workflow_configs,
+            "thread_info": {},
+            "dependencies": dependencies or {},
+            "agent_config": agent_config or {},
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "status": "active"
+        }
+        
+        session_data = {
+            "metadata": session_metadata,
+            "state": {}
+        }
+        
+        self.session_store.save_session(session_id, session_data)
+        self._sessions[session_id] = session_data
+        
+        return session_id
+    
     def create_session(
         self,
         workflow_config_path: str,
@@ -282,38 +316,20 @@ class MockSessionManager(ISessionManager):
         self._sessions[session_id] = session_data
         
         return True
-
-
-def create_test_components() -> Dict[str, Any]:
-    """创建测试所需的组件"""
-    # 创建模拟的SessionManager
-    session_manager = MockSessionManager()
     
-    # 创建模拟的ThreadManager
-    from tests.integration.test_sdk_compatibility import MockThreadManager
-    thread_manager = MockThreadManager()
+    async def add_thread(self, session_id: str, thread_name: str, config_path: str) -> bool:
+        """向Session添加新Thread"""
+        session_data = self.session_store.get_session(session_id)
+        if not session_data:
+            return False
+        
+        # 简化实现，只返回True
+        return True
     
-    # 创建Session-Thread映射器
-    session_thread_mapper = MemorySessionThreadMapper(session_manager, thread_manager)
-    
-    # 创建Checkpoint管理器
-    checkpoint_store = MemoryCheckpointStore()
-    checkpoint_config = CheckpointConfig(
-        enabled=True,
-        storage_type="memory",
-        auto_save=True,
-        save_interval=1,
-        max_checkpoints=100
-    )
-    checkpoint_manager = CheckpointManager(checkpoint_store, checkpoint_config)
-    
-    # 创建查询管理器
-    query_manager = ThreadQueryManager(thread_manager)
-    
-    return {
-        "session_manager": session_manager,
-        "thread_manager": thread_manager,
-        "session_thread_mapper": session_thread_mapper,
-        "checkpoint_manager": checkpoint_manager,
-        "query_manager": query_manager
-    }
+    async def get_threads(self, session_id: str) -> Dict[str, Any]:
+        """获取Session的所有Thread信息"""
+        session_data = self.session_store.get_session(session_id)
+        if not session_data:
+            return {}
+        
+        return session_data.get("metadata", {}).get("thread_info", {})

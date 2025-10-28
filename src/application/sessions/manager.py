@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional, List, Tuple
+from typing import Any, Optional, List, Tuple, Dict
 from pathlib import Path
 import uuid
 import json
@@ -12,19 +12,43 @@ import hashlib
 import logging
 from datetime import datetime
 
+from domain.threads.interfaces import IThreadManager
+
 from ..workflow.manager import IWorkflowManager
 from ...infrastructure.graph.config import GraphConfig as WorkflowConfig
 from ...infrastructure.graph.state import AgentState
 from ...domain.sessions.store import ISessionStore
 from ...domain.tools.interfaces import ToolResult
 from .git_manager import IGitManager
+from ...domain.state.interfaces import IStateManager
 
 # 设置日志
 logger = logging.getLogger(__name__)
 
 
 class ISessionManager(ABC):
-    """会话管理器接口"""
+    """会话管理器接口 - 重构后的多线程会话管理器"""
+
+    @abstractmethod
+    async def create_session_with_threads(
+        self,
+        workflow_configs: Dict[str, str],  # 线程名 -> 工作流配置路径
+        dependencies: Optional[Dict[str, List[str]]] = None,  # 线程依赖关系
+        agent_config: Optional[dict[str, Any]] = None,
+        initial_states: Optional[Dict[str, AgentState]] = None # 每个线程的初始状态
+    ) -> str:
+        """原子性创建Session和多个Thread
+        
+        Args:
+            workflow_configs: 线程名到工作流配置路径的映射
+            dependencies: 线程依赖关系，格式为 {thread_name: [dependency_thread_names]}
+            agent_config: Agent配置
+            initial_states: 每个线程的初始状态
+            
+        Returns:
+            str: 会话ID
+        """
+        pass
 
     @abstractmethod
     def create_session(
@@ -33,7 +57,7 @@ class ISessionManager(ABC):
         agent_config: Optional[dict[str, Any]] = None,
         initial_state: Optional[AgentState] = None
     ) -> str:
-        """创建新会话
+        """创建新会话（向后兼容）
 
         Args:
             workflow_config_path: 工作流配置文件路径
@@ -141,7 +165,7 @@ class ISessionManager(ABC):
         pass
 
     @abstractmethod
-    def save_session_with_metrics(self, session_id: str, state: AgentState, 
+    def save_session_with_metrics(self, session_id: str, state: AgentState,
                                  workflow_metrics: dict[str, Any], workflow: Any = None) -> bool:
         """保存会话状态和工作流指标
 
@@ -156,16 +180,28 @@ class ISessionManager(ABC):
         """
         pass
 
+    @abstractmethod
+    async def add_thread(self, session_id: str, thread_name: str, config_path: str) -> bool:
+        """向Session添加新Thread"""
+        pass
+
+    @abstractmethod
+    async def get_threads(self, session_id: str) -> Dict[str, Any]:
+        """获取Session的所有Thread信息"""
+        pass
+
 
 class SessionManager(ISessionManager):
-    """会话管理器实现"""
+    """会话管理器实现 - 重构后的多线程会话管理器"""
 
     def __init__(
         self,
         workflow_manager: IWorkflowManager,
         session_store: ISessionStore,
         git_manager: Optional[IGitManager] = None,
-        storage_path: Optional[Path] = None
+        storage_path: Optional[Path] = None,
+        thread_manager: Optional[IThreadManager] = None,
+        state_manager: Optional[IStateManager] = None
     ) -> None:
         """初始化会话管理器
 
@@ -174,50 +210,32 @@ class SessionManager(ISessionManager):
             session_store: 会话存储
             git_manager: Git管理器（可选）
             storage_path: 存储路径（可选）
+            thread_manager: Thread管理器（可选）
+            state_manager: 状态管理器（可选）
         """
         self.workflow_manager = workflow_manager
         self.session_store = session_store
         self.git_manager = git_manager
         self.storage_path = storage_path or Path("./sessions")
+        self.thread_manager = thread_manager
+        self.state_manager = state_manager
         self._recovery_attempts: dict[str, int] = {}
 
         # 确保存储目录存在
         self.storage_path.mkdir(parents=True, exist_ok=True)
 
-    def create_session(
+    async def create_session_with_threads(
         self,
-        workflow_config_path: str,
+        workflow_configs: Dict[str, str],  # 线程名 -> 工作流配置路径
+        dependencies: Optional[Dict[str, List[str]]] = None,  # 线程依赖关系
         agent_config: Optional[dict[str, Any]] = None,
-        initial_state: Optional[AgentState] = None
+        initial_states: Optional[Dict[str, AgentState]] = None # 每个线程的初始状态
     ) -> str:
-        """创建新会话"""
-        # 检查工作流配置文件是否存在
-        if not Path(workflow_config_path).exists():
-            # 在测试环境中，创建一个模拟的工作流配置
-            workflow_id = "test_workflow_id"
-            workflow = None  # 在测试环境中可以为None
-            workflow_config = self._create_mock_workflow_config(workflow_config_path)
-        else:
-            # 加载工作流配置
-            workflow_id = self.workflow_manager.load_workflow(workflow_config_path)
-            workflow = self.workflow_manager.create_workflow(workflow_id)
-            workflow_config = self.workflow_manager.get_workflow_config(workflow_id)
-        
+        """原子性创建Session和多个Thread"""
         # 生成符合新命名规则的会话ID
-        session_id = self._generate_session_id(workflow_config_path)
-
-        # 准备初始状态
-        if initial_state is None:
-            initial_state = {
-                "messages": [],
-                "tool_results": [],
-                "iteration_count": 0,
-                "max_iterations": 10,
-                "start_time": None,
-                "current_step": "",
-                "workflow_name": "",
-                "errors": []
-            }
+        # 使用第一个工作流配置路径作为基础
+        first_config_path = next(iter(workflow_configs.values()))
+        session_id = self._generate_session_id(first_config_path)
 
         # 创建会话目录
         session_dir = self.storage_path / session_id
@@ -227,25 +245,55 @@ class SessionManager(ISessionManager):
         if self.git_manager:
             self.git_manager.init_repo(session_dir)
 
-        # 获取工作流摘要
-        if workflow is None:
-            # 创建模拟的工作流摘要
-            workflow_summary = {
-                "workflow_id": workflow_id,
-                "name": workflow_config.name if workflow_config else "unknown",
-                "version": workflow_config.version if workflow_config else "1.0.0",
-                "description": workflow_config.description if workflow_config else f"模拟工作流配置: {workflow_id}",
-                "config_path": workflow_config_path,
-                "checksum": "mock_checksum"
-            }
-        else:
+        # 准备线程信息
+        thread_info = {}
+        for thread_name, config_path in workflow_configs.items():
+            # 检查工作流配置文件是否存在
+            if not Path(config_path).exists():
+                logger.warning(f"工作流配置文件不存在: {config_path}")
+                continue
+
+            # 加载工作流配置
+            workflow_id = self.workflow_manager.load_workflow(config_path)
+            workflow_config = self.workflow_manager.get_workflow_config(workflow_id)
+
+            # 获取工作流摘要
             workflow_summary = self.workflow_manager.get_workflow_summary(workflow_id)
-        
+
+            # 创建thread
+            if self.thread_manager:
+                graph_id = Path(config_path).stem  # 从路径中提取文件名作为graph ID
+                thread_id = await self.thread_manager.create_thread(
+                    graph_id,
+                    {
+                        "thread_name": thread_name,
+                        "workflow_config_path": config_path,
+                        "workflow_summary": workflow_summary
+                    }
+                )
+                
+                # 如果有初始状态，保存到thread
+                if initial_states and thread_name in initial_states:
+                    initial_state = initial_states[thread_name]
+                    # 使用统一的状态管理器序列化状态
+                    if self.state_manager:
+                        state_data = self.state_manager.serialize_state_dict(self._serialize_state(initial_state))
+                        await self.thread_manager.update_thread_state(thread_id, self.state_manager.deserialize_state_dict(state_data))
+                    else:
+                        await self.thread_manager.update_thread_state(thread_id, self._serialize_state(initial_state))
+                
+                thread_info[thread_name] = {
+                    "thread_id": thread_id,
+                    "config_path": config_path,
+                    "workflow_summary": workflow_summary
+                }
+
         # 保存增强的会话元数据
         session_metadata = {
             "session_id": session_id,
-            "workflow_config_path": workflow_config_path,
-            "workflow_summary": workflow_summary,  # 只保存摘要
+            "workflow_configs": workflow_configs,  # 保存所有工作流配置
+            "thread_info": thread_info,  # 保存线程信息
+            "dependencies": dependencies or {},  # 保存依赖关系
             "agent_config": agent_config or {},
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
@@ -255,7 +303,7 @@ class SessionManager(ISessionManager):
         # 保存会话信息
         session_data = {
             "metadata": session_metadata,
-            "state": self._serialize_state(initial_state)
+            "state": {}  # 多线程会话的状态管理将通过各自的thread管理
         }
         self.session_store.save_session(session_id, session_data)
 
@@ -263,10 +311,105 @@ class SessionManager(ISessionManager):
         if self.git_manager:
             self.git_manager.commit_changes(
                 session_dir,
-                "初始化会话",
+                "初始化多线程会话",
                 {"session_id": session_id}
             )
 
+        logger.info(f"创建多线程会话成功: {session_id}, 包含 {len(thread_info)} 个线程")
+        return session_id
+
+    async def add_thread(self, session_id: str, thread_name: str, config_path: str) -> bool:
+        """向Session添加新Thread"""
+        # 获取现有会话信息
+        session_data = self.session_store.get_session(session_id)
+        if not session_data:
+            logger.warning(f"会话不存在: {session_id}")
+            return False
+
+        # 检查工作流配置文件是否存在
+        if not Path(config_path).exists():
+            logger.warning(f"工作流配置文件不存在: {config_path}")
+            return False
+
+        # 加载工作流配置
+        workflow_id = self.workflow_manager.load_workflow(config_path)
+        workflow_config = self.workflow_manager.get_workflow_config(workflow_id)
+        workflow_summary = self.workflow_manager.get_workflow_summary(workflow_id)
+
+        # 创建thread
+        if not self.thread_manager:
+            logger.error("Thread管理器未初始化")
+            return False
+
+        graph_id = Path(config_path).stem  # 从路径中提取文件名作为graph ID
+        thread_id = await self.thread_manager.create_thread(
+            graph_id,
+            {
+                "thread_name": thread_name,
+                "workflow_config_path": config_path,
+                "workflow_summary": workflow_summary,
+                "session_id": session_id
+            }
+        )
+
+        # 更新会话元数据，添加新的thread信息
+        session_metadata = session_data["metadata"]
+        if "thread_info" not in session_metadata:
+            session_metadata["thread_info"] = {}
+        
+        session_metadata["thread_info"][thread_name] = {
+            "thread_id": thread_id,
+            "config_path": config_path,
+            "workflow_summary": workflow_summary
+        }
+        session_metadata["updated_at"] = datetime.now().isoformat()
+
+        # 保存更新后的会话信息
+        self.session_store.save_session(session_id, session_data)
+
+        logger.info(f"向会话添加Thread成功: {session_id}, thread_name={thread_name}, thread_id={thread_id}")
+        return True
+
+    async def get_threads(self, session_id: str) -> Dict[str, Any]:
+        """获取Session的所有Thread信息"""
+        session_data = self.session_store.get_session(session_id)
+        if not session_data:
+            logger.warning(f"会话不存在: {session_id}")
+            return {}
+
+        # 返回会话中所有线程的信息
+        thread_info = session_data.get("metadata", {}).get("thread_info", {})
+        return thread_info
+
+    def create_session(
+        self,
+        workflow_config_path: str,
+        agent_config: Optional[dict[str, Any]] = None,
+        initial_state: Optional[AgentState] = None
+    ) -> str:
+        """创建新会话（向后兼容）"""
+        # 使用新的多线程方法创建只包含一个线程的会话
+        workflow_configs = {"default_thread": workflow_config_path}
+        initial_states = None
+        if initial_state:
+            initial_states = {"default_thread": initial_state}
+        
+        # 异步方法需要在同步上下文中运行
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        session_id = loop.run_until_complete(
+            self.create_session_with_threads(
+                workflow_configs=workflow_configs,
+                agent_config=agent_config,
+                initial_states=initial_states
+            )
+        )
+        
         return session_id
 
     def get_session(self, session_id: str) -> Optional[dict[str, Any]]:
@@ -288,7 +431,13 @@ class SessionManager(ISessionManager):
                 # 在测试环境中，创建模拟的工作流配置
                 logger.warning(f"工作流配置文件不存在，使用模拟配置: {config_path}")
                 workflow = None
-                state = self._deserialize_state(session_data["state"])
+                if self.state_manager:
+                    deserialized_state = self.state_manager.deserialize_state_dict(
+                        self.state_manager.serialize_state_dict(session_data["state"])
+                    )
+                    state = self._deserialize_state(deserialized_state)
+                else:
+                    state = self._deserialize_state(session_data["state"])
                 return workflow, state
             
             # 使用改进的恢复策略
@@ -308,7 +457,12 @@ class SessionManager(ISessionManager):
                 return False
 
             # 更新状态
-            session_data["state"] = self._serialize_state(state)
+            if self.state_manager:
+                session_data["state"] = self.state_manager.deserialize_state_dict(
+                    self.state_manager.serialize_state_dict(self._serialize_state(state))
+                )
+            else:
+                session_data["state"] = self._serialize_state(state)
             session_data["metadata"]["updated_at"] = datetime.now().isoformat()
 
             # 保存会话数据
@@ -378,7 +532,7 @@ class SessionManager(ISessionManager):
         """检查会话是否存在"""
         return self.get_session(session_id) is not None
 
-    def save_session_with_metrics(self, session_id: str, state: AgentState, 
+    def save_session_with_metrics(self, session_id: str, state: AgentState,
                                  workflow_metrics: dict[str, Any], workflow: Any = None) -> bool:
         """保存会话状态和工作流指标"""
         try:
@@ -387,7 +541,12 @@ class SessionManager(ISessionManager):
                 return False
 
             # 更新状态
-            session_data["state"] = self._serialize_state(state)
+            if self.state_manager:
+                session_data["state"] = self.state_manager.deserialize_state_dict(
+                    self.state_manager.serialize_state_dict(self._serialize_state(state))
+                )
+            else:
+                session_data["state"] = self._serialize_state(state)
             session_data["metadata"]["updated_at"] = datetime.now().isoformat()
             
             # 添加工作流指标
@@ -426,7 +585,13 @@ class SessionManager(ISessionManager):
                 logger.warning(f"工作流配置已变更，使用新配置恢复会话 {session_id}")
                 
             # 恢复状态
-            state = self._deserialize_state(session_data["state"])
+            if self.state_manager:
+                deserialized_state = self.state_manager.deserialize_state_dict(
+                    self.state_manager.serialize_state_dict(session_data["state"])
+                )
+                state = self._deserialize_state(deserialized_state)
+            else:
+                state = self._deserialize_state(session_data["state"])
             
             # 重置恢复尝试计数
             if session_id in self._recovery_attempts:
@@ -444,7 +609,13 @@ class SessionManager(ISessionManager):
                     workflow = self.workflow_manager.create_workflow(original_workflow_id)
                     
                     # 恢复状态
-                    state = self._deserialize_state(session_data["state"])
+                    if self.state_manager:
+                        deserialized_state = self.state_manager.deserialize_state_dict(
+                            self.state_manager.serialize_state_dict(session_data["state"])
+                        )
+                        state = self._deserialize_state(deserialized_state)
+                    else:
+                        state = self._deserialize_state(session_data["state"])
                     
                     # 重置恢复尝试计数
                     if session_id in self._recovery_attempts:
@@ -465,7 +636,13 @@ class SessionManager(ISessionManager):
                     self._update_session_workflow_info(session_id, workflow_id)
                     
                     # 恢复状态
-                    state = self._deserialize_state(session_data["state"])
+                    if self.state_manager:
+                        deserialized_state = self.state_manager.deserialize_state_dict(
+                            self.state_manager.serialize_state_dict(session_data["state"])
+                        )
+                        state = self._deserialize_state(deserialized_state)
+                    else:
+                        state = self._deserialize_state(session_data["state"])
                     
                     # 重置恢复尝试计数
                     if session_id in self._recovery_attempts:

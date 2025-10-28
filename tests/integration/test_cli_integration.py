@@ -167,7 +167,7 @@ class TestCLIIntegration:
         """测试容器设置集成"""
         from src.presentation.cli.commands import setup_container
         from src.infrastructure.config_loader import IConfigLoader
-        from src.sessions.manager import ISessionManager
+        from src.application.sessions.manager import ISessionManager
         
         with TestContainer() as container:
             # 测试容器设置

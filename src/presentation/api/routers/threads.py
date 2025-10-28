@@ -7,7 +7,6 @@ from datetime import datetime
 from ..models.responses import ThreadResponse, ThreadListResponse, OperationResponse
 from ..models.requests import ThreadCreateRequest, ThreadForkRequest, ThreadRollbackRequest, ThreadSnapshotRequest
 from ..services.session_service import SessionService
-from ....application.threads.session_thread_mapper import ISessionThreadMapper
 from ....domain.threads.interfaces import IThreadManager
 from ....application.checkpoint.interfaces import ICheckpointManager
 
@@ -29,11 +28,7 @@ def get_checkpoint_manager() -> ICheckpointManager:
     return get_global_container().get(ICheckpointManager)
 
 
-def get_session_thread_mapper() -> ISessionThreadMapper:
-    """获取Session-Thread映射管理器"""
-    # 这里需要从依赖注入容器获取，暂时使用占位符
-    from ....infrastructure.container import get_global_container
-    return get_global_container().get(ISessionThreadMapper)
+# Session-Thread映射器已删除，Session将直接管理多个Thread
 
 
 @router.post("/{thread_id}/fork", response_model=ThreadResponse)

@@ -4,9 +4,8 @@ import asyncio
 import pytest
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
-from src.application.threads.session_thread_mapper import MemorySessionThreadMapper
 from src.application.threads.query_manager import ThreadQueryManager
 from .test_utils import MockSessionManager
 from src.domain.threads.interfaces import IThreadManager
@@ -93,6 +92,67 @@ class MockThreadManager(IThreadManager):
             self._states[thread_id] = state
         return True
 
+    async def fork_thread(
+        self,
+        source_thread_id: str,
+        checkpoint_id: str,
+        branch_name: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        # 模拟fork thread功能
+        import uuid
+        new_thread_id = f"thread_{uuid.uuid4().hex[:8]}"
+        source_thread = self._threads.get(source_thread_id)
+        if not source_thread:
+            raise ValueError(f"源thread不存在: {source_thread_id}")
+        
+        # 复制源thread的信息
+        self._threads[new_thread_id] = {
+            "thread_id": new_thread_id,
+            "graph_id": source_thread.get("graph_id", ""),
+            "created_at": datetime.now().isoformat(),
+            "status": "active",
+            "metadata": {
+                "branch_name": branch_name,
+                "source_thread_id": source_thread_id,
+                "source_checkpoint_id": checkpoint_id,
+                "branch_type": "fork",
+                **(metadata or {})
+            }
+        }
+        # 复制状态
+        self._states[new_thread_id] = self._states.get(source_thread_id, {}).copy()
+        return new_thread_id
+
+    async def create_thread_snapshot(
+        self,
+        thread_id: str,
+        snapshot_name: str,
+        description: Optional[str] = None
+    ) -> str:
+        # 模拟创建thread快照功能
+        import uuid
+        snapshot_id = f"snapshot_{uuid.uuid4().hex[:8]}"
+        return snapshot_id
+
+    async def rollback_thread(
+        self,
+        thread_id: str,
+        checkpoint_id: str
+    ) -> bool:
+        # 模拟回滚thread功能
+        if thread_id in self._threads:
+            return True
+        return False
+
+    async def get_thread_history(
+        self,
+        thread_id: str,
+        limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        # 模拟获取thread历史记录功能
+        return []
+
 
 @pytest.fixture
 def mock_thread_manager() -> MockThreadManager:
@@ -131,10 +191,7 @@ def session_manager() -> MockSessionManager:
     return MockSessionManager()
 
 
-@pytest.fixture
-def session_thread_mapper(session_manager: MockSessionManager, mock_thread_manager: MockThreadManager) -> MemorySessionThreadMapper:
-    """创建session-thread映射器"""
-    return MemorySessionThreadMapper(session_manager, mock_thread_manager)
+# Session-Thread映射器已删除，Session将直接管理多个Thread
 
 
 @pytest.fixture
@@ -145,7 +202,6 @@ def query_manager(mock_thread_manager: MockThreadManager) -> ThreadQueryManager:
 
 @pytest.fixture
 def sdk_adapter(
-    session_thread_mapper: MemorySessionThreadMapper,
     checkpoint_manager: CheckpointManager,
     mock_thread_manager: MockThreadManager,
     session_manager: MockSessionManager,
@@ -153,7 +209,6 @@ def sdk_adapter(
 ) -> CompleteLangGraphSDKAdapter:
     """创建SDK适配器"""
     return CompleteLangGraphSDKAdapter(
-        session_thread_mapper,
         checkpoint_manager,
         mock_thread_manager,
         session_manager,
@@ -167,7 +222,6 @@ async def test_sdk_threads_create_compatibility(sdk_adapter: CompleteLangGraphSD
     # 测试基本创建
     result = await sdk_adapter.threads_create("test_graph_1")
     assert "thread_id" in result
-    assert "session_id" in result
     assert result["graph_id"] == "test_graph_1"
     assert "created_at" in result
     
