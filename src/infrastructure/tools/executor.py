@@ -140,20 +140,23 @@ class ToolExecutor(IToolExecutor):
                     execution_time=time.time() - start_time
                 )
 
-            # 执行工具
-            if hasattr(tool, "safe_execute_async"):
-                result = await tool.safe_execute_async(**tool_call.arguments)
-            else:
-                # 使用工具的execute_async方法
-                try:
+            # 执行工具，统一应用超时控制
+            try:
+                if hasattr(tool, "safe_execute_async"):
+                    # 对safe_execute_async方法应用超时控制
+                    result = await asyncio.wait_for(
+                        tool.safe_execute_async(**tool_call.arguments), timeout=timeout
+                    )
+                else:
+                    # 使用工具的execute_async方法
                     output = await asyncio.wait_for(
                         tool.execute_async(**tool_call.arguments), timeout=timeout
                     )
                     result = ToolResult(
                         success=True, output=output, tool_name=tool_call.name
                     )
-                except asyncio.TimeoutError:
-                    raise ValueError(f"工具执行超时: {timeout}秒")
+            except asyncio.TimeoutError:
+                raise ValueError(f"工具执行超时: {timeout}秒")
 
             # 计算执行时间
             execution_time = time.time() - start_time
@@ -199,39 +202,40 @@ class ToolExecutor(IToolExecutor):
         start_time = time.time()
 
         # 使用线程池并行执行
-        futures = {
-            self._thread_pool.submit(self.execute, tool_call): tool_call
-            for tool_call in tool_calls
-        }
+        futures = []
+        for i, tool_call in enumerate(tool_calls):
+            future = self._thread_pool.submit(self.execute, tool_call)
+            futures.append((future, i))
 
-        results = []
-        for future in as_completed(futures):
-            tool_call = futures[future]
+        # 收集所有结果
+        results: List[ToolResult] = []
+        for future, index in futures:
             try:
                 result = future.result()
                 results.append(result)
             except Exception as e:
                 error_msg = f"并行执行异常: {str(e)}"
                 self.logger.error(
-                    f"工具并行执行异常: {tool_call.name}, 错误: {error_msg}"
+                    f"工具并行执行异常: {tool_calls[index].name}, 错误: {error_msg}"
                 )
-
-                results.append(
-                    ToolResult(success=False, error=error_msg, tool_name=tool_call.name)
-                )
+                results.append(ToolResult(success=False, error=error_msg, tool_name=tool_calls[index].name))
 
         # 按原始顺序排序结果
-        results_dict = {result.tool_name: result for result in results}
+        # 使用索引作为键，确保即使有同名工具也能正确处理
+        results_dict = {i: result for i, result in enumerate(results)}
         ordered_results = []
-        for tool_call in tool_calls:
-            ordered_results.append(
-                results_dict.get(
-                    tool_call.name,
+        for i, tool_call in enumerate(tool_calls):
+            if i in results_dict:
+                ordered_results.append(results_dict[i])
+            else:
+                # 如果结果丢失，创建错误结果
+                ordered_results.append(
                     ToolResult(
-                        success=False, error="结果丢失", tool_name=tool_call.name
-                    ),
+                        success=False,
+                        error="结果丢失",
+                        tool_name=tool_call.name
+                    )
                 )
-            )
 
         total_time = time.time() - start_time
         self.logger.info(f"并行执行完成，总耗时: {total_time:.2f}秒")
@@ -353,9 +357,13 @@ class ToolExecutor(IToolExecutor):
         # 过滤有效的工具调用
         valid_calls = []
         invalid_results = []
+        # 记录每个调用是有效还是无效
+        validation_results = []
 
         for tool_call in tool_calls:
-            if self.validate_tool_call(tool_call):
+            is_valid = self.validate_tool_call(tool_call)
+            validation_results.append(is_valid)
+            if is_valid:
                 valid_calls.append(tool_call)
             else:
                 invalid_results.append(
@@ -369,22 +377,21 @@ class ToolExecutor(IToolExecutor):
         # 执行有效的工具调用
         valid_results = self.execute_parallel(valid_calls)
 
-        # 合并结果
-        all_results = invalid_results + valid_results
-
-        # 按原始顺序排序
-        results_dict = {result.tool_name: result for result in all_results}
-        ordered_results = []
-        for tool_call in tool_calls:
-            ordered_results.append(
-                results_dict.get(
-                    tool_call.name,
-                    ToolResult(
-                        success=False, error="结果丢失", tool_name=tool_call.name
-                    ),
-                )
-            )
-
+        # 按原始顺序合并结果
+        ordered_results: List[ToolResult] = []
+        valid_index = 0
+        invalid_index = 0
+        
+        for is_valid in validation_results:
+            if is_valid:
+                if valid_index < len(valid_results):
+                    ordered_results.append(valid_results[valid_index])
+                    valid_index += 1
+            else:
+                if invalid_index < len(invalid_results):
+                    ordered_results.append(invalid_results[invalid_index])
+                    invalid_index += 1
+        
         return ordered_results
 
     async def execute_parallel_async_with_validation(
@@ -401,9 +408,13 @@ class ToolExecutor(IToolExecutor):
         # 过滤有效的工具调用
         valid_calls = []
         invalid_results = []
+        # 记录每个调用是有效还是无效
+        validation_results = []
 
         for tool_call in tool_calls:
-            if self.validate_tool_call(tool_call):
+            is_valid = self.validate_tool_call(tool_call)
+            validation_results.append(is_valid)
+            if is_valid:
                 valid_calls.append(tool_call)
             else:
                 invalid_results.append(
@@ -417,22 +428,21 @@ class ToolExecutor(IToolExecutor):
         # 执行有效的工具调用
         valid_results = await self.execute_parallel_async(valid_calls)
 
-        # 合并结果
-        all_results = invalid_results + valid_results
-
-        # 按原始顺序排序
-        results_dict = {result.tool_name: result for result in all_results}
-        ordered_results = []
-        for tool_call in tool_calls:
-            ordered_results.append(
-                results_dict.get(
-                    tool_call.name,
-                    ToolResult(
-                        success=False, error="结果丢失", tool_name=tool_call.name
-                    ),
-                )
-            )
-
+        # 按原始顺序合并结果
+        ordered_results: List[ToolResult] = []
+        valid_index = 0
+        invalid_index = 0
+        
+        for is_valid in validation_results:
+            if is_valid:
+                if valid_index < len(valid_results):
+                    ordered_results.append(valid_results[valid_index])
+                    valid_index += 1
+            else:
+                if invalid_index < len(invalid_results):
+                    ordered_results.append(invalid_results[invalid_index])
+                    invalid_index += 1
+        
         return ordered_results
 
     def shutdown(self) -> None:

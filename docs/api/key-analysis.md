@@ -46,3 +46,5 @@ api_key: "${ANTHROPIC_API_KEY}"
 
 需要使用新的API密钥时，只需要在配置文件中引用对应的环境变量即可，例如：
 api_key: "${PROVIDER_API_KEY}"
+
+当前是否支持通过.env文件定义相关的环境变量？

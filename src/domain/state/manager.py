@@ -10,8 +10,10 @@ import json
 import logging
 
 from .interfaces import IStateManager, IStateConverter, IStateValidator
-from ..agent.state import AgentState
-# WorkflowState已移除，使用域层状态定义
+from ..agent.state import AgentState, AgentMessage, AgentStatus
+from ..tools.interfaces import ToolResult
+from datetime import datetime
+WorkflowState = Dict[str, Any]
 
 logger = logging.getLogger(__name__)
 
@@ -257,56 +259,6 @@ class AgentToWorkflowConverter(IStateConverter):
         }
         
         return workflow_state
-        workflow_state = WorkflowState()
-        
-        # 复制基本信息
-        workflow_state.agent_id = source_state.agent_id
-        workflow_state.workflow_name = f"agent_{source_state.agent_type}"
-        
-        # 转换消息
-        for agent_msg in source_state.messages:
-            from ...application.workflow.state import BaseMessage, MessageRole
-            
-            # 映射角色
-            role_mapping = {
-                "user": MessageRole.HUMAN,
-                "assistant": MessageRole.AI,
-                "system": MessageRole.SYSTEM,
-                "tool": MessageRole.TOOL
-            }
-            
-            role = role_mapping.get(agent_msg.role, MessageRole.HUMAN)
-            
-            # 创建消息
-            if role == MessageRole.HUMAN:
-                from ...application.workflow.state import HumanMessage
-                msg = HumanMessage(content=agent_msg.content)
-            elif role == MessageRole.AI:
-                from ...application.workflow.state import AIMessage
-                msg = AIMessage(content=agent_msg.content)
-            elif role == MessageRole.SYSTEM:
-                from ...application.workflow.state import SystemMessage
-                msg = SystemMessage(content=agent_msg.content)
-            else:
-                msg = BaseMessage(content=agent_msg.content, type=role)
-            
-            workflow_state.add_message(msg)
-        
-        # 复制工具结果
-        workflow_state.tool_results = source_state.tool_results
-        
-        # 复制控制信息
-        workflow_state.current_step = source_state.current_step
-        workflow_state.max_iterations = source_state.max_iterations
-        workflow_state.iteration_count = source_state.iteration_count
-        
-        # 复制错误
-        workflow_state.errors = source_state.errors
-        
-        # 复制自定义字段
-        workflow_state.custom_fields = source_state.custom_fields
-        
-        return workflow_state
 
 
 class WorkflowToAgentConverter(IStateConverter):
@@ -368,50 +320,6 @@ class WorkflowToAgentConverter(IStateConverter):
         agent_state.custom_fields = source_state.get("custom_fields", {})
         
         return agent_state
-        agent_state = AgentState()
-        
-        # 复制基本信息
-        agent_state.agent_id = source_state.agent_id
-        agent_state.agent_type = source_state.workflow_name.replace("agent_", "")
-        
-        # 转换消息
-        for workflow_msg in source_state.messages:
-            # 映射角色
-            role_mapping = {
-                "human": "user",
-                "ai": "assistant",
-                "system": "system",
-                "tool": "tool"
-            }
-            
-            role = role_mapping.get(workflow_msg.role.value, "user")
-            
-            # 创建消息
-            from ..agent.state import AgentMessage
-            agent_msg = AgentMessage(
-                content=workflow_msg.content,
-                role=role,
-                timestamp=workflow_msg.timestamp,
-                metadata=workflow_msg.metadata
-            )
-            
-            agent_state.add_message(agent_msg)
-        
-        # 复制工具结果
-        agent_state.tool_results = source_state.tool_results
-        
-        # 复制控制信息
-        agent_state.current_step = source_state.current_step
-        agent_state.max_iterations = source_state.max_iterations
-        agent_state.iteration_count = source_state.iteration_count
-        
-        # 复制错误
-        agent_state.errors = source_state.errors
-        
-        # 复制自定义字段
-        agent_state.custom_fields = source_state.custom_fields
-        
-        return agent_state
 
 
 class AgentStateValidator(IStateValidator):
@@ -451,11 +359,13 @@ class WorkflowStateValidator(IStateValidator):
             return False
         
         # 验证迭代次数
-        if state.iteration_count < 0:
+        iteration_count = state.get("iteration_count", 0)
+        if iteration_count < 0:
             logger.warning("WorkflowState迭代次数不能为负数")
             return False
         
-        if state.max_iterations <= 0:
+        max_iterations = state.get("max_iterations", 10)
+        if max_iterations <= 0:
             logger.warning("WorkflowState最大迭代次数必须大于0")
             return False
         

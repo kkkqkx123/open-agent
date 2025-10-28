@@ -126,7 +126,7 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
             if cached_instance is not None:
                 self._performance_stats["cache_hits"] += 1
                 self._performance_monitor.record_cache_hit(service_type)
-                return cached_instance
+                return cached_instance  # type: ignore
             self._performance_stats["cache_misses"] += 1
             self._performance_monitor.record_cache_miss(service_type)
         
@@ -137,8 +137,22 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
         
         # 如果注册了实例，直接返回注册的实例
         if registration.instance is not None:
-            return registration.instance  # type: ignore
-        
+            # 对于作用域服务，需要检查是否是当前作用域的实例
+            if registration.lifetime == ServiceLifetime.SCOPED:
+                current_scope_id = self._scope_manager.get_current_scope_id()
+                if current_scope_id:
+                    # 检查当前作用域是否已有实例
+                    scoped_instance = self._scope_manager.get_scoped_instance(current_scope_id, service_type)
+                    if scoped_instance is not None:
+                        return scoped_instance  # type: ignore
+                    # 如果当前作用域没有实例，继续创建新实例
+                else:
+                    # 没有当前作用域，继续创建新实例
+                    pass
+            else:
+                # 非作用域服务，直接返回注册的实例
+                return registration.instance  # type: ignore
+            
         try:
             # 检测循环依赖（增强版）
             self._check_circular_dependency(service_type)
@@ -161,7 +175,7 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
             )
             self._performance_monitor.record_resolution(service_type, start_time, end_time)
             
-            return instance
+            return instance  # type: ignore
             
         except CircularDependencyError:
             # 如果是循环依赖错误，直接抛出，不要包装
@@ -197,7 +211,7 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
         self._scope_manager.dispose_scope(scope_id)
     
     @contextmanager
-    def scope(self):
+    def scope(self) -> Any:
         """作用域上下文管理器"""
         with self._scope_manager.scope_context() as scope_id:
             yield scope_id
@@ -262,7 +276,25 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
         Returns:
             分析结果
         """
-        return self._dependency_analyzer.analyze()
+        # 确保依赖分析器有最新的服务信息
+        # 更新依赖图基于当前注册的服务
+        all_services: Dict[Type, Any] = {}
+        all_services.update(self._services)
+        for env_services in self._environment_services.values():
+            all_services.update(env_services)  # type: ignore
+        
+        # 清除现有的依赖图 - 通过重新初始化依赖分析器
+        self._dependency_analyzer = DependencyAnalyzer()
+        
+        # 从服务注册信息重新构建依赖图
+        for service_type, registration in all_services.items():
+            if registration.implementation is not type(None):
+                self._dependency_analyzer.update_from_implementation(service_type, registration.implementation)
+        
+        # 获取所有服务类型列表
+        all_service_types = list(all_services.keys())
+        
+        return self._dependency_analyzer.analyze(all_service_types)
     
     def clear_cache(self) -> None:
         """清除所有缓存"""
@@ -408,6 +440,12 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
                 self._service_status[service_type] = ServiceStatus.INITIALIZED
                 self._initialization_order.append(service_type)
             
+            # 如果是作用域服务，将实例存储到当前作用域
+            if registration.lifetime == ServiceLifetime.SCOPED:
+                current_scope_id = self._scope_manager.get_current_scope_id()
+                if current_scope_id:
+                    self._scope_manager.set_scoped_instance(current_scope_id, service_type, instance)
+            
             # 跟踪服务
             if self._enable_tracking:
                 self._service_tracker.track_creation(service_type, instance)
@@ -488,7 +526,7 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
         
         # 使用eval解析字符串类型注解
         resolved_type = eval(type_str, globalns, localns)
-        return resolved_type
+        return resolved_type  # type: ignore
     
     def _get_from_cache(self, service_type: Type) -> Optional[Any]:
         """从缓存获取服务实例
@@ -499,7 +537,19 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
         Returns:
             缓存的服务实例，如果不存在则返回None
         """
+        # 首先检查是否是作用域服务
+        registration = self._find_registration(service_type)
+        if registration and registration.lifetime == ServiceLifetime.SCOPED:
+            # 对于作用域服务，检查当前作用域是否有实例
+            current_scope_id = self._scope_manager.get_current_scope_id()
+            if current_scope_id:
+                scoped_instance = self._scope_manager.get_scoped_instance(current_scope_id, service_type)
+                if scoped_instance is not None:
+                    return scoped_instance
+        
+        # 对于非作用域服务或作用域服务在当前作用域中没有实例，检查全局缓存
         return self._service_cache.get(service_type)
+        
     
     def _add_to_cache(self, service_type: Type, instance: Any) -> None:
         """添加服务实例到缓存
@@ -508,12 +558,17 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
             service_type: 服务类型
             instance: 服务实例
         """
+        
         # 检查是否是实例注册（有明确的注册实例），如果是则不缓存，直接返回注册的实例
         registration = self._find_registration(service_type)
         if registration and registration.instance is not None:
             # 这是实例注册，不进行缓存，直接返回注册的实例
             return
         
+        
+        # 对于作用域服务，不缓存到全局缓存，因为它们由作用域管理器管理
+        if registration and registration.lifetime == ServiceLifetime.SCOPED:
+            return
         self._service_cache.put(service_type, instance)
     
     def _get_creation_path(self, service_type: Type) -> List[Type]:

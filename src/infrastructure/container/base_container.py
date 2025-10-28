@@ -419,6 +419,7 @@ class BaseDependencyContainer(IDependencyContainer):
         """释放所有实例"""
         # 按照初始化的逆序释放
         for service_type in reversed(self._initialization_order):
+            # 首先检查实例缓存
             if service_type in self._instances:
                 instance = self._instances[service_type]
                 if isinstance(instance, ILifecycleAware):
@@ -428,6 +429,31 @@ class BaseDependencyContainer(IDependencyContainer):
                         self._service_status[service_type] = ServiceStatus.DISPOSED
                     except Exception as e:
                         logger.error(f"释放服务 {service_type.__name__} 失败: {e}")
+        
+        # 释放通过register_instance注册的实例
+        for service_type, registration in self._services.items():
+            if registration.instance is not None and isinstance(registration.instance, ILifecycleAware):
+                # 检查该服务类型是否已经在初始化顺序中，避免重复释放
+                if service_type not in self._initialization_order:
+                    try:
+                        self._service_status[service_type] = ServiceStatus.DISPOSING
+                        registration.instance.dispose()
+                        self._service_status[service_type] = ServiceStatus.DISPOSED
+                    except Exception as e:
+                        logger.error(f"释放注册实例 {service_type.__name__} 失败: {e}")
+        
+        # 释放环境特定服务中的实例
+        for service_type, env_registrations in self._environment_services.items():
+            for env_name, registration in env_registrations.items():
+                if registration.instance is not None and isinstance(registration.instance, ILifecycleAware):
+                    # 检查该服务类型是否已经在初始化顺序中，避免重复释放
+                    if service_type not in self._initialization_order:
+                        try:
+                            self._service_status[service_type] = ServiceStatus.DISPOSING
+                            registration.instance.dispose()
+                            self._service_status[service_type] = ServiceStatus.DISPOSED
+                        except Exception as e:
+                            logger.error(f"释放环境特定实例 {service_type.__name__} 失败: {e}")
         
         # 清除实例缓存
         self._instances.clear()

@@ -353,6 +353,110 @@ class CheckpointManager(ICheckpointManager):
             logger.error(f"获取checkpoint数量失败: {e}")
             return 0
     
+    async def copy_checkpoint(
+        self,
+        source_thread_id: str,
+        source_checkpoint_id: str,
+        target_thread_id: str
+    ) -> str:
+        """复制checkpoint到另一个thread
+        
+        Args:
+            source_thread_id: 源thread ID
+            source_checkpoint_id: 源checkpoint ID
+            target_thread_id: 目标thread ID
+            
+        Returns:
+            str: 新的checkpoint ID
+        """
+        try:
+            # 获取源checkpoint
+            source_checkpoint = await self.get_checkpoint(source_thread_id, source_checkpoint_id)
+            if not source_checkpoint:
+                raise ValueError(f"源checkpoint不存在: {source_checkpoint_id}")
+            
+            # 创建新的checkpoint ID
+            new_checkpoint_id = str(uuid.uuid4())
+            
+            # 复制数据并更新thread ID
+            checkpoint_data = source_checkpoint.copy()
+            checkpoint_data['id'] = new_checkpoint_id
+            checkpoint_data['session_id'] = target_thread_id
+            checkpoint_data['created_at'] = datetime.now().isoformat()
+            checkpoint_data['updated_at'] = datetime.now().isoformat()
+            
+            # 保存到目标thread
+            success = await self.checkpoint_store.save(checkpoint_data)
+            if success:
+                logger.debug(f"成功复制checkpoint从 {source_thread_id}:{source_checkpoint_id} 到 {target_thread_id}:{new_checkpoint_id}")
+                return new_checkpoint_id
+            else:
+                raise RuntimeError("复制checkpoint失败")
+        except Exception as e:
+            logger.error(f"复制checkpoint失败: {e}")
+            raise
+    
+    async def export_checkpoint(
+        self,
+        thread_id: str,
+        checkpoint_id: str
+    ) -> Dict[str, Any]:
+        """导出checkpoint数据
+        
+        Args:
+            thread_id: thread ID
+            checkpoint_id: checkpoint ID
+            
+        Returns:
+            Dict[str, Any]: checkpoint数据
+        """
+        try:
+            checkpoint = await self.get_checkpoint(thread_id, checkpoint_id)
+            if not checkpoint:
+                raise ValueError(f"Checkpoint不存在: {checkpoint_id}")
+            
+            # 返回checkpoint数据
+            return checkpoint
+        except Exception as e:
+            logger.error(f"导出checkpoint失败: {e}")
+            raise
+    
+    async def import_checkpoint(
+        self,
+        thread_id: str,
+        checkpoint_data: Dict[str, Any]
+    ) -> str:
+        """导入checkpoint数据
+        
+        Args:
+            thread_id: thread ID
+            checkpoint_data: checkpoint数据
+            
+        Returns:
+            str: 新的checkpoint ID
+        """
+        try:
+            # 创建新的checkpoint ID
+            new_checkpoint_id = str(uuid.uuid4())
+            
+            # 更新数据
+            checkpoint_data = checkpoint_data.copy()
+            checkpoint_data['id'] = new_checkpoint_id
+            checkpoint_data['session_id'] = thread_id
+            checkpoint_data['created_at'] = datetime.now().isoformat()
+            checkpoint_data['updated_at'] = datetime.now().isoformat()
+            
+            # 保存checkpoint
+            success = await self.checkpoint_store.save(checkpoint_data)
+            if success:
+                logger.debug(f"成功导入checkpoint到 {thread_id}:{new_checkpoint_id}")
+                return new_checkpoint_id
+            else:
+                raise RuntimeError("导入checkpoint失败")
+        except Exception as e:
+            logger.error(f"导入checkpoint失败: {e}")
+            raise
+    
     def get_langgraph_checkpointer(self):
         """获取LangGraph原生的checkpointer
         

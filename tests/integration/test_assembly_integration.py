@@ -11,7 +11,7 @@ from typing import cast
 
 from src.bootstrap import ApplicationBootstrap
 from src.infrastructure.assembler import ComponentAssembler
-from infrastructure.container import DependencyContainer, ILifecycleAware
+from src.infrastructure.container import DependencyContainer, ILifecycleAware
 from src.infrastructure.config_loader import YamlConfigLoader
 
 
@@ -35,7 +35,7 @@ application:
   version: "1.0.0"
   environment: "testing"
 
-assembly:
+components:
   llm:
     factory: "infrastructure.llm.factory.LLMFactory"
     config_path: "configs/llms"
@@ -43,6 +43,10 @@ assembly:
   tools:
     manager: "infrastructure.tools.manager.ToolManager"
     config_path: "configs/tools"
+  
+  agents: {}
+  workflows: {}
+  sessions: {}
 
 services:
   IConfigLoader:
@@ -50,12 +54,17 @@ services:
     lifetime: "singleton"
     parameters:
       base_path: "configs"
+  
+  ICheckpointManager:
+    implementation: "application.checkpoint.manager.CheckpointManager"
+    lifetime: "singleton"
 
 dependencies:
   singletons:
     - "IConfigLoader"
     - "ILLMFactory"
     - "IToolManager"
+    - "ICheckpointManager"
   
   scoped:
     - "IWorkflowBuilder"
@@ -154,7 +163,7 @@ default_tools:
         from src.infrastructure.container import ILifecycleAware
         
         # 创建生命周期感知的服务
-        class TestService(ILifecycleAware):
+        class LifecycleTestService(ILifecycleAware):
             def __init__(self):
                 self.initialized = False
                 self.disposed = False
@@ -169,12 +178,13 @@ default_tools:
         container = DependencyContainer()
         
         # 注册服务
-        container.register_instance(ITestService, TestService())
+        container.register_instance(ITestService, LifecycleTestService())
         
         # 获取服务
         service = container.get(ITestService)
-        # 类型断言，因为我们知道它是TestService实例
-        test_service = cast(TestService, service)
+        # 类型断言，因为我们知道它是LifecycleTestService实例
+        test_service = cast(LifecycleTestService, service)
+        # 对于实例注册的服务，initialize()方法应该在注册时就被调用
         assert test_service.initialized
         assert not test_service.disposed
         
@@ -190,7 +200,7 @@ default_tools:
         container = DependencyContainer()
         
         # 注册作用域服务
-        container.register(ITestService, TestService, lifetime=ServiceLifetime.SCOPED)
+        container.register(ITestService, TestServiceImplementation, lifetime=ServiceLifetime.SCOPED)
         
         # 在不同作用域中获取服务
         with container.scope() as scope_id:
@@ -261,7 +271,7 @@ class IServiceC:
 
 
 # 测试实现
-class TestService(ITestService, ILifecycleAware):
+class TestServiceImplementation(ITestService, ILifecycleAware):
     """测试服务实现"""
     def __init__(self):
         self.initialized = False

@@ -67,14 +67,20 @@ class ComponentAssembler(IComponentAssembler):
             if errors:
                 raise ConfigurationError(f"配置验证失败: {'; '.join(errors)}")
             
-            # 2. 创建基础工厂
+            # 2. 设置环境
+            app_config = config.get("application", {})
+            env = app_config.get("environment", "default")
+            self.container.set_environment(env)
+            logger.info(f"设置环境为: {env}")
+            
+            # 3. 创建基础工厂
             self._create_base_factories(config)
             
-            # 3. 创建业务工厂
+            # 4. 创建业务工厂
             self._create_business_factories(config)
             
-            # 4. 注册服务到容器
-            self._register_services()
+            # 5. 注册服务到容器
+            self._register_services(config)
             
             logger.info("组件组装完成")
             return self.container
@@ -260,9 +266,16 @@ class ComponentAssembler(IComponentAssembler):
         
         logger.info("业务工厂创建完成")
     
-    def _register_services(self) -> None:
-        """注册服务到容器"""
+    def _register_services(self, config: Dict[str, Any]) -> None:
+        """注册服务到容器
+
+        Args:
+            config: 应用配置
+        """
         logger.info("注册服务到容器")
+
+        # 注册配置中定义的服务
+        self._register_configured_services(config)
         
         # 注册基础服务
         from ..llm.interfaces import ILLMClientFactory
@@ -330,11 +343,41 @@ class ComponentAssembler(IComponentAssembler):
             instance=session_store
         )
         
+        # 注册Checkpoint相关服务
+        from ...application.checkpoint.interfaces import ICheckpointManager
+        from ...application.checkpoint.manager import CheckpointManager, DefaultCheckpointPolicy
+        from ...domain.checkpoint.config import CheckpointConfig
+        from ...domain.checkpoint.interfaces import ICheckpointStore
+        from ...infrastructure.checkpoint.memory_store import MemoryCheckpointStore
+        
+        # 创建Checkpoint存储
+        checkpoint_store = MemoryCheckpointStore()
+        
+        # 创建Checkpoint配置
+        checkpoint_config = CheckpointConfig(
+            enabled=True,
+            storage_type="memory",
+            auto_save=True,
+            save_interval=5,
+            max_checkpoints=100
+        )
+        
+        # 创建Checkpoint管理器
+        checkpoint_manager = CheckpointManager(
+            checkpoint_store=checkpoint_store,
+            config=checkpoint_config
+        )
+        
+        # 注册Checkpoint管理器
+        self.container.register_instance(
+            interface=ICheckpointManager,
+            instance=checkpoint_manager
+        )
+        
         # 注册Thread相关服务
         from ...domain.threads.interfaces import IThreadManager
         from ...domain.threads.manager import ThreadManager
         from ...infrastructure.threads.metadata_store import MemoryThreadMetadataStore, IThreadMetadataStore
-        from ...application.checkpoint.interfaces import ICheckpointManager
         from ...application.threads.session_thread_mapper import SessionThreadMapper, ISessionThreadMapper
         from ...application.threads.branch_manager import BranchManager
         from ...application.threads.snapshot_manager import SnapshotManager
@@ -344,9 +387,6 @@ class ComponentAssembler(IComponentAssembler):
         
         # 创建Thread元数据存储
         thread_metadata_store = MemoryThreadMetadataStore()
-        
-        # 获取CheckpointManager（假设已经注册）
-        checkpoint_manager = self.container.get(ICheckpointManager)
         
         # 创建ThreadManager
         thread_manager = ThreadManager(thread_metadata_store, checkpoint_manager)
@@ -405,6 +445,85 @@ class ComponentAssembler(IComponentAssembler):
         )
         
         logger.info("服务注册完成")
+    
+    def _register_configured_services(self, config: Dict[str, Any]) -> None:
+        """注册配置中定义的服务
+        
+        Args:
+            config: 应用配置
+        """
+        services_config = config.get('services', {})
+        if not services_config:
+            return
+        
+        logger.info(f"注册配置中定义的服务: {list(services_config.keys())}")
+        
+        for service_name, service_config in services_config.items():
+            try:
+                # 解析服务接口和实现
+                implementation_path = service_config.get('implementation')
+                lifetime_str = service_config.get('lifetime', 'singleton')
+                parameters = service_config.get('parameters', {})
+                
+                if not implementation_path:
+                    logger.warning(f"服务 {service_name} 缺少 implementation 配置，跳过注册")
+                    continue
+                
+                # 解析生命周期
+                lifetime = ServiceLifetime.SINGLETON
+                if lifetime_str.lower() == 'transient':
+                    lifetime = ServiceLifetime.TRANSIENT
+                elif lifetime_str.lower() == 'scoped':
+                    lifetime = ServiceLifetime.SCOPED
+                
+                # 动态导入实现类
+                module_path, class_name = implementation_path.rsplit('.', 1)
+                import importlib
+                module = importlib.import_module(module_path)
+                implementation_class = getattr(module, class_name)
+                
+                # 动态导入接口类
+                if '.' in service_name:
+                    interface_module_path, interface_class_name = service_name.rsplit('.', 1)
+                    interface_module = importlib.import_module(interface_module_path)
+                    interface_class = getattr(interface_module, interface_class_name)
+                else:
+                    # 如果没有模块路径，尝试从已知的模块导入
+                    if service_name == "IConfigLoader":
+                        from ..config_loader import IConfigLoader
+                        interface_class = IConfigLoader
+                    elif service_name == "ICheckpointManager":
+                        from ...application.checkpoint.interfaces import ICheckpointManager
+                        interface_class = ICheckpointManager
+                    else:
+                        raise ImportError(f"无法解析接口类: {service_name}")
+                
+                # 注册服务
+                if parameters:
+                    # 如果有参数，使用工厂方法
+                    def create_service_func() -> Any:
+                        return implementation_class(**parameters)
+                    
+                    self.container.register_factory(
+                        interface=interface_class,
+                        factory=create_service_func,
+                        lifetime=lifetime
+                    )
+                else:
+                    # 直接注册实现类
+                    self.container.register(
+                        interface=interface_class,
+                        implementation=implementation_class,
+                        lifetime=lifetime
+                    )
+                
+                logger.debug(f"成功注册服务: {service_name} -> {implementation_path}")
+                
+            except Exception as e:
+                logger.error(f"注册服务 {service_name} 失败: {e}")
+                # 继续注册其他服务，不要因为一个服务失败而中断
+                continue
+    
 
 
 class SessionFactory:

@@ -113,9 +113,12 @@ class DependencyAnalyzer(IDependencyAnalyzer):
         
         return max_depth + 1
     
-    def analyze(self) -> Dict[str, Any]:
+    def analyze(self, all_services: Optional[List[Type]] = None) -> Dict[str, Any]:
         """分析依赖关系
         
+        Args:
+            all_services: 所有注册的服务列表（可选）
+            
         Returns:
             分析结果
         """
@@ -134,11 +137,17 @@ class DependencyAnalyzer(IDependencyAnalyzer):
                 if not self._dependency_graph[service_type]
             ]
             
+            # 计算总服务数
+            if all_services is not None:
+                total_services = len(all_services)
+            else:
+                total_services = len(self._dependency_graph)
+            
             return {
                 "circular_dependencies": circular_deps,
                 "dependency_depths": dependency_depths,
                 "root_services": root_services,
-                "total_services": len(self._dependency_graph)
+                "total_services": total_services
             }
     
     def update_from_implementation(self, interface: Type, implementation: Type) -> None:
