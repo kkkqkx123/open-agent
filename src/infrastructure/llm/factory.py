@@ -55,6 +55,14 @@ class LLMFactory(ILLMClientFactory):
             from .clients.mock import MockLLMClient
 
             self._client_types["mock"] = MockLLMClient
+            try:
+                from .clients.human_relay import HumanRelayClient
+
+                self._client_types["human_relay"] = HumanRelayClient
+                self._client_types["human-relay-s"] = HumanRelayClient  # 单轮模式别名
+                self._client_types["human-relay-m"] = HumanRelayClient  # 多轮模式别名
+            except ImportError:
+                pass
         except ImportError:
             pass
 

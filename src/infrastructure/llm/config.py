@@ -77,7 +77,7 @@ class LLMClientConfig:
 
     # 连接池配置
     connection_pool_config: ConnectionPoolConfig = field(
-        default_factory=ConnectionPoolConfig
+        default_factory=lambda: ConnectionPoolConfig()  # type: ignore
     )
 
     # 元数据
@@ -458,7 +458,7 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
-                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),  # type: ignore
                 metadata_config=config_dict.get("metadata", {}),
             )
         elif model_type == "gemini":
@@ -486,7 +486,7 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
-                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),  # type: ignore
                 metadata_config=config_dict.get("metadata", {}),
             )
         elif model_type in ["anthropic", "claude"]:
@@ -511,9 +511,9 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
-                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),  # type: ignore
                 metadata_config=config_dict.get("metadata", {}),
-            )
+                )
         elif model_type == "mock":
             return MockConfig(
                 model_type=model_type,
@@ -532,11 +532,49 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
-                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),  # type: ignore
                 metadata_config=config_dict.get("metadata", {}),
                 response_delay=config_dict.get("response_delay", 0.1),
                 error_rate=config_dict.get("error_rate", 0.0),
                 error_types=config_dict.get("error_types", ["timeout", "rate_limit"]),
+            )
+        elif model_type in ["human_relay", "human-relay-s", "human-relay-m"]:
+            # 确定模式
+            mode = "single"  # 默认单轮模式
+            if model_type == "human-relay-m":
+                mode = "multi"
+            
+            # 获取HumanRelay特定配置
+            human_relay_config = config_dict.get("human_relay_config", {})
+            
+            return HumanRelayConfig(
+                model_type="human_relay",  # 统一使用human_relay
+                model_name=model_name,
+                base_url=config_dict.get("base_url"),
+                api_key=config_dict.get("api_key"),
+                headers=config_dict.get("headers", {}),
+                timeout=config_dict.get("timeout", 30),
+                max_retries=config_dict.get("max_retries", 3),
+                temperature=config_dict.get("temperature", 0.7),
+                max_tokens=config_dict.get("max_tokens"),
+                top_p=config_dict.get("top_p", 1.0),
+                stream=config_dict.get("stream", False),
+                functions=config_dict.get("functions"),
+                function_call=config_dict.get("function_call"),
+                fallback_enabled=config_dict.get("fallback_enabled", True),
+                fallback_models=config_dict.get("fallback_models", []),
+                max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),  # type: ignore
+                metadata_config=config_dict.get("metadata", {}),
+                # HumanRelay特定参数
+                mode=mode,
+                frontend_config=human_relay_config.get("frontend_interface", {}),
+                max_history_length=config_dict.get("max_history_length", 
+                    human_relay_config.get("max_history_length", 50)),
+                prompt_template=human_relay_config.get("prompt_template", 
+                    "请将以下提示词输入到Web LLM中，并将回复粘贴回来：\n\n{prompt}\n\n回复："),
+                incremental_prompt_template=human_relay_config.get("incremental_prompt_template",
+                    "请继续对话，将以下提示词输入到Web LLM中：\n\n{incremental_prompt}\n\n对话历史：\n{conversation_history}\n\n回复："),
             )
         else:
             # 默认创建基础配置
@@ -557,9 +595,9 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
-                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),  # type: ignore
                 metadata_config=config_dict.get("metadata", {}),
-            )
+                )
 
 
 @dataclass
@@ -696,3 +734,23 @@ class MockConfig(LLMClientConfig):
         """初始化后处理"""
         if self.model_type != "mock":
             raise ValueError("MockConfig的model_type必须为'mock'")
+        
+
+
+@dataclass
+class HumanRelayConfig(LLMClientConfig):
+    """HumanRelay客户端配置"""
+
+    # HumanRelay特定配置
+    mode: str = "single"  # single 或 multi
+    frontend_config: Dict[str, Any] = field(default_factory=dict)
+    max_history_length: int = 50
+    prompt_template: str = field(default_factory=lambda: 
+        "请将以下提示词输入到Web LLM中，并将回复粘贴回来：\n\n{prompt}\n\n回复：")
+    incremental_prompt_template: str = field(default_factory=lambda:
+        "请继续对话，将以下提示词输入到Web LLM中：\n\n{incremental_prompt}\n\n对话历史：\n{conversation_history}\n\n回复：")
+
+    def __post_init__(self) -> None:
+        """初始化后处理"""
+        if self.model_type != "human_relay":
+            raise ValueError("HumanRelayConfig的model_type必须为'human_relay'")
