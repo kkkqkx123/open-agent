@@ -68,7 +68,7 @@ class OpenAITokenCounter(ITokenCounter):
         return self._calculator.count_tokens(text) or 0
 
     def count_messages_tokens(self, messages: Sequence[BaseMessage], api_response: Optional[Dict[str, Any]] = None) -> int:
-        return self._calculator.count_messages_tokens(messages) or 0
+        return self._calculator.count_messages_tokens(list(messages)) or 0
 
     def get_model_info(self) -> Dict[str, Any]:
         return self._calculator.get_model_info()
@@ -110,7 +110,7 @@ class GeminiTokenCounter(ITokenCounter):
         return self._calculator.count_tokens(text) or 0
 
     def count_messages_tokens(self, messages: Sequence[BaseMessage], api_response: Optional[Dict[str, Any]] = None) -> int:
-        return self._calculator.count_messages_tokens(messages) or 0
+        return self._calculator.count_messages_tokens(list(messages)) or 0
 
     def get_model_info(self) -> Dict[str, Any]:
         return self._calculator.get_model_info()
@@ -152,7 +152,7 @@ class AnthropicTokenCounter(ITokenCounter):
         return self._calculator.count_tokens(text) or 0
 
     def count_messages_tokens(self, messages: Sequence[BaseMessage], api_response: Optional[Dict[str, Any]] = None) -> int:
-        return self._calculator.count_messages_tokens(messages) or 0
+        return self._calculator.count_messages_tokens(list(messages)) or 0
 
     def get_model_info(self) -> Dict[str, Any]:
         return self._calculator.get_model_info()
@@ -276,7 +276,7 @@ class EnhancedOpenAITokenCounter(ITokenCounter):
 
     def count_messages_tokens(self, messages: Sequence[BaseMessage],
                              api_response: Optional[Dict[str, Any]] = None) -> int:
-        return self._calculator.count_messages_tokens(messages, api_response)
+        return self._calculator.count_messages_tokens(list(messages), api_response)
 
     def get_model_info(self) -> Dict[str, Any]:
         info = self._calculator.get_model_info()
@@ -361,7 +361,7 @@ class EnhancedGeminiTokenCounter(ITokenCounter):
 
     def count_messages_tokens(self, messages: Sequence[BaseMessage],
                              api_response: Optional[Dict[str, Any]] = None) -> int:
-        return self._calculator.count_messages_tokens(messages, api_response)
+        return self._calculator.count_messages_tokens(list(messages), api_response)
 
     def get_model_info(self) -> Dict[str, Any]:
         info = self._calculator.get_model_info()
@@ -445,7 +445,7 @@ class EnhancedAnthropicTokenCounter(ITokenCounter):
 
     def count_messages_tokens(self, messages: Sequence[BaseMessage],
                              api_response: Optional[Dict[str, Any]] = None) -> int:
-        return self._calculator.count_messages_tokens(messages, api_response)
+        return self._calculator.count_messages_tokens(list(messages), api_response)
 
     def get_model_info(self) -> Dict[str, Any]:
         info = self._calculator.get_model_info()
@@ -553,30 +553,30 @@ class TokenCounterFactory:
         
         # 对于增强版本，应用额外配置
         if enhanced and hasattr(counter, '_calculator'):
-            calculator = counter._calculator  # type: ignore
-            if hasattr(calculator, '_api_calculator') and hasattr(calculator._api_calculator, 'clear_cache'):
+            calculator = getattr(counter, '_calculator', None)
+            if calculator and hasattr(calculator, '_api_calculator') and hasattr(calculator._api_calculator, 'clear_cache'):
                 # 如果有缓存配置，可以在这里应用
                 cache_config = config.get("cache", {})
                 if cache_config.get("clear_on_init", False):
                     calculator._api_calculator.clear_cache()
             
             # 设置降级策略
-            if hasattr(calculator, 'set_enable_degradation'):
+            if calculator and hasattr(calculator, 'set_enable_degradation'):
                 enable_degradation = config.get("enable_degradation", True)
                 calculator.set_enable_degradation(enable_degradation)
             
             # 设置API优先级
-            if hasattr(calculator, 'set_prefer_api'):
+            if calculator and hasattr(calculator, 'set_prefer_api'):
                 prefer_api = config.get("prefer_api", True)
                 calculator.set_prefer_api(prefer_api)
             
             # 设置token缓存支持
-            if hasattr(calculator, 'set_supports_token_caching'):
+            if calculator and hasattr(calculator, 'set_supports_token_caching'):
                 supports_token_caching = config.get("supports_token_caching", True)
                 calculator.set_supports_token_caching(supports_token_caching)
             
             # 设置对话跟踪
-            if hasattr(calculator, 'set_track_conversation'):
+            if calculator and hasattr(calculator, 'set_track_conversation'):
                 track_conversation = config.get("track_conversation", False)
                 calculator.set_track_conversation(track_conversation)
         

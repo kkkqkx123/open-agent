@@ -76,6 +76,9 @@ class TestSnapshotManager:
             }]
         }
         
+        # Mock update_thread_state 返回 True
+        thread_manager_mock.update_thread_state.return_value = True
+        
         success = await snapshot_manager.restore_snapshot("thread_123", "snapshot_123")
         
         assert success is True

@@ -101,7 +101,7 @@ class GeminiClient(BaseLLMClient):
 
         self._client = ChatGoogleGenerativeAI(**client_kwargs)
 
-    def _convert_messages(self, messages: List[BaseMessage]) -> List[BaseMessage]:
+    def _convert_messages(self, messages: Sequence[BaseMessage]) -> List[BaseMessage]:
         """转换消息格式以适应Gemini API"""
         converted_messages = []
 
@@ -329,7 +329,7 @@ class GeminiClient(BaseLLMClient):
             return LLMCallError(str(error))
 
     def _do_stream_generate(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> Generator[str, None, None]:
         """执行流式生成操作"""
         try:
@@ -352,7 +352,7 @@ class GeminiClient(BaseLLMClient):
             raise self._handle_gemini_error(e)
 
     def _do_stream_generate_async(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
 

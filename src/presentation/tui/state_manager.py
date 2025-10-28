@@ -2,7 +2,8 @@
 
 from typing import Optional, Dict, Any, List, Callable
 from src.application.sessions.manager import ISessionManager
-from src.application.workflow.state import AgentState, HumanMessage
+from src.domain.agent.state import AgentState
+from src.infrastructure.graph.states.base import HumanMessage
 
 
 class StateManager:

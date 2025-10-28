@@ -198,13 +198,8 @@ class TestWorkflowFactory(unittest.TestCase):
             max_iterations=20
         )
     
-    @patch('src.application.workflow.factory.StateFactory')
-    def test_create_agent_state(self, mock_state_factory):
+    def test_create_agent_state(self):
         """测试创建Agent状态"""
-        # 设置模拟
-        mock_state = Mock(spec=DomainAgentState)
-        mock_state_factory.create_agent_state.return_value = mock_state
-        
         # 创建Agent状态
         result = self.factory.create_agent_state(
             input_text="test input",
@@ -214,15 +209,11 @@ class TestWorkflowFactory(unittest.TestCase):
         )
         
         # 验证结果
-        self.assertEqual(result, mock_state)
-        
-        # 验证调用
-        mock_state_factory.create_agent_state.assert_called_once_with(
-            input_text="test input",
-            agent_id="test_agent",
-            agent_config={"test": "config"},
-            max_iterations=15
-        )
+        self.assertIsInstance(result, DomainAgentState)
+        self.assertEqual(result.agent_id, "test_agent")
+        self.assertEqual(result.current_task, "test input")
+        self.assertEqual(result.max_iterations, 15)
+        self.assertEqual(result.context, {"test": "config"})
     
     @patch('src.application.workflow.factory.StateFactory')
     def test_create_react_state(self, mock_state_factory):

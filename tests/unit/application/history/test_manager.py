@@ -56,6 +56,8 @@ class TestHistoryManager:
     def test_query_history(self) -> None:
         """测试查询历史记录"""
         mock_storage = Mock()
+        # 设置 get_all_records 方法的返回值
+        mock_storage.get_all_records.return_value = []
         manager = HistoryManager(mock_storage)
         
         query = HistoryQuery(
@@ -70,8 +72,8 @@ class TestHistoryManager:
         assert result.records == []
         assert result.total == 0
         
-        # 验证没有调用存储层（当前简单实现）
-        mock_storage.assert_not_called()
+        # 验证调用了存储层的 get_all_records 方法
+        mock_storage.get_all_records.assert_called_once_with("session-1")
 
     def test_storage_exception_handling(self) -> None:
         """测试存储层异常处理"""

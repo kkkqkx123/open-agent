@@ -86,7 +86,8 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
-addopts = "--cov=src --cov-report=html:cov_html --cov-report=term"
+addopts = ""
+# addopts = "--cov=src --cov-report=html:cov_html --cov-report=term"用于启用覆盖率测试
 asyncio_mode = "auto"
 
 [tool.coverage.run]

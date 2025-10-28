@@ -1,7 +1,7 @@
 """本地Token计算器"""
 
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence
 
 from langchain_core.messages import BaseMessage  # type: ignore
 
@@ -63,7 +63,7 @@ class LocalTokenCalculator(ITokenCalculator):
             # 简单估算：大约4个字符=1个token
             return len(text) // 4
     
-    def count_messages_tokens(self, messages: List[BaseMessage]) -> Optional[int]:
+    def count_messages_tokens(self, messages: Sequence[BaseMessage], api_response: Optional[Dict[str, Any]] = None) -> Optional[int]:
         """
         计算消息列表的token数量
         
@@ -74,9 +74,9 @@ class LocalTokenCalculator(ITokenCalculator):
             Optional[int]: token数量，本地计算器总是能返回结果
         """
         if self._encoding:
-            return self._count_messages_tokens_with_encoding(messages)
+            return self._count_messages_tokens_with_encoding(list(messages))
         else:
-            return self._count_messages_tokens_estimation(messages)
+            return self._count_messages_tokens_estimation(list(messages))
     
     def _count_messages_tokens_with_encoding(self, messages: List[BaseMessage]) -> int:
         """使用编码器计算消息格式的token数量"""

@@ -2,7 +2,7 @@
 
 import hashlib
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence
 
 from langchain_core.messages import BaseMessage  # type: ignore
 
@@ -85,7 +85,7 @@ class ApiTokenCalculator(ITokenCalculator):
         logger.warning(f"没有找到文本的API使用数据，返回None: {text[:50]}...")
         return None
     
-    def count_messages_tokens(self, messages: List[BaseMessage]) -> Optional[int]:
+    def count_messages_tokens(self, messages: Sequence[BaseMessage], api_response: Optional[Dict[str, Any]] = None) -> Optional[int]:
         """
         计算消息列表的token数量（基于缓存的API响应）
         
@@ -103,7 +103,7 @@ class ApiTokenCalculator(ITokenCalculator):
             return None
         
         # 将消息转换为文本进行缓存查找
-        text_context = self._messages_to_text(messages)
+        text_context = self._messages_to_text(list(messages))
         return self.count_tokens(text_context)
     
     def get_model_info(self) -> Dict[str, Any]:

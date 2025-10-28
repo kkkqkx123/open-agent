@@ -52,6 +52,9 @@ class TestEnhancedThreadManager:
         original_create_thread = thread_manager.create_thread
         thread_manager.create_thread = AsyncMock(return_value="thread_456")
         
+        # Mock update_thread_state to return True
+        thread_manager.update_thread_state = AsyncMock(return_value=True)
+        
         new_thread_id = await thread_manager.fork_thread(
             "thread_123",
             "checkpoint_123",
@@ -96,6 +99,9 @@ class TestEnhancedThreadManager:
     @pytest.mark.asyncio
     async def test_rollback_thread_success(self, thread_manager, checkpoint_manager_mock, metadata_store_mock):
         """测试成功回滚thread"""
+        # Mock get_thread_state to return a proper value
+        thread_manager.get_thread_state = AsyncMock(return_value={"key": "value"})
+        
         success = await thread_manager.rollback_thread("thread_123", "checkpoint_123")
         
         assert success is True

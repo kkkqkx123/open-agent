@@ -14,7 +14,7 @@ from src.domain.sessions.store import ISessionStore
 from src.application.sessions.git_manager import IGitManager
 from src.application.workflow.manager import IWorkflowManager
 from src.infrastructure.graph.config import GraphConfig as WorkflowConfig
-from src.application.workflow.state import AgentState, BaseMessage
+from src.infrastructure.graph.state import AgentState, BaseMessage
 
 
 class TestSessionManager:
@@ -110,7 +110,7 @@ class TestSessionManager:
         workflow_config_path = "configs/workflows/test.yaml"
         agent_config = {"name": "test_agent"}
         initial_state = AgentState()
-        initial_state.add_message(BaseMessage(content="测试消息"))
+        initial_state["messages"] = [BaseMessage(content="测试消息")]
         
         # 模拟配置文件校验和计算
         with patch('builtins.open', mock_open(read_data=b'test config content')):
@@ -212,7 +212,7 @@ class TestSessionManager:
                 workflow, state = session_manager.restore_session(session_id)
         
         assert workflow is not None
-        assert isinstance(state, AgentState)
+        # assert isinstance(state, AgentState)  # TypedDict不能用于isinstance检查
         
         # 验证使用了配置路径重新加载
         mock_workflow_manager.load_workflow.assert_called_with(workflow_config_path)
@@ -261,7 +261,7 @@ class TestSessionManager:
                 workflow, state = session_manager.restore_session(session_id)
         
         assert workflow is not None
-        assert isinstance(state, AgentState)
+        # assert isinstance(state, AgentState)  # TypedDict不能用于isinstance检查
         
         # 验证最终使用了原始workflow_id
         mock_workflow_manager.create_workflow.assert_called_with("original_workflow_id")
@@ -318,7 +318,7 @@ class TestSessionManager:
                 workflow, state = session_manager.restore_session(session_id)
         
         assert workflow is not None
-        assert isinstance(state, AgentState)
+        # assert isinstance(state, AgentState)  # TypedDict不能用于isinstance检查
         
         # 验证最终重新加载并更新了元数据
         assert mock_workflow_manager.load_workflow.call_count == 2
@@ -538,7 +538,7 @@ class TestSessionManager:
         """测试保存会话"""
         session_id = "test-session-id"
         state = AgentState()
-        state.add_message(BaseMessage(content="测试消息"))
+        state["messages"] = [BaseMessage(content="测试消息")]
         
         session_data = {
             "metadata": {"session_id": session_id, "updated_at": "2023-01-01T00:00:00"},
@@ -702,10 +702,10 @@ class TestSessionManager:
     def test_serialize_state(self, session_manager):
         """测试序列化状态"""
         state = AgentState()
-        state.add_message(BaseMessage(content="测试消息"))
-        state.current_step = "测试步骤"
-        state.workflow_name = "test_workflow"
-        state.start_time = datetime(2023, 1, 1, 0, 0, 0)
+        state["messages"] = [BaseMessage(content="测试消息")]
+        state["current_step"] = "测试步骤"
+        state["workflow_name"] = "test_workflow"
+        state["start_time"] = datetime(2023, 1, 1, 0, 0, 0).isoformat()
         
         result = session_manager._serialize_state(state)
         
@@ -737,11 +737,11 @@ class TestSessionManager:
         
         result = session_manager._deserialize_state(state_data)
         
-        assert isinstance(result, AgentState)
-        assert len(result.messages) == 1
-        assert result.current_step == "测试步骤"
-        assert result.workflow_name == "test_workflow"
-        assert result.start_time == datetime(2023, 1, 1, 0, 0, 0)
+        # assert isinstance(result, AgentState)  # TypedDict不能用于isinstance检查
+        assert len(result["messages"]) == 1
+        assert result["current_step"] == "测试步骤"
+        assert result["workflow_name"] == "test_workflow"
+        assert result["start_time"] == datetime(2023, 1, 1, 0, 0, 0).isoformat()
 
     def test_get_recovery_attempts(self, session_manager):
         """测试获取恢复尝试次数"""
@@ -758,7 +758,7 @@ class TestSessionManager:
         """测试保存会话状态和工作流指标"""
         session_id = "test-session-id"
         state = AgentState()
-        state.add_message(BaseMessage(content="测试消息"))
+        state["messages"] = [BaseMessage(content="测试消息")]
         workflow_metrics = {
             "execution_time": 5.2,
             "nodes_executed": 3,
@@ -871,7 +871,7 @@ class TestSessionManager:
                 workflow, state = session_manager.restore_session(session_id)
         
         assert workflow is not None
-        assert isinstance(state, AgentState)
+        # assert isinstance(state, AgentState)  # TypedDict不能用于isinstance检查
         
         # 验证最终使用了摘要中的workflow_id
         mock_workflow_manager.create_workflow.assert_called_with("original_workflow_id")

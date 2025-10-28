@@ -3,7 +3,7 @@
 import random
 import time
 import asyncio
-from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Union
+from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Union, Sequence
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 
@@ -52,7 +52,7 @@ class MockLLMClient(BaseLLMClient):
         }
 
     def _do_generate(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行生成操作"""
         # 模拟响应延迟
@@ -77,7 +77,7 @@ class MockLLMClient(BaseLLMClient):
         )
 
     async def _do_generate_async(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行异步生成操作"""
         # 模拟响应延迟
@@ -102,7 +102,7 @@ class MockLLMClient(BaseLLMClient):
         )
 
     def _do_stream_generate(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> Generator[str, None, None]:
         """执行流式生成操作"""
         try:
@@ -124,7 +124,7 @@ class MockLLMClient(BaseLLMClient):
             raise self._handle_mock_error(e)
 
     async def _do_stream_generate_async(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
         try:
@@ -153,7 +153,7 @@ class MockLLMClient(BaseLLMClient):
         counter = TokenCounterFactory.create_counter("mock", self.config.model_name)
         return counter.count_tokens(text) or 0
 
-    def get_messages_token_count(self, messages: List[BaseMessage]) -> int:
+    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
         """计算消息列表的token数量"""
         from ..token_counter import TokenCounterFactory
 
@@ -167,7 +167,7 @@ class MockLLMClient(BaseLLMClient):
         return True
 
     def _generate_response_content(
-        self, messages: List[BaseMessage], parameters: Optional[Dict[str, Any]] = None
+        self, messages: Sequence[BaseMessage], parameters: Optional[Dict[str, Any]] = None
     ) -> str:
         """生成响应内容"""
         if not messages:
@@ -352,7 +352,7 @@ class MockLLMClient(BaseLLMClient):
         else:
             raise ValueError("响应延迟必须大于等于0")
 
-    def _validate_messages(self, messages: List[Any]) -> None:
+    def _validate_messages(self, messages: Sequence[BaseMessage]) -> None:
         """验证消息列表（Mock客户端允许空消息列表）"""
         # Mock客户端允许空消息列表，用于测试
         pass

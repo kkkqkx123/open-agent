@@ -1,7 +1,7 @@
 """混合Token计算器"""
 
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence
 
 from langchain_core.messages import BaseMessage  # type: ignore
 
@@ -205,11 +205,11 @@ class HybridTokenCalculator(ITokenCalculator):
             self._stats["local_count"] += 1
             
             # 计算本地token数
-            local_count = self._local_calculator.count_messages_tokens(messages) or 0
+            local_count = self._local_calculator.count_messages_tokens(list(messages)) or 0
             
             # 如果启用了对话跟踪，添加消息到历史
             if self._conversation_tracker:
-                self._conversation_tracker.add_messages(messages, token_count=local_count)
+                self._conversation_tracker.add_messages(list(messages), token_count=local_count)
             
             return local_count
         
@@ -220,13 +220,13 @@ class HybridTokenCalculator(ITokenCalculator):
             if not api_usage:
                 # 如果没有缓存的API使用数据，尝试从响应中解析
                 # 将消息列表转换为文本作为上下文
-                context = self._messages_to_text(messages)
+                context = self._messages_to_text(list(messages))
                 self._api_calculator.update_from_api_response(api_response, context)
                 api_usage = self._api_calculator.get_last_api_usage()
             
             if api_usage:
                 # 计算本地估算值
-                local_count = self._local_calculator.count_messages_tokens(messages) or 0
+                local_count = self._local_calculator.count_messages_tokens(list(messages)) or 0
                 
                 # 降级策略：如果API token数少于本地估算的1/4，使用本地计算
                 if self.enable_degradation and api_usage.total_tokens < local_count / 4:
@@ -239,7 +239,7 @@ class HybridTokenCalculator(ITokenCalculator):
                     
                     # 如果启用了对话跟踪，添加消息到历史
                     if self._conversation_tracker:
-                        self._conversation_tracker.add_messages(messages, token_count=local_count)
+                        self._conversation_tracker.add_messages(list(messages), token_count=local_count)
                     
                     return local_count
                 
@@ -248,7 +248,7 @@ class HybridTokenCalculator(ITokenCalculator):
                 
                 # 如果启用了对话跟踪，添加消息到历史
                 if self._conversation_tracker:
-                    self._conversation_tracker.add_messages(messages, token_count=api_usage.total_tokens)
+                    self._conversation_tracker.add_messages(list(messages), token_count=api_usage.total_tokens)
                 
                 return api_usage.total_tokens
         
@@ -258,7 +258,7 @@ class HybridTokenCalculator(ITokenCalculator):
             api_usage = self._api_calculator.get_last_api_usage()
             if api_usage:
                 # 计算本地估算值
-                local_count = self._local_calculator.count_messages_tokens(messages) or 0
+                local_count = self._local_calculator.count_messages_tokens(list(messages)) or 0
                 
                 # 降级策略：如果API token数少于本地估算的1/4，使用本地计算
                 if self.enable_degradation and api_usage.total_tokens < local_count / 4:
@@ -271,7 +271,7 @@ class HybridTokenCalculator(ITokenCalculator):
                     
                     # 如果启用了对话跟踪，添加消息到历史
                     if self._conversation_tracker:
-                        self._conversation_tracker.add_messages(messages, token_count=local_count)
+                        self._conversation_tracker.add_messages(list(messages), token_count=local_count)
                     
                     return local_count
                 
@@ -280,18 +280,18 @@ class HybridTokenCalculator(ITokenCalculator):
                 
                 # 如果启用了对话跟踪，添加消息到历史
                 if self._conversation_tracker:
-                    self._conversation_tracker.add_messages(messages, token_count=api_usage.total_tokens)
+                    self._conversation_tracker.add_messages(list(messages), token_count=api_usage.total_tokens)
                 
                 return api_usage.total_tokens
         
         # 尝试使用API计算器
-        api_count = self._api_calculator.count_messages_tokens(messages)
+        api_count = self._api_calculator.count_messages_tokens(list(messages))
         if api_count is not None:
             self._stats["api_count"] += 1
             
             # 如果启用了对话跟踪，添加消息到历史
             if self._conversation_tracker:
-                self._conversation_tracker.add_messages(messages, token_count=api_count)
+                self._conversation_tracker.add_messages(list(messages), token_count=api_count)
             
             return api_count
         
@@ -300,11 +300,11 @@ class HybridTokenCalculator(ITokenCalculator):
         self._stats["local_count"] += 1
         
         # 计算本地token数
-        local_count = self._local_calculator.count_messages_tokens(messages) or 0
+        local_count = self._local_calculator.count_messages_tokens(list(messages)) or 0
         
         # 如果启用了对话跟踪，添加消息到历史
         if self._conversation_tracker:
-            self._conversation_tracker.add_messages(messages, token_count=local_count)
+            self._conversation_tracker.add_messages(list(messages), token_count=local_count)
         
         return local_count
     
