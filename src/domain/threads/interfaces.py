@@ -120,3 +120,42 @@ class IThreadManager(ABC):
             更新是否成功
         """
         pass
+    
+    @abstractmethod
+    async def fork_thread(
+        self, 
+        source_thread_id: str, 
+        checkpoint_id: str,
+        branch_name: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """从指定checkpoint创建thread分支"""
+        pass
+
+    @abstractmethod
+    async def create_thread_snapshot(
+        self,
+        thread_id: str,
+        snapshot_name: str,
+        description: Optional[str] = None
+    ) -> str:
+        """创建thread状态快照"""
+        pass
+
+    @abstractmethod
+    async def rollback_thread(
+        self,
+        thread_id: str,
+        checkpoint_id: str
+    ) -> bool:
+        """回滚thread到指定checkpoint"""
+        pass
+
+    @abstractmethod
+    async def get_thread_history(
+        self,
+        thread_id: str,
+        limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """获取thread历史记录"""
+        pass

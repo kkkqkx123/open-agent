@@ -390,7 +390,7 @@ class ApiResponse(BaseModel):
     message: str = Field(..., description="响应消息")
     data: Optional[Dict[str, Any]] = Field(None, description="响应数据")
     timestamp: datetime = Field(default_factory=datetime.now, description="响应时间")
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -399,6 +399,76 @@ class ApiResponse(BaseModel):
                 "data": {
                     "id": "123"
                 },
+                "timestamp": "2024-10-22T17:50:00Z"
+            }
+        }
+
+
+class ThreadResponse(BaseModel):
+    """Thread响应"""
+    thread_id: str = Field(..., description="Thread ID")
+    graph_id: str = Field(..., description="关联的图ID")
+    status: str = Field(..., description="Thread状态")
+    created_at: datetime = Field(..., description="创建时间")
+    updated_at: datetime = Field(..., description="更新时间")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="元数据")
+    branch_name: Optional[str] = Field(None, description="分支名称")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "thread_id": "thread_123456",
+                "graph_id": "graph_789",
+                "status": "active",
+                "created_at": "2024-10-22T17:48:00Z",
+                "updated_at": "2024-10-22T17:48:30Z",
+                "metadata": {
+                    "notes": "测试Thread"
+                },
+                "branch_name": "main"
+            }
+        }
+
+
+class ThreadListResponse(BaseModel):
+    """Thread列表响应"""
+    threads: List[ThreadResponse] = Field(..., description="Thread列表")
+    total: int = Field(..., description="总数")
+    timestamp: datetime = Field(default_factory=datetime.now, description="响应时间")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "threads": [
+                    {
+                        "thread_id": "thread_123456",
+                        "graph_id": "graph_789",
+                        "status": "active",
+                        "created_at": "2024-10-22T17:48:00Z",
+                        "updated_at": "2024-10-22T17:48:30Z",
+                        "metadata": {
+                            "notes": "测试Thread"
+                        },
+                        "branch_name": "main"
+                    }
+                ],
+                "total": 1,
+                "timestamp": "2024-10-22T17:50:00Z"
+            }
+        }
+
+
+class OperationResponse(BaseModel):
+    """操作响应"""
+    success: bool = Field(..., description="是否成功")
+    message: str = Field(..., description="响应消息")
+    timestamp: datetime = Field(default_factory=datetime.now, description="响应时间")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "message": "操作成功",
                 "timestamp": "2024-10-22T17:50:00Z"
             }
         }

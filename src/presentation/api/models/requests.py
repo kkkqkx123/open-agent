@@ -139,12 +139,72 @@ class ConfigUpdateRequest(BaseModel):
     key: str = Field(..., description="配置键")
     value: Any = Field(..., description="配置值")
     config_type: str = Field(..., description="配置类型")
-    
+
     class Config:
         json_schema_extra = {
             "example": {
                 "key": "default_model",
                 "value": "gpt-4",
                 "config_type": "llm"
+            }
+        }
+
+
+class ThreadCreateRequest(BaseModel):
+    """创建Thread请求"""
+    graph_id: str = Field(..., description="关联的图ID")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Thread元数据")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "graph_id": "graph_789",
+                "metadata": {
+                    "notes": "新的Thread"
+                }
+            }
+        }
+
+
+class ThreadForkRequest(BaseModel):
+    """Thread分支请求"""
+    checkpoint_id: str = Field(..., description="Checkpoint ID")
+    branch_name: str = Field(..., description="分支名称")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="分支元数据")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "checkpoint_id": "checkpoint_123",
+                "branch_name": "feature_branch",
+                "metadata": {
+                    "notes": "新功能分支"
+                }
+            }
+        }
+
+
+class ThreadRollbackRequest(BaseModel):
+    """Thread回滚请求"""
+    checkpoint_id: str = Field(..., description="要回滚到的Checkpoint ID")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "checkpoint_id": "checkpoint_123"
+            }
+        }
+
+
+class ThreadSnapshotRequest(BaseModel):
+    """Thread快照请求"""
+    snapshot_name: str = Field(..., description="快照名称")
+    description: Optional[str] = Field(None, description="快照描述")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "snapshot_name": "v1.0_release",
+                "description": "发布版本1.0的快照"
             }
         }

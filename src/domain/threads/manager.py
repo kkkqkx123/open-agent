@@ -165,13 +165,16 @@ class ThreadManager(IThreadManager):
         """获取Thread状态"""
         if not await self.thread_exists(thread_id):
             return None
-        
+
         # 获取最新checkpoint
         latest_checkpoint = await self.checkpoint_manager.get_latest_checkpoint(thread_id)
         if not latest_checkpoint:
             return {}
-        
-        return latest_checkpoint.get("state_data", {})
+
+        state_data = latest_checkpoint.get("state_data")
+        if not isinstance(state_data, dict):
+            return {}
+        return state_data
     
     async def update_thread_state(self, thread_id: str, state: Dict[str, Any]) -> bool:
         """更新Thread状态"""
@@ -199,3 +202,131 @@ class ThreadManager(IThreadManager):
             return True
         
         return False
+    
+    async def fork_thread(
+        self,
+        source_thread_id: str,
+        checkpoint_id: str,
+        branch_name: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """从指定checkpoint创建thread分支"""
+        # 验证源thread存在
+        if not await self.thread_exists(source_thread_id):
+            raise ValueError(f"源thread不存在: {source_thread_id}")
+        
+        # 验证checkpoint存在
+        checkpoint = await self.checkpoint_manager.get_checkpoint(source_thread_id, checkpoint_id)
+        if not checkpoint:
+            raise ValueError(f"checkpoint不存在: {checkpoint_id}")
+        
+        # 获取源thread信息
+        source_info = await self.get_thread_info(source_thread_id)
+        if not source_info:
+            raise RuntimeError(f"无法获取源thread信息: {source_thread_id}")
+        
+        # 创建新thread
+        new_thread_id = await self.create_thread(
+            graph_id=source_info.get("graph_id", "default_graph"),
+            metadata={
+                "branch_name": branch_name,
+                "source_thread_id": source_thread_id,
+                "source_checkpoint_id": checkpoint_id,
+                "branch_type": "fork",
+                **(metadata or {})
+            }
+        )
+        
+        # 复制checkpoint状态到新thread
+        state_data = checkpoint.get("state_data", {})
+        success = await self.update_thread_state(new_thread_id, state_data)
+        if not success:
+            logger.warning(f"复制checkpoint状态到新thread失败: {new_thread_id}")
+        
+        return new_thread_id
+    
+    async def create_thread_snapshot(
+        self,
+        thread_id: str,
+        snapshot_name: str,
+        description: Optional[str] = None
+    ) -> str:
+        """创建thread状态快照"""
+        # 验证thread存在
+        if not await self.thread_exists(thread_id):
+            raise ValueError(f"Thread不存在: {thread_id}")
+        
+        # 获取所有checkpoints
+        checkpoints = await self.checkpoint_manager.list_checkpoints(thread_id)
+        checkpoint_ids = [cp.get("id") for cp in checkpoints if cp.get("id")]
+        
+        # 创建快照ID
+        snapshot_id = f"snapshot_{uuid.uuid4().hex[:8]}"
+        
+        # 保存快照信息到thread元数据
+        thread_metadata = await self.metadata_store.get_metadata(thread_id)
+        if thread_metadata:
+            snapshots = thread_metadata.get("snapshots", [])
+            snapshots.append({
+                "snapshot_id": snapshot_id,
+                "thread_id": thread_id,
+                "snapshot_name": snapshot_name,
+                "description": description,
+                "checkpoint_ids": checkpoint_ids,
+                "created_at": datetime.now().isoformat(),
+                "metadata": {
+                    "total_checkpoints": len(checkpoint_ids)
+                }
+            })
+            thread_metadata["snapshots"] = snapshots
+            thread_metadata["updated_at"] = datetime.now().isoformat()
+            await self.metadata_store.save_metadata(thread_id, thread_metadata)
+        
+        return snapshot_id
+    
+    async def rollback_thread(
+        self,
+        thread_id: str,
+        checkpoint_id: str
+    ) -> bool:
+        """回滚thread到指定checkpoint"""
+        # 1. 验证checkpoint存在
+        checkpoint = await self.checkpoint_manager.get_checkpoint(thread_id, checkpoint_id)
+        if not checkpoint:
+            return False
+        
+        # 2. 创建回滚checkpoint（用于undo）
+        rollback_metadata = {
+            "rollback_from": checkpoint_id,
+            "rollback_reason": "user_requested",
+            "original_state": await self.get_thread_state(thread_id)
+        }
+        
+        # 3. 恢复状态
+        await self.checkpoint_manager.restore_from_checkpoint(thread_id, checkpoint_id)
+        
+        # 4. 记录回滚操作
+        await self.metadata_store.update_metadata(thread_id, {
+            "last_rollback": datetime.now().isoformat(),
+            "rollback_checkpoint": checkpoint_id
+        })
+        
+        return True
+    
+    async def get_thread_history(
+        self,
+        thread_id: str,
+        limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """获取thread历史记录"""
+        if not await self.thread_exists(thread_id):
+            return []
+        
+        # 获取所有checkpoints
+        checkpoints = await self.checkpoint_manager.list_checkpoints(thread_id)
+        
+        # 应用限制
+        if limit and len(checkpoints) > limit:
+            checkpoints = checkpoints[:limit]
+        
+        return checkpoints

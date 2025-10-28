@@ -330,6 +330,80 @@ class ComponentAssembler(IComponentAssembler):
             instance=session_store
         )
         
+        # 注册Thread相关服务
+        from ...domain.threads.interfaces import IThreadManager
+        from ...domain.threads.manager import ThreadManager
+        from ...infrastructure.threads.metadata_store import MemoryThreadMetadataStore, IThreadMetadataStore
+        from ...application.checkpoint.interfaces import ICheckpointManager
+        from ...application.threads.session_thread_mapper import SessionThreadMapper, ISessionThreadMapper
+        from ...application.threads.branch_manager import BranchManager
+        from ...application.threads.snapshot_manager import SnapshotManager
+        from ...application.threads.collaboration_manager import CollaborationManager
+        from ...infrastructure.threads.branch_store import ThreadBranchStore, IThreadBranchStore
+        from ...infrastructure.threads.snapshot_store import ThreadSnapshotStore, IThreadSnapshotStore
+        
+        # 创建Thread元数据存储
+        thread_metadata_store = MemoryThreadMetadataStore()
+        
+        # 获取CheckpointManager（假设已经注册）
+        checkpoint_manager = self.container.get(ICheckpointManager)
+        
+        # 创建ThreadManager
+        thread_manager = ThreadManager(thread_metadata_store, checkpoint_manager)
+        
+        # 注册Thread服务
+        self.container.register_instance(
+            interface=IThreadManager,
+            instance=thread_manager
+        )
+        
+        self.container.register_instance(
+            interface=IThreadMetadataStore,
+            instance=thread_metadata_store
+        )
+        
+        # 创建并注册分支存储
+        branch_store = ThreadBranchStore()
+        self.container.register_instance(
+            interface=IThreadBranchStore,
+            instance=branch_store
+        )
+        
+        # 创建并注册快照存储
+        snapshot_store = ThreadSnapshotStore()
+        self.container.register_instance(
+            interface=IThreadSnapshotStore,
+            instance=snapshot_store
+        )
+        
+        # 创建并注册分支管理器
+        branch_manager = BranchManager(thread_manager, checkpoint_manager)
+        self.container.register_instance(
+            interface=BranchManager,
+            instance=branch_manager
+        )
+        
+        # 创建并注册快照管理器
+        snapshot_manager = SnapshotManager(thread_manager, checkpoint_manager)
+        self.container.register_instance(
+            interface=SnapshotManager,
+            instance=snapshot_manager
+        )
+        
+        # 创建并注册协作管理器
+        collaboration_manager = CollaborationManager(thread_manager, checkpoint_manager)
+        self.container.register_instance(
+            interface=CollaborationManager,
+            instance=collaboration_manager
+        )
+        
+        # 创建并注册Session-Thread映射器
+        session_thread_mapper = SessionThreadMapper(session_manager, thread_manager)
+        self.container.register_instance(
+            interface=ISessionThreadMapper,
+            instance=session_thread_mapper
+        )
+        
         logger.info("服务注册完成")
 
 

@@ -135,6 +135,34 @@ class ICheckpointManager(ABC):
         """
         pass
 
+    @abstractmethod
+    async def copy_checkpoint(
+        self,
+        source_thread_id: str,
+        source_checkpoint_id: str,
+        target_thread_id: str
+    ) -> str:
+        """复制checkpoint到另一个thread"""
+        pass
+
+    @abstractmethod
+    async def export_checkpoint(
+        self,
+        thread_id: str,
+        checkpoint_id: str
+    ) -> Dict[str, Any]:
+        """导出checkpoint数据"""
+        pass
+
+    @abstractmethod
+    async def import_checkpoint(
+        self,
+        thread_id: str,
+        checkpoint_data: Dict[str, Any]
+    ) -> str:
+        """导入checkpoint数据"""
+        pass
+
 
 class ICheckpointPolicy(ABC):
     """Checkpoint策略接口

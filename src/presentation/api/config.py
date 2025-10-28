@@ -1,10 +1,10 @@
 """API配置"""
 import os
 from typing import Optional
-from pydantic import BaseSettings, Field
+from pydantic import BaseModel, Field
 
 
-class APISettings(BaseSettings):
+class APISettings(BaseModel):
     """API设置"""
     
     # 应用设置
@@ -45,11 +45,6 @@ class APISettings(BaseSettings):
     # WebSocket设置
     websocket_ping_interval: int = Field(default=20, description="WebSocket心跳间隔（秒）")
     websocket_ping_timeout: int = Field(default=10, description="WebSocket心跳超时（秒）")
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
 
 
 # 全局设置实例

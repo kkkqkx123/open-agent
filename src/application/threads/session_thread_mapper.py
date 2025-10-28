@@ -98,6 +98,24 @@ class ISessionThreadMapper(ABC):
         """
         pass
 
+    @abstractmethod
+    async def fork_session_with_thread(
+        self,
+        source_session_id: str,
+        checkpoint_id: str,
+        branch_name: str
+    ) -> Tuple[str, str]:
+        """从现有session和thread创建分支"""
+        pass
+
+    @abstractmethod
+    async def get_session_branches(
+        self,
+        session_id: str
+    ) -> List[Dict[str, Any]]:
+        """获取session的所有分支"""
+        pass
+
 
 class SessionThreadMapper(ISessionThreadMapper):
     """Session与Thread映射管理器实现"""
@@ -257,6 +275,96 @@ class SessionThreadMapper(ISessionThreadMapper):
             # 如果加载失败，使用空映射
             self._mappings = {}
             self._reverse_mappings = {}
+    
+    async def fork_session_with_thread(
+        self,
+        source_session_id: str,
+        checkpoint_id: str,
+        branch_name: str
+    ) -> Tuple[str, str]:
+        """从现有session和thread创建分支"""
+        # 获取源thread ID
+        source_thread_id = await self.get_thread_for_session(source_session_id)
+        if not source_thread_id:
+            raise ValueError(f"源session不存在对应的thread: {source_session_id}")
+        
+        # 获取源session信息
+        source_session = self.session_manager.get_session(source_session_id)
+        if not source_session:
+            raise ValueError(f"源session不存在: {source_session_id}")
+        
+        # 使用ThreadManager创建分支
+        new_thread_id = await self.thread_manager.fork_thread(
+            source_thread_id,
+            checkpoint_id,
+            branch_name,
+            metadata={"source_session_id": source_session_id}
+        )
+        
+        # 创建新的session（基于源session的配置）
+        thread_state = await self.thread_manager.get_thread_state(new_thread_id)
+        initial_state = None
+        if thread_state:
+            # 将字典状态转换为AgentState TypedDict
+            initial_state = AgentState(
+                messages=thread_state.get("messages", []),
+                metadata=thread_state.get("metadata", {}),
+                input=thread_state.get("input", ""),
+                output=thread_state.get("output"),
+                tool_calls=thread_state.get("tool_calls", []),
+                tool_results=thread_state.get("tool_results", []),
+                iteration_count=thread_state.get("iteration_count", 0),
+                max_iterations=thread_state.get("max_iterations", 10),
+                errors=thread_state.get("errors", []),
+                complete=thread_state.get("complete", False),
+                start_time=thread_state.get("start_time"),
+                current_step=thread_state.get("current_step"),
+                workflow_name=thread_state.get("workflow_name")
+            )
+        
+        new_session_id = self.session_manager.create_session(
+            source_session.get("workflow_config_path", ""),
+            source_session.get("agent_config"),
+            initial_state
+        )
+        
+        # 建立新的映射关系
+        self._mappings[new_session_id] = new_thread_id
+        self._reverse_mappings[new_thread_id] = new_session_id
+        
+        # 保存映射关系
+        if self.storage_path:
+            self._save_mappings()
+        
+        logger.info(f"创建分支Session-Thread映射成功: session={new_session_id}, thread={new_thread_id}")
+        return new_session_id, new_thread_id
+    
+    async def get_session_branches(
+        self,
+        session_id: str
+    ) -> List[Dict[str, Any]]:
+        """获取session的所有分支"""
+        thread_id = await self.get_thread_for_session(session_id)
+        if not thread_id:
+            return []
+        
+        # 获取thread的所有分支
+        branches = await self.thread_manager.get_thread_history(thread_id)
+        
+        # 转换为session分支信息
+        session_branches = []
+        for branch in branches:
+            if isinstance(branch, dict) and branch.get("metadata", {}).get("branch_type") == "fork":
+                session_branches.append({
+                    "branch_id": branch.get("id"),
+                    "session_id": session_id,
+                    "thread_id": thread_id,
+                    "branch_name": branch.get("metadata", {}).get("branch_name"),
+                    "created_at": branch.get("created_at"),
+                    "source_checkpoint_id": branch.get("metadata", {}).get("source_checkpoint_id")
+                })
+        
+        return session_branches
 
 
 class MemorySessionThreadMapper(ISessionThreadMapper):
@@ -363,3 +471,89 @@ class MemorySessionThreadMapper(ISessionThreadMapper):
         self._mappings.clear()
         self._reverse_mappings.clear()
         logger.debug("内存映射关系已清空")
+    
+    async def fork_session_with_thread(
+        self,
+        source_session_id: str,
+        checkpoint_id: str,
+        branch_name: str
+    ) -> Tuple[str, str]:
+        """从现有session和thread创建分支"""
+        # 获取源thread ID
+        source_thread_id = await self.get_thread_for_session(source_session_id)
+        if not source_thread_id:
+            raise ValueError(f"源session不存在对应的thread: {source_session_id}")
+        
+        # 获取源session信息
+        source_session = self.session_manager.get_session(source_session_id)
+        if not source_session:
+            raise ValueError(f"源session不存在: {source_session_id}")
+        
+        # 使用ThreadManager创建分支
+        new_thread_id = await self.thread_manager.fork_thread(
+            source_thread_id,
+            checkpoint_id,
+            branch_name,
+            metadata={"source_session_id": source_session_id}
+        )
+        
+        # 创建新的session（基于源session的配置）
+        thread_state = await self.thread_manager.get_thread_state(new_thread_id)
+        initial_state = None
+        if thread_state:
+            # 将字典状态转换为AgentState TypedDict
+            initial_state = AgentState(
+                messages=thread_state.get("messages", []),
+                metadata=thread_state.get("metadata", {}),
+                input=thread_state.get("input", ""),
+                output=thread_state.get("output"),
+                tool_calls=thread_state.get("tool_calls", []),
+                tool_results=thread_state.get("tool_results", []),
+                iteration_count=thread_state.get("iteration_count", 0),
+                max_iterations=thread_state.get("max_iterations", 10),
+                errors=thread_state.get("errors", []),
+                complete=thread_state.get("complete", False),
+                start_time=thread_state.get("start_time"),
+                current_step=thread_state.get("current_step"),
+                workflow_name=thread_state.get("workflow_name")
+            )
+        
+        new_session_id = self.session_manager.create_session(
+            source_session.get("workflow_config_path", ""),
+            source_session.get("agent_config"),
+            initial_state
+        )
+        
+        # 建立新的映射关系
+        self._mappings[new_session_id] = new_thread_id
+        self._reverse_mappings[new_thread_id] = new_session_id
+        
+        logger.info(f"创建分支Session-Thread映射成功: session={new_session_id}, thread={new_thread_id}")
+        return new_session_id, new_thread_id
+    
+    async def get_session_branches(
+        self,
+        session_id: str
+    ) -> List[Dict[str, Any]]:
+        """获取session的所有分支"""
+        thread_id = await self.get_thread_for_session(session_id)
+        if not thread_id:
+            return []
+        
+        # 获取thread的所有分支
+        branches = await self.thread_manager.get_thread_history(thread_id)
+        
+        # 转换为session分支信息
+        session_branches = []
+        for branch in branches:
+            if isinstance(branch, dict) and branch.get("metadata", {}).get("branch_type") == "fork":
+                session_branches.append({
+                    "branch_id": branch.get("id"),
+                    "session_id": session_id,
+                    "thread_id": thread_id,
+                    "branch_name": branch.get("metadata", {}).get("branch_name"),
+                    "created_at": branch.get("created_at"),
+                    "source_checkpoint_id": branch.get("metadata", {}).get("source_checkpoint_id")
+                })
+        
+        return session_branches

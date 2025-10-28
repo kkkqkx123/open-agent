@@ -324,6 +324,8 @@ class CompleteLangGraphSDKAdapter:
         
         return success
     
+    
+    
     async def threads_copy(
         self, 
         thread_id: str, 
@@ -498,3 +500,65 @@ class CompleteLangGraphSDKAdapter:
             logger.info(f"更新Thread元数据成功: {thread_id}")
         
         return success
+    
+    async def threads_fork(
+        self,
+        thread_id: str,
+        checkpoint_id: str,
+        branch_name: str
+    ) -> Dict[str, Any]:
+        """LangGraph兼容的thread分支功能"""
+        # 验证thread存在
+        if not await self.thread_manager.thread_exists(thread_id):
+            raise ValueError(f"Thread不存在: {thread_id}")
+        
+        # 验证checkpoint存在
+        checkpoint = await self.checkpoint_manager.get_checkpoint(thread_id, checkpoint_id)
+        if not checkpoint:
+            raise ValueError(f"Checkpoint不存在: {checkpoint_id}")
+        
+        # 创建分支
+        new_thread_id = await self.thread_manager.fork_thread(
+            thread_id,
+            checkpoint_id,
+            branch_name,
+            metadata={"forked_from": thread_id, "forked_at": datetime.now().isoformat()}
+        )
+        
+        result = {
+            "thread_id": new_thread_id,
+            "source_thread_id": thread_id,
+            "source_checkpoint_id": checkpoint_id,
+            "branch_name": branch_name,
+            "created_at": datetime.now().isoformat()
+        }
+        
+        logger.info(f"创建Thread分支成功: {thread_id} -> {new_thread_id}")
+        return result
+    
+    async def threads_rollback(
+        self,
+        thread_id: str,
+        checkpoint_id: str
+    ) -> Dict[str, Any]:
+        """LangGraph兼容的thread回滚功能"""
+        # 验证thread存在
+        if not await self.thread_manager.thread_exists(thread_id):
+            raise ValueError(f"Thread不存在: {thread_id}")
+        
+        # 执行回滚
+        success = await self.thread_manager.rollback_thread(thread_id, checkpoint_id)
+        
+        result = {
+            "thread_id": thread_id,
+            "checkpoint_id": checkpoint_id,
+            "success": success,
+            "rolled_back_at": datetime.now().isoformat()
+        }
+        
+        if success:
+            logger.info(f"Thread回滚成功: {thread_id} -> {checkpoint_id}")
+        else:
+            logger.warning(f"Thread回滚失败: {thread_id} -> {checkpoint_id}")
+        
+        return result
