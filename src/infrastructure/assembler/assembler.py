@@ -243,9 +243,11 @@ class ComponentAssembler(IComponentAssembler):
         
         # 4. 创建工作流构建器
         workflows_config = components_config.get("workflows", {})
-        from ...application.workflow.builder import WorkflowBuilder
-        self._factories["workflow_builder"] = WorkflowBuilder(
-            agent_factory=self._factories["agent_factory"]
+        from ...application.workflow.builder_adapter import WorkflowBuilderAdapter
+        from src.infrastructure.graph.registry import get_global_registry
+        
+        self._factories["workflow_builder"] = WorkflowBuilderAdapter(
+            node_registry=get_global_registry()
         )
         
         # 5. 创建状态管理器

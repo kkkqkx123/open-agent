@@ -5,7 +5,7 @@ import threading
 from typing import Type, Any
 import pytest
 
-from src.infrastructure.optimized_container import OptimizedDependencyContainer
+from infrastructure.di_container import OptimizedDependencyContainer
 from src.infrastructure.exceptions import ServiceNotRegisteredError, ServiceCreationError
 
 

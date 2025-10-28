@@ -6,7 +6,7 @@
 import time
 import threading
 import weakref
-from typing import Type, TypeVar, Dict, Any, Optional, List, Set, Callable, Union
+from typing import Type, TypeVar, Dict, Any, Optional, List, Set, Callable, Union, cast
 from inspect import isclass, signature
 from contextlib import contextmanager
 from enum import Enum
@@ -106,7 +106,7 @@ class OptimizedDependencyContainer(DependencyContainer):
                 cached_instance = self._get_from_cache(service_type)
                 if cached_instance is not None:
                     self._performance_stats["cache_hits"] += 1
-                    return cached_instance
+                    return cast(T, cached_instance)
                 self._performance_stats["cache_misses"] += 1
             
             # 检查创建路径缓存
@@ -131,7 +131,7 @@ class OptimizedDependencyContainer(DependencyContainer):
                 self._performance_stats["service_creations"]
             )
             
-            return instance
+            return cast(T, instance)
             
         except Exception as e:
             raise ServiceCreationError(f"Failed to get service {service_type.__name__}: {e}")
@@ -218,6 +218,7 @@ class OptimizedDependencyContainer(DependencyContainer):
                 del self._service_cache[key]
             
             # 如果缓存仍然过大，移除最少使用的条目
+            remove_count = 0
             if len(self._service_cache) > self._max_cache_size:
                 # 按访问次数排序
                 sorted_items = sorted(
@@ -232,7 +233,7 @@ class OptimizedDependencyContainer(DependencyContainer):
             
             return {
                 "expired_removed": len(expired_keys),
-                "lru_removed": remove_count if len(self._service_cache) > self._max_cache_size else 0,
+                "lru_removed": remove_count,
                 "final_cache_size": len(self._service_cache)
             }
     

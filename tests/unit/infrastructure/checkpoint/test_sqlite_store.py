@@ -395,6 +395,24 @@ class TestSQLiteCheckpointStore:
         assert len(loaded['metadata']) == 2
     
     @pytest.mark.asyncio
+    async def test_config_service_integration(self, store_with_config_service, sample_state):
+        """测试配置服务集成"""
+        checkpoint_data = {
+            'session_id': 'test-session',
+            'workflow_id': 'test-workflow',
+            'state_data': sample_state,
+            'metadata': {'node': 'analysis'}
+        }
+        
+        result = await store_with_config_service.save(checkpoint_data)
+        assert result is True
+        
+        loaded = await store_with_config_service.load_by_session('test-session')
+        assert loaded is not None
+        assert loaded['workflow_id'] == 'test-workflow'
+        assert loaded['metadata']['node'] == 'analysis'
+    
+    @pytest.mark.asyncio
     async def test_no_metadata(self, store, sample_state):
         """测试没有metadata的处理"""
         checkpoint_data = {
