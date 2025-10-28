@@ -2,7 +2,7 @@
 
 import json
 import time
-from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Union
+from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Union, Sequence
 import asyncio
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
@@ -11,6 +11,7 @@ from langchain_anthropic import ChatAnthropic
 from .base import BaseLLMClient
 from ..models import LLMResponse, TokenUsage
 from ..config import AnthropicConfig
+from ..token_counter import TokenCounterFactory
 from ..exceptions import (
     LLMCallError,
     LLMTimeoutError,
@@ -93,7 +94,7 @@ class AnthropicClient(BaseLLMClient):
 
         self._client = ChatAnthropic(**client_kwargs)
 
-    def _convert_messages(self, messages: List[BaseMessage]) -> List[BaseMessage]:
+    def _convert_messages(self, messages: Sequence[BaseMessage]) -> List[BaseMessage]:
         """转换消息格式以适应Anthropic API"""
         # Anthropic支持系统消息，但需要特殊处理
         converted_messages = []
@@ -119,7 +120,7 @@ class AnthropicClient(BaseLLMClient):
         return converted_messages
 
     def _do_generate(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行生成操作"""
         try:
@@ -166,7 +167,7 @@ class AnthropicClient(BaseLLMClient):
             raise self._handle_anthropic_error(e)
 
     async def _do_generate_async(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行异步生成操作"""
         try:
@@ -218,19 +219,19 @@ class AnthropicClient(BaseLLMClient):
 
         # 使用Token计算器
         counter = TokenCounterFactory.create_counter(
-            "anthropic", self.config.model_name
+        "anthropic", self.config.model_name
         )
-        return counter.count_tokens(text)
+        return counter.count_tokens(text) or 0
 
-    def get_messages_token_count(self, messages: List[BaseMessage]) -> int:
+    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
         """计算消息列表的token数量"""
         from ..token_counter import TokenCounterFactory
 
         # 使用Token计算器
         counter = TokenCounterFactory.create_counter(
-            "anthropic", self.config.model_name
+        "anthropic", self.config.model_name
         )
-        return counter.count_messages_tokens(messages)
+        return counter.count_messages_tokens(messages) or 0
 
     def supports_function_calling(self) -> bool:
         """检查是否支持函数调用"""
@@ -334,7 +335,7 @@ class AnthropicClient(BaseLLMClient):
             return LLMCallError(str(error))
 
     def _do_stream_generate(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> Generator[str, None, None]:
         """执行流式生成操作"""
         try:
@@ -370,7 +371,7 @@ class AnthropicClient(BaseLLMClient):
             raise self._handle_anthropic_error(e)
 
     def _do_stream_generate_async(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
 

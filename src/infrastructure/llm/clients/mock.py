@@ -151,7 +151,7 @@ class MockLLMClient(BaseLLMClient):
 
         # 使用Token计算器
         counter = TokenCounterFactory.create_counter("mock", self.config.model_name)
-        return counter.count_tokens(text)
+        return counter.count_tokens(text) or 0
 
     def get_messages_token_count(self, messages: List[BaseMessage]) -> int:
         """计算消息列表的token数量"""
@@ -159,7 +159,7 @@ class MockLLMClient(BaseLLMClient):
 
         # 使用Token计算器
         counter = TokenCounterFactory.create_counter("mock", self.config.model_name)
-        return counter.count_messages_tokens(messages)
+        return counter.count_messages_tokens(messages) or 0
 
     def supports_function_calling(self) -> bool:
         """检查是否支持函数调用"""

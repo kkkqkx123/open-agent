@@ -188,7 +188,7 @@ class HybridTokenCalculator(ITokenCalculator):
         
         return local_count
     
-    def count_messages_tokens(self, messages: List[BaseMessage], 
+    def count_messages_tokens(self, messages: Sequence[BaseMessage],
                              api_response: Optional[Dict[str, Any]] = None) -> int:
         """
         计算消息列表的token数量，实现降级策略

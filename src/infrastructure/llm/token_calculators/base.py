@@ -1,7 +1,7 @@
 """Token计算器基础接口和抽象类"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence
 
 from langchain_core.messages import BaseMessage  # type: ignore
 
@@ -25,7 +25,7 @@ class ITokenCalculator(ABC):
         pass
     
     @abstractmethod
-    def count_messages_tokens(self, messages: List[BaseMessage]) -> Optional[int]:
+    def count_messages_tokens(self, messages: Sequence[BaseMessage], api_response: Optional[Dict[str, Any]] = None) -> Optional[int]:
         """
         计算消息列表的token数量
         

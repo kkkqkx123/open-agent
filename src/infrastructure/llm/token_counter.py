@@ -4,7 +4,7 @@
 实际的实现已经迁移到 token_calculators 和 token_parsers 模块中。
 """
 
-from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
+from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING, Sequence
 
 from langchain_core.messages import BaseMessage  # type: ignore
 
@@ -67,7 +67,7 @@ class OpenAITokenCounter(ITokenCounter):
     def count_tokens(self, text: str) -> int:
         return self._calculator.count_tokens(text) or 0
 
-    def count_messages_tokens(self, messages: List[BaseMessage]) -> int:
+    def count_messages_tokens(self, messages: Sequence[BaseMessage], api_response: Optional[Dict[str, Any]] = None) -> int:
         return self._calculator.count_messages_tokens(messages) or 0
 
     def get_model_info(self) -> Dict[str, Any]:
@@ -109,7 +109,7 @@ class GeminiTokenCounter(ITokenCounter):
     def count_tokens(self, text: str) -> int:
         return self._calculator.count_tokens(text) or 0
 
-    def count_messages_tokens(self, messages: List[BaseMessage]) -> int:
+    def count_messages_tokens(self, messages: Sequence[BaseMessage], api_response: Optional[Dict[str, Any]] = None) -> int:
         return self._calculator.count_messages_tokens(messages) or 0
 
     def get_model_info(self) -> Dict[str, Any]:
@@ -151,7 +151,7 @@ class AnthropicTokenCounter(ITokenCounter):
     def count_tokens(self, text: str) -> int:
         return self._calculator.count_tokens(text) or 0
 
-    def count_messages_tokens(self, messages: List[BaseMessage]) -> int:
+    def count_messages_tokens(self, messages: Sequence[BaseMessage], api_response: Optional[Dict[str, Any]] = None) -> int:
         return self._calculator.count_messages_tokens(messages) or 0
 
     def get_model_info(self) -> Dict[str, Any]:
@@ -196,7 +196,7 @@ class MockTokenCounter(ITokenCounter):
             return 2  # 对于短文本，至少返回2个token
         return len(text) // 4
 
-    def count_messages_tokens(self, messages: List[BaseMessage]) -> int:
+    def count_messages_tokens(self, messages: Sequence[BaseMessage], api_response: Optional[Dict[str, Any]] = None) -> int:
         total_tokens = 0
 
         for message in messages:
@@ -274,7 +274,7 @@ class EnhancedOpenAITokenCounter(ITokenCounter):
     def count_tokens(self, text: str, api_response: Optional[Dict[str, Any]] = None) -> int:
         return self._calculator.count_tokens(text, api_response)
 
-    def count_messages_tokens(self, messages: List[BaseMessage], 
+    def count_messages_tokens(self, messages: Sequence[BaseMessage],
                              api_response: Optional[Dict[str, Any]] = None) -> int:
         return self._calculator.count_messages_tokens(messages, api_response)
 
@@ -359,7 +359,7 @@ class EnhancedGeminiTokenCounter(ITokenCounter):
     def count_tokens(self, text: str, api_response: Optional[Dict[str, Any]] = None) -> int:
         return self._calculator.count_tokens(text, api_response)
 
-    def count_messages_tokens(self, messages: List[BaseMessage], 
+    def count_messages_tokens(self, messages: Sequence[BaseMessage],
                              api_response: Optional[Dict[str, Any]] = None) -> int:
         return self._calculator.count_messages_tokens(messages, api_response)
 
@@ -443,7 +443,7 @@ class EnhancedAnthropicTokenCounter(ITokenCounter):
     def count_tokens(self, text: str, api_response: Optional[Dict[str, Any]] = None) -> int:
         return self._calculator.count_tokens(text, api_response)
 
-    def count_messages_tokens(self, messages: List[BaseMessage], 
+    def count_messages_tokens(self, messages: Sequence[BaseMessage],
                              api_response: Optional[Dict[str, Any]] = None) -> int:
         return self._calculator.count_messages_tokens(messages, api_response)
 

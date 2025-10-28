@@ -178,7 +178,8 @@ class ResponsesAPIAdapter(APIFormatAdapter):
 
         # 使用Token计算器
         counter = TokenCounterFactory.create_counter("openai", self.config.model_name)
-        return counter.count_tokens(text)
+        result = counter.count_tokens(text)
+        return result if result is not None else 0
 
     def get_messages_token_count(self, messages: List[BaseMessage]) -> int:
         """计算消息列表token数量"""
@@ -186,7 +187,8 @@ class ResponsesAPIAdapter(APIFormatAdapter):
 
         # 使用Token计算器
         counter = TokenCounterFactory.create_counter("openai", self.config.model_name)
-        return counter.count_messages_tokens(messages)
+        result = counter.count_messages_tokens(messages)
+        return result if result is not None else 0
 
     def supports_function_calling(self) -> bool:
         """Responses API支持函数调用"""

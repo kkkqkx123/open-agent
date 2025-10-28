@@ -74,3 +74,5 @@ AGENT：scout
 无缝衔接human relay模式。
 支持配置每个节点【主要是那些需要干净上下文或不需要完整上下文的】是否使用human relay模式。
 例如context7 mcp搜索节点可以设置为human relay模式
+
+增加重构模式。提示词中要求ai始终采用更根本的方式解决问题，不要放任架构问题不管

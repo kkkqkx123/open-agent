@@ -2,8 +2,10 @@
 
 import time
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, AsyncGenerator, Generator
+from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Sequence
 from datetime import datetime
+
+from langchain_core.messages import BaseMessage  # type: ignore
 
 from ..interfaces import ILLMClient, ILLMCallHook
 from ..models import LLMResponse, TokenUsage, LLMError, ModelInfo
@@ -60,7 +62,7 @@ class BaseLLMClient(ILLMClient):
 
     def _call_before_hooks(
         self,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -75,7 +77,7 @@ class BaseLLMClient(ILLMClient):
     def _call_after_hooks(
         self,
         response: LLMResponse,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -90,7 +92,7 @@ class BaseLLMClient(ILLMClient):
     def _call_error_hooks(
         self,
         error: Exception,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Optional[LLMResponse]:
@@ -179,7 +181,7 @@ class BaseLLMClient(ILLMClient):
 
         return merged
 
-    def _validate_messages(self, messages: List[Any]) -> None:
+    def _validate_messages(self, messages: Sequence[BaseMessage]) -> None:
         """验证消息列表"""
         if not messages:
             raise LLMInvalidRequestError("消息列表不能为空")
@@ -189,7 +191,7 @@ class BaseLLMClient(ILLMClient):
             if not hasattr(message, "content") or not message.content:
                 raise LLMInvalidRequestError(f"消息 {i} 缺少内容")
 
-    def _validate_token_limit(self, messages: List[Any]) -> None:
+    def _validate_token_limit(self, messages: Sequence[BaseMessage]) -> None:
         """验证Token限制"""
         if self.config.max_tokens:
             token_count = self.get_messages_token_count(messages)
@@ -202,7 +204,7 @@ class BaseLLMClient(ILLMClient):
 
     def generate(
         self,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
@@ -260,7 +262,7 @@ class BaseLLMClient(ILLMClient):
 
     async def generate_async(
         self,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
@@ -318,7 +320,7 @@ class BaseLLMClient(ILLMClient):
 
     async def stream_generate_async(
         self,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> AsyncGenerator[str, None]:
@@ -371,7 +373,7 @@ class BaseLLMClient(ILLMClient):
 
     def stream_generate(
         self,
-        messages: List[Any],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Generator[str, None, None]:
@@ -422,28 +424,28 @@ class BaseLLMClient(ILLMClient):
 
     @abstractmethod
     def _do_stream_generate(
-        self, messages: List[Any], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> Generator[str, None, None]:
         """执行流式生成操作（子类实现）"""
         pass
 
     @abstractmethod
     def _do_stream_generate_async(
-        self, messages: List[Any], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作（子类实现）"""
         pass
 
     @abstractmethod
     def _do_generate(
-        self, messages: List[Any], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行生成操作（子类实现）"""
         pass
 
     @abstractmethod
     async def _do_generate_async(
-        self, messages: List[Any], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行异步生成操作（子类实现）"""
         pass
@@ -454,7 +456,7 @@ class BaseLLMClient(ILLMClient):
         pass
 
     @abstractmethod
-    def get_messages_token_count(self, messages: List[Any]) -> int:
+    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
         """计算消息列表的token数量（子类实现）"""
         pass
 
