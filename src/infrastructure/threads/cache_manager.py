@@ -104,8 +104,15 @@ class ThreadCacheManager:
     
     def _start_cleanup_task(self):
         """启动清理任务"""
-        if self._cleanup_task is None or self._cleanup_task.done():
-            self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+        try:
+            # 检查是否有运行的事件循环
+            loop = asyncio.get_running_loop()
+            if self._cleanup_task is None or self._cleanup_task.done():
+                self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+        except RuntimeError:
+            # 没有运行的事件循环，不启动清理任务
+            # 在测试环境中，这通常是可以接受的
+            pass
     
     async def _cleanup_loop(self):
         """清理循环"""

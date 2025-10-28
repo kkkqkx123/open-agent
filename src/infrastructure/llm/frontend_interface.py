@@ -20,7 +20,7 @@ class FrontendInterface:
         self.config = config
         self.interface_type = config.get('interface_type', 'tui')  # tui 或 web
         
-        if self.interface_type not in ['tui', 'web']:
+        if self.interface_type not in ['tui', 'web', 'mock']:
             raise ValueError(f"不支持的前端接口类型: {self.interface_type}")
     
     async def prompt_user(self, prompt: str, mode: str, **kwargs) -> str:

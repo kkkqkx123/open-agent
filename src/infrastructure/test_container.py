@@ -74,8 +74,10 @@ class TestContainer(ContextManager["TestContainer"]):
             from .logger import get_logger
             return get_logger("test")  # type: ignore
         
+        # 从logger模块导入ILogger接口
+        from .logger import ILogger
         self.container.register_factory(
-            "ILogger",  # type: ignore
+            ILogger,  # type: ignore
             create_logger,
             lifetime="singleton",
         )
@@ -88,21 +90,19 @@ class TestContainer(ContextManager["TestContainer"]):
                 self.container.get(IConfigLoader),  # type: ignore
                 self.container.get(ILogger) # type: ignore
             )
-
-        # 为避免循环导入，我们使用一个动态创建的类型作为占位符
-        import types
-        IToolManagerPlaceholder = types.new_class("IToolManager")
-        ToolManagerPlaceholder = types.new_class("ToolManager")
-
+        
+        # 从tools模块导入IToolManager接口
+        from .tools import IToolManager, ToolManager
+        
         self.container.register_factory(
-            IToolManagerPlaceholder,
+            IToolManager,
             create_tool_manager,
             lifetime="singleton",
         )
-
+        
         # 同时注册ToolManager具体类型
         self.container.register_factory(
-            ToolManagerPlaceholder,
+            ToolManager,
             create_tool_manager,
             lifetime="singleton",
         )

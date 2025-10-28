@@ -540,9 +540,9 @@ class LLMClientConfig:
             )
         elif model_type in ["human_relay", "human-relay-s", "human-relay-m"]:
             # 确定模式
-            mode = "single"  # 默认单轮模式
-            if model_type == "human-relay-m":
-                mode = "multi"
+            mode = config_dict.get("parameters", {}).get("mode", "single")  # 默认单轮模式
+            if model_type == "human-relay-m" and mode == "single":
+                mode = "multi"  # human-relay-m 默认为多轮模式
             
             # 获取HumanRelay特定配置
             human_relay_config = config_dict.get("human_relay_config", {})
@@ -569,8 +569,9 @@ class LLMClientConfig:
                 # HumanRelay特定参数
                 mode=mode,
                 frontend_config=human_relay_config.get("frontend_interface", {}),
-                max_history_length=config_dict.get("max_history_length", 
-                    human_relay_config.get("max_history_length", 50)),
+                max_history_length=config_dict.get("parameters", {}).get("max_history_length", 
+                    config_dict.get("max_history_length", 
+                    human_relay_config.get("max_history_length", 50))),
                 prompt_template=human_relay_config.get("prompt_template", 
                     "请将以下提示词输入到Web LLM中，并将回复粘贴回来：\n\n{prompt}\n\n回复："),
                 incremental_prompt_template=human_relay_config.get("incremental_prompt_template",

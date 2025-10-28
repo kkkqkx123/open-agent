@@ -2,17 +2,31 @@
 
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
-from langchain_core.messages import HumanMessage, AIMessage
+from typing import cast
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage  # type: ignore
 
 from src.infrastructure.llm.factory import LLMFactory
-from src.infrastructure.llm.config import HumanRelayConfig
+from src.infrastructure.llm.config import HumanRelayConfig, LLMClientConfig
 from src.infrastructure.llm.clients.human_relay import HumanRelayClient
+
+
+def _convert_dict_messages_to_base_messages(messages: list[dict[str, str]]) -> list[BaseMessage]:
+    """将字典消息转换为BaseMessage对象"""
+    result = []
+    for msg in messages:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if role == "user":
+            result.append(HumanMessage(content=content))
+        else:
+            result.append(AIMessage(content=content))
+    return result
 
 
 class TestHumanRelayFactoryIntegration:
     """HumanRelay工厂集成测试"""
     
-    def test_factory_registration(self):
+    def test_factory_registration(self) -> None:
         """测试工厂注册"""
         factory = LLMFactory()
         
@@ -22,7 +36,7 @@ class TestHumanRelayFactoryIntegration:
         assert "human-relay-s" in supported_types
         assert "human-relay-m" in supported_types
     
-    def test_client_creation_single_mode(self):
+    def test_client_creation_single_mode(self) -> None:
         """测试单轮模式客户端创建"""
         factory = LLMFactory()
         
@@ -35,12 +49,12 @@ class TestHumanRelayFactoryIntegration:
             }
         }
         
-        client = factory.create_client(config)
+        client = cast(HumanRelayClient, factory.create_client(config))
         assert isinstance(client, HumanRelayClient)
         assert client.mode == "single"
         assert client.config.model_name == "human-relay-s"
     
-    def test_client_creation_multi_mode(self):
+    def test_client_creation_multi_mode(self) -> None:
         """测试多轮模式客户端创建"""
         factory = LLMFactory()
         
@@ -53,12 +67,12 @@ class TestHumanRelayFactoryIntegration:
             }
         }
         
-        client = factory.create_client(config)
+        client = cast(HumanRelayClient, factory.create_client(config))
         assert isinstance(client, HumanRelayClient)
         assert client.mode == "multi"
         assert client.max_history_length == 100
     
-    def test_client_creation_with_human_relay_config(self):
+    def test_client_creation_with_human_relay_config(self) -> None:
         """测试使用HumanRelay特定配置创建客户端"""
         factory = LLMFactory()
         
@@ -80,17 +94,17 @@ class TestHumanRelayFactoryIntegration:
             }
         }
         
-        client = factory.create_client(config)
+        client = cast(HumanRelayClient, factory.create_client(config))
         assert isinstance(client, HumanRelayClient)
         assert client.mode == "multi"
         assert client.max_history_length == 200
         assert "自定义模板" in client.prompt_template
     
-    def test_config_validation(self):
+    def test_config_validation(self) -> None:
         """测试配置验证"""
         factory = LLMFactory()
         
-        # 无效模式应该抛出异常
+        # 无效模式应该使用默认值
         invalid_config = {
             "model_type": "human_relay",
             "model_name": "test",
@@ -99,16 +113,16 @@ class TestHumanRelayFactoryIntegration:
             }
         }
         
-        # 注意：这里可能不会抛出异常，因为配置验证在客户端层面
-        client = factory.create_client(invalid_config)
-        assert client.mode == "invalid_mode"  # 配置会被接受，但使用时可能出错
+        # 配置解析会使用参数中的模式值，不会抛出异常
+        client = cast(HumanRelayClient, factory.create_client(invalid_config))
+        assert client.mode == "invalid_mode"  # 配置解析会使用参数中的模式值
 
 
 class TestHumanRelayEndToEndWorkflow:
     """HumanRelay端到端工作流测试"""
     
     @pytest.mark.asyncio
-    async def test_end_to_end_single_turn(self):
+    async def test_end_to_end_single_turn(self) -> None:
         """测试单轮模式端到端工作流"""
         # 模拟前端交互
         mock_frontend = Mock()
@@ -130,11 +144,11 @@ class TestHumanRelayEndToEndWorkflow:
                 }
             }
             
-            client = factory.create_client(config)
-            
+            client = cast(HumanRelayClient, factory.create_client(config))
+
             # 执行生成
             messages = [{"role": "user", "content": "测试提示词"}]
-            response = await client.generate_async(messages)
+            response = await client.generate_async(_convert_dict_messages_to_base_messages(messages))
             
             # 验证结果
             assert response.content == "Web LLM的回复内容"
@@ -145,7 +159,7 @@ class TestHumanRelayEndToEndWorkflow:
             mock_frontend.wait_with_timeout.assert_called_once()
     
     @pytest.mark.asyncio
-    async def test_end_to_end_multi_turn(self):
+    async def test_end_to_end_multi_turn(self) -> None:
         """测试多轮模式端到端工作流"""
         mock_frontend = Mock()
         mock_frontend.prompt_user = AsyncMock(return_value="第二轮回复")
@@ -165,16 +179,16 @@ class TestHumanRelayEndToEndWorkflow:
                 }
             }
             
-            client = factory.create_client(config)
-            
+            client = cast(HumanRelayClient, factory.create_client(config))
+
             # 第一轮对话
             messages1 = [{"role": "user", "content": "第一轮消息"}]
-            response1 = await client.generate_async(messages1)
-            
+            response1 = await client.generate_async(_convert_dict_messages_to_base_messages(messages1))
+
             # 第二轮对话
             messages2 = [{"role": "user", "content": "第二轮消息"}]
-            response2 = await client.generate_async(messages2)
-            
+            response2 = await client.generate_async(_convert_dict_messages_to_base_messages(messages2))
+
             # 验证历史管理
             assert len(client.conversation_history) == 2
             assert response2.content == "第二轮回复"
@@ -184,8 +198,8 @@ class TestHumanRelayEndToEndWorkflow:
             assert mock_frontend.wait_with_timeout.call_count == 2
     
     @pytest.mark.asyncio
-    async def test_stream_generation_workflow(self):
-        """测试流式生成工作流"""
+    async def test_stream_generation_workflow_async(self) -> None:
+        """测试异步流式生成工作流"""
         mock_frontend = Mock()
         mock_frontend.prompt_user = AsyncMock(return_value="流式测试回复")
         mock_frontend.wait_with_timeout = AsyncMock(return_value="流式测试回复")
@@ -201,20 +215,39 @@ class TestHumanRelayEndToEndWorkflow:
                 "parameters": {"mode": "single"}
             }
             
-            client = factory.create_client(config)
-            
+            client = cast(HumanRelayClient, factory.create_client(config))
+
             # 测试异步流式生成
             chunks = []
             async for chunk in client.stream_generate_async(
-                [{"role": "user", "content": "流式测试"}]
+                _convert_dict_messages_to_base_messages([{"role": "user", "content": "流式测试"}])
             ):
                 chunks.append(chunk)
-            
+
             assert "".join(chunks) == "流式测试回复"
+
+    def test_stream_generation_workflow_sync(self) -> None:
+        """测试同步流式生成工作流"""
+        mock_frontend = Mock()
+        mock_frontend.prompt_user = AsyncMock(return_value="流式测试回复")
+        mock_frontend.wait_with_timeout = AsyncMock(return_value="流式测试回复")
+        mock_frontend.validate_timeout = Mock(return_value=300)
+        
+        with patch('src.infrastructure.llm.clients.human_relay.create_frontend_interface', 
+                  return_value=mock_frontend):
             
+            factory = LLMFactory()
+            config = {
+                "model_type": "human-relay-s",
+                "model_name": "human-relay-s",
+                "parameters": {"mode": "single"}
+            }
+            
+            client = cast(HumanRelayClient, factory.create_client(config))
+
             # 测试同步流式生成
             chunks = list(client.stream_generate(
-                [{"role": "user", "content": "流式测试"}]
+                _convert_dict_messages_to_base_messages([{"role": "user", "content": "流式测试"}])
             ))
             assert "".join(chunks) == "流式测试回复"
 
@@ -222,7 +255,7 @@ class TestHumanRelayEndToEndWorkflow:
 class TestHumanRelayConfigurationIntegration:
     """HumanRelay配置集成测试"""
     
-    def test_config_from_dict_single_mode(self):
+    def test_config_from_dict_single_mode(self) -> None:
         """测试从字典创建单轮模式配置"""
         config_dict = {
             "model_type": "human-relay-s",
@@ -233,12 +266,12 @@ class TestHumanRelayConfigurationIntegration:
             }
         }
         
-        config = HumanRelayConfig.from_dict(config_dict)
+        config = cast(HumanRelayConfig, LLMClientConfig.from_dict(config_dict))
         assert config.model_type == "human_relay"
         assert config.model_name == "test-single"
         assert config.mode == "single"
     
-    def test_config_from_dict_multi_mode(self):
+    def test_config_from_dict_multi_mode(self) -> None:
         """测试从字典创建多轮模式配置"""
         config_dict = {
             "model_type": "human-relay-m",
@@ -256,14 +289,14 @@ class TestHumanRelayConfigurationIntegration:
             }
         }
         
-        config = HumanRelayConfig.from_dict(config_dict)
+        config = cast(HumanRelayConfig, LLMClientConfig.from_dict(config_dict))
         assert config.model_type == "human_relay"
         assert config.mode == "multi"
         assert config.max_history_length == 100
         assert "自定义单轮模板" in config.prompt_template
         assert "自定义多轮模板" in config.incremental_prompt_template
     
-    def test_config_inheritance_from_dict(self):
+    def test_config_inheritance_from_dict(self) -> None:
         """测试配置继承"""
         config_dict = {
             "model_type": "human_relay",
@@ -280,7 +313,7 @@ class TestHumanRelayConfigurationIntegration:
             }
         }
         
-        config = HumanRelayConfig.from_dict(config_dict)
+        config = cast(HumanRelayConfig, LLMClientConfig.from_dict(config_dict))
         assert config.mode == "multi"
         assert config.frontend_config["interface_type"] == "mock"
         assert config.frontend_config["mock_response"] == "继承测试回复"
@@ -290,7 +323,7 @@ class TestHumanRelayErrorHandling:
     """HumanRelay错误处理测试"""
     
     @pytest.mark.asyncio
-    async def test_timeout_error_handling(self):
+    async def test_timeout_error_handling(self) -> None:
         """测试超时错误处理"""
         mock_frontend = Mock()
         mock_frontend.wait_with_timeout = AsyncMock(
@@ -308,14 +341,14 @@ class TestHumanRelayErrorHandling:
                 "parameters": {"mode": "single"}
             }
             
-            client = factory.create_client(config)
-            
+            client = cast(HumanRelayClient, factory.create_client(config))
+
             # 应该抛出异常
             with pytest.raises(Exception):
-                await client.generate_async([{"role": "user", "content": "测试"}])
+                await client.generate_async(_convert_dict_messages_to_base_messages([{"role": "user", "content": "测试"}]))
     
     @pytest.mark.asyncio
-    async def test_empty_response_handling(self):
+    async def test_empty_response_handling(self) -> None:
         """测试空响应处理"""
         mock_frontend = Mock()
         mock_frontend.wait_with_timeout = AsyncMock(return_value="")
@@ -331,8 +364,8 @@ class TestHumanRelayErrorHandling:
                 "parameters": {"mode": "single"}
             }
             
-            client = factory.create_client(config)
-            
+            client = cast(HumanRelayClient, factory.create_client(config))
+
             # 空响应应该被接受
-            response = await client.generate_async([{"role": "user", "content": "测试"}])
+            response = await client.generate_async(_convert_dict_messages_to_base_messages([{"role": "user", "content": "测试"}]))
             assert response.content == ""

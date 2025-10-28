@@ -227,7 +227,7 @@ class MockSessionManager(ISessionManager):
         # 返回工作流和状态
         return workflow, session_data["state"]
     
-    def save_session(self, session_id: str, state: AgentState) -> bool:
+    def save_session(self, session_id: str, state: AgentState, workflow: Any = None) -> bool:
         """保存会话"""
         session_data = self.session_store.get_session(session_id)
         if not session_data:
@@ -265,7 +265,7 @@ class MockSessionManager(ISessionManager):
         return self.get_session(session_id) is not None
     
     def save_session_with_metrics(self, session_id: str, state: AgentState, 
-                                 workflow_metrics: dict[str, Any]) -> bool:
+                                 workflow_metrics: dict[str, Any], workflow: Any = None) -> bool:
         """保存会话状态和工作流指标"""
         session_data = self.session_store.get_session(session_id)
         if not session_data:
