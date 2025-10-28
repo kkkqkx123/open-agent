@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 from pydantic import Field, field_validator
 
 from .base import BaseConfig
+from .checkpoint_config import CheckpointConfig
 
 
 class LogOutputConfig(BaseConfig):
@@ -154,7 +155,24 @@ class GlobalConfig(BaseConfig):
     
     # LLM全局配置
     llm: LLMGlobalConfig = Field(
-        default_factory=LLMGlobalConfig, description="LLM全局配置"
+        default_factory=lambda: LLMGlobalConfig(
+            default_timeout=30,
+            default_max_retries=3
+        ), description="LLM全局配置"
+    )
+    
+    # Checkpoint配置
+    checkpoint: CheckpointConfig = Field(
+        default_factory=lambda: CheckpointConfig(
+            enabled=True,
+            storage_type="sqlite",
+            auto_save=True,
+            save_interval=5,
+            max_checkpoints=100,
+            retention_days=30,
+            db_path=None,
+            compression=False
+        ), description="Checkpoint配置"
     )
 
     @field_validator("log_level")

@@ -25,8 +25,23 @@ class LLMConfig(BaseConfig):
     parameters: Dict[str, Any] = Field(default_factory=dict, description="模型参数")
 
     # 重试和超时配置
-    retry_config: RetryConfig = Field(default_factory=RetryConfig, description="重试配置")
-    timeout_config: TimeoutConfig = Field(default_factory=TimeoutConfig, description="超时配置")
+    retry_config: RetryConfig = Field(
+        default_factory=lambda: RetryConfig(
+            max_retries=3,
+            base_delay=1.0,
+            max_delay=60.0,
+            jitter=True,
+            exponential_base=2.0
+        ), description="重试配置"
+    )
+    timeout_config: TimeoutConfig = Field(
+        default_factory=lambda: TimeoutConfig(
+            request_timeout=30,
+            connect_timeout=10,
+            read_timeout=30,
+            write_timeout=30
+        ), description="超时配置"
+    )
 
     # 缓存配置
     supports_caching: bool = Field(False, description="是否支持缓存")
@@ -48,7 +63,13 @@ class LLMConfig(BaseConfig):
 
     # 连接池配置
     connection_pool_config: ConnectionPoolConfig = Field(
-        default_factory=ConnectionPoolConfig, description="连接池配置"
+        default_factory=lambda: ConnectionPoolConfig(
+            max_connections=10,
+            max_keepalive=10,
+            timeout=30.0,
+            keepalive_expiry=300.0,
+            enabled=True
+        ), description="连接池配置"
     )
     
     # 内部状态

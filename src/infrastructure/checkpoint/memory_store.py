@@ -21,14 +21,14 @@ class MemoryCheckpointAdapter:
     """LangGraph内存checkpoint适配器
     
     将LangGraph原生的内存checkpoint存储适配到项目的接口。
-    支持InMemorySaver和SqliteSaver。
+    仅支持InMemorySaver。
     """
     
     def __init__(self, checkpointer: Any, serializer: Optional[ICheckpointSerializer] = None):
         """初始化适配器
         
         Args:
-            checkpointer: LangGraph原生的checkpointer (InMemorySaver, SqliteSaver)
+            checkpointer: LangGraph原生的checkpointer (InMemorySaver)
             serializer: 状态序列化器
         """
         self.checkpointer = checkpointer
@@ -232,31 +232,20 @@ class MemoryCheckpointStore(ICheckpointStore):
     """基于LangGraph标准的内存checkpoint存储实现
     
     使用LangGraph原生的InMemorySaver，符合LangGraph最佳实践。
-    支持SQLite数据库存储作为生产环境选项。
+    仅支持内存存储。
     """
     
-    def __init__(self, serializer: Optional[ICheckpointSerializer] = None,
-                 use_sqlite: bool = False, sqlite_path: str = ":memory:"):
+    def __init__(self, serializer: Optional[ICheckpointSerializer] = None):
         """初始化内存存储
         
         Args:
             serializer: 状态序列化器
-            use_sqlite: 是否使用SQLite存储（生产环境推荐）
-            sqlite_path: SQLite数据库路径，默认为内存数据库
         """
         self.serializer = serializer
-        self.use_sqlite = use_sqlite
-        self.sqlite_path = sqlite_path
         
-        # 根据配置选择存储方式
-        if use_sqlite:
-            # SQLiteSaver需要使用上下文管理器，我们延迟初始化
-            self._checkpointer = None
-            logger.info(f"配置SQLite存储: {sqlite_path}")
-        else:
-            # 使用内存存储，适合开发和测试环境
-            self._checkpointer = InMemorySaver()
-            logger.info("使用内存存储")
+        # 使用内存存储，适合开发和测试环境
+        self._checkpointer = InMemorySaver()
+        logger.info("使用内存存储")
         
         self._adapter = MemoryCheckpointAdapter(self._checkpointer, serializer)
         
@@ -264,22 +253,8 @@ class MemoryCheckpointStore(ICheckpointStore):
     
     def _ensure_checkpointer_initialized(self):
         """确保checkpointer已初始化"""
-        if self.use_sqlite and self._checkpointer is None:
-            # SQLiteSaver需要使用上下文管理器，我们创建一个持久的连接
-            # 对于SQLite存储，我们需要使用不同的策略
-            try:
-                # 尝试直接创建SqliteSaver实例
-                self._checkpointer = SqliteSaver.from_conn_string(self.sqlite_path)
-                # 对于SQLiteSaver，我们需要使用上下文管理器
-                # 这里我们创建一个简单的包装器来支持常规操作
-                self._adapter = MemoryCheckpointAdapter(self._checkpointer, self.serializer)
-                logger.info(f"SQLite存储已初始化: {self.sqlite_path}")
-            except Exception as e:
-                logger.error(f"SQLite存储初始化失败: {e}")
-                # 如果SQLite初始化失败，回退到内存存储
-                self._checkpointer = InMemorySaver()
-                self._adapter = MemoryCheckpointAdapter(self._checkpointer, self.serializer)
-                logger.warning("SQLite存储初始化失败，已回退到内存存储")
+        # 内存存储不需要额外初始化
+        pass
     
     async def save(self, checkpoint_data: Dict[str, Any]) -> bool:
         """保存checkpoint数据

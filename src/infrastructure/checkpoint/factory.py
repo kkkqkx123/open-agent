@@ -13,6 +13,8 @@ from ...domain.checkpoint.serializer import DefaultCheckpointSerializer, JSONChe
 from ...application.checkpoint.manager import CheckpointManager
 from .sqlite_store import SQLiteCheckpointStore
 from .memory_store import MemoryCheckpointStore
+from ..config.checkpoint_config_service import CheckpointConfigService
+from ..config_system import IConfigSystem
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +23,27 @@ class CheckpointStoreFactory:
     """Checkpoint存储工厂
     
     根据配置创建不同类型的checkpoint存储。
+    
+    支持的存储类型：
+    - sqlite: 基于SQLite的持久化存储
+    - memory: 基于内存的临时存储
+    
+    数据库存储路径处理：
+    - 如果未指定db_path，将使用默认路径
+    - 测试环境默认使用 storage/test/checkpoints.db
+    - 生产环境默认使用 storage/checkpoints.db
     """
     
     @staticmethod
-    def create_store(config: CheckpointConfig, 
-                    serializer: Optional[ICheckpointSerializer] = None) -> ICheckpointStore:
+    def create_store(config: Optional[CheckpointConfig] = None,
+                    serializer: Optional[ICheckpointSerializer] = None,
+                    config_service: Optional[CheckpointConfigService] = None) -> ICheckpointStore:
         """创建checkpoint存储
         
         Args:
-            config: checkpoint配置
+            config: checkpoint配置（可选，如果未提供则从配置服务获取）
             serializer: 可选的序列化器
+            config_service: 配置服务实例
             
         Returns:
             ICheckpointStore: checkpoint存储实例
@@ -38,12 +51,19 @@ class CheckpointStoreFactory:
         Raises:
             ValueError: 不支持的存储类型
         """
+        # 获取配置
+        if config is None:
+            if config_service is None:
+                config_service = CheckpointConfigService()
+            config = config_service.get_config()
+        
         if config.storage_type == "sqlite":
-            if not config.db_path:
-                raise ValueError("SQLite存储需要指定数据库路径")
+            # 使用配置服务获取数据库路径
+            if config_service is None:
+                config_service = CheckpointConfigService()
             
-            db_path = Path(config.db_path)
-            return SQLiteCheckpointStore(db_path, serializer)
+            db_path = config.db_path or config_service.get_db_path()
+            return SQLiteCheckpointStore(db_path, serializer, config_service)
         
         elif config.storage_type == "memory":
             return MemoryCheckpointStore(serializer)
@@ -83,20 +103,28 @@ class CheckpointManagerFactory:
     """
     
     @staticmethod
-    def create_manager(config: CheckpointConfig) -> CheckpointManager:
+    def create_manager(config: Optional[CheckpointConfig] = None,
+                      config_service: Optional[CheckpointConfigService] = None) -> CheckpointManager:
         """创建checkpoint管理器
         
         Args:
-            config: checkpoint配置
+            config: checkpoint配置（可选，如果未提供则从配置服务获取）
+            config_service: 配置服务实例
             
         Returns:
             CheckpointManager: checkpoint管理器实例
         """
+        # 获取配置
+        if config is None:
+            if config_service is None:
+                config_service = CheckpointConfigService()
+            config = config_service.get_config()
+        
         # 创建序列化器
         serializer = CheckpointSerializerFactory.create_serializer(config)
         
         # 创建存储
-        store = CheckpointStoreFactory.create_store(config, serializer)
+        store = CheckpointStoreFactory.create_store(config, serializer, config_service)
         
         # 创建管理器
         return CheckpointManager(store, config)
@@ -109,11 +137,13 @@ class CheckpointFactory:
     """
     
     @staticmethod
-    def create_from_config(config_dict: dict) -> CheckpointManager:
+    def create_from_config(config_dict: dict,
+                          config_service: Optional[CheckpointConfigService] = None) -> CheckpointManager:
         """从配置字典创建checkpoint管理器
         
         Args:
             config_dict: 配置字典
+            config_service: 配置服务实例
             
         Returns:
             CheckpointManager: checkpoint管理器实例
@@ -127,7 +157,7 @@ class CheckpointFactory:
             raise ValueError(f"配置验证失败: {'; '.join(errors)}")
         
         # 创建管理器
-        return CheckpointManagerFactory.create_manager(config)
+        return CheckpointManagerFactory.create_manager(config, config_service)
     
     @staticmethod
     def create_sqlite_manager(db_path: str, **kwargs) -> CheckpointManager:
@@ -162,6 +192,19 @@ class CheckpointFactory:
             **kwargs
         }
         return CheckpointFactory.create_from_config(config_dict)
+    
+    @staticmethod
+    def create_from_config_system(config_system: Optional[IConfigSystem] = None) -> CheckpointManager:
+        """从配置系统创建checkpoint管理器
+        
+        Args:
+            config_system: 配置系统实例
+            
+        Returns:
+            CheckpointManager: checkpoint管理器实例
+        """
+        config_service = CheckpointConfigService(config_system)
+        return CheckpointManagerFactory.create_manager(config_service=config_service)
     
     @staticmethod
     def create_test_manager() -> CheckpointManager:

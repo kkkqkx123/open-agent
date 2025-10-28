@@ -46,3 +46,6 @@ Thumbs.db
 logs/
 cov_html/
 docs/issue/mypy.txt
+
+# DB
+**/*.db

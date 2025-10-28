@@ -24,6 +24,20 @@ env_prefix: "AGENT_"
 hot_reload: true
 watch_interval: 5  # 5秒
 
+# Checkpoint配置
+checkpoint:
+  enabled: true
+  storage_type: "sqlite"  # "sqlite" | "memory"
+  auto_save: true
+  save_interval: 5  # 每5步保存一次
+  max_checkpoints: 100
+  retention_days: 30
+  trigger_conditions:
+    - "tool_call"
+    - "state_change"
+  db_path: "storage/checkpoints.db"  # SQLite数据库路径。测试数据库放在该目录的test目录下
+  compression: false  # 是否压缩存储
+
 # LLM全局配置
 llm:
   # 默认超时和重试配置
