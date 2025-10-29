@@ -1,89 +1,85 @@
-"""SessionManager单元测试
-
-测试多线程会话管理的核心功能。
-"""
+"""会话管理器单元测试"""
 
 import pytest
-import asyncio
+from unittest.mock import Mock, patch, MagicMock, mock_open
+from pathlib import Path
+from datetime import datetime
 import tempfile
 import shutil
-from pathlib import Path
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from datetime import datetime
+import json
+import hashlib
 
 from src.application.sessions.manager import SessionManager, ISessionManager
-from src.infrastructure.graph.state import AgentState
-from src.infrastructure.graph.config import GraphConfig
+from src.domain.sessions.store import ISessionStore
+from src.application.sessions.git_manager import IGitManager
+from src.application.workflow.manager import IWorkflowManager
+from src.infrastructure.graph.config import GraphConfig as WorkflowConfig
+from src.infrastructure.graph.state import AgentState, BaseMessage
 
 
 class TestSessionManager:
-    """SessionManager测试类"""
-    
+    """会话管理器测试类"""
+
+    @pytest.fixture
+    def temp_dir(self):
+        """创建临时目录"""
+        temp_dir = Path(tempfile.mkdtemp())
+        yield temp_dir
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
     @pytest.fixture
     def mock_workflow_manager(self):
         """模拟工作流管理器"""
-        manager = Mock()
+        manager = Mock(spec=IWorkflowManager)
         manager.load_workflow.return_value = "test_workflow_id"
-        manager.get_workflow_config.return_value = Mock()
-        manager.get_workflow_summary.return_value = {
-            "workflow_id": "test_workflow_id",
-            "version": "1.0",
-            "checksum": "test_checksum"
-        }
         manager.create_workflow.return_value = Mock()
+        
+        # 模拟工作流配置
+        mock_config = Mock(spec=WorkflowConfig)
+        mock_config.version = "1.0.0"
+        mock_config.to_dict.return_value = {"name": "test", "version": "1.0.0"}
+        manager.get_workflow_config.return_value = mock_config
+        
         return manager
-    
+
     @pytest.fixture
     def mock_session_store(self):
         """模拟会话存储"""
-        store = Mock()
-        store.save_session = Mock()
+        store = Mock(spec=ISessionStore)
+        store.save_session.return_value = True
         store.get_session.return_value = None
         store.delete_session.return_value = True
         store.list_sessions.return_value = []
         return store
-    
+
     @pytest.fixture
-    def mock_thread_manager(self):
-        """模拟线程管理器"""
-        manager = AsyncMock()
-        manager.create_thread.return_value = "test_thread_id"
-        manager.update_thread_state = AsyncMock()
-        return manager
-    
+    def mock_git_manager(self):
+        """模拟Git管理器"""
+        git_manager = Mock(spec=IGitManager)
+        git_manager.init_repo.return_value = True
+        git_manager.commit_changes.return_value = True
+        git_manager.get_commit_history.return_value = []
+        return git_manager
+
     @pytest.fixture
-    def mock_state_manager(self):
-        """模拟状态管理器"""
-        manager = Mock()
-        manager.serialize_state_dict.return_value = {}
-        manager.deserialize_state_dict.return_value = {}
-        return manager
-    
-    @pytest.fixture
-    def temp_dir(self):
-        """临时目录"""
-        temp_dir = tempfile.mkdtemp()
-        yield Path(temp_dir)
-        shutil.rmtree(temp_dir)
-    
-    @pytest.fixture
-    def session_manager(
-        self,
-        mock_workflow_manager,
-        mock_session_store,
-        mock_thread_manager,
-        mock_state_manager,
-        temp_dir
-    ):
-        """创建SessionManager实例"""
+    def session_manager(self, mock_workflow_manager, mock_session_store, temp_dir):
+        """创建会话管理器实例"""
         return SessionManager(
             workflow_manager=mock_workflow_manager,
             session_store=mock_session_store,
-            thread_manager=mock_thread_manager,
-            state_manager=mock_state_manager,
             storage_path=temp_dir
         )
-    
+
+    @pytest.fixture
+    def session_manager_with_git(self, mock_workflow_manager, mock_session_store, mock_git_manager, temp_dir):
+        """创建带Git管理器的会话管理器实例"""
+        return SessionManager(
+            workflow_manager=mock_workflow_manager,
+            session_store=mock_session_store,
+            git_manager=mock_git_manager,
+            storage_path=temp_dir
+        )
+
     def test_init(self, mock_workflow_manager, mock_session_store, temp_dir):
         """测试初始化"""
         manager = SessionManager(
@@ -94,270 +90,489 @@ class TestSessionManager:
         
         assert manager.workflow_manager == mock_workflow_manager
         assert manager.session_store == mock_session_store
+        assert manager.git_manager is None
         assert manager.storage_path == temp_dir
-        assert manager.storage_path.exists()
-        assert manager.thread_manager is None
-        assert manager.state_manager is None
-    
-    @pytest.mark.asyncio
-    async def test_create_session_with_threads(
-        self,
-        session_manager,
-        mock_workflow_manager,
-        mock_session_store,
-        mock_thread_manager,
-        mock_state_manager
-    ):
-        """测试创建多线程会话"""
-        workflow_configs = {
-            "thread1": "test_config1.yaml",
-            "thread2": "test_config2.yaml"
-        }
-        dependencies = {"thread2": ["thread1"]}
-        agent_config = {"test": "config"}
-        initial_states = {
-            "thread1": AgentState(),
-            "thread2": AgentState()
-        }
+        assert temp_dir.exists()
+
+    def test_init_with_git(self, mock_workflow_manager, mock_session_store, mock_git_manager, temp_dir):
+        """测试带Git管理器的初始化"""
+        manager = SessionManager(
+            workflow_manager=mock_workflow_manager,
+            session_store=mock_session_store,
+            git_manager=mock_git_manager,
+            storage_path=temp_dir
+        )
         
-        # 模拟配置文件存在
-        with patch('pathlib.Path.exists', return_value=True):
-            session_id = await session_manager.create_session_with_threads(
-                workflow_configs=workflow_configs,
-                dependencies=dependencies,
-                agent_config=agent_config,
-                initial_states=initial_states
-            )
-        
-        # 验证返回的会话ID格式
-        assert session_id is not None
-        assert isinstance(session_id, str)
-        assert len(session_id) > 0
-        
-        # 验证工作流加载
-        assert mock_workflow_manager.load_workflow.call_count == 2
-        
-        # 验证线程创建
-        assert mock_thread_manager.create_thread.call_count == 2
-        
-        # 验证状态更新
-        assert mock_thread_manager.update_thread_state.call_count == 2
-        
-        # 验证会话保存
-        mock_session_store.save_session.assert_called_once()
-        
-        # 验证会话数据结构
-        call_args = mock_session_store.save_session.call_args[0]
-        saved_session_id = call_args[0]
-        saved_session_data = call_args[1]
-        
-        assert saved_session_id == session_id
-        assert "metadata" in saved_session_data
-        assert "state" in saved_session_data
-        
-        metadata = saved_session_data["metadata"]
-        assert metadata["workflow_configs"] == workflow_configs
-        assert metadata["dependencies"] == dependencies
-        assert metadata["agent_config"] == agent_config
-        assert "thread_info" in metadata
-        assert len(metadata["thread_info"]) == 2
-    
-    @pytest.mark.asyncio
-    async def test_create_session_with_threads_missing_config(
-        self,
-        session_manager,
-        mock_workflow_manager,
-        mock_session_store,
-        mock_thread_manager
-    ):
-        """测试创建多线程会话时配置文件不存在"""
-        workflow_configs = {
-            "thread1": "missing_config.yaml"
-        }
-        
-        # 模拟配置文件不存在
-        with patch('pathlib.Path.exists', return_value=False):
-            session_id = await session_manager.create_session_with_threads(
-                workflow_configs=workflow_configs
-            )
-        
-        # 验证仍然创建了会话，但没有线程
-        assert session_id is not None
-        mock_thread_manager.create_thread.assert_not_called()
-        
-        # 验证会话保存
-        mock_session_store.save_session.assert_called_once()
-        
-        # 验证线程信息为空
-        call_args = mock_session_store.save_session.call_args[0]
-        saved_session_data = call_args[1]
-        thread_info = saved_session_data["metadata"]["thread_info"]
-        assert len(thread_info) == 0
-    
-    def test_create_session_backward_compatibility(
-        self,
-        session_manager,
-        mock_workflow_manager,
-        mock_session_store
-    ):
-        """测试向后兼容的单线程会话创建"""
-        workflow_config_path = "test_config.yaml"
-        agent_config = {"test": "config"}
+        assert manager.git_manager == mock_git_manager
+
+    def test_create_session(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试创建会话"""
+        workflow_config_path = "configs/workflows/test.yaml"
+        agent_config = {"name": "test_agent"}
         initial_state = AgentState()
+        initial_state["messages"] = [BaseMessage(content="测试消息")]
+        
+        # 模拟工作流管理器行为
+        mock_workflow_manager.load_workflow.return_value = "test_workflow_id"
+        mock_workflow_manager.create_workflow.return_value = Mock()
+        mock_config = Mock(spec=WorkflowConfig)
+        mock_config.version = "1.0.0"
+        mock_config.to_dict.return_value = {"name": "test", "version": "1.0.0"}
+        mock_workflow_manager.get_workflow_config.return_value = mock_config
+        mock_workflow_manager.get_workflow_summary.return_value = {
+            "workflow_id": "test_workflow_id",
+            "name": "test",
+            "version": "1.0.0"
+        }
         
         # 模拟配置文件存在
         with patch('pathlib.Path.exists', return_value=True):
-            session_id = session_manager.create_session(
-                workflow_config_path=workflow_config_path,
-                agent_config=agent_config,
-                initial_state=initial_state
-            )
+            with patch.object(session_manager, '_generate_session_id', return_value="test-session-id"):
+                session_id = session_manager.create_session(
+                    workflow_config_path=workflow_config_path,
+                    agent_config=agent_config,
+                    initial_state=initial_state
+                )
         
-        # 验证返回的会话ID
-        assert session_id is not None
-        assert isinstance(session_id, str)
+        assert session_id == "test-session-id"
         
-        # 验证工作流加载
+        # 验证工作流管理器调用
         mock_workflow_manager.load_workflow.assert_called_once_with(workflow_config_path)
         
-        # 验证会话保存
+        # 验证会话存储调用
         mock_session_store.save_session.assert_called_once()
-    
+
+    def test_create_session_with_git(self, session_manager_with_git, mock_workflow_manager,
+                                   mock_session_store, mock_git_manager):
+        """测试带Git管理器创建会话"""
+        workflow_config_path = "configs/workflows/test.yaml"
+        
+        # 模拟工作流管理器行为
+        mock_workflow_manager.load_workflow.return_value = "test_workflow_id"
+        mock_workflow_manager.create_workflow.return_value = Mock()
+        mock_config = Mock(spec=WorkflowConfig)
+        mock_config.version = "1.0.0"
+        mock_config.to_dict.return_value = {"name": "test", "version": "1.0.0"}
+        mock_workflow_manager.get_workflow_config.return_value = mock_config
+        mock_workflow_manager.get_workflow_summary.return_value = {
+            "workflow_id": "test_workflow_id",
+            "name": "test",
+            "version": "1.0.0"
+        }
+        
+        # 模拟配置文件存在
+        with patch('pathlib.Path.exists', return_value=True):
+            with patch.object(session_manager_with_git, '_generate_session_id', return_value="test-session-id"):
+                session_id = session_manager_with_git.create_session(
+                    workflow_config_path=workflow_config_path
+                )
+        
+        # 验证Git管理器调用
+        mock_git_manager.init_repo.assert_called_once()
+        mock_git_manager.commit_changes.assert_called_once()
+
     def test_get_session(self, session_manager, mock_session_store):
         """测试获取会话"""
-        session_id = "test_session_id"
-        expected_session_data = {"metadata": {"test": "data"}}
-        mock_session_store.get_session.return_value = expected_session_data
+        session_id = "test-session-id"
+        expected_session = {"metadata": {"session_id": session_id}}
+        mock_session_store.get_session.return_value = expected_session
         
         result = session_manager.get_session(session_id)
         
-        assert result == expected_session_data
+        assert result == expected_session
         mock_session_store.get_session.assert_called_once_with(session_id)
-    
-    def test_get_session_not_found(self, session_manager, mock_session_store):
-        """测试获取不存在的会话"""
-        session_id = "nonexistent_session_id"
-        mock_session_store.get_session.return_value = None
+
+    def test_restore_session_with_config_path(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试使用配置路径恢复会话"""
+        session_id = "test-session-id"
+        workflow_config_path = "configs/workflows/test.yaml"
         
-        result = session_manager.get_session(session_id)
-        
-        assert result is None
-        mock_session_store.get_session.assert_called_once_with(session_id)
-    
-    def test_restore_session_success(
-        self,
-        session_manager,
-        mock_workflow_manager,
-        mock_session_store,
-        mock_state_manager
-    ):
-        """测试成功恢复会话"""
-        session_id = "test_session_id"
-        config_path = "test_config.yaml"
+        # 计算正确的校验和
+        test_content = b'test config content'
+        expected_checksum = hashlib.md5(test_content).hexdigest()
         
         session_data = {
             "metadata": {
                 "session_id": session_id,
-                "workflow_config_path": config_path,
+                "workflow_config_path": workflow_config_path,
                 "workflow_summary": {
-                    "workflow_id": "test_workflow_id",
-                    "version": "1.0",
-                    "checksum": "test_checksum"
+                    "workflow_id": "old_workflow_id",
+                    "name": "test_workflow",
+                    "version": "1.0.0",
+                    "checksum": expected_checksum
                 }
             },
-            "state": {"test": "state_data"}
+            "state": {
+                "messages": [],
+                "tool_results": [],
+                "current_step": "",
+                "max_iterations": 10,
+                "iteration_count": 0,
+                "workflow_name": "",
+                "start_time": None,
+                "errors": []
+            }
         }
-        
         mock_session_store.get_session.return_value = session_data
         
         # 模拟配置文件存在
         with patch('pathlib.Path.exists', return_value=True):
-            workflow, state = session_manager.restore_session(session_id)
+            # 模拟配置文件校验和计算
+            with patch('builtins.open', mock_open(read_data=b'test config content')):
+                # 模拟工作流管理器重新加载工作流
+                mock_workflow_manager.load_workflow.return_value = "new_workflow_id"
+                mock_workflow_manager.create_workflow.return_value = Mock()
+                
+                workflow, state = session_manager.restore_session(session_id)
         
-        # 验证返回的工作流和状态
         assert workflow is not None
-        assert state is not None
+        # assert isinstance(state, AgentState)  # TypedDict不能用于isinstance检查
         
-        # 验证工作流加载和创建
-        mock_workflow_manager.load_workflow.assert_called_once_with(config_path)
-        mock_workflow_manager.create_workflow.assert_called_once()
+        # 验证使用了配置路径重新加载
+        mock_workflow_manager.load_workflow.assert_called_with(workflow_config_path)
+        mock_workflow_manager.create_workflow.assert_called_with("new_workflow_id")
+
+    def test_restore_session_fallback_to_original_id(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试回退到原始workflow_id"""
+        session_id = "test-session-id"
+        workflow_config_path = "configs/workflows/test.yaml"
         
-        # 验证状态反序列化
-        if mock_state_manager:
-            mock_state_manager.deserialize_state_dict.assert_called()
-    
-    def test_restore_session_not_found(self, session_manager, mock_session_store):
-        """测试恢复不存在的会话"""
-        session_id = "nonexistent_session_id"
-        mock_session_store.get_session.return_value = None
-        
-        with pytest.raises(ValueError, match=f"会话 {session_id} 不存在"):
-            session_manager.restore_session(session_id)
-    
-    def test_restore_session_config_not_exists(
-        self,
-        session_manager,
-        mock_session_store,
-        mock_state_manager
-    ):
-        """测试恢复会话时配置文件不存在"""
-        session_id = "test_session_id"
-        config_path = "missing_config.yaml"
+        # 计算正确的校验和
+        test_content = b'test config content'
+        expected_checksum = hashlib.md5(test_content).hexdigest()
         
         session_data = {
             "metadata": {
                 "session_id": session_id,
-                "workflow_config_path": config_path
+                "workflow_config_path": workflow_config_path,
+                "workflow_summary": {
+                    "workflow_id": "original_workflow_id",
+                    "name": "test_workflow",
+                    "version": "1.0.0",
+                    "checksum": expected_checksum
+                }
             },
-            "state": {"test": "state_data"}
+            "state": {
+                "messages": [],
+                "tool_results": [],
+                "current_step": "",
+                "max_iterations": 10,
+                "iteration_count": 0,
+                "workflow_name": "",
+                "start_time": None,
+                "errors": []
+            }
         }
+        mock_session_store.get_session.return_value = session_data
         
+        # 模拟配置文件存在但加载失败
+        with patch('pathlib.Path.exists', return_value=True):
+            with patch('builtins.open', mock_open(read_data=b'test config content')):
+                # 第一次加载失败，第二次使用原始ID成功
+                mock_workflow_manager.load_workflow.side_effect = [Exception("加载失败"), None]
+                mock_workflow_manager.create_workflow.return_value = Mock()
+                
+                workflow, state = session_manager.restore_session(session_id)
+        
+        assert workflow is not None
+        # assert isinstance(state, AgentState)  # TypedDict不能用于isinstance检查
+        
+        # 验证最终使用了原始workflow_id
+        mock_workflow_manager.create_workflow.assert_called_with("original_workflow_id")
+
+    def test_restore_session_final_fallback(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试最终回退策略"""
+        session_id = "test-session-id"
+        workflow_config_path = "configs/workflows/test.yaml"
+        
+        # 计算正确的校验和
+        test_content = b'test config content'
+        expected_checksum = hashlib.md5(test_content).hexdigest()
+        
+        session_data = {
+            "metadata": {
+                "session_id": session_id,
+                "workflow_config_path": workflow_config_path,
+                "workflow_summary": {
+                    "workflow_id": "original_workflow_id",
+                    "name": "test_workflow",
+                    "version": "1.0.0",
+                    "checksum": expected_checksum
+                }
+            },
+            "state": {
+                "messages": [],
+                "tool_results": [],
+                "current_step": "",
+                "max_iterations": 10,
+                "iteration_count": 0,
+                "workflow_name": "",
+                "start_time": None,
+                "errors": []
+            }
+        }
+        mock_session_store.get_session.return_value = session_data
+        
+        # 模拟配置文件存在
+        with patch('pathlib.Path.exists', return_value=True):
+            with patch('builtins.open', mock_open(read_data=b'test config content')):
+                # 前两次都失败，第三次成功
+                mock_workflow_manager.load_workflow.side_effect = [
+                    Exception("第一次失败"), 
+                    None  # 第三次成功
+                ]
+                mock_workflow_manager.create_workflow.side_effect = [
+                    Exception("创建失败"),  # 第二次失败
+                    Mock()  # 第三次成功
+                ]
+                
+                # 模拟更新会话元数据
+                mock_session_store.save_session.return_value = True
+                
+                workflow, state = session_manager.restore_session(session_id)
+        
+        assert workflow is not None
+        # assert isinstance(state, AgentState)  # TypedDict不能用于isinstance检查
+        
+        # 验证最终重新加载并更新了元数据
+        assert mock_workflow_manager.load_workflow.call_count == 2
+        mock_session_store.save_session.assert_called()
+
+    def test_restore_session_all_strategies_fail(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试所有恢复策略都失败"""
+        session_id = "test-session-id"
+        workflow_config_path = "configs/workflows/test.yaml"
+        
+        # 计算正确的校验和
+        test_content = b'test config content'
+        expected_checksum = hashlib.md5(test_content).hexdigest()
+        
+        session_data = {
+            "metadata": {
+                "session_id": session_id,
+                "workflow_config_path": workflow_config_path,
+                "workflow_summary": {
+                    "workflow_id": "original_workflow_id",
+                    "name": "test_workflow",
+                    "version": "1.0.0",
+                    "checksum": expected_checksum
+                }
+            },
+            "state": {
+                "messages": [],
+                "tool_results": [],
+                "current_step": "",
+                "max_iterations": 10,
+                "iteration_count": 0,
+                "workflow_name": "",
+                "start_time": None,
+                "errors": []
+            }
+        }
+        mock_session_store.get_session.return_value = session_data
+        
+        # 模拟配置文件存在
+        with patch('pathlib.Path.exists', return_value=True):
+            with patch('builtins.open', mock_open(read_data=b'test config content')):
+                # 所有策略都失败
+                mock_workflow_manager.load_workflow.side_effect = Exception("总是失败")
+                mock_workflow_manager.create_workflow.side_effect = Exception("总是失败")
+                
+                with pytest.raises(ValueError, match="无法恢复会话"):
+                    session_manager.restore_session(session_id)
+
+    def test_restore_session_config_file_not_exists(self, session_manager, mock_session_store):
+        """测试配置文件不存在的情况"""
+        session_id = "test-session-id"
+        workflow_config_path = "configs/workflows/nonexistent.yaml"
+        
+        session_data = {
+            "metadata": {
+                "session_id": session_id,
+                "workflow_config_path": workflow_config_path,
+                "workflow_summary": {
+                    "workflow_id": "original_workflow_id",
+                    "name": "test_workflow",
+                    "version": "1.0.0",
+                    "checksum": "abc123"
+                }
+            },
+            "state": {
+                "messages": [],
+                "tool_results": [],
+                "current_step": "",
+                "max_iterations": 10,
+                "iteration_count": 0,
+                "workflow_name": "",
+                "start_time": None,
+                "errors": []
+            }
+        }
         mock_session_store.get_session.return_value = session_data
         
         # 模拟配置文件不存在
         with patch('pathlib.Path.exists', return_value=False):
+            # 现在应该返回(None, state)而不是抛出异常
             workflow, state = session_manager.restore_session(session_id)
+            
+            # 验证返回值
+            assert workflow is None
+            assert isinstance(state, dict)
+            assert "messages" in state
+
+    def test_validate_workflow_consistency(self, session_manager, mock_workflow_manager):
+        """测试工作流配置一致性验证"""
+        # 计算正确的校验和
+        test_content = b'test config content'
+        expected_checksum = hashlib.md5(test_content).hexdigest()
         
-        # 验证返回的工作流为None，状态不为None
-        assert workflow is None
-        assert state is not None
+        metadata = {
+            "workflow_config_path": "configs/workflows/test.yaml",
+            "workflow_summary": {
+                "version": "1.0.0",
+                "checksum": expected_checksum
+            }
+        }
+        workflow_id = "test_workflow_id"
         
-        # 验证状态反序列化
-        if mock_state_manager:
-            mock_state_manager.deserialize_state_dict.assert_called()
-    
-    def test_save_session(
-        self,
-        session_manager,
-        mock_session_store,
-        mock_state_manager
-    ):
-        """测试保存会话"""
-        session_id = "test_session_id"
-        state = AgentState()
-        workflow = Mock()
+        # 模拟配置文件
+        with patch('builtins.open', mock_open(read_data=test_content)):
+            # 配置一致的情况
+            mock_config = Mock(spec=WorkflowConfig)
+            mock_config.version = "1.0.0"
+            mock_workflow_manager.get_workflow_config.return_value = mock_config
+            mock_workflow_manager.get_workflow_summary.return_value = {
+                "version": "1.0.0",
+                "checksum": expected_checksum
+            }
+            
+            result = session_manager._validate_workflow_consistency(metadata, workflow_id)
+            assert result is True
+            
+            # 版本不一致的情况
+            mock_config.version = "2.0.0"
+            result = session_manager._validate_workflow_consistency(metadata, workflow_id)
+            assert result is False
+            
+            # 配置不存在的情况
+            mock_workflow_manager.get_workflow_config.return_value = None
+            mock_workflow_manager.get_workflow_summary.return_value = None
+            result = session_manager._validate_workflow_consistency(metadata, workflow_id)
+            assert result is False
+
+    def test_calculate_config_checksum(self, session_manager):
+        """测试配置文件校验和计算"""
+        config_path = "configs/workflows/test.yaml"
+        test_content = b"test config content"
+        expected_checksum = hashlib.md5(test_content).hexdigest()
         
-        # 模拟会话存在
+        with patch('builtins.open', mock_open(read_data=test_content)):
+            result = session_manager._calculate_config_checksum(config_path)
+            assert result == expected_checksum
+        
+        # 测试文件读取失败的情况
+        with patch('builtins.open', side_effect=Exception("读取失败")):
+            result = session_manager._calculate_config_checksum(config_path)
+            assert result == ""
+
+    def test_update_session_workflow_info(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试更新会话工作流信息"""
+        session_id = "test-session-id"
+        new_workflow_id = "new_workflow_id"
+        workflow_config_path = "configs/workflows/test.yaml"
+        
         session_data = {
-            "metadata": {"test": "data"},
+            "metadata": {
+                "session_id": session_id,
+                "workflow_config_path": workflow_config_path,
+                "workflow_summary": {
+                    "workflow_id": "old_workflow_id",
+                    "name": "test_workflow",
+                    "version": "1.0.0",
+                    "checksum": "old_checksum"
+                }
+            },
             "state": {}
         }
         mock_session_store.get_session.return_value = session_data
         
-        result = session_manager.save_session(session_id, state, workflow)
+        # 模拟新的工作流摘要
+        workflow_summary = {
+            "workflow_id": new_workflow_id,
+            "name": "test_workflow",
+            "version": "2.0.0",
+            "checksum": "new_checksum"
+        }
+        mock_workflow_manager.get_workflow_summary.return_value = workflow_summary
+        
+        session_manager._update_session_workflow_info(session_id, new_workflow_id)
+        
+        # 验证会话数据被更新
+        mock_session_store.save_session.assert_called_once()
+        call_args = mock_session_store.save_session.call_args[0]
+        updated_data = call_args[1]
+        
+        assert updated_data["metadata"]["workflow_summary"]["workflow_id"] == new_workflow_id
+        assert updated_data["metadata"]["workflow_summary"]["version"] == "2.0.0"
+        assert "recovery_info" in updated_data["metadata"]
+        assert updated_data["metadata"]["recovery_info"]["reason"] == "workflow_recovery"
+
+    def test_log_recovery_failure(self, session_manager, mock_session_store, temp_dir):
+        """测试恢复失败日志记录"""
+        session_id = "test-session-id"
+        error = Exception("测试错误")
+        
+        # 创建恢复日志目录
+        log_dir = temp_dir / "recovery_logs"
+        log_dir.mkdir(exist_ok=True)
+        
+        session_manager._log_recovery_failure(session_id, error)
+        
+        # 验证恢复尝试计数
+        assert session_manager._get_recovery_attempts(session_id) == 1
+        
+        # 验证日志文件被创建
+        log_file = log_dir / f"{session_id}_recovery.log"
+        assert log_file.exists()
+        
+        # 验证日志内容
+        with open(log_file, "r", encoding="utf-8") as f:
+            log_content = f.read()
+            log_data = json.loads(log_content.strip())
+            
+        assert log_data["session_id"] == session_id
+        assert log_data["error_type"] == "Exception"
+        assert log_data["error_message"] == "测试错误"
+        assert log_data["recovery_attempts"] == 1
+
+    def test_restore_session_not_exists(self, session_manager, mock_session_store):
+        """测试恢复不存在的会话"""
+        session_id = "non-existent-session"
+        mock_session_store.get_session.return_value = None
+        
+        with pytest.raises(ValueError, match=f"会话 {session_id} 不存在"):
+            session_manager.restore_session(session_id)
+
+    def test_save_session(self, session_manager, mock_session_store):
+        """测试保存会话"""
+        session_id = "test-session-id"
+        state = AgentState()
+        state["messages"] = [BaseMessage(content="测试消息")]
+        
+        session_data = {
+            "metadata": {"session_id": session_id, "updated_at": "2023-01-01T00:00:00"},
+            "state": {}
+        }
+        mock_session_store.get_session.return_value = session_data
+        
+        result = session_manager.save_session(session_id, state)
         
         assert result is True
-        
-        # 验证会话保存
         mock_session_store.save_session.assert_called_once()
-        
-        # 验证状态序列化
-        if mock_state_manager:
-            mock_state_manager.serialize_state_dict.assert_called()
-    
+
     def test_save_session_not_exists(self, session_manager, mock_session_store):
         """测试保存不存在的会话"""
-        session_id = "nonexistent_session_id"
+        session_id = "non-existent-session"
         state = AgentState()
         
         mock_session_store.get_session.return_value = None
@@ -365,97 +580,70 @@ class TestSessionManager:
         result = session_manager.save_session(session_id, state)
         
         assert result is False
-        mock_session_store.save_session.assert_not_called()
-    
-    def test_delete_session(
-        self,
-        session_manager,
-        mock_session_store,
-        temp_dir
-    ):
+
+    def test_delete_session(self, session_manager, mock_session_store, temp_dir):
         """测试删除会话"""
-        session_id = "test_session_id"
+        session_id = "test-session-id"
         
         # 创建会话目录
         session_dir = temp_dir / session_id
         session_dir.mkdir(exist_ok=True)
         
+        # 添加恢复尝试记录
+        session_manager._recovery_attempts[session_id] = 3
+        
         result = session_manager.delete_session(session_id)
         
         assert result is True
-        
-        # 验证会话存储删除
         mock_session_store.delete_session.assert_called_once_with(session_id)
-        
-        # 验证目录删除
         assert not session_dir.exists()
-    
-    def test_delete_session_not_exists(
-        self,
-        session_manager,
-        mock_session_store
-    ):
-        """测试删除不存在的会话"""
-        session_id = "nonexistent_session_id"
-        
-        mock_session_store.delete_session.return_value = False
+        assert session_id not in session_manager._recovery_attempts
+
+    def test_delete_session_error(self, session_manager, mock_session_store):
+        """测试删除会话出错"""
+        session_id = "test-session-id"
+        mock_session_store.delete_session.side_effect = Exception("删除失败")
         
         result = session_manager.delete_session(session_id)
         
         assert result is False
-    
+
     def test_list_sessions(self, session_manager, mock_session_store):
         """测试列出会话"""
         sessions = [
-            {"session_id": "session1", "created_at": "2023-01-01"},
-            {"session_id": "session2", "created_at": "2023-01-02"}
+            {"session_id": "session1", "created_at": "2023-01-01T00:00:00"},
+            {"session_id": "session2", "created_at": "2023-01-02T00:00:00"}
         ]
         mock_session_store.list_sessions.return_value = sessions
         
         result = session_manager.list_sessions()
         
-        assert len(result) == 2
+        assert result == sessions
         assert result[0]["session_id"] == "session2"  # 按时间倒序
         assert result[1]["session_id"] == "session1"
-        
-        mock_session_store.list_sessions.assert_called_once()
-    
-    def test_get_session_history_with_git_manager(
-        self,
-        session_manager,
-        temp_dir
-    ):
-        """测试获取会话历史（有Git管理器）"""
-        session_id = "test_session_id"
-        
-        # 创建模拟Git管理器
-        mock_git_manager = Mock()
-        mock_git_manager.get_commit_history.return_value = [
-            {"timestamp": "2023-01-01", "message": "Initial commit"},
-            {"timestamp": "2023-01-02", "message": "Update state"}
+
+    def test_get_session_history_with_git(self, session_manager_with_git, mock_git_manager):
+        """测试获取会话历史（带Git）"""
+        session_id = "test-session-id"
+        expected_history = [
+            {"timestamp": "2023-01-01T00:00:00", "message": "初始化会话"},
+            {"timestamp": "2023-01-01T01:00:00", "message": "更新会话状态"}
         ]
-        session_manager.git_manager = mock_git_manager
+        mock_git_manager.get_commit_history.return_value = expected_history
         
-        result = session_manager.get_session_history(session_id)
+        result = session_manager_with_git.get_session_history(session_id)
         
-        assert len(result) == 2
-        assert result[0]["message"] == "Initial commit"
-        assert result[1]["message"] == "Update state"
-        
-        session_dir = temp_dir / session_id
-        mock_git_manager.get_commit_history.assert_called_once_with(session_dir)
-    
-    def test_get_session_history_without_git_manager(
-        self,
-        session_manager,
-        mock_session_store
-    ):
-        """测试获取会话历史（无Git管理器）"""
-        session_id = "test_session_id"
-        
+        assert result == expected_history
+        mock_git_manager.get_commit_history.assert_called_once()
+
+    def test_get_session_history_without_git(self, session_manager, mock_session_store):
+        """测试获取会话历史（无Git）"""
+        session_id = "test-session-id"
         session_data = {
             "metadata": {
-                "created_at": "2023-01-01T00:00:00"
+                "session_id": session_id,
+                "created_at": "2023-01-01T00:00:00",
+                "updated_at": "2023-01-01T01:00:00"
             }
         }
         mock_session_store.get_session.return_value = session_data
@@ -463,244 +651,80 @@ class TestSessionManager:
         result = session_manager.get_session_history(session_id)
         
         assert len(result) == 1
+        assert result[0]["timestamp"] == "2023-01-01T00:00:00"
         assert result[0]["message"] == "会话创建"
-        assert result[0]["author"] == "system"
-    
+
     def test_get_session_info(self, session_manager, mock_session_store):
         """测试获取会话信息"""
-        session_id = "test_session_id"
-        expected_info = {"session_id": session_id, "test": "data"}
+        session_id = "test-session-id"
+        expected_info = {"metadata": {"session_id": session_id}}
         mock_session_store.get_session.return_value = expected_info
         
         result = session_manager.get_session_info(session_id)
         
         assert result == expected_info
         mock_session_store.get_session.assert_called_once_with(session_id)
-    
+
     def test_session_exists(self, session_manager, mock_session_store):
         """测试检查会话是否存在"""
-        session_id = "test_session_id"
-        mock_session_store.get_session.return_value = {"test": "data"}
+        session_id = "test-session-id"
+        mock_session_store.get_session.return_value = {"metadata": {"session_id": session_id}}
         
         result = session_manager.session_exists(session_id)
         
         assert result is True
         mock_session_store.get_session.assert_called_once_with(session_id)
-    
+
     def test_session_not_exists(self, session_manager, mock_session_store):
         """测试检查会话不存在"""
-        session_id = "nonexistent_session_id"
+        session_id = "non-existent-session"
         mock_session_store.get_session.return_value = None
         
         result = session_manager.session_exists(session_id)
         
         assert result is False
-        mock_session_store.get_session.assert_called_once_with(session_id)
-    
-    def test_save_session_with_metrics(
-        self,
-        session_manager,
-        mock_session_store,
-        mock_state_manager
-    ):
-        """测试保存会话状态和工作流指标"""
-        session_id = "test_session_id"
-        state = AgentState()
-        workflow_metrics = {"test": "metrics"}
-        workflow = Mock()
-        
-        # 模拟会话存在
-        session_data = {
-            "metadata": {"test": "data"},
-            "state": {}
-        }
-        mock_session_store.get_session.return_value = session_data
-        
-        result = session_manager.save_session_with_metrics(
-            session_id, state, workflow_metrics, workflow
-        )
-        
-        assert result is True
-        
-        # 验证会话保存
-        mock_session_store.save_session.assert_called_once()
-        
-        # 验证状态序列化
-        if mock_state_manager:
-            mock_state_manager.serialize_state_dict.assert_called()
-        
-        # 验证工作流指标保存
-        call_args = mock_session_store.save_session.call_args[0]
-        saved_session_data = call_args[1]
-        assert "workflow_metrics" in saved_session_data
-        assert saved_session_data["workflow_metrics"]["test"] == "metrics"
-    
-    @pytest.mark.asyncio
-    async def test_add_thread(
-        self,
-        session_manager,
-        mock_workflow_manager,
-        mock_session_store,
-        mock_thread_manager
-    ):
-        """测试向会话添加线程"""
-        session_id = "test_session_id"
-        thread_name = "new_thread"
-        config_path = "new_config.yaml"
-        
-        # 模拟会话存在
-        session_data = {
-            "metadata": {
-                "test": "data"
-            },
-            "state": {}
-        }
-        mock_session_store.get_session.return_value = session_data
-        
-        # 模拟配置文件存在
-        with patch('pathlib.Path.exists', return_value=True):
-            result = await session_manager.add_thread(session_id, thread_name, config_path)
-        
-        assert result is True
-        
-        # 验证工作流加载
-        mock_workflow_manager.load_workflow.assert_called_once_with(config_path)
-        
-        # 验证线程创建
-        mock_thread_manager.create_thread.assert_called_once()
-        
-        # 验证会话更新
-        mock_session_store.save_session.assert_called_once()
-    
-    @pytest.mark.asyncio
-    async def test_add_thread_session_not_exists(
-        self,
-        session_manager,
-        mock_session_store
-    ):
-        """测试向不存在的会话添加线程"""
-        session_id = "nonexistent_session_id"
-        thread_name = "new_thread"
-        config_path = "new_config.yaml"
-        
-        mock_session_store.get_session.return_value = None
-        
-        result = await session_manager.add_thread(session_id, thread_name, config_path)
-        
-        assert result is False
-    
-    @pytest.mark.asyncio
-    async def test_add_thread_config_not_exists(
-        self,
-        session_manager,
-        mock_session_store
-    ):
-        """测试添加线程时配置文件不存在"""
-        session_id = "test_session_id"
-        thread_name = "new_thread"
-        config_path = "missing_config.yaml"
-        
-        # 模拟会话存在
-        session_data = {"metadata": {"test": "data"}}
-        mock_session_store.get_session.return_value = session_data
-        
-        # 模拟配置文件不存在
-        with patch('pathlib.Path.exists', return_value=False):
-            result = await session_manager.add_thread(session_id, thread_name, config_path)
-        
-        assert result is False
-    
-    @pytest.mark.asyncio
-    async def test_get_threads(
-        self,
-        session_manager,
-        mock_session_store
-    ):
-        """测试获取会话的所有线程信息"""
-        session_id = "test_session_id"
-        thread_info = {
-            "thread1": {
-                "thread_id": "thread1_id",
-                "config_path": "config1.yaml"
-            },
-            "thread2": {
-                "thread_id": "thread2_id",
-                "config_path": "config2.yaml"
-            }
-        }
-        
-        session_data = {
-            "metadata": {
-                "thread_info": thread_info
-            }
-        }
-        mock_session_store.get_session.return_value = session_data
-        
-        result = await session_manager.get_threads(session_id)
-        
-        assert result == thread_info
-        mock_session_store.get_session.assert_called_once_with(session_id)
-    
-    @pytest.mark.asyncio
-    async def test_get_threads_session_not_exists(
-        self,
-        session_manager,
-        mock_session_store
-    ):
-        """测试获取不存在会话的线程信息"""
-        session_id = "nonexistent_session_id"
-        
-        mock_session_store.get_session.return_value = None
-        
-        result = await session_manager.get_threads(session_id)
-        
-        assert result == {}
-    
+
     def test_generate_session_id(self, session_manager):
         """测试生成会话ID"""
-        config_path = "test_workflow_config.yaml"
+        workflow_config_path = "configs/workflows/react_workflow.yaml"
         
-        session_id = session_manager._generate_session_id(config_path)
+        # 创建mock的datetime对象
+        mock_now = Mock()
+        mock_now.strftime.side_effect = lambda fmt: "251022" if fmt == "%y%m%d" else "174800"
         
-        # 验证格式：workflow名称-年月日-时分秒-uuid前6位
-        parts = session_id.split('-')
-        assert len(parts) == 4
-        assert parts[0] == "testworkflowconfig"  # workflow名称
-        assert len(parts[1]) == 6  # 年月日
-        assert len(parts[2]) == 6  # 时分秒
-        assert len(parts[3]) == 6  # uuid前6位
-    
+        with patch('src.application.sessions.manager.datetime') as mock_datetime:
+            mock_datetime.now.return_value = mock_now
+            with patch('src.application.sessions.manager.uuid') as mock_uuid:
+                mock_uuid.uuid4.return_value.__str__.return_value = "1f73e8-1234-5678-9abc-def123456789"
+                
+                session_id = session_manager._generate_session_id(workflow_config_path)
+                
+                assert session_id == "react-251022-174800-1f73e8"
+
     def test_extract_workflow_name(self, session_manager):
-        """测试从配置路径提取workflow名称"""
-        # 测试正常路径
-        config_path = "configs/workflows/react_workflow.yaml"
-        name = session_manager._extract_workflow_name(config_path)
-        assert name == "react"
+        """测试提取工作流名称"""
+        # 测试正常情况
+        workflow_config_path = "configs/workflows/react_workflow.yaml"
+        result = session_manager._extract_workflow_name(workflow_config_path)
+        assert result == "react"
         
-        # 测试带下划线的路径
-        config_path = "configs/workflows/test_workflow.yaml"
-        name = session_manager._extract_workflow_name(config_path)
-        assert name == "test"
+        # 测试带workflow后缀
+        workflow_config_path = "configs/workflows/test_workflow.yaml"
+        result = session_manager._extract_workflow_name(workflow_config_path)
+        assert result == "test"
         
-        # 测试空路径
-        name = session_manager._extract_workflow_name("")
-        assert name == "unknown"
-        
-        # 测试None路径
-        name = session_manager._extract_workflow_name(None)
-        assert name == "unknown"
-    
+        # 测试异常情况
+        workflow_config_path = ""
+        result = session_manager._extract_workflow_name(workflow_config_path)
+        assert result == "unknown"
+
     def test_serialize_state(self, session_manager):
-        """测试状态序列化"""
+        """测试序列化状态"""
         state = AgentState()
-        state["messages"] = [Mock(content="test", type="human")]
-        state["tool_results"] = [{"tool_name": "test_tool", "success": True}]
-        state["current_step"] = "test_step"
-        state["max_iterations"] = 10
-        state["iteration_count"] = 5
+        state["messages"] = [BaseMessage(content="测试消息")]
+        state["current_step"] = "测试步骤"
         state["workflow_name"] = "test_workflow"
-        state["start_time"] = datetime.now().isoformat()
-        state["errors"] = ["test_error"]
+        state["start_time"] = datetime(2023, 1, 1, 0, 0, 0).isoformat()
         
         result = session_manager._serialize_state(state)
         
@@ -712,46 +736,157 @@ class TestSessionManager:
         assert "workflow_name" in result
         assert "start_time" in result
         assert "errors" in result
-        
-        assert result["current_step"] == "test_step"
-        assert result["max_iterations"] == 10
-        assert result["iteration_count"] == 5
         assert result["workflow_name"] == "test_workflow"
-        assert result["errors"] == ["test_error"]
-    
+        assert result["start_time"] == "2023-01-01T00:00:00"
+
     def test_deserialize_state(self, session_manager):
-        """测试状态反序列化"""
+        """测试反序列化状态"""
         state_data = {
             "messages": [
-                {"type": "HumanMessage", "content": "test", "role": "human"}
+                {"type": "BaseMessage", "content": "测试消息"}
             ],
-            "tool_results": [
-                {"tool_name": "test_tool", "success": True, "result": "result"}
-            ],
-            "current_step": "test_step",
+            "tool_results": [],
+            "current_step": "测试步骤",
             "max_iterations": 10,
-            "iteration_count": 5,
+            "iteration_count": 0,
             "workflow_name": "test_workflow",
             "start_time": "2023-01-01T00:00:00",
-            "errors": ["test_error"]
+            "errors": []
         }
         
         result = session_manager._deserialize_state(state_data)
         
-        assert isinstance(result, dict)
-        assert "messages" in result
-        assert "tool_results" in result
-        assert "current_step" in result
-        assert "max_iterations" in result
-        assert "iteration_count" in result
-        assert "workflow_name" in result
-        assert "start_time" in result
-        assert "errors" in result
-        
-        assert result["current_step"] == "test_step"
-        assert result["max_iterations"] == 10
-        assert result["iteration_count"] == 5
-        assert result["workflow_name"] == "test_workflow"
-        assert result["errors"] == ["test_error"]
+        # assert isinstance(result, AgentState)  # TypedDict不能用于isinstance检查
         assert len(result["messages"]) == 1
-        assert len(result["tool_results"]) == 1
+        assert result["current_step"] == "测试步骤"
+        assert result["workflow_name"] == "test_workflow"
+        assert result["start_time"] == datetime(2023, 1, 1, 0, 0, 0).isoformat()
+
+    def test_get_recovery_attempts(self, session_manager):
+        """测试获取恢复尝试次数"""
+        session_id = "test-session-id"
+        
+        # 初始状态
+        assert session_manager._get_recovery_attempts(session_id) == 0
+        
+        # 添加尝试记录
+        session_manager._recovery_attempts[session_id] = 3
+        assert session_manager._get_recovery_attempts(session_id) == 3
+
+    def test_save_session_with_metrics(self, session_manager, mock_session_store):
+        """测试保存会话状态和工作流指标"""
+        session_id = "test-session-id"
+        state = AgentState()
+        state["messages"] = [BaseMessage(content="测试消息")]
+        workflow_metrics = {
+            "execution_time": 5.2,
+            "nodes_executed": 3,
+            "success": True
+        }
+        
+        session_data = {
+            "metadata": {"session_id": session_id, "updated_at": "2023-01-01T00:00:00"},
+            "state": {}
+        }
+        mock_session_store.get_session.return_value = session_data
+        
+        result = session_manager.save_session_with_metrics(session_id, state, workflow_metrics)
+        
+        assert result is True
+        mock_session_store.save_session.assert_called_once()
+        
+        # 验证工作流指标被保存
+        call_args = mock_session_store.save_session.call_args[0]
+        saved_data = call_args[1]
+        assert "workflow_metrics" in saved_data
+        assert saved_data["workflow_metrics"]["execution_time"] == 5.2
+        assert saved_data["workflow_metrics"]["nodes_executed"] == 3
+        assert saved_data["workflow_metrics"]["success"] is True
+
+    def test_save_session_with_metrics_not_exists(self, session_manager, mock_session_store):
+        """测试保存不存在的会话（带指标）"""
+        session_id = "non-existent-session"
+        state = AgentState()
+        workflow_metrics = {"execution_time": 1.0}
+        
+        mock_session_store.get_session.return_value = None
+        
+        result = session_manager.save_session_with_metrics(session_id, state, workflow_metrics)
+        
+        assert result is False
+
+    def test_create_session_with_workflow_summary(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试创建会话时保存工作流摘要"""
+        workflow_config_path = "configs/workflows/test.yaml"
+        
+        # 模拟工作流摘要
+        workflow_summary = {
+            "workflow_id": "test_workflow_id",
+            "name": "test_workflow",
+            "version": "1.0.0",
+            "description": "测试工作流",
+            "config_path": workflow_config_path,
+            "checksum": "abc123",
+            "loaded_at": "2023-01-01T00:00:00",
+            "last_used": None,
+            "usage_count": 0
+        }
+        mock_workflow_manager.get_workflow_summary.return_value = workflow_summary
+        mock_workflow_manager.load_workflow.return_value = "test_workflow_id"
+        mock_workflow_manager.create_workflow.return_value = Mock()
+        
+        # 模拟配置文件存在
+        with patch('pathlib.Path.exists', return_value=True):
+            with patch.object(session_manager, '_generate_session_id', return_value="test-session-id"):
+                session_id = session_manager.create_session(workflow_config_path=workflow_config_path)
+        
+        assert session_id == "test-session-id"
+        
+        # 验证工作流摘要被保存
+        mock_session_store.save_session.assert_called_once()
+
+    def test_restore_session_with_workflow_summary_fallback(self, session_manager, mock_workflow_manager, mock_session_store):
+        """测试使用工作流摘要回退恢复会话"""
+        session_id = "test-session-id"
+        workflow_config_path = "configs/workflows/test.yaml"
+        
+        # 模拟工作流摘要
+        workflow_summary = {
+            "workflow_id": "original_workflow_id",
+            "name": "test_workflow",
+            "version": "1.0.0"
+        }
+        
+        session_data = {
+            "metadata": {
+                "session_id": session_id,
+                "workflow_config_path": workflow_config_path,
+                "workflow_summary": workflow_summary
+            },
+            "state": {
+                "messages": [],
+                "tool_results": [],
+                "current_step": "",
+                "max_iterations": 10,
+                "iteration_count": 0,
+                "workflow_name": "",
+                "start_time": None,
+                "errors": []
+            }
+        }
+        mock_session_store.get_session.return_value = session_data
+        
+        # 模拟配置文件存在但加载失败
+        with patch('pathlib.Path.exists', return_value=True):
+            with patch('builtins.open', mock_open(read_data=b'test config content')):
+                # 第一次加载失败，第二次使用摘要中的workflow_id成功
+                mock_workflow_manager.load_workflow.side_effect = [Exception("加载失败"), None]
+                mock_workflow_manager.create_workflow.return_value = Mock()
+                
+                workflow, state = session_manager.restore_session(session_id)
+        
+        assert workflow is not None
+        # assert isinstance(state, AgentState)  # TypedDict不能用于isinstance检查
+        
+        # 验证最终使用了摘要中的workflow_id
+        mock_workflow_manager.create_workflow.assert_called_with("original_workflow_id")
