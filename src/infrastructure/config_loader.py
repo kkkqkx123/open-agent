@@ -14,6 +14,7 @@ from .exceptions import ConfigurationError
 from .types import CheckResult
 from .config_inheritance import ConfigInheritanceHandler
 from .config_interfaces import IConfigLoader
+from .container_interfaces import ILifecycleAware
 
 # 定义类型变量
 ConfigValue = TypeVar("ConfigValue", Dict[str, Any], List[Any], str, Any)
@@ -60,7 +61,7 @@ class ConfigFileHandler(FileSystemEventHandler):
         self.config_loader._handle_file_change(file_path)
 
 
-class YamlConfigLoader(IConfigLoader):
+class YamlConfigLoader(IConfigLoader, ILifecycleAware):
     """YAML配置加载器实现"""
 
     def __init__(self, base_path: str = "configs", enable_inheritance: bool = True) -> None:
@@ -251,6 +252,27 @@ class YamlConfigLoader(IConfigLoader):
             message="Configuration structure is valid",
         )
 
+    def initialize(self) -> None:
+        """初始化配置加载器"""
+        # 配置加载器在创建时已经初始化，这里可以添加额外的初始化逻辑
+        pass
+    
+    def start(self) -> None:
+        """启动配置加载器"""
+        # 开始监听配置文件变化
+        if not self._observers:
+            self.watch_for_changes(lambda path, config: None)
+    
+    def stop(self) -> None:
+        """停止配置加载器"""
+        # 停止监听配置文件变化
+        self.dispose()
+    
+    def dispose(self) -> None:
+        """释放配置加载器资源"""
+        # 停止监听并清理资源
+        self.dispose()
+        self.clear_cache()
     def __del__(self) -> None:
         """析构函数，确保停止文件监听"""
-        self.stop_watching()
+        self.dispose()

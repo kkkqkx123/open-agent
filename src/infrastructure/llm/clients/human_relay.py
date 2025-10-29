@@ -8,6 +8,7 @@ from .base import BaseLLMClient
 from ..config import HumanRelayConfig
 from ..models import LLMResponse, TokenUsage
 from ..frontend_interface import create_frontend_interface
+from ..frontend_interface_enhanced import create_enhanced_frontend_interface
 from ..exceptions import LLMTimeoutError, LLMInvalidRequestError
 
 
@@ -23,7 +24,15 @@ class HumanRelayClient(BaseLLMClient):
         """
         super().__init__(config)
         self.mode = config.mode  # "single" 或 "multi"
-        self.frontend_interface = create_frontend_interface(config.frontend_config)
+        
+        # 选择前端接口实现
+        use_enhanced = config.metadata_config.get('use_enhanced_frontend', False)
+        
+        if use_enhanced:
+            self.frontend_interface = create_enhanced_frontend_interface(config.frontend_config)
+        else:
+            self.frontend_interface = create_frontend_interface(config.frontend_config)
+        
         self.conversation_history: List[BaseMessage] = []
         self.max_history_length = config.max_history_length
         self.prompt_template = config.prompt_template

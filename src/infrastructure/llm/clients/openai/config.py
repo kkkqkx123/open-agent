@@ -18,6 +18,14 @@ class OpenAIConfig(LLMClientConfig):
     presence_penalty: float = 0.0
     stop: Optional[Union[List[str], str]] = None
     
+    # 高级参数
+    top_logprobs: Optional[int] = None
+    service_tier: Optional[str] = None
+    safety_identifier: Optional[str] = None
+    seed: Optional[int] = None
+    verbosity: Optional[str] = None
+    web_search_options: Optional[Dict[str, Any]] = None
+    
     # Responses API 特定参数
     max_output_tokens: Optional[int] = None
     reasoning: Optional[Dict[str, Any]] = None
@@ -57,11 +65,50 @@ class OpenAIConfig(LLMClientConfig):
             "presence_penalty": self.presence_penalty,
         }
         
+        # 基础参数
         if self.max_tokens:
             params["max_tokens"] = self.max_tokens
         
         if self.stop:
             params["stop"] = self.stop
+        
+        # 高级参数
+        if self.top_logprobs is not None:
+            params["top_logprobs"] = self.top_logprobs
+        
+        if self.service_tier:
+            params["service_tier"] = self.service_tier
+        
+        if self.safety_identifier:
+            params["safety_identifier"] = self.safety_identifier
+        
+        if self.seed is not None:
+            params["seed"] = self.seed
+        
+        if self.verbosity:
+            params["verbosity"] = self.verbosity
+        
+        if self.web_search_options:
+            params["web_search_options"] = self.web_search_options
+        
+        # 工具调用参数
+        if self.tool_choice:
+            params["tool_choice"] = self.tool_choice
+        
+        if self.tools:
+            params["tools"] = self.tools
+        
+        # 响应格式参数
+        if self.response_format:
+            params["response_format"] = self.response_format
+        
+        # 流式选项
+        if self.stream_options:
+            params["stream_options"] = self.stream_options
+        
+        # 用户标识
+        if self.user:
+            params["user"] = self.user
         
         return params
     

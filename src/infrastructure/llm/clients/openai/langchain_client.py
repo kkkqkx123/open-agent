@@ -46,6 +46,8 @@ class LangChainChatClient(ChatCompletionClient):
         # 创建 ChatOpenAI 客户端
         # 提取ChatOpenAI直接支持的参数
         direct_params = {}
+        
+        # 基础参数
         if 'top_p' in chat_params:
             direct_params['top_p'] = chat_params['top_p']
         if 'frequency_penalty' in chat_params:
@@ -55,10 +57,38 @@ class LangChainChatClient(ChatCompletionClient):
         if 'stop' in chat_params:
             direct_params['stop'] = chat_params['stop']
         
-        # 剩余参数放入model_kwargs
+        # 高级参数
+        if 'top_logprobs' in chat_params:
+            direct_params['top_logprobs'] = chat_params['top_logprobs']
+        if 'service_tier' in chat_params:
+            direct_params['service_tier'] = chat_params['service_tier']
+        if 'safety_identifier' in chat_params:
+            direct_params['safety_identifier'] = chat_params['safety_identifier']
+        if 'seed' in chat_params:
+            direct_params['seed'] = chat_params['seed']
+        if 'user' in chat_params:
+            direct_params['user'] = chat_params['user']
+        
+        # 工具调用参数
+        if 'tool_choice' in chat_params:
+            direct_params['tool_choice'] = chat_params['tool_choice']
+        if 'tools' in chat_params:
+            direct_params['tools'] = chat_params['tools']
+        
+        # 响应格式参数
+        if 'response_format' in chat_params:
+            direct_params['response_format'] = chat_params['response_format']
+        
+        # 流式选项
+        if 'stream_options' in chat_params:
+            direct_params['stream_options'] = chat_params['stream_options']
+        
+        # 其他特殊参数放入model_kwargs
         model_kwargs = {k: v for k, v in chat_params.items() 
                        if k not in ['temperature', 'model', 'api_key', 'base_url', 'timeout', 'max_retries',
-                                   'top_p', 'frequency_penalty', 'presence_penalty', 'stop']}
+                                   'top_p', 'frequency_penalty', 'presence_penalty', 'stop',
+                                   'top_logprobs', 'service_tier', 'safety_identifier', 'seed', 'user',
+                                   'tool_choice', 'tools', 'response_format', 'stream_options']}
         
         return ChatOpenAI(
             model=self.config.model_name,

@@ -331,6 +331,8 @@ class DIConfig:
                     results["valid"] = False
             else:
                 results["warnings"].append(f"核心服务未注册: {service_type.__name__}")
+                # 如果核心服务未注册，配置无效
+                results["valid"] = False
         
         return results
 

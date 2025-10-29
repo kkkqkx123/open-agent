@@ -289,8 +289,9 @@ class BaseDependencyContainer(IDependencyContainer):
             env_services = self._environment_services[service_type]
             if "default" in env_services:
                 return env_services["default"]
-            # 返回任意一个注册
-            if env_services:
+            # 只有在当前环境是 "default" 时才返回任意一个注册
+            # 这样可以确保环境特定的服务只在指定环境下可用
+            if self._environment == "default" and env_services:
                 return next(iter(env_services.values()))
         
         return None

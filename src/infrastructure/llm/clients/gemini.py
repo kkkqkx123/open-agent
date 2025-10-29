@@ -84,6 +84,11 @@ class GeminiClient(BaseLLMClient):
         # 用户标识
         if config.user is not None:
             model_kwargs["user"] = config.user
+        
+        # 缓存参数
+        if hasattr(config, 'content_cache_enabled') and config.content_cache_enabled:
+            if hasattr(config, 'content_cache_display_name') and config.content_cache_display_name:
+                model_kwargs["cached_content"] = config.content_cache_display_name
 
         # 为ChatGoogleGenerativeAI准备参数，需要处理api_key可能为None的情况
         client_kwargs = {

@@ -488,6 +488,10 @@ class LLMClientConfig:
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
                 connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),  # type: ignore
                 metadata_config=config_dict.get("metadata", {}),
+                # Gemini缓存特定参数
+                content_cache_enabled=config_dict.get("content_cache_enabled", False),
+                content_cache_ttl=config_dict.get("content_cache_ttl", "3600s"),
+                content_cache_display_name=config_dict.get("content_cache_display_name"),
             )
         elif model_type in ["anthropic", "claude"]:
             return AnthropicConfig(
@@ -706,6 +710,18 @@ class OpenAIConfig(LLMClientConfig):
 @dataclass
 class GeminiConfig(LLMClientConfig):
     """Gemini特定配置"""
+    
+    # Gemini缓存特定参数
+    content_cache_enabled: bool = False
+    content_cache_ttl: str = "3600s"  # Gemini使用字符串格式
+    content_cache_display_name: Optional[str] = None
+    
+    # 增强缓存配置
+    server_cache_enabled: bool = False
+    auto_server_cache: bool = False
+    server_cache_ttl: str = "3600s"
+    large_content_threshold: int = 1048576  # 1MB
+    cache_strategy: str = "client_first"  # client_first, server_first, hybrid
 
     def __post_init__(self) -> None:
         """初始化后处理"""

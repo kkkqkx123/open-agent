@@ -38,7 +38,7 @@ source .venv/bin/activate  # Linux/Mac
 uv sync
 
 # Install test dependencies
-uv sync --group test
+uv sync --extra test
 ```
 
 ### Development Tools Setup
