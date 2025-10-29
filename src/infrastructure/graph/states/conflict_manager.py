@@ -1,6 +1,6 @@
-"""增强的状态管理器
+"""冲突检测与解决状态管理器
 
-提供完整的状态冲突检测和解决能力，包括状态版本控制、冲突检测和多种解决策略。
+提供状态冲突检测和解决功能。
 """
 
 from abc import ABC, abstractmethod
@@ -8,33 +8,15 @@ from typing import Dict, Any, List, Optional, Tuple, Set
 from enum import Enum
 from datetime import datetime
 import logging
-from dataclasses import dataclass
+import copy
 
-from .base import BaseGraphState
-from .optimized_manager import OptimizedStateManager
-# 移除错误的导入，因为EnhancedStateManager继承自OptimizedStateManager，不需要IStateManager接口
+from .base_manager import BaseStateManager
+from .interface import ConflictType, ConflictResolutionStrategy
+
 
 logger = logging.getLogger(__name__)
 
 
-class ConflictType(Enum):
-    """冲突类型枚举"""
-    FIELD_MODIFICATION = "field_modification"      # 字段修改冲突
-    LIST_OPERATION = "list_operation"             # 列表操作冲突
-    STRUCTURE_CHANGE = "structure_change"         # 结构变化冲突
-    VERSION_MISMATCH = "version_mismatch"         # 版本不匹配冲突
-
-
-class ConflictResolutionStrategy(Enum):
-    """冲突解决策略"""
-    LAST_WRITE_WINS = "last_write_wins"           # 最后写入获胜
-    FIRST_WRITE_WINS = "first_write_wins"         # 首次写入获胜
-    MANUAL_RESOLUTION = "manual_resolution"       # 手动解决
-    MERGE_CHANGES = "merge_changes"               # 合并变更
-    REJECT_CONFLICT = "reject_conflict"           # 拒绝冲突变更
-
-
-@dataclass
 class Conflict:
     """冲突信息类"""
     
@@ -53,13 +35,22 @@ class Conflict:
         self.resolved: bool = False
 
 
-class StateConflictResolver:
+class IConflictResolver(ABC):
+    """冲突解决器接口"""
+    
+    @abstractmethod
+    def resolve_conflict(self, conflict: Conflict, current_state: Dict[str, Any], new_state: Dict[str, Any]) -> Dict[str, Any]:
+        """解决冲突"""
+        pass
+
+
+class StateConflictResolver(IConflictResolver):
     """状态冲突解决器"""
     
     def __init__(self, strategy: ConflictResolutionStrategy = ConflictResolutionStrategy.LAST_WRITE_WINS):
         self.strategy = strategy
     
-    def resolve_conflict(self, conflict: Conflict, current_state: BaseGraphState, new_state: BaseGraphState) -> BaseGraphState:
+    def resolve_conflict(self, conflict: Conflict, current_state: Dict[str, Any], new_state: Dict[str, Any]) -> Dict[str, Any]:
         """根据策略解决冲突
         
         Args:
@@ -79,15 +70,15 @@ class StateConflictResolver:
         else:
             raise ValueError(f"不支持的冲突解决策略: {self.strategy}")
     
-    def _last_write_wins(self, current: BaseGraphState, new: BaseGraphState) -> BaseGraphState:
+    def _last_write_wins(self, current: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, Any]:
         """最后写入获胜策略"""
         # 保留新状态的所有修改
         return new
     
-    def _first_write_wins(self, current: BaseGraphState, new: BaseGraphState) -> BaseGraphState:
+    def _first_write_wins(self, current: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, Any]:
         """首次写入获胜策略"""
         # 保留当前状态，拒绝新状态的冲突修改
-        result = current.copy()
+        result = copy.deepcopy(current)
         # 只合并不冲突的字段
         for key, value in new.items():
             if key not in current:
@@ -99,9 +90,9 @@ class StateConflictResolver:
             # 如果字段存在但值不同，则保留当前状态的值（不修改）
         return result
     
-    def _merge_changes(self, current: BaseGraphState, new: BaseGraphState) -> BaseGraphState:
+    def _merge_changes(self, current: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, Any]:
         """合并变更策略"""
-        result = current.copy()
+        result = copy.deepcopy(current)
         
         # 智能合并逻辑
         for key, new_value in new.items():
@@ -121,7 +112,7 @@ class StateConflictResolver:
     
     def _merge_dicts(self, dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
         """递归合并字典"""
-        result = dict1.copy()
+        result = copy.deepcopy(dict1)
         for key, value in dict2.items():
             if key in result and isinstance(result[key], dict) and isinstance(value, dict):
                 result[key] = self._merge_dicts(result[key], value)
@@ -130,33 +121,27 @@ class StateConflictResolver:
         return result
 
 
-class EnhancedStateManager(OptimizedStateManager):
-    """增强的状态管理器
+class ConflictStateManager(BaseStateManager):
+    """冲突检测与解决状态管理器
     
-    扩展OptimizedStateManager，提供状态冲突解决功能。
+    提供状态冲突检测和解决功能。
     """
     
     def __init__(
         self,
-        enable_pooling: bool = True,
-        max_pool_size: int = 100,
-        enable_diff_tracking: bool = True,
         conflict_strategy: ConflictResolutionStrategy = ConflictResolutionStrategy.LAST_WRITE_WINS
     ):
-        """初始化增强的状态管理器
+        """初始化冲突管理器
         
         Args:
-            enable_pooling: 是否启用对象池
-            max_pool_size: 对象池最大大小
-            enable_diff_tracking: 是否启用差异跟踪
             conflict_strategy: 冲突解决策略
         """
-        super().__init__(enable_pooling, max_pool_size, enable_diff_tracking)
+        super().__init__()
         self.conflict_resolver = StateConflictResolver(conflict_strategy)
         self._state_versions: Dict[str, Dict[str, Any]] = {}
         self._conflict_history: List[Conflict] = []
     
-    def create_state_version(self, state: BaseGraphState, metadata: Dict[str, Any] = None) -> str:
+    def create_state_version(self, state: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None) -> str:
         """创建状态版本
         
         Args:
@@ -168,13 +153,13 @@ class EnhancedStateManager(OptimizedStateManager):
         """
         version_id = f"v{len(self._state_versions) + 1}"
         self._state_versions[version_id] = {
-            "state": state.copy(),
+            "state": copy.deepcopy(state),
             "metadata": metadata or {},
             "timestamp": datetime.now()
         }
         return version_id
     
-    def get_state_version(self, version_id: str) -> Optional[BaseGraphState]:
+    def get_state_version(self, version_id: str) -> Optional[Dict[str, Any]]:
         """获取指定版本的状态
         
         Args:
@@ -184,10 +169,10 @@ class EnhancedStateManager(OptimizedStateManager):
             指定版本的状态，如果不存在则返回None
         """
         if version_id in self._state_versions:
-            return self._state_versions[version_id]["state"].copy()
+            return copy.deepcopy(self._state_versions[version_id]["state"])
         return None
     
-    def compare_states(self, state1: BaseGraphState, state2: BaseGraphState) -> Dict[str, Any]:
+    def compare_states(self, state1: Dict[str, Any], state2: Dict[str, Any]) -> Dict[str, Any]:
         """比较两个状态的差异
         
         Args:
@@ -213,7 +198,7 @@ class EnhancedStateManager(OptimizedStateManager):
         
         return differences
     
-    def detect_conflicts(self, current_state: BaseGraphState, new_state: BaseGraphState) -> List[Conflict]:
+    def detect_conflicts(self, current_state: Dict[str, Any], new_state: Dict[str, Any]) -> List[Conflict]:
         """检测状态冲突
         
         Args:
@@ -240,10 +225,10 @@ class EnhancedStateManager(OptimizedStateManager):
         
         return conflicts
     
-    def update_state_with_conflict_resolution(self, 
-                                            current_state: BaseGraphState, 
-                                            new_state: BaseGraphState,
-                                            context: Dict[str, Any] = None) -> Tuple[BaseGraphState, List[Conflict]]:
+    def update_state_with_conflict_resolution(self,
+                                            current_state: Dict[str, Any],
+                                            new_state: Dict[str, Any],
+                                            context: Optional[Dict[str, Any]] = None) -> Tuple[Dict[str, Any], List[Conflict]]:
         """带冲突解决的状态更新
         
         Args:
@@ -265,7 +250,7 @@ class EnhancedStateManager(OptimizedStateManager):
         self._conflict_history.extend(conflicts)
         
         # 应用冲突解决策略
-        resolved_state = current_state.copy()
+        resolved_state = copy.deepcopy(current_state)
         unresolved_conflicts = []
         
         for conflict in conflicts:
@@ -337,11 +322,11 @@ class EnhancedStateManager(OptimizedStateManager):
 # 便捷的创建函数
 def create_enhanced_state_manager(
     enable_pooling: bool = True,
-    max_pool_size: int = 100,
+    max_pool_size: int = 10,
     enable_diff_tracking: bool = True,
     conflict_strategy: ConflictResolutionStrategy = ConflictResolutionStrategy.LAST_WRITE_WINS
-) -> EnhancedStateManager:
-    """创建增强的状态管理器
+) -> 'ConflictStateManager':
+    """创建冲突状态管理器（增强功能）
     
     Args:
         enable_pooling: 是否启用对象池
@@ -350,11 +335,8 @@ def create_enhanced_state_manager(
         conflict_strategy: 冲突解决策略
         
     Returns:
-        增强的状态管理器实例
+        冲突状态管理器实例
     """
-    return EnhancedStateManager(
-        enable_pooling=enable_pooling,
-        max_pool_size=max_pool_size,
-        enable_diff_tracking=enable_diff_tracking,
-        conflict_strategy=conflict_strategy
-    )
+    # 注意：这个函数是为了保持向后兼容性
+    # 实际使用时应该使用CompositeStateManager来获得完整功能
+    return ConflictStateManager(conflict_strategy=conflict_strategy)

@@ -10,7 +10,7 @@ from typing import Dict, Any, List
 
 # 导入我们实现的所有优化组件
 from src.infrastructure.graph.states.serializer import StateSerializer
-from src.infrastructure.graph.states.optimized_manager import OptimizedStateManager, create_optimized_state_manager
+from src.infrastructure.graph.states.pooling_manager import PoolingStateManager, create_optimized_state_manager
 from src.infrastructure.graph.graph_cache import GraphCache, create_graph_cache, calculate_config_hash
 from src.infrastructure.container import DependencyContainer, create_optimized_container
 from src.infrastructure.monitoring.performance_monitor import PerformanceMonitor, create_performance_monitor

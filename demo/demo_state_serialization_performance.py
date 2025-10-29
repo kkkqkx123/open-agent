@@ -10,7 +10,7 @@ from typing import Dict, Any, List
 
 # 直接导入我们实现的模块
 from src.infrastructure.graph.states.serializer import StateSerializer
-from src.infrastructure.graph.states.optimized_manager import OptimizedStateManager, create_optimized_state_manager
+from src.infrastructure.graph.states.pooling_manager import PoolingStateManager, create_optimized_state_manager
 from src.infrastructure.graph.states.base import create_base_state, BaseMessage, HumanMessage, AIMessage
 from src.infrastructure.graph.adapters.state_adapter import create_graph_agent_state
 from src.infrastructure.graph.states.workflow import create_workflow_state

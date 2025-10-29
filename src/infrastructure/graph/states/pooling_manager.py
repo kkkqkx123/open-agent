@@ -1,6 +1,6 @@
-"""优化的状态管理器
+"""对象池状态管理器
 
-提供高性能的状态管理和更新功能。
+提供高性能的状态管理和对象重用功能。
 """
 
 import time
@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Optional, Set, Union
 from collections import defaultdict
 from dataclasses import dataclass
 
-from .base import BaseGraphState
+from .base_manager import BaseStateManager
 from .serializer import StateSerializer, StateDiff
 
 
@@ -22,8 +22,8 @@ class StateUpdate:
     timestamp: float
 
 
-class OptimizedStateManager:
-    """优化的状态管理器
+class PoolingStateManager(BaseStateManager):
+    """对象池状态管理器
     
     提供以下优化功能：
     1. 增量状态更新
@@ -38,19 +38,20 @@ class OptimizedStateManager:
         max_pool_size: int = 100,
         enable_diff_tracking: bool = True
     ):
-        """初始化优化的状态管理器
+        """初始化对象池状态管理器
         
         Args:
             enable_pooling: 是否启用对象池
             max_pool_size: 对象池最大大小
             enable_diff_tracking: 是否启用差异跟踪
         """
+        super().__init__()
         self._enable_pooling = enable_pooling
         self._max_pool_size = max_pool_size
         self._enable_diff_tracking = enable_diff_tracking
         
         # 状态对象池
-        self._state_pool: Dict[str, BaseGraphState] = {}
+        self._state_pool: Dict[str, Dict[str, Any]] = {}
         self._pool_lock = threading.RLock()
         
         # 差异跟踪
@@ -59,7 +60,7 @@ class OptimizedStateManager:
         self._max_history_size = 50
         
         # 内存优化
-        self._compressed_states: Dict[str, BaseGraphState] = {}
+        self._compressed_states: Dict[str, Dict[str, Any]] = {}
         self._compression_lock = threading.RLock()
         
         # 序列化器
@@ -78,7 +79,7 @@ class OptimizedStateManager:
             "diff_applications": 0
         }
     
-    def create_state(self, state_id: str, initial_state: BaseGraphState) -> BaseGraphState:
+    def create_state(self, state_id: str, initial_state: Dict[str, Any]) -> Dict[str, Any]:
         """创建状态（使用对象池）
         
         Args:
@@ -89,7 +90,8 @@ class OptimizedStateManager:
             创建的状态
         """
         if not self._enable_pooling:
-            return initial_state.copy()
+            import copy
+            return copy.deepcopy(initial_state) if initial_state else {}
         
         with self._pool_lock:
             # 检查对象池
@@ -105,7 +107,7 @@ class OptimizedStateManager:
             self._stats["pool_misses"] += 1
             
             # 创建新状态
-            new_state = initial_state.copy()
+            new_state = initial_state.copy() if initial_state else {}
             self._state_pool[state_id] = new_state
             
             # 检查池大小
@@ -116,17 +118,12 @@ class OptimizedStateManager:
             
             return new_state
     
-    def update_state_incremental(
-        self,
-        state_id: str,
-        state: BaseGraphState,
-        updates: Dict[str, Any]
-    ) -> BaseGraphState:
+    def update_state(self, state_id: str, current_state: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
         """增量更新状态
         
         Args:
             state_id: 状态ID
-            state: 当前状态
+            current_state: 当前状态
             updates: 更新字典
             
         Returns:
@@ -136,13 +133,14 @@ class OptimizedStateManager:
         
         # 使用写时复制策略
         if self._enable_diff_tracking:
-            new_state = self._apply_incremental_updates(state, updates)
+            new_state = self._apply_incremental_updates(current_state, updates)
             
             # 记录更新历史
-            self._record_updates(state_id, state, new_state)
+            self._record_updates(state_id, current_state, new_state)
         else:
             # 回退到完整复制
-            new_state = state.copy()
+            import copy
+            new_state = copy.deepcopy(current_state)
             new_state.update(updates)
         
         self._stats["total_updates"] += 1
@@ -152,9 +150,9 @@ class OptimizedStateManager:
     def apply_state_diff(
         self,
         state_id: str,
-        base_state: BaseGraphState,
+        base_state: Dict[str, Any],
         diff_data: Union[str, bytes]
-    ) -> BaseGraphState:
+    ) -> Dict[str, Any]:
         """应用状态差异
         
         Args:
@@ -176,7 +174,21 @@ class OptimizedStateManager:
         
         return new_state
     
-    def compress_state(self, state_id: str, state: BaseGraphState) -> BaseGraphState:
+    def get_state(self, state_id: str) -> Optional[Dict[str, Any]]:
+        """获取状态
+        
+        Args:
+            state_id: 状态ID
+            
+        Returns:
+            状态对象，如果不存在则返回None
+        """
+        if state_id in self._state_pool:
+            import copy
+            return copy.deepcopy(self._state_pool[state_id])
+        return None
+    
+    def compress_state(self, state_id: str, state: Dict[str, Any]) -> Dict[str, Any]:
         """压缩状态（内存优化）
         
         Args:
@@ -249,7 +261,7 @@ class OptimizedStateManager:
             "pool_efficiency": {
                 "hits": self._stats["pool_hits"],
                 "misses": self._stats["pool_misses"],
-                "hit_rate": f"{(self._stats['pool_hits'] / (self._stats['pool_hits'] + self._stats['pool_misses']) * 100):.2f}%" 
+                "hit_rate": f"{(self._stats['pool_hits'] / (self._stats['pool_hits'] + self._stats['pool_misses']) * 100):.2f}%"
                            if (self._stats['pool_hits'] + self._stats['pool_misses']) > 0 else "0%"
             }
         }
@@ -286,9 +298,9 @@ class OptimizedStateManager:
     
     def _apply_incremental_updates(
         self,
-        base_state: BaseGraphState,
+        base_state: Dict[str, Any],
         updates: Dict[str, Any]
-    ) -> BaseGraphState:
+    ) -> Dict[str, Any]:
         """应用增量更新
         
         Args:
@@ -299,7 +311,8 @@ class OptimizedStateManager:
             更新后的状态
         """
         # 创建新状态，只复制需要更新的部分
-        new_state = base_state.copy()
+        import copy
+        new_state = copy.deepcopy(base_state)
         
         for key, new_value in updates.items():
             if key in base_state and base_state[key] == new_value:
@@ -321,8 +334,8 @@ class OptimizedStateManager:
     def _record_updates(
         self,
         state_id: str,
-        old_state: BaseGraphState,
-        new_state: BaseGraphState
+        old_state: Dict[str, Any],
+        new_state: Dict[str, Any]
     ) -> None:
         """记录状态更新
         
@@ -357,7 +370,7 @@ class OptimizedStateManager:
                 if len(self._state_history[state_id]) > self._max_history_size:
                     self._state_history[state_id] = self._state_history[state_id][-self._max_history_size:]
     
-    def _estimate_state_size(self, state: BaseGraphState) -> int:
+    def _estimate_state_size(self, state: Dict[str, Any]) -> int:
         """估算状态大小（字节）
         
         Args:
@@ -389,10 +402,10 @@ class OptimizedStateManager:
 # 便捷的状态管理函数
 def create_optimized_state_manager(
     enable_pooling: bool = True,
-    max_pool_size: int = 100,
+    max_pool_size: int = 10,
     enable_diff_tracking: bool = True
-) -> OptimizedStateManager:
-    """创建优化的状态管理器
+) -> 'PoolingStateManager':
+    """创建优化的状态管理器（对象池管理器）
     
     Args:
         enable_pooling: 是否启用对象池
@@ -402,7 +415,7 @@ def create_optimized_state_manager(
     Returns:
         优化的状态管理器实例
     """
-    return OptimizedStateManager(
+    return PoolingStateManager(
         enable_pooling=enable_pooling,
         max_pool_size=max_pool_size,
         enable_diff_tracking=enable_diff_tracking

@@ -2,13 +2,14 @@
 
 import pytest
 from datetime import datetime
-from src.infrastructure.graph.states.enhanced_manager import (
-    EnhancedStateManager,
-    create_enhanced_state_manager,
+from src.infrastructure.graph.states.composite_manager import (
+    CompositeStateManager as EnhancedStateManager,
+    create_composite_state_manager as create_enhanced_state_manager,
+)
+from src.infrastructure.graph.states.interface import (
     ConflictType,
     ConflictResolutionStrategy
 )
-from src.infrastructure.graph.state import create_agent_state
 
 
 class TestEnhancedStateManager:
@@ -21,8 +22,9 @@ class TestEnhancedStateManager:
             enable_diff_tracking=True,
             conflict_strategy=ConflictResolutionStrategy.LAST_WRITE_WINS
         )
-        self.state1 = create_agent_state("测试输入1")
-        self.state2 = create_agent_state("测试输入2")
+        # 使用普通字典而不是AgentState对象
+        self.state1 = {"input": "测试输入1", "messages": ["hello"]}
+        self.state2 = {"input": "测试输入2", "messages": ["world"]}
     
     def test_create_enhanced_state_manager(self):
         """测试创建增强的状态管理器"""
@@ -32,8 +34,8 @@ class TestEnhancedStateManager:
     
     def test_create_state_version(self):
         """测试创建状态版本"""
-        version_id = self.manager.create_state_version(self.state1, {"description": "测试版本"})
-        assert version_id.startswith("v")
+        version_id = self.manager.create_state_version("test_state", self.state1, {"description": "测试版本"})
+        assert version_id.startswith("test_state_v")
         
         # 验证版本存在
         version_state = self.manager.get_state_version(version_id)
@@ -52,11 +54,11 @@ class TestEnhancedStateManager:
     
     def test_compare_states_with_differences(self):
         """测试比较不同状态"""
-        # 修改state2
-        self.state2["input"] = "修改后的输入"
-        self.state2["output"] = "测试输出"
+        # 创建普通字典状态用于测试
+        state1 = {"input": "测试输入1", "field1": "value1"}
+        state2 = {"input": "修改后的输入", "field1": "value1", "output": "测试输出"}
         
-        differences = self.manager.compare_states(self.state1, self.state2)
+        differences = self.manager.compare_states(state1, state2)
         assert len(differences) >= 2
         assert "input" in differences
         assert "output" in differences
@@ -71,9 +73,8 @@ class TestEnhancedStateManager:
     def test_detect_conflicts_with_field_modification(self):
         """测试检测字段修改冲突"""
         # 创建相同的状态，只修改一个字段
-        state1 = create_agent_state("测试输入")
-        state2 = create_agent_state("测试输入")
-        state2["input"] = "修改后的输入"
+        state1 = {"input": "测试输入", "messages": ["hello"]}
+        state2 = {"input": "修改后的输入", "messages": ["hello"]}
         
         conflicts = self.manager.detect_conflicts(state1, state2)
         # 应该只检测到input字段的冲突
@@ -88,18 +89,16 @@ class TestEnhancedStateManager:
     def test_detect_conflicts_with_list_operation(self):
         """测试检测列表操作冲突"""
         # 创建相同的状态，只修改列表字段
-        state1 = create_agent_state("测试输入")
-        state2 = create_agent_state("测试输入")
-        state1["tool_calls"] = [{"tool1": "call1"}]
-        state2["tool_calls"] = [{"tool1": "call1"}, {"tool2": "call2"}]
+        state1 = {"input": "测试输入", "messages": ["hello"]}
+        state2 = {"input": "测试输入", "messages": ["hello", "world"]}
         
         conflicts = self.manager.detect_conflicts(state1, state2)
-        # 应该检测到tool_calls字段的冲突
-        tool_calls_conflicts = [c for c in conflicts if c.field_path == "tool_calls"]
-        assert len(tool_calls_conflicts) == 1
-        conflict = tool_calls_conflicts[0]
+        # 应该检测到messages字段的冲突
+        messages_conflicts = [c for c in conflicts if c.field_path == "messages"]
+        assert len(messages_conflicts) == 1
+        conflict = messages_conflicts[0]
         assert conflict.conflict_type == ConflictType.LIST_OPERATION
-        assert conflict.field_path == "tool_calls"
+        assert conflict.field_path == "messages"
     
     def test_update_state_with_conflict_resolution_no_conflicts(self):
         """测试无冲突状态更新"""
@@ -124,8 +123,8 @@ class TestEnhancedStateManager:
         """测试首次写入获胜策略"""
         self.manager.conflict_resolver.strategy = ConflictResolutionStrategy.FIRST_WRITE_WINS
         # 创建相同的状态，只修改特定字段
-        state1 = create_agent_state("原始输入")
-        state2 = create_agent_state("冲突输入")
+        state1 = {"input": "原始输入", "messages": ["hello"]}
+        state2 = {"input": "冲突输入", "messages": ["hello"]}
         # 添加一个新字段到state2，测试新字段的添加
         state2["custom_field"] = "新字段值"
         
@@ -157,8 +156,8 @@ class TestEnhancedStateManager:
     def test_get_conflict_history(self):
         """测试获取冲突历史"""
         # 创建一些冲突
-        state1 = create_agent_state("原始输入")
-        state2 = create_agent_state("冲突输入")
+        state1 = {"input": "原始输入", "messages": ["hello"]}
+        state2 = {"input": "冲突输入", "messages": ["hello"]}
         state2["input"] = "冲突值"
         
         resolved_state, unresolved = self.manager.update_state_with_conflict_resolution(state1, state2)
@@ -221,8 +220,8 @@ class TestConflictResolutionStrategies:
     
     def setup_method(self):
         """测试方法设置"""
-        self.state1 = create_agent_state("输入1")
-        self.state2 = create_agent_state("输入2")
+        self.state1 = {"input": "输入1", "messages": ["hello"]}
+        self.state2 = {"input": "输入2", "messages": ["world"]}
         self.resolver = create_enhanced_state_manager().conflict_resolver
     
     def test_last_write_wins_strategy(self):
@@ -233,8 +232,8 @@ class TestConflictResolutionStrategies:
     
     def test_first_write_wins_strategy(self):
         """测试首次写入获胜策略"""
-        state1 = create_agent_state("原始输入")
-        state2 = create_agent_state("冲突输入")
+        state1 = {"input": "原始输入", "messages": ["hello"]}
+        state2 = {"input": "冲突输入", "messages": ["hello"]}
         # 添加一个新字段到state2，测试新字段的添加
         state2["custom_field"] = "新字段值"
         
@@ -244,13 +243,10 @@ class TestConflictResolutionStrategies:
     
     def test_merge_changes_strategy(self):
         """测试合并变更策略"""
-        self.state1["input"] = "原始输入"
-        self.state1["metadata"] = {"key1": "value1"}
-        self.state2["input"] = "新输入"
-        self.state2["metadata"] = {"key2": "value2"}
-        self.state2["output"] = "新输出"
+        state1 = {"input": "原始输入", "metadata": {"key1": "value1"}, "messages": ["hello"]}
+        state2 = {"input": "新输入", "metadata": {"key2": "value2"}, "output": "新输出", "messages": ["hello", "world"]}
         
-        result = self.resolver._merge_changes(self.state1, self.state2)
+        result = self.resolver._merge_changes(state1, state2)
         assert result["input"] == "新输入"
         assert result["metadata"]["key1"] == "value1"
         assert result["metadata"]["key2"] == "value2"

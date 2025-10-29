@@ -6,9 +6,9 @@ from unittest.mock import Mock, patch
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 
-from src.infrastructure.graph.states.optimized_manager import (
+from src.infrastructure.graph.states.pooling_manager import (
     StateUpdate,
-    OptimizedStateManager,
+    PoolingStateManager,
     create_optimized_state_manager
 )
 from src.infrastructure.graph.states.base import BaseGraphState
@@ -31,13 +31,13 @@ class TestStateUpdate:
         assert update.timestamp == 123456.789
 
 
-class TestOptimizedStateManager:
-    """优化状态管理器测试"""
+class TestPoolingStateManager:
+    """对象池状态管理器测试"""
 
     @pytest.fixture
     def manager(self):
-        """创建优化状态管理器实例"""
-        return OptimizedStateManager(
+        """创建对象池状态管理器实例"""
+        return PoolingStateManager(
             enable_pooling=True,
             max_pool_size=5,
             enable_diff_tracking=True
@@ -82,7 +82,7 @@ class TestOptimizedStateManager:
 
     def test_create_state_without_pooling(self, sample_state):
         """测试创建状态（不使用对象池）"""
-        manager = OptimizedStateManager(enable_pooling=False)
+        manager = PoolingStateManager(enable_pooling=False)
         state_id = "test_state"
         
         state1 = manager.create_state(state_id, sample_state)
@@ -97,7 +97,7 @@ class TestOptimizedStateManager:
         state_id = "test_state"
         updates = {"output": "新输出", "complete": True}
         
-        updated_state = manager.update_state_incremental(state_id, sample_state, updates)
+        updated_state = manager.update_state(state_id, sample_state, updates)
         
         # 验证更新
         assert updated_state["output"] == "新输出"
@@ -108,11 +108,11 @@ class TestOptimizedStateManager:
 
     def test_update_state_incremental_without_diff_tracking(self, sample_state):
         """测试增量更新状态（不使用差异跟踪）"""
-        manager = OptimizedStateManager(enable_diff_tracking=False)
+        manager = PoolingStateManager(enable_diff_tracking=False)
         state_id = "test_state"
         updates = {"output": "新输出"}
         
-        updated_state = manager.update_state_incremental(state_id, sample_state, updates)
+        updated_state = manager.update_state(state_id, sample_state, updates)
         
         # 验证更新
         assert updated_state["output"] == "新输出"
@@ -146,7 +146,7 @@ class TestOptimizedStateManager:
         updates = {"output": "新输出"}
         
         # 执行更新以生成历史记录
-        manager.update_state_incremental(state_id, sample_state, updates)
+        manager.update_state(state_id, sample_state, updates)
         
         # 获取历史记录
         history = manager.get_state_history(state_id, limit=5)
@@ -260,27 +260,27 @@ class TestOptimizedStateManager:
         assert size > 0
 
 
-class TestCreateOptimizedStateManager:
-    """创建优化状态管理器函数测试"""
+class TestCreatePoolingStateManager:
+    """创建对象池状态管理器函数测试"""
 
     def test_create_optimized_state_manager_with_defaults(self):
-        """测试创建优化状态管理器（使用默认值）"""
+        """测试创建对象池状态管理器（使用默认值）"""
         manager = create_optimized_state_manager()
         
-        assert isinstance(manager, OptimizedStateManager)
+        assert isinstance(manager, PoolingStateManager)
         assert manager._enable_pooling is True
-        assert manager._max_pool_size == 100
+        assert manager._max_pool_size == 10
         assert manager._enable_diff_tracking is True
 
     def test_create_optimized_state_manager_with_custom_params(self):
-        """测试创建优化状态管理器（使用自定义参数）"""
+        """测试创建对象池状态管理器（使用自定义参数）"""
         manager = create_optimized_state_manager(
             enable_pooling=False,
             max_pool_size=10,
             enable_diff_tracking=False
         )
         
-        assert isinstance(manager, OptimizedStateManager)
+        assert isinstance(manager, PoolingStateManager)
         assert manager._enable_pooling is False
         assert manager._max_pool_size == 10
         assert manager._enable_diff_tracking is False

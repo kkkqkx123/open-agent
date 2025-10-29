@@ -12,9 +12,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 # 直接导入增强管理器
-from infrastructure.graph.states.enhanced_manager import (
-    EnhancedStateManager,
-    create_enhanced_state_manager,
+from src.infrastructure.graph.states.composite_manager import (
+    CompositeStateManager as EnhancedStateManager,
+    create_composite_state_manager as create_enhanced_state_manager,
+)
+from src.infrastructure.graph.states.interface import (
     ConflictType,
     ConflictResolutionStrategy
 )
@@ -88,12 +90,14 @@ def demo_enhanced_state_manager_direct():
     ]
     
     for strategy in strategies:
-        manager.conflict_resolver.strategy = strategy
-        resolved_state, _ = manager.update_state_with_conflict_resolution(state1, state2)
+        # 为每种策略创建新的管理器实例，因为CompositeStateManager不支持直接修改策略
+        temp_manager = create_enhanced_state_manager(conflict_strategy=strategy)
+        resolved_state, _ = temp_manager.update_state_with_conflict_resolution(state1, state2)
         print(f"  {strategy.value}: {resolved_state['input']}")
     
     # 状态版本控制
-    version_id = manager.create_state_version(resolved_state, {"description": "解决冲突后的状态"})
+    # 使用正确的参数顺序：先state_id，再state，最后是metadata
+    version_id = manager.create_state_version("resolved_state", resolved_state, {"description": "解决冲突后的状态"})
     print(f"\n创建状态版本: {version_id}")
     
     # 获取版本历史

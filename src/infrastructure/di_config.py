@@ -106,17 +106,17 @@ class DIConfig:
     
     def _register_state_manager(self) -> None:
         """注册状态管理器"""
-        # 注册增强的状态管理器（独立注册，不依赖基础状态管理器）
+        # 注册组合的状态管理器（提供完整功能）
         try:
-            from .graph.states.enhanced_manager import EnhancedStateManager
+            from .graph.states.composite_manager import CompositeStateManager
             self.container.register_factory(
-                EnhancedStateManager,
-                lambda: EnhancedStateManager(),
+                CompositeStateManager,
+                lambda: CompositeStateManager(),
                 lifetime=ServiceLifetime.SINGLETON
             )
-            logger.debug("增强状态管理器注册完成")
+            logger.debug("组合状态管理器注册完成")
         except ImportError as e:
-            logger.warning(f"增强状态管理器不可用: {e}")
+            logger.warning(f"组合状态管理器不可用: {e}")
         
         # 尝试注册基础状态管理器
         try:
