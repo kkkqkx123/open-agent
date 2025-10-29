@@ -4,6 +4,17 @@ from .config_system import IConfigSystem, ConfigSystem
 from .config_merger import IConfigMerger, ConfigMerger
 from .config_validator import IConfigValidator, ConfigValidator, ValidationResult
 from .config_validator_tool import ConfigValidatorTool
+from .enhanced_validator import (
+    EnhancedConfigValidator,
+    create_enhanced_config_validator,
+    ValidationLevel,
+    ValidationSeverity,
+    ValidationRule,
+    EnhancedValidationResult,
+    ValidationReport,
+    FixSuggestion,
+    ConfigFixer
+)
 from .error_recovery import (
     ConfigErrorRecovery,
     ConfigBackupManager,
@@ -27,6 +38,15 @@ __all__ = [
     "ConfigValidator",
     "ValidationResult",
     "ConfigValidatorTool",
+    "EnhancedConfigValidator",
+    "create_enhanced_config_validator",
+    "ValidationLevel",
+    "ValidationSeverity",
+    "ValidationRule",
+    "EnhancedValidationResult",
+    "ValidationReport",
+    "FixSuggestion",
+    "ConfigFixer",
     "ConfigErrorRecovery",
     "ConfigBackupManager",
     "ConfigValidatorWithRecovery",

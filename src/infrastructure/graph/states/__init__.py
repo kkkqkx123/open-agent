@@ -10,6 +10,7 @@ from .plan_execute import PlanExecuteState
 from .factory import StateFactory
 from .serializer import StateSerializer
 from .optimized_manager import OptimizedStateManager, create_optimized_state_manager
+from .enhanced_manager import EnhancedStateManager, create_enhanced_state_manager, ConflictType, ConflictResolutionStrategy
 
 __all__ = [
     "BaseGraphState",
@@ -20,6 +21,10 @@ __all__ = [
     "StateSerializer",
     "OptimizedStateManager",
     "create_optimized_state_manager",
+    "EnhancedStateManager",
+    "create_enhanced_state_manager",
+    "ConflictType",
+    "ConflictResolutionStrategy",
     "create_base_state",
     "create_workflow_state",
     "HumanMessage",

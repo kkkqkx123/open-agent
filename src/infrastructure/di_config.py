@@ -10,11 +10,11 @@ from pathlib import Path
 from .container import IDependencyContainer, DependencyContainer, ServiceLifetime
 from .config_loader import IConfigLoader, YamlConfigLoader
 from .graph.registry import NodeRegistry
-from .application.sessions.manager import ISessionManager, SessionManager
-from .application.workflow.manager import IWorkflowManager, WorkflowManager
-from .domain.sessions.store import ISessionStore
-from .domain.state.interfaces import IStateManager
-from .domain.threads.interfaces import IThreadManager
+from src.application.sessions.manager import ISessionManager, SessionManager
+from src.application.workflow.manager import IWorkflowManager, WorkflowManager
+from src.domain.sessions.store import ISessionStore
+from src.domain.state.interfaces import IStateManager
+from src.domain.threads.interfaces import IThreadManager
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +86,15 @@ class DIConfig:
             self.container.register_instance(IConfigLoader, config_loader)
             self._config_loader = config_loader
             logger.debug("配置加载器注册完成")
+        
+        # 注册增强的配置验证器
+        from .config.enhanced_validator import EnhancedConfigValidator
+        self.container.register_factory(
+            EnhancedConfigValidator,
+            lambda: EnhancedConfigValidator(),
+            lifetime=ServiceLifetime.SINGLETON
+        )
+        logger.debug("增强配置验证器注册完成")
     
     def _register_node_registry(self) -> None:
         """注册节点注册表"""
@@ -97,6 +106,19 @@ class DIConfig:
     
     def _register_state_manager(self) -> None:
         """注册状态管理器"""
+        # 注册增强的状态管理器（独立注册，不依赖基础状态管理器）
+        try:
+            from .graph.states.enhanced_manager import EnhancedStateManager
+            self.container.register_factory(
+                EnhancedStateManager,
+                lambda: EnhancedStateManager(),
+                lifetime=ServiceLifetime.SINGLETON
+            )
+            logger.debug("增强状态管理器注册完成")
+        except ImportError as e:
+            logger.warning(f"增强状态管理器不可用: {e}")
+        
+        # 尝试注册基础状态管理器
         try:
             from .domain.state.manager import StateManager
             if not self.container.has_service(IStateManager):
@@ -107,8 +129,8 @@ class DIConfig:
                     lifetime=ServiceLifetime.SINGLETON
                 )
                 logger.debug("状态管理器注册完成")
-        except ImportError:
-            logger.warning("状态管理器不可用，跳过注册")
+        except ImportError as e:
+            logger.warning(f"基础状态管理器不可用: {e}")
     
     def _register_workflow_manager(self) -> None:
         """注册工作流管理器"""
