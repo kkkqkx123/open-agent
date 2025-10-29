@@ -19,6 +19,7 @@ from .config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
 from .state import WorkflowState, AgentState
 from src.domain.agent.interfaces import IAgent, IAgentFactory
 from .registry import NodeRegistry, get_global_registry
+from .adapters import get_state_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,24 @@ class INodeExecutor(ABC):
     def execute(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
         """执行节点逻辑"""
         pass
+
+
+class NodeWithAdapterExecutor(INodeExecutor):
+    """带适配器的节点执行器 - 将图状态与域状态进行转换"""
+    
+    def __init__(self, node_instance):
+        self.node = node_instance
+    
+    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
+        # 1. 图状态转域状态
+        state_adapter = get_state_adapter()
+        domain_state = state_adapter.from_graph_state(state)
+        
+        # 2. 调用节点原始逻辑
+        result = self.node.execute(domain_state, config)
+        
+        # 3. 将结果中的域状态转回图状态
+        return state_adapter.to_graph_state(result.state)
 
 
 class AgentNodeExecutor(INodeExecutor):
@@ -197,7 +216,9 @@ class GraphBuilder:
             if node_class:
                 # 创建节点实例
                 node_instance = node_class()
-                return node_instance.execute
+                # 使用适配器包装节点，使其能够处理状态转换
+                adapter_wrapper = NodeWithAdapterExecutor(node_instance)
+                return adapter_wrapper.execute
         except ValueError:
             # 节点类型不存在，继续尝试其他方法
             pass
