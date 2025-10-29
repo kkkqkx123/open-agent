@@ -32,15 +32,15 @@ gantt
     冲突检测实现            :a2, after a1, 7d
     解决策略集成测试        :a3, after a2, 3d
     
-    section SessionManager优化
-    依赖关系模型设计        :b1, 2025-11-01, 7d
-    协调执行机制实现        :b2, after b1, 7d
-    错误处理集成测试        :b3, after b2, 3d
+    section WorkflowManager优化（中优先级）
+    验证框架设计           :b1, 2025-11-08, 7d
+    智能修复机制实现       :b2, after b1, 7d
+    性能优化集成测试       :b3, after b2, 3d
     
-    section WorkflowManager优化
-    验证框架设计           :c1, 2025-11-08, 7d
-    智能修复机制实现       :c2, after c1, 7d
-    性能优化集成测试       :c3, after c2, 3d
+    section SessionManager优化（简化版）
+    简化依赖模型设计       :c1, 2025-11-15, 3d
+    基础协调策略实现       :c2, after c1, 3d
+    容错机制集成测试       :c3, after c2, 2d
     
     section 系统集成测试
     整体功能测试          :d1, 2025-11-15, 5d
@@ -59,30 +59,30 @@ gantt
   - 冲突检测算法
   - 单元测试覆盖
 
-#### 第2周：SessionManager依赖协调
-- **任务**：实现依赖关系建模和基本协调机制
-- **交付物**：
-  - DependencyGraph实现
-  - ThreadCoordinator基础版本
-  - 拓扑排序算法
-
-#### 第3周：WorkflowManager验证框架
+#### 第2周：WorkflowManager验证框架
 - **任务**：实现多层次验证框架和基本规则
 - **交付物**：
   - EnhancedConfigValidator核心逻辑
   - 语法和模式验证规则
   - 验证报告生成
 
-### 第二阶段：高级功能实现（2周）
-
-#### 第4周：智能功能增强
+#### 第3周：智能功能增强
 - **任务**：实现智能冲突解决和配置修复
 - **交付物**：
   - StateConflictResolver智能策略
   - ConfigFixer自动修复功能
   - 自适应错误处理
 
-#### 第5周：性能优化和集成
+### 第二阶段：简化功能实现（1.5周）
+
+#### 第4周：SessionManager简化协调
+- **任务**：实现简化版依赖协调机制
+- **交付物**：
+  - SimplifiedThreadCoordinator基础版本
+  - 基本拓扑排序算法（简化版）
+  - BEST_EFFORT协调策略
+
+#### 第5周：性能优化和集成（0.5周）
 - **任务**：优化性能并完成系统集成
 - **交付物**：
   - 验证缓存机制

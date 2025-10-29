@@ -114,63 +114,119 @@ class IEnhancedSessionManager(ISessionManager):
         pass
 ```
 
-### 3. 协调策略设计
+### 3. 简化协调策略设计
 
+基于对当前项目实际需求的分析，建议采用简化版的协调策略，避免过度工程化。
+
+#### 协调策略选择
 ```python
 class CoordinationPolicy(Enum):
-    """协调策略"""
-    STRICT = "strict"           # 严格模式：所有依赖必须满足
-    BEST_EFFORT = "best_effort" # 尽力而为：尝试继续执行
-    ADAPTIVE = "adaptive"       # 自适应：根据情况调整策略
+    """简化协调策略"""
+    BEST_EFFORT = "best_effort"  # 尽力而为：优先保证系统可用性，允许部分失败
+    STRICT = "strict"            # 严格模式：所有依赖必须满足（可选）
+    # ADAPTIVE模式在当前场景下复杂度过高，建议暂不实现
+```
 
-class ThreadCoordinator:
-    """线程协调器"""
+#### 简化版线程协调器
+```python
+class SimplifiedThreadCoordinator:
+    """简化版线程协调器 - 专注于核心需求"""
     
-    def __init__(self, policy: CoordinationPolicy = CoordinationPolicy.STRICT):
+    def __init__(self, policy: str = "best_effort", max_parallel_threads: int = 5):
         self.policy = policy
-        self.dependency_graph = DependencyGraph()
-        self.thread_states: Dict[str, ThreadState] = {}
-        self.data_bus: Dict[str, Any] = {}  # 线程间数据总线
+        self.max_parallel_threads = max_parallel_threads
+        self._execution_semaphore = asyncio.Semaphore(max_parallel_threads)
     
     async def coordinate_execution(self, session_id: str) -> Dict[str, Any]:
-        """协调线程执行"""
-        execution_plan = self.dependency_graph.get_execution_order()
+        """简化协调执行 - 基于实际需求优化"""
+        
+        # 1. 获取线程信息和依赖关系
+        thread_info = await self._get_session_threads(session_id)
+        dependencies = await self._get_thread_dependencies(session_id)
+        
+        # 2. 简化的拓扑排序（仅支持顺序依赖）
+        execution_order = self._simple_topological_sort(dependencies)
+        
+        # 3. 按顺序执行，支持容错和并发控制
         results = {}
+        failed_threads = []
         
-        for level in execution_plan:
-            # 并行执行同一级别的线程
-            tasks = []
-            for thread_name in level:
-                if self._can_execute(thread_name):
-                    task = asyncio.create_task(self._execute_thread(thread_name))
-                    tasks.append((thread_name, task))
-            
-            # 等待当前级别完成
-            for thread_name, task in tasks:
+        for thread_name in execution_order:
+            async with self._execution_semaphore:
                 try:
-                    result = await task
+                    result = await self._execute_thread_safely(thread_name, thread_info)
                     results[thread_name] = result
-                    self._update_thread_state(thread_name, ThreadState.COMPLETED)
-                    self._propagate_data(thread_name, result)
+                    logger.info(f"线程执行成功: {thread_name}")
                 except Exception as e:
-                    self._handle_execution_failure(thread_name, e)
-                    if self.policy == CoordinationPolicy.STRICT:
-                        raise
+                    logger.warning(f"线程执行失败: {thread_name}, 错误: {e}")
+                    failed_threads.append(thread_name)
+                    
+                    # 根据策略决定是否继续
+                    if self.policy == "strict":
+                        raise ThreadExecutionError(f"严格模式下线程失败: {thread_name}") from e
+                    # best_effort模式继续执行其他线程
         
-        return results
+        # 4. 返回结果和失败信息
+        return {
+            "successful_threads": results,
+            "failed_threads": failed_threads,
+            "total_executed": len(execution_order),
+            "success_rate": len(results) / len(execution_order) if execution_order else 1.0
+        }
     
-    def _can_execute(self, thread_name: str) -> bool:
-        """检查线程是否可以执行"""
-        dependencies = self.dependency_graph.get_dependencies_for_thread(thread_name)
-        for dep in dependencies:
-            if dep.dependency_type == DependencyType.SEQUENTIAL:
-                source_state = self.thread_states.get(dep.source_thread)
-                if source_state != ThreadState.COMPLETED:
-                    return False
-            elif dep.dependency_type == DependencyType.CONDITIONAL:
-                if dep.condition and not dep.condition(self.data_bus):
-                    return False
-        return True
+    def _simple_topological_sort(self, dependencies: Dict[str, List[str]]) -> List[str]:
+        """简化拓扑排序 - 仅处理顺序依赖"""
+        # 实现基本的拓扑排序算法
+        # 复杂度：O(V+E)，适用于大多数实际场景
+        in_degree = {}
+        graph = {}
+        
+        # 构建图结构
+        for thread, deps in dependencies.items():
+            in_degree[thread] = len(deps)
+            for dep in deps:
+                if dep not in graph:
+                    graph[dep] = []
+                graph[dep].append(thread)
+        
+        # 拓扑排序
+        queue = deque([t for t, degree in in_degree.items() if degree == 0])
+        result = []
+        
+        while queue:
+            thread = queue.popleft()
+            result.append(thread)
+            
+            if thread in graph:
+                for neighbor in graph[thread]:
+                    in_degree[neighbor] -= 1
+                    if in_degree[neighbor] == 0:
+                        queue.append(neighbor)
+        
+        return result
+    
+    async def _execute_thread_safely(self, thread_name: str, thread_info: Dict[str, Any]) -> Any:
+        """安全执行线程，包含超时和错误处理"""
+        try:
+            # 设置执行超时（默认5分钟）
+            async with timeout(300):  # 5分钟超时
+                return await self._execute_single_thread(thread_name, thread_info)
+        except asyncio.TimeoutError:
+            raise ThreadTimeoutError(f"线程执行超时: {thread_name}")
+        except Exception as e:
+            raise ThreadExecutionError(f"线程执行错误: {thread_name}") from e
+```
+
+#### 配置建议
+```yaml
+# configs/threads.yaml 新增配置
+coordination:
+  enabled: false  # 默认禁用，需要时开启
+  policy: "best_effort"  # 协调策略
+  max_parallel_threads: 5  # 最大并行线程数
+  timeout: 300  # 线程执行超时时间（秒）
+  enable_retry: true  # 是否启用重试机制
+  max_retries: 3  # 最大重试次数
 ```
 
 ### 4. 数据流协调机制
@@ -246,29 +302,41 @@ class DependencyErrorHandler:
             return False
 ```
 
-## 实施计划
+## 简化实施计划
 
-### 阶段1：基础依赖模型（1周）
-- 实现DependencyGraph和依赖关系建模
-- 实现基本的拓扑排序算法
-- 添加依赖验证功能
+基于实际需求分析，建议采用简化的分阶段实施策略：
 
-### 阶段2：协调执行机制（1周）
-- 实现ThreadCoordinator协调器
-- 实现多种协调策略
-- 添加数据流协调功能
+### 阶段1：核心功能实现（1周）
+- 实现简化的依赖关系建模（仅支持顺序依赖）
+- 实现基本拓扑排序算法（简化版）
+- 添加依赖验证和循环检测功能
+- **交付物**：SimplifiedThreadCoordinator基础版本
 
-### 阶段3：错误处理和测试（1周）
-- 实现完整的错误处理机制
+### 阶段2：协调策略集成（0.5周）
+- 实现BEST_EFFORT协调策略（优先保证系统可用性）
+- 添加STRICT模式支持（可选）
+- 实现基本的错误处理和容错机制
+- **交付物**：支持两种协调策略的简化协调器
+
+### 阶段3：测试和优化（0.5周）
 - 编写单元测试和集成测试
-- 性能优化和文档完善
+- 性能基准测试和优化
+- 文档完善和配置示例
+- **交付物**：稳定可用的线程协调功能
 
-## 预期效果
+## 预期效果（调整后）
 
-1. **执行效率提升** - 智能的线程调度和并行执行
-2. **系统可靠性增强** - 完善的错误处理和恢复机制
-3. **开发复杂度降低** - 简化的依赖关系管理接口
-4. **可扩展性改善** - 支持复杂的多工作流协作场景
+1. **系统可用性提升** - 通过BEST_EFFORT策略保证核心功能可用
+2. **容错能力增强** - 支持线程失败时的优雅降级
+3. **实现复杂度可控** - 避免过度工程化，聚焦核心需求
+4. **部署风险降低** - 简化设计减少集成复杂度
+
+## 优先级说明
+
+**建议实施优先级：中等**
+- 当前业务需求不明确，可先实现基础功能
+- 根据实际使用情况决定是否扩展高级功能
+- 避免过早引入复杂协调机制
 
 ## 配置示例
 
