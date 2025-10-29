@@ -120,12 +120,15 @@ class StateAdapter:
         graph_state = create_graph_agent_state(
             input_text=domain_state.current_task or "",
             agent_id=domain_state.agent_id,
-            agent_config={"agent_type": domain_state.agent_type},
+            agent_config={
+                "agent_type": domain_state.agent_type,
+                **domain_state.custom_fields
+            },
             max_iterations=domain_state.max_iterations,
             messages=messages
         )
         
-        # 更新其他字段
+        # 更新所有字段（新增完整映射）
         graph_state.update({
             "output": self._get_last_assistant_message(domain_state.messages),
             "tool_calls": self._convert_tool_calls(domain_state),
@@ -133,6 +136,15 @@ class StateAdapter:
             "iteration_count": domain_state.iteration_count,
             "errors": [str(error) for error in domain_state.errors],
             "complete": domain_state.status == AgentStatus.COMPLETED,
+            
+            # 新增字段映射
+            "context": domain_state.context,
+            "task_history": domain_state.task_history,
+            "execution_metrics": domain_state.execution_metrics,
+            "logs": domain_state.logs,
+            "custom_fields": domain_state.custom_fields,
+            "last_update_time": domain_state.last_update_time.isoformat() if domain_state.last_update_time else None,
+            
             "execution_result": {
                 "status": domain_state.status.value,
                 "start_time": domain_state.start_time.isoformat() if domain_state.start_time else None,
@@ -187,9 +199,19 @@ class StateAdapter:
         if execution_result.get("last_update_time"):
             domain_state.last_update_time = datetime.fromisoformat(execution_result["last_update_time"])
         
+        # 新增字段映射（关键修复）
+        domain_state.context = graph_state.get("context", {})
+        domain_state.task_history = graph_state.get("task_history", [])
+        domain_state.execution_metrics = graph_state.get("execution_metrics", {})
+        domain_state.logs = graph_state.get("logs", [])
+        domain_state.custom_fields = graph_state.get("custom_fields", {})
+        
         # 设置错误和自定义字段
         domain_state.errors = [{"message": error} for error in graph_state.get("errors", [])]
-        domain_state.custom_fields = execution_result.get("custom_fields", {})
+        
+        # 合并自定义字段
+        if execution_result.get("custom_fields"):
+            domain_state.custom_fields.update(execution_result["custom_fields"])
         
         return domain_state
     

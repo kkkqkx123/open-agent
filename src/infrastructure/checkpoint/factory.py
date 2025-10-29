@@ -7,16 +7,22 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from ...domain.checkpoint.config import CheckpointConfig
 from ...domain.checkpoint.interfaces import ICheckpointStore, ICheckpointSerializer
 from ...domain.checkpoint.serializer import DefaultCheckpointSerializer, JSONCheckpointSerializer
+from ...domain.checkpoint.config import CheckpointConfig as DomainCheckpointConfig
 from ...application.checkpoint.manager import CheckpointManager
 from .sqlite_store import SQLiteCheckpointStore
 from .memory_store import MemoryCheckpointStore
 from ..config.checkpoint_config_service import CheckpointConfigService
-from ..config_system import IConfigSystem
+from ..config.config_system import IConfigSystem
+from ..config.models.checkpoint_config import CheckpointConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _convert_to_domain_config(config: CheckpointConfig) -> DomainCheckpointConfig:
+    """将基础设施层配置转换为领域层配置"""
+    return DomainCheckpointConfig.from_dict(config.to_dict())
 
 
 class CheckpointStoreFactory:
@@ -79,7 +85,7 @@ class CheckpointSerializerFactory:
     """
     
     @staticmethod
-    def create_serializer(config: CheckpointConfig) -> ICheckpointSerializer:
+    def create_serializer(config: DomainCheckpointConfig) -> ICheckpointSerializer:
         """创建checkpoint序列化器
         
         Args:
@@ -106,11 +112,11 @@ class CheckpointManagerFactory:
     def create_manager(config: Optional[CheckpointConfig] = None,
                       config_service: Optional[CheckpointConfigService] = None) -> CheckpointManager:
         """创建checkpoint管理器
-        
+
         Args:
             config: checkpoint配置（可选，如果未提供则从配置服务获取）
             config_service: 配置服务实例
-            
+
         Returns:
             CheckpointManager: checkpoint管理器实例
         """
@@ -119,15 +125,18 @@ class CheckpointManagerFactory:
             if config_service is None:
                 config_service = CheckpointConfigService()
             config = config_service.get_config()
-        
+
+        # 转换为领域层配置
+        domain_config = _convert_to_domain_config(config)
+
         # 创建序列化器
-        serializer = CheckpointSerializerFactory.create_serializer(config)
-        
+        serializer = CheckpointSerializerFactory.create_serializer(domain_config)
+
         # 创建存储
         store = CheckpointStoreFactory.create_store(config, serializer, config_service)
-        
+
         # 创建管理器
-        return CheckpointManager(store, config)
+        return CheckpointManager(store, domain_config)
 
 
 class CheckpointFactory:
@@ -148,16 +157,11 @@ class CheckpointFactory:
         Returns:
             CheckpointManager: checkpoint管理器实例
         """
-        # 创建配置对象
-        config = CheckpointConfig.from_dict(config_dict)
-        
-        # 验证配置
-        errors = config.validate()
-        if errors:
-            raise ValueError(f"配置验证失败: {'; '.join(errors)}")
-        
+        # 创建配置对象（Pydantic会自动验证）
+        config = CheckpointConfig.from_dict(config_dict)  # type: ignore
+
         # 创建管理器
-        return CheckpointManagerFactory.create_manager(config, config_service)
+        return CheckpointManagerFactory.create_manager(config, config_service)  # type: ignore
     
     @staticmethod
     def create_sqlite_manager(db_path: str, **kwargs) -> CheckpointManager:

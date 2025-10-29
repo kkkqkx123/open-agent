@@ -15,6 +15,8 @@ from src.application.workflow.manager import IWorkflowManager, WorkflowManager
 from src.domain.sessions.store import ISessionStore
 from src.domain.state.interfaces import IStateManager, IStateCollaborationManager
 from src.domain.threads.interfaces import IThreadManager
+from src.infrastructure.state.snapshot_store import StateSnapshotStore
+from src.infrastructure.state.history_manager import StateHistoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +87,7 @@ class DIConfig:
     def _register_config_loader(self, config_path: str) -> None:
         """注册配置加载器"""
         if not self.container.has_service(IConfigLoader):
-            config_loader = YamlConfigLoader(base_path=Path(config_path))
+            config_loader = YamlConfigLoader(base_path=config_path)
             self.container.register_instance(IConfigLoader, config_loader)
             self._config_loader = config_loader
             logger.debug("配置加载器注册完成")
@@ -136,25 +138,25 @@ class DIConfig:
             logger.warning(f"基础状态管理器不可用: {e}")
     
     def _register_state_collaboration_manager(self) -> None:
-        """注册状态协作管理器"""
+        """注册状态协作管理器 - 重构版本"""
         try:
-            # 注册快照存储
-            from .state.snapshot_store import StateSnapshotStore
+            # 注册SQLite快照存储
+            from .state.sqlite_snapshot_store import SQLiteSnapshotStore
             self.container.register_factory(
                 StateSnapshotStore,
-                lambda: StateSnapshotStore(),
+                lambda: SQLiteSnapshotStore(),
                 lifetime=ServiceLifetime.SINGLETON
             )
-            logger.debug("快照存储注册完成")
+            logger.debug("SQLite快照存储注册完成")
             
-            # 注册历史管理器
-            from .state.history_manager import StateHistoryManager
+            # 注册SQLite历史管理器
+            from .state.sqlite_history_manager import SQLiteHistoryManager
             self.container.register_factory(
                 StateHistoryManager,
-                lambda: StateHistoryManager(),
+                lambda: SQLiteHistoryManager(),
                 lifetime=ServiceLifetime.SINGLETON
             )
-            logger.debug("历史管理器注册完成")
+            logger.debug("SQLite历史管理器注册完成")
             
             # 注册增强状态管理器（实现协作管理器接口）
             from src.domain.state.enhanced_manager import EnhancedStateManager
@@ -181,7 +183,7 @@ class DIConfig:
                 IWorkflowManager,
                 lambda: WorkflowManager(
                     self._config_loader,
-                    self._node_registry
+                    self.container
                 ),
                 lifetime=ServiceLifetime.SINGLETON
             )
@@ -269,12 +271,12 @@ class DIConfig:
         
         logger.debug(f"服务 {service_name} 注册完成")
     
-    def _resolve_service_type(self, type_str: str) -> Optional[Type]:
+    def _resolve_service_type(self, type_str: Optional[str]) -> Optional[Type]:
         """解析服务类型字符串
-        
+
         Args:
             type_str: 类型字符串
-            
+
         Returns:
             解析后的类型，如果解析失败则返回None
         """

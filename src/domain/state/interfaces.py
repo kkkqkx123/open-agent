@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime
 from enum import Enum
 
@@ -139,7 +139,26 @@ class IEnhancedStateManager(ABC):
 
 
 class IStateCollaborationManager(ABC):
-    """状态协作管理器接口"""
+    """状态协作管理器接口 - 重构版本"""
+    
+    @abstractmethod
+    def execute_with_state_management(
+        self,
+        domain_state: Any,
+        executor: Callable[[Any], Any],
+        context: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        """带状态管理的执行
+        
+        Args:
+            domain_state: 域状态对象
+            executor: 执行函数，接收状态并返回修改后的状态
+            context: 执行上下文
+            
+        Returns:
+            执行后的状态对象
+        """
+        pass
     
     @abstractmethod
     def validate_domain_state(self, domain_state: Any) -> List[str]:
@@ -157,7 +176,7 @@ class IStateCollaborationManager(ABC):
         pass
     
     @abstractmethod
-    def record_state_change(self, agent_id: str, action: str, 
+    def record_state_change(self, agent_id: str, action: str,
                           old_state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
         """记录状态变化"""
         pass

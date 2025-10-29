@@ -1,18 +1,64 @@
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime
+import logging
 from src.domain.state.interfaces import IEnhancedStateManager, IStateCollaborationManager
 from src.infrastructure.state.snapshot_store import StateSnapshotStore, StateSnapshot
 from src.infrastructure.state.history_manager import StateHistoryManager, StateHistoryEntry
 
+logger = logging.getLogger(__name__)
+
 
 class EnhancedStateManager(IEnhancedStateManager, IStateCollaborationManager):
-    """增强状态管理器实现"""
+    """增强状态管理器实现 - 重构版本"""
     
     def __init__(self, snapshot_store: StateSnapshotStore, 
                  history_manager: StateHistoryManager):
         self.snapshot_store = snapshot_store
         self.history_manager = history_manager
         self.current_states: Dict[str, Any] = {}
+    
+    def execute_with_state_management(
+        self,
+        domain_state: Any,
+        executor: Callable[[Any], Any],
+        context: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        """带状态管理的执行"""
+        # 1. 验证状态
+        validation_errors = self.validate_domain_state(domain_state)
+        if validation_errors:
+            raise ValueError(f"状态验证失败: {validation_errors}")
+        
+        # 2. 创建快照
+        snapshot_id = self.create_snapshot(domain_state, "pre_execution")
+        
+        # 3. 记录开始
+        old_state = domain_state.to_dict() if hasattr(domain_state, 'to_dict') else vars(domain_state)
+        
+        try:
+            # 4. 执行业务逻辑
+            result_state = executor(domain_state)
+            
+            # 5. 记录成功
+            new_state = result_state.to_dict() if hasattr(result_state, 'to_dict') else vars(result_state)
+            self.record_state_change(
+                domain_state.agent_id if hasattr(domain_state, 'agent_id') else "unknown",
+                "execution_success",
+                old_state,
+                new_state
+            )
+            
+            return result_state
+            
+        except Exception as e:
+            # 6. 记录失败
+            self.record_state_change(
+                domain_state.agent_id if hasattr(domain_state, 'agent_id') else "unknown",
+                "execution_error",
+                old_state,
+                {"error": str(e), "snapshot_id": snapshot_id}
+            )
+            raise
     
     def validate_domain_state(self, domain_state: Any) -> List[str]:
         """验证域层状态完整性"""

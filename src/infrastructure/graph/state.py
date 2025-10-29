@@ -91,7 +91,7 @@ class BaseGraphState(TypedDict, total=False):
 
 
 class AgentState(BaseGraphState, total=False):
-    """Agent状态 - 扩展基础状态"""
+    """Agent状态 - 扩展版本"""
     # Agent特定的状态字段
     input: str
     output: Optional[str]
@@ -114,6 +114,19 @@ class AgentState(BaseGraphState, total=False):
     start_time: Optional[str]
     current_step: Optional[str]
     workflow_name: Optional[str]
+    
+    # 新增业务字段以匹配域状态
+    context: dict[str, Any]
+    task_history: List[dict[str, Any]]
+    execution_metrics: dict[str, Any]
+    logs: List[dict[str, Any]]
+    custom_fields: dict[str, Any]
+    
+    # 时间信息
+    last_update_time: Optional[str]
+    
+    # Agent配置扩展
+    agent_config: dict[str, Any]  # 包含agent_type等配置
 
 
 class WorkflowState(AgentState, total=False):

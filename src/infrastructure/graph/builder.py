@@ -21,6 +21,7 @@ from src.domain.agent.interfaces import IAgent, IAgentFactory
 from .registry import NodeRegistry, get_global_registry
 from .adapters import get_state_adapter
 from src.domain.state.interfaces import IStateCollaborationManager
+from src.domain.agent.state import AgentState as DomainAgentState
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ class NodeWithAdapterExecutor(INodeExecutor):
 
 
 class EnhancedNodeWithAdapterExecutor(INodeExecutor):
-    """增强的节点执行器 - 集成状态管理功能"""
+    """增强的节点执行器 - 重构版本"""
     
     def __init__(self, node_instance, state_manager: IStateCollaborationManager):
         self.node = node_instance
@@ -72,7 +73,20 @@ class EnhancedNodeWithAdapterExecutor(INodeExecutor):
     
     def execute(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
         """执行节点逻辑，集成状态管理功能"""
-        return self.collaboration_adapter.execute_with_collaboration(state)
+        
+        def node_executor(domain_state: DomainAgentState) -> DomainAgentState:
+            """节点执行函数"""
+            # 将域状态转换为图状态供节点使用
+            temp_graph_state = self.collaboration_adapter.state_adapter.to_graph_state(domain_state)
+            
+            # 执行原始节点逻辑
+            result_graph_state = self.node.execute(temp_graph_state, config)
+            
+            # 将结果转换回域状态
+            return self.collaboration_adapter.state_adapter.from_graph_state(result_graph_state)
+        
+        # 使用协作适配器执行
+        return self.collaboration_adapter.execute_with_collaboration(state, node_executor)
 
 
 class AgentNodeExecutor(INodeExecutor):
