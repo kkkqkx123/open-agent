@@ -127,18 +127,7 @@ class AnthropicClient(BaseLLMClient):
             # 转换消息格式
             converted_messages = self._convert_messages(messages)
 
-            # 提取系统消息
-            system_message = None
-            for message in messages:
-                if isinstance(message, SystemMessage):
-                    system_message = message.content
-                    break
-
-            # 如果有系统消息，添加到参数中
-            if system_message:
-                parameters["system"] = system_message
-
-            # 调用Anthropic API
+            # 调用Anthropic API（系统消息已经在_convert_messages中处理）
             response = self._client.invoke(converted_messages, **parameters)
 
             # 提取Token使用情况
@@ -174,18 +163,7 @@ class AnthropicClient(BaseLLMClient):
             # 转换消息格式
             converted_messages = self._convert_messages(messages)
 
-            # 提取系统消息
-            system_message = None
-            for message in messages:
-                if isinstance(message, SystemMessage):
-                    system_message = message.content
-                    break
-
-            # 如果有系统消息，添加到参数中
-            if system_message:
-                parameters["system"] = system_message
-
-            # 调用Anthropic API
+            # 调用Anthropic API（系统消息已经在_convert_messages中处理）
             response = await self._client.ainvoke(converted_messages, **parameters)
 
             # 提取Token使用情况
@@ -213,25 +191,6 @@ class AnthropicClient(BaseLLMClient):
             # 处理Anthropic特定错误
             raise self._handle_anthropic_error(e)
 
-    def get_token_count(self, text: str) -> int:
-        """计算文本的token数量"""
-        from ..token_counter import TokenCounterFactory
-
-        # 使用Token计算器
-        counter = TokenCounterFactory.create_counter(
-        "anthropic", self.config.model_name
-        )
-        return counter.count_tokens(text) or 0
-
-    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
-        """计算消息列表的token数量"""
-        from ..token_counter import TokenCounterFactory
-
-        # 使用Token计算器
-        counter = TokenCounterFactory.create_counter(
-        "anthropic", self.config.model_name
-        )
-        return counter.count_messages_tokens(messages) or 0
 
     def supports_function_calling(self) -> bool:
         """检查是否支持函数调用"""
@@ -263,16 +222,7 @@ class AnthropicClient(BaseLLMClient):
 
     def _extract_function_call(self, response: Any) -> Optional[Dict[str, Any]]:
         """提取函数调用信息"""
-        if (
-            hasattr(response, "additional_kwargs")
-            and "function_call" in response.additional_kwargs
-        ):
-            result = response.additional_kwargs["function_call"]
-            if isinstance(result, dict):
-                return result
-            else:
-                return None
-        return None
+        return self._extract_function_call_enhanced(response)
 
     def _extract_finish_reason(self, response: Any) -> Optional[str]:
         """提取完成原因"""
@@ -294,45 +244,101 @@ class AnthropicClient(BaseLLMClient):
             status_code = getattr(response, "status_code", None)
             if status_code:
                 if status_code == 401 or status_code == 403:
-                    return LLMAuthenticationError("Anthropic API密钥无效或权限不足")
+                    return self._create_enhanced_error(
+                        LLMAuthenticationError,
+                        "Anthropic API密钥无效或权限不足",
+                        error
+                    )
                 elif status_code == 429:
                     retry_after = None
                     headers = getattr(response, "headers", {})
                     if "retry-after" in headers:
                         retry_after = int(headers["retry-after"])
-                    return LLMRateLimitError(
-                        "Anthropic API频率限制", retry_after=retry_after
+                    return self._create_enhanced_error(
+                        LLMRateLimitError,
+                        "Anthropic API频率限制",
+                        error,
+                        retry_after=retry_after
                     )
                 elif status_code == 404:
-                    return LLMModelNotFoundError(self.config.model_name)
+                    return self._create_enhanced_error(
+                        LLMModelNotFoundError,
+                        f"模型未找到: {self.config.model_name}",
+                        error
+                    )
                 elif status_code == 400:
-                    return LLMInvalidRequestError("Anthropic API请求无效")
+                    return self._create_enhanced_error(
+                        LLMInvalidRequestError,
+                        "Anthropic API请求无效",
+                        error
+                    )
                 elif status_code == 500 or status_code == 502 or status_code == 503:
-                    return LLMServiceUnavailableError("Anthropic服务不可用")
+                    return self._create_enhanced_error(
+                        LLMServiceUnavailableError,
+                        "Anthropic服务不可用",
+                        error
+                    )
 
         # 根据错误消息判断
         if "timeout" in error_str or "timed out" in error_str:
-            return LLMTimeoutError(str(error), timeout=self.config.timeout)
+            return self._create_enhanced_error(
+                LLMTimeoutError,
+                f"请求超时: {str(error)}",
+                error,
+                timeout=self.config.timeout
+            )
         elif "rate limit" in error_str or "too many requests" in error_str:
-            return LLMRateLimitError(str(error))
+            return self._create_enhanced_error(
+                LLMRateLimitError,
+                f"API频率限制: {str(error)}",
+                error
+            )
         elif (
             "permission" in error_str
             or "forbidden" in error_str
             or "authentication" in error_str
         ):
-            return LLMAuthenticationError(str(error))
+            return self._create_enhanced_error(
+                LLMAuthenticationError,
+                f"认证错误: {str(error)}",
+                error
+            )
         elif "model not found" in error_str or "not found" in error_str:
-            return LLMModelNotFoundError(self.config.model_name)
+            return self._create_enhanced_error(
+                LLMModelNotFoundError,
+                f"模型未找到: {self.config.model_name}",
+                error
+            )
         elif "token" in error_str and "limit" in error_str:
-            return LLMTokenLimitError(str(error))
+            return self._create_enhanced_error(
+                LLMTokenLimitError,
+                f"Token限制: {str(error)}",
+                error
+            )
         elif "content filter" in error_str or "content policy" in error_str:
-            return LLMContentFilterError(str(error))
+            return self._create_enhanced_error(
+                LLMContentFilterError,
+                f"内容过滤: {str(error)}",
+                error
+            )
         elif "service unavailable" in error_str or "503" in error_str:
-            return LLMServiceUnavailableError(str(error))
+            return self._create_enhanced_error(
+                LLMServiceUnavailableError,
+                f"服务不可用: {str(error)}",
+                error
+            )
         elif "invalid request" in error_str or "bad request" in error_str:
-            return LLMInvalidRequestError(str(error))
+            return self._create_enhanced_error(
+                LLMInvalidRequestError,
+                f"无效请求: {str(error)}",
+                error
+            )
         else:
-            return LLMCallError(str(error))
+            return self._create_enhanced_error(
+                LLMCallError,
+                f"Anthropic API错误: {str(error)}",
+                error
+            )
 
     def _do_stream_generate(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
@@ -342,20 +348,8 @@ class AnthropicClient(BaseLLMClient):
             # 转换消息格式
             converted_messages = self._convert_messages(messages)
 
-            # 提取系统消息
-            system_message = None
-            for message in messages:
-                if isinstance(message, SystemMessage):
-                    system_message = message.content
-                    break
-
-            # 如果有系统消息，添加到参数中
-            params = parameters.copy()
-            if system_message:
-                params["system"] = system_message
-
-            # 流式生成
-            stream = self._client.stream(converted_messages, **params)
+            # 流式生成（系统消息已经在_convert_messages中处理）
+            stream = self._client.stream(converted_messages, **parameters)
 
             # 收集完整响应
             for chunk in stream:
@@ -370,42 +364,26 @@ class AnthropicClient(BaseLLMClient):
             # 处理Anthropic特定错误
             raise self._handle_anthropic_error(e)
 
-    def _do_stream_generate_async(
+    async def _do_stream_generate_async(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
+        try:
+            # 转换消息格式
+            converted_messages = self._convert_messages(messages)
 
-        async def _async_generator() -> AsyncGenerator[str, None]:
-            try:
-                # 转换消息格式
-                converted_messages = self._convert_messages(messages)
+            # 异步流式生成（系统消息已经在_convert_messages中处理）
+            stream = self._client.astream(converted_messages, **parameters)
 
-                # 提取系统消息
-                system_message = None
-                for message in messages:
-                    if isinstance(message, SystemMessage):
-                        system_message = message.content
-                        break
+            # 收集完整响应
+            async for chunk in stream:
+                if chunk.content:
+                    content = chunk.content
+                    if isinstance(content, list):
+                        # 如果content是列表，将其转换为字符串
+                        content = str(content)
+                    yield content
 
-                # 如果有系统消息，添加到参数中
-                params = parameters.copy()
-                if system_message:
-                    params["system"] = system_message
-
-                # 异步流式生成
-                stream = self._client.astream(converted_messages, **params)
-
-                # 收集完整响应
-                async for chunk in stream:
-                    if chunk.content:
-                        content = chunk.content
-                        if isinstance(content, list):
-                            # 如果content是列表，将其转换为字符串
-                            content = str(content)
-                        yield content
-
-            except Exception as e:
-                # 处理Anthropic特定错误
-                raise self._handle_anthropic_error(e)
-
-        return _async_generator()
+        except Exception as e:
+            # 处理Anthropic特定错误
+            raise self._handle_anthropic_error(e)

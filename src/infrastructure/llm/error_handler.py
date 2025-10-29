@@ -102,12 +102,28 @@ class BaseErrorHandler(IErrorHandler):
         error_type = type(error)
         if error_type in self._custom_error_handlers:
             handler = self._custom_error_handlers[error_type]
-            return handler(error)
+            # 尝试传递上下文参数，如果处理器不支持则使用旧方式
+            try:
+                llm_error = handler(error, context)
+            except TypeError:
+                llm_error = handler(error)
+                # 确保错误对象包含原始错误和上下文
+                if not hasattr(llm_error, 'original_error') or llm_error.original_error is None:
+                    llm_error.original_error = error
+                if not hasattr(llm_error, 'error_context') or llm_error.error_context is None:
+                    llm_error.error_context = context
+            return llm_error
 
         # 然后尝试类型映射
         if error_type in self._error_mappings:
             llm_error_class = self._error_mappings[error_type]
-            return llm_error_class(str(error))
+            llm_error = llm_error_class(str(error))
+            # 确保错误对象包含原始错误和上下文
+            if not hasattr(llm_error, 'original_error') or llm_error.original_error is None:
+                llm_error.original_error = error
+            if not hasattr(llm_error, 'error_context') or llm_error.error_context is None:
+                llm_error.error_context = context
+            return llm_error
 
         # 尝试基于错误消息的映射
         return self._handle_error_by_message(error, context)
@@ -143,14 +159,20 @@ class BaseErrorHandler(IErrorHandler):
         if any(
             keyword in error_str for keyword in ["timeout", "timed out", "time out"]
         ):
-            return LLMTimeoutError(str(error))
+            llm_error = LLMTimeoutError(str(error))
+            llm_error.original_error = error
+            llm_error.error_context = context
+            return llm_error
 
         # 频率限制错误
         if any(
             keyword in error_str
             for keyword in ["rate limit", "too many requests", "rate_limit_exceeded"]
         ):
-            return LLMRateLimitError(str(error))
+            llm_error = LLMRateLimitError(str(error))
+            llm_error.original_error = error
+            llm_error.error_context = context
+            return llm_error
 
         # 认证错误
         if any(
@@ -162,42 +184,63 @@ class BaseErrorHandler(IErrorHandler):
                 "forbidden",
             ]
         ):
-            return LLMAuthenticationError(str(error))
+            llm_error = LLMAuthenticationError(str(error))
+            llm_error.original_error = error
+            llm_error.error_context = context
+            return llm_error
 
         # 模型未找到错误
         if any(
             keyword in error_str
             for keyword in ["model not found", "not found", "invalid model"]
         ):
-            return LLMModelNotFoundError("unknown")
+            llm_error = LLMModelNotFoundError("unknown")
+            llm_error.original_error = error
+            llm_error.error_context = context
+            return llm_error
 
         # Token限制错误
         if any(keyword in error_str for keyword in ["token", "limit", "too long"]):
-            return LLMTokenLimitError(str(error))
+            llm_error = LLMTokenLimitError(str(error))
+            llm_error.original_error = error
+            llm_error.error_context = context
+            return llm_error
 
         # 内容过滤错误
         if any(
             keyword in error_str
             for keyword in ["content filter", "content policy", "blocked", "safety"]
         ):
-            return LLMContentFilterError(str(error))
+            llm_error = LLMContentFilterError(str(error))
+            llm_error.original_error = error
+            llm_error.error_context = context
+            return llm_error
 
         # 服务不可用错误
         if any(
             keyword in error_str
             for keyword in ["service unavailable", "503", "502", "500"]
         ):
-            return LLMServiceUnavailableError(str(error))
+            llm_error = LLMServiceUnavailableError(str(error))
+            llm_error.original_error = error
+            llm_error.error_context = context
+            return llm_error
 
         # 无效请求错误
         if any(
             keyword in error_str
             for keyword in ["invalid request", "bad request", "400"]
         ):
-            return LLMInvalidRequestError(str(error))
+            llm_error = LLMInvalidRequestError(str(error))
+            llm_error.original_error = error
+            llm_error.error_context = context
+            return llm_error
 
         # 默认为通用调用错误
-        return LLMCallError(str(error))
+        llm_error = LLMCallError(str(error))
+        llm_error.original_error = error
+        llm_error.error_context = context
+        return llm_error
 
 
 class OpenAIErrorHandler(BaseErrorHandler):
@@ -219,7 +262,7 @@ class OpenAIErrorHandler(BaseErrorHandler):
 
         return handlers
 
-    def _handle_openai_error(self, error: Exception) -> LLMCallError:
+    def _handle_openai_error(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> LLMCallError:
         """处理OpenAI特定错误"""
         try:
             # 尝试解析OpenAI错误
@@ -232,31 +275,49 @@ class OpenAIErrorHandler(BaseErrorHandler):
                 or "unauthorized" in error_str
                 or "authentication" in error_str
             ):
-                return LLMAuthenticationError("OpenAI API密钥无效")
+                llm_error = LLMAuthenticationError("OpenAI API密钥无效")
+                llm_error.original_error = error
+                llm_error.error_context = context
+                return llm_error
             elif (
                 "429" in error_str
                 or "rate limit" in error_str
                 or "too many requests" in error_str
             ):
-                return LLMRateLimitError("OpenAI API频率限制")
+                llm_error = LLMRateLimitError("OpenAI API频率限制")
+                llm_error.original_error = error
+                llm_error.error_context = context
+                return llm_error
             elif "404" in error_str or "not found" in error_str:
-                return LLMModelNotFoundError("OpenAI模型未找到")
+                llm_error = LLMModelNotFoundError("OpenAI模型未找到")
+                llm_error.original_error = error
+                llm_error.error_context = context
+                return llm_error
             elif "400" in error_str or "bad request" in error_str:
-                return LLMInvalidRequestError("OpenAI API请求无效")
+                llm_error = LLMInvalidRequestError("OpenAI API请求无效")
+                llm_error.original_error = error
+                llm_error.error_context = context
+                return llm_error
             elif (
                 "500" in error_str
                 or "502" in error_str
                 or "503" in error_str
                 or "service unavailable" in error_str
             ):
-                return LLMServiceUnavailableError("OpenAI服务不可用")
+                llm_error = LLMServiceUnavailableError("OpenAI服务不可用")
+                llm_error.original_error = error
+                llm_error.error_context = context
+                return llm_error
 
             # 基于错误消息判断
-            return super()._handle_error_by_message(error)
+            return super()._handle_error_by_message(error, context)
 
         except Exception:
             # 如果解析失败，返回通用错误
-            return LLMCallError(str(error))
+            llm_error = LLMCallError(str(error))
+            llm_error.original_error = error
+            llm_error.error_context = context
+            return llm_error
 
 
 class GeminiErrorHandler(BaseErrorHandler):
@@ -284,10 +345,16 @@ class GeminiErrorHandler(BaseErrorHandler):
             keyword in error_str
             for keyword in ["permission", "forbidden", "permission_denied"]
         ):
-            return LLMAuthenticationError("Gemini API权限不足")
+            llm_error = LLMAuthenticationError("Gemini API权限不足")
+            llm_error.original_error = error
+            llm_error.error_context = context
+            return llm_error
 
         if any(keyword in error_str for keyword in ["quota", "billing", "usage"]):
-            return LLMRateLimitError("Gemini API配额限制")
+            llm_error = LLMRateLimitError("Gemini API配额限制")
+            llm_error.original_error = error
+            llm_error.error_context = context
+            return llm_error
 
         # 调用父类方法
         return super()._handle_error_by_message(error, context)
@@ -312,7 +379,7 @@ class AnthropicErrorHandler(BaseErrorHandler):
 
         return handlers
 
-    def _handle_anthropic_error(self, error: Exception) -> LLMCallError:
+    def _handle_anthropic_error(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> LLMCallError:
         """处理Anthropic特定错误"""
         try:
             # 尝试解析Anthropic错误
@@ -326,31 +393,49 @@ class AnthropicErrorHandler(BaseErrorHandler):
                 or "unauthorized" in error_str
                 or "forbidden" in error_str
             ):
-                return LLMAuthenticationError("Anthropic API密钥无效或权限不足")
+                llm_error = LLMAuthenticationError("Anthropic API密钥无效或权限不足")
+                llm_error.original_error = error
+                llm_error.error_context = context
+                return llm_error
             elif (
                 "429" in error_str
                 or "rate limit" in error_str
                 or "too many requests" in error_str
             ):
-                return LLMRateLimitError("Anthropic API频率限制")
+                llm_error = LLMRateLimitError("Anthropic API频率限制")
+                llm_error.original_error = error
+                llm_error.error_context = context
+                return llm_error
             elif "404" in error_str or "not found" in error_str:
-                return LLMModelNotFoundError("Anthropic模型未找到")
+                llm_error = LLMModelNotFoundError("Anthropic模型未找到")
+                llm_error.original_error = error
+                llm_error.error_context = context
+                return llm_error
             elif "400" in error_str or "bad request" in error_str:
-                return LLMInvalidRequestError("Anthropic API请求无效")
+                llm_error = LLMInvalidRequestError("Anthropic API请求无效")
+                llm_error.original_error = error
+                llm_error.error_context = context
+                return llm_error
             elif (
                 "500" in error_str
                 or "502" in error_str
                 or "503" in error_str
                 or "service unavailable" in error_str
             ):
-                return LLMServiceUnavailableError("Anthropic服务不可用")
+                llm_error = LLMServiceUnavailableError("Anthropic服务不可用")
+                llm_error.original_error = error
+                llm_error.error_context = context
+                return llm_error
 
             # 基于错误消息判断
-            return super()._handle_error_by_message(error)
+            return super()._handle_error_by_message(error, context)
 
         except Exception:
             # 如果解析失败，返回通用错误
-            return LLMCallError(str(error))
+            llm_error = LLMCallError(str(error))
+            llm_error.original_error = error
+            llm_error.error_context = context
+            return llm_error
 
 
 class ErrorHandlerFactory:

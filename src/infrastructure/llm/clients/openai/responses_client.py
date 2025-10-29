@@ -402,45 +402,73 @@ class LightweightResponsesClient(ResponsesAPIClient):
                 status_code = getattr(response, "status_code", None)
                 if status_code is not None:
                     if status_code == 401:
-                        return LLMAuthenticationError("OpenAI API 密钥无效")
+                        llm_error = LLMAuthenticationError("OpenAI API 密钥无效")
+                        llm_error.original_error = error
+                        return llm_error
                     elif status_code == 429:
                         retry_after = None
                         headers = getattr(response, "headers", None)
                         if headers and "retry-after" in headers:
                             retry_after = int(headers["retry-after"])
-                        return LLMRateLimitError(
+                        llm_error = LLMRateLimitError(
                             "OpenAI API 频率限制", retry_after=retry_after
                         )
+                        llm_error.original_error = error
+                        return llm_error
                     elif status_code == 404:
-                        return LLMModelNotFoundError(self.config.model_name)
+                        llm_error = LLMModelNotFoundError(self.config.model_name)
+                        llm_error.original_error = error
+                        return llm_error
                     elif status_code == 400:
-                        return LLMInvalidRequestError("OpenAI API 请求无效")
+                        llm_error = LLMInvalidRequestError("OpenAI API 请求无效")
+                        llm_error.original_error = error
+                        return llm_error
                     elif status_code in [500, 502, 503]:
-                        return LLMServiceUnavailableError("OpenAI 服务不可用")
+                        llm_error = LLMServiceUnavailableError("OpenAI 服务不可用")
+                        llm_error.original_error = error
+                        return llm_error
         except (AttributeError, ValueError, TypeError):
             # 如果访问属性时出错，忽略并继续执行其他错误检查
             pass
         
         # 根据错误消息判断
         if "timeout" in error_str or "timed out" in error_str:
-            return LLMTimeoutError(str(error), timeout=self.config.timeout)
+            llm_error = LLMTimeoutError(str(error), timeout=self.config.timeout)
+            llm_error.original_error = error
+            return llm_error
         elif "rate limit" in error_str or "too many requests" in error_str:
-            return LLMRateLimitError(str(error))
+            llm_error = LLMRateLimitError(str(error))
+            llm_error.original_error = error
+            return llm_error
         elif (
             "authentication" in error_str
             or "unauthorized" in error_str
             or "invalid api key" in error_str
         ):
-            return LLMAuthenticationError(str(error))
+            llm_error = LLMAuthenticationError(str(error))
+            llm_error.original_error = error
+            return llm_error
         elif "model not found" in error_str or "not found" in error_str:
-            return LLMModelNotFoundError(self.config.model_name)
+            llm_error = LLMModelNotFoundError(self.config.model_name)
+            llm_error.original_error = error
+            return llm_error
         elif "token" in error_str and "limit" in error_str:
-            return LLMTokenLimitError(str(error))
+            llm_error = LLMTokenLimitError(str(error))
+            llm_error.original_error = error
+            return llm_error
         elif "content filter" in error_str or "content policy" in error_str:
-            return LLMContentFilterError(str(error))
+            llm_error = LLMContentFilterError(str(error))
+            llm_error.original_error = error
+            return llm_error
         elif "service unavailable" in error_str or "503" in error_str:
-            return LLMServiceUnavailableError(str(error))
+            llm_error = LLMServiceUnavailableError(str(error))
+            llm_error.original_error = error
+            return llm_error
         elif "invalid request" in error_str or "bad request" in error_str:
-            return LLMInvalidRequestError(str(error))
+            llm_error = LLMInvalidRequestError(str(error))
+            llm_error.original_error = error
+            return llm_error
         else:
-            return LLMCallError(str(error))
+            llm_error = LLMCallError(str(error))
+            llm_error.original_error = error
+            return llm_error

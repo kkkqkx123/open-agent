@@ -163,7 +163,7 @@ class TestStateManagementRefactor:
         # 验证历史记录
         history = enhanced_state_manager.get_state_history("test_agent")
         assert len(history) >= 1
-        assert any(entry.action == "execution_success" for entry in history)
+        assert any(entry.get("action") == "execution_success" for entry in history)
         
         # 验证快照
         snapshots = enhanced_state_manager.get_snapshot_history("test_agent")

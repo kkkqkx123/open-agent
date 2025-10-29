@@ -1,6 +1,6 @@
 """LLM模块异常定义"""
 
-from typing import Optional
+from typing import Optional, Dict, Any
 
 
 class LLMError(Exception):
@@ -31,6 +31,8 @@ class LLMCallError(LLMError):
         error_code: Optional[str] = None,
         is_retryable: bool = False,
         retry_after: Optional[int] = None,
+        original_error: Optional[Exception] = None,
+        error_context: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         初始化LLM调用错误
@@ -41,12 +43,16 @@ class LLMCallError(LLMError):
             error_code: 错误代码
             is_retryable: 是否可重试
             retry_after: 重试等待时间（秒）
+            original_error: 原始错误
+            error_context: 错误上下文
         """
         super().__init__(message)
         self.error_type = error_type
         self.error_code = error_code
         self.is_retryable = is_retryable
         self.retry_after = retry_after
+        self.original_error = original_error
+        self.error_context = error_context
 
 
 class LLMTimeoutError(LLMCallError):

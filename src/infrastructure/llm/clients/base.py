@@ -130,7 +130,33 @@ class BaseLLMClient(ILLMClient):
 
         # 使用错误处理器处理错误
         error_handler = ErrorHandlerFactory.create_handler(self.config.model_type)
-        return error_handler.handle_error(error, context.to_dict())
+        llm_error = error_handler.handle_error(error, context.to_dict())
+        
+        # 保留原始错误信息
+        if not hasattr(llm_error, 'original_error') or llm_error.original_error is None:
+            llm_error.original_error = error
+        if not hasattr(llm_error, 'error_context') or llm_error.error_context is None:
+            llm_error.error_context = context.to_dict()
+            
+        return llm_error
+    
+    def _create_enhanced_error(
+        self,
+        error_class: type,
+        message: str,
+        original_error: Exception,
+        **kwargs
+    ) -> LLMCallError:
+        """创建增强的错误对象，保留原始错误信息"""
+        # 移除可能冲突的参数
+        if 'model_name' in kwargs:
+            kwargs.pop('model_name')
+        
+        error = error_class(message, **kwargs)
+        error.original_error = original_error
+        error.error_type = type(original_error).__name__
+        error.model_name = self.config.model_name
+        return error
 
     def _create_response(
         self,
@@ -180,6 +206,88 @@ class BaseLLMClient(ILLMClient):
             merged.update(parameters)
 
         return merged
+    
+    def _extract_system_message(self, messages: Sequence[BaseMessage]) -> Optional[str]:
+        """提取系统消息内容"""
+        from langchain_core.messages import SystemMessage
+        
+        for message in messages:
+            if isinstance(message, SystemMessage):
+                # 确保返回字符串类型
+                content = message.content
+                if isinstance(content, str):
+                    return content
+                elif isinstance(content, list):
+                    # 如果是列表，转换为字符串
+                    return str(content)
+        return None
+    
+    def _prepare_parameters_with_system_message(
+        self,
+        messages: Sequence[BaseMessage],
+        parameters: Dict[str, Any]
+    ) -> tuple[Sequence[BaseMessage], Dict[str, Any]]:
+        """准备参数，包括系统消息处理"""
+        # 提取系统消息
+        system_message = self._extract_system_message(messages)
+        
+        # 如果有系统消息，添加到参数中
+        params = parameters.copy()
+        if system_message:
+            params["system"] = system_message
+            
+        return messages, params
+    
+    def _extract_function_call_enhanced(self, response: Any) -> Optional[Dict[str, Any]]:
+        """增强的函数调用信息提取，支持多种格式"""
+        # 检查additional_kwargs中的function_call
+        if hasattr(response, "additional_kwargs"):
+            additional_kwargs = response.additional_kwargs
+            if isinstance(additional_kwargs, dict):
+                if "function_call" in additional_kwargs:
+                    result = additional_kwargs["function_call"]
+                    if isinstance(result, dict):
+                        return result
+        
+        # 检查tool_calls
+        if hasattr(response, "tool_calls"):
+            tool_calls = response.tool_calls
+            # 处理Mock对象和实际对象
+            if tool_calls is not None:
+                # 如果是Mock对象，尝试获取其长度或直接检查是否为空
+                try:
+                    if hasattr(tool_calls, "__len__") and len(tool_calls) > 0:
+                        # 返回第一个工具调用
+                        tool_call = tool_calls[0]
+                        if hasattr(tool_call, "dict"):
+                            return tool_call.dict()
+                        elif isinstance(tool_call, dict):
+                            return tool_call
+                except TypeError:
+                    # 如果tool_calls是Mock对象且没有长度，跳过
+                    pass
+        
+        # 检查response_metadata中的函数调用信息
+        if hasattr(response, "response_metadata"):
+            metadata = response.response_metadata
+            if isinstance(metadata, dict):
+                if "function_call" in metadata:
+                    result = metadata["function_call"]
+                    if isinstance(result, dict):
+                        return result
+                elif "tool_calls" in metadata:
+                    tool_calls = metadata["tool_calls"]
+                    if tool_calls is not None:
+                        try:
+                            if hasattr(tool_calls, "__len__") and len(tool_calls) > 0:
+                                tool_call = tool_calls[0]
+                                if isinstance(tool_call, dict):
+                                    return tool_call
+                        except TypeError:
+                            # 如果tool_calls是Mock对象且没有长度，跳过
+                            pass
+        
+        return None
 
     def _validate_messages(self, messages: Sequence[BaseMessage]) -> None:
         """验证消息列表"""
@@ -450,15 +558,25 @@ class BaseLLMClient(ILLMClient):
         """执行异步生成操作（子类实现）"""
         pass
 
-    @abstractmethod
     def get_token_count(self, text: str) -> int:
-        """计算文本的token数量（子类实现）"""
-        pass
+        """计算文本的token数量"""
+        from ..token_counter import TokenCounterFactory
 
-    @abstractmethod
+        # 使用Token计算器
+        counter = TokenCounterFactory.create_counter(
+            self.config.model_type, self.config.model_name
+        )
+        return counter.count_tokens(text) or 0
+
     def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
-        """计算消息列表的token数量（子类实现）"""
-        pass
+        """计算消息列表的token数量"""
+        from ..token_counter import TokenCounterFactory
+
+        # 使用Token计算器
+        counter = TokenCounterFactory.create_counter(
+            self.config.model_type, self.config.model_name
+        )
+        return counter.count_messages_tokens(messages) or 0
 
     @abstractmethod
     def supports_function_calling(self) -> bool:

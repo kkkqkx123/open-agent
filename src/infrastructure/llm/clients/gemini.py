@@ -176,21 +176,6 @@ class GeminiClient(BaseLLMClient):
             # 处理Gemini特定错误
             raise self._handle_gemini_error(e)
 
-    def get_token_count(self, text: str) -> int:
-        """计算文本的token数量"""
-        from ..token_counter import TokenCounterFactory
-
-        # 使用Token计算器
-        counter = TokenCounterFactory.create_counter("gemini", self.config.model_name)
-        return counter.count_tokens(text) or 0
-
-    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
-        """计算消息列表的token数量"""
-        from ..token_counter import TokenCounterFactory
-
-        # 使用Token计算器
-        counter = TokenCounterFactory.create_counter("gemini", self.config.model_name)
-        return counter.count_messages_tokens(messages) or 0
 
     def supports_function_calling(self) -> bool:
         """检查是否支持函数调用"""
@@ -222,16 +207,7 @@ class GeminiClient(BaseLLMClient):
 
     def _extract_function_call(self, response: Any) -> Optional[Dict[str, Any]]:
         """提取函数调用信息"""
-        if (
-            hasattr(response, "additional_kwargs")
-            and "function_call" in response.additional_kwargs
-        ):
-            result = response.additional_kwargs["function_call"]
-            if isinstance(result, dict):
-                return result
-            else:
-                return None
-        return None
+        return self._extract_function_call_enhanced(response)
 
     def _extract_finish_reason(self, response: Any) -> Optional[str]:
         """提取完成原因"""
@@ -277,56 +253,112 @@ class GeminiClient(BaseLLMClient):
                 status_code = getattr(response, "status_code", None)
                 if status_code is not None:
                     if status_code == 401 or status_code == 403:
-                        return LLMAuthenticationError("Gemini API密钥无效或权限不足")
+                        return self._create_enhanced_error(
+                            LLMAuthenticationError,
+                            "Gemini API密钥无效或权限不足",
+                            error
+                        )
                     elif status_code == 429:
                         retry_after = None
                         headers = getattr(response, "headers", None)
                         if headers and "retry-after" in headers:
                             retry_after = int(headers["retry-after"])
-                        return LLMRateLimitError(
-                            "Gemini API频率限制", retry_after=retry_after
+                        return self._create_enhanced_error(
+                            LLMRateLimitError,
+                            "Gemini API频率限制",
+                            error,
+                            retry_after=retry_after
                         )
                     elif status_code == 404:
-                        return LLMModelNotFoundError(self.config.model_name)
+                        return self._create_enhanced_error(
+                            LLMModelNotFoundError,
+                            f"模型未找到: {self.config.model_name}",
+                            error
+                        )
                     elif status_code == 400:
-                        return LLMInvalidRequestError("Gemini API请求无效")
-                    elif status_code == 50 or status_code == 502 or status_code == 503:
-                        return LLMServiceUnavailableError("Gemini服务不可用")
+                        return self._create_enhanced_error(
+                            LLMInvalidRequestError,
+                            "Gemini API请求无效",
+                            error
+                        )
+                    elif status_code == 500 or status_code == 502 or status_code == 503:
+                        return self._create_enhanced_error(
+                            LLMServiceUnavailableError,
+                            "Gemini服务不可用",
+                            error
+                        )
         except (AttributeError, ValueError, TypeError):
             # 如果访问属性时出错，忽略并继续执行其他错误检查
             pass
 
         # 根据错误消息判断
         if "timeout" in error_str or "timed out" in error_str:
-            return LLMTimeoutError(str(error), timeout=self.config.timeout)
+            return self._create_enhanced_error(
+                LLMTimeoutError,
+                f"请求超时: {str(error)}",
+                error,
+                timeout=self.config.timeout
+            )
         elif (
             "rate limit" in error_str
             or "quota" in error_str
             or "too many requests" in error_str
         ):
-            return LLMRateLimitError(str(error))
+            return self._create_enhanced_error(
+                LLMRateLimitError,
+                f"API频率限制: {str(error)}",
+                error
+            )
         elif (
             "permission" in error_str
             or "forbidden" in error_str
             or "authentication" in error_str
         ):
-            return LLMAuthenticationError(str(error))
+            return self._create_enhanced_error(
+                LLMAuthenticationError,
+                f"认证错误: {str(error)}",
+                error
+            )
         elif "model not found" in error_str or "not found" in error_str:
-            return LLMModelNotFoundError(self.config.model_name)
+            return self._create_enhanced_error(
+                LLMModelNotFoundError,
+                f"模型未找到: {self.config.model_name}",
+                error
+            )
         elif "token" in error_str and "limit" in error_str:
-            return LLMTokenLimitError(str(error))
+            return self._create_enhanced_error(
+                LLMTokenLimitError,
+                f"Token限制: {str(error)}",
+                error
+            )
         elif (
             "content filter" in error_str
             or "safety" in error_str
             or "blocked" in error_str
         ):
-            return LLMContentFilterError(str(error))
+            return self._create_enhanced_error(
+                LLMContentFilterError,
+                f"内容过滤: {str(error)}",
+                error
+            )
         elif "service unavailable" in error_str or "503" in error_str:
-            return LLMServiceUnavailableError(str(error))
+            return self._create_enhanced_error(
+                LLMServiceUnavailableError,
+                f"服务不可用: {str(error)}",
+                error
+            )
         elif "invalid request" in error_str or "bad request" in error_str:
-            return LLMInvalidRequestError(str(error))
+            return self._create_enhanced_error(
+                LLMInvalidRequestError,
+                f"无效请求: {str(error)}",
+                error
+            )
         else:
-            return LLMCallError(str(error))
+            return self._create_enhanced_error(
+                LLMCallError,
+                f"Gemini API错误: {str(error)}",
+                error
+            )
 
     def _do_stream_generate(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
