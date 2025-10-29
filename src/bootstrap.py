@@ -12,8 +12,9 @@ from typing import Dict, Any, Optional, List, Callable
 from pathlib import Path
 
 from src.infrastructure.container import get_global_container, DependencyContainer, IDependencyContainer
+from src.infrastructure.di_config import DIConfig, create_container, get_global_container as get_di_container
+from src.infrastructure.lifecycle_manager import LifecycleManager, get_global_lifecycle_manager
 from src.infrastructure.config_loader import YamlConfigLoader
-from src.infrastructure.assembler import ComponentAssembler, AssemblyError
 from src.infrastructure.exceptions import InfrastructureError
 
 logger = logging.getLogger(__name__)
@@ -33,9 +34,9 @@ class ApplicationBootstrap:
             config_path: 应用配置文件路径
         """
         self.config_path = config_path
-        self.container = DependencyContainer()
-        self.config_loader = YamlConfigLoader()
-        self.assembler = ComponentAssembler(self.container, self.config_loader)
+        self.container: Optional[IDependencyContainer] = None
+        self.lifecycle_manager: Optional[LifecycleManager] = None
+        self.config_loader: Optional[YamlConfigLoader] = None
         self._shutdown_handlers: List[Callable] = []
         self._background_threads: List[threading.Thread] = []
         self._is_running = False
@@ -73,22 +74,28 @@ class ApplicationBootstrap:
             # 4. 执行启动前钩子
             self._execute_pre_startup_hooks(app_config)
             
-            # 5. 组装组件
-            self._assemble_components(app_config)
+            # 5. 配置依赖注入容器
+            self._configure_container(app_config)
             
-            # 6. 注册全局容器
+            # 6. 初始化生命周期管理器
+            self._initialize_lifecycle_manager()
+            
+            # 7. 启动核心服务
+            self._start_core_services()
+            
+            # 8. 注册全局容器
             self._register_global_container()
             
-            # 7. 启动后台任务
+            # 9. 启动后台任务
             self._start_background_tasks(app_config)
             
-            # 8. 执行启动后钩子
+            # 10. 执行启动后钩子
             self._execute_post_startup_hooks(app_config)
             
-            # 9. 执行健康检查
+            # 11. 执行健康检查
             self._perform_health_checks(app_config)
             
-            # 10. 标记为运行中
+            # 12. 标记为运行中
             self._is_running = True
             self._startup_time = time.time() - start_time
             
@@ -137,6 +144,8 @@ class ApplicationBootstrap:
             Dict[str, Any]: 应用配置
         """
         try:
+            # 使用简化的配置加载器
+            self.config_loader = YamlConfigLoader()
             config = self.config_loader.load(self.config_path)
             logger.info(f"成功加载应用配置: {self.config_path}")
             return config
@@ -152,9 +161,6 @@ class ApplicationBootstrap:
         # 获取环境配置
         app_config = config.get("application", {})
         env = app_config.get("environment", "development")
-        
-        # 设置容器环境
-        self.container.set_environment(env)
         
         # 设置环境变量
         env_prefix = app_config.get("env_prefix", "AGENT_")
@@ -175,8 +181,8 @@ class ApplicationBootstrap:
         """
         # 获取日志配置
         environments = config.get("environments", {})
-        current_env = self.container.get_environment()
-        env_config = environments.get(current_env, {})
+        env = config.get("application", {}).get("environment", "development")
+        env_config = environments.get(env, {})
         
         log_level = env_config.get("log_level", "INFO")
         
@@ -208,25 +214,123 @@ class ApplicationBootstrap:
             except Exception as e:
                 logger.warning(f"执行启动前钩子 {hook_name} 失败: {e}")
     
-    def _assemble_components(self, config: Dict[str, Any]) -> None:
-        """组装组件
+    def _configure_container(self, config: Dict[str, Any]) -> None:
+        """配置依赖注入容器
         
         Args:
             config: 应用配置
         """
         try:
-            self.container = self.assembler.assemble(config)
-            logger.info("组件组装完成")
-        except AssemblyError as e:
-            raise InfrastructureError(f"组件组装失败: {e}")
+            # 获取配置参数
+            app_config = config.get("application", {})
+            config_path = app_config.get("config_path", "configs")
+            environment = app_config.get("environment", "development")
+            
+            # 获取额外服务配置
+            additional_services = config.get("additional_services", {})
+            
+            # 使用简化的DI配置创建容器
+            self.container = create_container(
+                config_path=config_path,
+                environment=environment,
+                additional_services=additional_services
+            )
+            
+            logger.info("依赖注入容器配置完成")
+        except Exception as e:
+            raise InfrastructureError(f"依赖注入容器配置失败: {e}")
+    
+    def _initialize_lifecycle_manager(self) -> None:
+        """初始化生命周期管理器"""
+        try:
+            self.lifecycle_manager = get_global_lifecycle_manager()
+            
+            # 注册生命周期感知的服务
+            self._register_lifecycle_services()
+            
+            logger.info("生命周期管理器初始化完成")
+        except Exception as e:
+            logger.warning(f"生命周期管理器初始化失败: {e}")
+    
+    def _register_lifecycle_services(self) -> None:
+        """注册生命周期感知的服务"""
+        if not self.lifecycle_manager or not self.container:
+            return
+        
+        # 注册核心服务到生命周期管理器
+        core_services = [
+            ("config_loader", "IConfigLoader"),
+            ("workflow_manager", "IWorkflowManager"),
+            ("session_manager", "ISessionManager"),
+        ]
+        
+        for service_name, interface_name in core_services:
+            try:
+                # 解析接口类型
+                interface_type = self._resolve_interface_type(interface_name)
+                if interface_type and self.container.has_service(interface_type):
+                    service = self.container.get(interface_type)
+                    if isinstance(service, type(service).__class__):  # 简单检查是否实现了ILifecycleAware
+                        self.lifecycle_manager.register_service(service_name, service)
+            except Exception as e:
+                logger.warning(f"注册生命周期服务 {service_name} 失败: {e}")
+    
+    def _resolve_interface_type(self, interface_name: str):
+        """解析接口类型
+        
+        Args:
+            interface_name: 接口名称
+            
+        Returns:
+            接口类型，如果解析失败则返回None
+        """
+        try:
+            # 简单的接口类型解析
+            if interface_name == "IConfigLoader":
+                from src.infrastructure.config_loader import IConfigLoader
+                return IConfigLoader
+            elif interface_name == "IWorkflowManager":
+                from src.application.workflow.manager import IWorkflowManager
+                return IWorkflowManager
+            elif interface_name == "ISessionManager":
+                from src.application.sessions.manager import ISessionManager
+                return ISessionManager
+            return None
+        except ImportError:
+            return None
+    
+    def _start_core_services(self) -> None:
+        """启动核心服务"""
+        if not self.lifecycle_manager:
+            return
+        
+        try:
+            # 初始化所有服务
+            results = self.lifecycle_manager.initialize_all_services()
+            failed_services = [name for name, success in results.items() if not success]
+            
+            if failed_services:
+                logger.warning(f"部分服务初始化失败: {failed_services}")
+            
+            # 启动所有服务
+            results = self.lifecycle_manager.start_all_services()
+            failed_services = [name for name, success in results.items() if not success]
+            
+            if failed_services:
+                logger.warning(f"部分服务启动失败: {failed_services}")
+            
+            logger.info("核心服务启动完成")
+        except Exception as e:
+            logger.error(f"启动核心服务失败: {e}")
     
     def _register_global_container(self) -> None:
         """注册全局容器"""
-        # 设置全局容器实例
-        import src.infrastructure.container as container_module
-        container_module._global_container = self.container
-        
-        logger.info("全局容器注册完成")
+        if self.container:
+            # 设置全局容器实例
+            import src.infrastructure.container as container_module
+            container_module._global_container = self.container
+            
+            logger.info("全局容器注册完成")
     
     def _start_background_tasks(self, config: Dict[str, Any]) -> None:
         """启动后台任务
@@ -282,15 +386,14 @@ class ApplicationBootstrap:
         # 检查关键服务
         critical_services = [
             "IConfigLoader",
-            "ILLMFactory",
-            "IToolManager",
-            "IAgentFactory"
+            "IWorkflowManager",
+            "ISessionManager"
         ]
         
         for service_name in critical_services:
             try:
-                service_type = self.assembler._resolve_type(service_name)
-                if service_type and self.container.has_service(service_type):
+                service_type = self._resolve_interface_type(service_name)
+                if service_type and self.container and self.container.has_service(service_type):
                     instance = self.container.get(service_type)
                     logger.debug(f"健康检查通过: {service_name}")
                 else:
@@ -333,7 +436,7 @@ class ApplicationBootstrap:
             raise InfrastructureError("缺少版本信息")
         
         # 验证必需的配置项
-        required_sections = ["application", "assembly", "dependencies"]
+        required_sections = ["application"]
         for section in required_sections:
             if section not in config:
                 raise InfrastructureError(f"缺少必需的配置节: {section}")
@@ -348,7 +451,8 @@ class ApplicationBootstrap:
             
             # 注册到容器
             from src.application.workflow.interfaces import IWorkflowTemplateRegistry
-            self.container.register_instance(IWorkflowTemplateRegistry, registry)
+            if self.container:
+                self.container.register_instance(IWorkflowTemplateRegistry, registry)
             
             logger.info("工作流模板注册完成")
         except Exception as e:
@@ -361,18 +465,29 @@ class ApplicationBootstrap:
             from src.domain.agent.interfaces import IAgentFactory
             
             # 注册Agent工厂
-            if not self.container.has_service(IAgentFactory):
-                llm_factory_type = self.assembler._resolve_type("ILLMFactory")
-                tool_executor_type = self.assembler._resolve_type("IToolExecutor")
-                if llm_factory_type is None:
-                    raise ValueError("无法解析 ILLMFactory 类型")
-                if tool_executor_type is None:
-                    raise ValueError("无法解析 IToolExecutor 类型")
-                llm_factory = self.container.get(llm_factory_type)
-                tool_executor = self.container.get(tool_executor_type)
-                
-                agent_factory = AgentFactory(llm_factory, tool_executor)
-                self.container.register_instance(IAgentFactory, agent_factory)
+            if self.container:
+                if not self.container.has_service(IAgentFactory):
+                    # 简化的依赖获取
+                    llm_factory = None
+                    tool_executor = None
+                    
+                    try:
+                        from src.infrastructure.llm.factory import ILLMFactory
+                        if self.container.has_service(ILLMFactory):
+                            llm_factory = self.container.get(ILLMFactory)
+                    except ImportError:
+                        pass
+                    
+                    try:
+                        from src.domain.tools.executor import IToolExecutor
+                        if self.container.has_service(IToolExecutor):
+                            tool_executor = self.container.get(IToolExecutor)
+                    except ImportError:
+                        pass
+                    
+                    if llm_factory and tool_executor:
+                        agent_factory = AgentFactory(llm_factory, tool_executor)
+                        self.container.register_instance(IAgentFactory, agent_factory)
             
             logger.info("Agent类型注册完成")
         except Exception as e:
@@ -423,8 +538,14 @@ class ApplicationBootstrap:
                 if thread.is_alive():
                     logger.warning(f"后台线程未能在超时时间内结束: {thread.name}")
         
+        # 停止生命周期管理器
+        if self.lifecycle_manager:
+            self.lifecycle_manager.stop_all_services()
+            self.lifecycle_manager.dispose()
+        
         # 清理容器
-        self.container.clear()
+        if self.container:
+            self.container.clear()
 
 
 # 全局启动器实例

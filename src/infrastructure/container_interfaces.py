@@ -26,18 +26,27 @@ class ServiceStatus(Enum):
     CREATED = "created"
     INITIALIZING = "initializing"
     INITIALIZED = "initialized"
+    STOPPED = "stopped"
     DISPOSING = "disposing"
     DISPOSED = "disposed"
 
 
 class ILifecycleAware(ABC):
     """生命周期感知接口"""
-    
+
     @abstractmethod
     def initialize(self) -> None:
         """初始化服务"""
         pass
-    
+
+    def start(self) -> None:
+        """启动服务（可选）"""
+        pass
+
+    def stop(self) -> None:
+        """停止服务（可选）"""
+        pass
+
     @abstractmethod
     def dispose(self) -> None:
         """释放服务资源"""

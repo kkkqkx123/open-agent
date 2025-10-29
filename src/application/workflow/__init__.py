@@ -7,7 +7,6 @@ from .interfaces import IWorkflowManager
 from .factory import IWorkflowFactory
 from .manager import WorkflowManager
 from .factory import WorkflowFactory
-from .builder_adapter import WorkflowBuilderAdapter
 from .di_config import WorkflowModule, configure_workflow_container
 from src.infrastructure.graph.states import (
     BaseGraphState, WorkflowState,
@@ -23,7 +22,6 @@ __all__ = [
     # 实现类
     "WorkflowManager",
     "WorkflowFactory",
-    "WorkflowBuilderAdapter",
     
     # 状态类
     "BaseGraphState",

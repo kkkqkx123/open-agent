@@ -22,12 +22,12 @@ class ComponentAssembler(IComponentAssembler):
     """简化的组件组装器实现
     
     根据架构文档建议，实现配置驱动的组装流程：
-    1) 读取配置 → 验证Schema
-    2) LLMFactory 根据 llm 配置创建/缓存模型实例
-    3) ToolFactory 根据 tools 配置创建工具
-    4) AgentFactory 组合 LLM + Tools + Prompt
-    5) WorkflowBuilder 把 Agents 装配成 StateGraph
-    6) SessionFactory 创建 Checkpointer
+    1. 读取配置 → 验证Schema
+    2. LLMFactory 根据 llm 配置创建/缓存模型实例
+    3. ToolFactory 根据 tools 配置创建工具
+    4. AgentFactory 组合 LLM + Tools + Prompt
+    5. WorkflowBuilder 把 Agents 装配成 StateGraph
+    6. SessionFactory 创建 Checkpointer
     """
     
     def __init__(
@@ -95,7 +95,7 @@ class ComponentAssembler(IComponentAssembler):
         Args:
             services_config: 服务配置
         """
-        # 此方法保留用于向后兼容，但实际组装逻辑在assemble方法中
+        # 此方法保留用于向后兼容，但实际组装逻辑在assemble方法中完成
         logger.info("register_services调用，但实际组装在assemble方法中完成")
     
     def register_dependencies(self, dependencies_config: Dict[str, Any]) -> None:
@@ -120,7 +120,7 @@ class ComponentAssembler(IComponentAssembler):
             return self.container.get(service_type)
         except Exception as e:
             raise AssemblyError(f"解析依赖 {service_type} 失败: {e}")
-
+    
     def _resolve_type(self, service_name: str) -> Optional[Type]:
         """根据服务名称解析类型
 
@@ -137,7 +137,7 @@ class ComponentAssembler(IComponentAssembler):
             "IToolExecutor": self._get_type_from_module("..tools.interfaces", "IToolExecutor"),
         }
         return type_mapping.get(service_name)
-
+    
     def _get_type_from_module(self, module_path: str, type_name: str) -> Optional[Type]:
         """从模块中获取类型
 
@@ -153,7 +153,7 @@ class ComponentAssembler(IComponentAssembler):
             return getattr(module, type_name, None)
         except (ImportError, AttributeError):
             return None
-
+    
     def validate_configuration(self, config: Dict[str, Any]) -> list[str]:
         """验证配置
         
@@ -247,12 +247,12 @@ class ComponentAssembler(IComponentAssembler):
             tool_executor=tool_executor
         )
         
-        # 4. 创建工作流构建器
+        # 4. 创建图构建器
         workflows_config = components_config.get("workflows", {})
-        from ...application.workflow.builder_adapter import WorkflowBuilderAdapter
+        from src.infrastructure.graph.builder import GraphBuilder
         from src.infrastructure.graph.registry import get_global_registry
         
-        self._factories["workflow_builder"] = WorkflowBuilderAdapter(
+        self._factories["graph_builder"] = GraphBuilder(
             node_registry=get_global_registry()
         )
         
@@ -297,10 +297,10 @@ class ComponentAssembler(IComponentAssembler):
             instance=self._factories["agent_factory"]
         )
         
-        from ...application.workflow.interfaces import IWorkflowBuilder
+        from src.infrastructure.graph.builder import GraphBuilder
         self.container.register_instance(
-            interface=IWorkflowBuilder,
-            instance=self._factories["workflow_builder"]
+            interface=GraphBuilder,
+            instance=self._factories["graph_builder"]
         )
         
         # 注册状态管理器
@@ -322,7 +322,10 @@ class ComponentAssembler(IComponentAssembler):
         
         # 创建工作流管理器
         from ...application.workflow.manager import WorkflowManager, IWorkflowManager
-        workflow_manager = WorkflowManager(self._factories["workflow_builder"])
+        workflow_manager = WorkflowManager(
+            config_loader=self.config_loader,
+            container=self.container
+        )
         
         self.container.register_instance(
             interface=IWorkflowManager,
@@ -520,7 +523,6 @@ class ComponentAssembler(IComponentAssembler):
                 logger.error(f"注册服务 {service_name} 失败: {e}")
                 # 继续注册其他服务，不要因为一个服务失败而中断
                 continue
-    
 
 
 class SessionFactory:
@@ -560,7 +562,7 @@ class SessionFactory:
         # 这里可以根据配置创建不同类型的检查点
         # 目前返回一个简单的检查点实现
         return SimpleCheckpointer(self.auto_save)
-
+    
 
 class SimpleCheckpointer:
     """简单的检查点实现"""

@@ -7,39 +7,78 @@ from typing import Dict, Any, Optional, List, Union, AsyncGenerator, Generator
 from pathlib import Path
 import uuid
 from datetime import datetime
+import logging
 
 from src.infrastructure.graph.config import WorkflowConfig
-from src.infrastructure.graph.registry import NodeRegistry, get_global_registry
 from src.infrastructure.graph.states import WorkflowState, StateFactory
 from src.infrastructure.config_loader import IConfigLoader
-from .builder_adapter import WorkflowBuilderAdapter
+from src.infrastructure.container import IDependencyContainer
+from src.infrastructure.graph.builder import GraphBuilder
+from src.infrastructure.graph.registry import get_global_registry
+from .factory import IWorkflowFactory, WorkflowFactory
 from .interfaces import IWorkflowManager
+
+logger = logging.getLogger(__name__)
 
 
 class WorkflowManager(IWorkflowManager):
-    """工作流管理器实现"""
+    """工作流管理器实现
+    
+    专注于工作流生命周期管理，包括：
+    - 工作流加载和卸载
+    - 工作流执行和监控
+    - 工作流元数据管理
+    """
 
     def __init__(
         self,
         config_loader: Optional[IConfigLoader] = None,
-        node_registry: Optional[NodeRegistry] = None,
-        workflow_builder: Optional[Any] = None
+        container: Optional[IDependencyContainer] = None,
+        workflow_factory: Optional[IWorkflowFactory] = None,
+        graph_builder: Optional[GraphBuilder] = None
     ) -> None:
         """初始化工作流管理器
 
         Args:
             config_loader: 配置加载器
-            node_registry: 节点注册表
-            workflow_builder: 工作流构建器
+            container: 依赖注入容器
+            workflow_factory: 工作流工厂
+            graph_builder: 图构建器
         """
         self.config_loader = config_loader
-        self.node_registry = node_registry or get_global_registry()
-        self.workflow_builder = workflow_builder or WorkflowBuilderAdapter(self.node_registry)
+        self.container = container
+        self.workflow_factory = workflow_factory
+        self.graph_builder = graph_builder
+        
+        # 延迟初始化组件
+        self._workflow_factory = None
+        self._graph_builder = None
         
         # 工作流存储
         self._workflows: Dict[str, Any] = {}
         self._workflow_configs: Dict[str, WorkflowConfig] = {}
         self._workflow_metadata: Dict[str, Dict[str, Any]] = {}
+
+    def _get_workflow_factory(self) -> IWorkflowFactory:
+        """获取工作流工厂（延迟初始化）"""
+        if self._workflow_factory is None:
+            if self.workflow_factory:
+                self._workflow_factory = self.workflow_factory
+            elif self.container:
+                self._workflow_factory = self.container.get(IWorkflowFactory)
+            else:
+                self._workflow_factory = WorkflowFactory(self.container)
+        return self._workflow_factory
+
+    def _get_graph_builder(self) -> GraphBuilder:
+        """获取图构建器（延迟初始化）"""
+        if self._graph_builder is None:
+            if self.graph_builder:
+                self._graph_builder = self.graph_builder
+            else:
+                node_registry = get_global_registry()
+                self._graph_builder = GraphBuilder(node_registry=node_registry)
+        return self._graph_builder
 
     def load_workflow(self, config_path: str) -> str:
         """加载工作流配置
@@ -50,14 +89,15 @@ class WorkflowManager(IWorkflowManager):
         Returns:
             str: 工作流ID
         """
-        # 加载配置
-        workflow_config = self.workflow_builder.load_workflow_config(config_path)
+        # 使用工作流工厂加载配置
+        workflow_factory = self._get_workflow_factory()
+        workflow_config = workflow_factory.load_workflow_config(config_path)
         
         # 生成工作流ID
         workflow_id = self._generate_workflow_id(workflow_config.name)
         
         # 创建工作流实例
-        workflow = self.workflow_builder.build_graph(workflow_config)
+        workflow = workflow_factory.create_workflow(workflow_config)
         
         # 存储工作流
         self._workflows[workflow_id] = workflow
@@ -417,9 +457,10 @@ class WorkflowManager(IWorkflowManager):
             return False
         
         try:
-            # 重新加载配置
-            workflow_config = self.workflow_builder.load_workflow_config(config_path)
-            workflow = self.workflow_builder.build_graph(workflow_config)
+            # 使用工作流工厂重新加载配置
+            workflow_factory = self._get_workflow_factory()
+            workflow_config = workflow_factory.load_workflow_config(config_path)
+            workflow = workflow_factory.create_workflow(workflow_config)
             
             # 更新存储
             self._workflows[workflow_id] = workflow

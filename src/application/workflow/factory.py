@@ -14,8 +14,8 @@ from src.infrastructure.graph.states import (
 from src.domain.agent.state import AgentState as DomainAgentState
 from src.infrastructure.graph.config import WorkflowConfig
 from src.infrastructure.graph.registry import NodeRegistry
+from src.infrastructure.graph.builder import GraphBuilder
 from src.infrastructure.container import IDependencyContainer
-from .builder_adapter import WorkflowBuilderAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -111,8 +111,8 @@ class IWorkflowFactory(ABC):
 
     @property
     @abstractmethod
-    def builder_adapter(self) -> 'WorkflowBuilderAdapter':
-        """获取构建器适配器"""
+    def graph_builder(self) -> GraphBuilder:
+        """获取图构建器"""
         pass
 
 
@@ -135,16 +135,16 @@ class WorkflowFactory(IWorkflowFactory):
         """
         self.container = container
         self.node_registry = node_registry
-        self._builder_adapter = None
+        self._graph_builder = None
     
     @property
-    def builder_adapter(self) -> WorkflowBuilderAdapter:
-        """获取构建器适配器（延迟初始化）"""
-        if self._builder_adapter is None:
-            self._builder_adapter = WorkflowBuilderAdapter(
-                node_registry=self.node_registry
+    def graph_builder(self) -> GraphBuilder:
+        """获取图构建器（延迟初始化）"""
+        if self._graph_builder is None:
+            self._graph_builder = GraphBuilder(
+                node_registry=self.node_registry or NodeRegistry()
             )
-        return self._builder_adapter
+        return self._graph_builder
     
     def create_workflow(
         self,
@@ -162,8 +162,8 @@ class WorkflowFactory(IWorkflowFactory):
         """
         logger.info(f"创建工作流: {config.name}")
         
-        # 使用构建器适配器创建工作流
-        workflow = self.builder_adapter.build_graph(config)
+        # 使用图构建器创建工作流
+        workflow = self.graph_builder.build_graph(config)
         
         # 如果提供了初始状态，进行状态初始化
         if initial_state:
@@ -243,7 +243,7 @@ class WorkflowFactory(IWorkflowFactory):
         domain_state.current_task = input_text
         domain_state.max_iterations = max_iterations
         domain_state.context = agent_config or {}
-
+        
         return domain_state
     
     def create_react_state(
@@ -317,7 +317,7 @@ class WorkflowFactory(IWorkflowFactory):
             工作流实例
         """
         # 加载配置
-        config = self.builder_adapter.load_workflow_config(config_path)
+        config = self.graph_builder.load_workflow_config(config_path)
         
         # 创建工作流
         return self.create_workflow(config, initial_state)
@@ -331,7 +331,7 @@ class WorkflowFactory(IWorkflowFactory):
         Returns:
             验证错误列表
         """
-        return self.builder_adapter.validate_config(config)
+        return self.graph_builder.validate_config(config)
     
     def _initialize_workflow_with_state(
         self,
@@ -371,7 +371,7 @@ class WorkflowFactory(IWorkflowFactory):
         """克隆工作流
         
         Args:
-            workflow: 原工作流实例
+            workflow: 原作流实例
             
         Returns:
             克隆的工作流实例

@@ -13,7 +13,7 @@ import threading
 from datetime import datetime
 
 from src.infrastructure.graph.config import WorkflowConfig
-from .builder_adapter import WorkflowBuilderAdapter
+from src.infrastructure.graph.builder import GraphBuilder
 
 
 class IWorkflowVisualizer(ABC):
@@ -61,13 +61,13 @@ class IWorkflowVisualizer(ABC):
 class LangGraphStudioVisualizer(IWorkflowVisualizer):
     """LangGraph Studio可视化器"""
     
-    def __init__(self, workflow_builder: Optional[WorkflowBuilderAdapter] = None):
+    def __init__(self, graph_builder: Optional[GraphBuilder] = None):
         """初始化可视化器
         
         Args:
-            workflow_builder: 工作流构建器
+            graph_builder: 图构建器
         """
-        self.workflow_builder = workflow_builder or WorkflowBuilderAdapter()
+        self.graph_builder = graph_builder or GraphBuilder()
     
     def visualize_workflow(self, workflow: Any, output_path: Optional[str] = None) -> str:
         """可视化工作流
@@ -134,7 +134,7 @@ class LangGraphStudioVisualizer(IWorkflowVisualizer):
 graph TD
     A[开始] --> B[处理]
     B --> C[结束]
-"""
+    """
     
     def _generate_visualization_data(self, workflow: Any) -> Dict[str, Any]:
         """生成可视化数据
@@ -213,13 +213,13 @@ def main():
     print(f"配置: {config}")
     
     # 实际实现中，这里会调用LangGraph Studio的API
-    # 例如：
+    # 例如:
     # from langgraph.studio import run_studio
     # run_studio(config)
-
+    
 if __name__ == "__main__":
     main()
-'''
+    '''
 
 
 class SimpleVisualizer(IWorkflowVisualizer):
@@ -254,7 +254,7 @@ class SimpleVisualizer(IWorkflowVisualizer):
 graph TD
     A[工作流] --> B[处理]
     B --> C[完成]
-"""
+    """
 
 
 def create_visualizer(visualizer_type: str = "simple", **kwargs) -> IWorkflowVisualizer:

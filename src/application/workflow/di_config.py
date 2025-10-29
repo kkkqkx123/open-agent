@@ -8,11 +8,11 @@ from src.infrastructure.container import IDependencyContainer, ServiceLifetime
 from src.infrastructure.config_loader import IConfigLoader
 from src.infrastructure.graph.registry import NodeRegistry
 from src.infrastructure.graph.states import StateFactory, StateSerializer
+from src.infrastructure.graph.builder import GraphBuilder
 from .interfaces import IWorkflowManager
 from .factory import IWorkflowFactory
-from .manager import WorkflowManager
 from .factory import WorkflowFactory
-from .builder_adapter import WorkflowBuilderAdapter
+from .manager import WorkflowManager
 
 
 class WorkflowModule:
@@ -39,11 +39,11 @@ class WorkflowModule:
             lifetime=ServiceLifetime.SINGLETON
         )
         
-        # 注册工作流构建器适配器（瞬态）
+        # 注册图构建器（单例）
         container.register(
-            WorkflowBuilderAdapter,
-            WorkflowBuilderAdapter,
-            lifetime=ServiceLifetime.TRANSIENT
+            GraphBuilder,
+            GraphBuilder,
+            lifetime=ServiceLifetime.SINGLETON
         )
         
         # 注册工作流工厂（单例）
@@ -81,24 +81,27 @@ class WorkflowModule:
         if not container.has_service(NodeRegistry):
             container.register_instance(NodeRegistry, node_registry)
         
-        # 注册工作流构建器适配器（带依赖）
+        # 注册图构建器（带依赖）
         container.register_factory(
-            WorkflowBuilderAdapter,
-            lambda: WorkflowBuilderAdapter(node_registry),
-            lifetime=ServiceLifetime.TRANSIENT
+            GraphBuilder,
+            lambda: GraphBuilder(node_registry=node_registry),
+            lifetime=ServiceLifetime.SINGLETON
         )
         
         # 注册工作流工厂（带依赖）
         container.register_factory(
             IWorkflowFactory,
-            lambda: WorkflowFactory(container, node_registry),
+            lambda: WorkflowFactory(container),
             lifetime=ServiceLifetime.SINGLETON
         )
         
         # 注册工作流管理器（带依赖）
         container.register_factory(
             IWorkflowManager,
-            lambda: WorkflowManager(config_loader, node_registry),
+            lambda: WorkflowManager(
+                config_loader=config_loader,
+                container=container
+            ),
             lifetime=ServiceLifetime.SINGLETON
         )
     
@@ -137,10 +140,10 @@ class WorkflowModule:
         """
         # 在开发环境中，可以启用额外的调试功能
         container.register_factory(
-            WorkflowBuilderAdapter,
-            lambda: WorkflowBuilderAdapter(),
+            GraphBuilder,
+            lambda: GraphBuilder(),
             environment="development",
-            lifetime=ServiceLifetime.TRANSIENT
+            lifetime=ServiceLifetime.SINGLETON
         )
     
     @staticmethod
@@ -240,3 +243,15 @@ def get_state_serializer(container: IDependencyContainer) -> StateSerializer:
         StateSerializer: 状态序列化器实例
     """
     return container.get(StateSerializer)
+
+
+def get_graph_builder(container: IDependencyContainer) -> GraphBuilder:
+    """获取图构建器
+    
+    Args:
+        container: 依赖注入容器
+        
+    Returns:
+        GraphBuilder: 图构建器实例
+    """
+    return container.get(GraphBuilder)
