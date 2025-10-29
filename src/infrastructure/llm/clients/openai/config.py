@@ -1,35 +1,22 @@
 """OpenAI 客户端简化配置"""
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union
+from ...config import LLMClientConfig
 
 
 @dataclass
-class OpenAIConfig:
+class OpenAIConfig(LLMClientConfig):
     """简化的 OpenAI 配置"""
     
-    # 基础配置
-    model_name: str
-    api_key: str
-    base_url: Optional[str] = None
-    
-    # API 格式选择
-    api_format: str = "chat_completion"  # chat_completion | responses
-    
-    # 生成参数
-    temperature: float = 0.7
-    max_tokens: Optional[int] = None
-    timeout: int = 30
-    max_retries: int = 3
-    
-    # 第三方 API 支持
-    custom_headers: Dict[str, str] = field(default_factory=dict)
+    # API 格式选择 - 添加到基础配置中
+    api_format: str = "chat_completion" # chat_completion | responses
     
     # Chat Completions 特定参数
     top_p: float = 1.0
     frequency_penalty: float = 0.0
     presence_penalty: float = 0.0
-    stop: Optional[list[str]] = None
+    stop: Optional[Union[List[str], str]] = None
     
     # Responses API 特定参数
     max_output_tokens: Optional[int] = None
@@ -48,15 +35,10 @@ class OpenAIConfig:
                 self.base_url = "https://api.openai.com/v1"
             else:
                 self.base_url = "https://api.openai.com/v1"
-    
-    def get_resolved_headers(self) -> Dict[str, str]:
-        """获取解析后的 HTTP 标头"""
-        headers = {}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        headers["Content-Type"] = "application/json"
-        headers.update(self.custom_headers)
-        return headers
+        
+        # 设置模型类型
+        if not hasattr(self, 'model_type') or self.model_type == "":
+            self.model_type = "openai"
     
     def is_chat_completion(self) -> bool:
         """检查是否使用 Chat Completions API"""
@@ -68,7 +50,7 @@ class OpenAIConfig:
     
     def get_chat_completion_params(self) -> Dict[str, Any]:
         """获取 Chat Completions API 参数"""
-        params = {
+        params: Dict[str, Any] = {
             "temperature": self.temperature,
             "top_p": self.top_p,
             "frequency_penalty": self.frequency_penalty,
@@ -85,7 +67,7 @@ class OpenAIConfig:
     
     def get_responses_params(self) -> Dict[str, Any]:
         """获取 Responses API 参数"""
-        params = {
+        params: Dict[str, Any] = {
             "temperature": self.temperature,
         }
         

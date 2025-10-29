@@ -1,6 +1,7 @@
 """状态协作功能集成测试"""
 
 import pytest
+from typing import List, Optional, Dict, Any
 from src.domain.state.enhanced_manager import EnhancedStateManager
 from src.infrastructure.state.snapshot_store import StateSnapshotStore
 from src.infrastructure.state.history_manager import StateHistoryManager
@@ -13,13 +14,13 @@ from src.domain.agent.state import AgentState as DomainAgentState
 
 class MockDomainState:
     """模拟域状态对象"""
-    def __init__(self, agent_id: str = "test_agent", messages: list = None):
+    def __init__(self, agent_id: str = "test_agent", messages: Optional[List[str]] = None):
         self.agent_id = agent_id
         self.messages = messages or []
         self.iteration_count = 0
         self.max_iterations = 10
     
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "agent_id": self.agent_id,
             "messages": self.messages,
@@ -28,7 +29,7 @@ class MockDomainState:
         }
 
 
-def test_full_state_collaboration_workflow():
+def test_full_state_collaboration_workflow() -> None:
     """测试完整的状态协作工作流"""
     # 1. 创建状态管理组件
     snapshot_store = StateSnapshotStore()
@@ -88,7 +89,7 @@ def test_full_state_collaboration_workflow():
     print("集成测试通过：完整的状态协作工作流正常运行")
 
 
-def test_di_config_integration():
+def test_di_config_integration() -> None:
     """测试依赖注入配置集成"""
     # 创建依赖注入配置
     di_config = DIConfig()

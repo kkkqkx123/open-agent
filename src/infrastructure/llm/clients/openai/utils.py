@@ -1,6 +1,6 @@
 """OpenAI 客户端工具函数"""
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence
 
 from langchain_core.messages import BaseMessage, AIMessage
 from ...models import LLMResponse, TokenUsage
@@ -212,7 +212,7 @@ class MessageConverter:
     """消息转换工具类"""
     
     @staticmethod
-    def messages_to_input(messages: list[BaseMessage]) -> str:
+    def messages_to_input(messages: Sequence[BaseMessage]) -> str:
         """
         将消息列表转换为 input 字符串（用于 Responses API）
         

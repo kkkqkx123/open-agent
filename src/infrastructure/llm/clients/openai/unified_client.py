@@ -1,6 +1,6 @@
 """OpenAI 统一客户端 - 简化版本"""
 
-from typing import Dict, Any, List, Generator, AsyncGenerator, Optional, cast
+from typing import Dict, Any, List, Generator, AsyncGenerator, Optional, cast, Sequence
 
 from langchain_core.messages import BaseMessage
 
@@ -21,22 +21,23 @@ class OpenAIUnifiedClient(BaseLLMClient):
         初始化统一客户端
         
         Args:
-            config: OpenAI 配置 V2
+            config: OpenAI 配置
         """
         super().__init__(config)
+        self._config: OpenAIConfig = config  # 明确指定类型
         self._client: Optional[BaseOpenAIClient] = None
         self._initialize_client()
     
     def _initialize_client(self) -> None:
         """根据配置初始化客户端"""
-        if self.config.is_chat_completion():
+        if self._config.is_chat_completion():
             # 使用 LangChain Chat 客户端
-            self._client = LangChainChatClient(self.config)
-        elif self.config.is_responses_api():
+            self._client = LangChainChatClient(self._config)
+        elif self._config.is_responses_api():
             # 使用轻量级 Responses 客户端
-            self._client = LightweightResponsesClient(self.config)
+            self._client = LightweightResponsesClient(self._config)
         else:
-            raise ValueError(f"不支持的 API 格式: {self.config.api_format}")
+            raise ValueError(f"不支持的 API 格式: {self._config.api_format}")
     
     def _get_client(self) -> BaseOpenAIClient:
         """获取客户端实例，确保不为 None"""
@@ -45,21 +46,21 @@ class OpenAIUnifiedClient(BaseLLMClient):
         return self._client
     
     def _do_generate(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行生成操作"""
         client = self._get_client()
         return client.generate(messages, **parameters, **kwargs)
     
     async def _do_generate_async(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行异步生成操作"""
         client = self._get_client()
         return await client.generate_async(messages, **parameters, **kwargs)
     
     def _do_stream_generate(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> Generator[str, None, None]:
         """执行流式生成操作"""
         client = self._get_client()
@@ -67,7 +68,7 @@ class OpenAIUnifiedClient(BaseLLMClient):
         return cast(Generator[str, None, None], result)
     
     async def _do_stream_generate_async(
-        self, messages: List[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
         client = self._get_client()
@@ -84,7 +85,7 @@ class OpenAIUnifiedClient(BaseLLMClient):
         result = client.get_token_count(text)
         return cast(int, result)
     
-    def get_messages_token_count(self, messages: List[BaseMessage]) -> int:
+    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
         """计算消息列表 token 数量"""
         client = self._get_client()
         result = client.get_messages_token_count(messages)
@@ -110,7 +111,7 @@ class OpenAIUnifiedClient(BaseLLMClient):
             raise ValueError(f"不支持的 API 格式: {api_format}")
         
         # 更新配置
-        self.config.api_format = api_format
+        self._config.api_format = api_format
         
         # 重新初始化客户端
         self._initialize_client()
@@ -122,7 +123,7 @@ class OpenAIUnifiedClient(BaseLLMClient):
         Returns:
             str: 当前 API 格式
         """
-        return self.config.api_format
+        return self._config.api_format
     
     def get_supported_api_formats(self) -> List[str]:
         """
@@ -135,7 +136,7 @@ class OpenAIUnifiedClient(BaseLLMClient):
     
     def generate_with_fallback(
         self,
-        messages: List[BaseMessage],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
@@ -159,7 +160,7 @@ class OpenAIUnifiedClient(BaseLLMClient):
     
     async def generate_with_fallback_async(
         self,
-        messages: List[BaseMessage],
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
@@ -190,8 +191,8 @@ class OpenAIUnifiedClient(BaseLLMClient):
         """
         return {
             "api_format": self.get_current_api_format(),
-            "model_name": self.config.model_name,
-            "base_url": self.config.base_url,
+            "model_name": self._config.model_name,
+            "base_url": self._config.base_url,
             "supports_function_calling": self.supports_function_calling(),
             "client_type": type(self._client).__name__ if self._client else None,
         }
@@ -200,7 +201,7 @@ class OpenAIUnifiedClient(BaseLLMClient):
         """
         重置对话历史（仅对 Responses API 有效）
         """
-        if self.config.is_responses_api() and isinstance(self._client, LightweightResponsesClient):
+        if self._config.is_responses_api() and isinstance(self._client, LightweightResponsesClient):
             self._client._conversation_history.clear()
     
     def get_conversation_history(self) -> List[Dict[str, Any]]:
@@ -210,7 +211,7 @@ class OpenAIUnifiedClient(BaseLLMClient):
         Returns:
             List[Dict[str, Any]]: 对话历史
         """
-        if self.config.is_responses_api() and isinstance(self._client, LightweightResponsesClient):
+        if self._config.is_responses_api() and isinstance(self._client, LightweightResponsesClient):
             return self._client._conversation_history.copy()
         return []
     
@@ -223,21 +224,21 @@ class OpenAIUnifiedClient(BaseLLMClient):
         """
         try:
             # 检查必需的配置项
-            if not self.config.model_name:
+            if not self._config.model_name:
                 return False
             
-            if not self.config.api_key:
+            if not self._config.api_key:
                 return False
             
             # 检查 API 格式
-            if self.config.api_format not in self.get_supported_api_formats():
+            if self._config.api_format not in self.get_supported_api_formats():
                 return False
             
             # 检查参数范围
-            if not 0.0 <= self.config.temperature <= 2.0:
+            if not 0.0 <= self._config.temperature <= 2.0:
                 return False
             
-            if self.config.max_tokens is not None and self.config.max_tokens <= 0:
+            if self._config.max_tokens is not None and self._config.max_tokens <= 0:
                 return False
             
             return True
@@ -245,7 +246,7 @@ class OpenAIUnifiedClient(BaseLLMClient):
         except Exception:
             return False
     
-    def get_estimated_cost(self, messages: List[BaseMessage]) -> Optional[float]:
+    def get_estimated_cost(self, messages: Sequence[BaseMessage]) -> Optional[float]:
         """
         估算请求成本（简化版本）
         
@@ -261,10 +262,10 @@ class OpenAIUnifiedClient(BaseLLMClient):
             
             # 简化的成本计算（基于 GPT-4 的定价）
             # 实际实现应该根据具体模型和定价来计算
-            if "gpt-4" in self.config.model_name.lower():
+            if "gpt-4" in self._config.model_name.lower():
                 input_cost_per_1k = 0.03  # GPT-4 输入成本
                 output_cost_per_1k = 0.06  # GPT-4 输出成本
-            elif "gpt-3.5" in self.config.model_name.lower():
+            elif "gpt-3.5" in self._config.model_name.lower():
                 input_cost_per_1k = 0.0015  # GPT-3.5 输入成本
                 output_cost_per_1k = 0.002  # GPT-3.5 输出成本
             else:

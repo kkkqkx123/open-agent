@@ -1,6 +1,6 @@
 """基于 LangChain 的 Chat Completions 客户端"""
 
-from typing import List, Dict, Any, Generator, AsyncGenerator
+from typing import List, Dict, Any, Generator, AsyncGenerator, Sequence
 
 from langchain_core.messages import BaseMessage
 from langchain_openai import ChatOpenAI
@@ -44,6 +44,22 @@ class LangChainChatClient(ChatCompletionClient):
             timeout_value = self.config.timeout
         
         # 创建 ChatOpenAI 客户端
+        # 提取ChatOpenAI直接支持的参数
+        direct_params = {}
+        if 'top_p' in chat_params:
+            direct_params['top_p'] = chat_params['top_p']
+        if 'frequency_penalty' in chat_params:
+            direct_params['frequency_penalty'] = chat_params['frequency_penalty']
+        if 'presence_penalty' in chat_params:
+            direct_params['presence_penalty'] = chat_params['presence_penalty']
+        if 'stop' in chat_params:
+            direct_params['stop'] = chat_params['stop']
+        
+        # 剩余参数放入model_kwargs
+        model_kwargs = {k: v for k, v in chat_params.items() 
+                       if k not in ['temperature', 'model', 'api_key', 'base_url', 'timeout', 'max_retries',
+                                   'top_p', 'frequency_penalty', 'presence_penalty', 'stop']}
+        
         return ChatOpenAI(
             model=self.config.model_name,
             api_key=api_key,
@@ -51,10 +67,11 @@ class LangChainChatClient(ChatCompletionClient):
             temperature=self.config.temperature,
             timeout=timeout_value,
             max_retries=self.config.max_retries,
-            model_kwargs=chat_params,
+            **direct_params,
+            model_kwargs=model_kwargs,
         )
     
-    def generate(self, messages: List[BaseMessage], **kwargs: Any) -> LLMResponse:
+    def generate(self, messages: Sequence[BaseMessage], **kwargs: Any) -> LLMResponse:
         """
         同步生成响应
         
@@ -67,7 +84,7 @@ class LangChainChatClient(ChatCompletionClient):
         """
         try:
             # 调用 LangChain ChatOpenAI
-            response = self._client.invoke(messages, **kwargs)
+            response = self._client.invoke(list(messages), **kwargs)
             
             # 转换响应格式
             return self._converter.convert_langchain_response(response)
@@ -77,7 +94,7 @@ class LangChainChatClient(ChatCompletionClient):
             raise self._handle_error(e)
     
     async def generate_async(
-        self, messages: List[BaseMessage], **kwargs: Any
+        self, messages: Sequence[BaseMessage], **kwargs: Any
     ) -> LLMResponse:
         """
         异步生成响应
@@ -91,7 +108,7 @@ class LangChainChatClient(ChatCompletionClient):
         """
         try:
             # 调用 LangChain ChatOpenAI 异步方法
-            response = await self._client.ainvoke(messages, **kwargs)
+            response = await self._client.ainvoke(list(messages), **kwargs)
             
             # 转换响应格式
             return self._converter.convert_langchain_response(response)
@@ -101,7 +118,7 @@ class LangChainChatClient(ChatCompletionClient):
             raise self._handle_error(e)
     
     def stream_generate(
-        self, messages: List[BaseMessage], **kwargs: Any
+        self, messages: Sequence[BaseMessage], **kwargs: Any
     ) -> Generator[str, None, None]:
         """
         同步流式生成
@@ -115,7 +132,7 @@ class LangChainChatClient(ChatCompletionClient):
         """
         try:
             # 流式生成
-            stream = self._client.stream(messages, **kwargs)
+            stream = self._client.stream(list(messages), **kwargs)
             
             # 收集完整响应
             for chunk in stream:
@@ -130,7 +147,7 @@ class LangChainChatClient(ChatCompletionClient):
             raise self._handle_error(e)
     
     async def stream_generate_async(
-        self, messages: List[BaseMessage], **kwargs: Any
+        self, messages: Sequence[BaseMessage], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """
         异步流式生成
@@ -145,7 +162,7 @@ class LangChainChatClient(ChatCompletionClient):
         async def _async_generator() -> AsyncGenerator[str, None]:
             try:
                 # 异步流式生成
-                stream = self._client.astream(messages, **kwargs)
+                stream = self._client.astream(list(messages), **kwargs)
                 
                 # 收集完整响应
                 async for chunk in stream:
@@ -171,14 +188,14 @@ class LangChainChatClient(ChatCompletionClient):
         Returns:
             int: token 数量
         """
-        from ....token_counter import TokenCounterFactory
+        from ...token_counter import TokenCounterFactory
         
         # 使用 Token 计算器
         counter = TokenCounterFactory.create_counter("openai", self.config.model_name)
         result = counter.count_tokens(text)
         return result if result is not None else 0
     
-    def get_messages_token_count(self, messages: List[BaseMessage]) -> int:
+    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
         """
         计算消息列表 token 数量
         
@@ -188,11 +205,11 @@ class LangChainChatClient(ChatCompletionClient):
         Returns:
             int: token 数量
         """
-        from ....token_counter import TokenCounterFactory
+        from ...token_counter import TokenCounterFactory
         
         # 使用 Token 计算器
         counter = TokenCounterFactory.create_counter("openai", self.config.model_name)
-        result = counter.count_messages_tokens(messages)
+        result = counter.count_messages_tokens(list(messages))
         return result if result is not None else 0
     
     def supports_function_calling(self) -> bool:
@@ -214,7 +231,7 @@ class LangChainChatClient(ChatCompletionClient):
         Returns:
             Exception: 处理后的错误
         """
-        from ....exceptions import (
+        from ...exceptions import (
             LLMCallError,
             LLMTimeoutError,
             LLMRateLimitError,

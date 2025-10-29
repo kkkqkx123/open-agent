@@ -2,7 +2,7 @@
 
 import httpx
 import json
-from typing import Dict, Any, List, Optional, AsyncGenerator, Generator
+from typing import Dict, Any, List, Optional, AsyncGenerator, Generator, Sequence
 
 from langchain_core.messages import BaseMessage
 
@@ -36,7 +36,7 @@ class LightweightResponsesClient(ResponsesAPIClient):
         # 设置 HTTP 标头
         self.headers = config.get_resolved_headers()
     
-    def generate(self, messages: List[BaseMessage], **kwargs: Any) -> LLMResponse:
+    def generate(self, messages: Sequence[BaseMessage], **kwargs: Any) -> LLMResponse:
         """
         同步生成响应
         
@@ -80,7 +80,7 @@ class LightweightResponsesClient(ResponsesAPIClient):
             raise self._handle_error(e)
     
     async def generate_async(
-        self, messages: List[BaseMessage], **kwargs: Any
+        self, messages: Sequence[BaseMessage], **kwargs: Any
     ) -> LLMResponse:
         """
         异步生成响应
@@ -125,7 +125,7 @@ class LightweightResponsesClient(ResponsesAPIClient):
             raise self._handle_error(e)
     
     def stream_generate(
-        self, messages: List[BaseMessage], **kwargs: Any
+        self, messages: Sequence[BaseMessage], **kwargs: Any
     ) -> Generator[str, None, None]:
         """
         同步流式生成
@@ -150,7 +150,7 @@ class LightweightResponsesClient(ResponsesAPIClient):
             # 发送流式请求
             with httpx.Client(timeout=self.config.timeout) as client:
                 with client.stream(
-                    "POST", 
+                    "POST",
                     f"{self.base_url}/responses",
                     headers=self.headers,
                     json=payload
@@ -176,7 +176,7 @@ class LightweightResponsesClient(ResponsesAPIClient):
             raise self._handle_error(e)
     
     async def stream_generate_async(
-        self, messages: List[BaseMessage], **kwargs: Any
+        self, messages: Sequence[BaseMessage], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """
         异步流式生成
@@ -239,14 +239,14 @@ class LightweightResponsesClient(ResponsesAPIClient):
         Returns:
             int: token 数量
         """
-        from ....token_counter import TokenCounterFactory
+        from ...token_counter import TokenCounterFactory
         
         # 使用 Token 计算器
         counter = TokenCounterFactory.create_counter("openai", self.config.model_name)
         result = counter.count_tokens(text)
         return result if result is not None else 0
     
-    def get_messages_token_count(self, messages: List[BaseMessage]) -> int:
+    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
         """
         计算消息列表 token 数量
         
@@ -256,11 +256,11 @@ class LightweightResponsesClient(ResponsesAPIClient):
         Returns:
             int: token 数量
         """
-        from ....token_counter import TokenCounterFactory
+        from ...token_counter import TokenCounterFactory
         
         # 使用 Token 计算器
         counter = TokenCounterFactory.create_counter("openai", self.config.model_name)
-        result = counter.count_messages_tokens(messages)
+        result = counter.count_messages_tokens(list(messages))
         return result if result is not None else 0
     
     def _get_previous_response_id(self) -> Optional[str]:
@@ -288,7 +288,7 @@ class LightweightResponsesClient(ResponsesAPIClient):
         if len(self._conversation_history) > max_history:
             self._conversation_history = self._conversation_history[-max_history:]
     
-    def _messages_to_input(self, messages: List[BaseMessage]) -> str:
+    def _messages_to_input(self, messages: Sequence[BaseMessage]) -> str:
         """
         将消息列表转换为 input 字符串
         
@@ -379,7 +379,7 @@ class LightweightResponsesClient(ResponsesAPIClient):
         Returns:
             Exception: 处理后的错误
         """
-        from ....exceptions import (
+        from ...exceptions import (
             LLMCallError,
             LLMTimeoutError,
             LLMRateLimitError,

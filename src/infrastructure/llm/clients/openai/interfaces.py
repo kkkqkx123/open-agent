@@ -1,7 +1,7 @@
 """OpenAI 客户端接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Generator, AsyncGenerator, Optional
+from typing import List, Dict, Any, Generator, AsyncGenerator, Optional, Sequence
 
 from langchain_core.messages import BaseMessage
 from ...models import LLMResponse
@@ -20,7 +20,7 @@ class BaseOpenAIClient(ABC):
         self.config = config
     
     @abstractmethod
-    def generate(self, messages: List[BaseMessage], **kwargs: Any) -> LLMResponse:
+    def generate(self, messages: Sequence[BaseMessage], **kwargs: Any) -> LLMResponse:
         """
         同步生成响应
         
@@ -35,7 +35,7 @@ class BaseOpenAIClient(ABC):
     
     @abstractmethod
     async def generate_async(
-        self, messages: List[BaseMessage], **kwargs: Any
+        self, messages: Sequence[BaseMessage], **kwargs: Any
     ) -> LLMResponse:
         """
         异步生成响应
@@ -51,7 +51,7 @@ class BaseOpenAIClient(ABC):
     
     @abstractmethod
     def stream_generate(
-        self, messages: List[BaseMessage], **kwargs: Any
+        self, messages: Sequence[BaseMessage], **kwargs: Any
     ) -> Generator[str, None, None]:
         """
         同步流式生成
@@ -67,7 +67,7 @@ class BaseOpenAIClient(ABC):
     
     @abstractmethod
     async def stream_generate_async(
-        self, messages: List[BaseMessage], **kwargs: Any
+        self, messages: Sequence[BaseMessage], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """
         异步流式生成
@@ -95,7 +95,7 @@ class BaseOpenAIClient(ABC):
         pass
     
     @abstractmethod
-    def get_messages_token_count(self, messages: List[BaseMessage]) -> int:
+    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
         """
         计算消息列表 token 数量
         
