@@ -8,6 +8,7 @@ from src.domain.agent.state import AgentState as DomainAgentState, AgentMessage 
 from src.infrastructure.graph.adapters.state_adapter import GraphAgentState
 from src.infrastructure.graph.adapters.state_adapter import StateAdapter
 from src.domain.tools.interfaces import ToolResult
+from src.infrastructure.graph.state import LCBaseMessage, LCHumanMessage, LCAIMessage
 
 
 class TestStateAdapter:

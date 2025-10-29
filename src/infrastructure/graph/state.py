@@ -3,8 +3,7 @@
 提供符合LangGraph最佳实践的状态定义和管理。
 """
 
-from typing import Any, List, Optional, Annotated, Union
-from dataclasses import dataclass
+from typing import Any, List, Optional, Annotated
 import operator
 import logging
 from typing_extensions import TypedDict
@@ -85,7 +84,7 @@ class MessageRole:
 class BaseGraphState(TypedDict, total=False):
     """基础图状态"""
     # 使用reducer确保消息列表是追加而不是覆盖
-    messages: Annotated[List[BaseMessage], operator.add]
+    messages: Annotated[List[LCBaseMessage], operator.add]
 
     # 可选字段
     metadata: dict[str, Any]
@@ -157,7 +156,7 @@ class PlanExecuteState(WorkflowState, total=False):
 def create_agent_state(
     input_text: str,
     max_iterations: int = 10,
-    messages: Optional[List[BaseMessage]] = None
+    messages: Optional[List[LCBaseMessage]] = None
 ) -> AgentState:
     """创建Agent状态
     
@@ -170,7 +169,7 @@ def create_agent_state(
         AgentState实例
     """
     if messages is None:
-        messages = [HumanMessage(content=input_text)]
+        messages = [LCHumanMessage(content=input_text)] if LANGCHAIN_AVAILABLE else [HumanMessage(content=input_text)]
     
     return {
         "messages": messages,
@@ -272,7 +271,7 @@ def create_plan_execute_state(
 
 
 # 消息创建函数
-def create_message(content: str, role: str, **kwargs: Any) -> BaseMessage:
+def create_message(content: str, role: str, **kwargs: Any) -> LCBaseMessage:
     """创建消息
     
     Args:
@@ -283,20 +282,32 @@ def create_message(content: str, role: str, **kwargs: Any) -> BaseMessage:
     Returns:
         BaseMessage实例
     """
-    if role == MessageRole.HUMAN:
-        return HumanMessage(content=content)
-    elif role == MessageRole.AI:
-        return AIMessage(content=content)
-    elif role == MessageRole.SYSTEM:
-        return SystemMessage(content=content)
-    elif role == MessageRole.TOOL:
-        return ToolMessage(content=content, tool_call_id=kwargs.get("tool_call_id", ""))
+    if LANGCHAIN_AVAILABLE:
+        if role == MessageRole.HUMAN:
+            return LCHumanMessage(content=content)
+        elif role == MessageRole.AI:
+            return LCAIMessage(content=content)
+        elif role == MessageRole.SYSTEM:
+            return LCSystemMessage(content=content)
+        elif role == MessageRole.TOOL:
+            return LCToolMessage(content=content, tool_call_id=kwargs.get("tool_call_id", ""))
+        else:
+            return LCBaseMessage(content=content, type=role)
     else:
-        return BaseMessage(content=content, type=role)
+        if role == MessageRole.HUMAN:
+            return HumanMessage(content=content)
+        elif role == MessageRole.AI:
+            return AIMessage(content=content)
+        elif role == MessageRole.SYSTEM:
+            return SystemMessage(content=content)
+        elif role == MessageRole.TOOL:
+            return ToolMessage(content=content, tool_call_id=kwargs.get("tool_call_id", ""))
+        else:
+            return BaseMessage(content=content, type=role)
 
 
 # 状态更新函数
-def update_state_with_message(state: dict[str, Any], message: BaseMessage) -> dict[str, Any]:
+def update_state_with_message(state: dict[str, Any], message: LCBaseMessage) -> dict[str, Any]:
     """用消息更新状态
     
     Args:
@@ -310,8 +321,8 @@ def update_state_with_message(state: dict[str, Any], message: BaseMessage) -> di
 
 
 def update_state_with_tool_result(
-    state: dict[str, Any], 
-    tool_call: dict[str, Any], 
+    state: dict[str, Any],
+    tool_call: dict[str, Any],
     result: Any
 ) -> dict[str, Any]:
     """用工具结果更新状态
@@ -387,11 +398,11 @@ def serialize_state(state: dict[str, Any]) -> dict[str, Any]:
     serialized = state.copy()
     
     # 序列化消息
-    if "messages" in serialized:
+    if "messages" in serialized and serialized["messages"]:
         serialized["messages"] = [
             {
                 "content": msg.content,
-                "type": msg.type,
+                "type": getattr(msg, 'type', getattr(msg, '__class__', type(msg)).__name__.lower()),
                 "tool_call_id": getattr(msg, "tool_call_id", "")
             }
             for msg in serialized["messages"]

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from src.domain.agent.interfaces import IAgent
 
 from .config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
-from .state import WorkflowState, AgentState
+from .state import WorkflowState, AgentState, LCBaseMessage
 from src.domain.agent.interfaces import IAgent, IAgentFactory
 from .registry import NodeRegistry, get_global_registry
 from .adapters import get_state_adapter

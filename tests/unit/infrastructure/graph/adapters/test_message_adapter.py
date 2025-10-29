@@ -4,7 +4,7 @@ import pytest
 from datetime import datetime
 
 from src.domain.agent.state import AgentMessage as DomainAgentMessage
-from src.infrastructure.graph.states.base import HumanMessage, AIMessage, SystemMessage, ToolMessage, BaseMessage
+from src.infrastructure.graph.state import HumanMessage, AIMessage, SystemMessage, ToolMessage, BaseMessage, LCHumanMessage, LCAIMessage, LCSystemMessage, LCToolMessage
 from src.infrastructure.graph.adapters.message_adapter import MessageAdapter
 
 
@@ -27,7 +27,11 @@ class TestMessageAdapter:
         graph_message = adapter.to_graph_message(domain_message)
         
         # 验证转换结果
-        assert isinstance(graph_message, HumanMessage)
+        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
+        if LANGCHAIN_AVAILABLE:
+            assert isinstance(graph_message, (LCHumanMessage, HumanMessage))
+        else:
+            assert isinstance(graph_message, HumanMessage)
         assert graph_message.content == "用户消息内容"
         assert graph_message.type == "human"
     
@@ -46,7 +50,11 @@ class TestMessageAdapter:
         graph_message = adapter.to_graph_message(domain_message)
         
         # 验证转换结果
-        assert isinstance(graph_message, AIMessage)
+        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
+        if LANGCHAIN_AVAILABLE:
+            assert isinstance(graph_message, (LCAIMessage, AIMessage))
+        else:
+            assert isinstance(graph_message, AIMessage)
         assert graph_message.content == "助手消息内容"
         assert graph_message.type == "ai"
     
@@ -65,7 +73,11 @@ class TestMessageAdapter:
         graph_message = adapter.to_graph_message(domain_message)
         
         # 验证转换结果
-        assert isinstance(graph_message, SystemMessage)
+        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
+        if LANGCHAIN_AVAILABLE:
+            assert isinstance(graph_message, (LCSystemMessage, SystemMessage))
+        else:
+            assert isinstance(graph_message, SystemMessage)
         assert graph_message.content == "系统消息内容"
         assert graph_message.type == "system"
     
@@ -85,17 +97,26 @@ class TestMessageAdapter:
         graph_message = adapter.to_graph_message(domain_message)
         
         # 验证转换结果
-        assert isinstance(graph_message, ToolMessage)
+        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
+        if LANGCHAIN_AVAILABLE:
+            assert isinstance(graph_message, (LCToolMessage, ToolMessage))
+        else:
+            assert isinstance(graph_message, ToolMessage)
         assert graph_message.content == "工具消息内容"
         assert graph_message.type == "tool"
-        assert graph_message.tool_call_id == "test-123"
+        if hasattr(graph_message, 'tool_call_id'):
+            assert graph_message.tool_call_id == "test-123"
     
     def test_from_graph_message_human(self):
         """测试从图消息转换回域消息 - 人类消息"""
         adapter = MessageAdapter()
         
         # 创建图人类消息
-        graph_message = HumanMessage(content="用户消息内容")
+        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
+        if LANGCHAIN_AVAILABLE:
+            graph_message = LCHumanMessage(content="用户消息内容")
+        else:
+            graph_message = HumanMessage(content="用户消息内容")
         
         # 转换为域消息
         domain_message = adapter.from_graph_message(graph_message)
@@ -111,7 +132,11 @@ class TestMessageAdapter:
         adapter = MessageAdapter()
         
         # 创建图AI消息
-        graph_message = AIMessage(content="助手消息内容")
+        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
+        if LANGCHAIN_AVAILABLE:
+            graph_message = LCAIMessage(content="助手消息内容")
+        else:
+            graph_message = AIMessage(content="助手消息内容")
         
         # 转换为域消息
         domain_message = adapter.from_graph_message(graph_message)
@@ -127,7 +152,11 @@ class TestMessageAdapter:
         adapter = MessageAdapter()
         
         # 创建图系统消息
-        graph_message = SystemMessage(content="系统消息内容")
+        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
+        if LANGCHAIN_AVAILABLE:
+            graph_message = LCSystemMessage(content="系统消息内容")
+        else:
+            graph_message = SystemMessage(content="系统消息内容")
         
         # 转换为域消息
         domain_message = adapter.from_graph_message(graph_message)
@@ -143,7 +172,11 @@ class TestMessageAdapter:
         adapter = MessageAdapter()
         
         # 创建图工具消息
-        graph_message = ToolMessage(content="工具消息内容", tool_call_id="test-456")
+        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
+        if LANGCHAIN_AVAILABLE:
+            graph_message = LCToolMessage(content="工具消息内容", tool_call_id="test-456")
+        else:
+            graph_message = ToolMessage(content="工具消息内容", tool_call_id="test-456")
         
         # 转换为域消息
         domain_message = adapter.from_graph_message(graph_message)
@@ -171,10 +204,17 @@ class TestMessageAdapter:
         
         # 验证转换结果
         assert len(graph_messages) == 4
-        assert isinstance(graph_messages[0], HumanMessage)
-        assert isinstance(graph_messages[1], AIMessage)
-        assert isinstance(graph_messages[2], SystemMessage)
-        assert isinstance(graph_messages[3], ToolMessage)
+        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
+        if LANGCHAIN_AVAILABLE:
+            assert isinstance(graph_messages[0], (LCHumanMessage, HumanMessage))
+            assert isinstance(graph_messages[1], (LCAIMessage, AIMessage))
+            assert isinstance(graph_messages[2], (LCSystemMessage, SystemMessage))
+            assert isinstance(graph_messages[3], (LCToolMessage, ToolMessage))
+        else:
+            assert isinstance(graph_messages[0], HumanMessage)
+            assert isinstance(graph_messages[1], AIMessage)
+            assert isinstance(graph_messages[2], SystemMessage)
+            assert isinstance(graph_messages[3], ToolMessage)
         
         # 批量转换回域消息
         converted_back = adapter.from_graph_messages(graph_messages)

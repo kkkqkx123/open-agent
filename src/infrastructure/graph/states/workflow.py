@@ -3,12 +3,12 @@
 提供工作流执行过程中的状态管理。
 """
 
-from typing import Dict, Any, List, Annotated, Optional, cast
+from typing import Dict, Any, List, Annotated, Optional, cast, Union
 import operator
 from datetime import datetime
 from typing_extensions import TypedDict
 
-from .base import BaseMessage
+from ..state import BaseMessage, LCBaseMessage
 # AgentState已移除，使用适配器层定义
 
 
@@ -22,7 +22,7 @@ class _WorkflowState(TypedDict, total=False):
     扩展Agent状态，添加工作流特定的字段。
     """
     # 基础字段 (从BaseGraphState和AgentState继承)
-    messages: Annotated[List[BaseMessage], operator.add]
+    messages: Annotated[List[Union[BaseMessage, LCBaseMessage]], operator.add]
     metadata: Dict[str, Any]
     execution_context: Dict[str, Any]
     current_step: str
@@ -72,7 +72,7 @@ def create_workflow_state(
     input_text: str,
     workflow_config: Optional[Dict[str, Any]] = None,
     max_iterations: int = 10,
-    messages: Optional[List[BaseMessage]] = None
+    messages: Optional[List[Union[BaseMessage, LCBaseMessage]]] = None
 ) -> WorkflowState:
     """创建工作流状态
     
@@ -88,8 +88,9 @@ def create_workflow_state(
         WorkflowState实例
     """
     if messages is None:
-        from .base import HumanMessage
-        messages = [HumanMessage(content=input_text)]
+        from ..state import LCHumanMessage, HumanMessage
+        from ..state import LANGCHAIN_AVAILABLE
+        messages = [LCHumanMessage(content=input_text) if LANGCHAIN_AVAILABLE else HumanMessage(content=input_text)]
     
     # 创建基础状态
     base_state = {
@@ -163,7 +164,6 @@ def update_workflow_state_with_tool_result(
         "tool_results": state.get("tool_results", []) + [tool_result]
     }
 
-
 def update_workflow_state_with_output(
     state: WorkflowState,
     output: str
@@ -177,9 +177,17 @@ def update_workflow_state_with_output(
     Returns:
         更新后的工作流状态
     """
-    from .base import AIMessage
+    from ..state import LCAIMessage, AIMessage
+    from ..state import LANGCHAIN_AVAILABLE
     
-    new_messages = state.get("messages", []) + [AIMessage(content=output)]
+    # 获取当前消息列表
+    current_messages = state.get("messages", [])
+    
+    # 创建新的AI消息
+    new_ai_message = LCAIMessage(content=output) if LANGCHAIN_AVAILABLE else AIMessage(content=output)
+    
+    # 添加新消息到列表
+    new_messages = current_messages + [new_ai_message]
     
     return {
         **state,

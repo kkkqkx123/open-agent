@@ -10,7 +10,7 @@ import operator
 from typing_extensions import TypedDict
 
 from src.domain.agent.state import AgentState as DomainAgentState, AgentMessage as DomainAgentMessage, AgentStatus
-from src.infrastructure.graph.states.base import BaseMessage as GraphBaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
+from src.infrastructure.graph.state import BaseMessage as GraphBaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage, LCBaseMessage, LCHumanMessage, LCAIMessage, LCSystemMessage, LCToolMessage
 from src.domain.tools.interfaces import ToolResult
 
 
@@ -21,7 +21,7 @@ GraphAgentState = Dict[str, Any]
 class _GraphAgentState(TypedDict, total=False):
     """图系统Agent状态类型注解"""
     # 基础字段
-    messages: Annotated[List[GraphBaseMessage], operator.add]
+    messages: Annotated[List[Union[GraphBaseMessage, LCBaseMessage]], operator.add]
     metadata: Dict[str, Any]
     execution_context: Dict[str, Any]
     current_step: str
@@ -193,72 +193,75 @@ class StateAdapter:
         
         return domain_state
     
-    def _convert_messages_to_graph(self, domain_messages: List[DomainAgentMessage]) -> List[GraphBaseMessage]:
-        """将域层消息转换为图系统消息"""
-        graph_messages: List[GraphBaseMessage] = []
-        
-        for domain_msg in domain_messages:
-            if domain_msg.role == "user":
-                graph_msg = HumanMessage(content=domain_msg.content)
-            elif domain_msg.role == "assistant":
-                graph_msg = AIMessage(content=domain_msg.content)  # type: ignore
-            elif domain_msg.role == "system":
-                graph_msg = SystemMessage(content=domain_msg.content)  # type: ignore
-            elif domain_msg.role == "tool":
-                graph_msg = ToolMessage(
-                    content=domain_msg.content,
-                    tool_call_id=domain_msg.metadata.get("tool_call_id", "")
-                )  # type: ignore
-            else:
-                graph_msg = GraphBaseMessage(content=domain_msg.content, type=domain_msg.role)  # type: ignore
-            
-            graph_messages.append(graph_msg)
-        
-        return graph_messages
+    def _convert_messages_to_graph(self, domain_messages: List[DomainAgentMessage]) -> List[Union[GraphBaseMessage, LCBaseMessage]]:
+       """将域层消息转换为图系统消息"""
+       graph_messages: List[Union[GraphBaseMessage, LCBaseMessage]] = []
+       
+       for domain_msg in domain_messages:
+           if domain_msg.role == "user":
+               graph_msg = LCHumanMessage(content=domain_msg.content) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else HumanMessage(content=domain_msg.content)
+           elif domain_msg.role == "assistant":
+               graph_msg = LCAIMessage(content=domain_msg.content) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else AIMessage(content=domain_msg.content)
+           elif domain_msg.role == "system":
+               graph_msg = LCSystemMessage(content=domain_msg.content) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else SystemMessage(content=domain_msg.content)
+           elif domain_msg.role == "tool":
+               graph_msg = LCToolMessage(
+                   content=domain_msg.content,
+                   tool_call_id=domain_msg.metadata.get("tool_call_id", "")
+               ) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else ToolMessage(
+                   content=domain_msg.content,
+                   tool_call_id=domain_msg.metadata.get("tool_call_id", "")
+               )
+           else:
+               graph_msg = LCBaseMessage(content=domain_msg.content, type=domain_msg.role) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else GraphBaseMessage(content=domain_msg.content, type=domain_msg.role)
+           
+           graph_messages.append(graph_msg)
+       
+       return graph_messages
     
-    def _convert_messages_from_graph(self, graph_messages: List[GraphBaseMessage]) -> List[DomainAgentMessage]:
-        """将图系统消息转换为域层消息"""
-        domain_messages = []
-        
-        for graph_msg in graph_messages:
-            # 确定角色并进行映射
-            if hasattr(graph_msg, 'type'):
-                # 图系统角色到域层角色的映射
-                role_mapping = {
-                    "human": "user",
-                    "ai": "assistant",
-                    "system": "system",
-                    "tool": "tool"
-                }
-                role = role_mapping.get(graph_msg.type, "unknown")
-            else:
-                # 根据消息类型推断角色
-                if isinstance(graph_msg, HumanMessage):
-                    role = "user"
-                elif isinstance(graph_msg, AIMessage):
-                    role = "assistant"
-                elif isinstance(graph_msg, SystemMessage):
-                    role = "system"
-                elif isinstance(graph_msg, ToolMessage):
-                    role = "tool"
-                else:
-                    role = "unknown"
-            
-            # 创建域层消息
-            domain_msg = DomainAgentMessage(
-                content=graph_msg.content,
-                role=role,
-                timestamp=datetime.now(),  # 图系统消息可能没有时间戳，使用当前时间
-                metadata={}
-            )
-            
-            # 如果是工具消息，添加tool_call_id到metadata
-            if isinstance(graph_msg, ToolMessage) and hasattr(graph_msg, 'tool_call_id'):
-                domain_msg.metadata["tool_call_id"] = graph_msg.tool_call_id
-            
-            domain_messages.append(domain_msg)
-        
-        return domain_messages
+    def _convert_messages_from_graph(self, graph_messages: List[Union[GraphBaseMessage, LCBaseMessage]]) -> List[DomainAgentMessage]:
+       """将图系统消息转换为域层消息"""
+       domain_messages = []
+       
+       for graph_msg in graph_messages:
+           # 确定角色并进行映射
+           if hasattr(graph_msg, 'type'):
+               # 图系统角色到域层角色的映射
+               role_mapping = {
+                   "human": "user",
+                   "ai": "assistant",
+                   "system": "system",
+                   "tool": "tool"
+               }
+               role = role_mapping.get(graph_msg.type, "unknown")
+           else:
+               # 根据消息类型推断角色
+               if isinstance(graph_msg, (LCHumanMessage, HumanMessage)):
+                   role = "user"
+               elif isinstance(graph_msg, (LCAIMessage, AIMessage)):
+                   role = "assistant"
+               elif isinstance(graph_msg, (LCSystemMessage, SystemMessage)):
+                   role = "system"
+               elif isinstance(graph_msg, (LCToolMessage, ToolMessage)):
+                   role = "tool"
+               else:
+                   role = "unknown"
+           
+           # 创建域层消息
+           domain_msg = DomainAgentMessage(
+               content=graph_msg.content,
+               role=role,
+               timestamp=datetime.now(),  # 图系统消息可能没有时间戳，使用当前时间
+               metadata={}
+           )
+           
+           # 如果是工具消息，添加tool_call_id到metadata
+           if isinstance(graph_msg, (LCToolMessage, ToolMessage)) and hasattr(graph_msg, 'tool_call_id'):
+               domain_msg.metadata["tool_call_id"] = getattr(graph_msg, 'tool_call_id', '')
+           
+           domain_messages.append(domain_msg)
+       
+       return domain_messages
     
     def _get_last_assistant_message(self, messages: List[DomainAgentMessage]) -> Optional[str]:
         """获取最后一条助手消息的内容"""
