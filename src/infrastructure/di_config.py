@@ -13,7 +13,7 @@ from .graph.registry import NodeRegistry
 from src.application.sessions.manager import ISessionManager, SessionManager
 from src.application.workflow.manager import IWorkflowManager, WorkflowManager
 from src.domain.sessions.store import ISessionStore
-from src.domain.state.interfaces import IStateManager
+from src.domain.state.interfaces import IStateManager, IStateCollaborationManager
 from src.domain.threads.interfaces import IThreadManager
 
 logger = logging.getLogger(__name__)
@@ -63,6 +63,9 @@ class DIConfig:
         
         # 注册状态管理器
         self._register_state_manager()
+        
+        # 注册状态协作管理器
+        self._register_state_collaboration_manager()
         
         # 注册工作流管理器
         self._register_workflow_manager()
@@ -120,7 +123,7 @@ class DIConfig:
         
         # 尝试注册基础状态管理器
         try:
-            from .domain.state.manager import StateManager
+            from src.domain.state.manager import StateManager
             if not self.container.has_service(IStateManager):
                 # 使用工厂方法注册，确保依赖注入
                 self.container.register_factory(
@@ -131,6 +134,44 @@ class DIConfig:
                 logger.debug("状态管理器注册完成")
         except ImportError as e:
             logger.warning(f"基础状态管理器不可用: {e}")
+    
+    def _register_state_collaboration_manager(self) -> None:
+        """注册状态协作管理器"""
+        try:
+            # 注册快照存储
+            from .state.snapshot_store import StateSnapshotStore
+            self.container.register_factory(
+                StateSnapshotStore,
+                lambda: StateSnapshotStore(),
+                lifetime=ServiceLifetime.SINGLETON
+            )
+            logger.debug("快照存储注册完成")
+            
+            # 注册历史管理器
+            from .state.history_manager import StateHistoryManager
+            self.container.register_factory(
+                StateHistoryManager,
+                lambda: StateHistoryManager(),
+                lifetime=ServiceLifetime.SINGLETON
+            )
+            logger.debug("历史管理器注册完成")
+            
+            # 注册增强状态管理器（实现协作管理器接口）
+            from src.domain.state.enhanced_manager import EnhancedStateManager
+            def create_enhanced_state_manager():
+                snapshot_store = self.container.get(StateSnapshotStore)
+                history_manager = self.container.get(StateHistoryManager)
+                return EnhancedStateManager(snapshot_store, history_manager)
+            
+            self.container.register_factory(
+                IStateCollaborationManager,
+                create_enhanced_state_manager,
+                lifetime=ServiceLifetime.SINGLETON
+            )
+            logger.debug("状态协作管理器注册完成")
+            
+        except ImportError as e:
+            logger.warning(f"状态协作管理器不可用: {e}")
     
     def _register_workflow_manager(self) -> None:
         """注册工作流管理器"""
@@ -147,14 +188,14 @@ class DIConfig:
             logger.debug("工作流管理器注册完成")
     
     def _register_session_store(self) -> None:
-        """注册会话存储"""
+        # 注册会话存储
         try:
-            from .domain.sessions.store import SQLiteSessionStore
+            from src.domain.sessions.store import FileSessionStore
             if not self.container.has_service(ISessionStore):
                 # 使用工厂方法注册，确保依赖注入
                 self.container.register_factory(
                     ISessionStore,
-                    lambda: SQLiteSessionStore(Path("./history/sessions.db")),
+                    lambda: FileSessionStore(Path("./history")),
                     lifetime=ServiceLifetime.SINGLETON
                 )
                 logger.debug("会话存储注册完成")
@@ -178,19 +219,11 @@ class DIConfig:
             logger.debug("会话管理器注册完成")
     
     def _register_thread_manager(self) -> None:
-        """注册线程管理器"""
-        try:
-            from .domain.threads.manager import ThreadManager
-            if not self.container.has_service(IThreadManager):
-                # 使用工厂方法注册，确保依赖注入
-                self.container.register_factory(
-                    IThreadManager,
-                    lambda: ThreadManager(),
-                    lifetime=ServiceLifetime.SINGLETON
-                )
-                logger.debug("线程管理器注册完成")
-        except ImportError:
-            logger.warning("线程管理器不可用，跳过注册")
+       """注册线程管理器"""
+       # 注册线程管理器（可选组件，需要额外依赖）
+       # 由于ThreadManager需要metadata_store和checkpoint_manager作为依赖，
+       # 而这些依赖可能比较复杂，暂时跳过注册，可在需要时单独配置
+       pass
     
     def register_additional_services(self, services_config: Dict[str, Any]) -> None:
         """注册额外的服务

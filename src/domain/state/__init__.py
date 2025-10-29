@@ -4,9 +4,17 @@
 """
 
 from .interfaces import (
-    IStateManager
+    IStateManager,
+    IEnhancedStateManager,
+    IStateCollaborationManager,
+    ConflictType,
+    ConflictResolutionStrategy
 )
 
 __all__ = [
-    "IStateManager"
+    "IStateManager",
+    "IEnhancedStateManager",
+    "IStateCollaborationManager",
+    "ConflictType",
+    "ConflictResolutionStrategy"
 ]

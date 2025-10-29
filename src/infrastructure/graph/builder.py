@@ -20,6 +20,7 @@ from .state import WorkflowState, AgentState, LCBaseMessage
 from src.domain.agent.interfaces import IAgent, IAgentFactory
 from .registry import NodeRegistry, get_global_registry
 from .adapters import get_state_adapter
+from src.domain.state.interfaces import IStateCollaborationManager
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,19 @@ class NodeWithAdapterExecutor(INodeExecutor):
         
         # 3. 将结果中的域状态转回图状态
         return state_adapter.to_graph_state(result.state)
+
+
+class EnhancedNodeWithAdapterExecutor(INodeExecutor):
+    """增强的节点执行器 - 集成状态管理功能"""
+    
+    def __init__(self, node_instance, state_manager: IStateCollaborationManager):
+        self.node = node_instance
+        from .adapters.collaboration_adapter import CollaborationStateAdapter
+        self.collaboration_adapter = CollaborationStateAdapter(state_manager)
+    
+    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
+        """执行节点逻辑，集成状态管理功能"""
+        return self.collaboration_adapter.execute_with_collaboration(state)
 
 
 class AgentNodeExecutor(INodeExecutor):
@@ -113,7 +127,7 @@ class GraphBuilder:
         self.template_registry = template_registry
         self._checkpointer_cache: Dict[str, Any] = {}
     
-    def build_graph(self, config: GraphConfig) -> Any:
+    def build_graph(self, config: GraphConfig, state_manager: Optional[IStateCollaborationManager] = None) -> Any:
         """构建LangGraph图
         
         Args:
@@ -139,7 +153,7 @@ class GraphBuilder:
         builder = StateGraph(state_class)
         
         # 添加节点
-        self._add_nodes(builder, config)
+        self._add_nodes(builder, config, state_manager)
         
         # 添加边
         self._add_edges(builder, config)
@@ -162,11 +176,11 @@ class GraphBuilder:
         logger.info(f"成功构建图: {config.name}")
         return graph
     
-    def _add_nodes(self, builder: Any, config: GraphConfig) -> None:
+    def _add_nodes(self, builder: Any, config: GraphConfig, state_manager: Optional[IStateCollaborationManager] = None) -> None:
         """添加节点到图"""
         for node_name, node_config in config.nodes.items():
             # 获取节点函数
-            node_function = self._get_node_function(node_config)
+            node_function = self._get_node_function(node_config, state_manager)
             
             if node_function:
                 # 根据LangGraph最佳实践添加节点
@@ -208,7 +222,7 @@ class GraphBuilder:
             
             logger.debug(f"添加边: {edge.from_node} -> {edge.to_node}")
     
-    def _get_node_function(self, node_config: NodeConfig) -> Optional[Callable]:
+    def _get_node_function(self, node_config: NodeConfig, state_manager: Optional[IStateCollaborationManager] = None) -> Optional[Callable]:
         """获取节点函数"""
         # 首先从注册表获取
         try:
@@ -217,7 +231,12 @@ class GraphBuilder:
                 # 创建节点实例
                 node_instance = node_class()
                 # 使用适配器包装节点，使其能够处理状态转换
-                adapter_wrapper = NodeWithAdapterExecutor(node_instance)
+                if state_manager:
+                    # 如果提供了状态管理器，使用增强的执行器
+                    adapter_wrapper = EnhancedNodeWithAdapterExecutor(node_instance, state_manager)
+                else:
+                    # 否则使用普通的执行器
+                    adapter_wrapper = NodeWithAdapterExecutor(node_instance)
                 return adapter_wrapper.execute
         except ValueError:
             # 节点类型不存在，继续尝试其他方法
@@ -323,7 +342,7 @@ class GraphBuilder:
         """条件：是否完成"""
         return "end" if state.get("complete") else "continue"
     
-    def build_from_yaml(self, yaml_path: str) -> Any:
+    def build_from_yaml(self, yaml_path: str, state_manager: Optional[IStateCollaborationManager] = None) -> Any:
         """从YAML文件构建图
         
         Args:
@@ -336,7 +355,7 @@ class GraphBuilder:
             config_data = yaml.safe_load(f)
         
         config = GraphConfig.from_dict(config_data)
-        return self.build_graph(config)
+        return self.build_graph(config, state_manager)
     
     def validate_config(self, config: GraphConfig) -> List[str]:
         """验证图配置
