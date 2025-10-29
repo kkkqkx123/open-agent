@@ -15,6 +15,7 @@ from src.infrastructure.container import IDependencyContainer, ServiceLifetime
 from src.infrastructure.config_loader import IConfigLoader
 from src.application.workflow.manager import IWorkflowManager
 from src.application.sessions.manager import ISessionManager
+from src.infrastructure.container_interfaces import ILifecycleAware
 
 
 class TestDIIntegration:
@@ -255,7 +256,7 @@ dependencies:
         
         # 注册服务到生命周期管理器
         config_loader = container.get(IConfigLoader)
-        if hasattr(config_loader, 'initialize') and hasattr(config_loader, 'dispose'):
+        if isinstance(config_loader, ILifecycleAware):
             lifecycle_manager.register_service("config_loader", config_loader)
         
         # 初始化服务
@@ -320,12 +321,12 @@ dependencies:
         )
         
         # 注册有依赖的服务
+        class IMissingService:
+            pass
+            
         class ServiceWithDependency:
             def __init__(self, dependency: IMissingService):
                 self.dependency = dependency
-        
-        class IMissingService:
-            pass
         
         container.register(IMissingService, ServiceWithDependency)
         

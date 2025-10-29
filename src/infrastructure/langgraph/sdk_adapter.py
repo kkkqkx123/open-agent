@@ -436,8 +436,8 @@ class CompleteLangGraphSDKAdapter:
         # 获取所有checkpoints
         checkpoints = await self.checkpoint_manager.list_checkpoints(thread_id)
         
-        # 按时间顺序返回事件
-        for checkpoint in reversed(checkpoints):  # 最新的在前
+        # 按时间倒序返回事件（最新的在前）
+        for checkpoint in checkpoints:  # 最新的在前，最旧的在后
             # 从checkpoint获取状态数据，如果为空则从thread manager获取
             state_data = checkpoint.get("state_data", {})
             if not state_data:

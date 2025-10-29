@@ -6,11 +6,11 @@ from unittest.mock import Mock, patch
 from tempfile import TemporaryDirectory
 
 from src.infrastructure.config_loader import YamlConfigLoader
-from src.prompts.registry import PromptRegistry
-from src.prompts.loader import PromptLoader
-from src.prompts.injector import PromptInjector
-from src.prompts.models import PromptConfig
-from src.prompts.agent_state import AgentState, SystemMessage, HumanMessage
+from src.domain.prompts.registry import PromptRegistry
+from src.domain.prompts.loader import PromptLoader
+from src.domain.prompts.injector import PromptInjector
+from src.domain.prompts.models import PromptConfig
+from src.infrastructure.graph.state import AgentState, SystemMessage, HumanMessage
 
 
 class TestPromptIntegration:

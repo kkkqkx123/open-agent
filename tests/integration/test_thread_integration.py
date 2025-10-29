@@ -6,7 +6,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
-from src.application.threads.session_thread_mapper import SessionThreadMapper, MemorySessionThreadMapper
 from src.application.threads.query_manager import ThreadQueryManager
 from .test_utils import MockSessionManager
 from src.domain.threads.interfaces import IThreadManager
@@ -229,17 +228,6 @@ def session_manager() -> MockSessionManager:
     return MockSessionManager()
 
 
-@pytest.fixture
-def session_thread_mapper(
-    session_manager: MockSessionManager,
-    mock_thread_manager: MockThreadManager,
-    memory_metadata_store: MemoryThreadMetadataStore
-) -> MemorySessionThreadMapper:
-    """创建session-thread映射器"""
-    return MemorySessionThreadMapper(session_manager, mock_thread_manager)
-
-
-@pytest.fixture
 def query_manager(mock_thread_manager: MockThreadManager) -> ThreadQueryManager:
     """创建查询管理器"""
     return ThreadQueryManager(mock_thread_manager)
@@ -253,7 +241,6 @@ def cache_manager() -> ThreadCacheManager:
 
 @pytest.fixture
 def sdk_adapter(
-    session_thread_mapper: MemorySessionThreadMapper,
     checkpoint_manager: CheckpointManager,
     mock_thread_manager: MockThreadManager,
     session_manager: MockSessionManager,
@@ -261,7 +248,6 @@ def sdk_adapter(
 ) -> CompleteLangGraphSDKAdapter:
     """创建SDK适配器"""
     return CompleteLangGraphSDKAdapter(
-        session_thread_mapper,
         checkpoint_manager,
         mock_thread_manager,
         session_manager,
@@ -272,7 +258,6 @@ def sdk_adapter(
 @pytest.mark.asyncio
 async def test_thread_creation_and_mapping(
     sdk_adapter: CompleteLangGraphSDKAdapter,
-    session_thread_mapper: MemorySessionThreadMapper,
     mock_thread_manager: MockThreadManager
 ) -> None:
     """测试Thread创建和映射功能"""
@@ -293,13 +278,6 @@ async def test_thread_creation_and_mapping(
     thread_info = await mock_thread_manager.get_thread_info(thread_id)
     assert thread_info is not None
     assert thread_info["graph_id"] == "test_graph"
-    
-    # 验证session-thread映射
-    session_id = await session_thread_mapper.get_session_for_thread(thread_id)
-    assert session_id is not None
-    
-    thread_id_from_session = await session_thread_mapper.get_thread_for_session(session_id)
-    assert thread_id_from_session == thread_id
 
 
 @pytest.mark.asyncio
@@ -456,7 +434,6 @@ async def test_thread_copy(
 @pytest.mark.asyncio
 async def test_thread_deletion(
     sdk_adapter: CompleteLangGraphSDKAdapter,
-    session_thread_mapper: MemorySessionThreadMapper,
     mock_thread_manager: MockThreadManager
 ) -> None:
     """测试Thread删除功能"""
@@ -467,11 +444,9 @@ async def test_thread_deletion(
     )
     
     thread_id = result["thread_id"]
-    session_id = result["session_id"]
     
     # 验证thread存在
     assert await mock_thread_manager.thread_exists(thread_id) is True
-    assert await session_thread_mapper.get_thread_for_session(session_id) == thread_id
     
     # 删除thread
     delete_success = await sdk_adapter.threads_delete(thread_id)
@@ -479,7 +454,6 @@ async def test_thread_deletion(
     
     # 验证thread被删除
     assert await mock_thread_manager.thread_exists(thread_id) is False
-    assert await session_thread_mapper.get_thread_for_session(session_id) is None
 
 
 @pytest.mark.asyncio
@@ -531,7 +505,6 @@ async def test_performance_monitor() -> None:
 @pytest.mark.asyncio
 async def test_sdk_adapter_comprehensive_workflow(
     sdk_adapter: CompleteLangGraphSDKAdapter,
-    session_thread_mapper: MemorySessionThreadMapper,
     mock_thread_manager: MockThreadManager,
     checkpoint_manager: CheckpointManager
 ) -> None:

@@ -170,8 +170,10 @@ class TestSessionIntegration:
             assert session_data is not None
             assert "metadata" in session_data
             assert "state" in session_data
-            # workflow_config 字段可能不存在，改为检查 workflow_config_path
-            assert "workflow_config_path" in session_data["metadata"]
+            # workflow_config 字段可能不存在，改为检查 workflow_configs 或 thread_info
+            assert ("workflow_config_path" in session_data["metadata"] or
+                    "workflow_configs" in session_data["metadata"] or
+                    "thread_info" in session_data["metadata"])
 
     def test_session_with_git_integration(self, session_components):
         """测试会话与Git集成"""

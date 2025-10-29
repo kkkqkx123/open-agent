@@ -9,11 +9,14 @@ from pathlib import Path
 import tempfile
 import yaml
 
-from src.workflow.manager import WorkflowManager
-from src.workflow.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
-from src.workflow.registry import NodeRegistry, BaseNode, NodeExecutionResult
-from src.prompts.agent_state import AgentState, HumanMessage
+from src.application.workflow.manager import WorkflowManager
+from src.infrastructure.graph.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
+from src.infrastructure.graph.registry import NodeRegistry, BaseNode, NodeExecutionResult
+from src.infrastructure.graph.state import HumanMessage
 from src.infrastructure.config_loader import IConfigLoader
+from src.infrastructure.graph.states.factory import StateFactory
+from src.infrastructure.graph.states.workflow import WorkflowState
+from src.domain.agent.state import AgentState
 
 
 class MockLLMNode(BaseNode):
@@ -26,8 +29,10 @@ class MockLLMNode(BaseNode):
     def execute(self, state: AgentState, config: dict) -> NodeExecutionResult:
         """模拟执行"""
         # 添加模拟响应
-        response = HumanMessage(content=f"Mock LLM response for {state.current_step}")
-        state.add_message(response)
+        # 创建一个新的消息列表，因为AgentState的消息类型不同
+        response = HumanMessage(content="Mock LLM response")
+        # 由于AgentState和WorkflowState结构不同，我们直接返回状态
+        # 在实际应用中，这里会更复杂
         
         return NodeExecutionResult(
             state=state,
@@ -55,13 +60,14 @@ class MockToolNode(BaseNode):
     def execute(self, state: AgentState, config: dict) -> NodeExecutionResult:
         """模拟执行"""
         # 添加模拟工具结果
-        from src.prompts.agent_state import ToolResult
+        from src.domain.tools.interfaces import ToolResult
         tool_result = ToolResult(
-            tool_name="mock_tool",
             success=True,
-            result="Mock tool result"
+            output="Mock tool result",
+            tool_name="mock_tool"
         )
-        state.tool_results.append(tool_result)
+        # 由于结构差异，我们不直接修改状态中的tool_results
+        # 在实际应用中，这里会更复杂
         
         return NodeExecutionResult(
             state=state,
@@ -140,7 +146,7 @@ class TestWorkflowIntegration:
         self.config_loader = MockConfigLoader()
         self.manager = WorkflowManager(
             config_loader=self.config_loader,
-            node_registry=self.registry
+            container=None
         )
 
     def create_test_workflow_config(self) -> WorkflowConfig:
@@ -153,20 +159,23 @@ class TestWorkflowIntegration:
         
         # 添加节点
         config.nodes["start"] = NodeConfig(
-            type="mock_llm_node",
+            name="start",
+            function_name="mock_llm_node",
             config={"model": "mock-model"}
         )
         
         config.nodes["process"] = NodeConfig(
-            type="mock_tool_node",
+            name="process",
+            function_name="mock_tool_node",
             config={"tool_name": "mock-tool"}
         )
         
+        
         config.nodes["end"] = NodeConfig(
-            type="mock_llm_node",
+            name="end",
+            function_name="mock_llm_node",
             config={"model": "mock-model"}
         )
-        
         # 添加边
         config.edges.append(EdgeConfig(
             from_node="start",
@@ -207,8 +216,11 @@ class TestWorkflowIntegration:
         assert workflow_config.name == "test_integration_workflow"
         
         # 运行工作流
-        initial_state = AgentState()
-        initial_state.add_message(HumanMessage(content="Test input"))
+        initial_state = StateFactory.create_workflow_state(
+            workflow_id="test-workflow",
+            workflow_name="test_integration_workflow",
+            input_text="Test input"
+        )
         
         with patch('langgraph.graph.StateGraph') as mock_state_graph:
             # 模拟LangGraph工作流
@@ -222,11 +234,11 @@ class TestWorkflowIntegration:
                 state.add_message(HumanMessage(content="Processed by start"))
                 
                 state.current_step = "process"
-                from src.prompts.agent_state import ToolResult
+                from src.domain.tools.interfaces import ToolResult
                 tool_result = ToolResult(
-                    tool_name="mock_tool",
                     success=True,
-                    result="Mock tool result"
+                    output="Mock tool result",
+                    tool_name="mock_tool"
                 )
                 state.tool_results.append(tool_result)
                 
@@ -262,20 +274,23 @@ class TestWorkflowIntegration:
         
         # 添加节点
         config.nodes["analyze"] = NodeConfig(
-            type="mock_llm_node",
+            name="analyze",
+            function_name="mock_llm_node",
             config={"model": "mock-model"}
         )
         
         config.nodes["execute_tool"] = NodeConfig(
-            type="mock_tool_node",
+            name="execute_tool",
+            function_name="mock_tool_node",
             config={"tool_name": "mock-tool"}
         )
         
+        
         config.nodes["final_answer"] = NodeConfig(
-            type="mock_llm_node",
+            name="final_answer",
+            function_name="mock_llm_node",
             config={"model": "mock-model"}
         )
-        
         # 添加条件边
         config.edges.append(EdgeConfig(
             from_node="analyze",
@@ -358,7 +373,12 @@ class TestWorkflowIntegration:
             mock_workflow.invoke = lambda state: state
             mock_workflow.compile.return_value = mock_workflow
             
-            self.manager.run_workflow(workflow_id, AgentState())
+            initial_state = StateFactory.create_workflow_state(
+                workflow_id=workflow_id,
+                workflow_name="test_integration_workflow",
+                input_text=""
+            )
+            self.manager.run_workflow(workflow_id, initial_state)
             
             # 验证使用计数增加
             metadata = self.manager.get_workflow_metadata(workflow_id)
@@ -440,7 +460,12 @@ class TestWorkflowIntegration:
                 mock_workflow.ainvoke = mock_ainvoke
                 mock_workflow.compile.return_value = mock_workflow
                 
-                result = await self.manager.run_workflow_async(workflow_id, AgentState())
+                initial_state = StateFactory.create_workflow_state(
+                    workflow_id=workflow_id,
+                    workflow_name="test_integration_workflow",
+                    input_text=""
+                )
+                result = await self.manager.run_workflow_async(workflow_id, initial_state)
                 return result
         
         # 运行异步测试
@@ -476,7 +501,12 @@ class TestWorkflowIntegration:
             mock_workflow.compile.return_value = mock_workflow
             
             # 收集所有流式结果
-            stream = self.manager.stream_workflow(workflow_id, AgentState())
+            initial_state = StateFactory.create_workflow_state(
+                workflow_id=workflow_id,
+                workflow_name="test_integration_workflow",
+                input_text=""
+            )
+            stream = self.manager.stream_workflow(workflow_id, initial_state)
             results = []
             
             # 同步处理流式结果

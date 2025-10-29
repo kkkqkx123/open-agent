@@ -301,9 +301,16 @@ class SessionManager(ISessionManager):
         }
 
         # 保存会话信息
+        # 获取第一个线程的初始状态作为会话状态（向后兼容）
+        session_state = {}
+        if initial_states and initial_states:
+            first_thread_state = next(iter(initial_states.values()))
+            if first_thread_state:
+                session_state = self._serialize_state(first_thread_state)
+        
         session_data = {
             "metadata": session_metadata,
-            "state": {}  # 多线程会话的状态管理将通过各自的thread管理
+            "state": session_state  # 多线程会话的状态管理将通过各自的thread管理，但仍保存一个会话级状态用于向后兼容
         }
         self.session_store.save_session(session_id, session_data)
 
@@ -393,6 +400,9 @@ class SessionManager(ISessionManager):
         initial_states = None
         if initial_state:
             initial_states = {"default_thread": initial_state}
+        else:
+            # 创建一个默认的空状态
+            initial_states = {"default_thread": self._create_empty_state()}
         
         # 异步方法需要在同步上下文中运行
         import asyncio
@@ -424,20 +434,46 @@ class SessionManager(ISessionManager):
                 raise ValueError(f"会话 {session_id} 不存在")
             
             metadata = session_data["metadata"]
-            config_path = metadata["workflow_config_path"]
+            # 对于多线程会话，获取第一个线程的配置路径
+            config_path = None
+            if "workflow_config_path" in metadata:
+                # 向后兼容旧格式
+                config_path = metadata["workflow_config_path"]
+            elif "workflow_configs" in metadata and metadata["workflow_configs"]:
+                # 新格式：获取第一个工作流配置
+                config_path = next(iter(metadata["workflow_configs"].values()))
+            elif "thread_info" in metadata and metadata["thread_info"]:
+                # 从线程信息中获取配置路径
+                first_thread = next(iter(metadata["thread_info"].values()))
+                config_path = first_thread.get("config_path")
+            
+            if not config_path:
+                raise ValueError(f"会话 {session_id} 中未找到工作流配置路径")
             
             # 检查配置文件是否存在
             if not Path(config_path).exists():
                 # 在测试环境中，创建模拟的工作流配置
                 logger.warning(f"工作流配置文件不存在，使用模拟配置: {config_path}")
                 workflow = None
+                # 即使配置文件不存在，也要正确恢复状态
                 if self.state_manager:
-                    deserialized_state = self.state_manager.deserialize_state_dict(
-                        self.state_manager.serialize_state_dict(session_data["state"])
-                    )
-                    state = self._deserialize_state(deserialized_state)
+                    # 确保状态数据正确反序列化
+                    state_data = session_data["state"]
+                    if isinstance(state_data, dict) and state_data:
+                        deserialized_state = self.state_manager.deserialize_state_dict(
+                            self.state_manager.serialize_state_dict(state_data)
+                        )
+                        state = self._deserialize_state(deserialized_state)
+                    else:
+                        # 如果没有保存的状态，创建一个空状态
+                        state = self._create_empty_state()
                 else:
-                    state = self._deserialize_state(session_data["state"])
+                    state_data = session_data["state"]
+                    if isinstance(state_data, dict) and state_data:
+                        state = self._deserialize_state(state_data)
+                    else:
+                        # 如果没有保存的状态，创建一个空状态
+                        state = self._create_empty_state()
                 return workflow, state
             
             # 使用改进的恢复策略
@@ -943,3 +979,25 @@ class SessionManager(ISessionManager):
                 }
         
         return MockWorkflowConfig(config_path)
+    
+    def _create_empty_state(self) -> AgentState:
+        """创建空状态
+        
+        Returns:
+            AgentState: 空状态
+        """
+        return {
+            "messages": [],
+            "tool_results": [],
+            "current_step": "",
+            "max_iterations": 10,
+            "iteration_count": 0,
+            "workflow_name": "",
+            "start_time": None,
+            "errors": [],
+            "input": "",
+            "output": None,
+            "tool_calls": [],
+            "complete": False,
+            "metadata": {}
+        }

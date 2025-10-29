@@ -13,14 +13,11 @@ from src.infrastructure.config_loader import YamlConfigLoader
 from src.infrastructure.config.config_system import ConfigSystem
 from src.infrastructure.config.config_merger import ConfigMerger
 from src.infrastructure.config.config_validator import ConfigValidator
-from src.logger import (
-    get_logger,
-    initialize_logging_integration,
-    get_global_error_handler,
-    ErrorType,
-    LogLevel,
-)
-from src.config import register_config_callback, CallbackPriority
+from src.infrastructure.logger.logger import get_logger
+from src.infrastructure.logger.config_integration import initialize_logging_integration
+from src.infrastructure.logger.error_handler import get_global_error_handler, ErrorType
+from src.infrastructure.logger.log_level import LogLevel
+from src.infrastructure.config.config_callback_manager import register_config_callback, CallbackPriority
 
 
 class TestLoggingConfigIntegration:
@@ -161,7 +158,7 @@ debug: false
 
         config_data = config_loader.load("global.yaml")
         global_config = GlobalConfig(**config_data)
-        from src.logger import set_global_config
+        from src.infrastructure.logger.logger import set_global_config
 
         set_global_config(global_config)
 
@@ -241,7 +238,7 @@ debug: false
         initialize_logging_integration()
 
         # 获取指标收集器
-        from src.logger import get_global_metrics_collector
+        from src.infrastructure.logger.metrics import get_global_metrics_collector
 
         metrics_collector = get_global_metrics_collector()
 
@@ -312,7 +309,7 @@ debug: false
         )
 
         # 触发回调
-        from src.config import trigger_config_callbacks
+        from src.infrastructure.config.config_callback_manager import trigger_config_callbacks
 
         trigger_config_callbacks("test.yaml", {}, {"key": "value"})
 
@@ -320,7 +317,7 @@ debug: false
         assert execution_order == ["high", "normal", "low"]
 
         # 清理
-        from src.config import unregister_config_callback
+        from src.infrastructure.config.config_callback_manager import unregister_config_callback
 
         unregister_config_callback("high")
         unregister_config_callback("normal")
@@ -350,7 +347,7 @@ debug: false
         )
 
         # 触发回调（错误不应该影响其他回调）
-        from src.config import trigger_config_callbacks
+        from src.infrastructure.config.config_callback_manager import trigger_config_callbacks
 
         trigger_config_callbacks("test.yaml", {}, {"key": "value"})
 
@@ -358,7 +355,7 @@ debug: false
         assert success_callback_called is True
 
         # 清理
-        from src.config import unregister_config_callback
+        from src.infrastructure.config.config_callback_manager import unregister_config_callback
 
         unregister_config_callback("error")
         unregister_config_callback("success")
@@ -398,7 +395,7 @@ debug: false
             assert "输入参数有误" in message
 
         # 4. 记录指标
-        from src.logger import get_global_metrics_collector
+        from src.infrastructure.logger.metrics import get_global_metrics_collector
 
         metrics_collector = get_global_metrics_collector()
 

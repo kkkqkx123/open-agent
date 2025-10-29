@@ -5,15 +5,16 @@ from unittest.mock import patch, Mock
 
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-from src.llm import LLMFactory, LLMModuleConfig
-from src.llm.clients.openai.unified_client import OpenAIUnifiedClient
-from src.llm.clients.gemini_client import GeminiClient
-from src.llm.clients.anthropic_client import AnthropicClient
-from src.llm.clients.mock_client import MockLLMClient
-from src.llm.hooks import LoggingHook, MetricsHook, CompositeHook
-from src.llm.fallback import FallbackManager, FallbackStrategy, FallbackModel
-from src.llm.models import LLMResponse, TokenUsage
-from src.llm.exceptions import LLMClientCreationError, UnsupportedModelTypeError
+from src.infrastructure.llm.factory import LLMFactory
+from src.infrastructure.llm.config import LLMModuleConfig
+from src.infrastructure.llm.clients.openai.unified_client import OpenAIUnifiedClient
+from src.infrastructure.llm.clients.gemini import GeminiClient
+from src.infrastructure.llm.clients.anthropic import AnthropicClient
+from src.infrastructure.llm.clients.mock import MockLLMClient
+from src.infrastructure.llm.hooks import LoggingHook, MetricsHook, CompositeHook
+from src.infrastructure.llm.fallback import FallbackManager, FallbackStrategy, FallbackModel
+from src.infrastructure.llm.models import LLMResponse, TokenUsage
+from src.infrastructure.llm.exceptions import LLMClientCreationError, UnsupportedModelTypeError
 
 
 class TestLLMIntegration:
@@ -34,7 +35,7 @@ class TestLLMIntegration:
             "api_key": "test-key",
         }
 
-        with patch("src.llm.clients.openai.unified_client.OpenAIUnifiedClient"):
+        with patch("src.infrastructure.llm.clients.openai.unified_client.OpenAIUnifiedClient"):
             openai_client = factory.create_client(openai_config)
             assert isinstance(openai_client, OpenAIUnifiedClient)
 
@@ -45,7 +46,7 @@ class TestLLMIntegration:
             "api_key": "test-key",
         }
 
-        with patch("src.llm.clients.gemini_client.GeminiClient"):
+        with patch("src.infrastructure.llm.clients.gemini.GeminiClient"):
             gemini_client = factory.create_client(gemini_config)
             assert isinstance(gemini_client, GeminiClient)
 
@@ -56,7 +57,7 @@ class TestLLMIntegration:
             "api_key": "test-key",
         }
 
-        with patch("src.llm.clients.anthropic_client.AnthropicClient"):
+        with patch("src.infrastructure.llm.clients.anthropic.AnthropicClient"):
             anthropic_client = factory.create_client(anthropic_config)
             assert isinstance(anthropic_client, AnthropicClient)
 
