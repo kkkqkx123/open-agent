@@ -1,94 +1,104 @@
-"""OpenAI扩展配置"""
+"""OpenAI 客户端简化配置"""
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, List
-
-from ...config import OpenAIConfig as BaseOpenAIConfig
+from typing import Dict, Any, Optional
 
 
 @dataclass
-class OpenAIConfig(BaseOpenAIConfig):
-    """OpenAI扩展配置，支持API格式选择"""
-
-    # API格式选择
+class OpenAIConfig:
+    """简化的 OpenAI 配置"""
+    
+    # 基础配置
+    model_name: str
+    api_key: str
+    base_url: Optional[str] = None
+    
+    # API 格式选择
     api_format: str = "chat_completion"  # chat_completion | responses
-    api_format_configs: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-
-    # 降级配置
-    fallback_enabled: bool = True
-    fallback_formats: List[str] = field(default_factory=lambda: ["chat_completion"])
-
+    
+    # 生成参数
+    temperature: float = 0.7
+    max_tokens: Optional[int] = None
+    timeout: int = 30
+    max_retries: int = 3
+    
+    # 第三方 API 支持
+    custom_headers: Dict[str, str] = field(default_factory=dict)
+    
+    # Chat Completions 特定参数
+    top_p: float = 1.0
+    frequency_penalty: float = 0.0
+    presence_penalty: float = 0.0
+    stop: Optional[list[str]] = None
+    
+    # Responses API 特定参数
+    max_output_tokens: Optional[int] = None
+    reasoning: Optional[Dict[str, Any]] = None
+    store: bool = False
+    
     def __post_init__(self) -> None:
         """初始化后处理"""
-        super().__post_init__()
-
-        # 设置默认的API格式配置
-        if not self.api_format_configs:
-            self.api_format_configs = {
-                "chat_completion": {
-                    "endpoint": "/chat/completions",
-                    "supports_multiple_choices": True,
-                    "legacy_structured_output": True,
-                },
-                "responses": {
-                    "endpoint": "/responses",
-                    "supports_reasoning": True,
-                    "native_storage": True,
-                    "structured_output_format": "text.format",
-                },
-            }
-
-    def get_api_format_config(self, format_name: str) -> Dict[str, Any]:
-        """
-        获取特定API格式的配置
-
-        Args:
-            format_name: API格式名称
-
-        Returns:
-            Dict[str, Any]: API格式配置
-        """
-        return self.api_format_configs.get(format_name, {})
-
-    def is_api_format_supported(self, format_name: str) -> bool:
-        """
-        检查是否支持指定的API格式
-
-        Args:
-            format_name: API格式名称
-
-        Returns:
-            bool: 是否支持
-        """
-        return format_name in self.api_format_configs
-
-    def get_fallback_formats(self) -> List[str]:
-        """
-        获取降级格式列表
-
-        Returns:
-            List[str]: 降级格式列表
-        """
-        if not self.fallback_enabled:
-            return []
-
-        # 排除当前使用的格式
-        current_format = self.api_format
-        fallbacks = [fmt for fmt in self.fallback_formats if fmt != current_format]
-
-        return fallbacks
-
-    def switch_api_format(self, format_name: str) -> None:
-        """
-        切换API格式
-
-        Args:
-            format_name: 新的API格式
-
-        Raises:
-            ValueError: 不支持的API格式
-        """
-        if not self.is_api_format_supported(format_name):
-            raise ValueError(f"不支持的API格式: {format_name}")
-
-        self.api_format = format_name
+        # 验证 API 格式
+        if self.api_format not in ["chat_completion", "responses"]:
+            raise ValueError(f"不支持的 API 格式: {self.api_format}")
+        
+        # 设置默认的 base_url
+        if self.base_url is None:
+            if self.api_format == "responses":
+                self.base_url = "https://api.openai.com/v1"
+            else:
+                self.base_url = "https://api.openai.com/v1"
+    
+    def get_resolved_headers(self) -> Dict[str, str]:
+        """获取解析后的 HTTP 标头"""
+        headers = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        headers["Content-Type"] = "application/json"
+        headers.update(self.custom_headers)
+        return headers
+    
+    def is_chat_completion(self) -> bool:
+        """检查是否使用 Chat Completions API"""
+        return self.api_format == "chat_completion"
+    
+    def is_responses_api(self) -> bool:
+        """检查是否使用 Responses API"""
+        return self.api_format == "responses"
+    
+    def get_chat_completion_params(self) -> Dict[str, Any]:
+        """获取 Chat Completions API 参数"""
+        params = {
+            "temperature": self.temperature,
+            "top_p": self.top_p,
+            "frequency_penalty": self.frequency_penalty,
+            "presence_penalty": self.presence_penalty,
+        }
+        
+        if self.max_tokens:
+            params["max_tokens"] = self.max_tokens
+        
+        if self.stop:
+            params["stop"] = self.stop
+        
+        return params
+    
+    def get_responses_params(self) -> Dict[str, Any]:
+        """获取 Responses API 参数"""
+        params = {
+            "temperature": self.temperature,
+        }
+        
+        if self.max_tokens:
+            params["max_output_tokens"] = self.max_tokens
+        
+        if self.max_output_tokens:
+            params["max_output_tokens"] = self.max_output_tokens
+        
+        if self.reasoning:
+            params["reasoning"] = self.reasoning
+        
+        if self.store:
+            params["store"] = self.store
+        
+        return params
