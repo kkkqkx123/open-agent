@@ -1,1 +1,0 @@
-需要实现MCP配置管理模块，使得用户能通过Stdio、SSE、Streamable HTTP三种方式配置MCP。MCP配置形式使用json/toml格式，建议使用context7 mcp查询cursor、claude code、codex(toml)的MCP配置形式，同时兼容这3种配置形式

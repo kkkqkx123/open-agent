@@ -25,7 +25,7 @@ class ValidationRule(BaseModel):
     field: str = Field(..., description="要验证的字段")
     rule_type: str = Field(..., description="验证规则类型")
     value: Any = Field(None, description="验证值")
-    message: str = Field(None, description="验证失败时的错误消息")
+    message: Optional[str] = Field(None, description="验证失败时的错误消息")
 
 
 class ConfigInheritance(BaseModel):
@@ -41,8 +41,8 @@ class ConfigMetadata(BaseModel):
     version: str = Field("1.0.0", description="配置版本")
     description: str = Field("", description="配置描述")
     author: str = Field("", description="配置作者")
-    created_at: str = Field(None, description="创建时间")
-    updated_at: str = Field(None, description="更新时间")
+    created_at: Optional[str] = Field(None, description="创建时间")
+    updated_at: Optional[str] = Field(None, description="更新时间")
     tags: List[str] = Field(default_factory=list, description="配置标签")
 
 
@@ -73,7 +73,7 @@ class BaseConfigModel(BaseModel):
     )
     
     @field_validator('metadata', mode='before')
-    def validate_metadata(cls, v):
+    def validate_metadata(cls, v: Any) -> Any:
         """验证元数据"""
         if isinstance(v, dict):
             return ConfigMetadata(**v)
@@ -119,9 +119,10 @@ class BaseConfigModel(BaseModel):
         elif rule.rule_type == "type":
             return isinstance(field_value, rule.value)
         elif rule.rule_type == "range":
-            if isinstance(field_value, (int, float)):
+            if isinstance(field_value, (int, float)) and isinstance(rule.value, (list, tuple)) and len(rule.value) == 2:
                 min_val, max_val = rule.value
-                return min_val <= field_value <= max_val
+                return bool(min_val <= field_value <= max_val)
+            return False
         elif rule.rule_type == "in":
             return field_value in rule.value
         elif rule.rule_type == "regex":
@@ -229,14 +230,14 @@ class WorkflowConfigModel(BaseConfigModel):
     interrupt_after: List[str] = Field(default_factory=list, description="中断后节点")
     
     @field_validator('max_iterations')
-    def validate_max_iterations(cls, v):
+    def validate_max_iterations(cls, v: Any) -> Any:
         """验证最大迭代次数"""
         if v <= 0:
             raise ValueError("最大迭代次数必须大于0")
         return v
     
     @field_validator('timeout')
-    def validate_timeout(cls, v):
+    def validate_timeout(cls, v: Any) -> Any:
         """验证超时时间"""
         if v <= 0:
             raise ValueError("超时时间必须大于0")
@@ -355,7 +356,7 @@ CONFIG_MODEL_MAPPING = {
 }
 
 
-def create_config_model(config_type: ConfigType, **kwargs) -> BaseConfigModel:
+def create_config_model(config_type: ConfigType, **kwargs: Any) -> BaseConfigModel:
     """创建配置模型实例
     
     Args:
@@ -369,7 +370,7 @@ def create_config_model(config_type: ConfigType, **kwargs) -> BaseConfigModel:
     if not model_class:
         raise ValueError(f"不支持的配置类型: {config_type}")
     
-    return model_class(**kwargs)
+    return model_class(**kwargs)  # type: ignore
 
 
 def validate_config_with_model(config_dict: Dict[str, Any], config_type: ConfigType) -> List[str]:

@@ -5,6 +5,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Callable, List
+from pathlib import Path
 
 
 class IConfigLoader(ABC):
@@ -50,9 +51,8 @@ class IConfigLoader(ABC):
 
 class IConfigInheritanceHandler(ABC):
     """配置继承处理器接口"""
-    
     @abstractmethod
-    def resolve_inheritance(self, config: Dict[str, Any], base_path: Optional[str] = None) -> Dict[str, Any]:
+    def resolve_inheritance(self, config: Dict[str, Any], base_path: Optional[Path] = None) -> Dict[str, Any]:
         """解析配置继承关系
         
         Args:
@@ -75,4 +75,5 @@ class IConfigInheritanceHandler(ABC):
         Returns:
             验证错误列表
         """
+        pass
         pass

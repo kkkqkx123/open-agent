@@ -18,6 +18,7 @@ from .config_models import (
 )
 from .config_inheritance import ConfigInheritanceHandler
 from .exceptions import ConfigurationError
+from .config_interfaces import IConfigLoader
 
 
 @dataclass
@@ -29,9 +30,9 @@ class MigrationResult:
     errors: List[str]
     warnings: List[str]
     migrated_fields: Dict[str, Any]
-    timestamp: str = None
+    timestamp: Optional[str] = None
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.timestamp is None:
             self.timestamp = datetime.now().isoformat()
 
@@ -219,9 +220,9 @@ class ConfigMigrationTool:
         source_path = Path(source_path)
         target_path = Path(target_path)
         
-        errors = []
-        warnings = []
-        migrated_fields = {}
+        errors: List[str] = []
+        warnings: List[str] = []
+        migrated_fields: Dict[str, Any] = {}
         
         try:
             # 创建备份

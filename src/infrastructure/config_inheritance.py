@@ -12,10 +12,11 @@ from pydantic import BaseModel, ValidationError
 from abc import ABC, abstractmethod
 
 from .exceptions import ConfigurationError
-from .config_interfaces import IConfigLoader, IConfigInheritanceHandler
+from .config_interfaces import IConfigLoader
+from .config_interfaces import IConfigInheritanceHandler as IConfigInheritanceHandlerInterface
 
 
-class IConfigInheritanceHandler(ABC):
+class IConfigInheritanceHandler(IConfigInheritanceHandlerInterface):
     """配置继承处理器接口"""
     
     @abstractmethod
@@ -32,7 +33,7 @@ class IConfigInheritanceHandler(ABC):
         pass
     
     @abstractmethod
-    def validate_config(self, config: Dict[str, Any], schema: Optional[BaseModel] = None) -> List[str]:
+    def validate_config(self, config: Dict[str, Any], schema: Optional[object] = None) -> List[str]:
         """验证配置
         
         Args:
@@ -196,11 +197,13 @@ class ConfigInheritanceHandler(IConfigInheritanceHandler):
             else:
                 return value
         
-        return _resolve_recursive(config)
+        result = _resolve_recursive(config)
+        assert isinstance(result, dict)
+        return result
     
     def _resolve_env_var_string(self, text: str) -> str:
         """解析字符串中的环境变量"""
-        def replace_env_var(match):
+        def replace_env_var(match: Any) -> str:
             var_expr = match.group(1)
             
             # 检查是否包含默认值
@@ -245,7 +248,9 @@ class ConfigInheritanceHandler(IConfigInheritanceHandler):
             else:
                 return obj
         
-        return _resolve_recursive(config, config)
+        result = _resolve_recursive(config, config)
+        assert isinstance(result, dict)
+        return result
     
     def _get_nested_value(self, obj: Dict[str, Any], path: str) -> Any:
         """获取嵌套字典中的值
@@ -268,7 +273,7 @@ class ConfigInheritanceHandler(IConfigInheritanceHandler):
         
         return current
     
-    def validate_config(self, config: Dict[str, Any], schema: Optional[BaseModel] = None) -> List[str]:
+    def validate_config(self, config: Dict[str, Any], schema: Optional[object] = None) -> List[str]:
         """验证配置
         
         Args:
@@ -281,9 +286,10 @@ class ConfigInheritanceHandler(IConfigInheritanceHandler):
         errors = []
         
         # 如果提供了Pydantic模式，使用它验证
-        if schema:
+        if schema and hasattr(schema, 'model_validate'):
             try:
-                schema.model_validate(config)
+                # 使用getattr来动态调用方法，避免类型检查错误
+                getattr(schema, 'model_validate')(config)
             except ValidationError as e:
                 errors.extend([str(err) for err in e.errors()])
         

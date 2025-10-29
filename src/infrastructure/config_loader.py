@@ -2,7 +2,7 @@
 
 import os
 import re
-import yaml  # type: ignore
+import yaml
 import threading
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Callable, List, TypeVar
@@ -13,50 +13,10 @@ from watchdog.events import FileSystemEventHandler
 from .exceptions import ConfigurationError
 from .types import CheckResult
 from .config_inheritance import ConfigInheritanceHandler
+from .config_interfaces import IConfigLoader
 
 # 定义类型变量
 ConfigValue = TypeVar("ConfigValue", Dict[str, Any], List[Any], str, Any)
-
-
-class IConfigLoader(ABC):
-    """配置加载器接口"""
-
-    @abstractmethod
-    def load(self, config_path: str) -> Dict[str, Any]:
-        """加载配置文件"""
-        pass
-
-    @abstractmethod
-    def reload(self) -> None:
-        """重新加载所有配置"""
-        pass
-
-    @abstractmethod
-    def watch_for_changes(
-        self, callback: Callable[[str, Dict[str, Any]], None]
-    ) -> None:
-        """监听配置变化"""
-        pass
-
-    @abstractmethod
-    def resolve_env_vars(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """解析环境变量"""
-        pass
-
-    @abstractmethod
-    def stop_watching(self) -> None:
-        """停止监听配置变化"""
-        pass
-
-    @abstractmethod
-    def get_config(self, config_path: str) -> Optional[Dict[str, Any]]:
-        """获取缓存中的配置，如果不存在则返回None"""
-        pass
-
-    @abstractmethod
-    def _handle_file_change(self, file_path: str) -> None:
-        """处理文件变化事件"""
-        pass
 
 
 class ConfigFileHandler(FileSystemEventHandler):
