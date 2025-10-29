@@ -5,6 +5,7 @@ from unittest.mock import Mock, MagicMock
 from src.infrastructure.graph.adapters.collaboration_adapter import CollaborationStateAdapter
 from src.domain.state.interfaces import IStateCollaborationManager
 from src.infrastructure.graph.state import AgentState
+from src.domain.agent.state import AgentState as DomainAgentState
 
 
 class MockDomainState:
@@ -67,8 +68,12 @@ class TestCollaborationStateAdapter:
             "metadata": {}
         }
         
+        # 定义节点执行函数
+        def mock_node_executor(domain_state: DomainAgentState) -> DomainAgentState:
+            return domain_state
+        
         # 执行协作转换
-        result = self.adapter.execute_with_collaboration(graph_state)
+        result = self.adapter.execute_with_collaboration(graph_state, mock_node_executor)
         
         # 验证结果
         assert result is not None
@@ -101,8 +106,12 @@ class TestCollaborationStateAdapter:
             "metadata": {}
         }
         
+        # 定义节点执行函数
+        def mock_node_executor(domain_state: DomainAgentState) -> DomainAgentState:
+            return domain_state
+        
         # 执行协作转换
-        result = self.adapter.execute_with_collaboration(graph_state)
+        result = self.adapter.execute_with_collaboration(graph_state, mock_node_executor)
         
         # 验证错误被记录
         assert "validation_errors" in result["metadata"]

@@ -84,7 +84,7 @@ class TestEnhancedStateManager:
         # 检查历史记录
         history = self.state_manager.get_state_history("test_agent")
         assert len(history) > 0
-        assert history[0]["action"] == "test_action"
+        assert history[0].action == "test_action"
     
     def test_get_snapshot_history(self):
         """测试获取快照历史"""

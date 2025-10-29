@@ -2,8 +2,8 @@ from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime
 import logging
 from src.domain.state.interfaces import IEnhancedStateManager, IStateCollaborationManager
-from src.infrastructure.state.snapshot_store import StateSnapshotStore, StateSnapshot
-from src.infrastructure.state.history_manager import StateHistoryManager, StateHistoryEntry
+from src.infrastructure.state.interfaces import IStateSnapshotStore, IStateHistoryManager, StateHistoryEntry
+
 
 logger = logging.getLogger(__name__)
 
@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 class EnhancedStateManager(IEnhancedStateManager, IStateCollaborationManager):
     """增强状态管理器实现 - 重构版本"""
     
-    def __init__(self, snapshot_store: StateSnapshotStore, 
-                 history_manager: StateHistoryManager):
+    def __init__(self, snapshot_store: IStateSnapshotStore,
+                 history_manager: IStateHistoryManager):
         self.snapshot_store = snapshot_store
         self.history_manager = history_manager
         self.current_states: Dict[str, Any] = {}
@@ -85,6 +85,7 @@ class EnhancedStateManager(IEnhancedStateManager, IStateCollaborationManager):
     
     def save_snapshot(self, domain_state: Any, snapshot_name: str = "") -> str:
         """保存状态快照"""
+        from src.infrastructure.state.interfaces import StateSnapshot
         snapshot = StateSnapshot(
             snapshot_id=self._generate_snapshot_id(),
             agent_id=domain_state.agent_id,
@@ -136,14 +137,17 @@ class EnhancedStateManager(IEnhancedStateManager, IStateCollaborationManager):
     def get_state_history(self, agent_id: str, limit: int = 100) -> List[Dict[str, Any]]:
         """获取状态历史"""
         history_entries = self.history_manager.get_state_history(agent_id, limit)
+        # Convert StateHistoryEntry objects to dictionaries to match interface
         return [
             {
-                "history_id": h.history_id,
-                "timestamp": h.timestamp,
-                "action": h.action,
-                "metadata": h.metadata
+                "history_id": entry.history_id,
+                "agent_id": entry.agent_id,
+                "timestamp": entry.timestamp,
+                "action": entry.action,
+                "state_diff": entry.state_diff,
+                "metadata": entry.metadata
             }
-            for h in history_entries
+            for entry in history_entries
         ]
     
     def _generate_snapshot_id(self) -> str:

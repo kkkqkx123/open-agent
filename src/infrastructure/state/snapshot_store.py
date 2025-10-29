@@ -5,23 +5,10 @@ from datetime import datetime
 import uuid
 from dataclasses import dataclass, field
 
-
-@dataclass
-class StateSnapshot:
-    """状态快照"""
-    snapshot_id: str
-    agent_id: str
-    domain_state: Dict[str, Any]  # 序列化的域状态
-    timestamp: datetime
-    snapshot_name: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    # 性能优化字段
-    compressed_data: Optional[bytes] = None
-    size_bytes: int = 0
+from .interfaces import IStateSnapshotStore, StateSnapshot
 
 
-class StateSnapshotStore:
+class StateSnapshotStore(IStateSnapshotStore):
     """状态快照存储"""
     
     def __init__(self, storage_backend: str = "memory"):

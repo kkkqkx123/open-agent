@@ -8,6 +8,7 @@ from src.infrastructure.graph.adapters.collaboration_adapter import Collaboratio
 from src.infrastructure.graph.builder import GraphBuilder
 from src.infrastructure.di_config import DIConfig
 from src.domain.state.interfaces import IStateCollaborationManager
+from src.domain.agent.state import AgentState as DomainAgentState
 
 
 class MockDomainState:
@@ -67,7 +68,11 @@ def test_full_state_collaboration_workflow():
         "metadata": {}
     }
     
-    result = adapter.execute_with_collaboration(graph_state)
+    # 定义节点执行函数
+    def mock_node_executor(domain_state: DomainAgentState) -> DomainAgentState:
+        return domain_state
+    
+    result = adapter.execute_with_collaboration(graph_state, mock_node_executor)
     assert result is not None
     assert "metadata" in result
     assert "collaboration_snapshot_id" in result["metadata"]

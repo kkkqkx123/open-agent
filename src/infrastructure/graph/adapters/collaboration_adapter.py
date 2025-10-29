@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Callable
+from typing import Dict, Any, List, Callable, Union
 from datetime import datetime
 import logging
 from src.domain.agent.state import AgentState as DomainAgentState
@@ -17,9 +17,9 @@ class CollaborationStateAdapter:
     
     def execute_with_collaboration(
         self,
-        graph_state: Dict[str, Any],
+        graph_state: Union[Dict[str, Any], Any],
         node_executor: Callable[[DomainAgentState], DomainAgentState]
-    ) -> Dict[str, Any]:
+    ) -> Union[Dict[str, Any], Any]:
         """带协作机制的状态转换
         
         Args:

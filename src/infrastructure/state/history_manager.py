@@ -5,22 +5,10 @@ from datetime import datetime
 import uuid
 from dataclasses import dataclass, field
 
-
-@dataclass
-class StateHistoryEntry:
-    """状态历史记录"""
-    history_id: str
-    agent_id: str
-    timestamp: datetime
-    action: str  # "state_change", "tool_call", "message_added", etc.
-    state_diff: Dict[str, Any]  # 状态变化差异
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    # 性能优化字段
-    compressed_diff: Optional[bytes] = None
+from .interfaces import IStateHistoryManager, StateHistoryEntry
 
 
-class StateHistoryManager:
+class StateHistoryManager(IStateHistoryManager):
     """状态历史管理器"""
     
     def __init__(self, max_history_size: int = 1000):

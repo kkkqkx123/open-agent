@@ -20,128 +20,32 @@
 
 **位置**: `src/domain/agent/state.py`
 
-```python
-@dataclass
-class AgentState:
-    """域层Agent状态定义 - 业务逻辑使用"""
-    # 基本标识信息
-    agent_id: str = ""
-    agent_type: str = ""
-    
-    # 消息相关
-    messages: List[AgentMessage] = field(default_factory=list)
-    context: Dict[str, Any] = field(default_factory=dict)
-    
-    # 任务相关
-    current_task: Optional[str] = None
-    task_history: List[Dict[str, Any]] = field(default_factory=list)
-    
-    # 工具执行结果
-    tool_results: List[ToolResult] = field(default_factory=list)
-    
-    # 控制信息
-    current_step: str = ""
-    max_iterations: int = 10
-    iteration_count: int = 0
-    status: AgentStatus = AgentStatus.IDLE
-    
-    # 时间信息
-    start_time: Optional[datetime] = None
-    last_update_time: Optional[datetime] = field(default_factory=datetime.now)
-    
-    # 错误和日志
-    errors: List[Dict[str, Any]] = field(default_factory=list)
-    logs: List[Dict[str, Any]] = field(default_factory=list)
-    
-    # 性能指标
-    execution_metrics: Dict[str, Any] = field(default_factory=dict)
-    
-    # 自定义字段
-    custom_fields: Dict[str, Any] = field(default_factory=dict)
-```
+域层状态是Agent的核心状态表示，专注于业务逻辑处理。主要包含以下信息：
+- 基本标识信息（agent_id, agent_type）
+- 消息相关（messages, context）
+- 任务相关（current_task, task_history）
+- 工具执行结果（tool_results）
+- 控制信息（current_step, max_iterations, status等）
+- 时间信息（start_time, last_update_time）
+- 错误和日志（errors, logs）
+- 性能指标（execution_metrics）
+- 自定义字段（custom_fields）
 
 **特点**：
 - 使用`@dataclass`装饰器，提供完整的Python对象功能
 - 专注于业务逻辑，不依赖外部系统
-- 提供丰富的方法：`add_message()`, `add_tool_result()`, `set_status()`, `add_log()`, `add_error()`等
+- 提供丰富的方法来操作状态
 - 支持序列化和反序列化
-- 包含完整的执行上下文、任务管理、错误处理和性能监控功能
 
 ### 2. 图系统状态定义（LangGraph集成）
 
 **位置**: `src/infrastructure/graph/state.py`
 
-```python
-# 基础状态定义 - 符合LangGraph TypedDict模式
-class BaseGraphState(TypedDict, total=False):
-    """基础图状态"""
-    # 使用reducer确保消息列表是追加而不是覆盖
-    messages: Annotated[List[LCBaseMessage], operator.add]
-    # 可选字段
-    metadata: dict[str, Any]
-
-class AgentState(BaseGraphState, total=False):
-    """Agent状态 - 扩展版本"""
-    # Agent特定的状态字段
-    input: str
-    output: Optional[str]
-    # 工具相关状态
-    tool_calls: Annotated[List[dict[str, Any]], operator.add]
-    tool_results: Annotated[List[dict[str, Any]], operator.add]
-    # 迭代控制
-    iteration_count: Annotated[int, operator.add]
-    max_iterations: int
-    # 错误处理
-    errors: Annotated[List[str], operator.add]
-    # 完成标志
-    complete: bool
-    # 额外字段
-    start_time: Optional[str]
-    current_step: Optional[str]
-    workflow_name: Optional[str]
-    
-    # 新增业务字段以匹配域状态
-    context: dict[str, Any]
-    task_history: List[dict[str, Any]]
-    execution_metrics: dict[str, Any]
-    logs: List[dict[str, Any]]
-    custom_fields: dict[str, Any]
-    
-    # 时间信息
-    last_update_time: Optional[str]
-    
-    # Agent配置扩展
-    agent_config: dict[str, Any]  # 包含agent_type等配置
-
-class WorkflowState(AgentState, total=False):
-    """工作流状态 - 扩展Agent状态"""
-    # 工作流特定字段
-    workflow_id: str
-    step_name: Optional[str]
-    # 分析结果
-    analysis: Optional[str]
-    # 决策结果
-    decision: Optional[str]
-    # 上下文信息
-    context: dict[str, Any]
-
-class ReActState(WorkflowState, total=False):
-    """ReAct模式状态"""
-    # ReAct特定的状态字段
-    thought: Optional[str]
-    action: Optional[str]
-    observation: Optional[str]
-    # 步骤跟踪
-    steps: Annotated[List[dict[str, Any]], operator.add]
-
-class PlanExecuteState(WorkflowState, total=False):
-    """计划执行状态"""
-    # 计划执行特定字段
-    plan: Optional[str]
-    steps: Annotated[List[str], operator.add]
-    current_step: Optional[str]
-    step_results: Annotated[List[dict[str, Any]], operator.add]
-```
+图系统状态定义遵循LangGraph的最佳实践，使用TypedDict来确保类型安全。主要包含：
+- 基础图状态（BaseGraphState）：定义了消息列表等基础字段
+- Agent状态（AgentState）：扩展基础状态，包含Agent特定的字段
+- 工作流状态（WorkflowState）：进一步扩展，支持工作流相关字段
+- 特定模式状态（如ReActState、PlanExecuteState）：针对特定工作流模式的定制
 
 **特点**：
 - 使用`TypedDict`，符合LangGraph最佳实践
@@ -149,111 +53,24 @@ class PlanExecuteState(WorkflowState, total=False):
 - 提供类型安全和IDE支持
 - 专为图执行引擎设计
 - 支持多种工作流模式（ReAct、PlanExecute等）
-- 包含完整的状态层次结构
-- 提供状态工厂函数：`create_agent_state()`, `create_workflow_state()`等
 
 ### 3. 适配器层（状态转换桥梁）
 
 **位置**: `src/infrastructure/graph/adapters/`
 
+适配器层负责在域层状态和图系统状态之间进行转换，主要包括：
+
 #### 状态适配器 (StateAdapter)
-```python
-class StateAdapter:
-    def to_graph_state(self, domain_state: DomainAgentState) -> GraphAgentState:
-        """将域层AgentState转换为图系统AgentState"""
-        
-    def from_graph_state(self, graph_state: GraphAgentState) -> DomainAgentState:
-        """将图系统AgentState转换为域层AgentState"""
-    
-    # 内部转换方法
-    def _convert_messages_to_graph(self, domain_messages: List[DomainAgentMessage]) -> List[Union[GraphBaseMessage, LCBaseMessage]]
-    def _convert_messages_from_graph(self, graph_messages: List[Union[GraphBaseMessage, LCBaseMessage]]) -> List[DomainAgentMessage]
-    def _convert_tool_results(self, tool_results: List[ToolResult]) -> List[Dict[str, Any]]
-    def _convert_tool_results_from_graph(self, tool_results_data: List[Dict[str, Any]]) -> List[ToolResult]
-```
+负责域层和图系统状态之间的双向转换，确保数据在两种表示形式之间正确映射。
 
-#### 协作适配器 (CollaborationStateAdapter) - 重构版本
-**位置**: `src/infrastructure/graph/adapters/collaboration_adapter.py`
-
-```python
-class CollaborationStateAdapter:
-    """协作状态适配器 - 重构版本"""
-    
-    def __init__(self, collaboration_manager: IStateCollaborationManager):
-        self.state_adapter = StateAdapter()
-        self.collaboration_manager = collaboration_manager
-    
-    def execute_with_collaboration(
-        self,
-        graph_state: Dict[str, Any],
-        node_executor: Callable[[DomainAgentState], DomainAgentState]
-    ) -> Dict[str, Any]:
-        """带协作机制的状态转换 - 修复版本"""
-        # 1. 转换为域状态
-        domain_state = self.state_adapter.from_graph_state(graph_state)
-        
-        # 2. 状态验证
-        validation_errors = self._validate_state(domain_state)
-        
-        # 3. 记录状态变化开始
-        snapshot_id = self._create_pre_execution_snapshot(domain_state)
-        
-        # 4. 执行业务逻辑（关键修复：实际执行节点逻辑）
-        try:
-            result_domain_state = node_executor(domain_state)
-        except Exception as e:
-            # 记录执行错误
-            self._record_execution_error(domain_state, snapshot_id, str(e))
-            raise
-        
-        # 5. 记录状态变化结束
-        self._record_state_completion(result_domain_state, snapshot_id, validation_errors)
-        
-        # 6. 转换回图状态
-        result_state = self.state_adapter.to_graph_state(result_domain_state)
-        
-        # 7. 添加协作元数据
-        return self._add_collaboration_metadata(result_state, snapshot_id, validation_errors)
-```
+#### 协作适配器 (CollaborationStateAdapter)
+在状态转换过程中集成协作管理功能，包括状态验证、快照管理和历史追踪等。
 
 #### 消息适配器 (MessageAdapter)
-```python
-class MessageAdapter:
-    def to_graph_message(self, domain_message: DomainAgentMessage) -> Union[GraphBaseMessage, LCBaseMessage]:
-        """将域层AgentMessage转换为图系统消息"""
-        
-    def from_graph_message(self, graph_message: Union[GraphBaseMessage, LCBaseMessage]) -> DomainAgentMessage:
-        """将图系统消息转换为域层AgentMessage"""
-    
-    # 批量转换方法
-    def to_graph_messages(self, domain_messages: List[DomainAgentMessage]) -> List[Union[GraphBaseMessage, LCBaseMessage]]
-    def from_graph_messages(self, graph_messages: List[Union[GraphBaseMessage, LCBaseMessage]]) -> List[DomainAgentMessage]
-    
-    # 工具调用管理
-    def extract_tool_calls(self, domain_message: DomainAgentMessage) -> List[Dict[str, Any]]
-    def add_tool_calls_to_message(self, domain_message: DomainAgentMessage, tool_calls: List[Dict[str, Any]]) -> DomainAgentMessage
-    
-    # 消息创建工厂方法
-    def create_system_message(self, content: str) -> DomainAgentMessage
-    def create_user_message(self, content: str) -> DomainAgentMessage
-    def create_assistant_message(self, content: str) -> DomainAgentMessage
-    def create_tool_message(self, content: str, tool_call_id: str = "") -> DomainAgentMessage
-```
+处理不同层级消息对象之间的转换，支持多种消息类型（用户消息、助手消息、系统消息、工具消息等）。
 
 #### 适配器工厂 (AdapterFactory)
-```python
-class AdapterFactory:
-    def get_state_adapter(self) -> StateAdapter
-    def get_message_adapter(self) -> MessageAdapter
-    def create_state_adapter(self) -> StateAdapter
-    def create_message_adapter(self) -> MessageAdapter
-
-# 全局函数，提供单例模式
-get_state_adapter() -> StateAdapter
-get_message_adapter() -> MessageAdapter
-create_state_adapter() -> StateAdapter
-create_message_adapter() -> MessageAdapter
-```
+提供适配器的创建和管理功能，支持单例模式访问。
 
 ## 状态协作管理
 
@@ -270,161 +87,39 @@ create_message_adapter() -> MessageAdapter
 
 **位置**: `src/domain/state/interfaces.py`
 
-```python
-class IStateCollaborationManager(ABC):
-    """状态协作管理器接口 - 重构版本"""
-    
-    @abstractmethod
-    def execute_with_state_management(
-        self,
-        domain_state: Any,
-        executor: Callable[[Any], Any],
-        context: Optional[Dict[str, Any]] = None
-    ) -> Any:
-        """带状态管理的执行
-        
-        Args:
-            domain_state: 域状态对象
-            executor: 执行函数，接收状态并返回修改后的状态
-            context: 执行上下文
-            
-        Returns:
-            执行后的状态对象
-        """
-        pass
-    
-    @abstractmethod
-    def validate_domain_state(self, domain_state: Any) -> List[str]:
-        """验证域层状态完整性"""
-        pass
-    
-    @abstractmethod
-    def create_snapshot(self, domain_state: Any, description: str = "") -> str:
-        """创建状态快照"""
-        pass
-    
-    @abstractmethod
-    def restore_snapshot(self, snapshot_id: str) -> Optional[Any]:
-        """恢复状态快照"""
-        pass
-    
-    @abstractmethod
-    def record_state_change(self, agent_id: str, action: str,
-                          old_state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
-        """记录状态变化"""
-        pass
-```
+状态管理器接口定义了核心的状态协作功能：
+- `execute_with_state_management`: 带状态管理的执行方法
+- `validate_domain_state`: 验证域层状态完整性
+- `create_snapshot`: 创建状态快照
+- `restore_snapshot`: 恢复状态快照
+- `record_state_change`: 记录状态变化
+
+### 状态存储接口
+
+**位置**: `src/infrastructure/state/interfaces.py`
+
+为了更好地解耦和扩展，我们新增了专门的状态存储接口：
+
+#### 快照存储接口 (IStateSnapshotStore)
+定义了快照存储的核心操作：
+- `save_snapshot`: 保存快照
+- `load_snapshot`: 加载快照
+- `get_snapshots_by_agent`: 获取指定Agent的快照列表
+
+#### 历史管理接口 (IStateHistoryManager)
+定义了历史记录管理的核心操作：
+- `record_state_change`: 记录状态变化
+- `get_state_history`: 获取状态历史
 
 ### 增强状态管理器
 
 **位置**: `src/domain/state/enhanced_manager.py`
 
-```python
-class EnhancedStateManager(IEnhancedStateManager, IStateCollaborationManager):
-    """增强状态管理器实现 - 重构版本"""
-    
-    def __init__(self, snapshot_store: StateSnapshotStore,
-                 history_manager: StateHistoryManager):
-        self.snapshot_store = snapshot_store
-        self.history_manager = history_manager
-        self.current_states: Dict[str, Any] = {}
-    
-    def execute_with_state_management(
-        self,
-        domain_state: Any,
-        executor: Callable[[Any], Any],
-        context: Optional[Dict[str, Any]] = None
-    ) -> Any:
-        """带状态管理的执行"""
-        # 1. 验证状态
-        validation_errors = self.validate_domain_state(domain_state)
-        if validation_errors:
-            raise ValueError(f"状态验证失败: {validation_errors}")
-        
-        # 2. 创建快照
-        snapshot_id = self.create_snapshot(domain_state, "pre_execution")
-        
-        # 3. 记录开始
-        old_state = domain_state.to_dict() if hasattr(domain_state, 'to_dict') else vars(domain_state)
-        
-        try:
-            # 4. 执行业务逻辑
-            result_state = executor(domain_state)
-            
-            # 5. 记录成功
-            new_state = result_state.to_dict() if hasattr(result_state, 'to_dict') else vars(result_state)
-            self.record_state_change(
-                domain_state.agent_id if hasattr(domain_state, 'agent_id') else "unknown",
-                "execution_success",
-                old_state,
-                new_state
-            )
-            
-            return result_state
-            
-        except Exception as e:
-            # 6. 记录失败
-            self.record_state_change(
-                domain_state.agent_id if hasattr(domain_state, 'agent_id') else "unknown",
-                "execution_error",
-                old_state,
-                {"error": str(e), "snapshot_id": snapshot_id}
-            )
-            raise
-    
-    def validate_domain_state(self, domain_state: Any) -> List[str]:
-        """验证域层状态完整性"""
-        errors = []
-        
-        # 检查必需字段
-        if not hasattr(domain_state, 'agent_id') or not domain_state.agent_id:
-            errors.append("缺少agent_id字段")
-        
-        if not hasattr(domain_state, 'messages'):
-            errors.append("缺少messages字段")
-        
-        # 检查字段类型
-        if hasattr(domain_state, 'messages') and not isinstance(domain_state.messages, list):
-            errors.append("messages字段必须是列表类型")
-        
-        # 检查业务逻辑约束
-        if (hasattr(domain_state, 'iteration_count') and
-            hasattr(domain_state, 'max_iterations') and
-            domain_state.iteration_count > domain_state.max_iterations):
-            errors.append("迭代计数超过最大限制")
-        
-        return errors
-    
-    def save_snapshot(self, domain_state: Any, snapshot_name: str = "") -> str:
-        """保存状态快照"""
-        snapshot = StateSnapshot(
-            snapshot_id=self._generate_snapshot_id(),
-            agent_id=domain_state.agent_id,
-            domain_state=domain_state.to_dict() if hasattr(domain_state, 'to_dict') else vars(domain_state),
-            timestamp=datetime.now(),
-            snapshot_name=snapshot_name
-        )
-        
-        success = self.snapshot_store.save_snapshot(snapshot)
-        if success:
-            return snapshot.snapshot_id
-        else:
-            raise Exception("保存快照失败")
-    
-    def create_state_history_entry(self, domain_state: Any, action: str) -> str:
-        """创建状态历史记录"""
-        current_state = self.current_states.get(domain_state.agent_id, {})
-        new_state = domain_state.to_dict() if hasattr(domain_state, 'to_dict') else vars(domain_state)
-        
-        history_id = self.history_manager.record_state_change(
-            domain_state.agent_id, current_state, new_state, action
-        )
-        
-        # 更新当前状态
-        self.current_states[domain_state.agent_id] = new_state
-        
-        return history_id
-```
+增强状态管理器实现了状态协作管理器接口，提供以下核心功能：
+- 状态验证：验证域层状态的完整性
+- 快照管理：创建和管理状态快照
+- 历史追踪：记录状态变化历史
+- 执行管理：带状态管理的执行功能
 
 ### 快照存储功能
 
