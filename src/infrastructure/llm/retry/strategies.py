@@ -381,18 +381,20 @@ class StatusCodeRetryCondition(IRetryCondition):
             retry_status_codes: 需要重试的状态码列表
         """
         self.retry_status_codes = retry_status_codes
-    
+
     def should_retry(self, error: Exception, attempt: int) -> bool:
         """判断是否应该重试"""
-        if hasattr(error, "response") and hasattr(error.response, "status_code"):
-            return error.response.status_code in self.retry_status_codes
-        return True
+        if hasattr(error, "response"):
+            response = getattr(error, "response")
+            if hasattr(response, "status_code"):
+                return response.status_code in self.retry_status_codes
+        return False
 
 
 class ErrorTypeRetryCondition(IRetryCondition):
     """错误类型重试条件"""
     
-    def __init__(self, retry_error_types: List[str], block_error_types: List[str] = None):
+    def __init__(self, retry_error_types: List[str], block_error_types: Optional[List[str]] = None):
         """
         初始化错误类型重试条件
         

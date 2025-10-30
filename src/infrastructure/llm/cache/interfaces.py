@@ -78,9 +78,34 @@ class ICacheProvider(ABC):
     def cleanup_expired(self) -> int:
         """
         清理过期的缓存项
-        
+
         Returns:
             清理的项数量
+        """
+        pass
+
+    @abstractmethod
+    async def get_async(self, key: str) -> Optional[Any]:
+        """
+        异步获取缓存值
+
+        Args:
+            key: 缓存键
+
+        Returns:
+            缓存值，如果不存在则返回None
+        """
+        pass
+
+    @abstractmethod
+    async def set_async(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+        """
+        异步设置缓存值
+
+        Args:
+            key: 缓存键
+            value: 缓存值
+            ttl: 生存时间（秒），None表示使用默认TTL
         """
         pass
 

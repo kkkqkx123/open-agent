@@ -305,6 +305,56 @@ class CacheManager:
                 "deletes": 0,
                 "cleanups": 0,
             }
+
+    async def get_async(self, key: str) -> Optional[Any]:
+        """
+        异步获取缓存值
+
+        Args:
+            key: 缓存键
+
+        Returns:
+            缓存值，如果不存在则返回None
+        """
+        if not self.is_enabled() or not self._provider:
+            with self._lock:
+                self._stats["misses"] += 1
+            return None
+
+        try:
+            value = await self._provider.get_async(key)
+            if value is not None:
+                with self._lock:
+                    self._stats["hits"] += 1
+            else:
+                with self._lock:
+                    self._stats["misses"] += 1
+            return value
+        except Exception:
+            # 缓存错误不应该影响主流程
+            with self._lock:
+                self._stats["misses"] += 1
+            return None
+
+    async def set_async(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+        """
+        异步设置缓存值
+
+        Args:
+            key: 缓存键
+            value: 缓存值
+            ttl: 生存时间（秒），None表示使用默认TTL
+        """
+        if not self.is_enabled() or not self._provider:
+            return
+
+        try:
+            await self._provider.set_async(key, value, ttl)
+            with self._lock:
+                self._stats["sets"] += 1
+        except Exception:
+            # 缓存错误不应该影响主流程
+            pass
     
     def close(self) -> None:
         """关闭缓存管理器"""

@@ -2,6 +2,7 @@
 
 import time
 import threading
+import asyncio
 from typing import Any, Optional, Dict
 from collections import OrderedDict
 
@@ -192,12 +193,35 @@ class MemoryCacheProvider(ICacheProvider):
                     newest_age = min(ages)
             
             return {
-                "total_entries": total_entries,
-                "expired_entries": expired_count,
-                "valid_entries": total_entries - expired_count,
-                "max_size": self.max_size,
-                "utilization": total_entries / self.max_size if self.max_size > 0 else 0,
-                "total_access_count": total_access_count,
-                "oldest_entry_age_seconds": oldest_age,
-                "newest_entry_age_seconds": newest_age,
+            "total_entries": total_entries,
+            "expired_entries": expired_count,
+            "valid_entries": total_entries - expired_count,
+            "max_size": self.max_size,
+            "utilization": total_entries / self.max_size if self.max_size > 0 else 0,
+            "total_access_count": total_access_count,
+            "oldest_entry_age_seconds": oldest_age,
+            "newest_entry_age_seconds": newest_age,
             }
+
+    async def get_async(self, key: str) -> Optional[Any]:
+        """
+        异步获取缓存值
+
+        Args:
+            key: 缓存键
+
+        Returns:
+            缓存值，如果不存在则返回None
+        """
+        return await asyncio.to_thread(self.get, key)
+
+    async def set_async(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+        """
+        异步设置缓存值
+
+        Args:
+            key: 缓存键
+            value: 缓存值
+            ttl: 生存时间（秒），None表示使用默认TTL
+        """
+        await asyncio.to_thread(self.set, key, value, ttl)

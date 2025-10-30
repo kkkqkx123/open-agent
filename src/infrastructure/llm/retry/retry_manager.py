@@ -28,7 +28,7 @@ class RetryManager:
         self._sessions: List[RetrySession] = []
         self._stats = RetryStats()
     
-    def execute_with_retry(self, func: Callable, *args, **kwargs) -> Any:
+    def execute_with_retry(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         """
         带重试的同步执行
         
@@ -66,7 +66,11 @@ class RetryManager:
                     timestamp=time.time()
                 )
                 
+                # 初始化开始时间
+                start_time = time.time()
+                
                 try:
+                    
                     # 计算延迟（除了第一次尝试）
                     if attempt > 1 and last_error:
                         delay = self._strategy.get_retry_delay(last_error, attempt)
@@ -75,7 +79,6 @@ class RetryManager:
                             time.sleep(delay)
                     
                     # 执行函数
-                    start_time = time.time()
                     
                     # 如果有每次尝试的超时设置，使用超时执行
                     if self.config.per_attempt_timeout is not None:
@@ -105,6 +108,7 @@ class RetryManager:
                     # 失败
                     last_error = e
                     retry_attempt.error = e
+                    # 确保start_time已定义
                     if 'start_time' in locals():
                         retry_attempt.duration = time.time() - start_time
                     
@@ -119,20 +123,32 @@ class RetryManager:
                         break
             
             # 所有尝试都失败
-            session.mark_failure(last_error)
-            self._stats.update(session)
-            
-            # 调用失败回调
-            self._strategy.on_retry_failure(last_error, attempt)
-            
-            # 抛出最后的错误
-            raise last_error
+            if last_error is not None:
+                session.mark_failure(last_error)
+                self._stats.update(session)
+                
+                # 调用失败回调
+                self._strategy.on_retry_failure(last_error, attempt)
+                
+                # 抛出最后的错误
+                raise last_error
+            else:
+                # 如果没有错误发生但仍被认为是失败，创建一个默认错误
+                error = Exception("Retry failed without specific error")
+                session.mark_failure(error)
+                self._stats.update(session)
+                
+                # 调用失败回调
+                self._strategy.on_retry_failure(error, attempt)
+                
+                # 抛出错误
+                raise error
             
         finally:
             # 记录会话
             self._sessions.append(session)
     
-    async def execute_with_retry_async(self, func: Callable, *args, **kwargs) -> Any:
+    async def execute_with_retry_async(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         """
         带重试的异步执行
         
@@ -170,7 +186,11 @@ class RetryManager:
                     timestamp=time.time()
                 )
                 
+                # 初始化开始时间
+                start_time = time.time()
+                
                 try:
+                    
                     # 计算延迟（除了第一次尝试）
                     if attempt > 1 and last_error:
                         delay = self._strategy.get_retry_delay(last_error, attempt)
@@ -179,7 +199,6 @@ class RetryManager:
                             await asyncio.sleep(delay)
                     
                     # 执行异步函数
-                    start_time = time.time()
                     
                     # 如果有每次尝试的超时设置，使用超时执行
                     if self.config.per_attempt_timeout is not None:
@@ -209,6 +228,7 @@ class RetryManager:
                     # 失败
                     last_error = e
                     retry_attempt.error = e
+                    # 确保start_time已定义
                     if 'start_time' in locals():
                         retry_attempt.duration = time.time() - start_time
                     
@@ -223,20 +243,32 @@ class RetryManager:
                         break
             
             # 所有尝试都失败
-            session.mark_failure(last_error)
-            self._stats.update(session)
-            
-            # 调用失败回调
-            self._strategy.on_retry_failure(last_error, attempt)
-            
-            # 抛出最后的错误
-            raise last_error
+            if last_error is not None:
+                session.mark_failure(last_error)
+                self._stats.update(session)
+                
+                # 调用失败回调
+                self._strategy.on_retry_failure(last_error, attempt)
+                
+                # 抛出最后的错误
+                raise last_error
+            else:
+                # 如果没有错误发生但仍被认为是失败，创建一个默认错误
+                error = Exception("Retry failed without specific error")
+                session.mark_failure(error)
+                self._stats.update(session)
+                
+                # 调用失败回调
+                self._strategy.on_retry_failure(error, attempt)
+                
+                # 抛出错误
+                raise error
             
         finally:
             # 记录会话
             self._sessions.append(session)
     
-    def _execute_with_timeout(self, func: Callable, timeout: float, *args, **kwargs) -> Any:
+    def _execute_with_timeout(self, func: Callable[..., Any], timeout: float, *args: Any, **kwargs: Any) -> Any:
         """
         带超时的同步执行
         
@@ -252,24 +284,37 @@ class RetryManager:
         Raises:
             TimeoutError: 超时
         """
-        import signal
+        import threading
+        import queue
         
-        def timeout_handler(signum, frame):
-            raise TimeoutError(f"函数执行超时（{timeout}秒）")
+        result_queue: queue.Queue[Any] = queue.Queue()
+        exception_queue: queue.Queue[Exception] = queue.Queue()
         
-        # 设置超时信号
-        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(int(timeout))
+        def target() -> None:
+            try:
+                result = func(*args, **kwargs)
+                result_queue.put(result)
+            except Exception as e:
+                exception_queue.put(e)
         
+        # 启动线程
+        thread = threading.Thread(target=target)
+        thread.daemon = True
+        thread.start()
+        
+        # 等待结果或超时
         try:
-            result = func(*args, **kwargs)
+            # 首先尝试获取结果
+            result = result_queue.get(timeout=timeout)
             return result
-        finally:
-            # 恢复原始信号处理器
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, old_handler)
+        except queue.Empty:
+            # 如果超时，检查是否有异常
+            if not exception_queue.empty():
+                raise exception_queue.get()
+            else:
+                raise TimeoutError(f"函数执行超时（{timeout}秒）")
     
-    async def _execute_with_timeout_async(self, func: Callable, timeout: float, *args, **kwargs) -> Any:
+    async def _execute_with_timeout_async(self, func: Callable[..., Any], timeout: float, *args: Any, **kwargs: Any) -> Any:
         """
         带超时的异步执行
         
@@ -290,7 +335,7 @@ class RetryManager:
         except asyncio.TimeoutError:
             raise TimeoutError(f"异步函数执行超时（{timeout}秒）")
     
-    def retry(self, func: Callable = None, *, config: Optional[RetryConfig] = None) -> Union[Callable, Any]:
+    def retry(self, func: Optional[Callable] = None, *, config: Optional[RetryConfig] = None) -> Union[Callable, Any]:
         """
         重试装饰器
         
@@ -301,16 +346,16 @@ class RetryManager:
         Returns:
             装饰后的函数或装饰器
         """
-        def decorator(f: Callable) -> Callable:
+        def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
             @functools.wraps(f)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
                 # 使用提供的配置或默认配置
                 retry_config = config or self.config
                 retry_manager = RetryManager(retry_config, self.logger)
                 return retry_manager.execute_with_retry(f, *args, **kwargs)
             
             @functools.wraps(f)
-            async def async_wrapper(*args, **kwargs):
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 # 使用提供的配置或默认配置
                 retry_config = config or self.config
                 retry_manager = RetryManager(retry_config, self.logger)

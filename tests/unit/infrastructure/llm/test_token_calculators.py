@@ -101,7 +101,7 @@ class TestLocalTokenCalculator:
             
             # 应该调用多次encode方法
             assert mock_encoding.encode.call_count >= 2
-            assert count > 0
+            assert count is not None and count > 0
     
     def test_count_messages_tokens_generic(self):
         """测试计算通用消息token"""
@@ -114,7 +114,7 @@ class TestLocalTokenCalculator:
         calculator._encoding = None  # 模拟没有tiktoken
         
         count = calculator.count_messages_tokens(messages)
-        assert count > 0
+        assert count is not None and count > 0
     
     def test_get_model_info(self):
         """测试获取模型信息"""

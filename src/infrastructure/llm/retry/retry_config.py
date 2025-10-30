@@ -62,8 +62,10 @@ class RetryConfig:
                 return True
         
         # 检查状态码
-        if hasattr(error, "response") and hasattr(error.response, "status_code"):
-            if error.response.status_code in self.retry_on_status_codes:
+        response = getattr(error, "response", None)
+        if response is not None:
+            status_code = getattr(response, "status_code", None)
+            if status_code is not None and status_code in self.retry_on_status_codes:
                 return True
         
         return False

@@ -3,7 +3,7 @@
 import time
 import asyncio
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Sequence, Type, Union
+from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Sequence, Type, Union, Callable, Awaitable
 from datetime import datetime
 
 from langchain_core.messages import BaseMessage
@@ -23,8 +23,11 @@ from ..exceptions import (
     LLMInvalidRequestError,
 )
 from ..cache import CacheManager, create_cache_manager
+from ..cache.cache_config import CacheConfig
 from ..fallback_system import FallbackManager, create_fallback_manager
+from ..fallback_system.fallback_config import FallbackConfig
 from ..retry import RetryManager, create_retry_manager
+from ..retry.retry_config import RetryConfig
 from ..validation import ConfigValidator, ValidationResult
 
 
@@ -57,22 +60,48 @@ class EnhancedLLMClient(ILLMClient):
     def _initialize_feature_modules(self) -> None:
         """初始化功能模块"""
         # 初始化缓存管理器
-        if getattr(self.config, 'cache_config', {}).get('enabled', False):
+        if getattr(self.config, 'cache_enabled', False):
+            # 从LLMClientConfig创建CacheConfig
+            cache_config = CacheConfig(
+                enabled=getattr(self.config, 'cache_enabled', False),
+                ttl_seconds=getattr(self.config, 'cache_ttl_seconds', 3600),
+                max_size=getattr(self.config, 'cache_max_size', 1000),
+                cache_type=getattr(self.config, 'cache_type', 'memory')
+            )
             self._cache_manager = create_cache_manager(
-                self.config.model_type, 
-                self.config.cache_config
+                self.config.model_type,
+                cache_config
             )
         
         # 初始化降级管理器
         if getattr(self.config, 'fallback_enabled', False):
+            # 从LLMClientConfig创建FallbackConfig
+            fallback_config = FallbackConfig(
+                enabled=self.config.fallback_enabled,
+                max_attempts=getattr(self.config, 'max_fallback_attempts', 3),
+                fallback_models=getattr(self.config, 'fallback_models', []),
+                strategy_type="sequential",  # 使用简单的顺序策略
+                base_delay=1.0,
+                max_delay=60.0
+            )
             self._fallback_manager = create_fallback_manager(
-                self.config.fallback_config
+                fallback_config,
+                self  # 传递自身作为拥有者客户端
             )
         
         # 初始化重试管理器
-        if getattr(self.config, 'retry_config', {}).get('enabled', True):
+        if getattr(self.config, 'max_retries', 0) > 0:
+            # 从LLMClientConfig创建RetryConfig
+            retry_config = RetryConfig(
+                enabled=getattr(self.config, 'retry_enabled', True),
+                max_attempts=getattr(self.config, 'max_retries', 3),
+                base_delay=getattr(self.config, 'base_delay', 1.0),
+                max_delay=getattr(self.config, 'max_delay', 60.0),
+                exponential_base=getattr(self.config, 'exponential_base', 2.0),
+                jitter=getattr(self.config, 'jitter', True)
+            )
             self._retry_manager = create_retry_manager(
-                self.config.retry_config
+                retry_config
             )
         
         # 初始化配置验证器
@@ -194,10 +223,10 @@ class EnhancedLLMClient(ILLMClient):
     
     def _create_enhanced_error(
         self,
-        error_class: type,
+        error_class: Type[LLMCallError],
         message: str,
         original_error: Exception,
-        **kwargs
+        **kwargs: Any
     ) -> LLMCallError:
         """创建增强的错误对象，保留原始错误信息"""
         # 移除可能冲突的参数
@@ -207,7 +236,7 @@ class EnhancedLLMClient(ILLMClient):
         error = error_class(message, **kwargs)
         error.original_error = original_error
         error.error_type = type(original_error).__name__
-        error.model_name = self.config.model_name
+        # Note: model_name is set in specific error types like LLMModelNotFoundError
         return error
 
     def _create_response(
@@ -365,7 +394,7 @@ class EnhancedLLMClient(ILLMClient):
     def _execute_with_cache(
         self,
         cache_key: str,
-        operation: callable,
+        operation: Callable[..., LLMResponse],
         *args: Any,
         **kwargs: Any
     ) -> LLMResponse:
@@ -376,10 +405,10 @@ class EnhancedLLMClient(ILLMClient):
         # 尝试从缓存获取
         cached_response = self._cache_manager.get(cache_key)
         if cached_response is not None:
-            return cached_response
+            return cached_response  # type: ignore
         
         # 执行操作
-        response = operation(*args, **kwargs)
+        response: LLMResponse = operation(*args, **kwargs)
         
         # 存储到缓存
         self._cache_manager.set(cache_key, response)
@@ -388,7 +417,7 @@ class EnhancedLLMClient(ILLMClient):
 
     def _execute_with_fallback(
         self,
-        operation: callable,
+        operation: Callable[..., LLMResponse],
         *args: Any,
         **kwargs: Any
     ) -> LLMResponse:
@@ -396,13 +425,26 @@ class EnhancedLLMClient(ILLMClient):
         if self._fallback_manager is None:
             return operation(*args, **kwargs)
         
-        return self._fallback_manager.execute_with_fallback(
-            operation, self.config, *args, **kwargs
-        )
+        # 直接使用降级管理器的生成方法，适用于消息生成操作
+        if len(args) >= 1 and hasattr(args[0], '__len__') and len(args[0]) > 0:
+            # 假设第一个参数是消息列表
+            messages = args[0]
+            parameters = args[1] if len(args) > 1 else {}
+            primary_model = getattr(self.config, 'model_name', None)
+            
+            # 使用降级管理器生成
+            return self._fallback_manager.generate_with_fallback_sync(
+                messages,
+                parameters,
+                primary_model
+            )
+        else:
+            # 如果参数不匹配消息生成格式，直接执行操作
+            return operation(*args, **kwargs)
 
     def _execute_with_retry(
         self,
-        operation: callable,
+        operation: Callable[..., LLMResponse],
         *args: Any,
         **kwargs: Any
     ) -> LLMResponse:
@@ -410,8 +452,8 @@ class EnhancedLLMClient(ILLMClient):
         if self._retry_manager is None:
             return operation(*args, **kwargs)
         
-        return self._retry_manager.execute_with_retry(
-            operation, *args, **kwargs
+        return self._retry_manager.execute_with_retry(  # type: ignore
+        operation, *args, **kwargs
         )
 
     def generate(
@@ -558,7 +600,7 @@ class EnhancedLLMClient(ILLMClient):
     async def _execute_with_cache_async(
         self,
         cache_key: str,
-        operation: callable,
+        operation: Callable[..., Awaitable[LLMResponse]],
         *args: Any,
         **kwargs: Any
     ) -> LLMResponse:
@@ -569,7 +611,7 @@ class EnhancedLLMClient(ILLMClient):
         # 尝试从缓存获取
         cached_response = await self._cache_manager.get_async(cache_key)
         if cached_response is not None:
-            return cached_response
+            return cached_response  # type: ignore
         
         # 执行操作
         response = await operation(*args, **kwargs)
@@ -581,7 +623,7 @@ class EnhancedLLMClient(ILLMClient):
 
     async def _execute_with_fallback_async(
         self,
-        operation: callable,
+        operation: Callable[..., Awaitable[LLMResponse]],
         *args: Any,
         **kwargs: Any
     ) -> LLMResponse:
@@ -589,13 +631,26 @@ class EnhancedLLMClient(ILLMClient):
         if self._fallback_manager is None:
             return await operation(*args, **kwargs)
         
-        return await self._fallback_manager.execute_with_fallback_async(
-            operation, self.config, *args, **kwargs
-        )
+        # 直接使用降级管理器的异步生成方法，适用于消息生成操作
+        if len(args) >= 1 and hasattr(args[0], '__len__') and len(args[0]) > 0:
+            # 假设第一个参数是消息列表
+            messages = args[0]
+            parameters = args[1] if len(args) > 1 else {}
+            primary_model = getattr(self.config, 'model_name', None)
+            
+            # 使用降级管理器异步生成
+            return await self._fallback_manager.generate_with_fallback(
+                messages,
+                parameters,
+                primary_model
+            )
+        else:
+            # 如果参数不匹配消息生成格式，直接执行操作
+            return await operation(*args, **kwargs)
 
     async def _execute_with_retry_async(
         self,
-        operation: callable,
+        operation: Callable[..., Awaitable[LLMResponse]],
         *args: Any,
         **kwargs: Any
     ) -> LLMResponse:
@@ -603,8 +658,8 @@ class EnhancedLLMClient(ILLMClient):
         if self._retry_manager is None:
             return await operation(*args, **kwargs)
         
-        return await self._retry_manager.execute_with_retry_async(
-            operation, *args, **kwargs
+        return await self._retry_manager.execute_with_retry_async(  # type: ignore
+        operation, *args, **kwargs
         )
 
     async def _do_generate_async_with_hooks(
@@ -841,6 +896,6 @@ class EnhancedLLMClient(ILLMClient):
         """验证配置"""
         if self._config_validator is None:
             from ..validation import ValidationResult
-            return ValidationResult()
+            return ValidationResult(is_valid=True)
         
         return self._config_validator.validate_llm_client_config(self.config)
