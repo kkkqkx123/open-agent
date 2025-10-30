@@ -19,7 +19,7 @@ from rich.layout import Layout
 from rich.columns import Columns
 
 from ..config import TUIConfig
-from src.application.workflow.state import AgentState
+from src.infrastructure.graph.state import AgentState
 
 
 class NodeType(Enum):
@@ -310,12 +310,12 @@ class WorkflowVisualizer:
             return
         
         # 更新当前路径
-        current_step = getattr(state, 'current_step', '')
+        current_step = state.get('current_step') if state else None
         if current_step:
             # 简单的路径映射
             step_mapping = {
                 "input": "input",
-                "think": "think", 
+                "think": "think",
                 "tool_call": "tool",
                 "decision": "decision",
                 "output": "output"

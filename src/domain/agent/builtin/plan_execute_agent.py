@@ -1,13 +1,13 @@
 """Plan-Execute Agent实现"""
 
 from typing import Any, Dict, List, Optional
-from .base import BaseAgent
-from .state import AgentState
-from ...infrastructure.graph.state import BaseMessage
+from ..base import BaseAgent
+from ..state import AgentState
+from ....infrastructure.graph.state import BaseMessage
 from src.domain.tools.interfaces import ToolResult
 from langchain_core.messages import HumanMessage, SystemMessage  # type: ignore
 from src.domain.tools.interfaces import ToolCall
-from .events import AgentEvent
+from ..events import AgentEvent
 
 
 class PlanExecuteAgent(BaseAgent):
@@ -206,7 +206,7 @@ class PlanExecuteAgent(BaseAgent):
             step_result = await self._execute_plan_step(state, plan_step)
             
             # 更新状态
-            from .state import AgentMessage
+            from ..state import AgentMessage
             state.add_message(AgentMessage(
                 content=f"Step {plan_step['step']}: {step_result}",
                 role="ai",

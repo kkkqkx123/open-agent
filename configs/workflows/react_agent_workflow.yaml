@@ -1,0 +1,72 @@
+name: react_agent_workflow
+description: 基于ReAct Agent的工作流配置
+version: 1.0
+
+state_schema:
+  messages: List[BaseMessage]
+  tool_calls: List[ToolCall]
+  tool_results: List[ToolResult]
+  iteration_count: int
+  max_iterations: int
+  task_history: List[Dict[str, Any]]
+  errors: List[Dict[str, Any]]
+
+nodes:
+  react_agent:
+    type: react_agent_node
+    config:
+      name: react_agent
+      system_prompt: 你是一个使用ReAct算法的智能助手，通过推理和行动来解决问题。
+      max_iterations: 5
+      tools: [calculator, search]
+      llm_client: mock
+      next_node_on_complete: final_response
+      next_node_on_error: error_handler
+    description: ReAct Agent节点，执行推理和行动
+
+  final_response:
+    type: llm_node
+    config:
+      llm_client: mock
+      system_prompt: 请总结ReAct Agent的执行结果，并提供最终答案。
+      max_tokens: 1000
+      temperature: 0.3
+    description: 生成最终响应
+
+  error_handler:
+    type: llm_node
+    config:
+      llm_client: mock
+      system_prompt: 处理执行过程中发生的错误，并提供有用的错误信息。
+      max_tokens: 500
+      temperature: 0.1
+    description: 错误处理节点
+
+edges:
+  - from: react_agent
+    to: final_response
+    type: conditional
+    condition: task_completed
+    description: 任务完成后生成最终响应
+
+  - from: react_agent
+    to: error_handler
+    type: conditional
+    condition: has_error
+    description: 发生错误时进行错误处理
+
+  - from: final_response
+    to: __end__
+    type: simple
+    description: 工作流结束
+
+  - from: error_handler
+    to: __end__
+    type: simple
+    description: 错误处理后结束工作流
+
+entry_point: react_agent
+
+additional_config:
+  max_execution_time: 300
+  enable_logging: true

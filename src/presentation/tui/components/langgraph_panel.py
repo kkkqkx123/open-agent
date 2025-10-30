@@ -15,7 +15,7 @@ from rich.align import Align
 from rich.columns import Columns
 from rich.console import Console, ConsoleOptions, RenderResult
 
-from src.application.workflow.state import AgentState
+from src.infrastructure.graph.state import AgentState
 from ..config import TUIConfig
 
 
@@ -263,11 +263,11 @@ class StateSnapshotViewer:
             "timestamp": datetime.now(),
             "node_name": node_name,
             "description": description,
-            "message_count": len(state.messages),
-            "tool_results_count": len(state.tool_results),
-            "current_step": getattr(state, 'current_step', ''),
-            "iteration_count": getattr(state, 'iteration_count', 0),
-            "max_iterations": getattr(state, 'max_iterations', 10)
+            "message_count": len(state.get('messages', [])),
+            "tool_results_count": len(state.get('tool_results', [])),
+            "current_step": state.get('current_step', ''),
+            "iteration_count": state.get('iteration_count', 0),
+            "max_iterations": state.get('max_iterations', 10)
         }
         
         self.state_snapshots.append(snapshot)
@@ -382,9 +382,9 @@ class LangGraphPanelComponent:
             node_name=current_node,
             status=node_status,
             metadata={
-                "消息数": len(state.messages) if state else 0,
-                "工具调用": len(state.tool_results) if state else 0,
-                "迭代": f"{getattr(state, 'iteration_count', 0)}/{getattr(state, 'max_iterations', 10)}" if state else "0/10"
+                "消息数": len(state.get('messages', [])) if state else 0,
+                "工具调用": len(state.get('tool_results', [])) if state else 0,
+                "迭代": f"{state.get('iteration_count', 0)}/{state.get('max_iterations', 10)}" if state else "0/10"
             }
         )
         

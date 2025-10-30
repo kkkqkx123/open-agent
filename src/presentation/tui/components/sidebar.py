@@ -13,7 +13,7 @@ from rich.table import Table
 from rich.progress import Progress, BarColumn, TextColumn
 from rich.align import Align
 
-from src.application.workflow.state import AgentState
+from src.infrastructure.graph.state import AgentState
 from ..config import TUIConfig
 
 
@@ -99,12 +99,12 @@ class SidebarComponent:
             return
         
         # 更新工作流状态
-        if hasattr(state, 'workflow_name'):
-            self.workflow_status["name"] = state.workflow_name
+        if 'workflow_name' in state:
+            self.workflow_status["name"] = state['workflow_name']
         
-        if hasattr(state, 'iteration_count') and hasattr(state, 'max_iterations'):
-            current = state.iteration_count
-            maximum = state.max_iterations
+        if 'iteration_count' in state and 'max_iterations' in state:
+            current = state['iteration_count']
+            maximum = state['max_iterations']
             if maximum > 0:
                 self.workflow_status["progress"] = int((current / maximum) * 100)
             
@@ -114,16 +114,25 @@ class SidebarComponent:
                 self.workflow_status["state"] = "运行中"
         
         # 更新核心指标
-        if hasattr(state, 'messages'):
-            self.core_metrics["messages"] = len(state.messages)
+        if 'messages' in state:
+            self.core_metrics["messages"] = len(state['messages'])
         
         # 计算运行时间
-        if hasattr(state, 'start_time'):
-            start_time = state.start_time
-            if start_time:
-                duration = datetime.now() - start_time
-                minutes, seconds = divmod(duration.seconds, 60)
-                self.core_metrics["duration"] = f"{minutes}:{seconds:02d}"
+        if 'start_time' in state:
+            start_time = state['start_time']
+            if start_time and start_time is not None:
+                # 如果start_time是字符串格式，需要先转换为datetime对象
+                if isinstance(start_time, str):
+                    try:
+                        # 假设start_time是ISO格式字符串
+                        start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                    except ValueError:
+                        # 如果转换失败，跳过计算
+                        pass
+                if isinstance(start_time, datetime):
+                    duration = datetime.now() - start_time
+                    minutes, seconds = divmod(duration.seconds, 60)
+                    self.core_metrics["duration"] = f"{minutes}:{seconds:02d}"
     
     def update_agent_info(self, name: str, model: str, status: str = "就绪") -> None:
         """更新Agent信息

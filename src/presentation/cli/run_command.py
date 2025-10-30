@@ -1,7 +1,7 @@
 """运行命令实现"""
 
 import asyncio
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, cast
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.panel import Panel
@@ -11,7 +11,8 @@ from ...infrastructure.container import get_global_container
 from ...infrastructure.config_loader import IConfigLoader
 from src.application.sessions.manager import ISessionManager
 from src.application.workflow.manager import IWorkflowManager
-from src.application.workflow.state import AgentState, HumanMessage
+from src.domain.agent.state import AgentState, AgentMessage
+from src.infrastructure.graph.adapters.state_adapter import StateAdapter
 
 
 class RunCommand:
@@ -21,6 +22,7 @@ class RunCommand:
         self.config_path = config_path
         self.verbose = verbose
         self.console = Console()
+        self.state_adapter = StateAdapter()
         
     def execute(self, workflow_config_path: str, agent_config_path: Optional[str], session_id: Optional[str]) -> None:
         """执行运行命令"""
@@ -33,7 +35,8 @@ class RunCommand:
             if session_id:
                 # 恢复现有会话
                 self.console.print(f"[cyan]正在恢复会话 {session_id}...[/cyan]")
-                workflow, state = session_manager.restore_session(session_id)
+                workflow, graph_state = session_manager.restore_session(session_id)
+                state = self.state_adapter.from_graph_state(cast(Dict[str, Any], graph_state))
                 self.console.print(f"[green]会话 {session_id} 恢复成功[/green]")
             else:
                 # 创建新会话
@@ -49,7 +52,8 @@ class RunCommand:
                 )
                 
                 # 获取工作流和初始状态
-                workflow, state = session_manager.restore_session(session_id)
+                workflow, graph_state = session_manager.restore_session(session_id)
+                state = self.state_adapter.from_graph_state(cast(Dict[str, Any], graph_state))
                 self.console.print(f"[green]新会话 {session_id} 创建成功[/green]")
             
             # 显示会话信息
@@ -108,7 +112,7 @@ class RunCommand:
                     break
                 
                 # 添加用户消息到状态
-                human_message = HumanMessage(content=user_input)
+                human_message = AgentMessage(content=user_input, role="human")
                 state.add_message(human_message)
                 
                 # 执行工作流
@@ -143,7 +147,8 @@ class RunCommand:
                             self.console.print(traceback.format_exc())
                 
                 # 保存会话状态
-                session_manager.save_session(session_id, workflow, state)
+                graph_state = self.state_adapter.to_graph_state(state)
+                session_manager.save_session(session_id, workflow, graph_state)
                 
             except KeyboardInterrupt:
                 self.console.print("\n[yellow]正在保存会话并退出...[/yellow]")

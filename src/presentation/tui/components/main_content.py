@@ -18,7 +18,9 @@ from rich.align import Align
 from rich.console import Console, ConsoleOptions, RenderResult
 from rich.spinner import Spinner
 
-from src.application.workflow.state import AgentState, BaseMessage, ToolResult
+from src.infrastructure.graph.state import AgentState
+from src.infrastructure.graph.state import BaseMessage
+from typing import Any as ToolResult
 from ..config import TUIConfig
 
 
@@ -70,7 +72,7 @@ class ConversationHistory:
         Args:
             state: Agent状态
         """
-        for msg in state.messages:
+        for msg in state.get('messages', []):
             # 确定消息类型
             msg_type = "user"
             if hasattr(msg, 'type'):
@@ -302,7 +304,7 @@ class ToolResults:
         Args:
             state: Agent状态
         """
-        for result in state.tool_results:
+        for result in state.get('tool_results', []):
             self.add_tool_result(result)
     
     def clear_results(self) -> None:

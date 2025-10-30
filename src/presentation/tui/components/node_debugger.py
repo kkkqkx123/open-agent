@@ -19,7 +19,7 @@ from rich.columns import Columns
 from rich.layout import Layout
 
 from ..config import TUIConfig
-from src.application.workflow.state import AgentState
+from src.infrastructure.graph.state import AgentState
 
 
 class DebugMode(Enum):

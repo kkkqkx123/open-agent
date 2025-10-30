@@ -7,8 +7,8 @@ from .manager import AgentManager
 from .factory import AgentFactory, get_global_factory, set_global_factory, create_agent  # type: ignore
 from .config_loader import AgentConfigLoader
 from .events import AgentEvent, AgentEventManager
-from .react_agent import ReActAgent
-from .plan_execute_agent import PlanExecuteAgent
+from .builtin.react_agent import ReActAgent
+from .builtin.plan_execute_agent import PlanExecuteAgent
 from .state_manager import AgentStateManager
 
 __all__ = [

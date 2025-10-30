@@ -1,9 +1,10 @@
 """TUI状态管理器"""
 
 from typing import Optional, Dict, Any, List, Callable
+from typing import cast
 from src.application.sessions.manager import ISessionManager
-from src.domain.agent.state import AgentState
-from src.infrastructure.graph.states.base import HumanMessage
+from src.infrastructure.graph.state import AgentState
+from src.infrastructure.graph.state import HumanMessage
 
 
 class StateManager:
@@ -17,7 +18,7 @@ class StateManager:
         """
         self.session_manager = session_manager
         self.session_id: Optional[str] = None
-        self.current_state: Optional[AgentState] = None
+        self.current_state: Optional[Dict[str, Any]] = None
         self.current_workflow: Optional[Any] = None
         self.message_history: List[Dict[str, Any]] = []
         self.input_buffer = ""
@@ -62,7 +63,14 @@ class StateManager:
             )
             
             # 恢复会话以获取工作流和状态
-            self.current_workflow, self.current_state = self.session_manager.restore_session(self.session_id)
+            workflow, state = self.session_manager.restore_session(self.session_id)
+            self.current_workflow = workflow
+            # 将AgentState对象转换为字典，以兼容新的类型定义
+            if state is not None:
+                # AgentState是TypedDict，可以直接作为字典使用
+                self.current_state = cast(Dict[str, Any], state)
+            else:
+                self.current_state = None
             
             # 清空消息历史
             self.message_history = []
@@ -91,7 +99,14 @@ class StateManager:
             return False
         
         try:
-            self.current_workflow, self.current_state = self.session_manager.restore_session(session_id)
+            workflow, state = self.session_manager.restore_session(session_id)
+            self.current_workflow = workflow
+            # 将AgentState对象转换为字典，以兼容新的类型定义
+            if state is not None:
+                # AgentState是TypedDict，可以直接作为字典使用
+                self.current_state = cast(Dict[str, Any], state)
+            else:
+                self.current_state = None
             self.session_id = session_id
             self.message_history = []
             self.message_history.append({
@@ -110,7 +125,18 @@ class StateManager:
         """
         if self.session_id and self.current_state and self.session_manager:
             try:
-                self.session_manager.save_session(self.session_id, self.current_workflow, self.current_state)
+                # 由于AgentState是TypedDict，我们可以直接使用字典
+                # 这里我们简单地将当前状态传递给session_manager
+                # 如果session_manager期望特定的AgentState类型，可能需要根据具体实现调整
+                self.session_manager.save_session(self.session_id, self.current_workflow, self.current_state)  # type: ignore
+                return True
+            except Exception:
+                return False
+        elif self.session_id and self.session_manager:
+            # 如果current_state为None，创建一个空的AgentState
+            try:
+                empty_state: Dict[str, Any] = {}
+                self.session_manager.save_session(self.session_id, self.current_workflow, empty_state)  # type: ignore
                 return True
             except Exception:
                 return False
@@ -144,7 +170,7 @@ class StateManager:
     def create_new_session(self) -> None:
         """创建新会话（重置状态）"""
         self.session_id = None
-        self.current_state = AgentState()
+        self.current_state = {}
         self.current_workflow = None
         self.message_history = []
         self.input_buffer = ""
@@ -164,12 +190,18 @@ class StateManager:
         if self.current_state:
             try:
                 human_message = HumanMessage(content=content)
-                self.current_state.add_message(human_message)
+                # AgentState是TypedDict，不支持add_message方法，需要使用字典方式添加消息
+                messages = self.current_state.get('messages', [])
+                messages.append(human_message)
+                self.current_state['messages'] = messages
             except Exception:
                 # 如果HumanMessage不可用，使用BaseMessage
-                from src.domain.prompts.agent_state import BaseMessage
+                # 从graph.state导入BaseMessage
+                from src.infrastructure.graph.state import BaseMessage
                 simple_message = BaseMessage(content=content)
-                self.current_state.add_message(simple_message)
+                messages = self.current_state.get('messages', [])
+                messages.append(simple_message)
+                self.current_state['messages'] = messages
         
         # 触发钩子
         for hook in self._user_message_hooks:
@@ -300,12 +332,12 @@ class StateManager:
             return {}
         
         return {
-            "total_requests": getattr(self.current_state, 'total_requests', 0),
-            "avg_response_time": getattr(self.current_state, 'avg_response_time', 0.0),
-            "success_rate": getattr(self.current_state, 'success_rate', 100.0),
-            "error_count": getattr(self.current_state, 'error_count', 0),
-            "tokens_used": getattr(self.current_state, 'tokens_used', 0),
-            "cost_estimate": getattr(self.current_state, 'cost_estimate', 0.0)
+            "total_requests": self.current_state.get('total_requests', 0),
+            "avg_response_time": self.current_state.get('avg_response_time', 0.0),
+            "success_rate": self.current_state.get('success_rate', 100.0),
+            "error_count": self.current_state.get('error_count', 0),
+            "tokens_used": self.current_state.get('tokens_used', 0),
+            "cost_estimate": self.current_state.get('cost_estimate', 0.0)
         }
     
     def get_system_metrics(self) -> Dict[str, Any]:
@@ -318,10 +350,10 @@ class StateManager:
             return {}
         
         return {
-            "cpu_usage": getattr(self.current_state, 'cpu_usage', 0.0),
-            "memory_usage": getattr(self.current_state, 'memory_usage', 0.0),
-            "disk_usage": getattr(self.current_state, 'disk_usage', 0.0),
-            "network_io": getattr(self.current_state, 'network_io', 0.0)
+            "cpu_usage": self.current_state.get('cpu_usage', 0.0),
+            "memory_usage": self.current_state.get('memory_usage', 0.0),
+            "disk_usage": self.current_state.get('disk_usage', 0.0),
+            "network_io": self.current_state.get('network_io', 0.0)
         }
     
     def get_workflow_data(self) -> Dict[str, Any]:
@@ -334,11 +366,11 @@ class StateManager:
             return {}
         
         return {
-            "nodes": getattr(self.current_state, 'workflow_nodes', []),
-            "edges": getattr(self.current_state, 'workflow_edges', []),
-            "current_node": getattr(self.current_state, 'current_step', None),
-            "execution_path": getattr(self.current_state, 'execution_path', []),
-            "node_states": getattr(self.current_state, 'node_states', {})
+            "nodes": self.current_state.get('workflow_nodes', []),
+            "edges": self.current_state.get('workflow_edges', []),
+            "current_node": self.current_state.get('current_step', None),
+            "execution_path": self.current_state.get('execution_path', []),
+            "node_states": self.current_state.get('node_states', {})
         }
     
     def get_studio_status(self) -> Dict[str, Any]:
@@ -351,12 +383,12 @@ class StateManager:
             return {}
         
         return {
-            "running": getattr(self.current_state, 'studio_running', False),
-            "port": getattr(self.current_state, 'studio_port', 8079),
-            "url": getattr(self.current_state, 'studio_url', ""),
-            "start_time": getattr(self.current_state, 'studio_start_time', None),
+            "running": self.current_state.get('studio_running', False),
+            "port": self.current_state.get('studio_port', 8079),
+            "url": self.current_state.get('studio_url', ""),
+            "start_time": self.current_state.get('studio_start_time', None),
             "version": "1.0.0",
-            "connected_clients": getattr(self.current_state, 'studio_clients', 0)
+            "connected_clients": self.current_state.get('studio_clients', 0)
         }
     
     def get_errors(self) -> List[Dict[str, Any]]:
@@ -365,7 +397,15 @@ class StateManager:
         Returns:
             List[Dict[str, Any]]: 错误列表
         """
-        if not self.current_state or not hasattr(self.current_state, 'errors') or not getattr(self.current_state, 'errors', None):
+        if not self.current_state or not self.current_state.get('errors', None):
             return []
         
-        return self.current_state.errors
+        errors = self.current_state.get('errors', [])
+        # 如果错误是字符串列表，需要转换为字典列表
+        if errors and isinstance(errors, list) and len(errors) > 0 and isinstance(errors[0], str):
+            # 将字符串列表转换为字典列表
+            return [{"message": error, "type": "error"} for error in errors]
+        elif isinstance(errors, list):
+            return errors
+        else:
+            return []

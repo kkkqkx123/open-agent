@@ -16,7 +16,7 @@ from rich.console import Console, ConsoleOptions, RenderResult
 from rich.tree import Tree
 
 from ..config import TUIConfig
-from src.application.workflow.state import AgentState
+from src.infrastructure.graph.state import AgentState
 
 
 class WorkflowState(Enum):
@@ -349,15 +349,15 @@ class WorkflowControlPanel:
             state: Agent状态
         """
         if state:
-            self.controller.update_step(getattr(state, 'current_step', ''))
-            self.controller.completed_steps = state.iteration_count
-            self.controller.total_steps = state.max_iterations
+            self.controller.update_step(state.get('current_step') or '')
+            self.controller.completed_steps = state.get('iteration_count', 0)
+            self.controller.total_steps = state.get('max_iterations', 0)
             
             # 根据迭代状态更新工作流状态
-            if state.iteration_count >= state.max_iterations:
+            if state.get('iteration_count', 0) >= state.get('max_iterations', 0):
                 self.controller.complete_workflow()
             elif self.controller.state == WorkflowState.IDLE:
-                self.controller.start_workflow(state.max_iterations)
+                self.controller.start_workflow(state.get('max_iterations', 0))
     
     def render(self) -> Panel:
         """渲染控制面板

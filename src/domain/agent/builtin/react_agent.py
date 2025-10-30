@@ -2,12 +2,12 @@
 
 import asyncio
 from typing import Any, Dict, List, Union
-from .base import BaseAgent
-from .state import AgentState, AgentMessage
+from ..base import BaseAgent
+from ..state import AgentState, AgentMessage
 from src.domain.tools.interfaces import ToolResult
 from src.domain.tools.interfaces import ToolCall
-from .events import AgentEvent
-from ...infrastructure.graph.state import BaseMessage, MessageRole
+from ..events import AgentEvent
+from ....infrastructure.graph.state import BaseMessage, MessageRole
 
 
 class ReActAgent(BaseAgent):

@@ -1,0 +1,99 @@
+name: plan_execute_agent_workflow
+description: 基于Plan-Execute Agent的工作流配置
+version: 1.0
+
+state_schema:
+  messages: List[BaseMessage]
+  tool_calls: List[ToolCall]
+  tool_results: List[ToolResult]
+  iteration_count: int
+  max_iterations: int
+  task_history: List[Dict[str, Any]]
+  errors: List[Dict[str, Any]]
+  context:
+    current_plan: List[str]
+    current_step_index: int
+    plan_completed: bool
+
+nodes:
+  plan_execute_agent:
+    type: plan_execute_agent_node
+    config:
+      name: plan_execute_agent
+      system_prompt: 你是一个使用Plan-Execute算法的智能助手，先制定计划然后逐步执行。
+      max_iterations: 10
+      max_steps: 5
+      tools: [calculator, search, database]
+      llm_client: mock
+      next_node_on_complete: final_summary
+      next_node_on_error: error_handler
+      continue_on_plan_generated: true
+    description: Plan-Execute Agent节点，制定和执行计划
+
+  plan_review:
+    type: llm_node
+    config:
+      llm_client: mock
+      system_prompt: 审查生成的计划是否合理，并提供改进建议。
+      max_tokens: 800
+      temperature: 0.2
+    description: 计划审查节点
+
+  final_summary:
+    type: llm_node
+    config:
+      llm_client: mock
+      system_prompt: 总结整个计划执行过程，包括计划步骤、执行结果和最终结论。
+      max_tokens: 1500
+      temperature: 0.3
+    description: 生成最终总结
+
+  error_handler:
+    type: llm_node
+    config:
+      llm_client: mock
+      system_prompt: 处理计划执行过程中发生的错误，并提供恢复建议。
+      max_tokens: 500
+      temperature: 0.1
+    description: 错误处理节点
+
+edges:
+  - from: plan_execute_agent
+    to: plan_review
+    type: conditional
+    condition: plan_generated
+    description: 计划生成后进行审查
+
+  - from: plan_execute_agent
+    to: final_summary
+    type: conditional
+    condition: plan_completed
+    description: 计划执行完成后生成总结
+
+  - from: plan_execute_agent
+    to: error_handler
+    type: conditional
+    condition: has_error
+    description: 发生错误时进行错误处理
+
+  - from: plan_review
+    to: plan_execute_agent
+    type: simple
+    description: 计划审查后继续执行
+
+  - from: final_summary
+    to: __end__
+    type: simple
+    description: 工作流结束
+
+  - from: error_handler
+    to: __end__
+    type: simple
+    description: 错误处理后结束工作流
+
+entry_point: plan_execute_agent
+
+additional_config:
+  max_execution_time: 600
+  enable_logging: true
+  plan_max_steps: 5

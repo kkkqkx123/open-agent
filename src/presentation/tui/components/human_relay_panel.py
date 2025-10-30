@@ -4,7 +4,8 @@ import asyncio
 from typing import Dict, Any, Optional
 from blessed import Terminal
 
-from ..logger.tui_logger import TUILogger
+from ..logger.tui_logger import get_tui_logger
+from ..logger.tui_logger_manager import TUILoggerManager
 
 
 class HumanRelayPanel:
@@ -19,7 +20,7 @@ class HumanRelayPanel:
         """
         self.config = config
         self.term = Terminal()
-        self.logger = TUILogger()
+        self.logger = get_tui_logger("human_relay")
         self.prompt_style = config.get('prompt_style', 'highlight')
         self.input_area_height = config.get('input_area_height', 10)
         self.show_timer = config.get('show_timer', True)
