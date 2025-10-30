@@ -2,6 +2,7 @@
 
 import pytest
 from unittest.mock import patch, Mock
+from typing import List
 
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
@@ -12,9 +13,27 @@ from src.infrastructure.llm.clients.gemini import GeminiClient
 from src.infrastructure.llm.clients.anthropic import AnthropicClient
 from src.infrastructure.llm.clients.mock import MockLLMClient
 from src.infrastructure.llm.hooks import LoggingHook, MetricsHook, CompositeHook
-from src.infrastructure.llm.fallback import FallbackManager, FallbackStrategy, FallbackModel
+from src.infrastructure.llm.fallback_system import FallbackManager, FallbackConfig
+from src.infrastructure.llm.fallback_system.interfaces import IClientFactory
+from src.infrastructure.llm.interfaces import ILLMClient
 from src.infrastructure.llm.models import LLMResponse, TokenUsage
 from src.infrastructure.llm.exceptions import LLMClientCreationError, UnsupportedModelTypeError
+
+
+class TestClientFactory(IClientFactory):
+    """测试用的客户端工厂"""
+
+    def __init__(self, factory: LLMFactory):
+        self.factory = factory
+
+    def create_client(self, model_name: str) -> ILLMClient:
+        """创建客户端"""
+        config = {"model_type": "mock", "model_name": model_name}
+        return self.factory.create_client(config)
+
+    def get_available_models(self) -> List[str]:
+        """获取可用模型列表"""
+        return ["mock-model-1", "mock-model-2", "primary-model"]
 
 
 class TestLLMIntegration:
@@ -158,48 +177,36 @@ class TestLLMIntegration:
 
     def test_fallback_integration(self, factory):
         """测试降级集成"""
-        # 创建降级模型配置
-        fallback_models = [
-            FallbackModel(name="mock-model-1", priority=1),
-            FallbackModel(name="mock-model-2", priority=2),
-        ]
-
-        # 创建降级管理器
-        fallback_manager = FallbackManager(
-            fallback_models=fallback_models, strategy=FallbackStrategy.SEQUENTIAL
+        # 创建降级配置
+        fallback_config = FallbackConfig(
+            enabled=True,
+            max_attempts=3,
+            fallback_models=["mock-model-1", "mock-model-2"],
+            strategy_type="sequential"
         )
 
-        # 创建主客户端（会失败）
-        primary_config = {
-            "model_type": "mock",
-            "model_name": "primary-model",
-            "error_rate": 1.0,  # 100%错误率
-        }
+        # 创建客户端工厂
+        client_factory = TestClientFactory(factory)
 
-        primary_client = factory.create_client(primary_config)
-
-        # 创建降级客户端
-        fallback_config = {
-            "model_type": "mock",
-            "model_name": "mock-model-1",
-            "error_rate": 0.0,
-        }
-
-        factory.cache_client("mock-model-1", factory.create_client(fallback_config))
+        # 创建降级管理器
+        fallback_manager = FallbackManager(config=fallback_config, client_factory=client_factory)
 
         # 测试降级
         messages = [HumanMessage(content="测试输入")]
 
-        try:
-            response = fallback_manager.execute_fallback(primary_client, messages)
+        # 主模型会失败，降级到mock-model-1（无错误率）
+        response = fallback_manager.generate_with_fallback_sync(
+            messages=messages,
+            primary_model="primary-model"
+        )
 
-            # 验证降级成功
-            assert response.metadata["fallback_model"] == "mock-model-1"
-            assert response.metadata["fallback_strategy"] == "sequential"
+        # 验证响应成功
+        assert response.content == "这是一个模拟的LLM响应。"
 
-        except Exception as e:
-            # 如果降级失败，检查原因
-            print(f"降级失败: {e}")
+        # 获取统计信息
+        stats = fallback_manager.get_stats()
+        assert stats["total_sessions"] == 1
+        assert stats["successful_sessions"] == 1
 
     def test_error_handling(self, factory):
         """测试错误处理"""

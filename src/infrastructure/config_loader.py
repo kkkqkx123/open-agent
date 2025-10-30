@@ -271,7 +271,7 @@ class YamlConfigLoader(IConfigLoader, ILifecycleAware):
     def dispose(self) -> None:
         """释放配置加载器资源"""
         # 停止监听并清理资源
-        self.dispose()
+        self.stop_watching()
         self.clear_cache()
     def __del__(self) -> None:
         """析构函数，确保停止文件监听"""

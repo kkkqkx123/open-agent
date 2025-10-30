@@ -333,6 +333,8 @@ class DIConfig:
                 results["warnings"].append(f"核心服务未注册: {service_type.__name__}")
                 # 如果核心服务未注册，配置无效
                 results["valid"] = False
+                # 添加错误信息，因为核心服务缺失是一个严重问题
+                results["errors"].append(f"核心服务缺失: {service_type.__name__}")
         
         return results
 

@@ -59,6 +59,9 @@ class FallbackClientWrapper(ILLMClient):
 
         Returns:
             LLMResponse: 生成的响应
+
+        Raises:
+            LLMFallbackError: 降级失败
         """
         try:
             # 首先尝试主客户端

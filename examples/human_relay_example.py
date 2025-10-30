@@ -5,12 +5,12 @@ HumanRelay LLM 使用示例
 """
 
 import asyncio
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage  # type: ignore
 
 from src.infrastructure.llm.factory import create_client
 
 
-async def single_turn_example():
+async def single_turn_example() -> None:
     """单轮对话示例"""
     print("=== HumanRelay 单轮对话示例 ===")
     
@@ -50,7 +50,7 @@ async def single_turn_example():
     print()
 
 
-async def multi_turn_example():
+async def multi_turn_example() -> None:
     """多轮对话示例"""
     print("=== HumanRelay 多轮对话示例 ===")
     
@@ -79,7 +79,7 @@ async def multi_turn_example():
         response1 = await client.generate_async(messages1)
         print(f"第一轮 - 用户: {messages1[0].content}")
         print(f"第一轮 - Web LLM: {response1.content}")
-        print(f"对话历史长度: {len(client.conversation_history)}")
+        print(f"对话历史长度: {len(client.conversation_history)}")  # type: ignore[attr-defined]
     except Exception as e:
         print(f"第一轮错误: {e}")
         return
@@ -90,11 +90,11 @@ async def multi_turn_example():
         response2 = await client.generate_async(messages2)
         print(f"\n第二轮 - 用户: {messages2[0].content}")
         print(f"第二轮 - Web LLM: {response2.content}")
-        print(f"对话历史长度: {len(client.conversation_history)}")
+        print(f"对话历史长度: {len(client.conversation_history)}")  # type: ignore[attr-defined]
         
         # 显示对话历史
         print("\n对话历史:")
-        for i, msg in enumerate(client.conversation_history, 1):
+        for i, msg in enumerate(client.conversation_history, 1):  # type: ignore[attr-defined]
             role = "用户" if msg.type == "human" else "AI"
             print(f"  {i}. {role}: {msg.content}")
     except Exception as e:
@@ -103,7 +103,7 @@ async def multi_turn_example():
     print()
 
 
-async def stream_generation_example():
+async def stream_generation_example() -> None:
     """流式生成示例"""
     print("=== HumanRelay 流式生成示例 ===")
     
@@ -135,7 +135,7 @@ async def stream_generation_example():
     print()
 
 
-async def configuration_example():
+async def configuration_example() -> None:
     """配置示例"""
     print("=== HumanRelay 配置示例 ===")
     
@@ -176,14 +176,14 @@ async def configuration_example():
     try:
         response = await client.generate_async(messages)
         print(f"自定义配置回复: {response.content}")
-        print(f"自定义模板: {'自定义任务' in client.prompt_template}")
+        print(f"自定义模板: {'自定义任务' in client.prompt_template}")  # type: ignore[attr-defined]
     except Exception as e:
         print(f"配置示例错误: {e}")
     
     print()
 
 
-async def error_handling_example():
+async def error_handling_example() -> None:
     """错误处理示例"""
     print("=== HumanRelay 错误处理示例 ===")
     
@@ -217,7 +217,7 @@ async def error_handling_example():
     print()
 
 
-async def main():
+async def main() -> None:
     """主函数"""
     print("HumanRelay LLM 使用示例")
     print("=" * 50)

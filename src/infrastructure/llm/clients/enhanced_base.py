@@ -23,7 +23,7 @@ from ..exceptions import (
     LLMInvalidRequestError,
 )
 from ..cache import CacheManager, create_cache_manager
-from ..fallback import FallbackManager, create_fallback_manager
+from ..fallback_system import FallbackManager, create_fallback_manager
 from ..retry import RetryManager, create_retry_manager
 from ..validation import ConfigValidator, ValidationResult
 

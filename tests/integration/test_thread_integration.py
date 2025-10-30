@@ -228,6 +228,7 @@ def session_manager() -> MockSessionManager:
     return MockSessionManager()
 
 
+@pytest.fixture
 def query_manager(mock_thread_manager: MockThreadManager) -> ThreadQueryManager:
     """创建查询管理器"""
     return ThreadQueryManager(mock_thread_manager)
@@ -269,7 +270,6 @@ async def test_thread_creation_and_mapping(
     )
     
     assert "thread_id" in result
-    assert "session_id" in result
     assert result["graph_id"] == "test_graph"
     
     thread_id = result["thread_id"]

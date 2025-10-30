@@ -34,16 +34,17 @@ def main():
         except Exception as e:
             print(f"⚠️  获取配置加载器失败: {e}")
         
-        # 显示依赖分析
-        if hasattr(container, 'analyze_dependencies'):
+        # 显示依赖分析（仅在增强容器中可用）
+        from src.infrastructure.container.enhanced_container import EnhancedDependencyContainer
+        if isinstance(container, EnhancedDependencyContainer):
             analysis = container.analyze_dependencies()
             print(f"📊 依赖分析:")
             print(f"   - 总服务数: {analysis['total_services']}")
             print(f"   - 循环依赖: {len(analysis['circular_dependencies'])}")
             print(f"   - 根服务数: {len(analysis['root_services'])}")
-        
-        # 测试作用域功能
-        if hasattr(container, 'scope'):
+
+        # 测试作用域功能（仅在增强容器中可用）
+        if isinstance(container, EnhancedDependencyContainer):
             print("\n🔄 测试作用域功能:")
             with container.scope() as scope_id:
                 print(f"   创建作用域: {scope_id}")

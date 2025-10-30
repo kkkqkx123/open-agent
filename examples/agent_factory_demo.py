@@ -12,10 +12,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from src.domain.agent.factory import AgentFactory, set_global_factory
 from src.domain.agent.config import AgentConfig
-from src.domain.workflow.state import WorkflowState, BaseMessage, MessageRole
+from src.infrastructure.graph.state import WorkflowState, BaseMessage, MessageRole
 from src.infrastructure.llm.interfaces import ILLMClient
 from src.infrastructure.tools.manager import IToolManager
-from src.infrastructure.tools.interfaces import IToolExecutor, ToolResult
+from src.domain.tools.interfaces import IToolExecutor, ToolResult
 
 
 class MockLLMClient:
@@ -60,6 +60,10 @@ class MockToolManager(IToolManager, IToolExecutor):
     def list_tool_sets(self):
         """列出工具集"""
         return []
+
+    def reload_tools(self):
+        """重新加载工具"""
+        return self.load_tools()
 
     def execute(self, tool_call):
         """同步执行工具"""
@@ -133,14 +137,23 @@ async def demo_agent_factory():
     print()
     
     # 4. 创建测试状态
-    state = WorkflowState()
-    state.add_message(BaseMessage(
-        content="请计算 2 + 3 等于多少？",
-        role=MessageRole.HUMAN
-    ))
-    
+    from src.infrastructure.graph.state import create_message
+    state = WorkflowState(
+        workflow_id="demo_workflow",
+        messages=[create_message("请计算 2 + 3 等于多少？", MessageRole.HUMAN)],
+        input="请计算 2 + 3 等于多少？",
+        max_iterations=5,
+        iteration_count=0,
+        tool_calls=[],
+        tool_results=[],
+        errors=[],
+        complete=False,
+        metadata={}
+    )
+
     print("执行Agent...")
-    last_message = state.get_last_message()
+    messages = state.get("messages", [])
+    last_message = messages[-1] if messages else None
     print(f"输入消息: {last_message.content if last_message else 'None'}")
     print()
     
@@ -208,7 +221,19 @@ async def demo_agent_factory():
     print(f"✓ 自定义Agent创建成功: {custom_capabilities.get('name', 'Unknown')}")
     
     # 执行自定义Agent
-    await custom_agent.execute(WorkflowState(), {})
+    empty_state = WorkflowState(
+        workflow_id="custom_demo",
+        messages=[],
+        input="",
+        max_iterations=5,
+        iteration_count=0,
+        tool_calls=[],
+        tool_results=[],
+        errors=[],
+        complete=False,
+        metadata={}
+    )
+    await custom_agent.execute(empty_state, {})
     
     print()
     print("=== 演示完成 ===")

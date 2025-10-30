@@ -11,6 +11,9 @@ logging.basicConfig(
 )
 
 # 导入增强的LLM组件
+from langchain_core.messages import HumanMessage  # type: ignore
+from typing import TYPE_CHECKING
+
 from src.infrastructure.llm.config_manager import LLMConfigManager, get_global_config_manager
 from src.infrastructure.llm.hooks import (
     SmartRetryHook,
@@ -18,6 +21,9 @@ from src.infrastructure.llm.hooks import (
     MetricsHook,
     CompositeHook
 )
+
+if TYPE_CHECKING:
+    pass
 from src.infrastructure.llm.error_handler import (
     ErrorContext,
     get_global_error_stats_manager
@@ -25,7 +31,7 @@ from src.infrastructure.llm.error_handler import (
 from src.infrastructure.llm.factory import get_global_factory
 
 
-def demo_enhanced_config_management():
+def demo_enhanced_config_management() -> LLMConfigManager:
     """演示增强的配置管理"""
     print("=== 配置管理演示 ===")
     
@@ -54,7 +60,7 @@ def demo_enhanced_config_management():
     return config_manager
 
 
-def demo_enhanced_error_handling():
+def demo_enhanced_error_handling() -> None:
     """演示增强的错误处理"""
     print("\n=== 错误处理演示 ===")
     
@@ -67,8 +73,8 @@ def demo_enhanced_error_handling():
     
     # 设置请求上下文
     error_context.set_request_context(
-        parameters={"temperature": 0.7, "max_tokens": 100},
-        messages=["Hello", "How are you?"]
+    parameters={"temperature": 0.7, "max_tokens": 100},
+    messages=[HumanMessage(content="Hello"), HumanMessage(content="How are you?")]
     )
     
     # 添加错误到错误链
@@ -100,7 +106,7 @@ def demo_enhanced_error_handling():
     print(f"错误统计: 总错误数={stats.total_errors}, 重试成功率={stats.get_retry_success_rate():.1%}")
 
 
-def demo_enhanced_hooks():
+def demo_enhanced_hooks() -> CompositeHook:
     """演示增强的钩子功能"""
     print("\n=== 钩子功能演示 ===")
     
@@ -140,7 +146,7 @@ def demo_enhanced_hooks():
     return composite_hook
 
 
-def demo_performance_monitoring():
+def demo_performance_monitoring() -> None:
     """演示性能监控"""
     print("\n=== 性能监控演示 ===")
     
@@ -151,18 +157,19 @@ def demo_performance_monitoring():
     
     # 创建指标钩子
     metrics_hook = MetricsHook(
-        enable_performance_tracking=True,
-        enable_detailed_metrics=True
+    enable_performance_tracking=True,
+    enable_detailed_metrics=True
     )
     
     # 模拟一些调用数据
     for i in range(5):
+        messages = [HumanMessage(content=f"Message {i}")]
         # 模拟调用前记录
         metrics_hook.before_call(
-            messages=[f"Message {i}"],
-            parameters={"temperature": 0.7}
+            messages=messages,
+        parameters={"temperature": 0.7}
         )
-        
+
         # 模拟成功调用
         mock_response = LLMResponse(
             content=f"模拟响应 {i}",
@@ -170,17 +177,17 @@ def demo_performance_monitoring():
             token_usage=TokenUsage(
                 prompt_tokens=50 + i * 5,
                 completion_tokens=50 + i * 5,
-                total_tokens=100 + i * 10
+            total_tokens=100 + i * 10
             ),
             model='gpt-4',
             response_time=1.5 + i * 0.2,
-            timestamp=datetime.now()
+        timestamp=datetime.now()
         )
-        
+
         metrics_hook.after_call(
             response=mock_response,
-            messages=[f"Message {i}"],
-            parameters={"temperature": 0.7}
+            messages=messages,
+        parameters={"temperature": 0.7}
         )
     
     # 获取指标
@@ -198,7 +205,7 @@ def demo_performance_monitoring():
         print(f"- 建议: {', '.join(health['recommendations'])}")
 
 
-def demo_config_validation():
+def demo_config_validation() -> None:
     """演示配置验证"""
     print("\n=== 配置验证演示 ===")
     
@@ -242,7 +249,7 @@ def demo_config_validation():
         print(f"  - {error}")
 
 
-def main():
+def main() -> None:
     """主演示函数"""
     print("LLM模块增强功能演示")
     print("=" * 50)

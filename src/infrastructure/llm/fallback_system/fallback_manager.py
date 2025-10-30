@@ -143,7 +143,7 @@ class FallbackManager:
             
             while attempt < self.config.get_max_attempts():
                 # 获取降级目标
-                target_model = self._strategy.get_fallback_target(last_error, attempt)
+                target_model = self._strategy.get_fallback_target(last_error or Exception("Initial attempt"), attempt)
                 
                 # 如果没有目标模型，使用主模型
                 if target_model is None and attempt == 0:
@@ -208,8 +208,9 @@ class FallbackManager:
                 attempt += 1
             
             # 所有尝试都失败
-            session.mark_failure(last_error or LLMCallError("未知错误"))
-            self.logger.log_fallback_failure(primary_model or "", last_error, attempt)
+            final_error = last_error or LLMCallError("未知错误")
+            session.mark_failure(final_error)
+            self.logger.log_fallback_failure(primary_model or "", final_error, attempt)
             
             # 抛出最后的错误
             raise last_error or LLMCallError("降级失败")
@@ -220,25 +221,25 @@ class FallbackManager:
             if isinstance(self.logger, DefaultFallbackLogger):
                 self.logger.add_session(session)
     
-    def generate_with_fallback(
-        self, 
-        messages: Sequence[BaseMessage], 
+    def generate_with_fallback_sync(
+        self,
+        messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         primary_model: Optional[str] = None,
         **kwargs: Any
     ) -> LLMResponse:
         """
         带降级的同步生成
-        
+
         Args:
             messages: 消息列表
             parameters: 生成参数
             primary_model: 主模型名称
             **kwargs: 其他参数
-            
+
         Returns:
             LLM响应
-            
+
         Raises:
             LLMCallError: 所有尝试都失败
         """
@@ -247,7 +248,7 @@ class FallbackManager:
         asyncio.set_event_loop(loop)
         try:
             return loop.run_until_complete(
-                self.generate_with_fallback_async(messages, parameters, primary_model, **kwargs)
+                self.generate_with_fallback(messages, parameters, primary_model, **kwargs)
             )
         finally:
             loop.close()

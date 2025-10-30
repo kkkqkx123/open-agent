@@ -16,6 +16,7 @@ from src.infrastructure.di_config import DIConfig, create_container, get_global_
 from src.infrastructure.lifecycle_manager import LifecycleManager, get_global_lifecycle_manager
 from src.infrastructure.config_loader import YamlConfigLoader
 from src.infrastructure.exceptions import InfrastructureError
+from src.infrastructure.container_interfaces import ILifecycleAware
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,7 @@ class ApplicationBootstrap:
             self._startup_time = time.time() - start_time
             
             logger.info(f"应用程序启动完成，耗时: {self._startup_time:.2f}秒")
+            assert self.container is not None, "Container should be initialized"
             return self.container
             
         except Exception as e:
@@ -270,7 +272,7 @@ class ApplicationBootstrap:
                 interface_type = self._resolve_interface_type(interface_name)
                 if interface_type and self.container.has_service(interface_type):
                     service = self.container.get(interface_type)
-                    if isinstance(service, type(service).__class__):  # 简单检查是否实现了ILifecycleAware
+                    if isinstance(service, ILifecycleAware):
                         self.lifecycle_manager.register_service(service_name, service)
             except Exception as e:
                 logger.warning(f"注册生命周期服务 {service_name} 失败: {e}")
@@ -327,8 +329,8 @@ class ApplicationBootstrap:
         """注册全局容器"""
         if self.container:
             # 设置全局容器实例
-            import src.infrastructure.container as container_module
-            container_module._global_container = self.container
+            import src.infrastructure.di_config as di_config_module
+            di_config_module._global_container = self.container
             
             logger.info("全局容器注册完成")
     
@@ -472,14 +474,14 @@ class ApplicationBootstrap:
                     tool_executor = None
                     
                     try:
-                        from src.infrastructure.llm.factory import ILLMFactory
-                        if self.container.has_service(ILLMFactory):
-                            llm_factory = self.container.get(ILLMFactory)
+                        from src.infrastructure.llm.interfaces import ILLMClientFactory
+                        if self.container.has_service(ILLMClientFactory):
+                            llm_factory = self.container.get(ILLMClientFactory)
                     except ImportError:
                         pass
                     
                     try:
-                        from src.domain.tools.executor import IToolExecutor
+                        from src.domain.tools.interfaces import IToolExecutor
                         if self.container.has_service(IToolExecutor):
                             tool_executor = self.container.get(IToolExecutor)
                     except ImportError:
