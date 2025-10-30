@@ -233,8 +233,30 @@ class HumanRelayClient(BaseLLMClient):
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> Generator[str, None, None]:
         """执行流式生成操作"""
-        # 同步版本的流式生成
-        response = self._do_generate(messages, parameters, **kwargs)
+        # 检查是否已经在事件循环中
+        try:
+            loop = asyncio.get_running_loop()
+            # 如果已经在事件循环中，使用run_coroutine_threadsafe或创建新线程
+            import concurrent.futures
+            import threading
+            
+            def run_in_thread():
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    response = new_loop.run_until_complete(
+                        self._do_generate_async(messages, parameters, **kwargs)
+                    )
+                    return response
+                finally:
+                    new_loop.close()
+            
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(run_in_thread)
+                response = future.result()
+        except RuntimeError:
+            # 没有运行的事件循环，可以使用原来的方法
+            response = self._do_generate(messages, parameters, **kwargs)
         
         # 按字符流式输出
         for char in response.content:

@@ -2,7 +2,8 @@
 
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
+from typing import List
 
 from src.infrastructure.llm.clients.human_relay import HumanRelayClient
 from src.infrastructure.llm.config import HumanRelayConfig
@@ -120,7 +121,12 @@ class TestHumanRelayClient:
         """测试多轮模式提示词构建"""
         mock_config.mode = "multi"
         
-        with patch('src.infrastructure.llm.clients.human_relay.create_frontend_interface'):
+        with patch('src.infrastructure.llm.clients.human_relay.create_frontend_interface') as mock_create:
+            # 创建mock前端接口并设置format_conversation_history的返回值
+            mock_frontend = Mock()
+            mock_frontend.format_conversation_history.return_value = "1. 用户: 历史消息1\n2. AI: 历史回复1"
+            mock_create.return_value = mock_frontend
+            
             client = HumanRelayClient(mock_config)
             
             # 先添加一些历史
@@ -190,7 +196,7 @@ class TestHumanRelayClient:
             assert retrieved_history is not client.conversation_history  # 应该是副本
             
             # 测试设置历史
-            new_history = [HumanMessage(content="新消息")]
+            new_history: List[BaseMessage] = [HumanMessage(content="新消息")]
             client.set_conversation_history(new_history)
             assert len(client.conversation_history) == 1
             assert client.conversation_history[0].content == "新消息"
@@ -199,7 +205,7 @@ class TestHumanRelayClient:
         """测试超时验证"""
         with patch('src.infrastructure.llm.clients.human_relay.create_frontend_interface') as mock_create:
             mock_frontend = Mock()
-            mock_frontend.validate_timeout.return_value = 300
+            mock_frontend.validate_timeout.side_effect = lambda x: x  # 直接返回输入值
             mock_create.return_value = mock_frontend
             
             client = HumanRelayClient(mock_config)

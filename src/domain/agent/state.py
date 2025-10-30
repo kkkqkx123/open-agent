@@ -57,6 +57,12 @@ class AgentState:
     max_iterations: int = 10
     iteration_count: int = 0
     status: AgentStatus = AgentStatus.IDLE
+
+    # 等待相关
+    is_waiting: bool = False
+    wait_start_time: Optional[float] = None
+    auto_continue: bool = False
+    continue_reason: Optional[str] = None
     
     # 时间信息
     start_time: Optional[datetime] = None
@@ -152,6 +158,10 @@ class AgentState:
             "max_iterations": self.max_iterations,
             "iteration_count": self.iteration_count,
             "status": self.status.value,
+            "is_waiting": self.is_waiting,
+            "wait_start_time": self.wait_start_time,
+            "auto_continue": self.auto_continue,
+            "continue_reason": self.continue_reason,
             "start_time": self.start_time.isoformat() if self.start_time else None,
             "last_update_time": self.last_update_time.isoformat() if self.last_update_time else None,
             "errors": self.errors,
@@ -191,6 +201,10 @@ class AgentState:
         agent_state.max_iterations = data.get("max_iterations", 10)
         agent_state.iteration_count = data.get("iteration_count", 0)
         agent_state.status = AgentStatus(data.get("status", "idle"))
+        agent_state.is_waiting = data.get("is_waiting", False)
+        agent_state.wait_start_time = data.get("wait_start_time")
+        agent_state.auto_continue = data.get("auto_continue", False)
+        agent_state.continue_reason = data.get("continue_reason")
         
         # 时间信息
         if data.get("start_time"):

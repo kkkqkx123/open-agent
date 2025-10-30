@@ -7,10 +7,12 @@ from .analysis_node import AnalysisNode
 from .tool_node import ToolNode
 from .llm_node import LLMNode
 from .condition_node import ConditionNode
+from .wait_node import WaitNode
 
 __all__ = [
     "AnalysisNode",
     "ToolNode", 
     "LLMNode",
+    "WaitNode",
     "ConditionNode",
 ]

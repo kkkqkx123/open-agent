@@ -3,12 +3,13 @@
 提供符合LangGraph最佳实践的图构建功能，支持配置驱动的构建过程。
 """
 
-from typing import Dict, Any, Optional, List, Callable, Union, TYPE_CHECKING
+from typing import Dict, Any, Optional, List, Callable, Union, TYPE_CHECKING, cast
 from pathlib import Path
 import yaml
 import logging
 import asyncio
 import concurrent.futures
+import time
 import threading
 from abc import ABC, abstractmethod
 
@@ -22,6 +23,7 @@ from .registry import NodeRegistry, get_global_registry
 from .adapters import get_state_adapter
 from src.domain.state.interfaces import IStateCollaborationManager
 from src.domain.agent.state import AgentState as DomainAgentState
+from .adapters.state_adapter import GraphAgentState
 
 logger = logging.getLogger(__name__)
 
@@ -54,13 +56,13 @@ class NodeWithAdapterExecutor(INodeExecutor):
     def execute(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
         # 1. 图状态转域状态
         state_adapter = get_state_adapter()
-        domain_state = state_adapter.from_graph_state(state)
+        domain_state = state_adapter.from_graph_state(cast(GraphAgentState, state))
         
         # 2. 调用节点原始逻辑
         result = self.node.execute(domain_state, config)
         
         # 3. 将结果中的域状态转回图状态
-        return state_adapter.to_graph_state(result.state)
+        return cast(WorkflowState, state_adapter.to_graph_state(result.state))
 
 
 class EnhancedNodeWithAdapterExecutor(INodeExecutor):
@@ -86,7 +88,7 @@ class EnhancedNodeWithAdapterExecutor(INodeExecutor):
             return self.collaboration_adapter.state_adapter.from_graph_state(result_graph_state)
         
         # 使用协作适配器执行
-        return self.collaboration_adapter.execute_with_collaboration(state, node_executor)
+        return cast(WorkflowState, self.collaboration_adapter.execute_with_collaboration(state, node_executor))
 
 
 class AgentNodeExecutor(INodeExecutor):
@@ -283,6 +285,7 @@ class GraphBuilder:
             "tool_node": self._create_tool_node,
             "analysis_node": self._create_analysis_node,
             "condition_node": self._create_condition_node,
+            "wait_node": self._create_wait_node,
         }
         return builtin_functions.get(function_name)
     
@@ -343,6 +346,16 @@ class GraphBuilder:
         # 这里应该执行实际的条件判断
         # 简化实现
         return {"condition_result": True}
+    
+    def _create_wait_node(self, state: WorkflowState) -> Dict[str, Any]:
+        """创建等待节点"""
+        # 这里应该执行实际的等待逻辑
+        # 简化实现 - 返回等待状态
+        return {
+            "is_waiting": True,
+            "wait_start_time": state.get("wait_start_time", time.time()),
+            "messages": state.get("messages", []) + [{"role": "system", "content": "等待中..."}]
+        }
     
     def _condition_has_tool_calls(self, state: WorkflowState) -> str:
         """条件：是否有工具调用"""

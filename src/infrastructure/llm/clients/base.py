@@ -148,14 +148,9 @@ class BaseLLMClient(ILLMClient):
         **kwargs
     ) -> LLMCallError:
         """创建增强的错误对象，保留原始错误信息"""
-        # 移除可能冲突的参数
-        if 'model_name' in kwargs:
-            kwargs.pop('model_name')
-        
-        error = error_class(message, **kwargs)
+        error = error_class(message, model_name=self.config.model_name, **kwargs)
         error.original_error = original_error
         error.error_type = type(original_error).__name__
-        error.model_name = self.config.model_name
         return error
 
     def _create_response(

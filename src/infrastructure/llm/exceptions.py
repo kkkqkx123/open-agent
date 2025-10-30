@@ -33,6 +33,7 @@ class LLMCallError(LLMError):
         retry_after: Optional[int] = None,
         original_error: Optional[Exception] = None,
         error_context: Optional[Dict[str, Any]] = None,
+        model_name: Optional[str] = None,
     ) -> None:
         """
         初始化LLM调用错误
@@ -45,6 +46,7 @@ class LLMCallError(LLMError):
             retry_after: 重试等待时间（秒）
             original_error: 原始错误
             error_context: 错误上下文
+            model_name: 模型名称
         """
         super().__init__(message)
         self.error_type = error_type
@@ -53,13 +55,14 @@ class LLMCallError(LLMError):
         self.retry_after = retry_after
         self.original_error = original_error
         self.error_context = error_context
+        self.model_name = model_name
 
 
 class LLMTimeoutError(LLMCallError):
     """LLM调用超时错误"""
 
     def __init__(
-        self, message: str = "LLM调用超时", timeout: Optional[int] = None
+        self, message: str = "LLM调用超时", timeout: Optional[int] = None, model_name: Optional[str] = None
     ) -> None:
         """
         初始化超时错误
@@ -67,8 +70,9 @@ class LLMTimeoutError(LLMCallError):
         Args:
             message: 错误消息
             timeout: 超时时间（秒）
+            model_name: 模型名称
         """
-        super().__init__(message, "timeout", is_retryable=True)
+        super().__init__(message, "timeout", is_retryable=True, model_name=model_name)
         self.timeout = timeout
 
 
@@ -76,7 +80,7 @@ class LLMRateLimitError(LLMCallError):
     """LLM调用频率限制错误"""
 
     def __init__(
-        self, message: str = "LLM调用频率限制", retry_after: Optional[int] = None
+        self, message: str = "LLM调用频率限制", retry_after: Optional[int] = None, model_name: Optional[str] = None
     ) -> None:
         """
         初始化频率限制错误
@@ -84,23 +88,25 @@ class LLMRateLimitError(LLMCallError):
         Args:
             message: 错误消息
             retry_after: 重试等待时间（秒）
+            model_name: 模型名称
         """
         super().__init__(
-            message, "rate_limit_exceeded", is_retryable=True, retry_after=retry_after
+            message, "rate_limit_exceeded", is_retryable=True, retry_after=retry_after, model_name=model_name
         )
 
 
 class LLMAuthenticationError(LLMCallError):
     """LLM认证错误"""
 
-    def __init__(self, message: str = "LLM认证失败") -> None:
+    def __init__(self, message: str = "LLM认证失败", model_name: Optional[str] = None) -> None:
         """
         初始化认证错误
 
         Args:
             message: 错误消息
+            model_name: 模型名称
         """
-        super().__init__(message, "authentication_error", is_retryable=False)
+        super().__init__(message, "authentication_error", is_retryable=False, model_name=model_name)
 
 
 class LLMModelNotFoundError(LLMCallError):
@@ -114,8 +120,7 @@ class LLMModelNotFoundError(LLMCallError):
             model_name: 模型名称
         """
         message = f"模型未找到: {model_name}"
-        super().__init__(message, "model_not_found", is_retryable=False)
-        self.model_name = model_name
+        super().__init__(message, "model_not_found", is_retryable=False, model_name=model_name)
 
 
 class LLMTokenLimitError(LLMCallError):
@@ -126,6 +131,7 @@ class LLMTokenLimitError(LLMCallError):
         message: str = "Token数量超过限制",
         token_count: Optional[int] = None,
         limit: Optional[int] = None,
+        model_name: Optional[str] = None,
     ) -> None:
         """
         初始化Token限制错误
@@ -134,8 +140,9 @@ class LLMTokenLimitError(LLMCallError):
             message: 错误消息
             token_count: 实际Token数量
             limit: Token限制
+            model_name: 模型名称
         """
-        super().__init__(message, "token_limit_exceeded", is_retryable=False)
+        super().__init__(message, "token_limit_exceeded", is_retryable=False, model_name=model_name)
         self.token_count = token_count
         self.limit = limit
 
@@ -143,40 +150,43 @@ class LLMTokenLimitError(LLMCallError):
 class LLMContentFilterError(LLMCallError):
     """LLM内容过滤错误"""
 
-    def __init__(self, message: str = "内容被过滤") -> None:
+    def __init__(self, message: str = "内容被过滤", model_name: Optional[str] = None) -> None:
         """
         初始化内容过滤错误
 
         Args:
             message: 错误消息
+            model_name: 模型名称
         """
-        super().__init__(message, "content_filter", is_retryable=False)
+        super().__init__(message, "content_filter", is_retryable=False, model_name=model_name)
 
 
 class LLMServiceUnavailableError(LLMCallError):
     """LLM服务不可用错误"""
 
-    def __init__(self, message: str = "LLM服务不可用") -> None:
+    def __init__(self, message: str = "LLM服务不可用", model_name: Optional[str] = None) -> None:
         """
         初始化服务不可用错误
 
         Args:
             message: 错误消息
+            model_name: 模型名称
         """
-        super().__init__(message, "service_unavailable", is_retryable=True)
+        super().__init__(message, "service_unavailable", is_retryable=True, model_name=model_name)
 
 
 class LLMInvalidRequestError(LLMCallError):
     """LLM无效请求错误"""
 
-    def __init__(self, message: str = "无效请求") -> None:
+    def __init__(self, message: str = "无效请求", model_name: Optional[str] = None) -> None:
         """
         初始化无效请求错误
 
         Args:
             message: 错误消息
+            model_name: 模型名称
         """
-        super().__init__(message, "invalid_request", is_retryable=False)
+        super().__init__(message, "invalid_request", is_retryable=False, model_name=model_name)
 
 
 class LLMConfigurationError(LLMError):

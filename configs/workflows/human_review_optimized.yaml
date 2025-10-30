@@ -1,0 +1,163 @@
+name: human_review_workflow_optimized
+description: 优化的人工审核工作流模式，使用专门的等待节点
+version: 1.0
+
+state_schema:
+  messages: List[BaseMessage]
+  tool_calls: List[ToolCall]
+  tool_results: List[ToolResult]
+  iteration_count: int
+  max_iterations: int
+  human_review_required: bool
+  human_review_result: str
+  human_review_comments: str
+  is_waiting: bool
+  wait_start_time: float
+
+nodes:
+  analyze:
+    type: analysis_node
+    config:
+      llm_client: openai-gpt4
+      system_prompt: |
+        你是一个智能助手，负责分析用户输入并决定是否需要调用工具或人工审核。
+        
+        请根据用户的请求：
+        1. 如果需要获取外部信息或执行操作，请调用相应的工具
+        2. 如果涉及敏感内容、重要决策或需要专业判断，请标记需要人工审核
+        3. 如果可以直接回答，请提供详细的回答
+        4. 始终保持友好和专业的语调
+        
+        分析用户意图后，选择最合适的行动。
+      max_tokens: 2000
+      temperature: 0.7
+      tool_threshold: 0.5
+      available_tools: []
+
+  execute_tool:
+    type: tool_node
+    config:
+      tool_manager: default
+      timeout: 30
+      max_parallel_calls: 1
+      retry_on_failure: false
+      continue_on_error: true
+
+  check_review_needed:
+    type: condition_node
+    config:
+      conditions:
+        - type: custom
+          parameters:
+            expression: "hasattr(state, 'human_review_required') and state.human_review_required"
+          next_node: human_review_wait
+        - type: has_tool_calls
+          next_node: execute_tool
+      default_next_node: final_answer
+
+  human_review_wait:
+    type: wait_node
+    config:
+      timeout_enabled: true
+      timeout_seconds: 300  # 5分钟超时
+      timeout_strategy: "continue_waiting"  # 超时后继续等待
+      wait_message: "等待人工审核中...审核员将审查当前处理结果并提供反馈。"
+      auto_resume_key: "human_review_result"
+      routing_rules:
+        "approved": "final_answer"
+        "rejected": "analyze"
+        "modify": "modify_result"
+      default_next_node: "final_answer"
+      continue_node: "analyze"
+
+  process_review_result:
+    type: condition_node
+    config:
+      conditions:
+        - type: custom
+          parameters:
+            expression: "hasattr(state, 'human_review_result') and state.human_review_result == 'approved'"
+          next_node: final_answer
+        - type: custom
+          parameters:
+            expression: "hasattr(state, 'human_review_result') and state.human_review_result == 'rejected'"
+          next_node: analyze
+        - type: custom
+          parameters:
+            expression: "hasattr(state, 'human_review_result') and state.human_review_result == 'modify'"
+          next_node: modify_result
+      default_next_node: human_review_wait
+
+  modify_result:
+    type: llm_node
+    config:
+      llm_client: openai-gpt4
+      system_prompt: |
+        根据人工审核的反馈，修改之前的结果。
+        
+        人工审核评论：{human_review_comments}
+        
+        请根据审核意见修改你的回答，确保满足审核要求。
+      max_tokens: 2000
+      temperature: 0.3
+      include_tool_results: true
+
+  final_answer:
+    type: llm_node
+    config:
+      llm_client: openai-gpt4
+      system_prompt: |
+        你是一个智能助手，请根据上下文信息提供准确、有用的回答。
+        
+        请遵循以下原则：
+        1. 基于提供的工具执行结果和上下文信息回答问题
+        2. 如果信息不足，请明确说明需要什么额外信息
+        3. 保持回答简洁明了，重点突出
+        4. 如果有多个步骤的结果，请按逻辑顺序组织回答
+        5. 始终保持友好和专业的语调
+        
+        如果经过了人工审核，请确保回答符合审核要求。
+      max_tokens: 2000
+      temperature: 0.3
+      include_tool_results: true
+
+edges:
+  - from: start
+    to: analyze
+    type: simple
+    
+  - from: analyze
+    to: check_review_needed
+    type: simple
+    
+  - from: execute_tool
+    to: check_review_needed
+    type: simple
+    
+  - from: human_review_wait
+    to: process_review_result
+    type: simple
+    
+  - from: modify_result
+    to: final_answer
+    type: simple
+
+entry_point: analyze
+
+additional_config:
+  max_iterations: 15
+  timeout: 600
+  enable_streaming: true
+  human_review_timeout: 300  # 人工审核超时时间（秒）
+  auto_approve_threshold: 0.9  # 自动批准阈值
+  wait_node_config:
+    # 等待节点的详细配置
+    timeout_strategies:
+      continue_waiting:
+        max_retries: 3  # 最大重试次数
+        retry_interval: 60  # 重试间隔（秒）
+      cache_and_exit:
+        storage_path: "history/wait_cache/"
+        compression: true
+      llm_continue:
+        fallback_prompt: "由于等待超时，请继续之前的任务"
