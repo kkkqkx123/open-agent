@@ -21,7 +21,8 @@ Graph Hook系统是一个为LangGraph节点设计的灵活监控和干预机制�
 ```python
 from src.infrastructure.config_loader import YamlConfigLoader
 from src.infrastructure.graph.hooks import (
-    NodeHookManager, 
+    NodeHookManager,
+    create_hookable_node_class,
     HookAwareGraphBuilder,
     create_hook_aware_builder
 )
@@ -43,6 +44,10 @@ builder = create_hook_aware_builder(
 
 # 构建图
 graph = builder.build_from_yaml("configs/graphs/my_workflow.yaml")
+
+# 或者手动创建Hookable节点
+HookableNode = create_hookable_node_class(OriginalNode, hook_manager)
+node = HookableNode()
 ```
 
 ### 2. 配置Hook

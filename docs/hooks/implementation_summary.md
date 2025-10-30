@@ -52,20 +52,21 @@
 
 ### 3. 集成机制
 
-#### 节点增强 (`src/infrastructure/graph/hooks/enhanced_node.py`)
-- 实现了 `HookableBaseNode` 基类
-- 提供了 `make_node_hookable` 函数用于现有节点改造
-- 支持装饰器模式的Hook集成
+#### 节点增强 (`src/infrastructure/graph/hooks/hookable_node.py`)
+- 实现了 `HookableNode` 基类，简化了架构设计
+- 提供了 `create_hookable_node_class` 函数用于创建支持Hook的节点类
+- 优化了Hook执行流程，减少了包装层级
 
 #### 构建器增强 (`src/infrastructure/graph/hooks/enhanced_builder.py`)
 - 实现了 `HookAwareGraphBuilder` 类
 - 提供了Hook感知的图构建功能
 - 支持Hook统计和管理功能
+- 集成了新的Hook创建API
 
-#### 装饰器支持 (`src/infrastructure/graph/hooks/decorators.py`)
-- 实现了 `with_hooks` 和 `hook_node` 装饰器
-- 提供了全局Hook管理器支持
-- 支持灵活的Hook集成方式
+#### Hook管理器优化 (`src/infrastructure/graph/hooks/manager.py`)
+- 新增了 `execute_with_hooks` 统一接口
+- 优化了Hook执行逻辑
+- 提供了更好的性能和可维护性
 
 ### 4. 配置系统
 

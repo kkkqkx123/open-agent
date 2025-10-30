@@ -112,8 +112,8 @@ class IHookManager(ABC):
     
     @abstractmethod
     def execute_hooks(
-        self, 
-        hook_point: HookPoint, 
+        self,
+        hook_point: HookPoint,
         context: HookContext
     ) -> HookExecutionResult:
         """执行指定Hook点的所有Hook
@@ -121,6 +121,25 @@ class IHookManager(ABC):
         Args:
             hook_point: Hook执行点
             context: Hook执行上下文
+            
+        Returns:
+            HookExecutionResult: 合并后的Hook执行结果
+        """
+        pass
+    
+    @abstractmethod
+    def execute_with_hooks(
+        self,
+        hook_point: HookPoint,
+        context: HookContext,
+        hooks: Optional[List[INodeHook]] = None
+    ) -> HookExecutionResult:
+        """统一的Hook执行接口
+        
+        Args:
+            hook_point: Hook执行点
+            context: Hook执行上下文
+            hooks: 可选的Hook列表，如果为None则从管理器获取
             
         Returns:
             HookExecutionResult: 合并后的Hook执行结果
@@ -252,11 +271,20 @@ class NodeHookManager(IHookManager):
         pass
     
     def execute_hooks(
-        self, 
-        hook_point: HookPoint, 
+        self,
+        hook_point: HookPoint,
         context: HookContext
     ) -> HookExecutionResult:
         """执行指定Hook点的所有Hook"""
+        pass
+    
+    def execute_with_hooks(
+        self,
+        hook_point: HookPoint,
+        context: HookContext,
+        hooks: Optional[List[INodeHook]] = None
+    ) -> HookExecutionResult:
+        """统一的Hook执行接口"""
         pass
     
     def load_hooks_from_config(self, config_path: Optional[str] = None) -> None:
@@ -558,13 +586,13 @@ def with_hooks(hook_manager: Optional[IHookManager] = None):
     return decorator
 ```
 
-### make_node_hookable
+### create_hookable_node_class
 
-将现有节点类转换为支持Hook的节点类。
+创建支持Hook的节点类。
 
 ```python
-def make_node_hookable(node_class: type, hook_manager: Optional[IHookManager] = None) -> type:
-    """将现有节点类转换为支持Hook的节点类
+def create_hookable_node_class(node_class: type, hook_manager: Optional[IHookManager] = None) -> type:
+    """创建支持Hook的节点类
     
     Args:
         node_class: 原始节点类
