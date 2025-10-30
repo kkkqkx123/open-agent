@@ -1,0 +1,37 @@
+# 工具节点Hook配置
+# 继承全局Hook配置并添加工具特定的Hook
+
+tool_node:
+  inherit_global: true
+  hooks:
+    # 错误恢复Hook - 工具执行可能失败
+    - type: "error_recovery"
+      inherits_from: "../_group.yaml#error_recovery_group"
+      priority: 90
+      enabled: true
+      config:
+        max_retries: 2  # 工具执行重试次数适中
+        fallback_node: "tool_error_handler"
+        retry_delay: 1.5
+        exponential_backoff: true
+        retry_on_exceptions: ["ToolError", "TimeoutError", "ValidationError"]
+    
+    # 性能监控Hook - 工具执行性能监控
+    - type: "performance_monitoring"
+      inherits_from: "../_group.yaml#performance_monitoring_group"
+      priority: 80
+      enabled: true
+      config:
+        timeout_threshold: 30.0  # 工具执行超时时间较短
+        slow_execution_threshold: 10.0
+        log_slow_executions: true
+    
+    # 日志Hook - 详细记录工具执行日志
+    - type: "logging"
+      inherits_from: "../_group.yaml#logging_group"
+      priority: 70
+      enabled: true
+      config:
+        log_level: "DEBUG"  # 工具执行使用更详细的日志级别
+        log_state_changes: true  # 记录状态变化
+        log_format: "json"

@@ -1,0 +1,26 @@
+# 全局Hook配置
+# 这些Hook将应用于所有节点
+
+global_hooks:
+  # 日志Hook - 记录所有节点的执行日志
+  - type: "logging"
+    inherits_from: "../_group.yaml#logging_group"
+    priority: 10
+    enabled: true
+  
+  # 性能监控Hook - 监控所有节点的性能
+  - type: "performance_monitoring"
+    inherits_from: "../_group.yaml#performance_monitoring_group"
+    priority: 20
+    enabled: true
+    config:
+      timeout_threshold: 30.0  # 全局设置更宽松的超时阈值
+      slow_execution_threshold: 10.0
+  
+  # 指标收集Hook - 收集全局指标
+  - type: "metrics_collection"
+    inherits_from: "../_group.yaml#metrics_collection_group"
+    priority: 5
+    enabled: true
+    config:
+      enable_system_metrics: true  # 全局启用系统指标

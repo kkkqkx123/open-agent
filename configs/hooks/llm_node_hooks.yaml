@@ -1,0 +1,39 @@
+# LLM节点Hook配置
+# 继承全局Hook配置并添加LLM特定的Hook
+
+llm_node:
+  inherit_global: true
+  hooks:
+    # 错误恢复Hook - LLM调用可能失败
+    - type: "error_recovery"
+      inherits_from: "../_group.yaml#error_recovery_group"
+      priority: 90
+      enabled: true
+      config:
+        max_retries: 3  # LLM调用可以重试更多次
+        fallback_node: "llm_error_handler"
+        retry_delay: 1.0
+        exponential_backoff: true
+        retry_on_exceptions: ["ConnectionError", "TimeoutError", "RateLimitError", "APIError"]
+    
+    # 性能监控Hook - LLM调用性能监控
+    - type: "performance_monitoring"
+      inherits_from: "../_group.yaml#performance_monitoring_group"
+      priority: 80
+      enabled: true
+      config:
+        timeout_threshold: 120.0  # LLM调用可能需要较长时间
+        slow_execution_threshold: 30.0
+        log_slow_executions: true
+        enable_profiling: true  # LLM调用启用性能分析
+    
+    # 指标收集Hook - 收集LLM特定指标
+    - type: "metrics_collection"
+      inherits_from: "../_group.yaml#metrics_collection_group"
+      priority: 70
+      enabled: true
+      config:
+        enable_performance_metrics: true
+        enable_business_metrics: true
+        enable_system_metrics: false
+        collection_interval: 30  # 更频繁的指标收集

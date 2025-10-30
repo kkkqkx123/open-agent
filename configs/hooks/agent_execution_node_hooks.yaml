@@ -1,0 +1,36 @@
+# Agent执行节点Hook配置
+# 继承全局Hook配置并添加节点特定的Hook
+
+agent_execution_node:
+  inherit_global: true
+  hooks:
+    # 死循环检测Hook - Agent执行容易陷入死循环
+    - type: "dead_loop_detection"
+      inherits_from: "../_group.yaml#dead_loop_detection_group"
+      priority: 100
+      enabled: true
+      config:
+        max_iterations: 15  # Agent节点更严格的迭代限制
+        fallback_node: "agent_dead_loop_handler"
+        custom_message: "Agent执行可能陷入死循环"
+    
+    # 错误恢复Hook - Agent执行可能失败
+    - type: "error_recovery"
+      inherits_from: "../_group.yaml#error_recovery_group"
+      priority: 90
+      enabled: true
+      config:
+        max_retries: 2  # Agent节点重试次数较少
+        fallback_node: "agent_error_handler"
+        retry_delay: 2.0
+        retry_on_exceptions: ["ConnectionError", "TimeoutError", "APIError"]
+    
+    # 性能监控Hook - 覆盖全局配置
+    - type: "performance_monitoring"
+      inherits_from: "../_group.yaml#performance_monitoring_group"
+      priority: 80
+      enabled: true
+      config:
+        timeout_threshold: 60.0  # Agent执行可能需要更长时间
+        slow_execution_threshold: 30.0
+        log_slow_executions: true
