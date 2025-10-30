@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Optional, Type, Callable
 from collections import defaultdict
 
 from .interfaces import (
-    INodeHook, IHookManager, IHookConfigLoader,
+    INodeHook, IHookManager, IHookConfigLoader, IHookExecutionService,
     HookContext, HookPoint, HookExecutionResult
 )
 from .config import (
@@ -64,7 +64,7 @@ class HookConfigLoader(IHookConfigLoader):
         
         # 创建全局和节点配置对象
         global_config = GlobalHookConfig(hooks=global_hook_configs)
-        node_config = NodeHookConfig(node_type="", hooks=node_hook_configs)
+        node_config = NodeHookConfig(node_type="", hooks=node_hook_configs, inherit_global=True)
         
         # 合并配置
         merged_configs = merge_hook_configs(global_config, node_config)
@@ -73,7 +73,7 @@ class HookConfigLoader(IHookConfigLoader):
         return [config.dict() for config in merged_configs]
 
 
-class NodeHookManager(IHookManager):
+class NodeHookManager(IHookManager, IHookExecutionService):
     """节点Hook管理器"""
     
     def __init__(self, config_loader) -> None:
@@ -124,6 +124,9 @@ class NodeHookManager(IHookManager):
             hook: Hook实例
             node_types: 适用的节点类型列表，None表示全局Hook
         """
+        # 注入执行服务
+        hook.set_execution_service(self)
+        
         if node_types is None:
             # 全局Hook
             self._global_hooks.append(hook)
@@ -357,8 +360,8 @@ class NodeHookManager(IHookManager):
         stats["max_execution_time"] = max(stats["max_execution_time"], execution_time)
         stats["avg_execution_time"] = stats["total_execution_time"] / stats["total_executions"]
     
-    def get_performance_stats(self, node_type: str) -> Dict[str, Any]:
-        """获取性能统计
+    def get_node_performance_stats(self, node_type: str) -> Dict[str, Any]:
+        """获取指定节点的性能统计
         
         Args:
             node_type: 节点类型
@@ -367,3 +370,38 @@ class NodeHookManager(IHookManager):
             Dict[str, Any]: 性能统计数据
         """
         return self._performance_stats.get(node_type, {})
+    
+    def get_global_hooks_count(self) -> int:
+        """获取全局Hook数量
+        
+        Returns:
+            int: 全局Hook数量
+        """
+        return len(self._global_hooks)
+    
+    def get_node_hooks_count(self, node_type: str) -> int:
+        """获取指定节点的Hook数量
+        
+        Args:
+            node_type: 节点类型
+            
+        Returns:
+            int: Hook数量
+        """
+        return len(self._hooks.get(node_type, []))
+    
+    def get_all_node_hooks_counts(self) -> Dict[str, int]:
+        """获取所有节点的Hook数量
+        
+        Returns:
+            Dict[str, int]: 节点类型到Hook数量的映射
+        """
+        return {node_type: len(hooks) for node_type, hooks in self._hooks.items()}
+    
+    def get_performance_stats(self) -> Dict[str, Dict[str, Any]]:
+        """获取性能统计信息
+        
+        Returns:
+            Dict[str, Dict[str, Any]]: 节点类型到性能统计的映射
+        """
+        return dict(self._performance_stats)

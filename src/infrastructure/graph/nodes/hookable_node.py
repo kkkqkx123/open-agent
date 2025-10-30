@@ -3,7 +3,7 @@
 提供Hook机制集成到节点系统的基类实现。
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, Callable
 from abc import abstractmethod
 
 from ..registry import BaseNode, NodeExecutionResult
@@ -12,7 +12,10 @@ from ..hooks.decorators import _get_hook_manager
 
 
 class HookableNode(BaseNode):
-    """支持Hook的节点基类"""
+    """支持Hook的节点基类
+    
+    简化设计，直接集成Hook功能，避免多层包装。
+    """
     
     def __init__(self, hook_manager: Optional[IHookManager] = None) -> None:
         """初始化HookableNode
@@ -32,8 +35,8 @@ class HookableNode(BaseNode):
         """执行节点逻辑（带Hook支持）"""
         manager = self.hook_manager
         if not manager:
-            # 如果没有Hook管理器，调用子类实现
-            return self._execute_without_hooks(state, config)
+            # 如果没有Hook管理器，直接执行核心逻辑
+            return self._execute_core(state, config)
         
         node_type = self.node_type
         
@@ -59,13 +62,13 @@ class HookableNode(BaseNode):
                 }
             )
         
-        # 更新状态
+        # 更新状态（如果Hook修改了状态）
         if before_result.modified_state:
             state = before_result.modified_state
         
-        # 执行节点逻辑
+        # 执行节点核心逻辑
         try:
-            result = self._execute_without_hooks(state, config)
+            result = self._execute_core(state, config)
             
             # 创建后置Hook上下文
             after_context = HookContext(
@@ -122,8 +125,8 @@ class HookableNode(BaseNode):
             raise e
     
     @abstractmethod
-    def _execute_without_hooks(self, state, config: Dict[str, Any]) -> NodeExecutionResult:
-        """不使用Hook的执行逻辑（子类需要实现）
+    def _execute_core(self, state, config: Dict[str, Any]) -> NodeExecutionResult:
+        """执行节点核心逻辑（子类需要实现）
         
         Args:
             state: 当前Agent状态
@@ -132,11 +135,16 @@ class HookableNode(BaseNode):
         Returns:
             NodeExecutionResult: 执行结果
         """
-        raise NotImplementedError("子类必须实现 _execute_without_hooks 方法")
+        raise NotImplementedError("子类必须实现 _execute_core 方法")
 
 
-def make_node_hookable(node_class: type, hook_manager: Optional[IHookManager] = None) -> type:
-    """将现有节点类转换为支持Hook的节点类
+def create_hookable_node_class(
+    node_class: type,
+    hook_manager: Optional[IHookManager] = None
+) -> type:
+    """创建支持Hook的节点类
+    
+    替代原来的make_node_hookable函数，使用继承而不是包装。
     
     Args:
         node_class: 原始节点类
@@ -145,11 +153,11 @@ def make_node_hookable(node_class: type, hook_manager: Optional[IHookManager] = 
     Returns:
         type: 支持Hook的节点类
     """
-    class HookableNodeWrapper(HookableNode):
-        """Hookable节点包装器"""
+    class HookableNodeClass(HookableNode):
+        """支持Hook的节点类"""
         
         def __init__(self, *args, **kwargs) -> None:
-            """初始化包装器"""
+            """初始化节点"""
             # 提取hook_manager参数
             self._hook_manager_arg = kwargs.pop('hook_manager', hook_manager)
             
@@ -164,7 +172,7 @@ def make_node_hookable(node_class: type, hook_manager: Optional[IHookManager] = 
             """节点类型标识"""
             return self._original_node.node_type
         
-        def _execute_without_hooks(self, state, config: Dict[str, Any]) -> NodeExecutionResult:
+        def _execute_core(self, state, config: Dict[str, Any]) -> NodeExecutionResult:
             """调用原始节点的execute方法"""
             return self._original_node.execute(state, config)
         
@@ -172,7 +180,7 @@ def make_node_hookable(node_class: type, hook_manager: Optional[IHookManager] = 
             """获取节点配置Schema"""
             return self._original_node.get_config_schema()
         
-        def validate_config(self, config: Dict[str, Any]) -> List[str]:
+        def validate_config(self, config: Dict[str, Any]) -> list:
             """验证节点配置"""
             return self._original_node.validate_config(config)
         
@@ -181,9 +189,10 @@ def make_node_hookable(node_class: type, hook_manager: Optional[IHookManager] = 
             return getattr(self._original_node, name)
     
     # 保持原始类的名称和文档
-    HookableNodeWrapper.__name__ = f"Hookable{node_class.__name__}"
-    HookableNodeWrapper.__qualname__ = f"Hookable{node_class.__qualname__}"
+    HookableNodeClass.__name__ = f"Hookable{node_class.__name__}"
+    HookableNodeClass.__qualname__ = f"Hookable{node_class.__qualname__}"
     if hasattr(node_class, '__doc__'):
-        HookableNodeWrapper.__doc__ = node_class.__doc__
+        HookableNodeClass.__doc__ = node_class.__doc__
     
-    return HookableNodeWrapper
+    return HookableNodeClass
+

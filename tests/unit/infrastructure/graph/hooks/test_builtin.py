@@ -35,18 +35,20 @@ class TestDeadLoopDetectionHook:
         """测试正常执行前检查"""
         config = {"max_iterations": 5}
         hook = DeadLoopDetectionHook(config)
+
+        # Mock 执行服务
+        mock_execution_service = Mock()
+        mock_execution_service.get_execution_count.return_value = 3
         
-        # Mock Hook管理器
-        mock_manager = Mock()
-        mock_manager.get_execution_count.return_value = 3
-        
+        # 注入执行服务
+        hook.set_execution_service(mock_execution_service)
+
         state = Mock(spec=AgentState)
         context = HookContext(
             node_type="test_node",
             state=state,
             config={},
-            hook_point=HookPoint.BEFORE_EXECUTE,
-            hook_manager=mock_manager
+            hook_point=HookPoint.BEFORE_EXECUTE
         )
         
         result = hook.before_execute(context)
@@ -56,18 +58,20 @@ class TestDeadLoopDetectionHook:
         """测试检测到死循环"""
         config = {"max_iterations": 5}
         hook = DeadLoopDetectionHook(config)
-        
+
         # Mock Hook管理器
         mock_manager = Mock()
         mock_manager.get_execution_count.return_value = 5
-        
+
+        # 注入执行服务
+        hook.set_execution_service(mock_manager)
+
         state = Mock(spec=AgentState)
         context = HookContext(
             node_type="test_node",
             state=state,
             config={},
-            hook_point=HookPoint.BEFORE_EXECUTE,
-            hook_manager=mock_manager
+            hook_point=HookPoint.BEFORE_EXECUTE
         )
         
         result = hook.before_execute(context)
@@ -79,17 +83,20 @@ class TestDeadLoopDetectionHook:
         """测试执行后增加计数"""
         config = {"max_iterations": 5}
         hook = DeadLoopDetectionHook(config)
-        
+
         # Mock Hook管理器
         mock_manager = Mock()
-        
+
+        # 注入执行服务
+        hook.set_execution_service(mock_manager)
+
         state = Mock(spec=AgentState)
         context = HookContext(
             node_type="test_node",
             state=state,
             config={},
             hook_point=HookPoint.AFTER_EXECUTE,
-            hook_manager=mock_manager
+            
         )
         
         result = hook.after_execute(context)
@@ -118,6 +125,7 @@ class TestPerformanceMonitoringHook:
         hook = PerformanceMonitoringHook(config)
         
         state = Mock(spec=AgentState)
+        mock_manager = Mock()
         context = HookContext(
             node_type="test_node",
             state=state,
@@ -127,14 +135,40 @@ class TestPerformanceMonitoringHook:
         
         result = hook.before_execute(context)
         assert result.should_continue is True
-        assert "performance_start_time" in context.metadata
+        assert context.metadata is not None and "performance_start_time" in context.metadata
     
-    @patch('time.time')
-    def test_after_execute_normal(self, mock_time):
+    def test_after_execute_normal(self):
         """测试正常执行后监控"""
-        mock_time.side_effect = [1000.0, 1005.0]  # 开始时间和结束时间
-        
         config = {"timeout_threshold": 30.0, "slow_execution_threshold": 10.0}
+        hook = PerformanceMonitoringHook(config)
+        
+        # Mock Hook管理器
+        mock_manager = Mock()
+        
+        # 注入执行服务
+        hook.set_execution_service(mock_manager)
+
+        state = Mock(spec=AgentState)
+        context = HookContext(
+            node_type="test_node",
+            state=state,
+            config={},
+            hook_point=HookPoint.AFTER_EXECUTE,
+            metadata={"performance_start_time": 1000.0},
+            
+        )
+        
+        # Mock time.time() to return a specific value
+        with patch('src.infrastructure.graph.hooks.builtin.time.time', return_value=1005.0):
+            result = hook.after_execute(context)
+        
+        assert result.should_continue is True
+        assert result.metadata["execution_time"] == 5.0
+        mock_manager.update_performance_stats.assert_called_once_with("test_node", 5.0, success=True)
+    
+    def test_after_execute_timeout(self):
+        """测试执行超时"""
+        config = {"timeout_threshold": 30.0}
         hook = PerformanceMonitoringHook(config)
         
         # Mock Hook管理器
@@ -146,33 +180,14 @@ class TestPerformanceMonitoringHook:
             state=state,
             config={},
             hook_point=HookPoint.AFTER_EXECUTE,
-            hook_manager=mock_manager,
-            metadata={"performance_start_time": 1000.0}
+            metadata={"performance_start_time": 1000.0},
+            
         )
         
-        result = hook.after_execute(context)
-        assert result.should_continue is True
-        assert result.metadata["execution_time"] == 5.0
-        mock_manager.update_performance_stats.assert_called_once_with("test_node", 5.0, True)
-    
-    @patch('time.time')
-    def test_after_execute_timeout(self, mock_time):
-        """测试执行超时"""
-        mock_time.side_effect = [1000.0, 1040.0]  # 超过30秒阈值
+        # Mock time.time() to return a value that exceeds timeout
+        with patch('src.infrastructure.graph.hooks.builtin.time.time', return_value=1040.0):
+            result = hook.after_execute(context)
         
-        config = {"timeout_threshold": 30.0}
-        hook = PerformanceMonitoringHook(config)
-        
-        state = Mock(spec=AgentState)
-        context = HookContext(
-            node_type="test_node",
-            state=state,
-            config={},
-            hook_point=HookPoint.AFTER_EXECUTE,
-            metadata={"performance_start_time": 1000.0}
-        )
-        
-        result = hook.after_execute(context)
         assert result.should_continue is False
         assert result.force_next_node == "timeout_handler"
         assert result.metadata["timeout_detected"] is True
@@ -234,7 +249,7 @@ class TestErrorRecoveryHook:
     @patch('time.sleep')
     def test_on_error_retry(self, mock_sleep):
         """测试错误重试"""
-        config = {"max_retries": 3, "retry_delay": 1.0}
+        config = {"max_retries": 3, "retry_delay": 1.0, "exponential_backoff": False}
         hook = ErrorRecoveryHook(config)
         
         state = Mock(spec=AgentState)
@@ -301,6 +316,7 @@ class TestLoggingHook:
         state.iteration_count = 0
         state.errors = []
         
+        mock_manager = Mock()
         context = HookContext(
             node_type="test_node",
             state=state,
@@ -353,7 +369,7 @@ class TestLoggingHook:
         
         result = hook.on_error(context)
         assert result.should_continue is True
-        mock_logger.info.assert_called()
+        mock_logger.error.assert_called()
 
 
 class TestMetricsCollectionHook:
@@ -377,6 +393,7 @@ class TestMetricsCollectionHook:
         hook = MetricsCollectionHook(config)
         
         state = Mock(spec=AgentState)
+        mock_manager = Mock()
         context = HookContext(
             node_type="test_node",
             state=state,
@@ -386,7 +403,7 @@ class TestMetricsCollectionHook:
         
         result = hook.before_execute(context)
         assert result.should_continue is True
-        assert "metrics_start_time" in context.metadata
+        assert context.metadata is not None and "metrics_start_time" in context.metadata
     
     @patch('time.time')
     def test_after_execute_collect_metrics(self, mock_time):

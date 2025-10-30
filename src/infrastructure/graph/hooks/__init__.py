@@ -15,13 +15,13 @@ from .builtin import (
     MetricsCollectionHook,
     create_builtin_hook
 )
-from ..nodes.hookable_node import HookableNode, make_node_hookable
-from .enhanced_builder import HookAwareGraphBuilder, create_hook_aware_builder
+from ..nodes.hookable_node import HookableNode, create_hookable_node_class
+from ..hook_aware_builder import HookAwareGraphBuilder, create_hook_aware_builder
 from .trigger_coordinator import HookTriggerCoordinator
 
 __all__ = [
     "INodeHook",
-    "IHookManager", 
+    "IHookManager",
     "NodeHookManager",
     "HookConfig",
     "NodeHookConfig",
@@ -35,7 +35,7 @@ __all__ = [
     "MetricsCollectionHook",
     "create_builtin_hook",
     "HookableNode",
-    "make_node_hookable",
+    "create_hookable_node_class",
     "HookAwareGraphBuilder",
     "create_hook_aware_builder",
     "HookTriggerCoordinator",

@@ -32,12 +32,11 @@ class DeadLoopDetectionHook(INodeHook):
     
     def before_execute(self, context: HookContext) -> HookExecutionResult:
         """节点执行前检查死循环"""
-        # 获取Hook管理器中的执行计数
-        hook_manager = getattr(context, 'hook_manager', None)
-        if not hook_manager:
+        # 获取执行服务中的执行计数
+        if not self._execution_service:
             return HookExecutionResult(should_continue=True)
-        
-        execution_count = hook_manager.get_execution_count(context.node_type)
+
+        execution_count = self._execution_service.get_execution_count(context.node_type)
         
         # 每隔一定间隔检查一次
         if execution_count % self.check_interval == 0 and execution_count > 0:
@@ -69,9 +68,8 @@ class DeadLoopDetectionHook(INodeHook):
     
     def after_execute(self, context: HookContext) -> HookExecutionResult:
         """节点执行后更新计数"""
-        hook_manager = getattr(context, 'hook_manager', None)
-        if hook_manager:
-            hook_manager.increment_execution_count(context.node_type)
+        if self._execution_service:
+            self._execution_service.increment_execution_count(context.node_type)
         
         return HookExecutionResult(should_continue=True)
     
@@ -112,16 +110,15 @@ class PerformanceMonitoringHook(INodeHook):
     
     def after_execute(self, context: HookContext) -> HookExecutionResult:
         """计算执行时间并记录"""
-        start_time = context.metadata.get("performance_start_time")
+        start_time = context.metadata.get("performance_start_time") if context.metadata else None
         if not start_time:
             return HookExecutionResult(should_continue=True)
         
         execution_time = time.time() - start_time
         
         # 更新性能统计
-        hook_manager = getattr(context, 'hook_manager', None)
-        if hook_manager and self.metrics_collection:
-            hook_manager.update_performance_stats(
+        if self._execution_service and self.metrics_collection:
+            self._execution_service.update_performance_stats(
                 context.node_type, 
                 execution_time, 
                 success=True
@@ -158,13 +155,12 @@ class PerformanceMonitoringHook(INodeHook):
     
     def on_error(self, context: HookContext) -> HookExecutionResult:
         """记录错误执行时间"""
-        start_time = context.metadata.get("performance_start_time")
+        start_time = context.metadata.get("performance_start_time") if context.metadata else None
         if start_time:
             execution_time = time.time() - start_time
             
-            hook_manager = getattr(context, 'hook_manager', None)
-            if hook_manager and self.metrics_collection:
-                hook_manager.update_performance_stats(
+            if self._execution_service and self.metrics_collection:
+                self._execution_service.update_performance_stats(
                     context.node_type, 
                     execution_time, 
                     success=False
@@ -310,12 +306,12 @@ class LoggingHook(INodeHook):
     
     def before_execute(self, context: HookContext) -> HookExecutionResult:
         """记录节点执行开始日志"""
-        log_data = {
+        log_data: Dict[str, Any] = {
             "event": "node_execution_started",
             "node_type": context.node_type,
             "timestamp": datetime.utcnow().isoformat()
         }
-        
+
         if self.log_state_changes:
             log_data["state_summary"] = self._get_state_summary(context.state)
         
@@ -325,20 +321,20 @@ class LoggingHook(INodeHook):
     
     def after_execute(self, context: HookContext) -> HookExecutionResult:
         """记录节点执行完成日志"""
-        log_data = {
+        log_data: Dict[str, Any] = {
             "event": "node_execution_completed",
             "node_type": context.node_type,
             "timestamp": datetime.utcnow().isoformat()
         }
-        
+
         if self.log_execution_time and context.metadata:
             execution_time = context.metadata.get("execution_time")
             if execution_time:
                 log_data["execution_time"] = execution_time
-        
+
         if context.execution_result and context.execution_result.next_node:
             log_data["next_node"] = context.execution_result.next_node
-        
+
         if self.log_state_changes:
             log_data["state_summary"] = self._get_state_summary(context.state)
         
@@ -348,14 +344,14 @@ class LoggingHook(INodeHook):
     
     def on_error(self, context: HookContext) -> HookExecutionResult:
         """记录错误日志"""
-        log_data = {
+        log_data: Dict[str, Any] = {
             "event": "node_execution_error",
             "node_type": context.node_type,
             "timestamp": datetime.utcnow().isoformat(),
             "error": str(context.error) if context.error else "Unknown error",
             "error_type": context.error.__class__.__name__ if context.error else "Unknown"
         }
-        
+
         if self.log_state_changes:
             log_data["state_summary"] = self._get_state_summary(context.state)
         
@@ -436,7 +432,7 @@ class MetricsCollectionHook(INodeHook):
     
     def after_execute(self, context: HookContext) -> HookExecutionResult:
         """收集执行指标"""
-        start_time = context.metadata.get("metrics_start_time")
+        start_time = context.metadata.get("metrics_start_time") if context.metadata else None
         if not start_time:
             return HookExecutionResult(should_continue=True)
         
@@ -495,7 +491,7 @@ class MetricsCollectionHook(INodeHook):
         # 工具调用次数
         if hasattr(state, 'tool_calls'):
             tool_calls_key = f"business.{context.node_type}.tool_calls_count"
-            self._metrics[tool_calls_key] = len(state.tool_calls)
+            self._metrics[tool_calls_key] = len(getattr(state, 'tool_calls', []))
     
     def _collect_system_metrics(self, context: HookContext) -> None:
         """收集系统指标"""

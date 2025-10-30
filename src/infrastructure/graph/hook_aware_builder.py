@@ -1,4 +1,4 @@
-"""增强的Graph构建器
+"""支持Hook的Graph构建器
 
 集成Hook机制的Graph构建器。
 """
@@ -11,13 +11,13 @@ import logging
 if TYPE_CHECKING:
     from src.domain.agent.interfaces import IAgent
 
-from ..builder import GraphBuilder, NodeWithAdapterExecutor, EnhancedNodeWithAdapterExecutor
-from ..config import GraphConfig, NodeConfig
-from ..state import WorkflowState
-from ..registry import BaseNode
-from .manager import NodeHookManager
-from ..nodes.hookable_node import make_node_hookable
-from .interfaces import IHookManager
+from .builder import GraphBuilder, NodeWithAdapterExecutor, EnhancedNodeWithAdapterExecutor
+from .config import GraphConfig, NodeConfig
+from .state import WorkflowState
+from .registry import BaseNode
+from .hooks.manager import NodeHookManager
+from .nodes.hookable_node import create_hookable_node_class
+from .hooks.interfaces import IHookManager
 from src.domain.state.interfaces import IStateCollaborationManager
 
 logger = logging.getLogger(__name__)
@@ -48,8 +48,6 @@ class HookAwareGraphBuilder(GraphBuilder):
         # 如果没有提供Hook管理器，创建一个
         if not self._hook_manager and config_loader:
             self._hook_manager = NodeHookManager(config_loader)
-            # 加载全局Hook配置
-            self._hook_manager.load_hooks_from_config()
     
     @property
     def hook_manager(self) -> Optional[IHookManager]:
@@ -71,7 +69,7 @@ class HookAwareGraphBuilder(GraphBuilder):
             node_class = self.node_registry.get_node_class(node_config.function_name)
             if node_class:
                 # 创建支持Hook的节点类
-                hookable_node_class = make_node_hookable(node_class, self._hook_manager)
+                hookable_node_class = create_hookable_node_class(node_class, self._hook_manager)
                 
                 # 创建节点实例
                 node_instance = hookable_node_class(hook_manager=self._hook_manager)
@@ -209,19 +207,10 @@ class HookAwareGraphBuilder(GraphBuilder):
         
         stats = {
             "hook_manager_initialized": True,
-            "global_hooks_count": len(self._hook_manager._global_hooks) if hasattr(self._hook_manager, '_global_hooks') else 0,
-            "node_hooks": {},
-            "performance_stats": {}
+            "global_hooks_count": self._hook_manager.get_global_hooks_count(),
+            "node_hooks": self._hook_manager.get_all_node_hooks_counts(),
+            "performance_stats": self._hook_manager.get_performance_stats()
         }
-        
-        # 收集节点Hook统计
-        if hasattr(self._hook_manager, '_hooks'):
-            for node_type, hooks in self._hook_manager._hooks.items():
-                stats["node_hooks"][node_type] = len(hooks)
-        
-        # 收集性能统计
-        if hasattr(self._hook_manager, '_performance_stats'):
-            stats["performance_stats"] = dict(self._hook_manager._performance_stats)
         
         return stats
 

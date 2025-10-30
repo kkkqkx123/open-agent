@@ -32,7 +32,13 @@ class TestHookConfig:
     
     def test_default_values(self):
         """测试默认值"""
-        config = HookConfig(type=HookType.LOGGING)
+        config = HookConfig(
+            type=HookType.LOGGING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=0
+        )
         
         assert config.type == HookType.LOGGING
         assert config.enabled is True
@@ -43,11 +49,23 @@ class TestHookConfig:
     def test_invalid_priority(self):
         """测试无效优先级"""
         with pytest.raises(ValidationError):
-            HookConfig(type=HookType.LOGGING, priority=-1)
+            HookConfig(
+                type=HookType.LOGGING,
+                enabled=True,
+                config={},
+                node_types=None,
+                priority=-1
+            )
     
     def test_enum_conversion(self):
         """测试枚举转换"""
-        config = HookConfig(type="dead_loop_detection")
+        config = HookConfig(
+            type=HookType.DEAD_LOOP_DETECTION,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=0
+        )
         assert config.type == HookType.DEAD_LOOP_DETECTION
         
         # 测试字符串值
@@ -57,11 +75,23 @@ class TestHookConfig:
 
 class TestNodeHookConfig:
     """NodeHookConfig测试"""
-    
+
     def test_valid_creation(self):
         """测试有效创建"""
-        hook1 = HookConfig(type=HookType.LOGGING)
-        hook2 = HookConfig(type=HookType.PERFORMANCE_MONITORING)
+        hook1 = HookConfig(
+            type=HookType.LOGGING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=0
+        )
+        hook2 = HookConfig(
+            type=HookType.PERFORMANCE_MONITORING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=0
+        )
         
         node_config = NodeHookConfig(
             node_type="test_node",
@@ -75,13 +105,26 @@ class TestNodeHookConfig:
     
     def test_duplicate_hook_types(self):
         """测试重复Hook类型"""
-        hook1 = HookConfig(type=HookType.LOGGING)
-        hook2 = HookConfig(type=HookType.LOGGING)
-        
+        hook1 = HookConfig(
+            type=HookType.LOGGING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=0
+        )
+        hook2 = HookConfig(
+            type=HookType.LOGGING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=0
+        )
+
         with pytest.raises(ValidationError):
             NodeHookConfig(
                 node_type="test_node",
-                hooks=[hook1, hook2]
+                hooks=[hook1, hook2],
+                inherit_global=True
             )
 
 
@@ -90,18 +133,42 @@ class TestGlobalHookConfig:
     
     def test_valid_creation(self):
         """测试有效创建"""
-        hook1 = HookConfig(type=HookType.LOGGING)
-        hook2 = HookConfig(type=HookType.PERFORMANCE_MONITORING)
-        
+        hook1 = HookConfig(
+            type=HookType.LOGGING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=0
+        )
+        hook2 = HookConfig(
+            type=HookType.PERFORMANCE_MONITORING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=0
+        )
+
         global_config = GlobalHookConfig(hooks=[hook1, hook2])
         
         assert len(global_config.hooks) == 2
     
     def test_duplicate_hook_types(self):
         """测试重复Hook类型"""
-        hook1 = HookConfig(type=HookType.LOGGING)
-        hook2 = HookConfig(type=HookType.LOGGING)
-        
+        hook1 = HookConfig(
+            type=HookType.LOGGING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=0
+        )
+        hook2 = HookConfig(
+            type=HookType.LOGGING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=0
+        )
+
         with pytest.raises(ValidationError):
             GlobalHookConfig(hooks=[hook1, hook2])
 
@@ -111,7 +178,7 @@ class TestHookGroupConfigs:
     
     def test_dead_loop_detection_config(self):
         """测试死循环检测配置"""
-        config = DeadLoopDetectionConfig()
+        config = DeadLoopDetectionConfig(enabled=True)
         
         assert config.enabled is True
         assert config.config["max_iterations"] == 20
@@ -120,7 +187,7 @@ class TestHookGroupConfigs:
     
     def test_performance_monitoring_config(self):
         """测试性能监控配置"""
-        config = PerformanceMonitoringConfig()
+        config = PerformanceMonitoringConfig(enabled=True)
         
         assert config.enabled is True
         assert config.config["timeout_threshold"] == 10.0
@@ -129,7 +196,7 @@ class TestHookGroupConfigs:
     
     def test_error_recovery_config(self):
         """测试错误恢复配置"""
-        config = ErrorRecoveryConfig()
+        config = ErrorRecoveryConfig(enabled=True)
         
         assert config.enabled is True
         assert config.config["max_retries"] == 3
@@ -138,7 +205,7 @@ class TestHookGroupConfigs:
     
     def test_logging_config(self):
         """测试日志配置"""
-        config = LoggingConfig()
+        config = LoggingConfig(enabled=True)
         
         assert config.enabled is True
         assert config.config["log_level"] == "INFO"
@@ -146,7 +213,7 @@ class TestHookGroupConfigs:
     
     def test_metrics_collection_config(self):
         """测试指标收集配置"""
-        config = MetricsCollectionConfig()
+        config = MetricsCollectionConfig(enabled=True)
         
         assert config.enabled is True
         assert config.config["enable_performance_metrics"] is True
@@ -158,7 +225,13 @@ class TestCreateHookConfig:
     
     def test_create_with_defaults(self):
         """测试使用默认值创建"""
-        config = create_hook_config(HookType.LOGGING)
+        config = create_hook_config(
+            HookType.LOGGING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=0
+        )
         
         assert config.type == HookType.LOGGING
         assert config.enabled is True
@@ -217,8 +290,20 @@ class TestMergeHookConfigs:
     
     def test_merge_with_inheritance(self):
         """测试带继承的合并"""
-        global_hook = HookConfig(type=HookType.LOGGING, priority=1)
-        node_hook = HookConfig(type=HookType.PERFORMANCE_MONITORING, priority=2)
+        global_hook = HookConfig(
+            type=HookType.LOGGING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=1
+        )
+        node_hook = HookConfig(
+            type=HookType.PERFORMANCE_MONITORING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=2
+        )
         
         global_config = GlobalHookConfig(hooks=[global_hook])
         node_config = NodeHookConfig(
@@ -235,8 +320,20 @@ class TestMergeHookConfigs:
     
     def test_merge_without_inheritance(self):
         """测试不带继承的合并"""
-        global_hook = HookConfig(type=HookType.LOGGING)
-        node_hook = HookConfig(type=HookType.PERFORMANCE_MONITORING)
+        global_hook = HookConfig(
+            type=HookType.LOGGING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=0
+        )
+        node_hook = HookConfig(
+            type=HookType.PERFORMANCE_MONITORING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=0
+        )
         
         global_config = GlobalHookConfig(hooks=[global_hook])
         node_config = NodeHookConfig(
@@ -254,24 +351,28 @@ class TestMergeHookConfigs:
         """测试覆盖合并"""
         global_hook = HookConfig(
             type=HookType.LOGGING,
-            priority=1,
-            config={"log_level": "INFO"}
+            enabled=True,
+            config={"log_level": "INFO"},
+            node_types=None,
+            priority=1
         )
         node_hook = HookConfig(
             type=HookType.LOGGING,
-            priority=2,
-            config={"log_level": "DEBUG"}
+            enabled=True,
+            config={"log_level": "DEBUG"},
+            node_types=None,
+            priority=2
         )
-        
+
         global_config = GlobalHookConfig(hooks=[global_hook])
         node_config = NodeHookConfig(
             node_type="test_node",
             hooks=[node_hook],
             inherit_global=True
         )
-        
+
         merged = merge_hook_configs(global_config, node_config)
-        
+
         assert len(merged) == 1
         assert merged[0].type == HookType.LOGGING
         assert merged[0].priority == 2  # 节点配置优先级更高
@@ -279,9 +380,27 @@ class TestMergeHookConfigs:
     
     def test_merge_priority_ordering(self):
         """测试优先级排序"""
-        hook1 = HookConfig(type=HookType.LOGGING, priority=1)
-        hook2 = HookConfig(type=HookType.PERFORMANCE_MONITORING, priority=3)
-        hook3 = HookConfig(type=HookType.ERROR_RECOVERY, priority=2)
+        hook1 = HookConfig(
+            type=HookType.LOGGING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=1
+        )
+        hook2 = HookConfig(
+            type=HookType.PERFORMANCE_MONITORING,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=3
+        )
+        hook3 = HookConfig(
+            type=HookType.ERROR_RECOVERY,
+            enabled=True,
+            config={},
+            node_types=None,
+            priority=2
+        )
         
         global_config = GlobalHookConfig(hooks=[hook1, hook2])
         node_config = NodeHookConfig(

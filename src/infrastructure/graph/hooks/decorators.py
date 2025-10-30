@@ -55,8 +55,7 @@ def with_hooks(hook_manager: Optional[IHookManager] = None):
                 node_type=node_type,
                 state=state,
                 config=config,
-                hook_point=HookPoint.BEFORE_EXECUTE,
-                hook_manager=manager
+                hook_point=HookPoint.BEFORE_EXECUTE
             )
             
             # 执行前置Hook
@@ -89,8 +88,7 @@ def with_hooks(hook_manager: Optional[IHookManager] = None):
                     state=result.state,
                     config=config,
                     hook_point=HookPoint.AFTER_EXECUTE,
-                    execution_result=result,
-                    hook_manager=manager
+                    execution_result=result
                 )
                 
                 # 执行后置Hook
@@ -117,8 +115,7 @@ def with_hooks(hook_manager: Optional[IHookManager] = None):
                     state=state,
                     config=config,
                     hook_point=HookPoint.ON_ERROR,
-                    error=e,
-                    hook_manager=manager
+                    error=e
                 )
                 
                 # 执行错误Hook
@@ -172,122 +169,6 @@ def hook_node(hook_manager: Optional[IHookManager] = None):
     return decorator
 
 
-class HookableNode(BaseNode):
-    """支持Hook的节点基类"""
-    
-    def __init__(self, hook_manager: Optional[IHookManager] = None) -> None:
-        """初始化HookableNode
-        
-        Args:
-            hook_manager: Hook管理器实例
-        """
-        super().__init__()
-        self._hook_manager = hook_manager
-    
-    @property
-    def hook_manager(self) -> Optional[IHookManager]:
-        """获取Hook管理器"""
-        return self._hook_manager or _get_hook_manager()
-    
-    def execute(self, state, config: Dict[str, Any]) -> NodeExecutionResult:
-        """执行节点逻辑（带Hook支持）"""
-        manager = self.hook_manager
-        if not manager:
-            # 如果没有Hook管理器，调用子类实现
-            return self._execute_without_hooks(state, config)
-        
-        node_type = self.node_type
-        
-        # 创建前置Hook上下文
-        before_context = HookContext(
-            node_type=node_type,
-            state=state,
-            config=config,
-            hook_point=HookPoint.BEFORE_EXECUTE,
-            hook_manager=manager
-        )
-        
-        # 执行前置Hook
-        before_result = manager.execute_hooks(HookPoint.BEFORE_EXECUTE, before_context)
-        
-        # 检查是否需要中断执行
-        if not before_result.should_continue:
-            return NodeExecutionResult(
-                state=before_result.modified_state or state,
-                next_node=before_result.force_next_node,
-                metadata={
-                    "interrupted_by_hooks": True,
-                    "hook_metadata": before_result.metadata
-                }
-            )
-        
-        # 更新状态
-        if before_result.modified_state:
-            state = before_result.modified_state
-        
-        # 执行节点逻辑
-        try:
-            result = self._execute_without_hooks(state, config)
-            
-            # 创建后置Hook上下文
-            after_context = HookContext(
-                node_type=node_type,
-                state=result.state,
-                config=config,
-                hook_point=HookPoint.AFTER_EXECUTE,
-                execution_result=result,
-                hook_manager=manager
-            )
-            
-            # 执行后置Hook
-            after_result = manager.execute_hooks(HookPoint.AFTER_EXECUTE, after_context)
-            
-            # 应用Hook结果
-            if after_result.modified_state:
-                result.state = after_result.modified_state
-            
-            if after_result.force_next_node:
-                result.next_node = after_result.force_next_node
-            
-            if after_result.metadata:
-                if result.metadata is None:
-                    result.metadata = {}
-                result.metadata.update(after_result.metadata)
-            
-            return result
-            
-        except Exception as e:
-            # 创建错误Hook上下文
-            error_context = HookContext(
-                node_type=node_type,
-                state=state,
-                config=config,
-                hook_point=HookPoint.ON_ERROR,
-                error=e,
-                hook_manager=manager
-            )
-            
-            # 执行错误Hook
-            error_result = manager.execute_hooks(HookPoint.ON_ERROR, error_context)
-            
-            # 检查Hook是否处理了错误
-            if not error_result.should_continue:
-                return NodeExecutionResult(
-                    state=error_result.modified_state or state,
-                    next_node=error_result.force_next_node or "error_handler",
-                    metadata={
-                        "error_handled_by_hooks": True,
-                        "original_error": str(e),
-                        "hook_metadata": error_result.metadata
-                    }
-                )
-            
-            # 如果Hook没有处理错误，重新抛出异常
-            raise e
-    
-    def _execute_without_hooks(self, state, config: Dict[str, Any]) -> NodeExecutionResult:
-        """不使用Hook的执行逻辑（子类需要实现）"""
-        raise NotImplementedError("子类必须实现 _execute_without_hooks 方法")
 
 
 def _get_hook_manager() -> Optional[IHookManager]:

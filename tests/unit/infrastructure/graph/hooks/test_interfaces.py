@@ -2,6 +2,7 @@
 
 import pytest
 from unittest.mock import Mock, MagicMock
+from typing import Dict, Any, Optional
 
 from src.infrastructure.graph.hooks.interfaces import (
     INodeHook, IHookManager, IHookConfigLoader,
@@ -74,9 +75,24 @@ class MockHookManager(IHookManager):
         
         return HookExecutionResult(should_continue=True)
     
-    def load_hooks_from_config(self, config_path: str):
+    def load_hooks_from_config(self, config_path: Optional[str] = None):
         pass
-    
+
+    def load_node_hooks_from_config(self, node_type: str):
+        pass
+
+    def get_global_hooks_count(self) -> int:
+        return len(self.hooks.get("global", []))
+
+    def get_node_hooks_count(self, node_type: str) -> int:
+        return len(self.hooks.get(node_type, []))
+
+    def get_all_node_hooks_counts(self) -> Dict[str, int]:
+        return {node_type: len(hooks) for node_type, hooks in self.hooks.items()}
+
+    def get_performance_stats(self) -> Dict[str, Dict[str, Any]]:
+        return {}
+
     def clear_hooks(self):
         self.hooks.clear()
         self.registered_hooks.clear()
@@ -136,7 +152,8 @@ class TestHookContext:
             state=state,
             config=config,
             hook_point=HookPoint.BEFORE_EXECUTE,
-            execution_result=result
+            execution_result=result,
+            
         )
         
         assert context.node_type == "test_node"
@@ -158,7 +175,8 @@ class TestHookContext:
             state=state,
             config=config,
             hook_point=HookPoint.ON_ERROR,
-            error=error
+            error=error,
+            
         )
         
         assert context.error is error
@@ -190,7 +208,8 @@ class TestMockHook:
             node_type="test_node",
             state=state,
             config=config,
-            hook_point=HookPoint.BEFORE_EXECUTE
+            hook_point=HookPoint.BEFORE_EXECUTE,
+            
         )
         
         # 测试before_execute
@@ -209,7 +228,8 @@ class TestMockHook:
             state=state,
             config=config,
             hook_point=HookPoint.ON_ERROR,
-            error=Exception("test")
+            error=Exception("test"),
+            
         )
         result = hook.on_error(error_context)
         assert result.should_continue is True
@@ -268,7 +288,8 @@ class TestMockHookManager:
             node_type="test_node",
             state=state,
             config=config,
-            hook_point=HookPoint.BEFORE_EXECUTE
+            hook_point=HookPoint.BEFORE_EXECUTE,
+            
         )
         
         result = manager.execute_hooks(HookPoint.BEFORE_EXECUTE, context)
@@ -299,7 +320,8 @@ class TestMockHookManager:
             node_type="test_node",
             state=state,
             config=config,
-            hook_point=HookPoint.BEFORE_EXECUTE
+            hook_point=HookPoint.BEFORE_EXECUTE,
+            
         )
         
         result = manager.execute_hooks(HookPoint.BEFORE_EXECUTE, context)

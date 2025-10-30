@@ -81,11 +81,12 @@ class HookTriggerCoordinator:
         }
         
         # 1. 执行Hook（优先级更高）
+        hook_result = None
         if self.hook_manager:
             hook_result = self._execute_hooks_with_coordination(
                 node_type, state, config, coordination_result
             )
-            if not hook_result.should_continue:
+            if hook_result and not hook_result.should_continue:
                 coordination_result["final_decision"] = {
                     "source": "hooks",
                     "action": "interrupt",
@@ -120,24 +121,26 @@ class HookTriggerCoordinator:
         coordination_result: Dict[str, Any]
     ) -> HookExecutionResult:
         """执行Hook并协调"""
+        if not self.hook_manager:
+            return HookExecutionResult(should_continue=True)
+
         hooks = self.hook_manager.get_hooks_for_node(node_type)
-        
+
         # 过滤掉与Trigger功能重复的Hook
         filtered_hooks = self._filter_hooks_for_coordination(hooks)
-        
+
         coordination_result["hooks_executed"] = [hook.hook_type for hook in filtered_hooks]
-        
+
         # 执行前置Hook
         before_context = HookContext(
             node_type=node_type,
             state=state,
             config=config,
-            hook_point=HookPoint.BEFORE_EXECUTE,
-            hook_manager=self.hook_manager
+            hook_point=HookPoint.BEFORE_EXECUTE
         )
-        
+
         before_result = self.hook_manager.execute_hooks(HookPoint.BEFORE_EXECUTE, before_context)
-        
+
         return before_result
     
     def _evaluate_triggers_with_coordination(
@@ -148,28 +151,31 @@ class HookTriggerCoordinator:
         coordination_result: Dict[str, Any]
     ) -> Dict[str, Any]:
         """评估Trigger并协调"""
+        if not self.trigger_system:
+            return {"should_trigger": False, "events": []}
+
         # 只评估Trigger专有功能的触发器
         trigger_types_to_evaluate = [
             TriggerType.TIME,
             TriggerType.EVENT
         ]
-        
+
         context = {
             "node_type": node_type,
             "config": config,
             "coordination_mode": True
         }
-        
+
         evaluated_triggers = []
         triggered_events = []
-        
+
         for trigger_info in self.trigger_system.list_triggers():
             trigger_type = trigger_info["type"]
-            
+
             # 跳过Hook优先级的功能
             if self._is_hook_priority_feature(trigger_type):
                 continue
-            
+
             # 只评估Trigger专有功能
             if trigger_type in [t.value for t in trigger_types_to_evaluate]:
                 trigger = self.trigger_system.get_trigger(trigger_info["id"])
@@ -181,9 +187,9 @@ class HookTriggerCoordinator:
                             evaluated_triggers.append(trigger_info["id"])
                     except Exception as e:
                         logger.warning(f"Trigger {trigger_info['id']} 评估失败: {e}")
-        
+
         coordination_result["triggers_evaluated"] = evaluated_triggers
-        
+
         return {
             "should_trigger": len(triggered_events) > 0,
             "events": triggered_events
