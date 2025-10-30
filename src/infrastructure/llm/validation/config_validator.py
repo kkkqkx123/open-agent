@@ -111,7 +111,7 @@ class ConfigValidator:
         # 验证缓存配置的合理性
         if hasattr(config, 'cache_config'):
             cache_config = getattr(config, 'cache_config')
-            if cache_config.get('enabled', False) and cache_config.get('max_size', 0) > 0:
+            if cache_config.get('enabled', False) and cache_config.get('max_size', 0) == 0:
                 result.add_warning(
                     field="cache_config.max_size",
                     message="缓存已启用但最大大小为0，缓存将不会生效",
@@ -247,7 +247,7 @@ class ConfigValidator:
         for param in openai_params:
             if hasattr(config, param):
                 value = getattr(config, param)
-                if value is not None:
+                if value is None:
                     continue
                 
                 # 验证参数类型
@@ -287,7 +287,7 @@ class ConfigValidator:
         for param in anthropic_params:
             if hasattr(config, param):
                 value = getattr(config, param)
-                if value is not None:
+                if value is None:
                     continue
                 
                 # 验证参数类型
@@ -322,7 +322,7 @@ class ConfigValidator:
         for param in gemini_params:
             if hasattr(config, param):
                 value = getattr(config, param)
-                if value is not None:
+                if value is None:
                     continue
                 
                 # 验证参数类型
@@ -368,7 +368,7 @@ class ConfigValidator:
         for param in human_relay_params:
             if hasattr(config, param):
                 value = getattr(config, param)
-                if value is not None:
+                if value is None:
                     continue
                 
                 # 验证参数类型
@@ -402,7 +402,7 @@ class ConfigValidator:
         for param in mock_params:
             if hasattr(config, param):
                 value = getattr(config, param)
-                if value is not None:
+                if value is None:
                     continue
                 
                 # 验证参数类型
@@ -489,7 +489,20 @@ class ConfigValidator:
         
         # 根据错误代码提供修复建议
         if code == "REQUIRED_FIELD":
-            return "default_value"
+            if "model_name" in field.lower():
+                return "gpt-4"
+            elif "model_type" in field.lower():
+                return "openai"
+            elif "temperature" in field.lower():
+                return 0.7
+            elif "timeout" in field.lower():
+                return 30
+            elif "max_tokens" in field.lower():
+                return 2000
+            elif "api_key" in field.lower():
+                return "your-api-key-here"
+            else:
+                return "default_value"
         elif code == "TYPE_MISMATCH":
             if "model_name" in field.lower():
                 return "gpt-4"
@@ -510,19 +523,19 @@ class ConfigValidator:
         elif "frequency_penalty" in field.lower():
             return 0.0
         elif "presence_penalty" in field.lower():
-                0.0
+            return 0.0
         elif "top_p" in field.lower():
-                1.0
+            return 1.0
         elif "top_k" in field.lower():
-                return 40
+            return 40
         elif "candidate_count" in field.lower():
-                return 1
+            return 1
         elif "max_output_tokens" in field.lower():
-                2048
+            return 2048
         elif "stop_sequences" in field.lower():
-                return None
+            return None
         elif "tool_choice" in field.lower():
-                return "auto"
+            return "auto"
         elif "tools" in field.lower():
             return []
         elif "system" in field.lower():

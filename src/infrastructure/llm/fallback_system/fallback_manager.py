@@ -127,9 +127,36 @@ class FallbackManager:
             LLMCallError: 所有尝试都失败
         """
         if not self.config.is_enabled():
-            # 如果降级未启用，直接使用主模型
-            client = self.client_factory.create_client(primary_model or "")
-            return await client.generate_async(messages, parameters or {}, **kwargs)
+            # 如果降级未启用，直接使用主模型，但仍需记录会话
+            session = FallbackSession(
+                primary_model=primary_model or "",
+                start_time=time.time()
+            )
+            
+            try:
+                client = self.client_factory.create_client(primary_model or "")
+                response = await client.generate_async(messages, parameters or {}, **kwargs)
+                
+                # 记录成功
+                fallback_attempt = FallbackAttempt(
+                    primary_model=primary_model or "",
+                    fallback_model=None,
+                    error=None,
+                    attempt_number=1,
+                    timestamp=time.time(),
+                    success=True,
+                    delay=0.0,
+                    response=response
+                )
+                session.add_attempt(fallback_attempt)
+                session.mark_success(response)
+                
+                return response
+            finally:
+                # 记录会话
+                self._sessions.append(session)
+                if isinstance(self.logger, DefaultFallbackLogger):
+                    self.logger.add_session(session)
         
         # 创建降级会话
         session = FallbackSession(
@@ -141,71 +168,119 @@ class FallbackManager:
             attempt = 0
             last_error = None
             
-            while attempt < self.config.get_max_attempts():
-                # 获取降级目标
-                target_model = self._strategy.get_fallback_target(last_error or Exception("Initial attempt"), attempt)
-                
-                # 如果没有目标模型，使用主模型
-                if target_model is None and attempt == 0:
-                    target_model = primary_model or ""
-                
-                if target_model is None:
-                    break
-                
-                # 计算延迟
-                delay = 0.0
-                if attempt > 0 and last_error:
-                    delay = self._strategy.get_fallback_delay(last_error, attempt)
-                    if delay > 0:
-                        await asyncio.sleep(delay)
-                
-                # 创建尝试记录
-                fallback_attempt = FallbackAttempt(
-                    primary_model=primary_model or "",
-                    fallback_model=target_model if attempt > 0 else None,
-                    error=last_error,
-                    attempt_number=attempt + 1,
-                    timestamp=time.time(),
-                    success=False,
-                    delay=delay
-                )
-                
+            # 检查是否是并行降级策略
+            from .strategies import ParallelFallbackStrategy
+            if isinstance(self._strategy, ParallelFallbackStrategy):
+                # 并行降级策略
                 try:
-                    # 创建客户端并生成响应
-                    client = self.client_factory.create_client(target_model)
-                    response = await client.generate_async(messages, parameters or {}, **kwargs)
+                    response = await self._strategy.execute_parallel_fallback(
+                        self.client_factory, messages, parameters or {}, primary_model or "", **kwargs
+                    )
                     
-                    # 成功
-                    fallback_attempt.success = True
-                    fallback_attempt.response = response
+                    # 记录成功
+                    fallback_attempt = FallbackAttempt(
+                        primary_model=primary_model or "",
+                        fallback_model="parallel_fallback",
+                        error=None,
+                        attempt_number=1,
+                        timestamp=time.time(),
+                        success=True,
+                        delay=0.0,
+                        response=response
+                    )
                     session.add_attempt(fallback_attempt)
                     session.mark_success(response)
                     
-                    # 记录成功日志
-                    if attempt > 0:
-                        self.logger.log_fallback_success(
-                            primary_model or "", target_model, response, attempt + 1
-                        )
+                    self.logger.log_fallback_success(
+                        primary_model or "", "parallel_fallback", response, 1
+                    )
                     
                     return response
                     
                 except Exception as e:
-                    # 失败
+                    # 并行降级失败
                     last_error = e
-                    fallback_attempt.error = e
+                    fallback_attempt = FallbackAttempt(
+                        primary_model=primary_model or "",
+                        fallback_model="parallel_fallback",
+                        error=e,
+                        attempt_number=1,
+                        timestamp=time.time(),
+                        success=False,
+                        delay=0.0
+                    )
                     session.add_attempt(fallback_attempt)
                     
-                    # 记录尝试日志
-                    if attempt > 0:
-                        self.logger.log_fallback_attempt(
-                            primary_model or "", target_model, e, attempt + 1
-                        )
+                    self.logger.log_fallback_failure(primary_model or "", e, 1)
+                    session.mark_failure(e)
+                    raise e
+            else:
+                # 顺序降级策略
+                while attempt < self.config.get_max_attempts():
+                    # 获取降级目标
+                    target_model = self._strategy.get_fallback_target(last_error or Exception("Initial attempt"), attempt)
                     
-                    # 检查是否应该继续降级
-                    if not self._strategy.should_fallback(e, attempt + 1):
+                    # 如果没有目标模型，使用主模型
+                    if target_model is None and attempt == 0:
+                        target_model = primary_model or ""
+                    
+                    if target_model is None:
                         break
-                
-                attempt += 1
+                    
+                    # 计算延迟
+                    delay = 0.0
+                    if attempt > 0 and last_error:
+                        delay = self._strategy.get_fallback_delay(last_error, attempt)
+                        if delay > 0:
+                            await asyncio.sleep(delay)
+                    
+                    # 创建尝试记录
+                    fallback_attempt = FallbackAttempt(
+                        primary_model=primary_model or "",
+                        fallback_model=target_model if attempt > 0 else None,
+                        error=last_error,
+                        attempt_number=attempt + 1,
+                        timestamp=time.time(),
+                        success=False,
+                        delay=delay
+                    )
+                    
+                    try:
+                        # 创建客户端并生成响应
+                        client = self.client_factory.create_client(target_model)
+                        response = await client.generate_async(messages, parameters or {}, **kwargs)
+                        
+                        # 成功
+                        fallback_attempt.success = True
+                        fallback_attempt.response = response
+                        session.add_attempt(fallback_attempt)
+                        session.mark_success(response)
+                        
+                        # 记录成功日志
+                        if attempt > 0:
+                            self.logger.log_fallback_success(
+                                primary_model or "", target_model, response, attempt + 1
+                            )
+                        
+                        return response
+                        
+                    except Exception as e:
+                        # 失败
+                        last_error = e
+                        fallback_attempt.error = e
+                        session.add_attempt(fallback_attempt)
+                        
+                        # 记录尝试日志
+                        if attempt > 0:
+                            self.logger.log_fallback_attempt(
+                                primary_model or "", target_model, e, attempt + 1
+                            )
+                        
+                        # 检查是否应该继续降级
+                        if not self._strategy.should_fallback(e, attempt + 1):
+                            break
+                    
+                    attempt += 1
             
             # 所有尝试都失败
             final_error = last_error or LLMCallError("未知错误")
@@ -243,15 +318,38 @@ class FallbackManager:
         Raises:
             LLMCallError: 所有尝试都失败
         """
-        # 使用asyncio运行异步方法
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # 检查是否已经有运行的事件循环
         try:
-            return loop.run_until_complete(
-                self.generate_with_fallback(messages, parameters, primary_model, **kwargs)
-            )
-        finally:
-            loop.close()
+            loop = asyncio.get_running_loop()
+            # 如果已经有运行的事件循环，使用 asyncio.run 来创建新的事件循环
+            # 这会在新线程中运行，避免冲突
+            import concurrent.futures
+            import threading
+            
+            def run_in_new_loop():
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    return new_loop.run_until_complete(
+                        self.generate_with_fallback(messages, parameters, primary_model, **kwargs)
+                    )
+                finally:
+                    new_loop.close()
+            
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(run_in_new_loop)
+                return future.result()
+                
+        except RuntimeError:
+            # 没有运行的事件循环，创建新的事件循环
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(
+                    self.generate_with_fallback(messages, parameters, primary_model, **kwargs)
+                )
+            finally:
+                loop.close()
     
     async def generate_with_fallback_async(
         self, 

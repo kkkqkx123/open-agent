@@ -342,9 +342,9 @@ class TestFallbackManager:
         await manager.generate_with_fallback(messages, primary_model="model1")
         end_time = asyncio.get_event_loop().time()
         
-        # 应该有延迟（至少1秒，因为base_delay=1.0）
+        # 应该有延迟（考虑抖动，至少0.5秒，因为base_delay=1.0，抖动范围是0.5-1.0）
         elapsed = end_time - start_time
-        assert elapsed >= 1.0
+        assert elapsed >= 0.5
     
     @pytest.mark.asyncio
     async def test_custom_logger(self, config, client_factory):

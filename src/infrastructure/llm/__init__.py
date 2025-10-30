@@ -40,11 +40,18 @@ from .exceptions import (
     LLMFallbackError,
 )
 from .hooks import LoggingHook, MetricsHook, RetryHook, CompositeHook
-from .fallback import (
+from .fallback_system import (
     FallbackManager,
-    FallbackStrategy,
-    FallbackModel,
+    FallbackConfig,
+    create_fallback_manager,
+    SequentialFallbackStrategy,
+    PriorityFallbackStrategy,
+    RandomFallbackStrategy,
+    ErrorTypeBasedStrategy,
+    ParallelFallbackStrategy,
+    ConditionalFallbackStrategy,
     ConditionalFallback,
+    create_fallback_strategy,
 )
 from .pool.interfaces import IConnectionPool
 from .pool.connection_pool import HTTPConnectionPool, connection_pool_manager
@@ -98,9 +105,16 @@ __all__ = [
     "CompositeHook",
     # 降级
     "FallbackManager",
-    "FallbackStrategy",
-    "FallbackModel",
+    "FallbackConfig",
+    "create_fallback_manager",
+    "SequentialFallbackStrategy",
+    "PriorityFallbackStrategy",
+    "RandomFallbackStrategy",
+    "ErrorTypeBasedStrategy",
+    "ParallelFallbackStrategy",
+    "ConditionalFallbackStrategy",
     "ConditionalFallback",
+    "create_fallback_strategy",
     # 连接池
     "IConnectionPool",
     "HTTPConnectionPool",

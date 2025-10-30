@@ -73,7 +73,8 @@ class FallbackConfig:
             if status_code is not None and status_code in self.fallback_on_status_codes:
                 return True
         
-        return False
+        # 默认情况下，对于任何错误都允许降级
+        return True
     
     def calculate_delay(self, attempt: int) -> float:
         """

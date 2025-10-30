@@ -7,8 +7,12 @@ from langchain_core.messages import BaseMessage  # type: ignore
 
 from .interfaces import ILLMClient
 from .models import LLMResponse
-from .fallback import FallbackManager, FallbackModel, FallbackStrategy
-from .factory import get_global_factory
+from .fallback_system import (
+    FallbackManager, 
+    FallbackConfig, 
+    create_fallback_manager,
+    SelfManagingFallbackFactory
+)
 from .exceptions import LLMFallbackError
 
 logger = logging.getLogger(__name__)
@@ -17,33 +21,43 @@ logger = logging.getLogger(__name__)
 class FallbackClientWrapper(ILLMClient):
     """降级客户端包装器"""
 
-    def __init__(self, primary_client: ILLMClient, fallback_models: List[str]) -> None:
+    def __init__(
+        self, 
+        primary_client: ILLMClient, 
+        fallback_models: List[str],
+        strategy_type: str = "sequential",
+        max_attempts: int = 3,
+        **config_kwargs
+    ) -> None:
         """
         初始化降级客户端包装器
 
         Args:
             primary_client: 主客户端
             fallback_models: 降级模型列表
+            strategy_type: 降级策略类型
+            max_attempts: 最大尝试次数
+            **config_kwargs: 其他配置参数
         """
         self.primary_client = primary_client
         self.fallback_models = fallback_models
 
-        # 创建降级模型配置
-        fallback_model_configs: List[FallbackModel] = []
-        for model_name in fallback_models:
-            fallback_model_configs.append(
-                FallbackModel(
-                    name=model_name,
-                    priority=len(fallback_model_configs),  # 按列表顺序设置优先级
-                    enabled=True,
-                )
-            )
+        # 创建降级配置
+        self.fallback_config = FallbackConfig(
+            enabled=len(fallback_models) > 0,
+            fallback_models=fallback_models,
+            strategy_type=strategy_type,
+            max_attempts=max_attempts,
+            **config_kwargs
+        )
+
+        # 创建自管理降级工厂
+        self.client_factory = SelfManagingFallbackFactory(primary_client)
 
         # 创建降级管理器
-        self.fallback_manager = FallbackManager(
-            fallback_models=fallback_model_configs,
-            strategy=FallbackStrategy.SEQUENTIAL,
-            max_attempts=len(fallback_models) + 1,  # 主模型 + 所有降级模型
+        self.fallback_manager = create_fallback_manager(
+            self.fallback_config, 
+            owner_client=primary_client
         )
 
     def generate(
@@ -71,7 +85,9 @@ class FallbackClientWrapper(ILLMClient):
 
             # 尝试降级
             try:
-                return self._try_fallback(messages, parameters, primary_error, **kwargs)
+                return self.fallback_manager.generate_with_fallback_sync(
+                    messages, parameters, self._get_primary_model_name(), **kwargs
+                )
             except Exception as fallback_error:
                 logger.error(f"所有降级尝试都失败: {fallback_error}")
                 raise LLMFallbackError("所有模型调用都失败", fallback_error)
@@ -100,8 +116,8 @@ class FallbackClientWrapper(ILLMClient):
 
             # 尝试降级
             try:
-                return await self._try_fallback_async(
-                    messages, parameters, primary_error, **kwargs
+                return await self.fallback_manager.generate_with_fallback_async(
+                    messages, parameters, self._get_primary_model_name(), **kwargs
                 )
             except Exception as fallback_error:
                 logger.error(f"所有异步降级尝试都失败: {fallback_error}")
@@ -132,8 +148,8 @@ class FallbackClientWrapper(ILLMClient):
 
             # 流式降级比较复杂，这里简化为非流式降级
             try:
-                response = self._try_fallback(
-                    messages, parameters, primary_error, **kwargs
+                response = self.fallback_manager.generate_with_fallback_sync(
+                    messages, parameters, self._get_primary_model_name(), **kwargs
                 )
                 # 将完整响应作为单个块返回
                 yield response.content
@@ -170,8 +186,8 @@ class FallbackClientWrapper(ILLMClient):
 
                 # 异步流式降级比较复杂，这里简化为非流式降级
                 try:
-                    response = await self._try_fallback_async(
-                        messages, parameters, primary_error, **kwargs
+                    response = await self.fallback_manager.generate_with_fallback_async(
+                        messages, parameters, self._get_primary_model_name(), **kwargs
                     )
                     # 将完整响应作为单个块返回
                     yield response.content
@@ -223,136 +239,23 @@ class FallbackClientWrapper(ILLMClient):
         """
         info = self.primary_client.get_model_info()
         info["fallback_models"] = self.fallback_models
-        info["fallback_enabled"] = True
+        info["fallback_enabled"] = self.fallback_config.is_enabled()
+        info["fallback_strategy"] = self.fallback_config.strategy_type
+        info["fallback_max_attempts"] = self.fallback_config.max_attempts
         return info
 
-    def _try_fallback(
-        self,
-        messages: Sequence[BaseMessage],
-        parameters: Optional[Dict[str, Any]],
-        primary_error: Exception,
-        **kwargs: Any,
-    ) -> LLMResponse:
+    def _get_primary_model_name(self) -> str:
         """
-        尝试降级调用
-
-        Args:
-            messages: 消息列表
-            parameters: 生成参数
-            primary_error: 主客户端错误
-            **kwargs: 其他参数
+        获取主模型名称
 
         Returns:
-            LLMResponse: 降级响应
+            str: 主模型名称
         """
-        factory = get_global_factory()
-
-        # 尝试每个降级模型
-        for model_name in self.fallback_models:
-            try:
-                logger.info(f"尝试降级到模型: {model_name}")
-
-                # 获取降级客户端
-                fallback_client = factory.get_cached_client(model_name)
-                if fallback_client is None:
-                    # 创建降级客户端配置
-                    fallback_config = self._create_fallback_config(model_name)
-                    fallback_client = factory.create_client(fallback_config)
-                    factory.cache_client(model_name, fallback_client)
-
-                # 调用降级客户端
-                response = fallback_client.generate(messages, parameters, **kwargs)
-
-                # 标记为降级响应
-                response.metadata = response.metadata or {}
-                response.metadata["fallback_model"] = model_name
-                response.metadata["fallback_reason"] = str(primary_error)
-
-                logger.info(f"降级成功: {model_name}")
-                return response
-
-            except Exception as fallback_error:
-                logger.warning(f"降级到模型 {model_name} 失败: {fallback_error}")
-                continue
-
-        # 所有降级都失败
-        raise LLMFallbackError("所有降级模型都失败", primary_error)
-
-    async def _try_fallback_async(
-        self,
-        messages: Sequence[BaseMessage],
-        parameters: Optional[Dict[str, Any]],
-        primary_error: Exception,
-        **kwargs: Any,
-    ) -> LLMResponse:
-        """
-        尝试异步降级调用
-
-        Args:
-            messages: 消息列表
-            parameters: 生成参数
-            primary_error: 主客户端错误
-            **kwargs: 其他参数
-
-        Returns:
-            LLMResponse: 降级响应
-        """
-        factory = get_global_factory()
-
-        # 尝试每个降级模型
-        for model_name in self.fallback_models:
-            try:
-                logger.info(f"尝试异步降级到模型: {model_name}")
-
-                # 获取降级客户端
-                fallback_client = factory.get_cached_client(model_name)
-                if fallback_client is None:
-                    # 创建降级客户端配置
-                    fallback_config = self._create_fallback_config(model_name)
-                    fallback_client = factory.create_client(fallback_config)
-                    factory.cache_client(model_name, fallback_client)
-
-                # 调用降级客户端
-                response = await fallback_client.generate_async(
-                    messages, parameters, **kwargs
-                )
-
-                # 标记为降级响应
-                response.metadata = response.metadata or {}
-                response.metadata["fallback_model"] = model_name
-                response.metadata["fallback_reason"] = str(primary_error)
-
-                logger.info(f"异步降级成功: {model_name}")
-                return response
-
-            except Exception as fallback_error:
-                logger.warning(f"异步降级到模型 {model_name} 失败: {fallback_error}")
-                continue
-
-        # 所有降级都失败
-        raise LLMFallbackError("所有异步降级模型都失败", primary_error)
-
-    def _create_fallback_config(self, model_name: str) -> Dict[str, Any]:
-        """
-        创建降级模型配置
-
-        Args:
-            model_name: 模型名称
-
-        Returns:
-            Dict[str, Any]: 降级配置
-        """
-        # 根据模型名称推断模型类型
-        if "gpt" in model_name.lower() or "openai" in model_name.lower():
-            model_type = "openai"
-        elif "gemini" in model_name.lower():
-            model_type = "gemini"
-        elif "claude" in model_name.lower() or "anthropic" in model_name.lower():
-            model_type = "anthropic"
-        else:
-            model_type = "mock"  # 默认使用mock
-
-        return {"model_type": model_type, "model_name": model_name}
+        try:
+            model_info = self.primary_client.get_model_info()
+            return model_info.get("model_name", "primary_model")
+        except Exception:
+            return "primary_model"
 
     def get_fallback_stats(self) -> Dict[str, Any]:
         """
@@ -365,4 +268,43 @@ class FallbackClientWrapper(ILLMClient):
 
     def reset_fallback_stats(self) -> None:
         """重置降级统计信息"""
-        self.fallback_manager.reset_stats()
+        self.fallback_manager.clear_sessions()
+
+    def update_fallback_config(self, **config_kwargs) -> None:
+        """
+        更新降级配置
+
+        Args:
+            **config_kwargs: 配置参数
+        """
+        # 更新配置
+        for key, value in config_kwargs.items():
+            if hasattr(self.fallback_config, key):
+                setattr(self.fallback_config, key, value)
+
+        # 重新创建降级管理器
+        self.fallback_manager = create_fallback_manager(
+            self.fallback_config, 
+            owner_client=self.primary_client
+        )
+
+    def get_fallback_sessions(self, limit: Optional[int] = None):
+        """
+        获取降级会话记录
+
+        Args:
+            limit: 限制返回数量
+
+        Returns:
+            降级会话记录列表
+        """
+        return self.fallback_manager.get_sessions(limit)
+
+    def is_fallback_enabled(self) -> bool:
+        """
+        检查降级是否启用
+
+        Returns:
+            bool: 是否启用降级
+        """
+        return self.fallback_manager.is_enabled()

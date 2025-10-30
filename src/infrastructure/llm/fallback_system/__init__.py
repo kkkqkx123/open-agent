@@ -9,6 +9,9 @@ from .strategies import (
     PriorityFallbackStrategy,
     RandomFallbackStrategy,
     ErrorTypeBasedStrategy,
+    ParallelFallbackStrategy,
+    ConditionalFallbackStrategy,
+    ConditionalFallback,
     create_fallback_strategy
 )
 
@@ -42,22 +45,44 @@ class SelfManagingFallbackFactory(IClientFactory):
                 self.target_model = target_model
             
             async def generate_async(self, messages, parameters, **kwargs):
-                # 临时修改配置中的模型名称来调用不同模型
-                original_model = self.owner.config.model_name
+                # 对于自管理降级，我们直接调用主客户端的方法
+                # 这里假设主客户端可以处理不同的模型参数
+                original_model = None
                 try:
-                    self.owner.config.model_name = self.target_model
-                    return await self.owner._do_generate_async(messages, parameters, **kwargs)
+                    # 尝试通过参数传递模型名称
+                    if 'model' in kwargs:
+                        original_model = kwargs['model']
+                        kwargs['model'] = self.target_model
+                    else:
+                        kwargs['model'] = self.target_model
+                    
+                    return await self.owner.generate_async(messages, parameters, **kwargs)
                 finally:
-                    self.owner.config.model_name = original_model
+                    # 恢复原始模型名称
+                    if original_model is not None:
+                        kwargs['model'] = original_model
+                    elif 'model' in kwargs:
+                        del kwargs['model']
             
             def generate_sync(self, messages, parameters, **kwargs):
-                # 临时修改配置中的模型名称来调用不同模型
-                original_model = self.owner.config.model_name
+                # 对于自管理降级，我们直接调用主客户端的方法
+                # 这里假设主客户端可以处理不同的模型参数
+                original_model = None
                 try:
-                    self.owner.config.model_name = self.target_model
-                    return self.owner._do_generate_sync(messages, parameters, **kwargs)
+                    # 尝试通过参数传递模型名称
+                    if 'model' in kwargs:
+                        original_model = kwargs['model']
+                        kwargs['model'] = self.target_model
+                    else:
+                        kwargs['model'] = self.target_model
+                    
+                    return self.owner.generate(messages, parameters, **kwargs)
                 finally:
-                    self.owner.config.model_name = original_model
+                    # 恢复原始模型名称
+                    if original_model is not None:
+                        kwargs['model'] = original_model
+                    elif 'model' in kwargs:
+                        del kwargs['model']
         
         return ModelSpecificClient(self.owner_client, model_name)
         
@@ -108,6 +133,9 @@ __all__ = [
     "PriorityFallbackStrategy",
     "RandomFallbackStrategy",
     "ErrorTypeBasedStrategy",
+    "ParallelFallbackStrategy",
+    "ConditionalFallbackStrategy",
+    "ConditionalFallback",
     "create_fallback_strategy",
     "create_fallback_manager",
     "SelfManagingFallbackFactory"
