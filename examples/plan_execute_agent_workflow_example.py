@@ -12,6 +12,23 @@ from src.infrastructure.tools.executor import ToolExecutor
 from src.domain.agent.state import AgentState
 
 
+def plan_generated(state) -> str:
+    """检查是否已生成计划"""
+    return "plan_review" if state.get("current_plan") else "continue"
+
+
+def plan_completed(state) -> str:
+    """检查计划是否已完成"""
+    plan = state.get("current_plan", [])
+    current_step = state.get("current_step_index", 0)
+    return "__end__" if current_step >= len(plan) else "continue"
+
+
+def has_error(state) -> str:
+    """检查是否有错误"""
+    return "error_handler" if state.get("errors") else "continue"
+
+
 def create_plan_execute_workflow() -> GraphConfig:
     """创建Plan-Execute工作流配置"""
     
@@ -119,11 +136,61 @@ def create_plan_execute_workflow() -> GraphConfig:
         )
     ]
     
+    # 创建状态模式配置
+    from src.infrastructure.graph.config import GraphStateConfig, StateFieldConfig
+    
+    state_schema = GraphStateConfig(
+        name="PlanExecuteWorkflowState",
+        fields={
+            "workflow_messages": StateFieldConfig(
+                type="List[dict]",
+                default=[],
+                description="工作流消息历史"
+            ),
+            "current_task": StateFieldConfig(
+                type="str",
+                default="",
+                description="当前任务"
+            ),
+            "current_plan": StateFieldConfig(
+                type="List[str]",
+                default=[],
+                description="当前计划"
+            ),
+            "current_step_index": StateFieldConfig(
+                type="int",
+                default=0,
+                description="当前步骤索引"
+            ),
+            "workflow_iteration_count": StateFieldConfig(
+                type="int",
+                default=0,
+                description="工作流迭代计数"
+            ),
+            "workflow_max_iterations": StateFieldConfig(
+                type="int",
+                default=10,
+                description="工作流最大迭代次数"
+            ),
+            "task_history": StateFieldConfig(
+                type="List[dict]",
+                default=[],
+                description="任务历史"
+            ),
+            "workflow_context": StateFieldConfig(
+                type="Dict[str, Any]",
+                default={},
+                description="工作流上下文信息"
+            )
+        }
+    )
+    
     # 创建图配置
     graph_config = GraphConfig(
         name="plan_execute_agent_workflow",
         description="基于Plan-Execute Agent的工作流示例",
         version="1.0",
+        state_schema=state_schema,
         nodes=nodes,
         edges=edges,
         entry_point="plan_execute_agent",
@@ -143,8 +210,21 @@ def run_plan_execute_workflow_example():
     # 创建工作流配置
     workflow_config = create_plan_execute_workflow()
     
+    # 创建自定义图构建器，添加我们的条件函数
+    class CustomGraphBuilder(GraphBuilder):
+        def _get_builtin_condition(self, condition_name: str):
+            """获取内置条件函数，包括我们的自定义条件"""
+            if condition_name == "plan_generated":
+                return plan_generated
+            elif condition_name == "plan_completed":
+                return plan_completed
+            elif condition_name == "has_error":
+                return has_error
+            # 调用父类方法获取其他内置条件
+            return super()._get_builtin_condition(condition_name)
+    
     # 创建图构建器
-    builder = GraphBuilder()
+    builder = CustomGraphBuilder()
     
     # 构建图
     graph = builder.build_graph(workflow_config)

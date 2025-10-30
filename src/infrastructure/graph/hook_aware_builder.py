@@ -16,7 +16,8 @@ from .config import GraphConfig, NodeConfig
 from .state import WorkflowState
 from .registry import BaseNode
 from .hooks.manager import NodeHookManager
-from .nodes.hookable_node import create_hookable_node_class
+if TYPE_CHECKING:
+    from .nodes.hookable_node import create_hookable_node_class
 from .hooks.interfaces import IHookManager
 from src.domain.state.interfaces import IStateCollaborationManager
 
@@ -69,6 +70,7 @@ class HookAwareGraphBuilder(GraphBuilder):
             node_class = self.node_registry.get_node_class(node_config.function_name)
             if node_class:
                 # 创建支持Hook的节点类
+                from .nodes.hookable_node import create_hookable_node_class
                 hookable_node_class = create_hookable_node_class(node_class, self._hook_manager)
                 
                 # 创建节点实例

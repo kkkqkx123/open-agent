@@ -42,7 +42,7 @@ class INodeExecutor(ABC):
     """节点执行器接口"""
     
     @abstractmethod
-    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
+    def execute(self, state: WorkflowState, config: Optional[Dict[str, Any]] = None) -> WorkflowState:
         """执行节点逻辑"""
         pass
 
@@ -53,7 +53,11 @@ class NodeWithAdapterExecutor(INodeExecutor):
     def __init__(self, node_instance):
         self.node = node_instance
     
-    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
+    def execute(self, state: WorkflowState, config: Optional[Dict[str, Any]] = None) -> WorkflowState:
+        # 确保config不为None
+        if config is None:
+            config = {}
+            
         # 1. 图状态转域状态
         state_adapter = get_state_adapter()
         domain_state = state_adapter.from_graph_state(cast(GraphAgentState, state))
@@ -73,8 +77,12 @@ class EnhancedNodeWithAdapterExecutor(INodeExecutor):
         from .adapters.collaboration_adapter import CollaborationStateAdapter
         self.collaboration_adapter = CollaborationStateAdapter(state_manager)
     
-    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
+    def execute(self, state: WorkflowState, config: Optional[Dict[str, Any]] = None) -> WorkflowState:
         """执行节点逻辑，集成状态管理功能"""
+        
+        # 确保config不为None
+        if config is None:
+            config = {}
         
         def node_executor(domain_state: DomainAgentState) -> DomainAgentState:
             """节点执行函数"""
@@ -97,25 +105,38 @@ class AgentNodeExecutor(INodeExecutor):
     def __init__(self, agent: IAgent):
         self.agent = agent
     
-    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
+    def execute(self, state: WorkflowState, config: Optional[Dict[str, Any]] = None) -> WorkflowState:
         """执行Agent节点"""
+        # 确保config不为None
+        if config is None:
+            config = {}
+            
         # 检查当前是否有运行的事件循环
         try:
             loop = asyncio.get_running_loop()
             # 如果在事件循环中，使用 run_coroutine_threadsafe
             if threading.current_thread() is threading.main_thread():
                 # 在主线程的事件循环中，使用新的事件循环
-                new_loop = asyncio.new_event_loop()
+                new_loop = None
                 try:
+                    new_loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(new_loop)
                     result = new_loop.run_until_complete(self.agent.execute(state, config))
                 finally:
-                    new_loop.close()
-                    # 恢复原来的事件循环
-                    asyncio.set_event_loop(loop)
+                    if new_loop:
+                        # 确保清理所有待处理的任务
+                        pending = asyncio.all_tasks(new_loop)
+                        for task in pending:
+                            task.cancel()
+                        # 等待任务取消完成
+                        if pending:
+                            new_loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                        new_loop.close()
+                        # 恢复原来的事件循环
+                        asyncio.set_event_loop(loop)
             else:
                 # 在非主线程中，使用线程池执行
-                with concurrent.futures.ThreadPoolExecutor() as executor:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                     future = executor.submit(asyncio.run, self.agent.execute(state, config))
                     result = future.result()
         except RuntimeError:
@@ -286,6 +307,7 @@ class GraphBuilder:
             "analysis_node": self._create_analysis_node,
             "condition_node": self._create_condition_node,
             "wait_node": self._create_wait_node,
+            "plan_execute_agent_node": self._create_plan_execute_agent_node,
         }
         return builtin_functions.get(function_name)
     
@@ -355,6 +377,67 @@ class GraphBuilder:
             "is_waiting": True,
             "wait_start_time": state.get("wait_start_time", time.time()),
             "messages": state.get("messages", []) + [{"role": "system", "content": "等待中..."}]
+        }
+    
+    def _create_plan_execute_agent_node(self, state: WorkflowState) -> Dict[str, Any]:
+        """创建Plan-Execute Agent节点"""
+        # 简化的Plan-Execute Agent实现
+        state_dict = cast(Dict[str, Any], state) if isinstance(state, dict) else dict(state)
+        context = state_dict.get("context", {})
+        current_plan = context.get("current_plan", [])
+        current_step_index = context.get("current_step_index", 0)
+        
+        # 如果还没有计划，生成一个并标记为需要审查
+        if not current_plan:
+            new_plan = [
+                "收集用户行为数据",
+                "分析数据找出热门产品类别",
+                "生成改进建议",
+                "总结分析结果"
+            ]
+            context["current_plan"] = new_plan
+            context["current_step_index"] = 0
+            context["plan_completed"] = False
+            context["needs_review"] = True  # 标记需要审查
+            return {
+                "context": context,
+                "workflow_messages": state_dict.get("workflow_messages", []) + [
+                    {"role": "assistant", "content": f"已生成计划: {new_plan}"}
+                ]
+            }
+        
+        # 如果计划需要审查，先执行审查
+        if context.get("needs_review", False):
+            context["needs_review"] = False  # 清除审查标记
+            return {
+                "context": context,
+                "workflow_messages": state_dict.get("workflow_messages", []) + [
+                    {"role": "assistant", "content": "计划已审查，开始执行"}
+                ]
+            }
+        
+        # 执行当前步骤
+        if current_step_index < len(current_plan):
+            current_step = current_plan[current_step_index]
+            context["current_step_index"] = current_step_index + 1
+            
+            # 检查是否完成所有步骤
+            if context["current_step_index"] >= len(current_plan):
+                context["plan_completed"] = True
+            
+            return {
+                "context": context,
+                "workflow_messages": state_dict.get("workflow_messages", []) + [
+                    {"role": "assistant", "content": f"执行步骤: {current_step}"}
+                ]
+            }
+        
+        # 计划已完成
+        return {
+            "context": context,
+            "workflow_messages": state_dict.get("workflow_messages", []) + [
+                {"role": "assistant", "content": "计划执行完成"}
+            ]
         }
     
     def _condition_has_tool_calls(self, state: WorkflowState) -> str:

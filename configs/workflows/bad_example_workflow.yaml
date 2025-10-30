@@ -1,0 +1,40 @@
+name: bad_example_workflow
+description: 有问题的工作流示例，用于测试验证器
+version: 1.0
+
+state_schema:
+  name: BadWorkflowState
+  fields:
+    messages:  # 与 LangGraph 内置字段冲突
+      type: List[dict]
+      default: []
+    iteration_count:  # 与 LangGraph 内置字段冲突
+      type: int
+      default: 0
+
+nodes:
+  start_node:
+    type: llm_node
+    config:
+      llm_client: mock
+    description: 开始节点
+
+edges:
+  - from: start_node
+    to: nonexistent_node  # 目标节点不存在
+    type: simple
+    description: 指向不存在的节点
+
+  - from: start_node
+    to: another_node
+    type: conditional
+    condition: some_condition
+    description: 第一个条件边
+
+  - from: start_node
+    to: third_node
+    type: conditional
+    condition: another_condition
+    description: 第二个条件边（会导致冲突）
+
+entry_point: start_node

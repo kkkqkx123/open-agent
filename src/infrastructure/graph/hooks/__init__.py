@@ -15,7 +15,7 @@ from .builtin import (
     MetricsCollectionHook,
     create_builtin_hook
 )
-from ..nodes.hookable_node import HookableNode, create_hookable_node_class
+# Moved to nodes module to avoid circular import
 from ..hook_aware_builder import HookAwareGraphBuilder, create_hook_aware_builder
 from .trigger_coordinator import HookTriggerCoordinator
 
@@ -34,8 +34,6 @@ __all__ = [
     "LoggingHook",
     "MetricsCollectionHook",
     "create_builtin_hook",
-    "HookableNode",
-    "create_hookable_node_class",
     "HookAwareGraphBuilder",
     "create_hook_aware_builder",
     "HookTriggerCoordinator",

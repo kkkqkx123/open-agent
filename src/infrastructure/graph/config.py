@@ -279,10 +279,13 @@ class GraphConfig:
 
         # 检查边配置
         node_names = set(self.nodes.keys())
+        # LangGraph特殊节点
+        special_nodes = {"__start__", "__end__"}
+        
         for edge in self.edges:
-            if edge.from_node not in node_names:
+            if edge.from_node not in node_names and edge.from_node not in special_nodes:
                 errors.append(f"边的起始节点 '{edge.from_node}' 不存在")
-            if edge.to_node not in node_names:
+            if edge.to_node not in node_names and edge.to_node not in special_nodes:
                 errors.append(f"边的目标节点 '{edge.to_node}' 不存在")
             if edge.type == EdgeType.CONDITIONAL and not edge.condition:
                 errors.append(f"条件边 '{edge.from_node}' -> '{edge.to_node}' 缺少条件表达式")

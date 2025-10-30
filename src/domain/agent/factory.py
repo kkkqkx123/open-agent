@@ -9,8 +9,8 @@ import logging
 
 from .interfaces import IAgent, IAgentFactory
 from .config import AgentConfig
-from .react_agent import ReActAgent
-from .plan_execute_agent import PlanExecuteAgent
+from .builtin.react_agent import ReActAgent
+from .builtin.plan_execute_agent import PlanExecuteAgent
 from .base import BaseAgent
 from ..state.interfaces import IStateManager
 from ...infrastructure.llm.interfaces import ILLMClient
