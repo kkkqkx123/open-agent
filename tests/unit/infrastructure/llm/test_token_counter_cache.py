@@ -90,9 +90,8 @@ class TestTokenCounterCache(unittest.TestCase):
         text = "This is a test text"
         tokens = calculator.count_tokens(text)
         
-        # 由于没有缓存，应该使用估算（长度/4）
-        expected_tokens = len(text) // 4
-        self.assertEqual(tokens, expected_tokens)
+        # 由于没有缓存，应该返回None
+        self.assertIsNone(tokens)
 
     def test_api_token_calculator_count_tokens_without_caching_support(self) -> None:
         """测试不支持缓存时的token计算"""
@@ -102,9 +101,8 @@ class TestTokenCounterCache(unittest.TestCase):
         text = "Hello, how are you?"
         tokens = calculator.count_tokens(text)
         
-        # 使用估算（长度/4）
-        expected_tokens = len(text) // 4
-        self.assertEqual(tokens, expected_tokens)
+        # 不支持缓存时应该返回None
+        self.assertIsNone(tokens)
 
     def test_api_token_calculator_cache_clear(self) -> None:
         """测试缓存清空功能"""

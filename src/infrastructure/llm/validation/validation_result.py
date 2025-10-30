@@ -47,7 +47,14 @@ class ValidationResult:
     
     def __post_init__(self) -> None:
         """初始化后处理"""
-        self.is_valid = len(self.issues) == 0
+        # 只有在 is_valid 为 None 时才基于 issues 设置
+        # 否则使用传入的 is_valid 值
+        if self.is_valid is None:
+            self.is_valid = len(self.issues) == 0
+        else:
+            # 如果传入了 is_valid，确保它与 issues 列表一致
+            # 但不要覆盖传入的值
+            pass
     
     def add_issue(self, field: str, message: str, severity: ValidationSeverity = ValidationSeverity.ERROR, 
                   code: Optional[str] = None, context: Optional[Dict[str, Any]] = None) -> None:
@@ -108,7 +115,7 @@ class ValidationResult:
     
     def has_warnings(self) -> bool:
         """是否有警告"""
-        return any(issue.severity == ValidationSeverity.WARNING for issue in self)
+        return any(issue.severity == ValidationSeverity.WARNING for issue in self.issues)
     
     def get_field_issues(self, field: str) -> List[ValidationIssue]:
         """获取特定字段的问题"""
@@ -127,12 +134,11 @@ class ValidationResult:
     
     def merge(self, other: "ValidationResult") -> "ValidationResult":
         """合并验证结果"""
-        combined = ValidationResult()
+        combined = ValidationResult(is_valid=True)
+        # 直接合并问题列表，避免调用 add_issue 导致的递归
         combined.issues = self.issues + other.issues
-        for issue in combined.issues:
-            combined.add_issue(
-                issue.field, issue.message, issue.severity, issue.code, issue.context
-            )
+        # 手动更新 is_valid 状态
+        combined.is_valid = len(combined.issues) == 0
         
         if self.summary and other.summary:
             combined.summary = f"{self.summary}; {other.summary}"

@@ -134,7 +134,7 @@ retry_config:
 #### 3.1.1 扩展 LLMConfig 类
 ```python
 @dataclass
-class RetryConfig:
+class RetryTimeoutConfig:
     """重试配置"""
     max_retries: int = 3
     base_delay: float = 1.0
@@ -142,10 +142,10 @@ class RetryConfig:
     jitter: bool = True
     exponential_base: float = 2.0
     retry_on_status_codes: List[int] = field(
-        default_factory=lambda: [429, 500, 502, 503, 504]
+    default_factory=lambda: [429, 500, 502, 503, 504]
     )
     retry_on_errors: List[str] = field(
-        default_factory=lambda: ["timeout", "rate_limit", "service_unavailable"]
+    default_factory=lambda: ["timeout", "rate_limit", "service_unavailable"]
     )
 
 @dataclass
@@ -161,7 +161,7 @@ class LLMConfig:
     """扩展LLM配置"""
     # 现有字段...
     timeout_config: TimeoutConfig = field(default_factory=TimeoutConfig)
-    retry_config: RetryConfig = field(default_factory=RetryConfig)
+    retry_config: RetryTimeoutConfig = field(default_factory=RetryTimeoutConfig)
 ```
 
 ### 3.2 配置验证规则
@@ -215,7 +215,7 @@ validation_rules = [
 if hasattr(config, 'retry_config'):
     retry_config = config.retry_config
 else:
-    retry_config = RetryConfig(
+    retry_config = RetryTimeoutConfig(
         max_retries=config.max_retries,
         base_delay=1.0,  # 默认值
         max_delay=60.0,  # 默认值
@@ -247,7 +247,7 @@ def migrate_legacy_config(old_config: Dict) -> Dict:
 ## 5. 实施计划
 
 ### 5.1 第一阶段：配置模型扩展
-1. 扩展 `LLMConfig` 类，添加 `RetryConfig` 和 `TimeoutConfig`
+1. 扩展 `LLMConfig` 类，添加 `RetryTimeoutConfig` 和 `TimeoutConfig`
 2. 更新配置加载逻辑，支持新配置结构
 3. 添加配置验证规则
 

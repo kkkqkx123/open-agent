@@ -61,8 +61,8 @@ class TestConnectionPoolFactory:
     def test_static_methods(self):
         """测试静态方法"""
         # 验证方法是静态的
-        assert ConnectionPoolFactory.create_connection_pool.__self__ is None
-        assert ConnectionPoolFactory.get_global_connection_pool.__self__ is None
+        assert isinstance(ConnectionPoolFactory.__dict__['create_connection_pool'], staticmethod)
+        assert isinstance(ConnectionPoolFactory.__dict__['get_global_connection_pool'], staticmethod)
 
 
 class TestGlobalPoolFactory:

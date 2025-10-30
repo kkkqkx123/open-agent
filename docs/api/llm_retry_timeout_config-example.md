@@ -14,7 +14,7 @@
 
 配置继承遵循 "具体模型 > 模型组 > 全局" 的优先级顺序。
 
-## 重试配置 (RetryConfig)
+## 重试配置 (RetryTimeoutConfig)
 
 ### 配置项
 

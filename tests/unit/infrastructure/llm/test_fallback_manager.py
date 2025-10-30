@@ -11,7 +11,7 @@ from src.infrastructure.llm.fallback_system.fallback_manager import (
 )
 from src.infrastructure.llm.fallback_system.fallback_config import FallbackConfig
 from src.infrastructure.llm.fallback_system.interfaces import IClientFactory, IFallbackLogger
-from src.infrastructure.llm.models import LLMResponse
+from src.infrastructure.llm.models import LLMResponse, TokenUsage
 from src.infrastructure.llm.exceptions import LLMCallError
 
 
@@ -34,8 +34,9 @@ class MockClient:
         
         return LLMResponse(
             content=self.response_text,
-            model="test-model",
-            usage={"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
+            message="test message",
+            token_usage=TokenUsage(prompt_tokens=10, completion_tokens=20, total_tokens=30),
+            model="test-model"
         )
 
 
@@ -87,7 +88,12 @@ class TestDefaultFallbackLogger:
     def test_log_fallback_success_enabled(self):
         """测试启用时记录降级成功"""
         logger = DefaultFallbackLogger(enabled=True)
-        response = LLMResponse(content="test", model="model2")
+        response = LLMResponse(
+            content="test",
+            message="test message",
+            token_usage=TokenUsage(prompt_tokens=10, completion_tokens=20, total_tokens=30),
+            model="model2"
+        )
         
         with patch('builtins.print') as mock_print:
             logger.log_fallback_success("model1", "model2", response, 2)
@@ -243,7 +249,12 @@ class TestFallbackManager:
         
         # 成功会话
         success_session = FallbackSession(primary_model="model1", start_time=123.0)
-        success_session.mark_success(LLMResponse(content="success", model="model1"))
+        success_session.mark_success(LLMResponse(
+            content="success",
+            message="success message",
+            token_usage=TokenUsage(prompt_tokens=10, completion_tokens=20, total_tokens=30),
+            model="model1"
+        ))
         manager._sessions.append(success_session)
         
         # 失败会话

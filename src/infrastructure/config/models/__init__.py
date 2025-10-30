@@ -6,15 +6,15 @@ from .llm_config import LLMConfig
 from .agent_config import AgentConfig
 from .tool_config import ToolConfig
 from .token_counter_config import TokenCounterConfig
-from .retry_timeout_config import RetryConfig, TimeoutConfig
+from .retry_timeout_config import RetryTimeoutConfig, TimeoutConfig
 
 __all__ = [
     "BaseConfig",
-    "GlobalConfig", 
+    "GlobalConfig",
     "LLMConfig",
     "AgentConfig",
     "ToolConfig",
     "TokenCounterConfig",
-    "RetryConfig",
+    "RetryTimeoutConfig",
     "TimeoutConfig",
 ]

@@ -32,7 +32,7 @@ class ConfigValidator:
         Returns:
             ValidationResult: 验证结果
         """
-        result = ValidationResult()
+        result = ValidationResult(is_valid=True)
         
         # 如果提供了配置类，验证类型
         if config_class is not None and not isinstance(config, config_class):
@@ -49,16 +49,16 @@ class ConfigValidator:
             for field_name, field_info in fields.items():
                 value = getattr(config, field_name, None)
                 field_result = self.rule_registry.validate_field(config, field_name, value, context)
-                if field_result:
-                    result.merge(field_result)
+                # 总是合并结果，因为 field_result 总是返回 ValidationResult 对象
+                result = result.merge(field_result)
         else:
             # 对于非dataclass对象，使用字典属性
             if hasattr(config, '__dict__'):
                 for field_name, value in config.__dict__.items():
                     if not field_name.startswith('_'):
                         field_result = self.rule_registry.validate_field(config, field_name, value, context)
-                        if field_result:
-                            result.merge(field_result)
+                        # 总是合并结果，因为 field_result 总是返回 ValidationResult 对象
+                        result = result.merge(field_result)
         
         # 添加配置级别的验证
         self._validate_config_level(config, result, context)

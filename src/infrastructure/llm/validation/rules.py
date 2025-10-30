@@ -93,7 +93,7 @@ class ValidationRuleRegistry:
         """获取所有规则"""
         return self._rules.copy()
     
-    def validate_field(self, config: Any, field: str, value: Any, 
+    def validate_field(self, config: Any, field: str, value: Any,
                     context: Optional[Dict[str, Any]] = None) -> ValidationResult:
         """
         验证单个字段
@@ -107,14 +107,14 @@ class ValidationRuleRegistry:
         Returns:
             ValidationResult: 验证结果
         """
-        result = ValidationResult()
+        result = ValidationResult(is_valid=True)
         
         rules = self.get_rules_for_field(field)
         for rule in rules:
             issue = rule.validate(config, field, value, context)
             if issue:
                 result.add_issue(
-                    field=field,
+                    field=issue.field,  # 使用issue中的字段名，而不是传入的字段名
                     message=issue.message,
                     severity=issue.severity,
                     code=issue.code,
@@ -134,7 +134,7 @@ class ValidationRuleRegistry:
         Returns:
             ValidationResult: 验证结果
         """
-        result = ValidationResult()
+        result = ValidationResult(is_valid=True)
         
         # 获取配置的所有字段
         if hasattr(config, '__dataclass_fields__'):
@@ -236,7 +236,7 @@ class TypeValidationRule(ValidationRule):
             return ValidationIssue(
                 field=field,
                 message=self._message,
-                severity=ValidationError.WARNING,
+                severity=ValidationSeverity.WARNING,
                 code="TYPE_MISMATCH",
                 context={
                     "expected_type": self._expected_type.__name__,
@@ -296,7 +296,7 @@ class RangeValidationRule(ValidationRule):
             return ValidationIssue(
                 field=field,
                 message=f"{field}不能大于{self._max_value}",
-                severity=ValidationError.WARNING,
+                severity=ValidationSeverity.WARNING,
                 code="VALUE_TOO_LARGE",
                 context={"max_value": self._max_value, "actual_value": value}
             )
@@ -319,7 +319,7 @@ class PatternValidationRule(ValidationRule):
         import re
         self._field_name = field_name
         self._pattern = re.compile(pattern)
-        self._message = message or f"{field}格式不正确"
+        self._message = message or f"{field_name}格式不正确"
     
     @property
     def name(self) -> str:
@@ -364,7 +364,7 @@ class EnumValidationRule(ValidationRule):
         """
         self._field_name = field_name
         self._valid_values = valid_values
-        self._message = message or f"{field}必须是以下值之一: {valid_values}"
+        self._message = message or f"{field_name}必须是以下值之一: {valid_values}"
     
     @property
     def name(self) -> str:

@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List, Tuple
 from pydantic import Field, field_validator, model_validator
 
 from .base import BaseConfig
-from .retry_timeout_config import RetryConfig, TimeoutConfig
+from .retry_timeout_config import RetryTimeoutConfig, TimeoutConfig
 from .connection_pool_config import ConnectionPoolConfig
 
 
@@ -25,14 +25,14 @@ class LLMConfig(BaseConfig):
     parameters: Dict[str, Any] = Field(default_factory=dict, description="模型参数")
 
     # 重试和超时配置
-    retry_config: RetryConfig = Field(
-        default_factory=lambda: RetryConfig(
-            max_retries=3,
-            base_delay=1.0,
-            max_delay=60.0,
-            jitter=True,
-            exponential_base=2.0
-        ), description="重试配置"
+    retry_config: RetryTimeoutConfig = Field(
+    default_factory=lambda: RetryTimeoutConfig(
+    max_retries=3,
+    base_delay=1.0,
+    max_delay=60.0,
+    jitter=True,
+    exponential_base=2.0
+    ), description="重试配置"
     )
     timeout_config: TimeoutConfig = Field(
         default_factory=lambda: TimeoutConfig(

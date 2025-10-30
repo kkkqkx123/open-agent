@@ -7,7 +7,7 @@ from dataclasses import dataclass, field as dataclass_field
 from .base import BaseConfig
 
 
-class RetryConfig(BaseConfig):
+class RetryTimeoutConfig(BaseConfig):
     """重试配置模型"""
 
     max_retries: int = Field(3, description="最大重试次数", ge=0, le=10)
@@ -128,7 +128,7 @@ class TimeoutConfig(BaseConfig):
 
 
 # 向后兼容的配置转换函数
-def create_retry_config_from_legacy(
+def create_retry_timeout_config_from_legacy(
     max_retries: int = 3,
     base_delay: float = 1.0,
     max_delay: float = 60.0,
@@ -136,9 +136,9 @@ def create_retry_config_from_legacy(
     exponential_base: float = 2.0,
     retry_on_status_codes: Optional[List[int]] = None,
     retry_on_errors: Optional[List[str]] = None,
-) -> RetryConfig:
+) -> RetryTimeoutConfig:
     """从旧配置创建重试配置"""
-    return RetryConfig(
+    return RetryTimeoutConfig(
         max_retries=max_retries,
         base_delay=base_delay,
         max_delay=max_delay,
