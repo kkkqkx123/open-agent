@@ -98,7 +98,7 @@ class InputPanel:
             return None
         
         # 处理特殊按键
-        if key == "enter":
+        if key == "enter" or key == "key_enter":
             result = self._handle_enter()
             self.tui_logger.debug_input_handling("enter_key", f"Handled enter key, result: {result}")
             return result
