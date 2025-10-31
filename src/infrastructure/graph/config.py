@@ -164,6 +164,7 @@ class GraphConfig:
     checkpointer: Optional[str] = None  # 检查点配置
     interrupt_before: Optional[List[str]] = None  # 中断配置
     interrupt_after: Optional[List[str]] = None   # 中断配置
+    state_overrides: Dict[str, Any] = field(default_factory=dict)  # 状态覆盖
     additional_config: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -198,20 +199,21 @@ class GraphConfig:
             edges.append(EdgeConfig.from_dict(edge_data))
 
         return cls(
-            name=data["name"],
-            description=data["description"],
-            version=data.get("version", "1.0"),
-            state_schema=state_schema,
-            nodes=nodes,
-            edges=edges,
-            entry_point=data.get("entry_point"),
-            checkpointer=data.get("checkpointer"),
-            interrupt_before=data.get("interrupt_before"),
-            interrupt_after=data.get("interrupt_after"),
-            additional_config={
-                k: v for k, v in data.items()
-                if k not in ["name", "description", "version", "state_schema", "nodes", "edges", 
-                           "entry_point", "checkpointer", "interrupt_before", "interrupt_after"]
+        name=data["name"],
+        description=data["description"],
+        version=data.get("version", "1.0"),
+        state_schema=state_schema,
+        nodes=nodes,
+        edges=edges,
+        entry_point=data.get("entry_point"),
+        checkpointer=data.get("checkpointer"),
+        interrupt_before=data.get("interrupt_before"),
+        interrupt_after=data.get("interrupt_after"),
+        state_overrides=data.get("state_overrides", {}),
+        additional_config={
+        k: v for k, v in data.items()
+        if k not in ["name", "description", "version", "state_schema", "nodes", "edges",
+                       "entry_point", "checkpointer", "interrupt_before", "interrupt_after", "state_overrides"]
             }
         )
 
@@ -258,6 +260,8 @@ class GraphConfig:
             result["interrupt_before"] = self.interrupt_before
         if self.interrupt_after:
             result["interrupt_after"] = self.interrupt_after
+        if self.state_overrides:
+            result["state_overrides"] = self.state_overrides
         if self.additional_config:
             result.update(self.additional_config)
 
