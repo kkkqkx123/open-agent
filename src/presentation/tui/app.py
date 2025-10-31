@@ -342,10 +342,10 @@ class TUIApp:
         self.event_engine.register_key_handler("alt+4", lambda _: self._switch_to_subview("errors"))
         
         # 统一时间线快捷键
-        self.event_engine.register_key_handler("page_up", self._handle_timeline_scroll)
-        self.event_engine.register_key_handler("page_down", self._handle_timeline_scroll)
-        self.event_engine.register_key_handler("home", self._handle_timeline_scroll)
-        self.event_engine.register_key_handler("end", self._handle_timeline_scroll)
+        self.event_engine.register_key_handler("key_ppage", self._handle_timeline_scroll)
+        self.event_engine.register_key_handler("key_npage", self._handle_timeline_scroll)
+        self.event_engine.register_key_handler("key_home", self._handle_timeline_scroll)
+        self.event_engine.register_key_handler("key_end", self._handle_timeline_scroll)
         self.event_engine.register_key_handler("a", self._handle_timeline_scroll)
     
     def _register_callback_manager_callbacks(self) -> None:

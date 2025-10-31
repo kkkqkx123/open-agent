@@ -111,20 +111,54 @@ class EventEngine:
             self.input_thread.join(timeout=1.0)
     
     def _input_reader(self) -> None:
-        """输入读取线程"""
+        """输入读取线程 - 使用blessed的inkey()方法"""
         try:
             while self.running:
                 with self.terminal.cbreak():
                     try:
-                        # 读取单个字符
-                        char = sys.stdin.read(1)
-                        if char:
-                            self.input_queue.put(char)
+                        # 使用blessed的inkey()方法，timeout=0表示非阻塞
+                        val = self.terminal.inkey(timeout=0.05)
+                        if val:
+                            # 将blessed的Keystroke对象转换为字符串
+                            key_str = self._convert_keystroke_to_string(val)
+                            if key_str:
+                                self.input_queue.put(key_str)
                     except (UnicodeDecodeError, IOError):
                         # 忽略编码错误，继续读取
                         continue
         except Exception:
             pass
+    
+    def _convert_keystroke_to_string(self, keystroke) -> str:
+        """将blessed的Keystroke对象转换为按键字符串
+        
+        Args:
+            keystroke: blessed的Keystroke对象
+            
+        Returns:
+            str: 按键字符串
+        """
+        if keystroke.is_sequence:
+            # 这是一个序列键（方向键、功能键等）
+            if keystroke.name:
+                # 使用blessed提供的标准名称
+                return keystroke.name.lower()
+            else:
+                # 如果没有名称，使用code
+                return f"key_{keystroke.code}"
+        else:
+            # 这是一个普通字符
+            char = str(keystroke)
+            if char == '\r' or char == '\n':
+                return "enter"
+            elif char == '\t':
+                return "tab"
+            elif char == '\x7f' or char == '\x08':
+                return "backspace"
+            elif char == '\x1b':
+                return "escape"
+            else:
+                return f"char:{char}"
     
     def _process_key(self, key_str: str) -> None:
         """处理按键
@@ -132,85 +166,42 @@ class EventEngine:
         Args:
             key_str: 按键字符串
         """
-        # 处理特殊字符和序列
-        processed_key = self._convert_key_sequence(key_str)
-        if not processed_key:
+        if not key_str:
             return
         
         # 定义应该优先由全局处理器处理的按键（虚拟滚动相关）
         global_priority_keys = {
-            "page_up", "page_down", "home", "end"
+            "key_up", "key_down", "key_left", "key_right",  # 方向键
+            "key_ppage", "key_npage",  # Page Up/Down
+            "key_home", "key_end",  # Home/End
+            "key_dc", "key_ic",  # Delete/Insert
         }
         
         # 如果是全局优先按键，先让注册的按键处理器处理
-        if processed_key in global_priority_keys:
+        if key_str in global_priority_keys:
             # 处理注册的按键处理器
-            if processed_key in self.key_handlers:
-                if self.key_handlers[processed_key](processed_key):
+            if key_str in self.key_handlers:
+                if self.key_handlers[key_str](key_str):
                     return
             
             # 最后让全局处理器处理
             if self.global_key_handler:
-                self.global_key_handler(processed_key)
+                self.global_key_handler(key_str)
             return
         
         # 对于其他按键，首先让输入组件处理按键
         if self.input_component_handler:
-            result = self.input_component_handler(processed_key)
+            result = self.input_component_handler(key_str)
             
             # 如果输入组件返回了结果，处理它
             if result is not None and self.input_result_handler:
                 self.input_result_handler(result)
         
         # 处理注册的按键处理器
-        if processed_key in self.key_handlers:
-            if self.key_handlers[processed_key](processed_key):
+        if key_str in self.key_handlers:
+            if self.key_handlers[key_str](key_str):
                 return
         
         # 最后让全局处理器处理
         if self.global_key_handler:
-            self.global_key_handler(processed_key)
-    
-    def _convert_key_sequence(self, char: str) -> str:
-        """将字符转换为按键字符串
-        
-        Args:
-            char: 输入字符
-            
-        Returns:
-            str: 按键字符串
-        """
-        # 处理特殊字符
-        if char == '\x1b':  # ESC
-            return "escape"
-        elif char == '\x0d':  # Enter (CR)
-            return "enter"
-        elif char == '\n':  # Enter (LF)
-            return "enter"
-        elif char == '\x7f':  # Backspace
-            return "backspace"
-        elif char == '\x09':  # Tab
-            return "tab"
-        
-        # 尝试读取ESC序列
-        if char == '\x1b':
-            try:
-                if not self.input_queue.empty():
-                    next_char = self.input_queue.get_nowait()
-                    if next_char == '[':
-                        # 方向键序列
-                        if not self.input_queue.empty():
-                            direction = self.input_queue.get_nowait()
-                            if direction == 'A':
-                                return "up"
-                            elif direction == 'B':
-                                return "down"
-                            elif direction == 'C':
-                                return "right"
-                            elif direction == 'D':
-                                return "left"
-            except queue.Empty:
-                return "escape"
-        
-        # 普通字符（包括中文）
-        return f"char:{char}"
+            self.global_key_handler(key_str)

@@ -29,7 +29,7 @@ from .unified_timeline import (
 class ToolResult:
     """工具结果类（兼容性）"""
     
-    def __init__(self, tool_name: str, success: bool, result: Any = None, error: str = None):
+    def __init__(self, tool_name: str, success: bool, result: Any = None, error: Optional[str] = None):
         """初始化工具结果
         
         Args:
@@ -208,7 +208,7 @@ class UnifiedMainContentComponent:
             result.error
         )
         
-    def add_tool_call(self, tool_name: str, success: bool, result: Any = None, error: str = None) -> None:
+    def add_tool_call(self, tool_name: str, success: bool, result: Any = None, error: Optional[str] = None) -> None:
         """添加工具调用
         
         Args:
@@ -364,7 +364,7 @@ class UnifiedMainContentComponent:
         """
         # 在标签页模式下，根据活动标签显示不同内容
         if self.active_tab == "timeline":
-            content = self.timeline.render()
+            content: Any = self.timeline.render()
             title = "📋 主内容区 (时间线)"
         else:
             # 其他标签页显示说明
@@ -395,16 +395,16 @@ class UnifiedMainContentComponent:
         Returns:
             bool: 是否处理了该按键
         """
-        if key == "page_up":
+        if key == "key_ppage":
             self.scroll_up()
             return True
-        elif key == "page_down":
+        elif key == "key_npage":
             self.scroll_down()
             return True
-        elif key == "home":
+        elif key == "key_home":
             self.timeline.virtual_renderable.scroll_manager.scroll_to(0)
             return True
-        elif key == "end":
+        elif key == "key_end":
             self.scroll_to_end()
             return True
         elif key == "a":
