@@ -3,6 +3,23 @@
 from .sidebar import SidebarComponent
 from .langgraph_panel import LangGraphPanelComponent
 from .main_content import MainContentComponent
+from .unified_main_content import UnifiedMainContentComponent
+from .unified_timeline import (
+    UnifiedTimelineComponent,
+    TimelineEvent,
+    UserMessageEvent,
+    AssistantMessageEvent,
+    ToolCallStartEvent,
+    ToolCallEndEvent,
+    NodeSwitchEvent,
+    TriggerEvent,
+    WorkflowEvent,
+    StreamSegmentEvent,
+    SystemMessageEvent,
+    VirtualScrollManager,
+    SegmentedStreamOutput,
+    VirtualScrollRenderable
+)
 from .input_panel import InputPanel
 from .session_dialog import SessionManagerDialog
 from .agent_dialog import AgentSelectDialog
@@ -31,6 +48,7 @@ __all__ = [
     "SidebarComponent",
     "LangGraphPanelComponent",
     "MainContentComponent",
+    "UnifiedMainContentComponent",
     "InputPanel",
     "SessionManagerDialog",
     "AgentSelectDialog",
@@ -50,5 +68,20 @@ __all__ = [
     "BaseCommandProcessor",
     "FileSelectorProcessor",
     "WorkflowSelectorProcessor",
-    "SlashCommandProcessor"
+    "SlashCommandProcessor",
+    # 统一时间线组件
+    "UnifiedTimelineComponent",
+    "TimelineEvent",
+    "UserMessageEvent",
+    "AssistantMessageEvent",
+    "ToolCallStartEvent",
+    "ToolCallEndEvent",
+    "NodeSwitchEvent",
+    "TriggerEvent",
+    "WorkflowEvent",
+    "StreamSegmentEvent",
+    "SystemMessageEvent",
+    "VirtualScrollManager",
+    "SegmentedStreamOutput",
+    "VirtualScrollRenderable"
 ]

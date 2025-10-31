@@ -13,6 +13,7 @@ from .components import (
     SidebarComponent,
     LangGraphPanelComponent,
     MainContentComponent,
+    UnifiedMainContentComponent,
     InputPanel,
     SessionManagerDialog,
     AgentSelectDialog,
@@ -230,7 +231,7 @@ class TUIApp:
         """初始化组件"""
         self.sidebar_component = SidebarComponent(self.config)
         self.langgraph_component = LangGraphPanelComponent(self.config)
-        self.main_content_component = MainContentComponent(self.config)
+        self.main_content_component = UnifiedMainContentComponent(self.config)
         self.input_component = InputPanel(self.config)
         
         # 初始化工作流控制面板
@@ -339,6 +340,13 @@ class TUIApp:
         self.event_engine.register_key_handler("alt+2", lambda _: self._switch_to_subview("visualization"))
         self.event_engine.register_key_handler("alt+3", lambda _: self._switch_to_subview("system"))
         self.event_engine.register_key_handler("alt+4", lambda _: self._switch_to_subview("errors"))
+        
+        # 统一时间线快捷键
+        self.event_engine.register_key_handler("page_up", self._handle_timeline_scroll)
+        self.event_engine.register_key_handler("page_down", self._handle_timeline_scroll)
+        self.event_engine.register_key_handler("home", self._handle_timeline_scroll)
+        self.event_engine.register_key_handler("end", self._handle_timeline_scroll)
+        self.event_engine.register_key_handler("a", self._handle_timeline_scroll)
     
     def _register_callback_manager_callbacks(self) -> None:
         """注册回调管理器回调"""
@@ -456,6 +464,25 @@ class TUIApp:
             return True
         
         self.tui_logger.debug_key_event(key, False, "escape_handler")
+        return False
+    def _handle_timeline_scroll(self, key: str) -> bool:
+        """处理时间线滚动按键
+        
+        Args:
+            key: 按键字符串
+            
+        Returns:
+            bool: 是否处理了该按键
+        """
+        # 只在主界面（不在子界面或对话框中）处理时间线滚动
+        if (self.state_manager.current_subview is None and 
+            not self.state_manager.show_session_dialog and 
+            not self.state_manager.show_agent_dialog):
+            
+            # 委托给统一主内容区组件处理
+            if hasattr(self.main_content_component, 'handle_key'):
+                return self.main_content_component.handle_key(key)
+        
         return False
     
     def _switch_to_subview(self, subview_name: str) -> bool:
