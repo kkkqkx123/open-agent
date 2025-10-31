@@ -141,7 +141,8 @@ class VirtualScrollManager:
     def scroll_to_end(self) -> None:
         """滚动到末尾"""
         if self.total_items > 0:
-            self.scroll_offset = max(0, self.total_items - self.visible_height)
+            max_visible_items = max(1, self.visible_height // self.item_height)
+            self.scroll_offset = max(0, self.total_items - max_visible_items)
         
     def can_scroll_up(self) -> bool:
         """检查是否可以向上滚动
@@ -157,7 +158,8 @@ class VirtualScrollManager:
         Returns:
             bool: 是否可以向下滚动
         """
-        return self.scroll_offset + self.visible_height < self.total_items
+        max_visible_items = max(1, self.visible_height // self.item_height)
+        return self.scroll_offset + max_visible_items < self.total_items
         
     def update_total_items(self, total_items: int) -> None:
         """更新总项目数
@@ -167,8 +169,10 @@ class VirtualScrollManager:
         """
         self.total_items = total_items
         # 调整滚动偏移以确保不超出范围
-        if self.scroll_offset > max(0, self.total_items - 1):
-            self.scroll_offset = max(0, self.total_items - 1)
+        max_visible_items = max(1, self.visible_height // self.item_height)
+        max_offset = max(0, self.total_items - max_visible_items)
+        if self.scroll_offset > max_offset:
+            self.scroll_offset = max_offset
 
 
 class SegmentedStreamOutput:
@@ -269,6 +273,13 @@ class VirtualScrollRenderable:
         # 只渲染可见项
         visible_events = self.timeline.events[start:end]
         
+        # 如果没有事件，返回空文本
+        if not visible_events:
+            from rich.text import Text
+            yield Text("暂无事件", style="dim")
+            return
+        
+        # 直接yield每个渲染的事件，确保每次都是独立的渲染
         for event in visible_events:
             yield self._render_event(event)
             
@@ -399,7 +410,7 @@ class UnifiedTimelineComponent:
         )
         self.add_event(event)
         
-    def add_tool_call(self, tool_name: str, success: bool, result: Any = None, error: str = None) -> None:
+    def add_tool_call(self, tool_name: str, success: bool, result: Any = None, error: Optional[str] = None) -> None:
         """添加工具调用
         
         Args:
