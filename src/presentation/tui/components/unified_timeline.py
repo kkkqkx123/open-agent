@@ -33,63 +33,63 @@ class TimelineEvent:
 class UserMessageEvent(TimelineEvent):
     """用户消息事件"""
     
-    def __init__(self, timestamp: datetime, content: str, metadata: Dict[str, Any] = None, level: str = "info"):
+    def __init__(self, timestamp: datetime, content: str, metadata: Optional[Dict[str, Any]] = None, level: str = "info"):
         super().__init__(timestamp, "user_message", content, metadata or {}, level)
 
 
 class AssistantMessageEvent(TimelineEvent):
     """助手消息事件"""
     
-    def __init__(self, timestamp: datetime, content: str, metadata: Dict[str, Any] = None, level: str = "info"):
+    def __init__(self, timestamp: datetime, content: str, metadata: Optional[Dict[str, Any]] = None, level: str = "info"):
         super().__init__(timestamp, "assistant_message", content, metadata or {}, level)
 
 
 class ToolCallStartEvent(TimelineEvent):
     """工具调用开始事件"""
     
-    def __init__(self, timestamp: datetime, content: str, metadata: Dict[str, Any] = None, level: str = "info"):
+    def __init__(self, timestamp: datetime, content: str, metadata: Optional[Dict[str, Any]] = None, level: str = "info"):
         super().__init__(timestamp, "tool_call_start", content, metadata or {}, level)
 
 
 class ToolCallEndEvent(TimelineEvent):
     """工具调用结束事件"""
     
-    def __init__(self, timestamp: datetime, content: str, metadata: Dict[str, Any] = None, level: str = "info"):
+    def __init__(self, timestamp: datetime, content: str, metadata: Optional[Dict[str, Any]] = None, level: str = "info"):
         super().__init__(timestamp, "tool_call_end", content, metadata or {}, level)
 
 
 class NodeSwitchEvent(TimelineEvent):
     """节点切换事件"""
     
-    def __init__(self, timestamp: datetime, content: str, metadata: Dict[str, Any] = None, level: str = "info"):
+    def __init__(self, timestamp: datetime, content: str, metadata: Optional[Dict[str, Any]] = None, level: str = "info"):
         super().__init__(timestamp, "node_switch", content, metadata or {}, level)
 
 
 class TriggerEvent(TimelineEvent):
     """触发器触发事件"""
     
-    def __init__(self, timestamp: datetime, content: str, metadata: Dict[str, Any] = None, level: str = "info"):
+    def __init__(self, timestamp: datetime, content: str, metadata: Optional[Dict[str, Any]] = None, level: str = "info"):
         super().__init__(timestamp, "trigger", content, metadata or {}, level)
 
 
 class WorkflowEvent(TimelineEvent):
     """工作流事件"""
     
-    def __init__(self, timestamp: datetime, content: str, metadata: Dict[str, Any] = None, level: str = "info"):
+    def __init__(self, timestamp: datetime, content: str, metadata: Optional[Dict[str, Any]] = None, level: str = "info"):
         super().__init__(timestamp, "workflow", content, metadata or {}, level)
 
 
 class StreamSegmentEvent(TimelineEvent):
     """流式输出分段事件"""
     
-    def __init__(self, timestamp: datetime, content: str, metadata: Dict[str, Any] = None, level: str = "info"):
+    def __init__(self, timestamp: datetime, content: str, metadata: Optional[Dict[str, Any]] = None, level: str = "info"):
         super().__init__(timestamp, "stream_segment", content, metadata or {}, level)
 
 
 class SystemMessageEvent(TimelineEvent):
     """系统消息事件"""
     
-    def __init__(self, timestamp: datetime, content: str, metadata: Dict[str, Any] = None, level: str = "info"):
+    def __init__(self, timestamp: datetime, content: str, metadata: Optional[Dict[str, Any]] = None, level: str = "info"):
         super().__init__(timestamp, "system_message", content, metadata or {}, level)
 
 
