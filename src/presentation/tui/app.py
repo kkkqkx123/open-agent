@@ -26,7 +26,9 @@ from .subviews import (
     AnalyticsSubview,
     VisualizationSubview,
     SystemSubview,
-    ErrorFeedbackSubview
+    ErrorFeedbackSubview,
+    StatusOverviewSubview,
+    LangGraphSubview
 )
 from .event_engine import EventEngine
 from .state_manager import StateManager
@@ -278,6 +280,8 @@ class TUIApp:
         self.visualization_view = VisualizationSubview(self.config)
         self.system_view = SystemSubview(self.config)
         self.errors_view = ErrorFeedbackSubview(self.config)
+        self.status_overview_view = StatusOverviewSubview(self.config)
+        self.langgraph_view = LangGraphSubview(self.config)
         
         # 子界面字典
         self.subviews = {
@@ -345,6 +349,8 @@ class TUIApp:
         self.event_engine.register_key_handler("alt+2", lambda _: self._switch_to_subview("visualization"))
         self.event_engine.register_key_handler("alt+3", lambda _: self._switch_to_subview("system"))
         self.event_engine.register_key_handler("alt+4", lambda _: self._switch_to_subview("errors"))
+        self.event_engine.register_key_handler("alt+5", lambda _: self._switch_to_subview("status_overview"))
+        self.event_engine.register_key_handler("alt+6", lambda _: self._switch_to_subview("langgraph"))
         
         # 统一时间线快捷键
         self.event_engine.register_key_handler("key_ppage", self._handle_timeline_scroll)

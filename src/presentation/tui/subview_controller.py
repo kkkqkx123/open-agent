@@ -34,7 +34,7 @@ class SubviewController:
         Returns:
             bool: 切换是否成功
         """
-        valid_subviews = ["analytics", "visualization", "system", "errors"]
+        valid_subviews = ["analytics", "visualization", "system", "errors", "status_overview", "langgraph"]
         if subview_name not in valid_subviews:
             return False
         

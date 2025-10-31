@@ -286,7 +286,7 @@ class StateManager:
         Returns:
             bool: 切换是否成功
         """
-        valid_subviews = ["analytics", "visualization", "system", "errors"]
+        valid_subviews = ["analytics", "visualization", "system", "errors", "status_overview", "langgraph"]
         if subview_name in valid_subviews:
             self.current_subview = subview_name
             return True

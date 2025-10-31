@@ -74,6 +74,8 @@ class RenderController:
         self.visualization_view = subviews.get("visualization")
         self.system_view = subviews.get("system")
         self.errors_view = subviews.get("errors")
+        self.status_overview_view = subviews.get("status_overview")
+        self.langgraph_view = subviews.get("langgraph")
         
         # 注册布局变化回调
         self.layout_manager.register_layout_changed_callback(self._on_layout_changed)
@@ -164,6 +166,10 @@ class RenderController:
             content = self.system_view.render()
         elif state_manager.current_subview == "errors" and self.errors_view:
             content = self.errors_view.render()
+        elif state_manager.current_subview == "status_overview" and self.status_overview_view:
+            content = self.status_overview_view.render()
+        elif state_manager.current_subview == "langgraph" and self.langgraph_view:
+            content = self.langgraph_view.render()
         
         if content:
             # 检查内容是否真正变化了
@@ -195,23 +201,43 @@ class RenderController:
         Args:
             state_manager: 状态管理器
         """
-        # 更新组件状态
-        self._update_components(state_manager)
+        # 保存当前状态的哈希值，用于检测变化
+        import hashlib
+        import json
         
-        # 更新各个区域的内容
-        self._update_header(state_manager)
-        self._update_sidebar()
-        self._update_main_content()
-        self._update_input_area()
-        self._update_langgraph_panel()
-        self._update_status_bar(state_manager)
-        self._update_navigation_bar(state_manager)
+        # 创建当前状态的摘要
+        state_summary = {
+            "session_id": getattr(state_manager, 'session_id', ''),
+            "message_count": len(getattr(state_manager, 'message_history', [])),
+            "current_state": str(getattr(state_manager, 'current_state', None)),
+            "input_buffer": getattr(state_manager, 'input_buffer', '')
+        }
         
-        # 更新错误反馈面板
-        self._update_error_feedback_panel()
+        # 生成状态哈希
+        state_hash = hashlib.md5(json.dumps(state_summary, sort_keys=True, default=str).encode()).hexdigest()
         
-        # 标记需要刷新，因为主界面内容已更新
-        self._needs_refresh = True
+        # 检查状态是否真正发生了变化
+        if self._last_render_state.get('main_view_state_hash') != state_hash:
+            # 更新组件状态
+            self._update_components(state_manager)
+            
+            # 更新各个区域的内容
+            self._update_header(state_manager)
+            self._update_sidebar()
+            self._update_main_content()
+            self._update_input_area()
+            self._update_langgraph_panel()
+            self._update_status_bar(state_manager)
+            self._update_navigation_bar(state_manager)
+            
+            # 更新错误反馈面板
+            self._update_error_feedback_panel()
+            
+            # 更新状态哈希
+            self._last_render_state['main_view_state_hash'] = state_hash
+            
+            # 标记需要刷新，因为主界面内容已更新
+            self._needs_refresh = True
         self._update_error_feedback_panel()
     
     def _update_subview_header(self, state_manager: Any) -> None:
@@ -326,6 +352,100 @@ class RenderController:
                 for error in errors:
                     self.errors_view.add_error(error)
                 self._last_render_state['errors_hash'] = errors_hash
+        
+        # 更新状态概览子界面数据
+        if self.status_overview_view and state_manager.current_state:
+            # 更新会话信息
+            session_info = {
+                "session_id": getattr(state_manager, 'session_id', ''),
+                "workflow_name": getattr(state_manager.current_state, 'workflow_name', ''),
+                "status": "运行中" if getattr(state_manager, 'session_id', '') else "未连接",
+                "message_count": len(getattr(state_manager, 'message_history', [])),
+                "token_count": getattr(state_manager.current_state, 'total_tokens', 0)
+            }
+            self.status_overview_view.update_session_info(session_info)
+            
+            # 更新Agent信息
+            agent_info = {
+                "name": getattr(state_manager.current_state, 'agent_name', ''),
+                "model": getattr(state_manager.current_state, 'model_name', ''),
+                "status": "运行中" if getattr(state_manager.current_state, 'agent_name', '') else "未运行",
+                "tool_count": len(getattr(state_manager.current_state, 'tools', [])),
+                "current_task": getattr(state_manager.current_state, 'current_task', '')
+            }
+            self.status_overview_view.update_agent_info(agent_info)
+            
+            # 更新工作流状态
+            workflow_status = {
+                "name": getattr(state_manager.current_state, 'workflow_name', ''),
+                "status": "进行中" if getattr(state_manager.current_state, 'is_running', False) else "未启动",
+                "progress": getattr(state_manager.current_state, 'progress', 0.0),
+                "iteration_count": getattr(state_manager.current_state, 'iteration_count', 0),
+                "max_iterations": getattr(state_manager.current_state, 'max_iterations', 10)
+            }
+            self.status_overview_view.update_workflow_status(workflow_status)
+            
+            # 更新核心指标
+            core_metrics = {
+                "message_count": len(getattr(state_manager, 'message_history', [])),
+                "token_count": getattr(state_manager.current_state, 'total_tokens', 0),
+                "runtime": getattr(state_manager.current_state, 'runtime', 0.0),
+                "success_rate": getattr(state_manager.current_state, 'success_rate', 100.0),
+                "error_count": len(getattr(state_manager, 'get_errors', lambda: [])())
+            }
+            self.status_overview_view.update_core_metrics(core_metrics)
+            
+            # 更新性能监控数据
+            performance_monitoring = {
+                "cpu_usage": getattr(state_manager.current_state, 'cpu_usage', 0.0),
+                "memory_usage": getattr(state_manager.current_state, 'memory_usage', 0.0),
+                "response_time": getattr(state_manager.current_state, 'avg_response_time', 0.0),
+                "error_rate": 100 - getattr(state_manager.current_state, 'success_rate', 100.0),
+                "network_io": getattr(state_manager.current_state, 'network_io', 0.0),
+                "disk_usage": getattr(state_manager.current_state, 'disk_usage', 0.0)
+            }
+            self.status_overview_view.update_performance_monitoring(performance_monitoring)
+        
+        # 更新LangGraph子界面数据
+        if self.langgraph_view and state_manager.current_state:
+            # 更新当前节点信息
+            current_node = {
+                "id": getattr(state_manager.current_state, 'current_node_id', ''),
+                "name": getattr(state_manager.current_state, 'current_node_name', ''),
+                "type": getattr(state_manager.current_state, 'current_node_type', ''),
+                "status": getattr(state_manager.current_state, 'current_node_status', 'idle'),
+                "input": getattr(state_manager.current_state, 'current_node_input', {}),
+                "output": getattr(state_manager.current_state, 'current_node_output', None),
+                "execution_time": getattr(state_manager.current_state, 'current_node_execution_time', 0.0)
+            }
+            self.langgraph_view.update_current_node(current_node)
+            
+            # 更新执行路径
+            execution_path = getattr(state_manager.current_state, 'execution_path', [])
+            # 清空并重新添加执行步骤
+            self.langgraph_view.execution_path.clear()
+            for step in execution_path:
+                self.langgraph_view.add_execution_step(step)
+            
+            # 更新状态快照
+            state_snapshot = {
+                "messages": getattr(state_manager.current_state, 'messages', []),
+                "current_step": getattr(state_manager.current_state, 'current_step', ''),
+                "iteration": getattr(state_manager.current_state, 'iteration_count', 0),
+                "max_iterations": getattr(state_manager.current_state, 'max_iterations', 10),
+                "variables": getattr(state_manager.current_state, 'variables', {})
+            }
+            self.langgraph_view.update_state_snapshot(state_snapshot)
+            
+            # 更新节点监控数据
+            node_monitoring = {
+                "total_nodes": getattr(state_manager.current_state, 'total_nodes', 0),
+                "completed_nodes": getattr(state_manager.current_state, 'completed_nodes', 0),
+                "failed_nodes": getattr(state_manager.current_state, 'failed_nodes', 0),
+                "running_nodes": getattr(state_manager.current_state, 'running_nodes', 0),
+                "pending_nodes": getattr(state_manager.current_state, 'pending_nodes', 0)
+            }
+            self.langgraph_view.update_node_monitoring(node_monitoring)
     
     def _update_header(self, state_manager: Any) -> None:
         """更新标题栏
