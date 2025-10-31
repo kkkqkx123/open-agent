@@ -33,6 +33,7 @@ from .node_debugger import NodeDebuggerPanel
 from .history_replay import HistoryReplayPanel
 from .performance_analyzer import PerformanceAnalyzerPanel
 from .studio_integration import StudioIntegrationPanel
+from .navigation_bar import NavigationBarComponent
 
 # 导入输入面板子模块
 from .input_panel_component import (
@@ -62,6 +63,7 @@ __all__ = [
     "HistoryReplayPanel",
     "PerformanceAnalyzerPanel",
     "StudioIntegrationPanel",
+    "NavigationBarComponent",
     # 输入面板子模块
     "InputHistory",
     "InputBuffer",

@@ -14,7 +14,8 @@ from .components import (
     MainContentComponent,
     InputPanel,
     SessionManagerDialog,
-    AgentSelectDialog
+    AgentSelectDialog,
+    NavigationBarComponent
 )
 from .subviews import (
     AnalyticsSubview,
@@ -62,6 +63,7 @@ class RenderController:
         self.input_component = components.get("input")
         self.workflow_control_panel = components.get("workflow_control")
         self.error_feedback_panel = components.get("error_feedback")
+        self.navigation_component = components.get("navigation")
         
         # 对话框
         self.session_dialog = components.get("session_dialog")
@@ -203,6 +205,7 @@ class RenderController:
         self._update_input_area()
         self._update_langgraph_panel()
         self._update_status_bar(state_manager)
+        self._update_navigation_bar(state_manager)
         
         # 更新错误反馈面板
         self._update_error_feedback_panel()
@@ -653,6 +656,28 @@ class RenderController:
         """更新错误反馈面板"""
         # 这个方法可以用来定期更新错误反馈面板的状态
         # 目前错误反馈面板是事件驱动的，不需要定期更新
+    
+    def _update_navigation_bar(self, state_manager: Any) -> None:
+        """更新导航栏
+        
+        Args:
+            state_manager: 状态管理器
+        """
+        if self.navigation_component:
+            # 更新导航栏组件状态
+            self.navigation_component.update_from_state(state_manager.current_state)
+            
+            # 渲染导航栏
+            navigation_panel = self.navigation_component.render()
+            
+            # 检查内容是否发生变化
+            import hashlib
+            content_hash = hashlib.md5(str(navigation_panel).encode() if navigation_panel else b'').hexdigest()
+            
+            if self._last_render_state.get('navigation_content_hash') != content_hash:
+                self.layout_manager.update_region_content(LayoutRegion.NAVIGATION, navigation_panel)
+                self._last_render_state['navigation_content_hash'] = content_hash
+                self._needs_refresh = True
         pass
     
     def get_render_stats(self) -> Dict[str, Any]:

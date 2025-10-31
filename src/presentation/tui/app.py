@@ -19,7 +19,8 @@ from .components import (
     AgentSelectDialog,
     WorkflowControlPanel,
     ErrorFeedbackPanel,
-    ConfigReloadPanel
+    ConfigReloadPanel,
+    NavigationBarComponent
 )
 from .subviews import (
     AnalyticsSubview,
@@ -247,6 +248,9 @@ class TUIApp:
         self.session_dialog = SessionManagerDialog(self.config)
         self.agent_dialog = AgentSelectDialog(self.config)
         
+        # 初始化导航栏组件
+        self.navigation_component = NavigationBarComponent(self.config)
+        
         # 设置会话对话框的会话管理器
         if self.session_manager:
             self.session_dialog.set_session_manager(self.session_manager)
@@ -264,7 +268,8 @@ class TUIApp:
             "error_feedback": self.error_feedback_panel,
             "config_reload": self.config_reload_panel,
             "session_dialog": self.session_dialog,
-            "agent_dialog": self.agent_dialog
+            "agent_dialog": self.agent_dialog,
+            "navigation": self.navigation_component
         }
     
     def _initialize_subviews(self) -> None:

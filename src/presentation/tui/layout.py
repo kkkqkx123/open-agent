@@ -23,6 +23,7 @@ class LayoutRegion(Enum):
     INPUT = "input"
     LANGGRAPH = "langgraph"
     STATUS = "status"
+    NAVIGATION = "navigation"
 
 
 @dataclass
@@ -193,6 +194,15 @@ class LayoutManager(ILayoutManager):
                 resizable=False,
                 min_height=1,
                 max_height=1
+            ),
+            LayoutRegion.NAVIGATION: RegionConfig(
+                name="导航栏",
+                min_size=2,
+                max_size=3,
+                ratio=1,
+                resizable=False,
+                min_height=2,
+                max_height=3
             )
         }
         
@@ -217,38 +227,21 @@ class LayoutManager(ILayoutManager):
     
     def _create_full_layout(self, layout: Layout) -> Layout:
         """创建完整布局（适用于大屏幕）"""
-        # 分割为上下两部分
+        # 分割为上下五部分
         layout.split_column(
             Layout(name="header", size=3),
-            Layout(name="body"),
+            Layout(name="main"),           # 主内容区占据最大空间
             Layout(name="input", size=3),
-            Layout(name="status", size=1)  # 添加状态栏
+            Layout(name="status", size=1),
+            Layout(name="navigation", size=2)  # 新增导航栏
         )
-        
-        # 主体部分分割为三部分（包含LangGraph面板）
-        if self.config.regions[LayoutRegion.LANGGRAPH].visible:
-            layout["body"].split_row(
-                Layout(name="sidebar", size=25),
-                Layout(name="main"),
-                Layout(name="langgraph", size=20)
-            )
-            # 记录区域父级方向
-            self.region_parent_direction["sidebar"] = "row"
-            self.region_parent_direction["main"] = "row"
-            self.region_parent_direction["langgraph"] = "row"
-        else:
-            layout["body"].split_row(
-                Layout(name="sidebar", size=25),
-                Layout(name="main")
-            )
-            # 记录区域父级方向
-            self.region_parent_direction["sidebar"] = "row"
-            self.region_parent_direction["main"] = "row"
         
         # 记录垂直布局区域
         self.region_parent_direction["header"] = "column"
+        self.region_parent_direction["main"] = "column"
         self.region_parent_direction["input"] = "column"
         self.region_parent_direction["status"] = "column"
+        self.region_parent_direction["navigation"] = "column"
         
         # 设置区域内容
         self._update_layout_regions()
@@ -259,40 +252,36 @@ class LayoutManager(ILayoutManager):
         """创建紧凑布局（适用于小屏幕）"""
         # 小屏幕时隐藏侧边栏或将其移到底部
         if self.current_breakpoint == "small":
-            # 分割为上下三部分
+            # 分割为上下五部分
             layout.split_column(
                 Layout(name="header", size=3),
                 Layout(name="main"),
                 Layout(name="input", size=3),
-                Layout(name="status", size=1)
+                Layout(name="status", size=1),
+                Layout(name="navigation", size=2)  # 新增导航栏
             )
             # 记录区域父级方向
             self.region_parent_direction["header"] = "column"
             self.region_parent_direction["main"] = "column"
             self.region_parent_direction["input"] = "column"
             self.region_parent_direction["status"] = "column"
+            self.region_parent_direction["navigation"] = "column"
         else:  # medium
-            # 分割为上下三部分，保留输入区域
+            # 分割为上下五部分
             layout.split_column(
                 Layout(name="header", size=3),
-                Layout(name="content"),  # 内容区域，包含main和sidebar
-                Layout(name="input", size=3),
-                Layout(name="status", size=1)
-            )
-            
-            # 内容区域分割为左右两部分
-            layout["content"].split_row(
                 Layout(name="main"),
-                Layout(name="sidebar")
+                Layout(name="input", size=3),
+                Layout(name="status", size=1),
+                Layout(name="navigation", size=2)  # 新增导航栏
             )
             
             # 记录区域父级方向
             self.region_parent_direction["header"] = "column"
-            self.region_parent_direction["content"] = "column"
+            self.region_parent_direction["main"] = "column"
             self.region_parent_direction["input"] = "column"
             self.region_parent_direction["status"] = "column"
-            self.region_parent_direction["main"] = "row"
-            self.region_parent_direction["sidebar"] = "row"
+            self.region_parent_direction["navigation"] = "column"
         
         # 设置区域内容
         self._update_layout_regions()
@@ -369,6 +358,14 @@ class LayoutManager(ILayoutManager):
                 self.layout["status"].update(status_content)
             else:
                 self.layout["status"].update(self._create_default_status())
+        
+        # 更新导航栏
+        if self.layout is not None and self._has_region("navigation"):
+            navigation_content = self.region_contents.get(LayoutRegion.NAVIGATION)
+            if navigation_content:
+                self.layout["navigation"].update(navigation_content)
+            else:
+                self.layout["navigation"].update(self._create_default_navigation())
     
     def _create_default_header(self) -> Panel:
         """创建默认标题栏"""
@@ -451,6 +448,24 @@ class LayoutManager(ILayoutManager):
             style="dim",
             border_style="dim"
         )
+    
+    def _create_default_navigation(self) -> Panel:
+        """创建默认导航栏"""
+        nav_text = Text()
+        
+        # 关键状态信息摘要
+        nav_text.append("💾 会话: ", style="bold blue")
+        nav_text.append("未连接 | ", style="dim")
+        nav_text.append("🤖 Agent: ", style="bold cyan")
+        nav_text.append("未运行 | ", style="dim")
+        nav_text.append("🔄 工作流: ", style="bold yellow")
+        nav_text.append("未启动 | ", style="dim")
+        nav_text.append("进度: ", style="bold")
+        nav_text.append("████████░░ 80% | ", style="dim")
+        nav_text.append("消息: ", style="bold")
+        nav_text.append("15 | Token: 2,345", style="dim")
+        
+        return Panel(nav_text, style="dim", border_style="dim")
     
     def update_region_content(self, region: LayoutRegion, content: Any) -> None:
         """更新区域内容"""
@@ -636,9 +651,10 @@ class LayoutManager(ILayoutManager):
         header_size = 3
         input_size = 3
         status_size = 1
+        navigation_size = 2
         
         # 可用空间计算
-        available_height = height - header_size - input_size - status_size
+        available_height = height - header_size - input_size - status_size - navigation_size
         
         if self.current_breakpoint in ["small", "medium"]:
             # 紧凑布局
@@ -649,6 +665,7 @@ class LayoutManager(ILayoutManager):
                     "main": available_height,
                     "input": input_size,
                     "status": status_size,
+                    "navigation": navigation_size,
                     "sidebar": None,
                     "langgraph": None
                 }
@@ -668,6 +685,7 @@ class LayoutManager(ILayoutManager):
                     "sidebar": sidebar_width,
                     "input": input_size,
                     "status": status_size,
+                    "navigation": navigation_size,
                     "langgraph": None
                 }
         else:
@@ -697,7 +715,8 @@ class LayoutManager(ILayoutManager):
                 "main": available_height,
                 "langgraph": langgraph_width,
                 "input": input_size,
-                "status": status_size
+                "status": status_size,
+                "navigation": navigation_size
             }
     
     def _clamp_width(self, width: int, min_width: int, max_width: int) -> int:
@@ -914,16 +933,22 @@ class LayoutManager(ILayoutManager):
         
         for region in LayoutRegion:
             if breakpoint == "small":
-                # 小屏幕：只显示header, main, input, status
+                # 小屏幕：显示header, main, input, status, navigation
                 visibility[region] = region in [
-                    LayoutRegion.HEADER, LayoutRegion.MAIN, 
-                    LayoutRegion.INPUT, LayoutRegion.STATUS
+                    LayoutRegion.HEADER, LayoutRegion.MAIN,
+                    LayoutRegion.INPUT, LayoutRegion.STATUS, LayoutRegion.NAVIGATION
                 ]
             elif breakpoint == "medium":
-                # 中等屏幕：显示header, main, sidebar, input, status
-                visibility[region] = region != LayoutRegion.LANGGRAPH
+                # 中等屏幕：显示header, main, input, status, navigation
+                visibility[region] = region in [
+                    LayoutRegion.HEADER, LayoutRegion.MAIN,
+                    LayoutRegion.INPUT, LayoutRegion.STATUS, LayoutRegion.NAVIGATION
+                ]
             else:
-                # 大屏幕：显示所有区域（根据配置）
-                visibility[region] = self.config.regions[region].visible
+                # 大屏幕：显示header, main, input, status, navigation
+                visibility[region] = region in [
+                    LayoutRegion.HEADER, LayoutRegion.MAIN,
+                    LayoutRegion.INPUT, LayoutRegion.STATUS, LayoutRegion.NAVIGATION
+                ]
         
         return visibility
