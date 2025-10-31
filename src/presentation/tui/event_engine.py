@@ -137,7 +137,24 @@ class EventEngine:
         if not processed_key:
             return
         
-        # 首先让输入组件处理按键
+        # 定义应该优先由全局处理器处理的按键（虚拟滚动相关）
+        global_priority_keys = {
+            "page_up", "page_down", "home", "end"
+        }
+        
+        # 如果是全局优先按键，先让注册的按键处理器处理
+        if processed_key in global_priority_keys:
+            # 处理注册的按键处理器
+            if processed_key in self.key_handlers:
+                if self.key_handlers[processed_key](processed_key):
+                    return
+            
+            # 最后让全局处理器处理
+            if self.global_key_handler:
+                self.global_key_handler(processed_key)
+            return
+        
+        # 对于其他按键，首先让输入组件处理按键
         if self.input_component_handler:
             result = self.input_component_handler(processed_key)
             

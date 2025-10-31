@@ -89,6 +89,14 @@ class InputPanel:
             self.tui_logger.debug_input_handling("key_handling", f"Processing blocked: {key}")
             return None
         
+        # 定义应该由全局处理器处理的按键（虚拟滚动相关）
+        global_priority_keys = {"page_up", "page_down", "home", "end"}
+        
+        # 如果是全局优先按键，不处理，返回None让全局处理器处理
+        if key in global_priority_keys:
+            self.tui_logger.debug_input_handling("global_priority_key", f"Passing {key} to global handler")
+            return None
+        
         # 处理特殊按键
         if key == "enter":
             result = self._handle_enter()
@@ -112,12 +120,6 @@ class InputPanel:
         elif key == "delete":
             self.input_buffer.delete_char(backward=False)
             self.tui_logger.debug_input_handling("delete_key", "Handled delete key")
-        elif key == "home":
-            self.input_buffer.move_cursor("home")
-            self.tui_logger.debug_input_handling("home_key", "Handled home key")
-        elif key == "end":
-            self.input_buffer.move_cursor("end")
-            self.tui_logger.debug_input_handling("end_key", "Handled end key")
         elif key == "tab":
             self._handle_tab()
             self.tui_logger.debug_input_handling("tab_key", "Handled tab key")
