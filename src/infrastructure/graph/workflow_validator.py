@@ -151,6 +151,329 @@ class WorkflowValidator:
                     location=config_path,
                     suggestion=f"确保入口节点 '{entry_point}' 在节点列表中定义"
                 ))
+        
+        # 验证图连通性
+        if "nodes" in config_data and "edges" in config_data:
+            self._validate_connectivity_from_dict(config_data, config_path)
+    
+    def _validate_connectivity_from_dict(self, config_data: Dict[str, Any], config_path: str) -> None:
+        """从字典配置验证图连通性"""
+        if not config_data.get("nodes") or not config_data.get("edges"):
+            return
+        
+        # 构建图结构
+        graph = self._build_graph_structure_from_dict(config_data)
+        
+        # 检测可达性
+        self._check_reachability_from_dict(graph, config_data, config_path)
+        
+        # 检测环路
+        self._detect_cycles_from_dict(graph, config_path)
+        
+        # 检测死节点
+        self._detect_dead_nodes_from_dict(graph, config_data, config_path)
+        
+        # 检测终止路径
+        self._check_termination_paths_from_dict(graph, config_data, config_path)
+    
+    def _build_graph_structure_from_dict(self, config_data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """从字典配置构建图结构"""
+        graph = {}
+        
+        # 检查nodes是否存在且是字典
+        if "nodes" not in config_data:
+            self.issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                message="配置中缺少nodes字段",
+                suggestion="添加nodes定义"
+            ))
+            return graph
+        
+        if not isinstance(config_data["nodes"], dict):
+            self.issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                message="nodes字段必须是字典格式",
+                suggestion="检查nodes配置格式"
+            ))
+            return graph
+        
+        # 初始化所有节点
+        for node_name in config_data["nodes"]:
+            graph[node_name] = {
+                "outgoing": set(),
+                "incoming": set(),
+                "is_conditional": False,
+                "targets": set()
+            }
+        
+        # 添加边关系
+        for edge in config_data["edges"]:
+            from_node = edge.get("from")
+            to_node = edge.get("to")
+            edge_type = edge.get("type")
+            
+            if from_node in graph:
+                if edge_type == "conditional":
+                    graph[from_node]["is_conditional"] = True
+                    # 对于条件边，添加所有可能的路径
+                    path_map = edge.get("path_map", {})
+                    for target in path_map.values():
+                        if target in graph or target in self.SPECIAL_NODES:
+                            graph[from_node]["targets"].add(target)
+                else:
+                    # 简单边
+                    if to_node in graph or to_node in self.SPECIAL_NODES:
+                        graph[from_node]["targets"].add(to_node)
+                
+                if to_node:
+                    graph[from_node]["outgoing"].add(to_node)
+            
+            if to_node and to_node in graph:
+                graph[to_node]["incoming"].add(from_node)
+        
+        return graph
+    
+    def _check_reachability_from_dict(self, graph: Dict[str, Dict[str, Any]], 
+                                    config_data: Dict[str, Any], config_path: str) -> None:
+        """检查从入口点开始的可达性"""
+        entry_point = config_data.get("entry_point")
+        if not entry_point or entry_point not in graph:
+            return
+        
+        # 使用DFS查找所有可达节点
+        visited = set()
+        stack = [entry_point]
+        
+        while stack:
+            node = stack.pop()
+            if node in visited:
+                continue
+            
+            visited.add(node)
+            
+            if node in graph:
+                stack.extend(graph[node]["targets"] - visited)
+        
+        # 检查是否有不可达的节点
+        unreachable = set(graph.keys()) - visited
+        for node in unreachable:
+            self.issues.append(ValidationIssue(
+                severity=ValidationSeverity.WARNING,
+                message=f"节点 '{node}' 从入口点不可达",
+                location=config_path,
+                suggestion="检查边的连接，确保所有节点都能从入口点到达"
+            ))
+    
+    def _detect_cycles_from_dict(self, graph: Dict[str, Dict[str, Any]], config_path: str) -> None:
+        """检测图中的环路"""
+        visited = set()
+        rec_stack = set()
+        
+        def dfs_cycle_detection(node: str, path: List[str]) -> List[str]:
+            """DFS检测环路，返回环路路径"""
+            if node in rec_stack:
+                # 找到环路
+                cycle_start = path.index(node)
+                return path[cycle_start:] + [node]
+            
+            if node in visited:
+                return []
+            
+            visited.add(node)
+            rec_stack.add(node)
+            path.append(node)
+            
+            if node in graph:
+                for target in graph[node]["targets"]:
+                    if target not in self.SPECIAL_NODES:  # 忽略特殊节点
+                        cycle = dfs_cycle_detection(target, path.copy())
+                        if cycle:
+                            return cycle
+            
+            rec_stack.remove(node)
+            return []
+        
+        # 查找所有环路
+        all_cycles = []
+        for node in graph:
+            if node not in visited:
+                cycle = dfs_cycle_detection(node, [])
+                if cycle:
+                    all_cycles.append(cycle)
+        
+        # 分析每个环路
+        for cycle in all_cycles:
+            self._analyze_cycle(cycle, config_data, config_path)
+    
+    def _analyze_cycle(self, cycle: List[str], config_data: Dict[str, Any], config_path: str) -> None:
+        """分析环路是否有退出条件"""
+        cycle_str = " -> ".join(cycle)
+        
+        # 检查环路中的节点是否有条件边
+        has_conditional_edges = False
+        has_termination_potential = False
+        
+        edges = config_data.get("edges", [])
+        
+        for edge in edges:
+            if edge.get("from") in cycle and edge.get("type") == "conditional":
+                has_conditional_edges = True
+                
+                # 检查条件函数是否有退出条件
+                condition_name = edge.get("condition", "")
+                if self._has_termination_condition(condition_name, cycle):
+                    has_termination_potential = True
+        
+        # 检查环路中是否有终端节点
+        has_terminal_node = any(
+            self._is_terminal_node_from_dict(node, config_data) 
+            for node in cycle
+        )
+        
+        # 检查环路中是否有指向 __end__ 的边
+        has_end_edge = any(
+            edge.get("from") in cycle and edge.get("to") == "__end__"
+            for edge in edges
+        )
+        
+        # 根据分析结果确定问题严重程度
+        if has_termination_potential or has_terminal_node or has_end_edge:
+            # 这是一个受控环路，可能是有意设计的
+            self.issues.append(ValidationIssue(
+                severity=ValidationSeverity.INFO,
+                message=f"检测到受控环路: {cycle_str}",
+                location=config_path,
+                suggestion="这是一个有退出条件的环路，请确保条件函数能正确触发退出"
+            ))
+        elif has_conditional_edges:
+            # 有条件边但不确定是否有退出条件
+            self.issues.append(ValidationIssue(
+                severity=ValidationSeverity.WARNING,
+                message=f"检测到潜在问题环路: {cycle_str}",
+                location=config_path,
+                suggestion="检查条件函数是否包含退出条件，避免无限循环"
+            ))
+        else:
+            # 没有条件边的环路，很可能是无限循环
+            self.issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                message=f"检测到无限环路: {cycle_str}",
+                location=config_path,
+                suggestion="重新设计工作流逻辑，添加退出条件或打破环路"
+            ))
+    
+    def _has_termination_condition(self, condition_name: str, cycle: List[str]) -> bool:
+        """检查条件函数是否有终止条件"""
+        # 这是一个简化的检查，实际应用中可能需要更复杂的分析
+        # 这里我们基于函数名和常见的终止模式进行判断
+        
+        termination_keywords = [
+            "end", "finish", "complete", "final", "terminate", 
+            "exit", "stop", "break", "done", "success", "failure"
+        ]
+        
+        condition_lower = condition_name.lower()
+        for keyword in termination_keywords:
+            if keyword in condition_lower:
+                return True
+        
+        # 检查是否包含返回特殊节点的逻辑
+        special_node_keywords = ["__end__", "end_node", "final_node", "terminal"]
+        for keyword in special_node_keywords:
+            if keyword in condition_lower:
+                return True
+        
+        return False
+    
+    def _detect_dead_nodes_from_dict(self, graph: Dict[str, Dict[str, Any]], 
+                                   config_data: Dict[str, Any], config_path: str) -> None:
+        """检测死节点（没有出边的节点）"""
+        for node_name, node_info in graph.items():
+            if not node_info["targets"]:
+                # 检查是否是终端节点（有意设计为结束点）
+                is_terminal = self._is_terminal_node_from_dict(node_name, config_data)
+                
+                if not is_terminal:
+                    self.issues.append(ValidationIssue(
+                        severity=ValidationSeverity.WARNING,
+                        message=f"节点 '{node_name}' 没有出边，可能是死节点",
+                        location=config_path,
+                        suggestion="添加出边或确认这是有意设计的终端节点"
+                    ))
+    
+    def _is_terminal_node_from_dict(self, node_name: str, config_data: Dict[str, Any]) -> bool:
+        """判断是否是终端节点"""
+        # 检查节点名称是否包含结束相关关键词
+        terminal_keywords = ["end", "finish", "complete", "final", "terminal", "exit"]
+        node_lower = node_name.lower()
+        
+        for keyword in terminal_keywords:
+            if keyword in node_lower:
+                return True
+        
+        # 检查节点配置
+        nodes = config_data.get("nodes", {})
+        if node_name in nodes:
+            node_config = nodes[node_name]
+            description = node_config.get("description", "").lower()
+            for keyword in terminal_keywords:
+                if keyword in description:
+                    return True
+        
+        return False
+    
+    def _check_termination_paths_from_dict(self, graph: Dict[str, Dict[str, Any]], 
+                                         config_data: Dict[str, Any], config_path: str) -> None:
+        """检查是否有到终止节点的路径"""
+        entry_point = config_data.get("entry_point")
+        if not entry_point or entry_point not in graph:
+            return
+        
+        # 查找所有可能的终止节点
+        termination_nodes = set()
+        for node_name in graph:
+            if self._is_terminal_node_from_dict(node_name, config_data):
+                termination_nodes.add(node_name)
+        
+        # 如果没有明确的终止节点，检查是否有到 __end__ 的路径
+        has_end_edges = any(
+            edge.get("to") == "__end__" 
+            for edge in config_data.get("edges", [])
+        )
+        
+        if not termination_nodes and not has_end_edges:
+            self.issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                message="工作流缺少明确的终止路径",
+                location=config_path,
+                suggestion="添加指向 __end__ 的边或创建终端节点"
+            ))
+            return
+        
+        # 检查从入口点是否能到达终止节点
+        if termination_nodes:
+            visited = set()
+            stack = [entry_point]
+            
+            while stack:
+                node = stack.pop()
+                if node in visited:
+                    continue
+                
+                visited.add(node)
+                
+                if node in termination_nodes:
+                    return  # 找到终止路径
+                
+                if node in graph:
+                    stack.extend(graph[node]["targets"] - visited)
+            
+            self.issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                message="从入口点无法到达任何终止节点",
+                location=config_path,
+                suggestion="检查边的连接，确保有路径可以到达终止节点"
+            ))
     
     def _validate_state_schema(self, state_schema: Dict[str, Any], config_path: str) -> None:
         """验证状态模式"""
@@ -407,6 +730,214 @@ class WorkflowValidator:
         
         # 验证图连通性
         self._validate_graph_connectivity(config)
+    
+    def _validate_graph_connectivity(self, config: GraphConfig) -> None:
+        """验证图连通性，检测成环、无法结束等问题"""
+        if not config.nodes or not config.edges:
+            return
+        
+        # 构建图结构
+        graph = self._build_graph_structure(config)
+        
+        # 检测可达性
+        self._check_reachability(graph, config)
+        
+        # 检测环路
+        self._detect_cycles(graph)
+        
+        # 检测死节点
+        self._detect_dead_nodes(graph, config)
+        
+        # 检测终止路径
+        self._check_termination_paths(graph, config)
+    
+    def _build_graph_structure(self, config: GraphConfig) -> Dict[str, Dict[str, Any]]:
+        """构建图结构"""
+        graph = {}
+        
+        # 初始化所有节点
+        for node_name in config.nodes:
+            graph[node_name] = {
+                "outgoing": set(),
+                "incoming": set(),
+                "is_conditional": False,
+                "targets": set()
+            }
+        
+        # 添加边关系
+        for edge in config.edges:
+            from_node = edge.from_node
+            to_node = edge.to_node
+            
+            if from_node in graph:
+                if edge.type == EdgeType.CONDITIONAL:
+                    graph[from_node]["is_conditional"] = True
+                    # 对于条件边，添加所有可能的路径
+                    if edge.path_map:
+                        for target in edge.path_map.values():
+                            if target in graph or target in self.SPECIAL_NODES:
+                                graph[from_node]["targets"].add(target)
+                else:
+                    # 简单边
+                    if to_node in graph or to_node in self.SPECIAL_NODES:
+                        graph[from_node]["targets"].add(to_node)
+                
+                graph[from_node]["outgoing"].add(to_node)
+            
+            if to_node in graph:
+                graph[to_node]["incoming"].add(from_node)
+        
+        return graph
+    
+    def _check_reachability(self, graph: Dict[str, Dict[str, Any]], config: GraphConfig) -> None:
+        """检查从入口点开始的可达性"""
+        if not config.entry_point or config.entry_point not in graph:
+            return
+        
+        # 使用DFS查找所有可达节点
+        visited = set()
+        stack = [config.entry_point]
+        
+        while stack:
+            node = stack.pop()
+            if node in visited:
+                continue
+            
+            visited.add(node)
+            
+            if node in graph:
+                stack.extend(graph[node]["targets"] - visited)
+        
+        # 检查是否有不可达的节点
+        unreachable = set(graph.keys()) - visited
+        for node in unreachable:
+            self.issues.append(ValidationIssue(
+                severity=ValidationSeverity.WARNING,
+                message=f"节点 '{node}' 从入口点不可达",
+                suggestion="检查边的连接，确保所有节点都能从入口点到达"
+            ))
+    
+    def _detect_cycles(self, graph: Dict[str, Dict[str, Any]]) -> None:
+        """检测图中的环路"""
+        visited = set()
+        rec_stack = set()
+        
+        def dfs_cycle_detection(node: str, path: List[str]) -> bool:
+            """DFS检测环路"""
+            if node in rec_stack:
+                # 找到环路
+                cycle_start = path.index(node)
+                cycle_path = path[cycle_start:] + [node]
+                self.issues.append(ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    message=f"检测到环路: {' -> '.join(cycle_path)}",
+                    suggestion="重新设计工作流逻辑，避免无限循环"
+                ))
+                return True
+            
+            if node in visited:
+                return False
+            
+            visited.add(node)
+            rec_stack.add(node)
+            path.append(node)
+            
+            if node in graph:
+                for target in graph[node]["targets"]:
+                    if target not in self.SPECIAL_NODES:  # 忽略特殊节点
+                        if dfs_cycle_detection(target, path.copy()):
+                            return True
+            
+            rec_stack.remove(node)
+            return False
+        
+        # 对每个节点进行环路检测
+        for node in graph:
+            if node not in visited:
+                dfs_cycle_detection(node, [])
+    
+    def _detect_dead_nodes(self, graph: Dict[str, Dict[str, Any]], config: GraphConfig) -> None:
+        """检测死节点（没有出边的节点）"""
+        for node_name, node_info in graph.items():
+            if not node_info["targets"]:
+                # 检查是否是终端节点（有意设计为结束点）
+                is_terminal = self._is_terminal_node(node_name, config)
+                
+                if not is_terminal:
+                    self.issues.append(ValidationIssue(
+                        severity=ValidationSeverity.WARNING,
+                        message=f"节点 '{node_name}' 没有出边，可能是死节点",
+                        suggestion="添加出边或确认这是有意设计的终端节点"
+                    ))
+    
+    def _is_terminal_node(self, node_name: str, config: GraphConfig) -> bool:
+        """判断是否是终端节点"""
+        # 检查节点名称是否包含结束相关关键词
+        terminal_keywords = ["end", "finish", "complete", "final", "terminal", "exit"]
+        node_lower = node_name.lower()
+        
+        for keyword in terminal_keywords:
+            if keyword in node_lower:
+                return True
+        
+        # 检查节点配置
+        if node_name in config.nodes:
+            node_config = config.nodes[node_name]
+            description = getattr(node_config, 'description', '').lower()
+            for keyword in terminal_keywords:
+                if keyword in description:
+                    return True
+        
+        return False
+    
+    def _check_termination_paths(self, graph: Dict[str, Dict[str, Any]], config: GraphConfig) -> None:
+        """检查是否有到终止节点的路径"""
+        if not config.entry_point or config.entry_point not in graph:
+            return
+        
+        # 查找所有可能的终止节点
+        termination_nodes = set()
+        for node_name in graph:
+            if self._is_terminal_node(node_name, config):
+                termination_nodes.add(node_name)
+        
+        # 如果没有明确的终止节点，检查是否有到 __end__ 的路径
+        has_end_edges = any(
+            edge.to_node == "__end__" 
+            for edge in config.edges
+        )
+        
+        if not termination_nodes and not has_end_edges:
+            self.issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                message="工作流缺少明确的终止路径",
+                suggestion="添加指向 __end__ 的边或创建终端节点"
+            ))
+            return
+        
+        # 检查从入口点是否能到达终止节点
+        if termination_nodes:
+            visited = set()
+            stack = [config.entry_point]
+            
+            while stack:
+                node = stack.pop()
+                if node in visited:
+                    continue
+                
+                visited.add(node)
+                
+                if node in termination_nodes:
+                    return  # 找到终止路径
+                
+                if node in graph:
+                    stack.extend(graph[node]["targets"] - visited)
+            
+            self.issues.append(ValidationIssue(
+                severity=ValidationSeverity.ERROR,
+                message="从入口点无法到达任何终止节点",
+                suggestion="检查边的连接，确保有路径可以到达终止节点"
+            ))
     
     def print_issues(self, issues: List[ValidationIssue]) -> None:
         """打印验证问题"""

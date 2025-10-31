@@ -1,0 +1,88 @@
+name: connectivity_test_workflow
+description: 用于测试连通性检测的工作流
+version: 1.0
+
+state_schema:
+  name: ConnectivityTestState
+  fields:
+    workflow_messages:
+      type: List[dict]
+      default: []
+    workflow_context:
+      type: Dict[str, Any]
+      default: {}
+
+nodes:
+  start_node:
+    type: llm_node
+    config:
+      llm_client: mock
+    description: 开始节点
+
+  middle_node:
+    type: llm_node
+    config:
+      llm_client: mock
+    description: 中间节点
+
+  dead_end_node:
+    type: llm_node
+    config:
+      llm_client: mock
+    description: 死胡同节点（没有出边）
+
+  cycle_node_a:
+    type: llm_node
+    config:
+      llm_client: mock
+    description: 环路节点A
+
+  cycle_node_b:
+    type: llm_node
+    config:
+      llm_client: mock
+    description: 环路节点B
+
+  isolated_node:
+    type: llm_node
+    config:
+      llm_client: mock
+    description: 孤立节点（从入口点不可达）
+
+  final_node:
+    type: llm_node
+    config:
+      llm_client: mock
+    description: 最终节点
+
+edges:
+  - from: start_node
+    to: middle_node
+    type: simple
+    description: 开始到中间
+
+  - from: middle_node
+    to: dead_end_node
+    type: simple
+    description: 中间到死胡同
+
+  - from: middle_node
+    to: cycle_node_a
+    type: simple
+    description: 中间到环路A
+
+  - from: cycle_node_a
+    to: cycle_node_b
+    type: simple
+    description: 环路A到环路B
+
+  - from: cycle_node_b
+    to: cycle_node_a
+    type: simple
+    description: 环路B到环路A（形成环路）
+
+  # 注意：isolized_node 没有任何入边，所以从入口点不可达
+
+  # 注意：final_node 存在但没有路径可以从入口点到达
+
+entry_point: start_node

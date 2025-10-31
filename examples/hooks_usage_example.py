@@ -119,42 +119,50 @@ def example_manual_hook_configuration():
     )
     
     # 5. 构建简单的图
-    from src.infrastructure.graph.config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
+    from src.infrastructure.graph.config import GraphConfig, NodeConfig, EdgeConfig, EdgeType, GraphStateConfig, StateFieldConfig
     
     config = GraphConfig(
         name="简单Hook示例",
         description="展示手动配置Hook的简单图",
-        state_schema_name="ReActState",
+        state_schema=GraphStateConfig(
+            name="ReActState",
+            fields={
+                "messages": StateFieldConfig(type="List[str]"),
+                "input": StateFieldConfig(type="str"),
+                "agent_outcome": StateFieldConfig(type="str", default=""),
+                "intermediate_steps": StateFieldConfig(type="List[dict]", default=[])
+            }
+        ),
         entry_point="start"
     )
     
     # 添加节点
-    config.add_node(NodeConfig(
+    config.nodes["start"] = NodeConfig(
         name="start",
         function_name="analysis_node",
         description="开始节点"
-    ))
+    )
     
-    config.add_node(NodeConfig(
+    config.nodes["process"] = NodeConfig(
         name="process",
         function_name="llm_node",
         description="处理节点"
-    ))
+    )
     
-    config.add_node(NodeConfig(
+    config.nodes["end"] = NodeConfig(
         name="end",
         function_name="condition_node",
         description="结束节点"
-    ))
+    )
     
     # 添加边
-    config.add_edge(EdgeConfig(
+    config.edges.append(EdgeConfig(
         from_node="start",
         to_node="process",
         type=EdgeType.SIMPLE
     ))
     
-    config.add_edge(EdgeConfig(
+    config.edges.append(EdgeConfig(
         from_node="process",
         to_node="end",
         type=EdgeType.SIMPLE
@@ -286,7 +294,7 @@ def example_hook_performance_monitoring():
     hook_manager.update_performance_stats("test_node", 15.2, success=False)  # 慢执行
     
     # 获取性能统计
-    stats = hook_manager.get_performance_stats("test_node")
+    stats = hook_manager.get_node_performance_stats("test_node")
     logger.info(f"性能统计: {stats}")
     
     # 获取指标收集数据

@@ -13,8 +13,14 @@ import time
 import threading
 from abc import ABC, abstractmethod
 
+
+
 if TYPE_CHECKING:
     from src.domain.agent.interfaces import IAgent
+    from langchain_core.runnables import RunnableConfig
+else:
+    # 运行时使用Dict作为RunnableConfig的替代
+    RunnableConfig = Dict[str, Any]
 
 from .config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
 from .state import WorkflowState, AgentState, LCBaseMessage
@@ -30,6 +36,7 @@ logger = logging.getLogger(__name__)
 # 导入LangGraph核心组件
 try:
     from langgraph.graph import StateGraph, START, END
+    from langchain_core.runnables import RunnableConfig
     from langgraph.checkpoint.memory import InMemorySaver
     from langgraph.checkpoint.sqlite import SqliteSaver
     LANGGRAPH_AVAILABLE = True
@@ -42,7 +49,7 @@ class INodeExecutor(ABC):
     """节点执行器接口"""
     
     @abstractmethod
-    def execute(self, state: WorkflowState, config: Optional[Dict[str, Any]] = None) -> WorkflowState:
+    def execute(self, state: WorkflowState, config: "Optional[RunnableConfig]" = None) -> WorkflowState:
         """执行节点逻辑"""
         pass
 
@@ -53,7 +60,7 @@ class NodeWithAdapterExecutor(INodeExecutor):
     def __init__(self, node_instance):
         self.node = node_instance
     
-    def execute(self, state: WorkflowState, config: Optional[Dict[str, Any]] = None) -> WorkflowState:
+    def execute(self, state: WorkflowState, config: "Optional[RunnableConfig]" = None) -> WorkflowState:
         # 确保config不为None
         if config is None:
             config = {}
@@ -77,7 +84,7 @@ class EnhancedNodeWithAdapterExecutor(INodeExecutor):
         from .adapters.collaboration_adapter import CollaborationStateAdapter
         self.collaboration_adapter = CollaborationStateAdapter(state_manager)
     
-    def execute(self, state: WorkflowState, config: Optional[Dict[str, Any]] = None) -> WorkflowState:
+    def execute(self, state: WorkflowState, config: "Optional[RunnableConfig]" = None) -> WorkflowState:
         """执行节点逻辑，集成状态管理功能"""
         
         # 确保config不为None
@@ -105,7 +112,7 @@ class AgentNodeExecutor(INodeExecutor):
     def __init__(self, agent: IAgent):
         self.agent = agent
     
-    def execute(self, state: WorkflowState, config: Optional[Dict[str, Any]] = None) -> WorkflowState:
+    def execute(self, state: WorkflowState, config: "Optional[RunnableConfig]" = None) -> WorkflowState:
         """执行Agent节点"""
         # 确保config不为None
         if config is None:
@@ -121,7 +128,7 @@ class AgentNodeExecutor(INodeExecutor):
                 try:
                     new_loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(new_loop)
-                    result = new_loop.run_until_complete(self.agent.execute(state, config))
+                    result = new_loop.run_until_complete(self.agent.execute(state, cast(Dict[str, Any], config)))
                 finally:
                     if new_loop:
                         # 确保清理所有待处理的任务
@@ -137,11 +144,11 @@ class AgentNodeExecutor(INodeExecutor):
             else:
                 # 在非主线程中，使用线程池执行
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(asyncio.run, self.agent.execute(state, config))
+                    future = executor.submit(asyncio.run, self.agent.execute(state, cast(Dict[str, Any], config)))
                     result = future.result()
         except RuntimeError:
             # 没有运行的事件循环，可以直接运行
-            result = asyncio.run(self.agent.execute(state, config))
+            result = asyncio.run(self.agent.execute(state, cast(Dict[str, Any], config)))
         
         return result
 
