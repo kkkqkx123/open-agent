@@ -102,13 +102,18 @@ class ILayoutManager(ABC):
     @abstractmethod
     def get_region_size(self, region: LayoutRegion) -> Tuple[int, int]:
         """获取区域尺寸
-        
+
         Args:
             region: 区域类型
-            
+
         Returns:
             Tuple[int, int]: 区域尺寸 (width, height)
         """
+        pass
+
+    @abstractmethod
+    def clear_region_contents(self) -> None:
+        """清除所有区域内容缓存，强制下次更新时触发渲染"""
         pass
 
 
@@ -488,6 +493,18 @@ class LayoutManager(ILayoutManager):
             except Exception:
                 # 如果日志记录失败，静默忽略，避免影响TUI运行
                 pass
+    
+    def clear_region_contents(self) -> None:
+        """清除所有区域内容缓存，强制下次更新时触发渲染"""
+        self.region_contents.clear()
+        # 使用TUI静默日志记录器记录调试信息
+        try:
+            from .logger import get_tui_silent_logger
+            logger = get_tui_silent_logger("layout")
+            logger.debug_render_operation("layout", "clear_region_contents")
+        except Exception:
+            # 如果日志记录失败，静默忽略，避免影响TUI运行
+            pass
     
     def _update_layout_regions_for_region(self, region: LayoutRegion, content: Any) -> None:
         """只更新指定区域的内容

@@ -114,6 +114,14 @@ class RenderController:
         # 重置刷新标记
         self._needs_refresh = False
         
+        # 强制刷新标记 - 用于界面切换等场景
+        force_refresh = getattr(state_manager, '_force_refresh', False)
+        if force_refresh:
+            # 清除哈希缓存，强制重新渲染
+            self._last_render_state.pop('main_view_hash', None)
+            self._last_render_state.pop('hash', None)
+            state_manager._force_refresh = False  # 重置标记
+        
         # 检查是否显示子界面
         if state_manager.current_subview:
             self._render_subview(state_manager)
@@ -126,28 +134,8 @@ class RenderController:
         # 检查并显示错误反馈面板
         self._check_error_feedback_panel()
         
-        # 只有在有live对象且需要时才刷新显示，避免闪烁
-        if self._needs_refresh and self.live:
-            # 使用更保守的刷新策略，避免频繁刷新
-            current_time = time.time()
-            if current_time - self._render_stats['last_update_time'] >= 0.05:  # 至少50ms间隔
-                self.live.refresh()
-                self._needs_refresh = False # 重置刷新标记
-                self._render_stats['total_updates'] += 1
-                self._render_stats['last_update_time'] = current_time
-            
-            # 更新性能统计
-            current_time = time.time()
-            if self._render_stats['last_update_time'] > 0:
-                interval = current_time - self._render_stats['last_update_time']
-                if self._render_stats['avg_update_interval'] == 0:
-                    self._render_stats['avg_update_interval'] = interval
-                else:
-                    # 使用移动平均来平滑更新间隔
-                    self._render_stats['avg_update_interval'] = \
-                        0.9 * self._render_stats['avg_update_interval'] + 0.1 * interval
-            
-            self._render_stats['last_update_time'] = current_time
+        # 注意：不再在这里执行实际刷新，让主循环统一处理
+        # 只返回是否需要刷新的标志
         
         return self._needs_refresh
     
@@ -205,12 +193,13 @@ class RenderController:
         import hashlib
         import json
         
-        # 创建当前状态的摘要
+        # 创建当前状态的摘要 - 包含子界面状态以确保界面切换时触发刷新
         state_summary = {
             "session_id": getattr(state_manager, 'session_id', ''),
             "message_count": len(getattr(state_manager, 'message_history', [])),
             "current_state": str(getattr(state_manager, 'current_state', None)),
-            "input_buffer": getattr(state_manager, 'input_buffer', '')
+            "input_buffer": getattr(state_manager, 'input_buffer', ''),
+            "current_subview": getattr(state_manager, 'current_subview', None)  # 关键：包含子界面状态
         }
         
         # 生成状态哈希

@@ -32,6 +32,9 @@ class StateManager:
         self._show_session_dialog = False
         self._show_agent_dialog = False
         self.current_subview: Optional[str] = None  # None, "analytics", "system", "errors"
+        
+        # 强制刷新标记 - 用于界面切换等场景
+        self._force_refresh: bool = False
     
     def add_user_message_hook(self, hook: Callable[[str], None]) -> None:
         self._user_message_hooks.append(hook)

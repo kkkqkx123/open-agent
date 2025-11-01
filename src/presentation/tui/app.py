@@ -467,6 +467,10 @@ class TUIApp:
             self.subview_controller.return_to_main_view()
             # 立即同步状态管理器的状态，确保状态一致性
             self.state_manager.current_subview = None
+            # 设置强制刷新标记，确保界面立即更新
+            self.state_manager._force_refresh = True
+            # 强制清除layout内容缓存，确保即使内容相同也会触发更新
+            self.layout_manager.clear_region_contents()
             self.tui_logger.debug_subview_navigation(old_subview, "main", action="escape")
             self.tui_logger.debug_key_event(key, True, "escape_handler_end_subview_return")
             return True
