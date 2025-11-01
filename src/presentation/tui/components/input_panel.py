@@ -355,18 +355,25 @@ class InputPanel:
             Panel: 输入栏面板
         """
         # 创建输入显示
-        if self.input_buffer.is_empty() and not self.is_processing:
-            input_text = Text(self.placeholder, style="dim")
-        else:
-            input_text = Text(self.input_buffer.get_text())
-            
-            # 添加光标
-            if not self.is_processing:
-                input_text.append("▊", style="blink green")
+        # 创建文本对象
+        input_text = Text()
         
         # 如果正在处理，显示状态
         if self.is_processing:
-            input_text = Text("处理中...", style="yellow")
+            input_text.append("处理中...", style="yellow")
+        else:
+            # 对于空缓冲区，光标应该在占位符前面
+            if self.input_buffer.is_empty():
+                # 添加光标和占位符
+                input_text.append("|", style="bold green")
+                input_text.append(self.placeholder, style="dim")
+            else:
+                # 获取输入缓冲区的文本
+                buffer_text = self.input_buffer.get_text()
+                # 添加输入文本
+                input_text.append(buffer_text)
+                # 添加光标
+                input_text.append("|", style="bold green")
         
         # 创建状态信息
         status_text = Text()

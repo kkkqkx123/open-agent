@@ -245,7 +245,7 @@ class StreamOutput:
         
         # 如果正在流式输出，添加光标
         if self.is_streaming:
-            main_content.append("▊", style="blink green")
+            main_content.append("|", style="bold green")
         
         content_table.add_row(main_content)
         

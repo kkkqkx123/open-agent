@@ -544,7 +544,8 @@ class TUIApp:
         elif result == "REFRESH_UI":
             # 处理UI刷新请求 - 强制更新UI
             self.tui_logger.debug_render_operation("input_result", "refresh_ui_requested")
-            # 不需要做任何额外操作，主循环会检测到状态变化并刷新UI
+            # 设置强制刷新标记
+            self.state_manager._force_refresh = True
         elif result and result.startswith("LOAD_SESSION:"):
             session_id = result.split(":", 1)[1]
             self._load_session(session_id)

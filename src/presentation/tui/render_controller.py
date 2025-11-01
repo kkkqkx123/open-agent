@@ -90,23 +90,28 @@ class RenderController:
     
     def update_ui(self, state_manager: Any) -> bool:
         """更新UI显示
-        
+         
         Args:
             state_manager: 状态管理器
-            
+             
         Returns:
             bool: 是否需要刷新显示
         """
         import time
         start_time = time.time()
-        
+         
         # 检查状态变化以决定是否需要刷新
         current_state_hash = self._get_state_hash(state_manager)
-        if current_state_hash == self._last_render_state.get('main_view_hash'):
-            # 状态没有变化，跳过更新
-            self._render_stats['skipped_updates'] += 1
-            return False
-        
+        state_changed = current_state_hash != self._last_render_state.get('main_view_hash')
+         
+        # 如果状态没有变化，检查是否有强制刷新标记
+        if not state_changed:
+            force_refresh = getattr(state_manager, '_force_refresh', False)
+            if not force_refresh:
+                # 状态没有变化且没有强制刷新，跳过更新
+                self._render_stats['skipped_updates'] += 1
+                return False
+         
         # 更新状态哈希 - 同时更新两个键以保持一致性
         self._last_render_state['hash'] = current_state_hash
         self._last_render_state['main_view_hash'] = current_state_hash
