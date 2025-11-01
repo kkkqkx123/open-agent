@@ -8,6 +8,9 @@ from typing import Optional, Callable, Dict, Any
 from blessed import Terminal
 import asyncio
 
+# 导入TUI日志记录器
+from .logger import get_tui_silent_logger
+
 
 class EventEngine:
     """事件处理引擎，负责处理键盘输入、事件分发、线程管理"""
@@ -33,10 +36,14 @@ class EventEngine:
         self.input_component_handler: Optional[Callable[[str], Optional[str]]] = None
         self.input_result_handler: Optional[Callable[[str], None]] = None
         
+        # 初始化TUI调试日志记录器
+        self.tui_logger = get_tui_silent_logger("event_engine")
+        
         # 用于处理Windows终端中Alt+数字键的特殊逻辑
         self._pending_alt_key: Optional[str] = None
         self._alt_key_timeout: float = 0.1  # 100ms超时
         self._last_escape_time: float = 0.0
+        self._pending_escape: bool = False  # 标记是否正在等待可能的Alt键组合
     
     def register_key_handler(self, key: str, handler: Callable[[str], bool]) -> None:
         """注册按键处理器
@@ -122,11 +129,13 @@ class EventEngine:
     def _check_escape_timeout(self) -> None:
         """检查ESC键是否超时，如果超时则处理为单独的ESC键"""
         import time
-        if self._pending_alt_key:
+        if self._pending_escape:
             current_time = time.time()
             if current_time - self._last_escape_time > self._alt_key_timeout:
                 # 超时，处理为单独的ESC键
-                self._pending_alt_key = None
+                self.tui_logger.debug_key_event("escape", True, "timeout_handler")
+                self._pending_escape = False
+                # 直接调用ESC键处理器，而不是再次进入_process_key
                 if "escape" in self.key_handlers:
                     self.key_handlers["escape"]("escape")
                 elif self.global_key_handler:
@@ -228,17 +237,18 @@ class EventEngine:
         
         # 处理Windows终端中Alt+数字键的特殊逻辑
         # 在Windows终端中，Alt+数字键会产生ESC键+数字键的序列
-        if self._pending_alt_key:
-            pending_alt_key = self._pending_alt_key
-            self._pending_alt_key = None
+        if self._pending_escape:
+            self._pending_escape = False
             
             # 检查当前按键是否是数字
             if key_str.startswith("char:") and len(key_str) == 6 and key_str[5].isdigit():
                 # 构造Alt键组合
                 alt_key = f"alt_{key_str[5]}"
+                self.tui_logger.debug_key_event(alt_key, False, "alt_key_detected")
                 # 检查是否有对应的Alt键处理器
                 if alt_key in self.key_handlers:
                     if self.key_handlers[alt_key](alt_key):
+                        self.tui_logger.debug_key_event(alt_key, True, "alt_key_handled")
                         return
                 # 如果没有处理器，将两个按键分别处理
                 # 先处理之前的ESC键
@@ -254,6 +264,7 @@ class EventEngine:
                 return
             else:
                 # 不是数字键，先处理之前缓存的ESC键
+                self.tui_logger.debug_key_event("escape", True, "escape_key_processed")
                 if "escape" in self.key_handlers:
                     self.key_handlers["escape"]("escape")
                 elif self.global_key_handler:
@@ -274,6 +285,7 @@ class EventEngine:
             import time
             current_time = time.time()
             self._last_escape_time = current_time
+            self._pending_escape = True
             
             # 在Windows终端中，Alt+数字键会先发送ESC键
             # 我们需要等待下一个按键来判断是否是Alt键组合

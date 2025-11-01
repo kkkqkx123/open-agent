@@ -456,25 +456,28 @@ class TUIApp:
         Returns:
             bool: 是否处理了该按键
         """
-        self.tui_logger.debug_key_event(key, True, "escape_handler")
+        self.tui_logger.debug_key_event(key, True, "escape_handler_start")
         
         if self.state_manager.current_subview:
             old_subview = self.state_manager.current_subview
             self.subview_controller.return_to_main_view()
-            # 立即同步状态管理器的状态
-            self.state_manager.current_subview = None
+            # 不再手动同步状态管理器的状态，让update_ui方法自动同步
+            # self.state_manager.current_subview = None
             self.tui_logger.debug_subview_navigation(old_subview, "main", action="escape")
+            self.tui_logger.debug_key_event(key, True, "escape_handler_end_subview_return")
             return True
         elif self.state_manager.show_session_dialog:
             self.state_manager.set_show_session_dialog(False)
             self.tui_logger.debug_component_event("escape", "close_session_dialog")
+            self.tui_logger.debug_key_event(key, True, "escape_handler_end_session_dialog")
             return True
         elif self.state_manager.show_agent_dialog:
             self.state_manager.set_show_agent_dialog(False)
             self.tui_logger.debug_component_event("escape", "close_agent_dialog")
+            self.tui_logger.debug_key_event(key, True, "escape_handler_end_agent_dialog")
             return True
         
-        self.tui_logger.debug_key_event(key, False, "escape_handler")
+        self.tui_logger.debug_key_event(key, False, "escape_handler_end_no_action")
         return False
     def _handle_timeline_scroll(self, key: str) -> bool:
         """处理时间线滚动按键
