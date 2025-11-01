@@ -9,10 +9,11 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from .interfaces import ICheckpointSerializer
-from ...application.workflow.state import (
+from ...infrastructure.graph.states import (
     create_workflow_state, BaseMessage, HumanMessage, AIMessage,
-    SystemMessage, ToolMessage, MessageRole, ToolResult
+    SystemMessage, ToolMessage, MessageRole
 )
+from ..tools.interfaces import ToolResult
 
 logger = logging.getLogger(__name__)
 
