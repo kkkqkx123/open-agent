@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Type, Callable
+from typing import Dict, Any, List, Optional, Type, Callable, Tuple
 from enum import Enum
 from datetime import datetime
 import yaml
@@ -80,7 +80,7 @@ class ValidationRule(ABC):
 class ValidationContext:
     """验证上下文"""
     
-    def __init__(self, config_path: str = "", config_data: Dict[str, Any] = None):
+    def __init__(self, config_path: str = "", config_data: Optional[Dict[str, Any]] = None):
         self.config_path = config_path
         self.config_data = config_data or {}
         self.validation_levels: List[ValidationLevel] = list(ValidationLevel)
@@ -341,7 +341,7 @@ class EnhancedConfigValidator:
         """注册验证规则"""
         self.rules[rule.rule_id] = rule
     
-    def validate_config(self, config_path: str, levels: List[ValidationLevel] = None) -> ValidationReport:
+    def validate_config(self, config_path: str, levels: Optional[List[ValidationLevel]] = None) -> ValidationReport:
         """验证配置文件
         
         Args:
@@ -370,7 +370,7 @@ class EnhancedConfigValidator:
         self.cache.set(cache_key, report)
         return report
     
-    def validate_config_data(self, config_data: Dict[str, Any], levels: List[ValidationLevel] = None) -> ValidationReport:
+    def validate_config_data(self, config_data: Dict[str, Any], levels: Optional[List[ValidationLevel]] = None) -> ValidationReport:
         """验证配置数据
         
         Args:

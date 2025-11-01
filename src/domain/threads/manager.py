@@ -7,7 +7,7 @@ import logging
 
 from .interfaces import IThreadManager
 from ...infrastructure.threads.metadata_store import IThreadMetadataStore
-from ...application.checkpoint.interfaces import ICheckpointManager
+from ...domain.checkpoint.interfaces import ICheckpointManager
 
 logger = logging.getLogger(__name__)
 

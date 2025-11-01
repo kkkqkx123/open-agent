@@ -8,9 +8,8 @@ import logging
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
-from ...domain.checkpoint.interfaces import ICheckpointStore
+from ...domain.checkpoint.interfaces import ICheckpointStore, ICheckpointManager, ICheckpointPolicy
 from ...domain.checkpoint.config import CheckpointConfig
-from .interfaces import ICheckpointManager, ICheckpointPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +29,12 @@ class DefaultCheckpointPolicy(ICheckpointPolicy):
         self.config = config
         self._step_counters: Dict[str, int] = {}
     
-    def should_save_checkpoint(self, session_id: str, workflow_id: str, 
+    def should_save_checkpoint(self, thread_id: str, workflow_id: str,
                               state: Any, context: Dict[str, Any]) -> bool:
         """判断是否应该保存checkpoint
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             workflow_id: 工作流ID
             state: 工作流状态
             context: 上下文信息
@@ -53,21 +52,21 @@ class DefaultCheckpointPolicy(ICheckpointPolicy):
         
         # 检查步数间隔
         if self.config.auto_save and self.config.save_interval > 0:
-            session_key = f"{session_id}_{workflow_id}"
-            step_count = self._step_counters.get(session_key, 0) + 1
-            self._step_counters[session_key] = step_count
+            thread_key = f"{thread_id}_{workflow_id}"
+            step_count = self._step_counters.get(thread_key, 0) + 1
+            self._step_counters[thread_key] = step_count
             
             if step_count % self.config.save_interval == 0:
                 return True
         
         return False
     
-    def get_checkpoint_metadata(self, session_id: str, workflow_id: str,
+    def get_checkpoint_metadata(self, thread_id: str, workflow_id: str,
                                state: Any, context: Dict[str, Any]) -> Dict[str, Any]:
         """获取checkpoint元数据
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             workflow_id: 工作流ID
             state: 工作流状态
             context: 上下文信息
@@ -75,12 +74,12 @@ class DefaultCheckpointPolicy(ICheckpointPolicy):
         Returns:
             Dict[str, Any]: checkpoint元数据
         """
-        session_key = f"{session_id}_{workflow_id}"
-        step_count = self._step_counters.get(session_key, 0)
+        thread_key = f"{thread_id}_{workflow_id}"
+        step_count = self._step_counters.get(thread_key, 0)
         
         return {
             'checkpoint_id': str(uuid.uuid4()),
-            'session_id': session_id,
+            'thread_id': thread_id,
             'workflow_id': workflow_id,
             'step_count': step_count,
             'node_name': context.get('node_name'),
@@ -117,16 +116,16 @@ class CheckpointManager(ICheckpointManager):
         logger.debug(f"Checkpoint管理器初始化完成，存储类型: {config.storage_type}")
     
     async def create_checkpoint(
-        self, 
-        session_id: str, 
-        workflow_id: str, 
+        self,
+        thread_id: str,
+        workflow_id: str,
         state: Any,
         metadata: Optional[Dict[str, Any]] = None
     ) -> str:
         """创建checkpoint
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             workflow_id: 工作流ID
             state: 工作流状态
             metadata: 可选的元数据
@@ -139,7 +138,7 @@ class CheckpointManager(ICheckpointManager):
             
             checkpoint_data = {
                 'id': checkpoint_id,
-                'session_id': session_id,
+                'thread_id': thread_id,
                 'workflow_id': workflow_id,
                 'state_data': state,
                 'metadata': metadata or {},
@@ -157,11 +156,11 @@ class CheckpointManager(ICheckpointManager):
             logger.error(f"创建checkpoint失败: {e}")
             raise
     
-    async def get_checkpoint(self, session_id: str, checkpoint_id: str) -> Optional[Dict[str, Any]]:
+    async def get_checkpoint(self, thread_id: str, checkpoint_id: str) -> Optional[Dict[str, Any]]:
         """获取checkpoint
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             checkpoint_id: checkpoint ID
             
         Returns:
@@ -170,7 +169,7 @@ class CheckpointManager(ICheckpointManager):
         try:
             # 尝试使用存储的load_by_session方法
             if hasattr(self.checkpoint_store, 'load_by_session'):
-                return await self.checkpoint_store.load_by_session(session_id, checkpoint_id)  # type: ignore
+                return await self.checkpoint_store.load_by_session(thread_id, checkpoint_id)  # type: ignore
             else:
                 # 回退到通用load方法
                 return await self.checkpoint_store.load(checkpoint_id)
@@ -178,26 +177,26 @@ class CheckpointManager(ICheckpointManager):
             logger.error(f"获取checkpoint失败: {e}")
             return None
     
-    async def list_checkpoints(self, session_id: str) -> List[Dict[str, Any]]:
-        """列出会话的所有checkpoint
+    async def list_checkpoints(self, thread_id: str) -> List[Dict[str, Any]]:
+        """列出thread的所有checkpoint
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             
         Returns:
             List[Dict[str, Any]]: checkpoint列表，按创建时间倒序排列
         """
         try:
-            return await self.checkpoint_store.list_by_session(session_id)
+            return await self.checkpoint_store.list_by_thread(thread_id)
         except Exception as e:
             logger.error(f"列出checkpoint失败: {e}")
             return []
     
-    async def delete_checkpoint(self, session_id: str, checkpoint_id: str) -> bool:
+    async def delete_checkpoint(self, thread_id: str, checkpoint_id: str) -> bool:
         """删除checkpoint
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             checkpoint_id: checkpoint ID
             
         Returns:
@@ -206,7 +205,7 @@ class CheckpointManager(ICheckpointManager):
         try:
             # 尝试使用存储的delete_by_session方法
             if hasattr(self.checkpoint_store, 'delete_by_session'):
-                return await self.checkpoint_store.delete_by_session(session_id, checkpoint_id)  # type: ignore
+                return await self.checkpoint_store.delete_by_session(thread_id, checkpoint_id)  # type: ignore
             else:
                 # 回退到通用delete方法
                 return await self.checkpoint_store.delete(checkpoint_id)
@@ -214,37 +213,37 @@ class CheckpointManager(ICheckpointManager):
             logger.error(f"删除checkpoint失败: {e}")
             return False
     
-    async def get_latest_checkpoint(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """获取会话的最新checkpoint
+    async def get_latest_checkpoint(self, thread_id: str) -> Optional[Dict[str, Any]]:
+        """获取thread的最新checkpoint
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             
         Returns:
             Optional[Dict[str, Any]]: 最新的checkpoint数据，如果不存在则返回None
         """
         try:
-            return await self.checkpoint_store.get_latest(session_id)
+            return await self.checkpoint_store.get_latest(thread_id)
         except Exception as e:
             logger.error(f"获取最新checkpoint失败: {e}")
             return None
     
     async def restore_from_checkpoint(
-        self, 
-        session_id: str, 
+        self,
+        thread_id: str,
         checkpoint_id: str
     ) -> Optional[Any]:
         """从checkpoint恢复状态
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             checkpoint_id: checkpoint ID
             
         Returns:
             Optional[Any]: 恢复的工作流状态，如果失败则返回None
         """
         try:
-            checkpoint = await self.get_checkpoint(session_id, checkpoint_id)
+            checkpoint = await self.get_checkpoint(thread_id, checkpoint_id)
             if checkpoint:
                 return checkpoint.get('state_data')
             return None
@@ -253,16 +252,16 @@ class CheckpointManager(ICheckpointManager):
             return None
     
     async def auto_save_checkpoint(
-        self, 
-        session_id: str, 
-        workflow_id: str, 
+        self,
+        thread_id: str,
+        workflow_id: str,
         state: Any,
         trigger_reason: str
     ) -> Optional[str]:
         """自动保存checkpoint
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             workflow_id: 工作流ID
             state: 工作流状态
             trigger_reason: 触发原因
@@ -271,7 +270,7 @@ class CheckpointManager(ICheckpointManager):
             Optional[str]: checkpoint ID，如果保存失败则返回None
         """
         try:
-            context = {
+            context: Dict[str, Any] = {
                 'trigger_reason': trigger_reason,
                 'node_name': getattr(state, 'current_step', None),
                 'tags': [trigger_reason],
@@ -279,45 +278,45 @@ class CheckpointManager(ICheckpointManager):
             }
             
             # 检查是否应该保存checkpoint
-            if not self.policy.should_save_checkpoint(session_id, workflow_id, state, context):
+            if not self.policy.should_save_checkpoint(thread_id, workflow_id, state, context):
                 return None
             
             # 获取元数据
-            metadata = self.policy.get_checkpoint_metadata(session_id, workflow_id, state, context)
+            metadata = self.policy.get_checkpoint_metadata(thread_id, workflow_id, state, context)
             
             # 创建checkpoint
-            checkpoint_id = await self.create_checkpoint(session_id, workflow_id, state, metadata)
+            checkpoint_id = await self.create_checkpoint(thread_id, workflow_id, state, metadata)
             
             # 清理旧checkpoint
             if self.config.max_checkpoints > 0:
-                await self.cleanup_checkpoints(session_id, self.config.max_checkpoints)
+                await self.cleanup_checkpoints(thread_id, self.config.max_checkpoints)
             
             return checkpoint_id
         except Exception as e:
             logger.error(f"自动保存checkpoint失败: {e}")
             return None
     
-    async def cleanup_checkpoints(self, session_id: str, max_count: int) -> int:
+    async def cleanup_checkpoints(self, thread_id: str, max_count: int) -> int:
         """清理旧的checkpoint
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             max_count: 保留的最大数量
             
         Returns:
             int: 删除的checkpoint数量
         """
         try:
-            return await self.checkpoint_store.cleanup_old_checkpoints(session_id, max_count)
+            return await self.checkpoint_store.cleanup_old_checkpoints(thread_id, max_count)
         except Exception as e:
             logger.error(f"清理checkpoint失败: {e}")
             return 0
     
-    async def get_checkpoints_by_workflow(self, session_id: str, workflow_id: str) -> List[Dict[str, Any]]:
+    async def get_checkpoints_by_workflow(self, thread_id: str, workflow_id: str) -> List[Dict[str, Any]]:
         """获取指定工作流的所有checkpoint
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             workflow_id: 工作流ID
             
         Returns:
@@ -325,29 +324,29 @@ class CheckpointManager(ICheckpointManager):
         """
         try:
             if hasattr(self.checkpoint_store, 'get_checkpoints_by_workflow'):
-                return await self.checkpoint_store.get_checkpoints_by_workflow(session_id, workflow_id)
+                return await self.checkpoint_store.get_checkpoints_by_workflow(thread_id, workflow_id)
             else:
                 # 过滤所有checkpoint
-                all_checkpoints = await self.list_checkpoints(session_id)
+                all_checkpoints = await self.list_checkpoints(thread_id)
                 return [cp for cp in all_checkpoints if cp.get('workflow_id') == workflow_id]
         except Exception as e:
             logger.error(f"获取工作流checkpoint失败: {e}")
             return []
     
-    async def get_checkpoint_count(self, session_id: str) -> int:
-        """获取会话的checkpoint数量
+    async def get_checkpoint_count(self, thread_id: str) -> int:
+        """获取thread的checkpoint数量
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             
         Returns:
             int: checkpoint数量
         """
         try:
             if hasattr(self.checkpoint_store, 'get_checkpoint_count'):
-                return await self.checkpoint_store.get_checkpoint_count(session_id)  # type: ignore
+                return await self.checkpoint_store.get_checkpoint_count(thread_id)  # type: ignore
             else:
-                checkpoints = await self.list_checkpoints(session_id)
+                checkpoints = await self.list_checkpoints(thread_id)
                 return len(checkpoints)
         except Exception as e:
             logger.error(f"获取checkpoint数量失败: {e}")
@@ -381,7 +380,7 @@ class CheckpointManager(ICheckpointManager):
             # 复制数据并更新thread ID
             checkpoint_data = source_checkpoint.copy()
             checkpoint_data['id'] = new_checkpoint_id
-            checkpoint_data['session_id'] = target_thread_id
+            checkpoint_data['thread_id'] = target_thread_id
             checkpoint_data['created_at'] = datetime.now().isoformat()
             checkpoint_data['updated_at'] = datetime.now().isoformat()
             
@@ -442,7 +441,7 @@ class CheckpointManager(ICheckpointManager):
             # 更新数据
             checkpoint_data = checkpoint_data.copy()
             checkpoint_data['id'] = new_checkpoint_id
-            checkpoint_data['session_id'] = thread_id
+            checkpoint_data['thread_id'] = thread_id
             checkpoint_data['created_at'] = datetime.now().isoformat()
             checkpoint_data['updated_at'] = datetime.now().isoformat()
             

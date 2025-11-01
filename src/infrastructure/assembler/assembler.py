@@ -338,7 +338,7 @@ class ComponentAssembler(IComponentAssembler):
         )
         
         # 注册Checkpoint相关服务
-        from ...application.checkpoint.interfaces import ICheckpointManager
+        from ...domain.checkpoint.interfaces import ICheckpointManager
         from ...application.checkpoint.manager import CheckpointManager, DefaultCheckpointPolicy
         from ...domain.checkpoint.config import CheckpointConfig
         from ...domain.checkpoint.interfaces import ICheckpointStore
@@ -493,7 +493,7 @@ class ComponentAssembler(IComponentAssembler):
                         from ..config_loader import IConfigLoader
                         interface_class = IConfigLoader
                     elif service_name == "ICheckpointManager":
-                        from ...application.checkpoint.interfaces import ICheckpointManager
+                        from ...domain.checkpoint.interfaces import ICheckpointManager
                         interface_class = ICheckpointManager
                     else:
                         raise ImportError(f"无法解析接口类: {service_name}")

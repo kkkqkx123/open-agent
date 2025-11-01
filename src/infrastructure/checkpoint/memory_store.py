@@ -34,17 +34,17 @@ class MemoryCheckpointAdapter:
         self.checkpointer = checkpointer
         self.serializer = serializer
     
-    def _create_langgraph_config(self, session_id: str, checkpoint_id: Optional[str] = None) -> Dict[str, Any]:
+    def _create_langgraph_config(self, thread_id: str, checkpoint_id: Optional[str] = None) -> Dict[str, Any]:
         """创建LangGraph标准配置
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             checkpoint_id: 可选的checkpoint ID
             
         Returns:
             Dict[str, Any]: LangGraph配置
         """
-        config = {"configurable": {"thread_id": session_id, "checkpoint_ns": ""}}
+        config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
         if checkpoint_id:
             config["configurable"]["checkpoint_id"] = checkpoint_id
         return config
@@ -269,7 +269,7 @@ class MemoryCheckpointStore(ICheckpointStore):
             # 确保checkpointer已初始化
             self._ensure_checkpointer_initialized()
             
-            session_id = checkpoint_data['session_id']
+            thread_id = checkpoint_data['thread_id']
             workflow_id = checkpoint_data['workflow_id']
             state = checkpoint_data['state_data']
             metadata = checkpoint_data.get('metadata', {})
@@ -278,7 +278,7 @@ class MemoryCheckpointStore(ICheckpointStore):
             metadata['workflow_id'] = workflow_id
             
             # 创建LangGraph配置（包含checkpoint_ns字段）
-            config = {"configurable": {"thread_id": session_id, "checkpoint_ns": ""}}
+            config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
             
             # 创建LangGraph checkpoint（简化channel_values结构）
             checkpoint, enhanced_metadata = self._adapter._create_langgraph_checkpoint(state, workflow_id, metadata)
@@ -286,7 +286,7 @@ class MemoryCheckpointStore(ICheckpointStore):
             # 保存checkpoint - 使用增强的metadata
             success = self._adapter.put(config, checkpoint, enhanced_metadata, {})
             if success:
-                logger.debug(f"成功保存checkpoint，session_id: {session_id}, workflow_id: {workflow_id}")
+                logger.debug(f"成功保存checkpoint，thread_id: {thread_id}, workflow_id: {workflow_id}")
             return success
         except Exception as e:
             logger.error(f"保存checkpoint失败: {e}")
@@ -348,11 +348,11 @@ class MemoryCheckpointStore(ICheckpointStore):
             logger.error(f"加载checkpoint失败: {e}")
             return None
     
-    async def list_by_session(self, session_id: str) -> List[Dict[str, Any]]:
-        """列出会话的所有checkpoint
+    async def list_by_thread(self, thread_id: str) -> List[Dict[str, Any]]:
+        """列出thread的所有checkpoint
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             
         Returns:
             List[Dict[str, Any]]: checkpoint列表，按创建时间倒序排列
@@ -361,7 +361,7 @@ class MemoryCheckpointStore(ICheckpointStore):
             # 确保checkpointer已初始化
             self._ensure_checkpointer_initialized()
             
-            config = {"configurable": {"thread_id": session_id, "checkpoint_ns": ""}}
+            config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
             checkpoint_tuples = self._adapter.list(config)
             
             result = []
@@ -369,7 +369,7 @@ class MemoryCheckpointStore(ICheckpointStore):
                 workflow_id = metadata.get('workflow_id', 'unknown')
                 result.append({
                     'id': checkpoint.get('id'),
-                    'session_id': session_id,
+                    'thread_id': thread_id,
                     'workflow_id': workflow_id,
                     'state_data': self._adapter._extract_state_from_checkpoint(checkpoint, metadata),
                     'metadata': metadata,
@@ -398,11 +398,11 @@ class MemoryCheckpointStore(ICheckpointStore):
         logger.warning("delete方法需要配合session_id使用，建议使用delete_by_session方法")
         return False
     
-    async def delete_by_session(self, session_id: str, checkpoint_id: Optional[str] = None) -> bool:
-        """根据会话ID删除checkpoint
+    async def delete_by_session(self, thread_id: str, checkpoint_id: Optional[str] = None) -> bool:
+        """根据thread ID删除checkpoint
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             checkpoint_id: 可选的checkpoint ID，如果为None则删除所有
             
         Returns:
@@ -415,14 +415,14 @@ class MemoryCheckpointStore(ICheckpointStore):
             if checkpoint_id:
                 # LangGraph的InMemorySaver不支持删除单个checkpoint
                 # 我们通过重新保存除要删除的checkpoint之外的所有checkpoint来模拟
-                checkpoints = await self.list_by_session(session_id)
+                checkpoints = await self.list_by_thread(thread_id)
                 
                 # 找到要保留的checkpoint（除要删除的之外）
                 checkpoints_to_keep = []
                 for checkpoint in checkpoints:
                     if checkpoint['id'] != checkpoint_id:
                         checkpoint_data = {
-                            'session_id': session_id,
+                            'thread_id': thread_id,
                             'workflow_id': checkpoint['workflow_id'],
                             'state_data': checkpoint['state_data'],
                             'metadata': checkpoint['metadata']
@@ -430,7 +430,7 @@ class MemoryCheckpointStore(ICheckpointStore):
                         checkpoints_to_keep.append(checkpoint_data)
                 
                 # 删除整个会话
-                config = {"configurable": {"thread_id": session_id, "checkpoint_ns": ""}}
+                config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
                 self._adapter.delete(config)
                 
                 # 重新保存需要保留的checkpoint
@@ -440,36 +440,36 @@ class MemoryCheckpointStore(ICheckpointStore):
                 return True
             else:
                 # 删除整个会话的所有checkpoint
-                config = {"configurable": {"thread_id": session_id, "checkpoint_ns": ""}}
+                config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
                 return self._adapter.delete(config)
         except Exception as e:
             logger.error(f"删除checkpoint失败: {e}")
             return False
     
-    async def get_latest(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """获取会话的最新checkpoint
+    async def get_latest(self, thread_id: str) -> Optional[Dict[str, Any]]:
+        """获取thread的最新checkpoint
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             
         Returns:
             Optional[Dict[str, Any]]: 最新的checkpoint数据，如果不存在则返回None
         """
-        checkpoints = await self.list_by_session(session_id)
+        checkpoints = await self.list_by_thread(thread_id)
         return checkpoints[0] if checkpoints else None
     
-    async def cleanup_old_checkpoints(self, session_id: str, max_count: int) -> int:
+    async def cleanup_old_checkpoints(self, thread_id: str, max_count: int) -> int:
         """清理旧的checkpoint，保留最新的max_count个
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             max_count: 保留的最大数量
             
         Returns:
             int: 删除的checkpoint数量
         """
         try:
-            checkpoints = await self.list_by_session(session_id)
+            checkpoints = await self.list_by_thread(thread_id)
             if len(checkpoints) <= max_count:
                 return 0
             
@@ -483,7 +483,7 @@ class MemoryCheckpointStore(ICheckpointStore):
             for checkpoint in checkpoints_to_keep:
                 # 重新构造checkpoint数据
                 checkpoint_data = {
-                    'session_id': session_id,
+                    'thread_id': thread_id,
                     'workflow_id': checkpoint['workflow_id'],
                     'state_data': checkpoint['state_data'],
                     'metadata': checkpoint['metadata']
@@ -491,7 +491,7 @@ class MemoryCheckpointStore(ICheckpointStore):
                 checkpoints_data.append(checkpoint_data)
             
             # 删除整个会话
-            await self.delete_by_session(session_id)
+            await self.delete_by_session(thread_id)
             
             # 重新保存需要保留的checkpoint
             for checkpoint_data in checkpoints_data:
@@ -502,30 +502,41 @@ class MemoryCheckpointStore(ICheckpointStore):
             logger.error(f"清理旧checkpoint失败: {e}")
             return 0
     
-    async def get_checkpoints_by_workflow(self, session_id: str, workflow_id: str) -> List[Dict[str, Any]]:
+    async def get_checkpoints_by_workflow(self, thread_id: str, workflow_id: str) -> List[Dict[str, Any]]:
         """获取指定工作流的所有checkpoint
         
         Args:
-            session_id: 会话ID
+            thread_id: thread ID
             workflow_id: 工作流ID
             
         Returns:
             List[Dict[str, Any]]: checkpoint列表，按创建时间倒序排列
         """
-        checkpoints = await self.list_by_session(session_id)
+        checkpoints = await self.list_by_thread(thread_id)
         return [cp for cp in checkpoints if cp.get('workflow_id') == workflow_id]
     
-    async def get_checkpoint_count(self, session_id: str) -> int:
-        """获取会话的checkpoint数量
+    async def get_checkpoint_count(self, thread_id: str) -> int:
+        """获取thread的checkpoint数量
+        
+        Args:
+            thread_id: thread ID
+            
+        Returns:
+            int: checkpoint数量
+        """
+        checkpoints = await self.list_by_thread(thread_id)
+        return len(checkpoints)
+    
+    async def list_by_session(self, session_id: str) -> List[Dict[str, Any]]:
+        """列出会话的所有checkpoint (list_by_thread的别名)
         
         Args:
             session_id: 会话ID
             
         Returns:
-            int: checkpoint数量
+            List[Dict[str, Any]]: checkpoint列表，按创建时间倒序排列
         """
-        checkpoints = await self.list_by_session(session_id)
-        return len(checkpoints)
+        return await self.list_by_thread(session_id)
     
     def clear(self):
         """清除所有checkpoint（仅用于测试）"""
