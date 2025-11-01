@@ -1,18 +1,28 @@
 # 全局配置
 log_level: "DEBUG"
 log_outputs:
+  # 控制台日志输出配置 - 用于开发和调试时的实时日志查看
   - type: "console"
     level: "DEBUG"
     format: "text"
+  # Agent主日志文件配置 - 用于记录Agent的核心运行日志
   - type: "file"
     level: "DEBUG"
     format: "json"
     path: "logs/agent.log"
     rotation: "daily"
     max_size: "10MB"
+  # TUI专用日志文件配置 - 用于记录TUI界面的调试和操作日志
+  - type: "file"
+    level: "DEBUG"
+    format: "text"
+    path: "logs/tui.log"
+    rotation: "daily"
+    max_size: "10MB"
 
 secret_patterns:
   - "sk-[a-zA-Z0-9]{20,}"
+  - "ms-[a-zA-Z0-9]{15,}"
   - "\\w+@\\w+\\.\\w+"
   - "1\\d{10}"
 

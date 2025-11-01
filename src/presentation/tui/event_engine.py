@@ -155,8 +155,17 @@ class EventEngine:
                 return "tab"
             elif char == '\x7f' or char == '\x08':
                 return "backspace"
-            elif char == '\x1b':
+            elif char == '\x1b':  # ESC字符
                 return "escape"
+            # 检查是否是Alt+字符的组合，这种情况下字符的ASCII码通常是原始字符+128
+            elif len(char) == 1 and 128 <= ord(char) <= 255:
+                # 这可能是Alt+字符的组合
+                original_char = chr(ord(char) - 128)
+                # 对于数字键，转换为alt+数字的格式
+                if original_char.isdigit():
+                    return f"alt_{original_char}"
+                else:
+                    return f"alt_{original_char}"
             else:
                 return f"char:{char}"
     
@@ -176,6 +185,23 @@ class EventEngine:
             "key_home", "key_end",  # Home/End
             "key_dc", "key_ic",  # Delete/Insert
         }
+        
+        # 定义应该优先由注册的按键处理器处理的按键（快捷键相关）
+        shortcut_keys = {
+            "escape",  # ESC键
+        }
+        
+        # 检查是否以alt开头的组合键
+        if key_str.startswith("alt_") or key_str.startswith("key_alt_"):
+            # Alt组合键优先由注册的按键处理器处理
+            if key_str in self.key_handlers:
+                if self.key_handlers[key_str](key_str):
+                    return
+            
+            # 如果注册的处理器没有处理，则继续让全局处理器处理
+            if self.global_key_handler:
+                self.global_key_handler(key_str)
+            return
         
         # 如果是全局优先按键，先让注册的按键处理器处理
         if key_str in global_priority_keys:

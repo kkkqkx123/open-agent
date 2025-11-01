@@ -63,7 +63,7 @@ class TUISilentLogger:
                 config={
                     "type": "file",
                     "level": "DEBUG" if self.tui_manager.is_debug_enabled() else "INFO",
-                    "file_path": str(log_path),
+                    "path": str(log_path),
                     "format": "text",
                     "rotation": "daily",
                     "max_size": "10MB",

@@ -345,12 +345,12 @@ class TUIApp:
     def _register_global_shortcuts(self) -> None:
         """注册全局快捷键"""
         self.event_engine.register_key_handler("escape", self._handle_escape_key)
-        self.event_engine.register_key_handler("alt+1", lambda _: self._switch_to_subview("analytics"))
-        self.event_engine.register_key_handler("alt+2", lambda _: self._switch_to_subview("visualization"))
-        self.event_engine.register_key_handler("alt+3", lambda _: self._switch_to_subview("system"))
-        self.event_engine.register_key_handler("alt+4", lambda _: self._switch_to_subview("errors"))
-        self.event_engine.register_key_handler("alt+5", lambda _: self._switch_to_subview("status_overview"))
-        self.event_engine.register_key_handler("alt+6", lambda _: self._switch_to_subview("langgraph"))
+        self.event_engine.register_key_handler("alt_1", lambda _: self._switch_to_subview("analytics"))
+        self.event_engine.register_key_handler("alt_2", lambda _: self._switch_to_subview("visualization"))
+        self.event_engine.register_key_handler("alt_3", lambda _: self._switch_to_subview("system"))
+        self.event_engine.register_key_handler("alt_4", lambda _: self._switch_to_subview("errors"))
+        self.event_engine.register_key_handler("alt_5", lambda _: self._switch_to_subview("status_overview"))
+        self.event_engine.register_key_handler("alt_6", lambda _: self._switch_to_subview("langgraph"))
         
         # 统一时间线快捷键
         self.event_engine.register_key_handler("key_ppage", self._handle_timeline_scroll)
