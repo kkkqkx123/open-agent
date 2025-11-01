@@ -6,6 +6,7 @@ import time
 import queue
 from typing import Optional, Callable, Dict, Any
 from blessed import Terminal
+import asyncio
 
 
 class EventEngine:
@@ -31,6 +32,11 @@ class EventEngine:
         # 输入组件处理器
         self.input_component_handler: Optional[Callable[[str], Optional[str]]] = None
         self.input_result_handler: Optional[Callable[[str], None]] = None
+        
+        # 用于处理Windows终端中Alt+数字键的特殊逻辑
+        self._pending_alt_key: Optional[str] = None
+        self._alt_key_timeout: float = 0.1  # 100ms超时
+        self._last_escape_time: float = 0.0
     
     def register_key_handler(self, key: str, handler: Callable[[str], bool]) -> None:
         """注册按键处理器
@@ -93,6 +99,9 @@ class EventEngine:
                 except queue.Empty:
                     pass
                 
+                # 检查ESC键超时
+                self._check_escape_timeout()
+                
                 # 短暂休眠以减少CPU使用率
                 time.sleep(0.05)
                 
@@ -109,6 +118,19 @@ class EventEngine:
         self.running = False
         if self.input_thread and self.input_thread.is_alive():
             self.input_thread.join(timeout=1.0)
+    
+    def _check_escape_timeout(self) -> None:
+        """检查ESC键是否超时，如果超时则处理为单独的ESC键"""
+        import time
+        if self._pending_alt_key:
+            current_time = time.time()
+            if current_time - self._last_escape_time > self._alt_key_timeout:
+                # 超时，处理为单独的ESC键
+                self._pending_alt_key = None
+                if "escape" in self.key_handlers:
+                    self.key_handlers["escape"]("escape")
+                elif self.global_key_handler:
+                    self.global_key_handler("escape")
     
     def _input_reader(self) -> None:
         """输入读取线程 - 使用blessed的inkey()方法"""
@@ -142,7 +164,27 @@ class EventEngine:
             # 这是一个序列键（方向键、功能键等）
             if keystroke.name:
                 # 使用blessed提供的标准名称
-                return keystroke.name.lower()
+                name = keystroke.name.lower()
+                # 特殊处理ESC键
+                if name == 'key_escape':
+                    return "escape"
+                # 特殊处理Alt键组合
+                # 在某些终端中，Alt+数字键可能被识别为特定的键名
+                if name.startswith('key_') and 'alt' in name.lower():
+                    # 尝试提取数字
+                    if '1' in name:
+                        return "alt_1"
+                    elif '2' in name:
+                        return "alt_2"
+                    elif '3' in name:
+                        return "alt_3"
+                    elif '4' in name:
+                        return "alt_4"
+                    elif '5' in name:
+                        return "alt_5"
+                    elif '6' in name:
+                        return "alt_6"
+                return name
             else:
                 # 如果没有名称，使用code
                 return f"key_{keystroke.code}"
@@ -166,6 +208,12 @@ class EventEngine:
                     return f"alt_{original_char}"
                 else:
                     return f"alt_{original_char}"
+            # 在Windows终端中，Alt+数字键可能直接产生数字字符
+            # 但我们无法区分是直接按数字键还是Alt+数字键
+            # 所以我们依赖于事件引擎中的特殊处理
+            elif len(char) == 1 and char.isdigit():
+                # 这里我们暂时不处理，留给事件引擎处理
+                return f"char:{char}"
             else:
                 return f"char:{char}"
     
@@ -178,6 +226,40 @@ class EventEngine:
         if not key_str:
             return
         
+        # 处理Windows终端中Alt+数字键的特殊逻辑
+        # 在Windows终端中，Alt+数字键会产生ESC键+数字键的序列
+        if self._pending_alt_key:
+            pending_alt_key = self._pending_alt_key
+            self._pending_alt_key = None
+            
+            # 检查当前按键是否是数字
+            if key_str.startswith("char:") and len(key_str) == 6 and key_str[5].isdigit():
+                # 构造Alt键组合
+                alt_key = f"alt_{key_str[5]}"
+                # 检查是否有对应的Alt键处理器
+                if alt_key in self.key_handlers:
+                    if self.key_handlers[alt_key](alt_key):
+                        return
+                # 如果没有处理器，将两个按键分别处理
+                # 先处理之前的ESC键
+                if "escape" in self.key_handlers:
+                    self.key_handlers["escape"]("escape")
+                elif self.global_key_handler:
+                    self.global_key_handler("escape")
+                # 再处理当前的数字键
+                if self.input_component_handler:
+                    result = self.input_component_handler(key_str)
+                    if result is not None and self.input_result_handler:
+                        self.input_result_handler(result)
+                return
+            else:
+                # 不是数字键，先处理之前缓存的ESC键
+                if "escape" in self.key_handlers:
+                    self.key_handlers["escape"]("escape")
+                elif self.global_key_handler:
+                    self.global_key_handler("escape")
+                # 继续处理当前按键
+        
         # 定义应该优先由全局处理器处理的按键（虚拟滚动相关）
         global_priority_keys = {
             "key_up", "key_down", "key_left", "key_right",  # 方向键
@@ -186,10 +268,17 @@ class EventEngine:
             "key_dc", "key_ic",  # Delete/Insert
         }
         
-        # 定义应该优先由注册的按键处理器处理的按键（快捷键相关）
-        shortcut_keys = {
-            "escape",  # ESC键
-        }
+        # 检查是否是ESC键
+        if key_str == "escape":
+            # 记录ESC键按下的时间
+            import time
+            current_time = time.time()
+            self._last_escape_time = current_time
+            
+            # 在Windows终端中，Alt+数字键会先发送ESC键
+            # 我们需要等待下一个按键来判断是否是Alt键组合
+            self._pending_alt_key = key_str
+            return
         
         # 检查是否以alt开头的组合键
         if key_str.startswith("alt_") or key_str.startswith("key_alt_"):
