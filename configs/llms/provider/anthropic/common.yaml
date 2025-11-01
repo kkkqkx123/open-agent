@@ -4,6 +4,10 @@ base_url: "https://api.anthropic.com"
 headers:
   User-Agent: "ModularAgent/1.0"
 
+# 工具调用配置
+function_calling_supported: true
+function_calling_mode: "auto"
+
 # 缓存配置
 supports_caching: true  # Anthropic支持缓存控制
 cache_config:

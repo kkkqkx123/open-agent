@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, List, Optional
 from src.infrastructure.logger.logger import ILogger
-from src.infrastructure.tools.manager import ToolManager
+from src.infrastructure.tools.interfaces import IToolManager
 from ..interfaces import IToolValidator
 from ..models import ValidationResult, ValidationStatus
 
@@ -13,7 +13,7 @@ from ..models import ValidationResult, ValidationStatus
 class LoadingValidator(IToolValidator):
     """加载验证器"""
     
-    def __init__(self, tool_manager: ToolManager, logger: ILogger):
+    def __init__(self, tool_manager: IToolManager, logger: ILogger):
         """初始化加载验证器
         
         Args:

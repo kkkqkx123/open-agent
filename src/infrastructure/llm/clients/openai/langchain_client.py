@@ -249,7 +249,8 @@ class LangChainChatClient(ChatCompletionClient):
         Returns:
             bool: 是否支持函数调用
         """
-        return True
+        # 从配置中读取是否支持函数调用
+        return getattr(self.config, 'function_calling_supported', True)
     
     def _handle_error(self, error: Exception) -> Exception:
         """

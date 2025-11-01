@@ -2,6 +2,9 @@
 inherits_from: "../common.yaml"
 model_name: human-relay-m
 
+function_calling_supported: false
+function_calling_mode: "none"
+
 parameters:
   mode: "multi"
   max_history_length: 100  # 扩展历史长度

@@ -184,8 +184,8 @@ class GeminiClient(BaseLLMClient):
 
     def supports_function_calling(self) -> bool:
         """检查是否支持函数调用"""
-        # Gemini支持函数调用
-        return True
+        # 从配置中读取是否支持函数调用
+        return getattr(self.config, 'function_calling_supported', True)
 
     def _extract_token_usage(self, response: Any) -> TokenUsage:
         """提取Token使用情况"""

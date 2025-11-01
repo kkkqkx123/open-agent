@@ -163,8 +163,8 @@ class MockLLMClient(BaseLLMClient):
 
     def supports_function_calling(self) -> bool:
         """检查是否支持函数调用"""
-        # Mock客户端支持函数调用
-        return True
+        # 从配置中读取是否支持函数调用
+        return getattr(self.config, 'function_calling_supported', True)
 
     def _generate_response_content(
         self, messages: Sequence[BaseMessage], parameters: Optional[Dict[str, Any]] = None

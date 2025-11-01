@@ -4,6 +4,10 @@ base_url: "https://generativelanguage.googleapis.com/v1"
 headers:
   User-Agent: "ModularAgent/1.0"
 
+# 工具调用配置
+function_calling_supported: true
+function_calling_mode: "auto"
+
 # 缓存配置
 supports_caching: true  # Gemini明确支持缓存API
 cache_config:

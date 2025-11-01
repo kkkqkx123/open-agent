@@ -4,6 +4,10 @@ base_url: "https://api.openai.com/v1"
 headers:
   User-Agent: "ModularAgent/1.0"
 
+# 工具调用配置
+function_calling_supported: true
+function_calling_mode: "auto"
+
 # 缓存配置
 supports_caching: false  # OpenAI不直接支持API级缓存
 cache_config:

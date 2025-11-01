@@ -1,0 +1,6 @@
+model_type: openai
+model_name: test-model
+function_calling_supported: false
+function_calling_mode: "none"
+base_url: "https://api.openai.com/v1"
+api_key: "test-key"

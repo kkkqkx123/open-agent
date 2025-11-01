@@ -274,8 +274,8 @@ class HumanRelayClient(BaseLLMClient):
     
     def supports_function_calling(self) -> bool:
         """检查是否支持函数调用"""
-        # HumanRelay通过Web LLM支持函数调用
-        return True
+        # 从配置中读取是否支持函数调用
+        return getattr(self.config, 'function_calling_supported', True)
     
     def clear_conversation_history(self) -> None:
         """清除对话历史"""

@@ -20,9 +20,11 @@ class LLMConfig(BaseConfig):
     base_url: Optional[str] = Field(None, description="API基础URL")
     api_key: Optional[str] = Field(None, description="API密钥")
     headers: Dict[str, str] = Field(default_factory=dict, description="请求头")
+    api_format: Optional[str] = Field(None, description="API格式")
 
     # 参数配置
     parameters: Dict[str, Any] = Field(default_factory=dict, description="模型参数")
+    api_formats: Dict[str, Any] = Field(default_factory=dict, description="API格式配置")
 
     # 重试和超时配置
     retry_config: RetryTimeoutConfig = Field(
@@ -57,6 +59,11 @@ class LLMConfig(BaseConfig):
     fallback_enabled: bool = Field(True, description="是否启用降级")
     fallback_models: List[str] = Field(default_factory=list, description="降级模型列表")
     max_fallback_attempts: int = Field(3, description="最大降级尝试次数")
+    fallback_formats: List[str] = Field(default_factory=list, description="降级格式列表")
+
+    # 工具调用配置
+    function_calling_supported: bool = Field(True, description="是否支持函数调用")
+    function_calling_mode: str = Field("auto", description="函数调用模式: auto, none, required")
 
     # 元数据
     metadata: Dict[str, Any] = Field(default_factory=dict, description="元数据")
@@ -323,6 +330,14 @@ class LLMConfig(BaseConfig):
     def get_max_fallback_attempts(self) -> int:
         """获取最大降级尝试次数"""
         return self.max_fallback_attempts
+
+    def supports_function_calling(self) -> bool:
+        """检查是否支持函数调用"""
+        return self.function_calling_supported
+
+    def get_function_calling_mode(self) -> str:
+        """获取函数调用模式"""
+        return self.function_calling_mode
 
     def get_metadata(self, key: str, default: Any = None) -> Any:
         """获取元数据值"""

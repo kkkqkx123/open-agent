@@ -50,16 +50,8 @@ class FunctionCallingFormatter(IToolFormatter):
         Returns:
             str: 策略类型
         """
-        # 根据模型类型判断是否支持Function Calling
-        # 通过get_model_info获取模型名称
-        model_info = llm_client.get_model_info()
-        model_name = model_info.get("name", "").lower()
-
-        # OpenAI模型通常支持Function Calling
-        if "gpt" in model_name:
-            return "function_calling"
-        # Anthropic模型也支持Function Calling
-        elif "claude" in model_name:
+        # 通过LLM客户端的supports_function_calling方法判断是否支持Function Calling
+        if llm_client.supports_function_calling():
             return "function_calling"
         # 其他模型默认使用结构化输出
         else:

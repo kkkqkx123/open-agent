@@ -2,6 +2,9 @@
 inherits_from: "../common.yaml"
 model_name: human-relay-s
 
+function_calling_supported: false
+function_calling_mode: "none"
+
 parameters:
   mode: "single"
 

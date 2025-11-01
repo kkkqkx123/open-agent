@@ -80,6 +80,10 @@ class LLMClientConfig:
         default_factory=lambda: ConnectionPoolConfig()  # type: ignore
     )
 
+    # 工具调用配置
+    function_calling_supported: bool = True
+    function_calling_mode: str = "auto"
+
     # 元数据
     metadata_config: Dict[str, Any] = field(default_factory=dict)
 
@@ -134,11 +138,13 @@ class LLMClientConfig:
             stream=parameters.get("stream", False),
             functions=parameters.get("functions"),
             function_call=parameters.get("function_call"),
-            fallback_enabled=parameters.get("fallback_enabled", True),
-            fallback_models=parameters.get("fallback_models", []),
-            max_fallback_attempts=parameters.get("max_fallback_attempts", 3),
+            fallback_enabled=config.fallback_enabled,
+            fallback_models=config.fallback_models,
+            max_fallback_attempts=config.max_fallback_attempts,
+            function_calling_supported=config.function_calling_supported,
+            function_calling_mode=config.function_calling_mode,
             connection_pool_config=config.connection_pool_config,
-            metadata_config=parameters.get("metadata", {}),
+            metadata_config=config.metadata,
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -455,6 +461,8 @@ class LLMClientConfig:
                 stream=config_dict.get("stream", False),
                 functions=config_dict.get("functions"),
                 function_call=config_dict.get("function_call"),
+                function_calling_supported=config_dict.get("function_calling_supported", True),
+                function_calling_mode=config_dict.get("function_calling_mode", "auto"),
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
@@ -483,6 +491,8 @@ class LLMClientConfig:
                 stream=config_dict.get("stream", False),
                 functions=config_dict.get("functions"),
                 function_call=config_dict.get("function_call"),
+                function_calling_supported=config_dict.get("function_calling_supported", True),
+                function_calling_mode=config_dict.get("function_calling_mode", "auto"),
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
@@ -512,6 +522,8 @@ class LLMClientConfig:
                 stream=config_dict.get("stream", False),
                 functions=config_dict.get("functions"),
                 function_call=config_dict.get("function_call"),
+                function_calling_supported=config_dict.get("function_calling_supported", True),
+                function_calling_mode=config_dict.get("function_calling_mode", "auto"),
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),

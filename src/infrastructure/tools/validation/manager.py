@@ -39,7 +39,7 @@ class ToolValidationManager:
         """
         self.config_loader = config_loader
         self.logger = logger
-        self.tool_manager = tool_manager
+        self.tool_manager: Optional[IToolManager] = tool_manager
         self.validators: Dict[str, IToolValidator] = {}
         self._register_validators()
     
@@ -123,10 +123,13 @@ class ToolValidationManager:
         Returns:
             List[Path]: 配置文件路径列表
         """
-        self.logger.info(f"配置加载器base_path: {self.config_loader.base_path}")
+        # 注意：IConfigLoader接口没有base_path属性，我们需要通过其他方式获取基础路径
+        base_path = getattr(self.config_loader, 'base_path', 'configs')
+        self.logger.info(f"配置加载器base_path: {base_path}")
         self.logger.info(f"传入的config_dir: {config_dir}")
         # 使用配置加载器的base_path来构建完整路径
-        full_config_path = Path(self.config_loader.base_path) / config_dir
+        base_path = getattr(self.config_loader, 'base_path', Path('configs'))
+        full_config_path = Path(base_path) / config_dir
         self.logger.info(f"完整配置目录路径: {full_config_path}")
         self.logger.info(f"完整配置目录是否存在: {full_config_path.exists()}")
         if not full_config_path.exists():
@@ -208,7 +211,7 @@ class ToolValidationManager:
         """
         import json
         
-        report_data = {
+        report_data: Dict[str, Any] = {
             "summary": {
                 "total_tools": len(all_results),
                 "successful_tools": 0,
@@ -220,14 +223,14 @@ class ToolValidationManager:
         successful_count = 0
         
         for tool_name, results in all_results.items():
-            tool_data = {
+            tool_data: Dict[str, Any] = {
                 "name": tool_name,
                 "stages": {}
             }
-            
+
             tool_successful = True
             for stage, result in results.items():
-                stage_data = {
+                stage_data: Dict[str, Any] = {
                     "status": result.status.value,
                     "issues": []
                 }
