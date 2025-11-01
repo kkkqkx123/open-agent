@@ -203,9 +203,24 @@ class RenderController:
             "session_id": getattr(state_manager, 'session_id', ''),
             "message_count": len(getattr(state_manager, 'message_history', [])),
             "current_state": str(getattr(state_manager, 'current_state', None)),
-            "input_buffer": getattr(state_manager, 'input_buffer', ''),
             "current_subview": getattr(state_manager, 'current_subview', None)  # 关键：包含子界面状态
         }
+        
+        # 添加输入缓冲区状态检测 - 从输入组件获取实际的输入缓冲区状态
+        if hasattr(self, 'input_component') and self.input_component:
+            input_buffer = self.input_component.input_buffer
+            if input_buffer:
+                state_summary['input_buffer_text'] = input_buffer.get_text()
+                state_summary['input_buffer_cursor'] = input_buffer.cursor_position
+                state_summary['input_buffer_multiline'] = input_buffer.multiline_mode
+            else:
+                state_summary['input_buffer_text'] = ''
+                state_summary['input_buffer_cursor'] = 0
+                state_summary['input_buffer_multiline'] = False
+        else:
+            state_summary['input_buffer_text'] = getattr(state_manager, 'input_buffer', '')
+            state_summary['input_buffer_cursor'] = 0
+            state_summary['input_buffer_multiline'] = False
         
         # 生成状态哈希
         state_hash = hashlib.md5(json.dumps(state_summary, sort_keys=True, default=str).encode()).hexdigest()
