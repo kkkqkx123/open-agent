@@ -6,12 +6,11 @@ from pathlib import Path
 
 from src.infrastructure.logger.logger import Logger
 from src.infrastructure.logger.log_level import LogLevel
-from src.infrastructure.logger.handlers.file_handler import FileHandler
-from .tui_logger_manager import TUILoggerManager
+from .tui_logger_manager import TUILoggerManager, get_tui_logger
 
 
 class TUISilentLogger:
-    """TUI静默日志记录器，只输出到文件，不输出到终端"""
+    """TUI静默日志记录器，统一输出到TUI主日志文件，不输出到终端"""
     
     def __init__(self, name: str = "main"):
         """初始化TUI静默日志记录器
@@ -31,57 +30,20 @@ class TUISilentLogger:
             self._initialized = True
     
     def _initialize_logger(self) -> None:
-        """初始化日志记录器，只设置文件输出"""
+        """初始化日志记录器，使用TUILoggerManager提供的统一日志记录器"""
         try:
-            # 创建一个只输出到文件的日志记录器
-            full_name = f"tui.{self.name}"
-            self._logger = Logger(full_name, None)  # 不传递配置，避免控制台输出
+            # 使用TUILoggerManager获取统一的日志记录器
+            # 将模块名称作为日志记录器的前缀，以便在统一日志中区分来源
+            self._logger = get_tui_logger(f"silent.{self.name}")
             
             # 设置日志级别
             if self.tui_manager.is_debug_enabled():
+                from src.infrastructure.logger.log_level import LogLevel
                 self._logger.set_level(LogLevel.DEBUG)
-            else:
-                self._logger.set_level(LogLevel.INFO)
-            
-            # 只添加文件处理器，不添加控制台处理器
-            self._setup_file_handler_only()
             
         except Exception as e:
             # 如果初始化失败，创建一个空的日志记录器
             self._logger = None
-    
-    def _setup_file_handler_only(self) -> None:
-        """只设置文件处理器"""
-        try:
-            # 创建TUI专用日志文件路径
-            log_path = Path("logs") / f"tui_{self.name}.log"
-            log_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # 创建文件处理器
-            file_handler = FileHandler(
-                level=LogLevel.DEBUG if self.tui_manager.is_debug_enabled() else LogLevel.INFO,
-                config={
-                    "type": "file",
-                    "level": "DEBUG" if self.tui_manager.is_debug_enabled() else "INFO",
-                    "path": str(log_path),
-                    "format": "text",
-                    "rotation": "daily",
-                    "max_size": "10MB",
-                    "backup_count": 5
-                }
-            )
-            
-            # 清除所有处理器（如果有）
-            if self._logger:
-                for handler in self._logger.get_handlers():
-                    self._logger.remove_handler(handler)
-                
-                # 只添加文件处理器
-                self._logger.add_handler(file_handler)
-                
-        except Exception as e:
-            # 如果设置失败，保持无处理器状态
-            pass
     
     def _log_if_enabled(self, level: LogLevel, message: str, **kwargs: Any) -> None:
         """如果启用了日志记录，则记录日志"""

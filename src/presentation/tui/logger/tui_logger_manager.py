@@ -72,16 +72,17 @@ class TUILoggerManager:
             from src.infrastructure.logger.handlers.file_handler import FileHandler
             from src.infrastructure.logger.log_level import LogLevel
             
-            # 如果是TUI专用的日志配置，直接使用配置的路径
-            # 否则，为TUI创建专门的日志文件
-            # log_output_config.path 在这里保证不为 None，因为调用方已经检查过
+            # 对于所有TUI日志记录器，统一使用tui.log配置的路径
+            # 这样可以确保所有TUI模块的日志都输出到同一个文件中
             original_path = Path(log_output_config.path)  # type: ignore[arg-type]
             
             # 检查是否是TUI专用的日志配置
             if "tui.log" in original_path.name:
                 tui_log_path = original_path
             else:
-                tui_log_path = original_path.parent / f"tui_{original_path.name}"
+                # 如果不是tui.log配置，我们仍然使用tui.log作为目标文件
+                # 这样所有TUI相关的日志都输出到同一个文件中
+                tui_log_path = original_path.parent / "tui.log"
             
             # 创建文件处理器配置
             file_handler_config = {
@@ -93,6 +94,16 @@ class TUILoggerManager:
                 "max_size": log_output_config.max_size,
                 "backup_count": 5
             }
+            
+            # 检查是否已经存在相同路径的处理器，避免重复添加
+            existing_handlers = logger.get_handlers()
+            target_path_str = str(tui_log_path)
+            for existing_handler in existing_handlers:
+                # 检查处理器是否为FileHandler且路径相同
+                if (hasattr(existing_handler, 'config') and
+                    existing_handler.config.get('path') == target_path_str):
+                    # 如果已存在相同路径的处理器，跳过添加
+                    return
             
             file_handler = FileHandler(
                 level=LogLevel.from_string(log_output_config.level or "INFO"),
@@ -113,6 +124,7 @@ class TUILoggerManager:
         """
         try:
             # 为所有已存在的TUI日志记录器添加TUI文件处理器
+            # 避免重复添加相同的处理器
             for logger in self._loggers.values():
                 self._add_tui_file_handler_to_logger(logger, log_output_config)
                 
@@ -142,7 +154,7 @@ class TUILoggerManager:
                 from src.infrastructure.logger.log_level import LogLevel
                 logger.set_level(LogLevel.DEBUG)
             
-            # 为TUI日志记录器添加TUI专用的文件处理器
+            # 如果配置已经初始化，直接为新创建的日志记录器添加处理器
             if self._config:
                 for log_output in self._config.log_outputs:
                     if log_output.type == "file" and log_output.path:
