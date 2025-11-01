@@ -429,7 +429,11 @@ class TUIApp:
         """
         self.tui_logger.debug_key_event(key, True, "global_handler")
         
-        # 如果在子界面中，优先让子界面处理按键
+        # ESC键特殊处理：无论在子界面还是对话框中，都由主应用处理
+        if key == "escape":
+            return self._handle_escape_key(key)
+        
+        # 如果在子界面中，优先让子界面处理按键（非ESC键）
         if self.state_manager.current_subview:
             self.tui_logger.debug_key_event(key, True, f"subview_{self.state_manager.current_subview}")
             return self.subview_controller.handle_key(key)
@@ -461,8 +465,8 @@ class TUIApp:
         if self.state_manager.current_subview:
             old_subview = self.state_manager.current_subview
             self.subview_controller.return_to_main_view()
-            # 不再手动同步状态管理器的状态，让update_ui方法自动同步
-            # self.state_manager.current_subview = None
+            # 立即同步状态管理器的状态，确保状态一致性
+            self.state_manager.current_subview = None
             self.tui_logger.debug_subview_navigation(old_subview, "main", action="escape")
             self.tui_logger.debug_key_event(key, True, "escape_handler_end_subview_return")
             return True

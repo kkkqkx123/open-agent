@@ -90,6 +90,11 @@ class SubviewController:
         Returns:
             bool: 是否处理了该按键
         """
+        # ESC键现在由主应用统一处理，不再在这里处理
+        if key == "escape":
+            return False  # 返回False让主应用处理
+        
+        # 其他按键交给具体子界面处理
         current_subview = self.get_current_subview()
         if current_subview and hasattr(current_subview, 'handle_key'):
             return current_subview.handle_key(key)
