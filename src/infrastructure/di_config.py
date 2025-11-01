@@ -81,6 +81,12 @@ class DIConfig:
         # 注册线程管理器（如果可用）
         self._register_thread_manager()
         
+        # 注册工具相关服务
+        self._register_tool_services()
+        
+        # 注册工具检验模块
+        self._register_tool_validation_services()
+        
         logger.info("核心服务配置完成")
         return self.container
     
@@ -221,12 +227,47 @@ class DIConfig:
             logger.debug("会话管理器注册完成")
     
     def _register_thread_manager(self) -> None:
-       """注册线程管理器"""
-       # 注册线程管理器（可选组件，需要额外依赖）
-       # 由于ThreadManager需要metadata_store和checkpoint_manager作为依赖，
-       # 而这些依赖可能比较复杂，暂时跳过注册，可在需要时单独配置
-       pass
-    
+        """注册线程管理器"""
+        # 注册线程管理器（可选组件，需要额外依赖）
+        # 由于ThreadManager需要metadata_store和checkpoint_manager作为依赖，
+        # 而这些依赖可能比较复杂，暂时跳过注册，可在需要时单独配置
+        pass
+     
+    def _register_tool_services(self) -> None:
+        """注册工具相关服务"""
+        try:
+            # 注册工具管理器
+            from src.infrastructure.tools.manager import ToolManager
+            from src.infrastructure.tools.interfaces import IToolManager
+            from src.infrastructure.logger.logger import Logger
+            
+            # 创建日志记录器
+            tool_logger = Logger("ToolManager")
+            
+            # 创建工具管理器实例
+            assert self._config_loader is not None, "Config loader must be initialized before tool services"
+            tool_manager = ToolManager(
+                config_loader=self._config_loader,
+                logger=tool_logger
+            )
+            
+            # 注册工具管理器
+            self.container.register_instance(IToolManager, tool_manager)
+            logger.debug("工具管理器注册完成")
+        except ImportError as e:
+            logger.warning(f"工具管理器不可用: {e}")
+        except Exception as e:
+            logger.warning(f"工具管理器注册失败: {e}")
+     
+    def _register_tool_validation_services(self) -> None:
+        """注册工具检验服务"""
+        try:
+            from .tools.validation.di_config import ToolValidationModule
+            ToolValidationModule.register_services(self.container)
+            logger.debug("工具检验服务注册完成")
+        except ImportError as e:
+            logger.warning(f"工具检验模块不可用: {e}")
+     
     def register_additional_services(self, services_config: Dict[str, Any]) -> None:
         """注册额外的服务
         
@@ -319,6 +360,14 @@ class DIConfig:
             IWorkflowManager,
             ISessionManager
         ]
+        
+        # 添加工具检验相关服务
+        try:
+            from .tools.validation.manager import ToolValidationManager
+            from .tools.validation.interfaces import IToolValidator
+            core_services.extend([ToolValidationManager, IToolValidator])
+        except ImportError:
+            logger.warning("工具检验模块未找到，跳过相关服务验证")
         
         for service_type in core_services:
             if self.container.has_service(service_type):

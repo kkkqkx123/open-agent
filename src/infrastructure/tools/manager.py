@@ -26,6 +26,7 @@ from .config import (
     ToolSetConfig,
     ToolRegistryConfig,
 )
+# 从loaders模块导入DefaultToolLoader
 
 
 class ToolManager(IToolManager):
@@ -51,7 +52,12 @@ class ToolManager(IToolManager):
         """
         self.config_loader = config_loader
         self.logger = logger
-        self.tool_loader = tool_loader or DefaultToolLoader(config_loader, logger)
+        # 如果没有提供tool_loader，则创建默认的DefaultToolLoader
+        if tool_loader is None:
+            from .loaders import DefaultToolLoader
+            self.tool_loader = DefaultToolLoader(config_loader, logger)
+        else:
+            self.tool_loader = tool_loader
         self.tool_cache = tool_cache
         self._tools: Dict[str, ITool] = {}
         self._tool_sets: Dict[str, ToolSetConfig] = {}
@@ -108,19 +114,12 @@ class ToolManager(IToolManager):
             List[ToolConfig]: 工具配置列表
         """
         try:
-            # 使用配置加载器加载工具配置
-            config_data = self.config_loader.load("configs/tools")
-            if not isinstance(config_data, dict):
-                raise InfrastructureError("工具配置文件格式错误")
-
-            tool_configs = []
-            for tool_name, tool_config in config_data.items():
-                if isinstance(tool_config, dict):
-                    tool_config["name"] = tool_name  # 确保包含名称
-                    parsed_config = self._parse_tool_config(tool_config)
-                    tool_configs.append(parsed_config)
-
-            return tool_configs
+            self.logger.info("开始调用工具加载器加载工具配置")
+            self.logger.info(f"工具加载器类型: {type(self.tool_loader)}")
+            # 使用工具加载器加载工具配置
+            result = self.tool_loader.load_from_config("tools")
+            self.logger.info(f"工具加载器返回结果: {len(result)} 个配置")
+            return result
         except Exception as e:
             self.logger.error(f"加载工具配置失败: {str(e)}")
             raise InfrastructureError(f"加载工具配置失败: {str(e)}")
@@ -427,6 +426,7 @@ class DefaultToolLoader(IToolLoader):
             List[ToolConfig]: 加载的工具配置列表
         """
         configs: List[ToolConfig] = []
+        self.logger.info(f"Loading tools from config path: {config_path}")
 
         try:
             # 加载工具配置目录
@@ -434,6 +434,7 @@ class DefaultToolLoader(IToolLoader):
             self.logger.info(f"Checking tools config directory: {tools_config_dir}")
             self.logger.info(f"Tools config directory exists: {tools_config_dir.exists()}")
             self.logger.info(f"Tools config directory str: {str(tools_config_dir)}")
+            self.logger.info(f"Current working directory: {Path.cwd()}")
             if not tools_config_dir.exists():
                 self.logger.warning("工具配置目录不存在: configs/tools")
                 return configs

@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Sequence, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.domain.tools.interfaces import ITool, ToolCall, ToolResult
+    from .config import ToolConfig
 
 
 class IToolManager(ABC):
