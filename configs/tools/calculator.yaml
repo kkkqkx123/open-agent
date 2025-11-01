@@ -2,7 +2,7 @@
 name: calculator
 tool_type: builtin
 description: 执行基本数学计算的工具
-function_path: examples.tools.calculator:calculate
+function_path: defination.tools.calculator:calculate
 enabled: true
 timeout: 10
 parameters_schema:

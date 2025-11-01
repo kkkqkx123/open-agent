@@ -68,10 +68,10 @@ uv add package_name
 uv pip list | findstr package_name
 
 # Install development dependencies
-uv sync --group dev
+uv sync --extra dev
 
 # Install test dependencies
-uv sync --group test
+uv sync --extra test
 
 # Update all dependencies
 uv sync --upgrade

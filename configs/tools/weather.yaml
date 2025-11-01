@@ -21,12 +21,12 @@ parameters_schema:
       description: 城市名称，如 "Beijing,CN" 或 "London"
     units:
       type: string
-      description: 温度单位，可选值: metric(摄氏度), imperial(华氏度), kelvin(开尔文)
+      description: 温度单位，可选值：metric(摄氏度)、imperial(华氏度)、kelvin(开尔文)
       enum: ["metric", "imperial", "kelvin"]
       default: "metric"
     lang:
       type: string
-      description: 返回结果的语言，如 "zh_cn", "en"
+      description: 返回结果的语言，如 "zh_cn"、"en"
       default: "zh_cn"
   required:
     - q
