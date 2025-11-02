@@ -5,9 +5,10 @@
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
+from typing import cast, Dict
 
 from src.infrastructure.tools.validation.manager import ToolValidationManager
-from src.infrastructure.tools.validation.models import ValidationStatus
+from src.infrastructure.tools.validation.models import ValidationStatus, ValidationResult
 
 
 class TestToolValidationManager:
@@ -201,13 +202,13 @@ class TestToolValidationManager:
         mock_loading_result.status = ValidationStatus.SUCCESS
         mock_loading_result.issues = []
         
-        all_results = {
+        all_results = cast(Dict[str, Dict[str, ValidationResult]], {
             "test_tool": {
                 "config": mock_config_result,
                 "loading": mock_loading_result
             }
-        }
-        
+        })
+
         report = self.manager.generate_report(all_results, "text")
         
         # 验证报告包含关键信息
@@ -230,13 +231,13 @@ class TestToolValidationManager:
         mock_loading_result.status = ValidationStatus.SUCCESS
         mock_loading_result.issues = []
         
-        all_results = {
+        all_results = cast(Dict[str, Dict[str, ValidationResult]], {
             "test_tool": {
                 "config": mock_config_result,
                 "loading": mock_loading_result
             }
-        }
-        
+        })
+
         report = self.manager.generate_report(all_results, "json")
         
         # 验证报告是有效的JSON

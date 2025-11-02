@@ -69,7 +69,7 @@ class CheckpointStoreFactory:
                 config_service = CheckpointConfigService()
             
             db_path = config.db_path or config_service.get_db_path()
-            return SQLiteCheckpointStore(db_path, serializer, config_service)
+            return SQLiteCheckpointStore(db_path, serializer, config_service)  # type: ignore
         
         elif config.storage_type == "memory":
             return MemoryCheckpointStore(serializer)

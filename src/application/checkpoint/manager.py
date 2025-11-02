@@ -167,12 +167,8 @@ class CheckpointManager(ICheckpointManager):
             Optional[Dict[str, Any]]: checkpoint数据，如果不存在则返回None
         """
         try:
-            # 尝试使用存储的load_by_session方法
-            if hasattr(self.checkpoint_store, 'load_by_session'):
-                return await self.checkpoint_store.load_by_session(thread_id, checkpoint_id)  # type: ignore
-            else:
-                # 回退到通用load方法
-                return await self.checkpoint_store.load(checkpoint_id)
+            # 使用load_by_thread方法获取checkpoint
+            return await self.checkpoint_store.load_by_thread(thread_id, checkpoint_id)
         except Exception as e:
             logger.error(f"获取checkpoint失败: {e}")
             return None
@@ -203,12 +199,8 @@ class CheckpointManager(ICheckpointManager):
             bool: 是否删除成功
         """
         try:
-            # 尝试使用存储的delete_by_session方法
-            if hasattr(self.checkpoint_store, 'delete_by_session'):
-                return await self.checkpoint_store.delete_by_session(thread_id, checkpoint_id)  # type: ignore
-            else:
-                # 回退到通用delete方法
-                return await self.checkpoint_store.delete(checkpoint_id)
+            # 使用delete_by_thread方法删除checkpoint
+            return await self.checkpoint_store.delete_by_thread(thread_id, checkpoint_id)
         except Exception as e:
             logger.error(f"删除checkpoint失败: {e}")
             return False

@@ -89,7 +89,7 @@ class TestDefaultCheckpointPolicy:
             {"trigger_reason": "tool_call", "node_name": "analysis"}
         )
         
-        assert metadata["session_id"] == "session-1"
+        assert metadata["thread_id"] == "session-1"
         assert metadata["workflow_id"] == "workflow-1"
         assert metadata["step_count"] == 1
         assert metadata["node_name"] == "analysis"
@@ -155,7 +155,7 @@ class TestCheckpointManager:
         # 获取checkpoint
         checkpoint = await manager.get_checkpoint("session-1", checkpoint_id)
         assert checkpoint is not None
-        assert checkpoint["session_id"] == "session-1"
+        assert checkpoint["thread_id"] == "session-1"
         assert checkpoint["workflow_id"] == "workflow-1"
     
     @pytest.mark.asyncio
@@ -167,16 +167,16 @@ class TestCheckpointManager:
     @pytest.mark.asyncio
     async def test_list_checkpoints(self, manager, sample_state):
         """测试列出checkpoint"""
-        session_id = "session-1"
+        thread_id = "session-1"
         
         # 创建多个checkpoint
         for i in range(3):
             await manager.create_checkpoint(
-                session_id, "workflow-1", sample_state, {"step": i}
+                thread_id, "workflow-1", sample_state, {"step": i}
             )
         
         # 列出checkpoint
-        checkpoints = await manager.list_checkpoints(session_id)
+        checkpoints = await manager.list_checkpoints(thread_id)
         assert len(checkpoints) == 3
         
         # 验证按时间倒序排列
@@ -206,16 +206,16 @@ class TestCheckpointManager:
     @pytest.mark.asyncio
     async def test_get_latest_checkpoint(self, manager, sample_state):
         """测试获取最新checkpoint"""
-        session_id = "session-1"
+        thread_id = "session-1"
         
         # 创建多个checkpoint
         for i in range(3):
             await manager.create_checkpoint(
-                session_id, "workflow-1", sample_state, {"step": i}
+                thread_id, "workflow-1", sample_state, {"step": i}
             )
         
         # 获取最新checkpoint
-        latest = await manager.get_latest_checkpoint(session_id)
+        latest = await manager.get_latest_checkpoint(thread_id)
         assert latest is not None
         assert latest["metadata"]["step"] == 2  # 最后一个创建的
     
@@ -268,62 +268,62 @@ class TestCheckpointManager:
     @pytest.mark.asyncio
     async def test_cleanup_checkpoints(self, manager, sample_state):
         """测试清理checkpoint"""
-        session_id = "session-1"
+        thread_id = "session-1"
         
         # 创建5个checkpoint
         for i in range(5):
             await manager.create_checkpoint(
-                session_id, "workflow-1", sample_state, {"step": i}
+                thread_id, "workflow-1", sample_state, {"step": i}
             )
         
         # 保留最新的3个
-        deleted_count = await manager.cleanup_checkpoints(session_id, 3)
+        deleted_count = await manager.cleanup_checkpoints(thread_id, 3)
         assert deleted_count == 2
         
         # 验证只剩3个checkpoint
-        checkpoints = await manager.list_checkpoints(session_id)
+        checkpoints = await manager.list_checkpoints(thread_id)
         assert len(checkpoints) == 3
     
     @pytest.mark.asyncio
     async def test_get_checkpoints_by_workflow(self, manager, sample_state):
         """测试获取指定工作流的checkpoint"""
-        session_id = "session-1"
+        thread_id = "session-1"
         
         # 创建不同工作流的checkpoint
         for workflow_id in ["workflow-1", "workflow-2", "workflow-1"]:
             await manager.create_checkpoint(
-                session_id, workflow_id, sample_state, {"node": "test"}
+                thread_id, workflow_id, sample_state, {"node": "test"}
             )
         
         # 获取workflow-1的checkpoint
         workflow1_checkpoints = await manager.get_checkpoints_by_workflow(
-            session_id, "workflow-1"
+            thread_id, "workflow-1"
         )
         assert len(workflow1_checkpoints) == 2
         
         # 获取workflow-2的checkpoint
         workflow2_checkpoints = await manager.get_checkpoints_by_workflow(
-            session_id, "workflow-2"
+            thread_id, "workflow-2"
         )
         assert len(workflow2_checkpoints) == 1
     
     @pytest.mark.asyncio
     async def test_get_checkpoint_count(self, manager, sample_state):
         """测试获取checkpoint数量"""
-        session_id = "session-1"
+        thread_id = "session-1"
         
         # 初始数量为0
-        count = await manager.get_checkpoint_count(session_id)
+        count = await manager.get_checkpoint_count(thread_id)
         assert count == 0
         
         # 创建3个checkpoint
         for i in range(3):
             await manager.create_checkpoint(
-                session_id, "workflow-1", sample_state, {"step": i}
+                thread_id, "workflow-1", sample_state, {"step": i}
             )
         
         # 验证数量
-        count = await manager.get_checkpoint_count(session_id)
+        count = await manager.get_checkpoint_count(thread_id)
         assert count == 3
     
     def test_get_langgraph_checkpointer(self, manager):
@@ -380,7 +380,7 @@ class TestCheckpointManagerIntegration:
                 self.iteration_count = 0
         
         state = WorkflowState()
-        session_id = "test-session"
+        thread_id = "test-session"
         workflow_id = "test-workflow"
         
         # 执行工作流步骤
@@ -391,22 +391,22 @@ class TestCheckpointManagerIntegration:
             
             # 自动保存checkpoint
             checkpoint_id = await manager.auto_save_checkpoint(
-                session_id, workflow_id, state, f"step_complete"
+                thread_id, workflow_id, state, f"step_complete"
             )
             
             if checkpoint_id:
                 print(f"Checkpoint saved: {checkpoint_id}")
         
         # 验证checkpoint数量（最多3个）
-        checkpoints = await manager.list_checkpoints(session_id)
+        checkpoints = await manager.list_checkpoints(thread_id)
         assert len(checkpoints) <= 3
         
         # 恢复最新状态
-        latest = await manager.get_latest_checkpoint(session_id)
+        latest = await manager.get_latest_checkpoint(thread_id)
         assert latest is not None
         
         restored_state = await manager.restore_from_checkpoint(
-            session_id, latest["id"]
+            thread_id, latest["id"]
         )
         assert restored_state is not None
         assert restored_state.iteration_count >= 3  # 应该是较新的状态

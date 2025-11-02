@@ -10,9 +10,10 @@ from datetime import datetime
 
 from .interfaces import ICheckpointSerializer
 from ...infrastructure.graph.states import (
-    create_workflow_state, BaseMessage, HumanMessage, AIMessage,
-    SystemMessage, ToolMessage, MessageRole
+    create_workflow_state, HumanMessage, AIMessage
 )
+# 导入缺失的消息类型
+from langchain_core.messages import BaseMessage, SystemMessage, ToolMessage
 from ..tools.interfaces import ToolResult
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,7 @@ class DefaultCheckpointSerializer(ICheckpointSerializer):
             # 尝试创建WorkflowState对象
             try:
                 workflow_state = create_workflow_state(
+                    workflow_id=state_data.get('workflow_id', 'default'),
                     workflow_name=state_data.get('workflow_name', ''),
                     input_text=''
                 )
@@ -192,10 +194,10 @@ class DefaultCheckpointSerializer(ICheckpointSerializer):
                         msg = ToolMessage(content=content)
                     else:
                         # 尝试解析角色
-                        if role in [MessageRole.HUMAN, MessageRole.AI, MessageRole.SYSTEM, MessageRole.TOOL]:
+                        if role in ['human', 'ai', 'system', 'tool']:
                             msg = BaseMessage(content=content, type=role)
                         else:
-                            msg = BaseMessage(content=content, type=MessageRole.HUMAN)
+                            msg = BaseMessage(content=content, type='human')
 
                     messages.append(msg)
                 else:

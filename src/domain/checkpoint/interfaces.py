@@ -26,18 +26,6 @@ class ICheckpointStore(ABC):
         pass
     
     @abstractmethod
-    async def load(self, checkpoint_id: str) -> Optional[Dict[str, Any]]:
-        """加载checkpoint数据
-        
-        Args:
-            checkpoint_id: checkpoint ID
-            
-        Returns:
-            Optional[Dict[str, Any]]: checkpoint数据，如果不存在则返回None
-        """
-        pass
-    
-    @abstractmethod
     async def list_by_thread(self, thread_id: str) -> List[Dict[str, Any]]:
         """列出thread的所有checkpoint
         
@@ -50,11 +38,25 @@ class ICheckpointStore(ABC):
         pass
     
     @abstractmethod
-    async def delete(self, checkpoint_id: str) -> bool:
-        """删除checkpoint
+    async def load_by_thread(self, thread_id: str, checkpoint_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """根据thread ID加载checkpoint
         
         Args:
-            checkpoint_id: checkpoint ID
+            thread_id: thread ID
+            checkpoint_id: 可选的checkpoint ID
+            
+        Returns:
+            Optional[Dict[str, Any]]: checkpoint数据，如果不存在则返回None
+        """
+        pass
+    
+    @abstractmethod
+    async def delete_by_thread(self, thread_id: str, checkpoint_id: Optional[str] = None) -> bool:
+        """根据thread ID删除checkpoint
+        
+        Args:
+            thread_id: thread ID
+            checkpoint_id: 可选的checkpoint ID，如果为None则删除所有
             
         Returns:
             bool: 是否删除成功

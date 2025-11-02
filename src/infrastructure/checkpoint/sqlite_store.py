@@ -14,28 +14,36 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.checkpoint.base import CheckpointTuple, Checkpoint
 from langchain_core.runnables.config import RunnableConfig
 
-from ...domain.checkpoint.interfaces import ICheckpointStore, ICheckpointSerializer
+from ...domain.checkpoint.interfaces import ICheckpointSerializer
 from ..config.checkpoint_config_service import CheckpointConfigService
+from .types import CheckpointError, CheckpointNotFoundError, CheckpointStorageError
+from .base_store import BaseCheckpointStore
+from .performance import monitor_performance
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
 
-class SQLiteCheckpointStore(ICheckpointStore):
+class SQLiteCheckpointStore(BaseCheckpointStore):
     """基于SQLite的checkpoint存储实现
     
     使用LangGraph的SqliteSaver，支持持久化存储。
     """
     
     def __init__(self, sqlite_path: Optional[str] = None, serializer: Optional[ICheckpointSerializer] = None,
-                 config_service: Optional[CheckpointConfigService] = None):
+                 config_service: Optional[CheckpointConfigService] = None,
+                 max_checkpoints_per_thread: int = 1000,
+                 enable_performance_monitoring: bool = True):
         """初始化SQLite存储
         
         Args:
             sqlite_path: SQLite数据库路径（可选，如果未提供则从配置获取）
             serializer: 状态序列化器
             config_service: 配置服务实例
+            max_checkpoints_per_thread: 每个线程最大checkpoint数量
+            enable_performance_monitoring: 是否启用性能监控
         """
-        self.serializer = serializer
+        super().__init__(serializer, max_checkpoints_per_thread, enable_performance_monitoring)
         self.config_service = config_service or CheckpointConfigService()
         
         # 获取数据库路径
@@ -54,7 +62,7 @@ class SQLiteCheckpointStore(ICheckpointStore):
         
         logger.info(f"SQLite checkpoint存储初始化: {self.sqlite_path}")
     
-    def _get_checkpointer(self):
+    def _get_checkpointer(self) -> Any:
         """获取checkpointer实例（在with语句中使用）"""
         return SqliteSaver.from_conn_string(self._conn_string)
     
@@ -95,16 +103,16 @@ class SQLiteCheckpointStore(ICheckpointStore):
             "ts": datetime.now().isoformat(),
             "id": str(uuid.uuid4()),
             "channel_values": {
-                "__root__": serialized_state,
+                "state": serialized_state,  # 使用更明确的字段名存储状态
                 "workflow_id": workflow_id
             },
             "channel_versions": {
-                "__root__": 1,
+                "state": 1,
                 "__start__": 2,
                 "workflow_id": 1
             },
             "versions_seen": {
-                "__root__": {"__start__": 1},
+                "state": {"__start__": 1},
                 "__start__": {"__start__": 1}
             },
             "updated_channels": []
@@ -124,27 +132,6 @@ class SQLiteCheckpointStore(ICheckpointStore):
         if not checkpoint:
             return {}
             
-        # 首先尝试从metadata中获取state_data（这是主要的提取方式）
-        if metadata:
-            try:
-                # 处理不同类型的metadata对象
-                if hasattr(metadata, 'get'):
-                    # 字典或类似字典的对象
-                    state_data = metadata.get('state_data')
-                elif hasattr(metadata, '__getitem__'):
-                    # 支持索引访问的对象
-                    state_data = metadata['state_data'] if 'state_data' in metadata else None
-                else:
-                    state_data = None
-                
-                if state_data is not None:
-                    if self.serializer:
-                        return self.serializer.deserialize(state_data) if state_data else {}
-                    return state_data
-            except (KeyError, AttributeError, TypeError):
-                # 如果从metadata获取失败，继续尝试其他方式
-                pass
-            
         # 从checkpoint的channel_values获取状态
         try:
             # 如果checkpoint是字典
@@ -156,7 +143,8 @@ class SQLiteCheckpointStore(ICheckpointStore):
             else:
                 channel_values = {}
             
-            state_data = channel_values.get("__root__")
+            # 优化：从新的state字段获取状态数据
+            state_data = channel_values.get("state")
             if state_data is not None:
                 if self.serializer:
                     return self.serializer.deserialize(state_data) if state_data else {}
@@ -191,6 +179,7 @@ class SQLiteCheckpointStore(ICheckpointStore):
                 return default
         except (KeyError, AttributeError, TypeError):
             return default
+    
     
     def _normalize_metadata(self, metadata: Any) -> Dict[str, Any]:
         """标准化metadata为字典格式
@@ -228,12 +217,19 @@ class SQLiteCheckpointStore(ICheckpointStore):
             bool: 是否保存成功
         """
         try:
+            # 检查checkpoint数量限制
             thread_id = checkpoint_data['thread_id']
+            current_count = await self.get_checkpoint_count(thread_id)
+            if current_count >= self.max_checkpoints_per_thread:
+                logger.warning(f"线程 {thread_id} 的checkpoint数量已达到最大限制 {self.max_checkpoints_per_thread}")
+                # 清理旧的checkpoint
+                await self.cleanup_old_checkpoints(thread_id, self.max_checkpoints_per_thread - 1)
+            
             workflow_id = checkpoint_data['workflow_id']
             state = checkpoint_data['state_data']
             metadata = checkpoint_data.get('metadata', {})
             
-            # 将workflow_id和state_data添加到metadata中
+            # 添加必要的元数据字段
             metadata['workflow_id'] = workflow_id
             metadata['state_data'] = state
             
@@ -246,37 +242,15 @@ class SQLiteCheckpointStore(ICheckpointStore):
             # 使用上下文管理器保存checkpoint
             with self._get_checkpointer() as checkpointer:
                 # 使用LangGraph的格式来保存
-                checkpointer.put(config, checkpoint, metadata, {})  # type: ignore
+                checkpointer.put(config, checkpoint, metadata, {})
             
             logger.debug(f"成功保存SQLite checkpoint，thread_id: {thread_id}, workflow_id: {workflow_id}")
             return True
+        except CheckpointError:
+            raise
         except Exception as e:
             logger.error(f"保存SQLite checkpoint失败: {e}")
-            return False
-    
-    async def load(self, checkpoint_id: str) -> Optional[Dict[str, Any]]:
-        """加载checkpoint数据
-        
-        Args:
-            checkpoint_id: checkpoint ID
-            
-        Returns:
-            Optional[Dict[str, Any]]: checkpoint数据，如果不存在则返回None
-        """
-        logger.warning("load方法需要配合thread_id使用，建议使用load_by_session方法")
-        return None
-    
-    async def load_by_session(self, thread_id: str, checkpoint_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """根据会话ID加载checkpoint
-        
-        Args:
-            thread_id: 会话ID
-            checkpoint_id: 可选的checkpoint ID
-            
-        Returns:
-            Optional[Dict[str, Any]]: checkpoint数据
-        """
-        return await self.load_by_thread(thread_id, checkpoint_id)
+            raise CheckpointStorageError(f"保存SQLite checkpoint失败: {e}")
     
     async def load_by_thread(self, thread_id: str, checkpoint_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """根据thread ID加载checkpoint
@@ -288,13 +262,12 @@ class SQLiteCheckpointStore(ICheckpointStore):
         Returns:
             Optional[Dict[str, Any]]: checkpoint数据
         """
-
         try:
             config = self._create_langgraph_config(thread_id, checkpoint_id)
             
             # 使用上下文管理器获取checkpoint
             with self._get_checkpointer() as checkpointer:
-                result = checkpointer.get(config)  # type: ignore
+                result = checkpointer.get(config)
             
             if result:
                 # 检查result是字典还是CheckpointTuple
@@ -308,7 +281,7 @@ class SQLiteCheckpointStore(ICheckpointStore):
                     try:
                         config = self._create_langgraph_config(thread_id)
                         with self._get_checkpointer() as checkpointer:
-                            list_results = list(checkpointer.list(config))  # type: ignore
+                            list_results = list(checkpointer.list(config))
                         for checkpoint_tuple in list_results:
                             if hasattr(checkpoint_tuple, 'checkpoint') and hasattr(checkpoint_tuple, 'metadata'):
                                 # 找到匹配的checkpoint，返回其metadata
@@ -336,9 +309,11 @@ class SQLiteCheckpointStore(ICheckpointStore):
                     'updated_at': checkpoint.get('ts')
                 }
             return None
+        except CheckpointError:
+            raise
         except Exception as e:
             logger.error(f"加载SQLite checkpoint失败: {e}")
-            return None
+            raise CheckpointStorageError(f"加载SQLite checkpoint失败: {e}")
     
     async def list_by_thread(self, thread_id: str) -> List[Dict[str, Any]]:
         """列出thread的所有checkpoint
@@ -354,7 +329,7 @@ class SQLiteCheckpointStore(ICheckpointStore):
             
             # 使用上下文管理器列出checkpoint
             with self._get_checkpointer() as checkpointer:
-                checkpoint_tuples = list(checkpointer.list(config))  # type: ignore
+                checkpoint_tuples = list(checkpointer.list(config))
             
             result = []
             for checkpoint_tuple in checkpoint_tuples:
@@ -379,79 +354,11 @@ class SQLiteCheckpointStore(ICheckpointStore):
             # 按创建时间倒序排列
             result.sort(key=lambda x: x.get('created_at', ''), reverse=True)
             return result
+        except CheckpointError:
+            raise
         except Exception as e:
             logger.error(f"列出SQLite checkpoint失败: {e}")
-            return []
-    
-    async def list_by_session(self, thread_id: str) -> List[Dict[str, Any]]:
-        """列出会话的所有checkpoint
-        
-        Args:
-            thread_id: 会话ID
-            
-        Returns:
-            List[Dict[str, Any]]: checkpoint列表，按创建时间倒序排列
-        """
-        try:
-            config = self._create_langgraph_config(thread_id)
-            
-            # 使用上下文管理器列出checkpoint
-            with self._get_checkpointer() as checkpointer:
-                checkpoint_tuples = list(checkpointer.list(config))  # type: ignore
-            
-            result = []
-            for checkpoint_tuple in checkpoint_tuples:
-                # CheckpointTuple有config, checkpoint, metadata等属性
-                if isinstance(checkpoint_tuple, CheckpointTuple):
-                    checkpoint = checkpoint_tuple.checkpoint
-                    metadata = checkpoint_tuple.metadata
-                    
-                    workflow_id = self._extract_metadata_value(metadata, 'workflow_id', 'unknown')
-                    normalized_metadata = self._normalize_metadata(metadata)
-                    
-                    result.append({
-                        'id': checkpoint.get('id'),
-                        'thread_id': thread_id,
-                        'workflow_id': workflow_id,
-                        'state_data': self._extract_state_from_checkpoint(checkpoint, metadata),
-                        'metadata': normalized_metadata,
-                        'created_at': checkpoint.get('ts'),
-                        'updated_at': checkpoint.get('ts')
-                    })
-            
-            # 按创建时间倒序排列
-            result.sort(key=lambda x: x.get('created_at', ''), reverse=True)
-            return result
-        except Exception as e:
-            logger.error(f"列出SQLite checkpoint失败: {e}")
-            return []
-    
-    async def delete(self, checkpoint_id: str) -> bool:
-        """删除checkpoint
-        
-        Args:
-            checkpoint_id: checkpoint ID
-            
-        Returns:
-            bool: 是否删除成功
-        """
-        # Since we need thread_id to delete a specific checkpoint,
-        # we can't implement this method properly without it.
-        # This is a limitation of the LangGraph checkpoint system.
-        logger.warning("delete方法需要配合thread_id使用，建议使用delete_by_thread方法")
-        return False
-    
-    async def delete_by_session(self, thread_id: str, checkpoint_id: Optional[str] = None) -> bool:
-        """根据会话ID删除checkpoint
-        
-        Args:
-            thread_id: 会话ID
-            checkpoint_id: 可选的checkpoint ID，如果为None则删除所有
-            
-        Returns:
-            bool: 是否删除成功
-        """
-        return await self.delete_by_thread(thread_id, checkpoint_id)
+            raise CheckpointStorageError(f"列出SQLite checkpoint失败: {e}")
     
     async def delete_by_thread(self, thread_id: str, checkpoint_id: Optional[str] = None) -> bool:
         """根据thread ID删除checkpoint
@@ -463,12 +370,11 @@ class SQLiteCheckpointStore(ICheckpointStore):
         Returns:
             bool: Whether deletion was successful
         """
-
         try:
             if checkpoint_id:
                 # SQLiteSaver不支持删除单个checkpoint
                 # 我们通过重新保存除要删除的checkpoint之外的所有checkpoint来模拟
-                checkpoints = await self.list_by_session(thread_id)
+                checkpoints = await self.list_by_thread(thread_id)
                 
                 # 找到要保留的checkpoint（除要删除的之外）
                 checkpoints_to_keep = []
@@ -498,22 +404,13 @@ class SQLiteCheckpointStore(ICheckpointStore):
                 with self._get_checkpointer() as checkpointer:
                     checkpointer.delete_thread(thread_id)
                 return True
+        except CheckpointError:
+            raise
         except Exception as e:
             logger.error(f"删除SQLite checkpoint失败: {e}")
-            return False
+            raise CheckpointStorageError(f"删除SQLite checkpoint失败: {e}")
     
-    async def get_latest(self, thread_id: str) -> Optional[Dict[str, Any]]:
-        """Get the latest checkpoint for a thread
-        
-        Args:
-            thread_id: thread ID
-            
-        Returns:
-            Optional[Dict[str, Any]]: Latest checkpoint data, or None if not found
-        """
-
-        checkpoints = await self.list_by_thread(thread_id)
-        return checkpoints[0] if checkpoints else None
+    
     
     async def cleanup_old_checkpoints(self, thread_id: str, max_count: int) -> int:
         """Clean up old checkpoints, keeping the latest max_count
@@ -525,7 +422,6 @@ class SQLiteCheckpointStore(ICheckpointStore):
         Returns:
             int: Number of deleted checkpoints
         """
-
         try:
             checkpoints = await self.list_by_thread(thread_id)
             if len(checkpoints) <= max_count:
@@ -553,33 +449,36 @@ class SQLiteCheckpointStore(ICheckpointStore):
                 await self.save(checkpoint_data)
             
             return len(checkpoints) - max_count
+        except CheckpointError:
+            raise
         except Exception as e:
             logger.error(f"清理旧SQLite checkpoint失败: {e}")
-            return 0
+            raise CheckpointStorageError(f"清理旧SQLite checkpoint失败: {e}")
     
-    async def get_checkpoints_by_workflow(self, thread_id: str, workflow_id: str) -> List[Dict[str, Any]]:
-        """Get all checkpoints for a specified workflow
-        
-        Args:
-            thread_id: thread ID
-            workflow_id: Workflow ID
-            
-        Returns:
-            List[Dict[str, Any]]: checkpoint list, sorted by creation time in descending order
-        """
-
-        checkpoints = await self.list_by_thread(thread_id)
-        return [cp for cp in checkpoints if cp.get('workflow_id') == workflow_id]
     
-    async def get_checkpoint_count(self, thread_id: str) -> int:
-        """Get the number of checkpoints for a thread
+    
+    def clear(self) -> None:
+        """清除所有checkpoint（仅用于测试）"""
+        try:
+            # 由于SQLiteSaver没有直接的清除方法，我们可以通过删除数据库文件来实现
+            import os
+            if os.path.exists(self.sqlite_path):
+                os.remove(self.sqlite_path)
+                # 重新创建数据库
+                db_dir = os.path.dirname(self.sqlite_path)
+                if db_dir:
+                    os.makedirs(db_dir, exist_ok=True)
+            logger.debug("SQLite checkpoint存储已清空")
+        except Exception as e:
+            logger.error(f"清空SQLite checkpoint存储失败: {e}")
+            raise CheckpointStorageError(f"清空SQLite checkpoint存储失败: {e}")
+    
+    def get_langgraph_checkpointer(self) -> Any:
+        """获取LangGraph原生的checkpointer
         
-        Args:
-            thread_id: thread ID
-            
         Returns:
-            int: Number of checkpoints
+            LangGraph原生的checkpointer实例
         """
-
-        checkpoints = await self.list_by_thread(thread_id)
-        return len(checkpoints)
+        return self._get_checkpointer()
+    
+    
