@@ -1,7 +1,7 @@
 """Thread管理器接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, AsyncGenerator
 from datetime import datetime
 
 
@@ -149,6 +149,31 @@ class IThreadManager(ABC):
         checkpoint_id: str
     ) -> bool:
         """回滚thread到指定checkpoint"""
+        pass
+
+    @abstractmethod
+    async def create_thread_from_config(self, config_path: str, metadata: Optional[Dict[str, Any]] = None) -> str:
+        """从配置文件创建Thread"""
+        pass
+
+    @abstractmethod
+    async def execute_workflow(
+        self,
+        thread_id: str,
+        config: Optional[Dict[str, Any]] = None,
+        initial_state: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """执行工作流"""
+        pass
+
+    @abstractmethod
+    async def stream_workflow(
+        self,
+        thread_id: str,
+        config: Optional[Dict[str, Any]] = None,
+        initial_state: Optional[Dict[str, Any]] = None
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """流式执行工作流"""
         pass
 
     @abstractmethod
