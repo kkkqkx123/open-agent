@@ -13,7 +13,7 @@ from rich.table import Table
 from rich.progress import Progress, BarColumn, TextColumn
 from rich.align import Align
 
-from src.infrastructure.graph.state import AgentState
+from src.infrastructure.graph.state import WorkflowState
 from ..config import TUIConfig
 
 
@@ -89,8 +89,8 @@ class SidebarComponent:
             "duration": "0:00"
         }
     
-    def update_from_state(self, state: Optional[AgentState]) -> None:
-        """从Agent状态更新组件
+    def update_from_state(self, state: Optional[WorkflowState]) -> None:
+        """从工作流状态更新组件
         
         Args:
             state: Agent状态

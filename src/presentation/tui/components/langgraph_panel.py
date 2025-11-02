@@ -15,7 +15,7 @@ from rich.align import Align
 from rich.columns import Columns
 from rich.console import Console, ConsoleOptions, RenderResult
 
-from src.infrastructure.graph.state import AgentState
+from src.infrastructure.graph.state import WorkflowState
 from ..config import TUIConfig
 
 
@@ -248,7 +248,7 @@ class StateSnapshotViewer:
     
     def capture_snapshot(
         self,
-        state: AgentState,
+        state: WorkflowState,
         node_name: str = "unknown",
         description: str = ""
     ) -> None:
@@ -366,7 +366,7 @@ class LangGraphPanelComponent:
     
     def update_from_state(
         self,
-        state: Optional[AgentState] = None,
+        state: Optional[WorkflowState] = None,
         current_node: str = "未运行",
         node_status: str = "idle"
     ) -> None:

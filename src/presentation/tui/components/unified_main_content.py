@@ -11,7 +11,7 @@ from rich.text import Text
 from rich.table import Table
 from rich.console import Console, ConsoleOptions, RenderResult
 
-from src.infrastructure.graph.state import AgentState
+from src.infrastructure.graph.state import WorkflowState
 from src.presentation.tui.config import TUIConfig
 from .unified_timeline import (
     UnifiedTimelineComponent,
@@ -75,8 +75,8 @@ class UnifiedMainContentComponent:
             "errors": 0
         }
         
-    def update_from_state(self, state: Optional[AgentState] = None) -> None:
-        """从Agent状态更新组件
+    def update_from_state(self, state: Optional[WorkflowState] = None) -> None:
+        """从工作流状态更新组件
         
         Args:
             state: Agent状态

@@ -60,7 +60,7 @@ class _BaseGraphState(TypedDict, total=False):
     所有状态类型的基础类，提供通用的状态字段。
     """
     # 使用reducer确保消息列表是追加而不是覆盖
-    messages: Annotated[List[BaseMessage], operator.add]
+    messages: Annotated[List[LCBaseMessage], operator.add]
 
     # 可选字段
     metadata: Dict[str, Any]
@@ -73,7 +73,7 @@ class _BaseGraphState(TypedDict, total=False):
 
 
 def create_base_state(
-    messages: Optional[Sequence[BaseMessage]] = None,
+    messages: Optional[Sequence[LCBaseMessage]] = None,
     metadata: Optional[Dict[str, Any]] = None,
     execution_context: Optional[Dict[str, Any]] = None,
     current_step: str = "start"

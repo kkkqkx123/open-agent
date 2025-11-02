@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List
 from pathlib import Path
 
-from ...application.workflow.state import AgentState
+from ...infrastructure.graph.state import WorkflowState
 
 from .models import PromptMeta, PromptConfig
 
@@ -61,21 +61,21 @@ class IPromptInjector(ABC):
     """提示词注入器接口"""
     
     @abstractmethod
-    def inject_prompts(self, state: "AgentState", config: PromptConfig) -> "AgentState":
-        """将提示词注入Agent状态"""
+    def inject_prompts(self, state: "WorkflowState", config: PromptConfig) -> "WorkflowState":
+        """将提示词注入工作流状态"""
         pass
-        
+
     @abstractmethod
-    def inject_system_prompt(self, state: "AgentState", prompt_name: str) -> "AgentState":
+    def inject_system_prompt(self, state: "WorkflowState", prompt_name: str) -> "WorkflowState":
         """注入系统提示词"""
         pass
-        
+
     @abstractmethod
-    def inject_rule_prompts(self, state: "AgentState", rule_names: List[str]) -> "AgentState":
+    def inject_rule_prompts(self, state: "WorkflowState", rule_names: List[str]) -> "WorkflowState":
         """注入规则提示词"""
         pass
-        
+
     @abstractmethod
-    def inject_user_command(self, state: "AgentState", command_name: str) -> "AgentState":
+    def inject_user_command(self, state: "WorkflowState", command_name: str) -> "WorkflowState":
         """注入用户指令"""
         pass

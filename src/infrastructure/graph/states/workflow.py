@@ -9,7 +9,7 @@ from datetime import datetime
 from typing_extensions import TypedDict
 
 from ..state import BaseMessage, LCBaseMessage
-# AgentState已移除，使用适配器层定义
+# AgentState已移除，统一使用WorkflowState
 
 
 # 工作流状态类型定义
@@ -19,10 +19,10 @@ WorkflowState = Dict[str, Any]
 class _WorkflowState(TypedDict, total=False):
     """工作流状态类型注解
 
-    扩展Agent状态，添加工作流特定的字段。
+    统一状态模型，包含工作流特定的字段。
     """
-    # 基础字段 (从BaseGraphState和AgentState继承)
-    messages: Annotated[List[Union[BaseMessage, LCBaseMessage]], operator.add]
+    # 基础字段
+    messages: Annotated[List[LCBaseMessage], operator.add]
     metadata: Dict[str, Any]
     execution_context: Dict[str, Any]
     current_step: str

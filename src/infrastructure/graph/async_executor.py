@@ -54,14 +54,14 @@ class AsyncNodeExecutor(IAsyncNodeExecutor):
                 if node_class:
                     node_instance = node_class()
                     if hasattr(node_instance, 'execute_async'):
-                        # 如果节点支持异步执行，将WorkflowState转换为DomainAgentState
+                        # 如果节点支持异步执行，将WorkflowState转换为域状态
                         domain_state = self.state_adapter.from_graph_state(dict(state))
                         result = await node_instance.execute_async(domain_state, config)
                         # 将结果转换回WorkflowState
                         graph_state = self.state_adapter.to_graph_state(result.state)
                         return graph_state  # type: ignore
                     else:
-                        # 否则使用同步执行（在事件循环中），也将WorkflowState转换为DomainAgentState
+                        # 否则使用同步执行（在事件循环中），也将WorkflowState转换为域状态
                         domain_state = self.state_adapter.from_graph_state(dict(state))
                         result = await asyncio.get_event_loop().run_in_executor(
                             None, node_instance.execute, domain_state, config

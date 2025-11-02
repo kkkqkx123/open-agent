@@ -6,13 +6,14 @@
 
 import time
 import threading
-from typing import Dict, Any, Optional, List, Callable
+from typing import Dict, Any, Optional, List, Callable, cast
 from dataclasses import dataclass
 from enum import Enum
 
 from ..registry import BaseNode, NodeExecutionResult, node
-from src.domain.agent.state import AgentState, AgentMessage
+from ..state import WorkflowState
 from src.infrastructure.graph.adapters import get_state_adapter, get_message_adapter
+from langchain_core.messages import SystemMessage, BaseMessage as LCBaseMessage
 
 
 class TimeoutStrategy(Enum):
@@ -55,11 +56,11 @@ class WaitNode(BaseNode):
         """节点类型标识"""
         return "wait_node"
 
-    def execute(self, state: AgentState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行等待逻辑
 
         Args:
-            state: 当前Agent状态
+            state: 当前工作流状态
             config: 节点配置
 
         Returns:
@@ -73,7 +74,8 @@ class WaitNode(BaseNode):
         auto_resume_key = config.get("auto_resume_key", "human_review_result")
         
         # 生成唯一的等待ID
-        wait_id = f"{state.agent_id}_{int(time.time())}"
+        agent_id = state.get("agent_id", "unknown")
+        wait_id = f"{agent_id}_{int(time.time())}"
         
         # 检查是否已经有等待状态
         existing_wait = self._get_existing_wait(state)
@@ -94,16 +96,17 @@ class WaitNode(BaseNode):
         
         # 添加等待消息到状态
         wait_content = f"⏳ {wait_message}"
-        wait_role = 'system'
-        wait_msg = AgentMessage(
-            content=wait_content,
-            role=wait_role
-        )
-        state.messages.append(wait_msg)
+        wait_msg = SystemMessage(content=wait_content)
         
-        # 设置等待标志
-        state.is_waiting = True
-        state.wait_start_time = wait_state.start_time
+        # 安全访问messages列表
+        if "messages" not in state:
+            state["messages"] = []
+        state["messages"].append(wait_msg)
+        
+        # 设置等待标志 - 使用WorkflowState中定义的字段
+        state["context"] = state.get("context", {})
+        state["context"]["is_waiting"] = True
+        state["context"]["wait_start_time"] = wait_state.start_time
         
         # 如果启用超时，设置超时处理
         if timeout_enabled:
@@ -123,15 +126,16 @@ class WaitNode(BaseNode):
             }
         )
 
-    def _get_existing_wait(self, state: AgentState) -> Optional[WaitState]:
+    def _get_existing_wait(self, state: WorkflowState) -> Optional[WaitState]:
         """获取现有的等待状态"""
-        if hasattr(state, 'wait_start_time') and state.wait_start_time is not None:
+        wait_start_time = state.get("wait_start_time")
+        if wait_start_time is not None:
             for wait_state in self._active_waits.values():
-                if abs(wait_state.start_time - state.wait_start_time) < 1.0:  # 1秒误差范围
+                if abs(wait_state.start_time - wait_start_time) < 1.0:  # 1秒误差范围
                     return wait_state
         return None
 
-    def _handle_existing_wait(self, state: AgentState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def _handle_existing_wait(self, state: WorkflowState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
         """处理现有的等待状态"""
         # 检查是否有外部输入
         auto_resume_key = config.get("auto_resume_key", "human_review_result")
@@ -155,35 +159,31 @@ class WaitNode(BaseNode):
             }
         )
 
-    def _has_external_input(self, state: AgentState, key: str) -> bool:
+    def _has_external_input(self, state: WorkflowState, key: str) -> bool:
         """检查是否有外部输入"""
-        # 首先检查直接属性
-        if hasattr(state, key) and getattr(state, key) is not None:
-            return True
-        # 然后检查custom_fields中的动态属性
-        return key in state.custom_fields and state.custom_fields[key] is not None
+        # 检查custom_fields中的动态属性
+        custom_fields = state.get("custom_fields", {})
+        return key in custom_fields and custom_fields[key] is not None
 
-    def _resume_from_external_input(self, state: AgentState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def _resume_from_external_input(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
         """从外部输入恢复执行"""
         # 清除等待状态
-        if hasattr(state, 'is_waiting'):
-            state.is_waiting = False
+        state["context"] = state.get("context", {})
+        state["context"]["is_waiting"] = False
         
         # 添加恢复消息
         auto_resume_key = config.get("auto_resume_key", "human_review_result")
-        # 首先尝试从直接属性获取，然后从custom_fields获取
-        if hasattr(state, auto_resume_key):
-            resume_value = getattr(state, auto_resume_key)
-        else:
-            resume_value = state.custom_fields.get(auto_resume_key)
+        custom_fields = state.get("custom_fields", {})
+        resume_value = custom_fields.get(auto_resume_key)
         
         resume_content = f"✅ 收到外部输入，恢复执行: {resume_value}"
-        resume_role = 'system'
-        resume_msg = AgentMessage(
-            content=resume_content,
-            role=resume_role
-        )
-        state.messages.append(resume_msg)
+        from langchain_core.messages import SystemMessage
+        resume_msg = SystemMessage(content=resume_content)
+        
+        # 安全访问messages列表
+        if "messages" not in state:
+            state["messages"] = []
+        state["messages"].append(resume_msg)
         
         # 确定下一步
         next_node = self._determine_next_node_from_input(state, config)
@@ -198,14 +198,11 @@ class WaitNode(BaseNode):
             }
         )
 
-    def _determine_next_node_from_input(self, state: AgentState, config: Dict[str, Any]) -> str:
+    def _determine_next_node_from_input(self, state: WorkflowState, config: Dict[str, Any]) -> str:
         """根据外部输入确定下一步节点"""
         auto_resume_key = config.get("auto_resume_key", "human_review_result")
-        # 首先尝试从直接属性获取，然后从custom_fields获取
-        if hasattr(state, auto_resume_key):
-            resume_value = getattr(state, auto_resume_key)
-        else:
-            resume_value = state.custom_fields.get(auto_resume_key)
+        custom_fields = state.get("custom_fields", {})
+        resume_value = custom_fields.get(auto_resume_key)
         
         # 检查配置中的路由规则
         routing_rules = config.get("routing_rules", {})
@@ -224,8 +221,8 @@ class WaitNode(BaseNode):
         # 默认返回配置的next_node或继续
         return config.get("default_next_node", "final_answer")
 
-    def _setup_timeout_handler(self, wait_id: str, timeout_seconds: int, strategy: TimeoutStrategy, 
-                              state: AgentState, config: Dict[str, Any]) -> None:
+    def _setup_timeout_handler(self, wait_id: str, timeout_seconds: int, strategy: TimeoutStrategy,
+                              state: WorkflowState, config: Dict[str, Any]) -> None:
         """设置超时处理器"""
         def timeout_handler():
             time.sleep(timeout_seconds)
@@ -240,16 +237,17 @@ class WaitNode(BaseNode):
         timeout_thread = threading.Thread(target=timeout_handler, daemon=True)
         timeout_thread.start()
 
-    def _handle_continue_waiting(self, state: AgentState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def _handle_continue_waiting(self, state: WorkflowState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
         """处理继续等待策略"""
         # 添加超时提示消息
         timeout_content = f"⚠️ 等待超时 ({config.get('timeout_seconds', 300)}秒)，继续等待..."
-        timeout_role = 'system'
-        timeout_msg = AgentMessage(
-            content=timeout_content,
-            role=timeout_role
-        )
-        state.messages.append(timeout_msg)
+        from ..state import SystemMessage
+        timeout_msg = SystemMessage(content=timeout_content)
+        
+        # 安全访问messages列表
+        if "messages" not in state:
+            state["messages"] = []
+        cast(List[LCBaseMessage], state["messages"]).append(timeout_msg)  # type: ignore
         
         # 重置等待时间
         wait_state.start_time = time.time()
@@ -265,28 +263,30 @@ class WaitNode(BaseNode):
             }
         )
 
-    def _handle_cache_and_exit(self, state: AgentState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def _handle_cache_and_exit(self, state: WorkflowState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
         """处理缓存并退出策略"""
         # 缓存当前状态
+        messages = state.get("messages", [])
         wait_state.cached_state = {
-            "messages": [msg.__dict__ if hasattr(msg, '__dict__') else str(msg) for msg in state.messages],
-            "agent_id": state.agent_id,
-            "current_task": getattr(state, 'current_task', ''),
-            "context": getattr(state, 'context', {}),
+            "messages": [msg.__dict__ if hasattr(msg, '__dict__') else str(msg) for msg in messages],
+            "agent_id": state.get("agent_id", ""),
+            "current_task": state.get("current_task", ""),
+            "context": state.get("context", {}),
         }
         
         # 添加退出消息
         exit_content = f"💾 等待超时，状态已缓存，任务暂停。可稍后恢复执行。"
-        exit_role = 'system'
-        exit_msg = AgentMessage(
-            content=exit_content,
-            role=exit_role
-        )
-        state.messages.append(exit_msg)
+        from ..state import SystemMessage
+        exit_msg = SystemMessage(content=exit_content)
+        
+        # 安全访问messages列表
+        if "messages" not in state:
+            state["messages"] = []
+        cast(List[LCBaseMessage], state["messages"]).append(exit_msg)  # type: ignore
         
         # 清除等待状态
-        if hasattr(state, 'is_waiting'):
-            state.is_waiting = False
+        state["context"] = state.get("context", {})
+        state["context"]["is_waiting"] = False
         
         return NodeExecutionResult(
             state=state,
@@ -299,24 +299,24 @@ class WaitNode(BaseNode):
             }
         )
 
-    def _handle_llm_continue(self, state: AgentState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def _handle_llm_continue(self, state: WorkflowState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
         """处理LLM继续策略"""
         # 添加超时提示消息
         timeout_content = f"⚠️ 等待超时，将自动继续之前的任务。"
-        timeout_role = 'system'
-        timeout_msg = AgentMessage(
-            content=timeout_content,
-            role=timeout_role
-        )
-        state.messages.append(timeout_msg)
+        timeout_msg = SystemMessage(content=timeout_content)
+
+        # 安全访问messages列表
+        if "messages" not in state:
+            state["messages"] = []
+        cast(List[LCBaseMessage], state["messages"]).append(timeout_msg)
         
         # 清除等待状态
-        if hasattr(state, 'is_waiting'):
-            state.is_waiting = False
+        state["context"] = state.get("context", {})
+        state["context"]["is_waiting"] = False
         
         # 设置自动继续标志
-        state.auto_continue = True
-        state.continue_reason = "timeout"
+        state["context"]["auto_continue"] = True
+        state["context"]["continue_reason"] = "timeout"
         
         return NodeExecutionResult(
             state=state,

@@ -19,7 +19,7 @@ from rich.layout import Layout
 from rich.columns import Columns
 
 from ..config import TUIConfig
-from src.infrastructure.graph.state import AgentState
+from src.infrastructure.graph.state import WorkflowState
 
 
 class NodeType(Enum):
@@ -300,8 +300,8 @@ class WorkflowVisualizer:
         for from_node, to_node in edges:
             self.graph.add_edge(from_node, to_node)
     
-    def update_from_agent_state(self, state: Optional[AgentState]) -> None:
-        """从Agent状态更新
+    def update_from_agent_state(self, state: Optional[WorkflowState]) -> None:
+        """从工作流状态更新
         
         Args:
             state: Agent状态

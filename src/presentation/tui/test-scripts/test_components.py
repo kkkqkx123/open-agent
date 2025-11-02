@@ -20,7 +20,8 @@ from ..components import (
     MainContentComponent,
     InputPanel
 )
-from src.application.workflow.state import AgentState, HumanMessage, ToolResult
+from src.infrastructure.graph.state import WorkflowState, HumanMessage
+from src.domain.tools.interfaces import ToolResult
 
 
 class ComponentTester:
@@ -40,13 +41,13 @@ class ComponentTester:
         # 创建测试状态
         self.test_state = self._create_test_state()
     
-    def _create_test_state(self) -> AgentState:
+    def _create_test_state(self) -> WorkflowState:
         """创建测试状态
         
         Returns:
-            AgentState: 测试状态
+            WorkflowState: 测试状态
         """
-        state = AgentState()
+        state = WorkflowState()
         
         # 添加测试消息
         state.add_message(HumanMessage(content="你好，请介绍一下你自己"))

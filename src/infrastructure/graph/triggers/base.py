@@ -10,7 +10,7 @@ from enum import Enum
 from datetime import datetime
 import uuid
 
-from src.domain.agent.state import AgentState
+from ..state import WorkflowState
 
 
 class TriggerType(Enum):
@@ -52,11 +52,11 @@ class ITrigger(ABC):
         pass
 
     @abstractmethod
-    def evaluate(self, state: AgentState, context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: WorkflowState, context: Dict[str, Any]) -> bool:
         """评估触发器是否应该触发
 
         Args:
-            state: 当前Agent状态
+            state: 当前工作流状态
             context: 上下文信息
 
         Returns:
@@ -65,11 +65,11 @@ class ITrigger(ABC):
         pass
 
     @abstractmethod
-    def execute(self, state: AgentState, context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: WorkflowState, context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
 
         Args:
-            state: 当前Agent状态
+            state: 当前工作流状态
             context: 上下文信息
 
         Returns:

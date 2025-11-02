@@ -10,7 +10,6 @@
 from .builder import GraphBuilder
 from .state import (
     BaseGraphState,
-    AgentState,
     WorkflowState,
     ReActState,
     PlanExecuteState,
@@ -52,10 +51,9 @@ from .registry import (
 __all__ = [
     # 构建器
     "GraphBuilder",
-    
+
     # 状态类型
     "BaseGraphState",
-    "AgentState",
     "WorkflowState",
     "ReActState",
     "PlanExecuteState",

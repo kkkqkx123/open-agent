@@ -21,7 +21,7 @@ else:
     RunnableConfig = Dict[str, Any]
 
 from .config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
-from .state import WorkflowState, AgentState, LCBaseMessage
+from .state import WorkflowState, LCBaseMessage
 from .registry import NodeRegistry, get_global_registry
 from .adapters import get_state_adapter
 from src.domain.state.interfaces import IStateCollaborationManager
@@ -58,7 +58,7 @@ class NodeWithAdapterExecutor(INodeExecutor):
             
         # 1. 图状态转域状态
         state_adapter = get_state_adapter()
-        domain_state = state_adapter.from_graph_state(cast(GraphAgentState, state))
+        domain_state = state_adapter.from_graph_state(state)
         
         # 2. 调用节点原始逻辑
         result = self.node.execute(domain_state, config)

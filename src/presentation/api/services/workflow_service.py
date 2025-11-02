@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any, List, AsyncGenerator
 from datetime import datetime
 import asyncio
 from src.application.workflow.manager import IWorkflowManager
-from src.application.workflow.state import AgentState
+from src.infrastructure.graph.state import WorkflowState
 from ..data_access.workflow_dao import WorkflowDAO
 
 from ..cache.memory_cache import MemoryCache
@@ -209,10 +209,10 @@ class WorkflowService:
         try:
             # 获取初始状态
             initial_state_dict = request.initial_state if request else None
-            # 转换为 AgentState
+            # 转换为 WorkflowState
             initial_state = None
             if initial_state_dict:
-                initial_state = AgentState(**initial_state_dict)
+                initial_state = initial_state_dict  # WorkflowState是TypedDict，直接使用字典
             
             # 运行工作流
             result = self.workflow_manager.run_workflow(
@@ -270,10 +270,10 @@ class WorkflowService:
         try:
             # 获取初始状态
             initial_state_dict = request.initial_state if request else None
-            # 转换为 AgentState
+            # 转换为 WorkflowState
             initial_state = None
             if initial_state_dict:
-                initial_state = AgentState(**initial_state_dict)
+                initial_state = initial_state_dict  # WorkflowState是TypedDict，直接使用字典
             
             # 流式运行工作流
             for state in self.workflow_manager.stream_workflow(

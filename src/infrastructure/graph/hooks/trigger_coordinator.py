@@ -10,7 +10,7 @@ import logging
 from .interfaces import IHookManager, HookContext, HookPoint, HookExecutionResult
 from ..triggers.base import ITrigger, TriggerEvent, TriggerType
 from ..triggers.system import TriggerSystem
-from src.domain.agent.state import AgentState
+from ..state import WorkflowState
 
 logger = logging.getLogger(__name__)
 
@@ -57,16 +57,16 @@ class HookTriggerCoordinator:
         }
     
     def coordinate_node_execution(
-        self, 
-        node_type: str, 
-        state: AgentState, 
+        self,
+        node_type: str,
+        state: WorkflowState,
         config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """协调节点执行
         
         Args:
             node_type: 节点类型
-            state: Agent状态
+            state: 工作流状态
             config: 节点配置
             
         Returns:
@@ -116,7 +116,7 @@ class HookTriggerCoordinator:
     def _execute_hooks_with_coordination(
         self,
         node_type: str,
-        state: AgentState,
+        state: WorkflowState,
         config: Dict[str, Any],
         coordination_result: Dict[str, Any]
     ) -> HookExecutionResult:
@@ -146,7 +146,7 @@ class HookTriggerCoordinator:
     def _evaluate_triggers_with_coordination(
         self,
         node_type: str,
-        state: AgentState,
+        state: WorkflowState,
         config: Dict[str, Any],
         coordination_result: Dict[str, Any]
     ) -> Dict[str, Any]:

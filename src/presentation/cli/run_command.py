@@ -11,7 +11,7 @@ from ...infrastructure.container import get_global_container
 from ...infrastructure.config_loader import IConfigLoader
 from src.application.sessions.manager import ISessionManager
 from src.application.workflow.manager import IWorkflowManager
-from src.domain.agent.state import AgentState, AgentMessage
+from src.infrastructure.graph.state import WorkflowState
 from src.infrastructure.graph.adapters.state_adapter import StateAdapter
 
 
@@ -94,7 +94,7 @@ class RunCommand:
         self.console.print(panel)
         # 移除额外的空行打印
     
-    def _run_interactive_loop(self, session_id: str, workflow: Any, state: AgentState, session_manager: ISessionManager) -> None:
+    def _run_interactive_loop(self, session_id: str, workflow: Any, state: WorkflowState, session_manager: ISessionManager) -> None:
         """运行交互式循环"""
         self.console.print("[bold cyan]进入交互模式，输入 'exit' 或 'quit' 退出[/bold cyan]")
         self.console.print()
@@ -161,7 +161,7 @@ class RunCommand:
                     import traceback
                     self.console.print(traceback.format_exc())
     
-    async def _execute_workflow(self, workflow: Any, state: AgentState) -> Optional[AgentState]:
+    async def _execute_workflow(self, workflow: Any, state: WorkflowState) -> Optional[WorkflowState]:
         """异步执行工作流"""
         try:
             # 这里需要根据具体的工作流实现来调整

@@ -7,7 +7,7 @@ import logging
 from datetime import datetime
 
 from .interfaces import IStateManager
-from ...infrastructure.graph.state import AgentState
+from ...infrastructure.graph.state import WorkflowState
 
 
 logger = logging.getLogger(__name__)
@@ -25,10 +25,10 @@ class StateManager(IStateManager):
         self.serialization_format = serialization_format
         self._states = {}
     
-    def serialize_agent_state(self, state: AgentState) -> bytes:
-        """序列化AgentState"""
+    def serialize_agent_state(self, state: WorkflowState) -> bytes:
+        """序列化WorkflowState"""
         try:
-            # 将AgentState转换为字典
+            # 将WorkflowState转换为字典
             state_dict = self._agent_state_to_dict(state)
             
             if self.serialization_format == "json":
@@ -41,8 +41,8 @@ class StateManager(IStateManager):
             logger.error(f"序列化状态失败: {e}")
             raise
 
-    def deserialize_agent_state(self, data: bytes) -> AgentState:
-        """反序列化AgentState"""
+    def deserialize_agent_state(self, data: bytes) -> WorkflowState:
+        """反序列化WorkflowState"""
         try:
             if self.serialization_format == "json":
                 state_dict = json.loads(data.decode('utf-8'))
@@ -51,7 +51,7 @@ class StateManager(IStateManager):
             else:
                 raise ValueError(f"不支持的序列化格式: {self.serialization_format}")
             
-            # 将字典转换回AgentState
+            # 将字典转换回WorkflowState
             return self._dict_to_agent_state(state_dict)
         except Exception as e:
             logger.error(f"反序列化状态失败: {e}")
@@ -88,7 +88,7 @@ class StateManager(IStateManager):
             logger.error(f"反序列化状态失败: {e}")
             raise
 
-    def validate_state(self, state: AgentState) -> bool:
+    def validate_state(self, state: WorkflowState) -> bool:
         """验证状态完整性"""
         try:
             # 检查必要的字段是否存在
@@ -142,15 +142,15 @@ class StateManager(IStateManager):
             logger.error(f"反序列化状态字典失败: {e}")
             raise
 
-    def _agent_state_to_dict(self, state: AgentState) -> Dict[str, Any]:
-        """将AgentState转换为字典"""
-        # 直接返回状态字典，因为AgentState已经是TypedDict
+    def _agent_state_to_dict(self, state: WorkflowState) -> Dict[str, Any]:
+        """将WorkflowState转换为字典"""
+        # 直接返回状态字典，因为WorkflowState已经是TypedDict
         return dict(state)
 
-    def _dict_to_agent_state(self, state_dict: Dict[str, Any]) -> AgentState:
-        """将字典转换为AgentState"""
+    def _dict_to_agent_state(self, state_dict: Dict[str, Any]) -> WorkflowState:
+        """将字典转换为WorkflowState"""
         # 确保所有必需字段都存在
-        default_state: AgentState = {
+        default_state: WorkflowState = {
             "messages": [],
             "tool_results": [],
             "current_step": "",

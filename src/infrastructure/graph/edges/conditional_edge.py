@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from ..config import EdgeConfig
-from src.domain.agent.state import AgentState
+from ..state import WorkflowState
 
 
 class ConditionType(Enum):
@@ -82,11 +82,11 @@ class ConditionalEdge:
             description=self.description
         )
     
-    def evaluate(self, state: AgentState) -> bool:
+    def evaluate(self, state: WorkflowState) -> bool:
         """评估条件是否满足
         
         Args:
-            state: 当前Agent状态
+            state: 当前工作流状态
             
         Returns:
             bool: 条件是否满足
@@ -199,12 +199,15 @@ class ConditionalEdge:
         return ConditionType.CUSTOM, {"expression": condition_str}
     
     # 条件评估方法
-    def _has_tool_calls(self, state: AgentState) -> bool:
+    def _has_tool_calls(self, state: WorkflowState) -> bool:
         """检查是否有工具调用"""
-        if not state.messages:
+        if not state.get("messages"):
             return False
         
-        last_message = state.messages[-1]
+        messages = state.get("messages", [])
+        if not messages:
+            return False
+        last_message = messages[-1]
         if hasattr(last_message, 'tool_calls') and getattr(last_message, 'tool_calls', None):
             return True
         
@@ -215,39 +218,39 @@ class ConditionalEdge:
         
         return False
     
-    def _no_tool_calls(self, state: AgentState) -> bool:
+    def _no_tool_calls(self, state: WorkflowState) -> bool:
         """检查是否没有工具调用"""
         return not self._has_tool_calls(state)
     
-    def _has_tool_results(self, state: AgentState) -> bool:
+    def _has_tool_results(self, state: WorkflowState) -> bool:
         """检查是否有工具执行结果"""
-        return len(state.tool_results) > 0
+        return len(state.get("tool_results", [])) > 0
     
-    def _max_iterations_reached(self, state: AgentState) -> bool:
+    def _max_iterations_reached(self, state: WorkflowState) -> bool:
         """检查是否达到最大迭代次数"""
-        iteration_count = getattr(state, 'iteration_count', 0)
-        max_iterations = getattr(state, 'max_iterations', 10)
+        iteration_count = state.get("iteration_count", 0)
+        max_iterations = state.get("max_iterations", 10)
         return iteration_count >= max_iterations
     
-    def _has_errors(self, state: AgentState) -> bool:
+    def _has_errors(self, state: WorkflowState) -> bool:
         """检查是否有错误"""
-        for result in state.tool_results:
-            if not result.success:
+        for result in state.get("tool_results", []):
+            if not result.get("success", True):
                 return True
         return False
     
-    def _no_errors(self, state: AgentState) -> bool:
+    def _no_errors(self, state: WorkflowState) -> bool:
         """检查是否没有错误"""
         return not self._has_errors(state)
     
-    def _message_contains(self, state: AgentState) -> bool:
+    def _message_contains(self, state: WorkflowState) -> bool:
         """检查消息是否包含指定内容"""
         if "text" not in self.condition_parameters:
             return False
         
         search_text = self.condition_parameters["text"].lower()
         
-        for message in state.messages:
+        for message in state.get("messages", []):
             if hasattr(message, 'content'):
                 content = str(getattr(message, 'content', '')).lower()
                 if search_text in content:
@@ -255,25 +258,25 @@ class ConditionalEdge:
         
         return False
     
-    def _iteration_count_equals(self, state: AgentState) -> bool:
+    def _iteration_count_equals(self, state: WorkflowState) -> bool:
         """检查迭代次数是否等于指定值"""
         if "count" not in self.condition_parameters:
             return False
         
-        iteration_count = getattr(state, 'iteration_count', 0)
+        iteration_count = state.get("iteration_count", 0)
         count = self.condition_parameters["count"]
         return bool(iteration_count == count)
     
-    def _iteration_count_greater_than(self, state: AgentState) -> bool:
+    def _iteration_count_greater_than(self, state: WorkflowState) -> bool:
         """检查迭代次数是否大于指定值"""
         if "count" not in self.condition_parameters:
             return False
         
-        iteration_count = getattr(state, 'iteration_count', 0)
+        iteration_count = state.get("iteration_count", 0)
         count = self.condition_parameters["count"]
         return bool(iteration_count > count)
     
-    def _custom_condition(self, state: AgentState) -> bool:
+    def _custom_condition(self, state: WorkflowState) -> bool:
         """执行自定义条件"""
         if "expression" not in self.condition_parameters:
             return False

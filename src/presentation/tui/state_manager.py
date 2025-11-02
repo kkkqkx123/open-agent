@@ -3,7 +3,7 @@
 from typing import Optional, Dict, Any, List, Callable
 from typing import cast
 from src.application.sessions.manager import ISessionManager
-from src.infrastructure.graph.state import AgentState
+from src.infrastructure.graph.state import WorkflowState
 from src.infrastructure.graph.state import HumanMessage
 
 
@@ -68,13 +68,13 @@ class StateManager:
             # 恢复会话以获取工作流和状态
             workflow, state = self.session_manager.restore_session(self.session_id)
             self.current_workflow = workflow
-            # 将AgentState对象转换为字典，以兼容新的类型定义
+            # 将WorkflowState对象转换为字典，以兼容新的类型定义
             if state is not None:
-                # AgentState是TypedDict，可以直接作为字典使用
+                # WorkflowState是TypedDict，可以直接作为字典使用
                 self.current_state = cast(Dict[str, Any], state)
             else:
                 self.current_state = None
-            
+
             # 清空消息历史
             self.message_history = []
             
@@ -104,9 +104,9 @@ class StateManager:
         try:
             workflow, state = self.session_manager.restore_session(session_id)
             self.current_workflow = workflow
-            # 将AgentState对象转换为字典，以兼容新的类型定义
+            # 将WorkflowState对象转换为字典，以兼容新的类型定义
             if state is not None:
-                # AgentState是TypedDict，可以直接作为字典使用
+                # WorkflowState是TypedDict，可以直接作为字典使用
                 self.current_state = cast(Dict[str, Any], state)
             else:
                 self.current_state = None
@@ -128,15 +128,15 @@ class StateManager:
         """
         if self.session_id and self.current_state and self.session_manager:
             try:
-                # 由于AgentState是TypedDict，我们可以直接使用字典
+                # 由于WorkflowState是TypedDict，我们可以直接使用字典
                 # 这里我们简单地将当前状态传递给session_manager
-                # 如果session_manager期望特定的AgentState类型，可能需要根据具体实现调整
+                # 如果session_manager期望特定的WorkflowState类型，可能需要根据具体实现调整
                 self.session_manager.save_session(self.session_id, self.current_workflow, self.current_state)  # type: ignore
                 return True
             except Exception:
                 return False
         elif self.session_id and self.session_manager:
-            # 如果current_state为None，创建一个空的AgentState
+            # 如果current_state为None，创建一个空的WorkflowState
             try:
                 empty_state: Dict[str, Any] = {}
                 self.session_manager.save_session(self.session_id, self.current_workflow, empty_state)  # type: ignore
@@ -193,7 +193,7 @@ class StateManager:
         if self.current_state:
             try:
                 human_message = HumanMessage(content=content)
-                # AgentState是TypedDict，不支持add_message方法，需要使用字典方式添加消息
+                # WorkflowState是TypedDict，不支持add_message方法，需要使用字典方式添加消息
                 messages = self.current_state.get('messages', [])
                 messages.append(human_message)
                 self.current_state['messages'] = messages

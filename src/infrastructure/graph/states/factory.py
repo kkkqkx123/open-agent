@@ -7,14 +7,13 @@ from typing import Dict, Any, List, Optional, Type, Union, cast
 from datetime import datetime
 from typing_extensions import TypedDict
 
-from .base import BaseGraphState, BaseMessage, create_base_state, create_message
+from .base import BaseGraphState, BaseMessage, create_base_state, create_message, LCBaseMessage
 from .workflow import WorkflowState, create_workflow_state
 from .react import ReActState, create_react_state
 from .plan_execute import PlanExecuteState, create_plan_execute_state
 
 
-# Agent状态类型定义（用于类型注解）
-AgentState = Dict[str, Any]
+# Agent状态类型已弃用，统一使用WorkflowState
 
 
 class StateFactory:
@@ -55,8 +54,8 @@ class StateFactory:
         agent_config: Optional[Dict[str, Any]] = None,
         max_iterations: int = 10,
         messages: Optional[List] = None
-    ) -> AgentState:
-        """创建Agent状态
+    ) -> WorkflowState:
+        """创建Agent状态（已弃用，使用create_workflow_state替代）
         
         Args:
             input_text: 输入文本
@@ -66,10 +65,10 @@ class StateFactory:
             messages: 初始消息列表
             
         Returns:
-            AgentState实例
+            WorkflowState实例
         """
-        # 使用工作流状态创建函数来创建Agent状态
-        workflow_state = create_workflow_state(
+        # 使用工作流状态创建函数来创建状态
+        return create_workflow_state(
             workflow_id=agent_id,
             workflow_name=f"agent_{agent_id}",
             input_text=input_text,
@@ -77,14 +76,6 @@ class StateFactory:
             max_iterations=max_iterations,
             messages=messages
         )
-        
-        # 移除工作流特定的字段，保留Agent状态字段
-        agent_state = {
-            key: value for key, value in workflow_state.items()
-            if key not in ["workflow_id", "workflow_name", "workflow_config", "start_time", "end_time", "graph_states"]
-        }
-        
-        return agent_state
     
     @staticmethod
     def create_workflow_state(
@@ -202,7 +193,7 @@ class StateFactory:
         return creator(**kwargs)  # type: ignore
     
     @staticmethod
-    def create_message(content: str, role: str, **kwargs: Any) -> BaseMessage:
+    def create_message(content: str, role: str, **kwargs: Any) -> LCBaseMessage:
         """创建消息
         
         Args:
@@ -213,7 +204,7 @@ class StateFactory:
         Returns:
             消息实例
         """
-        return create_message(content=content, role=role, **kwargs)
+        return create_message(content=content, role=role, **kwargs)  # 返回LangChain消息类型
     
     @staticmethod
     def create_initial_messages(input_text: str, system_prompt: Optional[str] = None) -> List:
@@ -324,11 +315,7 @@ class StateFactory:
         # 类型特定验证
         # 由于 ReActState 和 PlanExecuteState 都是 Dict[str, Any] 的类型别名，
         # 我们需要使用不同的方式来区分它们
-        if state_type == Dict[str, Any]:  # AgentState类型
-            required_fields = ["input", "agent_id", "max_iterations"]
-            for field in required_fields:
-                if field not in state:
-                    errors.append(f"缺少必需字段: {field}")
+        # AgentState类型已弃用，统一使用WorkflowState
         
         elif state_type == WorkflowState:
             required_fields = ["workflow_id", "workflow_name", "input", "max_iterations"]

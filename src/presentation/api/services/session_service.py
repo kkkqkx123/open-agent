@@ -2,7 +2,7 @@
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from src.application.sessions.manager import ISessionManager
-from src.application.workflow.state import AgentState
+from src.infrastructure.graph.state import WorkflowState
 from ..data_access.session_dao import SessionDAO
 
 from ..data_access.history_dao import HistoryDAO
@@ -32,63 +32,77 @@ class SessionService:
         self.history_dao = history_dao
         self.cache = cache
     
-    def _dict_to_agent_state(self, state_dict: Optional[Dict[str, Any]]) -> Optional[AgentState]:
-        """将字典转换为AgentState对象"""
+    def _dict_to_agent_state(self, state_dict: Optional[Dict[str, Any]]) -> Optional[WorkflowState]:
+        """将字典转换为WorkflowState对象"""
         if state_dict is None:
             return None
-        
-        agent_state = AgentState()
+
+        agent_state = WorkflowState()
         
         # 设置基本属性
-        agent_state.current_step = state_dict.get("current_step", "")
-        agent_state.max_iterations = state_dict.get("max_iterations", 10)
-        agent_state.iteration_count = state_dict.get("iteration_count", 0)
-        agent_state.workflow_name = state_dict.get("workflow_name", "")
-        agent_state.errors = state_dict.get("errors", [])
+        agent_state["current_step"] = state_dict.get("current_step", "")
+        agent_state["max_iterations"] = state_dict.get("max_iterations", 10)
+        agent_state["iteration_count"] = state_dict.get("iteration_count", 0)
+        agent_state["workflow_name"] = state_dict.get("workflow_name", "")
+        agent_state["errors"] = state_dict.get("errors", [])
         
         # 处理开始时间
         start_time_str = state_dict.get("start_time")
         if start_time_str:
             try:
-                agent_state.start_time = datetime.fromisoformat(start_time_str)
+                agent_state["start_time"] = datetime.fromisoformat(start_time_str).isoformat()
             except (ValueError, TypeError):
-                agent_state.start_time = None
+                agent_state["start_time"] = None
         
         # 处理消息
-        from src.domain.prompts.agent_state import BaseMessage
+        from src.infrastructure.graph.state import BaseMessage, SystemMessage, HumanMessage
+        messages = []
         for msg_data in state_dict.get("messages", []):
             try:
                 msg_type = msg_data.get("type", "base")
                 content = msg_data.get("content", "")
                 
                 if msg_type == "system":
-                    from src.domain.prompts.agent_state import SystemMessage
-                    message = SystemMessage(content=content)
+                    message = BaseMessage(content=content)
                 elif msg_type == "human":
-                    from src.domain.prompts.agent_state import HumanMessage
-                    message = HumanMessage(content=content)
+                    message = BaseMessage(content=content)
                 else:
                     message = BaseMessage(content=content)
                 
-                agent_state.add_message(message)
+                messages.append(message)
             except Exception:
                 # 如果创建消息失败，跳过
                 continue
         
+        agent_state["messages"] = messages
+        
         # 处理工具结果
-        from src.domain.prompts.agent_state import ToolResult
+        from src.domain.tools.interfaces import ToolResult
+        tool_results = []
         for result_data in state_dict.get("tool_results", []):
             try:
                 tool_result = ToolResult(
                     tool_name=result_data.get("tool_name", ""),
                     success=result_data.get("success", False),
-                    result=result_data.get("result"),
-                    error=result_data.get("error")
+                    output=result_data.get("result", ""),
+                    error=result_data.get("error", "")
                 )
-                agent_state.tool_results.append(tool_result)
+                tool_results.append(tool_result)
             except Exception:
                 # 如果创建工具结果失败，跳过
                 continue
+        
+        # 将ToolResult对象转换为字典
+        tool_results_dict = []
+        for tr in tool_results:
+            tool_results_dict.append({
+                "tool_name": tr.tool_name,
+                "success": tr.success,
+                "output": tr.output,
+                "error": tr.error
+            })
+        
+        agent_state["tool_results"] = tool_results_dict
         
         return agent_state
     
@@ -300,12 +314,12 @@ class SessionService:
         
         # 如果转换失败，创建一个新的空状态
         if agent_state is None:
-            agent_state = AgentState()
+            agent_state = WorkflowState()
         
         success = self.session_manager.save_session(
             session_id,
-            session_data.get("workflow"),
-            agent_state
+            agent_state,
+            session_data.get("workflow")
         )
         
         if success:

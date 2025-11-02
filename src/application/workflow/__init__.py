@@ -12,7 +12,6 @@ from src.infrastructure.graph.states import (
     BaseGraphState, WorkflowState,
     ReActState, PlanExecuteState, StateFactory, StateSerializer
 )
-from src.domain.agent.state import AgentState
 
 __all__ = [
     # 接口
@@ -25,7 +24,6 @@ __all__ = [
     
     # 状态类
     "BaseGraphState",
-    "AgentState",
     "WorkflowState",
     "ReActState",
     "PlanExecuteState",

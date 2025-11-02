@@ -371,13 +371,12 @@ class IWorkflowFactory(ABC):
     """工作流工厂接口"""
 
     @abstractmethod
-    def create_workflow(self, workflow_type: str, config: Dict[str, Any]) -> Any:
+    def create_workflow(self, config: WorkflowConfig) -> Any:
         """创建工作流实例
-        
+
         Args:
-            workflow_type: 工作流类型
             config: 工作流配置
-            
+
         Returns:
             工作流实例
         """

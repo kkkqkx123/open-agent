@@ -3,11 +3,11 @@
 负责在域层状态和图系统状态之间进行转换。
 """
 
-from typing import Dict, Any, Optional, List
-from dataclasses import dataclass, asdict
+from typing import Dict, Any, Optional, List, cast
+from dataclasses import dataclass, asdict, field
 import logging
 
-from ..state import WorkflowState, AgentState, LCBaseMessage
+from ..state import WorkflowState, LCBaseMessage
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 
 logger = logging.getLogger(__name__)
@@ -21,14 +21,14 @@ class GraphAgentState:
     agent_type: str = ""
     
     # 消息相关
-    messages: List[LCBaseMessage] = None
+    messages: List[LCBaseMessage] = field(default_factory=list)
     
     # 任务相关
     current_task: Optional[str] = None
-    task_history: List[Dict[str, Any]] = None
+    task_history: List[Dict[str, Any]] = field(default_factory=list)
     
     # 工具执行结果
-    tool_results: List[Dict[str, Any]] = None
+    tool_results: List[Dict[str, Any]] = field(default_factory=list)
     
     # 控制信息
     current_step: str = ""
@@ -40,35 +40,17 @@ class GraphAgentState:
     last_update_time: Optional[str] = None
     
     # 错误和日志
-    errors: List[Dict[str, Any]] = None
-    logs: List[Dict[str, Any]] = None
+    errors: List[Dict[str, Any]] = field(default_factory=list)
+    logs: List[Dict[str, Any]] = field(default_factory=list)
     
     # 性能指标
-    execution_metrics: Dict[str, Any] = None
-    
+    execution_metrics: Dict[str, Any] = field(default_factory=dict)
+
     # 自定义字段
-    custom_fields: Dict[str, Any] = None
-    
+    custom_fields: Dict[str, Any] = field(default_factory=dict)
+
     # 上下文信息
-    context: Dict[str, Any] = None
-    
-    def __post_init__(self):
-        if self.messages is None:
-            self.messages = []
-        if self.task_history is None:
-            self.task_history = []
-        if self.tool_results is None:
-            self.tool_results = []
-        if self.errors is None:
-            self.errors = []
-        if self.logs is None:
-            self.logs = []
-        if self.execution_metrics is None:
-            self.execution_metrics = {}
-        if self.custom_fields is None:
-            self.custom_fields = {}
-        if self.context is None:
-            self.context = {}
+    context: Dict[str, Any] = field(default_factory=dict)
 
 
 class StateAdapter:
@@ -89,7 +71,7 @@ class StateAdapter:
         try:
             # 处理字典格式的图状态
             if isinstance(graph_state, dict):
-                return self._dict_to_domain_state(graph_state)
+                return self._dict_to_domain_state(cast(Dict[str, Any], graph_state))
             else:
                 # 处理对象格式的图状态
                 return self._object_to_domain_state(graph_state)
@@ -114,12 +96,12 @@ class StateAdapter:
             # 确保消息列表格式正确
             if "messages" in state_dict:
                 state_dict["messages"] = self._convert_messages_to_langchain(state_dict["messages"])
-            
-            return state_dict
+
+            return cast(WorkflowState, state_dict)
         except Exception as e:
             self.logger.error(f"状态转换失败: {e}")
             # 返回默认状态
-            return {}
+            return cast(WorkflowState, {})
     
     def _dict_to_domain_state(self, state_dict: Dict[str, Any]) -> GraphAgentState:
         """将字典转换为域状态"""

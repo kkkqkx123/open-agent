@@ -78,9 +78,11 @@ class BaseGraphState(TypedDict, total=False):
     metadata: dict[str, Any]
 
 
-class AgentState(BaseGraphState, total=False):
-    """Agent状态 - 扩展版本"""
-    # Agent特定的状态字段
+# AgentState已移除，统一使用WorkflowState
+
+class WorkflowState(BaseGraphState, total=False):
+    """工作流状态 - 统一状态模型"""
+    # Agent特定的状态字段 (从AgentState合并)
     input: str
     output: Optional[str]
 
@@ -102,23 +104,20 @@ class AgentState(BaseGraphState, total=False):
     start_time: Optional[str]
     current_step: Optional[str]
     workflow_name: Optional[str]
-    
+
     # 新增业务字段以匹配域状态
     context: dict[str, Any]
     task_history: List[dict[str, Any]]
     execution_metrics: dict[str, Any]
     logs: List[dict[str, Any]]
     custom_fields: dict[str, Any]
-    
+
     # 时间信息
     last_update_time: Optional[str]
-    
+
     # Agent配置扩展
     agent_config: dict[str, Any]  # 包含agent_type等配置
 
-
-class WorkflowState(AgentState, total=False):
-    """工作流状态 - 扩展Agent状态"""
     # 工作流特定字段
     workflow_id: str
     step_name: Optional[str]
@@ -131,9 +130,6 @@ class WorkflowState(AgentState, total=False):
 
     # 条件结果
     condition_result: Optional[bool]
-
-# 上下文信息
-context: dict[str, Any]
 
 
 class ReActState(WorkflowState, total=False):
@@ -152,7 +148,7 @@ class PlanExecuteState(WorkflowState, total=False):
     # 计划执行特定字段
     plan: Optional[str]
     steps: Annotated[List[str], operator.add]
-    current_step: Optional[str]
+    plan_current_step: Optional[str]  # 重命名避免与父类冲突
     step_results: Annotated[List[dict[str, Any]], operator.add]
 
 
@@ -161,7 +157,7 @@ def create_agent_state(
     input_text: str,
     max_iterations: int = 10,
     messages: Optional[List[LCBaseMessage]] = None
-) -> AgentState:
+) -> WorkflowState:
     """创建Agent状态
     
     Args:
@@ -170,7 +166,7 @@ def create_agent_state(
         messages: 初始消息列表
         
     Returns:
-        AgentState实例
+        WorkflowState实例
     """
     if messages is None:
         messages = [LCHumanMessage(content=input_text)]
@@ -363,13 +359,7 @@ def validate_state(state: dict[str, Any], state_type: type) -> List[str]:
     if "messages" not in state:
         errors.append("缺少messages字段")
     
-    if state_type == AgentState:
-        required_fields = ["input", "max_iterations"]
-        for field in required_fields:
-            if field not in state:
-                errors.append(f"缺少必需字段: {field}")
-    
-    elif state_type == WorkflowState:
+    if state_type == WorkflowState:
         required_fields = ["workflow_id", "input", "max_iterations"]
         for field in required_fields:
             if field not in state:
@@ -430,6 +420,5 @@ def deserialize_state(serialized_state: dict[str, Any]) -> dict[str, Any]:
     return state
 
 
-# 向后兼容的别名
-WorkflowState = WorkflowState
-AgentState = AgentState
+# 向后兼容的别名 - AgentState已移除，统一使用WorkflowState
+# AgentState = WorkflowState  # 已移除

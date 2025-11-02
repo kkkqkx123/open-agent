@@ -10,7 +10,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from .base import ITrigger, TriggerEvent, TriggerHandler, TriggerType
-from src.domain.agent.state import AgentState
+from ..state import WorkflowState
 
 
 class TriggerSystem:
@@ -125,11 +125,11 @@ class TriggerSystem:
                 return True
             return False
 
-    def evaluate_triggers(self, state: AgentState, context: Dict[str, Any]) -> List[TriggerEvent]:
+    def evaluate_triggers(self, state: WorkflowState, context: Dict[str, Any]) -> List[TriggerEvent]:
         """评估所有触发器
 
         Args:
-            state: 当前Agent状态
+            state: 当前工作流状态
             context: 上下文信息
 
         Returns:
@@ -337,12 +337,12 @@ class WorkflowTriggerSystem(TriggerSystem):
         super().__init__(max_workers)
         self.workflow_manager = workflow_manager
 
-    def evaluate_workflow_triggers(self, workflow_id: str, state: AgentState) -> List[TriggerEvent]:
+    def evaluate_workflow_triggers(self, workflow_id: str, state: WorkflowState) -> List[TriggerEvent]:
         """评估工作流触发器
 
         Args:
             workflow_id: 工作流ID
-            state: 当前状态
+            state: 当前工作流状态
 
         Returns:
             List[TriggerEvent]: 触发的事件列表

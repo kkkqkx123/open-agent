@@ -8,9 +8,6 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Type, Optional, Callable, TYPE_CHECKING
 from dataclasses import dataclass
 
-if TYPE_CHECKING:
-    from .state import AgentState
-
 from .state import WorkflowState
 
 

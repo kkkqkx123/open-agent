@@ -18,7 +18,7 @@ from rich.align import Align
 from rich.console import Console, ConsoleOptions, RenderResult
 from rich.spinner import Spinner
 
-from src.infrastructure.graph.state import AgentState
+from src.infrastructure.graph.state import WorkflowState
 from src.infrastructure.graph.state import BaseMessage
 from typing import Any as ToolResult
 from ..config import TUIConfig
@@ -66,8 +66,8 @@ class ConversationHistory:
         if len(self.messages) > self.max_messages:
             self.messages = self.messages[-self.max_messages:]
     
-    def add_messages_from_state(self, state: AgentState) -> None:
-        """从Agent状态添加消息
+    def add_messages_from_state(self, state: WorkflowState) -> None:
+        """从工作流状态添加消息
         
         Args:
             state: Agent状态
@@ -298,8 +298,8 @@ class ToolResults:
         if len(self.tool_results) > self.max_results:
             self.tool_results = self.tool_results[-self.max_results:]
     
-    def add_results_from_state(self, state: AgentState) -> None:
-        """从Agent状态添加工具结果
+    def add_results_from_state(self, state: WorkflowState) -> None:
+        """从工作流状态添加工具结果
         
         Args:
             state: Agent状态
@@ -418,8 +418,8 @@ class MainContentComponent:
         self.display_mode = "split"  # split, tabs, single
         self.active_tab = "history"  # history, stream, tools
     
-    def update_from_state(self, state: Optional[AgentState] = None) -> None:
-        """从Agent状态更新组件
+    def update_from_state(self, state: Optional[WorkflowState] = None) -> None:
+        """从工作流状态更新组件
         
         Args:
             state: Agent状态

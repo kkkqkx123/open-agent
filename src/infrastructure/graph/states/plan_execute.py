@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Annotated, Optional, cast
 import operator
 from typing_extensions import TypedDict
 
-from .base import BaseMessage
+from .base import LCBaseMessage
 from .workflow import WorkflowState, create_workflow_state
 
 
@@ -21,7 +21,7 @@ class _PlanExecuteState(TypedDict, total=False):
     扩展工作流状态，添加计划执行特定的字段。
     """
     # 基础字段 (继承自WorkflowState)
-    messages: Annotated[List[BaseMessage], operator.add]
+    messages: Annotated[List[LCBaseMessage], operator.add]
     metadata: Dict[str, Any]
     execution_context: Dict[str, Any]
     current_step: str

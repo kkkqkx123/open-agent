@@ -4,7 +4,7 @@ from typing import List
 
 from .interfaces import IPromptLoader, IPromptInjector
 from .models import PromptConfig
-from ...application.workflow.state import AgentState, SystemMessage, HumanMessage
+from ...infrastructure.graph.state import WorkflowState, SystemMessage, HumanMessage
 
 
 class PromptInjector(IPromptInjector):
@@ -13,8 +13,8 @@ class PromptInjector(IPromptInjector):
     def __init__(self, loader: IPromptLoader):
         self.loader = loader
         
-    def inject_prompts(self, state: AgentState, config: PromptConfig) -> AgentState:
-        """将提示词注入Agent状态"""
+    def inject_prompts(self, state: WorkflowState, config: PromptConfig) -> WorkflowState:
+        """将提示词注入工作流状态"""
         # 注入系统提示词
         if config.system_prompt:
             state = self.inject_system_prompt(state, config.system_prompt)
@@ -29,18 +29,22 @@ class PromptInjector(IPromptInjector):
             
         return state
         
-    def inject_system_prompt(self, state: AgentState, prompt_name: str) -> AgentState:
+    def inject_system_prompt(self, state: WorkflowState, prompt_name: str) -> WorkflowState:
         """注入系统提示词"""
         try:
             prompt_content = self.loader.load_prompt("system", prompt_name)
             system_message = SystemMessage(content=prompt_content)
+            
+            # 安全访问messages列表
+            if "messages" not in state:
+                state["messages"] = []
             state["messages"].insert(0, system_message)  # 系统消息在最前面
         except Exception as e:
             raise ValueError(f"注入系统提示词失败 {prompt_name}: {e}")
 
         return state
         
-    def inject_rule_prompts(self, state: AgentState, rule_names: List[str]) -> AgentState:
+    def inject_rule_prompts(self, state: WorkflowState, rule_names: List[str]) -> WorkflowState:
         """注入规则提示词"""
         # 找到插入位置：系统消息之后，其他消息之前
         insert_index = 0
@@ -61,11 +65,15 @@ class PromptInjector(IPromptInjector):
             
         return state
         
-    def inject_user_command(self, state: AgentState, command_name: str) -> AgentState:
+    def inject_user_command(self, state: WorkflowState, command_name: str) -> WorkflowState:
         """注入用户指令"""
         try:
             command_content = self.loader.load_prompt("user_commands", command_name)
             user_message = HumanMessage(content=command_content)
+            
+            # 安全访问messages列表
+            if "messages" not in state:
+                state["messages"] = []
             state["messages"].append(user_message)  # 用户指令在最后
         except Exception as e:
             raise ValueError(f"注入用户指令失败 {command_name}: {e}")

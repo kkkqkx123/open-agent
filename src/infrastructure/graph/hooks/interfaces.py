@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING, Callable
 from dataclasses import dataclass
 from enum import Enum
 
-from src.domain.agent.state import AgentState
+from ..state import WorkflowState
 from ..registry import NodeExecutionResult
 
 
@@ -18,7 +18,7 @@ class HookExecutionResult:
     def __init__(
         self,
         should_continue: bool = True,
-        modified_state: Optional[AgentState] = None,
+        modified_state: Optional[WorkflowState] = None,
         modified_result: Optional[NodeExecutionResult] = None,
         force_next_node: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None
@@ -54,7 +54,7 @@ class HookPoint(Enum):
 class HookContext:
     """Hook执行上下文"""
     node_type: str
-    state: AgentState
+    state: WorkflowState
     config: Dict[str, Any]
     hook_point: HookPoint
     error: Optional[Exception] = None

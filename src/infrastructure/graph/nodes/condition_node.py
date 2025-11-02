@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List, Callable
 from dataclasses import dataclass
 
 from ..registry import BaseNode, NodeExecutionResult, node
-from src.domain.agent.state import AgentState
+from ..state import WorkflowState
 from src.infrastructure.graph.adapters import get_state_adapter, get_message_adapter
 
 
@@ -35,11 +35,11 @@ class ConditionNode(BaseNode):
         """节点类型标识"""
         return "condition_node"
 
-    def execute(self, state: AgentState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行条件判断逻辑
 
         Args:
-            state: 当前Agent状态
+            state: 当前工作流状态
             config: 节点配置
 
         Returns:
@@ -114,12 +114,12 @@ class ConditionNode(BaseNode):
             "required": []
         }
 
-    def _evaluate_condition(self, condition_config: Dict[str, Any], state: AgentState) -> bool:
+    def _evaluate_condition(self, condition_config: Dict[str, Any], state: WorkflowState) -> bool:
         """评估单个条件
 
         Args:
             condition_config: 条件配置
-            state: 当前Agent状态
+            state: 当前工作流状态
 
         Returns:
             bool: 条件是否满足
@@ -134,17 +134,16 @@ class ConditionNode(BaseNode):
         return condition_func(state, parameters, condition_config)  # type: ignore
 
     # 内置条件函数
-    def _has_tool_calls(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
+    def _has_tool_calls(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """检查是否有工具调用"""
-        if not state.messages:
+        messages = state.get("messages", [])
+        if not messages:
             return False
 
-        last_message = state.messages[-1]
-        # 检查消息的metadata中是否有tool_calls
-        if hasattr(last_message, 'metadata') and last_message.metadata:
-            tool_calls = last_message.metadata.get("tool_calls")
-            if tool_calls:
-                return True
+        last_message = messages[-1]
+        # 检查LangChain消息的tool_calls属性
+        if hasattr(last_message, 'tool_calls') and getattr(last_message, 'tool_calls', None):
+            return True
 
         # 检查消息内容
         if hasattr(last_message, 'content'):
@@ -153,41 +152,42 @@ class ConditionNode(BaseNode):
 
         return False
 
-    def _no_tool_calls(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
+    def _no_tool_calls(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """检查是否没有工具调用"""
         return not self._has_tool_calls(state, parameters, config)
 
-    def _has_tool_results(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
+    def _has_tool_results(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """检查是否有工具执行结果"""
-        return len(state.tool_results) > 0
+        return len(state.get("tool_results", [])) > 0
 
-    def _max_iterations_reached(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
+    def _max_iterations_reached(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """检查是否达到最大迭代次数"""
-        iteration_count = state.iteration_count
-        max_iterations = state.max_iterations
+        iteration_count = state.get("iteration_count", 0)
+        max_iterations = state.get("max_iterations", 10)
         return iteration_count >= max_iterations
 
-    def _has_errors(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
+    def _has_errors(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """检查是否有错误"""
         # 检查工具结果中的错误
-        for result in state.tool_results:
-            if not result.success:
+        for result in state.get("tool_results", []):
+            if not result.get("success", True):
                 return True
         return False
 
-    def _no_errors(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
+    def _no_errors(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """检查是否没有错误"""
         return not self._has_errors(state, parameters, config)
 
-    def _message_contains(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
+    def _message_contains(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """检查消息是否包含指定内容"""
-        if not state.messages or "text" not in parameters:
+        messages = state.get("messages", [])
+        if not messages or "text" not in parameters:
             return False
         
         search_text = parameters["text"].lower()
         case_sensitive = parameters.get("case_sensitive", False)
         
-        for message in state.messages:
+        for message in messages:
             if hasattr(message, 'content'):
                 content = str(getattr(message, 'content', ''))
                 if not case_sensitive:
@@ -197,25 +197,25 @@ class ConditionNode(BaseNode):
         
         return False
 
-    def _iteration_count_equals(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
+    def _iteration_count_equals(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """检查迭代次数是否等于指定值"""
         if "count" not in parameters:
             return False
         
-        iteration_count = state.iteration_count
+        iteration_count = state.get("iteration_count", 0)
         count = parameters["count"]
         return bool(iteration_count == count)
 
-    def _iteration_count_greater_than(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
+    def _iteration_count_greater_than(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """检查迭代次数是否大于指定值"""
         if "count" not in parameters:
             return False
         
-        iteration_count = state.iteration_count
+        iteration_count = state.get("iteration_count", 0)
         count = parameters["count"]
         return bool(iteration_count > count)
 
-    def _custom_condition(self, state: AgentState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
+    def _custom_condition(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
         """执行自定义条件"""
         # 首先尝试从条件配置的参数中获取代码
         code = parameters.get("custom_condition_code")

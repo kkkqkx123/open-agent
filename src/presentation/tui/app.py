@@ -43,7 +43,7 @@ from src.infrastructure.config_loader import IConfigLoader
 from src.infrastructure.config.models.global_config import GlobalConfig
 from src.infrastructure.logger.logger import set_global_config
 from src.application.sessions.manager import ISessionManager
-from src.infrastructure.graph.state import AgentState
+from src.infrastructure.graph.state import WorkflowState
 from src.infrastructure.graph.state import HumanMessage
 from src.application.history.manager import HistoryManager
 from src.domain.history.interfaces import IHistoryManager

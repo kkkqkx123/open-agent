@@ -11,7 +11,7 @@ import inspect
 from pathlib import Path
 
 if TYPE_CHECKING:
-    from src.domain.agent.state import AgentState
+    from .state import WorkflowState
 
 logger = logging.getLogger(__name__)
 

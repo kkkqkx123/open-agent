@@ -16,7 +16,7 @@ from domain.threads.interfaces import IThreadManager
 
 from ..workflow.manager import IWorkflowManager
 from ...infrastructure.graph.config import GraphConfig as WorkflowConfig
-from ...infrastructure.graph.state import AgentState
+from ...infrastructure.graph.state import WorkflowState
 from ...domain.sessions.store import ISessionStore
 from ...domain.tools.interfaces import ToolResult
 from .git_manager import IGitManager
@@ -35,7 +35,7 @@ class ISessionManager(ABC):
         workflow_configs: Dict[str, str],  # 线程名 -> 工作流配置路径
         dependencies: Optional[Dict[str, List[str]]] = None,  # 线程依赖关系
         agent_config: Optional[dict[str, Any]] = None,
-        initial_states: Optional[Dict[str, AgentState]] = None # 每个线程的初始状态
+        initial_states: Optional[Dict[str, WorkflowState]] = None # 每个线程的初始状态
     ) -> str:
         """原子性创建Session和多个Thread
         
@@ -55,7 +55,7 @@ class ISessionManager(ABC):
         self,
         workflow_config_path: str,
         agent_config: Optional[dict[str, Any]] = None,
-        initial_state: Optional[AgentState] = None
+        initial_state: Optional[WorkflowState] = None
     ) -> str:
         """创建新会话（向后兼容）
 
@@ -82,19 +82,19 @@ class ISessionManager(ABC):
         pass
 
     @abstractmethod
-    def restore_session(self, session_id: str) -> Tuple[Any, AgentState]:
+    def restore_session(self, session_id: str) -> Tuple[Any, WorkflowState]:
         """恢复会话
 
         Args:
             session_id: 会话ID
 
         Returns:
-            Tuple[Any, AgentState]: 工作流实例和状态
+            Tuple[Any, WorkflowState]: 工作流实例和状态
         """
         pass
 
     @abstractmethod
-    def save_session(self, session_id: str, state: AgentState, workflow: Any = None) -> bool:
+    def save_session(self, session_id: str, state: WorkflowState, workflow: Any = None) -> bool:
         """保存会话
 
         Args:
@@ -165,7 +165,7 @@ class ISessionManager(ABC):
         pass
 
     @abstractmethod
-    def save_session_with_metrics(self, session_id: str, state: AgentState,
+    def save_session_with_metrics(self, session_id: str, state: WorkflowState,
                                  workflow_metrics: dict[str, Any], workflow: Any = None) -> bool:
         """保存会话状态和工作流指标
 
@@ -229,7 +229,7 @@ class SessionManager(ISessionManager):
         workflow_configs: Dict[str, str],  # 线程名 -> 工作流配置路径
         dependencies: Optional[Dict[str, List[str]]] = None,  # 线程依赖关系
         agent_config: Optional[dict[str, Any]] = None,
-        initial_states: Optional[Dict[str, AgentState]] = None # 每个线程的初始状态
+        initial_states: Optional[Dict[str, WorkflowState]] = None # 每个线程的初始状态
     ) -> str:
         """原子性创建Session和多个Thread"""
         # 生成符合新命名规则的会话ID
@@ -392,7 +392,7 @@ class SessionManager(ISessionManager):
         self,
         workflow_config_path: str,
         agent_config: Optional[dict[str, Any]] = None,
-        initial_state: Optional[AgentState] = None
+        initial_state: Optional[WorkflowState] = None
     ) -> str:
         """创建新会话（向后兼容）"""
         # 使用新的多线程方法创建只包含一个线程的会话
@@ -426,7 +426,7 @@ class SessionManager(ISessionManager):
         """获取会话信息"""
         return self.session_store.get_session(session_id)
 
-    def restore_session(self, session_id: str) -> Tuple[Any, AgentState]:
+    def restore_session(self, session_id: str) -> Tuple[Any, WorkflowState]:
         """改进的会话恢复方法"""
         try:
             session_data = self.session_store.get_session(session_id)
@@ -485,7 +485,7 @@ class SessionManager(ISessionManager):
             self._log_recovery_failure(session_id, e)
             raise
 
-    def save_session(self, session_id: str, state: AgentState, workflow: Any = None) -> bool:
+    def save_session(self, session_id: str, state: WorkflowState, workflow: Any = None) -> bool:
         """保存会话"""
         try:
             session_data = self.session_store.get_session(session_id)
@@ -568,7 +568,7 @@ class SessionManager(ISessionManager):
         """检查会话是否存在"""
         return self.get_session(session_id) is not None
 
-    def save_session_with_metrics(self, session_id: str, state: AgentState,
+    def save_session_with_metrics(self, session_id: str, state: WorkflowState,
                                  workflow_metrics: dict[str, Any], workflow: Any = None) -> bool:
         """保存会话状态和工作流指标"""
         try:
@@ -606,7 +606,7 @@ class SessionManager(ISessionManager):
         except Exception:
             return False
 
-    def _restore_workflow_with_fallback(self, metadata: dict[str, Any], session_data: dict[str, Any]) -> Tuple[Any, AgentState]:
+    def _restore_workflow_with_fallback(self, metadata: dict[str, Any], session_data: dict[str, Any]) -> Tuple[Any, WorkflowState]:
         """带回退机制的工作流恢复"""
         session_id = metadata.get("session_id", "unknown")
         config_path = metadata["workflow_config_path"]
@@ -782,7 +782,7 @@ class SessionManager(ISessionManager):
         except Exception as e:
             logger.error(f"保存恢复日志失败: {e}")
 
-    def _serialize_state(self, state: AgentState) -> dict[str, Any]:
+    def _serialize_state(self, state: WorkflowState) -> dict[str, Any]:
         """序列化状态"""
         return {
             "messages": [
@@ -810,9 +810,9 @@ class SessionManager(ISessionManager):
             "errors": state.get("errors", [])
         }
 
-    def _deserialize_state(self, state_data: dict[str, Any]) -> AgentState:
+    def _deserialize_state(self, state_data: dict[str, Any]) -> WorkflowState:
         """反序列化状态"""
-        state: AgentState = {
+        state: WorkflowState = {
             "messages": [],
             "tool_results": [],
             "current_step": "",
@@ -848,11 +848,17 @@ class SessionManager(ISessionManager):
                 else:
                     msg = BaseMessage(content=msg_data.get("content", ""), type=role_str)
 
+                # 安全访问messages列表
+                if "messages" not in state:
+                    state["messages"] = []
                 state["messages"].append(msg)
             except Exception:
                 # 如果创建消息失败，创建基本消息
                 role_str = msg_data.get("role", "human")
                 msg = BaseMessage(content=msg_data.get("content", ""), type=role_str)
+                # 安全访问messages列表
+                if "messages" not in state:
+                    state["messages"] = []
                 state["messages"].append(msg)
 
         # 恢复工具结果
@@ -980,11 +986,11 @@ class SessionManager(ISessionManager):
         
         return MockWorkflowConfig(config_path)
     
-    def _create_empty_state(self) -> AgentState:
+    def _create_empty_state(self) -> WorkflowState:
         """创建空状态
-        
+
         Returns:
-            AgentState: 空状态
+            WorkflowState: 空状态
         """
         return {
             "messages": [],

@@ -37,28 +37,35 @@ class WorkflowFactory(IWorkflowFactory):
         # 注册内置工作流类型
         self._register_builtin_workflows()
     
-    def create_workflow(self, workflow_type: str, config: Dict[str, Any]) -> Any:
+    def create_workflow(self, config: WorkflowConfig) -> Any:
         """创建工作流实例
-        
+
         Args:
-            workflow_type: 工作流类型
             config: 工作流配置
-            
+
         Returns:
             工作流实例
         """
+        # 从配置中推断工作流类型
+        # 首先尝试从additional_config中获取类型
+        workflow_type = config.additional_config.get('workflow_type')
+
+        # 如果没有，则从名称中推断
+        if not workflow_type:
+            name = config.name.lower()
+            if 'react' in name:
+                workflow_type = 'react'
+            elif 'plan_execute' in name or 'plan' in name:
+                workflow_type = 'plan_execute'
+            else:
+                workflow_type = 'base'
+
         if workflow_type not in self._workflow_types:
             raise ValueError(f"未知的工作流类型: {workflow_type}")
-        
+
         workflow_class = self._workflow_types[workflow_type]
-        
-        # 如果config是字典，转换为WorkflowConfig
-        if isinstance(config, dict):
-            workflow_config = WorkflowConfig.from_dict(config)
-        else:
-            workflow_config = config
-        
-        return workflow_class(workflow_config, self.config_loader, self.container)
+
+        return workflow_class(config, self.config_loader, self.container)
     
     def register_workflow_type(self, workflow_type: str, workflow_class: Type) -> None:
         """注册工作流类型
