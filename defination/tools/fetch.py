@@ -16,7 +16,7 @@ import markdownify
 import readabilipy
 from protego import Protego
 
-# 尝试导入BeautifulSoup用于文本提取
+# 导入BeautifulSoup用于文本提取(需要移除时将BS4_AVAILABLE设置为False即可)
 from bs4 import BeautifulSoup
 BS4_AVAILABLE = True
 
@@ -480,36 +480,3 @@ def fetch_url(
         "start_index": start_index,
         "format_type": format_type,
     }
-
-
-# 示例用法
-if __name__ == "__main__":
-    # 测试获取URL工具
-    test_url = "https://httpbin.org/html"
-    
-    print("测试获取URL工具:")
-    print(f"URL: {test_url}")
-    
-    try:
-        # 使用默认设置（随机User-Agent和随机化请求头）
-        result = fetch_url(test_url)
-        print(f"获取结果: {result['content'][:200]}...")
-        
-        # 测试自定义User-Agent和Referer
-        print("\n测试自定义请求头:")
-        custom_result = fetch_url(
-            test_url,
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            referer_url="https://example.com",
-            randomize_headers=False
-        )
-        print(f"自定义请求头获取结果: {custom_result['content'][:200]}...")
-        
-        # 测试请求头检查
-        print("\n测试请求头检查:")
-        headers_test_url = "https://httpbin.org/headers"
-        headers_result = fetch_url(headers_test_url, format_type="text")
-        print(f"请求头信息: {headers_result['content'][:500]}...")
-        
-    except ValueError as e:
-        print(f"错误: {e}")

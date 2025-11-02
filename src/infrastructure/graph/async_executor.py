@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from .config import GraphConfig
 from .state import WorkflowState, update_state_with_message, BaseMessage, LCBaseMessage, AIMessage
 from .registry import NodeRegistry, get_global_registry
+from .adapters.state_adapter import StateAdapter
 
 
 logger = logging.getLogger(__name__)
@@ -36,9 +37,10 @@ class IAsyncWorkflowExecutor(ABC):
 
 class AsyncNodeExecutor(IAsyncNodeExecutor):
     """异步节点执行器实现"""
-    
+
     def __init__(self, node_registry: Optional[NodeRegistry] = None):
         self.node_registry = node_registry or get_global_registry()
+        self.state_adapter = StateAdapter()
     
     async def execute(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
         """异步执行节点"""
@@ -52,15 +54,21 @@ class AsyncNodeExecutor(IAsyncNodeExecutor):
                 if node_class:
                     node_instance = node_class()
                     if hasattr(node_instance, 'execute_async'):
-                        # 如果节点支持异步执行
-                        result = await node_instance.execute_async(state, config)
-                        return result.state  # type: ignore
+                        # 如果节点支持异步执行，将WorkflowState转换为DomainAgentState
+                        domain_state = self.state_adapter.from_graph_state(dict(state))
+                        result = await node_instance.execute_async(domain_state, config)
+                        # 将结果转换回WorkflowState
+                        graph_state = self.state_adapter.to_graph_state(result.state)
+                        return graph_state  # type: ignore
                     else:
-                        # 否则使用同步执行（在事件循环中）
+                        # 否则使用同步执行（在事件循环中），也将WorkflowState转换为DomainAgentState
+                        domain_state = self.state_adapter.from_graph_state(dict(state))
                         result = await asyncio.get_event_loop().run_in_executor(
-                            None, node_instance.execute, state, config
+                            None, node_instance.execute, domain_state, config
                         )
-                        return result.state  # type: ignore
+                        # 将结果转换回WorkflowState
+                        graph_state = self.state_adapter.to_graph_state(result.state)
+                        return graph_state  # type: ignore
             except ValueError:
                 # 节点类型不存在，尝试内置节点
                 pass

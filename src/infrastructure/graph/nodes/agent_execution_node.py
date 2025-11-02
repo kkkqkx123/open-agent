@@ -17,12 +17,12 @@ from ..node_config_loader import get_node_config_loader
 class AgentExecutionNode(BaseNode):
     """Agent执行节点"""
     
-    def __init__(self, agent_manager: Optional[IAgentManager] = None, event_manager: Optional[IAgentEventManager] = None) -> None:
+    def __init__(self, agent_manager: IAgentManager, event_manager: Optional[IAgentEventManager] = None) -> None:
         """初始化Agent执行节点
         
         Args:
-            agent_manager: Agent管理器实例
-            event_manager: 事件管理器实例
+            agent_manager: Agent管理器实例（必需）
+            event_manager: 事件管理器实例（可选）
         """
         self._agent_manager = agent_manager
         self._event_manager = event_manager
@@ -46,11 +46,11 @@ class AgentExecutionNode(BaseNode):
         config_loader = get_node_config_loader()
         merged_config = config_loader.merge_configs(self.node_type, config)
         
-        # 获取Agent管理器
-        agent_manager = self._get_agent_manager(merged_config)
+        # 使用注入的Agent管理器
+        agent_manager = self._agent_manager
         
-        # 获取事件管理器
-        event_manager = self._get_event_manager()
+        # 使用注入的事件管理器
+        event_manager = self._event_manager
         
         # 发布节点执行开始事件
         if event_manager:
@@ -154,48 +154,6 @@ class AgentExecutionNode(BaseNode):
             "required": ["default_agent_id"]
         }
     
-    def _get_agent_manager(self, config: Dict[str, Any]) -> IAgentManager:
-        """获取Agent管理器
-        
-        Args:
-            config: 节点配置
-            
-        Returns:
-            IAgentManager: Agent管理器实例
-        """
-        if self._agent_manager:
-            return self._agent_manager
-        # 从依赖容器获取Agent管理器
-        try:
-            from src.infrastructure.container import get_global_container
-            container = get_global_container()
-            # 使用正确的容器方法
-            agent_manager: IAgentManager = container.get(IAgentManager)  # type: ignore
-            return agent_manager
-        except Exception as e:
-            # 如果无法从容器获取，抛出异常
-            raise ValueError(f"Could not get AgentManager from container: {e}")
-    
-    def _get_event_manager(self) -> Optional[IAgentEventManager]:
-        """获取事件管理器
-        
-        Returns:
-            Optional[IAgentEventManager]: 事件管理器实例
-        """
-        if self._event_manager:
-            return self._event_manager
-        
-        # 尝试从依赖容器获取事件管理器
-        try:
-            from src.infrastructure.container import get_global_container
-            container = get_global_container()
-            # 尝试获取事件管理器服务
-            event_manager: IAgentEventManager = container.get(IAgentEventManager)  # type: ignore
-            return event_manager
-        except Exception:
-            # 如果无法获取，返回None
-            return None
-    
     def _determine_next_node(self, state: AgentState, config: Dict[str, Any]) -> Optional[str]:
         """确定下一个节点
         
@@ -280,8 +238,8 @@ class AgentExecutionNode(BaseNode):
             return False
 
 
-async def agent_execution_node(state: AgentState) -> AgentState:
+async def agent_execution_node(state: AgentState, agent_manager: IAgentManager, event_manager: Optional[IAgentEventManager] = None) -> AgentState:
     """Agent执行节点函数版本，用于测试和简单调用"""
-    node = AgentExecutionNode()
+    node = AgentExecutionNode(agent_manager=agent_manager, event_manager=event_manager)
     result = node.execute(state, {})
     return result.state

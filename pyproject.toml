@@ -54,13 +54,13 @@ dependencies = [
     "readabilipy>=0.3.0",
     "protego>=0.5.0",
     "bs4>=0.0.2",
+    "pytest >= 7.0.0",
+    "pytest-asyncio >= 0.21.0",
+    "pytest-mock >= 3.10.0",
 ]
 
 [project.optional-dependencies]
 test = [
-    "pytest >= 7.0.0",
-    "pytest-asyncio >= 0.21.0",
-    "pytest-mock >= 3.10.0",
     "pytest-cov >= 4.0.0",
     "hypothesis >= 6.0.0",
     "pytest-benchmark >= 4.0.0",

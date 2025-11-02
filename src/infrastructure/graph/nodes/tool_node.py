@@ -17,11 +17,11 @@ from ..node_config_loader import get_node_config_loader
 class ToolNode(BaseNode):
     """工具执行节点"""
 
-    def __init__(self, tool_manager: Optional[IToolRegistry] = None) -> None:
+    def __init__(self, tool_manager: IToolRegistry) -> None:
         """初始化工具节点
 
         Args:
-            tool_manager: 工具管理器实例
+            tool_manager: 工具管理器实例（必需）
         """
         self._tool_manager = tool_manager
 
@@ -44,8 +44,8 @@ class ToolNode(BaseNode):
         config_loader = get_node_config_loader()
         merged_config = config_loader.merge_configs(self.node_type, config)
         
-        # 获取工具管理器
-        tool_manager = self._get_tool_manager(merged_config)
+        # 使用注入的工具管理器
+        tool_manager = self._tool_manager
         
         # 解析工具调用
         tool_calls = self._extract_tool_calls(state, merged_config)
@@ -162,30 +162,6 @@ class ToolNode(BaseNode):
             "required": ["tool_manager"]
         }
 
-    def _get_tool_manager(self, config: Dict[str, Any]) -> IToolRegistry:
-        """获取工具管理器
-
-        Args:
-            config: 节点配置
-
-        Returns:
-            IToolRegistry: 工具注册表实例
-        """
-        if self._tool_manager:
-            return self._tool_manager
-        
-        # 从依赖容器获取
-        from src.infrastructure.di_config import get_global_container
-        from src.infrastructure.tools.interfaces import IToolManager
-        from src.domain.tools.interfaces import IToolRegistry
-        
-        container = get_global_container()
-        tool_manager = container.get(IToolManager)
-        # 确保返回的对象实现了IToolRegistry接口
-        if isinstance(tool_manager, IToolRegistry):
-            return tool_manager
-        else:
-            raise TypeError(f"获取的工具管理器没有实现IToolRegistry接口: {type(tool_manager)}")
 
     def _extract_tool_calls(self, state: AgentState, config: Dict[str, Any]) -> List[ToolCall]:
         """从状态中提取工具调用

@@ -144,8 +144,6 @@ def create_hookable_node_class(
 ) -> type:
     """创建支持Hook的节点类
     
-    替代原来的make_node_hookable函数，使用继承而不是包装。
-    
     Args:
         node_class: 原始节点类
         hook_manager: Hook管理器实例

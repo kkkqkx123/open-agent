@@ -20,11 +20,11 @@ from ..node_config_loader import get_node_config_loader
 class LLMNode(BaseNode):
     """LLM调用节点"""
 
-    def __init__(self, llm_client: Optional[ILLMClient] = None) -> None:
+    def __init__(self, llm_client: ILLMClient) -> None:
         """初始化LLM节点
 
         Args:
-            llm_client: LLM客户端实例
+            llm_client: LLM客户端实例（必需）
         """
         self._llm_client = llm_client
 
@@ -47,8 +47,8 @@ class LLMNode(BaseNode):
         config_loader = get_node_config_loader()
         merged_config = config_loader.merge_configs(self.node_type, config)
         
-        # 获取LLM客户端
-        llm_client = self._get_llm_client(merged_config)
+        # 使用注入的LLM客户端
+        llm_client = self._llm_client
         
         # 构建系统提示词
         system_prompt = self._build_system_prompt(state, merged_config)
@@ -165,59 +165,6 @@ class LLMNode(BaseNode):
             "required": ["llm_client"]
         }
 
-    def _get_llm_client(self, config: Dict[str, Any]) -> ILLMClient:
-        """获取LLM客户端
-
-        Args:
-            config: 节点配置
-
-        Returns:
-            ILLMClient: LLM客户端实例
-        """
-        if self._llm_client:
-            return self._llm_client
-        
-        # 从依赖容器获取
-        # TODO: 实现完整的LLM客户端工厂注册和获取逻辑
-        # try:
-        #     from ...infrastructure import get_global_container
-        #     container = get_global_container()
-        #     llm_client_name = config["llm_client"]
-        #     # 这里需要根据实际的LLM客户端获取方式调整
-        #     # 假设容器中有LLM客户端工厂
-        #     llm_factory = container.get(type(ILLMClient))
-        #     return llm_factory.create_client({"name": llm_client_name})
-        # except Exception:
-        #     # 如果无法获取客户端，返回模拟客户端
-        #     pass
-
-        # 暂时直接返回模拟客户端
-        return self._create_mock_client()
-
-    def _create_mock_client(self) -> ILLMClient:
-        """创建模拟LLM客户端"""
-        from src.infrastructure.llm.clients.mock import MockLLMClient
-        from src.infrastructure.llm.models import LLMResponse, TokenUsage
-        from src.infrastructure.llm.config import MockConfig
-        
-        # 使用我们定义的简单消息类，避免依赖LangChain
-        class MockClientImpl(MockLLMClient):
-            def __init__(self) -> None:
-                super().__init__(MockConfig(model_type="mock", model_name="mock-model"))
-
-            def generate(self, messages: Any, parameters: Optional[Dict[str, Any]] = None, **kwargs: Any) -> "LLMResponse":
-                # 简单的模拟响应
-                content = "这是一个LLM节点的模拟响应"
-                # 使用AgentMessage作为消息类型
-                message = AgentMessage(content=content, role='ai')
-                return LLMResponse(
-                    content=content,
-                    message=message,
-                    model="mock-model",
-                    token_usage=TokenUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-                )
-        
-        return MockClientImpl()
 
     def _build_system_prompt(self, state: AgentState, config: Dict[str, Any]) -> str:
         """构建系统提示词

@@ -24,16 +24,16 @@ class PlanExecuteAgentNode(BaseNode):
     
     def __init__(
         self,
-        llm_client: Optional[ILLMClient] = None,
-        tool_executor: Optional[IToolExecutor] = None,
+        llm_client: ILLMClient,
+        tool_executor: IToolExecutor,
         event_manager: Optional[AgentEventManager] = None
     ) -> None:
         """初始化Plan-Execute Agent节点
 
         Args:
-            llm_client: LLM客户端实例
-            tool_executor: 工具执行器实例
-            event_manager: 事件管理器实例
+            llm_client: LLM客户端实例（必需）
+            tool_executor: 工具执行器实例（必需）
+            event_manager: 事件管理器实例（可选）
         """
         self._llm_client = llm_client
         self._tool_executor = tool_executor
@@ -175,9 +175,7 @@ class PlanExecuteAgentNode(BaseNode):
             PlanExecuteAgent: Agent实例
         """
         if self._agent is None:
-            # 检查是否有必需的工具执行器
-            if self._tool_executor is None:
-                raise ValueError("tool_executor不能为None，请在创建节点时提供或通过依赖注入获取")
+            # 工具执行器已在构造函数中验证为必需参数
             
             # 创建Agent配置
             agent_config = AgentConfig(
@@ -191,8 +189,8 @@ class PlanExecuteAgentNode(BaseNode):
                 llm=config.get("llm_client", "default")
             )
             
-            # 获取LLM客户端
-            llm_client = self._get_llm_client(config)
+            # 使用注入的LLM客户端
+            llm_client = self._llm_client
             
             # 创建Agent实例
             self._agent = PlanExecuteAgent(
@@ -204,50 +202,6 @@ class PlanExecuteAgentNode(BaseNode):
         
         return self._agent
     
-    def _get_llm_client(self, config: Dict[str, Any]) -> ILLMClient:
-        """获取LLM客户端
-        
-        Args:
-            config: 节点配置
-            
-        Returns:
-            ILLMClient: LLM客户端实例
-        """
-        if self._llm_client:
-            return self._llm_client
-        
-        # 从依赖容器获取
-        try:
-            from src.infrastructure.container import get_global_container
-            container = get_global_container()
-            llm_client = container.get(ILLMClient)
-            return llm_client
-        except Exception:
-            # 如果无法获取客户端，创建模拟客户端
-            return self._create_mock_client()
-    
-    def _create_mock_client(self) -> ILLMClient:
-        """创建模拟LLM客户端"""
-        from src.infrastructure.llm.clients.mock import MockLLMClient
-        from src.infrastructure.llm.config import MockConfig
-        
-        class MockPlanExecuteClient(MockLLMClient):
-            def __init__(self) -> None:
-                super().__init__(MockConfig(model_type="mock", model_name="mock-plan-execute"))
-            
-            async def generate_async(self, messages: Any, parameters: Any = None, **kwargs: Any) -> Any:
-                # 模拟异步响应
-                from src.infrastructure.llm.models import LLMResponse, TokenUsage
-                content = "这是Plan-Execute Agent的模拟计划结果"
-                
-                # 创建模拟响应对象
-                class MockResponse:
-                    def __init__(self, content: str) -> None:
-                        self.content = content
-                
-                return MockResponse(content)
-        
-        return MockPlanExecuteClient()
     
     def _determine_next_node(self, state: AgentState, config: Dict[str, Any]) -> Optional[str]:
         """确定下一个节点

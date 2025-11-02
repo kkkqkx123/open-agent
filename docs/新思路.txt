@@ -108,3 +108,5 @@ cli新增速率预检测，根据provider-llm分级的请求速率(单独设置R
 semgrep，定义导入顺序等规则
 
 编辑文件工具：diff、search and replace、override、regex【基于正则模式替换】[首次使用返回替换内容预览(ripgrep)，让llm确认，确认后才执行]
+
+undo_edit工具

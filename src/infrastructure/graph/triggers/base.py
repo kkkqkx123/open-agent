@@ -87,6 +87,15 @@ class ITrigger(ABC):
         pass
 
     @abstractmethod
+    def set_config(self, config: Dict[str, Any]) -> None:
+        """设置触发器配置
+
+        Args:
+            config: 触发器配置
+        """
+        pass
+
+    @abstractmethod
     def is_enabled(self) -> bool:
         """检查触发器是否启用
 
@@ -164,6 +173,14 @@ class BaseTrigger(ITrigger):
     def get_config(self) -> Dict[str, Any]:
         """获取触发器配置"""
         return self._config.copy()
+
+    def set_config(self, config: Dict[str, Any]) -> None:
+        """设置触发器配置
+
+        Args:
+            config: 触发器配置
+        """
+        self._config = config.copy()
 
     def is_enabled(self) -> bool:
         """检查触发器是否启用"""

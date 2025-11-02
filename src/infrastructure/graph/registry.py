@@ -131,9 +131,24 @@ class NodeRegistry:
         
         # 尝试获取节点类型，如果失败则抛出明确的错误
         try:
-            # 创建临时实例来获取 node_type 属性值
-            temp_instance = node_class()
+            # 首先尝试创建临时实例来获取 node_type 属性值
+            # 如果节点需要依赖项，这可能会失败
+            temp_instance = node_class()  # type: ignore
             node_type = temp_instance.node_type
+        except TypeError as e:
+            # 如果是因为缺少必需参数而失败，尝试从类属性获取
+            if "missing" in str(e) and "required positional argument" in str(e):
+                # 尝试从装饰器或类定义中获取节点类型
+                # 检查是否有装饰器设置的节点类型
+                if hasattr(node_class, '_decorator_node_type'):
+                    node_type = getattr(node_class, '_decorator_node_type')
+                # 检查是否有 node_type 属性
+                elif hasattr(node_class, 'node_type'):
+                    node_type = getattr(node_class, 'node_type')
+                else:
+                    raise ValueError(f"节点类 {node_class.__name__} 需要依赖项，但无法确定节点类型。请使用 @node 装饰器或设置 node_type 属性。")
+            else:
+                raise ValueError(f"获取节点类型失败: {e}")
         except AttributeError as e:
             raise ValueError(f"节点类缺少 node_type 属性: {e}")
         except Exception as e:
@@ -203,7 +218,13 @@ class NodeRegistry:
         
         # 如果没有实例，创建新实例
         node_class = self.get_node_class(node_type)
-        return node_class()
+        try:
+            return node_class()  # type: ignore
+        except TypeError as e:
+            if "missing" in str(e) and "required positional argument" in str(e):
+                raise ValueError(f"节点类型 '{node_type}' 需要依赖项，无法直接实例化。请使用 register_node_instance 注册预配置的实例。")
+            else:
+                raise
 
     def list_nodes(self) -> List[str]:
         """列出所有注册的节点类型
@@ -321,12 +342,19 @@ def node(node_type: str) -> Callable:
             @property
             def node_type(self) -> str:
                 return node_type
+            
+            # 传递所有构造函数参数到原始类
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
         
         # 保持原始类的名称和文档
         WrappedNode.__name__ = node_class.__name__
         WrappedNode.__qualname__ = node_class.__qualname__
         if hasattr(node_class, '__doc__'):
             WrappedNode.__doc__ = node_class.__doc__
+        
+        # 为包装类添加 node_type 属性，以便注册系统能够获取
+        setattr(WrappedNode, '_decorator_node_type', node_type)
         
         # 注册到全局注册表
         register_node(WrappedNode)
