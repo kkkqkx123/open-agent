@@ -12,9 +12,10 @@ from pathlib import Path
 from typing import Dict, Any
 
 # 添加项目根目录到sys.path，以便导入defination.tools.fetch
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
-from defination.tools.fetch import fetch_url, extract_content_from_html, get_robots_txt_url
+from defination.tools.fetch import fetch_url, extract_content_from_html, clean_html_content, clean_markdown_content
 
 
 class TestFetchTool:
@@ -50,7 +51,7 @@ class TestFetchTool:
     
     def test_fetch_url_invalid_max_length(self):
         """测试无效的max_length参数"""
-        with pytest.raises(ValueError, match="max_length必须在1到1000000之间"):
+        with pytest.raises(ValueError, match="max_length必须在1到100000之间"):
             fetch_url(
                 url="https://httpbin.org/html",
                 max_length=0,
@@ -58,10 +59,10 @@ class TestFetchTool:
                 raw=False
             )
         
-        with pytest.raises(ValueError, match="max_length必须在1到1000000之间"):
+        with pytest.raises(ValueError, match="max_length必须在1到100000之间"):
             fetch_url(
                 url="https://httpbin.org/html",
-                max_length=1000001,
+                max_length=100001,
                 start_index=0,
                 raw=False
             )
@@ -83,19 +84,6 @@ class TestFetchTool:
         result = extract_content_from_html(html_content)
         # 由于依赖库可能不存在，我们检查是否返回了错误信息或正常内容
         assert isinstance(result, str)
-    
-    def test_get_robots_txt_url(self):
-        """测试获取robots.txt URL"""
-        test_url = "https://example.com/page"
-        expected_robots_url = "https://example.com/robots.txt"
-        result = get_robots_txt_url(test_url)
-        assert result == expected_robots_url
-        
-        # 测试带端口的URL
-        test_url_with_port = "https://example.com:8080/page"
-        expected_robots_url_with_port = "https://example.com:8080/robots.txt"
-        result_with_port = get_robots_txt_url(test_url_with_port)
-        assert result_with_port == expected_robots_url_with_port
     
     def test_fetch_url_content_truncation(self):
         """测试内容截断功能"""
@@ -147,7 +135,7 @@ class TestFetchTool:
             )
             
             # 验证返回的错误信息
-            assert "<error>没有更多可用内容。</error>" in result["content"]
+            assert "<error>No more content available.</error>" in result["content"]
     
     @pytest.mark.asyncio
     async def test_fetch_url_content_success(self):
@@ -194,7 +182,7 @@ class TestFetchTool:
                 content, prefix = await fetch_url_content("https://example.com")
                 
                 # 验证返回错误信息
-                assert "<error>获取 https://example.com 失败:" in content
+                assert "<error>Failed to fetch https://example.com:" in content
     
     def test_fetch_url_with_raw_content(self):
         """测试获取原始内容"""
@@ -220,6 +208,170 @@ class TestFetchTool:
         assert isinstance(result, dict)
         assert "content" in result
         assert "url" in result
+
+    def test_clean_html_content(self):
+        """测试HTML内容清理功能"""
+        # 测试HTML包含script、style、noscript和注释
+        test_html = """
+        <html>
+        <head>
+            <script>console.log('test');</script>
+            <style>body { color: red; }</style>
+            <meta name="description" content="test">
+            <link rel="stylesheet" href="style.css">
+            <!-- This is a comment -->
+        </head>
+        <body>
+            <h1>Test Page</h1>
+            <a href="javascript:alert('xss')">Bad Link</a>
+            <a href="#section">Anchor Link</a>
+            <a href="https://example.com">Good Link</a>
+            <noscript>JavaScript is disabled</noscript>
+            <iframe src="frame.html"></iframe>
+            <object data="movie.swf"></object>
+            <embed src="movie.swf">
+            <p>Some content with    multiple   spaces</p>
+        </body>
+        </html>
+        """
+        
+        cleaned = clean_html_content(test_html)
+        
+        # 验证清理结果
+        assert "<script>" not in cleaned, "Script标签未被移除"
+        assert "<style>" not in cleaned, "Style标签未被移除"
+        assert "<meta" not in cleaned, "Meta标签未被移除"
+        assert "<link" not in cleaned, "Link标签未被移除"
+        assert "<noscript>" not in cleaned, "Noscript标签未被移除"
+        assert "<iframe" not in cleaned, "Iframe标签未被移除"
+        assert "<object" not in cleaned, "Object标签未被移除"
+        assert "<embed" not in cleaned, "Embed标签未被移除"
+        assert "<!--" not in cleaned, "HTML注释未被移除"
+        assert "javascript:" not in cleaned, "JavaScript链接未被清理"
+        assert "Good Link" in cleaned, "正常链接被错误移除"
+        assert "    " not in cleaned, "多余空格未被标准化"
+
+    def test_clean_markdown_content(self):
+        """测试Markdown内容清理功能"""
+        # 测试包含多余空行和空格的Markdown
+        test_markdown = """
+        # 标题
+        
+        这是一个段落。
+        
+        
+        
+        这是另一个段落，    前后有空格。
+        
+        - 列表项1
+        - 列表项2
+        
+        """
+        
+        cleaned = clean_markdown_content(test_markdown)
+        
+        # 验证清理结果
+        lines = cleaned.split('\n')
+        assert not any('\n\n\n' in cleaned for _ in range(1)), "存在3个或更多连续换行符"
+        assert all(line == line.strip() for line in lines), "存在行首尾空格"
+        assert cleaned == cleaned.strip(), "存在首尾空行"
+
+    def test_extract_content_with_enhancements(self):
+        """测试增强后的内容提取功能"""
+        # 创建一个包含各种元素的测试HTML
+        test_html = """
+        <html>
+        <head>
+            <title>Test Page</title>
+            <script>console.log('test');</script>
+            <style>body { color: red; }</style>
+        </head>
+        <body>
+            <h1>主标题</h1>
+            <h2>副标题</h2>
+            <p>这是一个段落，包含<strong>粗体</strong>和<em>斜体</em>文本。</p>
+            <ul>
+                <li>列表项1</li>
+                <li>列表项2</li>
+            </ul>
+            <a href="javascript:alert('xss')">恶意链接</a>
+            <a href="#section">锚点链接</a>
+            <a href="https://example.com">正常链接</a>
+            <!-- 这是一个注释 -->
+            <noscript>JavaScript已禁用</noscript>
+            <hr>
+            <pre><code>代码块</code></pre>
+        </body>
+        </html>
+        """
+        
+        # 测试Markdown格式
+        result = extract_content_from_html(test_html, "markdown")
+        assert isinstance(result, str)
+        # 注意：由于依赖readabilipy，在某些环境下可能无法正常工作
+        # 所以我们只检查基本功能，不检查具体内容
+        
+        # 测试HTML格式
+        result = extract_content_from_html(test_html, "html")
+        assert isinstance(result, str)
+        assert "<script>" not in result, "Script标签未被移除"
+        assert "<style>" not in result, "Style标签未被移除"
+        
+        # 测试Text格式
+        result = extract_content_from_html(test_html, "text")
+        assert isinstance(result, str)
+
+    def test_fetch_url_with_format_types(self):
+        """测试使用不同格式类型获取URL内容"""
+        # 测试Markdown格式
+        with patch('defination.tools.fetch.fetch_url_content',
+                  return_value=("测试内容", "")):
+            result = fetch_url(
+                url="https://example.com",
+                format_type="markdown"
+            )
+            assert result["format_type"] == "markdown"
+        
+        # 测试Text格式
+        with patch('defination.tools.fetch.fetch_url_content',
+                  return_value=("测试内容", "")):
+            result = fetch_url(
+                url="https://example.com",
+                format_type="text"
+            )
+            assert result["format_type"] == "text"
+        
+        # 测试HTML格式
+        with patch('defination.tools.fetch.fetch_url_content',
+                  return_value=("测试内容", "")):
+            result = fetch_url(
+                url="https://example.com",
+                format_type="html"
+            )
+            assert result["format_type"] == "html"
+        
+        # 测试无效格式类型
+        with pytest.raises(ValueError, match="format_type必须是 'text', 'markdown', 或 'html' 之一"):
+            fetch_url(
+                url="https://example.com",
+                format_type="invalid"
+            )
+        
+        # 测试超时参数
+        with patch('defination.tools.fetch.fetch_url_content',
+                  return_value=("测试内容", "")):
+            result = fetch_url(
+                url="https://example.com",
+                timeout=60
+            )
+            assert result["url"] == "https://example.com"
+        
+        # 测试无效超时参数
+        with pytest.raises(ValueError, match="timeout必须在1到120秒之间"):
+            fetch_url(
+                url="https://example.com",
+                timeout=200
+            )
 
 
 # 运行测试的便捷函数

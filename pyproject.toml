@@ -53,6 +53,7 @@ dependencies = [
     "markdownify>=1.2.0",
     "readabilipy>=0.3.0",
     "protego>=0.5.0",
+    "bs4>=0.0.2",
 ]
 
 [project.optional-dependencies]

@@ -31,10 +31,6 @@ parameters_schema:
       type: string
       description: User-Agent string to use for requests
       default: "ModularAgent/1.0"
-    ignore_robots_txt:
-      type: boolean
-      description: Whether to ignore robots.txt restrictions
-      default: false
     proxy_url:
       type: string
       description: Optional proxy URL to use for requests

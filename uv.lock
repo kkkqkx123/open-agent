@@ -223,6 +223,18 @@ wheels = [
 ]
 
 [[package]]
+name = "bs4"
+version = "0.0.2"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
+dependencies = [
+    { name = "beautifulsoup4" },
+]
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/c9/aa/4acaf814ff901145da37332e05bb510452ebed97bc9602695059dd46ef39/bs4-0.0.2.tar.gz", hash = "sha256:a48685c58f50fe127722417bae83fe6badf500d54b55f7e39ffe43b798653925" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/51/bb/bf7aab772a159614954d84aa832c129624ba6c32faa559dfb200a534e50b/bs4-0.0.2-py2.py3-none-any.whl", hash = "sha256:abf8742c0805ef7f662dce4b51cca104cffe52b835238afc169142ab9b3fbccc" },
+]
+
+[[package]]
 name = "cachetools"
 version = "6.2.1"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
@@ -1194,6 +1206,7 @@ dependencies = [
     { name = "aiohttp" },
     { name = "aiosqlite" },
     { name = "blessed" },
+    { name = "bs4" },
     { name = "click" },
     { name = "dependency-injector" },
     { name = "fastapi" },
@@ -1251,6 +1264,7 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.19.0" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
     { name = "blessed", specifier = ">=1.20.0" },
+    { name = "bs4", specifier = ">=0.0.2" },
     { name = "click", specifier = ">=8.0.0" },
     { name = "dependency-injector", specifier = ">=4.0.0" },
     { name = "fastapi", specifier = ">=0.104.0" },
