@@ -1,0 +1,46 @@
+# 网页内容获取工具配置
+name: fetch
+tool_type: builtin
+description: A tool for fetching web page content from URLs and optionally extracting it as markdown, supporting URL fetching with content type handling and robots.txt compliance
+function_path: defination.tools.fetch:fetch_url
+enabled: true
+timeout: 30
+parameters_schema:
+  type: object
+  properties:
+    url:
+      type: string
+      description: URL to fetch
+      format: uri
+    max_length:
+      type: integer
+      description: Maximum number of characters to return
+      default: 5000
+      minimum: 1
+      maximum: 1000000
+    start_index:
+      type: integer
+      description: Start output from this character index, useful if a previous fetch was truncated and more context is required
+      default: 0
+      minimum: 0
+    raw:
+      type: boolean
+      description: Get the actual HTML content of the requested page, without simplification
+      default: false
+    user_agent:
+      type: string
+      description: User-Agent string to use for requests
+      default: "ModularAgent/1.0"
+    ignore_robots_txt:
+      type: boolean
+      description: Whether to ignore robots.txt restrictions
+      default: false
+    proxy_url:
+      type: string
+      description: Optional proxy URL to use for requests
+  required:
+    - url
+metadata:
+  category: "web"
+  tags: ["web", "fetch", "url", "content", "html", "markdown"]
+  documentation_url: "https://docs.python-requests.org/"

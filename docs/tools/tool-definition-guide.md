@@ -22,6 +22,10 @@
 2. `NativeTool` - 调用外部API的原生工具，实现在 `src/domain/tools/types/native_tool.py`
 3. `MCPTool` - 通过MCP服务器通信的工具，实现在 `src/domain/tools/types/mcp_tool.py`
 
+- **builtin**: 使用本地Python函数实现，通过 `function_path` 指定函数路径
+- **native**: 调用外部API，通过 `api_url`、`method` 等配置HTTP请求
+- **mcp**: 通过MCP服务器通信，通过 `mcp_url` 等配置参数
+
 ## 工具相关的提示词处理
 
 工具系统与提示词管理系统集成，通过以下方式处理提示词：
