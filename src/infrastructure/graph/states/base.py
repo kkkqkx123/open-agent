@@ -7,21 +7,8 @@ from typing import Dict, Any, List, Annotated, Optional, Sequence
 import operator
 from typing_extensions import TypedDict
 
-# 导入消息类型
-try:
-    from langchain_core.messages import BaseMessage as LCBaseMessage  # type: ignore
-    LANGCHAIN_AVAILABLE = True
-except ImportError:
-    LANGCHAIN_AVAILABLE = False
-    
-    # 后备消息类型定义 - 使用不同的类名避免冲突
-    class FallbackLCBaseMessage:
-        def __init__(self, content: str, type: str = "base"):
-            self.content = content
-            self.type = type
-    
-    # 创建别名以便后续使用
-    LCBaseMessage = FallbackLCBaseMessage
+# 导入消息类型 - 项目依赖LangChain，因此直接导入
+from langchain_core.messages import BaseMessage as LCBaseMessage, HumanMessage as LCHumanMessage, AIMessage as LCAIMessage, SystemMessage as LCSystemMessage, ToolMessage as LCToolMessage  # type: ignore
 
 # 统一的消息类型定义
 class BaseMessage:
@@ -110,7 +97,7 @@ def create_base_state(
     }
 
 
-def create_message(content: str, role: str, **kwargs: Any) -> BaseMessage:
+def create_message(content: str, role: str, **kwargs: Any) -> LCBaseMessage:
     """创建消息
     
     Args:
@@ -119,18 +106,18 @@ def create_message(content: str, role: str, **kwargs: Any) -> BaseMessage:
         **kwargs: 其他参数
         
     Returns:
-        BaseMessage实例
+        LangChain BaseMessage实例
     """
     if role == MessageRole.HUMAN:
-        return HumanMessage(content=content)
+        return LCHumanMessage(content=content)
     elif role == MessageRole.AI:
-        return AIMessage(content=content)
+        return LCAIMessage(content=content)
     elif role == MessageRole.SYSTEM:
-        return SystemMessage(content=content)
+        return LCSystemMessage(content=content)
     elif role == MessageRole.TOOL:
-        return ToolMessage(content=content, tool_call_id=kwargs.get("tool_call_id", ""))
+        return LCToolMessage(content=content, tool_call_id=kwargs.get("tool_call_id", ""))
     else:
-        return BaseMessage(content=content, type=role)
+        return LCBaseMessage(content=content, type=role)
 
 
 def adapt_langchain_message(message: Any) -> BaseMessage:

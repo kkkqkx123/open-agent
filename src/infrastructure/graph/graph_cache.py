@@ -11,12 +11,7 @@ from dataclasses import dataclass
 from collections import OrderedDict
 from enum import Enum
 
-try:
-    from langgraph.graph import StateGraph
-    LANGGRAPH_AVAILABLE = True
-except ImportError:
-    LANGGRAPH_AVAILABLE = False
-    StateGraph = Any  # 类型别名
+from langgraph.graph import StateGraph
 
 
 class CacheEvictionPolicy(Enum):
@@ -29,7 +24,7 @@ class CacheEvictionPolicy(Enum):
 @dataclass
 class CacheEntry:
     """缓存条目"""
-    graph: StateGraph
+    graph: Any
     config_hash: str
     created_at: float
     last_accessed: float
@@ -92,7 +87,7 @@ class GraphCache:
             "memory_saved": 0
         }
     
-    def get_graph(self, config_hash: str) -> Optional[StateGraph]:
+    def get_graph(self, config_hash: str) -> Optional[Any]:
         """获取缓存的图
         
         Args:
@@ -128,7 +123,7 @@ class GraphCache:
             self._stats["hits"] += 1
             return entry.graph
     
-    def cache_graph(self, config_hash: str, graph: StateGraph) -> None:
+    def cache_graph(self, config_hash: str, graph: Any) -> None:
         """缓存图实例
         
         Args:
@@ -349,7 +344,7 @@ class GraphCache:
         else:
             return pattern in key
     
-    def _estimate_graph_size(self, graph: StateGraph) -> int:
+    def _estimate_graph_size(self, graph: Any) -> int:
         """估算图大小
         
         Args:
@@ -358,9 +353,6 @@ class GraphCache:
         Returns:
             估算的大小（字节）
         """
-        if not LANGGRAPH_AVAILABLE:
-            return 1024  # 默认估算值
-        
         try:
             # 尝试序列化图来估算大小
             import pickle

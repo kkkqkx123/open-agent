@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Callable, Awaitable, Union
 from abc import ABC, abstractmethod
 
 from .config import GraphConfig
-from .state import WorkflowState, update_state_with_message, BaseMessage
+from .state import WorkflowState, update_state_with_message, BaseMessage, LCBaseMessage, AIMessage
 from .registry import NodeRegistry, get_global_registry
 
 
@@ -53,12 +53,14 @@ class AsyncNodeExecutor(IAsyncNodeExecutor):
                     node_instance = node_class()
                     if hasattr(node_instance, 'execute_async'):
                         # 如果节点支持异步执行
-                        return await node_instance.execute_async(state, config)
+                        result = await node_instance.execute_async(state, config)
+                        return result.state  # type: ignore
                     else:
                         # 否则使用同步执行（在事件循环中）
-                        return await asyncio.get_event_loop().run_in_executor(
+                        result = await asyncio.get_event_loop().run_in_executor(
                             None, node_instance.execute, state, config
                         )
+                        return result.state  # type: ignore
             except ValueError:
                 # 节点类型不存在，尝试内置节点
                 pass
@@ -92,8 +94,8 @@ class AsyncNodeExecutor(IAsyncNodeExecutor):
         # 简化实现
         await asyncio.sleep(0.01)  # 模拟异步操作
         # 修复：使用TypedDict兼容的更新方式
-        new_messages = state.get("messages", []) + [BaseMessage(content="LLM响应", type="ai")]
-        return {**state, "messages": new_messages}
+        new_messages = state.get("messages", []) + [AIMessage(content="LLM响应")]
+        return {**state, "messages": new_messages}  # type: ignore
     
     async def _execute_tool_node_async(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
         """异步执行工具节点"""
@@ -175,7 +177,7 @@ class AsyncWorkflowExecutor(IAsyncWorkflowExecutor):
                 loop = asyncio.get_event_loop()
                 
                 def sync_stream():
-                    result = None
+                    result = initial_state
                     for chunk in graph.stream(initial_state, **kwargs):
                         result = chunk
                         if callback:

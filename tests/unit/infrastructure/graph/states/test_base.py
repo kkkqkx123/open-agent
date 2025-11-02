@@ -104,19 +104,25 @@ class TestStateFunctions:
     def test_create_message_human(self) -> None:
         """测试创建人类消息"""
         message = create_message(content="人类消息", role=MessageRole.HUMAN)
-        assert isinstance(message, HumanMessage)
+        # 现在返回LangChain消息类型
+        from langchain_core.messages import HumanMessage as LCHumanMessage
+        assert isinstance(message, LCHumanMessage)
         assert message.content == "人类消息"
 
     def test_create_message_ai(self) -> None:
         """测试创建AI消息"""
         message = create_message(content="AI消息", role=MessageRole.AI)
-        assert isinstance(message, AIMessage)
+        # 现在返回LangChain消息类型
+        from langchain_core.messages import AIMessage as LCAIMessage
+        assert isinstance(message, LCAIMessage)
         assert message.content == "AI消息"
 
     def test_create_message_system(self) -> None:
         """测试创建系统消息"""
         message = create_message(content="系统消息", role=MessageRole.SYSTEM)
-        assert isinstance(message, SystemMessage)
+        # 现在返回LangChain消息类型
+        from langchain_core.messages import SystemMessage as LCSystemMessage
+        assert isinstance(message, LCSystemMessage)
         assert message.content == "系统消息"
 
     def test_create_message_tool(self) -> None:
@@ -126,14 +132,18 @@ class TestStateFunctions:
             role=MessageRole.TOOL,
             tool_call_id="tool_123"
         )
-        assert isinstance(message, ToolMessage)
+        # 现在返回LangChain消息类型
+        from langchain_core.messages import ToolMessage as LCToolMessage
+        assert isinstance(message, LCToolMessage)
         assert message.content == "工具消息"
         assert message.tool_call_id == "tool_123"
 
     def test_create_message_custom_role(self) -> None:
         """测试创建自定义角色消息"""
         message = create_message(content="自定义消息", role="custom")
-        assert isinstance(message, BaseMessage)
+        # 现在返回LangChain消息类型
+        from langchain_core.messages import BaseMessage as LCBaseMessage
+        assert isinstance(message, LCBaseMessage)
         assert message.content == "自定义消息"
         assert message.type == "custom"
 

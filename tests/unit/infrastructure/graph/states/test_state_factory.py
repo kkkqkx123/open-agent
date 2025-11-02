@@ -197,13 +197,17 @@ class TestStateFactory:
     def test_create_message_human(self):
         """测试创建人类消息"""
         message = StateFactory.create_message(content="人类消息", role="human")
-        assert isinstance(message, HumanMessage)
+        # 现在返回LangChain消息类型
+        from langchain_core.messages import HumanMessage as LCHumanMessage
+        assert isinstance(message, LCHumanMessage)
         assert message.content == "人类消息"
 
     def test_create_message_ai(self):
         """测试创建AI消息"""
         message = StateFactory.create_message(content="AI消息", role="ai")
-        assert isinstance(message, AIMessage)
+        # 现在返回LangChain消息类型
+        from langchain_core.messages import AIMessage as LCAIMessage
+        assert isinstance(message, LCAIMessage)
         assert message.content == "AI消息"
 
     def test_create_initial_messages(self):
@@ -214,10 +218,12 @@ class TestStateFactory:
         )
         
         assert len(messages) == 2
-        assert isinstance(messages[0], BaseMessage)
+        # 现在返回LangChain消息类型
+        from langchain_core.messages import BaseMessage as LCBaseMessage
+        assert isinstance(messages[0], LCBaseMessage)
         assert messages[0].type == "system"
         assert messages[0].content == "系统提示"
-        assert isinstance(messages[1], BaseMessage)
+        assert isinstance(messages[1], LCBaseMessage)
         assert messages[1].type == "human"
         assert messages[1].content == "用户输入"
 
@@ -226,7 +232,9 @@ class TestStateFactory:
         messages = StateFactory.create_initial_messages(input_text="用户输入")
         
         assert len(messages) == 1
-        assert isinstance(messages[0], BaseMessage)
+        # 现在返回LangChain消息类型
+        from langchain_core.messages import BaseMessage as LCBaseMessage
+        assert isinstance(messages[0], LCBaseMessage)
         assert messages[0].type == "human"
         assert messages[0].content == "用户输入"
 

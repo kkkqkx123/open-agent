@@ -4,6 +4,9 @@ import pytest
 from typing import Any, List, Optional, Dict
 from dataclasses import dataclass
 
+# 导入LangChain消息类型用于状态测试
+from langchain_core.messages import HumanMessage as LCHumanMessage, AIMessage as LCAIMessage, ToolMessage as LCToolMessage
+
 from src.infrastructure.graph.state import (
     BaseMessage,
     HumanMessage,
@@ -79,7 +82,7 @@ class TestStateTypeDefinitions:
         """测试基础图状态"""
         # BaseGraphState是TypedDict的别名，测试其结构
         state: BaseGraphState = {
-            "messages": [BaseMessage(content="测试", type="test")],
+            "messages": [LCHumanMessage(content="测试")],
             "metadata": {"key": "value"}
         }
         assert "messages" in state
@@ -89,7 +92,7 @@ class TestStateTypeDefinitions:
         """测试Agent状态"""
         # AgentState是BaseGraphState的扩展，测试其结构
         state: AgentState = {
-            "messages": [BaseMessage(content="测试", type="test")],
+            "messages": [LCHumanMessage(content="测试")],
             "input": "输入",
             "output": "输出",
             "tool_calls": [{"name": "tool1"}],
@@ -108,7 +111,7 @@ class TestStateTypeDefinitions:
         """测试工作流状态"""
         # WorkflowState是AgentState的扩展，测试其结构
         state: WorkflowState = {
-            "messages": [BaseMessage(content="测试", type="test")],
+            "messages": [LCHumanMessage(content="测试")],
             "input": "输入",
             "workflow_id": "workflow_123",
             "step_name": "步骤1",
@@ -129,7 +132,7 @@ class TestStateTypeDefinitions:
         """测试ReAct状态"""
         # ReActState是WorkflowState的扩展，测试其结构
         state: ReActState = {
-            "messages": [BaseMessage(content="测试", type="test")],
+            "messages": [LCHumanMessage(content="测试")],
             "input": "输入",
             "workflow_id": "workflow_123",
             "thought": "思考",
@@ -152,7 +155,7 @@ class TestStateTypeDefinitions:
         """测试计划执行状态"""
         # PlanExecuteState是WorkflowState的扩展，测试其结构
         state: PlanExecuteState = {
-            "messages": [BaseMessage(content="测试", type="test")],
+            "messages": [LCHumanMessage(content="测试")],
             "input": "输入",
             "workflow_id": "workflow_123",
             "plan": "计划",
@@ -179,7 +182,7 @@ class TestStateFactoryFunctions:
         state = create_agent_state(
             input_text="测试输入",
             max_iterations=5,
-            messages=[HumanMessage(content="人类消息")]
+            messages=[LCHumanMessage(content="人类消息")]
         )
 
         assert isinstance(state, dict)
@@ -294,36 +297,46 @@ class TestMessageFactoryFunction:
     def test_create_message_human(self) -> None:
         """测试创建人类消息"""
         message = create_message(content="人类消息", role=MessageRole.HUMAN)
-        assert isinstance(message, HumanMessage)
+        # 现在返回LangChain消息类型
+        from langchain_core.messages import HumanMessage as LCHumanMessage
+        assert isinstance(message, LCHumanMessage)
         assert message.content == "人类消息"
 
     def test_create_message_ai(self) -> None:
         """测试创建AI消息"""
         message = create_message(content="AI消息", role=MessageRole.AI)
-        assert isinstance(message, AIMessage)
+        # 现在返回LangChain消息类型
+        from langchain_core.messages import AIMessage as LCAIMessage
+        assert isinstance(message, LCAIMessage)
         assert message.content == "AI消息"
 
     def test_create_message_system(self) -> None:
         """测试创建系统消息"""
         message = create_message(content="系统消息", role=MessageRole.SYSTEM)
-        assert isinstance(message, SystemMessage)
+        # 现在返回LangChain消息类型
+        from langchain_core.messages import SystemMessage as LCSystemMessage
+        assert isinstance(message, LCSystemMessage)
         assert message.content == "系统消息"
 
     def test_create_message_tool(self) -> None:
         """测试创建工具消息"""
         message = create_message(
-            content="工具消息", 
-            role=MessageRole.TOOL, 
+            content="工具消息",
+            role=MessageRole.TOOL,
             tool_call_id="tool_123"
         )
-        assert isinstance(message, ToolMessage)
+        # 现在返回LangChain消息类型
+        from langchain_core.messages import ToolMessage as LCToolMessage
+        assert isinstance(message, LCToolMessage)
         assert message.content == "工具消息"
         assert message.tool_call_id == "tool_123"
 
     def test_create_message_custom_role(self) -> None:
         """测试创建自定义角色消息"""
         message = create_message(content="自定义消息", role="custom")
-        assert isinstance(message, BaseMessage)
+        # 现在返回LangChain消息类型
+        from langchain_core.messages import BaseMessage as LCBaseMessage
+        assert isinstance(message, LCBaseMessage)
         assert message.content == "自定义消息"
         assert message.type == "custom"
 
@@ -334,8 +347,8 @@ class TestStateUpdateFunctions:
     def test_update_state_with_message(self) -> None:
         """测试用消息更新状态"""
         original_state = {"existing_key": "value"}
-        message = HumanMessage(content="新消息")
-        
+        message = LCHumanMessage(content="新消息")
+
         updated_state = update_state_with_message(original_state, message)
         
         assert "messages" in updated_state
@@ -374,10 +387,10 @@ class TestStateValidationFunctions:
     def test_validate_state_base_graph_state_success(self) -> None:
         """测试验证基础图状态成功"""
         state = {
-            "messages": [BaseMessage(content="测试", type="test")],
+            "messages": [LCHumanMessage(content="测试")],
             "metadata": {"key": "value"}
         }
-        
+
         errors = validate_state(state, BaseGraphState)
         assert errors == []
 
@@ -394,22 +407,22 @@ class TestStateValidationFunctions:
     def test_validate_state_agent_state_success(self) -> None:
         """测试验证Agent状态成功"""
         state = {
-            "messages": [BaseMessage(content="测试", type="test")],
+            "messages": [LCHumanMessage(content="测试")],
             "input": "输入",
             "max_iterations": 10,
             "metadata": {"key": "value"}
         }
-        
+
         errors = validate_state(state, AgentState)
         assert errors == []
 
     def test_validate_state_agent_state_missing_required_fields(self) -> None:
         """测试验证Agent状态缺少必需字段"""
         state = {
-            "messages": [BaseMessage(content="测试", type="test")],
+            "messages": [LCHumanMessage(content="测试")],
             "metadata": {"key": "value"}
         }
-        
+
         errors = validate_state(state, AgentState)
         assert len(errors) == 2
         assert "缺少必需字段: input" in errors
@@ -418,23 +431,23 @@ class TestStateValidationFunctions:
     def test_validate_state_workflow_state_success(self) -> None:
         """测试验证工作流状态成功"""
         state = {
-            "messages": [BaseMessage(content="测试", type="test")],
+            "messages": [LCHumanMessage(content="测试")],
             "workflow_id": "workflow_123",
             "input": "输入",
             "max_iterations": 10,
             "metadata": {"key": "value"}
         }
-        
+
         errors = validate_state(state, WorkflowState)
         assert errors == []
 
     def test_validate_state_workflow_state_missing_required_fields(self) -> None:
         """测试验证工作流状态缺少必需字段"""
         state = {
-            "messages": [BaseMessage(content="测试", type="test")],
+            "messages": [LCHumanMessage(content="测试")],
             "metadata": {"key": "value"}
         }
-        
+
         errors = validate_state(state, WorkflowState)
         assert len(errors) == 3
         assert "缺少必需字段: workflow_id" in errors
@@ -484,9 +497,9 @@ class TestStateSerializationFunctions:
         assert isinstance(deserialized, dict)
         assert "messages" in deserialized
         assert len(deserialized["messages"]) == 2
-        assert isinstance(deserialized["messages"][0], HumanMessage)
+        assert isinstance(deserialized["messages"][0], LCHumanMessage)
         assert deserialized["messages"][0].content == "人类消息"
-        assert isinstance(deserialized["messages"][1], AIMessage)
+        assert isinstance(deserialized["messages"][1], LCAIMessage)
         assert deserialized["messages"][1].content == "AI消息"
         assert deserialized["input"] == "输入"
         assert deserialized["metadata"] == {"key": "value"}
@@ -511,11 +524,11 @@ class TestStateSerializationFunctions:
         
         # 验证
         assert len(deserialized["messages"]) == 3
-        assert isinstance(deserialized["messages"][0], HumanMessage)
+        assert isinstance(deserialized["messages"][0], LCHumanMessage)
         assert deserialized["messages"][0].content == "人类消息"
-        assert isinstance(deserialized["messages"][1], AIMessage)
+        assert isinstance(deserialized["messages"][1], LCAIMessage)
         assert deserialized["messages"][1].content == "AI消息"
-        assert isinstance(deserialized["messages"][2], ToolMessage)
+        assert isinstance(deserialized["messages"][2], LCToolMessage)
         assert deserialized["messages"][2].content == "工具消息"
         assert deserialized["messages"][2].tool_call_id == "tool_123"
         assert deserialized["input"] == "输入"

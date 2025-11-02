@@ -57,7 +57,7 @@ def create_graph_agent_state(
     agent_id: str,
     agent_config: Optional[Dict[str, Any]] = None,
     max_iterations: int = 10,
-    messages: Optional[List[GraphBaseMessage]] = None
+    messages: Optional[List[Union[GraphBaseMessage, LCBaseMessage]]] = None
 ) -> GraphAgentState:
     """创建图系统Agent状态
     
@@ -72,6 +72,7 @@ def create_graph_agent_state(
         GraphAgentState实例
     """
     if messages is None:
+        from langchain_core.messages import HumanMessage
         messages = [HumanMessage(content=input_text)]
     
     # 创建基础状态
@@ -116,6 +117,18 @@ class StateAdapter:
         # 转换消息
         messages = self._convert_messages_to_graph(domain_state.messages)
         
+        # 确保消息类型正确
+        lc_messages = []
+        for msg in messages:
+            if hasattr(msg, 'content') and hasattr(msg, 'type'):
+                # 这已经是LangChain消息类型
+                lc_messages.append(msg)
+            else:
+                # 如果不是，需要转换
+                from langchain_core.messages import BaseMessage as LCBaseMessage
+                # 简单处理，实际可能需要更复杂的转换
+                lc_messages.append(msg)
+        
         # 创建基础图状态
         graph_state = create_graph_agent_state(
             input_text=domain_state.current_task or "",
@@ -125,7 +138,7 @@ class StateAdapter:
                 **domain_state.custom_fields
             },
             max_iterations=domain_state.max_iterations,
-            messages=messages
+            messages=lc_messages
         )
         
         # 更新所有字段（新增完整映射）
@@ -221,21 +234,18 @@ class StateAdapter:
        
        for domain_msg in domain_messages:
            if domain_msg.role == "user":
-               graph_msg = LCHumanMessage(content=domain_msg.content) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else HumanMessage(content=domain_msg.content)
+               graph_msg = LCHumanMessage(content=domain_msg.content)
            elif domain_msg.role == "assistant":
-               graph_msg = LCAIMessage(content=domain_msg.content) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else AIMessage(content=domain_msg.content)
+               graph_msg = LCAIMessage(content=domain_msg.content)
            elif domain_msg.role == "system":
-               graph_msg = LCSystemMessage(content=domain_msg.content) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else SystemMessage(content=domain_msg.content)
+               graph_msg = LCSystemMessage(content=domain_msg.content)
            elif domain_msg.role == "tool":
                graph_msg = LCToolMessage(
                    content=domain_msg.content,
                    tool_call_id=domain_msg.metadata.get("tool_call_id", "")
-               ) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else ToolMessage(
-                   content=domain_msg.content,
-                   tool_call_id=domain_msg.metadata.get("tool_call_id", "")
                )
            else:
-               graph_msg = LCBaseMessage(content=domain_msg.content, type=domain_msg.role) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else GraphBaseMessage(content=domain_msg.content, type=domain_msg.role)
+               graph_msg = LCBaseMessage(content=domain_msg.content, type=domain_msg.role)
            
            graph_messages.append(graph_msg)
        
@@ -270,8 +280,13 @@ class StateAdapter:
                    role = "unknown"
            
            # 创建域层消息
+           # 确保content是字符串类型
+           content = graph_msg.content
+           if not isinstance(content, str):
+               content = str(content)
+           
            domain_msg = DomainAgentMessage(
-               content=graph_msg.content,
+               content=content,
                role=role,
                timestamp=datetime.now(),  # 图系统消息可能没有时间戳，使用当前时间
                metadata={}

@@ -14,7 +14,7 @@ from ..types import T
 
 
 class ServiceCacheEntry:
-    """服务缓存条目 - 优化版本"""
+    """服务缓存条目"""
     __slots__ = ['instance', 'created_at', 'last_accessed', 'size_bytes', 'access_count']
     
     def __init__(self, instance: Any, created_at: float, last_accessed: float, size_bytes: int, access_count: int = 0):
@@ -34,8 +34,8 @@ class ServiceCacheEntry:
         return time.time() - self.created_at > ttl_seconds
 
 
-class OptimizedServiceCache(IServiceCache):
-    """优化的服务缓存实现"""
+class LRUServiceCache(IServiceCache):
+    """LRU服务缓存实现"""
     
     def __init__(
         self,
@@ -48,7 +48,7 @@ class OptimizedServiceCache(IServiceCache):
         enable_stats: bool = True,
         use_weak_references: bool = False
     ):
-        """初始化优化的服务缓存
+        """初始化LRU服务缓存
         
         Args:
             max_size: 最大缓存大小
@@ -431,55 +431,3 @@ class OptimizedServiceCache(IServiceCache):
         """退出上下文时关闭缓存"""
         self.close()
 
-
-# 为了向后兼容，保留原有的 LRUServiceCache 类
-class LRUServiceCache(IServiceCache):
-    """LRU服务缓存实现 - 向后兼容版本
-    
-    这个类保留用于向后兼容，新代码应该使用 OptimizedServiceCache
-    """
-    
-    def __init__(self, max_size: int = 1000, ttl_seconds: int = 3600):
-        """初始化LRU服务缓存
-        
-        Args:
-            max_size: 最大缓存大小
-            ttl_seconds: 缓存过期时间（秒）
-        """
-        # 使用优化版本作为实现，但禁用后台清理和内存跟踪以保持原有行为
-        self._optimized_cache = OptimizedServiceCache(
-            max_size=max_size,
-            ttl_seconds=ttl_seconds,
-            cleanup_interval=0,  # 禁用后台清理
-            enable_memory_tracking=False,  # 禁用内存跟踪
-            enable_stats=False,  # 禁用统计信息
-            use_weak_references=False  # 不使用弱引用
-        )
-    
-    def get(self, service_type: Type) -> Optional[Any]:
-        """从缓存获取服务实例"""
-        return self._optimized_cache.get(service_type)
-    
-    def put(self, service_type: Type, instance: Any) -> None:
-        """将服务实例放入缓存"""
-        self._optimized_cache.put(service_type, instance)
-    
-    def remove(self, service_type: Type) -> None:
-        """从缓存移除服务实例"""
-        self._optimized_cache.remove(service_type)
-    
-    def clear(self) -> None:
-        """清除所有缓存"""
-        self._optimized_cache.clear()
-    
-    def get_size(self) -> int:
-        """获取缓存大小"""
-        return self._optimized_cache.get_size()
-    
-    def get_memory_usage(self) -> int:
-        """获取内存使用量"""
-        return self._optimized_cache.get_memory_usage()
-    
-    def optimize(self) -> Dict[str, Any]:
-        """优化缓存"""
-        return self._optimized_cache.optimize()

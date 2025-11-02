@@ -27,11 +27,8 @@ class TestMessageAdapter:
         graph_message = adapter.to_graph_message(domain_message)
         
         # 验证转换结果
-        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
-        if LANGCHAIN_AVAILABLE:
-            assert isinstance(graph_message, (LCHumanMessage, HumanMessage))
-        else:
-            assert isinstance(graph_message, HumanMessage)
+        # 现在始终使用LangChain消息类型
+        assert isinstance(graph_message, LCHumanMessage)
         assert graph_message.content == "用户消息内容"
         assert graph_message.type == "human"
     
@@ -50,11 +47,8 @@ class TestMessageAdapter:
         graph_message = adapter.to_graph_message(domain_message)
         
         # 验证转换结果
-        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
-        if LANGCHAIN_AVAILABLE:
-            assert isinstance(graph_message, (LCAIMessage, AIMessage))
-        else:
-            assert isinstance(graph_message, AIMessage)
+        # 现在始终使用LangChain消息类型
+        assert isinstance(graph_message, LCAIMessage)
         assert graph_message.content == "助手消息内容"
         assert graph_message.type == "ai"
     
@@ -73,11 +67,8 @@ class TestMessageAdapter:
         graph_message = adapter.to_graph_message(domain_message)
         
         # 验证转换结果
-        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
-        if LANGCHAIN_AVAILABLE:
-            assert isinstance(graph_message, (LCSystemMessage, SystemMessage))
-        else:
-            assert isinstance(graph_message, SystemMessage)
+        # 现在始终使用LangChain消息类型
+        assert isinstance(graph_message, LCSystemMessage)
         assert graph_message.content == "系统消息内容"
         assert graph_message.type == "system"
     
@@ -96,12 +87,8 @@ class TestMessageAdapter:
         # 转换为图消息
         graph_message = adapter.to_graph_message(domain_message)
         
-        # 验证转换结果
-        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
-        if LANGCHAIN_AVAILABLE:
-            assert isinstance(graph_message, (LCToolMessage, ToolMessage))
-        else:
-            assert isinstance(graph_message, ToolMessage)
+        # 现在始终使用LangChain消息类型
+        assert isinstance(graph_message, LCToolMessage)
         assert graph_message.content == "工具消息内容"
         assert graph_message.type == "tool"
         if hasattr(graph_message, 'tool_call_id'):
@@ -112,11 +99,8 @@ class TestMessageAdapter:
         adapter = MessageAdapter()
         
         # 创建图人类消息
-        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
-        if LANGCHAIN_AVAILABLE:
-            graph_message = LCHumanMessage(content="用户消息内容")
-        else:
-            graph_message = HumanMessage(content="用户消息内容")
+        # 现在始终使用LangChain消息类型
+        graph_message = LCHumanMessage(content="用户消息内容")
         
         # 转换为域消息
         domain_message = adapter.from_graph_message(graph_message)
@@ -132,11 +116,8 @@ class TestMessageAdapter:
         adapter = MessageAdapter()
         
         # 创建图AI消息
-        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
-        if LANGCHAIN_AVAILABLE:
-            graph_message = LCAIMessage(content="助手消息内容")
-        else:
-            graph_message = AIMessage(content="助手消息内容")
+        # 现在始终使用LangChain消息类型
+        graph_message = LCAIMessage(content="助手消息内容")
         
         # 转换为域消息
         domain_message = adapter.from_graph_message(graph_message)
@@ -152,11 +133,8 @@ class TestMessageAdapter:
         adapter = MessageAdapter()
         
         # 创建图系统消息
-        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
-        if LANGCHAIN_AVAILABLE:
-            graph_message = LCSystemMessage(content="系统消息内容")
-        else:
-            graph_message = SystemMessage(content="系统消息内容")
+        # 现在始终使用LangChain消息类型
+        graph_message = LCSystemMessage(content="系统消息内容")
         
         # 转换为域消息
         domain_message = adapter.from_graph_message(graph_message)
@@ -172,11 +150,8 @@ class TestMessageAdapter:
         adapter = MessageAdapter()
         
         # 创建图工具消息
-        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
-        if LANGCHAIN_AVAILABLE:
-            graph_message = LCToolMessage(content="工具消息内容", tool_call_id="test-456")
-        else:
-            graph_message = ToolMessage(content="工具消息内容", tool_call_id="test-456")
+        # 现在始终使用LangChain消息类型
+        graph_message = LCToolMessage(content="工具消息内容", tool_call_id="test-456")
         
         # 转换为域消息
         domain_message = adapter.from_graph_message(graph_message)
@@ -204,17 +179,11 @@ class TestMessageAdapter:
         
         # 验证转换结果
         assert len(graph_messages) == 4
-        from src.infrastructure.graph.state import LANGCHAIN_AVAILABLE
-        if LANGCHAIN_AVAILABLE:
-            assert isinstance(graph_messages[0], (LCHumanMessage, HumanMessage))
-            assert isinstance(graph_messages[1], (LCAIMessage, AIMessage))
-            assert isinstance(graph_messages[2], (LCSystemMessage, SystemMessage))
-            assert isinstance(graph_messages[3], (LCToolMessage, ToolMessage))
-        else:
-            assert isinstance(graph_messages[0], HumanMessage)
-            assert isinstance(graph_messages[1], AIMessage)
-            assert isinstance(graph_messages[2], SystemMessage)
-            assert isinstance(graph_messages[3], ToolMessage)
+        # 现在始终使用LangChain消息类型
+        assert isinstance(graph_messages[0], LCHumanMessage)
+        assert isinstance(graph_messages[1], LCAIMessage)
+        assert isinstance(graph_messages[2], LCSystemMessage)
+        assert isinstance(graph_messages[3], LCToolMessage)
         
         # 批量转换回域消息
         converted_back = adapter.from_graph_messages(graph_messages)

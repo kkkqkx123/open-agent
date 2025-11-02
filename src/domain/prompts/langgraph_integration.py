@@ -2,15 +2,8 @@
 
 from typing import Any, Dict, Optional
 
-try:
-    from langgraph.graph import StateGraph
-    from langchain_core.messages import BaseMessage
-    LANGGRAPH_AVAILABLE = True
-except ImportError:
-    LANGGRAPH_AVAILABLE = False
-    # 如果LangChain不可用，使用本地定义的BaseMessage
-    from .agent_state import BaseMessage
-    StateGraph = None  # 提供一个默认值以避免未绑定变量错误
+from langgraph.graph import StateGraph
+from langchain_core.messages import BaseMessage
 
 from .interfaces import IPromptInjector
 from .models import PromptConfig
@@ -33,8 +26,6 @@ def create_agent_workflow(
     llm_client: Any = None
 ) -> Any:
     """创建Agent工作流"""
-    if not LANGGRAPH_AVAILABLE:
-        raise ImportError("LangGraph未安装，无法创建工作流")
     
     def inject_prompts_node(state: WorkflowState) -> WorkflowState:
         """提示词注入节点"""

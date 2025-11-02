@@ -1,0 +1,22 @@
+FAILED tests/unit/infrastructure/llm/test_retry_manager.py::TestRetryManager::test_execute_with_retry_success_first_attempt - AttributeError: __name__
+FAILED tests/unit/infrastructure/llm/test_retry_manager.py::TestRetryManager::test_execute_with_retry_success_after_retry - AttributeError: __name__
+FAILED tests/unit/infrastructure/llm/test_retry_manager.py::TestRetryManager::test_execute_with_retry_all_attempts_fail - AssertionError: Regex pattern did not match.
+FAILED tests/unit/infrastructure/llm/test_retry_manager.py::TestRetryManager::test_execute_with_retry_async_success_after_retry - Exception: error
+FAILED tests/unit/infrastructure/llm/test_retry_manager.py::TestRetryManager::test_execute_with_retry_async_all_attempts_fail - AssertionError: assert 1 == 3
+FAILED tests/unit/infrastructure/llm/test_retry_manager.py::TestRetryManager::test_execute_with_timeout_success - AttributeError: __name__
+FAILED tests/unit/infrastructure/llm/test_retry_manager.py::TestRetryManager::test_retry_decorator_sync_function - AttributeError: __name__
+FAILED tests/unit/infrastructure/llm/test_retry_manager.py::TestRetryManager::test_retry_decorator_async_function - Exception: error
+FAILED tests/unit/infrastructure/llm/test_retry_manager.py::TestRetryManager::test_retry_decorator_with_custom_config - AssertionError: Regex pattern did not match.
+FAILED tests/unit/infrastructure/llm/test_retry_manager.py::TestRetryManager::test_retry_decorator_without_function - AttributeError: __name__
+FAILED tests/unit/infrastructure/llm/test_retry_manager.py::TestRetryManager::test_delay_between_attempts - AttributeError: __name__
+FAILED tests/unit/infrastructure/llm/test_retry_manager.py::TestGlobalRetryManager::test_retry_decorator_global - AttributeError: __name__
+FAILED tests/unit/infrastructure/llm/test_retry_manager.py::TestGlobalRetryManager::test_retry_decorator_global_with_config - AssertionError: Regex pattern did not match.
+FAILED tests/unit/infrastructure/llm/test_retry_strategies.py::TestExponentialBackoffStrategy::test_should_retry_within_limits - AssertionError: assert False == True
+FAILED tests/unit/infrastructure/llm/test_retry_strategies.py::TestAdaptiveRetryStrategy::test_get_retry_delay_adjusts_for_error_type - assert 1.0 > 1.5
+FAILED tests/unit/infrastructure/llm/test_retry_strategies.py::TestConditionalRetryStrategy::test_should_retry_all_conditions_pass - assert False == True
+FAILED tests/unit/infrastructure/llm/test_retry_strategies.py::TestErrorTypeRetryCondition::test_should_retry_with_blocking_error_type - assert True == False
+FAILED tests/unit/infrastructure/llm/test_validation_result.py::TestValidationResult::test_validation_result_post_init - AssertionError: assert True == False
+FAILED tests/unit/infrastructure/llm/test_validation_rules.py::TestValidationRuleRegistry::test_validate_config - assert True == False
+FAILED tests/unit/infrastructure/llm/test_validation_rules.py::TestTimeoutValidationRule::test_validate_timeout_too_small - AssertionError: assert <ValidationSeverity.WARNING: 'warning'> == <ValidationSeverity.ERROR: 'error'>
+FAILED tests/unit/infrastructure/test_graph_cache.py::TestGraphCache::test_lfu_eviction_policy - assert None is not None     
+FAILED tests/unit/infrastructure/test_graph_cache.py::TestGraphCache::test_invalidate_by_pattern - AssertionError: assert <langgraph.graph.state.StateGraph object at 0x0000025E0E5D5010> is None

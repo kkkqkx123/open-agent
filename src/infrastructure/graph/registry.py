@@ -3,12 +3,13 @@
 提供节点类型的注册、获取和管理功能。
 """
 
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Type, Optional, Callable, TYPE_CHECKING
 from dataclasses import dataclass
 
 if TYPE_CHECKING:
-    from src.domain.agent.state import AgentState
+    from .state import AgentState
 
 from .state import WorkflowState
 
@@ -46,6 +47,19 @@ class BaseNode(ABC):
             NodeExecutionResult: 执行结果
         """
         pass
+    async def execute_async(self, state: "AgentState", config: Dict[str, Any]) -> NodeExecutionResult:
+        """异步执行节点逻辑
+
+        Args:
+            state: 当前Agent状态
+            config: 节点配置
+
+        Returns:
+            NodeExecutionResult: 执行结果
+        """
+        # 默认实现：使用同步执行
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.execute, state, config)
 
     @abstractmethod
     def get_config_schema(self) -> Dict[str, Any]:

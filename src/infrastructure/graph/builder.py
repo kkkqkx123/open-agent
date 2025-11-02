@@ -34,15 +34,10 @@ from .adapters.state_adapter import GraphAgentState
 logger = logging.getLogger(__name__)
 
 # 导入LangGraph核心组件
-try:
-    from langgraph.graph import StateGraph, START, END
-    from langchain_core.runnables import RunnableConfig
-    from langgraph.checkpoint.memory import InMemorySaver
-    from langgraph.checkpoint.sqlite import SqliteSaver
-    LANGGRAPH_AVAILABLE = True
-except ImportError:
-    logger.warning("LangGraph not available, using fallback implementation")
-    LANGGRAPH_AVAILABLE = False
+from langgraph.graph import StateGraph, START, END
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 
 
 class INodeExecutor(ABC):
@@ -180,10 +175,6 @@ class GraphBuilder:
         Returns:
             编译后的LangGraph图
         """
-        if not LANGGRAPH_AVAILABLE:
-            logger.error("LangGraph not available, cannot build graph")
-            return None
-        
         # 验证配置
         errors = config.validate()
         if errors:
@@ -241,9 +232,8 @@ class GraphBuilder:
             if edge.type == EdgeType.SIMPLE:
                 # 简单边
                 if edge.to_node == "__end__":
-                    if LANGGRAPH_AVAILABLE:
-                        from langgraph.graph import END
-                        builder.add_edge(edge.from_node, END)
+                    from langgraph.graph import END
+                    builder.add_edge(edge.from_node, END)
                 else:
                     builder.add_edge(edge.from_node, edge.to_node)
             elif edge.type == EdgeType.CONDITIONAL:
@@ -337,15 +327,13 @@ class GraphBuilder:
         
         checkpointer = None
         if config.checkpointer == "memory":
-            if LANGGRAPH_AVAILABLE:
-                from langgraph.checkpoint.memory import InMemorySaver
-                checkpointer = InMemorySaver()
+            from langgraph.checkpoint.memory import InMemorySaver
+            checkpointer = InMemorySaver()
         elif config.checkpointer.startswith("sqlite:"):
             # sqlite:/path/to/db.sqlite
-            if LANGGRAPH_AVAILABLE:
-                from langgraph.checkpoint.sqlite import SqliteSaver
-                db_path = config.checkpointer[7:]  # 移除 "sqlite:" 前缀
-                checkpointer = SqliteSaver.from_conn_string(f"sqlite:///{db_path}")
+            from langgraph.checkpoint.sqlite import SqliteSaver
+            db_path = config.checkpointer[7:]  # 移除 "sqlite:" 前缀
+            checkpointer = SqliteSaver.from_conn_string(f"sqlite:///{db_path}")
         
         if checkpointer:
             self._checkpointer_cache[config.checkpointer] = checkpointer

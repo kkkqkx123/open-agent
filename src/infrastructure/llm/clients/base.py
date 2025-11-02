@@ -142,13 +142,21 @@ class BaseLLMClient(ILLMClient):
     
     def _create_enhanced_error(
         self,
-        error_class: type,
+        error_class: type[LLMCallError],
         message: str,
         original_error: Exception,
-        **kwargs
+        **kwargs: Any
     ) -> LLMCallError:
         """创建增强的错误对象，保留原始错误信息"""
-        error = error_class(message, model_name=self.config.model_name, **kwargs)
+        # 对于LLMModelNotFoundError，model_name是位置参数，不需要在kwargs中传递
+        if error_class is LLMModelNotFoundError:
+            error: LLMCallError = error_class(self.config.model_name)
+            # 覆盖默认消息
+            error.args = (message,)
+        else:
+            # 对于其他异常，model_name作为关键字参数传递
+            error = error_class(message, model_name=self.config.model_name, **kwargs)
+        
         error.original_error = original_error
         error.error_type = type(original_error).__name__
         return error
@@ -255,7 +263,9 @@ class BaseLLMClient(ILLMClient):
                         # 返回第一个工具调用
                         tool_call = tool_calls[0]
                         if hasattr(tool_call, "dict"):
-                            return tool_call.dict()
+                            result = tool_call.dict()
+                            if isinstance(result, dict):
+                                return result
                         elif isinstance(tool_call, dict):
                             return tool_call
                 except TypeError:

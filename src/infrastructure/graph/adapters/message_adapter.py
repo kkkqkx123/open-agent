@@ -25,17 +25,22 @@ class MessageAdapter:
        Returns:
            图系统兼容的消息
        """
+       # 确保content是字符串类型
+       content = domain_message.content
+       if not isinstance(content, str):
+           content = str(content)
+       
        if domain_message.role == "user":
-           return LCHumanMessage(content=domain_message.content) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else HumanMessage(content=domain_message.content)
+           return LCHumanMessage(content=content)
        elif domain_message.role == "assistant":
-           return LCAIMessage(content=domain_message.content) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else AIMessage(content=domain_message.content)
+           return LCAIMessage(content=content)
        elif domain_message.role == "system":
-           return LCSystemMessage(content=domain_message.content) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else SystemMessage(content=domain_message.content)
+           return LCSystemMessage(content=content)
        elif domain_message.role == "tool":
            tool_call_id = domain_message.metadata.get("tool_call_id", "")
-           return LCToolMessage(content=domain_message.content, tool_call_id=tool_call_id) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else ToolMessage(content=domain_message.content, tool_call_id=tool_call_id)
+           return LCToolMessage(content=content, tool_call_id=tool_call_id)
        else:
-           return LCBaseMessage(content=domain_message.content, type=domain_message.role) if 'LANGCHAIN_AVAILABLE' in globals() and LANGCHAIN_AVAILABLE else GraphBaseMessage(content=domain_message.content, type=domain_message.role)
+           return LCBaseMessage(content=content, type=domain_message.role)
     
     def from_graph_message(self, graph_message: Union[GraphBaseMessage, LCBaseMessage]) -> DomainAgentMessage:
        """将图系统消息转换为域层AgentMessage
@@ -70,8 +75,13 @@ class MessageAdapter:
                role = "unknown"
        
        # 创建域层消息
+       # 确保content是字符串类型
+       content = graph_message.content
+       if not isinstance(content, str):
+           content = str(content)
+       
        domain_message = DomainAgentMessage(
-           content=graph_message.content,
+           content=content,
            role=role,
            timestamp=datetime.now(),  # 图系统消息可能没有时间戳，使用当前时间
            metadata={}

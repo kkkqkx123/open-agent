@@ -10,43 +10,8 @@ from typing_extensions import TypedDict
 
 logger = logging.getLogger(__name__)
 
-# 导入消息类型
-try:
-    from langchain_core.messages import BaseMessage as LCBaseMessage, HumanMessage as LCHumanMessage, AIMessage as LCAIMessage, SystemMessage as LCSystemMessage, ToolMessage as LCToolMessage  # type: ignore
-    LANGCHAIN_AVAILABLE = True
-except ImportError:
-    logger.warning("LangChain not available, using fallback message types")
-    LANGCHAIN_AVAILABLE = False
-    
-    # 后备消息类型定义 - 使用不同的类名避免冲突
-    class FallbackLCBaseMessage:
-        def __init__(self, content: str, type: str = "base"):
-            self.content = content
-            self.type = type
-    
-    class FallbackLCHumanMessage(FallbackLCBaseMessage):
-        def __init__(self, content: str):
-            super().__init__(content, "human")
-    
-    class FallbackLCAIMessage(FallbackLCBaseMessage):
-        def __init__(self, content: str):
-            super().__init__(content, "ai")
-    
-    class FallbackLCSystemMessage(FallbackLCBaseMessage):
-        def __init__(self, content: str):
-            super().__init__(content, "system")
-    
-    class FallbackLCToolMessage(FallbackLCBaseMessage):
-        def __init__(self, content: str, tool_call_id: str = ""):
-            super().__init__(content, "tool")
-            self.tool_call_id = tool_call_id
-    
-    # 创建别名以便后续使用
-    LCBaseMessage = FallbackLCBaseMessage
-    LCHumanMessage = FallbackLCHumanMessage
-    LCAIMessage = FallbackLCAIMessage
-    LCSystemMessage = FallbackLCSystemMessage
-    LCToolMessage = FallbackLCToolMessage
+# 导入消息类型 - 项目依赖LangChain，因此直接导入
+from langchain_core.messages import BaseMessage as LCBaseMessage, HumanMessage as LCHumanMessage, AIMessage as LCAIMessage, SystemMessage as LCSystemMessage, ToolMessage as LCToolMessage  # type: ignore
 
 # 重新定义消息类型，以避免与langchain_core冲突
 class BaseMessage:
@@ -67,6 +32,29 @@ class SystemMessage(BaseMessage):
         super().__init__(content, "system")
 
 class ToolMessage(BaseMessage):
+    def __init__(self, content: str, tool_call_id: str = ""):
+        super().__init__(content, "tool")
+        self.tool_call_id = tool_call_id
+
+# 保留自定义消息类型定义，用于兼容性（使用不同名称避免冲突）
+class GraphBaseMessage:
+    def __init__(self, content: str, type: str = "base"):
+        self.content = content
+        self.type = type
+
+class GraphHumanMessage(GraphBaseMessage):
+    def __init__(self, content: str):
+        super().__init__(content, "human")
+
+class GraphAIMessage(GraphBaseMessage):
+    def __init__(self, content: str):
+        super().__init__(content, "ai")
+
+class GraphSystemMessage(GraphBaseMessage):
+    def __init__(self, content: str):
+        super().__init__(content, "system")
+
+class GraphToolMessage(GraphBaseMessage):
     def __init__(self, content: str, tool_call_id: str = ""):
         super().__init__(content, "tool")
         self.tool_call_id = tool_call_id
@@ -141,8 +129,11 @@ class WorkflowState(AgentState, total=False):
     # 决策结果
     decision: Optional[str]
 
-    # 上下文信息
-    context: dict[str, Any]
+    # 条件结果
+    condition_result: Optional[bool]
+
+# 上下文信息
+context: dict[str, Any]
 
 
 class ReActState(WorkflowState, total=False):
@@ -182,7 +173,7 @@ def create_agent_state(
         AgentState实例
     """
     if messages is None:
-        messages = [LCHumanMessage(content=input_text)] if LANGCHAIN_AVAILABLE else [HumanMessage(content=input_text)]
+        messages = [LCHumanMessage(content=input_text)]
     
     return {
         "messages": messages,
@@ -217,11 +208,12 @@ def create_workflow_state(
     
     # 创建完整的工作流状态
     workflow_state: WorkflowState = {
-        **base_agent_state,
-        "workflow_id": workflow_id,
-        "step_name": None,
-        "analysis": None,
-        "decision": None,
+    **base_agent_state,
+    "workflow_id": workflow_id,
+    "step_name": None,
+    "analysis": None,
+    "decision": None,
+    "condition_result": None,
         "context": {}
     }
     return workflow_state
@@ -284,7 +276,7 @@ def create_plan_execute_state(
 
 
 # 消息创建函数
-def create_message(content: str, role: str, **kwargs: Any) -> LCBaseMessage:
+def create_message(content: str, role: str, **kwargs: Any) -> "LCBaseMessage":
     """创建消息
     
     Args:
@@ -293,30 +285,18 @@ def create_message(content: str, role: str, **kwargs: Any) -> LCBaseMessage:
         **kwargs: 其他参数
         
     Returns:
-        BaseMessage实例
+        LangChain BaseMessage实例
     """
-    if LANGCHAIN_AVAILABLE:
-        if role == MessageRole.HUMAN:
-            return LCHumanMessage(content=content)
-        elif role == MessageRole.AI:
-            return LCAIMessage(content=content)
-        elif role == MessageRole.SYSTEM:
-            return LCSystemMessage(content=content)
-        elif role == MessageRole.TOOL:
-            return LCToolMessage(content=content, tool_call_id=kwargs.get("tool_call_id", ""))
-        else:
-            return LCBaseMessage(content=content, type=role)
+    if role == MessageRole.HUMAN:
+        return LCHumanMessage(content=content)
+    elif role == MessageRole.AI:
+        return LCAIMessage(content=content)
+    elif role == MessageRole.SYSTEM:
+        return LCSystemMessage(content=content)
+    elif role == MessageRole.TOOL:
+        return LCToolMessage(content=content, tool_call_id=kwargs.get("tool_call_id", ""))
     else:
-        if role == MessageRole.HUMAN:
-            return HumanMessage(content=content)
-        elif role == MessageRole.AI:
-            return AIMessage(content=content)
-        elif role == MessageRole.SYSTEM:
-            return SystemMessage(content=content)
-        elif role == MessageRole.TOOL:
-            return ToolMessage(content=content, tool_call_id=kwargs.get("tool_call_id", ""))
-        else:
-            return BaseMessage(content=content, type=role)
+        return LCBaseMessage(content=content, type=role)
 
 
 # 状态更新函数

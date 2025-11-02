@@ -88,9 +88,8 @@ def create_workflow_state(
         WorkflowState实例
     """
     if messages is None:
-        from ..state import LCHumanMessage, HumanMessage
-        from ..state import LANGCHAIN_AVAILABLE
-        messages = [LCHumanMessage(content=input_text) if LANGCHAIN_AVAILABLE else HumanMessage(content=input_text)]
+        from ..state import LCHumanMessage
+        messages = [LCHumanMessage(content=input_text)]
     
     # 创建基础状态
     base_state = {
@@ -177,14 +176,13 @@ def update_workflow_state_with_output(
     Returns:
         更新后的工作流状态
     """
-    from ..state import LCAIMessage, AIMessage
-    from ..state import LANGCHAIN_AVAILABLE
+    from ..state import LCAIMessage
     
     # 获取当前消息列表
     current_messages = state.get("messages", [])
     
     # 创建新的AI消息
-    new_ai_message = LCAIMessage(content=output) if LANGCHAIN_AVAILABLE else AIMessage(content=output)
+    new_ai_message = LCAIMessage(content=output)
     
     # 添加新消息到列表
     new_messages = current_messages + [new_ai_message]
