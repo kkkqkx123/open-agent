@@ -3,11 +3,17 @@
 .coverage
 .env
 
+**/*.rar
+**/*.zip
+**/*.tar
+**/*.tar.gz
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 **/*.mypy_cache
+**/*.pyc
 
 # Distribution / packaging
 .Python
@@ -28,7 +34,6 @@ wheels/
 *.egg
 
 # Virtual environments
-.env
 .venv
 venv/
 ENV/

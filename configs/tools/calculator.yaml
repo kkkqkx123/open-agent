@@ -1,7 +1,7 @@
 # 计算器工具配置
 name: calculator
 tool_type: builtin
-description: 执行基本数学计算的工具
+description: A tool for performing basic mathematical calculations
 function_path: defination.tools.calculator:calculate
 enabled: true
 timeout: 10
@@ -10,10 +10,10 @@ parameters_schema:
   properties:
     expression:
       type: string
-      description: 要计算的数学表达式，如 "2 + 3 * 4"
+      description: Mathematical expression to calculate, e.g. "2 + 3 * 4"
     precision:
       type: integer
-      description: 结果的小数位数，默认为2
+      description: Number of decimal places in the result, default is 2
       default: 2
   required:
     - expression

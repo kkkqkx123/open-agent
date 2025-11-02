@@ -1,0 +1,104 @@
+# Sequential Thinking Tool Configuration
+name: sequentialthinking
+tool_type: builtin
+description: |
+  A detailed tool for dynamic and reflective problem-solving through thoughts.
+  This tool helps analyze problems through a flexible thinking process that can adapt and evolve.
+  Each thought can build on, question, or revise previous insights as understanding deepens.
+  
+  When to use this tool:
+  - Breaking down complex problems into steps
+  - Planning and design with room for revision
+  - Analysis that might need course correction
+  - Problems where the full scope might not be clear initially
+  - Problems that require a multi-step solution
+  - Tasks that need to maintain context over multiple steps
+  - Situations where irrelevant information needs to be filtered out
+  
+  Key features:
+  - You can adjust total_thoughts up or down as you progress
+  - You can question or revise previous thoughts
+  - You can add more thoughts even after reaching what seemed like the end
+  - You can express uncertainty and explore alternative approaches
+  - Not every thought needs to build linearly - you can branch or backtrack
+  - Generates a solution hypothesis
+  - Verifies the hypothesis based on the Chain of Thought steps
+  - Repeats the process until satisfied
+  - Provides a correct answer
+function_path: defination.tools.sequentialthinking:sequentialthinking
+enabled: true
+timeout: 30
+parameters_schema:
+  type: object
+  properties:
+    thought:
+      type: string
+      description: |
+        Your current thinking step, which can include:
+        * Regular analytical steps
+        * Revisions of previous thoughts
+        * Questions about previous decisions
+        * Realizations about needing more analysis
+        * Changes in approach
+        * Hypothesis generation
+        * Hypothesis verification
+    nextThoughtNeeded:
+      type: boolean
+      description: Whether another thought step is needed, even if at what seemed like the end
+    thoughtNumber:
+      type: integer
+      description: Current number in sequence (can go beyond initial total if needed)
+      minimum: 1
+    totalThoughts:
+      type: integer
+      description: Current estimate of thoughts needed (can be adjusted up/down)
+      minimum: 1
+    isRevision:
+      type: boolean
+      description: Whether this revises previous thinking
+    revisesThought:
+      type: integer
+      description: If is_revision is true, which thought number is being reconsidered
+      minimum: 1
+    branchFromThought:
+      type: integer
+      description: If branching, which thought number is the branching point
+      minimum: 1
+    branchId:
+      type: string
+      description: Identifier for the current branch (if any)
+    needsMoreThoughts:
+      type: boolean
+      description: If reaching end but realizing more thoughts needed
+  required:
+    - thought
+    - nextThoughtNeeded
+    - thoughtNumber
+    - totalThoughts
+metadata:
+  category: "reasoning"
+  tags: ["thinking", "reasoning", "problem-solving", "analysis", "planning"]
+  documentation_url: "https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking"
+examples:
+  - description: "Basic thinking sequence"
+    parameters:
+      thought: "Analyze the core requirements of the problem"
+      nextThoughtNeeded: true
+      thoughtNumber: 1
+      totalThoughts: 3
+  - description: "Revising previous thought"
+    parameters:
+      thought: "Reassess the priority of the problem, finding that security is more important than performance"
+      nextThoughtNeeded: true
+      thoughtNumber: 2
+      totalThoughts: 4
+      isRevision: true
+      revisesThought: 1
+  - description: "Creating a branch thought"
+    parameters:
+      thought: "Explore alternative technical solutions: using microservices architecture instead of monolithic application"
+      nextThoughtNeeded: true
+      thoughtNumber: 3
+      totalThoughts: 5
+      branchFromThought: 2
+      branchId: "alternative-architecture"

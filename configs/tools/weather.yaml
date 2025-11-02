@@ -1,7 +1,7 @@
 # 天气查询工具配置
 name: weather
 tool_type: native
-description: 查询指定城市的天气信息
+description: Query weather information for a specified city
 enabled: true
 timeout: 15
 api_url: "https://api.openweathermap.org/data/2.5/weather"
@@ -18,15 +18,15 @@ parameters_schema:
   properties:
     q:
       type: string
-      description: 城市名称，如 "Beijing,CN" 或 "London"
+      description: City name, e.g. "Beijing,CN" or "London"
     units:
       type: string
-      description: 温度单位，可选值：metric(摄氏度)、imperial(华氏度)、kelvin(开尔文)
+      description: Temperature unit, optional values: metric(Celsius), imperial(Fahrenheit), kelvin(Kelvin)
       enum: ["metric", "imperial", "kelvin"]
       default: "metric"
     lang:
       type: string
-      description: 返回结果的语言，如 "zh_cn"、"en"
+      description: Language of the returned results, e.g. "zh_cn", "en"
       default: "zh_cn"
   required:
     - q
