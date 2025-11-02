@@ -366,23 +366,50 @@ class IWorkflowTemplateRegistry(ABC):
         """
         pass
 
-    @abstractmethod
-    def list_templates(self) -> List[str]:
-        """列出所有已注册的模板
 
+class IWorkflowFactory(ABC):
+    """工作流工厂接口"""
+
+    @abstractmethod
+    def create_workflow(self, workflow_type: str, config: Dict[str, Any]) -> Any:
+        """创建工作流实例
+        
+        Args:
+            workflow_type: 工作流类型
+            config: 工作流配置
+            
         Returns:
-            List[str]: 模板名称列表
+            工作流实例
         """
         pass
 
     @abstractmethod
-    def unregister_template(self, name: str) -> bool:
-        """卸载模板
-
+    def register_workflow_type(self, workflow_type: str, workflow_class: Type) -> None:
+        """注册工作流类型
+        
         Args:
-            name: 模板名称
+            workflow_type: 工作流类型名称
+            workflow_class: 工作流类
+        """
+        pass
 
+    @abstractmethod
+    def get_supported_types(self) -> list:
+        """获取支持的工作流类型列表
+        
         Returns:
-            bool: 是否成功卸载
+            list: 工作流类型列表
+        """
+        pass
+
+    @abstractmethod
+    def load_workflow_config(self, config_path: str) -> WorkflowConfig:
+        """加载工作流配置
+        
+        Args:
+            config_path: 配置文件路径
+            
+        Returns:
+            WorkflowConfig: 工作流配置
         """
         pass

@@ -1,429 +1,222 @@
 """工作流工厂
 
-负责工作流实例的创建和初始化。
+提供工作流实例的创建和管理功能。
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, Type
 from abc import ABC, abstractmethod
 import logging
 
-from src.infrastructure.graph.states import (
-    BaseGraphState, WorkflowState,
-    ReActState, PlanExecuteState, StateFactory
-)
-from src.domain.agent.state import AgentState as DomainAgentState
-from src.infrastructure.graph.config import WorkflowConfig
-from src.infrastructure.graph.registry import NodeRegistry
-from src.infrastructure.graph.builder import GraphBuilder
-from src.infrastructure.container import IDependencyContainer
+from .interfaces import IWorkflowFactory, IWorkflowManager
+from ...infrastructure.graph.state import WorkflowState
+from ...infrastructure.graph.config import WorkflowConfig
+from ...infrastructure.config_loader import IConfigLoader
+from ...infrastructure.container import IDependencyContainer
 
 logger = logging.getLogger(__name__)
 
 
-class IWorkflowFactory(ABC):
-    """工作流工厂接口"""
-
-    @abstractmethod
-    def create_workflow(
-        self,
-        config: WorkflowConfig,
-        initial_state: Optional[Dict[str, Any]] = None
-    ) -> Any:
-        """创建工作流实例
-
-        Args:
-            config: 工作流配置
-            initial_state: 初始状态
-
-        Returns:
-            工作流实例
-        """
-        pass
-
-    @abstractmethod
-    def create_state(
-        self,
-        state_type: str,
-        **kwargs
-    ) -> Dict[str, Any]:
-        """创建状态
-
-        Args:
-            state_type: 状态类型
-            **kwargs: 状态参数
-
-        Returns:
-            状态实例
-        """
-        pass
-
-    @abstractmethod
-    def create_workflow_state(
-        self,
-        workflow_id: str,
-        workflow_name: str,
-        input_text: str,
-        workflow_config: Optional[Dict[str, Any]] = None,
-        max_iterations: int = 10
-    ) -> WorkflowState:
-        """创建工作流状态
-
-        Args:
-            workflow_id: 工作流ID
-            workflow_name: 工作流名称
-            input_text: 输入文本
-            workflow_config: 工作流配置
-            max_iterations: 最大迭代次数
-
-        Returns:
-            工作流状态
-        """
-        pass
-
-    @abstractmethod
-    def create_workflow_from_config(
-        self,
-        config_path: str,
-        initial_state: Optional[Dict[str, Any]] = None
-    ) -> Any:
-        """从配置文件创建工作流
-
-        Args:
-            config_path: 配置文件路径
-            initial_state: 初始状态
-
-        Returns:
-            工作流实例
-        """
-        pass
-
-    @abstractmethod
-    def load_workflow_config(self, config_path: str) -> WorkflowConfig:
-        """加载工作流配置
-
-        Args:
-            config_path: 配置文件路径
-
-        Returns:
-            工作流配置
-        """
-        pass
-
-    @abstractmethod
-    def clone_workflow(self, workflow: Any) -> Any:
-        """克隆工作流
-
-        Args:
-            workflow: 原工作流实例
-
-        Returns:
-            克隆的工作流实例
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def graph_builder(self) -> GraphBuilder:
-        """获取图构建器"""
-        pass
-
-
 class WorkflowFactory(IWorkflowFactory):
-    """工作流工厂实现
-    
-    负责根据配置创建工作流实例和状态。
-    """
+    """工作流工厂实现"""
     
     def __init__(
         self,
         container: Optional[IDependencyContainer] = None,
-        node_registry: Optional[NodeRegistry] = None
+        config_loader: Optional[IConfigLoader] = None
     ):
         """初始化工作流工厂
         
         Args:
             container: 依赖注入容器
-            node_registry: 节点注册表
+            config_loader: 配置加载器
         """
         self.container = container
-        self.node_registry = node_registry
-        self._graph_builder = None
+        self.config_loader = config_loader
+        self._workflow_types: Dict[str, Type] = {}
+        
+        # 注册内置工作流类型
+        self._register_builtin_workflows()
     
-    @property
-    def graph_builder(self) -> GraphBuilder:
-        """获取图构建器（延迟初始化）"""
-        if self._graph_builder is None:
-            self._graph_builder = GraphBuilder(
-                node_registry=self.node_registry or NodeRegistry()
-            )
-        return self._graph_builder
-    
-    def create_workflow(
-        self,
-        config: WorkflowConfig,
-        initial_state: Optional[Dict[str, Any]] = None
-    ) -> Any:
+    def create_workflow(self, workflow_type: str, config: Dict[str, Any]) -> Any:
         """创建工作流实例
         
         Args:
+            workflow_type: 工作流类型
             config: 工作流配置
-            initial_state: 初始状态
             
         Returns:
             工作流实例
         """
-        logger.info(f"创建工作流: {config.name}")
+        if workflow_type not in self._workflow_types:
+            raise ValueError(f"未知的工作流类型: {workflow_type}")
         
-        # 使用图构建器创建工作流
-        workflow = self.graph_builder.build_graph(config)
+        workflow_class = self._workflow_types[workflow_type]
         
-        # 如果提供了初始状态，进行状态初始化
-        if initial_state:
-            workflow = self._initialize_workflow_with_state(
-                workflow, initial_state, config
-            )
+        # 如果config是字典，转换为WorkflowConfig
+        if isinstance(config, dict):
+            workflow_config = WorkflowConfig.from_dict(config)
+        else:
+            workflow_config = config
         
-        return workflow
+        return workflow_class(workflow_config, self.config_loader, self.container)
     
-    def create_state(
-        self,
-        state_type: str,
-        **kwargs
-    ) -> Dict[str, Any]:
-        """创建状态
+    def register_workflow_type(self, workflow_type: str, workflow_class: Type) -> None:
+        """注册工作流类型
         
         Args:
-            state_type: 状态类型
-            **kwargs: 状态参数
+            workflow_type: 工作流类型名称
+            workflow_class: 工作流类
+        """
+        self._workflow_types[workflow_type] = workflow_class
+        logger.debug(f"注册工作流类型: {workflow_type}")
+    
+    def get_supported_types(self) -> list:
+        """获取支持的工作流类型列表
+        
+        Returns:
+            list: 工作流类型列表
+        """
+        return list(self._workflow_types.keys())
+    
+    def _register_builtin_workflows(self) -> None:
+        """注册内置工作流类型"""
+        try:
+            # 注册基础工作流
+            from .base_workflow import BaseWorkflow
+            self.register_workflow_type("base", BaseWorkflow)
             
-        Returns:
-            状态实例
-        """
-        state = StateFactory.create_state_by_type(state_type, **kwargs)
-        return dict(state)
-    
-    def create_workflow_state(
-        self,
-        workflow_id: str,
-        workflow_name: str,
-        input_text: str,
-        workflow_config: Optional[Dict[str, Any]] = None,
-        max_iterations: int = 10
-    ) -> WorkflowState:
-        """创建工作流状态
-        
-        Args:
-            workflow_id: 工作流ID
-            workflow_name: 工作流名称
-            input_text: 输入文本
-            workflow_config: 工作流配置
-            max_iterations: 最大迭代次数
+            # 注册ReAct工作流
+            from .react_workflow import ReActWorkflow
+            self.register_workflow_type("react", ReActWorkflow)
             
-        Returns:
-            工作流状态
-        """
-        return StateFactory.create_workflow_state(
-            workflow_id=workflow_id,
-            workflow_name=workflow_name,
-            input_text=input_text,
-            workflow_config=workflow_config,
-            max_iterations=max_iterations
-        )
-    
-    def create_agent_state(
-        self,
-        input_text: str,
-        agent_id: str,
-        agent_config: Optional[Dict[str, Any]] = None,
-        max_iterations: int = 10
-    ) -> DomainAgentState:
-        """创建Agent状态
-
-        Args:
-            input_text: 输入文本
-            agent_id: Agent ID
-            agent_config: Agent配置
-            max_iterations: 最大迭代次数
-
-        Returns:
-            Agent状态
-        """
-        # 创建域层Agent状态
-        domain_state = DomainAgentState()
-        domain_state.agent_id = agent_id
-        domain_state.agent_type = agent_config.get("agent_type", "") if agent_config else ""
-        domain_state.current_task = input_text
-        domain_state.max_iterations = max_iterations
-        domain_state.context = agent_config or {}
-        
-        return domain_state
-    
-    def create_react_state(
-        self,
-        workflow_id: str,
-        workflow_name: str,
-        input_text: str,
-        max_iterations: int = 10,
-        max_steps: int = 10
-    ) -> ReActState:
-        """创建ReAct状态
-        
-        Args:
-            workflow_id: 工作流ID
-            workflow_name: 工作流名称
-            input_text: 输入文本
-            max_iterations: 最大迭代次数
-            max_steps: 最大步骤数
+            # 注册计划执行工作流
+            from .plan_execute_workflow import PlanExecuteWorkflow
+            self.register_workflow_type("plan_execute", PlanExecuteWorkflow)
             
-        Returns:
-            ReAct状态
-        """
-        return StateFactory.create_react_state(
-            workflow_id=workflow_id,
-            workflow_name=workflow_name,
-            input_text=input_text,
-            max_iterations=max_iterations,
-            max_steps=max_steps
-        )
+            logger.debug("内置工作流类型注册完成")
+        except ImportError as e:
+            logger.warning(f"部分内置工作流类型不可用: {e}")
     
-    def create_plan_execute_state(
-        self,
-        workflow_id: str,
-        workflow_name: str,
-        input_text: str,
-        max_iterations: int = 10,
-        max_steps: int = 10
-    ) -> PlanExecuteState:
-        """创建计划执行状态
-        
-        Args:
-            workflow_id: 工作流ID
-            workflow_name: 工作流名称
-            input_text: 输入文本
-            max_iterations: 最大迭代次数
-            max_steps: 最大步骤数
-            
-        Returns:
-            计划执行状态
-        """
-        return StateFactory.create_plan_execute_state(
-            workflow_id=workflow_id,
-            workflow_name=workflow_name,
-            input_text=input_text,
-            max_iterations=max_iterations,
-            max_steps=max_steps
-        )
-    
-    def create_workflow_from_config(
-        self,
-        config_path: str,
-        initial_state: Optional[Dict[str, Any]] = None
-    ) -> Any:
-        """从配置文件创建工作流
-
-        Args:
-            config_path: 配置文件路径
-            initial_state: 初始状态
-
-        Returns:
-            工作流实例
-        """
-        # 加载配置
-        config = self.graph_builder.load_workflow_config(config_path)
-
-        # 创建工作流
-        return self.create_workflow(config, initial_state)
-
     def load_workflow_config(self, config_path: str) -> WorkflowConfig:
         """加载工作流配置
-
+        
         Args:
             config_path: 配置文件路径
+            
+        Returns:
+            WorkflowConfig: 工作流配置
+        """
+        if not self.config_loader:
+            raise ValueError("配置加载器未初始化")
+        
+        # 使用配置加载器加载YAML配置文件
+        import yaml
+        from pathlib import Path
+        
+        config_file = Path(config_path)
+        if not config_file.exists():
+            raise FileNotFoundError(f"配置文件不存在: {config_path}")
+        
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config_data = yaml.safe_load(f)
+        
+        # 转换为WorkflowConfig对象
+        return WorkflowConfig.from_dict(config_data)
 
-        Returns:
-            工作流配置
-        """
-        return self.graph_builder.load_workflow_config(config_path)
+
+class BaseWorkflow:
+    """基础工作流类"""
     
-    def validate_workflow_config(self, config: WorkflowConfig) -> List[str]:
-        """验证工作流配置
+    def __init__(self, config: Dict[str, Any], config_loader: IConfigLoader, container: IDependencyContainer):
+        """初始化基础工作流
         
         Args:
             config: 工作流配置
-            
-        Returns:
-            验证错误列表
+            config_loader: 配置加载器
+            container: 依赖注入容器
         """
-        return self.graph_builder.validate_config(config)
+        self.config = config
+        self.config_loader = config_loader
+        self.container = container
     
-    def _initialize_workflow_with_state(
-        self,
-        workflow: Any,
-        initial_state: Dict[str, Any],
-        config: WorkflowConfig
-    ) -> Any:
-        """使用初始状态初始化工作流
+    def execute(self, state: WorkflowState) -> WorkflowState:
+        """执行工作流
         
         Args:
-            workflow: 工作流实例
-            initial_state: 初始状态
-            config: 工作流配置
+            state: 工作流状态
             
         Returns:
-            初始化后的工作流
+            WorkflowState: 更新后的状态
         """
-        # 这里可以根据工作流类型进行特定的初始化
-        # 目前直接返回工作流实例
-        return workflow
+        # 基础实现，子类应该重写此方法
+        return state
     
-    def get_supported_state_types(self) -> List[str]:
-        """获取支持的状态类型
+    def validate_config(self) -> list:
+        """验证配置
         
         Returns:
-            支持的状态类型列表
+            list: 验证错误列表
         """
-        return [
-            "base",
-            "agent", 
-            "workflow",
-            "react",
-            "plan_execute"
-        ]
+        # 基础实现，子类可以重写此方法
+        return []
+
+
+class ReActWorkflow(BaseWorkflow):
+    """ReAct工作流"""
     
-    def clone_workflow(self, workflow: Any) -> Any:
-        """克隆工作流
+    def execute(self, state: WorkflowState) -> WorkflowState:
+        """执行ReAct工作流
         
         Args:
-            workflow: 原作流实例
+            state: 工作流状态
             
         Returns:
-            克隆的工作流实例
+            WorkflowState: 更新后的状态
         """
-        # 这里可以实现工作流的克隆逻辑
-        # 目前直接返回原实例（实际实现中可能需要深拷贝）
-        return workflow
+        # ReAct工作流的实现逻辑
+        # 这里应该实现ReAct算法的具体步骤
+        
+        # 确保状态中有必要的字段
+        if "iteration_count" not in state:
+            state["iteration_count"] = 0
+        if "max_iterations" not in state:
+            state["max_iterations"] = self.config.get("max_iterations", 10)
+        
+        # 简化的ReAct实现
+        state["iteration_count"] += 1
+        
+        return state
+
+
+class PlanExecuteWorkflow(BaseWorkflow):
+    """计划执行工作流"""
     
-    def get_workflow_info(self, workflow: Any) -> Dict[str, Any]:
-        """获取工作流信息
+    def execute(self, state: WorkflowState) -> WorkflowState:
+        """执行计划执行工作流
         
         Args:
-            workflow: 工作流实例
+            state: 工作流状态
             
         Returns:
-            工作流信息
+            WorkflowState: 更新后的状态
         """
-        info = {
-            "type": type(workflow).__name__,
-            "module": type(workflow).__module__
-        }
+        # 计划执行工作流的实现逻辑
+        # 这里应该实现计划执行算法的具体步骤
         
-        # 尝试获取更多工作流特定信息
-        if hasattr(workflow, 'get_graph'):
-            try:
-                graph = workflow.get_graph()
-                info["node_count"] = str(len(graph.nodes) if hasattr(graph, 'nodes') else 0)
-                info["edge_count"] = str(len(graph.edges) if hasattr(graph, 'edges') else 0)
-            except Exception:
-                pass
+        # 确保状态中有必要的字段
+        if "context" not in state:
+            state["context"] = {}
         
-        return info
+        # 简化的计划执行实现
+        context = state["context"]
+        if "current_plan" not in context:
+            # 生成初始计划
+            context["current_plan"] = [
+                "分析用户需求",
+                "制定执行计划",
+                "执行计划步骤",
+                "总结结果"
+            ]
+            context["current_step_index"] = 0
+        
+        return state

@@ -1,346 +1,280 @@
 """状态适配器
 
-提供域层AgentState与图系统状态之间的转换功能。
+负责在域层状态和图系统状态之间进行转换。
 """
 
-from typing import Dict, Any, List, Optional, cast, Union, Annotated
-from datetime import datetime
-from dataclasses import asdict
-import operator
-from typing_extensions import TypedDict
+from typing import Dict, Any, Optional, List
+from dataclasses import dataclass, asdict
+import logging
 
-from src.domain.agent.state import AgentState as DomainAgentState, AgentMessage as DomainAgentMessage, AgentStatus
-from src.infrastructure.graph.state import BaseMessage as GraphBaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage, LCBaseMessage, LCHumanMessage, LCAIMessage, LCSystemMessage, LCToolMessage
-from src.domain.tools.interfaces import ToolResult
+from ..state import WorkflowState, AgentState, LCBaseMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 
-
-# 图系统状态类型定义
-GraphAgentState = Dict[str, Any]
-
-# 类型注解
-class _GraphAgentState(TypedDict, total=False):
-    """图系统Agent状态类型注解"""
-    # 基础字段
-    messages: Annotated[List[Union[GraphBaseMessage, LCBaseMessage]], operator.add]
-    metadata: Dict[str, Any]
-    execution_context: Dict[str, Any]
-    current_step: str
-
-    # Agent特定的状态字段
-    input: str
-    output: Optional[str]
-
-    # 工具相关状态
-    tool_calls: Annotated[List[Dict[str, Any]], operator.add]
-    tool_results: Annotated[List[Dict[str, Any]], operator.add]
-
-    # 迭代控制
-    iteration_count: Annotated[int, operator.add]
-    max_iterations: int
-
-    # 错误处理
-    errors: Annotated[List[str], operator.add]
-
-    # 完成标志
-    complete: bool
-
-    # Agent配置
-    agent_id: str
-    agent_config: Dict[str, Any]
-
-    # 执行结果
-    execution_result: Optional[Dict[str, Any]]
+logger = logging.getLogger(__name__)
 
 
-def create_graph_agent_state(
-    input_text: str,
-    agent_id: str,
-    agent_config: Optional[Dict[str, Any]] = None,
-    max_iterations: int = 10,
-    messages: Optional[List[Union[GraphBaseMessage, LCBaseMessage]]] = None
-) -> GraphAgentState:
-    """创建图系统Agent状态
+@dataclass
+class GraphAgentState:
+    """图系统Agent状态"""
+    # 基本标识信息
+    agent_id: str = ""
+    agent_type: str = ""
     
-    Args:
-        input_text: 输入文本
-        agent_id: Agent ID
-        agent_config: Agent配置
-        max_iterations: 最大迭代次数
-        messages: 初始消息列表
-        
-    Returns:
-        GraphAgentState实例
-    """
-    if messages is None:
-        from langchain_core.messages import HumanMessage
-        messages = [HumanMessage(content=input_text)]
+    # 消息相关
+    messages: List[LCBaseMessage] = None
     
-    # 创建基础状态
-    base_state = {
-        "messages": messages,
-        "metadata": {},
-        "execution_context": {},
-        "current_step": "start"
-    }
+    # 任务相关
+    current_task: Optional[str] = None
+    task_history: List[Dict[str, Any]] = None
     
-    return {
-        **base_state,
-        "input": input_text,
-        "output": None,
-        "tool_calls": [],
-        "tool_results": [],
-        "iteration_count": 0,
-        "max_iterations": max_iterations,
-        "errors": [],
-        "complete": False,
-        "agent_id": agent_id,
-        "agent_config": agent_config or {},
-        "execution_result": None
-    }
+    # 工具执行结果
+    tool_results: List[Dict[str, Any]] = None
+    
+    # 控制信息
+    current_step: str = ""
+    max_iterations: int = 10
+    iteration_count: int = 0
+    
+    # 时间信息
+    start_time: Optional[str] = None
+    last_update_time: Optional[str] = None
+    
+    # 错误和日志
+    errors: List[Dict[str, Any]] = None
+    logs: List[Dict[str, Any]] = None
+    
+    # 性能指标
+    execution_metrics: Dict[str, Any] = None
+    
+    # 自定义字段
+    custom_fields: Dict[str, Any] = None
+    
+    # 上下文信息
+    context: Dict[str, Any] = None
+    
+    def __post_init__(self):
+        if self.messages is None:
+            self.messages = []
+        if self.task_history is None:
+            self.task_history = []
+        if self.tool_results is None:
+            self.tool_results = []
+        if self.errors is None:
+            self.errors = []
+        if self.logs is None:
+            self.logs = []
+        if self.execution_metrics is None:
+            self.execution_metrics = {}
+        if self.custom_fields is None:
+            self.custom_fields = {}
+        if self.context is None:
+            self.context = {}
 
 
 class StateAdapter:
-    """状态适配器
+    """状态适配器"""
     
-    负责在域层AgentState和图系统AgentState之间进行转换。
-    """
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
     
-    def to_graph_state(self, domain_state: DomainAgentState) -> GraphAgentState:
-        """将域层AgentState转换为图系统AgentState
+    def from_graph_state(self, graph_state: WorkflowState) -> GraphAgentState:
+        """将图状态转换为域状态
         
         Args:
-            domain_state: 域层Agent状态
+            graph_state: 图系统状态
             
         Returns:
-            图系统兼容的Agent状态
+            GraphAgentState: 域状态
         """
-        # 转换消息
-        messages = self._convert_messages_to_graph(domain_state.messages)
-        
-        # 确保消息类型正确
-        lc_messages = []
-        for msg in messages:
-            if hasattr(msg, 'content') and hasattr(msg, 'type'):
-                # 这已经是LangChain消息类型
-                lc_messages.append(msg)
+        try:
+            # 处理字典格式的图状态
+            if isinstance(graph_state, dict):
+                return self._dict_to_domain_state(graph_state)
             else:
-                # 如果不是，需要转换
-                from langchain_core.messages import BaseMessage as LCBaseMessage
-                # 简单处理，实际可能需要更复杂的转换
-                lc_messages.append(msg)
-        
-        # 创建基础图状态
-        graph_state = create_graph_agent_state(
-            input_text=domain_state.current_task or "",
-            agent_id=domain_state.agent_id,
-            agent_config={
-                "agent_type": domain_state.agent_type,
-                **domain_state.custom_fields
-            },
-            max_iterations=domain_state.max_iterations,
-            messages=lc_messages
-        )
-        
-        # 更新所有字段（新增完整映射）
-        graph_state.update({
-            "output": self._get_last_assistant_message(domain_state.messages),
-            "tool_calls": self._convert_tool_calls(domain_state),
-            "tool_results": self._convert_tool_results(domain_state.tool_results),
-            "iteration_count": domain_state.iteration_count,
-            "errors": [str(error) for error in domain_state.errors],
-            "complete": domain_state.status == AgentStatus.COMPLETED,
-            
-            # 新增字段映射
-            "context": domain_state.context,
-            "task_history": domain_state.task_history,
-            "execution_metrics": domain_state.execution_metrics,
-            "logs": domain_state.logs,
-            "custom_fields": domain_state.custom_fields,
-            "last_update_time": domain_state.last_update_time.isoformat() if domain_state.last_update_time else None,
-            
-            "execution_result": {
-                "status": domain_state.status.value,
-                "start_time": domain_state.start_time.isoformat() if domain_state.start_time else None,
-                "last_update_time": domain_state.last_update_time.isoformat() if domain_state.last_update_time else None,
-                "execution_duration": domain_state.get_execution_duration(),
-                "custom_fields": domain_state.custom_fields
-            }
-        })
-        
-        return graph_state
+                # 处理对象格式的图状态
+                return self._object_to_domain_state(graph_state)
+        except Exception as e:
+            self.logger.error(f"状态转换失败: {e}")
+            # 返回默认状态
+            return GraphAgentState()
     
-    def from_graph_state(self, graph_state: GraphAgentState) -> DomainAgentState:
-        """将图系统AgentState转换为域层AgentState
+    def to_graph_state(self, domain_state: GraphAgentState) -> WorkflowState:
+        """将域状态转换为图状态
         
         Args:
-            graph_state: 图系统Agent状态
+            domain_state: 域状态
             
         Returns:
-            域层Agent状态
+            WorkflowState: 图系统状态
         """
-        # 创建域层状态
-        domain_state = DomainAgentState()
-        
-        # 设置基本信息
-        domain_state.agent_id = graph_state.get("agent_id", "")
-        domain_state.agent_type = graph_state.get("agent_config", {}).get("agent_type", "")
-        
-        # 转换消息
-        messages = graph_state.get("messages", [])
-        domain_state.messages = self._convert_messages_from_graph(messages)
-        
-        # 设置任务信息
-        domain_state.current_task = graph_state.get("input", "")
-        
-        # 转换工具结果
-        tool_results_data = graph_state.get("tool_results", [])
-        domain_state.tool_results = self._convert_tool_results_from_graph(tool_results_data)
-        
-        # 设置控制信息
-        domain_state.current_step = graph_state.get("current_step", "")
-        domain_state.max_iterations = graph_state.get("max_iterations", 10)
-        domain_state.iteration_count = graph_state.get("iteration_count", 0)
-        
-        # 设置状态
-        complete = graph_state.get("complete", False)
-        domain_state.status = AgentStatus.COMPLETED if complete else AgentStatus.RUNNING
-        
-        # 设置时间信息
-        execution_result = graph_state.get("execution_result", {})
-        if execution_result.get("start_time"):
-            domain_state.start_time = datetime.fromisoformat(execution_result["start_time"])
-        if execution_result.get("last_update_time"):
-            domain_state.last_update_time = datetime.fromisoformat(execution_result["last_update_time"])
-        
-        # 新增字段映射（关键修复）
-        domain_state.context = graph_state.get("context", {})
-        domain_state.task_history = graph_state.get("task_history", [])
-        domain_state.execution_metrics = graph_state.get("execution_metrics", {})
-        domain_state.logs = graph_state.get("logs", [])
-        domain_state.custom_fields = graph_state.get("custom_fields", {})
-        
-        # 设置错误和自定义字段
-        domain_state.errors = [{"message": error} for error in graph_state.get("errors", [])]
-        
-        # 合并自定义字段
-        if execution_result.get("custom_fields"):
-            domain_state.custom_fields.update(execution_result["custom_fields"])
-        
-        return domain_state
+        try:
+            # 将域状态转换为字典格式
+            state_dict = asdict(domain_state)
+            
+            # 确保消息列表格式正确
+            if "messages" in state_dict:
+                state_dict["messages"] = self._convert_messages_to_langchain(state_dict["messages"])
+            
+            return state_dict
+        except Exception as e:
+            self.logger.error(f"状态转换失败: {e}")
+            # 返回默认状态
+            return {}
     
-    def _convert_messages_to_graph(self, domain_messages: List[DomainAgentMessage]) -> List[Union[GraphBaseMessage, LCBaseMessage]]:
-       """将域层消息转换为图系统消息"""
-       graph_messages: List[Union[GraphBaseMessage, LCBaseMessage]] = []
-       
-       for domain_msg in domain_messages:
-           if domain_msg.role == "user":
-               graph_msg = LCHumanMessage(content=domain_msg.content)
-           elif domain_msg.role == "assistant":
-               graph_msg = LCAIMessage(content=domain_msg.content)
-           elif domain_msg.role == "system":
-               graph_msg = LCSystemMessage(content=domain_msg.content)
-           elif domain_msg.role == "tool":
-               graph_msg = LCToolMessage(
-                   content=domain_msg.content,
-                   tool_call_id=domain_msg.metadata.get("tool_call_id", "")
-               )
-           else:
-               graph_msg = LCBaseMessage(content=domain_msg.content, type=domain_msg.role)
-           
-           graph_messages.append(graph_msg)
-       
-       return graph_messages
+    def _dict_to_domain_state(self, state_dict: Dict[str, Any]) -> GraphAgentState:
+        """将字典转换为域状态"""
+        return GraphAgentState(
+            agent_id=state_dict.get("agent_id", ""),
+            agent_type=state_dict.get("agent_type", ""),
+            messages=self._convert_messages_from_langchain(state_dict.get("messages", [])),
+            current_task=state_dict.get("current_task"),
+            task_history=state_dict.get("task_history", []),
+            tool_results=state_dict.get("tool_results", []),
+            current_step=state_dict.get("current_step", ""),
+            max_iterations=state_dict.get("max_iterations", 10),
+            iteration_count=state_dict.get("iteration_count", 0),
+            start_time=state_dict.get("start_time"),
+            last_update_time=state_dict.get("last_update_time"),
+            errors=state_dict.get("errors", []),
+            logs=state_dict.get("logs", []),
+            execution_metrics=state_dict.get("execution_metrics", {}),
+            custom_fields=state_dict.get("custom_fields", {}),
+            context=state_dict.get("context", {})
+        )
     
-    def _convert_messages_from_graph(self, graph_messages: List[Union[GraphBaseMessage, LCBaseMessage]]) -> List[DomainAgentMessage]:
-       """将图系统消息转换为域层消息"""
-       domain_messages = []
-       
-       for graph_msg in graph_messages:
-           # 确定角色并进行映射
-           if hasattr(graph_msg, 'type'):
-               # 图系统角色到域层角色的映射
-               role_mapping = {
-                   "human": "user",
-                   "ai": "assistant",
-                   "system": "system",
-                   "tool": "tool"
-               }
-               role = role_mapping.get(graph_msg.type, "unknown")
-           else:
-               # 根据消息类型推断角色
-               if isinstance(graph_msg, (LCHumanMessage, HumanMessage)):
-                   role = "user"
-               elif isinstance(graph_msg, (LCAIMessage, AIMessage)):
-                   role = "assistant"
-               elif isinstance(graph_msg, (LCSystemMessage, SystemMessage)):
-                   role = "system"
-               elif isinstance(graph_msg, (LCToolMessage, ToolMessage)):
-                   role = "tool"
-               else:
-                   role = "unknown"
-           
-           # 创建域层消息
-           # 确保content是字符串类型
-           content = graph_msg.content
-           if not isinstance(content, str):
-               content = str(content)
-           
-           domain_msg = DomainAgentMessage(
-               content=content,
-               role=role,
-               timestamp=datetime.now(),  # 图系统消息可能没有时间戳，使用当前时间
-               metadata={}
-           )
-           
-           # 如果是工具消息，添加tool_call_id到metadata
-           if isinstance(graph_msg, (LCToolMessage, ToolMessage)) and hasattr(graph_msg, 'tool_call_id'):
-               domain_msg.metadata["tool_call_id"] = getattr(graph_msg, 'tool_call_id', '')
-           
-           domain_messages.append(domain_msg)
-       
-       return domain_messages
-    
-    def _get_last_assistant_message(self, messages: List[DomainAgentMessage]) -> Optional[str]:
-        """获取最后一条助手消息的内容"""
-        for msg in reversed(messages):
-            if msg.role == "assistant":
-                return msg.content
-        return None
-    
-    def _convert_tool_calls(self, domain_state: DomainAgentState) -> List[Dict[str, Any]]:
-        """转换工具调用信息"""
-        tool_calls = []
+    def _object_to_domain_state(self, state_obj: Any) -> GraphAgentState:
+        """将对象转换为域状态"""
+        # 提取对象属性
+        state_dict = {}
+        if hasattr(state_obj, '__dict__'):
+            state_dict = state_obj.__dict__
+        else:
+            # 尝试获取常见属性
+            for attr in ['agent_id', 'agent_type', 'messages', 'current_task', 'task_history', 
+                         'tool_results', 'current_step', 'max_iterations', 'iteration_count',
+                         'start_time', 'last_update_time', 'errors', 'logs', 'execution_metrics',
+                         'custom_fields', 'context']:
+                if hasattr(state_obj, attr):
+                    state_dict[attr] = getattr(state_obj, attr)
         
-        # 从最后一条消息中提取工具调用
-        last_message = domain_state.get_last_message()
-        if last_message and "tool_calls" in last_message.metadata:
-            tool_calls = last_message.metadata["tool_calls"]
-        
-        return tool_calls
+        return self._dict_to_domain_state(state_dict)
     
-    def _convert_tool_results(self, tool_results: List[ToolResult]) -> List[Dict[str, Any]]:
-        """转换工具结果"""
-        return [
-            {
-                "tool_name": result.tool_name,
-                "success": result.success,
-                "output": result.output,
-                "error": result.error
-            }
-            for result in tool_results
-        ]
+    def _convert_messages_from_langchain(self, messages: List) -> List[LCBaseMessage]:
+        """将LangChain消息转换为内部消息格式"""
+        converted_messages = []
+        
+        for msg in messages:
+            if isinstance(msg, (HumanMessage, AIMessage, SystemMessage, ToolMessage)):
+                # 已经是LangChain消息格式，直接使用
+                converted_messages.append(msg)
+            elif isinstance(msg, dict):
+                # 字典格式，转换为LangChain消息
+                content = msg.get("content", "")
+                role = msg.get("role", "human")
+                
+                if role == "human":
+                    converted_messages.append(HumanMessage(content=content))
+                elif role == "ai":
+                    converted_messages.append(AIMessage(content=content))
+                elif role == "system":
+                    converted_messages.append(SystemMessage(content=content))
+                elif role == "tool":
+                    tool_call_id = msg.get("tool_call_id", "")
+                    converted_messages.append(ToolMessage(content=content, tool_call_id=tool_call_id))
+                else:
+                    # 默认为人类消息
+                    converted_messages.append(HumanMessage(content=content))
+            else:
+                # 其他格式，尝试转换为LangChain消息
+                try:
+                    if hasattr(msg, 'content') and hasattr(msg, 'type'):
+                        content = getattr(msg, 'content')
+                        msg_type = getattr(msg, 'type')
+                        
+                        if msg_type == 'human':
+                            converted_messages.append(HumanMessage(content=content))
+                        elif msg_type == 'ai':
+                            converted_messages.append(AIMessage(content=content))
+                        elif msg_type == 'system':
+                            converted_messages.append(SystemMessage(content=content))
+                        elif msg_type == 'tool':
+                            tool_call_id = getattr(msg, 'tool_call_id', "")
+                            converted_messages.append(ToolMessage(content=content, tool_call_id=tool_call_id))
+                        else:
+                            converted_messages.append(HumanMessage(content=content))
+                    else:
+                        # 默认处理
+                        converted_messages.append(HumanMessage(content=str(msg)))
+                except Exception as e:
+                    self.logger.warning(f"消息转换失败: {e}")
+                    converted_messages.append(HumanMessage(content=str(msg)))
+        
+        return converted_messages
     
-    def _convert_tool_results_from_graph(self, tool_results_data: List[Dict[str, Any]]) -> List[ToolResult]:
-        """从图系统工具结果转换回域层工具结果"""
-        tool_results = []
+    def _convert_messages_to_langchain(self, messages: List) -> List[LCBaseMessage]:
+        """将内部消息格式转换为LangChain消息"""
+        converted_messages = []
         
-        for result_data in tool_results_data:
-            tool_result = ToolResult(
-                tool_name=result_data.get("tool_name", ""),
-                success=result_data.get("success", False),
-                output=result_data.get("output"),
-                error=result_data.get("error")
-            )
-            tool_results.append(tool_result)
+        for msg in messages:
+            if isinstance(msg, (HumanMessage, AIMessage, SystemMessage, ToolMessage)):
+                # 已经是LangChain消息格式，直接使用
+                converted_messages.append(msg)
+            elif isinstance(msg, dict):
+                # 字典格式，转换为LangChain消息
+                content = msg.get("content", "")
+                role = msg.get("role", "human")
+                
+                if role == "human":
+                    converted_messages.append(HumanMessage(content=content))
+                elif role == "ai":
+                    converted_messages.append(AIMessage(content=content))
+                elif role == "system":
+                    converted_messages.append(SystemMessage(content=content))
+                elif role == "tool":
+                    tool_call_id = msg.get("tool_call_id", "")
+                    converted_messages.append(ToolMessage(content=content, tool_call_id=tool_call_id))
+                else:
+                    # 默认为人类消息
+                    converted_messages.append(HumanMessage(content=content))
+            else:
+                # 其他格式，尝试转换为LangChain消息
+                try:
+                    if hasattr(msg, 'content') and hasattr(msg, 'type'):
+                        content = getattr(msg, 'content')
+                        msg_type = getattr(msg, 'type')
+                        
+                        if msg_type == 'human':
+                            converted_messages.append(HumanMessage(content=content))
+                        elif msg_type == 'ai':
+                            converted_messages.append(AIMessage(content=content))
+                        elif msg_type == 'system':
+                            converted_messages.append(SystemMessage(content=content))
+                        elif msg_type == 'tool':
+                            tool_call_id = getattr(msg, 'tool_call_id', "")
+                            converted_messages.append(ToolMessage(content=content, tool_call_id=tool_call_id))
+                        else:
+                            converted_messages.append(HumanMessage(content=content))
+                    else:
+                        # 默认处理
+                        converted_messages.append(HumanMessage(content=str(msg)))
+                except Exception as e:
+                    self.logger.warning(f"消息转换失败: {e}")
+                    converted_messages.append(HumanMessage(content=str(msg)))
         
-        return tool_results
+        return converted_messages
+
+
+# 全局状态适配器实例
+_global_adapter: Optional[StateAdapter] = None
+
+
+def get_state_adapter() -> StateAdapter:
+    """获取全局状态适配器实例
+    
+    Returns:
+        StateAdapter: 状态适配器实例
+    """
+    global _global_adapter
+    if _global_adapter is None:
+        _global_adapter = StateAdapter()
+    return _global_adapter

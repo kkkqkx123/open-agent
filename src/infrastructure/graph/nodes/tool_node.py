@@ -7,9 +7,8 @@ from typing import Dict, Any, Optional, List
 import time
 
 from ..registry import BaseNode, NodeExecutionResult, node
-from src.domain.agent.state import AgentState
+from ..state import WorkflowState
 from src.domain.tools.interfaces import ITool, IToolRegistry, ToolCall, ToolResult
-from src.infrastructure.graph.adapters import get_state_adapter, get_message_adapter
 from ..node_config_loader import get_node_config_loader
 
 
@@ -30,11 +29,11 @@ class ToolNode(BaseNode):
         """节点类型标识"""
         return "tool_node"
 
-    def execute(self, state: AgentState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行工具调用逻辑
 
         Args:
-            state: 当前Agent状态
+            state: 当前工作流状态
             config: 节点配置
 
         Returns:
@@ -54,13 +53,17 @@ class ToolNode(BaseNode):
             # 没有工具调用，直接返回
             return NodeExecutionResult(
                 state=state,
-                next_node="analyze",  # 返回分析节点
+                next_node="analysis_node",  # 返回分析节点
                 metadata={"message": "没有找到工具调用"}
             )
         
         # 执行工具调用
         tool_results = []
         execution_errors = []
+        
+        # 确保 tool_results 列表存在
+        if "tool_results" not in state:
+            state["tool_results"] = []
         
         for tool_call in tool_calls:
             try:
@@ -93,21 +96,28 @@ class ToolNode(BaseNode):
                 # 记录结果
                 tool_results.append(tool_result)
                 
-                # 添加到状态
-                state.tool_results.append(tool_result)
+                # 添加到状态 - 转换为字典格式
+                state["tool_results"].append({
+                    "tool_name": tool_result.tool_name,
+                    "success": tool_result.success,
+                    "output": tool_result.output,
+                    "error": tool_result.error,
+                    "execution_time": tool_result.execution_time
+                })
                 
             except Exception as e:
                 error_msg = f"工具 '{tool_call.name}' 执行失败: {str(e)}"
                 execution_errors.append(error_msg)
                 
-                # 记录错误结果
-                error_result = ToolResult(
-                    success=False,
-                    output=None,
-                    error=error_msg,
-                    tool_name=tool_call.name
-                )
-                state.tool_results.append(error_result)
+                # 记录错误结果 - 转换为字典格式
+                error_result = {
+                    "tool_name": tool_call.name,
+                    "success": False,
+                    "output": None,
+                    "error": error_msg,
+                    "execution_time": 0
+                }
+                state["tool_results"].append(error_result)
 
         # 确定下一步
         next_node = self._determine_next_node(tool_results, execution_errors, config)
@@ -163,11 +173,11 @@ class ToolNode(BaseNode):
         }
 
 
-    def _extract_tool_calls(self, state: AgentState, config: Dict[str, Any]) -> List[ToolCall]:
+    def _extract_tool_calls(self, state: WorkflowState, config: Dict[str, Any]) -> List[ToolCall]:
         """从状态中提取工具调用
 
         Args:
-            state: 当前Agent状态
+            state: 当前工作流状态
             config: 节点配置
 
         Returns:
@@ -178,13 +188,15 @@ class ToolNode(BaseNode):
         logger = logging.getLogger(__name__)
 
         # 从最后一条消息中提取工具调用
-        if state.messages:
-            last_message = state.messages[-1]
+        messages = state.get("messages", [])
+        if messages:
+            last_message = messages[-1]
             
-            # 优先检查 LangChain 标准的 tool_calls 属性
-            if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+            # 检查是否是 LangChain 消息类型
+            if hasattr(last_message, 'tool_calls') and getattr(last_message, 'tool_calls', None):
                 try:
-                    for tool_call in last_message.tool_calls:
+                    tool_calls = getattr(last_message, 'tool_calls', [])
+                    for tool_call in tool_calls:
                         # 处理 LangChain 标准格式
                         if isinstance(tool_call, dict):
                             name = tool_call.get("name", "")
@@ -235,12 +247,10 @@ class ToolNode(BaseNode):
                 except Exception as e:
                     logger.error(f"解析 additional_kwargs tool_calls 时出错: {str(e)}")
             
-            # 检查 metadata 中的工具调用（向后兼容）
-            elif (hasattr(last_message, 'metadata') and
-                  last_message.metadata and
-                  "tool_calls" in last_message.metadata):
+            # 检查是否是字典格式的消息（包含 tool_calls）
+            elif isinstance(last_message, dict) and "tool_calls" in last_message:
                 try:
-                    for tool_call in last_message.metadata["tool_calls"]:
+                    for tool_call in last_message["tool_calls"]:
                         tool_calls.append(ToolCall(
                             name=tool_call.get("name", ""),
                             arguments=tool_call.get("arguments", {}),
@@ -248,14 +258,14 @@ class ToolNode(BaseNode):
                             timeout=config.get("timeout")
                         ))
                 except Exception as e:
-                    logger.error(f"解析 metadata tool_calls 时出错: {str(e)}")
+                    logger.error(f"解析字典格式 tool_calls 时出错: {str(e)}")
             
             # 最后尝试从文本内容中解析（非标准方式，仅作为后备）
-            elif (hasattr(last_message, 'content') and
-                  isinstance(getattr(last_message, 'content', ''), str) and
-                  last_message.content.strip()):
+            elif (isinstance(last_message, dict) and "content" in last_message and
+                  isinstance(last_message["content"], str) and
+                  last_message["content"].strip()):
                 try:
-                    content = last_message.content.strip()
+                    content = last_message["content"].strip()
                     # 检查是否包含可能的工具调用指示
                     if any(indicator in content.lower() for indicator in ["调用工具", "call tool", "tool:"]):
                         logger.warning("使用非标准的文本解析方式提取工具调用，建议使用 LangChain 标准格式")
@@ -417,15 +427,15 @@ class ToolNode(BaseNode):
         
         # 如果有错误且配置为不继续执行，返回分析节点
         if execution_errors and not merged_config.get("continue_on_error", True):
-            return "analyze"
+            return "analysis_node"
         
         # 如果所有工具都成功执行，返回分析节点进行下一步分析
         if tool_results and all(result.success for result in tool_results):
-            return "analyze"
+            return "analysis_node"
         
         # 如果有部分失败但配置为继续，也返回分析节点
         if execution_errors and merged_config.get("continue_on_error", True):
-            return "analyze"
+            return "analysis_node"
         
         # 默认返回分析节点
-        return "analyze"
+        return "analysis_node"

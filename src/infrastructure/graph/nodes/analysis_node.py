@@ -7,10 +7,9 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
 from ..registry import BaseNode, NodeExecutionResult, node
-from src.domain.agent.state import AgentState, AgentMessage
+from ..state import WorkflowState
 from src.infrastructure.llm.interfaces import ILLMClient
 from src.infrastructure.container import IDependencyContainer
-from src.infrastructure.graph.adapters import get_state_adapter, get_message_adapter
 from ..node_config_loader import get_node_config_loader
 
 
@@ -31,11 +30,11 @@ class AnalysisNode(BaseNode):
         """节点类型标识"""
         return "analysis_node"
 
-    def execute(self, state: AgentState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行分析逻辑
 
         Args:
-            state: 当前Agent状态
+            state: 当前工作流状态
             config: 节点配置
 
         Returns:
@@ -68,41 +67,15 @@ class AnalysisNode(BaseNode):
             }
         )
         
-        # 更新状态 - 需要将LLMResponse转换为AgentState兼容的消息格式
-        # 检查LLMResponse中的message类型并转换为AgentMessage
-        if hasattr(response, 'message') and response.message is not None:
-            # 如果response有message属性，检查其类型
-            if hasattr(response.message, 'content'):
-                # 如果message有content属性，使用它
-                message_content = getattr(response.message, 'content', response.content)
-                message_role = getattr(response.message, 'role', 'ai')
-                compatible_message = AgentMessage(
-                    content=str(message_content),
-                    role=str(message_role)
-                )
-            else:
-                # 否则使用response的content
-                compatible_message = AgentMessage(
-                    content=response.content,
-                    role='ai'
-                )
-        else:
-            # 如果没有message属性，直接使用content
-            compatible_message = AgentMessage(
-                content=response.content,
-                role='ai'
-            )
-
-        # 使用对象属性访问来更新消息
-        if hasattr(state, 'add_message'):
-            # 如果state是具有add_message方法的对象
-            state.add_message(compatible_message)
-        elif hasattr(state, 'messages'):
-            # 如果state有messages属性，直接添加消息
-            state.messages.append(compatible_message)
-        elif isinstance(state, dict) and 'messages' in state:
-            # 如果state是字典且包含messages键，添加消息到列表中
-            state['messages'].append(compatible_message)
+        # 更新状态 - 添加LLM响应到消息列表
+        from langchain_core.messages import AIMessage  # type: ignore
+        
+        ai_message = AIMessage(content=response.content)
+        
+        # 安全地更新消息列表
+        if "messages" not in state:
+            state["messages"] = []
+        state["messages"].append(ai_message)
         
         # 分析响应，确定下一步
         next_node = self._determine_next_node(response, config)
@@ -171,11 +144,11 @@ class AnalysisNode(BaseNode):
 分析用户意图后，选择最合适的行动。"""
         )
 
-    def _prepare_messages(self, state: AgentState, system_prompt: str) -> list:
+    def _prepare_messages(self, state: WorkflowState, system_prompt: str) -> list:
         """准备发送给LLM的消息
 
         Args:
-            state: 当前Agent状态
+            state: 当前工作流状态
             system_prompt: 系统提示词
 
         Returns:
@@ -184,58 +157,12 @@ class AnalysisNode(BaseNode):
         messages = []
         
         # 添加系统消息
-        # 使用简单的消息格式，避免依赖LangChain
-        messages.append({"role": "system", "content": system_prompt})
+        from langchain_core.messages import SystemMessage  # type: ignore
+        messages.append(SystemMessage(content=system_prompt))
         
         # 添加历史消息
-        # 处理不同类型的state.messages
-        if hasattr(state, 'messages'):
-            # 如果state有messages属性，转换为兼容格式
-            for msg in state.messages:
-                if isinstance(msg, AgentMessage):
-                    # 如果是AgentMessage，转换为字典格式
-                    messages.append({"role": msg.role, "content": msg.content})
-                elif hasattr(msg, 'content') and hasattr(msg, 'type'):
-                    # 处理LangChain风格的消息类型（如HumanMessage, AIMessage）
-                    role_map = {
-                        'human': 'user',
-                        'ai': 'assistant', 
-                        'system': 'system',
-                        'tool': 'tool'
-                    }
-                    role = role_map.get(getattr(msg, 'type', 'human'), 'user')
-                    messages.append({"role": role, "content": msg.content})
-                elif hasattr(msg, 'content') and hasattr(msg, 'role'):
-                    # 如果已经有role属性，直接使用
-                    messages.append({"role": msg.role, "content": msg.content})
-                else:
-                    # 如果是其他类型，直接添加
-                    messages.append(msg)
-        elif isinstance(state, dict) and 'messages' in state:
-            # 如果state是字典且包含messages键
-            for msg in state['messages']:
-                if isinstance(msg, AgentMessage):
-                    # 如果是AgentMessage，转换为字典格式
-                    messages.append({"role": msg.role, "content": msg.content})
-                elif hasattr(msg, 'content') and hasattr(msg, 'type'):
-                    # 处理LangChain风格的消息类型（如HumanMessage, AIMessage）
-                    role_map = {
-                        'human': 'user',
-                        'ai': 'assistant', 
-                        'system': 'system',
-                        'tool': 'tool'
-                    }
-                    role = role_map.get(getattr(msg, 'type', 'human'), 'user')
-                    messages.append({"role": role, "content": msg.content})
-                elif hasattr(msg, 'content') and hasattr(msg, 'role'):
-                    # 如果已经有role属性，直接使用
-                    messages.append({"role": msg.role, "content": msg.content})
-                else:
-                    # 如果是其他类型，直接添加
-                    messages.append(msg)
-        else:
-            # 如果无法识别state的类型，默认为空列表
-            messages.extend([])
+        if "messages" in state and state["messages"]:
+            messages.extend(state["messages"])
         
         return messages
 
@@ -268,12 +195,12 @@ class AnalysisNode(BaseNode):
         """
         # 检查是否有工具调用
         if hasattr(response, 'tool_calls') and response.tool_calls:
-            return "execute_tool"
+            return "tool_node"
         
         # 检查响应内容是否包含工具调用指示
         content = getattr(response, 'content', '')
         if self._contains_tool_indication(content):
-            return "execute_tool"
+            return "tool_node"
         
         # 默认返回None，表示工作流结束
         return None

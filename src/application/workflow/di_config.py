@@ -103,7 +103,7 @@ class WorkflowModule:
         # 注册工作流工厂（带依赖）
         container.register_factory(
             IWorkflowFactory,
-            lambda: WorkflowFactory(container),
+            lambda: WorkflowFactory(container=container, config_loader=config_loader),
             lifetime=ServiceLifetime.SINGLETON
         )
         
@@ -168,7 +168,7 @@ class WorkflowModule:
         # 在生产环境中，可以启用性能优化
         container.register_factory(
             WorkflowFactory,
-            lambda: WorkflowFactory(),
+            lambda: WorkflowFactory(container=container),
             environment="production",
             lifetime=ServiceLifetime.SINGLETON
         )
