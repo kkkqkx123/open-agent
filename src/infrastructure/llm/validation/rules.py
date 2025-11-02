@@ -142,14 +142,14 @@ class ValidationRuleRegistry:
             for field_name, field_info in fields.items():
                 value = getattr(config, field_name)
                 field_result = self.validate_field(config, field_name, value, context)
-                result.merge(field_result)
+                result = result.merge(field_result)
         else:
             # 对于非dataclass对象，使用字典属性
             if hasattr(config, '__dict__'):
                 for field_name, value in config.__dict__.items():
                     if not field_name.startswith('_'):
                         field_result = self.validate_field(config, field_name, value, context)
-                        result.merge(field_result)
+                        result = result.merge(field_result)
         
         return result
 
@@ -588,21 +588,32 @@ class TimeoutValidationRule(ValidationRule):
         """适用的字段列表"""
         return ["timeout", "max_retries"]
     
-    def validate(self, config: Any, field: str, value: Any, 
+    def validate(self, config: Any, field: str, value: Any,
                     context: Optional[Dict[str, Any]] = None) -> Optional[ValidationIssue]:
         """验证超时设置"""
-        if value is not None and (value < self._min_timeout or value > self._max_timeout):
-            return ValidationIssue(
-                field=field,
-                message=f"超时时间应在{self._min_timeout}到{self._max_timeout}秒之间",
-                severity=ValidationSeverity.WARNING,
-                code="INVALID_TIMEOUT",
-                context={
-                    "min_timeout": self._min_timeout,
-                    "max_timeout": self._max_timeout,
-                    "actual_timeout": value
-                }
-            )
+        if value is not None:
+            if value < self._min_timeout:
+                return ValidationIssue(
+                    field=field,
+                    message=f"超时时间不能小于{self._min_timeout}秒",
+                    severity=ValidationSeverity.ERROR,
+                    code="INVALID_TIMEOUT",
+                    context={
+                        "min_timeout": self._min_timeout,
+                        "actual_timeout": value
+                    }
+                )
+            elif value > self._max_timeout:
+                return ValidationIssue(
+                    field=field,
+                    message=f"超时时间不能大于{self._max_timeout}秒",
+                    severity=ValidationSeverity.WARNING,
+                    code="INVALID_TIMEOUT",
+                    context={
+                        "max_timeout": self._max_timeout,
+                        "actual_timeout": value
+                    }
+                )
         
         return None
 

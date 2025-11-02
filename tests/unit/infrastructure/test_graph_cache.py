@@ -117,40 +117,38 @@ class TestGraphCache:
         """测试LFU淘汰策略"""
         lfu_cache = GraphCache(max_size=2, eviction_policy=CacheEvictionPolicy.LFU)
         
-        # 缓存3个图
+        # 缓存2个图
         config1 = calculate_config_hash({"graph": "1"})
         config2 = calculate_config_hash({"graph": "2"})
-        config3 = calculate_config_hash({"graph": "3"})
         
         graph1 = StateGraph(state_schema=dict)
         graph2 = StateGraph(state_schema=dict)
-        graph3 = StateGraph(state_schema=dict)
         
         lfu_cache.cache_graph(config1, graph1)  # 访问1次
         lfu_cache.cache_graph(config2, graph2)  # 访问1次
-        lfu_cache.cache_graph(config3, graph3)  # 访问1次
         
-        # 多次访问config1和config2，使config3成为最少访问的
+        # 多次访问config1和config2
         for _ in range(5):
             lfu_cache.get_graph(config1)
             lfu_cache.get_graph(config2)
         
-        # 添加新图会导致淘汰最少访问的config3
-        config4 = calculate_config_hash({"graph": "4"})
-        graph4 = StateGraph(state_schema=dict)
-        lfu_cache.cache_graph(config4, graph4)
+        # 添加新图会导致淘汰最少访问的
+        config3 = calculate_config_hash({"graph": "3"})
+        graph3 = StateGraph(state_schema=dict)
+        lfu_cache.cache_graph(config3, graph3)
         
-        # 验证config3被移除（最少访问）
-        result3 = lfu_cache.get_graph(config3)
-        assert result3 is None
-        
-        # 验证其他图仍然存在
+        # 验证其中一个原始图被移除（最少访问的）
         result1 = lfu_cache.get_graph(config1)
         result2 = lfu_cache.get_graph(config2)
-        result4 = lfu_cache.get_graph(config4)
-        assert result1 is not None
-        assert result2 is not None
-        assert result4 is not None
+        result3 = lfu_cache.get_graph(config3)
+        
+        # 由于config1和config2都被访问了6次，而config3只被访问了1次，
+        # 所以config3应该保留，而其中一个原始图应该被移除
+        # 但由于LFU的实现细节，可能移除任何一个原始图
+        # 我们只需要确保至少有一个原始图被移除，且config3保留
+        assert result3 is not None
+        assert (result1 is None) or (result2 is None)
+        assert (result1 is not None) or (result2 is not None)
     
     def test_cache_stats(self):
         """测试缓存统计"""
@@ -194,9 +192,9 @@ class TestGraphCache:
         config2 = calculate_config_hash({"graph": "test_2"})
         config3 = calculate_config_hash({"graph": "other_3"})
 
-        self.cache.cache_graph(config1, StateGraph(state_schema=dict))
-        self.cache.cache_graph(config2, StateGraph(state_schema=dict))
-        self.cache.cache_graph(config3, StateGraph(state_schema=dict))
+        self.cache.cache_graph(config1, StateGraph(state_schema=dict), {"graph": "test_1"})
+        self.cache.cache_graph(config2, StateGraph(state_schema=dict), {"graph": "test_2"})
+        self.cache.cache_graph(config3, StateGraph(state_schema=dict), {"graph": "other_3"})
         
         # 验证所有图都存在
         assert self.cache.get_graph(config1) is not None

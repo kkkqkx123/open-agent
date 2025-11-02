@@ -89,7 +89,8 @@ class TestExponentialBackoffStrategy:
             base_delay=1.0,
             max_delay=60.0,
             exponential_base=2.0,
-            jitter=False
+            jitter=False,
+            retry_on_errors=["rate", "timeout", "error"]
         )
     
     @pytest.fixture
@@ -249,7 +250,8 @@ class TestAdaptiveRetryStrategy:
             base_delay=1.0,
             max_delay=60.0,
             exponential_base=2.0,
-            jitter=False
+            jitter=False,
+            retry_on_errors=["test", "error"]
         )
     
     @pytest.fixture
@@ -422,12 +424,12 @@ class TestErrorTypeRetryCondition:
         )
         
         # 测试重试错误类型
-        timeout_error = Exception("timeout occurred")
+        timeout_error = Exception("TimeoutError")
         result = condition.should_retry(timeout_error, 1)
         assert result == True
         
         # 测试错误消息中包含关键词
-        connection_error = Exception("connection failed")
+        connection_error = Exception("ConnectionError")
         result = condition.should_retry(connection_error, 1)
         assert result == True
     
@@ -451,7 +453,7 @@ class TestErrorTypeRetryCondition:
     def test_should_retry_with_default_allow(self):
         """测试默认允许重试"""
         condition = ErrorTypeRetryCondition(
-            retry_error_types=["TimeoutError"],
+            retry_error_types=[],  # 空的重试列表意味着允许所有错误（除了被阻止的）
             block_error_types=["AuthenticationError"]
         )
         

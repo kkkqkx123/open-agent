@@ -47,14 +47,13 @@ class ValidationResult:
     
     def __post_init__(self) -> None:
         """初始化后处理"""
-        # 只有在 is_valid 为 None 时才基于 issues 设置
-        # 否则使用传入的 is_valid 值
-        if self.is_valid is None:
+        # 如果传入了 is_valid 为 True 但有错误，应该修正为 False
+        if self.is_valid and len(self.issues) > 0:
+            has_errors = any(issue.severity == ValidationSeverity.ERROR for issue in self.issues)
+            if has_errors:
+                self.is_valid = False
+        elif self.is_valid is None:
             self.is_valid = len(self.issues) == 0
-        else:
-            # 如果传入了 is_valid，确保它与 issues 列表一致
-            # 但不要覆盖传入的值
-            pass
     
     def add_issue(self, field: str, message: str, severity: ValidationSeverity = ValidationSeverity.ERROR, 
                   code: Optional[str] = None, context: Optional[Dict[str, Any]] = None) -> None:
@@ -76,7 +75,8 @@ class ValidationResult:
             context=context
         )
         self.issues.append(issue)
-        self.is_valid = len(self.issues) == 0
+        # 更新is_valid状态，只要有任何问题就设为False
+        self.is_valid = False
     
     def add_error(self, field: str, message: str, code: Optional[str] = None, 
                   context: Optional[Dict[str, Any]] = None) -> None:

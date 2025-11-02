@@ -47,8 +47,9 @@ class RetryManager:
             return func(*args, **kwargs)
         
         # 创建重试会话
+        func_name = getattr(func, '__name__', str(func))
         session = RetrySession(
-            func_name=func.__name__,
+            func_name=func_name,
             start_time=time.time()
         )
         
@@ -167,8 +168,9 @@ class RetryManager:
             return await func(*args, **kwargs)
         
         # 创建重试会话
+        func_name = getattr(func, '__name__', str(func))
         session = RetrySession(
-            func_name=func.__name__,
+            func_name=func_name,
             start_time=time.time()
         )
         
@@ -241,6 +243,13 @@ class RetryManager:
                     # 检查是否应该继续重试
                     if not self._strategy.should_retry(e, attempt):
                         break
+                    
+                    # 检查是否达到了最大尝试次数
+                    if attempt >= self.config.get_max_attempts():
+                        break
+                    
+                    # 继续下一次尝试
+                    continue
             
             # 所有尝试都失败
             if last_error is not None:

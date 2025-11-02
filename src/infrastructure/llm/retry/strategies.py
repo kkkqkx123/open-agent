@@ -94,6 +94,9 @@ class ExponentialBackoffStrategy(IRetryStrategy):
             return False
         
         # 检查错误类型是否应该重试
+        # 如果没有配置特定的错误类型，则默认允许重试
+        if not self.config.retry_on_errors:
+            return True
         return self.config.should_retry_on_error(error)
     
     def get_retry_delay(self, error: Exception, attempt: int) -> float:
@@ -159,6 +162,9 @@ class LinearBackoffStrategy(IRetryStrategy):
         """判断是否应该重试"""
         if attempt >= self.config.get_max_attempts():
             return False
+        # 如果没有配置特定的错误类型，则默认允许重试
+        if not self.config.retry_on_errors:
+            return True
         return self.config.should_retry_on_error(error)
     
     def get_retry_delay(self, error: Exception, attempt: int) -> float:
@@ -202,6 +208,9 @@ class FixedDelayStrategy(IRetryStrategy):
         """判断是否应该重试"""
         if attempt >= self.config.get_max_attempts():
             return False
+        # 如果没有配置特定的错误类型，则默认允许重试
+        if not self.config.retry_on_errors:
+            return True
         return self.config.should_retry_on_error(error)
     
     def get_retry_delay(self, error: Exception, attempt: int) -> float:
@@ -250,6 +259,9 @@ class AdaptiveRetryStrategy(IRetryStrategy):
         self._error_history.append(error)
         
         # 根据错误模式调整重试策略
+        # 如果没有配置特定的错误类型，则默认允许重试
+        if not self.config.retry_on_errors:
+            return True
         return self.config.should_retry_on_error(error)
     
     def get_retry_delay(self, error: Exception, attempt: int) -> float:
@@ -259,12 +271,15 @@ class AdaptiveRetryStrategy(IRetryStrategy):
         
         # 根据错误类型调整延迟
         error_type = type(error).__name__
+        error_str = str(error).lower()
         
         # 某些错误类型需要更长的延迟
-        if "RateLimit" in error_type or "rate_limit" in str(error).lower():
+        if "ratelimit" in error_type.lower() or "rate limit" in error_str or "rate_limit" in error_str:
             delay *= 2  # 频率限制错误需要更长延迟
-        elif "Timeout" in error_type or "timeout" in str(error).lower():
+        elif "timeout" in error_type.lower() or "timeout" in error_str:
             delay *= 1.5  # 超时错误需要稍长延迟
+        elif "connection" in error_type.lower() or "connection" in error_str:
+            delay *= 1.2  # 连接错误需要稍长延迟
         
         # 如果连续出现相同错误，增加延迟
         if len(self._error_history) >= 2:
@@ -322,6 +337,11 @@ class ConditionalRetryStrategy(IRetryStrategy):
             if not condition.should_retry(error, attempt):
                 return False
         
+        # 如果有条件，且所有条件都通过，则应该重试
+        if self.conditions:
+            return True
+            
+        # 如果没有条件，回退到默认的错误检查
         return self.config.should_retry_on_error(error)
     
     def get_retry_delay(self, error: Exception, attempt: int) -> float:
@@ -415,9 +435,13 @@ class ErrorTypeRetryCondition(IRetryCondition):
             if block_type in error_type or block_type in error_str:
                 return False
         
-        # 检查是否在重试列表中
-        for retry_type in self.retry_error_types:
-            if retry_type in error_type or retry_type in error_str:
-                return True
-        
-        return True
+        # 如果有重试列表，只允许重试列表中的错误类型
+        if self.retry_error_types:
+            for retry_type in self.retry_error_types:
+                # 检查错误类型名称或错误消息是否包含重试类型
+                if retry_type.lower() in error_type.lower() or retry_type.lower() in error_str:
+                    return True
+            return False  # 不在重试列表中，不应重试
+        else:
+            # 如果没有重试列表，默认允许重试（除非被阻塞）
+            return True
