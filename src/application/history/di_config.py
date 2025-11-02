@@ -13,7 +13,6 @@ from src.domain.history.cost_calculator import CostCalculator
 from src.application.history.manager import HistoryManager
 from src.application.history.token_tracker import TokenUsageTracker
 from src.infrastructure.history.storage.file_storage import FileHistoryStorage
-from src.infrastructure.history.history_hook import HistoryRecordingHook
 from src.infrastructure.llm.token_calculators.base import ITokenCalculator
 from src.infrastructure.llm.interfaces import ILLMCallHook
 
@@ -103,6 +102,8 @@ def register_history_services_with_dependencies(
     )
     
     # 注册历史记录钩子（依赖多个服务）
+    from src.infrastructure.history.history_hook import HistoryRecordingHook
+    
     container.register_factory(
         HistoryRecordingHook,
         lambda: HistoryRecordingHook(
@@ -162,6 +163,8 @@ def register_test_history_services(container: IDependencyContainer) -> None:
     # 注意：实际使用时需要通过register_history_services_with_dependencies注册
     
     # 注册历史记录钩子
+    from src.infrastructure.history.history_hook import HistoryRecordingHook
+    
     container.register(
         ILLMCallHook,
         HistoryRecordingHook,

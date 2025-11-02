@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence
 from langchain_core.messages import BaseMessage
 
 from src.domain.history import TokenUsageRecord, LLMRequestRecord, LLMResponseRecord
@@ -22,8 +22,8 @@ class TokenUsageTracker:
         self.history_manager = history_manager
         self.usage_history: List[TokenUsageRecord] = []
     
-    def track_request(self, messages: List[BaseMessage], 
-                     model: str, provider: str, session_id: Optional[str] = None) -> TokenUsageRecord:
+    def track_request(self, messages: Sequence[BaseMessage],
+    model: str, provider: str, session_id: Optional[str] = None) -> TokenUsageRecord:
         """
         追踪LLM请求的Token使用情况
         
@@ -72,7 +72,7 @@ class TokenUsageTracker:
             TokenUsageRecord: 更新后的Token使用记录
         """
         # 从API响应更新准确的token数
-        if "usage" in api_response:
+        if "usage" in api_response and "prompt_tokens" in api_response["usage"]:
             usage = api_response["usage"]
             record.prompt_tokens = usage.get("prompt_tokens", record.prompt_tokens)
             record.completion_tokens = usage.get("completion_tokens", record.completion_tokens)
@@ -101,7 +101,7 @@ class TokenUsageTracker:
         
         return record
     
-    def estimate_tokens(self, messages: List[BaseMessage]) -> int:
+    def estimate_tokens(self, messages: Sequence[BaseMessage]) -> int:
         """
         估算Token数量
         
