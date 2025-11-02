@@ -81,6 +81,18 @@ class WorkflowModule:
         if not container.has_service(NodeRegistry):
             container.register_instance(NodeRegistry, node_registry)
         
+        # 注册通用工作流加载器
+        from .universal_loader import UniversalWorkflowLoader
+        container.register_factory(
+            UniversalWorkflowLoader,
+            lambda: UniversalWorkflowLoader(
+                config_loader=container.get(IConfigLoader),
+                container=container,
+                enable_auto_registration=True
+            ),
+            lifetime=ServiceLifetime.SINGLETON
+        )
+        
         # 注册图构建器（带依赖）
         container.register_factory(
             GraphBuilder,

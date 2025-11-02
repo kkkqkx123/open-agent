@@ -166,13 +166,19 @@ class TUIConfig:
 class ConfigManager:
     """配置管理器"""
     
-    def __init__(self, config_path: Optional[Path] = None) -> None:
+    def __init__(
+        self,
+        config_path: Optional[Path] = None,
+        config_loader: Optional['IConfigLoader'] = None
+    ) -> None:
         """初始化配置管理器
         
         Args:
             config_path: 配置文件路径
+            config_loader: 核心配置加载器（用于项目内配置）
         """
         self.config_path = config_path or Path.home() / ".modular-agent" / "tui_config.yaml"
+        self.config_loader = config_loader
         self.config: Optional[TUIConfig] = None
         
         # 确保配置目录存在
@@ -191,6 +197,14 @@ class ConfigManager:
                     else:
                         # 使用yaml.load而不是safe_load以支持python/tuple标签
                         data = yaml.load(f, Loader=yaml.FullLoader)
+                
+                # 如果有配置加载器，使用它来处理环境变量
+                if self.config_loader and isinstance(data, dict):
+                    # 创建一个临时方法来利用 IConfigLoader 的环境变量处理能力
+                    # 这是一个适配器模式的应用
+                    from src.infrastructure.config_loader import YamlConfigLoader
+                    temp_loader = YamlConfigLoader()
+                    data = temp_loader.resolve_env_vars(data)
                 
                 self.config = TUIConfig.from_dict(data)
                 return self.config
@@ -343,18 +357,22 @@ class ConfigManager:
 _global_config_manager: Optional[ConfigManager] = None
 
 
-def get_config_manager(config_path: Optional[Path] = None) -> ConfigManager:
+def get_config_manager(
+    config_path: Optional[Path] = None,
+    config_loader: Optional['IConfigLoader'] = None
+) -> ConfigManager:
     """获取全局配置管理器
     
     Args:
         config_path: 配置文件路径
+        config_loader: 核心配置加载器实例
     
     Returns:
         ConfigManager: 配置管理器实例
     """
     global _global_config_manager
     if _global_config_manager is None:
-        _global_config_manager = ConfigManager(config_path)
+        _global_config_manager = ConfigManager(config_path, config_loader)
     return _global_config_manager
 
 

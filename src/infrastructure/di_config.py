@@ -98,6 +98,16 @@ class DIConfig:
             self._config_loader = config_loader
             logger.debug("配置加载器注册完成")
         
+        # 注册LLM配置管理器
+        if not self.container.has_service(LLMConfigManager):
+            from .llm.config_manager import LLMConfigManager
+            self.container.register_factory(
+                LLMConfigManager,
+                lambda: LLMConfigManager(config_loader=self.container.get(IConfigLoader)),
+                lifetime=ServiceLifetime.SINGLETON
+            )
+            logger.debug("LLM配置管理器注册完成")
+        
         # 注册增强的配置验证器
         from .config.enhanced_validator import EnhancedConfigValidator
         self.container.register_factory(

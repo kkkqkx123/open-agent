@@ -418,8 +418,13 @@ class UniversalWorkflowLoader:
             return self._config_cache[config_path]
         
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config_data = yaml.safe_load(f)
+            if self.config_loader:
+                # 委托给核心加载器
+                config_data = self.config_loader.load(config_path)
+            else:
+                # 直接读取文件
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config_data = yaml.safe_load(f)
             
             config = GraphConfig.from_dict(config_data)
             

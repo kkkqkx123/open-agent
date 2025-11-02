@@ -166,7 +166,7 @@ class WorkflowConfigValidator:
         
         # 检查节点和边
         if not config.nodes:
-            errors.append("工作流必须至少包含一个节点")
+            warnings.append("工作流没有定义节点")
             suggestions.append("请在 'nodes' 部分添加至少一个节点")
         
         if not config.edges:

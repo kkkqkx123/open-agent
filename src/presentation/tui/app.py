@@ -167,6 +167,18 @@ class TUIApp:
             config_loader = YamlConfigLoader()
             container.register_instance(IConfigLoader, config_loader)
         
+        # 注册TUI配置管理器
+        if not container.has_service(ConfigManager):
+            from .config import ConfigManager
+            container.register_factory(
+                ConfigManager,
+                lambda: ConfigManager(
+                    config_path=None,  # 使用默认路径
+                    config_loader=container.get(IConfigLoader)
+                ),
+                lifetime=ServiceLifetime.SINGLETON
+            )
+        
         # 注册会话存储
         if not container.has_service(FileSessionStore):
             from pathlib import Path

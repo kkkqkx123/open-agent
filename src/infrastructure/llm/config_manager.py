@@ -14,6 +14,7 @@ from watchdog.events import FileSystemEventHandler
 
 from .config import LLMClientConfig, LLMModuleConfig
 from .exceptions import LLMConfigurationError
+from ..config_interfaces import IConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -209,7 +210,8 @@ class LLMConfigManager:
     
     def __init__(
         self,
-        config_dir: Optional[Union[str, Path]] = None,
+        config_loader: IConfigLoader,
+        config_subdir: str = "llms",
         enable_hot_reload: bool = True,
         validation_enabled: bool = True,
     ) -> None:
@@ -217,11 +219,14 @@ class LLMConfigManager:
         初始化配置管理器
         
         Args:
-            config_dir: 配置文件目录
+            config_loader: 核心配置加载器实例
+            config_subdir: 相对于configs的子目录
             enable_hot_reload: 是否启用热重载
             validation_enabled: 是否启用配置验证
         """
-        self.config_dir = Path(config_dir) if config_dir else Path("configs/llms")
+        self.config_loader = config_loader
+        self.config_subdir = config_subdir
+        self.config_dir = Path("configs") / self.config_subdir
         self.enable_hot_reload = enable_hot_reload
         self.validation_enabled = validation_enabled
         
@@ -245,9 +250,6 @@ class LLMConfigManager:
     
     def _initialize(self) -> None:
         """初始化配置管理器"""
-        # 确保配置目录存在
-        self.config_dir.mkdir(parents=True, exist_ok=True)
-        
         # 加载所有配置
         self._load_all_configs()
         
@@ -271,130 +273,116 @@ class LLMConfigManager:
     
     def _load_module_config(self) -> None:
         """加载模块配置"""
-        module_config_file = self.config_dir / "_group.yaml"
+        module_config_path = f"{self.config_subdir}/_group.yaml"
         
-        if module_config_file.exists():
-            config_data = self._load_config_file(module_config_file)
+        try:
+            config_data = self._load_config_file(module_config_path)
             if config_data:
                 self._module_config = LLMModuleConfig.from_dict(config_data)
-        else:
+        except Exception as e:
             # 使用默认配置
             self._module_config = LLMModuleConfig()
-            logger.warning("模块配置文件不存在，使用默认配置")
+            logger.warning(f"模块配置文件加载失败或不存在，使用默认配置: {e}")
     
     def _load_client_configs(self) -> None:
         """加载客户端配置"""
         self._client_configs.clear()
         
-        # 扫描配置文件
-        for config_file in self.config_dir.glob("*.yaml"):
+        # 注意：这里我们无法直接通过 IConfigLoader 列出文件
+        # 这是一个设计权衡，为了保持 IConfigLoader 接口的简洁性
+        # 我们假设已知的配置文件列表，或者在未来扩展 IConfigLoader 接口
+        # 作为临时方案，我们仍然需要扫描目录，但只用于获取文件名
+        config_dir = Path("configs") / self.config_subdir
+        if not config_dir.exists():
+            logger.warning(f"LLM配置目录不存在: {config_dir}")
+            return
+
+        for config_file in config_dir.glob("*.yaml"):
             if config_file.name.startswith("_"):
                 continue  # 跳过组配置文件
             
             try:
-                config_data = self._load_config_file(config_file)
+                config_path = f"{self.config_subdir}/{config_file.name}"
+                config_data = self._load_config_file(config_path)
                 if config_data:
                     client_config = LLMClientConfig.from_dict(config_data)
                     model_key = f"{client_config.model_type}:{client_config.model_name}"
                     self._client_configs[model_key] = client_config
                     
                     # 缓存原始配置数据
-                    self._config_cache[str(config_file)] = config_data
+                    self._config_cache[config_path] = config_data
                     
             except Exception as e:
-                logger.error(f"加载客户端配置失败 {config_file}: {e}")
+                logger.error(f"加载客户端配置失败 {config_file.name}: {e}")
     
-    def _load_config_file(self, file_path: Path) -> Optional[Dict[str, Any]]:
+    def _load_config_file(self, config_path: str) -> Optional[Dict[str, Any]]:
         """加载单个配置文件"""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                if file_path.suffix.lower() in ['.yaml', '.yml']:
-                    config_data = yaml.safe_load(f)
-                elif file_path.suffix.lower() == '.json':
-                    config_data = json.load(f)
-                else:
-                    logger.warning(f"不支持的配置文件格式: {file_path}")
-                    return None
+            # 委托给核心加载器，它负责读取、解析、环境变量、继承等所有事
+            config_data = self.config_loader.load(config_path)
             
-            # 环境变量替换
-            config_data = self._substitute_env_vars(config_data)
-            
-            # 配置验证
+            # 配置验证逻辑保留，因为这是 LLMConfigManager 的特定职责
             if self.validation_enabled:
                 errors = self.validator.validate_config(config_data)
                 if errors:
-                    error_msg = f"配置验证失败 {file_path}:\n" + "\n".join(f"  - {error}" for error in errors)
+                    error_msg = f"配置验证失败 {config_path}:\n" + "\n".join(f"  - {error}" for error in errors)
                     raise LLMConfigurationError(error_msg)
             
             return config_data
             
         except Exception as e:
-            logger.error(f"读取配置文件失败 {file_path}: {e}")
+            logger.error(f"读取配置文件失败 {config_path}: {e}")
             return None
-    
-    def _substitute_env_vars(self, data: Any) -> Any:
-        """递归替换环境变量"""
-        if isinstance(data, dict):
-            return {key: self._substitute_env_vars(value) for key, value in data.items()}
-        elif isinstance(data, list):
-            return [self._substitute_env_vars(item) for item in data]
-        elif isinstance(data, str):
-            return self._replace_env_vars(data)
-        else:
-            return data
-    
-    def _replace_env_vars(self, text: str) -> str:
-        """替换字符串中的环境变量"""
-        import re
-        
-        def replace_var(match):
-            var_expr = match.group(1)
-            
-            # 支持默认值格式: ${VAR:default}
-            if ':' in var_expr:
-                var_name, default_value = var_expr.split(':', 1)
-                return os.getenv(var_name.strip(), default_value.strip())
-            else:
-                return os.getenv(var_expr.strip(), '')
-        
-        # 匹配 ${VAR} 或 ${VAR:default} 格式
-        pattern = r'\$\{([^}]+)\}'
-        return re.sub(pattern, replace_var, text)
+
+    def _reload_config_file(self, file_path: Path) -> None:
+        """重新加载配置文件（用于向后兼容）"""
+        config_path = f"{self.config_subdir}/{file_path.name}"
+        config_data = self._load_config_file(config_path)
+        if config_data:
+            self._on_config_file_changed(config_path, config_data)
+
+    # _substitute_env_vars 和 _replace_env_vars 方法已被移除，
+    # 因为这些功能现在由 IConfigLoader 提供
     
     def _start_hot_reload(self) -> None:
         """启动热重载"""
+        if not self.enable_hot_reload:
+            return
+            
         try:
-            self._observer = Observer()
-            handler = ConfigFileHandler(self)
-            self._observer.schedule(handler, str(self.config_dir), recursive=False)  # type: ignore
-            self._observer.start()  # type: ignore
-            logger.info("配置热重载已启动")
+            # 将自己的回调函数注册到核心加载器
+            # 核心加载器会处理文件监控，并在文件变化时调用我们的回调
+            self.config_loader.watch_for_changes(callback=self._on_config_file_changed)
+            logger.info("配置热重载已启动 (通过 IConfigLoader)")
         except Exception as e:
             logger.error(f"启动热重载失败: {e}")
             self.enable_hot_reload = False
     
     def _stop_hot_reload(self) -> None:
         """停止热重载"""
-        if self._observer:
-            self._observer.stop()
-            self._observer.join()
-            self._observer = None
-            logger.info("配置热重载已停止")
+        try:
+            # 委托给核心加载器停止监控
+            self.config_loader.stop_watching()
+            logger.info("配置热重载已停止 (通过 IConfigLoader)")
+        except Exception as e:
+            logger.error(f"停止热重载失败: {e}")
     
-    def _reload_config_file(self, file_path: Path) -> None:
-        """重新加载配置文件"""
+    def _on_config_file_changed(self, config_path: str, config_data: Dict[str, Any]) -> None:
+        """新的回调函数，由 IConfigLoader 调用"""
+        # 检查是否是 LLM 配置文件
+        if not config_path.startswith(self.config_subdir + "/"):
+            return
+            
+        file_name = Path(config_path).name
+        logger.info(f"检测到LLM配置文件变更: {file_name}")
+        
         with self._lock:
             try:
-                # 重新加载配置数据
-                config_data = self._load_config_file(file_path)
-                if config_data is None:
-                    return
-                
                 # 更新缓存
-                self._config_cache[str(file_path)] = config_data
+                self._config_cache[config_path] = config_data
                 
                 # 如果是模块配置文件
-                if file_path.name == "_group.yaml":
+                if file_name == "_group.yaml":
                     self._module_config = LLMModuleConfig.from_dict(config_data)
                 else:
                     # 客户端配置
@@ -405,14 +393,13 @@ class LLMConfigManager:
                 # 触发回调
                 for callback in self._reload_callbacks:
                     try:
-                        callback(str(file_path), config_data)
+                        callback(config_path, config_data)
                     except Exception as e:
                         logger.error(f"配置重载回调执行失败: {e}")
                 
-                logger.info(f"配置文件重新加载成功: {file_path}")
-                
+                logger.info(f"LLM配置文件重新加载成功: {file_name}")
             except Exception as e:
-                logger.error(f"重新加载配置文件失败 {file_path}: {e}")
+                logger.error(f"重新加载LLM配置文件失败 {file_name}: {e}")
     
     def get_client_config(self, model_type: str, model_name: str) -> Optional[LLMClientConfig]:
         """获取客户端配置"""
@@ -487,9 +474,16 @@ _global_config_manager: Optional[LLMConfigManager] = None
 
 def get_global_config_manager() -> LLMConfigManager:
     """获取全局配置管理器"""
+    # 注意：这个函数现在依赖于一个全局的 IConfigLoader 实例
+    # 在实际应用中，这应该通过依赖注入容器来解决
+    # 为了向后兼容，我们在这里创建一个默认的 YamlConfigLoader
+    from ..config_loader import YamlConfigLoader
+    
     global _global_config_manager
     if _global_config_manager is None:
-        _global_config_manager = LLMConfigManager()
+        # 这是一个临时解决方案，理想情况下应该从容器获取
+        default_loader = YamlConfigLoader()
+        _global_config_manager = LLMConfigManager(config_loader=default_loader)
     return _global_config_manager
 
 

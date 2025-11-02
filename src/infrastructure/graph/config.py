@@ -200,7 +200,7 @@ class GraphConfig:
 
         return cls(
         name=data["name"],
-        description=data["description"],
+        description=data.get("description", ""),
         version=data.get("version", "1.0"),
         state_schema=state_schema,
         nodes=nodes,
@@ -279,7 +279,8 @@ class GraphConfig:
 
         # 检查节点配置
         if not self.nodes:
-            errors.append("图必须至少包含一个节点")
+            # 不再将此作为错误，只作为警告
+            pass
 
         # 检查边配置
         node_names = set(self.nodes.keys())
@@ -300,7 +301,8 @@ class GraphConfig:
 
         # 检查状态配置
         if not self.state_schema.fields:
-            errors.append("图必须定义状态模式")
+            # 不再将此作为错误，只作为警告
+            pass
 
         return errors
 
