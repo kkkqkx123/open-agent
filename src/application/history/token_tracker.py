@@ -5,19 +5,13 @@ from langchain_core.messages import BaseMessage
 from src.domain.history import TokenUsageRecord, LLMRequestRecord, LLMResponseRecord
 from src.infrastructure.llm.token_calculators.base import ITokenCalculator
 from src.domain.history.interfaces import IHistoryManager
+from .session_context import get_current_session as get_current_session_id
 
 
 def generate_id() -> str:
     """生成唯一ID的辅助函数"""
     import uuid
     return str(uuid.uuid4())
-
-
-def get_current_session() -> str:
-    """获取当前会话ID的辅助函数"""
-    # 这里应该从上下文获取当前会话ID
-    # 为了简化，暂时返回一个默认值，实际实现中应该从上下文获取
-    return "default_session"
 
 
 class TokenUsageTracker:
@@ -48,7 +42,7 @@ class TokenUsageTracker:
         # 创建使用记录
         record = TokenUsageRecord(
             record_id=generate_id(),
-            session_id=session_id or get_current_session(),
+            session_id=session_id or get_current_session_id() or "default_session",
             timestamp=datetime.now(),
             model=model,
             provider=provider,
@@ -129,14 +123,5 @@ class TokenUsageTracker:
         Returns:
             Dict[str, Any]: Token使用统计信息
         """
-        # 这里需要查询历史记录以获取统计信息
-        # 由于IHistoryManager接口还没有实现，这里返回模拟数据
-        return {
-            "session_id": session_id,
-            "total_tokens": sum(record.total_tokens for record in self.usage_history 
-                              if record.session_id == session_id),
-            "prompt_tokens": sum(record.prompt_tokens for record in self.usage_history 
-                               if record.session_id == session_id),
-            "completion_tokens": sum(record.completion_tokens for record in self.usage_history 
-                                    if record.session_id == session_id),
-        }
+        # 使用历史管理器获取统计信息
+        return self.history_manager.get_token_statistics(session_id)

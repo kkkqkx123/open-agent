@@ -12,7 +12,7 @@ from src.domain.history import (
     CostRecord,
     IHistoryManager
 )
-from src.domain.history.cost_calculator import CostCalculator
+from src.domain.history.cost_interfaces import ICostCalculator
 from src.application.history.token_tracker import TokenUsageTracker
 
 
@@ -22,19 +22,15 @@ def generate_id() -> str:
     return str(uuid.uuid4())
 
 
-def get_current_session() -> str:
-    """获取当前会话ID的辅助函数"""
-    # 这里应该从上下文获取当前会话ID
-    # 为了简化，暂时返回一个默认值，实际实现中应该从上下文获取
-    return "default_session"
+from src.application.history.session_context import get_current_session as get_current_session_id
 
 
 class HistoryRecordingHook(ILLMCallHook):
     """历史记录钩子 - 用于记录LLM请求和响应、Token使用和成本"""
     
-    def __init__(self, history_manager: IHistoryManager, 
-                 token_tracker: TokenUsageTracker,
-                 cost_calculator: CostCalculator):
+    def __init__(self, history_manager: IHistoryManager,
+    token_tracker: TokenUsageTracker,
+    cost_calculator: ICostCalculator):
         """
         初始化历史记录钩子
         
@@ -66,7 +62,7 @@ class HistoryRecordingHook(ILLMCallHook):
             # 创建LLM请求记录
             request_record = LLMRequestRecord(
                 record_id=request_id,
-                session_id=kwargs.get("session_id", get_current_session()),
+                session_id=kwargs.get("session_id", get_current_session_id()) or "default_session",
                 timestamp=datetime.now(),
                 model=kwargs.get("model", "unknown"),
                 provider=kwargs.get("provider", "unknown"),
@@ -168,7 +164,7 @@ class HistoryRecordingHook(ILLMCallHook):
         """
         # 记录错误，但不尝试恢复
         request_id = kwargs.get("request_id", generate_id())
-        session_id = kwargs.get("session_id", get_current_session())
+        session_id = kwargs.get("session_id", get_current_session_id()) or "default_session"
         
         # 如果有对应的请求记录，记录错误信息
         if request_id in self.pending_requests:
