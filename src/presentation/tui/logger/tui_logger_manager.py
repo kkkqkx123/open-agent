@@ -2,7 +2,7 @@
 
 import os
 import threading
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Type
 from pathlib import Path
 
 from src.infrastructure.logger.logger import get_logger, Logger
@@ -239,3 +239,62 @@ def get_tui_logger(name: str) -> Logger:
 
 
 TUI_LOGGER_NAME = "tui"
+
+
+class TUILoggerFactory:
+    """TUI日志记录器工厂，负责创建不同类型的TUI日志记录器"""
+    
+    @staticmethod
+    def create_silent_logger(name: str = "main"):
+        """创建静默日志记录器
+        
+        Args:
+            name: 日志记录器名称
+            
+        Returns:
+            静默日志记录器实例
+        """
+        # 延迟导入避免循环依赖
+        from .tui_logger_strategies import SilentLoggingStrategy
+        from .tui_logger_base import TUILoggerBase
+        
+        strategy = SilentLoggingStrategy()
+        return TUILoggerBase(name, strategy)
+    
+    @staticmethod
+    def create_debug_logger(name: str = "main"):
+        """创建调试日志记录器
+        
+        Args:
+            name: 日志记录器名称
+            
+        Returns:
+            调试日志记录器实例
+        """
+        # 延迟导入避免循环依赖
+        from .tui_logger_strategies import DebugLoggingStrategy
+        from .tui_logger_base import TUILoggerBase
+        
+        strategy = DebugLoggingStrategy()
+        return TUILoggerBase(name, strategy)
+    
+    @staticmethod
+    def create_logger(logger_type: str, name: str = "main"):
+        """根据类型创建日志记录器
+        
+        Args:
+            logger_type: 日志记录器类型 ("silent" 或 "debug")
+            name: 日志记录器名称
+            
+        Returns:
+            日志记录器实例
+            
+        Raises:
+            ValueError: 当日志记录器类型不支持时
+        """
+        if logger_type == "silent":
+            return TUILoggerFactory.create_silent_logger(name)
+        elif logger_type == "debug":
+            return TUILoggerFactory.create_debug_logger(name)
+        else:
+            raise ValueError(f"不支持的日志记录器类型: {logger_type}")

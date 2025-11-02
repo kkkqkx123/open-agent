@@ -3,8 +3,8 @@
 from typing import Any, Dict, Optional
 from pathlib import Path
 
-from src.infrastructure.logger.logger import Logger
-from .tui_logger_manager import get_tui_logger, TUILoggerManager
+from .tui_logger_base import TUILoggerBase
+from .tui_logger_manager import TUILoggerFactory
 
 
 class TUIDebugLogger:
@@ -16,8 +16,8 @@ class TUIDebugLogger:
         Args:
             name: 日志记录器名称
         """
-        self.logger = get_tui_logger(name)
-        self.tui_manager = TUILoggerManager()
+        self.name = name
+        self._logger = TUILoggerFactory.create_debug_logger(name)
     
     def debug_component_event(self, component: str, event: str, **kwargs: Any) -> None:
         """记录组件事件调试信息
@@ -27,13 +27,7 @@ class TUIDebugLogger:
             event: 事件类型
             **kwargs: 附加信息
         """
-        if self.tui_manager.is_debug_enabled():
-            self.logger.debug(
-                f"TUI组件事件: {component} -> {event}",
-                component=component,
-                event=event,
-                **kwargs
-            )
+        self._logger.debug_component_event(component, event, **kwargs)
     
     def debug_input_handling(self, input_type: str, content: str, **kwargs: Any) -> None:
         """记录输入处理调试信息
@@ -43,13 +37,7 @@ class TUIDebugLogger:
             content: 输入内容
             **kwargs: 附加信息
         """
-        if self.tui_manager.is_debug_enabled():
-            self.logger.debug(
-                f"TUI输入处理: {input_type} -> {content}",
-                input_type=input_type,
-                content=content,
-                **kwargs
-            )
+        self._logger.debug_input_handling(input_type, content, **kwargs)
     
     def debug_ui_state_change(self, component: str, old_state: Any, new_state: Any, **kwargs: Any) -> None:
         """记录UI状态变更调试信息
@@ -60,14 +48,7 @@ class TUIDebugLogger:
             new_state: 新状态
             **kwargs: 附加信息
         """
-        if self.tui_manager.is_debug_enabled():
-            self.logger.debug(
-                f"TUI状态变更: {component} -> {old_state} to {new_state}",
-                component=component,
-                old_state=old_state,
-                new_state=new_state,
-                **kwargs
-            )
+        self._logger.debug_ui_state_change(component, old_state, new_state, **kwargs)
     
     def debug_workflow_operation(self, operation: str, **kwargs: Any) -> None:
         """记录工作流操作调试信息
@@ -76,12 +57,7 @@ class TUIDebugLogger:
             operation: 操作类型
             **kwargs: 附加信息
         """
-        if self.tui_manager.is_debug_enabled():
-            self.logger.debug(
-                f"TUI工作流操作: {operation}",
-                operation=operation,
-                **kwargs
-            )
+        self._logger.debug_workflow_operation(operation, **kwargs)
     
     def debug_session_operation(self, operation: str, session_id: Optional[str] = None, **kwargs: Any) -> None:
         """记录会话操作调试信息
@@ -91,17 +67,7 @@ class TUIDebugLogger:
             session_id: 会话ID
             **kwargs: 附加信息
         """
-        if self.tui_manager.is_debug_enabled():
-            message = f"TUI会话操作: {operation}"
-            if session_id:
-                message += f" (Session: {session_id})"
-            
-            self.logger.debug(
-                message,
-                operation=operation,
-                session_id=session_id,
-                **kwargs
-            )
+        self._logger.debug_session_operation(operation, session_id, **kwargs)
     
     def debug_key_event(self, key: str, handled: bool, context: str = "", **kwargs: Any) -> None:
         """记录按键事件调试信息
@@ -112,32 +78,7 @@ class TUIDebugLogger:
             context: 上下文信息
             **kwargs: 附加信息
         """
-        if self.tui_manager.is_debug_enabled():
-            # 对于char:类型按键，显示更详细的信息
-            display_key = key
-            if key.startswith("char:"):
-                char_value = key[5:]  # 移除"char:"前缀
-                if char_value == '\n':
-                    display_key = f"{key} (Enter/Newline)"
-                elif char_value == '\x1b':
-                    display_key = f"{key} (Escape)"
-                elif char_value == '\x7f':
-                    display_key = f"{key} (Backspace)"
-                elif char_value == '\t':
-                    display_key = f"{key} (Tab)"
-                elif char_value == ' ':
-                    display_key = f"{key} (Space)"
-                else:
-                    # 显示字符的ASCII码
-                    display_key = f"{key} (ASCII: {ord(char_value) if char_value else 0})"
-            
-            self.logger.debug(
-                f"TUI按键事件: {display_key}, handled: {handled}, context: {context}",
-                key=key,
-                handled=handled,
-                context=context,
-                **kwargs
-            )
+        self._logger.debug_key_event(key, handled, context, **kwargs)
     
     def debug_subview_navigation(self, from_view: str, to_view: str, **kwargs: Any) -> None:
         """记录子界面导航调试信息
@@ -147,13 +88,7 @@ class TUIDebugLogger:
             to_view: 目标界面
             **kwargs: 附加信息
         """
-        if self.tui_manager.is_debug_enabled():
-            self.logger.debug(
-                f"TUI子界面导航: {from_view} -> {to_view}",
-                from_view=from_view,
-                to_view=to_view,
-                **kwargs
-            )
+        self._logger.debug_subview_navigation(from_view, to_view, **kwargs)
     
     def debug_render_operation(self, component: str, operation: str, **kwargs: Any) -> None:
         """记录渲染操作调试信息
@@ -163,13 +98,7 @@ class TUIDebugLogger:
             operation: 操作类型
             **kwargs: 附加信息
         """
-        if self.tui_manager.is_debug_enabled():
-            self.logger.debug(
-                f"TUI渲染操作: {component} -> {operation}",
-                component=component,
-                operation=operation,
-                **kwargs
-            )
+        self._logger.debug_render_operation(component, operation, **kwargs)
     
     def debug_error_handling(self, error_type: str, error_message: str, **kwargs: Any) -> None:
         """记录错误处理调试信息
@@ -179,13 +108,7 @@ class TUIDebugLogger:
             error_message: 错误消息
             **kwargs: 附加信息
         """
-        if self.tui_manager.is_debug_enabled():
-            self.logger.debug(
-                f"TUI错误处理: {error_type} -> {error_message}",
-                error_type=error_type,
-                error_message=error_message,
-                **kwargs
-            )
+        self._logger.debug_error_handling(error_type, error_message, **kwargs)
     
     def info(self, message: str, **kwargs: Any) -> None:
         """记录信息日志
@@ -194,7 +117,7 @@ class TUIDebugLogger:
             message: 日志消息
             **kwargs: 附加信息
         """
-        self.logger.info(message, **kwargs)
+        self._logger.info(message, **kwargs)
     
     def warning(self, message: str, **kwargs: Any) -> None:
         """记录警告日志
@@ -203,7 +126,7 @@ class TUIDebugLogger:
             message: 日志消息
             **kwargs: 附加信息
         """
-        self.logger.warning(message, **kwargs)
+        self._logger.warning(message, **kwargs)
     
     def error(self, message: str, **kwargs: Any) -> None:
         """记录错误日志
@@ -212,7 +135,7 @@ class TUIDebugLogger:
             message: 日志消息
             **kwargs: 附加信息
         """
-        self.logger.error(message, **kwargs)
+        self._logger.error(message, **kwargs)
     
     def debug(self, message: str, **kwargs: Any) -> None:
         """记录调试日志
@@ -221,7 +144,7 @@ class TUIDebugLogger:
             message: 日志消息
             **kwargs: 附加信息
         """
-        self.logger.debug(message, **kwargs)
+        self._logger.debug(message, **kwargs)
     
     def set_debug_mode(self, enabled: bool) -> None:
         """设置调试模式
@@ -229,7 +152,7 @@ class TUIDebugLogger:
         Args:
             enabled: 是否启用调试模式
         """
-        self.tui_manager.set_debug_mode(enabled)
+        self._logger.set_debug_mode(enabled)
 
 
 # 全局TUI调试日志记录器实例
