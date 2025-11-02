@@ -13,7 +13,7 @@ from datetime import datetime
 from src.infrastructure.graph.config import GraphConfig
 from src.infrastructure.graph.states import WorkflowState
 from src.infrastructure.graph.async_executor import AsyncWorkflowExecutor, AsyncNodeExecutor
-from src.application.workflow.manager_refactored import WorkflowManager
+from src.application.workflow.manager import WorkflowManager
 
 
 @dataclass

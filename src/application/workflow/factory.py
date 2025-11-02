@@ -98,6 +98,18 @@ class IWorkflowFactory(ABC):
         pass
 
     @abstractmethod
+    def load_workflow_config(self, config_path: str) -> WorkflowConfig:
+        """加载工作流配置
+
+        Args:
+            config_path: 配置文件路径
+
+        Returns:
+            工作流配置
+        """
+        pass
+
+    @abstractmethod
     def clone_workflow(self, workflow: Any) -> Any:
         """克隆工作流
 
@@ -308,19 +320,30 @@ class WorkflowFactory(IWorkflowFactory):
         initial_state: Optional[Dict[str, Any]] = None
     ) -> Any:
         """从配置文件创建工作流
-        
+
         Args:
             config_path: 配置文件路径
             initial_state: 初始状态
-            
+
         Returns:
             工作流实例
         """
         # 加载配置
         config = self.graph_builder.load_workflow_config(config_path)
-        
+
         # 创建工作流
         return self.create_workflow(config, initial_state)
+
+    def load_workflow_config(self, config_path: str) -> WorkflowConfig:
+        """加载工作流配置
+
+        Args:
+            config_path: 配置文件路径
+
+        Returns:
+            工作流配置
+        """
+        return self.graph_builder.load_workflow_config(config_path)
     
     def validate_workflow_config(self, config: WorkflowConfig) -> List[str]:
         """验证工作流配置

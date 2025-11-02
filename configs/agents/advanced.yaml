@@ -1,9 +1,0 @@
-name: 高级Agent
-llm: gpt-4
-group: code_group
-tools: []
-system_prompt: 你是一个高级AI助手，具备强大的问题解决能力和工具使用技能。
-description: 功能强大的Agent，支持多种工具和复杂任务处理
-max_iterations: 15
-timeout: 120
-retry_count: 5

@@ -120,7 +120,7 @@ class EdgeConfig:
     type: EdgeType
     condition: Optional[str] = None  # 条件函数名
     description: Optional[str] = None
-    path_map: Optional[List[str]] = None  # 条件边的路径映射
+    path_map: Optional[Dict[str, Any]] = None  # 条件边的路径映射
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "EdgeConfig":

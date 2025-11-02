@@ -168,7 +168,7 @@ class WorkflowValidator:
         self._check_reachability_from_dict(graph, config_data, config_path)
         
         # 检测环路
-        self._detect_cycles_from_dict(graph, config_path)
+        self._detect_cycles_from_dict(graph, config_data, config_path)
         
         # 检测死节点
         self._detect_dead_nodes_from_dict(graph, config_data, config_path)
@@ -264,35 +264,35 @@ class WorkflowValidator:
                 suggestion="检查边的连接，确保所有节点都能从入口点到达"
             ))
     
-    def _detect_cycles_from_dict(self, graph: Dict[str, Dict[str, Any]], config_path: str) -> None:
+    def _detect_cycles_from_dict(self, graph: Dict[str, Dict[str, Any]], config_data: Dict[str, Any], config_path: str) -> None:
         """检测图中的环路"""
         visited = set()
         rec_stack = set()
-        
+
         def dfs_cycle_detection(node: str, path: List[str]) -> List[str]:
             """DFS检测环路，返回环路路径"""
             if node in rec_stack:
                 # 找到环路
                 cycle_start = path.index(node)
                 return path[cycle_start:] + [node]
-            
+
             if node in visited:
                 return []
-            
+
             visited.add(node)
             rec_stack.add(node)
             path.append(node)
-            
+
             if node in graph:
                 for target in graph[node]["targets"]:
                     if target not in self.SPECIAL_NODES:  # 忽略特殊节点
                         cycle = dfs_cycle_detection(target, path.copy())
                         if cycle:
                             return cycle
-            
+
             rec_stack.remove(node)
             return []
-        
+
         # 查找所有环路
         all_cycles = []
         for node in graph:
@@ -300,7 +300,7 @@ class WorkflowValidator:
                 cycle = dfs_cycle_detection(node, [])
                 if cycle:
                     all_cycles.append(cycle)
-        
+
         # 分析每个环路
         for cycle in all_cycles:
             self._analyze_cycle(cycle, config_data, config_path)
