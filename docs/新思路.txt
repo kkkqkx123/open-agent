@@ -49,7 +49,7 @@ AGENT：scout
 输入错误检查与修复：例如任务输成人物。【中文主要是同音，英语主要是拼写错误。只检查用户指令。需要过滤掉命令返回等信息】直接修改即可
 
 
-代码审计：codeQL
+代码审计：codeQL/semgrep
 
 
 输入信息(仅用户输入的语言表达部分，不关注'''块/json/xml等)语病检查
@@ -106,3 +106,5 @@ cli新增速率预检测，根据provider-llm分级的请求速率(单独设置R
 
 代码静态检查：直接使用balck, mypy, isort。如果不存在，要求
 semgrep，定义导入顺序等规则
+
+编辑文件工具：diff、search and replace、override、regex【基于正则模式替换】[首次使用返回替换内容预览(ripgrep)，让llm确认，确认后才执行]

@@ -28,12 +28,14 @@ class ReActAgentNode(BaseNode):
         event_manager: Optional[AgentEventManager] = None
     ) -> None:
         """初始化ReAct Agent节点
-        
+
         Args:
-            llm_client: LLM客户端实例
-            tool_executor: 工具执行器实例
-            event_manager: 事件管理器实例
+        llm_client: LLM客户端实例
+        tool_executor: 工具执行器实例
+        event_manager: 事件管理器实例
         """
+        if tool_executor is None:
+            raise ValueError("tool_executor不能为None")
         self._llm_client = llm_client
         self._tool_executor = tool_executor
         self._event_manager = event_manager or AgentEventManager()
@@ -212,7 +214,7 @@ class ReActAgentNode(BaseNode):
             def __init__(self) -> None:
                 super().__init__(MockConfig(model_type="mock", model_name="mock-react"))
             
-            async def generate_async(self, messages: Any, **kwargs: Any) -> Any:
+            async def generate_async(self, messages: Any, parameters: Any = None, **kwargs: Any) -> Any:
                 # 模拟异步响应
                 from src.infrastructure.llm.models import LLMResponse, TokenUsage
                 content = "这是ReAct Agent的模拟推理结果"

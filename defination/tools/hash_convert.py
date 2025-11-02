@@ -26,13 +26,13 @@ def hash_convert(
     """
     # 验证输入参数
     if not text:
-        raise ValueError("文本不能为空")
+        raise ValueError("Text cannot be empty")
     
     # 支持的算法列表
     supported_algorithms = ["md5", "sha1", "sha256", "sha512"]
     
     if algorithm not in supported_algorithms:
-        raise ValueError(f"不支持的算法: {algorithm}，支持的算法: {supported_algorithms}")
+        raise ValueError(f"Unsupported algorithm: {algorithm}, supported algorithms: {supported_algorithms}")
     
     # 根据算法类型计算哈希值
     try:
@@ -46,7 +46,7 @@ def hash_convert(
             hash_obj = hashlib.sha512(text.encode('utf-8'))
         else:
             # 这个分支理论上不会执行，因为前面已经验证了算法
-            raise ValueError(f"不支持的算法: {algorithm}")
+            raise ValueError(f"Unsupported algorithm: {algorithm}")
         
         hash_value = hash_obj.hexdigest()
         
@@ -57,7 +57,7 @@ def hash_convert(
             "hash_length": len(hash_value)
         }
     except Exception as e:
-        raise ValueError(f"哈希计算失败: {str(e)}")
+        raise ValueError(f"Hash calculation failed: {str(e)}")
 
 
 def md5_convert(text: str) -> Dict[str, Any]:

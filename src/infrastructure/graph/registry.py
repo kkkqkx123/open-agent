@@ -13,11 +13,14 @@ if TYPE_CHECKING:
 
 from .state import WorkflowState
 
+# 导入域层状态类型
+from src.domain.agent.state import AgentState as DomainAgentState
+
 
 @dataclass
 class NodeExecutionResult:
     """节点执行结果"""
-    state: "AgentState"
+    state: DomainAgentState
     next_node: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
@@ -36,7 +39,7 @@ class BaseNode(ABC):
         pass
 
     @abstractmethod
-    def execute(self, state: "AgentState", config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: DomainAgentState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行节点逻辑
 
         Args:
@@ -47,7 +50,7 @@ class BaseNode(ABC):
             NodeExecutionResult: 执行结果
         """
         pass
-    async def execute_async(self, state: "AgentState", config: Dict[str, Any]) -> NodeExecutionResult:
+    async def execute_async(self, state: DomainAgentState, config: Dict[str, Any]) -> NodeExecutionResult:
         """异步执行节点逻辑
 
         Args:

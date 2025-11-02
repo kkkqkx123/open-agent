@@ -28,14 +28,14 @@ def extract_content_from_html(html: str) -> str:
             html, use_readability=True
         )
         if not ret["content"]:
-            return "<error>页面无法从HTML简化</error>"
+            return "<error>Page could not be simplified from HTML</error>"
         content = markdownify.markdownify(
             ret["content"],
             heading_style=markdownify.ATX,
         )
         return content
     except Exception as e:
-        return f"<error>处理HTML内容时出错: {str(e)}</error>"
+        return f"<error>Error processing HTML content: {str(e)}</error>"
 
 
 def get_robots_txt_url(url: str) -> str:
@@ -125,7 +125,7 @@ async def fetch_url_content(
     if not ignore_robots_txt:
         allowed = await check_may_fetch_url(url, user_agent, proxy_url)
         if not allowed:
-            return f"<error>根据网站的robots.txt策略，不允许获取此页面: {url}</error>", ""
+            return f"<error>According to the website's robots.txt policy, fetching this page is not allowed: {url}</error>", ""
     
     async with httpx.AsyncClient() as client:
         try:
@@ -136,10 +136,10 @@ async def fetch_url_content(
                 timeout=30,
             )
         except Exception as e:
-            return f"<error>获取 {url} 失败: {str(e)}</error>", ""
+            return f"<error>Failed to fetch {url}: {str(e)}</error>", ""
             
         if response.status_code >= 400:
-            return f"<error>获取 {url} 失败 - 状态码 {response.status_code}</error>", ""
+            return f"<error>Failed to fetch {url} - Status code {response.status_code}</error>", ""
         
         page_raw = response.text
     
@@ -205,11 +205,11 @@ def fetch_url(
     # 处理内容截断
     original_length = len(content)
     if start_index >= original_length:
-        content = "<error>没有更多可用内容。</error>"
+        content = "<error>No more content available.</error>"
     else:
         truncated_content = content[start_index : start_index + max_length]
         if not truncated_content:
-            content = "<error>没有更多可用内容。</error>"
+            content = "<error>No more content available.</error>"
         else:
             content = truncated_content
             actual_content_length = len(truncated_content)
@@ -217,7 +217,7 @@ def fetch_url(
             # 如果还有剩余内容，添加继续获取的提示
             if actual_content_length == max_length and remaining_content > 0:
                 next_start = start_index + actual_content_length
-                content += f"\n\n<error>内容被截断。使用start_index参数值 {next_start} 调用fetch工具以获取更多内容。</error>"
+                content += f"\n\n<error>Content truncated. Call fetch tool with start_index parameter value {next_start} to get more content.</error>"
     
     return {
         "url": url,

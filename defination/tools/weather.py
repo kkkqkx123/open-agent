@@ -35,12 +35,12 @@ def get_weather(
     """
     # 验证必需参数
     if not q:
-        raise ValueError("城市名称不能为空")
+        raise ValueError("City name cannot be empty")
     
     # 验证units参数
     valid_units = ["metric", "imperial", "kelvin"]
     if units not in valid_units:
-        raise ValueError(f"无效的温度单位: {units}，有效值为: {valid_units}")
+        raise ValueError(f"Invalid temperature unit: {units}, valid values are: {valid_units}")
     
     # 构建查询参数
     params = {
@@ -53,7 +53,7 @@ def get_weather(
     if api_key:
         params["appid"] = api_key
     else:
-        raise ValueError("缺少API密钥")
+        raise ValueError("Missing API key")
     
     # 构建完整URL
     url = f"{api_url}?{urlencode(params)}"
@@ -86,17 +86,17 @@ async def _fetch_weather_data(url: str) -> Dict[str, Any]:
                 # 检查响应状态
                 if response.status != 200:
                     error_text = await response.text()
-                    raise ValueError(f"API调用失败: {response.status} {error_text}")
+                    raise ValueError(f"API call failed: {response.status} {error_text}")
                 
                 # 解析JSON响应
                 data = await response.json()
                 return _format_weather_response(data)
     except aiohttp.ClientError as e:
-        raise ValueError(f"网络请求错误: {str(e)}")
+        raise ValueError(f"Network request error: {str(e)}")
     except asyncio.TimeoutError:
-        raise ValueError("请求超时")
+        raise ValueError("Request timed out")
     except Exception as e:
-        raise ValueError(f"获取天气数据失败: {str(e)}")
+        raise ValueError(f"Failed to get weather data: {str(e)}")
 
 
 def _format_weather_response(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -111,14 +111,14 @@ def _format_weather_response(data: Dict[str, Any]) -> Dict[str, Any]:
     try:
         # 提取关键信息
         weather_info = {
-            "city": data.get("name", "未知城市"),
-            "country": data.get("sys", {}).get("country", "未知国家"),
+            "city": data.get("name", "Unknown city"),
+            "country": data.get("sys", {}).get("country", "Unknown country"),
             "temperature": data.get("main", {}).get("temp"),
             "feels_like": data.get("main", {}).get("feels_like"),
             "humidity": data.get("main", {}).get("humidity"),
             "pressure": data.get("main", {}).get("pressure"),
-            "description": data.get("weather", [{}])[0].get("description", "无描述"),
-            "main": data.get("weather", [{}])[0].get("main", "未知"),
+            "description": data.get("weather", [{}])[0].get("description", "No description"),
+            "main": data.get("weather", [{}])[0].get("main", "Unknown"),
             "wind_speed": data.get("wind", {}).get("speed"),
             "wind_direction": data.get("wind", {}).get("deg"),
             "visibility": data.get("visibility"),
@@ -129,7 +129,7 @@ def _format_weather_response(data: Dict[str, Any]) -> Dict[str, Any]:
         
         return weather_info
     except Exception as e:
-        raise ValueError(f"格式化天气数据失败: {str(e)}")
+        raise ValueError(f"Failed to format weather data: {str(e)}")
 
 
 # 示例用法

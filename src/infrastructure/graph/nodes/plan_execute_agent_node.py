@@ -22,18 +22,20 @@ class PlanExecuteAgentNode(BaseNode):
     """
     
     def __init__(
-        self, 
+        self,
         llm_client: Optional[ILLMClient] = None,
         tool_executor: Optional[IToolExecutor] = None,
         event_manager: Optional[AgentEventManager] = None
     ) -> None:
         """初始化Plan-Execute Agent节点
-        
+
         Args:
             llm_client: LLM客户端实例
             tool_executor: 工具执行器实例
             event_manager: 事件管理器实例
         """
+        if tool_executor is None:
+            raise ValueError("tool_executor不能为None")
         self._llm_client = llm_client
         self._tool_executor = tool_executor
         self._event_manager = event_manager or AgentEventManager()
@@ -225,7 +227,7 @@ class PlanExecuteAgentNode(BaseNode):
             def __init__(self) -> None:
                 super().__init__(MockConfig(model_type="mock", model_name="mock-plan-execute"))
             
-            async def generate_async(self, messages: Any, **kwargs: Any) -> Any:
+            async def generate_async(self, messages: Any, parameters: Any = None, **kwargs: Any) -> Any:
                 # 模拟异步响应
                 from src.infrastructure.llm.models import LLMResponse, TokenUsage
                 content = "这是Plan-Execute Agent的模拟计划结果"

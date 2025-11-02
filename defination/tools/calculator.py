@@ -61,7 +61,7 @@ class SafeCalculator:
             return result
             
         except Exception as e:
-            raise ValueError(f"计算表达式错误: {str(e)}")
+            raise ValueError(f"Error evaluating expression: {str(e)}")
             
     @staticmethod
     def _eval_node(node: ast.AST) -> Any:
@@ -85,12 +85,12 @@ class SafeCalculator:
                 return value
             else:
                 # 对于不支持的类型，抛出异常
-                raise ValueError(f"不支持的常量类型: {type(value)}")
+                raise ValueError(f"Unsupported constant type: {type(value)}")
         elif isinstance(node, ast.Constant):  # Python >= 3.8
             if isinstance(node.value, (int, float)):
                 return node.value
             else:
-                raise ValueError(f"不支持的常量类型: {type(node.value)}")
+                raise ValueError(f"Unsupported constant type: {type(node.value)}")
         elif isinstance(node, ast.BinOp):
             left = SafeCalculator._eval_node(node.left)
             right = SafeCalculator._eval_node(node.right)
@@ -108,9 +108,9 @@ class SafeCalculator:
                         return float(result)
                 except (ValueError, TypeError, Exception) as e:
                     # 如果调用失败，抛出异常
-                    raise ValueError(f"操作符调用失败: {e}")
+                    raise ValueError(f"Operator call failed: {e}")
             else:
-                raise ValueError(f"不支持的二元操作: {op_type}")
+                raise ValueError(f"Unsupported binary operation: {op_type}")
                 
         elif isinstance(node, ast.UnaryOp):
             operand = SafeCalculator._eval_node(node.operand)
@@ -130,7 +130,7 @@ class SafeCalculator:
                     # 如果调用失败，抛出异常
                     raise ValueError(f"操作符调用失败: {e}")
             else:
-                raise ValueError(f"不支持的一元操作: {op_type}")
+                raise ValueError(f"Unsupported unary operation: {op_type}")
                 
         elif isinstance(node, ast.Call):
             # 只允许安全的函数调用
@@ -153,12 +153,12 @@ class SafeCalculator:
                             # 如果转换失败，抛出异常
                             raise ValueError(f"无法将结果 {result} 转换为数字类型")
                 else:
-                    raise ValueError(f"不支持的函数: {func_name}")
+                    raise ValueError(f"Unsupported function: {func_name}")
             else:
-                raise ValueError("不支持的函数调用类型")
+                raise ValueError("Unsupported function call type")
                 
         else:
-            raise ValueError(f"不支持的AST节点类型: {type(node)}")
+            raise ValueError(f"Unsupported AST node type: {type(node)}")
 
 
 def calculate(expression: str, precision: int = 2) -> Dict[str, Any]:
@@ -207,4 +207,4 @@ if __name__ == "__main__":
             result = calculate(expr)
             print(f"{expr} = {result['result']}")
         except ValueError as e:
-            print(f"错误: {expr} - {e}")
+            print(f"Error: {expr} - {e}")
