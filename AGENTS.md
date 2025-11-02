@@ -183,43 +183,51 @@ Presentation Layer (TUI/API) → Application Layer → Domain Layer → Infrastr
 ```
 src/
 ├── domain/              # Business logic and entities (no dependencies on other layers)
-│   ├── threads/         # Thread management interfaces
-│   ├── tools/           # Tool interfaces and types
-│   └── sessions/        # Session management interfaces
+│   ├── checkpoint/     # Checkpoint interfaces and configuration
+│   ├── history/        # History management interfaces and models
+│   ├── prompts/        # Prompt templates and injection system
+│   ├── sessions/       # Session management interfaces
+│   ├── state/          # State management interfaces and collaboration
+│   ├── threads/        # Thread management interfaces and models
+│   ├── tools/          # Tool interfaces and types
+│   └── workflow/       # Workflow entities and value objects
 ├── infrastructure/      # Technical implementations (depends only on domain)
-│   ├── container.py     # Dependency injection container
-│   ├── config_loader.py # Configuration management
-│   ├── environment.py   # Environment validation
-│   ├── llm/            # LLM client implementations
-│   ├── tools/          # Tool system implementation
-│   ├── graph/          # LangGraph integration
-│   ├── history/        # History and checkpoint management
-│   ├── logger/         # Logging and metrics
-│   └── monitoring/     # Performance monitoring
+│   ├── checkpoint/     # Checkpoint storage and management
+│   ├── config/         # Configuration system with inheritance and validation
+│   ├── container/      # Dependency injection container with lifecycle management
+│   ├── graph/          # LangGraph integration with workflow execution
+│   ├── history/        # History storage and service integration
+│   ├── llm/            # LLM client implementations with fallback mechanisms
+│   ├── logger/         # Logging system with multiple outputs and formatting
+│   ├── state/          # State management with history and snapshots
+│   ├── threads/        # Thread storage and metadata management
+│   └── tools/          # Tool system with validation and execution
 ├── application/         # Use cases and workflows (depends on domain and infrastructure)
-│   ├── sessions/       # Session management
-│   ├── workflow/       # Workflow orchestration
-│   ├── threads/        # Thread coordination
-│   └── history/        # History management
+│   ├── checkpoint/     # Checkpoint management and serialization
+│   ├── history/        # History management with adapters and token tracking
+│   ├── sessions/       # Session lifecycle management and event collection
+│   ├── threads/        # Thread coordination with branching and collaboration
+│   └── workflow/       # Workflow orchestration with templates and visualization
 └── presentation/       # UI and API interfaces (depends on all other layers)
-    ├── tui/           # Terminal user interface
-    ├── api/           # RESTful API
-    └── cli/           # Command line interface
+    ├── api/            # RESTful API with routers, services, and data access
+    ├── cli/            # Command line interface with error handling
+    └── tui/            # Terminal user interface with components and subviews
 ```
 
 ### Core Infrastructure Components
 
-1. **Dependency Injection Container** (`src/infrastructure/container.py`)
+1. **Dependency Injection Container** (`src/infrastructure/container/`)
    - Interface: `IDependencyContainer`
-   - Implementation: `DependencyContainer`, `OptimizedDependencyContainer`
+   - Implementation: `DependencyContainer`, `EnhancedContainer`
    - Manages service lifecycle (singleton, transient, scoped)
    - Supports multi-environment bindings (development, test, production)
    - Automatic dependency resolution with type hints
    - Circular dependency detection and prevention
    - Performance monitoring and caching
+   - Dependency analysis and optimization
    - Provides `get_service(service_type: Type[T]) -> T` method
 
-2. **Configuration Loader** (`src/infrastructure/config_loader.py`)
+2. **Configuration System** (`src/infrastructure/config/`)
    - Interface: `IConfigLoader`
    - Loads YAML configuration files with inheritance support
    - Environment variable substitution with `${VAR}` and `${VAR:default}` syntax
@@ -227,6 +235,8 @@ src/
    - Configuration caching for performance optimization
    - Configuration validation with Pydantic models
    - Multi-environment configuration support
+   - Error recovery and configuration merging
+   - Schema validation and redaction utilities
 
 3. **Environment Checker** (`src/infrastructure/environment.py`)
    - Interface: `IEnvironmentChecker`
@@ -244,6 +254,7 @@ src/
    - Rate limiting and request queuing
    - Plugin system for custom LLM integrations
    - Performance monitoring and metrics collection
+   - Enhanced frontend interface with hooks support
 
 5. **Tool System** (`src/infrastructure/tools/`)
    - Support for native Python tools, MCP tools, and built-in tools
@@ -252,6 +263,8 @@ src/
    - Tool execution management with error handling
    - Tool caching for performance optimization
    - Tool lifecycle management
+   - Validation system with multiple validator types
+   - CLI integration for tool validation
 
 6. **Workflow Engine** (`src/infrastructure/graph/`)
    - LangGraph integration with custom extensions
@@ -260,6 +273,9 @@ src/
    - Graph execution with checkpoint persistence
    - Workflow visualization and debugging support
    - Performance monitoring and optimization
+   - Hook system for workflow customization
+   - Async execution and enhanced builder patterns
+   - Edge management with conditional and simple edges
 
 7. **Session Management** (`src/application/sessions/`)
    - Session lifecycle management (create, update, delete)
@@ -267,6 +283,8 @@ src/
    - Checkpoint persistence and restoration
    - Session state serialization
    - Event collection and replay capabilities
+   - Git integration for session versioning
+   - Player functionality for session replay
 
 8. **History Management** (`src/infrastructure/history/`)
    - Complete conversation history storage
@@ -274,27 +292,58 @@ src/
    - History replay and analysis
    - Performance metrics collection
    - Storage optimization and compression
+   - Service integration for history management
+   - Hook integration for history tracking
 
-9. **Logging System** (`src/infrastructure/logger/`)
-   - Multi-output logging (console, file, JSON)
-   - Structured logging with rich formatting
-   - Log redaction for sensitive information
-   - Performance metrics collection
-   - Integration with monitoring systems
+9. **State Management** (`src/infrastructure/state/`)
+   - State management with history and snapshots
+   - SQLite backend for persistence
+   - History management and serialization
+   - Snapshot storage and restoration
+   - Enhanced state manager with collaboration features
 
-10. **TUI Interface** (`src/presentation/tui/`)
+10. **Thread Management** (`src/infrastructure/threads/`)
+    - Thread storage and metadata management
+    - Branch store for thread branching
+    - Cache manager for performance optimization
+    - Snapshot store for thread state preservation
+    - Metadata store for thread information
+
+11. **Checkpoint Management** (`src/infrastructure/checkpoint/`)
+    - Checkpoint storage and management
+    - Factory pattern for checkpoint creation
+    - Memory and SQLite storage backends
+    - Performance optimization
+    - Base store interfaces and implementations
+
+12. **Logging System** (`src/infrastructure/logger/`)
+    - Multi-output logging (console, file, JSON)
+    - Structured logging with rich formatting
+    - Log redaction for sensitive information
+    - Performance metrics collection
+    - Integration with monitoring systems
+    - Multiple formatters and handlers
+    - Config integration for logger configuration
+
+13. **TUI Interface** (`src/presentation/tui/`)
     - Rich terminal user interface with blessed
     - Real-time workflow visualization
     - Interactive session management
     - Component-based UI architecture
     - Event-driven interaction model
+    - Subview system for modular UI components
+    - Logger integration with multiple strategies
+    - Performance optimization and testing utilities
 
-11. **API Interface** (`src/presentation/api/`)
+14. **API Interface** (`src/presentation/api/`)
     - RESTful API with FastAPI framework
     - WebSocket support for real-time communication
     - Authentication and authorization
     - API documentation with OpenAPI
     - Rate limiting and request validation
+    - Data access layer with DAO pattern
+    - Service layer for business logic
+    - Router-based organization with caching support
 
 ### Configuration System
 
@@ -305,30 +354,79 @@ configs/
 ├── application.yaml     # Application-specific settings
 ├── history.yaml         # History and checkpoint configuration
 ├── prompts.yaml         # Prompt templates and system messages
+├── threads.yaml         # Thread management configuration
+├── checkpoints/         # Checkpoint configurations
+│   └── _group.yaml      # Checkpoint group configurations
+├── graphs/              # Graph and workflow example configurations
+│   ├── react_example.yaml
+│   └── react_with_hooks_example.yaml
+├── hooks/               # Hook configurations
+│   ├── _group.yaml      # Hook group configurations
+│   ├── agent_execution_node_hooks.yaml
+│   ├── global_hooks.yaml
+│   ├── llm_node_hooks.yaml
+│   └── tool_node_hooks.yaml
 ├── llms/                # Model configurations
 │   ├── _group.yaml      # Model group configurations
+│   ├── mock.yaml        # Mock LLM configuration
+│   ├── test_no_function_calling.yaml
 │   ├── provider/        # Provider-specific configurations
-│   │   ├── openai/      # OpenAI models (GPT-4, GPT-3.5)
+│   │   ├── anthropic/   # Anthropic models (Claude)
+│   │   │   ├── anthropic-claude.yaml
+│   │   │   ├── claude-sonnet.yaml
+│   │   │   └── common.yaml
 │   │   ├── gemini/      # Gemini models (Gemini Pro)
-│   │   └── anthropic/   # Anthropic models (Claude)
+│   │   │   ├── common.yaml
+│   │   │   └── gemini-pro.yaml
+│   │   ├── human_relay/ # Human relay models
+│   │   │   ├── common.yaml
+│   │   │   ├── human-relay-m.yaml
+│   │   │   └── human-relay-s.yaml
+│   │   └── openai/      # OpenAI models (GPT-4, GPT-3.5)
+│   │       ├── common.yaml
+│   │       ├── openai-gpt4-chat.yaml
+│   │       ├── openai-gpt4-responses.yaml
+│   │       └── openai-gpt4.yaml
 │   └── tokens_counter/  # Token counting configurations
-├── agents/              # Agent configurations
-│   ├── _group.yaml      # Agent group configurations
-│   ├── default.yaml     # Default agent configuration
-│   ├── advanced.yaml    # Advanced agent configuration
-│   └── data_analyst.yaml # Data analysis agent configuration
+│       ├── _group.yaml
+│       ├── anthropic_claude.yaml
+│       ├── gemini_pro.yaml
+│       └── openai_gpt4.yaml
+├── nodes/               # Node configurations
+│   └── _group.yaml
+├── prompts/             # Prompt templates and system messages
+│   ├── rules/           # Prompt rules
+│   │   ├── format.md
+│   │   └── safety.md
+│   ├── system/          # System prompts
+│   │   ├── assistant.md
+│   │   └── coder/
+│   │       ├── 01_code_style.md
+│   │       ├── 02_error_handling.md
+│   │       └── index.md
+│   └── user_commands/   # User command prompts
+│       ├── code_review.md
+│       └── data_analysis.md
 ├── tool-sets/           # Tool set configurations
 │   └── _group.yaml      # Tool set group configurations
 ├── tools/               # Individual tool configurations
 │   ├── calculator.yaml  # Calculator tool
 │   ├── database.yaml    # Database tool
+│   ├── fetch.yaml       # Fetch tool
+│   ├── hash_convert.yaml # Hash convert tool
+│   ├── sequentialthinking.yaml # Sequential thinking tool
 │   └── weather.yaml     # Weather tool
 └── workflows/           # Workflow configurations
-    ├── base_workflow.yaml    # Base workflow template
-    ├── react_workflow.yaml   # ReAct workflow
-    ├── plan_execute.yaml     # Plan-Execute workflow
-    ├── collaborative.yaml    # Collaborative workflow
-    └── human_review.yaml     # Human review workflow
+    ├── base_workflow.yaml        # Base workflow template
+    ├── react_workflow.yaml       # ReAct workflow
+    ├── react_agent_workflow.yaml  # React agent workflow
+    ├── plan_execute.yaml        # Plan-Execute workflow
+    ├── plan_execute_agent_workflow.yaml # Plan-Execute agent workflow
+    ├── collaborative.yaml       # Collaborative workflow
+    ├── human_review.yaml        # Human review workflow
+    ├── bad_example_workflow.yaml # Bad example workflow
+    ├── connectivity_test_workflow.yaml # Connectivity test workflow
+    └── react.yaml              # React configuration
 ```
 
 Key features:
@@ -500,54 +598,76 @@ graph TD
         E[Workflow Orchestration]
         F[Thread Coordination]
         G[History Management]
+        H[Checkpoint Management]
     end
     
     subgraph Domain Layer
-        H[Thread Interfaces]
-        I[Tool Interfaces]
-        J[Session Interfaces]
+        I[Checkpoint Interfaces]
+        J[History Interfaces]
+        K[Thread Interfaces]
+        L[Tool Interfaces]
+        M[Session Interfaces]
+        N[State Interfaces]
+        O[Workflow Entities]
+        P[Prompts System]
     end
     
     subgraph Infrastructure Layer
-        K[Dependency Injection]
-        L[Configuration System]
-        M[LLM Integration]
-        N[Tool System]
-        O[Workflow Engine]
-        P[History Storage]
-        Q[Logging & Metrics]
+        Q[Dependency Injection]
+        R[Configuration System]
+        S[LLM Integration]
+        T[Tool System]
+        U[Workflow Engine]
+        V[History Storage]
+        W[Logging & Metrics]
+        X[State Management]
+        Y[Thread Storage]
+        Z[Checkpoint Storage]
     end
     
     A --> D
     B --> D
     C --> D
-    D --> H
-    E --> H
-    F --> H
-    G --> H
-    H --> K
-    I --> K
-    J --> K
-    K --> L
-    K --> M
-    K --> N
-    K --> O
-    K --> P
+    D --> M
+    E --> O
+    F --> K
+    G --> J
+    H --> I
+    I --> Q
+    J --> Q
     K --> Q
-    L --> M
-    L --> N
-    L --> O
-    M --> E
-    N --> E
-    O --> E
-    P --> G
-    Q --> A
-    Q --> B
-    Q --> C
-    Q --> D
-    Q --> E
-    Q --> F
-    Q --> G
+    L --> Q
+    M --> Q
+    N --> Q
+    O --> Q
+    P --> Q
+    Q --> R
+    Q --> S
+    Q --> T
+    Q --> U
+    Q --> V
+    Q --> W
+    Q --> X
+    Q --> Y
+    Q --> Z
+    R --> S
+    R --> T
+    R --> U
+    S --> E
+    T --> E
+    U --> E
+    V --> G
+    W --> A
+    W --> B
+    W --> C
+    W --> D
+    W --> E
+    W --> F
+    W --> G
+    W --> H
+    X --> N
+    Y --> F
+    Z --> H
 ```
 
 ### Service Registration Patterns
@@ -594,8 +714,11 @@ parameters:
 from src.infrastructure.exceptions import (
     InfrastructureError,
     ServiceNotRegisteredError,
+    ServiceCreationError,
+    CircularDependencyError,
     ConfigurationError,
-    EnvironmentCheckError
+    EnvironmentCheckError,
+    ArchitectureViolationError
 )
 
 try:
@@ -603,9 +726,21 @@ try:
 except ServiceNotRegisteredError as e:
     logger.error(f"Service not registered: {e}")
     # Handle missing service
+except ServiceCreationError as e:
+    logger.error(f"Service creation error: {e}")
+    # Handle service instantiation problems
+except CircularDependencyError as e:
+    logger.error(f"Circular dependency detected: {e}")
+    # Handle dependency cycle issues
 except ConfigurationError as e:
     logger.error(f"Configuration error: {e}")
     # Handle configuration issues
+except EnvironmentCheckError as e:
+    logger.error(f"Environment check error: {e}")
+    # Handle environment validation failures
+except ArchitectureViolationError as e:
+    logger.error(f"Architecture violation: {e}")
+    # Handle layer dependency violations
 except InfrastructureError as e:
     logger.error(f"Infrastructure error: {e}")
     # Handle other infrastructure errors
