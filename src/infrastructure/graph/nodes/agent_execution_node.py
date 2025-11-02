@@ -10,6 +10,7 @@ from ..registry import BaseNode, NodeExecutionResult, node
 from src.domain.agent.state import AgentState
 from src.domain.agent import IAgentManager, IAgentEventManager, AgentEvent
 from src.infrastructure.container import IDependencyContainer
+from ..node_config_loader import get_node_config_loader
 
 
 @node("agent_execution_node")
@@ -41,8 +42,12 @@ class AgentExecutionNode(BaseNode):
         Returns:
             NodeExecutionResult: 执行结果
         """
+        # 合并默认配置和运行时配置
+        config_loader = get_node_config_loader()
+        merged_config = config_loader.merge_configs(self.node_type, config)
+        
         # 获取Agent管理器
-        agent_manager = self._get_agent_manager(config)
+        agent_manager = self._get_agent_manager(merged_config)
         
         # 获取事件管理器
         event_manager = self._get_event_manager()
@@ -51,13 +56,13 @@ class AgentExecutionNode(BaseNode):
         if event_manager:
             event_manager.publish(AgentEvent.EXECUTION_STARTED, {
                 "node_type": "agent_execution_node",
-                "agent_id": state.context.get("current_agent_id", config.get("default_agent_id", "default_agent")),
+                "agent_id": state.context.get("current_agent_id", merged_config.get("default_agent_id", "default_agent")),
                 "state": state,
-                "config": config
+                "config": merged_config
             })
         
         # 根据当前状态选择合适的Agent
-        agent_id = state.context.get("current_agent_id", config.get("default_agent_id", "default_agent"))
+        agent_id = state.context.get("current_agent_id", merged_config.get("default_agent_id", "default_agent"))
         
         # 执行Agent
         try:
@@ -227,10 +232,20 @@ class AgentExecutionNode(BaseNode):
         if state.iteration_count >= state.max_iterations:
             return True
         
+        # 从配置获取任务完成指示词
+        config_loader = get_node_config_loader()
+        completion_indicators = config_loader.get_config_value(
+            self.node_type,
+            "task_completion_indicators",
+            ["task_completed", "任务完成", "已完成"]
+        )
+        
         # 检查状态中是否有完成标记
         for message in state.messages:
-            if "task_completed" in message.content.lower() if hasattr(message, 'content') else False:
-                return True
+            if hasattr(message, 'content'):
+                content_lower = message.content.lower()
+                if any(indicator.lower() in content_lower for indicator in completion_indicators):
+                    return True
         
         return False
     
@@ -244,8 +259,12 @@ class AgentExecutionNode(BaseNode):
         Returns:
             bool: 是否需要切换Agent
         """
+        # 合并默认配置和运行时配置
+        config_loader = get_node_config_loader()
+        merged_config = config_loader.merge_configs(self.node_type, config)
+        
         # 根据配置的策略决定是否需要切换Agent
-        strategy = config.get("agent_selection_strategy", "config_based")
+        strategy = merged_config.get("agent_selection_strategy", "config_based")
         
         if strategy == "context_based":
             # 基于上下文决定是否切换

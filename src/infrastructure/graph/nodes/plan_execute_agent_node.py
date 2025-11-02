@@ -11,6 +11,7 @@ from src.domain.agent.config import AgentConfig
 from src.infrastructure.llm.interfaces import ILLMClient
 from src.domain.tools.interfaces import IToolExecutor
 from src.domain.agent.events import AgentEventManager
+from ..node_config_loader import get_node_config_loader
 import asyncio
 
 
@@ -34,8 +35,6 @@ class PlanExecuteAgentNode(BaseNode):
             tool_executor: 工具执行器实例
             event_manager: 事件管理器实例
         """
-        if tool_executor is None:
-            raise ValueError("tool_executor不能为None")
         self._llm_client = llm_client
         self._tool_executor = tool_executor
         self._event_manager = event_manager or AgentEventManager()
@@ -56,8 +55,12 @@ class PlanExecuteAgentNode(BaseNode):
         Returns:
             NodeExecutionResult: 执行结果
         """
+        # 合并默认配置和运行时配置
+        config_loader = get_node_config_loader()
+        merged_config = config_loader.merge_configs(self.node_type, config)
+        
         # 创建或获取Plan-Execute Agent实例
-        agent = self._get_or_create_agent(config)
+        agent = self._get_or_create_agent(merged_config)
         
         # 执行Agent逻辑
         try:
@@ -172,12 +175,17 @@ class PlanExecuteAgentNode(BaseNode):
             PlanExecuteAgent: Agent实例
         """
         if self._agent is None:
+            # 检查是否有必需的工具执行器
+            if self._tool_executor is None:
+                raise ValueError("tool_executor不能为None，请在创建节点时提供或通过依赖注入获取")
+            
             # 创建Agent配置
             agent_config = AgentConfig(
                 name=config.get("name", "plan_execute_agent"),
                 agent_type="plan_execute",
                 system_prompt=config.get("system_prompt", "你是一个使用Plan-Execute算法的智能助手，先制定计划然后逐步执行。"),
                 max_iterations=config.get("max_iterations", 10),
+                max_steps=config.get("max_steps", 7),
                 tools=config.get("tools", []),
                 tool_sets=config.get("tool_sets", []),
                 llm=config.get("llm_client", "default")

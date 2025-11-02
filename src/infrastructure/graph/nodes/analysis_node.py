@@ -11,6 +11,7 @@ from src.domain.agent.state import AgentState, AgentMessage
 from src.infrastructure.llm.interfaces import ILLMClient
 from src.infrastructure.container import IDependencyContainer
 from src.infrastructure.graph.adapters import get_state_adapter, get_message_adapter
+from ..node_config_loader import get_node_config_loader
 
 
 @node("analysis_node")
@@ -40,15 +41,19 @@ class AnalysisNode(BaseNode):
         Returns:
             NodeExecutionResult: 执行结果
         """
+        # 合并默认配置和运行时配置
+        config_loader = get_node_config_loader()
+        merged_config = config_loader.merge_configs(self.node_type, config)
+        
         # 获取LLM客户端
-        llm_client = self._get_llm_client(config)
+        llm_client = self._get_llm_client(merged_config)
         
         # 构建系统提示词
-        system_prompt = config.get("system_prompt", self._get_default_system_prompt())
+        system_prompt = merged_config.get("system_prompt", self._get_default_system_prompt())
         
         # 检查是否需要调用工具
-        max_tokens = config.get("max_tokens", 2000)
-        temperature = config.get("temperature", 0.7)
+        max_tokens = merged_config.get("max_tokens", 2000)
+        temperature = merged_config.get("temperature", 0.7)
         
         # 准备消息
         messages = self._prepare_messages(state, system_prompt)
@@ -204,7 +209,11 @@ class AnalysisNode(BaseNode):
 
     def _get_default_system_prompt(self) -> str:
         """获取默认系统提示词"""
-        return """你是一个智能助手，负责分析用户输入并决定是否需要调用工具。
+        config_loader = get_node_config_loader()
+        return config_loader.get_config_value(
+            self.node_type,
+            "system_prompt",
+            """你是一个智能助手，负责分析用户输入并决定是否需要调用工具。
 
 请根据用户的请求：
 1. 如果需要获取外部信息或执行操作，请调用相应的工具
@@ -212,6 +221,7 @@ class AnalysisNode(BaseNode):
 3. 始终保持友好和专业的语调
 
 分析用户意图后，选择最合适的行动。"""
+        )
 
     def _prepare_messages(self, state: AgentState, system_prompt: str) -> list:
         """准备发送给LLM的消息
@@ -329,6 +339,11 @@ class AnalysisNode(BaseNode):
         Returns:
             bool: 是否包含工具调用指示
         """
-        tool_keywords = ["我需要", "让我查询", "让我搜索", "我需要调用", "工具", "查询", "搜索"]
+        config_loader = get_node_config_loader()
+        tool_keywords = config_loader.get_config_value(
+            self.node_type,
+            "tool_keywords",
+            ["我需要", "让我查询", "让我搜索", "我需要调用", "工具", "查询", "搜索"]
+        )
         content_lower = content.lower()
         return any(keyword in content_lower for keyword in tool_keywords)

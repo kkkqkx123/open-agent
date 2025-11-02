@@ -1,0 +1,125 @@
+# 节点配置组定义
+# 定义所有节点类型的默认配置
+
+# 分析节点默认配置
+analysis_node:
+  # LLM配置
+  max_tokens: 2000
+  temperature: 0.7
+  
+  # 系统提示词
+  system_prompt: |
+    你是一个智能助手，负责分析用户输入并决定是否需要调用工具。
+    
+    请根据用户的请求：
+    1. 如果需要获取外部信息或执行操作，请调用相应的工具
+    2. 如果可以直接回答，请提供详细的回答
+    3. 始终保持友好和专业的语调
+    
+    分析用户意图后，选择最合适的行动。
+  
+  # 工具调用阈值
+  tool_threshold: 0.5
+  
+  # 工具调用关键词
+  tool_keywords:
+    - "我需要"
+    - "让我查询"
+    - "让我搜索"
+    - "我需要调用"
+    - "工具"
+    - "查询"
+    - "搜索"
+
+# LLM节点默认配置
+llm_node:
+  # LLM参数
+  max_tokens: 2000
+  temperature: 0.7
+  top_p: 1.0
+  frequency_penalty: 0.0
+  presence_penalty: 0.0
+  
+  # 上下文配置
+  context_window_size: 4000
+  max_message_history: 10
+  
+  # 系统提示词
+  system_prompt: |
+    你是一个智能助手，请根据上下文信息提供准确、有用的回答。
+    
+    请遵循以下原则：
+    1. 基于提供的工具执行结果和上下文信息回答问题
+    2. 如果信息不足，请明确说明需要什么额外信息
+    3. 保持回答简洁明了，重点突出
+    4. 如果有多个步骤的结果，请按逻辑顺序组织回答
+    5. 始终保持友好和专业的语调
+  
+  # 工具结果配置
+  include_tool_results: true
+  
+  # 后续处理指示词
+  follow_up_indicators:
+    - "需要更多信息"
+    - "无法确定"
+    - "需要进一步分析"
+    - "建议查询"
+    - "让我确认"
+
+# 工具节点默认配置
+tool_node:
+  # 执行配置
+  timeout: 30
+  max_parallel_calls: 1
+  retry_on_failure: false
+  max_retries: 3
+  continue_on_error: true
+  
+  # 工具调用解析配置
+  parse_tool_calls_from_text: true
+  
+  # 键值对解析模式
+  key_value_pattern: "(\\w+)\\s*[:=]\\s*[\"']?([^\"'\\s,]+)[\"']?"
+
+# Plan-Execute Agent节点默认配置
+plan_execute_agent_node:
+  # Agent配置
+  name: "plan_execute_agent"
+  system_prompt: |
+    你是一个使用Plan-Execute算法的智能助手，先制定计划然后逐步执行。
+  
+  # 执行限制
+  max_iterations: 10
+  max_steps: 7
+  
+  # 执行控制
+  continue_on_plan_generated: true
+  
+  # 错误处理
+  next_node_on_error: "error_handler"
+
+# ReAct Agent节点默认配置
+react_agent_node:
+  # Agent配置
+  name: "react_agent"
+  system_prompt: |
+    你是一个使用ReAct算法的智能助手，通过推理和行动来解决问题。
+  
+  # 执行限制
+  max_iterations: 10
+  
+  # 错误处理
+  next_node_on_error: "error_handler"
+
+# Agent执行节点默认配置
+agent_execution_node:
+  # Agent选择配置
+  default_agent_id: "default_agent"
+  agent_selection_strategy: "config_based"
+  fallback_agent_id: "default_agent"
+  
+  # 任务完成判断
+  task_completion_indicators:
+    - "task_completed"
+    - "任务完成"
+    - "已完成"

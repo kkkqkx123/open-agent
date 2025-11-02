@@ -104,7 +104,7 @@ class BaseErrorHandler(IErrorHandler):
             handler = self._custom_error_handlers[error_type]
             # 尝试传递上下文参数，如果处理器不支持则使用旧方式
             try:
-                llm_error = handler(error, context)
+                llm_error = handler(error)
             except TypeError:
                 llm_error = handler(error)
                 # 确保错误对象包含原始错误和上下文

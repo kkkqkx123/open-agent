@@ -10,6 +10,7 @@ from ..registry import BaseNode, NodeExecutionResult, node
 from src.domain.agent.state import AgentState, AgentMessage
 from src.infrastructure.llm.interfaces import ILLMClient
 from src.infrastructure.graph.adapters import get_state_adapter, get_message_adapter
+from ..node_config_loader import get_node_config_loader
 
 
 # SimpleAIMessage removed - using AgentMessage directly
@@ -42,17 +43,21 @@ class LLMNode(BaseNode):
         Returns:
             NodeExecutionResult: 执行结果
         """
+        # 合并默认配置和运行时配置
+        config_loader = get_node_config_loader()
+        merged_config = config_loader.merge_configs(self.node_type, config)
+        
         # 获取LLM客户端
-        llm_client = self._get_llm_client(config)
+        llm_client = self._get_llm_client(merged_config)
         
         # 构建系统提示词
-        system_prompt = self._build_system_prompt(state, config)
+        system_prompt = self._build_system_prompt(state, merged_config)
         
         # 准备消息
         messages = self._prepare_messages(state, system_prompt)
         
         # 设置生成参数
-        parameters = self._prepare_parameters(config)
+        parameters = self._prepare_parameters(merged_config)
         
         # 调用LLM
         response = llm_client.generate(messages=messages, parameters=parameters)
@@ -267,7 +272,11 @@ class LLMNode(BaseNode):
 
     def _get_default_system_prompt(self) -> str:
         """获取默认系统提示词"""
-        return """你是一个智能助手，请根据上下文信息提供准确、有用的回答。
+        config_loader = get_node_config_loader()
+        return config_loader.get_config_value(
+            self.node_type,
+            "system_prompt",
+            """你是一个智能助手，请根据上下文信息提供准确、有用的回答。
 
 请遵循以下原则：
 1. 基于提供的工具执行结果和上下文信息回答问题
@@ -275,6 +284,7 @@ class LLMNode(BaseNode):
 3. 保持回答简洁明了，重点突出
 4. 如果有多个步骤的结果，请按逻辑顺序组织回答
 5. 始终保持友好和专业的语调"""
+        )
 
     def _format_tool_results(self, tool_results: List) -> str:
         """格式化工具执行结果
@@ -348,10 +358,10 @@ class LLMNode(BaseNode):
         return messages
 
     def _truncate_messages_for_context(
-        self, 
-        messages: List, 
+        self,
+        messages: List,
         system_prompt: str,
-        max_context_tokens: int = 4000
+        max_context_tokens: Optional[int] = None
     ) -> List:
         """根据上下文窗口大小截断消息
 
@@ -363,13 +373,22 @@ class LLMNode(BaseNode):
         Returns:
             List: 截断后的消息列表
         """
+        # 从配置获取上下文窗口大小和消息历史限制
+        config_loader = get_node_config_loader()
+        context_window_size = max_context_tokens or config_loader.get_config_value(
+            self.node_type, "context_window_size", 4000
+        )
+        max_message_history = config_loader.get_config_value(
+            self.node_type, "max_message_history", 10
+        )
+        
         # 简单实现：保留最近的消息
         # 实际实现应该计算token数量
-        if len(messages) <= 10:  # 简单的消息数量限制
+        if len(messages) <= max_message_history:
             return messages
         
         # 保留系统消息和最近的消息
-        return messages[-10:]
+        return messages[-max_message_history:]
 
     def _prepare_parameters(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """准备LLM生成参数
@@ -432,14 +451,19 @@ class LLMNode(BaseNode):
         Returns:
             bool: 是否需要进一步处理
         """
-        # 简单的启发式判断
-        follow_up_indicators = [
-            "需要更多信息",
-            "无法确定",
-            "需要进一步分析",
-            "建议查询",
-            "让我确认"
-        ]
+        # 从配置获取后续处理指示词
+        config_loader = get_node_config_loader()
+        follow_up_indicators = config_loader.get_config_value(
+            self.node_type,
+            "follow_up_indicators",
+            [
+                "需要更多信息",
+                "无法确定",
+                "需要进一步分析",
+                "建议查询",
+                "让我确认"
+            ]
+        )
         
         content_lower = content.lower()
         return any(indicator in content_lower for indicator in follow_up_indicators)

@@ -10,6 +10,7 @@ from ..registry import BaseNode, NodeExecutionResult, node
 from src.domain.agent.state import AgentState
 from src.domain.tools.interfaces import ITool, IToolRegistry, ToolCall, ToolResult
 from src.infrastructure.graph.adapters import get_state_adapter, get_message_adapter
+from ..node_config_loader import get_node_config_loader
 
 
 @node("tool_node")
@@ -39,11 +40,15 @@ class ToolNode(BaseNode):
         Returns:
             NodeExecutionResult: 执行结果
         """
+        # 合并默认配置和运行时配置
+        config_loader = get_node_config_loader()
+        merged_config = config_loader.merge_configs(self.node_type, config)
+        
         # 获取工具管理器
-        tool_manager = self._get_tool_manager(config)
+        tool_manager = self._get_tool_manager(merged_config)
         
         # 解析工具调用
-        tool_calls = self._extract_tool_calls(state, config)
+        tool_calls = self._extract_tool_calls(state, merged_config)
         
         if not tool_calls:
             # 没有工具调用，直接返回
@@ -60,7 +65,7 @@ class ToolNode(BaseNode):
         for tool_call in tool_calls:
             try:
                 # 设置超时
-                timeout = config.get("timeout", 30)
+                timeout = merged_config.get("timeout", 30)
                 if tool_call.timeout:
                     timeout = tool_call.timeout
                 
@@ -382,8 +387,14 @@ class ToolNode(BaseNode):
         """
         import re
         
-        # 匹配键值对，支持引号
-        pattern = r'(\w+)\s*[:=]\s*["\']?([^"\'\s,]+)["\']?'
+        # 从配置获取键值对解析模式
+        config_loader = get_node_config_loader()
+        pattern_str = config_loader.get_config_value(
+            self.node_type,
+            "key_value_pattern",
+            r'(\w+)\s*[:=]\s*["\']?([^"\'\s,]+)["\']?'
+        )
+        pattern = re.compile(pattern_str)
         matches = re.findall(pattern, args_str)
         
         arguments = {}
@@ -409,9 +420,9 @@ class ToolNode(BaseNode):
             return False
 
     def _determine_next_node(
-        self, 
-        tool_results: List[ToolResult], 
-        execution_errors: List[str], 
+        self,
+        tool_results: List[ToolResult],
+        execution_errors: List[str],
         config: Dict[str, Any]
     ) -> Optional[str]:
         """确定下一个节点
@@ -424,8 +435,12 @@ class ToolNode(BaseNode):
         Returns:
             Optional[str]: 下一个节点名称
         """
+        # 合并默认配置和运行时配置
+        config_loader = get_node_config_loader()
+        merged_config = config_loader.merge_configs(self.node_type, config)
+        
         # 如果有错误且配置为不继续执行，返回分析节点
-        if execution_errors and not config.get("continue_on_error", True):
+        if execution_errors and not merged_config.get("continue_on_error", True):
             return "analyze"
         
         # 如果所有工具都成功执行，返回分析节点进行下一步分析
@@ -433,7 +448,7 @@ class ToolNode(BaseNode):
             return "analyze"
         
         # 如果有部分失败但配置为继续，也返回分析节点
-        if execution_errors and config.get("continue_on_error", True):
+        if execution_errors and merged_config.get("continue_on_error", True):
             return "analyze"
         
         # 默认返回分析节点
