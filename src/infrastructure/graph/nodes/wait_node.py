@@ -93,9 +93,11 @@ class WaitNode(BaseNode):
         self._active_waits[wait_id] = wait_state
         
         # 添加等待消息到状态
+        wait_content = f"⏳ {wait_message}"
+        wait_role = 'system'
         wait_msg = AgentMessage(
-            content=f"⏳ {wait_message}",
-            role='system'
+            content=wait_content,
+            role=wait_role
         )
         state.messages.append(wait_msg)
         
@@ -175,9 +177,11 @@ class WaitNode(BaseNode):
         else:
             resume_value = state.custom_fields.get(auto_resume_key)
         
+        resume_content = f"✅ 收到外部输入，恢复执行: {resume_value}"
+        resume_role = 'system'
         resume_msg = AgentMessage(
-            content=f"✅ 收到外部输入，恢复执行: {resume_value}",
-            role='system'
+            content=resume_content,
+            role=resume_role
         )
         state.messages.append(resume_msg)
         
@@ -239,9 +243,11 @@ class WaitNode(BaseNode):
     def _handle_continue_waiting(self, state: AgentState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
         """处理继续等待策略"""
         # 添加超时提示消息
+        timeout_content = f"⚠️ 等待超时 ({config.get('timeout_seconds', 300)}秒)，继续等待..."
+        timeout_role = 'system'
         timeout_msg = AgentMessage(
-            content=f"⚠️ 等待超时 ({config.get('timeout_seconds', 300)}秒)，继续等待...",
-            role='system'
+            content=timeout_content,
+            role=timeout_role
         )
         state.messages.append(timeout_msg)
         
@@ -270,9 +276,11 @@ class WaitNode(BaseNode):
         }
         
         # 添加退出消息
+        exit_content = f"💾 等待超时，状态已缓存，任务暂停。可稍后恢复执行。"
+        exit_role = 'system'
         exit_msg = AgentMessage(
-            content=f"💾 等待超时，状态已缓存，任务暂停。可稍后恢复执行。",
-            role='system'
+            content=exit_content,
+            role=exit_role
         )
         state.messages.append(exit_msg)
         
@@ -294,9 +302,11 @@ class WaitNode(BaseNode):
     def _handle_llm_continue(self, state: AgentState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
         """处理LLM继续策略"""
         # 添加超时提示消息
+        timeout_content = f"⚠️ 等待超时，将自动继续之前的任务。"
+        timeout_role = 'system'
         timeout_msg = AgentMessage(
-            content=f"⚠️ 等待超时，将自动继续之前的任务。",
-            role='system'
+            content=timeout_content,
+            role=timeout_role
         )
         state.messages.append(timeout_msg)
         

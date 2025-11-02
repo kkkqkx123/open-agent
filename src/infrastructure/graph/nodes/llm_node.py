@@ -63,9 +63,11 @@ class LLMNode(BaseNode):
             # 如果response有message属性，检查其类型
             if hasattr(response.message, 'content'):
                 # 如果message有content属性，使用它
+                message_content = getattr(response.message, 'content', response.content)
+                message_role = getattr(response.message, 'role', 'ai')
                 compatible_message = AgentMessage(
-                    content=str(response.message.content),
-                    role='ai'
+                    content=str(message_content),
+                    role=str(message_role)
                 )
             else:
                 # 否则使用response的content

@@ -14,7 +14,7 @@ from src.infrastructure.config_loader import IConfigLoader
 from src.infrastructure.exceptions import InfrastructureError
 from src.infrastructure.logger.logger import ILogger
 from .interfaces import IToolManager, IToolLoader, IToolAdapter, IToolCache
-from src.domain.tools.interfaces import ITool
+from src.domain.tools.interfaces import ITool, IToolRegistry
 from src.domain.tools.types.native_tool import NativeTool
 from src.domain.tools.types.mcp_tool import MCPTool
 from src.domain.tools.types.builtin_tool import BuiltinTool
@@ -29,7 +29,7 @@ from .config import (
 # 从loaders模块导入DefaultToolLoader
 
 
-class ToolManager(IToolManager):
+class ToolManager(IToolManager, IToolRegistry):
     """工具管理器实现
 
     负责工具的加载、注册、查询和管理。
@@ -340,6 +340,21 @@ class ToolManager(IToolManager):
             self.load_tools()
 
         return list(self._tool_sets.keys())
+
+    def unregister_tool(self, name: str) -> bool:
+        """注销工具
+
+        Args:
+            name: 工具名称
+
+        Returns:
+            bool: 是否成功注销
+        """
+        if name in self._tools:
+            del self._tools[name]
+            self.logger.info(f"已注销工具: {name}")
+            return True
+        return False
 
     def reload_tools(self) -> List[ITool]:
         """重新加载所有工具

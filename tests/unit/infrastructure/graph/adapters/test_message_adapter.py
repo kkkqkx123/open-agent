@@ -1,4 +1,4 @@
-"""消息适配器测试用例"""
+"""消息适配器单元测试"""
 
 import pytest
 from datetime import datetime
@@ -9,33 +9,31 @@ from src.infrastructure.graph.adapters.message_adapter import MessageAdapter
 
 
 class TestMessageAdapter:
-    """消息适配器测试类"""
-    
-    def test_to_graph_message_user(self):
-        """测试用户消息转换"""
-        adapter = MessageAdapter()
-        
+    """消息适配器测试"""
+
+    @pytest.fixture
+    def adapter(self):
+        """创建消息适配器实例"""
+        return MessageAdapter()
+
+    def test_to_graph_message_user(self, adapter):
+        """测试转换域层用户消息为图系统消息"""
         # 创建域层用户消息
         domain_message = DomainAgentMessage(
             content="用户消息内容",
             role="user",
-            timestamp=datetime.now(),
-            metadata={"key": "value"}
+            timestamp=datetime.now()
         )
         
-        # 转换为图消息
+        # 转换
         graph_message = adapter.to_graph_message(domain_message)
         
-        # 验证转换结果
-        # 现在始终使用LangChain消息类型
+        # 验证
         assert isinstance(graph_message, LCHumanMessage)
         assert graph_message.content == "用户消息内容"
-        assert graph_message.type == "human"
-    
-    def test_to_graph_message_assistant(self):
-        """测试助手消息转换"""
-        adapter = MessageAdapter()
-        
+
+    def test_to_graph_message_assistant(self, adapter):
+        """测试转换域层助手消息为图系统消息"""
         # 创建域层助手消息
         domain_message = DomainAgentMessage(
             content="助手消息内容",
@@ -47,15 +45,11 @@ class TestMessageAdapter:
         graph_message = adapter.to_graph_message(domain_message)
         
         # 验证转换结果
-        # 现在始终使用LangChain消息类型
         assert isinstance(graph_message, LCAIMessage)
         assert graph_message.content == "助手消息内容"
-        assert graph_message.type == "ai"
-    
-    def test_to_graph_message_system(self):
-        """测试系统消息转换"""
-        adapter = MessageAdapter()
-        
+
+    def test_to_graph_message_system(self, adapter):
+        """测试转换域层系统消息为图系统消息"""
         # 创建域层系统消息
         domain_message = DomainAgentMessage(
             content="系统消息内容",
@@ -67,105 +61,81 @@ class TestMessageAdapter:
         graph_message = adapter.to_graph_message(domain_message)
         
         # 验证转换结果
-        # 现在始终使用LangChain消息类型
         assert isinstance(graph_message, LCSystemMessage)
         assert graph_message.content == "系统消息内容"
-        assert graph_message.type == "system"
-    
-    def test_to_graph_message_tool(self):
-        """测试工具消息转换"""
-        adapter = MessageAdapter()
-        
+
+    def test_to_graph_message_tool(self, adapter):
+        """测试转换域层工具消息为图系统消息"""
         # 创建域层工具消息
         domain_message = DomainAgentMessage(
             content="工具消息内容",
             role="tool",
             timestamp=datetime.now(),
-            metadata={"tool_call_id": "test-123"}
+            metadata={"tool_call_id": "123"}
         )
         
         # 转换为图消息
         graph_message = adapter.to_graph_message(domain_message)
         
-        # 现在始终使用LangChain消息类型
+        # 验证
         assert isinstance(graph_message, LCToolMessage)
         assert graph_message.content == "工具消息内容"
-        assert graph_message.type == "tool"
-        if hasattr(graph_message, 'tool_call_id'):
-            assert graph_message.tool_call_id == "test-123"
-    
-    def test_from_graph_message_human(self):
-        """测试从图消息转换回域消息 - 人类消息"""
-        adapter = MessageAdapter()
+
+    def test_from_graph_message_human(self, adapter):
+        """测试转换图系统用户消息为域层消息"""
+        # 创建图系统用户消息
+        graph_message = LCHumanMessage(content="用户消息")
         
-        # 创建图人类消息
-        # 现在始终使用LangChain消息类型
-        graph_message = LCHumanMessage(content="用户消息内容")
-        
-        # 转换为域消息
+        # 转换
         domain_message = adapter.from_graph_message(graph_message)
         
         # 验证转换结果
         assert isinstance(domain_message, DomainAgentMessage)
-        assert domain_message.content == "用户消息内容"
+        assert domain_message.content == "用户消息"
         assert domain_message.role == "user"
-        assert domain_message.metadata == {}
-    
-    def test_from_graph_message_ai(self):
-        """测试从图消息转换回域消息 - AI消息"""
-        adapter = MessageAdapter()
+
+    def test_from_graph_message_ai(self, adapter):
+        """测试转换图系统AI消息为域层消息"""
+        # 创建图系统AI消息
+        graph_message = LCAIMessage(content="助手回复")
         
-        # 创建图AI消息
-        # 现在始终使用LangChain消息类型
-        graph_message = LCAIMessage(content="助手消息内容")
-        
-        # 转换为域消息
+        # 转换
         domain_message = adapter.from_graph_message(graph_message)
         
         # 验证转换结果
         assert isinstance(domain_message, DomainAgentMessage)
-        assert domain_message.content == "助手消息内容"
+        assert domain_message.content == "助手回复"
         assert domain_message.role == "assistant"
-        assert domain_message.metadata == {}
-    
-    def test_from_graph_message_system(self):
-        """测试从图消息转换回域消息 - 系统消息"""
-        adapter = MessageAdapter()
+
+    def test_from_graph_message_system(self, adapter):
+        """测试转换图系统系统消息为域层消息"""
+        # 创建图系统系统消息
+        graph_message = LCSystemMessage(content="系统指令")
         
-        # 创建图系统消息
-        # 现在始终使用LangChain消息类型
-        graph_message = LCSystemMessage(content="系统消息内容")
-        
-        # 转换为域消息
+        # 转换
         domain_message = adapter.from_graph_message(graph_message)
         
         # 验证转换结果
         assert isinstance(domain_message, DomainAgentMessage)
-        assert domain_message.content == "系统消息内容"
+        assert domain_message.content == "系统指令"
         assert domain_message.role == "system"
-        assert domain_message.metadata == {}
-    
-    def test_from_graph_message_tool(self):
-        """测试从图消息转换回域消息 - 工具消息"""
-        adapter = MessageAdapter()
+
+    def test_from_graph_message_tool(self, adapter):
+        """测试转换图系统工具消息为域层消息"""
+        # 创建图系统工具消息
+        graph_message = LCToolMessage(content="工具结果", tool_call_id="123")
         
-        # 创建图工具消息
-        # 现在始终使用LangChain消息类型
-        graph_message = LCToolMessage(content="工具消息内容", tool_call_id="test-456")
-        
-        # 转换为域消息
+        # 转换
         domain_message = adapter.from_graph_message(graph_message)
         
         # 验证转换结果
         assert isinstance(domain_message, DomainAgentMessage)
-        assert domain_message.content == "工具消息内容"
+        assert domain_message.content == "工具结果"
         assert domain_message.role == "tool"
-        assert domain_message.metadata == {"tool_call_id": "test-456"}
-    
-    def test_batch_message_conversion(self):
+        assert domain_message.metadata.get("tool_call_id") == "123"
+
+    def test_batch_message_conversion(self, adapter):
         """测试批量消息转换"""
-        adapter = MessageAdapter()
-        
         # 创建域层消息列表
         domain_messages = [
             DomainAgentMessage(content="消息1", role="user"),
@@ -174,12 +144,11 @@ class TestMessageAdapter:
             DomainAgentMessage(content="消息4", role="tool", metadata={"tool_call_id": "123"})
         ]
         
-        # 批量转换为图消息
+        # 批量转换为图系统消息
         graph_messages = adapter.to_graph_messages(domain_messages)
         
         # 验证转换结果
         assert len(graph_messages) == 4
-        # 现在始终使用LangChain消息类型
         assert isinstance(graph_messages[0], LCHumanMessage)
         assert isinstance(graph_messages[1], LCAIMessage)
         assert isinstance(graph_messages[2], LCSystemMessage)
@@ -195,7 +164,7 @@ class TestMessageAdapter:
         assert converted_back[2].role == "system"
         assert converted_back[3].role == "tool"
         assert converted_back[3].metadata.get("tool_call_id") == "123"
-    
+
     def test_extract_tool_calls(self):
         """测试提取工具调用"""
         adapter = MessageAdapter()
@@ -219,7 +188,7 @@ class TestMessageAdapter:
         assert len(tool_calls) == 2
         assert tool_calls[0]["name"] == "calculator"
         assert tool_calls[1]["name"] == "search"
-    
+
     def test_add_tool_calls_to_message(self):
         """测试添加工具调用到消息"""
         adapter = MessageAdapter()
@@ -236,9 +205,10 @@ class TestMessageAdapter:
         ]
         updated_message = adapter.add_tool_calls_to_message(domain_message, tool_calls)
         
-        # 验证结果
+        # 验证结果 - 应该同时更新新属性和 metadata
+        assert updated_message.tool_calls == tool_calls
         assert updated_message.metadata["tool_calls"] == tool_calls
-    
+
     def test_create_message_factory_methods(self):
         """测试消息创建工厂方法"""
         adapter = MessageAdapter()
@@ -263,6 +233,100 @@ class TestMessageAdapter:
         assert tool_msg.role == "tool"
         assert tool_msg.content == "工具结果"
         assert tool_msg.metadata["tool_call_id"] == "call-123"
+    
+    def test_extract_tool_calls_prefer_new_property(self):
+        """测试优先使用新的 tool_calls 属性"""
+        adapter = MessageAdapter()
+        
+        # 创建同时有新属性和 metadata 的消息
+        domain_message = DomainAgentMessage(
+            content="调用工具",
+            role="assistant",
+            tool_calls=[{"name": "new_tool", "arguments": {"param": "value"}}],
+            metadata={"tool_calls": [{"name": "old_tool", "arguments": {"param": "old_value"}}]}
+        )
+        
+        # 提取工具调用
+        tool_calls = adapter.extract_tool_calls(domain_message)
+        
+        # 验证应该使用新属性
+        assert len(tool_calls) == 1
+        assert tool_calls[0]["name"] == "new_tool"
+        assert tool_calls[0]["arguments"]["param"] == "value"
+    
+    def test_from_graph_message_with_langchain_tool_calls(self):
+        """测试从 LangChain 消息转换（带有 tool_calls 属性）"""
+        adapter = MessageAdapter()
+        
+        # 使用真正的 LangChain 消息类型
+        from langchain_core.messages import AIMessage
+        
+        # 创建带有 tool_calls 的 AIMessage
+        graph_message = AIMessage(
+            content="I'll use a tool",
+            additional_kwargs={
+                "tool_calls": [
+                    {
+                        "id": "call_123",
+                        "function": {
+                            "name": "test_tool",
+                            "arguments": '{"param": "value"}'
+                        },
+                        "type": "function"
+                    }
+                ]
+            }
+        )
+        
+        domain_message = adapter.from_graph_message(graph_message)
+        
+        # 验证转换结果
+        assert domain_message.role == "assistant"
+        assert domain_message.content == "I'll use a tool"
+        assert domain_message.tool_calls is not None
+        assert len(domain_message.tool_calls) == 1
+        assert domain_message.tool_calls[0]["name"] == "test_tool"
+        assert domain_message.tool_calls[0]["args"]["param"] == "value"
+        assert domain_message.tool_calls[0]["id"] == "call_123"
+        # 验证 metadata 中也有工具调用（向后兼容）
+        assert "tool_calls" in domain_message.metadata
+        assert domain_message.metadata["tool_calls"] == domain_message.tool_calls
+
+    def test_from_graph_message_with_openai_format(self):
+        """测试从 OpenAI 格式消息转换"""
+        adapter = MessageAdapter()
+        
+        # 使用真正的 LangChain 消息类型
+        from langchain_core.messages import AIMessage
+        
+        # 创建带有 OpenAI 格式 additional_kwargs 的 AIMessage
+        graph_message = AIMessage(
+            content="I'll use a tool",
+            additional_kwargs={
+                "tool_calls": [
+                    {
+                        "id": "call_456",
+                        "function": {
+                            "name": "openai_tool",
+                            "arguments": '{"param": "openai_value"}'
+                        },
+                        "type": "function"
+                    }
+                ]
+            }
+        )
+        
+        domain_message = adapter.from_graph_message(graph_message)
+        
+        # 验证转换结果
+        assert domain_message.role == "assistant"
+        assert domain_message.content == "I'll use a tool"
+        assert domain_message.tool_calls is not None
+        assert len(domain_message.tool_calls) == 1
+        assert domain_message.tool_calls[0]["name"] == "openai_tool"
+        assert domain_message.tool_calls[0]["args"]["param"] == "openai_value"
+        assert domain_message.tool_calls[0]["id"] == "call_456"
+        assert domain_message.additional_kwargs["tool_calls"] == graph_message.additional_kwargs["tool_calls"]
 
 
 if __name__ == "__main__":

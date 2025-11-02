@@ -39,11 +39,13 @@ class TestToolNode:
             errors=[]
         )
         
-        # 添加工具调用到消息的metadata中
+        # 添加工具调用到消息的新属性中
         message = AgentMessage(
             content="测试输入",
-            role="human"
+            role="human",
+            tool_calls=[{"name": "test_tool", "arguments": {"param": "value"}}]
         )
+        # 同时保持 metadata 中的工具调用（向后兼容）
         message.metadata["tool_calls"] = [{"name": "test_tool", "arguments": {"param": "value"}}]
         state.messages.append(message)
         
@@ -273,3 +275,154 @@ class TestToolNode:
         
         next_node = node._determine_next_node(tool_results, execution_errors, config)
         assert next_node == "analyze"  # 当前实现总是返回analyze
+
+    def test_extract_tool_calls_from_new_property(self, node, sample_config):
+        """测试从新的 tool_calls 属性中提取工具调用"""
+        from src.domain.agent.state import AgentMessage
+        
+        # 创建带有新属性的消息
+        message = AgentMessage(
+            content="测试输入",
+            role="human",
+            tool_calls=[
+                {"name": "new_tool", "arguments": {"param1": "value1"}},
+                {"name": "another_tool", "arguments": {"param2": "value2"}}
+            ]
+        )
+        
+        state = AgentState(
+            agent_id="test-agent",
+            agent_type="test",
+            messages=[message],
+            tool_results=[],
+            max_iterations=10,
+            iteration_count=0,
+            errors=[]
+        )
+        
+        # 执行
+        tool_calls = node._extract_tool_calls(state, sample_config)
+        
+        # 验证
+        assert len(tool_calls) == 2
+        assert tool_calls[0].name == "new_tool"
+        assert tool_calls[0].arguments["param1"] == "value1"
+        assert tool_calls[1].name == "another_tool"
+        assert tool_calls[1].arguments["param2"] == "value2"
+
+    def test_extract_tool_calls_prefer_new_property(self, node, sample_config):
+        """测试优先使用新的 tool_calls 属性而不是 metadata"""
+        from src.domain.agent.state import AgentMessage
+        
+        # 创建同时有新属性和 metadata 的消息
+        message = AgentMessage(
+            content="测试输入",
+            role="human",
+            tool_calls=[{"name": "new_tool", "arguments": {"param": "value"}}],
+            metadata={"tool_calls": [{"name": "old_tool", "arguments": {"param": "old_value"}}]}
+        )
+        
+        state = AgentState(
+            agent_id="test-agent",
+            agent_type="test",
+            messages=[message],
+            tool_results=[],
+            max_iterations=10,
+            iteration_count=0,
+            errors=[]
+        )
+        
+        # 执行
+        tool_calls = node._extract_tool_calls(state, sample_config)
+        
+        # 验证应该使用新属性
+        assert len(tool_calls) == 1
+        assert tool_calls[0].name == "new_tool"
+        assert tool_calls[0].arguments["param"] == "value"
+
+    def test_extract_tool_calls_with_additional_kwargs(self, node, sample_config):
+        """测试从 additional_kwargs 中提取工具调用（OpenAI 格式）"""
+        from src.domain.agent.state import AgentMessage
+        
+        # 创建带有 additional_kwargs 的消息
+        message = AgentMessage(
+            content="测试输入",
+            role="human",
+            additional_kwargs={
+                "tool_calls": [
+                    {
+                        "id": "call_123",
+                        "function": {
+                            "name": "openai_tool",
+                            "arguments": '{"param": "openai_value"}'
+                        },
+                        "type": "function"
+                    }
+                ]
+            }
+        )
+        
+        state = AgentState(
+            agent_id="test-agent",
+            agent_type="test",
+            messages=[message],
+            tool_results=[],
+            max_iterations=10,
+            iteration_count=0,
+            errors=[]
+        )
+        
+        # 执行
+        tool_calls = node._extract_tool_calls(state, sample_config)
+        
+        # 验证
+        assert len(tool_calls) == 1
+        assert tool_calls[0].name == "openai_tool"
+        assert tool_calls[0].arguments["param"] == "openai_value"
+        assert tool_calls[0].call_id == "call_123"
+
+    def test_parse_tool_calls_from_text_multiple_patterns(self, node):
+        """测试从文本解析多种模式的工具调用"""
+        # 测试英文模式
+        content = "call tool:english_tool(arg1=value1)"
+        tool_calls = node._parse_tool_calls_from_text(content)
+        assert len(tool_calls) == 1
+        assert tool_calls[0].name == "english_tool"
+        
+        # 测试简化模式
+        content = "simple_tool(param=value)"
+        tool_calls = node._parse_tool_calls_from_text(content)
+        assert len(tool_calls) == 1
+        assert tool_calls[0].name == "simple_tool"
+        
+        # 测试 JSON 模式
+        content = '{"tool": "json_tool", "args": {"key": "value"}}'
+        tool_calls = node._parse_tool_calls_from_text(content)
+        assert len(tool_calls) == 1
+        assert tool_calls[0].name == "json_tool"
+        assert tool_calls[0].arguments["key"] == "value"
+
+    def test_parse_key_value_pairs(self, node):
+        """测试键值对解析"""
+        # 测试冒号分隔
+        args = node._parse_key_value_pairs("key1:value1 key2:value2")
+        assert args["key1"] == "value1"
+        assert args["key2"] == "value2"
+        
+        # 测试等号分隔
+        args = node._parse_key_value_pairs("key1=value1 key2=value2")
+        assert args["key1"] == "value1"
+        assert args["key2"] == "value2"
+        
+        # 测试类型推断
+        args = node._parse_key_value_pairs("bool:true int:42 float:3.14 str:text")
+        assert args["bool"] is True
+        assert args["int"] == 42
+        assert args["float"] == 3.14
+        assert args["str"] == "text"
+
+    def test_is_float(self, node):
+        """测试浮点数检测"""
+        assert node._is_float("3.14") is True
+        assert node._is_float("42") is False
+        assert node._is_float("not_a_number") is False

@@ -80,16 +80,71 @@ class MessageAdapter:
        if not isinstance(content, str):
            content = str(content)
        
+       # 初始化 metadata 和 additional_kwargs
+       metadata = {}
+       additional_kwargs = {}
+       tool_calls = None
+       
+       # 处理 LangChain 标准的 tool_calls 属性（仅对 LangChain 原生消息）
+       if isinstance(graph_message, (LCAIMessage, LCHumanMessage, LCSystemMessage, LCToolMessage)):
+           # 使用 getattr 安全地获取属性
+           tool_calls_attr = getattr(graph_message, 'tool_calls', None)
+           if tool_calls_attr:
+               # 转换为标准格式
+               tool_calls = []
+               for tc in tool_calls_attr:
+                   if isinstance(tc, dict):
+                       tool_calls.append({
+                           "name": tc.get("name", ""),
+                           "args": tc.get("args", {}),
+                           "id": tc.get("id", ""),
+                       })
+                   else:
+                       # 处理对象形式的工具调用
+                       tool_calls.append({
+                           "name": getattr(tc, "name", ""),
+                           "args": getattr(tc, "args", {}),
+                           "id": getattr(tc, "id", ""),
+                       })
+           
+           # 处理 additional_kwargs 中的 tool_calls（OpenAI 格式）
+           additional_kwargs_attr = getattr(graph_message, 'additional_kwargs', None)
+           if additional_kwargs_attr:
+               additional_kwargs = additional_kwargs_attr.copy()
+               if "tool_calls" in additional_kwargs:
+                   # 如果还没有 tool_calls，从 additional_kwargs 中提取
+                   if not tool_calls:
+                       tool_calls = []
+                       for tc in additional_kwargs["tool_calls"]:
+                           if "function" in tc:
+                               function = tc["function"]
+                               import json
+                               try:
+                                   args = json.loads(function.get("arguments", "{}"))
+                               except json.JSONDecodeError:
+                                   args = {}
+                               tool_calls.append({
+                                   "name": function.get("name", ""),
+                                   "args": args,
+                                   "id": tc.get("id", ""),
+                               })
+       
+       # 如果是工具消息，添加tool_call_id到metadata
+       if isinstance(graph_message, (LCToolMessage, ToolMessage)) and hasattr(graph_message, 'tool_call_id'):
+           metadata["tool_call_id"] = getattr(graph_message, 'tool_call_id', '')
+       
+       # 保持向后兼容，将 tool_calls 也存储在 metadata 中
+       if tool_calls:
+           metadata["tool_calls"] = tool_calls
+       
        domain_message = DomainAgentMessage(
            content=content,
            role=role,
            timestamp=datetime.now(),  # 图系统消息可能没有时间戳，使用当前时间
-           metadata={}
+           metadata=metadata,
+           tool_calls=tool_calls,
+           additional_kwargs=additional_kwargs
        )
-       
-       # 如果是工具消息，添加tool_call_id到metadata
-       if isinstance(graph_message, (LCToolMessage, ToolMessage)) and hasattr(graph_message, 'tool_call_id'):
-           domain_message.metadata["tool_call_id"] = getattr(graph_message, 'tool_call_id', '')
        
        return domain_message
     
@@ -118,16 +173,25 @@ class MessageAdapter:
     def extract_tool_calls(self, domain_message: DomainAgentMessage) -> List[Dict[str, Any]]:
         """从域层消息中提取工具调用信息
         
+        优先使用新的 tool_calls 属性，如果没有则回退到 metadata
+        
         Args:
             domain_message: 域层Agent消息
             
         Returns:
             工具调用列表
         """
+        # 优先使用新的 tool_calls 属性
+        if domain_message.tool_calls:
+            return domain_message.tool_calls
+        
+        # 回退到 metadata 中的 tool_calls
         return cast(List[Dict[str, Any]], domain_message.metadata.get("tool_calls", []))
     
     def add_tool_calls_to_message(self, domain_message: DomainAgentMessage, tool_calls: List[Dict[str, Any]]) -> DomainAgentMessage:
         """向域层消息添加工具调用信息
+        
+        同时更新新的 tool_calls 属性和 metadata（向后兼容）
         
         Args:
             domain_message: 域层Agent消息
@@ -136,7 +200,12 @@ class MessageAdapter:
         Returns:
             更新后的域层Agent消息
         """
+        # 更新新的 tool_calls 属性
+        domain_message.tool_calls = tool_calls
+        
+        # 保持 metadata 中的 tool_calls（向后兼容）
         domain_message.metadata["tool_calls"] = tool_calls
+        
         return domain_message
     
     def create_system_message(self, content: str) -> DomainAgentMessage:

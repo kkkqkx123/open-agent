@@ -164,59 +164,23 @@ class ToolNode(BaseNode):
             config: 节点配置
 
         Returns:
-            IToolManager: 工具管理器实例
+            IToolRegistry: 工具注册表实例
         """
         if self._tool_manager:
             return self._tool_manager
         
         # 从依赖容器获取
-        # TODO: 实现完整的工具管理器注册和获取逻辑
-        # try:
-        #     from ...infrastructure import get_global_container
-        #     container = get_global_container()
-        #     return container.get(IToolManager)
-        # except Exception:
-        #     # 如果无法获取工具管理器，返回模拟工具管理器
-        #     pass
-
-        # 暂时直接返回模拟工具管理器
-        return self._create_mock_tool_manager()
-
-    def _create_mock_tool_manager(self) -> IToolRegistry:
-        """创建模拟工具管理器"""
-        from src.domain.tools.base import BaseTool
+        from src.infrastructure.di_config import get_global_container
+        from src.infrastructure.tools.interfaces import IToolManager
+        from src.domain.tools.interfaces import IToolRegistry
         
-        class MockTool(BaseTool):
-            def __init__(self, name: str):
-                description = f"模拟工具 {name}"
-                super().__init__(name, description, {"type": "object", "properties": {}})
-            
-            def execute(self, **kwargs: Any) -> Any:
-                return f"模拟工具 {self.name} 的执行结果"
-            
-            async def execute_async(self, **kwargs: Any) -> Any:
-                return f"模拟工具 {self.name} 的异步执行结果"
-            
-            def get_schema(self) -> Dict[str, Any]:
-                return {"type": "object", "properties": {}}
-        
-        class MockToolManager(IToolRegistry):
-            def register_tool(self, tool: "ITool") -> None:
-                pass
-
-            def get_tool(self, name: str) -> Optional["ITool"]:
-                return MockTool(name)
-
-            def list_tools(self) -> List[str]:
-                return ["mock_tool"]
-
-            def unregister_tool(self, name: str) -> bool:
-                return True
-            
-            def list_tool_sets(self) -> List[str]:
-                return []
-        
-        return MockToolManager()
+        container = get_global_container()
+        tool_manager = container.get(IToolManager)
+        # 确保返回的对象实现了IToolRegistry接口
+        if isinstance(tool_manager, IToolRegistry):
+            return tool_manager
+        else:
+            raise TypeError(f"获取的工具管理器没有实现IToolRegistry接口: {type(tool_manager)}")
 
     def _extract_tool_calls(self, state: AgentState, config: Dict[str, Any]) -> List[ToolCall]:
         """从状态中提取工具调用
@@ -229,45 +193,100 @@ class ToolNode(BaseNode):
             List[ToolCall]: 工具调用列表
         """
         tool_calls = []
+        import logging
+        logger = logging.getLogger(__name__)
 
         # 从最后一条消息中提取工具调用
         if state.messages:
             last_message = state.messages[-1]
-
-            # 检查是否有工具调用属性
-            if hasattr(last_message, 'tool_calls'):
-                tool_calls_attr = getattr(last_message, 'tool_calls', None)
-                if tool_calls_attr:
-                    for tool_call in tool_calls_attr:
-                        tool_calls.append(ToolCall(
-                        name=tool_call.get("name", ""),
-                        arguments=tool_call.get("arguments", {}),
-                        call_id=tool_call.get("id"),
-                        timeout=config.get("timeout")
-                        ))
             
-            # 检查metadata中是否有工具调用
-            elif hasattr(last_message, 'metadata') and last_message.metadata and "tool_calls" in last_message.metadata:
-                tool_calls_attr = last_message.metadata["tool_calls"]
-                if tool_calls_attr:
-                    for tool_call in tool_calls_attr:
+            # 优先检查 LangChain 标准的 tool_calls 属性
+            if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+                try:
+                    for tool_call in last_message.tool_calls:
+                        # 处理 LangChain 标准格式
+                        if isinstance(tool_call, dict):
+                            name = tool_call.get("name", "")
+                            args = tool_call.get("args", {})
+                            call_id = tool_call.get("id", "")
+                        else:
+                            # 处理对象形式的工具调用
+                            name = getattr(tool_call, "name", "")
+                            args = getattr(tool_call, "args", {})
+                            call_id = getattr(tool_call, "id", "")
+                        
+                        if name:  # 只有当工具名称不为空时才添加
+                            tool_calls.append(ToolCall(
+                                name=name,
+                                arguments=args,
+                                call_id=call_id,
+                                timeout=config.get("timeout")
+                            ))
+                except Exception as e:
+                    logger.error(f"解析 LangChain tool_calls 时出错: {str(e)}")
+            
+            # 检查 additional_kwargs 中的 tool_calls（OpenAI 格式）
+            elif (hasattr(last_message, 'additional_kwargs') and
+                  last_message.additional_kwargs and
+                  "tool_calls" in last_message.additional_kwargs):
+                try:
+                    for tool_call in last_message.additional_kwargs["tool_calls"]:
+                        if "function" in tool_call:
+                            function = tool_call["function"]
+                            name = function.get("name", "")
+                            args_str = function.get("arguments", "{}")
+                            
+                            # 解析 JSON 参数
+                            import json
+                            try:
+                                args = json.loads(args_str)
+                            except json.JSONDecodeError:
+                                logger.warning(f"无法解析工具参数 JSON: {args_str}")
+                                args = {}
+                            
+                            if name:
+                                tool_calls.append(ToolCall(
+                                    name=name,
+                                    arguments=args,
+                                    call_id=tool_call.get("id", ""),
+                                    timeout=config.get("timeout")
+                                ))
+                except Exception as e:
+                    logger.error(f"解析 additional_kwargs tool_calls 时出错: {str(e)}")
+            
+            # 检查 metadata 中的工具调用（向后兼容）
+            elif (hasattr(last_message, 'metadata') and
+                  last_message.metadata and
+                  "tool_calls" in last_message.metadata):
+                try:
+                    for tool_call in last_message.metadata["tool_calls"]:
                         tool_calls.append(ToolCall(
                             name=tool_call.get("name", ""),
                             arguments=tool_call.get("arguments", {}),
-                            call_id=tool_call.get("id"),
+                            call_id=tool_call.get("id", ""),
                             timeout=config.get("timeout")
                         ))
-
-            # 检查消息内容中是否包含工具调用信息
-            elif hasattr(last_message, 'content') and isinstance(getattr(last_message, 'content', ''), str):
-                # 简单的文本解析（实际实现可能需要更复杂的解析逻辑）
-                content = getattr(last_message, 'content', '')
-                tool_calls = self._parse_tool_calls_from_text(content)
+                except Exception as e:
+                    logger.error(f"解析 metadata tool_calls 时出错: {str(e)}")
+            
+            # 最后尝试从文本内容中解析（非标准方式，仅作为后备）
+            elif (hasattr(last_message, 'content') and
+                  isinstance(getattr(last_message, 'content', ''), str) and
+                  last_message.content.strip()):
+                try:
+                    content = last_message.content.strip()
+                    # 检查是否包含可能的工具调用指示
+                    if any(indicator in content.lower() for indicator in ["调用工具", "call tool", "tool:"]):
+                        logger.warning("使用非标准的文本解析方式提取工具调用，建议使用 LangChain 标准格式")
+                        tool_calls = self._parse_tool_calls_from_text(content)
+                except Exception as e:
+                    logger.error(f"从文本解析工具调用时出错: {str(e)}")
         
+        logger.debug(f"提取到 {len(tool_calls)} 个工具调用")
         return tool_calls
 
     def _parse_tool_calls_from_text(self, content: str) -> List[ToolCall]:
-        """从文本中解析工具调用
+        """从文本中解析工具调用（非标准方式，仅作为后备方案）
 
         Args:
             content: 消息内容
@@ -275,36 +294,119 @@ class ToolNode(BaseNode):
         Returns:
             List[ToolCall]: 工具调用列表
         """
-        # 这是一个简化的实现，实际可能需要更复杂的解析逻辑
+        import logging
+        import json
+        import re
+        logger = logging.getLogger(__name__)
+        
         tool_calls = []
         
-        # 示例：查找 "调用工具:工具名(参数)" 模式
-        import re
-        pattern = r"调用工具:(\w+)\((.*?)\)"
-        matches = re.findall(pattern, content)
+        # 支持多种工具调用模式
+        patterns = [
+            # 中文模式：调用工具:工具名(参数)
+            r"调用工具[：:]\s*(\w+)\s*\((.*?)\)",
+            # 英文模式：call tool:tool_name(args)
+            r"call\s+tool[：:]\s*(\w+)\s*\((.*?)\)",
+            # 简化模式：tool_name(args)
+            r"(\w+)\s*\((.*?)\)",
+            # JSON模式：{"tool": "tool_name", "args": {...}}
+            r'\{\s*"tool"\s*:\s*"(\w+)"\s*,\s*"args"\s*:\s*(\{.*?\})\s*\}',
+        ]
         
-        for tool_name, args_str in matches:
-            try:
-                # 简单参数解析
-                arguments = {}
-                if args_str.strip():
-                    # 尝试解析为JSON
-                    import json
-                    try:
-                        arguments = json.loads(f"{{{args_str}}}")
-                    except json.JSONDecodeError:
-                        # 如果不是JSON，作为字符串参数
-                        arguments = {"input": args_str}
-
-                tool_calls.append(ToolCall(
-                    name=tool_name,
-                    arguments=arguments
-                ))
-            except Exception:
-                # 解析失败，跳过
-                continue
+        for pattern in patterns:
+            matches = re.findall(pattern, content, re.DOTALL | re.IGNORECASE)
+            
+            for match in matches:
+                try:
+                    if len(match) == 2:
+                        tool_name, args_str = match
+                    elif len(match) == 1:
+                        # JSON模式可能只返回一个匹配
+                        continue
+                    else:
+                        continue
+                    
+                    tool_name = tool_name.strip()
+                    if not tool_name:
+                        continue
+                    
+                    # 解析参数
+                    arguments = {}
+                    if args_str and args_str.strip():
+                        args_str = args_str.strip()
+                        
+                        # 尝试直接解析为JSON
+                        try:
+                            if args_str.startswith('{') and args_str.endswith('}'):
+                                arguments = json.loads(args_str)
+                            else:
+                                # 尝试包装为JSON
+                                arguments = json.loads(f"{{{args_str}}}")
+                        except json.JSONDecodeError:
+                            # 如果不是JSON，尝试解析键值对
+                            try:
+                                arguments = self._parse_key_value_pairs(args_str)
+                            except Exception:
+                                # 最后作为单个参数
+                                arguments = {"input": args_str}
+                    
+                    # 生成唯一ID
+                    import uuid
+                    call_id = str(uuid.uuid4())[:8]
+                    
+                    tool_calls.append(ToolCall(
+                        name=tool_name,
+                        arguments=arguments,
+                        call_id=call_id
+                    ))
+                    
+                    logger.debug(f"从文本解析出工具调用: {tool_name}")
+                    
+                except Exception as e:
+                    logger.warning(f"解析工具调用失败: {str(e)}")
+                    continue
+        
+        if tool_calls:
+            logger.info(f"从文本中解析出 {len(tool_calls)} 个工具调用")
         
         return tool_calls
+    
+    def _parse_key_value_pairs(self, args_str: str) -> Dict[str, Any]:
+        """解析键值对格式的参数
+        
+        Args:
+            args_str: 参数字符串
+            
+        Returns:
+            Dict[str, Any]: 解析后的参数字典
+        """
+        import re
+        
+        # 匹配键值对，支持引号
+        pattern = r'(\w+)\s*[:=]\s*["\']?([^"\'\s,]+)["\']?'
+        matches = re.findall(pattern, args_str)
+        
+        arguments = {}
+        for key, value in matches:
+            # 尝试转换为适当的类型
+            if value.lower() in ('true', 'false'):
+                arguments[key] = value.lower() == 'true'
+            elif value.isdigit():
+                arguments[key] = int(value)
+            elif self._is_float(value):
+                arguments[key] = float(value)
+            else:
+                arguments[key] = value
+        
+        return arguments
+    
+    def _is_float(self, value: str) -> bool:
+        """检查字符串是否可以转换为浮点数"""
+        try:
+            float(value)
+            return '.' in value
+        except ValueError:
+            return False
 
     def _determine_next_node(
         self, 

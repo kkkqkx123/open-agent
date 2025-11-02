@@ -29,6 +29,10 @@ class AgentMessage:
     role: str
     timestamp: Optional[datetime] = field(default_factory=datetime.now)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    # LangChain 兼容属性
+    tool_calls: Optional[List[Dict[str, Any]]] = field(default=None)
+    additional_kwargs: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

@@ -422,11 +422,6 @@ graph TD
 - **Unit tests**: Coverage ≥ 90% for core business logic in domain and application layers
 - **Integration tests**: Coverage ≥ 80% for module interactions and infrastructure components
 - **End-to-end tests**: Coverage ≥ 70% for complete workflows and user scenarios
-- **Performance tests**: 
-  - LLM call latency ≤ 500ms (Mock environment)
-  - Session loading ≤ 1s (100 rounds of history)
-  - Configuration loading < 100ms (cold start), < 10ms (cached)
-  - Dependency injection service retrieval < 1ms
 
 ### 3. Code Quality Standards
 - Use type annotations (enforced by mypy with strict mode)
@@ -487,14 +482,6 @@ with TestContainer() as container:
     
     # Test automatically cleans up
 ```
-
-## Performance Requirements
-
-From the PRD documents:
-- Configuration loading: < 100ms (cold start), < 10ms (cached)
-- Dependency injection service retrieval: < 1ms
-- LLM call latency: ≤ 500ms (Mock environment)
-- Session loading: ≤ 1s (100 rounds of history)
 
 ## Module Dependencies and Architecture
 
@@ -625,7 +612,7 @@ except InfrastructureError as e:
 ```
 
 ## Language
-Always use Chinese in the code and documentation.
+Always use Chinese in the code and documentation. But in config files and code relevant to prompts for llm, English is preferred.
 
 ## Coding Specifications
 Must follow mypy type specifications. For example, function must be annotated with type hints.
