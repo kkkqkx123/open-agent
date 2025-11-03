@@ -11,6 +11,9 @@ sys.path.insert(0, str(project_root))
 `
 验证时在项目根目录执行命令
 
+examples\tools_test\duckduckgo_search\test_duckduckgo_search_tool.py
+examples\tools_test\duckduckgo_search\validate_duckduckgo_search_tool.py这2个测试已通过。创建文件，实际使用该工具执行搜索
+
 在 defination\tools目录中实现天气工具，配置见 @/configs/tools/weather.yaml ，然后在examples\tools_test目录中编写pytest文件来测试
 参考：
 examples\tools_test\test_weather_tool.py
