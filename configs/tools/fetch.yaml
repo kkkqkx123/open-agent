@@ -2,7 +2,7 @@
 name: fetch
 tool_type: builtin
 description: A tool for fetching web page content from URLs and optionally extracting it as markdown, supporting URL fetching with content type handling and robots.txt compliance
-function_path: defination.tools.fetch:fetch_url
+function_path: definition.tools.fetch:fetch_url
 enabled: true
 timeout: 30
 parameters_schema:

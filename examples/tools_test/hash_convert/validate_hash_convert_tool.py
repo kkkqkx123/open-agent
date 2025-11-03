@@ -37,7 +37,7 @@ def validate_hash_convert_config():
             return False
         
         # 验证函数路径
-        if hash_convert_config["function_path"] != "defination.tools.hash_convert:hash_convert":
+        if hash_convert_config["function_path"] != "definition.tools.hash_convert:hash_convert":
             print(f"错误: 函数路径不正确，实际为 '{hash_convert_config['function_path']}'")
             return False
         
@@ -84,7 +84,7 @@ def test_hash_convert_tool_functionality():
         # 运行hash_convert.py并捕获输出
         result = subprocess.run([
             sys.executable, 
-            "defination/tools/hash_convert.py"
+            "definition/tools/hash_convert.py"
         ], capture_output=True, text=True, cwd=".")
         
         if result.returncode == 0:

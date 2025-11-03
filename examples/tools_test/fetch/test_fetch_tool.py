@@ -11,11 +11,11 @@ import sys
 from pathlib import Path
 from typing import Dict, Any
 
-# 添加项目根目录到sys.path，以便导入defination.tools.fetch
+# 添加项目根目录到sys.path，以便导入definition.tools.fetch
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from defination.tools.fetch import fetch_url, extract_content_from_html, clean_html_content, clean_markdown_content
+from definition.tools.fetch import fetch_url, extract_content_from_html, clean_html_content, clean_markdown_content
 
 
 class TestFetchTool:
@@ -26,7 +26,7 @@ class TestFetchTool:
         # 由于网络请求需要外部依赖，我们使用模拟来测试
         
         # 模拟异步函数的返回值
-        with patch('defination.tools.fetch.fetch_url_content', 
+        with patch('definition.tools.fetch.fetch_url_content', 
                   return_value=("测试内容", "")):
             result = fetch_url(
                 url="https://httpbin.org/html",
@@ -89,7 +89,7 @@ class TestFetchTool:
         """测试内容截断功能"""
         long_content = "A" * 10000  # 创建长内容
         
-        with patch('defination.tools.fetch.fetch_url_content', 
+        with patch('definition.tools.fetch.fetch_url_content', 
                   return_value=(long_content, "")):
             # 获取前5000个字符
             result = fetch_url(
@@ -107,7 +107,7 @@ class TestFetchTool:
         """测试使用start_index参数"""
         content = "A" * 3000 + "B" * 3000  # 创建6000字符的内容
         
-        with patch('defination.tools.fetch.fetch_url_content', 
+        with patch('definition.tools.fetch.fetch_url_content', 
                   return_value=(content, "")):
             # 从索引2500开始获取内容
             result = fetch_url(
@@ -124,7 +124,7 @@ class TestFetchTool:
         """测试没有更多内容的情况"""
         content = "短内容"
         
-        with patch('defination.tools.fetch.fetch_url_content', 
+        with patch('definition.tools.fetch.fetch_url_content', 
                   return_value=(content, "")):
             # 尝试从超出内容长度的索引开始获取
             result = fetch_url(
@@ -141,7 +141,7 @@ class TestFetchTool:
     async def test_fetch_url_content_success(self):
         """测试异步获取URL内容成功"""
         # 模拟httpx.AsyncClient
-        with patch('defination.tools.fetch.httpx.AsyncClient') as mock_client:
+        with patch('definition.tools.fetch.httpx.AsyncClient') as mock_client:
                 # 创建模拟响应
                 mock_response = MagicMock()
                 mock_response.text = "<html><body><h1>测试</h1></body></html>"
@@ -155,7 +155,7 @@ class TestFetchTool:
                 mock_client.return_value = mock_client_instance
                 
                 # 导入异步函数
-                from defination.tools.fetch import fetch_url_content
+                from definition.tools.fetch import fetch_url_content
                 
                 # 调用异步函数
                 content, prefix = await fetch_url_content("https://example.com")
@@ -168,7 +168,7 @@ class TestFetchTool:
     async def test_fetch_url_content_http_error(self):
         """测试异步获取URL内容HTTP错误"""
         # 模拟httpx.AsyncClient抛出异常
-        with patch('defination.tools.fetch.httpx.AsyncClient') as mock_client:
+        with patch('definition.tools.fetch.httpx.AsyncClient') as mock_client:
                 # 设置模拟客户端的行为，使其抛出异常
                 mock_client_instance = MagicMock()
                 mock_client_instance.__aenter__.return_value = mock_client_instance
@@ -176,7 +176,7 @@ class TestFetchTool:
                 mock_client.return_value = mock_client_instance
                 
                 # 导入异步函数
-                from defination.tools.fetch import fetch_url_content
+                from definition.tools.fetch import fetch_url_content
                 
                 # 调用异步函数
                 content, prefix = await fetch_url_content("https://example.com")
@@ -188,7 +188,7 @@ class TestFetchTool:
         """测试获取原始内容"""
         raw_content = "<html><body>原始HTML内容</body></html>"
         
-        with patch('defination.tools.fetch.fetch_url_content', 
+        with patch('definition.tools.fetch.fetch_url_content', 
                   return_value=(raw_content, "内容类型 text/html 无法简化为markdown，但这里是原始内容:\n")):
             result = fetch_url(
                 url="https://example.com",
@@ -324,7 +324,7 @@ class TestFetchTool:
     def test_fetch_url_with_format_types(self):
         """测试使用不同格式类型获取URL内容"""
         # 测试Markdown格式
-        with patch('defination.tools.fetch.fetch_url_content',
+        with patch('definition.tools.fetch.fetch_url_content',
                   return_value=("测试内容", "")):
             result = fetch_url(
                 url="https://example.com",
@@ -333,7 +333,7 @@ class TestFetchTool:
             assert result["format_type"] == "markdown"
         
         # 测试Text格式
-        with patch('defination.tools.fetch.fetch_url_content',
+        with patch('definition.tools.fetch.fetch_url_content',
                   return_value=("测试内容", "")):
             result = fetch_url(
                 url="https://example.com",
@@ -342,7 +342,7 @@ class TestFetchTool:
             assert result["format_type"] == "text"
         
         # 测试HTML格式
-        with patch('defination.tools.fetch.fetch_url_content',
+        with patch('definition.tools.fetch.fetch_url_content',
                   return_value=("测试内容", "")):
             result = fetch_url(
                 url="https://example.com",
@@ -358,7 +358,7 @@ class TestFetchTool:
             )
         
         # 测试超时参数
-        with patch('defination.tools.fetch.fetch_url_content',
+        with patch('definition.tools.fetch.fetch_url_content',
                   return_value=("测试内容", "")):
             result = fetch_url(
                 url="https://example.com",

@@ -279,7 +279,7 @@ def test_weather_tool_directly():
     
     try:
         # 直接测试天气工具函数
-        from defination.tools.weather import get_weather
+        from definition.tools.weather import get_weather
         
         # 由于没有有效的API密钥，我们只测试参数验证
         try:

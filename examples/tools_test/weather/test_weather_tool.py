@@ -11,10 +11,10 @@ import sys
 from pathlib import Path
 from typing import Dict, Any
 
-# 添加项目根目录到sys.path，以便导入defination.tools.weather
+# 添加项目根目录到sys.path，以便导入definition.tools.weather
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from defination.tools.weather import get_weather, _format_weather_response
+from definition.tools.weather import get_weather, _format_weather_response
 
 
 class TestWeatherTool:
@@ -41,7 +41,7 @@ class TestWeatherTool:
         }
         
         # 模拟异步HTTP请求
-        with patch('defination.tools.weather._fetch_weather_data', 
+        with patch('definition.tools.weather._fetch_weather_data', 
                   return_value=formatted_response):
             result = get_weather(
                 q="Beijing,CN",
@@ -185,7 +185,7 @@ class TestWeatherTool:
     def test_get_weather_url_construction(self):
         """测试URL构建"""
         # 由于直接测试URL构建比较困难，我们通过模拟内部函数来验证
-        with patch('defination.tools.weather._fetch_weather_data') as mock_fetch:
+        with patch('definition.tools.weather._fetch_weather_data') as mock_fetch:
             mock_fetch.return_value = {
                 "city": "Test City",
                 "temperature": 25.0
@@ -208,7 +208,7 @@ class TestWeatherTool:
             "temperature": 273.15  # 0°C in Kelvin
         }
         
-        with patch('defination.tools.weather._fetch_weather_data', 
+        with patch('definition.tools.weather._fetch_weather_data', 
                   return_value=formatted_response):
             # 测试摄氏度单位
             result_metric = get_weather(

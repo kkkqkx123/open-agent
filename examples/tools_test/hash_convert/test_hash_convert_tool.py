@@ -9,10 +9,10 @@ import sys
 from pathlib import Path
 from typing import Dict, Any
 
-# 添加项目根目录到sys.path，以便导入defination.tools.hash_convert
+# 添加项目根目录到sys.path，以便导入definition.tools.hash_convert
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from defination.tools.hash_convert import hash_convert, md5_convert, sha1_convert, sha256_convert, sha512_convert
+from definition.tools.hash_convert import hash_convert, md5_convert, sha1_convert, sha256_convert, sha512_convert
 
 
 class TestHashConvertTool:

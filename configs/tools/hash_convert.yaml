@@ -2,7 +2,7 @@
 name: hash_convert
 tool_type: builtin
 description: A tool for converting text to various hash values, supporting MD5, SHA1, SHA256, SHA512 algorithms
-function_path: defination.tools.hash_convert:hash_convert
+function_path: definition.tools.hash_convert:hash_convert
 enabled: true
 timeout: 10
 parameters_schema:

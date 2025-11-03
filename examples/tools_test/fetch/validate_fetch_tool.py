@@ -81,7 +81,7 @@ def test_fetch_tool_functionality():
     
     try:
         # 直接测试网页内容获取工具函数
-        from defination.tools.fetch import fetch_url
+        from definition.tools.fetch import fetch_url
         
         # 测试参数验证
         try:
