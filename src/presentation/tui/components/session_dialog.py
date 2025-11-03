@@ -304,7 +304,8 @@ class SessionManagerDialog:
     def refresh_sessions(self) -> None:
         """刷新会话列表"""
         if self.session_manager:
-            sessions = self.session_manager.list_sessions()
+            import asyncio
+            sessions = asyncio.run(self.session_manager.list_sessions())
             self.session_list.update_sessions(sessions)
     
     def switch_to_list_mode(self) -> None:

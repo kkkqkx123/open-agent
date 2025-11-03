@@ -66,8 +66,34 @@ class TestSessionIntegration:
         event_collector = EventCollector()
         player = Player(event_collector)
         
+        # 创建ThreadManager
+        from src.domain.threads.manager import ThreadManager
+        from src.infrastructure.threads.metadata_store import MemoryThreadMetadataStore
+        from src.application.checkpoint.manager import CheckpointManager
+        from src.infrastructure.langgraph.adapter import LangGraphAdapter
+        from src.domain.checkpoint.config import CheckpointConfig
+        from src.infrastructure.checkpoint.memory_store import MemoryCheckpointStore
+        
+        metadata_store = MemoryThreadMetadataStore()
+        checkpoint_store = MemoryCheckpointStore()
+        checkpoint_config = CheckpointConfig(
+            enabled=True,
+            storage_type="memory",
+            auto_save=True,
+            save_interval=1,
+            max_checkpoints=100
+        )
+        checkpoint_manager = CheckpointManager(checkpoint_store, checkpoint_config)
+        langgraph_adapter = LangGraphAdapter(use_memory_checkpoint=True)
+        
+        thread_manager = ThreadManager(
+            metadata_store=metadata_store,
+            checkpoint_manager=checkpoint_manager,
+            langgraph_adapter=langgraph_adapter
+        )
+        
         session_manager = SessionManager(
-            workflow_manager=mock_workflow_manager,
+            thread_manager=thread_manager,
             session_store=session_store,
             git_manager=git_manager,
             storage_path=temp_dir / "session_data"
@@ -89,10 +115,10 @@ class TestSessionIntegration:
         agent_config = {"name": "test_agent"}
         
         # 创建初始状态
-        initial_state = AgentState(
-            messages=[BaseMessage(content="初始消息")],
-            workflow_name="test_workflow"
-        )
+        initial_state = {
+            "messages": [{"type": "human", "content": "初始消息"}],
+            "workflow_name": "test_workflow"
+        }
         
         # 创建会话
         session_id = session_manager.create_session(
@@ -380,43 +406,71 @@ class TestSessionIntegration:
         # 使用内存存储创建会话管理器
         memory_store = MemorySessionStore()
         git_manager = MockGitManager()
-        
+
+        # 创建mock thread_manager
+        from src.domain.threads.manager import ThreadManager
+        from src.infrastructure.threads.metadata_store import MemoryThreadMetadataStore
+        from src.application.checkpoint.manager import CheckpointManager
+        from src.infrastructure.langgraph.adapter import LangGraphAdapter
+        from src.domain.checkpoint.config import CheckpointConfig
+        from src.infrastructure.checkpoint.memory_store import MemoryCheckpointStore
+
+        metadata_store = MemoryThreadMetadataStore()
+        checkpoint_store = MemoryCheckpointStore()
+        checkpoint_config = CheckpointConfig(
+            enabled=True,
+            storage_type="memory",
+            auto_save=True,
+            save_interval=1,
+            max_checkpoints=100
+        )
+        checkpoint_manager = CheckpointManager(checkpoint_store, checkpoint_config)
+        langgraph_adapter = LangGraphAdapter(use_memory_checkpoint=True)
+
+        thread_manager = ThreadManager(
+            metadata_store=metadata_store,
+            checkpoint_manager=checkpoint_manager,
+            langgraph_adapter=langgraph_adapter
+        )
+
         session_manager = SessionManager(
-            workflow_manager=mock_workflow_manager,
+            thread_manager=thread_manager,
             session_store=memory_store,
             git_manager=git_manager,
             storage_path=session_components["temp_dir"] / "memory_sessions"
         )
         
         # 创建会话
-        session_id = session_manager.create_session("configs/workflows/test.yaml")
+        # 使用新的create_session_legacy方法
+        session_id = session_manager.create_session_legacy("configs/workflows/test.yaml")
         
         # 验证会话存在
-        assert session_manager.session_exists(session_id)
-        
-        # 恢复会话
-        workflow, state = session_manager.restore_session(session_id)
-        # 在测试环境中，workflow可能为None（当配置文件不存在时）
-        # assert workflow is not None
-        assert isinstance(state, dict)
-        
+        import asyncio
+        assert asyncio.run(session_manager.session_exists(session_id))
+
+        # 获取会话信息
+        # 新的SessionManager不支持restore_session，改为获取会话信息
+        session_data = asyncio.run(session_manager.get_session(session_id))
+        assert session_data is not None
+        assert session_data["session_id"] == session_id
+
         # 验证内存存储中的会话数据
         assert session_id in memory_store._sessions
-        assert "metadata" in memory_store._sessions[session_id]
-        assert "state" in memory_store._sessions[session_id]
+        assert "context" in memory_store._sessions[session_id]  # 新版本使用context而不是metadata
+        assert "interactions" in memory_store._sessions[session_id]
 
     def test_session_state_serialization(self, session_components):
         """测试会话状态序列化"""
         session_manager = session_components["session_manager"]
         
         # 创建带有复杂状态的会话
-        initial_state = AgentState(
-            messages=[BaseMessage(content="测试消息")],
-            current_step="测试步骤",
-            workflow_name="test_workflow",
-            start_time=datetime.now().isoformat(),
-            errors=["测试警告"]
-        )
+        initial_state = {
+            "messages": [{"type": "human", "content": "测试消息"}],
+            "current_step": "测试步骤",
+            "workflow_name": "test_workflow",
+            "start_time": datetime.now().isoformat(),
+            "errors": ["测试警告"]
+        }
         
         session_id = session_manager.create_session(
             "configs/workflows/test.yaml",

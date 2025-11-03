@@ -34,7 +34,8 @@ def session_list(ctx: click.Context, format: str) -> None:
         container = get_global_container()
         session_manager = container.get(ISessionManager)
         
-        sessions = session_manager.list_sessions()
+        import asyncio
+        sessions = asyncio.run(session_manager.list_sessions())
         
         if format == "table":
             _print_sessions_table(sessions)
@@ -55,20 +56,23 @@ def session_restore(ctx: click.Context, session_id: str) -> None:
         container = get_global_container()
         session_manager = container.get(ISessionManager)
         
+        import asyncio
         # 检查会话是否存在
-        session_data = session_manager.get_session(session_id)
+        session_data = asyncio.run(session_manager.get_session(session_id))
         if not session_data:
             console.print(f"[red]会话 {session_id} 不存在[/red]")
             raise click.ClickException(f"会话 {session_id} 不存在")
         
         console.print(f"[green]正在恢复会话 {session_id}...[/green]")
         
-        # 恢复会话
-        workflow, state = session_manager.restore_session(session_id)
-        
-        console.print(f"[green]会话 {session_id} 恢复成功[/green]")
-        console.print(f"工作流: {session_data['metadata']['workflow_config_path']}")
-        console.print(f"创建时间: {session_data['metadata']['created_at']}")
+        # 新的SessionManager不支持restore_session，改为获取会话信息
+        console.print(f"[green]会话 {session_id} 信息获取成功[/green]")
+        console.print(f"会话ID: {session_data['session_id']}")
+        console.print(f"用户ID: {session_data.get('user_id', 'N/A')}")
+        console.print(f"状态: {session_data['status']}")
+        console.print(f"创建时间: {session_data['created_at']}")
+        console.print(f"更新时间: {session_data['updated_at']}")
+        console.print(f"线程数量: {session_data['thread_count']}")
         
     except Exception as e:
         handle_cli_error(e, ctx.obj.get("verbose", False), "检查配置时发生错误")
@@ -84,8 +88,9 @@ def session_destroy(ctx: click.Context, session_id: str, confirm: bool) -> None:
         container = get_global_container()
         session_manager = container.get(ISessionManager)
         
+        import asyncio
         # 检查会话是否存在
-        session_data = session_manager.get_session(session_id)
+        session_data = asyncio.run(session_manager.get_session(session_id))
         if not session_data:
             console.print(f"[red]会话 {session_id} 不存在[/red]")
             raise click.ClickException(f"会话 {session_id} 不存在")
@@ -97,7 +102,7 @@ def session_destroy(ctx: click.Context, session_id: str, confirm: bool) -> None:
                 return
         
         # 删除会话
-        success = session_manager.delete_session(session_id)
+        success = asyncio.run(session_manager.delete_session(session_id))
         
         if success:
             console.print(f"[green]会话 {session_id} 删除成功[/green]")
@@ -173,29 +178,28 @@ def _print_sessions_table(sessions: list) -> None:
     
     table = Table(title="会话列表")
     table.add_column("会话ID", style="cyan", no_wrap=True)
-    table.add_column("工作流", style="magenta")
+    table.add_column("用户ID", style="magenta")
     table.add_column("状态", style="green")
-    table.add_column("创建时间", style="blue")
-    table.add_column("更新时间", style="yellow")
+    table.add_column("线程数", style="blue")
+    table.add_column("交互数", style="yellow")
+    table.add_column("创建时间", style="white")
     
     if not sessions:
-        table.add_row("无会话", "", "", "", "")
+        table.add_row("无会话", "", "", "", "", "")
     else:
         for session in sessions:
-            metadata = session.get("metadata", {})
-            session_id = metadata.get("session_id", "unknown")[:8] + "..."
-            workflow = metadata.get("workflow_config_path", "unknown")
-            status = metadata.get("status", "unknown")
-            created_at = metadata.get("created_at", "unknown")
-            updated_at = metadata.get("updated_at", "unknown")
+            session_id = session.get("session_id", "unknown")[:8] + "..."
+            user_id = session.get("user_id", "N/A")
+            status = session.get("status", "unknown")
+            thread_count = session.get("thread_count", 0)
+            interaction_count = session.get("interaction_count", 0)
+            created_at = session.get("created_at", "unknown")
             
             # 格式化时间显示
             if created_at != "unknown":
                 created_at = created_at.replace("T", " ").split(".")[0]
-            if updated_at != "unknown":
-                updated_at = updated_at.replace("T", " ").split(".")[0]
             
-            table.add_row(session_id, workflow, status, created_at, updated_at)
+            table.add_row(session_id, user_id, status, str(thread_count), str(interaction_count), created_at)
     
     console.print(table)
 
@@ -292,8 +296,49 @@ def setup_container(config_path: Optional[str] = None) -> None:
             git_manager = create_git_manager(use_mock=True)
             container.register_instance(GitManager, git_manager)
             
+        # 获取ThreadManager
+        from src.domain.threads.interfaces import IThreadManager
+        from src.domain.threads.manager import ThreadManager
+        
+        # 注册ThreadManager依赖
+        if not container.has_service(IThreadManager):
+            # 创建ThreadManager所需的依赖
+            from src.infrastructure.threads.metadata_store import IThreadMetadataStore, MemoryThreadMetadataStore
+            from src.domain.checkpoint.interfaces import ICheckpointManager
+            from src.application.checkpoint.manager import CheckpointManager
+            from src.infrastructure.langgraph.adapter import ILangGraphAdapter, LangGraphAdapter
+            from src.domain.checkpoint.config import CheckpointConfig
+            from src.infrastructure.checkpoint.memory_store import MemoryCheckpointStore
+            
+            if not container.has_service(IThreadMetadataStore):
+                metadata_store = MemoryThreadMetadataStore()
+                container.register_instance(IThreadMetadataStore, metadata_store)
+                
+            if not container.has_service(ICheckpointManager):
+                checkpoint_store = MemoryCheckpointStore()
+                checkpoint_config = CheckpointConfig(
+                    enabled=True,
+                    storage_type="memory",
+                    auto_save=True,
+                    save_interval=1,
+                    max_checkpoints=100
+                )
+                checkpoint_manager = CheckpointManager(checkpoint_store, checkpoint_config)
+                container.register_instance(ICheckpointManager, checkpoint_manager)
+                
+            if not container.has_service(ILangGraphAdapter):
+                langgraph_adapter = LangGraphAdapter(use_memory_checkpoint=True)
+                container.register_instance(ILangGraphAdapter, langgraph_adapter)
+            
+            thread_manager = ThreadManager(
+                metadata_store=container.get(IThreadMetadataStore),
+                checkpoint_manager=container.get(ICheckpointManager),
+                langgraph_adapter=container.get(ILangGraphAdapter)
+            )
+            container.register_instance(IThreadManager, thread_manager)
+            
         session_manager = SessionManager(
-            workflow_manager=container.get(WorkflowManager),
+            thread_manager=container.get(IThreadManager),
             session_store=container.get(FileSessionStore),
             git_manager=container.get(GitManager)
         )

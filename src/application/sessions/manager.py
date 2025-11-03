@@ -17,7 +17,7 @@ import logging
 from datetime import datetime
 from dataclasses import dataclass
 
-from domain.threads.interfaces import IThreadManager
+from src.domain.threads.interfaces import IThreadManager
 from ..workflow.manager import IWorkflowManager
 from ...infrastructure.graph.config import GraphConfig as WorkflowConfig
 from ...infrastructure.graph.states import WorkflowState
@@ -94,9 +94,9 @@ class ISessionManager(ABC):
 
     @abstractmethod
     async def execute_workflow_in_session(
-        self, 
-        session_id: str, 
-        thread_name: str, 
+        self,
+        session_id: str,
+        thread_name: str,
         config: Optional[Dict[str, Any]] = None
     ) -> WorkflowState:
         """在会话中执行工作流"""
@@ -110,6 +110,38 @@ class ISessionManager(ABC):
         config: Optional[Dict[str, Any]] = None
     ) -> AsyncGenerator[Dict[str, Any], Any]:
         """在会话中流式执行工作流"""
+        pass
+
+    # === 兼容性方法 ===
+
+    @abstractmethod
+    async def list_sessions(self) -> List[Dict[str, Any]]:
+        """列出所有会话"""
+        pass
+
+    @abstractmethod
+    async def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """获取会话信息"""
+        pass
+
+    @abstractmethod
+    async def delete_session(self, session_id: str) -> bool:
+        """删除会话"""
+        pass
+
+    @abstractmethod
+    async def session_exists(self, session_id: str) -> bool:
+        """检查会话是否存在"""
+        pass
+
+    @abstractmethod
+    async def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """获取会话信息"""
+        pass
+
+    @abstractmethod
+    async def get_session_history(self, session_id: str) -> List[Dict[str, Any]]:
+        """获取会话历史"""
         pass
 
 
@@ -524,6 +556,43 @@ class SessionManager(ISessionManager):
 
         return session_id
 
+    def create_session_legacy(
+        self,
+        workflow_config_path: str,
+        agent_config: Optional[dict[str, Any]] = None,
+        initial_state: Optional[WorkflowState] = None
+    ) -> str:
+        """创建新会话（向后兼容）"""
+        import asyncio
+        
+        # 创建用户请求
+        user_request = UserRequest(
+            request_id=f"request_{uuid.uuid4().hex[:8]}",
+            user_id=None,
+            content=f"创建会话: {workflow_config_path}",
+            metadata={
+                "workflow_config_path": workflow_config_path,
+                "agent_config": agent_config
+            },
+            timestamp=datetime.now()
+        )
+
+        # 异步创建会话
+        loop = asyncio.get_event_loop()
+        session_id = loop.run_until_complete(self.create_session(user_request))
+        
+        # 创建单个线程
+        thread_config = {
+            "name": "default_thread",
+            "config_path": workflow_config_path,
+            "initial_state": initial_state
+        }
+        
+        # 协调Thread创建
+        loop.run_until_complete(self.coordinate_threads(session_id, [thread_config]))
+        
+        return session_id
+
     # === 私有辅助方法 ===
 
     def _serialize_session_context(self, context: SessionContext) -> Dict[str, Any]:
@@ -614,3 +683,150 @@ class SessionManager(ISessionManager):
             "interaction_stats": interaction_stats,
             "thread_states": thread_states
         }
+
+    # === 兼容性方法实现 ===
+
+    async def list_sessions(self) -> List[Dict[str, Any]]:
+        """列出所有会话
+        
+        Returns:
+            List[Dict[str, Any]]: 会话列表，只包含会话级别信息
+        """
+        # 获取所有会话数据
+        raw_sessions = self.session_store.list_sessions()
+        
+        # 转换为符合新架构的会话信息
+        sessions = []
+        for raw_session in raw_sessions:
+            session_id = raw_session.get("session_id")
+            if session_id:
+                # 获取会话上下文
+                session_context = await self.get_session_context(session_id)
+                if session_context:
+                    # 构建纯会话信息
+                    session_info = {
+                        "session_id": session_context.session_id,
+                        "user_id": session_context.user_id,
+                        "status": session_context.status,
+                        "created_at": session_context.created_at.isoformat(),
+                        "updated_at": session_context.updated_at.isoformat(),
+                        "thread_count": len(session_context.thread_ids),  # 只提供线程数量
+                        "interaction_count": len(await self.get_interaction_history(session_id))
+                    }
+                    sessions.append(session_info)
+        
+        # 按创建时间倒序排列
+        sessions.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        return sessions
+
+    async def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """获取会话信息
+        
+        Args:
+            session_id: 会话ID
+            
+        Returns:
+            Optional[Dict[str, Any]]: 会话信息，如果不存在则返回None
+        """
+        session_context = await self.get_session_context(session_id)
+        if not session_context:
+            return None
+            
+        # 获取交互历史
+        interactions = await self.get_interaction_history(session_id)
+        
+        # 获取线程状态摘要
+        thread_states = {}
+        for thread_id in session_context.thread_ids:
+            thread_info = await self.thread_manager.get_thread_info(thread_id)
+            if thread_info:
+                thread_states[thread_id] = {
+                    "status": thread_info.get("status"),
+                    "updated_at": thread_info.get("updated_at")
+                }
+        
+        return {
+            "session_id": session_context.session_id,
+            "user_id": session_context.user_id,
+            "status": session_context.status,
+            "created_at": session_context.created_at.isoformat(),
+            "updated_at": session_context.updated_at.isoformat(),
+            "thread_ids": session_context.thread_ids,
+            "thread_count": len(session_context.thread_ids),
+            "metadata": session_context.metadata,
+            "interaction_count": len(interactions),
+            "thread_states": thread_states
+        }
+
+    async def delete_session(self, session_id: str) -> bool:
+        """删除会话
+        
+        Args:
+            session_id: 会话ID
+            
+        Returns:
+            bool: 是否成功删除
+        """
+        try:
+            # 删除存储的会话数据
+            self.session_store.delete_session(session_id)
+
+            # 删除会话目录
+            session_dir = self.storage_path / session_id
+            if session_dir.exists():
+                import shutil
+                shutil.rmtree(session_dir)
+
+            logger.info(f"删除会话成功: {session_id}")
+            return True
+        except Exception as e:
+            logger.error(f"删除会话失败: {session_id}, error: {e}")
+            return False
+
+    async def session_exists(self, session_id: str) -> bool:
+        """检查会话是否存在
+        
+        Args:
+            session_id: 会话ID
+            
+        Returns:
+            bool: 会话是否存在
+        """
+        return await self.get_session_context(session_id) is not None
+
+    async def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """获取会话信息
+        
+        Args:
+            session_id: 会话ID
+            
+        Returns:
+            Optional[Dict[str, Any]]: 会话信息，如果不存在则返回None
+        """
+        return await self.get_session(session_id)
+
+    async def get_session_history(self, session_id: str) -> List[Dict[str, Any]]:
+        """获取会话历史
+        
+        Args:
+            session_id: 会话ID
+            
+        Returns:
+            List[Dict[str, Any]]: 会话历史记录
+        """
+        if self.git_manager:
+            session_dir = self.storage_path / session_id
+            return self.git_manager.get_commit_history(session_dir)
+        else:
+            # 如果没有Git管理器，返回基于交互历史的基本历史
+            interactions = await self.get_interaction_history(session_id)
+            history = []
+            for interaction in interactions:
+                history.append({
+                    "timestamp": interaction.timestamp.isoformat(),
+                    "message": f"{interaction.interaction_type}: {interaction.content}",
+                    "author": "system",
+                    "interaction_id": interaction.interaction_id,
+                    "thread_id": interaction.thread_id
+                })
+            return history

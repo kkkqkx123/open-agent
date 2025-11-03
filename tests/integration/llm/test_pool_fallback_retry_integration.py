@@ -19,8 +19,8 @@ from src.infrastructure.llm.exceptions import LLMCallError
 class MockLLMClient:
     """模拟LLM客户端"""
     
-    def __init__(self, model_name: str, should_fail: bool = False, 
-                 fail_on_attempt: int = None, response_delay: float = 0.0):
+    def __init__(self, model_name: str, should_fail: bool = False,
+                 fail_on_attempt: int | None = None, response_delay: float = 0.0):
         self.model_name = model_name
         self.should_fail = should_fail
         self.fail_on_attempt = fail_on_attempt

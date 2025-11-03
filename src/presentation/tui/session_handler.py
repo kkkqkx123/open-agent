@@ -149,9 +149,23 @@ class SessionHandler:
         Returns:
             List[Dict[str, Any]]: 会话列表
         """
-        # 新的SessionManager没有直接的list_sessions方法
-        # 这里返回空列表以保持API兼容性
-        return []
+        if not self.session_manager:
+            return []
+        
+        try:
+            # 异步调用list_sessions
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                sessions = loop.run_until_complete(
+                    self.session_manager.list_sessions()
+                )
+            finally:
+                loop.close()
+            return sessions or []
+        except Exception as e:
+            print(f"列出会话失败: {e}")
+            return []
     
     def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
         """获取会话信息

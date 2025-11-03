@@ -2,7 +2,7 @@
 
 import pytest
 from dataclasses import dataclass
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from src.infrastructure.llm.validation.config_validator import ConfigValidator
 from src.infrastructure.llm.validation.rules import (
@@ -31,9 +31,9 @@ class LLMConfig:
     presence_penalty: float = 0.0
     top_p: float = 1.0
     fallback_enabled: bool = False
-    fallback_models: list = None
-    cache_config: Dict[str, Any] = None
-    tools: list = None
+    fallback_models: Optional[List[str]] = None
+    cache_config: Optional[Dict[str, Any]] = None
+    tools: Optional[List[Dict[str, Any]]] = None
     tool_choice: Optional[str] = None
     
     def __post_init__(self):
@@ -221,7 +221,8 @@ class TestValidationIntegration:
         assert any("INEFFECTIVE_CACHE_SIZE" in warning.code for warning in warnings)
         
         # 修复配置
-        config.cache_config["max_size"] = 100
+        if config.cache_config is not None:
+            config.cache_config["max_size"] = 100
         result = validator.validate_config(config)
         
         # 应该没有关于缓存大小的警告
@@ -291,7 +292,7 @@ class TestValidationIntegration:
     def test_custom_registry_validation_failure(self, custom_validator):
         """测试自定义注册表验证失败"""
         config = LLMConfig(
-            model_type=123,  # 错误类型
+            model_type=123,  # type: ignore # 错误类型
             model_name=""  # 空值
         )
         
@@ -362,7 +363,7 @@ class TestValidationIntegration:
         config = LLMConfig(
             model_name="",  # 空值
             temperature=2.5,  # 超出范围
-            api_key=None  # 缺失
+            api_key=None  # type: ignore # 缺失
         )
         
         result = validator.validate_config(config)

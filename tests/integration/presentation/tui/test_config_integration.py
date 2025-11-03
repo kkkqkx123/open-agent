@@ -8,7 +8,7 @@ import yaml
 
 from src.presentation.tui.config import ConfigManager, get_tui_config, get_config_manager
 from src.infrastructure.container import get_global_container
-from src.sessions.manager import ISessionManager
+from src.application.sessions.manager import ISessionManager
 
 
 class TestTUIConfigIntegration:
@@ -323,7 +323,8 @@ class TestTUIModuleInitializationIntegration:
     def test_module_level_imports_integration(self):
         """测试模块级导入集成"""
         # 测试TUI模块的导入
-        from src.presentation.tui import LayoutManager, TUIApp
+        from src.presentation.tui.layout import LayoutManager
+        from src.presentation.tui.app import TUIApp
         from src.presentation.tui.config import TUIConfig
         
         # 验证导入的类可以被实例化（使用mock避免实际依赖）
