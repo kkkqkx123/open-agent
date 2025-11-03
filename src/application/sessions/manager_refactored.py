@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from domain.threads.interfaces import IThreadManager
 from ..workflow.manager import IWorkflowManager
 from ...infrastructure.graph.config import GraphConfig as WorkflowConfig
-from ...infrastructure.graph.state import WorkflowState
+from ...infrastructure.graph.states import WorkflowState
 from ...domain.sessions.store import ISessionStore
 from ...domain.tools.interfaces import ToolResult
 from .git_manager import IGitManager

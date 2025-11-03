@@ -15,7 +15,7 @@ from rich.align import Align
 from rich.columns import Columns
 from rich.console import Console, ConsoleOptions, RenderResult
 
-from src.infrastructure.graph.state import WorkflowState
+from src.infrastructure.graph.states import WorkflowState
 from ..config import TUIConfig
 
 

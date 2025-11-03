@@ -17,7 +17,7 @@ from ...infrastructure.threads.metadata_store import IThreadMetadataStore
 from ...domain.checkpoint.interfaces import ICheckpointManager
 from ...infrastructure.langgraph.adapter import ILangGraphAdapter
 from ...infrastructure.graph.config import GraphConfig
-from ...infrastructure.graph.state import WorkflowState
+from ...infrastructure.graph.states import WorkflowState
 from langchain_core.runnables import RunnableConfig
 
 logger = logging.getLogger(__name__)

@@ -5,7 +5,12 @@ from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum
 
-from typing import Any as BaseMessage
+try:
+    from langchain_core.messages import BaseMessage
+except ImportError:
+    # 如果无法导入 langchain，定义一个兼容的类型
+    from typing import Any
+    BaseMessage = Any
 
 
 class MessageRole(Enum):

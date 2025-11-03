@@ -6,17 +6,19 @@
 from abc import ABC, abstractmethod
 from typing import Any, Optional, List, Tuple, Dict
 from pathlib import Path
-import uuid
+import asyncio
 import json
 import hashlib
 import logging
+import shutil
+import uuid
 from datetime import datetime
 
 from domain.threads.interfaces import IThreadManager
 
 from ..workflow.manager import IWorkflowManager
 from ...infrastructure.graph.config import GraphConfig as WorkflowConfig
-from ...infrastructure.graph.state import WorkflowState
+from ...infrastructure.graph.states import WorkflowState
 from ...domain.sessions.store import ISessionStore
 from ...domain.tools.interfaces import ToolResult
 from .git_manager import IGitManager
@@ -405,7 +407,6 @@ class SessionManager(ISessionManager):
             initial_states = {"default_thread": self._create_empty_state()}
         
         # 异步方法需要在同步上下文中运行
-        import asyncio
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
@@ -526,7 +527,6 @@ class SessionManager(ISessionManager):
             # 删除会话目录
             session_dir = self.storage_path / session_id
             if session_dir.exists():
-                import shutil
                 shutil.rmtree(session_dir)
 
             # 清理恢复尝试记录
@@ -829,7 +829,7 @@ class SessionManager(ISessionManager):
         }
 
         # 恢复消息
-        from ...infrastructure.graph.state import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
+        from ...infrastructure.graph.states import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
         for msg_data in state_data.get("messages", []):
             msg: BaseMessage
             try:

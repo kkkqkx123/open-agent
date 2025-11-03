@@ -13,7 +13,7 @@ from rich.table import Table
 from rich.progress import Progress, BarColumn, TextColumn
 from rich.align import Align
 
-from src.infrastructure.graph.state import WorkflowState
+from src.infrastructure.graph.states import WorkflowState
 from ..config import TUIConfig
 
 

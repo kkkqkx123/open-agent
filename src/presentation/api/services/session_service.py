@@ -1,8 +1,8 @@
 """会话服务"""
-from typing import Optional, Dict, Any, List
+from typing import Optional, Any, List
 from datetime import datetime
 from src.application.sessions.manager import ISessionManager
-from src.infrastructure.graph.state import WorkflowState
+from src.infrastructure.graph.states import WorkflowState
 from ..data_access.session_dao import SessionDAO
 
 from ..data_access.history_dao import HistoryDAO
@@ -32,12 +32,12 @@ class SessionService:
         self.history_dao = history_dao
         self.cache = cache
     
-    def _dict_to_agent_state(self, state_dict: Optional[Dict[str, Any]]) -> Optional[WorkflowState]:
+    def _dict_to_agent_state(self, state_dict: Optional[dict[str, Any]]) -> Optional[WorkflowState]:
         """将字典转换为WorkflowState对象"""
         if state_dict is None:
             return None
 
-        agent_state = WorkflowState()
+        agent_state = dict()
         
         # 设置基本属性
         agent_state["current_step"] = state_dict.get("current_step", "")
@@ -55,7 +55,7 @@ class SessionService:
                 agent_state["start_time"] = None
         
         # 处理消息
-        from src.infrastructure.graph.state import BaseMessage, SystemMessage, HumanMessage
+        from src.infrastructure.graph.states import BaseMessage, SystemMessage, HumanMessage
         messages = []
         for msg_data in state_dict.get("messages", []):
             try:
@@ -314,7 +314,7 @@ class SessionService:
         
         # 如果转换失败，创建一个新的空状态
         if agent_state is None:
-            agent_state = WorkflowState()
+            agent_state = dict()
         
         success = self.session_manager.save_session(
             session_id,
@@ -350,7 +350,7 @@ class SessionService:
         except Exception:
             return None
     
-    async def get_session_statistics(self, session_id: str) -> Dict[str, Any]:
+    async def get_session_statistics(self, session_id: str) -> dict[str, Any]:
         """获取会话统计信息"""
         if not validate_session_id(session_id):
             raise ValueError("无效的会话ID格式")

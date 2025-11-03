@@ -15,7 +15,7 @@ from src.infrastructure.graph.hooks.interfaces import HookContext, HookPoint
 from src.infrastructure.graph.hooks.config import HookType
 from src.infrastructure.graph.state import create_react_state
 from src.infrastructure.graph.registry import get_global_registry, BaseNode, NodeExecutionResult
-from src.domain.agent.state import AgentState
+from src.infrastructure.graph.state import WorkflowState as AgentState
 
 
 class MockTestNode(BaseNode):

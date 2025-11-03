@@ -7,7 +7,7 @@ import logging
 from datetime import datetime
 
 from .interfaces import IStateManager
-from ...infrastructure.graph.state import WorkflowState
+from ...infrastructure.graph.states import WorkflowState
 
 
 logger = logging.getLogger(__name__)

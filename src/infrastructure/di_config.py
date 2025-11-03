@@ -17,6 +17,7 @@ from src.domain.state.interfaces import IStateManager, IStateCollaborationManage
 from src.domain.threads.interfaces import IThreadManager
 from src.infrastructure.state.snapshot_store import StateSnapshotStore
 from src.infrastructure.state.history_manager import StateHistoryManager
+from .llm.config_manager import LLMConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +101,6 @@ class DIConfig:
         
         # 注册LLM配置管理器
         if not self.container.has_service(LLMConfigManager):
-            from .llm.config_manager import LLMConfigManager
             self.container.register_factory(
                 LLMConfigManager,
                 lambda: LLMConfigManager(config_loader=self.container.get(IConfigLoader)),
@@ -176,7 +176,7 @@ class DIConfig:
             
             # 注册增强状态管理器（实现协作管理器接口）
             from src.domain.state.enhanced_manager import EnhancedStateManager
-            def create_enhanced_state_manager():
+            def create_enhanced_state_manager() -> EnhancedStateManager:
                 snapshot_store = self.container.get(StateSnapshotStore)
                 history_manager = self.container.get(StateHistoryManager)
                 return EnhancedStateManager(snapshot_store, history_manager)
@@ -356,7 +356,7 @@ class DIConfig:
         Returns:
             验证结果
         """
-        results = {
+        results: Dict[str, Any] = {
             "valid": True,
             "errors": [],
             "warnings": [],

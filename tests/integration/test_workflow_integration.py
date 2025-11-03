@@ -12,11 +12,9 @@ import yaml
 from src.application.workflow.manager import WorkflowManager
 from src.infrastructure.graph.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
 from src.infrastructure.graph.registry import NodeRegistry, BaseNode, NodeExecutionResult
-from src.infrastructure.graph.state import HumanMessage
+from src.infrastructure.graph.states import HumanMessage, WorkflowState
 from src.infrastructure.config_loader import IConfigLoader
 from src.infrastructure.graph.states.factory import StateFactory
-from src.infrastructure.graph.states.workflow import WorkflowState
-from src.domain.agent.state import AgentState
 
 
 class MockLLMNode(BaseNode):

@@ -10,7 +10,7 @@ from src.domain.prompts.registry import PromptRegistry
 from src.domain.prompts.loader import PromptLoader
 from src.domain.prompts.injector import PromptInjector
 from src.domain.prompts.models import PromptConfig
-from src.infrastructure.graph.state import AgentState, SystemMessage, HumanMessage
+from src.infrastructure.graph.states import WorkflowState as AgentState, SystemMessage, HumanMessage
 
 
 class TestPromptIntegration:
@@ -139,7 +139,7 @@ user_commands:
         )
         
         # 注入提示词
-        state = injector.inject_prompts(AgentState(), config)
+        state = injector.inject_prompts({}, config)
         
         # 验证结果
         assert len(state.messages) == 3
@@ -167,7 +167,7 @@ user_commands:
         )
         
         # 注入提示词
-        state = injector.inject_prompts(AgentState(), config)
+        state = injector.inject_prompts({}, config)
         
         # 验证结果
         assert len(state.messages) == 2
@@ -219,7 +219,7 @@ user_commands:
         # 测试注入不存在的提示词
         config = PromptConfig(system_prompt="nonexistent")
         with pytest.raises(ValueError, match="注入系统提示词失败"):
-            injector.inject_prompts(AgentState(), config)
+            injector.inject_prompts({}, config)
     
     def test_prompt_ordering(self, prompt_system):
         """测试提示词顺序"""
@@ -233,7 +233,7 @@ user_commands:
         )
         
         # 注入提示词
-        state = injector.inject_prompts(AgentState(), config)
+        state = injector.inject_prompts({}, config)
         
         # 验证消息顺序
         assert len(state.messages) == 4

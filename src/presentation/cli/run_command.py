@@ -11,7 +11,7 @@ from ...infrastructure.container import get_global_container
 from ...infrastructure.config_loader import IConfigLoader
 from src.application.sessions.manager import ISessionManager
 from src.application.workflow.manager import IWorkflowManager
-from src.infrastructure.graph.state import WorkflowState
+from src.infrastructure.graph.states import WorkflowState
 from src.infrastructure.graph.adapters.state_adapter import StateAdapter
 
 

@@ -6,7 +6,7 @@
 from typing import Dict, Any, Optional, List
 
 from .base_workflow import BaseWorkflow
-from ...infrastructure.graph.state import WorkflowState
+from ...infrastructure.graph.states import WorkflowState
 from ...infrastructure.graph.config import WorkflowConfig
 from ...infrastructure.config_loader import IConfigLoader
 from ...infrastructure.container import IDependencyContainer

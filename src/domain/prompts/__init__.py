@@ -8,7 +8,7 @@ from .models import PromptMeta, PromptConfig
 from .registry import PromptRegistry
 from .loader import PromptLoader
 from .injector import PromptInjector
-from ...infrastructure.graph.state import WorkflowState
+from ...infrastructure.graph.states import WorkflowState
 from ..tools.interfaces import ToolResult
 # 从langchain_core导入消息类型
 from langchain_core.messages import SystemMessage, HumanMessage

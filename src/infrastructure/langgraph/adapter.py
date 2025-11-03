@@ -27,7 +27,7 @@ from langgraph.pregel import Pregel
 from langchain_core.messages import BaseMessage
 
 from ..graph.config import GraphConfig, NodeConfig, EdgeConfig
-from ..graph.state import WorkflowState
+from ..graph.states import WorkflowState
 from ..graph.builder import GraphBuilder
 from ..graph.registry import get_global_registry
 from ...domain.state.interfaces import IStateManager

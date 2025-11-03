@@ -3,8 +3,7 @@
 from typing import Optional, Dict, Any, List, Callable
 from typing import cast
 from src.application.sessions.manager import ISessionManager
-from src.infrastructure.graph.state import WorkflowState
-from src.infrastructure.graph.state import HumanMessage
+from src.infrastructure.graph.states import WorkflowState, HumanMessage
 
 
 class StateManager:
@@ -199,8 +198,8 @@ class StateManager:
                 self.current_state['messages'] = messages
             except Exception:
                 # 如果HumanMessage不可用，使用BaseMessage
-                # 从graph.state导入BaseMessage
-                from src.infrastructure.graph.state import BaseMessage
+                # 从graph.states导入BaseMessage
+                from src.infrastructure.graph.states import BaseMessage
                 simple_message = BaseMessage(content=content)
                 messages = self.current_state.get('messages', [])
                 messages.append(simple_message)

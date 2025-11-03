@@ -41,6 +41,39 @@ class ToolMessage(BaseMessage):
         super().__init__(content, "tool", tool_call_id=tool_call_id)
 
 
+# 保留自定义消息类型定义，用于兼容性（使用不同名称避免冲突）
+class GraphBaseMessage:
+    """图消息基类"""
+    def __init__(self, content: str, type: str = "base"):
+        self.content = content
+        self.type = type
+
+
+class GraphHumanMessage(GraphBaseMessage):
+    """图人类消息"""
+    def __init__(self, content: str):
+        super().__init__(content, "human")
+
+
+class GraphAIMessage(GraphBaseMessage):
+    """图AI消息"""
+    def __init__(self, content: str):
+        super().__init__(content, "ai")
+
+
+class GraphSystemMessage(GraphBaseMessage):
+    """图系统消息"""
+    def __init__(self, content: str):
+        super().__init__(content, "system")
+
+
+class GraphToolMessage(GraphBaseMessage):
+    """图工具消息"""
+    def __init__(self, content: str, tool_call_id: str = ""):
+        super().__init__(content, "tool")
+        self.tool_call_id = tool_call_id
+
+
 class MessageRole:
     """消息角色常量"""
     HUMAN = "human"
@@ -138,10 +171,33 @@ def adapt_langchain_message(message: Any) -> BaseMessage:
             return SystemMessage(content=message.content)
         elif message.type == 'tool':
             return ToolMessage(
-                content=message.content, 
+                content=message.content,
                 tool_call_id=getattr(message, 'tool_call_id', '')
             )
         else:
-            return BaseMessage(content=message.content, type=message.type)
+            return BaseMessage(content=str(message), type=message.type)
     else:
         return BaseMessage(content=str(message), type="base")
+
+
+def create_message(content: str, role: str, **kwargs: Any) -> "LCBaseMessage":
+    """创建消息
+    
+    Args:
+        content: 消息内容
+        role: 消息角色
+        **kwargs: 其他参数
+        
+    Returns:
+        LangChain BaseMessage实例
+    """
+    if role == MessageRole.HUMAN:
+        return LCHumanMessage(content=content)
+    elif role == MessageRole.AI:
+        return LCAIMessage(content=content)
+    elif role == MessageRole.SYSTEM:
+        return LCSystemMessage(content=content)
+    elif role == MessageRole.TOOL:
+        return LCToolMessage(content=content, tool_call_id=kwargs.get("tool_call_id", ""))
+    else:
+        return LCBaseMessage(content=content, type=role)

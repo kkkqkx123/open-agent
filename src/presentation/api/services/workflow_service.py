@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any, List, AsyncGenerator
 from datetime import datetime
 import asyncio
 from src.application.workflow.manager import IWorkflowManager
-from src.infrastructure.graph.state import WorkflowState
+from src.infrastructure.graph.states import WorkflowState
 from ..data_access.workflow_dao import WorkflowDAO
 
 from ..cache.memory_cache import MemoryCache

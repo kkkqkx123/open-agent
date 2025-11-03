@@ -14,11 +14,12 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
 
 from src.infrastructure.graph.states import (
-    BaseGraphState, AgentState, WorkflowState,
+    BaseGraphState, WorkflowState,
     StateSerializer, create_optimized_state_manager,
     HumanMessage, AIMessage,
-    create_base_state, create_agent_state, create_workflow_state
+    create_base_state, create_workflow_state
 )
+from langchain_core.messages import HumanMessage as LCHumanMessage
 
 
 class TestStateSerializationPerformance:
@@ -42,14 +43,15 @@ class TestStateSerializationPerformance:
         for i in range(5):
             # 基础状态
             base_state = create_base_state(
-                messages=[HumanMessage(content=f"Test message {j}") for j in range(10 * (i + 1))],
+                messages=[LCHumanMessage(content=f"Test message {j}") for j in range(10 * (i + 1))],
                 current_step=f"step_{i}"
             )
             
             # Agent状态
-            agent_state = create_agent_state(
+            agent_state = create_workflow_state(
+                workflow_id=f"workflow_{i}",
+                workflow_name=f"Test Workflow {i}",
                 input_text=f"Test input {i}",
-                agent_id=f"agent_{i}",
                 max_iterations=10
             )
             
@@ -286,7 +288,7 @@ class TestStateSerializationPerformance:
             }
             
             start_time = time.time()
-            managed_state = manager.update_state_incremental(state_id, managed_state, updates)
+            managed_state = manager.update_state(state_id, managed_state, updates)
             end_time = time.time()
             
             optimized_update_times.append(end_time - start_time)
@@ -363,9 +365,10 @@ class TestStateSerializationPerformance:
         
         # 添加大量图状态
         large_state["graph_states"] = {
-            f"graph_{i}": create_agent_state(
+            f"graph_{i}": create_workflow_state(
+                workflow_id=f"workflow_{i}",
+                workflow_name=f"Graph Workflow {i}",
                 input_text=f"Graph {i} input",
-                agent_id=f"agent_{i}",
                 max_iterations=10
             )
             for i in range(50)

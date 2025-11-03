@@ -10,9 +10,8 @@ from datetime import datetime
 from src.application.sessions.manager import ISessionManager
 from src.application.workflow.manager import IWorkflowManager
 from src.domain.sessions.store import ISessionStore
-from src.infrastructure.graph.state import AgentState
+from src.infrastructure.graph.states import WorkflowState
 from src.infrastructure.graph.config import WorkflowConfig
-from src.infrastructure.graph.states.workflow import WorkflowState
 from src.domain.threads.interfaces import IThreadManager
 from src.infrastructure.threads.metadata_store import MemoryThreadMetadataStore
 from src.infrastructure.checkpoint.memory_store import MemoryCheckpointStore
@@ -60,7 +59,6 @@ class MockWorkflowManager(IWorkflowManager):
     ) -> WorkflowState:
         # 模拟运行工作流
         if initial_state is None:
-            from src.infrastructure.graph.states.workflow import WorkflowState
             initial_state = {"messages": [], "iteration_count": 0}
         return initial_state
     
@@ -73,7 +71,6 @@ class MockWorkflowManager(IWorkflowManager):
     ) -> WorkflowState:
         # 模拟异步运行工作流
         if initial_state is None:
-            from src.infrastructure.graph.states.workflow import WorkflowState
             initial_state = {"messages": [], "iteration_count": 0}
         return initial_state
     
@@ -86,7 +83,6 @@ class MockWorkflowManager(IWorkflowManager):
     ) -> Generator[WorkflowState, None, None]:
         # 模拟流式工作流
         if initial_state is None:
-            from src.infrastructure.graph.states.workflow import WorkflowState
             initial_state = {"messages": [], "iteration_count": 0}
         yield initial_state
     
@@ -171,7 +167,7 @@ class MockSessionManager(ISessionManager):
         workflow_configs: Dict[str, str],  # 线程名 -> 工作流配置路径
         dependencies: Optional[Dict[str, List[str]]] = None,  # 线程依赖关系
         agent_config: Optional[dict[str, Any]] = None,
-        initial_states: Optional[Dict[str, AgentState]] = None # 每个线程的初始状态
+        initial_states: Optional[Dict[str, WorkflowState]] = None # 每个线程的初始状态
     ) -> str:
         """原子性创建Session和多个Thread"""
         # 简化实现，只创建一个会话
@@ -205,7 +201,7 @@ class MockSessionManager(ISessionManager):
         self,
         workflow_config_path: str,
         agent_config: Optional[dict[str, Any]] = None,
-        initial_state: Optional[AgentState] = None
+        initial_state: Optional[WorkflowState] = None
     ) -> str:
         """创建新会话"""
         session_id = f"session_{uuid.uuid4().hex[:8]}"
@@ -245,7 +241,7 @@ class MockSessionManager(ISessionManager):
         """获取会话信息"""
         return self.session_store.get_session(session_id)
     
-    def restore_session(self, session_id: str) -> Tuple[Any, AgentState]:
+    def restore_session(self, session_id: str) -> Tuple[Any, WorkflowState]:
         """恢复会话"""
         session_data = self.session_store.get_session(session_id)
         if not session_data:
@@ -261,7 +257,7 @@ class MockSessionManager(ISessionManager):
         # 返回工作流和状态
         return workflow, session_data["state"]
     
-    def save_session(self, session_id: str, state: AgentState, workflow: Any = None) -> bool:
+    def save_session(self, session_id: str, state: WorkflowState, workflow: Any = None) -> bool:
         """保存会话"""
         session_data = self.session_store.get_session(session_id)
         if not session_data:
@@ -298,7 +294,7 @@ class MockSessionManager(ISessionManager):
         """检查会话是否存在"""
         return self.get_session(session_id) is not None
     
-    def save_session_with_metrics(self, session_id: str, state: AgentState, 
+    def save_session_with_metrics(self, session_id: str, state: WorkflowState, 
                                  workflow_metrics: dict[str, Any], workflow: Any = None) -> bool:
         """保存会话状态和工作流指标"""
         session_data = self.session_store.get_session(session_id)

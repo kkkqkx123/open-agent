@@ -3,8 +3,15 @@
 提供工作流和图使用的统一状态定义。
 """
 
-from .base import BaseGraphState, create_base_state, HumanMessage, AIMessage
-from .workflow import WorkflowState, create_workflow_state
+from .base import (
+    BaseGraphState, create_base_state, BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage,
+    GraphBaseMessage, GraphHumanMessage, GraphAIMessage, GraphSystemMessage, GraphToolMessage, MessageRole, create_message
+)
+from .workflow import (
+    WorkflowState, create_workflow_state, create_agent_state, create_react_state, create_plan_execute_state,
+    update_state_with_message, update_state_with_tool_result, update_state_with_error,
+    validate_state, serialize_state, deserialize_state
+)
 from .react import ReActState
 from .plan_execute import PlanExecuteState
 from .factory import StateFactory
@@ -36,6 +43,25 @@ __all__ = [
     "Conflict",
     "create_base_state",
     "create_workflow_state",
+    "create_agent_state",
+    "create_react_state",
+    "create_plan_execute_state",
+    "BaseMessage",
     "HumanMessage",
-    "AIMessage"
+    "AIMessage",
+    "SystemMessage",
+    "ToolMessage",
+    "GraphBaseMessage",
+    "GraphHumanMessage",
+    "GraphAIMessage",
+    "GraphSystemMessage",
+    "GraphToolMessage",
+    "MessageRole",
+    "update_state_with_message",
+    "update_state_with_tool_result",
+    "update_state_with_error",
+    "validate_state",
+    "serialize_state",
+    "deserialize_state",
+    "create_message"
 ]

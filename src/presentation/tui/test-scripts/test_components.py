@@ -20,7 +20,7 @@ from ..components import (
     MainContentComponent,
     InputPanel
 )
-from src.infrastructure.graph.state import WorkflowState, HumanMessage
+from src.infrastructure.graph.states import WorkflowState, HumanMessage
 from src.domain.tools.interfaces import ToolResult
 
 

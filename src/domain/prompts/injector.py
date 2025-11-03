@@ -4,7 +4,7 @@ from typing import List
 
 from .interfaces import IPromptLoader, IPromptInjector
 from .models import PromptConfig
-from ...infrastructure.graph.state import WorkflowState, SystemMessage, HumanMessage
+from ...infrastructure.graph.states import WorkflowState, SystemMessage, HumanMessage
 
 
 class PromptInjector(IPromptInjector):

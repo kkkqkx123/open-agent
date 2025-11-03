@@ -9,7 +9,7 @@ from src.infrastructure.graph.adapters.collaboration_adapter import Collaboratio
 from src.infrastructure.graph.builder import GraphBuilder
 from src.infrastructure.di_config import DIConfig
 from src.domain.state.interfaces import IStateCollaborationManager
-from src.domain.agent.state import AgentState as DomainAgentState
+from src.infrastructure.graph.states import WorkflowState as DomainAgentState
 
 
 class MockDomainState:

@@ -8,7 +8,7 @@ import operator
 from typing_extensions import TypedDict
 
 from .base import LCBaseMessage
-from .workflow import WorkflowState, create_workflow_state
+from .workflow import WorkflowState, create_workflow_state, create_react_state
 
 
 # ReAct状态类型定义

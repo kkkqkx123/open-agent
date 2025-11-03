@@ -67,12 +67,7 @@ class ResponseConverter:
         finish_reason = ResponseConverter._extract_responses_finish_reason(response)
         
         # 创建 LangChain 消息
-        try:
-            message = AIMessage(content=content)
-        except ImportError:
-            # 如果无法导入 langchain，使用 domain 层的 BaseMessage
-            from src.infrastructure.graph.state import BaseMessage
-            message = BaseMessage(content=content, type="ai")
+        message = AIMessage(content=content)
         
         # 确保消息对象兼容 LLMResponse 期望的类型
         return LLMResponse(

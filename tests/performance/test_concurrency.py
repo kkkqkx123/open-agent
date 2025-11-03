@@ -185,23 +185,25 @@ secrets:
         # 注册多个服务
         services = []
         for i in range(20):
-            class TestService:
+            from src.infrastructure.container_interfaces import ILifecycleAware
+
+            class TestService(ILifecycleAware):
                 def __init__(self):
                     self.initialized = False
                     self.started = False
                     self.stopped = False
                     self.disposed = False
-                
+
                 def initialize(self):
                     time.sleep(0.001)  # 模拟耗时操作
                     self.initialized = True
-                
+
                 def start(self):
                     self.started = True
-                
+
                 def stop(self):
                     self.stopped = True
-                
+
                 def dispose(self):
                     self.disposed = True
             
