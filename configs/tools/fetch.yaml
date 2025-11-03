@@ -1,6 +1,6 @@
 # 网页内容获取工具配置
 name: fetch
-tool_type: builtin
+tool_type: native
 description: A tool for fetching web page content from URLs and optionally extracting it as markdown, supporting URL fetching with content type handling and robots.txt compliance
 function_path: definition.tools.fetch:fetch_url
 enabled: true
@@ -17,7 +17,7 @@ parameters_schema:
       description: Maximum number of characters to return
       default: 5000
       minimum: 1
-      maximum: 1000000
+      maximum: 20000
     start_index:
       type: integer
       description: Start output from this character index, useful if a previous fetch was truncated and more context is required

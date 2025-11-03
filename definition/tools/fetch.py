@@ -428,8 +428,8 @@ def fetch_url(
     if not url:
         raise ValueError("URL不能为空")
     
-    if max_length <= 0 or max_length >= 100000:
-        raise ValueError("max_length必须在1到100000之间")
+    if max_length <= 0 or max_length >= 50000:
+        raise ValueError("max_length必须在1到50000之间")
     
     if start_index < 0:
         raise ValueError("start_index不能为负数")

@@ -1,4 +1,4 @@
-将 @/docs/ref/sequentialthinking 改造为builtin/native(前者不依赖外部api，后者需要)工具，参考defination\tools\hash_convert.py
+将 @/docs/ref/sequentialthinking 改造为builtin/native(前者不依赖外部api，后者需要【包括网络请求】。请自己选择适当的类型)工具，参考defination\tools\hash_convert.py
 configs\tools\hash_convert.yaml
 并编写验证文件与pytest文件，参考examples\tools_test\weather\test_weather_tool.py
 examples\tools_test\weather\validate_weather_tool.py
