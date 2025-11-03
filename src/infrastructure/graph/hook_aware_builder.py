@@ -8,12 +8,9 @@ from pathlib import Path
 import yaml
 import logging
 
-if TYPE_CHECKING:
-    from src.domain.agent.interfaces import IAgent
-
 from .builder import GraphBuilder, NodeWithAdapterExecutor, EnhancedNodeWithAdapterExecutor
 from .config import GraphConfig, NodeConfig
-from .state import WorkflowState
+from .states import WorkflowState
 from .registry import BaseNode
 from .hooks.manager import NodeHookManager
 if TYPE_CHECKING:

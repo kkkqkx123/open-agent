@@ -11,7 +11,7 @@ import inspect
 from pathlib import Path
 
 if TYPE_CHECKING:
-    from .state import WorkflowState
+    from .states import WorkflowState
 
 logger = logging.getLogger(__name__)
 

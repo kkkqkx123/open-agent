@@ -10,7 +10,7 @@ from enum import Enum
 from datetime import datetime
 import uuid
 
-from ..state import WorkflowState
+from ..states import WorkflowState
 
 
 class TriggerType(Enum):

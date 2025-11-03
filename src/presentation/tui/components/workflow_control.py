@@ -16,7 +16,7 @@ from rich.console import Console, ConsoleOptions, RenderResult
 from rich.tree import Tree
 
 from ..config import TUIConfig
-from src.infrastructure.graph.states import WorkflowState
+from src.infrastructure.graph.states import WorkflowState as InfraWorkflowState
 
 
 class WorkflowState(Enum):
@@ -342,7 +342,7 @@ class WorkflowControlPanel:
             self.on_control_action(action)
         return True
     
-    def update_from_agent_state(self, state: Optional[WorkflowState]) -> None:
+    def update_from_agent_state(self, state: Optional[InfraWorkflowState]) -> None:
         """从工作流状态更新
         
         Args:

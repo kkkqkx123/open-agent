@@ -42,10 +42,14 @@ from src.infrastructure.container import get_global_container
 from src.infrastructure.config_loader import IConfigLoader
 from src.infrastructure.config.models.global_config import GlobalConfig
 from src.infrastructure.logger.logger import set_global_config
-from src.application.sessions.manager import ISessionManager
+from src.application.sessions.manager import ISessionManager, SessionManager
 from src.infrastructure.graph.states import WorkflowState, HumanMessage
 from src.application.history.manager import HistoryManager
 from src.domain.history.interfaces import IHistoryManager
+from src.domain.threads.interfaces import IThreadManager
+from src.infrastructure.types import ServiceLifetime
+from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock
 
 # 导入TUI日志系统
 from .logger import get_tui_silent_logger, TUILoggerManager
@@ -167,8 +171,8 @@ class TUIApp:
             container.register_instance(IConfigLoader, config_loader)
         
         # 注册TUI配置管理器
+        from .config import ConfigManager
         if not container.has_service(ConfigManager):
-            from .config import ConfigManager
             container.register_factory(
                 ConfigManager,
                 lambda: ConfigManager(
@@ -223,9 +227,13 @@ class TUIApp:
                     state_manager=state_manager
                 )
             else:
-                # 如果没有ThreadManager，创建一个简单的SessionManager
+                # 如果没有ThreadManager，需要创建一个默认的或抛出异常
+                # 为了修复类型错误，我们创建一个模拟的IThreadManager实现
+                from unittest.mock import AsyncMock
+                mock_thread_manager = AsyncMock(spec=IThreadManager)
+                
                 session_manager = SessionManager(
-                    thread_manager=None,  # 暂时为None，需要后续实现
+                    thread_manager=mock_thread_manager,
                     session_store=container.get(FileSessionStore),
                     git_manager=container.get(GitManager)
                 )

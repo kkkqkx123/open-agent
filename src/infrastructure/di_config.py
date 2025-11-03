@@ -15,6 +15,7 @@ from src.application.workflow.manager import IWorkflowManager, WorkflowManager
 from src.domain.sessions.store import ISessionStore
 from src.domain.state.interfaces import IStateManager, IStateCollaborationManager
 from src.domain.threads.interfaces import IThreadManager
+from src.application.sessions.git_manager import IGitManager
 from src.infrastructure.state.snapshot_store import StateSnapshotStore
 from src.infrastructure.state.history_manager import StateHistoryManager
 from .llm.config_manager import LLMConfigManager
@@ -223,18 +224,22 @@ class DIConfig:
     def _register_session_manager(self) -> None:
         """注册会话管理器"""
         if not self.container.has_service(ISessionManager):
-            # 使用工厂方法注册，确保依赖注入
-            self.container.register_factory(
-                ISessionManager,
-                lambda: SessionManager(
-                    workflow_manager=self.container.get(IWorkflowManager),
-                    session_store=self.container.get(ISessionStore),
-                    state_manager=self.container.get(IStateManager) if self.container.has_service(IStateManager) else None,
-                    thread_manager=self.container.get(IThreadManager) if self.container.has_service(IThreadManager) else None
-                ),
-                lifetime=ServiceLifetime.SINGLETON
-            )
-            logger.debug("会话管理器注册完成")
+            # 只有当ThreadManager可用时才注册SessionManager
+            if self.container.has_service(IThreadManager):
+                # 使用工厂方法注册，确保依赖注入
+                self.container.register_factory(
+                    ISessionManager,
+                    lambda: SessionManager(
+                        thread_manager=self.container.get(IThreadManager),
+                        session_store=self.container.get(ISessionStore),
+                        state_manager=self.container.get(IStateManager) if self.container.has_service(IStateManager) else None,
+                        git_manager=self.container.get(IGitManager) if self.container.has_service(IGitManager) else None
+                    ),
+                    lifetime=ServiceLifetime.SINGLETON
+                )
+                logger.debug("会话管理器注册完成")
+            else:
+                logger.warning("ThreadManager不可用，跳过SessionManager注册")
     
     def _register_thread_manager(self) -> None:
         """注册线程管理器"""

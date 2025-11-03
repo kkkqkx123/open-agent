@@ -1,11 +1,10 @@
 """HumanRelay专用TUI面板"""
 
 import asyncio
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from blessed import Terminal
 
-from ..logger.tui_logger import get_tui_logger
-from ..logger.tui_logger_manager import TUILoggerManager
+from ..logger import get_tui_logger
 
 
 class HumanRelayPanel:

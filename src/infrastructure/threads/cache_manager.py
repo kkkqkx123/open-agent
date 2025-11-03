@@ -29,7 +29,7 @@ class CacheEntry:
     created_at: datetime
     expires_at: datetime
     access_count: int = 0
-    last_accessed: datetime = None
+    last_accessed: Optional[datetime] = None
 
 
 class CacheMetrics:

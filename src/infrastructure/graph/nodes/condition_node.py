@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List, Callable
 from dataclasses import dataclass
 
 from ..registry import BaseNode, NodeExecutionResult, node
-from ..state import WorkflowState
+from ..states import WorkflowState
 from src.infrastructure.graph.adapters import get_state_adapter, get_message_adapter
 
 

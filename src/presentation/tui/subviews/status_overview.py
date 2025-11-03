@@ -8,6 +8,7 @@ from rich.text import Text
 from rich.table import Table
 from rich.columns import Columns
 from rich.progress import Progress, BarColumn, TextColumn
+from rich.console import Group
 
 from .base import BaseSubview
 from ..config import TUIConfig
@@ -102,7 +103,7 @@ class StatusOverviewSubview(BaseSubview):
         
         return panel
     
-    def _create_main_content(self) -> Columns:
+    def _create_main_content(self) -> Group:
         """创建主要内容区域
         
         Returns:
@@ -132,7 +133,6 @@ class StatusOverviewSubview(BaseSubview):
         ], equal=True, expand=True)
         
         # 组合整体布局
-        from rich.console import Group
         return Group(info_columns, performance_panel)
     
     def _create_session_panel(self) -> Panel:

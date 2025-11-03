@@ -1,7 +1,7 @@
 from typing import Dict, Any, List, Callable, Union
 from datetime import datetime
 import logging
-from ..state import WorkflowState
+from ..states import WorkflowState
 from .state_adapter import StateAdapter
 from src.domain.state.interfaces import IStateCollaborationManager
 
@@ -18,13 +18,13 @@ class CollaborationStateAdapter:
     def execute_with_collaboration(
         self,
         graph_state: Union[Dict[str, Any], Any],
-        node_executor: Callable[[WorkflowState], WorkflowState]
+        node_executor: Callable[[Any], Any]
     ) -> Union[Dict[str, Any], Any]:
         """带协作机制的状态转换
         
         Args:
             graph_state: 图系统状态
-            node_executor: 节点执行函数，接收工作流状态并返回修改后的工作流状态
+            node_executor: 节点执行函数，接收域状态并返回修改后的域状态
             
         Returns:
             转换后的图系统状态
@@ -57,21 +57,28 @@ class CollaborationStateAdapter:
         # 7. 添加协作元数据
         return self._add_collaboration_metadata(result_state, snapshot_id, validation_errors)
     
-    def _validate_state(self, domain_state: WorkflowState) -> List[str]:
+    def _validate_state(self, domain_state: Any) -> List[str]:
         """状态验证"""
         return self.collaboration_manager.validate_domain_state(domain_state)
     
-    def _create_pre_execution_snapshot(self, domain_state: WorkflowState) -> str:
+    def _create_pre_execution_snapshot(self, domain_state: Any) -> str:
         """创建执行前快照"""
         return self.collaboration_manager.create_snapshot(
             domain_state, "pre_execution"
         )
     
-    def _record_execution_error(self, domain_state: WorkflowState,
+    def _record_execution_error(self, domain_state: Any,
                                snapshot_id: str, error_message: str):
         """记录执行错误"""
         try:
-            agent_id = domain_state.get("agent_id", "unknown")
+            # Handle both dict-like and object-like domain_state
+            if hasattr(domain_state, 'agent_id'):
+                agent_id = domain_state.agent_id
+            elif isinstance(domain_state, dict):
+                agent_id = domain_state.get("agent_id", "unknown")
+            else:
+                agent_id = "unknown"
+                
             self.collaboration_manager.record_state_change(
                 agent_id,
                 "execution_error",
@@ -81,17 +88,34 @@ class CollaborationStateAdapter:
         except Exception as e:
             logger.error(f"记录执行错误失败: {str(e)}")
     
-    def _record_state_completion(self, domain_state: WorkflowState,
+    def _record_state_completion(self, domain_state: Any,
                                snapshot_id: str, validation_errors: List[str]):
         """记录状态完成"""
         try:
             # 记录执行完成
-            agent_id = domain_state.get("agent_id", "unknown")
+            # Handle both dict-like and object-like domain_state
+            if hasattr(domain_state, 'agent_id'):
+                agent_id = domain_state.agent_id
+            elif isinstance(domain_state, dict):
+                agent_id = domain_state.get("agent_id", "unknown")
+            else:
+                agent_id = "unknown"
+                
+            # Convert domain_state to dict for recording
+            if isinstance(domain_state, dict):
+                state_dict = domain_state
+            else:
+                # For dataclass or object, try to convert to dict
+                if hasattr(domain_state, '__dict__'):
+                    state_dict = domain_state.__dict__
+                else:
+                    state_dict = {}
+                    
             self.collaboration_manager.record_state_change(
                 agent_id,
                 "execution_completed",
                 {"snapshot_id": snapshot_id, "validation_errors": validation_errors},
-                dict(domain_state)
+                state_dict
             )
         except Exception as e:
             logger.error(f"记录状态完成失败: {str(e)}")

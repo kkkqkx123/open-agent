@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional, Callable, Union
 import time
 import logging
 
-from .state import WorkflowState
+from .states import WorkflowState
 
 logger = logging.getLogger(__name__)
 

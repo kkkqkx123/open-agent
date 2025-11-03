@@ -14,7 +14,7 @@ from .function_registry import (
     FunctionType,
     get_global_function_registry,
 )
-from .state import WorkflowState
+from .states import WorkflowState
 
 if TYPE_CHECKING:
     from src.domain.state.interfaces import IStateCollaborationManager

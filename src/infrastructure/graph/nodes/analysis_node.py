@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
 from ..registry import BaseNode, NodeExecutionResult, node
-from ..state import WorkflowState
+from ..states import WorkflowState
 from src.infrastructure.llm.interfaces import ILLMClient
 from src.infrastructure.container import IDependencyContainer
 from ..node_config_loader import get_node_config_loader

@@ -179,25 +179,3 @@ def adapt_langchain_message(message: Any) -> BaseMessage:
     else:
         return BaseMessage(content=str(message), type="base")
 
-
-def create_message(content: str, role: str, **kwargs: Any) -> "LCBaseMessage":
-    """创建消息
-    
-    Args:
-        content: 消息内容
-        role: 消息角色
-        **kwargs: 其他参数
-        
-    Returns:
-        LangChain BaseMessage实例
-    """
-    if role == MessageRole.HUMAN:
-        return LCHumanMessage(content=content)
-    elif role == MessageRole.AI:
-        return LCAIMessage(content=content)
-    elif role == MessageRole.SYSTEM:
-        return LCSystemMessage(content=content)
-    elif role == MessageRole.TOOL:
-        return LCToolMessage(content=content, tool_call_id=kwargs.get("tool_call_id", ""))
-    else:
-        return LCBaseMessage(content=content, type=role)

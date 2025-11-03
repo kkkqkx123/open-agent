@@ -9,7 +9,7 @@ import time
 import re
 
 from .base import BaseTrigger, TriggerType
-from ..state import WorkflowState
+from ..states import WorkflowState
 
 
 class TimeTrigger(BaseTrigger):

@@ -8,6 +8,7 @@ from rich.text import Text
 from rich.table import Table
 from rich.columns import Columns
 from rich.tree import Tree
+from rich.console import Group
 
 from .base import BaseSubview
 from ..config import TUIConfig
@@ -89,7 +90,7 @@ class LangGraphSubview(BaseSubview):
         
         return panel
     
-    def _create_main_content(self) -> Columns:
+    def _create_main_content(self) -> Group:
         """创建主要内容区域
         
         Returns:
@@ -110,8 +111,7 @@ class LangGraphSubview(BaseSubview):
         # 组合布局 - 两行两列布局
         top_row = Columns([current_node_panel, execution_path_panel], equal=True, expand=True)
         bottom_row = Columns([state_snapshot_panel, node_monitoring_panel], equal=True, expand=True)
-        
-        from rich.console import Group
+
         return Group(top_row, bottom_row)
     
     def _create_current_node_panel(self) -> Panel:

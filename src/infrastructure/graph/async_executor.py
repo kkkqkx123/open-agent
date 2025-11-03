@@ -5,11 +5,11 @@
 
 import asyncio
 import logging
-from typing import Any, Dict, Optional, Callable, Awaitable, Union
+from typing import Any, Dict, Optional, Callable, Awaitable, Union, cast
 from abc import ABC, abstractmethod
 
 from .config import GraphConfig
-from .state import WorkflowState, update_state_with_message, BaseMessage, LCBaseMessage, AIMessage
+from .states import WorkflowState, update_state_with_message, BaseMessage, LCBaseMessage, AIMessage
 from .registry import NodeRegistry, get_global_registry
 from .adapters.state_adapter import StateAdapter
 
@@ -30,7 +30,7 @@ class IAsyncWorkflowExecutor(ABC):
     """异步工作流执行器接口"""
     
     @abstractmethod
-    async def execute(self, graph: Any, initial_state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, graph: Any, initial_state: WorkflowState, **kwargs: Any) -> WorkflowState:
         """异步执行工作流"""
         pass
 
@@ -54,21 +54,22 @@ class AsyncNodeExecutor(IAsyncNodeExecutor):
                 if node_class:
                     node_instance = node_class()
                     if hasattr(node_instance, 'execute_async'):
-                        # 如果节点支持异步执行，将WorkflowState转换为域状态
-                        domain_state = self.state_adapter.from_graph_state(dict(state))
-                        result = await node_instance.execute_async(domain_state, config)
-                        # 将结果转换回WorkflowState
-                        graph_state = self.state_adapter.to_graph_state(result.state)
-                        return graph_state  # type: ignore
+                        # 如果节点支持异步执行，我们需要将domain_state转换回WorkflowState以匹配execute_async方法的签名
+                        domain_state = self.state_adapter.from_graph_state(state)
+                        workflow_state_for_async = self.state_adapter.to_graph_state(domain_state)
+                        result = await node_instance.execute_async(workflow_state_for_async, config)
+                        # 直接返回结果中的state，因为NodeExecutionResult.state已经是WorkflowState类型
+                        return result.state
                     else:
                         # 否则使用同步执行（在事件循环中），也将WorkflowState转换为域状态
-                        domain_state = self.state_adapter.from_graph_state(dict(state))
+                        domain_state = self.state_adapter.from_graph_state(state)
+                        # 在同步执行前，我们需要将domain_state转换回WorkflowState以匹配execute方法的签名
+                        workflow_state_for_sync = self.state_adapter.to_graph_state(domain_state)
                         result = await asyncio.get_event_loop().run_in_executor(
-                            None, node_instance.execute, domain_state, config
+                            None, node_instance.execute, workflow_state_for_sync, config
                         )
-                        # 将结果转换回WorkflowState
-                        graph_state = self.state_adapter.to_graph_state(result.state)
-                        return graph_state  # type: ignore
+                        # 直接返回结果中的state，因为NodeExecutionResult.state已经是WorkflowState类型
+                        return result.state
             except ValueError:
                 # 节点类型不存在，尝试内置节点
                 pass
@@ -103,7 +104,7 @@ class AsyncNodeExecutor(IAsyncNodeExecutor):
         await asyncio.sleep(0.01)  # 模拟异步操作
         # 修复：使用TypedDict兼容的更新方式
         new_messages = state.get("messages", []) + [AIMessage(content="LLM响应")]
-        return {**state, "messages": new_messages}  # type: ignore
+        return {**state, "messages": new_messages}
     
     async def _execute_tool_node_async(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
         """异步执行工具节点"""
@@ -137,14 +138,14 @@ class AsyncWorkflowExecutor(IAsyncWorkflowExecutor):
     def __init__(self, node_executor: Optional[IAsyncNodeExecutor] = None):
         self.node_executor = node_executor or AsyncNodeExecutor()
     
-    async def execute(self, graph: Any, initial_state: WorkflowState, **kwargs) -> WorkflowState:
+    async def execute(self, graph: Any, initial_state: WorkflowState, **kwargs: Any) -> WorkflowState:
         """异步执行工作流"""
         try:
             # 检查图是否支持异步执行
             if hasattr(graph, 'ainvoke') and callable(getattr(graph, 'ainvoke')):
                 # 使用LangGraph的异步invoke方法
                 result = await graph.ainvoke(initial_state, **kwargs)
-                return result
+                return cast(WorkflowState, result)
             elif hasattr(graph, 'astream') and callable(getattr(graph, 'astream')):
                 # 使用LangGraph的异步stream方法
                 async for chunk in graph.astream(initial_state, **kwargs):
@@ -164,11 +165,11 @@ class AsyncWorkflowExecutor(IAsyncWorkflowExecutor):
             raise
     
     async def execute_with_streaming(
-        self, 
-        graph: Any, 
-        initial_state: WorkflowState, 
+        self,
+        graph: Any,
+        initial_state: WorkflowState,
         callback: Optional[Callable[[WorkflowState], None]] = None,
-        **kwargs
+        **kwargs: Any
     ) -> WorkflowState:
         """异步执行工作流并支持流式回调"""
         try:
@@ -184,7 +185,7 @@ class AsyncWorkflowExecutor(IAsyncWorkflowExecutor):
                 # 使用同步流式方法（在事件循环中执行）
                 loop = asyncio.get_event_loop()
                 
-                def sync_stream():
+                def sync_stream() -> WorkflowState:
                     result = initial_state
                     for chunk in graph.stream(initial_state, **kwargs):
                         result = chunk

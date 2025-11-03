@@ -10,7 +10,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from .base import ITrigger, TriggerEvent, TriggerHandler, TriggerType
-from ..state import WorkflowState
+from ..states import WorkflowState
 
 
 class TriggerSystem:

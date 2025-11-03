@@ -5,7 +5,8 @@
 
 from .base import (
     BaseGraphState, create_base_state, BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage,
-    GraphBaseMessage, GraphHumanMessage, GraphAIMessage, GraphSystemMessage, GraphToolMessage, MessageRole, create_message
+    GraphBaseMessage, GraphHumanMessage, GraphAIMessage, GraphSystemMessage, GraphToolMessage, MessageRole, create_message,
+    LCBaseMessage
 )
 from .workflow import (
     WorkflowState, create_workflow_state, create_agent_state, create_react_state, create_plan_execute_state,
@@ -57,6 +58,7 @@ __all__ = [
     "GraphSystemMessage",
     "GraphToolMessage",
     "MessageRole",
+    "LCBaseMessage",
     "update_state_with_message",
     "update_state_with_tool_result",
     "update_state_with_error",
