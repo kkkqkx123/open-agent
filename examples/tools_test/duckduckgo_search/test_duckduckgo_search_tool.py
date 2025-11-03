@@ -4,6 +4,7 @@ DuckDuckGo搜索工具测试文件
 测试DuckDuckGo搜索工具的功能和正确性。
 """
 
+import httpx
 import pytest
 import sys
 from pathlib import Path
@@ -11,12 +12,13 @@ from typing import Dict, Any
 from unittest.mock import patch, AsyncMock, MagicMock
 
 # 添加项目根目录到sys.path，以便导入definition.tools.duckduckgo_search
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 from definition.tools.duckduckgo_search import (
-    duckduckgo_search, 
-    fetch_web_content, 
-    DuckDuckGoSearcher, 
+    duckduckgo_search,
+    fetch_web_content,
+    DuckDuckGoSearcher,
     WebContentFetcher,
     SearchResult,
     RateLimiter

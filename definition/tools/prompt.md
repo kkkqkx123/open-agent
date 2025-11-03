@@ -3,7 +3,13 @@ configs\tools\hash_convert.yaml
 并编写验证文件与pytest文件，参考examples\tools_test\weather\test_weather_tool.py
 examples\tools_test\weather\validate_weather_tool.py
 注意：配置文件中yaml部分的所有文本和py函数的返回值使用英文，注释与py代码中无所谓
-
+测试文件需要加上：
+`
+# 添加项目根目录到sys.path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+`
+验证时在项目根目录执行命令
 
 在 defination\tools目录中实现天气工具，配置见 @/configs/tools/weather.yaml ，然后在examples\tools_test目录中编写pytest文件来测试
 参考：

@@ -22,19 +22,19 @@ def test_tool_loading():
         from src.infrastructure.test_container import TestContainer
         
         # 创建临时目录
-        temp_dir = Path(tempfile.mkdtemp())
+        temp_dir = tempfile.mkdtemp()
         print(f"创建临时目录: {temp_dir}")
-        
+
         try:
             # 创建配置目录结构
-            (temp_dir / 'configs' / 'tools').mkdir(parents=True, exist_ok=True)
-            
+            (Path(temp_dir) / 'configs' / 'tools').mkdir(parents=True, exist_ok=True)
+
             # 复制配置文件
             shutil.copy(
-                'configs/tools/hash_convert.yaml', 
-                temp_dir / 'configs' / 'tools' / 'hash_convert.yaml'
+                'configs/tools/hash_convert.yaml',
+                Path(temp_dir) / 'configs' / 'tools' / 'hash_convert.yaml'
             )
-            
+
             # 使用测试容器
             with TestContainer(temp_dir) as container:
                 container.setup_basic_configs()
