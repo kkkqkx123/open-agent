@@ -25,7 +25,7 @@ description: |
   - Verifies the hypothesis based on the Chain of Thought steps
   - Repeats the process until satisfied
   - Provides a correct answer
-function_path: definition.tools.sequentialthinking:sequentialthinking
+function_path: src.domain.tools.builtin.sequentialthinking:sequentialthinking
 enabled: true
 timeout: 30
 parameters_schema:

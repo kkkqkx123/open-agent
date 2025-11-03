@@ -2,7 +2,7 @@
 name: calculator
 tool_type: builtin
 description: A tool for performing basic mathematical calculations
-function_path: definition.tools.calculator:calculate
+function_path: src.domain.tools.builtin.calculator:calculate
 enabled: true
 timeout: 10
 parameters_schema:
