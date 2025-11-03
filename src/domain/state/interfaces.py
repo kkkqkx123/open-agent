@@ -93,15 +93,15 @@ class IStateManager(ABC):
     
     @abstractmethod
     def deserialize_state(self, serialized_data: str) -> Dict[str, Any]:
-    """反序列化状态
+        """反序列化状态
 
-    Args:
-    serialized_data: 序列化的数据
+        Args:
+            serialized_data: 序列化的数据
 
-    Returns:
-    反序列化后的状态
-    """
-    pass
+        Returns:
+            反序列化后的状态
+        """
+        pass
 
     @abstractmethod
     def serialize_state_dict(self, state: Dict[str, Any]) -> bytes:

@@ -7,8 +7,8 @@ from typing import Optional
 from pathlib import Path
 import logging
 
-from ...domain.threads.manager_refactored import ThreadManager
-from ...application.sessions.manager_refactored import SessionManagerRefactored
+from ...domain.threads.manager import ThreadManager
+from ...application.sessions.manager import SessionManager
 from ...infrastructure.langgraph.adapter import LangGraphAdapter
 from ...infrastructure.threads.metadata_store import FileThreadMetadataStore, MemoryThreadMetadataStore, IThreadMetadataStore
 from ...application.checkpoint.manager import CheckpointManager

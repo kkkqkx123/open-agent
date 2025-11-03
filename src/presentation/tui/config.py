@@ -1,6 +1,7 @@
 """TUI布局配置系统"""
 
 import json
+from infrastructure.config_interfaces import IConfigLoader
 import yaml
 from typing import Dict, Any, Optional, Union
 from pathlib import Path

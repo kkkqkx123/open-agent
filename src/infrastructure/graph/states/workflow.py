@@ -3,13 +3,16 @@
 提供工作流执行过程中的状态管理。
 """
 
-from typing import Any, List, Annotated, Optional, cast, Union
+from typing import Any, List, Annotated, Optional, cast, Union, Dict
 import operator
 from datetime import datetime
 from typing_extensions import TypedDict
 
 from .base import BaseMessage, LCBaseMessage
 # AgentState已移除，统一使用WorkflowState
+
+# 工作流状态类型定义
+WorkflowState = Dict[str, Any]
 
 def create_agent_state(
     input_text: str,
@@ -58,10 +61,6 @@ def create_agent_state(
         "graph_states": {},
         "custom_fields": {}
     }
-
-
-# 工作流状态类型定义
-WorkflowState = dict[str, Any]
 
 # 类型注解
 class _WorkflowState(TypedDict, total=False):

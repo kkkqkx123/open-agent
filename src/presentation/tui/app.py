@@ -207,11 +207,28 @@ class TUIApp:
         
         # 注册会话管理器
         if not container.has_service(ISessionManager):
-            session_manager = SessionManager(
-                workflow_manager=container.get(WorkflowManager),
-                session_store=container.get(FileSessionStore),
-                git_manager=container.get(GitManager)
-            )
+            # 新的SessionManager需要不同的依赖
+            from src.domain.threads.interfaces import IThreadManager
+            from src.domain.state.interfaces import IStateManager
+            
+            # 检查是否有ThreadManager
+            if container.has_service(IThreadManager):
+                thread_manager = container.get(IThreadManager)
+                state_manager = container.get(IStateManager) if container.has_service(IStateManager) else None
+                
+                session_manager = SessionManager(
+                    thread_manager=thread_manager,
+                    session_store=container.get(FileSessionStore),
+                    git_manager=container.get(GitManager),
+                    state_manager=state_manager
+                )
+            else:
+                # 如果没有ThreadManager，创建一个简单的SessionManager
+                session_manager = SessionManager(
+                    thread_manager=None,  # 暂时为None，需要后续实现
+                    session_store=container.get(FileSessionStore),
+                    git_manager=container.get(GitManager)
+                )
             container.register_instance(ISessionManager, session_manager)
     
     def _initialize_global_config(self) -> None:

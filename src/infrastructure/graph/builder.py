@@ -21,7 +21,8 @@ else:
     RunnableConfig = Dict[str, Any]
 
 from .config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
-from .state import WorkflowState, LCBaseMessage
+from .states import WorkflowState
+from .states.base import LCBaseMessage
 from .registry import NodeRegistry, get_global_registry
 from .adapters import get_state_adapter
 from src.domain.state.interfaces import IStateCollaborationManager

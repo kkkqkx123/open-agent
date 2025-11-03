@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List, cast
 from dataclasses import dataclass, asdict, field
 import logging
 
-from ..state import WorkflowState, LCBaseMessage
+from ..states import WorkflowState, LCBaseMessage
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 
 logger = logging.getLogger(__name__)

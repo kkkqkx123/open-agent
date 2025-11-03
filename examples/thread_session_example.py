@@ -15,7 +15,7 @@ from src.infrastructure.di.thread_session_di_config import (
     create_development_stack,
     create_testing_stack
 )
-from src.application.sessions.manager_refactored import UserRequest, UserInteraction
+from application.sessions.manager import UserRequest, UserInteraction
 
 # 设置日志
 logging.basicConfig(level=logging.INFO)

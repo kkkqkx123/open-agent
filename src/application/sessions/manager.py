@@ -1,21 +1,23 @@
-"""会话管理器
+"""会话管理器 - 重构版本
 
-负责工作流会话的创建、管理、持久化和恢复。
+专注于用户交互追踪，负责：
+1. 会话生命周期管理
+2. 用户交互历史追踪
+3. 多Thread协调
+4. 会话级状态管理
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional, List, Tuple, Dict
+from typing import Any, Optional, List, Tuple, Dict, AsyncGenerator, Coroutine
 from pathlib import Path
-import asyncio
+import uuid
 import json
 import hashlib
 import logging
-import shutil
-import uuid
 from datetime import datetime
+from dataclasses import dataclass
 
 from domain.threads.interfaces import IThreadManager
-
 from ..workflow.manager import IWorkflowManager
 from ...infrastructure.graph.config import GraphConfig as WorkflowConfig
 from ...infrastructure.graph.states import WorkflowState
@@ -28,216 +30,127 @@ from ...domain.state.interfaces import IStateManager
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class UserRequest:
+    """用户请求数据模型"""
+    request_id: str
+    user_id: Optional[str]
+    content: str
+    metadata: Dict[str, Any]
+    timestamp: datetime
+
+
+@dataclass
+class UserInteraction:
+    """用户交互数据模型"""
+    interaction_id: str
+    session_id: str
+    thread_id: Optional[str]
+    interaction_type: str  # "user_input", "system_response", "error", etc.
+    content: str
+    metadata: Dict[str, Any]
+    timestamp: datetime
+
+
+@dataclass
+class SessionContext:
+    """会话上下文"""
+    session_id: str
+    user_id: Optional[str]
+    thread_ids: List[str]
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    metadata: Dict[str, Any]
+
+
 class ISessionManager(ABC):
-    """会话管理器接口 - 重构后的多线程会话管理器"""
+    """重构后的会话管理器接口"""
 
     @abstractmethod
-    async def create_session_with_threads(
+    async def create_session(self, user_request: UserRequest) -> str:
+        """创建用户会话"""
+        pass
+
+    @abstractmethod
+    async def get_session_context(self, session_id: str) -> Optional[SessionContext]:
+        """获取会话上下文"""
+        pass
+
+    @abstractmethod
+    async def track_user_interaction(self, session_id: str, interaction: UserInteraction) -> None:
+        """追踪用户交互"""
+        pass
+
+    @abstractmethod
+    async def get_interaction_history(self, session_id: str, limit: Optional[int] = None) -> List[UserInteraction]:
+        """获取交互历史"""
+        pass
+
+    @abstractmethod
+    async def coordinate_threads(self, session_id: str, thread_configs: List[Dict[str, Any]]) -> Dict[str, str]:
+        """协调多个Thread执行"""
+        pass
+
+    @abstractmethod
+    async def execute_workflow_in_session(
+        self, 
+        session_id: str, 
+        thread_name: str, 
+        config: Optional[Dict[str, Any]] = None
+    ) -> WorkflowState:
+        """在会话中执行工作流"""
+        pass
+
+    @abstractmethod
+    async def stream_workflow_in_session(
         self,
-        workflow_configs: Dict[str, str],  # 线程名 -> 工作流配置路径
-        dependencies: Optional[Dict[str, List[str]]] = None,  # 线程依赖关系
-        agent_config: Optional[dict[str, Any]] = None,
-        initial_states: Optional[Dict[str, WorkflowState]] = None # 每个线程的初始状态
-    ) -> str:
-        """原子性创建Session和多个Thread
-        
-        Args:
-            workflow_configs: 线程名到工作流配置路径的映射
-            dependencies: 线程依赖关系，格式为 {thread_name: [dependency_thread_names]}
-            agent_config: Agent配置
-            initial_states: 每个线程的初始状态
-            
-        Returns:
-            str: 会话ID
-        """
-        pass
-
-    @abstractmethod
-    def create_session(
-        self,
-        workflow_config_path: str,
-        agent_config: Optional[dict[str, Any]] = None,
-        initial_state: Optional[WorkflowState] = None
-    ) -> str:
-        """创建新会话（向后兼容）
-
-        Args:
-            workflow_config_path: 工作流配置文件路径
-            agent_config: Agent配置
-            initial_state: 初始状态
-
-        Returns:
-            str: 会话ID
-        """
-        pass
-
-    @abstractmethod
-    def get_session(self, session_id: str) -> Optional[dict[str, Any]]:
-        """获取会话信息
-
-        Args:
-            session_id: 会话ID
-
-        Returns:
-            Optional[dict[str, Any]]: 会话信息，如果不存在则返回None
-        """
-        pass
-
-    @abstractmethod
-    def restore_session(self, session_id: str) -> Tuple[Any, WorkflowState]:
-        """恢复会话
-
-        Args:
-            session_id: 会话ID
-
-        Returns:
-            Tuple[Any, WorkflowState]: 工作流实例和状态
-        """
-        pass
-
-    @abstractmethod
-    def save_session(self, session_id: str, state: WorkflowState, workflow: Any = None) -> bool:
-        """保存会话
-
-        Args:
-            session_id: 会话ID
-            state: 当前状态
-            workflow: 工作流实例（可选）
-
-        Returns:
-            bool: 是否成功保存
-        """
-        pass
-
-    @abstractmethod
-    def delete_session(self, session_id: str) -> bool:
-        """删除会话
-
-        Args:
-            session_id: 会话ID
-
-        Returns:
-            bool: 是否成功删除
-        """
-        pass
-
-    @abstractmethod
-    def list_sessions(self) -> List[dict[str, Any]]:
-        """列出所有会话
-
-        Returns:
-            List[dict[str, Any]]: 会话列表
-        """
-        pass
-
-    @abstractmethod
-    def get_session_history(self, session_id: str) -> List[dict[str, Any]]:
-        """获取会话历史
-
-        Args:
-            session_id: 会话ID
-
-        Returns:
-            List[dict[str, Any]]: 会话历史记录
-        """
-        pass
-
-    @abstractmethod
-    def get_session_info(self, session_id: str) -> Optional[dict[str, Any]]:
-        """获取会话信息
-
-        Args:
-            session_id: 会话ID
-
-        Returns:
-            Optional[dict[str, Any]]: 会话信息，如果不存在则返回None
-        """
-        pass
-
-    @abstractmethod
-    def session_exists(self, session_id: str) -> bool:
-        """检查会话是否存在
-
-        Args:
-            session_id: 会话ID
-
-        Returns:
-            bool: 会话是否存在
-        """
-        pass
-
-    @abstractmethod
-    def save_session_with_metrics(self, session_id: str, state: WorkflowState,
-                                 workflow_metrics: dict[str, Any], workflow: Any = None) -> bool:
-        """保存会话状态和工作流指标
-
-        Args:
-            session_id: 会话ID
-            state: 当前状态
-            workflow_metrics: 工作流指标
-            workflow: 工作流实例（可选）
-
-        Returns:
-            bool: 是否成功保存
-        """
-        pass
-
-    @abstractmethod
-    async def add_thread(self, session_id: str, thread_name: str, config_path: str) -> bool:
-        """向Session添加新Thread"""
-        pass
-
-    @abstractmethod
-    async def get_threads(self, session_id: str) -> Dict[str, Any]:
-        """获取Session的所有Thread信息"""
+        session_id: str,
+        thread_name: str,
+        config: Optional[Dict[str, Any]] = None
+    ) -> AsyncGenerator[Dict[str, Any], Any]:
+        """在会话中流式执行工作流"""
         pass
 
 
 class SessionManager(ISessionManager):
-    """会话管理器实现 - 重构后的多线程会话管理器"""
+    """会话管理器实现 - 重构版本
+    
+    专注于用户交互追踪，通过ThreadManager委托执行
+    """
 
     def __init__(
         self,
-        workflow_manager: IWorkflowManager,
+        thread_manager: IThreadManager,
         session_store: ISessionStore,
         git_manager: Optional[IGitManager] = None,
         storage_path: Optional[Path] = None,
-        thread_manager: Optional[IThreadManager] = None,
         state_manager: Optional[IStateManager] = None
     ) -> None:
         """初始化会话管理器
 
         Args:
-            workflow_manager: 工作流管理器
+            thread_manager: Thread管理器（核心依赖）
             session_store: 会话存储
             git_manager: Git管理器（可选）
             storage_path: 存储路径（可选）
-            thread_manager: Thread管理器（可选）
             state_manager: 状态管理器（可选）
         """
-        self.workflow_manager = workflow_manager
+        self.thread_manager = thread_manager
         self.session_store = session_store
         self.git_manager = git_manager
         self.storage_path = storage_path or Path("./sessions")
-        self.thread_manager = thread_manager
         self.state_manager = state_manager
-        self._recovery_attempts: dict[str, int] = {}
 
         # 确保存储目录存在
         self.storage_path.mkdir(parents=True, exist_ok=True)
+        
+        logger.info("SessionManager初始化完成（重构版本）")
 
-    async def create_session_with_threads(
-        self,
-        workflow_configs: Dict[str, str],  # 线程名 -> 工作流配置路径
-        dependencies: Optional[Dict[str, List[str]]] = None,  # 线程依赖关系
-        agent_config: Optional[dict[str, Any]] = None,
-        initial_states: Optional[Dict[str, WorkflowState]] = None # 每个线程的初始状态
-    ) -> str:
-        """原子性创建Session和多个Thread"""
-        # 生成符合新命名规则的会话ID
-        # 使用第一个工作流配置路径作为基础
-        first_config_path = next(iter(workflow_configs.values()))
-        session_id = self._generate_session_id(first_config_path)
+    async def create_session(self, user_request: UserRequest) -> str:
+        """创建用户会话"""
+        # 生成会话ID
+        session_id = f"session_{uuid.uuid4().hex[:8]}"
 
         # 创建会话目录
         session_dir = self.storage_path / session_id
@@ -247,763 +160,457 @@ class SessionManager(ISessionManager):
         if self.git_manager:
             self.git_manager.init_repo(session_dir)
 
-        # 准备线程信息
-        thread_info = {}
-        for thread_name, config_path in workflow_configs.items():
-            # 检查工作流配置文件是否存在
-            if not Path(config_path).exists():
-                logger.warning(f"工作流配置文件不存在: {config_path}")
-                continue
+        # 创建会话上下文
+        session_context = SessionContext(
+            session_id=session_id,
+            user_id=user_request.user_id,
+            thread_ids=[],
+            status="active",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            metadata={
+                "request_id": user_request.request_id,
+                "initial_content": user_request.content,
+                **user_request.metadata
+            }
+        )
 
-            # 加载工作流配置
-            workflow_id = self.workflow_manager.load_workflow(config_path)
-            workflow_config = self.workflow_manager.get_workflow_config(workflow_id)
-
-            # 获取工作流摘要
-            workflow_summary = self.workflow_manager.get_workflow_summary(workflow_id)
-
-            # 创建thread
-            if self.thread_manager:
-                graph_id = Path(config_path).stem  # 从路径中提取文件名作为graph ID
-                thread_id = await self.thread_manager.create_thread(
-                    graph_id,
-                    {
-                        "thread_name": thread_name,
-                        "workflow_config_path": config_path,
-                        "workflow_summary": workflow_summary
-                    }
-                )
-                
-                # 如果有初始状态，保存到thread
-                if initial_states and thread_name in initial_states:
-                    initial_state = initial_states[thread_name]
-                    # 使用统一的状态管理器序列化状态
-                    if self.state_manager:
-                        state_data = self.state_manager.serialize_state_dict(self._serialize_state(initial_state))
-                        await self.thread_manager.update_thread_state(thread_id, self.state_manager.deserialize_state_dict(state_data))
-                    else:
-                        await self.thread_manager.update_thread_state(thread_id, self._serialize_state(initial_state))
-                
-                thread_info[thread_name] = {
-                    "thread_id": thread_id,
-                    "config_path": config_path,
-                    "workflow_summary": workflow_summary
-                }
-
-        # 保存增强的会话元数据
-        session_metadata = {
-            "session_id": session_id,
-            "workflow_configs": workflow_configs,  # 保存所有工作流配置
-            "thread_info": thread_info,  # 保存线程信息
-            "dependencies": dependencies or {},  # 保存依赖关系
-            "agent_config": agent_config or {},
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
-            "status": "active"
-        }
-
-        # 保存会话信息
-        # 获取第一个线程的初始状态作为会话状态（向后兼容）
-        session_state = {}
-        if initial_states and initial_states:
-            first_thread_state = next(iter(initial_states.values()))
-            if first_thread_state:
-                session_state = self._serialize_state(first_thread_state)
-        
+        # 保存会话数据
         session_data = {
-            "metadata": session_metadata,
-            "state": session_state  # 多线程会话的状态管理将通过各自的thread管理，但仍保存一个会话级状态用于向后兼容
+            "context": self._serialize_session_context(session_context),
+            "interactions": [],
+            "thread_configs": {},
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
         }
         self.session_store.save_session(session_id, session_data)
+
+        # 追踪初始用户交互
+        initial_interaction = UserInteraction(
+            interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
+            session_id=session_id,
+            thread_id=None,
+            interaction_type="user_request",
+            content=user_request.content,
+            metadata=user_request.metadata,
+            timestamp=datetime.now()
+        )
+        await self.track_user_interaction(session_id, initial_interaction)
 
         # 提交初始状态到Git（如果提供了Git管理器）
         if self.git_manager:
             self.git_manager.commit_changes(
                 session_dir,
-                "初始化多线程会话",
-                {"session_id": session_id}
+                "初始化用户会话",
+                {"session_id": session_id, "request_id": user_request.request_id}
             )
 
-        logger.info(f"创建多线程会话成功: {session_id}, 包含 {len(thread_info)} 个线程")
+        logger.info(f"创建用户会话成功: {session_id}, user_id: {user_request.user_id}")
         return session_id
 
-    async def add_thread(self, session_id: str, thread_name: str, config_path: str) -> bool:
-        """向Session添加新Thread"""
-        # 获取现有会话信息
+    async def get_session_context(self, session_id: str) -> Optional[SessionContext]:
+        """获取会话上下文"""
+        session_data = self.session_store.get_session(session_id)
+        if not session_data:
+            return None
+
+        return self._deserialize_session_context(session_data["context"])
+
+    async def track_user_interaction(self, session_id: str, interaction: UserInteraction) -> None:
+        """追踪用户交互"""
         session_data = self.session_store.get_session(session_id)
         if not session_data:
             logger.warning(f"会话不存在: {session_id}")
-            return False
+            return
 
-        # 检查工作流配置文件是否存在
-        if not Path(config_path).exists():
-            logger.warning(f"工作流配置文件不存在: {config_path}")
-            return False
+        # 添加交互记录
+        interactions = session_data.get("interactions", [])
+        interactions.append(self._serialize_user_interaction(interaction))
+        session_data["interactions"] = interactions
+        session_data["updated_at"] = datetime.now().isoformat()
 
-        # 加载工作流配置
-        workflow_id = self.workflow_manager.load_workflow(config_path)
-        workflow_config = self.workflow_manager.get_workflow_config(workflow_id)
-        workflow_summary = self.workflow_manager.get_workflow_summary(workflow_id)
-
-        # 创建thread
-        if not self.thread_manager:
-            logger.error("Thread管理器未初始化")
-            return False
-
-        graph_id = Path(config_path).stem  # 从路径中提取文件名作为graph ID
-        thread_id = await self.thread_manager.create_thread(
-            graph_id,
-            {
-                "thread_name": thread_name,
-                "workflow_config_path": config_path,
-                "workflow_summary": workflow_summary,
-                "session_id": session_id
-            }
-        )
-
-        # 更新会话元数据，添加新的thread信息
-        session_metadata = session_data["metadata"]
-        if "thread_info" not in session_metadata:
-            session_metadata["thread_info"] = {}
-        
-        session_metadata["thread_info"][thread_name] = {
-            "thread_id": thread_id,
-            "config_path": config_path,
-            "workflow_summary": workflow_summary
-        }
-        session_metadata["updated_at"] = datetime.now().isoformat()
-
-        # 保存更新后的会话信息
+        # 保存会话数据
         self.session_store.save_session(session_id, session_data)
 
-        logger.info(f"向会话添加Thread成功: {session_id}, thread_name={thread_name}, thread_id={thread_id}")
-        return True
-
-    async def get_threads(self, session_id: str) -> Dict[str, Any]:
-        """获取Session的所有Thread信息"""
-        session_data = self.session_store.get_session(session_id)
-        if not session_data:
-            logger.warning(f"会话不存在: {session_id}")
-            return {}
-
-        # 返回会话中所有线程的信息
-        thread_info = session_data.get("metadata", {}).get("thread_info", {})
-        return thread_info
-
-    def create_session(
-        self,
-        workflow_config_path: str,
-        agent_config: Optional[dict[str, Any]] = None,
-        initial_state: Optional[WorkflowState] = None
-    ) -> str:
-        """创建新会话（向后兼容）"""
-        # 使用新的多线程方法创建只包含一个线程的会话
-        workflow_configs = {"default_thread": workflow_config_path}
-        initial_states = None
-        if initial_state:
-            initial_states = {"default_thread": initial_state}
-        else:
-            # 创建一个默认的空状态
-            initial_states = {"default_thread": self._create_empty_state()}
-        
-        # 异步方法需要在同步上下文中运行
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        session_id = loop.run_until_complete(
-            self.create_session_with_threads(
-                workflow_configs=workflow_configs,
-                agent_config=agent_config,
-                initial_states=initial_states
-            )
-        )
-        
-        return session_id
-
-    def get_session(self, session_id: str) -> Optional[dict[str, Any]]:
-        """获取会话信息"""
-        return self.session_store.get_session(session_id)
-
-    def restore_session(self, session_id: str) -> Tuple[Any, WorkflowState]:
-        """改进的会话恢复方法"""
-        try:
-            session_data = self.session_store.get_session(session_id)
-            if not session_data:
-                raise ValueError(f"会话 {session_id} 不存在")
-            
-            metadata = session_data["metadata"]
-            # 对于多线程会话，获取第一个线程的配置路径
-            config_path = None
-            if "workflow_config_path" in metadata:
-                # 向后兼容旧格式
-                config_path = metadata["workflow_config_path"]
-            elif "workflow_configs" in metadata and metadata["workflow_configs"]:
-                # 新格式：获取第一个工作流配置
-                config_path = next(iter(metadata["workflow_configs"].values()))
-            elif "thread_info" in metadata and metadata["thread_info"]:
-                # 从线程信息中获取配置路径
-                first_thread = next(iter(metadata["thread_info"].values()))
-                config_path = first_thread.get("config_path")
-            
-            if not config_path:
-                raise ValueError(f"会话 {session_id} 中未找到工作流配置路径")
-            
-            # 检查配置文件是否存在
-            if not Path(config_path).exists():
-                # 在测试环境中，创建模拟的工作流配置
-                logger.warning(f"工作流配置文件不存在，使用模拟配置: {config_path}")
-                workflow = None
-                # 即使配置文件不存在，也要正确恢复状态
-                if self.state_manager:
-                    # 确保状态数据正确反序列化
-                    state_data = session_data["state"]
-                    if isinstance(state_data, dict) and state_data:
-                        deserialized_state = self.state_manager.deserialize_state_dict(
-                            self.state_manager.serialize_state_dict(state_data)
-                        )
-                        state = self._deserialize_state(deserialized_state)
-                    else:
-                        # 如果没有保存的状态，创建一个空状态
-                        state = self._create_empty_state()
-                else:
-                    state_data = session_data["state"]
-                    if isinstance(state_data, dict) and state_data:
-                        state = self._deserialize_state(state_data)
-                    else:
-                        # 如果没有保存的状态，创建一个空状态
-                        state = self._create_empty_state()
-                return workflow, state
-            
-            # 使用改进的恢复策略
-            return self._restore_workflow_with_fallback(metadata, session_data)
-            
-        except Exception as e:
-            logger.error(f"会话恢复失败: session_id={session_id}, error={e}")
-            # 记录详细的恢复失败信息
-            self._log_recovery_failure(session_id, e)
-            raise
-
-    def save_session(self, session_id: str, state: WorkflowState, workflow: Any = None) -> bool:
-        """保存会话"""
-        try:
-            session_data = self.session_store.get_session(session_id)
-            if not session_data:
-                return False
-
-            # 更新状态
-            if self.state_manager:
-                session_data["state"] = self.state_manager.deserialize_state_dict(
-                    self.state_manager.serialize_state_dict(self._serialize_state(state))
-                )
-            else:
-                session_data["state"] = self._serialize_state(state)
-            session_data["metadata"]["updated_at"] = datetime.now().isoformat()
-
-            # 保存会话数据
-            self.session_store.save_session(session_id, session_data)
-
-            # 提交更改到Git（如果提供了Git管理器）
-            if self.git_manager:
-                session_dir = self.storage_path / session_id
-                self.git_manager.commit_changes(
-                    session_dir,
-                    "更新会话状态",
-                    {"session_id": session_id}
-                )
-
-            return True
-        except Exception:
-            return False
-
-    def delete_session(self, session_id: str) -> bool:
-        """删除会话"""
-        try:
-            # 删除存储的会话数据
-            self.session_store.delete_session(session_id)
-
-            # 删除会话目录
-            session_dir = self.storage_path / session_id
-            if session_dir.exists():
-                shutil.rmtree(session_dir)
-
-            # 清理恢复尝试记录
-            if session_id in self._recovery_attempts:
-                del self._recovery_attempts[session_id]
-
-            return True
-        except Exception:
-            return False
-
-    def list_sessions(self) -> List[dict[str, Any]]:
-        """列出所有会话"""
-        sessions = self.session_store.list_sessions()
-        # 按创建时间倒序排列
-        sessions.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-        return sessions
-
-    def get_session_history(self, session_id: str) -> List[dict[str, Any]]:
-        """获取会话历史"""
+        # 提交到Git（如果提供了Git管理器）
         if self.git_manager:
             session_dir = self.storage_path / session_id
-            return self.git_manager.get_commit_history(session_dir)
-        else:
-            # 如果没有Git管理器，返回基本历史
-            session_data = self.session_store.get_session(session_id)
-            if session_data:
-                return [{
-                    "timestamp": session_data["metadata"].get("created_at"),
-                    "message": "会话创建",
-                    "author": "system"
-                }]
-            return []
+            self.git_manager.commit_changes(
+                session_dir,
+                f"追踪用户交互: {interaction.interaction_type}",
+                {"session_id": session_id, "interaction_id": interaction.interaction_id}
+            )
 
-    def get_session_info(self, session_id: str) -> Optional[dict[str, Any]]:
-        """获取会话信息"""
-        return self.get_session(session_id)
+        logger.debug(f"追踪用户交互成功: {session_id}, {interaction.interaction_type}")
 
-    def session_exists(self, session_id: str) -> bool:
-        """检查会话是否存在"""
-        return self.get_session(session_id) is not None
-
-    def save_session_with_metrics(self, session_id: str, state: WorkflowState,
-                                 workflow_metrics: dict[str, Any], workflow: Any = None) -> bool:
-        """保存会话状态和工作流指标"""
-        try:
-            session_data = self.session_store.get_session(session_id)
-            if not session_data:
-                return False
-
-            # 更新状态
-            if self.state_manager:
-                session_data["state"] = self.state_manager.deserialize_state_dict(
-                    self.state_manager.serialize_state_dict(self._serialize_state(state))
-                )
-            else:
-                session_data["state"] = self._serialize_state(state)
-            session_data["metadata"]["updated_at"] = datetime.now().isoformat()
-            
-            # 添加工作流指标
-            if "workflow_metrics" not in session_data:
-                session_data["workflow_metrics"] = {}
-            session_data["workflow_metrics"].update(workflow_metrics)
-
-            # 保存会话数据
-            self.session_store.save_session(session_id, session_data)
-
-            # 提交更改到Git（如果提供了Git管理器）
-            if self.git_manager:
-                session_dir = self.storage_path / session_id
-                self.git_manager.commit_changes(
-                    session_dir,
-                    "更新会话状态和指标",
-                    {"session_id": session_id}
-                )
-
-            return True
-        except Exception:
-            return False
-
-    def _restore_workflow_with_fallback(self, metadata: dict[str, Any], session_data: dict[str, Any]) -> Tuple[Any, WorkflowState]:
-        """带回退机制的工作流恢复"""
-        session_id = metadata.get("session_id", "unknown")
-        config_path = metadata["workflow_config_path"]
-        
-        # 策略1: 优先使用配置路径重新加载
-        try:
-            workflow_id = self.workflow_manager.load_workflow(config_path)
-            workflow = self.workflow_manager.create_workflow(workflow_id)
-            
-            # 验证配置一致性
-            if not self._validate_workflow_consistency(metadata, workflow_id):
-                logger.warning(f"工作流配置已变更，使用新配置恢复会话 {session_id}")
-                
-            # 恢复状态
-            if self.state_manager:
-                deserialized_state = self.state_manager.deserialize_state_dict(
-                    self.state_manager.serialize_state_dict(session_data["state"])
-                )
-                state = self._deserialize_state(deserialized_state)
-            else:
-                state = self._deserialize_state(session_data["state"])
-            
-            # 重置恢复尝试计数
-            if session_id in self._recovery_attempts:
-                del self._recovery_attempts[session_id]
-                
-            return workflow, state
-            
-        except Exception as e:
-            # 策略2: 回退到工作流摘要中的workflow_id（如果存在）
-            logger.warning(f"基于配置路径恢复失败，尝试使用工作流摘要中的workflow_id: {e}")
-            try:
-                workflow_summary = metadata.get("workflow_summary", {})
-                original_workflow_id = workflow_summary.get("workflow_id")
-                if original_workflow_id:
-                    workflow = self.workflow_manager.create_workflow(original_workflow_id)
-                    
-                    # 恢复状态
-                    if self.state_manager:
-                        deserialized_state = self.state_manager.deserialize_state_dict(
-                            self.state_manager.serialize_state_dict(session_data["state"])
-                        )
-                        state = self._deserialize_state(deserialized_state)
-                    else:
-                        state = self._deserialize_state(session_data["state"])
-                    
-                    # 重置恢复尝试计数
-                    if session_id in self._recovery_attempts:
-                        del self._recovery_attempts[session_id]
-                        
-                    return workflow, state
-                else:
-                    raise ValueError("工作流摘要中未找到workflow_id")
-                    
-            except Exception as e2:
-                # 策略3: 最终回退 - 重新加载并更新元数据
-                logger.error(f"会话恢复失败，尝试重新创建工作流: {e2}")
-                try:
-                    workflow_id = self.workflow_manager.load_workflow(config_path)
-                    workflow = self.workflow_manager.create_workflow(workflow_id)
-                    
-                    # 更新会话元数据
-                    self._update_session_workflow_info(session_id, workflow_id)
-                    
-                    # 恢复状态
-                    if self.state_manager:
-                        deserialized_state = self.state_manager.deserialize_state_dict(
-                            self.state_manager.serialize_state_dict(session_data["state"])
-                        )
-                        state = self._deserialize_state(deserialized_state)
-                    else:
-                        state = self._deserialize_state(session_data["state"])
-                    
-                    # 重置恢复尝试计数
-                    if session_id in self._recovery_attempts:
-                        del self._recovery_attempts[session_id]
-                        
-                    return workflow, state
-                    
-                except Exception as e3:
-                    # 所有策略都失败
-                    logger.error(f"所有恢复策略都失败: {e3}")
-                    raise ValueError(f"无法恢复会话 {session_id}: 所有恢复策略都失败")
-
-    def _validate_workflow_consistency(self, metadata: dict[str, Any], workflow_id: str) -> bool:
-        """验证工作流配置一致性"""
-        current_config = self.workflow_manager.get_workflow_config(workflow_id)
-        if not current_config:
-            return False
-        
-        # 获取当前工作流摘要
-        current_summary = self.workflow_manager.get_workflow_summary(workflow_id)
-        if not current_summary:
-            return False
-        
-        # 获取保存的工作流摘要
-        saved_summary = metadata.get("workflow_summary", {})
-        
-        # 检查版本
-        if saved_summary.get("version") != current_config.version:
-            return False
-        
-        # 检查配置校验和
-        saved_checksum = saved_summary.get("checksum")
-        current_checksum = current_summary.get("checksum")
-        
-        # 确保返回明确的布尔值
-        if saved_checksum is None or current_checksum is None:
-            return False
-        
-        return bool(saved_checksum == current_checksum)
-
-    def _calculate_config_checksum(self, config_path: str) -> str:
-        """计算配置文件校验和"""
-        try:
-            with open(config_path, 'rb') as f:
-                return hashlib.md5(f.read()).hexdigest()
-        except Exception as e:
-            logger.warning(f"计算配置文件校验和失败: {config_path}, error: {e}")
-            return ""
-
-    def _update_session_workflow_info(self, session_id: str, new_workflow_id: str) -> None:
-        """更新会话中的工作流信息"""
+    async def get_interaction_history(
+        self, 
+        session_id: str, 
+        limit: Optional[int] = None
+    ) -> List[UserInteraction]:
+        """获取交互历史"""
         session_data = self.session_store.get_session(session_id)
         if not session_data:
-            return
+            return []
+
+        interactions_data = session_data.get("interactions", [])
         
-        workflow_summary = self.workflow_manager.get_workflow_summary(new_workflow_id)
-        session_data["metadata"].update({
-            "workflow_summary": workflow_summary,
-            "updated_at": datetime.now().isoformat(),
-            "recovery_info": {
-                "recovered_at": datetime.now().isoformat(),
-                "original_workflow_id": session_data["metadata"].get("workflow_summary", {}).get("workflow_id"),
-                "reason": "workflow_recovery"
-            }
-        })
-        
+        # 应用限制
+        if limit and len(interactions_data) > limit:
+            interactions_data = interactions_data[-limit:]  # 获取最新的交互
+
+        # 反序列化交互记录
+        interactions = []
+        for interaction_data in interactions_data:
+            interaction = self._deserialize_user_interaction(interaction_data)
+            if interaction:
+                interactions.append(interaction)
+
+        return interactions
+
+    async def coordinate_threads(self, session_id: str, thread_configs: List[Dict[str, Any]]) -> Dict[str, str]:
+        """协调多个Thread执行"""
+        session_data = self.session_store.get_session(session_id)
+        if not session_data:
+            raise ValueError(f"会话不存在: {session_id}")
+
+        thread_ids = {}
+        session_context = self._deserialize_session_context(session_data["context"])
+
+        # 创建Thread
+        for thread_config in thread_configs:
+            thread_name = thread_config["name"]
+            config_path = thread_config["config_path"]
+            initial_state = thread_config.get("initial_state")
+
+            # 委托ThreadManager创建Thread
+            if config_path:
+                thread_id = await self.thread_manager.create_thread_from_config(
+                    config_path, 
+                    metadata={"session_id": session_id, "thread_name": thread_name}
+                )
+            else:
+                # 使用graph_id创建
+                graph_id = thread_config.get("graph_id", "default")
+                thread_id = await self.thread_manager.create_thread(
+                    graph_id,
+                    metadata={"session_id": session_id, "thread_name": thread_name}
+                )
+
+            # 如果有初始状态，设置到Thread
+            if initial_state:
+                await self.thread_manager.update_thread_state(thread_id, initial_state)
+
+            thread_ids[thread_name] = thread_id
+            session_context.thread_ids.append(thread_id)
+
+            # 追踪Thread创建交互
+            interaction = UserInteraction(
+                interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
+                session_id=session_id,
+                thread_id=thread_id,
+                interaction_type="thread_created",
+                content=f"创建Thread: {thread_name}",
+                metadata={"thread_name": thread_name, "config_path": config_path},
+                timestamp=datetime.now()
+            )
+            await self.track_user_interaction(session_id, interaction)
+
+        # 更新会话上下文
+        session_context.updated_at = datetime.now()
+        session_data["context"] = self._serialize_session_context(session_context)
+        session_data["thread_configs"] = {config["name"]: config for config in thread_configs}
+        session_data["updated_at"] = datetime.now().isoformat()
         self.session_store.save_session(session_id, session_data)
 
-    def _log_recovery_failure(self, session_id: str, error: Exception) -> None:
-        """记录恢复失败信息"""
-        recovery_attempts = self._get_recovery_attempts(session_id) + 1
-        self._recovery_attempts[session_id] = recovery_attempts
+        logger.info(f"协调Thread执行成功: {session_id}, 创建了{len(thread_ids)}个Thread")
+        return thread_ids
+
+    async def execute_workflow_in_session(
+        self, 
+        session_id: str, 
+        thread_name: str, 
+        config: Optional[Dict[str, Any]] = None
+    ) -> WorkflowState:
+        """在会话中执行工作流"""
+        # 获取会话上下文
+        session_context = await self.get_session_context(session_id)
+        if not session_context:
+            raise ValueError(f"会话不存在: {session_id}")
+
+        # 查找Thread ID
+        thread_id = None
+        session_data = self.session_store.get_session(session_id)
+        if session_data is None:
+            raise ValueError(f"会话 {session_id} 不存在")
+        thread_configs = session_data.get("thread_configs", {})
         
-        recovery_log = {
-            "session_id": session_id,
-            "timestamp": datetime.now().isoformat(),
-            "error_type": type(error).__name__,
-            "error_message": str(error),
-            "recovery_attempts": recovery_attempts
-        }
-        
-        # 保存恢复日志
-        self._save_recovery_log(recovery_log)
-
-    def _get_recovery_attempts(self, session_id: str) -> int:
-        """获取恢复尝试次数"""
-        return self._recovery_attempts.get(session_id, 0)
-
-    def _save_recovery_log(self, recovery_log: dict[str, Any]) -> None:
-        """保存恢复日志"""
-        try:
-            log_dir = self.storage_path / "recovery_logs"
-            log_dir.mkdir(exist_ok=True)
+        if thread_name in thread_configs:
+            # 从thread_configs中查找
+            thread_config = thread_configs[thread_name]
+            config_path = thread_config.get("config_path")
             
-            session_id = recovery_log["session_id"]
-            log_file = log_dir / f"{session_id}_recovery.log"
-            
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(recovery_log, ensure_ascii=False) + "\n")
-                
-        except Exception as e:
-            logger.error(f"保存恢复日志失败: {e}")
-
-    def _serialize_state(self, state: WorkflowState) -> dict[str, Any]:
-        """序列化状态"""
-        return {
-            "messages": [
-                {
-                    "type": type(msg).__name__,
-                    "content": getattr(msg, "content", ""),
-                    "additional_kwargs": getattr(msg, "additional_kwargs", {})
-                }
-                for msg in state.get("messages", [])
-            ],
-            "tool_results": [
-                {
-                    "tool_name": result.get("tool_name", "") if isinstance(result, dict) else getattr(result, "tool_name", ""),
-                    "success": result.get("success", False) if isinstance(result, dict) else getattr(result, "success", False),
-                    "result": result.get("result") if isinstance(result, dict) else getattr(result, "output", None),
-                    "error": result.get("error") if isinstance(result, dict) else getattr(result, "error", None)
-                }
-                for result in state.get("tool_results", [])
-            ],
-            "current_step": state.get("current_step", ""),
-            "max_iterations": state.get("max_iterations", 10),
-            "iteration_count": state.get("iteration_count", 0),
-            "workflow_name": state.get("workflow_name", ""),
-            "start_time": state.get("start_time"),
-            "errors": state.get("errors", [])
-        }
-
-    def _deserialize_state(self, state_data: dict[str, Any]) -> WorkflowState:
-        """反序列化状态"""
-        state: WorkflowState = {
-            "messages": [],
-            "tool_results": [],
-            "current_step": "",
-            "max_iterations": 10,
-            "iteration_count": 0,
-            "workflow_name": "",
-            "start_time": None,
-            "errors": [],
-            "input": "",
-            "output": None,
-            "tool_calls": [],
-            "complete": False,
-            "metadata": {}
-        }
-
-        # 恢复消息
-        from ...infrastructure.graph.states import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
-        for msg_data in state_data.get("messages", []):
-            msg: BaseMessage
-            try:
-                # 尝试创建适当的消息类型
-                msg_type = msg_data.get("type", "BaseMessage")
-                role_str = msg_data.get("role", "human")
-
-                if msg_type == "HumanMessage":
-                    msg = HumanMessage(content=msg_data.get("content", ""))
-                elif msg_type == "SystemMessage":
-                    msg = SystemMessage(content=msg_data.get("content", ""))
-                elif msg_type == "AIMessage":
-                    msg = AIMessage(content=msg_data.get("content", ""))
-                elif msg_type == "ToolMessage":
-                    msg = ToolMessage(content=msg_data.get("content", ""))
-                else:
-                    msg = BaseMessage(content=msg_data.get("content", ""), type=role_str)
-
-                # 安全访问messages列表
-                if "messages" not in state:
-                    state["messages"] = []
-                state["messages"].append(msg)
-            except Exception:
-                # 如果创建消息失败，创建基本消息
-                role_str = msg_data.get("role", "human")
-                msg = BaseMessage(content=msg_data.get("content", ""), type=role_str)
-                # 安全访问messages列表
-                if "messages" not in state:
-                    state["messages"] = []
-                state["messages"].append(msg)
-
-        # 恢复工具结果
-        for result_data in state_data.get("tool_results", []):
-            result = {
-                "tool_name": result_data.get("tool_name", ""),
-                "success": result_data.get("success", False),
-                "result": result_data.get("result"),
-                "error": result_data.get("error")
-            }
-            state["tool_results"].append(result)
-
-        # 恢复其他属性
-        state["current_step"] = state_data.get("current_step", "")
-        state["max_iterations"] = state_data.get("max_iterations", 10)
-        state["iteration_count"] = state_data.get("iteration_count", 0)
-        state["workflow_name"] = state_data.get("workflow_name", "")
-
-        # 恢复开始时间
-        start_time_str = state_data.get("start_time")
-        if start_time_str:
-            try:
-                # 如果已经是字符串格式，直接使用
-                if isinstance(start_time_str, str):
-                    state["start_time"] = start_time_str
-                else:
-                    # 否则转换为ISO格式字符串
-                    state["start_time"] = start_time_str.isoformat()
-            except (ValueError, TypeError):
-                state["start_time"] = None
+            # 查找对应的thread_id
+            for tid in session_context.thread_ids:
+                thread_info = await self.thread_manager.get_thread_info(tid)
+                if thread_info and thread_info.get("metadata", {}).get("thread_name") == thread_name:
+                    thread_id = tid
+                    break
         else:
-            state["start_time"] = None
+            raise ValueError(f"Thread不存在: {thread_name}")
 
-        # 恢复错误列表
-        state["errors"] = state_data.get("errors", [])
+        if not thread_id:
+            raise ValueError(f"找不到Thread: {thread_name}")
 
-        return state
+        # 追踪执行开始交互
+        interaction = UserInteraction(
+            interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
+            session_id=session_id,
+            thread_id=thread_id,
+            interaction_type="workflow_execution_start",
+            content=f"开始执行工作流: {thread_name}",
+            metadata={"thread_name": thread_name, "config": config},
+            timestamp=datetime.now()
+        )
+        await self.track_user_interaction(session_id, interaction)
 
-    def _generate_session_id(self, workflow_config_path: str) -> str:
-        """生成符合新命名规则的会话ID
-        
-        格式: workflow名称(全小写)+年月日(如251022)+时分秒+uuid前6位
-        例如: react-251022-174800-1f73e8
-        
-        Args:
-            workflow_config_path: 工作流配置文件路径
-            
-        Returns:
-            str: 生成的会话ID
-        """
-        # 生成基础UUID
-        base_uuid = str(uuid.uuid4())
-        uuid_prefix = base_uuid[:6]
-        
-        # 获取当前时间
-        now = datetime.now()
-        date_str = now.strftime("%y%m%d")  # 年月日，如251022
-        time_str = now.strftime("%H%M%S")  # 时分秒，如174800
-        
-        # 从配置路径提取workflow名称
-        workflow_name = self._extract_workflow_name(workflow_config_path)
-        
-        # 组合生成session_id
-        session_id = f"{workflow_name}-{date_str}-{time_str}-{uuid_prefix}"
-        return session_id
-    
-    def _extract_workflow_name(self, workflow_config_path: str) -> str:
-        """从工作流配置路径提取workflow名称
-        
-        Args:
-            workflow_config_path: 工作流配置文件路径
-            
-        Returns:
-            str: workflow名称（全小写，无后缀）
-        """
         try:
-            # 检查路径是否为空
-            if not workflow_config_path or not workflow_config_path.strip():
-                return "unknown"
-                
-            # 从路径中提取文件名（不含扩展名）
-            from pathlib import Path
-            config_file = Path(workflow_config_path)
-            base_name = config_file.stem  # 不含扩展名的文件名
-            
-            # 转换为小写并移除下划线和后缀，保持简洁
-            # 例如: "react_workflow" -> "react"
-            workflow_name = base_name.lower().replace("_", "")
-            
-            # 移除常见的后缀如"workflow"
-            if workflow_name.endswith("workflow"):
-                workflow_name = workflow_name[:-8]  # 移除"workflow"(8个字符)
-                
-            return workflow_name
-        except Exception:
-            # 如果提取失败，返回默认值
-            return "unknown"
-    
-    def _create_mock_workflow_config(self, config_path: str) -> Any:
-        """创建模拟的工作流配置（用于测试环境）
-        
-        Args:
-            config_path: 配置文件路径
-            
-        Returns:
-            Any: 模拟的工作流配置
-        """
-        # 创建一个模拟的工作流配置对象
-        class MockWorkflowConfig:
-            def __init__(self, config_path: str):
-                self.name = Path(config_path).stem
-                self.description = f"模拟工作流配置: {self.name}"
-                self.version = "1.0.0"
-                self.config_path = config_path
-                
-            def to_dict(self):
-                return {
-                    "name": self.name,
-                    "description": self.description,
-                    "version": self.version,
-                    "nodes": {},
-                    "edges": [],
-                    "entry_point": None
-                }
-        
-        return MockWorkflowConfig(config_path)
-    
-    def _create_empty_state(self) -> WorkflowState:
-        """创建空状态
+            # 委托ThreadManager执行工作流
+            result = await self.thread_manager.execute_workflow(thread_id, config)
 
-        Returns:
-            WorkflowState: 空状态
-        """
+            # 追踪执行成功交互
+            success_interaction = UserInteraction(
+                interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
+                session_id=session_id,
+                thread_id=thread_id,
+                interaction_type="workflow_execution_success",
+                content=f"工作流执行成功: {thread_name}",
+                metadata={"thread_name": thread_name, "result_keys": list(result.keys()) if isinstance(result, dict) else []},
+                timestamp=datetime.now()
+            )
+            await self.track_user_interaction(session_id, success_interaction)
+
+            return result  # type: ignore
+
+        except Exception as e:
+            # 追踪执行错误交互
+            error_interaction = UserInteraction(
+                interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
+                session_id=session_id,
+                thread_id=thread_id,
+                interaction_type="workflow_execution_error",
+                content=f"工作流执行失败: {thread_name}",
+                metadata={"thread_name": thread_name, "error": str(e)},
+                timestamp=datetime.now()
+            )
+            await self.track_user_interaction(session_id, error_interaction)
+            raise
+
+    async def stream_workflow_in_session(  # type: ignore
+        self,
+        session_id: str,
+        thread_name: str,
+        config: Optional[Dict[str, Any]] = None
+    ) -> AsyncGenerator[Dict[str, Any], Any]:
+        """在会话中流式执行工作流"""
+        # 获取会话上下文
+        session_context = await self.get_session_context(session_id)
+        if not session_context:
+            raise ValueError(f"会话不存在: {session_id}")
+
+        # 查找Thread ID（类似execute_workflow_in_session）
+        thread_id = None
+        session_data = self.session_store.get_session(session_id)
+        if session_data is None:
+            raise ValueError(f"会话 {session_id} 不存在")
+        thread_configs = session_data.get("thread_configs", {})
+        
+        if thread_name in thread_configs:
+            thread_config = thread_configs[thread_name]
+            
+            # 查找对应的thread_id
+            for tid in session_context.thread_ids:
+                thread_info = await self.thread_manager.get_thread_info(tid)
+                if thread_info and thread_info.get("metadata", {}).get("thread_name") == thread_name:
+                    thread_id = tid
+                    break
+        else:
+            raise ValueError(f"Thread不存在: {thread_name}")
+
+        if not thread_id:
+            raise ValueError(f"找不到Thread: {thread_name}")
+
+        # 追踪流式执行开始交互
+        interaction = UserInteraction(
+            interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
+            session_id=session_id,
+            thread_id=thread_id,
+            interaction_type="workflow_stream_start",
+            content=f"开始流式执行工作流: {thread_name}",
+            metadata={"thread_name": thread_name, "config": config},
+            timestamp=datetime.now()
+        )
+        await self.track_user_interaction(session_id, interaction)
+
+        try:
+            # 委托ThreadManager流式执行工作流
+            async for state in await self.thread_manager.stream_workflow(thread_id, config):
+                yield state
+
+            # 追踪流式执行完成交互
+            completion_interaction = UserInteraction(
+                interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
+                session_id=session_id,
+                thread_id=thread_id,
+                interaction_type="workflow_stream_complete",
+                content=f"流式工作流执行完成: {thread_name}",
+                metadata={"thread_name": thread_name},
+                timestamp=datetime.now()
+            )
+            await self.track_user_interaction(session_id, completion_interaction)
+
+        except Exception as e:
+            # 追踪流式执行错误交互
+            error_interaction = UserInteraction(
+                interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
+                session_id=session_id,
+                thread_id=thread_id,
+                interaction_type="workflow_stream_error",
+                content=f"流式工作流执行失败: {thread_name}",
+                metadata={"thread_name": thread_name, "error": str(e)},
+                timestamp=datetime.now()
+            )
+            await self.track_user_interaction(session_id, error_interaction)
+            raise
+
+    # === 向后兼容方法 ===
+
+    async def create_session_with_threads(
+        self,
+        workflow_configs: Dict[str, str],  # 线程名 -> 工作流配置路径
+        dependencies: Optional[Dict[str, List[str]]] = None,  # 线程依赖关系
+        agent_config: Optional[dict[str, Any]] = None,
+        initial_states: Optional[Dict[str, WorkflowState]] = None # 每个线程的初始状态
+    ) -> str:
+        """原子性创建Session和多个Thread（向后兼容）"""
+        # 创建用户请求
+        user_request = UserRequest(
+            request_id=f"request_{uuid.uuid4().hex[:8]}",
+            user_id=None,
+            content=f"创建多线程会话: {list(workflow_configs.keys())}",
+            metadata={
+                "workflow_configs": workflow_configs,
+                "dependencies": dependencies,
+                "agent_config": agent_config
+            },
+            timestamp=datetime.now()
+        )
+
+        # 创建会话
+        session_id = await self.create_session(user_request)
+
+        # 准备Thread配置
+        thread_configs_list = []
+        for thread_name, config_path in workflow_configs.items():
+            thread_config = {
+                "name": thread_name,
+                "config_path": config_path,
+                "initial_state": initial_states.get(thread_name) if initial_states else None
+            }
+            thread_configs_list.append(thread_config)
+
+        # 协调Thread创建
+        await self.coordinate_threads(session_id, thread_configs_list)
+
+        return session_id
+
+    # === 私有辅助方法 ===
+
+    def _serialize_session_context(self, context: SessionContext) -> Dict[str, Any]:
+        """序列化会话上下文"""
         return {
-            "messages": [],
-            "tool_results": [],
-            "current_step": "",
-            "max_iterations": 10,
-            "iteration_count": 0,
-            "workflow_name": "",
-            "start_time": None,
-            "errors": [],
-            "input": "",
-            "output": None,
-            "tool_calls": [],
-            "complete": False,
-            "metadata": {}
+            "session_id": context.session_id,
+            "user_id": context.user_id,
+            "thread_ids": context.thread_ids,
+            "status": context.status,
+            "created_at": context.created_at.isoformat(),
+            "updated_at": context.updated_at.isoformat(),
+            "metadata": context.metadata
+        }
+
+    def _deserialize_session_context(self, data: Dict[str, Any]) -> SessionContext:
+        """反序列化会话上下文"""
+        return SessionContext(
+            session_id=data["session_id"],
+            user_id=data.get("user_id"),
+            thread_ids=data.get("thread_ids", []),
+            status=data.get("status", "active"),
+            created_at=datetime.fromisoformat(data["created_at"]),
+            updated_at=datetime.fromisoformat(data["updated_at"]),
+            metadata=data.get("metadata", {})
+        )
+
+    def _serialize_user_interaction(self, interaction: UserInteraction) -> Dict[str, Any]:
+        """序列化用户交互"""
+        return {
+            "interaction_id": interaction.interaction_id,
+            "session_id": interaction.session_id,
+            "thread_id": interaction.thread_id,
+            "interaction_type": interaction.interaction_type,
+            "content": interaction.content,
+            "metadata": interaction.metadata,
+            "timestamp": interaction.timestamp.isoformat()
+        }
+
+    def _deserialize_user_interaction(self, data: Dict[str, Any]) -> Optional[UserInteraction]:
+        """反序列化用户交互"""
+        try:
+            return UserInteraction(
+                interaction_id=data["interaction_id"],
+                session_id=data["session_id"],
+                thread_id=data.get("thread_id"),
+                interaction_type=data["interaction_type"],
+                content=data["content"],
+                metadata=data.get("metadata", {}),
+                timestamp=datetime.fromisoformat(data["timestamp"])
+            )
+        except Exception as e:
+            logger.error(f"反序列化用户交互失败: {e}")
+            return None
+
+    async def get_session_summary(self, session_id: str) -> Dict[str, Any]:
+        """获取会话摘要"""
+        session_context = await self.get_session_context(session_id)
+        if not session_context:
+            return {}
+
+        interactions = await self.get_interaction_history(session_id)
+
+        # 统计交互类型
+        interaction_stats = {}
+        for interaction in interactions:
+            interaction_type = interaction.interaction_type
+            interaction_stats[interaction_type] = interaction_stats.get(interaction_type, 0) + 1
+
+        # 获取Thread状态
+        thread_states = {}
+        for thread_id in session_context.thread_ids:
+            thread_info = await self.thread_manager.get_thread_info(thread_id)
+            if thread_info:
+                thread_states[thread_id] = {
+                    "status": thread_info.get("status"),
+                    "checkpoint_count": thread_info.get("checkpoint_count", 0),
+                    "updated_at": thread_info.get("updated_at")
+                }
+
+        return {
+            "session_id": session_id,
+            "user_id": session_context.user_id,
+            "status": session_context.status,
+            "created_at": session_context.created_at.isoformat(),
+            "updated_at": session_context.updated_at.isoformat(),
+            "thread_count": len(session_context.thread_ids),
+            "interaction_count": len(interactions),
+            "interaction_stats": interaction_stats,
+            "thread_states": thread_states
         }
