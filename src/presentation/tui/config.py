@@ -63,6 +63,26 @@ class SubviewConfig:
 
 
 @dataclass
+class KeyboardConfig:
+    """键盘配置 - 增强键盘支持"""
+    enhanced_keyboard_support: bool = True      # 启用增强按键支持
+    debug_key_sequences: bool = False          # 调试按键序列
+    enable_kitty_protocol: bool = True          # 启用Kitty协议支持
+    max_sequence_length: int = 16               # 最大序列长度
+    alt_key_timeout: float = 0.1                  # Alt键超时时间（秒）
+    key_sequence_timeout: float = 0.1           # 按键序列超时时间
+    debug_keyboard: bool = False                  # 调试键盘输入
+    
+    # 按键映射配置
+    key_mappings: Dict[str, str] = field(default_factory=lambda: {
+        'ctrl+c': 'quit',
+        'ctrl+q': 'quit',
+        'ctrl+h': 'help',
+        'ctrl+r': 'refresh',
+    })
+
+
+@dataclass
 class ShortcutConfig:
     """快捷键配置"""
     analytics: str = "alt+1"
@@ -83,6 +103,7 @@ class TUIConfig:
     behavior: BehaviorConfig
     subview: SubviewConfig
     shortcuts: ShortcutConfig
+    keyboard: KeyboardConfig
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -91,7 +112,8 @@ class TUIConfig:
             "theme": asdict(self.theme),
             "behavior": asdict(self.behavior),
             "subview": asdict(self.subview),
-            "shortcuts": asdict(self.shortcuts)
+            "shortcuts": asdict(self.shortcuts),
+            "keyboard": asdict(self.keyboard)
         }
     
     def _layout_to_dict(self) -> Dict[str, Any]:
@@ -122,6 +144,7 @@ class TUIConfig:
         behavior_data = data.get("behavior", {})
         subview_data = data.get("subview", {})
         shortcuts_data = data.get("shortcuts", {})
+        keyboard_data = data.get("keyboard", {})
         
         # 重建布局配置
         regions = {}
@@ -155,12 +178,16 @@ class TUIConfig:
         # 重建快捷键配置
         shortcuts_config = ShortcutConfig(**shortcuts_data)
         
+        # 重建键盘配置
+        keyboard_config = KeyboardConfig(**keyboard_data)
+        
         return cls(
             layout=layout_config,
             theme=theme_config,
             behavior=behavior_config,
             subview=subview_config,
-            shortcuts=shortcuts_config
+            shortcuts=shortcuts_config,
+            keyboard=keyboard_config
         )
 
 
@@ -305,12 +332,16 @@ class ConfigManager:
         # 默认快捷键配置
         shortcuts_config = ShortcutConfig()
         
+        # 默认键盘配置
+        keyboard_config = KeyboardConfig()
+        
         return TUIConfig(
             layout=layout_config,
             theme=theme_config,
             behavior=behavior_config,
             subview=subview_config,
-            shortcuts=shortcuts_config
+            shortcuts=shortcuts_config,
+            keyboard=keyboard_config
         )
     
     def export_config(self, export_path: Path, format: str = "yaml") -> None:

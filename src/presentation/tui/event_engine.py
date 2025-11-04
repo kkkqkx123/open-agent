@@ -1,334 +1,449 @@
-"""TUI事件处理引擎"""
+"""
+TUI事件引擎 - 重构版本
 
-import sys
+提供统一的按键事件处理机制，支持Key对象和增强的按键识别
+"""
+
 import threading
-import time
 import queue
-from typing import Optional, Callable, Dict, Any
+import time
+from typing import Dict, Callable, Optional, Any, List
 from blessed import Terminal
-import asyncio
 
-# 导入TUI日志记录器
-from .logger import get_tui_silent_logger
+from .key import Key, KeyType, KeyModifier, KeyParser, KEY_ENTER, KEY_ESCAPE
+
+
+class KeySequenceBuffer:
+    """按键序列缓冲区
+    
+    处理按键序列，如ESC序列、Alt键组合等
+    """
+    
+    def __init__(self, timeout: float = 0.1):
+        """初始化按键序列缓冲区
+        
+        Args:
+            timeout: 序列超时时间（秒）
+        """
+        self.timeout = timeout
+        self.buffer: List[Key] = []
+        self.last_key_time = 0.0
+        self.pending_escape = False
+        self.escape_start_time = 0.0
+    
+    def add_key(self, key: Key) -> bool:
+        """添加按键到缓冲区
+        
+        Args:
+            key: 按键对象
+            
+        Returns:
+            如果缓冲区准备好处理则返回True
+        """
+        current_time = time.time()
+        
+        # 检查是否是ESC键
+        if key == KEY_ESCAPE:
+            self.pending_escape = True
+            self.escape_start_time = current_time
+            self.buffer.append(key)
+            return False  # 需要等待后续按键
+        
+        # 如果有待处理的ESC键
+        if self.pending_escape:
+            # 检查是否超时
+            if current_time - self.escape_start_time > self.timeout:
+                # ESC键超时，处理为单独的ESC键
+                self.pending_escape = False
+                return True  # 缓冲区准备好
+            
+            # 在超时时间内收到按键，可能是Alt组合
+            self.buffer.append(key)
+            self.pending_escape = False
+            return True  # 缓冲区准备好
+        
+        # 普通按键，直接处理
+        self.buffer.append(key)
+        self.last_key_time = current_time
+        return True
+    
+    def get_sequence(self) -> Optional[List[Key]]:
+        """获取按键序列
+        
+        Returns:
+            按键序列，如果没有准备好的序列则返回None
+        """
+        if not self.buffer:
+            return None
+        
+        current_time = time.time()
+        
+        # 检查ESC键超时
+        if self.pending_escape:
+            if current_time - self.escape_start_time > self.timeout:
+                # ESC键超时，返回单独的ESC键
+                self.pending_escape = False
+                escape_key = self.buffer[0]
+                self.buffer.clear()
+                return [escape_key]
+        
+        # 检查普通按键超时
+        if self.buffer and current_time - self.last_key_time > self.timeout:
+            sequence = self.buffer.copy()
+            self.buffer.clear()
+            return sequence
+        
+        # 如果有完整的序列（ESC+后续键）
+        if len(self.buffer) >= 2 and self.buffer[0] == KEY_ESCAPE:
+            sequence = self.buffer.copy()
+            self.buffer.clear()
+            return sequence
+        
+        return None
+    
+    def clear(self):
+        """清空缓冲区"""
+        self.buffer.clear()
+        self.pending_escape = False
+        self.last_key_time = 0.0
+        self.escape_start_time = 0.0
 
 
 class EventEngine:
-    """事件处理引擎，负责处理键盘输入、事件分发、线程管理"""
+    """TUI事件引擎
     
-    def __init__(self, terminal: Terminal, config: Any) -> None:
+    统一处理键盘输入事件，支持Key对象和增强的按键识别
+    """
+    
+    def __init__(self, terminal: Terminal, config: Optional[Dict[str, Any]] = None):
         """初始化事件引擎
         
         Args:
             terminal: blessed终端对象
-            config: TUI配置对象
+            config: 配置选项
         """
         self.terminal = terminal
-        self.config = config
-        self.running = False
+        self.config = config or {}
+        
+        # 按键处理器
+        self.key_handlers: Dict[str, Callable[[Key], bool]] = {}
+        self.global_key_handler: Optional[Callable[[Key], bool]] = None
+        self.input_component_handler: Optional[Callable[[Key], Any]] = None
+        self.input_result_handler: Optional[Callable[[Any], None]] = None
+        
+        # 输入队列和线程
         self.input_queue = queue.Queue()
+        self.running = False
         self.input_thread: Optional[threading.Thread] = None
+        self.processing_thread: Optional[threading.Thread] = None
         
-        # 事件处理器
-        self.key_handlers: Dict[str, Callable[[str], bool]] = {}
-        self.global_key_handler: Optional[Callable[[str], bool]] = None
+        # 按键序列缓冲区
+        self.sequence_buffer = KeySequenceBuffer(
+            timeout=self.config.get('key_sequence_timeout', 0.1)
+        )
         
-        # 输入组件处理器
-        self.input_component_handler: Optional[Callable[[str], Optional[str]]] = None
-        self.input_result_handler: Optional[Callable[[str], None]] = None
+        # 调试和监控
+        self.debug_enabled = self.config.get('debug_keyboard', False)
+        self.key_stats = {
+            'total_keys': 0,
+            'sequence_detected': 0,
+            'alt_combinations': 0,
+            'errors': 0
+        }
         
-        # 初始化TUI调试日志记录器
+        # 序列监控器
+        self.sequence_monitor = None
+        if self.config.keyboard.debug_key_sequences:
+            from .debug.sequence_monitor import SequenceMonitor
+            self.sequence_monitor = SequenceMonitor()
+        
+        # 获取TUI日志记录器
+        from .logger import get_tui_silent_logger
         self.tui_logger = get_tui_silent_logger("event_engine")
-        
-        # 用于处理Windows终端中Alt+数字键的特殊逻辑
-        self._pending_alt_key: Optional[str] = None
-        self._alt_key_timeout: float = 0.1  # 100ms超时
-        self._last_escape_time: float = 0.0
-        self._pending_escape: bool = False  # 标记是否正在等待可能的Alt键组合
     
-    def register_key_handler(self, key: str, handler: Callable[[str], bool]) -> None:
+    def register_key_handler(self, key: Key, handler: Callable[[Key], bool]) -> None:
         """注册按键处理器
         
         Args:
-            key: 按键字符串
-            handler: 处理函数，返回True表示已处理
+            key: 按键对象
+            handler: 处理器函数，返回True表示已处理
         """
-        self.key_handlers[key] = handler
+        key_str = key.to_string()
+        self.key_handlers[key_str] = handler
+        if self.debug_enabled:
+            self.tui_logger.debug(f"Registered key handler: {key_str}")
     
-    def unregister_key_handler(self, key: str) -> None:
+    def unregister_key_handler(self, key: Key) -> None:
         """取消注册按键处理器
         
         Args:
-            key: 按键字符串
+            key: 按键对象
         """
-        if key in self.key_handlers:
-            del self.key_handlers[key]
+        key_str = key.to_string()
+        if key_str in self.key_handlers:
+            del self.key_handlers[key_str]
+            if self.debug_enabled:
+                self.tui_logger.debug(f"Unregistered key handler: {key_str}")
     
-    def set_global_key_handler(self, handler: Callable[[str], bool]) -> None:
+    def set_global_key_handler(self, handler: Callable[[Key], bool]) -> None:
         """设置全局按键处理器
         
         Args:
-            handler: 全局处理函数
+            handler: 全局处理器函数，返回True表示已处理
         """
         self.global_key_handler = handler
     
-    def set_input_component_handler(self, handler: Callable[[str], Optional[str]]) -> None:
+    def set_input_component_handler(self, handler: Callable[[Key], Any]) -> None:
         """设置输入组件处理器
         
         Args:
-            handler: 输入组件处理函数，返回处理结果
+            handler: 输入组件处理器函数
         """
         self.input_component_handler = handler
     
-    def set_input_result_handler(self, handler: Callable[[str], None]) -> None:
+    def set_input_result_handler(self, handler: Callable[[Any], None]) -> None:
         """设置输入结果处理器
         
         Args:
-            handler: 输入结果处理函数
+            handler: 输入结果处理器函数
         """
         self.input_result_handler = handler
     
-    def start_event_loop(self) -> None:
-        """启动事件循环"""
+    def start(self) -> None:
+        """启动事件引擎"""
+        if self.running:
+            return
+        
         self.running = True
-        
-        # 启动输入读取线程
         self.input_thread = threading.Thread(target=self._input_reader, daemon=True)
-        self.input_thread.start()
+        self.processing_thread = threading.Thread(target=self._processing_loop, daemon=True)
         
-        # 主事件循环
-        while self.running:
-            try:
-                # 处理队列中的输入
-                try:
-                    while not self.input_queue.empty():
-                        key_str = self.input_queue.get_nowait()
-                        self._process_key(key_str)
-                except queue.Empty:
-                    pass
-                
-                # 检查ESC键超时
-                self._check_escape_timeout()
-                
-                # 短暂休眠以减少CPU使用率
-                time.sleep(0.05)
-                
-            except KeyboardInterrupt:
-                break
-            except Exception as e:
-                # 只显示非编码相关的错误
-                if "codec" not in str(e) and "decode" not in str(e):
-                    print(f"事件循环错误: {e}")
-                break
+        self.input_thread.start()
+        self.processing_thread.start()
+        
+        if self.debug_enabled:
+            self.tui_logger.debug("Event engine started")
     
     def stop(self) -> None:
-        """停止事件循环"""
+        """停止事件引擎"""
+        if not self.running:
+            return
+        
         self.running = False
+        
+        # 清空队列
+        while not self.input_queue.empty():
+            try:
+                self.input_queue.get_nowait()
+            except queue.Empty:
+                break
+        
+        # 等待线程结束
         if self.input_thread and self.input_thread.is_alive():
             self.input_thread.join(timeout=1.0)
-    
-    def _check_escape_timeout(self) -> None:
-        """检查ESC键是否超时，如果超时则处理为单独的ESC键"""
-        import time
-        if self._pending_escape:
-            current_time = time.time()
-            if current_time - self._last_escape_time > self._alt_key_timeout:
-                # 超时，处理为单独的ESC键
-                self.tui_logger.debug_key_event("escape", True, "timeout_handler")
-                self._pending_escape = False
-                # 直接调用ESC键处理器，而不是再次进入_process_key
-                if "escape" in self.key_handlers:
-                    self.key_handlers["escape"]("escape")
-                elif self.global_key_handler:
-                    self.global_key_handler("escape")
+        
+        if self.processing_thread and self.processing_thread.is_alive():
+            self.processing_thread.join(timeout=1.0)
+        
+        # 保存序列监控数据
+        if self.sequence_monitor:
+            self.sequence_monitor.save_to_file('key_sequences.json')
+        
+        if self.debug_enabled:
+            self.tui_logger.debug("Event engine stopped")
+            self._log_statistics()
+            
+            # 打印序列监控结果
+            if self.sequence_monitor:
+                self.tui_logger.info("Key sequence statistics:")
+                self.sequence_monitor.print_recent_sequences(limit=20)
+                
+                # 显示常用序列
+                common_sequences = self.sequence_monitor.get_common_sequences(limit=10)
+                if common_sequences:
+                    self.tui_logger.info("Most common sequences:")
+                    for seq, count in common_sequences:
+                        self.tui_logger.info(f"  {seq}: {count} times")
     
     def _input_reader(self) -> None:
-        """输入读取线程 - 使用blessed的inkey()方法"""
+        """输入读取线程"""
         try:
             while self.running:
                 with self.terminal.cbreak():
                     try:
-                        # 使用blessed的inkey()方法，timeout=0表示非阻塞
+                        # 使用blessed的inkey()方法
                         val = self.terminal.inkey(timeout=0.05)
                         if val:
-                            # 将blessed的Keystroke对象转换为字符串
-                            key_str = self._convert_keystroke_to_string(val)
-                            if key_str:
-                                self.input_queue.put(key_str)
+                            # 记录原始按键序列
+                            raw_sequence = str(val)
+                            
+                            # 转换为Key对象
+                            key = KeyParser.from_blessed_keystroke(val)
+                            if key:
+                                self.input_queue.put(key)
+                                
+                                # 记录到序列监控器
+                                if self.sequence_monitor:
+                                    self.sequence_monitor.add_sequence(raw_sequence, key.to_string())
+                                
+                                # 增强按键支持
+                                if self.config.keyboard.enhanced_key_support:
+                                    # 处理增强按键功能
+                                    pass
+                                    
+                                # Kitty键盘协议支持
+                                if self.config.keyboard.kitty_keyboard_protocol:
+                                    # 处理Kitty协议
+                                    pass
+                                
+                                if self.debug_enabled:
+                                    self.tui_logger.debug(f"Key detected: {key}")
                     except (UnicodeDecodeError, IOError):
-                        # 忽略编码错误，继续读取
+                        # 忽略编码错误
                         continue
-        except Exception:
-            pass
+                    except Exception as e:
+                        if self.debug_enabled:
+                            self.tui_logger.error(f"Input reader error: {e}")
+                        self.key_stats['errors'] += 1
+        except Exception as e:
+            if self.debug_enabled:
+                self.tui_logger.error(f"Input reader thread error: {e}")
     
-    def _convert_keystroke_to_string(self, keystroke) -> str:
-        """将blessed的Keystroke对象转换为按键字符串
+    def _processing_loop(self) -> None:
+        """按键处理主循环"""
+        try:
+            while self.running:
+                try:
+                    # 从队列获取按键
+                    key = self.input_queue.get(timeout=0.1)
+                    self.key_stats['total_keys'] += 1
+                    
+                    # 添加到序列缓冲区
+                    ready = self.sequence_buffer.add_key(key)
+                    
+                    if ready:
+                        # 获取处理序列
+                        sequence = self.sequence_buffer.get_sequence()
+                        if sequence:
+                            self._process_sequence(sequence)
+                    
+                except queue.Empty:
+                    # 检查缓冲区超时
+                    sequence = self.sequence_buffer.get_sequence()
+                    if sequence:
+                        self._process_sequence(sequence)
+                    continue
+                    
+        except Exception as e:
+            if self.debug_enabled:
+                self.tui_logger.error(f"Processing loop error: {e}")
+    
+    def _process_sequence(self, sequence: List[Key]) -> None:
+        """处理按键序列
         
         Args:
-            keystroke: blessed的Keystroke对象
-            
-        Returns:
-            str: 按键字符串
+            sequence: 按键序列
         """
-        if keystroke.is_sequence:
-            # 这是一个序列键（方向键、功能键等）
-            if keystroke.name:
-                # 使用blessed提供的标准名称
-                name = keystroke.name.lower()
-                # 特殊处理ESC键
-                if name == 'key_escape':
-                    return "escape"
-                # 特殊处理Alt键组合
-                # 在某些终端中，Alt+数字键可能被识别为特定的键名
-                if name.startswith('key_') and 'alt' in name.lower():
-                    # 尝试提取数字
-                    if '1' in name:
-                        return "alt_1"
-                    elif '2' in name:
-                        return "alt_2"
-                    elif '3' in name:
-                        return "alt_3"
-                    elif '4' in name:
-                        return "alt_4"
-                    elif '5' in name:
-                        return "alt_5"
-                    elif '6' in name:
-                        return "alt_6"
-                return name
-            else:
-                # 如果没有名称，使用code
-                return f"key_{keystroke.code}"
-        else:
-            # 这是一个普通字符
-            char = str(keystroke)
-            if char == '\r' or char == '\n':
-                return "enter"
-            elif char == '\t':
-                return "tab"
-            elif char == '\x7f' or char == '\x08':
-                return "backspace"
-            elif char == '\x1b':  # ESC字符
-                return "escape"
-            # 检查是否是Alt+字符的组合，这种情况下字符的ASCII码通常是原始字符+128
-            elif len(char) == 1 and 128 <= ord(char) <= 255:
-                # 这可能是Alt+字符的组合
-                original_char = chr(ord(char) - 128)
-                # 对于数字键，转换为alt+数字的格式
-                if original_char.isdigit():
-                    return f"alt_{original_char}"
-                else:
-                    return f"alt_{original_char}"
-            # 在Windows终端中，Alt+数字键可能直接产生数字字符
-            # 但我们无法区分是直接按数字键还是Alt+数字键
-            # 所以我们依赖于事件引擎中的特殊处理
-            elif len(char) == 1 and char.isdigit():
-                # 这里我们暂时不处理，留给事件引擎处理
-                return f"char:{char}"
-            else:
-                return f"char:{char}"
-    
-    def _process_key(self, key_str: str) -> None:
-        """处理按键
+        if self.debug_enabled:
+            self.tui_logger.debug(f"Processing sequence: {[str(k) for k in sequence]}")
         
-        Args:
-            key_str: 按键字符串
-        """
-        if not key_str:
+        # 处理Alt键组合 (ESC + 字符)
+        if len(sequence) == 2 and sequence[0] == KEY_ESCAPE:
+            second_key = sequence[1]
+            if second_key.key_type == KeyType.CHARACTER:
+                # 创建Alt组合键
+                alt_key = Key(
+                    name=second_key.name,
+                    key_type=second_key.key_type,
+                    modifiers=KeyModifier.ALT.value,
+                    raw_sequence=f"\x1b{second_key.name}"
+                )
+                self._process_key(alt_key)
+                self.key_stats['alt_combinations'] += 1
+                return
+        
+        # 处理ESC键超时
+        if len(sequence) == 1 and sequence[0] == KEY_ESCAPE:
+            self._process_key(KEY_ESCAPE)
             return
         
-        # 处理Windows终端中Alt+数字键的特殊逻辑
-        # 在Windows终端中，Alt+数字键会产生ESC键+数字键的序列
-        if self._pending_escape:
-            self._pending_escape = False
-            
-            # 检查当前按键是否是数字
-            if key_str.startswith("char:") and len(key_str) == 6 and key_str[5].isdigit():
-                # 构造Alt键组合
-                alt_key = f"alt_{key_str[5]}"
-                self.tui_logger.debug_key_event(alt_key, False, "alt_key_detected")
-                # 检查是否有对应的Alt键处理器
-                if alt_key in self.key_handlers:
-                    if self.key_handlers[alt_key](alt_key):
-                        self.tui_logger.debug_key_event(alt_key, True, "alt_key_handled")
-                        return
-                # 如果没有处理器，将两个按键分别处理
-                # 先处理之前的ESC键
-                if "escape" in self.key_handlers:
-                    self.key_handlers["escape"]("escape")
-                elif self.global_key_handler:
-                    self.global_key_handler("escape")
-                # 再处理当前的数字键
-                if self.input_component_handler:
-                    result = self.input_component_handler(key_str)
-                    if result is not None and self.input_result_handler:
-                        self.input_result_handler(result)
-                return
-            else:
-                # 不是数字键，先处理之前缓存的ESC键
-                self.tui_logger.debug_key_event("escape", True, "escape_key_processed")
-                if "escape" in self.key_handlers:
-                    self.key_handlers["escape"]("escape")
-                elif self.global_key_handler:
-                    self.global_key_handler("escape")
-                # 继续处理当前按键
+        # 处理普通序列
+        for key in sequence:
+            self._process_key(key)
+    
+    def _process_key(self, key: Key) -> None:
+        """处理单个按键
         
-        # 定义应该优先由全局处理器处理的按键（虚拟滚动相关）
+        Args:
+            key: 按键对象
+        """
+        if self.debug_enabled:
+            self.tui_logger.debug_key_event(key.to_string(), False, "key_processing")
+        
+        # 定义全局优先按键
         global_priority_keys = {
-            "key_up", "key_down", "key_left", "key_right",  # 方向键
-            "key_ppage", "key_npage",  # Page Up/Down
-            "key_home", "key_end",  # Home/End
-            "key_dc", "key_ic",  # Delete/Insert
+            'up', 'down', 'left', 'right',
+            'page_up', 'page_down', 'home', 'end',
+            'delete', 'insert'
         }
         
-        # 检查是否是ESC键
-        if key_str == "escape":
-            # 记录ESC键按下的时间
-            import time
-            current_time = time.time()
-            self._last_escape_time = current_time
-            self._pending_escape = True
-            
-            # 在Windows终端中，Alt+数字键会先发送ESC键
-            # 我们需要等待下一个按键来判断是否是Alt键组合
-            self._pending_alt_key = key_str
-            return
-        
-        # 检查是否以alt开头的组合键
-        if key_str.startswith("alt_") or key_str.startswith("key_alt_"):
-            # Alt组合键优先由注册的按键处理器处理
-            if key_str in self.key_handlers:
-                if self.key_handlers[key_str](key_str):
-                    return
-            
-            # 如果注册的处理器没有处理，则继续让全局处理器处理
-            if self.global_key_handler:
-                self.global_key_handler(key_str)
-            return
-        
-        # 如果是全局优先按键，先让注册的按键处理器处理
-        if key_str in global_priority_keys:
-            # 处理注册的按键处理器
-            if key_str in self.key_handlers:
-                if self.key_handlers[key_str](key_str):
-                    return
-            
-            # 最后让全局处理器处理
-            if self.global_key_handler:
-                self.global_key_handler(key_str)
-            return
-        
-        # 对于其他按键，首先让输入组件处理按键
-        if self.input_component_handler:
-            result = self.input_component_handler(key_str)
-            
-            # 如果输入组件返回了结果，处理它
-            if result is not None and self.input_result_handler:
-                self.input_result_handler(result)
+        handled = False
+        key_str = key.to_string()
         
         # 处理注册的按键处理器
         if key_str in self.key_handlers:
-            if self.key_handlers[key_str](key_str):
-                return
+            if self.key_handlers[key_str](key):
+                handled = True
         
-        # 最后让全局处理器处理
-        if self.global_key_handler:
-            self.global_key_handler(key_str)
+        # 处理全局优先按键
+        if not handled and key.name in global_priority_keys:
+            if self.global_key_handler:
+                if self.global_key_handler(key):
+                    handled = True
+        
+        # 处理输入组件
+        if not handled and self.input_component_handler:
+            result = self.input_component_handler(key)
+            if result is not None and self.input_result_handler:
+                self.input_result_handler(result)
+                handled = True
+        
+        # 最后处理全局处理器
+        if not handled and self.global_key_handler:
+            if self.global_key_handler(key):
+                handled = True
+        
+        if self.debug_enabled:
+            self.tui_logger.debug_key_event(key.to_string(), handled, "key_processed")
+    
+    def _log_statistics(self) -> None:
+        """记录统计信息"""
+        if self.debug_enabled:
+            self.tui_logger.info(f"Key statistics: {self.key_stats}")
+    
+    def get_statistics(self) -> Dict[str, Any]:
+        """获取统计信息
+        
+        Returns:
+            统计信息字典
+        """
+        stats = self.key_stats.copy()
+        
+        # 添加序列监控统计
+        if self.sequence_monitor:
+            stats['sequence_stats'] = self.sequence_monitor.get_stats()
+            
+        return stats
+    
+    def clear_statistics(self) -> None:
+        """清空统计信息"""
+        self.key_stats = {
+            'total_keys': 0,
+            'sequence_detected': 0,
+            'alt_combinations': 0,
+            'errors': 0
+        }
+        
+        # 清除序列监控统计
+        if self.sequence_monitor:
+            self.sequence_monitor.clear()

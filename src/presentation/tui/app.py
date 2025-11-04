@@ -31,6 +31,7 @@ from .subviews import (
     LangGraphSubview
 )
 from .event_engine import EventEngine
+from .key import Key
 from .state_manager import StateManager
 from .render_controller import RenderController
 from .command_processor import CommandProcessor
@@ -380,20 +381,21 @@ class TUIApp:
     
     def _register_global_shortcuts(self) -> None:
         """注册全局快捷键"""
-        self.event_engine.register_key_handler("escape", self._handle_escape_key)
-        self.event_engine.register_key_handler("alt_1", lambda _: self._switch_to_subview("analytics"))
-        self.event_engine.register_key_handler("alt_2", lambda _: self._switch_to_subview("visualization"))
-        self.event_engine.register_key_handler("alt_3", lambda _: self._switch_to_subview("system"))
-        self.event_engine.register_key_handler("alt_4", lambda _: self._switch_to_subview("errors"))
-        self.event_engine.register_key_handler("alt_5", lambda _: self._switch_to_subview("status_overview"))
-        self.event_engine.register_key_handler("alt_6", lambda _: self._switch_to_subview("langgraph"))
+        # 使用新的Key对象注册快捷键
+        self.event_engine.register_key_handler(Key("escape"), self._handle_escape_key)
+        self.event_engine.register_key_handler(Key("1", alt=True), lambda _: self._switch_to_subview("analytics"))
+        self.event_engine.register_key_handler(Key("2", alt=True), lambda _: self._switch_to_subview("visualization"))
+        self.event_engine.register_key_handler(Key("3", alt=True), lambda _: self._switch_to_subview("system"))
+        self.event_engine.register_key_handler(Key("4", alt=True), lambda _: self._switch_to_subview("errors"))
+        self.event_engine.register_key_handler(Key("5", alt=True), lambda _: self._switch_to_subview("status_overview"))
+        self.event_engine.register_key_handler(Key("6", alt=True), lambda _: self._switch_to_subview("langgraph"))
         
         # 统一时间线快捷键
-        self.event_engine.register_key_handler("key_ppage", self._handle_timeline_scroll)
-        self.event_engine.register_key_handler("key_npage", self._handle_timeline_scroll)
-        self.event_engine.register_key_handler("key_home", self._handle_timeline_scroll)
-        self.event_engine.register_key_handler("key_end", self._handle_timeline_scroll)
-        self.event_engine.register_key_handler("a", self._handle_timeline_scroll)
+        self.event_engine.register_key_handler(Key("page_up"), self._handle_timeline_scroll)
+        self.event_engine.register_key_handler(Key("page_down"), self._handle_timeline_scroll)
+        self.event_engine.register_key_handler(Key("home"), self._handle_timeline_scroll)
+        self.event_engine.register_key_handler(Key("end"), self._handle_timeline_scroll)
+        self.event_engine.register_key_handler(Key("a"), self._handle_timeline_scroll)
     
     def _register_callback_manager_callbacks(self) -> None:
         """注册回调管理器回调"""
@@ -454,11 +456,11 @@ class TUIApp:
             self.running = False
             self.live = None
     
-    def _handle_global_key(self, key: str) -> bool:
+    def _handle_global_key(self, key: Key) -> bool:
         """处理全局按键
         
         Args:
-            key: 按键字符串
+            key: Key对象
             
         Returns:
             bool: 是否处理了该按键
@@ -466,7 +468,7 @@ class TUIApp:
         self.tui_logger.debug_key_event(key, True, "global_handler")
         
         # ESC键特殊处理：无论在子界面还是对话框中，都由主应用处理
-        if key == "escape":
+        if key.name == "escape":
             return self._handle_escape_key(key)
         
         # 如果在子界面中，优先让子界面处理按键（非ESC键）
@@ -487,11 +489,11 @@ class TUIApp:
         self.tui_logger.debug_key_event(key, False, "global_handler")
         return False
     
-    def _handle_escape_key(self, key: str) -> bool:
+    def _handle_escape_key(self, key: Key) -> bool:
         """处理ESC键
         
         Args:
-            key: 按键字符串
+            key: Key对象
             
         Returns:
             bool: 是否处理了该按键
@@ -523,11 +525,11 @@ class TUIApp:
         
         self.tui_logger.debug_key_event(key, False, "escape_handler_end_no_action")
         return False
-    def _handle_timeline_scroll(self, key: str) -> bool:
+    def _handle_timeline_scroll(self, key: Key) -> bool:
         """处理时间线滚动按键
         
         Args:
-            key: 按键字符串
+            key: Key对象
             
         Returns:
             bool: 是否处理了该按键
@@ -537,9 +539,27 @@ class TUIApp:
             not self.state_manager.show_session_dialog and 
             not self.state_manager.show_agent_dialog):
             
-            # 委托给统一主内容区组件处理
-            if hasattr(self.main_content_component, 'handle_key'):
-                return self.main_content_component.handle_key(key)
+            # 统一处理时间线滚动逻辑
+            if key.name == "page_up":
+                self.main_content_component.scroll_timeline_up()
+                self.tui_logger.debug_component_event("main_content", "scroll_timeline_up")
+                return True
+            elif key.name == "page_down":
+                self.main_content_component.scroll_timeline_down()
+                self.tui_logger.debug_component_event("main_content", "scroll_timeline_down")
+                return True
+            elif key.name == "home":
+                self.main_content_component.scroll_timeline_to_top()
+                self.tui_logger.debug_component_event("main_content", "scroll_timeline_to_top")
+                return True
+            elif key.name == "end":
+                self.main_content_component.scroll_timeline_to_bottom()
+                self.tui_logger.debug_component_event("main_content", "scroll_timeline_to_bottom")
+                return True
+            elif key.name == "a":  # 添加时间线自动滚动开关
+                self.main_content_component.toggle_timeline_auto_scroll()
+                self.tui_logger.debug_component_event("main_content", "toggle_timeline_auto_scroll")
+                return True
         
         return False
     
