@@ -1,2 +1,187 @@
 1.项目搜索+后续工作流：llm->条件[结束任务工具调用+总结，保留状态]->
 llm->条件[信息不足：信息不足工具调用，描述需要补充的信息，退回上一个节点][信息足够：开始执行任务]
+
+2.工具：括号检查
+参考：
+const fs = require('fs');
+
+function analyzeQueryPatterns(content) {
+  const lines = content.split('\n');
+  let currentPattern = '';
+  let currentPatternStartLine = 0;
+  let patterns = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Start of a new pattern
+    if (line.startsWith('(') && !currentPattern) {
+      currentPattern = line;
+      currentPatternStartLine = i + 1;
+    } 
+    // Continuation of a pattern
+    else if (currentPattern && (line.startsWith('(') || line.startsWith('  ') || line.startsWith('\t'))) {
+      currentPattern += '\n' + line;
+    }
+    // End of a pattern
+    else if (currentPattern && line.includes(')') && !line.trim().startsWith('(')) {
+      currentPattern += '\n' + line;
+      
+      // Check if this looks like the end of a pattern
+      if (line.includes('@') || line.includes('#set!')) {
+        patterns.push({
+          startLine: currentPatternStartLine,
+          endLine: i + 1,
+          content: currentPattern
+        });
+        currentPattern = '';
+        currentPatternStartLine = 0;
+      }
+    }
+    // Comment line or empty line - might end a pattern
+    else if (currentPattern && (line.startsWith(';') || line === '')) {
+      if (currentPattern.includes('@') || currentPattern.includes('#set!')) {
+        patterns.push({
+          startLine: currentPatternStartLine,
+          endLine: i,
+          content: currentPattern
+        });
+      }
+      currentPattern = '';
+      currentPatternStartLine = 0;
+    }
+  }
+  
+  // Handle the last pattern if file doesn't end with a comment
+  if (currentPattern) {
+    patterns.push({
+      startLine: currentPatternStartLine,
+      endLine: lines.length,
+      content: currentPattern
+    });
+  }
+  
+  return patterns;
+}
+
+function checkPatternBalance(pattern) {
+  let balance = 0;
+  let inString = false;
+  let escapeNext = false;
+  
+  for (let i = 0; i < pattern.content.length; i++) {
+    const char = pattern.content[i];
+    
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"' && !escapeNext) {
+      inString = !inString;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === '(') {
+        balance++;
+      } else if (char === ')') {
+        balance--;
+      }
+    }
+  }
+  
+  return balance;
+}
+
+// Read the file
+const filePath = 'src/service/parser/constants/queries/c/lifecycle-relationships.ts';
+const content = fs.readFileSync(filePath, 'utf8');
+
+// Analyze query patterns
+const patterns = analyzeQueryPatterns(content);
+
+console.log(`Found ${patterns.length} query patterns:\n`);
+
+patterns.forEach((pattern, index) => {
+  const balance = checkPatternBalance(pattern);
+  const status = balance === 0 ? '✓' : '✗';
+  console.log(`${status} Pattern ${index + 1} (lines ${pattern.startLine}-${pattern.endLine}): Balance = ${balance}`);
+  
+  if (balance !== 0) {
+    console.log('  Content:');
+    console.log('  ' + pattern.content.split('\n').map(line => '  ' + line).join('\n'));
+  }
+});
+
+
+与：
+const fs = require('fs');
+
+// Read the file
+const filePath = 'src/service/parser/constants/queries/c/lifecycle-relationships.ts';
+const content = fs.readFileSync(filePath, 'utf8');
+
+// Remove the export wrapper and comments
+const queryContent = content.replace(/export default `/, '').replace(/`$/, '');
+
+let balance = 0;
+let inString = false;
+let escapeNext = false;
+let lineNum = 1;
+let charNum = 1;
+
+for (let i = 0; i < queryContent.length; i++) {
+  const char = queryContent[i];
+  
+  if (char === '\n') {
+    lineNum++;
+    charNum = 1;
+    continue;
+  }
+  
+  if (escapeNext) {
+    escapeNext = false;
+    charNum++;
+    continue;
+  }
+
+  if (char === '\\') {
+    escapeNext = true;
+    charNum++;
+    continue;
+  }
+
+  if (char === '"' && !escapeNext) {
+    inString = !inString;
+    charNum++;
+    continue;
+  }
+
+  if (!inString) {
+    if (char === '(') {
+      balance++;
+      console.log(`Line ${lineNum}, Col ${charNum}: Found '(', balance = ${balance}`);
+    } else if (char === ')') {
+      balance--;
+      console.log(`Line ${lineNum}, Col ${charNum}: Found ')', balance = ${balance}`);
+      if (balance < 0) {
+        console.log(`ERROR: Unmatched closing parenthesis at line ${lineNum}, col ${charNum}`);
+      }
+    }
+  }
+  
+  charNum++;
+}
+
+console.log(`\nFinal balance: ${balance}`);
+if (balance !== 0) {
+  console.log(`ERROR: Unbalanced parentheses - ${balance} more opening than closing`);
+} else {
+  console.log('SUCCESS: All parentheses are balanced');
+}
