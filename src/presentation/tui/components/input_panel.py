@@ -4,13 +4,14 @@
 重构为协调器模式，整合多个子组件
 """
 
-from typing import Optional, Dict, Any, List, Callable
+from typing import Optional, Dict, Any, List, Callable, Union
 
 from rich.panel import Panel
 from rich.text import Text
 from rich.table import Table
 
 from ..config import TUIConfig
+from ..key import Key
 from .input_panel_component import (
     InputHistory,
     InputBuffer,
@@ -74,66 +75,72 @@ class InputPanel:
         """
         self.on_command = callback
     
-    def handle_key(self, key: str) -> Optional[str]:
+    def handle_key(self, key: Union[Key, str]) -> Optional[str]:
         """处理键盘输入
-        
+
         Args:
-            key: 按键
-            
+        key: 按键 (Key 对象或字符串)
+
         Returns:
-            Optional[str]: 提交的文本或命令结果
+        Optional[str]: 提交的文本或命令结果
         """
-        self.tui_logger.debug_key_event(key, True, "input_panel")
-        
+        # 处理Key对象或字符串
+        if isinstance(key, Key):
+            key_str = key.name
+            self.tui_logger.debug_key_event(key.to_string(), True, "input_panel")
+        else:
+            key_str = str(key)
+            self.tui_logger.debug_key_event(key_str, True, "input_panel")
+
         if self.is_processing:
-            self.tui_logger.debug_input_handling("key_handling", f"Processing blocked: {key}")
+            self.tui_logger.debug_input_handling("key_handling", f"Processing blocked: {key_str}")
             return None
-        
-        # 定义应该由全局处理器处理的按键（虚拟滚动相关）
+
+    # 定义应该由全局处理器处理的按键（虚拟滚动相关）
         global_priority_keys = {"page_up", "page_down", "home", "end"}
-        
+
         # 如果是全局优先按键，不处理，返回None让全局处理器处理
-        if key in global_priority_keys:
-            self.tui_logger.debug_input_handling("global_priority_key", f"Passing {key} to global handler")
+        if key_str in global_priority_keys:
+            self.tui_logger.debug_input_handling("global_priority_key", f"Passing {key_str} to global handler")
             return None
         
         # 处理特殊按键
-        if key == "enter" or key == "key_enter":
+        if key_str == "enter" or key_str == "key_enter":
             result = self._handle_enter()
             self.tui_logger.debug_input_handling("enter_key", f"Handled enter key, result: {result}")
             return result
-        elif key == "up":
+        elif key_str == "up":
             self._handle_up()
             self.tui_logger.debug_input_handling("up_key", "Handled up key")
-        elif key == "down":
+        elif key_str == "down":
             self._handle_down()
             self.tui_logger.debug_input_handling("down_key", "Handled down key")
-        elif key == "left":
+        elif key_str == "left":
             self.input_buffer.move_cursor("left")
             self.tui_logger.debug_input_handling("left_key", "Handled left key")
-        elif key == "right":
+        elif key_str == "right":
             self.input_buffer.move_cursor("right")
             self.tui_logger.debug_input_handling("right_key", "Handled right key")
-        elif key == "backspace":
+        elif key_str == "backspace":
             self.input_buffer.delete_char(backward=True)
             self.tui_logger.debug_input_handling("backspace_key", "Handled backspace key")
-        elif key == "delete":
+        elif key_str == "delete":
             self.input_buffer.delete_char(backward=False)
             self.tui_logger.debug_input_handling("delete_key", "Handled delete key")
-        elif key == "tab":
+        elif key_str == "tab":
             self._handle_tab()
             self.tui_logger.debug_input_handling("tab_key", "Handled tab key")
-        elif key == "ctrl+m":
+        elif key_str == "ctrl+m":
             self.input_buffer.toggle_multiline()
             self.tui_logger.debug_input_handling("ctrl+m_key", "Toggled multiline mode")
-        elif key.startswith("char:"):
+        elif key_str.startswith("char:"):
             # 普通字符输入
-            char = key[5:]  # 移除 "char:" 前缀
+            char = key_str[5:]  # 移除 "char:" 前缀
             self.input_buffer.insert_text(char)
             self.tui_logger.debug_input_handling("char_input", f"Inserted character: {char}")
-        
+
         # 对于非提交按键，返回特殊标记表示需要刷新UI
-        if key != "enter":
+        if key_str != "enter":
             return "REFRESH_UI"
         
         # 对于Enter键，已经在上面的_handle_enter()中返回了结果，不会执行到这里

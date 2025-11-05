@@ -15,6 +15,22 @@ import time
 import re
 from random import randint
 
+# 配置加载相关导入
+from pathlib import Path
+import sys
+import os
+
+# 添加项目根目录到路径，以便导入基础设施组件
+project_root = Path(__file__).parent.parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+try:
+    from src.infrastructure.config_loader import YamlConfigLoader
+except ImportError:
+    # 如果无法导入，使用默认值
+    YamlConfigLoader = None
+
 
 @dataclass
 class SearchResult:
@@ -74,20 +90,67 @@ class RateLimiter:
 # 从fetch.py导入浏览器头部管理功能
 from .fetch import get_browser_headers
 
+
+def _load_duckduckgo_config():
+    """加载DuckDuckGo搜索工具配置"""
+    if YamlConfigLoader is None:
+        # 如果无法导入配置加载器，使用默认值
+        return {
+            "timeout": 30.0,
+            "max_retries": 3,
+            "retry_delay": 1.0,
+            "rate_limit": {"requests_per_minute": 30},
+            "content_truncate_limit": 8000
+        }
+
+    try:
+        config_loader = YamlConfigLoader()
+        config = config_loader.load("tools/duckduckgo_search.yaml")
+
+        # 提取搜索相关配置
+        search_config = {
+            "timeout": config.get("timeout", 30.0),
+            "max_retries": config.get("max_retries", 3),
+            "retry_delay": config.get("retry_delay", 1.0),
+            "rate_limit": config.get("rate_limit", {"requests_per_minute": 30}),
+            "content_truncate_limit": config.get("content_truncate_limit", 8000)
+        }
+
+        # 合并网页内容配置
+        if "web_content" in config:
+            web_config = config["web_content"]
+            search_config.update({
+                "web_timeout": web_config.get("timeout", search_config["timeout"]),
+                "web_max_retries": web_config.get("max_retries", search_config["max_retries"]),
+                "web_retry_delay": web_config.get("retry_delay", search_config["retry_delay"])
+            })
+
+        return search_config
+    except Exception as e:
+        # 如果配置加载失败，使用默认值
+        print(f"Warning: Failed to load DuckDuckGo config: {e}. Using default values.")
+        return {
+            "timeout": 30.0,
+            "max_retries": 3,
+            "retry_delay": 1.0,
+            "rate_limit": {"requests_per_minute": 30},
+            "content_truncate_limit": 8000
+        }
+
+
 class DuckDuckGoSearcher:
     """DuckDuckGo搜索引擎"""
-    
+
     BASE_URL = "https://html.duckduckgo.com/html"
-    
-    # 默认超时设置
-    DEFAULT_TIMEOUT = 30.0
-    # 最大重试次数
-    MAX_RETRIES = 3
-    # 重试延迟（秒）
-    RETRY_DELAY = 1.0
 
     def __init__(self):
-        self.rate_limiter = RateLimiter()
+        # 加载配置
+        self.config = _load_duckduckgo_config()
+
+        # 初始化速率限制器
+        rate_limit_config = self.config.get("rate_limit", {"requests_per_minute": 30})
+        requests_per_minute = rate_limit_config.get("requests_per_minute", 30)
+        self.rate_limiter = RateLimiter(requests_per_minute)
 
     def format_results_for_llm(self, results: List[SearchResult]) -> str:
         """格式化搜索结果，便于LLM处理"""
@@ -121,11 +184,15 @@ class DuckDuckGoSearcher:
         }
 
         # 实现重试机制
-        for attempt in range(self.MAX_RETRIES):
+        max_retries = self.config.get("max_retries", 3)
+        timeout = self.config.get("timeout", 30.0)
+        retry_delay = self.config.get("retry_delay", 1.0)
+
+        for attempt in range(max_retries):
             try:
                 async with httpx.AsyncClient() as client:
                     response = await client.post(
-                        self.BASE_URL, data=data, headers=headers, timeout=self.DEFAULT_TIMEOUT
+                        self.BASE_URL, data=data, headers=headers, timeout=timeout
                     )
                     response.raise_for_status()
 
@@ -177,26 +244,26 @@ class DuckDuckGoSearcher:
                 return results
 
             except httpx.TimeoutException:
-                if attempt < self.MAX_RETRIES - 1:  # 不是最后一次尝试
-                    await asyncio.sleep(self.RETRY_DELAY * (2 ** attempt))  # 指数退避
+                if attempt < max_retries - 1:  # 不是最后一次尝试
+                    await asyncio.sleep(retry_delay * (2 ** attempt))  # 指数退避
                     continue
                 return []
             except httpx.HTTPStatusError as e:
                 # 对于特定的HTTP状态码，我们可能想要立即返回而不是重试
                 if e.response.status_code in [403, 404, 429]:
                     return []  # 直接返回空结果
-                if attempt < self.MAX_RETRIES - 1:  # 不是最后一次尝试
-                    await asyncio.sleep(self.RETRY_DELAY * (2 ** attempt))  # 指数退避
+                if attempt < max_retries - 1:  # 不是最后一次尝试
+                    await asyncio.sleep(retry_delay * (2 ** attempt))  # 指数退避
                     continue
                 return []
             except httpx.HTTPError:
-                if attempt < self.MAX_RETRIES - 1:  # 不是最后一次尝试
-                    await asyncio.sleep(self.RETRY_DELAY * (2 ** attempt))  # 指数退避
+                if attempt < max_retries - 1:  # 不是最后一次尝试
+                    await asyncio.sleep(retry_delay * (2 ** attempt))  # 指数退避
                     continue
                 return []
             except Exception:
-                if attempt < self.MAX_RETRIES - 1:  # 不是最后一次尝试
-                    await asyncio.sleep(self.RETRY_DELAY * (2 ** attempt))  # 指数退避
+                if attempt < max_retries - 1:  # 不是最后一次尝试
+                    await asyncio.sleep(retry_delay * (2 ** attempt))  # 指数退避
                     continue
                 return []
 
@@ -205,16 +272,16 @@ class DuckDuckGoSearcher:
 
 class WebContentFetcher:
     """网页内容获取器"""
-    
-    # 默认超时设置
-    DEFAULT_TIMEOUT = 30.0
-    # 最大重试次数
-    MAX_RETRIES = 3
-    # 重试延迟（秒）
-    RETRY_DELAY = 1.0
-    
+
     def __init__(self):
-        self.rate_limiter = RateLimiter(requests_per_minute=20)
+        # 加载配置
+        self.config = _load_duckduckgo_config()
+
+        # 初始化速率限制器（网页获取使用不同的速率限制）
+        rate_limit_config = self.config.get("rate_limit", {"requests_per_minute": 30})
+        # 网页获取器使用较低的速率限制，默认20
+        web_requests_per_minute = self.config.get("web_requests_per_minute", 20)
+        self.rate_limiter = RateLimiter(requests_per_minute=web_requests_per_minute)
 
     async def fetch_and_parse(self, url: str) -> str:
         """获取并解析网页内容"""
@@ -225,14 +292,18 @@ class WebContentFetcher:
         await self.rate_limiter.acquire()
 
         # 实现重试机制
-        for attempt in range(self.MAX_RETRIES):
+        web_max_retries = self.config.get("web_max_retries", self.config.get("max_retries", 3))
+        web_timeout = self.config.get("web_timeout", self.config.get("timeout", 30.0))
+        web_retry_delay = self.config.get("web_retry_delay", self.config.get("retry_delay", 1.0))
+
+        for attempt in range(web_max_retries):
             try:
                 async with httpx.AsyncClient() as client:
                     response = await client.get(
                         url,
                         headers=headers,
                         follow_redirects=True,
-                        timeout=self.DEFAULT_TIMEOUT,
+                        timeout=web_timeout,
                     )
                     response.raise_for_status()
 
@@ -255,32 +326,33 @@ class WebContentFetcher:
                 text = re.sub(r"\s+", " ", text).strip()
 
                 # 如果太长则截断
-                if len(text) > 8000:
-                    text = text[:8000] + "... [content truncated]"
+                content_truncate_limit = self.config.get("content_truncate_limit", 8000)
+                if len(text) > content_truncate_limit:
+                    text = text[:content_truncate_limit] + "... [content truncated]"
 
                 return text
 
-            except httpx.TimeoutException:
-                if attempt < self.MAX_RETRIES - 1:  # 不是最后一次尝试
-                    await asyncio.sleep(self.RETRY_DELAY * (2 ** attempt))  # 指数退避
+            except (httpx.TimeoutException, asyncio.TimeoutError):
+                if attempt < web_max_retries - 1:  # 不是最后一次尝试
+                    await asyncio.sleep(web_retry_delay * (2 ** attempt))  # 指数退避
                     continue
                 return "Error: The request timed out while trying to fetch the webpage."
             except httpx.HTTPStatusError as e:
                 # 对于特定的HTTP状态码，我们可能想要立即返回而不是重试
                 if e.response.status_code in [403, 404, 429]:
                     return f"Error: Could not access the webpage (Status code: {e.response.status_code})"
-                if attempt < self.MAX_RETRIES - 1:  # 不是最后一次尝试
-                    await asyncio.sleep(self.RETRY_DELAY * (2 ** attempt))  # 指数退避
+                if attempt < web_max_retries - 1:  # 不是最后一次尝试
+                    await asyncio.sleep(web_retry_delay * (2 ** attempt))  # 指数退避
                     continue
                 return f"Error: Could not access the webpage (Status code: {e.response.status_code})"
             except httpx.HTTPError as e:
-                if attempt < self.MAX_RETRIES - 1:  # 不是最后一次尝试
-                    await asyncio.sleep(self.RETRY_DELAY * (2 ** attempt))  # 指数退避
+                if attempt < web_max_retries - 1:  # 不是最后一次尝试
+                    await asyncio.sleep(web_retry_delay * (2 ** attempt))  # 指数退避
                     continue
                 return f"Error: Could not access the webpage ({str(e)})"
             except Exception as e:
-                if attempt < self.MAX_RETRIES - 1:  # 不是最后一次尝试
-                    await asyncio.sleep(self.RETRY_DELAY * (2 ** attempt))  # 指数退避
+                if attempt < web_max_retries - 1:  # 不是最后一次尝试
+                    await asyncio.sleep(web_retry_delay * (2 ** attempt))  # 指数退避
                     continue
                 return f"Error: An unexpected error occurred while fetching the webpage ({str(e)})"
 
@@ -367,11 +439,12 @@ def fetch_web_content(url: str) -> Dict[str, Any]:
         content = loop.run_until_complete(fetcher.fetch_and_parse(url))
         loop.close()
         
+        content_truncate_limit = fetcher.config.get("content_truncate_limit", 8000)
         return {
-            "url": url,
-            "content": content,
-            "content_length": len(content),
-            "truncated": len(content) >= 8000
+        "url": url,
+        "content": content,
+        "content_length": len(content),
+            "truncated": len(content) >= content_truncate_limit
         }
     except Exception as e:
         raise ValueError(f"Failed to fetch web content: {str(e)}")

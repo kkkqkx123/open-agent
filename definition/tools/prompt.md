@@ -1,15 +1,10 @@
-将 @/docs/ref/sequentialthinking 改造为builtin/native(前者不依赖外部api，后者需要【包括网络请求】。请自己选择适当的类型)工具，参考defination\tools\hash_convert.py
+改造为builtin/native工具(前者不依赖外部api，后者需要【包括网络请求】。请自己选择适当的类型)工具，参考defination\tools\hash_convert.py
 configs\tools\hash_convert.yaml
 并编写验证文件与pytest文件，参考examples\tools_test\weather\test_weather_tool.py
 examples\tools_test\weather\validate_weather_tool.py
+工具放在src\domain\tools\types目录，测试文件放在tests\unit\types目录
 注意：配置文件中yaml部分的所有文本和py函数的返回值使用英文，注释与py代码中无所谓
-测试文件需要加上：
-`
-# 添加项目根目录到sys.path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-`
-验证时在项目根目录执行命令
+
 
 examples\tools_test\duckduckgo_search\test_duckduckgo_search_tool.py
 examples\tools_test\duckduckgo_search\validate_duckduckgo_search_tool.py这2个测试已通过。创建文件，实际使用该工具执行搜索

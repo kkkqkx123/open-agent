@@ -1,0 +1,19 @@
+# Time tool configuration
+name: time_tool
+tool_type: builtin
+description: A tool for getting current time in specified timezone and timezone conversion functionality
+function_path: src.domain.tools.types.builtin.time_tool:get_current_time
+enabled: true
+timeout: 10
+parameters_schema:
+  type: object
+  properties:
+    timezone:
+      type: string
+      description: IANA timezone name (e.g., 'America/New_York', 'Europe/London'). Defaults to 'UTC' if no timezone provided.
+      default: "UTC"
+  required: []
+metadata:
+  category: "utility"
+  tags: ["time", "timezone", "utility"]
+  documentation_url: "https://docs.python.org/3/library/datetime.html"

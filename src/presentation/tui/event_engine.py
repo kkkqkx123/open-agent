@@ -11,6 +11,7 @@ from typing import Dict, Callable, Optional, Any, List
 from blessed import Terminal
 
 from .key import Key, KeyType, KeyModifier, KeyParser, KEY_ENTER, KEY_ESCAPE
+from .config import TUIConfig
 
 
 class KeySequenceBuffer:
@@ -115,51 +116,85 @@ class EventEngine:
     统一处理键盘输入事件，支持Key对象和增强的按键识别
     """
     
-    def __init__(self, terminal: Terminal, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, terminal: Terminal, config: Optional[Any] = None):
         """初始化事件引擎
-        
+
         Args:
             terminal: blessed终端对象
-            config: 配置选项
+            config: 配置选项 (TUIConfig 或 Dict[str, Any])
         """
         self.terminal = terminal
-        self.config = config or {}
-        
+
+        # 处理配置参数
+        if isinstance(config, TUIConfig):
+            self.config_obj = config
+            self.config_dict = config.to_dict()
+        elif isinstance(config, dict):
+            self.config_obj = None
+            self.config_dict = config
+        else:
+            self.config_obj = None
+            self.config_dict = {}
+
         # 按键处理器
         self.key_handlers: Dict[str, Callable[[Key], bool]] = {}
         self.global_key_handler: Optional[Callable[[Key], bool]] = None
         self.input_component_handler: Optional[Callable[[Key], Any]] = None
         self.input_result_handler: Optional[Callable[[Any], None]] = None
-        
+
         # 输入队列和线程
         self.input_queue = queue.Queue()
         self.running = False
         self.input_thread: Optional[threading.Thread] = None
         self.processing_thread: Optional[threading.Thread] = None
-        
+
         # 按键序列缓冲区
-        self.sequence_buffer = KeySequenceBuffer(
-            timeout=self.config.get('key_sequence_timeout', 0.1)
-        )
-        
+        key_sequence_timeout = self._get_config_value('key_sequence_timeout', 0.1)
+        self.sequence_buffer = KeySequenceBuffer(timeout=key_sequence_timeout)
+
         # 调试和监控
-        self.debug_enabled = self.config.get('debug_keyboard', False)
+        self.debug_enabled = self._get_config_value('debug_keyboard', False)
         self.key_stats = {
             'total_keys': 0,
             'sequence_detected': 0,
             'alt_combinations': 0,
             'errors': 0
         }
-        
+
         # 序列监控器
         self.sequence_monitor = None
-        if self.config.keyboard.debug_key_sequences:
+        if self._get_keyboard_config_value('debug_key_sequences', False):
             from .debug.sequence_monitor import SequenceMonitor
             self.sequence_monitor = SequenceMonitor()
         
         # 获取TUI日志记录器
         from .logger import get_tui_silent_logger
         self.tui_logger = get_tui_silent_logger("event_engine")
+
+    def _get_config_value(self, key: str, default: Any = None) -> Any:
+        """获取配置值
+
+        Args:
+            key: 配置键
+            default: 默认值
+
+        Returns:
+            配置值
+        """
+        return self.config_dict.get(key, default)
+
+    def _get_keyboard_config_value(self, key: str, default: Any = None) -> Any:
+        """获取键盘配置值
+
+        Args:
+            key: 配置键
+            default: 默认值
+
+        Returns:
+            配置值
+        """
+        keyboard_config = self.config_dict.get('keyboard', {})
+        return keyboard_config.get(key, default)
     
     def register_key_handler(self, key: Key, handler: Callable[[Key], bool]) -> None:
         """注册按键处理器
@@ -247,19 +282,23 @@ class EventEngine:
         
         # 保存序列监控数据
         if self.sequence_monitor:
-            self.sequence_monitor.save_to_file('key_sequences.json')
-        
+            # 导出数据到文件 (需要实现保存逻辑)
+            import json
+            data = self.sequence_monitor.export_data()
+            with open('key_sequences.json', 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+
         if self.debug_enabled:
             self.tui_logger.debug("Event engine stopped")
             self._log_statistics()
-            
+
             # 打印序列监控结果
             if self.sequence_monitor:
                 self.tui_logger.info("Key sequence statistics:")
-                self.sequence_monitor.print_recent_sequences(limit=20)
-                
+                self.sequence_monitor.print_recent(count=20)
+
                 # 显示常用序列
-                common_sequences = self.sequence_monitor.get_common_sequences(limit=10)
+                common_sequences = self.sequence_monitor.get_top_sequences(count=10)
                 if common_sequences:
                     self.tui_logger.info("Most common sequences:")
                     for seq, count in common_sequences:
@@ -287,12 +326,12 @@ class EventEngine:
                                     self.sequence_monitor.add_sequence(raw_sequence, key.to_string())
                                 
                                 # 增强按键支持
-                                if self.config.keyboard.enhanced_key_support:
+                                if self._get_keyboard_config_value('enhanced_keyboard_support', True):
                                     # 处理增强按键功能
                                     pass
-                                    
+
                                 # Kitty键盘协议支持
-                                if self.config.keyboard.kitty_keyboard_protocol:
+                                if self._get_keyboard_config_value('enable_kitty_protocol', True):
                                     # 处理Kitty协议
                                     pass
                                 
@@ -423,16 +462,16 @@ class EventEngine:
     
     def get_statistics(self) -> Dict[str, Any]:
         """获取统计信息
-        
+
         Returns:
             统计信息字典
         """
-        stats = self.key_stats.copy()
-        
+        stats: Dict[str, Any] = dict(self.key_stats)
+
         # 添加序列监控统计
         if self.sequence_monitor:
-            stats['sequence_stats'] = self.sequence_monitor.get_stats()
-            
+            stats['sequence_stats'] = self.sequence_monitor.get_statistics()
+
         return stats
     
     def clear_statistics(self) -> None:

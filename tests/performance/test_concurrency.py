@@ -282,7 +282,6 @@ secrets:
         mock_state_manager = Mock()
         
         session_manager = SessionManager(
-            workflow_manager=mock_workflow_manager,
             session_store=mock_session_store,
             thread_manager=mock_thread_manager,
             state_manager=mock_state_manager,
