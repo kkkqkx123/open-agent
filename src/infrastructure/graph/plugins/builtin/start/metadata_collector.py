@@ -293,11 +293,12 @@ class MetadataCollectorPlugin(IStartPlugin):
             # 尝试获取更多用户信息
             try:
                 import pwd
-                pw_entry = pwd.getpwuid(os.getuid())
-                user_info["full_name"] = pw_entry.pw_gecos
-                user_info["uid"] = pw_entry.pw_uid
-                user_info["gid"] = pw_entry.pw_gid
-                user_info["home"] = pw_entry.pw_dir
+                if hasattr(pwd, 'getpwuid') and hasattr(os, 'getuid'):
+                    pw_entry = pwd.getpwuid(os.getuid())  # type: ignore
+                    user_info["full_name"] = pw_entry.pw_gecos
+                    user_info["uid"] = pw_entry.pw_uid
+                    user_info["gid"] = pw_entry.pw_gid
+                    user_info["home"] = pw_entry.pw_dir
             except (ImportError, AttributeError, OSError):
                 # Windows系统或权限不足
                 pass

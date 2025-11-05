@@ -3,6 +3,7 @@ docs/ref
 .venv
 .coverage
 .env
+output
 
 **/*.rar
 **/*.zip

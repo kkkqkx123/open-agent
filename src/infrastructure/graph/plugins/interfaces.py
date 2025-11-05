@@ -4,9 +4,13 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from dataclasses import dataclass
 from enum import Enum
+
+if TYPE_CHECKING:
+    from ..state import WorkflowState
+    from ..registry import NodeExecutionResult
 
 
 class PluginType(Enum):
@@ -14,6 +18,7 @@ class PluginType(Enum):
     START = "start"
     END = "end"
     GENERIC = "generic"
+    HOOK = "hook"  # 新增hook类型
 
 
 class PluginStatus(Enum):
@@ -21,6 +26,13 @@ class PluginStatus(Enum):
     ENABLED = "enabled"
     DISABLED = "disabled"
     ERROR = "error"
+
+
+class HookPoint(Enum):
+    """Hook执行点枚举"""
+    BEFORE_EXECUTE = "before_execute"
+    AFTER_EXECUTE = "after_execute"
+    ON_ERROR = "on_error"
 
 
 @dataclass
@@ -36,6 +48,7 @@ class PluginMetadata:
     plugin_type: PluginType
     dependencies: List[str] = None
     config_schema: Dict[str, Any] = None
+    supported_hook_points: List[HookPoint] = None  # 新增：支持的hook执行点
     
     def __post_init__(self) -> None:
         """初始化后处理"""
@@ -43,6 +56,8 @@ class PluginMetadata:
             self.dependencies = []
         if self.config_schema is None:
             self.config_schema = {}
+        if self.supported_hook_points is None:
+            self.supported_hook_points = []
 
 
 @dataclass
@@ -61,6 +76,49 @@ class PluginContext:
         """初始化后处理"""
         if self.metadata is None:
             self.metadata = {}
+
+
+@dataclass
+class HookContext:
+    """Hook执行上下文"""
+    node_type: str
+    state: 'WorkflowState'
+    config: Dict[str, Any]
+    hook_point: HookPoint
+    error: Optional[Exception] = None
+    execution_result: Optional['NodeExecutionResult'] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class HookExecutionResult:
+    """Hook执行结果"""
+    
+    def __init__(
+        self,
+        should_continue: bool = True,
+        modified_state: Optional['WorkflowState'] = None,
+        modified_result: Optional['NodeExecutionResult'] = None,
+        force_next_node: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """初始化Hook执行结果
+        
+        Args:
+            should_continue: 是否继续执行后续Hook和节点逻辑
+            modified_state: 修改后的状态
+            modified_result: 修改后的节点执行结果
+            force_next_node: 强制指定的下一个节点
+            metadata: Hook执行元数据
+        """
+        self.should_continue = should_continue
+        self.modified_state = modified_state
+        self.modified_result = modified_result
+        self.force_next_node = force_next_node
+        self.metadata = metadata or {}
+    
+    def __bool__(self) -> bool:
+        """布尔值转换，表示是否继续执行"""
+        return self.should_continue
 
 
 class IPlugin(ABC):
@@ -181,6 +239,63 @@ class IPlugin(ABC):
             PluginStatus: 插件状态
         """
         return PluginStatus.ENABLED
+
+
+class IHookPlugin(IPlugin):
+    """Hook插件接口
+    
+    支持在节点执行过程中进行拦截和增强的插件接口。
+    """
+    
+    @property
+    def metadata(self) -> PluginMetadata:
+        """获取插件元数据"""
+        meta = super().metadata
+        if meta.plugin_type != PluginType.HOOK:
+            # 确保插件类型正确
+            meta.plugin_type = PluginType.HOOK
+        return meta
+    
+    def before_execute(self, context: HookContext) -> HookExecutionResult:
+        """节点执行前Hook
+        
+        Args:
+            context: Hook执行上下文
+            
+        Returns:
+            HookExecutionResult: Hook执行结果
+        """
+        return HookExecutionResult(should_continue=True)
+    
+    def after_execute(self, context: HookContext) -> HookExecutionResult:
+        """节点执行后Hook
+        
+        Args:
+            context: Hook执行上下文
+            
+        Returns:
+            HookExecutionResult: Hook执行结果
+        """
+        return HookExecutionResult(should_continue=True)
+    
+    def on_error(self, context: HookContext) -> HookExecutionResult:
+        """错误处理Hook
+        
+        Args:
+            context: Hook执行上下文
+            
+        Returns:
+            HookExecutionResult: Hook执行结果
+        """
+        return HookExecutionResult(should_continue=True)
+    
+    def get_supported_hook_points(self) -> List[HookPoint]:
+        """获取支持的Hook执行点
+        
+        Returns:
+            List[HookPoint]: 支持的Hook执行点列表
+        """
+        return self.metadata.supported_hook_points
 
 
 class IStartPlugin(IPlugin):

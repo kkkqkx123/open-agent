@@ -4,7 +4,7 @@
 """
 
 import logging
-from typing import Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type, cast
 from .interfaces import IPlugin, PluginType, PluginStatus
 
 
@@ -23,7 +23,8 @@ class PluginRegistry:
         self._plugins_by_type: Dict[PluginType, List[str]] = {
             PluginType.START: [],
             PluginType.END: [],
-            PluginType.GENERIC: []
+            PluginType.GENERIC: [],
+            PluginType.HOOK: []  # 新增Hook类型
         }
         self._plugin_statuses: Dict[str, PluginStatus] = {}
     
@@ -203,7 +204,7 @@ class PluginRegistry:
         """
         return self.set_plugin_status(plugin_name, PluginStatus.DISABLED)
     
-    def get_plugin_info(self, plugin_name: str) -> Optional[Dict[str, any]]:
+    def get_plugin_info(self, plugin_name: str) -> Optional[Dict[str, Any]]:
         """获取插件信息
         
         Args:
@@ -225,7 +226,8 @@ class PluginRegistry:
             "type": metadata.plugin_type.value,
             "dependencies": metadata.dependencies,
             "status": self.get_plugin_status(plugin_name).value,
-            "config_schema": metadata.config_schema
+            "config_schema": metadata.config_schema,
+            "supported_hook_points": [point.value for point in metadata.supported_hook_points] if metadata.supported_hook_points else []
         }
     
     def validate_dependencies(self, plugin_name: str) -> List[str]:
@@ -262,7 +264,7 @@ class PluginRegistry:
         remaining = plugin_names.copy()
         visited = set()
         
-        def visit(plugin_name: str):
+        def visit(plugin_name: str) -> None:
             if plugin_name in visited or plugin_name not in remaining:
                 return
             
@@ -298,7 +300,7 @@ class PluginRegistry:
         
         logger.info("已清除所有插件")
     
-    def get_registry_stats(self) -> Dict[str, any]:
+    def get_registry_stats(self) -> Dict[str, Any]:
         """获取注册表统计信息
         
         Returns:
@@ -306,17 +308,17 @@ class PluginRegistry:
         """
         stats = {
             "total_plugins": len(self._plugins),
-            "by_type": {},
-            "by_status": {}
+            "by_type": cast(Dict[str, int], {}),
+            "by_status": cast(Dict[str, int], {})
         }
         
         # 按类型统计
         for plugin_type in PluginType:
-            stats["by_type"][plugin_type.value] = len(self._plugins_by_type[plugin_type])
+            stats["by_type"][plugin_type.value] = len(self._plugins_by_type[plugin_type])  # type: ignore
         
         # 按状态统计
         for status in PluginStatus:
             count = sum(1 for s in self._plugin_statuses.values() if s == status)
-            stats["by_status"][status.value] = count
+            stats["by_status"][status.value] = count  # type: ignore
         
         return stats
