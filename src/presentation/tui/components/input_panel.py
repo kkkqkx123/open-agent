@@ -11,7 +11,7 @@ from rich.text import Text
 from rich.table import Table
 
 from ..config import TUIConfig
-from ..key import Key
+from ..key import Key, KeyType
 from .input_panel_component import (
     InputHistory,
     InputBuffer,
@@ -134,10 +134,15 @@ class InputPanel:
             self.input_buffer.toggle_multiline()
             self.tui_logger.debug_input_handling("ctrl+m_key", "Toggled multiline mode")
         elif key_str.startswith("char:"):
-            # 普通字符输入
+            # 普通字符输入（字符串格式）
             char = key_str[5:]  # 移除 "char:" 前缀
             self.input_buffer.insert_text(char)
             self.tui_logger.debug_input_handling("char_input", f"Inserted character: {char}")
+        elif isinstance(key, Key) and key.key_type == KeyType.CHARACTER:
+            # 普通字符输入（Key对象格式）
+            char = key.name
+            self.input_buffer.insert_text(char)
+            self.tui_logger.debug_input_handling("char_input", f"Inserted character from Key object: {char}")
 
         # 对于非提交按键，返回特殊标记表示需要刷新UI
         if key_str != "enter":
