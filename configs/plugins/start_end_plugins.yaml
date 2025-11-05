@@ -1,0 +1,161 @@
+# START/END节点插件配置
+metadata:
+  name: "start_end_plugins"
+  version: "1.0.0"
+  description: "START和END节点的插件配置"
+
+# START节点插件配置
+start_plugins:
+  # 内置插件
+  builtin:
+    - name: "context_summary"
+      enabled: true
+      priority: 10
+      config:
+        include_file_structure: true
+        include_recent_changes: true
+        include_git_status: true
+        max_summary_length: 1000
+        file_patterns:
+          - "*.py"
+          - "*.yaml"
+          - "*.yml"
+          - "*.md"
+          - "*.txt"
+          - "*.json"
+        exclude_patterns:
+          - "__pycache__"
+          - "*.pyc"
+          - ".git"
+          - "node_modules"
+        max_files: 50
+    
+    - name: "environment_check"
+      enabled: true
+      priority: 20
+      config:
+        check_dependencies: true
+        check_resources: true
+        check_permissions: true
+        fail_on_error: false
+        required_packages:
+          - "yaml"
+          - "pydantic"
+        required_commands:
+          - "git"
+        min_memory_mb: 512
+        min_disk_space_mb: 1024
+    
+    - name: "metadata_collector"
+      enabled: true
+      priority: 30
+      config:
+        collect_system_info: true
+        collect_project_info: true
+        collect_user_info: false
+        collect_environment_info: false
+        sensitive_env_patterns:
+          - "PASSWORD"
+          - "TOKEN"
+          - "SECRET"
+          - "KEY"
+          - "AUTH"
+
+  # 外部插件
+  external: []
+
+# END节点插件配置
+end_plugins:
+  # 内置插件
+  builtin:
+    - name: "result_summary"
+      enabled: true
+      priority: 10
+      config:
+        include_tool_results: true
+        include_error_analysis: true
+        include_recommendations: true
+        output_format: "markdown"
+        save_to_file: true
+        output_directory: "./output"
+        max_summary_length: 5000
+    
+    - name: "execution_stats"
+      enabled: true
+      priority: 20
+      config:
+        track_execution_time: true
+        track_resource_usage: true
+        track_node_performance: true
+        generate_report: true
+        save_to_file: true
+        output_directory: "./output"
+        include_memory_profiling: false
+    
+    - name: "file_tracker"
+      enabled: true
+      priority: 30
+      config:
+        track_created_files: true
+        track_modified_files: true
+        track_deleted_files: true
+        include_file_hashes: false
+        generate_diff_report: true
+        save_to_file: true
+        output_directory: "./output"
+        track_patterns:
+          - "*"
+        exclude_patterns:
+          - "*.tmp"
+          - "*.log"
+          - "__pycache__"
+          - ".git"
+        max_file_size_mb: 10
+    
+    - name: "cleanup_manager"
+      enabled: true
+      priority: 40
+      config:
+        cleanup_temp_files: true
+        cleanup_cache: false
+        cleanup_logs: false
+        retain_patterns:
+          - "*.log"
+          - "*.report"
+          - "*.md"
+        temp_file_patterns:
+          - "*.tmp"
+          - "*.temp"
+          - "*.bak"
+          - "*~"
+          - ".#*"
+        cache_directories:
+          - "__pycache__"
+          - ".pytest_cache"
+          - ".mypy_cache"
+        log_retention_days: 7
+        max_file_age_hours: 24
+        dry_run: true
+        generate_cleanup_report: true
+        save_report_to_file: true
+        output_directory: "./output"
+
+  # 外部插件
+  external: []
+
+# 插件执行配置
+execution:
+  # 并行执行配置
+  parallel_execution: false
+  max_parallel_plugins: 3
+  
+  # 错误处理
+  error_handling:
+    continue_on_error: true
+    log_errors: true
+    fail_on_critical_error: false
+  
+  # 超时配置
+  timeout:
+    default_timeout: 30
+    per_plugin_timeout: 60

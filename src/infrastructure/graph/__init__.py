@@ -5,6 +5,7 @@
 - 状态定义
 - 配置模型
 - 节点注册系统
+- 插件系统
 """
 
 from .builder import GraphBuilder
@@ -47,11 +48,21 @@ from .registry import (
     register_node,
     get_node
 )
+from .plugins import (
+    PluginManager,
+    IPlugin,
+    IStartPlugin,
+    IEndPlugin,
+    PluginType,
+    PluginStatus,
+    PluginMetadata,
+    PluginContext
+)
 
 __all__ = [
     # 构建器
     "GraphBuilder",
-
+    
     # 状态类型
     "BaseGraphState",
     "WorkflowState",
@@ -94,4 +105,14 @@ __all__ = [
     "get_global_registry",
     "register_node",
     "get_node",
+    
+    # 插件系统
+    "PluginManager",
+    "IPlugin",
+    "IStartPlugin",
+    "IEndPlugin",
+    "PluginType",
+    "PluginStatus",
+    "PluginMetadata",
+    "PluginContext",
 ]

@@ -1,0 +1,164 @@
+# END节点配置
+inherits_from: "_group.yaml#end_node"
+
+# 节点特定配置
+plugin_config_path: "${PLUGIN_CONFIG_PATH:configs/plugins/start_end_plugins.yaml}"
+
+# 执行配置
+error_next_node: "error_handler"  # END节点通常不使用，但保留用于兼容性
+
+# 上下文元数据
+context_metadata:
+  completion_status: "success"
+  final_processing: true
+  cleanup_enabled: "${CLEANUP_ENABLED:true}"
+
+# 插件特定配置覆盖
+plugin_overrides:
+  result_summary:
+    output_format: "markdown"
+    save_to_file: true
+    include_recommendations: true
+    max_summary_length: 8000
+  
+  execution_stats:
+    track_resource_usage: true
+    include_memory_profiling: false
+    generate_report: true
+    save_to_file: true
+  
+  file_tracker:
+    include_file_hashes: false
+    generate_diff_report: true
+    save_to_file: true
+    max_file_size_mb: 20
+  
+  cleanup_manager:
+    cleanup_temp_files: true
+    cleanup_cache: false
+    cleanup_logs: false
+    dry_run: false  # 在生产环境中设置为false
+    generate_cleanup_report: true
+    save_report_to_file: true
+
+# 高级配置
+advanced:
+  # 清理超时
+  cleanup_timeout: 300
+  
+  # 报告生成超时
+  report_generation_timeout: 120
+  
+  # 是否在失败时继续
+  continue_on_plugin_failure: true
+  
+  # 是否记录详细日志
+  verbose_logging: "${VERBOSE_LOGGING:false}"
+
+# 输出配置
+output:
+  # 是否保存最终结果
+  save_final_results: true
+  
+  # 输出目录
+  output_directory: "${OUTPUT_DIR:./output}"
+  
+  # 报告格式
+  report_formats:
+    - "markdown"
+    - "json"
+  
+  # 是否压缩输出文件
+  compress_output: false
+  
+  # 输出文件命名模式
+  filename_pattern: "{workflow_id}_{timestamp}"
+
+# 清理配置
+cleanup:
+  # 是否启用自动清理
+  auto_cleanup: "${AUTO_CLEANUP:false}"
+  
+  # 清理策略
+  strategy:
+    # 保留最近的文件数量
+    keep_recent_files: 10
+    
+    # 保留天数
+    retention_days: 7
+    
+    # 清理临时文件
+    clean_temp_files: true
+    
+    # 清理缓存
+    clean_cache: false
+  
+  # 清理目标
+  targets:
+    - "temp_files"
+    - "old_reports"
+    - "cache_files"
+
+# 报告配置
+reporting:
+  # 是否生成综合报告
+  generate_comprehensive_report: true
+  
+  # 报告内容
+  include_sections:
+    - "execution_summary"
+    - "performance_stats"
+    - "file_changes"
+    - "error_analysis"
+    - "recommendations"
+  
+  # 报告模板
+  template: "standard"
+  
+  # 是否包含图表
+  include_charts: false
+  
+  # 报告语言
+  language: "zh-CN"
+
+# 监控配置
+monitoring:
+  # 是否启用最终监控
+  enable_final_monitoring: true
+  
+  # 监控指标
+  metrics:
+    - "execution_time"
+    - "memory_usage"
+    - "disk_usage"
+    - "file_operations"
+  
+  # 是否发送通知
+  enable_notifications: false
+  
+  # 通知渠道
+  notification_channels:
+    - "email"
+    - "webhook"
+
+# 归档配置
+archival:
+  # 是否启用归档
+  enable_archival: false
+  
+  # 归档格式
+  archive_format: "tar.gz"
+  
+  # 归档目标
+  archive_targets:
+    - "reports"
+    - "logs"
+    - "output"
+  
+  # 归档保留策略
+  retention_policy:
+    # 保留归档数量
+    keep_archives: 5
+    
+    # 归档保留天数
+    archive_retention_days: 30

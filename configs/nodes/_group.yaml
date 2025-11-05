@@ -123,3 +123,104 @@ agent_execution_node:
     - "task_completed"
     - "任务完成"
     - "已完成"
+
+# START节点默认配置
+start_node:
+  # 基础配置
+  description: "工作流的起始节点，负责初始化和准备工作"
+  
+  # 插件配置
+  plugin_config_path: "configs/plugins/start_end_plugins.yaml"
+  
+  # 执行配置
+  next_node: null
+  error_next_node: "error_handler"
+  
+  # 上下文元数据
+  context_metadata: {}
+  
+  # 插件默认配置
+  default_plugins:
+    context_summary:
+      enabled: true
+      priority: 10
+      config:
+        include_file_structure: true
+        include_recent_changes: true
+        include_git_status: true
+        max_summary_length: 1000
+    
+    environment_check:
+      enabled: true
+      priority: 20
+      config:
+        check_dependencies: true
+        check_resources: true
+        check_permissions: true
+        fail_on_error: false
+    
+    metadata_collector:
+      enabled: true
+      priority: 30
+      config:
+        collect_system_info: true
+        collect_project_info: true
+        collect_user_info: false
+
+# END节点默认配置
+end_node:
+  # 基础配置
+  description: "工作流的结束节点，负责清理、统计和报告工作"
+  
+  # 插件配置
+  plugin_config_path: "configs/plugins/start_end_plugins.yaml"
+  
+  # 执行配置
+  error_next_node: "error_handler"
+  
+  # 上下文元数据
+  context_metadata: {}
+  
+  # 插件默认配置
+  default_plugins:
+    result_summary:
+      enabled: true
+      priority: 10
+      config:
+        include_tool_results: true
+        include_error_analysis: true
+        include_recommendations: true
+        output_format: "markdown"
+        save_to_file: true
+    
+    execution_stats:
+      enabled: true
+      priority: 20
+      config:
+        track_execution_time: true
+        track_resource_usage: true
+        track_node_performance: true
+        generate_report: true
+        save_to_file: true
+    
+    file_tracker:
+      enabled: true
+      priority: 30
+      config:
+        track_created_files: true
+        track_modified_files: true
+        track_deleted_files: true
+        include_file_hashes: false
+        generate_diff_report: true
+        save_to_file: true
+    
+    cleanup_manager:
+      enabled: true
+      priority: 40
+      config:
+        cleanup_temp_files: true
+        cleanup_cache: false
+        cleanup_logs: false
+        dry_run: true
+        generate_cleanup_report: true
+        save_report_to_file: true

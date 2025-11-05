@@ -1,0 +1,69 @@
+# START节点配置
+inherits_from: "_group.yaml#start_node"
+
+# 节点特定配置
+plugin_config_path: "${PLUGIN_CONFIG_PATH:configs/plugins/start_end_plugins.yaml}"
+
+# 执行配置
+next_node: null  # 由工作流配置决定
+error_next_node: "error_handler"
+
+# 上下文元数据
+context_metadata:
+  environment: "${ENVIRONMENT:development}"
+  debug_mode: "${DEBUG_MODE:false}"
+  user_id: "${USER_ID:default}"
+  session_type: "workflow"
+
+# 插件特定配置覆盖
+plugin_overrides:
+  context_summary:
+    max_summary_length: 1500
+    include_git_status: true
+  
+  environment_check:
+    fail_on_error: false
+    min_memory_mb: 256
+  
+  metadata_collector:
+    collect_user_info: false
+    collect_environment_info: false
+
+# 高级配置
+advanced:
+  # 初始化超时
+  initialization_timeout: 60
+  
+  # 插件执行超时
+  plugin_execution_timeout: 120
+  
+  # 是否在失败时继续
+  continue_on_plugin_failure: true
+  
+  # 是否记录详细日志
+  verbose_logging: "${VERBOSE_LOGGING:false}"
+
+# 输出配置
+output:
+  # 是否保存插件执行结果
+  save_plugin_results: true
+  
+  # 输出目录
+  output_directory: "${OUTPUT_DIR:./output}"
+  
+  # 输出格式
+  output_format: "json"
+
+# 监控配置
+monitoring:
+  # 是否启用性能监控
+  enable_performance_monitoring: true
+  
+  # 是否启用资源监控
+  enable_resource_monitoring: true
+  
+  # 监控间隔（秒）
+  monitoring_interval: 5
+  
+  # 监控数据保留时间（小时）
+  monitoring_retention_hours: 24
