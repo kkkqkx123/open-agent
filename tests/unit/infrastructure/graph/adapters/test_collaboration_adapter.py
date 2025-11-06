@@ -4,38 +4,50 @@ import pytest
 from unittest.mock import Mock, MagicMock
 from src.infrastructure.graph.adapters.collaboration_adapter import CollaborationStateAdapter
 from src.domain.state.interfaces import IStateCollaborationManager
-from src.infrastructure.graph.state import AgentState
-from src.domain.agent.state import AgentState as DomainAgentState
+from src.infrastructure.graph.states import WorkflowState
+from src.infrastructure.llm.models import LLMMessage, MessageRole
 
 
 class MockDomainState:
     """模拟域状态对象"""
-    def __init__(self, agent_id: str = "test_agent", messages: list = None):
+    def __init__(self, agent_id: str = "test_agent", messages: list | None = None):
         self.agent_id = agent_id
         self.messages = messages or []
+        self.agent_type = ""
+        self.current_task = ""
+        self.max_iterations = 10
+        self.iteration_count = 0
+        self.status = "running"
+
+    def add_message(self, message):
+        self.messages.append(message)
 
 
-class MockStateCollaborationManager:
+class MockStateCollaborationManager(IStateCollaborationManager):
     """模拟状态协作管理器"""
-    
+
     def __init__(self):
         self.validation_errors = []
         self.snapshot_created = False
         self.snapshot_id = "test_snapshot_id"
-    
+
+    def execute_with_state_management(self, domain_state, executor, context=None):
+        """带状态管理的执行"""
+        return executor(domain_state)
+
     def validate_domain_state(self, domain_state):
         """模拟状态验证"""
         return self.validation_errors
-    
+
     def create_snapshot(self, domain_state, description=""):
         """模拟创建快照"""
         self.snapshot_created = True
         return self.snapshot_id
-    
+
     def restore_snapshot(self, snapshot_id):
         """模拟恢复快照"""
         return MockDomainState()
-    
+
     def record_state_change(self, agent_id, action, old_state, new_state):
         """模拟记录状态变化"""
         return "test_history_id"
@@ -69,18 +81,18 @@ class TestCollaborationStateAdapter:
         }
         
         # 定义节点执行函数
-        def mock_node_executor(domain_state: DomainAgentState) -> DomainAgentState:
+        def mock_node_executor(domain_state: MockDomainState) -> MockDomainState:
             return domain_state
-        
+
         # 执行协作转换
         result = self.adapter.execute_with_collaboration(graph_state, mock_node_executor)
-        
+
         # 验证结果
         assert result is not None
         assert "metadata" in result
         assert "collaboration_snapshot_id" in result["metadata"]
         assert result["metadata"]["collaboration_snapshot_id"] == "test_snapshot_id"
-        
+
         # 验证快照被创建
         assert self.mock_collaboration_manager.snapshot_created is True
     
@@ -107,12 +119,12 @@ class TestCollaborationStateAdapter:
         }
         
         # 定义节点执行函数
-        def mock_node_executor(domain_state: DomainAgentState) -> DomainAgentState:
+        def mock_node_executor(domain_state: MockDomainState) -> MockDomainState:
             return domain_state
-        
+
         # 执行协作转换
         result = self.adapter.execute_with_collaboration(graph_state, mock_node_executor)
-        
+
         # 验证错误被记录
         assert "validation_errors" in result["metadata"]
         assert "Test validation error" in result["metadata"]["validation_errors"]

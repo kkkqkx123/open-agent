@@ -3,26 +3,12 @@
 表示基于条件判断的节点连接，支持多种条件类型。
 """
 
-from typing import Dict, Any, Optional, Callable, List
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
-from enum import Enum
 
 from ..config import EdgeConfig
 from ..states.workflow import WorkflowState
-
-
-class ConditionType(Enum):
-    """条件类型枚举"""
-    HAS_TOOL_CALLS = "has_tool_calls"
-    NO_TOOL_CALLS = "no_tool_calls"
-    HAS_TOOL_RESULTS = "has_tool_results"
-    MAX_ITERATIONS_REACHED = "max_iterations_reached"
-    HAS_ERRORS = "has_errors"
-    NO_ERRORS = "no_errors"
-    MESSAGE_CONTAINS = "message_contains"
-    ITERATION_COUNT_EQUALS = "iteration_count_equals"
-    ITERATION_COUNT_GREATER_THAN = "iteration_count_greater_than"
-    CUSTOM = "custom"
+from .conditions import ConditionType, ConditionEvaluator
 
 
 @dataclass
@@ -38,6 +24,10 @@ class ConditionalEdge:
     condition_type: ConditionType
     condition_parameters: Dict[str, Any]
     description: Optional[str] = None
+    
+    def __post_init__(self) -> None:
+        """初始化后处理"""
+        self._evaluator = ConditionEvaluator()
     
     @classmethod
     def from_config(cls, config: EdgeConfig) -> "ConditionalEdge":
@@ -91,28 +81,12 @@ class ConditionalEdge:
         Returns:
             bool: 条件是否满足
         """
-        if self.condition_type == ConditionType.HAS_TOOL_CALLS:
-            return self._has_tool_calls(state)
-        elif self.condition_type == ConditionType.NO_TOOL_CALLS:
-            return self._no_tool_calls(state)
-        elif self.condition_type == ConditionType.HAS_TOOL_RESULTS:
-            return self._has_tool_results(state)
-        elif self.condition_type == ConditionType.MAX_ITERATIONS_REACHED:
-            return self._max_iterations_reached(state)
-        elif self.condition_type == ConditionType.HAS_ERRORS:
-            return self._has_errors(state)
-        elif self.condition_type == ConditionType.NO_ERRORS:
-            return self._no_errors(state)
-        elif self.condition_type == ConditionType.MESSAGE_CONTAINS:
-            return self._message_contains(state)
-        elif self.condition_type == ConditionType.ITERATION_COUNT_EQUALS:
-            return self._iteration_count_equals(state)
-        elif self.condition_type == ConditionType.ITERATION_COUNT_GREATER_THAN:
-            return self._iteration_count_greater_than(state)
-        elif self.condition_type == ConditionType.CUSTOM:
-            return self._custom_condition(state)
-        else:
-            raise ValueError(f"未知的条件类型: {self.condition_type}")
+        return self._evaluator.evaluate(
+            self.condition_type,
+            state,
+            self.condition_parameters,
+            {}  # 传递空的config字典
+        )
     
     def validate(self, node_names: set) -> List[str]:
         """验证边的有效性
@@ -197,116 +171,6 @@ class ConditionalEdge:
         
         # 默认为自定义条件
         return ConditionType.CUSTOM, {"expression": condition_str}
-    
-    # 条件评估方法
-    def _has_tool_calls(self, state: WorkflowState) -> bool:
-        """检查是否有工具调用"""
-        if not state.get("messages"):
-            return False
-        
-        messages = state.get("messages", [])
-        if not messages:
-            return False
-        last_message = messages[-1]
-        if hasattr(last_message, 'tool_calls') and getattr(last_message, 'tool_calls', None):
-            return True
-        
-        # 检查消息内容
-        if hasattr(last_message, 'content'):
-            content = str(getattr(last_message, 'content', ''))
-            return "tool_call" in content.lower() or "调用工具" in content
-        
-        return False
-    
-    def _no_tool_calls(self, state: WorkflowState) -> bool:
-        """检查是否没有工具调用"""
-        return not self._has_tool_calls(state)
-    
-    def _has_tool_results(self, state: WorkflowState) -> bool:
-        """检查是否有工具执行结果"""
-        return len(state.get("tool_results", [])) > 0
-    
-    def _max_iterations_reached(self, state: WorkflowState) -> bool:
-        """检查是否达到最大迭代次数"""
-        # 使用新的工作流级别的迭代计数
-        workflow_iteration_count = state.get("workflow_iteration_count", 0)
-        workflow_max_iterations = state.get("workflow_max_iterations", 10)
-        return workflow_iteration_count >= workflow_max_iterations
-    
-    def _has_errors(self, state: WorkflowState) -> bool:
-        """检查是否有错误"""
-        for result in state.get("tool_results", []):
-            if not result.get("success", True):
-                return True
-        return False
-    
-    def _no_errors(self, state: WorkflowState) -> bool:
-        """检查是否没有错误"""
-        return not self._has_errors(state)
-    
-    def _message_contains(self, state: WorkflowState) -> bool:
-        """检查消息是否包含指定内容"""
-        if "text" not in self.condition_parameters:
-            return False
-        
-        search_text = self.condition_parameters["text"].lower()
-        
-        for message in state.get("messages", []):
-            if hasattr(message, 'content'):
-                content = str(getattr(message, 'content', '')).lower()
-                if search_text in content:
-                    return True
-        
-        return False
-    
-    def _iteration_count_equals(self, state: WorkflowState) -> bool:
-        """检查迭代次数是否等于指定值"""
-        if "count" not in self.condition_parameters:
-            return False
-        
-        iteration_count = state.get("iteration_count", 0)
-        count = self.condition_parameters["count"]
-        return bool(iteration_count == count)
-    
-    def _iteration_count_greater_than(self, state: WorkflowState) -> bool:
-        """检查迭代次数是否大于指定值"""
-        if "count" not in self.condition_parameters:
-            return False
-        
-        iteration_count = state.get("iteration_count", 0)
-        count = self.condition_parameters["count"]
-        return bool(iteration_count > count)
-    
-    def _custom_condition(self, state: WorkflowState) -> bool:
-        """执行自定义条件"""
-        if "expression" not in self.condition_parameters:
-            return False
-        
-        try:
-            # 创建安全的执行环境
-            safe_globals = {
-                "__builtins__": {
-                    "len": len,
-                    "str": str,
-                    "int": int,
-                    "float": float,
-                    "bool": bool,
-                    "list": list,
-                    "dict": dict,
-                    "any": any,
-                    "all": all,
-                },
-                "state": state,
-            }
-            
-            # 执行自定义表达式
-            expression = self.condition_parameters["expression"]
-            result = eval(expression, safe_globals)
-            return bool(result)
-            
-        except Exception:
-            # 如果执行失败，返回False
-            return False
     
     def __str__(self) -> str:
         """字符串表示"""

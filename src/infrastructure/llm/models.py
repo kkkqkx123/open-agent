@@ -47,6 +47,7 @@ class LLMMessage:
     content: str
     name: Optional[str] = None
     function_call: Optional[Dict[str, Any]] = None
+    tool_calls: Optional[List[Dict[str, Any]]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=datetime.now)
 
@@ -63,6 +64,9 @@ class LLMMessage:
 
         if self.function_call:
             result["function_call"] = self.function_call
+
+        if self.tool_calls:
+            result["tool_calls"] = self.tool_calls
 
         if self.metadata:
             result["metadata"] = self.metadata

@@ -5,8 +5,11 @@
 
 from typing import Dict, Any, List, Optional, Union
 import logging
+from datetime import datetime
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
+
+from src.infrastructure.llm.models import LLMMessage, MessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +139,191 @@ class MessageAdapter:
             return "tool"
         else:
             return "unknown"
+
+    def to_graph_message(self, domain_message: LLMMessage) -> BaseMessage:
+        """将域层消息转换为图系统消息
+
+        Args:
+            domain_message: 域层消息
+
+        Returns:
+            BaseMessage: 图系统消息
+        """
+        if domain_message.role == MessageRole.USER:
+            return HumanMessage(content=domain_message.content)
+        elif domain_message.role == MessageRole.ASSISTANT:
+            return AIMessage(content=domain_message.content)
+        elif domain_message.role == MessageRole.SYSTEM:
+            return SystemMessage(content=domain_message.content)
+        elif domain_message.role == MessageRole.TOOL:
+            tool_call_id = domain_message.metadata.get("tool_call_id", "")
+            return ToolMessage(content=domain_message.content, tool_call_id=tool_call_id)
+        else:
+            return HumanMessage(content=domain_message.content)
+
+    def from_graph_message(self, graph_message: BaseMessage) -> LLMMessage:
+        """将图系统消息转换为域层消息
+
+        Args:
+            graph_message: 图系统消息
+
+        Returns:
+            LLMMessage: 域层消息
+        """
+        if isinstance(graph_message, HumanMessage):
+            role = MessageRole.USER
+        elif isinstance(graph_message, AIMessage):
+            role = MessageRole.ASSISTANT
+        elif isinstance(graph_message, SystemMessage):
+            role = MessageRole.SYSTEM
+        elif isinstance(graph_message, ToolMessage):
+            role = MessageRole.TOOL
+        else:
+            role = MessageRole.USER
+
+        # 处理内容类型 - LangChain消息内容可以是字符串或列表
+        content = graph_message.content
+        if isinstance(content, list):
+            # 如果是列表，提取文本内容
+            content = " ".join(
+                item.get("text", "") if isinstance(item, dict) else str(item)
+                for item in content
+                if isinstance(item, (dict, str))
+            )
+        elif not isinstance(content, str):
+            content = str(content)
+
+        return LLMMessage(
+            role=role,
+            content=content,
+            metadata=getattr(graph_message, "additional_kwargs", {}),
+            timestamp=datetime.now()
+        )
+
+    def to_graph_messages(self, domain_messages: List[LLMMessage]) -> List[BaseMessage]:
+        """批量转换域层消息为图系统消息
+
+        Args:
+            domain_messages: 域层消息列表
+
+        Returns:
+            List[BaseMessage]: 图系统消息列表
+        """
+        return [self.to_graph_message(msg) for msg in domain_messages]
+
+    def from_graph_messages(self, graph_messages: List[BaseMessage]) -> List[LLMMessage]:
+        """批量转换图系统消息为域层消息
+
+        Args:
+            graph_messages: 图系统消息列表
+
+        Returns:
+            List[LLMMessage]: 域层消息列表
+        """
+        return [self.from_graph_message(msg) for msg in graph_messages]
+
+    def extract_tool_calls(self, domain_message: LLMMessage) -> List[Dict[str, Any]]:
+        """提取工具调用信息
+
+        Args:
+            domain_message: 域层消息
+
+        Returns:
+            List[Dict[str, Any]]: 工具调用列表
+        """
+        # 优先使用 tool_calls 属性
+        if hasattr(domain_message, 'tool_calls') and domain_message.tool_calls:
+            return domain_message.tool_calls
+
+        # 回退到 metadata
+        tool_calls = domain_message.metadata.get("tool_calls", [])
+        return tool_calls
+
+    def add_tool_calls_to_message(self, domain_message: LLMMessage, tool_calls: List[Dict[str, Any]]) -> LLMMessage:
+        """添加工具调用到消息
+
+        Args:
+            domain_message: 域层消息
+            tool_calls: 工具调用列表
+
+        Returns:
+            LLMMessage: 更新后的消息
+        """
+        # 创建新消息，更新 tool_calls 和 metadata
+        new_metadata = domain_message.metadata.copy()
+        new_metadata["tool_calls"] = tool_calls
+
+        return LLMMessage(
+            role=domain_message.role,
+            content=domain_message.content,
+            name=domain_message.name,
+            function_call=domain_message.function_call,
+            tool_calls=tool_calls,
+            metadata=new_metadata,
+            timestamp=domain_message.timestamp
+        )
+
+    def create_system_message(self, content: str) -> LLMMessage:
+        """创建系统消息
+
+        Args:
+            content: 消息内容
+
+        Returns:
+            LLMMessage: 系统消息
+        """
+        return LLMMessage(
+            role=MessageRole.SYSTEM,
+            content=content,
+            timestamp=datetime.now()
+        )
+
+    def create_user_message(self, content: str) -> LLMMessage:
+        """创建用户消息
+
+        Args:
+            content: 消息内容
+
+        Returns:
+            LLMMessage: 用户消息
+        """
+        return LLMMessage(
+            role=MessageRole.USER,
+            content=content,
+            timestamp=datetime.now()
+        )
+
+    def create_assistant_message(self, content: str) -> LLMMessage:
+        """创建助手消息
+
+        Args:
+            content: 消息内容
+
+        Returns:
+            LLMMessage: 助手消息
+        """
+        return LLMMessage(
+            role=MessageRole.ASSISTANT,
+            content=content,
+            timestamp=datetime.now()
+        )
+
+    def create_tool_message(self, content: str, tool_call_id: str) -> LLMMessage:
+        """创建工具消息
+
+        Args:
+            content: 消息内容
+            tool_call_id: 工具调用ID
+
+        Returns:
+            LLMMessage: 工具消息
+        """
+        return LLMMessage(
+            role=MessageRole.TOOL,
+            content=content,
+            metadata={"tool_call_id": tool_call_id},
+            timestamp=datetime.now()
+        )
 
 
 # 全局消息适配器实例

@@ -50,6 +50,195 @@ Presentation Layer (TUI/API/CLI) → Application Layer → Domain Layer → Infr
    - RESTful API
    - Command Line Interface (CLI)
 
+## Directory Structure
+
+The project is organized in a modular structure to maintain separation of concerns:
+
+```
+open-agent/
+├── .venv/                    # Virtual environment directory (Git-ignored)
+├── .vscode/                  # VS Code settings
+├── configs/                  # Configuration files
+│   ├── global.yaml           # Global settings
+│   ├── application.yaml      # Application-specific settings
+│   ├── history.yaml          # History and checkpoint configuration
+│   ├── prompts.yaml          # Prompt templates
+│   ├── threads.yaml          # Thread management configuration
+│   ├── checkpoints/          # Checkpoint configurations
+│   ├── graphs/               # Graph and workflow example configs
+│   ├── hooks/                # Hook configurations
+│   ├── llms/                 # Model configurations
+│   ├── nodes/                # Node configurations
+│   ├── prompts/              # Prompt templates and system messages
+│   ├── tool-sets/            # Tool set configurations
+│   ├── tools/                # Individual tool configurations
+│   └── workflows/            # Workflow configurations
+├── demo/                     # Example implementations
+├── docs/                     # Documentation files
+├── examples/                 # Usage examples
+├── src/                      # Source code
+│   ├── domain/               # Domain layer (business logic)
+│   │   ├── agent/            # Agent domain models
+│   │   ├── session/          # Session domain models
+│   │   ├── thread/           # Thread domain models
+│   │   └── value_objects/    # Value objects
+│   ├── application/          # Application layer (use cases)
+│   │   ├── agent/            # Agent application services
+│   │   ├── session/          # Session application services
+│   │   ├── thread/           # Thread application services
+│   │   └── workflow/         # Workflow application services
+│   ├── infrastructure/       # Infrastructure layer (technical implementations)
+│   │   ├── config/           # Configuration loading and validation
+│   │   ├── container/        # Dependency injection container
+│   │   ├── graph/            # LangGraph integration
+│   │   ├── llm/              # LLM integration
+│   │   ├── tools/            # Tool system
+│   │   ├── logging/          # Logging implementation
+│   │   ├── state/            # State management
+│   │   └── utils/            # Utility functions
+│   └── presentation/         # Presentation layer (UI/API)
+│       ├── api/              # REST API
+│       ├── cli/              # Command line interface
+│       └── tui/              # Terminal user interface
+├── tests/                    # Test files
+│   ├── unit/                 # Unit tests
+│   ├── integration/          # Integration tests
+│   ├── e2e/                  # End-to-end tests
+│   └── performance/          # Performance tests
+├── .env.example             # Example environment variables
+├── .gitignore               # Git ignore patterns
+├── AGENTS.md                # Agent system documentation
+├── FLEXIBLE_CONTEXT_CONTROL.md # Flexible context control documentation
+├── NODE_CONTEXT_PASSING.md  # Node context passing documentation
+├── pyproject.toml           # Project configuration (dependencies, build settings)
+├── QWEN.md                  # Context documentation (this file)
+├── TEMPLATE_VARIABLE_EXTENSIONS.md # Template variable extensions documentation
+├── TUI_LOGGER_REFACTOR_SUMMARY.md # TUI logger refactor summary
+├── uv.lock                  # Dependency lock file
+└── ...
+```
+
+## Module Division
+
+The project is divided into functional modules that align with the clean architecture:
+
+### Domain Layer Modules
+- `domain.agent`: Core agent entities and business rules
+- `domain.session`: Session management entities
+- `domain.thread`: Thread entities and collaboration rules
+- `domain.value_objects`: Immutable value objects used across the system
+
+### Application Layer Modules
+- `application.agent`: Agent orchestration and management
+- `application.session`: Session workflow coordination
+- `application.thread`: Thread interaction and collaboration
+- `application.workflow`: Workflow execution and management
+
+### Infrastructure Layer Modules
+- `infrastructure.graph`: LangGraph integration and execution
+- `infrastructure.tools`: Tool management and execution system
+- `infrastructure.llm`: LLM integration and management
+- `infrastructure.config`: Configuration loading and validation
+- `infrastructure.container`: Dependency injection system
+- `infrastructure.state`: State management and persistence
+
+### Presentation Layer Modules
+- `presentation.api`: REST API endpoints and controllers
+- `presentation.tui`: Terminal user interface components
+- `presentation.cli`: Command line interface commands
+
+## Layer Division
+
+The project strictly follows the clean architecture pattern with the following layer dependencies:
+
+```
+Presentation → Application → Domain ← Infrastructure
+```
+
+### Domain Layer (Innermost)
+- Contains pure business logic with no external dependencies
+- Defines entities, value objects, domain services, and repository interfaces
+- Pure Python classes without framework dependencies
+- Contains business rules and validation logic
+
+### Application Layer (Business Rules)
+- Orchestrates use cases and application workflows
+- Coordinates between domain entities and infrastructure services
+- Contains application-specific business rules
+- Depends on domain but not on infrastructure
+
+### Infrastructure Layer (External Concerns)
+- Implements technical concerns and external integrations
+- Provides implementations for repository interfaces defined in domain
+- Handles database operations, external APIs, file systems
+- Depends on domain but not on application or presentation
+
+### Presentation Layer (User Interface)
+- Handles user interaction and system interfaces
+- TUI, CLI, and API interfaces
+- Depends on all other layers
+- Contains controllers and UI components
+
+## Virtual Environment Usage
+
+This project uses `uv` for package management and requires Python 3.13+. 
+The virtual environment should be properly managed as follows:
+
+### Prerequisites
+- Python 3.13+
+- uv package manager (install with `pip install uv`)
+
+### Initial Setup
+```bash
+# Create virtual environment (creates .venv/ directory)
+uv venv
+
+# Activate virtual environment
+# On Windows:
+.venv\Scripts\activate
+# On Linux/Mac:
+source .venv/bin/activate
+
+# Install project dependencies
+uv sync
+
+# Install test dependencies
+uv sync --extra test
+
+# Install development dependencies
+uv sync --extra dev
+```
+
+### Development Workflow
+```bash
+# Activate environment (do this for each new terminal session)
+.venv\Scripts\activate  # Windows
+# or
+source .venv/bin/activate  # Linux/Mac
+
+# Install new package (updates pyproject.toml and uv.lock)
+uv add package_name
+
+# Install new package for development only
+uv add --group dev package_name
+
+# Run application with activated environment
+python src/run_tui.py
+
+# Run tests
+python -m pytest
+
+# Deactivate environment when done
+deactivate
+```
+
+### Environment Management Tips
+- Always activate the virtual environment before running any Python commands
+- The `.venv/` directory is Git-ignored, but dependencies are locked in `uv.lock`
+- Other developers can recreate the exact same environment with `uv sync`
+- Use `uv run command` to run commands in the virtual environment without activation
+- Use `uv pip list` to see installed packages
+
 ## Configuration System
 
 The framework uses a sophisticated configuration system with inheritance and environment variable injection:

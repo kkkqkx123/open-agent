@@ -1,8 +1,10 @@
 """状态适配器
 
-负责在域层状态和图系统状态之间进行转换。
+负责在工作流状态的不同表示形式之间进行转换。
+已移除agent层，现在专注于WorkflowState的适配和转换。
 """
 
+import warnings
 from typing import Dict, Any, Optional, List, cast
 from dataclasses import dataclass, asdict, field
 import logging
@@ -14,11 +16,15 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class GraphAgentState:
-    """图系统Agent状态"""
-    # 基本标识信息
-    agent_id: str = ""
-    agent_type: str = ""
+class WorkflowStateAdapter:
+    """工作流状态适配器
+    
+    提供WorkflowState的结构化表示，便于状态操作和转换。
+    替代已移除的GraphAgentState。
+    """
+    # 基本标识信息 - 从agent相关字段映射而来
+    workflow_id: str = ""
+    workflow_type: str = ""
     
     # 消息相关
     messages: List[LCBaseMessage] = field(default_factory=list)
@@ -51,47 +57,104 @@ class GraphAgentState:
 
     # 上下文信息
     context: Dict[str, Any] = field(default_factory=dict)
+    
+    def __getattr__(self, name: str) -> Any:
+        """提供向后兼容性支持
+        
+        Args:
+            name: 属性名
+            
+        Returns:
+            属性值
+            
+        Raises:
+            AttributeError: 如果属性不存在且不在兼容列表中
+        """
+        # 向后兼容性映射
+        compatibility_map = {
+            'agent_id': 'workflow_id',
+            'agent_type': 'workflow_type',
+        }
+        
+        if name in compatibility_map:
+            new_name = compatibility_map[name]
+            warnings.warn(
+                f"{name} is deprecated, use {new_name} instead",
+                DeprecationWarning,
+                stacklevel=2
+            )
+            return getattr(self, new_name)
+        
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+    
+    def __setattr__(self, name: str, value: Any) -> None:
+        """提供向后兼容性支持
+        
+        Args:
+            name: 属性名
+            value: 属性值
+        """
+        # 向后兼容性映射
+        compatibility_map = {
+            'agent_id': 'workflow_id',
+            'agent_type': 'workflow_type',
+        }
+        
+        if name in compatibility_map:
+            new_name = compatibility_map[name]
+            warnings.warn(
+                f"{name} is deprecated, use {new_name} instead",
+                DeprecationWarning,
+                stacklevel=2
+            )
+            super().__setattr__(new_name, value)
+        else:
+            super().__setattr__(name, value)
+
+
+# 向后兼容性别名
+GraphAgentState = WorkflowStateAdapter
 
 
 class StateAdapter:
     """状态适配器"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
     
-    def from_graph_state(self, graph_state: WorkflowState) -> GraphAgentState:
-        """将图状态转换为域状态
+    def from_graph_state(self, graph_state: WorkflowState) -> WorkflowStateAdapter:
+        """将图状态转换为适配器状态
         
         Args:
             graph_state: 图系统状态
             
         Returns:
-            GraphAgentState: 域状态
+            WorkflowStateAdapter: 适配器状态
         """
         try:
             # 处理字典格式的图状态
             if isinstance(graph_state, dict):
-                return self._dict_to_domain_state(cast(Dict[str, Any], graph_state))
+                return self._dict_to_adapter_state(graph_state)
             else:
                 # 处理对象格式的图状态
-                return self._object_to_domain_state(graph_state)
+                return self._object_to_adapter_state(graph_state)
         except Exception as e:
             self.logger.error(f"状态转换失败: {e}")
             # 返回默认状态
-            return GraphAgentState()
+            return WorkflowStateAdapter()
     
-    def to_graph_state(self, domain_state: GraphAgentState) -> WorkflowState:
-        """将域状态转换为图状态
+    def to_graph_state(self, adapter_state: WorkflowStateAdapter) -> WorkflowState:
+        """将适配器状态转换为图状态
         
         Args:
-            domain_state: 域状态
+            adapter_state: 适配器状态
             
         Returns:
             WorkflowState: 图系统状态
         """
         try:
-            # 将域状态转换为字典格式
-            state_dict = asdict(domain_state)
+            # 将适配器状态转换为字典格式
+            state_dict = asdict(adapter_state)
             
             # 确保消息列表格式正确
             if "messages" in state_dict:
@@ -103,11 +166,12 @@ class StateAdapter:
             # 返回默认状态
             return cast(WorkflowState, {})
     
-    def _dict_to_domain_state(self, state_dict: Dict[str, Any]) -> GraphAgentState:
-        """将字典转换为域状态"""
-        return GraphAgentState(
-            agent_id=state_dict.get("agent_id", ""),
-            agent_type=state_dict.get("agent_type", ""),
+    def _dict_to_adapter_state(self, state_dict: Dict[str, Any]) -> WorkflowStateAdapter:
+        """将字典转换为适配器状态"""
+        return WorkflowStateAdapter(
+            # 字段映射：agent_id → workflow_id, agent_type → workflow_type
+            workflow_id=state_dict.get("agent_id", state_dict.get("workflow_id", "")),
+            workflow_type=state_dict.get("agent_type", state_dict.get("workflow_type", "")),
             messages=self._convert_messages_from_langchain(state_dict.get("messages", [])),
             current_task=state_dict.get("current_task"),
             task_history=state_dict.get("task_history", []),
@@ -124,22 +188,22 @@ class StateAdapter:
             context=state_dict.get("context", {})
         )
     
-    def _object_to_domain_state(self, state_obj: Any) -> GraphAgentState:
-        """将对象转换为域状态"""
+    def _object_to_adapter_state(self, state_obj: Any) -> WorkflowStateAdapter:
+        """将对象转换为适配器状态"""
         # 提取对象属性
         state_dict = {}
         if hasattr(state_obj, '__dict__'):
             state_dict = state_obj.__dict__
         else:
-            # 尝试获取常见属性
-            for attr in ['agent_id', 'agent_type', 'messages', 'current_task', 'task_history', 
+            # 尝试获取常见属性，支持新旧字段名
+            for attr in ['workflow_id', 'agent_id', 'workflow_type', 'agent_type', 'messages', 'current_task', 'task_history',
                          'tool_results', 'current_step', 'max_iterations', 'iteration_count',
                          'start_time', 'last_update_time', 'errors', 'logs', 'execution_metrics',
                          'custom_fields', 'context']:
                 if hasattr(state_obj, attr):
                     state_dict[attr] = getattr(state_obj, attr)
         
-        return self._dict_to_domain_state(state_dict)
+        return self._dict_to_adapter_state(state_dict)
     
     def _convert_messages_from_langchain(self, messages: List) -> List[LCBaseMessage]:
         """将LangChain消息转换为内部消息格式"""
@@ -260,3 +324,21 @@ def get_state_adapter() -> StateAdapter:
     if _global_adapter is None:
         _global_adapter = StateAdapter()
     return _global_adapter
+
+
+# 向后兼容性别名
+def get_graph_agent_state_adapter() -> StateAdapter:
+    """获取全局状态适配器实例（已废弃）
+    
+    .. deprecated::
+        使用 get_state_adapter() 替代
+    
+    Returns:
+        StateAdapter: 状态适配器实例
+    """
+    warnings.warn(
+        "get_graph_agent_state_adapter() is deprecated, use get_state_adapter() instead",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return get_state_adapter()

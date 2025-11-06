@@ -6,12 +6,10 @@ from typing import Any, Dict, Optional, List
 from dataclasses import dataclass
 from enum import Enum
 
-from src.infrastructure.graph.edges.conditional_edge import (
-    ConditionType,
-    ConditionalEdge
-)
+from src.infrastructure.graph.edges.conditional_edge import ConditionalEdge
+from src.infrastructure.graph.edges.conditions import ConditionType
 from src.infrastructure.graph.config import EdgeConfig, EdgeType
-from src.domain.agent.state import AgentState
+from src.infrastructure.graph.states.workflow import WorkflowState
 
 
 class TestConditionType:
@@ -145,9 +143,11 @@ class TestConditionalEdge:
         )
         
         # 创建包含工具调用的状态
-        state = Mock(spec=AgentState)
-        state.messages = [Mock()]
-        state.messages[-1].tool_calls = [{"name": "test_tool"}]
+        mock_message = Mock()
+        mock_message.tool_calls = [{"name": "test_tool"}]
+        state = {
+            "messages": [mock_message]
+        }
         
         result = edge.evaluate(state)
         assert result is True
@@ -163,9 +163,11 @@ class TestConditionalEdge:
         )
         
         # 创建不包含工具调用的状态
-        state = Mock(spec=AgentState)
-        state.messages = [Mock()]
-        state.messages[-1].tool_calls = []
+        mock_message = Mock()
+        mock_message.tool_calls = []
+        state = {
+            "messages": [mock_message]
+        }
         
         result = edge.evaluate(state)
         assert result is False
@@ -181,9 +183,11 @@ class TestConditionalEdge:
         )
         
         # 创建不包含工具调用的状态
-        state = Mock(spec=AgentState)
-        state.messages = [Mock()]
-        state.messages[-1].tool_calls = []
+        mock_message = Mock()
+        mock_message.tool_calls = []
+        state = {
+            "messages": [mock_message]
+        }
         
         result = edge.evaluate(state)
         assert result is True
@@ -199,9 +203,11 @@ class TestConditionalEdge:
         )
         
         # 创建包含工具调用的状态
-        state = Mock(spec=AgentState)
-        state.messages = [Mock()]
-        state.messages[-1].tool_calls = [{"name": "test_tool"}]
+        mock_message = Mock()
+        mock_message.tool_calls = [{"name": "test_tool"}]
+        state = {
+            "messages": [mock_message]
+        }
         
         result = edge.evaluate(state)
         assert result is False
@@ -217,8 +223,9 @@ class TestConditionalEdge:
         )
         
         # 创建包含工具结果的状态
-        state = Mock(spec=AgentState)
-        state.tool_results = [{"result": "test_result"}]
+        state = {
+            "tool_results": [{"result": "test_result"}]
+        }
         
         result = edge.evaluate(state)
         assert result is True
@@ -234,8 +241,9 @@ class TestConditionalEdge:
         )
         
         # 创建不包含工具结果的状态
-        state = Mock(spec=AgentState)
-        state.tool_results = []
+        state = {
+            "tool_results": []
+        }
         
         result = edge.evaluate(state)
         assert result is False
@@ -251,9 +259,10 @@ class TestConditionalEdge:
         )
         
         # 创建达到最大迭代次数的状态
-        state = Mock(spec=AgentState)
-        state.iteration_count = 10
-        state.max_iterations = 10
+        state = {
+            "workflow_iteration_count": 10,
+            "workflow_max_iterations": 10
+        }
         
         result = edge.evaluate(state)
         assert result is True
@@ -269,9 +278,10 @@ class TestConditionalEdge:
         )
         
         # 创建未达到最大迭代次数的状态
-        state = Mock(spec=AgentState)
-        state.iteration_count = 5
-        state.max_iterations = 10
+        state = {
+            "workflow_iteration_count": 5,
+            "workflow_max_iterations": 10
+        }
         
         result = edge.evaluate(state)
         assert result is False
@@ -286,10 +296,12 @@ class TestConditionalEdge:
             condition_parameters={}
         )
         
-        # 创建包含错误的状态
-        state = Mock(spec=AgentState)
-        state.tool_results = [Mock()]
-        state.tool_results[0].success = False
+        # 创建包含错误的状态 - success=False表示有错误
+        mock_result = Mock()
+        mock_result.get = Mock(return_value=False)
+        state = {
+            "tool_results": [mock_result]
+        }
         
         result = edge.evaluate(state)
         assert result is True
@@ -305,9 +317,11 @@ class TestConditionalEdge:
         )
         
         # 创建不包含错误的状态
-        state = Mock(spec=AgentState)
-        state.tool_results = [Mock()]
-        state.tool_results[0].success = True
+        mock_result = Mock()
+        mock_result.get = Mock(return_value=True)
+        state = {
+            "tool_results": [mock_result]
+        }
         
         result = edge.evaluate(state)
         assert result is False
@@ -323,9 +337,11 @@ class TestConditionalEdge:
         )
         
         # 创建不包含错误的状态
-        state = Mock(spec=AgentState)
-        state.tool_results = [Mock()]
-        state.tool_results[0].success = True
+        mock_result = Mock()
+        mock_result.get = Mock(return_value=True)
+        state = {
+            "tool_results": [mock_result]
+        }
         
         result = edge.evaluate(state)
         assert result is True
@@ -340,10 +356,12 @@ class TestConditionalEdge:
             condition_parameters={}
         )
         
-        # 创建包含错误的状态
-        state = Mock(spec=AgentState)
-        state.tool_results = [Mock()]
-        state.tool_results[0].success = False
+        # 创建包含错误的状态 - success=False表示有错误，所以no_errors应该返回False
+        mock_result = Mock()
+        mock_result.get = Mock(return_value=False)
+        state = {
+            "tool_results": [mock_result]
+        }
         
         result = edge.evaluate(state)
         assert result is False
@@ -361,8 +379,9 @@ class TestConditionalEdge:
         # 创建包含指定文本的消息状态
         message = Mock()
         message.content = "This is a test message"
-        state = Mock(spec=AgentState)
-        state.messages = [message]
+        state = {
+            "messages": [message]
+        }
         
         result = edge.evaluate(state)
         assert result is True
@@ -380,8 +399,9 @@ class TestConditionalEdge:
         # 创建不包含指定文本的消息状态
         message = Mock()
         message.content = "This is a message"
-        state = Mock(spec=AgentState)
-        state.messages = [message]
+        state = {
+            "messages": [message]
+        }
         
         result = edge.evaluate(state)
         assert result is False
@@ -397,8 +417,9 @@ class TestConditionalEdge:
         )
         
         # 创建迭代次数等于指定值的状态
-        state = Mock(spec=AgentState)
-        state.iteration_count = 5
+        state = {
+            "iteration_count": 5
+        }
         
         result = edge.evaluate(state)
         assert result is True
@@ -414,8 +435,9 @@ class TestConditionalEdge:
         )
         
         # 创建迭代次数不等于指定值的状态
-        state = Mock(spec=AgentState)
-        state.iteration_count = 3
+        state = {
+            "iteration_count": 3
+        }
         
         result = edge.evaluate(state)
         assert result is False
@@ -431,8 +453,9 @@ class TestConditionalEdge:
         )
         
         # 创建迭代次数大于指定值的状态
-        state = Mock(spec=AgentState)
-        state.iteration_count = 7
+        state = {
+            "iteration_count": 7
+        }
         
         result = edge.evaluate(state)
         assert result is True
@@ -448,8 +471,9 @@ class TestConditionalEdge:
         )
         
         # 创建迭代次数不大于指定值的状态
-        state = Mock(spec=AgentState)
-        state.iteration_count = 3
+        state = {
+            "iteration_count": 3
+        }
         
         result = edge.evaluate(state)
         assert result is False
@@ -464,7 +488,7 @@ class TestConditionalEdge:
             condition_parameters={"expression": "True"}
         )
         
-        state = Mock(spec=AgentState)
+        state = {}
         result = edge.evaluate(state)
         assert result is True
 
@@ -478,7 +502,7 @@ class TestConditionalEdge:
             condition_parameters={"expression": "False"}
         )
         
-        state = Mock(spec=AgentState)
+        state = {}
         result = edge.evaluate(state)
         assert result is False
 
@@ -492,7 +516,7 @@ class TestConditionalEdge:
             condition_parameters={}
         )
         
-        state = Mock(spec=AgentState)
+        state = {}
         
         with pytest.raises(ValueError, match="未知的条件类型"):
             edge.evaluate(state)

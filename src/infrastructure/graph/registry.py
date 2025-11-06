@@ -6,7 +6,7 @@
 import asyncio
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Type, Optional, Callable, TYPE_CHECKING
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .states import WorkflowState
 
@@ -16,11 +16,7 @@ class NodeExecutionResult:
     """节点执行结果"""
     state: WorkflowState
     next_node: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
-
-    def __post_init__(self) -> None:
-        if self.metadata is None:
-            self.metadata = {}
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class BaseNode(ABC):

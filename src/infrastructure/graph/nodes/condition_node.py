@@ -4,11 +4,10 @@
 """
 
 from typing import Dict, Any, Optional, List, Callable
-from dataclasses import dataclass
 
 from ..registry import BaseNode, NodeExecutionResult, node
 from ..states import WorkflowState
-from src.infrastructure.graph.adapters import get_state_adapter, get_message_adapter
+from ..edges.conditions import ConditionType, ConditionEvaluator
 
 
 @node("condition_node")
@@ -17,18 +16,7 @@ class ConditionNode(BaseNode):
 
     def __init__(self) -> None:
         """初始化条件节点"""
-        self._condition_functions: Dict[str, Callable] = {
-            "has_tool_calls": self._has_tool_calls,
-            "no_tool_calls": self._no_tool_calls,
-            "has_tool_results": self._has_tool_results,
-            "max_iterations_reached": self._max_iterations_reached,
-            "has_errors": self._has_errors,
-            "no_errors": self._no_errors,
-            "message_contains": self._message_contains,
-            "iteration_count_equals": self._iteration_count_equals,
-            "iteration_count_greater_than": self._iteration_count_greater_than,
-            "custom": self._custom_condition,
-        }
+        self._evaluator = ConditionEvaluator()
 
     @property
     def node_type(self) -> str:
@@ -53,7 +41,7 @@ class ConditionNode(BaseNode):
         
         # 评估条件
         for condition_config in conditions:
-            if self._evaluate_condition(condition_config, state):
+            if self._evaluate_condition(condition_config, state, config):
                 next_node = condition_config.get("next_node")
                 return NodeExecutionResult(
                     state=state,
@@ -88,7 +76,8 @@ class ConditionNode(BaseNode):
                         "properties": {
                             "type": {
                                 "type": "string",
-                                "description": "条件类型"
+                                "description": "条件类型",
+                                "enum": [ct.value for ct in ConditionType]
                             },
                             "next_node": {
                                 "type": "string",
@@ -114,154 +103,42 @@ class ConditionNode(BaseNode):
             "required": []
         }
 
-    def _evaluate_condition(self, condition_config: Dict[str, Any], state: WorkflowState) -> bool:
+    def _evaluate_condition(self, condition_config: Dict[str, Any], state: WorkflowState, 
+                           node_config: Dict[str, Any]) -> bool:
         """评估单个条件
 
         Args:
             condition_config: 条件配置
             state: 当前工作流状态
+            node_config: 节点配置
 
         Returns:
             bool: 条件是否满足
         """
-        condition_type = condition_config.get("type")
+        condition_type_str = condition_config.get("type")
         parameters = condition_config.get("parameters", {})
         
-        if condition_type not in self._condition_functions:
-            raise ValueError(f"未知的条件类型: {condition_type}")
-        
-        condition_func = self._condition_functions[condition_type]
-        return condition_func(state, parameters, condition_config)  # type: ignore
-
-    # 内置条件函数
-    def _has_tool_calls(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
-        """检查是否有工具调用"""
-        messages = state.get("messages", [])
-        if not messages:
-            return False
-
-        last_message = messages[-1]
-        # 检查LangChain消息的tool_calls属性
-        if hasattr(last_message, 'tool_calls') and getattr(last_message, 'tool_calls', None):
-            return True
-
-        # 检查消息内容
-        if hasattr(last_message, 'content'):
-            content = str(getattr(last_message, 'content', ''))
-            return "tool_call" in content.lower() or "调用工具" in content
-
-        return False
-
-    def _no_tool_calls(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
-        """检查是否没有工具调用"""
-        return not self._has_tool_calls(state, parameters, config)
-
-    def _has_tool_results(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
-        """检查是否有工具执行结果"""
-        return len(state.get("tool_results", [])) > 0
-
-    def _max_iterations_reached(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
-        """检查是否达到最大迭代次数"""
-        # 使用新的工作流级别的迭代计数
-        workflow_iteration_count = state.get("workflow_iteration_count", 0)
-        workflow_max_iterations = state.get("workflow_max_iterations", 10)
-        return workflow_iteration_count >= workflow_max_iterations
-
-    def _has_errors(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
-        """检查是否有错误"""
-        # 检查工具结果中的错误
-        for result in state.get("tool_results", []):
-            if not result.get("success", True):
-                return True
-        return False
-
-    def _no_errors(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
-        """检查是否没有错误"""
-        return not self._has_errors(state, parameters, config)
-
-    def _message_contains(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
-        """检查消息是否包含指定内容"""
-        messages = state.get("messages", [])
-        if not messages or "text" not in parameters:
-            return False
-        
-        search_text = parameters["text"].lower()
-        case_sensitive = parameters.get("case_sensitive", False)
-        
-        for message in messages:
-            if hasattr(message, 'content'):
-                content = str(getattr(message, 'content', ''))
-                if not case_sensitive:
-                    content = content.lower()
-                if search_text in content:
-                    return True
-        
-        return False
-
-    def _iteration_count_equals(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
-        """检查迭代次数是否等于指定值"""
-        if "count" not in parameters:
-            return False
-        
-        iteration_count = state.get("iteration_count", 0)
-        count = parameters["count"]
-        return bool(iteration_count == count)
-
-    def _iteration_count_greater_than(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
-        """检查迭代次数是否大于指定值"""
-        if "count" not in parameters:
-            return False
-        
-        iteration_count = state.get("iteration_count", 0)
-        count = parameters["count"]
-        return bool(iteration_count > count)
-
-    def _custom_condition(self, state: WorkflowState, parameters: Dict[str, Any], config: Dict[str, Any]) -> bool:
-        """执行自定义条件"""
-        # 首先尝试从条件配置的参数中获取代码
-        code = parameters.get("custom_condition_code")
-        
-        # 如果没有找到，尝试从整个节点配置中获取
-        if not code:
-            # 这里需要获取整个节点配置，但我们只有条件配置
-            # 为了解决这个问题，我们需要修改方法签名或传递方式
-            raise ValueError("自定义条件需要提供 custom_condition_code")
+        # 对于自定义条件，尝试从节点配置中获取代码
+        if condition_type_str == "custom" and "custom_condition_code" not in parameters:
+            custom_code = node_config.get("custom_condition_code")
+            if custom_code:
+                parameters["custom_condition_code"] = custom_code
         
         try:
-            # 创建安全的执行环境
-            safe_globals = {
-                "__builtins__": {
-                    "len": len,
-                    "str": str,
-                    "int": int,
-                    "float": float,
-                    "bool": bool,
-                    "list": list,
-                    "dict": dict,
-                    "any": any,
-                    "all": all,
-                },
-                "state": state,
-                "parameters": parameters,
-            }
-            
-            # 执行自定义代码
-            result = eval(code, safe_globals)
-            return bool(result)
-            
-        except Exception as e:
-            # 记录错误但不中断执行
-            print(f"自定义条件执行失败: {e}")
-            return False
+            condition_type = ConditionType(condition_type_str)
+        except ValueError:
+            raise ValueError(f"未知的条件类型: {condition_type_str}")
+        
+        return self._evaluator.evaluate(condition_type, state, parameters, node_config)
 
-    def register_condition_function(self, name: str, func: Callable) -> None:
+    def register_condition_function(self, condition_type: ConditionType, func: Callable) -> None:
         """注册自定义条件函数
 
         Args:
-            name: 条件函数名称
+            condition_type: 条件类型
             func: 条件函数，签名为 (state, parameters, config) -> bool
         """
-        self._condition_functions[name] = func
+        self._evaluator.register_condition_function(condition_type, func)
 
     def list_condition_types(self) -> List[str]:
         """列出所有可用的条件类型
@@ -269,4 +146,4 @@ class ConditionNode(BaseNode):
         Returns:
             List[str]: 条件类型列表
         """
-        return list(self._condition_functions.keys())
+        return [ct.value for ct in self._evaluator.list_condition_types()]
