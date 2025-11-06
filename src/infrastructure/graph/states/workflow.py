@@ -9,6 +9,7 @@ from datetime import datetime
 from typing_extensions import TypedDict
 
 from .base import BaseMessage, LCBaseMessage
+from ..types.iteration_types import IterationRecord, NodeIterationStats
 # AgentState已移除，统一使用WorkflowState
 
 # 工作流状态类型定义
@@ -84,6 +85,12 @@ class _WorkflowState(TypedDict, total=False):
     iteration_count: Annotated[int, operator.add]
     max_iterations: int
 
+    # 迭代管理增强字段
+    iteration_history: Annotated[List[IterationRecord], operator.add]  # 存储迭代历史记录
+    node_iterations: dict[str, NodeIterationStats]  # 存储节点级别的迭代统计
+    workflow_iteration_count: int  # 全局迭代计数
+    workflow_max_iterations: int  # 全局最大迭代次数
+
     # 错误处理
     errors: Annotated[List[str], operator.add]
 
@@ -154,6 +161,10 @@ messages: Optional[List[Union[BaseMessage, LCBaseMessage]]] = None
         "tool_results": [],
         "iteration_count": 0,
         "max_iterations": max_iterations,
+        "iteration_history": [],
+        "node_iterations": {},
+        "workflow_iteration_count": 0,
+        "workflow_max_iterations": max_iterations,
         "errors": [],
         "complete": False,
         "agent_id": workflow_id,
@@ -262,7 +273,8 @@ def update_workflow_state_with_error(
 
 
 def increment_workflow_iteration(state: WorkflowState) -> WorkflowState:
-    """增加工作流迭代次数
+    """增加工作流迭代次数（保留向后兼容性）
+    注意：新系统使用IterationManager进行更精细的迭代控制
     
     Args:
         state: 当前工作流状态
@@ -283,6 +295,28 @@ def increment_workflow_iteration(state: WorkflowState) -> WorkflowState:
     }
 
 
+def increment_global_iteration_count(state: WorkflowState) -> WorkflowState:
+    """增加全局工作流迭代计数（用于新系统）
+    
+    Args:
+        state: 当前工作流状态
+        
+    Returns:
+        更新后的工作流状态
+    """
+    current_count = state.get("workflow_iteration_count", 0)
+    workflow_max_iterations = state.get("workflow_max_iterations", 10)
+    
+    new_count = current_count + 1
+    is_complete = new_count >= workflow_max_iterations
+    
+    return {
+        **state,
+        "workflow_iteration_count": new_count,
+        "complete": is_complete
+    }
+
+
 def is_workflow_complete(state: WorkflowState) -> bool:
     """检查工作流是否完成
     
@@ -296,7 +330,8 @@ def is_workflow_complete(state: WorkflowState) -> bool:
 
 
 def has_workflow_reached_max_iterations(state: WorkflowState) -> bool:
-    """检查工作流是否达到最大迭代次数
+    """检查工作流是否达到最大迭代次数（保留向后兼容性）
+    注意：新系统使用IterationManager进行更精细的迭代控制
     
     Args:
         state: 工作流状态
@@ -306,6 +341,21 @@ def has_workflow_reached_max_iterations(state: WorkflowState) -> bool:
     """
     current_count = cast(int, state.get("iteration_count", 0))
     max_iterations = cast(int, state.get("max_iterations", 10))
+
+    return current_count >= max_iterations
+
+
+def has_reached_global_max_iterations(state: WorkflowState) -> bool:
+    """检查工作流是否达到全局最大迭代次数（用于新系统）
+    
+    Args:
+        state: 工作流状态
+        
+    Returns:
+        是否达到全局最大迭代次数
+    """
+    current_count = cast(int, state.get("workflow_iteration_count", 0))
+    max_iterations = cast(int, state.get("workflow_max_iterations", 10))
 
     return current_count >= max_iterations
 

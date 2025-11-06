@@ -9,6 +9,10 @@
 """
 
 from .builder import GraphBuilder
+from .enhanced_builder import EnhancedGraphBuilder
+from .hook_aware_builder import HookAwareGraphBuilder
+from .iteration_aware_builder import IterationAwareGraphBuilder
+from .iteration_manager import IterationManager, IterationRecord, NodeIterationStats
 from .states import (
     BaseGraphState,
     WorkflowState,
@@ -62,6 +66,14 @@ from .plugins import (
 __all__ = [
     # 构建器
     "GraphBuilder",
+    "EnhancedGraphBuilder",
+    "HookAwareGraphBuilder",
+    "IterationAwareGraphBuilder",
+    
+    # 迭代管理器
+    "IterationManager",
+    "IterationRecord",
+    "NodeIterationStats",
     
     # 状态类型
     "BaseGraphState",

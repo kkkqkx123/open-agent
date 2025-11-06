@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from ..config import EdgeConfig
-from ..state import WorkflowState
+from ..states.workflow import WorkflowState
 
 
 class ConditionType(Enum):
@@ -228,9 +228,10 @@ class ConditionalEdge:
     
     def _max_iterations_reached(self, state: WorkflowState) -> bool:
         """检查是否达到最大迭代次数"""
-        iteration_count = state.get("iteration_count", 0)
-        max_iterations = state.get("max_iterations", 10)
-        return iteration_count >= max_iterations
+        # 使用新的工作流级别的迭代计数
+        workflow_iteration_count = state.get("workflow_iteration_count", 0)
+        workflow_max_iterations = state.get("workflow_max_iterations", 10)
+        return workflow_iteration_count >= workflow_max_iterations
     
     def _has_errors(self, state: WorkflowState) -> bool:
         """检查是否有错误"""
