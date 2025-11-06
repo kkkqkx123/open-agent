@@ -11,6 +11,7 @@ from .implementations.checkpoint_monitor import CheckpointPerformanceMonitor
 from .implementations.llm_monitor import LLMPerformanceMonitor
 from .implementations.workflow_monitor import WorkflowPerformanceMonitor
 from .implementations.tool_monitor import ToolPerformanceMonitor
+from .log_cleaner import LogCleaner, ScheduledLogCleaner
 
 
 class PerformanceMonitorFactory:
@@ -25,6 +26,10 @@ class PerformanceMonitorFactory:
         self._default_config: Dict[str, Any] = {
             "enabled": True
         }
+        
+        # 日志清理器
+        self._log_cleaner: Optional[LogCleaner] = None
+        self._scheduled_cleaner: Optional[ScheduledLogCleaner] = None
     
     @classmethod
     def get_instance(cls) -> 'PerformanceMonitorFactory':
@@ -114,3 +119,66 @@ class PerformanceMonitorFactory:
         在零内存存储模式下，此方法不执行任何操作。
         """
         pass
+    
+    def setup_log_cleaner(self, cleanup_config: Dict[str, Any]) -> LogCleaner:
+        """设置日志清理器
+        
+        Args:
+            cleanup_config: 清理配置
+            
+        Returns:
+            LogCleaner: 日志清理器实例
+        """
+        self._log_cleaner = LogCleaner(cleanup_config)
+        self._scheduled_cleaner = ScheduledLogCleaner(self._log_cleaner)
+        
+        return self._log_cleaner
+    
+    def get_log_cleaner(self) -> Optional[LogCleaner]:
+        """获取日志清理器
+        
+        Returns:
+            LogCleaner: 日志清理器实例，如果未设置则返回None
+        """
+        return self._log_cleaner
+    
+    def get_scheduled_cleaner(self) -> Optional[ScheduledLogCleaner]:
+        """获取定期清理器
+        
+        Returns:
+            ScheduledLogCleaner: 定期清理器实例，如果未设置则返回None
+        """
+        return self._scheduled_cleaner
+    
+    def run_log_cleanup(self) -> Dict[str, Any]:
+        """运行日志清理
+        
+        Returns:
+            清理结果
+        """
+        if self._scheduled_cleaner:
+            return self._scheduled_cleaner.check_and_cleanup()
+        else:
+            return {"status": "not_configured"}
+    
+    def force_log_cleanup(self) -> Dict[str, Any]:
+        """强制运行日志清理
+        
+        Returns:
+            清理结果
+        """
+        if self._scheduled_cleaner:
+            return self._scheduled_cleaner.force_cleanup()
+        else:
+            return {"status": "not_configured"}
+    
+    def get_cleanup_stats(self) -> Dict[str, Any]:
+        """获取清理统计信息
+        
+        Returns:
+            清理统计信息
+        """
+        if self._log_cleaner:
+            return self._log_cleaner.get_cleanup_stats()
+        else:
+            return {"status": "not_configured"}

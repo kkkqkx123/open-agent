@@ -89,6 +89,14 @@ class DIConfig:
         
         # 注册工具检验模块
         self._register_tool_validation_services()
+        # 注册工具检验模块
+        self._register_tool_validation_services()
+        
+        # 注册性能监控模块
+        self._register_monitoring_services()
+        
+        # 注册日志清理服务
+        self._register_log_cleanup_service()
         
         logger.info("核心服务配置完成")
         return self.container
@@ -284,6 +292,15 @@ class DIConfig:
         except ImportError as e:
             logger.warning(f"工具检验模块不可用: {e}")
      
+     
+    def _register_log_cleanup_service(self) -> None:
+        """注册日志清理服务"""
+        try:
+            from .monitoring.di_config import MonitoringModule
+            MonitoringModule.register_services(self.container)
+            logger.debug("日志清理服务注册完成")
+        except Exception as e:
+            logger.warning(f"日志清理服务注册失败: {e}")
     def _register_monitoring_services(self) -> None:
         """注册性能监控服务"""
         try:

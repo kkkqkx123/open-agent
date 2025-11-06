@@ -9,6 +9,8 @@ from .implementations.checkpoint_monitor import CheckpointPerformanceMonitor
 from .implementations.llm_monitor import LLMPerformanceMonitor
 from .implementations.workflow_monitor import WorkflowPerformanceMonitor
 from .implementations.tool_monitor import ToolPerformanceMonitor
+from .log_cleaner import LogCleaner, ScheduledLogCleaner
+from .scheduler import LogCleanupScheduler, LogCleanupService
 from .factory import PerformanceMonitorFactory
 
 __all__ = [
@@ -18,5 +20,9 @@ __all__ = [
     "LLMPerformanceMonitor",
     "WorkflowPerformanceMonitor",
     "ToolPerformanceMonitor",
+    "LogCleaner",
+    "ScheduledLogCleaner",
+    "LogCleanupScheduler",
+    "LogCleanupService",
     "PerformanceMonitorFactory"
 ]

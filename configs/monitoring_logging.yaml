@@ -1,5 +1,5 @@
-# 性能监控日志配置
-# 专门用于性能监控的日志配置。
+#性能监控日志配置
+#专门用于性能监控的日志配置，包含日志清理设置。
 
 version: 1
 disable_existing_loggers: false
@@ -81,7 +81,44 @@ loggers:
     level: INFO
     handlers: [performance_console]
     propagate: false
+  
+  log_cleaner:
+    level: INFO
+    handlers: [performance_console]
+    propagate: false
 
 root:
   level: INFO
   handlers: [performance_console]
+
+# 日志清理配置
+log_cleanup:
+  # 是否启用日志清理
+  enabled: true
+  
+  # 日志保留天数
+  retention_days: 30
+  
+  # 要清理的日志文件模式
+  log_patterns:
+    - "logs/*.log"
+    - "logs/*.log.*"
+    - "logs/*_metrics.log"
+    - "logs/*_metrics.log.*"
+  
+  # 是否为试运行模式（不实际删除文件）
+  dry_run: false
+  
+  # 清理检查间隔（小时）
+  check_interval_hours: 24
+  
+  # 清理配置
+  cleanup:
+    # 单次清理的最大文件数
+    max_files_per_cleanup: 1000
+    
+    # 清理超时时间（秒）
+    cleanup_timeout: 300
+    
+    # 是否在清理时记录详细日志
+    verbose_logging: true
