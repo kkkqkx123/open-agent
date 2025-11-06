@@ -345,6 +345,16 @@ src/
     - Service layer for business logic
     - Router-based organization with caching support
 
+15. **Performance Monitoring** (`src/infrastructure/monitoring/`)
+    - Interface: `IPerformanceMonitor`
+    - Unified performance monitoring system with standardized metrics
+    - Multiple implementations for different modules (checkpoint, LLM, workflow, tool)
+    - Configuration-driven with YAML-based configs
+    - Dependency injection integration
+    - Backward compatibility with existing performance monitoring code
+    - Performance metrics collection and reporting
+    - Prometheus export support (planned)
+
 ### Configuration System
 
 Configuration structure:
@@ -363,6 +373,15 @@ configs/
 ├── hooks/               # Hook configurations
 │   ├── _group.yaml      # Hook group configurations
 │   ├── agent_execution_node_hooks.yaml
+ │   └── react_with_hooks_example.yaml
+├── hooks/               # Hook configurations
+│   ├── _group.yaml      # Hook group configurations
+│   ├── agent_execution_node_hooks.yaml
+│   ├── global_hooks.yaml
+│   ├── llm_node_hooks.yaml
+│   └── tool_node_hooks.yaml
+├── monitoring.yaml      # Performance monitoring configuration
+├── llms/                # Model configurations
 │   ├── global_hooks.yaml
 │   ├── llm_node_hooks.yaml
 │   └── tool_node_hooks.yaml

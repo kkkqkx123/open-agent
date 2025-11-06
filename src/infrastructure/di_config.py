@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .container import IDependencyContainer, DependencyContainer, ServiceLifetime
 from .config_loader import IConfigLoader, YamlConfigLoader
+from .monitoring.di_config import MonitoringModule
 from .graph.registry import NodeRegistry
 from src.application.sessions.manager import ISessionManager, SessionManager
 from src.application.workflow.manager import IWorkflowManager, WorkflowManager
@@ -283,6 +284,14 @@ class DIConfig:
         except ImportError as e:
             logger.warning(f"工具检验模块不可用: {e}")
      
+    def _register_monitoring_services(self) -> None:
+        """注册性能监控服务"""
+        try:
+            MonitoringModule.register_services(self.container)
+            logger.debug("性能监控服务注册完成")
+        except Exception as e:
+            logger.warning(f"性能监控服务注册失败: {e}")
+     
     def register_additional_services(self, services_config: Dict[str, Any]) -> None:
         """注册额外的服务
         
@@ -383,6 +392,13 @@ class DIConfig:
             core_services.extend([ToolValidationManager, IToolValidator])
         except ImportError:
             logger.warning("工具检验模块未找到，跳过相关服务验证")
+        # 添加性能监控相关服务
+        try:
+            from .monitoring.interfaces import IPerformanceMonitor
+            from .monitoring.implementations.checkpoint_monitor import CheckpointPerformanceMonitor
+            core_services.extend([IPerformanceMonitor, CheckpointPerformanceMonitor])
+        except ImportError:
+            logger.warning("性能监控模块未找到，跳过相关服务验证")
         
         for service_type in core_services:
             if self.container.has_service(service_type):
