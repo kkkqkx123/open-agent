@@ -10,7 +10,7 @@ import logging
 from typing import Dict, Any, List
 from datetime import datetime
 
-from ...interfaces import IEndPlugin, PluginMetadata, PluginContext, PluginType
+from src.infrastructure.graph.plugins.interfaces import IEndPlugin, PluginMetadata, PluginContext, PluginType
 
 
 logger = logging.getLogger(__name__)

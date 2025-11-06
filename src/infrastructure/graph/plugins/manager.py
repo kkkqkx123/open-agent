@@ -8,15 +8,17 @@ import logging
 import time
 import concurrent.futures
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, List, Optional, Callable, Sequence
 from collections import defaultdict
 
 from .interfaces import (
-    IPlugin, IStartPlugin, IEndPlugin, IHookPlugin, PluginType, PluginStatus, 
+    IPlugin, IStartPlugin, IEndPlugin, IHookPlugin, PluginType, PluginStatus,
     PluginContext, HookContext, HookPoint, HookExecutionResult,
     PluginError, PluginInitializationError, PluginExecutionError
 )
 from .registry import PluginRegistry
+from ..states import WorkflowState
+from ..registry import NodeExecutionResult
 
 
 logger = logging.getLogger(__name__)
@@ -400,7 +402,7 @@ class PluginManager:
         modified_result = context.execution_result
         force_next_node = None
         should_continue = True
-        metadata = {"executed_hooks": []}
+        metadata: Dict[str, Any] = {"executed_hooks": []}
         
         for plugin in applicable_plugins:
             try:
@@ -467,10 +469,10 @@ class PluginManager:
     def execute_with_hooks(
         self,
         node_type: str,
-        state,
+        state: 'WorkflowState',
         config: Dict[str, Any],
-        node_executor_func: Callable
-    ):
+        node_executor_func: Callable[['WorkflowState', Dict[str, Any]], 'NodeExecutionResult']
+    ) -> 'NodeExecutionResult':
         """统一的Hook执行接口
         
         Args:
@@ -568,7 +570,7 @@ class PluginManager:
             # 如果Hook没有处理错误，重新抛出异常
             raise e
     
-    def _execute_plugins_sequential(self, plugins: List[IPlugin], state: Dict[str, Any], 
+    def _execute_plugins_sequential(self, plugins: Sequence[IPlugin], state: Dict[str, Any],
                                   context: PluginContext, continue_on_error: bool) -> Dict[str, Any]:
         """顺序执行插件
         
@@ -713,8 +715,8 @@ class PluginManager:
                         logger.debug(f"插件 {plugin_name} 执行成功")
                 except Exception as e:
                     logger.error(f"插件 {plugin.metadata.name} 执行失败: {e}")
-                    errors[plugin_name] = e
-                    if not continue_on_error:
+                    errors[plugin.metadata.name] = e
+                if not continue_on_error:
                         raise
         
         # 合并结果

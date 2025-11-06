@@ -28,7 +28,7 @@ class PluginRegistry:
         }
         self._plugin_statuses: Dict[str, PluginStatus] = {}
     
-    def register_plugin(self, plugin: IPlugin) -> bool:
+    def register_plugin(self, plugin: Optional[IPlugin]) -> bool:
         """注册插件
         
         Args:
@@ -244,7 +244,7 @@ class PluginRegistry:
             return [f"插件 {plugin_name} 不存在"]
         
         missing_deps = []
-        for dep in plugin.metadata.dependencies:
+        for dep in plugin.metadata.dependencies or []:
             if dep not in self._plugins:
                 missing_deps.append(dep)
         
@@ -273,7 +273,7 @@ class PluginRegistry:
             
             if plugin:
                 # 先访问依赖
-                for dep in plugin.metadata.dependencies:
+                for dep in plugin.metadata.dependencies or []:
                     if dep in remaining:
                         visit(dep)
             

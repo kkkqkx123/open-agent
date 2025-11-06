@@ -5,11 +5,11 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 if TYPE_CHECKING:
-    from ..state import WorkflowState
+    from ..states import WorkflowState
     from ..registry import NodeExecutionResult
 
 
@@ -38,7 +38,7 @@ class HookPoint(Enum):
 @dataclass
 class PluginMetadata:
     """插件元数据
-    
+
     包含插件的基本信息和配置模式。
     """
     name: str
@@ -46,10 +46,10 @@ class PluginMetadata:
     description: str
     author: str
     plugin_type: PluginType
-    dependencies: List[str] = None
-    config_schema: Dict[str, Any] = None
-    supported_hook_points: List[HookPoint] = None  # 新增：支持的hook执行点
-    
+    dependencies: Optional[List[str]] = field(default_factory=list)
+    config_schema: Optional[Dict[str, Any]] = field(default_factory=dict)
+    supported_hook_points: Optional[List[HookPoint]] = field(default_factory=list)  # 新增：支持的hook执行点
+        
     def __post_init__(self) -> None:
         """初始化后处理"""
         if self.dependencies is None:
@@ -63,14 +63,14 @@ class PluginMetadata:
 @dataclass
 class PluginContext:
     """插件执行上下文
-    
+
     提供插件执行时需要的上下文信息。
     """
     workflow_id: str
     thread_id: Optional[str] = None
     session_id: Optional[str] = None
     execution_start_time: Optional[float] = None
-    metadata: Dict[str, Any] = None
+    metadata: Optional[Dict[str, Any]] = field(default_factory=dict)
     
     def __post_init__(self) -> None:
         """初始化后处理"""
@@ -243,7 +243,7 @@ class IPlugin(ABC):
 
 class IHookPlugin(IPlugin):
     """Hook插件接口
-    
+
     支持在节点执行过程中进行拦截和增强的插件接口。
     """
     
@@ -289,18 +289,26 @@ class IHookPlugin(IPlugin):
         """
         return HookExecutionResult(should_continue=True)
     
+    def set_execution_service(self, service: Any) -> None:
+        """设置执行服务
+
+        Args:
+            service: 执行服务实例
+        """
+        pass
+
     def get_supported_hook_points(self) -> List[HookPoint]:
         """获取支持的Hook执行点
-        
+
         Returns:
             List[HookPoint]: 支持的Hook执行点列表
         """
-        return self.metadata.supported_hook_points
+        return self.metadata.supported_hook_points or []
 
 
 class IStartPlugin(IPlugin):
     """START节点插件接口
-    
+
     专门用于START节点的插件接口。
     """
     
@@ -316,7 +324,7 @@ class IStartPlugin(IPlugin):
 
 class IEndPlugin(IPlugin):
     """END节点插件接口
-    
+
     专门用于END节点的插件接口。
     """
     
