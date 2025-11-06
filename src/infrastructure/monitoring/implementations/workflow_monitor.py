@@ -1,27 +1,24 @@
 """工作流性能监控器
 
-专门用于监控工作流节点执行的性能指标。
+专门用于监控工作流节点执行的性能指标，使用零内存存储。
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional
 
-from ..base_monitor import BasePerformanceMonitor
+from ..lightweight_monitor import LightweightPerformanceMonitor
+from ..logger_writer import PerformanceMetricsLogger
 
 
-class WorkflowPerformanceMonitor(BasePerformanceMonitor):
-    """工作流性能监控器"""
+class WorkflowPerformanceMonitor(LightweightPerformanceMonitor):
+    """工作流性能监控器 - 零内存存储版本"""
     
-    def __init__(self, max_history_size: int = 1000):
+    def __init__(self, logger: Optional[PerformanceMetricsLogger] = None):
         """初始化工作流性能监控器
         
         Args:
-            max_history_size: 最大历史记录大小
+            logger: 性能指标日志写入器，如果为None则创建默认实例
         """
-        super().__init__(max_history_size)
-        self._config.update({
-            "module": "workflow",
-            "description": "工作流性能监控"
-        })
+        super().__init__(logger or PerformanceMetricsLogger("workflow_metrics"))
     
     def record_node_execution(self,
                              node_type: str,
@@ -36,21 +33,12 @@ class WorkflowPerformanceMonitor(BasePerformanceMonitor):
             success: 是否成功
             error_type: 错误类型（如果失败）
         """
-        labels = {"node_type": node_type}
-        
-        # 记录执行时间
-        self.record_timer("workflow.node.execution_time", execution_time, labels)
-        
-        # 记录成功/失败计数
-        if success:
-            self.increment_counter("workflow.node.success", 1, labels)
-        else:
-            self.increment_counter("workflow.node.failure", 1, labels)
-            
-            # 如果有错误类型，记录错误类型计数
-            if error_type:
-                error_labels = {"node_type": node_type, "error_type": error_type}
-                self.increment_counter("workflow.node.errors", 1, error_labels)
+        self.logger.log_workflow_node_execution(
+            node_type=node_type,
+            execution_time=execution_time,
+            success=success,
+            error_type=error_type
+        )
     
     def record_graph_execution(self,
                               graph_name: str,
@@ -65,16 +53,30 @@ class WorkflowPerformanceMonitor(BasePerformanceMonitor):
             node_count: 节点数量
             success: 是否成功
         """
-        labels = {"graph_name": graph_name}
-        
-        # 记录总执行时间
-        self.record_timer("workflow.graph.total_time", total_time, labels)
+        # 记录图执行时间
+        self.logger.log_timer(
+            "graph_execution",
+            total_time,
+            {"graph_name": graph_name, "node_count": str(node_count)}
+        )
         
         # 记录节点数量
-        self.set_gauge("workflow.graph.node_count", node_count, labels)
+        self.logger.log_gauge(
+            "graph_node_count",
+            node_count,
+            {"graph_name": graph_name}
+        )
         
         # 记录成功/失败计数
         if success:
-            self.increment_counter("workflow.graph.success", 1, labels)
+            self.logger.log_counter(
+                "graph_success",
+                1.0,
+                {"graph_name": graph_name}
+            )
         else:
-            self.increment_counter("workflow.graph.failure", 1, labels)
+            self.logger.log_counter(
+                "graph_failure",
+                1.0,
+                {"graph_name": graph_name}
+            )

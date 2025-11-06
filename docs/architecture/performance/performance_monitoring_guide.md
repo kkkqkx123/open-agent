@@ -60,23 +60,57 @@ report = checkpoint_monitor.generate_report()
 checkpoint_monitor.reset_metrics()
 ```
 
-## 集成到现有代码
+## 模块集成
 
-### 适配器模式
+### 检查点模块
 
-为了保持向后兼容性，我们提供了适配器来集成新的监控系统：
+检查点模块提供了两种使用方式：
+
+#### 方式1：直接使用监控器
 
 ```python
-# 使用新的监控系统替换旧的实现
-from src.infrastructure.checkpoint.performance_adapter import (
-    monitor_performance as new_monitor_performance
-)
+from src.infrastructure.checkpoint import get_checkpoint_monitor
 
-# 在函数上使用装饰器
-@new_monitor_performance("checkpoint_save")
+# 获取监控器实例
+monitor = get_checkpoint_monitor()
+
+# 直接记录操作
+monitor.record_checkpoint_save(duration=0.5, size=1024, success=True)
+monitor.record_checkpoint_load(duration=0.3, size=1024, success=True)
+```
+
+#### 方式2：使用装饰器
+
+```python
+from src.infrastructure.checkpoint import monitor_checkpoint_performance
+
+# 使用装饰器监控函数
+@monitor_checkpoint_performance("checkpoint_save")
 def save_checkpoint(data):
     # 保存检查点的实现
     pass
+```
+
+### LLM模块
+
+LLM模块可以直接使用LLM性能监控器：
+
+```python
+from src.infrastructure.monitoring import PerformanceMonitorFactory
+
+factory = PerformanceMonitorFactory.get_instance()
+llm_monitor = factory.create_monitor("llm")
+
+# 记录LLM调用
+llm_monitor.record_llm_call(
+    model="gpt-4",
+    provider="openai",
+    response_time=2.1,
+    prompt_tokens=100,
+    completion_tokens=200,
+    total_tokens=300,
+    success=True
+)
 ```
 
 ## 配置管理
@@ -92,6 +126,9 @@ monitoring:
   
   modules:
     checkpoint:
+      enabled: true
+      sampling_rate: 1.0
+    llm:
       enabled: true
       sampling_rate: 1.0
 ```
@@ -118,20 +155,14 @@ class CustomPerformanceMonitor(BasePerformanceMonitor):
 2. **标签使用** - 使用标签来区分不同的操作维度
 3. **定期清理** - 定期重置指标以避免内存泄漏
 4. **异常处理** - 在监控代码中添加适当的异常处理
+5. **直接使用监控器** - 避免不必要的抽象层，直接使用核心监控器类
 
-## 迁移指南
+## 架构说明
 
-### 从旧系统迁移
+### 文件职责分离
 
-1. 替换导入语句：
-   ```python
-   # 旧的导入
-   from src.infrastructure.checkpoint.performance import monitor_performance
-   
-   # 新的导入
-   from src.infrastructure.checkpoint.performance_adapter import monitor_performance
-   ```
+- **`src/infrastructure/monitoring/implementations/checkpoint_monitor.py`** - 核心监控器实现，定义具体的监控逻辑
+- **`src/infrastructure/checkpoint/utils.py`** - 便利工具，提供装饰器和工厂函数
+- **`src/infrastructure/checkpoint/__init__.py`** - 模块导出，统一接口
 
-2. 更新配置文件以使用新的监控配置
-
-3. 逐步替换现有监控代码
+这种设计避免了重复代码，同时保持了易用性。

@@ -1,27 +1,24 @@
 """LLM性能监控器
 
-专门用于监控LLM调用的性能指标。
+专门用于监控LLM调用的性能指标，使用零内存存储。
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional
 
-from ..base_monitor import BasePerformanceMonitor
+from ..lightweight_monitor import LightweightPerformanceMonitor
+from ..logger_writer import PerformanceMetricsLogger
 
 
-class LLMPerformanceMonitor(BasePerformanceMonitor):
-    """LLM性能监控器"""
+class LLMPerformanceMonitor(LightweightPerformanceMonitor):
+    """LLM性能监控器 - 零内存存储版本"""
     
-    def __init__(self, max_history_size: int = 1000):
+    def __init__(self, logger: Optional[PerformanceMetricsLogger] = None):
         """初始化LLM性能监控器
         
         Args:
-            max_history_size: 最大历史记录大小
+            logger: 性能指标日志写入器，如果为None则创建默认实例
         """
-        super().__init__(max_history_size)
-        self._config.update({
-            "module": "llm",
-            "description": "LLM性能监控"
-        })
+        super().__init__(logger or PerformanceMetricsLogger("llm_metrics"))
     
     def record_llm_call(self, 
                        model: str,
@@ -42,29 +39,15 @@ class LLMPerformanceMonitor(BasePerformanceMonitor):
             total_tokens: 总token数量
             success: 是否成功
         """
-        labels = {
-            "model": model,
-            "provider": provider
-        }
-        
-        # 记录响应时间
-        self.record_timer("llm.response_time", response_time, labels)
-        
-        # 记录token使用情况
-        self.set_gauge("llm.prompt_tokens", prompt_tokens, labels)
-        self.set_gauge("llm.completion_tokens", completion_tokens, labels)
-        self.set_gauge("llm.total_tokens", total_tokens, labels)
-        
-        # 记录token速率
-        if response_time > 0:
-            tokens_per_second = total_tokens / response_time
-            self.set_gauge("llm.tokens_per_second", tokens_per_second, labels)
-        
-        # 记录成功/失败计数
-        if success:
-            self.increment_counter("llm.calls.success", 1, labels)
-        else:
-            self.increment_counter("llm.calls.failure", 1, labels)
+        self.logger.log_llm_call(
+            model=model,
+            provider=provider,
+            response_time=response_time,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            success=success
+        )
     
     def record_llm_error(self, model: str, provider: str, error_type: str) -> None:
         """记录LLM错误
@@ -74,11 +57,9 @@ class LLMPerformanceMonitor(BasePerformanceMonitor):
             provider: 提供商
             error_type: 错误类型
         """
-        labels = {
-            "model": model,
-            "provider": provider,
-            "error_type": error_type
-        }
-        
         # 记录错误计数
-        self.increment_counter("llm.errors", 1, labels)
+        self.logger.log_counter(
+            "llm_error", 
+            1.0, 
+            {"model": model, "provider": provider, "error_type": error_type}
+        )

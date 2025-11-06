@@ -351,7 +351,6 @@ src/
     - Multiple implementations for different modules (checkpoint, LLM, workflow, tool)
     - Configuration-driven with YAML-based configs
     - Dependency injection integration
-    - Backward compatibility with existing performance monitoring code
     - Performance metrics collection and reporting
     - Prometheus export support (planned)
 
