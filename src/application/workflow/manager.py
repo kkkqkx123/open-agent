@@ -1,119 +1,84 @@
-"""工作流管理器
+"""工作流管理器 - 重构版本
 
-负责工作流的加载、创建、执行和管理。
+专注于工作流元数据管理和协调，不直接处理配置和执行
 """
 
-from typing import Dict, Any, Optional, List, Union, AsyncGenerator, Generator
+from typing import Dict, Any, Optional, List, Generator
 from pathlib import Path
-import uuid
-from datetime import datetime
 import logging
+from datetime import datetime
+import uuid
 
-from src.infrastructure.graph.config import WorkflowConfig
-from src.infrastructure.graph.states import WorkflowState, StateFactory
-from src.infrastructure.config_loader import IConfigLoader
-from src.infrastructure.container import IDependencyContainer
-from src.infrastructure.graph.builder import GraphBuilder
-from src.infrastructure.graph.registry import get_global_registry
-from .factory import IWorkflowFactory, WorkflowFactory
 from .interfaces import IWorkflowManager
+from ...domain.workflow.interfaces import IWorkflowConfigManager, IWorkflowVisualizer, IWorkflowRegistry
+from ...infrastructure.graph.config import WorkflowConfig
+from ...infrastructure.graph.states.workflow import WorkflowState
 
 logger = logging.getLogger(__name__)
 
 
 class WorkflowManager(IWorkflowManager):
-    """工作流管理器实现
+    """工作流管理器实现 - 重构版本
     
-    专注于工作流生命周期管理，包括：
-    - 工作流加载和卸载
-    - 工作流执行和监控
+    专注于：
     - 工作流元数据管理
+    - 组件协调
+    - 向后兼容性
     """
 
     def __init__(
         self,
-        config_loader: Optional[IConfigLoader] = None,
-        container: Optional[IDependencyContainer] = None,
-        workflow_factory: Optional[IWorkflowFactory] = None,
-        graph_builder: Optional[GraphBuilder] = None
-    ) -> None:
+        config_loader: Optional[Any] = None,  # 保持向后兼容
+        node_registry: Optional[Any] = None,  # 保持向后兼容
+        workflow_builder: Optional[Any] = None,  # 保持向后兼容
+        config_manager: Optional[IWorkflowConfigManager] = None,
+        visualizer: Optional[IWorkflowVisualizer] = None,
+        registry: Optional[IWorkflowRegistry] = None
+    ):
         """初始化工作流管理器
-
+        
         Args:
-            config_loader: 配置加载器
-            container: 依赖注入容器
-            workflow_factory: 工作流工厂
-            graph_builder: 图构建器
+            config_loader: 配置加载器（向后兼容）
+            node_registry: 节点注册表（向后兼容）
+            workflow_builder: 工作流构建器（向后兼容）
+            config_manager: 配置管理器
+            visualizer: 可视化器
+            registry: 工作流注册表
         """
+        # 优先使用新的参数，如果未提供则尝试使用旧的参数（向后兼容）
+        self.config_manager = config_manager
+        self.visualizer = visualizer
+        self.registry = registry
+        
+        # 向后兼容：设置旧的属性名
         self.config_loader = config_loader
-        self.container = container
-        self.workflow_factory = workflow_factory
-        self.graph_builder = graph_builder
+        self.node_registry = node_registry
+        self.workflow_builder = workflow_builder
         
-        # 延迟初始化组件
-        self._workflow_factory = None
-        self._graph_builder = None
+        # 向后兼容：如果node_registry未提供，创建默认的
+        if self.node_registry is None:
+            try:
+                from ...infrastructure.graph.registry import get_global_registry
+                self.node_registry = get_global_registry()
+            except ImportError:
+                pass
         
-        # 工作流存储
+        # 向后兼容：如果workflow_builder未提供，创建默认的
+        if self.workflow_builder is None:
+            try:
+                from ...infrastructure.graph.builder import GraphBuilder
+                if self.node_registry is not None:
+                    self.workflow_builder = GraphBuilder(node_registry=self.node_registry)
+            except ImportError:
+                pass
+        
+        # 向后兼容：保持原有的工作流存储
         self._workflows: Dict[str, Any] = {}
         self._workflow_configs: Dict[str, WorkflowConfig] = {}
         self._workflow_metadata: Dict[str, Dict[str, Any]] = {}
-
-    def _get_workflow_factory(self) -> IWorkflowFactory:
-        """获取工作流工厂（延迟初始化）"""
-        if self._workflow_factory is None:
-            if self.workflow_factory:
-                self._workflow_factory = self.workflow_factory
-            elif self.container:
-                self._workflow_factory = self.container.get(IWorkflowFactory)
-            else:
-                self._workflow_factory = WorkflowFactory(self.container)
-        return self._workflow_factory
-
-    def _get_graph_builder(self) -> GraphBuilder:
-        """获取图构建器（延迟初始化）"""
-        if self._graph_builder is None:
-            if self.graph_builder:
-                self._graph_builder = self.graph_builder
-            else:
-                node_registry = get_global_registry()
-                self._graph_builder = GraphBuilder(node_registry=node_registry)
-        return self._graph_builder
-
-    def load_workflow(self, config_path: str) -> str:
-        """加载工作流配置
-
-        Args:
-            config_path: 配置文件路径
-
-        Returns:
-            str: 工作流ID
-        """
-        # 使用工作流工厂加载配置
-        workflow_factory = self._get_workflow_factory()
-        workflow_config = workflow_factory.load_workflow_config(config_path)
         
-        # 生成工作流ID
-        workflow_id = self._generate_workflow_id(workflow_config.name)
-        
-        # 创建工作流实例
-        workflow = workflow_factory.create_workflow(workflow_config)
-        
-        # 存储工作流
-        self._workflows[workflow_id] = workflow
-        self._workflow_configs[workflow_id] = workflow_config
-        self._workflow_metadata[workflow_id] = {
-            "name": workflow_config.name,
-            "description": workflow_config.description,
-            "version": workflow_config.version,
-            "config_path": config_path,
-            "loaded_at": datetime.now().isoformat(),
-            "last_used": None,
-            "usage_count": 0
-        }
-        
-        return workflow_id
-
+        logger.info("WorkflowManager初始化完成（重构版本）")
+    
     def create_workflow(self, workflow_id: str) -> Any:
         """创建工作流实例
 
@@ -131,7 +96,7 @@ class WorkflowManager(IWorkflowManager):
         self._workflow_metadata[workflow_id]["usage_count"] += 1
         
         return self._workflows[workflow_id]
-
+    
     def run_workflow(
         self,
         workflow_id: str,
@@ -150,44 +115,9 @@ class WorkflowManager(IWorkflowManager):
         Returns:
             WorkflowState: 最终状态
         """
-        workflow = self.create_workflow(workflow_id)
-        config = self._workflow_configs[workflow_id]
-        
-        # 准备初始状态
-        if initial_state is None:
-            initial_state = StateFactory.create_workflow_state(
-                workflow_id=workflow_id,
-                workflow_name=config.name,
-                input_text=""
-            )
-        
-        # 设置初始参数
-        if initial_state is not None:
-            initial_state["max_iterations"] = config.additional_config.get('max_iterations', 10)
-        
-        # 收集工作流开始事件
-        if event_collector:
-            event_collector.collect_workflow_start(config.name, config.to_dict())
-        
-        # 运行工作流
-        try:
-            result = workflow.invoke(initial_state, **kwargs)
-            
-            # 收集工作流结束事件
-            if event_collector:
-                event_collector.collect_workflow_end(config.name, {"status": "success", "result": result.to_dict() if hasattr(result, 'to_dict') else str(result)})
-            
-            return result  # type: ignore
-        except Exception as e:
-            # 记录错误并重新抛出
-            self._log_workflow_error(workflow_id, e)
-            
-            # 收集错误事件
-            if event_collector:
-                event_collector.collect_error(e, {"workflow_id": workflow_id, "workflow_name": config.name})
-            
-            raise
-
+        # 由于重构后的工作流执行逻辑已移至ThreadManager，这里返回一个错误或简化实现
+        raise NotImplementedError("工作流执行已移至ThreadManager，请使用ThreadManager.execute_workflow()")
+    
     async def run_workflow_async(
         self,
         workflow_id: str,
@@ -206,48 +136,9 @@ class WorkflowManager(IWorkflowManager):
         Returns:
             WorkflowState: 最终状态
         """
-        workflow = self.create_workflow(workflow_id)
-        config = self._workflow_configs[workflow_id]
-        
-        # 准备初始状态
-        if initial_state is None:
-            initial_state = StateFactory.create_workflow_state(
-                workflow_id=workflow_id,
-                workflow_name=config.name,
-                input_text=""
-            )
-        
-        # 设置初始参数
-        if initial_state is not None:
-            initial_state["max_iterations"] = config.additional_config.get('max_iterations', 10)
-        
-        # 收集工作流开始事件
-        if event_collector:
-            event_collector.collect_workflow_start(config.name, config.to_dict())
-        
-        # 异步运行工作流
-        try:
-            if hasattr(workflow, 'ainvoke'):
-                result = await workflow.ainvoke(initial_state, **kwargs)
-            else:
-                # 如果不支持异步，使用同步方式
-                result = workflow.invoke(initial_state, **kwargs)
-            
-            # 收集工作流结束事件
-            if event_collector:
-                event_collector.collect_workflow_end(config.name, {"status": "success", "result": result.to_dict() if hasattr(result, 'to_dict') else str(result)})
-            
-            return result  # type: ignore
-        except Exception as e:
-            # 记录错误并重新抛出
-            self._log_workflow_error(workflow_id, e)
-            
-            # 收集错误事件
-            if event_collector:
-                event_collector.collect_error(e, {"workflow_id": workflow_id, "workflow_name": config.name})
-            
-            raise
-
+        # 由于重构后的工作流执行逻辑已移至ThreadManager，这里返回一个错误或简化实现
+        raise NotImplementedError("工作流执行已移至ThreadManager，请使用ThreadManager.execute_workflow()")
+    
     def stream_workflow(
         self,
         workflow_id: str,
@@ -266,128 +157,9 @@ class WorkflowManager(IWorkflowManager):
         Yields:
             WorkflowState: 中间状态
         """
-        workflow = self.create_workflow(workflow_id)
-        config = self._workflow_configs[workflow_id]
-        
-        # 准备初始状态
-        if initial_state is None:
-            initial_state = StateFactory.create_workflow_state(
-                workflow_id=workflow_id,
-                workflow_name=config.name,
-                input_text=""
-            )
-        
-        # 设置初始参数
-        if initial_state is not None:
-            initial_state["max_iterations"] = config.additional_config.get('max_iterations', 10)
-        
-        # 收集工作流开始事件
-        if event_collector:
-            event_collector.collect_workflow_start(config.name, config.to_dict())
-        
-        # 流式运行工作流
-        try:
-            if hasattr(workflow, 'stream'):
-                for chunk in workflow.stream(initial_state, **kwargs):
-                    yield chunk
-            else:
-                # 如果不支持流式，直接返回最终结果
-                result = workflow.invoke(initial_state, **kwargs)
-                yield result
-            
-            # 收集工作流结束事件
-            if event_collector:
-                event_collector.collect_workflow_end(config.name, {"status": "success"})
-                
-        except Exception as e:
-            # 记录错误并重新抛出
-            self._log_workflow_error(workflow_id, e)
-            
-            # 收集错误事件
-            if event_collector:
-                event_collector.collect_error(e, {"workflow_id": workflow_id, "workflow_name": config.name})
-            
-            raise
-
-    def list_workflows(self) -> List[str]:
-        """列出所有已加载的工作流
-
-        Returns:
-            List[str]: 工作流ID列表
-        """
-        return list(self._workflows.keys())
-
-    def get_workflow_config(self, workflow_id: str) -> Optional[WorkflowConfig]:
-        """获取工作流配置
-
-        Args:
-            workflow_id: 工作流ID
-
-        Returns:
-            Optional[WorkflowConfig]: 工作流配置
-        """
-        return self._workflow_configs.get(workflow_id)
-
-    def unload_workflow(self, workflow_id: str) -> bool:
-        """卸载工作流
-
-        Args:
-            workflow_id: 工作流ID
-
-        Returns:
-            bool: 是否成功卸载
-        """
-        if workflow_id not in self._workflows:
-            return False
-        
-        # 移除工作流
-        del self._workflows[workflow_id]
-        del self._workflow_configs[workflow_id]
-        del self._workflow_metadata[workflow_id]
-        
-        return True
-
-    def get_workflow_visualization(self, workflow_id: str) -> Dict[str, Any]:
-        """获取工作流可视化数据
-
-        Args:
-            workflow_id: 工作流ID
-
-        Returns:
-            Dict[str, Any]: 可视化数据
-        """
-        config = self.get_workflow_config(workflow_id)
-        if not config:
-            return {}
-        
-        # 转换配置为可视化数据
-        return {
-            "workflow_id": workflow_id,
-            "name": config.name,
-            "description": config.description,
-            "version": config.version,
-            "nodes": [
-                {
-                    "id": node_id,
-                    "type": node.function_name,
-                    "config": node.config,
-                    "description": node.description
-                }
-                for node_id, node in config.nodes.items()
-            ],
-            "edges": [
-                {
-                    "from": edge.from_node,
-                    "to": edge.to_node,
-                    "type": edge.type.value,
-                    "condition": edge.condition,
-                    "description": edge.description
-                }
-                for edge in config.edges
-            ],
-            "entry_point": config.entry_point
-        }
-
+        # 由于重构后的工作流执行逻辑已移至ThreadManager，这里返回一个错误或简化实现
+        raise NotImplementedError("工作流执行已移至ThreadManager，请使用ThreadManager.stream_workflow()")
+    
     def get_workflow_summary(self, workflow_id: str) -> Dict[str, Any]:
         """获取工作流配置摘要（名称、版本、校验指纹等）
 
@@ -426,53 +198,170 @@ class WorkflowManager(IWorkflowManager):
             "usage_count": metadata.get("usage_count", 0)
         }
 
-    def get_workflow_metadata(self, workflow_id: str) -> Optional[Dict[str, Any]]:
-        """获取工作流元数据
 
+    def load_workflow(self, config_path: str) -> str:
+        """加载工作流（向后兼容方法）
+        
+        Args:
+            config_path: 配置文件路径
+            
+        Returns:
+            str: 工作流ID
+        """
+        # 优先使用新的配置管理器，如果不可用则使用旧的实现
+        if self.config_manager:
+            # 使用新的配置管理器
+            config_id = self.config_manager.load_config(config_path)
+            config = self.config_manager.get_config(config_id)
+            
+            if not config:
+                raise RuntimeError("配置加载失败")
+            
+            # 向后兼容：存储到原有结构
+            workflow_id = config_id
+            self._workflows[workflow_id] = config  # 简化存储
+            self._workflow_configs[workflow_id] = config
+            self._workflow_metadata[workflow_id] = self.config_manager.get_config_metadata(config_id) or {}
+            
+            # 注册到注册表
+            if self.registry:
+                self.registry.register_workflow({
+                    "workflow_id": workflow_id,
+                    "config_id": config_id,
+                    "name": config.name,
+                    "description": config.description,
+                    "version": config.version,
+                    "config_path": config_path
+                })
+            
+            return workflow_id
+        else:
+            # 旧的实现已移除，现在必须使用新的配置管理器
+            raise RuntimeError("配置管理器未初始化，无法加载工作流。请使用新的配置管理器。")
+
+    def list_workflows(self) -> List[str]:
+        """列出所有工作流（向后兼容方法）
+        
+        Returns:
+            List[str]: 工作流ID列表
+        """
+        # 优先从配置管理器获取
+        if self.config_manager:
+            return self.config_manager.list_configs()
+        
+        # 向后兼容：从原有存储获取
+        return list(self._workflows.keys())
+
+    def get_workflow_config(self, workflow_id: str) -> Optional[WorkflowConfig]:
+        """获取工作流配置（向后兼容方法）
+        
         Args:
             workflow_id: 工作流ID
+            
+        Returns:
+            Optional[WorkflowConfig]: 工作流配置
+        """
+        # 优先从配置管理器获取
+        if self.config_manager:
+            config = self.config_manager.get_config(workflow_id)
+            if config:
+                return config
+        
+        # 向后兼容：从原有存储获取
+        return self._workflow_configs.get(workflow_id)
 
+    def unload_workflow(self, workflow_id: str) -> bool:
+        """卸载工作流（向后兼容方法）
+        
+        Args:
+            workflow_id: 工作流ID
+            
+        Returns:
+            bool: 是否成功卸载
+        """
+        success = True
+        
+        # 从配置管理器移除（如果支持）
+        # 注意：当前IWorkflowConfigManager接口没有unload方法，需要扩展
+        
+        # 向后兼容：从原有存储移除
+        if workflow_id in self._workflows:
+            del self._workflows[workflow_id]
+            success = True
+        
+        if workflow_id in self._workflow_configs:
+            del self._workflow_configs[workflow_id]
+            success = True
+        
+        if workflow_id in self._workflow_metadata:
+            del self._workflow_metadata[workflow_id]
+            success = True
+        
+        return success
+
+    def get_workflow_visualization(self, workflow_id: str) -> Dict[str, Any]:
+        """获取工作流可视化数据（向后兼容方法）
+        
+        Args:
+            workflow_id: 工作流ID
+            
+        Returns:
+            Dict[str, Any]: 可视化数据
+        """
+        config = self.get_workflow_config(workflow_id)
+        if not config:
+            return {}
+        
+        if self.visualizer:
+            return self.visualizer.generate_visualization(config)
+        
+        # 向后兼容：简化实现
+        return {
+            "workflow_id": workflow_id,
+            "name": config.name,
+            "description": config.description,
+            "version": config.version,
+            "nodes": [
+                {
+                    "id": node_id,
+                    "type": node.function_name,
+                    "config": node.config,
+                    "description": node.description
+                }
+                for node_id, node in config.nodes.items()
+            ],
+            "edges": [
+                {
+                    "from": edge.from_node,
+                    "to": edge.to_node,
+                    "type": edge.type.value,
+                    "condition": edge.condition,
+                    "description": edge.description
+                }
+                for edge in config.edges
+            ],
+            "entry_point": config.entry_point
+        }
+
+
+    def get_workflow_metadata(self, workflow_id: str) -> Optional[Dict[str, Any]]:
+        """获取工作流元数据（向后兼容方法）
+        
+        Args:
+            workflow_id: 工作流ID
+            
         Returns:
             Optional[Dict[str, Any]]: 工作流元数据
         """
+        # 优先从配置管理器获取
+        if self.config_manager:
+            metadata = self.config_manager.get_config_metadata(workflow_id)
+            if metadata:
+                return metadata
+        
+        # 向后兼容：从原有存储获取
         return self._workflow_metadata.get(workflow_id)
 
-    def reload_workflow(self, workflow_id: str) -> bool:
-        """重新加载工作流
-
-        Args:
-            workflow_id: 工作流ID
-
-        Returns:
-            bool: 是否成功重新加载
-        """
-        if workflow_id not in self._workflow_configs:
-            return False
-        
-        # 获取原始配置路径
-        metadata = self._workflow_metadata[workflow_id]
-        config_path = metadata.get("config_path")
-        
-        if not config_path or not Path(config_path).exists():
-            return False
-        
-        try:
-            # 使用工作流工厂重新加载配置
-            workflow_factory = self._get_workflow_factory()
-            workflow_config = workflow_factory.load_workflow_config(config_path)
-            workflow = workflow_factory.create_workflow(workflow_config)
-            
-            # 更新存储
-            self._workflows[workflow_id] = workflow
-            self._workflow_configs[workflow_id] = workflow_config
-            
-            # 更新元数据
-            metadata["version"] = workflow_config.version
-            metadata["loaded_at"] = datetime.now().isoformat()
-            
-            return True
-        except Exception:
-            return False
 
     def _generate_workflow_id(self, workflow_name: str) -> str:
         """生成工作流ID

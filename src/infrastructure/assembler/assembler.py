@@ -229,23 +229,18 @@ class ComponentAssembler(IComponentAssembler):
         
         components_config = config.get("components", {})
         
-        # 3. 创建Agent工厂
-        agents_config = components_config.get("agents", {})
-        from ...domain.agent.factory import AgentFactory
+        # 3. 创建工具执行器
         from ...infrastructure.tools.executor import ToolExecutor
         from ..logger.logger import Logger
-        
+
         # 创建工具执行器
         tool_executor_logger = Logger("ToolExecutor")
         tool_executor = ToolExecutor(
             tool_manager=self._factories["tool_factory"],  # 直接使用ToolFactory
             logger=tool_executor_logger
         )
-        
-        self._factories["agent_factory"] = AgentFactory(
-            llm_factory=self._factories["llm_factory"],
-            tool_executor=tool_executor
-        )
+
+        self._factories["tool_executor"] = tool_executor
         
         # 4. 创建图构建器
         workflows_config = components_config.get("workflows", {})
@@ -291,11 +286,6 @@ class ComponentAssembler(IComponentAssembler):
         )
         
         # 注册业务服务
-        from ...domain.agent.interfaces import IAgentFactory
-        self.container.register_instance(
-            interface=IAgentFactory,
-            instance=self._factories["agent_factory"]
-        )
         
         from src.infrastructure.graph.builder import GraphBuilder
         self.container.register_instance(
@@ -322,9 +312,19 @@ class ComponentAssembler(IComponentAssembler):
         
         # 创建工作流管理器
         from ...application.workflow.manager import WorkflowManager, IWorkflowManager
+        from ...domain.workflow.config_manager import WorkflowConfigManager
+        from ...domain.workflow.registry import WorkflowRegistry
+        from ...domain.workflow.visualizer import WorkflowVisualizer
+        
+        # 创建工作流组件
+        config_manager = WorkflowConfigManager(config_loader=self.config_loader)
+        visualizer = WorkflowVisualizer()
+        registry = WorkflowRegistry()
+        
         workflow_manager = WorkflowManager(
-            config_loader=self.config_loader,
-            container=self.container
+            config_manager=config_manager,
+            visualizer=visualizer,
+            registry=registry
         )
         
         self.container.register_instance(
@@ -370,6 +370,7 @@ class ComponentAssembler(IComponentAssembler):
         # 注册Thread相关服务
         from ...domain.threads.interfaces import IThreadManager
         from ...domain.threads.manager import ThreadManager
+        from ...infrastructure.langgraph.adapter import LangGraphAdapter
         from ...infrastructure.threads.metadata_store import MemoryThreadMetadataStore, IThreadMetadataStore
         from ...application.threads.branch_manager import BranchManager
         from ...application.threads.snapshot_manager import SnapshotManager
@@ -380,8 +381,11 @@ class ComponentAssembler(IComponentAssembler):
         # 创建Thread元数据存储
         thread_metadata_store = MemoryThreadMetadataStore()
         
+        # 创建LangGraph适配器
+        langgraph_adapter = LangGraphAdapter(use_memory_checkpoint=True)
+        
         # 创建ThreadManager
-        thread_manager = ThreadManager(thread_metadata_store, checkpoint_manager)
+        thread_manager = ThreadManager(thread_metadata_store, checkpoint_manager, langgraph_adapter)
         
         # 注册Thread服务
         self.container.register_instance(
@@ -431,9 +435,8 @@ class ComponentAssembler(IComponentAssembler):
         
         # 现在可以创建SessionManager，因为它需要thread_manager实例
         session_manager = SessionManager(
-            workflow_manager=workflow_manager,
-            session_store=session_store,
             thread_manager=thread_manager,  # 现在thread_manager已创建
+            session_store=session_store,
             state_manager=self._factories["state_manager"]
         )
         

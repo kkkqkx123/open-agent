@@ -7,6 +7,7 @@ from fastapi import Depends
 
 from ...application.sessions.manager import ISessionManager
 from ...application.workflow.manager import IWorkflowManager
+from ...domain.workflow.interfaces import IWorkflowRegistry, IWorkflowConfigManager, IWorkflowVisualizer
 from .data_access.session_dao import SessionDAO
 from .data_access.history_dao import HistoryDAO
 from .data_access.workflow_dao import WorkflowDAO
@@ -92,7 +93,14 @@ async def get_workflow_manager() -> IWorkflowManager:
     # 这里应该从依赖注入容器中获取
     # 暂时返回一个模拟实例
     from ...application.workflow.manager import WorkflowManager
-    return WorkflowManager()
+    from ...domain.workflow.config_manager import WorkflowConfigManager
+    from ...domain.workflow.registry import WorkflowRegistry
+    from ...domain.workflow.visualizer import WorkflowVisualizer
+    return WorkflowManager(
+        config_manager=WorkflowConfigManager(),
+        visualizer=WorkflowVisualizer(),
+        registry=WorkflowRegistry()
+    )
 
 
 async def get_session_service(
@@ -121,8 +129,16 @@ async def get_workflow_service(
     """获取工作流服务"""
     global _workflow_service
     if _workflow_service is None:
+        # 创建工作流组件
+        from ...domain.workflow.config_manager import WorkflowConfigManager
+        from ...domain.workflow.registry import WorkflowRegistry
+        from ...domain.workflow.visualizer import WorkflowVisualizer
+        
         _workflow_service = WorkflowService(
             workflow_manager=workflow_manager,
+            workflow_registry=WorkflowRegistry(),
+            config_manager=WorkflowConfigManager(),
+            visualizer=WorkflowVisualizer(),
             workflow_dao=workflow_dao,
             cache=cache
         )

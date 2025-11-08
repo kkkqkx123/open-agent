@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any, List, AsyncGenerator
 from datetime import datetime
 import asyncio
 from src.application.workflow.manager import IWorkflowManager
+from src.domain.workflow.interfaces import IWorkflowRegistry, IWorkflowConfigManager, IWorkflowVisualizer
 from src.infrastructure.graph.states import WorkflowState
 from ..data_access.workflow_dao import WorkflowDAO
 
@@ -23,10 +24,16 @@ class WorkflowService:
     def __init__(
         self,
         workflow_manager: IWorkflowManager,
+        workflow_registry: IWorkflowRegistry,
+        config_manager: IWorkflowConfigManager,
+        visualizer: IWorkflowVisualizer,
         workflow_dao: WorkflowDAO,
         cache: MemoryCache
     ):
         self.workflow_manager = workflow_manager
+        self.workflow_registry = workflow_registry
+        self.config_manager = config_manager
+        self.visualizer = visualizer
         self.workflow_dao = workflow_dao
         self.cache = cache
     
@@ -154,13 +161,27 @@ class WorkflowService:
             raise ValueError("无效的配置文件路径")
         
         try:
-            # 通过工作流管理器加载
-            workflow_id = self.workflow_manager.load_workflow(config_path)
+            # 通过配置管理器加载配置
+            config_id = self.config_manager.load_config(config_path)
+            config = self.config_manager.get_config(config_id)
             
-            # 获取工作流配置
-            config = self.workflow_manager.get_workflow_config(workflow_id)
             if not config:
                 raise RuntimeError("加载工作流配置失败")
+            
+            # 注册到注册表
+            workflow_def = {
+                "name": config.name,
+                "description": config.description,
+                "version": config.version,
+                "config_id": config_id,
+                "config_path": config_path,
+                "metadata": {
+                    "tags": [],
+                    "category": "general"
+                }
+            }
+            
+            workflow_id = self.workflow_registry.register_workflow(workflow_def)
             
             # 保存到数据库
             workflow_data = {
@@ -321,13 +342,18 @@ class WorkflowService:
         if cached_viz:
             return cached_viz if isinstance(cached_viz, dict) else {}
         
-        # 获取工作流配置
-        config = self.workflow_manager.get_workflow_config(workflow_id)
-        if not config:
+        # 从注册表获取工作流定义
+        workflow_def = self.workflow_registry.get_workflow_definition(workflow_id)
+        if not workflow_def:
             raise ValueError("工作流不存在")
         
+        # 从配置管理器获取配置
+        config = self.config_manager.get_config(workflow_def["config_id"])
+        if not config:
+            raise ValueError("工作流配置不存在")
+        
         # 生成可视化数据
-        visualization = self.workflow_manager.get_workflow_visualization(workflow_id)
+        visualization = self.visualizer.generate_visualization(config)
         
         # 缓存结果
         await self.cache.set(cache_key, visualization, ttl=300)

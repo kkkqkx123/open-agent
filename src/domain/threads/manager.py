@@ -36,11 +36,11 @@ class ThreadManager(IThreadManager):
         langgraph_adapter: ILangGraphAdapter
     ):
         """初始化Thread管理器
-        
+
         Args:
             metadata_store: Thread元数据存储
             checkpoint_manager: Checkpoint管理器（保持向后兼容）
-            langgraph_adapter: LangGraph适配器（新增）
+            langgraph_adapter: LangGraph适配器
         """
         self.metadata_store = metadata_store
         self.checkpoint_manager = checkpoint_manager

@@ -13,6 +13,10 @@ from .monitoring.di_config import MonitoringModule
 from .graph.registry import NodeRegistry
 from src.application.sessions.manager import ISessionManager, SessionManager
 from src.application.workflow.manager import IWorkflowManager, WorkflowManager
+from src.domain.workflow.interfaces import IWorkflowConfigManager, IWorkflowVisualizer, IWorkflowRegistry
+from src.domain.workflow.config_manager import WorkflowConfigManager
+from src.domain.workflow.visualizer import WorkflowVisualizer
+from src.domain.workflow.registry import WorkflowRegistry
 from src.domain.sessions.store import ISessionStore
 from src.domain.state.interfaces import IStateManager, IStateCollaborationManager
 from src.domain.threads.interfaces import IThreadManager
@@ -203,13 +207,39 @@ class DIConfig:
     
     def _register_workflow_manager(self) -> None:
         """注册工作流管理器"""
+        # 注册工作流相关组件
+        if not self.container.has_service(IWorkflowConfigManager):
+            self.container.register_factory(
+                IWorkflowConfigManager,
+                lambda: WorkflowConfigManager(config_loader=self._config_loader),
+                lifetime=ServiceLifetime.SINGLETON
+            )
+            logger.debug("工作流配置管理器注册完成")
+        
+        if not self.container.has_service(IWorkflowVisualizer):
+            self.container.register(
+                IWorkflowVisualizer,
+                WorkflowVisualizer,
+                lifetime=ServiceLifetime.SINGLETON
+            )
+            logger.debug("工作流可视化器注册完成")
+        
+        if not self.container.has_service(IWorkflowRegistry):
+            self.container.register(
+                IWorkflowRegistry,
+                WorkflowRegistry,
+                lifetime=ServiceLifetime.SINGLETON
+            )
+            logger.debug("工作流注册表注册完成")
+        
         if not self.container.has_service(IWorkflowManager):
             # 使用工厂方法注册，确保依赖注入
             self.container.register_factory(
                 IWorkflowManager,
                 lambda: WorkflowManager(
-                    self._config_loader,
-                    self.container
+                    config_manager=self.container.get(IWorkflowConfigManager),
+                    visualizer=self.container.get(IWorkflowVisualizer),
+                    registry=self.container.get(IWorkflowRegistry)
                 ),
                 lifetime=ServiceLifetime.SINGLETON
             )
