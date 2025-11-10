@@ -1,0 +1,243 @@
+config_type: workflow
+description: 单Agent深度推理工作流，适用于复杂问题分析和解决方案生成
+edges:
+- description: 开始问题分析
+  from: initial
+  to: problem_analysis
+  type: simple
+- description: 进入计划生成阶段
+  from: problem_analysis
+  to: plan_generation
+  type: simple
+- description: 进入深度推理阶段
+  from: plan_generation
+  to: deep_thinking
+  type: simple
+- description: 进入解决方案验证阶段
+  from: deep_thinking
+  to: solution_validation
+  type: simple
+- condition: validation_passed
+  description: 验证通过，进入最终状态
+  from: solution_validation
+  to: final
+  type: conditional
+- condition: validation_failed
+  description: 验证失败，重新进行深度推理
+  from: solution_validation
+  to: deep_thinking
+  type: conditional
+entry_point: initial
+error_handling:
+  error_messages:
+    llm_error: LLM服务调用失败
+    timeout: 工作流执行超时
+    validation_failed: 解决方案验证失败
+  fallback_state: final
+  max_retries: 3
+  retry_delay: 5000
+input_schema:
+  properties:
+    max_iterations:
+      default: 5
+      description: 最大迭代次数
+      maximum: 10
+      minimum: 1
+      type: integer
+    problem:
+      description: 需要分析的问题描述
+      required: true
+      type: string
+    temperature:
+      default: 0.7
+      description: LLM温度参数
+      maximum: 1.0
+      minimum: 0.0
+      type: number
+    validation_threshold:
+      default: 0.8
+      description: 验证阈值
+      maximum: 1.0
+      minimum: 0.0
+      type: number
+  type: object
+max_iterations: 10
+metadata:
+  author: Open Agent Team
+  category: reasoning
+  created_date: '2025-11-10'
+  tags:
+  - deep-thinking
+  - reasoning
+  - problem-solving
+monitoring:
+  enable_metrics: true
+  log_level: info
+  metrics:
+  - execution_time
+  - iteration_count
+  - validation_score
+  - token_usage
+name: deep_thinking_workflow
+nodes:
+  deep_thinking:
+    config:
+      max_iterations: '{{input.max_iterations}}'
+      model: gpt-4
+      reasoning_prompt: '基于以下问题和计划，进行深度推理：
+
+
+        问题：{{input.problem}}
+
+        问题分析：{{states.problem_analysis.output}}
+
+        解决计划：{{states.plan_generation.output}}
+
+
+        请进行深度思考，生成高质量的解决方案：
+
+        1. 深入分析问题的各个方面
+
+        2. 考虑多种可能的解决方案
+
+        3. 评估每个方案的优缺点
+
+        4. 选择最优方案并进行详细阐述
+
+        5. 如果需要，可以进行多轮迭代改进
+
+
+        要求：解决方案要创新、可行、全面。
+
+        '
+      self_improvement: true
+      temperature: '{{input.temperature}}'
+    description: 执行深度推理，生成解决方案
+    function: deep_thinking_node
+  final:
+    config: {}
+    description: 工作流完成状态
+    function: end_node
+  initial:
+    config: {}
+    description: 工作流开始状态
+    function: start_node
+  plan_generation:
+    config:
+      max_tokens: 1500
+      model: gpt-4
+      prompt: '基于问题分析结果，制定详细的解决方案计划：
+
+
+        问题分析：{{states.problem_analysis.output}}
+
+
+        请生成一个结构化的解决方案计划，包括：
+
+        1. 总体解决策略
+
+        2. 具体的实施步骤（分阶段）
+
+        3. 每个步骤的预期目标和验收标准
+
+        4. 资源需求和依赖关系
+
+        5. 风险评估和应对措施
+
+
+        计划应该逻辑清晰、可执行性强。
+
+        '
+      temperature: '{{input.temperature}}'
+    description: 生成解决问题的详细计划
+    function: llm_node
+  problem_analysis:
+    config:
+      max_tokens: 1000
+      model: gpt-4
+      prompt: '请深入分析以下问题，识别核心要素和关键挑战：
+
+
+        问题：{{input.problem}}
+
+
+        请从以下角度进行分析：
+
+        1. 问题本质和根本原因
+
+        2. 涉及的关键要素和约束条件
+
+        3. 潜在的解决方案方向
+
+        4. 可能遇到的挑战和风险
+
+
+        要求：分析要深入、全面，为后续的深度推理奠定基础。
+
+        '
+      temperature: '{{input.temperature}}'
+    description: 分析问题本质和关键要素
+    function: llm_node
+  solution_validation:
+    config:
+      validation_prompt: '请对以下解决方案进行质量评估：
+
+
+        问题：{{input.problem}}
+
+        生成的解决方案：{{states.deep_thinking.output}}
+
+
+        请从以下维度进行评估：
+
+        1. 完整性：方案是否全面覆盖问题各个方面
+
+        2. 可行性：方案是否实际可行
+
+        3. 创新性：方案是否有创新点
+
+        4. 逻辑性：方案逻辑是否严谨一致
+
+
+        给出每个维度的评分（0-1分）和具体评估意见。
+
+        '
+      validation_rules:
+      - description: 解决方案完整性检查
+        threshold: '{{input.validation_threshold}}'
+        type: completeness
+      - description: 方案可行性检查
+        threshold: 0.7
+        type: feasibility
+      - description: 创新性检查
+        threshold: 0.6
+        type: innovation
+      - description: 逻辑一致性检查
+        threshold: 0.8
+        type: coherence
+    description: 验证解决方案的质量和可行性
+    function: analysis_node
+state_schema:
+  fields:
+    errors:
+      default: []
+      description: 错误列表
+      reducer: extend
+      type: List[str]
+    input:
+      default: ''
+      description: 输入文本
+      type: str
+    messages:
+      default: []
+      description: 消息列表
+      reducer: extend
+      type: List[dict]
+    output:
+      default: ''
+      description: 输出文本
+      type: str
+  name: WorkflowState
+timeout: 300
+version: 1.0.0
+workflow_name: deep_thinking_workflow
