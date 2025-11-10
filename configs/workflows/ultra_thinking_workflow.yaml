@@ -1,0 +1,313 @@
+# Ultra Thinking 工作流配置文件
+# 基于多Agent并行探索引擎的工作流实现
+
+name: "ultra_thinking_workflow"
+description: "多Agent并行探索工作流，适用于多维度分析和创新问题解决"
+version: "1.0.0"
+
+# 工作流元数据
+metadata:
+  author: "Open Agent Team"
+  created_date: "2025-11-10"
+  category: "collaboration"
+  tags: ["ultra-thinking", "multi-agent", "collaboration", "innovation"]
+
+# 输入参数定义
+input_schema:
+  type: "object"
+  properties:
+    problem:
+      type: "string"
+      description: "需要分析的问题描述"
+      required: true
+    max_agents:
+      type: "integer"
+      description: "最大Agent数量"
+      default: 5
+      minimum: 2
+      maximum: 8
+    temperature:
+      type: "number"
+      description: "LLM温度参数"
+      default: 0.8
+      minimum: 0.0
+      maximum: 1.0
+    integration_strategy:
+      type: "string"
+      description: "结果整合策略"
+      enum: ["weighted", "consensus", "hierarchical"]
+      default: "weighted"
+    validation_threshold:
+      type: "number"
+      description: "验证阈值"
+      default: 0.7
+      minimum: 0.0
+      maximum: 1.0
+
+# 状态定义
+states:
+  # 初始状态
+  initial:
+    type: "start"
+    description: "工作流开始状态"
+    transitions:
+      - target: "agent_configuration"
+        condition: "always"
+        description: "开始Agent配置"
+
+  # Agent配置状态
+  agent_configuration:
+    type: "agent_configuration_node"
+    description: "动态生成多Agent配置"
+    config:
+      model: "gpt-4"
+      temperature: "{{input.temperature}}"
+      max_agents: "{{input.max_agents}}"
+      default_perspectives:
+        - "technical"
+        - "business"
+        - "user_experience"
+        - "ethical"
+        - "innovative"
+      
+      configuration_prompt: |
+        基于以下问题，生成多Agent分析配置：
+        
+        问题：{{input.problem}}
+        最大Agent数量：{{input.max_agents}}
+        
+        请为每个Agent配置：
+        1. Agent名称和专业领域
+        2. 分析视角和重点
+        3. 专用的提示词模板
+        4. 预期输出格式
+        
+        确保Agent视角互补，覆盖问题的不同维度。
+    transitions:
+      - target: "parallel_analysis"
+        condition: "always"
+        description: "进入并行分析阶段"
+
+  # 并行分析状态（核心节点）
+  parallel_analysis:
+    type: "parallel_node"
+    description: "并行执行多个Agent的分析任务"
+    config:
+      max_concurrent: "{{input.max_agents}}"
+      timeout_ms: 180000
+      
+      # 动态生成的Agent配置（基于agent_configuration节点的输出）
+      nodes: "{{states.agent_configuration.output.agent_configs}}"
+      
+      # 默认Agent配置模板（备用）
+      default_nodes:
+        technical_agent:
+          name: "technical_agent"
+          type: "llm_node"
+          description: "技术专家视角分析"
+          config:
+            model: "gpt-4"
+            temperature: "{{input.temperature}}"
+            prompt: |
+              作为技术专家，从技术实现角度分析问题：
+              
+              问题：{{input.problem}}
+              
+              请提供：
+              1. 技术可行性分析
+              2. 实现方案和技术架构
+              3. 技术风险和挑战
+              4. 技术创新的可能性
+              
+              分析要深入、专业，考虑最新的技术趋势。
+        
+        business_agent:
+          name: "business_agent"
+          type: "llm_node"
+          description: "商业专家视角分析"
+          config:
+            model: "gpt-4"
+            temperature: "{{input.temperature}}"
+            prompt: |
+              作为商业专家，从商业价值角度分析问题：
+              
+              问题：{{input.problem}}
+              
+              请提供：
+              1. 商业价值和市场潜力
+              2. 盈利模式和商业模式
+              3. 市场竞争分析
+              4. 投资回报评估
+              
+              分析要务实、有商业洞察力。
+        
+        user_experience_agent:
+          name: "user_experience_agent"
+          type: "llm_node"
+          description: "用户体验专家视角分析"
+          config:
+            model: "gpt-4"
+            temperature: "{{input.temperature}}"
+            prompt: |
+              作为用户体验专家，从用户角度分析问题：
+              
+              问题：{{input.problem}}
+              
+              请提供：
+              1. 用户体验影响分析
+              2. 用户接受度和易用性
+              3. 用户痛点和需求满足
+              4. 用户体验改进建议
+              
+              分析要以用户为中心，注重人性化设计。
+    transitions:
+      - target: "solution_integration"
+        condition: "all_completed"
+        description: "所有Agent分析完成，进入结果整合"
+      - target: "agent_configuration"
+        condition: "partial_failure"
+        description: "部分Agent失败，重新配置"
+        max_retries: 1
+
+  # 解决方案整合状态
+  solution_integration:
+    type: "solution_integration_node"
+    description: "整合多个Agent的分析结果"
+    config:
+      model: "gpt-4"
+      temperature: 0.5
+      strategy: "{{input.integration_strategy}}"
+      
+      integration_prompt: |
+        基于以下多个专家的分析结果，整合生成综合解决方案：
+        
+        问题：{{input.problem}}
+        
+        各专家分析结果：
+        {{#each states.parallel_analysis.output}}
+        {{@key}}专家：{{this.output}}
+        {{/each}}
+        
+        请整合生成综合解决方案，要求：
+        1. 综合考虑各专家的视角和建议
+        2. 平衡技术可行性、商业价值和用户体验
+        3. 提出创新性的综合解决方案
+        4. 制定实施路线图和优先级
+        
+        解决方案应该全面、平衡、可执行。
+    transitions:
+      - target: "collaborative_validation"
+        condition: "always"
+        description: "进入协作验证阶段"
+
+  # 协作验证状态
+  collaborative_validation:
+    type: "collaborative_validation_node"
+    description: "多Agent协作验证解决方案"
+    config:
+      validation_threshold: "{{input.validation_threshold}}"
+      collaboration_mode: "consensus"
+      
+      validation_prompt: |
+        请各专家对以下综合解决方案进行验证评估：
+        
+        问题：{{input.problem}}
+        综合解决方案：{{states.solution_integration.output}}
+        
+        各专家请从自己的专业角度评估：
+        1. 方案在您专业领域的可行性和优势
+        2. 可能存在的问题和改进建议
+        3. 整体评分（0-1分）
+        
+        最终需要达成共识或加权评估。
+    transitions:
+      - target: "final_refinement"
+        condition: "validation_passed"
+        description: "验证通过，进入最终优化"
+      - target: "solution_integration"
+        condition: "validation_failed"
+        description: "验证失败，重新整合方案"
+        max_retries: 1
+
+  # 最终优化状态
+  final_refinement:
+    type: "llm_node"
+    description: "基于验证反馈进行最终优化"
+    config:
+      model: "gpt-4"
+      temperature: 0.3
+      prompt: |
+        基于各专家的验证反馈，对解决方案进行最终优化：
+        
+        原始问题：{{input.problem}}
+        综合解决方案：{{states.solution_integration.output}}
+        验证反馈：{{states.collaborative_validation.output}}
+        
+        请：
+        1. 吸收各专家的合理建议
+        2. 优化解决方案的不足之处
+        3. 确保方案更加完善和可执行
+        4. 生成最终的优化版本
+        
+        优化后的方案应该更加成熟和全面。
+    transitions:
+      - target: "final"
+        condition: "always"
+        description: "进入最终状态"
+
+  # 最终状态
+  final:
+    type: "end"
+    description: "工作流完成状态"
+    output_mapping:
+      problem: "{{input.problem}}"
+      agent_configurations: "{{states.agent_configuration.output}}"
+      individual_analyses: "{{states.parallel_analysis.output}}"
+      integrated_solution: "{{states.solution_integration.output}}"
+      validation_results: "{{states.collaborative_validation.output}}"
+      final_solution: "{{states.final_refinement.output}}"
+      
+      execution_summary:
+        total_agents: "{{states.parallel_analysis.agent_count}}"
+        successful_agents: "{{states.parallel_analysis.success_count}}"
+        integration_strategy: "{{input.integration_strategy}}"
+        overall_validation_score: "{{states.collaborative_validation.overall_score}}"
+        execution_time: "{{execution_time}}"
+
+# 错误处理配置
+error_handling:
+  max_retries: 2
+  retry_delay: 10000
+  fallback_state: "final"
+  partial_success_threshold: 0.6
+  
+  error_messages:
+    agent_configuration_failed: "Agent配置生成失败"
+    parallel_execution_timeout: "并行执行超时"
+    integration_failed: "结果整合失败"
+    consensus_not_reached: "验证共识未达成"
+
+# 监控和日志配置
+monitoring:
+  enable_metrics: true
+  log_level: "debug"
+  metrics:
+    - execution_time
+    - agent_count
+    - success_rate
+    - validation_score
+    - token_usage_per_agent
+    - parallel_execution_efficiency
+
+# 性能优化配置
+performance:
+  enable_caching: true
+  cache_ttl: 1800
+  parallel_execution: true
+  max_concurrent_agents: 8
+  timeout_ms: 300000
+  
+  resource_management:
+    memory_limit_mb: 2048
+    cpu_usage_threshold: 0.8
+    agent_timeout_ms: 120000
