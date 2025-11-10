@@ -1,4 +1,5 @@
 """将基于状态机的工作流配置转换为基于图的配置格式"""
+"""例如把configs\workflows\ultra_thinking_workflow.yaml改为configs\workflows\ultra_thinking_workflow_convert.yaml"""
 
 import yaml
 import os
