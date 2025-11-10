@@ -1,0 +1,119 @@
+# 条件工作流示例 - 基于条件的分支处理
+name: conditional_routing_workflow
+description: 基于条件的分支处理工作流示例
+version: "1.0"
+entry_point: classifier
+
+# 状态模式定义
+state_schema:
+  name: ConditionalState
+  fields:
+    input_text:
+      type: str
+      default: ""
+      description: 输入文本
+    classification:
+      type: str
+      default: ""
+      description: 分类结果
+    processed_data:
+      type: Dict[str, Any]
+      default: {}
+      description: 处理后的数据
+    final_result:
+      type: str
+      default: ""
+      description: 最终结果
+    execution_path:
+      type: List[str]
+      default: []
+      description: 执行路径
+      reducer: extend
+
+# 节点定义
+nodes:
+  classifier:
+    name: classifier
+    function_name: classify_input
+    description: 对输入进行分类
+    config:
+      categories: ["type_a", "type_b", "type_c"]
+      
+  processor_a:
+    name: processor_a
+    function_name: process_type_a
+    description: 处理类型A的数据
+    config:
+      method: "detailed"
+      
+  processor_b:
+    name: processor_b
+    function_name: process_type_b
+    description: 处理类型B的数据
+    config:
+      method: "quick"
+      
+  processor_c:
+    name: processor_c
+    function_name: process_type_c
+    description: 处理类型C的数据
+    config:
+      method: "standard"
+      
+  aggregator:
+    name: aggregator
+    function_name: aggregate_results
+    description: 聚合所有处理结果
+    config:
+      format: "unified"
+
+# 边定义 - 条件分支
+edges:
+  # 从分类器到各个处理器
+  - from: classifier
+    to: processor_a
+    type: conditional
+    condition: is_type_a
+    description: 类型A分支
+    path_map:
+      true: processor_a
+      false: classifier
+      
+  - from: classifier
+    to: processor_b
+    type: conditional
+    condition: is_type_b
+    description: 类型B分支
+    path_map:
+      true: processor_b
+      false: classifier
+      
+  - from: classifier
+    to: processor_c
+    type: conditional
+    condition: is_type_c
+    description: 类型C分支
+    path_map:
+      true: processor_c
+      false: classifier
+      
+  # 从各个处理器到聚合器
+  - from: processor_a
+    to: aggregator
+    type: simple
+    description: A到聚合器
+    
+  - from: processor_b
+    to: aggregator
+    type: simple
+    description: B到聚合器
+    
+  - from: processor_c
+    to: aggregator
+    type: simple
+    description: C到聚合器
+
+# 可选配置
+interrupt_before: [classifier]  # 在分类前中断，便于调试
+interrupt_after: []  # 不在任何节点后中断
+checkpointer: memory  # 使用内存检查点

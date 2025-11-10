@@ -1,0 +1,160 @@
+# 并行处理工作流示例 - 多任务并行执行
+name: parallel_processing_workflow
+description: 并行处理多个任务的工作流示例
+version: "1.0"
+entry_point: task_splitter
+
+# 状态模式定义
+state_schema:
+  name: ParallelState
+  fields:
+    input_tasks:
+      type: List[dict]
+      default: []
+      description: 输入任务列表
+    parallel_results:
+      type: Dict[str, Any]
+      default: {}
+      description: 并行处理结果
+      reducer: operator.or_
+    completed_tasks:
+      type: List[str]
+      default: []
+      description: 已完成的任务
+      reducer: extend
+    failed_tasks:
+      type: List[str]
+      default: []
+      description: 失败的任务
+      reducer: extend
+    final_result:
+      type: Dict[str, Any]
+      default: {}
+      description: 最终结果
+    execution_time:
+      type: float
+      default: 0.0
+      description: 执行时间
+
+# 节点定义
+nodes:
+  task_splitter:
+    name: task_splitter
+    function_name: split_input_tasks
+    description: 将输入拆分为多个子任务
+    config:
+      max_parallel_tasks: 5
+      
+  processor_a:
+    name: processor_a
+    function_name: process_task_a
+    description: 处理器A
+    config:
+      method: "fast"
+      timeout: 30
+      
+  processor_b:
+    name: processor_b
+    function_name: process_task_b
+    description: 处理器B
+    config:
+      method: "accurate"
+      timeout: 60
+      
+  processor_c:
+    name: processor_c
+    function_name: process_task_c
+    description: 处理器C
+    config:
+      method: "balanced"
+      timeout: 45
+      
+  result_aggregator:
+    name: result_aggregator
+    function_name: aggregate_parallel_results
+    description: 聚合并行结果
+    config:
+      strategy: "weighted_average"
+      
+  error_handler:
+    name: error_handler
+    function_name: handle_failed_tasks
+    description: 处理失败的任务
+    config:
+      retry_count: 3
+      fallback_strategy: "skip"
+
+# 边定义 - 并行分支
+edges:
+  # 任务拆分
+  - from: task_splitter
+    to: processor_a
+    type: simple
+    description: 任务拆分到处理器A
+    
+  - from: task_splitter
+    to: processor_b
+    type: simple
+    description: 任务拆分到处理器B
+    
+  - from: task_splitter
+    to: processor_c
+    type: simple
+    description: 任务拆分到处理器C
+    
+  # 并行处理到结果聚合
+  - from: processor_a
+    to: result_aggregator
+    type: simple
+    description: A到结果聚合
+    
+  - from: processor_b
+    to: result_aggregator
+    type: simple
+    description: B到结果聚合
+    
+  - from: processor_c
+    to: result_aggregator
+    type: simple
+    description: C到结果聚合
+    
+  # 错误处理分支
+  - from: processor_a
+    to: error_handler
+    type: conditional
+    condition: has_errors_a
+    description: A错误处理
+    path_map:
+      true: error_handler
+      false: result_aggregator
+      
+  - from: processor_b
+    to: error_handler
+    type: conditional
+    condition: has_errors_b
+    description: B错误处理
+    path_map:
+      true: error_handler
+      false: result_aggregator
+      
+  - from: processor_c
+    to: error_handler
+    type: conditional
+    condition: has_errors_c
+    description: C错误处理
+    path_map:
+      true: error_handler
+      false: result_aggregator
+      
+  # 错误处理到结果聚合
+  - from: error_handler
+    to: result_aggregator
+    type: simple
+    description: 错误处理到结果聚合
+
+# 可选配置
+interrupt_before: [task_splitter]  # 在任务拆分前中断
+interrupt_after: [processor_a, processor_b, processor_c]  # 在处理器后中断
+checkpointer: memory  # 使用内存检查点
+additional_config:
+  recursion_limit: 100  # 递归限制

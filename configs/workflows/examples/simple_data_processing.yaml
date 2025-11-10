@@ -1,0 +1,66 @@
+# 简单工作流示例 - 基本的数据处理流程
+name: simple_data_processing
+description: 简单的数据处理工作流示例
+version: "1.0"
+entry_point: input_processor
+
+# 状态模式定义
+state_schema:
+  name: DataProcessingState
+  fields:
+    input_data:
+      type: str
+      default: ""
+      description: 输入数据
+    processed_data:
+      type: Dict[str, Any]
+      default: {}
+      description: 处理后的数据
+    result:
+      type: str
+      default: ""
+      description: 最终结果
+    metadata:
+      type: Dict[str, Any]
+      default: {}
+      description: 元数据
+
+# 节点定义
+nodes:
+  input_processor:
+    name: input_processor
+    function_name: process_input
+    description: 处理输入数据
+    config:
+      validate_input: true
+      
+  data_transformer:
+    name: data_transformer
+    function_name: transform_data
+    description: 转换数据格式
+    config:
+      transformation_type: "standard"
+      
+  result_generator:
+    name: result_generator
+    function_name: generate_result
+    description: 生成最终结果
+    config:
+      format: "json"
+
+# 边定义
+edges:
+  - from: input_processor
+    to: data_transformer
+    type: simple
+    description: 输入处理到数据转换
+    
+  - from: data_transformer
+    to: result_generator
+    type: simple
+    description: 数据转换到结果生成
+
+# 可选配置
+interrupt_before: []  # 不在任何节点前中断
+interrupt_after: []  # 不在任何节点后中断
+checkpointer: memory  # 使用内存检查点

@@ -1,0 +1,101 @@
+# 循环工作流示例 - 迭代处理直到满足条件
+name: iterative_processing_workflow
+description: 迭代处理工作流，直到满足特定条件
+version: "1.0"
+entry_point: initializer
+
+# 状态模式定义
+state_schema:
+  name: IterativeState
+  fields:
+    input_data:
+      type: Dict[str, Any]
+      default: {}
+      description: 输入数据
+    current_result:
+      type: Dict[str, Any]
+      default: {}
+      description: 当前结果
+    iteration_count:
+      type: int
+      default: 0
+      description: 迭代次数
+      reducer: operator.add
+    max_iterations:
+      type: int
+      default: 10
+      description: 最大迭代次数
+    convergence_threshold:
+      type: float
+      default: 0.001
+      description: 收敛阈值
+    is_converged:
+      type: bool
+      default: false
+      description: 是否收敛
+    final_result:
+      type: Dict[str, Any]
+      default: {}
+      description: 最终结果
+
+# 节点定义
+nodes:
+  initializer:
+    name: initializer
+    function_name: initialize_iteration
+    description: 初始化迭代参数
+    config:
+      setup_defaults: true
+      
+  processor:
+    name: processor
+    function_name: process_iteration
+    description: 执行一次迭代处理
+    config:
+      method: "adaptive"
+      
+  convergence_checker:
+    name: convergence_checker
+    function_name: check_convergence
+    description: 检查是否收敛
+    config:
+      tolerance: 1e-6
+      
+  result_finalizer:
+    name: result_finalizer
+    function_name: finalize_result
+    description: 最终结果处理
+    config:
+      format: "detailed"
+
+# 边定义 - 循环逻辑
+edges:
+  # 初始化到处理器
+  - from: initializer
+    to: processor
+    type: simple
+    description: 初始化到处理
+    
+  # 处理器到收敛检查器
+  - from: processor
+    to: convergence_checker
+    type: simple
+    description: 处理到收敛检查
+    
+  # 收敛检查到结果终结器或回到处理器（循环）
+  - from: convergence_checker
+    to: result_finalizer
+    type: conditional
+    condition: should_continue_iteration
+    description: 收敛检查到结果或循环
+    path_map:
+      converged: result_finalizer
+      max_iterations: result_finalizer
+      continue: processor
+
+# 可选配置
+interrupt_before: [convergence_checker]  # 在收敛检查前中断
+interrupt_after: [processor]  # 在处理后中断
+checkpointer: sqlite  # 使用SQLite检查点，保存迭代状态
+additional_config:
+  recursion_limit: 100  # 增加递归限制以支持多次迭代

@@ -1,0 +1,119 @@
+# LLM 工作流示例 - 多轮对话处理
+name: llm_conversation_workflow
+description: LLM多轮对话处理工作流示例
+version: "1.0"
+entry_point: input_validator
+
+# 状态模式定义
+state_schema:
+  name: ConversationState
+  fields:
+    messages:
+      type: List[dict]
+      default: []
+      description: 对话消息列表
+      reducer: extend
+    current_input:
+      type: str
+      default: ""
+      description: 当前输入
+    context:
+      type: Dict[str, Any]
+      default: {}
+      description: 对话上下文
+    llm_response:
+      type: str
+      default: ""
+      description: LLM响应
+    conversation_history:
+      type: List[dict]
+      default: []
+      description: 对话历史
+      reducer: extend
+    metadata:
+      type: Dict[str, Any]
+      default: {}
+      description: 元数据
+
+# 节点定义
+nodes:
+  input_validator:
+    name: input_validator
+    function_name: validate_input
+    description: 验证输入有效性
+    config:
+      max_length: 1000
+      allowed_types: ["text", "question", "command"]
+      
+  context_builder:
+    name: context_builder
+    function_name: build_conversation_context
+    description: 构建对话上下文
+    config:
+      max_history: 10
+      include_metadata: true
+      
+  llm_processor:
+    name: llm_processor
+    function_name: process_with_llm
+    description: 使用LLM处理输入
+    config:
+      model: "gpt-4"
+      temperature: 0.7
+      max_tokens: 500
+      
+  response_formatter:
+    name: response_formatter
+    function_name: format_llm_response
+    description: 格式化LLM响应
+    config:
+      format: "conversation"
+      include_timestamp: true
+      
+  history_updater:
+    name: history_updater
+    function_name: update_conversation_history
+    description: 更新对话历史
+    config:
+      max_entries: 100
+      persist: true
+
+# 边定义
+edges:
+  # 主流程
+  - from: input_validator
+    to: context_builder
+    type: simple
+    description: 验证到上下文构建
+    
+  - from: context_builder
+    to: llm_processor
+    type: simple
+    description: 上下文到LLM处理
+    
+  - from: llm_processor
+    to: response_formatter
+    type: simple
+    description: LLM处理到响应格式化
+    
+  - from: response_formatter
+    to: history_updater
+    type: simple
+    description: 响应格式化到历史更新
+    
+  # 条件分支：如果输入无效，跳过LLM处理
+  - from: input_validator
+    to: response_formatter
+    type: conditional
+    condition: is_input_invalid
+    description: 无效输入分支
+    path_map:
+      true: response_formatter
+      false: context_builder
+
+# 可选配置
+interrupt_before: [llm_processor]  # 在LLM处理前中断，便于调试
+interrupt_after: [input_validator]  # 在输入验证后中断
+checkpointer: sqlite  # 使用SQLite检查点保存对话状态
+additional_config:
+  recursion_limit: 50  # 递归限制
