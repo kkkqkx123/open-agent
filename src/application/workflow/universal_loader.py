@@ -239,7 +239,8 @@ class UniversalWorkflowLoader:
         self,
         config_loader: Optional[IConfigLoader] = None,
         container: Optional[IDependencyContainer] = None,
-        enable_auto_registration: bool = True
+        enable_auto_registration: bool = True,
+        function_registry: Optional[FunctionRegistry] = None
     ):
         """初始化通用工作流加载器
         
@@ -247,13 +248,14 @@ class UniversalWorkflowLoader:
             config_loader: 配置加载器
             container: 依赖注入容器
             enable_auto_registration: 是否启用自动函数注册
+            function_registry: 函数注册表，如果为None则创建新的
         """
         self.config_loader = config_loader
         self.container = container
         self.enable_auto_registration = enable_auto_registration
         
         # 初始化组件
-        self.function_registry = FunctionRegistry(enable_auto_discovery=enable_auto_registration)
+        self.function_registry = function_registry or FunctionRegistry(enable_auto_discovery=enable_auto_registration)
         self.node_registry = get_global_registry()
         self.template_manager = get_global_template_manager()
         self.config_validator = WorkflowConfigValidator(self.function_registry)

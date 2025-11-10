@@ -102,9 +102,11 @@ class NodeConfig:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "NodeConfig":
         """从字典创建节点配置"""
+        # 支持 function_name 和 function 两种字段名
+        function_name = data.get("function_name", data.get("function", data.get("type", "")))
         return cls(
             name=data.get("name", ""),
-            function_name=data.get("function", data.get("type", "")),
+            function_name=function_name,
             config=data.get("config", {}),
             description=data.get("description"),
             input_state=data.get("input_state"),

@@ -1,0 +1,85 @@
+name: really_bad_workflow
+description: 超级有问题的工作流示例 - 反面教材
+version: 1.0
+
+state_schema:
+  name: ReallyBadWorkflowState
+  fields:
+    messages:  # 与 LangGraph 内置字段冲突
+      type: List[dict]
+      default: []
+    huge_data:  # 大字段可能导致内存问题
+      type: List[dict]
+      default: []
+    recursive_count:  # 递归计数器
+      type: int
+      default: 0
+
+nodes:
+  infinite_loop_node:
+    type: llm_node
+    config:
+      llm_client: mock
+    description: 死循环节点
+    
+  self_calling_node:
+    type: function_node
+    config:
+      function_name: self_calling_function
+    description: 自调用节点
+    
+  memory_hog_node:
+    type: llm_node
+    config:
+      llm_client: mock
+      # 可能加载大量数据到内存
+      load_all_data: true
+    description: 内存消耗节点
+    
+  nonexistent_function_node:
+    type: function_node
+    config:
+      function_name: this_function_does_not_exist_at_all
+    description: 调用不存在的函数
+
+edges:
+  # 死循环：节点指向自己
+  - from: infinite_loop_node
+    to: infinite_loop_node
+    type: simple
+    description: 死循环边
+    
+  # 自调用：节点通过条件边调用自己
+  - from: self_calling_node
+    to: self_calling_node
+    type: conditional
+    condition: always_true
+    description: 自调用条件边
+    
+  # 另一个自调用
+  - from: self_calling_node
+    to: self_calling_node
+    type: conditional
+    condition: another_condition
+    description: 另一个自调用条件边
+    
+  # 指向不存在的节点
+  - from: infinite_loop_node
+    to: totally_nonexistent_node
+    type: simple
+    description: 指向不存在的节点
+    
+  # 指向不存在的函数节点
+  - from: memory_hog_node
+    to: nonexistent_function_node
+    type: simple
+    description: 指向调用不存在函数的节点
+    
+  # 条件边但没有默认路径
+  - from: memory_hog_node
+    to: infinite_loop_node
+    type: conditional
+    condition: some_complex_condition
+    description: 条件边但没有默认路径
+
+entry_point: infinite_loop_node

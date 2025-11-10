@@ -46,38 +46,40 @@ class GraphWorkflow(ABC):
         self,
         config: Union[GraphConfig, Dict[str, Any], str, Path],
         function_registry: Optional[FunctionRegistry] = None,
-        node_registry: Optional[NodeRegistry] = None,
-        config_loader: Optional[IConfigLoader] = None,
-        container: Optional[IDependencyContainer] = None,
-        use_enhanced_builder: bool = True
+        container: Optional[Any] = None,
+        config_loader: Optional[Any] = None,
+        enable_auto_registration: bool = True,
+        **kwargs
     ):
         """初始化图工作流
         
         Args:
-            config: 工作流配置，可以是GraphConfig对象、配置字典、配置文件路径
+            config: 配置数据（字典、GraphConfig对象或文件路径）
             function_registry: 函数注册表
-            node_registry: 节点注册表
+            container: 依赖容器
             config_loader: 配置加载器
-            container: 依赖注入容器
-            use_enhanced_builder: 是否使用增强的图构建器
+            enable_auto_registration: 是否启用自动注册
+            **kwargs: 其他参数（向后兼容）
         """
+        logger.info(f"初始化图工作流: {config}")
+        
+        # 设置依赖
         self.function_registry = function_registry or get_global_function_registry()
-        self.node_registry = node_registry or get_global_registry()
-        self.config_loader = config_loader
         self.container = container
-        self.use_enhanced_builder = use_enhanced_builder
+        self.config_loader = config_loader
+        self.enable_auto_registration = enable_auto_registration
         
         # 初始化加载器
         self._loader = UniversalWorkflowLoader(
-            function_registry=self.function_registry,
-            node_registry=self.node_registry,
             config_loader=self.config_loader,
-            container=self.container
+            container=self.container,
+            enable_auto_registration=True,
+            function_registry=self.function_registry
         )
         
-        # 加载配置和工作流实例
+        # 加载配置（延迟实例创建）
         self._config = self._load_config(config)
-        self._instance = self._create_workflow_instance()
+        self._instance = None  # 延迟实例创建
         
         logger.info(f"图工作流初始化完成: {self._config.name}")
     
@@ -100,14 +102,9 @@ class GraphWorkflow(ABC):
             if not config_path.exists():
                 raise GraphWorkflowConfigError(f"配置文件不存在: {config_path}")
             
-            # 使用加载器从文件加载
-            loaded_config = self._loader.load_config_from_file(str(config_path))
-            if isinstance(loaded_config, dict):
-                return GraphConfig.from_dict(loaded_config)
-            elif isinstance(loaded_config, GraphConfig):
-                return loaded_config
-            else:
-                raise GraphWorkflowConfigError(f"不支持的配置格式: {type(loaded_config)}")
+            # 使用加载器从文件加载配置
+            loaded_config = self._loader._load_config_from_file(str(config_path))
+            return loaded_config
         else:
             raise GraphWorkflowConfigError(f"不支持的配置类型: {type(config)}")
     
@@ -122,6 +119,25 @@ class GraphWorkflow(ABC):
             return self._loader.load_from_dict(self._config.to_dict() if hasattr(self._config, 'to_dict') else self._config)
         except Exception as e:
             raise GraphWorkflowConfigError(f"创建工作流实例失败: {e}") from e
+    
+    def _create_instance(self) -> WorkflowInstance:
+        """创建工作流实例（内部方法，供测试使用）
+        
+        Returns:
+            WorkflowInstance: 工作流实例
+            
+        Raises:
+            GraphWorkflowConfigError: 配置错误时抛出
+        """
+        if self._instance is None:
+            # 使用加载器创建实例
+            try:
+                self._instance = self._loader.load_from_dict(
+                    self._config.to_dict() if hasattr(self._config, 'to_dict') else self._config
+                )
+            except Exception as e:
+                raise GraphWorkflowConfigError(f"创建工作流实例失败: {e}") from e
+        return self._instance
     
     @property
     def name(self) -> str:
@@ -146,7 +162,14 @@ class GraphWorkflow(ABC):
     @property
     def instance(self) -> WorkflowInstance:
         """获取工作流实例"""
+        if self._instance is None:
+            self._instance = self._create_workflow_instance()
         return self._instance
+    
+    @property
+    def entry_point(self) -> Optional[str]:
+        """获取工作流入口点"""
+        return self._config.entry_point
     
     def run(
         self, 
@@ -170,7 +193,7 @@ class GraphWorkflow(ABC):
         try:
             # 合并配置
             run_config = {**(config or {}), **kwargs}
-            return self._instance.run(initial_data, run_config)
+            return self.instance.run(initial_data, run_config)
         except Exception as e:
             raise GraphWorkflowExecutionError(f"工作流执行失败: {e}") from e
     
@@ -196,7 +219,7 @@ class GraphWorkflow(ABC):
         try:
             # 合并配置
             run_config = {**(config or {}), **kwargs}
-            return await self._instance.run_async(initial_data, run_config)
+            return await self.instance.run_async(initial_data, run_config)
         except Exception as e:
             raise GraphWorkflowExecutionError(f"工作流异步执行失败: {e}") from e
     
@@ -222,7 +245,7 @@ class GraphWorkflow(ABC):
         try:
             # 合并配置
             run_config = {**(config or {}), **kwargs}
-            yield from self._instance.stream(initial_data, run_config)
+            yield from self.instance.stream(initial_data, run_config)
         except Exception as e:
             raise GraphWorkflowExecutionError(f"工作流流式执行失败: {e}") from e
     
@@ -248,16 +271,16 @@ class GraphWorkflow(ABC):
         try:
             # 合并配置
             run_config = {**(config or {}), **kwargs}
-            async for chunk in self._instance.stream_async(initial_data, run_config):
+            async for chunk in self.instance.stream_async(initial_data, run_config):
                 yield chunk
         except Exception as e:
             raise GraphWorkflowExecutionError(f"工作流异步流式执行失败: {e}") from e
     
-    def validate(self) -> List[str]:
+    def validate(self) -> List[Dict[str, Any]]:
         """验证工作流配置
         
         Returns:
-            List[str]: 验证错误列表
+            List[Dict[str, Any]]: 验证错误列表
         """
         errors = []
         
@@ -267,96 +290,79 @@ class GraphWorkflow(ABC):
             errors.extend(config_errors)
         
         # 验证实例
-        if not self._instance:
-            errors.append("工作流实例未创建")
+        if self._instance is None:
+            try:
+                # 尝试创建实例以获取详细的验证错误
+                self._instance = self._create_workflow_instance()
+            except GraphWorkflowConfigError as e:
+                # 将配置错误添加到错误列表
+                errors.append({
+                    "type": "config_error", 
+                    "message": str(e)
+                })
         
         return errors
     
     def get_visualization_data(self) -> Dict[str, Any]:
-        """获取可视化数据
+        """获取工作流可视化数据
         
         Returns:
             Dict[str, Any]: 可视化数据
         """
-        return self._instance.get_visualization()
+        return self.instance.get_visualization()
     
     def get_state_schema(self) -> Dict[str, Any]:
-        """获取状态模式
+        """获取工作流状态模式
         
         Returns:
             Dict[str, Any]: 状态模式定义
         """
-        if hasattr(self._config, 'state_schema'):
-            schema = self._config.state_schema
-            return {
-                "name": schema.name,
-                "fields": {
-                    field_name: {
-                        "type": field_config.type,
-                        "default": field_config.default,
-                        "description": field_config.description
-                    }
-                    for field_name, field_config in schema.fields.items()
-                }
-            }
-        return {}
+        config = self.instance.get_config()
+        return config.state_schema
     
     def get_nodes(self) -> List[Dict[str, Any]]:
-        """获取节点列表
+        """获取工作流节点列表
         
         Returns:
-            List[Dict[str, Any]]: 节点信息列表
+            List[Dict[str, Any]]: 节点定义列表
         """
-        if hasattr(self._config, 'nodes'):
-            return [
-                {
-                    "name": node.name,
-                    "function_name": node.function_name,
-                    "description": node.description,
-                    "config": node.config
-                }
-                for node in self._config.nodes.values()
-            ]
-        return []
+        config = self.instance.get_config()
+        return [
+            {
+                "id": node_id,
+                "name": node.name,
+                "function_name": node.function_name,
+                "description": node.description,
+                "config": node.config
+            }
+            for node_id, node in config.nodes.items()
+        ]
     
     def get_edges(self) -> List[Dict[str, Any]]:
-        """获取边列表
+        """获取工作流边列表
         
         Returns:
-            List[Dict[str, Any]]: 边信息列表
+            List[Dict[str, Any]]: 边定义列表
         """
-        if hasattr(self._config, 'edges'):
-            return [
-                {
-                    "from": edge.from_node,
-                    "to": edge.to_node,
-                    "type": edge.type.value,
-                    "condition": edge.condition,
-                    "description": edge.description
-                }
-                for edge in self._config.edges
-            ]
-        return []
+        config = self.instance.get_config()
+        return [
+            {
+                "from": edge.from_node,
+                "to": edge.to_node,
+                "type": edge.type if isinstance(edge.type, str) else edge.type.value,
+                "condition": edge.condition,
+                "description": edge.description
+            }
+            for edge in config.edges
+        ]
     
     def export_config(self) -> Dict[str, Any]:
         """导出配置
         
         Returns:
-            Dict[str, Any]: 配置数据
+            Dict[str, Any]: 配置字典
         """
-        if hasattr(self._config, 'to_dict'):
-            return self._config.to_dict()
-        else:
-            # 手动构建配置字典
-            return {
-                "name": self._config.name,
-                "description": self._config.description,
-                "version": self._config.version,
-                "entry_point": getattr(self._config, 'entry_point', None),
-                "nodes": self.get_nodes(),
-                "edges": self.get_edges(),
-                "state_schema": self.get_state_schema()
-            }
+        return self._config.to_dict() if hasattr(self._config, 'to_dict') else self._config
     
     def __str__(self) -> str:
         """字符串表示"""
