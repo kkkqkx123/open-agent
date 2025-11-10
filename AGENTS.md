@@ -37,150 +37,28 @@ source .venv/bin/activate  # Linux/Mac
 # Install dependencies
 uv sync
 
-# Install test dependencies
-uv sync --extra test
-```
-
-### Development Tools Setup
-(already complete)
-```bash
-# Install mypy for type checking
-uv add mypy
-
-# Install black for code formatting
-uv add black
-
-# Install isort for import sorting
-uv add isort
-
-# Install flake8 for linting
-uv add flake8
 ```
 
 ## Development Commands
 
-### Environment Management
-```bash
-# Install a package (use uv add to sync with uv.lock and pyproject.toml)
-uv add package_name
-
-# Check if a certain package is installed
-uv pip list | findstr package_name
-
-# Install development dependencies
-uv sync --extra dev
-
-# Install test dependencies
-uv sync --extra test
-
-# Update all dependencies
-uv sync --upgrade
-```
-
 ### Code Quality Tools
 (usually mypy is enough. if I didn't ask you to use remaining tools, you can skip them)
 If I don't ask you to check whole codebase, always use --follow-imports=silent to avoid check relative files.
-```bash
-# Type checking with mypy (whole codebase)
-mypy .
-# or add `--follow-imports=silent` to check specific files
-mypy file_relative_path --follow-imports=silent
-# Sometimes mypy can't find some packages. If uv pip list | findstr package_name shows it has been installed, you can ignore this mypy error, as it is a false alarm.
-
-# Code formatting with black
-black src/ tests/
-
-# Import sorting with isort
-isort src/ tests/
-
-# Linting with flake8
-flake8 src/ tests/
-
-# Run all code quality checks
-mypy . && black src/ tests/ --check && isort src/ tests/ --check-only && flake8 src/ tests/
-```
 
 ### Testing
-```bash
-# Run all tests
-pytest
-
-# Run unit tests
-pytest tests/unit/
-
-# Run integration tests
-pytest tests/integration/
-
-# Generate coverage report
-pytest --cov=src --cov-report=html
-
-# Run specific test file
-pytest tests/unit/infrastructure/test_container.py
-
-# Run with verbose output
-pytest -v
-
-# Run tests with coverage and generate HTML report
-pytest --cov=src --cov-report=html:cov_html --cov-report=term
-
-# Run tests with performance benchmarks
-pytest --benchmark-only
-```
 
 ### Environment Checking
-```bash
-# Check environment dependencies
-python -m src.infrastructure.env_check_command
-
-# Check with JSON output
-python -m src.infrastructure.env_check_command --format json --output env_check.json
-
-# Check with custom Python version requirement
-python -m src.infrastructure.env_check_command --python-version 3.13.0
-
-# Check environment with detailed report
-python -m src.infrastructure.env_check_command --verbose
-```
 
 ### Application Execution
-```bash
-# Run TUI application
-python src/run_tui.py
-
-# Run API server
-python -m src.presentation.api.run_api
-
-# Run CLI interface
-python -m src.presentation.cli.main
-
-# Run infrastructure demo
-python demo_infrastructure.py
-```
 
 ### Development Utilities
-```bash
-# Generate dependency graph
-python -m src.infrastructure.graph.visualization
-
-# Validate configuration files
-python -m src.infrastructure.config_loader --validate
-
-# Check architecture compliance
-python -m src.infrastructure.architecture_checker
-
-# Generate API documentation
-python -m src.presentation.api.main --docs
-```
 
 ## Codebase Architecture
 
 ### Architectural Layers
-```
 Presentation Layer (TUI/API) → Application Layer → Domain Layer → Infrastructure Layer
-```
 
 ### Directory Structure
-```
 src/
 ├── domain/              # Business logic and entities (no dependencies on other layers)
 │   ├── checkpoint/     # Checkpoint interfaces and configuration
@@ -212,560 +90,271 @@ src/
     ├── api/            # RESTful API with routers, services, and data access
     ├── cli/            # Command line interface with error handling
     └── tui/            # Terminal user interface with components and subviews
-```
 
 ### Core Infrastructure Components
 
 1. **Dependency Injection Container** (`src/infrastructure/container/`)
-   - Interface: `IDependencyContainer`
-   - Implementation: `DependencyContainer`, `EnhancedContainer`
-   - Manages service lifecycle (singleton, transient, scoped)
-   - Supports multi-environment bindings (development, test, production)
-   - Automatic dependency resolution with type hints
-   - Circular dependency detection and prevention
-   - Performance monitoring and caching
-   - Dependency analysis and optimization
-   - Provides `get_service(service_type: Type[T]) -> T` method
+   - 管理服务生命周期（单例、瞬态、作用域）
+   - 支持多环境绑定（开发、测试、生产）
+   - 自动依赖解析
+   - 循环依赖检测与预防
+   - 性能监控与缓存
 
 2. **Configuration System** (`src/infrastructure/config/`)
-   - Interface: `IConfigLoader`
-   - Loads YAML configuration files with inheritance support
-   - Environment variable substitution with `${VAR}` and `${VAR:default}` syntax
-   - Hot reloading with file watching using watchdog
-   - Configuration caching for performance optimization
-   - Configuration validation with Pydantic models
-   - Multi-environment configuration support
-   - Error recovery and configuration merging
-   - Schema validation and redaction utilities
+   - 加载支持继承的YAML配置文件
+   - 环境变量注入（`${VAR}` 和 `${VAR:default}`语法）
+   - 配置热重载与文件监听
+   - 配置验证与类型安全
+   - 多环境配置支持
 
 3. **Environment Checker** (`src/infrastructure/environment.py`)
-   - Interface: `IEnvironmentChecker`
-   - Validates Python version compatibility (≥3.13)
-   - Checks required package dependencies
-   - Validates system resources (memory, disk space)
-   - Checks configuration file existence and accessibility
-   - Generates detailed environment reports in multiple formats
+   - 验证Python版本兼容性（≥3.13）
+   - 检查所需包依赖
+   - 验证系统资源（内存、磁盘空间）
 
 4. **LLM Module** (`src/infrastructure/llm/`)
-   - Multi-provider support: OpenAI, Gemini, Anthropic, Mock
-   - Connection pooling with configurable pool sizes
-   - Intelligent fallback mechanisms for service failures
-   - Token counting with provider-specific tokenizers
-   - Rate limiting and request queuing
-   - Plugin system for custom LLM integrations
-   - Performance monitoring and metrics collection
-   - Enhanced frontend interface with hooks support
+   - 支持多提供商：OpenAI, Gemini, Anthropic, Mock
+   - 连接池与可配置池大小
+   - 智能故障转移机制
+   - 基于提供商标记器的标记计数
 
 5. **Tool System** (`src/infrastructure/tools/`)
-   - Support for native Python tools, MCP tools, and built-in tools
-   - Dynamic tool discovery and registration
-   - Schema validation and OpenAPI schema generation
-   - Tool execution management with error handling
-   - Tool caching for performance optimization
-   - Tool lifecycle management
-   - Validation system with multiple validator types
-   - CLI integration for tool validation
+   - 支持原生Python工具、MCP工具和内置工具
+   - 动态工具发现与注册
+   - 工具执行管理与错误处理
+   - 工具缓存以优化性能
 
 6. **Workflow Engine** (`src/infrastructure/graph/`)
-   - LangGraph integration with custom extensions
-   - State management with serialization capabilities
-   - Node registry for dynamic workflow composition
-   - Graph execution with checkpoint persistence
-   - Workflow visualization and debugging support
-   - Performance monitoring and optimization
-   - Hook system for workflow customization
-   - Async execution and enhanced builder patterns
-   - Edge management with conditional and simple edges
+   - LangGraph集成与自定义扩展
+   - 状态管理与序列化能力
+   - 节点注册表用于动态工作流组合
+   - 带检查点持久化的图执行
 
 7. **Session Management** (`src/application/sessions/`)
-   - Session lifecycle management (create, update, delete)
-   - Thread management with metadata tracking
-   - Checkpoint persistence and restoration
-   - Session state serialization
-   - Event collection and replay capabilities
-   - Git integration for session versioning
-   - Player functionality for session replay
+   - 会话生命周期管理（创建、更新、删除）
+   - 线程管理与元数据跟踪
+   - 检查点持久化与恢复
+   - 会话状态序列化
 
 8. **History Management** (`src/infrastructure/history/`)
-   - Complete conversation history storage
-   - Checkpoint management with SQLite backend
-   - History replay and analysis
-   - Performance metrics collection
-   - Storage optimization and compression
-   - Service integration for history management
-   - Hook integration for history tracking
+   - 完整对话历史存储
+   - 基于SQLite后端的检查点管理
+   - 历史回放与分析
 
 9. **State Management** (`src/infrastructure/state/`)
-   - State management with history and snapshots
-   - SQLite backend for persistence
-   - History management and serialization
-   - Snapshot storage and restoration
-   - Enhanced state manager with collaboration features
+   - 带历史和快照的状态管理
+   - SQLite后端持久化
+   - 快照存储与恢复
 
 10. **Thread Management** (`src/infrastructure/threads/`)
-    - Thread storage and metadata management
-    - Branch store for thread branching
-    - Cache manager for performance optimization
-    - Snapshot store for thread state preservation
-    - Metadata store for thread information
+    - 线程存储与元数据管理
+    - 分支存储用于线程分支
+    - 快照存储用于线程状态保存
 
 11. **Checkpoint Management** (`src/infrastructure/checkpoint/`)
-    - Checkpoint storage and management
-    - Factory pattern for checkpoint creation
-    - Memory and SQLite storage backends
-    - Performance optimization
-    - Base store interfaces and implementations
+    - 检查点存储与管理
+    - 内存和SQLite存储后端
+    - 性能优化
 
 12. **Logging System** (`src/infrastructure/logger/`)
-    - Multi-output logging (console, file, JSON)
-    - Structured logging with rich formatting
-    - Log redaction for sensitive information
-    - Performance metrics collection
-    - Integration with monitoring systems
-    - Multiple formatters and handlers
-    - Config integration for logger configuration
+    - 多输出日志（控制台、文件、JSON）
+    - 结构化日志与丰富格式
+    - 敏感信息日志脱敏
 
 13. **TUI Interface** (`src/presentation/tui/`)
-    - Rich terminal user interface with blessed
-    - Real-time workflow visualization
-    - Interactive session management
-    - Component-based UI architecture
-    - Event-driven interaction model
-    - Subview system for modular UI components
-    - Logger integration with multiple strategies
-    - Performance optimization and testing utilities
+    - 基于blessed的富终端用户界面
+    - 实时工作流可视化
+    - 组件化UI架构
+    - 事件驱动交互模型
 
 14. **API Interface** (`src/presentation/api/`)
-    - RESTful API with FastAPI framework
-    - WebSocket support for real-time communication
-    - Authentication and authorization
-    - API documentation with OpenAPI
-    - Rate limiting and request validation
-    - Data access layer with DAO pattern
-    - Service layer for business logic
-    - Router-based organization with caching support
+    - 基于FastAPI框架的RESTful API
+    - WebSocket支持实时通信
+    - 认证与授权
+    - 基于DAO模式的数据访问层
 
 15. **Performance Monitoring** (`src/infrastructure/monitoring/`)
-    - Interface: `IPerformanceMonitor`
-    - Unified performance monitoring system with standardized metrics
-    - Multiple implementations for different modules (checkpoint, LLM, workflow, tool)
-    - Configuration-driven with YAML-based configs
-    - Dependency injection integration
-    - Performance metrics collection and reporting
-    - Prometheus export support (planned)
+    - 统一性能监控系统
+    - 配置驱动的YAML配置
+    - 性能指标收集与报告
 
 ### Configuration System
 
-Configuration structure:
-```
+配置结构：
 configs/
-├── global.yaml          # Global settings (logging, secrets, environment)
-├── application.yaml     # Application-specific settings
-├── history.yaml         # History and checkpoint configuration
-├── prompts.yaml         # Prompt templates and system messages
-├── threads.yaml         # Thread management configuration
-├── checkpoints/         # Checkpoint configurations
-│   └── _group.yaml      # Checkpoint group configurations
-├── graphs/              # Graph and workflow example configurations
+├── global.yaml          # 全局设置（日志、密钥、环境）
+├── application.yaml     # 应用特定设置
+├── history.yaml         # 历史和检查点配置
+├── prompts.yaml         # 提示模板和系统消息
+├── threads.yaml         # 线程管理配置
+├── checkpoints/         # 检查点配置
+│   └── _group.yaml      # 检查点组配置
+├── graphs/              # 图和工作流示例配置
 │   ├── react_example.yaml
 │   └── react_with_hooks_example.yaml
-├── hooks/               # Hook configurations
-│   ├── _group.yaml      # Hook group configurations
-│   ├── agent_execution_node_hooks.yaml
- │   └── react_with_hooks_example.yaml
-├── hooks/               # Hook configurations
-│   ├── _group.yaml      # Hook group configurations
+├── hooks/               # 钩子配置
+│   ├── _group.yaml      # 钩子组配置
 │   ├── agent_execution_node_hooks.yaml
 │   ├── global_hooks.yaml
 │   ├── llm_node_hooks.yaml
 │   └── tool_node_hooks.yaml
-├── monitoring.yaml      # Performance monitoring configuration
-├── llms/                # Model configurations
-│   ├── global_hooks.yaml
-│   ├── llm_node_hooks.yaml
-│   └── tool_node_hooks.yaml
-├── llms/                # Model configurations
-│   ├── _group.yaml      # Model group configurations
-│   ├── mock.yaml        # Mock LLM configuration
+├── monitoring.yaml      # 性能监控配置
+├── llms/                # 模型配置
+│   ├── _group.yaml      # 模型组配置
+│   ├── mock.yaml        # 模拟LLM配置
 │   ├── test_no_function_calling.yaml
-│   ├── provider/        # Provider-specific configurations
-│   │   ├── anthropic/   # Anthropic models (Claude)
-│   │   │   ├── anthropic-claude.yaml
-│   │   │   ├── claude-sonnet.yaml
-│   │   │   └── common.yaml
-│   │   ├── gemini/      # Gemini models (Gemini Pro)
-│   │   │   ├── common.yaml
-│   │   │   └── gemini-pro.yaml
-│   │   ├── human_relay/ # Human relay models
-│   │   │   ├── common.yaml
-│   │   │   ├── human-relay-m.yaml
-│   │   │   └── human-relay-s.yaml
-│   │   └── openai/      # OpenAI models (GPT-4, GPT-3.5)
-│   │       ├── common.yaml
-│   │       ├── openai-gpt4-chat.yaml
-│   │       ├── openai-gpt4-responses.yaml
-│   │       └── openai-gpt4.yaml
-│   └── tokens_counter/  # Token counting configurations
-│       ├── _group.yaml
-│       ├── anthropic_claude.yaml
-│       ├── gemini_pro.yaml
-│       └── openai_gpt4.yaml
-├── nodes/               # Node configurations
+│   ├── provider/        # 供应商特定配置
+│   │   ├── anthropic/   # Anthropic模型（Claude）
+│   │   ├── gemini/      # Gemini模型（Gemini Pro）
+│   │   ├── human_relay/ # 人工中继模型
+│   │   └── openai/      # OpenAI模型（GPT-4，GPT-3.5）
+│   └── tokens_counter/  # 标记计数配置
+├── nodes/               # 节点配置
 │   └── _group.yaml
-├── prompts/             # Prompt templates and system messages
-│   ├── rules/           # Prompt rules
-│   │   ├── format.md
-│   │   └── safety.md
-│   ├── system/          # System prompts
-│   │   ├── assistant.md
-│   │   └── coder/
-│   │       ├── 01_code_style.md
-│   │       ├── 02_error_handling.md
-│   │       └── index.md
-│   └── user_commands/   # User command prompts
-│       ├── code_review.md
-│       └── data_analysis.md
-├── tool-sets/           # Tool set configurations
-│   └── _group.yaml      # Tool set group configurations
-├── tools/               # Individual tool configurations
-│   ├── calculator.yaml  # Calculator tool
-│   ├── database.yaml    # Database tool
-│   ├── fetch.yaml       # Fetch tool
-│   ├── hash_convert.yaml # Hash convert tool
-│   ├── sequentialthinking.yaml # Sequential thinking tool
-│   └── weather.yaml     # Weather tool
-└── workflows/           # Workflow configurations
-    ├── base_workflow.yaml        # Base workflow template
-    ├── react_workflow.yaml       # ReAct workflow
-    ├── react_agent_workflow.yaml  # React agent workflow
-    ├── plan_execute.yaml        # Plan-Execute workflow
-    ├── plan_execute_agent_workflow.yaml # Plan-Execute agent workflow
-    ├── collaborative.yaml       # Collaborative workflow
-    ├── human_review.yaml        # Human review workflow
-    ├── bad_example_workflow.yaml # Bad example workflow
-    ├── connectivity_test_workflow.yaml # Connectivity test workflow
-    └── react.yaml              # React configuration
-```
+├── prompts/             # 提示模板和系统消息
+│   ├── rules/           # 提示规则
+│   ├── system/          # 系统提示
+│   └── user_commands/   # 用户命令提示
+├── tool-sets/           # 工具集配置
+│   └── _group.yaml      # 工具集组配置
+├── tools/               # 个体工具配置
+│   ├── calculator.yaml  # 计算器工具
+│   ├── database.yaml    # 数据库工具
+│   ├── fetch.yaml       # 获取工具
+│   ├── hash_convert.yaml # 哈希转换工具
+│   ├── sequentialthinking.yaml # 顺序思考工具
+│   └── weather.yaml     # 天气工具
+└── workflows/           # 工作流配置
+    ├── base_workflow.yaml        # 基础工作流模板
+    ├── react_workflow.yaml       # ReAct工作流
+    ├── react_agent_workflow.yaml  # ReAct代理工作流
+    ├── plan_execute.yaml        # 计划执行工作流
+    ├── plan_execute_agent_workflow.yaml # 计划执行代理工作流
+    ├── collaborative.yaml       # 协作工作流
+    ├── human_review.yaml        # 人工审核工作流
+    ├── bad_example_workflow.yaml # 错误示例工作流
+    ├── connectivity_test_workflow.yaml # 连通性测试工作流
+    └── react.yaml              # React配置
 
-Key features:
-- **Configuration inheritance**: Group configurations with individual overrides using `inherits_from` field
-- **Environment variable injection**: `${ENV_VAR:DEFAULT}` format with automatic resolution
-- **Validation**: Pydantic models for configuration validation with type safety
-- **Hot reloading**: Development environment support with file watching
-- **Multi-environment**: Test, development, production environments with environment-specific overrides
-- **Modular structure**: Hierarchical configuration for easy maintenance
-- **Type safety**: Strong typing with validation for all configuration options
-- **Performance**: Caching and lazy loading for optimal performance
-
-#### Configuration Inheritance Example:
-```yaml
-# configs/llms/_group.yaml
-openai_group:
-  base_url: "https://api.openai.com/v1"
-  headers:
-    User-Agent: "ModularAgent/1.0"
-  parameters:
-    temperature: 0.7
-    max_tokens: 2000
-
-# configs/llms/provider/openai/openai-gpt4.yaml
-inherits_from: "../../_group.yaml#openai_group"
-model: "gpt-4"
-parameters:
-  temperature: 0.8  # Override group setting
-  max_completion_tokens: 1000  # Add new parameter
-```
-
-#### Environment Variable Injection Example:
-```yaml
-# configs/global.yaml
-api_key: "${OPENAI_API_KEY:default_key}"
-database_url: "${DATABASE_URL:sqlite:///storage/agent.db}"
-log_level: "${LOG_LEVEL:INFO}"
-```
+关键特性：
+- **配置继承**：使用`inherits_from`字段进行组配置与个体覆盖
+- **环境变量注入**：`${ENV_VAR:DEFAULT}`格式自动解析
+- **验证**：使用Pydantic模型进行配置验证和类型安全
+- **热重载**：开发环境支持文件监听
+- **多环境**：测试、开发、生产环境具有特定覆盖
+- **模块化结构**：分层配置便于维护
+- **类型安全**：所有配置选项强类型验证
+- **性能**：缓存和懒加载以实现最佳性能
 
 ## Module Dependencies and Relationships
 
-```mermaid
-graph TD
-    A[Infrastructure Layer] --> B[Configuration System]
-    A --> C[Logger & Metrics]
-    A --> D[Dependency Injection]
-    
-    B --> E[LLM Integration]
-    B --> F[Tool System]
-    B --> G[Workflow Engine]
-    
-    D --> E
-    D --> F
-    D --> G
-    
-    E --> H[Application Layer]
-    F --> H
-    G --> H
-    
-    H --> I[Session Management]
-    H --> J[Thread Management]
-    H --> K[History Management]
-    
-    I --> L[Presentation Layer]
-    J --> L
-    K --> L
-    
-    L --> M[TUI Interface]
-    L --> N[API Interface]
-    L --> O[CLI Interface]
-    
-    C --> E
-    C --> F
-    C --> G
-    C --> H
-    C --> L
-```
+模块依赖关系：
+基础设施层包含配置系统、日志与指标、依赖注入。
+配置系统和依赖注入共同为LLM集成、工具系统、工作流引擎提供支持。
+LLM集成、工具系统、工作流引擎共同构成应用层的基础。
+应用层包括会话管理、线程管理、历史管理。
+会话管理、线程管理、历史管理又共同支撑表现层。
+表现层包含TUI接口、API接口、CLI接口。
+日志与指标系统贯穿整个架构，为所有层级提供支持。
 
 ## Development Workflow
 
-### 1. New Feature Development
-- Follow the architectural layer constraints (Domain → Application → Infrastructure → Presentation)
-- Register services in the dependency container using appropriate lifecycle (singleton, transient, scoped)
-- Use configuration files for customization with inheritance and environment variable support
-- Write unit and integration tests with proper mocking
-- Ensure type annotations with mypy and follow Python 3.13+ type hints
-- Use dependency injection for all service dependencies
-- Implement proper error handling with custom exception types
+### 1. 新功能开发
+- 遵循架构层约束（领域→应用→基础设施→表现）
+- 使用适当的生命周期（单例、瞬态、作用域）在依赖容器中注册服务
+- 使用配置文件进行定制，支持继承和环境变量注入
+- 编写单元和集成测试，进行适当的模拟
+- 确保类型注解并遵循Python 3.13+类型提示
+- 对所有服务依赖使用依赖注入
+- 使用自定义异常类型实现适当的错误处理
 
-### 2. Testing Strategy
-- **Unit tests**: Coverage ≥ 90% for core business logic in domain and application layers
-- **Integration tests**: Coverage ≥ 80% for module interactions and infrastructure components
-- **End-to-end tests**: Coverage ≥ 70% for complete workflows and user scenarios
+### 2. 测试策略
+- **单元测试**：领域和应用层核心业务逻辑覆盖率≥90%
+- **集成测试**：模块交互和基础设施组件覆盖率≥80%
+- **端到端测试**：完整工作流和用户场景覆盖率≥70%
 
-### 3. Code Quality Standards
-- Use type annotations (enforced by mypy with strict mode)
-- Follow black formatting (line length: 88, Python 3.13+ target)
-- Use isort for import organization with black profile
-- Pass flake8 linting with comprehensive rules
-- Write comprehensive docstrings with parameter and return type documentation
-- Follow dependency injection patterns for all service instantiation
-- Use configuration-driven approach for all external dependencies
+### 3. 代码质量标准
+- 使用类型注解（由mypy严格模式强制执行）
+- 遵循black格式化（行长度：88，目标Python 3.13+）
+- 使用isort组织导入（black配置文件）
+- 通过flake8全面规则进行linting
+- 编写包含参数和返回类型文档的完整docstring
+- 遵循所有服务实例化的依赖注入模式
+- 对所有外部依赖使用配置驱动方法
 
-### 4. Configuration Changes
-- Update corresponding `_group.yaml` files for group configurations
-- Create individual `.yaml` files for specific configurations with inheritance
-- Validate with environment checker before deployment
-- Document new configuration options in configuration guide
-- Ensure environment variable references use `${VAR:DEFAULT}` format
-- Test configuration inheritance and environment variable resolution
-- Update configuration validation schemas when adding new options
+### 4. 配置变更
+- 更新相应`_group.yaml`文件中的组配置
+- 创建具有继承的特定`.yaml`配置文件
+- 部署前使用环境检查器验证
+- 在配置指南中记录新配置选项
+- 确保环境变量引用使用`${VAR:DEFAULT}`格式
+- 测试配置继承和环境变量解析
+- 添加新选项时更新配置验证模式
 
-### 5. Service Registration
-- Register services in appropriate dependency injection modules
-- Use proper service lifetime (singleton for shared resources, transient for request-scoped)
-- Implement service interfaces for all external dependencies
-- Provide test implementations for all services
-- Use dependency injection container for all service resolution
+### 5. 服务注册
+- 在适当的依赖注入模块中注册服务
+- 使用适当的服务生命周期（共享资源使用单例，请求范围使用瞬态）
+- 为所有外部依赖实现服务接口
+- 为所有服务提供测试实现
+- 使用依赖注入容器进行所有服务解析
 
-### 6. Error Handling
-- Use specific exception types from `src.infrastructure.exceptions`
-- Implement proper error propagation across layers
-- Log errors with appropriate context and severity
-- Provide meaningful error messages for users
-- Handle configuration errors gracefully with fallbacks
+### 6. 错误处理
+- 使用来自`src.infrastructure.exceptions`的特定异常类型
+- 在各层之间实现适当的错误传播
+- 使用适当的上下文和严重性记录错误
+- 为用户提供有意义的错误消息
+- 优雅地处理配置错误并提供备用方案
 
 ## Error Handling Patterns
 
-Use specific exception types from `src.infrastructure.exceptions`:
-- `InfrastructureError` - Base exception
-- `ServiceNotRegisteredError` - DI container issues
-- `ServiceCreationError` - Service instantiation problems
-- `CircularDependencyError` - Dependency cycle detection
-- `ConfigurationError` - Config loading problems
-- `EnvironmentCheckError` - Environment validation failures
-- `ArchitectureViolationError` - Layer dependency violations
+使用来自`src.infrastructure.exceptions`的特定异常类型：
+- `InfrastructureError` - 基础异常
+- `ServiceNotRegisteredError` - DI容器问题
+- `ServiceCreationError` - 服务实例化问题
+- `CircularDependencyError` - 依赖循环检测
+- `ConfigurationError` - 配置加载问题
+- `EnvironmentCheckError` - 环境验证失败
+- `ArchitectureViolationError` - 层级依赖违规
 
 ## Testing Utilities
 
-The framework provides `TestContainer` for integration testing:
-```python
-from src.infrastructure import TestContainer
-
-with TestContainer() as container:
-    # Setup test environment
-    container.setup_basic_configs()
-    
-    # Get services for testing
-    config_loader = container.get_config_loader()
-    checker = container.get_environment_checker()
-    
-    # Test automatically cleans up
-```
+框架提供了`TestContainer`用于集成测试：
+`TestContainer`提供了一个隔离的测试环境，可以设置基本配置并获取服务进行测试。测试完成后会自动清理。
 
 ## Module Dependencies and Architecture
 
 ### Detailed Module Relationships
 
-```mermaid
-graph TD
-    subgraph Presentation Layer
-        A[TUI Interface]
-        B[API Interface]
-        C[CLI Interface]
-    end
-    
-    subgraph Application Layer
-        D[Session Management]
-        E[Workflow Orchestration]
-        F[Thread Coordination]
-        G[History Management]
-        H[Checkpoint Management]
-    end
-    
-    subgraph Domain Layer
-        I[Checkpoint Interfaces]
-        J[History Interfaces]
-        K[Thread Interfaces]
-        L[Tool Interfaces]
-        M[Session Interfaces]
-        N[State Interfaces]
-        O[Workflow Entities]
-        P[Prompts System]
-    end
-    
-    subgraph Infrastructure Layer
-        Q[Dependency Injection]
-        R[Configuration System]
-        S[LLM Integration]
-        T[Tool System]
-        U[Workflow Engine]
-        V[History Storage]
-        W[Logging & Metrics]
-        X[State Management]
-        Y[Thread Storage]
-        Z[Checkpoint Storage]
-    end
-    
-    A --> D
-    B --> D
-    C --> D
-    D --> M
-    E --> O
-    F --> K
-    G --> J
-    H --> I
-    I --> Q
-    J --> Q
-    K --> Q
-    L --> Q
-    M --> Q
-    N --> Q
-    O --> Q
-    P --> Q
-    Q --> R
-    Q --> S
-    Q --> T
-    Q --> U
-    Q --> V
-    Q --> W
-    Q --> X
-    Q --> Y
-    Q --> Z
-    R --> S
-    R --> T
-    R --> U
-    S --> E
-    T --> E
-    U --> E
-    V --> G
-    W --> A
-    W --> B
-    W --> C
-    W --> D
-    W --> E
-    W --> F
-    W --> G
-    W --> H
-    X --> N
-    Y --> F
-    Z --> H
-```
+详细模块关系：
+表现层（TUI接口、API接口、CLI接口）依赖于应用层的会话管理。
+应用层（会话管理、工作流编排、线程协调、历史管理、检查点管理）依赖于领域层的接口。
+领域层（检查点接口、历史接口、线程接口、工具接口、会话接口、状态接口、工作流实体、提示系统）依赖于基础设施层的实现。
+基础设施层（依赖注入、配置系统、LLM集成、工具系统、工作流引擎、历史存储、日志与指标、状态管理、线程存储、检查点存储）是技术实现的基础。
+配置系统为LLM集成、工具系统、工作流引擎提供配置支持。
+依赖注入为所有基础设施组件提供服务解析。
+LLM集成、工具系统、工作流引擎共同支持应用层的工作流编排。
+历史存储支持应用层的历史管理。
+日志与指标系统为所有层级提供支持。
+状态管理、线程存储、检查点存储分别支持领域层的状态、线程、检查点接口。
 
 ### Service Registration Patterns
 
-```python
-# Example: Workflow Module Service Registration
-from src.application.workflow.di_config import WorkflowModule
-
-# Register services with dependencies
-WorkflowModule.register_services_with_dependencies(
-    container, config_loader, node_registry
-)
-
-# Register environment-specific services
-if environment == "test":
-    WorkflowModule.register_test_services(container)
-elif environment == "development":
-    WorkflowModule.register_development_services(container)
-elif environment == "production":
-    WorkflowModule.register_production_services(container)
-```
+服务注册模式：
+使用模块的di_config注册服务，如WorkflowModule.register_services_with_dependencies。
+根据环境（测试、开发、生产）注册相应的服务。
 
 ### Configuration Inheritance Example
 
-```yaml
-# Base configuration (configs/llms/_group.yaml)
-openai_group:
-  base_url: "https://api.openai.com/v1"
-  parameters:
-    temperature: 0.7
-    max_tokens: 2000
-
-# Specific configuration (configs/llms/provider/openai/openai-gpt4.yaml)
-inherits_from: "../../_group.yaml#openai_group"
-model: "gpt-4"
-parameters:
-  temperature: 0.8  # Override
-  max_completion_tokens: 1000  # Add new parameter
-```
+配置继承示例：
+基础配置定义通用设置，特定配置通过inherits_from字段继承并覆盖或添加参数。
 
 ### Error Handling Patterns
 
-```python
-from src.infrastructure.exceptions import (
-    InfrastructureError,
-    ServiceNotRegisteredError,
-    ServiceCreationError,
-    CircularDependencyError,
-    ConfigurationError,
-    EnvironmentCheckError,
-    ArchitectureViolationError
-)
-
-try:
-    service = container.get(ISomeService)
-except ServiceNotRegisteredError as e:
-    logger.error(f"Service not registered: {e}")
-    # Handle missing service
-except ServiceCreationError as e:
-    logger.error(f"Service creation error: {e}")
-    # Handle service instantiation problems
-except CircularDependencyError as e:
-    logger.error(f"Circular dependency detected: {e}")
-    # Handle dependency cycle issues
-except ConfigurationError as e:
-    logger.error(f"Configuration error: {e}")
-    # Handle configuration issues
-except EnvironmentCheckError as e:
-    logger.error(f"Environment check error: {e}")
-    # Handle environment validation failures
-except ArchitectureViolationError as e:
-    logger.error(f"Architecture violation: {e}")
-    # Handle layer dependency violations
-except InfrastructureError as e:
-    logger.error(f"Infrastructure error: {e}")
-    # Handle other infrastructure errors
-```
+错误处理模式：
+捕获特定异常类型并进行相应处理，如服务未注册、服务创建错误、循环依赖、配置错误等。
 
 ## Language
-Always use Chinese in the code and documentation. But in config files and code relevant to prompts for llm, English is preferred.
+代码和文档中始终使用中文。但在配置文件和与LLM提示相关的代码中，优先使用英文。
 
 ## Coding Specifications
-Must follow mypy type specifications. For example, function must be annotated with type hints.
+必须遵循mypy类型规范。例如，函数必须用类型提示进行注解。
