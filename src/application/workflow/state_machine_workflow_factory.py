@@ -33,11 +33,16 @@ class StateMachineWorkflowFactory(IWorkflowFactory):
         self.container = container
         self._workflow_classes: Dict[str, Type[StateMachineWorkflow]] = {}
     
-    def create_workflow(self, config: WorkflowConfig) -> Any:
+    def create_workflow(
+        self, 
+        config: WorkflowConfig,
+        state_machine_config: Optional[StateMachineConfig] = None
+    ) -> Any:
         """创建工作流实例
         
         Args:
             config: 工作流配置
+            state_machine_config: 可选的状态机配置，如果为None则自动创建
             
         Returns:
             工作流实例
@@ -50,8 +55,9 @@ class StateMachineWorkflowFactory(IWorkflowFactory):
         if workflow_class is None:
             raise ValueError(f"未注册的工作流: {workflow_name}")
         
-        # 创建状态机配置
-        state_machine_config = self._create_state_machine_config(workflow_name, config)
+        # 创建状态机配置（如果未提供）
+        if state_machine_config is None:
+            state_machine_config = self._create_state_machine_config(workflow_name, config)
         
         # 创建工作流实例
         return workflow_class(
