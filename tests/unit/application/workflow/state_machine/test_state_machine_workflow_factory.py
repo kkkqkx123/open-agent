@@ -14,8 +14,8 @@ import yaml
 # 添加src目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../../../src'))
 
-from application.workflow.state_machine.state_machine_workflow_factory import (
-    StateMachineWorkflowFactory, StateMachineConfigLoader, 
+from src.application.workflow.state_machine.state_machine_workflow_factory import (
+    StateMachineWorkflowFactory, StateMachineConfigLoader,
     StateMachineWorkflow, StateMachineConfig, StateDefinition, Transition, StateType
 )
 from src.infrastructure.graph.config import WorkflowConfig
@@ -128,33 +128,6 @@ class TestStateMachineWorkflowFactory:
         assert "test_workflow" in registered
         assert registered["test_workflow"] == TestWorkflow
 
-    def test_create_deep_thinking_config(self, factory):
-        """测试创建深度思考配置"""
-        config = factory._create_deep_thinking_config()
-        assert config.name == "deep_thinking"
-        assert config.initial_state == "initial"
-        
-        # 检查状态
-        assert "initial" in config.states
-        assert "problem_analysis" in config.states
-        assert "plan_generation" in config.states
-        assert "deep_thinking" in config.states
-        assert "solution_validation" in config.states
-        assert "final" in config.states
-
-    def test_create_ultra_thinking_config(self, factory):
-        """测试创建超思考配置"""
-        config = factory._create_ultra_thinking_config()
-        assert config.name == "ultra_thinking"
-        assert config.initial_state == "initial"
-        
-        # 检查状态
-        assert "initial" in config.states
-        assert "problem_analysis" in config.states
-        assert "plan_generation" in config.states
-        assert "ultra_thinking" in config.states
-        assert "solution_validation" in config.states
-        assert "final" in config.states
 
     def test_create_state_machine_config_default(self, factory):
         """测试创建默认状态机配置"""
@@ -165,13 +138,13 @@ class TestStateMachineWorkflowFactory:
     def test_create_state_machine_config_deep_thinking(self, factory):
         """测试创建深度思考状态机配置"""
         config = factory._create_state_machine_config("deep_thinking", None)
-        assert config.name == "deep_thinking"
+        assert config.name == "deep_thinking_workflow"
         assert config.initial_state == "initial"
-
+    
     def test_create_state_machine_config_ultra_thinking(self, factory):
         """测试创建超思考状态机配置"""
         config = factory._create_state_machine_config("ultra_thinking", None)
-        assert config.name == "ultra_thinking"
+        assert config.name == "ultra_thinking_workflow"
         assert config.initial_state == "initial"
 
 
@@ -270,11 +243,11 @@ class TestGlobalFunctions:
 
     def test_get_state_machine_factory(self):
         """测试获取状态机工厂"""
-        from application.workflow.state_machine.state_machine_workflow_factory import get_state_machine_factory, _state_machine_factory
+        from src.application.workflow.state_machine.state_machine_workflow_factory import get_state_machine_factory, _state_machine_factory
         
         # 重置全局工厂
         _state_machine_factory = None
-        with patch('src.application.workflow.state_machine_workflow_factory._state_machine_factory', _state_machine_factory):
+        with patch('src.application.workflow.state_machine.state_machine_workflow_factory._state_machine_factory', _state_machine_factory):
             factory1 = get_state_machine_factory()
             factory2 = get_state_machine_factory()
             
@@ -284,7 +257,7 @@ class TestGlobalFunctions:
 
     def test_register_state_machine_workflow(self):
         """测试注册状态机工作流"""
-        from application.workflow.state_machine.state_machine_workflow_factory import (
+        from src.application.workflow.state_machine.state_machine_workflow_factory import (
             register_state_machine_workflow, get_state_machine_factory
         )
         
@@ -292,7 +265,7 @@ class TestGlobalFunctions:
             pass
         
         # 重置工厂
-        with patch('src.application.workflow.state_machine_workflow_factory._state_machine_factory', None):
+        with patch('src.application.workflow.state_machine.state_machine_workflow_factory._state_machine_factory', None):
             register_state_machine_workflow("test_workflow", TestWorkflow)
             
             factory = get_state_machine_factory()
@@ -301,7 +274,7 @@ class TestGlobalFunctions:
 
     def test_create_state_machine_workflow(self):
         """测试创建状态机工作流"""
-        from application.workflow.state_machine.state_machine_workflow_factory import (
+        from src.application.workflow.state_machine.state_machine_workflow_factory import (
             create_state_machine_workflow, register_state_machine_workflow
         )
         
@@ -312,7 +285,7 @@ class TestGlobalFunctions:
                 self.state_machine_config = state_machine_config
         
         # 重置工厂
-        with patch('src.application.workflow.state_machine_workflow_factory._state_machine_factory', None):
+        with patch('src.application.workflow.state_machine.state_machine_workflow_factory._state_machine_factory', None):
             register_state_machine_workflow("test_workflow", TestWorkflow)
             
             workflow_config = WorkflowConfig(

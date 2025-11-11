@@ -92,14 +92,6 @@ class WorkflowFactory(IWorkflowFactory):
             from .base_workflow import BaseWorkflow
             self.register_workflow_type("base", BaseWorkflow)
             
-            # 注册ReAct工作流
-            from .react_workflow import ReActWorkflow
-            self.register_workflow_type("react", ReActWorkflow)
-            
-            # 注册计划执行工作流
-            from .plan_execute_workflow import PlanExecuteWorkflow
-            self.register_workflow_type("plan_execute", PlanExecuteWorkflow)
-            
             logger.debug("内置工作流类型注册完成")
         except ImportError as e:
             logger.warning(f"部分内置工作流类型不可用: {e}")

@@ -111,8 +111,7 @@ class WorkflowModule:
         container.register_factory(
             IWorkflowManager,
             lambda: WorkflowManager(
-                config_loader=config_loader,
-                container=container
+                config_loader=config_loader
             ),
             lifetime=ServiceLifetime.SINGLETON
         )

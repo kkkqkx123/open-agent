@@ -157,113 +157,27 @@ class StateMachineWorkflowFactory(IWorkflowFactory):
         Returns:
             StateMachineConfig: 状态机配置
         """
-        # 这里可以根据工作流名称和配置创建特定的状态机配置
-        # 实际项目中应该从配置文件或数据库加载
+        # 根据工作流名称从配置文件加载状态机配置
+        config_file_map = {
+            "deep_thinking": "configs/workflows/deep_thinking_workflow.yaml",
+            "ultra_thinking": "configs/workflows/ultra_thinking_workflow.yaml"
+        }
         
-        if workflow_name == "deep_thinking":
-            return self._create_deep_thinking_config()
-        elif workflow_name == "ultra_thinking":
-            return self._create_ultra_thinking_config()
-        else:
-            # 默认配置
-            return StateMachineConfig(
-                name=workflow_name,
-                description=f"{workflow_name} 状态机工作流",
-                version="1.0.0",
-                initial_state="start"
-            )
-    
-    def _create_deep_thinking_config(self) -> StateMachineConfig:
-        """创建深度思考工作流的状态机配置"""
-        config = StateMachineConfig(
-            name="deep_thinking",
-            description="深度思考工作流状态机",
+        config_file_path = config_file_map.get(workflow_name)
+        if config_file_path:
+            try:
+                return StateMachineConfigLoader.load_from_yaml(config_file_path)
+            except Exception as e:
+                logger.warning(f"从配置文件加载状态机配置失败: {e}，使用默认配置")
+        
+        # 默认配置
+        return StateMachineConfig(
+            name=workflow_name,
+            description=f"{workflow_name} 状态机工作流",
             version="1.0.0",
-            initial_state="initial"
+            initial_state="start"
         )
-        
-        # 定义状态
-        states = [
-            StateDefinition("initial", StateType.START, description="初始状态"),
-            StateDefinition("problem_analysis", StateType.PROCESS, description="问题分析"),
-            StateDefinition("plan_generation", StateType.PROCESS, description="计划生成"),
-            StateDefinition("deep_thinking", StateType.PROCESS, description="深度思考"),
-            StateDefinition("solution_validation", StateType.PROCESS, description="方案验证"),
-            StateDefinition("final", StateType.END, description="最终状态")
-        ]
-        
-        # 添加状态
-        for state in states:
-            config.add_state(state)
-        
-        # 定义转移
-        initial_state = config.get_state("initial")
-        if initial_state:
-            initial_state.add_transition(Transition("problem_analysis"))
-        
-        problem_state = config.get_state("problem_analysis")
-        if problem_state:
-            problem_state.add_transition(Transition("plan_generation"))
-        
-        plan_state = config.get_state("plan_generation")
-        if plan_state:
-            plan_state.add_transition(Transition("deep_thinking"))
-        
-        thinking_state = config.get_state("deep_thinking")
-        if thinking_state:
-            thinking_state.add_transition(Transition("solution_validation"))
-        
-        validation_state = config.get_state("solution_validation")
-        if validation_state:
-            validation_state.add_transition(Transition("final"))
-        
-        return config
     
-    def _create_ultra_thinking_config(self) -> StateMachineConfig:
-        """创建超思考工作流的状态机配置"""
-        config = StateMachineConfig(
-            name="ultra_thinking",
-            description="超思考工作流状态机",
-            version="1.0.0",
-            initial_state="initial"
-        )
-        
-        # 定义状态
-        states = [
-            StateDefinition("initial", StateType.START, description="初始状态"),
-            StateDefinition("problem_analysis", StateType.PROCESS, description="问题分析"),
-            StateDefinition("plan_generation", StateType.PROCESS, description="计划生成"),
-            StateDefinition("ultra_thinking", StateType.PROCESS, description="超思考"),
-            StateDefinition("solution_validation", StateType.PROCESS, description="方案验证"),
-            StateDefinition("final", StateType.END, description="最终状态")
-        ]
-        
-        # 添加状态
-        for state in states:
-            config.add_state(state)
-        
-        # 定义转移
-        initial_state = config.get_state("initial")
-        if initial_state:
-            initial_state.add_transition(Transition("problem_analysis"))
-        
-        problem_state = config.get_state("problem_analysis")
-        if problem_state:
-            problem_state.add_transition(Transition("plan_generation"))
-        
-        plan_state = config.get_state("plan_generation")
-        if plan_state:
-            plan_state.add_transition(Transition("ultra_thinking"))
-        
-        ultra_state = config.get_state("ultra_thinking")
-        if ultra_state:
-            ultra_state.add_transition(Transition("solution_validation"))
-        
-        validation_state = config.get_state("solution_validation")
-        if validation_state:
-            validation_state.add_transition(Transition("final"))
-        
-        return config
 
 
 class StateMachineConfigLoader:
@@ -306,10 +220,31 @@ class StateMachineConfigLoader:
             initial_state=data.get('initial_state', 'initial')
         )
         
+        # 状态类型映射：将配置文件中的状态类型映射到StateType枚举
+        state_type_mapping = {
+            'start': StateType.START,
+            'end': StateType.END,
+            'process': StateType.PROCESS,
+            'decision': StateType.DECISION,
+            'parallel': StateType.PARALLEL,
+            'conditional': StateType.CONDITIONAL,
+            # 映射配置文件中使用的节点类型到PROCESS类型
+            'llm_node': StateType.PROCESS,
+            'analysis_node': StateType.PROCESS,
+            'deep_thinking_node': StateType.PROCESS,
+            'agent_configuration_node': StateType.PROCESS,
+            'parallel_node': StateType.PARALLEL,
+            'solution_integration_node': StateType.PROCESS,
+            'collaborative_validation_node': StateType.PROCESS
+        }
+        
         # 解析状态
         states_data = data.get('states', {})
         for state_name, state_data in states_data.items():
-            state_type = StateType(state_data.get('type', 'process'))
+            # 获取状态类型，如果不在映射中则默认为PROCESS
+            state_type_str = state_data.get('type', 'process')
+            state_type = state_type_mapping.get(state_type_str, StateType.PROCESS)
+            
             state_def = StateDefinition(
                 name=state_name,
                 state_type=state_type,
