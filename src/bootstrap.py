@@ -79,6 +79,8 @@ class ApplicationBootstrap:
             self._configure_container(app_config)
             
             # 6. 初始化生命周期管理器
+            # 7. 初始化注册管理器
+            self._initialize_registry_manager()
             self._initialize_lifecycle_manager()
             
             # 7. 启动核心服务
@@ -254,6 +256,25 @@ class ApplicationBootstrap:
         except Exception as e:
             logger.warning(f"生命周期管理器初始化失败: {e}")
     
+    def _initialize_registry_manager(self) -> None:
+        """初始化注册管理器"""
+        try:
+            if self.container:
+                from src.infrastructure.registry.module_registry_manager import ModuleRegistryManager
+                
+                if self.container.has_service(ModuleRegistryManager):
+                    registry_manager = self.container.get(ModuleRegistryManager)
+                    
+                    # 确保注册管理器已初始化
+                    if not registry_manager.initialized:
+                        registry_manager.initialize()
+                    
+                    logger.info("注册管理器初始化完成")
+                else:
+                    logger.warning("注册管理器未注册到容器")
+        except Exception as e:
+            logger.warning(f"注册管理器初始化失败: {e}")
+    
     def _register_lifecycle_services(self) -> None:
         """注册生命周期感知的服务"""
         if not self.lifecycle_manager or not self.container:
@@ -346,9 +367,6 @@ class ApplicationBootstrap:
         # 自动注册组件
         if "workflow_templates" in auto_register:
             self._register_workflow_templates()
-        
-        if "agent_types" in auto_register:
-            self._register_agent_types()
         
         if "tool_types" in auto_register:
             self._register_tool_types()
@@ -459,42 +477,7 @@ class ApplicationBootstrap:
             logger.info("工作流模板注册完成")
         except Exception as e:
             logger.warning(f"注册工作流模板失败: {e}")
-    
-    def _register_agent_types(self) -> None:
-        """注册Agent类型"""
-        try:
-            from src.domain.agent.factory import AgentFactory
-            from src.domain.agent.interfaces import IAgentFactory
-            
-            # 注册Agent工厂
-            if self.container:
-                if not self.container.has_service(IAgentFactory):
-                    # 简化的依赖获取
-                    llm_factory = None
-                    tool_executor = None
-                    
-                    try:
-                        from src.infrastructure.llm.interfaces import ILLMClientFactory
-                        if self.container.has_service(ILLMClientFactory):
-                            llm_factory = self.container.get(ILLMClientFactory)
-                    except ImportError:
-                        pass
-                    
-                    try:
-                        from src.domain.tools.interfaces import IToolExecutor
-                        if self.container.has_service(IToolExecutor):
-                            tool_executor = self.container.get(IToolExecutor)
-                    except ImportError:
-                        pass
-                    
-                    if llm_factory and tool_executor:
-                        agent_factory = AgentFactory(llm_factory, tool_executor)
-                        self.container.register_instance(IAgentFactory, agent_factory)
-            
-            logger.info("Agent类型注册完成")
-        except Exception as e:
-            logger.warning(f"注册Agent类型失败: {e}")
-    
+
     def _register_tool_types(self) -> None:
         """注册工具类型"""
         try:

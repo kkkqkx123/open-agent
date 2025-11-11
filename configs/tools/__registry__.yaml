@@ -1,0 +1,105 @@
+# 工具注册表配置
+# 定义工具类型注册信息和配置文件引用
+
+metadata:
+  name: "tools_registry"
+  version: "1.0.0"
+  description: "工具类型注册表"
+  author: "system"
+
+# 工具类型注册
+tool_types:
+  # 内置工具类型
+  builtin:
+    class_path: "src.domain.tools.types.builtin_tool:SyncBuiltinTool"
+    description: "内置工具类型"
+    enabled: true
+    config_files:
+      - "calculator.yaml"
+    
+  # 原生工具类型
+  native:
+    class_path: "src.domain.tools.types.native_tool:NativeTool"
+    description: "原生工具类型"
+    enabled: true
+    config_files:
+      - "fetch.yaml"
+      - "database.yaml"
+      - "weather.yaml"
+      - "time_tool.yaml"
+    
+  # MCP工具类型
+  mcp:
+    class_path: "src.domain.tools.types.mcp_tool:MCPTool"
+    description: "MCP工具类型"
+    enabled: true
+    config_files: []
+    
+  # 哈希转换工具类型
+  hash_convert:
+    class_path: "src.domain.tools.types.native_tool:NativeTool"
+    description: "哈希转换工具"
+    enabled: true
+    config_files:
+      - "hash_convert.yaml"
+    
+  # 顺序思考工具类型
+  sequentialthinking:
+    class_path: "src.domain.tools.types.native_tool:NativeTool"
+    description: "顺序思考工具"
+    enabled: true
+    config_files:
+      - "sequentialthinking.yaml"
+    
+  # 搜索工具类型
+  search:
+    class_path: "src.domain.tools.types.native_tool:NativeTool"
+    description: "搜索工具"
+    enabled: true
+    config_files:
+      - "duckduckgo_search.yaml"
+
+# 工具集注册
+tool_sets:
+  basic_tools:
+    description: "基础工具集"
+    enabled: true
+    tools:
+      - "calculator"
+      - "fetch"
+      - "weather"
+      - "time_tool"
+    
+  advanced_tools:
+    description: "高级工具集"
+    enabled: true
+    tools:
+      - "hash_convert"
+      - "sequentialthinking"
+      - "duckduckgo_search"
+      - "database"
+
+# 配置验证规则
+validation_rules:
+  - field: "tool_types.*.class_path"
+    rule_type: "required"
+    message: "工具类型必须指定类路径"
+  - field: "tool_types.*.enabled"
+    rule_type: "boolean"
+    message: "启用状态必须是布尔值"
+  - field: "tool_sets.*.tools"
+    rule_type: "list"
+    message: "工具集必须包含工具列表"
+
+# 自动发现配置
+auto_discovery:
+  enabled: true
+  scan_directories:
+    - "configs/tools"
+  file_patterns:
+    - "*.yaml"
+    - "*.yml"
+  exclude_patterns:
+    - "__*"
+    - "_*"
+    - "test_*"

@@ -1,0 +1,54 @@
+# 状态机工作流注册表配置
+# 专门管理状态机工作流配置文件
+
+metadata:
+  name: "state_machine_workflows_registry"
+  version: "1.0.0"
+  description: "状态机工作流注册表"
+  author: "system"
+
+# 状态机工作流配置文件列表
+config_files:
+  # 深度思考工作流
+  deep_thinking_workflow:
+    file_path: "deep_thinking_workflow.yaml"
+    description: "深度思考工作流配置"
+    enabled: true
+    
+  deep_thinking_workflow_converted:
+    file_path: "deep_thinking_workflow_converted.yaml"
+    description: "转换后的深度思考工作流配置"
+    enabled: true
+    
+  # 超级思考工作流
+  ultra_thinking_workflow:
+    file_path: "ultra_thinking_workflow.yaml"
+    description: "超级思考工作流配置"
+    enabled: true
+    
+  ultra_thinking_workflow_converted:
+    file_path: "ultra_thinking_workflow_converted.yaml"
+    description: "转换后的超级思考工作流配置"
+    enabled: true
+
+# 配置验证规则
+validation_rules:
+  - field: "config_files.*.file_path"
+    rule_type: "required"
+    message: "配置文件必须指定文件路径"
+  - field: "config_files.*.enabled"
+    rule_type: "boolean"
+    message: "启用状态必须是布尔值"
+
+# 自动发现配置
+auto_discovery:
+  enabled: true
+  scan_directories:
+    - "configs/workflows"
+  file_patterns:
+    - "*thinking*.yaml"
+    - "*thinking*.yml"
+  exclude_patterns:
+    - "__*"
+    - "_*"
+    - "test_*"

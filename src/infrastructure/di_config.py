@@ -10,6 +10,9 @@ from pathlib import Path
 from .container import IDependencyContainer, DependencyContainer, ServiceLifetime
 from .config_loader import IConfigLoader, YamlConfigLoader
 from .monitoring.di_config import MonitoringModule
+from .registry.module_registry_manager import ModuleRegistryManager
+from .registry.config_parser import ConfigParser
+from .registry.dynamic_importer import DynamicImporter
 from .graph.registry import NodeRegistry
 from src.application.sessions.manager import ISessionManager, SessionManager
 from src.application.workflow.manager import IWorkflowManager, WorkflowManager
@@ -44,6 +47,7 @@ class DIConfig:
         self._config_loader: Optional[IConfigLoader] = None
         self._node_registry: Optional[NodeRegistry] = None
         self._session_store: Optional[ISessionStore] = None
+        self._config_path: str = "configs"
         
     def configure_core_services(
         self,
@@ -64,11 +68,16 @@ class DIConfig:
         # 设置环境
         self.container.set_environment(environment)
         
+        # 保存配置路径
+        self._config_path = config_path
+        
         # 注册配置加载器
         self._register_config_loader(config_path)
         
         # 注册节点注册表
         self._register_node_registry()
+        # 注册注册表服务
+        self._register_registry_services()
         
         # 注册状态管理器
         self._register_state_manager()
@@ -133,6 +142,51 @@ class DIConfig:
     
     def _register_node_registry(self) -> None:
         """注册节点注册表"""
+        if not self.container.has_service(NodeRegistry):
+            node_registry = NodeRegistry()
+            self.container.register_instance(NodeRegistry, node_registry)
+            self._node_registry = node_registry
+            logger.debug("节点注册表注册完成")
+    
+    def _register_registry_services(self) -> None:
+        """注册注册表相关服务"""
+        try:
+            # 注册动态导入器
+            if not self.container.has_service(DynamicImporter):
+                self.container.register_factory(
+                    DynamicImporter,
+                    lambda: DynamicImporter(),
+                    lifetime=ServiceLifetime.SINGLETON
+                )
+                logger.debug("动态导入器注册完成")
+            
+            # 注册配置解析器
+            if not self.container.has_service(ConfigParser):
+                self.container.register_factory(
+                    ConfigParser,
+                    lambda: ConfigParser(base_path=self._config_path),
+                    lifetime=ServiceLifetime.SINGLETON
+                )
+                logger.debug("配置解析器注册完成")
+            
+            # 注册模块注册管理器
+            if not self.container.has_service(ModuleRegistryManager):
+                def create_registry_manager() -> ModuleRegistryManager:
+                    return ModuleRegistryManager(base_path=self._config_path)
+                
+                self.container.register_factory(
+                    ModuleRegistryManager,
+                    create_registry_manager,
+                    lifetime=ServiceLifetime.SINGLETON
+                )
+                logger.debug("模块注册管理器注册完成")
+            
+            # 初始化注册管理器
+            registry_manager = self.container.get(ModuleRegistryManager)
+            registry_manager.initialize()
+            
+        except Exception as e:
+            logger.warning(f"注册表服务注册失败: {e}")
         if not self.container.has_service(NodeRegistry):
             node_registry = NodeRegistry()
             self.container.register_instance(NodeRegistry, node_registry)
@@ -231,6 +285,53 @@ class DIConfig:
                 lifetime=ServiceLifetime.SINGLETON
             )
             logger.debug("工作流注册表注册完成")
+        # 注册工作流工厂（使用注册管理器）
+        try:
+            from src.application.workflow.factory import WorkflowFactory
+            if not self.container.has_service(WorkflowFactory):
+                def create_workflow_factory() -> WorkflowFactory:
+                    registry_manager = None
+                    if self.container.has_service(ModuleRegistryManager):
+                        registry_manager = self.container.get(ModuleRegistryManager)
+                    
+                    return WorkflowFactory(
+                        container=self.container,
+                        config_loader=self._config_loader,
+                        registry_manager=registry_manager
+                    )
+                
+                self.container.register_factory(
+                    WorkflowFactory,
+                    create_workflow_factory,
+                    lifetime=ServiceLifetime.SINGLETON
+                )
+                logger.debug("工作流工厂注册完成")
+        except ImportError as e:
+            logger.warning(f"工作流工厂不可用: {e}")
+        
+        # 注册状态机工作流工厂（使用注册管理器）
+        try:
+            from src.application.workflow.state_machine.state_machine_workflow_factory import StateMachineWorkflowFactory
+            if not self.container.has_service(StateMachineWorkflowFactory):
+                def create_state_machine_workflow_factory() -> StateMachineWorkflowFactory:
+                    registry_manager = None
+                    if self.container.has_service(ModuleRegistryManager):
+                        registry_manager = self.container.get(ModuleRegistryManager)
+                    
+                    return StateMachineWorkflowFactory(
+                        config_loader=self._config_loader,
+                        container=self.container,
+                        registry_manager=registry_manager
+                    )
+                
+                self.container.register_factory(
+                    StateMachineWorkflowFactory,
+                    create_state_machine_workflow_factory,
+                    lifetime=ServiceLifetime.SINGLETON
+                )
+                logger.debug("状态机工作流工厂注册完成")
+        except ImportError as e:
+            logger.warning(f"状态机工作流工厂不可用: {e}")
         
         if not self.container.has_service(IWorkflowManager):
             # 使用工厂方法注册，确保依赖注入
@@ -311,6 +412,31 @@ class DIConfig:
         except ImportError as e:
             logger.warning(f"工具管理器不可用: {e}")
         except Exception as e:
+            logger.warning(f"工具管理器异常: {e}")
+        
+        # 注册工具工厂（使用注册管理器）
+        try:
+            from src.domain.tools.factory import ToolFactory
+            if not self.container.has_service(ToolFactory):
+                def create_tool_factory() -> ToolFactory:
+                    registry_manager = None
+                    if self.container.has_service(ModuleRegistryManager):
+                        registry_manager = self.container.get(ModuleRegistryManager)
+                    
+                    return ToolFactory(
+                        config={},
+                        state_manager=None,
+                        registry_manager=registry_manager
+                    )
+                
+                self.container.register_factory(
+                    ToolFactory,
+                    create_tool_factory,
+                    lifetime=ServiceLifetime.SINGLETON
+                )
+                logger.debug("工具工厂注册完成")
+        except ImportError as e:
+            logger.warning(f"工具工厂不可用: {e}")
             logger.warning(f"工具管理器注册失败: {e}")
      
     def _register_tool_validation_services(self) -> None:

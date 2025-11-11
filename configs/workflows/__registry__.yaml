@@ -1,0 +1,100 @@
+# 工作流注册表配置
+# 定义工作流类型注册信息和配置文件引用
+
+metadata:
+  name: "workflows_registry"
+  version: "1.0.0"
+  description: "工作流类型注册表"
+  author: "system"
+
+# 工作流类型注册
+workflow_types:
+  # 基础工作流类型
+  base:
+    class_path: "src.application.workflow.factory:BaseWorkflow"
+    description: "基础工作流类型"
+    enabled: true
+    config_files:
+      - "base_workflow.yaml"
+    
+  # ReAct工作流类型
+  react:
+    class_path: "src.application.workflow.factory:ReActWorkflow"
+    description: "ReAct模式工作流"
+    enabled: true
+    config_files:
+      - "react_workflow.yaml"
+      - "react_agent_workflow.yaml"
+    
+  # 计划执行工作流类型
+  plan_execute:
+    class_path: "src.application.workflow.factory:PlanExecuteWorkflow"
+    description: "计划执行工作流"
+    enabled: true
+    config_files:
+      - "plan_execute.yaml"
+      - "plan_execute_agent_workflow.yaml"
+    
+  # 协作工作流类型
+  collaborative:
+    class_path: "src.application.workflow.collaborative:CollaborativeWorkflow"
+    description: "协作工作流"
+    enabled: true
+    config_files:
+      - "collaborative.yaml"
+    
+  # 人工审核工作流类型
+  human_review:
+    class_path: "src.application.workflow.human_review:HumanReviewWorkflow"
+    description: "人工审核工作流"
+    enabled: true
+    config_files:
+      - "human_review.yaml"
+    
+  # 深度思考工作流类型
+  deep_thinking:
+    class_path: "src.application.workflow.state_machine.state_machine_workflow:StateMachineWorkflow"
+    description: "深度思考工作流"
+    enabled: true
+    config_files:
+      - "deep_thinking_workflow.yaml"
+      - "deep_thinking_workflow_converted.yaml"
+    
+  # 超级思考工作流类型
+  ultra_thinking:
+    class_path: "src.application.workflow.state_machine.state_machine_workflow:StateMachineWorkflow"
+    description: "超级思考工作流"
+    enabled: true
+    config_files:
+      - "ultra_thinking_workflow.yaml"
+      - "ultra_thinking_workflow_converted.yaml"
+
+# 状态机工作流注册表
+state_machine_workflows:
+  registry_file: "state_machine/__registry__.yaml"
+  
+# 配置验证规则
+validation_rules:
+  - field: "workflow_types.*.class_path"
+    rule_type: "required"
+    message: "工作流类型必须指定类路径"
+  - field: "workflow_types.*.config_files"
+    rule_type: "required"
+    message: "工作流类型必须指定配置文件列表"
+  - field: "workflow_types.*.enabled"
+    rule_type: "boolean"
+    message: "启用状态必须是布尔值"
+
+# 自动发现配置
+auto_discovery:
+  enabled: true
+  scan_directories:
+    - "configs/workflows"
+    - "configs/workflows/examples"
+  file_patterns:
+    - "*.yaml"
+    - "*.yml"
+  exclude_patterns:
+    - "__*"
+    - "_*"
+    - "test_*"

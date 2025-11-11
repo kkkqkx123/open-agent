@@ -17,6 +17,16 @@ except ImportError:
     # 如果无法导入，使用动态创建
     _config_imported = False
 
+# 导入注册管理器
+try:
+    from src.infrastructure.registry.module_registry_manager import ModuleRegistryManager
+    from src.infrastructure.registry.dynamic_importer import DynamicImporter
+    _registry_imported = True
+except ImportError:
+    ModuleRegistryManager = None  # type: ignore
+    DynamicImporter = None  # type: ignore
+    _registry_imported = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,20 +39,34 @@ class ToolFactory(IToolFactory):
     def __init__(
         self,
         config: Optional[Dict[str, Any]] = None,
-        state_manager: Optional[Any] = None
+        state_manager: Optional[Any] = None,
+        registry_manager: Optional[Any] = None
     ):
         """初始化工具工厂
 
         Args:
             config: 工厂配置
             state_manager: 状态管理器实例（可选）
+            registry_manager: 模块注册管理器
         """
         self.config = config or {}
         self.state_manager = state_manager
+        self.registry_manager = registry_manager
         
         # 注册支持的工具类型（使用延迟导入避免循环依赖）
         self._tool_types: Dict[str, Type[ITool]] = {}
-        self._register_default_tool_types()
+        
+        # 动态导入器
+        self.dynamic_importer: Optional[Any] = None
+        if _registry_imported and DynamicImporter is not None:
+            self.dynamic_importer = DynamicImporter()
+        
+        # 初始化注册管理器
+        if self.registry_manager and _registry_imported:
+            self._initialize_from_registry()
+        else:
+            # 注册默认工具类型（向后兼容）
+            self._register_default_tool_types()
         
         # 工具实例缓存（可选，用于性能优化）
         self._tool_cache: Dict[str, ITool] = {}
@@ -64,10 +88,10 @@ class ToolFactory(IToolFactory):
             logger.warning("无法导入 MCPTool")
         
         try:
-            from .types.builtin_tool import BuiltinTool
-            self._tool_types["builtin"] = BuiltinTool
+            from .types.builtin_tool import SyncBuiltinTool
+            self._tool_types["builtin"] = SyncBuiltinTool
         except ImportError:
-            logger.warning("无法导入 BuiltinTool")
+            logger.warning("无法导入 SyncBuiltinTool")
     
     def create_tool(self, tool_config: Dict[str, Any]) -> ITool:
         """根据配置创建工具实例
@@ -265,7 +289,7 @@ class ToolFactory(IToolFactory):
                 })()
                 return tool_class(mcp_config)  # type: ignore
             elif config.tool_type == "builtin":
-                # BuiltinTool 需要一个函数和配置对象
+                # SyncBuiltinTool 需要一个函数和配置对象
                 builtin_func = getattr(config, 'function', lambda: None)
                 builtin_config = type('BuiltinToolConfig', (), {
                     'name': config.name,
@@ -313,6 +337,135 @@ class ToolFactory(IToolFactory):
         # 可以根据配置决定是否缓存
         # 目前默认缓存无状态工具
         return config.tool_type in ["builtin"]
+    
+    def _initialize_from_registry(self) -> None:
+        """从注册管理器初始化工具类型
+        
+        从模块注册管理器中加载工具类型信息并注册。
+        """
+        if not self.registry_manager or not _registry_imported:
+            logger.warning("注册管理器未初始化或不可用")
+            return
+        
+        try:
+            # 获取工具类型信息
+            tool_types = self.registry_manager.get_tool_types()
+            
+            for type_name, type_info in tool_types.items():
+                if not type_info.enabled:
+                    logger.debug(f"跳过禁用的工具类型: {type_name}")
+                    continue
+                
+                try:
+                    # 动态导入工具类
+                    if self.dynamic_importer is None:
+                        logger.error("动态导入器未初始化")
+                        continue
+                    tool_class = self.dynamic_importer.import_class(type_info.class_path)
+                    
+                    # 注册工具类型
+                    self.register_tool_type(type_name, tool_class)
+                    
+                    logger.info(f"从注册表加载工具类型: {type_name} -> {type_info.class_path}")
+                    
+                except Exception as e:
+                    logger.error(f"加载工具类型失败: {type_name}, 错误: {e}")
+            
+            logger.info(f"从注册表初始化完成，加载了 {len(self._tool_types)} 个工具类型")
+            
+        except Exception as e:
+            logger.error(f"从注册表初始化失败: {e}")
+            # 降级到默认工具类型
+            self._register_default_tool_types()
+    
+    def create_tool_from_registry(self, tool_name: str) -> ITool:
+        """从注册表创建工具实例
+        
+        Args:
+            tool_name: 工具名称
+            
+        Returns:
+            ITool: 工具实例
+            
+        Raises:
+            ValueError: 工具不存在或创建失败
+        """
+        if not self.registry_manager:
+            raise ValueError("注册管理器未初始化")
+        
+        # 获取工具配置
+        tool_config = self.registry_manager.get_tool_config(tool_name)
+        if not tool_config:
+            raise ValueError(f"工具配置不存在: {tool_name}")
+        
+        # 创建工具实例
+        return self.create_tool(tool_config)
+    
+    def create_tools_from_set(self, set_name: str) -> List[ITool]:
+        """从工具集创建工具实例
+        
+        Args:
+            set_name: 工具集名称
+            
+        Returns:
+            List[ITool]: 工具实例列表
+            
+        Raises:
+            ValueError: 工具集不存在或创建失败
+        """
+        if not self.registry_manager:
+            raise ValueError("注册管理器未初始化")
+        
+        # 获取工具集配置
+        tool_set = self.registry_manager.get_tool_set(set_name)
+        if not tool_set:
+            raise ValueError(f"工具集不存在: {set_name}")
+        
+        if not tool_set.get("enabled", True):
+            raise ValueError(f"工具集已禁用: {set_name}")
+        
+        # 创建工具实例
+        tools = []
+        tool_names = tool_set.get("tools", [])
+        
+        for tool_name in tool_names:
+            try:
+                tool = self.create_tool_from_registry(tool_name)
+                tools.append(tool)
+            except Exception as e:
+                logger.error(f"从工具集创建工具失败: {tool_name}, 错误: {e}")
+                # 可以选择继续创建其他工具，或者抛出异常
+                continue
+        
+        return tools
+    
+    def reload_from_registry(self) -> None:
+        """从注册表重新加载工具类型
+        
+        清除当前注册的工具类型并重新从注册表加载。
+        """
+        if not self.registry_manager or not _registry_imported:
+            logger.warning("注册管理器未初始化或不可用")
+            return
+        
+        logger.info("重新从注册表加载工具类型")
+        
+        # 清除当前注册的工具类型
+        self._tool_types.clear()
+        
+        # 重新初始化
+        self._initialize_from_registry()
+    
+    def get_registry_info(self) -> Optional[Dict[str, Any]]:
+        """获取注册表信息
+        
+        Returns:
+            Optional[Dict[str, Any]]: 注册表信息，如果注册管理器未初始化则返回None
+        """
+        if not self.registry_manager:
+            return None
+        
+        return self.registry_manager.get_registry_info()
 
 
 class ToolConfig:
@@ -379,6 +532,7 @@ def get_global_factory() -> ToolFactory:
     if _global_factory is None:
         _global_factory = ToolFactory()
     return _global_factory
+
 
 
 def set_global_factory(factory: ToolFactory) -> None:

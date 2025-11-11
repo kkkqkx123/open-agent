@@ -12,6 +12,9 @@ from ...infrastructure.graph.states import WorkflowState
 from ...infrastructure.graph.config import WorkflowConfig
 from ...infrastructure.config_loader import IConfigLoader
 from ...infrastructure.container import IDependencyContainer
+from ...infrastructure.registry.module_registry_manager import ModuleRegistryManager
+from ...infrastructure.registry.dynamic_importer import DynamicImporter
+from ...infrastructure.registry.hot_reload_listener import HotReloadManager, HotReloadEvent
 
 logger = logging.getLogger(__name__)
 
@@ -22,20 +25,34 @@ class WorkflowFactory(IWorkflowFactory):
     def __init__(
         self,
         container: Optional[IDependencyContainer] = None,
-        config_loader: Optional[IConfigLoader] = None
+        config_loader: Optional[IConfigLoader] = None,
+        registry_manager: Optional[ModuleRegistryManager] = None
     ):
         """初始化工作流工厂
         
         Args:
             container: 依赖注入容器
             config_loader: 配置加载器
+            registry_manager: 模块注册管理器
         """
         self.container = container
         self.config_loader = config_loader
+        self.registry_manager = registry_manager
+        self.dynamic_importer = DynamicImporter()
+        
+        # 工作流类型注册表
         self._workflow_types: Dict[str, Type] = {}
         
-        # 注册内置工作流类型
-        self._register_builtin_workflows()
+        # 热重载管理器
+        self.hot_reload_manager: Optional[HotReloadManager] = None
+        
+        # 初始化注册管理器
+        if self.registry_manager:
+            self._initialize_from_registry()
+            self._setup_hot_reload()
+        else:
+            # 注册内置工作流类型（向后兼容）
+            self._register_builtin_workflows()
     
     def create_workflow(self, config: WorkflowConfig) -> Any:
         """创建工作流实例
@@ -121,6 +138,167 @@ class WorkflowFactory(IWorkflowFactory):
         
         # 转换为WorkflowConfig对象
         return WorkflowConfig.from_dict(config_data)
+    
+    def _initialize_from_registry(self) -> None:
+        """从注册管理器初始化工作流类型
+        
+        从模块注册管理器中加载工作流类型信息并注册。
+        """
+        if not self.registry_manager:
+            logger.warning("注册管理器未初始化")
+            return
+        
+        try:
+            # 获取工作流类型信息
+            workflow_types = self.registry_manager.get_workflow_types()
+            
+            for type_name, type_info in workflow_types.items():
+                if not type_info.enabled:
+                    logger.debug(f"跳过禁用的工作流类型: {type_name}")
+                    continue
+                
+                try:
+                    # 动态导入工作流类
+                    workflow_class = self.dynamic_importer.import_class(type_info.class_path)
+                    
+                    # 注册工作流类型
+                    self.register_workflow_type(type_name, workflow_class)
+                    
+                    logger.info(f"从注册表加载工作流类型: {type_name} -> {type_info.class_path}")
+                    
+                except Exception as e:
+                    logger.error(f"加载工作流类型失败: {type_name}, 错误: {e}")
+            
+            logger.info(f"从注册表初始化完成，加载了 {len(self._workflow_types)} 个工作流类型")
+            
+        except Exception as e:
+            logger.error(f"从注册表初始化失败: {e}")
+            # 降级到内置工作流类型
+            self._register_builtin_workflows()
+    
+    def create_workflow_from_registry(self, workflow_name: str) -> Any:
+        """从注册表创建工作流实例
+        
+        Args:
+            workflow_name: 工作流名称
+            
+        Returns:
+            工作流实例
+            
+        Raises:
+            ValueError: 工作流不存在或创建失败
+        """
+        if not self.registry_manager:
+            raise ValueError("注册管理器未初始化")
+        
+        # 获取工作流配置
+        workflow_config = self.registry_manager.get_workflow_config(workflow_name)
+        if not workflow_config:
+            raise ValueError(f"工作流配置不存在: {workflow_name}")
+        
+        # 转换为WorkflowConfig对象
+        config = WorkflowConfig.from_dict(workflow_config)
+        
+        # 创建工作流实例
+        return self.create_workflow(config)
+    
+    def reload_from_registry(self) -> None:
+        """从注册表重新加载工作流类型
+        
+        清除当前注册的工作流类型并重新从注册表加载。
+        """
+        if not self.registry_manager:
+            logger.warning("注册管理器未初始化")
+            return
+        
+        logger.info("重新从注册表加载工作流类型")
+        
+        # 清除当前注册的工作流类型
+        self._workflow_types.clear()
+        
+        # 重新初始化
+        self._initialize_from_registry()
+    
+    def get_registry_info(self) -> Optional[Dict[str, Any]]:
+        """获取注册表信息
+        
+        Returns:
+            Optional[Dict[str, Any]]: 注册表信息，如果注册管理器未初始化则返回None
+        """
+        if not self.registry_manager:
+            return None
+        
+        return self.registry_manager.get_registry_info()
+    
+    def _setup_hot_reload(self) -> None:
+        """设置热重载功能"""
+        try:
+            # 创建热重载管理器
+            self.hot_reload_manager = HotReloadManager()
+            
+            # 添加监听器
+            self.hot_reload_manager.add_listener(
+                watch_paths=["configs/workflows"],
+                file_patterns=[r".*\.ya?ml$"],
+                exclude_patterns=[r".*\.tmp$", r".*\.swp$", r".*~$"]
+            )
+            
+            # 添加热重载回调
+            self.hot_reload_manager.add_callback(self._handle_hot_reload_event)
+            
+            # 启动热重载
+            self.hot_reload_manager.start()
+            
+            logger.info("工作流工厂热重载已启用")
+            
+        except Exception as e:
+            logger.warning(f"设置工作流工厂热重载失败: {e}")
+    
+    def _handle_hot_reload_event(self, event: HotReloadEvent) -> None:
+        """处理热重载事件
+        
+        Args:
+            event: 热重载事件
+        """
+        try:
+            logger.info(f"工作流工厂收到热重载事件: {event}")
+            
+            # 检查是否是注册表文件
+            if "__registry__.yaml" in event.file_path:
+                logger.info("检测到注册表文件变化，重新加载工作流类型")
+                self.reload_from_registry()
+                return
+            
+            # 检查是否是工作流配置文件
+            if event.file_path.startswith("configs/workflows/"):
+                # 清除相关配置缓存
+                if self.registry_manager:
+                    self.registry_manager.clear_cache()
+                
+                logger.info(f"工作流配置文件已更新: {event.file_path}")
+            
+        except Exception as e:
+            logger.error(f"处理热重载事件失败: {e}")
+    
+    def enable_hot_reload(self) -> None:
+        """启用热重载"""
+        if not self.hot_reload_manager and self.registry_manager:
+            self._setup_hot_reload()
+        elif self.hot_reload_manager and not self.hot_reload_manager.is_running:
+            self.hot_reload_manager.start()
+    
+    def disable_hot_reload(self) -> None:
+        """禁用热重载"""
+        if self.hot_reload_manager:
+            self.hot_reload_manager.stop()
+    
+    def is_hot_reload_enabled(self) -> bool:
+        """检查热重载是否启用
+        
+        Returns:
+            bool: 是否启用
+        """
+        return self.hot_reload_manager is not None and self.hot_reload_manager.is_running
 
 
 class BaseWorkflow:

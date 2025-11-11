@@ -19,7 +19,7 @@ from .interfaces import (
 from .base import BaseTool
 from .types.native_tool import NativeTool
 from .types.mcp_tool import MCPTool
-from .types.builtin_tool import BuiltinTool
+from .types.builtin_tool import SyncBuiltinTool, AsyncBuiltinTool, BuiltinToolFactory
 from .factory import ToolFactory, ToolConfig, get_global_factory, set_global_factory, create_tool
 
 __all__ = [
@@ -36,7 +36,9 @@ __all__ = [
     # 工具类型
     "NativeTool",
     "MCPTool",
-    "BuiltinTool",
+    "SyncBuiltinTool",
+    "AsyncBuiltinTool",
+    "BuiltinToolFactory",
     # 工厂
     "ToolFactory",
     "ToolConfig",
