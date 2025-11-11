@@ -63,17 +63,19 @@ class BaseTool(ITool, ABC):
         """
         pass
 
-    @abstractmethod
     async def execute_async(self, **kwargs: Any) -> Any:
-        """异步执行工具
-
+        """异步执行工具（默认实现）
+        
+        默认实现使用线程池执行同步方法，子类可以重写此方法提供真正的异步实现。
+        
         Args:
             **kwargs: 工具参数
-
+            
         Returns:
             Any: 执行结果
         """
-        pass
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, lambda: self.execute(**kwargs))
 
     def get_schema(self) -> Dict[str, Any]:
         """获取工具Schema
