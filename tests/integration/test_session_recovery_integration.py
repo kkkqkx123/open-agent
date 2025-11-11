@@ -119,10 +119,10 @@ class TestSessionRecoveryIntegration:
         return FileSessionStore(storage_path=sessions_dir)
 
     @pytest.fixture
-    def session_manager(self, workflow_manager, session_store, sessions_dir):
+    def session_manager(self, thread_manager, session_store, sessions_dir):
         """创建会话管理器"""
         return SessionManager(
-            workflow_manager=workflow_manager,
+            thread_manager=thread_manager,
             session_store=session_store,
             storage_path=sessions_dir
         )

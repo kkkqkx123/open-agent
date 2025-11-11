@@ -134,7 +134,7 @@ class ComponentAssembler(IComponentAssembler):
             "ILLMFactory": self._get_type_from_module("..llm.interfaces", "ILLMClientFactory"),
             "IToolFactory": self._get_type_from_module("...domain.tools.interfaces", "IToolFactory"),
             "IAgentFactory": self._get_type_from_module("...domain.agent.interfaces", "IAgentFactory"),
-            "IToolExecutor": self._get_type_from_module("..tools.interfaces", "IToolExecutor"),
+            "IToolExecutor": self._get_type_from_module("...infrastructure.tools.executor", "IToolExecutor"),
         }
         return type_mapping.get(service_name)
     
@@ -230,12 +230,12 @@ class ComponentAssembler(IComponentAssembler):
         components_config = config.get("components", {})
         
         # 3. 创建工具执行器
-        from ...infrastructure.tools.executor import ToolExecutor
+        from ...infrastructure.tools.executor import AsyncToolExecutor
         from ..logger.logger import Logger
 
         # 创建工具执行器
         tool_executor_logger = Logger("ToolExecutor")
-        tool_executor = ToolExecutor(
+        tool_executor = AsyncToolExecutor(
             tool_manager=self._factories["tool_factory"],  # 直接使用ToolFactory
             logger=tool_executor_logger
         )

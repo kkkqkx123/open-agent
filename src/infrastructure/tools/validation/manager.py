@@ -3,7 +3,7 @@
 协调各种验证器进行工具检验
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Mapping
 from pathlib import Path
 import os
 
@@ -142,7 +142,7 @@ class ToolValidationManager:
             self.logger.info(f"配置文件: {f}")
         return files
     
-    def generate_report(self, all_results: Dict[str, Dict[str, ValidationResult]], format: str = "text") -> str:
+    def generate_report(self, all_results: Mapping[str, Mapping[str, ValidationResult]], format: str = "text") -> str:
         """生成验证报告
         
         Args:
@@ -157,7 +157,7 @@ class ToolValidationManager:
         else:
             return self._generate_text_report(all_results)
     
-    def _generate_text_report(self, all_results: Dict[str, Dict[str, ValidationResult]]) -> str:
+    def _generate_text_report(self, all_results: Mapping[str, Mapping[str, ValidationResult]]) -> str:
         """生成文本格式报告
         
         Args:
@@ -200,7 +200,7 @@ class ToolValidationManager:
         
         return "\n".join(report_lines)
     
-    def _generate_json_report(self, all_results: Dict[str, Dict[str, ValidationResult]]) -> str:
+    def _generate_json_report(self, all_results: Mapping[str, Mapping[str, ValidationResult]]) -> str:
         """生成JSON格式报告
         
         Args:

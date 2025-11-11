@@ -202,14 +202,14 @@ class TestEdgeConfig:
             type=EdgeType.CONDITIONAL,
             condition="test_condition",
             description="测试边",
-            path_map=["path1", "path2"]
+            path_map={"path1": "value1", "path2": "value2"}
         )
         assert config.from_node == "node1"
         assert config.to_node == "node2"
         assert config.type == EdgeType.CONDITIONAL
         assert config.condition == "test_condition"
         assert config.description == "测试边"
-        assert config.path_map == ["path1", "path2"]
+        assert config.path_map == {"path1": "value1", "path2": "value2"}
 
     def test_from_dict_with_simple_edge(self):
         """测试从字典创建简单边"""
@@ -245,7 +245,7 @@ class TestEdgeConfig:
             type=EdgeType.CONDITIONAL,
             condition="test_condition",
             description="测试边",
-            path_map=["path1", "path2"]
+            path_map={"path1": "value1", "path2": "value2"}
         )
         result = config.to_dict()
         expected = {
@@ -254,7 +254,7 @@ class TestEdgeConfig:
             "type": "conditional",
             "condition": "test_condition",
             "description": "测试边",
-            "path_map": ["path1", "path2"]
+            "path_map": {"path1": "value1", "path2": "value2"}
         }
         assert result == expected
 

@@ -8,7 +8,7 @@ from src.infrastructure.graph.builder import GraphBuilder
 from src.infrastructure.graph.nodes import ReActAgentNode, LLMNode
 from src.infrastructure.llm.clients.mock import MockLLMClient
 from src.infrastructure.llm.config import MockConfig
-from src.infrastructure.tools.executor import ToolExecutor
+from src.infrastructure.tools.executor import AsyncToolExecutor as ToolExecutor
 from src.domain.agent.state import AgentState
 
 

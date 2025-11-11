@@ -197,13 +197,13 @@ class MockSessionManager(ISessionManager):
         
         return session_id
     
-    def create_session(
+    def create_session_legacy(
         self,
         workflow_config_path: str,
         agent_config: Optional[dict[str, Any]] = None,
         initial_state: Optional[WorkflowState] = None
     ) -> str:
-        """创建新会话"""
+        """创建新会话（向后兼容）"""
         session_id = f"session_{uuid.uuid4().hex[:8]}"
         
         if initial_state is None:
@@ -237,7 +237,7 @@ class MockSessionManager(ISessionManager):
         
         return session_id
     
-    def get_session(self, session_id: str) -> Optional[dict[str, Any]]:
+    async def get_session(self, session_id: str) -> Optional[dict[str, Any]]:
         """获取会话信息"""
         return self.session_store.get_session(session_id)
     
@@ -247,15 +247,15 @@ class MockSessionManager(ISessionManager):
         if not session_data:
             raise ValueError(f"会话 {session_id} 不存在")
         
-        metadata = session_data["metadata"]
-        config_path = metadata["workflow_config_path"]
+        metadata = session_data.get("metadata", {})
+        config_path = metadata.get("workflow_config_path")
         
         # 创建工作流
         workflow_id = self.workflow_manager.load_workflow(config_path)
         workflow = self.workflow_manager.create_workflow(workflow_id)
         
         # 返回工作流和状态
-        return workflow, session_data["state"]
+        return workflow, session_data.get("state", {})
     
     def save_session(self, session_id: str, state: WorkflowState, workflow: Any = None) -> bool:
         """保存会话"""
@@ -271,28 +271,29 @@ class MockSessionManager(ISessionManager):
         
         return True
     
-    def delete_session(self, session_id: str) -> bool:
+    async def delete_session(self, session_id: str) -> bool:
         """删除会话"""
         result = self.session_store.delete_session(session_id)
         if session_id in self._sessions:
             del self._sessions[session_id]
         return result
     
-    def list_sessions(self) -> List[dict[str, Any]]:
+    async def list_sessions(self) -> List[dict[str, Any]]:
         """列出所有会话"""
         return self.session_store.list_sessions()
     
-    def get_session_history(self, session_id: str) -> List[dict[str, Any]]:
+    async def get_session_history(self, session_id: str) -> List[dict[str, Any]]:
         """获取会话历史"""
         return []
     
-    def get_session_info(self, session_id: str) -> Optional[dict[str, Any]]:
+    async def get_session_info(self, session_id: str) -> Optional[dict[str, Any]]:
         """获取会话信息"""
-        return self.get_session(session_id)
+        return await self.get_session(session_id)
     
-    def session_exists(self, session_id: str) -> bool:
+    async def session_exists(self, session_id: str) -> bool:
         """检查会话是否存在"""
-        return self.get_session(session_id) is not None
+        session = await self.get_session(session_id)
+        return session is not None
     
     def save_session_with_metrics(self, session_id: str, state: WorkflowState, 
                                  workflow_metrics: dict[str, Any], workflow: Any = None) -> bool:
@@ -329,3 +330,111 @@ class MockSessionManager(ISessionManager):
             return {}
         
         return session_data.get("metadata", {}).get("thread_info", {})
+
+    # === 新增必需的抽象方法实现 ===
+
+    async def create_session(self, user_request: Any) -> str:  # type: ignore
+        """创建用户会话"""
+        from src.application.sessions.manager import UserRequest
+        session_id = f"session_{uuid.uuid4().hex[:8]}"
+        session_data = {
+            "session_id": session_id,
+            "user_id": user_request.user_id if isinstance(user_request, UserRequest) else None,
+            "status": "active",
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "interactions": [],
+            "thread_ids": []
+        }
+        self.session_store.save_session(session_id, session_data)
+        self._sessions[session_id] = session_data
+        return session_id
+
+    async def get_session_context(self, session_id: str) -> Optional[Any]:
+        """获取会话上下文"""
+        from src.application.sessions.manager import SessionContext
+        session_data = self.session_store.get_session(session_id)
+        if not session_data:
+            return None
+        
+        return SessionContext(
+            session_id=session_id,
+            user_id=session_data.get("user_id"),
+            thread_ids=session_data.get("thread_ids", []),
+            status=session_data.get("status", "active"),
+            created_at=datetime.fromisoformat(session_data.get("created_at", datetime.now().isoformat())),
+            updated_at=datetime.fromisoformat(session_data.get("updated_at", datetime.now().isoformat())),
+            metadata={}
+        )
+
+    async def track_user_interaction(self, session_id: str, interaction: Any) -> None:
+        """追踪用户交互"""
+        session_data = self.session_store.get_session(session_id)
+        if not session_data:
+            return
+        
+        if "interactions" not in session_data:
+            session_data["interactions"] = []
+        
+        # 序列化交互对象
+        interaction_data = {
+            "interaction_id": getattr(interaction, "interaction_id", str(uuid.uuid4())),
+            "session_id": session_id,
+            "thread_id": getattr(interaction, "thread_id", None),
+            "interaction_type": getattr(interaction, "interaction_type", "unknown"),
+            "content": getattr(interaction, "content", ""),
+            "metadata": getattr(interaction, "metadata", {}),
+            "timestamp": getattr(interaction, "timestamp", datetime.now()).isoformat()
+        }
+        session_data["interactions"].append(interaction_data)
+        self.session_store.save_session(session_id, session_data)
+
+    async def get_interaction_history(self, session_id: str, limit: Optional[int] = None) -> List[Any]:
+        """获取交互历史"""
+        session_data = self.session_store.get_session(session_id)
+        if not session_data:
+            return []
+        
+        interactions = session_data.get("interactions", [])
+        if limit:
+            interactions = interactions[-limit:]
+        return interactions
+
+    async def coordinate_threads(self, session_id: str, thread_configs: List[Dict[str, Any]]) -> Dict[str, str]:
+        """协调多个Thread执行"""
+        session_data = self.session_store.get_session(session_id)
+        if not session_data:
+            return {}
+        
+        thread_ids = {}
+        for config in thread_configs:
+            thread_name = config.get("name", str(uuid.uuid4()))
+            thread_id = f"thread_{uuid.uuid4().hex[:8]}"
+            thread_ids[thread_name] = thread_id
+        
+        if "thread_ids" not in session_data:
+            session_data["thread_ids"] = []
+        session_data["thread_ids"].extend(thread_ids.values())
+        self.session_store.save_session(session_id, session_data)
+        
+        return thread_ids
+
+    async def execute_workflow_in_session(
+        self,
+        session_id: str,
+        thread_name: str,
+        config: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """在会话中执行工作流"""
+        return {"success": True, "session_id": session_id, "thread_name": thread_name}
+
+    async def stream_workflow_in_session(  # type: ignore
+        self,
+        session_id: str,
+        thread_name: str,
+        config: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        """在会话中流式执行工作流"""
+        async def _stream() -> Any:
+            yield {"session_id": session_id, "thread_name": thread_name}
+        return _stream()

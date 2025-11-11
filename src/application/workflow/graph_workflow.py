@@ -116,7 +116,8 @@ class GraphWorkflow(ABC):
         """
         try:
             # 使用加载器创建实例
-            return self._loader.load_from_dict(self._config.to_dict() if hasattr(self._config, 'to_dict') else self._config)
+            config_dict = self._config.to_dict()
+            return self._loader.load_from_dict(config_dict)
         except Exception as e:
             raise GraphWorkflowConfigError(f"创建工作流实例失败: {e}") from e
     
@@ -132,9 +133,8 @@ class GraphWorkflow(ABC):
         if self._instance is None:
             # 使用加载器创建实例
             try:
-                self._instance = self._loader.load_from_dict(
-                    self._config.to_dict() if hasattr(self._config, 'to_dict') else self._config
-                )
+                config_dict = self._config.to_dict()
+                self._instance = self._loader.load_from_dict(config_dict)
             except Exception as e:
                 raise GraphWorkflowConfigError(f"创建工作流实例失败: {e}") from e
         return self._instance
@@ -318,7 +318,18 @@ class GraphWorkflow(ABC):
             Dict[str, Any]: 状态模式定义
         """
         config = self.instance.get_config()
-        return config.state_schema
+        return {
+            "name": config.state_schema.name,
+            "fields": {
+                name: {
+                    "type": field.type,
+                    "default": field.default,
+                    "reducer": field.reducer,
+                    "description": field.description
+                }
+                for name, field in config.state_schema.fields.items()
+            }
+        }
     
     def get_nodes(self) -> List[Dict[str, Any]]:
         """获取工作流节点列表
@@ -362,7 +373,7 @@ class GraphWorkflow(ABC):
         Returns:
             Dict[str, Any]: 配置字典
         """
-        return self._config.to_dict() if hasattr(self._config, 'to_dict') else self._config
+        return self._config.to_dict()
     
     def __str__(self) -> str:
         """字符串表示"""

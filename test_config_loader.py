@@ -6,7 +6,7 @@ import os
 # 添加项目路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.application.workflow.state_machine_config_loader import (
+from application.workflow.state_machine.state_machine_config_loader import (
     StateMachineWorkflowLoader, 
     load_state_machine_workflow,
     create_state_machine_workflow_from_dict

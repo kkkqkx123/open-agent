@@ -3,7 +3,7 @@
 统一加载和解析工作流配置，管理函数注册表，创建完整的工作流实例。
 """
 
-from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
+from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING, AsyncIterator
 from pathlib import Path
 import logging
 import yaml
@@ -15,7 +15,7 @@ from src.infrastructure.graph.config_validator import WorkflowConfigValidator, V
 from src.infrastructure.graph.registry import NodeRegistry, get_global_registry
 from src.infrastructure.config_loader import IConfigLoader
 from src.infrastructure.container import IDependencyContainer
-from .state_templates import StateTemplateManager, get_global_template_manager
+from .state_machine.state_templates import StateTemplateManager, get_global_template_manager
 
 if TYPE_CHECKING:
     from src.domain.state.interfaces import IStateCollaborationManager
@@ -176,6 +176,44 @@ class WorkflowInstance:
         except Exception as e:
             logger.error(f"工作流流式执行失败: {self.config.name}, 错误: {e}")
             raise UniversalLoaderError(f"工作流流式执行失败: {e}") from e
+    
+    async def stream_async(
+        self, 
+        initial_data: Optional[Dict[str, Any]] = None,
+        config: Optional[Dict[str, Any]] = None
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """异步流式运行工作流
+        
+        Args:
+            initial_data: 初始数据
+            config: 运行配置
+            
+        Yields:
+            Dict[str, Any]: 中间状态
+        """
+        # 创建初始状态
+        initial_state = self._create_initial_state(initial_data)
+        
+        # 合并运行配置
+        run_config = config or {}
+        
+        try:
+            # 异步流式执行工作流
+            logger.info(f"开始异步流式执行工作流: {self.config.name}")
+            
+            if hasattr(self.graph, 'astream'):
+                async for chunk in self.graph.astream(initial_state, config=run_config):
+                    yield chunk
+            else:
+                # 如果不支持异步流式，使用同步流式
+                for chunk in self.stream(initial_data, config):
+                    yield chunk
+            
+            logger.info(f"工作流异步流式执行完成: {self.config.name}")
+            
+        except Exception as e:
+            logger.error(f"工作流异步流式执行失败: {self.config.name}, 错误: {e}")
+            raise UniversalLoaderError(f"工作流异步流式执行失败: {e}") from e
     
     def get_config(self) -> GraphConfig:
         """获取工作流配置

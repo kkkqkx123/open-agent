@@ -9,7 +9,7 @@ import asyncio
 from unittest.mock import Mock, patch, AsyncMock
 
 from src.infrastructure.tools.manager import ToolManager
-from src.infrastructure.tools.executor import ToolExecutor
+from src.infrastructure.tools.executor import AsyncToolExecutor as ToolExecutor
 from src.infrastructure.tools.formatter import ToolFormatter
 from src.domain.tools.interfaces import ToolCall, ToolResult
 from src.infrastructure.tools.config import BuiltinToolConfig

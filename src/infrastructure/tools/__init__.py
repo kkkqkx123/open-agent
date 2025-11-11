@@ -7,7 +7,7 @@ from .interfaces import (
     IToolCache
 )
 from .config import ToolConfig
-from .executor import ToolExecutor
+from .executor import AsyncToolExecutor as ToolExecutor
 from .formatter import ToolFormatter
 from .manager import ToolManager
 

@@ -5,7 +5,7 @@
 
 import time
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from ..registry import BaseNode, NodeExecutionResult, node
 from ..states import WorkflowState
@@ -23,7 +23,7 @@ class EndNode(BaseNode):
     在工作流结束时执行各种清理、统计和报告操作。
     """
     
-    def __init__(self, plugin_config_path: str = None):
+    def __init__(self, plugin_config_path: Optional[str] = None):
         """初始化END节点
         
         Args:

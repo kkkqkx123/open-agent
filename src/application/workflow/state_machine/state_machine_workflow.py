@@ -8,11 +8,11 @@ from abc import ABC, abstractmethod
 from enum import Enum
 import logging
 
-from .base_workflow import BaseWorkflow
-from ...infrastructure.graph.states import WorkflowState
-from ...infrastructure.graph.config import WorkflowConfig
-from ...infrastructure.config_loader import IConfigLoader
-from ...infrastructure.container import IDependencyContainer
+from ..base_workflow import BaseWorkflow
+from ....infrastructure.graph.states import WorkflowState
+from ....infrastructure.graph.config import WorkflowConfig
+from ....infrastructure.config_loader import IConfigLoader
+from ....infrastructure.container import IDependencyContainer
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,22 @@ class Transition:
         self.target_state = target_state
         self.condition = condition  # 转移条件，None表示无条件
         self.description = description
+
+
+class TransitionRecord:
+    """状态转移记录"""
+    
+    def __init__(
+        self,
+        from_state: str,
+        to_state: str,
+        timestamp: str,
+        condition: Optional[str] = None
+    ):
+        self.from_state = from_state
+        self.to_state = to_state
+        self.timestamp = timestamp
+        self.condition = condition
 
 
 class StateDefinition:
@@ -218,7 +234,8 @@ class StateMachineWorkflow(BaseWorkflow):
             # 查找处理函数
             handler = getattr(self, handler_name, None)
             if handler and callable(handler):
-                return handler(state, state_def.config)
+                result = handler(state, state_def.config)
+                return result if isinstance(result, dict) else state
             else:
                 # 默认处理
                 return self._default_state_handler(state, state_def)
@@ -306,7 +323,7 @@ class StateMachineWorkflow(BaseWorkflow):
                 field = condition[4:]
                 return field in state and bool(state[field])
             elif condition.startswith("not_has_"):
-                field = condition[7:]
+                field = condition[8:]
                 return field not in state or not bool(state[field])
             
             # 默认返回False

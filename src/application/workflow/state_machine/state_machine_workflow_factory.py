@@ -6,11 +6,11 @@
 from typing import Dict, Any, Optional, Type
 import logging
 
-from .interfaces import IWorkflowFactory
+from ..interfaces import IWorkflowFactory
 from .state_machine_workflow import StateMachineWorkflow, StateMachineConfig, StateDefinition, Transition, StateType
-from ...infrastructure.graph.config import WorkflowConfig
-from ...infrastructure.config_loader import IConfigLoader
-from ...infrastructure.container import IDependencyContainer
+from ....infrastructure.graph.config import WorkflowConfig
+from ....infrastructure.config_loader import IConfigLoader
+from ....infrastructure.container import IDependencyContainer
 
 logger = logging.getLogger(__name__)
 
@@ -197,11 +197,25 @@ class StateMachineWorkflowFactory(IWorkflowFactory):
             config.add_state(state)
         
         # 定义转移
-        config.get_state("initial").add_transition(Transition("problem_analysis"))
-        config.get_state("problem_analysis").add_transition(Transition("plan_generation"))
-        config.get_state("plan_generation").add_transition(Transition("deep_thinking"))
-        config.get_state("deep_thinking").add_transition(Transition("solution_validation"))
-        config.get_state("solution_validation").add_transition(Transition("final"))
+        initial_state = config.get_state("initial")
+        if initial_state:
+            initial_state.add_transition(Transition("problem_analysis"))
+        
+        problem_state = config.get_state("problem_analysis")
+        if problem_state:
+            problem_state.add_transition(Transition("plan_generation"))
+        
+        plan_state = config.get_state("plan_generation")
+        if plan_state:
+            plan_state.add_transition(Transition("deep_thinking"))
+        
+        thinking_state = config.get_state("deep_thinking")
+        if thinking_state:
+            thinking_state.add_transition(Transition("solution_validation"))
+        
+        validation_state = config.get_state("solution_validation")
+        if validation_state:
+            validation_state.add_transition(Transition("final"))
         
         return config
     
@@ -229,11 +243,25 @@ class StateMachineWorkflowFactory(IWorkflowFactory):
             config.add_state(state)
         
         # 定义转移
-        config.get_state("initial").add_transition(Transition("problem_analysis"))
-        config.get_state("problem_analysis").add_transition(Transition("plan_generation"))
-        config.get_state("plan_generation").add_transition(Transition("ultra_thinking"))
-        config.get_state("ultra_thinking").add_transition(Transition("solution_validation"))
-        config.get_state("solution_validation").add_transition(Transition("final"))
+        initial_state = config.get_state("initial")
+        if initial_state:
+            initial_state.add_transition(Transition("problem_analysis"))
+        
+        problem_state = config.get_state("problem_analysis")
+        if problem_state:
+            problem_state.add_transition(Transition("plan_generation"))
+        
+        plan_state = config.get_state("plan_generation")
+        if plan_state:
+            plan_state.add_transition(Transition("ultra_thinking"))
+        
+        ultra_state = config.get_state("ultra_thinking")
+        if ultra_state:
+            ultra_state.add_transition(Transition("solution_validation"))
+        
+        validation_state = config.get_state("solution_validation")
+        if validation_state:
+            validation_state.add_transition(Transition("final"))
         
         return config
 
@@ -336,19 +364,19 @@ def register_state_machine_workflow(
 
 
 def create_state_machine_workflow(
-    workflow_name: str,
-    config: Optional[WorkflowConfig] = None,
+    config: WorkflowConfig,
+    state_machine_config: Optional[StateMachineConfig] = None,
     **kwargs
 ) -> StateMachineWorkflow:
     """创建状态机工作流实例
     
     Args:
-        workflow_name: 工作流名称
         config: 工作流配置
+        state_machine_config: 状态机配置
         **kwargs: 额外参数
         
     Returns:
         StateMachineWorkflow: 工作流实例
     """
     factory = get_state_machine_factory()
-    return factory.create_workflow(workflow_name, config, **kwargs)
+    return factory.create_workflow(config, state_machine_config)

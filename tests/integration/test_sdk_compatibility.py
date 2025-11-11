@@ -152,6 +152,44 @@ class MockThreadManager(IThreadManager):
     ) -> List[Dict[str, Any]]:
         # 模拟获取thread历史记录功能
         return []
+    
+    async def create_thread_from_config(self, config_path: str, metadata: Optional[Dict[str, Any]] = None) -> str:
+        """从配置文件创建Thread"""
+        import uuid
+        thread_id = f"thread_{uuid.uuid4().hex[:8]}"
+        graph_id = Path(config_path).stem  # 从配置文件名提取graph_id
+        self._threads[thread_id] = {
+            "thread_id": thread_id,
+            "graph_id": graph_id,
+            "config_path": config_path,
+            "created_at": datetime.now().isoformat(),
+            "status": "active",
+            "metadata": metadata or {}
+        }
+        self._states[thread_id] = {}
+        return thread_id
+
+    async def execute_workflow(
+        self,
+        thread_id: str,
+        config: Optional[Dict[str, Any]] = None,
+        initial_state: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """执行工作流"""
+        if thread_id not in self._threads:
+            raise ValueError(f"Thread不存在: {thread_id}")
+        return {"success": True, "thread_id": thread_id, "state": self._states.get(thread_id, {})}
+
+    async def stream_workflow(
+        self,
+        thread_id: str,
+        config: Optional[Dict[str, Any]] = None,
+        initial_state: Optional[Dict[str, Any]] = None
+    ) -> AsyncGenerator[Dict[str, Any], None]:  # type: ignore
+        """流式执行工作流"""
+        if thread_id not in self._threads:
+            raise ValueError(f"Thread不存在: {thread_id}")
+        yield {"thread_id": thread_id, "state": self._states.get(thread_id, {})}
 
 
 @pytest.fixture

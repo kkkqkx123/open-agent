@@ -4,7 +4,7 @@ import asyncio
 import pytest
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, AsyncGenerator
 
 from src.application.threads.query_manager import ThreadQueryManager
 from .test_utils import MockSessionManager
@@ -189,6 +189,66 @@ class MockThreadManager(IThreadManager):
             history = history[:limit]
         
         return history
+    
+    async def create_thread_from_config(self, config_path: str, metadata: Optional[Dict[str, Any]] = None) -> str:
+        """从配置文件创建Thread"""
+        import uuid
+        thread_id = f"thread_{uuid.uuid4().hex[:8]}"
+        self._threads[thread_id] = {
+            "thread_id": thread_id,
+            "graph_id": "default_graph",  # 默认图ID
+            "config_path": config_path,
+            "created_at": datetime.now().isoformat(),
+            "status": "active",
+            "metadata": metadata or {}
+        }
+        self._states[thread_id] = {}
+        return thread_id
+    
+    async def execute_workflow(
+        self,
+        thread_id: str,
+        config: Optional[Dict[str, Any]] = None,
+        initial_state: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """执行工作流"""
+        if thread_id not in self._threads:
+            raise ValueError(f"Thread不存在: {thread_id}")
+        
+        # 更新状态
+        if initial_state:
+            await self.update_thread_state(thread_id, initial_state)
+        
+        # 模拟工作流执行结果
+        result = {
+            "thread_id": thread_id,
+            "status": "completed",
+            "output": "Workflow executed successfully",
+            "final_state": await self.get_thread_state(thread_id) or {}
+        }
+        return result
+    
+    async def stream_workflow(
+        self,
+        thread_id: str,
+        config: Optional[Dict[str, Any]] = None,
+        initial_state: Optional[Dict[str, Any]] = None
+    ):
+        """流式执行工作流"""
+        if thread_id not in self._threads:
+            raise ValueError(f"Thread不存在: {thread_id}")
+        
+        # 更新状态
+        if initial_state:
+            await self.update_thread_state(thread_id, initial_state)
+        
+        # 模拟流式执行结果
+        async def _generate():
+            yield {"status": "started", "message": "Workflow started"}
+            yield {"status": "processing", "message": "Processing workflow"}
+            yield {"status": "completed", "message": "Workflow completed", "final_state": await self.get_thread_state(thread_id) or {}}
+        
+        return _generate()
 
 
 @pytest.fixture
