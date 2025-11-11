@@ -106,11 +106,10 @@ class WorkflowFactory(IWorkflowFactory):
         """注册内置工作流类型"""
         try:
             # 注册基础工作流
-            from .base_workflow import BaseWorkflow
             self.register_workflow_type("base", BaseWorkflow)
             
             logger.debug("内置工作流类型注册完成")
-        except ImportError as e:
+        except Exception as e:
             logger.warning(f"部分内置工作流类型不可用: {e}")
     
     def load_workflow_config(self, config_path: str) -> WorkflowConfig:
@@ -267,6 +266,9 @@ class WorkflowFactory(IWorkflowFactory):
             if "__registry__.yaml" in event.file_path:
                 logger.info("检测到注册表文件变化，重新加载工作流类型")
                 self.reload_from_registry()
+                # 清除缓存
+                if self.registry_manager:
+                    self.registry_manager.clear_cache()
                 return
             
             # 检查是否是工作流配置文件

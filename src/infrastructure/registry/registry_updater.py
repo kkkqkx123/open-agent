@@ -278,6 +278,7 @@ class RegistryUpdater:
                     self.logger.info(f"    - {entry['name']}: {entry['reason']}")
         
         result.add_warning("这是预览模式，未实际更新文件")
+        result.success = True  # 预览总是成功的
     
     def _create_backups(self, registries: Dict[str, Dict[str, Any]], result: RegistryUpdateResult) -> None:
         """创建备份

@@ -130,7 +130,7 @@ class ThreadSessionDIConfig:
         self,
         thread_manager: Optional[ThreadManager] = None,
         state_manager: Optional[IStateManager] = None
-    ) -> SessionManagerRefactored:
+    ) -> SessionManager:
         """创建重构后的Session管理器"""
         logger.info("创建重构后的Session管理器")
         
@@ -141,7 +141,7 @@ class ThreadSessionDIConfig:
         session_store = self.create_session_store()
         git_manager = self.create_git_manager()
         
-        return SessionManagerRefactored(
+        return SessionManager(
             thread_manager=thread_manager,
             session_store=session_store,
             git_manager=git_manager,
@@ -197,7 +197,7 @@ class ThreadSessionFactory:
             self._components_cache["thread_manager"] = self.di_config.create_thread_manager(langgraph_adapter, state_manager)
         return self._components_cache["thread_manager"]
     
-    def get_session_manager(self, state_manager: Optional[IStateManager] = None) -> SessionManagerRefactored:
+    def get_session_manager(self, state_manager: Optional[IStateManager] = None) -> SessionManager:
         """获取Session管理器（单例）"""
         if "session_manager" not in self._components_cache:
             thread_manager = self.get_thread_manager(state_manager)
@@ -264,7 +264,7 @@ def get_thread_manager(state_manager: Optional[IStateManager] = None) -> ThreadM
     return get_default_factory().get_thread_manager(state_manager)
 
 
-def get_session_manager(state_manager: Optional[IStateManager] = None) -> SessionManagerRefactored:
+def get_session_manager(state_manager: Optional[IStateManager] = None) -> SessionManager:
     """获取Session管理器（便捷方法）"""
     return get_default_factory().get_session_manager(state_manager)
 

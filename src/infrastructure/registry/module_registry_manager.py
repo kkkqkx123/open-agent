@@ -76,34 +76,32 @@ class ModuleRegistryManager:
     
     def initialize(self) -> None:
         """初始化注册管理器
-        
+         
         加载所有注册表配置并注册类型。
-        
-        Raises:
-            ConfigParseError: 配置解析失败
         """
         if self.initialized:
             self.logger.debug("注册管理器已初始化")
             return
-        
+         
         try:
             self.logger.info("开始初始化模块注册管理器")
-            
+             
             # 加载工作流注册表
             self._load_workflow_registry()
-            
+             
             # 加载工具注册表
             self._load_tool_registry()
-            
+             
             # 加载状态机工作流注册表
             self._load_state_machine_registry()
-            
+             
             self.initialized = True
             self.logger.info("模块注册管理器初始化完成")
-            
+             
         except Exception as e:
             self.logger.error(f"初始化模块注册管理器失败: {e}")
-            raise ConfigParseError(f"初始化模块注册管理器失败: {e}")
+            # 不抛出异常，保持initialized为False
+            self.initialized = False
     
     def get_workflow_type(self, workflow_type: str) -> Optional[TypeInfo]:
         """获取工作流类型信息
