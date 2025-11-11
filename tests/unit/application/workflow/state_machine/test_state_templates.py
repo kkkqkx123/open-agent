@@ -279,7 +279,7 @@ class TestGlobalFunctions:
     def test_get_global_template_manager(self):
         """测试获取全局模板管理器"""
         # 重置全局管理器
-        with patch('src.application.workflow.state_templates._global_template_manager', None):
+        with patch('src.application.workflow.state_machine.state_templates._global_template_manager', None):
             manager1 = get_global_template_manager()
             manager2 = get_global_template_manager()
             
@@ -289,8 +289,11 @@ class TestGlobalFunctions:
 
     def test_create_state_from_template_global(self):
         """测试全局创建状态函数"""
-        with patch('src.application.workflow.state_templates._global_template_manager') as mock_manager:
+        with patch('src.application.workflow.state_machine.state_templates.get_global_template_manager') as mock_get_manager:
+            mock_manager = Mock()
             mock_manager.create_state_from_template.return_value = {"test": "state"}
+            mock_manager.get_template.return_value = Mock()  # 返回一个非空模板
+            mock_get_manager.return_value = mock_manager
             
             result = create_state_from_template("test_template", {"override": "value"})
             

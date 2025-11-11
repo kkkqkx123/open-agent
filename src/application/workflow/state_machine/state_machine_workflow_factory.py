@@ -8,11 +8,11 @@ import logging
 
 from ..interfaces import IWorkflowFactory
 from .state_machine_workflow import StateMachineWorkflow, StateMachineConfig, StateDefinition, Transition, StateType
-from ....infrastructure.graph.config import WorkflowConfig
-from ....infrastructure.config_loader import IConfigLoader
-from ....infrastructure.container import IDependencyContainer
-from ....infrastructure.registry.module_registry_manager import ModuleRegistryManager
-from ....infrastructure.registry.dynamic_importer import DynamicImporter
+from src.infrastructure.graph.config import WorkflowConfig
+from src.infrastructure.config_loader import IConfigLoader
+from src.infrastructure.container import IDependencyContainer
+from src.infrastructure.registry.module_registry_manager import ModuleRegistryManager
+from src.infrastructure.registry.dynamic_importer import DynamicImporter
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +154,97 @@ class StateMachineWorkflowFactory(IWorkflowFactory):
             Dict[str, Type[StateMachineWorkflow]]: 已注册的工作流字典
         """
         return self._workflow_classes.copy()
+    
+    def _initialize_from_registry(self) -> None:
+        """从注册管理器初始化状态机工作流配置
+        
+        从模块注册管理器中加载状态机工作流配置信息。
+        """
+        if not self.registry_manager:
+            logger.warning("注册管理器未初始化")
+            return
+        
+        try:
+            # 获取状态机配置
+            state_machine_configs = self.registry_manager.get_state_machine_configs()
+            
+            # 注册状态机工作流类（使用通用的StateMachineWorkflow类）
+            for config_name, config_data in state_machine_configs.items():
+                try:
+                    # 注册状态机工作流类
+                    self.register_workflow(config_name, StateMachineWorkflow)
+                    
+                    logger.info(f"从注册表加载状态机工作流: {config_name}")
+                    
+                except Exception as e:
+                    logger.error(f"加载状态机工作流失败: {config_name}, 错误: {e}")
+            
+            logger.info(f"从注册表初始化完成，加载了 {len(self._workflow_classes)} 个状态机工作流")
+            
+        except Exception as e:
+            logger.error(f"从注册表初始化失败: {e}")
+    
+    def create_state_machine_from_registry(self, workflow_name: str) -> StateMachineWorkflow:
+        """从注册表创建状态机工作流实例
+        
+        Args:
+            workflow_name: 工作流名称
+            
+        Returns:
+            StateMachineWorkflow: 工作流实例
+            
+        Raises:
+            ValueError: 工作流不存在或创建失败
+        """
+        if not self.registry_manager:
+            raise ValueError("注册管理器未初始化")
+        
+        # 获取状态机配置
+        state_machine_configs = self.registry_manager.get_state_machine_configs()
+        if workflow_name not in state_machine_configs:
+            raise ValueError(f"状态机工作流配置不存在: {workflow_name}")
+        
+        # 创建状态机配置
+        config_data = state_machine_configs[workflow_name]
+        state_machine_config = StateMachineConfigLoader._parse_config(config_data)
+        
+        # 创建工作流配置
+        workflow_config = WorkflowConfig(
+            name=workflow_name,
+            description=state_machine_config.description,
+            additional_config={}
+        )
+        
+        # 创建工作流实例
+        return self.create_workflow(workflow_config, state_machine_config)
+    
+    def reload_from_registry(self) -> None:
+        """从注册表重新加载状态机工作流配置
+        
+        清除当前注册的工作流类并重新从注册表加载。
+        """
+        if not self.registry_manager:
+            logger.warning("注册管理器未初始化")
+            return
+        
+        logger.info("重新从注册表加载状态机工作流配置")
+        
+        # 清除当前注册的工作流类
+        self._workflow_classes.clear()
+        
+        # 重新初始化
+        self._initialize_from_registry()
+    
+    def get_registry_info(self) -> Optional[Dict[str, Any]]:
+        """获取注册表信息
+        
+        Returns:
+            Optional[Dict[str, Any]]: 注册表信息，如果注册管理器未初始化则返回None
+        """
+        if not self.registry_manager:
+            return None
+        
+        return self.registry_manager.get_registry_info()
     
     def _create_state_machine_config(
         self,
@@ -314,97 +405,6 @@ def register_state_machine_workflow(
     
     Args:
         workflow_name: 工作流名称
-    def _initialize_from_registry(self) -> None:
-        """从注册管理器初始化状态机工作流配置
-        
-        从模块注册管理器中加载状态机工作流配置信息。
-        """
-        if not self.registry_manager:
-            logger.warning("注册管理器未初始化")
-            return
-        
-        try:
-            # 获取状态机配置
-            state_machine_configs = self.registry_manager.get_state_machine_configs()
-            
-            # 注册状态机工作流类（使用通用的StateMachineWorkflow类）
-            for config_name, config_data in state_machine_configs.items():
-                try:
-                    # 注册状态机工作流类
-                    self.register_workflow(config_name, StateMachineWorkflow)
-                    
-                    logger.info(f"从注册表加载状态机工作流: {config_name}")
-                    
-                except Exception as e:
-                    logger.error(f"加载状态机工作流失败: {config_name}, 错误: {e}")
-            
-            logger.info(f"从注册表初始化完成，加载了 {len(self._workflow_classes)} 个状态机工作流")
-            
-        except Exception as e:
-            logger.error(f"从注册表初始化失败: {e}")
-    
-    def create_state_machine_from_registry(self, workflow_name: str) -> StateMachineWorkflow:
-        """从注册表创建状态机工作流实例
-        
-        Args:
-            workflow_name: 工作流名称
-            
-        Returns:
-            StateMachineWorkflow: 工作流实例
-            
-        Raises:
-            ValueError: 工作流不存在或创建失败
-        """
-        if not self.registry_manager:
-            raise ValueError("注册管理器未初始化")
-        
-        # 获取状态机配置
-        state_machine_configs = self.registry_manager.get_state_machine_configs()
-        if workflow_name not in state_machine_configs:
-            raise ValueError(f"状态机工作流配置不存在: {workflow_name}")
-        
-        # 创建状态机配置
-        config_data = state_machine_configs[workflow_name]
-        state_machine_config = StateMachineConfigLoader._parse_config(config_data)
-        
-        # 创建工作流配置
-        workflow_config = WorkflowConfig(
-            name=workflow_name,
-            description=state_machine_config.description,
-            additional_config={}
-        )
-        
-        # 创建工作流实例
-        return self.create_workflow(workflow_config, state_machine_config)
-    
-    def reload_from_registry(self) -> None:
-        """从注册表重新加载状态机工作流配置
-        
-        清除当前注册的工作流类并重新从注册表加载。
-        """
-        if not self.registry_manager:
-            logger.warning("注册管理器未初始化")
-            return
-        
-        logger.info("重新从注册表加载状态机工作流配置")
-        
-        # 清除当前注册的工作流类
-        self._workflow_classes.clear()
-        
-        # 重新初始化
-        self._initialize_from_registry()
-    
-    def get_registry_info(self) -> Optional[Dict[str, Any]]:
-        """获取注册表信息
-        
-        Returns:
-            Optional[Dict[str, Any]]: 注册表信息，如果注册管理器未初始化则返回None
-        """
-        if not self.registry_manager:
-            return None
-        
-        return self.registry_manager.get_registry_info()
-
         workflow_class: 工作流类
     """
     factory = get_state_machine_factory()

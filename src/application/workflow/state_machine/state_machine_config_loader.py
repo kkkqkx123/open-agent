@@ -10,7 +10,7 @@ import logging
 
 from .state_machine_workflow import StateMachineWorkflow, StateMachineConfig, StateDefinition, Transition, StateType
 from .state_machine_workflow_factory import StateMachineWorkflowFactory
-from ....infrastructure.graph.config import WorkflowConfig
+from src.infrastructure.graph.config import WorkflowConfig
 
 logger = logging.getLogger(__name__)
 

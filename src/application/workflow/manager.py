@@ -10,9 +10,9 @@ from datetime import datetime
 import uuid
 
 from .interfaces import IWorkflowManager
-from ...domain.workflow.interfaces import IWorkflowConfigManager, IWorkflowVisualizer, IWorkflowRegistry
-from ...infrastructure.graph.config import WorkflowConfig
-from ...infrastructure.graph.states.workflow import WorkflowState
+from src.domain.workflow.interfaces import IWorkflowConfigManager, IWorkflowVisualizer, IWorkflowRegistry
+from src.infrastructure.graph.config import WorkflowConfig
+from src.infrastructure.graph.states import WorkflowState
 
 logger = logging.getLogger(__name__)
 
