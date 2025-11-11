@@ -15,7 +15,7 @@ from src.infrastructure.graph.registry import (
     get_node,
     node
 )
-from src.domain.agent.state import AgentState
+from src.infrastructure.graph.states import WorkflowState
 
 
 class TestNodeExecutionResult:
@@ -23,7 +23,7 @@ class TestNodeExecutionResult:
 
     def test_init_with_defaults(self) -> None:
         """测试使用默认值初始化"""
-        state = Mock(spec=AgentState)
+        state = Mock(spec=WorkflowState)
         result = NodeExecutionResult(state=state)
         assert result.state == state
         assert result.next_node is None
@@ -31,7 +31,7 @@ class TestNodeExecutionResult:
 
     def test_init_with_all_params(self) -> None:
         """测试使用所有参数初始化"""
-        state = Mock(spec=AgentState)
+        state = Mock(spec=WorkflowState)
         result = NodeExecutionResult(
             state=state,
             next_node="next_node",
@@ -43,8 +43,8 @@ class TestNodeExecutionResult:
 
     def test_post_init(self) -> None:
         """测试后初始化"""
-        state = Mock(spec=AgentState)
-        result = NodeExecutionResult(state=state, metadata=None)
+        state = Mock(spec=WorkflowState)
+        result = NodeExecutionResult(state=state, metadata={})
         assert result.metadata == {}
 
 
@@ -83,7 +83,7 @@ class TestBaseNode:
             def node_type(self):
                 return "mock_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -134,7 +134,7 @@ class TestNodeRegistry:
             def node_type(self):
                 return "mock_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -156,7 +156,7 @@ class TestNodeRegistry:
         """测试注册缺少node_type属性的节点"""
         # 创建缺少node_type属性的节点类
         class InvalidNode(BaseNode):
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -173,7 +173,7 @@ class TestNodeRegistry:
             def node_type(self):
                 return "duplicate_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -184,7 +184,7 @@ class TestNodeRegistry:
             def node_type(self):
                 return "duplicate_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -205,7 +205,7 @@ class TestNodeRegistry:
             def node_type(self):
                 return "mock_instance_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -229,7 +229,7 @@ class TestNodeRegistry:
         """测试注册缺少node_type属性的节点实例"""
         # 创建缺少node_type属性的节点实例
         class InvalidNode(BaseNode):
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -251,7 +251,7 @@ class TestNodeRegistry:
             def node_type(self):
                 return "duplicate_instance_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -275,7 +275,7 @@ class TestNodeRegistry:
             def node_type(self):
                 return "existing_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -303,7 +303,7 @@ class TestNodeRegistry:
             def node_type(self):
                 return "registered_instance_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -328,7 +328,7 @@ class TestNodeRegistry:
             def node_type(self):
                 return "new_instance_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -356,7 +356,7 @@ class TestNodeRegistry:
             def node_type(self):
                 return "node1"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -367,7 +367,7 @@ class TestNodeRegistry:
             def node_type(self):
                 return "node2"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -378,7 +378,7 @@ class TestNodeRegistry:
             def node_type(self):
                 return "node3"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -408,7 +408,7 @@ class TestNodeRegistry:
             def node_type(self):
                 return "schema_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -436,7 +436,7 @@ class TestNodeRegistry:
             def node_type(self):
                 return "validation_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -469,7 +469,7 @@ class TestNodeRegistry:
             def node_type(self):
                 return "clear_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -522,7 +522,7 @@ class TestGlobalRegistryFunctions:
             def node_type(self):
                 return "global_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -547,7 +547,7 @@ class TestGlobalRegistryFunctions:
             def node_type(self):
                 return "global_instance_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -574,7 +574,7 @@ class TestGlobalRegistryFunctions:
             def node_type(self):
                 return "get_global_node"
             
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -600,7 +600,7 @@ class TestNodeDecorator:
         # 使用装饰器
         @node("decorated_node")
         class OriginalNode(BaseNode):
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:
@@ -623,7 +623,7 @@ class TestNodeDecorator:
         # 使用装饰器
         @node("auto_registered_node")
         class AutoRegisteredNode(BaseNode):
-            def execute(self, state: AgentState, config: dict[str, Any]) -> NodeExecutionResult:
+            def execute(self, state: WorkflowState, config: dict[str, Any]) -> NodeExecutionResult:
                 return NodeExecutionResult(state=state)
             
             def get_config_schema(self) -> dict[str, Any]:

@@ -13,7 +13,7 @@ from src.infrastructure.graph.async_executor import (
     AsyncGraphBuilder
 )
 from src.infrastructure.graph.config import GraphConfig
-from src.infrastructure.graph.state import WorkflowState, BaseMessage
+from src.infrastructure.graph.states import WorkflowState, BaseMessage
 from src.infrastructure.graph.registry import NodeRegistry, BaseNode
 class MockAsyncIterator:
     """模拟异步迭代器类"""

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 # 导入LangChain消息类型用于状态测试
 from langchain_core.messages import HumanMessage as LCHumanMessage, AIMessage as LCAIMessage, ToolMessage as LCToolMessage
 
-from src.infrastructure.graph.state import (
+from src.infrastructure.graph.states import (
     BaseMessage,
     HumanMessage,
     AIMessage,
@@ -15,7 +15,6 @@ from src.infrastructure.graph.state import (
     ToolMessage,
     MessageRole,
     BaseGraphState,
-    AgentState,
     WorkflowState,
     ReActState,
     PlanExecuteState,
@@ -90,19 +89,11 @@ class TestStateTypeDefinitions:
 
     def test_agent_state(self) -> None:
         """测试Agent状态"""
-        # AgentState是BaseGraphState的扩展，测试其结构
-        state: AgentState = {
-            "messages": [LCHumanMessage(content="测试")],
-            "input": "输入",
-            "output": "输出",
-            "tool_calls": [{"name": "tool1"}],
-            "tool_results": [{"result": "结果"}],
-            "iteration_count": 1,
-            "max_iterations": 10,
-            "errors": ["错误"],
-            "complete": False,
-            "metadata": {"key": "value"}
-        }
+        # Agent状态通过create_agent_state创建，测试其结构
+        state = create_agent_state(
+            input_text="测试",
+            messages=[LCHumanMessage(content="测试")]
+        )
         assert "input" in state
         assert "tool_calls" in state
         assert "iteration_count" in state
@@ -222,6 +213,7 @@ class TestStateFactoryFunctions:
         """测试创建工作流状态"""
         state = create_workflow_state(
             workflow_id="workflow_123",
+            workflow_name="test_workflow",
             input_text="测试输入",
             max_iterations=5
         )
@@ -230,14 +222,13 @@ class TestStateFactoryFunctions:
         assert "workflow_id" in state
         assert "input" in state
         assert "max_iterations" in state
-        assert "step_name" in state
         assert "analysis" in state
         assert "decision" in state
         assert "context" in state
         assert state["workflow_id"] == "workflow_123"
+        assert state["workflow_name"] == "test_workflow"
         assert state["input"] == "测试输入"
         assert state["max_iterations"] == 5
-        assert state["step_name"] is None
         assert state["analysis"] is None
         assert state["decision"] is None
         assert state["context"] == {}
@@ -404,36 +395,12 @@ class TestStateValidationFunctions:
         assert len(errors) == 1
         assert "缺少messages字段" in errors
 
-    def test_validate_state_agent_state_success(self) -> None:
-        """测试验证Agent状态成功"""
+    def test_validate_state_workflow_state_with_agent_fields_success(self) -> None:
+        """测试验证包含Agent字段的工作流状态成功"""
         state = {
             "messages": [LCHumanMessage(content="测试")],
             "input": "输入",
-            "max_iterations": 10,
-            "metadata": {"key": "value"}
-        }
-
-        errors = validate_state(state, AgentState)
-        assert errors == []
-
-    def test_validate_state_agent_state_missing_required_fields(self) -> None:
-        """测试验证Agent状态缺少必需字段"""
-        state = {
-            "messages": [LCHumanMessage(content="测试")],
-            "metadata": {"key": "value"}
-        }
-
-        errors = validate_state(state, AgentState)
-        assert len(errors) == 2
-        assert "缺少必需字段: input" in errors
-        assert "缺少必需字段: max_iterations" in errors
-
-    def test_validate_state_workflow_state_success(self) -> None:
-        """测试验证工作流状态成功"""
-        state = {
-            "messages": [LCHumanMessage(content="测试")],
             "workflow_id": "workflow_123",
-            "input": "输入",
             "max_iterations": 10,
             "metadata": {"key": "value"}
         }
@@ -453,6 +420,31 @@ class TestStateValidationFunctions:
         assert "缺少必需字段: workflow_id" in errors
         assert "缺少必需字段: input" in errors
         assert "缺少必需字段: max_iterations" in errors
+
+    def test_validate_state_workflow_state_success_after_update(self) -> None:
+        """测试验证工作流状态成功（更新后）"""
+        state = {
+            "messages": [LCHumanMessage(content="测试")],
+            "workflow_id": "workflow_123",
+            "workflow_name": "test",
+            "input": "输入",
+            "max_iterations": 10,
+            "metadata": {"key": "value"}
+        }
+
+        errors = validate_state(state, WorkflowState)
+        assert errors == []
+
+    def test_validate_state_workflow_state_missing_fields_after_update(self) -> None:
+        """测试验证工作流状态缺少必需字段（更新后）"""
+        state = {
+            "messages": [LCHumanMessage(content="测试")],
+            "metadata": {"key": "value"}
+        }
+
+        errors = validate_state(state, WorkflowState)
+        # 应该有多个缺少字段的错误
+        assert len(errors) > 0
 
 
 class TestStateSerializationFunctions:

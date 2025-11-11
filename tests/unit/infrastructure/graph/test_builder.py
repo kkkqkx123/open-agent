@@ -9,14 +9,12 @@ import yaml
 
 from src.infrastructure.graph.builder import (
     INodeExecutor,
-    AgentNodeExecutor,
     GraphBuilder,
     get_workflow_builder
 )
 from src.infrastructure.graph.config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
-from src.infrastructure.graph.state import WorkflowState
+from src.infrastructure.graph.states import WorkflowState
 from src.infrastructure.graph.registry import NodeRegistry
-from src.domain.agent.interfaces import IAgent, IAgentFactory
 
 
 class TestINodeExecutor:
@@ -34,88 +32,6 @@ class TestINodeExecutor:
         assert hasattr(INodeExecutor, 'execute')
         method = INodeExecutor.execute
         assert method.__isabstractmethod__  # type: ignore
-
-
-class TestAgentNodeExecutor:
-    """Agent节点执行器测试"""
-    
-    @pytest.fixture
-    def mock_agent(self) -> Mock:
-        """模拟Agent"""
-        agent = Mock(spec=IAgent)
-        agent.execute = AsyncMock()
-        return agent
-    
-    @pytest.fixture
-    def executor(self, mock_agent: Mock) -> AgentNodeExecutor:
-        """创建Agent节点执行器实例"""
-        return AgentNodeExecutor(mock_agent)
-    
-    @pytest.fixture
-    def sample_state(self) -> dict[str, Any]:
-        """示例状态"""
-        return {
-            "messages": [{"role": "user", "content": "测试消息"}],
-            "input": "测试输入",
-            "output": None,
-            "tool_calls": [],
-            "tool_results": [],
-            "iteration_count": 0,
-            "max_iterations": 10,
-            "errors": [],
-            "complete": False
-        }
-    
-    @pytest.fixture
-    def sample_config(self) -> dict[str, Any]:
-        """示例配置"""
-        return {
-            "agent_id": "test_agent",
-            "max_iterations": 5
-        }
-    
-    def test_init(self, mock_agent: Mock) -> None:
-        """测试初始化"""
-        executor = AgentNodeExecutor(mock_agent)
-        assert executor.agent == mock_agent
-    
-    @patch('src.infrastructure.graph.builder.asyncio.run')
-    def test_execute_with_new_event_loop(self, mock_run: Mock, executor: AgentNodeExecutor, sample_state: dict[str, Any], sample_config: dict[str, Any]) -> None:
-        """测试在新事件循环中执行"""
-        # 配置模拟 - 使用 AsyncMock 正确处理异步方法
-        executor.agent.execute = AsyncMock(return_value=sample_state)
-        mock_run.return_value = sample_state
-
-        # 模拟没有运行的事件循环
-        with patch('src.infrastructure.graph.builder.asyncio.get_running_loop', side_effect=RuntimeError):
-            result = executor.execute(sample_state, sample_config)  # type: ignore
-
-        # 验证
-        assert result == sample_state
-        mock_run.assert_called_once()
-    
-    @patch('src.infrastructure.graph.builder.asyncio.new_event_loop')
-    @patch('src.infrastructure.graph.builder.asyncio.set_event_loop')
-    @patch('src.infrastructure.graph.builder.asyncio.run')
-    def test_execute_in_main_thread(self, mock_run: Mock, mock_set_loop: Mock, mock_new_loop: Mock, executor: AgentNodeExecutor, sample_state: dict[str, Any], sample_config: dict[str, Any]) -> None:
-        """测试在主线程中执行"""
-        # 配置模拟 - 使用 AsyncMock 正确处理异步方法
-        executor.agent.execute = AsyncMock(return_value=sample_state)
-        mock_loop = Mock()
-        mock_new_loop.return_value = mock_loop
-        mock_run.return_value = sample_state
-
-        # 模拟在主线程中，但没有运行的事件循环
-        with patch('src.infrastructure.graph.builder.threading.current_thread') as mock_thread:
-            mock_thread.return_value = Mock()
-            with patch('src.infrastructure.graph.builder.threading.main_thread', mock_thread.return_value):
-                with patch('src.infrastructure.graph.builder.asyncio.get_running_loop', side_effect=RuntimeError):
-                    result = executor.execute(sample_state, sample_config)  # type: ignore  # type: ignore
-
-        # 验证
-        assert result == sample_state
-        mock_run.assert_called_once()
-    
 
 
 class TestGraphBuilder:
