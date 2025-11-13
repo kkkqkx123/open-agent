@@ -18,7 +18,7 @@ from .exceptions import (
     EnvironmentCheckError,
     ArchitectureViolationError,
 )
-from .types import CheckResult, ServiceLifetime
+from .infrastructure_types import CheckResult, ServiceLifetime
 
 # 导入配置系统相关服务
 from .config import (

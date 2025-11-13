@@ -11,7 +11,7 @@ from rich.text import Text
 
 from .environment import IEnvironmentChecker, EnvironmentChecker
 from typing import Optional
-from .types import CheckResult
+from .infrastructure_types import CheckResult
 
 
 class EnvironmentCheckCommand:

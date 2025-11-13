@@ -11,7 +11,7 @@ from pathlib import Path
 import importlib.util
 
 from .exceptions import EnvironmentCheckError
-from .types import CheckResult
+from .infrastructure_types import CheckResult
 
 
 class IEnvironmentChecker(ABC):

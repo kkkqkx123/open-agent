@@ -13,7 +13,7 @@ from ..container_interfaces import (
     ILifecycleAware,
     ServiceStatus
 )
-from ..types import ServiceLifetime
+from ..infrastructure_types import ServiceLifetime
 
 # 为了向后兼容，创建一个别名
 DependencyContainer = EnhancedDependencyContainer

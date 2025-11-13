@@ -15,7 +15,7 @@ from .container import (
     DependencyContainer,  # 从子模块导入别名
     get_global_container
 )
-from .types import ServiceRegistration, ServiceLifetime, T
+from .infrastructure_types import ServiceRegistration, ServiceLifetime, T
 from .exceptions import (
     ServiceNotRegisteredError,
     ServiceCreationError,

@@ -16,7 +16,7 @@ from src.infrastructure import (
     EnvironmentCheckCommand,
     IEnvironmentChecker,
 )
-from src.infrastructure.types import CheckResult
+from infrastructure.infrastructure_types import CheckResult
 
 
 class TestEndToEndWorkflow:

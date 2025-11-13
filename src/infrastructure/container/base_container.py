@@ -14,7 +14,7 @@ from ..container_interfaces import (
     ILifecycleAware,
     ServiceRegistration
 )
-from ..types import ServiceLifetime, T
+from ..infrastructure_types import ServiceLifetime, T
 from ..exceptions import (
     ServiceNotRegisteredError,
     ServiceCreationError,

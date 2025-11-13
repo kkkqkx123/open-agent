@@ -7,7 +7,7 @@ from typing import Dict, List, Set, Any, Optional
 from dataclasses import dataclass
 
 from .exceptions import ArchitectureViolationError
-from .types import CheckResult
+from .infrastructure_types import CheckResult
 
 
 @dataclass

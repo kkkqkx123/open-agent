@@ -28,7 +28,7 @@ from ..container.dependency_analyzer import DependencyAnalyzer
 from ..container.scope_manager import ScopeManager
 from ..container.base_container import BaseDependencyContainer
 from ..monitoring.performance_monitor import PerformanceMonitor
-from ..types import ServiceLifetime, T
+from ..infrastructure_types import ServiceLifetime, T
 from ..exceptions import (
     ServiceNotRegisteredError,
     ServiceCreationError,

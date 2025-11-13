@@ -11,7 +11,7 @@ from src.infrastructure.exceptions import (
     ServiceCreationError,
     CircularDependencyError,
 )
-from src.infrastructure.types import ServiceLifetime
+from infrastructure.infrastructure_types import ServiceLifetime
 
 # 测试接口和实现类
 class IService:

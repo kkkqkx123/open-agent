@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 
 from src.infrastructure.architecture import ArchitectureChecker, LayerRule
-from src.infrastructure.types import CheckResult
+from infrastructure.infrastructure_types import CheckResult
 
 
 class TestArchitectureChecker:

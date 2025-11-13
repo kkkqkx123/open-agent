@@ -48,7 +48,7 @@ from src.infrastructure.graph.states import WorkflowState, HumanMessage
 from src.application.history.manager import HistoryManager
 from src.domain.history.interfaces import IHistoryManager
 from src.domain.threads.interfaces import IThreadManager
-from src.infrastructure.types import ServiceLifetime
+from infrastructure.infrastructure_types import ServiceLifetime
 from unittest.mock import AsyncMock
 from unittest.mock import AsyncMock
 

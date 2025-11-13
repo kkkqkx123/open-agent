@@ -11,7 +11,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 from .exceptions import ConfigurationError
-from .types import CheckResult
+from .infrastructure_types import CheckResult
 from .config_inheritance import ConfigInheritanceHandler
 from .config_interfaces import IConfigLoader
 from .container_interfaces import ILifecycleAware

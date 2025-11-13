@@ -9,7 +9,7 @@ from typing import Any
 from unittest.mock import patch, MagicMock
 
 from src.infrastructure.environment import EnvironmentChecker
-from src.infrastructure.types import CheckResult
+from infrastructure.infrastructure_types import CheckResult
 
 
 class TestEnvironmentChecker:

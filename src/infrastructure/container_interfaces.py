@@ -9,7 +9,7 @@ from enum import Enum
 from dataclasses import dataclass
 from contextlib import contextmanager
 
-from .types import ServiceRegistration, ServiceLifetime, T
+from .infrastructure_types import ServiceRegistration, ServiceLifetime, T
 from .exceptions import (
     ServiceNotRegisteredError,
     ServiceCreationError,

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from contextlib import contextmanager
 
 from ..container_interfaces import IServiceCache
-from ..types import T
+from ..infrastructure_types import T
 
 
 class ServiceCacheEntry:
