@@ -205,6 +205,44 @@ class EnhancedFallbackManager:
         
         raise LLMError("降级执行失败")
     
+    async def execute_with_task_group_fallback(self,
+                                             primary_target: str,
+                                             prompt: str,
+                                             **kwargs) -> Any:
+        """
+        基于任务组配置执行降级
+        
+        Args:
+            primary_target: 主要目标
+            prompt: 提示词
+            **kwargs: 其他参数
+            
+        Returns:
+            LLM响应
+        """
+        # 获取任务组降级配置
+        group_name, _ = self.task_group_manager.parse_group_reference(primary_target)
+        fallback_config = self.task_group_manager.get_fallback_config(group_name)
+        
+        # 使用配置中的降级组
+        fallback_groups = fallback_config.get("fallback_groups", [])
+        max_attempts = fallback_config.get("max_attempts", 3)
+        
+        # 如果没有配置降级组，使用默认逻辑
+        if not fallback_groups:
+            fallback_groups = self.task_group_manager.get_fallback_groups(primary_target)
+        
+        # 限制尝试次数
+        if len(fallback_groups) + 1 > max_attempts:
+            fallback_groups = fallback_groups[:max_attempts - 1]
+        
+        return await self.execute_with_fallback(
+            primary_target=primary_target,
+            fallback_groups=fallback_groups,
+            prompt=prompt,
+            **kwargs
+        )
+    
     def _determine_strategy(self, target: str) -> FallbackStrategy:
         """确定降级策略"""
         # 根据目标格式确定策略

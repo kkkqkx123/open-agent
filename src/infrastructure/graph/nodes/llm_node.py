@@ -5,28 +5,34 @@
 
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
+import logging
 
 from ..registry import BaseNode, NodeExecutionResult, node
 from ..states import WorkflowState
 from src.infrastructure.llm.interfaces import ILLMClient
 from src.infrastructure.llm.task_group_manager import TaskGroupManager
 from ..node_config_loader import get_node_config_loader
-from src.infrastructure.llm.interfaces import ILLMClient
-from ..node_config_loader import get_node_config_loader
+
+logger = logging.getLogger(__name__)
 
 
 @node("llm_node")
 class LLMNode(BaseNode):
     """LLM调用节点"""
-    def __init__(self, llm_client: ILLMClient, task_group_manager: Optional[TaskGroupManager] = None) -> None:
+    def __init__(self, 
+                 llm_client: ILLMClient, 
+                 task_group_manager: Optional[TaskGroupManager] = None,
+                 wrapper_factory: Optional[Any] = None) -> None:
         """初始化LLM节点
 
         Args:
             llm_client: LLM客户端实例（必需）
             task_group_manager: 任务组管理器（可选）
+            wrapper_factory: 包装器工厂（可选）
         """
         self._llm_client = llm_client
         self._task_group_manager = task_group_manager
+        self._wrapper_factory = wrapper_factory
 
     @property
     def node_type(self) -> str:
@@ -36,12 +42,6 @@ class LLMNode(BaseNode):
     def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行LLM调用逻辑
 
-        # 使用注入的LLM客户端
-        llm_client = self._llm_client
-        
-        # 处理任务组配置
-        if self._task_group_manager and "llm_group" in merged_config:
-            llm_client = self._get_llm_client_from_group(merged_config)
         Args:
             state: 当前工作流状态
             config: 节点配置
@@ -53,8 +53,8 @@ class LLMNode(BaseNode):
         config_loader = get_node_config_loader()
         merged_config = config_loader.merge_configs(self.node_type, config)
         
-        # 使用注入的LLM客户端
-        llm_client = self._llm_client
+        # 选择LLM客户端
+        llm_client = self._select_llm_client(merged_config)
         
         # 构建系统提示词
         system_prompt = self._build_system_prompt(state, merged_config)
@@ -94,9 +94,21 @@ class LLMNode(BaseNode):
         return {
             "type": "object",
             "properties": {
+                "llm_wrapper": {
+                    "type": "string",
+                    "description": "LLM包装器名称（如 'fast_group_wrapper' 或 'thinking_pool_wrapper'）"
+                },
+                "llm_group": {
+                    "type": "string",
+                    "description": "LLM任务组引用，如 'fast_group.echelon1'"
+                },
+                "polling_pool": {
+                    "type": "string", 
+                    "description": "轮询池名称，如 'fast_pool'"
+                },
                 "llm_client": {
                     "type": "string",
-                    "description": "LLM客户端配置名称"
+                    "description": "LLM客户端配置名称（传统方式）"
                 },
                 "system_prompt": {
                     "type": "string",
@@ -367,6 +379,34 @@ class LLMNode(BaseNode):
         # 默认结束工作流
         return None
     
+    def _select_llm_client(self, config: Dict[str, Any]) -> ILLMClient:
+        """选择LLM客户端
+        
+        Args:
+            config: 节点配置
+            
+        Returns:
+            ILLMClient: 选定的LLM客户端
+        """
+        # 优先级1: 使用包装器
+        if self._wrapper_factory:
+            wrapper_name = config.get("llm_wrapper")
+            if wrapper_name:
+                wrapper = self._wrapper_factory.get_wrapper(wrapper_name)
+                if wrapper:
+                    return wrapper
+        
+        # 优先级2: 使用任务组
+        if self._task_group_manager and "llm_group" in config:
+            return self._get_llm_client_from_group(config)
+        
+        # 优先级3: 使用轮询池
+        if self._task_group_manager and "polling_pool" in config:
+            return self._get_llm_client_from_pool(config)
+        
+        # 默认: 使用注入的客户端
+        return self._llm_client
+    
     def _get_llm_client_from_group(self, config: Dict[str, Any]) -> ILLMClient:
         """从任务组配置获取LLM客户端
         
@@ -399,6 +439,32 @@ class LLMNode(BaseNode):
         except Exception as e:
             # 如果获取任务组失败，返回默认客户端
             return self._llm_client
+    
+    def _get_llm_client_from_pool(self, config: Dict[str, Any]) -> ILLMClient:
+        """从轮询池配置获取LLM客户端
+        
+        Args:
+            config: 节点配置
+            
+        Returns:
+            ILLMClient: LLM客户端实例
+        """
+        if not self._wrapper_factory:
+            return self._llm_client
+        
+        pool_name = config.get("polling_pool")
+        if not pool_name:
+            return self._llm_client
+        
+        try:
+            # 尝试获取轮询池包装器
+            wrapper = self._wrapper_factory.get_wrapper(pool_name)
+            if wrapper:
+                return wrapper
+        except Exception as e:
+            logger.warning(f"获取轮询池包装器失败 {pool_name}: {e}")
+        
+        return self._llm_client
     
     def _get_fallback_llm_client(self, config: Dict[str, Any]) -> Optional[ILLMClient]:
         """获取降级LLM客户端

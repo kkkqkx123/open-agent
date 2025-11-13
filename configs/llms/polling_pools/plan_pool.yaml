@@ -1,0 +1,29 @@
+# 规划任务轮询池配置
+# 适用于复杂的规划和策略制定
+
+name: "plan_pool"
+description: "规划任务专用轮询池"
+
+# 只包含规划任务组
+task_groups: ["plan_group"]
+
+# 轮询策略
+rotation_strategy: "weighted"
+
+# 健康检查配置
+health_check_interval: 45
+failure_threshold: 2
+recovery_time: 180
+
+# 轮询池专用降级策略
+fallback_config:
+  strategy: "instance_rotation"
+  max_instance_attempts: 2  # 规划任务尝试次数适中
+
+# 速率限制配置
+rate_limiting:
+  enabled: true
+  algorithm: "token_bucket"
+  token_bucket:
+    bucket_size: 500
+    refill_rate: 8.33  # 每秒补充8.33个令牌（约500/分钟）

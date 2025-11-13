@@ -145,6 +145,10 @@ class TaskGroupManager:
         if not task_group:
             return []
         
+        # 优先使用任务组特定的降级配置
+        if task_group.fallback_config:
+            return task_group.fallback_config.fallback_groups
+        
         fallback_groups = []
         
         # 根据降级策略生成降级组
@@ -159,6 +163,72 @@ class TaskGroupManager:
         # 可以添加更多降级策略的实现
         
         return fallback_groups
+    
+    def get_fallback_config(self, group_name: str) -> Dict[str, Any]:
+        """
+        获取任务组的降级配置
+        
+        Args:
+            group_name: 任务组名称
+            
+        Returns:
+            降级配置字典
+        """
+        task_group = self.get_task_group(group_name)
+        if not task_group:
+            return {}
+        
+        if task_group.fallback_config:
+            return {
+                "strategy": task_group.fallback_config.strategy.value,
+                "fallback_groups": task_group.fallback_config.fallback_groups,
+                "max_attempts": task_group.fallback_config.max_attempts,
+                "retry_delay": task_group.fallback_config.retry_delay,
+                "circuit_breaker": {
+                    "failure_threshold": task_group.fallback_config.circuit_breaker.failure_threshold,
+                    "recovery_time": task_group.fallback_config.circuit_breaker.recovery_time,
+                    "half_open_requests": task_group.fallback_config.circuit_breaker.half_open_requests
+                } if task_group.fallback_config.circuit_breaker else None
+            }
+        
+        # 返回默认配置
+        return {
+            "strategy": task_group.fallback_strategy.value,
+            "fallback_groups": self.get_fallback_groups(f"{group_name}.echelon1"),
+            "max_attempts": 3,
+            "retry_delay": 1.0,
+            "circuit_breaker": {
+                "failure_threshold": 5,
+                "recovery_time": 60,
+                "half_open_requests": 1
+            } if task_group.circuit_breaker else None
+        }
+    
+    def get_polling_pool_fallback_config(self, pool_name: str) -> Dict[str, Any]:
+        """
+        获取轮询池的降级配置
+        
+        Args:
+            pool_name: 轮询池名称
+            
+        Returns:
+            降级配置字典
+        """
+        polling_pool = self.get_polling_pool(pool_name)
+        if not polling_pool:
+            return {}
+        
+        if polling_pool.fallback_config:
+            return {
+                "strategy": polling_pool.fallback_config.strategy,
+                "max_instance_attempts": polling_pool.fallback_config.max_instance_attempts
+            }
+        
+        # 返回默认配置
+        return {
+            "strategy": "instance_rotation",
+            "max_instance_attempts": 2
+        }
     
     def validate_group_reference(self, reference: str) -> bool:
         """

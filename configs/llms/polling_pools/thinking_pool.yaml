@@ -1,0 +1,29 @@
+# 思考任务轮询池配置
+# 适用于需要深度思考的分析任务
+
+name: "thinking_pool"
+description: "思考任务专用轮询池"
+
+# 只包含思考任务组
+task_groups: ["thinking_group"]
+
+# 轮询策略
+rotation_strategy: "least_recently_used"
+
+# 健康检查配置
+health_check_interval: 60
+failure_threshold: 2
+recovery_time: 120
+
+# 轮询池专用降级策略
+fallback_config:
+  strategy: "instance_rotation"
+  max_instance_attempts: 3  # 思考任务允许更多尝试
+
+# 速率限制配置
+rate_limiting:
+  enabled: true
+  algorithm: "sliding_window"
+  sliding_window:
+    window_size: 60  # 60秒窗口
+    max_requests: 100  # 每分钟最多100个请求

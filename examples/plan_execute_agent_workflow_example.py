@@ -5,11 +5,11 @@
 
 from src.infrastructure.graph.config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
 from src.infrastructure.graph.builder import GraphBuilder
-from src.infrastructure.graph.nodes import PlanExecuteAgentNode, LLMNode
+from src.infrastructure.graph.nodes import LLMNode
+from src.infrastructure.graph.states import create_agent_state
 from src.infrastructure.llm.clients.mock import MockLLMClient
 from src.infrastructure.llm.config import MockConfig
 from src.infrastructure.tools.executor import AsyncToolExecutor as ToolExecutor
-from src.domain.agent.state import AgentState
 
 
 def plan_generated(state) -> str:
@@ -234,15 +234,14 @@ def run_plan_execute_workflow_example():
         return
     
     # 创建初始状态
-    initial_state = AgentState(
-        current_task="分析用户行为数据，找出最受欢迎的产品类别，并提供改进建议",
-        max_iterations=15,
-        iteration_count=0
+    initial_state = create_agent_state(
+        input_text="分析用户行为数据，找出最受欢迎的产品类别，并提供改进建议",
+        max_iterations=15
     )
     
     # 执行工作流
     print("开始执行Plan-Execute工作流...")
-    print(f"初始任务: {initial_state.current_task}")
+    print(f"初始任务: {initial_state.get('input', '')}")
     print("-" * 50)
     
     try:
@@ -252,26 +251,13 @@ def run_plan_execute_workflow_example():
         print("工作流执行完成!")
         print(f"最终状态: {result}")
         
-        # 打印执行历史
-        if hasattr(result, 'task_history') and result.task_history:
-            print("\n执行历史:")
-            for i, task in enumerate(result.task_history, 1):
-                print(f"{i}. Agent: {task.get('agent_id')}, 迭代: {task.get('iterations')}, 状态: {task.get('final_state')}")
-        
-        # 打印计划信息
-        if hasattr(result, 'context') and 'current_plan' in result.context:
-            print("\n执行计划:")
-            plan = result.context['current_plan']
-            current_step = result.context.get('current_step_index', 0)
-            for i, step in enumerate(plan, 1):
-                status = "✓" if i <= current_step else "○"
-                print(f"{status} {i}. {step}")
-        
         # 打印消息历史
-        if hasattr(result, 'messages') and result.messages:
+        if result.get('messages'):
             print("\n消息历史:")
-            for i, msg in enumerate(result.messages, 1):
-                print(f"{i}. [{msg.role}]: {msg.content}")
+            for i, msg in enumerate(result.get('messages', []), 1):
+                role = msg.get('role') if isinstance(msg, dict) else getattr(msg, 'role', 'unknown')
+                content = msg.get('content') if isinstance(msg, dict) else getattr(msg, 'content', '')
+                print(f"{i}. [{role}]: {content}")
                 
     except Exception as e:
         print(f"工作流执行失败: {e}")

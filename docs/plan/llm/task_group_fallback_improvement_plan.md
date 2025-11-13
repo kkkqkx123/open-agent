@@ -6,13 +6,13 @@
 - 使用统一的全局配置（`global_fallback.yaml`），无法针对不同任务类型进行差异化降级
 - 所有任务组共享相同的降级策略和参数，缺乏灵活性
 - 无法根据任务特性（如响应速度、成本、质量要求）进行智能降级
-- 轮询池应当可以直接作为llm节点使用的实例
+- 轮询池应当可以直接作为llm节点使用的实例[docs\plan\llm\task_group_polling_pool_wrapper_design.md]
 
 ### 2. 轮询池使用问题
 - 目前的轮询池（configs\llms\polling_pools目录）包含多种任务组，违反了任务隔离原则
 - 轮询池中的降级机制不清晰，没有明确的降级策略
 - 轮询池应该专用于单轮对话，多轮对话需要不同的处理机制
-- 轮询池应当可以直接作为llm节点使用的实例
+- 轮询池应当可以直接作为llm节点使用的实例[docs\plan\llm\task_group_polling_pool_wrapper_design.md]
 
 ## 改进目标
 

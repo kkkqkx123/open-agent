@@ -40,20 +40,35 @@ task_groups:
 
 # 轮询池配置文件注册表
 polling_pools:
+  fast_pool:
+    file: "polling_pools/fast_pool.yaml"
+    description: "快速响应任务专用轮询池"
+    enabled: true
+  
+  thinking_pool:
+    file: "polling_pools/thinking_pool.yaml"
+    description: "思考任务专用轮询池"
+    enabled: true
+  
+  plan_pool:
+    file: "polling_pools/plan_pool.yaml"
+    description: "规划任务专用轮询池"
+    enabled: true
+  
   single_turn_pool:
     file: "polling_pools/single_turn_pool.yaml"
     description: "单轮对话轮询池"
-    enabled: true
+    enabled: false  # 已被任务专用轮询池替代
   
   multi_turn_pool:
     file: "polling_pools/multi_turn_pool.yaml"
     description: "多轮对话轮询池"
-    enabled: true
+    enabled: false  # 已被任务专用轮询池替代
   
   high_concurrency_pool:
     file: "polling_pools/high_concurrency_pool.yaml"
     description: "高并发轮询池"
-    enabled: true
+    enabled: false  # 已被任务专用轮询池替代
 
 # 全局配置文件注册表
 global_configs:

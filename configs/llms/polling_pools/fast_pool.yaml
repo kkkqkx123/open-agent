@@ -1,0 +1,29 @@
+# 快速响应轮询池配置
+# 适用于需要快速响应的简单任务
+
+name: "fast_pool"
+description: "快速响应任务专用轮询池"
+
+# 只包含快速响应任务组
+task_groups: ["fast_group"]
+
+# 轮询策略
+rotation_strategy: "round_robin"
+
+# 健康检查配置
+health_check_interval: 30
+failure_threshold: 3
+recovery_time: 60
+
+# 轮询池专用降级策略
+fallback_config:
+  strategy: "instance_rotation"  # 直接从池中旋转实例
+  max_instance_attempts: 2  # 每个实例最多尝试2次
+
+# 速率限制配置
+rate_limiting:
+  enabled: true
+  algorithm: "token_bucket"
+  token_bucket:
+    bucket_size: 1000
+    refill_rate: 16.67  # 每秒补充16.67个令牌（约1000/分钟）

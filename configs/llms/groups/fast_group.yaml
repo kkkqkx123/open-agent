@@ -35,3 +35,14 @@ circuit_breaker:
   failure_threshold: 5
   recovery_time: 60
   half_open_requests: 1
+
+# 降级配置（新增）
+fallback_config:
+  strategy: "echelon_down"  # 层级降级策略
+  fallback_groups: ["fast_group.echelon2", "fast_group.echelon3"]
+  max_attempts: 3
+  retry_delay: 1.0
+  circuit_breaker:
+    failure_threshold: 5
+    recovery_time: 60
+    half_open_requests: 1

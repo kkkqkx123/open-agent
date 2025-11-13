@@ -2,7 +2,7 @@
 
 from typing import Dict, Any, Optional, List, Union
 from pydantic import Field, field_validator, model_validator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 from .base import BaseConfig
@@ -100,6 +100,31 @@ class EchelonConfig:
 
 
 @dataclass
+class FallbackConfig:
+    """任务组降级配置"""
+    strategy: FallbackStrategy = FallbackStrategy.ECHELON_DOWN
+    fallback_groups: List[str] = field(default_factory=list)
+    max_attempts: int = 3
+    retry_delay: float = 1.0
+    circuit_breaker: Optional[CircuitBreakerConfig] = None
+    
+    @classmethod
+    def from_dict(cls, config_dict: Dict[str, Any]) -> "FallbackConfig":
+        """从字典创建配置"""
+        circuit_breaker = None
+        if "circuit_breaker" in config_dict:
+            circuit_breaker = CircuitBreakerConfig.from_dict(config_dict["circuit_breaker"])
+        
+        return cls(
+            strategy=FallbackStrategy(config_dict.get("strategy", "echelon_down")),
+            fallback_groups=config_dict.get("fallback_groups", []),
+            max_attempts=config_dict.get("max_attempts", 3),
+            retry_delay=config_dict.get("retry_delay", 1.0),
+            circuit_breaker=circuit_breaker
+        )
+
+
+@dataclass
 class TaskGroupConfig:
     """任务组配置"""
     name: str
@@ -107,6 +132,7 @@ class TaskGroupConfig:
     echelons: Dict[str, EchelonConfig]
     fallback_strategy: FallbackStrategy = FallbackStrategy.ECHELON_DOWN
     circuit_breaker: Optional[CircuitBreakerConfig] = None
+    fallback_config: Optional[FallbackConfig] = None
     
     @classmethod
     def from_dict(cls, name: str, config_dict: Dict[str, Any]) -> "TaskGroupConfig":
@@ -126,12 +152,18 @@ class TaskGroupConfig:
         if "circuit_breaker" in config_dict:
             circuit_breaker = CircuitBreakerConfig.from_dict(config_dict["circuit_breaker"])
         
+        # 解析降级配置
+        fallback_config = None
+        if "fallback_config" in config_dict:
+            fallback_config = FallbackConfig.from_dict(config_dict["fallback_config"])
+        
         return cls(
             name=name,
             description=config_dict.get("description", ""),
             echelons=echelons,
             fallback_strategy=FallbackStrategy(config_dict.get("fallback_strategy", "echelon_down")),
-            circuit_breaker=circuit_breaker
+            circuit_breaker=circuit_breaker,
+            fallback_config=fallback_config
         )
 
 
@@ -155,6 +187,21 @@ class RateLimitingConfig:
 
 
 @dataclass
+class PollingPoolFallbackConfig:
+    """轮询池降级配置"""
+    strategy: str = "instance_rotation"  # instance_rotation, simple_retry
+    max_instance_attempts: int = 2
+    
+    @classmethod
+    def from_dict(cls, config_dict: Dict[str, Any]) -> "PollingPoolFallbackConfig":
+        """从字典创建配置"""
+        return cls(
+            strategy=config_dict.get("strategy", "instance_rotation"),
+            max_instance_attempts=config_dict.get("max_instance_attempts", 2)
+        )
+
+
+@dataclass
 class PollingPoolConfig:
     """轮询池配置"""
     name: str
@@ -165,6 +212,7 @@ class PollingPoolConfig:
     failure_threshold: int = 3
     recovery_time: int = 60
     rate_limiting: Optional[RateLimitingConfig] = None
+    fallback_config: Optional[PollingPoolFallbackConfig] = None
     
     @classmethod
     def from_dict(cls, name: str, config_dict: Dict[str, Any]) -> "PollingPoolConfig":
@@ -172,6 +220,11 @@ class PollingPoolConfig:
         rate_limiting = None
         if "rate_limiting" in config_dict:
             rate_limiting = RateLimitingConfig.from_dict(config_dict["rate_limiting"])
+        
+        # 解析降级配置
+        fallback_config = None
+        if "fallback_config" in config_dict:
+            fallback_config = PollingPoolFallbackConfig.from_dict(config_dict["fallback_config"])
         
         return cls(
             name=name,
@@ -181,7 +234,8 @@ class PollingPoolConfig:
             health_check_interval=config_dict.get("health_check_interval", 30),
             failure_threshold=config_dict.get("failure_threshold", 3),
             recovery_time=config_dict.get("recovery_time", 60),
-            rate_limiting=rate_limiting
+            rate_limiting=rate_limiting,
+            fallback_config=fallback_config
         )
 
 
@@ -189,7 +243,7 @@ class PollingPoolConfig:
 class ConcurrencyControlConfig:
     """并发控制配置"""
     enabled: bool = True
-    levels: List[Dict[str, Any]] = None
+    levels: List[Dict[str, Any]] = field(default_factory=list)
     
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> "ConcurrencyControlConfig":

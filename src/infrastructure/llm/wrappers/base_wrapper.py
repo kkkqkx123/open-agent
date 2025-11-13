@@ -1,0 +1,186 @@
+"""LLM包装器基类"""
+
+from abc import ABC, abstractmethod
+from typing import Dict, Any, Optional, List, Generator, AsyncGenerator, Sequence
+import logging
+
+from ..interfaces import ILLMClient
+from ..models import LLMResponse, TokenUsage
+from ..exceptions import LLMError
+from langchain_core.messages import HumanMessage
+
+logger = logging.getLogger(__name__)
+
+
+class BaseLLMWrapper(ILLMClient):
+    """LLM包装器基类"""
+    
+    def __init__(self, name: str, config: Dict[str, Any]):
+        """
+        初始化包装器
+        
+        Args:
+            name: 包装器名称
+            config: 包装器配置
+        """
+        self.name = name
+        self.config = config or {}
+        self._metadata = {}
+        self._stats = {
+            "total_requests": 0,
+            "successful_requests": 0,
+            "failed_requests": 0,
+            "total_response_time": 0.0,
+            "avg_response_time": 0.0
+        }
+    
+    @abstractmethod
+    async def generate_async(
+        self,
+        messages: Sequence,
+        parameters: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
+        """异步生成"""
+        pass
+    
+    @abstractmethod
+    def generate(
+        self,
+        messages: Sequence,
+        parameters: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
+        """同步生成"""
+        pass
+    
+    @abstractmethod
+    def get_model_info(self) -> Dict[str, Any]:
+        """获取模型信息"""
+        pass
+    
+    def stream_generate(
+        self,
+        messages: Sequence,
+        parameters: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> Generator[str, None, None]:
+        """流式生成（默认实现）"""
+        # 默认实现：使用generate方法并模拟流式输出
+        response = self.generate(messages, parameters, **kwargs)
+        content = response.content
+        
+        # 简单的分块输出
+        chunk_size = 10
+        for i in range(0, len(content), chunk_size):
+            yield content[i:i + chunk_size]
+    
+    async def stream_generate_async(
+        self,
+        messages: Sequence,
+        parameters: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> AsyncGenerator[str, None]:
+        """异步流式生成（默认实现）"""
+        # 默认实现：使用generate_async方法并模拟流式输出
+        response = await self.generate_async(messages, parameters, **kwargs)
+        content = response.content
+        
+        # 简单的分块输出
+        chunk_size = 10
+        for i in range(0, len(content), chunk_size):
+            yield content[i:i + chunk_size]
+    
+    def get_token_count(self, text: str) -> int:
+        """计算文本的token数量（默认实现）"""
+        # 简单实现：按字符数除以4估算
+        return max(1, len(text) // 4)
+    
+    def get_messages_token_count(self, messages: Sequence) -> int:
+        """计算消息列表的token数量（默认实现）"""
+        total_tokens = 0
+        for message in messages:
+            if hasattr(message, 'content'):
+                total_tokens += self.get_token_count(str(message.content))
+            else:
+                total_tokens += self.get_token_count(str(message))
+        return total_tokens
+    
+    def supports_function_calling(self) -> bool:
+        """检查是否支持函数调用（默认实现）"""
+        return False
+    
+    def get_metadata(self) -> Dict[str, Any]:
+        """获取包装器元数据"""
+        return {
+            "name": self.name,
+            "type": self.__class__.__name__,
+            "config": self.config,
+            "stats": self._stats.copy(),
+            **self._metadata
+        }
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """获取统计信息"""
+        return self._stats.copy()
+    
+    def reset_stats(self) -> None:
+        """重置统计信息"""
+        self._stats = {
+            "total_requests": 0,
+            "successful_requests": 0,
+            "failed_requests": 0,
+            "total_response_time": 0.0,
+            "avg_response_time": 0.0
+        }
+    
+    def _update_stats(self, success: bool, response_time: float) -> None:
+        """更新统计信息"""
+        self._stats["total_requests"] += 1
+        self._stats["total_response_time"] += response_time
+        
+        if success:
+            self._stats["successful_requests"] += 1
+        else:
+            self._stats["failed_requests"] += 1
+        
+        # 更新平均响应时间
+        if self._stats["total_requests"] > 0:
+            self._stats["avg_response_time"] = (
+                self._stats["total_response_time"] / self._stats["total_requests"]
+            )
+    
+    def _messages_to_prompt(self, messages: Sequence) -> str:
+        """将消息列表转换为提示词"""
+        if not messages:
+            return ""
+        
+        prompt_parts = []
+        for message in messages:
+            if hasattr(message, 'content'):
+                prompt_parts.append(str(message.content))
+            else:
+                prompt_parts.append(str(message))
+        
+        return "\n".join(prompt_parts)
+    
+    def _create_llm_response(
+        self,
+        content: str,
+        model: str,
+        token_usage: Optional[TokenUsage] = None,
+        message: Optional[Any] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> LLMResponse:
+        """创建LLM响应"""
+        return LLMResponse(
+            content=content,
+            message=message or HumanMessage(content=content),
+            token_usage=token_usage or TokenUsage(
+                prompt_tokens=0,
+                completion_tokens=0,
+                total_tokens=0
+            ),
+            model=model,
+            metadata=metadata or {}
+        )
