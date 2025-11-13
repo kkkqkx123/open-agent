@@ -19,8 +19,9 @@ class EventLoopManager:
     提供单例模式的事件循环管理，确保在同步环境中正确运行异步代码。
     """
     
-    _instance = None
+    _instance: Optional['EventLoopManager'] = None
     _lock = threading.Lock()
+    _initialized: bool = False
     
     def __new__(cls):
         if cls._instance is None:

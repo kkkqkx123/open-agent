@@ -65,8 +65,8 @@ class EnhancedCacheConfig(CacheConfig):
         base_config = {
             "enabled": config_dict.get("enabled", True),
             "max_size": config_dict.get("max_size", 1000),
-            "ttl": config_dict.get("ttl", 3600),
-            "provider": config_dict.get("provider", "memory"),
+            "ttl_seconds": config_dict.get("ttl_seconds", 3600),
+            "cache_type": config_dict.get("cache_type", "memory"),
             "content_cache_enabled": config_dict.get("content_cache_enabled", False),
             "content_cache_ttl": config_dict.get("content_cache_ttl", "3600s"),
             "content_cache_display_name": config_dict.get("content_cache_display_name"),
@@ -134,8 +134,8 @@ class EnhancedCacheConfig(CacheConfig):
             # 基础配置
             enabled=other.enabled if other.enabled != self.enabled else self.enabled,
             max_size=other.max_size if other.max_size != self.max_size else self.max_size,
-            ttl=other.ttl if other.ttl != self.ttl else self.ttl,
-            provider=other.provider if other.provider != self.provider else self.provider,
+            ttl_seconds=other.ttl_seconds if other.ttl_seconds != self.ttl_seconds else self.ttl_seconds,
+            cache_type=other.cache_type if other.cache_type != self.cache_type else self.cache_type,
             content_cache_enabled=other.content_cache_enabled if other.content_cache_enabled != self.content_cache_enabled else self.content_cache_enabled,
             content_cache_ttl=other.content_cache_ttl if other.content_cache_ttl != self.content_cache_ttl else self.content_cache_ttl,
             content_cache_display_name=other.content_cache_display_name or self.content_cache_display_name,
@@ -177,8 +177,8 @@ class GeminiCacheConfig(EnhancedCacheConfig):
         return cls(
             enabled=True,
             max_size=1000,
-            ttl=3600,
-            provider="memory",
+            ttl_seconds=3600,
+            cache_type="memory",
             server_cache_enabled=True,
             auto_server_cache=True,
             server_cache_ttl="3600s",
@@ -194,8 +194,8 @@ class GeminiCacheConfig(EnhancedCacheConfig):
         return cls(
             enabled=True,
             max_size=1000,
-            ttl=3600,
-            provider="memory",
+            ttl_seconds=3600,
+            cache_type="memory",
             server_cache_enabled=False,
             auto_server_cache=False,
             cache_strategy="client_first",
@@ -209,8 +209,8 @@ class GeminiCacheConfig(EnhancedCacheConfig):
         return cls(
             enabled=True,
             max_size=100,  # 减少客户端缓存大小
-            ttl=1800,  # 减少客户端缓存TTL
-            provider="memory",
+            ttl_seconds=1800,  # 减少客户端缓存TTL
+            cache_type="memory",
             server_cache_enabled=True,
             auto_server_cache=True,
             server_cache_ttl="7200s",  # 增加服务器端缓存TTL

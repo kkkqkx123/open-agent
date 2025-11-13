@@ -1,5 +1,6 @@
 """LLM任务组配置系统集成测试"""
 
+from infrastructure.llm.exceptions import LLMError
 import pytest
 import asyncio
 from pathlib import Path
