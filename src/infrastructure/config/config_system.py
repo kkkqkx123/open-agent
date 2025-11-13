@@ -349,15 +349,11 @@ class ConfigSystem(IConfigSystem):
             if cache_key in self._cache:
                 return cast(TaskGroupsConfig, self._cache[cache_key])
 
-            # 加载任务组配置
-            config_path = "llms/groups/_task_groups.yaml"
-            try:
-                config_data = self._config_loader.load(config_path)
-            except Exception as e:
-                raise ConfigurationError(f"任务组配置文件加载失败: {e}")
-
-            # 创建配置对象
-            config = TaskGroupsConfig.from_dict(config_data)
+            # 使用任务组管理器加载配置
+            from ..llm.task_group_manager import TaskGroupManager
+            task_group_manager = TaskGroupManager(self._config_loader)
+            config = task_group_manager.load_config()
+            
             self._cache[cache_key] = config
             return config
 

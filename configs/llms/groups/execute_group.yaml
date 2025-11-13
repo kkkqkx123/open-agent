@@ -1,0 +1,36 @@
+# 执行任务组配置
+# 适用于工具调用和指令执行
+
+name: "execute_group"
+description: "执行任务组 - 适用于工具调用和指令执行"
+echelon1:
+  models: ["openai-gpt4", "anthropic-claude-3-sonnet"]
+  concurrency_limit: 15
+  rpm_limit: 150
+  priority: 1
+  timeout: 45
+  max_retries: 4
+  temperature: 0.1
+  max_tokens: 2000
+  function_calling: "required"
+echelon2:
+  models: ["openai-gpt4-turbo", "gemini-pro"]
+  concurrency_limit: 25
+  rpm_limit: 250
+  priority: 2
+  timeout: 35
+  max_retries: 3
+  temperature: 0.1
+  max_tokens: 2000
+  function_calling: "auto"
+echelon3:
+  models: ["openai-gpt3.5-turbo", "gemini-pro"]
+  concurrency_limit: 40
+  rpm_limit: 400
+  priority: 3
+  timeout: 25
+  max_retries: 2
+  temperature: 0.1
+  max_tokens: 1500
+  function_calling: "auto"
+fallback_strategy: "echelon_down"

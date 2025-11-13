@@ -37,10 +37,10 @@ class TestLLMTaskGroupIntegration:
     @pytest.mark.asyncio
     async def test_task_group_config_loading(self, task_group_manager):
         """测试任务组配置加载"""
-        config_path = Path("configs/llms/groups/_task_groups.yaml")
-        
-        if not config_path.exists():
-            pytest.skip("任务组配置文件不存在")
+        # 检查注册表文件是否存在
+        registry_path = Path("configs/llms/groups/_task_groups.yaml")
+        if not registry_path.exists():
+            pytest.skip("注册表配置文件不存在")
         
         try:
             config = task_group_manager.load_config()
@@ -209,10 +209,10 @@ class TestLLMTaskGroupIntegration:
     @pytest.mark.asyncio
     async def test_end_to_end_workflow(self, task_group_manager, polling_pool_manager, fallback_manager):
         """测试端到端工作流"""
-        config_path = Path("configs/llms/groups/_task_groups.yaml")
-        
-        if not config_path.exists():
-            pytest.skip("任务组配置文件不存在")
+        # 检查注册表文件是否存在
+        registry_path = Path("configs/llms/groups/_task_groups.yaml")
+        if not registry_path.exists():
+            pytest.skip("注册表配置文件不存在")
         
         try:
             # 加载配置
@@ -227,6 +227,14 @@ class TestLLMTaskGroupIntegration:
             pool = await polling_pool_manager.create_pool("test_pool", pool_config)
             
             # 测试降级执行
+            # 使用monkey patching模拟_execute_target抛出异常
+            original_execute_target = fallback_manager._execute_target
+            
+            async def mock_execute_target(target: str, prompt: str, **kwargs):
+                raise LLMError(f"模拟LLM调用失败: {target}")
+            
+            fallback_manager._execute_target = mock_execute_target
+            
             try:
                 result = await fallback_manager.execute_with_fallback(
                     primary_target="fast_group.echelon1",
@@ -236,7 +244,10 @@ class TestLLMTaskGroupIntegration:
                 # 由于没有实际的LLM客户端，这里会失败，但可以测试降级逻辑
             except Exception as e:
                 # 预期的异常，因为没有实际的LLM客户端
-                assert "降级尝试都失败了" in str(e)
+                assert "降级尝试都失败了" in str(e) or "所有降级尝试都失败了" in str(e)
+            finally:
+                # 恢复原始方法
+                fallback_manager._execute_target = original_execute_target
             
             # 验证降级历史
             history = fallback_manager.get_fallback_history()
@@ -278,7 +289,8 @@ class TestLLMTaskGroupIntegration:
             }
         }
         
-        task_group_manager._task_groups_config = task_group_manager._task_groups_config.from_dict(config_data)
+        from src.infrastructure.config.models.task_group_config import TaskGroupsConfig
+        task_group_manager._task_groups_config = TaskGroupsConfig.from_dict(config_data)
         
         # 测试模型获取
         models = task_group_manager.get_models_for_group("fast_group.echelon1")

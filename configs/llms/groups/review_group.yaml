@@ -1,0 +1,33 @@
+# 审核任务组配置
+# 适用于内容审核和质量检查
+
+name: "review_group"
+description: "审核任务组 - 适用于内容审核和质量检查"
+echelon1:
+  models: ["openai-gpt4", "anthropic-claude-3-opus"]
+  concurrency_limit: 8
+  rpm_limit: 80
+  priority: 1
+  timeout: 45
+  max_retries: 4
+  temperature: 0.2
+  max_tokens: 2000
+echelon2:
+  models: ["openai-gpt4-turbo", "anthropic-claude-3-sonnet"]
+  concurrency_limit: 15
+  rpm_limit: 150
+  priority: 2
+  timeout: 35
+  max_retries: 3
+  temperature: 0.2
+  max_tokens: 2000
+echelon3:
+  models: ["openai-gpt3.5-turbo", "anthropic-claude-3-haiku"]
+  concurrency_limit: 25
+  rpm_limit: 250
+  priority: 3
+  timeout: 25
+  max_retries: 2
+  temperature: 0.2
+  max_tokens: 1500
+fallback_strategy: "echelon_down"

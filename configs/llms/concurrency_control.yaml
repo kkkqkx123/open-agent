@@ -1,0 +1,16 @@
+# 并发控制配置
+
+enabled: true
+levels:
+  - group_level:
+      limit: 1000
+      queue_size: 10000
+  - echelon_level:
+      limit: 300
+      queue_size: 3000
+  - model_level:
+      limit: 100
+      queue_size: 1000
+  - node_level:
+      limit: 50
+      queue_size: 500

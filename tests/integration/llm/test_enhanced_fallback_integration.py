@@ -76,55 +76,60 @@ class MockConfigLoader(IConfigLoader):
     
     def __init__(self):
         self.configs = {
-            "llms/groups/_task_groups.yaml": {
-                "task_groups": {
-                    "fast_group": {
-                        "name": "fast_group",
-                        "description": "快速响应组",
-                        "fallback_strategy": "echelon_down",
-                        "echelon1": {
-                            "models": ["gpt-4-turbo", "claude-3-opus"],
-                            "concurrency_limit": 10,
-                            "rpm_limit": 100,
-                            "priority": 1,
-                            "timeout": 30,
-                            "max_retries": 2
-                        },
-                        "echelon2": {
-                            "models": ["gpt-4", "claude-3-sonnet"],
-                            "concurrency_limit": 5,
-                            "rpm_limit": 50,
-                            "priority": 2,
-                            "timeout": 60,
-                            "max_retries": 3
-                        }
-                    },
-                    "medium_group": {
-                        "name": "medium_group",
-                        "description": "中等响应组",
-                        "fallback_strategy": "echelon_down",
-                        "echelon1": {
-                            "models": ["gpt-3.5-turbo"],
-                            "concurrency_limit": 20,
-                            "rpm_limit": 200,
-                            "priority": 1,
-                            "timeout": 90,
-                            "max_retries": 5
-                        }
-                    }
+            # 任务组配置
+            "llms/groups/fast_group.yaml": {
+                "name": "fast_group",
+                "description": "快速响应组",
+                "fallback_strategy": "echelon_down",
+                "echelon1": {
+                    "models": ["gpt-4-turbo", "claude-3-opus"],
+                    "concurrency_limit": 10,
+                    "rpm_limit": 100,
+                    "priority": 1,
+                    "timeout": 30,
+                    "max_retries": 2
                 },
-                "polling_pools": {},
-                "global_fallback": {
-                    "enabled": True,
-                    "max_attempts": 3,
-                    "strategy": "sequential"
-                },
-                "concurrency_control": {
-                    "enabled": False
-                },
-                "rate_limiting": {
-                    "enabled": False
+                "echelon2": {
+                    "models": ["gpt-4", "claude-3-sonnet"],
+                    "concurrency_limit": 5,
+                    "rpm_limit": 50,
+                    "priority": 2,
+                    "timeout": 60,
+                    "max_retries": 3
                 }
+            },
+            "llms/groups/medium_group.yaml": {
+                "name": "medium_group",
+                "description": "中等响应组",
+                "fallback_strategy": "echelon_down",
+                "echelon1": {
+                    "models": ["gpt-3.5-turbo"],
+                    "concurrency_limit": 20,
+                    "rpm_limit": 200,
+                    "priority": 1,
+                    "timeout": 90,
+                    "max_retries": 5
+                }
+            },
+            # 轮询池配置
+            "llms/polling_pools/single_turn_pool.yaml": {
+                "name": "single_turn_pool",
+                "description": "单轮对话轮询池",
+                "task_groups": ["fast_group"],
+                "rotation_strategy": "round_robin",
+                "health_check_interval": 30
+            },
+            # 全局配置
+            "llms/global_fallback.yaml": {
+                "enabled": True,
+                "max_attempts": 3,
+                "strategy": "sequential"
+            },
+            "llms/concurrency_control.yaml": {
+                "enabled": False
+            },
+            "llms/rate_limiting.yaml": {
+                "enabled": False
             }
         }
     

@@ -1,0 +1,53 @@
+# 小模型快速任务组配置
+# 适用于简单的快速任务
+
+name: "fast_small_group"
+description: "小模型快速任务组 - 适用于简单的快速任务"
+translation:
+  models: ["openai-gpt3.5-turbo", "gemini-pro"]
+  concurrency_limit: 100
+  rpm_limit: 1000
+  priority: 1
+  timeout: 15
+  max_retries: 2
+  temperature: 0.3
+  max_tokens: 1000
+analysis:
+  models: ["openai-gpt3.5-turbo", "anthropic-claude-3-haiku"]
+  concurrency_limit: 80
+  rpm_limit: 800
+  priority: 2
+  timeout: 20
+  max_retries: 2
+  temperature: 0.5
+  max_tokens: 1500
+execute:
+  models: ["openai-gpt3.5-turbo", "gemini-pro"]
+  concurrency_limit: 120
+  rpm_limit: 1200
+  priority: 3
+  timeout: 10
+  max_retries: 1
+  temperature: 0.1
+  max_tokens: 1000
+  response_format: "json"
+  function_calling: "required"
+thinking:
+  models: ["openai-gpt3.5-turbo", "anthropic-claude-3-haiku"]
+  concurrency_limit: 50
+  rpm_limit: 500
+  priority: 4
+  timeout: 30
+  max_retries: 2
+  temperature: 0.7
+  max_tokens: 1500
+high_payload:
+  models: ["gemini-pro", "anthropic-claude-3-haiku"]
+  concurrency_limit: 300
+  rpm_limit: 3000
+  priority: 5
+  timeout: 8
+  max_retries: 1
+  temperature: 0.5
+  max_tokens: 800
+fallback_strategy: "model_rotate"

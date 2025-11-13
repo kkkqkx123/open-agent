@@ -1,0 +1,42 @@
+# 思考任务组配置
+# 适用于需要深度思考的分析任务
+
+name: "thinking_group"
+description: "思考任务组 - 适用于需要深度思考的分析任务"
+echelon1:
+  models: ["openai-gpt4", "anthropic-claude-3-opus"]
+  concurrency_limit: 3
+  rpm_limit: 30
+  priority: 1
+  timeout: 120
+  max_retries: 5
+  temperature: 0.8
+  max_tokens: 4000
+  thinking_config:
+    enabled: true
+    budget_tokens: 4000
+echelon2:
+  models: ["openai-gpt4-turbo", "anthropic-claude-3-sonnet"]
+  concurrency_limit: 8
+  rpm_limit: 80
+  priority: 2
+  timeout: 90
+  max_retries: 4
+  temperature: 0.8
+  max_tokens: 3000
+  thinking_config:
+    enabled: true
+    budget_tokens: 3000
+echelon3:
+  models: ["openai-gpt3.5-turbo", "anthropic-claude-3-haiku"]
+  concurrency_limit: 15
+  rpm_limit: 150
+  priority: 3
+  timeout: 60
+  max_retries: 3
+  temperature: 0.8
+  max_tokens: 2000
+  thinking_config:
+    enabled: true
+    budget_tokens: 2000
+fallback_strategy: "echelon_down"

@@ -1,0 +1,15 @@
+# 高并发轮询池配置
+
+name: "high_concurrency_pool"
+description: "高并发轮询池"
+task_groups: ["high_payload_group", "fast_small_group.high_payload"]
+rotation_strategy: "weighted"
+health_check_interval: 15
+failure_threshold: 5
+recovery_time: 30
+rate_limiting:
+  enabled: true
+  algorithm: "token_bucket"
+  token_bucket:
+    bucket_size: 5000
+    refill_rate: 83.33  # 5000/60

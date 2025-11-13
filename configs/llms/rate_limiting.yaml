@@ -1,0 +1,10 @@
+# 速率限制配置
+
+enabled: true
+algorithm: "token_bucket"  # token_bucket, sliding_window
+token_bucket:
+  bucket_size: 10000
+  refill_rate: 166.67  # 10000/60
+sliding_window:
+  window_size: 60
+  max_requests: 10000

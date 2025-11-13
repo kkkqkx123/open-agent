@@ -1,0 +1,33 @@
+# 高并发任务组配置
+# 适用于高并发场景
+
+name: "high_payload_group"
+description: "高并发任务组 - 适用于高并发场景"
+echelon1:
+  models: ["openai-gpt4-turbo", "anthropic-claude-3-sonnet"]
+  concurrency_limit: 100
+  rpm_limit: 1000
+  priority: 1
+  timeout: 20
+  max_retries: 2
+  temperature: 0.5
+  max_tokens: 1000
+echelon2:
+  models: ["openai-gpt3.5-turbo", "gemini-pro"]
+  concurrency_limit: 200
+  rpm_limit: 2000
+  priority: 2
+  timeout: 15
+  max_retries: 2
+  temperature: 0.5
+  max_tokens: 1000
+echelon3:
+  models: ["gemini-pro", "anthropic-claude-3-haiku"]
+  concurrency_limit: 500
+  rpm_limit: 5000
+  priority: 3
+  timeout: 10
+  max_retries: 1
+  temperature: 0.5
+  max_tokens: 800
+fallback_strategy: "provider_failover"

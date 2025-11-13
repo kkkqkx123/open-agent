@@ -270,9 +270,12 @@ class EnhancedFallbackManager:
         if not self.fallback_history:
             return {
                 "total_attempts": 0,
+                "successful_attempts": 0,
                 "success_rate": 0.0,
                 "avg_response_time": 0.0,
-                "most_used_strategy": None
+                "most_used_strategy": None,
+                "strategy_distribution": {},
+                "circuit_breakers": len(self.circuit_breakers)
             }
         
         total_attempts = len(self.fallback_history)

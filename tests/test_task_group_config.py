@@ -218,12 +218,123 @@ class TestTaskGroupManager:
 class TestTaskGroupConfigIntegration:
     """任务组配置集成测试"""
     
+    def test_registry_loading(self):
+        """测试注册表加载功能"""
+        # 检查注册表文件是否存在
+        registry_path = Path("configs/llms/groups/_task_groups.yaml")
+        if not registry_path.exists():
+            pytest.skip("注册表配置文件不存在")
+        
+        config_loader = YamlConfigLoader()
+        task_group_manager = TaskGroupManager(config_loader)
+        
+        try:
+            # 加载注册表配置
+            registry_path = f"{task_group_manager._config_base_path}/groups/_task_groups.yaml"
+            registry_config = config_loader.load(registry_path)
+            
+            # 验证注册表结构
+            assert "task_groups" in registry_config
+            assert "polling_pools" in registry_config
+            assert "global_configs" in registry_config
+            assert "loading_options" in registry_config
+            
+            # 验证任务组注册表
+            task_groups_registry = registry_config["task_groups"]
+            assert "fast_group" in task_groups_registry
+            assert "file" in task_groups_registry["fast_group"]
+            assert "enabled" in task_groups_registry["fast_group"]
+            
+            # 验证轮询池注册表
+            polling_pools_registry = registry_config["polling_pools"]
+            assert "single_turn_pool" in polling_pools_registry
+            assert "file" in polling_pools_registry["single_turn_pool"]
+            assert "enabled" in polling_pools_registry["single_turn_pool"]
+            
+            # 验证全局配置注册表
+            global_configs = registry_config["global_configs"]
+            assert "global_fallback" in global_configs
+            assert "concurrency_control" in global_configs
+            assert "rate_limiting" in global_configs
+            
+        except Exception as e:
+            pytest.fail(f"注册表加载测试失败: {e}")
+    
+    def test_disabled_config_loading(self):
+        """测试禁用配置的加载"""
+        # 检查注册表文件是否存在
+        registry_path = Path("configs/llms/groups/_task_groups.yaml")
+        if not registry_path.exists():
+            pytest.skip("注册表配置文件不存在")
+        
+        # 创建一个临时的注册表配置，其中包含禁用的配置
+        import tempfile
+        import os
+        
+        temp_registry_content = """
+task_groups:
+  fast_group:
+    file: "groups/fast_group.yaml"
+    description: "快速响应任务组"
+    enabled: true
+  disabled_group:
+    file: "groups/disabled_group.yaml"
+    description: "禁用的任务组"
+    enabled: false
+
+polling_pools:
+  single_turn_pool:
+    file: "polling_pools/single_turn_pool.yaml"
+    description: "单轮对话轮询池"
+    enabled: true
+
+global_configs:
+  global_fallback:
+    file: "global_fallback.yaml"
+    description: "全局降级配置"
+    enabled: true
+"""
+        
+        # 创建临时注册表文件
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            f.write(temp_registry_content)
+            temp_registry_path = f.name
+        
+        try:
+            config_loader = YamlConfigLoader()
+            task_group_manager = TaskGroupManager(config_loader)
+            
+            # 临时修改配置基础路径
+            original_base_path = task_group_manager._config_base_path
+            task_group_manager._config_base_path = os.path.dirname(temp_registry_path)
+            
+            # 临时修改注册表文件名
+            original_registry_file = os.path.basename(temp_registry_path)
+            
+            # 模拟加载注册表
+            registry_config = config_loader.load(temp_registry_path)
+            
+            # 验证只有启用的配置会被加载
+            task_groups_registry = registry_config["task_groups"]
+            assert task_groups_registry["fast_group"]["enabled"] == True
+            assert task_groups_registry["disabled_group"]["enabled"] == False
+            
+            # 恢复原始配置
+            task_group_manager._config_base_path = original_base_path
+            
+        except Exception as e:
+            pytest.fail(f"禁用配置加载测试失败: {e}")
+        finally:
+            # 清理临时文件
+            if os.path.exists(temp_registry_path):
+                os.unlink(temp_registry_path)
+    
     def test_load_real_config(self):
         """测试加载真实配置文件"""
-        config_path = Path("configs/llms/groups/_task_groups.yaml")
-        
-        if not config_path.exists():
-            pytest.skip("配置文件不存在")
+        # 检查注册表文件是否存在
+        registry_path = Path("configs/llms/groups/_task_groups.yaml")
+        if not registry_path.exists():
+            pytest.skip("注册表配置文件不存在")
         
         config_loader = YamlConfigLoader()
         task_group_manager = TaskGroupManager(config_loader)
@@ -254,10 +365,10 @@ class TestTaskGroupConfigIntegration:
     
     def test_config_status(self):
         """测试配置状态"""
-        config_path = Path("configs/llms/groups/_task_groups.yaml")
-        
-        if not config_path.exists():
-            pytest.skip("配置文件不存在")
+        # 检查注册表文件是否存在
+        registry_path = Path("configs/llms/groups/_task_groups.yaml")
+        if not registry_path.exists():
+            pytest.skip("注册表配置文件不存在")
         
         config_loader = YamlConfigLoader()
         task_group_manager = TaskGroupManager(config_loader)

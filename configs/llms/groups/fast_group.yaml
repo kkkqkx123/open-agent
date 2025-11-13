@@ -1,0 +1,37 @@
+# 快速响应任务组配置
+# 适用于需要快速响应的简单任务
+
+name: "fast_group"
+description: "快速响应任务组 - 适用于需要快速响应的简单任务"
+echelon1:
+  models: ["openai-gpt4", "anthropic-claude-3-opus"]
+  concurrency_limit: 10
+  rpm_limit: 100
+  priority: 1
+  timeout: 30
+  max_retries: 3
+  temperature: 0.7
+  max_tokens: 2000
+echelon2:
+  models: ["openai-gpt4-turbo", "anthropic-claude-3-sonnet"]
+  concurrency_limit: 20
+  rpm_limit: 200
+  priority: 2
+  timeout: 25
+  max_retries: 3
+  temperature: 0.7
+  max_tokens: 2000
+echelon3:
+  models: ["openai-gpt3.5-turbo", "anthropic-claude-3-haiku"]
+  concurrency_limit: 50
+  rpm_limit: 500
+  priority: 3
+  timeout: 20
+  max_retries: 2
+  temperature: 0.7
+  max_tokens: 1500
+fallback_strategy: "echelon_down"
+circuit_breaker:
+  failure_threshold: 5
+  recovery_time: 60
+  half_open_requests: 1

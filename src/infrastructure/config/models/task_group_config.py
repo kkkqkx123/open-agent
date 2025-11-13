@@ -85,12 +85,12 @@ class EchelonConfig:
             thinking_config = ThinkingConfig.from_dict(config_dict["thinking_config"])
         
         return cls(
-            models=config_dict["models"],
-            concurrency_limit=config_dict["concurrency_limit"],
-            rpm_limit=config_dict["rpm_limit"],
-            priority=config_dict["priority"],
-            timeout=config_dict["timeout"],
-            max_retries=config_dict["max_retries"],
+            models=config_dict.get("models", []),
+            concurrency_limit=config_dict.get("concurrency_limit", 0),
+            rpm_limit=config_dict.get("rpm_limit", 0),
+            priority=config_dict.get("priority", 0),
+            timeout=config_dict.get("timeout", 0),
+            max_retries=config_dict.get("max_retries", 0),
             temperature=config_dict.get("temperature", 0.7),
             max_tokens=config_dict.get("max_tokens", 2000),
             function_calling=config_dict.get("function_calling"),

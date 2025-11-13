@@ -1,0 +1,33 @@
+# 规划任务组配置
+# 适用于复杂的规划和策略制定
+
+name: "plan_group"
+description: "规划任务组 - 适用于复杂的规划和策略制定"
+echelon1:
+  models: ["openai-gpt4", "anthropic-claude-3-opus"]
+  concurrency_limit: 5
+  rpm_limit: 50
+  priority: 1
+  timeout: 60
+  max_retries: 5
+  temperature: 0.3
+  max_tokens: 4000
+echelon2:
+  models: ["openai-gpt4-turbo", "anthropic-claude-3-sonnet"]
+  concurrency_limit: 10
+  rpm_limit: 100
+  priority: 2
+  timeout: 45
+  max_retries: 4
+  temperature: 0.3
+  max_tokens: 3000
+echelon3:
+  models: ["openai-gpt3.5-turbo", "anthropic-claude-3-haiku"]
+  concurrency_limit: 20
+  rpm_limit: 200
+  priority: 3
+  timeout: 35
+  max_retries: 3
+  temperature: 0.3
+  max_tokens: 2500
+fallback_strategy: "echelon_down"

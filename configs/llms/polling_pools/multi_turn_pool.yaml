@@ -1,0 +1,15 @@
+# 多轮对话轮询池配置
+
+name: "multi_turn_pool"
+description: "多轮对话轮询池"
+task_groups: ["thinking_group", "plan_group"]
+rotation_strategy: "least_recently_used"
+health_check_interval: 60
+failure_threshold: 2
+recovery_time: 120
+rate_limiting:
+  enabled: true
+  algorithm: "sliding_window"
+  sliding_window:
+    window_size: 60
+    max_requests: 500

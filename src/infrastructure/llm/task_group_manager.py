@@ -26,12 +26,31 @@ class TaskGroupManager:
         """
         self.config_loader = config_loader
         self._task_groups_config: Optional[TaskGroupsConfig] = None
-        self._config_path = "llms/groups/_task_groups.yaml"
+        self._config_base_path = "llms"
     
     def load_config(self) -> TaskGroupsConfig:
         """加载任务组配置"""
         try:
-            config_data = self.config_loader.load(self._config_path)
+            # 加载任务组配置
+            task_groups = self._load_task_groups()
+            
+            # 加载轮询池配置
+            polling_pools = self._load_polling_pools()
+            
+            # 加载全局配置
+            global_fallback = self._load_global_fallback()
+            concurrency_control = self._load_concurrency_control()
+            rate_limiting = self._load_rate_limiting()
+            
+            # 创建任务组总配置
+            config_data = {
+                "task_groups": task_groups,
+                "polling_pools": polling_pools,
+                "global_fallback": global_fallback,
+                "concurrency_control": concurrency_control,
+                "rate_limiting": rate_limiting
+            }
+            
             self._task_groups_config = TaskGroupsConfig.from_dict(config_data)
             logger.info("任务组配置加载成功")
             return self._task_groups_config
@@ -42,7 +61,7 @@ class TaskGroupManager:
     def get_config(self) -> TaskGroupsConfig:
         """获取任务组配置"""
         if self._task_groups_config is None:
-            self.load_config()
+            self._task_groups_config = self.load_config()
         return self._task_groups_config
     
     def get_task_group(self, name: str) -> Optional[TaskGroupConfig]:
@@ -222,3 +241,252 @@ class TaskGroupManager:
             "concurrency_control_enabled": config.concurrency_control.enabled,
             "rate_limiting_enabled": config.rate_limiting.enabled
         }
+    
+    def _load_task_groups(self) -> Dict[str, Any]:
+        """加载所有任务组配置"""
+        task_groups = {}
+        
+        # 首先加载注册表配置
+        try:
+            registry_path = f"{self._config_base_path}/groups/_task_groups.yaml"
+            registry_config = self.config_loader.load(registry_path)
+            
+            # 从注册表获取任务组配置文件列表
+            task_groups_registry = registry_config.get("task_groups", {})
+            
+            # 加载每个启用的任务组配置
+            for group_name, group_info in task_groups_registry.items():
+                if not group_info.get("enabled", True):
+                    logger.debug(f"任务组 {group_name} 已禁用，跳过加载")
+                    continue
+                
+                group_file = group_info.get("file")
+                if not group_file:
+                    logger.warning(f"任务组 {group_name} 缺少文件路径配置")
+                    continue
+                
+                try:
+                    config_path = f"{self._config_base_path}/{group_file}"
+                    group_config = self.config_loader.load(config_path)
+                    
+                    # 验证配置中的名称是否与注册表中的名称一致
+                    config_name = group_config.get("name")
+                    if config_name and config_name != group_name:
+                        logger.warning(f"任务组配置文件中的名称 '{config_name}' 与注册表中的名称 '{group_name}' 不匹配")
+                    
+                    task_groups[group_name] = group_config
+                    logger.debug(f"成功加载任务组配置: {group_name}")
+                    
+                except Exception as e:
+                    logger.warning(f"加载任务组配置失败 {group_name} ({group_file}): {e}")
+                    
+        except Exception as e:
+            logger.error(f"加载任务组注册表失败: {e}")
+            # 如果注册表加载失败，使用默认的任务组列表作为后备
+            return self._load_default_task_groups()
+        
+        return task_groups
+    
+    def _load_default_task_groups(self) -> Dict[str, Any]:
+        """加载默认任务组配置（后备方案）"""
+        task_groups = {}
+        
+        # 默认任务组配置文件路径
+        default_group_files = [
+            "groups/fast_group.yaml",
+            "groups/plan_group.yaml",
+            "groups/thinking_group.yaml",
+            "groups/execute_group.yaml",
+            "groups/review_group.yaml",
+            "groups/high_payload_group.yaml",
+            "groups/fast_small_group.yaml"
+        ]
+        
+        # 加载每个任务组配置
+        for group_file in default_group_files:
+            try:
+                config_path = f"{self._config_base_path}/{group_file}"
+                group_config = self.config_loader.load(config_path)
+                group_name = group_config.get("name")
+                if group_name:
+                    task_groups[group_name] = group_config
+                    logger.debug(f"使用默认配置加载任务组: {group_name}")
+            except Exception as e:
+                logger.warning(f"加载默认任务组配置失败 {group_file}: {e}")
+        
+        return task_groups
+    
+    def _load_polling_pools(self) -> Dict[str, Any]:
+        """加载所有轮询池配置"""
+        polling_pools = {}
+        
+        # 首先加载注册表配置
+        try:
+            registry_path = f"{self._config_base_path}/groups/_task_groups.yaml"
+            registry_config = self.config_loader.load(registry_path)
+            
+            # 从注册表获取轮询池配置文件列表
+            polling_pools_registry = registry_config.get("polling_pools", {})
+            
+            # 加载每个启用的轮询池配置
+            for pool_name, pool_info in polling_pools_registry.items():
+                if not pool_info.get("enabled", True):
+                    logger.debug(f"轮询池 {pool_name} 已禁用，跳过加载")
+                    continue
+                
+                pool_file = pool_info.get("file")
+                if not pool_file:
+                    logger.warning(f"轮询池 {pool_name} 缺少文件路径配置")
+                    continue
+                
+                try:
+                    config_path = f"{self._config_base_path}/{pool_file}"
+                    pool_config = self.config_loader.load(config_path)
+                    
+                    # 验证配置中的名称是否与注册表中的名称一致
+                    config_name = pool_config.get("name")
+                    if config_name and config_name != pool_name:
+                        logger.warning(f"轮询池配置文件中的名称 '{config_name}' 与注册表中的名称 '{pool_name}' 不匹配")
+                    
+                    polling_pools[pool_name] = pool_config
+                    logger.debug(f"成功加载轮询池配置: {pool_name}")
+                    
+                except Exception as e:
+                    logger.warning(f"加载轮询池配置失败 {pool_name} ({pool_file}): {e}")
+                    
+        except Exception as e:
+            logger.error(f"加载轮询池注册表失败: {e}")
+            # 如果注册表加载失败，使用默认的轮询池列表作为后备
+            return self._load_default_polling_pools()
+        
+        return polling_pools
+    
+    def _load_default_polling_pools(self) -> Dict[str, Any]:
+        """加载默认轮询池配置（后备方案）"""
+        polling_pools = {}
+        
+        # 默认轮询池配置文件路径
+        default_pool_files = [
+            "polling_pools/single_turn_pool.yaml",
+            "polling_pools/multi_turn_pool.yaml",
+            "polling_pools/high_concurrency_pool.yaml"
+        ]
+        
+        # 加载每个轮询池配置
+        for pool_file in default_pool_files:
+            try:
+                config_path = f"{self._config_base_path}/{pool_file}"
+                pool_config = self.config_loader.load(config_path)
+                pool_name = pool_config.get("name")
+                if pool_name:
+                    polling_pools[pool_name] = pool_config
+                    logger.debug(f"使用默认配置加载轮询池: {pool_name}")
+            except Exception as e:
+                logger.warning(f"加载默认轮询池配置失败 {pool_file}: {e}")
+        
+        return polling_pools
+    
+    def _load_global_fallback(self) -> Dict[str, Any]:
+        """加载全局降级配置"""
+        # 首先尝试从注册表加载
+        try:
+            registry_path = f"{self._config_base_path}/groups/_task_groups.yaml"
+            registry_config = self.config_loader.load(registry_path)
+            
+            # 从注册表获取全局配置文件列表
+            global_configs = registry_config.get("global_configs", {})
+            global_fallback_info = global_configs.get("global_fallback", {})
+            
+            if not global_fallback_info.get("enabled", True):
+                logger.debug("全局降级配置已禁用")
+                return {}
+            
+            fallback_file = global_fallback_info.get("file")
+            if fallback_file:
+                config_path = f"{self._config_base_path}/{fallback_file}"
+                config = self.config_loader.load(config_path)
+                logger.debug("从注册表成功加载全局降级配置")
+                return config
+                
+        except Exception as e:
+            logger.warning(f"从注册表加载全局降级配置失败: {e}")
+        
+        # 如果注册表加载失败，直接加载默认文件
+        try:
+            config_path = f"{self._config_base_path}/global_fallback.yaml"
+            config = self.config_loader.load(config_path)
+            logger.debug("使用默认路径加载全局降级配置")
+            return config
+        except Exception as e:
+            logger.warning(f"加载全局降级配置失败: {e}")
+            return {}  # 返回默认配置
+    
+    def _load_concurrency_control(self) -> Dict[str, Any]:
+        """加载并发控制配置"""
+        # 首先尝试从注册表加载
+        try:
+            registry_path = f"{self._config_base_path}/groups/_task_groups.yaml"
+            registry_config = self.config_loader.load(registry_path)
+            
+            # 从注册表获取全局配置文件列表
+            global_configs = registry_config.get("global_configs", {})
+            concurrency_control_info = global_configs.get("concurrency_control", {})
+            
+            if not concurrency_control_info.get("enabled", True):
+                logger.debug("并发控制配置已禁用")
+                return {}
+            
+            concurrency_file = concurrency_control_info.get("file")
+            if concurrency_file:
+                config_path = f"{self._config_base_path}/{concurrency_file}"
+                config = self.config_loader.load(config_path)
+                logger.debug("从注册表成功加载并发控制配置")
+                return config
+                
+        except Exception as e:
+            logger.warning(f"从注册表加载并发控制配置失败: {e}")
+        
+        # 如果注册表加载失败，直接加载默认文件
+        try:
+            config_path = f"{self._config_base_path}/concurrency_control.yaml"
+            config = self.config_loader.load(config_path)
+            logger.debug("使用默认路径加载并发控制配置")
+            return config
+        except Exception as e:
+            logger.warning(f"加载并发控制配置失败: {e}")
+            return {}  # 返回默认配置
+    
+    def _load_rate_limiting(self) -> Dict[str, Any]:
+        """加载速率限制配置"""
+        # 首先尝试从注册表加载
+        try:
+            registry_path = f"{self._config_base_path}/groups/_task_groups.yaml"
+            registry_config = self.config_loader.load(registry_path)
+            
+            # 从注册表获取全局配置文件列表
+            global_configs = registry_config.get("global_configs", {})
+            rate_limiting_info = global_configs.get("rate_limiting", {})
+            
+            if not rate_limiting_info.get("enabled", True):
+                logger.debug("速率限制配置已禁用")
+                return {}
+            
+            rate_limiting_file = rate_limiting_info.get("file")
+            if rate_limiting_file:
+                config_path = f"{self._config_base_path}/{rate_limiting_file}"
+                config = self.config_loader.load(config_path)
+                logger.debug("从注册表成功加载速率限制配置")
+                return config
+                
+        except Exception as e:
+            logger.warning(f"从注册表加载速率限制配置失败: {e}")
+        
+        # 如果注册表加载失败，直接加载默认文件
+        try:
+            config_path = f"{self._config_base_path}/rate_limiting.yaml"
+            config = self.config_loader.load(config_path)
+            logger.debug("使用默认路径加载速率限制配置")
+            return config
+        except Exception as e:
+            logger.warning(f"加载速率限制配置失败: {e}")
+            return {}  # 返回默认配置

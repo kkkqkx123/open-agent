@@ -1,0 +1,9 @@
+# 全局降级配置
+
+enabled: true
+max_attempts: 3
+retry_delay: 1.0
+circuit_breaker:
+  failure_threshold: 5
+  recovery_time: 60
+  half_open_requests: 1
