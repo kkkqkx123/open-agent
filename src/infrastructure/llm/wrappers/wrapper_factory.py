@@ -189,7 +189,6 @@ class LLMWrapperFactory:
                 }
         
         return stats
-    
     def health_check_all(self) -> Dict[str, Any]:
         """对所有包装器执行健康检查"""
         health_status = {}
@@ -202,16 +201,24 @@ class LLMWrapperFactory:
                     # 异步健康检查
                     import asyncio
                     try:
-                        loop = asyncio.get_event_loop()
+                        # 尝试获取事件循环
+                        try:
+                            loop = asyncio.get_event_loop()
+                        except RuntimeError:
+                            # 如果没有事件循环，则创建一个新的
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            
                         coro = health_check_method()
                         if not isinstance(coro, Coroutine):
                             # 如果不是协程，直接调用
                             health_status[name] = coro
                         elif loop.is_running():
-                            # 如果事件循环正在运行，使用run_in_executor
-                            health_status[name] = asyncio.run_coroutine_threadsafe(
-                                coro, loop
-                            ).result(timeout=5)
+                            # 如果事件循环正在运行，使用 asyncio.run_coroutine_threadsafe
+                            import concurrent.futures
+                            with concurrent.futures.ThreadPoolExecutor() as executor:
+                                future = executor.submit(asyncio.run, coro)
+                                health_status[name] = future.result(timeout=5)
                         else:
                             health_status[name] = loop.run_until_complete(coro)
                     except Exception as e:
@@ -226,6 +233,7 @@ class LLMWrapperFactory:
             except Exception as e:
                 health_status[name] = {"healthy": False, "error": str(e)}
         
+        return health_status
         return health_status
     
     def reset_all_stats(self) -> None:

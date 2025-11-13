@@ -460,7 +460,7 @@ class TestTaskGroupWrapper:
         assert len(wrapper._fallback_history) == 100 # 应该限制为100个
         # 检查保留的是最近的100个
         assert wrapper._fallback_history[0]["target"] == "target-1"  # 最旧的应该是target-1
-        assert wrapper._fallback_history[-1]["target"] == "target-10"  # 最新的应该是target-100
+        assert wrapper._fallback_history[-1]["target"] == "target-100"  # 最新的应该是target-100
     
     def test_get_fallback_history(self):
         """测试获取降级历史"""
@@ -469,7 +469,7 @@ class TestTaskGroupWrapper:
         wrapper = TaskGroupWrapper("test-wrapper", mock_task_group_manager, None)
         
         # 添加一些历史记录
-        for in range(15):  # 创建15个记录
+        for i in range(15):  # 创建15个记录
             wrapper._record_success(f"target-{i}")
         
         history = wrapper.get_fallback_history(limit=10)

@@ -86,12 +86,24 @@ class TestLLMWrapperFactory:
     def test_create_task_group_wrapper_error(self):
         """测试创建任务组包装器错误"""
         mock_task_group_manager = Mock()
-        mock_task_group_manager.side_effect = Exception("Creation error")
+        mock_fallback_manager = Mock()
         
-        factory = LLMWrapperFactory(task_group_manager=mock_task_group_manager)
+        factory = LLMWrapperFactory(
+            task_group_manager=mock_task_group_manager,
+            fallback_manager=mock_fallback_manager
+        )
         
-        with pytest.raises(WrapperFactoryError, match="创建任务组包装器失败"):
-            factory.create_task_group_wrapper("test-wrapper", {"param": "value"})
+        # 模拟 TaskGroupWrapper 构造函数抛出异常
+        original_init = TaskGroupWrapper.__init__
+        def failing_init(self, name, task_group_manager, fallback_manager, config=None):
+            raise Exception("Creation error")
+        TaskGroupWrapper.__init__ = failing_init
+        
+        try:
+            with pytest.raises(WrapperFactoryError, match="创建任务组包装器失败"):
+                factory.create_task_group_wrapper("test-wrapper", {"param": "value"})
+        finally:
+            TaskGroupWrapper.__init__ = original_init
     
     def test_create_polling_pool_wrapper(self):
         """测试创建轮询池包装器"""

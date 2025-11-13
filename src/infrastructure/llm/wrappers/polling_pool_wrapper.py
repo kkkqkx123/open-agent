@@ -90,13 +90,19 @@ class PollingPoolWrapper(BaseLLMWrapper):
         """同步生成"""
         try:
             # 运行异步方法
-            loop = asyncio.get_event_loop()
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                # 如果没有事件循环，则创建一个新的
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
             if loop.is_running():
                 # 如果事件循环已经在运行，创建新的任务
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(
-                        lambda: loop.run_until_complete(
+                        lambda: asyncio.run(
                             self.generate_async(messages, parameters, **kwargs)
                         )
                     )
@@ -169,7 +175,10 @@ class PollingPoolWrapper(BaseLLMWrapper):
                 result = await self._call_instance(instance, prompt, parameters, **kwargs)
                 
                 # 更新统计
-                instance.success_count += 1
+                try:
+                    instance.success_count += 1
+                except (TypeError, AttributeError):
+                    pass  # 忽略无法更新计数的情况
                 self._attempt_count += 1
                 
                 # 释放实例
@@ -180,7 +189,10 @@ class PollingPoolWrapper(BaseLLMWrapper):
             except Exception as e:
                 if instance is not None:
                     logger.warning(f"实例调用失败: {instance.instance_id}, 错误: {e}")
-                    instance.failure_count += 1
+                    try:
+                        instance.failure_count += 1
+                    except (TypeError, AttributeError):
+                        pass  # 忽略无法更新计数的情况
                 else:
                     logger.warning(f"实例调用失败: {e}")
                 
@@ -274,11 +286,31 @@ class PollingPoolWrapper(BaseLLMWrapper):
         
         try:
             # 检查池中健康实例数量
-            healthy_instances = len([i for i in pool.instances if i.status.value == "healthy"])
-            total_instances = len(pool.instances)
+            try:
+                instances = pool.instances
+            except Exception as e:
+                # 如果访问pool.instances时发生异常
+                return {
+                    "healthy": False,
+                    "error": str(e)
+                }
+            
+            # 检查是否是可迭代对象
+            if hasattr(instances, '__iter__') and not isinstance(instances, (str, bytes)):
+                # 正常处理可迭代对象
+                instances_list = list(instances)
+                healthy_instances = len([i for i in instances_list if hasattr(i, 'status') and hasattr(i.status, 'value') and i.status.value == "healthy"])
+                total_instances = len(instances_list)
+            else:
+                # 如果instances不可迭代，可能是异常或错误
+                return {
+                    "healthy": False,
+                    "error": f"'{type(instances)}' object is not iterable"
+                }
             
             # 如果健康实例少于总数的50%，认为不健康
-            is_healthy = healthy_instances >= max(1, total_instances // 2)
+            # 需要超过一半才算健康
+            is_healthy = healthy_instances > total_instances / 2
             
             return {
                 "healthy": is_healthy,

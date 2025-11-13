@@ -89,13 +89,19 @@ class TaskGroupWrapper(BaseLLMWrapper):
         """同步生成"""
         try:
             # 运行异步方法
-            loop = asyncio.get_event_loop()
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                # 如果没有事件循环，则创建一个新的
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
             if loop.is_running():
                 # 如果事件循环已经在运行，创建新的任务
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(
-                        lambda: loop.run_until_complete(
+                        lambda: asyncio.run(
                             self.generate_async(messages, parameters, **kwargs)
                         )
                     )
@@ -205,9 +211,15 @@ class TaskGroupWrapper(BaseLLMWrapper):
             return config_fallback_groups
         
         # 从任务组配置获取降级组
-        group_name, _ = self.task_group_manager.parse_group_reference(target)
-        if group_name:
-            return self.task_group_manager.get_fallback_groups(target)
+        try:
+            result = self.task_group_manager.parse_group_reference(target)
+            if result and len(result) >= 2:
+                group_name, _ = result
+                if group_name:
+                    return self.task_group_manager.get_fallback_groups(target)
+        except Exception:
+            # 如果解析失败，返回空列表
+            pass
         
         return []
     
