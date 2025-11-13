@@ -1,34 +1,34 @@
-# SiliconFlow DeepSeek-R1-Distill-Qwen-7B 配置
+# SiliconFlow THUDM/GLM-4.1V-9B-Thinking 配置
 # 继承自 provider/siliconflow/common.yaml
 inherits_from: "provider/siliconflow/common"
 
 model_type: siliconflow
-model_name: deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+model_name: THUDM/GLM-4.1V-9B-Thinking
 provider: siliconflow
-token_counter: siliconflow_deepseek_r1_qwen2_5_7b
+token_counter: siliconflow_thudm_glm_4_1v_9b_thinking
 
 # 覆盖特定参数
 parameters:
-  max_tokens: 128000  # 128K上下文
+  max_tokens: 64000  # 64K上下文
 
 # 降级配置
 fallback_enabled: true
 fallback_models:
-  - silicon-DS-R1-0528(qwen3)-8B
+  - silicon-GLM-4-9B
 max_fallback_attempts: 3
 
 # 元数据
 metadata:
   provider: siliconflow
   version: "1.0"
-  description: "SiliconFlow DeepSeek-R1-Distill-Qwen-7B 模型"
-  model_family: "deepseek-r1"
+  description: "SiliconFlow THUDM/GLM-4.1V-9B-Thinking 模型 (视觉输入)"
+  model_family: "glm-4"
   capabilities:
     - text_generation
     - function_calling
-    - high_context_length
+    - vision
   limitations:
     - no_api_caching
-  context_length: 128000
+  context_length: 64000
   rpm_limit: 1000
   tpm_limit: 50000

@@ -1,34 +1,35 @@
-# SiliconFlow DeepSeek-R1-Distill-Qwen-7B 配置
+# SiliconFlow tencent/Hunyuan-MT-7B 配置
 # 继承自 provider/siliconflow/common.yaml
 inherits_from: "provider/siliconflow/common"
 
 model_type: siliconflow
-model_name: deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+model_name: tencent/Hunyuan-MT-7B
 provider: siliconflow
-token_counter: siliconflow_deepseek_r1_qwen2_5_7b
+token_counter: siliconflow_tencent_hunyuan_mt_7b
 
 # 覆盖特定参数
 parameters:
-  max_tokens: 128000  # 128K上下文
+  max_tokens: 32000  # 32K上下文
 
 # 降级配置
 fallback_enabled: true
 fallback_models:
-  - silicon-DS-R1-0528(qwen3)-8B
+  - silicon-Qwen2.5-7B
 max_fallback_attempts: 3
 
 # 元数据
 metadata:
   provider: siliconflow
   version: "1.0"
-  description: "SiliconFlow DeepSeek-R1-Distill-Qwen-7B 模型"
-  model_family: "deepseek-r1"
+  description: "SiliconFlow tencent/Hunyuan-MT-7B 模型 (推荐用于翻译)"
+  model_family: "hunyuan-mt"
   capabilities:
     - text_generation
     - function_calling
-    - high_context_length
+    - translation
+    - completion
   limitations:
     - no_api_caching
-  context_length: 128000
+  context_length: 32000
   rpm_limit: 1000
-  tpm_limit: 50000
+  tpm_limit: 80000

@@ -1,0 +1,38 @@
+# SiliconFlow DeepSeek-R1-0528-Qwen3-8B 配置
+# 继承自 provider/siliconflow/common.yaml
+inherits_from: "provider/siliconflow/common"
+
+model_type: siliconflow
+model_name: deepseek-ai/DeepSeek-R1-0528-Qwen3-8B
+provider: siliconflow
+token_counter: siliconflow_deepseek_r1_0528_qwen3_8b
+
+# 覆盖特定参数
+parameters:
+  max_tokens: 128000  # 128K上下文
+
+# 降级配置
+fallback_enabled: true
+fallback_models:
+  - silicon-DS-R1(qwen2.5)-7B
+max_fallback_attempts: 3
+
+# 工具调用配置 - 此模型无工具能力
+function_calling_supported: false
+function_calling_mode: "none"
+
+# 元数据
+metadata:
+  provider: siliconflow
+  version: "1.0"
+  description: "SiliconFlow DeepSeek-R1-0528-Qwen3-8B 模型 (8B版本)"
+  model_family: "deepseek-r1"
+  capabilities:
+    - text_generation
+    - high_context_length
+  limitations:
+    - no_function_calling
+    - no_api_caching
+  context_length: 128000
+  rpm_limit: 1000
+  tpm_limit: 50000

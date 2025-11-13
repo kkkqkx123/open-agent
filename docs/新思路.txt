@@ -117,7 +117,7 @@ cli新增速率预检测，根据provider-llm分级的请求速率(单独设置R
 
 结束任务工具：触发hook，用于激活监督节点，避免全局连接节点
 
-代码静态检查：直接使用balck, mypy, isort。如果不存在，要求
+代码静态检查工具：直接使用black, mypy, isort。如果不存在，要求用户批准安装
 semgrep，定义导入顺序等规则
 
 编辑文件工具：diff、search and replace、override、regex【基于正则模式替换】[首次使用返回替换内容预览(ripgrep)，让llm确认，确认后才执行]
@@ -174,7 +174,7 @@ undo_edit工具
 
 ---
 
-提示词增强：同样采用RAG
+提示词增强：同样采用RAG。可以结合代码库索引
 
 ---
 

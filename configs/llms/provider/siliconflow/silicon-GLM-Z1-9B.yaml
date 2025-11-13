@@ -1,0 +1,34 @@
+# SiliconFlow THUDM/GLM-Z1-9B-0414 配置
+# 继承自 provider/siliconflow/common.yaml
+inherits_from: "provider/siliconflow/common"
+
+model_type: siliconflow
+model_name: THUDM/GLM-Z1-9B-0414
+provider: siliconflow
+token_counter: siliconflow_thudm_glm_z1_9b_0414
+
+# 覆盖特定参数
+parameters:
+  max_tokens: 128000  # 128K上下文
+
+# 降级配置
+fallback_enabled: true
+fallback_models:
+  - silicon-GLM-4-9B
+max_fallback_attempts: 3
+
+# 元数据
+metadata:
+  provider: siliconflow
+  version: "1.0"
+  description: "SiliconFlow THUDM/GLM-Z1-9B-0414 模型"
+  model_family: "glm-z1"
+  capabilities:
+    - text_generation
+    - function_calling
+    - high_context_length
+  limitations:
+    - no_api_caching
+  context_length: 128000
+  rpm_limit: 1000
+  tpm_limit: 50000

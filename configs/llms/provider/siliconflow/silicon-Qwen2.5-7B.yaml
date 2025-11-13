@@ -1,34 +1,33 @@
-# SiliconFlow DeepSeek-R1-Distill-Qwen-7B 配置
+# SiliconFlow Qwen/Qwen2.5-7B-Instruct 配置
 # 继承自 provider/siliconflow/common.yaml
 inherits_from: "provider/siliconflow/common"
 
 model_type: siliconflow
-model_name: deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+model_name: Qwen/Qwen2.5-7B-Instruct
 provider: siliconflow
-token_counter: siliconflow_deepseek_r1_qwen2_5_7b
+token_counter: siliconflow_qwen_qwen2_5_7b_instruct
 
 # 覆盖特定参数
 parameters:
-  max_tokens: 128000  # 128K上下文
+  max_tokens: 32000  # 32K上下文
 
 # 降级配置
 fallback_enabled: true
 fallback_models:
-  - silicon-DS-R1-0528(qwen3)-8B
+  - silicon-Hunyuan-MT-7B
 max_fallback_attempts: 3
 
 # 元数据
 metadata:
   provider: siliconflow
   version: "1.0"
-  description: "SiliconFlow DeepSeek-R1-Distill-Qwen-7B 模型"
-  model_family: "deepseek-r1"
+  description: "SiliconFlow Qwen/Qwen2.5-7B-Instruct 模型"
+  model_family: "qwen2.5"
   capabilities:
     - text_generation
     - function_calling
-    - high_context_length
   limitations:
     - no_api_caching
-  context_length: 128000
+  context_length: 32000
   rpm_limit: 1000
   tpm_limit: 50000
