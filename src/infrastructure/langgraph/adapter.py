@@ -13,12 +13,7 @@ import logging
 import asyncio
 from abc import ABC, abstractmethod
 
-if TYPE_CHECKING:
-    from langchain_core.runnables import RunnableConfig
-else:
-    # 运行时使用Dict作为RunnableConfig的替代
-    RunnableConfig = Dict[str, Any]
-
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite import SqliteSaver
@@ -134,7 +129,7 @@ class LangGraphAdapter(ILangGraphAdapter):
     def _create_default_graph_builder(self) -> GraphBuilder:
         """创建默认图构建器"""
         node_registry = get_global_registry()
-        return GraphBuilder(node_registry=node_registry)
+        return cast(GraphBuilder, GraphBuilder(node_registry=node_registry))
     
     async def create_graph(self, config: GraphConfig) -> Pregel:
         """创建LangGraph图

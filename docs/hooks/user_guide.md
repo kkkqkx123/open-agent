@@ -37,6 +37,7 @@ Hook在节点的三个关键执行点被触发：
 ### 1. 基本使用
 
 ```python
+import yaml
 from src.infrastructure.config_loader import YamlConfigLoader
 from src.infrastructure.graph.hooks import (
     NodeHookManager,
@@ -44,6 +45,7 @@ from src.infrastructure.graph.hooks import (
     HookAwareGraphBuilder,
     create_hook_aware_builder
 )
+from src.infrastructure.graph.config import GraphConfig
 
 # 创建配置加载器
 config_loader = YamlConfigLoader()
@@ -61,7 +63,10 @@ builder = create_hook_aware_builder(
 )
 
 # 构建图
-graph = builder.build_from_yaml("configs/graphs/my_workflow.yaml")
+with open("configs/graphs/my_workflow.yaml", 'r', encoding='utf-8') as f:
+    config_data = yaml.safe_load(f)
+config = GraphConfig.from_dict(config_data)
+graph = builder.build_graph(config)
 
 # 或者手动创建Hookable节点
 HookableNode = create_hookable_node_class(OriginalNode, hook_manager)

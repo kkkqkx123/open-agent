@@ -7,6 +7,8 @@ import logging
 from typing import Dict, Any, Optional, Type
 from pathlib import Path
 
+from infrastructure.graph.builder import GraphBuilder
+
 from .interfaces import IComponentAssembler
 from .exceptions import (
     AssemblyError,

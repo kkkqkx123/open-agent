@@ -9,7 +9,7 @@ import logging
 import yaml
 
 from src.infrastructure.graph.config import GraphConfig
-from src.infrastructure.graph.enhanced_builder import EnhancedGraphBuilder
+from src.infrastructure.graph.builder import GraphBuilder
 from src.infrastructure.graph.function_registry import FunctionRegistry, FunctionType, get_global_function_registry
 from src.infrastructure.graph.config_validator import WorkflowConfigValidator, ValidationResult
 from src.infrastructure.graph.registry import NodeRegistry, get_global_registry
@@ -298,11 +298,12 @@ class UniversalWorkflowLoader:
         self.template_manager = get_global_template_manager()
         self.config_validator = WorkflowConfigValidator(self.function_registry)
         
-        # 创建增强图构建器
-        self.graph_builder = EnhancedGraphBuilder(
+        # 创建统一图构建器
+        self.graph_builder = GraphBuilder(
             node_registry=self.node_registry,
             function_registry=self.function_registry,
-            enable_function_fallback=True
+            enable_function_fallback=True,
+            enable_iteration_management=True
         )
         
         # 缓存

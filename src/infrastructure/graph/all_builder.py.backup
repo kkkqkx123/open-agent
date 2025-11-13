@@ -14,6 +14,7 @@ import threading
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
+
 if TYPE_CHECKING:
     from langchain_core.runnables import RunnableConfig
 else:
@@ -52,6 +53,59 @@ class INodeExecutor(ABC):
         """执行节点逻辑"""
         pass
 
+
+class NodeWithAdapterExecutor(INodeExecutor):
+    """带适配器的节点执行器 - 将图状态与域状态进行转换"""
+    
+    def __init__(self, node_instance):
+        self.node = node_instance
+    
+    def execute(self, state: WorkflowState, config: "Optional[RunnableConfig]" = None) -> WorkflowState:
+        # 确保config不为None
+        if config is None:
+            config = {}
+            
+        # 1. 图状态转域状态
+        state_adapter = get_state_adapter()
+        domain_state = state_adapter.from_graph_state(state)
+        
+        # 2. 调用节点原始逻辑
+        result = self.node.execute(domain_state, config)
+        
+        # 3. 将结果中的域状态转回图状态
+        return cast(WorkflowState, state_adapter.to_graph_state(result.state))
+
+
+class EnhancedNodeWithAdapterExecutor(INodeExecutor):
+    """增强的节点执行器 - 重构版本"""
+    
+    def __init__(self, node_instance, state_manager: IStateCollaborationManager):
+        self.node = node_instance
+        from .adapters.collaboration_adapter import CollaborationStateAdapter
+        self.collaboration_adapter = CollaborationStateAdapter(state_manager)
+    
+    def execute(self, state: WorkflowState, config: "Optional[RunnableConfig]" = None) -> WorkflowState:
+        """执行节点逻辑，集成状态管理功能"""
+        
+        # 确保config不为None
+        if config is None:
+            config = {}
+        
+        def node_executor(domain_state: Any) -> Any:
+            """节点执行函数"""
+            # 将域状态转换为图状态供节点使用
+            temp_graph_state = self.collaboration_adapter.state_adapter.to_graph_state(domain_state)
+            
+            # 执行原始节点逻辑
+            result_graph_state = self.node.execute(temp_graph_state, config)
+            
+            # 将结果转换回域状态
+            return self.collaboration_adapter.state_adapter.from_graph_state(result_graph_state)
+        
+        # 使用协作适配器执行
+        return cast(WorkflowState, self.collaboration_adapter.execute_with_collaboration(state, node_executor))
+
+
 class GraphBuilder:
     """统一图构建器
     
@@ -78,7 +132,6 @@ class GraphBuilder:
         """
         self.node_registry = node_registry or get_global_registry()
         self.function_registry = function_registry or get_global_function_registry()
-        self.template_registry: Optional[Any] = None  # 添加缺失的属性，允许任意类型
         self.enable_function_fallback = enable_function_fallback
         self.enable_iteration_management = enable_iteration_management
         self._checkpointer_cache: Dict[str, Any] = {}
@@ -221,16 +274,7 @@ class GraphBuilder:
                 # 节点类型不存在，继续尝试其他方法
                 pass
         
-        # 3. 尝试从模板注册表获取
-        if self.template_registry:
-            template = self.template_registry.get_template(function_name)
-            if template and hasattr(template, 'get_node_function'):
-                node_function = template.get_node_function()
-                if node_function:
-                    logger.debug(f"从模板注册表获取节点函数: {function_name}")
-                    return self._wrap_node_function(node_function, state_manager, node_config.name)
-        
-        # 4. 尝试从内置函数获取
+        # 3. 尝试从内置函数获取
         builtin_function = get_builtin_node_function(function_name)
         if builtin_function:
             logger.debug(f"从内置函数获取节点函数: {function_name}")
@@ -460,36 +504,6 @@ class GraphBuilder:
         # 简化实现
         return {"condition_result": True}
     
-    def _get_builtin_function(self, func_name: str) -> Optional[Callable]:
-        """获取内置函数
-        Args:
-            func_name: 函数名称
-        Returns:
-            Optional[Callable]: 函数对象或None
-        """
-        builtin_functions = {
-            "llm_node": self._create_llm_node,
-            "tool_node": self._create_tool_node,
-            "analysis_node": self._create_analysis_node,
-            "condition_node": self._create_condition_node,
-            "wait_node": self._create_wait_node,
-        }
-        return builtin_functions.get(func_name)
-    
-    def _get_builtin_condition(self, condition_name: str) -> Optional[Callable]:
-        """获取内置条件
-        Args:
-            condition_name: 条件名称
-        Returns:
-            Optional[Callable]: 条件函数或None
-        """
-        builtin_conditions = {
-            "has_tool_calls": self._condition_has_tool_calls,
-            "needs_more_info": self._condition_needs_more_info,
-            "is_complete": self._condition_is_complete,
-        }
-        return builtin_conditions.get(condition_name)
-    
     def _create_wait_node(self, state: WorkflowState) -> Dict[str, Any]:
         """创建等待节点"""
         # 这里应该执行实际的等待逻辑
@@ -693,3 +707,47 @@ class GraphBuilder:
             "iteration_management_enabled": self.enable_iteration_management,
         }
     
+    # 向后兼容方法
+    def build_from_yaml(self, yaml_path: str, state_manager: Optional[IStateCollaborationManager] = None) -> Any:
+        """从YAML文件构建图
+        
+        Args:
+            yaml_path: YAML配置文件路径
+            
+        Returns:
+            编译后的LangGraph图
+        """
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            config_data = yaml.safe_load(f)
+        
+        config = GraphConfig.from_dict(config_data)
+        return self.build_graph(config, state_manager)
+    
+    def validate_config(self, config: GraphConfig) -> List[str]:
+        """验证图配置
+        
+        Args:
+            config: 图配置
+            
+        Returns:
+            验证错误列表
+        """
+        return config.validate()
+    
+    def load_workflow_config(self, config_path: str) -> GraphConfig:
+        """加载工作流配置
+        
+        Args:
+            config_path: 配置文件路径
+            
+        Returns:
+            工作流配置
+        """
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config_data = yaml.safe_load(f)
+        
+        return GraphConfig.from_dict(config_data)
+
+def get_workflow_builder(*args, **kwargs):
+    """获取工作流构建器实例（向后兼容）"""
+    return GraphBuilder(*args, **kwargs)

@@ -66,8 +66,8 @@ class TestWorkflowBuilder(unittest.TestCase):
         graph = self.builder.build_graph(config)
         self.assertIsNotNone(graph)
 
-    def test_build_from_yaml(self):
-        """测试从YAML构建"""
+    def test_build_from_yaml_content(self):
+        """测试从YAML内容构建图"""
         yaml_content = yaml.dump(self.test_config)
         # 使用from_dict方法并通过yaml.safe_load解析YAML内容
         config_dict = yaml.safe_load(io.StringIO(yaml_content))
@@ -78,7 +78,7 @@ class TestWorkflowBuilder(unittest.TestCase):
     def test_validate_valid_config(self):
         """测试验证有效配置"""
         config = WorkflowConfig.from_dict(self.test_config)
-        errors = self.builder.validate_config(config)
+        errors = config.validate()
         self.assertEqual(len(errors), 0)
 
     def test_validate_invalid_config(self):
@@ -86,7 +86,7 @@ class TestWorkflowBuilder(unittest.TestCase):
         invalid_config = self.test_config.copy()
         invalid_config["name"] = ""  # 设置为空字符串而不是移除字段
         config = WorkflowConfig.from_dict(invalid_config)
-        errors = self.builder.validate_config(config)
+        errors = config.validate()
         self.assertGreater(len(errors), 0)
 
 

@@ -9,8 +9,7 @@ import yaml
 
 from src.infrastructure.graph.builder import (
     INodeExecutor,
-    GraphBuilder,
-    get_workflow_builder
+    GraphBuilder
 )
 from src.infrastructure.graph.config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
 from src.infrastructure.graph.states import WorkflowState
@@ -107,7 +106,6 @@ class TestGraphBuilder:
         assert builder.node_registry is not None
         assert isinstance(builder.node_registry, NodeRegistry)
     
-    @patch('src.infrastructure.graph.builder.LANGGRAPH_AVAILABLE', True)
     def test_build_graph_success(self, builder: GraphBuilder, sample_config: GraphConfig) -> None:
         """测试成功构建图"""
         # 执行
@@ -117,12 +115,6 @@ class TestGraphBuilder:
         # 由于实际返回的是 CompiledStateGraph 对象，我们验证它不为 None 即可
         assert result is not None
         # 由于 StateGraph 是在方法内部导入的，我们无法直接 mock，所以只验证结果不为 None
-    
-    @patch('src.infrastructure.graph.builder.LANGGRAPH_AVAILABLE', False)
-    def test_build_graph_langgraph_unavailable(self, builder: GraphBuilder, sample_config: GraphConfig) -> None:
-        """测试LangGraph不可用时构建图"""
-        result = builder.build_graph(sample_config)
-        assert result is None
     
     def test_build_graph_validation_error(self, builder: GraphBuilder, sample_config: GraphConfig) -> None:
         """测试配置验证失败"""
@@ -163,7 +155,6 @@ class TestGraphBuilder:
         # 验证没有调用add_node
         mock_builder.add_node.assert_not_called()
     
-    @patch('src.infrastructure.graph.builder.LANGGRAPH_AVAILABLE', True)
     def test_add_edges(self, builder: GraphBuilder, sample_config: GraphConfig) -> None:
         """测试添加边"""
         # 创建模拟构建器
@@ -181,7 +172,6 @@ class TestGraphBuilder:
             if edge.type == EdgeType.SIMPLE:
                 mock_builder.add_edge.assert_any_call(edge.from_node, edge.to_node)
     
-    @patch('src.infrastructure.graph.builder.LANGGRAPH_AVAILABLE', False)
     def test_add_edges_to_end(self, builder: GraphBuilder, sample_config: GraphConfig) -> None:
         """测试添加到END节点的边"""
         # 修改配置，添加到END的边
@@ -194,10 +184,8 @@ class TestGraphBuilder:
         builder._add_edges(mock_builder, sample_config)
         
         # 验证
-        # 当LANGGRAPH_AVAILABLE为False时，不会添加边
-        mock_builder.add_edge.assert_not_called()
+        mock_builder.add_edge.assert_called()
     
-    @patch('src.infrastructure.graph.builder.LANGGRAPH_AVAILABLE', True)
     def test_add_conditional_edges(self, builder: GraphBuilder, sample_config: GraphConfig) -> None:
         """测试添加条件边"""
         # 修改配置为条件边
@@ -216,7 +204,7 @@ class TestGraphBuilder:
         
         # 验证
         mock_builder.add_conditional_edges.assert_called_once_with(
-            sample_config.edges[0].from_node, 
+            sample_config.edges[0].from_node,
             mock_condition_func
         )
     
@@ -433,118 +421,4 @@ class TestGraphBuilder:
         result = builder._condition_is_complete(state)  # type: ignore
         assert result == "continue"
     
-    def test_build_from_yaml(self, builder: GraphBuilder) -> None:
-        """测试从YAML文件构建图"""
-        # 创建临时YAML文件
-        config_data = {
-            "name": "test_graph",
-            "description": "测试图",
-            "state_schema": {
-                "name": "TestState",
-                "fields": {
-                    "messages": {"type": "List[str]"}
-                }
-            },
-            "nodes": {
-                "start": {
-                    "function": "llm_node",
-                    "config": {"model": "gpt-3.5-turbo"}
-                }
-            },
-            "edges": [
-                {
-                    "from": "start",
-                    "to": "end",
-                    "type": "simple"
-                }
-            ],
-            "entry_point": "start"
-        }
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            yaml.dump(config_data, f)
-            temp_path = f.name
-        
-        try:
-            # 模拟build_graph方法
-            builder.build_graph = Mock(return_value=Mock())  # type: ignore
-            
-            # 执行
-            result = builder.build_from_yaml(temp_path)
-            
-            # 验证
-            assert result is not None
-            builder.build_graph.assert_called_once()
-            
-            # 验证配置对象
-            call_args = builder.build_graph.call_args[0][0]
-            assert isinstance(call_args, GraphConfig)
-            assert call_args.name == "test_graph"
-            
-        finally:
-            # 清理临时文件
-            Path(temp_path).unlink()
     
-    def test_validate_config(self, builder: GraphBuilder, sample_config: GraphConfig) -> None:
-        """测试验证配置"""
-        # 配置验证返回空列表
-        sample_config.validate = Mock(return_value=[])  # type: ignore
-        
-        # 执行
-        result = builder.validate_config(sample_config)
-        
-        # 验证
-        assert result == []
-        sample_config.validate.assert_called_once()
-    
-    def test_load_workflow_config(self, builder: GraphBuilder) -> None:
-        """测试加载工作流配置"""
-        # 创建临时YAML文件
-        config_data = {
-            "name": "test_workflow",
-            "description": "测试工作流",
-            "state_schema": {
-                "name": "WorkflowState",
-                "fields": {}
-            }
-        }
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            yaml.dump(config_data, f)
-            temp_path = f.name
-        
-        try:
-            # 执行
-            result = builder.load_workflow_config(temp_path)
-            
-            # 验证
-            assert isinstance(result, GraphConfig)
-            assert result.name == "test_workflow"
-            
-        finally:
-            # 清理临时文件
-            Path(temp_path).unlink()
-
-
-class TestGetWorkflowBuilder:
-    """测试工作流构建器工厂函数"""
-    
-    def test_get_workflow_builder(self) -> None:
-        """测试获取工作流构建器"""
-        # 执行
-        result = get_workflow_builder()
-        
-        # 验证
-        assert isinstance(result, GraphBuilder)
-    
-    def test_get_workflow_builder_with_args(self) -> None:
-        """测试带参数获取工作流构建器"""
-        # 创建模拟注册表
-        mock_registry = Mock(spec=NodeRegistry)
-        
-        # 执行
-        result = get_workflow_builder(node_registry=mock_registry)
-        
-        # 验证
-        assert isinstance(result, GraphBuilder)
-        assert result.node_registry == mock_registry
