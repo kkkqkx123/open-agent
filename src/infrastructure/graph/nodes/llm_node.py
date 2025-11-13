@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, Optional, List
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..registry import BaseNode, NodeExecutionResult, node
 from ..states import WorkflowState
@@ -81,33 +81,13 @@ class LLMNode(BaseNode):
         # 确定下一步
         next_node = self._determine_next_node(response, config)
         
-        return NodeExecutionResult(
-            state=state,
-            next_node=next_node,
-            metadata={
-                "llm_client": {
-                    "type": "string",
-                    "description": "LLM客户端配置名称"
-                },
-                "llm_group": {
-                    "type": "string",
-                    "description": "LLM任务组引用，如 'fast_group.echelon1'"
-                },
-                "fallback_groups": {
-                    "type": "array",
-                    "description": "降级组引用列表",
-                    "items": {"type": "string"}
-                },
-                "polling_pool": {
-                    "type": "string",
-                    "description": "轮询池名称"
-                },
-                "llm_response": response.content,
-                "token_usage": getattr(response, "token_usage", None),
-                "model_info": llm_client.get_model_info(),
-                "system_prompt": system_prompt
-            }
-        )
+        result_metadata: Dict[str, Any] = {
+            "llm_response": response.content,
+            "token_usage": getattr(response, "token_usage", None),
+            "model_info": llm_client.get_model_info(),
+            "system_prompt": system_prompt
+        }
+        return NodeExecutionResult(state, next_node, result_metadata)
 
     def get_config_schema(self) -> Dict[str, Any]:
         """获取节点配置Schema"""
