@@ -145,14 +145,12 @@ class TestWorkflowIntegration:
         
         self.config_loader = MockConfigLoader()
         # 创建工作流工厂并传递配置加载器
-        workflow_factory = WorkflowFactory(
+        self.workflow_factory = WorkflowFactory(
             container=None,
             config_loader=self.config_loader
         )
         self.manager = WorkflowManager(
-            config_loader=self.config_loader,
-            container=None,
-            workflow_factory=workflow_factory
+            config_loader=self.config_loader
         )
 
     def create_test_workflow_config(self) -> WorkflowConfig:

@@ -2,7 +2,7 @@
 # 适用于简单的快速任务
 
 name: "fast_small_group"
-description: "小模型快速任务组 - 适用于简单的快速任务"
+description: "小模型快速任务组 - 适用于最简单的快速任务。包括翻译、分析、执行、思考、高并发。"
 translation:
   models: ["openai-gpt3.5-turbo", "gemini-pro"]
   concurrency_limit: 100

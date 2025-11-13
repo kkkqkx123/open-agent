@@ -221,7 +221,12 @@ class WorkflowManager(IWorkflowManager):
             workflow_id = config_id
             self._workflows[workflow_id] = config  # 简化存储
             self._workflow_configs[workflow_id] = config
-            self._workflow_metadata[workflow_id] = self.config_manager.get_config_metadata(config_id) or {}
+            metadata = self.config_manager.get_config_metadata(config_id) or {}
+            # 确保config_path在元数据中
+            metadata["config_path"] = config_path
+            metadata["loaded_at"] = datetime.now().isoformat()
+            metadata["usage_count"] = 0
+            self._workflow_metadata[workflow_id] = metadata
             
             # 注册到注册表
             if self.registry:
@@ -298,6 +303,59 @@ class WorkflowManager(IWorkflowManager):
             success = True
         
         return success
+
+    def reload_workflow(self, workflow_id: str) -> bool:
+        """重新加载工作流（向后兼容方法）
+        
+        Args:
+            workflow_id: 工作流ID
+            
+        Returns:
+            bool: 是否成功重新加载
+        """
+        # 获取工作流的配置路径
+        metadata = self._workflow_metadata.get(workflow_id)
+        if not metadata or "config_path" not in metadata:
+            logger.warning(f"无法找到工作流 '{workflow_id}' 的配置路径")
+            return False
+        
+        config_path = metadata["config_path"]
+        
+        try:
+            # 重新加载配置文件
+            if self.config_manager:
+                # 使用新的配置管理器重新加载
+                new_config = self.config_manager.get_config(workflow_id)
+                if new_config:
+                    # 更新缓存
+                    self._workflow_configs[workflow_id] = new_config
+                    # 更新元数据中的last_reloaded时间
+                    metadata["last_reloaded"] = datetime.now().isoformat()
+                    return True
+            
+            # 向后兼容：使用config_loader重新加载
+            if self.config_loader:
+                # 从文件重新加载配置
+                from ...infrastructure.graph.config import WorkflowConfig
+                import yaml
+                
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config_data = yaml.safe_load(f)
+                
+                new_config = WorkflowConfig.from_dict(config_data)
+                self._workflow_configs[workflow_id] = new_config
+                
+                # 更新元数据
+                metadata["last_reloaded"] = datetime.now().isoformat()
+                
+                logger.info(f"工作流 '{workflow_id}' 已成功重新加载")
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"重新加载工作流 '{workflow_id}' 失败: {e}")
+            return False
 
     def get_workflow_visualization(self, workflow_id: str) -> Dict[str, Any]:
         """获取工作流可视化数据（向后兼容方法）
