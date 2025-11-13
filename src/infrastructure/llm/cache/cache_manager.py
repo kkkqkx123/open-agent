@@ -397,6 +397,8 @@ class AnthropicCacheManager(CacheManager):
             "type": self.config.cache_control_type
         }
         
+        # 如果配置了max_tokens，则包含它
+        # 这对于persistent和ephemeral类型都是有意义的
         if self.config.max_tokens:
             cache_params["max_tokens"] = self.config.max_tokens
         

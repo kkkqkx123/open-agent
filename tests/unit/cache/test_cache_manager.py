@@ -14,9 +14,10 @@ from src.infrastructure.llm.cache.cache_config import CacheConfig
 class MockBaseMessage(BaseMessage):
     """模拟BaseMessage用于测试"""
     
+    type: str
+    
     def __init__(self, msg_type: str, content: str):
-        super().__init__(content=content)
-        self.type = msg_type
+        super().__init__(content=content, type=msg_type)
 
 
 class TestCacheManager:
@@ -510,6 +511,23 @@ class TestAnthropicCacheManager:
         """测试启用缓存控制的参数获取"""
         config = CacheConfig(
             enabled=True,
+            cache_control_type="persistent"
+        )
+        manager = AnthropicCacheManager(config)
+        
+        params = manager.get_anthropic_cache_params()
+        
+        expected = {
+            "cache_control": {
+                "type": "persistent"
+            }
+        }
+        assert params == expected
+    
+    def test_get_anthropic_cache_params_persistent_with_max_tokens(self):
+        """测试persistent类型带max_tokens的参数获取"""
+        config = CacheConfig(
+            enabled=True,
             cache_control_type="persistent",
             max_tokens=1000
         )
@@ -519,7 +537,8 @@ class TestAnthropicCacheManager:
         
         expected = {
             "cache_control": {
-                "type": "persistent"
+                "type": "persistent",
+                "max_tokens": 1000
             }
         }
         assert params == expected

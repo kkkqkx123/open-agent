@@ -65,7 +65,12 @@ class MemoryCacheProvider(ICacheProvider):
             # 计算过期时间
             if ttl is None:
                 ttl = self.default_ttl
-            expires_at = current_time + ttl if ttl > 0 else None
+            
+            # 如果TTL为0或负数，表示立即过期，不存储
+            if ttl <= 0:
+                return
+            
+            expires_at = current_time + ttl
             
             # 创建缓存项
             entry = CacheEntry(
