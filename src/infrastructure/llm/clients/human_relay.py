@@ -51,15 +51,9 @@ class HumanRelayClient(BaseLLMClient):
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行生成操作"""
-        # 同步版本，使用asyncio运行异步方法
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(
-                self._do_generate_async(messages, parameters, **kwargs)
-            )
-        finally:
-            loop.close()
+        # 使用EventLoopManager运行异步方法
+        from src.infrastructure.async_utils.event_loop_manager import run_async
+        return run_async(self._do_generate_async(messages, parameters, **kwargs))
     
     async def _single_turn_generate(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
@@ -233,30 +227,11 @@ class HumanRelayClient(BaseLLMClient):
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> Generator[str, None, None]:
         """执行流式生成操作"""
-        # 检查是否已经在事件循环中
-        try:
-            loop = asyncio.get_running_loop()
-            # 如果已经在事件循环中，使用run_coroutine_threadsafe或创建新线程
-            import concurrent.futures
-            import threading
-            
-            def run_in_thread():
-                new_loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(new_loop)
-                try:
-                    response = new_loop.run_until_complete(
-                        self._do_generate_async(messages, parameters, **kwargs)
-                    )
-                    return response
-                finally:
-                    new_loop.close()
-            
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(run_in_thread)
-                response = future.result()
-        except RuntimeError:
-            # 没有运行的事件循环，可以使用原来的方法
-            response = self._do_generate(messages, parameters, **kwargs)
+        # 使用EventLoopManager运行异步方法
+        from src.infrastructure.async_utils.event_loop_manager import run_async
+        
+        # 获取完整响应
+        response = run_async(self._do_generate_async(messages, parameters, **kwargs))
         
         # 按字符流式输出
         for char in response.content:

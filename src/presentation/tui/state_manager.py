@@ -72,15 +72,11 @@ class StateManager:
                 timestamp=datetime.now()
             )
             
-            # 异步创建会话
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                self.session_id = loop.run_until_complete(
-                    self.session_manager.create_session(user_request)
-                )
-            finally:
-                loop.close()
+            # 使用EventLoopManager异步创建会话
+            from src.infrastructure.async_utils.event_loop_manager import run_async
+            self.session_id = run_async(
+                self.session_manager.create_session(user_request)
+            )
             
             if not self.session_id:
                 return False
@@ -113,14 +109,11 @@ class StateManager:
             return False
         
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                session_context = loop.run_until_complete(
-                    self.session_manager.get_session_context(session_id)
-                )
-            finally:
-                loop.close()
+            # 使用EventLoopManager异步加载会话
+            from src.infrastructure.async_utils.event_loop_manager import run_async
+            session_context = run_async(
+                self.session_manager.get_session_context(session_id)
+            )
                 
             if session_context:
                 self.session_id = session_id

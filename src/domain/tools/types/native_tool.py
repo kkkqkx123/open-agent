@@ -34,8 +34,6 @@ class NativeTool(BaseTool):
     def __init__(self, config: Any):
         """初始化原生工具
         
-        
-
         Args:
             config: 原生工具配置
         """
@@ -171,7 +169,7 @@ class NativeTool(BaseTool):
             return response_data
 
     def execute(self, **kwargs: Any) -> Any:
-        """同步执行工具（通过异步实现）
+        """同步执行工具（通过EventLoopManager）
 
         Args:
             **kwargs: 工具参数
@@ -179,13 +177,9 @@ class NativeTool(BaseTool):
         Returns:
             Any: 执行结果
         """
-        # 在新事件循环中运行异步方法
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(self.execute_async(**kwargs))
-        finally:
-            loop.close()
+        # 使用EventLoopManager运行异步方法
+        from src.infrastructure.async_utils.event_loop_manager import run_async
+        return run_async(self.execute_async(**kwargs))
 
     async def execute_async(self, **kwargs: Any) -> Any:
         """异步执行工具

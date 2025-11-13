@@ -311,8 +311,28 @@ class AsyncBuiltinTool(BaseTool):
         Returns:
             Any: 执行结果
         """
-        from src.infrastructure.async_utils.event_loop_manager import run_async
-        return run_async(self.execute_async(**kwargs))
+        # 优化：检查是否已在事件循环中
+        try:
+            loop = asyncio.get_running_loop()
+            # 如果已在事件循环中，创建任务并等待
+            import concurrent.futures
+            import threading
+            
+            def run_in_thread():
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    return new_loop.run_until_complete(self.execute_async(**kwargs))
+                finally:
+                    new_loop.close()
+            
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(run_in_thread)
+                return future.result()
+        except RuntimeError:
+            # 没有运行的事件循环，使用EventLoopManager
+            from src.infrastructure.async_utils.event_loop_manager import run_async
+            return run_async(self.execute_async(**kwargs))
     
     @classmethod
     def from_function(
