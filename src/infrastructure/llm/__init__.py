@@ -2,6 +2,20 @@
 
 from .interfaces import ILLMClient, ILLMCallHook, ILLMClientFactory
 from .models import LLMMessage, LLMResponse, TokenUsage, ModelInfo
+from .task_group_manager import TaskGroupManager
+from .concurrency_controller import (
+    ConcurrencyController, RateLimiter, ConcurrencyAndRateLimitManager,
+    ConcurrencyLevel, ConcurrencyLimit
+)
+from .polling_pool import (
+    PollingPool, PollingPoolManager, LLMInstance, InstanceStatus,
+    RotationStrategy, Scheduler, RoundRobinScheduler, 
+    LeastRecentlyUsedScheduler, WeightedScheduler, HealthChecker
+)
+from .enhanced_fallback_manager import (
+    EnhancedFallbackManager, FallbackStrategy, FallbackAttempt, 
+    CircuitBreaker, FallbackConfigManager
+)
 from .config import LLMClientConfig, LLMModuleConfig
 from .factory import LLMFactory, get_global_factory, create_client
 from .header_validator import HeaderValidator, HeaderProcessor
@@ -71,6 +85,31 @@ __all__ = [
     "LLMError",
     "TokenUsage",
     "ModelInfo",
+    # 任务组管理
+    "TaskGroupManager",
+    # 并发控制
+    "ConcurrencyController",
+    "RateLimiter", 
+    "ConcurrencyAndRateLimitManager",
+    "ConcurrencyLevel",
+    "ConcurrencyLimit",
+    # 轮询池
+    "PollingPool",
+    "PollingPoolManager",
+    "LLMInstance",
+    "InstanceStatus",
+    "RotationStrategy",
+    "Scheduler",
+    "RoundRobinScheduler",
+    "LeastRecentlyUsedScheduler",
+    "WeightedScheduler",
+    "HealthChecker",
+    # 增强降级
+    "EnhancedFallbackManager",
+    "FallbackStrategy",
+    "FallbackAttempt",
+    "CircuitBreaker",
+    "FallbackConfigManager",
     # 配置
     "LLMClientConfig",
     "LLMModuleConfig",
@@ -129,7 +168,6 @@ __all__ = [
     "PluginManager",
     "plugin_manager_factory",
     # 异常
-    "LLMError",
     "LLMClientCreationError",
     "UnsupportedModelTypeError",
     "LLMCallError",

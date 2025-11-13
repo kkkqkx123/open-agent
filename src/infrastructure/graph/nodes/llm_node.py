@@ -9,20 +9,24 @@ from dataclasses import dataclass
 from ..registry import BaseNode, NodeExecutionResult, node
 from ..states import WorkflowState
 from src.infrastructure.llm.interfaces import ILLMClient
+from src.infrastructure.llm.task_group_manager import TaskGroupManager
+from ..node_config_loader import get_node_config_loader
+from src.infrastructure.llm.interfaces import ILLMClient
 from ..node_config_loader import get_node_config_loader
 
 
 @node("llm_node")
 class LLMNode(BaseNode):
     """LLM调用节点"""
-
-    def __init__(self, llm_client: ILLMClient) -> None:
+    def __init__(self, llm_client: ILLMClient, task_group_manager: Optional[TaskGroupManager] = None) -> None:
         """初始化LLM节点
 
         Args:
             llm_client: LLM客户端实例（必需）
+            task_group_manager: 任务组管理器（可选）
         """
         self._llm_client = llm_client
+        self._task_group_manager = task_group_manager
 
     @property
     def node_type(self) -> str:
@@ -32,6 +36,12 @@ class LLMNode(BaseNode):
     def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行LLM调用逻辑
 
+        # 使用注入的LLM客户端
+        llm_client = self._llm_client
+        
+        # 处理任务组配置
+        if self._task_group_manager and "llm_group" in merged_config:
+            llm_client = self._get_llm_client_from_group(merged_config)
         Args:
             state: 当前工作流状态
             config: 节点配置
@@ -75,6 +85,23 @@ class LLMNode(BaseNode):
             state=state,
             next_node=next_node,
             metadata={
+                "llm_client": {
+                    "type": "string",
+                    "description": "LLM客户端配置名称"
+                },
+                "llm_group": {
+                    "type": "string",
+                    "description": "LLM任务组引用，如 'fast_group.echelon1'"
+                },
+                "fallback_groups": {
+                    "type": "array",
+                    "description": "降级组引用列表",
+                    "items": {"type": "string"}
+                },
+                "polling_pool": {
+                    "type": "string",
+                    "description": "轮询池名称"
+                },
                 "llm_response": response.content,
                 "token_usage": getattr(response, "token_usage", None),
                 "model_info": llm_client.get_model_info(),
@@ -140,7 +167,7 @@ class LLMNode(BaseNode):
                     "default": 4000
                 }
             },
-            "required": ["llm_client"]
+            "required": []
         }
 
 
@@ -358,6 +385,67 @@ class LLMNode(BaseNode):
             return "analysis_node"  # 返回分析节点进行进一步处理
         
         # 默认结束工作流
+        return None
+    
+    def _get_llm_client_from_group(self, config: Dict[str, Any]) -> ILLMClient:
+        """从任务组配置获取LLM客户端
+        
+        Args:
+            config: 节点配置
+            
+        Returns:
+            ILLMClient: LLM客户端实例
+        """
+        if not self._task_group_manager:
+            return self._llm_client
+        
+        llm_group = config.get("llm_group")
+        if not llm_group:
+            return self._llm_client
+        
+        try:
+            # 获取任务组模型列表
+            models = self._task_group_manager.get_models_for_group(llm_group)
+            if not models:
+                return self._llm_client
+            
+            # 选择第一个可用模型（这里可以实现更复杂的选择逻辑）
+            selected_model = models[0]
+            
+            # TODO: 这里应该根据模型名称创建对应的LLM客户端
+            # 暂时返回默认客户端
+            return self._llm_client
+            
+        except Exception as e:
+            # 如果获取任务组失败，返回默认客户端
+            return self._llm_client
+    
+    def _get_fallback_llm_client(self, config: Dict[str, Any]) -> Optional[ILLMClient]:
+        """获取降级LLM客户端
+        
+        Args:
+            config: 节点配置
+            
+        Returns:
+            Optional[ILLMClient]: 降级LLM客户端实例
+        """
+        if not self._task_group_manager:
+            return None
+        
+        fallback_groups = config.get("fallback_groups", [])
+        if not fallback_groups:
+            return None
+        
+        for fallback_group in fallback_groups:
+            try:
+                models = self._task_group_manager.get_models_for_group(fallback_group)
+                if models:
+                    # TODO: 创建对应的LLM客户端
+                    selected_model = models[0]
+                    return self._llm_client  # 暂时返回默认客户端
+            except Exception:
+                continue
+        
         return None
 
     def _needs_follow_up(self, content: str) -> bool:

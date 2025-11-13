@@ -1,0 +1,146 @@
+# LLM任务组配置示例工作流
+
+workflow:
+  name: "llm_task_group_example"
+  description: "展示如何在节点中使用LLM任务组配置"
+  version: "1.0"
+
+nodes:
+  planning_node:
+    type: "llm_node"
+    config:
+      llm_group: "plan_group.echelon1"
+      fallback_groups: ["plan_group.echelon2", "thinking_group.echelon1"]
+      system_prompt: "你是一个专业的规划助手，请根据用户需求制定详细的执行计划。"
+      max_tokens: 3000
+      temperature: 0.3
+      include_tool_results: true
+
+  execution_node:
+    type: "llm_node"
+    config:
+      llm_group: "execute_group.echelon2"
+      fallback_groups: ["execute_group.echelon3", "fast_small_group.execute"]
+      polling_pool: "high_concurrency_pool"
+      system_prompt: "你是一个执行助手，请根据计划执行具体的任务。"
+      max_tokens: 2000
+      temperature: 0.1
+      function_calling: "required"
+
+  thinking_node:
+    type: "llm_node"
+    config:
+      llm_group: "thinking_group.echelon1"
+      fallback_groups: ["thinking_group.echelon2"]
+      system_prompt: "你是一个思考助手，请对问题进行深度分析。"
+      max_tokens: 4000
+      temperature: 0.8
+      thinking_config:
+        enabled: true
+        budget_tokens: 4000
+
+  fast_response_node:
+    type: "llm_node"
+    config:
+      llm_group: "fast_group.echelon3"
+      polling_pool: "single_turn_pool"
+      system_prompt: "你是一个快速响应助手，请提供简洁的回答。"
+      max_tokens: 1000
+      temperature: 0.7
+
+  translation_node:
+    type: "llm_node"
+    config:
+      llm_group: "fast_small_group.translation"
+      system_prompt: "你是一个翻译助手，请提供准确的翻译。"
+      max_tokens: 1500
+      temperature: 0.3
+
+  review_node:
+    type: "llm_node"
+    config:
+      llm_group: "review_group.echelon1"
+      fallback_groups: ["review_group.echelon2"]
+      system_prompt: "你是一个审核助手，请对内容进行质量检查。"
+      max_tokens: 2000
+      temperature: 0.2
+
+edges:
+  - from: "start"
+    to: "planning_node"
+  
+  - from: "planning_node"
+    to: "execution_node"
+    condition: "plan_complete"
+  
+  - from: "planning_node"
+    to: "thinking_node"
+    condition: "needs_analysis"
+  
+  - from: "thinking_node"
+    to: "planning_node"
+    condition: "analysis_complete"
+  
+  - from: "execution_node"
+    to: "review_node"
+  
+  - from: "review_node"
+    to: "fast_response_node"
+    condition: "approved"
+  
+  - from: "review_node"
+    to: "execution_node"
+    condition: "needs_revision"
+  
+  - from: "fast_response_node"
+    to: "end"
+
+# 全局配置
+global_config:
+  default_llm_group: "fast_group.echelon2"
+  default_fallback_enabled: true
+  max_fallback_attempts: 3
+  timeout: 60
+  retry_delay: 1.0
+
+# 任务组特定配置
+task_group_configs:
+  plan_group:
+    timeout: 120
+    max_retries: 5
+    priority: 1
+  
+  execute_group:
+    timeout: 45
+    max_retries: 3
+    priority: 2
+  
+  thinking_group:
+    timeout: 180
+    max_retries: 5
+    priority: 1
+  
+  fast_group:
+    timeout: 20
+    max_retries: 2
+    priority: 3
+  
+  review_group:
+    timeout: 60
+    max_retries: 3
+    priority: 2
+
+# 轮询池配置
+polling_pool_configs:
+  single_turn_pool:
+    rotation_strategy: "round_robin"
+    health_check_interval: 30
+  
+  high_concurrency_pool:
+    rotation_strategy: "weighted"
+    health_check_interval: 15
+    rate_limiting:
+      enabled: true
+      algorithm: "token_bucket"
+      bucket_size: 5000
+      refill_rate: 83.33

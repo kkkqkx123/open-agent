@@ -11,6 +11,7 @@ from ..exceptions import ConfigurationError
 from .config_merger import IConfigMerger
 from .config_validator import IConfigValidator, ValidationResult
 from .models.global_config import GlobalConfig
+from .models.task_group_config import TaskGroupsConfig
 from .models.llm_config import LLMConfig
 from .models.agent_config import AgentConfig
 from .models.tool_config import ToolConfig
@@ -81,6 +82,15 @@ class IConfigSystem(ABC):
 
         Returns:
             Token计数器配置对象
+        """
+        pass
+
+    @abstractmethod
+    def load_task_groups_config(self) -> TaskGroupsConfig:
+        """加载任务组配置
+
+        Returns:
+            任务组配置对象
         """
         pass
 
@@ -325,6 +335,29 @@ class ConfigSystem(IConfigSystem):
 
             # 创建配置对象
             config = TokenCounterConfig(**config_data)
+            self._cache[cache_key] = config
+            return config
+
+    def load_task_groups_config(self) -> TaskGroupsConfig:
+        """加载任务组配置
+
+        Returns:
+            任务组配置对象
+        """
+        with self._lock:
+            cache_key = "task_groups"
+            if cache_key in self._cache:
+                return cast(TaskGroupsConfig, self._cache[cache_key])
+
+            # 加载任务组配置
+            config_path = "llms/groups/_task_groups.yaml"
+            try:
+                config_data = self._config_loader.load(config_path)
+            except Exception as e:
+                raise ConfigurationError(f"任务组配置文件加载失败: {e}")
+
+            # 创建配置对象
+            config = TaskGroupsConfig.from_dict(config_data)
             self._cache[cache_key] = config
             return config
 

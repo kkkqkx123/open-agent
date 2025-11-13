@@ -53,6 +53,15 @@ class LLMConfig(BaseConfig):
     group: Optional[str] = Field(None, description="所属组名称")
     
     # Token计数器配置
+    # 任务组配置
+    task_group: Optional[str] = Field(None, description="任务组引用，如 'fast_group.echelon1'")
+    fallback_groups: List[str] = Field(default_factory=list, description="降级组引用列表")
+    polling_pool: Optional[str] = Field(None, description="轮询池名称")
+    
+    # 并发和速率限制配置
+    concurrency_limit: Optional[int] = Field(None, description="并发限制")
+    rpm_limit: Optional[int] = Field(None, description="每分钟请求限制")
+    
     token_counter: Optional[str] = Field(None, description="Token计数器配置名称")
 
     # 降级配置
@@ -347,10 +356,116 @@ class LLMConfig(BaseConfig):
         """设置元数据值"""
         self.metadata[key] = value
 
-    def get_timeout(self) -> int:
-        """获取超时时间（向后兼容）"""
-        return self.timeout_config.request_timeout
-
     def get_max_retries(self) -> int:
         """获取最大重试次数（向后兼容）"""
         return self.retry_config.max_retries
+    
+    # 任务组相关方法
+    def has_task_group(self) -> bool:
+        """检查是否配置了任务组"""
+        return self.task_group is not None
+    
+    def get_task_group(self) -> Optional[str]:
+        """获取任务组引用"""
+        return self.task_group
+    
+    def set_task_group(self, task_group: str) -> None:
+        """设置任务组引用"""
+        self.task_group = task_group
+    
+    def get_fallback_groups(self) -> List[str]:
+        """获取降级组列表"""
+        return self.fallback_groups.copy()
+    
+    def add_fallback_group(self, fallback_group: str) -> None:
+        """添加降级组"""
+        if fallback_group not in self.fallback_groups:
+            self.fallback_groups.append(fallback_group)
+    
+    def get_polling_pool(self) -> Optional[str]:
+        """获取轮询池名称"""
+        return self.polling_pool
+    
+    def set_polling_pool(self, polling_pool: str) -> None:
+        """设置轮询池名称"""
+        self.polling_pool = polling_pool
+    
+    def get_concurrency_limit(self) -> Optional[int]:
+        """获取并发限制"""
+        return self.concurrency_limit
+    
+    def set_concurrency_limit(self, limit: int) -> None:
+        """设置并发限制"""
+        self.concurrency_limit = limit
+    
+    def get_rpm_limit(self) -> Optional[int]:
+        """获取每分钟请求限制"""
+        return self.rpm_limit
+    
+    def set_rpm_limit(self, rpm: int) -> None:
+        """设置每分钟请求限制"""
+        self.rpm_limit = rpm
+    
+    def is_task_group_config(self) -> bool:
+        """检查是否为任务组配置"""
+        return self.task_group is not None
+    
+    def get_effective_config(self, task_group_manager=None) -> "LLMConfig":
+        """
+        获取有效配置（合并任务组配置）
+        
+        Args:
+            task_group_manager: 任务组管理器
+            
+        Returns:
+            合并后的配置
+        """
+        if not self.has_task_group() or task_group_manager is None:
+            return self
+        
+        # 解析任务组引用
+        group_name, echelon_or_task = task_group_manager.parse_group_reference(self.task_group)
+        
+        if not group_name:
+            return self
+        
+        # 获取任务组配置
+        task_group = task_group_manager.get_task_group(group_name)
+        if not task_group:
+            return self
+        
+        # 获取层级配置
+        echelon_config = None
+        if echelon_or_task:
+            echelon_config = task_group.echelons.get(echelon_or_task)
+        
+        if not echelon_config:
+            return self
+        
+        # 创建新的配置副本
+        effective_config = LLMConfig(**self.model_dump())
+        
+        # 合并层级配置
+        effective_config.timeout_config.request_timeout = echelon_config.timeout
+        effective_config.retry_config.max_retries = echelon_config.max_retries
+        effective_config.concurrency_limit = echelon_config.concurrency_limit
+        effective_config.rpm_limit = echelon_config.rpm_limit
+        
+        # 更新参数
+        effective_config.parameters["temperature"] = echelon_config.temperature
+        effective_config.parameters["max_tokens"] = echelon_config.max_tokens
+        
+        if echelon_config.function_calling:
+            effective_config.function_calling_mode = echelon_config.function_calling
+        
+        if echelon_config.response_format:
+            effective_config.parameters["response_format"] = echelon_config.response_format
+        
+        if echelon_config.thinking_config:
+            effective_config.parameters["thinking_config"] = echelon_config.thinking_config.__dict__
+        
+        return effective_config
+
+    def get_timeout(self) -> int:
+        """获取超时时间（向后兼容）"""
+        return self.timeout_config.request_timeout
