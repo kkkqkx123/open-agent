@@ -33,6 +33,8 @@ class LLMFactory(ILLMClientFactory):
             from .clients.openai.unified_client import OpenAIUnifiedClient
 
             self._client_types["openai"] = OpenAIUnifiedClient
+            # 注册siliconflow为OpenAI兼容客户端
+            self._client_types["siliconflow"] = OpenAIUnifiedClient
         except ImportError:
             pass
 

@@ -189,6 +189,7 @@ class TestTypeValidationRule:
         assert result is not None
         assert result.severity == ValidationSeverity.WARNING
         assert result.code == "TYPE_MISMATCH"
+        assert result.context is not None
         assert "str" in result.context["expected_type"]
         assert "int" in result.context["actual_type"]
 
@@ -283,6 +284,7 @@ class TestEnumValidationRule:
         assert result is not None
         assert result.severity == ValidationSeverity.ERROR
         assert result.code == "INVALID_ENUM_VALUE"
+        assert result.context is not None
         assert "openai" in str(result.context["valid_values"])
 
 
