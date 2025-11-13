@@ -17,7 +17,7 @@ from .interfaces import IToolManager, IToolLoader, IToolAdapter, IToolCache
 from src.domain.tools.interfaces import ITool, IToolRegistry
 from src.domain.tools.types.native_tool import NativeTool
 from src.domain.tools.types.mcp_tool import MCPTool
-from src.domain.tools.types.builtin_tool import BuiltinTool
+from src.domain.tools.types.builtin_tool import BuiltinToolFactory
 from .config import (
     ToolConfig,
     NativeToolConfig,
@@ -198,7 +198,7 @@ class ToolManager(IToolManager, IToolRegistry):
         if config.function_path:
             # 从路径加载函数
             func = self._load_function_from_path(config.function_path)
-            return BuiltinTool(func, config)
+            return BuiltinToolFactory.create_tool(func, config)
         else:
             raise ValueError("内置工具缺少function_path配置")
 

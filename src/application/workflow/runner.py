@@ -341,8 +341,8 @@ class WorkflowRunner:
         logger.debug("统计信息已重置")
     
     def _execute_with_retry(
-        self, 
-        workflow: WorkflowInstance, 
+        self,
+        workflow: WorkflowInstance,
         initial_data: Optional[Dict[str, Any]] = None,
         **kwargs: Any
     ) -> Dict[str, Any]:
@@ -358,13 +358,20 @@ class WorkflowRunner:
         """
         last_exception: Optional[Exception] = None
         
+        # 过滤掉内部参数，只传递给工作流配置相关的参数
+        workflow_kwargs = {k: v for k, v in kwargs.items() if not k.startswith('_')}
+        
         for attempt in range(self.max_retries + 1):
             try:
                 if attempt > 0:
                     logger.info(f"重试执行工作流 (第 {attempt} 次): {workflow.config.name}")
-                    kwargs["_retry_count"] = attempt
+                    # 创建一个新的字典，添加重试计数，但不修改原始kwargs
+                    temp_kwargs = workflow_kwargs.copy()
+                    temp_kwargs["_retry_count"] = attempt
                 
-                return workflow.run(initial_data, **kwargs)
+                    return workflow.run(initial_data, **temp_kwargs)
+                else:
+                    return workflow.run(initial_data, **workflow_kwargs)
                 
             except Exception as e:
                 last_exception = e

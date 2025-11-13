@@ -144,7 +144,7 @@ def convert_states_to_graph(config_data: Dict[str, Any]) -> Dict[str, Any]:
     
     return converted_config
 
-def convert_workflow_file(input_file: str, output_file: str = None) -> bool:
+def convert_workflow_file(input_file: str, output_file: str | None = None) -> bool:
     """
     转换工作流配置文件
     

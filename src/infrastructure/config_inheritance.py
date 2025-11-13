@@ -104,18 +104,9 @@ class ConfigInheritanceHandler(IConfigInheritanceHandler):
         parent_config = {}
         
         for parent_path in inherits_from:
-            # 如果提供了配置加载器，使用它加载配置
-            if self.config_loader and not parent_path.startswith("./") and not parent_path.startswith("../"):
-                try:
-                    parent_config = self.config_loader.load(parent_path)
-                except ConfigurationError:
-                    # 如果配置加载器无法加载，尝试作为文件路径
-                    parent_config = self._load_config_from_file(parent_path, base_path)
-            else:
-                parent_config = self._merge_configs(
-                    parent_config,
-                    self._load_config_from_file(parent_path, base_path)
-                )
+            # 直接使用文件路径加载，避免使用配置加载器，以正确处理相对路径
+            loaded_config = self._load_config_from_file(parent_path, base_path)
+            parent_config = self._merge_configs(parent_config, loaded_config)
         
         return parent_config
     
@@ -137,8 +128,49 @@ class ConfigInheritanceHandler(IConfigInheritanceHandler):
             else:
                 full_path = Path(config_path)
         else:
-            # 绝对路径或相对于configs目录的路径
-            full_path = Path("configs") / config_path
+            # 对于非相对路径，尝试不同的解析策略
+            if base_path:
+                # 策略1: 尝试相对于configs/llms的路径（如果base_path包含llms部分）
+                llms_path = None
+                base_str = str(base_path)
+                if "configs/llms" in base_str or "configs\\llms" in base_str:
+                    # 找到configs/llms部分并构建路径
+                    parts = base_path.parts
+                    llms_index = -1
+                    for i, part in enumerate(parts):
+                        if part == "llms":
+                            llms_index = i
+                            break
+                    if llms_index != -1:
+                        # 构建 configs/llms/.../config_path 路径
+                        llms_base = Path(*parts[:llms_index+1])  # 包含"llms"的部分
+                        llms_relative_path = llms_base / config_path
+                        if llms_relative_path.with_suffix(".yaml").exists():
+                            full_path = llms_relative_path
+                        else:
+                            # 如果configs/llms路径不存在，尝试相对于基础路径的路径
+                            relative_to_base = base_path / config_path
+                            if relative_to_base.with_suffix(".yaml").exists():
+                                full_path = relative_to_base
+                            else:
+                                full_path = Path("configs") / config_path
+                    else:
+                        # 如果没有找到llms部分，尝试相对于基础路径的路径
+                        relative_to_base = base_path / config_path
+                        if relative_to_base.with_suffix(".yaml").exists():
+                            full_path = relative_to_base
+                        else:
+                            full_path = Path("configs") / config_path
+                else:
+                    # 如果base_path不包含llms，尝试相对于基础路径的路径
+                    relative_to_base = base_path / config_path
+                    if relative_to_base.with_suffix(".yaml").exists():
+                        full_path = relative_to_base
+                    else:
+                        full_path = Path("configs") / config_path
+            else:
+                # 绝对路径或相对于configs目录的路径
+                full_path = Path("configs") / config_path
         
         if not full_path.suffix:
             full_path = full_path.with_suffix(".yaml")

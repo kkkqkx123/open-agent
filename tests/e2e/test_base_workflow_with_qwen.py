@@ -27,7 +27,7 @@ from src.application.workflow.runner import WorkflowRunner
 
 
 class TestBaseWorkflowWithQwen:
-    """测试基础工作流与Qwen模型的集成"""
+    """测试基础工作流与Qwen模型的集成(该工作流不会实际调用llm api)"""
 
     @pytest.fixture
     def workflow_config_path(self) -> str:

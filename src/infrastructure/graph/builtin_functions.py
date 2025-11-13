@@ -397,6 +397,53 @@ def plan_execute_router(state: Union[WorkflowState, Dict[str, Any]]) -> str:
     return "continue"
 
 
+def no_tool_calls(state: Union[WorkflowState, Dict[str, Any]]) -> str:
+    """条件：是否没有工具调用
+
+    Args:
+        state: 工作流状态
+
+    Returns:
+        str: 下一个节点名称
+    """
+    state_dict: Dict[str, Any] = dict(state) if isinstance(state, dict) else dict(state.__dict__ if hasattr(state, '__dict__') else {})
+    tool_calls = state_dict.get("tool_calls", [])
+    
+    return "llm_node" if not tool_calls else "tool_node"
+
+
+def plan_completed(state: Union[WorkflowState, Dict[str, Any]]) -> str:
+    """条件：计划是否已完成
+
+    Args:
+        state: 工作流状态
+
+    Returns:
+        str: 下一个节点名称
+    """
+    state_dict: Dict[str, Any] = dict(state) if isinstance(state, dict) else dict(state.__dict__ if hasattr(state, '__dict__') else {})
+    plan = state_dict.get("plan", [])
+    current_step_index = state_dict.get("current_step_index", 0)
+    
+    return "summarize_results" if current_step_index >= len(plan) and len(plan) > 0 else "execute_step"
+
+
+def has_more_steps(state: Union[WorkflowState, Dict[str, Any]]) -> str:
+    """条件：是否还有更多步骤
+
+    Args:
+        state: 工作流状态
+
+    Returns:
+        str: 下一个节点名称
+    """
+    state_dict: Dict[str, Any] = dict(state) if isinstance(state, dict) else dict(state.__dict__ if hasattr(state, '__dict__') else {})
+    plan = state_dict.get("plan", [])
+    current_step_index = state_dict.get("current_step_index", 0)
+    
+    return "execute_step" if current_step_index < len(plan) else "summarize_results"
+
+
 # 内置函数字典
 BUILTIN_NODE_FUNCTIONS = {
     "llm_node": llm_node,
@@ -409,6 +456,7 @@ BUILTIN_NODE_FUNCTIONS = {
 
 BUILTIN_CONDITION_FUNCTIONS = {
     "has_tool_calls": has_tool_calls,
+    "no_tool_calls": no_tool_calls,
     "needs_more_info": needs_more_info,
     "is_complete": is_complete,
     "has_messages": has_messages,
