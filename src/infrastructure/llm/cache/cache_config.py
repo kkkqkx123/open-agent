@@ -28,6 +28,11 @@ class CacheConfig:
     # 通用缓存参数
     provider_config: Dict[str, Any] = field(default_factory=dict)
     
+    def __post_init__(self) -> None:
+        """初始化后处理"""
+        # 基础类不需要特殊处理，但提供一个空方法供子类调用
+        pass
+    
     def is_enabled(self) -> bool:
         """检查缓存是否启用"""
         return self.enabled

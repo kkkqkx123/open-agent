@@ -13,8 +13,7 @@ class MockBaseMessage(BaseMessage):
     """模拟BaseMessage用于测试"""
     
     def __init__(self, msg_type: str, content: str, additional_kwargs: Optional[Dict] = None):
-        super().__init__(content=content)
-        self.type = msg_type
+        super().__init__(content=content, type=msg_type)
         self.additional_kwargs = additional_kwargs or {}
 
 

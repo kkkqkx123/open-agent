@@ -481,7 +481,10 @@ class TestEnhancedCacheConfigEdgeCases:
     
     def test_large_threshold_values(self):
         """测试大的阈值"""
-        config = EnhancedCacheConfig(large_content_threshold=1073741824)  # 1GB
+        config = EnhancedCacheConfig(
+            large_content_threshold=1073741824,  # 1GB
+            server_cache_enabled=True  # 启用服务器端缓存
+        )
         
         assert config.large_content_threshold == 1073741824
         assert config.should_use_server_cache(1073741823) is False
@@ -489,7 +492,10 @@ class TestEnhancedCacheConfigEdgeCases:
     
     def test_small_threshold_values(self):
         """测试小的阈值"""
-        config = EnhancedCacheConfig(large_content_threshold=1024)  # 1KB
+        config = EnhancedCacheConfig(
+            large_content_threshold=1024,  # 1KB
+            server_cache_enabled=True  # 启用服务器端缓存
+        )
         
         assert config.large_content_threshold == 1024
         assert config.should_use_server_cache(1023) is False
@@ -497,7 +503,10 @@ class TestEnhancedCacheConfigEdgeCases:
     
     def test_zero_threshold(self):
         """测试零阈值"""
-        config = EnhancedCacheConfig(large_content_threshold=0)
+        config = EnhancedCacheConfig(
+            large_content_threshold=0,
+            server_cache_enabled=True  # 启用服务器端缓存
+        )
         
         assert config.large_content_threshold == 0
         # 任何内容都应该被视为大内容

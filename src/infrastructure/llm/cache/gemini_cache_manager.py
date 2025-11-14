@@ -143,16 +143,16 @@ class GeminiCacheKeyGenerator(LLMCacheKeyGenerator):
         """
         serialized = []
         for message in messages:
-            message_dict = {
-                "type": message.type,
-                "content": str(message.content),
-            }
+            message_parts = []
+            message_parts.append(f"type:{message.type}")
+            message_parts.append(f"content:{str(message.content)}")
             
             # Gemini特定的额外属性
             if hasattr(message, "additional_kwargs") and message.additional_kwargs:
-                message_dict["additional_kwargs"] = message.additional_kwargs  # type: ignore
+                for key, value in message.additional_kwargs.items():
+                    message_parts.append(f"{key}:{value}")
             
-            serialized.append(self._json_dumps(message_dict))
+            serialized.append(f"{{{','.join(message_parts)}}}")
         
         return f"[{','.join(serialized)}]"
     
@@ -179,7 +179,12 @@ class GeminiCacheKeyGenerator(LLMCacheKeyGenerator):
             if key in gemini_params and value is not None and value != "":
                 filtered_params[key] = value
         
-        return self._json_dumps(filtered_params)
+        # 返回键值对格式，而不是JSON
+        items = []
+        for key, value in sorted(filtered_params.items()):
+            items.append(f"{key}:{self._serialize_value(value)}")
+        
+        return f"{{{','.join(items)}}}"
     
     def _json_dumps(self, obj: Any) -> str:
         """JSON序列化"""

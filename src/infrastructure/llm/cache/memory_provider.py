@@ -66,11 +66,18 @@ class MemoryCacheProvider(ICacheProvider):
             if ttl is None:
                 ttl = self.default_ttl
             
-            # 如果TTL为0或负数，表示立即过期，不存储
-            if ttl <= 0:
+            # 如果TTL为负数，表示不过期（ttl=None），使用默认值
+            if ttl < 0:
+                ttl = self.default_ttl
+            # 如果TTL为0，表示立即过期，不存储
+            elif ttl == 0:
                 return
             
             expires_at = current_time + ttl
+            
+            # 如果max_size为0，则不存储任何项
+            if self.max_size == 0:
+                return
             
             # 创建缓存项
             entry = CacheEntry(
@@ -87,7 +94,7 @@ class MemoryCacheProvider(ICacheProvider):
                 return
             
             # 检查容量限制
-            while len(self._cache) >= self.max_size:
+            while len(self._cache) >= self.max_size and self.max_size > 0:
                 # 移除最旧的项（LRU）
                 oldest_key = next(iter(self._cache))
                 del self._cache[oldest_key]
@@ -146,6 +153,8 @@ class MemoryCacheProvider(ICacheProvider):
             缓存项数量
         """
         with self._lock:
+            # 获取大小时清理过期项以保持一致性
+            self._cleanup_expired_entries()
             return len(self._cache)
     
     def cleanup_expired(self) -> int:
@@ -156,17 +165,22 @@ class MemoryCacheProvider(ICacheProvider):
             清理的项数量
         """
         with self._lock:
-            expired_keys = []
-            current_time = time.time()
-            
-            for key, entry in self._cache.items():
-                if entry.is_expired():
-                    expired_keys.append(key)
-            
-            for key in expired_keys:
+            return self._cleanup_expired_entries()
+    
+    def _cleanup_expired_entries(self) -> int:
+        """内部方法：清理过期项"""
+        expired_keys = []
+        current_time = time.time()
+        
+        for key, entry in list(self._cache.items()):  # 使用list()避免迭代时修改字典
+            if entry.is_expired():
+                expired_keys.append(key)
+        
+        for key in expired_keys:
+            if key in self._cache:  # 确保键仍然存在
                 del self._cache[key]
-            
-            return len(expired_keys)
+        
+        return len(expired_keys)
     
     def get_stats(self) -> Dict[str, Any]:
         """
@@ -176,36 +190,35 @@ class MemoryCacheProvider(ICacheProvider):
             统计信息字典
         """
         with self._lock:
+            # 先清理过期项
+            self._cleanup_expired_entries()
+            
             total_entries = len(self._cache)
-            expired_count = 0
             total_access_count = 0
             oldest_age = 0
             newest_age = 0
             
-            if total_entries > 0:
-                current_time = time.time()
-                ages = []
-                
-                for entry in self._cache.values():
-                    if entry.is_expired():
-                        expired_count += 1
-                    total_access_count += entry.access_count
-                    age = entry.get_age_seconds()
-                    ages.append(age)
-                
-                if ages:
-                    oldest_age = max(ages)
-                    newest_age = min(ages)
+            current_time = time.time()
+            ages = []
+            
+            for entry in self._cache.values():
+                total_access_count += entry.access_count
+                age = entry.get_age_seconds()
+                ages.append(age)
+            
+            if ages:
+                oldest_age = max(ages) if ages else 0
+                newest_age = min(ages) if ages else 0
             
             return {
-            "total_entries": total_entries,
-            "expired_entries": expired_count,
-            "valid_entries": total_entries - expired_count,
-            "max_size": self.max_size,
-            "utilization": total_entries / self.max_size if self.max_size > 0 else 0,
-            "total_access_count": total_access_count,
-            "oldest_entry_age_seconds": oldest_age,
-            "newest_entry_age_seconds": newest_age,
+                "total_entries": total_entries,
+                "expired_entries": 0,  # 过期项已经被清理
+                "valid_entries": total_entries,
+                "max_size": self.max_size,
+                "utilization": total_entries / self.max_size if self.max_size > 0 else 0,
+                "total_access_count": total_access_count,
+                "oldest_entry_age_seconds": oldest_age,
+                "newest_entry_age_seconds": newest_age,
             }
 
     async def get_async(self, key: str) -> Optional[Any]:

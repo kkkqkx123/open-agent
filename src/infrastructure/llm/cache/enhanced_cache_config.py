@@ -67,9 +67,12 @@ class EnhancedCacheConfig(CacheConfig):
             "max_size": config_dict.get("max_size", 1000),
             "ttl_seconds": config_dict.get("ttl_seconds", 3600),
             "cache_type": config_dict.get("cache_type", "memory"),
+            "cache_control_type": config_dict.get("cache_control_type"),
+            "max_tokens": config_dict.get("max_tokens"),
             "content_cache_enabled": config_dict.get("content_cache_enabled", False),
             "content_cache_ttl": config_dict.get("content_cache_ttl", "3600s"),
             "content_cache_display_name": config_dict.get("content_cache_display_name"),
+            "provider_config": config_dict.get("provider_config", {}),
         }
         
         # 提取增强配置
@@ -155,17 +158,15 @@ class EnhancedCacheConfig(CacheConfig):
 class GeminiCacheConfig(EnhancedCacheConfig):
     """Gemini专用缓存配置"""
     
+    # 服务器端缓存配置 - 使用Gemini优化的默认值
+    large_content_threshold: int = 512 * 1024  # 512KB (Gemini优化的默认值)
+    
     # Gemini特定配置
     model_name: str = "gemini-2.0-flash-001"
     
     def __post_init__(self) -> None:
         """初始化后处理"""
         super().__post_init__()
-        
-        # Gemini特定的默认值调整
-        if self.large_content_threshold == 1048576:  # 默认值
-            # Gemini对大文件处理更优化，可以降低阈值
-            self.large_content_threshold = 512 * 1024  # 512KB
         
         # 默认启用服务器端缓存（如果支持）
         if not self.server_cache_enabled and self.auto_server_cache:

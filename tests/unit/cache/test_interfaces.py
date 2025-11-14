@@ -60,7 +60,12 @@ class MockKeyGenerator(ICacheKeyGenerator):
     """模拟键生成器用于测试"""
     
     def generate_key(self, *args, **kwargs) -> str:
-        return f"key_{hash(str(args) + str(kwargs))}"
+        # 对位置参数进行哈希
+        args_str = str(args)
+        # 对关键字参数按键名排序后进行哈希，确保顺序无关性
+        sorted_kwargs_items = sorted(kwargs.items())
+        kwargs_str = str(sorted_kwargs_items)
+        return f"key_{hash(args_str + kwargs_str)}"
 
 
 class TestICacheProvider:

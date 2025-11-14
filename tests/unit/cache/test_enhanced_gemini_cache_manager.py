@@ -13,8 +13,7 @@ class MockBaseMessage(BaseMessage):
     """模拟BaseMessage用于测试"""
     
     def __init__(self, msg_type: str, content: str):
-        super().__init__(content=content)
-        self.type = msg_type
+        super().__init__(content=content, type=msg_type)
 
 
 class MockGeminiClient:
@@ -30,7 +29,7 @@ class MockCachesManager:
     def __init__(self):
         self._caches = {}
     
-    def create(self, model: str, config: Any) -> Any:
+    def create(self, model: str, contents: Optional[List[Any]] = None, system_instruction: Optional[str] = None, ttl: Optional[str] = None, display_name: Optional[str] = None, config: Any = None) -> Any:
         cache_id = f"cache_{model}_{len(self._caches)}"
         cache = MockCache(cache_id)
         self._caches[cache_id] = cache
@@ -402,9 +401,10 @@ class TestEnhancedGeminiCacheManager:
     
     def test_should_use_server_cache(self):
         """测试判断是否应该使用服务器端缓存"""
-        config = EnhancedCacheConfig(
+        config = GeminiCacheConfig(
             server_cache_enabled=True,
-            large_content_threshold=512 * 1024
+            large_content_threshold=512 * 1024,
+            model_name="gemini-2.0-flash-01"
         )
         
         mock_client = MockGeminiClient()
@@ -444,6 +444,7 @@ class TestEnhancedGeminiCacheManager:
         assert "reason" in decision
         
         assert decision["use_client_cache"] is True
+        # 服务器端缓存管理器为None，所以不会使用服务器端缓存
         assert decision["use_server_cache"] is False
     
     def test_smart_cache_decision_large_content(self):
