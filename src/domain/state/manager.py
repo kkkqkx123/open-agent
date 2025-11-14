@@ -185,7 +185,7 @@ class StateManager(IStateManager):
     def create_state(self, state_id: str, initial_state: Dict[str, Any]) -> Dict[str, Any]:
         """创建状态"""
         self._states[state_id] = initial_state.copy()
-        return self._states[state_id]
+        return self._states[state_id].copy()
 
     def update_state(self, state_id: str, current_state: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
         """更新状态"""

@@ -79,10 +79,10 @@ class DIConfig:
         # 注册注册表服务
         self._register_registry_services()
         
-        # 注册状态管理器
+        # 注册状态管理器（必须在协作管理器之前）
         self._register_state_manager()
         
-        # 注册状态协作管理器
+        # 注册状态协作管理器（依赖状态管理器）
         self._register_state_collaboration_manager()
         
         # 注册工作流管理器
@@ -242,16 +242,28 @@ class DIConfig:
             )
             logger.debug("SQLite历史管理器注册完成")
             
-            # 注册增强状态管理器（实现协作管理器接口）
-            from src.domain.state.enhanced_manager import EnhancedStateManager
-            def create_enhanced_state_manager() -> EnhancedStateManager:
+            # 注册协作管理器（实现协作管理器接口）
+            from src.domain.state.collaboration_manager import CollaborationManager
+            def create_simple_collaboration_manager() -> CollaborationManager:
                 snapshot_store = self.container.get(StateSnapshotStore)
                 history_manager = self.container.get(StateHistoryManager)
-                return EnhancedStateManager(snapshot_store, history_manager)
+                # 使用容器中的StateManager实例，而不是创建新实例
+                if not self.container.has_service(IStateManager):
+                    raise RuntimeError("StateManager未注册，无法创建CollaborationManager")
+                state_manager = self.container.get(IStateManager)
+                return CollaborationManager(
+                    state_manager=state_manager,  # 必需参数，放在第一位
+                    snapshot_store=snapshot_store,
+                    history_manager=history_manager,
+                    max_memory_usage=50 * 1024 * 1024,  # 50MB
+                    max_snapshots_per_agent=20,
+                    max_history_per_agent=100,
+                    storage_backend="memory"
+                )
             
             self.container.register_factory(
                 IStateCollaborationManager,
-                create_enhanced_state_manager,
+                create_simple_collaboration_manager,
                 lifetime=ServiceLifetime.SINGLETON
             )
             logger.debug("状态协作管理器注册完成")

@@ -165,6 +165,16 @@ class IEnhancedStateManager(ABC):
 class IStateCollaborationManager(ABC):
     """状态协作管理器接口 - 重构版本"""
     
+    @property
+    @abstractmethod
+    def state_manager(self) -> IStateManager:
+        """获取底层状态管理器实例
+        
+        Returns:
+            状态管理器实例
+        """
+        pass
+    
     @abstractmethod
     def execute_with_state_management(
         self,
@@ -203,4 +213,13 @@ class IStateCollaborationManager(ABC):
     def record_state_change(self, agent_id: str, action: str,
                           old_state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
         """记录状态变化"""
+        pass
+    
+    @abstractmethod
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """获取性能统计信息
+        
+        Returns:
+            性能统计字典
+        """
         pass
