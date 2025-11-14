@@ -4,7 +4,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-from src.infrastructure.config_loader import YamlConfigLoader
+from infrastructure.config.config_loader import YamlConfigLoader
 from src.infrastructure.llm.task_group_manager import TaskGroupManager
 from src.infrastructure.llm.polling_pool import PollingPoolManager
 from src.infrastructure.llm.enhanced_fallback_manager import EnhancedFallbackManager
@@ -41,7 +41,7 @@ async def main():
         # 获取轮询池配置
         single_turn_pool_config = config.get_polling_pool("single_turn_pool")
         if single_turn_pool_config:
-            pool = await polling_pool_manager.create_pool("single_turn_pool", single_turn_pool_config.config)
+            pool = await polling_pool_manager.create_pool("single_turn_pool", single_turn_pool_config)
             logger.info("单轮对话轮询池创建成功")
             
             # 获取轮询池状态
@@ -51,7 +51,7 @@ async def main():
         # 创建高并发轮询池
         high_concurrency_pool_config = config.get_polling_pool("high_concurrency_pool")
         if high_concurrency_pool_config:
-            pool = await polling_pool_manager.create_pool("high_concurrency_pool", high_concurrency_pool_config.config)
+            pool = await polling_pool_manager.create_pool("high_concurrency_pool", high_concurrency_pool_config)
             logger.info("高并发轮询池创建成功")
     
     except Exception as e:

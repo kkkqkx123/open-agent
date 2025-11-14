@@ -9,7 +9,7 @@ from pathlib import Path
 from src.infrastructure.config.config_system import ConfigSystem
 from src.infrastructure.config.config_merger import ConfigMerger
 from src.infrastructure.config.config_validator import ConfigValidator
-from src.infrastructure.config_loader import YamlConfigLoader
+from infrastructure.config.config_loader import YamlConfigLoader
 from src.infrastructure.exceptions import ConfigurationError
 
 

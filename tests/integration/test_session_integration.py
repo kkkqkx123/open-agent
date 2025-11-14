@@ -14,7 +14,7 @@ from src.application.sessions.git_manager import MockGitManager, IGitManager
 from src.application.sessions.player import Player
 from src.application.sessions.event_collector import EventCollector, WorkflowEventCollector, EventType
 from src.application.workflow.manager import IWorkflowManager
-from src.infrastructure.config_models import WorkflowConfigModel as WorkflowConfig
+from infrastructure.config.models.config_models import WorkflowConfigModel as WorkflowConfig
 from src.infrastructure.graph.states import WorkflowState as AgentState, BaseMessage
 
 

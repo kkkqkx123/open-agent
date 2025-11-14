@@ -8,7 +8,7 @@ from pathlib import Path
 from .config_system import ConfigSystem
 from .config_validator import ValidationResult, ConfigValidator
 from .config_merger import ConfigMerger
-from ..config_loader import YamlConfigLoader
+from .config_loader import YamlConfigLoader
 from ..exceptions import ConfigurationError
 
 

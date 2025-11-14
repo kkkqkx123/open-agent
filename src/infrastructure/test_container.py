@@ -9,9 +9,9 @@ from contextlib import contextmanager
 from types import TracebackType
 
 from .container import IDependencyContainer, DependencyContainer
-from .config_loader import IConfigLoader, YamlConfigLoader
+from .config.config_loader import IConfigLoader, YamlConfigLoader
 from .environment import IEnvironmentChecker, EnvironmentChecker
-from .architecture import ArchitectureChecker
+from .architecture_check import ArchitectureChecker
 from .exceptions import InfrastructureError
 
 

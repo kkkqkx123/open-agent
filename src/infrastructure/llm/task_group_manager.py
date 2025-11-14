@@ -4,7 +4,7 @@ import logging
 from typing import Dict, Any, Optional, List, Tuple
 from pathlib import Path
 
-from ..config_interfaces import IConfigLoader
+from ..config.config_interfaces import IConfigLoader
 from ..config.models.task_group_config import (
     TaskGroupsConfig, TaskGroupConfig, PollingPoolConfig, 
     EchelonConfig, GlobalFallbackConfig

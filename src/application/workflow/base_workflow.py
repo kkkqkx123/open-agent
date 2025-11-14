@@ -8,7 +8,7 @@ from abc import ABC
 
 from src.infrastructure.graph.states import WorkflowState
 from src.infrastructure.graph.config import WorkflowConfig
-from src.infrastructure.config_loader import IConfigLoader
+from infrastructure.config.config_loader import IConfigLoader
 from src.infrastructure.container import IDependencyContainer
 
 

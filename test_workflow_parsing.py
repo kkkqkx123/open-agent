@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.infrastructure.graph.workflow_validator import WorkflowValidator
-from src.infrastructure.config_loader import YamlConfigLoader
+from infrastructure.config.config_loader import YamlConfigLoader
 
 def test_workflow_validation(workflow_name, config_path):
     """测试工作流配置验证"""

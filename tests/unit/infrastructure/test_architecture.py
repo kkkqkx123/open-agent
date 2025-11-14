@@ -5,7 +5,7 @@ import pytest
 import tempfile
 from pathlib import Path
 
-from src.infrastructure.architecture import ArchitectureChecker, LayerRule
+from infrastructure.architecture_check import ArchitectureChecker, LayerRule
 from infrastructure.infrastructure_types import CheckResult
 
 

@@ -19,7 +19,7 @@ from src.application.workflow.state_machine.state_machine_workflow_factory impor
     StateMachineWorkflow, StateMachineConfig, StateDefinition, Transition, StateType
 )
 from src.infrastructure.graph.config import WorkflowConfig
-from src.infrastructure.config_loader import IConfigLoader
+from infrastructure.config.config_loader import IConfigLoader
 from src.infrastructure.container import IDependencyContainer
 
 

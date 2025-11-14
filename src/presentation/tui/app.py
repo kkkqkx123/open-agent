@@ -40,7 +40,7 @@ from .subview_controller import SubviewController
 from .session_handler import SessionHandler
 
 from src.infrastructure.container import get_global_container
-from src.infrastructure.config_loader import IConfigLoader
+from infrastructure.config.config_loader import IConfigLoader
 from src.infrastructure.config.models.global_config import GlobalConfig
 from src.infrastructure.logger.logger import set_global_config
 from src.application.sessions.manager import ISessionManager, SessionManager
@@ -158,7 +158,7 @@ class TUIApp:
     
     def _setup_container_services(self, container: Any) -> None:
         """设置容器中的必要服务"""
-        from src.infrastructure.config_loader import YamlConfigLoader, IConfigLoader
+        from infrastructure.config.config_loader import YamlConfigLoader, IConfigLoader
         from src.domain.sessions.store import FileSessionStore
         from src.application.workflow.manager import WorkflowManager
         from src.application.sessions.git_manager import GitManager, create_git_manager

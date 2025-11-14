@@ -8,7 +8,7 @@ from src.infrastructure.config.models.task_group_config import (
     FallbackStrategy, RotationStrategy
 )
 from src.infrastructure.llm.task_group_manager import TaskGroupManager
-from src.infrastructure.config_loader import YamlConfigLoader
+from infrastructure.config.config_loader import YamlConfigLoader
 
 
 class TestTaskGroupConfig:

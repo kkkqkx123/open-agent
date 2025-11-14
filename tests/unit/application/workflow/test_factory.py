@@ -117,7 +117,7 @@ class TestWorkflowFactory(unittest.TestCase):
 
     def test_load_workflow_config(self):
         """测试加载工作流配置"""
-        from src.infrastructure.config_loader import IConfigLoader
+        from infrastructure.config.config_loader import IConfigLoader
         
         mock_loader = Mock(spec=IConfigLoader)
         factory = WorkflowFactory(config_loader=mock_loader)

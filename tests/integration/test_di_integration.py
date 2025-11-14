@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 from src.infrastructure.di_config import DIConfig, create_container, get_global_container, reset_global_container
 from src.infrastructure.lifecycle_manager import LifecycleManager, get_global_lifecycle_manager, reset_global_lifecycle_manager
 from src.infrastructure.container import IDependencyContainer, ServiceLifetime
-from src.infrastructure.config_loader import IConfigLoader
+from infrastructure.config.config_loader import IConfigLoader
 from src.application.workflow.manager import IWorkflowManager
 from src.application.sessions.manager import ISessionManager
 from src.infrastructure.container_interfaces import ILifecycleAware

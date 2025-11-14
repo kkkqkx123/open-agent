@@ -12,9 +12,9 @@ from unittest.mock import Mock, patch
 from src.application.sessions.manager import SessionManager
 from src.application.workflow.manager import WorkflowManager
 from src.domain.sessions.store import FileSessionStore
-from src.infrastructure.config_models import WorkflowConfigModel as WorkflowConfig
+from infrastructure.config.models.config_models import WorkflowConfigModel as WorkflowConfig
 from src.infrastructure.graph.states import WorkflowState as AgentState, BaseMessage
-from src.infrastructure.config_loader import YamlConfigLoader
+from infrastructure.config.config_loader import YamlConfigLoader
 
 
 class TestSessionRecoveryIntegration:

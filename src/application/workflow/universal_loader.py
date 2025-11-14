@@ -13,7 +13,7 @@ from src.infrastructure.graph.builder import GraphBuilder
 from src.infrastructure.graph.function_registry import FunctionRegistry, FunctionType, get_global_function_registry
 from src.infrastructure.graph.config_validator import WorkflowConfigValidator, ValidationResult
 from src.infrastructure.graph.registry import NodeRegistry, get_global_registry
-from src.infrastructure.config_loader import IConfigLoader
+from infrastructure.config.config_loader import IConfigLoader
 from src.infrastructure.container import IDependencyContainer
 from .state_machine.state_templates import StateTemplateManager, get_global_template_manager
 

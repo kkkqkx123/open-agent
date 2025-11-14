@@ -493,7 +493,7 @@ class ThreadManager(IThreadManager):
         """加载图配置"""
         # 这里应该使用配置加载器，暂时简化实现
         # TODO: 集成CentralizedConfigManager
-        from ...infrastructure.config_loader import IConfigLoader
+        from ...infrastructure.config.config_loader import IConfigLoader
         # 临时实现，实际应该依赖注入
         config_loader = None  # 应该通过依赖注入获取
         if config_loader:

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from domain.tools.interfaces import ITool
 
-from src.infrastructure.config_loader import IConfigLoader
+from infrastructure.config.config_loader import IConfigLoader
 from src.infrastructure.exceptions import InfrastructureError
 from src.infrastructure.logger.logger import ILogger
 from .interfaces import IToolLoader

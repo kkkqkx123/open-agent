@@ -5,7 +5,7 @@ import pytest
 import asyncio
 from pathlib import Path
 
-from src.infrastructure.config_loader import YamlConfigLoader
+from infrastructure.config.config_loader import YamlConfigLoader
 from src.infrastructure.llm.task_group_manager import TaskGroupManager
 from src.infrastructure.llm.polling_pool import PollingPoolManager
 from src.infrastructure.llm.enhanced_fallback_manager import EnhancedFallbackManager

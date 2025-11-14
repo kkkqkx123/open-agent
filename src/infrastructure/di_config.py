@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any, Type
 from pathlib import Path
 
 from .container import IDependencyContainer, DependencyContainer, ServiceLifetime
-from .config_loader import IConfigLoader, YamlConfigLoader
+from .config.config_loader import IConfigLoader, YamlConfigLoader
 from .monitoring.di_config import MonitoringModule
 from .registry.module_registry_manager import ModuleRegistryManager
 from .registry.config_parser import ConfigParser

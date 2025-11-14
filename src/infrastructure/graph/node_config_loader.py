@@ -6,7 +6,7 @@
 from typing import Dict, Any, Optional
 from pathlib import Path
 
-from ..config_loader import IConfigLoader
+from ..config.config_loader import IConfigLoader
 from ..container import get_global_container
 
 

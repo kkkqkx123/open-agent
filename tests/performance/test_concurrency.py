@@ -18,7 +18,7 @@ import queue
 from src.infrastructure.di_config import DIConfig, create_container
 from src.infrastructure.lifecycle_manager import LifecycleManager
 from src.infrastructure.container import ServiceLifetime
-from src.infrastructure.config_loader import IConfigLoader
+from infrastructure.config.config_loader import IConfigLoader
 from src.application.workflow.manager import IWorkflowManager
 from src.application.sessions.manager import ISessionManager
 

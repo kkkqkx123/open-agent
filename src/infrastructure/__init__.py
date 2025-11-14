@@ -4,10 +4,10 @@
 """
 
 from .container import IDependencyContainer, DependencyContainer, get_global_container
-from .config_loader import IConfigLoader, YamlConfigLoader
+from .config.config_loader import IConfigLoader, YamlConfigLoader
 from .environment import IEnvironmentChecker, EnvironmentChecker
 from .env_check_command import EnvironmentCheckCommand
-from .architecture import ArchitectureChecker
+from .architecture_check import ArchitectureChecker
 from .test_container import TestContainer
 from .exceptions import (
     InfrastructureError,
@@ -42,19 +42,19 @@ from .config import (
 )
 
 # 导入配置接口
-from .config_interfaces import (
+from .config.config_interfaces import (
     IConfigLoader,
     IConfigInheritanceHandler,
 )
 
 # 导入配置继承和迁移功能
-from .config_inheritance import (
+from .config.config_inheritance import (
     IConfigInheritanceHandler,
     ConfigInheritanceHandler,
     InheritanceConfigLoader,
 )
 
-from .config_models import (
+from .config.models.config_models import (
     BaseConfigModel,
     WorkflowConfigModel,
     AgentConfigModel,
@@ -69,7 +69,7 @@ from .config_models import (
     validate_config_with_model,
 )
 
-from .config_migration import (
+from .config.config_migration import (
     MigrationResult,
     ConfigMigrationTool,
     migrate_workflow_config,

@@ -37,7 +37,7 @@ def test_node_config_loading():
     if not analysis_config:
         print("配置为空，尝试手动加载配置文件...")
         try:
-            from src.infrastructure.config_loader import YamlConfigLoader
+            from infrastructure.config.config_loader import YamlConfigLoader
             yaml_loader = YamlConfigLoader()
             group_config = yaml_loader.load("nodes/_group.yaml")
             print(f"手动加载的配置: {group_config}")

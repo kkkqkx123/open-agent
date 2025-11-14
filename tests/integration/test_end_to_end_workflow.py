@@ -326,7 +326,7 @@ invalid_yaml: [
 
             # 4. 手动触发重载
             # 使用类型断言来访问私有方法
-            from src.infrastructure.config_loader import YamlConfigLoader
+            from infrastructure.config.config_loader import YamlConfigLoader
 
             yaml_config_loader = cast(YamlConfigLoader, config_loader)
             yaml_config_loader._handle_file_change(
