@@ -58,6 +58,7 @@ dependencies = [
     "pytest-asyncio >= 0.21.0",
     "pytest-mock >= 3.10.0",
     "pytz>=2025.2",
+    "mypy>=1.18.2",
 ]
 
 [project.optional-dependencies]

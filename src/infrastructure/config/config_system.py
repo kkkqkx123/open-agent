@@ -128,6 +128,31 @@ class IConfigSystem(ABC):
         """停止监听配置变化"""
         pass
 
+    @abstractmethod
+    def list_configs(self, config_type: str) -> List[str]:
+        """列出指定类型的所有配置
+
+        Args:
+            config_type: 配置类型
+
+        Returns:
+            配置名称列表
+        """
+        pass
+
+    @abstractmethod
+    def config_exists(self, config_type: str, name: str) -> bool:
+        """检查配置是否存在
+
+        Args:
+            config_type: 配置类型
+            name: 配置名称
+
+        Returns:
+            是否存在
+        """
+        pass
+
 
 class ConfigSystem(IConfigSystem):
     """配置系统实现"""

@@ -132,7 +132,7 @@ class DIConfig:
             logger.debug("LLM配置管理器注册完成")
         
         # 注册增强的配置验证器
-        from .config.core.enhanced_validator import EnhancedConfigValidator
+        from .config.utils.enhanced_validator import EnhancedConfigValidator
         self.container.register_factory(
             EnhancedConfigValidator,
             lambda: EnhancedConfigValidator(),

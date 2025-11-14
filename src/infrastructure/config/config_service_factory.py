@@ -6,11 +6,11 @@
 from typing import Optional
 from pathlib import Path
 
-from .core.interfaces import IConfigLoader, IConfigInheritanceHandler, IConfigValidator
+from .core.interfaces import IConfigLoader, IConfigInheritanceHandler
+from .core.merger import IConfigMerger, ConfigMerger
+from .utils.validator import IConfigValidator, ConfigValidator
 from .core.loader import YamlConfigLoader
 from .utils.inheritance import ConfigInheritanceHandler
-from .core.merger import ConfigMerger
-from .utils.validator import ConfigValidator
 from .config_system import IConfigSystem, ConfigSystem
 from .config_callback_manager import ConfigCallbackManager
 from .error_recovery import ConfigErrorRecovery, ConfigValidatorWithRecovery
