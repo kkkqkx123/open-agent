@@ -4,8 +4,16 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Callable, List
+from typing import Dict, Any, Optional, Callable, List, TYPE_CHECKING
 from pathlib import Path
+
+# 避免循环导入的类型检查导入
+if TYPE_CHECKING:
+    from .models.global_config import GlobalConfig
+    from .models.llm_config import LLMConfig
+    from .models.tool_config import ToolConfig
+    from .models.token_counter_config import TokenCounterConfig
+    from .models.task_group_config import TaskGroupsConfig
 
 
 class IConfigLoader(ABC):

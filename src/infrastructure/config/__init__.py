@@ -4,7 +4,7 @@ from .config_system import IConfigSystem, ConfigSystem
 from .config_factory import ConfigFactory
 from .processor.merger import IConfigMerger, ConfigMerger
 from .processor.validator import IConfigValidator, ConfigValidator, ValidationResult
-from .utils.enhanced_validator import (
+from .processor.enhanced_validator import (
     EnhancedConfigValidator,
     create_enhanced_config_validator,
     ValidationLevel,

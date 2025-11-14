@@ -6,7 +6,7 @@ from datetime import datetime
 
 from ...domain.threads.models import ThreadSnapshot
 from ...domain.threads.interfaces import IThreadManager
-from ...application.checkpoint.interfaces import ICheckpointManager
+from ...application.checkpoint.manager import ICheckpointManager
 
 
 class SnapshotManager:

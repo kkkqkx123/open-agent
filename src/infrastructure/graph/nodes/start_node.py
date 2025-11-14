@@ -5,7 +5,7 @@
 
 import time
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from ..registry import BaseNode, NodeExecutionResult, node
 from ..states import WorkflowState
@@ -23,7 +23,7 @@ class StartNode(BaseNode):
     在工作流开始时执行各种初始化和准备操作。
     """
     
-    def __init__(self, plugin_config_path: str = None):
+    def __init__(self, plugin_config_path: Optional[str] = None):
         """初始化START节点
         
         Args:

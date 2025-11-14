@@ -5,7 +5,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 from ...domain.threads.interfaces import IThreadManager
-from ...application.checkpoint.interfaces import ICheckpointManager
+from ...application.checkpoint.manager import ICheckpointManager
 from ...domain.threads.collaboration import ThreadCollaboration, SharedThreadState
 
 

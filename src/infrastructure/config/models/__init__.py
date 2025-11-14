@@ -5,6 +5,7 @@ from .global_config import GlobalConfig
 from .llm_config import LLMConfig
 from .tool_config import ToolConfig
 from .token_counter_config import TokenCounterConfig
+from .task_group_config import TaskGroupsConfig
 from .retry_timeout_config import RetryTimeoutConfig, TimeoutConfig
 from .config import (
     BaseConfigModel,

@@ -465,7 +465,3 @@ class LLMConfig(BaseConfig):
             effective_config.parameters["thinking_config"] = echelon_config.thinking_config.__dict__
         
         return effective_config
-
-    def get_timeout(self) -> int:
-        """获取超时时间（向后兼容）"""
-        return self.timeout_config.request_timeout
