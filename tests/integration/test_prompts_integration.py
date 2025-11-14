@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 from tempfile import TemporaryDirectory
 
-from infrastructure.config.config_loader import YamlConfigLoader
+from infrastructure.config.core.loader import YamlConfigLoader
 from src.domain.prompts.registry import PromptRegistry
 from src.domain.prompts.loader import PromptLoader
 from src.domain.prompts.injector import PromptInjector

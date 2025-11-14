@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any, Type
 from pathlib import Path
 
 from .container import IDependencyContainer, DependencyContainer, ServiceLifetime
-from .config.config_loader import IConfigLoader, YamlConfigLoader
+from .config.core.loader import IConfigLoader, YamlConfigLoader
 from .monitoring.di_config import MonitoringModule
 from .registry.module_registry_manager import ModuleRegistryManager
 from .registry.config_parser import ConfigParser
@@ -132,7 +132,7 @@ class DIConfig:
             logger.debug("LLM配置管理器注册完成")
         
         # 注册增强的配置验证器
-        from .config.enhanced_validator import EnhancedConfigValidator
+        from .config.core.enhanced_validator import EnhancedConfigValidator
         self.container.register_factory(
             EnhancedConfigValidator,
             lambda: EnhancedConfigValidator(),

@@ -15,7 +15,7 @@ from src.application.workflow.factory import WorkflowFactory
 from src.infrastructure.graph.config import WorkflowConfig, NodeConfig, EdgeConfig, EdgeType
 from src.infrastructure.graph.registry import NodeRegistry, BaseNode, NodeExecutionResult
 from src.infrastructure.graph.states import HumanMessage, WorkflowState
-from infrastructure.config.config_loader import IConfigLoader
+from infrastructure.config.core.loader import IConfigLoader
 from src.infrastructure.graph.states.factory import StateFactory
 
 

@@ -6,7 +6,7 @@ from pathlib import Path
 # 添加src目录到Python路径
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from infrastructure.config.config_loader import YamlConfigLoader
+from infrastructure.config.core.loader import YamlConfigLoader
 from src.domain.prompts.registry import PromptRegistry
 from src.domain.prompts.loader import PromptLoader
 from src.domain.prompts.injector import PromptInjector

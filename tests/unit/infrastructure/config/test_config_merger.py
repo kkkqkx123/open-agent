@@ -1,7 +1,7 @@
 """配置合并器测试"""
 
 import pytest
-from src.infrastructure.config.config_merger import ConfigMerger
+from infrastructure.config.core.merger import ConfigMerger
 
 
 class TestConfigMerger:

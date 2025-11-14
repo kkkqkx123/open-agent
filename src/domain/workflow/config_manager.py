@@ -10,7 +10,7 @@ from datetime import datetime
 import uuid
 import hashlib
 
-from ...infrastructure.config.config_loader import IConfigLoader
+from ...infrastructure.config.core.loader import IConfigLoader
 from ...infrastructure.graph.config import WorkflowConfig
 from .interfaces import IWorkflowConfigManager
 
@@ -56,11 +56,14 @@ class WorkflowConfigManager(IWorkflowConfigManager):
             
             # 加载配置
             if self.config_loader:
-                config = self.config_loader.load_workflow_config(config_path)
+                config_dict = self.config_loader.load(config_path)
+                config = WorkflowConfig.from_dict(config_dict)
             else:
                 # 简化实现，实际应该使用依赖注入的config_loader
-                from ...infrastructure.graph.config import WorkflowConfig
-                config = WorkflowConfig.load_from_file(config_path)
+                import yaml
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config_dict = yaml.safe_load(f)
+                config = WorkflowConfig.from_dict(config_dict)
             
             # 生成配置ID
             config_id = self._generate_config_id(config.name, config_path)

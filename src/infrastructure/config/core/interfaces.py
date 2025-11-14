@@ -76,4 +76,37 @@ class IConfigInheritanceHandler(ABC):
             验证错误列表
         """
         pass
+
+
+class IConfigMerger(ABC):
+    """配置合并器接口"""
+    
+    @abstractmethod
+    def merge(self, base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+        """合并配置
+        
+        Args:
+            base: 基础配置
+            override: 覆盖配置
+            
+        Returns:
+            合并后的配置
+        """
+        pass
+
+
+class IConfigValidator(ABC):
+    """配置验证器接口"""
+    
+    @abstractmethod
+    def validate(self, config: Dict[str, Any], schema: Optional[object] = None) -> tuple[bool, List[str]]:
+        """验证配置
+        
+        Args:
+            config: 配置数据
+            schema: 验证模式
+            
+        Returns:
+            (是否有效, 错误消息列表)
+        """
         pass

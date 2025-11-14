@@ -1,7 +1,7 @@
 """TUI布局配置系统"""
 
 import json
-from infrastructure.config.config_interfaces import IConfigLoader
+from infrastructure.config.core.interfaces import IConfigLoader
 import yaml
 from typing import Dict, Any, Optional, Union
 from pathlib import Path
@@ -230,7 +230,7 @@ class ConfigManager:
                 if self.config_loader and isinstance(data, dict):
                     # 创建一个临时方法来利用 IConfigLoader 的环境变量处理能力
                     # 这是一个适配器模式的应用
-                    from infrastructure.config.config_loader import YamlConfigLoader
+                    from infrastructure.config.core.loader import YamlConfigLoader
                     temp_loader = YamlConfigLoader()
                     data = temp_loader.resolve_env_vars(data)
                 

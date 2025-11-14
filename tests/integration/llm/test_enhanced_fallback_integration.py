@@ -10,7 +10,7 @@ from src.infrastructure.llm.interfaces import ILLMClient
 from src.infrastructure.llm.models import LLMResponse, TokenUsage
 from src.infrastructure.llm.task_group_manager import TaskGroupManager
 from src.infrastructure.llm.polling_pool import PollingPoolManager
-from infrastructure.config.config_interfaces import IConfigLoader
+from infrastructure.config.core.interfaces import IConfigLoader
 
 
 class MockLLMClient(ILLMClient):

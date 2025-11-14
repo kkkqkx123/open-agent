@@ -22,7 +22,7 @@ from src.infrastructure.graph.states.interface import (
 )
 
 # 直接导入增强验证器
-from infrastructure.config.enhanced_validator import (
+from infrastructure.config.core.enhanced_validator import (
     EnhancedConfigValidator,
     create_enhanced_config_validator,
     ValidationLevel,

@@ -5,7 +5,7 @@ container = get_global_container()
 di_config = DIConfig(container)
 di_config.configure_core_services()
 
-from infrastructure.config.config_loader import IConfigLoader
+from infrastructure.config.core.loader import IConfigLoader
 from src.infrastructure.logger.logger import Logger
 from src.infrastructure.tools.validation.manager import ToolValidationManager
 from src.infrastructure.tools.interfaces import IToolManager

@@ -4,7 +4,7 @@ import pytest
 import tempfile
 import os
 from pathlib import Path
-from src.infrastructure.config.enhanced_validator import (
+from infrastructure.config.core.enhanced_validator import (
     EnhancedConfigValidator,
     create_enhanced_config_validator,
     ValidationLevel,

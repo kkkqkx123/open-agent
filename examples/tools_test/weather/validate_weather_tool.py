@@ -21,7 +21,7 @@ def validate_weather_config():
     print("开始验证天气工具配置文件...")
     
     try:
-        from infrastructure.config.config_loader import YamlConfigLoader
+        from infrastructure.config.core.loader import YamlConfigLoader
         
         # 创建配置加载器
         config_loader = YamlConfigLoader()

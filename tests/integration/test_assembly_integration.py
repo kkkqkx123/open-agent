@@ -12,7 +12,7 @@ from typing import cast
 from src.bootstrap import ApplicationBootstrap
 from src.infrastructure.assembler import ComponentAssembler
 from src.infrastructure.container import DependencyContainer, ILifecycleAware
-from infrastructure.config.config_loader import YamlConfigLoader
+from infrastructure.config.core.loader import YamlConfigLoader
 
 
 class TestAssemblyIntegration:
@@ -128,7 +128,7 @@ default_tools:
         assert assembled_container.get_environment() == "testing"
         
         # 验证服务注册
-        from infrastructure.config.config_loader import IConfigLoader
+        from infrastructure.config.core.loader import IConfigLoader
         assert assembled_container.has_service(IConfigLoader)
         
         # 获取服务

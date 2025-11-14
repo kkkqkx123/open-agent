@@ -6,7 +6,7 @@ from pathlib import Path
 from rich.console import Console
 
 from src.infrastructure.container import get_global_container
-from infrastructure.config.config_loader import IConfigLoader
+from infrastructure.config.core.loader import IConfigLoader
 from src.application.sessions.manager import ISessionManager
 from src.infrastructure.env_check_command import EnvironmentCheckCommand
 from .error_handler import handle_cli_error, handle_cli_warning, handle_cli_success, handle_cli_info
@@ -226,7 +226,7 @@ def _register_history_services(container) -> None:
 def setup_container(config_path: Optional[str] = None) -> None:
     """设置依赖注入容器"""
     from ...infrastructure.container import DependencyContainer
-    from ...infrastructure.config.config_loader import YamlConfigLoader
+    from ...infrastructure.config.core.loader import YamlConfigLoader
     from src.application.sessions.manager import SessionManager
     from src.domain.sessions.store import FileSessionStore
     from src.application.workflow.manager import WorkflowManager

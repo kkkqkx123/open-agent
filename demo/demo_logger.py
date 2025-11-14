@@ -10,10 +10,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.infrastructure.container import DependencyContainer
-from infrastructure.config.config_loader import YamlConfigLoader
+from infrastructure.config.core.loader import YamlConfigLoader
 from src.infrastructure.config.config_system import ConfigSystem
-from src.infrastructure.config.config_merger import ConfigMerger
-from src.infrastructure.config.config_validator import ConfigValidator
+from infrastructure.config.core.merger import ConfigMerger
+from infrastructure.config.utils.validator import ConfigValidator
 from src.infrastructure.logger import (
     get_logger,
     initialize_logging_integration,
@@ -32,9 +32,9 @@ def main() -> None:
     # 1. 初始化依赖注入容器
     print("1. 初始化依赖注入容器...")
     container = DependencyContainer()
-    from infrastructure.config.config_loader import IConfigLoader
-    from src.infrastructure.config.config_merger import IConfigMerger
-    from src.infrastructure.config.config_validator import IConfigValidator
+    from infrastructure.config.core.loader import IConfigLoader
+    from infrastructure.config.core.merger import IConfigMerger
+    from infrastructure.config.utils.validator import IConfigValidator
     container.register_factory(IConfigLoader, YamlConfigLoader)  # type: ignore
     container.register_factory(IConfigMerger, ConfigMerger)  # type: ignore
     container.register_factory(IConfigValidator, ConfigValidator)  # type: ignore
@@ -42,9 +42,9 @@ def main() -> None:
     
     # 2. 获取服务
     print("2. 获取服务...")
-    from infrastructure.config.config_loader import IConfigLoader
-    from src.infrastructure.config.config_merger import IConfigMerger
-    from src.infrastructure.config.config_validator import IConfigValidator
+    from infrastructure.config.core.loader import IConfigLoader
+    from infrastructure.config.core.merger import IConfigMerger
+    from infrastructure.config.utils.validator import IConfigValidator
     config_loader = container.get(IConfigLoader)  # type: ignore
     config_merger = container.get(IConfigMerger)  # type: ignore
     config_validator = container.get(IConfigValidator)  # type: ignore

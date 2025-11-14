@@ -10,7 +10,7 @@ import inspect
 from typing import Any, Dict, List, Optional, Type, Union
 from pathlib import Path
 
-from infrastructure.config.config_loader import IConfigLoader
+from infrastructure.config.core.loader import IConfigLoader
 from src.infrastructure.exceptions import InfrastructureError
 from src.infrastructure.logger.logger import ILogger
 from .interfaces import IToolManager, IToolLoader, IToolAdapter, IToolCache

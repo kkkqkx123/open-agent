@@ -4,7 +4,7 @@
 """
 
 from .container import IDependencyContainer, DependencyContainer, get_global_container
-from .config.config_loader import IConfigLoader, YamlConfigLoader
+from .config.core.loader import IConfigLoader, YamlConfigLoader
 from .environment import IEnvironmentChecker, EnvironmentChecker
 from .env_check_command import EnvironmentCheckCommand
 from .architecture_check import ArchitectureChecker
@@ -41,20 +41,8 @@ from .config import (
     trigger_config_callbacks,
 )
 
-# 导入配置接口
-from .config.config_interfaces import (
-    IConfigLoader,
-    IConfigInheritanceHandler,
-)
-
-# 导入配置继承和迁移功能
-from .config.config_inheritance import (
-    IConfigInheritanceHandler,
-    ConfigInheritanceHandler,
-    InheritanceConfigLoader,
-)
-
-from .config.models.config_models import (
+# 导入配置模型
+from .config.models.config import (
     BaseConfigModel,
     WorkflowConfigModel,
     AgentConfigModel,
@@ -67,16 +55,6 @@ from .config.models.config_models import (
     ValidationRule,
     create_config_model,
     validate_config_with_model,
-)
-
-from .config.config_migration import (
-    MigrationResult,
-    ConfigMigrationTool,
-    migrate_workflow_config,
-    migrate_agent_config,
-    migrate_tool_config,
-    migrate_llm_config,
-    migrate_graph_config,
 )
 
 __all__ = [
@@ -117,6 +95,17 @@ __all__ = [
     "register_config_callback",
     "unregister_config_callback",
     "trigger_config_callbacks",
-    # 配置接口相关
-    "IConfigInheritanceHandler",
+    # 配置模型相关
+    "BaseConfigModel",
+    "WorkflowConfigModel",
+    "AgentConfigModel",
+    "ToolConfigModel",
+    "LLMConfigModel",
+    "GraphConfigModel",
+    "ConfigType",
+    "ConfigMetadata",
+    "ConfigInheritance",
+    "ValidationRule",
+    "create_config_model",
+    "validate_config_with_model",
 ]

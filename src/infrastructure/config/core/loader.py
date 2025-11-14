@@ -10,11 +10,10 @@ from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from ..exceptions import ConfigurationError
-from ..infrastructure_types import CheckResult
-from .config_inheritance import ConfigInheritanceHandler
-from .config_interfaces import IConfigLoader
-from ..container_interfaces import ILifecycleAware
+from ...exceptions import ConfigurationError
+from ...infrastructure_types import CheckResult
+from .interfaces import IConfigInheritanceHandler, IConfigLoader
+from ...container_interfaces import ILifecycleAware
 
 # 定义类型变量
 ConfigValue = TypeVar("ConfigValue", Dict[str, Any], List[Any], str, Any)
@@ -64,7 +63,7 @@ class ConfigFileHandler(FileSystemEventHandler):
 class YamlConfigLoader(IConfigLoader, ILifecycleAware):
     """YAML配置加载器实现"""
 
-    def __init__(self, base_path: str = "configs", enable_inheritance: bool = True) -> None:
+    def __init__(self, base_path: str = "configs", inheritance_handler: Optional[IConfigInheritanceHandler] = None) -> None:
         self.base_path = Path(base_path)
         self._configs: Dict[str, Dict[str, Any]] = {}
         self._observers: List[Any] = []
@@ -72,7 +71,7 @@ class YamlConfigLoader(IConfigLoader, ILifecycleAware):
         self._lock = threading.RLock()
         self._env_var_pattern = re.compile(r"\$\{([^}]+)\}")
         self._env_var_default_pattern = re.compile(r"\$\{([^:]+):([^}]*)\}")
-        self._inheritance_handler = ConfigInheritanceHandler(self) if enable_inheritance else None
+        self._inheritance_handler = inheritance_handler
 
     def load(self, config_path: str) -> Dict[str, Any]:
         """加载配置文件"""

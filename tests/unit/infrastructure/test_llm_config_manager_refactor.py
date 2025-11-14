@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
 
 from src.infrastructure.llm.config_manager import LLMConfigManager
-from infrastructure.config.config_loader import IConfigLoader
+from infrastructure.config.core.loader import IConfigLoader
 from src.infrastructure.llm.config import LLMClientConfig, LLMModuleConfig
 
 

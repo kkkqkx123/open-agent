@@ -4,11 +4,11 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Type, Optional
 from pydantic import BaseModel, ValidationError
 
-from .models.global_config import GlobalConfig
-from .models.llm_config import LLMConfig
-from .models.agent_config import AgentConfig
-from .models.tool_config import ToolConfig
-from .models.token_counter_config import TokenCounterConfig
+from ..models.global_config import GlobalConfig
+from ..models.llm_config import LLMConfig
+from ..models.agent_config import AgentConfig
+from ..models.tool_config import ToolConfig
+from ..models.token_counter_config import TokenCounterConfig
 
 
 class ValidationResult:

@@ -7,7 +7,7 @@ import yaml
 from pathlib import Path
 from unittest.mock import Mock, AsyncMock, patch
 
-from infrastructure.config.config_loader import YamlConfigLoader
+from infrastructure.config.core.loader import YamlConfigLoader
 from src.infrastructure.llm.task_group_manager import TaskGroupManager
 from src.infrastructure.llm.enhanced_fallback_manager import EnhancedFallbackManager
 from src.infrastructure.llm.polling_pool import PollingPoolManager

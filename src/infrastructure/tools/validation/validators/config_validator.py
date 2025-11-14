@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, List
-from infrastructure.config.config_loader import IConfigLoader
+from infrastructure.config.core.loader import IConfigLoader
 from src.infrastructure.logger.logger import ILogger
 from ..interfaces import IToolValidator
 from ..models import ValidationResult, ValidationStatus

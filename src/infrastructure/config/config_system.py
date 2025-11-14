@@ -6,10 +6,10 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Callable, List, cast
 from pathlib import Path
 
-from .config_loader import IConfigLoader
+from .core.loader import IConfigLoader
 from ..exceptions import ConfigurationError
-from .config_merger import IConfigMerger
-from .config_validator import IConfigValidator, ValidationResult
+from .core.merger import IConfigMerger
+from .utils.validator import IConfigValidator, ValidationResult
 from .models.global_config import GlobalConfig
 from .models.task_group_config import TaskGroupsConfig
 from .models.llm_config import LLMConfig
