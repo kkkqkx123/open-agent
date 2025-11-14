@@ -95,18 +95,6 @@ class IConfigValidator(ABC):
         pass
 
     @abstractmethod
-    def validate_agent_config(self, config: Dict[str, Any]) -> ValidationResult:
-        """验证Agent配置
-
-        Args:
-            config: 配置字典
-
-        Returns:
-            验证结果
-        """
-        pass
-
-    @abstractmethod
     def validate_tool_config(self, config: Dict[str, Any]) -> ValidationResult:
         """验证工具配置
 
@@ -239,18 +227,6 @@ class ConfigValidator(IConfigValidator):
                 write_timeout = timeout_config.get("write_timeout")
                 if write_timeout is not None and (not isinstance(write_timeout, int) or write_timeout <= 0):
                     result.add_error("timeout_config.write_timeout必须是正整数")
-
-        return result
-
-        # 额外的业务逻辑验证
-        if result.is_valid:
-            # 检查是否配置了工具或工具集
-            if not config.get("tools") and not config.get("tool_sets"):
-                result.add_warning("未配置任何工具或工具集，Agent可能无法执行任务")
-
-            # 检查系统提示词是否为空
-            if not config.get("system_prompt"):
-                result.add_warning("系统提示词为空，可能影响Agent行为")
 
         return result
 

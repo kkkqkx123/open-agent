@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ..models.config import (
-    BaseConfigModel, WorkflowConfigModel, AgentConfigModel, 
+    BaseConfigModel, WorkflowConfigModel, 
     ToolConfigModel, LLMConfigModel, GraphConfigModel,
     ConfigType, ConfigMetadata
 )
@@ -88,33 +88,7 @@ class ConfigMigrationTool:
                     "edges": {"required": True, "type": "list"}
                 }
             },
-            "agent": {
-                "field_mappings": {
-                    "name": "metadata.name",
-                    "description": "metadata.description",
-                    "version": "metadata.version",
-                    "agent_type": "agent_type",
-                    "llm_config": "llm_config",
-                    "tools": "tools",
-                    "tool_config": "tool_config",
-                    "system_prompt": "system_prompt",
-                    "prompt_template": "prompt_template",
-                    "max_iterations": "max_iterations",
-                    "temperature": "temperature",
-                    "max_tokens": "max_tokens"
-                },
-                "default_values": {
-                    "config_type": "agent",
-                    "metadata": {
-                        "version": "1.0.0",
-                        "author": "system"
-                    },
-                    "agent_type": "default",
-                    "max_iterations": 10,
-                    "temperature": 0.7,
-                    "max_tokens": 1000
-                }
-            },
+
             "tool": {
                 "field_mappings": {
                     "name": "metadata.name",
@@ -508,26 +482,6 @@ def migrate_workflow_config(
     """
     tool = ConfigMigrationTool()
     return tool.migrate_config(source_path, target_path, ConfigType.WORKFLOW, backup)
-
-
-def migrate_agent_config(
-    source_path: Union[str, Path], 
-    target_path: Union[str, Path], 
-    backup: bool = True
-) -> MigrationResult:
-    """迁移Agent配置
-    
-    Args:
-        source_path: 源配置文件路径
-        target_path: 目标配置文件路径
-        backup: 是否创建备份
-        
-    Returns:
-        迁移结果
-    """
-    tool = ConfigMigrationTool()
-    return tool.migrate_config(source_path, target_path, ConfigType.AGENT, backup)
-
 
 def migrate_tool_config(
     source_path: Union[str, Path], 

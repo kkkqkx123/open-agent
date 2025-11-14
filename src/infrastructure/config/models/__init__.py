@@ -9,7 +9,6 @@ from .retry_timeout_config import RetryTimeoutConfig, TimeoutConfig
 from .config import (
     BaseConfigModel,
     WorkflowConfigModel,
-    AgentConfigModel,
     ToolConfigModel,
     LLMConfigModel,
     GraphConfigModel,
@@ -32,7 +31,6 @@ __all__ = [
     # 新增的配置模型
     "BaseConfigModel",
     "WorkflowConfigModel",
-    "AgentConfigModel",
     "ToolConfigModel",
     "LLMConfigModel",
     "GraphConfigModel",

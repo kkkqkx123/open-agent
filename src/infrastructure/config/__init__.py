@@ -1,9 +1,9 @@
 """配置系统模块"""
 
 from .config_system import IConfigSystem, ConfigSystem
+from .config_factory import ConfigFactory
 from .processor.merger import IConfigMerger, ConfigMerger
 from .processor.validator import IConfigValidator, ConfigValidator, ValidationResult
-from .config_validator_tool import ConfigValidatorTool
 from .utils.enhanced_validator import (
     EnhancedConfigValidator,
     create_enhanced_config_validator,
@@ -35,7 +35,6 @@ from .migration.migration import (
     MigrationResult,
     ConfigMigrationTool,
     migrate_workflow_config,
-    migrate_agent_config,
     migrate_tool_config,
     migrate_llm_config,
     migrate_graph_config,
@@ -44,12 +43,12 @@ from .migration.migration import (
 __all__ = [
     "IConfigSystem",
     "ConfigSystem",
+    "ConfigFactory",
     "IConfigMerger",
     "ConfigMerger",
     "IConfigValidator",
     "ConfigValidator",
     "ValidationResult",
-    "ConfigValidatorTool",
     "EnhancedConfigValidator",
     "create_enhanced_config_validator",
     "ValidationLevel",
@@ -78,7 +77,6 @@ __all__ = [
     "MigrationResult",
     "ConfigMigrationTool",
     "migrate_workflow_config",
-    "migrate_agent_config",
     "migrate_tool_config",
     "migrate_llm_config",
     "migrate_graph_config",

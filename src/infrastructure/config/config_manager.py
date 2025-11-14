@@ -182,7 +182,6 @@ class ConfigManager:
         try:
             # 统计各种配置的数量
             summary["config_counts"]["llms"] = len(self._config_system.list_configs("llms"))
-            summary["config_counts"]["agents"] = len(self._config_system.list_configs("agents"))
             summary["config_counts"]["tools"] = len(self._config_system.list_configs("tool-sets"))
             
             # 获取全局配置信息
@@ -194,42 +193,3 @@ class ConfigManager:
             summary["error"] = str(e)
         
         return summary
-    
-    def validate_config_dependencies(self) -> ValidationResult:
-        """验证配置依赖关系
-        
-        Returns:
-            验证结果
-        """
-        result = ValidationResult(True)
-        
-        try:
-            # 获取所有Agent配置
-            agent_configs = self._config_system.list_configs("agents")
-            
-            for agent_name in agent_configs:
-                try:
-                    agent_config = self._config_system.load_agent_config(agent_name)
-                    
-                    # 检查LLM配置是否存在
-                    if hasattr(agent_config, 'llm') and agent_config.llm:
-                        if not self._config_system.config_exists("llms", agent_config.llm):
-                            result.add_error(
-                                f"Agent '{agent_name}' 引用的LLM配置 '{agent_config.llm}' 不存在"
-                            )
-                    
-                    # 检查工具配置是否存在
-                    if hasattr(agent_config, 'tool_sets'):
-                        for tool_set in agent_config.tool_sets:
-                            if not self._config_system.config_exists("tool-sets", tool_set):
-                                result.add_error(
-                                    f"Agent '{agent_name}' 引用的工具集 '{tool_set}' 不存在"
-                                )
-                                
-                except Exception as e:
-                    result.add_error(f"验证Agent '{agent_name}' 时出错: {e}")
-            
-        except Exception as e:
-            result.add_error(f"验证配置依赖关系时出错: {e}")
-        
-        return result

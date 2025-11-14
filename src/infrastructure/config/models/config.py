@@ -14,7 +14,6 @@ import yaml
 class ConfigType(str, Enum):
     """配置类型枚举"""
     WORKFLOW = "workflow"
-    AGENT = "agent"
     TOOL = "tool"
     LLM = "llm"
     GRAPH = "graph"
@@ -243,34 +242,6 @@ class WorkflowConfigModel(BaseConfigModel):
             raise ValueError("超时时间必须大于0")
         return v
 
-
-class AgentConfigModel(BaseConfigModel):
-    """Agent配置模型"""
-    
-    config_type: ConfigType = Field(ConfigType.AGENT, description="配置类型")
-    
-    # Agent特定字段
-    agent_name: str = Field(..., description="Agent名称")
-    agent_type: str = Field("default", description="Agent类型")
-    description: str = Field("", description="Agent描述")
-    
-    # LLM配置
-    llm_config: Dict[str, Any] = Field(default_factory=dict, description="LLM配置")
-    
-    # 工具配置
-    tools: List[str] = Field(default_factory=list, description="工具列表")
-    tool_config: Dict[str, Any] = Field(default_factory=dict, description="工具配置")
-    
-    # 提示配置
-    system_prompt: str = Field("", description="系统提示")
-    prompt_template: str = Field("", description="提示模板")
-    
-    # 行为配置
-    max_iterations: int = Field(10, description="最大迭代次数")
-    temperature: float = Field(0.7, description="温度参数")
-    max_tokens: int = Field(1000, description="最大令牌数")
-
-
 class ToolConfigModel(BaseConfigModel):
     """工具配置模型"""
     
@@ -349,7 +320,6 @@ class GraphConfigModel(BaseConfigModel):
 # 配置模型映射
 CONFIG_MODEL_MAPPING = {
     ConfigType.WORKFLOW: WorkflowConfigModel,
-    ConfigType.AGENT: AgentConfigModel,
     ConfigType.TOOL: ToolConfigModel,
     ConfigType.LLM: LLMConfigModel,
     ConfigType.GRAPH: GraphConfigModel,

@@ -147,7 +147,7 @@ class GlobalConfig(BaseConfig):
     # 环境配置
     env: str = Field("development", description="运行环境")
     debug: bool = Field(False, description="调试模式")
-    env_prefix: str = Field("AGENT_", description="环境变量前缀")
+    env_prefix: str = Field("CONFIG_", description="环境变量前缀")
 
     # 热重载配置
     hot_reload: bool = Field(True, description="是否启用热重载")

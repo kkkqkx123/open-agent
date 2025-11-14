@@ -110,3 +110,120 @@ class IConfigValidator(ABC):
             (是否有效, 错误消息列表)
         """
         pass
+
+
+class IConfigSystem(ABC):
+    """配置系统接口"""
+
+    @abstractmethod
+    def load_global_config(self) -> "GlobalConfig":
+        """加载全局配置
+
+        Returns:
+            全局配置对象
+        """
+        pass
+
+    @abstractmethod
+    def load_llm_config(self, name: str) -> "LLMConfig":
+        """加载LLM配置
+
+        Args:
+            name: 配置名称
+
+        Returns:
+            LLM配置对象
+        """
+        pass
+
+    @abstractmethod
+    def load_tool_config(self, name: str) -> "ToolConfig":
+        """加载工具配置
+
+        Args:
+            name: 配置名称
+
+        Returns:
+            工具配置对象
+        """
+        pass
+
+    @abstractmethod
+    def load_token_counter_config(self, name: str) -> "TokenCounterConfig":
+        """加载Token计数器配置
+
+        Args:
+            name: 配置名称
+
+        Returns:
+            Token计数器配置对象
+        """
+        pass
+
+    @abstractmethod
+    def load_task_groups_config(self) -> "TaskGroupsConfig":
+        """加载任务组配置
+
+        Returns:
+            任务组配置对象
+        """
+        pass
+
+    @abstractmethod
+    def reload_configs(self) -> None:
+        """重新加载所有配置"""
+        pass
+
+    @abstractmethod
+    def get_config_path(self, config_type: str, name: str) -> str:
+        """获取配置路径
+
+        Args:
+            config_type: 配置类型
+            name: 配置名称
+
+        Returns:
+            配置路径
+        """
+        pass
+
+    @abstractmethod
+    def watch_for_changes(
+        self, callback: Callable[[str, Dict[str, Any]], None]
+    ) -> None:
+        """监听配置变化
+
+        Args:
+            callback: 变化回调函数
+        """
+        pass
+
+    @abstractmethod
+    def stop_watching(self) -> None:
+        """停止监听配置变化"""
+        pass
+
+    @abstractmethod
+    def list_configs(self, config_type: str) -> List[str]:
+        """列出指定类型的所有配置
+
+        Args:
+            config_type: 配置类型
+
+        Returns:
+            配置名称列表
+        """
+        pass
+
+    @abstractmethod
+    def config_exists(self, config_type: str, name: str) -> bool:
+        """检查配置是否存在
+
+        Args:
+            config_type: 配置类型
+            name: 配置名称
+
+        Returns:
+            是否存在
+        """
+        pass
