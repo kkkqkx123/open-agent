@@ -17,7 +17,7 @@ from unittest.mock import Mock
 from src.infrastructure.di_config import DIConfig, create_container
 from src.infrastructure.lifecycle_manager import LifecycleManager
 from src.infrastructure.container import ServiceLifetime
-from infrastructure.config.core.loader import IConfigLoader
+from infrastructure.config.loader.yaml_loader import IConfigLoader
 from src.infrastructure.container_interfaces import ILifecycleAware
 from src.application.workflow.manager import IWorkflowManager
 from src.application.sessions.manager import ISessionManager

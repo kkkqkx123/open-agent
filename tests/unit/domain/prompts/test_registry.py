@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from infrastructure.config.core.loader import IConfigLoader
+from infrastructure.config.loader.yaml_loader import IConfigLoader
 from src.domain.prompts.registry import PromptRegistry
 from src.domain.prompts.models import PromptMeta
 

@@ -26,7 +26,7 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 try:
-    from infrastructure.config.core.loader import YamlConfigLoader
+    from infrastructure.config.loader.yaml_loader import YamlConfigLoader
 except ImportError:
     # 如果无法导入，使用默认值
     YamlConfigLoader = None

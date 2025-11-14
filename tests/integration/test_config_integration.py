@@ -9,10 +9,10 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from src.infrastructure.config.config_system import ConfigSystem
-from infrastructure.config.core.merger import ConfigMerger
-from infrastructure.config.utils.validator import ConfigValidator
+from infrastructure.config.processor.merger import ConfigMerger
+from infrastructure.config.processor.validator import ConfigValidator
 from src.infrastructure.config.config_validator_tool import ConfigValidatorTool
-from infrastructure.config.core.loader import YamlConfigLoader
+from infrastructure.config.loader.yaml_loader import YamlConfigLoader
 from src.infrastructure.container import DependencyContainer
 from src.infrastructure.exceptions import ConfigurationError
 

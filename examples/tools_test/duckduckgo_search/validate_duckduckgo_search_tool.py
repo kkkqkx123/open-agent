@@ -18,7 +18,7 @@ def validate_duckduckgo_search_config():
     print("开始验证DuckDuckGo搜索工具配置文件...")
     
     try:
-        from infrastructure.config.core.loader import YamlConfigLoader
+        from infrastructure.config.loader.yaml_loader import YamlConfigLoader
         
         # 创建配置加载器
         config_loader = YamlConfigLoader()

@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Type
 from ..container import IDependencyContainer
-from ..config.core.loader import IConfigLoader
+from ..config.loader.yaml_loader import IConfigLoader
 
 
 class IComponentAssembler(ABC):

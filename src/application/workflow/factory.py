@@ -10,7 +10,7 @@ import logging
 from .interfaces import IWorkflowFactory, IWorkflowManager
 from src.infrastructure.graph.states import WorkflowState
 from src.infrastructure.graph.config import WorkflowConfig
-from infrastructure.config.core.loader import IConfigLoader
+from infrastructure.config.loader.yaml_loader import IConfigLoader
 from src.infrastructure.container import IDependencyContainer
 from src.infrastructure.registry.module_registry_manager import ModuleRegistryManager
 from src.infrastructure.registry.dynamic_importer import DynamicImporter

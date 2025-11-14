@@ -10,7 +10,7 @@ from datetime import datetime
 import uuid
 import hashlib
 
-from ...infrastructure.config.core.loader import IConfigLoader
+from ...infrastructure.config.loader.yaml_loader import IConfigLoader
 from ...infrastructure.graph.config import WorkflowConfig
 from .interfaces import IWorkflowConfigManager
 

@@ -10,11 +10,11 @@ from pathlib import Path
 
 from .config_service_factory import ConfigServiceFactory, create_config_system
 from .config_manager import ConfigManager
-from .core.interfaces import IConfigLoader, IConfigInheritanceHandler, IConfigMerger, IConfigValidator
-from .core.loader import YamlConfigLoader
-from .utils.inheritance import ConfigInheritanceHandler
-from .core.merger import ConfigMerger
-from .utils.validator import ConfigValidator
+from .interfaces import IConfigLoader, IConfigInheritanceHandler, IConfigMerger, IConfigValidator
+from .loader.yaml_loader import YamlConfigLoader
+from .processor.inheritance import ConfigInheritanceHandler
+from .processor.merger import ConfigMerger
+from .processor.validator import ConfigValidator
 
 
 class TestConfigServiceFactory:

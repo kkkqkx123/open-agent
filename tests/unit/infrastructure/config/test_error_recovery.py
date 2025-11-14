@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from src.infrastructure.config.error_recovery import (
+from infrastructure.config.service.error_recovery import (
     ConfigBackupManager,
     ConfigErrorRecovery,
     ConfigValidatorWithRecovery,

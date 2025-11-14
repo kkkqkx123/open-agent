@@ -2,8 +2,8 @@
 
 import os
 from typing import Optional
-from .config_system import IConfigSystem
-from .models.checkpoint_config import CheckpointConfig
+from ..config_system import IConfigSystem
+from ..models.checkpoint_config import CheckpointConfig
 
 
 class CheckpointConfigService:

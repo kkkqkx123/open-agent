@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch, MagicMock
 
-from infrastructure.config.core.loader import YamlConfigLoader, ConfigFileHandler
+from infrastructure.config.loader.yaml_loader import YamlConfigLoader, ConfigFileHandler
 from src.infrastructure.exceptions import ConfigurationError
 
 

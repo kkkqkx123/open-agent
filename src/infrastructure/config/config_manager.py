@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import datetime
 
 from .config_system import IConfigSystem
-from .utils.validator import ValidationResult
+from .processor.validator import ValidationResult
 from ..exceptions import ConfigurationError
 
 
@@ -48,8 +48,6 @@ class ConfigManager:
                 return self._config_system.load_global_config()
             elif config_type == "llm":
                 return self._config_system.load_llm_config(name)
-            elif config_type == "agent":
-                return self._config_system.load_agent_config(name)
             elif config_type == "tool":
                 return self._config_system.load_tool_config(name)
             elif config_type == "token_counter":
@@ -84,14 +82,6 @@ class ConfigManager:
                     self._config_system.load_llm_config(config_name)
             except Exception as e:
                 result.add_error(f"LLM配置验证失败: {e}")
-            
-            # 验证Agent配置
-            try:
-                agent_configs = self._config_system.list_configs("agents")
-                for config_name in agent_configs:
-                    self._config_system.load_agent_config(config_name)
-            except Exception as e:
-                result.add_error(f"Agent配置验证失败: {e}")
             
             # 验证工具配置
             try:
@@ -128,13 +118,6 @@ class ConfigManager:
             for config_name in llm_configs:
                 config = self._config_system.load_llm_config(config_name)
                 snapshot["configs"]["llms"][config_name] = config.dict()
-            
-            # 导出Agent配置
-            agent_configs = self._config_system.list_configs("agents")
-            snapshot["configs"]["agents"] = {}
-            for config_name in agent_configs:
-                config = self._config_system.load_agent_config(config_name)
-                snapshot["configs"]["agents"][config_name] = config.dict()
             
             # 导出工具配置
             tool_configs = self._config_system.list_configs("tool-sets")

@@ -6,7 +6,7 @@ from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
 
-from ..exceptions import ConfigurationError
+from ...exceptions import ConfigurationError
 
 
 class CallbackPriority(Enum):

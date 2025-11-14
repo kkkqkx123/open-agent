@@ -11,14 +11,14 @@ from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
 
-from .models.config import (
+from ..models.config import (
     BaseConfigModel, WorkflowConfigModel, AgentConfigModel, 
     ToolConfigModel, LLMConfigModel, GraphConfigModel,
     ConfigType, ConfigMetadata
 )
-from .utils.inheritance import ConfigInheritanceHandler
-from ..exceptions import ConfigurationError
-from .core.interfaces import IConfigLoader
+from ..processor.inheritance import ConfigInheritanceHandler
+from ...exceptions import ConfigurationError
+from ..interfaces import IConfigLoader
 
 
 @dataclass

@@ -9,7 +9,7 @@ import logging
 from ..interfaces import IWorkflowFactory
 from .state_machine_workflow import StateMachineWorkflow, StateMachineConfig, StateDefinition, Transition, StateType
 from src.infrastructure.graph.config import WorkflowConfig
-from infrastructure.config.core.loader import IConfigLoader
+from infrastructure.config.loader.yaml_loader import IConfigLoader
 from src.infrastructure.container import IDependencyContainer
 from src.infrastructure.registry.module_registry_manager import ModuleRegistryManager
 from src.infrastructure.registry.dynamic_importer import DynamicImporter

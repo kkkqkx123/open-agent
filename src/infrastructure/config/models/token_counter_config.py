@@ -3,7 +3,7 @@
 from typing import Dict, Any, Optional, Union
 from pydantic import Field, field_validator, model_validator
 
-from .base import BaseConfig
+from ..base import BaseConfig
 
 
 class TokenCounterCacheConfig(BaseConfig):

@@ -3,7 +3,7 @@
 from typing import Dict, Any, Optional, List, Tuple
 from pydantic import Field, field_validator, model_validator
 
-from .base import BaseConfig
+from ..base import BaseConfig
 from .retry_timeout_config import RetryTimeoutConfig, TimeoutConfig
 from .connection_pool_config import ConnectionPoolConfig
 

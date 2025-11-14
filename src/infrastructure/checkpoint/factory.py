@@ -13,7 +13,7 @@ from ...domain.checkpoint.config import CheckpointConfig as DomainCheckpointConf
 from ...application.checkpoint.manager import CheckpointManager
 from .sqlite_store import SQLiteCheckpointStore
 from .memory_store import MemoryCheckpointStore
-from ..config.checkpoint_config_service import CheckpointConfigService
+from ..config.service.checkpoint_service import CheckpointConfigService
 from ..config.config_system import IConfigSystem
 from ..config.models.checkpoint_config import CheckpointConfig
 

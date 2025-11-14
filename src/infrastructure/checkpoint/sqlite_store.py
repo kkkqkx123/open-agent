@@ -15,7 +15,7 @@ from langgraph.checkpoint.base import CheckpointTuple, Checkpoint
 from langchain_core.runnables.config import RunnableConfig
 
 from ...domain.checkpoint.interfaces import ICheckpointSerializer
-from ..config.checkpoint_config_service import CheckpointConfigService
+from ..config.service.checkpoint_service import CheckpointConfigService
 from .types import CheckpointError, CheckpointNotFoundError, CheckpointStorageError
 from .base_store import BaseCheckpointStore
 from .performance import monitor_performance

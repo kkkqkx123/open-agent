@@ -6,20 +6,19 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Callable, List, cast
 from pathlib import Path
 
-from .core.loader import IConfigLoader
+from .loader.yaml_loader import IConfigLoader
 from ..exceptions import ConfigurationError
-from .core.merger import IConfigMerger
-from .utils.validator import IConfigValidator, ValidationResult
+from .processor.merger import IConfigMerger
+from .processor.validator import IConfigValidator, ValidationResult
 from .models.global_config import GlobalConfig
 from .models.task_group_config import TaskGroupsConfig
 from .models.llm_config import LLMConfig
-from .models.agent_config import AgentConfig
 from .models.tool_config import ToolConfig
 from .models.token_counter_config import TokenCounterConfig
-from .utils.env_resolver import EnvResolver
-from .utils.file_watcher import FileWatcher
-from .error_recovery import ConfigErrorRecovery, ConfigValidatorWithRecovery
-from .config_callback_manager import (
+from .processor.env_resolver import EnvResolver
+from .loader.file_watcher import FileWatcher
+from .service.error_recovery import ConfigErrorRecovery, ConfigValidatorWithRecovery
+from .service.callback_manager import (
     get_global_callback_manager,
     trigger_config_callbacks,
 )
@@ -46,18 +45,6 @@ class IConfigSystem(ABC):
 
         Returns:
             LLM配置对象
-        """
-        pass
-
-    @abstractmethod
-    def load_agent_config(self, name: str) -> AgentConfig:
-        """加载Agent配置
-
-        Args:
-            name: 配置名称
-
-        Returns:
-            Agent配置对象
         """
         pass
 
@@ -279,33 +266,6 @@ class ConfigSystem(IConfigSystem):
 
             # 创建配置对象
             config = LLMConfig(**config_data)
-            self._cache[cache_key] = config
-            return config
-
-    def load_agent_config(self, name: str) -> AgentConfig:
-        """加载Agent配置
-
-        Args:
-            name: 配置名称
-
-        Returns:
-            Agent配置对象
-        """
-        with self._lock:
-            cache_key = f"agent_{name}"
-            if cache_key in self._cache:
-                return cast(AgentConfig, self._cache[cache_key])
-
-            # 加载配置并处理继承
-            config_data = self._load_config_with_inheritance("agents", name)
-
-            # 验证配置
-            result = self._config_validator.validate_agent_config(config_data)
-            if not result.is_valid:
-                raise ConfigurationError(f"Agent配置验证失败: {result.errors}")
-
-            # 创建配置对象
-            config = AgentConfig(**config_data)
             self._cache[cache_key] = config
             return config
 

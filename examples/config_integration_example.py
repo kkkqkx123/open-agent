@@ -3,7 +3,7 @@
 import os
 from typing import Dict, Any
 from src.infrastructure import DependencyContainer
-from infrastructure.config.core.loader import YamlConfigLoader
+from infrastructure.config.loader.yaml_loader import YamlConfigLoader
 from src.infrastructure.config import ConfigSystem, ConfigMerger, ConfigValidator, ConfigValidatorTool
 
 

@@ -8,7 +8,7 @@ import tempfile
 import os
 from pathlib import Path
 from src.infrastructure.checkpoint.sqlite_store import SQLiteCheckpointStore
-from src.infrastructure.config.checkpoint_config_service import CheckpointConfigService
+from infrastructure.config.service.checkpoint_service import CheckpointConfigService
 
 
 class TestSQLiteCheckpointStore:

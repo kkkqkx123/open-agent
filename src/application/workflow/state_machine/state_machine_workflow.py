@@ -11,7 +11,7 @@ import logging
 from src.application.workflow.base_workflow import BaseWorkflow
 from src.infrastructure.graph.states import WorkflowState
 from src.infrastructure.graph.config import WorkflowConfig
-from infrastructure.config.core.loader import IConfigLoader
+from infrastructure.config.loader.yaml_loader import IConfigLoader
 from src.infrastructure.container import IDependencyContainer
 
 logger = logging.getLogger(__name__)

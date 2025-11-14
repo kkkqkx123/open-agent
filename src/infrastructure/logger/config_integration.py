@@ -3,7 +3,7 @@
 import threading
 from typing import Dict, Any, Optional
 
-from src.infrastructure.config.config_callback_manager import ConfigChangeContext, register_config_callback, CallbackPriority
+from infrastructure.config.service.callback_manager import ConfigChangeContext, register_config_callback, CallbackPriority
 from .logger import get_logger, set_global_config
 from .error_handler import get_global_error_handler, ErrorType
 from .metrics import get_global_metrics_collector, MetricsCollector

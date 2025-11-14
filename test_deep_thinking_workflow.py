@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.infrastructure.graph.workflow_validator import WorkflowValidator
-from infrastructure.config.core.loader import YamlConfigLoader
+from infrastructure.config.loader.yaml_loader import YamlConfigLoader
 from src.application.workflow.factory import WorkflowFactory
 
 def test_deep_thinking_workflow_validation():

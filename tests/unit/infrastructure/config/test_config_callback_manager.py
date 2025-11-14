@@ -4,7 +4,7 @@ from datetime import datetime
 import pytest
 from unittest.mock import Mock
 
-from src.infrastructure.config.config_callback_manager import (
+from infrastructure.config.service.callback_manager import (
     ConfigCallbackManager,
     ConfigChangeContext,
     ConfigCallback,

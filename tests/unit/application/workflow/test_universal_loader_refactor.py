@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
 
 from src.application.workflow.universal_loader import UniversalWorkflowLoader
-from infrastructure.config.core.loader import IConfigLoader
+from infrastructure.config.loader.yaml_loader import IConfigLoader
 from src.infrastructure.graph.config import GraphConfig
 from src.infrastructure.graph.function_registry import FunctionType
 

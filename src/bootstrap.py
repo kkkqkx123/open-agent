@@ -14,7 +14,7 @@ from pathlib import Path
 from src.infrastructure.container import get_global_container, DependencyContainer, IDependencyContainer
 from src.infrastructure.di_config import DIConfig, create_container, get_global_container as get_di_container
 from src.infrastructure.lifecycle_manager import LifecycleManager, get_global_lifecycle_manager
-from infrastructure.config.core.loader import YamlConfigLoader
+from infrastructure.config.loader.yaml_loader import YamlConfigLoader
 from src.infrastructure.exceptions import InfrastructureError
 from src.infrastructure.container_interfaces import ILifecycleAware
 
@@ -310,7 +310,7 @@ class ApplicationBootstrap:
         try:
             # 简单的接口类型解析
             if interface_name == "IConfigLoader":
-                from infrastructure.config.core.loader import IConfigLoader
+                from infrastructure.config.loader.yaml_loader import IConfigLoader
                 return IConfigLoader
             elif interface_name == "IWorkflowManager":
                 from src.application.workflow.manager import IWorkflowManager

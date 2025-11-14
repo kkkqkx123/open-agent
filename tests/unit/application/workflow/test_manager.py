@@ -13,7 +13,7 @@ from src.application.workflow.manager import WorkflowManager
 from src.infrastructure.graph.config import WorkflowConfig
 from src.infrastructure.graph.states import WorkflowState, StateFactory
 from src.infrastructure.graph.registry import NodeRegistry
-from infrastructure.config.core.loader import IConfigLoader
+from infrastructure.config.loader.yaml_loader import IConfigLoader
 from src.application.workflow.interfaces import IEventCollector
 
 

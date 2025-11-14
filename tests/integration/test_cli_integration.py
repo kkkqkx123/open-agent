@@ -166,7 +166,7 @@ class TestCLIIntegration:
     def test_container_setup_integration(self) -> None:
         """测试容器设置集成"""
         from src.presentation.cli.commands import setup_container
-        from infrastructure.config.core.loader import IConfigLoader
+        from infrastructure.config.loader.yaml_loader import IConfigLoader
         from src.application.sessions.manager import ISessionManager
         
         with TestContainer() as container:

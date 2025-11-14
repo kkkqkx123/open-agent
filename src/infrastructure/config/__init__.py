@@ -1,8 +1,8 @@
 """配置系统模块"""
 
 from .config_system import IConfigSystem, ConfigSystem
-from .core.merger import IConfigMerger, ConfigMerger
-from .utils.validator import IConfigValidator, ConfigValidator, ValidationResult
+from .processor.merger import IConfigMerger, ConfigMerger
+from .processor.validator import IConfigValidator, ConfigValidator, ValidationResult
 from .config_validator_tool import ConfigValidatorTool
 from .utils.enhanced_validator import (
     EnhancedConfigValidator,
@@ -15,12 +15,12 @@ from .utils.enhanced_validator import (
     FixSuggestion,
     ConfigFixer
 )
-from .error_recovery import (
+from .service.error_recovery import (
     ConfigErrorRecovery,
     ConfigBackupManager,
     ConfigValidatorWithRecovery,
 )
-from .config_callback_manager import (
+from .service.callback_manager import (
     ConfigCallbackManager,
     ConfigChangeContext,
     CallbackPriority,
@@ -28,10 +28,10 @@ from .config_callback_manager import (
     unregister_config_callback,
     trigger_config_callbacks,
 )
-from .core.interfaces import IConfigLoader, IConfigInheritanceHandler
-from .utils.inheritance import ConfigInheritanceHandler, InheritanceConfigLoader
-from .core.loader import YamlConfigLoader, ConfigFileHandler
-from .config_migration import (
+from .interfaces import IConfigLoader, IConfigInheritanceHandler
+from .processor.inheritance import ConfigInheritanceHandler, InheritanceConfigLoader
+from .loader.yaml_loader import YamlConfigLoader, ConfigFileHandler
+from .migration.migration import (
     MigrationResult,
     ConfigMigrationTool,
     migrate_workflow_config,

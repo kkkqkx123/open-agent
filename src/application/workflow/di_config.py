@@ -5,7 +5,7 @@
 
 from typing import Type, Optional
 from src.infrastructure.container import IDependencyContainer, ServiceLifetime
-from infrastructure.config.core.loader import IConfigLoader
+from infrastructure.config.loader.yaml_loader import IConfigLoader
 from src.infrastructure.graph.registry import NodeRegistry
 from src.infrastructure.graph.states import StateFactory, StateSerializer
 from src.infrastructure.graph.builder import GraphBuilder

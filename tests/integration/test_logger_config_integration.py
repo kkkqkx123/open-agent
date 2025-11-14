@@ -9,15 +9,15 @@ from unittest.mock import Mock
 from typing import cast
 
 from src.infrastructure.container import DependencyContainer
-from infrastructure.config.core.loader import YamlConfigLoader
+from infrastructure.config.loader.yaml_loader import YamlConfigLoader
 from src.infrastructure.config.config_system import ConfigSystem
-from infrastructure.config.core.merger import ConfigMerger
-from infrastructure.config.utils.validator import ConfigValidator
+from infrastructure.config.processor.merger import ConfigMerger
+from infrastructure.config.processor.validator import ConfigValidator
 from src.infrastructure.logger.logger import get_logger
 from src.infrastructure.logger.config_integration import initialize_logging_integration
 from src.infrastructure.logger.error_handler import get_global_error_handler, ErrorType
 from src.infrastructure.logger.log_level import LogLevel
-from src.infrastructure.config.config_callback_manager import register_config_callback, CallbackPriority
+from infrastructure.config.service.callback_manager import register_config_callback, CallbackPriority
 
 
 class TestLoggingConfigIntegration:
@@ -58,9 +58,9 @@ debug: false
     def container(self, config_dir):
         """创建依赖注入容器"""
         container = DependencyContainer()
-        from infrastructure.config.core.loader import IConfigLoader, YamlConfigLoader
-        from infrastructure.config.core.merger import IConfigMerger
-        from infrastructure.config.utils.validator import IConfigValidator
+        from infrastructure.config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
+        from infrastructure.config.processor.merger import IConfigMerger
+        from infrastructure.config.processor.validator import IConfigValidator
 
         container.register(IConfigLoader, YamlConfigLoader, "default")
         container.register(IConfigMerger, ConfigMerger, "default")
@@ -68,7 +68,7 @@ debug: false
         container.register(ConfigSystem, ConfigSystem, "default")
 
         # 设置配置基础路径
-        from infrastructure.config.core.loader import IConfigLoader, YamlConfigLoader
+        from infrastructure.config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
 
         config_loader = container.get(IConfigLoader)
         # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性
@@ -80,7 +80,7 @@ debug: false
     def test_integration_initialization(self, container, config_dir):
         """测试集成初始化"""
         # 设置配置加载器的基础路径
-        from infrastructure.config.core.loader import IConfigLoader, YamlConfigLoader
+        from infrastructure.config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
 
         config_loader = container.get(IConfigLoader)
         # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性
@@ -104,7 +104,7 @@ debug: false
     def test_config_change_callback(self, container, config_dir):
         """测试配置变更回调"""
         # 设置配置加载器的基础路径
-        from infrastructure.config.core.loader import IConfigLoader, YamlConfigLoader
+        from infrastructure.config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
 
         config_loader = container.get(IConfigLoader)
         # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性
@@ -146,7 +146,7 @@ debug: false
     def test_log_level_change(self, container, config_dir):
         """测试日志级别变更"""
         # 设置配置加载器的基础路径
-        from infrastructure.config.core.loader import IConfigLoader, YamlConfigLoader
+        from infrastructure.config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
 
         config_loader = container.get(IConfigLoader)
         # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性
@@ -255,9 +255,9 @@ debug: false
     def test_config_error_recovery(self, container, config_dir):
         """测试配置错误恢复"""
         # 启用错误恢复的配置系统
-        from infrastructure.config.core.loader import IConfigLoader
-        from infrastructure.config.core.merger import IConfigMerger
-        from infrastructure.config.utils.validator import IConfigValidator
+        from infrastructure.config.loader.yaml_loader import IConfigLoader
+        from infrastructure.config.processor.merger import IConfigMerger
+        from infrastructure.config.processor.validator import IConfigValidator
 
         config_system = ConfigSystem(
             container.get(IConfigLoader),
@@ -309,7 +309,7 @@ debug: false
         )
 
         # 触发回调
-        from src.infrastructure.config.config_callback_manager import trigger_config_callbacks
+        from infrastructure.config.service.callback_manager import trigger_config_callbacks
 
         trigger_config_callbacks("test.yaml", {}, {"key": "value"})
 
@@ -317,7 +317,7 @@ debug: false
         assert execution_order == ["high", "normal", "low"]
 
         # 清理
-        from src.infrastructure.config.config_callback_manager import unregister_config_callback
+        from infrastructure.config.service.callback_manager import unregister_config_callback
 
         unregister_config_callback("high")
         unregister_config_callback("normal")
@@ -347,7 +347,7 @@ debug: false
         )
 
         # 触发回调（错误不应该影响其他回调）
-        from src.infrastructure.config.config_callback_manager import trigger_config_callbacks
+        from infrastructure.config.service.callback_manager import trigger_config_callbacks
 
         trigger_config_callbacks("test.yaml", {}, {"key": "value"})
 
@@ -355,7 +355,7 @@ debug: false
         assert success_callback_called is True
 
         # 清理
-        from src.infrastructure.config.config_callback_manager import unregister_config_callback
+        from infrastructure.config.service.callback_manager import unregister_config_callback
 
         unregister_config_callback("error")
         unregister_config_callback("success")
@@ -363,7 +363,7 @@ debug: false
     def test_end_to_end_workflow(self, container, config_dir):
         """测试端到端工作流"""
         # 设置配置加载器的基础路径
-        from infrastructure.config.core.loader import IConfigLoader, YamlConfigLoader
+        from infrastructure.config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
 
         config_loader = container.get(IConfigLoader)
         # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性

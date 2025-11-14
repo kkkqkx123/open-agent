@@ -1,7 +1,7 @@
 """LLM模块依赖注入配置"""
 
 from ..container_interfaces import IDependencyContainer, ServiceLifetime
-from ..config.core.interfaces import IConfigLoader
+from ..config.interfaces import IConfigLoader
 from .task_group_manager import TaskGroupManager
 
 

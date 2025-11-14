@@ -12,7 +12,7 @@ from watchdog.events import FileSystemEventHandler
 
 from ...exceptions import ConfigurationError
 from ...infrastructure_types import CheckResult
-from .interfaces import IConfigInheritanceHandler, IConfigLoader
+from ..interfaces import IConfigInheritanceHandler, IConfigLoader
 from ...container_interfaces import ILifecycleAware
 
 # 定义类型变量

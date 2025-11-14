@@ -14,7 +14,7 @@ from src.application.workflow.manager import WorkflowManager
 from src.domain.sessions.store import FileSessionStore
 from infrastructure.config.models.config import WorkflowConfigModel as WorkflowConfig
 from src.infrastructure.graph.states import WorkflowState as AgentState, BaseMessage
-from infrastructure.config.core.loader import YamlConfigLoader
+from infrastructure.config.loader.yaml_loader import YamlConfigLoader
 
 
 class TestSessionRecoveryIntegration:

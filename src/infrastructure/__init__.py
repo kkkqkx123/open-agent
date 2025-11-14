@@ -4,7 +4,7 @@
 """
 
 from .container import IDependencyContainer, DependencyContainer, get_global_container
-from .config.core.loader import IConfigLoader, YamlConfigLoader
+from .config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
 from .environment import IEnvironmentChecker, EnvironmentChecker
 from .env_check_command import EnvironmentCheckCommand
 from .architecture_check import ArchitectureChecker

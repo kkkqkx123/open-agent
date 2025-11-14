@@ -6,14 +6,14 @@
 from typing import Optional
 from pathlib import Path
 
-from .core.interfaces import IConfigLoader, IConfigInheritanceHandler
-from .core.merger import IConfigMerger, ConfigMerger
-from .utils.validator import IConfigValidator, ConfigValidator
-from .core.loader import YamlConfigLoader
-from .utils.inheritance import ConfigInheritanceHandler
+from .interfaces import IConfigLoader, IConfigInheritanceHandler
+from .processor.merger import IConfigMerger, ConfigMerger
+from .processor.validator import IConfigValidator, ConfigValidator
+from .loader.yaml_loader import YamlConfigLoader
+from .processor.inheritance import ConfigInheritanceHandler
 from .config_system import IConfigSystem, ConfigSystem
-from .config_callback_manager import ConfigCallbackManager
-from .error_recovery import ConfigErrorRecovery, ConfigValidatorWithRecovery
+from .service.callback_manager import ConfigCallbackManager
+from .service.error_recovery import ConfigErrorRecovery, ConfigValidatorWithRecovery
 
 
 class ConfigServiceFactory:

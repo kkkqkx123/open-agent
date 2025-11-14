@@ -4,7 +4,7 @@ from typing import List, Optional
 from pydantic import Field, field_validator
 from dataclasses import dataclass, field as dataclass_field
 
-from .base import BaseConfig
+from ..base import BaseConfig
 
 
 class RetryTimeoutConfig(BaseConfig):

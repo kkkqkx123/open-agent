@@ -12,7 +12,7 @@ import json
 import logging
 from pathlib import Path
 
-from .validator import ConfigValidator, ValidationResult
+from ..processor.validator import ConfigValidator, ValidationResult
 
 logger = logging.getLogger(__name__)
 

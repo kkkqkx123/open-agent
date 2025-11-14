@@ -6,7 +6,6 @@ from pydantic import BaseModel, ValidationError
 
 from ..models.global_config import GlobalConfig
 from ..models.llm_config import LLMConfig
-from ..models.agent_config import AgentConfig
 from ..models.tool_config import ToolConfig
 from ..models.token_counter_config import TokenCounterConfig
 
@@ -242,17 +241,6 @@ class ConfigValidator(IConfigValidator):
                     result.add_error("timeout_config.write_timeout必须是正整数")
 
         return result
-
-    def validate_agent_config(self, config: Dict[str, Any]) -> ValidationResult:
-        """验证Agent配置
-
-        Args:
-            config: 配置字典
-
-        Returns:
-            验证结果
-        """
-        result = self.validate_config(config, AgentConfig)
 
         # 额外的业务逻辑验证
         if result.is_valid:

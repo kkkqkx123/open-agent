@@ -2,7 +2,7 @@
 
 import pytest
 from pydantic import ValidationError
-from infrastructure.config.utils.validator import ConfigValidator, ValidationResult
+from infrastructure.config.processor.validator import ConfigValidator, ValidationResult
 from src.infrastructure.config.models.global_config import GlobalConfig
 from src.infrastructure.config.models.llm_config import LLMConfig
 from src.infrastructure.config.models.agent_config import AgentConfig
