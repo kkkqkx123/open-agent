@@ -2,6 +2,7 @@
 
 from .log_level import LogLevel
 from .logger import ILogger, Logger, get_logger, set_global_config
+from .structured_file_logger import StructuredFileLogger
 from .metrics import IMetricsCollector, MetricsCollector, get_global_metrics_collector
 from .error_handler import (
     IGlobalErrorHandler,
@@ -21,6 +22,7 @@ from .config_integration import (
 
 __all__ = [
     "ILogger",
+    "StructuredFileLogger",
     "Logger",
     "LogLevel",
     "get_logger",

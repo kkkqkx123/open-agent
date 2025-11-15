@@ -8,6 +8,7 @@ from typing import Dict, Type
 
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
 from src.domain.checkpoint.repository import ICheckpointRepository, CheckpointRepository
+from src.domain.checkpoint.interfaces import ICheckpointStore
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +33,9 @@ class CheckpointConfigRegistration:
             ICheckpointRepository,
             lambda: CheckpointRepository(
                 checkpoint_store=container.get(
-                    "src.infrastructure.checkpoint.store.ICheckpointStore"
+                    ICheckpointStore
                 ) if container.has_service(
-                    "src.infrastructure.checkpoint.store.ICheckpointStore"
+                    ICheckpointStore
                 ) else None
             ),
             lifetime=ServiceLifetime.SINGLETON

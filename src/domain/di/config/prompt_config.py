@@ -7,9 +7,9 @@ import logging
 from typing import Dict, Type
 
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
-from src.domain.prompts.interfaces import IPromptTemplateManager, IPromptInjector
-from src.domain.prompts.template_manager import PromptTemplateManager
+from src.domain.prompts.interfaces import IPromptInjector
 from src.domain.prompts.injector import PromptInjector
+from src.infrastructure.config.interfaces import IConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -29,19 +29,6 @@ class PromptConfigRegistration:
         """
         logger.debug("注册提示词管理服务")
         
-        # 注册提示词模板管理器
-        container.register_factory(
-            IPromptTemplateManager,
-            lambda: PromptTemplateManager(
-                config_loader=container.get(
-                    "src.infrastructure.config.loader.file_config_loader.IConfigLoader"
-                ) if container.has_service(
-                    "src.infrastructure.config.loader.file_config_loader.IConfigLoader"
-                ) else None
-            ),
-            lifetime=ServiceLifetime.SINGLETON
-        )
-        
         # 注册提示词注入器
         container.register(
             IPromptInjector,
@@ -59,6 +46,5 @@ class PromptConfigRegistration:
             注册的服务类型字典
         """
         return {
-            "prompt_template_manager": IPromptTemplateManager,
             "prompt_injector": IPromptInjector,
         }

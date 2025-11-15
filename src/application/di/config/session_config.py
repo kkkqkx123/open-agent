@@ -4,11 +4,14 @@
 """
 
 import logging
-from typing import Dict, Type
+from typing import Dict, Optional, Type
 
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
 from src.application.sessions.manager import ISessionManager, SessionManager
 from src.application.sessions.git_manager import IGitManager, GitManager, MockGitManager
+from src.application.threads.interfaces import IThreadService
+from src.domain.sessions.store import ISessionStore
+from src.domain.state.interfaces import IStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -39,21 +42,9 @@ class SessionConfigRegistration:
         container.register_factory(
             ISessionManager,
             lambda: SessionManager(
-                thread_service=container.get(
-                    "src.application.threads.interfaces.IThreadService"
-                ) if container.has_service(
-                    "src.application.threads.interfaces.IThreadService"
-                ) else None,
-                session_store=container.get(
-                    "src.domain.sessions.store.ISessionStore"
-                ) if container.has_service(
-                    "src.domain.sessions.store.ISessionStore"
-                ) else None,
-                state_manager=container.get(
-                    "src.domain.state.interfaces.IStateManager"
-                ) if container.has_service(
-                    "src.domain.state.interfaces.IStateManager"
-                ) else None,
+                thread_service=container.get(IThreadService),
+                session_store=container.get(ISessionStore),
+                state_manager=container.get(IStateManager),
                 git_manager=container.get(IGitManager)
             ),
             lifetime=ServiceLifetime.SINGLETON

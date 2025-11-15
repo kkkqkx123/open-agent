@@ -8,7 +8,8 @@ from typing import Dict, Type
 from pathlib import Path
 
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
-from src.infrastructure.checkpoint.store import ICheckpointStore, SQLiteCheckpointStore
+from src.domain.checkpoint.interfaces import ICheckpointStore
+from src.infrastructure.checkpoint.sqlite_store import SQLiteCheckpointStore
 from src.domain.sessions.store import ISessionStore, FileSessionStore
 from src.infrastructure.threads.metadata_store import IThreadMetadataStore, FileThreadMetadataStore
 

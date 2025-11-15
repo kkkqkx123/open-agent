@@ -3,6 +3,7 @@
 import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
+from abc import ABC, abstractmethod
 
 from src.domain.history.interfaces import IHistoryManager
 from src.application.sessions.manager import ISessionManager
@@ -14,9 +15,10 @@ from src.infrastructure.replay.config_service import ReplayConfigService
 logger = logging.getLogger(__name__)
 
 
-class IReplayManager:
+class IReplayManager(ABC):
     """回放管理器接口"""
     
+    @abstractmethod
     async def start_replay(
         self, 
         session_id: str, 
@@ -33,6 +35,7 @@ class IReplayManager:
         """
         pass
     
+    @abstractmethod
     async def stop_replay(self, replay_id: str) -> bool:
         """停止回放
         
@@ -44,6 +47,7 @@ class IReplayManager:
         """
         pass
     
+    @abstractmethod
     async def get_replay_status(self, replay_id: str) -> Optional[Dict[str, Any]]:
         """获取回放状态
         
@@ -55,6 +59,7 @@ class IReplayManager:
         """
         pass
     
+    @abstractmethod
     async def analyze_replay(self, replay_id: str) -> Optional[ReplayAnalysis]:
         """分析回放
         

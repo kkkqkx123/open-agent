@@ -37,23 +37,23 @@ class ToolManager(IToolManager, IToolRegistry):
 
     def __init__(
         self, 
-        config_loader: IConfigLoader, 
-        logger: ILogger,
+        config_loader: Optional[IConfigLoader] = None, 
+        logger: Optional[ILogger] = None,
         tool_loader: Optional[IToolLoader] = None,
         tool_cache: Optional[IToolCache] = None
     ):
         """初始化工具管理器
 
         Args:
-            config_loader: 配置加载器
-            logger: 日志记录器
+            config_loader: 配置加载器（可选）
+            logger: 日志记录器（可选）
             tool_loader: 工具加载器（可选）
             tool_cache: 工具缓存（可选）
         """
         self.config_loader = config_loader
         self.logger = logger
         # 如果没有提供tool_loader，则创建默认的DefaultToolLoader
-        if tool_loader is None:
+        if tool_loader is None and config_loader is not None and logger is not None:
             from .loaders import DefaultToolLoader
             self.tool_loader = DefaultToolLoader(config_loader, logger)
         else:

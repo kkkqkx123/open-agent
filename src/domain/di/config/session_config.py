@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Type
 
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
-from src.domain.sessions.repository import ISessionRepository, SessionRepository
+from src.domain.sessions.store import ISessionStore
 
 logger = logging.getLogger(__name__)
 
@@ -27,18 +27,10 @@ class SessionConfigRegistration:
         """
         logger.debug("注册会话核心服务")
         
-        # 注册会话仓储
-        container.register_factory(
-            ISessionRepository,
-            lambda: SessionRepository(
-                session_store=container.get(
-                    "src.domain.sessions.store.ISessionStore"
-                ) if container.has_service(
-                    "src.domain.sessions.store.ISessionStore"
-                ) else None
-            ),
-            lifetime=ServiceLifetime.SINGLETON
-        )
+        # 注册会话存储接口（如果容器中还没有注册）
+        if not container.has_service(ISessionStore):
+            # 可以在这里注册默认实现，或者让其他模块负责注册
+            pass
         
         logger.debug("会话核心服务注册完成")
     
@@ -50,5 +42,5 @@ class SessionConfigRegistration:
             注册的服务类型字典
         """
         return {
-            "session_repository": ISessionRepository,
+            "session_store": ISessionStore,
         }

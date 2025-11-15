@@ -4,14 +4,12 @@
 """
 
 import logging
-from typing import Dict, Type, TYPE_CHECKING
+from typing import Dict, Type
 
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
 from src.application.replay.manager import IReplayManager, ReplayManager
-
-if TYPE_CHECKING:
-    from src.domain.history.interfaces import IHistoryManager
-    from src.application.sessions.manager import ISessionManager
+from src.application.history.manager import HistoryManager
+from src.application.sessions.manager import SessionManager
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +34,14 @@ class ReplayConfigRegistration:
             IReplayManager,
             lambda: ReplayManager(
                 history_manager=container.get(
-                    Type["IHistoryManager"]
+                    HistoryManager
                 ) if container.has_service(
-                    Type["IHistoryManager"]
+                    HistoryManager
                 ) else None,
                 session_manager=container.get(
-                    Type["ISessionManager"]
+                    SessionManager
                 ) if container.has_service(
-                    Type["ISessionManager"]
+                    SessionManager
                 ) else None
             ),
             lifetime=ServiceLifetime.SINGLETON

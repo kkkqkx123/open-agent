@@ -9,6 +9,8 @@ from typing import Dict, Type
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
 from src.application.workflow.manager import IWorkflowManager, WorkflowManager
 from src.application.workflow.factory import IWorkflowFactory, WorkflowFactory
+from src.infrastructure.config.loader.file_config_loader import IConfigLoader
+from src.domain.workflow.interfaces import IWorkflowConfigManager, IWorkflowVisualizer, IWorkflowRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +35,7 @@ class WorkflowConfigRegistration:
             IWorkflowFactory,
             lambda: WorkflowFactory(
                 container=container,
-                config_loader=container.get(
-                    "src.infrastructure.config.loader.file_config_loader.IConfigLoader"
-                ) if container.has_service(
-                    "src.infrastructure.config.loader.file_config_loader.IConfigLoader"
-                ) else None
+                config_loader=container.get(IConfigLoader) if container.has_service(IConfigLoader) else None  # type: ignore[arg-type]
             ),
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -46,21 +44,9 @@ class WorkflowConfigRegistration:
         container.register_factory(
             IWorkflowManager,
             lambda: WorkflowManager(
-                config_manager=container.get(
-                    "src.domain.workflow.interfaces.IWorkflowConfigManager"
-                ) if container.has_service(
-                    "src.domain.workflow.interfaces.IWorkflowConfigManager"
-                ) else None,
-                visualizer=container.get(
-                    "src.domain.workflow.interfaces.IWorkflowVisualizer"
-                ) if container.has_service(
-                    "src.domain.workflow.interfaces.IWorkflowVisualizer"
-                ) else None,
-                registry=container.get(
-                    "src.domain.workflow.interfaces.IWorkflowRegistry"
-                ) if container.has_service(
-                    "src.domain.workflow.interfaces.IWorkflowRegistry"
-                ) else None
+                config_manager=container.get(IWorkflowConfigManager),
+                visualizer=container.get(IWorkflowVisualizer),
+                registry=container.get(IWorkflowRegistry),
             ),
             lifetime=ServiceLifetime.SINGLETON
         )

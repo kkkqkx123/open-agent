@@ -30,14 +30,6 @@ class TestConfigRegistration:
         # 测试环境可以注册Mock实现、测试工具等
         # 这里可以根据需要添加测试环境特定的服务
         
-        # 示例：注册Mock会话路由器
-        try:
-            from ..routers.session_router import SessionRouter
-            mock_session_router = Mock(spec=SessionRouter)
-            container.register_instance(SessionRouter, mock_session_router, environment="test")
-        except ImportError:
-            pass
-        
         logger.debug("测试环境特定服务注册完成")
     
     @staticmethod

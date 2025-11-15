@@ -5,6 +5,7 @@
 
 import logging
 from typing import Dict, Type
+from typing import TYPE_CHECKING
 
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
 
@@ -28,7 +29,7 @@ class CLIConfigRegistration:
         
         # 注册运行命令
         try:
-            from ..commands.run_command import RunCommand
+            from ...cli.run_command import RunCommand
             container.register(
                 RunCommand,
                 RunCommand,
@@ -37,16 +38,8 @@ class CLIConfigRegistration:
         except ImportError as e:
             logger.warning(f"运行命令注册失败: {e}")
         
-        # 注册配置命令
-        try:
-            from ..commands.config_command import ConfigCommand
-            container.register(
-                ConfigCommand,
-                ConfigCommand,
-                lifetime=ServiceLifetime.SINGLETON
-            )
-        except ImportError as e:
-            logger.warning(f"配置命令注册失败: {e}")
+        # CLI中没有单独的ConfigCommand类，配置功能通过click命令实现
+        # 不再尝试导入不存在的ConfigCommand
         
         logger.debug("CLI服务注册完成")
     
@@ -57,7 +50,12 @@ class CLIConfigRegistration:
         Returns:
             注册的服务类型字典
         """
-        return {
-            "run_command": "RunCommand",
-            "config_command": "ConfigCommand",
-        }
+        try:
+            from ...cli.run_command import RunCommand
+            
+            return {
+                "run_command": RunCommand,
+            }
+        except ImportError:
+            # 如果导入失败，返回空字典
+            return {}

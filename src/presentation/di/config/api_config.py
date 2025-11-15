@@ -26,39 +26,7 @@ class APIConfigRegistration:
         """
         logger.debug("注册API服务")
         
-        # 注册会话路由器
-        try:
-            from ..routers.session_router import SessionRouter
-            container.register(
-                SessionRouter,
-                SessionRouter,
-                lifetime=ServiceLifetime.SINGLETON
-            )
-        except ImportError as e:
-            logger.warning(f"会话路由器注册失败: {e}")
-        
-        # 注册线程路由器
-        try:
-            from ..routers.thread_router import ThreadRouter
-            container.register(
-                ThreadRouter,
-                ThreadRouter,
-                lifetime=ServiceLifetime.SINGLETON
-            )
-        except ImportError as e:
-            logger.warning(f"线程路由器注册失败: {e}")
-        
-        # 注册工作流路由器
-        try:
-            from ..routers.workflow_router import WorkflowRouter
-            container.register(
-                WorkflowRouter,
-                WorkflowRouter,
-                lifetime=ServiceLifetime.SINGLETON
-            )
-        except ImportError as e:
-            logger.warning(f"工作流路由器注册失败: {e}")
-        
+        # API路由器在FastAPI应用中注册，不在DI容器中注册
         logger.debug("API服务注册完成")
     
     @staticmethod
@@ -68,8 +36,5 @@ class APIConfigRegistration:
         Returns:
             注册的服务类型字典
         """
-        return {
-            "session_router": "SessionRouter",
-            "thread_router": "ThreadRouter",
-            "workflow_router": "WorkflowRouter",
-        }
+        # API路由器不作为可注册的服务类型返回
+        return {}

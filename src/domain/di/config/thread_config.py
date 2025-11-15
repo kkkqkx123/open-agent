@@ -7,9 +7,9 @@ import logging
 from typing import Dict, Type
 
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
-from src.domain.threads.interfaces import IThreadManager, IThreadRepository
-from src.domain.threads.manager import ThreadManager
+from src.domain.threads.interfaces import IThreadRepository
 from src.domain.threads.repository import ThreadRepository
+from src.infrastructure.threads.metadata_store import IThreadMetadataStore
 
 logger = logging.getLogger(__name__)
 
@@ -33,20 +33,7 @@ class ThreadConfigRegistration:
         container.register_factory(
             IThreadRepository,
             lambda: ThreadRepository(
-                metadata_store=container.get(
-                    "src.infrastructure.threads.metadata_store.IThreadMetadataStore"
-                ) if container.has_service(
-                    "src.infrastructure.threads.metadata_store.IThreadMetadataStore"
-                ) else None
-            ),
-            lifetime=ServiceLifetime.SINGLETON
-        )
-        
-        # 注册线程管理器
-        container.register_factory(
-            IThreadManager,
-            lambda: ThreadManager(
-                repository=container.get(IThreadRepository)
+                metadata_store=container.get(IThreadMetadataStore)
             ),
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -62,5 +49,4 @@ class ThreadConfigRegistration:
         """
         return {
             "thread_repository": IThreadRepository,
-            "thread_manager": IThreadManager,
         }

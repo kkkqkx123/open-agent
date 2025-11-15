@@ -26,15 +26,15 @@ class ToolValidationManager:
     
     def __init__(
         self,
-        config_loader: IConfigLoader,
-        logger: ILogger,
+        config_loader: Optional[IConfigLoader] = None,
+        logger: Optional[ILogger] = None,
         tool_manager: Optional[IToolManager] = None
     ):
         """初始化工具检验管理器
         
         Args:
-            config_loader: 配置加载器
-            logger: 日志记录器
+            config_loader: 配置加载器（可选）
+            logger: 日志记录器（可选）
             tool_manager: 工具管理器（可选）
         """
         self.config_loader = config_loader
@@ -45,12 +45,14 @@ class ToolValidationManager:
     
     def _register_validators(self) -> None:
         """注册验证器"""
-        self.validators["config"] = ConfigValidator(self.config_loader, self.logger)
-        if self.tool_manager:
+        if self.config_loader and self.logger:
+            self.validators["config"] = ConfigValidator(self.config_loader, self.logger)
+        if self.tool_manager and self.logger:
             self.validators["loading"] = LoadingValidator(self.tool_manager, self.logger)
-        self.validators["builtin"] = BuiltinToolValidator(self.logger)
-        self.validators["native"] = NativeToolValidator(self.logger)
-        self.validators["mcp"] = MCPToolValidator(self.logger)
+        if self.logger:
+            self.validators["builtin"] = BuiltinToolValidator(self.logger)
+            self.validators["native"] = NativeToolValidator(self.logger)
+            self.validators["mcp"] = MCPToolValidator(self.logger)
     
     def validate_tool(self, tool_name: str, config_path: str) -> Dict[str, ValidationResult]:
         """全面验证工具

@@ -8,6 +8,7 @@ from typing import Dict, Type
 
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
 from src.domain.history.repository import IHistoryRepository, HistoryRepository
+from src.domain.history.interfaces import IHistoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +33,9 @@ class HistoryConfigRegistration:
             IHistoryRepository,
             lambda: HistoryRepository(
                 history_store=container.get(
-                    "src.infrastructure.history.store.IHistoryStore"
+                    IHistoryManager
                 ) if container.has_service(
-                    "src.infrastructure.history.store.IHistoryStore"
+                    IHistoryManager
                 ) else None
             ),
             lifetime=ServiceLifetime.SINGLETON

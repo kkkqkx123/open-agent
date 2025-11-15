@@ -7,7 +7,8 @@ import logging
 from typing import Dict, Type
 
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
-from src.infrastructure.monitoring.performance_monitor import IPerformanceMonitor, PerformanceMonitor
+from src.infrastructure.monitoring.interfaces import IPerformanceMonitor
+from src.infrastructure.monitoring.performance_monitor import PerformanceMonitor
 
 logger = logging.getLogger(__name__)
 

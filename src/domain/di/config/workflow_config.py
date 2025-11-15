@@ -15,6 +15,7 @@ from src.domain.workflow.interfaces import (
 from src.domain.workflow.config_manager import WorkflowConfigManager
 from src.domain.workflow.visualizer import WorkflowVisualizer
 from src.domain.workflow.registry import WorkflowRegistry
+from src.infrastructure.config.interfaces import IConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +40,9 @@ class WorkflowConfigRegistration:
             IWorkflowConfigManager,
             lambda: WorkflowConfigManager(
                 config_loader=container.get(
-                    "src.infrastructure.config.loader.file_config_loader.IConfigLoader"
+                    IConfigLoader
                 ) if container.has_service(
-                    "src.infrastructure.config.loader.file_config_loader.IConfigLoader"
+                    IConfigLoader
                 ) else None
             ),
             lifetime=ServiceLifetime.SINGLETON
@@ -62,16 +63,3 @@ class WorkflowConfigRegistration:
         )
         
         logger.debug("工作流核心服务注册完成")
-    
-    @staticmethod
-    def get_service_types() -> Dict[str, Type]:
-        """获取注册的服务类型
-        
-        Returns:
-            注册的服务类型字典
-        """
-        return {
-            "workflow_config_manager": IWorkflowConfigManager,
-            "workflow_visualizer": IWorkflowVisualizer,
-            "workflow_registry": IWorkflowRegistry,
-        }

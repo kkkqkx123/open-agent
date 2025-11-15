@@ -7,9 +7,12 @@ import logging
 from typing import Dict, Type
 
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
-from src.domain.tools.interfaces import IToolManager, IToolExecutor
-from src.domain.tools.manager import ToolManager
-from src.domain.tools.executor import ToolExecutor
+from src.infrastructure.tools.interfaces import IToolManager
+from src.domain.tools.interfaces import IToolExecutor, IToolRegistry
+from src.infrastructure.tools.manager import ToolManager
+from src.infrastructure.tools.executor import AsyncToolExecutor
+from src.infrastructure.logger.logger import ILogger
+from src.infrastructure.config.interfaces import IConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +35,9 @@ class ToolConfigRegistration:
         # 注册工具执行器
         container.register_factory(
             IToolExecutor,
-            lambda: ToolExecutor(
-                tool_registry=container.get(
-                    "src.infrastructure.tools.registry.IToolRegistry"
-                ) if container.has_service(
-                    "src.infrastructure.tools.registry.IToolRegistry"
-                ) else None
+            lambda: AsyncToolExecutor(
+                tool_manager=container.get(IToolManager),
+                logger=container.get(ILogger)
             ),
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -46,12 +46,8 @@ class ToolConfigRegistration:
         container.register_factory(
             IToolManager,
             lambda: ToolManager(
-                tool_registry=container.get(
-                    "src.infrastructure.tools.registry.IToolRegistry"
-                ) if container.has_service(
-                    "src.infrastructure.tools.registry.IToolRegistry"
-                ) else None,
-                tool_executor=container.get(IToolExecutor)
+                config_loader=container.get(IConfigLoader),
+                logger=container.get(ILogger)
             ),
             lifetime=ServiceLifetime.SINGLETON
         )
