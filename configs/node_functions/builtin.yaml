@@ -1,0 +1,89 @@
+# 内置节点函数配置
+name: "内置节点函数"
+description: "系统内置的节点函数"
+category: "builtin"
+
+node_functions:
+  llm_processor:
+    description: "LLM处理函数"
+    function_type: "llm"
+    parameters:
+      model: "gpt-4"
+      temperature: 0.7
+      max_tokens: 1000
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["llm", "processor"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        response: {type: "string"}
+    input_schema:
+      type: "object"
+      properties:
+        prompt: {type: "string"}
+
+  tool_executor:
+    description: "工具执行函数"
+    function_type: "tool"
+    parameters:
+      timeout: 30
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["tool", "executor"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        result: {type: "string"}
+    input_schema:
+      type: "object"
+      properties:
+        tool_name: {type: "string"}
+        tool_args: {type: "object"}
+
+  text_analyzer:
+    description: "文本分析函数"
+    function_type: "analysis"
+    parameters:
+      analysis_type: "sentiment"
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["analysis", "text"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        analysis: {type: "object"}
+    input_schema:
+      type: "object"
+      properties:
+        text: {type: "string"}
+
+  data_validator:
+    description: "数据验证函数"
+    function_type: "validator"
+    parameters:
+      validation_rules: {}
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["validator", "data"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        is_valid: {type: "boolean"}
+        errors: {type: "array", items: {type: "string"}}
+    input_schema:
+      type: "object"
+      properties:
+        data: {type: "object"}

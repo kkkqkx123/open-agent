@@ -1,0 +1,102 @@
+# 节点内部函数组合示例工作流
+name: "节点内部函数组合示例"
+description: "展示节点内部函数组合的使用"
+version: "1.0"
+
+# 状态定义
+state_schema:
+  name: "CompositionExampleState"
+  fields:
+    messages:
+      type: "List[BaseMessage]"
+      reducer: "operator.add"
+      description: "对话消息历史"
+    
+    input:
+      type: "str"
+      description: "用户输入"
+    
+    context:
+      type: "str"
+      description: "上下文信息"
+    
+    tool_results:
+      type: "List[dict]"
+      reducer: "operator.add"
+      description: "工具执行结果"
+    
+    iteration_count:
+      type: "int"
+      reducer: "operator.add"
+      default: 0
+      description: "迭代计数"
+    
+    max_iterations:
+      type: "int"
+      default: 10
+      description: "最大迭代次数"
+
+# 节点定义 - 使用节点内部函数组合
+nodes:
+  agent_processor:
+    function: "agent_processor"  # 使用节点内部函数组合
+    composition_name: "agent_processor"  # 指定组合名称
+    description: "Agent处理节点"
+    config:
+      model: "gpt-4"
+      temperature: 0.1
+    
+  tool_executor:
+    function: "tool_node"
+    description: "工具执行节点"
+    config:
+      timeout: 30
+    
+  response_generator:
+    function: "llm_node"
+    description: "响应生成节点"
+    config:
+      model: "gpt-4"
+      temperature: 0.7
+
+# 边定义
+edges:
+  # 简单边
+  - from: "__start__"
+    to: "agent_processor"
+    type: "simple"
+    description: "开始处理"
+    
+  # 灵活条件边 - 使用内置路由函数
+  - from: "agent_processor"
+    type: "conditional"
+    route_function: "has_tool_calls"
+    route_parameters: {}
+    path_map:
+      continue: "tool_executor"
+      end: "response_generator"
+    description: "根据是否有工具调用决定路由"
+    
+  # 简单边
+  - from: "tool_executor"
+    to: "response_generator"
+    type: "simple"
+    description: "工具执行后生成响应"
+    
+  - from: "response_generator"
+    to: "__end__"
+    type: "simple"
+    description: "结束"
+
+# 入口点
+entry_point: "agent_processor"
+
+# 检查点配置
+checkpointer: "memory"
+
+# 额外配置
+additional_config:
+  retry_attempts: 3
+  retry_delay: 1.0
+  logging_level: "INFO"
+  enable_tracing: true

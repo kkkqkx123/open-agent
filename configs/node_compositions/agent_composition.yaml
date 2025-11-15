@@ -1,0 +1,109 @@
+# Agent节点内部函数组合配置
+name: "agent_processor"
+description: "Agent处理节点的内部函数组合"
+category: "agent"
+
+functions:
+  - name: "input_validator"
+    description: "输入验证函数"
+    function_type: "validator"
+    parameters:
+      validation_rules:
+        required_fields: ["input"]
+        field_types: {"input": "string"}
+    implementation: "config"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["validator", "input"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        is_valid: {type: "boolean"}
+        errors: {type: "array", items: {type: "string"}}
+    input_schema:
+      type: "object"
+      properties:
+        input: {type: "string"}
+
+  - name: "context_enhancer"
+    description: "上下文增强函数"
+    function_type: "analysis"
+    parameters:
+      analysis_type: "context"
+    implementation: "config"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["analysis", "context"]
+    dependencies: ["input_validator"]
+    return_schema:
+      type: "object"
+      properties:
+        enhanced_context: {type: "string"}
+    input_schema:
+      type: "object"
+      properties:
+        input: {type: "string"}
+        context: {type: "string"}
+
+  - name: "llm_processor"
+    description: "LLM处理函数"
+    function_type: "llm"
+    parameters:
+      model: "gpt-4"
+      temperature: 0.7
+    implementation: "config"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["llm", "processor"]
+    dependencies: ["context_enhancer"]
+    return_schema:
+      type: "object"
+      properties:
+        response: {type: "string"}
+    input_schema:
+      type: "object"
+      properties:
+        prompt: {type: "string"}
+
+  - name: "response_formatter"
+    description: "响应格式化函数"
+    function_type: "transformer"
+    parameters:
+      output_format: "json"
+    implementation: "config"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["transformer", "formatter"]
+    dependencies: ["llm_processor"]
+    return_schema:
+      type: "object"
+      properties:
+        formatted_response: {type: "string"}
+    input_schema:
+      type: "object"
+      properties:
+        response: {type: "string"}
+
+execution_order: ["input_validator", "context_enhancer", "llm_processor", "response_formatter"]
+
+input_mapping:
+  "input": "input_validator.input"
+  "context": "context_enhancer.context"
+
+output_mapping:
+  "formatted_response": "response_formatter.formatted_response"
+
+error_handling:
+  on_error: "return_error_state"
+  retry_count: 3
+  retry_delay: 1.0
+
+metadata:
+  author: "system"
+  version: "1.0"
+  tags: ["agent", "composition", "processor"]

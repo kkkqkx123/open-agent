@@ -34,9 +34,9 @@ from .function_registry import (
 )
 from .iteration_manager import IterationManager
 from .builtin_functions import get_builtin_node_function, get_builtin_condition_function
-from .node_functions import get_node_function_manager
 from .route_functions import get_route_function_manager
 from .edges import FlexibleConditionalEdge, FlexibleConditionalEdgeFactory
+from .node_functions import get_node_function_manager
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,7 @@ class UnifiedGraphBuilder:
         enable_function_fallback: bool = True,
         enable_iteration_management: bool = True,
         route_function_config_dir: Optional[str] = None,
+        node_function_config_dir: Optional[str] = None,
     ) -> None:
         """初始化统一图构建器
         
@@ -87,6 +88,7 @@ class UnifiedGraphBuilder:
             enable_function_fallback: 是否启用函数回退机制
             enable_iteration_management: 是否启用迭代管理
             route_function_config_dir: 路由函数配置目录
+            node_function_config_dir: 节点函数配置目录
         """
         self.node_registry = node_registry or get_global_registry()
         self.function_registry = function_registry or get_global_function_registry()
@@ -99,6 +101,9 @@ class UnifiedGraphBuilder:
         # 初始化路由函数管理器
         self.route_function_manager = get_route_function_manager(route_function_config_dir)
         self.flexible_edge_factory = FlexibleConditionalEdgeFactory(self.route_function_manager)
+        
+        # 初始化节点函数管理器
+        self.node_function_manager = get_node_function_manager(node_function_config_dir)
         
         logger.debug(f"统一图构建器初始化完成，函数回退: {enable_function_fallback}, 迭代管理: {enable_iteration_management}")
     
@@ -128,7 +133,8 @@ class UnifiedGraphBuilder:
         
         # 创建StateGraph
         from langgraph.graph import StateGraph
-        builder = StateGraph(state_class)
+        # 使用Any类型来避免类型检查问题，因为状态类是动态生成的
+        builder = StateGraph(cast(Any, state_class))
         
         # 添加节点
         self._add_nodes(builder, config, state_manager)
@@ -270,7 +276,7 @@ class UnifiedGraphBuilder:
     ) -> Optional[Callable]:
         """获取节点函数（统一实现）
         
-        优先级：函数注册表 -> 节点注册表 -> 内置函数 -> 父类方法
+        优先级：节点内部函数组合 -> 函数注册表 -> 节点注册表 -> 内置函数 -> 父类方法
         
         Args:
             node_config: 节点配置
@@ -280,6 +286,13 @@ class UnifiedGraphBuilder:
             Optional[Callable]: 节点函数
         """
         function_name = node_config.function_name
+        
+        # 0. 检查是否为节点内部函数组合
+        if node_config.composition_name:
+            composition_function = self._create_composition_function(node_config.composition_name)
+            if composition_function:
+                logger.debug(f"从节点内部函数组合获取节点函数: {node_config.composition_name}")
+                return self._wrap_node_function(composition_function, state_manager, node_config.name)
         
         # 1. 优先从函数注册表获取
         if self.function_registry:
@@ -317,7 +330,7 @@ class UnifiedGraphBuilder:
             logger.debug(f"从内置函数获取节点函数: {function_name}")
             return self._wrap_node_function(builtin_function, state_manager, node_config.name)
         
-        # 4. 如果启用回退，尝试内置实现
+        # 5. 如果启用回退，尝试内置实现
         if self.enable_function_fallback:
             builtin_functions = {
                 "llm_node": self._create_llm_node,
@@ -332,6 +345,21 @@ class UnifiedGraphBuilder:
                 return self._wrap_node_function(fallback_function, state_manager, node_config.name)
         
         logger.warning(f"无法找到节点函数: {function_name}")
+        return None
+    
+    def _create_composition_function(self, composition_name: str) -> Optional[Callable]:
+        """创建节点内部函数组合函数
+        
+        Args:
+            composition_name: 组合名称
+            
+        Returns:
+            Optional[Callable]: 组合函数，如果不存在返回None
+        """
+        if self.node_function_manager.has_composition(composition_name):
+            def composition_function(state: WorkflowState, **kwargs) -> WorkflowState:
+                return self.node_function_manager.execute_composition(composition_name, state, **kwargs)
+            return composition_function
         return None
     
     def _get_condition_function(self, condition_name: str) -> Optional[Callable]:

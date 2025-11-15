@@ -1,0 +1,24 @@
+# 节点组合配置组配置
+name: "节点组合配置组"
+description: "节点内部函数组合配置的分组配置"
+inherits_from: []
+
+# 组配置可以包含通用设置
+defaults:
+  category: "node_composition"
+  version: "1.0"
+  author: "system"
+
+# 包含的配置文件
+includes:
+  - "agent_composition.yaml"
+  - "react_composition.yaml"
+  - "plan_execute_composition.yaml"
+  - "custom.yaml"
+
+# 配置加载顺序
+load_order:
+  - "agent_composition.yaml"
+  - "react_composition.yaml"
+  - "plan_execute_composition.yaml"
+  - "custom.yaml"

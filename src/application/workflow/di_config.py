@@ -8,7 +8,7 @@ from src.infrastructure.container import IDependencyContainer, ServiceLifetime
 from infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.graph.registry import NodeRegistry
 from src.infrastructure.graph.states import StateFactory, StateSerializer
-from src.infrastructure.graph.builder import GraphBuilder
+from src.infrastructure.graph.builder import UnifiedGraphBuilder
 from .interfaces import IWorkflowManager
 from .factory import IWorkflowFactory
 from .factory import WorkflowFactory
@@ -41,8 +41,8 @@ class WorkflowModule:
         
         # 注册图构建器（单例）
         container.register(
-            GraphBuilder,
-            GraphBuilder,
+            UnifiedGraphBuilder,
+            UnifiedGraphBuilder,
             lifetime=ServiceLifetime.SINGLETON
         )
         
@@ -107,8 +107,8 @@ class WorkflowModule:
         
         # 注册图构建器（带依赖）
         container.register_factory(
-            GraphBuilder,
-            lambda: GraphBuilder(node_registry=node_registry),
+            UnifiedGraphBuilder,
+            lambda: UnifiedGraphBuilder(node_registry=node_registry),
             lifetime=ServiceLifetime.SINGLETON
         )
         
@@ -163,8 +163,8 @@ class WorkflowModule:
         """
         # 在开发环境中，可以启用额外的调试功能
         container.register_factory(
-            GraphBuilder,
-            lambda: GraphBuilder(),
+            UnifiedGraphBuilder,
+            lambda: UnifiedGraphBuilder(),
             environment="development",
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -268,13 +268,13 @@ def get_state_serializer(container: IDependencyContainer) -> StateSerializer:
     return container.get(StateSerializer)
 
 
-def get_graph_builder(container: IDependencyContainer) -> GraphBuilder:
+def get_graph_builder(container: IDependencyContainer) -> UnifiedGraphBuilder:
     """获取图构建器
     
     Args:
         container: 依赖注入容器
         
     Returns:
-        GraphBuilder: 图构建器实例
+        UnifiedGraphBuilder: 图构建器实例
     """
-    return container.get(GraphBuilder)
+    return container.get(UnifiedGraphBuilder)

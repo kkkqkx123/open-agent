@@ -6,6 +6,8 @@
 from typing import Dict, Any, List, Optional, Type, Union, cast
 from datetime import datetime
 from typing_extensions import TypedDict
+import operator
+from typing_extensions import Annotated
 
 from .base import BaseGraphState, BaseMessage, create_base_state, create_message, LCBaseMessage
 from .workflow import WorkflowState, create_workflow_state
@@ -335,6 +337,10 @@ class StateFactory:
             required_fields = ["workflow_id", "workflow_name", "input", "max_iterations", "max_steps"]
             for field in required_fields:
                 if field not in state:
+                    errors.append(f"缺少必需字段: {field}")
+        
+        return errors
+
     @staticmethod
     def create_state_class_from_config(state_config) -> Type[Dict[str, Any]]:
         """基于配置创建状态类
@@ -345,9 +351,36 @@ class StateFactory:
         Returns:
             状态类类型
         """
-        # 对于当前实现，我们返回通用的WorkflowState类型
-        # 在更复杂的实现中，可以动态创建特定的状态类
-        return WorkflowState
-                    errors.append(f"缺少必需字段: {field}")
+        # 为LangGraph兼容性创建一个TypedDict类
+        # 这里我们创建一个通用的TypedDict，包含所有配置中定义的字段
+        from typing_extensions import TypedDict
         
-        return errors
+        # 创建字段类型映射
+        field_annotations = {}
+        for field_name, field_config in state_config.fields.items():
+            # 简化类型映射，将字符串类型转换为实际类型
+            if field_config.type == "List[BaseMessage]":
+                field_annotations[field_name] = Annotated[List[LCBaseMessage], operator.add]
+            elif field_config.type == "List[dict]":
+                field_annotations[field_name] = Annotated[List[Dict[str, Any]], operator.add]
+            elif field_config.type == "int":
+                if field_config.reducer == "operator.add":
+                    field_annotations[field_name] = Annotated[int, operator.add]
+                else:
+                    field_annotations[field_name] = int
+            elif field_config.type == "str":
+                field_annotations[field_name] = str
+            elif field_config.type == "bool":
+                field_annotations[field_name] = bool
+            else:
+                # 默认使用Any类型
+                field_annotations[field_name] = Any
+        
+        # 创建TypedDict类
+        class DynamicState(TypedDict, total=False):
+            pass
+        
+        # 动态添加字段注解
+        DynamicState.__annotations__ = field_annotations
+        
+        return DynamicState

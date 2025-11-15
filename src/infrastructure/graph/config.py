@@ -3,7 +3,7 @@
 定义工作流图的结构和配置。
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Type
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -124,6 +124,10 @@ class NodeConfig:
     function_name: str
     description: Optional[str] = None
     config: Dict[str, Any] = field(default_factory=dict)
+    
+    # 新增：支持节点内部函数组合
+    composition_name: Optional[str] = None  # 节点内部函数组合名称
+    function_sequence: List[str] = field(default_factory=list)  # 函数执行序列
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "NodeConfig":
@@ -132,12 +136,14 @@ class NodeConfig:
             name=data["name"],
             function_name=data["function_name"],
             description=data.get("description"),
-            config=data.get("config", {})
+            config=data.get("config", {}),
+            composition_name=data.get("composition_name"),
+            function_sequence=data.get("function_sequence", [])
         )
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
-        result = {
+        result: Dict[str, Any] = {
             "name": self.name,
             "function_name": self.function_name,
         }
@@ -145,6 +151,10 @@ class NodeConfig:
             result["description"] = self.description
         if self.config:
             result["config"] = self.config
+        if self.composition_name:
+            result["composition_name"] = self.composition_name
+        if self.function_sequence:
+            result["function_sequence"] = self.function_sequence
         return result
 
 
@@ -162,12 +172,6 @@ class GraphConfig:
     interrupt_before: Optional[List[str]] = None  # 中断配置
     interrupt_after: Optional[List[str]] = None   # 中断配置
     state_overrides: Dict[str, Any] = field(default_factory=dict)  # 状态覆盖
-    additional_config: Dict[str, Any] = field(default_factory=dict)
-
-    def get_state_class(self):
-        """获取状态类"""
-        from .states import create_state_class
-        return create_state_class(self.state_schema)
     additional_config: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -219,7 +223,7 @@ class GraphConfig:
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
-        result = {
+        result: Dict[str, Any] = {
             "name": self.name,
             "description": self.description,
             "version": self.version,
@@ -227,9 +231,9 @@ class GraphConfig:
         
         # 状态模式
         if self.state_schema:
-            state_fields = {}
+            state_fields: Dict[str, Any] = {}
             for field_name, field_config in self.state_schema.fields.items():
-                field_data = {
+                field_data: Dict[str, Any] = {
                     "type": field_config.type,
                 }
                 if field_config.default is not None:
@@ -311,3 +315,8 @@ class GraphConfig:
             errors.append(f"入口点节点不存在: {self.entry_point}")
         
         return errors
+
+    def get_state_class(self) -> Type[Dict[str, Any]]:
+        """获取状态类"""
+        from .states.factory import StateFactory
+        return StateFactory.create_state_class_from_config(self.state_schema)

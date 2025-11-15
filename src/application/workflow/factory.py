@@ -9,7 +9,7 @@ import logging
 
 from .interfaces import IWorkflowFactory, IWorkflowManager
 from src.infrastructure.graph.states import WorkflowState
-from src.infrastructure.graph.config import WorkflowConfig
+from src.infrastructure.graph.config import GraphConfig
 from infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.container import IDependencyContainer
 from src.infrastructure.registry.module_registry_manager import ModuleRegistryManager
@@ -54,7 +54,7 @@ class WorkflowFactory(IWorkflowFactory):
             # 注册内置工作流类型（向后兼容）
             self._register_builtin_workflows()
     
-    def create_workflow(self, config: WorkflowConfig) -> Any:
+    def create_workflow(self, config: GraphConfig) -> Any:
         """创建工作流实例
 
         Args:
@@ -112,14 +112,14 @@ class WorkflowFactory(IWorkflowFactory):
         except Exception as e:
             logger.warning(f"部分内置工作流类型不可用: {e}")
     
-    def load_workflow_config(self, config_path: str) -> WorkflowConfig:
+    def load_workflow_config(self, config_path: str) -> GraphConfig:
         """加载工作流配置
         
         Args:
             config_path: 配置文件路径
             
         Returns:
-            WorkflowConfig: 工作流配置
+            GraphConfig: 工作流配置
         """
         if not self.config_loader:
             raise ValueError("配置加载器未初始化")
@@ -135,8 +135,8 @@ class WorkflowFactory(IWorkflowFactory):
         with open(config_file, 'r', encoding='utf-8') as f:
             config_data = yaml.safe_load(f)
         
-        # 转换为WorkflowConfig对象
-        return WorkflowConfig.from_dict(config_data)
+        # 转换为GraphConfig对象
+        return GraphConfig.from_dict(config_data)
     
     def _initialize_from_registry(self) -> None:
         """从注册管理器初始化工作流类型
@@ -195,8 +195,8 @@ class WorkflowFactory(IWorkflowFactory):
         if not workflow_config:
             raise ValueError(f"工作流配置不存在: {workflow_name}")
         
-        # 转换为WorkflowConfig对象
-        config = WorkflowConfig.from_dict(workflow_config)
+        # 转换为GraphConfig对象
+        config = GraphConfig.from_dict(workflow_config)
         
         # 创建工作流实例
         return self.create_workflow(config)

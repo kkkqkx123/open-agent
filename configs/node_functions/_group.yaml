@@ -1,0 +1,26 @@
+# 节点函数配置组配置
+name: "节点函数配置组"
+description: "节点函数配置的分组配置"
+inherits_from: []
+
+# 组配置可以包含通用设置
+defaults:
+  category: "node_function"
+  version: "1.0"
+  author: "system"
+
+# 包含的配置文件
+includes:
+  - "builtin.yaml"
+  - "llm_based.yaml"
+  - "tool_based.yaml"
+  - "analysis_based.yaml"
+  - "custom.yaml"
+
+# 配置加载顺序
+load_order:
+  - "builtin.yaml"
+  - "llm_based.yaml"
+  - "tool_based.yaml"
+  - "analysis_based.yaml"
+  - "custom.yaml"
