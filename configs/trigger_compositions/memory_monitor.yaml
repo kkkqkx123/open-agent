@@ -1,0 +1,73 @@
+# 内存监控触发器组合
+
+name: "memory_monitor"
+description: "内存监控触发器组合，用于监控系统内存使用情况"
+
+trigger_type: "custom"
+
+# 评估函数配置
+evaluate_function:
+  name: "memory_monitoring_evaluate"
+  description: "评估内存使用是否超过阈值"
+  function_type: "evaluate"
+  implementation: "builtin"
+  parameters:
+    memory_threshold_mb: 1024
+    system_memory_threshold_percent: 90
+    check_interval: 60
+  metadata:
+    author: "system"
+    version: "1.0"
+    tags: ["system", "memory", "monitoring"]
+  dependencies: []
+  return_schema:
+    type: "boolean"
+  input_schema:
+    type: "object"
+    properties:
+      state:
+        type: "object"
+      context:
+        type: "object"
+
+# 执行函数配置
+execute_function:
+  name: "memory_monitoring_execute"
+  description: "执行内存监控触发器动作"
+  function_type: "execute"
+  implementation: "builtin"
+  parameters:
+    include_memory_trend: true
+    include_process_details: true
+  metadata:
+    author: "system"
+    version: "1.0"
+    tags: ["system", "memory", "monitoring"]
+  dependencies: []
+  return_schema:
+    type: "object"
+  input_schema:
+    type: "object"
+    properties:
+      state:
+        type: "object"
+      context:
+        type: "object"
+
+# 默认触发器配置
+default_config:
+  enabled: true
+  rate_limit: null
+  max_triggers: null
+  memory_threshold_mb: 1024
+  system_memory_threshold_percent: 90
+  check_interval: 60
+  max_history_size: 100
+
+# 元数据
+metadata:
+  author: "system"
+  version: "1.0"
+  created_at: "2024-01-01T00:00:00Z"
+  tags: ["system", "memory", "monitoring", "composition"]
+  description: "用于监控系统内存使用情况的触发器组合"

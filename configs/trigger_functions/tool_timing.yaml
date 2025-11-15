@@ -1,0 +1,72 @@
+# 工具执行计时触发器函数配置
+
+category: "timing"
+
+trigger_functions:
+  # 工具执行计时评估函数
+  tool_timing_evaluate:
+    description: "评估工具执行时间是否超过阈值"
+    function_type: "evaluate"
+    implementation: "builtin"
+    parameters:
+      timeout_threshold: 30.0
+      warning_threshold: 10.0
+      monitor_all_tools: true
+      monitored_tools: []
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["timing", "tool", "monitoring"]
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+          description: "工作流状态"
+        context:
+          type: "object"
+          description: "上下文信息"
+          properties:
+            timing_info:
+              type: "object"
+              description: "计时信息"
+
+  # 工具执行计时执行函数
+  tool_timing_execute:
+    description: "执行工具执行计时触发器动作"
+    function_type: "execute"
+    implementation: "builtin"
+    parameters:
+      include_tool_details: true
+      include_timing_history: true
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["timing", "tool", "monitoring"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        tool_name:
+          type: "string"
+        execution_time:
+          type: "number"
+        warning_level:
+          type: "string"
+        thresholds:
+          type: "object"
+        executed_at:
+          type: "string"
+          format: "date-time"
+        message:
+          type: "string"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"

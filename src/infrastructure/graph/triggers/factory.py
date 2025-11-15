@@ -15,6 +15,28 @@ from .builtin_triggers import (
     ToolErrorTrigger,
     IterationLimitTrigger
 )
+# 导入新的监控触发器
+from .timing import (
+    ToolExecutionTimingTrigger,
+    LLMResponseTimingTrigger,
+    WorkflowStateTimingTrigger
+)
+from .state_monitoring import (
+    WorkflowStateCaptureTrigger,
+    WorkflowStateChangeTrigger,
+    WorkflowErrorStateTrigger
+)
+from .pattern_matching import (
+    UserInputPatternTrigger,
+    LLMOutputPatternTrigger,
+    ToolOutputPatternTrigger,
+    StatePatternTrigger
+)
+from .system_monitoring import (
+    MemoryMonitoringTrigger,
+    PerformanceMonitoringTrigger,
+    ResourceMonitoringTrigger
+)
 from ..trigger_functions import get_trigger_function_manager, TriggerCompositionConfig
 
 logger = logging.getLogger(__name__)
@@ -64,6 +86,65 @@ class TriggerFactory:
         else:
             raise ValueError(f"不支持的触发器类型: {trigger_type}")
     
+    def create_monitoring_trigger(
+        self,
+        trigger_id: str,
+        trigger_class: str,
+        config: Optional[Dict[str, Any]] = None
+    ) -> ITrigger:
+        """创建监控触发器
+        
+        Args:
+            trigger_id: 触发器ID
+            trigger_class: 触发器类名
+            config: 触发器配置
+            
+        Returns:
+            ITrigger: 触发器实例
+            
+        Raises:
+            ValueError: 创建失败时抛出异常
+        """
+        if config is None:
+            config = {}
+        
+        # 计时触发器
+        if trigger_class == "ToolExecutionTimingTrigger":
+            return ToolExecutionTimingTrigger(trigger_id, config)
+        elif trigger_class == "LLMResponseTimingTrigger":
+            return LLMResponseTimingTrigger(trigger_id, config)
+        elif trigger_class == "WorkflowStateTimingTrigger":
+            return WorkflowStateTimingTrigger(trigger_id, config)
+        
+        # 状态监控触发器
+        elif trigger_class == "WorkflowStateCaptureTrigger":
+            return WorkflowStateCaptureTrigger(trigger_id, config)
+        elif trigger_class == "WorkflowStateChangeTrigger":
+            return WorkflowStateChangeTrigger(trigger_id, config)
+        elif trigger_class == "WorkflowErrorStateTrigger":
+            return WorkflowErrorStateTrigger(trigger_id, config)
+        
+        # 模式匹配触发器
+        elif trigger_class == "UserInputPatternTrigger":
+            return UserInputPatternTrigger(trigger_id, config)
+        elif trigger_class == "LLMOutputPatternTrigger":
+            return LLMOutputPatternTrigger(trigger_id, config)
+        elif trigger_class == "ToolOutputPatternTrigger":
+            return ToolOutputPatternTrigger(trigger_id, config)
+        elif trigger_class == "StatePatternTrigger":
+            return StatePatternTrigger(trigger_id, config)
+        
+        # 系统监控触发器
+        elif trigger_class == "MemoryMonitoringTrigger":
+            return MemoryMonitoringTrigger(trigger_id, config)
+        elif trigger_class == "PerformanceMonitoringTrigger":
+            return PerformanceMonitoringTrigger(trigger_id, config)
+        elif trigger_class == "ResourceMonitoringTrigger":
+            return ResourceMonitoringTrigger(trigger_id, config)
+        
+        else:
+            raise ValueError(f"不支持的监控触发器类: {trigger_class}")
+    
     def create_trigger_from_composition(
         self,
         trigger_id: str,
@@ -110,7 +191,7 @@ class TriggerFactory:
             config=config
         )
     
-    def _create_state_trigger(self, trigger_id: str, config: Dict[str, Any]) -> StateTrigger:
+    def _create_state_trigger(self, trigger_id: str, config: Dict[str, Any]) -> ITrigger:
         """创建状态触发器
         
         Args:
@@ -118,17 +199,31 @@ class TriggerFactory:
             config: 触发器配置
             
         Returns:
-            StateTrigger: 状态触发器实例
+            ITrigger: 状态触发器实例
         """
-        condition = config.get("condition", "True")
+        # 检查是否是特殊的状态触发器
+        special_type = config.get("special_type")
         
+        if special_type == "state_capture":
+            return WorkflowStateCaptureTrigger(trigger_id, config)
+        elif special_type == "state_change":
+            return WorkflowStateChangeTrigger(trigger_id, config)
+        elif special_type == "error_state":
+            return WorkflowErrorStateTrigger(trigger_id, config)
+        elif special_type == "state_timing":
+            return WorkflowStateTimingTrigger(trigger_id, config)
+        elif special_type == "state_pattern":
+            return StatePatternTrigger(trigger_id, config)
+        
+        # 默认状态触发器
+        condition = config.get("condition", "True")
         return StateTrigger(
             trigger_id=trigger_id,
             condition=condition,
             config=config
         )
     
-    def _create_event_trigger(self, trigger_id: str, config: Dict[str, Any]) -> EventTrigger:
+    def _create_event_trigger(self, trigger_id: str, config: Dict[str, Any]) -> ITrigger:
         """创建事件触发器
         
         Args:
@@ -136,8 +231,19 @@ class TriggerFactory:
             config: 触发器配置
             
         Returns:
-            EventTrigger: 事件触发器实例
+            ITrigger: 事件触发器实例
         """
+        # 检查是否是特殊的事件触发器
+        special_type = config.get("special_type")
+        
+        if special_type == "user_input_pattern":
+            return UserInputPatternTrigger(trigger_id, config)
+        elif special_type == "llm_output_pattern":
+            return LLMOutputPatternTrigger(trigger_id, config)
+        elif special_type == "tool_output_pattern":
+            return ToolOutputPatternTrigger(trigger_id, config)
+        
+        # 默认事件触发器
         event_type = config.get("event_type", "")
         event_pattern = config.get("event_pattern")
         
@@ -183,6 +289,16 @@ class TriggerFactory:
                 max_iterations=max_iterations,
                 config=config
             )
+        elif special_type == "tool_timing":
+            return ToolExecutionTimingTrigger(trigger_id, config)
+        elif special_type == "llm_timing":
+            return LLMResponseTimingTrigger(trigger_id, config)
+        elif special_type == "memory_monitoring":
+            return MemoryMonitoringTrigger(trigger_id, config)
+        elif special_type == "performance_monitoring":
+            return PerformanceMonitoringTrigger(trigger_id, config)
+        elif special_type == "resource_monitoring":
+            return ResourceMonitoringTrigger(trigger_id, config)
         
         # 使用函数管理器创建自定义触发器
         if evaluate_function and execute_function:
@@ -265,6 +381,11 @@ class TriggerFactory:
         if not trigger_id:
             raise ValueError("触发器配置必须包含trigger_id")
         
+        # 检查是否是监控触发器
+        trigger_class = config.get("trigger_class")
+        if trigger_class:
+            return self.create_monitoring_trigger(trigger_id, trigger_class, config.get("config", {}))
+        
         trigger_type_str = config.get("trigger_type", "custom")
         trigger_type = TriggerType(trigger_type_str)
         
@@ -287,6 +408,32 @@ class TriggerFactory:
             List[str]: 组合名称列表
         """
         return self.function_manager.list_compositions()
+    
+    def list_available_monitoring_triggers(self) -> List[str]:
+        """列出可用的监控触发器
+        
+        Returns:
+            List[str]: 监控触发器类名列表
+        """
+        return [
+            # 计时触发器
+            "ToolExecutionTimingTrigger",
+            "LLMResponseTimingTrigger",
+            "WorkflowStateTimingTrigger",
+            # 状态监控触发器
+            "WorkflowStateCaptureTrigger",
+            "WorkflowStateChangeTrigger",
+            "WorkflowErrorStateTrigger",
+            # 模式匹配触发器
+            "UserInputPatternTrigger",
+            "LLMOutputPatternTrigger",
+            "ToolOutputPatternTrigger",
+            "StatePatternTrigger",
+            # 系统监控触发器
+            "MemoryMonitoringTrigger",
+            "PerformanceMonitoringTrigger",
+            "ResourceMonitoringTrigger"
+        ]
     
     def get_composition_info(self, composition_name: str) -> Optional[Dict[str, Any]]:
         """获取触发器组合信息
@@ -334,6 +481,14 @@ class TriggerFactory:
         if not config.get("trigger_id"):
             errors.append("缺少必需字段: trigger_id")
         
+        # 检查监控触发器配置
+        trigger_class = config.get("trigger_class")
+        if trigger_class:
+            if trigger_class not in self.list_available_monitoring_triggers():
+                errors.append(f"不支持的监控触发器类: {trigger_class}")
+            return errors
+        
+        # 检查传统触发器配置
         trigger_type_str = config.get("trigger_type")
         if not trigger_type_str:
             errors.append("缺少必需字段: trigger_type")

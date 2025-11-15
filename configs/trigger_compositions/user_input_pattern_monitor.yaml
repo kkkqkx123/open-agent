@@ -1,0 +1,79 @@
+# 用户输入模式匹配监控触发器组合
+
+name: "user_input_pattern_monitor"
+description: "用户输入模式匹配监控触发器组合，用于监控用户输入中的特定模式"
+
+trigger_type: "event"
+
+# 评估函数配置
+evaluate_function:
+  name: "user_input_pattern_evaluate"
+  description: "评估用户输入是否匹配指定模式"
+  function_type: "evaluate"
+  implementation: "builtin"
+  parameters:
+    patterns:
+      urgent_request: "(?i)(urgent|asap|immediately|right now)"
+      help_request: "(?i)(help|assist|support|guidance)"
+      error_report: "(?i)(error|issue|problem|bug|broken)"
+      question: "(?i)(\?|how|what|why|when|where|who)"
+    case_sensitive: false
+  metadata:
+    author: "system"
+    version: "1.0"
+    tags: ["pattern", "user_input", "matching"]
+  dependencies: []
+  return_schema:
+    type: "boolean"
+  input_schema:
+    type: "object"
+    properties:
+      state:
+        type: "object"
+      context:
+        type: "object"
+
+# 执行函数配置
+execute_function:
+  name: "user_input_pattern_execute"
+  description: "执行用户输入模式匹配触发器动作"
+  function_type: "execute"
+  implementation: "builtin"
+  parameters:
+    include_pattern_details: true
+    include_match_groups: true
+  metadata:
+    author: "system"
+    version: "1.0"
+    tags: ["pattern", "user_input", "matching"]
+  dependencies: []
+  return_schema:
+    type: "object"
+  input_schema:
+    type: "object"
+    properties:
+      state:
+        type: "object"
+      context:
+        type: "object"
+
+# 默认触发器配置
+default_config:
+  enabled: true
+  rate_limit: null
+  max_triggers: null
+  patterns:
+    urgent_request: "(?i)(urgent|asap|immediately|right now)"
+    help_request: "(?i)(help|assist|support|guidance)"
+    error_report: "(?i)(error|issue|problem|bug|broken)"
+    question: "(?i)(\?|how|what|why|when|where|who)"
+  case_sensitive: false
+  max_history_size: 100
+
+# 元数据
+metadata:
+  author: "system"
+  version: "1.0"
+  created_at: "2024-01-01T00:00:00Z"
+  tags: ["pattern", "user_input", "matching", "composition"]
+  description: "用于监控用户输入中的特定模式的触发器组合"

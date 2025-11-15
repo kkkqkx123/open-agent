@@ -1,0 +1,74 @@
+# 工具执行计时监控触发器组合
+
+name: "tool_timing_monitor"
+description: "工具执行计时监控触发器组合，用于监控工具执行时间"
+
+trigger_type: "custom"
+
+# 评估函数配置
+evaluate_function:
+  name: "tool_timing_evaluate"
+  description: "评估工具执行时间是否超过阈值"
+  function_type: "evaluate"
+  implementation: "builtin"
+  parameters:
+    timeout_threshold: 30.0
+    warning_threshold: 10.0
+    monitor_all_tools: true
+    monitored_tools: []
+  metadata:
+    author: "system"
+    version: "1.0"
+    tags: ["timing", "tool", "monitoring"]
+  dependencies: []
+  return_schema:
+    type: "boolean"
+  input_schema:
+    type: "object"
+    properties:
+      state:
+        type: "object"
+      context:
+        type: "object"
+
+# 执行函数配置
+execute_function:
+  name: "tool_timing_execute"
+  description: "执行工具执行计时触发器动作"
+  function_type: "execute"
+  implementation: "builtin"
+  parameters:
+    include_tool_details: true
+    include_timing_history: true
+  metadata:
+    author: "system"
+    version: "1.0"
+    tags: ["timing", "tool", "monitoring"]
+  dependencies: []
+  return_schema:
+    type: "object"
+  input_schema:
+    type: "object"
+    properties:
+      state:
+        type: "object"
+      context:
+        type: "object"
+
+# 默认触发器配置
+default_config:
+  enabled: true
+  rate_limit: null
+  max_triggers: null
+  timeout_threshold: 30.0
+  warning_threshold: 10.0
+  monitor_all_tools: true
+  monitored_tools: []
+
+# 元数据
+metadata:
+  author: "system"
+  version: "1.0"
+  created_at: "2024-01-01T00:00:00Z"
+  tags: ["timing", "tool", "monitoring", "composition"]
+  description: "用于监控工具执行时间的触发器组合"

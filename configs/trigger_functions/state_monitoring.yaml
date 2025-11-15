@@ -1,0 +1,188 @@
+# 工作流状态监控触发器函数配置
+
+category: "state_monitoring"
+
+trigger_functions:
+  # 工作流状态捕获评估函数
+  state_capture_evaluate:
+    description: "评估是否应该捕获工作流状态信息"
+    function_type: "evaluate"
+    implementation: "builtin"
+    parameters:
+      capture_interval: 60.0
+      capture_on_state_change: true
+      include_messages: true
+      include_tool_results: true
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["state", "monitoring", "capture"]
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+          description: "工作流状态"
+        context:
+          type: "object"
+          description: "上下文信息"
+
+  # 工作流状态捕获执行函数
+  state_capture_execute:
+    description: "执行工作流状态捕获动作"
+    function_type: "execute"
+    implementation: "builtin"
+    parameters:
+      include_memory_info: true
+      include_performance_metrics: true
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["state", "monitoring", "capture"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        captured_data:
+          type: "object"
+        executed_at:
+          type: "string"
+          format: "date-time"
+        message:
+          type: "string"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"
+
+  # 工作流状态变更评估函数
+  state_change_evaluate:
+    description: "评估工作流状态变更是否需要触发"
+    function_type: "evaluate"
+    implementation: "builtin"
+    parameters:
+      monitored_transitions: []
+      monitor_all_changes: false
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["state", "monitoring", "change"]
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+          description: "工作流状态"
+        context:
+          type: "object"
+          description: "上下文信息"
+
+  # 工作流状态变更执行函数
+  state_change_execute:
+    description: "执行工作流状态变更触发器动作"
+    function_type: "execute"
+    implementation: "builtin"
+    parameters:
+      include_transition_history: true
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["state", "monitoring", "change"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        previous_state:
+          type: "string"
+        current_state:
+          type: "string"
+        matched_transitions:
+          type: "array"
+        state_data:
+          type: "object"
+        transition_time:
+          type: "string"
+          format: "date-time"
+        executed_at:
+          type: "string"
+          format: "date-time"
+        message:
+          type: "string"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"
+
+  # 工作流错误状态评估函数
+  error_state_evaluate:
+    description: "评估工作流错误状态是否需要触发"
+    function_type: "evaluate"
+    implementation: "builtin"
+    parameters:
+      error_threshold: 1
+      monitor_tool_errors: true
+      monitor_llm_errors: true
+      monitor_system_errors: true
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["state", "monitoring", "error"]
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+          description: "工作流状态"
+        context:
+          type: "object"
+          description: "上下文信息"
+
+  # 工作流错误状态执行函数
+  error_state_execute:
+    description: "执行工作流错误状态触发器动作"
+    function_type: "execute"
+    implementation: "builtin"
+    parameters:
+      include_error_details: true
+      include_error_history: true
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["state", "monitoring", "error"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        error_summary:
+          type: "object"
+        total_errors:
+          type: "integer"
+        error_threshold:
+          type: "integer"
+        executed_at:
+          type: "string"
+          format: "date-time"
+        message:
+          type: "string"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"

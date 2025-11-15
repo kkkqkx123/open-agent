@@ -1,0 +1,252 @@
+# 模式匹配触发器函数配置
+
+category: "pattern_matching"
+
+trigger_functions:
+  # 用户输入模式匹配评估函数
+  user_input_pattern_evaluate:
+    description: "评估用户输入是否匹配指定模式"
+    function_type: "evaluate"
+    implementation: "builtin"
+    parameters:
+      patterns: {}
+      case_sensitive: false
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["pattern", "user_input", "matching"]
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+          description: "工作流状态"
+        context:
+          type: "object"
+          description: "上下文信息"
+
+  # 用户输入模式匹配执行函数
+  user_input_pattern_execute:
+    description: "执行用户输入模式匹配触发器动作"
+    function_type: "execute"
+    implementation: "builtin"
+    parameters:
+      include_pattern_details: true
+      include_match_groups: true
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["pattern", "user_input", "matching"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        message_content:
+          type: "string"
+        matched_patterns:
+          type: "array"
+        pattern_matches:
+          type: "object"
+        executed_at:
+          type: "string"
+          format: "date-time"
+        message:
+          type: "string"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"
+
+  # LLM输出模式匹配评估函数
+  llm_output_pattern_evaluate:
+    description: "评估LLM输出是否匹配指定模式"
+    function_type: "evaluate"
+    implementation: "builtin"
+    parameters:
+      patterns: {}
+      case_sensitive: false
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["pattern", "llm_output", "matching"]
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+          description: "工作流状态"
+        context:
+          type: "object"
+          description: "上下文信息"
+
+  # LLM输出模式匹配执行函数
+  llm_output_pattern_execute:
+    description: "执行LLM输出模式匹配触发器动作"
+    function_type: "execute"
+    implementation: "builtin"
+    parameters:
+      include_pattern_details: true
+      include_match_groups: true
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["pattern", "llm_output", "matching"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        model:
+          type: "string"
+        message_content:
+          type: "string"
+        matched_patterns:
+          type: "array"
+        pattern_matches:
+          type: "object"
+        executed_at:
+          type: "string"
+          format: "date-time"
+        message:
+          type: "string"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"
+
+  # 工具输出模式匹配评估函数
+  tool_output_pattern_evaluate:
+    description: "评估工具输出是否匹配指定模式"
+    function_type: "evaluate"
+    implementation: "builtin"
+    parameters:
+      patterns: {}
+      monitored_tools: []
+      case_sensitive: false
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["pattern", "tool_output", "matching"]
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+          description: "工作流状态"
+        context:
+          type: "object"
+          description: "上下文信息"
+
+  # 工具输出模式匹配执行函数
+  tool_output_pattern_execute:
+    description: "执行工具输出模式匹配触发器动作"
+    function_type: "execute"
+    implementation: "builtin"
+    parameters:
+      include_pattern_details: true
+      include_match_groups: true
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["pattern", "tool_output", "matching"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        tool_name:
+          type: "string"
+        output_data:
+          type: "string"
+        matched_patterns:
+          type: "array"
+        pattern_matches:
+          type: "object"
+        executed_at:
+          type: "string"
+          format: "date-time"
+        message:
+          type: "string"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"
+
+  # 状态模式匹配评估函数
+  state_pattern_evaluate:
+    description: "评估工作流状态是否匹配指定模式"
+    function_type: "evaluate"
+    implementation: "builtin"
+    parameters:
+      state_patterns: {}
+      data_patterns: {}
+      case_sensitive: false
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["pattern", "state", "matching"]
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+          description: "工作流状态"
+        context:
+          type: "object"
+          description: "上下文信息"
+
+  # 状态模式匹配执行函数
+  state_pattern_execute:
+    description: "执行状态模式匹配触发器动作"
+    function_type: "execute"
+    implementation: "builtin"
+    parameters:
+      include_pattern_details: true
+      include_state_snapshot: true
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["pattern", "state", "matching"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        current_state:
+          type: "string"
+        matched_state_patterns:
+          type: "array"
+        matched_data_patterns:
+          type: "array"
+        state_data:
+          type: "object"
+        executed_at:
+          type: "string"
+          format: "date-time"
+        message:
+          type: "string"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"

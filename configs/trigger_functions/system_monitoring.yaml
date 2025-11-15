@@ -1,0 +1,199 @@
+# 系统监控触发器函数配置
+
+category: "system_monitoring"
+
+trigger_functions:
+  # 内存监控评估函数
+  memory_monitoring_evaluate:
+    description: "评估内存使用是否超过阈值"
+    function_type: "evaluate"
+    implementation: "builtin"
+    parameters:
+      memory_threshold_mb: 1024
+      system_memory_threshold_percent: 90
+      check_interval: 60
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["system", "memory", "monitoring"]
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+          description: "工作流状态"
+        context:
+          type: "object"
+          description: "上下文信息"
+
+  # 内存监控执行函数
+  memory_monitoring_execute:
+    description: "执行内存监控触发器动作"
+    function_type: "execute"
+    implementation: "builtin"
+    parameters:
+      include_memory_trend: true
+      include_process_details: true
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["system", "memory", "monitoring"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        process_memory_mb:
+          type: "number"
+        system_memory_mb:
+          type: "number"
+        process_memory_percent:
+          type: "number"
+        system_memory_percent:
+          type: "number"
+        thresholds:
+          type: "object"
+        warning_types:
+          type: "array"
+        memory_trend:
+          type: "object"
+        executed_at:
+          type: "string"
+          format: "date-time"
+        message:
+          type: "string"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"
+
+  # 性能监控评估函数
+  performance_monitoring_evaluate:
+    description: "评估系统性能是否下降"
+    function_type: "evaluate"
+    implementation: "builtin"
+    parameters:
+      cpu_threshold_percent: 80
+      response_time_threshold: 5.0
+      check_interval: 60
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["system", "performance", "monitoring"]
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+          description: "工作流状态"
+        context:
+          type: "object"
+          description: "上下文信息"
+
+  # 性能监控执行函数
+  performance_monitoring_execute:
+    description: "执行性能监控触发器动作"
+    function_type: "execute"
+    implementation: "builtin"
+    parameters:
+      include_performance_trend: true
+      include_system_metrics: true
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["system", "performance", "monitoring"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        performance_data:
+          type: "object"
+        thresholds:
+          type: "object"
+        warning_types:
+          type: "array"
+        performance_trend:
+          type: "object"
+        executed_at:
+          type: "string"
+          format: "date-time"
+        message:
+          type: "string"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"
+
+  # 资源监控评估函数
+  resource_monitoring_evaluate:
+    description: "评估系统资源是否不足"
+    function_type: "evaluate"
+    implementation: "builtin"
+    parameters:
+      disk_threshold_percent: 90
+      memory_threshold_percent: 90
+      check_interval: 300
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["system", "resource", "monitoring"]
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+          description: "工作流状态"
+        context:
+          type: "object"
+          description: "上下文信息"
+
+  # 资源监控执行函数
+  resource_monitoring_execute:
+    description: "执行资源监控触发器动作"
+    function_type: "execute"
+    implementation: "builtin"
+    parameters:
+      include_resource_trend: true
+      include_disk_details: true
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["system", "resource", "monitoring"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        resource_data:
+          type: "object"
+        thresholds:
+          type: "object"
+        warning_types:
+          type: "array"
+        resource_trend:
+          type: "object"
+        executed_at:
+          type: "string"
+          format: "date-time"
+        message:
+          type: "string"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"

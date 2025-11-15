@@ -1,0 +1,72 @@
+# LLM响应计时触发器函数配置
+
+category: "timing"
+
+trigger_functions:
+  # LLM响应计时评估函数
+  llm_timing_evaluate:
+    description: "评估LLM响应时间是否超过阈值"
+    function_type: "evaluate"
+    implementation: "builtin"
+    parameters:
+      timeout_threshold: 60.0
+      warning_threshold: 20.0
+      monitor_all_models: true
+      monitored_models: []
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["timing", "llm", "monitoring"]
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+          description: "工作流状态"
+        context:
+          type: "object"
+          description: "上下文信息"
+          properties:
+            llm_timing_info:
+              type: "object"
+              description: "LLM计时信息"
+
+  # LLM响应计时执行函数
+  llm_timing_execute:
+    description: "执行LLM响应计时触发器动作"
+    function_type: "execute"
+    implementation: "builtin"
+    parameters:
+      include_model_details: true
+      include_timing_history: true
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["timing", "llm", "monitoring"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        model:
+          type: "string"
+        response_time:
+          type: "number"
+        warning_level:
+          type: "string"
+        thresholds:
+          type: "object"
+        executed_at:
+          type: "string"
+          format: "date-time"
+        message:
+          type: "string"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"
