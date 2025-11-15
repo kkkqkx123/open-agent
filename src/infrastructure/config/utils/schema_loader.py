@@ -1,4 +1,7 @@
-"""配置模式加载器"""
+"""配置模式加载工具
+
+专门用于配置系统的模式加载和验证功能。
+"""
 
 import json
 from typing import Dict, Any, Optional, List, cast

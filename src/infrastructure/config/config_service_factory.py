@@ -7,13 +7,11 @@ from typing import Optional
 from pathlib import Path
 
 from .interfaces import IConfigLoader, IConfigInheritanceHandler
-from .processor.merger import IConfigMerger, ConfigMerger
+from ..utils.dict_merger import DictMerger, IDictMerger as IConfigMerger
 from .processor.validator import IConfigValidator, ConfigValidator
 from .loader.yaml_loader import YamlConfigLoader
-from .processor.inheritance import ConfigInheritanceHandler
+from .utils.inheritance_handler import ConfigInheritanceHandler
 from .config_system import IConfigSystem, ConfigSystem
-from .service.callback_manager import ConfigCallbackManager
-from .service.error_recovery import ConfigErrorRecovery, ConfigValidatorWithRecovery
 
 
 class ConfigServiceFactory:
@@ -41,7 +39,7 @@ class ConfigServiceFactory:
             配置系统实例
         """
         # 创建核心服务
-        config_merger = ConfigMerger()
+        config_merger = DictMerger()
         config_validator = ConfigValidator()
         
         # 创建配置加载器（简化版，只负责文件加载）
@@ -83,7 +81,7 @@ class ConfigServiceFactory:
         
         if enable_inheritance:
             # 如果启用继承，返回继承配置加载器装饰器
-            from .processor.inheritance import InheritanceConfigLoader
+            from .utils.inheritance_handler import ConfigInheritanceHandler as InheritanceConfigLoader
             return InheritanceConfigLoader(loader)
         else:
             return loader
@@ -104,7 +102,7 @@ class ConfigServiceFactory:
         Returns:
             配置合并器实例
         """
-        return ConfigMerger()
+        return DictMerger()
     
     @staticmethod
     def create_config_with_recovery(

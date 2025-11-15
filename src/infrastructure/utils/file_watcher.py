@@ -1,4 +1,7 @@
-"""文件监听器"""
+"""文件监听工具
+
+提供通用的文件监听功能，可被多个模块使用。
+"""
 
 import os
 import time
@@ -37,7 +40,7 @@ class FileWatcher:
                 return  # 已经在监听
 
             observer = Observer()
-            event_handler = _ConfigFileHandler(self)
+            event_handler = _FileHandler(self)
             observer.schedule(event_handler, str(self.watch_path), recursive=True)
             observer.start()
             self.observers.append(observer)
@@ -120,8 +123,8 @@ class FileWatcher:
         self.stop()
 
 
-class _ConfigFileHandler(FileSystemEventHandler):
-    """配置文件变化处理器"""
+class _FileHandler(FileSystemEventHandler):
+    """文件变化处理器"""
 
     def __init__(self, watcher: FileWatcher) -> None:
         """初始化处理器

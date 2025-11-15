@@ -1,35 +1,29 @@
-"""工具模块
+"""基础设施工具模块
 
-提供各种通用工具类，可被多个模块使用。
+提供通用的工具类，可被多个模块使用。
 """
 
 from .env_resolver import EnvResolver
-from .config_merger import ConfigMerger
 from .redactor import Redactor
 from .file_watcher import FileWatcher
-from .validator import Validator
 from .cache import Cache
+from .dict_merger import DictMerger
+from .validator import Validator
 from .backup_manager import BackupManager
-from .inheritance_handler import InheritanceHandler
-from .schema_loader import SchemaLoader
-from .config_operations import ConfigOperations
 
 __all__ = [
     "EnvResolver",
-    "ConfigMerger",
     "Redactor",
     "FileWatcher",
-    "Validator",
     "Cache",
+    "DictMerger",
+    "Validator",
     "BackupManager",
-    "InheritanceHandler",
-    "SchemaLoader",
-    "ConfigOperations",
-    "ToolFactory",
+    "UtilsFactory",
 ]
 
 
-class ToolFactory:
+class UtilsFactory:
     """工具工厂
     
     提供创建各种工具实例的便捷方法。
@@ -48,13 +42,13 @@ class ToolFactory:
         return EnvResolver(prefix)
     
     @staticmethod
-    def create_config_merger() -> ConfigMerger:
-        """创建配置合并器
+    def create_dict_merger() -> DictMerger:
+        """创建字典合并器
         
         Returns:
-            配置合并器实例
+            字典合并器实例
         """
-        return ConfigMerger()
+        return DictMerger()
     
     @staticmethod
     def create_redactor(patterns=None, replacement: str = "***") -> Redactor:
@@ -112,39 +106,3 @@ class ToolFactory:
             备份管理器实例
         """
         return BackupManager(backup_dir, max_backups)
-    
-    @staticmethod
-    def create_inheritance_handler(config_loader=None) -> InheritanceHandler:
-        """创建继承处理器
-        
-        Args:
-            config_loader: 配置加载器
-            
-        Returns:
-            继承处理器实例
-        """
-        return InheritanceHandler(config_loader)
-    
-    @staticmethod
-    def create_schema_loader(schema_dir: str = "schemas") -> SchemaLoader:
-        """创建模式加载器
-        
-        Args:
-            schema_dir: 模式文件目录
-            
-        Returns:
-            模式加载器实例
-        """
-        return SchemaLoader(schema_dir)
-    
-    @staticmethod
-    def create_config_operations(config_system) -> ConfigOperations:
-        """创建配置操作工具
-        
-        Args:
-            config_system: 配置系统实例
-            
-        Returns:
-            配置操作工具实例
-        """
-        return ConfigOperations(config_system)

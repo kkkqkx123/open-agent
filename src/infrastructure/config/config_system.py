@@ -9,15 +9,15 @@ from pathlib import Path
 from .interfaces import IConfigSystem, IConfigLoader
 from .loader.yaml_loader import YamlConfigLoader
 from ..exceptions import ConfigurationError
-from .processor.merger import IConfigMerger
+from ..utils.dict_merger import IDictMerger as IConfigMerger
 from .processor.validator import IConfigValidator, ValidationResult
 from .models.global_config import GlobalConfig
 from .models.task_group_config import TaskGroupsConfig
 from .models.llm_config import LLMConfig
 from .models.tool_config import ToolConfig
 from .models.token_counter_config import TokenCounterConfig
-from .processor.env_resolver import EnvResolver
-from .loader.file_watcher import FileWatcher
+from ..utils.env_resolver import EnvResolver
+from ..utils.file_watcher import FileWatcher
 from .service.error_recovery import ConfigErrorRecovery, ConfigValidatorWithRecovery
 from .service.callback_manager import (
     get_global_callback_manager,

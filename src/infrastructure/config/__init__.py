@@ -5,8 +5,8 @@ from .config_factory import ConfigFactory
 from .config_service_factory import create_config_system, create_minimal_config_system
 from .config_cache import ConfigCache
 from .config_loader import ConfigLoader
-from .config_operations import ConfigOperations
-from .processor.merger import IConfigMerger, ConfigMerger
+from .utils.config_operations import ConfigOperations
+from ..utils.dict_merger import IDictMerger as IConfigMerger, DictMerger as ConfigMerger
 from .processor.validator import IConfigValidator, ConfigValidator, ValidationResult
 from .processor.enhanced_validator import (
     EnhancedConfigValidator,
@@ -33,9 +33,11 @@ from .service.callback_manager import (
     trigger_config_callbacks,
 )
 from .interfaces import IConfigLoader, IConfigInheritanceHandler
-from .processor.inheritance import ConfigInheritanceHandler, InheritanceConfigLoader
+from .utils.inheritance_handler import ConfigInheritanceHandler
+from .utils.inheritance_handler import IConfigInheritanceHandler
+from .utils.inheritance_handler import InheritanceConfigLoader
 from .loader.yaml_loader import YamlConfigLoader
-from .loader.file_watcher import FileWatcher
+from ..utils.file_watcher import FileWatcher
 from .migration.migration import (
     MigrationResult,
     ConfigMigrationTool,

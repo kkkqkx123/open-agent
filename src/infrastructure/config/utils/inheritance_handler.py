@@ -1,6 +1,6 @@
-"""配置继承系统
+"""配置继承处理工具
 
-实现配置继承和验证机制，支持配置文件的继承和覆盖功能。
+专门用于配置系统的继承处理功能。
 """
 
 import os
@@ -385,84 +385,68 @@ class ConfigInheritanceHandler(IConfigInheritanceHandler):
 
 
 class InheritanceConfigLoader(IConfigLoader):
-    """支持继承的配置加载器装饰器"""
+    """继承配置加载器装饰器
     
-    def __init__(self, base_config_loader: 'IConfigLoader'):
+    为配置加载器添加继承处理功能。
+    """
+    
+    def __init__(self, base_loader: IConfigLoader):
         """初始化继承配置加载器
         
         Args:
-            base_config_loader: 基础配置加载器
+            base_loader: 基础配置加载器
         """
-        self.base_config_loader = base_config_loader
-        self.inheritance_handler = ConfigInheritanceHandler(self.base_config_loader)
+        self.base_loader = base_loader
+        self.inheritance_handler = ConfigInheritanceHandler(base_loader)
     
-    @property
-    def base_path(self) -> Path:
-        """获取配置基础路径"""
-        return self.base_config_loader.base_path
+    def load_config(self, config_path: str, config_type: Optional[str] = None) -> Dict[str, Any]:
+        """加载配置并处理继承关系
+        
+        Args:
+            config_path: 配置文件路径
+            config_type: 配置类型（可选）
+            
+        Returns:
+            处理后的配置数据
+        """
+        # 使用基础加载器加载配置
+        config = self.base_loader.load_config(config_path, config_type)
+        
+        # 处理继承关系
+        if config:
+            base_path = Path(config_path).parent
+            config = self.inheritance_handler.resolve_inheritance(config, base_path)
+        
+        return config
     
-    def load(self, config_path: str) -> Dict[str, Any]:
-        """加载配置文件（处理继承）
+    def save_config(self, config: Dict[str, Any], config_path: str, config_type: Optional[str] = None) -> None:
+        """保存配置
+        
+        Args:
+            config: 配置数据
+            config_path: 配置文件路径
+            config_type: 配置类型（可选）
+        """
+        self.base_loader.save_config(config, config_path, config_type)
+    
+    def list_configs(self, config_type: Optional[str] = None) -> List[str]:
+        """列出配置文件
+        
+        Args:
+            config_type: 配置类型（可选）
+            
+        Returns:
+            配置文件路径列表
+        """
+        return self.base_loader.list_configs(config_type)
+    
+    def validate_config_path(self, config_path: str) -> bool:
+        """验证配置路径
         
         Args:
             config_path: 配置文件路径
             
         Returns:
-            解析后的配置
+            路径是否有效
         """
-        # 使用基础加载器加载配置
-        config = self.base_config_loader.load(config_path)
-        
-        # 解析继承关系
-        config_path_obj = Path(config_path)
-        base_path = config_path_obj.parent if config_path_obj.parent != Path(".") else None
-        
-        resolved_config = self.inheritance_handler.resolve_inheritance(config, base_path)
-        
-        return resolved_config
-    
-    def reload(self) -> None:
-        """重新加载所有配置"""
-        self.base_config_loader.reload()
-    
-    def watch_for_changes(
-        self, callback: Callable[[str, Dict[str, Any]], None]
-    ) -> None:
-        """监听配置变化"""
-        self.base_config_loader.watch_for_changes(callback)
-    
-    def resolve_env_vars(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """解析环境变量"""
-        return self.inheritance_handler._resolve_env_vars(config)
-    
-    def stop_watching(self) -> None:
-        """停止监听配置变化"""
-        self.base_config_loader.stop_watching()
-    
-    def get_config(self, config_path: str) -> Optional[Dict[str, Any]]:
-        """获取缓存中的配置，如果不存在则返回None"""
-        return self.base_config_loader.get_config(config_path)
-    
-    def _handle_file_change(self, file_path: str) -> None:
-        """处理文件变化事件"""
-        self.base_config_loader._handle_file_change(file_path)
-    
-    def validate_with_schema(self, config: Dict[str, Any], schema: Optional[BaseModel] = None) -> List[str]:
-        """使用模式验证配置
-        
-        Args:
-            config: 配置数据
-            schema: 验证模式
-            
-        Returns:
-            验证错误列表
-        """
-        return self.inheritance_handler.validate_config(config, schema)
-    
-    def get_inheritance_handler(self) -> ConfigInheritanceHandler:
-        """获取继承处理器
-        
-        Returns:
-            继承处理器
-        """
-        return self.inheritance_handler
+        return self.base_loader.validate_config_path(config_path)

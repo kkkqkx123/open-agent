@@ -1,4 +1,7 @@
-"""环境变量解析器"""
+"""环境变量解析工具
+
+提供通用的环境变量解析功能，可被多个模块使用。
+"""
 
 import os
 import re
@@ -6,7 +9,11 @@ from typing import Any, Dict, Union, Optional
 
 
 class EnvResolver:
-    """环境变量解析器"""
+    """环境变量解析器
+    
+    提供环境变量的解析、获取、设置和管理功能。
+    支持变量前缀和默认值。
+    """
 
     def __init__(self, prefix: str = ""):
         """初始化环境变量解析器
