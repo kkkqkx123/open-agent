@@ -1,4 +1,6 @@
-from typing import Dict, Any
+"""历史管理器 - 重构版本"""
+
+from typing import Dict, Any, Optional
 from datetime import datetime
 import json
 
@@ -7,68 +9,164 @@ from src.domain.history.models import MessageRecord, ToolCallRecord, HistoryQuer
 from src.domain.history.llm_models import LLMRequestRecord, LLMResponseRecord, TokenUsageRecord, CostRecord
 from src.infrastructure.history.storage.file_storage import FileHistoryStorage
 
+# 导入公用组件
+from src.infrastructure.common.serialization.universal_serializer import UniversalSerializer
+from src.infrastructure.common.cache.enhanced_cache_manager import EnhancedCacheManager
+from src.infrastructure.common.temporal.temporal_manager import TemporalManager
+from src.infrastructure.common.metadata.metadata_manager import MetadataManager
+from src.infrastructure.common.id_generator.id_generator import IDGenerator
+from src.infrastructure.common.monitoring.performance_monitor import PerformanceMonitor
+
 
 class HistoryManager(IHistoryManager):
-    def __init__(self, storage: FileHistoryStorage):
+    """历史管理器实现 - 重构版本"""
+    
+    def __init__(
+        self,
+        storage: FileHistoryStorage,
+        serializer: Optional[UniversalSerializer] = None,
+        cache_manager: Optional[EnhancedCacheManager] = None,
+        performance_monitor: Optional[PerformanceMonitor] = None
+    ):
+        """初始化历史管理器"""
         self.storage = storage
+        
+        # 公用组件
+        self.serializer = serializer or UniversalSerializer()
+        self.cache = cache_manager
+        self.monitor = performance_monitor or PerformanceMonitor()
+        self.temporal = TemporalManager()
+        self.metadata = MetadataManager()
+        self.id_generator = IDGenerator()
     
     def record_message(self, record: MessageRecord) -> None:
-        self.storage.store_record(record)
+        """记录消息"""
+        operation_id = self.monitor.start_operation("record_message")
+        
+        try:
+            # 使用公用组件处理记录
+            processed_record = self._process_record(record)
+            
+            # 序列化记录
+            serialized_record = self.serializer.serialize(processed_record, "compact_json")
+            
+            # 存储记录
+            self.storage.store_record(processed_record)
+            
+            # 缓存记录
+            if self.cache:
+                cache_key = f"message:{record.record_id}"
+                import asyncio
+                asyncio.create_task(self.cache.set(cache_key, processed_record, ttl=1800))
+            
+            self.monitor.end_operation(operation_id, "record_message", True)
+            
+        except Exception as e:
+            self.monitor.end_operation(operation_id, "record_message", False, {"error": str(e)})
+            raise
     
     def record_tool_call(self, record: ToolCallRecord) -> None:
-        self.storage.store_record(record)
+        """记录工具调用"""
+        operation_id = self.monitor.start_operation("record_tool_call")
+        
+        try:
+            # 使用公用组件处理记录
+            processed_record = self._process_record(record)
+            
+            # 序列化记录
+            serialized_record = self.serializer.serialize(processed_record, "compact_json")
+            
+            # 存储记录
+            self.storage.store_record(processed_record)
+            
+            # 缓存记录
+            if self.cache:
+                cache_key = f"tool_call:{record.record_id}"
+                import asyncio
+                asyncio.create_task(self.cache.set(cache_key, processed_record, ttl=1800))
+            
+            self.monitor.end_operation(operation_id, "record_tool_call", True)
+            
+        except Exception as e:
+            self.monitor.end_operation(operation_id, "record_tool_call", False, {"error": str(e)})
+            raise
     
     def query_history(self, query: HistoryQuery) -> HistoryResult:
-        """
-        查询历史记录
+        """查询历史记录"""
+        operation_id = self.monitor.start_operation("query_history")
         
-        Args:
-            query: 查询条件
+        try:
+            # 先尝试从缓存获取
+            cache_key = f"history_query:{hash(str(query.__dict__))}"
+            if self.cache:
+                import asyncio
+                cached_result = asyncio.run(self.cache.get(cache_key))
+                if cached_result:
+                    self.monitor.end_operation(
+                        operation_id, "query_history", True,
+                        {"cache_hit": True}
+                    )
+                    return HistoryResult(**cached_result)
             
-        Returns:
-            HistoryResult: 查询结果
-        """
-        # 获取所有记录（原始字典格式）
-        raw_records = self.storage.get_all_records(query.session_id) if query.session_id else []
+            # 获取所有记录（原始字典格式）
+            raw_records = self.storage.get_all_records(query.session_id) if query.session_id else []
+            
+            # 将原始字典转换为适当的记录对象
+            all_records = []
+            for raw_record in raw_records:
+                record_type = raw_record.get('record_type', 'message')
+                record_obj = self._deserialize_record(raw_record, record_type)
+                if record_obj:
+                    all_records.append(record_obj)
+            
+            # 应用时间范围过滤
+            if query.start_time:
+                all_records = [r for r in all_records if hasattr(r, 'timestamp') and r.timestamp >= query.start_time]
+            if query.end_time:
+                all_records = [r for r in all_records if hasattr(r, 'timestamp') and r.timestamp <= query.end_time]
+            
+            # 应用记录类型过滤
+            if query.record_types:
+                all_records = [r for r in all_records if hasattr(r, 'record_type') and r.record_type in query.record_types]
+            
+            # 应用分页
+            total = len(all_records)
+            if query.offset:
+                all_records = all_records[query.offset:]
+            if query.limit:
+                all_records = all_records[:query.limit]
+            
+            result = HistoryResult(records=all_records, total=total)
+            
+            # 缓存结果
+            if self.cache:
+                import asyncio
+                asyncio.create_task(self.cache.set(cache_key, result.__dict__, ttl=300))
+            
+            self.monitor.end_operation(
+                operation_id, "query_history", True,
+                {"cache_hit": False, "count": len(all_records)}
+            )
+            
+            return result
+        except Exception as e:
+            self.monitor.end_operation(operation_id, "query_history", False, {"error": str(e)})
+            raise
+    
+    def _process_record(self, record) -> Any:
+        """处理记录，使用公用组件"""
+        # 标准化元数据
+        if hasattr(record, 'metadata'):
+            record.metadata = self.metadata.normalize_metadata(record.metadata)
         
-        # 将原始字典转换为适当的记录对象
-        all_records = []
-        for raw_record in raw_records:
-            record_type = raw_record.get('record_type', 'message')
-            record_obj = self._deserialize_record(raw_record, record_type)
-            if record_obj:
-                all_records.append(record_obj)
+        # 处理时间戳
+        if hasattr(record, 'timestamp'):
+            record.timestamp = self.temporal.format_timestamp(record.timestamp, "iso")
         
-        # 应用时间范围过滤
-        if query.start_time:
-            all_records = [r for r in all_records if hasattr(r, 'timestamp') and r.timestamp >= query.start_time]
-        if query.end_time:
-            all_records = [r for r in all_records if hasattr(r, 'timestamp') and r.timestamp <= query.end_time]
-        
-        # 应用记录类型过滤
-        if query.record_types:
-            all_records = [r for r in all_records if hasattr(r, 'record_type') and r.record_type in query.record_types]
-        
-        # 应用分页
-        total = len(all_records)
-        if query.offset:
-            all_records = all_records[query.offset:]
-        if query.limit:
-            all_records = all_records[:query.limit]
-        
-        return HistoryResult(records=all_records, total=total)
+        return record
     
     def _deserialize_record(self, raw_record: Dict[str, Any], record_type: str):
-        """
-        将原始字典反序列化为记录对象
-        
-        Args:
-            raw_record: 原始记录字典
-            record_type: 记录类型
-            
-        Returns:
-            适当的记录对象或None
-        """
+        """将原始字典反序列化为记录对象"""
         try:
             # 处理时间戳
             if 'timestamp' in raw_record and isinstance(raw_record['timestamp'], str):
@@ -172,122 +270,278 @@ class HistoryManager(IHistoryManager):
             print(f"Failed to deserialize record: {e}")
             return None
     
-    # 新增LLM相关方法
     def record_llm_request(self, record: LLMRequestRecord) -> None:
-        self.storage.store_record(record)
+        """记录LLM请求"""
+        operation_id = self.monitor.start_operation("record_llm_request")
+        
+        try:
+            # 使用公用组件处理记录
+            processed_record = self._process_record(record)
+            
+            # 序列化记录
+            serialized_record = self.serializer.serialize(processed_record, "compact_json")
+            
+            # 存储记录
+            self.storage.store_record(processed_record)
+            
+            # 缓存记录
+            if self.cache:
+                cache_key = f"llm_request:{record.record_id}"
+                import asyncio
+                asyncio.create_task(self.cache.set(cache_key, processed_record, ttl=1800))
+            
+            self.monitor.end_operation(operation_id, "record_llm_request", True)
+            
+        except Exception as e:
+            self.monitor.end_operation(operation_id, "record_llm_request", False, {"error": str(e)})
+            raise
     
     def record_llm_response(self, record: LLMResponseRecord) -> None:
-        self.storage.store_record(record)
+        """记录LLM响应"""
+        operation_id = self.monitor.start_operation("record_llm_response")
+        
+        try:
+            # 使用公用组件处理记录
+            processed_record = self._process_record(record)
+            
+            # 序列化记录
+            serialized_record = self.serializer.serialize(processed_record, "compact_json")
+            
+            # 存储记录
+            self.storage.store_record(processed_record)
+            
+            # 缓存记录
+            if self.cache:
+                cache_key = f"llm_response:{record.record_id}"
+                import asyncio
+                asyncio.create_task(self.cache.set(cache_key, processed_record, ttl=1800))
+            
+            self.monitor.end_operation(operation_id, "record_llm_response", True)
+            
+        except Exception as e:
+            self.monitor.end_operation(operation_id, "record_llm_response", False, {"error": str(e)})
+            raise
     
     def record_token_usage(self, record: TokenUsageRecord) -> None:
-        self.storage.store_record(record)
+        """记录Token使用"""
+        operation_id = self.monitor.start_operation("record_token_usage")
+        
+        try:
+            # 使用公用组件处理记录
+            processed_record = self._process_record(record)
+            
+            # 序列化记录
+            serialized_record = self.serializer.serialize(processed_record, "compact_json")
+            
+            # 存储记录
+            self.storage.store_record(processed_record)
+            
+            # 缓存记录
+            if self.cache:
+                cache_key = f"token_usage:{record.record_id}"
+                import asyncio
+                asyncio.create_task(self.cache.set(cache_key, processed_record, ttl=1800))
+            
+            self.monitor.end_operation(operation_id, "record_token_usage", True)
+            
+        except Exception as e:
+            self.monitor.end_operation(operation_id, "record_token_usage", False, {"error": str(e)})
+            raise
     
     def record_cost(self, record: CostRecord) -> None:
-        self.storage.store_record(record)
-    
-    # 新增查询和统计方法
-    def get_token_statistics(self, session_id: str) -> Dict[str, Any]:
-        """
-        获取Token使用统计
+        """记录成本"""
+        operation_id = self.monitor.start_operation("record_cost")
         
-        Args:
-            session_id: 会话ID
+        try:
+            # 使用公用组件处理记录
+            processed_record = self._process_record(record)
             
-        Returns:
-            Dict[str, Any]: Token使用统计信息
-        """
-        # 查询Token使用记录
-        raw_records = self.storage.get_all_records(session_id)
-        token_records = []
-        for raw_record in raw_records:
-            if raw_record.get('record_type') == 'token_usage':
-                token_record = self._deserialize_record(raw_record, 'token_usage')
-                if token_record:
-                    token_records.append(token_record)
+            # 序列化记录
+            serialized_record = self.serializer.serialize(processed_record, "compact_json")
+            
+            # 存储记录
+            self.storage.store_record(processed_record)
+            
+            # 缓存记录
+            if self.cache:
+                cache_key = f"cost:{record.record_id}"
+                import asyncio
+                asyncio.create_task(self.cache.set(cache_key, processed_record, ttl=1800))
+            
+            self.monitor.end_operation(operation_id, "record_cost", True)
+            
+        except Exception as e:
+            self.monitor.end_operation(operation_id, "record_cost", False, {"error": str(e)})
+            raise
+    
+    def get_token_statistics(self, session_id: str) -> Dict[str, Any]:
+        """获取Token使用统计"""
+        operation_id = self.monitor.start_operation("get_token_statistics")
         
-        total_tokens = sum(r.total_tokens for r in token_records)
-        prompt_tokens = sum(r.prompt_tokens for r in token_records)
-        completion_tokens = sum(r.completion_tokens for r in token_records)
-        
-        return {
-            "session_id": session_id,
-            "total_tokens": total_tokens,
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "record_count": len(token_records),
-            "avg_tokens_per_record": total_tokens / len(token_records) if token_records else 0
-        }
+        try:
+            # 先尝试从缓存获取
+            cache_key = f"token_stats:{session_id}"
+            if self.cache:
+                import asyncio
+                cached_stats = asyncio.run(self.cache.get(cache_key))
+                if cached_stats:
+                    self.monitor.end_operation(
+                        operation_id, "get_token_statistics", True,
+                        {"cache_hit": True}
+                    )
+                    return cached_stats
+            
+            # 查询Token使用记录
+            raw_records = self.storage.get_all_records(session_id)
+            token_records = []
+            for raw_record in raw_records:
+                if raw_record.get('record_type') == 'token_usage':
+                    token_record = self._deserialize_record(raw_record, 'token_usage')
+                    if token_record:
+                        token_records.append(token_record)
+            
+            total_tokens = sum(r.total_tokens for r in token_records)
+            prompt_tokens = sum(r.prompt_tokens for r in token_records)
+            completion_tokens = sum(r.completion_tokens for r in token_records)
+            
+            result = {
+                "session_id": session_id,
+                "total_tokens": total_tokens,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "record_count": len(token_records),
+                "avg_tokens_per_record": total_tokens / len(token_records) if token_records else 0
+            }
+            
+            # 缓存结果
+            if self.cache:
+                import asyncio
+                asyncio.create_task(self.cache.set(cache_key, result, ttl=600))
+            
+            self.monitor.end_operation(
+                operation_id, "get_token_statistics", True,
+                {"cache_hit": False, "session_id": session_id}
+            )
+            
+            return result
+        except Exception as e:
+            self.monitor.end_operation(operation_id, "get_token_statistics", False, {"error": str(e)})
+            raise
     
     def get_cost_statistics(self, session_id: str) -> Dict[str, Any]:
-        """
-        获取成本统计
+        """获取成本统计"""
+        operation_id = self.monitor.start_operation("get_cost_statistics")
         
-        Args:
-            session_id: 会话ID
+        try:
+            # 先尝试从缓存获取
+            cache_key = f"cost_stats:{session_id}"
+            if self.cache:
+                import asyncio
+                cached_stats = asyncio.run(self.cache.get(cache_key))
+                if cached_stats:
+                    self.monitor.end_operation(
+                        operation_id, "get_cost_statistics", True,
+                        {"cache_hit": True}
+                    )
+                    return cached_stats
             
-        Returns:
-            Dict[str, Any]: 成本统计信息
-        """
-        # 查询成本记录
-        raw_records = self.storage.get_all_records(session_id)
-        cost_records = []
-        for raw_record in raw_records:
-            if raw_record.get('record_type') == 'cost':
-                cost_record = self._deserialize_record(raw_record, 'cost')
-                if cost_record:
-                    cost_records.append(cost_record)
-        
-        total_cost = sum(r.total_cost for r in cost_records)
-        prompt_cost = sum(r.prompt_cost for r in cost_records)
-        completion_cost = sum(r.completion_cost for r in cost_records)
-        
-        # 获取使用的模型
-        models_used = list(set(r.model for r in cost_records))
-        
-        return {
-            "session_id": session_id,
-            "total_cost": total_cost,
-            "prompt_cost": prompt_cost,
-            "completion_cost": completion_cost,
-            "currency": cost_records[0].currency if cost_records else "USD",
-            "record_count": len(cost_records),
-            "models_used": models_used
-        }
+            # 查询成本记录
+            raw_records = self.storage.get_all_records(session_id)
+            cost_records = []
+            for raw_record in raw_records:
+                if raw_record.get('record_type') == 'cost':
+                    cost_record = self._deserialize_record(raw_record, 'cost')
+                    if cost_record:
+                        cost_records.append(cost_record)
+            
+            total_cost = sum(r.total_cost for r in cost_records)
+            prompt_cost = sum(r.prompt_cost for r in cost_records)
+            completion_cost = sum(r.completion_cost for r in cost_records)
+            
+            # 获取使用的模型
+            models_used = list(set(r.model for r in cost_records))
+            
+            result = {
+                "session_id": session_id,
+                "total_cost": total_cost,
+                "prompt_cost": prompt_cost,
+                "completion_cost": completion_cost,
+                "currency": cost_records[0].currency if cost_records else "USD",
+                "record_count": len(cost_records),
+                "models_used": models_used
+            }
+            
+            # 缓存结果
+            if self.cache:
+                import asyncio
+                asyncio.create_task(self.cache.set(cache_key, result, ttl=600))
+            
+            self.monitor.end_operation(
+                operation_id, "get_cost_statistics", True,
+                {"cache_hit": False, "session_id": session_id}
+            )
+            
+            return result
+        except Exception as e:
+            self.monitor.end_operation(operation_id, "get_cost_statistics", False, {"error": str(e)})
+            raise
     
     def get_llm_statistics(self, session_id: str) -> Dict[str, Any]:
-        """
-        获取LLM调用统计
+        """获取LLM调用统计"""
+        operation_id = self.monitor.start_operation("get_llm_statistics")
         
-        Args:
-            session_id: 会话ID
+        try:
+            # 先尝试从缓存获取
+            cache_key = f"llm_stats:{session_id}"
+            if self.cache:
+                import asyncio
+                cached_stats = asyncio.run(self.cache.get(cache_key))
+                if cached_stats:
+                    self.monitor.end_operation(
+                        operation_id, "get_llm_statistics", True,
+                        {"cache_hit": True}
+                    )
+                    return cached_stats
             
-        Returns:
-            Dict[str, Any]: LLM调用统计信息
-        """
-        # 查询LLM相关记录
-        raw_records = self.storage.get_all_records(session_id)
-        llm_request_records = []
-        llm_response_records = []
-        
-        for raw_record in raw_records:
-            record_type = raw_record.get('record_type')
-            if record_type == 'llm_request':
-                request_record = self._deserialize_record(raw_record, 'llm_request')
-                if request_record:
-                    llm_request_records.append(request_record)
-            elif record_type == 'llm_response':
-                response_record = self._deserialize_record(raw_record, 'llm_response')
-                if response_record:
-                    llm_response_records.append(response_record)
-        
-        # 获取使用的模型
-        models_used = list(set(r.model for r in llm_request_records))
-        
-        return {
-            "session_id": session_id,
-            "llm_requests": len(llm_request_records),
-            "llm_responses": len(llm_response_records),
-            "models_used": models_used,
-            "request_record_count": len(llm_request_records),
-            "response_record_count": len(llm_response_records)
-        }
+            # 查询LLM相关记录
+            raw_records = self.storage.get_all_records(session_id)
+            llm_request_records = []
+            llm_response_records = []
+            
+            for raw_record in raw_records:
+                record_type = raw_record.get('record_type')
+                if record_type == 'llm_request':
+                    request_record = self._deserialize_record(raw_record, 'llm_request')
+                    if request_record:
+                        llm_request_records.append(request_record)
+                elif record_type == 'llm_response':
+                    response_record = self._deserialize_record(raw_record, 'llm_response')
+                    if response_record:
+                        llm_response_records.append(response_record)
+            
+            # 获取使用的模型
+            models_used = list(set(r.model for r in llm_request_records))
+            
+            result = {
+                "session_id": session_id,
+                "llm_requests": len(llm_request_records),
+                "llm_responses": len(llm_response_records),
+                "models_used": models_used,
+                "request_record_count": len(llm_request_records),
+                "response_record_count": len(llm_response_records)
+            }
+            
+            # 缓存结果
+            if self.cache:
+                import asyncio
+                asyncio.create_task(self.cache.set(cache_key, result, ttl=600))
+            
+            self.monitor.end_operation(
+                operation_id, "get_llm_statistics", True,
+                {"cache_hit": False, "session_id": session_id}
+            )
+            
+            return result
+        except Exception as e:
+            self.monitor.end_operation(operation_id, "get_llm_statistics", False, {"error": str(e)})
+            raise

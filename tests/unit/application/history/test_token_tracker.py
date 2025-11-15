@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import List
 from langchain_core.messages import HumanMessage
 
-from src.application.history.token_tracker import TokenUsageTracker, generate_id
+from infrastructure.history.token_tracker import TokenUsageTracker, generate_id
 from src.domain.history.llm_models import TokenUsageRecord
 from src.domain.history.interfaces import IHistoryManager
 from src.infrastructure.llm.token_calculators.base import ITokenCalculator

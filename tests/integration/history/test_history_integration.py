@@ -17,9 +17,9 @@ from src.domain.history.llm_models import (
 )
 from src.domain.history.interfaces import IHistoryManager
 from src.application.history.manager import HistoryManager
-from src.application.history.service_integration import HistoryServiceIntegration
-from src.application.history.session_context import session_context, generate_session_id
-from src.application.history.token_tracker import TokenUsageTracker
+from application.history.historyUseCase import HistoryUseCase
+from infrastructure.history.session_context import session_context, generate_session_id
+from infrastructure.history.token_tracker import TokenUsageTracker
 from src.application.history.di_config import register_history_services_with_dependencies, register_test_history_services
 from src.application.history.adapters.tui_adapter import TUIHistoryAdapter
 from src.presentation.tui.state_manager import StateManager
@@ -63,7 +63,7 @@ class TestHistoryModuleIntegration:
         """测试端到端历史记录流程"""
         # 获取服务
         history_manager = container.get(IHistoryManager)
-        service_integration = HistoryServiceIntegration(history_manager)
+        service_integration = HistoryUseCase(history_manager)
         token_tracker = container.get(TokenUsageTracker)
         
         # 生成会话ID
@@ -234,7 +234,7 @@ class TestHistoryModuleIntegration:
         """测试会话上下文集成"""
         # 获取服务
         history_manager = container.get(IHistoryManager)
-        service_integration = HistoryServiceIntegration(history_manager)
+        service_integration = HistoryUseCase(history_manager)
         
         # 测试嵌套会话上下文
         outer_session = generate_session_id()
@@ -325,7 +325,7 @@ class TestHistoryModuleIntegration:
         """测试历史导出集成"""
         # 获取服务
         history_manager = container.get(IHistoryManager)
-        service_integration = HistoryServiceIntegration(history_manager)
+        service_integration = HistoryUseCase(history_manager)
         
         session_id = generate_session_id()
         
@@ -365,7 +365,7 @@ class TestHistoryModuleIntegration:
         """测试错误处理集成"""
         # 获取服务
         history_manager = container.get(IHistoryManager)
-        service_integration = HistoryServiceIntegration(history_manager)
+        service_integration = HistoryUseCase(history_manager)
         
         session_id = generate_session_id()
         
@@ -401,7 +401,7 @@ class TestHistoryModuleIntegration:
         """测试并发会话集成"""
         # 获取服务
         history_manager = container.get(IHistoryManager)
-        service_integration = HistoryServiceIntegration(history_manager)
+        service_integration = HistoryUseCase(history_manager)
         
         # 创建多个会话
         session_ids = [generate_session_id() for _ in range(3)]
@@ -439,7 +439,7 @@ class TestHistoryModuleIntegration:
         
         # 获取服务
         history_manager = container.get(IHistoryManager)
-        service_integration = HistoryServiceIntegration(history_manager)
+        service_integration = HistoryUseCase(history_manager)
         
         session_id = generate_session_id()
         

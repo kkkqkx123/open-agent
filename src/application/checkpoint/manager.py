@@ -1,4 +1,4 @@
-"""Checkpoint管理器实现
+"""Checkpoint管理器实现 - 重构版本
 
 提供checkpoint的创建、保存、恢复和管理功能。
 """
@@ -10,6 +10,12 @@ from datetime import datetime
 
 from ...domain.checkpoint.interfaces import ICheckpointStore, ICheckpointManager, ICheckpointPolicy
 from ...domain.checkpoint.config import CheckpointConfig
+from ...infrastructure.common.serialization.universal_serializer import UniversalSerializer
+from ...infrastructure.common.cache.enhanced_cache_manager import EnhancedCacheManager
+from ...infrastructure.common.temporal.temporal_manager import TemporalManager
+from ...infrastructure.common.metadata.metadata_manager import MetadataManager
+from ...infrastructure.common.id_generator.id_generator import IDGenerator
+from ...infrastructure.common.monitoring.performance_monitor import PerformanceMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -91,27 +97,41 @@ class DefaultCheckpointPolicy(ICheckpointPolicy):
 
 
 class CheckpointManager(ICheckpointManager):
-    """Checkpoint管理器实现
+    """Checkpoint管理器实现 - 重构版本
     
     协调checkpoint的创建、保存和恢复。
     """
     
     def __init__(
-        self, 
+        self,
         checkpoint_store: ICheckpointStore,
         config: CheckpointConfig,
-        policy: Optional[ICheckpointPolicy] = None
+        policy: Optional[ICheckpointPolicy] = None,
+        serializer: Optional[UniversalSerializer] = None,
+        cache_manager: Optional[EnhancedCacheManager] = None,
+        performance_monitor: Optional[PerformanceMonitor] = None
     ):
         """初始化checkpoint管理器
         
         Args:
             checkpoint_store: checkpoint存储
             config: checkpoint配置
-            policy: checkpoint策略，如果为None则使用默认策略
+            policy: checkpoint策略
+            serializer: 序列化器
+            cache_manager: 缓存管理器
+            performance_monitor: 性能监控器
         """
         self.checkpoint_store = checkpoint_store
         self.config = config
         self.policy = policy or DefaultCheckpointPolicy(config)
+        self.serializer = serializer or UniversalSerializer()
+        self.cache = cache_manager
+        self.monitor = performance_monitor or PerformanceMonitor()
+        
+        # 公用组件
+        self.temporal = TemporalManager()
+        self.metadata = MetadataManager()
+        self.id_generator = IDGenerator()
         
         logger.debug(f"Checkpoint管理器初始化完成，存储类型: {config.storage_type}")
     
@@ -122,102 +142,178 @@ class CheckpointManager(ICheckpointManager):
         state: Any,
         metadata: Optional[Dict[str, Any]] = None
     ) -> str:
-        """创建checkpoint
+        """创建checkpoint"""
+        operation_id = self.monitor.start_operation("create_checkpoint")
         
-        Args:
-            thread_id: thread ID
-            workflow_id: 工作流ID
-            state: 工作流状态
-            metadata: 可选的元数据
-            
-        Returns:
-            str: checkpoint ID
-        """
         try:
-            checkpoint_id = str(uuid.uuid4())
+            # 生成checkpoint ID
+            checkpoint_id = self.id_generator.generate_checkpoint_id()
             
+            # 准备checkpoint数据
             checkpoint_data = {
                 'id': checkpoint_id,
                 'thread_id': thread_id,
                 'workflow_id': workflow_id,
                 'state_data': state,
                 'metadata': metadata or {},
-                'created_at': datetime.now().isoformat(),
-                'updated_at': datetime.now().isoformat()
+                'created_at': self.temporal.now(),
+                'updated_at': self.temporal.now()
             }
             
+            # 序列化状态数据
+            serialized_state = self.serializer.serialize(state, "compact_json")
+            checkpoint_data['serialized_state'] = serialized_state
+            
+            # 保存checkpoint
             success = await self.checkpoint_store.save(checkpoint_data)
+            
             if success:
+                # 缓存checkpoint
+                if self.cache:
+                    await self.cache.set(checkpoint_id, checkpoint_data, ttl=3600)
+                
                 logger.debug(f"Checkpoint创建成功: {checkpoint_id}")
+                
+                # 记录性能指标
+                duration = self.monitor.end_operation(
+                    operation_id, "create_checkpoint", True,
+                    {"thread_id": thread_id, "workflow_id": workflow_id}
+                )
+                
                 return checkpoint_id
             else:
                 raise RuntimeError("创建checkpoint失败")
+                
         except Exception as e:
             logger.error(f"创建checkpoint失败: {e}")
+            
+            # 记录失败指标
+            self.monitor.end_operation(
+                operation_id, "create_checkpoint", False,
+                {"error": str(e)}
+            )
+            
             raise
     
     async def get_checkpoint(self, thread_id: str, checkpoint_id: str) -> Optional[Dict[str, Any]]:
-        """获取checkpoint
+        """获取checkpoint"""
+        operation_id = self.monitor.start_operation("get_checkpoint")
         
-        Args:
-            thread_id: thread ID
-            checkpoint_id: checkpoint ID
-            
-        Returns:
-            Optional[Dict[str, Any]]: checkpoint数据，如果不存在则返回None
-        """
         try:
-            # 使用load_by_thread方法获取checkpoint
-            return await self.checkpoint_store.load_by_thread(thread_id, checkpoint_id)
+            # 先从缓存获取
+            if self.cache:
+                cached_checkpoint = await self.cache.get(checkpoint_id)
+                if cached_checkpoint:
+                    self.monitor.end_operation(
+                        operation_id, "get_checkpoint", True,
+                        {"cache_hit": True}
+                    )
+                    return cached_checkpoint
+            
+            # 从存储加载
+            checkpoint = await self.checkpoint_store.load_by_thread(thread_id, checkpoint_id)
+            
+            if checkpoint:
+                # 反序列化状态数据
+                if 'serialized_state' in checkpoint:
+                    checkpoint['state_data'] = self.serializer.deserialize(
+                        checkpoint['serialized_state'], "compact_json"
+                    )
+                
+                # 缓存结果
+                if self.cache:
+                    await self.cache.set(checkpoint_id, checkpoint, ttl=3600)
+                
+                self.monitor.end_operation(
+                    operation_id, "get_checkpoint", True,
+                    {"cache_hit": False}
+                )
+                
+                return checkpoint
+            
+            return None
+            
         except Exception as e:
             logger.error(f"获取checkpoint失败: {e}")
+            
+            self.monitor.end_operation(
+                operation_id, "get_checkpoint", False,
+                {"error": str(e)}
+            )
+            
             return None
     
     async def list_checkpoints(self, thread_id: str) -> List[Dict[str, Any]]:
-        """列出thread的所有checkpoint
+        """列出thread的所有checkpoint"""
+        operation_id = self.monitor.start_operation("list_checkpoints")
         
-        Args:
-            thread_id: thread ID
-            
-        Returns:
-            List[Dict[str, Any]]: checkpoint列表，按创建时间倒序排列
-        """
         try:
-            return await self.checkpoint_store.list_by_thread(thread_id)
+            result = await self.checkpoint_store.list_by_thread(thread_id)
+            
+            self.monitor.end_operation(
+                operation_id, "list_checkpoints", True,
+                {"thread_id": thread_id, "count": len(result)}
+            )
+            
+            return result
         except Exception as e:
             logger.error(f"列出checkpoint失败: {e}")
+            
+            self.monitor.end_operation(
+                operation_id, "list_checkpoints", False,
+                {"error": str(e)}
+            )
+            
             return []
     
     async def delete_checkpoint(self, thread_id: str, checkpoint_id: str) -> bool:
-        """删除checkpoint
+        """删除checkpoint"""
+        operation_id = self.monitor.start_operation("delete_checkpoint")
         
-        Args:
-            thread_id: thread ID
-            checkpoint_id: checkpoint ID
-            
-        Returns:
-            bool: 是否删除成功
-        """
         try:
-            # 使用delete_by_thread方法删除checkpoint
-            return await self.checkpoint_store.delete_by_thread(thread_id, checkpoint_id)
+            result = await self.checkpoint_store.delete_by_thread(thread_id, checkpoint_id)
+            
+            # 清理缓存
+            if result and self.cache:
+                await self.cache.remove(checkpoint_id)
+            
+            self.monitor.end_operation(
+                operation_id, "delete_checkpoint", True,
+                {"thread_id": thread_id, "checkpoint_id": checkpoint_id}
+            )
+            
+            return result
         except Exception as e:
             logger.error(f"删除checkpoint失败: {e}")
+            
+            self.monitor.end_operation(
+                operation_id, "delete_checkpoint", False,
+                {"error": str(e)}
+            )
+            
             return False
     
     async def get_latest_checkpoint(self, thread_id: str) -> Optional[Dict[str, Any]]:
-        """获取thread的最新checkpoint
+        """获取thread的最新checkpoint"""
+        operation_id = self.monitor.start_operation("get_latest_checkpoint")
         
-        Args:
-            thread_id: thread ID
-            
-        Returns:
-            Optional[Dict[str, Any]]: 最新的checkpoint数据，如果不存在则返回None
-        """
         try:
-            return await self.checkpoint_store.get_latest(thread_id)
+            result = await self.checkpoint_store.get_latest(thread_id)
+            
+            self.monitor.end_operation(
+                operation_id, "get_latest_checkpoint", True,
+                {"thread_id": thread_id}
+            )
+            
+            return result
         except Exception as e:
             logger.error(f"获取最新checkpoint失败: {e}")
+            
+            self.monitor.end_operation(
+                operation_id, "get_latest_checkpoint", False,
+                {"error": str(e)}
+            )
+            
             return None
     
     async def restore_from_checkpoint(
@@ -225,22 +321,30 @@ class CheckpointManager(ICheckpointManager):
         thread_id: str,
         checkpoint_id: str
     ) -> Optional[Any]:
-        """从checkpoint恢复状态
+        """从checkpoint恢复状态"""
+        operation_id = self.monitor.start_operation("restore_from_checkpoint")
         
-        Args:
-            thread_id: thread ID
-            checkpoint_id: checkpoint ID
-            
-        Returns:
-            Optional[Any]: 恢复的工作流状态，如果失败则返回None
-        """
         try:
             checkpoint = await self.get_checkpoint(thread_id, checkpoint_id)
             if checkpoint:
-                return checkpoint.get('state_data')
+                result = checkpoint.get('state_data')
+                
+                self.monitor.end_operation(
+                    operation_id, "restore_from_checkpoint", True,
+                    {"thread_id": thread_id, "checkpoint_id": checkpoint_id}
+                )
+                
+                return result
+            
             return None
         except Exception as e:
             logger.error(f"从checkpoint恢复状态失败: {e}")
+            
+            self.monitor.end_operation(
+                operation_id, "restore_from_checkpoint", False,
+                {"error": str(e)}
+            )
+            
             return None
     
     async def auto_save_checkpoint(
@@ -250,17 +354,9 @@ class CheckpointManager(ICheckpointManager):
         state: Any,
         trigger_reason: str
     ) -> Optional[str]:
-        """自动保存checkpoint
+        """自动保存checkpoint"""
+        operation_id = self.monitor.start_operation("auto_save_checkpoint")
         
-        Args:
-            thread_id: thread ID
-            workflow_id: 工作流ID
-            state: 工作流状态
-            trigger_reason: 触发原因
-            
-        Returns:
-            Optional[str]: checkpoint ID，如果保存失败则返回None
-        """
         try:
             context: Dict[str, Any] = {
                 'trigger_reason': trigger_reason,
@@ -271,6 +367,10 @@ class CheckpointManager(ICheckpointManager):
             
             # 检查是否应该保存checkpoint
             if not self.policy.should_save_checkpoint(thread_id, workflow_id, state, context):
+                self.monitor.end_operation(
+                    operation_id, "auto_save_checkpoint", True,
+                    {"reason": "not_needed", "trigger_reason": trigger_reason}
+                )
                 return None
             
             # 获取元数据
@@ -283,65 +383,98 @@ class CheckpointManager(ICheckpointManager):
             if self.config.max_checkpoints > 0:
                 await self.cleanup_checkpoints(thread_id, self.config.max_checkpoints)
             
+            self.monitor.end_operation(
+                operation_id, "auto_save_checkpoint", True,
+                {"checkpoint_id": checkpoint_id, "trigger_reason": trigger_reason}
+            )
+            
             return checkpoint_id
         except Exception as e:
             logger.error(f"自动保存checkpoint失败: {e}")
+            
+            self.monitor.end_operation(
+                operation_id, "auto_save_checkpoint", False,
+                {"error": str(e)}
+            )
+            
             return None
     
     async def cleanup_checkpoints(self, thread_id: str, max_count: int) -> int:
-        """清理旧的checkpoint
+        """清理旧的checkpoint"""
+        operation_id = self.monitor.start_operation("cleanup_checkpoints")
         
-        Args:
-            thread_id: thread ID
-            max_count: 保留的最大数量
-            
-        Returns:
-            int: 删除的checkpoint数量
-        """
         try:
-            return await self.checkpoint_store.cleanup_old_checkpoints(thread_id, max_count)
+            result = await self.checkpoint_store.cleanup_old_checkpoints(thread_id, max_count)
+            
+            self.monitor.end_operation(
+                operation_id, "cleanup_checkpoints", True,
+                {"thread_id": thread_id, "max_count": max_count, "cleaned": result}
+            )
+            
+            return result
         except Exception as e:
             logger.error(f"清理checkpoint失败: {e}")
+            
+            self.monitor.end_operation(
+                operation_id, "cleanup_checkpoints", False,
+                {"error": str(e)}
+            )
+            
             return 0
     
     async def get_checkpoints_by_workflow(self, thread_id: str, workflow_id: str) -> List[Dict[str, Any]]:
-        """获取指定工作流的所有checkpoint
+        """获取指定工作流的所有checkpoint"""
+        operation_id = self.monitor.start_operation("get_checkpoints_by_workflow")
         
-        Args:
-            thread_id: thread ID
-            workflow_id: 工作流ID
-            
-        Returns:
-            List[Dict[str, Any]]: checkpoint列表，按创建时间倒序排列
-        """
         try:
             if hasattr(self.checkpoint_store, 'get_checkpoints_by_workflow'):
-                return await self.checkpoint_store.get_checkpoints_by_workflow(thread_id, workflow_id)
+                result = await self.checkpoint_store.get_checkpoints_by_workflow(thread_id, workflow_id)
             else:
                 # 过滤所有checkpoint
                 all_checkpoints = await self.list_checkpoints(thread_id)
-                return [cp for cp in all_checkpoints if cp.get('workflow_id') == workflow_id]
+                result = [cp for cp in all_checkpoints if cp.get('workflow_id') == workflow_id]
+            
+            self.monitor.end_operation(
+                operation_id, "get_checkpoints_by_workflow", True,
+                {"thread_id": thread_id, "workflow_id": workflow_id, "count": len(result)}
+            )
+            
+            return result
         except Exception as e:
             logger.error(f"获取工作流checkpoint失败: {e}")
+            
+            self.monitor.end_operation(
+                operation_id, "get_checkpoints_by_workflow", False,
+                {"error": str(e)}
+            )
+            
             return []
     
     async def get_checkpoint_count(self, thread_id: str) -> int:
-        """获取thread的checkpoint数量
+        """获取thread的checkpoint数量"""
+        operation_id = self.monitor.start_operation("get_checkpoint_count")
         
-        Args:
-            thread_id: thread ID
-            
-        Returns:
-            int: checkpoint数量
-        """
         try:
             if hasattr(self.checkpoint_store, 'get_checkpoint_count'):
-                return await self.checkpoint_store.get_checkpoint_count(thread_id)  # type: ignore
+                result = await self.checkpoint_store.get_checkpoint_count(thread_id)  # type: ignore
             else:
                 checkpoints = await self.list_checkpoints(thread_id)
-                return len(checkpoints)
+                result = len(checkpoints)
+            
+            self.monitor.end_operation(
+                operation_id, "get_checkpoint_count", True,
+                {"thread_id": thread_id, "count": result}
+            )
+            
+            return result
         except Exception as e:
             logger.error(f"获取checkpoint数量失败: {e}")
+            
+            self.monitor.end_operation(
+                operation_id, "get_checkpoint_count", False,
+                {"error": str(e)}
+            )
+            
             return 0
     
     async def copy_checkpoint(
@@ -350,16 +483,9 @@ class CheckpointManager(ICheckpointManager):
         source_checkpoint_id: str,
         target_thread_id: str
     ) -> str:
-        """复制checkpoint到另一个thread
+        """复制checkpoint到另一个thread"""
+        operation_id = self.monitor.start_operation("copy_checkpoint")
         
-        Args:
-            source_thread_id: 源thread ID
-            source_checkpoint_id: 源checkpoint ID
-            target_thread_id: 目标thread ID
-            
-        Returns:
-            str: 新的checkpoint ID
-        """
         try:
             # 获取源checkpoint
             source_checkpoint = await self.get_checkpoint(source_thread_id, source_checkpoint_id)
@@ -367,24 +493,41 @@ class CheckpointManager(ICheckpointManager):
                 raise ValueError(f"源checkpoint不存在: {source_checkpoint_id}")
             
             # 创建新的checkpoint ID
-            new_checkpoint_id = str(uuid.uuid4())
+            new_checkpoint_id = self.id_generator.generate_checkpoint_id()
             
             # 复制数据并更新thread ID
             checkpoint_data = source_checkpoint.copy()
             checkpoint_data['id'] = new_checkpoint_id
             checkpoint_data['thread_id'] = target_thread_id
-            checkpoint_data['created_at'] = datetime.now().isoformat()
-            checkpoint_data['updated_at'] = datetime.now().isoformat()
+            checkpoint_data['created_at'] = self.temporal.now()
+            checkpoint_data['updated_at'] = self.temporal.now()
             
             # 保存到目标thread
             success = await self.checkpoint_store.save(checkpoint_data)
             if success:
                 logger.debug(f"成功复制checkpoint从 {source_thread_id}:{source_checkpoint_id} 到 {target_thread_id}:{new_checkpoint_id}")
+                
+                self.monitor.end_operation(
+                    operation_id, "copy_checkpoint", True,
+                    {
+                        "source_thread_id": source_thread_id,
+                        "source_checkpoint_id": source_checkpoint_id,
+                        "target_thread_id": target_thread_id,
+                        "new_checkpoint_id": new_checkpoint_id
+                    }
+                )
+                
                 return new_checkpoint_id
             else:
                 raise RuntimeError("复制checkpoint失败")
         except Exception as e:
             logger.error(f"复制checkpoint失败: {e}")
+            
+            self.monitor.end_operation(
+                operation_id, "copy_checkpoint", False,
+                {"error": str(e)}
+            )
+            
             raise
     
     async def export_checkpoint(
@@ -392,24 +535,29 @@ class CheckpointManager(ICheckpointManager):
         thread_id: str,
         checkpoint_id: str
     ) -> Dict[str, Any]:
-        """导出checkpoint数据
+        """导出checkpoint数据"""
+        operation_id = self.monitor.start_operation("export_checkpoint")
         
-        Args:
-            thread_id: thread ID
-            checkpoint_id: checkpoint ID
-            
-        Returns:
-            Dict[str, Any]: checkpoint数据
-        """
         try:
             checkpoint = await self.get_checkpoint(thread_id, checkpoint_id)
             if not checkpoint:
                 raise ValueError(f"Checkpoint不存在: {checkpoint_id}")
             
+            self.monitor.end_operation(
+                operation_id, "export_checkpoint", True,
+                {"thread_id": thread_id, "checkpoint_id": checkpoint_id}
+            )
+            
             # 返回checkpoint数据
             return checkpoint
         except Exception as e:
             logger.error(f"导出checkpoint失败: {e}")
+            
+            self.monitor.end_operation(
+                operation_id, "export_checkpoint", False,
+                {"error": str(e)}
+            )
+            
             raise
     
     async def import_checkpoint(
@@ -417,43 +565,45 @@ class CheckpointManager(ICheckpointManager):
         thread_id: str,
         checkpoint_data: Dict[str, Any]
     ) -> str:
-        """导入checkpoint数据
+        """导入checkpoint数据"""
+        operation_id = self.monitor.start_operation("import_checkpoint")
         
-        Args:
-            thread_id: thread ID
-            checkpoint_data: checkpoint数据
-            
-        Returns:
-            str: 新的checkpoint ID
-        """
         try:
             # 创建新的checkpoint ID
-            new_checkpoint_id = str(uuid.uuid4())
+            new_checkpoint_id = self.id_generator.generate_checkpoint_id()
             
             # 更新数据
             checkpoint_data = checkpoint_data.copy()
             checkpoint_data['id'] = new_checkpoint_id
             checkpoint_data['thread_id'] = thread_id
-            checkpoint_data['created_at'] = datetime.now().isoformat()
-            checkpoint_data['updated_at'] = datetime.now().isoformat()
+            checkpoint_data['created_at'] = self.temporal.now()
+            checkpoint_data['updated_at'] = self.temporal.now()
             
             # 保存checkpoint
             success = await self.checkpoint_store.save(checkpoint_data)
             if success:
                 logger.debug(f"成功导入checkpoint到 {thread_id}:{new_checkpoint_id}")
+                
+                self.monitor.end_operation(
+                    operation_id, "import_checkpoint", True,
+                    {"thread_id": thread_id, "checkpoint_id": new_checkpoint_id}
+                )
+                
                 return new_checkpoint_id
             else:
                 raise RuntimeError("导入checkpoint失败")
         except Exception as e:
             logger.error(f"导入checkpoint失败: {e}")
+            
+            self.monitor.end_operation(
+                operation_id, "import_checkpoint", False,
+                {"error": str(e)}
+            )
+            
             raise
     
     def get_langgraph_checkpointer(self):
-        """获取LangGraph原生的checkpointer
-        
-        Returns:
-            LangGraph原生的checkpointer实例，如果存储支持的话
-        """
+        """获取LangGraph原生的checkpointer"""
         if hasattr(self.checkpoint_store, 'get_langgraph_checkpointer'):
             return self.checkpoint_store.get_langgraph_checkpointer()  # type: ignore
         return None

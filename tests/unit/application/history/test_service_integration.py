@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 
-from src.application.history.service_integration import HistoryServiceIntegration
+from application.history.historyUseCase import HistoryUseCase
 from src.domain.history.interfaces import IHistoryManager
 from src.domain.history.models import MessageRecord, MessageType, ToolCallRecord, HistoryQuery, HistoryResult
 from src.domain.history.llm_models import LLMRequestRecord, LLMResponseRecord, TokenUsageRecord, CostRecord
@@ -17,14 +17,14 @@ class TestHistoryServiceIntegration:
         """测试初始化"""
         mock_history_manager = Mock(spec=IHistoryManager)
         
-        service = HistoryServiceIntegration(mock_history_manager)
+        service = HistoryUseCase(mock_history_manager)
         
         assert service.history_manager == mock_history_manager
 
     def test_record_session_start(self) -> None:
         """测试记录会话开始"""
         mock_history_manager = Mock(spec=IHistoryManager)
-        service = HistoryServiceIntegration(mock_history_manager)
+        service = HistoryUseCase(mock_history_manager)
         
         with patch('src.application.history.service_integration.session_context') as mock_context_manager:
             mock_context = Mock()
@@ -60,7 +60,7 @@ class TestHistoryServiceIntegration:
     def test_record_session_start_without_agent_config(self) -> None:
         """测试记录会话开始（无代理配置）"""
         mock_history_manager = Mock(spec=IHistoryManager)
-        service = HistoryServiceIntegration(mock_history_manager)
+        service = HistoryUseCase(mock_history_manager)
         
         with patch('src.application.history.service_integration.session_context') as mock_context_manager:
             mock_context_manager.return_value.__enter__.return_value = None
@@ -82,7 +82,7 @@ class TestHistoryServiceIntegration:
     def test_record_session_end(self) -> None:
         """测试记录会话结束"""
         mock_history_manager = Mock(spec=IHistoryManager)
-        service = HistoryServiceIntegration(mock_history_manager)
+        service = HistoryUseCase(mock_history_manager)
         
         with patch('src.application.history.service_integration.session_context') as mock_context_manager:
             mock_context_manager.return_value.__enter__.return_value = None
@@ -110,7 +110,7 @@ class TestHistoryServiceIntegration:
     def test_record_error(self) -> None:
         """测试记录错误"""
         mock_history_manager = Mock(spec=IHistoryManager)
-        service = HistoryServiceIntegration(mock_history_manager)
+        service = HistoryUseCase(mock_history_manager)
         
         test_error = ValueError("测试错误")
         test_context = {"key": "value"}
@@ -143,7 +143,7 @@ class TestHistoryServiceIntegration:
     def test_record_error_without_context(self) -> None:
         """测试记录错误（无上下文）"""
         mock_history_manager = Mock(spec=IHistoryManager)
-        service = HistoryServiceIntegration(mock_history_manager)
+        service = HistoryUseCase(mock_history_manager)
         
         test_error = RuntimeError("运行时错误")
         
@@ -163,7 +163,7 @@ class TestHistoryServiceIntegration:
     def test_record_message(self) -> None:
         """测试记录消息"""
         mock_history_manager = Mock(spec=IHistoryManager)
-        service = HistoryServiceIntegration(mock_history_manager)
+        service = HistoryUseCase(mock_history_manager)
         
         test_metadata = {"source": "test"}
         
@@ -192,7 +192,7 @@ class TestHistoryServiceIntegration:
     def test_record_message_without_metadata(self) -> None:
         """测试记录消息（无元数据）"""
         mock_history_manager = Mock(spec=IHistoryManager)
-        service = HistoryServiceIntegration(mock_history_manager)
+        service = HistoryUseCase(mock_history_manager)
         
         with patch('src.application.history.service_integration.session_context') as mock_context_manager:
             mock_context_manager.return_value.__enter__.return_value = None
@@ -210,7 +210,7 @@ class TestHistoryServiceIntegration:
     def test_record_tool_call(self) -> None:
         """测试记录工具调用"""
         mock_history_manager = Mock(spec=IHistoryManager)
-        service = HistoryServiceIntegration(mock_history_manager)
+        service = HistoryUseCase(mock_history_manager)
         
         tool_input = {"param1": "value1"}
         tool_output = {"result": "success"}
@@ -240,7 +240,7 @@ class TestHistoryServiceIntegration:
     def test_record_tool_call_without_output(self) -> None:
         """测试记录工具调用（无输出）"""
         mock_history_manager = Mock(spec=IHistoryManager)
-        service = HistoryServiceIntegration(mock_history_manager)
+        service = HistoryUseCase(mock_history_manager)
         
         tool_input = {"param1": "value1"}
         
@@ -260,7 +260,7 @@ class TestHistoryServiceIntegration:
     def test_get_session_summary(self) -> None:
         """测试获取会话摘要"""
         mock_history_manager = Mock(spec=IHistoryManager)
-        service = HistoryServiceIntegration(mock_history_manager)
+        service = HistoryUseCase(mock_history_manager)
         
         # 模拟查询结果
         mock_message1 = Mock()
@@ -351,7 +351,7 @@ class TestHistoryServiceIntegration:
     def test_export_session_data(self) -> None:
         """测试导出会话数据"""
         mock_history_manager = Mock(spec=IHistoryManager)
-        service = HistoryServiceIntegration(mock_history_manager)
+        service = HistoryUseCase(mock_history_manager)
         
         # 模拟get_session_summary返回值
         mock_summary = {
@@ -406,7 +406,7 @@ class TestHistoryServiceIntegration:
     def test_generate_id(self) -> None:
         """测试生成ID"""
         mock_history_manager = Mock(spec=IHistoryManager)
-        service = HistoryServiceIntegration(mock_history_manager)
+        service = HistoryUseCase(mock_history_manager)
         
         with patch('uuid.uuid4') as mock_uuid:
             mock_uuid.return_value = "test-uuid"

@@ -13,7 +13,7 @@ from src.domain.history import (
     IHistoryManager
 )
 from src.domain.history.cost_interfaces import ICostCalculator
-from src.application.history.token_tracker import TokenUsageTracker
+from infrastructure.history.token_tracker import TokenUsageTracker
 
 
 def generate_id() -> str:
@@ -22,7 +22,7 @@ def generate_id() -> str:
     return str(uuid.uuid4())
 
 
-from src.application.history.session_context import get_current_session as get_current_session_id
+from infrastructure.history.session_context import get_current_session as get_current_session_id
 
 
 class HistoryRecordingHook(ILLMCallHook):

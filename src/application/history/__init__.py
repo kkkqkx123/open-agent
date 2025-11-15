@@ -4,8 +4,8 @@
 """
 
 from .manager import HistoryManager
-from .token_tracker import TokenUsageTracker
-from .session_context import (
+from ...infrastructure.history.token_tracker import TokenUsageTracker
+from ...infrastructure.history.session_context import (
     SessionContext,
     get_current_session,
     set_current_session,

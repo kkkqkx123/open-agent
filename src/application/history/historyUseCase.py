@@ -9,10 +9,10 @@ from datetime import datetime
 from src.domain.history.interfaces import IHistoryManager
 from src.domain.history.models import MessageRecord, MessageType, ToolCallRecord, HistoryQuery, HistoryResult
 from src.domain.history.llm_models import LLMRequestRecord, LLMResponseRecord, TokenUsageRecord, CostRecord
-from src.application.history.session_context import session_context
+from infrastructure.history.session_context import session_context
 
 
-class HistoryServiceIntegration:
+class HistoryUseCase:
     """历史管理服务集成类
     
     提供历史管理服务的纯业务逻辑功能，不依赖表现层。

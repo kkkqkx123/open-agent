@@ -6,8 +6,8 @@
 from typing import Dict, Any, Optional
 from src.domain.history.interfaces import IHistoryManager
 from src.domain.history.models import MessageType
-from src.application.history.service_integration import HistoryServiceIntegration
-from src.application.history.session_context import set_current_session
+from application.history.historyUseCase import HistoryUseCase
+from infrastructure.history.session_context import set_current_session
 from src.presentation.tui.state_manager import StateManager
 
 
@@ -18,7 +18,7 @@ class TUIHistoryIntegration:
     """
     
     def __init__(self, history_manager: IHistoryManager):
-        self.history_service = HistoryServiceIntegration(history_manager)
+        self.history_service = HistoryUseCase(history_manager)
     
     def integrate_with_state_manager(self, state_manager: StateManager) -> None:
         """与状态管理器集成

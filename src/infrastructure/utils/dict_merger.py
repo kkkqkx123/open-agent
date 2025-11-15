@@ -245,31 +245,3 @@ class DictMerger(IDictMerger):
                 differences[key] = {"removed": dict1[key]}
 
         return differences
-
-    # 为了向后兼容，保留配置系统特定的方法
-    def merge_group_config(
-        self, group_config: Dict[str, Any], individual_config: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """合并组配置和个体配置（向后兼容方法）
-
-        Args:
-            group_config: 组配置
-            individual_config: 个体配置
-
-        Returns:
-            合并后的配置
-        """
-        # 先深度合并配置
-        result = self.deep_merge(group_config.copy(), individual_config)
-
-        # 对于特定字段，个体配置应该完全覆盖组配置而不是合并
-        override_fields = ["tools", "tool_sets"]  # 这些字段个体配置优先
-        for field in override_fields:
-            if field in individual_config:
-                result[field] = individual_config[field]
-
-        # 移除组标识字段，因为它已经完成了合并任务
-        if "group" in result:
-            del result["group"]
-
-        return result

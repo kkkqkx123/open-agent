@@ -11,7 +11,7 @@ from src.domain.history import (
     IHistoryManager
 )
 from src.domain.history.cost_calculator import CostCalculator
-from src.application.history.token_tracker import TokenUsageTracker
+from infrastructure.history.token_tracker import TokenUsageTracker
 
 
 class MockHistoryManager(IHistoryManager):

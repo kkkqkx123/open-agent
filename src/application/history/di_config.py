@@ -11,7 +11,7 @@ from src.domain.history.interfaces import IHistoryManager
 from src.domain.history.cost_interfaces import ICostCalculator
 from src.domain.history.cost_calculator import CostCalculator
 from src.application.history.manager import HistoryManager
-from src.application.history.token_tracker import TokenUsageTracker
+from infrastructure.history.token_tracker import TokenUsageTracker
 from src.infrastructure.history.storage.file_storage import FileHistoryStorage
 from src.infrastructure.llm.token_calculators.base import ITokenCalculator
 from src.infrastructure.llm.interfaces import ILLMCallHook

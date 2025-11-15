@@ -17,7 +17,7 @@ from src.infrastructure.llm.interfaces import ILLMCallHook
 from src.infrastructure.history.storage.file_storage import FileHistoryStorage
 from src.infrastructure.history.storage.memory_storage import MemoryHistoryStorage
 from src.application.history.manager import HistoryManager
-from src.application.history.token_tracker import TokenUsageTracker
+from infrastructure.history.token_tracker import TokenUsageTracker
 from src.domain.history.cost_calculator import CostCalculator
 from src.infrastructure.history.history_hook import HistoryRecordingHook
 
