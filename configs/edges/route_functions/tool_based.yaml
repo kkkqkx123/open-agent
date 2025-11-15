@@ -1,0 +1,117 @@
+# 基于工具的路由函数
+name: "基于工具的路由函数"
+description: "基于工具调用状态的路由函数集合"
+category: "tool"
+
+route_functions:
+  tool_call_count:
+    description: "基于工具调用数量的路由"
+    parameters:
+      type: "object"
+      properties:
+        threshold:
+          type: "integer"
+          description: "阈值"
+          default: 1
+        comparison:
+          type: "string"
+          enum: ["equals", "greater_than", "less_than"]
+          default: "greater_than"
+      required: ["threshold"]
+    return_values: ["single", "multiple", "none"]
+    implementation: "config"
+    type: "tool_check"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["tool", "count"]
+    
+  tool_type_router:
+    description: "基于工具类型的路由"
+    parameters:
+      type: "object"
+      properties:
+        type_mapping:
+          type: "object"
+          description: "工具类型到路由的映射"
+          default:
+            "calculator": "calc_handler"
+            "search": "search_handler"
+            "database": "db_handler"
+        default_route:
+          type: "string"
+          description: "默认路由"
+          default: "default_handler"
+    return_values: ["calc_handler", "search_handler", "db_handler", "default_handler"]
+    implementation: "config"
+    type: "tool_type_check"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["tool", "type"]
+    
+  tool_result_status:
+    description: "基于工具执行结果状态的路由"
+    parameters:
+      type: "object"
+      properties:
+        check_success:
+          type: "boolean"
+          description: "是否检查成功状态"
+          default: true
+        check_error:
+          type: "boolean"
+          description: "是否检查错误状态"
+          default: true
+    return_values: ["success", "error", "partial", "no_results"]
+    implementation: "config"
+    type: "tool_result_check"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["tool", "result", "status"]
+      
+  tool_execution_time:
+    description: "基于工具执行时间的路由"
+    parameters:
+      type: "object"
+      properties:
+        time_threshold:
+          type: "number"
+          description: "时间阈值（秒）"
+          default: 30.0
+        comparison:
+          type: "string"
+          enum: ["greater_than", "less_than"]
+          default: "greater_than"
+      required: ["time_threshold"]
+    return_values: ["slow", "fast", "no_tools"]
+    implementation: "config"
+    type: "tool_time_check"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["tool", "performance", "time"]
+      
+  tool_error_analysis:
+    description: "基于工具错误分析的路由"
+    parameters:
+      type: "object"
+      properties:
+        error_types:
+          type: "array"
+          items:
+            type: "string"
+          description: "错误类型列表"
+          default: ["timeout", "permission", "not_found", "syntax"]
+        default_route:
+          type: "string"
+          description: "默认路由"
+          default: "unknown_error"
+    return_values: ["timeout", "permission", "not_found", "syntax", "unknown_error", "no_error"]
+    implementation: "config"
+    type: "tool_error_analysis"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["tool", "error", "analysis"]

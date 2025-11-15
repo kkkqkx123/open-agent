@@ -5,8 +5,11 @@
 
 from .simple_edge import SimpleEdge
 from .conditional_edge import ConditionalEdge
+from .flexible_conditional_edge import FlexibleConditionalEdge, FlexibleConditionalEdgeFactory
 
 __all__ = [
     "SimpleEdge",
     "ConditionalEdge",
+    "FlexibleConditionalEdge",
+    "FlexibleConditionalEdgeFactory",
 ]

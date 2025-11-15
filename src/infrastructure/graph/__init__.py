@@ -6,6 +6,7 @@
 - 配置模型
 - 节点注册系统
 - 插件系统
+- 路由函数系统
 """
 
 from .builder import GraphBuilder
@@ -58,6 +59,21 @@ from .plugins import (
     PluginStatus,
     PluginMetadata,
     PluginContext
+)
+from .route_functions import (
+    RouteFunctionRegistry,
+    RouteFunctionConfig,
+    RouteFunctionManager,
+    RouteFunctionLoader,
+    BuiltinRouteFunctions,
+    get_route_function_manager,
+    reset_route_function_manager
+)
+from .edges import (
+    SimpleEdge,
+    ConditionalEdge,
+    FlexibleConditionalEdge,
+    FlexibleConditionalEdgeFactory
 )
 
 __all__ = [
@@ -122,4 +138,19 @@ __all__ = [
     "PluginStatus",
     "PluginMetadata",
     "PluginContext",
+    
+    # 路由函数系统
+    "RouteFunctionRegistry",
+    "RouteFunctionConfig",
+    "RouteFunctionManager",
+    "RouteFunctionLoader",
+    "BuiltinRouteFunctions",
+    "get_route_function_manager",
+    "reset_route_function_manager",
+    
+    # 边系统
+    "SimpleEdge",
+    "ConditionalEdge",
+    "FlexibleConditionalEdge",
+    "FlexibleConditionalEdgeFactory",
 ]

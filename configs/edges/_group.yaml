@@ -1,0 +1,64 @@
+# 边配置组
+name: "边配置组"
+description: "边和路由函数的全局配置"
+version: "1.0"
+
+# 全局设置
+global_settings:
+  enable_validation: true
+  strict_mode: false
+  cache_functions: true
+  auto_discovery: true
+
+# 边类型定义
+edge_types:
+  - name: "simple"
+    description: "简单边，直接连接两个节点"
+    implementation: "builtin.simple"
+    
+  - name: "conditional"
+    description: "条件边，基于路由函数决定路径"
+    implementation: "builtin.conditional"
+    required_fields:
+      - "route_function"
+    optional_fields:
+      - "route_parameters"
+      - "path_map"
+      - "description"
+
+# 路由函数分类
+route_function_categories:
+  - name: "builtin"
+    description: "内置路由函数"
+    path: "route_functions/builtin.yaml"
+    
+  - name: "tool"
+    description: "基于工具的路由函数"
+    path: "route_functions/tool_based.yaml"
+    
+  - name: "state"
+    description: "基于状态的路由函数"
+    path: "route_functions/state_based.yaml"
+    
+  - name: "message"
+    description: "基于消息的路由函数"
+    path: "route_functions/message_based.yaml"
+    
+  - name: "custom"
+    description: "自定义路由函数"
+    path: "route_functions/custom.yaml"
+
+# 验证规则
+validation_rules:
+  route_function:
+    - rule: "name_required"
+      message: "路由函数名称不能为空"
+    - rule: "name_pattern"
+      pattern: "^[a-zA-Z][a-zA-Z0-9_]*$"
+      message: "路由函数名称必须以字母开头，只能包含字母、数字和下划线"
+      
+  edge:
+    - rule: "from_node_required"
+      message: "起始节点不能为空"
+    - rule: "conditional_requires_route_function"
+      message: "条件边必须指定路由函数"

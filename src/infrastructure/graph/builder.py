@@ -34,6 +34,9 @@ from .function_registry import (
 )
 from .iteration_manager import IterationManager
 from .builtin_functions import get_builtin_node_function, get_builtin_condition_function
+from .node_functions import get_node_function_manager
+from .route_functions import get_route_function_manager
+from .edges import FlexibleConditionalEdge, FlexibleConditionalEdgeFactory
 
 logger = logging.getLogger(__name__)
 
@@ -48,17 +51,24 @@ class INodeExecutor(ABC):
     """节点执行器接口"""
     
     @abstractmethod
-    def execute(self, state: WorkflowState, config: "Optional[RunnableConfig]" = None) -> WorkflowState:
-        """执行节点逻辑"""
+    def execute(self, node_config: NodeConfig, state: WorkflowState, config: Optional[RunnableConfig] = None) -> WorkflowState:
+        """执行节点
+        
+        Args:
+            node_config: 节点配置
+            state: 工作流状态
+            config: 运行配置
+            
+        Returns:
+            WorkflowState: 更新后的状态
+        """
         pass
 
-class GraphBuilder:
+
+class UnifiedGraphBuilder:
     """统一图构建器
     
-    集成所有功能的统一图构建器，包含：
-    - 基础图构建功能
-    - 函数注册表集成
-    - 迭代管理功能
+    集成所有功能的图构建器，支持灵活条件边。
     """
     
     def __init__(
@@ -67,6 +77,7 @@ class GraphBuilder:
         function_registry: Optional[FunctionRegistry] = None,
         enable_function_fallback: bool = True,
         enable_iteration_management: bool = True,
+        route_function_config_dir: Optional[str] = None,
     ) -> None:
         """初始化统一图构建器
         
@@ -75,6 +86,7 @@ class GraphBuilder:
             function_registry: 函数注册表
             enable_function_fallback: 是否启用函数回退机制
             enable_iteration_management: 是否启用迭代管理
+            route_function_config_dir: 路由函数配置目录
         """
         self.node_registry = node_registry or get_global_registry()
         self.function_registry = function_registry or get_global_function_registry()
@@ -83,6 +95,10 @@ class GraphBuilder:
         self.enable_iteration_management = enable_iteration_management
         self._checkpointer_cache: Dict[str, Any] = {}
         self.iteration_manager: Optional[IterationManager] = None
+        
+        # 初始化路由函数管理器
+        self.route_function_manager = get_route_function_manager(route_function_config_dir)
+        self.flexible_edge_factory = FlexibleConditionalEdgeFactory(self.route_function_manager)
         
         logger.debug(f"统一图构建器初始化完成，函数回退: {enable_function_fallback}, 迭代管理: {enable_iteration_management}")
     
@@ -125,62 +141,127 @@ class GraphBuilder:
             from langgraph.graph import START
             builder.add_edge(START, config.entry_point)
         
-        # 配置检查点
-        checkpointer = self._get_checkpointer(config)
+        # 编译图
+        compiled_graph = builder.compile()
         
-        # 编译图 - 支持异步执行
-        graph = builder.compile(
-            checkpointer=checkpointer,
-            interrupt_before=config.interrupt_before,
-            interrupt_after=config.interrupt_after
-        )
-        
-        logger.info(f"成功构建图: {config.name}")
-        return graph
+        logger.debug(f"图构建完成: {config.name}")
+        return compiled_graph
     
     def _add_nodes(self, builder: Any, config: GraphConfig, state_manager: Optional[IStateCollaborationManager] = None) -> None:
-        """添加节点到图"""
+        """添加节点到图
+        
+        Args:
+            builder: LangGraph构建器
+            config: 图配置
+            state_manager: 状态管理器
+        """
         for node_name, node_config in config.nodes.items():
-            # 获取节点函数
             node_function = self._get_node_function(node_config, state_manager)
-            
             if node_function:
-                # 根据LangGraph最佳实践添加节点
                 builder.add_node(node_name, node_function)
-                
                 logger.debug(f"添加节点: {node_name}")
             else:
                 logger.warning(f"无法找到节点函数: {node_config.function_name}")
     
     def _add_edges(self, builder: Any, config: GraphConfig) -> None:
-        """添加边到图"""
+        """添加边到图
+        
+        Args:
+            builder: LangGraph构建器
+            config: 图配置
+        """
         for edge in config.edges:
             if edge.type == EdgeType.SIMPLE:
-                # 简单边
-                if edge.to_node == "__end__":
-                    from langgraph.graph import END
-                    builder.add_edge(edge.from_node, END)
-                else:
-                    builder.add_edge(edge.from_node, edge.to_node)
+                self._add_simple_edge(builder, edge)
             elif edge.type == EdgeType.CONDITIONAL:
-                # 条件边
-                if edge.condition is not None:  # 修复类型问题
-                    condition_function = self._get_condition_function(edge.condition)
-                    if condition_function:
-                        if edge.path_map:
-                            builder.add_conditional_edges(
-                                edge.from_node, 
-                                condition_function,
-                                path_map=edge.path_map
-                            )
-                        else:
-                            builder.add_conditional_edges(edge.from_node, condition_function)
-                    else:
-                        logger.warning(f"无法找到条件函数: {edge.condition}")
-                else:
-                    logger.warning(f"条件边缺少条件表达式: {edge.from_node} -> {edge.to_node}")
+                self._add_conditional_edge(builder, edge)
             
             logger.debug(f"添加边: {edge.from_node} -> {edge.to_node}")
+    
+    def _add_simple_edge(self, builder: Any, edge: EdgeConfig) -> None:
+        """添加简单边
+        
+        Args:
+            builder: LangGraph构建器
+            edge: 边配置
+        """
+        from langgraph.graph import END
+        
+        if edge.to_node == "__end__":
+            builder.add_edge(edge.from_node, END)
+        else:
+            builder.add_edge(edge.from_node, edge.to_node)
+    
+    def _add_conditional_edge(self, builder: Any, edge: EdgeConfig) -> None:
+        """添加条件边
+        
+        Args:
+            builder: LangGraph构建器
+            edge: 边配置
+        """
+        try:
+            # 检查是否为灵活条件边
+            if edge.is_flexible_conditional():
+                self._add_flexible_conditional_edge(builder, edge)
+            else:
+                # 传统条件边
+                self._add_legacy_conditional_edge(builder, edge)
+        except Exception as e:
+            logger.error(f"添加条件边失败 {edge.from_node} -> {edge.to_node}: {e}")
+            raise
+    
+    def _add_flexible_conditional_edge(self, builder: Any, edge: EdgeConfig) -> None:
+        """添加灵活条件边
+        
+        Args:
+            builder: LangGraph构建器
+            edge: 边配置
+        """
+        try:
+            # 创建灵活条件边
+            flexible_edge = self.flexible_edge_factory.create_from_config(edge)
+            
+            # 创建路由函数
+            route_function = flexible_edge.create_route_function()
+            
+            # 添加条件边
+            if edge.path_map:
+                builder.add_conditional_edges(
+                    edge.from_node,
+                    route_function,
+                    path_map=edge.path_map
+                )
+            else:
+                builder.add_conditional_edges(edge.from_node, route_function)
+                
+            logger.debug(f"添加灵活条件边: {edge.from_node} -> [{edge.route_function}]")
+            
+        except Exception as e:
+            logger.error(f"创建灵活条件边失败: {e}")
+            raise
+    
+    def _add_legacy_conditional_edge(self, builder: Any, edge: EdgeConfig) -> None:
+        """添加传统条件边
+        
+        Args:
+            builder: LangGraph构建器
+            edge: 边配置
+        """
+        if edge.condition is not None:
+            condition_function = self._get_condition_function(edge.condition)
+            if condition_function:
+                if edge.path_map:
+                    builder.add_conditional_edges(
+                        edge.from_node, 
+                        condition_function,
+                        path_map=edge.path_map
+                    )
+                else:
+                    builder.add_conditional_edges(edge.from_node, condition_function)
+            else:
+                logger.warning(f"无法找到条件函数: {edge.condition}")
+        else:
+            logger.warning(f"条件边缺少条件表达式: {edge.from_node} -> {edge.to_node}")
     
     def _get_node_function(
         self,
@@ -256,7 +337,7 @@ class GraphBuilder:
     def _get_condition_function(self, condition_name: str) -> Optional[Callable]:
         """获取条件函数（统一实现）
         
-        优先级：函数注册表 -> 内置条件 -> 父类方法
+        优先级：路由函数管理器 -> 函数注册表 -> 内置条件 -> 父类方法
         
         Args:
             condition_name: 条件函数名称
@@ -264,7 +345,13 @@ class GraphBuilder:
         Returns:
             Optional[Callable]: 条件函数
         """
-        # 1. 优先从函数注册表获取
+        # 1. 优先从路由函数管理器获取
+        route_function = self.route_function_manager.get_route_function(condition_name)
+        if route_function:
+            logger.debug(f"从路由函数管理器获取条件函数: {condition_name}")
+            return route_function
+        
+        # 2. 尝试从函数注册表获取
         if self.function_registry:
             condition_function = self.function_registry.get_condition_function(
                 condition_name
@@ -273,13 +360,13 @@ class GraphBuilder:
                 logger.debug(f"从函数注册表获取条件函数: {condition_name}")
                 return condition_function
         
-        # 2. 尝试从内置函数获取
+        # 3. 尝试从内置函数获取
         builtin_function = get_builtin_condition_function(condition_name)
         if builtin_function:
             logger.debug(f"从内置函数获取条件函数: {condition_name}")
             return builtin_function
         
-        # 3. 如果启用回退，尝试内置实现
+        # 4. 如果启用回退，尝试内置实现
         if self.enable_function_fallback:
             builtin_conditions = {
                 "has_tool_calls": self._condition_has_tool_calls,
@@ -413,7 +500,14 @@ class GraphBuilder:
             return wrapped_function
     
     def _get_checkpointer(self, config: GraphConfig) -> Optional[Any]:
-        """获取检查点"""
+        """获取检查点
+        
+        Args:
+            config: 图配置
+            
+        Returns:
+            Optional[Any]: 检查点实例
+        """
         if not config.checkpointer:
             return None
         
@@ -435,261 +529,68 @@ class GraphBuilder:
         
         return checkpointer
     
-    # 内置函数实现（用于回退）
-    def _create_llm_node(self, state: WorkflowState) -> Dict[str, Any]:
+    # 内置节点函数实现
+    def _create_llm_node(self, state: WorkflowState, config: Optional[RunnableConfig] = None) -> WorkflowState:
         """创建LLM节点"""
-        # 这里应该调用实际的LLM服务
-        # 简化实现
-        return {"messages": state.get("messages", []) + [{"role": "assistant", "content": "LLM响应"}]}
+        # 这里应该实现LLM节点的具体逻辑
+        logger.debug("执行LLM节点")
+        return state
     
-    def _create_tool_node(self, state: WorkflowState) -> Dict[str, Any]:
+    def _create_tool_node(self, state: WorkflowState, config: Optional[RunnableConfig] = None) -> WorkflowState:
         """创建工具节点"""
-        # 这里应该调用实际的工具服务
-        # 简化实现
-        return {"tool_results": state.get("tool_calls", [])}
+        # 这里应该实现工具节点的具体逻辑
+        logger.debug("执行工具节点")
+        return state
     
-    def _create_analysis_node(self, state: WorkflowState) -> Dict[str, Any]:
+    def _create_analysis_node(self, state: WorkflowState, config: Optional[RunnableConfig] = None) -> WorkflowState:
         """创建分析节点"""
-        # 这里应该执行实际的分析逻辑
-        # 简化实现
-        return {"analysis": "分析结果"}
+        # 这里应该实现分析节点的具体逻辑
+        logger.debug("执行分析节点")
+        return state
     
-    def _create_condition_node(self, state: WorkflowState) -> Dict[str, Any]:
+    def _create_condition_node(self, state: WorkflowState, config: Optional[RunnableConfig] = None) -> WorkflowState:
         """创建条件节点"""
-        # 这里应该执行实际的条件判断
-        # 简化实现
-        return {"condition_result": True}
+        # 这里应该实现条件节点的具体逻辑
+        logger.debug("执行条件节点")
+        return state
     
-    def _get_builtin_function(self, func_name: str) -> Optional[Callable]:
-        """获取内置函数
-        Args:
-            func_name: 函数名称
-        Returns:
-            Optional[Callable]: 函数对象或None
-        """
-        builtin_functions = {
-            "llm_node": self._create_llm_node,
-            "tool_node": self._create_tool_node,
-            "analysis_node": self._create_analysis_node,
-            "condition_node": self._create_condition_node,
-            "wait_node": self._create_wait_node,
-        }
-        return builtin_functions.get(func_name)
-    
-    def _get_builtin_condition(self, condition_name: str) -> Optional[Callable]:
-        """获取内置条件
-        Args:
-            condition_name: 条件名称
-        Returns:
-            Optional[Callable]: 条件函数或None
-        """
-        builtin_conditions = {
-            "has_tool_calls": self._condition_has_tool_calls,
-            "needs_more_info": self._condition_needs_more_info,
-            "is_complete": self._condition_is_complete,
-        }
-        return builtin_conditions.get(condition_name)
-    
-    def _create_wait_node(self, state: WorkflowState) -> Dict[str, Any]:
+    def _create_wait_node(self, state: WorkflowState, config: Optional[RunnableConfig] = None) -> WorkflowState:
         """创建等待节点"""
-        # 这里应该执行实际的等待逻辑
-        # 简化实现 - 返回等待状态
-        return {
-            "is_waiting": True,
-            "wait_start_time": state.get("wait_start_time", time.time()),
-            "messages": state.get("messages", []) + [{"role": "system", "content": "等待中..."}]
-        }
+        # 这里应该实现等待节点的具体逻辑
+        logger.debug("执行等待节点")
+        return state
     
+    # 内置条件函数实现
     def _condition_has_tool_calls(self, state: WorkflowState) -> str:
-        """条件：是否有工具调用"""
-        return "tool_node" if state.get("tool_calls") else "llm_node"
-    
+        """检查是否有工具调用"""
+        messages = state.get("messages", [])
+        if not messages:
+            return "end"
+
+        last_message = messages[-1]
+        # 检查LangChain消息的tool_calls属性
+        if hasattr(last_message, 'tool_calls') and getattr(last_message, 'tool_calls', None):
+            return "continue"
+
+        # 检查消息的metadata中的tool_calls
+        if hasattr(last_message, 'metadata'):
+            metadata = getattr(last_message, 'metadata', {})
+            if isinstance(metadata, dict) and metadata.get("tool_calls"):
+                return "continue"
+
+        # 检查消息内容
+        if hasattr(last_message, 'content'):
+            content = str(getattr(last_message, 'content', ''))
+            return "continue" if "tool_call" in content.lower() or "调用工具" in content else "end"
+
+        return "end"
+
     def _condition_needs_more_info(self, state: WorkflowState) -> str:
-        """条件：是否需要更多信息"""
-        return "analysis_node" if not state.get("analysis") else "end"
-    
+        """检查是否需要更多信息"""
+        # 这里应该实现具体的条件逻辑
+        return "continue"
+
     def _condition_is_complete(self, state: WorkflowState) -> str:
-        """条件：是否完成"""
-        return "end" if state.get("complete") else "continue"
-    
-    # 增强功能方法（来自EnhancedGraphBuilder）
-    def register_function(
-        self, name: str, function: Callable, function_type: FunctionType
-    ) -> None:
-        """注册函数到函数注册表
-        
-        Args:
-            name: 函数名称
-            function: 函数对象
-            function_type: 函数类型
-        """
-        if self.function_registry:
-            self.function_registry.register(name, function, function_type)
-            logger.debug(f"注册函数: {name} ({function_type.value})")
-        else:
-            logger.warning("函数注册表未初始化，无法注册函数")
-    
-    def unregister_function(self, name: str, function_type: FunctionType) -> bool:
-        """从函数注册表注销函数
-        
-        Args:
-            name: 函数名称
-            function_type: 函数类型
-            
-        Returns:
-            bool: 是否成功注销
-        """
-        if self.function_registry:
-            result = self.function_registry.unregister(name, function_type)
-            if result:
-                logger.debug(f"注销函数: {name} ({function_type.value})")
-            return result
-        else:
-            logger.warning("函数注册表未初始化，无法注销函数")
-            return False
-    
-    def list_registered_functions(
-        self, function_type: Optional[FunctionType] = None
-    ) -> Dict[str, List[str]]:
-        """列出已注册的函数
-        
-        Args:
-            function_type: 函数类型过滤器
-            
-        Returns:
-            Dict[str, List[str]]: 函数分类列表
-        """
-        if self.function_registry:
-            return self.function_registry.list_functions(function_type)
-        else:
-            logger.warning("函数注册表未初始化")
-            return {"nodes": [], "conditions": []}
-    
-    def validate_function_exists(self, name: str, function_type: FunctionType) -> bool:
-        """验证函数是否存在
-        
-        Args:
-            name: 函数名称
-            function_type: 函数类型
-            
-        Returns:
-            bool: 函数是否存在
-        """
-        if self.function_registry:
-            return self.function_registry.validate_function_exists(name, function_type)
-        else:
-            logger.warning("函数注册表未初始化")
-            return False
-    
-    def get_function_info(
-        self, name: str, function_type: FunctionType
-    ) -> Optional[Dict[str, Any]]:
-        """获取函数信息
-        
-        Args:
-            name: 函数名称
-            function_type: 函数类型
-            
-        Returns:
-            Optional[Dict[str, Any]]: 函数信息
-        """
-        if self.function_registry:
-            return self.function_registry.get_function_info(name, function_type)
-        else:
-            logger.warning("函数注册表未初始化")
-            return None
-    
-    def discover_functions(
-        self, module_paths: Optional[List[str]] = None
-    ) -> Dict[str, List[str]]:
-        """自动发现并注册函数
-        
-        Args:
-            module_paths: 要扫描的模块路径列表
-            
-        Returns:
-            Dict[str, List[str]]: 发现的函数统计信息
-        """
-        if self.function_registry:
-            return self.function_registry.discover_functions(module_paths)
-        else:
-            logger.warning("函数注册表未初始化，无法进行函数发现")
-            return {"nodes": [], "conditions": []}
-    
-    def validate_config_functions(self, config: Any) -> List[str]:
-        """验证配置中的函数是否存在
-        
-        Args:
-            config: 图配置
-            
-        Returns:
-            List[str]: 验证错误列表
-        """
-        errors = []
-        
-        if not self.function_registry:
-            errors.append("函数注册表未初始化")
-            return errors
-        
-        # 验证节点函数
-        for node_name, node_config in config.nodes.items():
-            function_name = node_config.function_name
-            if not self.function_registry.validate_function_exists(
-                function_name, FunctionType.NODE_FUNCTION
-            ):
-                errors.append(f"节点 '{node_name}' 引用的函数 '{function_name}' 不存在")
-        
-        # 验证条件函数
-        for edge in config.edges:
-            if edge.condition and not self.function_registry.validate_function_exists(
-                edge.condition, FunctionType.CONDITION_FUNCTION
-            ):
-                errors.append(
-                    f"边 '{edge.from_node}' -> '{edge.to_node}' 引用的条件函数 '{edge.condition}' 不存在"
-                )
-        
-        return errors
-    
-    def build_graph_with_validation(
-        self, config: Any, state_manager: Optional[IStateCollaborationManager] = None
-    ) -> Any:
-        """构建图并进行验证
-        
-        Args:
-            config: 图配置
-            state_manager: 状态管理器
-            
-        Returns:
-            构建的图
-            
-        Raises:
-            ValueError: 配置验证失败
-        """
-        # 验证配置中的函数
-        function_errors = self.validate_config_functions(config)
-        if function_errors:
-            raise ValueError(f"配置验证失败: {'; '.join(function_errors)}")
-        
-        # 构建图
-        return self.build_graph(config, state_manager)
-    
-    def get_function_statistics(self) -> Dict[str, Any]:
-        """获取函数统计信息
-        
-        Returns:
-            Dict[str, Any]: 统计信息
-        """
-        if not self.function_registry:
-            return {"error": "函数注册表未初始化"}
-        
-        functions = self.function_registry.list_functions()
-        
-        return {
-            "total_node_functions": len(functions.get("nodes", [])),
-            "total_condition_functions": len(functions.get("conditions", [])),
-            "node_functions": functions.get("nodes", []),
-            "condition_functions": functions.get("conditions", []),
-            "function_fallback_enabled": self.enable_function_fallback,
-            "iteration_management_enabled": self.enable_iteration_management,
-        }
-    
+        """检查是否完成"""
+        # 这里应该实现具体的条件逻辑
+        return "end"

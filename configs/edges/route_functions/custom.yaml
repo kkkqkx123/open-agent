@@ -1,0 +1,195 @@
+# 自定义路由函数
+name: "自定义路由函数"
+description: "用户自定义的路由函数集合"
+category: "custom"
+
+route_functions:
+  complex_business_logic:
+    description: "复杂业务逻辑路由"
+    parameters:
+      type: "object"
+      properties:
+        business_rules:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              rule_id:
+                type: "string"
+              condition:
+                type: "string"
+              priority:
+                type: "integer"
+          description: "业务规则列表"
+        default_outcome:
+          type: "string"
+          description: "默认结果"
+          default: "review"
+      required: ["business_rules"]
+    return_values: ["approve", "reject", "review", "escalate"]
+    implementation: "custom.business_logic_router"
+    metadata:
+      author: "business_team"
+      version: "2.1"
+      tags: ["business", "complex"]
+    
+  ml_model_prediction:
+    description: "基于机器学习模型预测的路由"
+    parameters:
+      type: "object"
+      properties:
+        model_name:
+          type: "string"
+          description: "模型名称"
+        model_version:
+          type: "string"
+          description: "模型版本"
+          default: "latest"
+        confidence_threshold:
+          type: "number"
+          description: "置信度阈值"
+          default: 0.8
+        input_features:
+          type: "array"
+          items:
+            type: "string"
+          description: "输入特征列表"
+      required: ["model_name"]
+    return_values: ["high_confidence", "low_confidence", "error"]
+    implementation: "custom.ml_model_router"
+    metadata:
+      author: "ml_team"
+      version: "1.5"
+      tags: ["ml", "prediction", "ai"]
+    
+  time_based_router:
+    description: "基于时间的路由"
+    parameters:
+      type: "object"
+      properties:
+        time_ranges:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              start:
+                type: "string"
+                pattern: "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+              end:
+                type: "string"
+                pattern: "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+              route:
+                type: "string"
+          description: "时间范围和对应路由"
+        timezone:
+          type: "string"
+          description: "时区"
+          default: "UTC"
+        default_route:
+          type: "string"
+          description: "默认路由"
+          default: "after_hours"
+      required: ["time_ranges"]
+    return_values: ["business_hours", "after_hours", "weekend"]
+    implementation: "custom.time_based_router"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["time", "schedule"]
+      
+  user_role_router:
+    description: "基于用户角色的路由"
+    parameters:
+      type: "object"
+      properties:
+        role_mapping:
+          type: "object"
+          description: "角色到路由的映射"
+          default:
+            "admin": "admin_handler"
+            "manager": "manager_handler"
+            "user": "user_handler"
+            "guest": "guest_handler"
+        default_route:
+          type: "string"
+          description: "默认路由"
+          default: "guest_handler"
+        user_id_key:
+          type: "string"
+          description: "用户ID状态键"
+          default: "user_id"
+    return_values: ["admin_handler", "manager_handler", "user_handler", "guest_handler"]
+    implementation: "custom.user_role_router"
+    metadata:
+      author: "auth_team"
+      version: "1.2"
+      tags: ["user", "role", "auth"]
+      
+  data_quality_router:
+    description: "基于数据质量的路由"
+    parameters:
+      type: "object"
+      properties:
+        quality_checks:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              check_type:
+                type: "string"
+                enum: ["completeness", "accuracy", "consistency", "validity"]
+              threshold:
+                type: "number"
+              weight:
+                type: "number"
+                default: 1.0
+          description: "质量检查列表"
+        overall_threshold:
+          type: "number"
+          description: "总体质量阈值"
+          default: 0.8
+        data_key:
+          type: "string"
+          description: "数据状态键"
+          default: "data"
+    return_values: ["high_quality", "medium_quality", "low_quality", "error"]
+    implementation: "custom.data_quality_router"
+    metadata:
+      author: "data_team"
+      version: "1.0"
+      tags: ["data", "quality", "validation"]
+      
+  external_service_router:
+    description: "基于外部服务状态的路由"
+    parameters:
+      type: "object"
+      properties:
+        service_name:
+          type: "string"
+          description: "服务名称"
+        check_endpoint:
+          type: "string"
+          description: "检查端点"
+        timeout:
+          type: "number"
+          description: "超时时间（秒）"
+          default: 5.0
+        retry_count:
+          type: "integer"
+          description: "重试次数"
+          default: 3
+        success_route:
+          type: "string"
+          description: "成功路由"
+          default: "service_available"
+        failure_route:
+          type: "string"
+          description: "失败路由"
+          default: "service_unavailable"
+      required: ["service_name", "check_endpoint"]
+    return_values: ["service_available", "service_unavailable", "timeout", "error"]
+    implementation: "custom.external_service_router"
+    metadata:
+      author: "infra_team"
+      version: "1.1"
+      tags: ["external", "service", "health"]

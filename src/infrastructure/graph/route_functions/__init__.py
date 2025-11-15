@@ -4,7 +4,7 @@
 """
 
 from .registry import RouteFunctionRegistry, RouteFunctionConfig
-from .manager import RouteFunctionManager
+from .manager import RouteFunctionManager, get_route_function_manager
 from .loader import RouteFunctionLoader
 from .builtin import BuiltinRouteFunctions
 
@@ -14,4 +14,5 @@ __all__ = [
     "RouteFunctionManager",
     "RouteFunctionLoader",
     "BuiltinRouteFunctions",
+    "get_route_function_manager",
 ]

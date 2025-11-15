@@ -1,0 +1,179 @@
+# 基于消息的路由函数
+name: "基于消息的路由函数"
+description: "基于消息内容的路由函数集合"
+category: "message"
+
+route_functions:
+  keyword_match:
+    description: "基于关键词匹配的路由"
+    parameters:
+      type: "object"
+      properties:
+        keywords:
+          type: "array"
+          items:
+            type: "string"
+          description: "关键词列表"
+        case_sensitive:
+          type: "boolean"
+          description: "是否区分大小写"
+          default: false
+        match_all:
+          type: "boolean"
+          description: "是否需要匹配所有关键词"
+          default: false
+        message_index:
+          type: "integer"
+          description: "消息索引（-1表示最后一条消息）"
+          default: -1
+      required: ["keywords"]
+    return_values: ["matched", "not_matched"]
+    implementation: "config"
+    type: "message_check"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["message", "keyword"]
+    
+  sentiment_router:
+    description: "基于情感分析的路由"
+    parameters:
+      type: "object"
+      properties:
+        sentiment_threshold:
+          type: "number"
+          description: "情感阈值"
+          default: 0.5
+        neutral_range:
+          type: "array"
+          items:
+            type: "number"
+          description: "中性情感范围"
+          default: [0.4, 0.6]
+        model_name:
+          type: "string"
+          description: "情感分析模型名称"
+          default: "default"
+    return_values: ["positive", "negative", "neutral"]
+    implementation: "custom.sentiment_router"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["message", "sentiment", "ai"]
+    
+  message_length_router:
+    description: "基于消息长度的路由"
+    parameters:
+      type: "object"
+      properties:
+        short_threshold:
+          type: "integer"
+          description: "短消息阈值"
+          default: 50
+        long_threshold:
+          type: "integer"
+          description: "长消息阈值"
+          default: 500
+        message_index:
+          type: "integer"
+          description: "消息索引（-1表示最后一条消息）"
+          default: -1
+    return_values: ["short", "medium", "long"]
+    implementation: "config"
+    type: "message_length_check"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["message", "length"]
+      
+  message_type_router:
+    description: "基于消息类型的路由"
+    parameters:
+      type: "object"
+      properties:
+        type_mapping:
+          type: "object"
+          description: "消息类型到路由的映射"
+          default:
+            "human": "human_handler"
+            "ai": "ai_handler"
+            "system": "system_handler"
+            "tool": "tool_handler"
+        default_route:
+          type: "string"
+          description: "默认路由"
+          default: "default_handler"
+        message_index:
+          type: "integer"
+          description: "消息索引（-1表示最后一条消息）"
+          default: -1
+    return_values: ["human_handler", "ai_handler", "system_handler", "tool_handler", "default_handler"]
+    implementation: "config"
+    type: "message_type_check"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["message", "type"]
+      
+  content_analysis_router:
+    description: "基于内容分析的路由"
+    parameters:
+      type: "object"
+      properties:
+        analysis_type:
+          type: "string"
+          enum: ["language", "format", "structure", "complexity"]
+          description: "分析类型"
+          default: "language"
+        language_mapping:
+          type: "object"
+          description: "语言到路由的映射"
+          default:
+            "zh": "chinese_handler"
+            "en": "english_handler"
+            "ja": "japanese_handler"
+            "unknown": "default_handler"
+        format_mapping:
+          type: "object"
+          description: "格式到路由的映射"
+          default:
+            "json": "json_handler"
+            "xml": "xml_handler"
+            "text": "text_handler"
+            "unknown": "default_handler"
+    return_values: ["chinese_handler", "english_handler", "japanese_handler", "json_handler", "xml_handler", "text_handler", "default_handler"]
+    implementation: "config"
+    type: "content_analysis"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["message", "analysis", "content"]
+      
+  urgency_detector:
+    description: "基于紧急程度检测的路由"
+    parameters:
+      type: "object"
+      properties:
+        urgency_keywords:
+          type: "array"
+          items:
+            type: "string"
+          description: "紧急关键词"
+          default: ["urgent", "emergency", "asap", "immediately", "紧急", "立即", "马上"]
+        high_priority_keywords:
+          type: "array"
+          items:
+            type: "string"
+          description: "高优先级关键词"
+          default: ["high", "priority", "important", "重要", "优先"]
+        case_sensitive:
+          type: "boolean"
+          description: "是否区分大小写"
+          default: false
+    return_values: ["urgent", "high_priority", "normal"]
+    implementation: "config"
+    type: "urgency_detection"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["message", "urgency", "priority"]

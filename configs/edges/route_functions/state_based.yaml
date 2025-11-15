@@ -1,0 +1,167 @@
+# 基于状态的路由函数
+name: "基于状态的路由函数"
+description: "基于工作流状态的路由函数集合"
+category: "state"
+
+route_functions:
+  iteration_check:
+    description: "基于迭代次数的路由"
+    parameters:
+      type: "object"
+      properties:
+        max_iterations:
+          type: "integer"
+          description: "最大迭代次数"
+          default: 10
+        comparison:
+          type: "string"
+          enum: ["equals", "greater_than", "greater_equal", "less_than", "less_equal"]
+          default: "greater_equal"
+      required: ["max_iterations"]
+    return_values: ["continue", "max_reached", "exceeded"]
+    implementation: "config"
+    type: "state_check"
+    state_key: "iteration_count"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["iteration", "control"]
+    
+  status_router:
+    description: "基于状态值的路由"
+    parameters:
+      type: "object"
+      properties:
+        state_key:
+          type: "string"
+          description: "状态键名"
+          default: "status"
+        value_mapping:
+          type: "object"
+          description: "状态值到路由的映射"
+          default:
+            "success": "complete"
+            "error": "error_handler"
+            "pending": "continue"
+            "failed": "retry"
+        default_route:
+          type: "string"
+          description: "默认路由"
+          default: "default_handler"
+    return_values: ["complete", "error_handler", "continue", "retry", "default_handler"]
+    implementation: "config"
+    type: "state_check"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["state", "status"]
+    
+  threshold_check:
+    description: "基于阈值的路由"
+    parameters:
+      type: "object"
+      properties:
+        state_key:
+          type: "string"
+          description: "状态键名"
+        threshold:
+          type: "number"
+          description: "阈值"
+        comparison:
+          type: "string"
+          enum: ["greater_than", "less_than", "equals"]
+          default: "greater_than"
+        true_route:
+          type: "string"
+          description: "条件为真时的路由"
+          default: "above_threshold"
+        false_route:
+          type: "string"
+          description: "条件为假时的路由"
+          default: "below_threshold"
+      required: ["state_key", "threshold"]
+    return_values: ["above_threshold", "below_threshold"]
+    implementation: "config"
+    type: "state_check"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["state", "threshold"]
+      
+  progress_check:
+    description: "基于进度的路由"
+    parameters:
+      type: "object"
+      properties:
+        progress_key:
+          type: "string"
+          description: "进度状态键名"
+          default: "progress"
+        completion_threshold:
+          type: "number"
+          description: "完成阈值"
+          default: 1.0
+        stages:
+          type: "array"
+          items:
+            type: "number"
+          description: "进度阶段"
+          default: [0.25, 0.5, 0.75, 1.0]
+    return_values: ["initial", "early", "middle", "late", "complete"]
+    implementation: "config"
+    type: "progress_check"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["state", "progress"]
+      
+  resource_usage_check:
+    description: "基于资源使用情况的路由"
+    parameters:
+      type: "object"
+      properties:
+        resource_type:
+          type: "string"
+          enum: ["memory", "cpu", "disk", "network"]
+          description: "资源类型"
+          default: "memory"
+        usage_threshold:
+          type: "number"
+          description: "使用率阈值"
+          default: 0.8
+        comparison:
+          type: "string"
+          enum: ["greater_than", "less_than"]
+          default: "greater_than"
+    return_values: ["high_usage", "normal_usage", "unknown"]
+    implementation: "config"
+    type: "resource_check"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["state", "resource", "performance"]
+      
+  time_window_check:
+    description: "基于时间窗口的路由"
+    parameters:
+      type: "object"
+      properties:
+        start_time_key:
+          type: "string"
+          description: "开始时间状态键"
+          default: "start_time"
+        window_duration:
+          type: "number"
+          description: "窗口持续时间（秒）"
+          default: 300
+        current_time_key:
+          type: "string"
+          description: "当前时间状态键"
+          default: "current_time"
+    return_values: ["within_window", "outside_window", "no_time_data"]
+    implementation: "config"
+    type: "time_window_check"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["state", "time", "window"]

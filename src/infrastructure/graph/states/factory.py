@@ -335,6 +335,19 @@ class StateFactory:
             required_fields = ["workflow_id", "workflow_name", "input", "max_iterations", "max_steps"]
             for field in required_fields:
                 if field not in state:
+    @staticmethod
+    def create_state_class_from_config(state_config) -> Type[Dict[str, Any]]:
+        """基于配置创建状态类
+        
+        Args:
+            state_config: GraphStateConfig实例
+            
+        Returns:
+            状态类类型
+        """
+        # 对于当前实现，我们返回通用的WorkflowState类型
+        # 在更复杂的实现中，可以动态创建特定的状态类
+        return WorkflowState
                     errors.append(f"缺少必需字段: {field}")
         
         return errors

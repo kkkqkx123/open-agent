@@ -1,0 +1,122 @@
+# 基本工作流示例 - 展示灵活条件边的用法
+name: "基本工作流示例"
+description: "展示灵活条件边的基本用法"
+version: "1.0"
+
+# 状态定义
+state_schema:
+  name: "BasicWorkflowState"
+  fields:
+    messages:
+      type: "List[BaseMessage]"
+      reducer: "operator.add"
+      description: "对话消息历史"
+    
+    input:
+      type: "str"
+      description: "用户输入"
+    
+    tool_results:
+      type: "List[dict]"
+      reducer: "operator.add"
+      description: "工具执行结果"
+    
+    iteration_count:
+      type: "int"
+      reducer: "operator.add"
+      default: 0
+      description: "迭代计数"
+    
+    max_iterations:
+      type: "int"
+      default: 10
+      description: "最大迭代次数"
+
+# 节点定义
+nodes:
+  agent:
+    function: "llm_node"
+    description: "代理节点"
+    config:
+      model: "gpt-4"
+      temperature: 0.1
+      tools: ["calculator", "search"]
+    
+  tool_executor:
+    function: "tool_node"
+    description: "工具执行节点"
+    config:
+      timeout: 30
+    
+  response_generator:
+    function: "llm_node"
+    description: "响应生成节点"
+    config:
+      model: "gpt-4"
+      temperature: 0.7
+    
+  error_handler:
+    function: "error_node"
+    description: "错误处理节点"
+
+# 边定义 - 使用灵活条件边
+edges:
+  # 简单边
+  - from: "__start__"
+    to: "agent"
+    type: "simple"
+    description: "开始代理"
+    
+  # 灵活条件边 - 使用内置路由函数
+  - from: "agent"
+    type: "conditional"
+    route_function: "has_tool_calls"
+    route_parameters: {}
+    path_map:
+      continue: "tool_executor"
+      end: "response_generator"
+    description: "根据是否有工具调用决定路由"
+    
+  # 灵活条件边 - 使用配置路由函数
+  - from: "tool_executor"
+    type: "conditional"
+    route_function: "tool_result_status"
+    route_parameters:
+      check_success: true
+      check_error: true
+    path_map:
+      success: "response_generator"
+      error: "error_handler"
+      partial: "agent"
+      no_results: "response_generator"
+    description: "根据工具执行结果状态路由"
+    
+  # 灵活条件边 - 使用带参数的路由函数
+  - from: "response_generator"
+    type: "conditional"
+    route_function: "max_iterations_reached"
+    route_parameters:
+      max_iterations: 10
+    path_map:
+      continue: "agent"
+      end: "__end__"
+    description: "检查是否达到最大迭代次数"
+    
+  # 简单边
+  - from: "error_handler"
+    to: "__end__"
+    type: "simple"
+    description: "错误处理结束"
+
+# 入口点
+entry_point: "agent"
+
+# 检查点配置
+checkpointer: "memory"
+
+# 额外配置
+additional_config:
+  retry_attempts: 3
+  retry_delay: 1.0
+  logging_level: "INFO"
+  enable_tracing: true

@@ -1,0 +1,203 @@
+# 内置路由函数
+name: "内置路由函数"
+description: "系统提供的内置路由函数"
+category: "builtin"
+
+route_functions:
+  has_tool_calls:
+    description: "检查是否有工具调用"
+    parameters: {}
+    return_values: ["continue", "end"]
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["tool", "basic"]
+    
+  no_tool_calls:
+    description: "检查是否没有工具调用"
+    parameters: {}
+    return_values: ["continue", "end"]
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["tool", "basic"]
+    
+  has_tool_results:
+    description: "检查是否有工具执行结果"
+    parameters: {}
+    return_values: ["continue", "end"]
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["tool", "result"]
+    
+  max_iterations_reached:
+    description: "检查是否达到最大迭代次数"
+    parameters:
+      type: "object"
+      properties:
+        max_iterations:
+          type: "integer"
+          description: "最大迭代次数"
+          default: 10
+      required: ["max_iterations"]
+    return_values: ["continue", "end"]
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["iteration", "control"]
+    
+  has_errors:
+    description: "检查是否有错误"
+    parameters: {}
+    return_values: ["continue", "error"]
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["error", "basic"]
+    
+  no_errors:
+    description: "检查是否没有错误"
+    parameters: {}
+    return_values: ["continue", "error"]
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["error", "basic"]
+      
+  tool_call_count:
+    description: "基于工具调用数量的路由"
+    parameters: {}
+    return_values: ["single", "multiple", "none"]
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["tool", "count"]
+      
+  message_contains_error:
+    description: "检查消息是否包含错误关键词"
+    parameters: {}
+    return_values: ["has_error", "no_error"]
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["message", "error"]
+      
+  iteration_count_equals:
+    description: "检查迭代次数是否等于指定值"
+    parameters:
+      type: "object"
+      properties:
+        count:
+          type: "integer"
+          description: "目标迭代次数"
+          default: 1
+      required: ["count"]
+    return_values: ["equals", "not_equals"]
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["iteration", "count"]
+      
+  iteration_count_greater_than:
+    description: "检查迭代次数是否大于指定值"
+    parameters:
+      type: "object"
+      properties:
+        threshold:
+          type: "integer"
+          description: "阈值"
+          default: 1
+      required: ["threshold"]
+    return_values: ["greater", "not_greater"]
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["iteration", "count"]
+      
+  status_check:
+    description: "基于状态值的路由"
+    parameters:
+      type: "object"
+      properties:
+        state_key:
+          type: "string"
+          description: "状态键名"
+          default: "status"
+        value_mapping:
+          type: "object"
+          description: "状态值到路由的映射"
+          default:
+            "success": "complete"
+            "error": "error_handler"
+            "pending": "continue"
+        default_route:
+          type: "string"
+          description: "默认路由"
+          default: "default"
+    return_values: ["complete", "error_handler", "continue", "default"]
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["state", "status"]
+      
+  keyword_match:
+    description: "基于关键词匹配的路由"
+    parameters:
+      type: "object"
+      properties:
+        keywords:
+          type: "array"
+          items:
+            type: "string"
+          description: "关键词列表"
+        case_sensitive:
+          type: "boolean"
+          description: "是否区分大小写"
+          default: false
+        message_index:
+          type: "integer"
+          description: "消息索引（-1表示最后一条消息）"
+          default: -1
+      required: ["keywords"]
+    return_values: ["matched", "not_matched"]
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["message", "keyword"]
+      
+  threshold_check:
+    description: "基于阈值的路由"
+    parameters:
+      type: "object"
+      properties:
+        state_key:
+          type: "string"
+          description: "状态键名"
+          default: "value"
+        threshold:
+          type: "number"
+          description: "阈值"
+        comparison:
+          type: "string"
+          enum: ["greater_than", "less_than", "equals", "greater_equal", "less_equal"]
+          default: "greater_than"
+      required: ["state_key", "threshold"]
+    return_values: ["above", "below", "equals", "not_equals"]
+    implementation: "builtin"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["state", "threshold"]

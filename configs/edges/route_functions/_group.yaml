@@ -1,0 +1,64 @@
+# 路由函数组配置
+name: "路由函数组配置"
+description: "路由函数的全局配置和分类"
+
+# 全局设置
+global_settings:
+  enable_parameter_validation: true
+  strict_return_type_checking: false
+  cache_enabled: true
+  default_timeout: 30
+
+# 参数类型定义
+parameter_types:
+  string:
+    python_type: "str"
+    validation:
+      - type: "string"
+  integer:
+    python_type: "int"
+    validation:
+      - type: "integer"
+  number:
+    python_type: "float"
+    validation:
+      - type: "number"
+  boolean:
+    python_type: "bool"
+    validation:
+      - type: "boolean"
+  array:
+    python_type: "list"
+    validation:
+      - type: "array"
+  object:
+    python_type: "dict"
+    validation:
+      - type: "object"
+
+# 返回值类型定义
+return_value_types:
+  - "continue"
+  - "end"
+  - "error"
+  - "retry"
+  - "skip"
+  - "branch_1"
+  - "branch_2"
+  - "branch_3"
+
+# 内置函数映射
+builtin_functions:
+  has_tool_calls: "src.infrastructure.graph.route_functions.builtin.has_tool_calls"
+  no_tool_calls: "src.infrastructure.graph.route_functions.builtin.no_tool_calls"
+  has_tool_results: "src.infrastructure.graph.route_functions.builtin.has_tool_results"
+  max_iterations_reached: "src.infrastructure.graph.route_functions.builtin.max_iterations_reached"
+  has_errors: "src.infrastructure.graph.route_functions.builtin.has_errors"
+  no_errors: "src.infrastructure.graph.route_functions.builtin.no_errors"
+  tool_call_count: "src.infrastructure.graph.route_functions.builtin.tool_call_count"
+  message_contains_error: "src.infrastructure.graph.route_functions.builtin.message_contains_error"
+  iteration_count_equals: "src.infrastructure.graph.route_functions.builtin.iteration_count_equals"
+  iteration_count_greater_than: "src.infrastructure.graph.route_functions.builtin.iteration_count_greater_than"
+  status_check: "src.infrastructure.graph.route_functions.builtin.status_check"
+  keyword_match: "src.infrastructure.graph.route_functions.builtin.keyword_match"
+  threshold_check: "src.infrastructure.graph.route_functions.builtin.threshold_check"
