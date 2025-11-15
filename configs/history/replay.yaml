@@ -1,0 +1,196 @@
+# 重放功能配置
+replay:
+  # 是否启用重放功能
+  enabled: true
+  
+  # 默认重放模式
+  default_mode: "real_time"  # real_time, fast_forward, step_by_step, analysis
+  
+  # 回放处理器配置
+  processor:
+    # 最大并发回放会话数
+    max_concurrent_replays: 10
+    
+    # 单个回放会话超时时间（秒）
+    session_timeout: 3600
+    
+    # 事件批处理大小
+    batch_size: 100
+    
+    # 是否启用性能监控
+    enable_performance_monitoring: true
+  
+  # 缓存配置
+  cache:
+    # 是否启用缓存
+    enabled: true
+    
+    # 缓存TTL（秒）
+    ttl: 1800
+    
+    # 最大缓存条目数
+    max_entries: 1000
+    
+    # 缓存键前缀
+    key_prefix: "replay:"
+  
+  # 回放模式配置
+  modes:
+    # 实时回放模式
+    real_time:
+      # 默认播放速度（1.0为正常速度）
+      default_speed: 1.0
+      
+      # 最小播放速度
+      min_speed: 0.1
+      
+      # 最大播放速度
+      max_speed: 10.0
+      
+      # 是否允许跳过等待时间
+      allow_skip: true
+    
+    # 快进回放模式
+    fast_forward:
+      # 默认快进倍数
+      default_multiplier: 5.0
+      
+      # 最小快进倍数
+      min_multiplier: 2.0
+      
+      # 最大快进倍数
+      max_multiplier: 100.0
+    
+    # 逐步回放模式
+    step_by_step:
+      # 是否自动暂停在每个事件
+      auto_pause_on_events: true
+      
+      # 默认暂停的事件类型
+      default_pause_types:
+        - "tool_call"
+        - "error"
+        - "workflow_end"
+      
+      # 是否显示事件详情
+      show_event_details: true
+    
+    # 分析模式
+    analysis:
+      # 是否启用深度分析
+      enable_deep_analysis: true
+      
+      # 分析级别（basic, detailed, comprehensive）
+      analysis_level: "detailed"
+      
+      # 是否生成建议
+      generate_recommendations: true
+      
+      # 是否包含性能指标
+      include_performance_metrics: true
+  
+  # 事件过滤配置
+  event_filters:
+    # 默认包含的事件类型
+    default_included_types:
+      - "workflow_start"
+      - "workflow_end"
+      - "node_start"
+      - "node_end"
+      - "tool_call"
+      - "tool_result"
+      - "llm_call"
+      - "llm_response"
+      - "error"
+    
+    # 默认排除的事件类型
+    default_excluded_types:
+      - "debug"
+      - "trace"
+    
+    # 是否允许用户自定义过滤
+    allow_custom_filters: true
+  
+  # 分析器配置
+  analyzer:
+    # 是否启用统计分析
+    enable_statistics: true
+    
+    # 是否启用性能分析
+    enable_performance_analysis: true
+    
+    # 是否启用成本分析
+    enable_cost_analysis: true
+    
+    # 是否启用错误分析
+    enable_error_analysis: true
+    
+    # 分析结果缓存TTL（秒）
+    cache_ttl: 600
+    
+    # 最大分析历史记录数
+    max_analysis_history: 100
+  
+  # 交互式回放配置
+  interactive:
+    # 是否启用交互式命令
+    enable_commands: true
+    
+    # 支持的命令
+    supported_commands:
+      - "next"      # 下一个事件
+      - "skip"      # 跳过当前事件
+      - "pause"     # 暂停回放
+      - "resume"    # 恢复回放
+      - "speed"     # 调整播放速度
+      - "jump"      # 跳转到指定时间
+      - "detail"    # 显示事件详情
+      - "analyze"   # 分析当前状态
+      - "quit"      # 退出回放
+    
+    # 命令提示符
+    prompt: "> "
+    
+    # 是否显示帮助信息
+    show_help: true
+    
+    # 是否启用自动完成
+    enable_autocomplete: true
+  
+  # 导出配置
+  export:
+    # 支持的导出格式
+    supported_formats:
+      - "json"
+      - "csv"
+      - "html"
+      - "markdown"
+    
+    # 默认导出格式
+    default_format: "json"
+    
+    # 是否包含原始事件数据
+    include_raw_events: true
+    
+    # 是否包含分析结果
+    include_analysis: true
+    
+    # 导出文件名模板
+    filename_template: "replay_{session_id}_{timestamp}.{format}"
+  
+  # 日志配置
+  logging:
+    # 日志级别
+    level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+    
+    # 是否记录详细事件
+    log_events: false
+    
+    # 是否记录性能指标
+    log_performance: true
+    
+    # 是否记录错误详情
+    log_errors: true
+    
+    # 日志格式
+    format: "[{timestamp}] {level} - {message}"
