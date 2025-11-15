@@ -1,0 +1,58 @@
+# 触发器函数组配置
+# 定义触发器函数的通用配置和默认值
+
+category: "trigger_functions"
+
+# 默认参数配置
+defaults:
+  evaluate_functions:
+    function_type: "evaluate"
+    implementation: "config"
+    parameters: {}
+    metadata:
+      version: "1.0"
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+          description: "工作流状态"
+        context:
+          type: "object"
+          description: "上下文信息"
+  
+  execute_functions:
+    function_type: "execute"
+    implementation: "config"
+    parameters: {}
+    metadata:
+      version: "1.0"
+    dependencies: []
+    return_schema:
+      type: "object"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+          description: "工作流状态"
+        context:
+          type: "object"
+          description: "上下文信息"
+
+# 全局设置
+settings:
+  # 是否启用函数缓存
+  enable_cache: true
+  
+  # 是否启用函数验证
+  enable_validation: true
+  
+  # 默认超时时间（秒）
+  default_timeout: 30
+  
+  # 最大重试次数
+  max_retries: 3

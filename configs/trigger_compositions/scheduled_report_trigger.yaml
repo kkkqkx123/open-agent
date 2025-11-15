@@ -1,0 +1,113 @@
+# 定时报告触发器组合配置
+
+name: "scheduled_report_trigger"
+description: "定时报告触发器，用于在指定时间生成工作流状态报告"
+trigger_type: "time"
+
+# 评估函数配置
+evaluate_function:
+  name: "time_evaluate"
+  description: "时间评估函数，检查是否到达预定时间"
+  function_type: "evaluate"
+  implementation: "builtin"
+  parameters:
+    time_patterns:
+      - type: "daily"
+        time: "09:00"  # 每天9点
+      - type: "weekly"
+        day: "monday"
+        time: "09:00"  # 每周一9点
+  metadata:
+    version: "1.0"
+    author: "system"
+    tags: ["time", "schedule", "report"]
+  dependencies: []
+  return_schema:
+    type: "boolean"
+  input_schema:
+    type: "object"
+    properties:
+      state:
+        type: "object"
+      context:
+        type: "object"
+        properties:
+          trigger_config:
+            type: "object"
+            properties:
+              trigger_time:
+                type: "string"
+              last_triggered:
+                type: "string"
+                format: "date-time"
+
+# 执行函数配置
+execute_function:
+  name: "state_execute"
+  description: "状态执行函数，生成详细的工作流状态报告"
+  function_type: "execute"
+  implementation: "builtin"
+  parameters:
+    include_performance_metrics: true
+    include_error_summary: true
+    include_execution_history: true
+    format: "json"
+  metadata:
+    version: "1.0"
+    author: "system"
+    tags: ["report", "state", "analysis"]
+  dependencies: []
+  return_schema:
+    type: "object"
+    properties:
+      report_data:
+        type: "object"
+      executed_at:
+        type: "string"
+        format: "date-time"
+      report_id:
+        type: "string"
+  input_schema:
+    type: "object"
+    properties:
+      state:
+        type: "object"
+      context:
+        type: "object"
+        properties:
+          trigger_id:
+            type: "string"
+
+# 默认触发器配置
+default_config:
+  enabled: true
+  rate_limit: 3600  # 最小间隔1小时
+  max_triggers: 24  # 每天最多触发24次
+  report_format: "json"
+  report_destination: "log"
+  include_charts: false
+
+# 元数据
+metadata:
+  version: "1.0"
+  author: "system"
+  created_at: "2024-01-01T00:00:00Z"
+  updated_at: "2024-01-01T00:00:00Z"
+  tags: ["scheduled", "report", "time", "automation"]
+  documentation:
+    description: "这个触发器组合用于在预定时间自动生成工作流状态报告"
+    usage: |
+      1. 配置触发时间模式
+      2. 设置报告格式和目标
+      3. 启用触发器
+    examples:
+      - name: "每日报告"
+        config:
+          trigger_time: "09:00"
+          report_format: "html"
+          report_destination: "email"
+      - name: "每周摘要"
+        config:
+          trigger_time: "monday_09:00"
+          report_format: "pdf"
+          include_charts: true

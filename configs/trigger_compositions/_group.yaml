@@ -1,0 +1,68 @@
+# 触发器组合组配置
+# 定义触发器组合的通用配置和默认值
+
+# 默认配置
+defaults:
+  # 评估函数默认配置
+  evaluate_function:
+    name: "evaluate"
+    description: "默认评估函数"
+    function_type: "evaluate"
+    implementation: "builtin"
+    parameters: {}
+    metadata:
+      version: "1.0"
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"
+
+  # 执行函数默认配置
+  execute_function:
+    name: "execute"
+    description: "默认执行函数"
+    function_type: "execute"
+    implementation: "builtin"
+    parameters: {}
+    metadata:
+      version: "1.0"
+    dependencies: []
+    return_schema:
+      type: "object"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"
+
+  # 触发器默认配置
+  default_config:
+    enabled: true
+    rate_limit: null
+    max_triggers: null
+
+# 全局设置
+settings:
+  # 是否启用组合缓存
+  enable_composition_cache: true
+  
+  # 是否启用组合验证
+  enable_composition_validation: true
+  
+  # 默认触发器类型
+  default_trigger_type: "custom"
+  
+  # 支持的触发器类型
+  supported_trigger_types:
+    - "time"
+    - "state"
+    - "event"
+    - "custom"

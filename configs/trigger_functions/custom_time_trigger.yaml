@@ -1,0 +1,82 @@
+# 自定义时间触发器函数配置
+
+category: "custom"
+
+trigger_functions:
+  # 自定义时间评估函数
+  custom_time_evaluate:
+    description: "自定义时间触发器评估函数，支持复杂的时间条件"
+    function_type: "evaluate"
+    implementation: "config"
+    parameters:
+      time_patterns:
+        - type: "interval"
+          value: 300  # 5分钟间隔
+        - type: "cron"
+          value: "0 */6 * * *"  # 每6小时
+        - type: "specific"
+          value: "09:00,17:00"  # 每天9点和17点
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["time", "schedule", "custom"]
+    dependencies: []
+    return_schema:
+      type: "boolean"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"
+          properties:
+            trigger_config:
+              type: "object"
+              properties:
+                time_pattern:
+                  type: "string"
+                last_triggered:
+                  type: "string"
+                  format: "date-time"
+
+  # 自定义时间执行函数
+  custom_time_execute:
+    description: "自定义时间触发器执行函数，生成详细的时间报告"
+    function_type: "execute"
+    implementation: "config"
+    parameters:
+      include_state_summary: true
+      include_next_trigger: true
+      time_format: "iso8601"
+    metadata:
+      author: "system"
+      version: "1.0"
+      tags: ["time", "report", "custom"]
+    dependencies: []
+    return_schema:
+      type: "object"
+      properties:
+        trigger_time:
+          type: "string"
+        executed_at:
+          type: "string"
+          format: "date-time"
+        next_trigger:
+          type: "string"
+        state_summary:
+          type: "object"
+        message:
+          type: "string"
+    input_schema:
+      type: "object"
+      properties:
+        state:
+          type: "object"
+        context:
+          type: "object"
+          properties:
+            trigger_config:
+              type: "object"
+            trigger_id:
+              type: "string"
