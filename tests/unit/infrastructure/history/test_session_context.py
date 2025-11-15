@@ -5,7 +5,7 @@ from unittest.mock import patch
 import threading
 import time
 
-from src.application.history.session_context import (
+from infrastructure.history.session_context import (
     SessionContext,
     get_current_session,
     set_current_session,

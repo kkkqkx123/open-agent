@@ -6,7 +6,7 @@
 from typing import Dict, Any, Optional
 from src.domain.history.interfaces import IHistoryManager
 from src.domain.history.models import MessageType
-from application.history.historyUseCase import HistoryUseCase
+from application.history.history_use_case import HistoryUseCase
 from infrastructure.history.session_context import set_current_session
 from src.presentation.tui.state_manager import StateManager
 

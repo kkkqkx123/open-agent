@@ -1,17 +1,16 @@
-"""HistoryServiceIntegration单元测试"""
+"""HistoryUseCase单元测试"""
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 
-from application.history.historyUseCase import HistoryUseCase
+from application.history.history_use_case import HistoryUseCase
 from src.domain.history.interfaces import IHistoryManager
 from src.domain.history.models import MessageRecord, MessageType, ToolCallRecord, HistoryQuery, HistoryResult
-from src.domain.history.llm_models import LLMRequestRecord, LLMResponseRecord, TokenUsageRecord, CostRecord
 
 
-class TestHistoryServiceIntegration:
-    """HistoryServiceIntegration测试"""
+class TestHistoryUseCase:
+    """HistoryUseCase测试"""
 
     def test_init(self) -> None:
         """测试初始化"""

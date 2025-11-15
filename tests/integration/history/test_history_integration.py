@@ -17,7 +17,7 @@ from src.domain.history.llm_models import (
 )
 from src.domain.history.interfaces import IHistoryManager
 from src.application.history.manager import HistoryManager
-from application.history.historyUseCase import HistoryUseCase
+from application.history.history_use_case import HistoryUseCase
 from infrastructure.history.session_context import session_context, generate_session_id
 from infrastructure.history.token_tracker import TokenUsageTracker
 from src.application.history.di_config import register_history_services_with_dependencies, register_test_history_services
