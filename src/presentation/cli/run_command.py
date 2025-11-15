@@ -9,10 +9,13 @@ from rich.text import Text
 
 from ...infrastructure.container import get_global_container
 from ...infrastructure.config.loader.file_config_loader import IConfigLoader
-from src.application.sessions.manager import ISessionManager
+from src.application.sessions.manager import ISessionManager, UserRequest
 from src.application.workflow.manager import IWorkflowManager
 from src.infrastructure.graph.states import WorkflowState
-from src.infrastructure.graph.adapters.state_adapter import StateAdapter
+from src.infrastructure.graph.adapters.state_adapter import StateAdapter, WorkflowStateAdapter
+from langchain_core.messages import HumanMessage, AIMessage
+from datetime import datetime
+import uuid
 
 
 class RunCommand:
@@ -35,32 +38,11 @@ class RunCommand:
             if session_id:
                 # 恢复现有会话
                 self.console.print(f"[cyan]正在恢复会话 {session_id}...[/cyan]")
-                workflow, graph_state = session_manager.restore_session(session_id)
-                state = self.state_adapter.from_graph_state(cast(Dict[str, Any], graph_state))
-                self.console.print(f"[green]会话 {session_id} 恢复成功[/green]")
+                asyncio.run(self._restore_and_run(session_id, session_manager, workflow_manager))
             else:
                 # 创建新会话
                 self.console.print("[cyan]正在创建新会话...[/cyan]")
-                
-                # 加载agent配置
-                agent_config = self._load_agent_config(agent_config_path)
-                
-                # 创建会话
-                session_id = session_manager.create_session(
-                    workflow_config_path=workflow_config_path,
-                    agent_config=agent_config
-                )
-                
-                # 获取工作流和初始状态
-                workflow, graph_state = session_manager.restore_session(session_id)
-                state = self.state_adapter.from_graph_state(cast(Dict[str, Any], graph_state))
-                self.console.print(f"[green]新会话 {session_id} 创建成功[/green]")
-            
-            # 显示会话信息
-            self._display_session_info(session_id, workflow_config_path)
-            
-            # 运行交互式循环
-            self._run_interactive_loop(session_id, workflow, state, session_manager)
+                asyncio.run(self._create_and_run(workflow_config_path, agent_config_path, session_manager, workflow_manager))
             
         except Exception as e:
             self.console.print(f"[red]执行失败: {e}[/red]")
@@ -68,6 +50,57 @@ class RunCommand:
                 import traceback
                 self.console.print(traceback.format_exc())
             raise
+    
+    async def _create_and_run(
+        self, 
+        workflow_config_path: str, 
+        agent_config_path: Optional[str],
+        session_manager: ISessionManager,
+        workflow_manager: IWorkflowManager
+    ) -> None:
+        """创建会话并运行"""
+        # 创建用户请求
+        user_request = UserRequest(
+            request_id=f"request_{uuid.uuid4().hex[:8]}",
+            user_id=None,
+            content=f"创建会话: {workflow_config_path}",
+            metadata={
+                "workflow_config_path": workflow_config_path,
+                "agent_config_path": agent_config_path
+            },
+            timestamp=datetime.now()
+        )
+        
+        # 创建会话
+        session_id = await session_manager.create_session(user_request)
+        self.console.print(f"[green]新会话 {session_id} 创建成功[/green]")
+        
+        # 显示会话信息
+        self._display_session_info(session_id, workflow_config_path)
+        
+        # 运行交互式循环
+        await self._run_interactive_loop(session_id, session_manager, workflow_manager)
+    
+    async def _restore_and_run(
+        self,
+        session_id: str,
+        session_manager: ISessionManager,
+        workflow_manager: IWorkflowManager
+    ) -> None:
+        """恢复会话并运行"""
+        # 获取会话信息
+        session_context = await session_manager.get_session_context(session_id)
+        if not session_context:
+            self.console.print(f"[red]会话不存在: {session_id}[/red]")
+            return
+        
+        self.console.print(f"[green]会话 {session_id} 恢复成功[/green]")
+        
+        # 显示会话信息
+        self._display_session_info(session_id, "已恢复的会话")
+        
+        # 运行交互式循环
+        await self._run_interactive_loop(session_id, session_manager, workflow_manager)
     
     def _load_agent_config(self, agent_config_path: Optional[str]) -> Optional[Dict[str, Any]]:
         """加载agent配置"""
@@ -92,12 +125,19 @@ class RunCommand:
             border_style="green"
         )
         self.console.print(panel)
-        # 移除额外的空行打印
     
-    def _run_interactive_loop(self, session_id: str, workflow: Any, state: WorkflowState, session_manager: ISessionManager) -> None:
+    async def _run_interactive_loop(
+        self, 
+        session_id: str, 
+        session_manager: ISessionManager,
+        workflow_manager: IWorkflowManager
+    ) -> None:
         """运行交互式循环"""
         self.console.print("[bold cyan]进入交互模式，输入 'exit' 或 'quit' 退出[/bold cyan]")
         self.console.print()
+        
+        # 初始化状态适配器
+        adapter_state = WorkflowStateAdapter()
         
         while True:
             try:
@@ -107,13 +147,37 @@ class RunCommand:
                 # 检查退出命令
                 if user_input.lower() in ['exit', 'quit', '退出']:
                     self.console.print("[yellow]正在保存会话并退出...[/yellow]")
-                    session_manager.save_session(session_id, workflow, state)
+                    # 追踪用户交互
+                    from src.application.sessions.manager import UserInteraction
+                    interaction = UserInteraction(
+                        interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
+                        session_id=session_id,
+                        thread_id=None,
+                        interaction_type="session_exit",
+                        content="用户退出会话",
+                        metadata={},
+                        timestamp=datetime.now()
+                    )
+                    await session_manager.track_user_interaction(session_id, interaction)
                     self.console.print("[green]会话已保存，再见！[/green]")
                     break
                 
                 # 添加用户消息到状态
-                human_message = AgentMessage(content=user_input, role="human")
-                state.add_message(human_message)
+                human_message = HumanMessage(content=user_input)
+                adapter_state.messages.append(human_message)
+                
+                # 追踪用户输入交互
+                from src.application.sessions.manager import UserInteraction
+                user_interaction = UserInteraction(
+                    interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
+                    session_id=session_id,
+                    thread_id=None,
+                    interaction_type="user_input",
+                    content=user_input,
+                    metadata={},
+                    timestamp=datetime.now()
+                )
+                await session_manager.track_user_interaction(session_id, user_interaction)
                 
                 # 执行工作流
                 with Progress(
@@ -126,18 +190,30 @@ class RunCommand:
                     
                     try:
                         # 异步执行工作流
-                        result = asyncio.run(self._execute_workflow(workflow, state))
+                        result = await self._execute_workflow(adapter_state, workflow_manager)
                         
                         if result:
-                            state = result
+                            adapter_state = result
                             progress.update(task, description="处理完成")
                             
                             # 显示AI回复
-                            if state.messages:
-                                last_message = state.messages[-1]
+                            if adapter_state.messages:
+                                last_message = adapter_state.messages[-1]
                                 if hasattr(last_message, 'content'):
                                     content = getattr(last_message, 'content', '')
                                     self.console.print(f"[bold green]助手:[/bold green] {content}")
+                                    
+                                    # 追踪AI响应交互
+                                    ai_interaction = UserInteraction(
+                                        interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
+                                        session_id=session_id,
+                                        thread_id=None,
+                                        interaction_type="ai_response",
+                                        content=content,
+                                        metadata={},
+                                        timestamp=datetime.now()
+                                    )
+                                    await session_manager.track_user_interaction(session_id, ai_interaction)
                         
                     except Exception as e:
                         progress.update(task, description="处理失败")
@@ -146,13 +222,20 @@ class RunCommand:
                             import traceback
                             self.console.print(traceback.format_exc())
                 
-                # 保存会话状态
-                graph_state = self.state_adapter.to_graph_state(state)
-                session_manager.save_session(session_id, workflow, graph_state)
-                
             except KeyboardInterrupt:
                 self.console.print("\n[yellow]正在保存会话并退出...[/yellow]")
-                session_manager.save_session(session_id, workflow, state)
+                # 追踪中断交互
+                from src.application.sessions.manager import UserInteraction
+                interrupt_interaction = UserInteraction(
+                    interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
+                    session_id=session_id,
+                    thread_id=None,
+                    interaction_type="session_interrupt",
+                    content="用户中断会话",
+                    metadata={},
+                    timestamp=datetime.now()
+                )
+                await session_manager.track_user_interaction(session_id, interrupt_interaction)
                 self.console.print("[green]会话已保存，再见！[/green]")
                 break
             except Exception as e:
@@ -161,27 +244,33 @@ class RunCommand:
                     import traceback
                     self.console.print(traceback.format_exc())
     
-    async def _execute_workflow(self, workflow: Any, state: WorkflowState) -> Optional[WorkflowState]:
+    async def _execute_workflow(
+        self, 
+        adapter_state: WorkflowStateAdapter,
+        workflow_manager: IWorkflowManager
+    ) -> Optional[WorkflowStateAdapter]:
         """异步执行工作流"""
         try:
-            # 这里需要根据具体的工作流实现来调整
-            # 假设工作流有async_run方法
-            if hasattr(workflow, 'async_run') and callable(workflow.async_run):
-                # 检查是否是协程函数
-                import inspect
-                if inspect.iscoroutinefunction(workflow.async_run):
-                    result = await workflow.async_run(state)
-                    return result  # type: ignore
-                else:
-                    # 如果不是协程函数，直接调用
-                    result = workflow.async_run(state)
-                    return result  # type: ignore
-            elif hasattr(workflow, 'run') and callable(workflow.run):
-                result = workflow.run(state)
-                return result  # type: ignore
-            else:
-                self.console.print("[yellow]警告: 工作流没有可执行的run方法[/yellow]")
-                return None
+            # 将适配器状态转换为图状态
+            graph_state = self.state_adapter.to_graph_state(adapter_state)
+            
+            # 使用workflow_manager异步运行工作流
+            # 获取第一个可用的工作流ID
+            workflows = workflow_manager.list_workflows()
+            if workflows:
+                workflow_id = workflows[0]
+                # 异步执行工作流
+                result_state = await workflow_manager.run_workflow_async(
+                    workflow_id=workflow_id,
+                    initial_state=graph_state
+                )
+                if result_state:
+                    # 将结果转换回适配器状态
+                    return self.state_adapter.from_graph_state(result_state)
+            
+            # 如果没有可用的工作流，直接返回当前状态
+            return adapter_state
+            
         except Exception as e:
             self.console.print(f"[red]工作流执行失败: {e}[/red]")
             raise

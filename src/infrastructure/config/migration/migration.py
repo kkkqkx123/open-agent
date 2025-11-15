@@ -16,7 +16,7 @@ from ..models.config import (
     ToolConfigModel, LLMConfigModel, GraphConfigModel,
     ConfigType, ConfigMetadata
 )
-from ..processor.inheritance import ConfigInheritanceHandler
+from ..utils.inheritance_handler import ConfigInheritanceHandler
 from ...exceptions import ConfigurationError
 from ..interfaces import IConfigLoader
 
