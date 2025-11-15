@@ -3,7 +3,7 @@
 import os
 from typing import Dict, Any
 from src.infrastructure import DependencyContainer
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.infrastructure.config import ConfigSystem, ConfigMerger, ConfigValidator, ConfigValidatorTool
 
 
@@ -20,7 +20,7 @@ def setup_dependency_container(config_path: str = "configs") -> DependencyContai
     container = DependencyContainer()
     
     # 注册配置加载器
-    container.register(YamlConfigLoader, YamlConfigLoader, "default")
+    container.register(FileConfigLoader, FileConfigLoader, "default")
     
     # 注册配置系统组件
     container.register(ConfigMerger, ConfigMerger, "default")
@@ -47,7 +47,7 @@ def main() -> None:
         container = setup_dependency_container()
         
         # 获取配置加载器
-        config_loader = container.get(YamlConfigLoader)
+        config_loader = container.get(FileConfigLoader)
         print(f"✅ 获取配置加载器: {type(config_loader).__name__}")
         
         # 获取配置系统组件

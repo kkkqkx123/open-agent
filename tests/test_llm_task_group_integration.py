@@ -5,7 +5,7 @@ import pytest
 import asyncio
 from pathlib import Path
 
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.infrastructure.llm.task_group_manager import TaskGroupManager
 from src.infrastructure.llm.polling_pool import PollingPoolManager
 from src.infrastructure.llm.enhanced_fallback_manager import EnhancedFallbackManager
@@ -18,7 +18,7 @@ class TestLLMTaskGroupIntegration:
     @pytest.fixture
     def config_loader(self):
         """配置加载器fixture"""
-        return YamlConfigLoader()
+        return FileConfigLoader()
     
     @pytest.fixture
     def task_group_manager(self, config_loader):

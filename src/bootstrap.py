@@ -14,7 +14,7 @@ from pathlib import Path
 from src.infrastructure.container import get_global_container, DependencyContainer, IDependencyContainer
 from src.infrastructure.di_config import DIConfig, create_container, get_global_container as get_di_container
 from src.infrastructure.lifecycle_manager import LifecycleManager, get_global_lifecycle_manager
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.infrastructure.exceptions import InfrastructureError
 from src.infrastructure.container_interfaces import ILifecycleAware
 
@@ -37,7 +37,7 @@ class ApplicationBootstrap:
         self.config_path = config_path
         self.container: Optional[IDependencyContainer] = None
         self.lifecycle_manager: Optional[LifecycleManager] = None
-        self.config_loader: Optional[YamlConfigLoader] = None
+        self.config_loader: Optional[FileConfigLoader] = None
         self._shutdown_handlers: List[Callable] = []
         self._background_threads: List[threading.Thread] = []
         self._is_running = False
@@ -149,7 +149,7 @@ class ApplicationBootstrap:
         """
         try:
             # 使用简化的配置加载器
-            self.config_loader = YamlConfigLoader()
+            self.config_loader = FileConfigLoader()
             config = self.config_loader.load(self.config_path)
             logger.info(f"成功加载应用配置: {self.config_path}")
             return config
@@ -310,7 +310,7 @@ class ApplicationBootstrap:
         try:
             # 简单的接口类型解析
             if interface_name == "IConfigLoader":
-                from infrastructure.config.loader.yaml_loader import IConfigLoader
+                from infrastructure.config.loader.file_config_loader import IConfigLoader
                 return IConfigLoader
             elif interface_name == "IWorkflowManager":
                 from src.application.workflow.manager import IWorkflowManager

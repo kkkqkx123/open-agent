@@ -46,7 +46,7 @@ def main():
         di_config.configure_core_services()
         
         # 获取服务
-        from infrastructure.config.loader.yaml_loader import IConfigLoader
+        from infrastructure.config.loader.file_config_loader import IConfigLoader
         from src.infrastructure.logger.logger import Logger
         from src.infrastructure.tools.interfaces import IToolManager
         

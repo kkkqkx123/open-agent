@@ -6,12 +6,12 @@
 from typing import Optional
 from pathlib import Path
 
-from .interfaces import IConfigLoader, IConfigInheritanceHandler
-from ..utils.dict_merger import DictMerger, IDictMerger as IConfigMerger
-from .processor.validator import IConfigValidator, ConfigValidator
-from .loader.yaml_loader import YamlConfigLoader
-from .utils.inheritance_handler import ConfigInheritanceHandler
-from .config_system import IConfigSystem, ConfigSystem
+from ..interfaces import IConfigLoader, IConfigInheritanceHandler
+from ...utils.dict_merger import DictMerger, IDictMerger as IConfigMerger
+from ..processor.validator import IConfigValidator, ConfigValidator
+from ..loader.file_config_loader import FileConfigLoader
+from ..utils.inheritance_handler import ConfigInheritanceHandler
+from ..config_system import IConfigSystem, ConfigSystem
 
 
 class ConfigServiceFactory:
@@ -43,7 +43,7 @@ class ConfigServiceFactory:
         config_validator = ConfigValidator()
         
         # 创建配置加载器（简化版，只负责文件加载）
-        config_loader = YamlConfigLoader(base_path=base_path)
+        config_loader = FileConfigLoader(base_path=base_path)
         
         # 创建继承处理器（如果启用）
         inheritance_handler = None
@@ -77,11 +77,11 @@ class ConfigServiceFactory:
             配置加载器实例
         """
         # 创建基础配置加载器
-        loader = YamlConfigLoader(base_path=base_path)
+        loader = FileConfigLoader(base_path=base_path)
         
         if enable_inheritance:
             # 如果启用继承，返回继承配置加载器装饰器
-            from .utils.inheritance_handler import ConfigInheritanceHandler as InheritanceConfigLoader
+            from ..utils.inheritance_handler import InheritanceConfigLoader
             return InheritanceConfigLoader(loader)
         else:
             return loader
@@ -152,3 +152,24 @@ def create_minimal_config_system(base_path: str = "configs") -> IConfigSystem:
         enable_error_recovery=False,
         enable_callback_manager=False
     )
+
+
+# 为了兼容性，保留ConfigFactory类
+class ConfigFactory:
+    """配置工厂 - 保持向后兼容性"""
+    
+    @staticmethod
+    def create_config_system(base_path: str = "configs") -> IConfigSystem:
+        """创建配置系统"""
+        return create_config_system(base_path)
+    
+    @staticmethod
+    def create_minimal_config_system(base_path: str = "configs") -> IConfigSystem:
+        """创建最小配置系统（仅核心功能）"""
+        return create_minimal_config_system(base_path)
+
+
+# 为了兼容性，保留便捷函数
+def create_config_system_legacy(base_path: str = "configs") -> IConfigSystem:
+    """创建配置系统的便捷函数（已弃用，请使用config_service_factory中的版本）"""
+    return ConfigFactory.create_config_system(base_path)

@@ -4,7 +4,8 @@
 """
 
 from .container import IDependencyContainer, DependencyContainer, get_global_container
-from .config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
+from .config.loader.file_config_loader import IConfigLoader, FileConfigLoader
+from .utils.yaml_loader import YamlLoader
 from .environment import IEnvironmentChecker, EnvironmentChecker
 from .env_check_command import EnvironmentCheckCommand
 from .architecture_check import ArchitectureChecker
@@ -60,7 +61,8 @@ __all__ = [
     "DependencyContainer",
     "get_global_container",
     "IConfigLoader",
-    "YamlConfigLoader",
+    "FileConfigLoader",
+    "YamlLoader",
     "IEnvironmentChecker",
     "EnvironmentChecker",
     "EnvironmentCheckCommand",

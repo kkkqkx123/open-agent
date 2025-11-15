@@ -4,7 +4,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.infrastructure.llm.task_group_manager import TaskGroupManager
 from src.infrastructure.llm.polling_pool import PollingPoolManager
 from src.infrastructure.llm.enhanced_fallback_manager import EnhancedFallbackManager
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 async def main():
     """主函数"""
     # 1. 初始化配置加载器
-    config_loader = YamlConfigLoader()
+    config_loader = FileConfigLoader()
     
     # 2. 创建任务组管理器
     task_group_manager = TaskGroupManager(config_loader)

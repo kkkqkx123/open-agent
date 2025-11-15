@@ -7,7 +7,7 @@ import yaml
 from pathlib import Path
 from unittest.mock import Mock, AsyncMock, patch
 
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.infrastructure.llm.task_group_manager import TaskGroupManager
 from src.infrastructure.llm.enhanced_fallback_manager import EnhancedFallbackManager
 from src.infrastructure.llm.polling_pool import PollingPoolManager
@@ -195,7 +195,7 @@ class TestLLMIntegration:
     @pytest.fixture
     def task_group_manager(self, config_files):
         """任务组管理器"""
-        config_loader = YamlConfigLoader(base_path=str(config_files.parent))
+        config_loader = FileConfigLoader(base_path=str(config_files.parent))
         manager = TaskGroupManager(config_loader)
         manager._config_base_path = str(config_files)
         manager.load_config()

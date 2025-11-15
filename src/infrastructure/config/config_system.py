@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, Callable, List, cast
 from pathlib import Path
 
 from .interfaces import IConfigSystem, IConfigLoader
-from .loader.yaml_loader import YamlConfigLoader
+from .loader.file_config_loader import FileConfigLoader
 from ..exceptions import ConfigurationError
 from ..utils.dict_merger import IDictMerger as IConfigMerger
 from .processor.validator import IConfigValidator, ValidationResult

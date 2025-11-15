@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 
 from src.infrastructure import (
-    YamlConfigLoader, 
+    FileConfigLoader, 
     InheritanceConfigLoader,
     ConfigInheritanceHandler,
     WorkflowConfigModel,
@@ -30,7 +30,7 @@ def demo_basic_inheritance():
     print("=" * 60)
     
     # 创建配置加载器（启用继承）
-    config_loader = YamlConfigLoader(enable_inheritance=True)
+    config_loader = FileConfigLoader(enable_inheritance=True)
     
     try:
         # 加载ReAct工作流配置（继承自base_workflow.yaml）
@@ -67,7 +67,7 @@ def demo_config_validation():
     print("演示2: 配置验证功能")
     print("=" * 60)
     
-    config_loader = YamlConfigLoader(enable_inheritance=True)
+    config_loader = FileConfigLoader(enable_inheritance=True)
     
     try:
         # 加载配置
@@ -155,7 +155,7 @@ def demo_config_comparison():
     print("演示4: 配置对比功能")
     print("=" * 60)
     
-    config_loader = YamlConfigLoader(enable_inheritance=True)
+    config_loader = FileConfigLoader(enable_inheritance=True)
     
     try:
         # 加载基础配置
@@ -195,7 +195,7 @@ async def demo_async_config_loading():
     async def load_config_async(config_path: str):
         """异步加载配置"""
         await asyncio.sleep(0.1)  # 模拟异步操作
-        config_loader = YamlConfigLoader(enable_inheritance=True)
+        config_loader = FileConfigLoader(enable_inheritance=True)
         return config_loader.load(config_path)
     
     try:

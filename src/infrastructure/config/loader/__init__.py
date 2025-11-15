@@ -1,6 +1,6 @@
 """配置加载器模块"""
 
-from .yaml_loader import YamlConfigLoader
+from .file_config_loader import FileConfigLoader
 from ...utils.file_watcher import FileWatcher
 
-__all__ = ['YamlConfigLoader', 'FileWatcher']
+__all__ = ['FileConfigLoader', 'FileWatcher']

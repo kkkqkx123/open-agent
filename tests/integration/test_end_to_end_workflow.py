@@ -9,7 +9,7 @@ from typing import cast, Any, Dict
 
 from src.infrastructure import (
     DependencyContainer,
-    YamlConfigLoader,
+    FileConfigLoader,
     EnvironmentChecker,
     ArchitectureChecker,
     TestContainer,
@@ -82,7 +82,7 @@ class TestEndToEndWorkflow:
 
             # 注册自定义服务
             class CustomService:
-                def __init__(self, config_loader: YamlConfigLoader):
+                def __init__(self, config_loader: FileConfigLoader):
                     self.config_loader = config_loader
 
                 def get_config(self, path: str) -> Any:
@@ -183,7 +183,7 @@ invalid_yaml: [
 
             # 多次获取服务（测试单例效果）
             for _ in range(100):
-                di_container.get(YamlConfigLoader)
+                di_container.get(FileConfigLoader)
                 di_container.get(IEnvironmentChecker)
                 di_container.get(ArchitectureChecker)
 
@@ -224,7 +224,7 @@ invalid_yaml: [
             class ConfigService:
                 def __init__(self, config_path: str):
                     self.config_path = config_path
-                    self.config_loader = di_container.get(YamlConfigLoader)
+                    self.config_loader = di_container.get(FileConfigLoader)
 
                 def get_config(self) -> Any:
                     return self.config_loader.load(self.config_path)
@@ -326,9 +326,9 @@ invalid_yaml: [
 
             # 4. 手动触发重载
             # 使用类型断言来访问私有方法
-            from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+            from infrastructure.config.loader.file_config_loader import FileConfigLoader
 
-            yaml_config_loader = cast(YamlConfigLoader, config_loader)
+            yaml_config_loader = cast(FileConfigLoader, config_loader)
             yaml_config_loader._handle_file_change(
                 str(container.temp_path / "configs" / "global.yaml")
             )

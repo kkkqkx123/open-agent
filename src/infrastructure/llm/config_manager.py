@@ -477,12 +477,12 @@ def get_global_config_manager() -> LLMConfigManager:
     # 注意：这个函数现在依赖于一个全局的 IConfigLoader 实例
     # 在实际应用中，这应该通过依赖注入容器来解决
     # 为了向后兼容，我们在这里创建一个默认的 YamlConfigLoader
-    from ..config.loader.yaml_loader import YamlConfigLoader
+    from ..config.loader.file_config_loader import FileConfigLoader
     
     global _global_config_manager
     if _global_config_manager is None:
         # 这是一个临时解决方案，理想情况下应该从容器获取
-        default_loader = YamlConfigLoader()
+        default_loader = FileConfigLoader()
         _global_config_manager = LLMConfigManager(config_loader=default_loader)
     return _global_config_manager
 

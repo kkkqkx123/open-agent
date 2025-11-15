@@ -1,8 +1,8 @@
 """配置系统模块"""
 
 from .config_system import IConfigSystem, ConfigSystem
-from .config_factory import ConfigFactory
-from .config_service_factory import create_config_system, create_minimal_config_system
+from .service.config_factory import ConfigFactory
+from .service.config_factory import create_config_system, create_minimal_config_system
 from .config_cache import ConfigCache
 from .config_loader import ConfigLoader
 from .utils.config_operations import ConfigOperations
@@ -36,7 +36,7 @@ from .interfaces import IConfigLoader, IConfigInheritanceHandler
 from .utils.inheritance_handler import ConfigInheritanceHandler
 from .utils.inheritance_handler import IConfigInheritanceHandler
 from .utils.inheritance_handler import InheritanceConfigLoader
-from .loader.yaml_loader import YamlConfigLoader
+from .loader.file_config_loader import FileConfigLoader
 from ..utils.file_watcher import FileWatcher
 from .migration.migration import (
     MigrationResult,
@@ -84,7 +84,7 @@ __all__ = [
     "IConfigInheritanceHandler",
     "ConfigInheritanceHandler",
     "InheritanceConfigLoader",
-    "YamlConfigLoader",
+    "FileConfigLoader",
     "FileWatcher",
     "MigrationResult",
     "ConfigMigrationTool",

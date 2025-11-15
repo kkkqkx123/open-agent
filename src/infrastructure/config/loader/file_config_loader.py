@@ -1,23 +1,20 @@
 """配置加载器实现"""
 
-import os
-import yaml
-import threading
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Callable, List, TypeVar
+from typing import Dict, Any, Optional, List, Callable
 from pathlib import Path
 
 from ...exceptions import ConfigurationError
 from ...infrastructure_types import CheckResult
 from ..interfaces import IConfigLoader
 from ...container_interfaces import ILifecycleAware
-
-# 定义类型变量
-ConfigValue = TypeVar("ConfigValue", Dict[str, Any], List[Any], str, Any)
+from ...utils.yaml_loader import YamlLoader
 
 
-class YamlConfigLoader(IConfigLoader, ILifecycleAware):
-    """YAML配置加载器实现 - 专注于文件加载和缓存"""
+class FileConfigLoader(IConfigLoader, ILifecycleAware):
+    """YAML配置加载器实现 - 配置系统专用适配器
+    
+    使用通用的YamlLoader工具类提供配置系统特定的功能。
+    """
 
     def __init__(self, base_path: str = "configs") -> None:
         """初始化YAML配置加载器
@@ -26,19 +23,19 @@ class YamlConfigLoader(IConfigLoader, ILifecycleAware):
             base_path: 配置文件基础路径
         """
         self._base_path = Path(base_path)
-        self._configs: Dict[str, Dict[str, Any]] = {}
-        self._lock = threading.RLock()
+        self._yaml_loader = YamlLoader(base_path)
 
     @property
     def base_path(self) -> Path:
         """获取配置基础路径"""
         return self._base_path
 
-    def load(self, config_path: str) -> Dict[str, Any]:
+    def load_config(self, config_path: str, config_type: Optional[str] = None) -> Dict[str, Any]:
         """加载配置文件
         
         Args:
             config_path: 配置文件路径
+            config_type: 配置类型（可选，为了兼容接口）
             
         Returns:
             配置字典
@@ -46,31 +43,18 @@ class YamlConfigLoader(IConfigLoader, ILifecycleAware):
         Raises:
             ConfigurationError: 配置文件不存在或格式错误
         """
-        with self._lock:
-            # 检查缓存中是否已有配置
-            if config_path in self._configs:
-                return self._configs[config_path]
+        return self._yaml_loader.load(config_path)
 
-            # 构建完整路径
-            full_path = self.base_path / config_path
-
-            # 检查文件是否存在
-            if not full_path.exists():
-                raise ConfigurationError(f"Configuration file not found: {full_path}")
-
-            try:
-                # 读取YAML文件
-                with open(full_path, "r", encoding="utf-8") as f:
-                    config: Dict[str, Any] = yaml.safe_load(f) or {}
-
-                # 缓存配置
-                self._configs[config_path] = config
-
-                return config
-            except yaml.YAMLError as e:
-                raise ConfigurationError(f"Invalid YAML in {config_path}: {e}")
-            except Exception as e:
-                raise ConfigurationError(f"Failed to load {config_path}: {e}")
+    def load(self, config_path: str) -> Dict[str, Any]:
+        """加载配置文件（向后兼容方法）
+        
+        Args:
+            config_path: 配置文件路径
+            
+        Returns:
+            配置字典
+        """
+        return self.load_config(config_path)
 
     def get_config(self, config_path: str) -> Optional[Dict[str, Any]]:
         """获取缓存中的配置，如果不存在则返回None
@@ -81,22 +65,11 @@ class YamlConfigLoader(IConfigLoader, ILifecycleAware):
         Returns:
             配置字典或None
         """
-        with self._lock:
-            return self._configs.get(config_path)
+        return self._yaml_loader.get_cached(config_path)
 
     def reload(self) -> None:
         """重新加载所有配置"""
-        with self._lock:
-            # 重新加载所有缓存的配置
-            for config_path in list(self._configs.keys()):
-                try:
-                    # 先从缓存中移除，这样load会重新读取文件
-                    del self._configs[config_path]
-                    # 重新加载
-                    self.load(config_path)
-                except ConfigurationError as e:
-                    # 记录错误但继续加载其他配置
-                    print(f"Warning: Failed to reload {config_path}: {e}")
+        self._yaml_loader.reload()
 
     def watch_for_changes(
         self, callback: Callable[[str, Dict[str, Any]], None]
@@ -158,13 +131,11 @@ class YamlConfigLoader(IConfigLoader, ILifecycleAware):
         Returns:
             配置字典或None
         """
-        with self._lock:
-            return self._configs.get(config_path)
+        return self._yaml_loader.get_cached(config_path)
 
     def clear_cache(self) -> None:
         """清除配置缓存"""
-        with self._lock:
-            self._configs.clear()
+        self._yaml_loader.clear_cache()
 
     def validate_config_structure(
         self, config: Dict[str, Any], required_keys: List[str]
@@ -178,21 +149,7 @@ class YamlConfigLoader(IConfigLoader, ILifecycleAware):
         Returns:
             验证结果
         """
-        missing_keys = [key for key in required_keys if key not in config]
-
-        if missing_keys:
-            return CheckResult(
-                component="config_structure",
-                status="ERROR",
-                message=f"Missing required keys: {', '.join(missing_keys)}",
-                details={"missing_keys": missing_keys},
-            )
-
-        return CheckResult(
-            component="config_structure",
-            status="PASS",
-            message="Configuration structure is valid",
-        )
+        return self._yaml_loader.validate_structure(config, required_keys)
 
     def initialize(self) -> None:
         """初始化配置加载器"""
@@ -209,6 +166,38 @@ class YamlConfigLoader(IConfigLoader, ILifecycleAware):
         # YamlConfigLoader 不需要停止逻辑
         pass
     
+    def save_config(self, config: Dict[str, Any], config_path: str, config_type: Optional[str] = None) -> None:
+        """保存配置
+        
+        Args:
+            config: 配置数据
+            config_path: 配置文件路径
+            config_type: 配置类型（可选，为了兼容接口）
+        """
+        self._yaml_loader.save(config, config_path)
+
+    def list_configs(self, config_type: Optional[str] = None) -> List[str]:
+        """列出配置文件
+        
+        Args:
+            config_type: 配置类型（可选，为了兼容接口）
+            
+        Returns:
+            配置文件路径列表
+        """
+        return self._yaml_loader.list_files()
+
+    def validate_config_path(self, config_path: str) -> bool:
+        """验证配置路径
+        
+        Args:
+            config_path: 配置文件路径
+            
+        Returns:
+            路径是否有效
+        """
+        return self._yaml_loader.exists(config_path)
+
     def dispose(self) -> None:
         """释放配置加载器资源"""
         # 清理缓存

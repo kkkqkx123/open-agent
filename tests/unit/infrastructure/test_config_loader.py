@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch, MagicMock
 
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader, ConfigFileHandler
+from infrastructure.config.loader.file_config_loader import FileConfigLoader, ConfigFileHandler
 from src.infrastructure.exceptions import ConfigurationError
 
 
@@ -23,7 +23,7 @@ class TestYamlConfigLoader:
             with open(config_path, "w", encoding="utf-8") as f:
                 yaml.dump(test_config, f)
 
-            loader = YamlConfigLoader(temp_dir)
+            loader = FileConfigLoader(temp_dir)
             config = loader.load("test.yaml")
 
             assert config["log_level"] == "INFO"
@@ -33,7 +33,7 @@ class TestYamlConfigLoader:
     def test_load_nonexistent_file(self) -> None:
         """测试加载不存在的文件"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            loader = YamlConfigLoader(temp_dir)
+            loader = FileConfigLoader(temp_dir)
 
             with pytest.raises(
                 ConfigurationError, match="Configuration file not found"
@@ -48,7 +48,7 @@ class TestYamlConfigLoader:
             with open(config_path, "w", encoding="utf-8") as f:
                 f.write("invalid: yaml: content: [")
 
-            loader = YamlConfigLoader(temp_dir)
+            loader = FileConfigLoader(temp_dir)
 
             with pytest.raises(ConfigurationError, match="Invalid YAML"):
                 loader.load("invalid.yaml")
@@ -59,7 +59,7 @@ class TestYamlConfigLoader:
         os.environ["TEST_PORT"] = "8000"
 
         try:
-            loader = YamlConfigLoader()
+            loader = FileConfigLoader()
 
             # 测试简单环境变量
             config = {"api_key": "${TEST_API_KEY}"}
@@ -96,7 +96,7 @@ class TestYamlConfigLoader:
         os.environ["TEST_PORT"] = "8000"
 
         try:
-            loader = YamlConfigLoader()
+            loader = FileConfigLoader()
 
             config = {
                 "server": {
@@ -137,7 +137,7 @@ class TestYamlConfigLoader:
             with open(config_path, "w", encoding="utf-8") as f:
                 yaml.dump(test_config, f)
 
-            loader = YamlConfigLoader(temp_dir)
+            loader = FileConfigLoader(temp_dir)
 
             # 第一次加载
             config1 = loader.load("test.yaml")
@@ -156,7 +156,7 @@ class TestYamlConfigLoader:
             with open(config_path, "w", encoding="utf-8") as f:
                 yaml.dump(test_config, f)
 
-            loader = YamlConfigLoader(temp_dir)
+            loader = FileConfigLoader(temp_dir)
             config1 = loader.load("test.yaml")
 
             # 修改配置文件
@@ -181,7 +181,7 @@ class TestYamlConfigLoader:
             with open(config_path, "w", encoding="utf-8") as f:
                 yaml.dump(test_config, f)
 
-            loader = YamlConfigLoader(temp_dir)
+            loader = FileConfigLoader(temp_dir)
 
             # 模拟回调函数
             callback = MagicMock()
@@ -217,7 +217,7 @@ class TestYamlConfigLoader:
             with open(config_path, "w", encoding="utf-8") as f:
                 yaml.dump(test_config, f)
 
-            loader = YamlConfigLoader(temp_dir)
+            loader = FileConfigLoader(temp_dir)
 
             # 加载配置
             loader.load("test.yaml")
@@ -240,7 +240,7 @@ class TestYamlConfigLoader:
             with open(config_path, "w", encoding="utf-8") as f:
                 yaml.dump(test_config, f)
 
-            loader = YamlConfigLoader(temp_dir)
+            loader = FileConfigLoader(temp_dir)
 
             # 加载配置
             loader.load("test.yaml")
@@ -256,7 +256,7 @@ class TestYamlConfigLoader:
 
     def test_validate_config_structure(self) -> None:
         """测试配置结构验证"""
-        loader = YamlConfigLoader()
+        loader = FileConfigLoader()
 
         # 有效配置
         valid_config = {
@@ -282,7 +282,7 @@ class TestYamlConfigLoader:
     def test_stop_watching(self) -> None:
         """测试停止监听"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            loader = YamlConfigLoader(temp_dir)
+            loader = FileConfigLoader(temp_dir)
 
             # 开始监听
             callback = MagicMock()

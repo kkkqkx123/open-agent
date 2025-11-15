@@ -6,7 +6,7 @@ from pathlib import Path
 # 添加src目录到Python路径
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.domain.prompts.registry import PromptRegistry
 from src.domain.prompts.loader import PromptLoader
 from src.domain.prompts.injector import PromptInjector
@@ -21,7 +21,7 @@ def main():
     
     # 1. 初始化配置加载器
     print("1. 初始化配置加载器...")
-    config_loader = YamlConfigLoader("configs")
+    config_loader = FileConfigLoader("configs")
     
     # 2. 创建提示词注册表
     print("2. 创建提示词注册表...")

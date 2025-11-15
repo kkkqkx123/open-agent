@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.infrastructure.graph.workflow_validator import WorkflowValidator
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 
 def test_workflow_validation(workflow_name, config_path):
     """测试工作流配置验证"""
@@ -42,7 +42,7 @@ def test_workflow_validation(workflow_name, config_path):
     # 2. 使用配置加载器加载配置文件
     print("\n=== 测试配置加载器 ===")
     try:
-        config_loader = YamlConfigLoader()
+        config_loader = FileConfigLoader()
         config_data = config_loader.load(config_path)
         print(f"✅ 配置加载成功")
         print(f"工作流名称: {config_data.get('name', config_data.get('workflow_name', '未定义'))}")
@@ -66,7 +66,7 @@ def test_config_structure(workflow_name, config_path):
     """测试配置结构是否符合要求"""
     print(f"\n=== 测试{workflow_name}配置结构 ===")
     
-    config_loader = YamlConfigLoader()
+    config_loader = FileConfigLoader()
     
     try:
         config_data = config_loader.load(config_path)

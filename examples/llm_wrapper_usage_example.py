@@ -10,7 +10,7 @@ import sys
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.infrastructure.llm.task_group_manager import TaskGroupManager
 from src.infrastructure.llm.enhanced_fallback_manager import EnhancedFallbackManager
 from src.infrastructure.llm.polling_pool import PollingPoolManager
@@ -263,7 +263,7 @@ async def main():
     
     try:
         # 初始化配置加载器
-        config_loader = YamlConfigLoader()
+        config_loader = FileConfigLoader()
         
         # 初始化任务组管理器
         task_group_manager = TaskGroupManager(config_loader)

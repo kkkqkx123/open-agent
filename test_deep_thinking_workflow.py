@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.infrastructure.graph.workflow_validator import WorkflowValidator
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.application.workflow.factory import WorkflowFactory
 
 def test_deep_thinking_workflow_validation():
@@ -33,7 +33,7 @@ def test_deep_thinking_workflow_validation():
     # 2. 使用配置加载器加载配置文件
     print("\n=== 测试配置加载器 ===")
     try:
-        config_loader = YamlConfigLoader()
+        config_loader = FileConfigLoader()
         config_data = config_loader.load(config_path)
         print(f"✅ 配置加载成功")
         print(f"工作流名称: {config_data.get('name', '未定义')}")
@@ -63,7 +63,7 @@ def test_config_structure():
     print("\n=== 测试配置结构 ===")
     
     config_path = "configs/workflows/deep_thinking_workflow.yaml"
-    config_loader = YamlConfigLoader()
+    config_loader = FileConfigLoader()
     
     try:
         config_data = config_loader.load(config_path)

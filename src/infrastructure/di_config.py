@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any, Type
 from pathlib import Path
 
 from .container import IDependencyContainer, DependencyContainer, ServiceLifetime
-from .config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
+from .config.loader.file_config_loader import IConfigLoader, FileConfigLoader
 from .monitoring.di_config import MonitoringModule
 from .registry.module_registry_manager import ModuleRegistryManager
 from .registry.config_parser import ConfigParser
@@ -117,7 +117,7 @@ class DIConfig:
     def _register_config_loader(self, config_path: str) -> None:
         """注册配置加载器"""
         if not self.container.has_service(IConfigLoader):
-            config_loader = YamlConfigLoader(base_path=config_path)
+            config_loader = FileConfigLoader(base_path=config_path)
             self.container.register_instance(IConfigLoader, config_loader)
             self._config_loader = config_loader
             logger.debug("配置加载器注册完成")

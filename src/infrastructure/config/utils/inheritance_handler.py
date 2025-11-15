@@ -399,6 +399,15 @@ class InheritanceConfigLoader(IConfigLoader):
         self.base_loader = base_loader
         self.inheritance_handler = ConfigInheritanceHandler(base_loader)
     
+    @property
+    def base_path(self) -> Path:
+        """获取配置基础路径"""
+        return self.base_loader.base_path
+    
+    def load(self, config_path: str) -> Dict[str, Any]:
+        """加载配置文件"""
+        return self.load_config(config_path)
+    
     def load_config(self, config_path: str, config_type: Optional[str] = None) -> Dict[str, Any]:
         """加载配置并处理继承关系
         
@@ -418,6 +427,32 @@ class InheritanceConfigLoader(IConfigLoader):
             config = self.inheritance_handler.resolve_inheritance(config, base_path)
         
         return config
+    
+    def reload(self) -> None:
+        """重新加载所有配置"""
+        self.base_loader.reload()
+    
+    def watch_for_changes(
+        self, callback: Callable[[str, Dict[str, Any]], None]
+    ) -> None:
+        """监听配置变化"""
+        self.base_loader.watch_for_changes(callback)
+    
+    def resolve_env_vars(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """解析环境变量"""
+        return self.base_loader.resolve_env_vars(config)
+    
+    def stop_watching(self) -> None:
+        """停止监听配置变化"""
+        self.base_loader.stop_watching()
+    
+    def get_config(self, config_path: str) -> Optional[Dict[str, Any]]:
+        """获取缓存中的配置，如果不存在则返回None"""
+        return self.base_loader.get_config(config_path)
+    
+    def _handle_file_change(self, file_path: str) -> None:
+        """处理文件变化事件"""
+        self.base_loader._handle_file_change(file_path)
     
     def save_config(self, config: Dict[str, Any], config_path: str, config_type: Optional[str] = None) -> None:
         """保存配置

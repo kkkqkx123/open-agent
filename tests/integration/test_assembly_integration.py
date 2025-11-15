@@ -12,7 +12,7 @@ from typing import cast
 from src.bootstrap import ApplicationBootstrap
 from src.infrastructure.assembler import ComponentAssembler
 from src.infrastructure.container import DependencyContainer, ILifecycleAware
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 
 
 class TestAssemblyIntegration:
@@ -110,7 +110,7 @@ default_tools:
     def test_component_assembler_basic_functionality(self, temp_config_dir):
         """测试组件组装器基本功能"""
         # 创建配置加载器
-        config_loader = YamlConfigLoader(temp_config_dir)
+        config_loader = FileConfigLoader(temp_config_dir)
         
         # 加载应用配置
         config_path = "application.yaml"
@@ -128,7 +128,7 @@ default_tools:
         assert assembled_container.get_environment() == "testing"
         
         # 验证服务注册
-        from infrastructure.config.loader.yaml_loader import IConfigLoader
+        from infrastructure.config.loader.file_config_loader import IConfigLoader
         assert assembled_container.has_service(IConfigLoader)
         
         # 获取服务

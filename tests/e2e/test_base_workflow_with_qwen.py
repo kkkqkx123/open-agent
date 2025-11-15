@@ -20,7 +20,7 @@ from src.infrastructure.graph.config import GraphConfig
 from src.infrastructure.graph.builder import GraphBuilder
 from src.infrastructure.graph.registry import get_global_registry
 from src.infrastructure.graph.builtin_functions import get_builtin_node_function
-from infrastructure.config.loader.yaml_loader import IConfigLoader
+from infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.container import IDependencyContainer
 from src.application.workflow.universal_loader import UniversalWorkflowLoader
 from src.application.workflow.runner import WorkflowRunner

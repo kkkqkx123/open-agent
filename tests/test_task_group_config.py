@@ -8,7 +8,7 @@ from src.infrastructure.config.models.task_group_config import (
     FallbackStrategy, RotationStrategy
 )
 from src.infrastructure.llm.task_group_manager import TaskGroupManager
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 
 
 class TestTaskGroupConfig:
@@ -95,7 +95,7 @@ class TestTaskGroupManager:
     @pytest.fixture
     def config_loader(self):
         """配置加载器fixture"""
-        return YamlConfigLoader()
+        return FileConfigLoader()
     
     @pytest.fixture
     def task_group_manager(self, config_loader):
@@ -225,7 +225,7 @@ class TestTaskGroupConfigIntegration:
         if not registry_path.exists():
             pytest.skip("注册表配置文件不存在")
         
-        config_loader = YamlConfigLoader()
+        config_loader = FileConfigLoader()
         task_group_manager = TaskGroupManager(config_loader)
         
         try:
@@ -301,7 +301,7 @@ global_configs:
             temp_registry_path = f.name
         
         try:
-            config_loader = YamlConfigLoader()
+            config_loader = FileConfigLoader()
             task_group_manager = TaskGroupManager(config_loader)
             
             # 临时修改配置基础路径
@@ -336,7 +336,7 @@ global_configs:
         if not registry_path.exists():
             pytest.skip("注册表配置文件不存在")
         
-        config_loader = YamlConfigLoader()
+        config_loader = FileConfigLoader()
         task_group_manager = TaskGroupManager(config_loader)
         
         try:
@@ -370,7 +370,7 @@ global_configs:
         if not registry_path.exists():
             pytest.skip("注册表配置文件不存在")
         
-        config_loader = YamlConfigLoader()
+        config_loader = FileConfigLoader()
         task_group_manager = TaskGroupManager(config_loader)
         
         try:

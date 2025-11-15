@@ -9,7 +9,7 @@ from unittest.mock import Mock
 from typing import cast
 
 from src.infrastructure.container import DependencyContainer
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.infrastructure.config.config_system import ConfigSystem
 from infrastructure.config.processor.merger import ConfigMerger
 from infrastructure.config.processor.validator import ConfigValidator
@@ -58,21 +58,21 @@ debug: false
     def container(self, config_dir):
         """创建依赖注入容器"""
         container = DependencyContainer()
-        from infrastructure.config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
+        from infrastructure.config.loader.file_config_loader import IConfigLoader, FileConfigLoader
         from infrastructure.config.processor.merger import IConfigMerger
         from infrastructure.config.processor.validator import IConfigValidator
 
-        container.register(IConfigLoader, YamlConfigLoader, "default")
+        container.register(IConfigLoader, FileConfigLoader, "default")
         container.register(IConfigMerger, ConfigMerger, "default")
         container.register(IConfigValidator, ConfigValidator, "default")
         container.register(ConfigSystem, ConfigSystem, "default")
 
         # 设置配置基础路径
-        from infrastructure.config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
+        from infrastructure.config.loader.file_config_loader import IConfigLoader, FileConfigLoader
 
         config_loader = container.get(IConfigLoader)
         # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性
-        yaml_config_loader = cast(YamlConfigLoader, config_loader)
+        yaml_config_loader = cast(FileConfigLoader, config_loader)
         yaml_config_loader.base_path = Path(config_dir)
 
         return container
@@ -80,11 +80,11 @@ debug: false
     def test_integration_initialization(self, container, config_dir):
         """测试集成初始化"""
         # 设置配置加载器的基础路径
-        from infrastructure.config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
+        from infrastructure.config.loader.file_config_loader import IConfigLoader, FileConfigLoader
 
         config_loader = container.get(IConfigLoader)
         # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性
-        yaml_config_loader = cast(YamlConfigLoader, config_loader)
+        yaml_config_loader = cast(FileConfigLoader, config_loader)
         yaml_config_loader.base_path = Path(config_dir)
 
         # 初始化集成
@@ -104,11 +104,11 @@ debug: false
     def test_config_change_callback(self, container, config_dir):
         """测试配置变更回调"""
         # 设置配置加载器的基础路径
-        from infrastructure.config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
+        from infrastructure.config.loader.file_config_loader import IConfigLoader, FileConfigLoader
 
         config_loader = container.get(IConfigLoader)
         # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性
-        yaml_config_loader = cast(YamlConfigLoader, config_loader)
+        yaml_config_loader = cast(FileConfigLoader, config_loader)
         yaml_config_loader.base_path = Path(config_dir)
 
         # 初始化集成
@@ -146,11 +146,11 @@ debug: false
     def test_log_level_change(self, container, config_dir):
         """测试日志级别变更"""
         # 设置配置加载器的基础路径
-        from infrastructure.config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
+        from infrastructure.config.loader.file_config_loader import IConfigLoader, FileConfigLoader
 
         config_loader = container.get(IConfigLoader)
         # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性
-        yaml_config_loader = cast(YamlConfigLoader, config_loader)
+        yaml_config_loader = cast(FileConfigLoader, config_loader)
         yaml_config_loader.base_path = Path(config_dir)
 
         # 手动加载配置并设置全局配置
@@ -255,7 +255,7 @@ debug: false
     def test_config_error_recovery(self, container, config_dir):
         """测试配置错误恢复"""
         # 启用错误恢复的配置系统
-        from infrastructure.config.loader.yaml_loader import IConfigLoader
+        from infrastructure.config.loader.file_config_loader import IConfigLoader
         from infrastructure.config.processor.merger import IConfigMerger
         from infrastructure.config.processor.validator import IConfigValidator
 
@@ -363,11 +363,11 @@ debug: false
     def test_end_to_end_workflow(self, container, config_dir):
         """测试端到端工作流"""
         # 设置配置加载器的基础路径
-        from infrastructure.config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
+        from infrastructure.config.loader.file_config_loader import IConfigLoader, FileConfigLoader
 
         config_loader = container.get(IConfigLoader)
         # 类型转换，因为只有 YamlConfigLoader 有 base_path 属性
-        yaml_config_loader = cast(YamlConfigLoader, config_loader)
+        yaml_config_loader = cast(FileConfigLoader, config_loader)
         yaml_config_loader.base_path = Path(config_dir)
 
         # 初始化集成

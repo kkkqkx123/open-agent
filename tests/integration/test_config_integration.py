@@ -12,7 +12,7 @@ from src.infrastructure.config.config_system import ConfigSystem
 from infrastructure.config.processor.merger import ConfigMerger
 from infrastructure.config.processor.validator import ConfigValidator
 from src.infrastructure.config.config_validator_tool import ConfigValidatorTool
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.infrastructure.container import DependencyContainer
 from src.infrastructure.exceptions import ConfigurationError
 
@@ -180,7 +180,7 @@ class TestConfigIntegration:
             yaml.dump(advanced_tools_config, f)
 
         # 初始化配置系统
-        self.config_loader = YamlConfigLoader(str(self.configs_dir))
+        self.config_loader = FileConfigLoader(str(self.configs_dir))
         self.config_merger = ConfigMerger()
         self.config_validator = ConfigValidator()
 
@@ -378,8 +378,8 @@ class TestConfigIntegration:
 
             # 注册服务时使用正确的构造函数参数
             container.register_factory(
-                YamlConfigLoader,
-                lambda: YamlConfigLoader(str(self.configs_dir)),
+                FileConfigLoader,
+                lambda: FileConfigLoader(str(self.configs_dir)),
                 "default",
             )
             container.register(ConfigMerger, ConfigMerger, "default")
@@ -387,7 +387,7 @@ class TestConfigIntegration:
             container.register(ConfigSystem, ConfigSystem, "default")
 
             # 获取服务
-            config_loader = container.get(YamlConfigLoader)
+            config_loader = container.get(FileConfigLoader)
             config_merger = container.get(ConfigMerger)
             config_validator = container.get(ConfigValidator)
 

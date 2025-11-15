@@ -26,7 +26,7 @@ def main():
         print(f"📦 当前环境: {container.get_environment()}")
         
         # 获取一些服务
-        from infrastructure.config.loader.yaml_loader import IConfigLoader
+        from infrastructure.config.loader.file_config_loader import IConfigLoader
         
         try:
             config_loader = container.get(IConfigLoader)

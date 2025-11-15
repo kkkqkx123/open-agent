@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 from tempfile import TemporaryDirectory
 
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.domain.prompts.registry import PromptRegistry
 from src.domain.prompts.loader import PromptLoader
 from src.domain.prompts.injector import PromptInjector
@@ -113,7 +113,7 @@ user_commands:
     @pytest.fixture
     def config_loader(self, temp_config_dir):
         """创建配置加载器"""
-        return YamlConfigLoader(str(temp_config_dir))
+        return FileConfigLoader(str(temp_config_dir))
     
     @pytest.fixture
     def prompt_system(self, config_loader):

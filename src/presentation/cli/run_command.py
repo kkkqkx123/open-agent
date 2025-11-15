@@ -8,7 +8,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from ...infrastructure.container import get_global_container
-from ...infrastructure.config.loader.yaml_loader import IConfigLoader
+from ...infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.application.sessions.manager import ISessionManager
 from src.application.workflow.manager import IWorkflowManager
 from src.infrastructure.graph.states import WorkflowState

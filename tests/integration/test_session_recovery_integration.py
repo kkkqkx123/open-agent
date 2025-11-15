@@ -14,7 +14,7 @@ from src.application.workflow.manager import WorkflowManager
 from src.domain.sessions.store import FileSessionStore
 from infrastructure.config.models.config import WorkflowConfigModel as WorkflowConfig
 from src.infrastructure.graph.states import WorkflowState as AgentState, BaseMessage
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 
 
 class TestSessionRecoveryIntegration:
@@ -106,7 +106,7 @@ class TestSessionRecoveryIntegration:
     @pytest.fixture
     def config_loader(self):
         """创建配置加载器"""
-        return YamlConfigLoader()
+        return FileConfigLoader()
 
     @pytest.fixture
     def workflow_manager(self, config_loader):

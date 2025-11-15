@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.infrastructure.container import DependencyContainer
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.infrastructure.config.config_system import ConfigSystem
 from infrastructure.config.processor.merger import ConfigMerger
 from infrastructure.config.processor.validator import ConfigValidator
@@ -32,17 +32,17 @@ def main() -> None:
     # 1. 初始化依赖注入容器
     print("1. 初始化依赖注入容器...")
     container = DependencyContainer()
-    from infrastructure.config.loader.yaml_loader import IConfigLoader
+    from infrastructure.config.loader.file_config_loader import IConfigLoader
     from infrastructure.config.processor.merger import IConfigMerger
     from infrastructure.config.processor.validator import IConfigValidator
-    container.register_factory(IConfigLoader, YamlConfigLoader)  # type: ignore
+    container.register_factory(IConfigLoader, FileConfigLoader)  # type: ignore
     container.register_factory(IConfigMerger, ConfigMerger)  # type: ignore
     container.register_factory(IConfigValidator, ConfigValidator)  # type: ignore
     container.register(ConfigSystem, ConfigSystem)
     
     # 2. 获取服务
     print("2. 获取服务...")
-    from infrastructure.config.loader.yaml_loader import IConfigLoader
+    from infrastructure.config.loader.file_config_loader import IConfigLoader
     from infrastructure.config.processor.merger import IConfigMerger
     from infrastructure.config.processor.validator import IConfigValidator
     config_loader = container.get(IConfigLoader)  # type: ignore

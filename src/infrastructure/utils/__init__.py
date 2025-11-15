@@ -10,6 +10,7 @@ from .cache import Cache
 from .dict_merger import DictMerger
 from .validator import Validator
 from .backup_manager import BackupManager
+from .yaml_loader import YamlLoader
 
 __all__ = [
     "EnvResolver",
@@ -19,6 +20,7 @@ __all__ = [
     "DictMerger",
     "Validator",
     "BackupManager",
+    "YamlLoader",
     "UtilsFactory",
 ]
 

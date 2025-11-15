@@ -7,7 +7,7 @@ import os
 from typing import Optional
 
 from src.infrastructure.container import DependencyContainer, get_global_container
-from infrastructure.config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import IConfigLoader, FileConfigLoader
 from src.infrastructure.graph.registry import NodeRegistry, get_global_registry
 from src.infrastructure.logger import get_logger
 from .workflow import setup_workflow_container
@@ -83,9 +83,9 @@ class ApplicationBootstrap:
         """
         # 注册配置加载器
         if config_path:
-            config_loader = YamlConfigLoader(config_path)
+            config_loader = FileConfigLoader(config_path)
         else:
-            config_loader = YamlConfigLoader()
+            config_loader = FileConfigLoader()
         
         self.container.register_instance(IConfigLoader, config_loader)
         

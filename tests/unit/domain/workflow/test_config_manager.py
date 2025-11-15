@@ -10,7 +10,7 @@ from datetime import datetime
 
 from src.domain.workflow.config_manager import WorkflowConfigManager
 from src.infrastructure.graph.config import WorkflowConfig
-from infrastructure.config.loader.yaml_loader import IConfigLoader
+from infrastructure.config.loader.file_config_loader import IConfigLoader
 
 
 class TestWorkflowConfigManager(unittest.TestCase):

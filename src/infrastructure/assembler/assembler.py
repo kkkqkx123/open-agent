@@ -15,7 +15,7 @@ from .exceptions import (
     ConfigurationError
 )
 from ..container import IDependencyContainer, ServiceLifetime, DependencyContainer
-from ..config.loader.yaml_loader import IConfigLoader
+from ..config.loader.file_config_loader import IConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -495,7 +495,7 @@ class ComponentAssembler(IComponentAssembler):
                 else:
                     # 如果没有模块路径，尝试从已知的模块导入
                     if service_name == "IConfigLoader":
-                        from ..config.loader.yaml_loader import IConfigLoader
+                        from ..config.loader.file_config_loader import IConfigLoader
                         interface_class = IConfigLoader
                     elif service_name == "ICheckpointManager":
                         from ...domain.checkpoint.interfaces import ICheckpointManager

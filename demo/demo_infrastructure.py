@@ -15,7 +15,7 @@ sys.path.insert(0, str(src_path))
 
 from src.infrastructure import (
     DependencyContainer,
-    YamlConfigLoader,
+    FileConfigLoader,
     EnvironmentChecker,
     ArchitectureChecker,
     EnvironmentCheckCommand
@@ -75,7 +75,7 @@ def demo_config_loader() -> None:
     
     try:
         # 创建配置加载器
-        loader = YamlConfigLoader("configs")
+        loader = FileConfigLoader("configs")
         
         # 加载全局配置
         global_config = loader.load("global.yaml")

@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from types import TracebackType
 
 from .container import IDependencyContainer, DependencyContainer
-from .config.loader.yaml_loader import IConfigLoader, YamlConfigLoader
+from .config.loader.file_config_loader import IConfigLoader, FileConfigLoader
 from .environment import IEnvironmentChecker, EnvironmentChecker
 from .architecture_check import ArchitectureChecker
 from .exceptions import InfrastructureError
@@ -44,14 +44,14 @@ class TestContainer(ContextManager["TestContainer"]):
         # 注册配置加载器
         self.container.register_factory(
             IConfigLoader,  # type: ignore
-            lambda: YamlConfigLoader(str(self.temp_path / "configs")),
+            lambda: FileConfigLoader(str(self.temp_path / "configs")),
             lifetime="singleton",
         )
 
         # 同时注册YamlConfigLoader具体类型，以便在测试中可以直接获取
         self.container.register_factory(
-            YamlConfigLoader,
-            lambda: YamlConfigLoader(str(self.temp_path / "configs")),
+            FileConfigLoader,
+            lambda: FileConfigLoader(str(self.temp_path / "configs")),
             lifetime="singleton",
         )
 

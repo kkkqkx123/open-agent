@@ -9,7 +9,7 @@ import yaml
 from src.infrastructure.config.config_system import ConfigSystem
 from infrastructure.config.processor.merger import ConfigMerger
 from infrastructure.config.processor.validator import ConfigValidator
-from infrastructure.config.loader.yaml_loader import YamlConfigLoader
+from infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.infrastructure.exceptions import ConfigurationError
 
 
@@ -206,7 +206,7 @@ class TestProviderConfigSystem(unittest.TestCase):
             yaml.dump(agent_config, f)
 
         # 初始化配置系统
-        self.config_loader = YamlConfigLoader(str(self.configs_dir))
+        self.config_loader = FileConfigLoader(str(self.configs_dir))
         self.config_merger = ConfigMerger()
         self.config_validator = ConfigValidator()
 

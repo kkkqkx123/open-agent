@@ -230,8 +230,8 @@ class ConfigManager:
                 if self.config_loader and isinstance(data, dict):
                     # 创建一个临时方法来利用 IConfigLoader 的环境变量处理能力
                     # 这是一个适配器模式的应用
-                    from infrastructure.config.loader.yaml_loader import YamlConfigLoader
-                    temp_loader = YamlConfigLoader()
+                    from infrastructure.config.loader.file_config_loader import FileConfigLoader
+                    temp_loader = FileConfigLoader()
                     data = temp_loader.resolve_env_vars(data)
                 
                 self.config = TUIConfig.from_dict(data)

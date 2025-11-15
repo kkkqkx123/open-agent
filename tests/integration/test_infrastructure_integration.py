@@ -9,7 +9,7 @@ from typing import Dict, Any
 
 from src.infrastructure import (
     DependencyContainer,
-    YamlConfigLoader,
+    FileConfigLoader,
     EnvironmentChecker,
     ArchitectureChecker,
     TestContainer,
@@ -39,13 +39,13 @@ debug: true
             # 设置依赖注入容器
             container = DependencyContainer()
             container.register_factory(
-                YamlConfigLoader,
-                lambda: YamlConfigLoader(str(config_path)),
+                FileConfigLoader,
+                lambda: FileConfigLoader(str(config_path)),
                 lifetime="singleton",
             )
 
             # 获取配置加载器并加载配置
-            config_loader = container.get(YamlConfigLoader)
+            config_loader = container.get(FileConfigLoader)
             config = config_loader.load("global.yaml")
 
             assert config["log_level"] == "INFO"
@@ -53,7 +53,7 @@ debug: true
             assert config["debug"] is True
 
             # 验证单例模式
-            config_loader2 = container.get(YamlConfigLoader)
+            config_loader2 = container.get(FileConfigLoader)
             assert config_loader is config_loader2
 
     def test_config_loader_with_env_vars_integration(self) -> None:
@@ -78,7 +78,7 @@ timeout: 30
                 )
 
                 # 加载配置
-                loader = YamlConfigLoader(str(config_path))
+                loader = FileConfigLoader(str(config_path))
                 config = loader.load("api.yaml")
 
                 assert config["api_key"] == "test_key_123"
@@ -101,7 +101,7 @@ timeout: 30
             test_config = config_path / "test.yaml"
             test_config.write_text("value: original")
 
-            loader = YamlConfigLoader(str(config_path))
+            loader = FileConfigLoader(str(config_path))
 
             # 设置变化监听
             changed_configs = {}
@@ -264,7 +264,7 @@ timeout: 30
 
         # 测试配置文件不存在错误
         with tempfile.TemporaryDirectory() as temp_dir:
-            loader = YamlConfigLoader(temp_dir)
+            loader = FileConfigLoader(temp_dir)
 
             with pytest.raises(ConfigurationError):
                 loader.load("nonexistent.yaml")
@@ -277,7 +277,7 @@ timeout: 30
             test_config = config_path / "test.yaml"
             test_config.write_text("value: ${NONEXISTENT_VAR}")
 
-            loader = YamlConfigLoader(str(config_path))
+            loader = FileConfigLoader(str(config_path))
 
             with pytest.raises(ConfigurationError):
                 loader.load("test.yaml")
@@ -304,7 +304,7 @@ timeout: 30
 
             start_time = time.time()
             for _ in range(100):
-                di_container.get(YamlConfigLoader)
+                di_container.get(FileConfigLoader)
             end_time = time.time()
 
             # 单例模式应该使获取非常快
