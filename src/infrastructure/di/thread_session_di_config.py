@@ -7,10 +7,15 @@ from typing import Optional
 from pathlib import Path
 import logging
 
-from ...domain.threads.manager import ThreadManager
+from ...domain.threads.repository import ThreadRepository, ThreadBranchRepository, ThreadSnapshotRepository
+from ...domain.threads.domain_service import ThreadDomainService
+from ...application.threads.thread_service import ThreadService
+from ...application.threads.interfaces import IThreadService
 from ...application.sessions.manager import SessionManager
 from ...infrastructure.langgraph.adapter import LangGraphAdapter
 from ...infrastructure.threads.metadata_store import FileThreadMetadataStore, MemoryThreadMetadataStore, IThreadMetadataStore
+from ...infrastructure.threads.branch_store import ThreadBranchStore, IThreadBranchStore
+from ...infrastructure.threads.snapshot_store import ThreadSnapshotStore, IThreadSnapshotStore
 from ...application.checkpoint.manager import CheckpointManager
 from ...domain.sessions.store import FileSessionStore, MemorySessionStore, ISessionStore
 from ...application.sessions.git_manager import GitManager, MockGitManager, IGitManager
@@ -75,6 +80,26 @@ class ThreadSessionDIConfig:
             logger.info(f"使用文件Thread元数据存储: {self.storage_path / 'threads'}")
             return FileThreadMetadataStore(self.storage_path / "threads")
     
+    def create_thread_branch_store(self) -> IThreadBranchStore:
+        """创建Thread分支存储"""
+        if self.use_memory_storage:
+            logger.info("使用内存Thread分支存储")
+            return ThreadBranchStore()  # 内存存储
+        else:
+            logger.info(f"使用文件Thread分支存储: {self.storage_path / 'branches'}")
+            # TODO: 实现文件分支存储
+            return ThreadBranchStore()  # 暂时使用内存存储
+    
+    def create_thread_snapshot_store(self) -> IThreadSnapshotStore:
+        """创建Thread快照存储"""
+        if self.use_memory_storage:
+            logger.info("使用内存Thread快照存储")
+            return ThreadSnapshotStore()  # 内存存储
+        else:
+            logger.info(f"使用文件Thread快照存储: {self.storage_path / 'snapshots'}")
+            # TODO: 实现文件快照存储
+            return ThreadSnapshotStore()  # 暂时使用内存存储
+    
     def create_checkpoint_manager(self) -> CheckpointManager:
         """创建Checkpoint管理器"""
         logger.info("创建Checkpoint管理器")
@@ -83,25 +108,40 @@ class ThreadSessionDIConfig:
         from ...infrastructure.checkpoint.factory import CheckpointManagerFactory
         return CheckpointManagerFactory.create_manager()
     
-    def create_thread_manager(
+    def create_thread_service(
         self,
         langgraph_adapter: Optional[LangGraphAdapter] = None,
         state_manager: Optional[IStateManager] = None
-    ) -> ThreadManager:
-        """创建重构后的Thread管理器"""
-        logger.info("创建重构后的Thread管理器")
+    ) -> IThreadService:
+        """创建重构后的Thread服务"""
+        logger.info("创建重构后的Thread服务")
         
-        # 创建依赖
+        # 创建基础设施层组件
         metadata_store = self.create_thread_metadata_store()
+        branch_store = self.create_thread_branch_store()
+        snapshot_store = self.create_thread_snapshot_store()
         checkpoint_manager = self.create_checkpoint_manager()
         
         if langgraph_adapter is None:
             langgraph_adapter = self.create_langgraph_adapter(state_manager)
         
-        return ThreadManager(
-            metadata_store=metadata_store,
+        # 创建领域层组件
+        thread_repository = ThreadRepository(metadata_store)
+        branch_repository = ThreadBranchRepository(branch_store)
+        snapshot_repository = ThreadSnapshotRepository(snapshot_store)
+        thread_domain_service = ThreadDomainService()
+        
+        # 创建应用层服务
+        return ThreadService(
+            thread_repository=thread_repository,
+            thread_domain_service=thread_domain_service,
+            branch_repository=branch_repository,
+            snapshot_repository=snapshot_repository,
             checkpoint_manager=checkpoint_manager,
-            langgraph_adapter=langgraph_adapter
+            langgraph_adapter=langgraph_adapter,
+            metadata_store=metadata_store,
+            branch_store=branch_store,
+            snapshot_store=snapshot_store
         )
     
     def create_session_store(self) -> ISessionStore:
@@ -128,21 +168,21 @@ class ThreadSessionDIConfig:
     
     def create_session_manager(
         self,
-        thread_manager: Optional[ThreadManager] = None,
+        thread_service: Optional[IThreadService] = None,
         state_manager: Optional[IStateManager] = None
     ) -> SessionManager:
         """创建重构后的Session管理器"""
         logger.info("创建重构后的Session管理器")
         
         # 创建依赖
-        if thread_manager is None:
-            thread_manager = self.create_thread_manager(state_manager=state_manager)
+        if thread_service is None:
+            thread_service = self.create_thread_service(state_manager=state_manager)
         
         session_store = self.create_session_store()
         git_manager = self.create_git_manager()
         
         return SessionManager(
-            thread_manager=thread_manager,
+            thread_service=thread_service,  # 使用ThreadService而不是ThreadManager
             session_store=session_store,
             git_manager=git_manager,
             storage_path=self.storage_path / "sessions",
@@ -156,17 +196,25 @@ class ThreadSessionDIConfig:
         """创建完整的组件栈"""
         logger.info("创建完整的Thread与Session组件栈")
         
+        # 创建基础设施层组件（用于返回）
+        metadata_store = self.create_thread_metadata_store()
+        branch_store = self.create_thread_branch_store()
+        snapshot_store = self.create_thread_snapshot_store()
+        checkpoint_manager = self.create_checkpoint_manager()
+        
         # 创建核心组件
         langgraph_adapter = self.create_langgraph_adapter(state_manager)
-        thread_manager = self.create_thread_manager(langgraph_adapter, state_manager)
-        session_manager = self.create_session_manager(thread_manager, state_manager)
+        thread_service = self.create_thread_service(langgraph_adapter, state_manager)
+        session_manager = self.create_session_manager(thread_service, state_manager)
         
         return {
             "langgraph_adapter": langgraph_adapter,
-            "thread_manager": thread_manager,
+            "thread_service": thread_service,
             "session_manager": session_manager,
-            "metadata_store": thread_manager.metadata_store,
-            "checkpoint_manager": thread_manager.checkpoint_manager,
+            "metadata_store": metadata_store,
+            "branch_store": branch_store,
+            "snapshot_store": snapshot_store,
+            "checkpoint_manager": checkpoint_manager,
             "session_store": session_manager.session_store,
             "git_manager": session_manager.git_manager
         }
@@ -190,18 +238,18 @@ class ThreadSessionFactory:
             self._components_cache["langgraph_adapter"] = self.di_config.create_langgraph_adapter(state_manager)
         return self._components_cache["langgraph_adapter"]
     
-    def get_thread_manager(self, state_manager: Optional[IStateManager] = None) -> ThreadManager:
-        """获取Thread管理器（单例）"""
-        if "thread_manager" not in self._components_cache:
+    def get_thread_service(self, state_manager: Optional[IStateManager] = None) -> IThreadService:
+        """获取Thread服务（单例）"""
+        if "thread_service" not in self._components_cache:
             langgraph_adapter = self.get_langgraph_adapter(state_manager)
-            self._components_cache["thread_manager"] = self.di_config.create_thread_manager(langgraph_adapter, state_manager)
-        return self._components_cache["thread_manager"]
+            self._components_cache["thread_service"] = self.di_config.create_thread_service(langgraph_adapter, state_manager)
+        return self._components_cache["thread_service"]
     
     def get_session_manager(self, state_manager: Optional[IStateManager] = None) -> SessionManager:
         """获取Session管理器（单例）"""
         if "session_manager" not in self._components_cache:
-            thread_manager = self.get_thread_manager(state_manager)
-            self._components_cache["session_manager"] = self.di_config.create_session_manager(thread_manager, state_manager)
+            thread_service = self.get_thread_service(state_manager)
+            self._components_cache["session_manager"] = self.di_config.create_session_manager(thread_service, state_manager)
         return self._components_cache["session_manager"]
     
     def clear_cache(self) -> None:
@@ -259,9 +307,9 @@ def get_default_factory() -> ThreadSessionFactory:
     return _default_factory
 
 
-def get_thread_manager(state_manager: Optional[IStateManager] = None) -> ThreadManager:
-    """获取Thread管理器（便捷方法）"""
-    return get_default_factory().get_thread_manager(state_manager)
+def get_thread_service(state_manager: Optional[IStateManager] = None) -> IThreadService:
+    """获取Thread服务（便捷方法）"""
+    return get_default_factory().get_thread_service(state_manager)
 
 
 def get_session_manager(state_manager: Optional[IStateManager] = None) -> SessionManager:
@@ -311,3 +359,12 @@ def initialize_thread_session_system(
     
     logger.info("Thread与Session系统初始化完成")
     return components
+
+
+# === 向后兼容的别名 ===
+
+# 为了向后兼容，保留一些旧的别名
+def get_thread_manager(state_manager: Optional[IStateManager] = None) -> IThreadService:
+    """获取Thread管理器（向后兼容别名）"""
+    logger.warning("get_thread_manager已废弃，请使用get_thread_service")
+    return get_thread_service(state_manager)

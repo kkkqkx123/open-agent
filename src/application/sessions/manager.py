@@ -3,7 +3,7 @@
 专注于用户交互追踪，负责：
 1. 会话生命周期管理
 2. 用户交互历史追踪
-3. 多Thread协调
+3. 多Thread协调（通过ThreadService委托）
 4. 会话级状态管理
 """
 
@@ -17,7 +17,7 @@ import logging
 from datetime import datetime
 from dataclasses import dataclass
 
-from src.domain.threads.interfaces import IThreadManager
+from ..threads.interfaces import IThreadService
 from ..workflow.manager import IWorkflowManager
 from ...infrastructure.graph.config import GraphConfig as WorkflowConfig
 from ...infrastructure.graph.states import WorkflowState
@@ -148,12 +148,12 @@ class ISessionManager(ABC):
 class SessionManager(ISessionManager):
     """会话管理器实现 - 重构版本
     
-    专注于用户交互追踪，通过ThreadManager委托执行
+    专注于用户交互追踪，通过ThreadService委托Thread管理
     """
 
     def __init__(
         self,
-        thread_manager: IThreadManager,
+        thread_service: IThreadService,  # 改为依赖ThreadService
         session_store: ISessionStore,
         git_manager: Optional[IGitManager] = None,
         storage_path: Optional[Path] = None,
@@ -162,13 +162,13 @@ class SessionManager(ISessionManager):
         """初始化会话管理器
 
         Args:
-            thread_manager: Thread管理器（核心依赖）
+            thread_service: Thread服务（核心依赖）
             session_store: 会话存储
             git_manager: Git管理器（可选）
             storage_path: 存储路径（可选）
             state_manager: 状态管理器（可选）
         """
-        self.thread_manager = thread_manager
+        self.thread_service = thread_service  # 使用ThreadService而不是ThreadManager
         self.session_store = session_store
         self.git_manager = git_manager
         self.storage_path = storage_path or Path("./sessions")
@@ -312,26 +312,26 @@ class SessionManager(ISessionManager):
         # 创建Thread
         for thread_config in thread_configs:
             thread_name = thread_config["name"]
-            config_path = thread_config["config_path"]
+            config_path = thread_config.get("config_path")
             initial_state = thread_config.get("initial_state")
 
-            # 委托ThreadManager创建Thread
+            # 委托ThreadService创建Thread
             if config_path:
-                thread_id = await self.thread_manager.create_thread_from_config(
+                thread_id = await self.thread_service.create_thread_from_config(
                     config_path, 
                     metadata={"session_id": session_id, "thread_name": thread_name}
                 )
             else:
                 # 使用graph_id创建
                 graph_id = thread_config.get("graph_id", "default")
-                thread_id = await self.thread_manager.create_thread(
+                thread_id = await self.thread_service.create_thread(
                     graph_id,
                     metadata={"session_id": session_id, "thread_name": thread_name}
                 )
 
             # 如果有初始状态，设置到Thread
             if initial_state:
-                await self.thread_manager.update_thread_state(thread_id, initial_state)
+                await self.thread_service.update_thread_state(thread_id, initial_state)
 
             thread_ids[thread_name] = thread_id
             session_context.thread_ids.append(thread_id)
@@ -384,7 +384,7 @@ class SessionManager(ISessionManager):
             
             # 查找对应的thread_id
             for tid in session_context.thread_ids:
-                thread_info = await self.thread_manager.get_thread_info(tid)
+                thread_info = await self.thread_service.get_thread_info(tid)
                 if thread_info and thread_info.get("metadata", {}).get("thread_name") == thread_name:
                     thread_id = tid
                     break
@@ -407,8 +407,8 @@ class SessionManager(ISessionManager):
         await self.track_user_interaction(session_id, interaction)
 
         try:
-            # 委托ThreadManager执行工作流
-            result = await self.thread_manager.execute_workflow(thread_id, config)
+            # 委托ThreadService执行工作流
+            result = await self.thread_service.execute_workflow(thread_id, config)
 
             # 追踪执行成功交互
             success_interaction = UserInteraction(
@@ -462,7 +462,7 @@ class SessionManager(ISessionManager):
             
             # 查找对应的thread_id
             for tid in session_context.thread_ids:
-                thread_info = await self.thread_manager.get_thread_info(tid)
+                thread_info = await self.thread_service.get_thread_info(tid)
                 if thread_info and thread_info.get("metadata", {}).get("thread_name") == thread_name:
                     thread_id = tid
                     break
@@ -485,8 +485,8 @@ class SessionManager(ISessionManager):
         await self.track_user_interaction(session_id, interaction)
 
         try:
-            # 委托ThreadManager流式执行工作流
-            async for state in await self.thread_manager.stream_workflow(thread_id, config):
+            # 委托ThreadService流式执行工作流
+            async for state in await self.thread_service.stream_workflow(thread_id, config):
                 yield state
 
             # 追踪流式执行完成交互
@@ -664,7 +664,7 @@ class SessionManager(ISessionManager):
         # 获取Thread状态
         thread_states = {}
         for thread_id in session_context.thread_ids:
-            thread_info = await self.thread_manager.get_thread_info(thread_id)
+            thread_info = await self.thread_service.get_thread_info(thread_id)
             if thread_info:
                 thread_states[thread_id] = {
                     "status": thread_info.get("status"),
@@ -738,7 +738,7 @@ class SessionManager(ISessionManager):
         # 获取线程状态摘要
         thread_states = {}
         for thread_id in session_context.thread_ids:
-            thread_info = await self.thread_manager.get_thread_info(thread_id)
+            thread_info = await self.thread_service.get_thread_info(thread_id)
             if thread_info:
                 thread_states[thread_id] = {
                     "status": thread_info.get("status"),
