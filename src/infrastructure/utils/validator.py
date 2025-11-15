@@ -80,6 +80,54 @@ class IValidator(ABC):
         """
         pass
 
+    @abstractmethod
+    def validate_global_config(self, config: Dict[str, Any]) -> ValidationResult:
+        """验证全局配置
+
+        Args:
+            config: 配置字典
+
+        Returns:
+            验证结果
+        """
+        pass
+
+    @abstractmethod
+    def validate_llm_config(self, config: Dict[str, Any]) -> ValidationResult:
+        """验证LLM配置
+
+        Args:
+            config: 配置字典
+
+        Returns:
+            验证结果
+        """
+        pass
+
+    @abstractmethod
+    def validate_tool_config(self, config: Dict[str, Any]) -> ValidationResult:
+        """验证工具配置
+
+        Args:
+            config: 配置字典
+
+        Returns:
+            验证结果
+        """
+        pass
+
+    @abstractmethod
+    def validate_token_counter_config(self, config: Dict[str, Any]) -> ValidationResult:
+        """验证Token计数器配置
+
+        Args:
+            config: 配置字典
+
+        Returns:
+            验证结果
+        """
+        pass
+
 
 class Validator(IValidator):
     """数据验证器实现"""

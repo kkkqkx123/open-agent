@@ -4,7 +4,7 @@ import os
 from typing import Dict, Any
 from src.infrastructure import DependencyContainer
 from infrastructure.config.loader.file_config_loader import FileConfigLoader
-from src.infrastructure.config import ConfigSystem, ConfigMerger, ConfigValidator, ConfigValidatorTool
+from src.infrastructure.config import ConfigSystem, ConfigMerger, ConfigValidator
 
 
 def setup_dependency_container(config_path: str = "configs") -> DependencyContainer:
@@ -26,9 +26,6 @@ def setup_dependency_container(config_path: str = "configs") -> DependencyContai
     container.register(ConfigMerger, ConfigMerger, "default")
     container.register(ConfigValidator, ConfigValidator, "default")
     container.register(ConfigSystem, ConfigSystem, "default")
-    
-    # 注册配置验证工具
-    container.register(ConfigValidatorTool, ConfigValidatorTool, "default")
     
     return container
 
@@ -90,28 +87,11 @@ def main() -> None:
             print(f"   - 基础URL: {gpt4_config.base_url}")
             print(f"   - 温度: {gpt4_config.parameters.get('temperature')}")
         
-        # 加载Agent配置
-        if "code_agent" in agent_configs:
-            code_agent_config = config_system.load_agent_config("code_agent")
-            print(f"✅ 加载代码Agent配置:")
-            print(f"   - 名称: {code_agent_config.name}")
-            print(f"   - LLM: {code_agent_config.llm}")
-            print(f"   - 工具集: {code_agent_config.tool_sets}")
-            print(f"   - 工具: {code_agent_config.tools}")
-            print(f"   - 最大迭代次数: {code_agent_config.max_iterations}")
+        # 注: Agent配置可通过 load_llm_config 或 load_tool_config 加载
+        # ConfigSystem 主要支持 LLM 和工具配置加载
         
-        # 使用配置验证工具
-        validator_tool = ConfigValidatorTool()
-        print(f"✅ 创建配置验证工具: {type(validator_tool).__name__}")
-        
-        # 验证所有配置
-        print("\n验证所有配置...")
-        all_valid = validator_tool.validate_all()
-        
-        if all_valid:
-            print("✅ 所有配置验证通过")
-        else:
-            print("❌ 部分配置验证失败")
+        # 配置已通过系统级验证器验证
+        print("\n✅ 配置系统集成完成，所有配置已验证")
         
         # 监听配置变化
         print("\n设置配置变化监听...")

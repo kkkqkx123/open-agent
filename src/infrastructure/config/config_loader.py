@@ -7,14 +7,14 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 
 from .interfaces import IConfigLoader
-from .processor.merger import IConfigMerger
-from .processor.inheritance import IConfigInheritanceHandler
+from ..utils.dict_merger import IDictMerger
+from .interfaces import IConfigInheritanceHandler
 
 
 class ConfigLoader(IConfigInheritanceHandler):
     """配置加载器 - 处理文件加载和继承逻辑"""
     
-    def __init__(self, yaml_loader: IConfigLoader, merger: IConfigMerger):
+    def __init__(self, yaml_loader: IConfigLoader, merger: IDictMerger):
         """初始化配置加载器
         
         Args:

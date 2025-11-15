@@ -83,13 +83,25 @@ class WorkflowModule:
         
         # 注册通用工作流加载器
         from .universal_loader import UniversalWorkflowLoader
+        from src.infrastructure.config.interfaces import IConfigValidator
+        from src.infrastructure.config.config_system import IConfigSystem
+        
+        def create_universal_workflow_loader() -> UniversalWorkflowLoader:
+            config_loader = container.get(IConfigLoader) if container.has_service(IConfigLoader) else None
+            config_system = container.get(IConfigSystem) if container.has_service(IConfigSystem) else None
+            config_validator = container.get(IConfigValidator) if container.has_service(IConfigValidator) else None
+            
+            return UniversalWorkflowLoader(
+                config_loader=config_loader,
+                container=container,
+                enable_auto_registration=True,
+                config_system=config_system,
+                config_validator=config_validator
+            )
+        
         container.register_factory(
             UniversalWorkflowLoader,
-            lambda: UniversalWorkflowLoader(
-                config_loader=container.get(IConfigLoader),
-                container=container,
-                enable_auto_registration=True
-            ),
+            create_universal_workflow_loader,
             lifetime=ServiceLifetime.SINGLETON
         )
         

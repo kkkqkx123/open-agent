@@ -4,11 +4,11 @@
 """
 
 from .schema_loader import SchemaLoader
-from .inheritance_handler import InheritanceHandler
+from .inheritance_handler import ConfigInheritanceHandler
 from .config_operations import ConfigOperations
 
 __all__ = [
     "SchemaLoader",
-    "InheritanceHandler",
+    "ConfigInheritanceHandler",
     "ConfigOperations",
 ]

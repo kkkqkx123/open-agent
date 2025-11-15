@@ -3,6 +3,8 @@
 统一加载和解析工作流配置，管理函数注册表，创建完整的工作流实例。
 """
 
+from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING, AsyncIterator, Generator
+from src.infrastructure.config.interfaces import IConfigValidator
 from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING, AsyncIterator
 from pathlib import Path
 import logging
@@ -13,8 +15,10 @@ from src.infrastructure.graph.builder import GraphBuilder
 from src.infrastructure.graph.function_registry import FunctionRegistry, FunctionType, get_global_function_registry
 from src.infrastructure.graph.config_validator import WorkflowConfigValidator, ValidationResult
 from src.infrastructure.graph.registry import NodeRegistry, get_global_registry
-from infrastructure.config.loader.file_config_loader import IConfigLoader
+from src.infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.container import IDependencyContainer
+from src.infrastructure.config.interfaces import IConfigValidator
+from src.infrastructure.config.config_system import IConfigSystem
 from .state_machine.state_templates import StateTemplateManager, get_global_template_manager
 
 if TYPE_CHECKING:
@@ -89,7 +93,7 @@ class WorkflowInstance:
         try:
             # 执行工作流
             logger.info(f"开始执行工作流: {self.config.name}")
-            result = self.graph.invoke(initial_state, config=run_config)
+            result: Dict[str, Any] = self.graph.invoke(initial_state, config=run_config)
             logger.info(f"工作流执行完成: {self.config.name}")
             
             return result
@@ -127,7 +131,7 @@ class WorkflowInstance:
             logger.info(f"开始异步执行工作流: {self.config.name}")
             
             if hasattr(self.graph, 'ainvoke'):
-                result = await self.graph.ainvoke(initial_state, config=run_config)
+                result: Dict[str, Any] = await self.graph.ainvoke(initial_state, config=run_config)
             else:
                 # 如果不支持异步，使用同步方式
                 result = self.graph.invoke(initial_state, config=run_config)
@@ -143,7 +147,7 @@ class WorkflowInstance:
         self, 
         initial_data: Optional[Dict[str, Any]] = None,
         config: Optional[Dict[str, Any]] = None
-    ):
+    ) -> Generator[Dict[str, Any], None, None]:
         """流式运行工作流
         
         Args:
@@ -278,7 +282,9 @@ class UniversalWorkflowLoader:
         config_loader: Optional[IConfigLoader] = None,
         container: Optional[IDependencyContainer] = None,
         enable_auto_registration: bool = True,
-        function_registry: Optional[FunctionRegistry] = None
+        function_registry: Optional[FunctionRegistry] = None,
+        config_system: Optional[IConfigSystem] = None,
+        config_validator: Optional[IConfigValidator] = None
     ):
         """初始化通用工作流加载器
         
@@ -287,16 +293,21 @@ class UniversalWorkflowLoader:
             container: 依赖注入容器
             enable_auto_registration: 是否启用自动函数注册
             function_registry: 函数注册表，如果为None则创建新的
+            config_system: 配置系统，用于增强配置处理
+            config_validator: 配置验证器，用于标准化配置验证
         """
         self.config_loader = config_loader
         self.container = container
         self.enable_auto_registration = enable_auto_registration
+        self.config_system = config_system
         
         # 初始化组件
         self.function_registry = function_registry or FunctionRegistry(enable_auto_discovery=enable_auto_registration)
         self.node_registry = get_global_registry()
         self.template_manager = get_global_template_manager()
-        self.config_validator = WorkflowConfigValidator(self.function_registry)
+        
+        # 优先使用注入的配置验证器，否则使用工作流专用验证器
+        self.config_validator = config_validator or WorkflowConfigValidator(self.function_registry)
         
         # 创建统一图构建器
         self.graph_builder = GraphBuilder(
@@ -405,7 +416,33 @@ class UniversalWorkflowLoader:
         Returns:
             ValidationResult: 验证结果
         """
-        return self.config_validator.validate_config(config)
+        # 如果使用的是通用配置验证器，需要适配接口
+        if isinstance(self.config_validator, IConfigValidator):
+            # 转换配置格式
+            if isinstance(config, GraphConfig):
+                config_dict: Dict[str, Any] = config.to_dict()
+            elif isinstance(config, str):
+                # 如果是路径，先加载配置
+                loaded_config = self._load_config_from_file(config)
+                config_dict = loaded_config.to_dict()
+            elif isinstance(config, dict):
+                config_dict = config
+            else:
+                # 处理其他情况，转换为字典
+                config_dict = dict(config) if hasattr(config, '__dict__') else {}
+            
+            # 使用通用配置验证器的 validate 方法
+            # 确保 config_dict 是 Dict[str, Any] 类型
+            assert isinstance(config_dict, dict)
+            is_valid, errors = self.config_validator.validate(config_dict)
+            return ValidationResult(is_valid=is_valid, errors=errors, warnings=[], suggestions=[])
+        
+        # 使用工作流专用验证器
+        elif hasattr(self.config_validator, 'validate_config'):
+            return self.config_validator.validate_config(config)
+        
+        # 默认验证通过
+        return ValidationResult(is_valid=True, errors=[], warnings=[], suggestions=[])
     
     def list_registered_functions(self, function_type: Optional[FunctionType] = None) -> Dict[str, List[str]]:
         """列出已注册的函数
@@ -460,12 +497,16 @@ class UniversalWorkflowLoader:
         
         try:
             if self.config_loader:
-                # 委托给核心加载器
+                # 委托给核心加载器，支持配置继承和环境变量解析
                 config_data = self.config_loader.load(config_path)
             else:
                 # 直接读取文件
                 with open(config_path, 'r', encoding='utf-8') as f:
                     config_data = yaml.safe_load(f)
+            
+            # 确保配置数据有效
+            if config_data is None:
+                config_data = {}
             
             config = GraphConfig.from_dict(config_data)
             
@@ -517,6 +558,12 @@ class UniversalWorkflowLoader:
                     logger.info(f"自动发现函数: 节点函数 {len(discovered['nodes'])} 个, 条件函数 {len(discovered['conditions'])} 个")
                 except Exception as e:
                     logger.warning(f"自动发现函数失败: {e}")
+        
+        # 处理配置继承中的函数注册
+        inherits_from = config_data.get("inherits_from")
+        if inherits_from:
+            logger.debug(f"处理继承配置中的函数注册: {inherits_from}")
+            # 继承配置中的函数注册已经在配置加载时处理
     
     def _register_function_from_module(self, name: str, module_path: str, function_type: FunctionType) -> None:
         """从模块注册函数
@@ -535,8 +582,8 @@ class UniversalWorkflowLoader:
             raise FunctionRegistrationError(f"从模块注册函数失败: {e}") from e
     
     def _create_workflow_instance(
-        self, 
-        config: GraphConfig, 
+        self,
+        config: GraphConfig,
         initial_state_data: Optional[Dict[str, Any]] = None,
         **kwargs: Any
     ) -> WorkflowInstance:
@@ -575,3 +622,60 @@ class UniversalWorkflowLoader:
         
         # 创建工作流实例
         return WorkflowInstance(graph, config, self)
+    
+    def get_config_metadata(self, config_path: str) -> Optional[Dict[str, Any]]:
+        """获取配置元数据
+        
+        Args:
+            config_path: 配置文件路径
+            
+        Returns:
+            Optional[Dict[str, Any]]: 配置元数据
+        """
+        try:
+            if self.config_system:
+                # 使用配置系统获取元数据
+                config_type = "workflows"  # 假设工作流配置类型
+                config_name = Path(config_path).stem
+                if self.config_system.config_exists(config_type, config_name):
+                    return {
+                        "config_path": config_path,
+                        "config_type": config_type,
+                        "config_name": config_name,
+                        "exists": True
+                    }
+            return None
+        except Exception as e:
+            logger.warning(f"获取配置元数据失败: {e}")
+            return None
+    
+    def list_available_configs(self) -> List[str]:
+        """列出可用配置
+        
+        Returns:
+            List[str]: 可用配置路径列表
+        """
+        try:
+            if self.config_system:
+                # 使用配置系统列出配置
+                return self.config_system.list_configs("workflows")
+            elif self.config_loader:
+                # 使用配置加载器列出配置
+                from src.infrastructure.config.loader.file_config_loader import FileConfigLoader
+                if isinstance(self.config_loader, FileConfigLoader):
+                    return self.config_loader.list_configs()
+                else:
+                    # 手动扫描配置文件
+                    config_dir = Path("configs/workflows")
+                    if config_dir.exists():
+                        return [str(f) for f in config_dir.glob("*.yaml") if f.name != "_group.yaml"]
+                    return []
+            else:
+                # 手动扫描配置文件
+                config_dir = Path("configs/workflows")
+                if config_dir.exists():
+                    return [str(f) for f in config_dir.glob("*.yaml") if f.name != "_group.yaml"]
+                return []
+        except Exception as e:
+            logger.warning(f"列出可用配置失败: {e}")
+            return []

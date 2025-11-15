@@ -51,7 +51,7 @@ def test_deep_thinking_workflow_validation():
         print(f"✅ 工作流配置加载成功")
         print(f"工作流名称: {workflow_config.name}")
         print(f"入口节点: {workflow_config.entry_point}")
-        print(f"最大迭代次数: {workflow_config.max_iterations}")
+        print(f"工作流描述: {workflow_config.description}")
     except Exception as e:
         print(f"❌ 工作流工厂加载失败: {e}")
         return False

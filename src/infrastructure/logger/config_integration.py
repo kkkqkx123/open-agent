@@ -44,26 +44,26 @@ class LoggingConfigIntegration:
         """加载初始配置"""
         try:
             # 尝试从配置文件加载
-            from ..infrastructure.config_loader import IConfigLoader
-            from src.infrastructure.config.models.global_config import GlobalConfig
+            from infrastructure.config.interfaces import IConfigLoader
+            from infrastructure.config.models.global_config import GlobalConfig
 
             # 尝试从容器获取配置加载器
             config_loader = None
             try:
-                from ..infrastructure.container import DependencyContainer
-                from ..infrastructure.config_loader import YamlConfigLoader
+                from infrastructure.container import DependencyContainer
+                from infrastructure.config.loader.file_config_loader import FileConfigLoader
 
                 container = DependencyContainer()
-                if container.has_service(YamlConfigLoader):
-                    config_loader = container.get(YamlConfigLoader)
+                if container.has_service(FileConfigLoader):
+                    config_loader = container.get(FileConfigLoader)
             except:
                 pass
 
             # 如果无法从容器获取，创建新的实例
             if config_loader is None:
-                from ..infrastructure.config_loader import YamlConfigLoader
+                from infrastructure.config.loader.file_config_loader import FileConfigLoader
 
-                config_loader = YamlConfigLoader()
+                config_loader = FileConfigLoader()
 
             config_data = config_loader.load("global.yaml")
 
