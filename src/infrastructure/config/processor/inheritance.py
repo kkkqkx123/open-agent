@@ -5,7 +5,7 @@
 
 import os
 import re
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List, Union, Callable
 from pathlib import Path
 import yaml
 from pydantic import BaseModel, ValidationError
@@ -384,7 +384,7 @@ class ConfigInheritanceHandler(IConfigInheritanceHandler):
         return isinstance(value, expected_python_type)
 
 
-class InheritanceConfigLoader:
+class InheritanceConfigLoader(IConfigLoader):
     """支持继承的配置加载器装饰器"""
     
     def __init__(self, base_config_loader: 'IConfigLoader'):
@@ -395,6 +395,11 @@ class InheritanceConfigLoader:
         """
         self.base_config_loader = base_config_loader
         self.inheritance_handler = ConfigInheritanceHandler(self.base_config_loader)
+    
+    @property
+    def base_path(self) -> Path:
+        """获取配置基础路径"""
+        return self.base_config_loader.base_path
     
     def load(self, config_path: str) -> Dict[str, Any]:
         """加载配置文件（处理继承）
@@ -415,6 +420,32 @@ class InheritanceConfigLoader:
         resolved_config = self.inheritance_handler.resolve_inheritance(config, base_path)
         
         return resolved_config
+    
+    def reload(self) -> None:
+        """重新加载所有配置"""
+        self.base_config_loader.reload()
+    
+    def watch_for_changes(
+        self, callback: Callable[[str, Dict[str, Any]], None]
+    ) -> None:
+        """监听配置变化"""
+        self.base_config_loader.watch_for_changes(callback)
+    
+    def resolve_env_vars(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """解析环境变量"""
+        return self.inheritance_handler._resolve_env_vars(config)
+    
+    def stop_watching(self) -> None:
+        """停止监听配置变化"""
+        self.base_config_loader.stop_watching()
+    
+    def get_config(self, config_path: str) -> Optional[Dict[str, Any]]:
+        """获取缓存中的配置，如果不存在则返回None"""
+        return self.base_config_loader.get_config(config_path)
+    
+    def _handle_file_change(self, file_path: str) -> None:
+        """处理文件变化事件"""
+        self.base_config_loader._handle_file_change(file_path)
     
     def validate_with_schema(self, config: Dict[str, Any], schema: Optional[BaseModel] = None) -> List[str]:
         """使用模式验证配置

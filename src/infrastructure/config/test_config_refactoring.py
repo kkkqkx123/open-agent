@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 from .config_service_factory import ConfigServiceFactory, create_config_system
-from .config_manager import ConfigManager
+from .config_operations import ConfigOperations
 from .interfaces import IConfigLoader, IConfigInheritanceHandler, IConfigMerger, IConfigValidator
 from .loader.yaml_loader import YamlConfigLoader
 from .processor.inheritance import ConfigInheritanceHandler
@@ -92,7 +92,7 @@ secret_patterns:
         self.config_system = ConfigServiceFactory.create_config_system(
             base_path=self.config_path
         )
-        self.config_manager = ConfigManager(self.config_system)
+        self.config_manager = ConfigOperations(self.config_system)
     
     def teardown_method(self):
         """清理测试环境"""

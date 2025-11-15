@@ -66,9 +66,7 @@ class EnvResolver:
                 # 普通环境变量
                 full_var_name = f"{self.prefix}{var_expr}" if self.prefix else var_expr
                 value = os.getenv(full_var_name)
-                if value is None:
-                    raise ValueError(f"环境变量未找到: {full_var_name}")
-                return value
+                return value if value is not None else ""
 
         # 使用正则表达式替换所有环境变量
         return self.env_var_pattern.sub(replace_env_var, text)

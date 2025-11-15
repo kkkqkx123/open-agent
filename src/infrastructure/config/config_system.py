@@ -23,6 +23,8 @@ from .service.callback_manager import (
     get_global_callback_manager,
     trigger_config_callbacks,
 )
+from .config_cache import ConfigCache
+from .config_loader import ConfigLoader
 
 
 class ConfigSystem(IConfigSystem):
@@ -52,9 +54,12 @@ class ConfigSystem(IConfigSystem):
         self._config_validator = config_validator
         self._base_path = Path(base_path)
 
-        # 配置缓存
-        self._cache: Dict[str, Any] = {}
+        # 配置缓存 - 使用新的缓存类
+        self._cache = ConfigCache()
         self._global_config: Optional[GlobalConfig] = None
+        
+        # 配置加载器 - 处理继承逻辑
+        self._config_loader_wrapper = ConfigLoader(config_loader, config_merger)
 
         # 环境变量解析器
         self._env_resolver: Optional[EnvResolver] = None
@@ -112,6 +117,19 @@ class ConfigSystem(IConfigSystem):
                 else:
                     raise ConfigurationError(f"加载全局配置文件失败: {e}")
 
+            # 使用环境变量解析器处理环境变量
+            if self._env_resolver is None:
+                # 先创建一个临时的环境变量解析器来获取env_prefix
+                temp_env_resolver = EnvResolver()
+                config_data = temp_env_resolver.resolve(config_data)
+                # 创建正式的环境变量解析器
+                self._global_config = GlobalConfig(**config_data)
+                self._env_resolver = EnvResolver(self._global_config.env_prefix)
+                # 重新解析配置，使用正确的环境变量前缀
+                config_data = self._env_resolver.resolve(config_data)
+            else:
+                config_data = self._env_resolver.resolve(config_data)
+
             # 验证配置
             result = self._config_validator.validate_global_config(config_data)
             if not result.is_valid:
@@ -119,10 +137,6 @@ class ConfigSystem(IConfigSystem):
 
             # 创建配置对象
             self._global_config = GlobalConfig(**config_data)
-
-            # 初始化环境变量解析器
-            if self._env_resolver is None:
-                self._env_resolver = EnvResolver(self._global_config.env_prefix)
 
             return self._global_config
 
@@ -137,11 +151,16 @@ class ConfigSystem(IConfigSystem):
         """
         with self._lock:
             cache_key = f"llm_{name}"
-            if cache_key in self._cache:
-                return cast(LLMConfig, self._cache[cache_key])
+            cached_config = self._cache.get(cache_key)
+            if cached_config:
+                return cast(LLMConfig, cached_config)
 
             # 加载配置并处理继承
-            config_data = self._load_config_with_inheritance("llms", name)
+            config_data = self._config_loader_wrapper.load_with_inheritance("llms", name)
+
+            # 使用环境变量解析器处理环境变量
+            env_resolver = self.get_env_resolver()
+            config_data = env_resolver.resolve(config_data)
 
             # 验证配置
             result = self._config_validator.validate_llm_config(config_data)
@@ -150,7 +169,7 @@ class ConfigSystem(IConfigSystem):
 
             # 创建配置对象
             config = LLMConfig(**config_data)
-            self._cache[cache_key] = config
+            self._cache.set(cache_key, config)
             return config
 
     def load_tool_config(self, name: str) -> ToolConfig:
@@ -164,11 +183,16 @@ class ConfigSystem(IConfigSystem):
         """
         with self._lock:
             cache_key = f"tool_{name}"
-            if cache_key in self._cache:
-                return cast(ToolConfig, self._cache[cache_key])
+            cached_config = self._cache.get(cache_key)
+            if cached_config:
+                return cast(ToolConfig, cached_config)
 
             # 加载配置并处理继承
-            config_data = self._load_config_with_inheritance("tool-sets", name)
+            config_data = self._config_loader_wrapper.load_with_inheritance("tool-sets", name)
+
+            # 使用环境变量解析器处理环境变量
+            env_resolver = self.get_env_resolver()
+            config_data = env_resolver.resolve(config_data)
 
             # 验证配置
             result = self._config_validator.validate_tool_config(config_data)
@@ -177,7 +201,7 @@ class ConfigSystem(IConfigSystem):
 
             # 创建配置对象
             config = ToolConfig(**config_data)
-            self._cache[cache_key] = config
+            self._cache.set(cache_key, config)
             return config
 
     def load_token_counter_config(self, name: str) -> TokenCounterConfig:
@@ -191,11 +215,16 @@ class ConfigSystem(IConfigSystem):
         """
         with self._lock:
             cache_key = f"token_counter_{name}"
-            if cache_key in self._cache:
-                return cast(TokenCounterConfig, self._cache[cache_key])
+            cached_config = self._cache.get(cache_key)
+            if cached_config:
+                return cast(TokenCounterConfig, cached_config)
 
             # 加载配置并处理继承
-            config_data = self._load_config_with_inheritance("llms/tokens_counter", name)
+            config_data = self._config_loader_wrapper.load_with_inheritance("llms/tokens_counter", name)
+
+            # 使用环境变量解析器处理环境变量
+            env_resolver = self.get_env_resolver()
+            config_data = env_resolver.resolve(config_data)
 
             # 验证配置
             result = self._config_validator.validate_token_counter_config(config_data)
@@ -204,7 +233,7 @@ class ConfigSystem(IConfigSystem):
 
             # 创建配置对象
             config = TokenCounterConfig(**config_data)
-            self._cache[cache_key] = config
+            self._cache.set(cache_key, config)
             return config
 
     def load_task_groups_config(self) -> TaskGroupsConfig:
@@ -215,15 +244,16 @@ class ConfigSystem(IConfigSystem):
         """
         with self._lock:
             cache_key = "task_groups"
-            if cache_key in self._cache:
-                return cast(TaskGroupsConfig, self._cache[cache_key])
+            cached_config = self._cache.get(cache_key)
+            if cached_config:
+                return cast(TaskGroupsConfig, cached_config)
 
             # 使用任务组管理器加载配置
             from ..llm.task_group_manager import TaskGroupManager
             task_group_manager = TaskGroupManager(self._config_loader)
             config = task_group_manager.load_config()
             
-            self._cache[cache_key] = config
+            self._cache.set(cache_key, config)
             return config
 
     def reload_configs(self) -> None:
@@ -246,7 +276,7 @@ class ConfigSystem(IConfigSystem):
         Returns:
             配置路径
         """
-        return f"{config_type}/{name}.yaml"
+        return self._config_loader_wrapper.get_config_path(config_type, name)
 
     def watch_for_changes(
         self, callback: Callable[[str, Dict[str, Any]], None]
@@ -280,198 +310,6 @@ class ConfigSystem(IConfigSystem):
                 self._file_watcher = None
             self._watch_callbacks.clear()
 
-    def _load_config_with_inheritance(
-        self, config_type: str, name: str
-    ) -> Dict[str, Any]:
-        """加载配置并处理继承关系
-
-        Args:
-            config_type: 配置类型
-            name: 配置名称
-
-        Returns:
-            配置字典
-        """
-        # 检查是否为provider目录下的LLM配置
-        if config_type == "llms":
-            provider_config = self._try_load_provider_config(name)
-            if provider_config:
-                return provider_config
-
-        # 加载个体配置
-        individual_path = self.get_config_path(config_type, name)
-        individual_config: Dict[str, Any] = self._config_loader.load(individual_path)
-
-        # 检查是否有组配置
-        if "group" in individual_config:
-            group_name = individual_config["group"]
-            group_path = f"{config_type}/_group.yaml"
-
-            try:
-                group_configs = self._config_loader.load(group_path)
-
-                if group_name in group_configs:
-                    group_config = group_configs[group_name]
-                    # 合并组配置和个体配置
-                    merged_config = self._config_merger.merge_group_config(
-                        group_config, individual_config
-                    )
-                    # 重新添加group字段，因为在合并过程中它被移除了
-                    merged_config["group"] = group_name
-                    return merged_config
-            except Exception as e:
-                # 如果加载组配置失败，记录警告但继续使用个体配置
-                print(f"警告: 加载组配置失败 {group_path}: {e}")
-
-        return individual_config
-
-    def _try_load_provider_config(self, name: str) -> Optional[Dict[str, Any]]:
-        """尝试加载provider-based配置
-
-        Args:
-            name: 配置名称
-
-        Returns:
-            配置字典，如果不是provider配置则返回None
-        """
-        # 检查是否存在provider目录下的配置
-        provider_paths = [
-            f"llms/provider/openai/{name}.yaml",
-            f"llms/provider/anthropic/{name}.yaml", 
-            f"llms/provider/gemini/{name}.yaml"
-        ]
-        
-        for provider_path in provider_paths:
-            try:
-                individual_config = self._config_loader.load(provider_path)
-                
-                # 获取provider类型
-                provider_type = individual_config.get("provider")
-                if not provider_type:
-                    # 从路径推断provider类型
-                    if "openai" in provider_path:
-                        provider_type = "openai"
-                    elif "anthropic" in provider_path:
-                        provider_type = "anthropic"
-                    elif "gemini" in provider_path:
-                        provider_type = "gemini"
-                
-                if provider_type:
-                    # 加载provider的common配置
-                    common_config_path = f"llms/provider/{provider_type}/common.yaml"
-                    try:
-                        common_config = self._config_loader.load(common_config_path)
-                        
-                        # 合并provider common配置和个体配置
-                        merged_config = self._merge_provider_config(
-                            common_config, individual_config, provider_type
-                        )
-                        
-                        # 检查是否还有组配置需要继承
-                        if "group" in merged_config:
-                            group_name = merged_config["group"]
-                            group_path = "llms/_group.yaml"
-                            
-                            try:
-                                group_configs = self._config_loader.load(group_path)
-                                if group_name in group_configs:
-                                    group_config = group_configs[group_name]
-                                    # 合并组配置
-                                    merged_config = self._config_merger.merge_group_config(
-                                        group_config, merged_config
-                                    )
-                                    # 重新添加group字段
-                                    merged_config["group"] = group_name
-                            except Exception as e:
-                                print(f"警告: 加载组配置失败 {group_path}: {e}")
-                        
-                        return merged_config
-                        
-                    except Exception as e:
-                        print(f"警告: 加载provider common配置失败 {common_config_path}: {e}")
-                        # 如果common配置加载失败，返回个体配置
-                        return individual_config
-                        
-            except Exception:
-                # 如果provider配置不存在，继续尝试下一个
-                continue
-        
-        # 如果没有找到provider配置，返回None
-        return None
-
-    def _merge_provider_config(
-        self, 
-        common_config: Dict[str, Any], 
-        individual_config: Dict[str, Any],
-        provider_type: str
-    ) -> Dict[str, Any]:
-        """合并provider common配置和个体配置
-        
-        Args:
-            common_config: provider common配置
-            individual_config: 个体配置
-            provider_type: provider类型
-            
-        Returns:
-            合并后的配置
-        """
-        
-        # 从common配置中提取默认参数
-        default_parameters = common_config.get("default_parameters", {})
-        cache_config = common_config.get("cache_config", {})
-        fallback_config = common_config.get("fallback_config", {})
-        
-        # 创建合并后的配置
-        merged = {
-            # 基础配置从个体配置获取
-            "model_type": individual_config.get("model_type", provider_type),
-            "model_name": individual_config.get("model_name"),
-            "base_url": individual_config.get("base_url", common_config.get("base_url")),
-            "api_key": individual_config.get("api_key"),
-            "headers": individual_config.get("headers", common_config.get("headers", {})),
-            "provider": individual_config.get("provider", provider_type),
-            "token_counter": individual_config.get("token_counter"),
-            
-            # 参数配置：合并默认参数和个体参数
-            "parameters": self._config_merger.deep_merge(
-                default_parameters, 
-                individual_config.get("parameters", {})
-            ),
-            
-            # 缓存配置：合并默认缓存配置和个体缓存配置
-            "supports_caching": individual_config.get(
-                "supports_caching", 
-                common_config.get("supports_caching", False)
-            ),
-            "cache_config": self._config_merger.deep_merge(
-                cache_config,
-                individual_config.get("cache_config", {})
-            ),
-            
-            # 其他配置
-            "group": individual_config.get("group"),
-            "fallback_enabled": individual_config.get(
-                "fallback_enabled",
-                fallback_config.get("enabled", True)
-            ),
-            "fallback_models": individual_config.get("fallback_models", []),
-            "max_fallback_attempts": individual_config.get(
-                "max_fallback_attempts",
-                fallback_config.get("max_attempts", 3)
-            ),
-            
-            # 元数据合并
-            "metadata": self._config_merger.deep_merge(
-                common_config.get("metadata", {}),
-                individual_config.get("metadata", {})
-            )
-        }
-        
-        # 移除None值
-        merged = {k: v for k, v in merged.items() if v is not None}
-        
-        return merged
-
     def _handle_file_change(self, file_path: str) -> None:
         """处理文件变化事件
 
@@ -492,12 +330,12 @@ class ConfigSystem(IConfigSystem):
             # 重新加载配置
             # 先从缓存中移除，确保重新加载
             cache_keys_to_remove = []
-            for cache_key in self._cache:
+            for cache_key in self._cache.keys():
                 if config_path in cache_key or config_path.endswith("_group.yaml"):
                     cache_keys_to_remove.append(cache_key)
 
             for cache_key in cache_keys_to_remove:
-                del self._cache[cache_key]
+                self._cache.remove(cache_key)
 
             # 如果是全局配置文件，清除全局配置缓存
             if config_path == "global.yaml":

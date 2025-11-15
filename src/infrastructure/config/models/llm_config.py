@@ -1,7 +1,7 @@
 """LLM配置模型"""
 
 from typing import Dict, Any, Optional, List, Tuple
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator, ConfigDict
 
 from ..base import BaseConfig
 from .retry_timeout_config import RetryTimeoutConfig, TimeoutConfig
@@ -9,6 +9,7 @@ from .connection_pool_config import ConnectionPoolConfig
 
 
 class LLMConfig(BaseConfig):
+    model_config = ConfigDict(extra='allow')
     """LLM配置模型"""
 
     # 基础配置
@@ -96,7 +97,7 @@ class LLMConfig(BaseConfig):
     @classmethod
     def validate_model_type(cls, v: str) -> str:
         """验证模型类型"""
-        allowed_types = ["openai", "gemini", "anthropic", "claude", "local"]
+        allowed_types = ["openai", "gemini", "anthropic", "claude", "local", "mock"]
         if v.lower() not in allowed_types:
             raise ValueError(f"模型类型必须是以下之一: {allowed_types}")
         return v.lower()

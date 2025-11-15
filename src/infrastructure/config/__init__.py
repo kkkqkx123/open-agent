@@ -2,6 +2,10 @@
 
 from .config_system import IConfigSystem, ConfigSystem
 from .config_factory import ConfigFactory
+from .config_service_factory import create_config_system, create_minimal_config_system
+from .config_cache import ConfigCache
+from .config_loader import ConfigLoader
+from .config_operations import ConfigOperations
 from .processor.merger import IConfigMerger, ConfigMerger
 from .processor.validator import IConfigValidator, ConfigValidator, ValidationResult
 from .processor.enhanced_validator import (
@@ -30,7 +34,8 @@ from .service.callback_manager import (
 )
 from .interfaces import IConfigLoader, IConfigInheritanceHandler
 from .processor.inheritance import ConfigInheritanceHandler, InheritanceConfigLoader
-from .loader.yaml_loader import YamlConfigLoader, ConfigFileHandler
+from .loader.yaml_loader import YamlConfigLoader
+from .loader.file_watcher import FileWatcher
 from .migration.migration import (
     MigrationResult,
     ConfigMigrationTool,
@@ -44,6 +49,11 @@ __all__ = [
     "IConfigSystem",
     "ConfigSystem",
     "ConfigFactory",
+    "create_config_system",
+    "create_minimal_config_system",
+    "ConfigCache",
+    "ConfigLoader",
+    "ConfigOperations",
     "IConfigMerger",
     "ConfigMerger",
     "IConfigValidator",
@@ -73,7 +83,7 @@ __all__ = [
     "ConfigInheritanceHandler",
     "InheritanceConfigLoader",
     "YamlConfigLoader",
-    "ConfigFileHandler",
+    "FileWatcher",
     "MigrationResult",
     "ConfigMigrationTool",
     "migrate_workflow_config",

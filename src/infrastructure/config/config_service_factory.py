@@ -44,20 +44,13 @@ class ConfigServiceFactory:
         config_merger = ConfigMerger()
         config_validator = ConfigValidator()
         
+        # 创建配置加载器（简化版，只负责文件加载）
+        config_loader = YamlConfigLoader(base_path=base_path)
+        
         # 创建继承处理器（如果启用）
         inheritance_handler = None
         if enable_inheritance:
-            inheritance_handler = ConfigInheritanceHandler()
-        
-        # 创建配置加载器
-        config_loader = YamlConfigLoader(
-            base_path=base_path,
-            inheritance_handler=inheritance_handler
-        )
-        
-        # 如果启用了继承，需要设置继承处理器的加载器引用
-        if enable_inheritance and inheritance_handler:
-            inheritance_handler.config_loader = config_loader
+            inheritance_handler = ConfigInheritanceHandler(config_loader=config_loader)
         
         # 创建配置系统
         config_system = ConfigSystem(
@@ -85,15 +78,15 @@ class ConfigServiceFactory:
         Returns:
             配置加载器实例
         """
+        # 创建基础配置加载器
+        loader = YamlConfigLoader(base_path=base_path)
+        
         if enable_inheritance:
-            # 创建继承处理器
-            inheritance_handler = ConfigInheritanceHandler()
-            loader = YamlConfigLoader(base_path, inheritance_handler)
-            # 设置继承处理器的加载器引用
-            inheritance_handler.config_loader = loader
-            return loader
+            # 如果启用继承，返回继承配置加载器装饰器
+            from .processor.inheritance import InheritanceConfigLoader
+            return InheritanceConfigLoader(loader)
         else:
-            return YamlConfigLoader(base_path, None)
+            return loader
     
     @staticmethod
     def create_config_validator() -> IConfigValidator:

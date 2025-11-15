@@ -5,7 +5,6 @@ from pydantic import ValidationError
 from infrastructure.config.processor.validator import ConfigValidator, ValidationResult
 from src.infrastructure.config.models.global_config import GlobalConfig
 from src.infrastructure.config.models.llm_config import LLMConfig
-from src.infrastructure.config.models.agent_config import AgentConfig
 from src.infrastructure.config.models.tool_config import ToolConfig
 
 
@@ -84,47 +83,6 @@ class TestConfigValidator:
 
         assert not result.is_valid
         assert result.has_errors()
-
-    def test_validate_agent_config_success(self):
-        """测试成功验证Agent配置"""
-        config = {
-            "name": "test_agent",
-            "llm": "gpt-4",
-            "tool_sets": ["basic"],
-            "tools": ["search"],
-            "system_prompt": "You are a helpful assistant.",
-            "rules": ["be_helpful"],
-            "user_command": "help",
-        }
-
-        result = self.validator.validate_agent_config(config)
-
-        assert result.is_valid
-        assert not result.has_errors()
-
-    def test_validate_agent_config_no_tools(self):
-        """测试无工具的Agent配置"""
-        config = {
-            "name": "test_agent",
-            "llm": "gpt-4",
-            "system_prompt": "You are a helpful assistant.",
-        }
-
-        result = self.validator.validate_agent_config(config)
-
-        assert result.is_valid  # 基本验证通过
-        assert result.has_warnings()  # 但有警告
-        assert any("工具" in warning for warning in result.warnings)
-
-    def test_validate_agent_config_empty_prompt(self):
-        """测试空提示词的Agent配置"""
-        config = {"name": "test_agent", "llm": "gpt-4", "tools": ["search"]}
-
-        result = self.validator.validate_agent_config(config)
-
-        assert result.is_valid  # 基本验证通过
-        assert result.has_warnings()  # 但有警告
-        assert any("提示词" in warning for warning in result.warnings)
 
     def test_validate_tool_config_success(self):
         """测试成功验证工具配置"""

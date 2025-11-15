@@ -19,6 +19,12 @@ if TYPE_CHECKING:
 class IConfigLoader(ABC):
     """配置加载器接口"""
 
+    @property
+    @abstractmethod
+    def base_path(self) -> Path:
+        """获取配置基础路径"""
+        pass
+
     @abstractmethod
     def load(self, config_path: str) -> Dict[str, Any]:
         """加载配置文件"""
