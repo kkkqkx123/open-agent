@@ -210,7 +210,7 @@ class LLMConfigManager:
     
     def __init__(
         self,
-        config_loader: IConfigLoader,
+        config_loader: Optional[IConfigLoader] = None,
         config_subdir: str = "llms",
         enable_hot_reload: bool = True,
         validation_enabled: bool = True,
@@ -219,11 +219,14 @@ class LLMConfigManager:
         初始化配置管理器
         
         Args:
-            config_loader: 核心配置加载器实例
+            config_loader: 核心配置加载器实例，若为None则使用默认加载器
             config_subdir: 相对于configs的子目录
             enable_hot_reload: 是否启用热重载
             validation_enabled: 是否启用配置验证
         """
+        if config_loader is None:
+            from ..config.loader.file_config_loader import FileConfigLoader
+            config_loader = FileConfigLoader()
         self.config_loader = config_loader
         self.config_subdir = config_subdir
         self.config_dir = Path("configs") / self.config_subdir

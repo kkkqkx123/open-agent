@@ -2,8 +2,11 @@
 
 from .replay_processor import ReplayProcessor
 from .replay_analyzer import ReplayAnalyzer
+from .manager import IReplayManager, ReplayManager
 
 __all__ = [
     "ReplayProcessor",
-    "ReplayAnalyzer"
+    "ReplayAnalyzer",
+    "IReplayManager",
+    "ReplayManager"
 ]

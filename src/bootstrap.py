@@ -14,6 +14,7 @@ from pathlib import Path
 from src.infrastructure.container import get_global_container, DependencyContainer, IDependencyContainer
 from src.infrastructure.di_config import DIConfig, create_container, get_global_container as get_di_container
 from src.infrastructure.lifecycle_manager import LifecycleManager, get_global_lifecycle_manager
+from src.app_config import ApplicationConfig
 from infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.infrastructure.exceptions import InfrastructureError
 from src.infrastructure.container_interfaces import ILifecycleAware
@@ -229,14 +230,18 @@ class ApplicationBootstrap:
             app_config = config.get("application", {})
             config_path = app_config.get("config_path", "configs")
             environment = app_config.get("environment", "development")
-            
-            # 获取额外服务配置
+            enable_monitoring = app_config.get("enable_monitoring", True)
+            enable_validation = app_config.get("enable_validation", True)
             additional_services = config.get("additional_services", {})
             
-            # 使用简化的DI配置创建容器
-            self.container = create_container(
+            # 使用新的统一DI配置创建容器
+            from src.app_config import ApplicationConfig
+            app_di_config = ApplicationConfig(environment)
+            
+            self.container = app_di_config.configure(
                 config_path=config_path,
-                environment=environment,
+                enable_monitoring=enable_monitoring,
+                enable_validation=enable_validation,
                 additional_services=additional_services
             )
             
