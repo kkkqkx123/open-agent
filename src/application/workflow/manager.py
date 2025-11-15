@@ -11,8 +11,9 @@ import uuid
 
 from .interfaces import IWorkflowManager
 from src.domain.workflow.interfaces import IWorkflowConfigManager, IWorkflowVisualizer, IWorkflowRegistry
-from src.infrastructure.graph.config import WorkflowConfig
+from src.infrastructure.graph.config import GraphConfig
 from src.infrastructure.graph.states import WorkflowState
+from src.infrastructure.graph import GraphBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -66,15 +67,14 @@ class WorkflowManager(IWorkflowManager):
         # 向后兼容：如果workflow_builder未提供，创建默认的
         if self.workflow_builder is None:
             try:
-                from ...infrastructure.graph.builder import GraphBuilder
                 if self.node_registry is not None:
                     self.workflow_builder = GraphBuilder(node_registry=self.node_registry)
-            except ImportError:
-                pass
+            except (TypeError, ImportError) as e:
+                logger.debug(f"无法初始化 GraphBuilder: {e}")
         
         # 向后兼容：保持原有的工作流存储
         self._workflows: Dict[str, Any] = {}
-        self._workflow_configs: Dict[str, WorkflowConfig] = {}
+        self._workflow_configs: Dict[str, GraphConfig] = {}
         self._workflow_metadata: Dict[str, Dict[str, Any]] = {}
         
         logger.info("WorkflowManager初始化完成（重构版本）")
@@ -257,14 +257,14 @@ class WorkflowManager(IWorkflowManager):
         # 向后兼容：从原有存储获取
         return list(self._workflows.keys())
 
-    def get_workflow_config(self, workflow_id: str) -> Optional[WorkflowConfig]:
+    def get_workflow_config(self, workflow_id: str) -> Optional[GraphConfig]:
         """获取工作流配置（向后兼容方法）
         
         Args:
             workflow_id: 工作流ID
             
         Returns:
-            Optional[WorkflowConfig]: 工作流配置
+            Optional[GraphConfig]: 工作流配置
         """
         # 优先从配置管理器获取
         if self.config_manager:
@@ -336,13 +336,12 @@ class WorkflowManager(IWorkflowManager):
             # 向后兼容：使用config_loader重新加载
             if self.config_loader:
                 # 从文件重新加载配置
-                from ...infrastructure.graph.config import WorkflowConfig
                 import yaml
                 
                 with open(config_path, 'r', encoding='utf-8') as f:
                     config_data = yaml.safe_load(f)
                 
-                new_config = WorkflowConfig.from_dict(config_data)
+                new_config = GraphConfig.from_dict(config_data)
                 self._workflow_configs[workflow_id] = new_config
                 
                 # 更新元数据

@@ -619,6 +619,10 @@ class UnifiedGraphBuilder:
         return "continue"
 
     def _condition_is_complete(self, state: WorkflowState) -> str:
-        """检查是否完成"""
-        # 这里应该实现具体的条件逻辑
-        return "end"
+         """检查是否完成"""
+         # 这里应该实现具体的条件逻辑
+         return "end"
+
+
+# 为向后兼容性创建别名
+GraphBuilder = UnifiedGraphBuilder

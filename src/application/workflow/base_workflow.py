@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional
 from abc import ABC
 
 from src.infrastructure.graph.states import WorkflowState
-from src.infrastructure.graph.config import WorkflowConfig
+from src.infrastructure.graph.config import GraphConfig
 from infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.container import IDependencyContainer
 
@@ -17,7 +17,7 @@ class BaseWorkflow(ABC):
     
     def __init__(
         self,
-        config: WorkflowConfig,
+        config: GraphConfig,
         config_loader: Optional[IConfigLoader] = None,
         container: Optional[IDependencyContainer] = None
     ):

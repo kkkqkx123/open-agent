@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch, MagicMock
 
-from infrastructure.config.loader.file_config_loader import FileConfigLoader, ConfigFileHandler
+from src.infrastructure.config.loader.file_config_loader import FileConfigLoader
 from src.infrastructure.exceptions import ConfigurationError
 
 
@@ -174,7 +174,7 @@ class TestYamlConfigLoader:
             assert config2["log_level"] == "DEBUG"
 
     def test_watch_for_changes(self, test_config: Any) -> None:
-        """测试配置文件变化监听"""
+        """测试配置文件变化监听 - 已弃用，使用FileWatcher替代"""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "test.yaml"
 
@@ -183,31 +183,10 @@ class TestYamlConfigLoader:
 
             loader = FileConfigLoader(temp_dir)
 
-            # 模拟回调函数
+            # watch_for_changes 已弃用，应该抛出 NotImplementedError
             callback = MagicMock()
-            loader.watch_for_changes(callback)
-
-            # 模拟文件变化
-            updated_config = test_config.copy()
-            updated_config["log_level"] = "DEBUG"
-
-            with open(config_path, "w", encoding="utf-8") as f:
-                yaml.dump(updated_config, f)
-
-            # 手动触发文件变化处理
-            # 直接调用处理器的手动触发方法
-            for observer in loader._observers:
-                for watch, handlers in observer._handlers.items():
-                    for handler in handlers:
-                        if isinstance(handler, ConfigFileHandler):
-                            handler.trigger_manual(str(config_path))
-                            break
-
-            # 验证回调被调用
-            callback.assert_called()
-            args, kwargs = callback.call_args
-            assert args[0] == "test.yaml"
-            assert args[1]["log_level"] == "DEBUG"
+            with pytest.raises(NotImplementedError):
+                loader.watch_for_changes(callback)
 
     def test_get_cached_config(self, test_config: Any) -> None:
         """测试获取缓存配置"""
@@ -280,20 +259,10 @@ class TestYamlConfigLoader:
         assert "log_level" in result.details["missing_keys"]
 
     def test_stop_watching(self) -> None:
-        """测试停止监听"""
+        """测试停止监听 - 已弃用，使用FileWatcher替代"""
         with tempfile.TemporaryDirectory() as temp_dir:
             loader = FileConfigLoader(temp_dir)
 
-            # 开始监听
-            callback = MagicMock()
-            loader.watch_for_changes(callback)
-
-            # 验证观察者已创建
-            assert len(loader._observers) > 0
-
-            # 停止监听
-            loader.stop_watching()
-
-            # 验证观察者已清除
-            assert len(loader._observers) == 0
-            assert len(loader._callbacks) == 0
+            # stop_watching 已弃用，应该抛出 NotImplementedError
+            with pytest.raises(NotImplementedError):
+                loader.stop_watching()

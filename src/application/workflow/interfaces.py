@@ -6,7 +6,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Union, AsyncGenerator, Generator, Type
 
-from src.infrastructure.graph.config import WorkflowConfig
+from src.infrastructure.graph.config import GraphConfig
 from src.infrastructure.graph.states import WorkflowState
 
 
@@ -110,14 +110,14 @@ class IWorkflowManager(ABC):
         pass
 
     @abstractmethod
-    def get_workflow_config(self, workflow_id: str) -> Optional[WorkflowConfig]:
+    def get_workflow_config(self, workflow_id: str) -> Optional[GraphConfig]:
         """获取工作流配置
 
         Args:
             workflow_id: 工作流ID
 
         Returns:
-            Optional[WorkflowConfig]: 工作流配置
+            Optional[GraphConfig]: 工作流配置
         """
         pass
 
@@ -162,7 +162,7 @@ class IWorkflowBuilder(ABC):
     """工作流构建器接口"""
 
     @abstractmethod
-    def build_graph(self, config: WorkflowConfig) -> Any:
+    def build_graph(self, config: GraphConfig) -> Any:
         """构建图
 
         Args:
@@ -174,19 +174,19 @@ class IWorkflowBuilder(ABC):
         pass
 
     @abstractmethod
-    def load_workflow_config(self, config_path: str) -> WorkflowConfig:
+    def load_workflow_config(self, config_path: str) -> GraphConfig:
         """加载工作流配置
 
         Args:
             config_path: 配置文件路径
 
         Returns:
-            WorkflowConfig: 工作流配置
+            GraphConfig: 工作流配置
         """
         pass
 
     @abstractmethod
-    def validate_config(self, config: WorkflowConfig) -> List[str]:
+    def validate_config(self, config: GraphConfig) -> List[str]:
         """验证配置
 
         Args:
@@ -309,14 +309,14 @@ class IWorkflowTemplate(ABC):
         pass
 
     @abstractmethod
-    def create_template(self, config: Dict[str, Any]) -> WorkflowConfig:
+    def create_template(self, config: Dict[str, Any]) -> GraphConfig:
         """创建模板实例
 
         Args:
             config: 配置参数
 
         Returns:
-            WorkflowConfig: 工作流配置
+            GraphConfig: 工作流配置
         """
         pass
 
@@ -371,7 +371,7 @@ class IWorkflowFactory(ABC):
     """工作流工厂接口"""
 
     @abstractmethod
-    def create_workflow(self, config: WorkflowConfig) -> Any:
+    def create_workflow(self, config: GraphConfig) -> Any:
         """创建工作流实例
 
         Args:
@@ -402,13 +402,13 @@ class IWorkflowFactory(ABC):
         pass
 
     @abstractmethod
-    def load_workflow_config(self, config_path: str) -> WorkflowConfig:
+    def load_workflow_config(self, config_path: str) -> GraphConfig:
         """加载工作流配置
         
         Args:
             config_path: 配置文件路径
             
         Returns:
-            WorkflowConfig: 工作流配置
+            GraphConfig: 工作流配置
         """
         pass

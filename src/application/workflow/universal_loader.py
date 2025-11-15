@@ -473,7 +473,26 @@ class UniversalWorkflowLoader:
         Returns:
             Dict[str, Any]: 统计信息
         """
-        return self.graph_builder.get_function_statistics()
+        # 从函数注册表获取统计信息
+        stats = {
+            "total_node_functions": 0,
+            "total_condition_functions": 0,
+            "registered_functions": {}
+        }
+        
+        if self.graph_builder.function_registry:
+            registry = self.graph_builder.function_registry
+            # 访问私有属性获取统计信息
+            node_funcs = getattr(registry, '_node_functions', {})
+            cond_funcs = getattr(registry, '_condition_functions', {})
+            stats["total_node_functions"] = len(node_funcs)
+            stats["total_condition_functions"] = len(cond_funcs)
+            stats["registered_functions"] = {
+                "nodes": list(node_funcs.keys()),
+                "conditions": list(cond_funcs.keys())
+            }
+        
+        return stats
     
     def clear_cache(self) -> None:
         """清除缓存"""
@@ -612,7 +631,7 @@ class UniversalWorkflowLoader:
             # 构建图
             try:
                 state_manager = kwargs.get("state_manager")
-                graph = self.graph_builder.build_graph_with_validation(config, state_manager)
+                graph = self.graph_builder.build_graph(config, state_manager)
                 
                 # 缓存图
                 self._graph_cache[cache_key] = graph

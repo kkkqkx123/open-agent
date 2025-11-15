@@ -12,7 +12,6 @@ import time
 import threading
 from datetime import datetime
 
-from src.infrastructure.graph.config import WorkflowConfig
 from src.infrastructure.graph.builder import GraphBuilder
 
 
