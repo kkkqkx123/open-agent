@@ -6,7 +6,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Union, AsyncGenerator, Generator, Type
 
-from src.infrastructure.graph.config import GraphConfig
+from src.infrastructure.graph.config import GraphConfig, WorkflowConfig
 from src.infrastructure.graph.states import WorkflowState
 
 
@@ -110,14 +110,14 @@ class IWorkflowManager(ABC):
         pass
 
     @abstractmethod
-    def get_workflow_config(self, workflow_id: str) -> Optional[GraphConfig]:
+    def get_workflow_config(self, workflow_id: str) -> Optional[WorkflowConfig]:
         """获取工作流配置
 
         Args:
             workflow_id: 工作流ID
 
         Returns:
-            Optional[GraphConfig]: 工作流配置
+            Optional[WorkflowConfig]: 工作流配置
         """
         pass
 
@@ -371,7 +371,7 @@ class IWorkflowFactory(ABC):
     """工作流工厂接口"""
 
     @abstractmethod
-    def create_workflow(self, config: GraphConfig) -> Any:
+    def create_workflow(self, config: Union[GraphConfig, WorkflowConfig]) -> Any:
         """创建工作流实例
 
         Args:
@@ -402,7 +402,7 @@ class IWorkflowFactory(ABC):
         pass
 
     @abstractmethod
-    def load_workflow_config(self, config_path: str) -> GraphConfig:
+    def load_workflow_config(self, config_path: str) -> Union[GraphConfig, WorkflowConfig]:
         """加载工作流配置
         
         Args:

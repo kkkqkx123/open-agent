@@ -3,12 +3,12 @@
 负责创建和管理基于状态机的工作流实例。
 """
 
-from typing import Dict, Any, Optional, Type
+from typing import Dict, Any, Optional, Type, Union
 import logging
 
 from ..interfaces import IWorkflowFactory
 from .state_machine_workflow import StateMachineWorkflow, StateMachineConfig, StateDefinition, Transition, StateType
-from src.infrastructure.graph.config import WorkflowConfig
+from src.infrastructure.graph.config import WorkflowConfig, GraphConfig
 from infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.container import IDependencyContainer
 from src.infrastructure.registry.module_registry_manager import ModuleRegistryManager
@@ -47,7 +47,7 @@ class StateMachineWorkflowFactory(IWorkflowFactory):
     
     def create_workflow(
         self, 
-        config: WorkflowConfig,
+        config: Union[GraphConfig, WorkflowConfig],
         state_machine_config: Optional[StateMachineConfig] = None
     ) -> Any:
         """创建工作流实例
@@ -97,7 +97,7 @@ class StateMachineWorkflowFactory(IWorkflowFactory):
         """
         return list(self._workflow_classes.keys())
     
-    def load_workflow_config(self, config_path: str) -> WorkflowConfig:
+    def load_workflow_config(self, config_path: str) -> Union[GraphConfig, WorkflowConfig]:
         """加载工作流配置
         
         Args:
@@ -249,7 +249,7 @@ class StateMachineWorkflowFactory(IWorkflowFactory):
     def _create_state_machine_config(
         self,
         workflow_name: str,
-        config: Optional[WorkflowConfig]
+        config: Optional[Union[GraphConfig, WorkflowConfig]]
     ) -> StateMachineConfig:
         """创建状态机配置
         

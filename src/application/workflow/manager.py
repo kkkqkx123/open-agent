@@ -11,7 +11,7 @@ import uuid
 
 from .interfaces import IWorkflowManager
 from src.domain.workflow.interfaces import IWorkflowConfigManager, IWorkflowVisualizer, IWorkflowRegistry
-from src.infrastructure.graph.config import GraphConfig
+from src.infrastructure.graph.config import GraphConfig, WorkflowConfig
 from src.infrastructure.graph.states import WorkflowState
 from src.infrastructure.graph import GraphBuilder
 
@@ -74,7 +74,7 @@ class WorkflowManager(IWorkflowManager):
         
         # 向后兼容：保持原有的工作流存储
         self._workflows: Dict[str, Any] = {}
-        self._workflow_configs: Dict[str, GraphConfig] = {}
+        self._workflow_configs: Dict[str, WorkflowConfig] = {}
         self._workflow_metadata: Dict[str, Dict[str, Any]] = {}
         
         logger.info("WorkflowManager初始化完成（重构版本）")
@@ -189,7 +189,6 @@ class WorkflowManager(IWorkflowManager):
         return {
             "workflow_id": workflow_id,
             "name": config.name,
-            "version": config.version,
             "description": config.description,
             "config_path": config_path,
             "checksum": checksum,
@@ -235,7 +234,6 @@ class WorkflowManager(IWorkflowManager):
                     "config_id": config_id,
                     "name": config.name,
                     "description": config.description,
-                    "version": config.version,
                     "config_path": config_path
                 })
             
@@ -257,14 +255,14 @@ class WorkflowManager(IWorkflowManager):
         # 向后兼容：从原有存储获取
         return list(self._workflows.keys())
 
-    def get_workflow_config(self, workflow_id: str) -> Optional[GraphConfig]:
+    def get_workflow_config(self, workflow_id: str) -> Optional[WorkflowConfig]:
         """获取工作流配置（向后兼容方法）
         
         Args:
             workflow_id: 工作流ID
             
         Returns:
-            Optional[GraphConfig]: 工作流配置
+            Optional[WorkflowConfig]: 工作流配置
         """
         # 优先从配置管理器获取
         if self.config_manager:
@@ -341,7 +339,7 @@ class WorkflowManager(IWorkflowManager):
                 with open(config_path, 'r', encoding='utf-8') as f:
                     config_data = yaml.safe_load(f)
                 
-                new_config = GraphConfig.from_dict(config_data)
+                new_config = WorkflowConfig.from_dict(config_data)
                 self._workflow_configs[workflow_id] = new_config
                 
                 # 更新元数据
@@ -377,27 +375,7 @@ class WorkflowManager(IWorkflowManager):
             "workflow_id": workflow_id,
             "name": config.name,
             "description": config.description,
-            "version": config.version,
-            "nodes": [
-                {
-                    "id": node_id,
-                    "type": node.function_name,
-                    "config": node.config,
-                    "description": node.description
-                }
-                for node_id, node in config.nodes.items()
-            ],
-            "edges": [
-                {
-                    "from": edge.from_node,
-                    "to": edge.to_node,
-                    "type": edge.type.value,
-                    "condition": edge.condition,
-                    "description": edge.description
-                }
-                for edge in config.edges
-            ],
-            "entry_point": config.entry_point
+            "additional_config": config.additional_config
         }
 
 

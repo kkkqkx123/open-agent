@@ -3,11 +3,11 @@
 提供所有工作流的基础功能和通用接口。
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 from abc import ABC
 
 from src.infrastructure.graph.states import WorkflowState
-from src.infrastructure.graph.config import GraphConfig
+from src.infrastructure.graph.config import GraphConfig, WorkflowConfig
 from infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.container import IDependencyContainer
 
@@ -17,7 +17,7 @@ class BaseWorkflow(ABC):
     
     def __init__(
         self,
-        config: GraphConfig,
+        config: Union[GraphConfig, WorkflowConfig],
         config_loader: Optional[IConfigLoader] = None,
         container: Optional[IDependencyContainer] = None
     ):

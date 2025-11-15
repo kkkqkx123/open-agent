@@ -4,8 +4,36 @@
 """
 
 from typing import Dict, Any, Optional, List, Type
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from enum import Enum
+
+
+@dataclass
+class WorkflowConfig:
+    """工作流配置 - 用于状态机工作流"""
+    name: str
+    description: str = ""
+    additional_config: Dict[str, Any] = field(default_factory=dict)
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "WorkflowConfig":
+        """从字典创建工作流配置
+        
+        Args:
+            data: 配置字典
+            
+        Returns:
+            WorkflowConfig: 工作流配置实例
+        """
+        return cls(
+            name=data.get("name", "unnamed"),
+            description=data.get("description", ""),
+            additional_config=data.get("additional_config", {})
+        )
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return asdict(self)
 
 
 class EdgeType(Enum):

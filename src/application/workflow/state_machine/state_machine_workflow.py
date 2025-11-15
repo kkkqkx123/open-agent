@@ -3,14 +3,14 @@
 提供状态机模式的工作流基类，与基于图的工作流并行支持。
 """
 
-from typing import Dict, Any, Optional, List, Set
+from typing import Dict, Any, Optional, List, Set, Union
 from abc import ABC, abstractmethod
 from enum import Enum
 import logging
 
 from src.application.workflow.base_workflow import BaseWorkflow
 from src.infrastructure.graph.states import WorkflowState
-from src.infrastructure.graph.config import WorkflowConfig
+from src.infrastructure.graph.config import WorkflowConfig, GraphConfig
 from infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.container import IDependencyContainer
 
@@ -160,7 +160,7 @@ class StateMachineWorkflow(BaseWorkflow):
     
     def __init__(
         self,
-        config: WorkflowConfig,
+        config: Union[GraphConfig, WorkflowConfig],
         state_machine_config: StateMachineConfig,
         config_loader: Optional[IConfigLoader] = None,
         container: Optional[IDependencyContainer] = None
