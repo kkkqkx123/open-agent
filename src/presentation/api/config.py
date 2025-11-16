@@ -29,6 +29,9 @@ class APISettings(BaseModel):
     cache_unified_enabled: bool = Field(default=True, description="是否启用统一缓存管理")
     cache_fallback_enabled: bool = Field(default=True, description="是否启用缓存降级机制")
     cache_invalidation_enabled: bool = Field(default=True, description="是否启用缓存失效机制")
+    cache_enable_stats: bool = Field(default=True, description="是否启用缓存统计")
+    cache_use_sync_adapter: bool = Field(default=False, description="是否使用同步适配器")
+    cache_sync_max_workers: int = Field(default=4, description="同步适配器最大工作线程数")
     
     # 日志设置
     log_level: str = Field(default="INFO", description="日志级别")

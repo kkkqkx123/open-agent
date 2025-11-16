@@ -7,7 +7,7 @@ import logging
 
 from ..data_access.history_dao import HistoryDAO
 from ..cache.memory_cache import MemoryCache
-from ..cache.unified_cache_manager import UnifiedCacheManager
+from ..cache.cache_manager import CacheManager
 from ..models.requests import HistorySearchRequest, BookmarkCreateRequest
 from ..models.responses import HistoryResponse, SearchResponse, BookmarkResponse
 from ..utils.validation import (
@@ -35,14 +35,14 @@ class HistoryService:
     def __init__(
         self,
         history_dao: HistoryDAO,
-        cache: Union[MemoryCache, UnifiedCacheManager],
+        cache: Union[MemoryCache, CacheManager],
         history_manager: Optional['IHistoryManager'] = None,
-        unified_cache_manager: Optional[UnifiedCacheManager] = None
+        cache_manager: Optional[CacheManager] = None
     ):
         self.history_dao = history_dao
         self.cache = cache
         self.history_manager = history_manager
-        self.unified_cache_manager = unified_cache_manager
+        self.cache_manager = cache_manager
         self._bookmarks: Dict[str, List[Dict[str, Any]]] = {}  # 简化的书签存储
         self.logger = logging.getLogger(__name__)
         self.cache_key_prefix = "history"  # 缓存键前缀
@@ -54,10 +54,10 @@ class HistoryService:
         else:
             self.logger.info("HistoryService使用基础功能（仅DAO和缓存）")
         
-        # 如果提供了统一缓存管理器，优先使用它
-        if unified_cache_manager:
-            self.logger.info("HistoryService使用统一缓存管理器")
-            self.cache = unified_cache_manager
+        # 如果提供了缓存管理器，优先使用它
+        if cache_manager:
+            self.logger.info("HistoryService使用缓存管理器")
+            self.cache = cache_manager
     
     async def get_all_sessions(
         self,

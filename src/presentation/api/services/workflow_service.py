@@ -8,7 +8,7 @@ from src.infrastructure.graph.states import WorkflowState
 from ..data_access.workflow_dao import WorkflowDAO
 
 from ..cache.memory_cache import MemoryCache
-from ..cache.unified_cache_manager import UnifiedCacheManager
+from ..cache.cache_manager import CacheManager
 from ..models.requests import WorkflowCreateRequest, WorkflowUpdateRequest, WorkflowRunRequest
 from ..models.responses import WorkflowResponse, WorkflowListResponse, WorkflowExecutionResponse
 from ..utils.pagination import paginate_list, calculate_pagination, validate_page_params
@@ -30,7 +30,7 @@ class WorkflowService:
         visualizer: IWorkflowVisualizer,
         workflow_dao: WorkflowDAO,
         cache: MemoryCache,
-        unified_cache_manager: Optional['UnifiedCacheManager'] = None
+        cache_manager: Optional['CacheManager'] = None
     ):
         self.workflow_manager = workflow_manager
         self.workflow_registry = workflow_registry
@@ -38,11 +38,11 @@ class WorkflowService:
         self.visualizer = visualizer
         self.workflow_dao = workflow_dao
         self.cache = cache
-        self.unified_cache_manager = unified_cache_manager
+        self.cache_manager = cache_manager
         
-        # 如果提供了统一缓存管理器，优先使用它
-        if unified_cache_manager:
-            self.cache = unified_cache_manager
+        # 如果提供了缓存管理器，优先使用它
+        if cache_manager:
+            self.cache = cache_manager
     
     async def list_workflows(
         self,
@@ -400,3 +400,62 @@ class WorkflowService:
             WorkflowResponse(**serialize_workflow_data(workflow))
             for workflow in workflows
         ]
+    
+    async def update_workflow(self, workflow_id: str, request: WorkflowUpdateRequest) -> Optional[WorkflowResponse]:
+        """更新工作流"""
+        if not validate_workflow_id(workflow_id):
+            raise ValueError("无效的工作流ID格式")
+        
+        # 检查工作流是否存在
+        existing_workflow = await self.get_workflow(workflow_id)
+        if not existing_workflow:
+            return None
+        
+        try:
+            # 准备更新数据
+            updates = {}
+            if request.name is not None:
+                updates["name"] = request.name
+            if request.description is not None:
+                updates["description"] = request.description
+            if request.version is not None:
+                updates["version"] = request.version
+            if request.config_data is not None:
+                updates["config_data"] = request.config_data
+            
+            # 更新数据库
+            update_data = {
+                "name": request.name or existing_workflow.name,
+                "description": request.description if request.description is not None else existing_workflow.description,
+                "version": request.version or existing_workflow.version,
+                "config_data": request.config_data or existing_workflow.nodes,
+                "updated_at": datetime.now().isoformat()
+            }
+            
+            success = await self.workflow_dao.update_workflow(workflow_id, update_data)
+            if not success:
+                raise RuntimeError("更新工作流数据库失败")
+            
+            # 更新注册表（如果工作流已注册）
+            registry_updates = {}
+            if request.name is not None:
+                registry_updates["name"] = request.name
+            if request.description is not None:
+                registry_updates["description"] = request.description
+            if request.version is not None:
+                registry_updates["version"] = request.version
+            
+            if registry_updates:
+                self.workflow_registry.update_workflow(workflow_id, registry_updates)
+            
+            # 清除缓存
+            await self.cache.delete(f"workflow:{workflow_id}")
+            await self.cache.delete(f"workflow:viz:{workflow_id}")
+            await self.cache.delete("workflows:list:*")
+            
+            # 返回更新后的工作流
+            return await self.get_workflow(workflow_id)
+            
+        except Exception as e:
+            logger.error(f"更新工作流失败: {workflow_id}, error: {e}")
+            raise RuntimeError(f"更新工作流失败: {str(e)}")

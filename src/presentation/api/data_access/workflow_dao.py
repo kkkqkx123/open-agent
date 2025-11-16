@@ -157,3 +157,34 @@ class WorkflowDAO:
                         "config_data": json.loads(row[8]) if row[8] else {}
                     })
                 return workflows
+    
+    async def update_workflow(self, workflow_id: str, update_data: Dict[str, Any]) -> bool:
+        """更新工作流"""
+        # 构建更新SQL
+        fields = []
+        values = []
+        
+        for field, value in update_data.items():
+            if field == "config_data" and isinstance(value, (dict, list)):
+                fields.append(f"{field} = ?")
+                values.append(json.dumps(value))
+            else:
+                fields.append(f"{field} = ?")
+                values.append(value)
+        
+        if not fields:
+            return False
+        
+        # 添加更新时间
+        if "updated_at" not in update_data:
+            fields.append("loaded_at = ?")
+            values.append(datetime.now().isoformat())
+        
+        values.append(workflow_id)  # WHERE条件
+        
+        sql = f"UPDATE workflows SET {', '.join(fields)} WHERE workflow_id = ?"
+        
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(sql, values)
+            await db.commit()
+            return cursor.rowcount > 0

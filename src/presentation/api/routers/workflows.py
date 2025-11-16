@@ -1,4 +1,5 @@
 """工作流管理API路由"""
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from typing import Optional, List
@@ -9,6 +10,9 @@ from ..models.requests import WorkflowCreateRequest, WorkflowUpdateRequest, Work
 from ..models.responses import WorkflowResponse, WorkflowListResponse, WorkflowExecutionResponse, ApiResponse
 from ..services.workflow_service import WorkflowService
 from ..dependencies import get_workflow_service
+
+# 配置日志
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
@@ -177,9 +181,10 @@ async def update_workflow(
 ) -> WorkflowResponse:
     """更新工作流"""
     try:
-        # 这里可以实现更新工作流的逻辑
-        # 暂时返回未实现错误
-        raise HTTPException(status_code=501, detail="更新工作流功能尚未实现")
+        updated_workflow = await workflow_service.update_workflow(workflow_id, request)
+        if not updated_workflow:
+            raise HTTPException(status_code=404, detail="工作流不存在")
+        return updated_workflow
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
