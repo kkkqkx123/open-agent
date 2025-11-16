@@ -63,7 +63,8 @@ class TestCheckpointHistoryIntegration:
             storage=history_storage,
             serializer=serializer,
             cache_manager=cache_manager,
-            performance_monitor=performance_monitor
+            performance_monitor=performance_monitor,
+            use_sync_cache=True  # 使用同步缓存适配器
         )
         
         yield checkpoint_manager, history_manager, performance_monitor, temp_dir
@@ -85,7 +86,9 @@ class TestCheckpointHistoryIntegration:
         # 测试缓存共享
         cache_key = "test_key"
         await checkpoint_manager.cache.set(cache_key, test_data)
-        cached_data = await history_manager.cache.get(cache_key)
+
+        # 检查点管理器使用异步缓存，历史管理器使用同步缓存适配器
+        cached_data = history_manager.cache.get(cache_key)
         assert cached_data == test_data
         
         # 测试性能监控共享

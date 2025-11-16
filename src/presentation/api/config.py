@@ -25,6 +25,10 @@ class APISettings(BaseModel):
     # 缓存设置
     cache_ttl: int = Field(default=300, description="缓存TTL（秒）")
     cache_max_size: int = Field(default=1000, description="缓存最大大小")
+    cache_strategy: str = Field(default="unified", description="缓存策略 (unified, legacy, hybrid)")
+    cache_unified_enabled: bool = Field(default=True, description="是否启用统一缓存管理")
+    cache_fallback_enabled: bool = Field(default=True, description="是否启用缓存降级机制")
+    cache_invalidation_enabled: bool = Field(default=True, description="是否启用缓存失效机制")
     
     # 日志设置
     log_level: str = Field(default="INFO", description="日志级别")

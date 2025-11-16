@@ -12,6 +12,7 @@ from .data_access.session_dao import SessionDAO
 from .data_access.history_dao import HistoryDAO
 from .data_access.workflow_dao import WorkflowDAO
 from .cache.memory_cache import MemoryCache
+from .cache.unified_cache_manager import UnifiedCacheManager
 from .services.session_service import SessionService
 from .services.workflow_service import WorkflowService
 from .services.analytics_service import AnalyticsService
@@ -20,6 +21,9 @@ from .services.websocket_service import websocket_service
 
 # 全局缓存实例
 _cache = MemoryCache()
+
+# 全局统一缓存管理器实例
+_unified_cache_manager = None
 
 # 全局数据访问对象实例
 _session_dao = None
@@ -36,6 +40,27 @@ _history_service = None
 def get_cache() -> MemoryCache:
     """获取缓存实例"""
     return _cache
+
+
+def get_unified_cache_manager() -> UnifiedCacheManager:
+    """获取统一缓存管理器实例"""
+    global _unified_cache_manager
+    if _unified_cache_manager is None:
+        from .config import get_settings
+        settings = get_settings()
+        
+        _unified_cache_manager = UnifiedCacheManager(
+            cache_type=settings.cache_strategy,
+            default_ttl=settings.cache_ttl,
+            max_size=settings.cache_max_size,
+            enable_stats=settings.cache_enable_stats,
+            use_sync_adapter=settings.cache_use_sync_adapter,
+            sync_max_workers=settings.cache_sync_max_workers,
+            unified_enabled=settings.cache_unified_enabled,
+            fallback_enabled=settings.cache_fallback_enabled,
+            invalidation_enabled=settings.cache_invalidation_enabled
+        )
+    return _unified_cache_manager
 
 
 def get_session_dao() -> SessionDAO:
@@ -107,7 +132,8 @@ async def get_session_service(
     session_manager: Annotated[ISessionManager, Depends(get_session_manager)],
     session_dao: Annotated[SessionDAO, Depends(get_session_dao)],
     history_dao: Annotated[HistoryDAO, Depends(get_history_dao)],
-    cache: Annotated[MemoryCache, Depends(get_cache)]
+    cache: Annotated[MemoryCache, Depends(get_cache)],
+    unified_cache_manager: Annotated[UnifiedCacheManager, Depends(get_unified_cache_manager)]
 ) -> SessionService:
     """获取会话服务"""
     global _session_service
@@ -116,7 +142,8 @@ async def get_session_service(
             session_manager=session_manager,
             session_dao=session_dao,
             history_dao=history_dao,
-            cache=cache
+            cache=cache,
+            unified_cache_manager=unified_cache_manager
         )
     return _session_service
 
@@ -124,7 +151,8 @@ async def get_session_service(
 async def get_workflow_service(
     workflow_manager: Annotated[IWorkflowManager, Depends(get_workflow_manager)],
     workflow_dao: Annotated[WorkflowDAO, Depends(get_workflow_dao)],
-    cache: Annotated[MemoryCache, Depends(get_cache)]
+    cache: Annotated[MemoryCache, Depends(get_cache)],
+    unified_cache_manager: Annotated[UnifiedCacheManager, Depends(get_unified_cache_manager)]
 ) -> WorkflowService:
     """获取工作流服务"""
     global _workflow_service
@@ -140,7 +168,8 @@ async def get_workflow_service(
             config_manager=WorkflowConfigManager(),
             visualizer=WorkflowVisualizer(),
             workflow_dao=workflow_dao,
-            cache=cache
+            cache=cache,
+            unified_cache_manager=unified_cache_manager
         )
     return _workflow_service
 
@@ -148,7 +177,8 @@ async def get_workflow_service(
 async def get_analytics_service(
     session_dao: Annotated[SessionDAO, Depends(get_session_dao)],
     history_dao: Annotated[HistoryDAO, Depends(get_history_dao)],
-    cache: Annotated[MemoryCache, Depends(get_cache)]
+    cache: Annotated[MemoryCache, Depends(get_cache)],
+    unified_cache_manager: Annotated[UnifiedCacheManager, Depends(get_unified_cache_manager)]
 ) -> AnalyticsService:
     """获取分析服务"""
     global _analytics_service
@@ -156,21 +186,24 @@ async def get_analytics_service(
         _analytics_service = AnalyticsService(
             session_dao=session_dao,
             history_dao=history_dao,
-            cache=cache
+            cache=cache,
+            unified_cache_manager=unified_cache_manager
         )
     return _analytics_service
 
 
 async def get_history_service(
     history_dao: Annotated[HistoryDAO, Depends(get_history_dao)],
-    cache: Annotated[MemoryCache, Depends(get_cache)]
+    cache: Annotated[MemoryCache, Depends(get_cache)],
+    unified_cache_manager: Annotated[UnifiedCacheManager, Depends(get_unified_cache_manager)]
 ) -> HistoryService:
     """获取历史服务"""
     global _history_service
     if _history_service is None:
         _history_service = HistoryService(
             history_dao=history_dao,
-            cache=cache
+            cache=cache,
+            unified_cache_manager=unified_cache_manager
         )
     return _history_service
 

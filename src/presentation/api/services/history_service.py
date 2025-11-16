@@ -1,11 +1,13 @@
 """历史服务"""
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from datetime import datetime, timedelta
 import io
 import csv
+import logging
 
 from ..data_access.history_dao import HistoryDAO
 from ..cache.memory_cache import MemoryCache
+from ..cache.unified_cache_manager import UnifiedCacheManager
 from ..models.requests import HistorySearchRequest, BookmarkCreateRequest
 from ..models.responses import HistoryResponse, SearchResponse, BookmarkResponse
 from ..utils.validation import (
@@ -13,18 +15,126 @@ from ..utils.validation import (
     validate_time_range, validate_export_format, sanitize_string
 )
 
+# 导入HistoryManager相关类型
+try:
+    from ....application.history.manager import IHistoryManager, HistoryManager
+    from ....application.history.models import (
+        MessageRecord, ToolCallRecord, HistoryQuery, HistoryResult,
+        MessageType, SearchQuery, SearchResult
+    )
+    HISTORY_MANAGER_AVAILABLE = True
+except ImportError:
+    HISTORY_MANAGER_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("HistoryManager不可用，使用基础历史服务")
+
 
 class HistoryService:
-    """历史服务"""
+    """历史服务 - 支持HistoryManager高级功能"""
     
     def __init__(
         self,
         history_dao: HistoryDAO,
-        cache: MemoryCache
+        cache: Union[MemoryCache, UnifiedCacheManager],
+        history_manager: Optional['IHistoryManager'] = None,
+        unified_cache_manager: Optional[UnifiedCacheManager] = None
     ):
         self.history_dao = history_dao
         self.cache = cache
+        self.history_manager = history_manager
+        self.unified_cache_manager = unified_cache_manager
         self._bookmarks: Dict[str, List[Dict[str, Any]]] = {}  # 简化的书签存储
+        self.logger = logging.getLogger(__name__)
+        self.cache_key_prefix = "history"  # 缓存键前缀
+        
+        # 检查HistoryManager可用性
+        self.use_advanced_features = HISTORY_MANAGER_AVAILABLE and history_manager is not None
+        if self.use_advanced_features:
+            self.logger.info("HistoryService已启用高级功能（HistoryManager集成）")
+        else:
+            self.logger.info("HistoryService使用基础功能（仅DAO和缓存）")
+        
+        # 如果提供了统一缓存管理器，优先使用它
+        if unified_cache_manager:
+            self.logger.info("HistoryService使用统一缓存管理器")
+            self.cache = unified_cache_manager
+    
+    async def get_all_sessions(
+        self,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """获取所有会话列表 - 支持HistoryManager高级查询"""
+        
+        # 优先使用HistoryManager的高级功能
+        if self.use_advanced_features and self.history_manager:
+            try:
+                self.logger.debug(f"使用HistoryManager获取所有会话列表: limit={limit}, offset={offset}")
+                
+                # 构建查询参数 - 获取所有会话的基础信息
+                query = HistoryQuery(
+                    record_types=["message"],  # 只查询消息来确定会话
+                    limit=1000,  # 获取足够多的记录来分析会话
+                    order_by="timestamp_desc"
+                )
+                
+                # 执行查询
+                result = self.history_manager.query_history(query)
+                
+                # 分析会话信息
+                sessions_dict = {}
+                for record in result.records:
+                    session_id = getattr(record, 'session_id', None)
+                    if not session_id:
+                        continue
+                    
+                    if session_id not in sessions_dict:
+                        sessions_dict[session_id] = {
+                            "session_id": session_id,
+                            "message_count": 0,
+                            "last_activity": None,
+                            "created_at": None
+                        }
+                    
+                    # 更新消息计数
+                    sessions_dict[session_id]["message_count"] += 1
+                    
+                    # 更新时间戳
+                    timestamp = getattr(record, 'timestamp', None)
+                    if timestamp:
+                        if not sessions_dict[session_id]["last_activity"] or timestamp > sessions_dict[session_id]["last_activity"]:
+                            sessions_dict[session_id]["last_activity"] = timestamp
+                        if not sessions_dict[session_id]["created_at"] or timestamp < sessions_dict[session_id]["created_at"]:
+                            sessions_dict[session_id]["created_at"] = timestamp
+                
+                # 转换格式并排序
+                sessions = list(sessions_dict.values())
+                sessions.sort(key=lambda x: x["last_activity"] or datetime.min, reverse=True)
+                
+                # 应用分页
+                total_sessions = len(sessions)
+                start_idx = offset
+                end_idx = min(offset + limit, total_sessions)
+                
+                return sessions[start_idx:end_idx]
+                
+            except Exception as e:
+                self.logger.warning(f"HistoryManager获取会话列表失败，回退到缓存: {e}")
+        
+        # 回退到基础缓存查询
+        self.logger.debug(f"使用基础缓存获取所有会话列表: limit={limit}, offset={offset}")
+        
+        # 从缓存获取会话列表
+        cache_key = f"{self.cache_key_prefix}:sessions:list"
+        cached_sessions = await self.cache.get(cache_key)
+        if cached_sessions:
+            total_sessions = len(cached_sessions)
+            start_idx = offset
+            end_idx = min(offset + limit, total_sessions)
+            return cached_sessions[start_idx:end_idx]
+        
+        # 如果缓存中没有，返回空列表
+        return []
     
     async def get_session_messages(
         self,
@@ -35,7 +145,7 @@ class HistoryService:
         end_time: Optional[datetime] = None,
         message_types: Optional[List[str]] = None
     ) -> HistoryResponse:
-        """获取会话消息历史"""
+        """获取会话消息历史 - 支持HistoryManager高级查询"""
         if not validate_session_id(session_id):
             raise ValueError("无效的会话ID格式")
         
@@ -51,6 +161,48 @@ class HistoryService:
             is_valid, error_msg = validate_record_types(message_types)
             if not is_valid:
                 raise ValueError(error_msg)
+        
+        # 优先使用HistoryManager的高级功能
+        if self.use_advanced_features and self.history_manager:
+            try:
+                self.logger.debug(f"使用HistoryManager查询会话历史: {session_id}")
+                
+                # 构建查询参数
+                query = HistoryQuery(
+                    session_id=session_id,
+                    start_time=start_time,
+                    end_time=end_time,
+                    record_types=message_types or ["message"],
+                    limit=limit,
+                    offset=offset
+                )
+                
+                # 执行查询
+                result = self.history_manager.query_history(query)
+                
+                # 转换结果格式
+                records = []
+                for record in result.records:
+                    if hasattr(record, 'to_dict'):
+                        records.append(record.to_dict())
+                    else:
+                        # 兼容旧格式
+                        record_dict = record.__dict__ if hasattr(record, '__dict__') else {}
+                        records.append(record_dict)
+                
+                return HistoryResponse(
+                    session_id=session_id,
+                    records=records,
+                    total=result.total,
+                    limit=limit,
+                    offset=offset
+                )
+                
+            except Exception as e:
+                self.logger.warning(f"HistoryManager查询失败，回退到DAO: {e}")
+        
+        # 回退到基础DAO查询
+        self.logger.debug(f"使用基础DAO查询会话历史: {session_id}")
         
         # 检查缓存
         cache_key = f"history:messages:{session_id}:{limit}:{offset}:{start_str}:{end_str}:{message_types}"
@@ -97,7 +249,7 @@ class HistoryService:
         query: str,
         limit: int = 20
     ) -> SearchResponse:
-        """搜索会话消息"""
+        """搜索会话消息 - 支持HistoryManager高级搜索"""
         if not validate_session_id(session_id):
             raise ValueError("无效的会话ID格式")
         
@@ -107,6 +259,44 @@ class HistoryService:
             raise ValueError(error_msg)
         
         query = sanitize_string(query, 500)
+        
+        # 优先使用HistoryManager的高级搜索功能
+        if self.use_advanced_features and self.history_manager:
+            try:
+                self.logger.debug(f"使用HistoryManager搜索会话消息: {session_id}, 查询: {query}")
+                
+                # 构建搜索查询
+                search_query = SearchQuery(
+                    session_id=session_id,
+                    search_text=query,
+                    limit=limit
+                )
+                
+                # 执行搜索（如果HistoryManager支持）
+                if hasattr(self.history_manager, 'search_history'):
+                    search_result = self.history_manager.search_history(search_query)
+                    
+                    results = []
+                    for record in search_result.results:
+                        if hasattr(record, 'to_dict'):
+                            results.append(record.to_dict())
+                        else:
+                            results.append(record.__dict__ if hasattr(record, '__dict__') else {})
+                    
+                    return SearchResponse(
+                        session_id=session_id,
+                        query=query,
+                        results=results,
+                        total=search_result.total
+                    )
+                else:
+                    self.logger.debug("HistoryManager不支持搜索功能，回退到DAO搜索")
+                    
+            except Exception as e:
+                self.logger.warning(f"HistoryManager搜索失败，回退到DAO: {e}")
+        
+        # 回退到基础DAO搜索
+        self.logger.debug(f"使用基础DAO搜索会话消息: {session_id}, 查询: {query}")
         
         # 检查缓存
         cache_key = f"history:search:{session_id}:{query}:{limit}"
@@ -137,13 +327,75 @@ class HistoryService:
         self,
         session_id: str,
         format: str = "json"
-    ) -> Dict[str, Any]:
-        """导出会话数据"""
+    ) -> str:
+        """导出会话数据 - 支持HistoryManager高级导出"""
         if not validate_session_id(session_id):
             raise ValueError("无效的会话ID格式")
         
         if not validate_export_format(format):
             raise ValueError("不支持的导出格式")
+        
+        # 优先使用HistoryManager的高级导出功能
+        if self.use_advanced_features and self.history_manager:
+            try:
+                self.logger.debug(f"使用HistoryManager导出会话数据: session_id={session_id}, format={format}")
+                
+                # 构建查询获取所有相关数据
+                query = HistoryQuery(
+                    session_id=session_id,
+                    record_types=["message", "tool_call", "error", "bookmark"],
+                    order_by="timestamp_asc"
+                )
+                
+                # 执行查询获取所有记录
+                result = self.history_manager.query_history(query)
+                
+                # 分离不同类型的记录
+                messages = []
+                bookmarks = []
+                tool_calls = []
+                errors = []
+                
+                for record in result.records:
+                    record_dict = record.to_dict() if hasattr(record, 'to_dict') else record.__dict__ if hasattr(record, '__dict__') else {}
+                    
+                    if record.record_type == "message":
+                        messages.append(record_dict)
+                    elif record.record_type == "bookmark":
+                        bookmarks.append(record_dict)
+                    elif record.record_type == "tool_call":
+                        tool_calls.append(record_dict)
+                    elif record.record_type == "error":
+                        errors.append(record_dict)
+                
+                # 计算统计信息
+                stats = {
+                    "total_messages": len(messages),
+                    "total_bookmarks": len(bookmarks),
+                    "total_tool_calls": len(tool_calls),
+                    "total_errors": len(errors),
+                    "session_duration": self._calculate_session_duration(messages)
+                }
+                
+                # 构建导出数据
+                export_data = {
+                    "session_id": session_id,
+                    "export_timestamp": datetime.now().isoformat(),
+                    "messages": messages,
+                    "bookmarks": bookmarks,
+                    "tool_calls": tool_calls,
+                    "errors": errors,
+                    "statistics": stats
+                }
+                
+                # 根据格式导出
+                return self._format_export_data(export_data, format)
+                
+            except Exception as e:
+                self.logger.warning(f"HistoryManager导出会话数据失败，回退到基础方法: {e}")
+        
+        # 回退到基础DAO导出
+        self.logger.debug(f"使用基础DAO导出会话数据: session_id={session_id}, format={format}")
         
         # 检查缓存
         cache_key = f"history:export:{session_id}:{format}"
@@ -161,6 +413,46 @@ class HistoryService:
             return export_data
         except Exception as e:
             raise ValueError(f"导出失败: {str(e)}")
+    
+    def _format_export_data(self, export_data: Dict[str, Any], format: str) -> str:
+        """格式化导出数据"""
+        import json
+        
+        if format.lower() == "json":
+            return json.dumps(export_data, ensure_ascii=False, indent=2)
+        elif format.lower() == "csv":
+            # 简化CSV导出
+            messages = export_data.get("messages", [])
+            csv_data = "timestamp,role,content\n"
+            for msg in messages:
+                csv_data += f"{msg.get('timestamp', '')},{msg.get('role', '')},{msg.get('content', '')}\n"
+            return csv_data
+        else:
+            raise ValueError(f"不支持的导出格式: {format}")
+    
+    def _calculate_session_duration(self, messages: List[Dict[str, Any]]) -> str:
+        """计算会话持续时间"""
+        if not messages:
+            return "00:00:00"
+        
+        try:
+            timestamps = [msg.get("timestamp") for msg in messages if msg.get("timestamp")]
+            if not timestamps:
+                return "00:00:00"
+            
+            # 解析时间戳
+            start_time = datetime.fromisoformat(min(timestamps))
+            end_time = datetime.fromisoformat(max(timestamps))
+            
+            duration = end_time - start_time
+            hours = duration.seconds // 3600
+            minutes = (duration.seconds % 3600) // 60
+            seconds = duration.seconds % 60
+            
+            return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+            
+        except (ValueError, TypeError):
+            return "00:00:00"
     
     async def bookmark_message(
         self,
@@ -252,9 +544,80 @@ class HistoryService:
         return False
     
     async def get_session_statistics(self, session_id: str) -> Dict[str, Any]:
-        """获取会话统计信息"""
+        """获取会话统计信息 - 支持HistoryManager高级统计"""
         if not validate_session_id(session_id):
             raise ValueError("无效的会话ID格式")
+        
+        # 优先使用HistoryManager的高级统计功能
+        if self.use_advanced_features and self.history_manager:
+            try:
+                self.logger.debug(f"使用HistoryManager获取会话统计: {session_id}")
+                
+                # 获取详细历史记录用于统计
+                query = HistoryQuery(
+                    session_id=session_id,
+                    record_types=["message", "tool_call", "error", "token_usage"],
+                    limit=10000  # 获取足够多的记录
+                )
+                
+                result = self.history_manager.query_history(query)
+                
+                # 计算统计信息
+                stats = {
+                    "total_messages": 0,
+                    "total_tool_calls": 0,
+                    "total_errors": 0,
+                    "total_tokens": 0,
+                    "message_types": {},
+                    "tool_usage": {},
+                    "time_range": {
+                        "start": None,
+                        "end": None
+                    }
+                }
+                
+                timestamps = []
+                for record in result.records:
+                    record_type = getattr(record, 'record_type', '')
+                    
+                    if record_type == 'message':
+                        stats["total_messages"] += 1
+                        message_type = getattr(record, 'message_type', 'unknown')
+                        message_type_str = str(message_type)
+                        stats["message_types"][message_type_str] = stats["message_types"].get(message_type_str, 0) + 1
+                    
+                    elif record_type == 'tool_call':
+                        stats["total_tool_calls"] += 1
+                        tool_name = getattr(record, 'tool_name', 'unknown')
+                        stats["tool_usage"][tool_name] = stats["tool_usage"].get(tool_name, 0) + 1
+                    
+                    elif record_type == 'error':
+                        stats["total_errors"] += 1
+                    
+                    elif record_type == 'token_usage':
+                        stats["total_tokens"] += getattr(record, 'total_tokens', 0)
+                    
+                    # 收集时间戳
+                    timestamp = getattr(record, 'timestamp', None)
+                    if timestamp:
+                        timestamps.append(timestamp)
+                
+                # 计算时间范围
+                if timestamps:
+                    stats["time_range"]["start"] = min(timestamps).isoformat()
+                    stats["time_range"]["end"] = max(timestamps).isoformat()
+                
+                # 添加缓存
+                cache_key = f"history:stats:{session_id}"
+                await self.cache.set(cache_key, stats, ttl=300)
+                
+                return stats
+                
+            except Exception as e:
+                self.logger.warning(f"HistoryManager统计失败，回退到DAO: {e}")
+        
+        # 回退到基础DAO统计
+        self.logger.debug(f"使用基础DAO获取会话统计: {session_id}")
         
         # 检查缓存
         cache_key = f"history:stats:{session_id}"
@@ -275,7 +638,41 @@ class HistoryService:
         limit: int = 50,
         session_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """获取最近活动"""
+        """获取最近活动 - 支持HistoryManager高级查询"""
+        
+        # 优先使用HistoryManager的高级查询功能
+        if self.use_advanced_features and self.history_manager:
+            try:
+                self.logger.debug(f"使用HistoryManager获取最近活动: limit={limit}, session_id={session_id}")
+                
+                # 构建查询参数
+                query = HistoryQuery(
+                    session_id=session_id,
+                    record_types=["message", "tool_call", "error"],
+                    limit=limit,
+                    order_by="timestamp_desc"
+                )
+                
+                # 执行查询
+                result = self.history_manager.query_history(query)
+                
+                # 转换结果格式
+                records = []
+                for record in result.records:
+                    if hasattr(record, 'to_dict'):
+                        records.append(record.to_dict())
+                    else:
+                        record_dict = record.__dict__ if hasattr(record, '__dict__') else {}
+                        records.append(record_dict)
+                
+                return records
+                
+            except Exception as e:
+                self.logger.warning(f"HistoryManager查询最近活动失败，回退到DAO: {e}")
+        
+        # 回退到基础DAO查询
+        self.logger.debug(f"使用基础DAO获取最近活动: limit={limit}, session_id={session_id}")
+        
         # 这里简化实现，实际应该从多个会话中获取最新记录
         if session_id:
             if not validate_session_id(session_id):
@@ -300,19 +697,83 @@ class HistoryService:
         self,
         days_to_keep: int = 30
     ) -> Dict[str, Any]:
-        """清理旧记录"""
+        """清理旧记录 - 支持HistoryManager高级清理"""
+        if days_to_keep <= 0:
+            raise ValueError("days_to_keep必须为正数")
+        
+        # 优先使用HistoryManager的高级清理功能
+        if self.use_advanced_features and self.history_manager:
+            try:
+                self.logger.debug(f"使用HistoryManager清理旧记录: days_to_keep={days_to_keep}")
+                
+                # 计算截止时间
+                cutoff_date = datetime.now() - timedelta(days=days_to_keep)
+                
+                # 使用HistoryManager的清理功能
+                cleaned_count = self.history_manager.cleanup_old_records(cutoff_date)
+                
+                # 同时清理相关缓存
+                cache_keys = await self.cache.get_all_keys()
+                cache_cleaned = 0
+                
+                for cache_key in cache_keys:
+                    if cache_key.startswith("history:"):
+                        data = await self.cache.get(cache_key)
+                        if data:
+                            timestamp = data.get("timestamp")
+                            if timestamp:
+                                try:
+                                    record_date = datetime.fromisoformat(timestamp)
+                                    if record_date < cutoff_date:
+                                        await self.cache.delete(cache_key)
+                                        cache_cleaned += 1
+                                except (ValueError, TypeError):
+                                    await self.cache.delete(cache_key)
+                                    cache_cleaned += 1
+                
+                return {
+                    "cleaned_files": cleaned_count,
+                    "cleaned_records": cleaned_count + cache_cleaned,
+                    "cutoff_date": cutoff_date.isoformat()
+                }
+                
+            except Exception as e:
+                self.logger.warning(f"HistoryManager清理旧记录失败，回退到DAO: {e}")
+        
+        # 回退到基础DAO清理
+        self.logger.debug(f"使用基础DAO清理旧记录: days_to_keep={days_to_keep}")
+        
         cutoff_date = datetime.now() - timedelta(days=days_to_keep)
         
-        # 这里应该实现清理逻辑
-        # 遍历所有历史文件，删除超过指定天数的记录
+        # 清理缓存
+        cache_keys = await self.cache.get_all_keys()
+        cleaned_count = 0
         
-        cleaned_files = 0
-        cleaned_records = 0
+        for cache_key in cache_keys:
+            if cache_key.startswith("history:"):
+                # 获取缓存数据
+                data = await self.cache.get(cache_key)
+                if data:
+                    # 检查是否过期
+                    timestamp = data.get("timestamp")
+                    if timestamp:
+                        try:
+                            record_date = datetime.fromisoformat(timestamp)
+                            if record_date < cutoff_date:
+                                await self.cache.delete(cache_key)
+                                cleaned_count += 1
+                        except (ValueError, TypeError):
+                            # 无效的日期格式，删除该记录
+                            await self.cache.delete(cache_key)
+                            cleaned_count += 1
         
-        # 简化实现
+        # 清理数据库中的旧记录
+        db_cleaned = self.history_dao.cleanup_old_records(cutoff_date)
+        cleaned_count += db_cleaned
+        
         return {
-            "cleaned_files": cleaned_files,
-            "cleaned_records": cleaned_records,
+            "cleaned_files": db_cleaned,
+            "cleaned_records": cleaned_count,
             "cutoff_date": cutoff_date.isoformat()
         }
     

@@ -4,11 +4,14 @@ from fastapi.responses import StreamingResponse
 from typing import Optional, List
 from datetime import datetime
 import io
+import logging
 
 from ..models.requests import BookmarkCreateRequest
 from ..models.responses import HistoryResponse, SearchResponse, BookmarkResponse, ApiResponse
 from ..services.history_service import HistoryService
 from ..dependencies import get_history_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/history", tags=["history"])
 
@@ -204,3 +207,38 @@ async def aggregate_session_data(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"聚合会话数据失败: {str(e)}")
+
+
+@router.get("/sessions")
+async def get_all_sessions(
+    limit: int = Query(100, ge=1, le=1000, description="返回会话数量限制"),
+    offset: int = Query(0, ge=0, description="分页偏移量"),
+    history_service: HistoryService = Depends(get_history_service)
+) -> dict:
+    """
+    获取所有会话列表
+    
+    返回所有会话的基本信息，包括会话ID、消息数量、最后活动时间等。
+    支持分页查询，可按需获取不同范围的会话列表。
+    """
+    try:
+        logger.info(f"获取会话列表: limit={limit}, offset={offset}")
+        sessions = await history_service.get_all_sessions(limit=limit, offset=offset)
+        
+        return {
+            "success": True,
+            "data": {
+                "sessions": sessions,
+                "total": len(sessions),
+                "limit": limit,
+                "offset": offset
+            },
+            "message": "会话列表获取成功"
+        }
+        
+    except ValueError as e:
+        logger.warning(f"获取会话列表参数验证失败: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"获取会话列表失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取会话列表失败: {str(e)}")

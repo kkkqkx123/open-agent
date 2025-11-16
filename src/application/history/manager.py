@@ -12,6 +12,7 @@ from src.infrastructure.history.storage.file_storage import FileHistoryStorage
 # 导入公用组件
 from src.infrastructure.common.serialization.universal_serializer import UniversalSerializer
 from src.infrastructure.common.cache.enhanced_cache_manager import EnhancedCacheManager
+from src.infrastructure.common.cache.sync_cache_adapter import SyncCacheAdapter
 from src.infrastructure.common.temporal.temporal_manager import TemporalManager
 from src.infrastructure.common.metadata.metadata_manager import MetadataManager
 from src.infrastructure.common.id_generator.id_generator import IDGenerator
@@ -26,14 +27,30 @@ class HistoryManager(IHistoryManager):
         storage: FileHistoryStorage,
         serializer: Optional[UniversalSerializer] = None,
         cache_manager: Optional[EnhancedCacheManager] = None,
-        performance_monitor: Optional[PerformanceMonitor] = None
+        performance_monitor: Optional[PerformanceMonitor] = None,
+        use_sync_cache: bool = True
     ):
-        """初始化历史管理器"""
+        """初始化历史管理器
+        
+        Args:
+            storage: 历史存储
+            serializer: 序列化器
+            cache_manager: 缓存管理器（异步）
+            performance_monitor: 性能监控器
+            use_sync_cache: 是否使用同步缓存适配器（解决async调用问题）
+        """
         self.storage = storage
         
         # 公用组件
         self.serializer = serializer or UniversalSerializer()
-        self.cache = cache_manager
+        
+        # 根据配置决定使用同步还是异步缓存
+        if cache_manager and use_sync_cache:
+            # 使用同步缓存适配器包装异步缓存管理器
+            self.cache = SyncCacheAdapter(cache_manager)
+        else:
+            self.cache = cache_manager
+            
         self.monitor = performance_monitor or PerformanceMonitor()
         self.temporal = TemporalManager()
         self.metadata = MetadataManager()
@@ -56,8 +73,7 @@ class HistoryManager(IHistoryManager):
             # 缓存记录
             if self.cache:
                 cache_key = f"message:{record.record_id}"
-                import asyncio
-                asyncio.create_task(self.cache.set(cache_key, processed_record, ttl=1800))
+                self.cache.set(cache_key, processed_record, ttl=1800)
             
             self.monitor.end_operation(operation_id, "record_message", True)
             
@@ -82,8 +98,7 @@ class HistoryManager(IHistoryManager):
             # 缓存记录
             if self.cache:
                 cache_key = f"tool_call:{record.record_id}"
-                import asyncio
-                asyncio.create_task(self.cache.set(cache_key, processed_record, ttl=1800))
+                self.cache.set(cache_key, processed_record, ttl=1800)
             
             self.monitor.end_operation(operation_id, "record_tool_call", True)
             
@@ -99,8 +114,7 @@ class HistoryManager(IHistoryManager):
             # 先尝试从缓存获取
             cache_key = f"history_query:{hash(str(query.__dict__))}"
             if self.cache:
-                import asyncio
-                cached_result = asyncio.run(self.cache.get(cache_key))
+                cached_result = self.cache.get(cache_key)
                 if cached_result:
                     self.monitor.end_operation(
                         operation_id, "query_history", True,
@@ -140,8 +154,7 @@ class HistoryManager(IHistoryManager):
             
             # 缓存结果
             if self.cache:
-                import asyncio
-                asyncio.create_task(self.cache.set(cache_key, result.__dict__, ttl=300))
+                self.cache.set(cache_key, result.__dict__, ttl=300)
             
             self.monitor.end_operation(
                 operation_id, "query_history", True,

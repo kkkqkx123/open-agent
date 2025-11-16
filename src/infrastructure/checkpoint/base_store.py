@@ -8,8 +8,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 
 from ...domain.checkpoint.interfaces import ICheckpointStore, ICheckpointSerializer
+from ...infrastructure.common.monitoring.performance_monitor import PerformanceMonitor
 from .types import CheckpointError
-from .performance import monitor_performance
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,6 @@ class BaseCheckpointStore(ICheckpointStore, ABC):
         """
         pass
     
-    @monitor_performance("store.get_latest")
     async def get_latest(self, thread_id: str) -> Optional[Dict[str, Any]]:
         """获取thread的最新checkpoint
         
@@ -105,7 +104,6 @@ class BaseCheckpointStore(ICheckpointStore, ABC):
             logger.error(f"获取最新checkpoint失败: {e}")
             raise
     
-    @monitor_performance("store.get_checkpoints_by_workflow")
     async def get_checkpoints_by_workflow(self, thread_id: str, workflow_id: str) -> List[Dict[str, Any]]:
         """获取指定工作流的所有checkpoint
         
@@ -125,7 +123,6 @@ class BaseCheckpointStore(ICheckpointStore, ABC):
             logger.error(f"获取工作流checkpoint失败: {e}")
             raise
     
-    @monitor_performance("store.get_checkpoint_count")
     async def get_checkpoint_count(self, thread_id: str) -> int:
         """获取thread的checkpoint数量
         
@@ -150,14 +147,8 @@ class BaseCheckpointStore(ICheckpointStore, ABC):
         Returns:
             Dict[str, Any]: 性能指标
         """
-        if not self.enable_performance_monitoring:
-            return {"performance_monitoring": False}
-        
-        from .performance import get_performance_metrics
-        return get_performance_metrics()
+        return {"performance_monitoring": self.enable_performance_monitoring}
     
     def reset_performance_metrics(self) -> None:
         """重置性能指标"""
-        if self.enable_performance_monitoring:
-            from .performance import reset_performance_metrics
-            reset_performance_metrics()
+        pass

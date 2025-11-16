@@ -5,6 +5,7 @@ import json
 import pickle
 from datetime import datetime
 import enum
+import dataclasses
 
 from .base_serializer import BaseSerializer, SerializationError
 from ..interfaces import ISerializable
@@ -79,6 +80,13 @@ class UniversalSerializer(BaseSerializer):
             return self._handle_enum(data)
         elif isinstance(data, ISerializable):
             return self._handle_serializable(data)
+        elif dataclasses.is_dataclass(data) and not isinstance(data, type):
+            # 处理实现了ISerializable的dataclass对象
+            if isinstance(data, ISerializable):
+                return data.to_dict()
+            else:
+                # 对于普通dataclass，使用asdict转换为字典
+                return dataclasses.asdict(data)
         else:
             return data
     

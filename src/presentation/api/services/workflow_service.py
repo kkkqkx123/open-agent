@@ -8,6 +8,7 @@ from src.infrastructure.graph.states import WorkflowState
 from ..data_access.workflow_dao import WorkflowDAO
 
 from ..cache.memory_cache import MemoryCache
+from ..cache.unified_cache_manager import UnifiedCacheManager
 from ..models.requests import WorkflowCreateRequest, WorkflowUpdateRequest, WorkflowRunRequest
 from ..models.responses import WorkflowResponse, WorkflowListResponse, WorkflowExecutionResponse
 from ..utils.pagination import paginate_list, calculate_pagination, validate_page_params
@@ -28,7 +29,8 @@ class WorkflowService:
         config_manager: IWorkflowConfigManager,
         visualizer: IWorkflowVisualizer,
         workflow_dao: WorkflowDAO,
-        cache: MemoryCache
+        cache: MemoryCache,
+        unified_cache_manager: Optional['UnifiedCacheManager'] = None
     ):
         self.workflow_manager = workflow_manager
         self.workflow_registry = workflow_registry
@@ -36,6 +38,11 @@ class WorkflowService:
         self.visualizer = visualizer
         self.workflow_dao = workflow_dao
         self.cache = cache
+        self.unified_cache_manager = unified_cache_manager
+        
+        # 如果提供了统一缓存管理器，优先使用它
+        if unified_cache_manager:
+            self.cache = unified_cache_manager
     
     async def list_workflows(
         self,

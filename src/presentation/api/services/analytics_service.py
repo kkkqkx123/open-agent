@@ -6,6 +6,7 @@ import asyncio
 from ..data_access.session_dao import SessionDAO
 from ..data_access.history_dao import HistoryDAO
 from ..cache.memory_cache import MemoryCache
+from ..cache.unified_cache_manager import UnifiedCacheManager
 from ..models.responses import (
     PerformanceMetricsResponse,
     TokenStatisticsResponse,
@@ -22,11 +23,17 @@ class AnalyticsService:
         self,
         session_dao: SessionDAO,
         history_dao: HistoryDAO,
-        cache: MemoryCache
+        cache: MemoryCache,
+        unified_cache_manager: Optional['UnifiedCacheManager'] = None
     ):
         self.session_dao = session_dao
         self.history_dao = history_dao
         self.cache = cache
+        self.unified_cache_manager = unified_cache_manager
+        
+        # 如果提供了统一缓存管理器，优先使用它
+        if unified_cache_manager:
+            self.cache = unified_cache_manager
     
     async def get_performance_metrics(
         self,
