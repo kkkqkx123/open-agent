@@ -29,10 +29,15 @@ class PromptConfigRegistration:
         """
         logger.debug("注册提示词管理服务")
         
-        # 注册提示词注入器
-        container.register(
+        # 注册提示词注入器 - 需要IPromptLoader依赖
+        def create_prompt_injector(c: IDependencyContainer) -> PromptInjector:
+            from src.domain.prompts.interfaces import IPromptLoader
+            loader = c.resolve(IPromptLoader)
+            return PromptInjector(loader)
+        
+        container.register_factory(
             IPromptInjector,
-            PromptInjector,
+            create_prompt_injector,
             lifetime=ServiceLifetime.SINGLETON
         )
         
