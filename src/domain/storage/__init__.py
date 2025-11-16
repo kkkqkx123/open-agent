@@ -11,7 +11,9 @@ from .exceptions import (
     StorageConnectionError,
     StorageTransactionError,
     StorageValidationError,
-    StorageNotFoundError
+    StorageNotFoundError,
+    StorageTimeoutError,
+    StorageCapacityError
 )
 
 __all__ = [
@@ -23,4 +25,6 @@ __all__ = [
     "StorageTransactionError",
     "StorageValidationError",
     "StorageNotFoundError",
+    "StorageTimeoutError",
+    "StorageCapacityError",
 ]

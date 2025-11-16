@@ -264,6 +264,14 @@ class IUnifiedStorage(ABC):
             StorageConnectionError: 连接失败时抛出
         """
         pass
+    
+    # 生命周期管理
+    async def close(self) -> None:
+        """关闭存储连接
+        
+        默认实现（可选）
+        """
+        pass
 
 
 class IStorageFactory(ABC):
