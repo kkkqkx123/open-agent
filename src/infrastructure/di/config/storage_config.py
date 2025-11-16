@@ -12,6 +12,9 @@ from src.domain.checkpoint.interfaces import ICheckpointStore
 from src.infrastructure.checkpoint.sqlite_store import SQLiteCheckpointStore
 from src.domain.sessions.store import ISessionStore, FileSessionStore
 from src.infrastructure.threads.metadata_store import IThreadMetadataStore, FileThreadMetadataStore
+from src.infrastructure.state.interfaces import IStateSnapshotStore, IStateHistoryManager
+from src.infrastructure.state.sqlite_snapshot_store import SQLiteSnapshotStore
+from src.infrastructure.state.sqlite_history_manager import SQLiteHistoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +55,20 @@ class StorageConfigRegistration:
             lifetime=ServiceLifetime.SINGLETON
         )
         
+        # 注册状态快照存储
+        container.register_factory(
+            IStateSnapshotStore,
+            lambda: SQLiteSnapshotStore(Path("./storage/state_snapshots")),
+            lifetime=ServiceLifetime.SINGLETON
+        )
+        
+        # 注册状态历史管理器
+        container.register_factory(
+            IStateHistoryManager,
+            lambda: SQLiteHistoryManager(Path("./storage/state_history")),
+            lifetime=ServiceLifetime.SINGLETON
+        )
+        
         logger.debug("存储系统服务注册完成")
     
     @staticmethod
@@ -65,4 +82,6 @@ class StorageConfigRegistration:
             "checkpoint_store": ICheckpointStore,
             "session_store": ISessionStore,
             "thread_metadata_store": IThreadMetadataStore,
+            "state_snapshot_store": IStateSnapshotStore,
+            "state_history_manager": IStateHistoryManager,
         }

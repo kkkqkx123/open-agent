@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Callable, Any as AnyType
 from datetime import datetime
 from enum import Enum
 
@@ -26,10 +26,10 @@ class ConflictResolutionStrategy(Enum):
     REJECT_CONFLICT = "reject_conflict"           # 拒绝冲突变更
 
 
-class IStateManager(ABC):
-    """状态管理器接口
+class IStateCrudManager(ABC):
+    """状态CRUD管理器接口
     
-    定义统一的状态管理接口，支持各种状态管理功能。
+    定义状态的基础CRUD操作和序列化功能，提供状态数据的基本操作能力。
     """
     
     @abstractmethod
@@ -42,6 +42,30 @@ class IStateManager(ABC):
             
         Returns:
             创建的状态副本
+        """
+        pass
+
+    @abstractmethod
+    def serialize_state_to_bytes(self, state: Dict[str, Any]) -> bytes:
+        """序列化状态字典为字节数据
+
+        Args:
+            state: 要序列化的状态字典
+
+        Returns:
+            序列化后的字节数据
+        """
+        pass
+
+    @abstractmethod
+    def deserialize_state_from_bytes(self, data: bytes) -> Dict[str, Any]:
+        """从字节数据反序列化状态字典
+
+        Args:
+            data: 序列化的字节数据
+
+        Returns:
+            反序列化后的状态字典
         """
         pass
     
@@ -107,3 +131,11 @@ class IStateManager(ABC):
             反序列化后的状态
         """
         pass
+
+
+class IStateManager(IStateCrudManager):
+    """状态管理器接口
+    
+    继承自IStateCrudManager，提供完整的状态管理功能。
+    """
+    pass

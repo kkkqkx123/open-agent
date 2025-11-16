@@ -25,7 +25,7 @@ from .states import WorkflowState
 from .states.base import LCBaseMessage
 from .registry import NodeRegistry, get_global_registry, BaseNode
 from .adapters import get_state_adapter
-from src.domain.state.interfaces import IStateCollaborationManager
+from src.domain.state.interfaces import IStateLifecycleManager
 from .adapters.state_adapter import GraphAgentState
 from .function_registry import (
     FunctionRegistry,
@@ -107,7 +107,7 @@ class UnifiedGraphBuilder:
         
         logger.debug(f"统一图构建器初始化完成，函数回退: {enable_function_fallback}, 迭代管理: {enable_iteration_management}")
     
-    def build_graph(self, config: GraphConfig, state_manager: Optional[IStateCollaborationManager] = None) -> Any:
+    def build_graph(self, config: GraphConfig, state_manager: Optional[IStateLifecycleManager] = None) -> Any:
         """构建LangGraph图
         
         Args:
@@ -153,7 +153,7 @@ class UnifiedGraphBuilder:
         logger.debug(f"图构建完成: {config.name}")
         return compiled_graph
     
-    def _add_nodes(self, builder: Any, config: GraphConfig, state_manager: Optional[IStateCollaborationManager] = None) -> None:
+    def _add_nodes(self, builder: Any, config: GraphConfig, state_manager: Optional[IStateLifecycleManager] = None) -> None:
         """添加节点到图
         
         Args:

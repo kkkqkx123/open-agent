@@ -21,10 +21,10 @@ class ConflictResolutionStrategy(Enum):
     REJECT_CONFLICT = "reject_conflict"           # 拒绝冲突变更
 
 
-class IStateManager(ABC):
-    """状态管理器接口
+class IStateCrudManager(ABC):
+    """状态CRUD管理器接口
     
-    定义统一的状态管理接口，支持各种状态管理功能。
+    定义状态的基础CRUD操作和序列化功能，提供状态数据的基本操作能力。
     """
     
     @abstractmethod
@@ -104,7 +104,7 @@ class IStateManager(ABC):
         pass
 
     @abstractmethod
-    def serialize_state_dict(self, state: Dict[str, Any]) -> bytes:
+    def serialize_state_to_bytes(self, state: Dict[str, Any]) -> bytes:
         """序列化状态字典为字节数据
 
         Args:
@@ -116,7 +116,7 @@ class IStateManager(ABC):
         pass
 
     @abstractmethod
-    def deserialize_state_dict(self, data: bytes) -> Dict[str, Any]:
+    def deserialize_state_from_bytes(self, data: bytes) -> Dict[str, Any]:
         """从字节数据反序列化状态字典
 
         Args:
@@ -128,46 +128,15 @@ class IStateManager(ABC):
         pass
 
 
-class IEnhancedStateManager(ABC):
-    """增强状态管理器接口"""
+class IStateLifecycleManager(ABC):
+    """状态生命周期管理器接口 - 合并IEnhancedStateManager和IStateCollaborationManager
     
-    @abstractmethod
-    def validate_domain_state(self, domain_state: Any) -> List[str]:
-        """验证域层状态完整性"""
-        pass
-    
-    @abstractmethod
-    def save_snapshot(self, domain_state: Any, snapshot_name: str = "") -> str:
-        """保存状态快照"""
-        pass
-    
-    @abstractmethod
-    def load_snapshot(self, snapshot_id: str) -> Optional[Any]:
-        """加载状态快照"""
-        pass
-    
-    @abstractmethod
-    def get_snapshot_history(self, agent_id: str) -> List[Dict[str, Any]]:
-        """获取快照历史"""
-        pass
-    
-    @abstractmethod
-    def create_state_history_entry(self, domain_state: Any, action: str) -> str:
-        """创建状态历史记录"""
-        pass
-    
-    @abstractmethod
-    def get_state_history(self, agent_id: str, limit: int = 100) -> List[Dict[str, Any]]:
-        """获取状态历史"""
-        pass
-
-
-class IStateCollaborationManager(ABC):
-    """状态协作管理器接口 - 重构版本"""
+    管理状态的完整生命周期，包括验证、快照、历史记录和协作执行等高级功能。
+    """
     
     @property
     @abstractmethod
-    def state_manager(self) -> IStateManager:
+    def crud_manager(self) -> IStateCrudManager:
         """获取底层状态管理器实例
         
         Returns:
@@ -210,9 +179,19 @@ class IStateCollaborationManager(ABC):
         pass
     
     @abstractmethod
+    def get_snapshot_history(self, agent_id: str) -> List[Dict[str, Any]]:
+        """获取快照历史"""
+        pass
+    
+    @abstractmethod
     def record_state_change(self, agent_id: str, action: str,
                           old_state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
         """记录状态变化"""
+        pass
+    
+    @abstractmethod
+    def get_state_history(self, agent_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """获取状态历史"""
         pass
     
     @abstractmethod

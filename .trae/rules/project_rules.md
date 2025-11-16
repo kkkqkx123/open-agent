@@ -1,4 +1,5 @@
 文档、注释、回答问题时始终使用中文，代码及配置文件中需要作为上下文供llm使用的则统一使用英文
+出现类型错误等问题时建议先使用mypy检查问题，再继续下一步
 
 # Modular Agent Framework Developer Guide
 

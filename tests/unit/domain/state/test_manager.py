@@ -343,7 +343,7 @@ class TestStateManager(unittest.TestCase):
         }
         
         # 序列化
-        result = self.state_manager_json.serialize_state_dict(state)
+        result = self.state_manager_json.serialize_state_to_bytes(state)
         
         # 验证结果
         self.assertIsInstance(result, bytes)
@@ -362,7 +362,7 @@ class TestStateManager(unittest.TestCase):
         }
         
         # 序列化
-        result = self.state_manager_pickle.serialize_state_dict(state)
+        result = self.state_manager_pickle.serialize_state_to_bytes(state)
         
         # 验证结果
         self.assertIsInstance(result, bytes)
@@ -380,10 +380,10 @@ class TestStateManager(unittest.TestCase):
         }
         
         # 序列化
-        serialized = self.state_manager_json.serialize_state_dict(state)
+        serialized = self.state_manager_json.serialize_state_to_bytes(state)
         
         # 反序列化
-        result = self.state_manager_json.deserialize_state_dict(serialized)
+        result = self.state_manager_json.deserialize_state_from_bytes(serialized)
         
         # 验证结果
         self.assertIsInstance(result, dict)
@@ -398,10 +398,10 @@ class TestStateManager(unittest.TestCase):
         }
         
         # 序列化
-        serialized = self.state_manager_pickle.serialize_state_dict(state)
+        serialized = self.state_manager_pickle.serialize_state_to_bytes(state)
         
         # 反序列化
-        result = self.state_manager_pickle.deserialize_state_dict(serialized)
+        result = self.state_manager_pickle.deserialize_state_from_bytes(serialized)
         
         # 验证结果
         self.assertIsInstance(result, dict)

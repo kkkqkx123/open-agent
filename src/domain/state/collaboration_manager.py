@@ -5,7 +5,7 @@ import threading
 from typing import Dict, Any, Optional, List, Callable
 from datetime import datetime
 import uuid
-from src.domain.state.interfaces import IStateCollaborationManager, IStateManager
+from src.domain.state.interfaces import IStateLifecycleManager, IStateCrudManager
 from src.infrastructure.state.snapshot_store import StateSnapshotStore
 from src.infrastructure.state.history_manager import StateHistoryManager
 from src.infrastructure.graph.states import WorkflowState
@@ -14,8 +14,8 @@ from src.infrastructure.graph.states import WorkflowState
 logger = logging.getLogger(__name__)
 
 
-class CollaborationManager(IStateCollaborationManager):
-    """协作管理器实现 - 支持快照、历史记录和内存管理
+class StateLifecycleManagerImpl(IStateLifecycleManager):
+    """状态生命周期管理器实现 - 支持快照、历史记录和内存管理
     
     该类专注于高级状态管理功能，完全依赖StateManager进行基础状态操作。
     职责：
@@ -27,7 +27,7 @@ class CollaborationManager(IStateCollaborationManager):
     
     def __init__(
         self, 
-        state_manager: IStateManager,
+        crud_manager: IStateCrudManager,
         snapshot_store: Optional[StateSnapshotStore] = None,
         history_manager: Optional[StateHistoryManager] = None,
         max_memory_usage: int = 50 * 1024 * 1024,  # 50MB
@@ -38,7 +38,7 @@ class CollaborationManager(IStateCollaborationManager):
         """初始化协作管理器
         
         Args:
-            state_manager: 状态管理器实例（必需）
+            crud_manager: 状态CRUD管理器实例（必需）
             snapshot_store: 快照存储实例
             history_manager: 历史管理器实例
             max_memory_usage: 最大内存使用量
@@ -46,7 +46,7 @@ class CollaborationManager(IStateCollaborationManager):
             max_history_per_agent: 每个代理的最大历史记录数
             storage_backend: 存储后端类型
         """
-        self._state_manager = state_manager
+        self._crud_manager = crud_manager
         self.snapshot_store = snapshot_store or StateSnapshotStore(storage_backend)
         self.history_manager = history_manager or StateHistoryManager(max_history_per_agent)
         self.max_memory_usage = max_memory_usage
@@ -63,9 +63,9 @@ class CollaborationManager(IStateCollaborationManager):
                    f"最大内存: {max_memory_usage / 1024 / 1024:.1f}MB")
     
     @property
-    def state_manager(self) -> IStateManager:
-        """获取底层状态管理器实例"""
-        return self._state_manager
+    def crud_manager(self) -> IStateCrudManager:
+        """获取底层状态CRUD管理器实例"""
+        return self._crud_manager
     
     def execute_with_state_management(
         self,
@@ -160,11 +160,11 @@ class CollaborationManager(IStateCollaborationManager):
         
         # 2. 如果是WorkflowState类型，使用StateManager的验证
         if isinstance(domain_state, dict) and self._is_workflow_state(state_dict):
-            # 检查StateManager是否有validate_state方法
-            if hasattr(self.state_manager, 'validate_state'):
-                # 使用StateManager验证WorkflowState
-                if not self.state_manager.validate_state(state_dict):  # type: ignore
-                    errors.append("StateManager验证失败")
+            # 检查StateCrudManager是否有validate_state方法
+            if hasattr(self.crud_manager, 'validate_state'):
+                # 使用StateCrudManager验证WorkflowState
+                if not self.crud_manager.validate_state(state_dict):
+                    errors.append("StateCrudManager验证失败")
         
         # 3. 协作管理器特定的验证
         # 检查必需字段
@@ -173,8 +173,10 @@ class CollaborationManager(IStateCollaborationManager):
             if not hasattr(domain_state, 'agent_id') or not domain_state.agent_id:
                 errors.append("缺少agent_id字段")
             
-            # 检查字段类型
-            if hasattr(domain_state, 'messages') and not isinstance(domain_state.messages, list):
+            # 检查messages字段是否存在和类型
+            if not hasattr(domain_state, 'messages'):
+                errors.append("缺少messages字段")
+            elif hasattr(domain_state, 'messages') and not isinstance(domain_state.messages, list):
                 errors.append("messages字段必须是列表类型")
             
             # 检查业务逻辑约束
@@ -187,7 +189,10 @@ class CollaborationManager(IStateCollaborationManager):
             if 'agent_id' not in state_dict or not state_dict['agent_id']:
                 errors.append("缺少agent_id字段")
             
-            if 'messages' in state_dict and not isinstance(state_dict['messages'], list):
+            # 检查messages字段是否存在和类型
+            if 'messages' not in state_dict:
+                errors.append("缺少messages字段")
+            elif 'messages' in state_dict and not isinstance(state_dict['messages'], list):
                 errors.append("messages字段必须是列表类型")
             
             if ('iteration_count' in state_dict and 'max_iterations' in state_dict and
@@ -199,7 +204,7 @@ class CollaborationManager(IStateCollaborationManager):
     def create_snapshot(self, domain_state: Any, description: str = "") -> str:
         """创建状态快照
         
-        使用StateManager进行状态序列化，然后创建压缩快照。
+        使用StateCrudManager进行状态序列化，然后创建压缩快照。
         
         Args:
             domain_state: 域状态对象
@@ -208,7 +213,7 @@ class CollaborationManager(IStateCollaborationManager):
         Returns:
             快照ID
         """
-        snapshot_id = str(uuid.uuid4())
+        snapshot_id = f"snapshot_{str(uuid.uuid4())}"
         agent_id = self._extract_agent_id(domain_state)
         
         # 提取状态字典并处理序列化
@@ -216,7 +221,7 @@ class CollaborationManager(IStateCollaborationManager):
         
         # 处理不可序列化的对象
         import json
-        def make_serializable(obj) -> Any:
+        def make_serializable(obj: Any) -> Any:
             """递归处理对象，使其可序列化"""
             if isinstance(obj, datetime):
                 return obj.isoformat()
@@ -349,20 +354,24 @@ class CollaborationManager(IStateCollaborationManager):
         """
         # 1. 如果是字典类型（包括WorkflowState），直接返回
         if isinstance(domain_state, dict):
-            return domain_state.copy()
+            return dict(domain_state)
         
         # 2. 如果有to_dict方法，使用它
         if hasattr(domain_state, 'to_dict'):
-            return domain_state.to_dict()
+            try:
+                result = domain_state.to_dict()
+                if isinstance(result, dict):
+                    return result
+            except Exception as e:
+                logger.warning(f"to_dict()方法调用失败: {e}")
         
         # 3. 如果有__dict__属性，使用它
-        elif hasattr(domain_state, '__dict__'):
-            return domain_state.__dict__.copy()
+        if hasattr(domain_state, '__dict__'):
+            return dict(domain_state.__dict__)
         
         # 4. 其他情况返回空字典
-        else:
-            logger.warning(f"无法提取状态字典: {type(domain_state)}")
-            return {}
+        logger.warning(f"无法提取状态字典: {type(domain_state)}")
+        return {}
     
     def _is_workflow_state(self, state_dict: Dict[str, Any]) -> bool:
         """检查是否为WorkflowState类型
@@ -410,6 +419,65 @@ class CollaborationManager(IStateCollaborationManager):
                     total_size += snapshot.size_bytes
         
         return total_size
+    
+    def get_snapshot_history(self, agent_id: str) -> List[Dict[str, Any]]:
+        """获取快照历史
+        
+        Args:
+            agent_id: 代理ID
+            
+        Returns:
+            快照历史列表，每个元素包含快照的元信息
+        """
+        with self._memory_lock:
+            if agent_id not in self._agent_snapshots:
+                return []
+            
+            snapshot_history = []
+            for snapshot_id in self._agent_snapshots[agent_id]:
+                snapshot = self.snapshot_store.load_snapshot(snapshot_id)
+                if snapshot:
+                    snapshot_history.append({
+                        "snapshot_id": snapshot.snapshot_id,
+                        "agent_id": snapshot.agent_id,
+                        "timestamp": snapshot.timestamp.isoformat(),
+                        "snapshot_name": snapshot.snapshot_name,
+                        "size_bytes": snapshot.size_bytes
+                    })
+            
+            # 按时间戳排序（最新的在前）
+            snapshot_history.sort(key=lambda x: x["timestamp"], reverse=True)
+            return snapshot_history
+    
+    def get_state_history(self, agent_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """获取状态历史
+        
+        Args:
+            agent_id: 代理ID
+            limit: 返回的最大记录数
+            
+        Returns:
+            状态历史列表，每个元素包含状态变化的详细信息
+        """
+        with self._memory_lock:
+            if agent_id not in self._agent_history:
+                return []
+            
+            # 获取历史记录ID列表
+            history_ids = self._agent_history[agent_id][-limit:]  # 取最新的记录
+            
+            state_history = []
+            for history_id in history_ids:
+                # 这里假设history_manager有获取历史记录的方法
+                # 由于我们没有直接的接口，返回基本信息
+                state_history.append({
+                    "history_id": history_id,
+                    "agent_id": agent_id,
+                    "timestamp": "unknown",  # 需要从历史管理器获取
+                    "action": "unknown"       # 需要从历史管理器获取
+                })
+            
+            return state_history
     
     def get_performance_stats(self) -> Dict[str, Any]:
         """获取性能统计信息

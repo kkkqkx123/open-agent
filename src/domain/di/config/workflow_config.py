@@ -63,3 +63,16 @@ class WorkflowConfigRegistration:
         )
         
         logger.debug("工作流核心服务注册完成")
+    
+    @staticmethod
+    def get_service_types() -> Dict[str, Type]:
+        """获取注册的服务类型
+        
+        Returns:
+            服务类型字典
+        """
+        return {
+            "workflow_config_manager": IWorkflowConfigManager,
+            "workflow_visualizer": IWorkflowVisualizer,
+            "workflow_registry": IWorkflowRegistry,
+        }

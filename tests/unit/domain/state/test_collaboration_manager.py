@@ -7,20 +7,25 @@ import uuid
 import zlib
 import pickle
 
-from src.domain.state.collaboration_manager import CollaborationManager
+from src.domain.state.collaboration_manager import StateLifecycleManagerImpl
 from src.infrastructure.state.interfaces import StateSnapshot
 
 
-class TestSimpleCollaborationManager(unittest.TestCase):
-    """SimpleCollaborationManager 单元测试"""
+class TestStateLifecycleManagerImpl(unittest.TestCase):
+    """StateLifecycleManagerImpl 单元测试"""
     
     def setUp(self):
         """测试前准备"""
         self.mock_snapshot_store = Mock()
-        self.collaboration_manager = CollaborationManager(self.mock_snapshot_store)
+        self.mock_crud_manager = Mock()
+        self.collaboration_manager = StateLifecycleManagerImpl(
+            crud_manager=self.mock_crud_manager,
+            snapshot_store=self.mock_snapshot_store
+        )
     
     def test_init(self):
         """测试初始化"""
+        self.assertEqual(self.collaboration_manager.crud_manager, self.mock_crud_manager)
         self.assertEqual(self.collaboration_manager.snapshot_store, self.mock_snapshot_store)
         self.assertIsNotNone(self.collaboration_manager.history_manager)
         self.assertEqual(self.collaboration_manager._agent_snapshots, {})

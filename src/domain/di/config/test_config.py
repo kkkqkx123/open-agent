@@ -32,9 +32,11 @@ class TestConfigRegistration:
         
         # 示例：注册Mock状态管理器
         try:
-            from src.domain.state.interfaces import IStateManager
-            mock_state_manager = Mock(spec=IStateManager)
-            container.register_instance(IStateManager, mock_state_manager, environment="test")
+            from src.domain.state.interfaces import IStateCrudManager, IStateLifecycleManager
+            mock_crud_manager = Mock(spec=IStateCrudManager)
+            mock_lifecycle_manager = Mock(spec=IStateLifecycleManager)
+            container.register_instance(IStateCrudManager, mock_crud_manager, environment="test")
+            container.register_instance(IStateLifecycleManager, mock_lifecycle_manager, environment="test")
         except ImportError:
             pass
         

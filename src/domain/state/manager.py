@@ -6,14 +6,14 @@ from typing import Any, Dict, Optional
 import logging
 from datetime import datetime
 
-from .interfaces import IStateManager
+from .interfaces import IStateCrudManager
 from ...infrastructure.graph.states import WorkflowState
 
 
 logger = logging.getLogger(__name__)
 
 
-class StateManager(IStateManager):
+class StateManager(IStateCrudManager):
     """统一状态管理器实现"""
     
     def __init__(self, serialization_format: str = "json"):
@@ -23,7 +23,7 @@ class StateManager(IStateManager):
             serialization_format: 序列化格式，支持 "json" 或 "pickle"
         """
         self.serialization_format = serialization_format
-        self._states = {}
+        self._states: Dict[str, Dict[str, Any]] = {}
     
     def serialize_agent_state(self, state: WorkflowState) -> bytes:
         """序列化WorkflowState"""
@@ -77,11 +77,17 @@ class StateManager(IStateManager):
         """反序列化状态（新接口）"""
         try:
             if self.serialization_format == "json":
-                return json.loads(serialized_data)
+                result = json.loads(serialized_data)
+                if not isinstance(result, dict):
+                    raise ValueError("JSON反序列化结果不是字典类型")
+                return result
             elif self.serialization_format == "pickle":
                 import base64
                 pickled_data = base64.b64decode(serialized_data.encode('utf-8'))
-                return pickle.loads(pickled_data)
+                result = pickle.loads(pickled_data)
+                if not isinstance(result, dict):
+                    raise ValueError("Pickle反序列化结果不是字典类型")
+                return result
             else:
                 raise ValueError(f"不支持的序列化格式: {self.serialization_format}")
         except Exception as e:
@@ -116,26 +122,34 @@ class StateManager(IStateManager):
             logger.error(f"验证状态失败: {e}")
             return False
 
-    def serialize_state_dict(self, state: Dict[str, Any]) -> bytes:
-        """序列化状态字典"""
+    def serialize_state_to_bytes(self, state: Dict[str, Any]) -> bytes:
+        """序列化状态字典为字节数据"""
         try:
             if self.serialization_format == "json":
-                return json.dumps(state, ensure_ascii=False, default=self._json_serializer).encode('utf-8')
+                result = json.dumps(state, ensure_ascii=False, default=self._json_serializer).encode('utf-8')
+                return result
             elif self.serialization_format == "pickle":
-                return pickle.dumps(state)
+                result = pickle.dumps(state)
+                return result
             else:
                 raise ValueError(f"不支持的序列化格式: {self.serialization_format}")
         except Exception as e:
             logger.error(f"序列化状态字典失败: {e}")
             raise
 
-    def deserialize_state_dict(self, data: bytes) -> Dict[str, Any]:
-        """反序列化状态字典"""
+    def deserialize_state_from_bytes(self, data: bytes) -> Dict[str, Any]:
+        """从字节数据反序列化状态字典"""
         try:
             if self.serialization_format == "json":
-                return json.loads(data.decode('utf-8'))
+                result = json.loads(data.decode('utf-8'))
+                if not isinstance(result, dict):
+                    raise ValueError("JSON反序列化结果不是字典类型")
+                return result
             elif self.serialization_format == "pickle":
-                return pickle.loads(data)
+                result = pickle.loads(data)
+                if not isinstance(result, dict):
+                    raise ValueError("Pickle反序列化结果不是字典类型")
+                return result
             else:
                 raise ValueError(f"不支持的序列化格式: {self.serialization_format}")
         except Exception as e:
@@ -173,7 +187,7 @@ class StateManager(IStateManager):
         
         return result
 
-    def _json_serializer(self, obj):
+    def _json_serializer(self, obj: Any) -> Any:
         """JSON序列化器，处理特殊类型"""
         if isinstance(obj, datetime):
             return obj.isoformat()
@@ -185,7 +199,8 @@ class StateManager(IStateManager):
     def create_state(self, state_id: str, initial_state: Dict[str, Any]) -> Dict[str, Any]:
         """创建状态"""
         self._states[state_id] = initial_state.copy()
-        return self._states[state_id].copy()
+        result = self._states[state_id].copy()
+        return result
 
     def update_state(self, state_id: str, current_state: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
         """更新状态"""
@@ -203,7 +218,7 @@ class StateManager(IStateManager):
 
     def compare_states(self, state1: Dict[str, Any], state2: Dict[str, Any]) -> Dict[str, Any]:
         """比较两个状态的差异"""
-        diff = {
+        diff: Dict[str, Any] = {
             "added": {},
             "removed": {},
             "modified": {},
