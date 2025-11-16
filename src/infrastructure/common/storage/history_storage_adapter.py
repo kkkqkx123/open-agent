@@ -1,9 +1,7 @@
 """History存储适配器"""
 
 from typing import Dict, Any, Optional, List
-import asyncio
 from datetime import datetime
-from typing import Union
 
 from src.domain.history.interfaces import IHistoryManager
 from src.domain.history.models import MessageRecord, ToolCallRecord, HistoryQuery, HistoryResult
@@ -11,13 +9,13 @@ from src.domain.history.llm_models import (
     LLMRequestRecord, LLMResponseRecord, TokenUsageRecord, CostRecord
 )
 from .base_storage import BaseStorage
-from ..cache.cache_manager import CacheManager, SyncCacheManager
+from ..cache.cache_manager import CacheManager
 
 
 class HistoryStorageAdapter(IHistoryManager):
     """History存储适配器，将IHistoryManager适配到BaseStorage"""
     
-    def __init__(self, base_storage: BaseStorage, cache_manager: Optional[Union[CacheManager, SyncCacheManager]] = None):
+    def __init__(self, base_storage: BaseStorage, cache_manager: Optional[CacheManager] = None):
         """初始化适配器
         
         Args:
@@ -27,7 +25,7 @@ class HistoryStorageAdapter(IHistoryManager):
         self.base_storage = base_storage
         self.cache_manager = cache_manager
     
-    def record_message(self, record: MessageRecord) -> None:
+    async def record_message(self, record: MessageRecord) -> None:
         """记录消息"""
         # 将记录转换为存储格式
         data = {
@@ -40,10 +38,10 @@ class HistoryStorageAdapter(IHistoryManager):
             "metadata": record.metadata
         }
         
-        # 异步保存（在同步方法中运行异步操作）
-        asyncio.create_task(self.base_storage.save_with_metadata(data))
+        # 异步保存
+        await self.base_storage.save_with_metadata(data)
     
-    def record_tool_call(self, record: ToolCallRecord) -> None:
+    async def record_tool_call(self, record: ToolCallRecord) -> None:
         """记录工具调用"""
         data = {
             "id": record.record_id,
@@ -56,17 +54,14 @@ class HistoryStorageAdapter(IHistoryManager):
             "metadata": record.metadata
         }
         
-        asyncio.create_task(self.base_storage.save_with_metadata(data))
+        await self.base_storage.save_with_metadata(data)
     
-    def query_history(self, query: HistoryQuery) -> HistoryResult:
+    async def query_history(self, query: HistoryQuery) -> HistoryResult:
         """查询历史记录"""
-        # 实现查询逻辑
-        import asyncio
-        
         # 获取所有记录
-        all_records = asyncio.run(self.base_storage.list({
+        all_records = await self.base_storage.list({
             "session_id": query.session_id
-        }))
+        })
         
         # 过滤和转换记录
         filtered_records = []
@@ -102,7 +97,7 @@ class HistoryStorageAdapter(IHistoryManager):
         # 转换为历史记录对象
         return HistoryResult(records=filtered_records, total=total)
     
-    def record_llm_request(self, record: LLMRequestRecord) -> None:
+    async def record_llm_request(self, record: LLMRequestRecord) -> None:
         """记录LLM请求"""
         data = {
             "id": record.record_id,
@@ -117,9 +112,9 @@ class HistoryStorageAdapter(IHistoryManager):
             "metadata": record.metadata
         }
         
-        asyncio.create_task(self.base_storage.save_with_metadata(data))
+        await self.base_storage.save_with_metadata(data)
     
-    def record_llm_response(self, record: LLMResponseRecord) -> None:
+    async def record_llm_response(self, record: LLMResponseRecord) -> None:
         """记录LLM响应"""
         data = {
             "id": record.record_id,
@@ -135,9 +130,9 @@ class HistoryStorageAdapter(IHistoryManager):
             "metadata": record.metadata
         }
         
-        asyncio.create_task(self.base_storage.save_with_metadata(data))
+        await self.base_storage.save_with_metadata(data)
     
-    def record_token_usage(self, record: TokenUsageRecord) -> None:
+    async def record_token_usage(self, record: TokenUsageRecord) -> None:
         """记录Token使用"""
         data = {
             "id": record.record_id,
@@ -154,9 +149,9 @@ class HistoryStorageAdapter(IHistoryManager):
             "metadata": record.metadata
         }
         
-        asyncio.create_task(self.base_storage.save_with_metadata(data))
+        await self.base_storage.save_with_metadata(data)
     
-    def record_cost(self, record: CostRecord) -> None:
+    async def record_cost(self, record: CostRecord) -> None:
         """记录成本"""
         data = {
             "id": record.record_id,
@@ -175,17 +170,15 @@ class HistoryStorageAdapter(IHistoryManager):
             "metadata": record.metadata
         }
         
-        asyncio.create_task(self.base_storage.save_with_metadata(data))
+        await self.base_storage.save_with_metadata(data)
     
-    def get_token_statistics(self, session_id: str) -> Dict[str, Any]:
+    async def get_token_statistics(self, session_id: str) -> Dict[str, Any]:
         """获取Token使用统计"""
-        import asyncio
-        
         # 查询Token使用记录
-        all_records = asyncio.run(self.base_storage.list({
+        all_records = await self.base_storage.list({
             "session_id": session_id,
             "type": "token_usage"
-        }))
+        })
         
         total_tokens = sum(r.get("total_tokens", 0) for r in all_records)
         prompt_tokens = sum(r.get("prompt_tokens", 0) for r in all_records)
@@ -200,15 +193,13 @@ class HistoryStorageAdapter(IHistoryManager):
             "avg_tokens_per_record": total_tokens / len(all_records) if all_records else 0
         }
     
-    def get_cost_statistics(self, session_id: str) -> Dict[str, Any]:
+    async def get_cost_statistics(self, session_id: str) -> Dict[str, Any]:
         """获取成本统计"""
-        import asyncio
-        
         # 查询成本记录
-        all_records = asyncio.run(self.base_storage.list({
+        all_records = await self.base_storage.list({
             "session_id": session_id,
             "type": "cost"
-        }))
+        })
         
         total_cost = sum(r.get("total_cost", 0.0) for r in all_records)
         prompt_cost = sum(r.get("prompt_cost", 0.0) for r in all_records)
@@ -227,20 +218,18 @@ class HistoryStorageAdapter(IHistoryManager):
             "models_used": models_used
         }
     
-    def get_llm_statistics(self, session_id: str) -> Dict[str, Any]:
+    async def get_llm_statistics(self, session_id: str) -> Dict[str, Any]:
         """获取LLM调用统计"""
-        import asyncio
-        
         # 查询LLM相关记录
-        request_records = asyncio.run(self.base_storage.list({
+        request_records = await self.base_storage.list({
             "session_id": session_id,
             "type": "llm_request"
-        }))
+        })
         
-        response_records = asyncio.run(self.base_storage.list({
+        response_records = await self.base_storage.list({
             "session_id": session_id,
             "type": "llm_response"
-        }))
+        })
         
         # 获取使用的模型
         models_used = list(set(r.get("model", "") for r in request_records))

@@ -21,7 +21,7 @@ class HistoryUseCase:
     def __init__(self, history_manager: IHistoryManager):
         self.history_manager = history_manager
     
-    def record_session_start(self, session_id: str, workflow_config: str, agent_config: Optional[str] = None) -> None:
+    async def record_session_start(self, session_id: str, workflow_config: str, agent_config: Optional[str] = None) -> None:
         """记录会话开始
         
         Args:
@@ -43,9 +43,9 @@ class HistoryUseCase:
                     "event_type": "session_start"
                 }
             )
-            self.history_manager.record_message(system_message)
+            await self.history_manager.record_message(system_message)
     
-    def record_session_end(self, session_id: str, reason: str = "normal") -> None:
+    async def record_session_end(self, session_id: str, reason: str = "normal") -> None:
         """记录会话结束
         
         Args:
@@ -65,9 +65,9 @@ class HistoryUseCase:
                     "event_type": "session_end"
                 }
             )
-            self.history_manager.record_message(system_message)
+            await self.history_manager.record_message(system_message)
     
-    def record_error(self, session_id: str, error: Exception, context: Optional[Dict[str, Any]] = None) -> None:
+    async def record_error(self, session_id: str, error: Exception, context: Optional[Dict[str, Any]] = None) -> None:
         """记录错误
         
         Args:
@@ -90,9 +90,9 @@ class HistoryUseCase:
                     "event_type": "error"
                 }
             )
-            self.history_manager.record_message(system_message)
+            await self.history_manager.record_message(system_message)
     
-    def record_message(self, session_id: str, message_type: MessageType, content: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+    async def record_message(self, session_id: str, message_type: MessageType, content: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         """记录消息
         
         Args:
@@ -110,9 +110,9 @@ class HistoryUseCase:
                 content=content,
                 metadata=metadata or {}
             )
-            self.history_manager.record_message(message)
+            await self.history_manager.record_message(message)
     
-    def record_tool_call(self, session_id: str, tool_name: str, tool_input: Dict[str, Any], tool_output: Optional[Dict[str, Any]] = None) -> None:
+    async def record_tool_call(self, session_id: str, tool_name: str, tool_input: Dict[str, Any], tool_output: Optional[Dict[str, Any]] = None) -> None:
         """记录工具调用
         
         Args:
@@ -130,9 +130,9 @@ class HistoryUseCase:
                 tool_input=tool_input,
                 tool_output=tool_output
             )
-            self.history_manager.record_tool_call(tool_call)
+            await self.history_manager.record_tool_call(tool_call)
     
-    def get_session_summary(self, session_id: str) -> Dict[str, Any]:
+    async def get_session_summary(self, session_id: str) -> Dict[str, Any]:
         """获取会话摘要
         
         Args:
@@ -143,7 +143,7 @@ class HistoryUseCase:
         """
         # 查询会话的所有记录
         query = HistoryQuery(session_id=session_id)
-        result = self.history_manager.query_history(query)
+        result = await self.history_manager.query_history(query)
         
         # 统计各类记录数量
         message_count = 0
@@ -181,9 +181,9 @@ class HistoryUseCase:
                 cost_count += 1
         
         # 获取Token和成本统计
-        token_stats = self.history_manager.get_token_statistics(session_id)
-        cost_stats = self.history_manager.get_cost_statistics(session_id)
-        llm_stats = self.history_manager.get_llm_statistics(session_id)
+        token_stats = await self.history_manager.get_token_statistics(session_id)
+        cost_stats = await self.history_manager.get_cost_statistics(session_id)
+        llm_stats = await self.history_manager.get_llm_statistics(session_id)
         
         # 获取时间范围
         timestamps = [getattr(record, 'timestamp') for record in result.records if hasattr(record, 'timestamp') and getattr(record, 'timestamp') is not None]
@@ -210,7 +210,7 @@ class HistoryUseCase:
             "duration": (end_time - start_time).total_seconds() if start_time and end_time else None
         }
     
-    def export_session_data(self, session_id: str, format: str = "json") -> Dict[str, Any]:
+    async def export_session_data(self, session_id: str, format: str = "json") -> Dict[str, Any]:
         """导出会话数据
         
         Args:
@@ -221,11 +221,11 @@ class HistoryUseCase:
             Dict[str, Any]: 导出的数据
         """
         # 获取会话摘要
-        summary = self.get_session_summary(session_id)
+        summary = await self.get_session_summary(session_id)
         
         # 获取所有记录
         query = HistoryQuery(session_id=session_id)
-        result = self.history_manager.query_history(query)
+        result = await self.history_manager.query_history(query)
         
         # 转换记录为可序列化格式
         records_data = []

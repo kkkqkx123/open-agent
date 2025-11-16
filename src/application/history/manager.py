@@ -486,7 +486,7 @@ class HistoryManager(IHistoryManager):
             self.monitor.end_operation(operation_id, "get_cost_statistics", False, {"error": str(e)})
             raise
     
-    def get_llm_statistics(self, session_id: str) -> Dict[str, Any]:
+    async def get_llm_statistics(self, session_id: str) -> Dict[str, Any]:
         """获取LLM调用统计"""
         operation_id = self.monitor.start_operation("get_llm_statistics")
         
@@ -494,8 +494,7 @@ class HistoryManager(IHistoryManager):
             # 先尝试从缓存获取
             cache_key = f"llm_stats:{session_id}"
             if self.cache:
-                import asyncio
-                cached_stats = asyncio.run(self.cache.get(cache_key))
+                cached_stats = await self.cache.get(cache_key)
                 if cached_stats:
                     self.monitor.end_operation(
                         operation_id, "get_llm_statistics", True,
@@ -533,8 +532,7 @@ class HistoryManager(IHistoryManager):
             
             # 缓存结果
             if self.cache:
-                import asyncio
-                asyncio.create_task(self.cache.set(cache_key, result, ttl=600))
+                await self.cache.set(cache_key, result, ttl=600)
             
             self.monitor.end_operation(
                 operation_id, "get_llm_statistics", True,

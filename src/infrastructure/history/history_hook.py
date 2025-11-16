@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from datetime import datetime
 from typing import Dict, Any, Optional, List, Sequence
 from langchain_core.messages import BaseMessage
@@ -75,8 +76,8 @@ class HistoryRecordingHook(ILLMCallHook):
             # 保存到待处理请求字典
             self.pending_requests[request_record.record_id] = request_record
             
-            # 记录到历史
-            self.history_manager.record_llm_request(request_record)
+            # 记录到历史（异步执行）
+            asyncio.create_task(self.history_manager.record_llm_request(request_record))
             
             self.logger.debug(f"记录LLM请求: {request_record.record_id}")
             
@@ -120,8 +121,6 @@ class HistoryRecordingHook(ILLMCallHook):
                     metadata=response.metadata
                 )
                 
-                self.history_manager.record_llm_response(response_record)
-                
                 # 记录Token使用
                 token_record = TokenUsageRecord(
                     record_id=generate_id(),
@@ -137,16 +136,27 @@ class HistoryRecordingHook(ILLMCallHook):
                     metadata=response.metadata
                 )
                 
-                self.history_manager.record_token_usage(token_record)
-                
                 # 记录成本
                 cost_record = self.cost_calculator.calculate_cost(token_record)
-                self.history_manager.record_cost(cost_record)
+                
+                # 异步记录所有数据
+                asyncio.create_task(self._record_response_data(response_record, token_record, cost_record))
                 
                 self.logger.debug(f"记录LLM响应和相关数据: {request_id}")
             
         except Exception as e:
             self.logger.error(f"记录LLM响应失败: {e}")
+    
+    async def _record_response_data(self, response_record: LLMResponseRecord, 
+                                  token_record: TokenUsageRecord, 
+                                  cost_record: CostRecord) -> None:
+        """异步记录响应数据"""
+        try:
+            await self.history_manager.record_llm_response(response_record)
+            await self.history_manager.record_token_usage(token_record)
+            await self.history_manager.record_cost(cost_record)
+        except Exception as e:
+            self.logger.error(f"异步记录响应数据失败: {e}")
     
     def on_error(self, error: Exception, messages: Sequence[BaseMessage],
                  parameters: Optional[Dict[str, Any]] = None, **kwargs: Any) -> Optional[LLMResponse]:
@@ -188,7 +198,8 @@ class HistoryRecordingHook(ILLMCallHook):
                 metadata={"error": str(error), **kwargs.get("metadata", {})}
             )
             
-            self.history_manager.record_llm_response(error_response_record)
+            # 异步记录错误响应
+            asyncio.create_task(self.history_manager.record_llm_response(error_response_record))
         
         self.logger.error(f"LLM调用错误: {error} - Request ID: {request_id}")
         

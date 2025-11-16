@@ -4,11 +4,10 @@
 """
 
 from .cache_entry import CacheEntry, CacheStats
-from .cache_manager import CacheManager, SyncCacheManager
+from .cache_manager import CacheManager
 
 __all__ = [
     "CacheEntry",
     "CacheStats", 
-    "CacheManager",
-    "SyncCacheManager"
+    "CacheManager"
 ]

@@ -1,15 +1,14 @@
 """基础存储实现"""
 
 from abc import ABC
-from typing import Dict, Any, Optional, List, Union, cast
-import asyncio
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from ..interfaces import IStorage
 from ..serialization.serializer import Serializer
 from ..temporal.temporal_manager import TemporalManager
 from ..metadata.metadata_manager import MetadataManager
-from ..cache.cache_manager import CacheManager, SyncCacheManager
+from ..cache.cache_manager import CacheManager
 
 
 class BaseStorage(IStorage):
@@ -20,7 +19,7 @@ class BaseStorage(IStorage):
         serializer: Optional[Serializer] = None,
         temporal_manager: Optional[TemporalManager] = None,
         metadata_manager: Optional[MetadataManager] = None,
-        cache_manager: Optional[Union[CacheManager, SyncCacheManager]] = None
+        cache_manager: Optional[CacheManager] = None
     ):
         """初始化基础存储
         
@@ -28,7 +27,7 @@ class BaseStorage(IStorage):
             serializer: 序列化器
             temporal_manager: 时间管理器
             metadata_manager: 元数据管理器
-            cache_manager: 缓存管理器（可以是异步或同步版本）
+            cache_manager: 缓存管理器（异步）
         """
         self.serializer = serializer or Serializer()
         self.temporal = temporal_manager or TemporalManager()
@@ -67,10 +66,7 @@ class BaseStorage(IStorage):
         
         # 缓存数据
         if success and self.cache and data.get("id"):
-            if asyncio.iscoroutinefunction(self.cache.set):
-                await self.cache.set(data["id"], data, ttl=ttl)
-            else:
-                self.cache.set(data["id"], data, ttl=ttl)
+            await self.cache.set(data["id"], data, ttl=ttl)
         
         return success
     
@@ -85,24 +81,16 @@ class BaseStorage(IStorage):
         """
         # 先从缓存获取
         if self.cache:
-            if asyncio.iscoroutinefunction(self.cache.get):
-                cached_data = await self.cache.get(id)
-                if cached_data:
-                    return cast(Optional[Dict[str, Any]], cached_data)
-            else:
-                cached_data = self.cache.get(id)
-                if cached_data:
-                    return cast(Optional[Dict[str, Any]], cached_data)
+            cached_data = await self.cache.get(id)
+            if cached_data:
+                return cached_data
         
         # 从存储加载
         data = await self.load(id)
         
         # 缓存结果
         if data and self.cache:
-            if asyncio.iscoroutinefunction(self.cache.set):
-                await self.cache.set(id, data)
-            else:
-                self.cache.set(id, data)
+            await self.cache.set(id, data)
         
         return data
     
@@ -145,10 +133,7 @@ class BaseStorage(IStorage):
         
         # 更新缓存
         if success and self.cache:
-           if asyncio.iscoroutinefunction(self.cache.set):
-               await self.cache.set(id, existing_data)
-           else:
-               self.cache.set(id, existing_data)
+            await self.cache.set(id, existing_data)
         
         return success
     
@@ -200,9 +185,6 @@ class BaseStorage(IStorage):
         
         # 清理缓存
         if success and self.cache:
-           if asyncio.iscoroutinefunction(self.cache.delete):
-               await self.cache.delete(id)
-           else:
-               self.cache.delete(id)
+            await self.cache.delete(id)
         
         return success

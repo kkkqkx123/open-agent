@@ -22,7 +22,7 @@ from ..container_interfaces import (
     ILifecycleAware,
     ServiceRegistration
 )
-from ..cache.service_cache_adapter import ServiceCacheAdapter
+from ..common.cache.cache_manager import CacheManager
 from ..container.performance_monitor_adapter import ContainerPerformanceMonitor
 from ..container.dependency_analyzer import DependencyAnalyzer
 from ..container.scope_manager import ScopeManager
@@ -64,7 +64,7 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
         """初始化增强的依赖注入容器
         
         Args:
-            service_cache: 服务缓存
+            service_cache: 服务缓存（已弃用，使用内置CacheManager）
             performance_monitor: 性能监控器
             dependency_analyzer: 依赖分析器
             scope_manager: 作用域管理器
@@ -78,8 +78,11 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
         # 初始化基础容器
         super().__init__(service_tracker)
         
-        # 增强功能
-        self._service_cache = service_cache or ServiceCacheAdapter()
+        # 增强功能 - 直接使用CacheManager
+        self._service_cache_manager = CacheManager(
+            max_size=max_cache_size,
+            default_ttl=cache_ttl_seconds
+        )
         self._performance_monitor = performance_monitor or ContainerPerformanceMonitor(PerformanceMonitor())
         self._dependency_analyzer = dependency_analyzer or DependencyAnalyzer()
         self._scope_manager = scope_manager or ScopeManager()
@@ -107,6 +110,10 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
         }
         
         logger.debug("EnhancedDependencyContainer初始化完成")
+    
+    def _get_service_cache_key(self, service_type: Type) -> str:
+        """将服务类型转换为缓存键"""
+        return f"service:{service_type.__module__}.{service_type.__name__}"
     
     def get(self, service_type: Type[T]) -> T:
         """获取服务实例（增强版本）
@@ -190,7 +197,7 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
                 self._environment = env
                 # 清除单例缓存和所有其他缓存，因为环境改变可能需要不同的实现
                 self._instances.clear()
-                self._service_cache.clear()
+                self._clear_service_cache()
                 self._creation_path_cache.clear()
                 logger.debug(f"环境设置为: {env}")
     
@@ -247,7 +254,7 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
             
             # 清除缓存
             self._creation_path_cache.clear()
-            self._service_cache.clear()
+            self._clear_service_cache()
             
             # 重置性能统计
             self._performance_stats["cache_hits"] = 0
@@ -265,7 +272,7 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
             self._dispose_all_instances()
             
             # 清除缓存
-            self._service_cache.clear()
+            self._clear_service_cache()
             self._creation_path_cache.clear()
             
             logger.debug("容器已释放")
@@ -298,7 +305,7 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
     
     def clear_cache(self) -> None:
         """清除所有缓存"""
-        self._service_cache.clear()
+        self._clear_service_cache()
         
         with self._path_cache_lock:
             self._creation_path_cache.clear()
@@ -326,11 +333,10 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
         cache_memory = 0
         try:
             # 获取服务缓存大小
-            if hasattr(self._service_cache, 'get_size'):
-                service_cache_size = self._service_cache.get_size()
-            # 获取缓存内存使用
-            if hasattr(self._service_cache, 'get_memory_usage'):
-                cache_memory = self._service_cache.get_memory_usage()
+            cache_stats = self._service_cache_manager.get_stats()
+            service_cache_size = cache_stats.get("cache_size", 0)
+            # 估算缓存内存使用
+            cache_memory = service_cache_size * 1024  # 每个缓存项约1KB
         except Exception:
             pass
         
@@ -361,7 +367,27 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
         Returns:
             优化结果
         """
-        return self._service_cache.optimize()
+        # 清理过期缓存项
+        import asyncio
+        try:
+            # 尝试获取当前事件循环
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # 如果事件循环正在运行，创建任务
+                task = asyncio.create_task(self._service_cache_manager.cleanup_expired())
+                return {"status": "cleanup_task_created", "task": str(task)}
+            else:
+                # 如果事件循环没有运行，直接运行
+                cleanup_count = loop.run_until_complete(self._service_cache_manager.cleanup_expired())
+                return {"status": "cleanup_completed", "expired_removed": cleanup_count}
+        except RuntimeError:
+            # 没有事件循环，返回模拟结果
+            return {
+                "status": "no_event_loop",
+                "expired_removed": 0,
+                "lru_removed": 0,
+                "final_cache_size": 0
+            }
     
     def get_service_creation_path(self, service_type: Type) -> List[Type]:
         """获取服务创建路径
@@ -549,8 +575,24 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
                     return scoped_instance
         
         # 对于非作用域服务或作用域服务在当前作用域中没有实例，检查全局缓存
-        return self._service_cache.get(service_type)
-        
+        return self._get_from_service_cache(service_type)
+    
+    def _get_from_service_cache(self, service_type: Type) -> Optional[Any]:
+        """从服务缓存获取实例"""
+        import asyncio
+        try:
+            # 尝试获取当前事件循环
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # 如果事件循环正在运行，无法直接获取，返回None
+                return None
+            else:
+                # 如果事件循环没有运行，直接运行
+                cache_key = self._get_service_cache_key(service_type)
+                return loop.run_until_complete(self._service_cache_manager.get(cache_key))
+        except RuntimeError:
+            # 没有事件循环，返回None
+            return None
     
     def _add_to_cache(self, service_type: Type, instance: Any) -> None:
         """添加服务实例到缓存
@@ -559,18 +601,51 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
             service_type: 服务类型
             instance: 服务实例
         """
-        
         # 检查是否是实例注册（有明确的注册实例），如果是则不缓存，直接返回注册的实例
         registration = self._find_registration(service_type)
         if registration and registration.instance is not None:
             # 这是实例注册，不进行缓存，直接返回注册的实例
             return
         
-        
         # 对于作用域服务，不缓存到全局缓存，因为它们由作用域管理器管理
         if registration and registration.lifetime == ServiceLifetime.SCOPED:
             return
-        self._service_cache.put(service_type, instance)
+        
+        # 添加到缓存
+        self._add_to_service_cache(service_type, instance)
+    
+    def _add_to_service_cache(self, service_type: Type, instance: Any) -> None:
+        """添加实例到服务缓存"""
+        import asyncio
+        try:
+            # 尝试获取当前事件循环
+            loop = asyncio.get_event_loop()
+            cache_key = self._get_service_cache_key(service_type)
+            if loop.is_running():
+                # 如果事件循环正在运行，创建任务
+                asyncio.create_task(self._service_cache_manager.set(cache_key, instance, self._cache_ttl_seconds))
+            else:
+                # 如果事件循环没有运行，直接运行
+                loop.run_until_complete(self._service_cache_manager.set(cache_key, instance, self._cache_ttl_seconds))
+        except RuntimeError:
+            # 没有事件循环，忽略缓存
+            pass
+    
+    def _clear_service_cache(self) -> None:
+        """清除服务缓存"""
+        import asyncio
+        try:
+            # 尝试获取当前事件循环
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # 如果事件循环正在运行，创建任务
+                asyncio.create_task(self._service_cache_manager.clear())
+            else:
+                # 如果事件循环没有运行，直接运行
+                loop.run_until_complete(self._service_cache_manager.clear())
+        except RuntimeError:
+            # 没有事件循环，忽略
+            pass
     
     def _get_creation_path(self, service_type: Type) -> List[Type]:
         """从缓存获取创建路径

@@ -5,7 +5,7 @@
 
 import threading
 import asyncio
-from typing import Any, Optional, Dict, List, Union
+from typing import Any, Optional, Dict, List
 from collections import OrderedDict
 from datetime import datetime, timedelta
 import logging
@@ -304,55 +304,3 @@ class CacheManager:
         """析构函数"""
         if self._cleanup_task:
             self.stop_cleanup_task()
-
-
-# 同步包装器，用于兼容同步代码
-class SyncCacheManager:
-    """同步缓存管理器包装器"""
-    
-    def __init__(self, cache_manager: CacheManager):
-        """初始化同步缓存管理器包装器
-        
-        Args:
-            cache_manager: 异步缓存管理器实例
-        """
-        self._cache_manager = cache_manager
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
-    
-    def _get_loop(self) -> asyncio.AbstractEventLoop:
-        """获取事件循环"""
-        if self._loop is None:
-            try:
-                self._loop = asyncio.get_event_loop()
-            except RuntimeError:
-                # 如果没有事件循环，创建新的
-                self._loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(self._loop)
-        return self._loop
-    
-    def get(self, key: str) -> Optional[Any]:
-        """同步获取缓存值"""
-        return self._get_loop().run_until_complete(self._cache_manager.get(key))
-    
-    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
-        """同步设置缓存值"""
-        self._get_loop().run_until_complete(self._cache_manager.set(key, value, ttl))
-    
-    def delete(self, key: str) -> bool:
-        """同步删除缓存项"""
-        result = self._get_loop().run_until_complete(self._cache_manager.delete(key))
-        return bool(result)
-    
-    def clear(self) -> None:
-        """同步清空缓存"""
-        self._get_loop().run_until_complete(self._cache_manager.clear())
-    
-    def exists(self, key: str) -> bool:
-        """同步检查缓存项是否存在"""
-        result = self._get_loop().run_until_complete(self._cache_manager.exists(key))
-        return bool(result)
-    
-    def get_stats(self) -> Dict[str, Any]:
-        """同步获取缓存统计信息"""
-        result = self._get_loop().run_until_complete(self._cache_manager.get_stats())
-        return dict(result) if result else {}
