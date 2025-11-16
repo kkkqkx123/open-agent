@@ -105,12 +105,85 @@ class ICheckpointStore(ABC):
 class ICheckpointSerializer(ABC):
     """Checkpoint序列化接口
     
-    负责工作流状态的序列化和反序列化。
+    负责工作流状态的序列化和反序列化，遵循依赖倒置原则。
     """
     
     @abstractmethod
+    def serialize_workflow_state(self, state: Any) -> str:
+        """序列化工作流状态到字符串格式
+        
+        Args:
+            state: 工作流状态对象
+            
+        Returns:
+            str: 序列化后的状态字符串
+        """
+        pass
+    
+    @abstractmethod
+    def deserialize_workflow_state(self, data: str) -> Any:
+        """从字符串格式反序列化工作流状态
+        
+        Args:
+            data: 序列化的状态字符串
+            
+        Returns:
+            Any: 反序列化后的工作流状态对象
+        """
+        pass
+    
+    @abstractmethod
+    def serialize_messages(self, messages: list) -> str:
+        """序列化消息列表到字符串格式
+        
+        Args:
+            messages: 要序列化的消息列表
+            
+        Returns:
+            str: 序列化后的消息字符串
+        """
+        pass
+    
+    @abstractmethod
+    def deserialize_messages(self, data: str) -> list:
+        """从字符串格式反序列化消息
+        
+        Args:
+            data: 序列化的消息字符串
+            
+        Returns:
+            list: 反序列化后的消息列表
+        """
+        pass
+    
+    @abstractmethod
+    def serialize_tool_results(self, tool_results: Dict[str, Any]) -> str:
+        """序列化工具结果到字符串格式
+        
+        Args:
+            tool_results: 要序列化的工具结果字典
+            
+        Returns:
+            str: 序列化后的工具结果字符串
+        """
+        pass
+    
+    @abstractmethod
+    def deserialize_tool_results(self, data: str) -> Dict[str, Any]:
+        """从字符串格式反序列化工具结果
+        
+        Args:
+            data: 序列化的工具结果字符串
+            
+        Returns:
+            Dict[str, Any]: 反序列化后的工具结果字典
+        """
+        pass
+    
+    # 向后兼容的方法（可选）
+    @abstractmethod
     def serialize(self, state: Any) -> Dict[str, Any]:
-        """序列化工作流状态
+        """序列化工作流状态（向后兼容）
         
         Args:
             state: 工作流状态对象
@@ -122,7 +195,7 @@ class ICheckpointSerializer(ABC):
     
     @abstractmethod
     def deserialize(self, state_data: Dict[str, Any]) -> Any:
-        """反序列化工作流状态
+        """反序列化工作流状态（向后兼容）
         
         Args:
             state_data: 序列化的状态数据

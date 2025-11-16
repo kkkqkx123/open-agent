@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from ...domain.checkpoint.interfaces import ICheckpointStore, ICheckpointSerializer
-from ...domain.checkpoint.serializer import DefaultCheckpointSerializer, JSONCheckpointSerializer
+from ..checkpoint.serializer import CheckpointSerializer
 from ...domain.checkpoint.config import CheckpointConfig as DomainCheckpointConfig
 from ...application.checkpoint.manager import CheckpointManager
 from .sqlite_store import SQLiteCheckpointStore
@@ -94,12 +94,13 @@ class CheckpointSerializerFactory:
         Returns:
             ICheckpointSerializer: 序列化器实例
         """
-        if config.compression:
-            # 如果启用压缩，使用JSON序列化器
-            return JSONCheckpointSerializer()
-        else:
-            # 默认使用基本序列化器
-            return DefaultCheckpointSerializer()
+        from ...infrastructure.common.serialization import Serializer
+        
+        # 直接创建序列化器实例（不通过依赖注入）
+        serializer_instance = Serializer()
+        
+        # 创建checkpoint序列化器
+        return CheckpointSerializer(serializer_instance)
 
 
 class CheckpointManagerFactory:

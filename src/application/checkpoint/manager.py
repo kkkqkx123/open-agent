@@ -5,7 +5,7 @@
 
 import uuid
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, cast
 from datetime import datetime
 
 from ...domain.checkpoint.interfaces import ICheckpointStore, ICheckpointManager, ICheckpointPolicy
@@ -154,7 +154,8 @@ class CheckpointManager(ICheckpointManager):
                 'id': checkpoint_id,
                 'thread_id': thread_id,
                 'workflow_id': workflow_id,
-                'state_data': state,
+                'state_data': {},  # 先初始化为空字典
+                'original_state': state,  # 保存原始状态对象
                 'metadata': metadata or {},
                 'created_at': self.temporal.now(),
                 'updated_at': self.temporal.now()
@@ -163,6 +164,9 @@ class CheckpointManager(ICheckpointManager):
             # 序列化状态数据
             serialized_state = self.serializer.serialize(state, "compact_json")
             checkpoint_data['serialized_state'] = serialized_state
+            
+            # 反序列化回来作为state_data，确保一致性
+            checkpoint_data['state_data'] = self.serializer.deserialize(serialized_state, "compact_json")
             
             # 保存checkpoint
             success = await self.checkpoint_store.save(checkpoint_data)
@@ -208,7 +212,7 @@ class CheckpointManager(ICheckpointManager):
                         operation_id, "get_checkpoint", True,
                         {"cache_hit": True}
                     )
-                    return cached_checkpoint
+                    return cast(Dict[str, Any], cached_checkpoint)
             
             # 从存储加载
             checkpoint = await self.checkpoint_store.load_by_thread(thread_id, checkpoint_id)
@@ -220,7 +224,7 @@ class CheckpointManager(ICheckpointManager):
                         checkpoint['serialized_state'], "compact_json"
                     )
                 
-                # 缓存结果
+                # 缓存结果（包含original_state）
                 if self.cache:
                     await self.cache.set(checkpoint_id, checkpoint, ttl=3600)
                 
@@ -275,7 +279,7 @@ class CheckpointManager(ICheckpointManager):
             
             # 清理缓存
             if result and self.cache:
-                await self.cache.remove(checkpoint_id)
+                await self.cache.delete(checkpoint_id)
             
             self.monitor.end_operation(
                 operation_id, "delete_checkpoint", True,
@@ -316,36 +320,68 @@ class CheckpointManager(ICheckpointManager):
             
             return None
     
-    async def restore_from_checkpoint(
-        self,
-        thread_id: str,
-        checkpoint_id: str
-    ) -> Optional[Any]:
-        """从checkpoint恢复状态"""
-        operation_id = self.monitor.start_operation("restore_from_checkpoint")
+    async def restore_from_checkpoint(self, thread_id: str, checkpoint_id: str) -> Any:
+        """从checkpoint恢复状态
+        
+        Args:
+            thread_id: 线程ID
+            checkpoint_id: 检查点ID
+            
+        Returns:
+            恢复的状态对象，如果checkpoint不存在则返回None
+            
+        Raises:
+            Exception: 恢复过程中发生错误
+        """
+        operation_id = self.monitor.start_operation("checkpoint_restore")
         
         try:
+            # 获取checkpoint数据
             checkpoint = await self.get_checkpoint(thread_id, checkpoint_id)
-            if checkpoint:
-                result = checkpoint.get('state_data')
-                
+            if not checkpoint:
                 self.monitor.end_operation(
-                    operation_id, "restore_from_checkpoint", True,
+                    operation_id, "checkpoint_restore", False,
+                    {"error": "checkpoint_not_found"}
+                )
+                return None
+            
+            # 返回原始状态对象
+            original_state = checkpoint.get('original_state')
+            if original_state:
+                self.monitor.end_operation(
+                    operation_id, "checkpoint_restore", True,
                     {"thread_id": thread_id, "checkpoint_id": checkpoint_id}
                 )
-                
-                return result
+                return original_state
             
-            return None
+            # 如果没有原始状态对象，尝试从序列化数据恢复
+            if 'serialized_state' in checkpoint:
+                restored_state = self.serializer.deserialize(
+                    checkpoint['serialized_state'], "compact_json"
+                )
+                
+                self.monitor.end_operation(
+                    operation_id, "checkpoint_restore", True,
+                    {"thread_id": thread_id, "checkpoint_id": checkpoint_id}
+                )
+                return restored_state
+            
+            # 如果都没有，返回空字典作为后备
+            self.monitor.end_operation(
+                operation_id, "checkpoint_restore", True,
+                {"thread_id": thread_id, "checkpoint_id": checkpoint_id, "fallback": "empty_dict"}
+            )
+            return {}
+            
         except Exception as e:
-            logger.error(f"从checkpoint恢复状态失败: {e}")
+            logger.error(f"恢复checkpoint失败: {e}")
             
             self.monitor.end_operation(
-                operation_id, "restore_from_checkpoint", False,
+                operation_id, "checkpoint_restore", False,
                 {"error": str(e)}
             )
             
-            return None
+            raise
     
     async def auto_save_checkpoint(
         self,
@@ -456,7 +492,7 @@ class CheckpointManager(ICheckpointManager):
         
         try:
             if hasattr(self.checkpoint_store, 'get_checkpoint_count'):
-                result = await self.checkpoint_store.get_checkpoint_count(thread_id)  # type: ignore
+                result = await self.checkpoint_store.get_checkpoint_count(thread_id)
             else:
                 checkpoints = await self.list_checkpoints(thread_id)
                 result = len(checkpoints)
@@ -466,7 +502,7 @@ class CheckpointManager(ICheckpointManager):
                 {"thread_id": thread_id, "count": result}
             )
             
-            return result
+            return cast(int, result)
         except Exception as e:
             logger.error(f"获取checkpoint数量失败: {e}")
             
@@ -602,8 +638,8 @@ class CheckpointManager(ICheckpointManager):
             
             raise
     
-    def get_langgraph_checkpointer(self):
+    def get_langgraph_checkpointer(self) -> Any:
         """获取LangGraph原生的checkpointer"""
         if hasattr(self.checkpoint_store, 'get_langgraph_checkpointer'):
-            return self.checkpoint_store.get_langgraph_checkpointer()  # type: ignore
+            return self.checkpoint_store.get_langgraph_checkpointer()
         return None

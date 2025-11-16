@@ -1,7 +1,7 @@
 """基础存储实现"""
 
 from abc import ABC
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List, Union, cast
 import asyncio
 from datetime import datetime
 
@@ -67,7 +67,10 @@ class BaseStorage(IStorage):
         
         # 缓存数据
         if success and self.cache and data.get("id"):
-            await self.cache.set(data["id"], data, ttl=ttl)
+            if asyncio.iscoroutinefunction(self.cache.set):
+                await self.cache.set(data["id"], data, ttl=ttl)
+            else:
+                self.cache.set(data["id"], data, ttl=ttl)
         
         return success
     
@@ -82,16 +85,24 @@ class BaseStorage(IStorage):
         """
         # 先从缓存获取
         if self.cache:
-            cached_data = await self.cache.get(id)
-            if cached_data:
-                return cached_data
+            if asyncio.iscoroutinefunction(self.cache.get):
+                cached_data = await self.cache.get(id)
+                if cached_data:
+                    return cast(Optional[Dict[str, Any]], cached_data)
+            else:
+                cached_data = self.cache.get(id)
+                if cached_data:
+                    return cast(Optional[Dict[str, Any]], cached_data)
         
         # 从存储加载
         data = await self.load(id)
         
         # 缓存结果
         if data and self.cache:
-            await self.cache.set(id, data)
+            if asyncio.iscoroutinefunction(self.cache.set):
+                await self.cache.set(id, data)
+            else:
+                self.cache.set(id, data)
         
         return data
     
@@ -134,7 +145,10 @@ class BaseStorage(IStorage):
         
         # 更新缓存
         if success and self.cache:
-            await self.cache.set(id, existing_data)
+           if asyncio.iscoroutinefunction(self.cache.set):
+               await self.cache.set(id, existing_data)
+           else:
+               self.cache.set(id, existing_data)
         
         return success
     
@@ -186,6 +200,9 @@ class BaseStorage(IStorage):
         
         # 清理缓存
         if success and self.cache:
-            await self.cache.delete(id)
+           if asyncio.iscoroutinefunction(self.cache.delete):
+               await self.cache.delete(id)
+           else:
+               self.cache.delete(id)
         
         return success

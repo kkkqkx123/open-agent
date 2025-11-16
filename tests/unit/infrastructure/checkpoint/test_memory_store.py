@@ -5,7 +5,8 @@
 
 import pytest
 from src.infrastructure.checkpoint.memory_store import MemoryCheckpointStore
-from src.domain.checkpoint.serializer import DefaultCheckpointSerializer
+from src.infrastructure.checkpoint.serializer import CheckpointSerializer
+from src.infrastructure.common.serialization import Serializer
 
 
 class TestMemoryCheckpointStore:
@@ -14,7 +15,8 @@ class TestMemoryCheckpointStore:
     @pytest.fixture
     def store(self):
         """创建内存存储实例"""
-        serializer = DefaultCheckpointSerializer()
+        base_serializer = Serializer()
+        serializer = CheckpointSerializer(base_serializer)
         return MemoryCheckpointStore(serializer=serializer)
     
     @pytest.fixture

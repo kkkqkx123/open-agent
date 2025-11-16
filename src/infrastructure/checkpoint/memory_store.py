@@ -1,7 +1,6 @@
 """基于LangGraph标准的内存checkpoint存储实现 - 重构版本
 
 使用LangGraph原生的InMemorySaver，符合LangGraph最佳实践。
-支持生产环境下的SQLite数据库存储选项。
 """
 
 import logging

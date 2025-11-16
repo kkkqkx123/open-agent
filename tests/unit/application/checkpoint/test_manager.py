@@ -8,7 +8,8 @@ from unittest.mock import AsyncMock, Mock
 from src.application.checkpoint.manager import CheckpointManager, DefaultCheckpointPolicy
 from src.domain.checkpoint.config import CheckpointConfig
 from src.infrastructure.checkpoint.memory_store import MemoryCheckpointStore
-from src.domain.checkpoint.serializer import DefaultCheckpointSerializer
+from src.infrastructure.checkpoint.serializer import CheckpointSerializer
+from src.infrastructure.common.serialization import Serializer
 
 
 class TestDefaultCheckpointPolicy:
@@ -115,7 +116,8 @@ class TestCheckpointManager:
     @pytest.fixture
     def store(self):
         """创建内存存储"""
-        serializer = DefaultCheckpointSerializer()
+        base_serializer = Serializer()
+        serializer = CheckpointSerializer(base_serializer)
         return MemoryCheckpointStore(serializer)
     
     @pytest.fixture

@@ -8,13 +8,15 @@ from typing import Dict, Type
 from pathlib import Path
 
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
-from src.domain.checkpoint.interfaces import ICheckpointStore
+from src.domain.checkpoint.interfaces import ICheckpointStore, ICheckpointSerializer
 from src.infrastructure.checkpoint.sqlite_store import SQLiteCheckpointStore
+from src.infrastructure.checkpoint.serializer import CheckpointSerializer
 from src.domain.sessions.store import ISessionStore, FileSessionStore
 from src.infrastructure.threads.metadata_store import IThreadMetadataStore, FileThreadMetadataStore
 from src.infrastructure.state.interfaces import IStateSnapshotStore, IStateHistoryManager
 from src.infrastructure.state.sqlite_snapshot_store import SQLiteSnapshotStore
 from src.infrastructure.state.sqlite_history_manager import SQLiteHistoryManager
+from src.infrastructure.common.serialization import Serializer
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,13 @@ class StorageConfigRegistration:
         container.register_factory(
             ICheckpointStore,
             lambda: SQLiteCheckpointStore(),
+            lifetime=ServiceLifetime.SINGLETON
+        )
+        
+        # 注册检查点序列化器
+        container.register_factory(
+            ICheckpointSerializer,
+            lambda: CheckpointSerializer(container.resolve(Serializer)),
             lifetime=ServiceLifetime.SINGLETON
         )
         
@@ -80,6 +89,7 @@ class StorageConfigRegistration:
         """
         return {
             "checkpoint_store": ICheckpointStore,
+            "checkpoint_serializer": ICheckpointSerializer,
             "session_store": ISessionStore,
             "thread_metadata_store": IThreadMetadataStore,
             "state_snapshot_store": IStateSnapshotStore,
