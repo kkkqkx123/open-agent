@@ -169,6 +169,30 @@ class IStateLifecycleManager(ABC):
         pass
     
     @abstractmethod
+    async def validate_state(self, state_id: str) -> Tuple[bool, List[str]]:
+        """验证状态
+        
+        Args:
+            state_id: 状态ID
+            
+        Returns:
+            Tuple[bool, List[str]]: (是否有效, 错误列表)
+        """
+        pass
+    
+    @abstractmethod
+    async def validate_state_dict(self, state: Dict[str, Any]) -> Tuple[bool, List[str]]:
+        """验证状态字典
+        
+        Args:
+            state: 状态字典
+            
+        Returns:
+            Tuple[bool, List[str]]: (是否有效, 错误列表)
+        """
+        pass
+    
+    @abstractmethod
     def create_snapshot(self, domain_state: Any, description: str = "") -> str:
         """创建状态快照"""
         pass

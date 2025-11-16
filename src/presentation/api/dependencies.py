@@ -17,6 +17,7 @@ from .services.session_service import SessionService
 from .services.workflow_service import WorkflowService
 from .services.analytics_service import AnalyticsService
 from .services.history_service import HistoryService
+from .services.state_service import StateService
 from .services.websocket_service import websocket_service
 
 # 全局缓存实例
@@ -35,6 +36,7 @@ _session_service = None
 _workflow_service = None
 _analytics_service = None
 _history_service = None
+_state_service = None
 
 
 def get_cache() -> MemoryCache:
@@ -206,6 +208,14 @@ async def get_history_service(
             cache_manager=cache_manager
         )
     return _history_service
+
+
+async def get_state_service() -> StateService:
+    """获取状态服务"""
+    global _state_service
+    if _state_service is None:
+        _state_service = StateService()
+    return _state_service
 
 
 def get_websocket_service() -> Any:

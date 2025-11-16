@@ -198,12 +198,85 @@ class ThreadRollbackRequest(BaseModel):
 
 class ThreadSnapshotRequest(BaseModel):
     """Thread快照请求"""
-    snapshot_name: str = Field(..., description="快照名称")
-    description: Optional[str] = Field(None, description="快照描述")
 
+
+class StateCreateRequest(BaseModel):
+    """创建状态请求"""
+    state_id: str = Field(..., description="状态ID")
+    initial_state: Dict[str, Any] = Field(..., description="初始状态数据")
+    
     class Config:
         json_schema_extra = {
             "example": {
+                "state_id": "state_123456",
+                "initial_state": {
+                    "messages": [],
+                    "tool_results": [],
+                    "current_step": 0
+                }
+            }
+        }
+
+
+class StateUpdateRequest(BaseModel):
+    """更新状态请求"""
+    current_state: Dict[str, Any] = Field(..., description="当前状态")
+    updates: Dict[str, Any] = Field(..., description="更新内容")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "current_state": {
+                    "messages": [{"role": "user", "content": "你好"}],
+                    "tool_results": [],
+                    "current_step": 0
+                },
+                "updates": {
+                    "messages": [{"role": "assistant", "content": "你好！有什么可以帮助你的吗？"}],
+                    "current_step": 1
+                }
+            }
+        }
+
+
+class StateValidateRequest(BaseModel):
+    """验证状态请求"""
+    state: Dict[str, Any] = Field(..., description="要验证的状态")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "state": {
+                    "messages": [{"role": "user", "content": "你好"}],
+                    "tool_results": [],
+                    "current_step": 0
+                }
+            }
+        }
+
+
+class StateSnapshotRequest(BaseModel):
+    """创建状态快照请求"""
+    description: str = Field("", description="快照描述")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "description": "处理用户问候语后的状态"
+            }
+        }
+
+
+class StateRestoreRequest(BaseModel):
+    """恢复状态快照请求"""
+    snapshot_id: str = Field(..., description="快照ID")
+    snapshot_name: str = Field(..., description="快照名称")
+    description: Optional[str] = Field(None, description="快照描述")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "snapshot_id": "snapshot_123456",
                 "snapshot_name": "v1.0_release",
                 "description": "发布版本1.0的快照"
             }

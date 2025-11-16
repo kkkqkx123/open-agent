@@ -12,7 +12,7 @@ from fastapi.openapi.utils import get_openapi
 from .config import get_settings
 from .dependencies import initialize_dependencies
 from .middleware import setup_middleware
-from .routers import sessions, workflows, analytics, history, websocket
+from .routers import sessions, workflows, analytics, history, websocket, states
 from .models.responses import ApiResponse
 
 
@@ -98,6 +98,7 @@ def create_app() -> FastAPI:
     app.include_router(workflows.router)
     app.include_router(analytics.router)
     app.include_router(history.router)
+    app.include_router(states.router)
     app.include_router(websocket.router)
     
     # 添加根路径

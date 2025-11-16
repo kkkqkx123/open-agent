@@ -123,6 +123,33 @@ class SessionDAO:
             await db.commit()
             return cursor.rowcount > 0
     
+    async def update_session_state(self, session_id: str, state_data: Dict[str, Any]) -> bool:
+        """更新会话状态数据
+        
+        Args:
+            session_id: 会话ID
+            state_data: 状态数据字典
+            
+        Returns:
+            bool: 是否成功更新
+        """
+        # 将会话状态数据序列化到metadata字段中
+        current_session = await self.get_session(session_id)
+        if not current_session:
+            return False
+        
+        # 合并现有的metadata与新的状态数据
+        metadata = current_session.get("metadata", {})
+        metadata["state_data"] = state_data
+        
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                "UPDATE sessions SET metadata = ?, updated_at = ? WHERE session_id = ?",
+                (json.dumps(metadata), datetime.now().isoformat(), session_id)
+            )
+            await db.commit()
+            return cursor.rowcount > 0
+    
     async def delete_session(self, session_id: str) -> bool:
         """删除会话"""
         async with aiosqlite.connect(self.db_path) as db:

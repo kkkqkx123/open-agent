@@ -198,12 +198,216 @@ class PerformanceMetricsResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "session_id": "react-251022-174800-1f73e8",
-                "avg_response_time": 1250.5,
-                "max_response_time": 3200.0,
-                "min_response_time": 450.0,
-                "total_requests": 25,
-                "success_rate": 96.0,
-                "error_rate": 4.0
+                "avg_response_time": 1200.5,
+                "max_response_time": 5000.0,
+                "min_response_time": 200.0,
+                "total_requests": 150,
+                "success_rate": 95.5,
+                "error_rate": 4.5
+            }
+        }
+
+
+class StateResponse(BaseModel):
+    """状态响应"""
+    state_id: str = Field(..., description="状态ID")
+    state: Dict[str, Any] = Field(..., description="状态数据")
+    created_at: Optional[datetime] = Field(None, description="创建时间")
+    updated_at: Optional[datetime] = Field(None, description="更新时间")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="元数据")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "state_id": "state_123456",
+                "state": {
+                    "messages": [{"role": "user", "content": "你好"}],
+                    "tool_results": [],
+                    "current_step": 0
+                },
+                "created_at": "2024-10-22T17:48:00Z",
+                "updated_at": "2024-10-22T17:50:30Z",
+                "metadata": {
+                    "version": "1.0",
+                    "agent_id": "agent_123"
+                }
+            }
+        }
+
+
+class StateListResponse(BaseModel):
+    """状态列表响应"""
+    states: List[StateResponse] = Field(..., description="状态列表")
+    total: int = Field(..., description="总数")
+    page: int = Field(..., description="当前页码")
+    page_size: int = Field(..., description="每页大小")
+    has_next: bool = Field(..., description="是否有下一页")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "states": [
+                    {
+                        "state_id": "state_123456",
+                        "state": {
+                            "messages": [{"role": "user", "content": "你好"}],
+                            "tool_results": [],
+                            "current_step": 0
+                        },
+                        "created_at": "2024-10-22T17:48:00Z",
+                        "updated_at": "2024-10-22T17:50:30Z",
+                        "metadata": {
+                            "version": "1.0",
+                            "agent_id": "agent_123"
+                        }
+                    }
+                ],
+                "total": 1,
+                "page": 1,
+                "page_size": 20,
+                "has_next": False
+            }
+        }
+
+
+class StateValidationResponse(BaseModel):
+    """状态验证响应"""
+    is_valid: bool = Field(..., description="是否有效")
+    errors: List[str] = Field(default_factory=list, description="错误信息列表")
+    warnings: List[str] = Field(default_factory=list, description="警告信息列表")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "is_valid": False,
+                "errors": ["缺少必需的messages字段"],
+                "warnings": ["tool_results字段为空列表"]
+            }
+        }
+
+
+class StateSnapshotResponse(BaseModel):
+    """状态快照响应"""
+    snapshot_id: str = Field(..., description="快照ID")
+    state_id: str = Field(..., description="状态ID")
+    description: str = Field(..., description="快照描述")
+    created_at: datetime = Field(..., description="创建时间")
+    snapshot_data: Dict[str, Any] = Field(..., description="快照数据")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "snapshot_id": "snapshot_123456",
+                "state_id": "state_123456",
+                "description": "处理用户问候语后的状态",
+                "created_at": "2024-10-22T17:50:30Z",
+                "snapshot_data": {
+                    "messages": [{"role": "user", "content": "你好"}, {"role": "assistant", "content": "你好！有什么可以帮助你的吗？"}],
+                    "tool_results": [],
+                    "current_step": 1
+                }
+            }
+        }
+
+
+class StateSnapshotListResponse(BaseModel):
+    """状态快照列表响应"""
+    snapshots: List[StateSnapshotResponse] = Field(..., description="快照列表")
+    total: int = Field(..., description="总数")
+    state_id: str = Field(..., description="状态ID")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "snapshots": [
+                    {
+                        "snapshot_id": "snapshot_123456",
+                        "state_id": "state_123456",
+                        "description": "处理用户问候语后的状态",
+                        "created_at": "2024-10-22T17:50:30Z",
+                        "snapshot_data": {
+                            "messages": [{"role": "user", "content": "你好"}, {"role": "assistant", "content": "你好！有什么可以帮助你的吗？"}],
+                            "tool_results": [],
+                            "current_step": 1
+                        }
+                    }
+                ],
+                "total": 1,
+                "state_id": "state_123456"
+            }
+        }
+
+
+class StateHistoryEntry(BaseModel):
+    """状态历史条目"""
+    history_id: str = Field(..., description="历史记录ID")
+    state_id: str = Field(..., description="状态ID")
+    action: str = Field(..., description="操作类型")
+    old_state: Dict[str, Any] = Field(..., description="旧状态")
+    new_state: Dict[str, Any] = Field(..., description="新状态")
+    timestamp: datetime = Field(..., description="时间戳")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="元数据")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "history_id": "history_123456",
+                "state_id": "state_123456",
+                "action": "update",
+                "old_state": {
+                    "messages": [{"role": "user", "content": "你好"}],
+                    "current_step": 0
+                },
+                "new_state": {
+                    "messages": [
+                        {"role": "user", "content": "你好"},
+                        {"role": "assistant", "content": "你好！有什么可以帮助你的吗？"}
+                    ],
+                    "current_step": 1
+                },
+                "timestamp": "2024-10-22T17:50:30Z",
+                "metadata": {
+                    "agent_id": "agent_123",
+                    "operation": "message_processing"
+                }
+            }
+        }
+
+
+class StateHistoryResponse(BaseModel):
+    """状态历史响应"""
+    state_id: str = Field(..., description="状态ID")
+    history: List[StateHistoryEntry] = Field(..., description="历史记录列表")
+    total: int = Field(..., description="总数")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "state_id": "state_123456",
+                "history": [
+                    {
+                        "history_id": "history_123456",
+                        "state_id": "state_123456",
+                        "action": "update",
+                        "old_state": {
+                            "messages": [{"role": "user", "content": "你好"}],
+                            "current_step": 0
+                        },
+                        "new_state": {
+                            "messages": [
+                                {"role": "user", "content": "你好"},
+                                {"role": "assistant", "content": "你好！有什么可以帮助你的吗？"}
+                            ],
+                            "current_step": 1
+                        },
+                        "timestamp": "2024-10-22T17:50:30Z",
+                        "metadata": {
+                            "agent_id": "agent_123",
+                            "operation": "message_processing"
+                        }
+                    }
+                ],
+                "total": 1
             }
         }
 

@@ -142,6 +142,46 @@ class StateLifecycleManagerImpl(IStateLifecycleManager):
             )
             raise
     
+    async def validate_state(self, state_id: str) -> Tuple[bool, List[str]]:
+        """验证状态
+        
+        Args:
+            state_id: 状态ID
+            
+        Returns:
+            Tuple[bool, List[str]]: (是否有效, 错误列表)
+        """
+        try:
+            # 获取状态
+            state = await self._crud_manager.get_state(state_id)
+            if not state:
+                return False, [f"状态不存在: {state_id}"]
+            
+            # 验证状态字典
+            state_dict = self._extract_state_dict(state)
+            errors = self.validate_domain_state(state)
+            
+            return len(errors) == 0, errors
+            
+        except Exception as e:
+            return False, [f"验证状态失败: {str(e)}"]
+    
+    async def validate_state_dict(self, state: Dict[str, Any]) -> Tuple[bool, List[str]]:
+        """验证状态字典
+        
+        Args:
+            state: 状态字典
+            
+        Returns:
+            Tuple[bool, List[str]]: (是否有效, 错误列表)
+        """
+        try:
+            errors = self.validate_domain_state(state)
+            return len(errors) == 0, errors
+            
+        except Exception as e:
+            return False, [f"验证状态字典失败: {str(e)}"]
+    
     def validate_domain_state(self, domain_state: Any) -> List[str]:
         """验证域层状态完整性
         
@@ -275,14 +315,40 @@ class StateLifecycleManagerImpl(IStateLifecycleManager):
         
         return snapshot_id
     
-    def restore_snapshot(self, snapshot_id: str) -> Optional[Any]:
+    async def restore_snapshot(self, state_id: str, snapshot_id: str) -> bool:
+        """恢复状态快照
+        
+        Args:
+            state_id: 状态ID
+            snapshot_id: 快照ID
+            
+        Returns:
+            是否恢复成功
+        """
+        try:
+            # 恢复快照数据
+            snapshot_data = self.restore_snapshot_data(snapshot_id)
+            if not snapshot_data:
+                return False
+            
+            # 更新状态
+            await self._crud_manager.update_state(state_id, snapshot_data)
+            
+            logger.info(f"状态快照恢复成功: {state_id} <- {snapshot_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"恢复快照失败: {str(e)}")
+            return False
+    
+    def restore_snapshot_data(self, snapshot_id: str) -> Optional[Dict[str, Any]]:
         """恢复状态快照
         
         Args:
             snapshot_id: 快照ID
             
         Returns:
-            恢复的状态对象，如果快照不存在则返回None
+            恢复的状态字典，如果快照不存在则返回None
         """
         snapshot = self.snapshot_store.load_snapshot(snapshot_id)
         if snapshot:
