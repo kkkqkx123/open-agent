@@ -3,6 +3,7 @@
 from typing import Dict, Any, Optional, List
 import asyncio
 from datetime import datetime
+from typing import Union
 
 from src.domain.history.interfaces import IHistoryManager
 from src.domain.history.models import MessageRecord, ToolCallRecord, HistoryQuery, HistoryResult
@@ -10,18 +11,21 @@ from src.domain.history.llm_models import (
     LLMRequestRecord, LLMResponseRecord, TokenUsageRecord, CostRecord
 )
 from .base_storage import BaseStorage
+from ..cache.cache_manager import CacheManager, SyncCacheManager
 
 
 class HistoryStorageAdapter(IHistoryManager):
     """History存储适配器，将IHistoryManager适配到BaseStorage"""
     
-    def __init__(self, base_storage: BaseStorage):
+    def __init__(self, base_storage: BaseStorage, cache_manager: Optional[Union[CacheManager, SyncCacheManager]] = None):
         """初始化适配器
         
         Args:
             base_storage: 基础存储实例
+            cache_manager: 缓存管理器（可选）
         """
         self.base_storage = base_storage
+        self.cache_manager = cache_manager
     
     def record_message(self, record: MessageRecord) -> None:
         """记录消息"""

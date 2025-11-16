@@ -4,8 +4,8 @@ import pytest
 import asyncio
 import time
 from datetime import datetime
-from src.infrastructure.common.serialization.universal_serializer import UniversalSerializer
-from src.presentation.api.cache.cache_manager import CacheManager
+from src.infrastructure.common.serialization.serializer import Serializer
+from src.infrastructure.common.cache.cache_manager import CacheManager
 from src.infrastructure.common.monitoring.performance_monitor import PerformanceMonitor
 from src.infrastructure.common.id_generator.id_generator import IDGenerator
 from src.infrastructure.common.temporal.temporal_manager import TemporalManager
@@ -18,7 +18,7 @@ class TestSharedComponentsPerformance:
     @pytest.fixture
     def setup_components(self):
         """设置测试组件"""
-        serializer = UniversalSerializer()
+        serializer = Serializer()
         cache_manager = CacheManager(default_ttl=300)
         monitor = PerformanceMonitor()
         id_generator = IDGenerator()

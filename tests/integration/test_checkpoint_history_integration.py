@@ -9,8 +9,8 @@ import shutil
 
 from src.application.checkpoint.manager import CheckpointManager
 from src.application.history.manager import HistoryManager
-from src.infrastructure.common.serialization.universal_serializer import UniversalSerializer
-from src.presentation.api.cache.cache_manager import CacheManager
+from src.infrastructure.common.serialization.serializer import Serializer
+from src.infrastructure.common.cache.cache_manager import CacheManager
 from src.infrastructure.common.monitoring.performance_monitor import PerformanceMonitor
 from src.infrastructure.checkpoint.memory_store import MemoryCheckpointStore
 from src.infrastructure.history.storage.file_storage import FileHistoryStorage
@@ -29,7 +29,7 @@ class TestCheckpointHistoryIntegration:
         history_path = Path(temp_dir)
         
         # 创建公用组件
-        serializer = UniversalSerializer()
+        serializer = Serializer()
         cache_manager = CacheManager(default_ttl=300)
         performance_monitor = PerformanceMonitor()
         

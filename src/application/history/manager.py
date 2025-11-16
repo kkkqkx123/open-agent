@@ -10,8 +10,8 @@ from src.domain.history.llm_models import LLMRequestRecord, LLMResponseRecord, T
 from src.infrastructure.history.storage.file_storage import FileHistoryStorage
 
 # 导入公用组件
-from src.infrastructure.common.serialization.universal_serializer import UniversalSerializer
-from src.presentation.api.cache.cache_manager import CacheManager
+from src.infrastructure.common.serialization.serializer import Serializer
+from src.infrastructure.common.cache.cache_manager import CacheManager
 from src.infrastructure.common.temporal.temporal_manager import TemporalManager
 from src.infrastructure.common.metadata.metadata_manager import MetadataManager
 from src.infrastructure.common.id_generator.id_generator import IDGenerator
@@ -24,7 +24,7 @@ class HistoryManager(IHistoryManager):
     def __init__(
         self,
         storage: FileHistoryStorage,
-        serializer: Optional[UniversalSerializer] = None,
+        serializer: Optional[Serializer] = None,
         cache_manager: Optional[CacheManager] = None,
         performance_monitor: Optional[PerformanceMonitor] = None,
         use_sync_cache: bool = True
@@ -41,7 +41,7 @@ class HistoryManager(IHistoryManager):
         self.storage = storage
         
         # 公用组件
-        self.serializer = serializer or UniversalSerializer()
+        self.serializer = serializer or Serializer()
         
         # 缓存管理器（简化处理）
         self.cache = cache_manager

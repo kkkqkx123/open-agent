@@ -1,15 +1,15 @@
 """基础存储实现"""
 
 from abc import ABC
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 import asyncio
 from datetime import datetime
 
 from ..interfaces import IStorage
-from ..serialization.universal_serializer import UniversalSerializer
+from ..serialization.serializer import Serializer
 from ..temporal.temporal_manager import TemporalManager
 from ..metadata.metadata_manager import MetadataManager
-from ...presentation.api.cache.cache_manager import CacheManager
+from ..cache.cache_manager import CacheManager, SyncCacheManager
 
 
 class BaseStorage(IStorage):
@@ -17,10 +17,10 @@ class BaseStorage(IStorage):
     
     def __init__(
         self,
-        serializer: Optional[UniversalSerializer] = None,
+        serializer: Optional[Serializer] = None,
         temporal_manager: Optional[TemporalManager] = None,
         metadata_manager: Optional[MetadataManager] = None,
-        cache_manager: Optional[CacheManager] = None
+        cache_manager: Optional[Union[CacheManager, SyncCacheManager]] = None
     ):
         """初始化基础存储
         
@@ -28,9 +28,9 @@ class BaseStorage(IStorage):
             serializer: 序列化器
             temporal_manager: 时间管理器
             metadata_manager: 元数据管理器
-            cache_manager: 缓存管理器
+            cache_manager: 缓存管理器（可以是异步或同步版本）
         """
-        self.serializer = serializer or UniversalSerializer()
+        self.serializer = serializer or Serializer()
         self.temporal = temporal_manager or TemporalManager()
         self.metadata = metadata_manager or MetadataManager()
         self.cache = cache_manager

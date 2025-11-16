@@ -12,7 +12,7 @@ from src.domain.replay.interfaces import (
 from src.domain.replay.config import ReplayConfig as ReplayConfigModel
 from src.infrastructure.replay.config_service import ReplayConfigService
 from src.infrastructure.replay.strategies import ReplayStrategyFactory
-from src.presentation.api.cache.cache_manager import CacheManager
+from src.infrastructure.common.cache.cache_manager import CacheManager
 from src.infrastructure.common.monitoring.performance_monitor import PerformanceMonitor
 
 logger = logging.getLogger(__name__)

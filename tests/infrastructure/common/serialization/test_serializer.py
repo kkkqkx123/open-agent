@@ -5,7 +5,7 @@ import json
 import pickle
 from datetime import datetime
 from enum import Enum
-from src.infrastructure.common.serialization.universal_serializer import UniversalSerializer, SerializationError
+from src.infrastructure.common.serialization.serializer import Serializer, SerializationError
 from src.infrastructure.common.interfaces import ISerializable
 
 
@@ -35,7 +35,7 @@ class TestUniversalSerializer:
     
     def setup_method(self):
         """设置测试环境"""
-        self.serializer = UniversalSerializer()
+        self.serializer = Serializer()
     
     def test_serialize_json(self):
         """测试JSON序列化"""

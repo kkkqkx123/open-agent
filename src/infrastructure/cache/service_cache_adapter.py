@@ -2,9 +2,10 @@
 
 import asyncio
 import threading
-from typing import Type, Any, Optional, Dict
+from typing import Type, Any, Optional, Dict, Union
 from ..container_interfaces import IServiceCache
 from .cache_manager_protocol import CacheManagerProtocol
+from ..common.cache.cache_manager import CacheManager, SyncCacheManager
 
 
 class ServiceCacheAdapter(IServiceCache):
@@ -14,7 +15,7 @@ class ServiceCacheAdapter(IServiceCache):
     通过依赖注入的方式获取缓存管理器，避免基础设施层直接依赖展示层。
     """
     
-    def __init__(self, cache_manager: Optional[CacheManagerProtocol] = None):
+    def __init__(self, cache_manager: Optional[Union[CacheManager, SyncCacheManager]] = None):
         """初始化服务缓存适配器
         
         Args:
@@ -27,8 +28,7 @@ class ServiceCacheAdapter(IServiceCache):
         
         # 如果没有提供缓存管理器，创建默认实例
         if self._cache_manager is None:
-            from .memory_cache_manager import MemoryCacheManager
-            self._cache_manager = MemoryCacheManager()
+            self._cache_manager = CacheManager()
     
     def _get_event_loop(self):
         """获取事件循环"""

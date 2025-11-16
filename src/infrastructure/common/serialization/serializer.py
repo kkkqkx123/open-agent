@@ -1,27 +1,36 @@
 """通用序列化器"""
 
-from typing import Any, Dict, Union, List
+from typing import Any, Dict, Union
 import json
 import pickle
+import hashlib
 from datetime import datetime
 import enum
 import dataclasses
 
-from .base_serializer import BaseSerializer, SerializationError
 from ..interfaces import ISerializable
 
 
-class UniversalSerializer(BaseSerializer):
+class SerializationError(Exception):
+    """序列化错误"""
+    pass
+
+
+class Serializer:
     """通用序列化器"""
     
-    def __init__(self):
+    FORMAT_JSON = "json"
+    FORMAT_PICKLE = "pickle"
+    FORMAT_COMPACT_JSON = "compact_json"
+    
+    def __init__(self) -> None:
         self._type_handlers = {
             datetime: self._handle_datetime,
             'enum': self._handle_enum,
             'serializable': self._handle_serializable,
         }
     
-    def serialize(self, data: Any, format: str = BaseSerializer.FORMAT_JSON, **kwargs) -> Union[str, bytes]:
+    def serialize(self, data: Any, format: str = FORMAT_JSON, **kwargs: Any) -> Union[str, bytes]:
         """序列化数据
         
         Args:
@@ -46,7 +55,7 @@ class UniversalSerializer(BaseSerializer):
         except Exception as e:
             raise SerializationError(f"Serialization failed: {e}")
     
-    def deserialize(self, data: Union[str, bytes], format: str = BaseSerializer.FORMAT_JSON, **kwargs) -> Any:
+    def deserialize(self, data: Union[str, bytes], format: str = FORMAT_JSON, **kwargs: Any) -> Any:
         """反序列化数据
         
         Args:
@@ -59,7 +68,11 @@ class UniversalSerializer(BaseSerializer):
         """
         try:
             if format == self.FORMAT_JSON or format == self.FORMAT_COMPACT_JSON:
-                result = json.loads(data)
+                if isinstance(data, bytes):
+                    json_data = data.decode('utf-8')
+                    result = json.loads(json_data)
+                else:
+                    result = json.loads(data)
                 return self._postprocess_data(result)
             elif format == self.FORMAT_PICKLE:
                 return pickle.loads(data)
@@ -110,3 +123,23 @@ class UniversalSerializer(BaseSerializer):
             "__module__": obj.__class__.__module__,
             "data": obj.to_dict()
         }
+    
+    def handle_enums(self, data: Any) -> Any:
+        """处理枚举类型"""
+        if hasattr(data, 'value'):
+            return data.value
+        return data
+    
+    def handle_datetime(self, data: Any) -> Any:
+        """处理日期时间类型"""
+        if isinstance(data, datetime):
+            return data.isoformat()
+        return data
+    
+    def calculate_hash(self, data: Any) -> str:
+        """计算数据哈希"""
+        try:
+            serialized = json.dumps(data, sort_keys=True, default=str)
+            return hashlib.md5(serialized.encode()).hexdigest()
+        except (TypeError, ValueError):
+            return hashlib.md5(str(data).encode()).hexdigest()

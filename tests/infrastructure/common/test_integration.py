@@ -5,8 +5,8 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from src.infrastructure.common.temporal.temporal_manager import TemporalManager
 from src.infrastructure.common.metadata.metadata_manager import MetadataManager
-from src.infrastructure.common.serialization.universal_serializer import UniversalSerializer
-from src.presentation.api.cache.cache_manager import CacheManager
+from src.infrastructure.common.serialization.serializer import Serializer
+from src.infrastructure.common.cache.cache_manager import CacheManager
 from src.infrastructure.common.id_generator.id_generator import IDGenerator
 from src.infrastructure.common.interfaces import ISerializable
 
@@ -33,7 +33,7 @@ class TestIntegration:
         """设置测试环境"""
         self.temporal = TemporalManager()
         self.metadata = MetadataManager()
-        self.serializer = UniversalSerializer()
+        self.serializer = Serializer()
         self.cache = CacheManager(default_ttl=60)
         self.id_generator = IDGenerator()
     

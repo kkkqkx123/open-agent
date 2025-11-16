@@ -10,8 +10,8 @@ from datetime import datetime
 
 from ...domain.checkpoint.interfaces import ICheckpointStore, ICheckpointManager, ICheckpointPolicy
 from ...domain.checkpoint.config import CheckpointConfig
-from ...infrastructure.common.serialization.universal_serializer import UniversalSerializer
-from src.presentation.api.cache.cache_manager import CacheManager
+from ...infrastructure.common.serialization.serializer import Serializer
+from src.infrastructure.common.cache.cache_manager import CacheManager
 from ...infrastructure.common.temporal.temporal_manager import TemporalManager
 from ...infrastructure.common.metadata.metadata_manager import MetadataManager
 from ...infrastructure.common.id_generator.id_generator import IDGenerator
@@ -107,7 +107,7 @@ class CheckpointManager(ICheckpointManager):
         checkpoint_store: ICheckpointStore,
         config: CheckpointConfig,
         policy: Optional[ICheckpointPolicy] = None,
-        serializer: Optional[UniversalSerializer] = None,
+        serializer: Optional[Serializer] = None,
         cache_manager: Optional[CacheManager] = None,
         performance_monitor: Optional[PerformanceMonitor] = None
     ):
@@ -124,7 +124,7 @@ class CheckpointManager(ICheckpointManager):
         self.checkpoint_store = checkpoint_store
         self.config = config
         self.policy = policy or DefaultCheckpointPolicy(config)
-        self.serializer = serializer or UniversalSerializer()
+        self.serializer = serializer or Serializer()
         self.cache = cache_manager
         self.monitor = performance_monitor or PerformanceMonitor()
         

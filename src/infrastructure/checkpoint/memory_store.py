@@ -7,19 +7,18 @@
 import logging
 import uuid
 import time
-from typing import Dict, Any, Optional, List, Tuple, Union, cast
-from datetime import datetime
+from typing import Dict, Any, Optional, List, Tuple, cast
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.base import CheckpointTuple
 
 from ...domain.checkpoint.interfaces import ICheckpointSerializer
-from ...infrastructure.common.serialization.universal_serializer import UniversalSerializer
-from ...presentation.api.cache.cache_manager import CacheManager
+from ...infrastructure.common.serialization.universal_serializer import Serializer
+from ...common.cache.cache_manager import CacheManager
 from ...infrastructure.common.temporal.temporal_manager import TemporalManager
 from ...infrastructure.common.metadata.metadata_manager import MetadataManager
 from ...infrastructure.common.monitoring.performance_monitor import PerformanceMonitor
-from .types import CheckpointError, CheckpointNotFoundError, CheckpointStorageError
+from .types import CheckpointNotFoundError, CheckpointStorageError
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ class MemoryCheckpointAdapter:
         self, 
         checkpointer: Any, 
         serializer: Optional[ICheckpointSerializer] = None,
-        universal_serializer: Optional[UniversalSerializer] = None,
+        universal_serializer: Optional[Serializer] = None,
         cache_manager: Optional[CacheManager] = None,
         performance_monitor: Optional[PerformanceMonitor] = None
     ):
@@ -53,7 +52,7 @@ class MemoryCheckpointAdapter:
         """
         self.checkpointer = checkpointer
         self.serializer = serializer
-        self.universal_serializer = universal_serializer or UniversalSerializer()
+        self.universal_serializer = universal_serializer or Serializer()
         self.cache = cache_manager
         self.monitor = performance_monitor or PerformanceMonitor()
         
@@ -287,7 +286,7 @@ class MemoryCheckpointStore(BaseCheckpointStore):
         serializer: Optional[ICheckpointSerializer] = None,
         max_checkpoints_per_thread: int = 1000,
         enable_performance_monitoring: bool = True,
-        universal_serializer: Optional[UniversalSerializer] = None,
+        universal_serializer: Optional[Serializer] = None,
         cache_manager: Optional[CacheManager] = None,
         performance_monitor: Optional[PerformanceMonitor] = None
     ):
@@ -295,7 +294,7 @@ class MemoryCheckpointStore(BaseCheckpointStore):
         super().__init__(serializer, max_checkpoints_per_thread, enable_performance_monitoring)
         
         # 使用公用组件
-        self.universal_serializer = universal_serializer or UniversalSerializer()
+        self.universal_serializer = universal_serializer or Serializer()
         self.cache = cache_manager
         self.monitor = performance_monitor or PerformanceMonitor()
         self.temporal = TemporalManager()

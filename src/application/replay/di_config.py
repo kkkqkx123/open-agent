@@ -9,7 +9,7 @@ from src.infrastructure.replay.replay_source_adapter import HistoryCheckpointRep
 from src.domain.replay.interfaces import IReplayEngine, IReplayAnalyzer, IReplaySource
 from src.domain.history.interfaces import IHistoryManager
 from src.domain.checkpoint.interfaces import ICheckpointManager
-from src.presentation.api.cache.cache_manager import CacheManager
+from src.infrastructure.common.cache.cache_manager import CacheManager
 from src.infrastructure.common.monitoring.performance_monitor import PerformanceMonitor
 
 
