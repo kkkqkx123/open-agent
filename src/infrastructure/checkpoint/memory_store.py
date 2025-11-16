@@ -4,276 +4,25 @@
 """
 
 import logging
-import uuid
-import time
-from typing import Dict, Any, Optional, List, Tuple, cast
+from typing import Dict, Any, Optional, List
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.base import CheckpointTuple
 
 from ...domain.checkpoint.interfaces import ICheckpointSerializer
-from ...infrastructure.common.serialization.universal_serializer import Serializer
-from ...common.cache.cache_manager import CacheManager
-from ...infrastructure.common.temporal.temporal_manager import TemporalManager
-from ...infrastructure.common.metadata.metadata_manager import MetadataManager
-from ...infrastructure.common.monitoring.performance_monitor import PerformanceMonitor
-from .types import CheckpointNotFoundError, CheckpointStorageError
+from ..common.serialization.serializer import Serializer
+from ..common.cache.cache_manager import CacheManager
+from ..common.temporal.temporal_manager import TemporalManager
+from ..common.metadata.metadata_manager import MetadataManager
+from ..common.monitoring.performance_monitor import PerformanceMonitor
+from .types import CheckpointStorageError
+from .checkpoint_base_storage import CheckpointBaseStorage
+from .langgraph_adapter import LangGraphAdapter
 
 logger = logging.getLogger(__name__)
 
 
-from .base_store import BaseCheckpointStore
-
-
-class MemoryCheckpointAdapter:
-    """LangGraph内存checkpoint适配器 - 重构版本
-    
-    将LangGraph原生的内存checkpoint存储适配到项目的接口。
-    仅支持InMemorySaver。
-    """
-    
-    def __init__(
-        self, 
-        checkpointer: Any, 
-        serializer: Optional[ICheckpointSerializer] = None,
-        universal_serializer: Optional[Serializer] = None,
-        cache_manager: Optional[CacheManager] = None,
-        performance_monitor: Optional[PerformanceMonitor] = None
-    ):
-        """初始化适配器
-        
-        Args:
-            checkpointer: LangGraph原生的checkpointer (InMemorySaver)
-            serializer: 状态序列化器
-            universal_serializer: 通用序列化器
-            cache_manager: 缓存管理器
-            performance_monitor: 性能监控器
-        """
-        self.checkpointer = checkpointer
-        self.serializer = serializer
-        self.universal_serializer = universal_serializer or Serializer()
-        self.cache = cache_manager
-        self.monitor = performance_monitor or PerformanceMonitor()
-        
-        # 公用组件
-        self.temporal = TemporalManager()
-        self.metadata = MetadataManager()
-        
-        # 验证checkpointer类型
-        if not hasattr(checkpointer, 'put') or not hasattr(checkpointer, 'get'):
-            raise CheckpointStorageError("提供的checkpointer不符合要求")
-    
-    def _create_langgraph_config(self, thread_id: str, checkpoint_id: Optional[str] = None) -> Dict[str, Any]:
-        """创建LangGraph标准配置
-        
-        Args:
-            thread_id: thread ID
-            checkpoint_id: 可选的checkpoint ID
-            
-        Returns:
-            Dict[str, Any]: LangGraph配置
-        """
-        config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-        if checkpoint_id:
-            config["configurable"]["checkpoint_id"] = checkpoint_id
-        return config
-    
-    def _create_langgraph_checkpoint(self, state: Any, workflow_id: str, metadata: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        """创建LangGraph标准checkpoint
-        
-        Args:
-            state: 工作流状态
-            workflow_id: 工作流ID
-            metadata: 元数据
-            
-        Returns:
-            Tuple[Dict[str, Any], Dict[str, Any]]: (LangGraph checkpoint, 增强的metadata)
-        """
-        # 使用公用序列化器序列化状态
-        try:
-            serialized_state = self.universal_serializer.serialize(state, "compact_json")
-        except Exception as e:
-            logger.error(f"状态序列化失败: {e}")
-            raise CheckpointStorageError(f"状态序列化失败: {e}")
-        
-        # 优化：直接在channel_values中存储状态，避免在metadata中重复存储
-        channel_values = {
-            "state": serialized_state,  # 使用更明确的字段名存储状态
-            "workflow_id": workflow_id
-        }
-        
-        # 使用公用组件处理元数据
-        enhanced_metadata = self.metadata.normalize_metadata(metadata)
-        enhanced_metadata['workflow_id'] = workflow_id
-        
-        return {
-            "v": 4,
-            "ts": self.temporal.format_timestamp(self.temporal.now(), "iso"),
-            "id": str(uuid.uuid4()),
-            "channel_values": channel_values,
-            "channel_versions": {
-                "state": 1,
-                "__start__": 2,
-                "workflow_id": 1
-            },
-            "versions_seen": {
-                "state": {"__start__": 1},
-                "__start__": {"__start__": 1}
-            }
-        }, enhanced_metadata
-    
-    def _extract_state_from_checkpoint(self, checkpoint: Any, metadata: Optional[Dict[str, Any]] = None) -> Any:
-        """从LangGraph checkpoint提取状态
-        
-        Args:
-            checkpoint: LangGraph checkpoint
-            metadata: 可选的元数据，用于获取状态数据
-            
-        Returns:
-            Any: 提取的状态
-        """
-        if not checkpoint:
-            return {}
-        
-        try:
-            # 从checkpoint的channel_values获取状态
-            if isinstance(checkpoint, dict):
-                channel_values = checkpoint.get("channel_values", {})
-            elif hasattr(checkpoint, 'checkpoint'):
-                channel_values = checkpoint.checkpoint.get("channel_values", {})
-            else:
-                channel_values = {}
-            
-            # 优化：从新的state字段获取状态数据
-            state_data = channel_values.get("state")
-            if state_data is not None:
-                # 使用公用序列化器反序列化
-                return self.universal_serializer.deserialize(state_data, "compact_json")
-            
-            # 如果以上都失败，返回空字典
-            return {}
-        except Exception as e:
-            logger.error(f"提取状态失败: {e}")
-            return {}
-    
-    def put(self, config: Dict[str, Any], checkpoint: Dict[str, Any],
-            metadata: Dict[str, Any], new_versions: Dict[str, Any]) -> bool:
-        """保存checkpoint"""
-        operation_id = self.monitor.start_operation("adapter.put")
-        
-        try:
-            logger.debug(f"保存checkpoint，thread_id: {config.get('configurable', {}).get('thread_id')}")
-            self.checkpointer.put(config, checkpoint, metadata, new_versions)
-            
-            self.monitor.end_operation(operation_id, "adapter.put", True)
-            return True
-        except Exception as e:
-            logger.error(f"保存checkpoint失败: {e}")
-            
-            self.monitor.end_operation(operation_id, "adapter.put", False, {"error": str(e)})
-            raise CheckpointStorageError(f"保存checkpoint失败: {e}")
-    
-    def get(self, config: Dict[str, Any]) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
-        """获取checkpoint"""
-        operation_id = self.monitor.start_operation("adapter.get")
-        
-        try:
-            result = self.checkpointer.get(config)
-            if result:
-                # 处理不同类型的结果
-                if isinstance(result, CheckpointTuple):
-                    checkpoint_obj = result.checkpoint
-                    # 确保checkpoint_dict是字典类型
-                    if isinstance(checkpoint_obj, dict):
-                        checkpoint_dict = checkpoint_obj
-                    else:
-                        checkpoint_dict = {"checkpoint": checkpoint_obj}
-                    metadata = self.metadata.normalize_metadata(result.metadata)
-                    # 使用cast确保类型安全
-                    return (cast(Dict[str, Any], checkpoint_dict), metadata)
-                elif isinstance(result, dict):
-                    checkpoint_dict = result
-                    # 尝试从list方法获取metadata
-                    try:
-                        list_results = self.checkpointer.list(config)
-                        for checkpoint_tuple in list_results:
-                            if hasattr(checkpoint_tuple, 'checkpoint') and hasattr(checkpoint_tuple, 'metadata'):
-                                # 找到匹配的checkpoint，返回其metadata
-                                checkpoint_tuple_checkpoint = checkpoint_tuple.checkpoint
-                                checkpoint_id = checkpoint_tuple_checkpoint.get('id') if hasattr(checkpoint_tuple_checkpoint, 'get') else None
-                                result_id = checkpoint_dict.get('id')
-                                if checkpoint_id == result_id:
-                                    metadata = self.metadata.normalize_metadata(checkpoint_tuple.metadata)
-                                    # 确保返回的是字典类型
-                                    if not isinstance(checkpoint_dict, dict):
-                                        checkpoint_dict = {"checkpoint": checkpoint_dict}
-                                    return (cast(Dict[str, Any], checkpoint_dict), metadata)
-                    except Exception as e:
-                        logger.warning(f"获取metadata失败: {e}")
-                    
-                    # 如果没有找到匹配的metadata，返回空字典
-                    # 确保返回的是字典类型
-                    if not isinstance(checkpoint_dict, dict):
-                        checkpoint_dict = {"checkpoint": checkpoint_dict}
-                    return (cast(Dict[str, Any], checkpoint_dict), {})
-            
-            self.monitor.end_operation(operation_id, "adapter.get", True)
-            return None
-        except Exception as e:
-            logger.error(f"获取checkpoint失败: {e}")
-            
-            self.monitor.end_operation(operation_id, "adapter.get", False, {"error": str(e)})
-            raise CheckpointNotFoundError(f"获取checkpoint失败: {e}")
-    
-    def list(self, config: Dict[str, Any], limit: Optional[int] = None) -> List[Tuple[Dict[str, Any], Dict[str, Any]]]:
-        """列出checkpoint"""
-        operation_id = self.monitor.start_operation("adapter.list")
-        
-        try:
-            checkpoint_tuples = list(self.checkpointer.list(config, limit=limit))
-            result = []
-            for checkpoint_tuple in checkpoint_tuples:
-                # CheckpointTuple有config, checkpoint, metadata等属性
-                if hasattr(checkpoint_tuple, 'checkpoint'):
-                    checkpoint = dict(checkpoint_tuple.checkpoint) if hasattr(checkpoint_tuple.checkpoint, '__dict__') else checkpoint_tuple.checkpoint
-                    metadata = self.metadata.normalize_metadata(checkpoint_tuple.metadata)
-                    result.append((checkpoint, metadata))
-            
-            self.monitor.end_operation(operation_id, "adapter.list", True, {"count": len(result)})
-            return result
-        except Exception as e:
-            logger.error(f"列出checkpoint失败: {e}")
-            
-            self.monitor.end_operation(operation_id, "adapter.list", False, {"error": str(e)})
-            raise CheckpointStorageError(f"列出checkpoint失败: {e}")
-    
-    def delete(self, config: Dict[str, Any]) -> bool:
-        """删除checkpoint"""
-        operation_id = self.monitor.start_operation("adapter.delete")
-        
-        try:
-            # LangGraph的InMemorySaver使用delete_thread方法
-            thread_id = config.get("configurable", {}).get("thread_id")
-            if thread_id:
-                if hasattr(self.checkpointer, 'delete_thread'):
-                    self.checkpointer.delete_thread(thread_id)
-                    
-                    self.monitor.end_operation(operation_id, "adapter.delete", True, {"thread_id": thread_id})
-                    return True
-                else:
-                    # 对于数据库存储，可能需要其他删除方式
-                    logger.warning(f"当前checkpointer不支持delete_thread方法: {type(self.checkpointer)}")
-            
-            self.monitor.end_operation(operation_id, "adapter.delete", False, {"thread_id": thread_id})
-            return False
-        except Exception as e:
-            logger.error(f"删除checkpoint失败: {e}")
-            
-            self.monitor.end_operation(operation_id, "adapter.delete", False, {"error": str(e)})
-            raise CheckpointStorageError(f"删除checkpoint失败: {e}")
-
-
-class MemoryCheckpointStore(BaseCheckpointStore):
+class MemoryCheckpointStore(CheckpointBaseStorage):
     """基于LangGraph标准的内存checkpoint存储实现 - 重构版本
     
     使用LangGraph原生的InMemorySaver，符合LangGraph最佳实践。
@@ -290,76 +39,39 @@ class MemoryCheckpointStore(BaseCheckpointStore):
         performance_monitor: Optional[PerformanceMonitor] = None
     ):
         """初始化内存存储"""
-        super().__init__(serializer, max_checkpoints_per_thread, enable_performance_monitoring)
+        # 初始化基类
+        super().__init__(
+            serializer=serializer,
+            temporal_manager=TemporalManager(),
+            metadata_manager=MetadataManager(),
+            cache_manager=cache_manager,
+            performance_monitor=performance_monitor,
+            max_checkpoints_per_thread=max_checkpoints_per_thread,
+            enable_performance_monitoring=enable_performance_monitoring
+        )
         
         # 使用公用组件
         self.universal_serializer = universal_serializer or Serializer()
         self.cache = cache_manager
         self.monitor = performance_monitor or PerformanceMonitor()
-        self.temporal = TemporalManager()
-        self.metadata = MetadataManager()
         
         # 使用内存存储，适合开发和测试环境
         self._checkpointer = InMemorySaver()
         logger.info("使用内存存储")
         
-        self._adapter = MemoryCheckpointAdapter(
-            self._checkpointer, 
-            serializer,
-            self.universal_serializer,
-            self.cache,
-            self.monitor
+        # 使用LangGraph适配器
+        self.langgraph_adapter = LangGraphAdapter(
+            serializer=serializer,
+            universal_serializer=self.universal_serializer
         )
-        
-        # 内部checkpoint_id到thread_id的映射，用于支持load和delete方法
-        self._checkpoint_thread_mapping: Dict[str, str] = {}
         
         logger.debug("checkpoint存储初始化完成")
     
-    def _ensure_checkpointer_initialized(self):
-        """确保checkpointer已初始化"""
-        # 内存存储不需要额外初始化
-        pass
-    
-    def _update_checkpoint_mapping(self, thread_id: str, checkpoint_id: str):
-        """更新checkpoint到thread的映射"""
-        self._checkpoint_thread_mapping[checkpoint_id] = thread_id
-    
-    def _get_thread_id_from_checkpoint(self, checkpoint_id: str) -> Optional[str]:
-        """从checkpoint ID获取thread ID"""
-        return self._checkpoint_thread_mapping.get(checkpoint_id)
-    
-    def _create_langgraph_config(self, thread_id: str, checkpoint_id: Optional[str] = None) -> Dict[str, Any]:
-        """创建LangGraph标准配置"""
-        config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-        if checkpoint_id:
-            config["configurable"]["checkpoint_id"] = checkpoint_id
-        return config
-    
-    def _create_langgraph_checkpoint(self, state: Any, workflow_id: str, metadata: Dict[str, Any]) -> Any:
-        """创建LangGraph标准checkpoint"""
-        # 直接使用adapter中的实现
-        checkpoint, _ = self._adapter._create_langgraph_checkpoint(state, workflow_id, metadata)
-        return checkpoint
-    
-    def _extract_state_from_checkpoint(self, checkpoint: Any, metadata: Optional[Any] = None) -> Any:
-        """从LangGraph checkpoint提取状态"""
-        # 直接使用adapter中的实现
-        return self._adapter._extract_state_from_checkpoint(checkpoint, metadata)
-    
-    def _normalize_metadata(self, metadata: Any) -> Dict[str, Any]:
-        """标准化metadata为字典格式"""
-        # 使用公用组件
-        return self.metadata.normalize_metadata(metadata)
-    
     async def save(self, checkpoint_data: Dict[str, Any]) -> bool:
         """保存checkpoint数据"""
-        operation_id = self.monitor.start_operation("save_checkpoint")
+        operation_id = self.performance_monitor.start_operation("save_checkpoint")
         
         try:
-            # 确保checkpointer已初始化
-            self._ensure_checkpointer_initialized()
-            
             thread_id = checkpoint_data.get('thread_id')
             if not thread_id:
                 raise ValueError("checkpoint_data必须包含'thread_id'")
@@ -375,45 +87,39 @@ class MemoryCheckpointStore(BaseCheckpointStore):
             state = checkpoint_data['state_data']
             metadata = checkpoint_data.get('metadata', {})
             
-            # 使用公用组件处理元数据
-            normalized_metadata = self.metadata.normalize_metadata(metadata)
-            checkpoint_data['metadata'] = normalized_metadata
+            # 使用LangGraph配置
+            config = self.langgraph_adapter.create_config(thread_id)
             
-            # 创建LangGraph配置
-            config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-            
-            # 创建LangGraph checkpoint
-            checkpoint, enhanced_metadata = self._adapter._create_langgraph_checkpoint(
-                state, workflow_id, normalized_metadata
+            # 创建LangGraph checkpoint - 这里需要创建符合LangGraph格式的checkpoint
+            # 但实际我们只需要正确的结构，langgraph会处理格式
+            langgraph_checkpoint = self.langgraph_adapter.create_checkpoint(
+                state, workflow_id, metadata
             )
             
-            # 更新映射关系
-            self._update_checkpoint_mapping(thread_id, checkpoint['id'])
+            # 保存到LangGraph checkpointer
+            # 注意：LangGraph的put方法需要特定的checkpoint格式
+            self._checkpointer.put(config, langgraph_checkpoint, metadata, {})
             
-            # 保存checkpoint
-            success = self._adapter.put(config, checkpoint, enhanced_metadata, {})
+            # 缓存checkpoint
+            checkpoint_id = langgraph_checkpoint.get('id')
+            if self.cache and checkpoint_id:
+                await self.cache.delete(checkpoint_id)
+                await self.cache.set(checkpoint_id, checkpoint_data, ttl=3600)
             
-            if success:
-                # 缓存checkpoint
-                if self.cache:
-                    await self.cache.set(checkpoint['id'], checkpoint_data, ttl=3600)
-                
-                logger.debug(f"成功保存checkpoint，thread_id: {thread_id}, workflow_id: {workflow_id}")
-                
-                # 记录性能指标
-                self.monitor.end_operation(
-                    operation_id, "save_checkpoint", True,
-                    {"thread_id": thread_id, "workflow_id": workflow_id}
-                )
-                
-                return success
-            else:
-                raise RuntimeError("保存checkpoint失败")
-                
+            logger.debug(f"成功保存checkpoint，thread_id: {thread_id}, workflow_id: {workflow_id}")
+            
+            # 记录性能指标
+            self.performance_monitor.end_operation(
+                operation_id, "save_checkpoint", True,
+                {"thread_id": thread_id, "workflow_id": workflow_id}
+            )
+            
+            return True
+            
         except Exception as e:
             logger.error(f"保存checkpoint失败: {e}")
             
-            self.monitor.end_operation(
+            self.performance_monitor.end_operation(
                 operation_id, "save_checkpoint", False,
                 {"error": str(e)}
             )
@@ -422,50 +128,61 @@ class MemoryCheckpointStore(BaseCheckpointStore):
     
     async def load_by_thread(self, thread_id: str, checkpoint_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """根据thread ID加载checkpoint"""
-        operation_id = self.monitor.start_operation("load_by_thread")
+        operation_id = self.performance_monitor.start_operation("load_by_thread")
         
         try:
             # 先从缓存获取
             if self.cache and checkpoint_id:
                 cached_checkpoint = await self.cache.get(checkpoint_id)
                 if cached_checkpoint:
-                    self.monitor.end_operation(
+                    self.performance_monitor.end_operation(
                         operation_id, "load_by_thread", True,
                         {"cache_hit": True}
                     )
                     return cached_checkpoint
             
-            # 确保checkpointer已初始化
-            self._ensure_checkpointer_initialized()
-            
             # 创建LangGraph配置
-            config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-            if checkpoint_id:
-                config["configurable"]["checkpoint_id"] = checkpoint_id
+            config = self.langgraph_adapter.create_config(thread_id, checkpoint_id)
             
-            # 使用get方法获取指定checkpoint
-            result = self._adapter.get(config)
+            # 从LangGraph checkpointer获取
+            result = self._checkpointer.get(config)
             if result:
-                checkpoint, metadata = result
+                # 检查result是否为CheckpointTuple
+                if isinstance(result, CheckpointTuple):
+                    # 是CheckpointTuple对象
+                    langgraph_checkpoint = result.checkpoint
+                    metadata = result.metadata
+                else:
+                    # 是字典格式或其他格式
+                    langgraph_checkpoint = result
+                    metadata = {}
                 
-                # 从metadata中获取workflow_id
-                workflow_id = metadata.get('workflow_id', 'unknown')
+                # 提取状态
+                state_data = self.langgraph_adapter.extract_state(langgraph_checkpoint, metadata)
+                
+                # 从LangGraph checkpoint获取workflow_id
+                workflow_id = 'unknown'
+                if isinstance(langgraph_checkpoint, dict):
+                    channel_values = langgraph_checkpoint.get('channel_values', {})
+                    workflow_id = channel_values.get('workflow_id', 'unknown')
                 
                 checkpoint_data = {
-                    'id': checkpoint.get('id'),
+                    'id': langgraph_checkpoint.get('id') if isinstance(langgraph_checkpoint, dict) else None,
                     'thread_id': thread_id,
                     'workflow_id': workflow_id,
-                    'state_data': self._adapter._extract_state_from_checkpoint(checkpoint, metadata),
-                    'metadata': metadata,
-                    'created_at': checkpoint.get('ts'),
-                    'updated_at': checkpoint.get('ts')
+                    'state_data': state_data,
+                    'metadata': self.metadata.normalize_metadata(metadata),
+                    'created_at': langgraph_checkpoint.get('ts') if isinstance(langgraph_checkpoint, dict) else None,
+                    'updated_at': langgraph_checkpoint.get('ts') if isinstance(langgraph_checkpoint, dict) else None
                 }
                 
                 # 缓存结果
-                if self.cache and checkpoint_id:
-                    await self.cache.set(checkpoint_id, checkpoint_data, ttl=3600)
+                result_checkpoint_id = checkpoint_data.get('id')
+                if self.cache and result_checkpoint_id:
+                    await self.cache.delete(result_checkpoint_id)
+                    await self.cache.set(result_checkpoint_id, checkpoint_data, ttl=3600)
                 
-                self.monitor.end_operation(
+                self.performance_monitor.end_operation(
                     operation_id, "load_by_thread", True,
                     {"cache_hit": False}
                 )
@@ -476,47 +193,57 @@ class MemoryCheckpointStore(BaseCheckpointStore):
         except Exception as e:
             logger.error(f"加载checkpoint失败: {e}")
             
-            self.monitor.end_operation(
+            self.performance_monitor.end_operation(
                 operation_id, "load_by_thread", False,
                 {"error": str(e)}
             )
             
-            raise CheckpointStorageError(f"加载checkpoint失败: {e}")
+            raise
     
     async def list_by_thread(self, thread_id: str) -> List[Dict[str, Any]]:
         """列出thread的所有checkpoint"""
-        operation_id = self.monitor.start_operation("list_by_thread")
+        operation_id = self.performance_monitor.start_operation("list_by_thread")
         
         try:
-            # 确保checkpointer已初始化
-            self._ensure_checkpointer_initialized()
+            # 创建LangGraph配置
+            config = self.langgraph_adapter.create_config(thread_id)
             
-            config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-            checkpoint_tuples = self._adapter.list(config)
+            # 从LangGraph checkpointer列出
+            checkpoint_tuples = list(self._checkpointer.list(config))
             
             result = []
-            for checkpoint, metadata in checkpoint_tuples:
-                workflow_id = metadata.get('workflow_id', 'unknown')
-                checkpoint_id = checkpoint.get('id')
+            for checkpoint_tuple in checkpoint_tuples:
+                # 检查是否为CheckpointTuple
+                if isinstance(checkpoint_tuple, CheckpointTuple):
+                    langgraph_checkpoint = checkpoint_tuple.checkpoint
+                    metadata = checkpoint_tuple.metadata
+                else:
+                    langgraph_checkpoint = checkpoint_tuple
+                    metadata = {}
                 
-                # 更新映射关系
-                if checkpoint_id:
-                    self._update_checkpoint_mapping(thread_id, checkpoint_id)
+                # 提取状态
+                state_data = self.langgraph_adapter.extract_state(langgraph_checkpoint, metadata)
+                
+                # 从LangGraph checkpoint获取workflow_id
+                workflow_id = 'unknown'
+                if isinstance(langgraph_checkpoint, dict):
+                    channel_values = langgraph_checkpoint.get('channel_values', {})
+                    workflow_id = channel_values.get('workflow_id', 'unknown')
                 
                 result.append({
-                    'id': checkpoint_id,
+                    'id': langgraph_checkpoint.get('id') if isinstance(langgraph_checkpoint, dict) else None,
                     'thread_id': thread_id,
                     'workflow_id': workflow_id,
-                    'state_data': self._adapter._extract_state_from_checkpoint(checkpoint, metadata),
-                    'metadata': metadata,
-                    'created_at': checkpoint.get('ts'),
-                    'updated_at': checkpoint.get('ts')
+                    'state_data': state_data,
+                    'metadata': self.metadata.normalize_metadata(metadata),
+                    'created_at': langgraph_checkpoint.get('ts') if isinstance(langgraph_checkpoint, dict) else None,
+                    'updated_at': langgraph_checkpoint.get('ts') if isinstance(langgraph_checkpoint, dict) else None
                 })
             
             # 按创建时间倒序排列
-            result.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+            result.sort(key=lambda x: x.get('created_at', '') or '', reverse=True)
             
-            self.monitor.end_operation(
+            self.performance_monitor.end_operation(
                 operation_id, "list_by_thread", True,
                 {"thread_id": thread_id, "count": len(result)}
             )
@@ -525,73 +252,57 @@ class MemoryCheckpointStore(BaseCheckpointStore):
         except Exception as e:
             logger.error(f"列出checkpoint失败: {e}")
             
-            self.monitor.end_operation(
+            self.performance_monitor.end_operation(
                 operation_id, "list_by_thread", False,
                 {"error": str(e)}
             )
             
-            raise CheckpointStorageError(f"列出checkpoint失败: {e}")
+            raise
     
     async def delete_by_thread(self, thread_id: str, checkpoint_id: Optional[str] = None) -> bool:
         """根据thread ID删除checkpoint"""
-        operation_id = self.monitor.start_operation("delete_by_thread")
+        operation_id = self.performance_monitor.start_operation("delete_by_thread")
         
         try:
-            # 确保checkpointer已初始化
-            self._ensure_checkpointer_initialized()
-            
             if checkpoint_id:
-                # 优化：使用更高效的方式删除单个checkpoint
-                checkpoints = await self.list_by_thread(thread_id)
+                # LangGraph的InMemorySaver不支持删除单个checkpoint，只能删除整个thread
+                # 我们需要获取所有checkpoint，删除指定的，然后重新保存其他checkpoint
+                all_checkpoints = await self.list_by_thread(thread_id)
                 
                 # 找到要保留的checkpoint（除要删除的之外）
-                checkpoints_to_keep = []
-                for checkpoint in checkpoints:
-                    if checkpoint['id'] != checkpoint_id:
-                        checkpoint_data = {
-                            'thread_id': thread_id,
-                            'workflow_id': checkpoint['workflow_id'],
-                            'state_data': checkpoint['state_data'],
-                            'metadata': checkpoint['metadata']
-                        }
-                        checkpoints_to_keep.append(checkpoint_data)
+                checkpoints_to_keep = [cp for cp in all_checkpoints if cp.get('id') != checkpoint_id]
                 
-                # 删除整个会话
-                config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-                self._adapter.delete(config)
-                
-                # 清理映射关系
-                self._checkpoint_thread_mapping.pop(checkpoint_id, None)
+                # 删除整个thread
+                self._checkpointer.delete_thread(thread_id)
                 
                 # 清理缓存
                 if self.cache:
-                    await self.cache.remove(checkpoint_id)
+                    await self.cache.delete(checkpoint_id)
                 
                 # 重新保存需要保留的checkpoint
                 for checkpoint_data in checkpoints_to_keep:
                     await self.save(checkpoint_data)
                 
-                self.monitor.end_operation(
+                self.performance_monitor.end_operation(
                     operation_id, "delete_by_thread", True,
                     {"thread_id": thread_id, "checkpoint_id": checkpoint_id}
                 )
                 
                 return True
             else:
-                # 删除整个会话的所有checkpoint
-                config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-                self._adapter.delete(config)
+                # 删除整个thread的所有checkpoint
+                self._checkpointer.delete_thread(thread_id)
                 
-                # 清理映射关系
-                checkpoints_to_delete = [cp_id for cp_id, cp_thread_id in self._checkpoint_thread_mapping.items() if cp_thread_id == thread_id]
-                for cp_id in checkpoints_to_delete:
-                    self._checkpoint_thread_mapping.pop(cp_id, None)
-                    
-                    # 清理缓存
-                    if self.cache:
-                        await self.cache.remove(cp_id)
+                # 清理缓存中该thread的所有checkpoint
+                if self.cache:
+                    # 获取该thread的所有checkpoint并删除它们的缓存
+                    all_checkpoints = await self.list_by_thread(thread_id)
+                    for cp in all_checkpoints:
+                        cp_id = cp.get('id')
+                        if cp_id:
+                            await self.cache.delete(cp_id)
                 
-                self.monitor.end_operation(
+                self.performance_monitor.end_operation(
                     operation_id, "delete_by_thread", True,
                     {"thread_id": thread_id, "all": True}
                 )
@@ -600,7 +311,7 @@ class MemoryCheckpointStore(BaseCheckpointStore):
         except Exception as e:
             logger.error(f"删除checkpoint失败: {e}")
             
-            self.monitor.end_operation(
+            self.performance_monitor.end_operation(
                 operation_id, "delete_by_thread", False,
                 {"error": str(e)}
             )
@@ -609,57 +320,47 @@ class MemoryCheckpointStore(BaseCheckpointStore):
     
     async def cleanup_old_checkpoints(self, thread_id: str, max_count: int) -> int:
         """清理旧的checkpoint，保留最新的max_count个"""
-        operation_id = self.monitor.start_operation("cleanup_old_checkpoints")
+        operation_id = self.performance_monitor.start_operation("cleanup_old_checkpoints")
         
         try:
-            checkpoints = await self.list_by_thread(thread_id)
-            if len(checkpoints) <= max_count:
-                self.monitor.end_operation(
+            all_checkpoints = await self.list_by_thread(thread_id)
+            if len(all_checkpoints) <= max_count:
+                self.performance_monitor.end_operation(
                     operation_id, "cleanup_old_checkpoints", True,
                     {"thread_id": thread_id, "cleaned": 0}
                 )
                 return 0
             
-            # 优化：使用更高效的方式清理
-            checkpoints_to_keep = checkpoints[:max_count]
-            checkpoints_to_delete = checkpoints[max_count:]
+            # 保留最新的max_count个checkpoint
+            checkpoints_to_keep = all_checkpoints[:max_count]  # 按时间倒序排列，所以前max_count个是最新的
+            checkpoints_to_delete = all_checkpoints[max_count:]
             
-            # 获取需要保留的checkpoint数据
-            checkpoints_data = []
-            for checkpoint in checkpoints_to_keep:
-                checkpoint_data = {
-                    'thread_id': thread_id,
-                    'workflow_id': checkpoint['workflow_id'],
-                    'state_data': checkpoint['state_data'],
-                    'metadata': checkpoint['metadata']
-                }
-                checkpoints_data.append(checkpoint_data)
+            # 删除整个thread
+            self._checkpointer.delete_thread(thread_id)
             
-            # 删除整个会话
-            await self.delete_by_thread(thread_id)
-            
-            # 清理映射关系
-            for checkpoint in checkpoints_to_delete:
-                self._checkpoint_thread_mapping.pop(checkpoint['id'], None)
-                
-                # 清理缓存
-                if self.cache:
-                    await self.cache.remove(checkpoint['id'])
+            # 清理缓存
+            if self.cache:
+                for cp in checkpoints_to_delete:
+                    cp_id = cp.get('id')
+                    if cp_id:
+                        await self.cache.delete(cp_id)
             
             # 重新保存需要保留的checkpoint
-            for checkpoint_data in checkpoints_data:
+            for checkpoint_data in checkpoints_to_keep:
                 await self.save(checkpoint_data)
             
-            self.monitor.end_operation(
+            deleted_count = len(checkpoints_to_delete)
+            
+            self.performance_monitor.end_operation(
                 operation_id, "cleanup_old_checkpoints", True,
-                {"thread_id": thread_id, "cleaned": len(checkpoints_to_delete)}
+                {"thread_id": thread_id, "cleaned": deleted_count}
             )
             
-            return len(checkpoints_to_delete)
+            return deleted_count
         except Exception as e:
             logger.error(f"清理旧checkpoint失败: {e}")
             
-            self.monitor.end_operation(
+            self.performance_monitor.end_operation(
                 operation_id, "cleanup_old_checkpoints", False,
                 {"error": str(e)}
             )
@@ -671,14 +372,6 @@ class MemoryCheckpointStore(BaseCheckpointStore):
         try:
             # 创建新的InMemorySaver实例来清除所有数据
             self._checkpointer = InMemorySaver()
-            self._adapter = MemoryCheckpointAdapter(
-                self._checkpointer, 
-                self.serializer,
-                self.universal_serializer,
-                self.cache,
-                self.monitor
-            )
-            self._checkpoint_thread_mapping.clear()
             logger.debug("内存checkpoint存储已清空")
         except Exception as e:
             logger.error(f"清空内存checkpoint存储失败: {e}")

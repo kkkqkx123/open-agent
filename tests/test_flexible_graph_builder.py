@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch, MagicMock
 from typing import Dict, Any
 
 from src.infrastructure.graph.builder import UnifiedGraphBuilder
-from src.infrastructure.graph.config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
+from src.infrastructure.graph.config import GraphConfig, NodeConfig, EdgeConfig, EdgeType, StateFieldConfig
 from src.infrastructure.graph.route_functions import get_route_function_manager, reset_route_function_manager
 
 
@@ -332,18 +332,21 @@ class TestGraphBuilderIntegration:
         )
         
         # 添加状态定义
-        config.state_schema.fields["messages"] = {
-            "type": "List[BaseMessage]",
-            "reducer": "operator.add"
-        }
-        config.state_schema.fields["iteration_count"] = {
-            "type": "int",
-            "default": 0
-        }
-        config.state_schema.fields["max_iterations"] = {
-            "type": "int",
-            "default": 5
-        }
+        config.state_schema.fields["messages"] = StateFieldConfig(
+            name="messages",
+            type="List[BaseMessage]",
+            reducer="operator.add"
+        )
+        config.state_schema.fields["iteration_count"] = StateFieldConfig(
+            name="iteration_count",
+            type="int",
+            default=0
+        )
+        config.state_schema.fields["max_iterations"] = StateFieldConfig(
+            name="max_iterations",
+            type="int",
+            default=5
+        )
         
         # 添加节点
         config.nodes["agent"] = NodeConfig(
