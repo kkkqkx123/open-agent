@@ -12,6 +12,7 @@ from datetime import datetime
 import logging
 import asyncio
 from abc import ABC, abstractmethod
+import inspect
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
@@ -25,7 +26,7 @@ from ..graph.config import GraphConfig, NodeConfig, EdgeConfig
 from ..graph.states import WorkflowState
 from ..graph.builder import GraphBuilder
 from ..graph.registry import get_global_registry
-from ...domain.state.interfaces import IStateManager
+from ...domain.state.interfaces import IStateLifecycleManager
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +96,7 @@ class LangGraphAdapter(ILangGraphAdapter):
         self,
         checkpoint_saver: Optional[BaseCheckpointSaver] = None,
         graph_builder: Optional[GraphBuilder] = None,
-        state_manager: Optional[IStateManager] = None,
+        state_manager: Optional[IStateLifecycleManager] = None,
         use_memory_checkpoint: bool = False
     ):
         """初始化LangGraph适配器
@@ -245,29 +246,68 @@ class LangGraphAdapter(ILangGraphAdapter):
             str: checkpoint ID
         """
         try:
-            # 准备checkpoint数据
-            checkpoint_data = {
-                "thread_id": thread_id,
-                "state": state,
-                "metadata": metadata or {},
-                "timestamp": datetime.now().isoformat()
+            import time
+            import uuid
+            import inspect
+            
+            # 生成checkpoint ID和时间戳
+            checkpoint_id = str(uuid.uuid4())
+            timestamp = time.time()
+            
+            # 创建符合LangGraph标准的checkpoint结构
+            checkpoint = {
+                "v": 1,  # checkpoint版本
+                "ts": timestamp,  # 时间戳
+                "id": checkpoint_id,  # checkpoint ID
+                "channel_values": {
+                    "state": state  # 直接存储状态对象
+                },
+                "channel_versions": {
+                    "state": timestamp  # 使用相同的时间戳作为版本
+                },
+                "versions_seen": {
+                    "state": timestamp
+                }
             }
             
-            # 使用checkpoint保存器保存
+            # 创建配置，包含必要的checkpoint命名空间
+            config = {
+                "configurable": {
+                    "thread_id": thread_id,
+                    "checkpoint_ns": ""  # 添加必要的checkpoint命名空间
+                }
+            }
+            
+            # 保存checkpoint - 处理同步和异步put方法
             if hasattr(self.checkpoint_saver, 'put'):
-                checkpoint_id = await self.checkpoint_saver.put(  # type: ignore
-                    config={"configurable": {"thread_id": thread_id}},
-                    checkpoint=checkpoint_data,
-                metadata=metadata or {}
-            )
+                # 检查put方法是否是异步的
+                put_method = getattr(self.checkpoint_saver, 'put')
+                if inspect.iscoroutinefunction(put_method):
+                    # 异步方法
+                    success = await put_method(
+                        config=config,
+                        checkpoint=checkpoint,
+                        metadata=metadata or {},
+                        new_versions={}
+                    )
+                else:
+                    # 同步方法
+                    success = put_method(
+                        config=config,
+                        checkpoint=checkpoint,
+                        metadata=metadata or {},
+                        new_versions={}
+                    )
             else:
-                # 对于不支持异步的checkpoint保存器
-                checkpoint_id = f"checkpoint_{datetime.now().timestamp()}"
-            logger.warning("Checkpoint保存器不支持异步操作，使用模拟ID")
+                logger.warning("Checkpoint保存器不支持put操作")
+                success = False
             
-            logger.info(f"Checkpoint保存成功: thread_id={thread_id}, checkpoint_id={checkpoint_id}")
-            return checkpoint_id
-            
+            if success:
+                logger.info(f"成功保存checkpoint: thread_id={thread_id}, checkpoint_id={checkpoint_id}")
+                return checkpoint_id
+            else:
+                raise RuntimeError("保存checkpoint失败")
+                
         except Exception as e:
             logger.error(f"保存checkpoint失败: thread_id={thread_id}, error: {e}")
             raise
@@ -290,11 +330,17 @@ class LangGraphAdapter(ILangGraphAdapter):
             # 准备查询配置
             config = {"configurable": {"thread_id": thread_id}}
             
-            # 获取checkpoint
+            # 获取checkpoint - 处理同步和异步get方法
             if hasattr(self.checkpoint_saver, 'get'):
-                checkpoint = await self.checkpoint_saver.get(config, checkpoint_id)  # type: ignore
+                get_method = getattr(self.checkpoint_saver, 'get')
+                if inspect.iscoroutinefunction(get_method):
+                    # 异步方法
+                    checkpoint = await get_method(config)
+                else:
+                    # 同步方法
+                    checkpoint = get_method(config)
             else:
-                logger.warning("Checkpoint保存器不支持异步操作，返回None")
+                logger.warning("Checkpoint保存器不支持get操作，返回None")
                 checkpoint = None
             
             if checkpoint:
@@ -321,15 +367,22 @@ class LangGraphAdapter(ILangGraphAdapter):
             # 准备查询配置
             config = {"configurable": {"thread_id": thread_id}}
             
-            # 获取checkpoint列表
+            # 获取checkpoint列表 - 处理同步和异步list方法
             if hasattr(self.checkpoint_saver, 'list'):
-                checkpoints = self.checkpoint_saver.list(config)  # type: ignore
+                list_method = getattr(self.checkpoint_saver, 'list')
+                if inspect.iscoroutinefunction(list_method):
+                    # 异步方法
+                    checkpoints = await list_method(config)
+                else:
+                    # 同步方法
+                    checkpoints = list_method(config)
             else:
                 logger.warning("Checkpoint保存器不支持列出操作，返回空列表")
                 checkpoints = []
             
-            logger.info(f"获取checkpoint列表成功: thread_id={thread_id}, count={len(list(checkpoints))}")
-            return list(checkpoints)  # type: ignore
+            checkpoint_list = list(checkpoints) if checkpoints else []
+            logger.info(f"获取checkpoint列表成功: thread_id={thread_id}, count={len(checkpoint_list)}")
+            return checkpoint_list
             
         except Exception as e:
             logger.error(f"获取checkpoint列表失败: thread_id={thread_id}, error: {e}")
@@ -349,9 +402,15 @@ class LangGraphAdapter(ILangGraphAdapter):
             # 准备删除配置
             config = {"configurable": {"thread_id": thread_id}}
             
-            # 删除checkpoint
+            # 删除checkpoint - 处理同步和异步delete方法
             if hasattr(self.checkpoint_saver, 'delete'):
-                success = await self.checkpoint_saver.delete(config, checkpoint_id)  # type: ignore
+                delete_method = getattr(self.checkpoint_saver, 'delete')
+                if inspect.iscoroutinefunction(delete_method):
+                    # 异步方法
+                    success = await delete_method(config, checkpoint_id)
+                else:
+                    # 同步方法
+                    success = delete_method(config, checkpoint_id)
             else:
                 logger.warning("Checkpoint保存器不支持删除操作，返回False")
                 success = False

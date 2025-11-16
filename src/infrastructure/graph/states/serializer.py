@@ -12,6 +12,9 @@ from typing import Dict, Any, List, Optional, Union, Type, Set
 from datetime import datetime
 from dataclasses import dataclass
 from collections import OrderedDict
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .base import BaseGraphState, BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
 from .workflow import WorkflowState
@@ -51,6 +54,8 @@ class StateSerializer:
     - 差异序列化
     - 内存优化
     - 性能监控
+    
+    注意：基础序列化功能现在由通用的Serializer提供，此类专注于状态管理特定的功能。
     """
     
     # 支持的序列化格式
@@ -73,14 +78,22 @@ class StateSerializer:
             enable_compression: 是否启用压缩
             enable_diff_serialization: 是否启用差异序列化
         """
+        from ...common.serialization import Serializer
+        
+        # 使用通用的Serializer作为基础序列化器
+        self._base_serializer = Serializer(
+            enable_cache=True,
+            cache_size=max_cache_size
+        )
+        
         self._max_cache_size = max_cache_size
         self._cache_ttl_seconds = cache_ttl_seconds
         self._enable_compression = enable_compression
         self._enable_diff_serialization = enable_diff_serialization
         
-        # 缓存相关
-        self._serialization_cache: OrderedDict[str, CacheEntry] = OrderedDict()
-        self._cache_lock = threading.RLock()
+        # 状态特定的缓存（与基础序列化器分离）
+        self._state_cache: OrderedDict[str, CacheEntry] = OrderedDict()
+        self._state_cache_lock = threading.RLock()
         
         # 差异缓存
         self._diff_cache: Dict[str, StateDiff] = {}
@@ -90,13 +103,13 @@ class StateSerializer:
         self._message_cache: Dict[int, Dict[str, Any]] = {}
         self._message_lock = threading.RLock()
         
-        # 性能统计
+        # 性能统计（状态特定的）
         self._stats = {
-            "total_serializations": 0,
-            "total_deserializations": 0,
+            "total_state_serializations": 0,
+            "total_state_deserializations": 0,
             "total_diff_computations": 0,
-            "cache_hits": 0,
-            "cache_misses": 0,
+            "state_cache_hits": 0,
+            "state_cache_misses": 0,
             "bytes_saved": 0
         }
     
@@ -171,57 +184,31 @@ class StateSerializer:
         """
         start_time = time.time()
         
-        # 计算状态哈希（基于原始状态，不包含时间戳）
-        state_hash = self._calculate_state_hash(state)
-        
-        # 检查缓存
-        if enable_cache and self._enable_cache:
-            cached_result = self._get_from_cache(state_hash)
-            if cached_result:
-                self._stats["cache_hits"] += 1
-                # 如果启用元数据，我们需要重新添加元数据
-                if include_metadata:
-                    # 从缓存中获取的数据已经包含了元数据
-                    return cached_result
-                else:
-                    # 如果不包含元数据，需要序列化原始状态但不包含元数据
-                    serialized_data = self._prepare_state_for_serialization(
-                        state, include_metadata=False
-                    )
-                    if format == self.FORMAT_JSON:
-                        return json.dumps(serialized_data, ensure_ascii=False, indent=2, default=str)
-                    elif format == self.FORMAT_COMPACT_JSON:
-                        return json.dumps(serialized_data, ensure_ascii=False, separators=(',', ':'))
-                    elif format == self.FORMAT_PICKLE:
-                        return pickle.dumps(serialized_data)
-        
-        self._stats["cache_misses"] += 1
-        
-        # 准备序列化数据（会处理所有嵌套的消息对象）
-        serialized_data = self._prepare_state_for_serialization(
-            state, include_metadata
-        )
-        
-        # 执行序列化
-        result: Union[str, bytes]
-        if format == self.FORMAT_JSON:
-            result = json.dumps(serialized_data, ensure_ascii=False, indent=2, default=str)
-        elif format == self.FORMAT_COMPACT_JSON:
-            result = json.dumps(serialized_data, ensure_ascii=False, separators=(',', ':'))
-        elif format == self.FORMAT_PICKLE:
-            result = pickle.dumps(serialized_data)
-        else:
-            raise ValueError(f"不支持的序列化格式: {format}")
-        
-        # 添加到缓存
-        if enable_cache and self._enable_cache:
-            self._add_to_cache(state_hash, result)
-        
-        # 更新统计
-        self._stats["total_serializations"] += 1
-        execution_time = time.time() - start_time
-        
-        return result
+        # 首先使用基础序列化器进行序列化
+        try:
+            # 准备状态数据（处理消息对象等）
+            prepared_state = self._prepare_state_for_serialization(
+                state, include_metadata=include_metadata
+            )
+            
+            # 使用基础序列化器进行序列化
+            if format == self.FORMAT_JSON:
+                result = self._base_serializer.serialize(prepared_state, format='json')
+            elif format == self.FORMAT_COMPACT_JSON:
+                # 紧凑JSON格式
+                result = json.dumps(prepared_state, ensure_ascii=False, separators=(',', ':'))
+            elif format == self.FORMAT_PICKLE:
+                result = pickle.dumps(prepared_state)
+            else:
+                raise ValueError(f"不支持的序列化格式: {format}")
+            
+            self._stats["total_state_serializations"] += 1
+            return result
+            
+        except Exception as e:
+            # 如果基础序列化失败，回退到手动处理
+            logger.warning(f"基础序列化器失败，使用回退方案: {e}")
+            return self._fallback_serialize(state, format, include_metadata)
     
     def deserialize(
         self,
@@ -242,33 +229,41 @@ class StateSerializer:
         Raises:
             ValueError: 当格式不支持时
         """
-        start_time = time.time()
-        
-        # 反序列化基础数据
-        if format == self.FORMAT_JSON or format == self.FORMAT_COMPACT_JSON:
-            data = json.loads(serialized_data)
-        elif format == self.FORMAT_PICKLE:
-            if isinstance(serialized_data, str):
-                serialized_data = serialized_data.encode('latin1')
-            data = pickle.loads(serialized_data)
-        else:
-            raise ValueError(f"不支持的序列化格式: {format}")
-        
-        # 恢复状态对象
-        restored_state = self._restore_state_from_serialization(data)
-        
-        # 验证状态类型
-        if state_type:
-            from .factory import StateFactory
-            errors = StateFactory.validate_state(restored_state, state_type)
-            if errors:
-                raise ValueError(f"状态验证失败: {errors}")
-        
-        # 更新统计
-        self._stats["total_deserializations"] += 1
-        execution_time = time.time() - start_time
-        
-        return restored_state
+        try:
+            # 首先使用基础序列化器进行反序列化
+            if format == self.FORMAT_JSON:
+                deserialized = self._base_serializer.deserialize(serialized_data, format='json')
+            elif format == self.FORMAT_COMPACT_JSON:
+                # 紧凑JSON格式
+                if isinstance(serialized_data, str):
+                    deserialized = json.loads(serialized_data)
+                else:
+                    deserialized = json.loads(serialized_data.decode('utf-8'))
+            elif format == self.FORMAT_PICKLE:
+                if isinstance(serialized_data, str):
+                    serialized_data = serialized_data.encode('latin1')
+                deserialized = pickle.loads(serialized_data)
+            else:
+                raise ValueError(f"不支持的序列化格式: {format}")
+            
+            # 恢复状态对象
+            restored_state = self._restore_state_from_serialization(deserialized)
+            
+            # 验证状态类型
+            if state_type:
+                from .factory import StateFactory
+                errors = StateFactory.validate_state(restored_state, state_type)
+                if errors:
+                    raise ValueError(f"状态验证失败: {errors}")
+            
+            # 更新统计
+            self._stats["total_state_deserializations"] += 1
+            return restored_state
+            
+        except Exception as e:
+            # 如果基础序列化失败，回退到手动处理
+            logger.warning(f"基础反序列化器失败，使用回退方案: {e}")
+            return self._fallback_deserialize(serialized_data, format)
     
     def serialize_diff(
         self,
@@ -407,40 +402,48 @@ class StateSerializer:
         return optimized
         return optimized
     
-    def get_performance_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> Dict[str, Any]:
         """获取性能统计
         
         Returns:
             性能统计信息
         """
-        total_requests = self._stats["cache_hits"] + self._stats["cache_misses"]
-        cache_hit_rate = (self._stats["cache_hits"] / total_requests * 100) if total_requests > 0 else 0
+        total_ops = self._stats["total_state_serializations"] + self._stats["total_state_deserializations"]
+        cache_hit_rate = 0.0
+        if total_ops > 0:
+            cache_hit_rate = (self._stats["state_cache_hits"] / total_ops) * 100
+        
+        # 获取基础序列化器的统计
+        base_stats = self._base_serializer.get_stats()
         
         return {
-            "cache_stats": {
-                "hits": self._stats["cache_hits"],
-                "misses": self._stats["cache_misses"],
-                "hit_rate": f"{cache_hit_rate:.2f}%",
-                "cache_size": len(self._serialization_cache),
-                "max_cache_size": self._max_cache_size
-            },
-            "serialization_stats": {
-                "total_serializations": self._stats["total_serializations"],
-                "total_deserializations": self._stats["total_deserializations"],
-                "total_diff_computations": self._stats["total_diff_computations"]
-            },
-            "memory_stats": {
-                "bytes_saved": self._stats["bytes_saved"],
-                "message_cache_size": len(self._message_cache)
-            }
+            "total_operations": total_ops + base_stats["total_operations"],
+            "state_serializations": self._stats["total_state_serializations"],
+            "state_deserializations": self._stats["total_state_deserializations"],
+            "base_serializations": base_stats["total_serializations"],
+            "base_deserializations": base_stats["total_deserializations"],
+            "diff_computations": self._stats["total_diff_computations"],
+            "cache_hit_rate": round(cache_hit_rate, 2),
+            "state_cache_hits": self._stats["state_cache_hits"],
+            "state_cache_misses": self._stats["state_cache_misses"],
+            "base_cache_hit_rate": base_stats["cache_hit_rate"],
+            "bytes_saved": self._stats["bytes_saved"],
+            "state_cache_size": len(self._state_cache),
+            "base_cache_size": base_stats["cache_size"],
+            "diff_cache_size": len(self._diff_cache),
+            "message_cache_size": len(self._message_cache)
         }
     
     def clear_cache(self) -> None:
         """清除缓存"""
-        with self._cache_lock:
-            self._serialization_cache.clear()
-            self._stats["cache_hits"] = 0
-            self._stats["cache_misses"] = 0
+        # 清空基础序列化器的缓存
+        self._base_serializer.clear_cache()
+        
+        # 清空状态特定的缓存
+        with self._state_cache_lock:
+            self._state_cache.clear()
+            self._stats["state_cache_hits"] = 0
+            self._stats["state_cache_misses"] = 0
     
     def _calculate_state_hash(self, state: Dict[str, Any]) -> str:
         """计算状态哈希
@@ -669,27 +672,29 @@ class StateSerializer:
             return False
         
         if isinstance(obj1, (str, int, float, bool, type(None))):
-            return obj1 == obj2
+            return bool(obj1 == obj2)
         
         if isinstance(obj1, (list, tuple)):
             if len(obj1) != len(obj2):
                 return False
-            return all(self._deep_equal(a, b) for a, b in zip(obj1, obj2))
+            results = [self._deep_equal(a, b) for a, b in zip(obj1, obj2)]
+            return all(results)
         
         if isinstance(obj1, dict):
             if set(obj1.keys()) != set(obj2.keys()):
                 return False
-            return all(self._deep_equal(obj1[key], obj2[key]) for key in obj1.keys())
+            results = [self._deep_equal(obj1[key], obj2[key]) for key in obj1.keys()]
+            return all(results)
         
         # 处理消息对象
         if hasattr(obj1, '__dict__') and hasattr(obj2, '__dict__'):
             # 如果是消息对象，比较其属性
             if hasattr(obj1, 'content') and hasattr(obj2, 'content'):
-                return obj1.content == obj2.content and obj1.type == obj2.type
+                return bool(obj1.content == obj2.content and obj1.type == obj2.type)
             # 对于其他自定义对象，比较其字典表示
             return self._deep_equal(obj1.__dict__, obj2.__dict__)
         
-        return obj1 == obj2
+        return bool(obj1 == obj2)
     
     def _apply_state_diff(
         self,
@@ -738,23 +743,98 @@ class StateSerializer:
         Returns:
             缓存的数据，如果不存在则返回None
         """
-        with self._cache_lock:
-            if state_hash in self._serialization_cache:
-                entry = self._serialization_cache[state_hash]
+        with self._state_cache_lock:
+            if state_hash in self._state_cache:
+                entry = self._state_cache[state_hash]
                 if not entry.is_expired(self._cache_ttl_seconds):
                     # 更新访问信息
                     entry.access_count += 1
                     entry.last_accessed = time.time()
                     
                     # 移动到末尾（LRU）
-                    self._serialization_cache.move_to_end(state_hash)
+                    self._state_cache.move_to_end(state_hash)
                     
+                    self._stats["state_cache_hits"] += 1
                     return entry.serialized_data
                 else:
                     # 移除过期条目
-                    del self._serialization_cache[state_hash]
+                    del self._state_cache[state_hash]
+            
+            self._stats["state_cache_misses"] += 1
+            return None
+    
+    def _fallback_serialize(
+        self,
+        state: Dict[str, Any],
+        format: str,
+        include_metadata: bool = True
+    ) -> Union[str, bytes]:
+        """回退序列化方法（当基础序列化器失败时使用）
         
-        return None
+        Args:
+            state: 状态字典
+            format: 序列化格式
+            include_metadata: 是否包含元数据
+            
+        Returns:
+            序列化后的数据
+        """
+        try:
+            # 准备状态数据
+            prepared_state = self._prepare_state_for_serialization(
+                state, include_metadata=include_metadata
+            )
+            
+            # 手动处理不同格式
+            if format == self.FORMAT_JSON:
+                return json.dumps(prepared_state, ensure_ascii=False, indent=2, default=str)
+            elif format == self.FORMAT_COMPACT_JSON:
+                return json.dumps(prepared_state, ensure_ascii=False, separators=(',', ':'))
+            elif format == self.FORMAT_PICKLE:
+                return pickle.dumps(prepared_state)
+            else:
+                raise ValueError(f"不支持的序列化格式: {format}")
+                
+        except Exception as e:
+            logger.error(f"回退序列化失败: {e}")
+            # 最后手段：返回字符串表示
+            return str(state)
+    
+    def _fallback_deserialize(
+        self,
+        serialized_data: Union[str, bytes],
+        format: str
+    ) -> Dict[str, Any]:
+        """回退反序列化方法（当基础序列化器失败时使用）
+        
+        Args:
+            serialized_data: 序列化的数据
+            format: 序列化格式
+            
+        Returns:
+            反序列化后的状态字典
+        """
+        try:
+            # 手动处理不同格式
+            if format == self.FORMAT_JSON or format == self.FORMAT_COMPACT_JSON:
+                if isinstance(serialized_data, str):
+                    deserialized = json.loads(serialized_data)
+                else:
+                    deserialized = json.loads(serialized_data.decode('utf-8'))
+            elif format == self.FORMAT_PICKLE:
+                if isinstance(serialized_data, str):
+                    serialized_data = serialized_data.encode('latin1')
+                deserialized = pickle.loads(serialized_data)
+            else:
+                raise ValueError(f"不支持的序列化格式: {format}")
+            
+            # 恢复状态对象
+            return self._restore_state_from_serialization(deserialized)
+            
+        except Exception as e:
+            logger.error(f"回退反序列化失败: {e}")
+            # 最后手段：返回空字典
+            return {}
     
     def _add_to_cache(self, state_hash: str, serialized_data: Union[str, bytes]) -> None:
         """添加到缓存
@@ -763,11 +843,11 @@ class StateSerializer:
             state_hash: 状态哈希
             serialized_data: 序列化数据
         """
-        with self._cache_lock:
+        with self._state_cache_lock:
             # 检查缓存大小
-            if len(self._serialization_cache) >= self._max_cache_size:
+            if len(self._state_cache) >= self._max_cache_size:
                 # 移除最久未使用的条目
-                self._serialization_cache.popitem(last=False)
+                self._state_cache.popitem(last=False)
             
             # 创建缓存条目
             entry = CacheEntry(
@@ -778,7 +858,7 @@ class StateSerializer:
                 last_accessed=time.time()
             )
             
-            self._serialization_cache[state_hash] = entry
+            self._state_cache[state_hash] = entry
     
     def _compress_messages(self, messages: List[BaseMessage]) -> List[BaseMessage]:
         """压缩消息列表

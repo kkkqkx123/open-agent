@@ -311,13 +311,13 @@ class SyncCacheManager:
     """同步缓存管理器包装器"""
     
     def __init__(self, cache_manager: CacheManager):
-        """初始化同步包装器
+        """初始化同步缓存管理器包装器
         
         Args:
             cache_manager: 异步缓存管理器实例
         """
         self._cache_manager = cache_manager
-        self._loop = None
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
     
     def _get_loop(self) -> asyncio.AbstractEventLoop:
         """获取事件循环"""
@@ -340,7 +340,8 @@ class SyncCacheManager:
     
     def delete(self, key: str) -> bool:
         """同步删除缓存项"""
-        return self._get_loop().run_until_complete(self._cache_manager.delete(key))
+        result = self._get_loop().run_until_complete(self._cache_manager.delete(key))
+        return bool(result)
     
     def clear(self) -> None:
         """同步清空缓存"""
@@ -348,8 +349,10 @@ class SyncCacheManager:
     
     def exists(self, key: str) -> bool:
         """同步检查缓存项是否存在"""
-        return self._get_loop().run_until_complete(self._cache_manager.exists(key))
+        result = self._get_loop().run_until_complete(self._cache_manager.exists(key))
+        return bool(result)
     
     def get_stats(self) -> Dict[str, Any]:
         """同步获取缓存统计信息"""
-        return self._get_loop().run_until_complete(self._cache_manager.get_stats())
+        result = self._get_loop().run_until_complete(self._cache_manager.get_stats())
+        return dict(result) if result else {}
