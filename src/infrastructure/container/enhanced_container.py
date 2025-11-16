@@ -22,7 +22,7 @@ from ..container_interfaces import (
     ILifecycleAware,
     ServiceRegistration
 )
-from ..cache.service_cache import LRUServiceCache
+from ..cache.service_cache_adapter import ServiceCacheAdapter
 from ..container.performance_monitor_adapter import ContainerPerformanceMonitor
 from ..container.dependency_analyzer import DependencyAnalyzer
 from ..container.scope_manager import ScopeManager
@@ -79,7 +79,7 @@ class EnhancedDependencyContainer(BaseDependencyContainer):
         super().__init__(service_tracker)
         
         # 增强功能
-        self._service_cache = service_cache or LRUServiceCache(max_size=max_cache_size, ttl_seconds=cache_ttl_seconds)
+        self._service_cache = service_cache or ServiceCacheAdapter()
         self._performance_monitor = performance_monitor or ContainerPerformanceMonitor(PerformanceMonitor())
         self._dependency_analyzer = dependency_analyzer or DependencyAnalyzer()
         self._scope_manager = scope_manager or ScopeManager()

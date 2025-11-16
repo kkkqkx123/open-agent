@@ -11,7 +11,7 @@ from .memory_cache import MemoryCache
 logger = logging.getLogger(__name__)
 
 
-class UnifiedCacheManager:
+class CacheManager:
     """统一缓存管理器 - 提供API层和业务层的统一缓存接口
     
     该类整合了MemoryCache和EnhancedCacheManager的功能，
