@@ -65,7 +65,7 @@ nodes:
     function_name: aggregate_results
     description: 聚合所有处理结果
     config:
-      format: "unified"
+      format: "json"
 
 # 边定义 - 条件分支
 edges:

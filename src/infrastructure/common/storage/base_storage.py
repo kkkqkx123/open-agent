@@ -9,7 +9,7 @@ from ..interfaces import IStorage
 from ..serialization.universal_serializer import UniversalSerializer
 from ..temporal.temporal_manager import TemporalManager
 from ..metadata.metadata_manager import MetadataManager
-from ..cache.enhanced_cache_manager import EnhancedCacheManager
+from ...presentation.api.cache.cache_manager import CacheManager
 
 
 class BaseStorage(IStorage):
@@ -20,7 +20,7 @@ class BaseStorage(IStorage):
         serializer: Optional[UniversalSerializer] = None,
         temporal_manager: Optional[TemporalManager] = None,
         metadata_manager: Optional[MetadataManager] = None,
-        cache_manager: Optional[EnhancedCacheManager] = None
+        cache_manager: Optional[CacheManager] = None
     ):
         """初始化基础存储
         
@@ -67,7 +67,7 @@ class BaseStorage(IStorage):
         
         # 缓存数据
         if success and self.cache and data.get("id"):
-            await self.cache.set(data["id"], data, ttl)
+            await self.cache.set(data["id"], data, ttl=ttl)
         
         return success
     
@@ -186,6 +186,6 @@ class BaseStorage(IStorage):
         
         # 清理缓存
         if success and self.cache:
-            await self.cache.remove(id)
+            await self.cache.delete(id)
         
         return success

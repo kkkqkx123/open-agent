@@ -15,7 +15,7 @@ from langgraph.checkpoint.base import CheckpointTuple
 
 from ...domain.checkpoint.interfaces import ICheckpointSerializer
 from ...infrastructure.common.serialization.universal_serializer import UniversalSerializer
-from ...infrastructure.common.cache.enhanced_cache_manager import EnhancedCacheManager
+from ...presentation.api.cache.cache_manager import CacheManager
 from ...infrastructure.common.temporal.temporal_manager import TemporalManager
 from ...infrastructure.common.metadata.metadata_manager import MetadataManager
 from ...infrastructure.common.monitoring.performance_monitor import PerformanceMonitor
@@ -39,7 +39,7 @@ class MemoryCheckpointAdapter:
         checkpointer: Any, 
         serializer: Optional[ICheckpointSerializer] = None,
         universal_serializer: Optional[UniversalSerializer] = None,
-        cache_manager: Optional[EnhancedCacheManager] = None,
+        cache_manager: Optional[CacheManager] = None,
         performance_monitor: Optional[PerformanceMonitor] = None
     ):
         """初始化适配器
@@ -288,7 +288,7 @@ class MemoryCheckpointStore(BaseCheckpointStore):
         max_checkpoints_per_thread: int = 1000,
         enable_performance_monitoring: bool = True,
         universal_serializer: Optional[UniversalSerializer] = None,
-        cache_manager: Optional[EnhancedCacheManager] = None,
+        cache_manager: Optional[CacheManager] = None,
         performance_monitor: Optional[PerformanceMonitor] = None
     ):
         """初始化内存存储"""

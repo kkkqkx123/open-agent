@@ -8,7 +8,7 @@ from src.domain.replay.interfaces import IReplayAnalyzer, IReplaySource, ReplayA
 from src.domain.history.interfaces import IHistoryManager
 from src.domain.checkpoint.interfaces import ICheckpointManager
 from src.infrastructure.replay.config_service import ReplayConfigService
-from src.infrastructure.common.cache.enhanced_cache_manager import EnhancedCacheManager
+from src.presentation.api.cache.cache_manager import CacheManager
 from src.infrastructure.common.monitoring.performance_monitor import PerformanceMonitor
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ class ReplayAnalyzer(IReplayAnalyzer):
         history_manager: IHistoryManager,
         checkpoint_manager: ICheckpointManager,
         config_service: ReplayConfigService,
-        cache_manager: Optional[EnhancedCacheManager] = None,
+        cache_manager: Optional[CacheManager] = None,
         performance_monitor: Optional[PerformanceMonitor] = None
     ):
         """初始化分析器

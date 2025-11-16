@@ -52,13 +52,9 @@ def get_cache_manager() -> CacheManager:
         settings = get_settings()
         
         _cache_manager = CacheManager(
-            cache_type=settings.cache_strategy,
             default_ttl=settings.cache_ttl,
             max_size=settings.cache_max_size,
             enable_stats=settings.cache_enable_stats,
-            use_sync_adapter=settings.cache_use_sync_adapter,
-            sync_max_workers=settings.cache_sync_max_workers,
-            unified_enabled=settings.cache_unified_enabled,
             fallback_enabled=settings.cache_fallback_enabled,
             invalidation_enabled=settings.cache_invalidation_enabled
         )

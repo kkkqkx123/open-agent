@@ -12,7 +12,7 @@ from src.domain.replay.interfaces import (
 from src.domain.replay.config import ReplayConfig as ReplayConfigModel
 from src.infrastructure.replay.config_service import ReplayConfigService
 from src.infrastructure.replay.strategies import ReplayStrategyFactory
-from src.infrastructure.common.cache.enhanced_cache_manager import EnhancedCacheManager
+from src.presentation.api.cache.cache_manager import CacheManager
 from src.infrastructure.common.monitoring.performance_monitor import PerformanceMonitor
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class ReplayProcessor(IReplayEngine):
         self,
         replay_source: IReplaySource,
         config_service: ReplayConfigService,
-        cache_manager: Optional[EnhancedCacheManager] = None,
+        cache_manager: Optional[CacheManager] = None,
         performance_monitor: Optional[PerformanceMonitor] = None
     ):
         """初始化回放处理器

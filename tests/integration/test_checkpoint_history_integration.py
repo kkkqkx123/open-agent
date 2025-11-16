@@ -10,7 +10,7 @@ import shutil
 from src.application.checkpoint.manager import CheckpointManager
 from src.application.history.manager import HistoryManager
 from src.infrastructure.common.serialization.universal_serializer import UniversalSerializer
-from src.infrastructure.common.cache.enhanced_cache_manager import EnhancedCacheManager
+from src.presentation.api.cache.cache_manager import CacheManager
 from src.infrastructure.common.monitoring.performance_monitor import PerformanceMonitor
 from src.infrastructure.checkpoint.memory_store import MemoryCheckpointStore
 from src.infrastructure.history.storage.file_storage import FileHistoryStorage
@@ -30,7 +30,7 @@ class TestCheckpointHistoryIntegration:
         
         # 创建公用组件
         serializer = UniversalSerializer()
-        cache_manager = EnhancedCacheManager(max_size=100, default_ttl=300)
+        cache_manager = CacheManager(default_ttl=300)
         performance_monitor = PerformanceMonitor()
         
         # 创建存储
@@ -88,7 +88,7 @@ class TestCheckpointHistoryIntegration:
         await checkpoint_manager.cache.set(cache_key, test_data)
 
         # 检查点管理器使用异步缓存，历史管理器使用同步缓存适配器
-        cached_data = history_manager.cache.get(cache_key)
+        cached_data = await history_manager.cache.get(cache_key)
         assert cached_data == test_data
         
         # 测试性能监控共享
@@ -125,7 +125,7 @@ class TestCheckpointHistoryIntegration:
             metadata={"checkpoint_id": checkpoint_id}
         )
         
-        history_manager.record_message(message)
+        await history_manager.record_message(message)
         
         # 3. 验证性能指标
         checkpoint_stats = monitor.get_stats("create_checkpoint")
@@ -142,7 +142,7 @@ class TestCheckpointHistoryIntegration:
         # 5. 验证历史记录
         from src.domain.history.models import HistoryQuery
         query = HistoryQuery(session_id=session_id)
-        result = history_manager.query_history(query)
+        result = await history_manager.query_history(query)
         assert len(result.records) == 1
         assert result.records[0].content == "Test message"
     
@@ -168,7 +168,7 @@ class TestCheckpointHistoryIntegration:
                 message_type=MessageType.USER,
                 content=f"Test message {i}"
             )
-            history_manager.record_message(message)
+            await history_manager.record_message(message)
         
         # 验证性能统计
         checkpoint_stats = monitor.get_stats("create_checkpoint")
@@ -302,7 +302,7 @@ class TestCheckpointHistoryIntegration:
                 message_type=MessageType.USER,
                 content=f"Concurrent message {index}"
             )
-            history_manager.record_message(message)
+            await history_manager.record_message(message)
         
         # 并发执行操作
         tasks = []

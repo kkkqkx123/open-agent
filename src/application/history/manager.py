@@ -11,8 +11,7 @@ from src.infrastructure.history.storage.file_storage import FileHistoryStorage
 
 # 导入公用组件
 from src.infrastructure.common.serialization.universal_serializer import UniversalSerializer
-from src.infrastructure.common.cache.enhanced_cache_manager import EnhancedCacheManager
-from src.infrastructure.common.cache.sync_cache_adapter import SyncCacheAdapter
+from src.presentation.api.cache.cache_manager import CacheManager
 from src.infrastructure.common.temporal.temporal_manager import TemporalManager
 from src.infrastructure.common.metadata.metadata_manager import MetadataManager
 from src.infrastructure.common.id_generator.id_generator import IDGenerator
@@ -26,7 +25,7 @@ class HistoryManager(IHistoryManager):
         self,
         storage: FileHistoryStorage,
         serializer: Optional[UniversalSerializer] = None,
-        cache_manager: Optional[EnhancedCacheManager] = None,
+        cache_manager: Optional[CacheManager] = None,
         performance_monitor: Optional[PerformanceMonitor] = None,
         use_sync_cache: bool = True
     ):
@@ -44,19 +43,15 @@ class HistoryManager(IHistoryManager):
         # 公用组件
         self.serializer = serializer or UniversalSerializer()
         
-        # 根据配置决定使用同步还是异步缓存
-        if cache_manager and use_sync_cache:
-            # 使用同步缓存适配器包装异步缓存管理器
-            self.cache = SyncCacheAdapter(cache_manager)
-        else:
-            self.cache = cache_manager
+        # 缓存管理器（简化处理）
+        self.cache = cache_manager
             
         self.monitor = performance_monitor or PerformanceMonitor()
         self.temporal = TemporalManager()
         self.metadata = MetadataManager()
         self.id_generator = IDGenerator()
     
-    def record_message(self, record: MessageRecord) -> None:
+    async def record_message(self, record: MessageRecord) -> None:
         """记录消息"""
         operation_id = self.monitor.start_operation("record_message")
         
@@ -73,7 +68,7 @@ class HistoryManager(IHistoryManager):
             # 缓存记录
             if self.cache:
                 cache_key = f"message:{record.record_id}"
-                self.cache.set(cache_key, processed_record, ttl=1800)
+                await self.cache.set(cache_key, processed_record, ttl=1800)
             
             self.monitor.end_operation(operation_id, "record_message", True)
             
@@ -81,7 +76,7 @@ class HistoryManager(IHistoryManager):
             self.monitor.end_operation(operation_id, "record_message", False, {"error": str(e)})
             raise
     
-    def record_tool_call(self, record: ToolCallRecord) -> None:
+    async def record_tool_call(self, record: ToolCallRecord) -> None:
         """记录工具调用"""
         operation_id = self.monitor.start_operation("record_tool_call")
         
@@ -98,7 +93,7 @@ class HistoryManager(IHistoryManager):
             # 缓存记录
             if self.cache:
                 cache_key = f"tool_call:{record.record_id}"
-                self.cache.set(cache_key, processed_record, ttl=1800)
+                await self.cache.set(cache_key, processed_record, ttl=1800)
             
             self.monitor.end_operation(operation_id, "record_tool_call", True)
             
@@ -106,7 +101,7 @@ class HistoryManager(IHistoryManager):
             self.monitor.end_operation(operation_id, "record_tool_call", False, {"error": str(e)})
             raise
     
-    def query_history(self, query: HistoryQuery) -> HistoryResult:
+    async def query_history(self, query: HistoryQuery) -> HistoryResult:
         """查询历史记录"""
         operation_id = self.monitor.start_operation("query_history")
         
@@ -114,7 +109,7 @@ class HistoryManager(IHistoryManager):
             # 先尝试从缓存获取
             cache_key = f"history_query:{hash(str(query.__dict__))}"
             if self.cache:
-                cached_result = self.cache.get(cache_key)
+                cached_result = await self.cache.get(cache_key)
                 if cached_result:
                     self.monitor.end_operation(
                         operation_id, "query_history", True,
@@ -154,7 +149,7 @@ class HistoryManager(IHistoryManager):
             
             # 缓存结果
             if self.cache:
-                self.cache.set(cache_key, result.__dict__, ttl=300)
+                await self.cache.set(cache_key, result.__dict__, ttl=300)
             
             self.monitor.end_operation(
                 operation_id, "query_history", True,
@@ -283,7 +278,7 @@ class HistoryManager(IHistoryManager):
             print(f"Failed to deserialize record: {e}")
             return None
     
-    def record_llm_request(self, record: LLMRequestRecord) -> None:
+    async def record_llm_request(self, record: LLMRequestRecord) -> None:
         """记录LLM请求"""
         operation_id = self.monitor.start_operation("record_llm_request")
         
@@ -300,8 +295,7 @@ class HistoryManager(IHistoryManager):
             # 缓存记录
             if self.cache:
                 cache_key = f"llm_request:{record.record_id}"
-                import asyncio
-                asyncio.create_task(self.cache.set(cache_key, processed_record, ttl=1800))
+                await self.cache.set(cache_key, processed_record, ttl=1800)
             
             self.monitor.end_operation(operation_id, "record_llm_request", True)
             
@@ -309,7 +303,7 @@ class HistoryManager(IHistoryManager):
             self.monitor.end_operation(operation_id, "record_llm_request", False, {"error": str(e)})
             raise
     
-    def record_llm_response(self, record: LLMResponseRecord) -> None:
+    async def record_llm_response(self, record: LLMResponseRecord) -> None:
         """记录LLM响应"""
         operation_id = self.monitor.start_operation("record_llm_response")
         
@@ -326,8 +320,7 @@ class HistoryManager(IHistoryManager):
             # 缓存记录
             if self.cache:
                 cache_key = f"llm_response:{record.record_id}"
-                import asyncio
-                asyncio.create_task(self.cache.set(cache_key, processed_record, ttl=1800))
+                await self.cache.set(cache_key, processed_record, ttl=1800)
             
             self.monitor.end_operation(operation_id, "record_llm_response", True)
             
@@ -335,7 +328,7 @@ class HistoryManager(IHistoryManager):
             self.monitor.end_operation(operation_id, "record_llm_response", False, {"error": str(e)})
             raise
     
-    def record_token_usage(self, record: TokenUsageRecord) -> None:
+    async def record_token_usage(self, record: TokenUsageRecord) -> None:
         """记录Token使用"""
         operation_id = self.monitor.start_operation("record_token_usage")
         
@@ -352,8 +345,7 @@ class HistoryManager(IHistoryManager):
             # 缓存记录
             if self.cache:
                 cache_key = f"token_usage:{record.record_id}"
-                import asyncio
-                asyncio.create_task(self.cache.set(cache_key, processed_record, ttl=1800))
+                await self.cache.set(cache_key, processed_record, ttl=1800)
             
             self.monitor.end_operation(operation_id, "record_token_usage", True)
             
@@ -361,7 +353,7 @@ class HistoryManager(IHistoryManager):
             self.monitor.end_operation(operation_id, "record_token_usage", False, {"error": str(e)})
             raise
     
-    def record_cost(self, record: CostRecord) -> None:
+    async def record_cost(self, record: CostRecord) -> None:
         """记录成本"""
         operation_id = self.monitor.start_operation("record_cost")
         
@@ -378,8 +370,7 @@ class HistoryManager(IHistoryManager):
             # 缓存记录
             if self.cache:
                 cache_key = f"cost:{record.record_id}"
-                import asyncio
-                asyncio.create_task(self.cache.set(cache_key, processed_record, ttl=1800))
+                await self.cache.set(cache_key, processed_record, ttl=1800)
             
             self.monitor.end_operation(operation_id, "record_cost", True)
             
@@ -387,7 +378,7 @@ class HistoryManager(IHistoryManager):
             self.monitor.end_operation(operation_id, "record_cost", False, {"error": str(e)})
             raise
     
-    def get_token_statistics(self, session_id: str) -> Dict[str, Any]:
+    async def get_token_statistics(self, session_id: str) -> Dict[str, Any]:
         """获取Token使用统计"""
         operation_id = self.monitor.start_operation("get_token_statistics")
         
@@ -395,8 +386,7 @@ class HistoryManager(IHistoryManager):
             # 先尝试从缓存获取
             cache_key = f"token_stats:{session_id}"
             if self.cache:
-                import asyncio
-                cached_stats = asyncio.run(self.cache.get(cache_key))
+                cached_stats = await self.cache.get(cache_key)
                 if cached_stats:
                     self.monitor.end_operation(
                         operation_id, "get_token_statistics", True,
@@ -428,8 +418,7 @@ class HistoryManager(IHistoryManager):
             
             # 缓存结果
             if self.cache:
-                import asyncio
-                asyncio.create_task(self.cache.set(cache_key, result, ttl=600))
+                await self.cache.set(cache_key, result, ttl=600)
             
             self.monitor.end_operation(
                 operation_id, "get_token_statistics", True,
@@ -441,7 +430,7 @@ class HistoryManager(IHistoryManager):
             self.monitor.end_operation(operation_id, "get_token_statistics", False, {"error": str(e)})
             raise
     
-    def get_cost_statistics(self, session_id: str) -> Dict[str, Any]:
+    async def get_cost_statistics(self, session_id: str) -> Dict[str, Any]:
         """获取成本统计"""
         operation_id = self.monitor.start_operation("get_cost_statistics")
         
@@ -449,8 +438,7 @@ class HistoryManager(IHistoryManager):
             # 先尝试从缓存获取
             cache_key = f"cost_stats:{session_id}"
             if self.cache:
-                import asyncio
-                cached_stats = asyncio.run(self.cache.get(cache_key))
+                cached_stats = await self.cache.get(cache_key)
                 if cached_stats:
                     self.monitor.end_operation(
                         operation_id, "get_cost_statistics", True,
@@ -486,8 +474,7 @@ class HistoryManager(IHistoryManager):
             
             # 缓存结果
             if self.cache:
-                import asyncio
-                asyncio.create_task(self.cache.set(cache_key, result, ttl=600))
+                await self.cache.set(cache_key, result, ttl=600)
             
             self.monitor.end_operation(
                 operation_id, "get_cost_statistics", True,

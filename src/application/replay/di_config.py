@@ -9,7 +9,7 @@ from src.infrastructure.replay.replay_source_adapter import HistoryCheckpointRep
 from src.domain.replay.interfaces import IReplayEngine, IReplayAnalyzer, IReplaySource
 from src.domain.history.interfaces import IHistoryManager
 from src.domain.checkpoint.interfaces import ICheckpointManager
-from src.infrastructure.common.cache.enhanced_cache_manager import EnhancedCacheManager
+from src.presentation.api.cache.cache_manager import CacheManager
 from src.infrastructure.common.monitoring.performance_monitor import PerformanceMonitor
 
 
@@ -53,7 +53,7 @@ def register_replay_services_with_dependencies(
     container: EnhancedDependencyContainer,
     history_manager: IHistoryManager,
     checkpoint_manager: ICheckpointManager,
-    cache_manager: Optional[EnhancedCacheManager] = None,
+    cache_manager: Optional[CacheManager] = None,
     performance_monitor: Optional[PerformanceMonitor] = None
 ) -> None:
     """注册重放服务并指定依赖
@@ -71,7 +71,7 @@ def register_replay_services_with_dependencies(
     container.register_instance(ICheckpointManager, checkpoint_manager)
     
     if cache_manager:
-        container.register_instance(EnhancedCacheManager, cache_manager)
+        container.register_instance(CacheManager, cache_manager)
     
     if performance_monitor:
         container.register_instance(PerformanceMonitor, performance_monitor)

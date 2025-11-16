@@ -11,7 +11,7 @@ from datetime import datetime
 from ...domain.checkpoint.interfaces import ICheckpointStore, ICheckpointManager, ICheckpointPolicy
 from ...domain.checkpoint.config import CheckpointConfig
 from ...infrastructure.common.serialization.universal_serializer import UniversalSerializer
-from ...infrastructure.common.cache.enhanced_cache_manager import EnhancedCacheManager
+from src.presentation.api.cache.cache_manager import CacheManager
 from ...infrastructure.common.temporal.temporal_manager import TemporalManager
 from ...infrastructure.common.metadata.metadata_manager import MetadataManager
 from ...infrastructure.common.id_generator.id_generator import IDGenerator
@@ -108,7 +108,7 @@ class CheckpointManager(ICheckpointManager):
         config: CheckpointConfig,
         policy: Optional[ICheckpointPolicy] = None,
         serializer: Optional[UniversalSerializer] = None,
-        cache_manager: Optional[EnhancedCacheManager] = None,
+        cache_manager: Optional[CacheManager] = None,
         performance_monitor: Optional[PerformanceMonitor] = None
     ):
         """初始化checkpoint管理器

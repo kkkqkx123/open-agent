@@ -24,7 +24,7 @@ from ...infrastructure.graph.states import WorkflowState
 from ...domain.sessions.store import ISessionStore
 from ...domain.tools.interfaces import ToolResult
 from .git_manager import IGitManager
-from ...domain.state.interfaces import IStateManager
+from ...domain.state.interfaces import IStateLifecycleManager
 
 # 设置日志
 logger = logging.getLogger(__name__)
@@ -157,7 +157,7 @@ class SessionManager(ISessionManager):
         session_store: ISessionStore,
         git_manager: Optional[IGitManager] = None,
         storage_path: Optional[Path] = None,
-        state_manager: Optional[IStateManager] = None
+        state_manager: Optional[IStateLifecycleManager] = None
     ) -> None:
         """初始化会话管理器
 
@@ -172,7 +172,7 @@ class SessionManager(ISessionManager):
         self.session_store = session_store
         self.git_manager = git_manager
         self.storage_path = storage_path or Path("./sessions")
-        self.state_manager = state_manager
+        self.state_manager = state_manager  # type: Optional[IStateLifecycleManager]
 
         # 确保存储目录存在
         self.storage_path.mkdir(parents=True, exist_ok=True)
