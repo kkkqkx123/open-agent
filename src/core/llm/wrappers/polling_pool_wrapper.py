@@ -8,7 +8,7 @@ from datetime import datetime
 
 from .base_wrapper import BaseLLMWrapper
 from .exceptions import PollingPoolWrapperError, WrapperExecutionError
-from ..polling_pool import PollingPoolManager, LLMInstance
+from src.services.llm.polling_pool import PollingPoolManager, LLMInstance
 from ..interfaces import ILLMClient
 from ..models import LLMResponse, TokenUsage
 from ..exceptions import LLMError

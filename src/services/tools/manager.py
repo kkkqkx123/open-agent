@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 
 from src.core.tools.interfaces import ITool, IToolRegistry
-from src.infrastructure.tools.interfaces import IToolManager
+from src.core.tools.interfaces import IToolManager
 from src.core.tools.base import BaseTool
 from src.core.tools.loaders import ToolLoader
 from src.core.tools.factory import ToolFactory

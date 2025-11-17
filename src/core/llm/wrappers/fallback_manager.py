@@ -10,11 +10,11 @@ import asyncio
 from typing import Any, Optional, Sequence, Dict, List, Tuple
 from langchain_core.messages import BaseMessage
 
-from .task_group_manager import TaskGroupManager
-from .polling_pool import PollingPoolManager
-from .fallback_system.fallback_manager import FallbackManager, DefaultFallbackLogger
-from .fallback_system.fallback_config import FallbackConfig
-from .fallback_system.interfaces import IClientFactory
+from ....services.llm.task_group_manager import TaskGroupManager
+from ....services.llm.polling_pool import PollingPoolManager
+from ....services.llm.fallback_system.fallback_manager import FallbackManager, DefaultFallbackLogger
+from ....services.llm.fallback_system.fallback_config import FallbackConfig
+from ....services.llm.fallback_system.interfaces import IClientFactory
 from ..models import LLMResponse
 from ..exceptions import LLMCallError
 

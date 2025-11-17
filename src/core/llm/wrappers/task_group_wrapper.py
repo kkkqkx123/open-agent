@@ -8,8 +8,8 @@ from datetime import datetime
 
 from .base_wrapper import BaseLLMWrapper
 from .exceptions import TaskGroupWrapperError, WrapperExecutionError
-from ..task_group_manager import TaskGroupManager
-from ..enhanced_fallback_manager import EnhancedFallbackManager
+from src.services.llm.task_group_manager import TaskGroupManager
+from .fallback_manager import EnhancedFallbackManager
 from ..interfaces import ILLMClient
 from ..models import LLMResponse, TokenUsage
 from ..exceptions import LLMError

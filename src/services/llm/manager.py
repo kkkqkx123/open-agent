@@ -11,7 +11,7 @@ from enum import Enum
 from src.core.llm.interfaces import ILLMClient, ILLMManager
 from src.core.llm.factory import LLMFactory
 from src.core.llm.config import LLMConfig, LLMRegistryConfig
-from src.services.llm.enhanced_fallback_manager import EnhancedFallbackManager
+from core.llm.wrappers.fallback_manager import EnhancedFallbackManager
 from src.services.llm.task_group_manager import TaskGroupManager
 from src.core.common.exceptions import ServiceError
 

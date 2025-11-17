@@ -10,28 +10,26 @@ import inspect
 from typing import Any, Dict, List, Optional, Type, Union
 from pathlib import Path
 
-# 这些导入将在后续更新导入路径时修复
-# from infrastructure.config.loader.file_config_loader import IConfigLoader
-# from src.infrastructure.exceptions import InfrastructureError
-# from src.infrastructure.logger.logger import ILogger
-# from .interfaces import IToolManager, IToolLoader, IToolAdapter, IToolCache
-# from .interfaces import ITool, IToolRegistry
-# from .types.rest_tool import RestTool
-# from .types.mcp_tool import MCPTool
-# from .types.rest_tool import RestToolFactory
-# from .config import (
-#     ToolConfig,
-#     RestToolConfig,
-#     MCPToolConfig,
-#     RestToolConfig,
-#     ToolSetConfig,
-#     ToolRegistryConfig,
-# )
+from .interfaces import ITool, IToolRegistry
+from .config import (
+    ToolConfig,
+    NativeToolConfig,
+    RestToolConfig,
+    MCPToolConfig,
+    ToolSetConfig,
+    ToolRegistryConfig,
+)
+from .loaders import DefaultToolLoader
+from .types.rest_tool import RestTool
+from .types.mcp_tool import MCPTool
+from .types.native_tool import RestToolFactory
+from .types.native_tool import SyncRestTool, AsyncRestTool
 
-class ToolManager:
+
+class ToolManager(IToolRegistry):
     """工具管理器实现
 
-    负责工具的加载、注册、查询和管理。
+    负责工具的加载、注册、查询和管理，实现IToolRegistry接口。
     """
 
     def __init__(
@@ -58,11 +56,11 @@ class ToolManager:
         else:
             self.tool_loader = tool_loader
         self.tool_cache = tool_cache
-        self._tools: Dict[str, Any] = {}
-        self._tool_sets: Dict[str, Any] = {}
+        self._tools: Dict[str, ITool] = {}
+        self._tool_sets: Dict[str, ToolSetConfig] = {}
         self._loaded = False
 
-    def load_tools(self) -> List[Any]:
+    def load_tools(self) -> List[ITool]:
         """加载所有可用工具
 
         Returns:
@@ -73,61 +71,72 @@ class ToolManager:
 
         try:
             # 加载工具配置
-            self.logger.info("Loading tool configs")
-            self.logger.info("Calling _load_tool_configs")
+            if self.logger:
+                self.logger.info("Loading tool configs")
+                self.logger.info("Calling _load_tool_configs")
             tool_configs = self._load_tool_configs()
-            self.logger.info(f"Loaded {len(tool_configs)} tool configs")
+            if self.logger:
+                self.logger.info(f"Loaded {len(tool_configs)} tool configs")
 
             # 创建工具实例
             for config in tool_configs:
                 if not config.enabled:
-                    self.logger.info(f"跳过已禁用的工具: {config.name}")
+                    if self.logger:
+                        self.logger.info(f"跳过已禁用的工具: {config.name}")
                     continue
 
                 try:
                     tool = self._create_tool(config)
                     if tool.name not in self._tools:
                         self._tools[tool.name] = tool
-                        self.logger.info(f"已加载工具: {tool.name}")
+                        if self.logger:
+                            self.logger.info(f"已加载工具: {tool.name}")
                     else:
-                        self.logger.warning(f"工具名称重复: {tool.name}")
+                        if self.logger:
+                            self.logger.warning(f"工具名称重复: {tool.name}")
                 except Exception as e:
-                    self.logger.error(f"加载工具失败 {config.name}: {str(e)}")
+                    if self.logger:
+                        self.logger.error(f"加载工具失败 {config.name}: {str(e)}")
 
             # 加载工具集配置
             self._load_tool_sets()
 
             self._loaded = True
-            self.logger.info(f"工具加载完成，共加载 {len(self._tools)} 个工具")
+            if self.logger:
+                self.logger.info(f"工具加载完成，共加载 {len(self._tools)} 个工具")
 
             return list(self._tools.values())
 
         except Exception as e:
-            self.logger.error(f"工具加载失败: {str(e)}")
+            if self.logger:
+                self.logger.error(f"工具加载失败: {str(e)}")
             # from src.infrastructure.exceptions import InfrastructureError
             # raise InfrastructureError(f"工具加载失败: {str(e)}")
             raise Exception(f"工具加载失败: {str(e)}")
 
-    def _load_tool_configs(self) -> List[Any]:
+    def _load_tool_configs(self) -> List[ToolConfig]:
         """加载工具配置
 
         Returns:
             List[ToolConfig]: 工具配置列表
         """
         try:
-            self.logger.info("开始调用工具加载器加载工具配置")
-            self.logger.info(f"工具加载器类型: {type(self.tool_loader)}")
+            if self.logger:
+                self.logger.info("开始调用工具加载器加载工具配置")
+                self.logger.info(f"工具加载器类型: {type(self.tool_loader)}")
             # 使用工具加载器加载工具配置
             result = self.tool_loader.load_from_config("tools")
-            self.logger.info(f"工具加载器返回结果: {len(result)} 个配置")
+            if self.logger:
+                self.logger.info(f"工具加载器返回结果: {len(result)} 个配置")
             return result
         except Exception as e:
-            self.logger.error(f"加载工具配置失败: {str(e)}")
+            if self.logger:
+                self.logger.error(f"加载工具配置失败: {str(e)}")
             # from src.infrastructure.exceptions import InfrastructureError
             # raise InfrastructureError(f"加载工具配置失败: {str(e)}")
             raise Exception(f"加载工具配置失败: {str(e)}")
 
-    def _parse_tool_config(self, config_data: Dict[str, Any]) -> Any:
+    def _parse_tool_config(self, config_data: Dict[str, Any]) -> ToolConfig:
         """解析工具配置
 
         Args:
@@ -142,7 +151,7 @@ class ToolManager:
         from .config import (
             RestToolConfig,
             MCPToolConfig,
-            RestToolConfig
+            NativeToolConfig
         )
         
         tool_type = config_data.get("tool_type")
@@ -151,14 +160,14 @@ class ToolManager:
 
         if tool_type == "rest":
             return RestToolConfig(**config_data)
-        elif tool_type == "rest":
-            return RestToolConfig(**config_data)
+        elif tool_type == "native":
+            return NativeToolConfig(**config_data)
         elif tool_type == "mcp":
             return MCPToolConfig(**config_data)
         else:
             raise ValueError(f"未知的工具类型: {tool_type}")
 
-    def _create_tool(self, config: Any) -> Any:
+    def _create_tool(self, config: ToolConfig) -> ITool:
         """根据配置创建工具实例
 
         Args:
@@ -175,18 +184,19 @@ class ToolManager:
             cached_tool = self.tool_cache.get(config.name)
             if cached_tool:
                 return cached_tool
-
-        from .types.rest_tool import RestTool
-        from .types.mcp_tool import MCPTool
-        from .types.rest_tool import RestTool
         
-        tool: Any
-        if isinstance(config, RestToolConfig):
+        tool: ITool
+        if isinstance(config, NativeToolConfig):
+            # 对于原生工具，需要从配置中获取函数路径并加载函数
+            if hasattr(config, 'function_path') and config.function_path:
+                func = self._load_function_from_path(config.function_path)
+                tool = RestToolFactory.create_tool(func, config)
+            else:
+                raise ValueError("原生工具缺少function_path配置")
+        elif isinstance(config, RestToolConfig):
             tool = RestTool(config)
         elif isinstance(config, MCPToolConfig):
             tool = MCPTool(config)
-        elif isinstance(config, RestToolConfig):
-            tool = RestTool(config)
         else:
             raise ValueError(f"未知的工具配置类型: {type(config)}")
 
@@ -195,26 +205,6 @@ class ToolManager:
             self.tool_cache.set(config.name, tool)
 
         return tool
-
-    def _create_rest_tool(self, config: Any) -> Any:
-        """创建内置工具
-
-        Args:
-            config: 内置工具配置
-
-        Returns:
-            ITool: 内置工具实例
-
-        Raises:
-            ValueError: 创建内置工具失败
-        """
-        if config.function_path:
-            # 从路径加载函数
-            func = self._load_function_from_path(config.function_path)
-            from .types.rest_tool import RestToolFactory
-            return RestToolFactory.create_tool(func, config)
-        else:
-            raise ValueError("内置工具缺少function_path配置")
 
     def _load_function_from_path(self, function_path: str) -> Any:
         """从路径加载函数
@@ -247,7 +237,8 @@ class ToolManager:
             # 加载工具集配置目录
             tool_sets_config_dir = Path("configs/tool-sets")
             if not tool_sets_config_dir.exists():
-                self.logger.warning("工具集配置目录不存在: configs/tool-sets")
+                if self.logger:
+                    self.logger.warning("工具集配置目录不存在: configs/tool-sets")
                 return
 
             # 遍历工具集配置文件
@@ -259,17 +250,21 @@ class ToolManager:
 
                     if tool_set_config.enabled:
                         self._tool_sets[tool_set_config.name] = tool_set_config
-                        self.logger.info(f"已加载工具集: {tool_set_config.name}")
+                        if self.logger:
+                            self.logger.info(f"已加载工具集: {tool_set_config.name}")
                     else:
-                        self.logger.info(f"跳过已禁用的工具集: {tool_set_config.name}")
+                        if self.logger:
+                            self.logger.info(f"跳过已禁用的工具集: {tool_set_config.name}")
 
                 except Exception as e:
-                    self.logger.error(f"解析工具集配置失败 {config_file}: {str(e)}")
+                    if self.logger:
+                        self.logger.error(f"解析工具集配置失败 {config_file}: {str(e)}")
 
         except Exception as e:
-            self.logger.error(f"加载工具集配置失败: {str(e)}")
+            if self.logger:
+                self.logger.error(f"加载工具集配置失败: {str(e)}")
 
-    def get_tool(self, name: str) -> Any:
+    def get_tool(self, name: str) -> ITool:
         """根据名称获取工具
 
         Args:
@@ -289,7 +284,7 @@ class ToolManager:
 
         return self._tools[name]
 
-    def get_tool_set(self, name: str) -> List[Any]:
+    def get_tool_set(self, name: str) -> List[ITool]:
         """获取工具集
 
         Args:
@@ -315,11 +310,12 @@ class ToolManager:
                 tool = self.get_tool(tool_name)
                 tools.append(tool)
             except ValueError as e:
-                self.logger.warning(f"工具集中工具不存在 {tool_name}: {str(e)}")
+                if self.logger:
+                    self.logger.warning(f"工具集中工具不存在 {tool_name}: {str(e)}")
 
         return tools
 
-    def register_tool(self, tool: Any) -> None:
+    def register_tool(self, tool: ITool) -> None:
         """注册新工具
 
         Args:
@@ -332,7 +328,8 @@ class ToolManager:
             raise ValueError(f"工具名称已存在: {tool.name}")
 
         self._tools[tool.name] = tool
-        self.logger.info(f"已注册工具: {tool.name}")
+        if self.logger:
+            self.logger.info(f"已注册工具: {tool.name}")
 
     def list_tools(self) -> List[str]:
         """列出所有可用工具名称
@@ -367,11 +364,12 @@ class ToolManager:
         """
         if name in self._tools:
             del self._tools[name]
-            self.logger.info(f"已注销工具: {name}")
+            if self.logger:
+                self.logger.info(f"已注销工具: {name}")
             return True
         return False
 
-    def reload_tools(self) -> List[Any]:
+    def reload_tools(self) -> List[ITool]:
         """重新加载所有工具
 
         Returns:
@@ -446,7 +444,7 @@ class DefaultToolLoader:
         self.config_loader = config_loader
         self.logger = logger
     
-    def load_from_config(self, config_path: str) -> List[Any]:
+    def load_from_config(self, config_path: str) -> List[ToolConfig]:
         """从配置文件加载工具
         
         Args:
@@ -455,27 +453,32 @@ class DefaultToolLoader:
         Returns:
             List[ToolConfig]: 加载的工具配置列表
         """
-        configs: List[Any] = []
-        self.logger.info(f"Loading tools from config path: {config_path}")
+        configs: List[ToolConfig] = []
+        if self.logger:
+            self.logger.info(f"Loading tools from config path: {config_path}")
 
         try:
             # 加载工具配置目录
             tools_config_dir = Path(config_path)
-            self.logger.info(f"Checking tools config directory: {tools_config_dir}")
-            self.logger.info(f"Tools config directory exists: {tools_config_dir.exists()}")
-            self.logger.info(f"Tools config directory str: {str(tools_config_dir)}")
-            self.logger.info(f"Current working directory: {Path.cwd()}")
+            if self.logger:
+                self.logger.info(f"Checking tools config directory: {tools_config_dir}")
+                self.logger.info(f"Tools config directory exists: {tools_config_dir.exists()}")
+                self.logger.info(f"Tools config directory str: {str(tools_config_dir)}")
+                self.logger.info(f"Current working directory: {Path.cwd()}")
             if not tools_config_dir.exists():
-                self.logger.warning("工具配置目录不存在: configs/tools")
+                if self.logger:
+                    self.logger.warning("工具配置目录不存在: configs/tools")
                 return configs
 
             # 遍历工具配置文件
             config_files = list(tools_config_dir.glob("*.yaml"))
-            self.logger.info(f"Found {len(config_files)} config files")
+            if self.logger:
+                self.logger.info(f"Found {len(config_files)} config files")
             for config_file in config_files:
                 try:
-                    self.logger.info(f"Loading config from {config_file}")
-                    self.logger.info(f"Config file str: {str(config_file)}")
+                    if self.logger:
+                        self.logger.info(f"Loading config from {config_file}")
+                        self.logger.info(f"Config file str: {str(config_file)}")
                     config_data = self.config_loader.load(str(config_file))
                     
                     # 解析工具配置
@@ -483,17 +486,13 @@ class DefaultToolLoader:
                     if not tool_type:
                         raise ValueError("缺少tool_type配置")
 
-                    from .config import (
-                        RestToolConfig,
-                        MCPToolConfig,
-                        RestToolConfig
-                    )
+                    # 使用已导入的配置类，避免重复导入
                     
-                    tool_config: Any
+                    tool_config: ToolConfig
                     if tool_type == "rest":
                         tool_config = RestToolConfig(**config_data)
-                    elif tool_type == "rest":
-                        tool_config = RestToolConfig(**config_data)
+                    elif tool_type == "native":
+                        tool_config = NativeToolConfig(**config_data)
                     elif tool_type == "mcp":
                         tool_config = MCPToolConfig(**config_data)
                     else:
@@ -501,10 +500,12 @@ class DefaultToolLoader:
                         
                     configs.append(tool_config)
                 except Exception as e:
-                    self.logger.error(f"解析工具配置失败 {config_file}: {str(e)}")
+                    if self.logger:
+                        self.logger.error(f"解析工具配置失败 {config_file}: {str(e)}")
 
         except Exception as e:
-            self.logger.error(f"加载工具配置失败: {str(e)}")
+            if self.logger:
+                self.logger.error(f"加载工具配置失败: {str(e)}")
 
         return configs
     
@@ -528,10 +529,12 @@ class DefaultToolLoader:
                 # if issubclass(obj, ITool) and obj != ITool:
                 #     tool = obj()
                 #     tools.append(tool)
-                #     self.logger.info(f"从模块加载工具: {tool.name}")
+                #     if self.logger:
+                #         self.logger.info(f"从模块加载工具: {tool.name}")
                     
         except Exception as e:
-            self.logger.error(f"从模块加载工具失败 {module_path}: {str(e)}")
+            if self.logger:
+                self.logger.error(f"从模块加载工具失败 {module_path}: {str(e)}")
             
         return tools
 
@@ -551,7 +554,7 @@ class DefaultToolCache:
             key: 缓存键
             
         Returns:
-            Optional[ITool]: 工具实例，如果不存在则返回None
+            Optional[Any]: 工具实例，如果不存在则返回None
         """
         import time
         
