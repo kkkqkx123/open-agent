@@ -4,8 +4,30 @@ from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, List, Union, Tuple
 from pathlib import Path
 
-from src.infrastructure.config.models.llm_config import LLMConfig
-from src.infrastructure.config.models.connection_pool_config import ConnectionPoolConfig
+
+@dataclass
+class ConnectionPoolConfig:
+    """连接池配置"""
+    
+    max_connections: int = 10
+    max_keepalive: int = 10
+    connection_timeout: float = 30.0
+    read_timeout: float = 30.0
+    write_timeout: float = 30.0
+    connect_retries: int = 3
+    pool_timeout: float = 30.0
+    
+    def model_dump(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            "max_connections": self.max_connections,
+            "max_keepalive": self.max_keepalive,
+            "connection_timeout": self.connection_timeout,
+            "read_timeout": self.read_timeout,
+            "write_timeout": self.write_timeout,
+            "connect_retries": self.connect_retries,
+            "pool_timeout": self.pool_timeout,
+        }
 
 
 @dataclass
@@ -77,7 +99,7 @@ class LLMClientConfig:
 
     # 连接池配置
     connection_pool_config: ConnectionPoolConfig = field(
-        default_factory=lambda: ConnectionPoolConfig()  # type: ignore
+        default_factory=lambda: ConnectionPoolConfig()
     )
 
     # 工具调用配置
@@ -86,66 +108,6 @@ class LLMClientConfig:
 
     # 元数据
     metadata_config: Dict[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def from_llm_config(cls, config: LLMConfig) -> "LLMClientConfig":
-        """从LLMConfig创建LLMClientConfig"""
-        # 提取参数
-        parameters = config.parameters or {}
-
-        return cls(
-            model_type=config.model_type,
-            model_name=config.model_name,
-            base_url=config.base_url,
-            api_key=config.api_key,
-            headers=config.headers,
-            timeout=config.timeout_config.request_timeout,
-            max_retries=config.retry_config.max_retries,
-            temperature=parameters.get("temperature", 0.7),
-            max_tokens=parameters.get("max_tokens"),
-            top_p=parameters.get("top_p", 1.0),
-            # OpenAI参数
-            max_completion_tokens=parameters.get("max_completion_tokens"),
-            frequency_penalty=parameters.get("frequency_penalty", 0.0),
-            presence_penalty=parameters.get("presence_penalty", 0.0),
-            stop=parameters.get("stop"),
-            top_logprobs=parameters.get("top_logprobs"),
-            tool_choice=parameters.get("tool_choice"),
-            tools=parameters.get("tools"),
-            response_format=parameters.get("response_format"),
-            stream_options=parameters.get("stream_options"),
-            service_tier=parameters.get("service_tier"),
-            safety_identifier=parameters.get("safety_identifier"),
-            store=parameters.get("store", False),
-            reasoning=parameters.get("reasoning"),
-            verbosity=parameters.get("verbosity"),
-            web_search_options=parameters.get("web_search_options"),
-            seed=parameters.get("seed"),
-            user=parameters.get("user"),
-            # Anthropic参数
-            stop_sequences=parameters.get("stop_sequences"),
-            system=parameters.get("system"),
-            thinking_config=parameters.get("thinking_config"),
-            metadata=parameters.get("metadata"),
-            # Gemini参数
-            max_output_tokens=parameters.get("max_output_tokens"),
-            top_k=parameters.get("top_k"),
-            candidate_count=parameters.get("candidate_count"),
-            system_instruction=parameters.get("system_instruction"),
-            response_mime_type=parameters.get("response_mime_type"),
-            safety_settings=parameters.get("safety_settings"),
-            # 通用参数
-            stream=parameters.get("stream", False),
-            functions=parameters.get("functions"),
-            function_call=parameters.get("function_call"),
-            fallback_enabled=config.fallback_enabled,
-            fallback_models=config.fallback_models,
-            max_fallback_attempts=config.max_fallback_attempts,
-            function_calling_supported=config.function_calling_supported,
-            function_calling_mode=config.function_calling_mode,
-            connection_pool_config=config.connection_pool_config,
-            metadata_config=config.metadata,
-        )
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
@@ -283,7 +245,7 @@ class LLMClientConfig:
             return self._resolved_headers.copy()
 
         # 解析标头
-        from .header_validator import HeaderProcessor
+        from .utils.header_validator import HeaderProcessor
 
         processor = HeaderProcessor()
         resolved_headers, _, is_valid, errors = processor.process_headers(self.headers)
@@ -294,7 +256,7 @@ class LLMClientConfig:
         # 处理API密钥
         headers = resolved_headers.copy()
         if self.api_key:
-            from .header_validator import HeaderValidator
+            from .utils.header_validator import HeaderValidator
 
             validator = HeaderValidator()
 
@@ -342,7 +304,7 @@ class LLMClientConfig:
                 headers["x-api-key"] = self.api_key
 
         # 脱敏处理
-        from .header_validator import HeaderValidator
+        from .utils.header_validator import HeaderValidator
 
         validator = HeaderValidator()
         sanitized_headers = validator.sanitize_headers_for_logging(headers)
@@ -354,7 +316,7 @@ class LLMClientConfig:
 
     def validate_headers(self) -> Tuple[bool, List[str]]:
         """验证HTTP标头"""
-        from .header_validator import HeaderValidator
+        from .utils.header_validator import HeaderValidator
 
         validator = HeaderValidator()
         return validator.validate_headers(self.headers)
@@ -466,7 +428,7 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
-                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),  # type: ignore
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
                 metadata_config=config_dict.get("metadata", {}),
             )
         elif model_type == "gemini":
@@ -496,7 +458,7 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
-                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),  # type: ignore
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
                 metadata_config=config_dict.get("metadata", {}),
                 # Gemini缓存特定参数
                 content_cache_enabled=config_dict.get("content_cache_enabled", False),
@@ -527,7 +489,7 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
-                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),  # type: ignore
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
                 metadata_config=config_dict.get("metadata", {}),
                 )
         elif model_type == "mock":
@@ -548,7 +510,7 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
-                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),  # type: ignore
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
                 metadata_config=config_dict.get("metadata", {}),
                 response_delay=config_dict.get("response_delay", 0.1),
                 error_rate=config_dict.get("error_rate", 0.0),
@@ -580,7 +542,7 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
-                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),  # type: ignore
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
                 metadata_config=config_dict.get("metadata", {}),
                 # HumanRelay特定参数
                 mode=mode,
@@ -612,7 +574,7 @@ class LLMClientConfig:
                 fallback_enabled=config_dict.get("fallback_enabled", True),
                 fallback_models=config_dict.get("fallback_models", []),
                 max_fallback_attempts=config_dict.get("max_fallback_attempts", 3),
-                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),  # type: ignore
+                connection_pool_config=config_dict.get("connection_pool_config", ConnectionPoolConfig()),
                 metadata_config=config_dict.get("metadata", {}),
                 )
 

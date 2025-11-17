@@ -4,28 +4,11 @@
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from datetime import datetime
 from typing import Dict, Any, Optional, Sequence
 
 from langchain_core.messages import BaseMessage  # type: ignore
 
-
-@dataclass
-class TokenUsage:
-    """Token使用数据结构"""
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    total_tokens: int = 0
-    source: str = "local"  # "local" 或 "api"
-    timestamp: Optional[datetime] = None
-    additional_info: Optional[Dict[str, Any]] = None
-    
-    def __post_init__(self) -> None:
-        if self.timestamp is None:
-            self.timestamp = datetime.now()
-        if self.additional_info is None:
-            self.additional_info = {}
+from .token_types import TokenUsage
 
 
 class ITokenProcessor(ABC):
@@ -140,6 +123,115 @@ class ITokenProcessor(ABC):
         Returns:
             bool: 是否支持解析
         """
+        pass
+    
+    # 新增缓存相关方法
+    @abstractmethod
+    def supports_caching(self) -> bool:
+        """
+        检查是否支持缓存功能
+        
+        Returns:
+            bool: 是否支持缓存
+        """
+        pass
+    
+    @abstractmethod
+    def clear_cache(self) -> None:
+        """清空缓存"""
+        pass
+    
+    @abstractmethod
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """
+        获取缓存统计信息
+        
+        Returns:
+            Dict[str, Any]: 缓存统计信息
+        """
+        pass
+    
+    # 新增降级策略相关方法
+    @abstractmethod
+    def supports_degradation(self) -> bool:
+        """
+        检查是否支持降级策略
+        
+        Returns:
+            bool: 是否支持降级策略
+        """
+        pass
+    
+    @abstractmethod
+    def set_degradation_enabled(self, enabled: bool) -> None:
+        """
+        设置是否启用降级策略
+        
+        Args:
+            enabled: 是否启用降级策略
+        """
+        pass
+    
+    @abstractmethod
+    def is_degradation_enabled(self) -> bool:
+        """
+        检查降级策略是否启用
+        
+        Returns:
+            bool: 降级策略是否启用
+        """
+        pass
+    
+    # 新增统计功能
+    @abstractmethod
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        获取统计信息
+        
+        Returns:
+            Dict[str, Any]: 统计信息
+        """
+        pass
+    
+    @abstractmethod
+    def reset_stats(self) -> None:
+        """重置统计信息"""
+        pass
+    
+    # 新增对话跟踪功能
+    @abstractmethod
+    def supports_conversation_tracking(self) -> bool:
+        """
+        检查是否支持对话跟踪
+        
+        Returns:
+            bool: 是否支持对话跟踪
+        """
+        pass
+    
+    @abstractmethod
+    def set_conversation_tracking_enabled(self, enabled: bool) -> None:
+        """
+        设置是否启用对话跟踪
+        
+        Args:
+            enabled: 是否启用对话跟踪
+        """
+        pass
+    
+    @abstractmethod
+    def get_conversation_stats(self) -> Optional[Dict[str, Any]]:
+        """
+        获取对话统计信息
+        
+        Returns:
+            Optional[Dict[str, Any]]: 对话统计信息，如果未启用则返回None
+        """
+        pass
+    
+    @abstractmethod
+    def clear_conversation_history(self) -> None:
+        """清空对话历史"""
         pass
     
     def calculate_usage_cost(self, usage: TokenUsage, model_pricing: Optional[Dict[str, float]] = None) -> Optional[float]:

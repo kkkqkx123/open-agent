@@ -15,7 +15,7 @@ from src.core.llm.exceptions import LLMError
 from src.core.llm.models import LLMResponse
 from src.services.llm.state_machine import StateMachine, LLMManagerState
 from src.services.llm.config.config_validator import LLMConfigValidator, ValidationResult
-from services.llm.utils.metadata_service import ClientMetadataService
+from src.services.llm.utils.metadata_service import ClientMetadataService
 from src.services.llm.config.configuration_service import LLMClientConfigurationService
 from src.services.llm.config.config_manager import ConfigManager
 from src.services.llm.core.client_manager import LLMClientManager
@@ -295,7 +295,7 @@ class LLMManager(ILLMManager):
         task_type: Optional[str] = None,
         preferred_client: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None,
-        **kwargs
+        **kwargs: Any
     ) -> LLMResponse:
         """使用降级机制执行LLM请求
         
@@ -330,7 +330,7 @@ class LLMManager(ILLMManager):
         task_type: Optional[str] = None,
         preferred_client: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None,
-        **kwargs
+        **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """使用降级机制执行流式LLM请求
         

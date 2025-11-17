@@ -4,8 +4,8 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Sequence
 from langchain_core.messages import BaseMessage
 
-from ..models import LLMResponse
-from ..exceptions import LLMCallError
+from src.core.llm.models import LLMResponse
+from src.core.llm.exceptions import LLMCallError
 
 
 class IFallbackStrategy(ABC):
