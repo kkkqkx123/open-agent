@@ -22,9 +22,7 @@ from .token_processing import (
     TokenUsage, 
     OpenAITokenProcessor, 
     AnthropicTokenProcessor, 
-    GeminiTokenProcessor,
-    create_token_processor,
-    get_supported_providers
+    GeminiTokenProcessor
 )
 
 __all__ = [
@@ -60,8 +58,6 @@ __all__ = [
     "OpenAITokenProcessor",
     "AnthropicTokenProcessor",
     "GeminiTokenProcessor",
-    "create_token_processor",
-    "get_supported_providers",
     
     # 依赖注入
     "register_llm_services",

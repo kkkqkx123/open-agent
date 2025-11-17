@@ -3,7 +3,7 @@
 import time
 import asyncio
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Sequence, Type, Union, Callable, Awaitable
+from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Sequence, Type, Union, Callable, Awaitable, cast
 from datetime import datetime
 
 from langchain_core.messages import BaseMessage
@@ -219,7 +219,8 @@ class EnhancedLLMClient(ILLMClient):
         if not hasattr(llm_error, 'error_context') or llm_error.error_context is None:
             llm_error.error_context = context.to_dict()
             
-        return llm_error
+        # 显式类型转换
+        return cast(LLMCallError, llm_error)
     
     def _create_enhanced_error(
         self,
@@ -328,7 +329,7 @@ class EnhancedLLMClient(ILLMClient):
                 if "function_call" in additional_kwargs:
                     result = additional_kwargs["function_call"]
                     if isinstance(result, dict):
-                        return result
+                        return cast(Dict[str, Any], result)
         
         # 检查tool_calls
         if hasattr(response, "tool_calls"):
@@ -341,9 +342,9 @@ class EnhancedLLMClient(ILLMClient):
                         # 返回第一个工具调用
                         tool_call = tool_calls[0]
                         if hasattr(tool_call, "dict"):
-                            return tool_call.dict()
+                            return cast(Dict[str, Any], tool_call.dict())
                         elif isinstance(tool_call, dict):
-                            return tool_call
+                            return cast(Dict[str, Any], tool_call)
                 except TypeError:
                     # 如果tool_calls是Mock对象且没有长度，跳过
                     pass
@@ -355,7 +356,7 @@ class EnhancedLLMClient(ILLMClient):
                 if "function_call" in metadata:
                     result = metadata["function_call"]
                     if isinstance(result, dict):
-                        return result
+                        return cast(Dict[str, Any], result)
                 elif "tool_calls" in metadata:
                     tool_calls = metadata["tool_calls"]
                     if tool_calls is not None:
@@ -363,7 +364,7 @@ class EnhancedLLMClient(ILLMClient):
                             if hasattr(tool_calls, "__len__") and len(tool_calls) > 0:
                                 tool_call = tool_calls[0]
                                 if isinstance(tool_call, dict):
-                                    return tool_call
+                                    return cast(Dict[str, Any], tool_call)
                         except TypeError:
                             # 如果tool_calls是Mock对象且没有长度，跳过
                             pass

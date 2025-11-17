@@ -10,6 +10,7 @@ from langchain_core.messages import BaseMessage  # type: ignore
 
 from .base_implementation import CachedTokenProcessor, DegradationTokenProcessor
 from .token_types import TokenUsage
+from .local_calculator import LocalTokenCalculator
 from ..utils.encoding_protocol import extract_content_as_string
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,11 @@ class HybridTokenProcessor(CachedTokenProcessor, DegradationTokenProcessor):
         DegradationTokenProcessor.__init__(self, model_name, provider, enable_degradation)
         
         self.prefer_api = prefer_api
+        self.enable_degradation = enable_degradation
         self.enable_conversation_tracking = enable_conversation_tracking
+        
+        # 初始化本地计算器
+        self._local_calculator = LocalTokenCalculator(model_name, provider)
         
         # 初始化对话跟踪器
         self._conversation_history: list[Dict[str, Any]] = []
@@ -110,32 +115,37 @@ class HybridTokenProcessor(CachedTokenProcessor, DegradationTokenProcessor):
     def _count_tokens_local(self, text: str) -> Optional[int]:
         """使用本地计算器计算token数量"""
         self._stats["local_calculations"] += 1
-        self._stats["successful_calculations"] += 1
+        
+        # 使用本地计算器
+        result = self._local_calculator.count_tokens(text)
         
         # 添加到对话历史
         if self.enable_conversation_tracking:
-            self._add_message_to_history("human", text, None)
+            self._add_message_to_history("human", text, result)
         
-        # 这里应该调用具体的本地计算实现
-        # 暂时返回估算值
-        return len(text.split()) * 2  # 简单估算
+        if result is not None:
+            self._stats["successful_calculations"] += 1
+        else:
+            self._stats["failed_calculations"] += 1
+        return result
     
     def _count_messages_tokens_local(self, messages: Sequence[BaseMessage]) -> Optional[int]:
         """使用本地计算器计算消息token数量"""
         self._stats["local_calculations"] += 1
-        self._stats["successful_calculations"] += 1
         
-        total_tokens = 0
-        for message in messages:
-            content = extract_content_as_string(message.content)
-            tokens = len(content.split()) * 2  # 简单估算
-            total_tokens += tokens
-            
-            # 添加到对话历史
-            if self.enable_conversation_tracking:
-                self._add_message_to_history(message.type, content, tokens)
+        # 使用本地计算器
+        result = self._local_calculator.count_messages_tokens(messages)
         
-        return total_tokens
+        # 添加到对话历史
+        if self.enable_conversation_tracking:
+            content = self._messages_to_text(messages)
+            self._add_message_to_history("messages", content, result)
+        
+        if result is not None:
+            self._stats["successful_calculations"] += 1
+        else:
+            self._stats["failed_calculations"] += 1
+        return result
     
     def _count_tokens_with_api_fallback(self, text: str, api_response: Optional[Dict[str, Any]] = None) -> Optional[int]:
         """使用API计算并支持降级到本地计算"""
@@ -147,6 +157,7 @@ class HybridTokenProcessor(CachedTokenProcessor, DegradationTokenProcessor):
                 
                 # 检查是否需要降级
                 if self._should_degrade(api_usage.total_tokens, local_count):
+                    self._stats["successful_calculations"] += 1
                     return local_count
                 
                 # 使用API结果
@@ -190,6 +201,7 @@ class HybridTokenProcessor(CachedTokenProcessor, DegradationTokenProcessor):
                 
                 # 检查是否需要降级
                 if self._should_degrade(api_usage.total_tokens, local_count):
+                    self._stats["successful_calculations"] += 1
                     return local_count
                 
                 # 使用API结果
@@ -367,7 +379,8 @@ class HybridTokenProcessor(CachedTokenProcessor, DegradationTokenProcessor):
             "prefer_api": self.prefer_api,
             "enable_conversation_tracking": self.enable_conversation_tracking,
             "conversation_stats": self.get_conversation_stats(),
-            "cache_stats": self.get_cache_stats()
+            "cache_stats": self.get_cache_stats(),
+            "local_calculator_info": self._local_calculator.get_model_info()
         })
         return base_info
     

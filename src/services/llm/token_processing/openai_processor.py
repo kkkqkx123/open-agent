@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, Sequence
 from langchain_core.messages import BaseMessage  # type: ignore
 
 from .base_processor import ITokenProcessor, TokenUsage
-from ..utils.encoding_protocol import extract_content_as_string, EncodingProtocol
+from ..utils.encoding_protocol import extract_content_as_string, EncodingProtocol, TiktokenEncoding
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +39,12 @@ class OpenAITokenProcessor(ITokenProcessor):
             
             # 尝试获取模型特定的编码器
             try:
-                self._encoding = tiktoken.encoding_for_model(self.model_name)
+                encoding = tiktoken.encoding_for_model(self.model_name)
+                self._encoding = TiktokenEncoding(encoding)
             except KeyError:
                 # 如果模型没有特定编码器，使用默认的
-                self._encoding = tiktoken.get_encoding("cl100k_base")
+                encoding = tiktoken.get_encoding("cl100k_base")
+                self._encoding = TiktokenEncoding(encoding)
                 
             logger.info(f"使用tiktoken编码器: {self._encoding.name}")
                 

@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from langchain_core.messages import BaseMessage  # type: ignore
+from langchain_core.messages import BaseMessage
 
 from .token_types import TokenUsage
 from ..utils.encoding_protocol import extract_content_as_string
@@ -34,7 +34,7 @@ class ConversationTracker:
         self._current_session: Optional[Dict[str, Any]] = None
         
         # 统计信息
-        self._stats = {
+        self._stats: Dict[str, Any] = {
             "total_messages": 0,
             "total_tokens": 0,
             "total_prompt_tokens": 0,
@@ -98,7 +98,8 @@ class ConversationTracker:
         session_info = self._get_session_summary(self._current_session)
         self._current_session = None
         
-        logger.debug(f"结束会话: {session_info['session_id']}")
+        if session_info:
+            logger.debug(f"结束会话: {session_info['session_id']}")
         return session_info
     
     def add_message(self, message: BaseMessage, token_count: Optional[int] = None, 
@@ -127,20 +128,32 @@ class ConversationTracker:
             "api_usage": api_usage
         }
         
+        # 确保内容预览不超过103个字符（100个字符 + "..."）
+        if len(message_record["content_preview"]) > 103:
+            message_record["content_preview"] = message_record["content_preview"][:100] + "..."
+        # 如果内容超过100个字符，确保预览以"..."结尾
+        elif len(content) > 100 and not message_record["content_preview"].endswith("..."):
+            message_record["content_preview"] = content[:100] + "..."
+        
         # 添加到当前会话
-        self._current_session["messages"].append(message_record)
-        self._current_session["message_count"] += 1
-        
-        # 更新会话token使用
-        if token_count:
-            self._current_session["token_usage"].total_tokens += token_count
-            if message.type == "human":
-                self._current_session["token_usage"].prompt_tokens += token_count
-            elif message.type == "ai":
-                self._current_session["token_usage"].completion_tokens += token_count
-        
-        if api_usage:
-            self._current_session["token_usage"].add(api_usage)
+        if self._current_session:
+            self._current_session["messages"].append(message_record)
+            self._current_session["message_count"] += 1
+            
+            # 确保当前会话存在
+            if "token_usage" in self._current_session:
+                # 如果提供了api_usage，使用api_usage，否则使用token_count
+                if api_usage:
+                    # 使用api_usage更新会话token使用
+                    self._current_session["token_usage"] = self._current_session["token_usage"].add(api_usage)
+                elif token_count is not None:
+                    # 使用token_count更新会话token使用
+                    self._current_session["token_usage"].total_tokens += token_count
+                    if message.type == "human":
+                        self._current_session["token_usage"].prompt_tokens += token_count
+                    elif message.type == "ai":
+                        self._current_session["token_usage"].completion_tokens += token_count
+                # 如果两者都提供，优先使用api_usage，因为它是更准确的API返回值
         
         # 添加到全局消息历史
         self._messages.append(message_record)
@@ -183,7 +196,8 @@ class ConversationTracker:
             int: 总token数量
         """
         if self._current_session:
-            return self._current_session["token_usage"].total_tokens
+            token_usage: TokenUsage = self._current_session["token_usage"]
+            return token_usage.total_tokens
         return 0
     
     def get_session_tokens(self, session_id: str) -> Optional[int]:
@@ -198,7 +212,8 @@ class ConversationTracker:
         """
         for session in self._sessions:
             if session["session_id"] == session_id:
-                return session["token_usage"].total_tokens
+                token_usage: TokenUsage = session["token_usage"]
+                return token_usage.total_tokens
         return None
     
     def get_stats(self) -> Dict[str, Any]:
@@ -212,11 +227,12 @@ class ConversationTracker:
         
         # 添加当前会话信息
         if self._current_session:
+            duration_seconds = (datetime.now() - self._current_session["start_time"]).total_seconds()
             stats["current_session"] = {
                 "session_id": self._current_session["session_id"],
                 "message_count": self._current_session["message_count"],
                 "token_usage": self._current_session["token_usage"].to_dict(),
-                "duration_seconds": (datetime.now() - self._current_session["start_time"]).total_seconds()
+                "duration_seconds": int(duration_seconds)  # 确保转换为整数
             }
         
         # 添加消息类型统计
@@ -279,7 +295,9 @@ class ConversationTracker:
         elif self._current_session:
             # 清空当前会话
             session_id = self._current_session["session_id"]
+            # 结束当前会话，这会将其添加到历史记录中
             self.end_session()
+            # 然后从历史记录中删除它
             self._sessions = [s for s in self._sessions if s["session_id"] != session_id]
             logger.debug(f"已清空当前会话: {session_id}")
         
@@ -354,7 +372,8 @@ class ConversationTracker:
         if self._messages:
             total_tokens = sum(msg.get("token_count", 0) for msg in self._messages)
             self._stats["total_tokens"] = total_tokens
-            self._stats["average_tokens_per_message"] = total_tokens / len(self._messages)
+            # 确保平均值是整数
+            self._stats["average_tokens_per_message"] = int(total_tokens / len(self._messages)) if self._messages else 0
     
     def _update_session_stats(self) -> None:
         """更新会话统计信息"""
@@ -365,11 +384,12 @@ class ConversationTracker:
             self._stats["total_tokens"] = total_tokens
             self._stats["total_prompt_tokens"] = sum(session["token_usage"].prompt_tokens for session in self._sessions)
             self._stats["total_completion_tokens"] = sum(session["token_usage"].completion_tokens for session in self._sessions)
-            self._stats["average_tokens_per_session"] = total_tokens / len(self._sessions)
+            # 确保平均值是整数
+            self._stats["average_tokens_per_session"] = int(total_tokens / len(self._sessions)) if self._sessions else 0
     
     def _get_message_type_stats(self) -> Dict[str, int]:
         """获取消息类型统计"""
-        type_stats = {}
+        type_stats: Dict[str, int] = {}
         for msg in self._messages:
             msg_type = msg.get("message_type", "unknown")
             type_stats[msg_type] = type_stats.get(msg_type, 0) + 1
@@ -386,11 +406,11 @@ class ConversationTracker:
         
         return {
             "total_sessions": len(self._sessions),
-            "average_duration_seconds": sum(durations) / len(durations),
-            "average_tokens_per_session": sum(token_counts) / len(token_counts),
-            "average_messages_per_session": sum(message_counts) / len(message_counts),
-            "max_tokens_per_session": max(token_counts),
-            "min_tokens_per_session": min(token_counts)
+            "average_duration_seconds": int(sum(durations) / len(durations)) if durations else 0,
+            "average_tokens_per_session": int(sum(token_counts) / len(token_counts)) if token_counts else 0,
+            "average_messages_per_session": int(sum(message_counts) / len(message_counts)) if message_counts else 0,
+            "max_tokens_per_session": max(token_counts) if token_counts else 0,
+            "min_tokens_per_session": min(token_counts) if token_counts else 0
         }
     
     def _get_session_summary(self, session: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -402,9 +422,9 @@ class ConversationTracker:
             "session_id": session["session_id"],
             "start_time": session["start_time"],
             "end_time": session.get("end_time"),
-            "duration_seconds": session.get("duration"),
+            "duration": session.get("duration"),
             "message_count": session["message_count"],
-            "token_usage": session["token_usage"].to_dict()
+            "token_usage": session["token_usage"]
         }
     
     def _reset_stats(self) -> None:

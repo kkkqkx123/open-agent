@@ -145,7 +145,11 @@ class Serializer:
                 loaded_data = json.loads(json_str)
                 result = self._postprocess_data(loaded_data)
             elif format == self.FORMAT_PICKLE:
-                result = pickle.loads(data)
+                if isinstance(data, str):
+                    pickle_data = data.encode('utf-8')
+                else:
+                    pickle_data = data
+                result = pickle.loads(pickle_data)
             else:
                 raise ValueError(f"不支持的格式: {format}")
             

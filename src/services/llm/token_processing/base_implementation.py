@@ -167,6 +167,31 @@ class BaseTokenProcessor(ITokenProcessor):
             "supports_conversation_tracking": self.supports_conversation_tracking(),
             "stats": self.get_stats()
         }
+    
+    # 核心方法的默认实现
+    def count_tokens(self, text: str) -> Optional[int]:
+        """默认不支持token计数"""
+        logger.debug(f"Token计数功能未实现 (model={self.model_name}, provider={self.provider})")
+        return None
+    
+    def count_messages_tokens(self, messages: Sequence[BaseMessage], api_response: Optional[Dict[str, Any]] = None) -> Optional[int]:
+        """默认不支持消息token计数"""
+        logger.debug(f"消息Token计数功能未实现 (model={self.model_name}, provider={self.provider})")
+        return None
+    
+    def parse_response(self, response: Dict[str, Any]) -> Optional[TokenUsage]:
+        """默认不支持解析响应"""
+        logger.debug(f"响应解析功能未实现 (model={self.model_name}, provider={self.provider})")
+        return None
+    
+    def update_from_api_response(self, response: Dict[str, Any], context: Optional[str] = None) -> bool:
+        """默认不支持从API响应更新"""
+        logger.debug(f"API响应更新功能未实现 (model={self.model_name}, provider={self.provider})")
+        return False
+    
+    def is_supported_response(self, response: Dict[str, Any]) -> bool:
+        """默认不支持任何响应"""
+        return False
 
 
 class CachedTokenProcessor(BaseTokenProcessor):

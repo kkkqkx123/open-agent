@@ -108,6 +108,47 @@ class FallbackManager:
         
         return response
     
+    def generate_with_fallback_sync(
+        self, 
+        messages: Sequence[BaseMessage], 
+        parameters: Optional[Dict[str, Any]] = None,
+        primary_model: Optional[str] = None,
+        **kwargs: Any
+    ) -> LLMResponse:
+        """
+        带降级的同步生成（Core 层方法）
+        
+        Args:
+            messages: 消息列表
+            parameters: 生成参数
+            primary_model: 主模型名称
+            **kwargs: 其他参数
+            
+        Returns:
+            LLM响应
+            
+        Raises:
+            LLMCallError: 所有尝试都失败
+        """
+        # 使用asyncio运行异步方法
+        try:
+            # 获取当前事件循环
+            loop = asyncio.get_event_loop()
+            # 如果已经在事件循环中，使用run_until_complete
+            if loop.is_running():
+                # 创建新的事件循环来运行
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(
+                        lambda: asyncio.run(self.generate_with_fallback(messages, parameters, primary_model, **kwargs))
+                    )
+                    return future.result()
+            else:
+                # 直接运行异步方法
+                return loop.run_until_complete(self.generate_with_fallback(messages, parameters, primary_model, **kwargs))
+        except Exception as e:
+            raise LLMCallError(f"同步降级生成失败: {e}")
+    
     def get_stats(self) -> Dict[str, Any]:
         """
         获取降级统计信息（整合 Core 和 Services 层）
