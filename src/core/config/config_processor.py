@@ -7,6 +7,7 @@ import re
 from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
 
+from ..common.cache import ConfigCache
 from .config_loader import ConfigLoader
 from .models import BaseConfig, ConfigType, get_config_model
 from .exceptions import (
@@ -22,7 +23,7 @@ class ConfigProcessor:
     def __init__(self, loader: Optional[ConfigLoader] = None):
         """初始化处理器"""
         self.loader = loader or ConfigLoader()
-        self._inheritance_cache = {}  # 继承处理缓存
+        self._inheritance_cache = ConfigCache()  # 使用统一缓存系统
         self._env_var_pattern = re.compile(r'\$\{([^}]+)\}')
     
     def process(self, config: Dict[str, Any], config_path: Optional[str] = None) -> Dict[str, Any]:
@@ -93,8 +94,9 @@ class ConfigProcessor:
         
         # 检查缓存
         cache_key = f"{parent_path}:{current_path}"
-        if cache_key in self._inheritance_cache:
-            return self._inheritance_cache[cache_key]
+        cached_config = self._inheritance_cache.get(cache_key)
+        if cached_config is not None:
+            return cached_config
         
         # 加载父配置
         parent_config = self.loader.load(parent_path)
@@ -104,7 +106,7 @@ class ConfigProcessor:
             parent_config = self._process_inheritance(parent_config, parent_path)
         
         # 缓存结果
-        self._inheritance_cache[cache_key] = parent_config
+        self._inheritance_cache.put(cache_key, parent_config)
         
         return parent_config
     

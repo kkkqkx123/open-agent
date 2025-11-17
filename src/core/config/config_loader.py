@@ -7,8 +7,8 @@ import yaml
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
-from functools import lru_cache
 
+from ..common.cache import config_cached
 from .exceptions import (
     ConfigNotFoundError,
     ConfigFormatError,
@@ -24,9 +24,9 @@ class ConfigLoader:
         self.base_path = base_path or Path("configs")
         self._supported_formats = {'.yaml', '.yml', '.json'}
     
-    @lru_cache(maxsize=128)
+    @config_cached(maxsize=256)
     def load(self, config_path: str) -> Dict[str, Any]:
-        """加载配置（带缓存）"""
+        """加载配置"""
         full_path = self._resolve_path(config_path)
         
         if not full_path.exists():
@@ -99,42 +99,17 @@ class ConfigLoader:
                 config_files.extend(search_path.glob(f'*{ext}'))
         
         return [str(f.relative_to(self.base_path)) for f in config_files]
-    
+
     def invalidate_cache(self, config_path: str) -> None:
         """清除指定配置的缓存"""
-        # lru_cache会自动管理，这里提供接口用于手动清除
-        # 可以通过调用相同参数的load来刷新缓存
-        pass
-
-
-class CachedConfigLoader(ConfigLoader):
-    """带缓存的配置加载器"""
+        # 通过清除全局缓存来实现
+        from ..common.cache import clear_cache
+        clear_cache("config_func")
     
-    def __init__(self, base_path: Optional[Path] = None, cache_size: int = 128):
-        super().__init__(base_path)
-        self._cache = {}
-        self._cache_size = cache_size
-    
-    def load(self, config_path: str) -> Dict[str, Any]:
-        """加载配置（带手动缓存）"""
-        if config_path in self._cache:
-            return self._cache[config_path]
-        
-        config = super().load(config_path)
-        self._cache[config_path] = config
-        
-        # 简单的LRU缓存清理
-        if len(self._cache) > self._cache_size:
-            # 移除最旧的条目
-            oldest_key = next(iter(self._cache))
-            del self._cache[oldest_key]
-        
-        return config
-    
-    def invalidate_cache(self, config_path: str) -> None:
-        """清除指定配置的缓存"""
-        if config_path in self._cache:
-            del self._cache[config_path]
+    def clear_cache(self) -> None:
+        """清除所有缓存"""
+        from ..common.cache import clear_cache
+        clear_cache("config_func")
 
 
 # 工具函数
@@ -157,11 +132,11 @@ def merge_configs(*configs: Dict[str, Any]) -> Dict[str, Any]:
 def _deep_merge(base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
     """深度合并字典"""
     result = base.copy()
-    
+
     for key, value in update.items():
         if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = _deep_merge(result[key], value)
         else:
             result[key] = value
-    
+
     return result

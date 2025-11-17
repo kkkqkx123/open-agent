@@ -5,9 +5,9 @@
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Type, TypeVar, Generic, Callable
-from functools import lru_cache
 
-from .config_loader import ConfigLoader, CachedConfigLoader
+from ..common.cache import ConfigCache, get_global_cache_manager, clear_cache
+from .config_loader import ConfigLoader
 from .config_processor import ConfigProcessor
 from .models import BaseConfig, ConfigType, get_config_model, ConfigRegistry
 from .exceptions import (
@@ -32,10 +32,7 @@ class ConfigManager:
         self.base_path = base_path or Path("configs")
         
         # 初始化加载器
-        if use_cache:
-            self.loader = CachedConfigLoader(self.base_path)
-        else:
-            self.loader = ConfigLoader(self.base_path)
+        self.loader = ConfigLoader(self.base_path)
         
         # 初始化处理器
         self.processor = ConfigProcessor(self.loader)
@@ -45,13 +42,20 @@ class ConfigManager:
         
         # 自动重载配置
         self.auto_reload = auto_reload
-        self._config_cache = {}  # 处理后的配置缓存
-        self._model_cache = {}   # 模型实例缓存
+        
+        # 使用统一缓存系统
+        self._config_cache = ConfigCache()
+        self._model_cache = ConfigCache()
     
-    @lru_cache(maxsize=256)
     def load_config(self, config_path: str, config_type: Optional[ConfigType] = None) -> Dict[str, Any]:
         """加载并处理配置"""
         try:
+            # 检查缓存
+            cache_key = config_path
+            cached_config = self._config_cache.get(cache_key)
+            if cached_config is not None:
+                return cached_config
+            
             # 加载原始配置
             raw_config = self.loader.load(config_path)
             
@@ -59,7 +63,7 @@ class ConfigManager:
             processed_config = self.processor.process(raw_config, config_path)
             
             # 缓存处理后的配置
-            self._config_cache[config_path] = processed_config
+            self._config_cache.put(cache_key, processed_config)
             
             return processed_config
             
@@ -82,12 +86,17 @@ class ConfigManager:
                 final_model_class = get_config_model(ConfigType(config_type))  # type: ignore[assignment]
         
         try:
+            # 检查模型缓存
+            cache_key = f"{config_path}:{final_model_class.__name__}"
+            cached_model = self._model_cache.get(cache_key)
+            if cached_model is not None:
+                return cached_model
+            
             # 创建模型实例
             model_instance = final_model_class(**config_data)
             
             # 缓存模型实例
-            cache_key = f"{config_path}:{final_model_class.__name__}"
-            self._model_cache[cache_key] = model_instance
+            self._model_cache.put(cache_key, model_instance)
             
             return model_instance
             
@@ -137,11 +146,11 @@ class ConfigManager:
     def reload_config(self, config_path: str) -> Dict[str, Any]:
         """重新加载配置"""
         # 清除缓存
-        if config_path in self._config_cache:
-            del self._config_cache[config_path]
+        self._config_cache.clear()
+        self._model_cache.clear()
         
-        # 清除lru_cache
-        self.load_config.cache_clear()
+        # 清除加载器缓存
+        self.loader.invalidate_cache(config_path)
         
         # 重新加载
         return self.load_config(config_path)
@@ -150,18 +159,17 @@ class ConfigManager:
         """清除缓存"""
         if config_path:
             # 清除指定配置的缓存
-            if config_path in self._config_cache:
-                del self._config_cache[config_path]
+            # 简化实现：清除所有缓存
+            self._config_cache.clear()
+            self._model_cache.clear()
             
-            # 清除模型缓存
-            model_keys = [key for key in self._model_cache.keys() if key.startswith(config_path)]
-            for key in model_keys:
-                del self._model_cache[key]
+            # 清除加载器缓存
+            self.loader.invalidate_cache(config_path)
         else:
             # 清除所有缓存
             self._config_cache.clear()
             self._model_cache.clear()
-            self.load_config.cache_clear()
+            self.loader.clear_cache()
     
     def validate_config(self, config_data: Dict[str, Any], config_type: Optional[ConfigType] = None) -> bool:
         """验证配置数据"""
