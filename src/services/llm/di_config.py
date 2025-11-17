@@ -13,7 +13,7 @@ from src.core.llm.interfaces import (
 from .task_group_manager import TaskGroupManager
 from .polling_pool import PollingPoolManager
 from .client_factory import ClientFactory
-from .fallback_manager import FallbackManager
+from .fallback_system.fallback_manager import FallbackManager
 from .manager import LLMManager
 from .configuration_service import LLMClientConfigurationService
 from .client_manager import LLMClientManager

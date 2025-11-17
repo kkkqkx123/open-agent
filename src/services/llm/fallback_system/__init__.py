@@ -1,7 +1,7 @@
 """LLM降级模块"""
 
 from typing import Any, List, Optional
-from .fallback_manager import FallbackManager, DefaultFallbackLogger
+from .fallback_manager import FallbackManager
 from .fallback_config import FallbackConfig, FallbackAttempt, FallbackSession
 from .interfaces import IFallbackStrategy, IClientFactory, IFallbackLogger
 from .strategies import (
@@ -14,6 +14,9 @@ from .strategies import (
     ConditionalFallback,
     create_fallback_strategy
 )
+
+# 使用 Core 层的 DefaultFallbackLogger
+from src.core.llm.wrappers.fallback_manager import DefaultFallbackLogger
 
 
 class SelfManagingFallbackFactory(IClientFactory):
