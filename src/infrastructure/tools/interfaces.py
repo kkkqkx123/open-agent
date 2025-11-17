@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Sequence, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.domain.tools.interfaces import ITool, ToolCall, ToolResult
+    from src.core.tools.interfaces import ITool, ToolCall, ToolResult
     from .config import ToolConfig
 
 

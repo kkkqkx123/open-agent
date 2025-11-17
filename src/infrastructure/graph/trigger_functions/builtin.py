@@ -84,7 +84,7 @@ class BuiltinTriggerFunctions:
         try:
             # 创建安全的执行环境
             safe_globals = {
-                "__builtins__": {
+                "__rests__": {
                     "len": len,
                     "str": str,
                     "int": int,

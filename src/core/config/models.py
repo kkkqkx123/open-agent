@@ -129,7 +129,7 @@ class ToolConfig(BaseConfig):
     @validator('type')
     def validate_tool_type(cls, v):
         """验证工具类型"""
-        valid_types = ['builtin', 'mcp', 'native', 'external']
+        valid_types = ['rest', 'mcp', 'rest', 'external']
         if v not in valid_types:
             raise ValueError(f'不支持的工具类型: {v}，支持的类型: {valid_types}')
         return v

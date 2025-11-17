@@ -14,8 +14,8 @@ from .adapters.state_adapter import StateAdapter
 from src.infrastructure.async_utils.event_loop_manager import AsyncLock, AsyncContextManager
 from typing import TYPE_CHECKING
 
-from src.infrastructure.llm.interfaces import ILLMClient
-from src.infrastructure.tools.executor import IToolExecutor
+from src.core.llm.interfaces import ILLMClient
+from src.core.tools.executor import IToolExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -63,14 +63,14 @@ class AsyncNodeExecutor(IAsyncNodeExecutor, AsyncContextManager):
             container = get_global_container()
             
             if self._llm_client is None:
-                from src.infrastructure.llm.interfaces import ILLMClient
+                from src.core.llm.interfaces import ILLMClient
                 self._llm_client = container.get(ILLMClient)
             
             if self._tool_executor is None:
-                from src.infrastructure.tools.interfaces import IToolManager
+                from src.core.tools.interfaces import IToolManager
                 # 获取工具管理器，然后创建执行器
                 tool_manager = container.get(IToolManager)
-                from src.infrastructure.tools.executor import AsyncToolExecutor
+                from src.core.tools.executor import AsyncToolExecutor
                 from src.infrastructure.logger.logger import Logger
                 tool_logger = Logger("AsyncToolExecutor")
                 self._tool_executor = AsyncToolExecutor(
@@ -119,9 +119,9 @@ class AsyncNodeExecutor(IAsyncNodeExecutor, AsyncContextManager):
                     pass
                 
                 # 执行内置节点类型
-                builtin_executor = self._get_builtin_executor(node_type)
-                if builtin_executor:
-                    return await builtin_executor(state, config)
+                rest_executor = self._get_rest_executor(node_type)
+                if rest_executor:
+                    return await rest_executor(state, config)
                 
                 # 默认返回原始状态
                 logger.warning(f"未知节点类型: {node_type}，返回原始状态")
@@ -131,15 +131,15 @@ class AsyncNodeExecutor(IAsyncNodeExecutor, AsyncContextManager):
                 logger.error(f"节点执行失败: {e}")
                 raise
     
-    def _get_builtin_executor(self, node_type: str) -> Optional[Callable[[WorkflowState, Dict[str, Any]], Awaitable[WorkflowState]]]:
+    def _get_rest_executor(self, node_type: str) -> Optional[Callable[[WorkflowState, Dict[str, Any]], Awaitable[WorkflowState]]]:
         """获取内置节点执行器"""
-        builtin_executors = {
+        rest_executors = {
             "llm_node": self._execute_llm_node_async,
             "tool_node": self._execute_tool_node_async,
             "analysis_node": self._execute_analysis_node_async,
             "condition_node": self._execute_condition_node_async,
         }
-        return builtin_executors.get(node_type)
+        return rest_executors.get(node_type)
     
     async def _execute_llm_node_async(self, state: WorkflowState, config: Dict[str, Any]) -> WorkflowState:
         """异步执行LLM节点"""
@@ -189,7 +189,7 @@ class AsyncNodeExecutor(IAsyncNodeExecutor, AsyncContextManager):
                 return state
             
             # 执行工具调用
-            from src.domain.tools.interfaces import ToolCall
+            from src.core.tools.interfaces import ToolCall
             tool_call_objects = [ToolCall(**call) for call in tool_calls]
             
             if self._tool_executor:
@@ -202,7 +202,7 @@ class AsyncNodeExecutor(IAsyncNodeExecutor, AsyncContextManager):
                     tool_results = await self._tool_executor.execute_parallel_async(tool_call_objects)
             else:
                 # 如果工具执行器未初始化，返回错误
-                from src.domain.tools.interfaces import ToolResult
+                from src.core.tools.interfaces import ToolResult
                 tool_results = [ToolResult(
                     success=False,
                     error="工具执行器未初始化",

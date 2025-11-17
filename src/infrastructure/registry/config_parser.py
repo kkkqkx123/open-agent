@@ -414,7 +414,7 @@ class ConfigParser:
         
         # 验证工具类型
         if "tool_type" in config:
-            valid_types = ["builtin", "native", "mcp"]
+            valid_types = ["rest", "rest", "mcp"]
             if config["tool_type"] not in valid_types:
                 result.add_warning(f"未知的工具类型: {config['tool_type']}")
         

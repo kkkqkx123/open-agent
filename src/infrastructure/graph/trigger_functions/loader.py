@@ -26,7 +26,7 @@ class TriggerFunctionLoader:
     
     def __init__(self, registry: TriggerFunctionRegistry):
         self.registry = registry
-        self._builtin_functions: Dict[str, Callable] = {}
+        self._rest_functions: Dict[str, Callable] = {}
     
     def load_from_config_directory(self, config_dir: str) -> None:
         """从配置目录加载触发器函数
@@ -129,8 +129,8 @@ class TriggerFunctionLoader:
         """
         implementation = config.get("implementation", "config")
         
-        if implementation == "builtin":
-            return self._get_builtin_function(name)
+        if implementation == "rest":
+            return self._get_rest_function(name)
         elif implementation == "config":
             return self._create_config_based_function(config)
         elif implementation.startswith("custom."):
@@ -186,7 +186,7 @@ class TriggerFunctionLoader:
                 try:
                     # 创建安全的执行环境
                     safe_globals = {
-                        "__builtins__": {
+                        "__rests__": {
                             "len": len,
                             "str": str,
                             "int": int,
@@ -375,7 +375,7 @@ class TriggerFunctionLoader:
             try:
                 # 创建安全的执行环境
                 safe_globals = {
-                    "__builtins__": {
+                    "__rests__": {
                         "len": len,
                         "str": str,
                         "int": int,
@@ -437,7 +437,7 @@ class TriggerFunctionLoader:
         
         return event_check_function
     
-    def _get_builtin_function(self, name: str) -> Optional[Callable]:
+    def _get_rest_function(self, name: str) -> Optional[Callable]:
         """获取内置函数
         
         Args:
@@ -446,7 +446,7 @@ class TriggerFunctionLoader:
         Returns:
             Optional[Callable]: 内置函数，如果不存在返回None
         """
-        return self._builtin_functions.get(name)
+        return self._rest_functions.get(name)
     
     def _load_custom_function(self, module_path: str) -> Optional[Callable]:
         """加载自定义函数
@@ -472,11 +472,11 @@ class TriggerFunctionLoader:
             logger.error(f"加载自定义函数失败 {module_path}: {e}")
             return None
     
-    def register_builtin_functions(self, builtin_functions: Dict[str, Callable]) -> None:
+    def register_rest_functions(self, rest_functions: Dict[str, Callable]) -> None:
         """注册内置函数
         
         Args:
-            builtin_functions: 内置函数字典
+            rest_functions: 内置函数字典
         """
-        self._builtin_functions.update(builtin_functions)
-        logger.debug(f"注册 {len(builtin_functions)} 个内置函数")
+        self._rest_functions.update(rest_functions)
+        logger.debug(f"注册 {len(rest_functions)} 个内置函数")

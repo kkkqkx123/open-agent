@@ -161,7 +161,7 @@ def auto_register_nodes(package_paths: Optional[List[str]] = None) -> Dict[str, 
     return discovery.auto_discover_and_register(package_paths)
 
 
-def register_builtin_nodes() -> None:
+def register_rest_nodes() -> None:
     """注册内置节点"""
     # 导入所有内置节点模块，确保装饰器注册生效
     try:

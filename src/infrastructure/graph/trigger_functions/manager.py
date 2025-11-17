@@ -8,7 +8,7 @@ import logging
 
 from .registry import TriggerFunctionRegistry, TriggerFunctionConfig
 from .loader import TriggerFunctionLoader
-from .builtin import BuiltinTriggerFunctions
+from .rest import BuiltinTriggerFunctions
 from .config import TriggerCompositionConfig
 
 logger = logging.getLogger(__name__)
@@ -30,26 +30,26 @@ class TriggerFunctionManager:
         self.loader = TriggerFunctionLoader(self.registry)
         
         # 注册内置函数
-        self._register_builtin_functions()
+        self._register_rest_functions()
         
         # 从配置目录加载
         if config_dir:
             self.loader.load_from_config_directory(config_dir)
     
-    def _register_builtin_functions(self) -> None:
+    def _register_rest_functions(self) -> None:
         """注册内置函数"""
-        builtin_evaluate_functions = BuiltinTriggerFunctions.get_all_evaluate_functions()
-        builtin_execute_functions = BuiltinTriggerFunctions.get_all_execute_functions()
+        rest_evaluate_functions = BuiltinTriggerFunctions.get_all_evaluate_functions()
+        rest_execute_functions = BuiltinTriggerFunctions.get_all_execute_functions()
         
         # 注册评估函数
-        for name, func in builtin_evaluate_functions.items():
+        for name, func in rest_evaluate_functions.items():
             # 创建配置
             config = TriggerFunctionConfig(
                 name=name,
                 description=f"内置评估函数: {name}",
                 function_type="evaluate",
                 parameters={},
-                implementation="builtin",
+                implementation="rest",
                 metadata={},
                 dependencies=[],
                 return_schema={"type": "boolean"},
@@ -62,17 +62,17 @@ class TriggerFunctionManager:
                 }
             )
             
-            self.registry.register_function(name, func, config, is_builtin=True)
+            self.registry.register_function(name, func, config, is_rest=True)
         
         # 注册执行函数
-        for name, func in builtin_execute_functions.items():
+        for name, func in rest_execute_functions.items():
             # 创建配置
             config = TriggerFunctionConfig(
                 name=name,
                 description=f"内置执行函数: {name}",
                 function_type="execute",
                 parameters={},
-                implementation="builtin",
+                implementation="rest",
                 metadata={},
                 dependencies=[],
                 return_schema={"type": "object"},
@@ -85,11 +85,11 @@ class TriggerFunctionManager:
                 }
             )
             
-            self.registry.register_function(name, func, config, is_builtin=True)
+            self.registry.register_function(name, func, config, is_rest=True)
         
         # 注册到加载器
-        all_builtin_functions = BuiltinTriggerFunctions.get_all_functions()
-        self.loader.register_builtin_functions(all_builtin_functions)
+        all_rest_functions = BuiltinTriggerFunctions.get_all_functions()
+        self.loader.register_rest_functions(all_rest_functions)
     
     def get_evaluate_function(self, name: str) -> Optional[Callable]:
         """获取评估函数
@@ -329,10 +329,10 @@ class TriggerFunctionManager:
             config_dir: 配置目录路径
         """
         # 清除现有的配置函数（保留内置函数）
-        builtin_functions = self.registry.list_functions_by_type("evaluate") + \
+        rest_functions = self.registry.list_functions_by_type("evaluate") + \
                           self.registry.list_functions_by_type("execute")
         custom_functions = [name for name in self.registry.list_functions() 
-                          if name not in builtin_functions]
+                          if name not in rest_functions]
         
         for func_name in custom_functions:
             self.registry.unregister_function(func_name)
@@ -426,7 +426,7 @@ class TriggerFunctionManager:
         
         # 创建触发器
         try:
-            from ..triggers.builtin_triggers import CustomTrigger
+            from ..triggers.rest_triggers import CustomTrigger
             
             return CustomTrigger(
                 trigger_id=trigger_id,

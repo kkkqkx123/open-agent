@@ -11,13 +11,13 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from infrastructure.config.loader.file_config_loader import FileConfigLoader
-from src.infrastructure.llm.task_group_manager import TaskGroupManager
-from src.infrastructure.llm.enhanced_fallback_manager import EnhancedFallbackManager
-from src.infrastructure.llm.polling_pool import PollingPoolManager
-from src.infrastructure.llm.wrappers import LLMWrapperFactory
+from src.core.llm.task_group_manager import TaskGroupManager
+from src.core.llm.enhanced_fallback_manager import EnhancedFallbackManager
+from src.core.llm.polling_pool import PollingPoolManager
+from src.core.llm.wrappers import LLMWrapperFactory
 from src.infrastructure.graph.nodes.llm_node import LLMNode
-from src.infrastructure.llm.interfaces import ILLMClient
-from src.infrastructure.llm.models import LLMResponse, TokenUsage
+from src.core.llm.interfaces import ILLMClient
+from src.core.llm.models import LLMResponse, TokenUsage
 from langchain_core.messages import HumanMessage, AIMessage
 
 # 设置日志

@@ -15,7 +15,7 @@ class TriggerFunctionConfig:
     description: str
     function_type: str  # "evaluate", "execute", "condition", "custom" 等
     parameters: Dict[str, Any]
-    implementation: str  # "builtin", "config", "custom.module.path"
+    implementation: str  # "rest", "config", "custom.module.path"
     metadata: Dict[str, Any]
     dependencies: List[str]  # 依赖的其他函数或工具
     return_schema: Dict[str, Any]  # 返回值结构定义
@@ -69,7 +69,7 @@ class TriggerFunctionConfigLoader:
             description=eval_data.get("description", ""),
             function_type=eval_data.get("function_type", "evaluate"),
             parameters=eval_data.get("parameters", {}),
-            implementation=eval_data.get("implementation", "builtin"),
+            implementation=eval_data.get("implementation", "rest"),
             metadata=eval_data.get("metadata", {}),
             dependencies=eval_data.get("dependencies", []),
             return_schema=eval_data.get("return_schema", {}),
@@ -83,7 +83,7 @@ class TriggerFunctionConfigLoader:
             description=exec_data.get("description", ""),
             function_type=exec_data.get("function_type", "execute"),
             parameters=exec_data.get("parameters", {}),
-            implementation=exec_data.get("implementation", "builtin"),
+            implementation=exec_data.get("implementation", "rest"),
             metadata=exec_data.get("metadata", {}),
             dependencies=exec_data.get("dependencies", []),
             return_schema=exec_data.get("return_schema", {}),

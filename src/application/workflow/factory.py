@@ -52,7 +52,7 @@ class WorkflowFactory(IWorkflowFactory):
             self._setup_hot_reload()
         else:
             # 注册内置工作流类型（向后兼容）
-            self._register_builtin_workflows()
+            self._register_rest_workflows()
     
     def create_workflow(self, config: GraphConfig) -> Any:
         """创建工作流实例
@@ -102,7 +102,7 @@ class WorkflowFactory(IWorkflowFactory):
         """
         return list(self._workflow_types.keys())
     
-    def _register_builtin_workflows(self) -> None:
+    def _register_rest_workflows(self) -> None:
         """注册内置工作流类型"""
         try:
             # 注册基础工作流
@@ -173,7 +173,7 @@ class WorkflowFactory(IWorkflowFactory):
         except Exception as e:
             logger.error(f"从注册表初始化失败: {e}")
             # 降级到内置工作流类型
-            self._register_builtin_workflows()
+            self._register_rest_workflows()
     
     def create_workflow_from_registry(self, workflow_name: str) -> Any:
         """从注册表创建工作流实例

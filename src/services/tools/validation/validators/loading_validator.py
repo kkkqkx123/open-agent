@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, List, Optional
 from src.infrastructure.logger.logger import ILogger
-from src.infrastructure.tools.interfaces import IToolManager
+from src.core.tools.interfaces import IToolManager
 from ..interfaces import IToolValidator
 from ..models import ValidationResult, ValidationStatus
 
@@ -93,4 +93,4 @@ class LoadingValidator(IToolValidator):
     
     def get_supported_tool_types(self) -> List[str]:
         """获取支持的工具类型列表"""
-        return ["builtin", "native", "mcp"]
+        return ["rest", "rest", "mcp"]

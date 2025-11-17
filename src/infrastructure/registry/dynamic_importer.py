@@ -130,7 +130,7 @@ class DynamicImporter:
             raise DynamicImportError(f"模块中不存在函数: {function_name}")
         
         # 验证函数
-        if not inspect.isfunction(func) and not inspect.isbuiltin(func):
+        if not inspect.isfunction(func) and not inspect.isrest(func):
             raise DynamicImportError(f"对象不是函数: {function_name}")
         
         self.logger.debug(f"成功导入函数: {function_path}")

@@ -38,8 +38,8 @@ def validate_weather_config():
                 return False
         
         # 验证工具类型
-        if weather_config["tool_type"] != "native":
-            print(f"错误: 工具类型应为 'native'，实际为 '{weather_config['tool_type']}'")
+        if weather_config["tool_type"] != "rest":
+            print(f"错误: 工具类型应为 'rest'，实际为 '{weather_config['tool_type']}'")
             return False
         
         # 验证参数Schema
@@ -96,7 +96,7 @@ def validate_weather_tool():
             weather_config_path = tools_config_dir / "weather.yaml"
             weather_config_content = """# 天气查询工具配置
 name: weather
-tool_type: native
+tool_type: rest
 description: 查询指定城市的天气信息
 enabled: true
 timeout: 15
@@ -203,7 +203,7 @@ def test_weather_tool_functionality():
             weather_config_path = tools_config_dir / "weather.yaml"
             weather_config_content = """# 天气查询工具配置
 name: weather
-tool_type: native
+tool_type: rest
 description: 查询指定城市的天气信息
 enabled: true
 timeout: 15

@@ -33,7 +33,7 @@ from .function_registry import (
     get_global_function_registry,
 )
 from .iteration_manager import IterationManager
-from .builtin_functions import get_builtin_node_function, get_builtin_condition_function
+from .rest_functions import get_rest_node_function, get_rest_condition_function
 from .route_functions import get_route_function_manager
 from .edges import FlexibleConditionalEdge, FlexibleConditionalEdgeFactory
 from .node_functions import get_node_function_manager
@@ -325,21 +325,21 @@ class UnifiedGraphBuilder:
                     return self._wrap_node_function(node_function, state_manager, node_config.name)
         
         # 4. 尝试从内置函数获取
-        builtin_function = get_builtin_node_function(function_name)
-        if builtin_function:
+        rest_function = get_rest_node_function(function_name)
+        if rest_function:
             logger.debug(f"从内置函数获取节点函数: {function_name}")
-            return self._wrap_node_function(builtin_function, state_manager, node_config.name)
+            return self._wrap_node_function(rest_function, state_manager, node_config.name)
         
         # 5. 如果启用回退，尝试内置实现
         if self.enable_function_fallback:
-            builtin_functions = {
+            rest_functions = {
                 "llm_node": self._create_llm_node,
                 "tool_node": self._create_tool_node,
                 "analysis_node": self._create_analysis_node,
                 "condition_node": self._create_condition_node,
                 "wait_node": self._create_wait_node,
             }
-            fallback_function = builtin_functions.get(function_name)
+            fallback_function = rest_functions.get(function_name)
             if fallback_function:
                 logger.debug(f"从内置回退函数获取节点函数: {function_name}")
                 return self._wrap_node_function(fallback_function, state_manager, node_config.name)
@@ -389,19 +389,19 @@ class UnifiedGraphBuilder:
                 return condition_function
         
         # 3. 尝试从内置函数获取
-        builtin_function = get_builtin_condition_function(condition_name)
-        if builtin_function:
+        rest_function = get_rest_condition_function(condition_name)
+        if rest_function:
             logger.debug(f"从内置函数获取条件函数: {condition_name}")
-            return builtin_function
+            return rest_function
         
         # 4. 如果启用回退，尝试内置实现
         if self.enable_function_fallback:
-            builtin_conditions = {
+            rest_conditions = {
                 "has_tool_calls": self._condition_has_tool_calls,
                 "needs_more_info": self._condition_needs_more_info,
                 "is_complete": self._condition_is_complete,
             }
-            fallback_function = builtin_conditions.get(condition_name)
+            fallback_function = rest_conditions.get(condition_name)
             if fallback_function:
                 logger.debug(f"从内置回退函数获取条件函数: {condition_name}")
                 return fallback_function

@@ -18,7 +18,7 @@ class RegisteredTriggerFunction:
     name: str
     function: Callable
     config: TriggerFunctionConfig
-    is_builtin: bool = False
+    is_rest: bool = False
 
 
 class TriggerFunctionRegistry:
@@ -42,7 +42,7 @@ class TriggerFunctionRegistry:
         name: str, 
         function: Callable, 
         config: TriggerFunctionConfig,
-        is_builtin: bool = False
+        is_rest: bool = False
     ) -> None:
         """注册触发器函数
         
@@ -50,13 +50,13 @@ class TriggerFunctionRegistry:
             name: 函数名称
             function: 函数对象
             config: 函数配置
-            is_builtin: 是否为内置函数
+            is_rest: 是否为内置函数
         """
         registered_func = RegisteredTriggerFunction(
             name=name,
             function=function,
             config=config,
-            is_builtin=is_builtin
+            is_rest=is_rest
         )
         
         self._functions[name] = registered_func

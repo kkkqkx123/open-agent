@@ -8,7 +8,7 @@ from typing import Dict, Type
 
 from src.infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
-from src.infrastructure.llm.config_manager import LLMConfigManager
+from src.core.llm.config_manager import LLMConfigManager
 
 logger = logging.getLogger(__name__)
 

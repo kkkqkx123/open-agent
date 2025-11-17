@@ -5,10 +5,10 @@ import logging
 from pathlib import Path
 
 from infrastructure.config.loader.file_config_loader import FileConfigLoader
-from src.infrastructure.llm.task_group_manager import TaskGroupManager
-from src.infrastructure.llm.polling_pool import PollingPoolManager
-from src.infrastructure.llm.enhanced_fallback_manager import EnhancedFallbackManager
-from src.infrastructure.llm.concurrency_controller import ConcurrencyAndRateLimitManager, ConcurrencyLevel
+from src.core.llm.task_group_manager import TaskGroupManager
+from src.core.llm.polling_pool import PollingPoolManager
+from src.core.llm.enhanced_fallback_manager import EnhancedFallbackManager
+from src.core.llm.concurrency_controller import ConcurrencyAndRateLimitManager, ConcurrencyLevel
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)

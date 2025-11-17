@@ -244,7 +244,7 @@ class MCPTool(BaseTool):
                 schema = await client.get_tool_schema(tool_name)
 
                 # 创建配置
-                from src.infrastructure.tools.config import MCPToolConfig
+                from src.core.tools.config import MCPToolConfig
                 config = MCPToolConfig(
                     name=tool_name,
                     tool_type="mcp",

@@ -8,7 +8,7 @@ import re
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
-from ..config import ToolConfig, NativeToolConfig, MCPToolConfig, BuiltinToolConfig
+from ..config import ToolConfig, RestToolConfig, MCPToolConfig, RestToolConfig
 
 
 class ToolValidator:
@@ -44,17 +44,17 @@ class ToolValidator:
             errors.append("参数Schema格式不正确")
 
         # 类型特定验证
-        if isinstance(config, NativeToolConfig):
-            errors.extend(cls._validate_native_tool_config(config))
+        if isinstance(config, RestToolConfig):
+            errors.extend(cls._validate_rest_tool_config(config))
         elif isinstance(config, MCPToolConfig):
             errors.extend(cls._validate_mcp_tool_config(config))
-        elif isinstance(config, BuiltinToolConfig):
-            errors.extend(cls._validate_builtin_tool_config(config))
+        elif isinstance(config, RestToolConfig):
+            errors.extend(cls._validate_rest_tool_config(config))
 
         return errors
 
     @classmethod
-    def _validate_native_tool_config(cls, config: NativeToolConfig) -> List[str]:
+    def _validate_rest_tool_config(cls, config: RestToolConfig) -> List[str]:
         """验证原生工具配置
 
         Args:
@@ -127,7 +127,7 @@ class ToolValidator:
         return errors
 
     @classmethod
-    def _validate_builtin_tool_config(cls, config: BuiltinToolConfig) -> List[str]:
+    def _validate_rest_tool_config(cls, config: RestToolConfig) -> List[str]:
         """验证内置工具配置
 
         Args:

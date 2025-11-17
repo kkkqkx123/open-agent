@@ -490,10 +490,10 @@ class ConfigDiscoverer:
         name_lower = name.lower()
         
         if "calculator" in name_lower:
-            return "src.domain.tools.types.builtin_tool:SyncBuiltinTool"
+            return "src.domain.tools.types.rest_tool:SyncRestTool"
         elif "fetch" in name_lower or "search" in name_lower:
-            return "src.domain.tools.types.native_tool:NativeTool"
+            return "src.domain.tools.types.rest_tool:RestTool"
         elif "weather" in name_lower:
-            return "src.domain.tools.types.native_tool:NativeTool"
+            return "src.domain.tools.types.rest_tool:RestTool"
         else:
-            return "src.domain.tools.types.native_tool:NativeTool"
+            return "src.domain.tools.types.rest_tool:RestTool"

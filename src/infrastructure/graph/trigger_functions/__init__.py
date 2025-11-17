@@ -6,7 +6,7 @@
 from .registry import TriggerFunctionRegistry, TriggerFunctionConfig
 from .manager import TriggerFunctionManager, get_trigger_function_manager
 from .loader import TriggerFunctionLoader
-from .builtin import BuiltinTriggerFunctions
+from .rest import BuiltinTriggerFunctions
 from .config import TriggerCompositionConfig, TriggerFunctionConfigLoader
 
 __all__ = [

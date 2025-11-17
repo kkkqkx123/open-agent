@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 
 from src.infrastructure.logger.logger import ILogger
-from src.domain.tools.interfaces import ITool, ToolCall, ToolResult
+from src.core.tools.interfaces import ITool, ToolCall, ToolResult
 from src.infrastructure.async_utils.event_loop_manager import AsyncLock, AsyncContextManager
 
 

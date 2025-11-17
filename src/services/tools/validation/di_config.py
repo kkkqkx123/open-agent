@@ -4,13 +4,13 @@
 """
 
 from src.infrastructure.container_interfaces import IDependencyContainer
-from src.infrastructure.tools.validation.manager import ToolValidationManager
-from src.infrastructure.tools.validation.interfaces import IToolValidator
-from src.infrastructure.tools.validation.validators.config_validator import ConfigValidator
-from src.infrastructure.tools.validation.validators.loading_validator import LoadingValidator
-from src.infrastructure.tools.validation.validators.builtin_validator import BuiltinToolValidator
-from src.infrastructure.tools.validation.validators.native_validator import NativeToolValidator
-from src.infrastructure.tools.validation.validators.mcp_validator import MCPToolValidator
+from src.core.tools.validation.manager import ToolValidationManager
+from src.core.tools.validation.interfaces import IToolValidator
+from src.core.tools.validation.validators.config_validator import ConfigValidator
+from src.core.tools.validation.validators.loading_validator import LoadingValidator
+from src.core.tools.validation.validators.rest_validator import RestToolValidator
+from src.core.tools.validation.validators.rest_validator import RestToolValidator
+from src.core.tools.validation.validators.mcp_validator import MCPToolValidator
 
 
 class ToolValidationModule:
@@ -29,13 +29,13 @@ class ToolValidationModule:
         # 注册验证器接口和实现
         container.register(IToolValidator, ConfigValidator)
         container.register(IToolValidator, LoadingValidator)
-        container.register(IToolValidator, BuiltinToolValidator)
-        container.register(IToolValidator, NativeToolValidator)
+        container.register(IToolValidator, RestToolValidator)
+        container.register(IToolValidator, RestToolValidator)
         container.register(IToolValidator, MCPToolValidator)
         
         # 注册具体的验证器实现（用于直接获取）
         container.register(ConfigValidator, ConfigValidator)
         container.register(LoadingValidator, LoadingValidator)
-        container.register(BuiltinToolValidator, BuiltinToolValidator)
-        container.register(NativeToolValidator, NativeToolValidator)
+        container.register(RestToolValidator, RestToolValidator)
+        container.register(RestToolValidator, RestToolValidator)
         container.register(MCPToolValidator, MCPToolValidator)

@@ -10,7 +10,7 @@ from typing import Optional
 
 from src.infrastructure.container import get_global_container
 from src.infrastructure.di_config import DIConfig
-from src.infrastructure.tools.validation.manager import ToolValidationManager
+from src.core.tools.validation.manager import ToolValidationManager
 
 
 def main():
@@ -48,7 +48,7 @@ def main():
         # 获取服务
         from infrastructure.config.loader.file_config_loader import IConfigLoader
         from src.infrastructure.logger.logger import Logger
-        from src.infrastructure.tools.interfaces import IToolManager
+        from src.core.tools.interfaces import IToolManager
         
         config_loader = container.get(IConfigLoader)
         logger = Logger("ToolValidation")

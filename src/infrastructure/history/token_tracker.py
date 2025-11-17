@@ -3,7 +3,7 @@ from typing import Dict, Any, List, Optional, Sequence
 from langchain_core.messages import BaseMessage
 
 from src.domain.history import TokenUsageRecord, LLMRequestRecord, LLMResponseRecord
-from src.infrastructure.llm.token_calculators.base import ITokenCalculator
+from src.core.llm.token_calculators.base import ITokenCalculator
 from src.domain.history.interfaces import IHistoryManager
 from .session_context import get_current_session as get_current_session_id
 

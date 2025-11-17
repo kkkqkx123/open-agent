@@ -40,8 +40,8 @@ def validate_fetch_config():
                 return False
         
         # 验证工具类型
-        if fetch_config["tool_type"] != "builtin":
-            print(f"错误: 工具类型应为 'builtin'，实际为 '{fetch_config['tool_type']}'")
+        if fetch_config["tool_type"] != "rest":
+            print(f"错误: 工具类型应为 'rest'，实际为 '{fetch_config['tool_type']}'")
             return False
         
         # 验证参数Schema

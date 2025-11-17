@@ -18,7 +18,7 @@ class RegisteredNodeFunction:
     name: str
     function: Callable
     config: NodeFunctionConfig
-    is_builtin: bool = False
+    is_rest: bool = False
 
 
 class NodeFunctionRegistry:
@@ -40,7 +40,7 @@ class NodeFunctionRegistry:
         name: str, 
         function: Callable, 
         config: NodeFunctionConfig,
-        is_builtin: bool = False
+        is_rest: bool = False
     ) -> None:
         """注册节点函数
         
@@ -48,13 +48,13 @@ class NodeFunctionRegistry:
             name: 函数名称
             function: 函数对象
             config: 函数配置
-            is_builtin: 是否为内置函数
+            is_rest: 是否为内置函数
         """
         registered_func = RegisteredNodeFunction(
             name=name,
             function=function,
             config=config,
-            is_builtin=is_builtin
+            is_rest=is_rest
         )
         
         self._functions[name] = registered_func

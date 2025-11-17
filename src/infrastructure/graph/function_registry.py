@@ -50,7 +50,7 @@ class FunctionRegistry:
         self._discovery_cache: Dict[str, Dict[str, List[str]]] = {}
         
         # 注册内置函数
-        self._register_builtin_functions()
+        self._register_rest_functions()
     
     def register(self, name: str, function: Callable, function_type: FunctionType) -> None:
         """注册函数
@@ -153,7 +153,7 @@ class FunctionRegistry:
             module_paths = [
                 "src.workflow.nodes",
                 "src.workflow.conditions",
-                "src.infrastructure.graph.builtin_functions"
+                "src.infrastructure.graph.rest_functions"
             ]
         
         discovered: Dict[str, List[str]] = {"nodes": [], "conditions": []}
@@ -337,20 +337,20 @@ class FunctionRegistry:
         self._discovery_cache[module_path] = discovered
         return discovered
     
-    def _register_builtin_functions(self) -> None:
+    def _register_rest_functions(self) -> None:
         """注册内置函数"""
         try:
             # 尝试导入内置函数模块
-            from . import builtin_functions
+            from . import rest_functions
             
             # 注册内置节点函数
-            builtin_nodes = getattr(builtin_functions, 'BUILTIN_NODE_FUNCTIONS', {})
-            for name, func in builtin_nodes.items():
+            rest_nodes = getattr(rest_functions, 'BUILTIN_NODE_FUNCTIONS', {})
+            for name, func in rest_nodes.items():
                 self.register(name, func, FunctionType.NODE_FUNCTION)
             
             # 注册内置条件函数
-            builtin_conditions = getattr(builtin_functions, 'BUILTIN_CONDITION_FUNCTIONS', {})
-            for name, func in builtin_conditions.items():
+            rest_conditions = getattr(rest_functions, 'BUILTIN_CONDITION_FUNCTIONS', {})
+            for name, func in rest_conditions.items():
                 self.register(name, func, FunctionType.CONDITION_FUNCTION)
             
             logger.debug("内置函数注册完成")

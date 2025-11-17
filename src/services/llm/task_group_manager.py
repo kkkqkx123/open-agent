@@ -4,12 +4,13 @@ import logging
 from typing import Dict, Any, Optional, List, Tuple
 from pathlib import Path
 
-from ..config.interfaces import IConfigLoader
-from ..config.models.task_group_config import (
-    TaskGroupsConfig, TaskGroupConfig, PollingPoolConfig, 
-    EchelonConfig, GlobalFallbackConfig
-)
-from .exceptions import LLMConfigurationError
+# 这些导入将在后续更新导入路径时修复
+# from ..config.interfaces import IConfigLoader
+# from ..config.models.task_group_config import (
+#     TaskGroupsConfig, TaskGroupConfig, PollingPoolConfig, 
+#     EchelonConfig, GlobalFallbackConfig
+# )
+# from .exceptions import LLMConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 class TaskGroupManager:
     """任务组配置管理器"""
     
-    def __init__(self, config_loader: IConfigLoader):
+    def __init__(self, config_loader):
         """
         初始化任务组管理器
         
@@ -25,10 +26,10 @@ class TaskGroupManager:
             config_loader: 配置加载器
         """
         self.config_loader = config_loader
-        self._task_groups_config: Optional[TaskGroupsConfig] = None
+        self._task_groups_config: Optional[Any] = None
         self._config_base_path = "llms"
     
-    def load_config(self) -> TaskGroupsConfig:
+    def load_config(self) -> Any:
         """加载任务组配置"""
         try:
             # 加载任务组配置
@@ -51,33 +52,40 @@ class TaskGroupManager:
                 "rate_limiting": rate_limiting
             }
             
-            self._task_groups_config = TaskGroupsConfig.from_dict(config_data)
+            # 创建配置对象（临时实现，将在更新导入路径时修复）
+            self._task_groups_config = config_data
             logger.info("任务组配置加载成功")
             return self._task_groups_config
         except Exception as e:
             logger.error(f"任务组配置加载失败: {e}")
-            raise LLMConfigurationError(f"任务组配置加载失败: {e}")
+            # from .exceptions import LLMConfigurationError
+            # raise LLMConfigurationError(f"任务组配置加载失败: {e}")
+            raise Exception(f"任务组配置加载失败: {e}")
     
-    def get_config(self) -> TaskGroupsConfig:
+    def get_config(self) -> Any:
         """获取任务组配置"""
         if self._task_groups_config is None:
             self._task_groups_config = self.load_config()
         return self._task_groups_config
     
-    def get_task_group(self, name: str) -> Optional[TaskGroupConfig]:
+    def get_task_group(self, name: str) -> Optional[Dict[str, Any]]:
         """获取任务组配置"""
         config = self.get_config()
-        return config.get_task_group(name)
+        return config.get("task_groups", {}).get(name)
     
-    def get_polling_pool(self, name: str) -> Optional[PollingPoolConfig]:
+    def get_polling_pool(self, name: str) -> Optional[Dict[str, Any]]:
         """获取轮询池配置"""
         config = self.get_config()
-        return config.get_polling_pool(name)
+        return config.get("polling_pools", {}).get(name)
     
-    def get_echelon_config(self, group_name: str, echelon_name: str) -> Optional[EchelonConfig]:
+    def get_echelon_config(self, group_name: str, echelon_name: str) -> Optional[Dict[str, Any]]:
         """获取层级配置"""
-        config = self.get_config()
-        return config.get_echelon_config(group_name, echelon_name)
+        task_group = self.get_task_group(group_name)
+        if not task_group:
+            return None
+        
+        echelons = task_group.get("echelons", {})
+        return echelons.get(echelon_name)
     
     def parse_group_reference(self, reference: str) -> Tuple[str, Optional[str]]:
         """
@@ -114,14 +122,15 @@ class TaskGroupManager:
             return []
         
         if echelon_or_task:
-            echelon_config = task_group.echelons.get(echelon_or_task)
+            echelon_config = self.get_echelon_config(group_name, echelon_or_task)
             if echelon_config:
-                return echelon_config.models
+                return echelon_config.get("models", [])
         else:
             # 如果没有指定层级，返回所有层级的模型
             all_models = []
-            for echelon_config in task_group.echelons.values():
-                all_models.extend(echelon_config.models)
+            echelons = task_group.get("echelons", {})
+            for echelon_config in echelons.values():
+                all_models.extend(echelon_config.get("models", []))
             return all_models
         
         return []
@@ -146,18 +155,21 @@ class TaskGroupManager:
             return []
         
         # 优先使用任务组特定的降级配置
-        if task_group.fallback_config:
-            return task_group.fallback_config.fallback_groups
+        fallback_config = task_group.get("fallback_config")
+        if fallback_config:
+            return fallback_config.get("fallback_groups", [])
         
         fallback_groups = []
         
         # 根据降级策略生成降级组
-        if task_group.fallback_strategy.value == "echelon_down":
+        fallback_strategy = task_group.get("fallback_strategy", "echelon_down")
+        if fallback_strategy == "echelon_down":
             if echelon_or_task and echelon_or_task.startswith("echelon"):
                 # 获取下一层级
                 echelon_num = int(echelon_or_task.replace("echelon", ""))
                 next_echelon = f"echelon{echelon_num + 1}"
-                if next_echelon in task_group.echelons:
+                next_echelon_config = self.get_echelon_config(group_name, next_echelon)
+                if next_echelon_config:
                     fallback_groups.append(f"{group_name}.{next_echelon}")
         
         # 可以添加更多降级策略的实现
@@ -178,22 +190,23 @@ class TaskGroupManager:
         if not task_group:
             return {}
         
-        if task_group.fallback_config:
+        fallback_config = task_group.get("fallback_config")
+        if fallback_config:
             return {
-                "strategy": task_group.fallback_config.strategy.value,
-                "fallback_groups": task_group.fallback_config.fallback_groups,
-                "max_attempts": task_group.fallback_config.max_attempts,
-                "retry_delay": task_group.fallback_config.retry_delay,
+                "strategy": fallback_config.get("strategy", "echelon_down"),
+                "fallback_groups": fallback_config.get("fallback_groups", []),
+                "max_attempts": fallback_config.get("max_attempts", 3),
+                "retry_delay": fallback_config.get("retry_delay", 1.0),
                 "circuit_breaker": {
-                    "failure_threshold": task_group.fallback_config.circuit_breaker.failure_threshold,
-                    "recovery_time": task_group.fallback_config.circuit_breaker.recovery_time,
-                    "half_open_requests": task_group.fallback_config.circuit_breaker.half_open_requests
-                } if task_group.fallback_config.circuit_breaker else None
+                    "failure_threshold": fallback_config.get("circuit_breaker", {}).get("failure_threshold", 5),
+                    "recovery_time": fallback_config.get("circuit_breaker", {}).get("recovery_time", 60),
+                    "half_open_requests": fallback_config.get("circuit_breaker", {}).get("half_open_requests", 1)
+                } if fallback_config.get("circuit_breaker") else None
             }
         
         # 返回默认配置
         return {
-            "strategy": task_group.fallback_strategy.value,
+            "strategy": task_group.get("fallback_strategy", "echelon_down"),
             "fallback_groups": self.get_fallback_groups(f"{group_name}.echelon1"),
             "max_attempts": 3,
             "retry_delay": 1.0,
@@ -201,7 +214,7 @@ class TaskGroupManager:
                 "failure_threshold": 5,
                 "recovery_time": 60,
                 "half_open_requests": 1
-            } if task_group.circuit_breaker else None
+            }
         }
     
     def get_polling_pool_fallback_config(self, pool_name: str) -> Dict[str, Any]:
@@ -218,10 +231,11 @@ class TaskGroupManager:
         if not polling_pool:
             return {}
         
-        if polling_pool.fallback_config:
+        fallback_config = polling_pool.get("fallback_config")
+        if fallback_config:
             return {
-                "strategy": polling_pool.fallback_config.strategy,
-                "max_instance_attempts": polling_pool.fallback_config.max_instance_attempts
+                "strategy": fallback_config.get("strategy", "instance_rotation"),
+                "max_instance_attempts": fallback_config.get("max_instance_attempts", 2)
             }
         
         # 返回默认配置
@@ -250,19 +264,20 @@ class TaskGroupManager:
             return False
         
         if echelon_or_task:
-            return echelon_or_task in task_group.echelons
+            echelon_config = self.get_echelon_config(group_name, echelon_or_task)
+            return echelon_config is not None
         
         return True
     
     def list_task_groups(self) -> List[str]:
         """列出所有任务组名称"""
         config = self.get_config()
-        return list(config.task_groups.keys())
+        return list(config.get("task_groups", {}).keys())
     
     def list_polling_pools(self) -> List[str]:
         """列出所有轮询池名称"""
         config = self.get_config()
-        return list(config.polling_pools.keys())
+        return list(config.get("polling_pools", {}).keys())
     
     def get_group_models_by_priority(self, group_name: str) -> List[Tuple[str, int, List[str]]]:
         """
@@ -279,20 +294,25 @@ class TaskGroupManager:
             return []
         
         echelon_list = []
-        for echelon_name, echelon_config in task_group.echelons.items():
-            echelon_list.append((echelon_name, echelon_config.priority, echelon_config.models))
+        echelons = task_group.get("echelons", {})
+        for echelon_name, echelon_config in echelons.items():
+            echelon_list.append((
+                echelon_name, 
+                echelon_config.get("priority", 999), 
+                echelon_config.get("models", [])
+            ))
         
         # 按优先级排序（数字越小优先级越高）
         echelon_list.sort(key=lambda x: x[1])
         
         return echelon_list
     
-    def get_global_fallback_config(self) -> GlobalFallbackConfig:
+    def get_global_fallback_config(self) -> Dict[str, Any]:
         """获取全局降级配置"""
         config = self.get_config()
-        return config.global_fallback
+        return config.get("global_fallback", {})
     
-    def reload_config(self) -> TaskGroupsConfig:
+    def reload_config(self) -> Any:
         """重新加载配置"""
         self._task_groups_config = None
         return self.load_config()
@@ -303,13 +323,13 @@ class TaskGroupManager:
         
         return {
             "config_loaded": True,
-            "task_groups_count": len(config.task_groups),
-            "polling_pools_count": len(config.polling_pools),
-            "task_groups": list(config.task_groups.keys()),
-            "polling_pools": list(config.polling_pools.keys()),
-            "global_fallback_enabled": config.global_fallback.enabled,
-            "concurrency_control_enabled": config.concurrency_control.enabled,
-            "rate_limiting_enabled": config.rate_limiting.enabled
+            "task_groups_count": len(config.get("task_groups", {})),
+            "polling_pools_count": len(config.get("polling_pools", {})),
+            "task_groups": list(config.get("task_groups", {}).keys()),
+            "polling_pools": list(config.get("polling_pools", {}).keys()),
+            "global_fallback_enabled": config.get("global_fallback", {}).get("enabled", False),
+            "concurrency_control_enabled": config.get("concurrency_control", {}).get("enabled", False),
+            "rate_limiting_enabled": config.get("rate_limiting", {}).get("enabled", False)
         }
     
     def _load_task_groups(self) -> Dict[str, Any]:

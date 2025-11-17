@@ -24,7 +24,7 @@ class StorageRegistry:
         """初始化存储注册表"""
         self._storage_classes: Dict[str, Type] = {}
         self._storage_metadata: Dict[str, Dict[str, Any]] = {}
-        self._builtin_loaded = False
+        self._rest_loaded = False
     
     def register(self, storage_type: str, storage_class: Type, metadata: Optional[Dict[str, Any]] = None) -> None:
         """注册存储类型
@@ -83,7 +83,7 @@ class StorageRegistry:
         """
         if storage_type not in self._storage_classes:
             # 尝试加载内置存储类型
-            self._load_builtin_storages()
+            self._load_rest_storages()
             
             if storage_type not in self._storage_classes:
                 raise StorageConfigurationError(f"Storage type '{storage_type}' is not registered")
@@ -114,7 +114,7 @@ class StorageRegistry:
             存储类型名称列表
         """
         # 确保内置存储类型已加载
-        self._load_builtin_storages()
+        self._load_rest_storages()
         return list(self._storage_classes.keys())
     
     def is_registered(self, storage_type: str) -> bool:
@@ -127,7 +127,7 @@ class StorageRegistry:
             是否已注册
         """
         # 确保内置存储类型已加载
-        self._load_builtin_storages()
+        self._load_rest_storages()
         return storage_type in self._storage_classes
     
     def get_storage_info(self, storage_type: str) -> Dict[str, Any]:
@@ -287,9 +287,9 @@ class StorageRegistry:
         from .interfaces import IStorageBackend
         return issubclass(cls, IStorageBackend)
     
-    def _load_builtin_storages(self) -> None:
+    def _load_rest_storages(self) -> None:
         """加载内置存储类型"""
-        if self._builtin_loaded:
+        if self._rest_loaded:
             return
         
         try:
@@ -302,17 +302,17 @@ class StorageRegistry:
             # 注册文件存储
             self.register_from_module("src.infrastructure.storage.file.file_storage", "file")
             
-            self._builtin_loaded = True
-            logger.info("Loaded builtin storage types")
+            self._rest_loaded = True
+            logger.info("Loaded rest storage types")
             
         except Exception as e:
-            logger.warning(f"Failed to load builtin storage types: {e}")
+            logger.warning(f"Failed to load rest storage types: {e}")
     
     def clear(self) -> None:
         """清空注册表"""
         self._storage_classes.clear()
         self._storage_metadata.clear()
-        self._builtin_loaded = False
+        self._rest_loaded = False
         logger.info("Cleared storage registry")
     
     def __len__(self) -> int:

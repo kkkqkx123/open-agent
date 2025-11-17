@@ -10,7 +10,7 @@ from ..models import ValidationResult, ValidationStatus
 from ..validators.base_validator import BaseValidator
 
 
-class NativeToolValidator(BaseValidator):
+class RestToolValidator(BaseValidator):
     """Native工具验证器"""
     
     def __init__(self, logger: ILogger):
@@ -64,4 +64,4 @@ class NativeToolValidator(BaseValidator):
     
     def get_supported_tool_types(self) -> List[str]:
         """获取支持的工具类型列表"""
-        return ["native"]
+        return ["rest"]

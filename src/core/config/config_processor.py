@@ -206,7 +206,7 @@ class ConfigProcessor:
             raise ConfigValidationError("工具配置必须包含 'type' 字段")
         
         tool_type = config.get("type")
-        valid_types = ['builtin', 'mcp', 'native', 'external']
+        valid_types = ['rest', 'mcp', 'rest', 'external']
         if tool_type not in valid_types:
             raise ConfigValidationError(f"不支持的工具类型: {tool_type}")
     

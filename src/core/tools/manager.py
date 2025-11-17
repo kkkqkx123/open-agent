@@ -10,26 +10,26 @@ import inspect
 from typing import Any, Dict, List, Optional, Type, Union
 from pathlib import Path
 
-from infrastructure.config.loader.file_config_loader import IConfigLoader
-from src.infrastructure.exceptions import InfrastructureError
-from src.infrastructure.logger.logger import ILogger
-from .interfaces import IToolManager, IToolLoader, IToolAdapter, IToolCache
-from src.domain.tools.interfaces import ITool, IToolRegistry
-from src.domain.tools.types.native_tool import NativeTool
-from src.domain.tools.types.mcp_tool import MCPTool
-from src.domain.tools.types.builtin_tool import BuiltinToolFactory
-from .config import (
-    ToolConfig,
-    NativeToolConfig,
-    MCPToolConfig,
-    BuiltinToolConfig,
-    ToolSetConfig,
-    ToolRegistryConfig,
-)
-# 从loaders模块导入DefaultToolLoader
+# 这些导入将在后续更新导入路径时修复
+# from infrastructure.config.loader.file_config_loader import IConfigLoader
+# from src.infrastructure.exceptions import InfrastructureError
+# from src.infrastructure.logger.logger import ILogger
+# from .interfaces import IToolManager, IToolLoader, IToolAdapter, IToolCache
+# from .interfaces import ITool, IToolRegistry
+# from .types.rest_tool import RestTool
+# from .types.mcp_tool import MCPTool
+# from .types.rest_tool import RestToolFactory
+# from .config import (
+#     ToolConfig,
+#     RestToolConfig,
+#     MCPToolConfig,
+#     RestToolConfig,
+#     ToolSetConfig,
+#     ToolRegistryConfig,
+# )
 
 
-class ToolManager(IToolManager, IToolRegistry):
+class ToolManager:
     """工具管理器实现
 
     负责工具的加载、注册、查询和管理。
@@ -37,10 +37,10 @@ class ToolManager(IToolManager, IToolRegistry):
 
     def __init__(
         self, 
-        config_loader: Optional[IConfigLoader] = None, 
-        logger: Optional[ILogger] = None,
-        tool_loader: Optional[IToolLoader] = None,
-        tool_cache: Optional[IToolCache] = None
+        config_loader=None, 
+        logger=None,
+        tool_loader=None,
+        tool_cache=None
     ):
         """初始化工具管理器
 
@@ -59,11 +59,11 @@ class ToolManager(IToolManager, IToolRegistry):
         else:
             self.tool_loader = tool_loader
         self.tool_cache = tool_cache
-        self._tools: Dict[str, ITool] = {}
-        self._tool_sets: Dict[str, ToolSetConfig] = {}
+        self._tools: Dict[str, Any] = {}
+        self._tool_sets: Dict[str, Any] = {}
         self._loaded = False
 
-    def load_tools(self) -> List[ITool]:
+    def load_tools(self) -> List[Any]:
         """加载所有可用工具
 
         Returns:
@@ -105,9 +105,11 @@ class ToolManager(IToolManager, IToolRegistry):
 
         except Exception as e:
             self.logger.error(f"工具加载失败: {str(e)}")
-            raise InfrastructureError(f"工具加载失败: {str(e)}")
+            # from src.infrastructure.exceptions import InfrastructureError
+            # raise InfrastructureError(f"工具加载失败: {str(e)}")
+            raise Exception(f"工具加载失败: {str(e)}")
 
-    def _load_tool_configs(self) -> List[ToolConfig]:
+    def _load_tool_configs(self) -> List[Any]:
         """加载工具配置
 
         Returns:
@@ -122,9 +124,11 @@ class ToolManager(IToolManager, IToolRegistry):
             return result
         except Exception as e:
             self.logger.error(f"加载工具配置失败: {str(e)}")
-            raise InfrastructureError(f"加载工具配置失败: {str(e)}")
+            # from src.infrastructure.exceptions import InfrastructureError
+            # raise InfrastructureError(f"加载工具配置失败: {str(e)}")
+            raise Exception(f"加载工具配置失败: {str(e)}")
 
-    def _parse_tool_config(self, config_data: Dict[str, Any]) -> ToolConfig:
+    def _parse_tool_config(self, config_data: Dict[str, Any]) -> Any:
         """解析工具配置
 
         Args:
@@ -136,20 +140,26 @@ class ToolManager(IToolManager, IToolRegistry):
         Raises:
             ValueError: 配置格式错误
         """
+        from .config import (
+            RestToolConfig,
+            MCPToolConfig,
+            RestToolConfig
+        )
+        
         tool_type = config_data.get("tool_type")
         if not tool_type:
             raise ValueError("缺少tool_type配置")
 
-        if tool_type == "native":
-            return NativeToolConfig(**config_data)
+        if tool_type == "rest":
+            return RestToolConfig(**config_data)
+        elif tool_type == "rest":
+            return RestToolConfig(**config_data)
         elif tool_type == "mcp":
             return MCPToolConfig(**config_data)
-        elif tool_type == "builtin":
-            return BuiltinToolConfig(**config_data)
         else:
             raise ValueError(f"未知的工具类型: {tool_type}")
 
-    def _create_tool(self, config: ToolConfig) -> ITool:
+    def _create_tool(self, config: Any) -> Any:
         """根据配置创建工具实例
 
         Args:
@@ -167,13 +177,17 @@ class ToolManager(IToolManager, IToolRegistry):
             if cached_tool:
                 return cached_tool
 
-        tool: ITool
-        if isinstance(config, NativeToolConfig):
-            tool = NativeTool(config)
+        from .types.rest_tool import RestTool
+        from .types.mcp_tool import MCPTool
+        from .types.rest_tool import RestTool
+        
+        tool: Any
+        if isinstance(config, RestToolConfig):
+            tool = RestTool(config)
         elif isinstance(config, MCPToolConfig):
             tool = MCPTool(config)
-        elif isinstance(config, BuiltinToolConfig):
-            tool = self._create_builtin_tool(config)
+        elif isinstance(config, RestToolConfig):
+            tool = RestTool(config)
         else:
             raise ValueError(f"未知的工具配置类型: {type(config)}")
 
@@ -183,7 +197,7 @@ class ToolManager(IToolManager, IToolRegistry):
 
         return tool
 
-    def _create_builtin_tool(self, config: BuiltinToolConfig) -> ITool:
+    def _create_rest_tool(self, config: Any) -> Any:
         """创建内置工具
 
         Args:
@@ -198,7 +212,8 @@ class ToolManager(IToolManager, IToolRegistry):
         if config.function_path:
             # 从路径加载函数
             func = self._load_function_from_path(config.function_path)
-            return BuiltinToolFactory.create_tool(func, config)
+            from .types.rest_tool import RestToolFactory
+            return RestToolFactory.create_tool(func, config)
         else:
             raise ValueError("内置工具缺少function_path配置")
 
@@ -240,6 +255,7 @@ class ToolManager(IToolManager, IToolRegistry):
             for config_file in tool_sets_config_dir.glob("*.yaml"):
                 try:
                     config_data = self.config_loader.load(str(config_file))
+                    from .config import ToolSetConfig
                     tool_set_config = ToolSetConfig(**config_data)
 
                     if tool_set_config.enabled:
@@ -254,7 +270,7 @@ class ToolManager(IToolManager, IToolRegistry):
         except Exception as e:
             self.logger.error(f"加载工具集配置失败: {str(e)}")
 
-    def get_tool(self, name: str) -> ITool:
+    def get_tool(self, name: str) -> Any:
         """根据名称获取工具
 
         Args:
@@ -274,7 +290,7 @@ class ToolManager(IToolManager, IToolRegistry):
 
         return self._tools[name]
 
-    def get_tool_set(self, name: str) -> List[ITool]:
+    def get_tool_set(self, name: str) -> List[Any]:
         """获取工具集
 
         Args:
@@ -304,7 +320,7 @@ class ToolManager(IToolManager, IToolRegistry):
 
         return tools
 
-    def register_tool(self, tool: ITool) -> None:
+    def register_tool(self, tool: Any) -> None:
         """注册新工具
 
         Args:
@@ -356,7 +372,7 @@ class ToolManager(IToolManager, IToolRegistry):
             return True
         return False
 
-    def reload_tools(self) -> List[ITool]:
+    def reload_tools(self) -> List[Any]:
         """重新加载所有工具
 
         Returns:
@@ -418,10 +434,10 @@ class ToolManager(IToolManager, IToolRegistry):
         }
 
 
-class DefaultToolLoader(IToolLoader):
+class DefaultToolLoader:
     """默认工具加载器实现"""
     
-    def __init__(self, config_loader: IConfigLoader, logger: ILogger):
+    def __init__(self, config_loader, logger):
         """初始化工具加载器
         
         Args:
@@ -431,7 +447,7 @@ class DefaultToolLoader(IToolLoader):
         self.config_loader = config_loader
         self.logger = logger
     
-    def load_from_config(self, config_path: str) -> List[ToolConfig]:
+    def load_from_config(self, config_path: str) -> List[Any]:
         """从配置文件加载工具
         
         Args:
@@ -440,7 +456,7 @@ class DefaultToolLoader(IToolLoader):
         Returns:
             List[ToolConfig]: 加载的工具配置列表
         """
-        configs: List[ToolConfig] = []
+        configs: List[Any] = []
         self.logger.info(f"Loading tools from config path: {config_path}")
 
         try:
@@ -468,13 +484,19 @@ class DefaultToolLoader(IToolLoader):
                     if not tool_type:
                         raise ValueError("缺少tool_type配置")
 
-                    tool_config: ToolConfig
-                    if tool_type == "native":
-                        tool_config = NativeToolConfig(**config_data)
+                    from .config import (
+                        RestToolConfig,
+                        MCPToolConfig,
+                        RestToolConfig
+                    )
+                    
+                    tool_config: Any
+                    if tool_type == "rest":
+                        tool_config = RestToolConfig(**config_data)
+                    elif tool_type == "rest":
+                        tool_config = RestToolConfig(**config_data)
                     elif tool_type == "mcp":
                         tool_config = MCPToolConfig(**config_data)
-                    elif tool_type == "builtin":
-                        tool_config = BuiltinToolConfig(**config_data)
                     else:
                         raise ValueError(f"未知的工具类型: {tool_type}")
                         
@@ -487,7 +509,7 @@ class DefaultToolLoader(IToolLoader):
 
         return configs
     
-    def load_from_module(self, module_path: str) -> List[ITool]:
+    def load_from_module(self, module_path: str) -> List[Any]:
         """从模块加载工具
         
         Args:
@@ -496,17 +518,18 @@ class DefaultToolLoader(IToolLoader):
         Returns:
             List[ITool]: 加载的工具列表
         """
-        tools: List[ITool] = []
+        tools: List[Any] = []
         
         try:
             module = importlib.import_module(module_path)
             
             # 查找模块中的ITool实现
             for name, obj in inspect.getmembers(module, inspect.isclass):
-                if issubclass(obj, ITool) and obj != ITool:
-                    tool = obj()
-                    tools.append(tool)
-                    self.logger.info(f"从模块加载工具: {tool.name}")
+                # from .interfaces import ITool
+                # if issubclass(obj, ITool) and obj != ITool:
+                #     tool = obj()
+                #     tools.append(tool)
+                #     self.logger.info(f"从模块加载工具: {tool.name}")
                     
         except Exception as e:
             self.logger.error(f"从模块加载工具失败 {module_path}: {str(e)}")
@@ -514,15 +537,15 @@ class DefaultToolLoader(IToolLoader):
         return tools
 
 
-class DefaultToolCache(IToolCache):
+class DefaultToolCache:
     """默认工具缓存实现"""
     
     def __init__(self) -> None:
         """初始化工具缓存"""
-        self._cache: Dict[str, ITool] = {}
+        self._cache: Dict[str, Any] = {}
         self._ttl: Dict[str, float] = {}
     
-    def get(self, key: str) -> Optional[ITool]:
+    def get(self, key: str) -> Optional[Any]:
         """获取缓存的工具
         
         Args:
@@ -541,7 +564,7 @@ class DefaultToolCache(IToolCache):
                 
         return self._cache.get(key)
     
-    def set(self, key: str, tool: ITool, ttl: Optional[int] = None) -> None:
+    def set(self, key: str, tool: Any, ttl: Optional[int] = None) -> None:
         """缓存工具
         
         Args:

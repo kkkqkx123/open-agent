@@ -9,7 +9,7 @@ from datetime import datetime
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
 
-from src.infrastructure.llm.models import LLMMessage, MessageRole
+from src.core.llm.models import LLMMessage, MessageRole
 
 logger = logging.getLogger(__name__)
 

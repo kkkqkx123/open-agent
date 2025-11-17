@@ -16,15 +16,28 @@ class ToolConfig:
     name: str
     description: str
     parameters_schema: Dict[str, Any]
-    tool_type: str  # "native", "mcp", "builtin"
+    tool_type: str  # "rest", "rest", "mcp"
     enabled: bool = True
     timeout: int = 30
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
-class NativeToolConfig(ToolConfig):
-    """原生工具配置"""
+class RestToolConfig(ToolConfig):
+    """原生工具配置 (原rest) - 项目内实现"""
+
+    # 原生工具的配置通常比较简单，大部分信息从函数推断
+    function_path: Optional[str] = None  # 函数路径（用于动态加载）
+
+    def __post_init__(self) -> None:
+        """初始化后处理"""
+        # 设置tool_type
+        self.tool_type = "rest"
+
+
+@dataclass
+class RestToolConfig(ToolConfig):
+    """REST工具配置 (原rest) - 外部API集成"""
 
     api_url: str
     method: str = "POST"
@@ -37,7 +50,7 @@ class NativeToolConfig(ToolConfig):
     def __post_init__(self) -> None:
         """初始化后处理"""
         # 设置tool_type
-        self.tool_type = "native"
+        self.tool_type = "rest"
         # 设置默认Content-Type
         if "Content-Type" not in self.headers:
             self.headers["Content-Type"] = "application/json"
@@ -45,7 +58,7 @@ class NativeToolConfig(ToolConfig):
 
 @dataclass
 class MCPToolConfig(ToolConfig):
-    """MCP工具配置"""
+    """MCP工具配置 - 标准协议"""
 
     mcp_server_url: str
     dynamic_schema: bool = False
@@ -55,19 +68,6 @@ class MCPToolConfig(ToolConfig):
         """初始化后处理"""
         # 设置tool_type
         self.tool_type = "mcp"
-
-
-@dataclass
-class BuiltinToolConfig(ToolConfig):
-    """内置工具配置"""
-
-    # 内置工具的配置通常比较简单，大部分信息从函数推断
-    function_path: Optional[str] = None  # 函数路径（用于动态加载）
-
-    def __post_init__(self) -> None:
-        """初始化后处理"""
-        # 设置tool_type
-        self.tool_type = "builtin"
 
 
 @dataclass
@@ -84,7 +84,7 @@ class ToolSetConfig:
 class ToolRegistryConfig(BaseModel):
     """工具注册表配置"""
 
-    tools: List[Union[NativeToolConfig, MCPToolConfig, BuiltinToolConfig]] = []
+    tools: List[Union[RestToolConfig, RestToolConfig, MCPToolConfig]] = []
     tool_sets: List[ToolSetConfig] = []
 
     model_config = ConfigDict(
@@ -93,7 +93,41 @@ class ToolRegistryConfig(BaseModel):
 
 
 # 工具配置工厂函数
-def create_native_tool_config(
+def create_rest_tool_config(
+    name: str,
+    description: str,
+    parameters_schema: Dict[str, Any],
+    function_path: Optional[str] = None,
+    timeout: int = 30,
+    enabled: bool = True,
+    **kwargs: Any,
+) -> RestToolConfig:
+    """创建原生工具配置
+
+    Args:
+        name: 工具名称
+        description: 工具描述
+        parameters_schema: 参数Schema
+        function_path: 函数路径
+        timeout: 超时时间
+        enabled: 是否启用
+        **kwargs: 其他参数
+
+    Returns:
+        RestToolConfig: 原生工具配置
+    """
+    return RestToolConfig(
+        name=name,
+        description=description,
+        parameters_schema=parameters_schema,
+        function_path=function_path,
+        timeout=timeout,
+        enabled=enabled,
+        **kwargs,
+    )
+
+
+def create_rest_tool_config(
     name: str,
     api_url: str,
     description: str,
@@ -105,8 +139,8 @@ def create_native_tool_config(
     timeout: int = 30,
     enabled: bool = True,
     **kwargs: Any,
-) -> NativeToolConfig:
-    """创建原生工具配置
+) -> RestToolConfig:
+    """创建REST工具配置
 
     Args:
         name: 工具名称
@@ -122,9 +156,9 @@ def create_native_tool_config(
         **kwargs: 其他参数
 
     Returns:
-        NativeToolConfig: 原生工具配置
+        RestToolConfig: REST工具配置
     """
-    return NativeToolConfig(
+    return RestToolConfig(
         name=name,
         description=description,
         parameters_schema=parameters_schema,
@@ -176,40 +210,6 @@ def create_mcp_tool_config(
     )
 
 
-def create_builtin_tool_config(
-    name: str,
-    description: str,
-    parameters_schema: Dict[str, Any],
-    function_path: Optional[str] = None,
-    timeout: int = 30,
-    enabled: bool = True,
-    **kwargs: Any,
-) -> BuiltinToolConfig:
-    """创建内置工具配置
-
-    Args:
-        name: 工具名称
-        description: 工具描述
-        parameters_schema: 参数Schema
-        function_path: 函数路径
-        timeout: 超时时间
-        enabled: 是否启用
-        **kwargs: 其他参数
-
-    Returns:
-        BuiltinToolConfig: 内置工具配置
-    """
-    return BuiltinToolConfig(
-        name=name,
-        description=description,
-        parameters_schema=parameters_schema,
-        function_path=function_path,
-        timeout=timeout,
-        enabled=enabled,
-        **kwargs,
-    )
-
-
 def create_tool_set_config(
     name: str, description: str, tools: List[str], enabled: bool = True, **kwargs: Any
 ) -> ToolSetConfig:
@@ -228,3 +228,7 @@ def create_tool_set_config(
     return ToolSetConfig(
         name=name, description=description, tools=tools, enabled=enabled, **kwargs
     )
+
+
+# 向后兼容的别名
+RestToolConfig = RestToolConfig  # 为了向后兼容

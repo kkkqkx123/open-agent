@@ -198,7 +198,7 @@ class WorkflowTransition:
         # 简单的安全评估（仅支持基本操作）
         try:
             # 注意：在生产环境中，应该使用更安全的表达式评估器
-            return eval(condition, {"__builtins__": {}}, context)
+            return eval(condition, {"__rests__": {}}, context)
         except:
             return False
     

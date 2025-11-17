@@ -8,7 +8,7 @@ import time
 
 from ..registry import BaseNode, NodeExecutionResult, node
 from ..states import WorkflowState
-from src.domain.tools.interfaces import ITool, IToolRegistry, ToolCall, ToolResult
+from src.core.tools.interfaces import ITool, IToolRegistry, ToolCall, ToolResult
 from ..node_config_loader import get_node_config_loader
 
 

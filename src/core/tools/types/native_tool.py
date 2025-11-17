@@ -1,236 +1,458 @@
-"""
-原生能力工具实现
+"""改进的内置工具实现
 
-NativeTool用于调用外部API的工具，支持HTTP请求和认证。
+移除不必要的异步包装，提供清晰的同步/异步分离。
 """
 
-import json
 import asyncio
-from typing import Any, Dict, Optional, Union
-from urllib.parse import urljoin
-
-import aiohttp
-# 移除顶部导入以避免循环依赖
-from pydantic import BaseModel
+import inspect
+from typing import Any, Dict, Callable, Optional, Union, Coroutine
+from functools import wraps
+import logging
 
 from ..base import BaseTool
 
+logger = logging.getLogger(__name__)
 
 
-class HTTPAuth(BaseModel):
-    """HTTP认证配置"""
-
-    auth_type: str  # "api_key", "bearer", "basic", "oauth"
-    credentials: Dict[str, str]
-    header_name: Optional[str] = None
-
-
-class NativeTool(BaseTool):
-    """原生能力工具
-
-    用于调用外部API的工具，支持多种HTTP方法和认证方式。
+class SyncRestTool(BaseTool):
+    """同步内置工具
+    
+    专门用于包装同步函数，不涉及异步包装。
     """
-
-    def __init__(self, config: Any):
-        """初始化原生工具
+    
+    def __init__(self, func: Callable, config: Any):
+        """初始化同步内置工具
         
         Args:
-            config: 原生工具配置
+            func: 同步Python函数
+            config: 内置工具配置
         """
+        # 确保函数是同步的
+        if inspect.iscoroutinefunction(func):
+            raise ValueError("SyncRestTool只能包装同步函数")
+        
+        # 从配置获取基本信息
+        name = config.name or func.__name__
+        description = config.description or func.__doc__ or f"内置工具: {name}"
+        
+        # 处理参数Schema
+        if config.parameters_schema:
+            parameters_schema = self._merge_schema_with_function(config.parameters_schema, func)
+        else:
+            parameters_schema = self._infer_schema(func)
+        
         super().__init__(
-            name=config.name,
-            description=config.description,
-            parameters_schema=config.parameters_schema,
+            name=name, 
+            description=description, 
+            parameters_schema=parameters_schema
         )
+        
+        self.func = func
         self.config = config
-        self._session: Optional[aiohttp.ClientSession] = None
-
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """获取HTTP会话
-
-        Returns:
-            aiohttp.ClientSession: HTTP会话
-        """
-        if self._session is None or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=self.config.timeout)
-            self._session = aiohttp.ClientSession(timeout=timeout)
-        return self._session
-
-    async def _close_session(self) -> None:
-        """关闭HTTP会话"""
-        if self._session and not self._session.closed:
-            await self._session.close()
-
-    def _build_headers(self, parameters: Dict[str, Any]) -> Dict[str, str]:
-        """构建HTTP请求头
-
-        Args:
-            parameters: 工具参数
-
-        Returns:
-            Dict[str, str]: HTTP请求头
-        """
-        headers: Dict[str, str] = self.config.headers.copy()
-
-        # 添加认证头
-        if self.config.auth_method == "api_key" and self.config.api_key:
-            headers["Authorization"] = f"Bearer {self.config.api_key}"
-        elif self.config.auth_method == "api_key_header" and self.config.api_key:
-            headers["X-API-Key"] = self.config.api_key
-
-        # 从参数中添加动态头
-        if "headers" in parameters:
-            for key, value in parameters["headers"].items():
-                headers[str(key)] = str(value)
-
-        return headers
-
-    def _build_url(self, parameters: Dict[str, Any]) -> str:
-        """构建请求URL
-
-        Args:
-            parameters: 工具参数
-
-        Returns:
-            str: 完整的请求URL
-        """
-        base_url = str(self.config.api_url)
-
-        # 处理URL路径参数
-        if "path_params" in parameters:
-            path_params = parameters["path_params"]
-            for key, value in path_params.items():
-                base_url = base_url.replace(f"{{{key}}}", str(value))
-
-        # 处理查询参数
-        if "query_params" in parameters:
-            query_params = parameters["query_params"]
-            query_string = "&".join([f"{k}={v}" for k, v in query_params.items()])
-            separator = "&" if "?" in base_url else "?"
-            base_url = f"{base_url}{separator}{query_string}"
-
-        return base_url
-
-    def _build_request_data(
-        self, parameters: Dict[str, Any]
-    ) -> Union[Dict[str, Any], str, None]:
-        """构建请求数据
-
-        Args:
-            parameters: 工具参数
-
-        Returns:
-            Union[Dict[str, Any], str, None]: 请求数据
-        """
-        # 移除特殊参数
-        clean_params = {
-            k: v
-            for k, v in parameters.items()
-            if k not in ["headers", "path_params", "query_params"]
-        }
-
-        if not clean_params:
-            return None
-
-        # 根据Content-Type处理数据
-        content_type = self.config.headers.get("Content-Type", "")
-
-        if "application/json" in content_type:
-            return clean_params
-        elif "application/x-www-form-urlencoded" in content_type:
-            return "&".join([f"{k}={v}" for k, v in clean_params.items()])
-        else:
-            return clean_params
-
-    def _parse_response(
-        self, response: aiohttp.ClientResponse, response_data: Any
-    ) -> Any:
-        """解析响应数据
-
-        Args:
-            response: HTTP响应对象
-            response_data: 响应数据
-
-        Returns:
-            Any: 解析后的响应数据
-        """
-        # 检查响应状态
-        if response.status >= 400:
-            raise ValueError(f"HTTP请求失败: {response.status} {response.reason}")
-
-        # 根据Content-Type解析数据
-        content_type = response.headers.get("Content-Type", "")
-
-        if "application/json" in content_type:
-            return response_data
-        elif "text/" in content_type:
-            return str(response_data)
-        else:
-            return response_data
-
+    
+    def _infer_schema(self, func: Callable[..., Any]) -> Dict[str, Any]:
+        """从函数签名推断参数Schema"""
+        sig = inspect.signature(func)
+        properties = {}
+        required = []
+        
+        for param_name, param in sig.parameters.items():
+            if param_name == "self":
+                continue
+            
+            # 推断参数类型
+            param_type = "string"
+            if param.annotation != inspect.Parameter.empty:
+                if param.annotation == int:
+                    param_type = "integer"
+                elif param.annotation == float:
+                    param_type = "number"
+                elif param.annotation == bool:
+                    param_type = "boolean"
+                elif param.annotation == list:
+                    param_type = "array"
+                elif param.annotation == dict:
+                    param_type = "object"
+            
+            # 构建属性描述
+            param_desc = {"type": param_type, "description": f"参数 {param_name}"}
+            
+            # 添加默认值
+            if param.default != inspect.Parameter.empty:
+                param_desc["default"] = param.default
+            else:
+                required.append(param_name)
+            
+            properties[param_name] = param_desc
+        
+        return {"type": "object", "properties": properties, "required": required}
+    
+    def _merge_schema_with_function(self, schema: Dict[str, Any], func: Callable[..., Any]) -> Dict[str, Any]:
+        """将提供的schema与函数签名合并"""
+        sig = inspect.signature(func)
+        
+        merged_schema = schema.copy()
+        merged_properties = merged_schema.get("properties", {}).copy()
+        
+        # 根据函数签名重新确定required列表
+        required = []
+        for param_name, param in sig.parameters.items():
+            if param_name == "self":
+                continue
+                
+            if param.default == inspect.Parameter.empty:
+                required.append(param_name)
+                
+            # 确保参数在properties中存在
+            if param_name not in merged_properties:
+                param_type = "string"
+                if param.annotation != inspect.Parameter.empty:
+                    if param.annotation == int:
+                        param_type = "integer"
+                    elif param.annotation == float:
+                        param_type = "number"
+                    elif param.annotation == bool:
+                        param_type = "boolean"
+                    elif param.annotation == list:
+                        param_type = "array"
+                    elif param.annotation == dict:
+                        param_type = "object"
+                
+                param_desc = {"type": param_type, "description": f"参数 {param_name}"}
+                if param.default != inspect.Parameter.empty:
+                    param_desc["default"] = param.default
+                    
+                merged_properties[param_name] = param_desc
+        
+        merged_schema["properties"] = merged_properties
+        merged_schema["required"] = required
+        
+        return merged_schema
+    
     def execute(self, **kwargs: Any) -> Any:
-        """同步执行工具（通过EventLoopManager）
-
+        """同步执行工具
+        
         Args:
             **kwargs: 工具参数
-
-        Returns:
-            Any: 执行结果
-        """
-        # 使用EventLoopManager运行异步方法
-        from src.infrastructure.async_utils.event_loop_manager import run_async
-        return run_async(self.execute_async(**kwargs))
-
-    async def execute_async(self, **kwargs: Any) -> Any:
-        """异步执行工具
-
-        Args:
-            **kwargs: 工具参数
-
+            
         Returns:
             Any: 执行结果
         """
         try:
-            # 获取HTTP会话
-            session = await self._get_session()
-
-            # 构建请求
-            headers = self._build_headers(kwargs)
-            url = self._build_url(kwargs)
-            data = self._build_request_data(kwargs)
-
-            # 发送请求
-            async with session.request(
-                method=self.config.method,
-                url=url,
-                headers=headers,
-                json=data if isinstance(data, dict) else None,
-                data=data if not isinstance(data, dict) else None,
-            ) as response:
-                # 读取响应数据
-                content_type = response.headers.get("Content-Type", "")
-                if "application/json" in content_type:
-                    response_data = await response.json()
-                else:
-                    response_data = await response.text()
-
-                # 解析并返回结果
-                return self._parse_response(response, response_data)
-
-        except aiohttp.ClientError as e:
-            raise ValueError(f"HTTP请求错误: {str(e)}")
-        except asyncio.TimeoutError:
-            raise ValueError(f"请求超时: {self.config.timeout}秒")
+            # 直接调用同步函数
+            return self.func(**kwargs)
         except Exception as e:
-            raise ValueError(f"工具执行错误: {str(e)}")
-        finally:
-            # 清理会话
-            await self._close_session()
+            raise ValueError(f"同步内置工具执行错误: {str(e)}")
+    
+    def get_function(self) -> Callable:
+        """获取原始函数"""
+        return self.func
+    
+    @classmethod
+    def from_function(
+        cls,
+        func: Callable,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        parameters_schema: Optional[Dict[str, Any]] = None,
+    ) -> "SyncRestTool":
+        """从函数创建工具实例"""
+        tool_name = name or func.__name__
+        tool_description = description or func.__doc__ or f"内置工具: {tool_name}"
+        
+        from src.core.tools.config import RestToolConfig
+        config = RestToolConfig(
+            name=tool_name,
+            tool_type="Native_sync",
+            description=tool_description,
+            parameters_schema=parameters_schema or {},
+        )
+        
+        return cls(func, config)
 
-    async def __aenter__(self) -> "NativeTool":
-        """异步上下文管理器入口"""
-        return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """异步上下文管理器出口"""
-        await self._close_session()
+class AsyncRestTool(BaseTool):
+    """异步内置工具
+    
+    专门用于包装异步函数，提供真正的异步执行。
+    """
+    
+    def __init__(self, func: Callable, config: Any):
+        """初始化异步内置工具
+        
+        Args:
+            func: 异步Python函数
+            config: 内置工具配置
+        """
+        # 确保函数是异步的
+        if not inspect.iscoroutinefunction(func):
+            raise ValueError("AsyncRestTool只能包装异步函数")
+        
+        # 从配置获取基本信息
+        name = config.name or func.__name__
+        description = config.description or func.__doc__ or f"异步内置工具: {name}"
+        
+        # 处理参数Schema
+        if config.parameters_schema:
+            parameters_schema = self._merge_schema_with_function(config.parameters_schema, func)
+        else:
+            parameters_schema = self._infer_schema(func)
+        
+        super().__init__(
+            name=name, 
+            description=description, 
+            parameters_schema=parameters_schema
+        )
+        
+        self.func = func
+        self.config = config
+    
+    def _infer_schema(self, func: Callable[..., Any]) -> Dict[str, Any]:
+        """从函数签名推断参数Schema"""
+        # 与SyncRestTool相同的实现
+        sig = inspect.signature(func)
+        properties = {}
+        required = []
+        
+        for param_name, param in sig.parameters.items():
+            if param_name == "self":
+                continue
+            
+            param_type = "string"
+            if param.annotation != inspect.Parameter.empty:
+                if param.annotation == int:
+                    param_type = "integer"
+                elif param.annotation == float:
+                    param_type = "number"
+                elif param.annotation == bool:
+                    param_type = "boolean"
+                elif param.annotation == list:
+                    param_type = "array"
+                elif param.annotation == dict:
+                    param_type = "object"
+            
+            param_desc = {"type": param_type, "description": f"参数 {param_name}"}
+            
+            if param.default != inspect.Parameter.empty:
+                param_desc["default"] = param.default
+            else:
+                required.append(param_name)
+            
+            properties[param_name] = param_desc
+        
+        return {"type": "object", "properties": properties, "required": required}
+    
+    def _merge_schema_with_function(self, schema: Dict[str, Any], func: Callable[..., Any]) -> Dict[str, Any]:
+        """将提供的schema与函数签名合并"""
+        # 与SyncRestTool相同的实现
+        sig = inspect.signature(func)
+        
+        merged_schema = schema.copy()
+        merged_properties = merged_schema.get("properties", {}).copy()
+        
+        required = []
+        for param_name, param in sig.parameters.items():
+            if param_name == "self":
+                continue
+                
+            if param.default == inspect.Parameter.empty:
+                required.append(param_name)
+                
+            if param_name not in merged_properties:
+                param_type = "string"
+                if param.annotation != inspect.Parameter.empty:
+                    if param.annotation == int:
+                        param_type = "integer"
+                    elif param.annotation == float:
+                        param_type = "number"
+                    elif param.annotation == bool:
+                        param_type = "boolean"
+                    elif param.annotation == list:
+                        param_type = "array"
+                    elif param.annotation == dict:
+                        param_type = "object"
+                
+                param_desc = {"type": param_type, "description": f"参数 {param_name}"}
+                if param.default != inspect.Parameter.empty:
+                    param_desc["default"] = param.default
+                    
+                merged_properties[param_name] = param_desc
+        
+        merged_schema["properties"] = merged_properties
+        merged_schema["required"] = required
+        
+        return merged_schema
+    
+    async def execute_async(self, **kwargs: Any) -> Any:
+        """异步执行工具
+        
+        Args:
+            **kwargs: 工具参数
+            
+        Returns:
+            Any: 执行结果
+        """
+        try:
+            # 直接调用异步函数
+            return await self.func(**kwargs)
+        except Exception as e:
+            raise ValueError(f"异步内置工具执行错误: {str(e)}")
+    
+    
+    def get_function(self) -> Callable:
+        """获取原始函数"""
+        return self.func
+    def execute(self, **kwargs: Any) -> Any:
+        """同步执行工具（通过事件循环管理器）
+        
+        Args:
+            **kwargs: 工具参数
+            
+        Returns:
+            Any: 执行结果
+        """
+        # 优化：检查是否已在事件循环中
+        try:
+            loop = asyncio.get_running_loop()
+            # 如果已在事件循环中，创建任务并等待
+            import concurrent.futures
+            import threading
+            
+            def run_in_thread():
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    return new_loop.run_until_complete(self.execute_async(**kwargs))
+                finally:
+                    new_loop.close()
+            
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(run_in_thread)
+                return future.result()
+        except RuntimeError:
+            # 没有运行的事件循环，使用EventLoopManager
+            from src.infrastructure.async_utils.event_loop_manager import run_async
+            return run_async(self.execute_async(**kwargs))
+    
+    @classmethod
+    def from_function(
+        cls,
+        func: Callable,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        parameters_schema: Optional[Dict[str, Any]] = None,
+    ) -> "AsyncRestTool":
+        """从函数创建工具实例"""
+        tool_name = name or func.__name__
+        tool_description = description or func.__doc__ or f"异步内置工具: {tool_name}"
+        
+        from src.core.tools.config import RestToolConfig
+        config = RestToolConfig(
+            name=tool_name,
+            tool_type="Native_async",
+            description=tool_description,
+            parameters_schema=parameters_schema or {},
+        )
+        
+        return cls(func, config)
+
+
+class RestToolFactory:
+    """内置工具工厂
+    
+    根据函数类型自动选择合适的工具实现。
+    """
+    
+    @staticmethod
+    def create_tool(
+        func: Callable,
+        config: Any,
+    ) -> Union[SyncRestTool, AsyncRestTool]:
+        """根据函数类型创建工具
+        
+        Args:
+            func: Python函数
+            config: 工具配置
+            
+        Returns:
+            Union[SyncRestTool, AsyncRestTool]: 工具实例
+        """
+        if inspect.iscoroutinefunction(func):
+            return AsyncRestTool(func, config)
+        else:
+            return SyncRestTool(func, config)
+    
+    @staticmethod
+    def create_sync_tool(
+        func: Callable,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        parameters_schema: Optional[Dict[str, Any]] = None,
+    ) -> SyncRestTool:
+        """创建同步工具"""
+        from src.core.tools.config import RestToolConfig
+        config = RestToolConfig(
+            name=name or func.__name__,
+            tool_type="Native_sync",
+            description=description or func.__doc__ or f"内置工具: {name}",
+            parameters_schema=parameters_schema or {},
+        )
+        return SyncRestTool(func, config)
+    
+    @staticmethod
+    def create_async_tool(
+        func: Callable,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        parameters_schema: Optional[Dict[str, Any]] = None,
+    ) -> AsyncRestTool:
+        """创建异步工具"""
+        from src.core.tools.config import RestToolConfig
+        config = RestToolConfig(
+            name=name or func.__name__,
+            tool_type="Native_async",
+            description=description or func.__doc__ or f"异步内置工具: {name}",
+            parameters_schema=parameters_schema or {},
+        )
+        return AsyncRestTool(func, config)
+
+
+# 装饰器支持
+def sync_Native_tool(
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    parameters_schema: Optional[Dict[str, Any]] = None,
+):
+    """同步内置工具装饰器"""
+    def decorator(func: Callable) -> Callable:
+        tool = RestToolFactory.create_sync_tool(func, name, description, parameters_schema)
+        
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+        
+        # 使用setattr动态添加_tool属性以避免类型检查错误
+        setattr(wrapper, '_tool', tool)
+        return wrapper
+    
+    return decorator
+
+
+def async_Native_tool(
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    parameters_schema: Optional[Dict[str, Any]] = None,
+):
+    """异步内置工具装饰器"""
+    def decorator(func: Callable) -> Callable:
+        tool = RestToolFactory.create_async_tool(func, name, description, parameters_schema)
+        
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+        
+        # 使用setattr动态添加_tool属性以避免类型检查错误
+        setattr(wrapper, '_tool', tool)
+        return wrapper
+    
+    return decorator

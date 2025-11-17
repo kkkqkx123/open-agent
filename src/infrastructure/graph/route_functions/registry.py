@@ -18,7 +18,7 @@ class RouteFunctionConfig:
     parameters: Dict[str, Any] = field(default_factory=dict)  # 参数配置
     return_values: List[str] = field(default_factory=list)   # 可能的返回值列表
     category: str = "general"   # 路由函数分类
-    implementation: str = ""    # 实现方式：builtin, config, custom
+    implementation: str = ""    # 实现方式：rest, config, custom
     metadata: Dict[str, Any] = field(default_factory=dict)  # 元数据
 
 

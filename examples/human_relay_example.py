@@ -7,7 +7,7 @@ HumanRelay LLM 使用示例
 import asyncio
 from langchain_core.messages import HumanMessage, AIMessage  # type: ignore
 
-from src.infrastructure.llm.factory import create_client
+from src.core.llm.factory import create_client
 
 
 async def single_turn_example() -> None:

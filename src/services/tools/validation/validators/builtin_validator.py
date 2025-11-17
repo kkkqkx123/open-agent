@@ -12,7 +12,7 @@ from ..models import ValidationResult, ValidationStatus
 from ..validators.base_validator import BaseValidator
 
 
-class BuiltinToolValidator(BaseValidator):
+class RestToolValidator(BaseValidator):
     """Builtin工具验证器"""
     
     def __init__(self, logger: ILogger):
@@ -90,4 +90,4 @@ class BuiltinToolValidator(BaseValidator):
     
     def get_supported_tool_types(self) -> List[str]:
         """获取支持的工具类型列表"""
-        return ["builtin"]
+        return ["rest"]

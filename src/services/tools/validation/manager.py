@@ -9,15 +9,15 @@ import os
 
 from infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.logger.logger import ILogger
-from src.infrastructure.tools.manager import ToolManager
-from src.infrastructure.tools.interfaces import IToolManager
+from src.core.tools.manager import ToolManager
+from src.core.tools.interfaces import IToolManager
 
 from .interfaces import IToolValidator
 from .models import ValidationResult
 from .validators.config_validator import ConfigValidator
 from .validators.loading_validator import LoadingValidator
-from .validators.builtin_validator import BuiltinToolValidator
-from .validators.native_validator import NativeToolValidator
+from .validators.rest_validator import RestToolValidator
+from .validators.rest_validator import RestToolValidator
 from .validators.mcp_validator import MCPToolValidator
 
 
@@ -50,8 +50,8 @@ class ToolValidationManager:
         if self.tool_manager and self.logger:
             self.validators["loading"] = LoadingValidator(self.tool_manager, self.logger)
         if self.logger:
-            self.validators["builtin"] = BuiltinToolValidator(self.logger)
-            self.validators["native"] = NativeToolValidator(self.logger)
+            self.validators["rest"] = RestToolValidator(self.logger)
+            self.validators["rest"] = RestToolValidator(self.logger)
             self.validators["mcp"] = MCPToolValidator(self.logger)
     
     def validate_tool(self, tool_name: str, config_path: str) -> Dict[str, ValidationResult]:

@@ -32,8 +32,8 @@ def validate_hash_convert_config():
                 return False
         
         # 验证工具类型
-        if hash_convert_config["tool_type"] != "builtin":
-            print(f"错误: 工具类型应为 'builtin'，实际为 '{hash_convert_config['tool_type']}'")
+        if hash_convert_config["tool_type"] != "rest":
+            print(f"错误: 工具类型应为 'rest'，实际为 '{hash_convert_config['tool_type']}'")
             return False
         
         # 验证函数路径

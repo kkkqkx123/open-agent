@@ -19,12 +19,12 @@ class SlashCommandProcessor(BaseCommandProcessor):
         self.command_help: Dict[str, str] = {}
         
         # 注册内置命令
-        self._register_builtin_commands()
+        self._register_rest_commands()
         
         # 更新调试日志记录器
         self.tui_logger = get_tui_silent_logger("slash_command_processor")
     
-    def _register_builtin_commands(self) -> None:
+    def _register_rest_commands(self) -> None:
         """注册内置命令"""
         self.register_command("help", self._cmd_help, "显示帮助信息", ["h", "?"])
         self.register_command("clear", self._cmd_clear, "清空屏幕", ["cls"])

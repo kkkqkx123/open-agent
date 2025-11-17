@@ -35,8 +35,8 @@ def validate_duckduckgo_search_config():
                 return False
         
         # 验证工具类型
-        if duckduckgo_config["tool_type"] != "native":
-            print(f"错误: 工具类型应为 'native'，实际为 '{duckduckgo_config['tool_type']}'")
+        if duckduckgo_config["tool_type"] != "rest":
+            print(f"错误: 工具类型应为 'rest'，实际为 '{duckduckgo_config['tool_type']}'")
             return False
         
         # 验证参数Schema
@@ -108,7 +108,7 @@ def validate_duckduckgo_search_tool():
             duckduckgo_config_path = tools_config_dir / "duckduckgo_search.yaml"
             duckduckgo_config_content = """# DuckDuckGo搜索工具配置
 name: duckduckgo_search
-tool_type: native
+tool_type: rest
 description: A tool for searching the web using DuckDuckGo search engine and fetching web page content
 enabled: true
 timeout: 30
@@ -211,7 +211,7 @@ def test_duckduckgo_search_tool_functionality():
             duckduckgo_config_path = tools_config_dir / "duckduckgo_search.yaml"
             duckduckgo_config_content = """# DuckDuckGo搜索工具配置
 name: duckduckgo_search
-tool_type: native
+tool_type: rest
 description: A tool for searching the web using DuckDuckGo search engine and fetching web page content
 enabled: true
 timeout: 30

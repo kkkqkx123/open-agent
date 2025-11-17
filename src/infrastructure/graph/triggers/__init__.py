@@ -16,7 +16,7 @@ from .monitoring_base import (
     StateChangeInfo,
     MemoryInfo
 )
-from .builtin_triggers import (
+from .rest_triggers import (
     TimeTrigger,
     StateTrigger,
     EventTrigger,

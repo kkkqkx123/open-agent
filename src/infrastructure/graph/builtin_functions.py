@@ -465,7 +465,7 @@ BUILTIN_CONDITION_FUNCTIONS = {
 }
 
 
-def get_builtin_node_function(name: str) -> Optional[Callable]:
+def get_rest_node_function(name: str) -> Optional[Callable]:
     """获取内置节点函数
     
     Args:
@@ -477,7 +477,7 @@ def get_builtin_node_function(name: str) -> Optional[Callable]:
     return BUILTIN_NODE_FUNCTIONS.get(name)
 
 
-def get_builtin_condition_function(name: str) -> Optional[Callable]:
+def get_rest_condition_function(name: str) -> Optional[Callable]:
     """获取内置条件函数
     
     Args:
@@ -489,7 +489,7 @@ def get_builtin_condition_function(name: str) -> Optional[Callable]:
     return BUILTIN_CONDITION_FUNCTIONS.get(name)
 
 
-def list_builtin_node_functions() -> List[str]:
+def list_rest_node_functions() -> List[str]:
     """列出所有内置节点函数
     
     Returns:
@@ -498,7 +498,7 @@ def list_builtin_node_functions() -> List[str]:
     return list(BUILTIN_NODE_FUNCTIONS.keys())
 
 
-def list_builtin_condition_functions() -> List[str]:
+def list_rest_condition_functions() -> List[str]:
     """列出所有内置条件函数
     
     Returns:

@@ -299,7 +299,7 @@ class ConfigManager:
             template = {
                 "name": "example_tool",
                 "type": "tool",
-                "tool_type": "builtin",
+                "tool_type": "rest",
                 "description": "示例工具",
                 "enabled": True,
                 "parameters": {}

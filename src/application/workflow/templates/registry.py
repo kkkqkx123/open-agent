@@ -242,11 +242,11 @@ def get_global_template_registry() -> WorkflowTemplateRegistry:
     global _global_registry
     if _global_registry is None:
         _global_registry = WorkflowTemplateRegistry()
-        _register_builtin_templates(_global_registry)
+        _register_rest_templates(_global_registry)
     return _global_registry
 
 
-def _register_builtin_templates(registry: WorkflowTemplateRegistry) -> None:
+def _register_rest_templates(registry: WorkflowTemplateRegistry) -> None:
     """注册内置模板
     
     Args:

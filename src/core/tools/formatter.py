@@ -8,12 +8,12 @@ import json
 import re
 from typing import Any, Dict, List, Optional, Union, Sequence
 
-from src.infrastructure.llm.interfaces import ILLMClient
+from src.core.llm.interfaces import ILLMClient
 from langchain_core.messages import BaseMessage
-from src.domain.tools.interfaces import IToolFormatter
-from src.domain.tools.interfaces import ToolCall
-from src.domain.tools.interfaces import ITool
-from src.domain.tools.base import BaseTool
+from src.core.tools.interfaces import IToolFormatter
+from src.core.tools.interfaces import ToolCall
+from src.core.tools.interfaces import ITool
+from src.core.tools.base import BaseTool
 
 class FunctionCallingFormatter(IToolFormatter):
     """Function Calling格式化策略

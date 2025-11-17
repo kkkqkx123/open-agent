@@ -9,55 +9,37 @@ metadata:
 
 # 工具类型注册
 tool_types:
-  # 内置工具类型
-  builtin:
-    class_path: "src.domain.tools.types.builtin_tool:SyncBuiltinTool"
-    description: "内置工具类型"
-    enabled: true
-    config_files:
-      - "calculator.yaml"
-    
   # 原生工具类型
   native:
-    class_path: "src.domain.tools.types.native_tool:NativeTool"
-    description: "原生工具类型"
+    class_path: "src.core.tools.types.native_tool:NativeTool"
+    description: "原生工具类型 - 项目内实现"
     enabled: true
+    config_directory: "native"
+    config_files:
+      - "calculator.yaml"
+      - "hash_convert.yaml"
+      - "sequentialthinking.yaml"
+      - "time_tool.yaml"
+    
+  # REST工具类型
+  rest:
+    class_path: "src.core.tools.types.rest_tool:RestTool"
+    description: "REST工具类型 - 外部API集成"
+    enabled: true
+    config_directory: "rest"
     config_files:
       - "fetch.yaml"
-      - "database.yaml"
       - "weather.yaml"
-      - "time_tool.yaml"
+      - "duckduckgo_search.yaml"
     
   # MCP工具类型
   mcp:
-    class_path: "src.domain.tools.types.mcp_tool:MCPTool"
-    description: "MCP工具类型"
+    class_path: "src.core.tools.types.mcp_tool:MCPTool"
+    description: "MCP工具类型 - 标准协议"
     enabled: true
-    config_files: []
-    
-  # 哈希转换工具类型
-  hash_convert:
-    class_path: "src.domain.tools.types.native_tool:NativeTool"
-    description: "哈希转换工具"
-    enabled: true
+    config_directory: "mcp"
     config_files:
-      - "hash_convert.yaml"
-    
-  # 顺序思考工具类型
-  sequentialthinking:
-    class_path: "src.domain.tools.types.native_tool:NativeTool"
-    description: "顺序思考工具"
-    enabled: true
-    config_files:
-      - "sequentialthinking.yaml"
-    
-  # 搜索工具类型
-  search:
-    class_path: "src.domain.tools.types.native_tool:NativeTool"
-    description: "搜索工具"
-    enabled: true
-    config_files:
-      - "duckduckgo_search.yaml"
+      - "database.yaml"
 
 # 工具集注册
 tool_sets:
@@ -87,6 +69,9 @@ validation_rules:
   - field: "tool_types.*.enabled"
     rule_type: "boolean"
     message: "启用状态必须是布尔值"
+  - field: "tool_types.*.config_directory"
+    rule_type: "required"
+    message: "工具类型必须指定配置目录"
   - field: "tool_sets.*.tools"
     rule_type: "list"
     message: "工具集必须包含工具列表"
@@ -95,7 +80,9 @@ validation_rules:
 auto_discovery:
   enabled: true
   scan_directories:
-    - "configs/tools"
+    - "configs/tools/native"
+    - "configs/tools/rest"
+    - "configs/tools/mcp"
   file_patterns:
     - "*.yaml"
     - "*.yml"
@@ -103,3 +90,13 @@ auto_discovery:
     - "__*"
     - "_*"
     - "test_*"
+
+# 扁平化架构配置
+flattened_architecture:
+  enabled: true
+  core_module: "src.core.tools"
+  services_module: "src.services.tools"
+  config_structure:
+    native: "configs/tools/native"
+    rest: "configs/tools/rest"
+    mcp: "configs/tools/mcp"

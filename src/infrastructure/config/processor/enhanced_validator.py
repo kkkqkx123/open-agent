@@ -333,7 +333,7 @@ class EnhancedConfigValidator:
     
     def __init__(self):
         self.rules: Dict[str, ValidationRule] = {}
-        self._load_builtin_rules()
+        self._load_rest_rules()
         self.cache = ValidationCache()
         self.base_validator = ConfigValidator()
     
@@ -427,9 +427,9 @@ class EnhancedConfigValidator:
         level_names = "_".join(level.value for level in sorted(levels, key=lambda x: x.value))
         return f"{config_path}_{level_names}"
     
-    def _load_builtin_rules(self) -> None:
+    def _load_rest_rules(self) -> None:
         """加载内置验证规则"""
-        builtin_rules = [
+        rest_rules = [
             SyntaxValidationRule("syntax_001", ValidationLevel.SYNTAX, "YAML语法验证"),
             SchemaValidationRule("schema_001", ValidationLevel.SCHEMA, "配置结构验证"),
             SemanticValidationRule("semantic_001", ValidationLevel.SEMANTIC, "业务逻辑验证"),
@@ -437,7 +437,7 @@ class EnhancedConfigValidator:
             PerformanceValidationRule("performance_001", ValidationLevel.PERFORMANCE, "性能配置验证")
         ]
         
-        for rule in builtin_rules:
+        for rule in rest_rules:
             self.register_rule(rule)
 
 

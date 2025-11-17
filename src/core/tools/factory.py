@@ -11,7 +11,7 @@ from .interfaces import ITool, IToolFactory
 
 # 导入配置类（延迟导入以避免循环依赖）
 try:
-    from src.infrastructure.tools.config import NativeToolConfig, MCPToolConfig, BuiltinToolConfig
+    from .config import RestToolConfig, MCPToolConfig, RestToolConfig
     _config_imported = True
 except ImportError:
     # 如果无法导入，使用动态创建
@@ -76,22 +76,22 @@ class ToolFactory(IToolFactory):
     def _register_default_tool_types(self) -> None:
         """注册默认工具类型（延迟导入）"""
         try:
-            from .types.native_tool import NativeTool
-            self._tool_types["native"] = NativeTool
+            from .types.rest_tool import RestTool
+            self._tool_types["rest"] = RestTool
         except ImportError:
-            logger.warning("无法导入 NativeTool")
+            logger.warning("无法导入 RestTool")
+        
+        try:
+            from .types.rest_tool import RestTool
+            self._tool_types["rest"] = RestTool
+        except ImportError:
+            logger.warning("无法导入 RestTool")
         
         try:
             from .types.mcp_tool import MCPTool
             self._tool_types["mcp"] = MCPTool
         except ImportError:
             logger.warning("无法导入 MCPTool")
-        
-        try:
-            from .types.builtin_tool import SyncBuiltinTool
-            self._tool_types["builtin"] = SyncBuiltinTool
-        except ImportError:
-            logger.warning("无法导入 SyncBuiltinTool")
     
     def create_tool(self, tool_config: Dict[str, Any]) -> ITool:
         """根据配置创建工具实例
@@ -258,9 +258,20 @@ class ToolFactory(IToolFactory):
 
         try:
             # 根据工具类型创建实例
-            if config.tool_type == "native":
-                # NativeTool 需要一个配置对象，包含所有必需属性
-                native_config = type('NativeToolConfig', (), {
+            if config.tool_type == "rest":
+                # RestTool 需要一个配置对象，包含所有必需属性
+                rest_config = type('RestToolConfig', (), {
+                    'name': config.name,
+                    'description': config.description,
+                    'parameters_schema': config.parameters or {},
+                    'function_path': getattr(config, 'function_path', None),
+                    'timeout': getattr(config, 'timeout', 30),
+                    'enabled': getattr(config, 'enabled', True)
+                })()
+                return tool_class(rest_config)  # type: ignore
+            elif config.tool_type == "rest":
+                # RestTool 需要一个配置对象，包含所有必需属性
+                rest_config = type('RestToolConfig', (), {
                     'name': config.name,
                     'description': config.description,
                     'parameters_schema': config.parameters or {},
@@ -274,7 +285,7 @@ class ToolFactory(IToolFactory):
                     'retry_count': getattr(config, 'retry_count', 3),
                     'retry_delay': getattr(config, 'retry_delay', 1.0)
                 })()
-                return tool_class(native_config)  # type: ignore
+                return tool_class(rest_config)  # type: ignore
             elif config.tool_type == "mcp":
                 # MCPTool 需要一个配置对象，包含所有必需属性
                 mcp_config = type('MCPToolConfig', (), {
@@ -288,18 +299,6 @@ class ToolFactory(IToolFactory):
                     'refresh_interval': getattr(config, 'refresh_interval', None)
                 })()
                 return tool_class(mcp_config)  # type: ignore
-            elif config.tool_type == "builtin":
-                # SyncBuiltinTool 需要一个函数和配置对象
-                builtin_func = getattr(config, 'function', lambda: None)
-                builtin_config = type('BuiltinToolConfig', (), {
-                    'name': config.name,
-                    'description': config.description,
-                    'parameters_schema': config.parameters or {},
-                    'function_path': getattr(config, 'function_path', None),
-                    'timeout': getattr(config, 'timeout', 30),
-                    'enabled': getattr(config, 'enabled', True)
-                })()
-                return tool_class(builtin_func, builtin_config)  # type: ignore
             else:
                 # 通用创建方式
                 generic_config = type('GenericToolConfig', (), config.to_dict())()
@@ -336,7 +335,7 @@ class ToolFactory(IToolFactory):
         """
         # 可以根据配置决定是否缓存
         # 目前默认缓存无状态工具
-        return config.tool_type in ["builtin"]
+        return config.tool_type in ["rest"]
     
     def _initialize_from_registry(self) -> None:
         """从注册管理器初始化工具类型

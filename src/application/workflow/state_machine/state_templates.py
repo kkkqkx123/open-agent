@@ -53,7 +53,7 @@ class StateTemplateManager:
     def __init__(self):
         """初始化状态模板管理器"""
         self._templates: Dict[str, StateTemplate] = {}
-        self._register_builtin_templates()
+        self._register_rest_templates()
     
     def register_template(self, template: StateTemplate) -> None:
         """注册状态模板
@@ -179,7 +179,7 @@ class StateTemplateManager:
             "metadata": template.metadata
         }
     
-    def _register_builtin_templates(self) -> None:
+    def _register_rest_templates(self) -> None:
         """注册内置模板"""
         
         # 基础状态模板

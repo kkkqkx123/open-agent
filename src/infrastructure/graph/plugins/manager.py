@@ -63,7 +63,7 @@ class PluginManager:
                 return False
             
             # 注册内置插件
-            self.register_builtin_plugins()
+            self.register_rest_plugins()
             
             # 加载外部插件
             self.load_external_plugins()
@@ -97,11 +97,11 @@ class PluginManager:
             logger.error(f"加载插件配置失败: {e}")
             return False
     
-    def register_builtin_plugins(self) -> None:
+    def register_rest_plugins(self) -> None:
         """注册内置插件"""
         try:
             # 注册START插件
-            from .builtin.start import (
+            from .rest.start import (
                 ContextSummaryPlugin, EnvironmentCheckPlugin, MetadataCollectorPlugin
             )
             self.registry.register_plugin(ContextSummaryPlugin())
@@ -109,7 +109,7 @@ class PluginManager:
             self.registry.register_plugin(MetadataCollectorPlugin())
             
             # 注册END插件
-            from .builtin.end import (
+            from .rest.end import (
                 ResultSummaryPlugin, ExecutionStatsPlugin, 
                 FileTrackerPlugin, CleanupManagerPlugin
             )
@@ -119,7 +119,7 @@ class PluginManager:
             self.registry.register_plugin(CleanupManagerPlugin())
             
             # 注册Hook插件
-            from .builtin.hooks import (
+            from .rest.hooks import (
                 DeadLoopDetectionPlugin, PerformanceMonitoringPlugin,
                 ErrorRecoveryPlugin, LoggingPlugin, MetricsCollectionPlugin
             )
@@ -225,8 +225,8 @@ class PluginManager:
         plugin_configs = self.plugin_configs.get(type_key, {})
         
         # 处理内置插件
-        builtin_configs = {c['name']: c for c in plugin_configs.get('builtin', [])}
-        for config in builtin_configs.values():
+        rest_configs = {c['name']: c for c in plugin_configs.get('rest', [])}
+        for config in rest_configs.values():
             if config.get('enabled', False):
                 plugin = self.registry.get_plugin(config['name'])
                 if plugin:
@@ -768,7 +768,7 @@ class PluginManager:
         """
         return {
             "start_plugins": {
-                "builtin": [
+                "rest": [
                     {"name": "context_summary", "enabled": True, "priority": 10, "config": {}},
                     {"name": "environment_check", "enabled": True, "priority": 20, "config": {}},
                     {"name": "metadata_collector", "enabled": True, "priority": 30, "config": {}}
@@ -776,7 +776,7 @@ class PluginManager:
                 "external": []
             },
             "end_plugins": {
-                "builtin": [
+                "rest": [
                     {"name": "result_summary", "enabled": True, "priority": 10, "config": {}},
                     {"name": "execution_stats", "enabled": True, "priority": 20, "config": {}},
                     {"name": "file_tracker", "enabled": True, "priority": 30, "config": {}},

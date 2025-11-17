@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List
 import logging
 
 from .base import ITrigger, TriggerType
-from .builtin_triggers import (
+from .rest_triggers import (
     TimeTrigger,
     StateTrigger,
     EventTrigger,

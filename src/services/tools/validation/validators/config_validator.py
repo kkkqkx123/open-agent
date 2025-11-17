@@ -51,7 +51,7 @@ class ConfigValidator(IToolValidator):
             
             # 验证工具类型
             tool_type = config_data.get("tool_type")
-            if tool_type not in ["builtin", "native", "mcp"]:
+            if tool_type not in ["rest", "rest", "mcp"]:
                 result.add_issue(
                     ValidationStatus.ERROR,
                     f"无效的工具类型: {tool_type}",
@@ -95,7 +95,7 @@ class ConfigValidator(IToolValidator):
     
     def get_supported_tool_types(self) -> List[str]:
         """获取支持的工具类型列表"""
-        return ["builtin", "native", "mcp"]
+        return ["rest", "rest", "mcp"]
     
     def _validate_schema(self, schema: Dict[str, Any]) -> List[str]:
         """验证参数Schema
