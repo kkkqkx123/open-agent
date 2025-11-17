@@ -7,10 +7,7 @@ from .base_wrapper import BaseLLMWrapper
 from .task_group_wrapper import TaskGroupWrapper
 from .polling_pool_wrapper import PollingPoolWrapper
 from .exceptions import WrapperFactoryError, WrapperConfigError
-from ..task_group_manager import TaskGroupManager
-from ..polling_pool import PollingPoolManager
-from ..enhanced_fallback_manager import EnhancedFallbackManager
-from ..interfaces import ILLMClient
+from ..interfaces import ITaskGroupManager, IPollingPoolManager, IFallbackManager, ILLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +16,16 @@ class LLMWrapperFactory:
     """LLM包装器工厂"""
     
     def __init__(self,
-                 task_group_manager: TaskGroupManager,
-                 polling_pool_manager: Optional[PollingPoolManager] = None,
-                 fallback_manager: Optional[EnhancedFallbackManager] = None):
+                 task_group_manager: ITaskGroupManager,
+                 polling_pool_manager: Optional[IPollingPoolManager] = None,
+                 fallback_manager: Optional[IFallbackManager] = None):
         """
         初始化包装器工厂
         
         Args:
-            task_group_manager: 任务组管理器
-            polling_pool_manager: 轮询池管理器
-            fallback_manager: 降级管理器
+            task_group_manager: 任务组管理器接口
+            polling_pool_manager: 轮询池管理器接口
+            fallback_manager: 降级管理器接口
         """
         self.task_group_manager = task_group_manager
         self.polling_pool_manager = polling_pool_manager

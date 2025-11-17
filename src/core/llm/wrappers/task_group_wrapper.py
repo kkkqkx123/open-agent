@@ -8,9 +8,7 @@ from datetime import datetime
 
 from .base_wrapper import BaseLLMWrapper
 from .exceptions import TaskGroupWrapperError, WrapperExecutionError
-from src.services.llm.task_group_manager import TaskGroupManager
-from .fallback_manager import EnhancedFallbackManager
-from ..interfaces import ILLMClient
+from ..interfaces import ITaskGroupManager, IFallbackManager
 from ..models import LLMResponse, TokenUsage
 from ..exceptions import LLMError
 
@@ -22,16 +20,16 @@ class TaskGroupWrapper(BaseLLMWrapper):
     
     def __init__(self, 
                  name: str,
-                 task_group_manager: TaskGroupManager,
-                 fallback_manager: Optional[EnhancedFallbackManager] = None,
+                 task_group_manager: ITaskGroupManager,
+                 fallback_manager: Optional[IFallbackManager] = None,
                  config: Optional[Dict[str, Any]] = None):
         """
         初始化任务组包装器
         
         Args:
             name: 包装器名称
-            task_group_manager: 任务组管理器
-            fallback_manager: 降级管理器
+            task_group_manager: 任务组管理器接口
+            fallback_manager: 降级管理器接口
             config: 包装器配置
         """
         super().__init__(name, config or {})
@@ -306,7 +304,7 @@ class TaskGroupWrapper(BaseLLMWrapper):
             
             echelon_config = self.task_group_manager.get_echelon_config(group_name, echelon_or_task)
             if echelon_config:
-                return echelon_config.function_calling is not None
+                return echelon_config.get("function_calling") is not None
         except Exception:
             pass
         

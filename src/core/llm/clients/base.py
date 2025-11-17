@@ -121,7 +121,8 @@ class BaseLLMClient(ILLMClient):
 
     def _handle_api_error(self, error: Exception) -> LLMCallError:
         """处理API错误"""
-        from ..error_handler import ErrorHandlerFactory, ErrorContext
+        # 从服务层导入错误处理器
+        from ....services.llm.error_handler import ErrorHandlerFactory, ErrorContext
 
         # 创建错误上下文
         context = ErrorContext(
@@ -599,4 +600,4 @@ class BaseLLMClient(ILLMClient):
                 metadata=self.config.metadata or {},
             )
 
-        return self._model_info.to_dict()
+        return self._model_info.to_dict()

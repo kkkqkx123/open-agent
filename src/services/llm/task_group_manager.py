@@ -4,18 +4,12 @@ import logging
 from typing import Dict, Any, Optional, List, Tuple
 from pathlib import Path
 
-# 这些导入将在后续更新导入路径时修复
-# from ..config.interfaces import IConfigLoader
-# from ..config.models.task_group_config import (
-#     TaskGroupsConfig, TaskGroupConfig, PollingPoolConfig, 
-#     EchelonConfig, GlobalFallbackConfig
-# )
-# from .exceptions import LLMConfigurationError
+from src.core.llm.interfaces import ITaskGroupManager
 
 logger = logging.getLogger(__name__)
 
 
-class TaskGroupManager:
+class TaskGroupManager(ITaskGroupManager):
     """任务组配置管理器"""
     
     def __init__(self, config_loader):

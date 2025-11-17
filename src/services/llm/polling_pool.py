@@ -11,8 +11,9 @@ import random
 
 from .concurrency_controller import ConcurrencyAndRateLimitManager, ConcurrencyLevel
 from .task_group_manager import TaskGroupManager
-from .interfaces import ILLMClient
-from .exceptions import LLMError
+from src.core.llm.interfaces import IPollingPoolManager
+from src.core.llm.interfaces import ILLMClient
+from src.core.llm.exceptions import LLMError
 
 logger = logging.getLogger(__name__)
 
@@ -415,7 +416,7 @@ class PollingPool:
         logger.info(f"轮询池 {self.name} 已关闭")
 
 
-class PollingPoolManager:
+class PollingPoolManager(IPollingPoolManager):
     """轮询池管理器"""
     
     def __init__(self, task_group_manager: TaskGroupManager):
@@ -451,3 +452,7 @@ class PollingPoolManager:
         for name, pool in self.pools.items():
             status[name] = pool.get_status()
         return status
+    
+    def list_all_status(self) -> Dict[str, Any]:
+        """获取所有轮询池状态（别名方法，为了兼容接口）"""
+        return self.get_all_status()

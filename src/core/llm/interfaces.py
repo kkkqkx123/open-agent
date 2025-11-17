@@ -7,16 +7,14 @@ from typing import (
     Optional,
     List,
     AsyncGenerator,
-    Union,
-    Coroutine,
     Generator,
     Sequence,
+    Tuple,
 )
-from datetime import datetime
 
 from langchain_core.messages import BaseMessage  # type: ignore
 
-from .models import LLMResponse, TokenUsage
+from .models import LLMResponse
 
 
 class ILLMClient(ABC):
@@ -264,4 +262,164 @@ class ILLMClientFactory(ABC):
     @abstractmethod
     def clear_cache(self) -> None:
         """清除所有缓存的客户端实例"""
+        pass
+
+
+class ITaskGroupManager(ABC):
+    """任务组管理器接口"""
+    
+    @abstractmethod
+    def get_models_for_group(self, group_reference: str) -> List[str]:
+        """获取组引用对应的模型列表"""
+        pass
+    
+    @abstractmethod
+    def parse_group_reference(self, reference: str) -> Tuple[str, Optional[str]]:
+        """解析组引用字符串"""
+        pass
+    
+    @abstractmethod
+    def get_fallback_groups(self, group_reference: str) -> List[str]:
+        """获取降级组列表"""
+        pass
+    
+    @abstractmethod
+    def get_echelon_config(self, group_name: str, echelon_name: str) -> Optional[Dict[str, Any]]:
+        """获取层级配置"""
+        pass
+    
+    @abstractmethod
+    def get_group_models_by_priority(self, group_name: str) -> List[Tuple[str, int, List[str]]]:
+        """按优先级获取组的模型"""
+        pass
+    
+    @abstractmethod
+    def list_task_groups(self) -> List[str]:
+        """列出所有任务组名称"""
+        pass
+
+
+class IFallbackManager(ABC):
+    """降级管理器接口"""
+    
+    @abstractmethod
+    async def execute_with_fallback(
+        self,
+        primary_target: str,
+        fallback_groups: List[str],
+        prompt: str,
+        parameters: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
+    ) -> Any:
+        """执行带降级的请求"""
+        pass
+    
+    @abstractmethod
+    def get_stats(self) -> Dict[str, Any]:
+        """获取统计信息"""
+        pass
+    
+    @abstractmethod
+    def reset_stats(self) -> None:
+        """重置统计信息"""
+        pass
+
+
+class IPollingPoolManager(ABC):
+    """轮询池管理器接口"""
+    
+    @abstractmethod
+    def get_pool(self, name: str) -> Optional[Any]:
+        """获取轮询池"""
+        pass
+    
+    @abstractmethod
+    def list_all_status(self) -> Dict[str, Any]:
+        """获取所有轮询池状态"""
+        pass
+    
+    @abstractmethod
+    async def shutdown_all(self) -> None:
+        """关闭所有轮询池"""
+        pass
+
+
+class IClientFactory(ABC):
+    """客户端工厂接口"""
+    
+    @abstractmethod
+    def create_client(self, model_name: str) -> ILLMClient:
+        """创建客户端实例"""
+        pass
+    
+    @abstractmethod
+    def get_available_models(self) -> List[str]:
+        """获取可用的模型列表"""
+        pass
+
+
+class ILLMManager(ABC):
+    """LLM管理器接口"""
+    
+    @abstractmethod
+    async def initialize(self) -> None:
+        """初始化LLM管理器"""
+        pass
+    
+    @abstractmethod
+    async def register_client(self, name: str, client: ILLMClient) -> None:
+        """注册LLM客户端"""
+        pass
+    
+    @abstractmethod
+    async def unregister_client(self, name: str) -> None:
+        """注销LLM客户端"""
+        pass
+    
+    @abstractmethod
+    async def get_client(self, name: Optional[str] = None) -> ILLMClient:
+        """获取LLM客户端"""
+        pass
+    
+    @abstractmethod
+    async def list_clients(self) -> List[str]:
+        """列出所有已注册的客户端"""
+        pass
+    
+    @abstractmethod
+    async def get_client_for_task(
+        self,
+        task_type: str,
+        preferred_client: Optional[str] = None
+    ) -> ILLMClient:
+        """根据任务类型获取最适合的LLM客户端"""
+        pass
+    
+    @abstractmethod
+    async def execute_with_fallback(
+        self,
+        messages: Sequence[BaseMessage],
+        task_type: Optional[str] = None,
+        preferred_client: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
+    ) -> LLMResponse:
+        """使用降级机制执行LLM请求"""
+        pass
+    
+    @abstractmethod
+    async def stream_with_fallback(
+        self,
+        messages: Sequence[BaseMessage],
+        task_type: Optional[str] = None,
+        preferred_client: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
+    ) -> AsyncGenerator[str, None]:
+        """使用降级机制执行流式LLM请求"""
+        pass
+    
+    @abstractmethod
+    async def reload_clients(self) -> None:
+        """重新加载所有LLM客户端"""
         pass

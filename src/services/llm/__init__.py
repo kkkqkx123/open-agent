@@ -5,11 +5,11 @@ LLM服务层模块
 """
 
 from .manager import LLMManager
-from ...core.llm.wrappers.fallback_manager import EnhancedFallbackManager
+from .fallback_manager import FallbackManager
 from .task_group_manager import TaskGroupManager
 
 __all__ = [
     "LLMManager",
-    "EnhancedFallbackManager",
+    "FallbackManager",
     "TaskGroupManager",
 ]

@@ -8,8 +8,7 @@ from datetime import datetime
 
 from .base_wrapper import BaseLLMWrapper
 from .exceptions import PollingPoolWrapperError, WrapperExecutionError
-from src.services.llm.polling_pool import PollingPoolManager, LLMInstance
-from ..interfaces import ILLMClient
+from ..interfaces import IPollingPoolManager, ILLMClient
 from ..models import LLMResponse, TokenUsage
 from ..exceptions import LLMError
 
@@ -21,14 +20,14 @@ class PollingPoolWrapper(BaseLLMWrapper):
     
     def __init__(self,
                  name: str,
-                 polling_pool_manager: PollingPoolManager,
+                 polling_pool_manager: IPollingPoolManager,
                  config: Optional[Dict[str, Any]] = None):
         """
         初始化轮询池包装器
         
         Args:
             name: 包装器名称
-            polling_pool_manager: 轮询池管理器
+            polling_pool_manager: 轮询池管理器接口
             config: 包装器配置
         """
         super().__init__(name, config or {})
