@@ -1,0 +1,165 @@
+"""工作流核心实现
+
+基于图的工作流实现。
+"""
+
+from typing import Dict, Any, List, Optional
+from .interfaces import IWorkflow, IWorkflowState, ExecutionContext
+from .graph import IGraph, INode, IEdge
+from .entities import WorkflowState, ExecutionResult
+
+
+class Workflow(IWorkflow):
+    """工作流实现
+    
+    基于图的工作流实现，将图的概念封装在工作流内部。
+    """
+    
+    def __init__(self, workflow_id: str, name: str):
+        """初始化工作流
+        
+        Args:
+            workflow_id: 工作流ID
+            name: 工作流名称
+        """
+        self._workflow_id = workflow_id
+        self._name = name
+        self._graph: Optional[IGraph] = None
+        self._entry_point: Optional[str] = None
+        self._nodes: Dict[str, INode] = {}
+        self._edges: Dict[str, IEdge] = {}
+
+    @property
+    def workflow_id(self) -> str:
+        """工作流ID"""
+        return self._workflow_id
+
+    @property
+    def name(self) -> str:
+        """工作流名称"""
+        return self._name
+
+    def set_graph(self, graph: IGraph) -> None:
+        """设置图
+        
+        Args:
+            graph: 图实例
+        """
+        self._graph = graph
+
+    def set_entry_point(self, entry_point: str) -> None:
+        """设置入口点
+        
+        Args:
+            entry_point: 入口点节点ID
+        """
+        self._entry_point = entry_point
+
+    def add_node(self, node: INode) -> None:
+        """添加节点
+        
+        Args:
+            node: 节点实例
+        """
+        self._nodes[node.node_id] = node
+        if self._graph:
+            self._graph.add_node(node)
+
+    def add_edge(self, edge: IEdge) -> None:
+        """添加边
+        
+        Args:
+            edge: 边实例
+        """
+        self._edges[edge.edge_id] = edge
+        if self._graph:
+            self._graph.add_edge(edge)
+
+    def get_node(self, node_id: str) -> Optional[INode]:
+        """获取节点
+        
+        Args:
+            node_id: 节点ID
+            
+        Returns:
+            Optional[INode]: 节点实例，如果不存在则返回None
+        """
+        return self._nodes.get(node_id)
+
+    def get_edge(self, edge_id: str) -> Optional[IEdge]:
+        """获取边
+        
+        Args:
+            edge_id: 边ID
+            
+        Returns:
+            Optional[IEdge]: 边实例，如果不存在则返回None
+        """
+        return self._edges.get(edge_id)
+
+    def validate(self) -> List[str]:
+        """验证工作流
+        
+        Returns:
+            List[str]: 验证错误列表，空列表表示验证通过
+        """
+        errors = []
+        
+        # 检查是否有入口点
+        if not self._entry_point:
+            errors.append("工作流缺少入口点")
+        
+        # 检查入口点是否存在
+        if self._entry_point and self._entry_point not in self._nodes:
+            errors.append(f"入口点节点不存在: {self._entry_point}")
+        
+        # 检查边的有效性
+        for edge in self._edges.values():
+            if edge.from_node not in self._nodes:
+                errors.append(f"边的起始节点不存在: {edge.from_node}")
+            if edge.to_node not in self._nodes:
+                errors.append(f"边的目标节点不存在: {edge.to_node}")
+        
+        # 如果有图，使用图的验证
+        if self._graph:
+            graph_errors = self._graph.validate()
+            errors.extend(graph_errors)
+        
+        return errors
+
+    def execute(self, initial_state: IWorkflowState, context: ExecutionContext) -> IWorkflowState:
+        """执行工作流
+        
+        Args:
+            initial_state: 初始状态
+            context: 执行上下文
+            
+        Returns:
+            IWorkflowState: 执行结果状态
+        """
+        from .execution import WorkflowExecutor
+        
+        if not self._graph:
+            raise ValueError("工作流未设置图，无法执行")
+        
+        executor = WorkflowExecutor()
+        return executor.execute(self, initial_state, context)
+
+    async def execute_async(self, initial_state: IWorkflowState, 
+                           context: ExecutionContext) -> IWorkflowState:
+        """异步执行工作流
+        
+        Args:
+            initial_state: 初始状态
+            context: 执行上下文
+            
+        Returns:
+            IWorkflowState: 执行结果状态
+        """
+        from .execution import WorkflowExecutor
+        
+        if not self._graph:
+            raise ValueError("工作流未设置图，无法执行")
+        
+        executor = WorkflowExecutor()
+        return await executor.execute_async(self, initial_state, context)
