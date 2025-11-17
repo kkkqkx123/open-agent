@@ -10,7 +10,7 @@ from typing import Optional
 
 from src.infrastructure.container import get_global_container
 from src.infrastructure.di_config import DIConfig
-from src.core.tools.validation.manager import ToolValidationManager
+from src.services.tools.validation.manager import ToolValidationManager
 
 
 def main():

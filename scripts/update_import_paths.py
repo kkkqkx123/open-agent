@@ -23,6 +23,12 @@ IMPORT_MAPPINGS = {
     "from src.infrastructure.llm.": "from src.core.llm.",
     "import src.infrastructure.llm.": "import src.core.llm.",
     
+    # Services 相关导入路径
+    "from src.domain.tools.validation.": "from src.services.tools.validation.",
+    "from src.infrastructure.tools.validation.": "from src.services.tools.validation.",
+    "import src.domain.tools.validation.": "import src.services.tools.validation.",
+    "import src.infrastructure.tools.validation.": "import src.services.tools.validation.",
+    
     # 具体模块映射
     "src.domain.tools.interfaces": "src.core.tools.interfaces",
     "src.domain.tools.entities": "src.core.tools.entities",
@@ -35,9 +41,22 @@ IMPORT_MAPPINGS = {
     "src.infrastructure.llm.providers": "src.core.llm.providers",
     "src.infrastructure.llm.clients": "src.core.llm.clients",
     
+    # 验证器模块映射
+    "src.core.tools.validation.manager": "src.services.tools.validation.manager",
+    "src.core.tools.validation.interfaces": "src.services.tools.validation.interfaces",
+    "src.core.tools.validation.validators": "src.services.tools.validation.validators",
+    "src.domain.tools.validation.manager": "src.services.tools.validation.manager",
+    "src.domain.tools.validation.interfaces": "src.services.tools.validation.interfaces",
+    "src.domain.tools.validation.validators": "src.services.tools.validation.validators",
+    "src.infrastructure.tools.validation.manager": "src.services.tools.validation.manager",
+    "src.infrastructure.tools.validation.interfaces": "src.services.tools.validation.interfaces",
+    "src.infrastructure.tools.validation.validators": "src.services.tools.validation.validators",
+    
     # 工具类型映射
     "BuiltinTool": "NativeTool",
     "NativeTool": "RestTool",  # 注意：这是旧NativeTool到新RestTool的映射
+    "BuiltinToolValidator": "NativeToolValidator",
+    "RestToolValidator": "RestToolValidator",  # 保持不变
     "builtin_tool": "native_tool",
     "native_tool": "rest_tool",
     "BuiltinToolConfig": "NativeToolConfig",

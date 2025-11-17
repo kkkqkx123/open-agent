@@ -160,8 +160,8 @@ class SyncRestTool(BaseTool):
         tool_name = name or func.__name__
         tool_description = description or func.__doc__ or f"内置工具: {tool_name}"
         
-        from src.core.tools.config import RestToolConfig
-        config = RestToolConfig(
+        from src.core.tools.config import NativeToolConfig
+        config = NativeToolConfig(
             name=tool_name,
             tool_type="Native_sync",
             description=tool_description,
@@ -346,8 +346,8 @@ class AsyncRestTool(BaseTool):
         tool_name = name or func.__name__
         tool_description = description or func.__doc__ or f"异步内置工具: {tool_name}"
         
-        from src.core.tools.config import RestToolConfig
-        config = RestToolConfig(
+        from src.core.tools.config import NativeToolConfig
+        config = NativeToolConfig(
             name=tool_name,
             tool_type="Native_async",
             description=tool_description,
@@ -390,8 +390,8 @@ class RestToolFactory:
         parameters_schema: Optional[Dict[str, Any]] = None,
     ) -> SyncRestTool:
         """创建同步工具"""
-        from src.core.tools.config import RestToolConfig
-        config = RestToolConfig(
+        from src.core.tools.config import NativeToolConfig
+        config = NativeToolConfig(
             name=name or func.__name__,
             tool_type="Native_sync",
             description=description or func.__doc__ or f"内置工具: {name}",
@@ -407,8 +407,8 @@ class RestToolFactory:
         parameters_schema: Optional[Dict[str, Any]] = None,
     ) -> AsyncRestTool:
         """创建异步工具"""
-        from src.core.tools.config import RestToolConfig
-        config = RestToolConfig(
+        from src.core.tools.config import NativeToolConfig
+        config = NativeToolConfig(
             name=name or func.__name__,
             tool_type="Native_async",
             description=description or func.__doc__ or f"异步内置工具: {name}",

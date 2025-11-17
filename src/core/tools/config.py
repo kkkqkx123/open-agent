@@ -23,7 +23,7 @@ class ToolConfig:
 
 
 @dataclass
-class RestToolConfig(ToolConfig):
+class NativeToolConfig(ToolConfig):
     """原生工具配置 (原rest) - 项目内实现"""
 
     # 原生工具的配置通常比较简单，大部分信息从函数推断
@@ -32,7 +32,7 @@ class RestToolConfig(ToolConfig):
     def __post_init__(self) -> None:
         """初始化后处理"""
         # 设置tool_type
-        self.tool_type = "rest"
+        self.tool_type = "native"
 
 
 @dataclass
@@ -84,7 +84,7 @@ class ToolSetConfig:
 class ToolRegistryConfig(BaseModel):
     """工具注册表配置"""
 
-    tools: List[Union[RestToolConfig, RestToolConfig, MCPToolConfig]] = []
+    tools: List[Union[NativeToolConfig, RestToolConfig, MCPToolConfig]] = []
     tool_sets: List[ToolSetConfig] = []
 
     model_config = ConfigDict(
@@ -93,7 +93,7 @@ class ToolRegistryConfig(BaseModel):
 
 
 # 工具配置工厂函数
-def create_rest_tool_config(
+def create_native_tool_config(
     name: str,
     description: str,
     parameters_schema: Dict[str, Any],
@@ -101,7 +101,7 @@ def create_rest_tool_config(
     timeout: int = 30,
     enabled: bool = True,
     **kwargs: Any,
-) -> RestToolConfig:
+) -> NativeToolConfig:
     """创建原生工具配置
 
     Args:
@@ -114,9 +114,9 @@ def create_rest_tool_config(
         **kwargs: 其他参数
 
     Returns:
-        RestToolConfig: 原生工具配置
+        NativeToolConfig: 原生工具配置
     """
-    return RestToolConfig(
+    return NativeToolConfig(
         name=name,
         description=description,
         parameters_schema=parameters_schema,
@@ -230,5 +230,3 @@ def create_tool_set_config(
     )
 
 
-# 向后兼容的别名
-RestToolConfig = RestToolConfig  # 为了向后兼容

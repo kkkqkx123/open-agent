@@ -8,7 +8,7 @@ import re
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
-from ..config import ToolConfig, RestToolConfig, MCPToolConfig, RestToolConfig
+from ..config import ToolConfig, NativeToolConfig, RestToolConfig, MCPToolConfig
 
 
 class ToolValidator:

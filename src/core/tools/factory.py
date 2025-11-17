@@ -11,7 +11,7 @@ from .interfaces import ITool, IToolFactory
 
 # 导入配置类（延迟导入以避免循环依赖）
 try:
-    from .config import RestToolConfig, MCPToolConfig, RestToolConfig
+    from .config import NativeToolConfig, RestToolConfig, MCPToolConfig
     _config_imported = True
 except ImportError:
     # 如果无法导入，使用动态创建

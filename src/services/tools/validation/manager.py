@@ -1,6 +1,6 @@
 """
-工具检验管理器
-协调各种验证器进行工具检验
+工具验证管理器
+协调各种验证器进行工具验证
 """
 
 from typing import List, Dict, Any, Optional, Mapping
@@ -9,20 +9,20 @@ import os
 
 from infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.logger.logger import ILogger
-from src.core.tools.manager import ToolManager
-from src.core.tools.interfaces import IToolManager
+from src.services.tools.manager import ToolManager
+from src.infrastructure.tools.interfaces import IToolManager
 
 from .interfaces import IToolValidator
 from .models import ValidationResult
 from .validators.config_validator import ConfigValidator
 from .validators.loading_validator import LoadingValidator
-from .validators.rest_validator import RestToolValidator
+from .validators.native_validator import NativeToolValidator
 from .validators.rest_validator import RestToolValidator
 from .validators.mcp_validator import MCPToolValidator
 
 
 class ToolValidationManager:
-    """工具检验管理器"""
+    """工具验证管理器"""
     
     def __init__(
         self,
@@ -30,7 +30,7 @@ class ToolValidationManager:
         logger: Optional[ILogger] = None,
         tool_manager: Optional[IToolManager] = None
     ):
-        """初始化工具检验管理器
+        """初始化工具验证管理器
         
         Args:
             config_loader: 配置加载器（可选）
@@ -50,7 +50,7 @@ class ToolValidationManager:
         if self.tool_manager and self.logger:
             self.validators["loading"] = LoadingValidator(self.tool_manager, self.logger)
         if self.logger:
-            self.validators["rest"] = RestToolValidator(self.logger)
+            self.validators["native"] = NativeToolValidator(self.logger)
             self.validators["rest"] = RestToolValidator(self.logger)
             self.validators["mcp"] = MCPToolValidator(self.logger)
     
@@ -170,7 +170,7 @@ class ToolValidationManager:
         """
         report_lines = []
         report_lines.append("=" * 50)
-        report_lines.append("工具检验报告")
+        report_lines.append("工具验证报告")
         report_lines.append("=" * 50)
         
         total_tools = len(all_results)

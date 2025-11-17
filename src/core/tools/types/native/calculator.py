@@ -76,17 +76,7 @@ class SafeCalculator:
         Raises:
             ValueError: 不安全的操作
         """
-        if isinstance(node, ast.Num):  # Python < 3.8
-            # 确保返回类型符合函数签名
-            value = node.n
-            if isinstance(value, (int, float, complex)):
-                return value
-            elif isinstance(value, (int, float)):
-                return value
-            else:
-                # 对于不支持的类型，抛出异常
-                raise ValueError(f"Unsupported constant type: {type(value)}")
-        elif isinstance(node, ast.Constant):  # Python >= 3.8
+        if isinstance(node, ast.Constant):
             if isinstance(node.value, (int, float)):
                 return node.value
             else:

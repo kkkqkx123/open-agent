@@ -11,13 +11,6 @@ from pathlib import Path
 from .interfaces import ITool
 from .config import ToolConfig
 
-# 这些导入将在后续更新导入路径时修复
-# from infrastructure.config.loader.file_config_loader import IConfigLoader
-# from src.infrastructure.exceptions import InfrastructureError
-# from src.infrastructure.logger.logger import ILogger
-# from .interfaces import IToolLoader
-
-
 class DefaultToolLoader:
     """默认工具加载器实现"""
     

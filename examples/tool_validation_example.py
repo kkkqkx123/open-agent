@@ -11,7 +11,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.infrastructure.container import get_global_container
-from src.core.tools.validation.manager import ToolValidationManager
+from src.services.tools.validation.manager import ToolValidationManager
 from infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.logger.logger import ILogger
 from src.core.tools.manager import IToolManager
