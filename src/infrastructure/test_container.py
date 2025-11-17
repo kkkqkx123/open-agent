@@ -92,7 +92,8 @@ class TestContainer(ContextManager["TestContainer"]):
             )
         
         # 从tools模块导入IToolManager接口
-        from .tools import IToolManager, ToolManager
+        from src.core.tools.interfaces import IToolManager
+        from src.services.tools.manager import ToolManager
         
         self.container.register_factory(
             IToolManager,

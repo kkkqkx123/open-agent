@@ -15,6 +15,9 @@ from langchain_core.messages import BaseMessage  # type: ignore
 
 if TYPE_CHECKING:
     from .base import BaseTool
+    from .loaders import ToolLoader
+    from .factory import ToolFactory
+    from .config import ToolConfig, ToolRegistryConfig
 
 
 @dataclass
@@ -142,6 +145,135 @@ class IToolExecutor(ABC):
         self, tool_calls: List[ToolCall]
     ) -> List[ToolResult]:
         """异步并行执行多个工具调用"""
+        pass
+
+
+class IToolManager(ABC):
+    """工具管理器接口
+    
+    定义工具管理器的核心功能，包括工具的注册、加载、执行和生命周期管理。
+    """
+    
+    @abstractmethod
+    async def initialize(self) -> None:
+        """初始化工具管理器
+        
+        加载配置中指定的所有工具。
+        """
+        pass
+    
+    @abstractmethod
+    async def register_tool(self, tool: ITool) -> None:
+        """注册工具
+        
+        Args:
+            tool: 要注册的工具
+        """
+        pass
+    
+    @abstractmethod
+    async def unregister_tool(self, name: str) -> None:
+        """注销工具
+        
+        Args:
+            name: 工具名称
+        """
+        pass
+    
+    @abstractmethod
+    async def get_tool(self, name: str) -> Optional[ITool]:
+        """获取工具
+        
+        Args:
+            name: 工具名称
+            
+        Returns:
+            Optional[ITool]: 工具实例，如果不存在则返回None
+        """
+        pass
+    
+    @abstractmethod
+    async def list_tools(self) -> List[str]:
+        """列出所有已注册的工具名称
+        
+        Returns:
+            List[str]: 工具名称列表
+        """
+        pass
+    
+    @abstractmethod
+    async def execute_tool(
+        self,
+        name: str,
+        arguments: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        """执行工具
+        
+        Args:
+            name: 工具名称
+            arguments: 工具参数
+            context: 执行上下文
+            
+        Returns:
+            Any: 工具执行结果
+        """
+        pass
+    
+    @abstractmethod
+    async def reload_tools(self) -> None:
+        """重新加载所有工具
+        
+        清除当前工具并重新加载配置中的工具。
+        """
+        pass
+    
+    @abstractmethod
+    def get_tool_info(self, name: str) -> Optional[Dict[str, Any]]:
+        """获取工具信息
+        
+        Args:
+            name: 工具名称
+            
+        Returns:
+            Optional[Dict[str, Any]]: 工具信息，如果不存在则返回None
+        """
+        pass
+    
+    @abstractmethod
+    async def validate_tool_config(self, config: "ToolConfig") -> bool:
+        """验证工具配置
+        
+        Args:
+            config: 工具配置
+            
+        Returns:
+            bool: 验证是否通过
+        """
+        pass
+    
+    @property
+    @abstractmethod
+    def registry(self) -> IToolRegistry:
+        """获取工具注册表"""
+        pass
+    
+    @property
+    @abstractmethod
+    def loader(self) -> "ToolLoader":
+        """获取工具加载器"""
+        pass
+    
+    @property
+    @abstractmethod
+    def factory(self) -> "ToolFactory":
+        """获取工具工厂"""
+        pass
+    
+    @property
+    @abstractmethod
+    def is_initialized(self) -> bool:
+        """检查是否已初始化"""
         pass
 
 

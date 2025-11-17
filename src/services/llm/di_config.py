@@ -7,12 +7,20 @@ from src.core.llm.interfaces import (
     ITaskGroupManager, 
     IPollingPoolManager, 
     IClientFactory, 
-    IFallbackManager
+    IFallbackManager,
+    ILLMManager
 )
 from .task_group_manager import TaskGroupManager
 from .polling_pool import PollingPoolManager
 from .client_factory import ClientFactory
 from .fallback_manager import FallbackManager
+from .manager import LLMManager
+from .configuration_service import LLMClientConfigurationService
+from .client_manager import LLMClientManager
+from .request_executor import LLMRequestExecutor
+from .config_validator import LLMConfigValidator
+from .metadata_service import ClientMetadataService
+from .state_machine import StateMachine
 from src.core.llm.factory import LLMFactory
 
 logger = logging.getLogger(__name__)
@@ -44,6 +52,27 @@ def register_llm_services(container) -> None:
         
         # 注册降级管理器
         container.register_singleton(IFallbackManager, FallbackManager)
+        
+        # 注册配置验证器
+        container.register_singleton(LLMConfigValidator)
+        
+        # 注册元数据服务
+        container.register_singleton(ClientMetadataService)
+        
+        # 注册状态机
+        container.register_singleton(StateMachine)
+        
+        # 注册配置服务
+        container.register_singleton(LLMClientConfigurationService)
+        
+        # 注册客户端管理器
+        container.register_singleton(LLMClientManager)
+        
+        # 注册请求执行器
+        container.register_singleton(LLMRequestExecutor)
+        
+        # 注册LLM管理器
+        container.register_singleton(ILLMManager, LLMManager)
         
         logger.info("LLM模块服务注册完成")
         
@@ -110,4 +139,41 @@ def configure_llm_module(container, config: Dict[str, Any]) -> None:
         
     except Exception as e:
         logger.error(f"配置LLM模块失败: {e}")
+        raise
+
+
+def create_llm_manager_with_config(container, config: Dict[str, Any]) -> LLMManager:
+    """
+    创建带配置的LLM管理器实例
+    
+    Args:
+        container: 依赖注入容器
+        config: LLM配置字典
+        
+    Returns:
+        LLMManager: LLM管理器实例
+    """
+    try:
+        # 获取依赖
+        factory = container.get(LLMFactory)
+        fallback_manager = container.get(IFallbackManager)
+        task_group_manager = container.get(ITaskGroupManager)
+        config_validator = container.get(LLMConfigValidator)
+        metadata_service = container.get(ClientMetadataService)
+        
+        # 创建LLM管理器
+        llm_manager = LLMManager(
+            factory=factory,
+            fallback_manager=fallback_manager,
+            task_group_manager=task_group_manager,
+            config_validator=config_validator,
+            metadata_service=metadata_service,
+            config=config
+        )
+        
+        logger.info("带配置的LLM管理器创建完成")
+        return llm_manager
+        
+    except Exception as e:
+        logger.error(f"创建带配置的LLM管理器失败: {e}")
         raise

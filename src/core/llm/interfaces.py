@@ -408,7 +408,7 @@ class ILLMManager(ABC):
         pass
     
     @abstractmethod
-    async def stream_with_fallback(
+    def stream_with_fallback(
         self,
         messages: Sequence[BaseMessage],
         task_type: Optional[str] = None,

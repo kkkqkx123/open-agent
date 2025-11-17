@@ -112,7 +112,8 @@ class ToolValidationManager:
                 all_results[tool_name] = results
         
         except Exception as e:
-            self.logger.error(f"验证所有工具时出错: {e}")
+            if self.logger:
+                self.logger.error(f"验证所有工具时出错: {e}")
         
         return all_results
     
@@ -127,21 +128,25 @@ class ToolValidationManager:
         """
         # 注意：IConfigLoader接口没有base_path属性，我们需要通过其他方式获取基础路径
         base_path = getattr(self.config_loader, 'base_path', 'configs')
-        self.logger.info(f"配置加载器base_path: {base_path}")
-        self.logger.info(f"传入的config_dir: {config_dir}")
+        if self.logger:
+            self.logger.info(f"配置加载器base_path: {base_path}")
+            self.logger.info(f"传入的config_dir: {config_dir}")
         # 使用配置加载器的base_path来构建完整路径
         base_path = getattr(self.config_loader, 'base_path', Path('configs'))
         full_config_path = Path(base_path) / config_dir
-        self.logger.info(f"完整配置目录路径: {full_config_path}")
-        self.logger.info(f"完整配置目录是否存在: {full_config_path.exists()}")
+        if self.logger:
+            self.logger.info(f"完整配置目录路径: {full_config_path}")
+            self.logger.info(f"完整配置目录是否存在: {full_config_path.exists()}")
         if not full_config_path.exists():
-            self.logger.warning(f"配置目录不存在: {full_config_path}")
+            if self.logger:
+                self.logger.warning(f"配置目录不存在: {full_config_path}")
             return []
         
         files = list(full_config_path.glob("*.yaml"))
-        self.logger.info(f"找到 {len(files)} 个配置文件")
-        for f in files:
-            self.logger.info(f"配置文件: {f}")
+        if self.logger:
+            self.logger.info(f"找到 {len(files)} 个配置文件")
+            for f in files:
+                self.logger.info(f"配置文件: {f}")
         return files
     
     def generate_report(self, all_results: Mapping[str, Mapping[str, ValidationResult]], format: str = "text") -> str:

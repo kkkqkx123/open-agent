@@ -16,10 +16,22 @@ class ToolConfig:
     name: str
     description: str
     parameters_schema: Dict[str, Any]
-    tool_type: str  # "rest", "rest", "mcp"
+    tool_type: str  # "native", "rest", "mcp"
     enabled: bool = True
     timeout: int = 30
     metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            'name': self.name,
+            'description': self.description,
+            'parameters_schema': self.parameters_schema,
+            'tool_type': self.tool_type,
+            'enabled': self.enabled,
+            'timeout': self.timeout,
+            'metadata': self.metadata,
+        }
 
 
 @dataclass
@@ -33,6 +45,14 @@ class NativeToolConfig(ToolConfig):
         """初始化后处理"""
         # 设置tool_type
         self.tool_type = "native"
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        data = super().to_dict()
+        data.update({
+            'function_path': self.function_path,
+        })
+        return data
 
 
 @dataclass
@@ -54,6 +74,20 @@ class RestToolConfig(ToolConfig):
         # 设置默认Content-Type
         if "Content-Type" not in self.headers:
             self.headers["Content-Type"] = "application/json"
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        data = super().to_dict()
+        data.update({
+            'api_url': self.api_url,
+            'method': self.method,
+            'headers': self.headers,
+            'auth_method': self.auth_method,
+            'api_key': self.api_key,
+            'retry_count': self.retry_count,
+            'retry_delay': self.retry_delay,
+        })
+        return data
 
 
 @dataclass
@@ -68,6 +102,16 @@ class MCPToolConfig(ToolConfig):
         """初始化后处理"""
         # 设置tool_type
         self.tool_type = "mcp"
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        data = super().to_dict()
+        data.update({
+            'mcp_server_url': self.mcp_server_url,
+            'dynamic_schema': self.dynamic_schema,
+            'refresh_interval': self.refresh_interval,
+        })
+        return data
 
 
 @dataclass

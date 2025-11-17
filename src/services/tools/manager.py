@@ -4,14 +4,10 @@
 提供工具的注册、加载、执行和管理功能。
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Type, Union
+from typing import Any, Dict, List, Optional, Union
 import logging
-from pathlib import Path
 
-from src.core.tools.interfaces import ITool, IToolRegistry
-from src.core.tools.interfaces import IToolManager
-from src.core.tools.base import BaseTool
-from src.core.tools.loaders import ToolLoader
+from src.core.tools.interfaces import ITool, IToolRegistry, IToolManager
 from src.core.tools.factory import ToolFactory
 from src.core.tools.config import ToolConfig, ToolRegistryConfig
 from src.core.common.exceptions import ServiceError
@@ -28,7 +24,6 @@ class ToolManager(IToolManager):
     def __init__(
         self,
         registry: IToolRegistry,
-        loader: ToolLoader,
         factory: ToolFactory,
         config: Optional[ToolRegistryConfig] = None
     ) -> None:
@@ -36,12 +31,10 @@ class ToolManager(IToolManager):
         
         Args:
             registry: 工具注册表
-            loader: 工具加载器
             factory: 工具工厂
             config: 工具注册表配置
         """
         self._registry = registry
-        self._loader = loader
         self._factory = factory
         self._config = config or ToolRegistryConfig()
         self._tools: Dict[str, ITool] = {}
@@ -78,7 +71,7 @@ class ToolManager(IToolManager):
             await self.initialize()
         
         try:
-            await self._registry.register(tool)
+            self._registry.register_tool(tool)
             self._tools[tool.name] = tool
             logger.debug(f"工具 {tool.name} 注册成功")
             
@@ -96,7 +89,7 @@ class ToolManager(IToolManager):
             await self.initialize()
         
         try:
-            await self._registry.unregister(name)
+            self._registry.unregister_tool(name)
             if name in self._tools:
                 del self._tools[name]
             logger.debug(f"工具 {name} 注销成功")
@@ -158,7 +151,7 @@ class ToolManager(IToolManager):
         
         try:
             logger.debug(f"执行工具 {name}，参数: {arguments}")
-            result = await tool.execute(arguments, context)
+            result = tool.execute(arguments=arguments, context=context)
             logger.debug(f"工具 {name} 执行成功")
             return result
             
@@ -176,7 +169,6 @@ class ToolManager(IToolManager):
         try:
             # 清除当前工具
             self._tools.clear()
-            await self._registry.clear()
             
             # 重新初始化
             self._initialized = False
@@ -196,18 +188,15 @@ class ToolManager(IToolManager):
         
         for tool_config in self._config.tools:
             try:
-                # 使用工厂创建工具
-                tool = await self._factory.create_tool(tool_config)
+                # 使用工厂创建工具（传入配置对象）
+                tool = self._factory.create_tool(tool_config)
                 if tool:
                     await self.register_tool(tool)
                     
             except Exception as e:
                 logger.error(f"加载工具 {tool_config.name} 失败: {e}")
-                if self._config.strict_mode:
-                    raise
-                else:
-                    # 非严格模式下，跳过失败的工具
-                    continue
+                # 非严格模式下，跳过失败的工具
+                continue
     
     def get_tool_info(self, name: str) -> Optional[Dict[str, Any]]:
         """获取工具信息
@@ -229,18 +218,22 @@ class ToolManager(IToolManager):
             "type": tool.__class__.__name__,
         }
     
-    async def validate_tool_config(self, config: ToolConfig) -> bool:
+    async def validate_tool_config(self, config: Union[Dict[str, Any], ToolConfig]) -> bool:
         """验证工具配置
         
         Args:
-            config: 工具配置
+            config: 工具配置（字典或配置对象）
             
         Returns:
             bool: 验证是否通过
         """
         try:
             # 尝试创建工具实例来验证配置
-            tool = await self._factory.create_tool(config)
+            if isinstance(config, dict):
+                tool = self._factory.create_tool(config)
+            else:
+                # 配置对象直接传入
+                tool = self._factory.create_tool(config)
             return tool is not None
             
         except Exception as e:
@@ -252,10 +245,7 @@ class ToolManager(IToolManager):
         """获取工具注册表"""
         return self._registry
     
-    @property
-    def loader(self) -> ToolLoader:
-        """获取工具加载器"""
-        return self._loader
+
     
     @property
     def factory(self) -> ToolFactory:

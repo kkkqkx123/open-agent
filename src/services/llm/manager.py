@@ -1,7 +1,7 @@
 """
 LLM管理服务
 
-提供LLM客户端的创建、管理和降级功能。
+提供LLM客户端的统一管理和协调功能。
 """
 
 from typing import Any, Dict, List, Optional, Union, Sequence, AsyncGenerator
@@ -16,6 +16,9 @@ from src.core.llm.models import LLMResponse
 from src.services.llm.state_machine import StateMachine, LLMManagerState
 from src.services.llm.config_validator import LLMConfigValidator, ValidationResult
 from src.services.llm.metadata_service import ClientMetadataService
+from src.services.llm.configuration_service import LLMClientConfigurationService
+from src.services.llm.client_manager import LLMClientManager
+from src.services.llm.request_executor import LLMRequestExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +26,10 @@ logger = logging.getLogger(__name__)
 class LLMManager(ILLMManager):
     """LLM管理器实现
     
-    负责LLM客户端的创建、管理和降级处理。
+    重构后专注于：
+    1. 协调各个服务组件
+    2. 提供统一的对外接口
+    3. 管理整体初始化流程
     """
     
     def __init__(
@@ -51,9 +57,28 @@ class LLMManager(ILLMManager):
         self._config_validator = config_validator
         self._metadata_service = metadata_service
         self._config = config or {}
-        self._clients: Dict[str, ILLMClient] = {}
+        
+        # 创建状态机
         self._state_machine = StateMachine()
-        self._default_client: Optional[str] = None
+        
+        # 创建配置服务
+        self._config_service = LLMClientConfigurationService(
+            factory=factory,
+            config_validator=config_validator,
+            config=config
+        )
+        
+        # 创建客户端管理器
+        self._client_manager = LLMClientManager(
+            metadata_service=metadata_service,
+            state_machine=self._state_machine
+        )
+        
+        # 创建请求执行器
+        self._request_executor = LLMRequestExecutor(
+            fallback_manager=fallback_manager,
+            task_group_manager=task_group_manager
+        )
     
     async def initialize(self) -> None:
         """初始化LLM管理器
@@ -67,19 +92,23 @@ class LLMManager(ILLMManager):
             self._state_machine.transition_to(LLMManagerState.INITIALIZING)
             logger.info("初始化LLM管理器...")
             
-            # 加载LLM客户端
-            await self._load_clients_from_config()
+            # 使用配置服务加载客户端
+            clients = self._config_service.load_clients_from_config()
+            
+            # 使用客户端管理器加载客户端
+            self._client_manager.load_clients_from_dict(clients)
             
             # 设置默认客户端
-            default_client = self._config.get("default_client")
-            if default_client and default_client in self._clients:
-                self._default_client = default_client
-            elif self._clients:
+            default_client_name = self._config_service.get_default_client_name()
+            if default_client_name and self._client_manager.has_client(default_client_name):
+                self._client_manager.set_default_client(default_client_name)
+            elif self._client_manager.get_client_count() > 0:
                 # 如果没有指定默认客户端，使用第一个
-                self._default_client = next(iter(self._clients.keys()))
+                first_client = self._client_manager.list_clients()[0]
+                self._client_manager.set_default_client(first_client)
             
             self._state_machine.transition_to(LLMManagerState.READY)
-            logger.info(f"LLM管理器初始化完成，加载了 {len(self._clients)} 个客户端")
+            logger.info(f"LLM管理器初始化完成，加载了 {self._client_manager.get_client_count()} 个客户端")
             
         except Exception as e:
             self._state_machine.transition_to(LLMManagerState.ERROR, e)
@@ -93,16 +122,7 @@ class LLMManager(ILLMManager):
             name: 客户端名称
             client: LLM客户端实例
         """
-        if self._state_machine.current_state == LLMManagerState.UNINITIALIZED:
-            await self.initialize()
-        
-        try:
-            self._clients[name] = client
-            logger.debug(f"LLM客户端 {name} 注册成功")
-            
-        except Exception as e:
-            logger.error(f"LLM客户端 {name} 注册失败: {e}")
-            raise LLMError(f"LLM客户端 {name} 注册失败: {e}") from e
+        self._client_manager.register_client(name, client)
     
     async def unregister_client(self, name: str) -> None:
         """注销LLM客户端
@@ -110,17 +130,7 @@ class LLMManager(ILLMManager):
         Args:
             name: 客户端名称
         """
-        try:
-            if name in self._clients:
-                del self._clients[name]
-                if self._default_client == name:
-                    # 重新选择默认客户端
-                    self._default_client = next(iter(self._clients.keys())) if self._clients else None
-            logger.debug(f"LLM客户端 {name} 注销成功")
-            
-        except Exception as e:
-            logger.error(f"LLM客户端 {name} 注销失败: {e}")
-            raise LLMError(f"LLM客户端 {name} 注销失败: {e}") from e
+        self._client_manager.unregister_client(name)
     
     async def get_client(self, name: Optional[str] = None) -> ILLMClient:
         """获取LLM客户端
@@ -130,24 +140,8 @@ class LLMManager(ILLMManager):
             
         Returns:
             ILLMClient: LLM客户端实例
-            
-        Raises:
-            ServiceError: 客户端不存在
         """
-        if self._state_machine.current_state == LLMManagerState.UNINITIALIZED:
-            await self.initialize()
-        
-        if name is None:
-            name = self._default_client
-        
-        if not name:
-            raise LLMError("没有可用的LLM客户端")
-        
-        client = self._clients.get(name)
-        if not client:
-            raise LLMError(f"LLM客户端 {name} 不存在")
-        
-        return client
+        return self._client_manager.get_client(name)
     
     async def list_clients(self) -> List[str]:
         """列出所有已注册的客户端名称
@@ -155,7 +149,7 @@ class LLMManager(ILLMManager):
         Returns:
             List[str]: 客户端名称列表
         """
-        return list(self._clients.keys())
+        return self._client_manager.list_clients()
     
     async def get_client_for_task(
         self,
@@ -171,35 +165,17 @@ class LLMManager(ILLMManager):
         Returns:
             ILLMClient: 适合的LLM客户端实例
         """
-        if self._state_machine.current_state == LLMManagerState.UNINITIALIZED:
-            await self.initialize()
+        # 获取所有可用客户端
+        available_clients = {}
+        for client_name in self._client_manager.list_clients():
+            available_clients[client_name] = self._client_manager.get_client(client_name)
         
-        try:
-            # 首选客户端逻辑
-            if preferred_client and preferred_client in self._clients:
-                return self._clients[preferred_client]
-            
-            # 使用任务组管理器获取适合的模型
-            if task_type:
-                try:
-                    models = self._task_group_manager.get_models_for_group(task_type)
-                    if models:
-                        # 从任务组中获取第一个可用的客户端
-                        for model_name in models:
-                            if model_name in self._clients:
-                                return self._clients[model_name]
-                except Exception as e:
-                    logger.warning(f"从任务组获取模型失败: {e}")
-            
-            # 使用默认客户端
-            if self._default_client and self._default_client in self._clients:
-                return self._clients[self._default_client]
-            
-            raise LLMError("没有可用的LLM客户端")
-            
-        except Exception as e:
-            logger.error(f"获取任务 {task_type} 的LLM客户端失败: {e}")
-            raise LLMError(f"获取任务 {task_type} 的LLM客户端失败: {e}") from e
+        # 使用请求执行器选择合适的客户端
+        return self._request_executor.get_client_for_task(
+            task_type=task_type,
+            available_clients=available_clients,
+            preferred_client=preferred_client
+        )
     
     async def execute_with_fallback(
         self,
@@ -224,16 +200,17 @@ class LLMManager(ILLMManager):
         if self._state_machine.current_state == LLMManagerState.UNINITIALIZED:
             await self.initialize()
         
-        try:
-            # 获取适合的客户端
-            client = await self.get_client_for_task(task_type or "default", preferred_client)
-            
-            # 使用客户端执行请求
-            return await client.generate_async(messages, parameters, **kwargs)
-            
-        except Exception as e:
-            logger.error(f"执行LLM请求失败: {e}")
-            raise LLMError(f"执行LLM请求失败: {e}") from e
+        # 获取适合的客户端
+        client = await self.get_client_for_task(task_type or "default", preferred_client)
+        
+        # 使用请求执行器执行请求
+        return await self._request_executor.execute_with_fallback(
+            client=client,
+            messages=messages,
+            task_type=task_type,
+            parameters=parameters,
+            **kwargs
+        )
     
     async def stream_with_fallback(
         self,
@@ -258,43 +235,18 @@ class LLMManager(ILLMManager):
         if self._state_machine.current_state == LLMManagerState.UNINITIALIZED:
             await self.initialize()
         
-        try:
-            # 获取适合的客户端
-            client = await self.get_client_for_task(task_type or "default", preferred_client)
-            
-            # 使用客户端执行流式请求
-            async for chunk in client.stream_generate_async(messages, parameters, **kwargs):
-                yield chunk
-                
-        except Exception as e:
-            logger.error(f"执行流式LLM请求失败: {e}")
-            raise LLMError(f"执行流式LLM请求失败: {e}") from e
-    
-    def _build_fallback_targets(self, task_type: Optional[str], preferred_client: Optional[str]) -> List[str]:
-        """构建降级目标列表
+        # 获取适合的客户端
+        client = await self.get_client_for_task(task_type or "default", preferred_client)
         
-        Args:
-            task_type: 任务类型
-            preferred_client: 首选客户端
-            
-        Returns:
-            List[str]: 降级目标列表
-        """
-        targets = []
-        
-        # 添加任务组相关的降级目标
-        if task_type:
-            try:
-                task_groups = self._task_group_manager.get_fallback_groups(task_type)
-                targets.extend(task_groups)
-            except Exception as e:
-                logger.warning(f"获取任务组降级目标失败: {e}")
-        
-        # 添加默认客户端作为最后的降级选项
-        if self._default_client and self._default_client != preferred_client:
-            targets.append(self._default_client)
-        
-        return targets
+        # 使用请求执行器执行流式请求
+        async for chunk in self._request_executor.stream_with_fallback(
+            client=client,
+            messages=messages,
+            task_type=task_type,
+            parameters=parameters,
+            **kwargs
+        ):
+            yield chunk
     
     async def reload_clients(self) -> None:
         """重新加载所有LLM客户端
@@ -305,8 +257,7 @@ class LLMManager(ILLMManager):
         
         try:
             # 清除当前客户端
-            self._clients.clear()
-            self._default_client = None
+            self._client_manager.clear_all_clients()
             
             # 重新初始化
             self._state_machine.transition_to(LLMManagerState.UNINITIALIZED)
@@ -319,61 +270,6 @@ class LLMManager(ILLMManager):
             logger.error(f"LLM客户端重新加载失败: {e}")
             raise LLMError(f"LLM客户端重新加载失败: {e}") from e
     
-    async def _load_clients_from_config(self) -> None:
-        """从配置加载LLM客户端"""
-        clients_config = self._config.get("clients", [])
-        if not clients_config:
-            logger.info("配置中没有指定LLM客户端")
-            return
-        
-        for client_config in clients_config:
-            try:
-                # 使用配置验证器验证配置
-                validation_result = self._config_validator.validate_config(client_config)
-                if not validation_result.is_valid:
-                    client_name = self._get_config_name(client_config)
-                    logger.error(f"LLM客户端配置验证失败 {client_name}: {validation_result.errors}")
-                    strict_mode = self._config.get("strict_mode", False)
-                    if strict_mode:
-                        raise LLMError(f"LLM客户端配置验证失败 {client_name}: {validation_result.errors}")
-                    else:
-                        # 非严格模式下，跳过验证失败的客户端
-                        continue
-                
-                # 注册验证通过的客户端
-                client = validation_result.client
-                if client:
-                    client_name = self._get_config_name(client_config)
-                    if isinstance(client_name, str):
-                        await self.register_client(client_name, client)
-                    
-            except Exception as e:
-                client_name = self._get_config_name(client_config)
-                logger.error(f"加载LLM客户端 {client_name} 失败: {e}")
-                strict_mode = self._config.get("strict_mode", False)
-                if strict_mode:
-                    raise
-                else:
-                    # 非严格模式下，跳过失败的客户端
-                    continue
-    
-    def _get_config_name(self, config: Union[Dict[str, Any], LLMClientConfig]) -> str:
-        """获取配置名称
-        
-        Args:
-            config: 配置对象
-            
-        Returns:
-            str: 配置名称
-        """
-        if isinstance(config, LLMClientConfig):
-            return config.model_name
-        
-        if isinstance(config, dict):
-            return config.get("name", config.get("model_name", "unknown"))
-        
-        return "unknown"
-    
     def get_client_info(self, name: str) -> Optional[Dict[str, Any]]:
         """获取客户端信息
         
@@ -383,12 +279,7 @@ class LLMManager(ILLMManager):
         Returns:
             Optional[Dict[str, Any]]: 客户端信息，如果不存在则返回None
         """
-        client = self._clients.get(name)
-        if not client:
-            return None
-        
-        # 使用元数据服务获取客户端信息
-        return self._metadata_service.get_client_info(client, name)
+        return self._client_manager.get_client_info(name)
     
     async def validate_client_config(self, config: Union[Dict[str, Any], LLMClientConfig]) -> bool:
         """验证客户端配置
@@ -399,14 +290,8 @@ class LLMManager(ILLMManager):
         Returns:
             bool: 验证是否通过
         """
-        try:
-            # 使用配置验证器验证配置
-            result = self._config_validator.validate_config(config)
-            return result.is_valid
-            
-        except Exception as e:
-            logger.error(f"LLM客户端配置验证失败: {e}")
-            return False
+        result = self._config_service.validate_client_config(config)
+        return result.is_valid
     
     @property
     def factory(self) -> LLMFactory:
@@ -431,7 +316,7 @@ class LLMManager(ILLMManager):
     @property
     def default_client(self) -> Optional[str]:
         """获取默认客户端名称"""
-        return self._default_client
+        return self._client_manager.default_client
     
     def set_default_client(self, name: str) -> None:
         """设置默认客户端
@@ -442,8 +327,4 @@ class LLMManager(ILLMManager):
         Raises:
             ServiceError: 客户端不存在
         """
-        if name not in self._clients:
-            raise LLMError(f"LLM客户端 {name} 不存在")
-        
-        self._default_client = name
-        logger.info(f"设置默认LLM客户端: {name}")
+        self._client_manager.set_default_client(name)

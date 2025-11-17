@@ -3,15 +3,18 @@
 提供配置驱动的工具创建功能，支持多种工具类型的统一管理。
 """
 
-from typing import Dict, Any, List, Optional, Type, Union
+from typing import Dict, Any, List, Optional, Type, Union, TYPE_CHECKING
 from abc import ABC
 import logging
 
 from .interfaces import ITool, IToolFactory
 
+if TYPE_CHECKING:
+    from .config import ToolConfig, NativeToolConfig, RestToolConfig, MCPToolConfig
+
 # 导入配置类（延迟导入以避免循环依赖）
 try:
-    from .config import NativeToolConfig, RestToolConfig, MCPToolConfig
+    from .config import ToolConfig, NativeToolConfig, RestToolConfig, MCPToolConfig
     _config_imported = True
 except ImportError:
     # 如果无法导入，使用动态创建
@@ -93,11 +96,11 @@ class ToolFactory(IToolFactory):
         except ImportError:
             logger.warning("无法导入 MCPTool")
     
-    def create_tool(self, tool_config: Dict[str, Any]) -> ITool:
+    def create_tool(self, tool_config: Union[Dict[str, Any], 'ToolConfig', 'NativeToolConfig', 'RestToolConfig', 'MCPToolConfig']) -> ITool:
         """根据配置创建工具实例
         
         Args:
-            tool_config: 工具配置字典
+            tool_config: 工具配置字典或配置对象
             
         Returns:
             ITool: 创建的工具实例
@@ -213,11 +216,11 @@ class ToolFactory(IToolFactory):
         
         return tools
     
-    def _parse_config(self, tool_config: Dict[str, Any]) -> 'ToolConfig':
+    def _parse_config(self, tool_config: Union[Dict[str, Any], 'ToolConfig', 'NativeToolConfig', 'RestToolConfig', 'MCPToolConfig']) -> Union['ToolConfig', 'NativeToolConfig', 'RestToolConfig', 'MCPToolConfig']:
         """解析和验证工具配置
         
         Args:
-            tool_config: 原始配置字典
+            tool_config: 原始配置字典或配置对象
             
         Returns:
             ToolConfig: 解析后的配置对象
@@ -226,15 +229,19 @@ class ToolFactory(IToolFactory):
             ValueError: 当配置无效时
         """
         try:
-            # 验证必需字段
-            if "tool_type" not in tool_config:
-                raise ValueError("缺少必需字段: tool_type")
-            
-            if "name" not in tool_config:
-                raise ValueError("缺少必需字段: name")
-            
-            # 创建配置对象
-            config = ToolConfig(**tool_config)
+            # 如果已经是配置对象，直接返回
+            if not isinstance(tool_config, dict):
+                config = tool_config
+            else:
+                # 验证必需字段
+                if "tool_type" not in tool_config:
+                    raise ValueError("缺少必需字段: tool_type")
+                
+                if "name" not in tool_config:
+                    raise ValueError("缺少必需字段: name")
+                
+                # 创建配置对象
+                config = ToolConfig(**tool_config)
             
             # 验证工具类型
             if config.tool_type not in self._tool_types:
@@ -245,7 +252,7 @@ class ToolFactory(IToolFactory):
         except Exception as e:
             raise ValueError(f"配置解析失败: {e}")
     
-    def _create_tool_instance(self, config: 'ToolConfig') -> ITool:
+    def _create_tool_instance(self, config: Union['ToolConfig', 'NativeToolConfig', 'RestToolConfig', 'MCPToolConfig']) -> ITool:
         """创建工具实例
 
         Args:
@@ -258,23 +265,24 @@ class ToolFactory(IToolFactory):
 
         try:
             # 根据工具类型创建实例
-            if config.tool_type == "rest":
-                # RestTool 需要一个配置对象，包含所有必需属性
-                rest_config = type('RestToolConfig', (), {
+            parameters_schema = getattr(config, 'parameters_schema', {})
+            if config.tool_type == "native":
+                # NativeTool 需要一个配置对象，包含所有必需属性
+                native_config = type('NativeToolConfig', (), {
                     'name': config.name,
                     'description': config.description,
-                    'parameters_schema': config.parameters or {},
+                    'parameters_schema': parameters_schema or {},
                     'function_path': getattr(config, 'function_path', None),
                     'timeout': getattr(config, 'timeout', 30),
                     'enabled': getattr(config, 'enabled', True)
                 })()
-                return tool_class(rest_config)  # type: ignore
+                return tool_class(native_config)  # type: ignore
             elif config.tool_type == "rest":
                 # RestTool 需要一个配置对象，包含所有必需属性
                 rest_config = type('RestToolConfig', (), {
                     'name': config.name,
                     'description': config.description,
-                    'parameters_schema': config.parameters or {},
+                    'parameters_schema': parameters_schema or {},
                     'api_url': getattr(config, 'api_url', 'https://example.com/api'),
                     'method': getattr(config, 'method', 'POST'),
                     'headers': getattr(config, 'headers', {}),
@@ -291,7 +299,7 @@ class ToolFactory(IToolFactory):
                 mcp_config = type('MCPToolConfig', (), {
                     'name': config.name,
                     'description': config.description,
-                    'parameters_schema': config.parameters or {},
+                    'parameters_schema': parameters_schema or {},
                     'mcp_server_url': getattr(config, 'mcp_server_url', 'http://localhost:8000'),
                     'dynamic_schema': getattr(config, 'dynamic_schema', False),
                     'timeout': getattr(config, 'timeout', 30),
@@ -301,13 +309,13 @@ class ToolFactory(IToolFactory):
                 return tool_class(mcp_config)  # type: ignore
             else:
                 # 通用创建方式
-                generic_config = type('GenericToolConfig', (), config.to_dict())()
+                generic_config = type('GenericToolConfig', (), config.to_dict() if hasattr(config, 'to_dict') else {'name': config.name, 'description': config.description})()
                 return tool_class(generic_config)  # type: ignore
         except Exception as e:
             logger.error(f"创建工具实例失败: {e}")
             raise ValueError(f"创建工具实例失败: {e}")
     
-    def _generate_cache_key(self, config: 'ToolConfig') -> str:
+    def _generate_cache_key(self, config: Union['ToolConfig', 'NativeToolConfig', 'RestToolConfig', 'MCPToolConfig']) -> str:
         """生成缓存键
         
         Args:
@@ -317,14 +325,15 @@ class ToolFactory(IToolFactory):
             str: 缓存键
         """
         # 使用配置的关键字段生成缓存键
+        parameters_schema = getattr(config, 'parameters_schema', {})
         key_parts = [
             config.tool_type,
             config.name,
-            str(sorted(config.parameters.items())) if config.parameters else ""
+            str(sorted(parameters_schema.items())) if parameters_schema else ""
         ]
         return "|".join(key_parts)
     
-    def _should_cache_tool(self, config: 'ToolConfig') -> bool:
+    def _should_cache_tool(self, config: Union['ToolConfig', 'NativeToolConfig', 'RestToolConfig', 'MCPToolConfig']) -> bool:
         """判断是否应该缓存工具实例
         
         Args:
@@ -467,56 +476,6 @@ class ToolFactory(IToolFactory):
         return self.registry_manager.get_registry_info()
 
 
-class ToolConfig:
-    """工具配置类"""
-    
-    def __init__(
-        self,
-        tool_type: str,
-        name: str,
-        description: str,
-        parameters: Optional[Dict[str, Any]] = None,
-        **kwargs: Any
-    ):
-        """初始化工具配置
-        
-        Args:
-            tool_type: 工具类型
-            name: 工具名称
-            description: 工具描述
-            parameters: 工具参数
-            **kwargs: 其他配置参数
-        """
-        self.tool_type = tool_type
-        self.name = name
-        self.description = description
-        self.parameters = parameters or {}
-        
-        # 根据工具类型存储特定配置
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典
-        
-        Returns:
-            Dict[str, Any]: 配置字典
-        """
-        result = {
-            "tool_type": self.tool_type,
-            "name": self.name,
-            "description": self.description,
-            "parameters": self.parameters
-        }
-        
-        # 添加其他属性
-        for key, value in self.__dict__.items():
-            if key not in ["tool_type", "name", "description", "parameters"]:
-                result[key] = value
-        
-        return result
-
-
 # 全局工具工厂实例
 _global_factory: Optional[ToolFactory] = None
 
@@ -544,11 +503,11 @@ def set_global_factory(factory: ToolFactory) -> None:
     _global_factory = factory
 
 
-def create_tool(tool_config: Dict[str, Any]) -> ITool:
+def create_tool(tool_config: Union[Dict[str, Any], 'ToolConfig', 'NativeToolConfig', 'RestToolConfig', 'MCPToolConfig']) -> ITool:
     """使用全局工厂创建工具的便捷函数
     
     Args:
-        tool_config: 工具配置
+        tool_config: 工具配置字典或配置对象
         
     Returns:
         ITool: 工具实例

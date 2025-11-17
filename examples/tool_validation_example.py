@@ -14,7 +14,7 @@ from src.infrastructure.container import get_global_container
 from src.services.tools.validation.manager import ToolValidationManager
 from infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.logger.logger import ILogger
-from src.core.tools.manager import IToolManager
+from src.core.tools.interfaces import IToolManager
 
 
 def validate_single_tool():

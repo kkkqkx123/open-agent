@@ -45,7 +45,7 @@ class InfrastructureModule(IServiceModule):
             
             # 工具系统
             "tool_registry": "src.infrastructure.tools.registry.IToolRegistry",
-            "tool_manager": "src.infrastructure.tools.manager.IToolManager",
+            "tool_manager": "src.core.tools.interfaces.IToolManager",
             "tool_validator": "src.services.tools.validation.manager.IToolValidator",
             "mcp_client": "src.infrastructure.tools.mcp.IMCPClient",
             

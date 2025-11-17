@@ -40,18 +40,13 @@ uv sync
 ```
 
 ## Development Commands
+When you find environment issues, you can use uv run to execute python commands in the virtual environment, or use .venv\Scripts\activate to activate the virtual environment first.
 
-### Code Quality Tools
-(usually mypy is enough. if I didn't ask you to use remaining tools, you can skip them)
+You can use the following commands to check the code quality:
+mypy <relative path to the file> --follow-imports=silent
+flake8 <relative path to the file>
+Usually mypy is enough. if I didn't ask you to use remaining tools, you can skip them
 If I don't ask you to check whole codebase, always use --follow-imports=silent to avoid check relative files.
-
-### Testing
-
-### Environment Checking
-
-### Application Execution
-
-### Development Utilities
 
 ## Codebase Architecture
 
