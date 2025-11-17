@@ -15,6 +15,15 @@ from .strategies import (
     create_fallback_strategy
 )
 
+# 新组件导入
+from .fallback_executor import FallbackExecutor
+from .fallback_orchestrator import FallbackOrchestrator
+from .fallback_statistics import FallbackStatistics
+from .fallback_session_manager import FallbackSessionManager
+from .fallback_strategy_manager import FallbackStrategyManager
+from .fallback_configuration_manager import FallbackConfigurationManager
+from .logger_adapter import LoggerAdapter
+
 # 使用 Core 层的 DefaultFallbackLogger
 from src.core.llm.wrappers.fallback_manager import DefaultFallbackLogger
 
@@ -124,14 +133,19 @@ def create_fallback_manager(config: FallbackConfig, owner_client: Optional[Any] 
 
 
 __all__ = [
+    # 主要组件
     "FallbackManager",
     "DefaultFallbackLogger",
+    
+    # 配置和接口
     "FallbackConfig",
     "FallbackAttempt",
     "FallbackSession",
     "IFallbackStrategy",
     "IClientFactory",
     "IFallbackLogger",
+    
+    # 策略
     "SequentialFallbackStrategy",
     "PriorityFallbackStrategy",
     "RandomFallbackStrategy",
@@ -140,6 +154,17 @@ __all__ = [
     "ConditionalFallbackStrategy",
     "ConditionalFallback",
     "create_fallback_strategy",
+    
+    # 新组件
+    "FallbackExecutor",
+    "FallbackOrchestrator",
+    "FallbackStatistics",
+    "FallbackSessionManager",
+    "FallbackStrategyManager",
+    "FallbackConfigurationManager",
+    "LoggerAdapter",
+    
+    # 工厂函数
     "create_fallback_manager",
     "SelfManagingFallbackFactory"
 ]
