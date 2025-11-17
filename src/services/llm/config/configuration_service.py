@@ -1,6 +1,6 @@
 """LLM客户端配置服务
 
-负责LLM客户端的配置加载、验证和管理。
+重构后专注于LLM客户端的创建和初始化，配置管理委托给ConfigManager。
 """
 
 from typing import Any, Dict, List, Optional, Union
@@ -10,6 +10,7 @@ from src.core.llm.factory import LLMFactory
 from src.core.llm.config import LLMClientConfig
 from src.core.llm.exceptions import LLMError
 from .config_validator import LLMConfigValidator, ValidationResult
+from .config_manager import ConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -17,31 +18,35 @@ logger = logging.getLogger(__name__)
 class LLMClientConfigurationService:
     """LLM客户端配置服务
     
-    负责：
-    1. 从配置加载LLM客户端
-    2. 验证客户端配置
-    3. 管理配置相关的错误处理
+    重构后专注于：
+    1. LLM客户端的创建和初始化
+    2. 客户端配置的特定验证
+    3. 客户端相关的错误处理
+    
+    配置管理委托给ConfigManager。
     """
     
     def __init__(
         self,
         factory: LLMFactory,
         config_validator: LLMConfigValidator,
-        config: Optional[Dict[str, Any]] = None
+        config_manager: ConfigManager
     ) -> None:
         """初始化配置服务
         
         Args:
             factory: LLM工厂
             config_validator: 配置验证器
-            config: LLM配置字典
+            config_manager: 配置管理器
         """
         self._factory = factory
         self._config_validator = config_validator
-        self._config = config or {}
+        self._config_manager = config_manager
     
     def load_clients_from_config(self) -> Dict[str, Any]:
         """从配置加载LLM客户端
+        
+        委托给ConfigManager处理
         
         Returns:
             Dict[str, Any]: 客户端名称到客户端实例的映射
@@ -49,50 +54,12 @@ class LLMClientConfigurationService:
         Raises:
             LLMError: 配置加载失败
         """
-        clients = {}
-        clients_config = self._config.get("clients", [])
-        
-        if not clients_config:
-            logger.info("配置中没有指定LLM客户端")
-            return clients
-        
-        for client_config in clients_config:
-            try:
-                # 使用配置验证器验证配置
-                validation_result = self._config_validator.validate_config(client_config)
-                if not validation_result.is_valid:
-                    client_name = self._get_config_name(client_config)
-                    logger.error(f"LLM客户端配置验证失败 {client_name}: {validation_result.errors}")
-                    strict_mode = self._config.get("strict_mode", False)
-                    if strict_mode:
-                        raise LLMError(f"LLM客户端配置验证失败 {client_name}: {validation_result.errors}")
-                    else:
-                        # 非严格模式下，跳过验证失败的客户端
-                        continue
-                
-                # 获取验证通过的客户端
-                client = validation_result.client
-                if client:
-                    client_name = self._get_config_name(client_config)
-                    if isinstance(client_name, str):
-                        clients[client_name] = client
-                        logger.debug(f"成功加载LLM客户端: {client_name}")
-                    
-            except Exception as e:
-                client_name = self._get_config_name(client_config)
-                logger.error(f"加载LLM客户端 {client_name} 失败: {e}")
-                strict_mode = self._config.get("strict_mode", False)
-                if strict_mode:
-                    raise
-                else:
-                    # 非严格模式下，跳过失败的客户端
-                    continue
-        
-        logger.info(f"从配置加载了 {len(clients)} 个LLM客户端")
-        return clients
+        return self._config_manager.load_clients_from_config()
     
     def validate_client_config(self, config: Union[Dict[str, Any], LLMClientConfig]) -> ValidationResult:
         """验证客户端配置
+        
+        委托给ConfigManager处理
         
         Args:
             config: LLM客户端配置（字典或LLMClientConfig对象）
@@ -100,30 +67,108 @@ class LLMClientConfigurationService:
         Returns:
             ValidationResult: 验证结果
         """
-        try:
-            # 使用配置验证器验证配置
-            result = self._config_validator.validate_config(config)
-            return result
-            
-        except Exception as e:
-            logger.error(f"LLM客户端配置验证失败: {e}")
-            return ValidationResult.failure([f"配置验证失败: {str(e)}"])
+        return self._config_manager.validate_config("client", config)
     
     def get_default_client_name(self) -> Optional[str]:
         """获取默认客户端名称
         
+        委托给ConfigManager处理
+        
         Returns:
             Optional[str]: 默认客户端名称，如果未配置则返回None
         """
-        return self._config.get("default_client")
+        return self._config_manager.get_default_client_name()
     
     def is_strict_mode(self) -> bool:
         """检查是否为严格模式
         
+        委托给ConfigManager处理
+        
         Returns:
             bool: 是否为严格模式
         """
-        return self._config.get("strict_mode", False)
+        return self._config_manager.is_strict_mode()
+    
+    def create_client_from_config(self, config: Union[Dict[str, Any], LLMClientConfig]) -> Any:
+        """从配置创建LLM客户端
+        
+        专注于客户端创建逻辑
+        
+        Args:
+            config: LLM客户端配置
+            
+        Returns:
+            LLM客户端实例
+            
+        Raises:
+            LLMError: 客户端创建失败
+        """
+        try:
+            # 验证配置
+            validation_result = self.validate_client_config(config)
+            if not validation_result.is_valid:
+                raise LLMError(f"客户端配置验证失败: {validation_result.errors}")
+            
+            # 返回验证通过的客户端
+            return validation_result.client
+            
+        except Exception as e:
+            logger.error(f"创建LLM客户端失败: {e}")
+            raise LLMError(f"创建LLM客户端失败: {e}") from e
+    
+    def create_clients_batch(self, configs: List[Union[Dict[str, Any], LLMClientConfig]]) -> Dict[str, Any]:
+        """批量创建LLM客户端
+        
+        Args:
+            configs: 客户端配置列表
+            
+        Returns:
+            Dict[str, Any]: 客户端名称到客户端实例的映射
+        """
+        clients = {}
+        errors = []
+        
+        for config in configs:
+            try:
+                client = self.create_client_from_config(config)
+                client_name = self._get_config_name(config)
+                if client_name and isinstance(client_name, str):
+                    clients[client_name] = client
+                    logger.debug(f"成功创建LLM客户端: {client_name}")
+                
+            except Exception as e:
+                client_name = self._get_config_name(config)
+                error_msg = f"创建LLM客户端 {client_name} 失败: {e}"
+                errors.append(error_msg)
+                logger.error(error_msg)
+                
+                # 严格模式下，遇到错误就停止
+                if self.is_strict_mode():
+                    raise LLMError(error_msg)
+        
+        if errors and not clients:
+            raise LLMError(f"所有客户端创建失败: {'; '.join(errors)}")
+        
+        logger.info(f"批量创建了 {len(clients)} 个LLM客户端")
+        return clients
+    
+    def reload_clients_config(self) -> None:
+        """重新加载客户端配置
+        
+        委托给ConfigManager处理
+        """
+        self._config_manager.reload_config()
+        logger.info("客户端配置已重新加载")
+    
+    def get_config_status(self) -> Dict[str, Any]:
+        """获取配置状态
+        
+        委托给ConfigManager处理
+        
+        Returns:
+            Dict[str, Any]: 配置状态信息
+        """
+        return self._config_manager.get_config_status()
     
     def _get_config_name(self, config: Union[Dict[str, Any], LLMClientConfig]) -> str:
         """获取配置名称

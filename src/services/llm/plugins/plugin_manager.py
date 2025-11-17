@@ -4,14 +4,25 @@ import sys
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 from .interfaces import ILLMPlugin, IPluginManager
+from ..core.base_factory import BaseFactory
 
 
-class PluginManager(IPluginManager):
+class PluginManager(BaseFactory, IPluginManager):
     """插件管理器实现"""
     
     def __init__(self):
         self._plugins: Dict[str, ILLMPlugin] = {}
         self._loaded_modules: Dict[str, Any] = {}
+    
+    def create(self, *args, **kwargs) -> 'PluginManager':
+        """
+        创建插件管理器实例（工厂方法）
+        
+        Returns:
+            PluginManager: 插件管理器实例
+        """
+        # 由于这是单例模式，直接返回自身
+        return self
     
     def register_plugin(self, plugin: ILLMPlugin) -> None:
         """注册插件"""
@@ -103,7 +114,7 @@ class PluginManager(IPluginManager):
 
 
 class PluginManagerFactory:
-    """插件管理器工厂"""
+    """插件管理器工厂（保持向后兼容）"""
     
     _instance: Optional['PluginManagerFactory'] = None
     _manager: Optional[PluginManager] = None
@@ -122,3 +133,6 @@ class PluginManagerFactory:
 
 # 全局插件管理器工厂实例
 plugin_manager_factory = PluginManagerFactory()
+
+# 注册到工厂注册表
+BaseFactory.register("plugin_manager", PluginManager)

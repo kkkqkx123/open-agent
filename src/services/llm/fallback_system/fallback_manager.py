@@ -5,17 +5,15 @@
 
 import time
 import asyncio
-from typing import Any, Optional, Sequence, Dict, List
+from typing import Any, Optional, Sequence, Dict, List, Tuple
 from langchain_core.messages import BaseMessage
 
 from .interfaces import IFallbackStrategy, IClientFactory, IFallbackLogger
 from .fallback_config import FallbackConfig, FallbackAttempt, FallbackSession
 
 # 新组件导入
-from .fallback_executor import FallbackExecutor
-from .fallback_orchestrator import FallbackOrchestrator
-from .fallback_statistics import FallbackStatistics
-from .fallback_session_manager import FallbackSessionManager
+from .fallback_engine import FallbackEngine
+from .fallback_tracker import FallbackTracker
 from .fallback_strategy_manager import FallbackStrategyManager
 from .fallback_configuration_manager import FallbackConfigurationManager
 from .logger_adapter import LoggerAdapter
@@ -35,12 +33,10 @@ class FallbackManager:
     """降级管理器 - 轻量级协调器
     
     通过组合多个专门的组件来实现降级管理功能：
-    1. FallbackExecutor - 负责降级执行逻辑
-    2. FallbackOrchestrator - 负责业务编排逻辑
-    3. FallbackStatistics - 负责统计信息管理
-    4. FallbackSessionManager - 负责会话管理
-    5. FallbackStrategyManager - 负责策略管理
-    6. FallbackConfigurationManager - 负责配置管理
+    1. FallbackEngine - 负责降级执行和编排逻辑
+    2. FallbackTracker - 负责统计信息和会话管理
+    3. FallbackStrategyManager - 负责策略管理
+    4. FallbackConfigurationManager - 负责配置管理
     """
     
     def __init__(self, 
@@ -70,12 +66,15 @@ class FallbackManager:
         
         # 初始化各个组件
         self._config_manager = FallbackConfigurationManager(config, client_factory)
-        self._session_manager = FallbackSessionManager()
-        self._statistics = FallbackStatistics()
+        self._tracker = FallbackTracker()
         self._strategy_manager = FallbackStrategyManager(config, task_group_manager, polling_pool_manager)
-        self._executor = FallbackExecutor(config, client_factory, fallback_logger)
-        self._orchestrator = FallbackOrchestrator(client_factory, fallback_logger, 
-                                                 task_group_manager, polling_pool_manager)
+        self._engine = FallbackEngine(
+            config=config,
+            client_factory=client_factory,
+            logger=fallback_logger,
+            task_group_manager=task_group_manager,
+            polling_pool_manager=polling_pool_manager
+        )
     
     # === Core 层方法 ===
     
@@ -102,11 +101,10 @@ class FallbackManager:
             LLMCallError: 所有尝试都失败
         """
         # 委托给执行器
-        response, session = await self._executor.generate_with_fallback(messages, parameters, primary_model, **kwargs)
+        response, session = await self._engine.generate_with_fallback(messages, parameters, primary_model, **kwargs)
         
         # 管理会话和统计
-        self._session_manager.add_session(session)
-        self._statistics.update_core_stats(self._session_manager.get_sessions())
+        self._tracker.add_session(session)
         
         return response
     
@@ -117,7 +115,7 @@ class FallbackManager:
         Returns:
             统计信息字典
         """
-        return self._statistics.get_stats()
+        return self._tracker.get_stats()
     
     def get_sessions(self, limit: Optional[int] = None) -> List[FallbackSession]:
         """
@@ -129,12 +127,11 @@ class FallbackManager:
         Returns:
             会话记录列表
         """
-        return self._session_manager.get_sessions(limit)
+        return self._tracker.get_sessions(limit)
     
     def clear_sessions(self) -> None:
         """清空会话记录（Core 层方法）"""
-        self._session_manager.clear_sessions()
-        self._statistics.reset_stats()
+        self._tracker.clear_sessions()
     
     def is_enabled(self) -> bool:
         """检查降级是否启用（Core 层方法）"""
@@ -152,7 +149,7 @@ class FallbackManager:
             config: 新的降级配置
         """
         self._config_manager.update_config(config)
-        self._executor.update_config(config)
+        self._engine.update_config(config)
         self._strategy_manager.update_config(config)
     
     # === Services 层方法 ===
@@ -182,32 +179,32 @@ class FallbackManager:
             LLMCallError: 所有尝试都失败
         """
         # 更新统计
-        self._statistics.increment_total_requests()
+        self._tracker.increment_total_requests()
         
         try:
             # 委托给编排器
-            result = await self._orchestrator.execute_with_fallback(
+            result = await self._engine.execute_with_fallback(
                 primary_target, fallback_groups, prompt, parameters, **kwargs
             )
             
             # 更新统计
-            self._statistics.increment_successful_requests()
+            self._tracker.increment_successful_requests()
             
             # 检查是否使用了降级
-            if self._orchestrator._is_polling_pool_target(primary_target):
-                self._statistics.increment_pool_fallbacks()
+            if self._engine._is_polling_pool_target(primary_target):
+                self._tracker.increment_pool_fallbacks()
             else:
-                self._statistics.increment_group_fallbacks()
+                self._tracker.increment_group_fallbacks()
             
             return result
             
         except Exception as e:
-            self._statistics.increment_failed_requests()
+            self._tracker.increment_failed_requests()
             raise LLMCallError(f"降级执行失败: {e}")
     
     def reset_stats(self) -> None:
         """重置所有统计信息"""
-        self._statistics.reset_stats()
+        self._tracker.reset_stats()
     
     # === 扩展方法 ===
     
@@ -218,7 +215,7 @@ class FallbackManager:
         Returns:
             Core 层统计信息字典
         """
-        return self._statistics.get_core_stats()
+        return self._tracker.get_core_stats()
     
     def get_services_stats(self) -> Dict[str, Any]:
         """
@@ -227,7 +224,7 @@ class FallbackManager:
         Returns:
             Services 层统计信息字典
         """
-        return self._statistics.get_services_stats()
+        return self._tracker.get_services_stats()
     
     def get_successful_sessions(self, limit: Optional[int] = None) -> List[FallbackSession]:
         """
@@ -239,7 +236,7 @@ class FallbackManager:
         Returns:
             成功的会话记录列表
         """
-        return self._session_manager.get_successful_sessions(limit)
+        return self._tracker.get_successful_sessions(limit)
     
     def get_failed_sessions(self, limit: Optional[int] = None) -> List[FallbackSession]:
         """
@@ -251,7 +248,7 @@ class FallbackManager:
         Returns:
             失败的会话记录列表
         """
-        return self._session_manager.get_failed_sessions(limit)
+        return self._tracker.get_failed_sessions(limit)
     
     def get_config_summary(self) -> Dict[str, Any]:
         """
@@ -283,7 +280,7 @@ class FallbackManager:
         if config:
             self.update_config(config)
     
-    def get_most_used_models(self, limit: int = 10) -> List[tuple]:
+    def get_most_used_models(self, limit: int = 10) -> List[Tuple[str, int]]:
         """
         获取最常用的模型列表
         
@@ -293,9 +290,9 @@ class FallbackManager:
         Returns:
             按使用次数排序的模型列表
         """
-        return self._session_manager.get_most_used_models(limit)
+        return self._tracker.get_most_used_models(limit)
     
-    def get_error_summary(self, limit: int = 10) -> List[tuple]:
+    def get_error_summary(self, limit: int = 10) -> List[Tuple[str, int]]:
         """
         获取错误摘要
         
@@ -305,4 +302,4 @@ class FallbackManager:
         Returns:
             按出现次数排序的错误类型列表
         """
-        return self._session_manager.get_error_summary(limit)
+        return self._tracker.get_error_summary(limit)

@@ -15,10 +15,12 @@ from src.core.llm.exceptions import LLMError
 from src.core.llm.models import LLMResponse
 from src.services.llm.state_machine import StateMachine, LLMManagerState
 from src.services.llm.config.config_validator import LLMConfigValidator, ValidationResult
-from src.services.llm.metadata_service import ClientMetadataService
+from services.llm.utils.metadata_service import ClientMetadataService
 from src.services.llm.config.configuration_service import LLMClientConfigurationService
-from services.llm.core.client_manager import LLMClientManager
-from services.llm.core.request_executor import LLMRequestExecutor
+from src.services.llm.config.config_manager import ConfigManager
+from src.services.llm.core.client_manager import LLMClientManager
+from src.services.llm.core.request_executor import LLMRequestExecutor
+from src.services.llm.core.manager_registry import manager_registry, ManagerStatus
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,7 @@ class LLMManager(ILLMManager):
     1. 协调各个服务组件
     2. 提供统一的对外接口
     3. 管理整体初始化流程
+    4. 管理器间通信协调
     """
     
     def __init__(
@@ -39,7 +42,8 @@ class LLMManager(ILLMManager):
         task_group_manager: ITaskGroupManager,
         config_validator: LLMConfigValidator,
         metadata_service: ClientMetadataService,
-        config: Optional[Dict[str, Any]] = None
+        config: Optional[Dict[str, Any]] = None,
+        config_loader: Optional[Any] = None
     ) -> None:
         """初始化LLM管理器
         
@@ -50,6 +54,7 @@ class LLMManager(ILLMManager):
             config_validator: 配置验证器
             metadata_service: 元数据服务
             config: LLM配置字典
+            config_loader: 配置加载器
         """
         self._factory = factory
         self._fallback_manager = fallback_manager
@@ -61,11 +66,19 @@ class LLMManager(ILLMManager):
         # 创建状态机
         self._state_machine = StateMachine()
         
+        # 创建配置管理器
+        self._config_manager = ConfigManager(
+            factory=factory,
+            config_validator=config_validator,
+            config_loader=config_loader,
+            config=config
+        )
+        
         # 创建配置服务
         self._config_service = LLMClientConfigurationService(
             factory=factory,
             config_validator=config_validator,
-            config=config
+            config_manager=self._config_manager
         )
         
         # 创建客户端管理器
@@ -79,6 +92,81 @@ class LLMManager(ILLMManager):
             fallback_manager=fallback_manager,
             task_group_manager=task_group_manager
         )
+        
+        # 注册到管理器注册表
+        self._register_with_registry()
+    
+    def _register_with_registry(self) -> None:
+        """注册到管理器注册表"""
+        # 注册自身
+        manager_registry.register_manager(
+            name="llm_manager",
+            manager_instance=self,
+            dependencies=["config_manager", "client_manager", "request_executor"],
+            metadata={"type": "main_coordinator"}
+        )
+        
+        # 注册子管理器
+        manager_registry.register_manager(
+            name="config_manager",
+            manager_instance=self._config_manager,
+            dependencies=[],
+            metadata={"type": "config_management"}
+        )
+        
+        manager_registry.register_manager(
+            name="client_manager",
+            manager_instance=self._client_manager,
+            dependencies=["metadata_service"],
+            metadata={"type": "client_lifecycle"}
+        )
+        
+        manager_registry.register_manager(
+            name="request_executor",
+            manager_instance=self._request_executor,
+            dependencies=["fallback_manager", "task_group_manager"],
+            metadata={"type": "request_execution"}
+        )
+        
+        # 注册通信处理器
+        self._register_communication_handlers()
+    
+    def _register_communication_handlers(self) -> None:
+        """注册通信处理器"""
+        # 处理配置更新事件
+        manager_registry.register_communication_handler(
+            "llm_manager", "config_updated", self._handle_config_updated
+        )
+        
+        # 处理客户端状态变更事件
+        manager_registry.register_communication_handler(
+            "llm_manager", "client_status_changed", self._handle_client_status_changed
+        )
+        
+        # 处理降级状态变更事件
+        manager_registry.register_communication_handler(
+            "llm_manager", "fallback_status_changed", self._handle_fallback_status_changed
+        )
+    
+    def _handle_config_updated(self, from_manager: str, config_data: Any) -> None:
+        """处理配置更新事件"""
+        logger.info(f"收到配置更新事件，来源: {from_manager}")
+        # 可以在这里实现配置热更新逻辑
+        try:
+            self._config_manager.reload_config()
+            logger.info("配置热更新完成")
+        except Exception as e:
+            logger.error(f"配置热更新失败: {e}")
+    
+    def _handle_client_status_changed(self, from_manager: str, status_data: Any) -> None:
+        """处理客户端状态变更事件"""
+        logger.debug(f"收到客户端状态变更事件，来源: {from_manager}, 数据: {status_data}")
+        # 可以在这里实现客户端状态同步逻辑
+    
+    def _handle_fallback_status_changed(self, from_manager: str, status_data: Any) -> None:
+        """处理降级状态变更事件"""
+        logger.debug(f"收到降级状态变更事件，来源: {from_manager}, 数据: {status_data}")
+        # 可以在这里实现降级状态同步逻辑
     
     async def initialize(self) -> None:
         """初始化LLM管理器
@@ -89,6 +177,8 @@ class LLMManager(ILLMManager):
             return
         
         try:
+            # 更新状态
+            manager_registry.update_manager_status("llm_manager", ManagerStatus.INITIALIZING)
             self._state_machine.transition_to(LLMManagerState.INITIALIZING)
             logger.info("初始化LLM管理器...")
             
@@ -107,11 +197,22 @@ class LLMManager(ILLMManager):
                 first_client = self._client_manager.list_clients()[0]
                 self._client_manager.set_default_client(first_client)
             
+            # 更新状态
             self._state_machine.transition_to(LLMManagerState.READY)
+            manager_registry.update_manager_status("llm_manager", ManagerStatus.READY)
+            
             logger.info(f"LLM管理器初始化完成，加载了 {self._client_manager.get_client_count()} 个客户端")
             
+            # 广播初始化完成事件
+            manager_registry.broadcast_message("llm_manager", "initialization_completed", {
+                "client_count": self._client_manager.get_client_count(),
+                "default_client": self._client_manager.default_client
+            })
+            
         except Exception as e:
+            # 更新状态
             self._state_machine.transition_to(LLMManagerState.ERROR, e)
+            manager_registry.update_manager_status("llm_manager", ManagerStatus.ERROR, str(e))
             logger.error(f"LLM管理器初始化失败: {e}")
             raise LLMError(f"LLM管理器初始化失败: {e}") from e
     
@@ -123,6 +224,12 @@ class LLMManager(ILLMManager):
             client: LLM客户端实例
         """
         self._client_manager.register_client(name, client)
+        
+        # 广播客户端注册事件
+        manager_registry.broadcast_message("llm_manager", "client_registered", {
+            "name": name,
+            "client_class": client.__class__.__name__
+        })
     
     async def unregister_client(self, name: str) -> None:
         """注销LLM客户端
@@ -131,6 +238,11 @@ class LLMManager(ILLMManager):
             name: 客户端名称
         """
         self._client_manager.unregister_client(name)
+        
+        # 广播客户端注销事件
+        manager_registry.broadcast_message("llm_manager", "client_unregistered", {
+            "name": name
+        })
     
     async def get_client(self, name: Optional[str] = None) -> ILLMClient:
         """获取LLM客户端
@@ -256,6 +368,9 @@ class LLMManager(ILLMManager):
         logger.info("重新加载LLM客户端...")
         
         try:
+            # 广播重新加载开始事件
+            manager_registry.broadcast_message("llm_manager", "reload_started", {})
+            
             # 清除当前客户端
             self._client_manager.clear_all_clients()
             
@@ -264,6 +379,11 @@ class LLMManager(ILLMManager):
             await self.initialize()
             
             logger.info("LLM客户端重新加载完成")
+            
+            # 广播重新加载完成事件
+            manager_registry.broadcast_message("llm_manager", "reload_completed", {
+                "client_count": self._client_manager.get_client_count()
+            })
             
         except Exception as e:
             self._state_machine.transition_to(LLMManagerState.ERROR, e)
@@ -292,6 +412,22 @@ class LLMManager(ILLMManager):
         """
         result = self._config_service.validate_client_config(config)
         return result.is_valid
+    
+    def get_config_status(self) -> Dict[str, Any]:
+        """获取配置状态
+        
+        Returns:
+            Dict[str, Any]: 配置状态信息
+        """
+        return self._config_manager.get_config_status()
+    
+    def get_registry_status(self) -> Dict[str, Any]:
+        """获取管理器注册表状态
+        
+        Returns:
+            Dict[str, Any]: 注册表状态信息
+        """
+        return manager_registry.get_registry_status()
     
     @property
     def factory(self) -> LLMFactory:
@@ -328,3 +464,8 @@ class LLMManager(ILLMManager):
             ServiceError: 客户端不存在
         """
         self._client_manager.set_default_client(name)
+        
+        # 广播默认客户端变更事件
+        manager_registry.broadcast_message("llm_manager", "default_client_changed", {
+            "name": name
+        })

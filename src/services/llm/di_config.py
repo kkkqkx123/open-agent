@@ -12,14 +12,15 @@ from src.core.llm.interfaces import (
 )
 from .scheduling.task_group_manager import TaskGroupManager
 from .scheduling.polling_pool import PollingPoolManager
-from .client_factory import ClientFactory
+from .factory.client_factory import ClientFactory
 from .fallback_system.fallback_manager import FallbackManager
 from .manager import LLMManager
 from .config.configuration_service import LLMClientConfigurationService
+from .config.config_manager import ConfigManager
 from .core.client_manager import LLMClientManager
 from .core.request_executor import LLMRequestExecutor
 from .config.config_validator import LLMConfigValidator
-from .metadata_service import ClientMetadataService
+from .utils.metadata_service import ClientMetadataService
 from .state_machine import StateMachine
 from src.core.llm.factory import LLMFactory
 
@@ -38,23 +39,14 @@ def register_llm_services(container) -> None:
         from infrastructure.config.loader.file_config_loader import FileConfigLoader
         container.register_singleton(FileConfigLoader)
         
-        # 注册任务组管理器
-        container.register_singleton(ITaskGroupManager, TaskGroupManager)
-        
-        # 注册轮询池管理器
-        container.register_singleton(IPollingPoolManager, PollingPoolManager)
-        
         # 注册LLM工厂
         container.register_singleton(LLMFactory)
         
-        # 注册客户端工厂
-        container.register_singleton(IClientFactory, ClientFactory)
-        
-        # 注册降级管理器
-        container.register_singleton(IFallbackManager, FallbackManager)
-        
         # 注册配置验证器
         container.register_singleton(LLMConfigValidator)
+        
+        # 注册配置管理器
+        container.register_singleton(ConfigManager)
         
         # 注册元数据服务
         container.register_singleton(ClientMetadataService)
@@ -64,6 +56,18 @@ def register_llm_services(container) -> None:
         
         # 注册配置服务
         container.register_singleton(LLMClientConfigurationService)
+        
+        # 注册客户端工厂
+        container.register_singleton(IClientFactory, ClientFactory)
+        
+        # 注册任务组管理器（依赖ConfigManager）
+        container.register_singleton(ITaskGroupManager, TaskGroupManager)
+        
+        # 注册轮询池管理器（依赖TaskGroupManager）
+        container.register_singleton(IPollingPoolManager, PollingPoolManager)
+        
+        # 注册降级管理器
+        container.register_singleton(IFallbackManager, FallbackManager)
         
         # 注册客户端管理器
         container.register_singleton(LLMClientManager)
@@ -161,6 +165,14 @@ def create_llm_manager_with_config(container, config: Dict[str, Any]) -> LLMMana
         config_validator = container.get(LLMConfigValidator)
         metadata_service = container.get(ClientMetadataService)
         
+        # 获取配置加载器（可选）
+        config_loader = None
+        try:
+            from infrastructure.config.loader.file_config_loader import FileConfigLoader
+            config_loader = container.get(FileConfigLoader)
+        except:
+            logger.warning("配置加载器未注册，将使用基本配置功能")
+        
         # 创建LLM管理器
         llm_manager = LLMManager(
             factory=factory,
@@ -168,7 +180,8 @@ def create_llm_manager_with_config(container, config: Dict[str, Any]) -> LLMMana
             task_group_manager=task_group_manager,
             config_validator=config_validator,
             metadata_service=metadata_service,
-            config=config
+            config=config,
+            config_loader=config_loader
         )
         
         logger.info("带配置的LLM管理器创建完成")

@@ -4,9 +4,10 @@ from typing import Dict, List, Any, Optional
 from threading import Lock
 from datetime import datetime, timedelta
 from .interfaces import IConnectionPool
+from ..core.base_factory import BaseFactory
 
 
-class HTTPConnectionPool(IConnectionPool):
+class HTTPConnectionPool(IConnectionPool, BaseFactory):
     """HTTP连接池实现"""
     
     def __init__(
@@ -28,6 +29,28 @@ class HTTPConnectionPool(IConnectionPool):
             "created_connections": 0
         }
         self._lock = asyncio.Lock()  # 用于保护共享状态
+    
+    def create(self, max_connections: Optional[int] = None, max_keepalive: Optional[int] = None, timeout: Optional[float] = None) -> 'HTTPConnectionPool':
+        """
+        创建连接池实例（工厂方法）
+        
+        Args:
+            max_connections: 最大连接数
+            max_keepalive: 最大保持连接数
+            timeout: 超时时间
+            
+        Returns:
+            HTTPConnectionPool: 连接池实例
+        """
+        # 由于这是单例模式，直接返回自身，但更新配置
+        if max_connections is not None:
+            self.max_connections = max_connections
+        if max_keepalive is not None:
+            self.max_keepalive = max_keepalive
+        if timeout is not None:
+            self.timeout = timeout
+        
+        return self
     
     async def acquire(self, base_url: str) -> aiohttp.ClientSession:
         """获取连接"""
@@ -176,13 +199,13 @@ class HTTPConnectionPool(IConnectionPool):
         self._active_connections.clear()
 
 
-class ConnectionPoolManager:
+class ConnectionPoolManager(BaseFactory):
     """连接池管理器 - 用于管理全局连接池实例"""
     
     def __init__(self):
         self._pool: Optional[HTTPConnectionPool] = None
     
-    def get_pool(self, max_connections: int = 10, max_keepalive: int = 10, timeout: float = 30.0) -> HTTPConnectionPool:
+    def create(self, max_connections: int = 10, max_keepalive: int = 10, timeout: float = 30.0) -> HTTPConnectionPool:
         """获取连接池实例"""
         if self._pool is None:
             self._pool = HTTPConnectionPool(max_connections, max_keepalive, timeout)
@@ -197,3 +220,7 @@ class ConnectionPoolManager:
 
 # 全局连接池管理器实例
 connection_pool_manager = ConnectionPoolManager()
+
+# 注册到工厂注册表
+BaseFactory.register("connection_pool", HTTPConnectionPool)
+BaseFactory.register("connection_pool_manager", ConnectionPoolManager)

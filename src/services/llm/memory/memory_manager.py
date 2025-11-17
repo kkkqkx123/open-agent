@@ -6,8 +6,12 @@ from pathlib import Path
 import logging
 from datetime import datetime
 
+from ..core.base_factory import BaseFactory
 
-class MemoryManager:
+logger = logging.getLogger(__name__)
+
+
+class MemoryManager(BaseFactory):
     """内存使用管理器"""
     
     def __init__(self, max_memory_mb: int = 512, gc_threshold_mb: float = 0.8):
@@ -27,6 +31,25 @@ class MemoryManager:
         
         # 设置垃圾回收阈值
         gc.set_threshold(700, 10, 10)  # 调整垃圾回收频率
+    
+    def create(self, max_memory_mb: Optional[int] = None, gc_threshold_mb: Optional[float] = None) -> 'MemoryManager':
+        """
+        创建内存管理器实例（工厂方法）
+        
+        Args:
+            max_memory_mb: 最大内存使用量（MB）
+            gc_threshold_mb: 触发垃圾回收的内存使用阈值（百分比）
+            
+        Returns:
+            MemoryManager: 内存管理器实例
+        """
+        # 由于这是单例模式，直接返回自身
+        if max_memory_mb is not None:
+            self.max_memory = max_memory_mb
+        if gc_threshold_mb is not None:
+            self.gc_threshold = gc_threshold_mb
+        
+        return self
     
     def track_memory_usage(self, operation: str, size: int) -> None:
         """跟踪内存使用情况"""
@@ -127,7 +150,7 @@ class MemoryManager:
 
 
 class MemoryManagerFactory:
-    """内存管理器工厂"""
+    """内存管理器工厂（保持向后兼容）"""
     
     _instance: Optional['MemoryManagerFactory'] = None
     _manager: Optional[MemoryManager] = None
@@ -146,3 +169,6 @@ class MemoryManagerFactory:
 
 # 全局内存管理器工厂实例
 memory_manager_factory = MemoryManagerFactory()
+
+# 注册到工厂注册表
+BaseFactory.register("memory_manager", MemoryManager)
