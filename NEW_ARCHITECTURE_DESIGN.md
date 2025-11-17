@@ -36,7 +36,7 @@
 ### 目录结构
 
 ```
-modular-agent-v2/
+modular-agent/
 ├── src/
 │   ├── core/           # 核心模块
 │   │   ├── engine/     # 工作流引擎
@@ -54,7 +54,7 @@ modular-agent-v2/
 │   └── plugins/        # 插件系统
 │       ├── storage/    # 存储插件
 │       └── monitoring/ # 监控插件
-├── config.yaml         # 单一配置文件
+├── configs             # 配置文件目录
 ├── plugins/            # 外部插件目录
 └── examples/           # 示例和模板
 ```
