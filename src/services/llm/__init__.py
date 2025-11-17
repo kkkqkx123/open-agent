@@ -7,8 +7,8 @@ from .manager import LLMManager
 from .fallback_system.fallback_manager import FallbackManager
 from .task_group_manager import TaskGroupManager
 from .configuration_service import LLMClientConfigurationService
-from .client_manager import LLMClientManager
-from .request_executor import LLMRequestExecutor
+from .core.client_manager import LLMClientManager
+from .core.request_executor import LLMRequestExecutor
 from .config_validator import LLMConfigValidator
 from .metadata_service import ClientMetadataService
 from .state_machine import StateMachine, LLMManagerState

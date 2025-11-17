@@ -14,11 +14,11 @@ from src.core.llm.config import LLMClientConfig
 from src.core.llm.exceptions import LLMError
 from src.core.llm.models import LLMResponse
 from src.services.llm.state_machine import StateMachine, LLMManagerState
-from src.services.llm.config_validator import LLMConfigValidator, ValidationResult
+from src.services.llm.config.config_validator import LLMConfigValidator, ValidationResult
 from src.services.llm.metadata_service import ClientMetadataService
-from src.services.llm.configuration_service import LLMClientConfigurationService
-from src.services.llm.client_manager import LLMClientManager
-from src.services.llm.request_executor import LLMRequestExecutor
+from src.services.llm.config.configuration_service import LLMClientConfigurationService
+from services.llm.core.client_manager import LLMClientManager
+from services.llm.core.request_executor import LLMRequestExecutor
 
 logger = logging.getLogger(__name__)
 

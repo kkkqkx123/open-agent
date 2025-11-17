@@ -10,15 +10,15 @@ from src.core.llm.interfaces import (
     IFallbackManager,
     ILLMManager
 )
-from .task_group_manager import TaskGroupManager
-from .polling_pool import PollingPoolManager
+from .scheduling.task_group_manager import TaskGroupManager
+from .scheduling.polling_pool import PollingPoolManager
 from .client_factory import ClientFactory
 from .fallback_system.fallback_manager import FallbackManager
 from .manager import LLMManager
-from .configuration_service import LLMClientConfigurationService
-from .client_manager import LLMClientManager
-from .request_executor import LLMRequestExecutor
-from .config_validator import LLMConfigValidator
+from .config.configuration_service import LLMClientConfigurationService
+from .core.client_manager import LLMClientManager
+from .core.request_executor import LLMRequestExecutor
+from .config.config_validator import LLMConfigValidator
 from .metadata_service import ClientMetadataService
 from .state_machine import StateMachine
 from src.core.llm.factory import LLMFactory

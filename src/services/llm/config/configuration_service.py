@@ -9,7 +9,7 @@ import logging
 from src.core.llm.factory import LLMFactory
 from src.core.llm.config import LLMClientConfig
 from src.core.llm.exceptions import LLMError
-from src.services.llm.config_validator import LLMConfigValidator, ValidationResult
+from .config_validator import LLMConfigValidator, ValidationResult
 
 logger = logging.getLogger(__name__)
 

@@ -209,7 +209,20 @@ class LLMRequestExecutor:
             LLMError: 所有降级目标都失败
         """
         # 将消息转换为提示字符串（简化处理）
-        prompt = " ".join([msg.content for msg in messages if hasattr(msg, 'content')])
+        prompt_parts = []
+        for msg in messages:
+            if hasattr(msg, 'content'):
+                content = msg.content
+                if isinstance(content, str):
+                    prompt_parts.append(content)
+                elif isinstance(content, list):
+                    # 处理内容列表，只提取字符串部分
+                    for item in content:
+                        if isinstance(item, str):
+                            prompt_parts.append(item)
+                else:
+                    prompt_parts.append(str(content))
+        prompt = " ".join(prompt_parts)
         
         # 使用降级管理器执行
         try:
