@@ -1,4 +1,4 @@
-# 数据库查询工具配置
+# 数据库查询工具配置。目前仅提供占位实现
 name: database_query
 tool_type: mcp
 description: Execute database queries through MCP server

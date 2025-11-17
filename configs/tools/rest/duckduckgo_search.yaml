@@ -1,6 +1,6 @@
 # DuckDuckGo搜索工具配置
 name: duckduckgo_search
-tool_type: native
+tool_type: rest
 description: A tool for searching the web using DuckDuckGo search engine and fetching web page content
 enabled: true
 timeout: 30

@@ -1,6 +1,6 @@
 # 天气查询工具配置
 name: weather
-tool_type: native
+tool_type: rest
 description: Query weather information for a specified city
 enabled: true
 timeout: 15

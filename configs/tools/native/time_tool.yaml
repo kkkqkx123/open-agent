@@ -1,8 +1,8 @@
 # Time tool configuration
 name: time_tool
-tool_type: builtin
+tool_type: native
 description: A tool for getting current time in specified timezone and timezone conversion functionality
-function_path: src.domain.tools.types.builtin.time_tool:get_current_time
+function_path: src.domain.tools.types.native.time_tool:get_current_time
 enabled: true
 timeout: 10
 parameters_schema:

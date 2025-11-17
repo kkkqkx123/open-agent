@@ -1,6 +1,6 @@
 # Sequential Thinking Tool Configuration
 name: sequentialthinking
-tool_type: builtin
+tool_type: native
 description: |
   A detailed tool for dynamic and reflective problem-solving through thoughts.
   This tool helps analyze problems through a flexible thinking process that can adapt and evolve.
@@ -25,7 +25,7 @@ description: |
   - Verifies the hypothesis based on the Chain of Thought steps
   - Repeats the process until satisfied
   - Provides a correct answer
-function_path: src.domain.tools.builtin.sequentialthinking:sequentialthinking
+function_path: src.domain.tools.native.sequentialthinking:sequentialthinking
 enabled: true
 timeout: 30
 parameters_schema:

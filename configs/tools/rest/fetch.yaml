@@ -1,8 +1,8 @@
 # 网页内容获取工具配置
 name: fetch
-tool_type: native
+tool_type: resr
 description: A tool for fetching web page content from URLs and optionally extracting it as markdown, supporting URL fetching with content type handling and robots.txt compliance
-function_path: src.domain.tools.native.fetch:fetch_url
+function_path: src.domain.tools.rest.fetch:fetch_url
 enabled: true
 timeout: 30
 parameters_schema:
