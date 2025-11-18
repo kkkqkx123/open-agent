@@ -1,6 +1,7 @@
 """插件系统接口定义
 
 定义了所有插件必须实现的基础接口和类型。
+已重构：将Hook相关方法从基础插件接口中分离。
 """
 
 from abc import ABC, abstractmethod
@@ -15,7 +16,7 @@ class PluginType(Enum):
     START = "start"
     END = "end"
     GENERIC = "generic"
-    HOOK = "hook"  # 新增hook类型
+    HOOK = "hook"  # Hook类型插件
 
 
 class PluginStatus(Enum):
@@ -45,7 +46,6 @@ class PluginMetadata:
     plugin_type: PluginType
     dependencies: Optional[List[str]] = field(default_factory=list)
     config_schema: Optional[Dict[str, Any]] = field(default_factory=dict)
-    supported_hook_points: Optional[List[HookPoint]] = field(default_factory=list)  # 新增：支持的hook执行点
         
     def __post_init__(self) -> None:
         """初始化后处理"""
@@ -53,8 +53,6 @@ class PluginMetadata:
             self.dependencies = []
         if self.config_schema is None:
             self.config_schema = {}
-        if self.supported_hook_points is None:
-            self.supported_hook_points = []
 
 
 @dataclass
@@ -122,6 +120,7 @@ class IPlugin(ABC):
     """插件基础接口
     
     所有插件都必须实现此接口。
+    这是一个纯插件接口，不包含任何Hook相关方法。
     """
     
     @property
@@ -241,7 +240,7 @@ class IPlugin(ABC):
 class IHookPlugin(IPlugin):
     """Hook插件接口
 
-    支持在节点执行过程中进行拦截和增强的插件接口。
+    继承自IPlugin，专门用于Hook插件的接口定义。
     """
     
     @property
@@ -300,7 +299,8 @@ class IHookPlugin(IPlugin):
         Returns:
             List[HookPoint]: 支持的Hook执行点列表
         """
-        return self.metadata.supported_hook_points or []
+        # 默认支持所有Hook点，子类可以重写
+        return [HookPoint.BEFORE_EXECUTE, HookPoint.AFTER_EXECUTE, HookPoint.ON_ERROR]
 
 
 class IStartPlugin(IPlugin):

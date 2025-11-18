@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from src.core.state.interfaces import IStateHistoryManager, IStateSerializer
+from src.core.state.interfaces import IStateHistoryManager, IStateSerializer, IStateStorageAdapter
 from src.core.state.base import BaseStateHistoryManager
 from src.core.state.entities import StateHistoryEntry, StateDiff
 
@@ -22,7 +22,7 @@ class StateHistoryService(BaseStateHistoryManager):
     """
     
     def __init__(self, 
-                 storage_adapter: 'IStateStorageAdapter',
+                 storage_adapter: IStateStorageAdapter,
                  serializer: Optional[IStateSerializer] = None,
                  max_history_size: int = 1000):
         """初始化历史管理服务
@@ -59,7 +59,7 @@ class StateHistoryService(BaseStateHistoryManager):
             self._update_cache(entry)
             
             # 清理旧记录
-            self._cleanup_old_entries(agent_id)
+            self.cleanup_old_entries(agent_id)
             
             logger.debug(f"状态变化记录成功: {entry.history_id}")
             return entry.history_id

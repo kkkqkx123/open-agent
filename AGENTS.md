@@ -440,6 +440,31 @@ Infrastructure (Storage/External)
 ## Coding Specifications
 必须遵循mypy类型规范。例如，函数必须用类型提示进行注解。
 
+## Architecture Dependencies Rules
+
+### 核心依赖原则
+遵循单向依赖流向，禁止循环依赖：
+
+```
+Adapters (API/TUI/CLI/Storage)
+    ↓
+Services (Business Logic)
+    ↓
+Core (Interfaces & Entities)
+```
+
+### 接口定义位置
+- **所有接口定义必须放在 Core 层** (`src/core/`)
+- Services 层依赖 Core 层的接口
+- Adapters 层实现 Core 层的接口
+- 不允许在 Adapters 层定义 Services 层会使用的接口
+
+### 状态管理接口示例
+- `IStateStorageAdapter` 定义在 `src/core/state/interfaces.py`
+- 实现在 `src/adapters/storage/` 中（SQLite、Memory等）
+- Services 层从 Core 层导入接口
+- 向后兼容性：Adapter 层可以重新导出接口
+
 ## Migration Notes
 
 ### From 4-Layer to Flattened Architecture

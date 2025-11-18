@@ -181,7 +181,7 @@ class BaseStateManager:
         Args:
             serializer: 状态序列化器
         """
-        self.serializer = serializer or BaseStateSerializer()
+        self._serializer = serializer or BaseStateSerializer()
         self._states: Dict[str, Dict[str, Any]] = {}
     
     def _validate_state_id(self, state_id: str) -> None:

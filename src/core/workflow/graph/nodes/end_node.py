@@ -1,6 +1,6 @@
-"""END节点实现
+"""END节点实现 - 使用新的Hook系统
 
-支持插件化扩展的END节点。
+支持插件化扩展的END节点，使用新的Node Hook管理器。
 """
 
 import time
@@ -11,6 +11,7 @@ from .registry import BaseNode, NodeExecutionResult, node
 from ...states import WorkflowState
 from ...plugins.manager import PluginManager
 from ...plugins.interfaces import PluginType, PluginContext
+from ._node_plugin_system import NodeHookManager
 
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ class EndNode(BaseNode):
     """END节点 - 支持插件化扩展
     
     在工作流结束时执行各种清理、统计和报告操作。
+    使用新的Node Hook管理器来处理Hook插件。
     """
     
     def __init__(self, plugin_config_path: Optional[str] = None):
@@ -30,7 +32,10 @@ class EndNode(BaseNode):
             plugin_config_path: 插件配置文件路径
         """
         self.plugin_config_path = plugin_config_path
+        # 保留原有的PluginManager用于END插件
         self.plugin_manager = PluginManager(plugin_config_path)
+        # 新增NodeHookManager用于Hook插件
+        self.node_hook_manager = NodeHookManager(plugin_config_path)
         self._initialized = False
     
     @property
@@ -43,6 +48,8 @@ class EndNode(BaseNode):
         if not self._initialized:
             if not self.plugin_manager.initialize():
                 raise RuntimeError("插件管理器初始化失败")
+            if not self.node_hook_manager.initialize():
+                logger.warning("Node Hook管理器初始化失败，将不使用Hook功能")
             self._initialized = True
     
     def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
@@ -71,126 +78,142 @@ class EndNode(BaseNode):
             metadata=config.get('context_metadata', {})
         )
         
-        # 执行END插件
-        try:
-            # 将WorkflowState转换为字典，因为插件管理器期望字典类型
-            state_dict = state.to_dict() if hasattr(state, 'to_dict') else state
-            # 确保传递字典类型
-            if not isinstance(state_dict, dict):
-                state_dict = state_dict.to_dict() if hasattr(state_dict, 'to_dict') else {}
-            
-            updated_state_dict = self.plugin_manager.execute_plugins(
-                PluginType.END, 
-                state_dict,  # 确保传递字典类型
-                context
-            )
-            
-            # 将字典转换回WorkflowState
-            if hasattr(state, 'from_dict'):
-                updated_state = WorkflowState.from_dict(updated_state_dict)
-            else:
-                # 如果没有from_dict方法，直接使用字典
-                updated_state = state  # 保持原始状态类型
-            
-            # 添加执行元数据
-            execution_time = time.time() - start_time
-            if isinstance(updated_state, dict):
-                updated_state['end_metadata'] = updated_state.get('end_metadata', {})
-                updated_state['end_metadata'].update({
-                    'execution_time': execution_time,
-                    'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
-                    'timestamp': time.time(),
-                    'node_type': self.node_type,
-                    'success': True
-                })
-            else:
-                # WorkflowState对象
-                end_metadata = updated_state.get_metadata('end_metadata', {})
-                end_metadata.update({
-                    'execution_time': execution_time,
-                    'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
-                    'timestamp': time.time(),
-                    'node_type': self.node_type,
-                    'success': True
-                })
-                updated_state.set_metadata('end_metadata', end_metadata)
-            
-            # 计算总执行时间
-            if context.execution_start_time:
-                total_execution_time = time.time() - context.execution_start_time
-                if isinstance(updated_state, dict):
-                    updated_state['end_metadata']['total_execution_time'] = total_execution_time
-                    updated_state['end_metadata']['total_execution_time_formatted'] = self._format_duration(total_execution_time)
+        # 定义节点执行函数
+        def _execute_end_logic(state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+            """实际的END节点执行逻辑"""
+            # 执行END插件
+            try:
+                # 将WorkflowState转换为字典，因为插件管理器期望字典类型
+                state_dict = state.to_dict() if hasattr(state, 'to_dict') else state
+                # 确保传递字典类型
+                if not isinstance(state_dict, dict):
+                    state_dict = state_dict.to_dict() if hasattr(state_dict, 'to_dict') else {}
+                
+                updated_state_dict = self.plugin_manager.execute_plugins(
+                    PluginType.END, 
+                    state_dict,  # 确保传递字典类型
+                    context
+                )
+                
+                # 将字典转换回WorkflowState
+                if hasattr(state, 'from_dict'):
+                    updated_state = WorkflowState.from_dict(updated_state_dict)
                 else:
+                    # 如果没有from_dict方法，直接使用字典
+                    updated_state = state  # 保持原始状态类型
+                
+                # 添加执行元数据
+                execution_time = time.time() - start_time
+                if isinstance(updated_state, dict):
+                    updated_state['end_metadata'] = updated_state.get('end_metadata', {})
+                    updated_state['end_metadata'].update({
+                        'execution_time': execution_time,
+                        'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
+                        'timestamp': time.time(),
+                        'node_type': self.node_type,
+                        'success': True
+                    })
+                else:
+                    # WorkflowState对象
                     end_metadata = updated_state.get_metadata('end_metadata', {})
-                    end_metadata['total_execution_time'] = total_execution_time
-                    end_metadata['total_execution_time_formatted'] = self._format_duration(total_execution_time)
+                    end_metadata.update({
+                        'execution_time': execution_time,
+                        'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
+                        'timestamp': time.time(),
+                        'node_type': self.node_type,
+                        'success': True
+                    })
                     updated_state.set_metadata('end_metadata', end_metadata)
-            
-            logger.info(f"END节点执行完成，耗时 {execution_time:.2f}s")
-            
-            # 标记工作流完成
-            if isinstance(updated_state, dict):
-                updated_state['workflow_completed'] = True
-                updated_state['completion_timestamp'] = time.time()
-            else:
-                updated_state.set_value('workflow_completed', True)
-                updated_state.set_value('completion_timestamp', time.time())
-            
-            return NodeExecutionResult(
-                state=updated_state,  # 确保传递WorkflowState类型
-                next_node=None,  # END节点没有下一个节点
-                metadata=updated_state.get('end_metadata', {}) if not isinstance(updated_state, dict) else updated_state.get('end_metadata', {})
+                
+                # 计算总执行时间
+                if context.execution_start_time:
+                    total_execution_time = time.time() - context.execution_start_time
+                    if isinstance(updated_state, dict):
+                        updated_state['end_metadata']['total_execution_time'] = total_execution_time
+                        updated_state['end_metadata']['total_execution_time_formatted'] = self._format_duration(total_execution_time)
+                    else:
+                        end_metadata = updated_state.get_metadata('end_metadata', {})
+                        end_metadata['total_execution_time'] = total_execution_time
+                        end_metadata['total_execution_time_formatted'] = self._format_duration(total_execution_time)
+                        updated_state.set_metadata('end_metadata', end_metadata)
+                
+                logger.info(f"END节点执行完成，耗时 {execution_time:.2f}s")
+                
+                # 标记工作流完成
+                if isinstance(updated_state, dict):
+                    updated_state['workflow_completed'] = True
+                    updated_state['completion_timestamp'] = time.time()
+                else:
+                    updated_state.set_value('workflow_completed', True)
+                    updated_state.set_value('completion_timestamp', time.time())
+                
+                return NodeExecutionResult(
+                    state=updated_state,  # 确保传递WorkflowState类型
+                    next_node=None,  # END节点没有下一个节点
+                    metadata=updated_state.get('end_metadata', {}) if not isinstance(updated_state, dict) else updated_state.get('end_metadata', {})
+                )
+                
+            except Exception as e:
+                execution_time = time.time() - start_time
+                logger.error(f"END节点执行失败: {e}")
+                
+                # 添加错误信息到状态
+                if isinstance(state, dict):
+                    state['end_metadata'] = state.get('end_metadata', {})
+                    state['end_metadata'].update({
+                        'execution_time': execution_time,
+                        'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
+                        'timestamp': time.time(),
+                        'node_type': self.node_type,
+                        'success': False,
+                        'error': str(e)
+                    })
+                    
+                    # 即使出错也标记工作流完成
+                    state['workflow_completed'] = True
+                    state['completion_timestamp'] = time.time()
+                    state['workflow_failed'] = True
+                else:
+                    # WorkflowState对象
+                    end_metadata = state.get_metadata('end_metadata', {})
+                    end_metadata.update({
+                        'execution_time': execution_time,
+                        'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
+                        'timestamp': time.time(),
+                        'node_type': self.node_type,
+                        'success': False,
+                        'error': str(e)
+                    })
+                    state.set_metadata('end_metadata', end_metadata)
+                    
+                    # 即使出错也标记工作流完成
+                    state.set_value('workflow_completed', True)
+                    state.set_value('completion_timestamp', time.time())
+                    state.set_value('workflow_failed', True)
+                
+                return NodeExecutionResult(
+                    state=state,  # 确保传递WorkflowState类型
+                    next_node=None,  # END节点没有下一个节点
+                    metadata={
+                        'error': str(e),
+                        'execution_time': execution_time,
+                        'node_type': self.node_type,
+                        'workflow_failed': True
+                    }
+                )
+        
+        # 使用Node Hook管理器执行（带Hook）
+        try:
+            return self.node_hook_manager.execute_with_hooks(
+                node_type=self.node_type,
+                state=state,
+                config=config,
+                node_executor_func=_execute_end_logic
             )
-            
         except Exception as e:
-            execution_time = time.time() - start_time
-            logger.error(f"END节点执行失败: {e}")
-            
-            # 添加错误信息到状态
-            if isinstance(state, dict):
-                state['end_metadata'] = state.get('end_metadata', {})
-                state['end_metadata'].update({
-                    'execution_time': execution_time,
-                    'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
-                    'timestamp': time.time(),
-                    'node_type': self.node_type,
-                    'success': False,
-                    'error': str(e)
-                })
-                
-                # 即使出错也标记工作流完成
-                state['workflow_completed'] = True
-                state['completion_timestamp'] = time.time()
-                state['workflow_failed'] = True
-            else:
-                # WorkflowState对象
-                end_metadata = state.get_metadata('end_metadata', {})
-                end_metadata.update({
-                    'execution_time': execution_time,
-                    'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
-                    'timestamp': time.time(),
-                    'node_type': self.node_type,
-                    'success': False,
-                    'error': str(e)
-                })
-                state.set_metadata('end_metadata', end_metadata)
-                
-                # 即使出错也标记工作流完成
-                state.set_value('workflow_completed', True)
-                state.set_value('completion_timestamp', time.time())
-                state.set_value('workflow_failed', True)
-            
-            return NodeExecutionResult(
-                state=state,  # 确保传递WorkflowState类型
-                next_node=None,  # END节点没有下一个节点
-                metadata={
-                    'error': str(e),
-                    'execution_time': execution_time,
-                    'node_type': self.node_type,
-                    'workflow_failed': True
-                }
-            )
+            logger.error(f"Node Hook执行失败，回退到直接执行: {e}")
+            # 如果Hook执行失败，回退到直接执行
+            return _execute_end_logic(state, config)
     
     def get_config_schema(self) -> Dict[str, Any]:
         """获取配置Schema
@@ -281,7 +304,11 @@ class EndNode(BaseNode):
             Dict[str, Any]: 统计信息
         """
         if self._initialized:
-            return self.plugin_manager.get_manager_stats()
+            stats = {
+                "plugin_manager": self.plugin_manager.get_manager_stats(),
+                "node_hook_manager": self.node_hook_manager.get_manager_stats()
+            }
+            return stats
         else:
             return {"initialized": False}
     
@@ -372,6 +399,7 @@ class EndNode(BaseNode):
         try:
             if self._initialized:
                 self.plugin_manager.cleanup()
+                self.node_hook_manager.cleanup()
                 self._initialized = False
         except Exception as e:
             logger.error(f"清理END节点资源失败: {e}")

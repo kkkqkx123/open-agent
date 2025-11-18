@@ -325,7 +325,7 @@ class WorkflowState(BaseModel, IWorkflowState):
         # 处理消息列表，支持自定义消息和LangChain消息
         messages_data = []
         for msg in self.messages:
-            if hasattr(msg, 'to_dict'):
+            if isinstance(msg, BaseMessage):
                 # 自定义消息类型
                 messages_data.append(msg.to_dict())
             elif hasattr(msg, 'content'):

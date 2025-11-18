@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from src.core.state.interfaces import IStateSnapshotManager, IStateSerializer
+from src.core.state.interfaces import IStateSnapshotManager, IStateSerializer, IStateStorageAdapter
 from src.core.state.base import BaseStateSnapshotManager
 from src.core.state.entities import StateSnapshot
 
@@ -22,7 +22,7 @@ class StateSnapshotService(BaseStateSnapshotManager):
     """
     
     def __init__(self, 
-                 storage_adapter: 'IStateStorageAdapter',
+                 storage_adapter: IStateStorageAdapter,
                  serializer: Optional[IStateSerializer] = None,
                  max_snapshots_per_agent: int = 50):
         """初始化快照管理服务
@@ -61,7 +61,7 @@ class StateSnapshotService(BaseStateSnapshotManager):
             self._update_cache(snapshot)
             
             # 清理旧快照
-            self._cleanup_old_snapshots(agent_id)
+            self.cleanup_old_snapshots(agent_id)
             
             logger.debug(f"快照创建成功: {snapshot.snapshot_id}")
             return snapshot.snapshot_id

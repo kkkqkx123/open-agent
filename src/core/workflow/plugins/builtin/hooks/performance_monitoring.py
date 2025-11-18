@@ -1,6 +1,7 @@
 """性能监控插件
 
 监控节点执行过程中的性能指标。
+已更新：使用新的Hook插件接口。
 """
 
 import logging
@@ -33,7 +34,6 @@ class PerformanceMonitoringPlugin(IHookPlugin):
             description="监控节点执行过程中的性能指标，包括执行时间、超时检测等",
             author="system",
             plugin_type=PluginType.HOOK,
-            supported_hook_points=[HookPoint.BEFORE_EXECUTE, HookPoint.AFTER_EXECUTE, HookPoint.ON_ERROR],
             config_schema={
                 "type": "object",
                 "properties": {
@@ -189,3 +189,11 @@ class PerformanceMonitoringPlugin(IHookPlugin):
             service: Hook执行服务实例
         """
         self._execution_service = service
+    
+    def get_supported_hook_points(self) -> List[HookPoint]:
+        """获取支持的Hook执行点
+
+        Returns:
+            List[HookPoint]: 支持的Hook执行点列表
+        """
+        return [HookPoint.BEFORE_EXECUTE, HookPoint.AFTER_EXECUTE, HookPoint.ON_ERROR]

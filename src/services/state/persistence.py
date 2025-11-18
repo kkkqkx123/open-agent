@@ -9,6 +9,7 @@ from datetime import datetime
 from contextlib import contextmanager
 
 from src.core.state.entities import StateSnapshot, StateHistoryEntry, StateStatistics
+from src.core.state.interfaces import IStateStorageAdapter
 
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class StatePersistenceService:
     """
     
     def __init__(self, 
-                 storage_adapter: 'IStateStorageAdapter',
+                 storage_adapter: IStateStorageAdapter,
                  enable_transactions: bool = True):
         """初始化持久化服务
         
