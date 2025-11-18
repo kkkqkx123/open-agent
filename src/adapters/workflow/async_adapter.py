@@ -3,11 +3,12 @@
 提供工作流的异步执行能力。
 """
 
-from typing import Dict, Any, Optional, AsyncIterator
+from typing import Dict, Any, Optional, AsyncIterator, cast
 import logging
 from datetime import datetime
 
-from src.core.workflow.interfaces import IWorkflow, IWorkflowExecutor, IWorkflowState, ExecutionContext
+from src.core.workflow.interfaces import IWorkflow, IWorkflowExecutor, ExecutionContext
+from src.state.interfaces import IState
 
 
 logger = logging.getLogger(__name__)
@@ -27,8 +28,8 @@ class AsyncWorkflowAdapter:
         """
         self.executor = executor
 
-    async def execute_workflow_async(self, workflow: IWorkflow, initial_state: IWorkflowState,
-                                context: ExecutionContext) -> IWorkflowState:
+    async def execute_workflow_async(self, workflow: IWorkflow, initial_state: IState,
+                                context: ExecutionContext) -> IState:
         """异步执行工作流
         
         Args:
@@ -59,8 +60,8 @@ class AsyncWorkflowAdapter:
             logger.error(f"异步工作流执行失败: {workflow.workflow_id} ({context.execution_id})，耗时: {execution_time:.2f}s，错误: {e}")
             raise
 
-    async def execute_workflow_stream(self, workflow: IWorkflow, initial_state: IWorkflowState,
-                                  context: ExecutionContext) -> AsyncIterator[Dict[str, Any]]:
+    async def execute_workflow_stream(self, workflow: IWorkflow, initial_state: IState,
+                                   context: ExecutionContext) -> AsyncIterator[Dict[str, Any]]:
         """异步流式执行工作流
         
         Args:
@@ -86,20 +87,27 @@ class AsyncWorkflowAdapter:
             }
             
             # 异步流式执行工作流
-            if hasattr(self.executor, 'execute_stream_async'):
-                async for event in self.executor.execute_stream_async(workflow, initial_state, context):
+            try:
+                stream = cast(AsyncIterator[Dict[str, Any]], self.executor.execute_stream_async(workflow, initial_state, context))
+                async for event in stream:
                     yield event
-            else:
+            except (AttributeError, TypeError):
                 # 回退到同步执行
                 result_state = await self.executor.execute_async(workflow, initial_state, context)
                 
                 # 发送完成事件
+                result_data = {}
+                if hasattr(result_state, 'to_dict'):
+                    result_data = result_state.to_dict()
+                elif isinstance(result_state, dict):
+                    result_data = result_state
+                
                 yield {
                     "type": "workflow_completed",
                     "workflow_id": workflow.workflow_id,
                     "execution_id": context.execution_id,
                     "timestamp": datetime.now().isoformat(),
-                    "result": result_state.get_data()
+                    "result": result_data
                 }
             
             # 记录执行时间

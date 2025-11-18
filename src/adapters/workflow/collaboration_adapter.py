@@ -2,8 +2,29 @@ from typing import Dict, Any, List, Callable, Union
 from datetime import datetime
 import logging
 from .state_adapter import StateAdapter
-from .state_adapter import StateAdapter
-from src.domain.state.interfaces import IStateCollaborationManager
+
+# Import collaboration manager interface
+try:
+    from src.domain.state.interfaces import IStateLifecycleManager
+except ImportError:
+    # Fallback if IStateLifecycleManager doesn't exist
+    from typing import Protocol
+    
+    class IStateLifecycleManager(Protocol):
+        """状态生命周期管理器接口 - 包含协作管理功能"""
+        
+        def validate_domain_state(self, domain_state: Any) -> List[str]:
+            """验证域状态"""
+            ...
+        
+        def create_snapshot(self, domain_state: Any, description: str = "") -> str:
+            """创建快照"""
+            ...
+        
+        def record_state_change(self, agent_id: str, action: str,
+                              old_state: Dict[str, Any], new_state: Dict[str, Any]) -> str:
+            """记录状态变化"""
+            ...
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +32,7 @@ logger = logging.getLogger(__name__)
 class CollaborationStateAdapter:
     """协作状态适配器 - 重构版本"""
     
-    def __init__(self, collaboration_manager: IStateCollaborationManager):
+    def __init__(self, collaboration_manager: IStateLifecycleManager):
         self.state_adapter = StateAdapter()
         self.collaboration_manager = collaboration_manager
     
@@ -30,7 +51,7 @@ class CollaborationStateAdapter:
             转换后的图系统状态
         """
         # 1. 转换为域状态
-        domain_state = self.state_adapter.from_graph_state(graph_state)
+        domain_state = self.state_adapter.from_graph_state(graph_state) # type: ignore
         
         # 2. 状态验证
         validation_errors = self._validate_state(domain_state)
@@ -55,7 +76,7 @@ class CollaborationStateAdapter:
         result_state = self.state_adapter.to_graph_state(result_domain_state)
         
         # 7. 添加协作元数据
-        return self._add_collaboration_metadata(result_state, snapshot_id, validation_errors)
+        return self._add_collaboration_metadata(result_state, snapshot_id, validation_errors)  # type: ignore
     
     def _validate_state(self, domain_state: Any) -> List[str]:
         """状态验证"""
@@ -68,57 +89,57 @@ class CollaborationStateAdapter:
         )
     
     def _record_execution_error(self, domain_state: Any,
-                               snapshot_id: str, error_message: str):
-        """记录执行错误"""
-        try:
-            # Handle both dict-like and object-like domain_state
-            if hasattr(domain_state, 'agent_id'):
-                agent_id = domain_state.agent_id
-            elif isinstance(domain_state, dict):
-                agent_id = domain_state.get("agent_id", "unknown")
-            else:
-                agent_id = "unknown"
-                
-            self.collaboration_manager.record_state_change(
-                agent_id,
-                "execution_error",
-                {},
-                {"error": error_message, "snapshot_id": snapshot_id}
-            )
-        except Exception as e:
-            logger.error(f"记录执行错误失败: {str(e)}")
+                               snapshot_id: str, error_message: str) -> None:
+       """记录执行错误"""
+       try:
+           # Handle both dict-like and object-like domain_state
+           if hasattr(domain_state, 'agent_id'):
+               agent_id = domain_state.agent_id
+           elif isinstance(domain_state, dict):
+               agent_id = domain_state.get("agent_id", "unknown")  # type: ignore
+           else:
+               agent_id = "unknown"
+               
+           self.collaboration_manager.record_state_change(
+               agent_id,
+               "execution_error",
+               {},
+               {"error": error_message, "snapshot_id": snapshot_id}
+           )
+       except Exception as e:
+           logger.error(f"记录执行错误失败: {str(e)}")
     
     def _record_state_completion(self, domain_state: Any,
-                               snapshot_id: str, validation_errors: List[str]):
-        """记录状态完成"""
-        try:
-            # 记录执行完成
-            # Handle both dict-like and object-like domain_state
-            if hasattr(domain_state, 'agent_id'):
-                agent_id = domain_state.agent_id
-            elif isinstance(domain_state, dict):
-                agent_id = domain_state.get("agent_id", "unknown")
-            else:
-                agent_id = "unknown"
-                
-            # Convert domain_state to dict for recording
-            if isinstance(domain_state, dict):
-                state_dict = domain_state
-            else:
-                # For dataclass or object, try to convert to dict
-                if hasattr(domain_state, '__dict__'):
-                    state_dict = domain_state.__dict__
-                else:
-                    state_dict = {}
-                    
-            self.collaboration_manager.record_state_change(
-                agent_id,
-                "execution_completed",
-                {"snapshot_id": snapshot_id, "validation_errors": validation_errors},
-                state_dict
-            )
-        except Exception as e:
-            logger.error(f"记录状态完成失败: {str(e)}")
+                               snapshot_id: str, validation_errors: List[str]) -> None:
+       """记录状态完成"""
+       try:
+           # 记录执行完成
+           # Handle both dict-like and object-like domain_state
+           if hasattr(domain_state, 'agent_id'):
+               agent_id = domain_state.agent_id
+           elif isinstance(domain_state, dict):
+               agent_id = domain_state.get("agent_id", "unknown")  # type: ignore
+           else:
+               agent_id = "unknown"
+               
+           # Convert domain_state to dict for recording
+           if isinstance(domain_state, dict):
+               state_dict = domain_state
+           else:
+               # For dataclass or object, try to convert to dict
+               if hasattr(domain_state, '__dict__'):
+                   state_dict = domain_state.__dict__
+               else:
+                   state_dict = {}
+                   
+           self.collaboration_manager.record_state_change(
+               agent_id,
+               "execution_completed",
+               {},
+               state_dict
+           )
+       except Exception as e:
+           logger.error(f"记录状态完成失败: {str(e)}")
     
     def _add_collaboration_metadata(self, graph_state: Dict[str, Any],
                                   snapshot_id: str, validation_errors: List[str]) -> Dict[str, Any]:

@@ -128,6 +128,12 @@ class IEdge(ABC):
         """目标节点ID"""
         pass
 
+    @property
+    @abstractmethod
+    def edge_type(self) -> str:
+        """边类型（simple, conditional, flexible）"""
+        pass
+
     @abstractmethod
     def can_traverse(self, state: 'IState', config: Dict[str, Any]) -> bool:
         """判断是否可以遍历此边

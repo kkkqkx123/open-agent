@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, AsyncIterator
 from dataclasses import dataclass
 
 from .graph.interfaces import IGraph, INode, IEdge
@@ -33,6 +33,24 @@ class IWorkflow(ABC):
     @abstractmethod
     def name(self) -> str:
         """工作流名称"""
+        pass
+
+    @property
+    @abstractmethod
+    def _nodes(self) -> Dict[str, INode]:
+        """工作流节点字典"""
+        pass
+
+    @property
+    @abstractmethod
+    def _edges(self) -> Dict[str, IEdge]:
+        """工作流边字典"""
+        pass
+
+    @property
+    @abstractmethod
+    def _entry_point(self) -> Optional[str]:
+        """工作流入口点"""
         pass
 
     @abstractmethod
@@ -80,6 +98,12 @@ class IWorkflowExecutor(ABC):
     def execute_stream(self, workflow: IWorkflow, initial_state: IState,
                        context: ExecutionContext) -> List[Dict[str, Any]]:
         """流式执行工作流"""
+        pass
+
+    @abstractmethod
+    async def execute_stream_async(self, workflow: IWorkflow, initial_state: IState,
+                                  context: ExecutionContext) -> AsyncIterator[Dict[str, Any]]:
+        """异步流式执行工作流"""
         pass
 
 
