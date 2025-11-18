@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional, AsyncIterator
 from dataclasses import dataclass
 
 from .graph.interfaces import IGraph, INode, IEdge
-from src.state.interfaces import IState
+from src.state.interfaces import IState, IWorkflowState
 
 
 @dataclass
@@ -64,6 +64,18 @@ class IWorkflow(ABC):
         pass
 
     @abstractmethod
+    def get_node(self, node_id: str) -> Optional[INode]:
+        """获取节点
+        
+        Args:
+            node_id: 节点ID
+            
+        Returns:
+            Optional[INode]: 节点实例，如果不存在则返回None
+        """
+        pass
+
+    @abstractmethod
     def validate(self) -> List[str]:
         """验证工作流"""
         pass
@@ -105,11 +117,6 @@ class IWorkflowExecutor(ABC):
                                   context: ExecutionContext) -> AsyncIterator[Dict[str, Any]]:
         """异步流式执行工作流"""
         pass
-
-
-class IWorkflowState(IState):
-    """工作流状态接口"""
-    pass
 
 
 class IWorkflowBuilder(ABC):

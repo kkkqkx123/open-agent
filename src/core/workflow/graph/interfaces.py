@@ -160,6 +160,30 @@ class IEdge(ABC):
         """
         pass
 
+    async def can_traverse_async(self, state: 'IState', config: Dict[str, Any]) -> bool:
+        """异步判断是否可以遍历此边
+
+        Args:
+            state: 当前工作流状态
+            config: 边配置
+
+        Returns:
+            bool: 是否可以遍历
+        """
+        return self.can_traverse(state, config)
+
+    async def get_next_nodes_async(self, state: 'IState', config: Dict[str, Any]) -> List[str]:
+        """异步获取下一个节点列表
+
+        Args:
+            state: 当前工作流状态
+            config: 边配置
+
+        Returns:
+            List[str]: 下一个节点ID列表
+        """
+        return self.get_next_nodes(state, config)
+
 
 class IGraph(ABC):
     """图接口"""

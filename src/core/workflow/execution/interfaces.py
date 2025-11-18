@@ -5,7 +5,8 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, AsyncIterator
-from ..interfaces import IWorkflow, IWorkflowState, ExecutionContext
+from ..interfaces import IWorkflow, ExecutionContext
+from src.state.interfaces import IWorkflowState
 
 
 class IExecutor(ABC):

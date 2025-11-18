@@ -5,11 +5,12 @@
 
 import asyncio
 from typing import Dict, Any, List, Optional
-from .interfaces import IExecutor, IAsyncExecutor, IStreamingExecutor
-from ..interfaces import IWorkflow, IWorkflowState, ExecutionContext
+from .interfaces import IStreamingExecutor
+from ..interfaces import IWorkflow, ExecutionContext
+from src.state.interfaces import IWorkflowState, IState
 
 
-class WorkflowExecutor(IExecutor, IAsyncExecutor, IStreamingExecutor):
+class WorkflowExecutor(IStreamingExecutor):
     """工作流执行器
     
     提供同步、异步和流式执行能力。
@@ -38,7 +39,7 @@ class WorkflowExecutor(IExecutor, IAsyncExecutor, IStreamingExecutor):
             raise ValueError("工作流未设置入口点")
         
         current_node_id = workflow._entry_point
-        current_state = initial_state
+        current_state: IWorkflowState = initial_state
         
         while current_node_id:
             # 获取当前节点
@@ -49,7 +50,7 @@ class WorkflowExecutor(IExecutor, IAsyncExecutor, IStreamingExecutor):
             # 执行节点
             try:
                 result = current_node.execute(current_state, context.config)
-                current_state = result.state
+                current_state = result.state  # type: ignore
                 
                 # 确定下一个节点
                 if result.next_node:
@@ -87,7 +88,7 @@ class WorkflowExecutor(IExecutor, IAsyncExecutor, IStreamingExecutor):
             raise ValueError("工作流未设置入口点")
         
         current_node_id = workflow._entry_point
-        current_state = initial_state
+        current_state: IWorkflowState = initial_state
         
         while current_node_id:
             # 获取当前节点
@@ -98,7 +99,7 @@ class WorkflowExecutor(IExecutor, IAsyncExecutor, IStreamingExecutor):
             # 异步执行节点
             try:
                 result = await current_node.execute_async(current_state, context.config)
-                current_state = result.state
+                current_state = result.state  # type: ignore
                 
                 # 确定下一个节点
                 if result.next_node:
@@ -210,7 +211,7 @@ class WorkflowExecutor(IExecutor, IAsyncExecutor, IStreamingExecutor):
         return events
 
     def _get_next_nodes(self, workflow: IWorkflow, node_id: str, 
-                        state: IWorkflowState, config: Dict[str, Any]) -> List[str]:
+                        state: IState, config: Dict[str, Any]) -> List[str]:
         """获取下一个节点列表
         
         Args:
@@ -235,7 +236,7 @@ class WorkflowExecutor(IExecutor, IAsyncExecutor, IStreamingExecutor):
         return next_nodes
 
     async def _get_next_nodes_async(self, workflow: IWorkflow, node_id: str, 
-                                state: IWorkflowState, config: Dict[str, Any]) -> List[str]:
+                                state: IState, config: Dict[str, Any]) -> List[str]:
         """异步获取下一个节点列表
         
         Args:
@@ -252,17 +253,11 @@ class WorkflowExecutor(IExecutor, IAsyncExecutor, IStreamingExecutor):
         # 获取所有出边
         for edge in workflow._edges.values():
             if edge.from_node == node_id:
-                # 检查是否可以遍历
-                if hasattr(edge, 'can_traverse_async'):
-                    can_traverse = await edge.can_traverse_async(state, config)
-                else:
-                    can_traverse = edge.can_traverse(state, config)
+                # 异步检查是否可以遍历
+                can_traverse = await edge.can_traverse_async(state, config)
                 
                 if can_traverse:
-                    if hasattr(edge, 'get_next_nodes_async'):
-                        next_node_ids = await edge.get_next_nodes_async(state, config)
-                    else:
-                        next_node_ids = edge.get_next_nodes(state, config)
+                    next_node_ids = await edge.get_next_nodes_async(state, config)
                     next_nodes.extend(next_node_ids)
         
         return next_nodes
