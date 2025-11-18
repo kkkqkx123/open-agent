@@ -1,37 +1,80 @@
-"""插件系统模块
+"""Plugin sub-module for workflow core.
 
-提供可扩展的插件架构，支持START、END节点和Hook功能扩展。
+This module provides plugin system functionality for workflows,
+including plugin interfaces, registry, and built-in plugins.
 """
 
 from .interfaces import (
     IPlugin,
     IStartPlugin,
     IEndPlugin,
-    IHookPlugin,  # 新增Hook插件接口
-    PluginType,
-    PluginStatus,
+    IHookPlugin,
     PluginMetadata,
+    PluginType,
     PluginContext,
-    HookContext,  # 新增Hook上下文
-    HookPoint,    # 新增Hook执行点
-    HookExecutionResult  # 新增Hook执行结果
+    HookPoint,
+    HookContext,
+    HookExecutionResult
 )
-
+from .base import BasePlugin
 from .registry import PluginRegistry
 from .manager import PluginManager
 
+# Built-in plugins
+from .builtin.start import (
+    ContextSummaryPlugin,
+    EnvironmentCheckPlugin,
+    MetadataCollectorPlugin
+)
+from .builtin.end import (
+    CleanupManagerPlugin,
+    ExecutionStatsPlugin,
+    FileTrackerPlugin,
+    ResultSummaryPlugin
+)
+from .builtin.hooks import (
+    DeadLoopDetectionPlugin,
+    ErrorRecoveryPlugin,
+    LoggingPlugin,
+    MetricsCollectionPlugin,
+    PerformanceMonitoringPlugin
+)
+
 __all__ = [
+    # Interfaces
     "IPlugin",
-    "IStartPlugin", 
+    "IStartPlugin",
     "IEndPlugin",
-    "IHookPlugin",  # 新增
-    "PluginType",
-    "PluginStatus",
+    "IHookPlugin",
     "PluginMetadata",
+    "PluginType",
     "PluginContext",
-    "HookContext",  # 新增
-    "HookPoint",    # 新增
-    "HookExecutionResult",  # 新增
+    "HookPoint",
+    "HookContext",
+    "HookExecutionResult",
+    
+    # Base classes
+    "BasePlugin",
+    
+    # Core implementations
     "PluginRegistry",
-    "PluginManager"
+    "PluginManager",
+    
+    # Built-in start plugins
+    "ContextSummaryPlugin",
+    "EnvironmentCheckPlugin",
+    "MetadataCollectorPlugin",
+    
+    # Built-in end plugins
+    "CleanupManagerPlugin",
+    "ExecutionStatsPlugin",
+    "FileTrackerPlugin",
+    "ResultSummaryPlugin",
+    
+    # Built-in hook plugins
+    "DeadLoopDetectionPlugin",
+    "ErrorRecoveryPlugin",
+    "LoggingPlugin",
+    "MetricsCollectionPlugin",
+    "PerformanceMonitoringPlugin"
 ]

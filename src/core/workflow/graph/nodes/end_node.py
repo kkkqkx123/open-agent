@@ -7,8 +7,8 @@ import time
 import logging
 from typing import Dict, Any, Optional
 
-from ..registry import BaseNode, NodeExecutionResult, node
-from ..states import WorkflowState
+from ..interfaces import BaseNode, NodeExecutionResult
+from ...states import WorkflowState
 from ..plugins.manager import PluginManager
 from ..plugins.interfaces import PluginType, PluginContext
 
@@ -16,7 +16,6 @@ from ..plugins.interfaces import PluginType, PluginContext
 logger = logging.getLogger(__name__)
 
 
-@node("end_node")
 class EndNode(BaseNode):
     """END节点 - 支持插件化扩展
     

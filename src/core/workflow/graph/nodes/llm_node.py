@@ -7,8 +7,10 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 import logging
 
-from ..registry import BaseNode, NodeExecutionResult, node
-from ..states import WorkflowState
+from .base import BaseNode
+from ..interfaces import NodeExecutionResult
+from ..decorators import node
+from ...states import WorkflowState
 from src.core.llm.interfaces import ILLMClient
 from src.core.llm.task_group_manager import TaskGroupManager
 from ..node_config_loader import get_node_config_loader

@@ -6,9 +6,23 @@
 from typing import TypedDict, List, Dict, Optional, Any
 from datetime import datetime
 
-from .config import GraphConfig
-from .states.workflow import WorkflowState
-from .types.iteration_types import IterationRecord, NodeIterationStats
+from ..config.config import GraphConfig
+from ...states import WorkflowState
+
+# 定义迭代记录类型
+class IterationRecord(TypedDict):
+    node_name: str
+    start_time: datetime
+    end_time: datetime
+    duration: float
+    status: str
+    error: Optional[str]
+
+# 定义节点迭代统计类型
+class NodeIterationStats(TypedDict):
+    count: int
+    total_duration: float
+    errors: int
 
 
 class IterationManager:

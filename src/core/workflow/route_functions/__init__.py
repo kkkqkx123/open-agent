@@ -6,7 +6,7 @@
 from .registry import RouteFunctionRegistry, RouteFunctionConfig
 from .manager import RouteFunctionManager, get_route_function_manager, reset_route_function_manager
 from .loader import RouteFunctionLoader
-from .rest import BuiltinRouteFunctions
+from .builtin import BuiltinRouteFunctions
 
 __all__ = [
     "RouteFunctionRegistry",

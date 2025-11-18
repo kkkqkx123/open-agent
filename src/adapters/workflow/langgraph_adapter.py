@@ -3,12 +3,13 @@
 提供与LangGraph框架的适配。
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Callable
 import logging
 
-from ..core.workflow.interfaces import IWorkflow, IWorkflowState, IWorkflowBuilder
-from ..core.workflow.graph.interfaces import IGraph, INode, IEdge
-from ..core.workflow.entities import Workflow, WorkflowState
+from langgraph.graph import StateGraph, START, END
+from src.core.workflow.interfaces import IWorkflow, IWorkflowState, IWorkflowBuilder
+from src.core.workflow.graph.interfaces import IGraph, INode, IEdge
+from src.core.workflow.entities import Workflow, WorkflowState
 
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,6 @@ class LangGraphAdapter:
         Returns:
             Any: 编译后的LangGraph图
         """
-        from langgraph.graph import StateGraph, START, END
         
         # 获取状态类
         state_class = self._get_state_class(workflow)
@@ -82,14 +82,14 @@ class LangGraphAdapter:
         
         return DynamicState
 
-    def _create_node_function(self, node: INode) -> callable:
+    def _create_node_function(self, node: INode) -> Callable:
         """创建节点函数
         
         Args:
             node: 节点实例
             
         Returns:
-            callable: 节点函数
+            Callable: 节点函数
         """
         def node_function(state):
             """节点函数"""

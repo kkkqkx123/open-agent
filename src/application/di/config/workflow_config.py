@@ -10,7 +10,9 @@ from src.infrastructure.container_interfaces import IDependencyContainer, Servic
 from src.application.workflow.manager import IWorkflowManager, WorkflowManager
 from src.application.workflow.factory import IWorkflowFactory, WorkflowFactory
 from src.infrastructure.config.loader.file_config_loader import IConfigLoader
-from src.domain.workflow.interfaces import IWorkflowConfigManager, IWorkflowVisualizer, IWorkflowRegistry
+from src.services.workflow.config_manager import IWorkflowConfigManager
+from src.adapters.workflow.visualizer import IWorkflowVisualizer
+from src.services.workflow.registry_service import IWorkflowRegistryService
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +48,7 @@ class WorkflowConfigRegistration:
             lambda: WorkflowManager(
                 config_manager=container.get(IWorkflowConfigManager),
                 visualizer=container.get(IWorkflowVisualizer),
-                registry=container.get(IWorkflowRegistry),
+                registry=container.get(IWorkflowRegistryService),
             ),
             lifetime=ServiceLifetime.SINGLETON
         )

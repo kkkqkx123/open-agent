@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 
 from .graph.interfaces import IGraph, INode, IEdge
-from ...state.interfaces import IState
+from src.state.interfaces import IState
 
 
 @dataclass

@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Type, Optional, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field
 
 if TYPE_CHECKING:
-    from ...state.interfaces import IState
+    from src.state.interfaces import IState
 
 
 @dataclass

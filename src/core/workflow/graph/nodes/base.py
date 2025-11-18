@@ -29,6 +29,23 @@ class BaseNode(INode):
         """节点类型标识"""
         return self.__class__.__name__.replace("Node", "").lower()
 
+    def execute(self, state: 'IState', config: Dict[str, Any]) -> NodeExecutionResult:
+        """执行节点逻辑
+
+        Args:
+            state: 当前工作流状态
+            config: 节点配置
+
+        Returns:
+            NodeExecutionResult: 执行结果
+        """
+        # 默认实现：返回状态和下一个节点
+        return NodeExecutionResult(
+            state=state,
+            next_node=None,
+            metadata={"node_type": self.node_type}
+        )
+
     async def execute_async(self, state: 'IState', config: Dict[str, Any]) -> NodeExecutionResult:
         """异步执行节点逻辑
 
@@ -42,3 +59,15 @@ class BaseNode(INode):
         # 默认实现：使用同步执行
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.execute, state, config)
+
+    def get_config_schema(self) -> Dict[str, Any]:
+        """获取节点配置Schema
+
+        Returns:
+            Dict[str, Any]: 配置Schema
+        """
+        return {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }

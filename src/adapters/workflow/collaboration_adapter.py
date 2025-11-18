@@ -1,7 +1,7 @@
 from typing import Dict, Any, List, Callable, Union
 from datetime import datetime
 import logging
-from ..states import WorkflowState
+from .state_adapter import StateAdapter
 from .state_adapter import StateAdapter
 from src.domain.state.interfaces import IStateCollaborationManager
 

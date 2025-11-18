@@ -10,7 +10,9 @@ from datetime import datetime
 import uuid
 
 from .interfaces import IWorkflowManager
-from src.domain.workflow.interfaces import IWorkflowConfigManager, IWorkflowVisualizer, IWorkflowRegistry
+from src.services.workflow.config_manager import IWorkflowConfigManager
+from src.adapters.workflow.visualizer import IWorkflowVisualizer
+from src.services.workflow.registry_service import IWorkflowRegistryService
 from src.infrastructure.graph.config import GraphConfig, WorkflowConfig
 from src.infrastructure.graph.states import WorkflowState
 from src.infrastructure.graph import GraphBuilder
@@ -34,7 +36,7 @@ class WorkflowManager(IWorkflowManager):
         workflow_builder: Optional[Any] = None,  # 保持向后兼容
         config_manager: Optional[IWorkflowConfigManager] = None,
         visualizer: Optional[IWorkflowVisualizer] = None,
-        registry: Optional[IWorkflowRegistry] = None
+        registry: Optional[IWorkflowRegistryService] = None
     ):
         """初始化工作流管理器
         

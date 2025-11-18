@@ -8,7 +8,7 @@ import logging
 
 from .registry import RouteFunctionRegistry, RouteFunctionConfig
 from .loader import RouteFunctionLoader
-from .rest import BuiltinRouteFunctions
+from .builtin import BuiltinRouteFunctions
 
 logger = logging.getLogger(__name__)
 

@@ -7,8 +7,10 @@ import time
 import logging
 from typing import Dict, Any, Optional
 
-from ..registry import BaseNode, NodeExecutionResult, node
-from ..states import WorkflowState
+from .base import BaseNode
+from ..interfaces import NodeExecutionResult
+from ..decorators import node
+from ...states import WorkflowState
 from ..plugins.manager import PluginManager
 from ..plugins.interfaces import PluginType, PluginContext
 

@@ -10,8 +10,8 @@ from typing import Dict, Any, Optional, List, Callable, cast
 from dataclasses import dataclass
 from enum import Enum
 
-from ..registry import BaseNode, NodeExecutionResult, node
-from ..states import WorkflowState
+from ..interfaces import BaseNode, NodeExecutionResult, node
+from ...states import WorkflowState
 from src.infrastructure.graph.adapters import get_state_adapter, get_message_adapter
 from langchain_core.messages import SystemMessage, BaseMessage as LCBaseMessage
 
@@ -241,7 +241,7 @@ class WaitNode(BaseNode):
         """处理继续等待策略"""
         # 添加超时提示消息
         timeout_content = f"⚠️ 等待超时 ({config.get('timeout_seconds', 300)}秒)，继续等待..."
-        from ..states import SystemMessage
+        from ...states import SystemMessage
         timeout_msg = SystemMessage(content=timeout_content)
         
         # 安全访问messages列表
@@ -276,7 +276,7 @@ class WaitNode(BaseNode):
         
         # 添加退出消息
         exit_content = f"💾 等待超时，状态已缓存，任务暂停。可稍后恢复执行。"
-        from ..states import SystemMessage
+        from ...states import SystemMessage
         exit_msg = SystemMessage(content=exit_content)
         
         # 安全访问messages列表

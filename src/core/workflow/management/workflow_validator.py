@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import Enum
 import logging
 
-from .config import GraphConfig, EdgeConfig, EdgeType
+from ..config.config import GraphConfig, EdgeConfig, EdgeType
 
 logger = logging.getLogger(__name__)
 
@@ -985,7 +985,7 @@ def main():
     import sys
     
     if len(sys.argv) != 2:
-        print("用法: python -m src.infrastructure.graph.workflow_validator <config_file>")
+        print("用法: python -m src.core.workflow.management.workflow_validator <config_file>")
         sys.exit(1)
     
     config_path = sys.argv[1]

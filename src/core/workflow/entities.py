@@ -72,6 +72,29 @@ class WorkflowState(IWorkflowState):
         self.data.update(updates)
         self.updated_at = datetime.now()
 
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            'workflow_id': self.workflow_id,
+            'execution_id': self.execution_id,
+            'status': self.status,
+            'data': self.data,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'WorkflowState':
+        """从字典创建实例"""
+        return cls(
+            workflow_id=data['workflow_id'],
+            execution_id=data['execution_id'],
+            status=data.get('status', 'running'),
+            data=data.get('data', {}),
+            created_at=datetime.fromisoformat(data['created_at']) if 'created_at' in data else datetime.now(),
+            updated_at=datetime.fromisoformat(data['updated_at']) if 'updated_at' in data else datetime.now()
+        )
+
 
 @dataclass
 class ExecutionResult:

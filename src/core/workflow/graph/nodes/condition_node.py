@@ -5,12 +5,11 @@
 
 from typing import Dict, Any, Optional, List, Callable
 
-from ..registry import BaseNode, NodeExecutionResult, node
-from ..states import WorkflowState
+from ..interfaces import BaseNode, NodeExecutionResult
+from ...states import WorkflowState
 from ..edges.conditions import ConditionType, ConditionEvaluator
 
 
-@node("condition_node")
 class ConditionNode(BaseNode):
     """条件判断节点"""
 
