@@ -19,7 +19,7 @@ from langchain_core.runnables import RunnableConfig
 from src.core.workflow.config.config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
 from src.core.workflow.states import WorkflowState
 from langchain_core.messages import BaseMessage as LCBaseMessage
-from core.workflow.graph.nodes.registry import NodeRegistry, get_global_registry, BaseNode
+from src.core.workflow.graph.nodes.registry import NodeRegistry, get_global_registry, BaseNode
 from src.adapters.workflow.state_adapter import get_state_adapter
 from src.domain.state.interfaces import IStateLifecycleManager
 from src.adapters.workflow.state_adapter import GraphAgentState
@@ -29,8 +29,8 @@ from .function_registry import (
     get_global_function_registry,
 )
 from src.core.workflow.management.iteration_manager import IterationManager
-from src.core.workflow.route_functions import get_route_function_manager
-from src.core.workflow.node_functions import get_node_function_manager
+from src.core.workflow.graph.route_functions import get_route_function_manager
+from src.core.workflow.graph.node_functions import get_node_function_manager
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,12 @@ class DefaultNodeExecutor(INodeExecutor):
             更新后的状态
         """
         result = node.execute(state, config)
-        return result.state.to_dict() if hasattr(result.state, 'to_dict') else result.state
+        if hasattr(result.state, 'to_dict'):
+            return result.state.to_dict()
+        elif isinstance(result.state, dict):
+            return result.state
+        else:
+            return {}
 
 
 class UnifiedGraphBuilder:
@@ -84,7 +89,8 @@ class UnifiedGraphBuilder:
         node_registry: Optional[NodeRegistry] = None,
         function_registry: Optional[FunctionRegistry] = None,
         enable_function_fallback: bool = True,
-        enable_iteration_management: bool = True
+        enable_iteration_management: bool = True,
+        graph_config: Optional[GraphConfig] = None
     ):
         """初始化统一图构建器
         
@@ -93,12 +99,14 @@ class UnifiedGraphBuilder:
             function_registry: 函数注册表
             enable_function_fallback: 是否启用函数回退
             enable_iteration_management: 是否启用迭代管理
+            graph_config: 图配置，用于迭代管理器
         """
         self.node_registry = node_registry or get_global_registry()
         self.function_registry = function_registry or get_global_function_registry()
         self.enable_function_fallback = enable_function_fallback
         self.enable_iteration_management = enable_iteration_management
-        self.iteration_manager = IterationManager() if enable_iteration_management else None
+        self.iteration_manager: Optional[IterationManager] = None
+        self.graph_config = graph_config
         self.node_executor = DefaultNodeExecutor()
     
     def build_graph(self, config: GraphConfig) -> StateGraph:
@@ -112,8 +120,15 @@ class UnifiedGraphBuilder:
         """
         graph = StateGraph(WorkflowState)
         
+        # 保存配置用于迭代管理
+        self.graph_config = config
+        
+        # 初始化迭代管理器（如果启用）
+        if self.enable_iteration_management:
+            self.iteration_manager = IterationManager(config)
+        
         # 添加节点
-        for node_config in config.nodes:
+        for node_config in config.nodes.values():
             self._add_node(graph, node_config)
         
         # 添加边
@@ -124,10 +139,6 @@ class UnifiedGraphBuilder:
         if config.entry_point:
             graph.set_entry_point(config.entry_point)
         
-        # 设置结束点
-        if config.end_point:
-            graph.set_finish_point(config.end_point)
-        
         return graph
     
     def _add_node(self, graph: StateGraph, node_config: NodeConfig) -> None:
@@ -137,18 +148,13 @@ class UnifiedGraphBuilder:
             graph: 图实例
             node_config: 节点配置
         """
-        node = self.node_registry.get_node(node_config.type)
-        if not node:
-            raise ValueError(f"Unknown node type: {node_config.type}")
+        # 使用 function_name 获取节点实例
+        node = self.node_registry.get_node_instance(node_config.function_name)
         
         def node_function(state: WorkflowState) -> Dict[str, Any]:
             """节点函数包装器"""
             # 执行节点
             result = self.node_executor.execute_node(node, state, node_config.config)
-            
-            # 处理迭代管理
-            if self.iteration_manager:
-                result = self.iteration_manager.process_iteration(state, result)
             
             return result
         
@@ -163,16 +169,29 @@ class UnifiedGraphBuilder:
         """
         if edge_config.type == EdgeType.CONDITIONAL:
             # 条件边
+            if edge_config.route_function is None:
+                raise ValueError(f"条件边必须指定路由函数")
             route_function = self._get_route_function(edge_config.route_function)
-            graph.add_conditional_edges(
-                edge_config.source,
-                route_function,
-                edge_config.targets
-            )
+            
+            # 创建路径映射或使用默认的路径
+            # LangGraph 的 add_conditional_edges 需要 dict[Hashable, str] 类型
+            if edge_config.path_map:
+                # 确保所有值都是字符串
+                path_map_converted = {k: str(v) for k, v in edge_config.path_map.items()}  # type: ignore
+                graph.add_conditional_edges(
+                    edge_config.from_node,
+                    route_function,
+                    path_map_converted  # type: ignore
+                )
+            else:
+                # 无路径映射，使用 None
+                graph.add_conditional_edges(
+                    edge_config.from_node,
+                    route_function
+                )
         else:
             # 普通边
-            for target in edge_config.targets:
-                graph.add_edge(edge_config.source, target)
+            graph.add_edge(edge_config.from_node, edge_config.to_node)
     
     def _get_route_function(self, function_name: str) -> Callable:
         """获取路由函数
@@ -183,19 +202,19 @@ class UnifiedGraphBuilder:
         Returns:
             路由函数
         """
-        # 首先尝试从函数注册表获取
-        function = self.function_registry.get_function(function_name)
+        # 首先尝试从函数注册表获取条件函数
+        function = self.function_registry.get_condition_function(function_name)
         if function:
             return function
         
         # 如果启用函数回退，尝试从路由函数管理器获取
         if self.enable_function_fallback:
             route_manager = get_route_function_manager()
-            function = route_manager.get_function(function_name)
+            function = route_manager.get_route_function(function_name)
             if function:
                 return function
         
-        raise ValueError(f"Unknown route function: {function_name}")
+        raise ValueError(f"未知的路由函数: {function_name}")
     
     def compile(
         self,
