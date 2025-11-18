@@ -1,4 +1,7 @@
-"""配置系统错误恢复机制"""
+"""配置错误恢复机制
+
+为配置系统提供错误恢复功能，包括备份管理和自动恢复策略。
+"""
 
 import os
 import shutil
@@ -7,7 +10,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, Callable
 from datetime import datetime
 
-from ...exceptions import ConfigurationError
+from .exceptions import ConfigError
 
 
 class ConfigBackupManager:
@@ -34,12 +37,12 @@ class ConfigBackupManager:
             备份文件路径
 
         Raises:
-            ConfigurationError: 备份失败
+            ConfigError: 备份失败
         """
         try:
             source_path = Path(config_path)
             if not source_path.exists():
-                raise ConfigurationError(f"配置文件不存在: {config_path}")
+                raise ConfigError(f"配置文件不存在: {config_path}")
 
             # 生成备份文件名（包含微秒以避免冲突）
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -55,7 +58,7 @@ class ConfigBackupManager:
             return str(backup_path)
 
         except Exception as e:
-            raise ConfigurationError(f"创建配置备份失败: {e}")
+            raise ConfigError(f"创建配置备份失败: {e}")
 
     def restore_backup(
         self, config_path: str, backup_timestamp: Optional[str] = None
@@ -216,13 +219,18 @@ class ConfigErrorRecovery:
         # 简化处理，创建一个基本的YAML结构
         default_configs = {
             "global.yaml": {
+                "name": "global",
+                "type": "global",
                 "log_level": "INFO",
                 "log_outputs": [{"type": "console", "level": "INFO", "format": "text"}],
                 "secret_patterns": ["sk-[a-zA-Z0-9]{20,}"],
                 "env": "development",
                 "debug": False,
             },
-            "_group.yaml": {},
+            "_group.yaml": {
+                "name": "group_config",
+                "type": "group"
+            },
         }
 
         config_name = Path(config_path).name
@@ -320,7 +328,7 @@ class ConfigValidatorWithRecovery:
             配置字典
 
         Raises:
-            ConfigurationError: 无法恢复的错误
+            ConfigError: 无法恢复的错误
         """
         max_attempts = 3
         last_error = None
@@ -334,7 +342,7 @@ class ConfigValidatorWithRecovery:
                 if validator(config):
                     return config
                 else:
-                    raise ConfigurationError("配置验证失败")
+                    raise ConfigError("配置验证失败")
 
             except Exception as e:
                 last_error = e
@@ -347,4 +355,30 @@ class ConfigValidatorWithRecovery:
                         continue
 
         # 所有尝试都失败了
-        raise ConfigurationError(f"无法加载或验证配置文件 {config_path}: {last_error}")
+        raise ConfigError(f"无法加载或验证配置文件 {config_path}: {last_error}")
+
+
+# 便捷函数
+def create_backup_manager(backup_dir: str = "configs/backups", max_backups: int = 10) -> ConfigBackupManager:
+    """创建备份管理器的便捷函数
+    
+    Args:
+        backup_dir: 备份目录
+        max_backups: 最大备份数量
+        
+    Returns:
+        备份管理器实例
+    """
+    return ConfigBackupManager(backup_dir, max_backups)
+
+
+def create_error_recovery(backup_manager: Optional[ConfigBackupManager] = None) -> ConfigErrorRecovery:
+    """创建错误恢复器的便捷函数
+    
+    Args:
+        backup_manager: 备份管理器
+        
+    Returns:
+        错误恢复器实例
+    """
+    return ConfigErrorRecovery(backup_manager)

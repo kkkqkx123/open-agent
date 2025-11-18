@@ -1,4 +1,7 @@
-"""配置回调管理器"""
+"""配置回调管理器
+
+为配置系统提供回调管理功能，支持配置变化事件通知。
+"""
 
 import threading
 from typing import Dict, Any, List, Callable, Optional
@@ -6,7 +9,7 @@ from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
 
-from ...exceptions import ConfigurationError
+from .exceptions import ConfigError
 
 
 class CallbackPriority(Enum):
@@ -114,11 +117,11 @@ class ConfigCallbackManager:
             filter_paths: 路径过滤器
 
         Raises:
-            ConfigurationError: 回调ID已存在
+            ConfigError: 回调ID已存在
         """
         with self._lock:
             if callback_id in self._callbacks:
-                raise ConfigurationError(f"回调ID已存在: {callback_id}")
+                raise ConfigError(f"回调ID已存在: {callback_id}")
 
             # 创建回调对象
             config_callback = ConfigCallback(
@@ -432,3 +435,13 @@ def trigger_config_callbacks(
     get_global_callback_manager().trigger_callbacks(
         config_path, old_config, new_config, source
     )
+
+
+# 便捷函数
+def create_callback_manager() -> ConfigCallbackManager:
+    """创建回调管理器的便捷函数
+    
+    Returns:
+        回调管理器实例
+    """
+    return ConfigCallbackManager()

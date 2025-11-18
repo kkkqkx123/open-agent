@@ -2,8 +2,10 @@
 
 import os
 from typing import Optional
-from ..config_system import IConfigSystem
-from ..models.checkpoint_config import CheckpointConfig
+from pathlib import Path
+
+from ...core.config.config_manager import ConfigManager
+from ...core.config.models.checkpoint_config import CheckpointConfig
 
 
 class CheckpointConfigService:
@@ -12,13 +14,13 @@ class CheckpointConfigService:
     提供checkpoint配置的获取和管理功能。
     """
     
-    def __init__(self, config_system: Optional[IConfigSystem] = None):
+    def __init__(self, config_manager: Optional[ConfigManager] = None):
         """初始化配置服务
         
         Args:
-            config_system: 配置系统实例，如果为None则使用默认配置
+            config_manager: 配置管理器实例，如果为None则使用默认配置
         """
-        self._config_system = config_system
+        self._config_manager = config_manager
         self._default_config = CheckpointConfig(
             enabled=True,
             storage_type="sqlite",
@@ -36,9 +38,9 @@ class CheckpointConfigService:
         Returns:
             CheckpointConfig: checkpoint配置对象
         """
-        if self._config_system:
+        if self._config_manager:
             try:
-                global_config = self._config_system.load_global_config()
+                global_config = self._config_manager.load_global_config("global.yaml")
                 return global_config.checkpoint
             except Exception:
                 # 如果加载配置失败，返回默认配置
@@ -78,3 +80,16 @@ class CheckpointConfigService:
             bool: 是否为测试环境
         """
         return "test" in os.environ.get("PYTEST_CURRENT_TEST", "")
+
+
+# 便捷函数
+def create_checkpoint_service(config_manager: Optional[ConfigManager] = None) -> CheckpointConfigService:
+    """创建checkpoint配置服务的便捷函数
+    
+    Args:
+        config_manager: 配置管理器实例
+        
+    Returns:
+        CheckpointConfigService: checkpoint配置服务实例
+    """
+    return CheckpointConfigService(config_manager)

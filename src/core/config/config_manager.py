@@ -22,6 +22,14 @@ from .exceptions import (
     ConfigNotFoundError,
     ConfigValidationError
 )
+from .file_watcher import ConfigFileWatcher
+from .error_recovery import ConfigErrorRecovery, ConfigValidatorWithRecovery
+from .callback_manager import (
+    get_global_callback_manager,
+    trigger_config_callbacks,
+    ConfigCallbackManager,
+    ConfigChangeContext
+)
 
 T = TypeVar('T', bound=BaseConfig)
 
@@ -33,7 +41,9 @@ class ConfigManager:
         self,
         base_path: Optional[Path] = None,
         use_cache: bool = True,
-        auto_reload: bool = False
+        auto_reload: bool = False,
+        enable_error_recovery: bool = True,
+        enable_callback_manager: bool = True
     ):
         """初始化配置管理器"""
         self.base_path = base_path or Path("configs")
@@ -53,6 +63,22 @@ class ConfigManager:
         # 使用统一缓存系统
         self._config_cache = ConfigCache()
         self._model_cache = ConfigCache()
+        
+        # 文件监听器
+        self._file_watcher: Optional[ConfigFileWatcher] = None
+        
+        # 错误恢复
+        self._error_recovery: Optional[ConfigErrorRecovery] = None
+        if enable_error_recovery:
+            self._error_recovery = ConfigErrorRecovery()
+            self._validator_with_recovery = ConfigValidatorWithRecovery(
+                self._error_recovery
+            )
+        
+        # 回调管理器
+        self._callback_manager: Optional[ConfigCallbackManager] = None
+        if enable_callback_manager:
+            self._callback_manager = get_global_callback_manager()
     
     def load_config(self, config_path: str, config_type: Optional[ConfigType] = None) -> Dict[str, Any]:
         """加载并处理配置"""
@@ -63,8 +89,25 @@ class ConfigManager:
             if cached_config is not None:
                 return cached_config
             
-            # 加载原始配置
-            raw_config = self.loader.load(config_path)
+            # 加载原始配置（带错误恢复）
+            try:
+                raw_config = self.loader.load(config_path)
+            except Exception as e:
+                if self._error_recovery:
+                    # 尝试错误恢复
+                    full_path = self.base_path / config_path
+                    if self._error_recovery.recover_config(str(full_path), e):
+                        # 恢复成功，再次尝试加载
+                        try:
+                            raw_config = self.loader.load(config_path)
+                        except Exception as recovery_error:
+                            raise ConfigError(
+                                f"配置恢复后仍然无法加载: {recovery_error}"
+                            )
+                    else:
+                        raise ConfigError(f"无法恢复配置文件: {e}")
+                else:
+                    raise ConfigError(f"加载配置文件失败: {e}")
             
             # 处理配置（继承、环境变量、验证）
             processed_config = self.processor.process(raw_config, config_path)
@@ -222,6 +265,96 @@ class ConfigManager:
     def resolve_env_vars(self, obj: Any) -> Any:
         """解析环境变量"""
         return self.processor._resolve_env_vars(obj)
+    
+    def watch_for_changes(
+        self, 
+        callback: Optional[Callable[[str, Dict[str, Any]], None]] = None
+    ) -> None:
+        """监听配置文件变化
+        
+        Args:
+            callback: 配置变化回调函数，接收文件路径和配置数据
+        """
+        if self._file_watcher is None:
+            self._file_watcher = ConfigFileWatcher(self)
+            
+        if callback:
+            # 为所有YAML文件添加回调
+            self._file_watcher.add_callback("*.yaml", callback)
+            self._file_watcher.add_callback("*.yml", callback)
+            
+        # 开始监听
+        if not self._file_watcher.is_watching():
+            self._file_watcher.start()
+    
+    def stop_watching(self) -> None:
+        """停止监听配置文件变化"""
+        if self._file_watcher is not None:
+            self._file_watcher.stop()
+            self._file_watcher = None
+    
+    def is_watching(self) -> bool:
+        """检查是否正在监听配置文件变化"""
+        return self._file_watcher is not None and self._file_watcher.is_watching()
+    
+    def register_callback(
+        self,
+        callback_id: str,
+        callback: Callable[[ConfigChangeContext], None],
+        priority: Any = None,  # 使用Any避免导入问题
+        once: bool = False,
+        filter_paths: Optional[List[str]] = None,
+    ) -> None:
+        """注册配置变更回调
+        
+        Args:
+            callback_id: 回调ID
+            callback: 回调函数
+            priority: 优先级
+            once: 是否只执行一次
+            filter_paths: 路径过滤器
+        """
+        if self._callback_manager:
+            # 导入优先级枚举
+            from .callback_manager import CallbackPriority
+            if priority is None:
+                priority = CallbackPriority.NORMAL
+            self._callback_manager.register_callback(
+                callback_id, callback, priority, once, filter_paths
+            )
+    
+    def unregister_callback(self, callback_id: str) -> bool:
+        """注销配置变更回调
+        
+        Args:
+            callback_id: 回调ID
+            
+        Returns:
+            是否成功注销
+        """
+        if self._callback_manager:
+            return self._callback_manager.unregister_callback(callback_id)
+        return False
+    
+    def trigger_callbacks(
+        self,
+        config_path: str,
+        old_config: Optional[Dict[str, Any]],
+        new_config: Dict[str, Any],
+        source: str = "file_watcher",
+    ) -> None:
+        """触发配置变更回调
+        
+        Args:
+            config_path: 配置文件路径
+            old_config: 旧配置
+            new_config: 新配置
+            source: 变更来源
+        """
+        if self._callback_manager:
+            self._callback_manager.trigger_callbacks(
+                config_path, old_config, new_config, source
+            )
     
     def _get_llm_model_class(self) -> Type[BaseConfig]:
         """获取LLM模型类"""
