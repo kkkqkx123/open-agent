@@ -14,7 +14,7 @@ from watchdog.events import FileSystemEventHandler
 
 from .config import LLMClientConfig, LLMModuleConfig
 from .exceptions import LLMConfigurationError
-from ..config.interfaces import IConfigLoader
+from ..config.config_loader import ConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -210,7 +210,7 @@ class LLMConfigManager:
     
     def __init__(
         self,
-        config_loader: Optional[IConfigLoader] = None,
+        config_loader: Optional[ConfigLoader] = None,
         config_subdir: str = "llms",
         enable_hot_reload: bool = True,
         validation_enabled: bool = True,
@@ -225,8 +225,7 @@ class LLMConfigManager:
             validation_enabled: 是否启用配置验证
         """
         if config_loader is None:
-            from ..config.loader.file_config_loader import FileConfigLoader
-            config_loader = FileConfigLoader()
+            config_loader = ConfigLoader()
         self.config_loader = config_loader
         self.config_subdir = config_subdir
         self.config_dir = Path("configs") / self.config_subdir
@@ -353,10 +352,16 @@ class LLMConfigManager:
             return
             
         try:
-            # 将自己的回调函数注册到核心加载器
-            # 核心加载器会处理文件监控，并在文件变化时调用我们的回调
-            self.config_loader.watch_for_changes(callback=self._on_config_file_changed)
-            logger.info("配置热重载已启动 (通过 IConfigLoader)")
+            # ConfigLoader 不支持热重载，使用观察者模式进行文件监控
+            # 创建文件监控器
+            self._observer = Observer()
+            self._observer.schedule(
+                ConfigFileHandler(self),
+                path=str(self.config_dir),
+                recursive=False
+            )
+            self._observer.start()
+            logger.info("配置热重载已启动")
         except Exception as e:
             logger.error(f"启动热重载失败: {e}")
             self.enable_hot_reload = False
@@ -364,9 +369,11 @@ class LLMConfigManager:
     def _stop_hot_reload(self) -> None:
         """停止热重载"""
         try:
-            # 委托给核心加载器停止监控
-            self.config_loader.stop_watching()
-            logger.info("配置热重载已停止 (通过 IConfigLoader)")
+            # 停止文件观察者
+            if self._observer is not None:
+                self._observer.stop()
+                self._observer.join()
+            logger.info("配置热重载已停止")
         except Exception as e:
             logger.error(f"停止热重载失败: {e}")
     
@@ -469,28 +476,3 @@ class LLMConfigManager:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """上下文管理器出口"""
         self._stop_hot_reload()
-
-
-# 全局配置管理器实例
-_global_config_manager: Optional[LLMConfigManager] = None
-
-
-def get_global_config_manager() -> LLMConfigManager:
-    """获取全局配置管理器"""
-    # 注意：这个函数现在依赖于一个全局的 IConfigLoader 实例
-    # 在实际应用中，这应该通过依赖注入容器来解决
-    # 为了向后兼容，我们在这里创建一个默认的 YamlConfigLoader
-    from ..config.loader.file_config_loader import FileConfigLoader
-    
-    global _global_config_manager
-    if _global_config_manager is None:
-        # 这是一个临时解决方案，理想情况下应该从容器获取
-        default_loader = FileConfigLoader()
-        _global_config_manager = LLMConfigManager(config_loader=default_loader)
-    return _global_config_manager
-
-
-def set_global_config_manager(manager: LLMConfigManager) -> None:
-    """设置全局配置管理器"""
-    global _global_config_manager
-    _global_config_manager = manager

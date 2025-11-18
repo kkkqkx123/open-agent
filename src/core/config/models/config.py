@@ -15,8 +15,10 @@ class ConfigType(str, Enum):
     """配置类型枚举"""
     WORKFLOW = "workflow"
     TOOL = "tool"
+    TOOL_SET = "tool_set"
     LLM = "llm"
     GRAPH = "graph"
+    GLOBAL = "global"
 
 
 class ValidationRule(BaseModel):
@@ -289,6 +291,20 @@ class LLMConfigModel(BaseConfigModel):
     batch_size: int = Field(1, description="批处理大小")
 
 
+class ToolSetConfigModel(BaseConfigModel):
+    """工具集配置模型"""
+    
+    config_type: ConfigType = Field(ConfigType.TOOL_SET, description="配置类型")
+    
+    # 工具集特定字段
+    toolset_name: str = Field(..., description="工具集名称")
+    description: str = Field("", description="工具集描述")
+    
+    # 工具集成员
+    tools: List[str] = Field(default_factory=list, description="工具列表")
+    category: str = Field("general", description="工具集分类")
+
+
 class GraphConfigModel(BaseConfigModel):
     """图配置模型"""
     
@@ -317,12 +333,25 @@ class GraphConfigModel(BaseConfigModel):
     interrupt_after: List[str] = Field(default_factory=list, description="中断后节点")
 
 
+class GlobalConfigModel(BaseConfigModel):
+    """全局配置模型"""
+    
+    config_type: ConfigType = Field(ConfigType.GLOBAL, description="配置类型")
+    
+    # 全局特定字段
+    app_name: str = Field("Modular Agent Framework", description="应用名称")
+    log_level: str = Field("INFO", description="日志级别")
+    environment: str = Field("development", description="环境类型")
+
+
 # 配置模型映射
 CONFIG_MODEL_MAPPING = {
     ConfigType.WORKFLOW: WorkflowConfigModel,
     ConfigType.TOOL: ToolConfigModel,
+    ConfigType.TOOL_SET: ToolSetConfigModel,
     ConfigType.LLM: LLMConfigModel,
     ConfigType.GRAPH: GraphConfigModel,
+    ConfigType.GLOBAL: GlobalConfigModel,
 }
 
 
@@ -358,3 +387,86 @@ def validate_config_with_model(config_dict: Dict[str, Any], config_type: ConfigT
         return model.validate_config()
     except Exception as e:
         return [str(e)]
+
+
+def get_config_model(config_type: ConfigType) -> type[BaseConfigModel]:
+    """获取配置类型对应的模型类
+    
+    Args:
+        config_type: 配置类型
+        
+    Returns:
+        配置模型类
+        
+    Raises:
+        ValueError: 如果配置类型不支持
+    """
+    model_class = CONFIG_MODEL_MAPPING.get(config_type)
+    if not model_class:
+        raise ValueError(f"不支持的配置类型: {config_type}")
+    return model_class
+
+
+class ConfigRegistry:
+    """配置注册表"""
+    
+    def __init__(self) -> None:
+        """初始化配置注册表"""
+        self._configs: Dict[str, BaseConfigModel] = {}
+        self._config_types: Dict[str, ConfigType] = {}
+    
+    def register(self, name: str, config: BaseConfigModel, config_type: ConfigType) -> None:
+        """注册配置
+        
+        Args:
+            name: 配置名称
+            config: 配置实例
+            config_type: 配置类型
+        """
+        self._configs[name] = config
+        self._config_types[name] = config_type
+    
+    def get(self, name: str) -> Optional[BaseConfigModel]:
+        """获取已注册的配置
+        
+        Args:
+            name: 配置名称
+            
+        Returns:
+            配置实例或None
+        """
+        return self._configs.get(name)
+    
+    def list_configs_by_type(self, config_type: ConfigType) -> List[str]:
+        """按类型获取已注册的配置列表
+        
+        Args:
+            config_type: 配置类型
+            
+        Returns:
+            配置名称列表
+        """
+        return [name for name, ctype in self._config_types.items() if ctype == config_type]
+    
+    def unregister(self, name: str) -> bool:
+        """注销配置
+        
+        Args:
+            name: 配置名称
+            
+        Returns:
+            是否成功注销
+        """
+        if name in self._configs:
+            del self._configs[name]
+            del self._config_types[name]
+            return True
+        return False
+    
+    def list_all_configs(self) -> List[str]:
+        """列出所有已注册的配置
+        
+        Returns:
+            配置名称列表
+        """
+        return list(self._configs.keys())

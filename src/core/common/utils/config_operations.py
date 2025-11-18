@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import datetime
 
 from ..config_system import IConfigSystem
-from ...exceptions import ConfigurationError
+from ..exceptions import ConfigurationError
 
 
 class ConfigOperations:

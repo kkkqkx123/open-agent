@@ -121,12 +121,6 @@ class LLMFactory(ILLMClientFactory):
             client_class = self._client_types[model_type]
             client = client_class(client_config)
 
-            # 如果配置了降级模型，包装为降级客户端
-            if client_config.fallback_enabled and client_config.fallback_models:
-                from .fallback_client import FallbackClientWrapper
-
-                client = FallbackClientWrapper(client, client_config.fallback_models)
-
             # 自动缓存客户端
             if self.config.cache_enabled:
                 self.cache_client(client_config.model_name, client)

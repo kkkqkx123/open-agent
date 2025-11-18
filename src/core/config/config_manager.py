@@ -9,7 +9,13 @@ from typing import Dict, Any, Optional, List, Type, TypeVar, Generic, Callable
 from ..common.cache import ConfigCache, get_global_cache_manager, clear_cache
 from .config_loader import ConfigLoader
 from .config_processor import ConfigProcessor
-from .models import BaseConfig, ConfigType, get_config_model, ConfigRegistry
+from .models import (
+    BaseConfig,
+    ConfigType,
+    get_config_model,
+    ConfigRegistry,
+    ToolSetConfig,
+)
 from .exceptions import (
     ConfigError,
     ConfigNotFoundError,
@@ -78,19 +84,25 @@ class ConfigManager:
         config_data = self.load_config(config_path)
         
         # 确定模型类
-        final_model_class: Type[T] = model_class or BaseConfig  # type: ignore[assignment]
-        if final_model_class is BaseConfig:
+        if model_class is None:
             # 根据配置类型自动选择模型
             config_type = config_data.get("type")
             if config_type:
-                final_model_class = get_config_model(ConfigType(config_type))  # type: ignore[assignment]
+                try:
+                    final_model_class = get_config_model(ConfigType(config_type))
+                except (ValueError, KeyError):
+                    final_model_class = BaseConfig  # type: ignore[assignment]
+            else:
+                final_model_class = BaseConfig  # type: ignore[assignment]
+        else:
+            final_model_class = model_class  # type: ignore[assignment]
         
         try:
             # 检查模型缓存
             cache_key = f"{config_path}:{final_model_class.__name__}"
             cached_model = self._model_cache.get(cache_key)
             if cached_model is not None:
-                return cached_model
+                return cached_model  # type: ignore[return-value]
             
             # 创建模型实例
             model_instance = final_model_class(**config_data)
@@ -98,24 +110,24 @@ class ConfigManager:
             # 缓存模型实例
             self._model_cache.put(cache_key, model_instance)
             
-            return model_instance
+            return model_instance  # type: ignore[return-value]
             
         except Exception as e:
             raise ConfigValidationError(f"配置模型转换失败: {e}", config_path)
     
-    def load_llm_config(self, config_path: str) -> BaseConfig:
+    def load_llm_config(self, config_path: str) -> Any:
         """加载LLM配置"""
         return self.load_config_model(config_path, model_class=self._get_llm_model_class())
     
-    def load_tool_config(self, config_path: str) -> BaseConfig:
+    def load_tool_config(self, config_path: str) -> Any:
         """加载工具配置"""
         return self.load_config_model(config_path, model_class=self._get_tool_model_class())
     
-    def load_tool_set_config(self, config_path: str) -> BaseConfig:
+    def load_tool_set_config(self, config_path: str) -> Any:
         """加载工具集配置"""
         return self.load_config_model(config_path, model_class=self._get_tool_set_model_class())
     
-    def load_global_config(self, config_path: str) -> BaseConfig:
+    def load_global_config(self, config_path: str) -> Any:
         """加载全局配置"""
         return self.load_config_model(config_path, model_class=self._get_global_model_class())
     
@@ -131,7 +143,7 @@ class ConfigManager:
         except Exception as e:
             raise ConfigError(f"注册配置失败: {e}", config_path)
     
-    def get_registered_config(self, name: str) -> Optional[BaseConfig]:
+    def get_registered_config(self, name: str) -> Any:
         """获取已注册的配置"""
         return self.registry.get(name)
     
@@ -356,21 +368,21 @@ def load_config_model(config_path: str, model_class: Optional[Type[T]] = None) -
 
 
 # 便捷函数：特定类型配置加载
-def load_llm_config(config_path: str) -> BaseConfig:
+def load_llm_config(config_path: str) -> Any:
     """加载LLM配置"""
     return get_default_manager().load_llm_config(config_path)
 
 
-def load_tool_config(config_path: str) -> BaseConfig:
+def load_tool_config(config_path: str) -> Any:
     """加载工具配置"""
     return get_default_manager().load_tool_config(config_path)
 
 
-def load_tool_set_config(config_path: str) -> BaseConfig:
+def load_tool_set_config(config_path: str) -> Any:
     """加载工具集配置"""
     return get_default_manager().load_tool_set_config(config_path)
 
 
-def load_global_config(config_path: str) -> BaseConfig:
+def load_global_config(config_path: str) -> Any:
     """加载全局配置"""
     return get_default_manager().load_global_config(config_path)

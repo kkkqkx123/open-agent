@@ -11,7 +11,7 @@ import yaml
 from pydantic import BaseModel, ValidationError
 from abc import ABC, abstractmethod
 
-from ...exceptions import ConfigurationError
+from ..exceptions import ConfigurationError
 from ..interfaces import IConfigLoader
 from ..interfaces import IConfigInheritanceHandler as IConfigInheritanceHandlerInterface
 
