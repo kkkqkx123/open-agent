@@ -3,9 +3,9 @@
 提供边的基础实现。
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from ..interfaces import IEdge
-
+from src.core.state.interfaces import IState
 
 class BaseEdge(IEdge):
     """边基类"""

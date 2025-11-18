@@ -17,8 +17,8 @@ class StateHistoryManager(IStateHistoryManager):
     def __init__(self, max_history_size: int = 1000, storage_backend: str = "memory"):
         self.max_history_size = max_history_size
         self.storage_backend = storage_backend
-        self.db_connection = None
-        self.storage_path = None
+        self.db_connection: Optional[sqlite3.Connection] = None
+        self.storage_path: Optional[str] = None
         self._setup_storage()
     
     def _setup_storage(self):
@@ -148,6 +148,8 @@ class StateHistoryManager(IStateHistoryManager):
     
     def _save_to_sqlite(self, entry: StateHistoryEntry):
         """保存到SQLite"""
+        if self.db_connection is None:
+            return
         cursor = self.db_connection.cursor()
         cursor.execute("""
             INSERT INTO history 
@@ -170,6 +172,8 @@ class StateHistoryManager(IStateHistoryManager):
     
     def _save_to_file(self, entry: StateHistoryEntry):
         """保存到文件"""
+        if self.storage_path is None:
+            return
         file_path = os.path.join(self.storage_path, f"{entry.history_id}.pkl")
         with open(file_path, 'wb') as f:
             pickle.dump(entry, f)
@@ -195,13 +199,15 @@ class StateHistoryManager(IStateHistoryManager):
                             if entry.agent_id != agent_id or entry.history_id in history_ids
                         ]
                     elif self.storage_backend == "sqlite":
-                        cursor = self.db_connection.cursor()
-                        cursor.execute("DELETE FROM history WHERE history_id = ?", (oldest_history_id,))
-                        self.db_connection.commit()
+                        if self.db_connection is not None:
+                            cursor = self.db_connection.cursor()
+                            cursor.execute("DELETE FROM history WHERE history_id = ?", (oldest_history_id,))
+                            self.db_connection.commit()
                     elif self.storage_backend == "file":
-                        file_path = os.path.join(self.storage_path, f"{oldest_history_id}.pkl")
-                        if os.path.exists(file_path):
-                            os.remove(file_path)
+                        if self.storage_path is not None:
+                            file_path = os.path.join(self.storage_path, f"{oldest_history_id}.pkl")
+                            if os.path.exists(file_path):
+                                os.remove(file_path)
     
     def get_state_history(self, agent_id: str, limit: int = 100) -> List[StateHistoryEntry]:
         """获取状态历史"""
@@ -233,6 +239,8 @@ class StateHistoryManager(IStateHistoryManager):
     
     def _get_from_sqlite(self, agent_id: str, limit: int) -> List[StateHistoryEntry]:
         """从SQLite获取历史"""
+        if self.db_connection is None:
+            return []
         cursor = self.db_connection.cursor()
         cursor.execute("""
             SELECT * FROM history 
@@ -258,7 +266,7 @@ class StateHistoryManager(IStateHistoryManager):
     
     def _get_from_file(self, agent_id: str, limit: int) -> List[StateHistoryEntry]:
         """从文件获取历史"""
-        if agent_id not in self.agent_history:
+        if agent_id not in self.agent_history or self.storage_path is None:
             return []
         
         history_ids = self.agent_history[agent_id][-limit:]

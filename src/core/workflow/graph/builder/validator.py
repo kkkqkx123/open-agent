@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import logging
 
-from .config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
-from .function_registry import FunctionRegistry, FunctionType, get_global_function_registry
+from src.core.workflow.config.config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
+from src.services.workflow.function_registry import FunctionRegistry, FunctionType, get_global_function_registry
 
 logger = logging.getLogger(__name__)
 

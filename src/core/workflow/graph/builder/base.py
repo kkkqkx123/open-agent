@@ -4,13 +4,7 @@
 """
 
 from typing import Dict, Any, Optional, List, Callable, Union, TYPE_CHECKING, cast
-from pathlib import Path
-import yaml
 import logging
-import asyncio
-import concurrent.futures
-import time
-import threading
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
@@ -20,23 +14,15 @@ else:
     # 运行时使用Dict作为RunnableConfig的替代
     RunnableConfig = Dict[str, Any]
 
-from .config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
-from .states import WorkflowState
-from .states.base import LCBaseMessage
-from .registry import NodeRegistry, get_global_registry, BaseNode
-from .adapters import get_state_adapter
+from src.core.workflow.config.config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
+from src.core.workflow.states.workflow import WorkflowState
+from src.core.workflow.states.base import LCBaseMessage
+from src.core.workflow.graph.registry import NodeRegistry, get_global_registry
 from src.domain.state.interfaces import IStateLifecycleManager
-from .adapters.state_adapter import GraphAgentState
-from .function_registry import (
+from src.services.workflow.function_registry import (
     FunctionRegistry,
-    FunctionType,
     get_global_function_registry,
 )
-from .iteration_manager import IterationManager
-from .rest_functions import get_rest_node_function, get_rest_condition_function
-from .route_functions import get_route_function_manager
-from .edges import FlexibleConditionalEdge, FlexibleConditionalEdgeFactory
-from .node_functions import get_node_function_manager
 
 logger = logging.getLogger(__name__)
 
@@ -96,14 +82,14 @@ class UnifiedGraphBuilder:
         self.enable_function_fallback = enable_function_fallback
         self.enable_iteration_management = enable_iteration_management
         self._checkpointer_cache: Dict[str, Any] = {}
-        self.iteration_manager: Optional[IterationManager] = None
+        self.iteration_manager: Optional[Any] = None  # IterationManager
         
-        # 初始化路由函数管理器
-        self.route_function_manager = get_route_function_manager(route_function_config_dir)
-        self.flexible_edge_factory = FlexibleConditionalEdgeFactory(self.route_function_manager)
+        # 初始化路由函数管理器 (可选)
+        # self.route_function_manager = get_route_function_manager(route_function_config_dir)
+        # self.flexible_edge_factory = FlexibleConditionalEdgeFactory(self.route_function_manager)
         
-        # 初始化节点函数管理器
-        self.node_function_manager = get_node_function_manager(node_function_config_dir)
+        # 初始化节点函数管理器 (可选)
+        # self.node_function_manager = get_node_function_manager(node_function_config_dir)
         
         logger.debug(f"统一图构建器初始化完成，函数回退: {enable_function_fallback}, 迭代管理: {enable_iteration_management}")
     
@@ -123,10 +109,11 @@ class UnifiedGraphBuilder:
             raise ValueError(f"图配置验证失败: {errors}")
         
         # 如果启用迭代管理，创建迭代管理器
-        if self.enable_iteration_management:
-            self.iteration_manager = IterationManager(config)
-        else:
-            self.iteration_manager = None
+        # if self.enable_iteration_management:
+        #     self.iteration_manager = IterationManager(config)
+        # else:
+        #     self.iteration_manager = None
+        self.iteration_manager = None
         
         # 获取状态类
         state_class = config.get_state_class()
@@ -224,23 +211,25 @@ class UnifiedGraphBuilder:
             edge: 边配置
         """
         try:
+            # 灵活条件边功能暂未启用
+            logger.debug(f"灵活条件边功能暂未启用: {edge.from_node}")
             # 创建灵活条件边
-            flexible_edge = self.flexible_edge_factory.create_from_config(edge)
-            
+            # flexible_edge = self.flexible_edge_factory.create_from_config(edge)
+            # 
             # 创建路由函数
-            route_function = flexible_edge.create_route_function()
-            
+            # route_function = flexible_edge.create_route_function()
+            # 
             # 添加条件边
-            if edge.path_map:
-                builder.add_conditional_edges(
-                    edge.from_node,
-                    route_function,
-                    path_map=edge.path_map
-                )
-            else:
-                builder.add_conditional_edges(edge.from_node, route_function)
+            # if edge.path_map:
+            #     builder.add_conditional_edges(
+            #         edge.from_node,
+            #         route_function,
+            #         path_map=edge.path_map
+            #     )
+            # else:
+            #     builder.add_conditional_edges(edge.from_node, route_function)
                 
-            logger.debug(f"添加灵活条件边: {edge.from_node} -> [{edge.route_function}]")
+            logger.debug(f"添加灵活条件边: {edge.from_node}")
             
         except Exception as e:
             logger.error(f"创建灵活条件边失败: {e}")
@@ -272,7 +261,7 @@ class UnifiedGraphBuilder:
     def _get_node_function(
         self,
         node_config: NodeConfig,
-        state_manager: Optional[IStateCollaborationManager] = None,
+        state_manager: Optional[IStateLifecycleManager] = None,
     ) -> Optional[Callable]:
         """获取节点函数（统一实现）
         
@@ -288,7 +277,7 @@ class UnifiedGraphBuilder:
         function_name = node_config.function_name
         
         # 0. 检查是否为节点内部函数组合
-        if node_config.composition_name:
+        if hasattr(node_config, 'composition_name') and node_config.composition_name:
             composition_function = self._create_composition_function(node_config.composition_name)
             if composition_function:
                 logger.debug(f"从节点内部函数组合获取节点函数: {node_config.composition_name}")
@@ -325,10 +314,10 @@ class UnifiedGraphBuilder:
                     return self._wrap_node_function(node_function, state_manager, node_config.name)
         
         # 4. 尝试从内置函数获取
-        rest_function = get_rest_node_function(function_name)
-        if rest_function:
-            logger.debug(f"从内置函数获取节点函数: {function_name}")
-            return self._wrap_node_function(rest_function, state_manager, node_config.name)
+        # rest_function = get_rest_node_function(function_name)
+        # if rest_function:
+        #     logger.debug(f"从内置函数获取节点函数: {function_name}")
+        #     return self._wrap_node_function(rest_function, state_manager, node_config.name)
         
         # 5. 如果启用回退，尝试内置实现
         if self.enable_function_fallback:
@@ -356,10 +345,11 @@ class UnifiedGraphBuilder:
         Returns:
             Optional[Callable]: 组合函数，如果不存在返回None
         """
-        if self.node_function_manager.has_composition(composition_name):
-            def composition_function(state: WorkflowState, **kwargs) -> WorkflowState:
-                return self.node_function_manager.execute_composition(composition_name, state, **kwargs)
-            return composition_function
+        # 组合函数功能暂未启用
+        # if self.node_function_manager.has_composition(composition_name):
+        #     def composition_function(state: WorkflowState, **kwargs) -> WorkflowState:
+        #         return self.node_function_manager.execute_composition(composition_name, state, **kwargs)
+        #     return composition_function
         return None
     
     def _get_condition_function(self, condition_name: str) -> Optional[Callable]:
@@ -374,10 +364,10 @@ class UnifiedGraphBuilder:
             Optional[Callable]: 条件函数
         """
         # 1. 优先从路由函数管理器获取
-        route_function = self.route_function_manager.get_route_function(condition_name)
-        if route_function:
-            logger.debug(f"从路由函数管理器获取条件函数: {condition_name}")
-            return route_function
+        # route_function = self.route_function_manager.get_route_function(condition_name)
+        # if route_function:
+        #     logger.debug(f"从路由函数管理器获取条件函数: {condition_name}")
+        #     return route_function
         
         # 2. 尝试从函数注册表获取
         if self.function_registry:
@@ -389,10 +379,10 @@ class UnifiedGraphBuilder:
                 return condition_function
         
         # 3. 尝试从内置函数获取
-        rest_function = get_rest_condition_function(condition_name)
-        if rest_function:
-            logger.debug(f"从内置函数获取条件函数: {condition_name}")
-            return rest_function
+        # rest_function = get_rest_condition_function(condition_name)
+        # if rest_function:
+        #     logger.debug(f"从内置函数获取条件函数: {condition_name}")
+        #     return rest_function
         
         # 4. 如果启用回退，尝试内置实现
         if self.enable_function_fallback:
@@ -412,7 +402,7 @@ class UnifiedGraphBuilder:
     def _wrap_node_function(
         self,
         function: Callable,
-        state_manager: Optional[IStateCollaborationManager] = None,
+        state_manager: Optional[IStateLifecycleManager] = None,
         node_name: str = "unknown",
     ) -> Callable:
         """包装节点函数以支持状态管理和迭代管理
@@ -428,23 +418,25 @@ class UnifiedGraphBuilder:
         # 首先包装状态管理
         if state_manager is not None:
             # 如果有状态管理器，使用增强的执行器包装
-            from .adapters.collaboration_adapter import CollaborationStateAdapter
+            # from .adapters.collaboration_adapter import CollaborationStateAdapter
             
             def state_wrapped_function(state: Union[WorkflowState, Dict[str, Any]]) -> Any:
                 """状态管理包装的节点函数"""
-                collaboration_adapter = CollaborationStateAdapter(state_manager)
+                # collaboration_adapter = CollaborationStateAdapter(state_manager)
                 
                 def node_executor(domain_state: Any) -> Any:
                     """节点执行函数"""
                     # 将域状态转换为图状态
-                    temp_graph_state = collaboration_adapter.state_adapter.to_graph_state(domain_state)
+                    # temp_graph_state = collaboration_adapter.state_adapter.to_graph_state(domain_state)
                     # 执行原始函数
-                    result = function(temp_graph_state)
+                    result = function(domain_state)
                     # 将结果转换回域状态
-                    return collaboration_adapter.state_adapter.from_graph_state(result)
+                    # return collaboration_adapter.state_adapter.from_graph_state(result)
+                    return result
                 
                 # 使用协作适配器执行
-                return collaboration_adapter.execute_with_collaboration(state, node_executor)
+                # return collaboration_adapter.execute_with_collaboration(state, node_executor)
+                return node_executor(state)
             
             wrapped_function = state_wrapped_function
         else:
@@ -452,80 +444,87 @@ class UnifiedGraphBuilder:
             wrapped_function = function
         
         # 然后包装迭代管理（如果启用）
-        if self.enable_iteration_management and self.iteration_manager is not None:
-            # 使用类型断言确保iteration_manager不是None
-            iteration_manager = self.iteration_manager
-            
-            def iteration_wrapped_function(state: Union[WorkflowState, Dict[str, Any]]) -> Any:
-                """迭代管理包装的节点函数"""
-                # 记录开始时间
-                start_time = datetime.now()
-                
-                try:
-                    # 检查迭代限制
-                    if not iteration_manager.check_limits(state, node_name):
-                        logger.info(f"节点 {node_name} 达到迭代限制，提前终止")
-                        # 返回表明工作流已完成的状态
-                        completed_state = dict(state)
-                        completed_state['complete'] = True
-                        return completed_state
-
-                    # 执行包装函数
-                    result = wrapped_function(state)
-                    
-                    # 确保结果是字典格式
-                    if not isinstance(result, dict):
-                        # 如果结果不是字典，尝试将其转换为字典
-                        if hasattr(result, '__dict__'):
-                            result = result.__dict__
-                        else:
-                            # 如果无法转换，则使用原始状态
-                            result = state
-                    
-                    # 记录结束时间
-                    end_time = datetime.now()
-                    
-                    # 更新迭代计数
-                    # 确保结果中包含原始状态信息
-                    updated_result = dict(state, **result)  # 合并原始状态和结果
-                    updated_result = iteration_manager.record_and_increment(
-                        updated_result,
-                        node_name,
-                        start_time,
-                        end_time,
-                        status='SUCCESS'
-                    )
-                    
-                    return updated_result
-                    
-                except Exception as e:
-                    logger.error(f"节点 {node_name} 执行失败: {e}")
-                    
-                    # 记录结束时间
-                    end_time = datetime.now()
-                    
-                    # 即使出错也要记录迭代
-                    error_result = dict(state)
-                    error_result = iteration_manager.record_and_increment(
-                        error_result,
-                        node_name,
-                        start_time,
-                        end_time,
-                        status='FAILURE',
-                        error=str(e)
-                    )
-                    
-                    # 添加错误信息到状态
-                    errors = error_result.get('errors', [])
-                    errors.append(f"节点 {node_name} 执行失败: {str(e)}")
-                    error_result['errors'] = errors
-                    
-                    return error_result
-            
-            return iteration_wrapped_function
-        else:
-            # 如果不启用迭代管理，直接返回状态包装的函数
-            return wrapped_function
+        # if self.enable_iteration_management and self.iteration_manager is not None:
+        #     # 使用类型断言确保iteration_manager不是None
+        #     iteration_manager = self.iteration_manager
+        #     
+        #     def iteration_wrapped_function(state: Union[WorkflowState, Dict[str, Any]]) -> Any:
+        #         """迭代管理包装的节点函数"""
+        #         # 记录开始时间
+        #         start_time = datetime.now()
+        #         
+        #         try:
+        #             # 检查迭代限制
+        #             if not iteration_manager.check_limits(state, node_name):
+        #                 logger.info(f"节点 {node_name} 达到迭代限制，提前终止")
+        #                 # 返回表明工作流已完成的状态
+        #                 completed_state = dict(state)
+        #                 completed_state['complete'] = True
+        #                 return completed_state
+        #
+        #             # 执行包装函数
+        #             result = wrapped_function(state)
+        #             
+        #             # 确保结果是字典格式
+        #             if not isinstance(result, dict):
+        #                 # 如果结果不是字典，尝试将其转换为字典
+        #                 if hasattr(result, '__dict__'):
+        #                     result = result.__dict__
+        #                 else:
+        #                     # 如果无法转换，则使用原始状态
+        #                     result = state
+        #             
+        #             # 记录结束时间
+        #             end_time = datetime.now()
+        #             
+        #             # 更新迭代计数
+        #             # 确保结果中包含原始状态信息
+        #             if isinstance(state, dict) and isinstance(result, dict):
+        #                 updated_result = {**state, **result}  # 合并原始状态和结果
+        #             else:
+        #                 updated_result = result
+        #             
+        #             # updated_result = iteration_manager.record_and_increment(
+        #             #     updated_result,
+        #             #     node_name,
+        #             #     start_time,
+        #             #     end_time,
+        #             #     status='SUCCESS'
+        #             # )
+        #             
+        #             return updated_result
+        #             
+        #         except Exception as e:
+        #             logger.error(f"节点 {node_name} 执行失败: {e}")
+        #             
+        #             # 记录结束时间
+        #             end_time = datetime.now()
+        #             
+        #             # 即使出错也要记录迭代
+        #             error_result = dict(state)
+        #             # error_result = iteration_manager.record_and_increment(
+        #             #     error_result,
+        #             #     node_name,
+        #             #     start_time,
+        #             #     end_time,
+        #             #     status='FAILURE',
+        #             #     error=str(e)
+        #             # )
+        #             
+        #             # 添加错误信息到状态
+        #             errors = error_result.get('errors', [])
+        #             errors.append(f"节点 {node_name} 执行失败: {str(e)}")
+        #             error_result['errors'] = errors
+        #             
+        #             return error_result
+        #     
+        #     return iteration_wrapped_function
+        # else:
+        #     # 如果不启用迭代管理，直接返回状态包装的函数
+        #     return wrapped_function
+        
+        # 迭代管理功能暂未启用，直接返回状态包装的函数
+        return wrapped_function
     
     def _get_checkpointer(self, config: GraphConfig) -> Optional[Any]:
         """获取检查点

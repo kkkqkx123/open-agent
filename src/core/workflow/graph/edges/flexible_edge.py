@@ -7,9 +7,9 @@ from typing import Dict, Any, Optional, List, Callable
 from dataclasses import dataclass
 import logging
 
-from ..config import EdgeConfig
-from ..states.workflow import WorkflowState
-from ..route_functions import RouteFunctionManager
+from src.core.workflow.graph.route_functions import RouteFunctionManager
+from src.core.workflow.states.workflow import WorkflowState
+from src.core.workflow.config.config import EdgeConfig, EdgeType
 
 logger = logging.getLogger(__name__)
 
@@ -96,8 +96,9 @@ class FlexibleConditionalEdge:
         # 创建包装函数，注入参数
         def wrapped_route_function(state: WorkflowState) -> str:
             # 将路由参数注入到状态中
+            state_dict = dict(state) if isinstance(state, dict) else state.__dict__
             enhanced_state = {
-                **state,
+                **state_dict,
                 "_route_parameters": self.route_parameters
             }
             return base_route_function(enhanced_state)
@@ -120,7 +121,6 @@ class FlexibleConditionalEdge:
         Raises:
             ValueError: 配置类型不匹配或缺少必要字段
         """
-        from ..config import EdgeType
         
         if config.type != EdgeType.CONDITIONAL:
             raise ValueError(f"配置类型不匹配，期望 conditional，实际 {config.type.value}")
@@ -154,7 +154,6 @@ class FlexibleConditionalEdge:
         Returns:
             EdgeConfig: 边配置
         """
-        from ..config import EdgeType
         return EdgeConfig(
             from_node=self.from_node,
             to_node="",  # 灵活条件边不指定目标节点
