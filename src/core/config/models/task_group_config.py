@@ -5,7 +5,7 @@ from pydantic import Field, field_validator, model_validator
 from dataclasses import dataclass, field
 from enum import Enum
 
-from ..base import BaseConfig
+from .base import BaseConfig
 from .retry_timeout_config import RetryTimeoutConfig, TimeoutConfig
 
 

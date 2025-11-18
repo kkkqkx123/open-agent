@@ -3,13 +3,17 @@
 基于优化分析，采用平衡方案设计
 """
 
-from .config_manager import ConfigManager
+from .config_manager import ConfigManager, ConfigRegistry
 from .models import (
     BaseConfig,
     LLMConfig,
     ToolConfig,
     ToolSetConfig,
-    GlobalConfig
+    GlobalConfig,
+    ConfigType,
+    ConfigMetadata,
+    ConfigInheritance,
+    ValidationRule,
 )
 from .exceptions import (
     ConfigError,
@@ -20,11 +24,16 @@ from .exceptions import (
 
 __all__ = [
     "ConfigManager",
+    "ConfigRegistry",
     "BaseConfig",
     "LLMConfig", 
     "ToolConfig",
     "ToolSetConfig",
     "GlobalConfig",
+    "ConfigType",
+    "ConfigMetadata",
+    "ConfigInheritance",
+    "ValidationRule",
     "ConfigError",
     "ConfigNotFoundError", 
     "ConfigValidationError",

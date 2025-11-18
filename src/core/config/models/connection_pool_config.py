@@ -2,7 +2,7 @@
 
 from typing import Optional
 from pydantic import Field
-from ..base import BaseConfig
+from .base import BaseConfig
 
 
 class ConnectionPoolConfig(BaseConfig):

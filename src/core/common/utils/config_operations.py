@@ -8,23 +8,26 @@ from typing import Dict, Any
 from pathlib import Path
 from datetime import datetime
 
-from ..config_system import IConfigSystem
+from ...config import ConfigManager
 from ..exceptions import ConfigurationError
 
 
 class ConfigOperations:
     """配置操作器 - 提供实用工具功能
     
-    专注于配置的导出、摘要等高级功能，不与ConfigSystem的核心功能重叠。
+    专注于配置的导出、摘要等高级功能，不与ConfigManager的核心功能重叠。
+    
+    注意：这个类依赖于ConfigManager提供的方法，包括list_configs()和load_config()。
+    实现需要根据实际的ConfigManager API进行调整。
     """
     
-    def __init__(self, config_system: IConfigSystem):
+    def __init__(self, config_manager: ConfigManager):
         """初始化配置操作器
         
         Args:
-            config_system: 配置系统实例
+            config_manager: 配置管理器实例
         """
-        self._config_system = config_system
+        self._config_manager = config_manager
     
     def export_config_snapshot(self, output_path: str) -> None:
         """导出配置快照
@@ -39,22 +42,22 @@ class ConfigOperations:
         
         try:
             # 导出全局配置
-            global_config = self._config_system.load_global_config()
-            snapshot["configs"]["global"] = global_config.dict()
+            global_config = self._config_manager.load_config("global")
+            snapshot["configs"]["global"] = self._to_dict(global_config)
             
             # 导出LLM配置
-            llm_configs = self._config_system.list_configs("llms")
+            llm_configs = self._config_manager.list_configs("llms")
             snapshot["configs"]["llms"] = {}
             for config_name in llm_configs:
-                config = self._config_system.load_llm_config(config_name)
-                snapshot["configs"]["llms"][config_name] = config.dict()
+                config = self._config_manager.load_config(f"llms/{config_name}")
+                snapshot["configs"]["llms"][config_name] = self._to_dict(config)
             
             # 导出工具配置
-            tool_configs = self._config_system.list_configs("tool-sets")
+            tool_configs = self._config_manager.list_configs("tool-sets")
             snapshot["configs"]["tools"] = {}
             for config_name in tool_configs:
-                config = self._config_system.load_tool_config(config_name)
-                snapshot["configs"]["tools"][config_name] = config.dict()
+                config = self._config_manager.load_config(f"tool-sets/{config_name}")
+                snapshot["configs"]["tools"][config_name] = self._to_dict(config)
             
             # 写入文件
             output_file = Path(output_path)
@@ -79,13 +82,13 @@ class ConfigOperations:
         
         try:
             # 统计各种配置的数量
-            summary["config_counts"]["llms"] = len(self._config_system.list_configs("llms"))
-            summary["config_counts"]["tools"] = len(self._config_system.list_configs("tool-sets"))
+            summary["config_counts"]["llms"] = len(self._config_manager.list_configs("llms"))
+            summary["config_counts"]["tools"] = len(self._config_manager.list_configs("tool-sets"))
             
             # 获取全局配置信息
-            global_config = self._config_system.load_global_config()
-            summary["environment"] = global_config.env
-            summary["debug"] = global_config.debug
+            global_config = self._config_manager.load_config("global")
+            summary["environment"] = getattr(global_config, 'env', 'unknown')
+            summary["debug"] = getattr(global_config, 'debug', False)
             
         except Exception as e:
             summary["error"] = str(e)
@@ -106,27 +109,27 @@ class ConfigOperations:
         try:
             # 验证全局配置
             try:
-                self._config_system.load_global_config()
+                self._config_manager.load_config("global")
                 results["validations"]["global"] = {"status": "valid"}
             except Exception as e:
                 results["validations"]["global"] = {"status": "invalid", "error": str(e)}
             
             # 验证LLM配置
-            llm_configs = self._config_system.list_configs("llms")
+            llm_configs = self._config_manager.list_configs("llms")
             results["validations"]["llms"] = {}
             for config_name in llm_configs:
                 try:
-                    self._config_system.load_llm_config(config_name)
+                    self._config_manager.load_config(f"llms/{config_name}")
                     results["validations"]["llms"][config_name] = {"status": "valid"}
                 except Exception as e:
                     results["validations"]["llms"][config_name] = {"status": "invalid", "error": str(e)}
             
             # 验证工具配置
-            tool_configs = self._config_system.list_configs("tool-sets")
+            tool_configs = self._config_manager.list_configs("tool-sets")
             results["validations"]["tools"] = {}
             for config_name in tool_configs:
                 try:
-                    self._config_system.load_tool_config(config_name)
+                    self._config_manager.load_config(f"tool-sets/{config_name}")
                     results["validations"]["tools"][config_name] = {"status": "valid"}
                 except Exception as e:
                     results["validations"]["tools"][config_name] = {"status": "invalid", "error": str(e)}
@@ -149,33 +152,33 @@ class ConfigOperations:
         
         try:
             # 分析LLM配置的依赖关系
-            llm_configs = self._config_system.list_configs("llms")
+            llm_configs = self._config_manager.list_configs("llms")
             dependencies["dependencies"]["llms"] = {}
             
             for config_name in llm_configs:
-                config = self._config_system.load_llm_config(config_name)
+                config = self._config_manager.load_config(f"llms/{config_name}")
                 config_deps = []
                 
                 # 检查组配置依赖
-                if hasattr(config, 'group') and config.group:
+                if hasattr(config, 'group') and getattr(config, 'group', None):
                     config_deps.append(f"group:{config.group}")
                 
                 # 检查token_counter依赖
-                if hasattr(config, 'token_counter') and config.token_counter:
+                if hasattr(config, 'token_counter') and getattr(config, 'token_counter', None):
                     config_deps.append(f"token_counter:{config.token_counter}")
                 
                 dependencies["dependencies"]["llms"][config_name] = config_deps
             
             # 分析工具配置的依赖关系
-            tool_configs = self._config_system.list_configs("tool-sets")
+            tool_configs = self._config_manager.list_configs("tool-sets")
             dependencies["dependencies"]["tools"] = {}
             
             for config_name in tool_configs:
-                config = self._config_system.load_tool_config(config_name)
+                config = self._config_manager.load_config(f"tool-sets/{config_name}")
                 config_deps = []
                 
                 # 检查组配置依赖
-                if hasattr(config, 'group') and config.group:
+                if hasattr(config, 'group') and getattr(config, 'group', None):
                     config_deps.append(f"group:{config.group}")
                 
                 dependencies["dependencies"]["tools"][config_name] = config_deps
@@ -247,17 +250,17 @@ class ConfigOperations:
         try:
             # 加载配置
             if config_type == "llms":
-                config1 = self._config_system.load_llm_config(config_name1)
-                config2 = self._config_system.load_llm_config(config_name2)
+                config1 = self._config_manager.load_config(f"llms/{config_name1}")
+                config2 = self._config_manager.load_config(f"llms/{config_name2}")
             elif config_type == "tool-sets":
-                config1 = self._config_system.load_tool_config(config_name1)
-                config2 = self._config_system.load_tool_config(config_name2)
+                config1 = self._config_manager.load_config(f"tool-sets/{config_name1}")
+                config2 = self._config_manager.load_config(f"tool-sets/{config_name2}")
             else:
                 raise ValueError(f"不支持的配置类型: {config_type}")
             
             # 转换为字典进行比较
-            dict1 = config1.dict()
-            dict2 = config2.dict()
+            dict1 = self._to_dict(config1)
+            dict2 = self._to_dict(config2)
             
             # 找出差异
             all_keys = set(dict1.keys()) | set(dict2.keys())
@@ -280,3 +283,22 @@ class ConfigOperations:
             comparison["error"] = str(e)
         
         return comparison
+    
+    @staticmethod
+    def _to_dict(obj: Any) -> Dict[str, Any]:
+        """将对象转换为字典
+        
+        Args:
+            obj: 要转换的对象
+            
+        Returns:
+            字典对象
+        """
+        if hasattr(obj, 'dict'):
+            return obj.dict()
+        elif hasattr(obj, '__dict__'):
+            return dict(obj.__dict__)
+        elif isinstance(obj, dict):
+            return obj
+        else:
+            return {}

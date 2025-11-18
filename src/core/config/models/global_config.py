@@ -3,7 +3,7 @@
 from typing import List, Dict, Any, Optional
 from pydantic import Field, field_validator
 
-from ..base import BaseConfig
+from .base import BaseConfig
 from .checkpoint_config import CheckpointConfig
 
 

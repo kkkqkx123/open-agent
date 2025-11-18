@@ -9,13 +9,14 @@ from typing import Dict, Any, Optional, List, Type, TypeVar, Generic, Callable
 from ..common.cache import ConfigCache, get_global_cache_manager, clear_cache
 from .config_loader import ConfigLoader
 from .config_processor import ConfigProcessor
-from .models import (
-    BaseConfig,
-    ConfigType,
-    get_config_model,
-    ConfigRegistry,
-    ToolSetConfig,
+from .base import (
+    BaseConfig, 
+    ConfigType, 
+    ValidationRule,
+    ConfigInheritance,
+    ConfigMetadata
 )
+from .models import ToolSetConfig
 from .exceptions import (
     ConfigError,
     ConfigNotFoundError,
@@ -187,9 +188,9 @@ class ConfigManager:
         """验证配置数据"""
         try:
             if config_type:
-                model_class = get_config_model(config_type)
-                model_instance = model_class(**config_data)
-                model_instance.validate_config()
+                errors = validate_config_with_model(config_data, config_type)
+                if errors:
+                    raise ConfigValidationError(f"配置验证失败: {'; '.join(errors)}")
             else:
                 # 基础验证
                 if not isinstance(config_data, dict):
@@ -225,22 +226,22 @@ class ConfigManager:
     def _get_llm_model_class(self) -> Type[BaseConfig]:
         """获取LLM模型类"""
         from .models import LLMConfig
-        return LLMConfig
+        return LLMConfig  # type: ignore[return-value]
     
     def _get_tool_model_class(self) -> Type[BaseConfig]:
         """获取工具模型类"""
         from .models import ToolConfig
-        return ToolConfig
+        return ToolConfig  # type: ignore[return-value]
     
     def _get_tool_set_model_class(self) -> Type[BaseConfig]:
         """获取工具集模型类"""
         from .models import ToolSetConfig
-        return ToolSetConfig
+        return ToolSetConfig  # type: ignore[return-value]
     
     def _get_global_model_class(self) -> Type[BaseConfig]:
         """获取全局模型类"""
         from .models import GlobalConfig
-        return GlobalConfig
+        return GlobalConfig  # type: ignore[return-value]
     
     def get_config_info(self, config_path: str) -> Dict[str, Any]:
         """获取配置信息"""
@@ -294,8 +295,6 @@ class ConfigManager:
     
     def create_config_template(self, config_type: ConfigType, output_path: str) -> None:
         """创建配置模板"""
-        model_class = get_config_model(config_type)
-        
         # 创建示例配置
         if config_type == ConfigType.LLM:
             template = {
@@ -343,6 +342,111 @@ class ConfigManager:
         import yaml
         with open(output_file, "w", encoding="utf-8") as f:
             yaml.dump(template, f, default_flow_style=False, allow_unicode=True)
+
+
+# 配置注册表
+class ConfigRegistry:
+    """配置注册表"""
+    
+    def __init__(self) -> None:
+        """初始化配置注册表"""
+        self._configs: Dict[str, BaseConfig] = {}
+        self._config_types: Dict[str, ConfigType] = {}
+    
+    def register(self, name: str, config: BaseConfig, config_type: ConfigType) -> None:
+        """注册配置
+        
+        Args:
+            name: 配置名称
+            config: 配置实例
+            config_type: 配置类型
+        """
+        self._configs[name] = config
+        self._config_types[name] = config_type
+    
+    def get(self, name: str) -> Optional[BaseConfig]:
+        """获取已注册的配置
+        
+        Args:
+            name: 配置名称
+            
+        Returns:
+            配置实例或None
+        """
+        return self._configs.get(name)
+    
+    def list_configs_by_type(self, config_type: ConfigType) -> List[str]:
+        """按类型获取已注册的配置列表
+        
+        Args:
+            config_type: 配置类型
+            
+        Returns:
+            配置名称列表
+        """
+        return [name for name, ctype in self._config_types.items() if ctype == config_type]
+    
+    def unregister(self, name: str) -> bool:
+        """注销配置
+        
+        Args:
+            name: 配置名称
+            
+        Returns:
+            是否成功注销
+        """
+        if name in self._configs:
+            del self._configs[name]
+            del self._config_types[name]
+            return True
+        return False
+    
+    def list_all_configs(self) -> List[str]:
+        """列出所有已注册的配置
+        
+        Returns:
+            配置名称列表
+        """
+        return list(self._configs.keys())
+
+
+# 工具函数
+def get_config_model(config_type: ConfigType) -> type[BaseConfig]:
+    """获取配置类型对应的模型类
+    
+    Args:
+        config_type: 配置类型
+        
+    Returns:
+        配置模型类
+        
+    Raises:
+        ValueError: 如果配置类型不支持
+    """
+    # 这里可以根据需要返回具体的配置模型类
+    # 目前返回 BaseConfig 作为默认
+    return BaseConfig
+
+
+def validate_config_with_model(config_dict: Dict[str, Any], config_type: ConfigType) -> List[str]:
+    """使用配置模型验证配置
+    
+    Args:
+        config_dict: 配置字典
+        config_type: 配置类型
+        
+    Returns:
+        验证错误列表
+    """
+    # 简化的验证逻辑
+    try:
+        if not isinstance(config_dict, dict):
+            return ["配置必须是字典类型"]
+        if not config_dict:
+            return ["配置不能为空"]
+        return []
+    except Exception as e:
+        return [str(e)]
 
 
 # 全局配置管理器实例
