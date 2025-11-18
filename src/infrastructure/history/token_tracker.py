@@ -3,7 +3,7 @@ from typing import Dict, Any, List, Optional, Sequence
 from langchain_core.messages import BaseMessage
 
 from src.domain.history import TokenUsageRecord, LLMRequestRecord, LLMResponseRecord
-from src.core.llm.token_calculators.base import ITokenCalculator
+from src.services.llm.token_calculation_service import TokenCalculationService
 from src.domain.history.interfaces import IHistoryManager
 from .session_context import get_current_session as get_current_session_id
 
@@ -17,9 +17,11 @@ def generate_id() -> str:
 class TokenUsageTracker:
     """Token使用追踪器"""
     
-    def __init__(self, token_counter: ITokenCalculator, history_manager: IHistoryManager):
+    def __init__(self, token_counter: TokenCalculationService, history_manager: IHistoryManager, model_type: str = "openai", model_name: str = "gpt-3.5-turbo"):
         self.token_counter = token_counter
         self.history_manager = history_manager
+        self.model_type = model_type
+        self.model_name = model_name
         self.usage_history: List[TokenUsageRecord] = []
     
     def track_request(self, messages: Sequence[BaseMessage],
@@ -37,7 +39,7 @@ class TokenUsageTracker:
             TokenUsageRecord: Token使用记录
         """
         # 计算token使用量
-        total_tokens = self.token_counter.count_messages_tokens(messages) or 0
+        total_tokens = self.token_counter.calculate_messages_tokens(messages, self.model_type, self.model_name) or 0
         
         # 创建使用记录
         record = TokenUsageRecord(
@@ -111,7 +113,7 @@ class TokenUsageTracker:
         Returns:
             int: 估算的Token数量
         """
-        return self.token_counter.count_messages_tokens(messages) or 0
+        return self.token_counter.calculate_messages_tokens(messages, self.model_type, self.model_name) or 0
     
     def get_session_token_usage(self, session_id: str) -> Dict[str, Any]:
         """

@@ -11,7 +11,6 @@ from langchain_anthropic import ChatAnthropic
 from .base import BaseLLMClient
 from ..models import LLMResponse, TokenUsage
 from ..config import AnthropicConfig
-from ..token_counter import TokenCounterFactory
 from ..exceptions import (
     LLMCallError,
     LLMTimeoutError,

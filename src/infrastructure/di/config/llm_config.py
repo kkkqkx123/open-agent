@@ -9,6 +9,7 @@ from typing import Dict, Type
 from src.infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
 from src.core.llm.config_manager import LLMConfigManager
+from src.services.llm.token_calculation_service import TokenCalculationService
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,13 @@ class LLMConfigRegistration:
             lifetime=ServiceLifetime.SINGLETON
         )
         
+        # 注册Token计算服务
+        container.register_factory(
+            TokenCalculationService,
+            lambda: TokenCalculationService(),
+            lifetime=ServiceLifetime.SINGLETON
+        )
+        
         logger.debug("LLM系统服务注册完成")
     
     @staticmethod
@@ -52,4 +60,5 @@ class LLMConfigRegistration:
         """
         return {
             "llm_config_manager": LLMConfigManager,
+            "token_calculation_service": TokenCalculationService,
         }

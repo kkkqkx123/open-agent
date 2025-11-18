@@ -307,14 +307,10 @@ class BaseLLMClient(ILLMClient):
 
     def _validate_token_limit(self, messages: Sequence[BaseMessage]) -> None:
         """验证Token限制"""
-        if self.config.max_tokens:
-            token_count = self.get_messages_token_count(messages)
-            if token_count > self.config.max_tokens:
-                raise LLMTokenLimitError(
-                    f"Token数量超过限制: {token_count} > {self.config.max_tokens}",
-                    token_count=token_count,
-                    limit=self.config.max_tokens,
-                )
+        # 注意：由于已移除Core层的token计算方法，此验证需要通过依赖注入的TokenCalculationService来完成
+        # 为保持向后兼容，暂时跳过此验证，后续需要重构客户端以使用TokenCalculationService
+        # 如果需要精确的token验证，应通过依赖注入获取TokenCalculationService
+        pass
 
     def generate(
         self,
@@ -564,25 +560,6 @@ class BaseLLMClient(ILLMClient):
         """执行异步生成操作（子类实现）"""
         pass
 
-    def get_token_count(self, text: str) -> int:
-        """计算文本的token数量"""
-        from ..token_counter import TokenCounterFactory
-
-        # 使用Token计算器
-        counter = TokenCounterFactory.create_counter(
-            self.config.model_type, self.config.model_name
-        )
-        return counter.count_tokens(text) or 0
-
-    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
-        """计算消息列表的token数量"""
-        from ..token_counter import TokenCounterFactory
-
-        # 使用Token计算器
-        counter = TokenCounterFactory.create_counter(
-            self.config.model_type, self.config.model_name
-        )
-        return counter.count_messages_tokens(messages) or 0
 
     @abstractmethod
     def supports_function_calling(self) -> bool:

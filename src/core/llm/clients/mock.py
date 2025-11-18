@@ -145,21 +145,6 @@ class MockLLMClient(BaseLLMClient):
         except Exception as e:
             raise self._handle_mock_error(e)
 
-    def get_token_count(self, text: str) -> int:
-        """计算文本的token数量"""
-        from ..token_counter import TokenCounterFactory
-
-        # 使用Token计算器
-        counter = TokenCounterFactory.create_counter("mock", self.config.model_name)
-        return counter.count_tokens(text) or 0
-
-    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
-        """计算消息列表的token数量"""
-        from ..token_counter import TokenCounterFactory
-
-        # 使用Token计算器
-        counter = TokenCounterFactory.create_counter("mock", self.config.model_name)
-        return counter.count_messages_tokens(messages) or 0
 
     def supports_function_calling(self) -> bool:
         """检查是否支持函数调用"""
@@ -283,8 +268,8 @@ class MockLLMClient(BaseLLMClient):
 
     def _estimate_token_usage(self, content: str) -> TokenUsage:
         """估算Token使用情况"""
-        # 简单估算
-        content_tokens = self.get_token_count(content)
+        # 简单估算：使用字符数除以4作为token数（常见的估算方法）
+        content_tokens = len(content) // 4
 
         # 估算输入token（假设输入和输出长度相似）
         prompt_tokens = max(content_tokens, 10)

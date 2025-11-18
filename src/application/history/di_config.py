@@ -13,7 +13,7 @@ from src.domain.history.cost_calculator import CostCalculator
 from src.application.history.manager import HistoryManager
 from infrastructure.history.token_tracker import TokenUsageTracker
 from src.infrastructure.history.storage.file_storage import FileHistoryStorage
-from src.core.llm.token_calculators.base import ITokenCalculator
+from src.services.llm.token_calculation_service import TokenCalculationService
 from src.core.llm.interfaces import ILLMCallHook
 
 
@@ -55,7 +55,7 @@ def register_history_services(container: IDependencyContainer, config: Dict[str,
 def register_history_services_with_dependencies(
     container: IDependencyContainer,
     config: Dict[str, Any],
-    token_calculator: ITokenCalculator
+    token_calculator: TokenCalculationService
 ) -> None:
     """注册历史管理相关服务（带依赖）
     
@@ -96,7 +96,9 @@ def register_history_services_with_dependencies(
         TokenUsageTracker,
         lambda: TokenUsageTracker(
             token_counter=token_calculator,
-            history_manager=container.get(IHistoryManager)
+            history_manager=container.get(IHistoryManager),
+            model_type="openai",  # 默认模型类型
+            model_name="gpt-3.5-turbo"  # 默认模型名称
         ),
         lifetime="singleton"
     )

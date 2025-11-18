@@ -229,39 +229,6 @@ class LightweightResponsesClient(ResponsesAPIClient):
         
         return _async_generator()
     
-    def get_token_count(self, text: str) -> int:
-        """
-        计算文本 token 数量
-        
-        Args:
-            text: 输入文本
-            
-        Returns:
-            int: token 数量
-        """
-        from ...token_counter import TokenCounterFactory
-        
-        # 使用 Token 计算器
-        counter = TokenCounterFactory.create_counter("openai", self.config.model_name)
-        result = counter.count_tokens(text)
-        return result if result is not None else 0
-    
-    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
-        """
-        计算消息列表 token 数量
-        
-        Args:
-            messages: 消息列表
-            
-        Returns:
-            int: token 数量
-        """
-        from ...token_counter import TokenCounterFactory
-        
-        # 使用 Token 计算器
-        counter = TokenCounterFactory.create_counter("openai", self.config.model_name)
-        result = counter.count_messages_tokens(list(messages))
-        return result if result is not None else 0
     
     def _get_previous_response_id(self) -> Optional[str]:
         """
