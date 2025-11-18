@@ -6,9 +6,12 @@
 import logging
 from typing import Dict, Any, List, Optional
 
-from .interfaces import IStateStorageAdapter, IStorageAdapterFactory
+from src.core.state.interfaces import IStateStorageAdapter, IStorageAdapterFactory
 from .memory import MemoryStateStorageAdapter
 from .sqlite import SQLiteStateStorageAdapter
+
+# 确保可以导出
+__all__ = ['StorageAdapterFactory', 'StorageAdapterManager', 'get_storage_factory', 'get_storage_manager', 'create_storage_adapter']
 
 
 logger = logging.getLogger(__name__)
@@ -165,16 +168,16 @@ class StorageAdapterFactory(IStorageAdapterFactory):
             "default_config": self._default_configs.get(storage_type, {})
         }
     
-    def get_all_adapter_info(self) -> Dict[str, Dict[str, Any]]:
+    def get_all_adapter_info(self) -> Dict[str, Optional[Dict[str, Any]]]:
         """获取所有适配器信息
         
         Returns:
             所有适配器信息
         """
-        return {
-            storage_type: self.get_adapter_info(storage_type)
-            for storage_type in self._adapter_registry.keys()
-        }
+        result: Dict[str, Optional[Dict[str, Any]]] = {}
+        for storage_type in self._adapter_registry.keys():
+            result[storage_type] = self.get_adapter_info(storage_type)
+        return result
 
 
 class StorageAdapterManager:

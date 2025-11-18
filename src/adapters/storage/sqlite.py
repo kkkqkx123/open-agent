@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from .interfaces import IStateStorageAdapter
+from src.core.state.interfaces import IStateStorageAdapter
 from src.core.state.entities import StateSnapshot, StateHistoryEntry
 
 
