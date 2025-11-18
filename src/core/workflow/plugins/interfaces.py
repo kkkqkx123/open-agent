@@ -7,11 +7,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from dataclasses import dataclass, field
 from enum import Enum
-
-if TYPE_CHECKING:
-    from ..states import WorkflowState
-    from ..registry import NodeExecutionResult
-
+from ..states import WorkflowState
+from ..registry import NodeExecutionResult
 
 class PluginType(Enum):
     """插件类型枚举"""

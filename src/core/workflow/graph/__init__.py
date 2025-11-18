@@ -23,7 +23,6 @@ from .registry import (
     list_node_types
 )
 from .nodes import (
-    BaseNode,
     LLMNode,
     ToolNode,
     AnalysisNode,
@@ -62,7 +61,6 @@ __all__ = [
     "list_node_types",
     
     # Nodes
-    "BaseNode",
     "LLMNode",
     "ToolNode",
     "AnalysisNode",

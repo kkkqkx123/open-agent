@@ -8,8 +8,8 @@ from typing import Any, Dict, Optional, Callable, Awaitable, Union, cast
 from abc import ABC, abstractmethod
 
 from src.core.workflow.config.config import GraphConfig
-from src.core.states import WorkflowState, update_state_with_message, BaseMessage, LCBaseMessage, AIMessage
-from src.core.workflow.registry.registry import NodeRegistry, get_global_registry
+from src.core.workflow.states import WorkflowState, update_state_with_message, BaseMessage, LCBaseMessage, AIMessage
+from core.workflow.graph.nodes.registry import NodeRegistry, get_global_registry
 from src.adapters.workflow.state_adapter import StateAdapter
 from src.infrastructure.async_utils.event_loop_manager import AsyncLock, AsyncContextManager
 from typing import TYPE_CHECKING

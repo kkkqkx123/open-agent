@@ -3,14 +3,15 @@
 负责分析用户输入和上下文，判断是否需要调用工具，并生成相应的响应。
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union
 from dataclasses import dataclass
 
-from ..registry import BaseNode, NodeExecutionResult, node
-from ..states import WorkflowState
+from .registry import BaseNode, NodeExecutionResult, node
+from ...states import WorkflowState
 from src.core.llm.interfaces import ILLMClient
-from src.infrastructure.container import IDependencyContainer
-from ..node_config_loader import get_node_config_loader
+from src.infrastructure.container_interfaces import IDependencyContainer
+from src.services.workflow.node_config_loader import get_node_config_loader
+from langchain_core.messages import AIMessage, SystemMessage
 
 
 @node("analysis_node")
@@ -68,14 +69,12 @@ class AnalysisNode(BaseNode):
         )
         
         # 更新状态 - 添加LLM响应到消息列表
-        from langchain_core.messages import AIMessage  # type: ignore
-        
         ai_message = AIMessage(content=response.content)
         
         # 安全地更新消息列表
-        if "messages" not in state:
-            state["messages"] = []
-        state["messages"].append(ai_message)
+        if state.get("messages") is None:
+            state.set_value("messages", [])
+        state.get("messages", []).append(ai_message)
         
         # 分析响应，确定下一步
         next_node = self._determine_next_node(response, config)
@@ -131,7 +130,7 @@ class AnalysisNode(BaseNode):
     def _get_default_system_prompt(self) -> str:
         """获取默认系统提示词"""
         config_loader = get_node_config_loader()
-        return config_loader.get_config_value(
+        result = config_loader.get_config_value(
             self.node_type,
             "system_prompt",
             """你是一个智能助手，负责分析用户输入并决定是否需要调用工具。
@@ -143,8 +142,10 @@ class AnalysisNode(BaseNode):
 
 分析用户意图后，选择最合适的行动。"""
         )
+        # 确保返回字符串类型
+        return str(result) if result is not None else ""
 
-    def _prepare_messages(self, state: WorkflowState, system_prompt: str) -> list:
+    def _prepare_messages(self, state: WorkflowState, system_prompt: str) -> List[Union[SystemMessage, Any]]:
         """准备发送给LLM的消息
 
         Args:
@@ -152,28 +153,27 @@ class AnalysisNode(BaseNode):
             system_prompt: 系统提示词
 
         Returns:
-            list: 消息列表
+            List[Union[SystemMessage, Any]]: 消息列表
         """
         messages = []
         
         # 添加系统消息
-        from langchain_core.messages import SystemMessage  # type: ignore
         messages.append(SystemMessage(content=system_prompt))
         
         # 添加历史消息
-        if "messages" in state and state["messages"]:
-            messages.extend(state["messages"])
+        if state.get("messages") is not None and state.get("messages"):
+            messages.extend(state.get("messages", []))
         
         return messages
 
-    def _get_tool_functions(self, config: Dict[str, Any]) -> Optional[list]:
+    def _get_tool_functions(self, config: Dict[str, Any]) -> Optional[List]:
         """获取工具函数定义
 
         Args:
             config: 节点配置
 
         Returns:
-            Optional[list]: 工具函数定义列表
+            Optional[List]: 工具函数定义列表
         """
         available_tools = config.get("available_tools", [])
         if not available_tools:

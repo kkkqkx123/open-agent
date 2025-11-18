@@ -3,17 +3,16 @@
 负责调用LLM生成最终答案或执行其他LLM相关任务。
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union, cast
 from dataclasses import dataclass, field
 import logging
 
-from .base import BaseNode
-from ..interfaces import NodeExecutionResult
-from ..decorators import node
+from .registry import BaseNode, NodeExecutionResult, node
 from ...states import WorkflowState
 from src.core.llm.interfaces import ILLMClient
-from src.core.llm.task_group_manager import TaskGroupManager
-from ..node_config_loader import get_node_config_loader
+from src.services.llm.scheduling.task_group_manager import TaskGroupManager
+from src.services.workflow.node_config_loader import get_node_config_loader
+from langchain_core.messages import AIMessage, SystemMessage
 
 logger = logging.getLogger(__name__)
 
@@ -71,14 +70,12 @@ class LLMNode(BaseNode):
         response = llm_client.generate(messages=messages, parameters=parameters)
         
         # 更新状态 - 添加LLM响应到消息列表
-        from langchain_core.messages import AIMessage  # type: ignore
-        
         ai_message = AIMessage(content=response.content)
         
         # 安全地更新消息列表
-        if "messages" not in state:
-            state["messages"] = []
-        state["messages"].append(ai_message)
+        if state.get("messages") is None:
+            state.set_value("messages", [])
+        state.get("messages", []).append(ai_message)
         
         # 确定下一步
         next_node = self._determine_next_node(response, config)
@@ -185,11 +182,12 @@ class LLMNode(BaseNode):
             base_prompt = self._get_default_system_prompt()
         
         # 添加工具结果（如果配置了）
-        if config.get("include_tool_results", True) and "tool_results" in state and state["tool_results"]:
-            tool_results_text = self._format_tool_results(state["tool_results"])
+        if config.get("include_tool_results", True) and state.get("tool_results"):
+            tool_results_text = self._format_tool_results(state.get("tool_results", []))
             base_prompt += f"\n\n工具执行结果：\n{tool_results_text}"
         
-        return base_prompt
+        # 确保返回字符串类型
+        return str(base_prompt) if base_prompt is not None else ""
 
     def _process_prompt_template(self, template: str, state: WorkflowState, config: Dict[str, Any]) -> str:
         """处理提示词模板
@@ -219,7 +217,7 @@ class LLMNode(BaseNode):
     def _get_default_system_prompt(self) -> str:
         """获取默认系统提示词"""
         config_loader = get_node_config_loader()
-        return config_loader.get_config_value(
+        result = config_loader.get_config_value(
             self.node_type,
             "system_prompt",
             """你是一个智能助手，请根据上下文信息提供准确、有用的回答。
@@ -231,6 +229,8 @@ class LLMNode(BaseNode):
 4. 如果有多个步骤的结果，请按逻辑顺序组织回答
 5. 始终保持友好和专业的语调"""
         )
+        # 确保返回字符串类型
+        return str(result) if result is not None else ""
 
     def _format_tool_results(self, tool_results: List) -> str:
         """格式化工具执行结果
@@ -271,7 +271,7 @@ class LLMNode(BaseNode):
         
         return "\n".join(formatted_results)
 
-    def _prepare_messages(self, state: WorkflowState, system_prompt: str) -> List:
+    def _prepare_messages(self, state: WorkflowState, system_prompt: str) -> List[Union[SystemMessage, Any]]:
         """准备发送给LLM的消息
 
         Args:
@@ -279,12 +279,11 @@ class LLMNode(BaseNode):
             system_prompt: 系统提示词
 
         Returns:
-            List: 消息列表
+            List[Union[SystemMessage, Any]]: 消息列表
         """
         messages = []
         
         # 添加系统消息
-        from langchain_core.messages import SystemMessage  # type: ignore
         messages.append(SystemMessage(content=system_prompt))
         
         # 添加历史消息（考虑上下文窗口大小）
@@ -396,7 +395,7 @@ class LLMNode(BaseNode):
             if wrapper_name:
                 wrapper = self._wrapper_factory.get_wrapper(wrapper_name)
                 if wrapper:
-                    return wrapper
+                    return cast(ILLMClient, wrapper)
         
         # 优先级2: 使用任务组
         if self._task_group_manager and "llm_group" in config:
@@ -462,7 +461,7 @@ class LLMNode(BaseNode):
             # 尝试获取轮询池包装器
             wrapper = self._wrapper_factory.get_wrapper(pool_name)
             if wrapper:
-                return wrapper
+                return cast(ILLMClient, wrapper)
         except Exception as e:
             logger.warning(f"获取轮询池包装器失败 {pool_name}: {e}")
         

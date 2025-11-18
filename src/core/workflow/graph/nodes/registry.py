@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Type, Optional, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field
 
-from .states import WorkflowState
+from ...states import WorkflowState
 
 
 @dataclass

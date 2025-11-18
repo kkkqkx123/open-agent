@@ -5,14 +5,12 @@
 
 import time
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 
-from .base import BaseNode
-from ..interfaces import NodeExecutionResult
-from ..decorators import node
+from .registry import BaseNode, NodeExecutionResult, node
 from ...states import WorkflowState
-from ..plugins.manager import PluginManager
-from ..plugins.interfaces import PluginType, PluginContext
+from ...plugins.manager import PluginManager
+from ...plugins.interfaces import PluginType, PluginContext
 
 
 logger = logging.getLogger(__name__)
@@ -75,29 +73,54 @@ class StartNode(BaseNode):
         
         # 执行START插件
         try:
-            updated_state = self.plugin_manager.execute_plugins(
+            # 将WorkflowState转换为字典，因为插件管理器期望字典类型
+            state_dict = state.to_dict() if hasattr(state, 'to_dict') else state
+            # 确保传递字典类型
+            if not isinstance(state_dict, dict):
+                state_dict = state_dict.to_dict() if hasattr(state_dict, 'to_dict') else {}
+            
+            updated_state_dict = self.plugin_manager.execute_plugins(
                 PluginType.START, 
-                state, 
+                state_dict,  # 确保传递字典类型
                 context
             )
             
+            # 将字典转换回WorkflowState
+            if hasattr(state, 'from_dict'):
+                updated_state = WorkflowState.from_dict(updated_state_dict)
+            else:
+                # 如果没有from_dict方法，直接使用字典
+                updated_state = state  # 保持原始状态类型
+            
             # 添加执行元数据
             execution_time = time.time() - start_time
-            updated_state['start_metadata'] = updated_state.get('start_metadata', {})
-            updated_state['start_metadata'].update({
-                'execution_time': execution_time,
-                'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.START)),
-                'timestamp': start_time,
-                'node_type': self.node_type,
-                'success': True
-            })
+            if isinstance(updated_state, dict):
+                updated_state['start_metadata'] = updated_state.get('start_metadata', {})
+                updated_state['start_metadata'].update({
+                    'execution_time': execution_time,
+                    'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.START)),
+                    'timestamp': start_time,
+                    'node_type': self.node_type,
+                    'success': True
+                })
+            else:
+                # WorkflowState对象
+                start_metadata = updated_state.get_metadata('start_metadata', {})
+                start_metadata.update({
+                    'execution_time': execution_time,
+                    'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.START)),
+                    'timestamp': start_time,
+                    'node_type': self.node_type,
+                    'success': True
+                })
+                updated_state.set_metadata('start_metadata', start_metadata)
             
             logger.info(f"START节点执行完成，耗时 {execution_time:.2f}s")
             
             return NodeExecutionResult(
-                state=updated_state,
+                state=updated_state,  # 确保传递WorkflowState类型
                 next_node=config.get('next_node'),
-                metadata=updated_state.get('start_metadata', {})
+                metadata=updated_state.get('start_metadata', {}) if not isinstance(updated_state, dict) else updated_state.get('start_metadata', {})
             )
             
         except Exception as e:
@@ -105,18 +128,31 @@ class StartNode(BaseNode):
             logger.error(f"START节点执行失败: {e}")
             
             # 添加错误信息到状态
-            state['start_metadata'] = state.get('start_metadata', {})
-            state['start_metadata'].update({
-                'execution_time': execution_time,
-                'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.START)),
-                'timestamp': start_time,
-                'node_type': self.node_type,
-                'success': False,
-                'error': str(e)
-            })
+            if isinstance(state, dict):
+                state['start_metadata'] = state.get('start_metadata', {})
+                state['start_metadata'].update({
+                    'execution_time': execution_time,
+                    'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.START)),
+                    'timestamp': start_time,
+                    'node_type': self.node_type,
+                    'success': False,
+                    'error': str(e)
+                })
+            else:
+                # WorkflowState对象
+                start_metadata = state.get_metadata('start_metadata', {})
+                start_metadata.update({
+                    'execution_time': execution_time,
+                    'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.START)),
+                    'timestamp': start_time,
+                    'node_type': self.node_type,
+                    'success': False,
+                    'error': str(e)
+                })
+                state.set_metadata('start_metadata', start_metadata)
             
             return NodeExecutionResult(
-                state=state,
+                state=state,  # 确保传递WorkflowState类型
                 next_node=config.get('error_next_node', 'error_handler'),
                 metadata={
                     'error': str(e),

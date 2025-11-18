@@ -10,9 +10,9 @@ from datetime import datetime
 import uuid
 import hashlib
 
-from ...core.workflow.config import WorkflowConfig
-from ...core.workflow.exceptions import WorkflowConfigError, WorkflowValidationError
-from ...core.config.interfaces import IConfigLoader
+from src.core.workflow.config import WorkflowConfig
+from src.core.workflow.exceptions import WorkflowConfigError, WorkflowValidationError
+from src.core.config.interfaces import IConfigLoader
 
 logger = logging.getLogger(__name__)
 

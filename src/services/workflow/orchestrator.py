@@ -8,8 +8,8 @@ import uuid
 import logging
 from datetime import datetime
 
-from ..core.workflow.interfaces import IWorkflow, IWorkflowExecutor, IWorkflowState, ExecutionContext
-from ..core.workflow.entities import Workflow, WorkflowExecution, ExecutionResult
+from src.core.workflow.interfaces import IWorkflow, IWorkflowExecutor, IWorkflowState, ExecutionContext
+from src.core.workflow.entities import Workflow, WorkflowExecution, ExecutionResult
 
 
 logger = logging.getLogger(__name__)

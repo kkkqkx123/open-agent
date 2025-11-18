@@ -6,12 +6,10 @@
 from typing import Dict, Any, Optional, List
 import time
 
-from .base import BaseNode
-from ..interfaces import NodeExecutionResult
-from ..decorators import node
+from .registry import BaseNode, NodeExecutionResult, node
 from ...states import WorkflowState
 from src.core.tools.interfaces import ITool, IToolRegistry, ToolCall, ToolResult
-from ..node_config_loader import get_node_config_loader
+from src.services.workflow.node_config_loader import get_node_config_loader
 
 
 @node("tool_node")
@@ -64,8 +62,8 @@ class ToolNode(BaseNode):
         execution_errors = []
         
         # 确保 tool_results 列表存在
-        if "tool_results" not in state:
-            state["tool_results"] = []
+        if state.get("tool_results") is None:
+            state.set_value("tool_results", [])
         
         for tool_call in tool_calls:
             try:
@@ -99,19 +97,22 @@ class ToolNode(BaseNode):
                 tool_results.append(tool_result)
                 
                 # 添加到状态 - 转换为字典格式
-                state["tool_results"].append({
+                current_tool_results = state.get("tool_results", [])
+                current_tool_results.append({
                     "tool_name": tool_result.tool_name,
                     "success": tool_result.success,
                     "output": tool_result.output,
                     "error": tool_result.error,
                     "execution_time": tool_result.execution_time
                 })
+                state.set_value("tool_results", current_tool_results)
                 
             except Exception as e:
                 error_msg = f"工具 '{tool_call.name}' 执行失败: {str(e)}"
                 execution_errors.append(error_msg)
                 
                 # 记录错误结果 - 转换为字典格式
+                current_tool_results = state.get("tool_results", [])
                 error_result = {
                     "tool_name": tool_call.name,
                     "success": False,
@@ -119,15 +120,16 @@ class ToolNode(BaseNode):
                     "error": error_msg,
                     "execution_time": 0
                 }
-                state["tool_results"].append(error_result)
+                current_tool_results.append(error_result)
+                state.set_value("tool_results", current_tool_results)
 
         # 确定下一步
         next_node = self._determine_next_node(tool_results, execution_errors, config)
         
         return NodeExecutionResult(
-            state,
-            next_node,
-            {
+            state=state,
+            next_node=next_node,
+            metadata={
                 "tool_calls_count": len(tool_calls),
                 "successful_calls": len(tool_results),
                 "failed_calls": len(execution_errors),
@@ -185,7 +187,7 @@ class ToolNode(BaseNode):
         Returns:
             List[ToolCall]: 工具调用列表
         """
-        tool_calls = []
+        tool_calls: List[ToolCall] = []
         import logging
         logger = logging.getLogger(__name__)
 
@@ -197,18 +199,18 @@ class ToolNode(BaseNode):
             # 检查是否是 LangChain 消息类型
             if hasattr(last_message, 'tool_calls') and getattr(last_message, 'tool_calls', None):
                 try:
-                    tool_calls = getattr(last_message, 'tool_calls', [])
-                    for tool_call in tool_calls:
+                    tool_calls_data = getattr(last_message, 'tool_calls', [])
+                    for tool_call_data in tool_calls_data:
                         # 处理 LangChain 标准格式
-                        if isinstance(tool_call, dict):
-                            name = tool_call.get("name", "")
-                            args = tool_call.get("args", {})
-                            call_id = tool_call.get("id", "")
+                        if isinstance(tool_call_data, dict):
+                            name = tool_call_data.get("name", "")
+                            args = tool_call_data.get("args", {})
+                            call_id = tool_call_data.get("id", "")
                         else:
                             # 处理对象形式的工具调用
-                            name = getattr(tool_call, "name", "")
-                            args = getattr(tool_call, "args", {})
-                            call_id = getattr(tool_call, "id", "")
+                            name = getattr(tool_call_data, "name", "")
+                            args = getattr(tool_call_data, "args", {})
+                            call_id = getattr(tool_call_data, "id", "")
                         
                         if name:  # 只有当工具名称不为空时才添加
                             tool_calls.append(ToolCall(
@@ -225,9 +227,9 @@ class ToolNode(BaseNode):
                   last_message.additional_kwargs and
                   "tool_calls" in last_message.additional_kwargs):
                 try:
-                    for tool_call in last_message.additional_kwargs["tool_calls"]:
-                        if "function" in tool_call:
-                            function = tool_call["function"]
+                    for tool_call_data in last_message.additional_kwargs["tool_calls"]:
+                        if "function" in tool_call_data:
+                            function = tool_call_data["function"]
                             name = function.get("name", "")
                             args_str = function.get("arguments", "{}")
                             
@@ -243,7 +245,7 @@ class ToolNode(BaseNode):
                                 tool_calls.append(ToolCall(
                                     name=name,
                                     arguments=args,
-                                    call_id=tool_call.get("id", ""),
+                                    call_id=tool_call_data.get("id", ""),
                                     timeout=config.get("timeout")
                                 ))
                 except Exception as e:
@@ -252,11 +254,11 @@ class ToolNode(BaseNode):
             # 检查是否是字典格式的消息（包含 tool_calls）
             elif isinstance(last_message, dict) and "tool_calls" in last_message:
                 try:
-                    for tool_call in last_message["tool_calls"]:
+                    for tool_call_data in last_message["tool_calls"]:
                         tool_calls.append(ToolCall(
-                            name=tool_call.get("name", ""),
-                            arguments=tool_call.get("arguments", {}),
-                            call_id=tool_call.get("id", ""),
+                            name=tool_call_data.get("name", ""),
+                            arguments=tool_call_data.get("arguments", {}),
+                            call_id=tool_call_data.get("id", ""),
                             timeout=config.get("timeout")
                         ))
                 except Exception as e:
@@ -292,7 +294,7 @@ class ToolNode(BaseNode):
         import re
         logger = logging.getLogger(__name__)
         
-        tool_calls = []
+        tool_calls: List[ToolCall] = []
         
         # 支持多种工具调用模式
         patterns = [
