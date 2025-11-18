@@ -4,13 +4,16 @@
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
 from enum import Enum
 from datetime import datetime
 import uuid
 
-from .value_objects import WorkflowStep, WorkflowTransition, WorkflowRule
+from .value_objects import WorkflowStep, WorkflowTransition, WorkflowRule, StepType
 from .exceptions import WorkflowValidationError
+
+if TYPE_CHECKING:
+    from src.core.workflow.config.config import GraphConfig
 
 
 class WorkflowStatus(Enum):
@@ -20,15 +23,6 @@ class WorkflowStatus(Enum):
     PAUSED = "paused"
     COMPLETED = "completed"
     ERROR = "error"
-
-
-class StepType(Enum):
-    """步骤类型"""
-    ANALYSIS = "analysis"
-    EXECUTION = "execution"
-    DECISION = "decision"
-    WAITING = "waiting"
-    NOTIFICATION = "notification"
 
 
 @dataclass
@@ -167,7 +161,7 @@ class BusinessWorkflow:
         
         这是业务工作流到技术实现的转换层。
         """
-        from src.infrastructure.graph.config import (
+        from src.core.workflow.config.config import (
             GraphConfig, GraphStateConfig, StateFieldConfig,
             NodeConfig, EdgeConfig, EdgeType
         )
@@ -175,26 +169,31 @@ class BusinessWorkflow:
         # 创建状态配置
         state_fields = {
             "messages": StateFieldConfig(
+                name="messages",
                 type="List[BaseMessage]",
                 reducer="operator.add",
                 description="消息历史"
             ),
             "current_step": StateFieldConfig(
+                name="current_step",
                 type="str",
                 description="当前步骤"
             ),
             "workflow_id": StateFieldConfig(
+                name="workflow_id",
                 type="str",
                 default=self.id,
                 description="工作流ID"
             ),
             "iteration_count": StateFieldConfig(
+                name="iteration_count",
                 type="int",
                 reducer="operator.add",
                 default=0,
                 description="迭代计数"
             ),
             "complete": StateFieldConfig(
+                name="complete",
                 type="bool",
                 default=False,
                 description="完成标志"
@@ -250,7 +249,9 @@ class BusinessWorkflow:
             StepType.EXECUTION: "tool_node",
             StepType.DECISION: "condition_node",
             StepType.WAITING: "wait_node",
-            StepType.NOTIFICATION: "notification_node"
+            StepType.NOTIFICATION: "notification_node",
+            StepType.START: "start_node",
+            StepType.END: "end_node"
         }
         return mapping.get(step_type, "default_node")
     

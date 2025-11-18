@@ -1,35 +1,22 @@
-# Graph架构分离重构总结
+# Graph架构重构总结
 
 ## 概述
 
-本次重构成功将Graph相关代码从Application层迁移到Infrastructure层，并创建了Domain层的业务工作流模型，实现了业务逻辑与技术实现的清晰分离。
+本次重构成功将Graph相关代码从旧架构迁移到新架构，并完成了核心模块的重构，实现了业务逻辑与技术实现的清晰分离。
 
 ## 重构成果
 
 ### 1. 架构层级重新划分
 
-#### Infrastructure层 (`src/infrastructure/graph/`)
-- **config.py**: 重构为符合LangGraph最佳实践的图配置
-  - 使用TypedDict模式定义状态
-  - 支持reducer函数处理状态更新
-  - 提供动态状态类生成
-- **builder.py**: 重构为LangGraph构建器
-  - 符合LangGraph StateGraph API
-  - 支持条件边和简单边
-  - 集成检查点和中断功能
-- **state.py**: 重构为LangGraph状态定义
-  - 定义多种状态类型（AgentState, WorkflowState, ReActState等）
-  - 提供状态工厂函数
-  - 支持状态序列化和反序列化
-- **nodes/**: 节点实现目录
-- **edges/**: 边实现目录
-- **triggers/**: 触发器目录
-
-#### Domain层 (`src/domain/workflow/`)
-- **entities.py**: 业务工作流领域实体
-  - `BusinessWorkflow`: 真正的业务工作流定义
-  - `WorkflowExecution`: 工作流执行实例
-  - 提供业务到技术的转换方法
+#### Core层 (`src/core/workflow/`)
+- **interfaces.py**: 工作流核心接口定义
+  - `IWorkflow`: 工作流接口
+  - `IWorkflowExecutor`: 工作流执行器接口
+  - `IWorkflowBuilder`: 工作流构建器接口
+- **entities.py**: 工作流实体定义
+  - `Workflow`: 工作流实体
+  - `WorkflowExecution`: 工作流执行实体
+  - `WorkflowState`: 工作流状态实体
 - **value_objects.py**: 值对象定义
   - `WorkflowStep`: 工作流步骤
   - `WorkflowTransition`: 工作流转换
@@ -38,41 +25,79 @@
 - **exceptions.py**: 领域异常定义
   - 完整的异常体系
   - 异常处理装饰器
+- **graph/**: 图相关组件
+  - `nodes/`, `edges/`, `builder/`, `routing/` 等目录
 
-#### Application层 (`src/application/workflow/`)
-- 保留工作流协调服务
-- 更新导入路径
-- 专注于业务用例协调
+#### Services层 (`src/services/workflow/`)
+- **config_manager.py**: 工作流配置管理器
+- **orchestrator.py**: 工作流编排器
+- **executor.py**: 工作流执行器
+- **registry.py**: 工作流注册表
+- **factory.py**: 工作流工厂
+- **di_config.py**: 依赖注入配置
 
-### 2. 符合LangGraph最佳实践
+#### Adapters层 (`src/adapters/`)
+- **api/fastapi.py**: FastAPI适配器
+- **tui/components.py**: TUI组件适配器
+- **storage/sqlite.py**: SQLite存储适配器
 
-#### 状态定义改进
+### 2. 符合新架构设计
+
+#### 接口定义改进
 ```python
-# 旧方式：简单的字符串类型定义
-messages: str = "List[BaseMessage]"
-
-# 新方式：TypedDict + Reducer
-messages: Annotated[List[BaseMessage], operator.add]
+# Core层：统一接口定义
+class IWorkflow(ABC):
+    @property
+    @abstractmethod
+    def workflow_id(self) -> str:
+        """工作流ID"""
+        pass
+    
+    @abstractmethod
+    def execute(self, initial_state: IState, context: ExecutionContext) -> IState:
+        """执行工作流"""
+        pass
 ```
 
-#### 图构建改进
+#### 服务实现改进
 ```python
-# 旧方式：复杂的自定义构建
-class WorkflowBuilder:
-    def build_workflow(self, config): ...
-
-# 新方式：使用LangGraph StateGraph
-class GraphBuilder:
-    def build_graph(self, config: GraphConfig):
-        builder = StateGraph(state_class)
-        builder.add_node(...)
-        builder.add_edge(...)
-        return builder.compile()
+# Services层：业务逻辑实现
+class WorkflowManager:
+    """Workflow manager implementation following the new architecture."""
+    
+    def __init__(
+        self,
+        executor: Optional[IWorkflowExecutor] = None,
+        registry: Optional[IWorkflowRegistry] = None,
+        factory: Optional[IWorkflowFactory] = None
+    ):
+        self.executor = executor or get_global_executor()
+        self.registry = registry or get_global_registry()
+        self.factory = factory or get_global_factory()
+    
+    def create_workflow(self, workflow_id: str, name: str, config: Dict[str, Any]) -> IWorkflow:
+        """创建工作流"""
+        try:
+            # 使用工厂创建
+            workflow = self.factory.create_from_config(config)
+            
+            # 注册到注册表
+            self.registry.register_workflow(workflow_id, workflow)
+            
+            logger.info(f"工作流创建成功: {workflow_id}")
+            return workflow
+            
+        except Exception as e:
+            logger.error(f"创建工作流失败: {workflow_id}, error: {e}")
+            raise
 ```
 
 #### 配置文件改进
 ```yaml
 # 新的YAML配置格式
+name: "ReAct工作流"
+description: "基于ReAct模式的工作流"
+version: "1.0.0"
 state_schema:
   name: "ReActState"
   fields:
@@ -80,32 +105,71 @@ state_schema:
       type: "List[BaseMessage]"
       reducer: "operator.add"
       description: "对话消息历史"
+    current_step:
+      type: "str"
+      description: "当前步骤"
+nodes:
+  analyze:
+    function_name: "analysis_node"
+    description: "分析当前状态"
+  act:
+    function_name: "tool_node"
+    description: "执行动作"
+edges:
+  - from_node: "analyze"
+    to_node: "act"
+    type: "conditional"
+    condition: "has_tool_calls"
+entry_point: "analyze"
 ```
 
-### 3. 业务与技术分离
+### 3. 核心与服务分离
 
-#### 业务工作流定义
+#### 核心实体定义
 ```python
-# Domain层：纯业务逻辑
-workflow = BusinessWorkflow(
-    name="审批流程",
-    description="文档审批工作流",
-    steps=[...],
-    transitions=[...]
-)
+# Core层：纯业务逻辑
+@dataclass
+class BusinessWorkflow:
+    """业务工作流领域实体
+    
+    这是真正的业务工作流定义，不依赖具体的技术实现。
+    """
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    name: str = ""
+    description: str = ""
+    status: WorkflowStatus = WorkflowStatus.DRAFT
+    steps: List[WorkflowStep] = field(default_factory=list)
+    transitions: List[WorkflowTransition] = field(default_factory=list)
+    rules: List[WorkflowRule] = field(default_factory=list)
 ```
 
-#### 技术图配置转换
+#### 服务层调用
 ```python
-# 业务到技术的转换
-graph_config = workflow.to_graph_config()
-graph = graph_builder.build_graph(graph_config)
+# Services层：使用核心实体
+def create_business_workflow_from_config(config: Dict[str, Any]) -> BusinessWorkflow:
+    """从配置创建业务工作流"""
+    workflow = BusinessWorkflow(
+        name=config["name"],
+        description=config["description"]
+    )
+    
+    # 添加步骤
+    for step_config in config.get("steps", []):
+        step = WorkflowStep(**step_config)
+        workflow.add_step(step)
+    
+    # 添加转换
+    for transition_config in config.get("transitions", []):
+        transition = WorkflowTransition(**transition_config)
+        workflow.add_transition(transition)
+    
+    return workflow
 ```
 
 ## 关键改进
 
 ### 1. 类型安全
-- 使用TypedDict确保状态类型安全
+- 使用Pydantic模型进行配置验证
 - 完整的类型注解
 - 运行时类型验证
 
@@ -115,7 +179,7 @@ graph = graph_builder.build_graph(graph_config)
 - 模板化的工作流创建
 
 ### 3. 可维护性
-- 清晰的架构分层
+- 清晰的三层架构（Core/Services/Adapters）
 - 单一职责原则
 - 完整的异常处理
 
@@ -127,16 +191,17 @@ graph = graph_builder.build_graph(graph_config)
 ## 迁移清单
 
 ### 已完成的迁移
-- [x] 文件从 `src/application/workflow/` 迁移到 `src/infrastructure/graph/`
+- [x] 将 `src/domain/workflow/` 迁移到 `src/core/workflow/`
+- [x] 将 `src/application/workflow/` 迁移到 `src/services/workflow/`
 - [x] 更新所有导入路径
-- [x] 重构配置类以符合LangGraph最佳实践
-- [x] 创建Domain层业务模型
-- [x] 更新Application层代码
+- [x] 重构配置类以符合新架构
+- [x] 创建Core层业务模型
+- [x] 更新Services层代码
 - [x] 创建示例配置文件
 
 ### 待完成的任务
 - [ ] 运行完整测试套件验证功能
-- [ ] 更新相关文档
+- [x] 更新相关文档
 - [ ] 性能基准测试
 - [ ] 团队培训和知识转移
 
@@ -144,7 +209,8 @@ graph = graph_builder.build_graph(graph_config)
 
 ### 创建业务工作流
 ```python
-from src.domain.workflow import BusinessWorkflow, WorkflowStep, WorkflowTransition
+from src.core.workflow.entities import BusinessWorkflow
+from src.core.workflow.value_objects import WorkflowStep, WorkflowTransition
 
 # 创建业务工作流
 workflow = BusinessWorkflow(
@@ -154,6 +220,7 @@ workflow = BusinessWorkflow(
 
 # 添加步骤
 workflow.add_step(WorkflowStep(
+    id="think",
     name="think",
     type=StepType.ANALYSIS,
     description="分析当前状态"
@@ -163,43 +230,53 @@ workflow.add_step(WorkflowStep(
 workflow.add_transition(WorkflowTransition(
     from_step="think",
     to_step="act",
-    condition="has_tool_calls"
+    condition="has_tool_calls",
+    description="如果有工具调用则执行"
 ))
 ```
 
-### 构建LangGraph图
+### 构建和执行工作流
 ```python
-from src.infrastructure.graph import GraphBuilder
+from src.services.workflow.manager import WorkflowManager
+from src.core.state.interfaces import IState
 
-# 转换为图配置
-graph_config = workflow.to_graph_config()
+# 创建工作流管理器
+manager = WorkflowManager()
 
-# 构建图
-builder = GraphBuilder()
-graph = builder.build_graph(graph_config)
+# 创建并注册工作流
+workflow = manager.create_workflow(
+    workflow_id="react_001",
+    name="ReAct工作流",
+    config=workflow_config
+)
 
-# 执行图
-result = graph.invoke({"input": "用户输入"})
+# 执行工作流
+initial_state = create_initial_state()
+result = manager.execute_workflow(workflow_id="react_001", initial_state=initial_state)
 ```
 
 ### 从YAML配置构建
 ```python
-# 从YAML文件构建
-graph = builder.build_from_yaml("configs/graphs/react_example.yaml")
-result = graph.invoke({"input": "测试输入"})
+# 从YAML文件加载配置
+with open("configs/workflows/react.yaml", 'r', encoding='utf-8') as f:
+    config = yaml.safe_load(f)
+
+# 创建工作流
+workflow = manager.create_workflow_from_config(config)
+result = manager.execute_workflow(workflow.workflow_id, initial_state)
 ```
 
 ## 兼容性说明
 
 ### 向后兼容
-- 保留了旧的类名别名（如 `WorkflowConfig = GraphConfig`）
+- 保留了旧的API接口
 - 现有代码可以逐步迁移
-- 提供了转换工具
+- 提供了转换工具和适配器
 
 ### 破坏性变更
 - 导入路径发生变化
-- 配置文件格式有所调整
-- 某些API签名发生变化
+- 某些API签名有所调整
+- 配置文件格式更新
 
 ## 最佳实践建议
 
@@ -208,15 +285,15 @@ result = graph.invoke({"input": "测试输入"})
 - 为列表类型字段添加reducer
 - 避免在状态中存储大对象
 
-### 2. 节点设计
-- 节点函数应该是纯函数
-- 返回状态更新字典
-- 处理异常情况
+### 2. 服务设计
+- 服务应该专注于业务逻辑
+- 使用依赖注入管理依赖
+- 保持服务的单一职责
 
-### 3. 边设计
-- 优先使用简单边
-- 条件边应该有明确的条件函数
-- 避免复杂的条件逻辑
+### 3. 接口设计
+- 在Core层定义接口
+- Services层实现接口
+- Adapters层适配外部系统
 
 ### 4. 错误处理
 - 使用领域异常
@@ -239,9 +316,9 @@ result = graph.invoke({"input": "测试输入"})
 ## 后续规划
 
 ### 短期目标（1-2周）
-- [ ] 完成测试验证
+- [x] 完成文档更新
 - [ ] 性能基准测试
-- [ ] 文档更新
+- [ ] 团队培训和知识转移
 
 ### 中期目标（1-2月）
 - [ ] 添加更多节点类型
@@ -257,8 +334,8 @@ result = graph.invoke({"input": "测试输入"})
 
 本次重构成功实现了以下目标：
 
-1. **架构清晰**: 业务逻辑与技术实现完全分离
-2. **符合标准**: 遵循LangGraph最佳实践
+1. **架构清晰**: 采用Core/Services/Adapters三层架构，职责明确
+2. **符合标准**: 遵循新架构设计原则
 3. **易于维护**: 清晰的代码结构和完整的文档
 4. **性能优化**: 更高效的状态管理和执行流程
 5. **扩展性强**: 支持插件化和模板化

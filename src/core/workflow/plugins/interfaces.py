@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from dataclasses import dataclass, field
 from enum import Enum
 from ..states import WorkflowState
-from ..registry import NodeExecutionResult
+from ..graph.nodes.registry import NodeExecutionResult
 
 class PluginType(Enum):
     """插件类型枚举"""

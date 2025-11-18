@@ -144,6 +144,8 @@ src/core/workflow/graph/registry.py (新建)
 src/domain/workflow/interfaces.py → src/core/workflow/interfaces.py
 src/domain/workflow/entities.py → src/core/workflow/entities.py
 src/domain/workflow/registry.py → src/core/workflow/registry.py
+src/domain/workflow/state.py → src/core/workflow/state.py
+src/domain/workflow/__init__.py → src/core/workflow/__init__.py
 ```
 
 **新增文件**：
@@ -180,6 +182,8 @@ src/services/state/di_config.py (新建)
 src/application/workflow/manager.py → src/services/workflow/manager.py
 src/application/workflow/factory.py → src/services/workflow/factory.py
 src/application/workflow/interfaces.py → src/services/workflow/interfaces.py
+src/application/workflow/builder.py → src/services/workflow/builder.py
+src/application/workflow/registry.py → src/services/workflow/registry.py
 ```
 
 **新增文件**：
