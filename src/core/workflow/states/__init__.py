@@ -7,7 +7,8 @@ from .base import (
     AIMessage, 
     LCAIMessage,
     ToolMessage,
-    MessageRole
+    MessageRole,
+    LCBaseMessage
 )
 from .factory import (
     WorkflowStateFactory,
@@ -53,6 +54,7 @@ __all__ = [
     "LCAIMessage",
     "ToolMessage",
     "MessageRole",
+    "LCBaseMessage",
     
     # Factory
     "WorkflowStateFactory",

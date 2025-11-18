@@ -8,11 +8,8 @@ from abc import ABC, abstractmethod
 from enum import Enum
 import logging
 
-from src.application.workflow.base_workflow import BaseWorkflow
-from src.infrastructure.graph.states import WorkflowState
-from src.infrastructure.graph.config import WorkflowConfig, GraphConfig
-from infrastructure.config.loader.file_config_loader import IConfigLoader
-from src.infrastructure.container import IDependencyContainer
+from src.core.workflow.config.config import WorkflowConfig
+from src.core.workflow.states.base import WorkflowState
 
 logger = logging.getLogger(__name__)
 
@@ -155,15 +152,16 @@ class StateMachineConfig:
         return visited
 
 
-class StateMachineWorkflow(BaseWorkflow):
+class StateMachineWorkflow:
     """基于状态机的工作流基类"""
     
     def __init__(
         self,
-        config: Union[GraphConfig, WorkflowConfig],
+        config: WorkflowConfig,
         state_machine_config: StateMachineConfig,
-        config_loader: Optional[IConfigLoader] = None,
-        container: Optional[IDependencyContainer] = None
+        config_loader: Optional[Any] = None,
+        container: Optional[Any] = None,
+        **kwargs
     ):
         """初始化状态机工作流
         
@@ -172,8 +170,11 @@ class StateMachineWorkflow(BaseWorkflow):
             state_machine_config: 状态机配置
             config_loader: 配置加载器
             container: 依赖注入容器
+            **kwargs: 额外参数
         """
-        super().__init__(config, config_loader, container)
+        self.config = config
+        self.config_loader = config_loader
+        self.container = container
         self.state_machine_config = state_machine_config
         self.current_state = state_machine_config.initial_state
         self.state_history: List[str] = []
@@ -235,7 +236,10 @@ class StateMachineWorkflow(BaseWorkflow):
             handler = getattr(self, handler_name, None)
             if handler and callable(handler):
                 result = handler(state, state_def.config)
-                return result if isinstance(result, dict) else state
+                if isinstance(result, dict):
+                    # 如果返回字典，合并到state的values中
+                    state.values.update(result)
+                return state
             else:
                 # 默认处理
                 return self._default_state_handler(state, state_def)
@@ -244,7 +248,7 @@ class StateMachineWorkflow(BaseWorkflow):
             # 记录错误但继续执行
             errors = state.get("errors", [])
             errors.append(f"状态 {state_def.name} 处理失败: {str(e)}")
-            state["errors"] = errors
+            state.add_error(f"状态 {state_def.name} 处理失败: {str(e)}")
             return state
     
     def _default_state_handler(self, state: WorkflowState, state_def: StateDefinition) -> WorkflowState:
@@ -259,14 +263,16 @@ class StateMachineWorkflow(BaseWorkflow):
         """
         # 记录状态执行信息
         execution_info = state.get("execution_info", {})
+        if not isinstance(execution_info, dict):
+            execution_info = {}
         execution_info[state_def.name] = {
             "executed_at": "now",  # 实际应该使用datetime
             "state_type": state_def.state_type.value
         }
-        state["execution_info"] = execution_info
+        state.set_value("execution_info", execution_info)
         
         # 更新当前状态字段
-        state["current_state"] = state_def.name
+        state.set_value("current_state", state_def.name)
         
         return state
     
@@ -321,10 +327,12 @@ class StateMachineWorkflow(BaseWorkflow):
                 return False
             elif condition.startswith("has_"):
                 field = condition[4:]
-                return field in state and bool(state[field])
+                value = state.get(field)
+                return value is not None and bool(value)
             elif condition.startswith("not_has_"):
                 field = condition[8:]
-                return field not in state or not bool(state[field])
+                value = state.get(field)
+                return value is None or not bool(value)
             
             # 默认返回False
             return False
@@ -332,21 +340,17 @@ class StateMachineWorkflow(BaseWorkflow):
             logger.warning(f"条件评估失败: {transition.condition}, 错误: {e}")
             return False
     
-    def validate_config(self) -> list:
+    def validate_config(self) -> List[str]:
         """验证状态机配置
         
         Returns:
-            list: 验证错误列表
+            List[str]: 验证错误列表
         """
-        errors = []
+        errors: List[str] = []
         
         # 验证状态机配置
         state_machine_errors = self.state_machine_config.validate()
         errors.extend(state_machine_errors)
-        
-        # 验证工作流配置（调用父类验证）
-        workflow_errors = super().validate_config()
-        errors.extend(workflow_errors)
         
         return errors
     

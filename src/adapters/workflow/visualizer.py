@@ -10,7 +10,7 @@ import math
 import random
 import json
 
-from ...core.workflow.config import WorkflowConfig
+from ...core.workflow.config import GraphConfig
 from ...core.workflow.exceptions import WorkflowError
 
 logger = logging.getLogger(__name__)
@@ -19,13 +19,13 @@ logger = logging.getLogger(__name__)
 class IWorkflowVisualizer:
     """工作流可视化器接口"""
     
-    def generate_visualization(self, config: WorkflowConfig, layout: str = "hierarchical") -> Dict[str, Any]:
+    def generate_visualization(self, config: GraphConfig, layout: str = "hierarchical") -> Dict[str, Any]:
         """生成可视化数据"""
-        pass
+        raise NotImplementedError
     
-    def export_diagram(self, config: WorkflowConfig, format: str = "json") -> bytes:
+    def export_diagram(self, config: GraphConfig, format: str = "json") -> bytes:
         """导出图表"""
-        pass
+        raise NotImplementedError
 
 
 class WorkflowVisualizer(IWorkflowVisualizer):
@@ -47,7 +47,7 @@ class WorkflowVisualizer(IWorkflowVisualizer):
         
         logger.info("WorkflowVisualizer初始化完成")
     
-    def generate_visualization(self, config: WorkflowConfig, layout: str = "hierarchical") -> Dict[str, Any]:
+    def generate_visualization(self, config: GraphConfig, layout: str = "hierarchical") -> Dict[str, Any]:
         """生成可视化数据
         
         Args:
@@ -99,7 +99,7 @@ class WorkflowVisualizer(IWorkflowVisualizer):
             logger.error(f"生成工作流可视化失败: {config.name}, error: {e}")
             raise WorkflowError(f"生成工作流可视化失败: {str(e)}")
     
-    def export_diagram(self, config: WorkflowConfig, format: str = "json") -> bytes:
+    def export_diagram(self, config: GraphConfig, format: str = "json") -> bytes:
         """导出图表
         
         Args:
@@ -126,7 +126,7 @@ class WorkflowVisualizer(IWorkflowVisualizer):
         else:
             raise ValueError(f"不支持的导出格式: {format}")
     
-    def _generate_nodes(self, config: WorkflowConfig) -> List[Dict[str, Any]]:
+    def _generate_nodes(self, config: GraphConfig) -> List[Dict[str, Any]]:
         """生成节点数据"""
         nodes = []
         for node_id, node_config in config.nodes.items():
@@ -145,7 +145,7 @@ class WorkflowVisualizer(IWorkflowVisualizer):
             })
         return nodes
     
-    def _generate_edges(self, config: WorkflowConfig) -> List[Dict[str, Any]]:
+    def _generate_edges(self, config: GraphConfig) -> List[Dict[str, Any]]:
         """生成边数据"""
         edges = []
         for edge in config.edges:

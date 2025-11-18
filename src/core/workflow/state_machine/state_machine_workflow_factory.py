@@ -6,25 +6,20 @@
 from typing import Dict, Any, Optional, Type, Union
 import logging
 
-from ..interfaces import IWorkflowFactory
 from .state_machine_workflow import StateMachineWorkflow, StateMachineConfig, StateDefinition, Transition, StateType
-from src.infrastructure.graph.config import WorkflowConfig, GraphConfig
-from infrastructure.config.loader.file_config_loader import IConfigLoader
-from src.infrastructure.container import IDependencyContainer
-from src.infrastructure.registry.module_registry_manager import ModuleRegistryManager
-from src.infrastructure.registry.dynamic_importer import DynamicImporter
+from src.core.workflow.config.config import WorkflowConfig
 
 logger = logging.getLogger(__name__)
 
 
-class StateMachineWorkflowFactory(IWorkflowFactory):
+class StateMachineWorkflowFactory:
     """状态机工作流工厂"""
     
     def __init__(
         self,
-        config_loader: Optional[IConfigLoader] = None,
-        container: Optional[IDependencyContainer] = None,
-        registry_manager: Optional[ModuleRegistryManager] = None
+        config_loader: Optional[Any] = None,
+        container: Optional[Any] = None,
+        registry_manager: Optional[Any] = None
     ):
         """初始化工厂
         
@@ -36,7 +31,6 @@ class StateMachineWorkflowFactory(IWorkflowFactory):
         self.config_loader = config_loader
         self.container = container
         self.registry_manager = registry_manager
-        self.dynamic_importer = DynamicImporter()
         
         # 工作流类注册表
         self._workflow_classes: Dict[str, Type[StateMachineWorkflow]] = {}
@@ -47,7 +41,7 @@ class StateMachineWorkflowFactory(IWorkflowFactory):
     
     def create_workflow(
         self, 
-        config: Union[GraphConfig, WorkflowConfig],
+        config: Union[WorkflowConfig, Any],
         state_machine_config: Optional[StateMachineConfig] = None
     ) -> Any:
         """创建工作流实例
@@ -97,7 +91,7 @@ class StateMachineWorkflowFactory(IWorkflowFactory):
         """
         return list(self._workflow_classes.keys())
     
-    def load_workflow_config(self, config_path: str) -> Union[GraphConfig, WorkflowConfig]:
+    def load_workflow_config(self, config_path: str) -> WorkflowConfig:
         """加载工作流配置
         
         Args:
@@ -249,7 +243,7 @@ class StateMachineWorkflowFactory(IWorkflowFactory):
     def _create_state_machine_config(
         self,
         workflow_name: str,
-        config: Optional[Union[GraphConfig, WorkflowConfig]]
+        config: Optional[Union[WorkflowConfig, Any]]
     ) -> StateMachineConfig:
         """创建状态机配置
         

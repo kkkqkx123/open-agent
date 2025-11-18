@@ -8,8 +8,9 @@ from dataclasses import dataclass, field
 import logging
 from copy import deepcopy
 
-from src.infrastructure.graph.config import GraphConfig, StateFieldConfig
-from src.infrastructure.graph.states import WorkflowState
+from src.core.workflow.config.config import WorkflowConfig
+from src.core.workflow.states.base import WorkflowState
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ class StateTemplateManager:
         self, 
         template_name: str, 
         overrides: Optional[Dict[str, Any]] = None,
-        workflow_config: Optional[GraphConfig] = None
+        workflow_config: Optional[WorkflowConfig] = None
     ) -> Dict[str, Any]:
         """从模板创建状态
         
@@ -110,7 +111,7 @@ class StateTemplateManager:
         
         # 应用工作流配置中的状态覆盖
         if workflow_config and hasattr(workflow_config, 'state_overrides'):
-            state.update(workflow_config.state_overrides)
+            state.update(getattr(workflow_config, 'state_overrides', {}))
         
         # 处理状态字段的默认值和类型转换
         state = self._process_state_fields(state, workflow_config)
@@ -120,7 +121,7 @@ class StateTemplateManager:
     
     def create_state_from_config(
         self, 
-        config: GraphConfig, 
+        config: WorkflowConfig, 
         initial_data: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """从配置创建状态
@@ -140,10 +141,14 @@ class StateTemplateManager:
             state = self.create_state_from_template(template_name, initial_data, config)
         else:
             # 从状态模式创建状态
-            state = self._create_state_from_schema(config.state_schema, initial_data)
+            state_schema = getattr(config, 'state_schema', None)
+            if state_schema:
+                state = self._create_state_from_schema(state_schema, initial_data)
+            else:
+                state = initial_data or {}
         
         # 应用配置中的状态覆盖
-        state_overrides = getattr(config, 'state_overrides', {})
+        state_overrides = getattr(config, 'state_overrides', {}) or getattr(config, 'additional_config', {})
         if state_overrides:
             state.update(state_overrides)
         
@@ -333,7 +338,7 @@ class StateTemplateManager:
         
         return type_defaults.get(type_str, None)
     
-    def _process_state_fields(self, state: Dict[str, Any], workflow_config: Optional[GraphConfig] = None) -> Dict[str, Any]:
+    def _process_state_fields(self, state: Dict[str, Any], workflow_config: Optional[WorkflowConfig] = None) -> Dict[str, Any]:
         """处理状态字段
         
         Args:
@@ -343,10 +348,12 @@ class StateTemplateManager:
         Returns:
             Dict[str, Any]: 处理后的状态
         """
-        if not workflow_config or not hasattr(workflow_config, 'state_schema'):
+        if not workflow_config:
             return state
         
-        state_schema = workflow_config.state_schema
+        state_schema = getattr(workflow_config, 'state_schema', None)
+        if not state_schema:
+            return state
         
         # 处理每个字段
         for field_name, field_config in state_schema.fields.items():
@@ -362,7 +369,7 @@ class StateTemplateManager:
         
         return state
     
-    def _convert_field_type(self, value: Any, field_config: StateFieldConfig) -> Any:
+    def _convert_field_type(self, value: Any, field_config: Any) -> Any:
         """转换字段类型
         
         Args:
