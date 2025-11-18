@@ -9,7 +9,6 @@ from pathlib import Path
 
 from ..common.cache import ConfigCache
 from .config_loader import ConfigLoader
-from .models import BaseConfig, ConfigType, get_config_model
 from .exceptions import (
     ConfigInheritanceError,
     ConfigEnvironmentError,

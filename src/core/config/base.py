@@ -1,6 +1,4 @@
-"""基础配置模型
-注意：此文件已迁移到 src/core/config/base.py，请使用新的位置
-"""
+"""基础配置模型"""
 
 from abc import ABC
 from typing import Any, Dict, Optional
@@ -12,7 +10,7 @@ class BaseConfig(BaseModel, ABC):
 
     model_config = ConfigDict(
         extra="forbid",  # 禁止额外字段
-        validate_assignment=True, # 赋值时验证
+        validate_assignment=True,  # 赋值时验证
         use_enum_values=True,  # 使用枚举值
     )
 
