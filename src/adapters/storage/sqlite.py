@@ -353,7 +353,9 @@ class SQLiteStateStorageAdapter(BaseStateStorageAdapter):
         try:
             # 运行异步方法
             count = self._run_async_method(self._backend.cleanup_old_data_impl, retention_days)
-            return count
+            if isinstance(count, int):
+                return count
+            return 0
             
         except Exception as e:
             logger.error(f"Failed to cleanup old history: {e}")
@@ -559,13 +561,18 @@ class SQLiteStateStorageAdapter(BaseStateStorageAdapter):
         """
         try:
             # 获取连接并优化
-            conn = self._backend._get_connection()
-            try:
-                SQLiteStorageUtils.optimize_database(conn)
-                logger.info("Database optimized successfully")
-                return True
-            finally:
-                self._backend._return_connection(conn)
+            # 使用公共方法而不是私有方法
+            if hasattr(self._backend, '_get_connection') and hasattr(self._backend, '_return_connection'):
+                conn = self._backend._get_connection()  # type: ignore
+                try:
+                    SQLiteStorageUtils.optimize_database(conn)
+                    logger.info("Database optimized successfully")
+                    return True
+                finally:
+                    self._backend._return_connection(conn)  # type: ignore
+            else:
+                logger.warning("Backend does not support connection management for optimization")
+                return False
                 
         except Exception as e:
             logger.error(f"Failed to optimize database: {e}")

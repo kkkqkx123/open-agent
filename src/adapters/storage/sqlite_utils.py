@@ -126,7 +126,10 @@ class SQLiteStorageUtils:
         Returns:
             反序列化后的数据
         """
-        return json.loads(data)
+        result = json.loads(data)
+        if isinstance(result, dict):
+            return result
+        raise ValueError(f"Expected dict, got {type(result)}")
     
     @staticmethod
     def build_where_clause(filters: Dict[str, Any]) -> tuple:
@@ -142,7 +145,7 @@ class SQLiteStorageUtils:
             return "", []
         
         conditions = []
-        params = []
+        params: List[Any] = []
         
         for key, value in filters.items():
             if isinstance(value, (list, tuple)):
@@ -186,7 +189,7 @@ class SQLiteStorageUtils:
     def execute_query(
         conn: sqlite3.Connection,
         query: str,
-        params: List[Any] = None,
+        params: Optional[List[Any]] = None,
         fetch_one: bool = False,
         fetch_all: bool = True
     ) -> Optional[Union[Dict[str, Any], List[Dict[str, Any]]]]:
@@ -226,7 +229,7 @@ class SQLiteStorageUtils:
     def execute_update(
         conn: sqlite3.Connection,
         query: str,
-        params: List[Any] = None
+        params: Optional[List[Any]] = None
     ) -> int:
         """执行更新操作
         

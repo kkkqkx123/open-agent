@@ -209,10 +209,16 @@ class FileStorageBackend(BaseStorageBackend):
                     if compressed:
                         # 保存压缩数据
                         with open(file_path, 'wb') as f:
-                            f.write(processed_data)
+                            if isinstance(processed_data, bytes):
+                                f.write(processed_data)
+                            else:
+                                raise StorageError(f"Expected bytes for compressed data, got {type(processed_data)}")
                     else:
                         # 保存普通数据
-                        FileStorageUtils.save_data_to_file(file_path, processed_data)
+                        if isinstance(processed_data, dict):
+                            FileStorageUtils.save_data_to_file(file_path, processed_data)
+                        else:
+                            raise StorageError(f"Expected dict for uncompressed data, got {type(processed_data)}")
                     
                     self._update_stats("save")
             
@@ -343,7 +349,7 @@ class FileStorageBackend(BaseStorageBackend):
     ) -> List[Dict[str, Any]]:
         """实际列表实现"""
         try:
-            results = []
+            results: List[Dict[str, Any]] = []
             
             async with self._lock:
                 with self._thread_lock:
@@ -556,10 +562,16 @@ class FileStorageBackend(BaseStorageBackend):
                         if compressed:
                             # 保存压缩数据
                             with open(file_path, 'wb') as f:
-                                f.write(processed_data)
+                                if isinstance(processed_data, bytes):
+                                    f.write(processed_data)
+                                else:
+                                    raise StorageError(f"Expected bytes for compressed data, got {type(processed_data)}")
                         else:
                             # 保存普通数据
-                            FileStorageUtils.save_data_to_file(file_path, processed_data)
+                            if isinstance(processed_data, dict):
+                                FileStorageUtils.save_data_to_file(file_path, processed_data)
+                            else:
+                                raise StorageError(f"Expected dict for uncompressed data, got {type(processed_data)}")
                     
                     ids.append(item_id)
                 
@@ -614,12 +626,12 @@ class FileStorageBackend(BaseStorageBackend):
             raise StorageError(f"Failed to cleanup old data: {e}")
     
     def stream_list_impl(
-        self, 
-        filters: Dict[str, Any], 
+        self,
+        filters: Dict[str, Any],
         batch_size: int = 100
-    ):
+    ) -> Any:
         """实际流式列表实现"""
-        async def _stream():
+        async def _stream() -> Any:
             try:
                 # 获取所有文件
                 all_files = FileStorageUtils.list_files_in_directory(

@@ -24,7 +24,6 @@ src/
 │   ├── __init__.py               # 模块导出
 │   ├── base.py                   # 适配器基类
 │   ├── factory.py                # 适配器工厂
-│   ├── legacy_adapter.py         # 向后兼容适配器
 │   ├── memory.py                 # 内存存储适配器
 │   ├── memory_backend.py         # 内存存储后端
 │   ├── memory_utils.py           # 内存存储工具
@@ -109,23 +108,33 @@ await manager.register_adapter(
 adapter = await manager.get_adapter("memory")
 ```
 
-### 步骤4：使用向后兼容适配器
+### 步骤4：直接使用新适配器
 
-如果现有代码使用旧接口，可以使用向后兼容适配器：
+现在可以直接使用新适配器，无需向后兼容层：
 
 ```python
-from src.adapters.storage import LegacyStorageAdapter, MemoryStateStorageAdapter
+from src.adapters.storage import MemoryStateStorageAdapter
+from src.core.state.entities import StateHistoryEntry
+import time
 
 # 创建新适配器
-new_adapter = MemoryStateStorageAdapter()
+adapter = MemoryStateStorageAdapter()
 
-# 包装为向后兼容适配器
-legacy_adapter = LegacyStorageAdapter(new_adapter)
+# 使用新接口
+entry = StateHistoryEntry(
+    history_id="test_id",
+    agent_id="test_agent",
+    session_id="test_session",
+    thread_id="test_thread",
+    timestamp=time.time(),
+    data={"message": "Hello"}
+)
 
-# 使用旧接口
-data = {"message": "Hello"}
-id = legacy_adapter.save(data)
-loaded_data = legacy_adapter.load(id)
+# 保存数据
+success = adapter.save_history_entry(entry)
+
+# 加载数据
+loaded_entry = adapter.get_history_entry("test_id")
 ```
 
 ## 配置管理

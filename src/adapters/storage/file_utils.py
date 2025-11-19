@@ -55,7 +55,10 @@ class FileStorageUtils:
         Returns:
             反序列化后的数据
         """
-        return json.loads(data)
+        result = json.loads(data)
+        if isinstance(result, dict):
+            return result
+        raise ValueError(f"Expected dict, got {type(result)}")
     
     @staticmethod
     def save_data_to_file(file_path: str, data: Dict[str, Any]) -> None:

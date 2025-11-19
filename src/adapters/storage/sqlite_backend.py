@@ -296,18 +296,22 @@ class SQLiteStorageBackend(BaseStorageBackend):
             query = "SELECT * FROM state_storage WHERE id = ?"
             result = SQLiteStorageUtils.execute_query(conn, query, [id], fetch_one=True)
             
-            if not result:
+            if not result or not isinstance(result, dict):
                 return None
             
             # 检查是否过期
-            if result["expires_at"] and result["expires_at"] < time.time():
+            expires_at = result.get("expires_at")
+            if expires_at and isinstance(expires_at, (int, float)) and expires_at < time.time():
                 # 删除过期记录
                 SQLiteStorageUtils.execute_update(conn, "DELETE FROM state_storage WHERE id = ?", [id])
                 self._stats["expired_records_cleaned"] += 1
                 return None
             
             # 反序列化数据
-            data = SQLiteStorageUtils.deserialize_data(result["data"])
+            data_str = result.get("data")
+            if not isinstance(data_str, str):
+                raise StorageError(f"Invalid data type in database: {type(data_str)}")
+            data = SQLiteStorageUtils.deserialize_data(data_str)
             
             self._update_stats("load")
             return data
@@ -427,18 +431,27 @@ class SQLiteStorageBackend(BaseStorageBackend):
             
             # 处理结果
             processed_results = []
-            for row in results:
-                # 检查是否过期
-                if row["expires_at"] and row["expires_at"] < time.time():
-                    continue
-                
-                # 反序列化数据
-                try:
-                    data = SQLiteStorageUtils.deserialize_data(row["data"])
-                    processed_results.append(data)
-                except Exception as e:
-                    logger.error(f"Failed to deserialize data for record {row['id']}: {e}")
-                    continue
+            if results and isinstance(results, list):
+                for row in results:
+                    if not isinstance(row, dict):
+                        continue
+                        
+                    # 检查是否过期
+                    expires_at = row.get("expires_at")
+                    if expires_at and isinstance(expires_at, (int, float)) and expires_at < time.time():
+                        continue
+                    
+                    # 反序列化数据
+                    try:
+                        data_str = row.get("data")
+                        if not isinstance(data_str, str):
+                            logger.error(f"Invalid data type in record {row.get('id', 'unknown')}: {type(data_str)}")
+                            continue
+                        data = SQLiteStorageUtils.deserialize_data(data_str)
+                        processed_results.append(data)
+                    except Exception as e:
+                        logger.error(f"Failed to deserialize data for record {row.get('id', 'unknown')}: {e}")
+                        continue
             
             self._update_stats("list")
             return processed_results
@@ -473,21 +486,31 @@ class SQLiteStorageBackend(BaseStorageBackend):
                 
                 # 处理结果
                 processed_results = []
-                for row in results:
-                    # 如果包含data字段，反序列化
-                    if "data" in row:
-                        try:
-                            data = SQLiteStorageUtils.deserialize_data(row["data"])
-                            # 合并其他字段
-                            for key, value in row.items():
-                                if key != "data":
-                                    data[key] = value
-                            processed_results.append(data)
-                        except Exception as e:
-                            logger.error(f"Failed to deserialize data: {e}")
+                if results and isinstance(results, list):
+                    for row in results:
+                        if not isinstance(row, dict):
+                            continue
+                            
+                        # 如果包含data字段，反序列化
+                        if "data" in row:
+                            try:
+                                data_str = row["data"]
+                                if not isinstance(data_str, str):
+                                    logger.error(f"Invalid data type: {type(data_str)}")
+                                    processed_results.append(dict(row))
+                                    continue
+                                    
+                                data = SQLiteStorageUtils.deserialize_data(data_str)
+                                # 合并其他字段
+                                for key, value in row.items():
+                                    if key != "data" and isinstance(key, str):
+                                        data[key] = value
+                                processed_results.append(data)
+                            except Exception as e:
+                                logger.error(f"Failed to deserialize data: {e}")
+                                processed_results.append(dict(row))
+                        else:
                             processed_results.append(dict(row))
-                    else:
-                        processed_results.append(dict(row))
                 
                 return processed_results
             
@@ -514,11 +537,12 @@ class SQLiteStorageBackend(BaseStorageBackend):
             query = "SELECT id, expires_at FROM state_storage WHERE id = ?"
             result = SQLiteStorageUtils.execute_query(conn, query, [id], fetch_one=True)
             
-            if not result:
+            if not result or not isinstance(result, dict):
                 return False
             
             # 检查是否过期
-            if result["expires_at"] and result["expires_at"] < time.time():
+            expires_at = result.get("expires_at")
+            if expires_at and isinstance(expires_at, (int, float)) and expires_at < time.time():
                 # 删除过期记录
                 SQLiteStorageUtils.execute_update(conn, "DELETE FROM state_storage WHERE id = ?", [id])
                 self._stats["expired_records_cleaned"] += 1
@@ -549,7 +573,10 @@ class SQLiteStorageBackend(BaseStorageBackend):
             # 执行查询
             result = SQLiteStorageUtils.execute_query(conn, query, params, fetch_one=True)
             
-            return result["count"] if result else 0
+            if result and isinstance(result, dict):
+                count = result.get("count")
+                return int(count) if isinstance(count, (int, float, str)) else 0
+            return 0
             
         except Exception as e:
             if isinstance(e, StorageError):
@@ -712,12 +739,12 @@ class SQLiteStorageBackend(BaseStorageBackend):
                 self._return_connection(conn)
     
     def stream_list_impl(
-        self, 
-        filters: Dict[str, Any], 
+        self,
+        filters: Dict[str, Any],
         batch_size: int = 100
-    ):
+    ) -> Any:
         """实际流式列表实现"""
-        async def _stream():
+        async def _stream() -> Any:
             conn = None
             try:
                 # 获取连接
@@ -739,22 +766,30 @@ class SQLiteStorageBackend(BaseStorageBackend):
                     # 执行查询
                     results = SQLiteStorageUtils.execute_query(conn, query, params)
                     
-                    if not results:
+                    if not results or not isinstance(results, list):
                         break
                     
                     # 处理结果
                     batch = []
                     for row in results:
+                        if not isinstance(row, dict):
+                            continue
+                            
                         # 检查是否过期
-                        if row["expires_at"] and row["expires_at"] < time.time():
+                        expires_at = row.get("expires_at")
+                        if expires_at and isinstance(expires_at, (int, float)) and expires_at < time.time():
                             continue
                         
                         # 反序列化数据
                         try:
-                            data = SQLiteStorageUtils.deserialize_data(row["data"])
+                            data_str = row.get("data")
+                            if not isinstance(data_str, str):
+                                logger.error(f"Invalid data type in record {row.get('id', 'unknown')}: {type(data_str)}")
+                                continue
+                            data = SQLiteStorageUtils.deserialize_data(data_str)
                             batch.append(data)
                         except Exception as e:
-                            logger.error(f"Failed to deserialize data for record {row['id']}: {e}")
+                            logger.error(f"Failed to deserialize data for record {row.get('id', 'unknown')}: {e}")
                             continue
                     
                     if batch:

@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional, Type, Callable, Union, List
 from abc import ABC, abstractmethod
 
 from src.core.state.interfaces import IStateStorageAdapter
-from src.core.state.exceptions import StorageError, ConfigurationError
+from src.core.state.exceptions import StorageError, StorageConfigurationError as ConfigurationError
 from .memory import MemoryStateStorageAdapter
 from .sqlite import SQLiteStateStorageAdapter
 from .file import FileStateStorageAdapter
@@ -137,7 +137,7 @@ class StorageAdapterFactoryRegistry:
     管理存储适配器工厂的注册和创建。
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化工厂注册表"""
         self._factories: Dict[str, StorageAdapterFactory] = {}
         self._custom_factories: Dict[str, Type[StorageAdapterFactory]] = {}
@@ -409,7 +409,7 @@ def register_custom_storage_factory(
 
 
 # 装饰器：用于注册自定义工厂
-def storage_adapter_factory(adapter_type: str):
+def storage_adapter_factory(adapter_type: str) -> Callable[[Type[StorageAdapterFactory]], Type[StorageAdapterFactory]]:
     """存储适配器工厂装饰器
     
     Args:

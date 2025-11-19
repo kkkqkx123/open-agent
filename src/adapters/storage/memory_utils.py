@@ -147,7 +147,11 @@ class MemoryStorageUtils:
         try:
             # 从文件加载
             with open(persistence_path, 'rb') as f:
-                return pickle.load(f)
+                result = pickle.load(f)
+                if isinstance(result, dict):
+                    return result
+                else:
+                    raise StorageError(f"Loaded data is not a dict: {type(result)}")
         except Exception as e:
             raise StorageError(f"Failed to load persistence data: {e}")
     

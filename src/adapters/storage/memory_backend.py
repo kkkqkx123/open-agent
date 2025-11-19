@@ -581,12 +581,12 @@ class MemoryStorageBackend(BaseStorageBackend):
             raise StorageError(f"Failed to cleanup old data: {e}")
     
     def stream_list_impl(
-        self, 
-        filters: Dict[str, Any], 
+        self,
+        filters: Dict[str, Any],
         batch_size: int = 100
-    ):
+    ) -> Any:
         """实际流式列表实现"""
-        async def _stream():
+        async def _stream() -> Any:
             try:
                 batch = []
                 

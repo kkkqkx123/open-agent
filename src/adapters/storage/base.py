@@ -30,7 +30,7 @@ class BaseStateStorageAdapter(IStateStorageAdapter):
         self._backend = backend
         self._transaction_active = False
     
-    def _run_async_method(self, method, *args, **kwargs):
+    def _run_async_method(self, method: Any, *args: Any, **kwargs: Any) -> Any:
         """运行异步方法的辅助函数
         
         Args:
@@ -252,7 +252,9 @@ class BaseStateStorageAdapter(IStateStorageAdapter):
         try:
             # 运行异步方法
             health_info = self._run_async_method(self._backend.health_check_impl)
-            return health_info.get("status") == "healthy"
+            if isinstance(health_info, dict):
+                return health_info.get("status") == "healthy"
+            return False
         except Exception as e:
             logger.error(f"Failed health check: {e}")
             return False

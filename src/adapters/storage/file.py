@@ -347,7 +347,9 @@ class FileStateStorageAdapter(BaseStateStorageAdapter):
         try:
             # 运行异步方法
             count = self._run_async_method(self._backend.cleanup_old_data_impl, retention_days)
-            return count
+            if isinstance(count, int):
+                return count
+            return 0
             
         except Exception as e:
             logger.error(f"Failed to cleanup old history: {e}")
@@ -373,15 +375,16 @@ class FileStateStorageAdapter(BaseStateStorageAdapter):
         """
         try:
             # 构建过滤器
-            filters = {"type": "history_entry"}
+            filters: Dict[str, Any] = {"type": "history_entry"}
             
             if agent_id:
                 filters["agent_id"] = agent_id
             
             if start_time is not None:
-                filters["created_at"] = {"$gte": start_time}
+                created_at_filter: Dict[str, Any] = {"$gte": start_time}
                 if end_time is not None:
-                    filters["created_at"]["$lte"] = end_time
+                    created_at_filter["$lte"] = end_time
+                filters["created_at"] = created_at_filter
             elif end_time is not None:
                 filters["created_at"] = {"$lte": end_time}
             
@@ -400,6 +403,7 @@ class FileStateStorageAdapter(BaseStateStorageAdapter):
             
             # 生成导出文件名
             timestamp = time.strftime("%Y%m%d_%H%M%S")
+            export_file = None
             
             if format.lower() == "json":
                 export_file = export_dir / f"history_export_{timestamp}.json"
