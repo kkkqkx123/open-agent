@@ -16,9 +16,6 @@ class ConfigOperations:
     """配置操作器 - 提供实用工具功能
     
     专注于配置的导出、摘要等高级功能，不与ConfigManager的核心功能重叠。
-    
-    注意：这个类依赖于ConfigManager提供的方法，包括list_configs()和load_config()。
-    实现需要根据实际的ConfigManager API进行调整。
     """
     
     def __init__(self, config_manager: ConfigManager):
@@ -35,7 +32,7 @@ class ConfigOperations:
         Args:
             output_path: 输出文件路径
         """
-        snapshot = {
+        snapshot: Dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "configs": {}
         }
@@ -46,17 +43,19 @@ class ConfigOperations:
             snapshot["configs"]["global"] = self._to_dict(global_config)
             
             # 导出LLM配置
-            llm_configs = self._config_manager.list_configs("llms")
+            llm_config_files = self._config_manager.list_config_files("llms")
             snapshot["configs"]["llms"] = {}
-            for config_name in llm_configs:
-                config = self._config_manager.load_config(f"llms/{config_name}")
+            for config_file in llm_config_files:
+                config = self._config_manager.load_config(config_file)
+                config_name = Path(config_file).stem
                 snapshot["configs"]["llms"][config_name] = self._to_dict(config)
             
             # 导出工具配置
-            tool_configs = self._config_manager.list_configs("tool-sets")
+            tool_config_files = self._config_manager.list_config_files("tool-sets")
             snapshot["configs"]["tools"] = {}
-            for config_name in tool_configs:
-                config = self._config_manager.load_config(f"tool-sets/{config_name}")
+            for config_file in tool_config_files:
+                config = self._config_manager.load_config(config_file)
+                config_name = Path(config_file).stem
                 snapshot["configs"]["tools"][config_name] = self._to_dict(config)
             
             # 写入文件
@@ -75,20 +74,24 @@ class ConfigOperations:
         Returns:
             配置摘要
         """
-        summary = {
+        summary: Dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "config_counts": {}
         }
         
         try:
             # 统计各种配置的数量
-            summary["config_counts"]["llms"] = len(self._config_manager.list_configs("llms"))
-            summary["config_counts"]["tools"] = len(self._config_manager.list_configs("tool-sets"))
+            summary["config_counts"]["llms"] = len(self._config_manager.list_config_files("llms"))
+            summary["config_counts"]["tools"] = len(self._config_manager.list_config_files("tool-sets"))
             
             # 获取全局配置信息
             global_config = self._config_manager.load_config("global")
-            summary["environment"] = getattr(global_config, 'env', 'unknown')
-            summary["debug"] = getattr(global_config, 'debug', False)
+            if isinstance(global_config, dict):
+                summary["environment"] = global_config.get('env', 'unknown')
+                summary["debug"] = global_config.get('debug', False)
+            else:
+                summary["environment"] = getattr(global_config, 'env', 'unknown')
+                summary["debug"] = getattr(global_config, 'debug', False)
             
         except Exception as e:
             summary["error"] = str(e)
@@ -101,7 +104,7 @@ class ConfigOperations:
         Returns:
             验证结果
         """
-        results = {
+        results: Dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "validations": {}
         }
@@ -115,21 +118,23 @@ class ConfigOperations:
                 results["validations"]["global"] = {"status": "invalid", "error": str(e)}
             
             # 验证LLM配置
-            llm_configs = self._config_manager.list_configs("llms")
+            llm_config_files = self._config_manager.list_config_files("llms")
             results["validations"]["llms"] = {}
-            for config_name in llm_configs:
+            for config_file in llm_config_files:
+                config_name = Path(config_file).stem
                 try:
-                    self._config_manager.load_config(f"llms/{config_name}")
+                    self._config_manager.load_config(config_file)
                     results["validations"]["llms"][config_name] = {"status": "valid"}
                 except Exception as e:
                     results["validations"]["llms"][config_name] = {"status": "invalid", "error": str(e)}
             
             # 验证工具配置
-            tool_configs = self._config_manager.list_configs("tool-sets")
+            tool_config_files = self._config_manager.list_config_files("tool-sets")
             results["validations"]["tools"] = {}
-            for config_name in tool_configs:
+            for config_file in tool_config_files:
+                config_name = Path(config_file).stem
                 try:
-                    self._config_manager.load_config(f"tool-sets/{config_name}")
+                    self._config_manager.load_config(config_file)
                     results["validations"]["tools"][config_name] = {"status": "valid"}
                 except Exception as e:
                     results["validations"]["tools"][config_name] = {"status": "invalid", "error": str(e)}
@@ -145,41 +150,54 @@ class ConfigOperations:
         Returns:
             配置依赖关系
         """
-        dependencies = {
+        dependencies: Dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "dependencies": {}
         }
         
         try:
             # 分析LLM配置的依赖关系
-            llm_configs = self._config_manager.list_configs("llms")
+            llm_config_files = self._config_manager.list_config_files("llms")
             dependencies["dependencies"]["llms"] = {}
             
-            for config_name in llm_configs:
-                config = self._config_manager.load_config(f"llms/{config_name}")
+            for config_file in llm_config_files:
+                config = self._config_manager.load_config(config_file)
+                config_name = Path(config_file).stem
                 config_deps = []
                 
                 # 检查组配置依赖
-                if hasattr(config, 'group') and getattr(config, 'group', None):
-                    config_deps.append(f"group:{config.group}")
-                
-                # 检查token_counter依赖
-                if hasattr(config, 'token_counter') and getattr(config, 'token_counter', None):
-                    config_deps.append(f"token_counter:{config.token_counter}")
+                if isinstance(config, dict):
+                    group = config.get('group')
+                    if group:
+                        config_deps.append(f"group:{group}")
+                    token_counter = config.get('token_counter')
+                    if token_counter:
+                        config_deps.append(f"token_counter:{token_counter}")
+                else:
+                    if hasattr(config, 'group') and getattr(config, 'group', None):
+                        config_deps.append(f"group:{getattr(config, 'group')}")
+                    if hasattr(config, 'token_counter') and getattr(config, 'token_counter', None):
+                        config_deps.append(f"token_counter:{getattr(config, 'token_counter')}")
                 
                 dependencies["dependencies"]["llms"][config_name] = config_deps
             
             # 分析工具配置的依赖关系
-            tool_configs = self._config_manager.list_configs("tool-sets")
+            tool_config_files = self._config_manager.list_config_files("tool-sets")
             dependencies["dependencies"]["tools"] = {}
             
-            for config_name in tool_configs:
-                config = self._config_manager.load_config(f"tool-sets/{config_name}")
+            for config_file in tool_config_files:
+                config = self._config_manager.load_config(config_file)
+                config_name = Path(config_file).stem
                 config_deps = []
                 
                 # 检查组配置依赖
-                if hasattr(config, 'group') and getattr(config, 'group', None):
-                    config_deps.append(f"group:{config.group}")
+                if isinstance(config, dict):
+                    group = config.get('group')
+                    if group:
+                        config_deps.append(f"group:{group}")
+                else:
+                    if hasattr(config, 'group') and getattr(config, 'group', None):
+                        config_deps.append(f"group:{getattr(config, 'group')}")
                 
                 dependencies["dependencies"]["tools"][config_name] = config_deps
             
