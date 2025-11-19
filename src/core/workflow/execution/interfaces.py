@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, AsyncIterator
+from typing import Dict, Any, List, Optional, AsyncIterator, Coroutine, AsyncGenerator, Awaitable, Callable
 from ..interfaces import IWorkflow, ExecutionContext
 from src.state.interfaces import IWorkflowState
 
@@ -82,7 +82,7 @@ class IStreamingExecutor(IExecutor):
 
     @abstractmethod
     async def execute_stream_async(self, workflow: IWorkflow, initial_state: IWorkflowState,
-                              context: ExecutionContext) -> AsyncIterator[Dict[str, Any]]:
+                               context: ExecutionContext):
         """异步流式执行工作流
         
         Args:

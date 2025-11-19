@@ -8,7 +8,9 @@ from .interfaces import (
     IWorkflow,
     IWorkflowState,
     IWorkflowExecutor,
-    IWorkflowBuilder
+    IWorkflowBuilder,
+    IWorkflowTemplate,
+    IWorkflowTemplateRegistry
 )
 from .entities import (
     Workflow as WorkflowEntity,
@@ -153,6 +155,8 @@ __all__ = [
     "IWorkflowState",
     "IWorkflowExecutor",
     "IWorkflowBuilder",
+    "IWorkflowTemplate",
+    "IWorkflowTemplateRegistry",
     
     # Core entities
     "WorkflowEntity",

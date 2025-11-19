@@ -5,8 +5,9 @@ from configurations and templates.
 """
 
 from typing import Dict, Any, List, Optional, Type
-from src.core.workflow.interfaces import IWorkflow, IWorkflowFactory
+from src.core.workflow.interfaces import IWorkflow, IWorkflowFactory, IWorkflowTemplate
 from src.core.workflow.workflow import Workflow
+from src.core.workflow.templates import get_global_template_registry
 from .manager import WorkflowManager
 from .registry import WorkflowRegistry
 
@@ -29,6 +30,7 @@ class WorkflowFactory(IWorkflowFactory):
         self._workflow_types: Dict[str, Type[IWorkflow]] = {
             "default": Workflow
         }
+        self._template_manager = get_global_template_registry()
     
     def create_from_config(self, config: Dict[str, Any]) -> IWorkflow:
         """Create a workflow from a configuration dictionary.
@@ -63,6 +65,15 @@ class WorkflowFactory(IWorkflowFactory):
         Returns:
             Created workflow instance
         """
+        # 首先尝试使用新的模板系统
+        template = self._template_manager.get_template(template_name)
+        if template:
+            # 使用新的模板系统创建工作流
+            workflow_name = params.get("name", f"{template_name}_workflow")
+            workflow_description = params.get("description", f"Workflow created from {template_name} template")
+            return template.create_workflow(workflow_name, workflow_description, params)
+        
+        # 回退到旧的模板系统
         if template_name not in self._template_registry:
             raise ValueError(f"Template not found: {template_name}")
         
@@ -98,6 +109,14 @@ class WorkflowFactory(IWorkflowFactory):
         """
         self._template_registry[name] = template
     
+    def register_template_instance(self, template: IWorkflowTemplate) -> None:
+        """Register a workflow template instance.
+        
+        Args:
+            template: Template instance
+        """
+        self._template_manager.register_template(template)
+    
     def register_workflow_type(self, name: str, workflow_class: Type[IWorkflow]) -> None:
         """Register a workflow type.
         
@@ -113,7 +132,10 @@ class WorkflowFactory(IWorkflowFactory):
         Returns:
             List of template names
         """
-        return list(self._template_registry.keys())
+        # 合并新旧模板系统的模板
+        old_templates = list(self._template_registry.keys())
+        new_templates = self._template_manager.list_templates()
+        return list(set(old_templates + new_templates))
     
     def list_workflow_types(self) -> List[str]:
         """List all registered workflow types.

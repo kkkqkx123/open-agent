@@ -4,7 +4,7 @@
 """
 
 import asyncio
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, AsyncGenerator
 from .interfaces import IStreamingExecutor
 from ..interfaces import IWorkflow, ExecutionContext
 from src.state.interfaces import IWorkflowState, IState
@@ -20,7 +20,7 @@ class WorkflowExecutor(IStreamingExecutor):
         """初始化执行器"""
         self._execution_context: Optional[ExecutionContext] = None
 
-    def execute(self, workflow: IWorkflow, initial_state: IWorkflowState, 
+    def execute(self, workflow: IWorkflow, initial_state: IWorkflowState,
                 context: ExecutionContext) -> IWorkflowState:
         """执行工作流
         
@@ -105,7 +105,7 @@ class WorkflowExecutor(IStreamingExecutor):
                 if result.next_node:
                     current_node_id = result.next_node
                 else:
-                    # 查找出边
+                    # 异步查找出边
                     next_nodes = await self._get_next_nodes_async(workflow, current_node_id, current_state, context.config)
                     if next_nodes:
                         current_node_id = next_nodes[0]  # 简单选择第一个
@@ -210,8 +210,8 @@ class WorkflowExecutor(IStreamingExecutor):
         
         return events
 
-    def _get_next_nodes(self, workflow: IWorkflow, node_id: str, 
-                        state: IState, config: Dict[str, Any]) -> List[str]:
+    def _get_next_nodes(self, workflow: IWorkflow, node_id: str,
+                        state: IWorkflowState, config: Dict[str, Any]) -> List[str]:
         """获取下一个节点列表
         
         Args:
@@ -235,8 +235,8 @@ class WorkflowExecutor(IStreamingExecutor):
         
         return next_nodes
 
-    async def _get_next_nodes_async(self, workflow: IWorkflow, node_id: str, 
-                                state: IState, config: Dict[str, Any]) -> List[str]:
+    async def _get_next_nodes_async(self, workflow: IWorkflow, node_id: str,
+                                state: IWorkflowState, config: Dict[str, Any]) -> List[str]:
         """异步获取下一个节点列表
         
         Args:
@@ -261,6 +261,96 @@ class WorkflowExecutor(IStreamingExecutor):
                     next_nodes.extend(next_node_ids)
         
         return next_nodes
+
+    async def execute_stream_async(  # type: ignore[override]
+        self, workflow: IWorkflow, initial_state: IWorkflowState,
+        context: ExecutionContext
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """异步流式执行工作流
+        
+        Args:
+            workflow: 工作流实例
+            initial_state: 初始状态
+            context: 执行上下文
+            
+        Yields:
+            Dict[str, Any]: 执行事件
+        """
+        # 添加开始事件
+        yield {
+            "type": "workflow_started",
+            "workflow_id": context.workflow_id,
+            "execution_id": context.execution_id,
+            "timestamp": self._get_timestamp()
+        }
+        
+        # 获取入口点
+        if not workflow._entry_point:
+            raise ValueError("工作流未设置入口点")
+        
+        current_node_id = workflow._entry_point
+        current_state = initial_state
+        
+        while current_node_id:
+            # 获取当前节点
+            current_node = workflow.get_node(current_node_id)
+            if not current_node:
+                raise ValueError(f"节点不存在: {current_node_id}")
+            
+            # 添加节点开始事件
+            yield {
+                "type": "node_started",
+                "node_id": current_node_id,
+                "node_type": current_node.node_type,
+                "timestamp": self._get_timestamp()
+            }
+            
+            # 异步执行节点
+            try:
+                result = await current_node.execute_async(current_state, context.config)
+                current_state = result.state
+                
+                # 添加节点完成事件
+                yield {
+                    "type": "node_completed",
+                    "node_id": current_node_id,
+                    "node_type": current_node.node_type,
+                    "result": result.metadata,
+                    "timestamp": self._get_timestamp()
+                }
+                
+                # 确定下一个节点
+                if result.next_node:
+                    current_node_id = result.next_node
+                else:
+                    # 异步查找出边
+                    next_nodes = await self._get_next_nodes_async(workflow, current_node_id, current_state, context.config)
+                    if next_nodes:
+                        current_node_id = next_nodes[0]  # 简单选择第一个
+                    else:
+                        current_node_id = None  # 工作流结束
+            except Exception as e:
+                # 添加节点错误事件
+                yield {
+                    "type": "node_error",
+                    "node_id": current_node_id,
+                    "node_type": current_node.node_type,
+                    "error": str(e),
+                    "timestamp": self._get_timestamp()
+                }
+                
+                # 处理执行错误
+                current_state.set_data("error", str(e))
+                current_node_id = None # 终止工作流
+        
+        # 添加工作流结束事件
+        yield {
+            "type": "workflow_completed",
+            "workflow_id": context.workflow_id,
+            "execution_id": context.execution_id,
+            "final_state": current_state.get_data("error") is None,
+            "timestamp": self._get_timestamp()
+        }
 
     def _get_timestamp(self) -> str:
         """获取当前时间戳"""
