@@ -35,8 +35,12 @@ from src.services.workflow import (
 
 # Test adapter layer imports
 from src.adapters.workflow import (
-    LangGraphAdapter, AsyncAdapter
+    WorkflowVisualizer
 )
+
+# Test services layer imports
+from src.services.workflow.langgraph_builder import LangGraphBuilder
+from src.services.workflow.async_executor import AsyncWorkflowExecutor
 
 
 class TestWorkflowArchitecture:

@@ -10,6 +10,12 @@ from dataclasses import dataclass
 from .graph.interfaces import IGraph, INode, IEdge
 from src.state.interfaces import IState, IWorkflowState
 
+# 需要延迟导入避免循环依赖
+try:
+    from .config import GraphConfig
+except ImportError:
+    GraphConfig = Any  # type: ignore
+
 
 @dataclass
 class ExecutionContext:
@@ -317,5 +323,38 @@ class IWorkflowTemplateRegistry(ABC):
         
         Returns:
             Dict[str, Any]: 统计信息
+        """
+        pass
+
+
+    class IWorkflowVisualizer(ABC):
+        """工作流可视化器接口
+        
+        提供工作流的可视化能力，包括图形化展示和多格式导出。
+        """
+    
+    @abstractmethod
+    def generate_visualization(self, config: Any, layout: str = "hierarchical") -> Dict[str, Any]:
+        """生成可视化数据
+        
+        Args:
+            config: 工作流配置
+            layout: 布局算法（hierarchical, force_directed, circular）
+            
+        Returns:
+            Dict[str, Any]: 可视化数据
+        """
+        pass
+    
+    @abstractmethod
+    def export_diagram(self, config: Any, format: str = "json") -> bytes:
+        """导出图表
+        
+        Args:
+            config: 工作流配置
+            format: 导出格式（json, svg, png, mermaid）
+            
+        Returns:
+            bytes: 图表数据
         """
         pass

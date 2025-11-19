@@ -1,6 +1,6 @@
-"""LangGraph适配器
+"""LangGraph构建器
 
-提供与LangGraph框架的适配。
+提供与LangGraph框架的集成，支持图构建和编译。
 """
 
 from typing import Dict, Any, Optional, List, Callable
@@ -15,14 +15,14 @@ from src.core.workflow.entities import Workflow, WorkflowState
 logger = logging.getLogger(__name__)
 
 
-class LangGraphAdapter:
-    """LangGraph适配器
+class LangGraphBuilder:
+    """LangGraph构建器
     
-    提供与LangGraph框架的适配，支持图构建和编译。
+    提供与LangGraph框架的集成，支持图构建和编译。
     """
     
     def __init__(self):
-        """初始化适配器"""
+        """初始化构建器"""
         self._compiled_graphs: Dict[str, Any] = {}
 
     def build_langgraph(self, workflow: IWorkflow) -> Any:

@@ -1,7 +1,9 @@
-"""状态适配器
+"""工作流状态转换器
 
-负责在工作流状态的不同表示形式之间进行转换。
-已移除agent层，现在专注于WorkflowState的适配和转换。
+负责在工作流状态的不同表示形式之间进行转换：
+- WorkflowState (图系统状态) <-> WorkflowStateAdapter (内部状态)
+- 处理消息格式转换
+- 向后兼容性支持
 """
 
 import warnings
@@ -10,6 +12,7 @@ from dataclasses import dataclass, asdict, field
 import logging
 
 from src.core.workflow.states import WorkflowState, LCBaseMessage
+from src.core.llm.message_converters import MessageConverter
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 
 logger = logging.getLogger(__name__)
@@ -20,9 +23,8 @@ class WorkflowStateAdapter:
     """工作流状态适配器
     
     提供WorkflowState的结构化表示，便于状态操作和转换。
-    替代已移除的GraphAgentState。
     """
-    # 基本标识信息 - 从agent相关字段映射而来
+    # 基本标识信息
     workflow_id: str = ""
     workflow_type: str = ""
     
@@ -116,11 +118,16 @@ class WorkflowStateAdapter:
 GraphAgentState = WorkflowStateAdapter
 
 
-class StateAdapter:
-    """状态适配器"""
+class WorkflowStateConverter:
+    """工作流状态转换器
+    
+    处理不同工作流状态表示形式之间的双向转换。
+    """
     
     def __init__(self) -> None:
+        """初始化状态转换器"""
         self.logger = logging.getLogger(__name__)
+        self.message_converter = MessageConverter()
     
     def from_graph_state(self, graph_state: WorkflowState) -> WorkflowStateAdapter:
         """将图状态转换为适配器状态
@@ -310,35 +317,53 @@ class StateAdapter:
         return converted_messages
 
 
-# 全局状态适配器实例
-_global_adapter: Optional[StateAdapter] = None
+# 全局状态转换器实例
+_global_converter: Optional[WorkflowStateConverter] = None
 
 
-def get_state_adapter() -> StateAdapter:
-    """获取全局状态适配器实例
+def get_state_converter() -> WorkflowStateConverter:
+    """获取全局状态转换器实例
     
     Returns:
-        StateAdapter: 状态适配器实例
+        WorkflowStateConverter: 状态转换器实例
     """
-    global _global_adapter
-    if _global_adapter is None:
-        _global_adapter = StateAdapter()
-    return _global_adapter
+    global _global_converter
+    if _global_converter is None:
+        _global_converter = WorkflowStateConverter()
+    return _global_converter
 
 
 # 向后兼容性别名
-def get_graph_agent_state_adapter() -> StateAdapter:
-    """获取全局状态适配器实例（已废弃）
+def get_state_adapter() -> WorkflowStateConverter:
+    """获取全局状态转换器实例（旧名称，保留向后兼容性）
     
     .. deprecated::
-        使用 get_state_adapter() 替代
+        使用 get_state_converter() 替代
     
     Returns:
-        StateAdapter: 状态适配器实例
+        WorkflowStateConverter: 状态转换器实例
     """
     warnings.warn(
-        "get_graph_agent_state_adapter() is deprecated, use get_state_adapter() instead",
+        "get_state_adapter() is deprecated, use get_state_converter() instead",
         DeprecationWarning,
         stacklevel=2
     )
-    return get_state_adapter()
+    return get_state_converter()
+
+
+# 向后兼容性别名
+def get_graph_agent_state_adapter() -> WorkflowStateConverter:
+    """获取全局状态转换器实例（已废弃）
+    
+    .. deprecated::
+        使用 get_state_converter() 替代
+    
+    Returns:
+        WorkflowStateConverter: 状态转换器实例
+    """
+    warnings.warn(
+        "get_graph_agent_state_adapter() is deprecated, use get_state_converter() instead",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return get_state_converter()

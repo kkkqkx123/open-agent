@@ -10,22 +10,11 @@ import math
 import random
 import json
 
-from ...core.workflow.config import GraphConfig
-from ...core.workflow.exceptions import WorkflowError
+from src.core.workflow.config import GraphConfig
+from src.core.workflow.exceptions import WorkflowError
+from src.core.workflow.interfaces import IWorkflowVisualizer
 
 logger = logging.getLogger(__name__)
-
-
-class IWorkflowVisualizer:
-    """工作流可视化器接口"""
-    
-    def generate_visualization(self, config: GraphConfig, layout: str = "hierarchical") -> Dict[str, Any]:
-        """生成可视化数据"""
-        raise NotImplementedError
-    
-    def export_diagram(self, config: GraphConfig, format: str = "json") -> bytes:
-        """导出图表"""
-        raise NotImplementedError
 
 
 class WorkflowVisualizer(IWorkflowVisualizer):
