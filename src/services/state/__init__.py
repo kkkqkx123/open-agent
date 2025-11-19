@@ -6,6 +6,17 @@
 from .manager import EnhancedStateManager, StateWrapper
 from .history import StateHistoryService, StateHistoryAnalyzer
 from .snapshots import StateSnapshotService, SnapshotScheduler
+from .workflow_manager import WorkflowStateManager
+
+__all__ = [
+    'EnhancedStateManager',
+    'StateWrapper',
+    'StateHistoryService',
+    'StateHistoryAnalyzer',
+    'StateSnapshotService',
+    'SnapshotScheduler',
+    'WorkflowStateManager'
+]
 from .persistence import StatePersistenceService, StateBackupService
 
 __all__ = [

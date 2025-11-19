@@ -14,7 +14,8 @@ from src.services.state import (
     StateHistoryService,
     StateSnapshotService,
     StatePersistenceService,
-    StateBackupService
+    StateBackupService,
+    WorkflowStateManager
 )
 from src.adapters.storage import (
     IStateStorageAdapter,
@@ -55,6 +56,9 @@ def configure_state_services(container: ServiceContainer, config: Dict[str, Any]
         
         # 配置备份服务
         _configure_backup_service(container)
+        
+        # 配置工作流状态管理器
+        _configure_workflow_state_manager(container, config)
         
         logger.info("状态管理服务依赖注入配置完成")
         
@@ -186,6 +190,24 @@ def _configure_backup_service(container: ServiceContainer) -> None:
     container.register(
         StateBackupService,
         factory=backup_service_factory,
+        lifetime=ServiceLifetime.SINGLETON
+    )
+
+
+def _configure_workflow_state_manager(container: ServiceContainer, config: Dict[str, Any]) -> None:
+    """配置工作流状态管理器"""
+    def workflow_state_manager_factory(history_manager: IStateHistoryManager,
+                                     snapshot_manager: IStateSnapshotManager,
+                                     serializer: IStateSerializer) -> WorkflowStateManager:
+        return WorkflowStateManager(
+            history_manager=history_manager,
+            snapshot_manager=snapshot_manager,
+            serializer=serializer
+        )
+    
+    container.register(
+        WorkflowStateManager,
+        factory=workflow_state_manager_factory,
         lifetime=ServiceLifetime.SINGLETON
     )
 

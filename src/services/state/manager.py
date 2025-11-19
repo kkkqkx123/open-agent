@@ -4,7 +4,7 @@
 """
 
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Callable, Tuple
 from datetime import datetime
 
 from src.state.interfaces import IState, IStateManager
@@ -235,11 +235,49 @@ class EnhancedStateManager(IEnhancedStateManager, BaseStateManager, StateValidat
             total_states=base_stats.total_states,
             total_snapshots=snapshot_stats.get("total_snapshots", 0),
             total_history_entries=history_stats.get("total_history_entries", 0),
-            storage_size_bytes=history_stats.get("storage_size_bytes", 0) + 
+            storage_size_bytes=history_stats.get("storage_size_bytes", 0) +
                              snapshot_stats.get("storage_size_bytes", 0),
             agent_counts=agent_counts,
             last_updated=datetime.now()
         )
+    
+    def execute_with_state_management(
+        self,
+        state_id: str,
+        executor: Callable[[Dict[str, Any]], Tuple[Dict[str, Any], bool]],  # 返回(新状态, 是否成功)
+        context: Optional[Dict[str, Any]] = None
+    ) -> Tuple[Optional[IState], bool]:
+        """带状态管理的执行
+        Args:
+            state_id: 状态ID
+            executor: 执行函数，接收当前状态并返回(新状态, 是否成功)
+            context: 执行上下文
+            
+        Returns:
+            (执行后的状态, 是否成功)
+        """
+        try:
+            # 1. 获取当前状态
+            current_state = self.get_state(state_id)
+            if not current_state:
+                raise ValueError(f"状态不存在: {state_id}")
+            
+            current_state_dict = current_state.to_dict()
+            
+            # 2. 执行业务逻辑
+            new_state_dict, success = executor(current_state_dict)
+            
+            if success:
+                # 3. 更新状态
+                updated_state = self.update_state(state_id, new_state_dict)
+                
+                return updated_state, True
+            else:
+                return current_state, False
+                
+        except Exception as e:
+            logger.error(f"带状态管理的执行失败: {e}")
+            raise
     
     def _create_state_wrapper(self, state_data: Dict[str, Any]) -> IState:
         """创建状态包装器"""

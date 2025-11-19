@@ -1,11 +1,12 @@
 """状态管理相关实体定义
+ 
 
-定义状态快照、历史记录和差异等核心实体。
+定义状态快照、历史记录、差异和冲突等核心实体。
 """
-
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Any, Optional, List
+from enum import Enum
 
 
 @dataclass
@@ -233,6 +234,65 @@ class StateDiff:
                 new_state[key] = change
         
         return new_state
+
+
+class ConflictType(Enum):
+    """冲突类型枚举"""
+    FIELD_MODIFICATION = "field_modification"      # 字段修改冲突
+    LIST_OPERATION = "list_operation"              # 列表操作冲突
+    STRUCTURE_CHANGE = "structure_change"          # 结构变化冲突
+    VERSION_MISMATCH = "version_mismatch"          # 版本不匹配冲突
+
+
+class ConflictResolutionStrategy(Enum):
+    """冲突解决策略"""
+    LAST_WRITE_WINS = "last_write_wins"           # 最后写入获胜
+    FIRST_WRITE_WINS = "first_write_wins"         # 首次写入获胜
+    MANUAL_RESOLUTION = "manual_resolution"       # 手动解决
+    MERGE_CHANGES = "merge_changes"               # 合并变更
+    REJECT_CONFLICT = "reject_conflict"           # 拒绝冲突变更
+
+
+@dataclass
+class StateConflict:
+    """状态冲突实体"""
+    conflict_type: ConflictType
+    conflicting_keys: List[str]
+    resolution_strategy: ConflictResolutionStrategy
+    timestamp: datetime
+    details: Dict[str, Any] = field(default_factory=dict)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典表示
+        
+        Returns:
+            字典表示的冲突
+        """
+        return {
+            "conflict_type": self.conflict_type.value,
+            "conflicting_keys": self.conflicting_keys,
+            "resolution_strategy": self.resolution_strategy.value,
+            "timestamp": self.timestamp.isoformat(),
+            "details": self.details
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'StateConflict':
+        """从字典创建冲突实例
+        
+        Args:
+            data: 字典数据
+            
+        Returns:
+            冲突实例
+        """
+        return cls(
+            conflict_type=ConflictType(data["conflict_type"]),
+            conflicting_keys=data["conflicting_keys"],
+            resolution_strategy=ConflictResolutionStrategy(data["resolution_strategy"]),
+            timestamp=datetime.fromisoformat(data["timestamp"]),
+            details=data.get("details", {})
+        )
 
 
 @dataclass

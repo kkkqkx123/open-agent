@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Callable, Tuple
 from datetime import datetime
 
 from src.state.interfaces import IState, IStateManager
@@ -271,5 +271,23 @@ class IEnhancedStateManager(IStateManager):
             
         Returns:
             恢复的状态实例，如果失败则返回None
+        """
+        pass
+    
+    @abstractmethod
+    def execute_with_state_management(
+        self,
+        state_id: str,
+        executor: Callable[[Dict[str, Any]], Tuple[Dict[str, Any], bool]],  # 返回(新状态, 是否成功)
+        context: Optional[Dict[str, Any]] = None
+    ) -> Tuple[Optional[IState], bool]:
+        """带状态管理的执行
+        Args:
+            state_id: 状态ID
+            executor: 执行函数，接收当前状态并返回(新状态, 是否成功)
+            context: 执行上下文
+            
+        Returns:
+            (执行后的状态, 是否成功)
         """
         pass

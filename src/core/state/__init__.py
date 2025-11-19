@@ -14,7 +14,10 @@ from .entities import (
     StateSnapshot,
     StateHistoryEntry,
     StateDiff,
-    StateStatistics
+    StateStatistics,
+    ConflictType,
+    ConflictResolutionStrategy,
+    StateConflict
 )
 
 from .base import (
@@ -37,6 +40,9 @@ __all__ = [
     "StateHistoryEntry",
     "StateDiff",
     "StateStatistics",
+    "ConflictType",
+    "ConflictResolutionStrategy",
+    "StateConflict",
     
     # 基础实现
     "BaseStateSerializer",
