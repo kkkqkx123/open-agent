@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Optional
 
 from src.core.state.entities import StateSnapshot, StateHistoryEntry
 from src.core.state.exceptions import StorageError
-from .base import BaseStateStorageAdapter
+from .base_state_storage_adapter_optimized import OptimizedStateStorageAdapter
 from .file_backend import FileStorageBackend
 from .utils.file_utils import FileStorageUtils
 
@@ -17,7 +17,7 @@ from .utils.file_utils import FileStorageUtils
 logger = logging.getLogger(__name__)
 
 
-class FileStateStorageAdapter(BaseStateStorageAdapter):
+class FileStateStorageAdapter(OptimizedStateStorageAdapter):
     """文件状态存储适配器
     
     提供基于文件的状态存储适配器实现。

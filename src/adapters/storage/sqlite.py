@@ -9,7 +9,7 @@ from pathlib import Path
 
 from src.core.state.entities import StateSnapshot, StateHistoryEntry
 from src.core.state.exceptions import StorageError
-from .base import BaseStateStorageAdapter
+from .base_state_storage_adapter_optimized import OptimizedStateStorageAdapter
 from .sqlite_backend import SQLiteStorageBackend
 from .utils.sqlite_utils import SQLiteStorageUtils
 
@@ -17,7 +17,7 @@ from .utils.sqlite_utils import SQLiteStorageUtils
 logger = logging.getLogger(__name__)
 
 
-class SQLiteStateStorageAdapter(BaseStateStorageAdapter):
+class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
     """SQLite状态存储适配器
     
     提供基于SQLite的状态存储适配器实现。

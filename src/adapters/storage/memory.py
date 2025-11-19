@@ -6,14 +6,14 @@
 import logging
 from typing import Any
 
-from .base import BaseStateStorageAdapter
+from .base_state_storage_adapter_optimized import OptimizedStateStorageAdapter
 from .memory_backend import MemoryStorageBackend
 
 
 logger = logging.getLogger(__name__)
 
 
-class MemoryStateStorageAdapter(BaseStateStorageAdapter):
+class MemoryStateStorageAdapter(OptimizedStateStorageAdapter):
     """内存状态存储适配器
     
     基于内存存储后端实现的状态存储适配器。

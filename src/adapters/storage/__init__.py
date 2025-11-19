@@ -7,7 +7,8 @@ from .memory import MemoryStateStorageAdapter
 from .sqlite import SQLiteStateStorageAdapter
 from .file import FileStateStorageAdapter
 
-from .base import BaseStateStorageAdapter, BaseStorageBackend
+from .base_state_storage_adapter_optimized import OptimizedStateStorageAdapter
+from .base_optimized import EnhancedStorageBackend
 from .memory_backend import MemoryStorageBackend
 from .sqlite_backend import SQLiteStorageBackend
 from .file_backend import FileStorageBackend
@@ -36,8 +37,8 @@ __all__ = [
     "FileStateStorageAdapter",
     
     # 基类
-    "BaseStateStorageAdapter",
-    "BaseStorageBackend",
+    "OptimizedStateStorageAdapter",
+    "EnhancedStorageBackend",
     
     # 后端
     "MemoryStorageBackend",

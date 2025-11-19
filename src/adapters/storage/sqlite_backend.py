@@ -8,6 +8,7 @@ import sqlite3
 import threading
 import time
 import logging
+import uuid
 from typing import Dict, Any, Optional, List, Union
 from pathlib import Path
 
@@ -17,14 +18,14 @@ from src.core.state.exceptions import (
     StorageTransactionError,
     StorageCapacityError
 )
-from .base import BaseStorageBackend
+from .base_optimized import EnhancedStorageBackend
 from .utils.sqlite_utils import SQLiteStorageUtils
 
 
 logger = logging.getLogger(__name__)
 
 
-class SQLiteStorageBackend(BaseStorageBackend):
+class SQLiteStorageBackend(EnhancedStorageBackend):
     """SQLite存储后端实现
     
     提供基于SQLite的存储后端，支持持久化、事务、索引等功能。
@@ -233,44 +234,77 @@ class SQLiteStorageBackend(BaseStorageBackend):
         except Exception as e:
             logger.error(f"Failed to return connection to pool: {e}")
     
-    async def save_impl(self, data: Dict[str, Any]) -> str:
+    async def save_impl(self, data: Union[Dict[str, Any], bytes], compressed: bool = False) -> str:
         """实际保存实现"""
         conn = None
         try:
             # 生成ID（如果没有）
-            if "id" not in data:
-                import uuid
+            if isinstance(data, dict) and "id" not in data:
+                data = data.copy()  # 避免修改原始数据
                 data["id"] = str(uuid.uuid4())
             
-            item_id: str = data["id"]
+            item_id: str = data["id"] if isinstance(data, dict) else str(uuid.uuid4())
             current_time = time.time()
             
             # 序列化数据
-            serialized_data = SQLiteStorageUtils.serialize_data(data)
+            if isinstance(data, dict):
+                # 正常处理字典数据
+                serialized_data = SQLiteStorageUtils.serialize_data(data)
+            else:
+                # 处理bytes类型数据
+                if compressed and isinstance(data, bytes):
+                    # 如果数据是压缩的bytes，先解压缩
+                    try:
+                        import gzip
+                        import json
+                        decompressed_data = gzip.decompress(data)
+                        str_data = decompressed_data.decode('utf-8')
+                        dict_data = json.loads(str_data)
+                        serialized_data = SQLiteStorageUtils.serialize_data(dict_data)
+                    except Exception as e:
+                        raise StorageError(f"Failed to decompress and deserialize data: {e}")
+                else:
+                    raise StorageError(f"Unexpected bytes data type without compression flag")
             
             # 获取连接
             conn = self._get_connection()
             
             # 插入或更新记录
             query = """
-                INSERT OR REPLACE INTO state_storage 
+                INSERT OR REPLACE INTO state_storage
                 (id, data, created_at, updated_at, expires_at, compressed, type, agent_id, thread_id, session_id, metadata)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             
-            params = [
-                item_id,
-                serialized_data,
-                data.get("created_at", current_time),
-                current_time,
-                data.get("expires_at"),
-                data.get("compressed", 0),
-                data.get("type"),
-                data.get("agent_id"),
-                data.get("thread_id"),
-                data.get("session_id"),
-                SQLiteStorageUtils.serialize_data(data.get("metadata", {}))
-            ]
+            if isinstance(data, dict):
+                params = [
+                    item_id,
+                    serialized_data,
+                    data.get("created_at", current_time),
+                    current_time,
+                    data.get("expires_at"),
+                    int(compressed),  # 转换为整数存储
+                    data.get("type"),
+                    data.get("agent_id"),
+                    data.get("thread_id"),
+                    data.get("session_id"),
+                    SQLiteStorageUtils.serialize_data(data.get("metadata", {}))
+                ]
+            else:
+                # 当data是bytes类型时，使用默认值
+                params = [
+                    item_id,
+                    serialized_data,
+                    current_time,
+                    current_time,  # created_at
+                    None,  # expires_at
+                    int(compressed),  # 转换为整数存储
+                    "unknown",  # type
+                    None,  # agent_id
+                    None,  # thread_id
+                    None,  # session_id
+                    SQLiteStorageUtils.serialize_data({})  # metadata
+                ]
             
             SQLiteStorageUtils.execute_update(conn, query, params)
             
@@ -640,7 +674,6 @@ class SQLiteStorageBackend(BaseStorageBackend):
             for data in data_list:
                 # 生成ID（如果没有）
                 if "id" not in data:
-                    import uuid
                     data["id"] = str(uuid.uuid4())
                 
                 item_id = data["id"]
@@ -811,6 +844,35 @@ class SQLiteStorageBackend(BaseStorageBackend):
         
         return _stream()
     
+    async def is_connected(self) -> bool:
+        """检查是否已连接"""
+        return self._connected
+
+    async def get_by_session_impl(self, session_id: str) -> List[Dict[str, Any]]:
+        """实际根据会话ID获取数据实现"""
+        filters = {"session_id": session_id}
+        return await self.list_impl(filters)
+
+    async def get_by_thread_impl(self, thread_id: str) -> List[Dict[str, Any]]:
+        """实际根据线程ID获取数据实现"""
+        filters = {"thread_id": thread_id}
+        return await self.list_impl(filters)
+
+    async def begin_transaction(self) -> None:
+        """开始事务"""
+        # 默认实现：简单标记事务开始
+        pass
+
+    async def commit_transaction(self) -> None:
+        """提交事务"""
+        # 默认实现：简单标记事务提交
+        pass
+
+    async def rollback_transaction(self) -> None:
+        """回滚事务"""
+        # 默认实现：简单标记事务回滚
+        pass
+
     async def health_check_impl(self) -> Dict[str, Any]:
         """实际健康检查实现"""
         conn = None

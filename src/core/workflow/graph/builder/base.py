@@ -18,7 +18,7 @@ from src.core.workflow.config.config import GraphConfig, NodeConfig, EdgeConfig,
 from src.core.workflow.states.workflow import WorkflowState
 from src.core.workflow.states.base import LCBaseMessage
 from src.core.workflow.graph.registry import NodeRegistry, get_global_registry
-from src.domain.state.interfaces import IStateLifecycleManager
+from src.state.interfaces import IStateLifecycleManager
 from src.services.workflow.function_registry import (
     FunctionRegistry,
     get_global_function_registry,

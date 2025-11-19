@@ -9,6 +9,7 @@ import shutil
 import threading
 import time
 import logging
+import uuid
 from typing import Dict, Any, Optional, List, Union
 from pathlib import Path
 
@@ -18,14 +19,14 @@ from src.core.state.exceptions import (
     StorageTransactionError,
     StorageCapacityError
 )
-from .base import BaseStorageBackend
+from .base_optimized import EnhancedStorageBackend
 from .utils.file_utils import FileStorageUtils
 
 
 logger = logging.getLogger(__name__)
 
 
-class FileStorageBackend(BaseStorageBackend):
+class FileStorageBackend(EnhancedStorageBackend):
     """文件存储后端实现
     
     提供基于文件的存储后端，支持持久化、压缩、目录组织等功能。
@@ -169,7 +170,7 @@ class FileStorageBackend(BaseStorageBackend):
             # 默认平铺结构
             return os.path.join(self.base_path, f"{item_id}.{self.file_extension}")
     
-    async def save_impl(self, data: Dict[str, Any]) -> str:
+    async def save_impl(self, data: Union[Dict[str, Any], bytes], compressed: bool = False) -> str:
         """实际保存实现"""
         try:
             # 检查容量限制
@@ -177,15 +178,28 @@ class FileStorageBackend(BaseStorageBackend):
                 await self._check_capacity_limits()
             
             # 生成ID（如果没有）
-            if "id" not in data:
-                import uuid
+            if isinstance(data, dict) and "id" not in data:
+                data = data.copy()  # 避免修改原始数据
                 data["id"] = str(uuid.uuid4())
             
-            item_id: str = data["id"]
+            item_id: str = data["id"] if isinstance(data, dict) else str(uuid.uuid4())
             current_time = time.time()
             
+            # 处理数据 - 如果传入的是bytes且标记为压缩，则先解压为字典
+            if isinstance(data, bytes) and compressed:
+                import gzip
+                import json
+                try:
+                    decompressed_data = gzip.decompress(data)
+                    str_data = decompressed_data.decode('utf-8')
+                    data = json.loads(str_data)
+                except Exception as e:
+                    raise StorageError(f"Failed to decompress and deserialize data: {e}")
+            elif isinstance(data, bytes) and not compressed:
+                raise StorageError(f"Unexpected bytes data type without compression flag")
+            
             # 添加元数据
-            if self.enable_metadata:
+            if self.enable_metadata and isinstance(data, dict):
                 data["created_at"] = data.get("created_at", current_time)
                 data["updated_at"] = current_time
                 
@@ -193,20 +207,22 @@ class FileStorageBackend(BaseStorageBackend):
                     data["expires_at"] = current_time + self.default_ttl_seconds
             
             # 压缩数据（如果需要）
-            compressed = False
+            actual_compressed = False
             processed_data: Union[Dict[str, Any], bytes] = data
-            if (self.enable_compression and 
-                FileStorageUtils.should_compress_data(data, self.compression_threshold)):
+            if isinstance(data, dict) and (compressed or (self.enable_compression and
+                FileStorageUtils.should_compress_data(data, self.compression_threshold))):
                 processed_data = FileStorageUtils.compress_data(data)
-                compressed = True
+                actual_compressed = True
+            else:
+                actual_compressed = compressed
             
             # 获取文件路径
-            file_path = self._get_file_path(item_id, data)
+            file_path = self._get_file_path(item_id, data if isinstance(data, dict) else None)
             
             # 保存数据
             async with self._lock:
                 with self._thread_lock:
-                    if compressed:
+                    if actual_compressed:
                         # 保存压缩数据
                         with open(file_path, 'wb') as f:
                             if isinstance(processed_data, bytes):
@@ -532,7 +548,6 @@ class FileStorageBackend(BaseStorageBackend):
                     
                     # 生成ID（如果没有）
                     if "id" not in data:
-                        import uuid
                         data["id"] = str(uuid.uuid4())
                     
                     item_id = data["id"]
@@ -680,6 +695,35 @@ class FileStorageBackend(BaseStorageBackend):
         
         return _stream()
     
+    async def is_connected(self) -> bool:
+        """检查是否已连接"""
+        return self._connected
+
+    async def get_by_session_impl(self, session_id: str) -> List[Dict[str, Any]]:
+        """实际根据会话ID获取数据实现"""
+        filters = {"session_id": session_id}
+        return await self.list_impl(filters)
+
+    async def get_by_thread_impl(self, thread_id: str) -> List[Dict[str, Any]]:
+        """实际根据线程ID获取数据实现"""
+        filters = {"thread_id": thread_id}
+        return await self.list_impl(filters)
+
+    async def begin_transaction(self) -> None:
+        """开始事务"""
+        # 默认实现：简单标记事务开始
+        pass
+
+    async def commit_transaction(self) -> None:
+        """提交事务"""
+        # 默认实现：简单标记事务提交
+        pass
+
+    async def rollback_transaction(self) -> None:
+        """回滚事务"""
+        # 默认实现：简单标记事务回滚
+        pass
+
     async def health_check_impl(self) -> Dict[str, Any]:
         """实际健康检查实现"""
         try:

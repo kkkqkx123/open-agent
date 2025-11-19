@@ -21,7 +21,7 @@ from src.core.workflow.states import WorkflowState
 from langchain_core.messages import BaseMessage as LCBaseMessage
 from src.core.workflow.graph.nodes.registry import NodeRegistry, get_global_registry, BaseNode
 from src.services.workflow.state_converter import get_state_converter, WorkflowStateAdapter as GraphAgentState
-from src.domain.state.interfaces import IStateLifecycleManager
+from src.state.interfaces import IStateLifecycleManager
 from .function_registry import (
     FunctionRegistry,
     FunctionType,

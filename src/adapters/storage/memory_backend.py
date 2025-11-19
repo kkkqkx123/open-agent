@@ -16,7 +16,7 @@ from src.core.state.exceptions import (
     StorageTransactionError,
     StorageCapacityError
 )
-from .base import BaseStorageBackend
+from .base_optimized import EnhancedStorageBackend
 from .utils.memory_utils import MemoryStorageUtils
 
 
@@ -72,7 +72,7 @@ class MemoryStorageItem:
         self.last_accessed = time.time()
 
 
-class MemoryStorageBackend(BaseStorageBackend):
+class MemoryStorageBackend(EnhancedStorageBackend):
     """内存存储后端实现
     
     提供基于内存的存储后端，支持线程安全、TTL、压缩等功能。
@@ -183,29 +183,21 @@ class MemoryStorageBackend(BaseStorageBackend):
         except Exception as e:
             raise StorageConnectionError(f"Failed to disconnect MemoryStorageBackend: {e}")
     
-    async def save_impl(self, data: Dict[str, Any]) -> str:
+    async def save_impl(self, data: Union[Dict[str, Any], bytes], compressed: bool = False) -> str:
         """实际保存实现"""
         try:
             # 检查容量限制
             MemoryStorageUtils.validate_capacity(self._storage, self.max_size, self.max_memory_mb)
             
             # 生成ID（如果没有）
-            if "id" not in data:
+            if isinstance(data, dict) and "id" not in data:
                 data["id"] = str(uuid.uuid4())
             
-            item_id: str = data["id"]
-            
-            # 压缩数据（如果需要）
-            compressed = False
-            processed_data: Union[Dict[str, Any], bytes] = data
-            if (self.enable_compression and 
-                MemoryStorageUtils.should_compress_data(data, self.compression_threshold)):
-                processed_data = MemoryStorageUtils.compress_data(data)
-                compressed = True
+            item_id: str = data["id"] if isinstance(data, dict) else str(uuid.uuid4())
             
             # 创建存储项
             ttl_seconds = self.default_ttl_seconds if self.enable_ttl else None
-            item = MemoryStorageItem(processed_data, ttl_seconds, compressed)
+            item = MemoryStorageItem(data, ttl_seconds, compressed)
             
             # 保存数据
             async with self._lock:
@@ -634,6 +626,35 @@ class MemoryStorageBackend(BaseStorageBackend):
         
         return _stream()
     
+    async def is_connected(self) -> bool:
+        """检查是否已连接"""
+        return self._connected
+
+    async def get_by_session_impl(self, session_id: str) -> List[Dict[str, Any]]:
+        """实际根据会话ID获取数据实现"""
+        filters = {"session_id": session_id}
+        return await self.list_impl(filters)
+
+    async def get_by_thread_impl(self, thread_id: str) -> List[Dict[str, Any]]:
+        """实际根据线程ID获取数据实现"""
+        filters = {"thread_id": thread_id}
+        return await self.list_impl(filters)
+
+    async def begin_transaction(self) -> None:
+        """开始事务"""
+        # 默认实现：简单标记事务开始
+        pass
+
+    async def commit_transaction(self) -> None:
+        """提交事务"""
+        # 默认实现：简单标记事务提交
+        pass
+
+    async def rollback_transaction(self) -> None:
+        """回滚事务"""
+        # 默认实现：简单标记事务回滚
+        pass
+
     async def health_check_impl(self) -> Dict[str, Any]:
         """实际健康检查实现"""
         try:

@@ -3,6 +3,7 @@
 .coverage
 .env
 output
+repomix-output.xml
 
 **/*.rar
 **/*.zip
