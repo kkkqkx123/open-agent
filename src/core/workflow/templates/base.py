@@ -65,13 +65,15 @@ class BaseWorkflowTemplate(IWorkflowTemplate, ABC):
         workflow = Workflow(
             workflow_id=f"{self.name}_{name}",
             name=name,
-            description=description,
-            metadata={
-                "template": self.name,
-                "template_version": self.version,
-                "config": config
-            }
+            description=description
         )
+        
+        # 设置元数据
+        workflow.metadata = {
+            "template": self.name,
+            "template_version": self.version,
+            "config": config
+        }
         
         # 构建工作流结构
         self._build_workflow_structure(workflow, config)

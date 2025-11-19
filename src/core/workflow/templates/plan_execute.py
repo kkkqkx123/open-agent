@@ -7,6 +7,7 @@ from typing import Dict, Any, List
 import logging
 
 from .base import BaseWorkflowTemplate
+from ..workflow import Workflow
 from ..value_objects import WorkflowStep, WorkflowTransition, StepType, TransitionType
 
 logger = logging.getLogger(__name__)
@@ -263,7 +264,7 @@ class PlanExecuteWorkflowTemplate(BaseWorkflowTemplate):
         workflow.add_transition(review_to_finalize)
         
         # 设置入口点
-        workflow._entry_point = "planning"
+        workflow.set_entry_point("planning")
         
         logger.info(f"构建Plan-Execute工作流结构完成: {workflow.name}")
 
