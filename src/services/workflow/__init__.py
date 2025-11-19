@@ -4,16 +4,19 @@ This module provides service implementations for workflow management,
 including builders, executors, and utilities.
 """
 
-from .builder_service import BuilderService
-from .executor import WorkflowExecutor
+from .builder_service import WorkflowBuilderService
+from .executor import WorkflowExecutorService
 from .factory import WorkflowFactory
 from .interfaces import (
-    IBuilderService,
+    IWorkflowManager,
+    IWorkflowFactory,
     IWorkflowExecutor,
-    IWorkflowFactory
+    IWorkflowOrchestrator,
+    IWorkflowRegistry,
+    IWorkflowBuilderService
 )
 from .registry import WorkflowRegistry
-from .di_config import configure_workflow_container
+from .di_config import register_workflow_services, configure_workflow_services
 
 from .config_manager import (
     IWorkflowConfigManager,
@@ -27,11 +30,7 @@ from .registry_service import (
 # Newly migrated services
 from .builder import UnifiedGraphBuilder
 from .async_executor import (
-    AsyncNodeExecutor,
-    AsyncWorkflowExecutor,
-    AsyncGraphBuilder,
-    IAsyncNodeExecutor,
-    IAsyncWorkflowExecutor
+    IAsyncNodeExecutor
 )
 from .function_registry import (
     FunctionRegistry,
@@ -56,16 +55,45 @@ from .node_config_loader import (
     get_node_config_loader
 )
 
+# === 新架构服务 ===
+from .loader_service import UniversalLoaderService
+from .workflow_instance import WorkflowInstance
+from .runner import WorkflowRunner, WorkflowExecutionResult, run_workflow, run_workflow_async
+from .retry_executor import (
+    RetryExecutor, 
+    RetryConfig, 
+    RetryStrategy, 
+    RetryResult, 
+    RetryAttempt,
+    RetryConfigs,
+    execute_with_retry,
+    execute_with_retry_async
+)
+from .batch_executor import (
+    BatchExecutor,
+    BatchJob,
+    BatchExecutionResult,
+    BatchExecutionConfig,
+    ExecutionMode,
+    FailureStrategy,
+    batch_run_workflows,
+    batch_run_workflows_async
+)
+
 __all__ = [
     # Original services
-    "BuilderService",
-    "WorkflowExecutor",
+    "WorkflowBuilderService",
+    "WorkflowExecutorService",
     "WorkflowFactory",
-    "IBuilderService",
-    "IWorkflowExecutor",
+    "IWorkflowManager",
     "IWorkflowFactory",
+    "IWorkflowExecutor",
+    "IWorkflowOrchestrator",
+    "IWorkflowRegistry",
+    "IWorkflowBuilderService",
     "WorkflowRegistry",
-    "configure_workflow_container",
+    "register_workflow_services",
+    "configure_workflow_services",
     
     # Newly migrated services
     "IWorkflowConfigManager",
@@ -74,11 +102,7 @@ __all__ = [
     "WorkflowRegistryService",
     "WorkflowDefinition",
     "UnifiedGraphBuilder",
-    "AsyncNodeExecutor",
-    "AsyncWorkflowExecutor",
-    "AsyncGraphBuilder",
     "IAsyncNodeExecutor",
-    "IAsyncWorkflowExecutor",
     "FunctionRegistry",
     "FunctionType",
     "FunctionRegistrationError",
@@ -94,5 +118,29 @@ __all__ = [
     "create_graph_cache",
     "calculate_config_hash",
     "NodeConfigLoader",
-    "get_node_config_loader"
+    "get_node_config_loader",
+    
+    # === 新架构服务 ===
+    "UniversalLoaderService",
+    "WorkflowInstance",
+    "WorkflowRunner",
+    "WorkflowExecutionResult",
+    "run_workflow",
+    "run_workflow_async",
+    "RetryExecutor",
+    "RetryConfig",
+    "RetryStrategy",
+    "RetryResult",
+    "RetryAttempt",
+    "RetryConfigs",
+    "execute_with_retry",
+    "execute_with_retry_async",
+    "BatchExecutor",
+    "BatchJob",
+    "BatchExecutionResult",
+    "BatchExecutionConfig",
+    "ExecutionMode",
+    "FailureStrategy",
+    "batch_run_workflows",
+    "batch_run_workflows_async"
 ]
