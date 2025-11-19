@@ -18,7 +18,7 @@ from src.core.state.exceptions import (
     StorageCapacityError
 )
 from .base import BaseStorageBackend
-from .sqlite_utils import SQLiteStorageUtils
+from .utils.sqlite_utils import SQLiteStorageUtils
 
 
 logger = logging.getLogger(__name__)

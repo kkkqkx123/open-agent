@@ -11,7 +11,7 @@ from src.core.state.entities import StateSnapshot, StateHistoryEntry
 from src.core.state.exceptions import StorageError
 from .base import BaseStateStorageAdapter
 from .sqlite_backend import SQLiteStorageBackend
-from .sqlite_utils import SQLiteStorageUtils
+from .utils.sqlite_utils import SQLiteStorageUtils
 
 
 logger = logging.getLogger(__name__)

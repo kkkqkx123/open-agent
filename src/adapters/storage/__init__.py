@@ -12,9 +12,9 @@ from .memory_backend import MemoryStorageBackend
 from .sqlite_backend import SQLiteStorageBackend
 from .file_backend import FileStorageBackend
 
-from .memory_utils import MemoryStorageUtils
-from .sqlite_utils import SQLiteStorageUtils
-from .file_utils import FileStorageUtils
+from .utils.memory_utils import MemoryStorageUtils
+from .utils.sqlite_utils import SQLiteStorageUtils
+from .utils.file_utils import FileStorageUtils
 
 from .factory import (
     StorageAdapterFactory,

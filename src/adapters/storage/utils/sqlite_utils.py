@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
 
 from src.core.state.exceptions import StorageError, StorageConnectionError
+from .common_utils import StorageCommonUtils
 
 
 logger = logging.getLogger(__name__)
@@ -20,8 +21,12 @@ logger = logging.getLogger(__name__)
 class SQLiteStorageUtils:
     """SQLite存储工具类
     
-    提供SQLite存储相关的静态工具方法。
+    提供SQLite存储特定的静态工具方法。
     """
+    
+    # 数据序列化/反序列化方法已移到 StorageCommonUtils
+    serialize_data = StorageCommonUtils.serialize_data
+    deserialize_data = StorageCommonUtils.deserialize_data
     
     @staticmethod
     def create_connection(db_path: str, timeout: float = 30.0) -> sqlite3.Connection:

@@ -3,16 +3,14 @@
 提供文件存储相关的静态工具方法。
 """
 
-import json
 import os
 import shutil
-import threading
-import time
 import logging
 from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
 
 from src.core.state.exceptions import StorageError, StorageConnectionError
+from .common_utils import StorageCommonUtils
 
 
 logger = logging.getLogger(__name__)
@@ -21,44 +19,23 @@ logger = logging.getLogger(__name__)
 class FileStorageUtils:
     """文件存储工具类
     
-    提供文件存储相关的静态工具方法。
+    提供文件存储特定的静态工具方法。
     """
     
-    @staticmethod
-    def ensure_directory_exists(dir_path: str) -> None:
-        """确保目录存在
-        
-        Args:
-            dir_path: 目录路径
-        """
-        Path(dir_path).mkdir(parents=True, exist_ok=True)
+    # 数据序列化/反序列化方法已移到 StorageCommonUtils
+    serialize_data = StorageCommonUtils.serialize_data
+    deserialize_data = StorageCommonUtils.deserialize_data
     
-    @staticmethod
-    def serialize_data(data: Dict[str, Any]) -> str:
-        """序列化数据
-        
-        Args:
-            data: 要序列化的数据
-            
-        Returns:
-            序列化后的JSON字符串
-        """
-        return json.dumps(data, ensure_ascii=False, separators=(',', ':'))
+    # 目录操作方法已移到 StorageCommonUtils
+    ensure_directory_exists = StorageCommonUtils.ensure_directory_exists
     
-    @staticmethod
-    def deserialize_data(data: str) -> Dict[str, Any]:
-        """反序列化数据
-        
-        Args:
-            data: 要反序列化的JSON字符串
-            
-        Returns:
-            反序列化后的数据
-        """
-        result = json.loads(data)
-        if isinstance(result, dict):
-            return result
-        raise ValueError(f"Expected dict, got {type(result)}")
+    # 数据压缩/解压缩方法已移到 StorageCommonUtils
+    compress_data = StorageCommonUtils.compress_data
+    decompress_data = StorageCommonUtils.decompress_data
+    should_compress_data = StorageCommonUtils.should_compress_data
+    
+    # 过滤器匹配方法已移到 StorageCommonUtils
+    matches_filters = StorageCommonUtils.matches_filters
     
     @staticmethod
     def save_data_to_file(file_path: str, data: Dict[str, Any]) -> None:

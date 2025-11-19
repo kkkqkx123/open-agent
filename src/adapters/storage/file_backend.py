@@ -19,7 +19,7 @@ from src.core.state.exceptions import (
     StorageCapacityError
 )
 from .base import BaseStorageBackend
-from .file_utils import FileStorageUtils
+from .utils.file_utils import FileStorageUtils
 
 
 logger = logging.getLogger(__name__)

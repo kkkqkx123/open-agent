@@ -11,7 +11,7 @@ from src.core.state.entities import StateSnapshot, StateHistoryEntry
 from src.core.state.exceptions import StorageError
 from .base import BaseStateStorageAdapter
 from .file_backend import FileStorageBackend
-from .file_utils import FileStorageUtils
+from .utils.file_utils import FileStorageUtils
 
 
 logger = logging.getLogger(__name__)
@@ -495,7 +495,7 @@ class FileStateStorageAdapter(BaseStateStorageAdapter):
         try:
             from pathlib import Path
             import time
-            from .file_utils import FileStorageUtils
+            from .utils.file_utils import FileStorageUtils
             
             # 如果未指定备份路径，使用默认路径
             if not backup_path:
@@ -531,7 +531,7 @@ class FileStateStorageAdapter(BaseStateStorageAdapter):
             是否恢复成功
         """
         try:
-            from .file_utils import FileStorageUtils
+            from .utils.file_utils import FileStorageUtils
             
             # 断开当前连接
             self._run_async_method(self._backend.disconnect)
@@ -566,7 +566,7 @@ class FileStateStorageAdapter(BaseStateStorageAdapter):
             # 文件存储的压缩主要是清理过期文件和重新组织目录结构
             # 这里我们简单地触发一次清理
             current_time = time.time()
-            from .file_utils import FileStorageUtils
+            from .utils.file_utils import FileStorageUtils
             
             # 获取基础路径
             base_path = getattr(self._backend, 'base_path', 'file_storage')
@@ -588,7 +588,7 @@ class FileStateStorageAdapter(BaseStateStorageAdapter):
             存储信息
         """
         try:
-            from .file_utils import FileStorageUtils
+            from .utils.file_utils import FileStorageUtils
             
             # 获取基础路径
             base_path = getattr(self._backend, 'base_path', 'file_storage')

@@ -17,7 +17,7 @@ from src.core.state.exceptions import (
     StorageCapacityError
 )
 from .base import BaseStorageBackend
-from .memory_utils import MemoryStorageUtils
+from .utils.memory_utils import MemoryStorageUtils
 
 
 logger = logging.getLogger(__name__)

@@ -3,109 +3,28 @@
 提供内存存储相关的工具函数和静态方法。
 """
 
-import gzip
-import json
 import os
 import pickle
 import time
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List
 
-from src.core.state.exceptions import StorageError
+from src.core.state.exceptions import StorageError, StorageCapacityError
+from .common_utils import StorageCommonUtils
 
 
 class MemoryStorageUtils:
     """内存存储工具类
     
-    提供内存存储相关的静态工具方法。
+    提供内存存储特定的静态工具方法。
     """
     
-    @staticmethod
-    def compress_data(data: Dict[str, Any]) -> bytes:
-        """压缩数据
-        
-        Args:
-            data: 要压缩的数据
-            
-        Returns:
-            压缩后的数据
-            
-        Raises:
-            StorageError: 压缩失败时抛出
-        """
-        try:
-            # 序列化为JSON
-            json_str = json.dumps(data, default=str)
-            # 压缩
-            return gzip.compress(json_str.encode('utf-8'))
-        except Exception as e:
-            raise StorageError(f"Failed to compress data: {e}")
+    # 数据压缩/解压缩方法已移到 StorageCommonUtils
+    compress_data = StorageCommonUtils.compress_data
+    decompress_data = StorageCommonUtils.decompress_data
+    should_compress_data = StorageCommonUtils.should_compress_data
     
-    @staticmethod
-    def decompress_data(compressed_data: bytes) -> Dict[str, Any]:
-        """解压缩数据
-        
-        Args:
-            compressed_data: 压缩的数据
-            
-        Returns:
-            解压缩后的数据
-            
-        Raises:
-            StorageError: 解压缩失败时抛出
-        """
-        try:
-            # 解压缩
-            json_str = gzip.decompress(compressed_data).decode('utf-8')
-            # 反序列化
-            result = json.loads(json_str)
-            # 确保返回的是 Dict[str, Any] 类型
-            if isinstance(result, dict):
-                return result
-            else:
-                raise StorageError(f"Decompressed data is not a dict: {type(result)}")
-        except Exception as e:
-            raise StorageError(f"Failed to decompress data: {e}")
-    
-    @staticmethod
-    def matches_filters(data: Dict[str, Any], filters: Dict[str, Any]) -> bool:
-        """检查数据是否匹配过滤器
-        
-        Args:
-            data: 要检查的数据
-            filters: 过滤条件
-            
-        Returns:
-            是否匹配过滤器
-        """
-        if not filters:
-            return True
-        
-        for key, value in filters.items():
-            if key not in data:
-                return False
-            
-            if isinstance(value, dict):
-                # 支持操作符
-                if "$eq" in value and data[key] != value["$eq"]:
-                    return False
-                elif "$ne" in value and data[key] == value["$ne"]:
-                    return False
-                elif "$in" in value and data[key] not in value["$in"]:
-                    return False
-                elif "$nin" in value and data[key] in value["$nin"]:
-                    return False
-                elif "$gt" in value and data[key] <= value["$gt"]:
-                    return False
-                elif "$gte" in value and data[key] < value["$gte"]:
-                    return False
-                elif "$lt" in value and data[key] >= value["$lt"]:
-                    return False
-                elif "$lte" in value and data[key] > value["$lte"]:
-                    return False
-            elif data[key] != value:
-                return False
-        
-        return True
+    # 过滤器匹配方法已移到 StorageCommonUtils
+    matches_filters = StorageCommonUtils.matches_filters
     
     @staticmethod
     def save_persistence_data(storage_data: Dict[str, Any], persistence_path: str) -> None:
@@ -295,7 +214,7 @@ class MemoryStorageUtils:
         Returns:
             恢复的存储项字典
         """
-        from .memory_backend import MemoryStorageItem
+        from ..memory_backend import MemoryStorageItem
         
         storage_items = {}
         current_time = time.time()
