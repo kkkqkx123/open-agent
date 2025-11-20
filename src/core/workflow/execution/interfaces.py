@@ -1,124 +1,280 @@
-"""执行引擎接口
+"""执行器接口定义
 
-定义工作流执行引擎的接口。
+定义节点执行和工作流执行的统一接口。
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, AsyncIterator, Coroutine, AsyncGenerator, Awaitable, Callable
-from ..interfaces import IWorkflow, ExecutionContext
-from src.state.interfaces import IWorkflowState
+from typing import Any, Dict, List, Optional, AsyncGenerator
+from src.core.workflow.interfaces import IWorkflowState
 
 
-class IExecutor(ABC):
-    """执行器接口"""
-
+class INodeExecutor(ABC):
+    """节点执行器接口
+    
+    定义节点执行的统一接口，支持不同类型的节点执行策略。
+    """
+    
     @abstractmethod
-    def execute(self, workflow: IWorkflow, initial_state: IWorkflowState, 
-                context: ExecutionContext) -> IWorkflowState:
+    def execute_node(
+        self, 
+        node_config: Any, 
+        state: IWorkflowState, 
+        config: Optional[Dict[str, Any]] = None
+    ) -> IWorkflowState:
+        """执行节点
+        
+        Args:
+            node_config: 节点配置
+            state: 当前状态
+            config: 执行配置
+            
+        Returns:
+            执行后的状态
+        """
+        pass
+    
+    @abstractmethod
+    async def execute_node_async(
+        self, 
+        node_config: Any, 
+        state: IWorkflowState, 
+        config: Optional[Dict[str, Any]] = None
+    ) -> IWorkflowState:
+        """异步执行节点
+        
+        Args:
+            node_config: 节点配置
+            state: 当前状态
+            config: 执行配置
+            
+        Returns:
+            执行后的状态
+        """
+        pass
+    
+    @abstractmethod
+    def can_execute(self, node_type: str) -> bool:
+        """检查是否可以执行指定类型的节点
+        
+        Args:
+            node_type: 节点类型
+            
+        Returns:
+            是否可以执行
+        """
+        pass
+    
+    @abstractmethod
+    def get_supported_node_types(self) -> List[str]:
+        """获取支持的节点类型
+        
+        Returns:
+            支持的节点类型列表
+        """
+        pass
+    
+    @abstractmethod
+    def get_execution_metadata(self) -> Dict[str, Any]:
+        """获取执行器元数据
+        
+        Returns:
+            执行器元数据，包含版本、支持的功能等信息
+        """
+        pass
+
+
+class IWorkflowExecutor(ABC):
+    """工作流执行器接口
+    
+    定义工作流执行的统一接口。
+    """
+    
+    @abstractmethod
+    def execute(
+        self, 
+        workflow: Any, 
+        initial_state: Optional[IWorkflowState] = None,
+        config: Optional[Dict[str, Any]] = None
+    ) -> IWorkflowState:
         """执行工作流
         
         Args:
             workflow: 工作流实例
             initial_state: 初始状态
-            context: 执行上下文
+            config: 执行配置
             
         Returns:
-            IWorkflowState: 执行结果状态
+            执行结果状态
         """
         pass
-
+    
     @abstractmethod
-    async def execute_async(self, workflow: IWorkflow, initial_state: IWorkflowState,
-                           context: ExecutionContext) -> IWorkflowState:
+    async def execute_async(
+        self, 
+        workflow: Any, 
+        initial_state: Optional[IWorkflowState] = None,
+        config: Optional[Dict[str, Any]] = None
+    ) -> IWorkflowState:
         """异步执行工作流
         
         Args:
             workflow: 工作流实例
             initial_state: 初始状态
-            context: 执行上下文
+            config: 执行配置
             
         Returns:
-            IWorkflowState: 执行结果状态
+            执行结果状态
         """
         pass
-
-
-class IAsyncExecutor(IExecutor):
-    """异步执行器接口"""
-
+    
     @abstractmethod
-    async def execute_async(self, workflow: IWorkflow, initial_state: IWorkflowState,
-                           context: ExecutionContext) -> IWorkflowState:
-        """异步执行工作流
-        
-        Args:
-            workflow: 工作流实例
-            initial_state: 初始状态
-            context: 执行上下文
-            
-        Returns:
-            IWorkflowState: 执行结果状态
-        """
-        pass
-
-
-class IStreamingExecutor(IExecutor):
-    """流式执行器接口"""
-
-    @abstractmethod
-    def execute_stream(self, workflow: IWorkflow, initial_state: IWorkflowState,
-                       context: ExecutionContext) -> List[Dict[str, Any]]:
+    def execute_stream(
+        self, 
+        workflow: Any, 
+        initial_state: Optional[IWorkflowState] = None,
+        config: Optional[Dict[str, Any]] = None
+    ) -> AsyncGenerator[IWorkflowState, None]:
         """流式执行工作流
         
         Args:
             workflow: 工作流实例
             initial_state: 初始状态
+            config: 执行配置
+            
+        Yields:
+            中间状态
+        """
+        pass
+    
+    @abstractmethod
+    def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
+        """获取执行状态
+        
+        Args:
+            execution_id: 执行ID
+            
+        Returns:
+            执行状态信息
+        """
+        pass
+    
+    @abstractmethod
+    def cancel_execution(self, execution_id: str) -> bool:
+        """取消执行
+        
+        Args:
+            execution_id: 执行ID
+            
+        Returns:
+            是否成功取消
+        """
+        pass
+
+
+class IExecutionStrategy(ABC):
+    """执行策略接口
+    
+    定义不同的执行策略接口。
+    """
+    
+    @abstractmethod
+    def should_continue(self, state: IWorkflowState, context: Dict[str, Any]) -> bool:
+        """判断是否应该继续执行
+        
+        Args:
+            state: 当前状态
             context: 执行上下文
             
         Returns:
-            List[Dict[str, Any]]: 执行事件列表
+            是否应该继续
         """
         pass
-
+    
     @abstractmethod
-    async def execute_stream_async(self, workflow: IWorkflow, initial_state: IWorkflowState,
-                               context: ExecutionContext):
-        """异步流式执行工作流
+    def get_next_step(self, state: IWorkflowState, context: Dict[str, Any]) -> Optional[str]:
+        """获取下一步执行节点
         
         Args:
-            workflow: 工作流实例
-            initial_state: 初始状态
+            state: 当前状态
             context: 执行上下文
             
-        Yields:
-            Dict[str, Any]: 执行事件
+        Returns:
+            下一个节点ID，如果None则表示结束
+        """
+        pass
+    
+    @abstractmethod
+    def handle_error(self, error: Exception, state: IWorkflowState, context: Dict[str, Any]) -> IWorkflowState:
+        """处理执行错误
+        
+        Args:
+            error: 异常
+            state: 当前状态
+            context: 执行上下文
+            
+        Returns:
+            处理后的状态
         """
         pass
 
 
-class IExecutionContext:
-    """执行上下文接口"""
-
-    @property
+class IExecutionObserver(ABC):
+    """执行观察者接口
+    
+    定义执行过程中的观察和回调机制。
+    """
+    
     @abstractmethod
-    def workflow_id(self) -> str:
-        """工作流ID"""
+    def on_execution_start(self, execution_id: str, workflow: Any, initial_state: IWorkflowState) -> None:
+        """执行开始回调
+        
+        Args:
+            execution_id: 执行ID
+            workflow: 工作流实例
+            initial_state: 初始状态
+        """
         pass
-
-    @property
+    
     @abstractmethod
-    def execution_id(self) -> str:
-        """执行ID"""
+    def on_node_start(self, execution_id: str, node_id: str, state: IWorkflowState) -> None:
+        """节点开始执行回调
+        
+        Args:
+            execution_id: 执行ID
+            node_id: 节点ID
+            state: 当前状态
+        """
         pass
-
-    @property
+    
     @abstractmethod
-    def metadata(self) -> Dict[str, Any]:
-        """元数据"""
+    def on_node_complete(self, execution_id: str, node_id: str, state: IWorkflowState) -> None:
+        """节点执行完成回调
+        
+        Args:
+            execution_id: 执行ID
+            node_id: 节点ID
+            state: 执行后状态
+        """
         pass
-
-    @property
+    
     @abstractmethod
-    def config(self) -> Dict[str, Any]:
-        """配置"""
+    def on_node_error(self, execution_id: str, node_id: str, error: Exception, state: IWorkflowState) -> None:
+        """节点执行错误回调
+        
+        Args:
+            execution_id: 执行ID
+            node_id: 节点ID
+            error: 异常
+            state: 当前状态
+        """
+        pass
+    
+    @abstractmethod
+    def on_execution_complete(self, execution_id: str, final_state: IWorkflowState) -> None:
+        """执行完成回调
+        
+        Args:
+            execution_id: 执行ID
+            final_state: 最终状态
+        """
         pass

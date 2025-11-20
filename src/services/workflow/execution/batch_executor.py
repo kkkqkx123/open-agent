@@ -14,9 +14,9 @@ import threading
 import time
 from pathlib import Path
 
-from ..loader_service import UniversalLoaderService
+from ..loading.loader_service import UniversalLoaderService
 from ..workflow_instance import WorkflowInstance
-from ..runner import WorkflowExecutionResult
+from .runner import WorkflowExecutionResult
 from .retry_executor import RetryExecutor, RetryConfig
 from src.core.workflow.exceptions import WorkflowExecutionError
 

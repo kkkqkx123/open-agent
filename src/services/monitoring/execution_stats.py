@@ -13,8 +13,9 @@ import time
 import json
 from pathlib import Path
 
-from ..workflow.runner import WorkflowExecutionResult
-from ..workflow.batch_executor import BatchExecutionResult
+from services.workflow.execution.batch_executor import BatchExecutionResult
+
+from ..workflow.execution.runner import WorkflowExecutionResult
 
 logger = logging.getLogger(__name__)
 

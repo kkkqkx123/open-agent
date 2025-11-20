@@ -1,22 +1,22 @@
-"""Workflow manager implementation following the new architecture.
+"""遵循新架构的工作流管理器实现。
 
-This module provides the workflow manager service that handles workflow lifecycle,
-execution, and coordination with other services.
+此模块提供工作流管理器服务，处理工作流生命周期、
+执行和与其他服务的协调。
 """
 
 from typing import Dict, Any, Optional, List
 from src.core.workflow.interfaces import IWorkflow, IWorkflowState
 from src.core.workflow.workflow import Workflow
 from .orchestrator import WorkflowOrchestrator
-from .execution.executor import WorkflowExecutorService
-from .registry import WorkflowRegistry
+from ..execution.executor import WorkflowExecutorService
+from ..registry.registry import WorkflowRegistry
 
 
 class WorkflowManager:
-    """Workflow manager service.
+    """工作流管理器服务。
     
-    This class provides high-level workflow management capabilities,
-    including workflow creation, execution, monitoring, and lifecycle management.
+    此类提供高级工作流管理功能，
+    包括工作流创建、执行、监控和生命周期管理。
     """
     
     def __init__(
@@ -25,34 +25,34 @@ class WorkflowManager:
         executor: WorkflowExecutorService,
         registry: WorkflowRegistry
     ):
-        """Initialize the workflow manager.
+        """初始化工作流管理器。
         
         Args:
-            orchestrator: Workflow orchestrator service
-            executor: Workflow executor service
-            registry: Workflow registry service
+            orchestrator: 工作流编排器服务
+            executor: 工作流执行器服务
+            registry: 工作流注册表服务
         """
         self._orchestrator = orchestrator
         self._executor = executor
         self._registry = registry
     
     def create_workflow(self, workflow_id: str, name: str, config: Dict[str, Any]) -> IWorkflow:
-        """Create a new workflow.
+        """创建新工作流。
         
         Args:
-            workflow_id: Unique identifier for the workflow
-            name: Human-readable name for the workflow
-            config: Workflow configuration
+            workflow_id: 工作流的唯一标识符
+            name: 工作流的人类可读名称
+            config: 工作流配置
             
         Returns:
-            Created workflow instance
+            创建的工作流实例
         """
         workflow = Workflow(workflow_id, name)
         
-        # Configure the workflow based on the provided config
+        # 基于提供的配置配置工作流
         self._configure_workflow(workflow, config)
         
-        # Register the workflow
+        # 注册工作流
         self._registry.register_workflow(workflow_id, workflow)
         
         return workflow
@@ -63,26 +63,26 @@ class WorkflowManager:
         initial_state: Optional[IWorkflowState] = None,
         config: Optional[Dict[str, Any]] = None
     ) -> IWorkflowState:
-        """Execute a workflow.
+        """执行工作流。
         
         Args:
-            workflow_id: ID of the workflow to execute
-            initial_state: Initial state for the workflow execution
-            config: Execution configuration
+            workflow_id: 要执行的工作流的ID
+            initial_state: 工作流执行的初始状态
+            config: 执行配置
             
         Returns:
-            Final workflow state after execution
+            执行后的最终工作流状态
         """
         import uuid
         from src.core.workflow.interfaces import ExecutionContext
         from src.core.workflow.states.factory import WorkflowStateFactory
         
-        # Get the workflow from registry
+        # 从注册表获取工作流
         workflow = self._registry.get_workflow(workflow_id)
         if workflow is None:
             raise ValueError(f"Workflow not found: {workflow_id}")
         
-        # Create default state if not provided
+        # 如果未提供，创建默认状态
         if initial_state is None:
             initial_state = WorkflowStateFactory.create_workflow_state(
                 workflow_id=workflow_id,
@@ -90,7 +90,7 @@ class WorkflowManager:
                 input_text=""
             )
         
-        # Create execution context with required parameters
+        # 使用必需的参数创建执行上下文
         if config is None:
             config = {}
         
@@ -101,17 +101,17 @@ class WorkflowManager:
             config=config
         )
         
-        # Execute the workflow
+        # 执行工作流
         return self._executor.execute(workflow, initial_state, execution_context)
     
     def get_workflow_status(self, workflow_id: str) -> Dict[str, Any]:
-        """Get the status of a workflow.
+        """获取工作流的状态。
         
         Args:
-            workflow_id: ID of the workflow
+            workflow_id: 工作流的ID
             
         Returns:
-            Workflow status information
+            工作流状态信息
         """
         workflow = self._registry.get_workflow(workflow_id)
         if workflow is None:
@@ -125,10 +125,10 @@ class WorkflowManager:
         }
     
     def list_workflows(self) -> List[Dict[str, Any]]:
-        """List all registered workflows.
+        """列出所有已注册的工作流。
         
         Returns:
-            List of workflow information
+            工作流信息列表
         """
         workflow_ids = self._registry.list_workflows()
         result = []
@@ -143,31 +143,31 @@ class WorkflowManager:
         return result
     
     def delete_workflow(self, workflow_id: str) -> bool:
-        """Delete a workflow.
+        """删除工作流。
         
         Args:
-            workflow_id: ID of the workflow to delete
+            workflow_id: 要删除的工作流的ID
             
         Returns:
-            True if the workflow was deleted, False if it didn't exist
+            如果工作流已删除则返回True，如果不存在则返回False
         """
         return self._registry.unregister_workflow(workflow_id)
     
     def _configure_workflow(self, workflow: Workflow, config: Dict[str, Any]) -> None:
-        """Configure a workflow based on the provided configuration.
+        """根据提供的配置配置工作流。
         
         Args:
-            workflow: Workflow to configure
-            config: Configuration dictionary
+            workflow: 要配置的工作流
+            config: 配置字典
         """
-        # Add nodes
+        # 添加节点
         for node_config in config.get("nodes", []):
             workflow.add_node(node_config)
         
-        # Add edges
+        # 添加边
         for edge_config in config.get("edges", []):
             workflow.add_edge(edge_config)
         
-        # Set entry point if specified
+        # 如果指定，设置入口点
         if "entry_point" in config:
             workflow.set_entry_point(config["entry_point"])

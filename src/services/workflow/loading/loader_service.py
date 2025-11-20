@@ -13,8 +13,8 @@ from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.management.workflow_validator import WorkflowValidator, ValidationIssue
 from src.core.workflow.state_machine.state_templates import StateTemplateManager
 from src.services.workflow.function_registry import FunctionRegistry, FunctionType
-from src.services.workflow.builder import UnifiedGraphBuilder
-from .workflow_instance import WorkflowInstance
+from src.services.workflow.building.builder import UnifiedGraphBuilder
+from ..workflow_instance import WorkflowInstance
 from src.core.workflow.exceptions import WorkflowConfigError, WorkflowValidationError
 
 logger = logging.getLogger(__name__)

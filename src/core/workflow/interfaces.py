@@ -61,6 +61,12 @@ class IWorkflow(ABC):
 
     @property
     @abstractmethod
+    def version(self) -> str:
+        """工作流版本"""
+        pass
+
+    @property
+    @abstractmethod
     def metadata(self) -> Dict[str, Any]:
         """工作流元数据"""
         pass

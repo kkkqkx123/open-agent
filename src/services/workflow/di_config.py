@@ -7,16 +7,16 @@ from typing import Dict, Any, Optional
 from src.services.container import ServiceLifetime, container
 from src.core.workflow.interfaces import IWorkflow, IWorkflowExecutor, IWorkflowState, ExecutionContext
 from src.core.workflow.entities import Workflow, WorkflowExecution, NodeExecution, WorkflowState, ExecutionResult, WorkflowMetadata
-from .orchestrator import WorkflowOrchestrator
+from .orchestration.orchestrator import WorkflowOrchestrator
 from .execution.executor import WorkflowExecutorService
-from .registry import WorkflowRegistry
+from .registry.registry import WorkflowRegistry
 
 # 新架构服务
-from .loader_service import UniversalLoaderService
+from .loading.loader_service import UniversalLoaderService
 from .workflow_instance import WorkflowInstance
-from .runner import WorkflowRunner
-from .retry_executor import RetryExecutor, RetryConfig
-from .batch_executor import BatchExecutor, BatchExecutionConfig
+from .execution.runner import WorkflowRunner
+from .execution.batch_executor import BatchExecutor, BatchExecutionConfig
+from .execution.retry_executor import RetryExecutor, RetryConfig
 from ..monitoring.execution_stats import ExecutionStatsCollector
 
 
@@ -47,7 +47,7 @@ def register_workflow_services() -> None:
     )
     
     # 注册工作流构建器工厂
-    from .builder import UnifiedGraphBuilder
+    from .building.builder import UnifiedGraphBuilder
     container.register(
         UnifiedGraphBuilder,
         UnifiedGraphBuilder,

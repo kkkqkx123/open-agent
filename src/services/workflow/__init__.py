@@ -4,9 +4,9 @@ This module provides service implementations for workflow management,
 including builders, executors, and utilities.
 """
 
-from .builder_service import WorkflowBuilderService
+from .building.builder_service import WorkflowBuilderService
 from .execution.executor import WorkflowExecutorService
-from .factory import WorkflowFactory
+from .building.factory import WorkflowFactory
 from .interfaces import (
     IWorkflowManager,
     IWorkflowFactory,
@@ -15,20 +15,20 @@ from .interfaces import (
     IWorkflowRegistry,
     IWorkflowBuilderService
 )
-from .registry import WorkflowRegistry
+from .registry.registry import WorkflowRegistry
 from .di_config import register_workflow_services, configure_workflow_services
 
-from .config_manager import (
+from .configuration.config_manager import (
     IWorkflowConfigManager,
     WorkflowConfigManager
 )
-from .registry_service import (
+from .registry.registry_service import (
     IWorkflowRegistryService,
     WorkflowRegistryService,
     WorkflowDefinition
 )
-# Newly migrated services
-from .builder import UnifiedGraphBuilder
+
+from .building.builder import UnifiedGraphBuilder
 from .execution.async_executor import (
     IAsyncNodeExecutor
 )
@@ -50,16 +50,16 @@ from .graph_cache import (
     create_graph_cache,
     calculate_config_hash
 )
-from .node_config_loader import (
+from .configuration.node_config_loader import (
     NodeConfigLoader,
     get_node_config_loader
 )
 
 # === 新架构服务 ===
-from .loader_service import UniversalLoaderService
+from .loading.loader_service import UniversalLoaderService
 from .workflow_instance import WorkflowInstance
-from .runner import WorkflowRunner, WorkflowExecutionResult, run_workflow, run_workflow_async
-from .retry_executor import (
+from .execution.runner import WorkflowRunner, WorkflowExecutionResult, run_workflow, run_workflow_async
+from .execution.retry_executor import (
     RetryExecutor, 
     RetryConfig, 
     RetryStrategy, 
@@ -69,7 +69,7 @@ from .retry_executor import (
     execute_with_retry,
     execute_with_retry_async
 )
-from .batch_executor import (
+from .execution.batch_executor import (
     BatchExecutor,
     BatchJob,
     BatchExecutionResult,

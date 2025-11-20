@@ -1,22 +1,18 @@
-"""Execution sub-module for workflow core.
+"""工作流执行模块
 
-This module provides execution engine functionality for workflows,
-including synchronous, asynchronous, and streaming execution.
+提供工作流和节点执行的核心功能。
 """
 
 from .interfaces import (
-    IAsyncExecutor,
-    IStreamingExecutor,
-    IExecutionContext
+    INodeExecutor,
+    IWorkflowExecutor,
+    IExecutionStrategy,
+    IExecutionObserver,
 )
-from .executor import WorkflowExecutor
 
 __all__ = [
-    # Interfaces
-    "IAsyncExecutor",
-    "IStreamingExecutor",
-    "IExecutionContext",
-    
-    # Implementations
-    "WorkflowExecutor"
+    "INodeExecutor",
+    "IWorkflowExecutor", 
+    "IExecutionStrategy",
+    "IExecutionObserver",
 ]

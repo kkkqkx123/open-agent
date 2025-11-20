@@ -6,8 +6,8 @@
 from typing import Dict, Any, List, Optional
 import logging
 
-from ..core.workflow.interfaces import IWorkflow, IWorkflowBuilder
-from ..core.workflow.entities import Workflow
+from src.core.workflow.interfaces import IWorkflow, IWorkflowBuilder
+from src.core.workflow.entities import Workflow
 
 
 logger = logging.getLogger(__name__)

@@ -22,7 +22,7 @@ from langchain_core.messages import BaseMessage as LCBaseMessage
 from src.core.workflow.graph.nodes.registry import NodeRegistry, get_global_registry, BaseNode
 from src.services.workflow.state_converter import get_state_converter, WorkflowStateAdapter as GraphAgentState
 from src.state.interfaces import IStateLifecycleManager
-from .function_registry import (
+from ..function_registry import (
     FunctionRegistry,
     FunctionType,
     get_global_function_registry,

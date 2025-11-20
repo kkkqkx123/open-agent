@@ -17,16 +17,19 @@ class Workflow(IWorkflow):
     基于图的工作流实现，将图的概念封装在工作流内部。
     """
     
-    def __init__(self, workflow_id: str, name: str, description: Optional[str] = None):
+    def __init__(self, workflow_id: str, name: str, description: Optional[str] = None, version: str = "1.0.0"):
         """初始化工作流
         
         Args:
             workflow_id: 工作流ID
             name: 工作流名称
+            description: 工作流描述
+            version: 工作流版本
         """
         self._workflow_id = workflow_id
         self._name = name
         self._description = description
+        self._version = version
         self._metadata: Dict[str, Any] = {}
         self._graph: Optional[IGraph] = None
         self._internal_entry_point: Optional[str] = None
@@ -47,6 +50,11 @@ class Workflow(IWorkflow):
     def description(self) -> Optional[str]:
         """工作流描述"""
         return self._description
+
+    @property
+    def version(self) -> str:
+        """工作流版本"""
+        return self._version
 
     @property
     def metadata(self) -> Dict[str, Any]:

@@ -10,7 +10,7 @@ from .registry import BaseNode, NodeExecutionResult, node
 from ...states import WorkflowState
 from src.core.llm.interfaces import ILLMClient
 from src.infrastructure.container_interfaces import IDependencyContainer
-from src.services.workflow.node_config_loader import get_node_config_loader
+from services.workflow.configuration.node_config_loader import get_node_config_loader
 from langchain_core.messages import AIMessage, SystemMessage
 
 

@@ -10,9 +10,9 @@ from datetime import datetime
 import uuid
 import hashlib
 
-from src.core.workflow.config import WorkflowConfig
+from src.core.workflow.config import WorkflowConfig, GraphConfig
 from src.core.workflow.exceptions import WorkflowConfigError, WorkflowValidationError
-from src.core.config.interfaces import IConfigLoader
+from src.core.config.config_loader import ConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class IWorkflowConfigManager:
     
     def load_config(self, config_path: str) -> str:
         """加载工作流配置"""
-        pass
+        raise NotImplementedError
     
     def get_config(self, config_id: str) -> Optional[WorkflowConfig]:
         """获取工作流配置"""
@@ -30,7 +30,7 @@ class IWorkflowConfigManager:
     
     def validate_config(self, config: WorkflowConfig) -> bool:
         """验证工作流配置"""
-        pass
+        raise NotImplementedError
     
     def get_config_metadata(self, config_id: str) -> Optional[Dict[str, Any]]:
         """获取配置元数据"""
@@ -38,11 +38,11 @@ class IWorkflowConfigManager:
     
     def list_configs(self) -> List[str]:
         """列出所有已加载的配置"""
-        pass
+        raise NotImplementedError
     
     def reload_config(self, config_id: str) -> bool:
         """重新加载配置"""
-        pass
+        raise NotImplementedError
 
 
 class WorkflowConfigManager(IWorkflowConfigManager):
@@ -54,7 +54,7 @@ class WorkflowConfigManager(IWorkflowConfigManager):
     - 配置元数据管理
     """
     
-    def __init__(self, config_loader: Optional[IConfigLoader] = None):
+    def __init__(self, config_loader: Optional[ConfigLoader] = None):
         """初始化配置管理器
         
         Args:
@@ -102,7 +102,7 @@ class WorkflowConfigManager(IWorkflowConfigManager):
                 "config_id": config_id,
                 "name": config.name,
                 "description": config.description,
-                "version": config.version,
+                "version": getattr(config, 'version', '1.0'),
                 "config_path": config_path,
                 "loaded_at": datetime.now().isoformat(),
                 "checksum": self._calculate_checksum(config_path)
@@ -141,22 +141,24 @@ class WorkflowConfigManager(IWorkflowConfigManager):
                 logger.error("工作流名称不能为空")
                 return False
             
-            if not config.nodes:
-                logger.error("工作流必须包含至少一个节点")
-                return False
-            
-            if not config.entry_point:
-                logger.error("工作流必须指定入口点")
-                return False
-            
-            # 验证节点引用
-            for edge in config.edges:
-                if edge.from_node not in config.nodes:
-                    logger.error(f"边引用了不存在的节点: {edge.from_node}")
+            # 检查是否为 GraphConfig 类型，如果是则验证节点和边
+            if isinstance(config, GraphConfig):
+                if not config.nodes:
+                    logger.error("工作流必须包含至少一个节点")
                     return False
-                if edge.to_node not in config.nodes:
-                    logger.error(f"边引用了不存在的节点: {edge.to_node}")
+                
+                if not config.entry_point:
+                    logger.error("工作流必须指定入口点")
                     return False
+                
+                # 验证节点引用
+                for edge in config.edges:
+                    if edge.from_node not in config.nodes:
+                        logger.error(f"边引用了不存在的节点: {edge.from_node}")
+                        return False
+                    if edge.to_node not in config.nodes:
+                        logger.error(f"边引用了不存在的节点: {edge.to_node}")
+                        return False
             
             logger.info(f"工作流配置验证通过: {config.name}")
             return True

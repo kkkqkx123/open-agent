@@ -10,9 +10,9 @@ from src.infrastructure.container_interfaces import IDependencyContainer, Servic
 from src.application.workflow.manager import IWorkflowManager, WorkflowManager
 from src.application.workflow.factory import IWorkflowFactory, WorkflowFactory
 from src.infrastructure.config.loader.file_config_loader import IConfigLoader
-from src.services.workflow.config_manager import IWorkflowConfigManager
+from services.workflow.configuration.config_manager import IWorkflowConfigManager
 from src.core.workflow.interfaces import IWorkflowVisualizer
-from src.services.workflow.registry_service import IWorkflowRegistryService
+from services.workflow.registry.registry_service import IWorkflowRegistryService
 
 logger = logging.getLogger(__name__)
 

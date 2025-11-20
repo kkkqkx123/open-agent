@@ -9,8 +9,8 @@ from datetime import datetime
 import logging
 import asyncio
 
-from .loader_service import UniversalLoaderService
-from .workflow_instance import WorkflowInstance
+from ..loading.loader_service import UniversalLoaderService
+from ..workflow_instance import WorkflowInstance
 from src.core.workflow.exceptions import WorkflowExecutionError
 
 logger = logging.getLogger(__name__)

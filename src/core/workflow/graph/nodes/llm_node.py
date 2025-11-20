@@ -11,7 +11,7 @@ from .registry import BaseNode, NodeExecutionResult, node
 from ...states import WorkflowState
 from src.core.llm.interfaces import ILLMClient
 from src.services.llm.scheduling.task_group_manager import TaskGroupManager
-from src.services.workflow.node_config_loader import get_node_config_loader
+from services.workflow.configuration.node_config_loader import get_node_config_loader
 from langchain_core.messages import AIMessage, SystemMessage
 
 logger = logging.getLogger(__name__)

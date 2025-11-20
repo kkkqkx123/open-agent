@@ -4,7 +4,7 @@ from datetime import datetime
 import asyncio
 from src.application.workflow.manager import IWorkflowManager
 from src.services.workflow.interfaces import IWorkflowRegistry
-from src.services.workflow.config_manager import IWorkflowConfigManager
+from services.workflow.configuration.config_manager import IWorkflowConfigManager
 from src.core.workflow.interfaces import IWorkflowVisualizer
 from src.infrastructure.graph.states import WorkflowState
 from ..data_access.workflow_dao import WorkflowDAO
