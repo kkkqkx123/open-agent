@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional, List, Callable, Tuple
 from datetime import datetime
 
 from src.state.interfaces import IState, IStateManager
-from src.core.state.interfaces import (
+from src.interfaces.state_core import (
     IEnhancedStateManager, 
     IStateHistoryManager, 
     IStateSnapshotManager,

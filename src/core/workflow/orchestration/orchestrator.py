@@ -9,7 +9,8 @@ import uuid
 import logging
 from datetime import datetime
 
-from src.core.workflow.interfaces import IWorkflow, IWorkflowExecutor, IWorkflowState, ExecutionContext
+from src.interfaces.workflow.core import IWorkflow, IWorkflowState, ExecutionContext
+from src.interfaces.workflow.execution_core import IWorkflowExecutor
 from src.core.workflow.entities import Workflow, WorkflowExecution, ExecutionResult
 
 

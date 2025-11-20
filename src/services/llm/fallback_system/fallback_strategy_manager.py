@@ -9,7 +9,7 @@ from .fallback_config import FallbackConfig
 from .strategies import create_fallback_strategy
 
 # Services 层的导入
-from src.core.llm.interfaces import ITaskGroupManager, IPollingPoolManager
+from src.interfaces.llm_core import ITaskGroupManager, IPollingPoolManager
 from src.core.llm.wrappers.fallback_manager import (
     GroupBasedFallbackStrategy,
     PollingPoolFallbackStrategy,

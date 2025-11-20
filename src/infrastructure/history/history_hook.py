@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List, Sequence
 from langchain_core.messages import BaseMessage
 
-from src.core.llm.interfaces import ILLMCallHook
+from src.interfaces.llm_core import ILLMCallHook
 from src.core.llm.models import LLMResponse
 from src.domain.history import (
     LLMRequestRecord,

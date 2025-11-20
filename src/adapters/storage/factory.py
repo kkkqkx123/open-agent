@@ -6,7 +6,7 @@
 import logging
 from typing import Dict, Any, Optional, Union
 
-from src.core.state.interfaces import (
+from src.interfaces.state_core import (
     IStateStorageAdapter,
     IStorageAdapterFactory,
     IAsyncStateStorageAdapter

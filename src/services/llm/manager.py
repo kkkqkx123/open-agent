@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Union, Sequence, AsyncGenerator
 import logging
 from langchain_core.messages import BaseMessage
 
-from src.core.llm.interfaces import ILLMClient, ILLMManager, IFallbackManager, ITaskGroupManager
+from src.interfaces.llm_core import ILLMClient, ILLMManager, IFallbackManager, ITaskGroupManager
 from src.core.llm.factory import LLMFactory
 from src.core.llm.config import LLMClientConfig
 from src.core.llm.exceptions import LLMError

@@ -6,7 +6,7 @@ providing contracts for workflow management, execution, and orchestration.
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, AsyncGenerator
-from src.core.workflow.interfaces import IWorkflow, IWorkflowState
+from src.interfaces.workflow.core import IWorkflow, IWorkflowState
 
 
 class IWorkflowManager(ABC):

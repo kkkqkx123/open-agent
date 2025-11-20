@@ -7,7 +7,7 @@
 from typing import Any, Dict, List, Optional, Union
 import logging
 
-from src.core.tools.interfaces import ITool, IToolRegistry, IToolManager
+from src.interfaces.tools_core import ITool, IToolRegistry, IToolManager
 from src.core.tools.factory import ToolFactory
 from src.core.tools.config import ToolConfig, ToolRegistryConfig
 from src.core.common.exceptions import ServiceError

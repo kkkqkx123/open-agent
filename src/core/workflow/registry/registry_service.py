@@ -9,7 +9,7 @@ from datetime import datetime
 import logging
 import uuid
 
-from src.core.workflow.interfaces import IWorkflow
+from src.interfaces.workflow.core import IWorkflow
 from src.core.workflow.exceptions import WorkflowError, WorkflowValidationError
 
 logger = logging.getLogger(__name__)

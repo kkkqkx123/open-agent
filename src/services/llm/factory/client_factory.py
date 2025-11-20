@@ -2,7 +2,7 @@
 
 from typing import List, Dict, Any, Optional
 
-from src.core.llm.interfaces import IClientFactory, ILLMClient
+from src.interfaces.llm_core import IClientFactory, ILLMClient
 from src.core.llm.factory import LLMFactory
 
 

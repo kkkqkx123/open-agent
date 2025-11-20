@@ -23,7 +23,7 @@ from src.core.llm.models import LLMResponse
 from src.core.llm.exceptions import LLMCallError
 
 # Services 层的导入
-from src.core.llm.interfaces import ITaskGroupManager, IPollingPoolManager
+from src.interfaces.llm_core import ITaskGroupManager, IPollingPoolManager
 from src.core.llm.wrappers.fallback_manager import (
     DefaultFallbackLogger as CoreDefaultFallbackLogger,
 )

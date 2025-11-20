@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any, Optional
 
 from src.services.container import ServiceContainer, ServiceLifetime
-from src.core.state.interfaces import IStateSerializer, IStateHistoryManager, IStateSnapshotManager
+from src.interfaces.state_core import IStateSerializer, IStateHistoryManager, IStateSnapshotManager
 from src.core.state.base import BaseStateSerializer
 from src.services.state import (
     EnhancedStateManager,

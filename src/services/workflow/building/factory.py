@@ -5,8 +5,8 @@ from configurations and templates.
 """
 
 from typing import Dict, Any, List, Optional, Type
-from src.core.workflow.interfaces import IWorkflow, IWorkflowTemplate
-from src.services.workflow.interfaces import IWorkflowFactory
+from src.interfaces.workflow.core import IWorkflow, IWorkflowTemplate
+from src.interfaces.workflow.services_core import IWorkflowFactory
 from src.core.workflow.workflow import Workflow
 from src.core.workflow.templates import get_global_template_registry
 from src.core.workflow.orchestration.manager import WorkflowManager

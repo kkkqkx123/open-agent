@@ -11,8 +11,8 @@ import random
 
 from .concurrency_controller import ConcurrencyAndRateLimitManager, ConcurrencyLevel
 from .task_group_manager import TaskGroupManager
-from src.core.llm.interfaces import IPollingPoolManager
-from src.core.llm.interfaces import ILLMClient
+from src.interfaces.llm_core import IPollingPoolManager
+from src.interfaces.llm_core import ILLMClient
 from src.core.llm.exceptions import LLMError
 
 logger = logging.getLogger(__name__)

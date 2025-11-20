@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional, TYPE_CHECKING
 import logging
 
 if TYPE_CHECKING:
-    from src.core.workflow.interfaces import IWorkflow
+    from src.interfaces.workflow.core import IWorkflow
     from src.core.workflow.config.config import GraphConfig
 
 from src.core.workflow.graph.builder.base import UnifiedGraphBuilder

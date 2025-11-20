@@ -14,7 +14,7 @@ from src.application.history.manager import HistoryManager
 from infrastructure.history.token_tracker import TokenUsageTracker
 from src.infrastructure.history.storage.file_storage import FileHistoryStorage
 from src.services.llm.token_calculation_service import TokenCalculationService
-from src.core.llm.interfaces import ILLMCallHook
+from src.interfaces.llm_core import ILLMCallHook
 
 
 def register_history_services(container: IDependencyContainer, config: Dict[str, Any]) -> None:

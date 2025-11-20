@@ -6,7 +6,7 @@
 from typing import Any, Dict, List, Optional
 import logging
 
-from src.core.llm.interfaces import ILLMClient
+from src.interfaces.llm_core import ILLMClient
 from src.core.llm.exceptions import LLMError
 from src.services.llm.state_machine import StateMachine, LLMManagerState
 from src.services.llm.utils.metadata_service import ClientMetadataService

@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from ..interfaces import IEdge
-from src.core.state.interfaces import IState
+from src.interfaces.state_core import IState
 
 class BaseEdge(IEdge):
     """边基类"""

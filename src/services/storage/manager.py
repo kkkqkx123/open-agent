@@ -8,7 +8,7 @@ import logging
 from typing import Dict, Any, Optional, List, Union
 from enum import Enum
 
-from src.core.state.interfaces import IStateStorageAdapter
+from src.interfaces.state_core import IStateStorageAdapter
 from src.core.state.exceptions import StorageError, StorageConnectionError
 from src.adapters.storage import (
     MemoryStateStorageAdapter,

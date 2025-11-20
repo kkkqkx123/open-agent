@@ -10,7 +10,7 @@ import os
 from infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.logger.logger import ILogger
 from src.services.tools.manager import ToolManager
-from src.core.tools.interfaces import IToolManager
+from src.interfaces.tools_core import IToolManager
 
 from .interfaces import IToolValidator
 from .models import ValidationResult

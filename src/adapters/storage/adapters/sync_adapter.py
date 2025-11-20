@@ -8,7 +8,7 @@ import logging
 import time
 from typing import Dict, Any, List, Optional
 
-from src.core.state.interfaces import IStateStorageAdapter
+from src.core.state.adapter_interfaces import IStateStorageAdapter
 from src.core.state.entities import StateSnapshot, StateHistoryEntry
 from ..core.metrics import StorageMetrics, MetricsContext
 from ..core.transaction import TransactionManager, transaction_context

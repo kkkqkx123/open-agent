@@ -19,7 +19,7 @@ from src.infrastructure.async_utils.event_loop_manager import AsyncLock, AsyncCo
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.core.llm.interfaces import ILLMClient
+    from src.interfaces.llm_core import ILLMClient
     from src.core.tools.executor import IToolExecutor
 
 logger = logging.getLogger(__name__)

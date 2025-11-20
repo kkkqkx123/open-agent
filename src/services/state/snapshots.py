@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from src.core.state.interfaces import IStateSnapshotManager, IStateSerializer, IStateStorageAdapter
+from src.interfaces.state_core import IStateSnapshotManager, IStateSerializer, IStateStorageAdapter
 from src.core.state.base import BaseStateSnapshotManager
 from src.core.state.entities import StateSnapshot
 

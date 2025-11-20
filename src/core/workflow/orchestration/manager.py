@@ -6,7 +6,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
-from src.core.workflow.interfaces import IWorkflow, IWorkflowState
+from src.interfaces.workflow.core import IWorkflow, IWorkflowState
 from src.core.workflow.workflow import Workflow
 from .orchestrator import WorkflowOrchestrator
 from ..execution.executor import WorkflowExecutor
@@ -109,7 +109,7 @@ class WorkflowManager(IWorkflowManager):
             执行后的最终工作流状态
         """
         import uuid
-        from src.core.workflow.interfaces import ExecutionContext
+        from src.interfaces.workflow.core import ExecutionContext
         from src.core.workflow.states.factory import WorkflowStateFactory
         
         # 从注册表获取工作流

@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, AsyncGenerator
-from src.core.workflow.interfaces import IWorkflowState
+from src.interfaces.workflow.core import IWorkflowState
 
 
 class INodeExecutor(ABC):

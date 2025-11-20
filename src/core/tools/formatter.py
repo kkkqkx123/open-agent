@@ -8,11 +8,11 @@ import json
 import re
 from typing import Any, Dict, List, Optional, Union, Sequence
 
-from src.core.llm.interfaces import ILLMClient
+from src.interfaces.llm_core import ILLMClient
 from langchain_core.messages import BaseMessage
-from src.core.tools.interfaces import IToolFormatter
-from src.core.tools.interfaces import ToolCall
-from src.core.tools.interfaces import ITool
+from src.interfaces.tools_core import IToolFormatter
+from src.interfaces.tools_core import ToolCall
+from src.interfaces.tools_core import ITool
 from src.core.tools.base import BaseTool
 
 class FunctionCallingFormatter(IToolFormatter):

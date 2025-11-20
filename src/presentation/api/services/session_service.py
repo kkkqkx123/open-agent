@@ -85,7 +85,7 @@ class SessionService:
         agent_state["messages"] = messages
         
         # 处理工具结果
-        from src.core.tools.interfaces import ToolResult
+        from src.interfaces.tools_core import ToolResult
         tool_results = []
         for result_data in state_dict.get("tool_results", []):
             try:

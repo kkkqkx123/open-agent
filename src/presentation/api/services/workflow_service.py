@@ -3,9 +3,9 @@ from typing import Optional, Dict, Any, List, AsyncGenerator
 from datetime import datetime
 import asyncio
 from src.application.workflow.manager import IWorkflowManager
-from src.services.workflow.interfaces import IWorkflowRegistry
+from src.interfaces.workflow.services_core import IWorkflowRegistry
 from services.workflow.configuration.config_manager import IWorkflowConfigManager
-from src.core.workflow.interfaces import IWorkflowVisualizer
+from src.interfaces.workflow.core import IWorkflowVisualizer
 from src.infrastructure.graph.states import WorkflowState
 from ..data_access.workflow_dao import WorkflowDAO
 

@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 import logging
 
-from src.core.workflow.interfaces import IWorkflow, IWorkflowBuilder
+from src.interfaces.workflow.core import IWorkflow, IWorkflowBuilder
 from src.core.workflow.entities import Workflow
 
 

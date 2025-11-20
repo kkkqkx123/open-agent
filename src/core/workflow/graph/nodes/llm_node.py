@@ -9,7 +9,7 @@ import logging
 
 from .registry import BaseNode, NodeExecutionResult, node
 from ...states import WorkflowState
-from src.core.llm.interfaces import ILLMClient
+from src.interfaces.llm_core import ILLMClient
 from src.services.llm.scheduling.task_group_manager import TaskGroupManager
 
 logger = logging.getLogger(__name__)

@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, Any
 
-from src.core.llm.interfaces import (
+from src.interfaces.llm_core import (
     ITaskGroupManager, 
     IPollingPoolManager, 
     IClientFactory, 

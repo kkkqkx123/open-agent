@@ -7,13 +7,13 @@ import logging
 from typing import Dict, Type
 
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
-from src.core.tools.interfaces import IToolManager
+from src.interfaces.tools_core import IToolManager
 from src.core.tools.manager import ToolManager
 from src.services.tools.validation.interfaces import IToolValidator
 from src.services.tools.validation.manager import ToolValidationManager
 from src.infrastructure.config.loader.file_config_loader import IConfigLoader
 from src.infrastructure.logger.logger import ILogger
-from src.core.tools.interfaces import IToolRegistry
+from src.interfaces.tools_core import IToolRegistry
 
 logger = logging.getLogger(__name__)
 
