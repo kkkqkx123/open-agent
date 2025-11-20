@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
-from src.interfaces.workflow.core import IWorkflow
+from src.interfaces.workflow.core import IWorkflow, ExecutionContext
 from src.interfaces.state.interfaces import IWorkflowState
 from src.interfaces.workflow.graph import IGraph, INode, IEdge
 from .value_objects import WorkflowStep, WorkflowTransition, StepType, TransitionType
@@ -77,9 +77,14 @@ class Workflow(IWorkflow):
         return self._internal_edges
     
     @property
-    def _entry_point(self) -> Optional[str]:
+    def entry_point(self) -> Optional[str]:
         """工作流入口点"""
         return self._internal_entry_point
+    
+    @property
+    def graph(self) -> Optional[IGraph]:
+        """工作流图"""
+        return self._graph
 
     def set_graph(self, graph: IGraph) -> None:
         """设置图
@@ -142,14 +147,14 @@ class Workflow(IWorkflow):
         )
         self.add_edge(edge)
 
-    def get_step(self, step_id: str):
+    def get_step(self, step_id: str) -> Optional['WorkflowStep']:
         """获取步骤
         
         Args:
             step_id: 步骤ID
             
         Returns:
-            WorkflowStep: 工作流步骤，如果不存在则返回None
+            Optional[WorkflowStep]: 工作流步骤，如果不存在则返回None
         """
         node = self.get_node(step_id)
         if node:
@@ -236,6 +241,36 @@ class Workflow(IWorkflow):
             errors.extend(graph_errors)
         
         return errors
+
+    def execute(self, initial_state: IWorkflowState, context: ExecutionContext) -> IWorkflowState:
+        """执行工作流
+        
+        Args:
+            initial_state: 初始状态
+            context: 执行上下文
+            
+        Returns:
+            IWorkflowState: 执行后的状态
+            
+        Raises:
+            NotImplementedError: 此方法应在服务层实现
+        """
+        raise NotImplementedError("工作流执行逻辑应在服务层实现")
+
+    async def execute_async(self, initial_state: IWorkflowState, context: ExecutionContext) -> IWorkflowState:
+        """异步执行工作流
+        
+        Args:
+            initial_state: 初始状态
+            context: 执行上下文
+            
+        Returns:
+            IWorkflowState: 执行后的状态
+            
+        Raises:
+            NotImplementedError: 此方法应在服务层实现
+        """
+        raise NotImplementedError("异步工作流执行逻辑应在服务层实现")
 
     def get_structure_info(self) -> Dict[str, Any]:
         """获取工作流结构信息

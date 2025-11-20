@@ -6,7 +6,6 @@
 # 工作流相关接口
 from .workflow import (
     IWorkflow,
-    IWorkflowExecutor,
     IWorkflowBuilder,
     IWorkflowTemplate,
     IWorkflowTemplateRegistry,
@@ -45,7 +44,27 @@ from .state import (
     IState,
     IStateManager,
     IWorkflowState,
-    IStateLifecycleManager
+    IStateLifecycleManager,
+    IStateHistoryManager,
+    IStateSnapshotManager,
+    IStateSerializer,
+    IStateFactory,
+    IEnhancedStateManager,
+    StateSnapshot,
+    StateHistoryEntry,
+    StateConflict,
+    ConflictType,
+    ConflictResolutionStrategy,
+    StateStatistics,
+    IStorageBackend,
+    IStateStorageAdapter,
+    IStorageAdapterFactory,
+    IStorageMigration,
+    IAsyncStateStorageAdapter,
+    IAsyncStorageAdapterFactory,
+    IAsyncStorageMigration,
+    IStorageCache,
+    IStorageMetrics
 )
 
 # LLM相关接口
@@ -152,6 +171,26 @@ __all__ = [
     "IStateManager",
     "IWorkflowState",
     "IStateLifecycleManager",
+    "IStateHistoryManager",
+    "IStateSnapshotManager",
+    "IStateSerializer",
+    "IStateFactory",
+    "IEnhancedStateManager",
+    "StateSnapshot",
+    "StateHistoryEntry",
+    "StateConflict",
+    "ConflictType",
+    "ConflictResolutionStrategy",
+    "StateStatistics",
+    "IStorageBackend",
+    "IStateStorageAdapter",
+    "IStorageAdapterFactory",
+    "IStorageMigration",
+    "IAsyncStateStorageAdapter",
+    "IAsyncStorageAdapterFactory",
+    "IAsyncStorageMigration",
+    "IStorageCache",
+    "IStorageMetrics",
     
     # LLM接口
     "ILLMClient",

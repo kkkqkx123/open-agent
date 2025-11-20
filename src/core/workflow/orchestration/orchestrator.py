@@ -136,7 +136,7 @@ class WorkflowOrchestrator(IWorkflowOrchestrator):
                 raise ValueError("执行器未设置")
             
             # 执行工作流
-            result_state = self.executor.execute(workflow, initial_state, context)
+            result_state = self.executor.execute(workflow, initial_state, context.__dict__ if context else None)
             
             # 更新执行状态
             execution.status = "completed" if result_state.get_data("error") is None else "failed"
@@ -194,7 +194,7 @@ class WorkflowOrchestrator(IWorkflowOrchestrator):
                 raise ValueError("执行器未设置")
             
             # 异步执行工作流
-            result_state = await self.executor.execute_async(workflow, initial_state, context)
+            result_state = await self.executor.execute_async(workflow, initial_state, context.__dict__ if context else None)
             
             # 更新执行状态
             execution.status = "completed" if result_state.get_data("error") is None else "failed"

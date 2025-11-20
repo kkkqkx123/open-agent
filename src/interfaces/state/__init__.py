@@ -21,6 +21,12 @@ from .serializer import IStateSerializer
 # 增强状态管理接口
 from .enhanced import IEnhancedStateManager
 
+# 工厂接口
+from .factory import IStateFactory
+
+# 生命周期管理接口
+from .lifecycle import IStateLifecycleManager
+
 # 实体定义
 from .entities import (
     StateSnapshot,
@@ -63,6 +69,12 @@ __all__ = [
     
     # 增强状态管理接口
     'IEnhancedStateManager',
+    
+    # 工厂接口
+    'IStateFactory',
+    
+    # 生命周期管理接口
+    'IStateLifecycleManager',
     
     # 实体定义
     'StateSnapshot',

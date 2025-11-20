@@ -7,8 +7,8 @@ import logging
 from typing import Dict, Any, Optional, List, Callable, Tuple
 from datetime import datetime
 
-from src.interfaces.state.interfaces import IState, IStateManager
-from src.interfaces.state_interfaces import (
+from src.interfaces.state.core import IState, IStateManager
+from src.interfaces.state.enhanced import (
     IEnhancedStateManager,
     IStateHistoryManager,
     IStateSnapshotManager,
@@ -236,7 +236,7 @@ class EnhancedStateManager(IEnhancedStateManager, BaseStateManager, StateValidat
             total_snapshots=snapshot_stats.get("total_snapshots", 0),
             total_history_entries=history_stats.get("total_history_entries", 0),
             storage_size_bytes=history_stats.get("storage_size_bytes", 0) +
-                             snapshot_stats.get("storage_size_bytes", 0),
+                              snapshot_stats.get("storage_size_bytes", 0),
             agent_counts=agent_counts,
             last_updated=datetime.now()
         )
@@ -274,7 +274,7 @@ class EnhancedStateManager(IEnhancedStateManager, BaseStateManager, StateValidat
                 return updated_state, True
             else:
                 return current_state, False
-                
+            
         except Exception as e:
             logger.error(f"带状态管理的执行失败: {e}")
             raise
@@ -300,7 +300,7 @@ class EnhancedStateManager(IEnhancedStateManager, BaseStateManager, StateValidat
             "total_snapshots": 0,
             "storage_size_bytes": 0
         }
-
+    
 
 class StateWrapper(IState):
     """状态包装器实现

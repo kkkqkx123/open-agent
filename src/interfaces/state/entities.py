@@ -26,7 +26,7 @@ class StateSnapshot:
     compressed_data: Optional[bytes] = None
     size_bytes: int = 0
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
         if not self.snapshot_name:
             self.snapshot_name = f"snapshot_{self.timestamp.strftime('%Y%m%d_%H%M%S')}"
@@ -85,7 +85,7 @@ class StateHistoryEntry:
     # 性能优化字段
     compressed_diff: Optional[bytes] = None
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
         if not self.metadata:
             self.metadata = {}

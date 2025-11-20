@@ -162,13 +162,13 @@ class IStateStorageAdapter(ABC):
 
     @property
     @abstractmethod
-    def _backend(self):
+    def _backend(self) -> Any:
         """存储后端"""
         pass
 
     @_backend.setter
     @abstractmethod
-    def _backend(self, value):
+    def _backend(self, value: Any) -> None:
         """设置存储后端"""
         pass
 

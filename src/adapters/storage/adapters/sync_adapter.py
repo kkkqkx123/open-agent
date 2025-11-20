@@ -8,8 +8,8 @@ import logging
 import time
 from typing import Dict, Any, List, Optional
 
-from src.core.state.adapter_interfaces import IStateStorageAdapter
-from src.core.state.entities import StateSnapshot, StateHistoryEntry
+from src.interfaces.state.storage.adapter import IStateStorageAdapter
+from src.interfaces.state.entities import StateSnapshot, StateHistoryEntry
 from ..core.metrics import StorageMetrics, MetricsContext
 from ..core.transaction import TransactionManager, transaction_context
 from ..core.error_handler import with_error_handling
@@ -404,12 +404,12 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
             return nullcontext()
 
     @property
-    def _backend(self):
+    def _backend(self) -> Any:
         """获取存储后端"""
         return self.__backend
 
     @_backend.setter
-    def _backend(self, value):
+    def _backend(self, value: Any) -> None:
         """设置存储后端"""
         self.__backend = value
 

@@ -7,9 +7,9 @@ import logging
 import time
 from typing import Dict, Any, List, Optional
 
-from src.core.state.async_adapter_interfaces import IAsyncStateStorageAdapter
-from src.core.state.entities import StateSnapshot, StateHistoryEntry
-from src.core.state.storage_interfaces import IStorageBackend
+from src.interfaces.state.storage.async_adapter import IAsyncStateStorageAdapter
+from src.interfaces.state.entities import StateSnapshot, StateHistoryEntry
+from src.interfaces.state.storage.backend import IStorageBackend
 from ..core.metrics import StorageMetrics, MetricsContext
 from ..core.transaction import TransactionManager, TransactionContext
 from ..core.error_handler import with_error_handling
@@ -305,7 +305,7 @@ class AsyncStateStorageAdapter(IAsyncStateStorageAdapter):
         """
         return self._transaction_manager.get_active_transactions()
     
-    def transaction_context(self):
+    def transaction_context(self) -> TransactionContext:
         """获取事务上下文管理器
         
         Returns:

@@ -5,7 +5,8 @@ from configurations and templates.
 """
 
 from typing import Dict, Any, List, Optional, Type
-from src.interfaces.workflow.core import IWorkflow, IWorkflowTemplate
+from src.interfaces.workflow.core import IWorkflow
+from src.interfaces.workflow.templates import IWorkflowTemplate
 from src.interfaces.workflow.services import IWorkflowFactory
 from src.core.workflow.workflow import Workflow
 from src.core.workflow.templates import get_global_template_registry
@@ -72,7 +73,8 @@ class WorkflowFactory(IWorkflowFactory):
             # 使用新的模板系统创建工作流
             workflow_name = params.get("name", f"{template_name}_workflow")
             workflow_description = params.get("description", f"Workflow created from {template_name} template")
-            return template.create_workflow(workflow_name, workflow_description, params)
+            workflow = template.create_workflow(workflow_name, workflow_description, params)
+            return workflow  # type: ignore
         
         # 回退到旧的模板系统
         if template_name not in self._template_registry:

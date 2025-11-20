@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, Optional
-from .interfaces import (
+from src.interfaces.workflow.services import (
     IWorkflowBuilderService,
     IWorkflowExecutor,
     IWorkflowFactory,
@@ -63,7 +63,7 @@ def get_workflow_builder_service() -> IWorkflowBuilderService:
     Returns:
         IWorkflowBuilderService: 工作流构建服务实例
     """
-    return get_service(IWorkflowBuilderService)
+    return get_service(IWorkflowBuilderService)  # type: ignore
 
 
 def get_workflow_execution_service() -> IWorkflowExecutor:
@@ -72,7 +72,7 @@ def get_workflow_execution_service() -> IWorkflowExecutor:
     Returns:
         IWorkflowExecutor: 工作流执行服务实例
     """
-    return get_service(IWorkflowExecutor)
+    return get_service(IWorkflowExecutor)  # type: ignore
 
 
 def get_workflow_instance_executor() -> WorkflowInstanceExecutor:
@@ -81,7 +81,7 @@ def get_workflow_instance_executor() -> WorkflowInstanceExecutor:
     Returns:
         WorkflowInstanceExecutor: 工作流实例执行器实例
     """
-    return get_service(WorkflowInstanceExecutor)
+    return get_service(WorkflowInstanceExecutor)  # type: ignore
 
 
 def get_workflow_factory() -> IWorkflowFactory:
@@ -90,7 +90,7 @@ def get_workflow_factory() -> IWorkflowFactory:
     Returns:
         IWorkflowFactory: 工作流工厂实例
     """
-    return get_service(IWorkflowFactory)
+    return get_service(IWorkflowFactory)  # type: ignore
 
 
 def get_function_registry() -> FunctionRegistry:
@@ -99,11 +99,11 @@ def get_function_registry() -> FunctionRegistry:
     Returns:
         FunctionRegistry: 函数注册表实例
     """
-    return get_service(FunctionRegistry)
+    return get_service(FunctionRegistry)  # type: ignore
 
 
 # 便捷函数
-def create_workflow_instance(config: Dict[str, Any], **kwargs) -> Any:
+def create_workflow_instance(config: Dict[str, Any], **kwargs: Any) -> Any:
     """创建工作流实例的便捷函数
     
     Args:
@@ -123,7 +123,7 @@ def create_workflow_instance(config: Dict[str, Any], **kwargs) -> Any:
     return WorkflowInstance(graph_config, **kwargs)
 
 
-def execute_workflow(config: Dict[str, Any], initial_data: Optional[Dict[str, Any]] = None, **kwargs) -> Dict[str, Any]:
+def execute_workflow(config: Dict[str, Any], initial_data: Optional[Dict[str, Any]] = None, **kwargs: Any) -> Dict[str, Any]:
     """执行工作流的便捷函数
     
     Args:
@@ -138,10 +138,10 @@ def execute_workflow(config: Dict[str, Any], initial_data: Optional[Dict[str, An
     instance = create_workflow_instance(config, use_services_layer=True)
     
     # 执行工作流
-    return instance.run(initial_data, **kwargs)
+    return instance.run(initial_data, **kwargs)  # type: ignore
 
 
-async def execute_workflow_async(config: Dict[str, Any], initial_data: Optional[Dict[str, Any]] = None, **kwargs) -> Dict[str, Any]:
+async def execute_workflow_async(config: Dict[str, Any], initial_data: Optional[Dict[str, Any]] = None, **kwargs: Any) -> Dict[str, Any]:
     """异步执行工作流的便捷函数
     
     Args:
@@ -156,11 +156,11 @@ async def execute_workflow_async(config: Dict[str, Any], initial_data: Optional[
     instance = create_workflow_instance(config, use_services_layer=True)
     
     # 异步执行工作流
-    return await instance.run_async(initial_data, **kwargs)
+    return await instance.run_async(initial_data, **kwargs)  # type: ignore
 
 
 # 初始化配置
-def initialize_workflow_services():
+def initialize_workflow_services() -> None:
     """初始化工作流服务
     
     在应用启动时调用，配置所有工作流相关服务。

@@ -9,7 +9,7 @@ import os
 
 from src.interfaces import IConfigLoader, ILogger
 from src.services.tools.manager import ToolManager
-from src.interfaces.tools_core import IToolManager
+from src.interfaces.tools import IToolManager
 
 from .interfaces import IToolValidator
 from .models import ValidationResult

@@ -9,7 +9,7 @@ from datetime import datetime
 import logging
 
 from src.services.workflow.state_converter import WorkflowStateConverter, WorkflowStateAdapter
-from src.core.state.state_interfaces import IEnhancedStateManager
+from src.interfaces.state.enhanced import IEnhancedStateManager
 
 logger = logging.getLogger(__name__)
 

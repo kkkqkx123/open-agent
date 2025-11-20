@@ -10,7 +10,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Union
 
-from src.core.state.storage_interfaces import IStorageBackend
+from src.interfaces.state.storage.backend import IStorageBackend
 from src.core.state.exceptions import StorageError, StorageConnectionError
 from ..utils.common_utils import StorageCommonUtils
 

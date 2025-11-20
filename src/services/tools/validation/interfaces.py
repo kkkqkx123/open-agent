@@ -5,7 +5,7 @@
 
 from typing import Dict, List, Any, Optional
 from abc import ABC, abstractmethod
-from src.interfaces.tools_core import ITool
+from src.interfaces.tools import ITool
 from .models import ValidationResult
 
 
@@ -25,7 +25,7 @@ class IToolValidator(ABC):
         pass
 
     @abstractmethod
-    def validate_loading(self, tool_name: str) -> ValidationResult:
+    async def validate_loading(self, tool_name: str) -> ValidationResult:
         """验证工具加载过程
         
         Args:

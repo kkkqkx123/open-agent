@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, List, Optional
 from src.interfaces import ILogger
-from src.interfaces.tools_core import IToolManager
+from src.interfaces.tools import IToolManager
 from ..interfaces import IToolValidator
 from ..models import ValidationResult, ValidationStatus
 
@@ -23,7 +23,7 @@ class LoadingValidator(IToolValidator):
         self.tool_manager = tool_manager
         self.logger = logger
     
-    def validate_loading(self, tool_name: str) -> ValidationResult:
+    async def validate_loading(self, tool_name: str) -> ValidationResult:
         """验证工具加载过程
         
         Args:
@@ -36,31 +36,32 @@ class LoadingValidator(IToolValidator):
         
         try:
             # 尝试加载工具
-            tool = self.tool_manager.get_tool(tool_name)
-            result.tool_type = getattr(tool, 'tool_type', 'unknown')
-            
-            # 验证工具属性
-            required_attrs = ["name", "description", "get_schema"]
-            for attr in required_attrs:
-                if not hasattr(tool, attr):
+            tool = await self.tool_manager.get_tool(tool_name)
+            if tool:
+                result.tool_type = getattr(tool, 'tool_type', 'unknown')
+                
+                # 验证工具属性
+                required_attrs = ["name", "description", "get_schema"]
+                for attr in required_attrs:
+                    if not hasattr(tool, attr):
+                        result.add_issue(
+                            ValidationStatus.ERROR,
+                            f"工具缺少必需属性: {attr}"
+                        )
+                
+                # 验证Schema获取
+                try:
+                    schema = tool.get_schema()
+                    if not isinstance(schema, dict):
+                        result.add_issue(
+                            ValidationStatus.ERROR,
+                            "工具Schema格式不正确"
+                        )
+                except Exception as e:
                     result.add_issue(
                         ValidationStatus.ERROR,
-                        f"工具缺少必需属性: {attr}"
+                        f"获取工具Schema失败: {e}"
                     )
-            
-            # 验证Schema获取
-            try:
-                schema = tool.get_schema()
-                if not isinstance(schema, dict):
-                    result.add_issue(
-                        ValidationStatus.ERROR,
-                        "工具Schema格式不正确"
-                    )
-            except Exception as e:
-                result.add_issue(
-                    ValidationStatus.ERROR,
-                    f"获取工具Schema失败: {e}"
-                )
         
         except Exception as e:
             result.add_issue(

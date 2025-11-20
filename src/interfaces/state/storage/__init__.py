@@ -4,7 +4,7 @@
 """
 
 from .backend import IStorageBackend
-from .adapter import IStateStorageAdapter, IStorageAdapterFactory, IStorageMigration
+from .adapter import IStateStorageAdapter, IStorageAdapterFactory
 from .async_adapter import IAsyncStateStorageAdapter, IAsyncStorageAdapterFactory, IAsyncStorageMigration
 from .cache import IStorageCache
 from .metrics import IStorageMetrics
@@ -17,7 +17,6 @@ __all__ = [
     # 存储适配器接口
     'IStateStorageAdapter',
     'IStorageAdapterFactory',
-    'IStorageMigration',
     
     # 异步适配器接口
     'IAsyncStateStorageAdapter',
