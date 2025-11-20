@@ -1,20 +1,20 @@
 """工作流核心实现
 
-基于图的工作流实现。
+基于图的工作流实现 - 重构后专注于结构定义，移除执行逻辑。
 """
 
-from typing import Dict, Any, List, Optional
-from .interfaces import IWorkflow, IWorkflowState, ExecutionContext
-from src.state.interfaces import IState
-from .graph import IGraph, INode, IEdge
-from .entities import WorkflowState, ExecutionResult
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
+from src.interfaces.workflow.core import IWorkflow
+from src.interfaces.state.interfaces import IWorkflowState
+from src.interfaces.workflow.graph import IGraph, INode, IEdge
 from .value_objects import WorkflowStep, WorkflowTransition, StepType, TransitionType
 
 
 class Workflow(IWorkflow):
     """工作流实现
     
-    基于图的工作流实现，将图的概念封装在工作流内部。
+    基于图的工作流实现，专注于结构定义和图管理。
+    执行逻辑已移至Services层，避免循环依赖。
     """
     
     def __init__(self, workflow_id: str, name: str, description: Optional[str] = None, version: str = "1.0.0"):
@@ -89,6 +89,14 @@ class Workflow(IWorkflow):
         """
         self._graph = graph
 
+    def get_graph(self) -> Optional[IGraph]:
+        """获取图
+        
+        Returns:
+            Optional[IGraph]: 图实例
+        """
+        return self._graph
+
     def set_entry_point(self, entry_point: str) -> None:
         """设置入口点
         
@@ -99,6 +107,9 @@ class Workflow(IWorkflow):
 
     def add_step(self, step: 'WorkflowStep') -> None:
         """添加步骤
+        
+        Args:
+            step: 工作流步骤
         """
         # 将WorkflowStep转换为INode并添加到工作流中
         from .value_objects import WorkflowStep as WorkflowStepType
@@ -116,6 +127,9 @@ class Workflow(IWorkflow):
 
     def add_transition(self, transition: 'WorkflowTransition') -> None:
         """添加转换
+        
+        Args:
+            transition: 工作流转换
         """
         # 将WorkflowTransition转换为IEdge并添加到工作流中
         from .graph.simple_edge import SimpleEdge
@@ -130,6 +144,12 @@ class Workflow(IWorkflow):
 
     def get_step(self, step_id: str):
         """获取步骤
+        
+        Args:
+            step_id: 步骤ID
+            
+        Returns:
+            WorkflowStep: 工作流步骤，如果不存在则返回None
         """
         node = self.get_node(step_id)
         if node:
@@ -188,7 +208,7 @@ class Workflow(IWorkflow):
         return self._internal_edges.get(edge_id)
 
     def validate(self) -> List[str]:
-        """验证工作流
+        """验证工作流结构
         
         Returns:
             List[str]: 验证错误列表，空列表表示验证通过
@@ -217,39 +237,29 @@ class Workflow(IWorkflow):
         
         return errors
 
-    def execute(self, initial_state: IWorkflowState, context: ExecutionContext) -> IWorkflowState:
-        """执行工作流
+    def get_structure_info(self) -> Dict[str, Any]:
+        """获取工作流结构信息
         
-        Args:
-            initial_state: 初始状态
-            context: 执行上下文
-            
         Returns:
-            IWorkflowState: 执行结果状态
+            Dict[str, Any]: 结构信息
         """
-        from .execution.executor import WorkflowExecutor
-        
-        if not self._graph:
-            raise ValueError("工作流未设置图，无法执行")
-        
-        executor = WorkflowExecutor()
-        return executor.execute(self, initial_state, context)
+        return {
+            "workflow_id": self._workflow_id,
+            "name": self._name,
+            "description": self._description,
+            "version": self._version,
+            "node_count": len(self._internal_nodes),
+            "edge_count": len(self._internal_edges),
+            "entry_point": self._internal_entry_point,
+            "has_graph": self._graph is not None,
+            "nodes": list(self._internal_nodes.keys()),
+            "edges": list(self._internal_edges.keys())
+        }
 
-    async def execute_async(self, initial_state: IWorkflowState,
-                           context: ExecutionContext) -> IWorkflowState:
-        """异步执行工作流
+    def __repr__(self) -> str:
+        """字符串表示
         
-        Args:
-            initial_state: 初始状态
-            context: 执行上下文
-            
         Returns:
-            IWorkflowState: 执行结果状态
+            str: 字符串表示
         """
-        from .execution.executor import WorkflowExecutor
-        
-        if not self._graph:
-            raise ValueError("工作流未设置图，无法执行")
-        
-        executor = WorkflowExecutor()
-        return await executor.execute_async(self, initial_state, context)
+        return f"Workflow(id={self._workflow_id}, name={self._name}, nodes={len(self._internal_nodes)}, edges={len(self._internal_edges)})"

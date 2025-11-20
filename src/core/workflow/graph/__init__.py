@@ -4,14 +4,15 @@ This module provides graph-related functionality for workflows,
 including nodes, edges, builders, and routing systems.
 """
 
-from .interfaces import (
+from src.interfaces.workflow.graph import (
     IGraph,
     INode,
     IEdge,
     IGraphBuilder,
     INodeRegistry,
     IRoutingFunction,
-    IRoutingRegistry
+    IRoutingRegistry,
+    NodeExecutionResult
 )
 from .decorators import node
 from .registry import (

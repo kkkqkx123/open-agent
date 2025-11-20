@@ -1,6 +1,7 @@
-"""工作流实例 - 新架构实现
+"""工作流实例 - 重构后实现
 
 封装已编译的图和配置，提供统一的执行接口。
+使用Services层组件，避免循环依赖。
 """
 
 from typing import Dict, Any, Optional, Generator, AsyncIterator, List
@@ -18,41 +19,138 @@ logger = logging.getLogger(__name__)
 
 
 class WorkflowInstance:
-    """工作流实例 - 新架构实现
+    """工作流实例 - 重构后实现
     
     封装已编译的图和配置，提供统一的执行接口。
+    使用Services层组件，避免循环依赖。
     """
     
     def __init__(
         self,
-        compiled_graph: Any,  # LangGraph 编译后的图
         config: GraphConfig,
-        state_template_manager: Optional[StateTemplateManager] = None
+        compiled_graph: Optional[Any] = None,  # LangGraph 编译后的图
+        state_template_manager: Optional[StateTemplateManager] = None,
+        use_services_layer: bool = True
     ):
         """初始化工作流实例
         
         Args:
-            compiled_graph: LangGraph 编译后的图
             config: 工作流配置
+            compiled_graph: LangGraph 编译后的图（可选，如果不提供将通过Services层构建）
             state_template_manager: 状态模板管理器
+            use_services_layer: 是否使用Services层（默认True）
         """
-        self.compiled_graph = compiled_graph
         self.config = config
         self.state_template_manager = state_template_manager or StateTemplateManager()
         self._created_at = datetime.now()
+        self.use_services_layer = use_services_layer
+        
+        # 初始化Services层组件
+        if use_services_layer:
+            self._init_services_layer()
+            # 通过Services层构建图
+            self.compiled_graph = self._build_graph_via_services()
+        else:
+            # 直接使用提供的编译图
+            if compiled_graph is None:
+                raise WorkflowExecutionError("不使用Services层时必须提供compiled_graph")
+            self.compiled_graph = compiled_graph
         
         # 验证图是否已编译
-        if not hasattr(compiled_graph, 'invoke'):
+        if not hasattr(self.compiled_graph, 'invoke'):
             raise WorkflowExecutionError("提供的图未正确编译，缺少 invoke 方法")
         
         logger.debug(f"工作流实例初始化完成: {config.name}")
+    
+    def _init_services_layer(self):
+        """初始化Services层组件"""
+        try:
+            # 延迟导入避免循环依赖
+            from src.services.workflow.building.builder_service import WorkflowBuilderService
+            from src.services.workflow.execution_service import WorkflowInstanceExecutor
+            
+            self._builder_service = WorkflowBuilderService()
+            self._instance_executor = WorkflowInstanceExecutor()
+            
+            logger.debug("Services层组件初始化完成")
+            
+        except ImportError as e:
+            logger.error(f"无法导入Services层组件: {e}")
+            raise WorkflowExecutionError(f"Services层组件不可用: {e}")
+    
+    def _build_graph_via_services(self) -> Any:
+        """通过Services层构建图
+        
+        Returns:
+            编译后的图
+        """
+        try:
+            # 使用Services层的构建服务
+            workflow = self._builder_service.build_workflow(self.config.to_dict())
+            return workflow.get_graph()
+            
+        except Exception as e:
+            logger.error(f"通过Services层构建图失败: {e}")
+            raise WorkflowExecutionError(f"图构建失败: {e}") from e
     
     def run(
         self,
         initial_data: Optional[Dict[str, Any]] = None,
         **kwargs: Any
     ) -> Dict[str, Any]:
-        """运行工作流 - 使用 compiled_graph.invoke()
+        """运行工作流 - 使用Services层执行器
+        
+        Args:
+            initial_data: 初始数据
+            **kwargs: 其他参数
+            
+        Returns:
+            Dict[str, Any]: 执行结果
+        """
+        if self.use_services_layer and hasattr(self, '_instance_executor'):
+            # 使用Services层的实例执行器
+            return self._instance_executor.execute_workflow_instance(
+                self.compiled_graph,
+                self.config,
+                initial_data,
+                **kwargs
+            )
+        else:
+            # 回退到直接执行
+            return self._run_direct(initial_data, **kwargs)
+    
+    async def run_async(
+        self,
+        initial_data: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
+    ) -> Dict[str, Any]:
+        """异步运行工作流 - 使用Services层执行器
+        
+        Args:
+            initial_data: 初始数据
+            **kwargs: 其他参数
+            
+        Returns:
+            Dict[str, Any]: 执行结果
+        """
+        if self.use_services_layer and hasattr(self, '_instance_executor'):
+            # 使用Services层的实例执行器
+            return await self._instance_executor.execute_workflow_instance_async(
+                self.compiled_graph,
+                self.config,
+                initial_data,
+                **kwargs
+            )
+        else:
+            # 回退到直接执行
+            return await self._run_direct_async(initial_data, **kwargs)
+    
+    def _run_direct(
+        self,
+        initial_data: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
+    ) -> Dict[str, Any]:
+        """直接运行工作流 - 回退实现
         
         Args:
             initial_data: 初始数据
@@ -90,12 +188,12 @@ class WorkflowInstance:
                 f"工作流执行失败: {e}"
             ) from e
     
-    async def run_async(
+    async def _run_direct_async(
         self,
         initial_data: Optional[Dict[str, Any]] = None,
         **kwargs: Any
     ) -> Dict[str, Any]:
-        """异步运行工作流 - 使用 compiled_graph.ainvoke()
+        """直接异步运行工作流 - 回退实现
         
         Args:
             initial_data: 初始数据

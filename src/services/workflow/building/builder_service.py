@@ -4,13 +4,15 @@
 优化后使用核心层的UnifiedGraphBuilder，消除重复代码。
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
 import logging
-from src.core.workflow.interfaces import IWorkflow
-from src.core.workflow.workflow import Workflow
+
+if TYPE_CHECKING:
+    from src.core.workflow.interfaces import IWorkflow
+    from src.core.workflow.config.config import GraphConfig
+
 from src.core.workflow.graph.builder.base import UnifiedGraphBuilder
 from src.core.workflow.graph.builder.validator import WorkflowConfigValidator
-from src.core.workflow.config.config import GraphConfig
 from ..interfaces import IWorkflowBuilderService
 
 logger = logging.getLogger(__name__)
@@ -46,7 +48,7 @@ class WorkflowBuilderService(IWorkflowBuilderService):
         
         logger.info("工作流构建服务初始化完成")
 
-    def build_workflow(self, config: Dict[str, Any]) -> IWorkflow:
+    def build_workflow(self, config: Dict[str, Any]) -> 'IWorkflow':
         """从配置构建工作流。
 
         Args:
@@ -74,6 +76,10 @@ class WorkflowBuilderService(IWorkflowBuilderService):
 
             name = config.get("name", workflow_id)
             logger.info(f"开始构建工作流: {workflow_id} ({name})")
+
+            # 延迟导入避免循环依赖
+            from src.core.workflow.workflow import Workflow
+            from src.core.workflow.config.config import GraphConfig
 
             # 创建工作流
             workflow = Workflow(workflow_id, name)
@@ -110,6 +116,9 @@ class WorkflowBuilderService(IWorkflowBuilderService):
             验证错误列表，空列表表示验证通过
         """
         try:
+            # 延迟导入避免循环依赖
+            from src.core.workflow.config.config import GraphConfig
+            
             # 使用核心层的配置验证
             config_obj = GraphConfig.from_dict(config)
             result = self._validator.validate_config(config_obj)

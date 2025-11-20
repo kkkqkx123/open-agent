@@ -4,14 +4,15 @@ This module provides the core workflow functionality, including interfaces,
 entities, implementations, and sub-modules for graph, execution, and plugins.
 """
 
-from .interfaces import (
+from src.interfaces.workflow import (
     IWorkflow,
-    IWorkflowState,
     IWorkflowExecutor,
     IWorkflowBuilder,
     IWorkflowTemplate,
-    IWorkflowTemplateRegistry
+    IWorkflowTemplateRegistry,
+    IWorkflowVisualizer
 )
+from src.interfaces.state.interfaces import IWorkflowState
 from .entities import (
     Workflow as WorkflowEntity,
     WorkflowExecution,

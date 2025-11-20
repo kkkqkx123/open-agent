@@ -4,7 +4,7 @@ This module provides node registration and discovery functionality.
 """
 
 from typing import Dict, Type, Optional, List
-from .interfaces import INode, INodeRegistry
+from src.interfaces.workflow.graph import INode, INodeRegistry
 
 
 class NodeRegistry(INodeRegistry):
@@ -15,8 +15,20 @@ class NodeRegistry(INodeRegistry):
         self._node_classes: Dict[str, Type[INode]] = {}
         self._node_instances: Dict[str, INode] = {}
     
+    def register(self, node_type: str, node_class: Type[INode]) -> None:
+        """注册节点类型（实现接口方法）"""
+        self._node_classes[node_type] = node_class
+    
+    def get(self, node_type: str) -> Optional[Type[INode]]:
+        """获取节点类型（实现接口方法）"""
+        return self._node_classes.get(node_type)
+    
+    def list_types(self) -> List[str]:
+        """列出所有注册的节点类型（实现接口方法）"""
+        return list(self._node_classes.keys())
+    
     def register_node(self, node_class: Type[INode]) -> None:
-        """注册节点类型
+        """注册节点类型（兼容旧方法）
         
         Args:
             node_class: 节点类

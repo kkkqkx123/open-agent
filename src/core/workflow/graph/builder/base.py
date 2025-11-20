@@ -18,11 +18,7 @@ from src.core.workflow.config.config import GraphConfig, NodeConfig, EdgeConfig,
 from src.core.workflow.states.workflow import WorkflowState
 from src.core.workflow.states.base import LCBaseMessage
 from src.core.workflow.graph.registry import NodeRegistry, get_global_registry
-from src.state.interfaces import IStateLifecycleManager
-from src.services.workflow.function_registry import (
-    FunctionRegistry,
-    get_global_function_registry,
-)
+from src.interfaces.state.interfaces import IStateLifecycleManager
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +56,7 @@ class UnifiedGraphBuilder:
     def __init__(
         self,
         node_registry: Optional[NodeRegistry] = None,
-        function_registry: Optional[FunctionRegistry] = None,
+        function_registry: Optional[Any] = None,
         enable_function_fallback: bool = True,
         enable_iteration_management: bool = True,
         route_function_config_dir: Optional[str] = None,
@@ -77,7 +73,17 @@ class UnifiedGraphBuilder:
             node_function_config_dir: 节点函数配置目录
         """
         self.node_registry = node_registry or get_global_registry()
-        self.function_registry = function_registry or get_global_function_registry()
+        
+        # 延迟导入FunctionRegistry避免循环依赖
+        if function_registry is not None:
+            self.function_registry = function_registry
+        else:
+            try:
+                from src.services.workflow.function_registry import get_global_function_registry
+                self.function_registry = get_global_function_registry()
+            except ImportError:
+                logger.warning("无法导入FunctionRegistry，使用NodeRegistry作为回退")
+                self.function_registry = self.node_registry
         self.template_registry: Optional[Any] = None  # 添加缺失的属性，允许任意类型
         self.enable_function_fallback = enable_function_fallback
         self.enable_iteration_management = enable_iteration_management
@@ -284,7 +290,7 @@ class UnifiedGraphBuilder:
                 return self._wrap_node_function(composition_function, state_manager, node_config.name)
         
         # 1. 优先从函数注册表获取
-        if self.function_registry:
+        if self.function_registry and hasattr(self.function_registry, 'get_node_function'):
             node_function = self.function_registry.get_node_function(function_name)
             if node_function:
                 logger.debug(f"从函数注册表获取节点函数: {function_name}")
@@ -305,7 +311,7 @@ class UnifiedGraphBuilder:
                 pass
         
         # 3. 尝试从模板注册表获取
-        if self.template_registry:
+        if hasattr(self, 'template_registry') and self.template_registry:
             template = self.template_registry.get_template(function_name)
             if template and hasattr(template, 'get_node_function'):
                 node_function = template.get_node_function()
@@ -370,7 +376,7 @@ class UnifiedGraphBuilder:
         #     return route_function
         
         # 2. 尝试从函数注册表获取
-        if self.function_registry:
+        if self.function_registry and hasattr(self.function_registry, 'get_condition_function'):
             condition_function = self.function_registry.get_condition_function(
                 condition_name
             )

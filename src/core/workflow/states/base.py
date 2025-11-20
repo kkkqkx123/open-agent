@@ -19,7 +19,7 @@ from langchain_core.messages import (
     ToolMessage as LCToolMessage,
 )
 
-from src.core.workflow.interfaces import IWorkflowState
+from src.interfaces.state.interfaces import IWorkflowState
 
 
 class MessageRole:

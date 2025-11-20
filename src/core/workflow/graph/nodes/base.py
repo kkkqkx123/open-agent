@@ -6,8 +6,8 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 
-from ..interfaces import INode, NodeExecutionResult
-from src.state.interfaces import IState
+from src.interfaces.workflow.graph import INode, NodeExecutionResult
+from src.interfaces.state.interfaces import IState
 
 
 class BaseNode(INode, ABC):
