@@ -3,7 +3,7 @@
 提供工作流和节点执行的核心功能。
 """
 
-from .interfaces import (
+from src.interfaces import (
     INodeExecutor,
     IWorkflowExecutor,
     IExecutionStrategy,

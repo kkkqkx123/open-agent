@@ -4,8 +4,8 @@
 """
 
 from typing import Dict, Any, List, Optional
-from .interfaces import IEdge
-from src.state.interfaces import IState
+from src.interfaces.workflow.graph import IEdge
+from src.interfaces.state.interfaces import IState
 
 
 class SimpleEdge(IEdge):
@@ -44,12 +44,27 @@ class SimpleEdge(IEdge):
         return self._to_node
     
     @property
+    def source_node(self) -> str:
+        """源节点ID"""
+        return self._from_node
+    
+    @property
+    def target_node(self) -> str:
+        """目标节点ID"""
+        return self._to_node
+    
+    @property
     def edge_type(self) -> str:
         """边类型"""
         return self._edge_type
     
-    def can_traverse(self, state: IState, config: Dict[str, Any]) -> bool:
+    def can_traverse(self, state: IState) -> bool:
         """判断是否可以遍历此边"""
+        # 简单实现：总是可以遍历
+        return True
+    
+    def can_traverse_with_config(self, state: IState, config: Dict[str, Any]) -> bool:
+        """判断是否可以遍历此边（带配置）"""
         # 简单实现：总是可以遍历
         return True
     
@@ -57,3 +72,14 @@ class SimpleEdge(IEdge):
         """获取下一个节点列表"""
         # 简单实现：返回目标节点
         return [self._to_node]
+    
+    def validate(self) -> List[str]:
+        """验证边配置"""
+        errors = []
+        if not self._edge_id:
+            errors.append("边ID不能为空")
+        if not self._from_node:
+            errors.append("起始节点ID不能为空")
+        if not self._to_node:
+            errors.append("目标节点ID不能为空")
+        return errors

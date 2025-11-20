@@ -5,8 +5,9 @@
 
 import asyncio
 from typing import Dict, Any, List, AsyncIterator, Optional, AsyncGenerator
-from .interfaces import IStreamingExecutor
-from ..interfaces import IWorkflow, IWorkflowState, ExecutionContext
+from src.interfaces.workflow.execution import IStreamingExecutor
+from src.interfaces.workflow.core import IWorkflow, ExecutionContext
+from src.interfaces.state.interfaces import IWorkflowState
 
 
 class StreamingExecutor(IStreamingExecutor):
@@ -34,11 +35,11 @@ class StreamingExecutor(IStreamingExecutor):
         self._execution_context = context
         
         # 获取入口点
-        if not workflow._entry_point:
+        if not workflow.entry_point:
             raise ValueError("工作流未设置入口点")
         
         events = []
-        current_node_id = workflow._entry_point
+        current_node_id = workflow.entry_point
         current_state = initial_state
         
         # 添加开始事件
@@ -127,7 +128,7 @@ class StreamingExecutor(IStreamingExecutor):
         self._execution_context = context
         
         # 获取入口点
-        if not workflow._entry_point:
+        if not workflow.entry_point:
             raise ValueError("工作流未设置入口点")
         
         # 发送开始事件
@@ -138,7 +139,7 @@ class StreamingExecutor(IStreamingExecutor):
             "timestamp": self._get_timestamp()
         }
         
-        current_node_id = workflow._entry_point
+        current_node_id = workflow.entry_point
         current_state = initial_state
         
         while current_node_id:
@@ -221,7 +222,7 @@ class StreamingExecutor(IStreamingExecutor):
         for edge in workflow._edges.values():
             if edge.from_node == node_id:
                 # 检查是否可以遍历
-                if edge.can_traverse(state, config):
+                if edge.can_traverse_with_config(state, config):
                     next_node_ids = edge.get_next_nodes(state, config)
                     next_nodes.extend(next_node_ids)
         
@@ -249,7 +250,7 @@ class StreamingExecutor(IStreamingExecutor):
                 if hasattr(edge, 'can_traverse_async'):
                     can_traverse = await edge.can_traverse_async(state, config)
                 else:
-                    can_traverse = edge.can_traverse(state, config)
+                    can_traverse = edge.can_traverse_with_config(state, config)
                 
                 if can_traverse:
                     if hasattr(edge, 'get_next_nodes_async'):

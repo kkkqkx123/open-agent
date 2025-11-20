@@ -105,7 +105,9 @@ from .common import (
     ISerializable,
     ICacheable,
     ITimestamped,
-    IStorage
+    IStorage,
+    ILogger,
+    LogLevel
 )
 
 # 导出所有接口的__all__列表
@@ -198,4 +200,6 @@ __all__ = [
     "ICacheable",
     "ITimestamped",
     "IStorage",
+    "ILogger",
+    "LogLevel",
 ]

@@ -7,10 +7,10 @@ import logging
 from typing import Dict, Any, Optional, List, Callable, Tuple
 from datetime import datetime
 
-from src.state.interfaces import IState, IStateManager
-from src.interfaces.state_core import (
-    IEnhancedStateManager, 
-    IStateHistoryManager, 
+from src.interfaces.state.interfaces import IState, IStateManager
+from src.interfaces.state_interfaces import (
+    IEnhancedStateManager,
+    IStateHistoryManager,
     IStateSnapshotManager,
     IStateSerializer
 )

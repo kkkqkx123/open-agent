@@ -4,15 +4,21 @@ This module provides the core workflow functionality, including interfaces,
 entities, implementations, and sub-modules for graph, execution, and plugins.
 """
 
-from src.interfaces.workflow import (
+from src.interfaces.workflow.core import (
     IWorkflow,
+    ExecutionContext,
+)
+from src.interfaces.workflow.execution import (
     IWorkflowExecutor,
+)
+from src.interfaces.workflow.builders import (
     IWorkflowBuilder,
+)
+from src.interfaces.workflow.templates import (
     IWorkflowTemplate,
     IWorkflowTemplateRegistry,
-    IWorkflowVisualizer
 )
-from src.interfaces.state.interfaces import IWorkflowState
+from src.interfaces.state import IWorkflowState
 from .entities import (
     Workflow as WorkflowEntity,
     WorkflowExecution,
@@ -115,11 +121,6 @@ from .management import (
 
 # Execution sub-module
 from .execution import (
-    INodeExecutor,
-    IWorkflowExecutor,
-    IExecutionStrategy,
-    IExecutionObserver,
-    IStreamingExecutor,
     IAsyncNodeExecutor,
     AsyncNodeExecutor,
     NodeExecutionContext,
@@ -156,16 +157,6 @@ from .execution import (
 
 # Plugin sub-module
 from .plugins import (
-    IPlugin,
-    IStartPlugin,
-    IEndPlugin,
-    IHookPlugin,
-    PluginMetadata,
-    PluginType,
-    PluginContext,
-    HookPoint,
-    HookContext,
-    HookExecutionResult,
     BasePlugin,
     PluginRegistry,
     PluginManager,
@@ -294,11 +285,7 @@ __all__ = [
     "validate_workflow_config",
     
     # Execution interfaces
-    "INodeExecutor",
     "IWorkflowExecutor",
-    "IExecutionStrategy",
-    "IExecutionObserver",
-    "IStreamingExecutor",
     "IAsyncNodeExecutor",
     "IRetryExecutor",
     "IBatchExecutor",
@@ -333,18 +320,6 @@ __all__ = [
     "run_workflow_async",
     "CollaborationExecutor",
     "WorkflowExecutor",
-    
-    # Plugin interfaces
-    "IPlugin",
-    "IStartPlugin",
-    "IEndPlugin",
-    "IHookPlugin",
-    "PluginMetadata",
-    "PluginType",
-    "PluginContext",
-    "HookPoint",
-    "HookContext",
-    "HookExecutionResult",
     
     # Plugin base classes
     "BasePlugin",

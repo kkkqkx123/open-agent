@@ -7,9 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Callable, Tuple
 from datetime import datetime
 
-from src.interfaces.state.interfaces import IState, IStateManager
-from src.interfaces.state.interfaces import IWorkflowState
-from .entities import StateSnapshot, StateHistoryEntry
+from .state.interfaces import IState, IStateManager
 
 
 class IStateHistoryManager(ABC):
@@ -35,7 +33,7 @@ class IStateHistoryManager(ABC):
         pass
     
     @abstractmethod
-    def get_state_history(self, agent_id: str, limit: int = 100) -> List['StateHistoryEntry']:
+    def get_state_history(self, agent_id: str, limit: int = 100) -> List[Any]:
         """获取状态历史
         
         Args:
@@ -99,7 +97,7 @@ class IStateSnapshotManager(ABC):
         pass
     
     @abstractmethod
-    def restore_snapshot(self, snapshot_id: str) -> Optional['StateSnapshot']:
+    def restore_snapshot(self, snapshot_id: str) -> Optional[Any]:
         """恢复状态快照
         
         Args:
@@ -111,7 +109,7 @@ class IStateSnapshotManager(ABC):
         pass
     
     @abstractmethod
-    def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> List['StateSnapshot']:
+    def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> List[Any]:
         """获取指定代理的快照列表
         
         Args:

@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Union, Callable
 from pathlib import Path
 from datetime import datetime
+from enum import Enum
 
 
 class IConfigLoader(ABC):
@@ -221,4 +222,76 @@ class IStorage(ABC):
     @abstractmethod
     async def delete(self, id: str) -> bool:
         """删除数据"""
+        pass
+
+
+class LogLevel(Enum):
+    """日志级别"""
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+    CRITICAL = "CRITICAL"
+
+
+class ILogger(ABC):
+    """日志记录器接口"""
+    
+    @abstractmethod
+    def debug(self, message: str, **kwargs: Any) -> None:
+        """记录调试日志
+        
+        Args:
+            message: 日志消息
+            **kwargs: 附加参数
+        """
+        pass
+    
+    @abstractmethod
+    def info(self, message: str, **kwargs: Any) -> None:
+        """记录信息日志
+        
+        Args:
+            message: 日志消息
+            **kwargs: 附加参数
+        """
+        pass
+    
+    @abstractmethod
+    def warning(self, message: str, **kwargs: Any) -> None:
+        """记录警告日志
+        
+        Args:
+            message: 日志消息
+            **kwargs: 附加参数
+        """
+        pass
+    
+    @abstractmethod
+    def error(self, message: str, **kwargs: Any) -> None:
+        """记录错误日志
+        
+        Args:
+            message: 日志消息
+            **kwargs: 附加参数
+        """
+        pass
+    
+    @abstractmethod
+    def critical(self, message: str, **kwargs: Any) -> None:
+        """记录严重错误日志
+        
+        Args:
+            message: 日志消息
+            **kwargs: 附加参数
+        """
+        pass
+    
+    @abstractmethod
+    def set_level(self, level: LogLevel) -> None:
+        """设置日志级别
+        
+        Args:
+            level: 日志级别
+        """
         pass

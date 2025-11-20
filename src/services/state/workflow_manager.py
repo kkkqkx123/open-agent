@@ -7,21 +7,9 @@ import logging
 from typing import Dict, Any, Optional, List, Callable, Tuple
 from datetime import datetime
 
-from src.state.interfaces import IState
+from src.interfaces.state.interfaces import IState
 from src.interfaces.state_core import (
     IStateHistoryManager,
-    IStateSnapshotManager,
-    IStateSerializer
-)
-from .manager import EnhancedStateManager
-
-import logging
-from typing import Dict, Any, Optional, List
-from datetime import datetime
-
-from src.state.interfaces import IState
-from src.interfaces.state_core import (
-    IStateHistoryManager, 
     IStateSnapshotManager,
     IStateSerializer
 )

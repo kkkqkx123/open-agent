@@ -6,7 +6,7 @@ including builders, executors, and utilities.
 
 from .building.builder_service import WorkflowBuilderService
 from .building.factory import WorkflowFactory
-from .interfaces import (
+from src.interfaces.workflow.services_core import (
     IWorkflowManager,
     IWorkflowFactory,
     IWorkflowExecutor,
@@ -14,7 +14,7 @@ from .interfaces import (
     IWorkflowRegistry,
     IWorkflowBuilderService
 )
-from .di_config import register_workflow_services, configure_workflow_services
+from .di_config import configure_workflow_services
 
 from .function_registry import (
     FunctionRegistry,
@@ -45,7 +45,6 @@ __all__ = [
     "IWorkflowOrchestrator",
     "IWorkflowRegistry",
     "IWorkflowBuilderService",
-    "register_workflow_services",
     "configure_workflow_services",
     
     # Newly migrated services

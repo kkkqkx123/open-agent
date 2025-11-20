@@ -59,6 +59,34 @@ The framework has been redesigned from a traditional 4-layer architecture to a f
 
 ### Directory Structure
 src/
+├── interfaces/             # 接口层（集中化接口定义）
+│   ├── workflow/           # 工作流相关接口
+│   │   ├── core.py             # 核心工作流接口
+│   │   ├── execution.py        # 执行相关接口
+│   │   ├── execution_core.py   # 执行核心接口
+│   │   ├── graph.py            # 图相关接口
+│   │   ├── builders.py         # 构建器接口
+│   │   ├── templates.py        # 模板相关接口
+│   │   ├── plugins.py          # 插件接口
+│   │   ├── plugins_core.py     # 插件核心接口
+│   │   ├── services.py         # 工作流服务接口
+│   │   ├── services_core.py    # 服务核心接口
+│   │   ├── visualization.py    # 可视化接口
+│   │   └── __init__.py         # 工作流接口导出
+│   ├── state/              # 状态管理接口
+│   │   ├── interfaces.py       # 状态相关接口
+│   │   └── __init__.py         # 状态接口导出
+│   ├── checkpoint.py       # 检查点接口定义
+│   ├── container.py        # 依赖注入容器接口
+│   ├── history.py          # 历史管理接口
+│   ├── llm.py              # LLM客户端接口
+│   ├── llm_core.py         # LLM核心接口
+│   ├── tools.py            # 工具相关接口
+│   ├── tools_core.py       # 工具核心接口
+│   ├── state_core.py       # 状态核心接口
+│   ├── common.py           # 通用接口（IConfigLoader, ILogger等）
+│   ├── common_core.py      # 通用核心接口
+│   └── __init__.py         # 统一接口导出
 ├── core/                    # 核心模块（Domain + 部分Infrastructure）
 │   ├── config/             # 统一配置系统
 │   │   ├── config_manager.py    # 配置管理器
@@ -346,9 +374,10 @@ configs/
 ### New Architecture Dependencies
 
 模块依赖关系：
-核心层包含所有基础接口、实体和核心逻辑。
-服务层依赖于核心层，提供具体的业务服务实现。
-适配器层依赖于核心层和服务层，提供外部接口适配。
+接口层提供所有接口定义，是系统的基础约束。
+核心层包含实体、基类和核心逻辑，依赖接口层。
+服务层依赖于核心层和接口层，提供具体的业务服务实现。
+适配器层依赖于核心层、服务层和接口层，提供外部接口适配。
 依赖注入容器为所有层级提供服务解析。
 配置系统为所有层级提供配置支持。
 日志与监控系统贯穿所有层级。
@@ -360,15 +389,15 @@ Adapters (API/TUI/CLI)
     ↓
 Services (Business Logic)
     ↓
-Core (Interfaces & Entities)
+Core (Entities & Core Logic)
     ↓
-Infrastructure (Storage/External)
+Interfaces (Abstract Contracts)
 ```
 
 ## Development Workflow
 
 ### 1. 新功能开发
-- 遵循扁平化架构约束（Core → Services → Adapters）
+- 遵循扁平化架构约束（Interfaces → Core → Services → Adapters）
 - 在核心层定义接口和实体
 - 在服务层实现业务逻辑
 - 在适配器层提供外部接口
@@ -450,34 +479,48 @@ Adapters (API/TUI/CLI/Storage)
     ↓
 Services (Business Logic)
     ↓
-Core (Interfaces & Entities)
+Core (Entities & Logic)
+    ↓
+Interfaces (Abstract Contracts)
 ```
 
 ### 接口定义位置
 - **所有接口定义必须放在集中的接口层** (`src/interfaces/`)
+- Core 层实现接口层的接口
 - Services 层依赖接口层的接口
-- Adapters 层实现接口层的接口
-- Core 层也可以使用接口层的接口，但不应定义新的接口
+- Adapters 层实现或依赖接口层的接口
 - 不允许在各层中定义分散的接口文件
 
 ### 接口集中化架构
 ```
 src/interfaces/
 ├── workflow/           # 工作流相关接口
-│   ├── core.py        # 核心工作流接口
-│   ├── execution.py   # 执行相关接口
-│   ├── graph.py       # 图相关接口
-│   ├── templates.py   # 模板相关接口
-│   ├── builders.py    # 构建器接口
-│   └── visualization.py # 可视化接口
-├── state/             # 状态管理接口
-│   └── interfaces.py  # 状态相关接口
-├── llm.py             # LLM相关接口
-├── tools.py           # 工具相关接口
-├── history.py         # 历史管理接口
-├── checkpoint.py      # 检查点相关接口
-├── container.py       # 依赖注入容器接口
-└── __init__.py        # 统一导出所有接口
+│   ├── core.py             # 核心工作流接口
+│   ├── execution.py        # 执行相关接口
+│   ├── execution_core.py   # 执行核心接口
+│   ├── graph.py            # 图相关接口
+│   ├── builders.py         # 构建器接口
+│   ├── templates.py        # 模板相关接口
+│   ├── plugins.py          # 插件接口
+│   ├── plugins_core.py     # 插件核心接口
+│   ├── services.py         # 工作流服务接口
+│   ├── services_core.py    # 服务核心接口
+│   ├── visualization.py    # 可视化接口
+│   └── __init__.py         # 工作流接口导出
+├── state/                  # 状态管理接口
+│   ├── interfaces.py       # 状态相关接口
+│   └── __init__.py         # 状态接口导出
+├── checkpoint.py           # 检查点接口定义
+├── container.py            # 依赖注入容器接口
+├── history.py              # 历史管理接口
+├── llm.py                  # LLM客户端接口
+├── llm_core.py             # LLM核心接口
+├── tools.py                # 工具相关接口
+├── tools_core.py           # 工具核心接口
+├── state_core.py           # 状态核心接口
+├── common.py               # 通用接口（IConfigLoader, ILogger等）
+├── common_core.py          # 通用核心接口
+└── __init__.py             # 统一导出所有接口
 ```
 
 ### 接口使用原则

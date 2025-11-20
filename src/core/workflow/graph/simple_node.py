@@ -3,9 +3,9 @@
 提供一个简单的节点实现，用于在工作流模板中创建节点。
 """
 
-from typing import Dict, Any
-from .interfaces import INode, NodeExecutionResult
-from src.state.interfaces import IState
+from typing import Dict, Any, List
+from src.interfaces.workflow.graph import INode, NodeExecutionResult
+from src.interfaces.state.interfaces import IState
 
 
 class SimpleNode(INode):
@@ -55,3 +55,14 @@ class SimpleNode(INode):
             "properties": {},
             "required": []
         }
+    
+    def validate(self) -> List[str]:
+        """验证节点配置"""
+        errors = []
+        if not self._node_id:
+            errors.append("节点ID不能为空")
+        if not self.name:
+            errors.append("节点名称不能为空")
+        if not self._node_type:
+            errors.append("节点类型不能为空")
+        return errors

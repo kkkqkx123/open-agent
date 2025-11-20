@@ -3,7 +3,7 @@
 集成所有功能的统一图构建器，包含基础构建、函数注册表集成和迭代管理功能。
 """
 
-from typing import Dict, Any, Optional, List, Callable, Union, TYPE_CHECKING, cast
+from typing import Dict, Any, Optional, List, Callable, Union, TYPE_CHECKING, cast, Protocol
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -19,6 +19,13 @@ from src.core.workflow.states.workflow import WorkflowState
 from src.core.workflow.states.base import LCBaseMessage
 from src.core.workflow.graph.registry import NodeRegistry, get_global_registry
 from src.interfaces.state.interfaces import IStateLifecycleManager
+
+
+class FunctionRegistryProtocol(Protocol):
+    """函数注册表协议，用于类型检查"""
+    
+    def get_node_function(self, name: str) -> Optional[Callable]: ...
+    def get_condition_function(self, name: str) -> Optional[Callable]: ...
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +60,19 @@ class UnifiedGraphBuilder:
     集成所有功能的图构建器，支持灵活条件边。
     """
     
+    # 属性类型注解
+    node_registry: NodeRegistry
+    function_registry: Optional[FunctionRegistryProtocol]
+    template_registry: Optional[Any]
+    enable_function_fallback: bool
+    enable_iteration_management: bool
+    _checkpointer_cache: Dict[str, Any]
+    iteration_manager: Optional[Any]
+    
     def __init__(
         self,
         node_registry: Optional[NodeRegistry] = None,
-        function_registry: Optional[Any] = None,
+        function_registry: Optional[FunctionRegistryProtocol] = None,
         enable_function_fallback: bool = True,
         enable_iteration_management: bool = True,
         route_function_config_dir: Optional[str] = None,
@@ -82,8 +98,8 @@ class UnifiedGraphBuilder:
                 from src.services.workflow.function_registry import get_global_function_registry
                 self.function_registry = get_global_function_registry()
             except ImportError:
-                logger.warning("无法导入FunctionRegistry，使用NodeRegistry作为回退")
-                self.function_registry = self.node_registry
+                logger.warning("无法导入FunctionRegistry，将不使用函数注册表")
+                self.function_registry = None
         self.template_registry: Optional[Any] = None  # 添加缺失的属性，允许任意类型
         self.enable_function_fallback = enable_function_fallback
         self.enable_iteration_management = enable_iteration_management
@@ -547,7 +563,7 @@ class UnifiedGraphBuilder:
         if config.checkpointer in self._checkpointer_cache:
             return self._checkpointer_cache[config.checkpointer]
         
-        checkpointer = None
+        checkpointer: Any = None
         if config.checkpointer == "memory":
             from langgraph.checkpoint.memory import InMemorySaver
             checkpointer = InMemorySaver()

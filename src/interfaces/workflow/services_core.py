@@ -107,11 +107,11 @@ class IWorkflowExecutor(ABC):
     
     @abstractmethod
     def execute_stream(
-        self, 
-        workflow: IWorkflow, 
+        self,
+        workflow: IWorkflow,
         initial_state: Optional[IWorkflowState] = None,
         config: Optional[Dict[str, Any]] = None
-    ) -> AsyncGenerator[IWorkflowState, None]:
+    ) -> AsyncGenerator[Dict[str, Any], None]:
         """Execute a workflow with streaming results."""
         pass
     

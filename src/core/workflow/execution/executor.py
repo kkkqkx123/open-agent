@@ -5,9 +5,9 @@
 
 import asyncio
 from typing import Dict, Any, List, Optional, AsyncGenerator
-from .interfaces import IStreamingExecutor
-from ..interfaces import IWorkflow, ExecutionContext
-from src.state.interfaces import IWorkflowState, IState
+from src.interfaces.workflow.execution import IStreamingExecutor
+from src.interfaces.workflow.core import IWorkflow, ExecutionContext
+from src.interfaces.state.interfaces import IWorkflowState, IState
 
 
 class WorkflowExecutor(IStreamingExecutor):
@@ -35,10 +35,10 @@ class WorkflowExecutor(IStreamingExecutor):
         self._execution_context = context
         
         # 获取入口点
-        if not workflow._entry_point:
+        if not workflow.entry_point:
             raise ValueError("工作流未设置入口点")
         
-        current_node_id = workflow._entry_point
+        current_node_id = workflow.entry_point
         current_state: IWorkflowState = initial_state
         
         while current_node_id:
@@ -84,10 +84,10 @@ class WorkflowExecutor(IStreamingExecutor):
         self._execution_context = context
         
         # 获取入口点
-        if not workflow._entry_point:
+        if not workflow.entry_point:
             raise ValueError("工作流未设置入口点")
         
-        current_node_id = workflow._entry_point
+        current_node_id = workflow.entry_point
         current_state: IWorkflowState = initial_state
         
         while current_node_id:
@@ -133,10 +133,10 @@ class WorkflowExecutor(IStreamingExecutor):
         events = []
         
         # 获取入口点
-        if not workflow._entry_point:
+        if not workflow.entry_point:
             raise ValueError("工作流未设置入口点")
         
-        current_node_id = workflow._entry_point
+        current_node_id = workflow.entry_point
         current_state = initial_state
         
         # 添加开始事件
@@ -229,7 +229,7 @@ class WorkflowExecutor(IStreamingExecutor):
         for edge in workflow._edges.values():
             if edge.from_node == node_id:
                 # 检查是否可以遍历
-                if edge.can_traverse(state, config):
+                if edge.can_traverse_with_config(state, config):
                     next_node_ids = edge.get_next_nodes(state, config)
                     next_nodes.extend(next_node_ids)
         
@@ -254,10 +254,16 @@ class WorkflowExecutor(IStreamingExecutor):
         for edge in workflow._edges.values():
             if edge.from_node == node_id:
                 # 异步检查是否可以遍历
-                can_traverse = await edge.can_traverse_async(state, config)
+                if hasattr(edge, 'can_traverse_async'):
+                    can_traverse = await edge.can_traverse_async(state, config)
+                else:
+                    can_traverse = edge.can_traverse_with_config(state, config)
                 
                 if can_traverse:
-                    next_node_ids = await edge.get_next_nodes_async(state, config)
+                    if hasattr(edge, 'get_next_nodes_async'):
+                        next_node_ids = await edge.get_next_nodes_async(state, config)
+                    else:
+                        next_node_ids = edge.get_next_nodes(state, config)
                     next_nodes.extend(next_node_ids)
         
         return next_nodes
@@ -285,10 +291,10 @@ class WorkflowExecutor(IStreamingExecutor):
         }
         
         # 获取入口点
-        if not workflow._entry_point:
+        if not workflow.entry_point:
             raise ValueError("工作流未设置入口点")
         
-        current_node_id = workflow._entry_point
+        current_node_id = workflow.entry_point
         current_state = initial_state
         
         while current_node_id:

@@ -12,7 +12,7 @@ import json
 
 from src.core.workflow.config import GraphConfig
 from src.core.workflow.exceptions import WorkflowError
-from src.interfaces.workflow.core import IWorkflowVisualizer
+from src.interfaces.workflow.visualization import IWorkflowVisualizer
 
 logger = logging.getLogger(__name__)
 

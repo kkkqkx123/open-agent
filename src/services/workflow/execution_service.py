@@ -4,7 +4,7 @@
 此服务作为Core层执行器和外部接口之间的适配层。
 """
 
-from typing import Dict, Any, Optional, AsyncIterator
+from typing import Dict, Any, Optional, AsyncGenerator
 import logging
 from datetime import datetime
 
@@ -28,8 +28,8 @@ class WorkflowExecutionService(ServiceIWorkflowExecutor):
     """
     
     def __init__(self,
-                 node_registry=None,
-                 function_registry=None,
+                 node_registry: Optional[Any] = None,
+                 function_registry: Optional[Any] = None,
                  enable_streaming: bool = True,
                  enable_async: bool = True):
         """初始化工作流执行服务
@@ -131,10 +131,10 @@ class WorkflowExecutionService(ServiceIWorkflowExecutor):
             logger.error(f"工作流异步执行失败: {workflow.name}, 错误: {e}, 耗时: {execution_time:.3f}s")
             raise
     
-    def execute_stream(self,
-                      workflow: IWorkflow,
-                      initial_state: Optional[IWorkflowState] = None,
-                      config: Optional[Dict[str, Any]] = None) -> AsyncIterator[IWorkflowState]:
+    async def execute_stream(self,
+                            workflow: IWorkflow,
+                            initial_state: Optional[IWorkflowState] = None,
+                            config: Optional[Dict[str, Any]] = None) -> AsyncGenerator[Dict[str, Any], None]:
         """流式执行工作流
         
         Args:
@@ -143,7 +143,7 @@ class WorkflowExecutionService(ServiceIWorkflowExecutor):
             config: 执行配置
             
         Yields:
-            中间状态
+            执行事件字典
         """
         if not self.enable_streaming:
             raise RuntimeError("流式执行未启用")
@@ -163,8 +163,8 @@ class WorkflowExecutionService(ServiceIWorkflowExecutor):
             logger.info(f"开始流式执行工作流: {workflow.name}")
             
             # 使用Core层流式执行器
-            async for state in self._streaming_executor.execute_stream_async(workflow, prepared_state, context):
-                yield state
+            async for event in self._streaming_executor.execute_stream_async(workflow, prepared_state, context):
+                yield event
             
             execution_time = (datetime.now() - start_time).total_seconds()
             logger.info(f"工作流流式执行完成: {workflow.name}, 耗时: {execution_time:.3f}s")
@@ -231,10 +231,7 @@ class WorkflowExecutionService(ServiceIWorkflowExecutor):
         
         # 创建空的初始状态
         return WorkflowState(
-            workflow_id="unknown",
-            execution_id="unknown",
-            status="running",
-            data={}
+            workflow_id="unknown"
         )
 
 
@@ -256,7 +253,7 @@ class WorkflowInstanceExecutor:
                                  compiled_graph: Any,
                                  config: Any,
                                  initial_data: Optional[Dict[str, Any]] = None,
-                                 **kwargs) -> Dict[str, Any]:
+                                 **kwargs: Any) -> Dict[str, Any]:
         """执行工作流实例
         
         Args:
@@ -281,7 +278,7 @@ class WorkflowInstanceExecutor:
             
             # 直接使用编译后的图执行
             if hasattr(compiled_graph, 'invoke'):
-                result = compiled_graph.invoke(initial_state, config=run_config)
+                result: Dict[str, Any] = compiled_graph.invoke(initial_state, config=run_config)
             else:
                 raise ValueError("编译后的图不支持invoke方法")
             
@@ -302,7 +299,7 @@ class WorkflowInstanceExecutor:
                                              compiled_graph: Any,
                                              config: Any,
                                              initial_data: Optional[Dict[str, Any]] = None,
-                                             **kwargs) -> Dict[str, Any]:
+                                             **kwargs: Any) -> Dict[str, Any]:
         """异步执行工作流实例
         
         Args:
@@ -315,6 +312,7 @@ class WorkflowInstanceExecutor:
             执行结果
         """
         start_time = datetime.now()
+        result: Dict[str, Any] = {}
         
         try:
             # 创建初始状态
