@@ -3,6 +3,7 @@
 提供带协作机制的工作流状态执行能力。
 """
 
+from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Callable, Union
 from datetime import datetime
 import logging
@@ -13,7 +14,20 @@ from src.core.state.state_interfaces import IEnhancedStateManager
 logger = logging.getLogger(__name__)
 
 
-class CollaborationExecutor:
+class ICollaborationExecutor(ABC):
+    """协作执行器接口"""
+    
+    @abstractmethod
+    def execute_with_collaboration(
+        self,
+        graph_state: Union[Dict[str, Any], Any],
+        node_executor: Callable[[WorkflowStateAdapter], WorkflowStateAdapter]
+    ) -> Union[Dict[str, Any], Any]:
+        """带协作机制的状态执行"""
+        pass
+
+
+class CollaborationExecutor(ICollaborationExecutor):
     """协作执行器 - 支持协作管理的状态转换
     
     提供带协作机制的工作流执行能力，包括：
@@ -130,7 +144,7 @@ class CollaborationExecutor:
         """
         try:
             workflow_id = self._get_workflow_id(adapter_state)
-                
+                 
             # 使用历史管理器记录状态变化
             self.state_manager.history_manager.record_state_change(
                 workflow_id,
@@ -152,7 +166,7 @@ class CollaborationExecutor:
         """
         try:
             workflow_id = self._get_workflow_id(adapter_state)
-                
+                 
             # 转换WorkflowStateAdapter为字典格式
             from dataclasses import asdict
             state_dict = asdict(adapter_state)

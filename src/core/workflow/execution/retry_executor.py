@@ -3,6 +3,7 @@
 实现可配置的重试机制，支持指数退避策略、重试条件判断等功能。
 """
 
+from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Callable, Union
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -141,7 +142,31 @@ class RetryResult:
         return self.attempts[-1] if self.attempts else None
 
 
-class RetryExecutor:
+class IRetryExecutor(ABC):
+    """重试执行器接口"""
+    
+    @abstractmethod
+    def execute(
+        self,
+        workflow: WorkflowInstance,
+        initial_data: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
+    ) -> RetryResult:
+        """执行工作流（带重试）"""
+        pass
+    
+    @abstractmethod
+    async def execute_async(
+        self,
+        workflow: WorkflowInstance,
+        initial_data: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
+    ) -> RetryResult:
+        """异步执行工作流（带重试）"""
+        pass
+
+
+class RetryExecutor(IRetryExecutor):
     """重试执行器
     
     提供可配置的重试机制，支持多种重试策略和条件判断。

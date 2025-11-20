@@ -3,6 +3,7 @@
 整合所有加载相关功能，作为工作流相关服务的统一入口。
 """
 
+from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Union
 from pathlib import Path
 import logging
@@ -14,13 +15,57 @@ from src.core.workflow.management.workflow_validator import WorkflowValidator, V
 from src.core.workflow.state_machine.state_templates import StateTemplateManager
 from src.services.workflow.function_registry import FunctionRegistry, FunctionType
 from src.core.workflow.graph.builder.base import UnifiedGraphBuilder
-from ..workflow_instance import WorkflowInstance
+from ....core.workflow.workflow_instance import WorkflowInstance
 from src.core.workflow.exceptions import WorkflowConfigError, WorkflowValidationError
 
 logger = logging.getLogger(__name__)
 
 
-class UniversalLoaderService:
+class IUniversalLoaderService(ABC):
+    """统一加载器服务接口"""
+    
+    @abstractmethod
+    def load_from_file(self, config_path: str) -> WorkflowInstance:
+        """从文件加载工作流"""
+        pass
+    
+    @abstractmethod
+    def load_from_dict(self, config_dict: Dict[str, Any]) -> WorkflowInstance:
+        """从字典加载工作流"""
+        pass
+    
+    @abstractmethod
+    def get_workflow_info(self, config_path: str) -> Dict[str, Any]:
+        """获取工作流信息"""
+        pass
+    
+    @abstractmethod
+    def list_available_workflows(self) -> List[str]:
+        """列出可用工作流"""
+        pass
+    
+    @abstractmethod
+    def validate_workflow(self, config_path: str) -> List[ValidationIssue]:
+        """验证工作流配置"""
+        pass
+    
+    @abstractmethod
+    def register_function(
+        self, 
+        name: str, 
+        function: Any, 
+        function_type: FunctionType
+    ) -> None:
+        """注册函数"""
+        pass
+    
+    @abstractmethod
+    def clear_cache(self, config_path: Optional[str] = None) -> None:
+        """清除缓存"""
+        pass
+
+
+class UniversalLoaderService(IUniversalLoaderService):
     """统一工作流加载器服务 - 新架构实现
     
     整合所有加载相关功能，作为工作流相关服务的统一入口。

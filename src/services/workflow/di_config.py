@@ -7,16 +7,16 @@ from typing import Dict, Any, Optional
 from src.services.container import ServiceLifetime, container
 from src.core.workflow.interfaces import IWorkflow, IWorkflowExecutor, IWorkflowState, ExecutionContext
 from src.core.workflow.entities import Workflow, WorkflowExecution, NodeExecution, WorkflowState, ExecutionResult, WorkflowMetadata
-from .orchestration.orchestrator import WorkflowOrchestrator
-from .execution.executor import WorkflowExecutorService
-from .registry.registry import WorkflowRegistry
+from src.core.workflow.workflow_instance import WorkflowInstance
+from src.core.workflow.execution.executor import WorkflowExecutorService
+from src.core.workflow.registry.registry import WorkflowRegistry
 
 # 新架构服务
-from .loading.loader_service import UniversalLoaderService
-from .workflow_instance import WorkflowInstance
-from .execution.runner import WorkflowRunner
-from .execution.batch_executor import BatchExecutor, BatchExecutionConfig
-from .execution.retry_executor import RetryExecutor, RetryConfig
+from src.core.workflow.loading.loader_service import UniversalLoaderService
+from ...core.workflow.workflow_instance import WorkflowInstance
+from src.core.workflow.execution.runner import WorkflowRunner
+from src.core.workflow.execution.batch_executor import BatchExecutor, BatchExecutionConfig
+from src.core.workflow.execution.retry_executor import RetryExecutor, RetryConfig
 from ..monitoring.execution_stats import ExecutionStatsCollector
 
 

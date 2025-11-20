@@ -3,6 +3,7 @@
 实现批量执行工作流的功能，支持多线程/多进程执行、动态 worker 管理、部分失败处理和执行进度跟踪。
 """
 
+from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Union, Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -108,7 +109,29 @@ class BatchExecutionResult:
         return [r for r in self.results if not r.success]
 
 
-class BatchExecutor:
+class IBatchExecutor(ABC):
+    """批量执行器接口"""
+    
+    @abstractmethod
+    def execute(
+        self,
+        jobs: List[BatchJob],
+        config: Optional[BatchExecutionConfig] = None
+    ) -> BatchExecutionResult:
+        """执行批量作业"""
+        pass
+    
+    @abstractmethod
+    async def execute_async(
+        self,
+        jobs: List[BatchJob],
+        config: Optional[BatchExecutionConfig] = None
+    ) -> BatchExecutionResult:
+        """异步执行批量作业"""
+        pass
+
+
+class BatchExecutor(IBatchExecutor):
     """批量执行器
     
     实现批量执行工作流的功能，支持多种执行模式和失败策略。

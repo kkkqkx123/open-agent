@@ -3,6 +3,7 @@
 管理工作流的注册和查找。
 """
 
+from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 import logging
 
@@ -13,7 +14,41 @@ from src.core.workflow.entities import Workflow
 logger = logging.getLogger(__name__)
 
 
-class WorkflowRegistry:
+class IWorkflowRegistry(ABC):
+    """工作流注册表接口"""
+    
+    @abstractmethod
+    def register_workflow(self, workflow_id: str, workflow: IWorkflow) -> None:
+        """注册工作流"""
+        pass
+    
+    @abstractmethod
+    def register_workflow_builder(self, builder_id: str, builder: IWorkflowBuilder) -> None:
+        """注册工作流构建器"""
+        pass
+    
+    @abstractmethod
+    def get_workflow(self, workflow_id: str) -> Optional[IWorkflow]:
+        """获取工作流"""
+        pass
+    
+    @abstractmethod
+    def get_workflow_builder(self, builder_id: str) -> Optional[IWorkflowBuilder]:
+        """获取工作流构建器"""
+        pass
+    
+    @abstractmethod
+    def list_workflows(self) -> List[str]:
+        """列出所有注册的工作流"""
+        pass
+    
+    @abstractmethod
+    def unregister_workflow(self, workflow_id: str) -> bool:
+        """注销工作流"""
+        pass
+
+
+class WorkflowRegistry(IWorkflowRegistry):
     """工作流注册表
     
     管理工作流的注册、查找和版本控制。
@@ -214,7 +249,7 @@ def get_workflow(workflow_id: str) -> Optional[IWorkflow]:
     
     Args:
         workflow_id: 工作流ID
-            
+        
     Returns:
         Optional[IWorkflow]: 工作流实例，如果不存在则返回None
     """
@@ -226,8 +261,8 @@ def get_workflow_builder(builder_id: str) -> Optional[IWorkflowBuilder]:
     
     Args:
         builder_id: 构建器ID
-            
-        Returns:
+        
+    Returns:
         Optional[IWorkflowBuilder]: 构建器实例，如果不存在则返回None
     """
     return get_global_registry().get_workflow_builder(builder_id)

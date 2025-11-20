@@ -3,6 +3,7 @@
 提供简化的工作流执行接口，自动状态初始化，错误处理和重试机制。
 """
 
+from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Union, Generator, AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime
@@ -33,7 +34,31 @@ class WorkflowExecutionResult:
             self.metadata = {}
 
 
-class WorkflowRunner:
+class IWorkflowRunner(ABC):
+    """工作流运行器接口"""
+    
+    @abstractmethod
+    def run_workflow(
+        self, 
+        config_path: str, 
+        initial_data: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
+    ) -> WorkflowExecutionResult:
+        """运行工作流"""
+        pass
+    
+    @abstractmethod
+    async def run_workflow_async(
+        self, 
+        config_path: str, 
+        initial_data: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
+    ) -> WorkflowExecutionResult:
+        """异步运行工作流"""
+        pass
+
+
+class WorkflowRunner(IWorkflowRunner):
     """工作流运行器 - 新架构实现
     
     提供简化的工作流执行接口，自动状态初始化，错误处理和重试机制。

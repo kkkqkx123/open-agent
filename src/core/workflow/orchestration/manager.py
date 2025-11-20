@@ -4,6 +4,7 @@
 执行和与其他服务的协调。
 """
 
+from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from src.core.workflow.interfaces import IWorkflow, IWorkflowState
 from src.core.workflow.workflow import Workflow
@@ -12,7 +13,41 @@ from ..execution.executor import WorkflowExecutorService
 from ..registry.registry import WorkflowRegistry
 
 
-class WorkflowManager:
+class IWorkflowManager(ABC):
+    """工作流管理器接口"""
+    
+    @abstractmethod
+    def create_workflow(self, workflow_id: str, name: str, config: Dict[str, Any]) -> IWorkflow:
+        """创建新工作流"""
+        pass
+    
+    @abstractmethod
+    def execute_workflow(
+        self, 
+        workflow_id: str, 
+        initial_state: Optional[IWorkflowState] = None,
+        config: Optional[Dict[str, Any]] = None
+    ) -> IWorkflowState:
+        """执行工作流"""
+        pass
+    
+    @abstractmethod
+    def get_workflow_status(self, workflow_id: str) -> Dict[str, Any]:
+        """获取工作流的状态"""
+        pass
+    
+    @abstractmethod
+    def list_workflows(self) -> List[Dict[str, Any]]:
+        """列出所有已注册的工作流"""
+        pass
+    
+    @abstractmethod
+    def delete_workflow(self, workflow_id: str) -> bool:
+        """删除工作流"""
+        pass
+
+
+class WorkflowManager(IWorkflowManager):
     """工作流管理器服务。
     
     此类提供高级工作流管理功能，

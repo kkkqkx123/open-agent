@@ -6,8 +6,8 @@
 from typing import Dict, Any, Optional
 from pathlib import Path
 
-from src.core.common.interfaces import IConfigLoader
-from src.services.container import get_global_container
+from ...common.interfaces import IConfigLoader
+from ....services.container import get_global_container
 
 
 class NodeConfigLoader:

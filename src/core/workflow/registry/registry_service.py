@@ -3,6 +3,7 @@
 统一管理工作流定义、发现和元数据
 """
 
+from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 import logging
@@ -14,37 +15,45 @@ from src.core.workflow.exceptions import WorkflowError, WorkflowValidationError
 logger = logging.getLogger(__name__)
 
 
-class IWorkflowRegistryService:
+class IWorkflowRegistryService(ABC):
     """工作流注册表服务接口"""
     
+    @abstractmethod
     def register_workflow(self, workflow_def: Dict[str, Any]) -> str:
         """注册工作流定义"""
         raise NotImplementedError
     
+    @abstractmethod
     def get_workflow_definition(self, workflow_id: str) -> Optional[Dict[str, Any]]:
         """获取工作流定义"""
         raise NotImplementedError
     
+    @abstractmethod
     def list_available_workflows(self) -> List[Dict[str, Any]]:
         """列出可用工作流"""
         raise NotImplementedError
     
+    @abstractmethod
     def find_by_name(self, name: str) -> Optional[str]:
         """根据名称查找工作流ID"""
         raise NotImplementedError
     
+    @abstractmethod
     def find_by_tag(self, tag: str) -> List[str]:
         """根据标签查找工作流ID列表"""
         raise NotImplementedError
     
+    @abstractmethod
     def update_workflow(self, workflow_id: str, updates: Dict[str, Any]) -> bool:
         """更新工作流定义"""
         raise NotImplementedError
     
+    @abstractmethod
     def unregister_workflow(self, workflow_id: str) -> bool:
         """注销工作流"""
         raise NotImplementedError
     
+    @abstractmethod
     def get_statistics(self) -> Dict[str, Any]:
         """获取注册表统计信息"""
         raise NotImplementedError

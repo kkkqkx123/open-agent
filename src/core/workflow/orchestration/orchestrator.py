@@ -3,6 +3,7 @@
 管理工作流的生命周期和编排。
 """
 
+from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 import uuid
 import logging
@@ -15,7 +16,43 @@ from src.core.workflow.entities import Workflow, WorkflowExecution, ExecutionRes
 logger = logging.getLogger(__name__)
 
 
-class WorkflowOrchestrator:
+class IWorkflowOrchestrator(ABC):
+    """工作流编排器接口"""
+    
+    @abstractmethod
+    def register_workflow_template(self, workflow_id: str, workflow: IWorkflow) -> None:
+        """注册工作流模板"""
+        pass
+    
+    @abstractmethod
+    def get_workflow_template(self, workflow_id: str) -> Optional[IWorkflow]:
+        """获取工作流模板"""
+        pass
+    
+    @abstractmethod
+    def execute_workflow(self, workflow_id: str, initial_state: IWorkflowState,
+                        config: Optional[Dict[str, Any]] = None) -> IWorkflowState:
+        """执行工作流"""
+        pass
+    
+    @abstractmethod
+    async def execute_workflow_async(self, workflow_id: str, initial_state: IWorkflowState,
+                              config: Optional[Dict[str, Any]] = None) -> IWorkflowState:
+        """异步执行工作流"""
+        pass
+    
+    @abstractmethod
+    def get_execution_status(self, execution_id: str) -> Optional[WorkflowExecution]:
+        """获取执行状态"""
+        pass
+    
+    @abstractmethod
+    def cleanup_execution(self, execution_id: str) -> None:
+        """清理执行记录"""
+        pass
+
+
+class WorkflowOrchestrator(IWorkflowOrchestrator):
     """工作流编排器
     
     管理工作流的生命周期、编排多个工作流的执行。
