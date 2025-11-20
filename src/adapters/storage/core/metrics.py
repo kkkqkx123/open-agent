@@ -6,7 +6,7 @@
 import threading
 import time
 from collections import defaultdict
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 
 class StorageMetrics:

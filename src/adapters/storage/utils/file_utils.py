@@ -4,12 +4,13 @@
 """
 
 import os
-import shutil
 import logging
 from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
 
 from src.core.state.exceptions import StorageError, StorageConnectionError
+from src.core.state.expiration import ExpirationManager
+from src.core.state.backup_policy import FileBackupStrategy, BackupManager
 from .common_utils import StorageCommonUtils
 
 
@@ -401,135 +402,3 @@ class FileStorageUtils:
             logger.warning(f"Unknown directory structure: {directory_structure}, using flat")
             return str(base / filename)
     
-    @staticmethod
-    def cleanup_expired_files(dir_path: str, current_time: float) -> int:
-        """清理过期文件
-        
-        Args:
-            dir_path: 目录路径
-            current_time: 当前时间戳
-            
-        Returns:
-            清理的文件数
-        """
-        if not os.path.exists(dir_path):
-            return 0
-        
-        cleaned_count = 0
-        
-        for file_path in FileStorageUtils.list_files_in_directory(dir_path, "*.json", recursive=True):
-            try:
-                # 加载数据检查过期时间
-                data = FileStorageUtils.load_data_from_file(file_path)
-                if data and "expires_at" in data and data["expires_at"] < current_time:
-                    FileStorageUtils.delete_file(file_path)
-                    cleaned_count += 1
-            except Exception as e:
-                logger.error(f"Failed to cleanup expired file {file_path}: {e}")
-        
-        return cleaned_count
-    
-    @staticmethod
-    def cleanup_old_files(dir_path: str, cutoff_time: float) -> int:
-        """清理旧文件
-        
-        Args:
-            dir_path: 目录路径
-            cutoff_time: 截止时间戳
-            
-        Returns:
-            清理的文件数
-        """
-        if not os.path.exists(dir_path):
-            return 0
-        
-        cleaned_count = 0
-        
-        for file_path in FileStorageUtils.list_files_in_directory(dir_path, "*.json", recursive=True):
-            try:
-                file_time = FileStorageUtils.get_file_modified_time(file_path)
-                if file_time < cutoff_time:
-                    FileStorageUtils.delete_file(file_path)
-                    cleaned_count += 1
-            except Exception as e:
-                logger.error(f"Failed to cleanup old file {file_path}: {e}")
-        
-        return cleaned_count
-    
-    @staticmethod
-    def backup_directory(source_dir: str, backup_dir: str) -> bool:
-        """备份目录
-        
-        Args:
-            source_dir: 源目录
-            backup_dir: 备份目录
-            
-        Returns:
-            是否备份成功
-        """
-        try:
-            # 确保备份目录存在
-            StorageCommonUtils.ensure_directory_exists(backup_dir)
-            
-            # 备份目录
-            if os.path.exists(source_dir):
-                shutil.copytree(source_dir, backup_dir, dirs_exist_ok=True)
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Failed to backup directory {source_dir} to {backup_dir}: {e}")
-            return False
-    
-    @staticmethod
-    def restore_directory(backup_dir: str, target_dir: str) -> bool:
-        """恢复目录
-        
-        Args:
-            backup_dir: 备份目录
-            target_dir: 目标目录
-            
-        Returns:
-            是否恢复成功
-        """
-        try:
-            # 确保目标目录存在
-            StorageCommonUtils.ensure_directory_exists(target_dir)
-            
-            # 恢复目录
-            if os.path.exists(backup_dir):
-                shutil.copytree(backup_dir, target_dir, dirs_exist_ok=True)
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Failed to restore directory {backup_dir} to {target_dir}: {e}")
-            return False
-    
-    @staticmethod
-    def get_storage_info(dir_path: str) -> Dict[str, Any]:
-        """获取存储信息
-        
-        Args:
-            dir_path: 目录路径
-            
-        Returns:
-            存储信息
-        """
-        if not os.path.exists(dir_path):
-            return {
-                "directory_exists": False,
-                "total_files": 0,
-                "total_size_bytes": 0,
-                "total_size_mb": 0
-            }
-        
-        # 统计文件数量和大小
-        files = FileStorageUtils.list_files_in_directory(dir_path, "*.json", recursive=True)
-        total_size = sum(FileStorageUtils.get_file_size(file_path) for file_path in files)
-        
-        return {
-            "directory_exists": True,
-            "directory_path": dir_path,
-            "total_files": len(files),
-            "total_size_bytes": total_size,
-            "total_size_mb": round(total_size / (1024 * 1024), 2)
-        }

@@ -1,16 +1,24 @@
 """通用存储工具类
 
 提供跨存储类型的通用工具方法，减少代码重复。
+
+注意：序列化、压缩、过滤、过期检查和备份功能已统一迁移到 core/state 层：
+- 序列化/压缩: src/core/state/base.py
+- 过滤器: src/core/state/filters.py
+- 过期检查: src/core/state/expiration.py
+- 备份策略: src/core/state/backup_policy.py
+- 统计信息: src/core/state/statistics.py
 """
 
-import gzip
 import json
 import time
 import logging
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional
 from pathlib import Path
 
 from src.core.state.exceptions import StorageError
+from src.core.state.filters import MemoryFilterBuilder, FilterValidator
+from src.core.state.expiration import ExpirationManager
 
 
 logger = logging.getLogger(__name__)
@@ -20,58 +28,20 @@ class StorageCommonUtils:
     """通用存储工具类
     
     提供跨存储类型的通用静态工具方法。
+    
+    核心功能已迁移到 src/core/state 层，此处仅保留 adapters 特定的工具方法。
     """
     
-    @staticmethod
-    def compress_data(data: Dict[str, Any]) -> bytes:
-        """压缩数据
-        
-        Args:
-            data: 要压缩的数据
-            
-        Returns:
-            压缩后的数据
-            
-        Raises:
-            StorageError: 压缩失败时抛出
-        """
-        try:
-            # 序列化为JSON
-            json_str = json.dumps(data, default=str)
-            # 压缩
-            return gzip.compress(json_str.encode('utf-8'))
-        except Exception as e:
-            raise StorageError(f"Failed to compress data: {e}")
-    
-    @staticmethod
-    def decompress_data(compressed_data: bytes) -> Dict[str, Any]:
-        """解压缩数据
-        
-        Args:
-            compressed_data: 压缩的数据
-            
-        Returns:
-            解压缩后的数据
-            
-        Raises:
-            StorageError: 解压缩失败时抛出
-        """
-        try:
-            # 解压缩
-            json_str = gzip.decompress(compressed_data).decode('utf-8')
-            # 反序列化
-            result = json.loads(json_str)
-            # 确保返回的是 Dict[str, Any] 类型
-            if isinstance(result, dict):
-                return result
-            else:
-                raise StorageError(f"Decompressed data is not a dict: {type(result)}")
-        except Exception as e:
-            raise StorageError(f"Failed to decompress data: {e}")
+    # 使用 core 层的过滤器和过期管理器
+    _filter_builder = MemoryFilterBuilder()
+    _expiration_manager = ExpirationManager()
     
     @staticmethod
     def serialize_data(data: Dict[str, Any]) -> str:
         """序列化数据为JSON字符串
+        
+        这是适配器层级别的 JSON 序列化方法。
+        核心的压缩/序列化请使用 src/core/state/base.py 中的 StateSerializer。
         
         Args:
             data: 要序列化的数据
@@ -84,6 +54,9 @@ class StorageCommonUtils:
     @staticmethod
     def deserialize_data(data: str) -> Dict[str, Any]:
         """从JSON字符串反序列化数据
+        
+        这是适配器层级别的 JSON 反序列化方法。
+        核心的解压缩/反序列化请使用 src/core/state/base.py 中的 StateSerializer。
         
         Args:
             data: 要反序列化的JSON字符串
@@ -103,21 +76,10 @@ class StorageCommonUtils:
             raise StorageError(f"Failed to deserialize data: {e}")
     
     @staticmethod
-    def should_compress_data(data: Dict[str, Any], threshold: int = 1024) -> bool:
-        """判断是否应该压缩数据
-        
-        Args:
-            data: 要检查的数据
-            threshold: 压缩阈值（字节）
-            
-        Returns:
-            是否应该压缩
-        """
-        return len(json.dumps(data, default=str)) > threshold
-    
-    @staticmethod
     def matches_filters(data: Dict[str, Any], filters: Dict[str, Any]) -> bool:
         """检查数据是否匹配过滤器
+        
+        委托给 src/core/state/filters.py 中的 MemoryFilterBuilder。
         
         Args:
             data: 要检查的数据
@@ -126,39 +88,17 @@ class StorageCommonUtils:
         Returns:
             是否匹配过滤器
         """
-        if not filters:
-            return True
+        if not FilterValidator.validate_filters(filters):
+            logger.warning(f"Invalid filters detected: {filters}")
+            return False
         
-        for key, value in filters.items():
-            if key not in data:
-                return False
-            
-            if isinstance(value, dict):
-                # 支持操作符
-                if "$eq" in value and data[key] != value["$eq"]:
-                    return False
-                elif "$ne" in value and data[key] == value["$ne"]:
-                    return False
-                elif "$in" in value and data[key] not in value["$in"]:
-                    return False
-                elif "$nin" in value and data[key] in value["$nin"]:
-                    return False
-                elif "$gt" in value and data[key] <= value["$gt"]:
-                    return False
-                elif "$gte" in value and data[key] < value["$gte"]:
-                    return False
-                elif "$lt" in value and data[key] >= value["$lt"]:
-                    return False
-                elif "$lte" in value and data[key] > value["$lte"]:
-                    return False
-            elif data[key] != value:
-                return False
-        
-        return True
+        return StorageCommonUtils._filter_builder.matches(data, filters)
     
     @staticmethod
     def is_data_expired(data: Dict[str, Any], current_time: Optional[float] = None) -> bool:
         """检查数据是否过期
+        
+        委托给 src/core/state/expiration.py 中的 ExpirationManager。
         
         Args:
             data: 数据字典
@@ -167,18 +107,13 @@ class StorageCommonUtils:
         Returns:
             是否过期
         """
-        if current_time is None:
-            current_time = time.time()
-        
-        expires_at = data.get("expires_at")
-        if expires_at and isinstance(expires_at, (int, float)) and expires_at < current_time:
-            return True
-        
-        return False
+        return StorageCommonUtils._expiration_manager.is_expired(data, current_time)
     
     @staticmethod
     def calculate_cutoff_time(retention_days: int, current_time: Optional[float] = None) -> float:
         """计算保留期限的截止时间
+        
+        委托给 src/core/state/expiration.py 中的 ExpirationManager。
         
         Args:
             retention_days: 保留天数
@@ -187,10 +122,7 @@ class StorageCommonUtils:
         Returns:
             截止时间戳
         """
-        if current_time is None:
-            current_time = time.time()
-        
-        return current_time - (retention_days * 24 * 3600)
+        return ExpirationManager.calculate_cutoff_time(retention_days, current_time)
     
     @staticmethod
     def ensure_directory_exists(dir_path: str) -> None:
@@ -219,49 +151,8 @@ class StorageCommonUtils:
         else:
             return f"{prefix}_{timestamp}"
     
-    @staticmethod
-    def cleanup_old_backups(backup_dir: str, max_files: int, pattern: str = "*") -> int:
-        """清理旧备份文件
-        
-        Args:
-            backup_dir: 备份目录
-            max_files: 最大文件数量
-            pattern: 文件匹配模式
-            
-        Returns:
-            删除的文件数量
-        """
-        try:
-            backup_path = Path(backup_dir)
-            if not backup_path.exists():
-                return 0
-            
-            # 获取所有备份文件
-            backup_files = list(backup_path.glob(pattern))
-            
-            # 按修改时间排序
-            backup_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
-            
-            # 删除超出限制的文件
-            deleted_count = 0
-            if len(backup_files) > max_files:
-                for backup_file in backup_files[max_files:]:
-                    try:
-                        if backup_file.is_file():
-                            backup_file.unlink()
-                        else:
-                            import shutil
-                            shutil.rmtree(backup_file)
-                        deleted_count += 1
-                        logger.debug(f"Deleted old backup: {backup_file}")
-                    except Exception as e:
-                        logger.error(f"Failed to delete backup {backup_file}: {e}")
-            
-            return deleted_count
-            
-        except Exception as e:
-            logger.error(f"Failed to cleanup old backups: {e}")
-            return 0
+    # 备份清理功能已移至 src/core/state/backup_policy.py
+    # 使用 BackupManager 代替 cleanup_old_backups()
     
     @staticmethod
     def validate_data_id(data: Dict[str, Any]) -> str:
@@ -298,32 +189,5 @@ class StorageCommonUtils:
         if enable_ttl and "expires_at" not in data:
             data["expires_at"] = current_time + default_ttl_seconds
     
-    @staticmethod
-    def prepare_health_check_response(status: str, config: Dict[str, Any], 
-                                    stats: Dict[str, Any], **additional_info) -> Dict[str, Any]:
-        """准备健康检查响应
-        
-        Args:
-            status: 状态
-            config: 配置信息
-            stats: 统计信息
-            **additional_info: 额外信息
-            
-        Returns:
-            健康检查响应字典
-        """
-        response = {
-            "status": status,
-            "total_operations": stats.get("total_operations", 0),
-            "config": config
-        }
-        
-        # 添加统计信息
-        for key, value in stats.items():
-            if key.startswith(("total_", "expired_", "compression_", "backup_", "memory_", "database_")):
-                response[key] = value
-        
-        # 添加额外信息
-        response.update(additional_info)
-        
-        return response
+    # 健康检查响应准备已移至 src/core/state/statistics.py
+    # 使用 HealthCheckHelper.prepare_health_check_response() 代替

@@ -14,61 +14,14 @@ from src.core.state.exceptions import (
     StorageConnectionError,
     StorageCapacityError
 )
-from .base import StorageBackend
-from .utils.common_utils import StorageCommonUtils
-from .utils.memory_utils import MemoryStorageUtils
+from ..adapters.base import StorageBackend
+from ..utils.common_utils import StorageCommonUtils
+from ..utils.memory_utils import MemoryStorageUtils, MemoryStorageItem
 
 
 logger = logging.getLogger(__name__)
 
 
-class MemoryStorageItem:
-    """内存存储项
-    
-    封装存储的数据和元数据。
-    """
-    
-    def __init__(
-        self, 
-        data: Union[Dict[str, Any], bytes], 
-        ttl_seconds: Optional[int] = None,
-        compressed: bool = False
-    ):
-        """初始化存储项
-        
-        Args:
-            data: 存储的数据
-            ttl_seconds: 生存时间（秒）
-            compressed: 是否已压缩
-        """
-        self.data = data
-        self.created_at = time.time()
-        self.expires_at = None
-        self.compressed = compressed
-        self.access_count = 0
-        self.last_accessed = self.created_at
-        self.size = len(str(data)) if isinstance(data, dict) else len(data)
-        
-        if ttl_seconds:
-            self.expires_at = self.created_at + ttl_seconds
-    
-    def is_expired(self) -> bool:
-        """检查是否已过期"""
-        if self.expires_at is None:
-            return False
-        return time.time() > self.expires_at
-    
-    def access(self) -> Union[Dict[str, Any], bytes]:
-        """访问数据"""
-        self.access_count += 1
-        self.last_accessed = time.time()
-        return self.data
-    
-    def update_data(self, data: Union[Dict[str, Any], bytes]) -> None:
-        """更新数据"""
-        self.data = data
-        self.size = len(str(data)) if isinstance(data, dict) else len(data)
-        self.last_accessed = time.time()
 
 
 class MemoryStorageBackend(StorageBackend):
@@ -191,7 +144,9 @@ class MemoryStorageBackend(StorageBackend):
             
             # 解压缩数据（如果需要）
             if item.compressed and isinstance(data, bytes):
-                data = MemoryStorageUtils.decompress_data(data)
+                from src.core.state.base import BaseStateSerializer
+                serializer = BaseStateSerializer(compression=True)
+                data = serializer.deserialize_state(data)
             
             # 确保返回值是 Dict[str, Any] 或 None
             if isinstance(data, dict):
@@ -243,10 +198,12 @@ class MemoryStorageBackend(StorageBackend):
                         
                         # 解压缩数据（如果需要）
                         if item.compressed and isinstance(data, bytes):
-                            data = MemoryStorageUtils.decompress_data(data)
+                            from src.core.state.base import BaseStateSerializer
+                            serializer = BaseStateSerializer(compression=True)
+                            data = serializer.deserialize_state(data)
                         
                         # 检查过滤器
-                        if isinstance(data, dict) and MemoryStorageUtils.matches_filters(data, filters):
+                        if isinstance(data, dict) and StorageCommonUtils.matches_filters(data, filters):
                             results.append(data)
                             
                             # 检查限制
@@ -274,9 +231,21 @@ class MemoryStorageBackend(StorageBackend):
                 self._stats["memory_usage_bytes"] = total_size
                 self._stats["compression_ratio"] = compression_ratio
             
-            # 使用通用工具准备健康检查响应
-            return StorageCommonUtils.prepare_health_check_response(
+            # 使用健康检查助手准备响应
+            from src.core.state.statistics import StorageStatistics, HealthCheckHelper
+            stats = StorageStatistics(
                 status="healthy",
+                total_size_bytes=total_size,
+                total_items=len(self._storage),
+                total_records=len(self._storage),
+                total_operations=self._stats.get("operations", 0),
+                total_reads=self._stats.get("reads", 0),
+                total_writes=self._stats.get("writes", 0),
+                total_deletes=self._stats.get("deletes", 0),
+            )
+            return HealthCheckHelper.prepare_health_check_response(
+                status="healthy",
+                stats=stats,
                 config={
                     "max_size": self.max_size,
                     "max_memory_mb": self.max_memory_mb,
@@ -284,7 +253,6 @@ class MemoryStorageBackend(StorageBackend):
                     "enable_compression": self.enable_compression,
                     "enable_persistence": self.enable_persistence,
                 },
-                stats=self._stats,
                 item_count=len(self._storage),
                 memory_usage_bytes=self._stats["memory_usage_bytes"],
                 compression_ratio=self._stats["compression_ratio"],

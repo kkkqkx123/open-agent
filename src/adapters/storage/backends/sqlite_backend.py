@@ -17,8 +17,8 @@ from src.core.state.exceptions import (
     StorageTransactionError,
     StorageCapacityError
 )
-from .base import StorageBackend, ConnectionPooledStorageBackend, ConnectionPoolMixin
-from .utils.common_utils import StorageCommonUtils
+from ..adapters.base import StorageBackend, ConnectionPooledStorageBackend, ConnectionPoolMixin
+from ..utils.common_utils import StorageCommonUtils
 
 
 logger = logging.getLogger(__name__)
@@ -420,9 +420,20 @@ class SQLiteStorageBackend(ConnectionPooledStorageBackend):
             expired_count = self._cleanup_expired_records(conn)
             self._stats["expired_records_cleaned"] += expired_count
             
-            # 使用通用工具准备健康检查响应
-            return StorageCommonUtils.prepare_health_check_response(
+            # 使用健康检查助手准备响应
+            from src.core.state.statistics import DatabaseStorageStatistics, HealthCheckHelper
+            stats = DatabaseStorageStatistics(
                 status="healthy",
+                total_size_bytes=self._stats["database_size_bytes"],
+                total_size_mb=round(self._stats["database_size_bytes"] / (1024 * 1024), 2),
+                total_records=self._stats["total_records"],
+                database_path=self.db_path,
+                page_count=db_info.get("total_records", 0),
+                page_size=4096,
+            )
+            return HealthCheckHelper.prepare_health_check_response(
+                status="healthy",
+                stats=stats,
                 config={
                     "timeout": self.timeout,
                     "enable_wal_mode": self.enable_wal_mode,
@@ -431,7 +442,6 @@ class SQLiteStorageBackend(ConnectionPooledStorageBackend):
                     "enable_backup": self.enable_backup,
                     "backup_interval_hours": self.backup_interval_hours
                 },
-                stats=self._stats,
                 database_path=self.db_path,
                 database_size_bytes=self._stats["database_size_bytes"],
                 database_size_mb=db_info["database_size_mb"],
@@ -669,9 +679,9 @@ class SQLiteStorageBackend(ConnectionPooledStorageBackend):
             logger.info(f"Created SQLite backup: {backup_file}")
             
             # 清理旧备份
-            StorageCommonUtils.cleanup_old_backups(
-                str(backup_dir), self.max_backup_files, "storage_backup_*.db"
-            )
+            from src.core.state.backup_policy import FileBackupStrategy
+            backup_strategy = FileBackupStrategy()
+            backup_strategy.cleanup_old_backups(str(backup_dir), self.max_backup_files)
             
         finally:
             self._return_connection(conn)

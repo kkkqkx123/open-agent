@@ -6,10 +6,59 @@
 import os
 import pickle
 import time
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 
 from src.core.state.exceptions import StorageError, StorageCapacityError
 from .common_utils import StorageCommonUtils
+
+
+class MemoryStorageItem:
+    """内存存储项
+    
+    封装存储的数据和元数据。
+    """
+    
+    def __init__(
+        self,
+        data: Union[Dict[str, Any], bytes],
+        ttl_seconds: Optional[int] = None,
+        compressed: bool = False
+    ):
+        """初始化存储项
+        
+        Args:
+            data: 存储的数据
+            ttl_seconds: 生存时间（秒）
+            compressed: 是否已压缩
+        """
+        self.data = data
+        self.created_at = time.time()
+        self.expires_at = None
+        self.compressed = compressed
+        self.access_count = 0
+        self.last_accessed = self.created_at
+        self.size = len(str(data)) if isinstance(data, dict) else len(data)
+        
+        if ttl_seconds:
+            self.expires_at = self.created_at + ttl_seconds
+    
+    def is_expired(self) -> bool:
+        """检查是否已过期"""
+        if self.expires_at is None:
+            return False
+        return time.time() > self.expires_at
+    
+    def access(self) -> Union[Dict[str, Any], bytes]:
+        """访问数据"""
+        self.access_count += 1
+        self.last_accessed = time.time()
+        return self.data
+    
+    def update_data(self, data: Union[Dict[str, Any], bytes]) -> None:
+        """更新数据"""
+        self.data = data
+        self.size = len(str(data)) if isinstance(data, dict) else len(data)
+        self.last_accessed = time.time()
 
 
 class MemoryStorageUtils:
@@ -98,7 +147,7 @@ class MemoryStorageUtils:
         if not storage_items:
             return 0.0
         
-        compressed_items = sum(1 for item in storage_items.values() 
+        compressed_items = sum(1 for item in storage_items.values()
                             if hasattr(item, 'compressed') and item.compressed)
         return compressed_items / len(storage_items)
     
@@ -116,8 +165,8 @@ class MemoryStorageUtils:
         current_time = time.time()
         
         for item_id, item in storage_items.items():
-            if (hasattr(item, 'expires_at') and 
-                item.expires_at is not None and 
+            if (hasattr(item, 'expires_at') and
+                item.expires_at is not None and
                 current_time > item.expires_at):
                 expired_items.append(item_id)
         
@@ -125,8 +174,8 @@ class MemoryStorageUtils:
     
     @staticmethod
     def validate_capacity(
-        storage_items: Dict[str, Any], 
-        max_size: Optional[int] = None, 
+        storage_items: Dict[str, Any],
+        max_size: Optional[int] = None,
         max_memory_mb: Optional[int] = None
     ) -> None:
         """验证容量限制
@@ -164,6 +213,8 @@ class MemoryStorageUtils:
     def prepare_persistence_data(storage_items: Dict[str, Any]) -> Dict[str, Any]:
         """准备持久化数据
         
+        将内存存储项转换为可持久化的数据格式。
+        
         Args:
             storage_items: 存储项字典
             
@@ -193,8 +244,6 @@ class MemoryStorageUtils:
         Returns:
             恢复的存储项字典
         """
-        from ..memory_backend import MemoryStorageItem
-        
         storage_items = {}
         current_time = time.time()
         

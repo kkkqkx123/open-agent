@@ -130,10 +130,14 @@ class StorageBackend(IStorageBackend, ABC):
             # 压缩数据（如果需要）
             processed_data = data
             compressed = False
-            if (self.enable_compression and 
-                StorageCommonUtils.should_compress_data(data, self.compression_threshold)):
-                processed_data = StorageCommonUtils.compress_data(data)
-                compressed = True
+            if self.enable_compression:
+                import json
+                data_size = len(json.dumps(data))
+                if data_size > self.compression_threshold:
+                    from src.core.state.base import BaseStateSerializer
+                    serializer = BaseStateSerializer(compression=True)
+                    processed_data = serializer.serialize_state(data)
+                    compressed = True
             
             # 保存数据
             result_id = await self.save_impl(processed_data, compressed)

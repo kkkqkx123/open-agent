@@ -81,8 +81,8 @@ gemini_group:
   
   # Gemini特定的重试配置
   retry_config:
-    base_delay: 1.5                # Gemini频率限制较严格，增加基础延迟
-    max_delay: 45.0
+    base_delay: 1.5
+    max_delay: 60.0
     jitter: true
     exponential_base: 2.0
     retry_on_status_codes:
@@ -127,7 +127,7 @@ anthropic_group:
   # Anthropic特定的重试配置
   retry_config:
     base_delay: 1.0
-    max_delay: 35.0              # Anthropic响应时间适中
+    max_delay: 30.0
     jitter: true
     exponential_base: 2.0
     retry_on_status_codes:

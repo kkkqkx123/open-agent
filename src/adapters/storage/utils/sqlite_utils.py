@@ -12,6 +12,9 @@ from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
 
 from src.core.state.exceptions import StorageError, StorageConnectionError
+from src.core.state.filters import SQLiteFilterBuilder
+from src.core.state.expiration import ExpirationManager
+from src.core.state.backup_policy import DatabaseBackupStrategy, BackupManager
 from .common_utils import StorageCommonUtils
 
 
@@ -109,55 +112,16 @@ class SQLiteStorageUtils:
     def build_where_clause(filters: Dict[str, Any]) -> tuple:
         """构建WHERE子句
         
+        委托给 src/core/state/filters.py 中的 SQLiteFilterBuilder。
+        
         Args:
             filters: 过滤条件
             
         Returns:
             (where_clause, params) WHERE子句和参数
         """
-        if not filters:
-            return "", []
-        
-        conditions = []
-        params: List[Any] = []
-        
-        for key, value in filters.items():
-            if isinstance(value, (list, tuple)):
-                # IN查询
-                placeholders = ",".join(["?" for _ in value])
-                conditions.append(f"{key} IN ({placeholders})")
-                params.extend(value)
-            elif isinstance(value, dict) and "$gt" in value:
-                # 大于查询
-                conditions.append(f"{key} > ?")
-                params.append(value["$gt"])
-            elif isinstance(value, dict) and "$lt" in value:
-                # 小于查询
-                conditions.append(f"{key} < ?")
-                params.append(value["$lt"])
-            elif isinstance(value, dict) and "$gte" in value:
-                # 大于等于查询
-                conditions.append(f"{key} >= ?")
-                params.append(value["$gte"])
-            elif isinstance(value, dict) and "$lte" in value:
-                # 小于等于查询
-                conditions.append(f"{key} <= ?")
-                params.append(value["$lte"])
-            elif isinstance(value, dict) and "$ne" in value:
-                # 不等于查询
-                conditions.append(f"{key} != ?")
-                params.append(value["$ne"])
-            elif isinstance(value, dict) and "$like" in value:
-                # LIKE查询
-                conditions.append(f"{key} LIKE ?")
-                params.append(value["$like"])
-            else:
-                # 等于查询
-                conditions.append(f"{key} = ?")
-                params.append(value)
-        
-        where_clause = "WHERE " + " AND ".join(conditions)
-        return where_clause, params
+        builder = SQLiteFilterBuilder()
+        return builder.build_where_clause(filters)
     
     @staticmethod
     def execute_query(
@@ -230,23 +194,8 @@ class SQLiteStorageUtils:
             conn.rollback()
             raise StorageError(f"Failed to execute update: {e}")
     
-    @staticmethod
-    def cleanup_expired_records(conn: sqlite3.Connection) -> int:
-        """清理过期记录
-        
-        Args:
-            conn: SQLite连接对象
-            
-        Returns:
-            清理的记录数
-        """
-        try:
-            current_time = time.time()
-            query = "DELETE FROM state_storage WHERE expires_at IS NOT NULL AND expires_at < ?"
-            return SQLiteStorageUtils.execute_update(conn, query, [current_time])
-            
-        except Exception as e:
-            raise StorageError(f"Failed to cleanup expired records: {e}")
+    # 过期记录清理已移至 ExpirationManager
+    # 使用 ExpirationManager 代替 cleanup_expired_records()
     
     @staticmethod
     def get_database_info(conn: sqlite3.Connection) -> Dict[str, Any]:
@@ -304,48 +253,8 @@ class SQLiteStorageUtils:
         except Exception as e:
             raise StorageError(f"Failed to optimize database: {e}")
     
-    @staticmethod
-    def backup_database(conn: sqlite3.Connection, backup_path: str) -> None:
-        """备份数据库
-        
-        Args:
-            conn: SQLite连接对象
-            backup_path: 备份文件路径
-        """
-        try:
-            # 确保备份目录存在
-            Path(backup_path).parent.mkdir(parents=True, exist_ok=True)
-            
-            # 创建备份连接
-            backup_conn = sqlite3.connect(backup_path)
-            
-            # 执行备份
-            conn.backup(backup_conn)
-            
-            # 关闭备份连接
-            backup_conn.close()
-            
-        except Exception as e:
-            raise StorageError(f"Failed to backup database: {e}")
-    
-    @staticmethod
-    def restore_database(backup_path: str, target_path: str) -> None:
-        """恢复数据库
-        
-        Args:
-            backup_path: 备份文件路径
-            target_path: 目标数据库路径
-        """
-        try:
-            # 确保目标目录存在
-            Path(target_path).parent.mkdir(parents=True, exist_ok=True)
-            
-            # 复制备份文件
-            import shutil
-            shutil.copy2(backup_path, target_path)
-            
-        except Exception as e:
-            raise StorageError(f"Failed to restore database: {e}")
+    # 备份和恢复功能已移至 src/core/state/backup_policy.py
+    # 使用 BackupManager(DatabaseBackupStrategy()) 代替 backup_database() 和 restore_database()
     
     @staticmethod
     def configure_connection(conn: sqlite3.Connection, config: Dict[str, Any]) -> None:

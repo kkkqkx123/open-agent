@@ -1,39 +1,38 @@
-"""文件存储适配器
+"""SQLite存储适配器
 
-提供基于文件的状态存储适配器实现。
+提供基于SQLite的状态存储适配器实现。
 """
 
 import logging
-import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
 
 from src.core.state.entities import StateSnapshot, StateHistoryEntry
 from src.core.state.exceptions import StorageError
 from .sync_adapter import SyncStateStorageAdapter
-from .file_backend import FileStorageBackend
-from .metrics import StorageMetrics
-from .transaction import TransactionManager
-from .utils.file_utils import FileStorageUtils
+from .backends.sqlite_backend import SQLiteStorageBackend
+from .core.metrics import StorageMetrics
+from .core.transaction import TransactionManager
+from .utils.sqlite_utils import SQLiteStorageUtils
 
 
 logger = logging.getLogger(__name__)
 
 
-class FileStateStorageAdapter(SyncStateStorageAdapter):
-    """文件状态存储适配器
+class SQLiteStateStorageAdapter(SyncStateStorageAdapter):
+    """SQLite状态存储适配器
     
-    提供基于文件的状态存储适配器实现。
+    提供基于SQLite的状态存储适配器实现。
     """
     
     def __init__(self, **config: Any) -> None:
-        """初始化文件状态存储适配器
+        """初始化SQLite状态存储适配器
         
         Args:
             **config: 配置参数
         """
-        # 创建文件存储后端
-        backend = FileStorageBackend(**config)
+        # 创建SQLite存储后端
+        backend = SQLiteStorageBackend(**config)
         
         # 创建指标收集器
         metrics = StorageMetrics()
@@ -51,7 +50,7 @@ class FileStateStorageAdapter(SyncStateStorageAdapter):
         # 存储配置
         self._config = config
         
-        logger.info("FileStateStorageAdapter initialized")
+        logger.info("SQLiteStateStorageAdapter initialized")
     
     def get_history_entry(self, history_id: str) -> Optional[StateHistoryEntry]:
         """获取指定ID的历史记录条目
@@ -63,7 +62,7 @@ class FileStateStorageAdapter(SyncStateStorageAdapter):
             历史记录条目对象或None
         """
         try:
-            # 使用基类的 load_snapshot 方法，但需要适配历史记录
+            # 使用后端的加载方法
             data = self._backend.load_impl(history_id)
             
             if data is None:
@@ -218,28 +217,30 @@ class FileStateStorageAdapter(SyncStateStorageAdapter):
             历史记录条目列表
         """
         try:
-            # 使用文件路径查询进行搜索
-            # 由于文件存储不支持复杂的文本搜索，我们使用简单的过滤器
-            filters = {"type": "history_entry"}
+            # 使用SQL查询进行搜索
+            sql_query = """
+                SELECT * FROM state_storage 
+                WHERE type = 'history_entry' 
+                AND (data LIKE ? OR metadata LIKE ?)
+            """
             
-            # 获取更多结果进行过滤
-            results = self._backend.list_impl(filters, limit=1000)
+            params = [f"%{query}%", f"%{query}%"]
             
-            # 手动过滤包含查询字符串的结果
-            filtered_results = []
-            for data in results:
-                # 检查是否包含查询字符串
-                data_str = str(data).lower()
-                if query.lower() in data_str:
-                    filtered_results.append(data)
-                    
-                    # 检查限制
-                    if len(filtered_results) >= limit:
-                        break
+            if agent_id:
+                sql_query += " AND agent_id = ?"
+                params.append(agent_id)
+            
+            sql_query += " ORDER BY created_at DESC"
+            
+            # 使用后端的查询方法
+            results = self._backend.query_impl(
+                f"sql:{sql_query}", 
+                {"params": params}
+            )
             
             # 转换为历史记录条目对象
             entries = []
-            for data in filtered_results:
+            for data in results:
                 entry = StateHistoryEntry.from_dict(data)
                 entries.append(entry)
             
@@ -288,18 +289,17 @@ class FileStateStorageAdapter(SyncStateStorageAdapter):
         """
         try:
             # 构建过滤器
-            filters: Dict[str, Any] = {"type": "history_entry"}
+            filters = {"type": "history_entry"}
             
             if agent_id:
                 filters["agent_id"] = agent_id
             
             if start_time is not None:
-                created_at_filter: Dict[str, Any] = {"$gte": start_time}
+                filters["created_at"] = str({"$gte": start_time})
                 if end_time is not None:
-                    created_at_filter["$lte"] = end_time
-                filters["created_at"] = created_at_filter
+                    filters["created_at"] = str({"$gte": start_time, "$lte": end_time})
             elif end_time is not None:
-                filters["created_at"] = {"$lte": end_time}
+                filters["created_at"] = str({"$lte": end_time})
             
             # 获取历史记录
             entries = self._backend.list_impl(filters, limit=10000)
@@ -307,6 +307,7 @@ class FileStateStorageAdapter(SyncStateStorageAdapter):
             # 导出数据
             import json
             import csv
+            import time
             
             # 创建导出目录
             export_dir = Path("exports")
@@ -331,7 +332,7 @@ class FileStateStorageAdapter(SyncStateStorageAdapter):
                         writer.writeheader()
                         writer.writerows(entries)
             
-            if export_file and export_file.exists():
+            if export_file:
                 logger.info(f"Exported {len(entries)} history entries to {export_file}")
                 return str(export_file)
             else:
@@ -385,15 +386,15 @@ class FileStateStorageAdapter(SyncStateStorageAdapter):
                     logger.error(f"Failed to import entry: {e}")
                     continue
             
-            logger.info(f"Imported {imported_count} history entries from {file_path_obj}")
+            logger.info(f"Imported {imported_count} history entries from {file_path}")
             return imported_count
             
         except Exception as e:
             logger.error(f"Failed to import history: {e}")
             return 0
     
-    def backup_storage(self, backup_path: Optional[str] = None) -> str:
-        """备份存储
+    def backup_database(self, backup_path: Optional[str] = None) -> str:
+        """备份数据库
         
         Args:
             backup_path: 备份路径（可选）
@@ -402,32 +403,35 @@ class FileStateStorageAdapter(SyncStateStorageAdapter):
             备份文件路径
         """
         try:
+            import time
+            
             # 如果未指定备份路径，使用默认路径
             if not backup_path:
                 backup_dir = Path("backups")
                 backup_dir.mkdir(exist_ok=True)
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
-                backup_path = str(backup_dir / f"storage_backup_{timestamp}")
+                backup_path = str(backup_dir / f"storage_backup_{timestamp}.db")
             
-            # 获取基础路径
-            base_path = getattr(self._backend, 'base_path', 'file_storage')
-            
-            # 备份目录
-            success = FileStorageUtils.backup_directory(base_path, backup_path)
-            
-            if success:
-                logger.info(f"Created backup: {backup_path}")
-                return backup_path
-            else:
-                logger.error("Failed to create backup")
+            # 获取连接并创建备份
+            try:
+                from src.core.state.backup_policy import DatabaseBackupStrategy
+                backup_strategy = DatabaseBackupStrategy()
+                db_path = getattr(self._backend, 'db_path', 'storage.db')
+                if backup_strategy.backup(db_path, backup_path):
+                    logger.info(f"Created backup: {backup_path}")
+                    return backup_path
+                else:
+                    logger.error("Failed to create backup")
+                    return ""
+            except Exception as e:
+                logger.error(f"Failed to create backup: {e}")
                 return ""
-                
         except Exception as e:
-            logger.error(f"Failed to backup storage: {e}")
+            logger.error(f"Failed to backup database: {e}")
             return ""
     
-    def restore_storage(self, backup_path: str) -> bool:
-        """恢复存储
+    def restore_database(self, backup_path: str) -> bool:
+        """恢复数据库
         
         Args:
             backup_path: 备份文件路径
@@ -440,75 +444,46 @@ class FileStateStorageAdapter(SyncStateStorageAdapter):
             if hasattr(self._backend, 'disconnect'):
                 self._backend.disconnect()
             
-            # 获取基础路径
-            base_path = getattr(self._backend, 'base_path', 'file_storage')
-            
-            # 恢复存储
-            success = FileStorageUtils.restore_directory(backup_path, base_path)
-            
-            # 重新连接
-            if hasattr(self._backend, 'connect'):
-                self._backend.connect()
-            
-            if success:
-                logger.info(f"Restored storage from: {backup_path}")
+            # 恢复数据库
+            from src.core.state.backup_policy import DatabaseBackupStrategy
+            backup_strategy = DatabaseBackupStrategy()
+            db_path = getattr(self._backend, 'db_path', 'storage.db')
+            if backup_strategy.restore(backup_path, db_path):
+                # 重新连接
+                if hasattr(self._backend, 'connect'):
+                    self._backend.connect()
+                
+                logger.info(f"Restored database from: {backup_path}")
                 return True
             else:
-                logger.error("Failed to restore storage")
+                logger.error(f"Failed to restore database from: {backup_path}")
+                return False
+            
+        except Exception as e:
+            logger.error(f"Failed to restore database: {e}")
+            return False
+    
+    def optimize_database(self) -> bool:
+        """优化数据库
+        底层：ANALYZE(更新表统计信息)+VACUUM(重建数据库文件)
+        
+        Returns:
+            是否优化成功
+        """
+        try:
+            # 获取连接并优化
+            if hasattr(self._backend, '_get_connection') and hasattr(self._backend, '_return_connection'):
+                conn = self._backend._get_connection()
+                try:
+                    SQLiteStorageUtils.optimize_database(conn)
+                    logger.info("Database optimized successfully")
+                    return True
+                finally:
+                    self._backend._return_connection(conn)
+            else:
+                logger.warning("Backend does not support connection management for optimization")
                 return False
                 
         except Exception as e:
-            logger.error(f"Failed to restore storage: {e}")
+            logger.error(f"Failed to optimize database: {e}")
             return False
-    
-    def compact_storage(self) -> bool:
-        """压缩存储
-        
-        Returns:
-            是否压缩成功
-        """
-        try:
-            # 文件存储的压缩主要是清理过期文件和重新组织目录结构
-            # 这里我们简单地触发一次清理
-            current_time = time.time()
-            
-            # 获取基础路径
-            base_path = getattr(self._backend, 'base_path', 'file_storage')
-            
-            # 清理过期文件
-            expired_count = FileStorageUtils.cleanup_expired_files(base_path, current_time)
-            
-            logger.info(f"Compacted storage, cleaned up {expired_count} expired files")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to compact storage: {e}")
-            return False
-    
-    def get_storage_info(self) -> Dict[str, Any]:
-        """获取存储信息
-        
-        Returns:
-            存储信息
-        """
-        try:
-            # 获取基础路径
-            base_path = getattr(self._backend, 'base_path', 'file_storage')
-            
-            # 获取存储信息
-            storage_info = FileStorageUtils.get_storage_info(base_path)
-            
-            # 添加额外信息
-            storage_info.update({
-                "storage_type": "file",
-                "directory_structure": getattr(self._backend, 'directory_structure', 'flat'),
-                "enable_compression": getattr(self._backend, 'enable_compression', False),
-                "enable_ttl": getattr(self._backend, 'enable_ttl', False),
-                "enable_backup": getattr(self._backend, 'enable_backup', False)
-            })
-            
-            return storage_info
-            
-        except Exception as e:
-            logger.error(f"Failed to get storage info: {e}")
-            return {"storage_type": "file", "error": str(e)}

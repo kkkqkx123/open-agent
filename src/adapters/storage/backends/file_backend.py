@@ -18,9 +18,9 @@ from src.core.state.exceptions import (
     StorageTransactionError,
     StorageCapacityError
 )
-from .base import StorageBackend
-from .utils.common_utils import StorageCommonUtils
-from .utils.file_utils import FileStorageUtils
+from ..adapters.base import StorageBackend
+from ..utils.common_utils import StorageCommonUtils
+from ..utils.file_utils import FileStorageUtils
 
 
 logger = logging.getLogger(__name__)
@@ -147,9 +147,14 @@ class FileStorageBackend(StorageBackend):
                 
                 # 压缩数据（如果需要）
                 processed_data: Union[Dict[str, Any], bytes] = data
-                if not compressed and self.enable_compression and StorageCommonUtils.should_compress_data(data, self.compression_threshold):
-                    processed_data = StorageCommonUtils.compress_data(data)
-                    compressed = True
+                if not compressed and self.enable_compression:
+                    import json
+                    data_size = len(json.dumps(data))
+                    if data_size > self.compression_threshold:
+                        from src.core.state.base import BaseStateSerializer
+                        serializer = BaseStateSerializer(compression=True)
+                        processed_data = serializer.serialize_state(data)
+                        compressed = True
                 
                 # 获取文件路径
                 file_path = self._get_file_path(item_id, data)
@@ -167,11 +172,8 @@ class FileStorageBackend(StorageBackend):
                         else:
                             # 保存普通数据
                             if isinstance(processed_data, dict):
-                                # 使用通用工具类的序列化方法
-                                serialized_data = StorageCommonUtils.serialize_data(processed_data)
-                                StorageCommonUtils.ensure_directory_exists(os.path.dirname(file_path))
-                                with open(file_path, 'w', encoding='utf-8') as f:
-                                    f.write(serialized_data)
+                                # 使用文件存储工具类的保存方法
+                                FileStorageUtils.save_data_to_file(file_path, processed_data)
                             else:
                                 raise StorageError(f"Expected dict for uncompressed data, got {type(processed_data)}")
                         
@@ -214,7 +216,9 @@ class FileStorageBackend(StorageBackend):
                             
                             # 检查是否是压缩数据
                             try:
-                                data = StorageCommonUtils.decompress_data(compressed_data)
+                                from src.core.state.base import BaseStateSerializer
+                                serializer = BaseStateSerializer(compression=True)
+                                data = serializer.deserialize_state(compressed_data)
                             except:
                                 # 如果解压失败，尝试作为普通文件加载
                                 data = FileStorageUtils.load_data_from_file(file_path)
@@ -330,16 +334,33 @@ class FileStorageBackend(StorageBackend):
     async def health_check_impl(self) -> Dict[str, Any]:
         """实际健康检查实现"""
         try:
+            from src.core.state.statistics import FileStorageStatistics, HealthCheckHelper
+            
             # 获取存储信息
-            storage_info = FileStorageUtils.get_storage_info(self.base_path)
+            dir_info = FileStorageUtils.get_directory_structure_info(self.base_path, self.directory_structure)
+            total_size = FileStorageUtils.calculate_directory_size(self.base_path)
+            total_files = FileStorageUtils.count_files_in_directory(self.base_path)
             
             # 更新统计信息
-            self._stats["total_files"] = storage_info["total_files"]
-            self._stats["total_size_bytes"] = storage_info["total_size_bytes"]
+            self._stats["total_files"] = total_files
+            self._stats["total_size_bytes"] = total_size
             
-            # 清理过期文件
+            # 清理过期文件（异步处理）
             if self.enable_ttl:
-                expired_count = FileStorageUtils.cleanup_expired_files(self.base_path, time.time())
+                expired_count = 0
+                # 获取所有文件并检查过期
+                all_files = FileStorageUtils.list_files_in_directory(
+                    self.base_path,
+                    pattern=f"*.{self.file_extension}",
+                    recursive=True
+                )
+                current_time = time.time()
+                for file_path in all_files:
+                    modified_time = FileStorageUtils.get_file_modified_time(file_path)
+                    # 如果文件超过TTL时间则删除
+                    if current_time - modified_time > self.default_ttl_seconds:
+                        if FileStorageUtils.delete_file(file_path):
+                            expired_count += 1
                 self._stats["expired_files_cleaned"] += expired_count
             
             # 计算压缩比
@@ -350,9 +371,21 @@ class FileStorageBackend(StorageBackend):
             
             self._stats["compression_ratio"] = compression_ratio
             
-            # 使用通用工具准备健康检查响应
-            return StorageCommonUtils.prepare_health_check_response(
+            # 创建统计对象
+            stats = FileStorageStatistics(
                 status="healthy",
+                total_size_bytes=total_size,
+                total_size_mb=round(total_size / (1024 * 1024), 2),
+                total_items=total_files,
+                total_records=total_files,
+                directory_path=self.base_path,
+                file_count=total_files,
+            )
+            
+            # 使用健康检查助手准备响应
+            return HealthCheckHelper.prepare_health_check_response(
+                status="healthy",
+                stats=stats,
                 config={
                     "enable_compression": self.enable_compression,
                     "compression_threshold": self.compression_threshold,
@@ -361,13 +394,12 @@ class FileStorageBackend(StorageBackend):
                     "enable_backup": self.enable_backup,
                     "backup_interval_hours": self.backup_interval_hours
                 },
-                stats=self._stats,
                 base_path=self.base_path,
-                directory_exists=storage_info["directory_exists"],
-                total_files=self._stats["total_files"],
-                total_size_bytes=self._stats["total_size_bytes"],
-                total_size_mb=storage_info["total_size_mb"],
-                compression_ratio=self._stats["compression_ratio"],
+                directory_exists=dir_info.get("directory_exists", False),
+                total_files=total_files,
+                total_size_bytes=total_size,
+                total_size_mb=round(total_size / (1024 * 1024), 2),
+                compression_ratio=compression_ratio,
             )
             
         except Exception as e:
@@ -380,7 +412,20 @@ class FileStorageBackend(StorageBackend):
             
             async with self._lock:
                 with self._thread_lock:
-                    cleaned_count = FileStorageUtils.cleanup_old_files(self.base_path, cutoff_time)
+                    # 获取所有文件
+                    all_files = FileStorageUtils.list_files_in_directory(
+                        self.base_path,
+                        pattern=f"*.{self.file_extension}",
+                        recursive=True
+                    )
+                    
+                    cleaned_count = 0
+                    for file_path in all_files:
+                        modified_time = FileStorageUtils.get_file_modified_time(file_path)
+                        # 如果文件早于cutoff_time，则删除
+                        if modified_time < cutoff_time:
+                            if FileStorageUtils.delete_file(file_path):
+                                cleaned_count += 1
             
             return cleaned_count
             
@@ -423,17 +468,22 @@ class FileStorageBackend(StorageBackend):
         
         备份存储目录到备份路径。
         """
+        from src.core.state.backup_policy import FileBackupStrategy
+        
         # 确保备份目录存在
         backup_dir = Path(self.backup_path)
         backup_dir.mkdir(parents=True, exist_ok=True)
         
         # 生成备份目录名
-        current_backup_dir = backup_dir / StorageCommonUtils.generate_timestamp_filename("storage_backup")
+        import time
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        current_backup_dir = backup_dir / f"storage_backup_{timestamp}"
         
         # 创建备份
+        backup_strategy = FileBackupStrategy()
         async with self._lock:
             with self._thread_lock:
-                success = FileStorageUtils.backup_directory(self.base_path, str(current_backup_dir))
+                success = backup_strategy.backup(self.base_path, str(current_backup_dir))
         
         if not success:
             raise StorageError("Failed to create file storage backup")
@@ -441,9 +491,7 @@ class FileStorageBackend(StorageBackend):
         logger.info(f"Created file storage backup: {current_backup_dir}")
         
         # 清理旧备份
-        StorageCommonUtils.cleanup_old_backups(
-            str(backup_dir), self.max_backup_files, "storage_backup_*"
-        )
+        backup_strategy.cleanup_old_backups(str(backup_dir), self.max_backup_files)
     
     async def _cleanup_expired_items_impl(self) -> None:
         """清理过期项的文件存储特定实现
@@ -494,13 +542,7 @@ class FileStorageBackend(StorageBackend):
         if not os.path.exists(file_path):
             return None
         
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = f.read()
-                return StorageCommonUtils.deserialize_data(data)
-        except Exception as e:
-            logger.error(f"Failed to load data from file {file_path}: {e}")
-            return None
+        return FileStorageUtils.load_data_from_file(file_path)
     
     def _list_files_in_directory(
         self,

@@ -12,10 +12,10 @@ from src.core.state.interfaces import (
     IAsyncStateStorageAdapter
 )
 from src.core.state.storage_interfaces import IStorageBackend
-from .async_adapter import AsyncStateStorageAdapter
-from .sync_adapter import SyncStateStorageAdapter
-from .metrics import StorageMetrics
-from .transaction import TransactionManager
+from .adapters.async_adapter import AsyncStateStorageAdapter
+from .adapters.sync_adapter import SyncStateStorageAdapter
+from .core.metrics import StorageMetrics
+from .core.transaction import TransactionManager
 
 logger = logging.getLogger(__name__)
 
@@ -46,13 +46,13 @@ class StorageAdapterFactory(IStorageAdapterFactory):
         """
         # 导入后端实现
         if storage_type == 'memory':
-            from .memory_backend import MemoryStorageBackend
+            from .backends.memory_backend import MemoryStorageBackend
             backend = MemoryStorageBackend(**config)
         elif storage_type == 'sqlite':
-            from .sqlite_backend import SQLiteStorageBackend
+            from .backends.sqlite_backend import SQLiteStorageBackend
             backend = SQLiteStorageBackend(**config)
         elif storage_type == 'file':
-            from .file_backend import FileStorageBackend
+            from .backends.file_backend import FileStorageBackend
             backend = FileStorageBackend(**config)
         else:
             raise ValueError(f"Unsupported storage type: {storage_type}")
@@ -133,13 +133,13 @@ class AsyncStorageAdapterFactory:
         """
         # 导入后端实现
         if storage_type == 'memory':
-            from .memory_backend import MemoryStorageBackend
+            from .backends.memory_backend import MemoryStorageBackend
             backend = MemoryStorageBackend(**config)
         elif storage_type == 'sqlite':
-            from .sqlite_backend import SQLiteStorageBackend
+            from .backends.sqlite_backend import SQLiteStorageBackend
             backend = SQLiteStorageBackend(**config)
         elif storage_type == 'file':
-            from .file_backend import FileStorageBackend
+            from .backends.file_backend import FileStorageBackend
             backend = FileStorageBackend(**config)
         else:
             raise ValueError(f"Unsupported storage type: {storage_type}")
