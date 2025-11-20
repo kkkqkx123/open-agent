@@ -4,7 +4,7 @@ Workflow state factory module.
 This module provides factory functions for creating different types of workflow states.
 """
 
-from typing import Any, Dict, List, Optional, Union, Sequence
+from typing import Any, Dict, List, Optional, Type, Union, Sequence
 from datetime import datetime
 
 from .base import (
@@ -21,6 +21,30 @@ from .base import (
 
 class WorkflowStateFactory:
     """Factory for creating workflow states."""
+    
+    @staticmethod
+    def create_state_class_from_config(state_schema: Any) -> Type[Dict[str, Any]]:
+        """Create a state class from configuration
+        
+        Args:
+            state_schema: State schema configuration
+            
+        Returns:
+            Type[Dict[str, Any]]: State class type
+        """
+        # Create a dynamic state class based on configuration
+        fields: Dict[str, Any] = {}
+        
+        if hasattr(state_schema, 'fields'):
+            for field_name, field_config in state_schema.fields.items():
+                fields[field_name] = field_config
+        
+        # Return a dynamic class that can be used as a state
+        class DynamicState(dict):
+            """Dynamic state class created from configuration"""
+            pass
+        
+        return DynamicState
     
     @staticmethod
     def create_agent_state(

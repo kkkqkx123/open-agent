@@ -278,3 +278,29 @@ class IExecutionObserver(ABC):
             final_state: 最终状态
         """
         pass
+
+
+class IStreamingExecutor(ABC):
+    """流式执行器接口
+    
+    定义流式执行工作流的接口，支持同步和异步流式执行。
+    """
+    
+    @abstractmethod
+    def execute_stream(
+        self,
+        workflow: Any,
+        initial_state: IWorkflowState,
+        context: Any
+    ) -> List[Dict[str, Any]]:
+        """流式执行工作流
+        
+        Args:
+            workflow: 工作流实例
+            initial_state: 初始状态
+            context: 执行上下文
+            
+        Returns:
+            List[Dict[str, Any]]: 执行事件列表
+        """
+        pass

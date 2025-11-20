@@ -13,7 +13,7 @@ from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.management.workflow_validator import WorkflowValidator, ValidationIssue
 from src.core.workflow.state_machine.state_templates import StateTemplateManager
 from src.services.workflow.function_registry import FunctionRegistry, FunctionType
-from src.services.workflow.building.builder import UnifiedGraphBuilder
+from src.core.workflow.graph.builder.base import UnifiedGraphBuilder
 from ..workflow_instance import WorkflowInstance
 from src.core.workflow.exceptions import WorkflowConfigError, WorkflowValidationError
 
@@ -396,10 +396,7 @@ class UniversalLoaderService:
         
         try:
             # 构建图
-            graph = self.builder.build_graph(config)
-            
-            # 编译图
-            compiled_graph = self.builder.compile(graph)
+            compiled_graph = self.builder.build_graph(config)
             
             # 缓存图
             if self.enable_caching:

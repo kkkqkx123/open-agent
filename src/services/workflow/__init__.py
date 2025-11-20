@@ -28,7 +28,6 @@ from .registry.registry_service import (
     WorkflowDefinition
 )
 
-from .building.builder import UnifiedGraphBuilder
 from .execution.async_executor import (
     IAsyncNodeExecutor
 )
@@ -101,7 +100,6 @@ __all__ = [
     "IWorkflowRegistryService",
     "WorkflowRegistryService",
     "WorkflowDefinition",
-    "UnifiedGraphBuilder",
     "IAsyncNodeExecutor",
     "FunctionRegistry",
     "FunctionType",

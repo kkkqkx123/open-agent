@@ -12,7 +12,7 @@ class SimpleNode(INode):
     """简单节点实现"""
     
     def __init__(self, node_id: str, name: str, node_type: str,
-                 description: str = "", config: Dict[str, Any] = None):
+                 description: str = "", config: Dict[str, Any] | None = None):
         """初始化节点
         
         Args:

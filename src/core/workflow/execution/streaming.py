@@ -4,7 +4,7 @@
 """
 
 import asyncio
-from typing import Dict, Any, List, AsyncIterator
+from typing import Dict, Any, List, AsyncIterator, Optional, AsyncGenerator
 from .interfaces import IStreamingExecutor
 from ..interfaces import IWorkflow, IWorkflowState, ExecutionContext
 

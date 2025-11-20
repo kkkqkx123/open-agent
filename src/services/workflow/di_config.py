@@ -46,14 +46,6 @@ def register_workflow_services() -> None:
         lifetime="singleton"
     )
     
-    # 注册工作流构建器工厂
-    from .building.builder import UnifiedGraphBuilder
-    container.register(
-        UnifiedGraphBuilder,
-        UnifiedGraphBuilder,
-        lifetime="singleton"
-    )
-    
     # === 新架构服务注册 ===
     
     # 注册统一加载器服务
