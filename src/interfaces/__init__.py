@@ -34,7 +34,7 @@ from .workflow.plugins import (
 from .workflow.services import (
     IWorkflowManager,
     IWorkflowFactory,
-    IWorkflowExecutorService,
+    IWorkflowExecutor,
     IWorkflowOrchestrator,
     IWorkflowRegistry,
     IWorkflowBuilderService
@@ -142,7 +142,7 @@ __all__ = [
     # 工作流服务接口
     "IWorkflowManager",
     "IWorkflowFactory",
-    "IWorkflowExecutorService",
+    "IWorkflowExecutor",
     "IWorkflowOrchestrator",
     "IWorkflowRegistry",
     "IWorkflowBuilderService",

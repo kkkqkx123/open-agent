@@ -53,6 +53,16 @@ class FileStateStorageAdapter(SyncStateStorageAdapter):
         
         logger.info("FileStateStorageAdapter initialized")
     
+    @property
+    def _backend(self):
+        """获取存储后端"""
+        return self.__backend
+
+    @_backend.setter
+    def _backend(self, value):
+        """设置存储后端"""
+        self.__backend = value
+    
     def get_history_entry(self, history_id: str) -> Optional[StateHistoryEntry]:
         """获取指定ID的历史记录条目
         
@@ -544,3 +554,27 @@ class FileStateStorageAdapter(SyncStateStorageAdapter):
         except Exception as e:
             logger.error(f"Failed to get storage info: {e}")
             return {"storage_type": "file", "error": str(e)}
+
+    def backup_database(self, backup_path: Optional[str] = None) -> str:
+        """备份数据库
+        
+        Args:
+            backup_path: 备份路径（可选）
+            
+        Returns:
+            备份文件路径
+        """
+        # 文件适配器使用存储备份方法
+        return self.backup_storage(backup_path)
+
+    def restore_database(self, backup_path: str) -> bool:
+        """恢复数据库
+        
+        Args:
+            backup_path: 备份文件路径
+            
+        Returns:
+            是否恢复成功
+        """
+        # 文件适配器使用存储恢复方法
+        return self.restore_storage(backup_path)

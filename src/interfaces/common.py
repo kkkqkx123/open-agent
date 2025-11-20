@@ -1,10 +1,14 @@
 """通用模块接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, Union, Callable
+from typing import Dict, Any, Optional, List, Union, Callable, TYPE_CHECKING
 from pathlib import Path
 from datetime import datetime
 from enum import Enum
+
+if TYPE_CHECKING:
+    from src.infrastructure.logger.handlers.base_handler import BaseHandler
+    from src.infrastructure.logger.redactor import LogRedactor
 
 
 class IConfigLoader(ABC):
@@ -294,4 +298,19 @@ class ILogger(ABC):
         Args:
             level: 日志级别
         """
+        pass
+    
+    @abstractmethod
+    def add_handler(self, handler: 'BaseHandler') -> None:
+        """添加日志处理器"""
+        pass
+
+    @abstractmethod
+    def remove_handler(self, handler: 'BaseHandler') -> None:
+        """移除日志处理器"""
+        pass
+
+    @abstractmethod
+    def set_redactor(self, redactor: 'LogRedactor') -> None:
+        """设置日志脱敏器"""
         pass

@@ -85,13 +85,13 @@ class IWorkflowFactory(ABC):
         pass
 
 
-class IWorkflowExecutorService(ABC):
+class IWorkflowExecutor(ABC):
     """Interface for workflow executor service."""
     
     @abstractmethod
     def execute(
-        self, 
-        workflow: "IWorkflow", 
+        self,
+        workflow: "IWorkflow",
         initial_state: Optional["IWorkflowState"] = None,
         config: Optional[Dict[str, Any]] = None
     ) -> "IWorkflowState":
@@ -100,8 +100,8 @@ class IWorkflowExecutorService(ABC):
     
     @abstractmethod
     async def execute_async(
-        self, 
-        workflow: "IWorkflow", 
+        self,
+        workflow: "IWorkflow",
         initial_state: Optional["IWorkflowState"] = None,
         config: Optional[Dict[str, Any]] = None
     ) -> "IWorkflowState":
@@ -110,11 +110,11 @@ class IWorkflowExecutorService(ABC):
     
     @abstractmethod
     def execute_stream(
-        self, 
-        workflow: "IWorkflow", 
+        self,
+        workflow: "IWorkflow",
         initial_state: Optional["IWorkflowState"] = None,
         config: Optional[Dict[str, Any]] = None
-    ) -> AsyncGenerator["IWorkflowState", None]:
+    ) -> AsyncGenerator[Dict[str, Any], None]:
         """Execute a workflow with streaming results."""
         pass
     

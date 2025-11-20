@@ -402,3 +402,65 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
             # 如果没有事务管理器，返回空的上下文管理器
             from contextlib import nullcontext
             return nullcontext()
+
+    @property
+    def _backend(self):
+        """获取存储后端"""
+        return self.__backend
+
+    @_backend.setter
+    def _backend(self, value):
+        """设置存储后端"""
+        self.__backend = value
+
+    def backup_database(self, backup_path: Optional[str] = None) -> str:
+        """备份数据库
+        
+        Args:
+            backup_path: 备份路径（可选）
+            
+        Returns:
+            备份文件路径
+        """
+        # 默认实现：不支持备份
+        logger.warning("backup_database not implemented for this adapter type")
+        return ""
+
+    def restore_database(self, backup_path: str) -> bool:
+        """恢复数据库
+        
+        Args:
+            backup_path: 备份文件路径
+            
+        Returns:
+            是否恢复成功
+        """
+        # 默认实现：不支持恢复
+        logger.warning("restore_database not implemented for this adapter type")
+        return False
+
+    def backup_storage(self, backup_path: Optional[str] = None) -> str:
+        """备份存储
+        
+        Args:
+            backup_path: 备份路径（可选）
+            
+        Returns:
+            备份文件路径
+        """
+        # 默认实现：不支持备份
+        logger.warning("backup_storage not implemented for this adapter type")
+        return ""
+
+    def restore_storage(self, backup_path: str) -> bool:
+        """恢复存储
+        
+        Args:
+            backup_path: 备份文件路径
+            
+        Returns:
+            是否恢复成功
+        """
+        # 默认实现：不支持恢复
+        logger.warning("restore_storage not implemented for this adapter type")
+        return False

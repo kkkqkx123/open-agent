@@ -27,15 +27,39 @@ class IWorkflowExecutor(ABC):
         pass
 
     @abstractmethod
-    def execute_stream(self, workflow: 'IWorkflow', initial_state: 'IWorkflowState',
-                      context: Optional[Dict[str, Any]] = None) -> AsyncIterator[Dict[str, Any]]:
+    async def execute_stream(self, workflow: 'IWorkflow', initial_state: 'IWorkflowState',
+                       context: Optional[Dict[str, Any]] = None) -> AsyncIterator[Dict[str, Any]]:
         """流式执行工作流"""
         pass
 
     @abstractmethod
     async def execute_stream_async(self, workflow: 'IWorkflow', initial_state: 'IWorkflowState',
-                                 context: Optional[Dict[str, Any]] = None) -> AsyncIterator[Dict[str, Any]]:
+                                  context: Optional[Dict[str, Any]] = None) -> AsyncIterator[Dict[str, Any]]:
         """异步流式执行工作流"""
+        pass
+
+    @abstractmethod
+    def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
+        """获取执行状态
+        
+        Args:
+            execution_id: 执行ID
+            
+        Returns:
+            执行状态信息
+        """
+        pass
+    
+    @abstractmethod
+    def cancel_execution(self, execution_id: str) -> bool:
+        """取消执行
+        
+        Args:
+            execution_id: 执行ID
+            
+        Returns:
+            是否成功取消
+        """
         pass
 
 

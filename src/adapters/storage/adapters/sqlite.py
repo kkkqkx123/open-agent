@@ -52,6 +52,16 @@ class SQLiteStateStorageAdapter(SyncStateStorageAdapter):
         
         logger.info("SQLiteStateStorageAdapter initialized")
     
+    @property
+    def _backend(self):
+        """获取存储后端"""
+        return self.__backend
+
+    @_backend.setter
+    def _backend(self, value):
+        """设置存储后端"""
+        self.__backend = value
+    
     def get_history_entry(self, history_id: str) -> Optional[StateHistoryEntry]:
         """获取指定ID的历史记录条目
         
@@ -487,3 +497,27 @@ class SQLiteStateStorageAdapter(SyncStateStorageAdapter):
         except Exception as e:
             logger.error(f"Failed to optimize database: {e}")
             return False
+
+    def backup_storage(self, backup_path: Optional[str] = None) -> str:
+        """备份存储
+        
+        Args:
+            backup_path: 备份路径（可选）
+            
+        Returns:
+            备份文件路径
+        """
+        # SQLite 适配器使用数据库备份方法
+        return self.backup_database(backup_path)
+
+    def restore_storage(self, backup_path: str) -> bool:
+        """恢复存储
+        
+        Args:
+            backup_path: 备份文件路径
+            
+        Returns:
+            是否恢复成功
+        """
+        # SQLite 适配器使用数据库恢复方法
+        return self.restore_database(backup_path)

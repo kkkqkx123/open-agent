@@ -13,18 +13,18 @@ if TYPE_CHECKING:
         IStateSerializer,
         IEnhancedStateManager,
     )
-    from .storage_interfaces import (
+    from src.interfaces.storage_interfaces import (
         IStorageBackend,
         IStorageSerializer,
         IStorageCache,
         IStorageMetrics,
     )
-    from .adapter_interfaces import (
+    from ..core.state.adapter_interfaces import (
         IStateStorageAdapter,
         IStorageAdapterFactory,
         IStorageMigration,
     )
-    from .async_adapter_interfaces import (
+    from ..core.state.async_adapter_interfaces import (
         IAsyncStateStorageAdapter,
         IAsyncStorageAdapterFactory,
         IAsyncStorageMigration,
@@ -43,12 +43,12 @@ else:
         IStorageCache,
         IStorageMetrics,
     )
-    from .adapter_interfaces import (
+    from ..core.state.adapter_interfaces import (
         IStateStorageAdapter,
         IStorageAdapterFactory,
         IStorageMigration,
     )
-    from .async_adapter_interfaces import (
+    from ..core.state.async_adapter_interfaces import (
         IAsyncStateStorageAdapter,
         IAsyncStorageAdapterFactory,
         IAsyncStorageMigration,

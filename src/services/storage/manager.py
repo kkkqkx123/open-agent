@@ -10,11 +10,9 @@ from enum import Enum
 
 from src.interfaces.state_core import IStateStorageAdapter
 from src.core.state.exceptions import StorageError, StorageConnectionError
-from src.adapters.storage import (
-    MemoryStateStorageAdapter,
-    SQLiteStateStorageAdapter,
-    FileStateStorageAdapter
-)
+from src.adapters.storage.adapters.memory import MemoryStateStorageAdapter
+from src.adapters.storage.adapters.sqlite import SQLiteStateStorageAdapter
+from src.adapters.storage.adapters.file import FileStateStorageAdapter
 
 
 logger = logging.getLogger(__name__)
@@ -33,7 +31,7 @@ class StorageManager:
     提供存储适配器的生命周期管理和统一入口。
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化存储管理服务"""
         self._adapters: Dict[str, IStateStorageAdapter] = {}
         self._adapter_configs: Dict[str, Dict[str, Any]] = {}
@@ -303,7 +301,7 @@ class StorageManager:
             logger.error(f"Failed to cleanup expired data: {e}")
             return {}
     
-    async def backup_all_adapters(self, backup_dir: str = "backups") -> Dict[str, str]:
+    async def backup_all_adapters(self, backup_dir: str = "backups") -> Dict[str, Any]:
         """备份所有适配器
         
         Args:
@@ -343,13 +341,13 @@ class StorageManager:
                     adapter_backup_dir.mkdir(exist_ok=True)
                     
                     if adapter_type == "sqlite":
-                        backup_path = adapter.backup_database(str(adapter_backup_dir / "database.db"))
-                        if backup_path:
-                            results[adapter_name] = backup_path
+                        sqlite_backup_path: str = adapter.backup_database(str(adapter_backup_dir / "database.db"))
+                        if sqlite_backup_path:
+                            results[adapter_name] = sqlite_backup_path
                     elif adapter_type == "file":
-                        backup_path = adapter.backup_storage(str(adapter_backup_dir))
-                        if backup_path:
-                            results[adapter_name] = backup_path
+                        file_backup_path: str = adapter.backup_storage(str(adapter_backup_dir))
+                        if file_backup_path:
+                            results[adapter_name] = file_backup_path
                     elif adapter_type == "memory":
                         # 内存适配器无法备份，跳过
                         results[adapter_name] = "memory_adapter_no_backup"
@@ -467,10 +465,10 @@ class StorageManager:
         except Exception as e:
             logger.error(f"Failed to close StorageManager: {e}")
     
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'StorageManager':
         """异步上下文管理器入口"""
         return self
     
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Optional[type], exc_val: Optional[Exception], exc_tb: Optional[object]) -> None:
         """异步上下文管理器出口"""
         await self.close()

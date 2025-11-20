@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Union, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 
-from src.infrastructure.logger.logger import ILogger
+from src.interfaces import ILogger
 from src.interfaces.tools_core import ITool, ToolCall, ToolResult
 from src.infrastructure.async_utils.event_loop_manager import AsyncLock, AsyncContextManager
 

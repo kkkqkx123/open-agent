@@ -11,6 +11,7 @@ from enum import Enum
 
 if TYPE_CHECKING:
     from ..state.interfaces import IWorkflowState
+    from .graph import NodeExecutionResult
 
 
 class PluginType(Enum):
@@ -83,7 +84,7 @@ class HookContext:
     config: Dict[str, Any]
     hook_point: HookPoint
     error: Optional[Exception] = None
-    execution_result: Optional[Any] = None
+    execution_result: Optional['NodeExecutionResult'] = None
     metadata: Optional[Dict[str, Any]] = None
 
 
@@ -246,10 +247,10 @@ class IHookPlugin(IPlugin):
     """
     
     @property
+    @abstractmethod
     def metadata(self) -> PluginMetadata:
         """获取插件元数据"""
-        # 子类必须实现此方法
-        raise NotImplementedError
+        pass
     
     def before_execute(self, context: HookContext) -> HookExecutionResult:
         """节点执行前Hook
@@ -309,10 +310,10 @@ class IStartPlugin(IPlugin):
     """
     
     @property
+    @abstractmethod
     def metadata(self) -> PluginMetadata:
         """获取插件元数据"""
-        # 子类必须实现此方法
-        raise NotImplementedError
+        pass
 
 
 class IEndPlugin(IPlugin):
@@ -322,10 +323,10 @@ class IEndPlugin(IPlugin):
     """
     
     @property
+    @abstractmethod
     def metadata(self) -> PluginMetadata:
         """获取插件元数据"""
-        # 子类必须实现此方法
-        raise NotImplementedError
+        pass
 
 
 class PluginError(Exception):

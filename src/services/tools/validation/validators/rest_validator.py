@@ -4,7 +4,7 @@ REST工具验证器
 """
 
 from typing import Dict, Any, List
-from src.infrastructure.logger.logger import ILogger
+from src.interfaces import ILogger
 from ..interfaces import IToolValidator
 from ..models import ValidationResult, ValidationStatus
 from ..validators.base_validator import BaseValidator

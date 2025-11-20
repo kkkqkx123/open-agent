@@ -7,7 +7,8 @@ import logging
 from typing import Dict, Type
 
 from src.infrastructure.container_interfaces import IDependencyContainer, ServiceLifetime
-from src.infrastructure.logger import ILogger, StructuredFileLogger
+from src.interfaces import ILogger
+from src.infrastructure.logger.structured_file_logger import StructuredFileLogger
 
 logger = logging.getLogger(__name__)
 

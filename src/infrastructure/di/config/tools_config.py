@@ -12,7 +12,7 @@ from src.core.tools.manager import ToolManager
 from src.services.tools.validation.interfaces import IToolValidator
 from src.services.tools.validation.manager import ToolValidationManager
 from src.infrastructure.config.loader.file_config_loader import IConfigLoader
-from src.infrastructure.logger.logger import ILogger
+from src.interfaces import ILogger
 from src.interfaces.tools_core import IToolRegistry
 
 logger = logging.getLogger(__name__)

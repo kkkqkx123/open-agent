@@ -9,13 +9,13 @@ import logging
 from datetime import datetime
 
 from src.interfaces.workflow.core import IWorkflow, IWorkflowState, ExecutionContext
-from src.interfaces.workflow.execution_core import IWorkflowExecutor as CoreIWorkflowExecutor
+from src.interfaces.workflow.execution import IWorkflowExecutor as CoreIWorkflowExecutor
 from src.core.workflow.execution.executor import WorkflowExecutor
 from src.core.workflow.execution.streaming import StreamingExecutor
 from src.core.workflow.execution.async_executor import AsyncNodeExecutor
 from src.core.workflow.graph.nodes.registry import get_global_registry
 from src.core.workflow.states.workflow import WorkflowState
-from src.interfaces.workflow.services_core import IWorkflowExecutor as ServiceIWorkflowExecutor
+from src.interfaces.workflow.services import IWorkflowExecutor as ServiceIWorkflowExecutor
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ including builders, executors, and utilities.
 
 from .building.builder_service import WorkflowBuilderService
 from .building.factory import WorkflowFactory
-from src.interfaces.workflow.services_core import (
+from src.interfaces.workflow.services import (
     IWorkflowManager,
     IWorkflowFactory,
     IWorkflowExecutor,
