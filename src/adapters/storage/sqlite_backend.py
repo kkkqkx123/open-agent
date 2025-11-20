@@ -17,29 +17,34 @@ from src.core.state.exceptions import (
     StorageTransactionError,
     StorageCapacityError
 )
-from .base import StorageBackend, ConnectionPoolMixin
+from .base import StorageBackend, ConnectionPooledStorageBackend, ConnectionPoolMixin
 from .utils.common_utils import StorageCommonUtils
 
 
 logger = logging.getLogger(__name__)
 
 
-class SQLiteStorageBackend(StorageBackend, ConnectionPoolMixin):
+class SQLiteStorageBackend(ConnectionPooledStorageBackend):
     """优化的SQLite存储后端实现
     
     提供基于SQLite的存储后端，支持持久化、事务、索引等功能。
-    使用增强基类减少重复代码。
+    使用增强基类减少重复代码，继承自ConnectionPooledStorageBackend以获得连接池支持。
     """
     
     def __init__(self, **config: Any) -> None:
         """初始化SQLite存储
         
         Args:
-            **config: 配置参数
+            **config: 配置参数，包括：
+                - db_path: 数据库文件路径
+                - connection_pool_size: 连接池大小 (默认5)
+                - timeout: 连接超时时间 (默认30秒)
+                - enable_wal_mode: 是否启用WAL模式 (默认True)
+                - 其他StorageBackend配置参数
         """
-        # 初始化基类
-        StorageBackend.__init__(self, **config)
-        ConnectionPoolMixin.__init__(self, config.get("connection_pool_size", 5))
+        # 初始化带连接池的基类
+        pool_size = config.get("connection_pool_size", 5)
+        super().__init__(pool_size=pool_size, **config)
         
         # SQLite特定配置
         self.db_path = config.get("db_path", "storage.db")
@@ -74,11 +79,11 @@ class SQLiteStorageBackend(StorageBackend, ConnectionPoolMixin):
             if self._connected:
                 return
             
-            # 初始化连接池
-            await self._initialize_connection_pool()
+            # 初始化连接池（使用本地实现）
+            await self._initialize_sqlite_connection_pool()
             
             # 调用父类连接逻辑（启动清理和备份任务）
-            await StorageBackend.connect(self)
+            await ConnectionPooledStorageBackend.connect(self)
             
         except Exception as e:
             raise StorageConnectionError(f"Failed to connect SQLiteStorageBackend: {e}")
@@ -98,8 +103,8 @@ class SQLiteStorageBackend(StorageBackend, ConnectionPoolMixin):
         except Exception as e:
             raise StorageConnectionError(f"Failed to disconnect SQLiteStorageBackend: {e}")
     
-    async def _initialize_connection_pool(self) -> None:
-        """初始化连接池"""
+    async def _initialize_sqlite_connection_pool(self) -> None:
+        """初始化SQLite连接池"""
         try:
             with self._pool_lock:
                 for _ in range(self._pool_size):
@@ -641,37 +646,57 @@ class SQLiteStorageBackend(StorageBackend, ConnectionPoolMixin):
         except Exception as e:
             raise StorageError(f"Failed to cleanup expired records: {e}")
     
-    async def _create_backup(self) -> None:
-        """创建数据库备份"""
+    async def _create_backup_impl(self) -> None:
+        """创建数据库备份的具体实现
+        
+        执行实际的SQLite数据库备份操作。
+        """
+        # 确保备份目录存在
+        backup_dir = Path(self.backup_path)
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 生成备份文件名
+        backup_file = backup_dir / StorageCommonUtils.generate_timestamp_filename("storage_backup", "db")
+        
+        # 获取连接并创建备份
+        conn = self._get_connection()
         try:
-            # 确保备份目录存在
-            backup_dir = Path(self.backup_path)
-            backup_dir.mkdir(parents=True, exist_ok=True)
+            # 执行备份
+            backup_conn = sqlite3.connect(str(backup_file))
+            conn.backup(backup_conn)
+            backup_conn.close()
             
-            # 生成备份文件名
-            backup_file = backup_dir / StorageCommonUtils.generate_timestamp_filename("storage_backup", "db")
+            logger.info(f"Created SQLite backup: {backup_file}")
             
-            # 获取连接并创建备份
+            # 清理旧备份
+            StorageCommonUtils.cleanup_old_backups(
+                str(backup_dir), self.max_backup_files, "storage_backup_*.db"
+            )
+            
+        finally:
+            self._return_connection(conn)
+    
+    async def _cleanup_expired_items_impl(self) -> None:
+        """清理过期项的SQLite特定实现
+        
+        使用SQL DELETE语句一次性清理所有过期项，比逐个删除更高效。
+        """
+        conn = None
+        try:
             conn = self._get_connection()
-            try:
-                # 执行备份
-                backup_conn = sqlite3.connect(str(backup_file))
-                conn.backup(backup_conn)
-                backup_conn.close()
-                
-                # 更新统计信息
-                self._stats["backup_count"] += 1
-                self._stats["last_backup_time"] = time.time()
-                
-                logger.info(f"Created backup: {backup_file}")
-                
-                # 清理旧备份
-                StorageCommonUtils.cleanup_old_backups(
-                    str(backup_dir), self.max_backup_files, "storage_backup_*.db"
-                )
-                
-            finally:
-                self._return_connection(conn)
+            current_time = time.time()
+            
+            # 使用SQL直接删除过期项
+            query = "DELETE FROM state_storage WHERE expires_at IS NOT NULL AND expires_at < ?"
+            affected_rows = self._execute_update(conn, query, [current_time])
+            
+            self._stats["expired_items_cleaned"] += affected_rows
+            
+            if affected_rows > 0:
+                logger.debug(f"Cleaned {affected_rows} expired items from SQLite")
                 
         except Exception as e:
-            logger.error(f"Failed to create backup: {e}")
+            logger.error(f"Error cleaning expired items in SQLite: {e}")
+        finally:
+            if conn:
+                self._return_connection(conn)

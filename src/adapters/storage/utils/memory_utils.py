@@ -18,14 +18,6 @@ class MemoryStorageUtils:
     提供内存存储特定的静态工具方法。
     """
     
-    # 数据压缩/解压缩方法已移到 StorageCommonUtils
-    compress_data = StorageCommonUtils.compress_data
-    decompress_data = StorageCommonUtils.decompress_data
-    should_compress_data = StorageCommonUtils.should_compress_data
-    
-    # 过滤器匹配方法已移到 StorageCommonUtils
-    matches_filters = StorageCommonUtils.matches_filters
-    
     @staticmethod
     def save_persistence_data(storage_data: Dict[str, Any], persistence_path: str) -> None:
         """保存持久化数据
@@ -73,19 +65,6 @@ class MemoryStorageUtils:
                     raise StorageError(f"Loaded data is not a dict: {type(result)}")
         except Exception as e:
             raise StorageError(f"Failed to load persistence data: {e}")
-    
-    @staticmethod
-    def should_compress_data(data: Dict[str, Any], threshold: int) -> bool:
-        """判断是否应该压缩数据
-        
-        Args:
-            data: 要检查的数据
-            threshold: 压缩阈值
-            
-        Returns:
-            是否应该压缩
-        """
-        return len(str(data)) > threshold
     
     @staticmethod
     def calculate_memory_usage(storage_items: Dict[str, Any]) -> int:

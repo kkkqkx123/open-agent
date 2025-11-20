@@ -418,35 +418,68 @@ class FileStorageBackend(StorageBackend):
                 raise
             raise StorageError(f"Failed to check capacity limits: {e}")
     
-    async def _create_backup(self) -> None:
-        """创建备份"""
+    async def _create_backup_impl(self) -> None:
+        """创建备份的具体实现
+        
+        备份存储目录到备份路径。
+        """
+        # 确保备份目录存在
+        backup_dir = Path(self.backup_path)
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 生成备份目录名
+        current_backup_dir = backup_dir / StorageCommonUtils.generate_timestamp_filename("storage_backup")
+        
+        # 创建备份
+        async with self._lock:
+            with self._thread_lock:
+                success = FileStorageUtils.backup_directory(self.base_path, str(current_backup_dir))
+        
+        if not success:
+            raise StorageError("Failed to create file storage backup")
+        
+        logger.info(f"Created file storage backup: {current_backup_dir}")
+        
+        # 清理旧备份
+        StorageCommonUtils.cleanup_old_backups(
+            str(backup_dir), self.max_backup_files, "storage_backup_*"
+        )
+    
+    async def _cleanup_expired_items_impl(self) -> None:
+        """清理过期项的文件存储特定实现
+        
+        扫描所有文件并删除过期的文件。
+        """
         try:
-            # 确保备份目录存在
-            backup_dir = Path(self.backup_path)
-            backup_dir.mkdir(parents=True, exist_ok=True)
-            
-            # 生成备份目录名
-            current_backup_dir = backup_dir / StorageCommonUtils.generate_timestamp_filename("storage_backup")
-            
-            # 创建备份
-            success = FileStorageUtils.backup_directory(self.base_path, str(current_backup_dir))
-            
-            if success:
-                # 更新统计信息
-                self._stats["backup_count"] += 1
-                self._stats["last_backup_time"] = time.time()
-                
-                logger.info(f"Created backup: {current_backup_dir}")
-                
-                # 清理旧备份
-                StorageCommonUtils.cleanup_old_backups(
-                    str(backup_dir), self.max_backup_files, "storage_backup_*"
-                )
-            else:
-                logger.error("Failed to create backup")
-                
+            async with self._lock:
+                with self._thread_lock:
+                    # 获取所有文件
+                    all_files = self._list_files_in_directory(
+                        self.base_path,
+                        f"*.{self.file_extension}",
+                        recursive=True
+                    )
+                    
+                    current_time = time.time()
+                    expired_count = 0
+                    
+                    # 逐个检查文件的过期时间
+                    for file_path in all_files:
+                        try:
+                            data = FileStorageUtils.load_data_from_file(file_path)
+                            if data and StorageCommonUtils.is_data_expired(data, current_time):
+                                FileStorageUtils.delete_file(file_path)
+                                expired_count += 1
+                        except Exception as e:
+                            logger.error(f"Error checking expiration for file {file_path}: {e}")
+                    
+                    self._stats["expired_items_cleaned"] += expired_count
+                    
+                    if expired_count > 0:
+                        logger.debug(f"Cleaned {expired_count} expired files")
+        
         except Exception as e:
-            logger.error(f"Failed to create backup: {e}")
+            logger.error(f"Error cleaning expired files: {e}")
     
     # 文件存储特定的辅助方法
     def _load_data_from_file(self, file_path: str) -> Optional[Dict[str, Any]]:

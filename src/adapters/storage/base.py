@@ -475,8 +475,21 @@ class StorageBackend(IStorageBackend, ABC):
                 logger.error(f"Error in cleanup task: {e}")
     
     async def _cleanup_expired_items(self) -> None:
-        """清理过期项"""
-        # 默认实现：通过列表接口清理
+        """清理过期项 - 模板方法
+        
+        调用子类的实现方法，处理统计和错误管理。
+        """
+        try:
+            await self._cleanup_expired_items_impl()
+        except Exception as e:
+            logger.error(f"Error cleaning up expired items: {e}")
+    
+    async def _cleanup_expired_items_impl(self) -> None:
+        """清理过期项的具体实现 - 子类可以覆盖
+        
+        默认实现：通过列表接口清理过期项。
+        子类可以覆盖此方法以提供更高效的实现。
+        """
         try:
             all_data = await self.list_impl({})
             for data in all_data:
@@ -484,7 +497,7 @@ class StorageBackend(IStorageBackend, ABC):
                     await self.delete_impl(data["id"])
                     self._stats["expired_items_cleaned"] += 1
         except Exception as e:
-            logger.error(f"Error cleaning up expired items: {e}")
+            logger.error(f"Error in default cleanup implementation: {e}")
     
     async def _backup_worker(self) -> None:
         """备份工作线程（异步任务）"""
@@ -503,15 +516,138 @@ class StorageBackend(IStorageBackend, ABC):
                 logger.error(f"Error in backup task: {e}")
     
     async def _create_backup(self) -> None:
-        """创建备份 - 默认实现"""
-        # 默认实现：确保备份目录存在并更新时间
+        """创建备份 - 模板方法
+        
+        调用子类的实现方法，处理统计和错误管理。
+        """
         try:
-            StorageCommonUtils.ensure_directory_exists(self.backup_path)
+            await self._create_backup_impl()
             self._stats["backup_count"] += 1
             self._stats["last_backup_time"] = time.time()
-            logger.info(f"Backup marker updated for {self.__class__.__name__}")
+            logger.info(f"Backup created successfully for {self.__class__.__name__}")
         except Exception as e:
-            logger.error(f"Failed to create backup marker: {e}")
+            logger.error(f"Failed to create backup: {e}")
+    
+    async def _create_backup_impl(self) -> None:
+        """创建备份的具体实现 - 子类可以覆盖
+        
+        默认实现：确保备份目录存在。
+        子类应该覆盖此方法以实现实际的备份逻辑。
+        
+        Raises:
+            StorageError: 备份操作失败时抛出
+        """
+        # 确保备份目录存在
+        StorageCommonUtils.ensure_directory_exists(self.backup_path)
+
+
+class ConnectionPooledStorageBackend(StorageBackend):
+    """使用连接池的存储后端基类
+    
+    为需要连接池管理（如数据库后端）的存储实现提供基础功能。
+    这是StorageBackend和ConnectionPoolMixin的组合基类。
+    """
+    
+    def __init__(self, pool_size: int = 5, **config: Any) -> None:
+        """初始化带连接池的存储后端
+        
+        Args:
+            pool_size: 连接池大小
+            **config: 存储配置参数
+        """
+        super().__init__(**config)
+        self._connection_pool: List[Any] = []
+        self._pool_lock = threading.Lock()
+        self._pool_semaphore = threading.Semaphore(pool_size)
+        self._pool_size = pool_size
+        self._active_connections = 0
+    
+    def _get_connection(self) -> Any:
+        """从连接池获取连接"""
+        self._pool_semaphore.acquire()
+        
+        with self._pool_lock:
+            if self._connection_pool:
+                conn = self._connection_pool.pop()
+                self._active_connections += 1
+                return conn
+            else:
+                self._pool_semaphore.release()
+                raise StorageConnectionError("No available connections in pool")
+    
+    def _return_connection(self, conn: Any) -> None:
+        """归还连接到连接池"""
+        try:
+            with self._pool_lock:
+                if len(self._connection_pool) < self._pool_size:
+                    self._connection_pool.append(conn)
+                    self._active_connections -= 1
+                else:
+                    # 连接池满，关闭连接
+                    self._close_connection(conn)
+                    self._active_connections -= 1
+                    
+                self._pool_semaphore.release()
+                
+        except Exception as e:
+            logger.error(f"Error returning connection to pool: {e}")
+    
+    async def _initialize_connection_pool(self, create_connection_fn) -> None:
+        """初始化连接池
+        
+        Args:
+            create_connection_fn: 创建连接的函数，应返回连接对象
+        """
+        try:
+            with self._pool_lock:
+                for _ in range(self._pool_size):
+                    try:
+                        conn = await create_connection_fn() if asyncio.iscoroutinefunction(create_connection_fn) else create_connection_fn()
+                        self._connection_pool.append(conn)
+                    except Exception as e:
+                        logger.error(f"Failed to create connection in pool: {e}")
+                
+                self._stats["connection_pool_size"] = len(self._connection_pool)
+                logger.info(f"Initialized connection pool with {len(self._connection_pool)} connections")
+                
+        except Exception as e:
+            raise StorageConnectionError(f"Failed to initialize connection pool: {e}")
+    
+    def _close_connection_pool(self, close_connection_fn=None) -> None:
+        """关闭连接池中的所有连接
+        
+        Args:
+            close_connection_fn: 关闭连接的函数（可选）
+        """
+        try:
+            with self._pool_lock:
+                for conn in self._connection_pool:
+                    try:
+                        if close_connection_fn:
+                            close_connection_fn(conn)
+                        elif hasattr(conn, 'close'):
+                            conn.close()
+                    except Exception as e:
+                        logger.error(f"Error closing connection: {e}")
+                
+                self._connection_pool.clear()
+                self._active_connections = 0
+                logger.info("Closed all connections in pool")
+                
+        except Exception as e:
+            logger.error(f"Error closing connection pool: {e}")
+    
+    def _close_connection(self, conn: Any) -> None:
+        """关闭单个连接
+        
+        Args:
+            conn: 连接对象
+        """
+        try:
+            if hasattr(conn, 'close'):
+                conn.close()
+        except Exception as e:
+            logger.error(f"Error closing connection: {e}")
 
 
 class ConnectionPoolMixin:

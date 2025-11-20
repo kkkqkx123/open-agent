@@ -333,28 +333,33 @@ class MemoryStorageBackend(StorageBackend):
         self._stats["memory_usage_bytes"] = self._calculate_memory_usage()
         self._stats["compression_ratio"] = self._calculate_compression_ratio()
     
-    async def _cleanup_expired_items(self) -> None:
-        """清理过期项（重写父类方法，使用内存优化）"""
+    async def _cleanup_expired_items_impl(self) -> None:
+        """清理过期项的内存存储特定实现
+        
+        使用内存优化的方式一次性删除所有过期项。
+        """
         try:
             expired_items = []
-            current_time = time.time()
             
             async with self._lock:
                 with self._thread_lock:
+                    # 首先收集所有过期项
                     for item_id, item in self._storage.items():
                         if item.is_expired():
                             expired_items.append(item_id)
                     
+                    # 然后删除所有过期项
                     for item_id in expired_items:
                         del self._storage[item_id]
                         self._stats["expired_items_cleaned"] += 1
                     
+                    # 更新统计信息
                     if expired_items:
                         self._update_memory_stats()
-                        logger.debug(f"Cleaned up {len(expired_items)} expired items")
+                        logger.debug(f"Cleaned {len(expired_items)} expired items from memory storage")
                         
         except Exception as e:
-            logger.error(f"Error cleaning up expired items: {e}")
+            logger.error(f"Error cleaning expired items in memory storage: {e}")
     
     async def _save_persistence(self) -> None:
         """保存持久化数据"""
@@ -422,3 +427,18 @@ class MemoryStorageBackend(StorageBackend):
                 
         except Exception as e:
             logger.error(f"Failed to load persistence data: {e}")
+    
+    async def _create_backup_impl(self) -> None:
+        """创建备份的具体实现
+        
+        对于内存存储，备份是指保存持久化数据。
+        """
+        if not self.persistence_path:
+            logger.warning("Persistence path not configured, skipping backup")
+            return
+        
+        try:
+            await self._save_persistence()
+            logger.info(f"Created memory storage backup at {self.persistence_path}")
+        except Exception as e:
+            raise StorageError(f"Failed to create memory storage backup: {e}")
