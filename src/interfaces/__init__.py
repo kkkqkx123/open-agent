@@ -1,13 +1,201 @@
-"""Interfaces module for the application.
+"""接口层统一导出模块
 
-This module contains all interface definitions used throughout the application.
-Interfaces are organized by domain and should not depend on concrete implementations.
+这个模块提供了所有接口的统一导出，确保接口定义的集中化管理。
 """
 
-from .workflow import *
-from .state import *
+# 工作流相关接口
+from .workflow import (
+    IWorkflow,
+    IWorkflowExecutor,
+    IWorkflowBuilder,
+    IWorkflowTemplate,
+    IWorkflowTemplateRegistry,
+    IWorkflowVisualizer
+)
+from .workflow.execution import (
+    INodeExecutor,
+    IExecutionStrategy,
+    IExecutionObserver,
+    IStreamingExecutor
+)
+from .workflow.plugins import (
+    IPlugin,
+    IHookPlugin,
+    IStartPlugin,
+    IEndPlugin,
+    PluginType,
+    PluginStatus,
+    HookPoint,
+    PluginMetadata,
+    PluginContext,
+    HookContext,
+    HookExecutionResult
+)
+from .workflow.services import (
+    IWorkflowManager,
+    IWorkflowFactory,
+    IWorkflowExecutorService,
+    IWorkflowOrchestrator,
+    IWorkflowRegistry,
+    IWorkflowBuilderService
+)
 
+# 状态相关接口
+from .state import (
+    IState,
+    IStateManager,
+    IWorkflowState,
+    IStateLifecycleManager
+)
+
+# LLM相关接口
+from .llm import (
+    ILLMClient,
+    ILLMCallHook,
+    ILLMClientFactory,
+    ITaskGroupManager,
+    IFallbackManager,
+    IPollingPoolManager,
+    IClientFactory,
+    ILLMManager
+)
+
+# 工具相关接口
+from .tools import (
+    ITool,
+    IToolRegistry,
+    IToolFormatter,
+    IToolExecutor,
+    IToolManager,
+    IToolFactory,
+    ToolCall,
+    ToolResult
+)
+
+# 历史相关接口
+from .history import (
+    IHistoryManager,
+    ICostCalculator
+)
+
+# 检查点相关接口
+from .checkpoint import (
+    ICheckpointStore,
+    ICheckpointSerializer,
+    ICheckpointManager,
+    ICheckpointPolicy
+)
+
+# 容器相关接口
+from .container import (
+    IDependencyContainer,
+    ILifecycleAware,
+    IServiceTracker,
+    IServiceCache,
+    IPerformanceMonitor,
+    IDependencyAnalyzer,
+    IScopeManager,
+    ServiceStatus
+)
+
+# 通用相关接口
+from .common import (
+    IConfigLoader,
+    IConfigInheritanceHandler,
+    ISerializable,
+    ICacheable,
+    ITimestamped,
+    IStorage
+)
+
+# 导出所有接口的__all__列表
 __all__ = [
-    # Workflow interfaces will be exported from workflow.__init__.py
-    # State interfaces will be exported from state.__init__.py
+    # 工作流接口
+    "IWorkflow",
+    "IWorkflowExecutor",
+    "IWorkflowBuilder",
+    "IWorkflowTemplate",
+    "IWorkflowTemplateRegistry",
+    "IWorkflowVisualizer",
+    
+    # 工作流执行接口
+    "INodeExecutor",
+    "IExecutionStrategy",
+    "IExecutionObserver",
+    "IStreamingExecutor",
+    
+    # 工作流插件接口
+    "IPlugin",
+    "IHookPlugin",
+    "IStartPlugin",
+    "IEndPlugin",
+    "PluginType",
+    "PluginStatus",
+    "HookPoint",
+    "PluginMetadata",
+    "PluginContext",
+    "HookContext",
+    "HookExecutionResult",
+    
+    # 工作流服务接口
+    "IWorkflowManager",
+    "IWorkflowFactory",
+    "IWorkflowExecutorService",
+    "IWorkflowOrchestrator",
+    "IWorkflowRegistry",
+    "IWorkflowBuilderService",
+    
+    # 状态接口
+    "IState",
+    "IStateManager",
+    "IWorkflowState",
+    "IStateLifecycleManager",
+    
+    # LLM接口
+    "ILLMClient",
+    "ILLMCallHook",
+    "ILLMClientFactory",
+    "ITaskGroupManager",
+    "IFallbackManager",
+    "IPollingPoolManager",
+    "IClientFactory",
+    "ILLMManager",
+    
+    # 工具接口
+    "ITool",
+    "IToolRegistry",
+    "IToolFormatter",
+    "IToolExecutor",
+    "IToolManager",
+    "IToolFactory",
+    "ToolCall",
+    "ToolResult",
+    
+    # 历史接口
+    "IHistoryManager",
+    "ICostCalculator",
+    
+    # 检查点接口
+    "ICheckpointStore",
+    "ICheckpointSerializer",
+    "ICheckpointManager",
+    "ICheckpointPolicy",
+    
+    # 容器接口
+    "IDependencyContainer",
+    "ILifecycleAware",
+    "IServiceTracker",
+    "IServiceCache",
+    "IPerformanceMonitor",
+    "IDependencyAnalyzer",
+    "IScopeManager",
+    "ServiceStatus",
+    
+    # 通用接口
+    "IConfigLoader",
+    "IConfigInheritanceHandler",
+    "ISerializable",
+    "ICacheable",
+    "ITimestamped",
+    "IStorage",
 ]

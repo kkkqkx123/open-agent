@@ -11,11 +11,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .llm import ILLMClient
-from langchain_core.messages import BaseMessage  # type: ignore
+from langchain_core.messages import BaseMessage
 
 if TYPE_CHECKING:
     from ..core.tools.base import BaseTool
-    from ..core.tools.loaders import ToolLoader
+    # 移除不存在的导入
+    # from ..core.tools.loaders import ToolLoader
     from ..core.tools.factory import ToolFactory
     from ..core.tools.config import ToolConfig, ToolRegistryConfig
 
@@ -258,11 +259,12 @@ class IToolManager(ABC):
         """获取工具注册表"""
         pass
     
-    @property
-    @abstractmethod
-    def loader(self) -> "ToolLoader":
-        """获取工具加载器"""
-        pass
+    # 移除不存在的loader属性
+    # @property
+    # @abstractmethod
+    # def loader(self) -> "ToolLoader":
+    #     """获取工具加载器"""
+    #     pass
     
     @property
     @abstractmethod

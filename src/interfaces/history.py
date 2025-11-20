@@ -1,8 +1,17 @@
 """历史管理接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, TYPE_CHECKING
 from datetime import datetime
+
+if TYPE_CHECKING:
+    from ..domain.history.models import MessageRecord, ToolCallRecord, HistoryQuery, HistoryResult
+    from ..domain.history.llm_models import (
+        LLMRequestRecord,
+        LLMResponseRecord,
+        TokenUsageRecord,
+        CostRecord
+    )
 
 
 class IHistoryManager(ABC):

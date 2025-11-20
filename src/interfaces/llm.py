@@ -12,7 +12,7 @@ from typing import (
     Tuple,
 )
 
-from langchain_core.messages import BaseMessage  # type: ignore
+from langchain_core.messages import BaseMessage
 
 from ..core.llm.models import LLMResponse
 

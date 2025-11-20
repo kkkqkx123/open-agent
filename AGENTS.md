@@ -454,16 +454,52 @@ Core (Interfaces & Entities)
 ```
 
 ### 接口定义位置
-- **所有接口定义必须放在 Core 层** (`src/core/`)
-- Services 层依赖 Core 层的接口
-- Adapters 层实现 Core 层的接口
-- 不允许在 Adapters 层定义 Services 层会使用的接口
+- **所有接口定义必须放在集中的接口层** (`src/interfaces/`)
+- Services 层依赖接口层的接口
+- Adapters 层实现接口层的接口
+- Core 层也可以使用接口层的接口，但不应定义新的接口
+- 不允许在各层中定义分散的接口文件
+
+### 接口集中化架构
+```
+src/interfaces/
+├── workflow/           # 工作流相关接口
+│   ├── core.py        # 核心工作流接口
+│   ├── execution.py   # 执行相关接口
+│   ├── graph.py       # 图相关接口
+│   ├── templates.py   # 模板相关接口
+│   ├── builders.py    # 构建器接口
+│   └── visualization.py # 可视化接口
+├── state/             # 状态管理接口
+│   └── interfaces.py  # 状态相关接口
+├── llm.py             # LLM相关接口
+├── tools.py           # 工具相关接口
+├── history.py         # 历史管理接口
+├── checkpoint.py      # 检查点相关接口
+├── container.py       # 依赖注入容器接口
+└── __init__.py        # 统一导出所有接口
+```
+
+### 接口使用原则
+1. **单一真实来源**：所有接口定义集中在 `src/interfaces/` 目录
+2. **类型安全**：使用 `TYPE_CHECKING` 避免运行时循环依赖
+3. **统一导出**：通过 `src/interfaces/__init__.py` 统一导出所有接口
+4. **向后兼容**：各层可以重新导出接口层的接口以保持兼容性
 
 ### 状态管理接口示例
-- `IStateStorageAdapter` 定义在 `src/core/state/interfaces.py`
+- `IStateStorageAdapter` 定义在 `src/interfaces/state/interfaces.py`
 - 实现在 `src/adapters/storage/` 中（SQLite、Memory等）
-- Services 层从 Core 层导入接口
-- 向后兼容性：Adapter 层可以重新导出接口
+- Services 层从接口层导入接口
+- 向后兼容性：各层可以重新导出接口层的接口
+
+### 接口迁移指南
+当需要迁移现有接口到集中接口层时：
+1. 在 `src/interfaces/` 中创建相应的接口文件
+2. 使用 `TYPE_CHECKING` 处理前向引用
+3. 更新所有导入路径指向新接口位置
+4. 删除原有的分散接口文件
+5. 运行 `mypy src/interfaces/ --follow-imports=silent` 验证接口层
+6. 更新相关模块的导入语句
 
 ## Migration Notes
 
