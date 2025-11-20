@@ -19,35 +19,35 @@ class IWorkflowRegistryService:
     
     def register_workflow(self, workflow_def: Dict[str, Any]) -> str:
         """注册工作流定义"""
-        pass
+        raise NotImplementedError
     
     def get_workflow_definition(self, workflow_id: str) -> Optional[Dict[str, Any]]:
         """获取工作流定义"""
-        pass
+        raise NotImplementedError
     
     def list_available_workflows(self) -> List[Dict[str, Any]]:
         """列出可用工作流"""
-        pass
+        raise NotImplementedError
     
     def find_by_name(self, name: str) -> Optional[str]:
         """根据名称查找工作流ID"""
-        pass
+        raise NotImplementedError
     
     def find_by_tag(self, tag: str) -> List[str]:
         """根据标签查找工作流ID列表"""
-        pass
+        raise NotImplementedError
     
     def update_workflow(self, workflow_id: str, updates: Dict[str, Any]) -> bool:
         """更新工作流定义"""
-        pass
+        raise NotImplementedError
     
     def unregister_workflow(self, workflow_id: str) -> bool:
         """注销工作流"""
-        pass
+        raise NotImplementedError
     
     def get_statistics(self) -> Dict[str, Any]:
         """获取注册表统计信息"""
-        pass
+        raise NotImplementedError
 
 
 class WorkflowDefinition:

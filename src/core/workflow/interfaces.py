@@ -59,6 +59,27 @@ class IWorkflow(ABC):
         """工作流入口点"""
         pass
 
+    @property
+    @abstractmethod
+    def metadata(self) -> Dict[str, Any]:
+        """工作流元数据"""
+        pass
+
+    @metadata.setter
+    @abstractmethod
+    def metadata(self, value: Dict[str, Any]) -> None:
+        """设置工作流元数据"""
+        pass
+
+    @abstractmethod
+    def set_entry_point(self, entry_point: str) -> None:
+        """设置工作流入口点
+        
+        Args:
+            entry_point: 入口点节点ID
+        """
+        pass
+
     @abstractmethod
     def add_node(self, node: INode) -> None:
         """添加节点"""
@@ -113,25 +134,25 @@ class IWorkflowExecutor(ABC):
     """工作流执行器接口"""
 
     @abstractmethod
-    def execute(self, workflow: IWorkflow, initial_state: IState, 
-                context: ExecutionContext) -> IState:
+    def execute(self, workflow: IWorkflow, initial_state: IWorkflowState, 
+                context: ExecutionContext) -> IWorkflowState:
         """执行工作流"""
         pass
 
     @abstractmethod
-    async def execute_async(self, workflow: IWorkflow, initial_state: IState,
-                           context: ExecutionContext) -> IState:
+    async def execute_async(self, workflow: IWorkflow, initial_state: IWorkflowState,
+                           context: ExecutionContext) -> IWorkflowState:
         """异步执行工作流"""
         pass
 
     @abstractmethod
-    def execute_stream(self, workflow: IWorkflow, initial_state: IState,
+    def execute_stream(self, workflow: IWorkflow, initial_state: IWorkflowState,
                        context: ExecutionContext) -> List[Dict[str, Any]]:
         """流式执行工作流"""
         pass
 
     @abstractmethod
-    async def execute_stream_async(self, workflow: IWorkflow, initial_state: IState,
+    async def execute_stream_async(self, workflow: IWorkflow, initial_state: IWorkflowState,
                                   context: ExecutionContext) -> AsyncIterator[Dict[str, Any]]:
         """异步流式执行工作流"""
         pass

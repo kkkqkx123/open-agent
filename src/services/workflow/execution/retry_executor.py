@@ -12,7 +12,7 @@ import asyncio
 import time
 import random
 
-from .workflow_instance import WorkflowInstance
+from ..workflow_instance import WorkflowInstance
 from src.core.workflow.exceptions import WorkflowExecutionError
 
 logger = logging.getLogger(__name__)

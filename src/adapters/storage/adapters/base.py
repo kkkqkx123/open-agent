@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional, List, Union
 
 from src.core.state.interfaces import IStorageBackend
 from src.core.state.exceptions import StorageError, StorageConnectionError
-from .utils.common_utils import StorageCommonUtils
+from ..utils.common_utils import StorageCommonUtils
 
 
 logger = logging.getLogger(__name__)

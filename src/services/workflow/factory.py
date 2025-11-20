@@ -5,7 +5,8 @@ from configurations and templates.
 """
 
 from typing import Dict, Any, List, Optional, Type
-from src.core.workflow.interfaces import IWorkflow, IWorkflowFactory, IWorkflowTemplate
+from src.core.workflow.interfaces import IWorkflow, IWorkflowTemplate
+from src.services.workflow.interfaces import IWorkflowFactory
 from src.core.workflow.workflow import Workflow
 from src.core.workflow.templates import get_global_template_registry
 from .manager import WorkflowManager
@@ -77,14 +78,14 @@ class WorkflowFactory(IWorkflowFactory):
         if template_name not in self._template_registry:
             raise ValueError(f"Template not found: {template_name}")
         
-        template = self._template_registry[template_name]
+        template_config = self._template_registry[template_name]
         
         # Merge template with parameters
-        config = self._merge_template_with_params(template, params)
+        config = self._merge_template_with_params(template_config, params)
         
         return self.create_from_config(config)
     
-    def create_workflow_type(self, workflow_type: str, **kwargs) -> IWorkflow:
+    def create_workflow_type(self, workflow_type: str, **kwargs: Any) -> IWorkflow:
         """Create a workflow of a specific type.
         
         Args:
@@ -166,7 +167,7 @@ class WorkflowFactory(IWorkflowFactory):
         
         # Set metadata if specified
         if "metadata" in config:
-            workflow.set_metadata(config["metadata"])
+            workflow.metadata = config["metadata"]
     
     def _merge_template_with_params(self, template: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any]:
         """Merge a template with parameters.

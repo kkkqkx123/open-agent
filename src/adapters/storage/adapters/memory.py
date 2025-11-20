@@ -8,9 +8,9 @@ import asyncio
 from typing import Any
 
 from .sync_adapter import SyncStateStorageAdapter
-from .backends.memory_backend import MemoryStorageBackend
-from .core.metrics import StorageMetrics
-from .core.transaction import TransactionManager
+from ..backends.memory_backend import MemoryStorageBackend
+from ..core.metrics import StorageMetrics
+from ..core.transaction import TransactionManager
 
 
 logger = logging.getLogger(__name__)

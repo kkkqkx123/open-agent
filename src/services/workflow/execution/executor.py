@@ -3,12 +3,12 @@
 提供工作流的执行服务。
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union, List
 import logging
 from datetime import datetime
 
-from ..core.workflow.interfaces import IWorkflow, IWorkflowExecutor, IWorkflowState, ExecutionContext
-from ..core.workflow.entities import Workflow, WorkflowExecution, ExecutionResult
+from src.core.workflow.interfaces import IWorkflow, IWorkflowExecutor, IWorkflowState, ExecutionContext
+from src.core.workflow.entities import Workflow, WorkflowExecution, ExecutionResult
 
 
 logger = logging.getLogger(__name__)
@@ -131,14 +131,14 @@ class WorkflowExecutorService(IWorkflowExecutor):
             logger.error(f"工作流异步执行失败: {workflow.workflow_id} ({context.execution_id}): {e}")
             raise
 
-    def get_execution_history(self, execution_id: Optional[str] = None) -> Optional[WorkflowExecution]:
+    def get_execution_history(self, execution_id: Optional[str] = None) -> Union[WorkflowExecution, List[WorkflowExecution], None]:
         """获取执行历史
         
         Args:
             execution_id: 执行ID，如果为None则返回所有历史
             
         Returns:
-            Optional[WorkflowExecution]: 执行历史，如果不存在则返回None
+            Union[WorkflowExecution, List[WorkflowExecution], None]: 执行历史，如果不存在单个则返回None
         """
         if execution_id:
             return self._execution_history.get(execution_id)
@@ -165,3 +165,21 @@ class WorkflowExecutorService(IWorkflowExecutor):
             "success_rate": len(completed_executions) / len(self._execution_history) if self._execution_history else 0,
             "execution_history_size": len(self._execution_history)
         }
+    
+    def get_execution_count(self, workflow_id: Optional[str] = None) -> int:
+        """获取执行次数
+        
+        Args:
+            workflow_id: 工作流ID，如果为None则返回总执行次数
+            
+        Returns:
+            int: 执行次数
+        """
+        if workflow_id is None:
+            return len(self._execution_history)
+        
+        count = 0
+        for execution in self._execution_history.values():
+            if execution.workflow_id == workflow_id:
+                count += 1
+        return count

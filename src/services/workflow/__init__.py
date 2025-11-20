@@ -5,7 +5,7 @@ including builders, executors, and utilities.
 """
 
 from .builder_service import WorkflowBuilderService
-from .executor import WorkflowExecutorService
+from .execution.executor import WorkflowExecutorService
 from .factory import WorkflowFactory
 from .interfaces import (
     IWorkflowManager,
@@ -29,7 +29,7 @@ from .registry_service import (
 )
 # Newly migrated services
 from .builder import UnifiedGraphBuilder
-from .async_executor import (
+from .execution.async_executor import (
     IAsyncNodeExecutor
 )
 from .function_registry import (

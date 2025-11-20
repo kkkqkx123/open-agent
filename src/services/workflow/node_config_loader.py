@@ -6,7 +6,7 @@
 from typing import Dict, Any, Optional
 from pathlib import Path
 
-from src.core.config.loader.file_config_loader import IConfigLoader
+from src.core.common.interfaces import IConfigLoader
 from src.services.container import get_global_container
 
 
@@ -27,7 +27,7 @@ class NodeConfigLoader:
         """获取配置加载器实例"""
         if self._config_loader is None:
             container = get_global_container()
-            self._config_loader = container.get(IConfigLoader)
+            self._config_loader = container.get(IConfigLoader)  # type: ignore
         return self._config_loader
     
     def load_configs(self) -> None:
