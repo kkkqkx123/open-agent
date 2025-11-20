@@ -1,9 +1,8 @@
-"""内存存储后端
+"""优化的内存存储后端
 
-提供基于内存的存储后端实现，支持线程安全、TTL、压缩等功能。
+提供基于内存的存储后端实现，使用新的通用工具和基类。
 """
 
-import asyncio
 import time
 import uuid
 import threading
@@ -13,10 +12,10 @@ from typing import Dict, Any, Optional, List, Union
 from src.core.state.exceptions import (
     StorageError,
     StorageConnectionError,
-    StorageTransactionError,
     StorageCapacityError
 )
-from .base_optimized import EnhancedStorageBackend
+from .base import StorageBackend
+from .utils.common_utils import StorageCommonUtils
 from .utils.memory_utils import MemoryStorageUtils
 
 
@@ -72,10 +71,10 @@ class MemoryStorageItem:
         self.last_accessed = time.time()
 
 
-class MemoryStorageBackend(EnhancedStorageBackend):
-    """内存存储后端实现
+class MemoryStorageBackend(StorageBackend):
+    """优化的内存存储后端实现
     
-    提供基于内存的存储后端，支持线程安全、TTL、压缩等功能。
+    提供基于内存的存储后端，使用新的通用工具减少重复代码。
     """
     
     def __init__(self, **config: Any) -> None:
@@ -86,15 +85,9 @@ class MemoryStorageBackend(EnhancedStorageBackend):
         """
         super().__init__(**config)
         
-        # 解析配置
+        # 内存存储特定配置
         self.max_size = config.get("max_size")
         self.max_memory_mb = config.get("max_memory_mb")
-        self.enable_ttl = config.get("enable_ttl", False)
-        self.default_ttl_seconds = config.get("default_ttl_seconds", 3600)
-        self.cleanup_interval_seconds = config.get("cleanup_interval_seconds", 300)
-        self.enable_compression = config.get("enable_compression", False)
-        self.compression_threshold = config.get("compression_threshold", 1024)
-        self.enable_metrics = config.get("enable_metrics", True)
         self.enable_persistence = config.get("enable_persistence", False)
         self.persistence_path = config.get("persistence_path")
         self.persistence_interval_seconds = config.get("persistence_interval_seconds", 600)
@@ -102,20 +95,11 @@ class MemoryStorageBackend(EnhancedStorageBackend):
         # 存储数据
         self._storage: Dict[str, MemoryStorageItem] = {}
         
-        # 线程锁
-        self._lock = asyncio.Lock()
-        self._thread_lock = threading.RLock()
-        
-        # 清理任务
-        self._cleanup_task: Optional[asyncio.Task] = None
-        self._persistence_task: Optional[asyncio.Task] = None
-        
         # 持久化相关
         self._persistence_lock = threading.Lock()
         self._last_persistence_time = 0
         
         # 扩展统计信息
-        self._stats["expired_items_cleaned"] = 0
         self._stats["memory_usage_bytes"] = 0
         self._stats["compression_ratio"] = 0.0
         
@@ -131,16 +115,8 @@ class MemoryStorageBackend(EnhancedStorageBackend):
             if self.enable_persistence:
                 await self._load_persistence()
             
-            # 启动清理任务
-            if self.enable_ttl:
-                self._cleanup_task = asyncio.create_task(self._cleanup_expired_items())
-            
-            # 启动持久化任务
-            if self.enable_persistence:
-                self._persistence_task = asyncio.create_task(self._persistence_worker())
-            
-            self._connected = True
-            logger.info("MemoryStorageBackend connected")
+            # 调用父类的连接逻辑（启动清理和备份任务）
+            await super().connect()
             
         except Exception as e:
             raise StorageConnectionError(f"Failed to connect MemoryStorageBackend: {e}")
@@ -151,24 +127,6 @@ class MemoryStorageBackend(EnhancedStorageBackend):
             if not self._connected:
                 return
             
-            # 停止清理任务
-            if self._cleanup_task:
-                self._cleanup_task.cancel()
-                try:
-                    await self._cleanup_task
-                except asyncio.CancelledError:
-                    pass
-                self._cleanup_task = None
-            
-            # 停止持久化任务
-            if self._persistence_task:
-                self._persistence_task.cancel()
-                try:
-                    await self._persistence_task
-                except asyncio.CancelledError:
-                    pass
-                self._persistence_task = None
-            
             # 保存持久化数据
             if self.enable_persistence:
                 await self._save_persistence()
@@ -177,8 +135,8 @@ class MemoryStorageBackend(EnhancedStorageBackend):
             with self._thread_lock:
                 self._storage.clear()
             
-            self._connected = False
-            logger.info("MemoryStorageBackend disconnected")
+            # 调用父类的断开逻辑
+            await super().disconnect()
             
         except Exception as e:
             raise StorageConnectionError(f"Failed to disconnect MemoryStorageBackend: {e}")
@@ -187,7 +145,7 @@ class MemoryStorageBackend(EnhancedStorageBackend):
         """实际保存实现"""
         try:
             # 检查容量限制
-            MemoryStorageUtils.validate_capacity(self._storage, self.max_size, self.max_memory_mb)
+            self._validate_capacity()
             
             # 生成ID（如果没有）
             if isinstance(data, dict) and "id" not in data:
@@ -203,7 +161,7 @@ class MemoryStorageBackend(EnhancedStorageBackend):
             async with self._lock:
                 with self._thread_lock:
                     self._storage[item_id] = item
-                    self._update_stats("save")
+                    self._update_memory_stats()
             
             return item_id
             
@@ -225,91 +183,28 @@ class MemoryStorageBackend(EnhancedStorageBackend):
                     if item.is_expired():
                         del self._storage[id]
                         self._stats["expired_items_cleaned"] += 1
+                        self._update_memory_stats()
                         return None
                     
                     # 访问数据
                     data = item.access()
-                    self._update_stats("load")
             
             # 解压缩数据（如果需要）
-            if item.compressed:
-                # 确保传入的是 bytes 类型
-                if isinstance(data, bytes):
-                    data = MemoryStorageUtils.decompress_data(data)
-                else:
-                    # 如果不是 bytes 类型，说明数据有问题，记录错误并返回 None
-                    logger.error(f"Expected compressed data to be bytes, got {type(data)}")
-                    return None
+            if item.compressed and isinstance(data, bytes):
+                data = MemoryStorageUtils.decompress_data(data)
             
-            # 确保返回的是 Dict[str, Any] 类型
+            # 确保返回值是 Dict[str, Any] 或 None
             if isinstance(data, dict):
                 return data
             else:
-                logger.error(f"Expected data to be dict, got {type(data)}")
+                # 如果数据不是字典，返回 None 以符合接口
+                logger.warning(f"Unexpected data type loaded: {type(data)}")
                 return None
             
         except Exception as e:
             if isinstance(e, StorageError):
                 raise
             raise StorageError(f"Failed to load data {id}: {e}")
-    
-    async def update_impl(self, id: str, updates: Dict[str, Any]) -> bool:
-        """实际更新实现"""
-        try:
-            async with self._lock:
-                with self._thread_lock:
-                    item = self._storage.get(id)
-                    if item is None:
-                        return False
-                    
-                    # 检查是否过期
-                    if item.is_expired():
-                        del self._storage[id]
-                        self._stats["expired_items_cleaned"] += 1
-                        return False
-                    
-                    # 更新数据
-                    if isinstance(updates, dict):
-                        # 合并更新
-                        current_data = item.access()
-                        if item.compressed:
-                            # 确保传入的是 bytes 类型
-                            if isinstance(current_data, bytes):
-                                current_data = MemoryStorageUtils.decompress_data(current_data)
-                            else:
-                                # 如果不是 bytes 类型，说明数据有问题，记录错误并返回 False
-                                logger.error(f"Expected compressed data to be bytes, got {type(current_data)}")
-                                return False
-                        
-                        # 确保 current_data 是 Dict[str, Any] 类型
-                        if isinstance(current_data, dict):
-                            current_data.update(updates)
-                            
-                            # 压缩数据（如果需要）
-                            processed_data: Union[Dict[str, Any], bytes] = current_data
-                            if (self.enable_compression and 
-                                MemoryStorageUtils.should_compress_data(current_data, self.compression_threshold)):
-                                processed_data = MemoryStorageUtils.compress_data(current_data)
-                                item.compressed = True
-                            else:
-                                item.compressed = False
-                            
-                            item.update_data(processed_data)
-                        else:
-                            logger.error(f"Expected current_data to be dict, got {type(current_data)}")
-                            return False
-                    else:
-                        # 直接替换
-                        item.update_data(updates)
-                    
-                    self._update_stats("update")
-            
-            return True
-            
-        except Exception as e:
-            if isinstance(e, StorageError):
-                raise
-            raise StorageError(f"Failed to update data {id}: {e}")
     
     async def delete_impl(self, id: str) -> bool:
         """实际删除实现"""
@@ -318,7 +213,7 @@ class MemoryStorageBackend(EnhancedStorageBackend):
                 with self._thread_lock:
                     if id in self._storage:
                         del self._storage[id]
-                        self._update_stats("delete")
+                        self._update_memory_stats()
                         return True
                     return False
             
@@ -327,48 +222,36 @@ class MemoryStorageBackend(EnhancedStorageBackend):
                 raise
             raise StorageError(f"Failed to delete data {id}: {e}")
     
-    async def list_impl(
-        self, 
-        filters: Dict[str, Any], 
-        limit: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+    async def list_impl(self, filters: Dict[str, Any], limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """实际列表实现"""
         try:
             results = []
             
             async with self._lock:
                 with self._thread_lock:
-                    # 清理过期项
-                    await self._cleanup_expired_items_sync()
-                    
                     # 应用过滤器
                     for item_id, item in self._storage.items():
                         # 检查是否过期
                         if item.is_expired():
                             del self._storage[item_id]
                             self._stats["expired_items_cleaned"] += 1
+                            self._update_memory_stats()
                             continue
                         
                         # 获取数据
                         data = item.access()
-                        if item.compressed:
-                            # 确保传入的是 bytes 类型
-                            if isinstance(data, bytes):
-                                data = MemoryStorageUtils.decompress_data(data)
-                            else:
-                                # 如果不是 bytes 类型，说明数据有问题，跳过此项
-                                logger.error(f"Expected compressed data to be bytes, got {type(data)}")
-                                continue
                         
-                        # 确保 data 是 Dict[str, Any] 类型
+                        # 解压缩数据（如果需要）
+                        if item.compressed and isinstance(data, bytes):
+                            data = MemoryStorageUtils.decompress_data(data)
+                        
+                        # 检查过滤器
                         if isinstance(data, dict) and MemoryStorageUtils.matches_filters(data, filters):
                             results.append(data)
                             
                             # 检查限制
                             if limit and len(results) >= limit:
                                 break
-                    
-                    self._update_stats("list")
             
             return results
             
@@ -377,358 +260,101 @@ class MemoryStorageBackend(EnhancedStorageBackend):
                 raise
             raise StorageError(f"Failed to list data: {e}")
     
-    async def query_impl(self, query: str, params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """实际查询实现"""
-        try:
-            # 简单的查询实现（基于过滤器）
-            if query.startswith("filters:"):
-                filters_str = query[8:]  # 移除 "filters:" 前缀
-                import json
-                filters = json.loads(filters_str) if filters_str else {}
-                return await self.list_impl(filters, params.get("limit"))
-            
-            # 其他查询类型暂不支持
-            raise StorageError(f"Unsupported query type: {query}")
-            
-        except Exception as e:
-            if isinstance(e, StorageError):
-                raise
-            raise StorageError(f"Failed to execute query: {e}")
-    
-    async def exists_impl(self, id: str) -> bool:
-        """实际存在检查实现"""
-        try:
-            async with self._lock:
-                with self._thread_lock:
-                    item = self._storage.get(id)
-                    if item is None:
-                        return False
-                    
-                    # 检查是否过期
-                    if item.is_expired():
-                        del self._storage[id]
-                        self._stats["expired_items_cleaned"] += 1
-                        return False
-                    
-                    return True
-            
-        except Exception as e:
-            if isinstance(e, StorageError):
-                raise
-            raise StorageError(f"Failed to check existence of data {id}: {e}")
-    
-    async def count_impl(self, filters: Dict[str, Any]) -> int:
-        """实际计数实现"""
-        try:
-            count = 0
-            
-            async with self._lock:
-                with self._thread_lock:
-                    # 清理过期项
-                    await self._cleanup_expired_items_sync()
-                    
-                    # 应用过滤器计数
-                    for item_id, item in self._storage.items():
-                        # 检查是否过期
-                        if item.is_expired():
-                            del self._storage[item_id]
-                            self._stats["expired_items_cleaned"] += 1
-                            continue
-                        
-                        # 获取数据
-                        data = item.access()
-                        if item.compressed:
-                            # 确保传入的是 bytes 类型
-                            if isinstance(data, bytes):
-                                data = MemoryStorageUtils.decompress_data(data)
-                            else:
-                                # 如果不是 bytes 类型，说明数据有问题，跳过此项
-                                logger.error(f"Expected compressed data to be bytes, got {type(data)}")
-                                continue
-                        
-                        # 确保 data 是 Dict[str, Any] 类型
-                        if isinstance(data, dict) and MemoryStorageUtils.matches_filters(data, filters):
-                            count += 1
-            
-            return count
-            
-        except Exception as e:
-            if isinstance(e, StorageError):
-                raise
-            raise StorageError(f"Failed to count data: {e}")
-    
-    async def transaction_impl(self, operations: List[Dict[str, Any]]) -> bool:
-        """实际事务实现"""
-        try:
-            # 简单的事务实现（按顺序执行）
-            async with self._lock:
-                for operation in operations:
-                    op_type = operation.get("type")
-                    
-                    if op_type == "save":
-                        await self.save_impl(operation["data"])
-                    elif op_type == "update":
-                        await self.update_impl(operation["id"], operation["data"])
-                    elif op_type == "delete":
-                        await self.delete_impl(operation["id"])
-                    else:
-                        raise StorageTransactionError(f"Unknown operation type: {op_type}")
-                
-                self._update_stats("transaction")
-            
-            return True
-            
-        except Exception as e:
-            if isinstance(e, StorageError):
-                raise
-            raise StorageTransactionError(f"Transaction failed: {e}")
-    
-    async def batch_save_impl(self, data_list: List[Dict[str, Any]]) -> List[str]:
-        """实际批量保存实现"""
-        try:
-            ids = []
-            
-            async with self._lock:
-                for data in data_list:
-                    # 检查容量限制
-                    MemoryStorageUtils.validate_capacity(self._storage, self.max_size, self.max_memory_mb)
-                    
-                    # 生成ID（如果没有）
-                    if "id" not in data:
-                        data["id"] = str(uuid.uuid4())
-                    
-                    item_id = data["id"]
-                    
-                    # 压缩数据（如果需要）
-                    compressed = False
-                    processed_data: Union[Dict[str, Any], bytes] = data
-                    if (self.enable_compression and 
-                        MemoryStorageUtils.should_compress_data(data, self.compression_threshold)):
-                        processed_data = MemoryStorageUtils.compress_data(data)
-                        compressed = True
-                    
-                    # 创建存储项
-                    ttl_seconds = self.default_ttl_seconds if self.enable_ttl else None
-                    item = MemoryStorageItem(processed_data, ttl_seconds, compressed)
-                    
-                    # 保存数据
-                    with self._thread_lock:
-                        self._storage[item_id] = item
-                    
-                    ids.append(item_id)
-                
-                self._update_stats("save")
-            
-            return ids
-            
-        except Exception as e:
-            if isinstance(e, StorageError):
-                raise
-            raise StorageError(f"Failed to batch save data: {e}")
-    
-    async def batch_delete_impl(self, ids: List[str]) -> int:
-        """实际批量删除实现"""
-        try:
-            count = 0
-            
-            async with self._lock:
-                with self._thread_lock:
-                    for id in ids:
-                        if id in self._storage:
-                            del self._storage[id]
-                            count += 1
-                
-                self._update_stats("delete")
-            
-            return count
-            
-        except Exception as e:
-            if isinstance(e, StorageError):
-                raise
-            raise StorageError(f"Failed to batch delete data: {e}")
-    
-    async def cleanup_old_data_impl(self, retention_days: int) -> int:
-        """实际清理旧数据实现"""
-        try:
-            cutoff_time = time.time() - (retention_days * 24 * 3600)
-            count = 0
-            
-            async with self._lock:
-                with self._thread_lock:
-                    items_to_delete = []
-                    
-                    for item_id, item in self._storage.items():
-                        if item.created_at < cutoff_time:
-                            items_to_delete.append(item_id)
-                    
-                    for item_id in items_to_delete:
-                        del self._storage[item_id]
-                        count += 1
-            
-            return count
-            
-        except Exception as e:
-            if isinstance(e, StorageError):
-                raise
-            raise StorageError(f"Failed to cleanup old data: {e}")
-    
-    def stream_list_impl(
-        self,
-        filters: Dict[str, Any],
-        batch_size: int = 100
-    ) -> Any:
-        """实际流式列表实现"""
-        async def _stream() -> Any:
-            try:
-                batch = []
-                
-                async with self._lock:
-                    with self._thread_lock:
-                        # 清理过期项
-                        await self._cleanup_expired_items_sync()
-                        
-                        # 应用过滤器
-                        for item_id, item in self._storage.items():
-                            # 检查是否过期
-                            if item.is_expired():
-                                del self._storage[item_id]
-                                self._stats["expired_items_cleaned"] += 1
-                                continue
-                            
-                            # 获取数据
-                            data = item.access()
-                            if item.compressed:
-                                # 确保传入的是 bytes 类型
-                                if isinstance(data, bytes):
-                                    data = MemoryStorageUtils.decompress_data(data)
-                                else:
-                                    # 如果不是 bytes 类型，说明数据有问题，跳过此项
-                                    logger.error(f"Expected compressed data to be bytes, got {type(data)}")
-                                    continue
-                            
-                            # 确保 data 是 Dict[str, Any] 类型
-                            if isinstance(data, dict) and MemoryStorageUtils.matches_filters(data, filters):
-                                batch.append(data)
-                                
-                                # 检查批次大小
-                                if len(batch) >= batch_size:
-                                    yield batch
-                                    batch = []
-                        
-                        # 返回最后一批
-                        if batch:
-                            yield batch
-                
-            except Exception as e:
-                if isinstance(e, StorageError):
-                    raise
-                raise StorageError(f"Failed to stream list data: {e}")
-        
-        return _stream()
-    
-    async def is_connected(self) -> bool:
-        """检查是否已连接"""
-        return self._connected
-
-    async def get_by_session_impl(self, session_id: str) -> List[Dict[str, Any]]:
-        """实际根据会话ID获取数据实现"""
-        filters = {"session_id": session_id}
-        return await self.list_impl(filters)
-
-    async def get_by_thread_impl(self, thread_id: str) -> List[Dict[str, Any]]:
-        """实际根据线程ID获取数据实现"""
-        filters = {"thread_id": thread_id}
-        return await self.list_impl(filters)
-
-    async def begin_transaction(self) -> None:
-        """开始事务"""
-        # 默认实现：简单标记事务开始
-        pass
-
-    async def commit_transaction(self) -> None:
-        """提交事务"""
-        # 默认实现：简单标记事务提交
-        pass
-
-    async def rollback_transaction(self) -> None:
-        """回滚事务"""
-        # 默认实现：简单标记事务回滚
-        pass
-
     async def health_check_impl(self) -> Dict[str, Any]:
         """实际健康检查实现"""
         try:
             with self._thread_lock:
                 # 计算内存使用量
-                total_size = MemoryStorageUtils.calculate_memory_usage(self._storage)
+                total_size = self._calculate_memory_usage()
                 
                 # 计算压缩比
-                compression_ratio = MemoryStorageUtils.calculate_compression_ratio(self._storage)
+                compression_ratio = self._calculate_compression_ratio()
                 
                 # 更新统计信息
                 self._stats["memory_usage_bytes"] = total_size
                 self._stats["compression_ratio"] = compression_ratio
             
-            return {
-                "status": "healthy",
-                "item_count": len(self._storage),
-                "memory_usage_bytes": self._stats["memory_usage_bytes"],
-                "compression_ratio": self._stats["compression_ratio"],
-                "total_operations": self._stats["total_operations"],
-                "expired_items_cleaned": self._stats["expired_items_cleaned"],
-                "config": {
+            # 使用通用工具准备健康检查响应
+            return StorageCommonUtils.prepare_health_check_response(
+                status="healthy",
+                config={
                     "max_size": self.max_size,
                     "max_memory_mb": self.max_memory_mb,
                     "enable_ttl": self.enable_ttl,
                     "enable_compression": self.enable_compression,
-                    "enable_persistence": self.enable_persistence
-                }
-            }
+                    "enable_persistence": self.enable_persistence,
+                },
+                stats=self._stats,
+                item_count=len(self._storage),
+                memory_usage_bytes=self._stats["memory_usage_bytes"],
+                compression_ratio=self._stats["compression_ratio"],
+            )
             
         except Exception as e:
             raise StorageConnectionError(f"Health check failed: {e}")
     
+    # 内部辅助方法
+    def _validate_capacity(self) -> None:
+        """验证容量限制"""
+        if self.max_size and len(self._storage) >= self.max_size:
+            raise StorageCapacityError(
+                f"Storage capacity exceeded: max_size={self.max_size}",
+                required_size=1,
+                available_size=self.max_size - len(self._storage)
+            )
+        
+        if self.max_memory_mb:
+            total_size = self._calculate_memory_usage()
+            max_bytes = self.max_memory_mb * 1024 * 1024
+            if total_size >= max_bytes:
+                raise StorageCapacityError(
+                    f"Memory capacity exceeded: max_memory_mb={self.max_memory_mb}",
+                    required_size=1024,
+                    available_size=max_bytes - total_size
+                )
+    
+    def _calculate_memory_usage(self) -> int:
+        """计算内存使用量"""
+        total_size = 0
+        for item in self._storage.values():
+            total_size += item.size
+        return total_size
+    
+    def _calculate_compression_ratio(self) -> float:
+        """计算压缩比"""
+        if not self._storage:
+            return 0.0
+        
+        compressed_items = sum(1 for item in self._storage.values() if item.compressed)
+        return compressed_items / len(self._storage)
+    
+    def _update_memory_stats(self) -> None:
+        """更新内存统计信息"""
+        self._stats["memory_usage_bytes"] = self._calculate_memory_usage()
+        self._stats["compression_ratio"] = self._calculate_compression_ratio()
+    
     async def _cleanup_expired_items(self) -> None:
-        """清理过期项（异步任务）"""
-        while True:
-            try:
-                await asyncio.sleep(self.cleanup_interval_seconds)
-                
-                async with self._lock:
-                    await self._cleanup_expired_items_sync()
+        """清理过期项（重写父类方法，使用内存优化）"""
+        try:
+            expired_items = []
+            current_time = time.time()
+            
+            async with self._lock:
+                with self._thread_lock:
+                    for item_id, item in self._storage.items():
+                        if item.is_expired():
+                            expired_items.append(item_id)
                     
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error in cleanup task: {e}")
-    
-    async def _cleanup_expired_items_sync(self) -> None:
-        """同步清理过期项"""
-        expired_items = MemoryStorageUtils.get_expired_items(self._storage)
-        
-        with self._thread_lock:
-            for item_id in expired_items:
-                del self._storage[item_id]
-                self._stats["expired_items_cleaned"] += 1
-        
-        if expired_items:
-            logger.debug(f"Cleaned up {len(expired_items)} expired items")
-    
-    async def _persistence_worker(self) -> None:
-        """持久化工作线程（异步任务）"""
-        while True:
-            try:
-                await asyncio.sleep(self.persistence_interval_seconds)
-                
-                current_time = time.time()
-                if current_time - self._last_persistence_time >= self.persistence_interval_seconds:
-                    await self._save_persistence()
-                    self._last_persistence_time = int(current_time)
+                    for item_id in expired_items:
+                        del self._storage[item_id]
+                        self._stats["expired_items_cleaned"] += 1
                     
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error in persistence task: {e}")
+                    if expired_items:
+                        self._update_memory_stats()
+                        logger.debug(f"Cleaned up {len(expired_items)} expired items")
+                        
+        except Exception as e:
+            logger.error(f"Error cleaning up expired items: {e}")
     
     async def _save_persistence(self) -> None:
         """保存持久化数据"""
@@ -738,7 +364,17 @@ class MemoryStorageBackend(EnhancedStorageBackend):
         try:
             with self._persistence_lock:
                 # 准备持久化数据
-                persistence_data = MemoryStorageUtils.prepare_persistence_data(self._storage)
+                persistence_data = {}
+                for item_id, item in self._storage.items():
+                    persistence_data[item_id] = {
+                        "data": item.data,
+                        "created_at": item.created_at,
+                        "expires_at": item.expires_at,
+                        "compressed": item.compressed,
+                        "access_count": item.access_count,
+                        "last_accessed": item.last_accessed,
+                        "size": item.size,
+                    }
                 
                 # 保存到文件
                 MemoryStorageUtils.save_persistence_data(persistence_data, self.persistence_path)
@@ -759,9 +395,29 @@ class MemoryStorageBackend(EnhancedStorageBackend):
                 persistence_data = MemoryStorageUtils.load_persistence_data(self.persistence_path)
                 
                 if persistence_data:
-                    # 恢复数据
-                    self._storage = MemoryStorageUtils.restore_persistence_data(persistence_data)
+                    current_time = time.time()
                     
+                    # 恢复数据
+                    for item_id, item_data in persistence_data.items():
+                        # 检查是否过期
+                        if item_data.get("expires_at") and current_time > item_data["expires_at"]:
+                            continue
+                        
+                        # 创建存储项
+                        item = MemoryStorageItem(
+                            item_data["data"],
+                            None,  # TTL已包含在expires_at中
+                            item_data.get("compressed", False)
+                        )
+                        item.created_at = item_data["created_at"]
+                        item.expires_at = item_data.get("expires_at")
+                        item.access_count = item_data.get("access_count", 0)
+                        item.last_accessed = item_data.get("last_accessed", item.created_at)
+                        item.size = item_data.get("size", 0)
+                        
+                        self._storage[item_id] = item
+                    
+                    self._update_memory_stats()
                     logger.debug(f"Loaded {len(self._storage)} items from persistence file")
                 
         except Exception as e:
