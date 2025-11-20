@@ -11,7 +11,8 @@ import asyncio
 
 from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.state_machine.state_templates import StateTemplateManager
-from src.interfaces.workflow.core import IWorkflow, IWorkflowState
+from src.interfaces.workflow.core import IWorkflow
+from src.interfaces.state import IWorkflowState
 from src.core.workflow.entities import WorkflowState, ExecutionResult
 from src.core.workflow.exceptions import WorkflowExecutionError, WorkflowStateError
 

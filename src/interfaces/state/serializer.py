@@ -6,7 +6,7 @@
 from abc import ABC, abstractmethod
 from typing import Union
 
-from .core import IState
+from .interfaces import IState
 
 
 class IStateSerializer(ABC):

@@ -15,7 +15,7 @@ from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.states import WorkflowState, update_state_with_message, BaseMessage, LCBaseMessage, AIMessage
 from src.core.workflow.graph.nodes.registry import NodeRegistry, get_global_registry
 from src.services.workflow.state_converter import WorkflowStateConverter
-from src.infrastructure.async_utils.event_loop_manager import AsyncLock, AsyncContextManager
+from core.common.async_tuils import AsyncLock, AsyncContextManager
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

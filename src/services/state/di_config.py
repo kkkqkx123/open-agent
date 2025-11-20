@@ -4,10 +4,17 @@
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 
-from src.services.container import ServiceContainer, ServiceLifetime
-from src.interfaces.state_core import IStateSerializer, IStateHistoryManager, IStateSnapshotManager
+from src.infrastructure.infrastructure_types import ServiceLifetime
+
+if TYPE_CHECKING:
+    from src.interfaces.container import IDependencyContainer as ServiceContainer
+else:
+    ServiceContainer = Any  # type: ignore
+from src.interfaces.state.serializer import IStateSerializer
+from src.interfaces.state.history import IStateHistoryManager
+from src.interfaces.state.snapshot import IStateSnapshotManager
 from src.core.state.base import BaseStateSerializer
 from src.services.state import (
     EnhancedStateManager,
@@ -17,12 +24,9 @@ from src.services.state import (
     StateBackupService,
     WorkflowStateManager
 )
-from src.adapters.storage import (
-    IStateStorageAdapter,
-    StorageAdapterFactory,
-    StorageAdapterManager,
-    create_storage_adapter
-)
+from src.adapters.storage.factory import StorageAdapterFactory, create_storage_adapter
+from src.interfaces.state.storage.adapter import IStateStorageAdapter
+from src.adapters.storage.adapters.sync_adapter import SyncStateStorageAdapter
 
 
 logger = logging.getLogger(__name__)
@@ -75,9 +79,9 @@ def _configure_serializer(container: ServiceContainer, config: Dict[str, Any]) -
     def serializer_factory() -> IStateSerializer:
         return BaseStateSerializer(format=format_type, compression=compression)
     
-    container.register(
+    container.register_factory(
         IStateSerializer,
-        factory=serializer_factory,
+        serializer_factory,
         lifetime=ServiceLifetime.SINGLETON
     )
 
@@ -88,23 +92,36 @@ def _configure_storage_adapter(container: ServiceContainer, config: Dict[str, An
     storage_configs = config.get("sqlite", {})
     
     def storage_adapter_factory() -> IStateStorageAdapter:
-        return create_storage_adapter(default_storage, storage_configs)
+        # 直接创建同步适配器
+        if default_storage == "sqlite":
+            from src.adapters.storage.adapters.sqlite import SyncStateStorageAdapter
+            # 确保配置中包含数据库路径
+            if "db_path" not in storage_configs:
+                storage_configs["db_path"] = "data/state_storage.db"
+            from src.adapters.storage.backends.sqlite_backend import SQLiteStorageBackend
+            sqlite_backend = SQLiteStorageBackend(**storage_configs)
+            return SyncStateStorageAdapter(backend=sqlite_backend)
+        elif default_storage == "memory":
+            from src.adapters.storage.adapters.memory import SyncStateStorageAdapter
+            from src.adapters.storage.backends.memory_backend import MemoryStorageBackend
+            memory_backend = MemoryStorageBackend()
+            return SyncStateStorageAdapter(backend=memory_backend)
+        elif default_storage == "file":
+            from src.adapters.storage.adapters.file import SyncStateStorageAdapter
+            from src.adapters.storage.backends.file_backend import FileStorageBackend
+            file_backend = FileStorageBackend()
+            return SyncStateStorageAdapter(backend=file_backend)
+        else:
+            from src.adapters.storage.adapters.sqlite import SyncStateStorageAdapter
+            if "db_path" not in storage_configs:
+                storage_configs["db_path"] = "data/state_storage.db"
+            from src.adapters.storage.backends.sqlite_backend import SQLiteStorageBackend
+            sqlite_backend = SQLiteStorageBackend(**storage_configs)
+            return SyncStateStorageAdapter(backend=sqlite_backend)
     
-    container.register(
+    container.register_factory(
         IStateStorageAdapter,
-        factory=storage_adapter_factory,
-        lifetime=ServiceLifetime.SINGLETON
-    )
-    
-    # 注册存储适配器管理器
-    def storage_manager_factory() -> StorageAdapterManager:
-        manager = StorageAdapterManager()
-        manager.create_adapter("default", default_storage, storage_configs)
-        return manager
-    
-    container.register(
-        StorageAdapterManager,
-        factory=storage_manager_factory,
+        storage_adapter_factory,
         lifetime=ServiceLifetime.SINGLETON
     )
 
@@ -113,17 +130,19 @@ def _configure_history_service(container: ServiceContainer, config: Dict[str, An
     """配置历史管理服务"""
     max_entries = config.get("max_entries", 1000)
     
-    def history_service_factory(storage_adapter: IStateStorageAdapter, 
-                               serializer: IStateSerializer) -> IStateHistoryManager:
+    def history_service_factory() -> IStateHistoryManager:
+        # 从容器获取依赖
+        storage_adapter: IStateStorageAdapter = container.get(IStateStorageAdapter)  # type: ignore
+        serializer: IStateSerializer = container.get(IStateSerializer)  # type: ignore
         return StateHistoryService(
             storage_adapter=storage_adapter,
             serializer=serializer,
             max_history_size=max_entries
         )
     
-    container.register(
+    container.register_factory(
         IStateHistoryManager,
-        factory=history_service_factory,
+        history_service_factory,
         lifetime=ServiceLifetime.SINGLETON
     )
 
@@ -132,35 +151,39 @@ def _configure_snapshot_service(container: ServiceContainer, config: Dict[str, A
     """配置快照管理服务"""
     max_snapshots = config.get("max_per_agent", 50)
     
-    def snapshot_service_factory(storage_adapter: IStateStorageAdapter,
-                                serializer: IStateSerializer) -> IStateSnapshotManager:
+    def snapshot_service_factory() -> IStateSnapshotManager:
+        # 从容器获取依赖
+        storage_adapter: IStateStorageAdapter = container.get(IStateStorageAdapter)  # type: ignore
+        serializer: IStateSerializer = container.get(IStateSerializer)  # type: ignore
         return StateSnapshotService(
             storage_adapter=storage_adapter,
             serializer=serializer,
             max_snapshots_per_agent=max_snapshots
         )
     
-    container.register(
+    container.register_factory(
         IStateSnapshotManager,
-        factory=snapshot_service_factory,
+        snapshot_service_factory,
         lifetime=ServiceLifetime.SINGLETON
     )
 
 
 def _configure_enhanced_state_manager(container: ServiceContainer, config: Dict[str, Any]) -> None:
     """配置增强状态管理器"""
-    def state_manager_factory(history_manager: IStateHistoryManager,
-                             snapshot_manager: IStateSnapshotManager,
-                             serializer: IStateSerializer) -> EnhancedStateManager:
+    def state_manager_factory() -> EnhancedStateManager:
+        # 从容器获取依赖
+        history_manager: IStateHistoryManager = container.get(IStateHistoryManager)  # type: ignore
+        snapshot_manager: IStateSnapshotManager = container.get(IStateSnapshotManager)  # type: ignore
+        serializer: IStateSerializer = container.get(IStateSerializer)  # type: ignore
         return EnhancedStateManager(
             history_manager=history_manager,
             snapshot_manager=snapshot_manager,
             serializer=serializer
         )
     
-    container.register(
+    container.register_factory(
         EnhancedStateManager,
-        factory=state_manager_factory,
+        state_manager_factory,
         lifetime=ServiceLifetime.SINGLETON
     )
 
@@ -169,45 +192,51 @@ def _configure_persistence_service(container: ServiceContainer, config: Dict[str
     """配置持久化服务"""
     enable_transactions = config.get("enable_transactions", True)
     
-    def persistence_service_factory(storage_adapter: IStateStorageAdapter) -> StatePersistenceService:
+    def persistence_service_factory() -> StatePersistenceService:
+        # 从容器获取依赖
+        storage_adapter: IStateStorageAdapter = container.get(IStateStorageAdapter)  # type: ignore
         return StatePersistenceService(
             storage_adapter=storage_adapter,
             enable_transactions=enable_transactions
         )
     
-    container.register(
+    container.register_factory(
         StatePersistenceService,
-        factory=persistence_service_factory,
+        persistence_service_factory,
         lifetime=ServiceLifetime.SINGLETON
     )
 
 
 def _configure_backup_service(container: ServiceContainer) -> None:
     """配置备份服务"""
-    def backup_service_factory(persistence_service: StatePersistenceService) -> StateBackupService:
+    def backup_service_factory() -> StateBackupService:
+        # 从容器获取依赖
+        persistence_service: StatePersistenceService = container.get(StatePersistenceService)
         return StateBackupService(persistence_service)
     
-    container.register(
+    container.register_factory(
         StateBackupService,
-        factory=backup_service_factory,
+        backup_service_factory,
         lifetime=ServiceLifetime.SINGLETON
     )
 
 
 def _configure_workflow_state_manager(container: ServiceContainer, config: Dict[str, Any]) -> None:
     """配置工作流状态管理器"""
-    def workflow_state_manager_factory(history_manager: IStateHistoryManager,
-                                     snapshot_manager: IStateSnapshotManager,
-                                     serializer: IStateSerializer) -> WorkflowStateManager:
+    def workflow_state_manager_factory() -> WorkflowStateManager:
+        # 从容器获取依赖
+        history_manager: IStateHistoryManager = container.get(IStateHistoryManager)  # type: ignore
+        snapshot_manager: IStateSnapshotManager = container.get(IStateSnapshotManager)  # type: ignore
+        serializer: IStateSerializer = container.get(IStateSerializer)  # type: ignore
         return WorkflowStateManager(
             history_manager=history_manager,
             snapshot_manager=snapshot_manager,
             serializer=serializer
         )
     
-    container.register(
+    container.register_factory(
         WorkflowStateManager,
-        factory=workflow_state_manager_factory,
+        workflow_state_manager_factory,
         lifetime=ServiceLifetime.SINGLETON
     )
 
@@ -243,58 +272,6 @@ def get_state_service_config() -> Dict[str, Any]:
     }
 
 
-def register_legacy_adapters(container: ServiceContainer) -> None:
-    """注册旧架构适配器
-    
-    Args:
-        container: 服务容器
-    """
-    try:
-        from src.adapters.state import (
-            LegacyStateManagerAdapter,
-            LegacyHistoryManagerAdapter,
-            LegacySnapshotStoreAdapter
-        )
-        from src.domain.state.interfaces import IStateCrudManager
-        from src.infrastructure.state.interfaces import IStateSnapshotStore, IStateHistoryManager as OldIStateHistoryManager
-        
-        # 注册旧状态管理器适配器
-        def legacy_state_manager_factory(enhanced_manager: EnhancedStateManager) -> IStateCrudManager:
-            return LegacyStateManagerAdapter(enhanced_manager)
-        
-        container.register(
-            IStateCrudManager,
-            factory=legacy_state_manager_factory,
-            lifetime=ServiceLifetime.SINGLETON
-        )
-        
-        # 注册旧历史管理器适配器
-        def legacy_history_manager_factory(history_service: StateHistoryService) -> OldIStateHistoryManager:
-            return LegacyHistoryManagerAdapter(history_service)
-        
-        container.register(
-            OldIStateHistoryManager,
-            factory=legacy_history_manager_factory,
-            lifetime=ServiceLifetime.SINGLETON
-        )
-        
-        # 注册旧快照存储适配器
-        def legacy_snapshot_store_factory(snapshot_service: StateSnapshotService) -> IStateSnapshotStore:
-            return LegacySnapshotStoreAdapter(snapshot_service)
-        
-        container.register(
-            IStateSnapshotStore,
-            factory=legacy_snapshot_store_factory,
-            lifetime=ServiceLifetime.SINGLETON
-        )
-        
-        logger.info("旧架构适配器注册完成")
-        
-    except Exception as e:
-        logger.error(f"注册旧架构适配器失败: {e}")
-        raise
-
-
 def configure_state_migration(container: ServiceContainer, config: Dict[str, Any]) -> None:
     """配置状态迁移服务
     
@@ -302,25 +279,9 @@ def configure_state_migration(container: ServiceContainer, config: Dict[str, Any
         container: 服务容器
         config: 迁移配置
     """
-    try:
-        from src.adapters.state import StateMigrationService
-        
-        migration_config = config.get("migration", {})
-        
-        def migration_service_factory() -> StateMigrationService:
-            return StateMigrationService()
-        
-        container.register(
-            StateMigrationService,
-            factory=migration_service_factory,
-            lifetime=ServiceLifetime.TRANSIENT
-        )
-        
-        logger.info("状态迁移服务配置完成")
-        
-    except Exception as e:
-        logger.error(f"配置状态迁移服务失败: {e}")
-        raise
+    # 由于迁移服务不存在，跳过配置
+    logger.info("状态迁移服务配置已跳过，因为服务不存在")
+    return
 
 
 def validate_state_configuration(config: Dict[str, Any]) -> List[str]:

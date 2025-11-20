@@ -7,15 +7,15 @@ import logging
 from typing import Dict, Any, Optional, List, Callable, Tuple
 from datetime import datetime
 
-from src.interfaces.state.core import IState, IStateManager
+from src.interfaces.state.interfaces import IState, IStateManager
 from src.interfaces.state.enhanced import (
     IEnhancedStateManager,
     IStateHistoryManager,
     IStateSnapshotManager,
     IStateSerializer
 )
+from src.interfaces.state.entities import StateSnapshot, StateHistoryEntry, StateStatistics
 from src.core.state.base import BaseStateManager, StateValidationMixin
-from src.core.state.entities import StateSnapshot, StateHistoryEntry, StateStatistics
 
 
 logger = logging.getLogger(__name__)
@@ -308,7 +308,7 @@ class StateWrapper(IState):
     将字典数据包装为IState接口实现。
     """
     
-    def __init__(self, state_data: Dict[str, Any], manager: EnhancedStateManager):
+    def __init__(self, state_data: Dict[str, Any], manager: Optional[EnhancedStateManager] = None):
         """初始化状态包装器
         
         Args:
@@ -378,5 +378,7 @@ class StateWrapper(IState):
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'StateWrapper':
         """从字典创建状态"""
-        # 这里需要manager实例，暂时返回简单实现
-        return cls(data, None)  # type: ignore
+        # 这里需要manager实例，但为了支持反序列化，我们创建一个没有管理器的包装器
+        # 在实际使用中，应该通过状态管理器来创建和管理状态实例
+        return cls(data, None)
+    

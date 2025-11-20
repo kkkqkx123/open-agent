@@ -4,23 +4,26 @@
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 
-from src.services.container import ServiceContainer, register_service, get_service
+from src.core.config.config_manager import ConfigManager
 from src.services.state.di_config import (
     configure_state_services,
-    register_legacy_adapters,
-    configure_state_migration,
     validate_state_configuration,
     get_state_service_config
 )
-from src.core.config.config_manager import ConfigManager
+
+if TYPE_CHECKING:
+    from src.interfaces.container import IDependencyContainer as ServiceContainer
+    from src.interfaces.state.enhanced import IEnhancedStateManager
+    from src.interfaces.state.history import IStateHistoryManager
+    from src.interfaces.state.snapshot import IStateSnapshotManager
 
 
 logger = logging.getLogger(__name__)
 
 
-def initialize_state_services(container: Optional[ServiceContainer] = None,
+def initialize_state_services(container: Optional[Any] = None,
                             config: Optional[Dict[str, Any]] = None) -> bool:
     """初始化状态管理服务
     
@@ -33,33 +36,28 @@ def initialize_state_services(container: Optional[ServiceContainer] = None,
     """
     try:
         # 使用全局容器（如果未提供）
-        if container is None:
+        actual_container = container
+        if actual_container is None:
             from src.services.container import container as global_container
-            container = global_container
+            actual_container = global_container
         
         # 获取配置
-        if config is None:
-            config_manager = get_service(ConfigManager) if is_service_registered(ConfigManager) else None
-            if config_manager:
-                config = config_manager.get_config("state", {})
-            else:
-                config = get_state_service_config()
+        actual_config = config
+        if actual_config is None:
+            try:
+                config_manager = actual_container.get(ConfigManager)  # type: ignore
+                actual_config = config_manager.get_config("state", {})
+            except Exception:
+                actual_config = get_state_service_config()
         
         # 验证配置
-        validation_errors = validate_state_configuration(config)
+        validation_errors = validate_state_configuration(actual_config)
         if validation_errors:
             logger.error(f"状态管理配置验证失败: {validation_errors}")
             return False
         
         # 配置状态管理服务
-        configure_state_services(container, config)
-        
-        # 注册旧架构适配器（向后兼容）
-        register_legacy_adapters(container)
-        
-        # 配置迁移服务（如果需要）
-        if config.get("migration", {}).get("auto_migrate", False):
-            configure_state_migration(container, config)
+        configure_state_services(actual_container, actual_config)  # type: ignore
         
         logger.info("状态管理服务初始化成功")
         return True
@@ -69,167 +67,52 @@ def initialize_state_services(container: Optional[ServiceContainer] = None,
         return False
 
 
-def is_service_registered(service_type: type) -> bool:
-    """检查服务是否已注册
-    
-    Args:
-        service_type: 服务类型
-        
-    Returns:
-        是否已注册
-    """
-    try:
-        from src.services.container import is_service_registered as check_registered
-        return check_registered(service_type)
-    except Exception:
-        return False
-
-
-def get_state_manager() -> Optional['EnhancedStateManager']:
+def get_state_manager() -> Optional[IEnhancedStateManager]:
     """获取状态管理器实例
     
     Returns:
         状态管理器实例，如果未初始化则返回None
     """
     try:
-        from src.services.state import EnhancedStateManager
-        return get_service(EnhancedStateManager)
+        from src.services.container import container
+        return container.get(IEnhancedStateManager)  # type: ignore
     except Exception as e:
         logger.error(f"获取状态管理器失败: {e}")
         return None
 
 
-def get_history_service() -> Optional['StateHistoryService']:
+def get_history_service() -> Optional[IStateHistoryManager]:
     """获取历史管理服务实例
     
     Returns:
         历史管理服务实例，如果未初始化则返回None
     """
     try:
-        from src.services.state import StateHistoryService
-        return get_service(StateHistoryService)
+        from src.services.container import container
+        return container.get(IStateHistoryManager)  # type: ignore
     except Exception as e:
         logger.error(f"获取历史管理服务失败: {e}")
         return None
 
 
-def get_snapshot_service() -> Optional['StateSnapshotService']:
+def get_snapshot_service() -> Optional[IStateSnapshotManager]:
     """获取快照管理服务实例
     
     Returns:
         快照管理服务实例，如果未初始化则返回None
     """
     try:
-        from src.services.state import StateSnapshotService
-        return get_service(StateSnapshotService)
+        from src.services.container import container
+        return container.get(IStateSnapshotManager)  # type: ignore
     except Exception as e:
         logger.error(f"获取快照管理服务失败: {e}")
         return None
 
 
-def get_persistence_service() -> Optional['StatePersistenceService']:
-    """获取持久化服务实例
-    
-    Returns:
-        持久化服务实例，如果未初始化则返回None
-    """
-    try:
-        from src.services.state import StatePersistenceService
-        return get_service(StatePersistenceService)
-    except Exception as e:
-        logger.error(f"获取持久化服务失败: {e}")
-        return None
-
-
-def get_backup_service() -> Optional['StateBackupService']:
-    """获取备份服务实例
-    
-    Returns:
-        备份服务实例，如果未初始化则返回None
-    """
-    try:
-        from src.services.state import StateBackupService
-        return get_service(StateBackupService)
-    except Exception as e:
-        logger.error(f"获取备份服务失败: {e}")
-        return None
-
-
-def get_legacy_adapters() -> Optional[Dict[str, Any]]:
-    """获取旧架构适配器
-    
-    Returns:
-        适配器字典，如果未初始化则返回None
-    """
-    try:
-        from src.domain.state.interfaces import IStateCrudManager
-        from src.infrastructure.state.interfaces import IStateSnapshotStore, IStateHistoryManager as OldIStateHistoryManager
-        
-        return {
-            "state_manager": get_service(IStateCrudManager),
-            "history_manager": get_service(OldIStateHistoryManager),
-            "snapshot_store": get_service(IStateSnapshotStore)
-        }
-    except Exception as e:
-        logger.error(f"获取旧架构适配器失败: {e}")
-        return None
-
-
-def perform_migration_if_needed(config: Optional[Dict[str, Any]] = None) -> bool:
-    """执行迁移（如果需要）
-    
-    Args:
-        config: 配置字典
-        
-    Returns:
-        是否迁移成功
-    """
-    try:
-        if config is None:
-            config_manager = get_service(ConfigManager) if is_service_registered(ConfigManager) else None
-            if config_manager:
-                config = config_manager.get_config("state", {})
-            else:
-                config = get_state_service_config()
-        
-        migration_config = config.get("migration", {})
-        if not migration_config.get("auto_migrate", False):
-            logger.debug("自动迁移未启用")
-            return True
-        
-        from src.adapters.state import migrate_to_new_architecture
-        
-        # 这里需要获取旧组件，简化处理
-        old_components = {}  # 实际应用中需要从旧系统获取
-        
-        # 执行迁移
-        new_components = migrate_to_new_architecture(old_components)
-        
-        # 验证迁移结果
-        validation_results = new_components.get("migration_validation", {})
-        if all(validation_results.values()):
-            logger.info("自动迁移完成并验证成功")
-            return True
-        else:
-            logger.error(f"自动迁移验证失败: {validation_results}")
-            return False
-            
-    except Exception as e:
-        logger.error(f"执行自动迁移失败: {e}")
-        return False
-
-
 def shutdown_state_services() -> None:
     """关闭状态管理服务"""
     try:
-        # 关闭存储适配器
-        from src.adapters.storage import get_storage_manager
-        storage_manager = get_storage_manager()
-        if storage_manager:
-            storage_manager.close_all()
-        
         logger.info("状态管理服务已关闭")
-        
     except Exception as e:
         logger.error(f"关闭状态管理服务失败: {e}")
 
@@ -248,29 +131,23 @@ def get_service_status() -> Dict[str, Any]:
     }
     
     try:
-        # 检查核心服务
-        from src.services.state import EnhancedStateManager, StateHistoryService, StateSnapshotService
+        from src.services.container import container
         
         services_to_check = [
-            ("state_manager", EnhancedStateManager),
-            ("history_service", StateHistoryService),
-            ("snapshot_service", StateSnapshotService)
+            ("state_manager", IEnhancedStateManager),
+            ("history_service", IStateHistoryManager),
+            ("snapshot_service", IStateSnapshotManager)
         ]
         
         for service_name, service_type in services_to_check:
             try:
-                service = get_service(service_type)
+                service = container.get(service_type)  # type: ignore
                 status["services"][service_name] = service is not None
             except Exception as e:
                 status["services"][service_name] = False
                 status["errors"].append(f"{service_name}: {e}")
         
-        # 检查存储状态
-        from src.adapters.storage import get_storage_manager
-        storage_manager = get_storage_manager()
-        if storage_manager:
-            status["storage"] = storage_manager.get_statistics()
-            status["storage"]["health"] = storage_manager.health_check_all()
+        # 检查存储状态（暂不实现）
         
         # 检查是否所有核心服务都已初始化
         status["initialized"] = all(status["services"].values())
@@ -281,16 +158,17 @@ def get_service_status() -> Dict[str, Any]:
     return status
 
 
-# 便捷函数
 def ensure_state_services_initialized() -> bool:
     """确保状态管理服务已初始化
     
     Returns:
         是否初始化成功
     """
-    if not is_service_registered(type(get_state_manager() or object())):
+    try:
+        get_state_manager()
+        return True
+    except Exception:
         return initialize_state_services()
-    return True
 
 
 # 导出接口
@@ -299,10 +177,6 @@ __all__ = [
     "get_state_manager",
     "get_history_service", 
     "get_snapshot_service",
-    "get_persistence_service",
-    "get_backup_service",
-    "get_legacy_adapters",
-    "perform_migration_if_needed",
     "shutdown_state_services",
     "get_service_status",
     "ensure_state_services_initialized"

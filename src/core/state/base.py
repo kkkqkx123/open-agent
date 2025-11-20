@@ -12,8 +12,9 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
 
-from .interfaces import IStateHistoryManager, IStateSnapshotManager, IStateSerializer
-from .entities import StateSnapshot, StateHistoryEntry, StateDiff, StateStatistics
+from src.interfaces.state.interfaces import IStateHistoryManager, IStateSnapshotManager, IStateSerializer
+from src.interfaces.state.entities import StateSnapshot, StateHistoryEntry, StateStatistics
+from src.core.state.entities import StateDiff
 
 
 logger = logging.getLogger(__name__)

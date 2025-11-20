@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from src.interfaces.workflow.core import IWorkflow, ExecutionContext
-from src.interfaces.state.interfaces import IWorkflowState
+from src.interfaces.state import IWorkflowState
 from src.interfaces.workflow.graph import IGraph, INode, IEdge
 from .value_objects import WorkflowStep, WorkflowTransition, StepType, TransitionType
 

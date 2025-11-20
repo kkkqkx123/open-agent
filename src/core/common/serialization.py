@@ -13,7 +13,7 @@ from datetime import datetime
 from enum import Enum
 from collections import OrderedDict
 
-from .interfaces import ISerializable
+from src.interfaces.common import ISerializable
 
 
 class SerializationError(Exception):

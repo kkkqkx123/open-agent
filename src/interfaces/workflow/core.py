@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from dataclasses import dataclass
 
 if TYPE_CHECKING:
-    from ..state.interfaces import IWorkflowState
+    from ..state import IWorkflowState
     from .graph import IGraph, INode, IEdge
 
 # 需要延迟导入避免循环依赖

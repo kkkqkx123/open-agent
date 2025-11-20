@@ -7,7 +7,7 @@ import asyncio
 from typing import Dict, Any, List, AsyncIterator, Optional, AsyncGenerator
 from src.interfaces.workflow.execution import IStreamingExecutor
 from src.interfaces.workflow.core import IWorkflow, ExecutionContext
-from src.interfaces.state.interfaces import IWorkflowState
+from src.interfaces.state import IWorkflowState
 
 
 class StreamingExecutor(IStreamingExecutor):

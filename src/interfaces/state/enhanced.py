@@ -1,12 +1,13 @@
 """增强状态管理接口定义
 
-定义增强的状态管理接口，扩展基础状态管理器以支持历史记录、快照和冲突管理功能。
+定义增强的状态管理接口，扩展基础状态管理器以支持历史记录、快照和高级执行功能。
+此接口用于需要完整状态追踪、快照恢复和事务性状态操作的场景。
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Callable, Tuple
+from typing import Dict, Any, Optional, Callable, Tuple
 
-from .core import IState, IStateManager
+from .interfaces import IState, IStateManager
 from .history import IStateHistoryManager
 from .snapshot import IStateSnapshotManager
 from .serializer import IStateSerializer
@@ -15,7 +16,14 @@ from .serializer import IStateSerializer
 class IEnhancedStateManager(IStateManager):
     """增强的状态管理器接口
     
-    扩展基础状态管理器，添加历史记录和快照功能。
+    扩展基础状态管理器（IStateManager），添加历史记录、快照和事务性操作。
+    
+    用于复杂场景：
+    - 需要完整状态审计日志的系统
+    - 需要回滚/恢复功能的应用
+    - 需要事务性状态更新的场景
+    
+    简单CRUD系统可直接使用基础IStateManager，无需此接口。
     """
     
     @property

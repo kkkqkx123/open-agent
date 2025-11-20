@@ -4,8 +4,8 @@
 """
 
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
-from ..interfaces import IEdge
-from src.interfaces.state_core import IState
+from src.interfaces.workflow.graph import IEdge
+from src.interfaces.state import IState
 
 class BaseEdge(IEdge):
     """边基类"""
@@ -37,8 +37,20 @@ class BaseEdge(IEdge):
         """目标节点ID"""
         return self._to_node
 
-    def can_traverse(self, state: 'IState', config: Dict[str, Any]) -> bool:
+    def can_traverse(self, state: 'IState') -> bool:
         """判断是否可以遍历此边
+
+        Args:
+            state: 当前工作流状态
+
+        Returns:
+            bool: 是否可以遍历
+        """
+        # 默认实现：总是可以遍历
+        return True
+
+    def can_traverse_with_config(self, state: 'IState', config: Dict[str, Any]) -> bool:
+        """判断是否可以遍历此边（带配置）
 
         Args:
             state: 当前工作流状态

@@ -7,8 +7,6 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from .base import BaseLLMClient
 from ..config import HumanRelayConfig
 from ..models import LLMResponse, TokenUsage
-from ..frontend_interface import create_frontend_interface
-from ..frontend_interface_enhanced import create_enhanced_frontend_interface
 from ..exceptions import LLMTimeoutError, LLMInvalidRequestError
 
 
@@ -24,15 +22,7 @@ class HumanRelayClient(BaseLLMClient):
         """
         super().__init__(config)
         self.mode = config.mode  # "single" 或 "multi"
-        
-        # 选择前端接口实现
-        use_enhanced = config.metadata_config.get('use_enhanced_frontend', False)
-        
-        if use_enhanced:
-            self.frontend_interface = create_enhanced_frontend_interface(config.frontend_config)
-        else:
-            self.frontend_interface = create_frontend_interface(config.frontend_config)
-        
+
         self.conversation_history: List[BaseMessage] = []
         self.max_history_length = config.max_history_length
         self.prompt_template = config.prompt_template
@@ -52,7 +42,7 @@ class HumanRelayClient(BaseLLMClient):
     ) -> LLMResponse:
         """执行生成操作"""
         # 使用EventLoopManager运行异步方法
-        from src.infrastructure.async_utils.event_loop_manager import run_async
+        from core.common.async_tuils import run_async
         return run_async(self._do_generate_async(messages, parameters, **kwargs))
     
     async def _single_turn_generate(
@@ -228,7 +218,7 @@ class HumanRelayClient(BaseLLMClient):
     ) -> Generator[str, None, None]:
         """执行流式生成操作"""
         # 使用EventLoopManager运行异步方法
-        from src.infrastructure.async_utils.event_loop_manager import run_async
+        from core.common.async_tuils import run_async
         
         # 获取完整响应
         response = run_async(self._do_generate_async(messages, parameters, **kwargs))

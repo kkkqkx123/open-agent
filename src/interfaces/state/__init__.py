@@ -4,7 +4,7 @@
 """
 
 # 核心状态接口
-from .core import IState, IStateManager
+from .interfaces import IState, IStateManager
 
 # 工作流状态接口
 from .workflow import IWorkflowState

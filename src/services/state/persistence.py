@@ -8,8 +8,8 @@ from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 from contextlib import contextmanager
 
-from src.core.state.entities import StateSnapshot, StateHistoryEntry, StateStatistics
-from src.interfaces.state_core import IStateStorageAdapter
+from src.interfaces.state.entities import StateSnapshot, StateHistoryEntry, StateStatistics
+from src.interfaces.state.storage.adapter import IStateStorageAdapter
 
 
 logger = logging.getLogger(__name__)

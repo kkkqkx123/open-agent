@@ -331,7 +331,7 @@ class AsyncRestTool(BaseTool):
                 return future.result()
         except RuntimeError:
             # 没有运行的事件循环，使用EventLoopManager
-            from src.infrastructure.async_utils.event_loop_manager import run_async
+            from core.common.async_tuils import run_async
             return run_async(self.execute_async(**kwargs))
     
     @classmethod

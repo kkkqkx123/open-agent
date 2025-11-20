@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional, AsyncIterator, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .core import IWorkflow
-    from ..state.interfaces import IWorkflowState
+    from ..state import IWorkflowState
 
 
 class IWorkflowExecutor(ABC):

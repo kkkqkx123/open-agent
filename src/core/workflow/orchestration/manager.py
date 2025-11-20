@@ -6,7 +6,8 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
-from src.interfaces.workflow.core import IWorkflow, IWorkflowState
+from src.interfaces.workflow.core import IWorkflow
+from src.interfaces.state import IWorkflowState
 from src.core.workflow.workflow import Workflow
 from .orchestrator import WorkflowOrchestrator
 from ..execution.executor import WorkflowExecutor

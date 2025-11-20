@@ -1,429 +1,199 @@
-"""State interfaces module.
+"""核心状态接口定义
 
-This module defines the core state interfaces for the application following the new architecture.
+定义状态管理系统的基础接口，所有状态对象和管理器必须遵循此接口。
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 
 class IState(ABC):
-    """State interface defining the contract for state objects in the system.
+    """基础状态接口
     
-    This interface provides a common contract that all state implementations
-    must adhere to, allowing for consistent state management across different
-    components and modules.
+    定义状态对象的基本契约，所有状态实现必须遵循此接口。
     """
     
     @abstractmethod
     def get_data(self, key: str, default: Any = None) -> Any:
-        """Get data from the state by key.
+        """从状态中获取数据
         
         Args:
-            key: The key to retrieve data for
-            default: Default value to return if key is not found
+            key: 要获取数据的键
+            default: 如果键不存在时返回的默认值
             
         Returns:
-            The value associated with the key, or default if not found
+            与键关联的值，如果未找到则返回默认值
         """
         pass
     
     @abstractmethod
     def set_data(self, key: str, value: Any) -> None:
-        """Set data in the state.
+        """在状态中设置数据
         
         Args:
-            key: The key to set
-            value: The value to associate with the key
+            key: 要设置的键
+            value: 要与键关联的值
         """
         pass
     
     @abstractmethod
     def get_metadata(self, key: str, default: Any = None) -> Any:
-        """Get metadata from the state by key.
+        """从状态中获取元数据
         
         Args:
-            key: The key to retrieve metadata for
-            default: Default value to return if key is not found
+            key: 要获取元数据的键
+            default: 如果键不存在时返回的默认值
             
         Returns:
-            The metadata value associated with the key, or default if not found
+            与键关联的元数据值，如果未找到则返回默认值
         """
         pass
     
     @abstractmethod
     def set_metadata(self, key: str, value: Any) -> None:
-        """Set metadata in the state.
+        """在状态中设置元数据
         
         Args:
-            key: The key to set
-            value: The metadata value to associate with the key
+            key: 要设置的键
+            value: 要与键关联的元数据值
         """
         pass
     
     @abstractmethod
     def get_id(self) -> Optional[str]:
-        """Get the state ID.
+        """获取状态ID
         
         Returns:
-            The state ID, or None if not set
+            状态ID，如果未设置则返回None
         """
         pass
     
     @abstractmethod
     def set_id(self, id: str) -> None:
-        """Set the state ID.
+        """设置状态ID
         
         Args:
-            id: The ID to set
+            id: 要设置的ID
         """
         pass
     
     @abstractmethod
     def get_created_at(self) -> datetime:
-        """Get the creation timestamp.
+        """获取创建时间戳
         
         Returns:
-            The creation timestamp
+            创建时间戳
         """
         pass
     
     @abstractmethod
     def get_updated_at(self) -> datetime:
-        """Get the last update timestamp.
+        """获取最后更新时间戳
         
         Returns:
-            The last update timestamp
+            最后更新时间戳
         """
         pass
     
     @abstractmethod
     def is_complete(self) -> bool:
-        """Check if the state is complete.
+        """检查状态是否完成
         
         Returns:
-            True if complete, False otherwise
+            如果完成则返回True，否则返回False
         """
         pass
     
     @abstractmethod
     def mark_complete(self) -> None:
-        """Mark the state as complete."""
+        """将状态标记为完成"""
         pass
     
     @abstractmethod
     def to_dict(self) -> Dict[str, Any]:
-        """Convert the state to a dictionary representation.
+        """将状态转换为字典表示
         
         Returns:
-            Dictionary representation of the state
+            状态的字典表示
         """
         pass
     
     @classmethod
     @abstractmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'IState':
-        """Create a state instance from a dictionary.
+        """从字典创建状态实例
         
         Args:
-            data: Dictionary representation of the state
+            data: 状态的字典表示
             
         Returns:
-            New instance of the state
-        """
-        pass
-
-
-class IWorkflowState(IState):
-    """Interface for workflow state objects.
-    
-    Extends the base state interface with workflow-specific methods
-    and properties.
-    """
-    
-    @abstractmethod
-    def get_messages(self) -> List[Any]:
-        """Get the list of messages in the workflow state.
-        
-        Returns:
-            List of messages
-        """
-        pass
-    
-    @abstractmethod
-    def add_message(self, message: Any) -> None:
-        """Add a message to the workflow state.
-        
-        Args:
-            message: The message to add
-        """
-        pass
-    
-    @abstractmethod
-    def get_last_message(self) -> Optional[Any]:
-        """Get the last message in the workflow state.
-        
-        Returns:
-            The last message, or None if no messages
-        """
-        pass
-    
-    @abstractmethod
-    def get_value(self, key: str, default: Any = None) -> Any:
-        """Get a value from the state.
-        
-        Args:
-            key: The key to retrieve
-            default: Default value to return if key is not found
-            
-        Returns:
-            The value associated with the key, or default if not found
-        """
-        pass
-    
-    @abstractmethod
-    def set_value(self, key: str, value: Any) -> None:
-        """Set a value in the state.
-        
-        Args:
-            key: The key to set
-            value: The value to associate with the key
-        """
-        pass
-    
-    @abstractmethod
-    def get_current_node(self) -> Optional[str]:
-        """Get the current node in the workflow.
-        
-        Returns:
-            The current node name, or None if not set
-        """
-        pass
-    
-    @abstractmethod
-    def set_current_node(self, node: str) -> None:
-        """Set the current node in the workflow.
-        
-        Args:
-            node: The node name to set
-        """
-        pass
-    
-    @abstractmethod
-    def get_iteration_count(self) -> int:
-        """Get the current iteration count.
-        
-        Returns:
-            The current iteration count
-        """
-        pass
-    
-    @abstractmethod
-    def increment_iteration(self) -> None:
-        """Increment the iteration count."""
-        pass
-    
-    @abstractmethod
-    def get_thread_id(self) -> Optional[str]:
-        """Get the thread ID.
-        
-        Returns:
-            The thread ID, or None if not set
-        """
-        pass
-    
-    @abstractmethod
-    def set_thread_id(self, thread_id: str) -> None:
-        """Set the thread ID.
-        
-        Args:
-            thread_id: The thread ID to set
-        """
-        pass
-    
-    @abstractmethod
-    def get_session_id(self) -> Optional[str]:
-        """Get the session ID.
-        
-        Returns:
-            The session ID, or None if not set
-        """
-        pass
-    
-    @abstractmethod
-    def set_session_id(self, session_id: str) -> None:
-        """Set the session ID.
-        
-        Args:
-            session_id: The session ID to set
+            新的状态实例
         """
         pass
 
 
 class IStateManager(ABC):
-    """Interface for state managers.
+    """状态管理器接口
     
-    Defines the contract for state management implementations,
-    providing CRUD operations and lifecycle management.
+    定义状态管理实现的契约，提供CRUD操作和生命周期管理。
     """
     
     @abstractmethod
     def create_state(self, state_id: str, initial_state: Dict[str, Any]) -> IState:
-        """Create a new state.
+        """创建新状态
         
         Args:
-            state_id: Unique identifier for the state
-            initial_state: Initial state data
+            state_id: 状态的唯一标识符
+            initial_state: 初始状态数据
             
         Returns:
-            The created state instance
+            创建的状态实例
         """
         pass
     
     @abstractmethod
     def get_state(self, state_id: str) -> Optional[IState]:
-        """Get state by ID.
+        """根据ID获取状态
         
         Args:
-            state_id: Unique identifier for the state
+            state_id: 状态的唯一标识符
             
         Returns:
-            The state instance, or None if not found
+            状态实例，如果未找到则返回None
         """
         pass
     
     @abstractmethod
     def update_state(self, state_id: str, updates: Dict[str, Any]) -> IState:
-        """Update state.
+        """更新状态
         
         Args:
-            state_id: Unique identifier for the state
-            updates: Dictionary of updates to apply
+            state_id: 状态的唯一标识符
+            updates: 要应用的更新字典
             
         Returns:
-            The updated state instance
+            更新后的状态实例
         """
         pass
     
     @abstractmethod
     def delete_state(self, state_id: str) -> bool:
-        """Delete state.
+        """删除状态
         
         Args:
-            state_id: Unique identifier for the state
+            state_id: 状态的唯一标识符
             
         Returns:
-            True if state was deleted, False if not found
+            如果状态被删除则返回True，如果未找到则返回False
         """
         pass
     
     @abstractmethod
     def list_states(self) -> List[str]:
-        """List all state IDs.
+        """列出所有状态ID
         
         Returns:
-            List of state IDs
-        """
-        pass
-
-
-class IStateSerializer(ABC):
-    """Interface for state serializers.
-    
-    Defines the contract for state serialization and deserialization
-    implementations.
-    """
-    
-    @abstractmethod
-    def serialize(self, state: IState) -> Union[str, bytes]:
-        """Serialize state to a string or bytes.
-        
-        Args:
-            state: The state to serialize
-            
-        Returns:
-            Serialized state data
-        """
-        pass
-    
-    @abstractmethod
-    def deserialize(self, data: Union[str, bytes]) -> IState:
-        """Deserialize state from string or bytes.
-        
-        Args:
-            data: The serialized state data
-            
-        Returns:
-            The deserialized state instance
-        """
-        pass
-
-
-class IStateFactory(ABC):
-    """Interface for state factories.
-    
-    Defines the contract for state creation implementations.
-    """
-    
-    @abstractmethod
-    def create_workflow_state(self, **kwargs: Any) -> IWorkflowState:
-        """Create a workflow state.
-        
-        Args:
-            **kwargs: Arguments for state creation
-            
-        Returns:
-            The created workflow state
-        """
-        pass
-    
-    @abstractmethod
-    def create_state_from_type(self, state_type: str, **kwargs: Any) -> IState:
-        """Create a state of the specified type.
-        
-        Args:
-            state_type: The type of state to create
-            **kwargs: Arguments for state creation
-            
-        Returns:
-            The created state
-        """
-        pass
-
-
-class IStateLifecycleManager(ABC):
-    """Interface for state lifecycle managers.
-    
-    Defines the contract for state lifecycle management implementations.
-    """
-    
-    @abstractmethod
-    def initialize_state(self, state: IState) -> None:
-        """Initialize a state.
-        
-        Args:
-            state: The state to initialize
-        """
-        pass
-    
-    @abstractmethod
-    def cleanup_state(self, state: IState) -> None:
-        """Clean up a state.
-        
-        Args:
-            state: The state to clean up
-        """
-        pass
-    
-    @abstractmethod
-    def validate_state(self, state: IState) -> List[str]:
-        """Validate a state.
-        
-        Args:
-            state: The state to validate
-            
-        Returns:
-            List of validation errors, empty if valid
+            状态ID列表
         """
         pass

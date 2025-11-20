@@ -6,7 +6,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional
 
-from .core import IState
+from .interfaces import IState
 
 
 class IWorkflowState(IState):

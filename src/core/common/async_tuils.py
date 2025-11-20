@@ -13,13 +13,13 @@ import concurrent.futures
 logger = logging.getLogger(__name__)
 
 
-class EventLoopManager:
+class AsyncUtils:
     """事件循环管理器
     
     提供单例模式的事件循环管理，确保在同步环境中正确运行异步代码。
     """
     
-    _instance: Optional['EventLoopManager'] = None
+    _instance: Optional['AsyncUtils'] = None
     _lock = threading.Lock()
     _initialized: bool = False
     
@@ -112,7 +112,7 @@ class EventLoopManager:
 
 
 # 全局事件循环管理器实例
-event_loop_manager = EventLoopManager()
+event_loop_manager = AsyncUtils()
 
 
 def run_async(coro: Coroutine[Any, Any, Any]) -> Any:

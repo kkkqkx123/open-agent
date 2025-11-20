@@ -7,9 +7,11 @@ import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from src.interfaces.state_core import IStateSnapshotManager, IStateSerializer, IStateStorageAdapter
+from src.interfaces.state.snapshot import IStateSnapshotManager
+from src.interfaces.state.serializer import IStateSerializer
+from src.interfaces.state.storage.adapter import IStateStorageAdapter
+from src.interfaces.state.entities import StateSnapshot
 from src.core.state.base import BaseStateSnapshotManager
-from src.core.state.entities import StateSnapshot
 
 
 logger = logging.getLogger(__name__)

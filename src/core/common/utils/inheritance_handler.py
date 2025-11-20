@@ -12,38 +12,8 @@ from pydantic import BaseModel, ValidationError
 from abc import ABC, abstractmethod
 
 from ..exceptions import ConfigurationError
-from ..interfaces import IConfigLoader
-from ..interfaces import IConfigInheritanceHandler as IConfigInheritanceHandlerInterface
-
-
-class IConfigInheritanceHandler(IConfigInheritanceHandlerInterface):
-    """配置继承处理器接口"""
-    
-    @abstractmethod
-    def resolve_inheritance(self, config: Dict[str, Any], base_path: Optional[Path] = None) -> Dict[str, Any]:
-        """解析配置继承关系
-        
-        Args:
-            config: 原始配置
-            base_path: 基础路径
-            
-        Returns:
-            解析后的配置
-        """
-        pass
-    
-    @abstractmethod
-    def validate_config(self, config: Dict[str, Any], schema: Optional[object] = None) -> List[str]:
-        """验证配置
-        
-        Args:
-            config: 配置数据
-            schema: 验证模式
-            
-        Returns:
-            验证错误列表
-        """
-        pass
+from src.interfaces.common import IConfigLoader
+from src.interfaces.common import IConfigInheritanceHandler
 
 
 class ConfigInheritanceHandler(IConfigInheritanceHandler):
