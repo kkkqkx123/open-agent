@@ -9,15 +9,17 @@ from pathlib import Path
 
 from src.core.state.entities import StateSnapshot, StateHistoryEntry
 from src.core.state.exceptions import StorageError
-from .base_state_storage_adapter_optimized import OptimizedStateStorageAdapter
+from .sync_adapter import SyncStateStorageAdapter
 from .sqlite_backend import SQLiteStorageBackend
+from .metrics import StorageMetrics
+from .transaction import TransactionManager
 from .utils.sqlite_utils import SQLiteStorageUtils
 
 
 logger = logging.getLogger(__name__)
 
 
-class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
+class SQLiteStateStorageAdapter(SyncStateStorageAdapter):
     """SQLite状态存储适配器
     
     提供基于SQLite的状态存储适配器实现。
@@ -32,63 +34,23 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
         # 创建SQLite存储后端
         backend = SQLiteStorageBackend(**config)
         
+        # 创建指标收集器
+        metrics = StorageMetrics()
+        
+        # 创建事务管理器
+        transaction_manager = TransactionManager(backend)
+        
         # 初始化基类
-        super().__init__(backend)
+        super().__init__(
+            backend=backend,
+            metrics=metrics,
+            transaction_manager=transaction_manager
+        )
         
         # 存储配置
         self._config = config
         
         logger.info("SQLiteStateStorageAdapter initialized")
-    
-    def save_history_entry(self, entry: StateHistoryEntry) -> bool:
-        """保存历史记录条目
-        
-        Args:
-            entry: 历史记录条目
-            
-        Returns:
-            是否保存成功
-        """
-        try:
-            # 转换为字典格式
-            data = entry.to_dict()
-            data["type"] = "history_entry"
-            
-            # 运行异步方法
-            result = self._run_async_method(self._backend.save_impl, data)
-            return bool(result)
-            
-        except Exception as e:
-            logger.error(f"Failed to save history entry: {e}")
-            return False
-    
-    def get_history_entries(self, agent_id: str, limit: int = 100) -> List[StateHistoryEntry]:
-        """获取指定代理的历史记录条目
-        
-        Args:
-            agent_id: 代理ID
-            limit: 返回条目数量限制
-            
-        Returns:
-            历史记录条目列表
-        """
-        try:
-            filters = {"type": "history_entry", "agent_id": agent_id}
-            
-            # 运行异步方法
-            results = self._run_async_method(self._backend.list_impl, filters, limit)
-            
-            # 转换为历史记录条目对象
-            entries = []
-            for data in results:
-                entry = StateHistoryEntry.from_dict(data)
-                entries.append(entry)
-            
-            return entries
-            
-        except Exception as e:
-            logger.error(f"Failed to get history entries: {e}")
-            return []
     
     def get_history_entry(self, history_id: str) -> Optional[StateHistoryEntry]:
         """获取指定ID的历史记录条目
@@ -100,8 +62,8 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
             历史记录条目对象或None
         """
         try:
-            # 运行异步方法
-            data = self._run_async_method(self._backend.load_impl, history_id)
+            # 使用后端的加载方法
+            data = self._backend.load_impl(history_id)
             
             if data is None:
                 return None
@@ -124,30 +86,12 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
             是否更新成功
         """
         try:
-            # 运行异步方法
-            result = self._run_async_method(self._backend.update_impl, history_id, updates)
+            # 使用后端的更新方法
+            result = self._backend.update_impl(history_id, updates)
             return bool(result)
             
         except Exception as e:
             logger.error(f"Failed to update history entry: {e}")
-            return False
-    
-    def delete_history_entry(self, history_id: str) -> bool:
-        """删除历史记录条目
-        
-        Args:
-            history_id: 历史记录ID
-            
-        Returns:
-            是否删除成功
-        """
-        try:
-            # 运行异步方法
-            result = self._run_async_method(self._backend.delete_impl, history_id)
-            return bool(result)
-            
-        except Exception as e:
-            logger.error(f"Failed to delete history entry: {e}")
             return False
     
     def get_history_entries_by_session(
@@ -167,8 +111,8 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
         try:
             filters = {"type": "history_entry", "session_id": session_id}
             
-            # 运行异步方法
-            results = self._run_async_method(self._backend.list_impl, filters, limit)
+            # 使用后端的列表方法
+            results = self._backend.list_impl(filters, limit)
             
             # 转换为历史记录条目对象
             entries = []
@@ -199,8 +143,8 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
         try:
             filters = {"type": "history_entry", "thread_id": thread_id}
             
-            # 运行异步方法
-            results = self._run_async_method(self._backend.list_impl, filters, limit)
+            # 使用后端的列表方法
+            results = self._backend.list_impl(filters, limit)
             
             # 转换为历史记录条目对象
             entries = []
@@ -241,8 +185,8 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
             if agent_id:
                 filters["agent_id"] = agent_id
             
-            # 运行异步方法
-            results = self._run_async_method(self._backend.list_impl, filters, limit)
+            # 使用后端的列表方法
+            results = self._backend.list_impl(filters, limit)
             
             # 转换为历史记录条目对象
             entries = []
@@ -288,16 +232,8 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
             
             sql_query += " ORDER BY created_at DESC"
             
-            # 运行异步方法
-            results = self._run_async_method(
-                self._backend.query_impl,
-                f"sql:{sql_query}",
-                {"params": params, "limit": limit}
-            )
-            
-            # 运行异步方法
-            results = self._run_async_method(
-                self._backend.query_impl, 
+            # 使用后端的查询方法
+            results = self._backend.query_impl(
                 f"sql:{sql_query}", 
                 {"params": params}
             )
@@ -314,33 +250,6 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
             logger.error(f"Failed to search history entries: {e}")
             return []
     
-    def get_history_statistics(self) -> Dict[str, Any]:
-        """获取历史记录统计信息
-        
-        Returns:
-            统计信息字典
-        """
-        try:
-            # 运行异步方法
-            count = self._run_async_method(self._backend.count_impl, {"type": "history_entry"})
-            
-            # 获取数据库信息
-            health_info = self._run_async_method(self._backend.health_check_impl)
-            
-            return {
-                "total_entries": count,
-                "storage_type": "sqlite",
-                "database_size_bytes": health_info.get("database_size_bytes", 0),
-                "database_size_mb": health_info.get("database_size_mb", 0),
-                "connection_pool_size": health_info.get("connection_pool_size", 0),
-                "active_connections": health_info.get("active_connections", 0),
-                "expired_records_cleaned": health_info.get("expired_records_cleaned", 0)
-            }
-            
-        except Exception as e:
-            logger.error(f"Failed to get history statistics: {e}")
-            return {"total_entries": 0, "storage_type": "sqlite"}
-    
     def cleanup_old_history(self, retention_days: int) -> int:
         """清理旧的历史记录
         
@@ -351,8 +260,7 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
             清理的记录数
         """
         try:
-            # 运行异步方法
-            count = self._run_async_method(self._backend.cleanup_old_data_impl, retention_days)
+            count = self._backend.cleanup_old_data_impl(retention_days)
             if isinstance(count, int):
                 return count
             return 0
@@ -394,12 +302,11 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
                 filters["created_at"] = str({"$lte": end_time})
             
             # 获取历史记录
-            entries = self._run_async_method(self._backend.list_impl, filters, limit=10000)
+            entries = self._backend.list_impl(filters, limit=10000)
             
             # 导出数据
             import json
             import csv
-            from pathlib import Path
             import time
             
             # 创建导出目录
@@ -472,8 +379,7 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
                 try:
                     # 确保是历史记录条目
                     if entry_data.get("type") == "history_entry":
-                        # 运行异步方法
-                        result = self._run_async_method(self._backend.save_impl, entry_data)
+                        result = self._backend.save_impl(entry_data)
                         if result:
                             imported_count += 1
                 except Exception as e:
@@ -497,7 +403,6 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
             备份文件路径
         """
         try:
-            from pathlib import Path
             import time
             
             # 如果未指定备份路径，使用默认路径
@@ -508,12 +413,12 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
                 backup_path = str(backup_dir / f"storage_backup_{timestamp}.db")
             
             # 获取连接并创建备份
-            # 获取连接并创建备份
-            # 注意：这里需要通过后端的公共方法来操作，不能直接访问私有方法
-            # 我们需要添加一个公共方法到后端来支持备份操作
             try:
                 # 临时解决方案：直接使用工具类
-                conn = SQLiteStorageUtils.create_connection(getattr(self._backend, 'db_path', 'storage.db'), getattr(self._backend, 'timeout', 30.0))
+                conn = SQLiteStorageUtils.create_connection(
+                    getattr(self._backend, 'db_path', 'storage.db'), 
+                    getattr(self._backend, 'timeout', 30.0)
+                )
                 try:
                     SQLiteStorageUtils.backup_database(conn, backup_path)
                     logger.info(f"Created backup: {backup_path}")
@@ -538,13 +443,18 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
         """
         try:
             # 断开当前连接
-            self._run_async_method(self._backend.disconnect)
+            if hasattr(self._backend, 'disconnect'):
+                self._backend.disconnect()
             
             # 恢复数据库
-            SQLiteStorageUtils.restore_database(backup_path, getattr(self._backend, 'db_path', 'storage.db'))
+            SQLiteStorageUtils.restore_database(
+                backup_path, 
+                getattr(self._backend, 'db_path', 'storage.db')
+            )
             
             # 重新连接
-            self._run_async_method(self._backend.connect)
+            if hasattr(self._backend, 'connect'):
+                self._backend.connect()
             
             logger.info(f"Restored database from: {backup_path}")
             return True
@@ -555,21 +465,21 @@ class SQLiteStateStorageAdapter(OptimizedStateStorageAdapter):
     
     def optimize_database(self) -> bool:
         """优化数据库
+        底层：ANALYZE(更新表统计信息)+VACUUM(重建数据库文件)
         
         Returns:
             是否优化成功
         """
         try:
             # 获取连接并优化
-            # 使用公共方法而不是私有方法
             if hasattr(self._backend, '_get_connection') and hasattr(self._backend, '_return_connection'):
-                conn = self._backend._get_connection()  # type: ignore
+                conn = self._backend._get_connection()
                 try:
                     SQLiteStorageUtils.optimize_database(conn)
                     logger.info("Database optimized successfully")
                     return True
                 finally:
-                    self._backend._return_connection(conn)  # type: ignore
+                    self._backend._return_connection(conn)
             else:
                 logger.warning("Backend does not support connection management for optimization")
                 return False

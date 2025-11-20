@@ -24,6 +24,12 @@ from .adapter_interfaces import (
     IStorageMigration,
 )
 
+from .async_adapter_interfaces import (
+    IAsyncStateStorageAdapter,
+    IAsyncStorageAdapterFactory,
+    IAsyncStorageMigration,
+)
+
 # 导入实体类型
 from .entities import (
     ConflictType,
@@ -49,6 +55,9 @@ __all__ = [
     'IStateStorageAdapter',
     'IStorageAdapterFactory',
     'IStorageMigration',
+    'IAsyncStateStorageAdapter',
+    'IAsyncStorageAdapterFactory',
+    'IAsyncStorageMigration',
     
     # 实体类型
     'ConflictType',

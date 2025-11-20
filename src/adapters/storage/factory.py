@@ -1,425 +1,230 @@
 """存储适配器工厂
 
-提供存储适配器的创建和注册机制，支持动态扩展。
+提供创建同步和异步存储适配器的工厂实现。
 """
 
 import logging
-from typing import Dict, Any, Optional, Type, Callable, Union, List
-from abc import ABC, abstractmethod
+from typing import Dict, Any, Optional, Union
 
-from src.core.state.interfaces import IStateStorageAdapter
-from src.core.state.exceptions import StorageError, StorageConfigurationError as ConfigurationError
-from .memory import MemoryStateStorageAdapter
-from .sqlite import SQLiteStateStorageAdapter
-from .file import FileStateStorageAdapter
-
+from src.core.state.interfaces import (
+    IStateStorageAdapter,
+    IStorageAdapterFactory,
+    IAsyncStateStorageAdapter
+)
+from src.core.state.storage_interfaces import IStorageBackend
+from .async_adapter import AsyncStateStorageAdapter
+from .sync_adapter import SyncStateStorageAdapter
+from .metrics import StorageMetrics
+from .transaction import TransactionManager
 
 logger = logging.getLogger(__name__)
 
 
-class StorageAdapterFactory(ABC):
-    """存储适配器工厂抽象基类"""
+class StorageAdapterFactory(IStorageAdapterFactory):
+    """存储适配器工厂实现
     
-    @abstractmethod
-    def create_adapter(self, config: Dict[str, Any]) -> IStateStorageAdapter:
-        """创建存储适配器
+    提供创建同步存储适配器的功能。
+    """
+    
+    def __init__(self):
+        """初始化存储适配器工厂"""
+        self._supported_types = {
+            'memory': 'In-memory storage backend',
+            'sqlite': 'SQLite storage backend',
+            'file': 'File-based storage backend'
+        }
+    
+    def create_adapter(self, storage_type: str, config: Dict[str, Any]) -> IStateStorageAdapter:
+        """创建同步存储适配器
         
         Args:
+            storage_type: 存储类型
             config: 配置参数
             
         Returns:
-            存储适配器实例
+            同步存储适配器实例
         """
-        pass
+        # 导入后端实现
+        if storage_type == 'memory':
+            from .memory_backend import MemoryStorageBackend
+            backend = MemoryStorageBackend(**config)
+        elif storage_type == 'sqlite':
+            from .sqlite_backend import SQLiteStorageBackend
+            backend = SQLiteStorageBackend(**config)
+        elif storage_type == 'file':
+            from .file_backend import FileStorageBackend
+            backend = FileStorageBackend(**config)
+        else:
+            raise ValueError(f"Unsupported storage type: {storage_type}")
+        
+        # 创建指标收集器
+        metrics = StorageMetrics()
+        
+        # 创建事务管理器
+        transaction_manager = TransactionManager(backend)
+        
+        # 创建适配器
+        adapter = SyncStateStorageAdapter(
+            backend=backend,
+            metrics=metrics,
+            transaction_manager=transaction_manager
+        )
+        
+        logger.info(f"Created sync storage adapter for type: {storage_type}")
+        return adapter
     
-    @abstractmethod
-    def get_adapter_type(self) -> str:
-        """获取适配器类型
+    def get_supported_types(self) -> list[str]:
+        """获取支持的存储类型
         
         Returns:
-            适配器类型字符串
+            支持的存储类型列表
         """
-        pass
+        return list(self._supported_types.keys())
     
-    @abstractmethod
-    def validate_config(self, config: Dict[str, Any]) -> bool:
+    def validate_config(self, storage_type: str, config: Dict[str, Any]) -> list[str]:
         """验证配置参数
         
         Args:
+            storage_type: 存储类型
             config: 配置参数
             
         Returns:
-            是否验证通过
+            验证错误列表，空列表表示验证通过
         """
-        pass
-
-
-class MemoryStorageAdapterFactory(StorageAdapterFactory):
-    """内存存储适配器工厂"""
-    
-    def create_adapter(self, config: Dict[str, Any]) -> IStateStorageAdapter:
-        """创建内存存储适配器"""
-        return MemoryStateStorageAdapter(**config)
-    
-    def get_adapter_type(self) -> str:
-        """获取适配器类型"""
-        return "memory"
-    
-    def validate_config(self, config: Dict[str, Any]) -> bool:
-        """验证配置参数"""
-        # 内存存储配置验证
-        if "max_size" in config and config["max_size"] is not None:
-            if not isinstance(config["max_size"], int) or config["max_size"] <= 0:
-                return False
+        errors = []
         
-        if "max_memory_mb" in config and config["max_memory_mb"] is not None:
-            if not isinstance(config["max_memory_mb"], int) or config["max_memory_mb"] <= 0:
-                return False
+        if storage_type not in self._supported_types:
+            errors.append(f"Unsupported storage type: {storage_type}")
         
-        return True
+        # 根据存储类型验证特定配置
+        if storage_type == 'sqlite':
+            if 'database_path' not in config:
+                errors.append("database_path is required for sqlite storage")
+        elif storage_type == 'file':
+            if 'storage_path' not in config:
+                errors.append("storage_path is required for file storage")
+        
+        return errors
 
 
-class SQLiteStorageAdapterFactory(StorageAdapterFactory):
-    """SQLite存储适配器工厂"""
+class AsyncStorageAdapterFactory:
+    """异步存储适配器工厂实现
     
-    def create_adapter(self, config: Dict[str, Any]) -> IStateStorageAdapter:
-        """创建SQLite存储适配器"""
-        return SQLiteStateStorageAdapter(**config)
-    
-    def get_adapter_type(self) -> str:
-        """获取适配器类型"""
-        return "sqlite"
-    
-    def validate_config(self, config: Dict[str, Any]) -> bool:
-        """验证配置参数"""
-        # SQLite存储配置验证
-        if "db_path" not in config or not config["db_path"]:
-            return False
-        
-        if "timeout" in config:
-            if not isinstance(config["timeout"], (int, float)) or config["timeout"] <= 0:
-                return False
-        
-        if "connection_pool_size" in config:
-            if not isinstance(config["connection_pool_size"], int) or config["connection_pool_size"] <= 0:
-                return False
-        
-        return True
-
-
-class FileStorageAdapterFactory(StorageAdapterFactory):
-    """文件存储适配器工厂"""
-    
-    def create_adapter(self, config: Dict[str, Any]) -> IStateStorageAdapter:
-        """创建文件存储适配器"""
-        return FileStateStorageAdapter(**config)
-    
-    def get_adapter_type(self) -> str:
-        """获取适配器类型"""
-        return "file"
-    
-    def validate_config(self, config: Dict[str, Any]) -> bool:
-        """验证配置参数"""
-        # 文件存储配置验证
-        if "base_path" not in config or not config["base_path"]:
-            return False
-        
-        if "max_files_per_directory" in config:
-            if not isinstance(config["max_files_per_directory"], int) or config["max_files_per_directory"] <= 0:
-                return False
-        
-        return True
-
-
-class StorageAdapterFactoryRegistry:
-    """存储适配器工厂注册表
-    
-    管理存储适配器工厂的注册和创建。
+    提供创建异步存储适配器的功能。
     """
     
-    def __init__(self) -> None:
-        """初始化工厂注册表"""
-        self._factories: Dict[str, StorageAdapterFactory] = {}
-        self._custom_factories: Dict[str, Type[StorageAdapterFactory]] = {}
-        
-        # 注册默认工厂
-        self._register_default_factories()
-        
-        logger.info("StorageAdapterFactoryRegistry initialized")
-    
-    def _register_default_factories(self) -> None:
-        """注册默认工厂"""
-        self.register_factory("memory", MemoryStorageAdapterFactory())
-        self.register_factory("sqlite", SQLiteStorageAdapterFactory())
-        self.register_factory("file", FileStorageAdapterFactory())
-    
-    def register_factory(self, adapter_type: str, factory: StorageAdapterFactory) -> bool:
-        """注册存储适配器工厂
-        
-        Args:
-            adapter_type: 适配器类型
-            factory: 工厂实例
-            
-        Returns:
-            是否注册成功
-        """
-        try:
-            if adapter_type in self._factories:
-                logger.warning(f"Factory for {adapter_type} already exists, overriding...")
-            
-            self._factories[adapter_type] = factory
-            logger.info(f"Registered factory for adapter type: {adapter_type}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to register factory for {adapter_type}: {e}")
-            return False
-    
-    def register_custom_factory(
-        self, 
-        adapter_type: str, 
-        factory_class: Type[StorageAdapterFactory]
-    ) -> bool:
-        """注册自定义存储适配器工厂类
-        
-        Args:
-            adapter_type: 适配器类型
-            factory_class: 工厂类
-            
-        Returns:
-            是否注册成功
-        """
-        try:
-            if not issubclass(factory_class, StorageAdapterFactory):
-                raise ConfigurationError(f"Factory class must inherit from StorageAdapterFactory")
-            
-            self._custom_factories[adapter_type] = factory_class
-            logger.info(f"Registered custom factory class for adapter type: {adapter_type}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to register custom factory for {adapter_type}: {e}")
-            return False
-    
-    def unregister_factory(self, adapter_type: str) -> bool:
-        """注销存储适配器工厂
-        
-        Args:
-            adapter_type: 适配器类型
-            
-        Returns:
-            是否注销成功
-        """
-        try:
-            removed = False
-            
-            if adapter_type in self._factories:
-                del self._factories[adapter_type]
-                removed = True
-            
-            if adapter_type in self._custom_factories:
-                del self._custom_factories[adapter_type]
-                removed = True
-            
-            if removed:
-                logger.info(f"Unregistered factory for adapter type: {adapter_type}")
-                return True
-            else:
-                logger.warning(f"Factory for {adapter_type} not found")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Failed to unregister factory for {adapter_type}: {e}")
-            return False
-    
-    def create_adapter(self, adapter_type: str, config: Dict[str, Any]) -> IStateStorageAdapter:
-        """创建存储适配器
-        
-        Args:
-            adapter_type: 适配器类型
-            config: 配置参数
-            
-        Returns:
-            存储适配器实例
-            
-        Raises:
-            StorageError: 创建失败
-        """
-        try:
-            # 获取工厂
-            factory = self.get_factory(adapter_type)
-            if factory is None:
-                raise StorageError(f"No factory registered for adapter type: {adapter_type}")
-            
-            # 验证配置
-            if not factory.validate_config(config):
-                raise ConfigurationError(f"Invalid configuration for adapter type: {adapter_type}")
-            
-            # 创建适配器
-            adapter = factory.create_adapter(config)
-            
-            logger.info(f"Created adapter of type: {adapter_type}")
-            return adapter
-            
-        except Exception as e:
-            if isinstance(e, (StorageError, ConfigurationError)):
-                raise
-            raise StorageError(f"Failed to create adapter of type {adapter_type}: {e}")
-    
-    def get_factory(self, adapter_type: str) -> Optional[StorageAdapterFactory]:
-        """获取存储适配器工厂
-        
-        Args:
-            adapter_type: 适配器类型
-            
-        Returns:
-            工厂实例或None
-        """
-        # 首先尝试从已注册的工厂中获取
-        if adapter_type in self._factories:
-            return self._factories[adapter_type]
-        
-        # 尝试从自定义工厂类中创建实例
-        if adapter_type in self._custom_factories:
-            try:
-                factory_class = self._custom_factories[adapter_type]
-                factory_instance = factory_class()
-                self._factories[adapter_type] = factory_instance
-                return factory_instance
-            except Exception as e:
-                logger.error(f"Failed to create factory instance for {adapter_type}: {e}")
-        
-        return None
-    
-    def list_adapter_types(self) -> List[str]:
-        """列出所有已注册的适配器类型
-        
-        Returns:
-            适配器类型列表
-        """
-        types = set(self._factories.keys())
-        types.update(self._custom_factories.keys())
-        return list(types)
-    
-    def get_factory_info(self, adapter_type: str) -> Optional[Dict[str, Any]]:
-        """获取工厂信息
-        
-        Args:
-            adapter_type: 适配器类型
-            
-        Returns:
-            工厂信息或None
-        """
-        factory = self.get_factory(adapter_type)
-        if factory is None:
-            return None
-        
-        return {
-            "adapter_type": factory.get_adapter_type(),
-            "factory_class": factory.__class__.__name__,
-            "is_custom": adapter_type in self._custom_factories
+    def __init__(self):
+        """初始化异步存储适配器工厂"""
+        self._supported_types = {
+            'memory': 'In-memory storage backend',
+            'sqlite': 'SQLite storage backend',
+            'file': 'File-based storage backend'
         }
     
-    def validate_adapter_config(self, adapter_type: str, config: Dict[str, Any]) -> bool:
-        """验证适配器配置
+    async def create_adapter(self, storage_type: str, config: Dict[str, Any]) -> IAsyncStateStorageAdapter:
+        """异步创建存储适配器
         
         Args:
-            adapter_type: 适配器类型
+            storage_type: 存储类型
             config: 配置参数
             
         Returns:
-            是否验证通过
+            异步存储适配器实例
         """
-        try:
-            factory = self.get_factory(adapter_type)
-            if factory is None:
-                return False
+        # 导入后端实现
+        if storage_type == 'memory':
+            from .memory_backend import MemoryStorageBackend
+            backend = MemoryStorageBackend(**config)
+        elif storage_type == 'sqlite':
+            from .sqlite_backend import SQLiteStorageBackend
+            backend = SQLiteStorageBackend(**config)
+        elif storage_type == 'file':
+            from .file_backend import FileStorageBackend
+            backend = FileStorageBackend(**config)
+        else:
+            raise ValueError(f"Unsupported storage type: {storage_type}")
+        
+        # 创建指标收集器
+        metrics = StorageMetrics()
+        
+        # 创建事务管理器
+        transaction_manager = TransactionManager(backend)
+        
+        # 创建适配器
+        adapter = AsyncStateStorageAdapter(
+            backend=backend,
+            metrics=metrics,
+            transaction_manager=transaction_manager
+        )
+        
+        logger.info(f"Created async storage adapter for type: {storage_type}")
+        return adapter
+    
+    def get_supported_types(self) -> list[str]:
+        """获取支持的存储类型
+        
+        Returns:
+            支持的存储类型列表
+        """
+        return list(self._supported_types.keys())
+    
+    async def validate_config(self, storage_type: str, config: Dict[str, Any]) -> list[str]:
+        """异步验证配置参数
+        
+        Args:
+            storage_type: 存储类型
+            config: 配置参数
             
-            return factory.validate_config(config)
-            
-        except Exception as e:
-            logger.error(f"Failed to validate config for {adapter_type}: {e}")
-            return False
+        Returns:
+            验证错误列表，空列表表示验证通过
+        """
+        errors = []
+        
+        if storage_type not in self._supported_types:
+            errors.append(f"Unsupported storage type: {storage_type}")
+        
+        # 根据存储类型验证特定配置
+        if storage_type == 'sqlite':
+            if 'database_path' not in config:
+                errors.append("database_path is required for sqlite storage")
+        elif storage_type == 'file':
+            if 'storage_path' not in config:
+                errors.append("storage_path is required for file storage")
+        
+        return errors
 
 
-# 全局工厂注册表实例
-_global_factory_registry: Optional[StorageAdapterFactoryRegistry] = None
-
-
-def get_factory_registry() -> StorageAdapterFactoryRegistry:
-    """获取全局工厂注册表
-    
-    Returns:
-        工厂注册表实例
-    """
-    global _global_factory_registry
-    
-    if _global_factory_registry is None:
-        _global_factory_registry = StorageAdapterFactoryRegistry()
-    
-    return _global_factory_registry
-
-
-def create_storage_adapter(adapter_type: str, config: Dict[str, Any]) -> IStateStorageAdapter:
+def create_storage_adapter(storage_type: str, config: Dict[str, Any], 
+                          async_mode: bool = False) -> Union[IStateStorageAdapter, IAsyncStateStorageAdapter]:
     """创建存储适配器的便捷函数
     
     Args:
-        adapter_type: 适配器类型
+        storage_type: 存储类型
         config: 配置参数
+        async_mode: 是否创建异步适配器
         
     Returns:
         存储适配器实例
     """
-    registry = get_factory_registry()
-    return registry.create_adapter(adapter_type, config)
-
-
-def register_storage_factory(
-    adapter_type: str, 
-    factory: StorageAdapterFactory
-) -> bool:
-    """注册存储适配器工厂的便捷函数
-    
-    Args:
-        adapter_type: 适配器类型
-        factory: 工厂实例
+    if async_mode:
+        # 异步适配器需要在异步上下文中创建
+        import asyncio
         
-    Returns:
-        是否注册成功
-    """
-    registry = get_factory_registry()
-    return registry.register_factory(adapter_type, factory)
-
-
-def register_custom_storage_factory(
-    adapter_type: str, 
-    factory_class: Type[StorageAdapterFactory]
-) -> bool:
-    """注册自定义存储适配器工厂类的便捷函数
-    
-    Args:
-        adapter_type: 适配器类型
-        factory_class: 工厂类
+        async def _create():
+            factory = AsyncStorageAdapterFactory()
+            return await factory.create_adapter(storage_type, config)
         
-    Returns:
-        是否注册成功
-    """
-    registry = get_factory_registry()
-    return registry.register_custom_factory(adapter_type, factory_class)
-
-
-# 装饰器：用于注册自定义工厂
-def storage_adapter_factory(adapter_type: str) -> Callable[[Type[StorageAdapterFactory]], Type[StorageAdapterFactory]]:
-    """存储适配器工厂装饰器
-    
-    Args:
-        adapter_type: 适配器类型
-        
-    Returns:
-        装饰器函数
-    """
-    def decorator(factory_class: Type[StorageAdapterFactory]) -> Type[StorageAdapterFactory]:
-        register_custom_storage_factory(adapter_type, factory_class)
-        return factory_class
-    
-    return decorator
+        # 如果在事件循环中，使用 run_coroutine_threadsafe
+        try:
+            loop = asyncio.get_running_loop()
+            # 如果已经在事件循环中，需要特殊处理
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, _create())
+                return future.result()
+        except RuntimeError:
+            # 没有运行的事件循环，直接运行
+            return asyncio.run(_create())
+    else:
+        factory = StorageAdapterFactory()
+        return factory.create_adapter(storage_type, config)

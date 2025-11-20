@@ -1,64 +1,33 @@
-"""存储适配器模块
+"""存储适配器包
 
-提供各种存储适配器的实现，包括内存、SQLite和文件存储。
+提供状态存储的适配器实现。
 """
 
-from .memory import MemoryStateStorageAdapter
-from .sqlite import SQLiteStateStorageAdapter
-from .file import FileStateStorageAdapter
+# 导入主要的适配器类
+from .sync_adapter import SyncStateStorageAdapter
+from .async_adapter import AsyncStateStorageAdapter
 
-from .base_state_storage_adapter_optimized import OptimizedStateStorageAdapter
-from .base import StorageBackend
-from .memory_backend import MemoryStorageBackend
-from .sqlite_backend import SQLiteStorageBackend
-from .file_backend import FileStorageBackend
+# 导入工厂类
+from .factory import StorageAdapterFactory, AsyncStorageAdapterFactory, create_storage_adapter
 
-from .utils.memory_utils import MemoryStorageUtils
-from .utils.sqlite_utils import SQLiteStorageUtils
-from .utils.file_utils import FileStorageUtils
+# 导入辅助类
+from .metrics import StorageMetrics
+from .transaction import TransactionManager
+from .error_handler import StorageErrorHandler
 
-from .factory import (
-    StorageAdapterFactory,
-    StorageAdapterFactoryRegistry,
-    MemoryStorageAdapterFactory,
-    SQLiteStorageAdapterFactory,
-    FileStorageAdapterFactory,
-    get_factory_registry,
-    create_storage_adapter,
-    register_storage_factory,
-    register_custom_storage_factory,
-    storage_adapter_factory
-)
-
+# 定义包的公共接口
 __all__ = [
-    # 适配器
-    "MemoryStateStorageAdapter",
-    "SQLiteStateStorageAdapter",
-    "FileStateStorageAdapter",
+    # 适配器类
+    'SyncStateStorageAdapter',
+    'AsyncStateStorageAdapter',
     
-    # 基类
-    "OptimizedStateStorageAdapter",
-    "StorageBackend",
+    # 工厂类
+    'StorageAdapterFactory',
+    'AsyncStorageAdapterFactory',
+    'create_storage_adapter',
     
-    # 后端
-    "MemoryStorageBackend",
-    "SQLiteStorageBackend",
-    "FileStorageBackend",
-    
-    # 工具类
-    "MemoryStorageUtils",
-    "SQLiteStorageUtils",
-    "FileStorageUtils",
-    
-    # 工厂
-    "StorageAdapterFactory",
-    "StorageAdapterFactoryRegistry",
-    "MemoryStorageAdapterFactory",
-    "SQLiteStorageAdapterFactory",
-    "FileStorageAdapterFactory",
-    "get_factory_registry",
-    "create_storage_adapter",
-    "register_storage_factory",
-    "register_custom_storage_factory",
-    "storage_adapter_factory",
+    # 辅助类
+    'StorageMetrics',
+    'TransactionManager',
+    'StorageErrorHandler',
 ]

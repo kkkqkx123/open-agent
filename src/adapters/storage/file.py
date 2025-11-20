@@ -6,18 +6,21 @@
 import logging
 import time
 from typing import Dict, Any, List, Optional
+from pathlib import Path
 
 from src.core.state.entities import StateSnapshot, StateHistoryEntry
 from src.core.state.exceptions import StorageError
-from .base_state_storage_adapter_optimized import OptimizedStateStorageAdapter
+from .sync_adapter import SyncStateStorageAdapter
 from .file_backend import FileStorageBackend
+from .metrics import StorageMetrics
+from .transaction import TransactionManager
 from .utils.file_utils import FileStorageUtils
 
 
 logger = logging.getLogger(__name__)
 
 
-class FileStateStorageAdapter(OptimizedStateStorageAdapter):
+class FileStateStorageAdapter(SyncStateStorageAdapter):
     """文件状态存储适配器
     
     提供基于文件的状态存储适配器实现。
@@ -32,63 +35,23 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
         # 创建文件存储后端
         backend = FileStorageBackend(**config)
         
+        # 创建指标收集器
+        metrics = StorageMetrics()
+        
+        # 创建事务管理器
+        transaction_manager = TransactionManager(backend)
+        
         # 初始化基类
-        super().__init__(backend)
+        super().__init__(
+            backend=backend,
+            metrics=metrics,
+            transaction_manager=transaction_manager
+        )
         
         # 存储配置
         self._config = config
         
         logger.info("FileStateStorageAdapter initialized")
-    
-    def save_history_entry(self, entry: StateHistoryEntry) -> bool:
-        """保存历史记录条目
-        
-        Args:
-            entry: 历史记录条目
-            
-        Returns:
-            是否保存成功
-        """
-        try:
-            # 转换为字典格式
-            data = entry.to_dict()
-            data["type"] = "history_entry"
-            
-            # 运行异步方法
-            result = self._run_async_method(self._backend.save_impl, data)
-            return bool(result)
-            
-        except Exception as e:
-            logger.error(f"Failed to save history entry: {e}")
-            return False
-    
-    def get_history_entries(self, agent_id: str, limit: int = 100) -> List[StateHistoryEntry]:
-        """获取指定代理的历史记录条目
-        
-        Args:
-            agent_id: 代理ID
-            limit: 返回条目数量限制
-            
-        Returns:
-            历史记录条目列表
-        """
-        try:
-            filters = {"type": "history_entry", "agent_id": agent_id}
-            
-            # 运行异步方法
-            results = self._run_async_method(self._backend.list_impl, filters, limit)
-            
-            # 转换为历史记录条目对象
-            entries = []
-            for data in results:
-                entry = StateHistoryEntry.from_dict(data)
-                entries.append(entry)
-            
-            return entries
-            
-        except Exception as e:
-            logger.error(f"Failed to get history entries: {e}")
-            return []
     
     def get_history_entry(self, history_id: str) -> Optional[StateHistoryEntry]:
         """获取指定ID的历史记录条目
@@ -100,8 +63,8 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
             历史记录条目对象或None
         """
         try:
-            # 运行异步方法
-            data = self._run_async_method(self._backend.load_impl, history_id)
+            # 使用基类的 load_snapshot 方法，但需要适配历史记录
+            data = self._backend.load_impl(history_id)
             
             if data is None:
                 return None
@@ -124,30 +87,12 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
             是否更新成功
         """
         try:
-            # 运行异步方法
-            result = self._run_async_method(self._backend.update_impl, history_id, updates)
+            # 使用后端的更新方法
+            result = self._backend.update_impl(history_id, updates)
             return bool(result)
             
         except Exception as e:
             logger.error(f"Failed to update history entry: {e}")
-            return False
-    
-    def delete_history_entry(self, history_id: str) -> bool:
-        """删除历史记录条目
-        
-        Args:
-            history_id: 历史记录ID
-            
-        Returns:
-            是否删除成功
-        """
-        try:
-            # 运行异步方法
-            result = self._run_async_method(self._backend.delete_impl, history_id)
-            return bool(result)
-            
-        except Exception as e:
-            logger.error(f"Failed to delete history entry: {e}")
             return False
     
     def get_history_entries_by_session(
@@ -167,8 +112,8 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
         try:
             filters = {"type": "history_entry", "session_id": session_id}
             
-            # 运行异步方法
-            results = self._run_async_method(self._backend.list_impl, filters, limit)
+            # 使用后端的列表方法
+            results = self._backend.list_impl(filters, limit)
             
             # 转换为历史记录条目对象
             entries = []
@@ -199,8 +144,8 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
         try:
             filters = {"type": "history_entry", "thread_id": thread_id}
             
-            # 运行异步方法
-            results = self._run_async_method(self._backend.list_impl, filters, limit)
+            # 使用后端的列表方法
+            results = self._backend.list_impl(filters, limit)
             
             # 转换为历史记录条目对象
             entries = []
@@ -241,8 +186,8 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
             if agent_id:
                 filters["agent_id"] = agent_id
             
-            # 运行异步方法
-            results = self._run_async_method(self._backend.list_impl, filters, limit)
+            # 使用后端的列表方法
+            results = self._backend.list_impl(filters, limit)
             
             # 转换为历史记录条目对象
             entries = []
@@ -277,11 +222,8 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
             # 由于文件存储不支持复杂的文本搜索，我们使用简单的过滤器
             filters = {"type": "history_entry"}
             
-            if agent_id:
-                filters["agent_id"] = agent_id
-            
-            # 运行异步方法
-            results = self._run_async_method(self._backend.list_impl, filters, limit=1000)  # 获取更多结果进行过滤
+            # 获取更多结果进行过滤
+            results = self._backend.list_impl(filters, limit=1000)
             
             # 手动过滤包含查询字符串的结果
             filtered_results = []
@@ -307,34 +249,6 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
             logger.error(f"Failed to search history entries: {e}")
             return []
     
-    def get_history_statistics(self) -> Dict[str, Any]:
-        """获取历史记录统计信息
-        
-        Returns:
-            统计信息字典
-        """
-        try:
-            # 运行异步方法
-            count = self._run_async_method(self._backend.count_impl, {"type": "history_entry"})
-            
-            # 获取健康信息
-            health_info = self._run_async_method(self._backend.health_check_impl)
-            
-            return {
-                "total_entries": count,
-                "storage_type": "file",
-                "base_path": health_info.get("base_path", ""),
-                "total_files": health_info.get("total_files", 0),
-                "total_size_bytes": health_info.get("total_size_bytes", 0),
-                "total_size_mb": health_info.get("total_size_mb", 0),
-                "expired_files_cleaned": health_info.get("expired_files_cleaned", 0),
-                "compression_ratio": health_info.get("compression_ratio", 0.0)
-            }
-            
-        except Exception as e:
-            logger.error(f"Failed to get history statistics: {e}")
-            return {"total_entries": 0, "storage_type": "file"}
-    
     def cleanup_old_history(self, retention_days: int) -> int:
         """清理旧的历史记录
         
@@ -345,8 +259,7 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
             清理的记录数
         """
         try:
-            # 运行异步方法
-            count = self._run_async_method(self._backend.cleanup_old_data_impl, retention_days)
+            count = self._backend.cleanup_old_data_impl(retention_days)
             if isinstance(count, int):
                 return count
             return 0
@@ -389,13 +302,11 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
                 filters["created_at"] = {"$lte": end_time}
             
             # 获取历史记录
-            entries = self._run_async_method(self._backend.list_impl, filters, limit=10000)
+            entries = self._backend.list_impl(filters, limit=10000)
             
             # 导出数据
             import json
             import csv
-            from pathlib import Path
-            import time
             
             # 创建导出目录
             export_dir = Path("exports")
@@ -443,7 +354,6 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
         try:
             import json
             import csv
-            from pathlib import Path
             
             file_path_obj = Path(file_path)
             if not file_path_obj.exists():
@@ -468,8 +378,7 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
                 try:
                     # 确保是历史记录条目
                     if entry_data.get("type") == "history_entry":
-                        # 运行异步方法
-                        result = self._run_async_method(self._backend.save_impl, entry_data)
+                        result = self._backend.save_impl(entry_data)
                         if result:
                             imported_count += 1
                 except Exception as e:
@@ -493,10 +402,6 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
             备份文件路径
         """
         try:
-            from pathlib import Path
-            import time
-            from .utils.file_utils import FileStorageUtils
-            
             # 如果未指定备份路径，使用默认路径
             if not backup_path:
                 backup_dir = Path("backups")
@@ -531,10 +436,9 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
             是否恢复成功
         """
         try:
-            from .utils.file_utils import FileStorageUtils
-            
             # 断开当前连接
-            self._run_async_method(self._backend.disconnect)
+            if hasattr(self._backend, 'disconnect'):
+                self._backend.disconnect()
             
             # 获取基础路径
             base_path = getattr(self._backend, 'base_path', 'file_storage')
@@ -543,7 +447,8 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
             success = FileStorageUtils.restore_directory(backup_path, base_path)
             
             # 重新连接
-            self._run_async_method(self._backend.connect)
+            if hasattr(self._backend, 'connect'):
+                self._backend.connect()
             
             if success:
                 logger.info(f"Restored storage from: {backup_path}")
@@ -566,7 +471,6 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
             # 文件存储的压缩主要是清理过期文件和重新组织目录结构
             # 这里我们简单地触发一次清理
             current_time = time.time()
-            from .utils.file_utils import FileStorageUtils
             
             # 获取基础路径
             base_path = getattr(self._backend, 'base_path', 'file_storage')
@@ -588,8 +492,6 @@ class FileStateStorageAdapter(OptimizedStateStorageAdapter):
             存储信息
         """
         try:
-            from .utils.file_utils import FileStorageUtils
-            
             # 获取基础路径
             base_path = getattr(self._backend, 'base_path', 'file_storage')
             
