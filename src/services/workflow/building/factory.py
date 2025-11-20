@@ -9,8 +9,8 @@ from src.core.workflow.interfaces import IWorkflow, IWorkflowTemplate
 from src.services.workflow.interfaces import IWorkflowFactory
 from src.core.workflow.workflow import Workflow
 from src.core.workflow.templates import get_global_template_registry
-from ..orchestration.manager import WorkflowManager
-from ..registry.registry import WorkflowRegistry
+from src.core.workflow.orchestration.manager import WorkflowManager
+from src.core.workflow.registry.registry import WorkflowRegistry
 
 
 class WorkflowFactory(IWorkflowFactory):

@@ -51,6 +51,9 @@ from .collaboration_executor import (
     ICollaborationExecutor,
     CollaborationExecutor,
 )
+from .executor import (
+    WorkflowExecutor,
+)
 
 __all__ = [
     # 基础接口
@@ -100,4 +103,7 @@ __all__ = [
     # 协作执行
     "ICollaborationExecutor",
     "CollaborationExecutor",
+    
+    # 工作流执行器
+    "WorkflowExecutor",
 ]

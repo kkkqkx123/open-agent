@@ -8,8 +8,9 @@ from src.services.container import ServiceLifetime, container
 from src.core.workflow.interfaces import IWorkflow, IWorkflowExecutor, IWorkflowState, ExecutionContext
 from src.core.workflow.entities import Workflow, WorkflowExecution, NodeExecution, WorkflowState, ExecutionResult, WorkflowMetadata
 from src.core.workflow.workflow_instance import WorkflowInstance
-from src.core.workflow.execution.executor import WorkflowExecutorService
+from src.core.workflow.execution.executor import WorkflowExecutor
 from src.core.workflow.registry.registry import WorkflowRegistry
+from src.core.workflow.orchestration.orchestrator import WorkflowOrchestrator
 
 # 新架构服务
 from src.core.workflow.loading.loader_service import UniversalLoaderService
@@ -34,8 +35,8 @@ def register_workflow_services() -> None:
     
     # 注册工作流执行器服务
     container.register(
-        WorkflowExecutorService,
-        WorkflowExecutorService,
+        WorkflowExecutor,
+        WorkflowExecutor,
         lifetime="singleton"
     )
     
@@ -91,7 +92,7 @@ def configure_workflow_services(config: Dict[str, Any]) -> None:
         config: 配置字典
     """
     # 配置工作流执行器
-    executor_service = container.get(WorkflowExecutorService)
+    executor_service = container.get(WorkflowExecutor)
     if executor_service and hasattr(executor_service, 'configure'):
         executor_service.configure(config.get("executor", {}))
     

@@ -10,7 +10,7 @@ from .interfaces import INode, INodeRegistry
 class NodeRegistry(INodeRegistry):
     """节点注册表实现"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化节点注册表"""
         self._node_classes: Dict[str, Type[INode]] = {}
         self._node_instances: Dict[str, INode] = {}

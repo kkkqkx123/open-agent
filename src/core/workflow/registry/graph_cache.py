@@ -3,7 +3,7 @@
 提供高效的图实例缓存和管理功能。
 """
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 import fnmatch
 import hashlib
 import threading

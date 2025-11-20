@@ -3,11 +3,13 @@
 提供工作流状态监控功能的触发器实现。
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from datetime import datetime
 
 from .monitoring_base import MonitoringTrigger, TriggerType
-from ..states import WorkflowState
+
+if TYPE_CHECKING:
+    from ..states import WorkflowState
 
 
 class WorkflowStateCaptureTrigger(MonitoringTrigger):
@@ -46,7 +48,7 @@ class WorkflowStateCaptureTrigger(MonitoringTrigger):
         self._include_tool_results = self._config["include_tool_results"]
         self._last_capture_time: Optional[datetime] = None
     
-    def evaluate(self, state: WorkflowState, context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -65,7 +67,7 @@ class WorkflowStateCaptureTrigger(MonitoringTrigger):
         if self._capture_on_state_change:
             current_state = state.get("current_step", "")
             if current_state != self.get_current_state():
-                self.update_state(current_state, state)
+                self.update_state(current_state, state.to_dict())
                 return True
         
         # 检查是否到了定期捕获时间
@@ -75,7 +77,7 @@ class WorkflowStateCaptureTrigger(MonitoringTrigger):
         
         return True
     
-    def execute(self, state: WorkflowState, context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -176,7 +178,7 @@ class WorkflowStateChangeTrigger(MonitoringTrigger):
         self._monitored_transitions = self._config["monitored_transitions"]
         self._monitor_all_changes = self._config["monitor_all_changes"]
     
-    def evaluate(self, state: WorkflowState, context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -202,7 +204,7 @@ class WorkflowStateChangeTrigger(MonitoringTrigger):
             return False
         
         # 更新状态信息
-        self.update_state(current_state, state)
+        self.update_state(current_state, state.to_dict())
         
         # 检查是否需要监控此状态转换
         if self._monitor_all_changes:
@@ -222,7 +224,7 @@ class WorkflowStateChangeTrigger(MonitoringTrigger):
         
         return False
     
-    def execute(self, state: WorkflowState, context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -295,7 +297,7 @@ class WorkflowErrorStateTrigger(MonitoringTrigger):
         self._monitor_llm_errors = self._config["monitor_llm_errors"]
         self._monitor_system_errors = self._config["monitor_system_errors"]
     
-    def evaluate(self, state: WorkflowState, context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -327,7 +329,7 @@ class WorkflowErrorStateTrigger(MonitoringTrigger):
         
         return error_count >= self._error_threshold
     
-    def execute(self, state: WorkflowState, context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class WorkflowTemplateRegistry:
     """工作流模板注册表实现"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化模板注册表"""
         self._templates: Dict[str, IWorkflowTemplate] = {}
         self._template_metadata: Dict[str, Dict[str, Any]] = {}

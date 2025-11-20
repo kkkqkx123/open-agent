@@ -3,11 +3,13 @@
 提供系统监控功能的触发器实现。
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from datetime import datetime
 
 from .monitoring_base import MonitoringTrigger, TriggerType
-from ..states import WorkflowState
+
+if TYPE_CHECKING:
+    from ..states import WorkflowState
 
 
 class MemoryMonitoringTrigger(MonitoringTrigger):
@@ -43,7 +45,7 @@ class MemoryMonitoringTrigger(MonitoringTrigger):
         self._system_memory_threshold_percent = self._config["system_memory_threshold_percent"]
         self._check_interval = self._config["check_interval"]
     
-    def evaluate(self, state: WorkflowState, context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -65,7 +67,7 @@ class MemoryMonitoringTrigger(MonitoringTrigger):
         return (memory_info.process_memory_mb > self._memory_threshold_mb or
                 memory_info.system_memory_percent > self._system_memory_threshold_percent)
     
-    def execute(self, state: WorkflowState, context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -163,7 +165,7 @@ class PerformanceMonitoringTrigger(MonitoringTrigger):
         self._check_interval = self._config["check_interval"]
         self._performance_history: List[Dict[str, Any]] = []
     
-    def evaluate(self, state: WorkflowState, context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -185,7 +187,7 @@ class PerformanceMonitoringTrigger(MonitoringTrigger):
         return (performance_data.get("cpu_percent", 0) > self._cpu_threshold_percent or
                 performance_data.get("response_time", 0) > self._response_time_threshold)
     
-    def execute(self, state: WorkflowState, context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -316,7 +318,7 @@ class ResourceMonitoringTrigger(MonitoringTrigger):
         self._check_interval = self._config["check_interval"]
         self._resource_history: List[Dict[str, Any]] = []
     
-    def evaluate(self, state: WorkflowState, context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -338,7 +340,7 @@ class ResourceMonitoringTrigger(MonitoringTrigger):
         return (resource_data.get("disk_percent", 0) > self._disk_threshold_percent or
                 resource_data.get("memory_percent", 0) > self._memory_threshold_percent)
     
-    def execute(self, state: WorkflowState, context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:

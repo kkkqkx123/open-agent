@@ -11,7 +11,7 @@ from .registry import BaseNode, NodeExecutionResult, node
 from ...states import WorkflowState
 from ...plugins.manager import PluginManager
 from ...plugins.interfaces import PluginType, PluginContext
-from ._node_plugin_system import NodeHookManager
+# from ._node_plugin_system import NodeHookManager  # 暂时注释掉，模块不存在
 
 
 logger = logging.getLogger(__name__)

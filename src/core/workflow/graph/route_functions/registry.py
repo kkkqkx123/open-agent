@@ -28,7 +28,7 @@ class RouteFunctionRegistry:
     管理所有可用的路由函数，支持分类管理和查询。
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._route_functions: Dict[str, Callable] = {}
         self._route_configs: Dict[str, RouteFunctionConfig] = {}
         self._categories: Dict[str, List[str]] = {}

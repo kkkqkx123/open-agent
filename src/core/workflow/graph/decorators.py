@@ -22,7 +22,7 @@ def node(node_type: str) -> Callable:
     """
     def decorator(node_class: Type) -> Type:
         # 创建一个新的类，覆盖 node_type 属性
-        class WrappedNode(node_class):  # type: ignore
+        class WrappedNode(node_class):
             @property
             def node_type(self) -> str:
                 return node_type

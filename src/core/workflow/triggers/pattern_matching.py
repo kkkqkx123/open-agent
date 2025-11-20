@@ -3,11 +3,13 @@
 提供各种模式匹配功能的触发器实现。
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from datetime import datetime
 
 from .monitoring_base import MonitoringTrigger, TriggerType
-from ..states import WorkflowState
+
+if TYPE_CHECKING:
+    from ..states import WorkflowState
 
 
 class UserInputPatternTrigger(MonitoringTrigger):
@@ -41,7 +43,7 @@ class UserInputPatternTrigger(MonitoringTrigger):
         self._case_sensitive = self._config["case_sensitive"]
         self._processed_messages: List[str] = []
     
-    def evaluate(self, state: WorkflowState, context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -77,7 +79,7 @@ class UserInputPatternTrigger(MonitoringTrigger):
         
         return False
     
-    def execute(self, state: WorkflowState, context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -143,7 +145,7 @@ class LLMOutputPatternTrigger(MonitoringTrigger):
         self._case_sensitive = self._config["case_sensitive"]
         self._processed_messages: List[str] = []
     
-    def evaluate(self, state: WorkflowState, context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -179,7 +181,7 @@ class LLMOutputPatternTrigger(MonitoringTrigger):
         
         return False
     
-    def execute(self, state: WorkflowState, context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -249,7 +251,7 @@ class ToolOutputPatternTrigger(MonitoringTrigger):
         self._monitored_tools = set(self._config["monitored_tools"])
         self._processed_results: List[str] = []
     
-    def evaluate(self, state: WorkflowState, context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -296,7 +298,7 @@ class ToolOutputPatternTrigger(MonitoringTrigger):
         
         return False
     
-    def execute(self, state: WorkflowState, context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -367,7 +369,7 @@ class StatePatternTrigger(MonitoringTrigger):
         self._data_patterns = self._config["data_patterns"]
         self._processed_states: List[str] = []
     
-    def evaluate(self, state: WorkflowState, context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -404,7 +406,7 @@ class StatePatternTrigger(MonitoringTrigger):
         
         return False
     
-    def execute(self, state: WorkflowState, context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -435,8 +437,7 @@ class StatePatternTrigger(MonitoringTrigger):
             "matched_state_patterns": matched_state_patterns,
             "matched_data_patterns": matched_data_patterns,
             "state_data": {
-                key: value for key, value in state.items()
-                if key in ["messages", "tool_results", "iteration_count"]
+                key: state.get(key) for key in ["messages", "tool_results", "iteration_count"]
             },
             "executed_at": datetime.now().isoformat(),
             "message": f"状态 {current_state} 匹配模式"
@@ -458,7 +459,7 @@ class StatePatternTrigger(MonitoringTrigger):
         
         return pattern in text
     
-    def _match_state_data(self, pattern: str, state: WorkflowState) -> bool:
+    def _match_state_data(self, pattern: str, state: "WorkflowState") -> bool:
         """匹配状态数据模式
         
         Args:

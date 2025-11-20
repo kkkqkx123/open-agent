@@ -10,7 +10,7 @@ import logging
 from typing import Dict, Any, List
 from datetime import datetime
 
-from src.infrastructure.graph.plugins.interfaces import IEndPlugin, PluginMetadata, PluginContext, PluginType
+from ...interfaces import IEndPlugin, PluginMetadata, PluginContext, PluginType
 
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ class ExecutionStatsPlugin(IEndPlugin):
     在工作流结束时收集和分析执行统计信息。
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化执行统计插件"""
         self._config = {}
         self._start_time = None
@@ -342,9 +342,9 @@ class ExecutionStatsPlugin(IEndPlugin):
                     }
 
         except ImportError:
-            memory_stats["note"] = "psutil未安装，无法获取内存统计"
+            memory_stats = {"note": "psutil未安装，无法获取内存统计"}
         except Exception as e:
-            memory_stats["error"] = str(e)
+            memory_stats = {"error": str(e)}
 
         return memory_stats
 
@@ -384,9 +384,9 @@ class ExecutionStatsPlugin(IEndPlugin):
                 pass
 
         except ImportError:
-            cpu_stats["note"] = "psutil未安装，无法获取CPU统计"
+            cpu_stats = {"note": "psutil未安装，无法获取CPU统计"}
         except Exception as e:
-            cpu_stats["error"] = str(e)
+            cpu_stats = {"error": str(e)}
 
         return cpu_stats
 
@@ -424,9 +424,9 @@ class ExecutionStatsPlugin(IEndPlugin):
                 pass
 
         except ImportError:
-            disk_stats["note"] = "psutil未安装，无法获取磁盘统计"
+            disk_stats = {"note": "psutil未安装，无法获取磁盘统计"}
         except Exception as e:
-            disk_stats["error"] = str(e)
+            disk_stats = {"error": str(e)}
 
         return disk_stats
 
@@ -461,7 +461,7 @@ class ExecutionStatsPlugin(IEndPlugin):
             if hasattr(process, "num_fds"):
                 try:
                     process_stats["file_descriptors"] = {
-                        "count": process.num_fds()  # type: ignore
+                        "count": process.num_fds()
                     }
                 except (AttributeError, OSError):
                     pass
@@ -474,9 +474,9 @@ class ExecutionStatsPlugin(IEndPlugin):
                 pass
 
         except ImportError:
-            process_stats["note"] = "psutil未安装，无法获取进程统计"
+            process_stats = {"note": "psutil未安装，无法获取进程统计"}
         except Exception as e:
-            process_stats["error"] = str(e)
+            process_stats = {"error": str(e)}
 
         return process_stats
 
@@ -497,7 +497,7 @@ class ExecutionStatsPlugin(IEndPlugin):
                 node_executions = state["node_executions"]
 
                 # 按节点类型统计
-                node_types = {}
+                node_types: Dict[str, List[Dict[str, Any]]] = {}
                 for execution in node_executions:
                     node_type = execution.get("node_type", "unknown")
                     if node_type not in node_types:
@@ -520,7 +520,7 @@ class ExecutionStatsPlugin(IEndPlugin):
             # 节点错误统计
             if "node_errors" in state:
                 node_errors = state["node_errors"]
-                error_stats = {}
+                error_stats: Dict[str, int] = {}
                 for error in node_errors:
                     node_type = error.get("node_type", "unknown")
                     error_stats[node_type] = error_stats.get(node_type, 0) + 1
@@ -551,7 +551,7 @@ class ExecutionStatsPlugin(IEndPlugin):
                 plugin_executions = state["plugin_executions"]
 
                 # 按插件类型统计
-                plugin_types = {}
+                plugin_types: Dict[str, List[Dict[str, Any]]] = {}
                 for execution in plugin_executions:
                     plugin_type = execution.get("plugin_type", "unknown")
                     if plugin_type not in plugin_types:
@@ -578,7 +578,7 @@ class ExecutionStatsPlugin(IEndPlugin):
                 plugin_stats["success_rate"] = (
                     round(successful / len(plugin_executions) * 100, 2)
                     if plugin_executions
-                    else 0
+                    else 0.0
                 )
 
             # 插件错误统计
@@ -589,7 +589,7 @@ class ExecutionStatsPlugin(IEndPlugin):
 
         except Exception as e:
             logger.error(f"收集插件性能统计失败: {e}")
-            plugin_stats["error"] = str(e)
+            plugin_stats = {"error": str(e)}
 
         return plugin_stats
 
@@ -616,7 +616,7 @@ class ExecutionStatsPlugin(IEndPlugin):
                     workflow_stats["message_count"] = len(messages)
 
                     # 按消息类型统计
-                    message_types = {}
+                    message_types: Dict[str, int] = {}
                     for message in messages:
                         msg_type = message.get("role", "unknown")
                         message_types[msg_type] = message_types.get(msg_type, 0) + 1
@@ -630,7 +630,7 @@ class ExecutionStatsPlugin(IEndPlugin):
                     workflow_stats["tool_call_count"] = len(tool_calls)
 
                     # 按工具类型统计
-                    tool_types = {}
+                    tool_types: Dict[str, int] = {}
                     for call in tool_calls:
                         tool_name = call.get("name", "unknown")
                         tool_types[tool_name] = tool_types.get(tool_name, 0) + 1

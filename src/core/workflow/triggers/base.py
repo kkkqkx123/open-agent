@@ -4,13 +4,14 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, Callable
+from typing import Dict, Any, Optional, List, Callable, TYPE_CHECKING
 from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime
 import uuid
 
-from ..states import WorkflowState
+if TYPE_CHECKING:
+    from ..states import WorkflowState
 
 
 class TriggerType(Enum):
@@ -52,7 +53,7 @@ class ITrigger(ABC):
         pass
 
     @abstractmethod
-    def evaluate(self, state: WorkflowState, context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
         """评估触发器是否应该触发
 
         Args:
@@ -65,7 +66,7 @@ class ITrigger(ABC):
         pass
 
     @abstractmethod
-    def execute(self, state: WorkflowState, context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
 
         Args:

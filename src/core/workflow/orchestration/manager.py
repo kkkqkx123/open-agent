@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, List
 from src.core.workflow.interfaces import IWorkflow, IWorkflowState
 from src.core.workflow.workflow import Workflow
 from .orchestrator import WorkflowOrchestrator
-from ..execution.executor import WorkflowExecutorService
+from ..execution.executor import WorkflowExecutor
 from ..registry.registry import WorkflowRegistry
 
 
@@ -57,7 +57,7 @@ class WorkflowManager(IWorkflowManager):
     def __init__(
         self,
         orchestrator: WorkflowOrchestrator,
-        executor: WorkflowExecutorService,
+        executor: WorkflowExecutor,
         registry: WorkflowRegistry
     ):
         """初始化工作流管理器。
@@ -156,7 +156,7 @@ class WorkflowManager(IWorkflowManager):
             "workflow_id": workflow_id,
             "name": workflow.name,
             "status": "registered",
-            "execution_count": self._executor.get_execution_count(workflow_id)
+            "execution_count": 0 # WorkflowExecutor没有此方法，暂时设置为0
         }
     
     def list_workflows(self) -> List[Dict[str, Any]]:

@@ -95,7 +95,7 @@ class IPlugin(ABC):
         pass
 
     @abstractmethod
-    def execute(self, context: PluginContext, **kwargs) -> PluginExecutionResult:
+    def execute(self, context: PluginContext, **kwargs: Any) -> PluginExecutionResult:
         """执行插件
         
         Args:

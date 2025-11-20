@@ -172,7 +172,8 @@ class RouteFunctionLoader:
         
         def state_check_function(state: Dict[str, Any]) -> str:
             state_value = state.get(state_key)
-            return value_mapping.get(str(state_value), default_target)
+            result = value_mapping.get(str(state_value), default_target)
+            return str(result)
         
         return state_check_function
     
@@ -195,7 +196,7 @@ class RouteFunctionLoader:
         def message_check_function(state: Dict[str, Any]) -> str:
             messages = state.get("messages", [])
             if not messages:
-                return return_false
+                return str(return_false)
             
             # 获取指定索引的消息
             msg_index = message_index
@@ -203,7 +204,7 @@ class RouteFunctionLoader:
                 msg_index = len(messages) + msg_index
             
             if msg_index < 0 or msg_index >= len(messages):
-                return return_false
+                return str(return_false)
             
             message = messages[msg_index]
             if hasattr(message, 'content'):
@@ -217,13 +218,13 @@ class RouteFunctionLoader:
                 if match_all:
                     # 需要匹配所有关键词
                     if all(keyword in content for keyword in search_keywords):
-                        return return_true
+                        return str(return_true)
                 else:
                     # 匹配任意关键词
                     if any(keyword in content for keyword in search_keywords):
-                        return return_true
+                        return str(return_true)
             
-            return return_false
+            return str(return_false)
         
         return message_check_function
     
@@ -248,15 +249,15 @@ class RouteFunctionLoader:
                 if messages:
                     last_message = messages[-1]
                     if hasattr(last_message, 'tool_calls') and getattr(last_message, 'tool_calls', None):
-                        return return_true
+                        return str(return_true)
             
             # 检查工具结果
             if has_tool_results:
                 tool_results = state.get("tool_results", [])
                 if tool_results:
-                    return return_true
+                    return str(return_true)
             
-            return return_false
+            return str(return_false)
         
         return tool_check_function
     
@@ -278,17 +279,17 @@ class RouteFunctionLoader:
                 
                 if condition_type == "state_check":
                     if self._evaluate_state_condition(state, condition):
-                        return condition.get("target", default_target)
+                        return str(condition.get("target", default_target))
                 
                 elif condition_type == "tool_check":
                     if self._evaluate_tool_condition(state, condition):
-                        return condition.get("target", default_target)
+                        return str(condition.get("target", default_target))
                 
                 elif condition_type == "message_check":
                     if self._evaluate_message_condition(state, condition):
-                        return condition.get("target", default_target)
+                        return str(condition.get("target", default_target))
             
-            return default_target
+            return str(default_target)
         
         return multi_condition_function
     
@@ -349,16 +350,17 @@ class RouteFunctionLoader:
         def tool_type_function(state: Dict[str, Any]) -> str:
             messages = state.get("messages", [])
             if not messages:
-                return default_route
+                return str(default_route)
             
             last_message = messages[-1]
             if hasattr(last_message, 'tool_calls') and getattr(last_message, 'tool_calls', None):
                 tool_calls = getattr(last_message, 'tool_calls', [])
                 if tool_calls:
                     tool_name = tool_calls[0].get("name", "")
-                    return type_mapping.get(tool_name, default_route)
+                    result = type_mapping.get(tool_name, default_route)
+                    return str(result)
             
-            return default_route
+            return str(default_route)
         
         return tool_type_function
     

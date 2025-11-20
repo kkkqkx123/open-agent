@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, Callable, Pattern
+from typing import Dict, Any, Optional, List, Callable, Pattern, TYPE_CHECKING
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import re
@@ -14,7 +14,9 @@ import time
 from collections import defaultdict
 
 from .base import BaseTrigger, TriggerType, TriggerEvent
-from ..states import WorkflowState
+
+if TYPE_CHECKING:
+    from ..states import WorkflowState
 
 
 @dataclass

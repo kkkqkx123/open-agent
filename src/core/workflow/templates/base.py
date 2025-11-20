@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class BaseWorkflowTemplate(IWorkflowTemplate, ABC):
     """工作流模板基类"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化模板"""
         self._name = ""
         self._description = ""

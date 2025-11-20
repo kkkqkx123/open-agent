@@ -19,7 +19,7 @@ class PlanExecuteWorkflowTemplate(BaseWorkflowTemplate):
     实现Plan-Execute模式：先制定计划，然后按计划执行
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化Plan-Execute模板"""
         super().__init__()
         self._name = "plan_execute"
@@ -275,7 +275,7 @@ class CollaborativePlanExecuteTemplate(PlanExecuteWorkflowTemplate):
     支持多个Agent协作的Plan-Execute模式
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化协作式Plan-Execute模板"""
         super().__init__()
         self._name = "collaborative_plan_execute"

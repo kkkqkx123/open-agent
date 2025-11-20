@@ -19,7 +19,7 @@ class ReActWorkflowTemplate(BaseWorkflowTemplate):
     实现ReAct模式：推理-行动-观察循环
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化ReAct模板"""
         super().__init__()
         self._name = "react"
@@ -209,7 +209,7 @@ class EnhancedReActTemplate(ReActWorkflowTemplate):
     提供更多配置选项和优化
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化增强ReAct模板"""
         super().__init__()
         self._name = "enhanced_react"

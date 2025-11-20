@@ -24,7 +24,7 @@ class RegisteredNodeFunction:
 class NodeFunctionRegistry:
     """节点函数注册表"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._functions: Dict[str, RegisteredNodeFunction] = {}
         self._compositions: Dict[str, NodeCompositionConfig] = {}
         self._categories: Dict[str, List[str]] = {

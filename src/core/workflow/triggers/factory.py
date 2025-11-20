@@ -3,11 +3,11 @@
 提供基于函数组合创建触发器的工厂方法。
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, cast
 import logging
 
 from .base import ITrigger, TriggerType
-from .rest_triggers import (
+from .builtin_triggers import (
     TimeTrigger,
     StateTrigger,
     EventTrigger,
@@ -48,7 +48,7 @@ class TriggerFactory:
     提供创建各种类型触发器的工厂方法，支持基于函数组合的灵活创建。
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化触发器工厂"""
         self.function_manager = get_trigger_function_manager()
     
@@ -76,13 +76,13 @@ class TriggerFactory:
             ValueError: 创建失败时抛出异常
         """
         if trigger_type == TriggerType.TIME:
-            return self._create_time_trigger(trigger_id, config)
+            return cast(ITrigger, self._create_time_trigger(trigger_id, config))
         elif trigger_type == TriggerType.STATE:
-            return self._create_state_trigger(trigger_id, config)
+            return cast(ITrigger, self._create_state_trigger(trigger_id, config))
         elif trigger_type == TriggerType.EVENT:
-            return self._create_event_trigger(trigger_id, config)
+            return cast(ITrigger, self._create_event_trigger(trigger_id, config))
         elif trigger_type == TriggerType.CUSTOM:
-            return self._create_custom_trigger(trigger_id, config, evaluate_function, execute_function)
+            return cast(ITrigger, self._create_custom_trigger(trigger_id, config, evaluate_function, execute_function))
         else:
             raise ValueError(f"不支持的触发器类型: {trigger_type}")
     
@@ -171,7 +171,7 @@ class TriggerFactory:
         if not trigger:
             raise ValueError(f"无法从组合创建触发器: {composition_name}")
         
-        return trigger
+        return cast(ITrigger, trigger)
     
     def _create_time_trigger(self, trigger_id: str, config: Dict[str, Any]) -> TimeTrigger:
         """创建时间触发器
@@ -205,23 +205,23 @@ class TriggerFactory:
         special_type = config.get("special_type")
         
         if special_type == "state_capture":
-            return WorkflowStateCaptureTrigger(trigger_id, config)
+            return cast(ITrigger, WorkflowStateCaptureTrigger(trigger_id, config))
         elif special_type == "state_change":
-            return WorkflowStateChangeTrigger(trigger_id, config)
+            return cast(ITrigger, WorkflowStateChangeTrigger(trigger_id, config))
         elif special_type == "error_state":
-            return WorkflowErrorStateTrigger(trigger_id, config)
+            return cast(ITrigger, WorkflowErrorStateTrigger(trigger_id, config))
         elif special_type == "state_timing":
-            return WorkflowStateTimingTrigger(trigger_id, config)
+            return cast(ITrigger, WorkflowStateTimingTrigger(trigger_id, config))
         elif special_type == "state_pattern":
-            return StatePatternTrigger(trigger_id, config)
+            return cast(ITrigger, StatePatternTrigger(trigger_id, config))
         
         # 默认状态触发器
         condition = config.get("condition", "True")
-        return StateTrigger(
+        return cast(ITrigger, StateTrigger(
             trigger_id=trigger_id,
             condition=condition,
             config=config
-        )
+        ))
     
     def _create_event_trigger(self, trigger_id: str, config: Dict[str, Any]) -> ITrigger:
         """创建事件触发器
@@ -237,22 +237,22 @@ class TriggerFactory:
         special_type = config.get("special_type")
         
         if special_type == "user_input_pattern":
-            return UserInputPatternTrigger(trigger_id, config)
+            return cast(ITrigger, UserInputPatternTrigger(trigger_id, config))
         elif special_type == "llm_output_pattern":
-            return LLMOutputPatternTrigger(trigger_id, config)
+            return cast(ITrigger, LLMOutputPatternTrigger(trigger_id, config))
         elif special_type == "tool_output_pattern":
-            return ToolOutputPatternTrigger(trigger_id, config)
+            return cast(ITrigger, ToolOutputPatternTrigger(trigger_id, config))
         
         # 默认事件触发器
         event_type = config.get("event_type", "")
         event_pattern = config.get("event_pattern")
         
-        return EventTrigger(
+        return cast(ITrigger, EventTrigger(
             trigger_id=trigger_id,
             event_type=event_type,
             event_pattern=event_pattern,
             config=config
-        )
+        ))
     
     def _create_custom_trigger(
         self,
@@ -277,28 +277,28 @@ class TriggerFactory:
         
         if special_type == "tool_error":
             error_threshold = config.get("error_threshold", 1)
-            return ToolErrorTrigger(
+            return cast(ITrigger, ToolErrorTrigger(
                 trigger_id=trigger_id,
                 error_threshold=error_threshold,
                 config=config
-            )
+            ))
         elif special_type == "iteration_limit":
             max_iterations = config.get("max_iterations", 10)
-            return IterationLimitTrigger(
+            return cast(ITrigger, IterationLimitTrigger(
                 trigger_id=trigger_id,
                 max_iterations=max_iterations,
                 config=config
-            )
+            ))
         elif special_type == "tool_timing":
-            return ToolExecutionTimingTrigger(trigger_id, config)
+            return cast(ITrigger, ToolExecutionTimingTrigger(trigger_id, config))
         elif special_type == "llm_timing":
-            return LLMResponseTimingTrigger(trigger_id, config)
+            return cast(ITrigger, LLMResponseTimingTrigger(trigger_id, config))
         elif special_type == "memory_monitoring":
-            return MemoryMonitoringTrigger(trigger_id, config)
+            return cast(ITrigger, MemoryMonitoringTrigger(trigger_id, config))
         elif special_type == "performance_monitoring":
-            return PerformanceMonitoringTrigger(trigger_id, config)
+            return cast(ITrigger, PerformanceMonitoringTrigger(trigger_id, config))
         elif special_type == "resource_monitoring":
-            return ResourceMonitoringTrigger(trigger_id, config)
+            return cast(ITrigger, ResourceMonitoringTrigger(trigger_id, config))
         
         # 使用函数管理器创建自定义触发器
         if evaluate_function and execute_function:
@@ -311,12 +311,12 @@ class TriggerFactory:
             if not exec_func:
                 raise ValueError(f"执行函数不存在: {execute_function}")
             
-            return CustomTrigger(
+            return cast(ITrigger, CustomTrigger(
                 trigger_id=trigger_id,
                 evaluate_func=eval_func,
                 execute_func=exec_func,
                 config=config
-            )
+            ))
         
         # 如果没有指定函数，尝试从配置中获取
         evaluate_func_name = config.get("evaluate_function")
@@ -332,12 +332,12 @@ class TriggerFactory:
             if not exec_func:
                 raise ValueError(f"执行函数不存在: {execute_func_name}")
             
-            return CustomTrigger(
+            return cast(ITrigger, CustomTrigger(
                 trigger_id=trigger_id,
                 evaluate_func=eval_func,
                 execute_func=exec_func,
                 config=config
-            )
+            ))
         
         raise ValueError("自定义触发器必须指定评估函数和执行函数")
     

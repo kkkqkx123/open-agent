@@ -24,7 +24,7 @@ class RegisteredTriggerFunction:
 class TriggerFunctionRegistry:
     """触发器函数注册表"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._functions: Dict[str, RegisteredTriggerFunction] = {}
         self._compositions: Dict[str, TriggerCompositionConfig] = {}
         self._categories: Dict[str, List[str]] = {
