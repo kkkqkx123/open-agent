@@ -3,7 +3,7 @@
 提供状态管理的核心接口、实体和基础实现。
 """
 
-from .interfaces import (
+from src.interfaces.state import (
     IStateHistoryManager,
     IStateSnapshotManager,
     IStateSerializer,

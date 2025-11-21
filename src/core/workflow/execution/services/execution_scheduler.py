@@ -253,6 +253,9 @@ class ExecutionScheduler(IExecutionScheduler):
                     else:
                         logger.warning(f"无法取消正在运行的任务: {task_id}")
                         return False
+                else:
+                    logger.warning(f"无法取消正在运行的任务: {task_id}")
+                    return False
             elif task.status == TaskStatus.PENDING:
                 # 从队列中移除任务（简化实现，实际可能需要更复杂的逻辑）
                 task.status = TaskStatus.CANCELLED
@@ -338,6 +341,7 @@ class ExecutionScheduler(IExecutionScheduler):
                     priority_value, task = self._task_queue.get(timeout=1.0)
                 else:
                     task = self._task_queue.get(timeout=1.0)
+                    priority_value = None
                 
                 # 检查是否到了计划执行时间
                 if task.scheduled_at and task.scheduled_at > datetime.now():

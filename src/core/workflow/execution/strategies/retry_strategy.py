@@ -13,10 +13,9 @@ from enum import Enum
 
 from .strategy_base import BaseStrategy, IExecutionStrategy
 
-if TYPE_CHECKING:
-    from ..core.workflow_executor import IWorkflowExecutor
-    from ..core.execution_context import ExecutionContext, ExecutionResult
-    from ...workflow_instance import WorkflowInstance
+from ..core.workflow_executor import IWorkflowExecutor
+from ..core.execution_context import ExecutionContext, ExecutionResult
+from ...workflow_instance import WorkflowInstance
 
 logger = logging.getLogger(__name__)
 

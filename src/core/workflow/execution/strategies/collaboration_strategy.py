@@ -4,7 +4,7 @@
 """
 
 import logging
-from typing import Dict, Any, Optional, List, Callable, Union
+from typing import TYPE_CHECKING, Dict, Any, Optional, List, Callable, Union
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from ..core.workflow_executor import IWorkflowExecutor
     from ..core.execution_context import ExecutionContext, ExecutionResult
     from ...workflow_instance import WorkflowInstance
-    from ...interfaces.state.enhanced import IEnhancedStateManager
+    from src.interfaces.state.enhanced import IEnhancedStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -331,11 +331,10 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
             
             # 记录状态变化
             self.state_manager.history_manager.record_state_change(
-                context.workflow_id,
-                from_dict,
-                to_dict,
-                change_type,
-                metadata or {}
+                agent_id=context.execution_id,
+                old_state=from_dict,
+                new_state=to_dict,
+                action=change_type
             )
             
         except Exception as e:
@@ -354,14 +353,10 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
         try:
             # 记录协作错误
             self.state_manager.history_manager.record_state_change(
-                context.workflow_id,
-                {},
-                {"collaboration_error": error_message},
-                "collaboration_error",
-                {
-                    "execution_id": context.execution_id,
-                    "timestamp": datetime.now().isoformat()
-                }
+                agent_id=context.execution_id,
+                old_state={},
+                new_state={"collaboration_error": error_message},
+                action="collaboration_error"
             )
             
         except Exception as e:
@@ -430,10 +425,10 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
         # 获取快照信息
         if self.state_manager and self.config.enable_snapshots:
             try:
-                snapshots = self.state_manager.snapshot_manager.get_snapshots(context.workflow_id)
+                snapshots = self.state_manager.snapshot_manager.get_snapshots_by_agent(context.workflow_id)
                 info["snapshots"] = {
                     "total_count": len(snapshots),
-                    "latest_snapshot": snapshots[-1].id if snapshots else None
+                    "latest_snapshot": snapshots[-1].snapshot_id if snapshots else None
                 }
             except Exception as e:
                 logger.warning(f"获取快照信息失败: {e}")
@@ -441,10 +436,10 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
         # 获取历史信息
         if self.state_manager and self.config.enable_history_tracking:
             try:
-                history = self.state_manager.history_manager.get_history(context.workflow_id)
+                history = self.state_manager.history_manager.get_state_history(context.workflow_id)
                 info["history"] = {
                     "total_changes": len(history),
-                    "latest_change": history[-1].change_type if history else None
+                    "latest_change": history[-1].action if history else None
                 }
             except Exception as e:
                 logger.warning(f"获取历史信息失败: {e}")

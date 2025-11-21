@@ -4,66 +4,68 @@
 """
 
 # 核心执行层
-from .core import (
-    WorkflowExecutor,
-    IWorkflowExecutor,
-    NodeExecutor,
-    INodeExecutor,
-    ExecutionContext,
-    ExecutionResult,
-    NodeResult,
-    BatchJob,
+from .core.workflow_executor import WorkflowExecutor, IWorkflowExecutor
+from .core.node_executor import NodeExecutor, INodeExecutor
+from .core.execution_context import (
+    ExecutionContext, 
+    ExecutionResult, 
+    NodeResult, 
+    BatchJob, 
     BatchExecutionResult,
     ExecutionStatus
 )
 
 # 执行策略层
-from .strategies import (
-    IExecutionStrategy,
-    BaseStrategy,
+from .strategies.strategy_base import IExecutionStrategy, BaseStrategy
+from .strategies.retry_strategy import (
     RetryStrategy,
     IRetryStrategy,
     RetryConfig,
     RetryStrategy as RetryStrategyEnum,
     RetryAttempt,
-    RetryConfigs,
+    RetryConfigs
+)
+from .strategies.batch_strategy import (
     BatchStrategy,
     IBatchStrategy,
     BatchConfig,
+    ExecutionMode,
     ExecutionMode as BatchExecutionMode,
-    FailureStrategy,
+    FailureStrategy
+)
+from .strategies.streaming_strategy import (
     StreamingStrategy,
     IStreamingStrategy,
-    StreamingConfig,
+    StreamingConfig
+)
+from .strategies.collaboration_strategy import (
     CollaborationStrategy,
     ICollaborationStrategy,
     CollaborationConfig
 )
 
 # 执行模式层
-from .modes import (
-    IExecutionMode,
-    BaseMode,
-    SyncMode,
-    ISyncMode,
-    AsyncMode,
-    IAsyncMode,
-    HybridMode,
-    IHybridMode
-)
+from .modes.mode_base import IExecutionMode, BaseMode
+from .modes.sync_mode import SyncMode, ISyncMode
+from .modes.async_mode import AsyncMode, IAsyncMode
+from .modes.hybrid_mode import HybridMode, IHybridMode
 
 # 执行服务层
-from .services import (
+from .services.execution_manager import (
     ExecutionManager,
     IExecutionManager,
-    ExecutionManagerConfig,
+    ExecutionManagerConfig
+)
+from .services.execution_monitor import (
     ExecutionMonitor,
     IExecutionMonitor,
     Metric,
     MetricType,
     Alert,
     AlertLevel,
-    PerformanceReport,
+    PerformanceReport
+)
+from .services.execution_scheduler import (
     ExecutionScheduler,
     IExecutionScheduler,
     ExecutionTask,
@@ -72,8 +74,8 @@ from .services import (
     SchedulerConfig
 )
 
-# 基础组件（保持向后兼容）
-from .base.executor_base import BaseExecutor as LegacyBaseExecutor
+# 基础组件
+from .base.executor_base import BaseExecutor
 
 # 便捷函数
 from .core.workflow_executor import WorkflowExecutor as DefaultWorkflowExecutor
@@ -97,7 +99,7 @@ __all__ = [
     "IExecutionStrategy",
     "BaseStrategy",
     "RetryStrategy",
-    "IRetryStrategy", 
+    "IRetryStrategy",
     "RetryConfig",
     "RetryStrategyEnum",
     "RetryAttempt",
@@ -105,6 +107,7 @@ __all__ = [
     "BatchStrategy",
     "IBatchStrategy",
     "BatchConfig",
+    "ExecutionMode",
     "BatchExecutionMode",
     "FailureStrategy",
     "StreamingStrategy",
@@ -142,8 +145,8 @@ __all__ = [
     "TaskStatus",
     "SchedulerConfig",
     
-    # 向后兼容
-    "LegacyBaseExecutor",
+    # 基础组件
+    "BaseExecutor",
     
     # 默认实现
     "DefaultWorkflowExecutor",

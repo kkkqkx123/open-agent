@@ -6,7 +6,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 
-from ..entities import StateSnapshot, StateHistoryEntry
+from ..entities import AbstractStateSnapshot, AbstractStateHistoryEntry
 
 
 class IAsyncStateStorageAdapter(ABC):
@@ -16,7 +16,7 @@ class IAsyncStateStorageAdapter(ABC):
     """
     
     @abstractmethod
-    async def save_history_entry(self, entry: StateHistoryEntry) -> bool:
+    async def save_history_entry(self, entry: AbstractStateHistoryEntry) -> bool:
         """异步保存历史记录条目
         
         Args:
@@ -28,7 +28,7 @@ class IAsyncStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    async def get_history_entries(self, agent_id: str, limit: int = 100) -> List[StateHistoryEntry]:
+    async def get_history_entries(self, agent_id: str, limit: int = 100) -> List[AbstractStateHistoryEntry]:
         """异步获取历史记录条目
         
         Args:
@@ -65,7 +65,7 @@ class IAsyncStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    async def save_snapshot(self, snapshot: StateSnapshot) -> bool:
+    async def save_snapshot(self, snapshot: AbstractStateSnapshot) -> bool:
         """异步保存状态快照
         
         Args:
@@ -77,7 +77,7 @@ class IAsyncStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    async def load_snapshot(self, snapshot_id: str) -> Optional[StateSnapshot]:
+    async def load_snapshot(self, snapshot_id: str) -> Optional[AbstractStateSnapshot]:
         """异步加载状态快照
         
         Args:
@@ -89,7 +89,7 @@ class IAsyncStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    async def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> List[StateSnapshot]:
+    async def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> List[AbstractStateSnapshot]:
         """异步获取指定代理的快照列表
         
         Args:

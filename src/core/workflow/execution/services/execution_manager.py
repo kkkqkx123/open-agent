@@ -18,7 +18,7 @@ from ..modes.mode_base import IExecutionMode
 
 if TYPE_CHECKING:
     from ...workflow_instance import WorkflowInstance
-    from ...interfaces.state.enhanced import IEnhancedStateManager
+    from src.interfaces.state import IEnhancedStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ class ExecutionManager(IExecutionManager):
         
         # 创建执行上下文
         context = ExecutionContext(
-            workflow_id=workflow.config.id,
+            workflow_id=workflow.config.name,
             execution_id=execution_id,
             config=config or {},
             metadata={
@@ -182,7 +182,7 @@ class ExecutionManager(IExecutionManager):
                 error=str(e),
                 metadata={
                     "workflow_name": workflow.config.name,
-                    "workflow_id": workflow.config.id,
+                    "workflow_id": workflow.config.name,
                     "execution_id": execution_id,
                     "error_type": type(e).__name__,
                     "execution_time": execution_time
@@ -212,7 +212,7 @@ class ExecutionManager(IExecutionManager):
         
         # 创建执行上下文
         context = ExecutionContext(
-            workflow_id=workflow.config.id,
+            workflow_id=workflow.config.name,
             execution_id=execution_id,
             config=config or {},
             metadata={
@@ -274,7 +274,7 @@ class ExecutionManager(IExecutionManager):
                 error=str(e),
                 metadata={
                     "workflow_name": workflow.config.name,
-                    "workflow_id": workflow.config.id,
+                    "workflow_id": workflow.config.name,
                     "execution_id": execution_id,
                     "error_type": type(e).__name__,
                     "execution_time": execution_time,
@@ -320,9 +320,9 @@ class ExecutionManager(IExecutionManager):
             applicable_strategies.sort(key=lambda x: x[1].get_priority(), reverse=True)
             return applicable_strategies[0][1]
         
-        # 返回默认策略（如果没有注册任何策略，创建一个空的）
-        from ..strategies.strategy_base import BaseStrategy
-        return BaseStrategy("default")
+        # 返回默认策略（如果没有注册任何策略，使用RetryStrategyImpl）
+        from ..strategies.retry_strategy import RetryStrategyImpl
+        return RetryStrategyImpl()
     
     def _select_mode(
         self, 
@@ -446,7 +446,7 @@ class ExecutionManager(IExecutionManager):
         
         # 组合工作流ID、配置和初始数据
         cache_data = {
-            "workflow_id": workflow.config.id,
+            "workflow_id": workflow.config.name,
             "workflow_version": getattr(workflow.config, 'version', '1.0.0'),
             "config": context.config,
             "initial_data": context.get_config("initial_data")

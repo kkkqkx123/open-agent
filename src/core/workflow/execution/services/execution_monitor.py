@@ -477,7 +477,7 @@ class ExecutionMonitor(IExecutionMonitor):
                 ))
         
         # 检查节点失败告警
-        if result.failed_nodes > 0:
+        if len(result.failed_nodes) > 0:
             alerts.append(Alert(
                 level=AlertLevel.WARNING,
                 message=f"节点执行失败: {result.failed_nodes}个节点",

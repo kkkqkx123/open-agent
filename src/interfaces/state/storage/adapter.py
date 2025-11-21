@@ -6,7 +6,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 
-from ..state.entities import AbstractStateSnapshot, AbstractStateHistoryEntry
+from ..entities import AbstractStateSnapshot, AbstractStateHistoryEntry
 
 
 class IStateStorageAdapter(ABC):

@@ -12,9 +12,11 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
 
-from src.interfaces.state.interfaces import IStateHistoryManager, IStateSnapshotManager, IStateSerializer
-from src.interfaces.state.entities import StateSnapshot, StateHistoryEntry, StateStatistics
-from src.core.state.entities import StateDiff
+from src.interfaces.state.history import IStateHistoryManager
+from src.interfaces.state.snapshot import IStateSnapshotManager
+from src.interfaces.state.serializer import IStateSerializer
+from src.interfaces.state.interfaces import IState
+from src.core.state.entities import StateSnapshot, StateHistoryEntry, StateStatistics, StateDiff
 
 
 logger = logging.getLogger(__name__)
@@ -91,6 +93,98 @@ class BaseStateSerializer(IStateSerializer):
             return obj.__dict__
         else:
             return str(obj)
+    
+    def serialize(self, state: IState) -> Union[str, bytes]:
+        """序列化状态到字符串或字节
+        
+        Args:
+            state: 要序列化的状态
+            
+        Returns:
+            序列化的状态数据
+        """
+        state_dict = state.to_dict()
+        serialized_bytes = self.serialize_state(state_dict)
+        
+        if self.format == "json" and not self.compression:
+            return serialized_bytes.decode('utf-8')
+        
+        return serialized_bytes
+    
+    def deserialize(self, data: Union[str, bytes]) -> IState:
+        """从字符串或字节反序列化状态
+        
+        Args:
+            data: 序列化的状态数据
+            
+        Returns:
+            反序列化的状态实例
+        """
+        if isinstance(data, str):
+            data = data.encode('utf-8')
+        
+        state_dict = self.deserialize_state(data)
+        
+        # 创建一个简单的状态实现
+        from datetime import datetime
+        
+        class SimpleState(IState):
+            def __init__(self, data: Dict[str, Any]):
+                self._data = data
+                self._metadata = data.get("metadata", {})
+                self._id = data.get("id")
+                self._created_at = datetime.fromisoformat(data.get("created_at", datetime.now().isoformat()))
+                self._updated_at = datetime.fromisoformat(data.get("updated_at", datetime.now().isoformat()))
+                self._complete = data.get("complete", False)
+            
+            def get_data(self, key: str, default: Any = None) -> Any:
+                return self._data.get(key, default)
+            
+            def set_data(self, key: str, value: Any) -> None:
+                self._data[key] = value
+                self._updated_at = datetime.now()
+            
+            def get_metadata(self, key: str, default: Any = None) -> Any:
+                return self._metadata.get(key, default)
+            
+            def set_metadata(self, key: str, value: Any) -> None:
+                self._metadata[key] = value
+            
+            def get_id(self) -> Optional[str]:
+                return self._id
+            
+            def set_id(self, id: str) -> None:
+                self._id = id
+                self._data["id"] = id
+            
+            def get_created_at(self) -> datetime:
+                return self._created_at
+            
+            def get_updated_at(self) -> datetime:
+                return self._updated_at
+            
+            def is_complete(self) -> bool:
+                return self._complete
+            
+            def mark_complete(self) -> None:
+                self._complete = True
+                self._data["complete"] = True
+                self._updated_at = datetime.now()
+            
+            def to_dict(self) -> Dict[str, Any]:
+                return {
+                    **self._data,
+                    "metadata": self._metadata,
+                    "created_at": self._created_at.isoformat(),
+                    "updated_at": self._updated_at.isoformat(),
+                    "complete": self._complete
+                }
+            
+            @classmethod
+            def from_dict(cls, data: Dict[str, Any]) -> 'SimpleState':
+                return cls(data)
+        
+        return SimpleState(state_dict)
 
 
 class BaseStateHistoryManager(IStateHistoryManager):

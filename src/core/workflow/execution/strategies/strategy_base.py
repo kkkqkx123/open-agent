@@ -108,7 +108,8 @@ class BaseStrategy(IExecutionStrategy):
         success: bool, 
         result: Optional[Dict[str, Any]] = None,
         error: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        workflow_name: Optional[str] = None
     ) -> 'ExecutionResult':
         """创建执行结果
         
@@ -117,6 +118,7 @@ class BaseStrategy(IExecutionStrategy):
             result: 执行结果
             error: 错误信息
             metadata: 元数据
+            workflow_name: 工作流名称
             
         Returns:
             ExecutionResult: 执行结果
@@ -128,5 +130,6 @@ class BaseStrategy(IExecutionStrategy):
             result=result or {},
             error=error,
             metadata=metadata or {},
-            strategy_name=self._name
+            strategy_name=self._name,
+            workflow_name=workflow_name
         )

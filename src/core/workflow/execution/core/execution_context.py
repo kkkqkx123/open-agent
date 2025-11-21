@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from enum import Enum
 
 if TYPE_CHECKING:
-    from ...interfaces.state import IWorkflowState
+    from src.interfaces.state import IWorkflowState
 
 class ExecutionStatus(Enum):
     """执行状态枚举"""
@@ -139,6 +139,7 @@ class ExecutionResult:
     end_time: Optional[datetime] = None
     strategy_name: Optional[str] = None
     node_results: List[NodeResult] = field(default_factory=list)
+    workflow_name: Optional[str] = None
     
     def __post_init__(self):
         """初始化后处理"""

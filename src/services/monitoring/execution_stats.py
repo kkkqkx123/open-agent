@@ -13,9 +13,7 @@ import time
 import json
 from pathlib import Path
 
-from src.core.workflow.execution.batch_executor import BatchExecutionResult
-
-from src.core.workflow.execution.runner import WorkflowExecutionResult
+from src.core.workflow.execution import BatchExecutionResult, ExecutionResult as WorkflowExecutionResult
 
 logger = logging.getLogger(__name__)
 
@@ -249,7 +247,7 @@ class ExecutionStatsCollector:
         
         # 创建执行记录
         record = ExecutionRecord(
-            workflow_name=result.workflow_name,
+            workflow_name=result.workflow_name or "unknown",
             success=result.success,
             execution_time=result.execution_time or 0.0,
             start_time=result.start_time,
@@ -272,7 +270,7 @@ class ExecutionStatsCollector:
             if self.enable_persistence:
                 self._save_stats()
         
-        logger.debug(f"记录执行结果: {result.workflow_name}, 成功: {result.success}")
+        logger.debug(f"记录执行结果: {result.workflow_name or 'unknown'}, 成功: {result.success}")
     
     def record_batch_execution(self, result: BatchExecutionResult) -> None:
         """记录批量执行结果
