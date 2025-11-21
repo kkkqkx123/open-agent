@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from .entities import StateHistoryEntry
+from .entities import AbstractStateHistoryEntry
 
 
 class IStateHistoryManager(ABC):
@@ -33,12 +33,12 @@ class IStateHistoryManager(ABC):
         pass
     
     @abstractmethod
-    def get_state_history(self, agent_id: str, limit: int = 100) -> List[StateHistoryEntry]:
-        """获取状态历史
+    def get_state_history(self, agent_id: str, limit: Optional[int] = None) -> List[AbstractStateHistoryEntry]:
+        """获取代理的状态历史
         
         Args:
             agent_id: 代理ID
-            limit: 返回记录数限制
+            limit: 返回记录的数量限制
             
         Returns:
             状态历史记录列表

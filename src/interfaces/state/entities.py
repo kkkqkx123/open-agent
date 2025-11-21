@@ -1,233 +1,230 @@
-"""状态相关实体定义
+"""状态相关抽象类型定义
 
-定义状态管理系统的核心实体，包括状态快照、历史记录、差异和冲突等。
+定义状态管理相关的抽象数据类型，用于接口层解耦。
 """
-
-from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Dict, Any, Optional, List
-from enum import Enum
+from abc import ABC, abstractmethod
 
 
-@dataclass
-class StateSnapshot:
-    """状态快照实体
+class AbstractStateSnapshot(ABC):
+    """状态快照抽象类型
     
-    表示某个时间点的状态完整快照。
+    表示某个时间点的状态完整快照的抽象接口。
     """
-    snapshot_id: str
-    agent_id: str
-    domain_state: Dict[str, Any]  # 序列化的域状态
-    timestamp: datetime
-    snapshot_name: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
     
-    # 性能优化字段
-    compressed_data: Optional[bytes] = None
-    size_bytes: int = 0
+    @property
+    @abstractmethod
+    def snapshot_id(self) -> str:
+        """快照ID"""
+        pass
     
-    def __post_init__(self) -> None:
-        """初始化后处理"""
-        if not self.snapshot_name:
-            self.snapshot_name = f"snapshot_{self.timestamp.strftime('%Y%m%d_%H%M%S')}"
+    @property
+    @abstractmethod
+    def agent_id(self) -> str:
+        """代理ID"""
+        pass
     
+    @property
+    @abstractmethod
+    def domain_state(self) -> Dict[str, Any]:
+        """域状态数据"""
+        pass
+    
+    @property
+    @abstractmethod
+    def timestamp(self) -> str:
+        """时间戳"""
+        pass
+    
+    @property
+    @abstractmethod
+    def snapshot_name(self) -> str:
+        """快照名称"""
+        pass
+    
+    @property
+    @abstractmethod
+    def metadata(self) -> Dict[str, Any]:
+        """元数据"""
+        pass
+    
+    @abstractmethod
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典表示
-        
-        Returns:
-            字典表示的快照
-        """
-        return {
-            "snapshot_id": self.snapshot_id,
-            "agent_id": self.agent_id,
-            "domain_state": self.domain_state,
-            "timestamp": self.timestamp.isoformat(),
-            "snapshot_name": self.snapshot_name,
-            "metadata": self.metadata,
-            "size_bytes": self.size_bytes
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'StateSnapshot':
-        """从字典创建快照实例
-        
-        Args:
-            data: 字典数据
-            
-        Returns:
-            快照实例
-        """
-        return cls(
-            snapshot_id=data["snapshot_id"],
-            agent_id=data["agent_id"],
-            domain_state=data["domain_state"],
-            timestamp=datetime.fromisoformat(data["timestamp"]),
-            snapshot_name=data.get("snapshot_name", ""),
-            metadata=data.get("metadata", {}),
-            compressed_data=data.get("compressed_data"),
-            size_bytes=data.get("size_bytes", 0)
-        )
+        """转换为字典表示"""
+        pass
 
 
-@dataclass
-class StateHistoryEntry:
-    """状态历史记录实体
+class AbstractStateHistoryEntry(ABC):
+    """状态历史记录抽象类型
     
-    表示一次状态变更的记录。
+    表示一次状态变更的记录的抽象接口。
     """
-    history_id: str
-    agent_id: str
-    timestamp: datetime
-    action: str  # "state_change", "tool_call", "message_added", etc.
-    state_diff: Dict[str, Any]  # 状态变化差异
-    metadata: Dict[str, Any] = field(default_factory=dict)
     
-    # 性能优化字段
-    compressed_diff: Optional[bytes] = None
+    @property
+    @abstractmethod
+    def history_id(self) -> str:
+        """历史记录ID"""
+        pass
     
-    def __post_init__(self) -> None:
-        """初始化后处理"""
-        if not self.metadata:
-            self.metadata = {}
+    @property
+    @abstractmethod
+    def agent_id(self) -> str:
+        """代理ID"""
+        pass
     
+    @property
+    @abstractmethod
+    def timestamp(self) -> str:
+        """时间戳"""
+        pass
+    
+    @property
+    @abstractmethod
+    def action(self) -> str:
+        """动作类型"""
+        pass
+    
+    @property
+    @abstractmethod
+    def state_diff(self) -> Dict[str, Any]:
+        """状态差异"""
+        pass
+    
+    @property
+    @abstractmethod
+    def metadata(self) -> Dict[str, Any]:
+        """元数据"""
+        pass
+    
+    @abstractmethod
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典表示
-        
-        Returns:
-            字典表示的历史记录
-        """
-        return {
-            "history_id": self.history_id,
-            "agent_id": self.agent_id,
-            "timestamp": self.timestamp.isoformat(),
-            "action": self.action,
-            "state_diff": self.state_diff,
-            "metadata": self.metadata
-        }
+        """转换为字典表示"""
+        pass
+
+
+class AbstractStateDiff(ABC):
+    """状态差异抽象类型
     
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'StateHistoryEntry':
-        """从字典创建历史记录实例
-        
-        Args:
-            data: 字典数据
-            
-        Returns:
-            历史记录实例
-        """
-        return cls(
-            history_id=data["history_id"],
-            agent_id=data["agent_id"],
-            timestamp=datetime.fromisoformat(data["timestamp"]),
-            action=data["action"],
-            state_diff=data["state_diff"],
-            metadata=data.get("metadata", {}),
-            compressed_diff=data.get("compressed_diff")
-        )
-
-
-class ConflictType(Enum):
-    """冲突类型枚举"""
-    FIELD_MODIFICATION = "field_modification"      # 字段修改冲突
-    LIST_OPERATION = "list_operation"              # 列表操作冲突
-    STRUCTURE_CHANGE = "structure_change"          # 结构变化冲突
-    VERSION_MISMATCH = "version_mismatch"          # 版本不匹配冲突
-
-
-class ConflictResolutionStrategy(Enum):
-    """冲突解决策略"""
-    LAST_WRITE_WINS = "last_write_wins"           # 最后写入获胜
-    FIRST_WRITE_WINS = "first_write_wins"         # 首次写入获胜
-    MANUAL_RESOLUTION = "manual_resolution"       # 手动解决
-    MERGE_CHANGES = "merge_changes"               # 合并变更
-    REJECT_CONFLICT = "reject_conflict"           # 拒绝冲突变更
-
-
-@dataclass
-class StateConflict:
-    """状态冲突实体"""
-    conflict_type: ConflictType
-    conflicting_keys: List[str]
-    resolution_strategy: ConflictResolutionStrategy
-    timestamp: datetime
-    details: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典表示
-        
-        Returns:
-            字典表示的冲突
-        """
-        return {
-            "conflict_type": self.conflict_type.value,
-            "conflicting_keys": self.conflicting_keys,
-            "resolution_strategy": self.resolution_strategy.value,
-            "timestamp": self.timestamp.isoformat(),
-            "details": self.details
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'StateConflict':
-        """从字典创建冲突实例
-        
-        Args:
-            data: 字典数据
-            
-        Returns:
-            冲突实例
-        """
-        return cls(
-            conflict_type=ConflictType(data["conflict_type"]),
-            conflicting_keys=data["conflicting_keys"],
-            resolution_strategy=ConflictResolutionStrategy(data["resolution_strategy"]),
-            timestamp=datetime.fromisoformat(data["timestamp"]),
-            details=data.get("details", {})
-        )
-
-
-@dataclass
-class StateStatistics:
-    """状态统计信息实体
-    
-    包含状态管理的各种统计信息。
+    表示两个状态之间的差异的抽象接口。
     """
-    total_states: int = 0
-    total_snapshots: int = 0
-    total_history_entries: int = 0
-    storage_size_bytes: int = 0
-    agent_counts: Dict[str, int] = field(default_factory=dict)
-    last_updated: datetime = field(default_factory=datetime.now)
     
+    @property
+    @abstractmethod
+    def added(self) -> Dict[str, Any]:
+        """新增字段"""
+        pass
+    
+    @property
+    @abstractmethod
+    def removed(self) -> Dict[str, Any]:
+        """删除字段"""
+        pass
+    
+    @property
+    @abstractmethod
+    def modified(self) -> Dict[str, Dict[str, Any]]:
+        """修改字段"""
+        pass
+    
+    @property
+    @abstractmethod
+    def unchanged(self) -> Dict[str, Any]:
+        """未变更字段"""
+        pass
+    
+    @abstractmethod
+    def is_empty(self) -> bool:
+        """检查差异是否为空"""
+        pass
+    
+    @abstractmethod
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典表示
-        
-        Returns:
-            字典表示的统计信息
-        """
-        return {
-            "total_states": self.total_states,
-            "total_snapshots": self.total_snapshots,
-            "total_history_entries": self.total_history_entries,
-            "storage_size_bytes": self.storage_size_bytes,
-            "agent_counts": self.agent_counts,
-            "last_updated": self.last_updated.isoformat()
-        }
+        """转换为字典表示"""
+        pass
+
+
+class AbstractStateConflict(ABC):
+    """状态冲突抽象类型"""
     
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'StateStatistics':
-        """从字典创建统计信息实例
-        
-        Args:
-            data: 字典数据
-            
-        Returns:
-            统计信息实例
-        """
-        return cls(
-            total_states=data.get("total_states", 0),
-            total_snapshots=data.get("total_snapshots", 0),
-            total_history_entries=data.get("total_history_entries", 0),
-            storage_size_bytes=data.get("storage_size_bytes", 0),
-            agent_counts=data.get("agent_counts", {}),
-            last_updated=datetime.fromisoformat(data.get("last_updated", datetime.now().isoformat()))
-        )
+    @property
+    @abstractmethod
+    def conflict_type(self) -> str:
+        """冲突类型"""
+        pass
+    
+    @property
+    @abstractmethod
+    def conflicting_keys(self) -> List[str]:
+        """冲突键列表"""
+        pass
+    
+    @property
+    @abstractmethod
+    def resolution_strategy(self) -> str:
+        """解决策略"""
+        pass
+    
+    @property
+    @abstractmethod
+    def timestamp(self) -> str:
+        """时间戳"""
+        pass
+    
+    @property
+    @abstractmethod
+    def details(self) -> Dict[str, Any]:
+        """详细信息"""
+        pass
+    
+    @abstractmethod
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典表示"""
+        pass
+
+
+class AbstractStateStatistics(ABC):
+    """状态统计信息抽象类型
+    
+    包含状态管理的各种统计信息的抽象接口。
+    """
+    
+    @property
+    @abstractmethod
+    def total_states(self) -> int:
+        """总状态数"""
+        pass
+    
+    @property
+    @abstractmethod
+    def total_snapshots(self) -> int:
+        """总快照数"""
+        pass
+    
+    @property
+    @abstractmethod
+    def total_history_entries(self) -> int:
+        """总历史记录数"""
+        pass
+    
+    @property
+    @abstractmethod
+    def storage_size_bytes(self) -> int:
+        """存储大小（字节）"""
+        pass
+    
+    @property
+    @abstractmethod
+    def agent_counts(self) -> Dict[str, int]:
+        """代理计数"""
+        pass
+    
+    @property
+    @abstractmethod
+    def last_updated(self) -> str:
+        """最后更新时间"""
+        pass
+    
+    @abstractmethod
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典表示"""
+        pass

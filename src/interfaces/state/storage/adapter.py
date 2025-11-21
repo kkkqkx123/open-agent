@@ -6,7 +6,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 
-from ..entities import StateSnapshot, StateHistoryEntry
+from ..state.entities import AbstractStateSnapshot, AbstractStateHistoryEntry
 
 
 class IStateStorageAdapter(ABC):
@@ -16,19 +16,19 @@ class IStateStorageAdapter(ABC):
     """
     
     @abstractmethod
-    def save_history_entry(self, entry: StateHistoryEntry) -> bool:
+    def save_history_entry(self, entry: AbstractStateHistoryEntry) -> bool:
         """保存历史记录条目
         
         Args:
             entry: 历史记录条目
             
         Returns:
-            是否保存成功
+            保存成功返回True，失败返回False
         """
         pass
     
     @abstractmethod
-    def get_history_entries(self, agent_id: str, limit: int = 100) -> List[StateHistoryEntry]:
+    def get_history_entries(self, agent_id: str, limit: int = 100) -> List[AbstractStateHistoryEntry]:
         """获取历史记录条目
         
         Args:
@@ -65,36 +65,36 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    def save_snapshot(self, snapshot: StateSnapshot) -> bool:
+    def save_snapshot(self, entry: AbstractStateSnapshot) -> bool:
         """保存状态快照
         
         Args:
-            snapshot: 状态快照
+            entry: 状态快照条目
             
         Returns:
-            是否保存成功
+            保存成功返回True，失败返回False
         """
         pass
     
     @abstractmethod
-    def load_snapshot(self, snapshot_id: str) -> Optional[StateSnapshot]:
+    def load_snapshot(self, snapshot_id: str) -> Optional[AbstractStateSnapshot]:
         """加载状态快照
         
         Args:
             snapshot_id: 快照ID
             
         Returns:
-            状态快照，如果不存在则返回None
+            状态快照，如果未找到则返回None
         """
         pass
     
     @abstractmethod
-    def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> List[StateSnapshot]:
+    def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> List[AbstractStateSnapshot]:
         """获取指定代理的快照列表
         
         Args:
             agent_id: 代理ID
-            limit: 返回快照数限制
+            limit: 返回记录数限制
             
         Returns:
             快照列表

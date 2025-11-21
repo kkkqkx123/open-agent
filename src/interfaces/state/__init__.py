@@ -29,12 +29,12 @@ from .lifecycle import IStateLifecycleManager
 
 # 实体定义
 from .entities import (
-    StateSnapshot,
-    StateHistoryEntry,
-    StateConflict,
-    ConflictType,
-    ConflictResolutionStrategy,
-    StateStatistics
+    AbstractStateSnapshot,
+    AbstractStateHistoryEntry,
+    AbstractStateConflict,
+    AbstractConflictType,
+    AbstractConflictResolutionStrategy,
+    AbstractStateStatistics
 )
 
 # 存储相关接口
@@ -77,12 +77,12 @@ __all__ = [
     'IStateLifecycleManager',
     
     # 实体定义
-    'StateSnapshot',
-    'StateHistoryEntry',
-    'StateConflict',
-    'ConflictType',
-    'ConflictResolutionStrategy',
-    'StateStatistics',
+    'AbstractStateSnapshot',
+    'AbstractStateHistoryEntry',
+    'AbstractStateConflict',
+    'AbstractConflictType',
+    'AbstractConflictResolutionStrategy',
+    'AbstractStateStatistics',
     
     # 存储相关接口
     'IStorageBackend',

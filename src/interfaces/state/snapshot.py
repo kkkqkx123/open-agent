@@ -6,7 +6,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 
-from .entities import StateSnapshot
+from .entities import AbstractStateSnapshot
 
 
 class IStateSnapshotManager(ABC):
@@ -16,8 +16,7 @@ class IStateSnapshotManager(ABC):
     """
     
     @abstractmethod
-    def create_snapshot(self, agent_id: str, domain_state: Dict[str, Any], 
-                       snapshot_name: str = "", metadata: Optional[Dict[str, Any]] = None) -> str:
+    def create_snapshot(self, agent_id: str, state_data: Dict[str, Any], snapshot_name: str = "") -> AbstractStateSnapshot:
         """创建状态快照
         
         Args:
@@ -32,7 +31,7 @@ class IStateSnapshotManager(ABC):
         pass
     
     @abstractmethod
-    def restore_snapshot(self, snapshot_id: str) -> Optional[StateSnapshot]:
+    def restore_snapshot(self, snapshot_id: str) -> Optional[AbstractStateSnapshot]:
         """恢复状态快照
         
         Args:
@@ -44,7 +43,7 @@ class IStateSnapshotManager(ABC):
         pass
     
     @abstractmethod
-    def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> List[StateSnapshot]:
+    def get_snapshots_by_agent(self, agent_id: str) -> List[AbstractStateSnapshot]:
         """获取指定代理的快照列表
         
         Args:
