@@ -10,11 +10,6 @@ from dataclasses import dataclass
 from contextlib import contextmanager
 
 from ..infrastructure.infrastructure_types import ServiceRegistration, ServiceLifetime, T
-from ..infrastructure.exceptions import (
-    ServiceNotRegisteredError,
-    ServiceCreationError,
-    CircularDependencyError,
-)
 
 logger = logging.getLogger(__name__)
 

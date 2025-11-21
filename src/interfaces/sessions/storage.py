@@ -4,24 +4,24 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
-from src.core.sessions.entities import Session, SessionStatus
+from src.interfaces.common import AbstractSessionData, AbstractSessionStatus
 
 
 class ISessionStore(ABC):
     """会话存储适配器接口"""
     
     @abstractmethod
-    async def get_session(self, session_id: str) -> Optional[Session]:
+    async def get_session(self, session_id: str) -> Optional[AbstractSessionData]:
         """获取会话"""
         pass
     
     @abstractmethod
-    async def create_session(self, session: Session) -> bool:
+    async def create_session(self, session: AbstractSessionData) -> bool:
         """创建会话"""
         pass
     
     @abstractmethod
-    async def update_session(self, session_id: str, session: Session) -> bool:
+    async def update_session(self, session_id: str, session: AbstractSessionData) -> bool:
         """更新会话"""
         pass
     
@@ -31,7 +31,7 @@ class ISessionStore(ABC):
         pass
     
     @abstractmethod
-    async def list_sessions_by_status(self, status: SessionStatus) -> List[Session]:
+    async def list_sessions_by_status(self, status: AbstractSessionStatus) -> List[AbstractSessionData]:
         """按状态列会话"""
         pass
     
@@ -40,7 +40,7 @@ class ISessionStore(ABC):
         self, 
         start_date: datetime, 
         end_date: datetime
-    ) -> List[Session]:
+    ) -> List[AbstractSessionData]:
         """按日期范围列会话"""
         pass
     
@@ -49,7 +49,7 @@ class ISessionStore(ABC):
         self, 
         query: str, 
         limit: int = 10
-    ) -> List[Session]:
+    ) -> List[AbstractSessionData]:
         """搜索会话"""
         pass
     

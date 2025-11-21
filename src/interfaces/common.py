@@ -11,6 +11,112 @@ if TYPE_CHECKING:
     from src.infrastructure.logger.redactor import LogRedactor
 
 
+# 抽象数据类型定义
+class AbstractSessionStatus(str, Enum):
+    """会话状态抽象枚举"""
+    ACTIVE = "active"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    ARCHIVED = "archived"
+
+
+class AbstractSessionData(ABC):
+    """会话数据抽象接口"""
+    
+    @property
+    @abstractmethod
+    def id(self) -> str:
+        """会话ID"""
+        pass
+    
+    @property
+    @abstractmethod
+    def status(self) -> AbstractSessionStatus:
+        """会话状态"""
+        pass
+    
+    @property
+    @abstractmethod
+    def created_at(self) -> datetime:
+        """创建时间"""
+        pass
+    
+    @property
+    @abstractmethod
+    def updated_at(self) -> datetime:
+        """更新时间"""
+        pass
+    
+    @abstractmethod
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        pass
+
+
+class AbstractThreadData(ABC):
+    """线程数据抽象接口"""
+    
+    @property
+    @abstractmethod
+    def id(self) -> str:
+        """线程ID"""
+        pass
+    
+    @property
+    @abstractmethod
+    def session_id(self) -> str:
+        """关联的会话ID"""
+        pass
+    
+    @abstractmethod
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        pass
+
+
+class AbstractThreadBranchData(ABC):
+    """线程分支数据抽象接口"""
+    
+    @property
+    @abstractmethod
+    def id(self) -> str:
+        """分支ID"""
+        pass
+    
+    @property
+    @abstractmethod
+    def thread_id(self) -> str:
+        """关联的线程ID"""
+        pass
+    
+    @abstractmethod
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        pass
+
+
+class AbstractThreadSnapshotData(ABC):
+    """线程快照数据抽象接口"""
+    
+    @property
+    @abstractmethod
+    def id(self) -> str:
+        """快照ID"""
+        pass
+    
+    @property
+    @abstractmethod
+    def thread_id(self) -> str:
+        """关联的线程ID"""
+        pass
+    
+    @abstractmethod
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        pass
+
+
 class IConfigLoader(ABC):
     """配置加载器接口"""
     

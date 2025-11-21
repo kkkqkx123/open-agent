@@ -126,7 +126,13 @@ from .common import (
     ITimestamped,
     IStorage,
     ILogger,
-    LogLevel
+    LogLevel,
+    # 抽象数据类型
+    AbstractSessionStatus,
+    AbstractSessionData,
+    AbstractThreadData,
+    AbstractThreadBranchData,
+    AbstractThreadSnapshotData
 )
 
 # 导出所有接口的__all__列表
@@ -241,4 +247,11 @@ __all__ = [
     "IStorage",
     "ILogger",
     "LogLevel",
+    
+    # 抽象数据类型
+    "AbstractSessionStatus",
+    "AbstractSessionData",
+    "AbstractThreadData",
+    "AbstractThreadBranchData",
+    "AbstractThreadSnapshotData",
 ]

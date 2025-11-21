@@ -13,8 +13,6 @@ from .branch_service import IThreadBranchService
 from .snapshot_service import IThreadSnapshotService
 from .coordinator_service import IThreadCoordinatorService
 from .storage import IThreadStore
-from .branch_storage import IThreadBranchStore
-from .snapshot_storage import IThreadSnapshotStore
 
 __all__ = [
     "IThreadRepository",
@@ -27,7 +25,5 @@ __all__ = [
     "IThreadBranchService",
     "IThreadSnapshotService",
     "IThreadCoordinatorService",
-    "IThreadStore",
-    "IThreadBranchStore",
-    "IThreadSnapshotStore"
+    "IThreadStore"
 ]
