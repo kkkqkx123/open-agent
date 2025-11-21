@@ -60,155 +60,36 @@ The framework has been redesigned from a traditional 4-layer architecture to a f
 ### Directory Structure
 src/
 ├── interfaces/             # 接口层（集中化接口定义）
-│   ├── workflow/           # 工作流相关接口
-│   │   ├── core.py             # 核心工作流接口
-│   │   ├── execution.py        # 执行相关接口
-│   │   ├── execution_core.py   # 执行核心接口
-│   │   ├── graph.py            # 图相关接口
-│   │   ├── builders.py         # 构建器接口
-│   │   ├── templates.py        # 模板相关接口
-│   │   ├── plugins.py          # 插件接口
-│   │   ├── plugins_core.py     # 插件核心接口
-│   │   ├── services.py         # 工作流服务接口
-│   │   ├── services_core.py    # 服务核心接口
-│   │   ├── visualization.py    # 可视化接口
-│   │   └── __init__.py         # 工作流接口导出
-│   ├── state/              # 状态管理接口
-│   │   ├── interfaces.py       # 状态相关接口
-│   │   └── __init__.py         # 状态接口导出
-│   ├── checkpoint.py       # 检查点接口定义
-│   ├── container.py        # 依赖注入容器接口
-│   ├── history.py          # 历史管理接口
-│   ├── llm.py              # LLM客户端接口
-│   ├── llm_core.py         # LLM核心接口
-│   ├── tools.py            # 工具相关接口
-│   ├── tools_core.py       # 工具核心接口
-│   ├── state_core.py       # 状态核心接口
-│   ├── common.py           # 通用接口（IConfigLoader, ILogger等）
-│   ├── common_core.py      # 通用核心接口
-│   └── __init__.py         # 统一接口导出
-├── core/                    # 核心模块（Domain + 部分Infrastructure）
+├── core/                   # 核心模块（Domain + 部分Infrastructure）
 │   ├── config/             # 统一配置系统
-│   │   ├── config_manager.py    # 配置管理器
-│   │   ├── config_loader.py     # 配置加载器
-│   │   ├── config_processor.py  # 配置处理器
-│   │   ├── models.py            # 配置模型定义
-│   │   ├── exceptions.py        # 配置异常
-│   │   └── examples.py          # 使用示例
 │   ├── tools/              # 工具系统核心
-│   │   ├── base.py             # 工具基类
-│   │   ├── interfaces.py       # 工具接口
-│   │   ├── factory.py          # 工具工厂
-│   │   └── types/              # 工具类型实现
-│   │       ├── builtin/        # 内置工具
-│   │       ├── mcp/           # MCP工具
-│   │       └── native/        # 原生工具
 │   ├── llm/                # LLM系统核心
-│   │   ├── base.py             # LLM基类
-│   │   ├── interfaces.py       # LLM接口
-│   │   ├── factory.py          # LLM工厂
-│   │   └── providers/          # LLM提供商实现
-│   │       ├── openai/         # OpenAI实现
-│   │       ├── anthropic/      # Anthropic实现
-│   │       ├── gemini/         # Gemini实现
-│   │       └── mock/           # 模拟实现
 │   ├── workflow/           # 工作流核心
-│   │   ├── base.py             # 工作流基类
-│   │   ├── entities.py         # 工作流实体
-│   │   └── patterns/           # 工作流模式
-│   │       ├── react.py        # ReAct模式
-│   │       └── plan_execute.py # 计划执行模式
 │   ├── state/              # 状态管理核心
-│   │   ├── base.py             # 状态基类
-│   │   ├── interfaces.py       # 状态接口
-│   │   └── storage.py          # 状态存储
 │   ├── sessions/           # 会话管理核心
-│   │   ├── base.py             # 会话基类
-│   │   ├── interfaces.py       # 会话接口
-│   │   └── manager.py          # 会话管理器
 │   ├── threads/            # 线程管理核心
-│   │   ├── base.py             # 线程基类
-│   │   ├── interfaces.py       # 线程接口
-│   │   └── manager.py          # 线程管理器
 │   ├── checkpoints/        # 检查点核心
-│   │   ├── base.py             # 检查点基类
-│   │   ├── interfaces.py       # 检查点接口
-│   │   └── storage.py          # 检查点存储
 │   ├── history/            # 历史管理核心
-│   │   ├── base.py             # 历史基类
-│   │   ├── interfaces.py       # 历史接口
-│   │   └── storage.py          # 历史存储
 │   ├── prompts/            # 提示系统核心
-│   │   ├── base.py             # 提示基类
-│   │   ├── templates.py        # 提示模板
-│   │   └── injection.py        # 提示注入
+│   ├── storage/            # 存储核心
 │   └── common/             # 通用组件
-│       ├── exceptions.py       # 通用异常
-│       ├── utils.py            # 工具函数
-│       └── types.py            # 通用类型
 ├── services/               # 服务层（Application + 部分Infrastructure）
 │   ├── workflow/           # 工作流服务
-│   │   ├── orchestrator.py     # 工作流编排器
-│   │   ├── executor.py         # 工作流执行器
-│   │   └── visualizer.py       # 工作流可视化
 │   ├── session/            # 会话服务
-│   │   ├── manager.py          # 会话管理服务
-│   │   ├── lifecycle.py        # 会话生命周期
-│   │   └── events.py           # 会话事件
 │   ├── thread/             # 线程服务
-│   │   ├── manager.py          # 线程管理服务
-│   │   ├── coordinator.py      # 线程协调器
-│   │   └── branching.py        # 线程分支
 │   ├── checkpoint/         # 检查点服务
-│   │   ├── manager.py          # 检查点管理服务
-│   │   ├── serializer.py       # 检查点序列化
-│   │   └── recovery.py         # 检查点恢复
 │   ├── history/            # 历史服务
-│   │   ├── manager.py          # 历史管理服务
-│   │   ├── tracker.py          # 历史跟踪器
-│   │   └── analyzer.py         # 历史分析器
 │   ├── llm/                # LLM服务
-│   │   ├── manager.py          # LLM管理服务
-│   │   ├── pool.py             # LLM连接池
-│   │   └── fallback.py         # LLM故障转移
 │   ├── tools/              # 工具服务
-│   │   ├── manager.py          # 工具管理服务
-│   │   ├── executor.py         # 工具执行器
-│   │   ├── validator.py        # 工具验证器
-│   │   └── registry.py         # 工具注册表
 │   ├── state/              # 状态服务
-│   │   ├── manager.py          # 状态管理服务
-│   │   ├── persistence.py      # 状态持久化
-│   │   └── snapshots.py        # 状态快照
 │   ├── container/          # 依赖注入容器
-│   │   ├── container.py        # 依赖注入容器
-│   │   ├── registry.py         # 服务注册表
-│   │   └── lifecycle.py        # 生命周期管理
 │   ├── logger/             # 日志服务
-│   │   ├── manager.py          # 日志管理服务
-│   │   ├── formatters.py       # 日志格式化器
-│   │   └── handlers.py         # 日志处理器
 │   └── monitoring/         # 监控服务
-│       ├── metrics.py          # 性能指标
-│       ├── profiler.py         # 性能分析器
-│       └── reporter.py         # 监控报告器
 ├── adapters/               # 适配器层（Presentation的部分功能）
 │   ├── storage/            # 存储适配器
-│   │   ├── sqlite.py           # SQLite适配器
-│   │   ├── memory.py           # 内存适配器
-│   │   └── file.py             # 文件适配器
 │   ├── api/                # API适配器
-│   │   ├── fastapi.py          # FastAPI适配器
-│   │   ├── websocket.py        # WebSocket适配器
-│   │   └── auth.py             # 认证适配器
 │   ├── tui/                # TUI适配器
-│   │   ├── blessed.py          # Blessed适配器
-│   │   ├── components.py       # UI组件
-│   │   └── events.py           # UI事件
 │   └── cli/                # CLI适配器
-│       ├── commands.py         # 命令处理器
-│       ├── parser.py           # 参数解析器
-│       └── formatter.py        # 输出格式化器
 └── bootstrap.py            # 应用程序启动入口
 
 ### Core Infrastructure Components
@@ -518,6 +399,7 @@ src/interfaces/
 ├── tools.py                # 工具相关接口
 ├── tools_core.py           # 工具核心接口
 ├── state_core.py           # 状态核心接口
+├── storage.py              # 存储接口定义（IUnifiedStorage, IStorageFactory）
 ├── common.py               # 通用接口（IConfigLoader, ILogger等）
 ├── common_core.py          # 通用核心接口
 └── __init__.py             # 统一导出所有接口
@@ -545,6 +427,21 @@ src/interfaces/
 6. 更新相关模块的导入语句
 
 ## Migration Notes
+
+### 已完成的迁移
+
+#### 存储模块迁移（2025-11-21）
+存储模块已从 `src/domain/storage/` 迁移到新架构：
+- **异常** → `src/core/common/exceptions.py`
+  - `StorageError` 及其所有子类
+  - `create_storage_error()` 工厂函数
+- **接口** → `src/interfaces/storage.py`
+  - `IUnifiedStorage` - 统一存储接口
+  - `IStorageFactory` - 存储工厂接口
+- **模型** → `src/core/storage/models.py`
+  - `StorageData`, `StorageQuery`, `StorageTransaction` 等
+
+详见：[docs/STORAGE_MIGRATION.md](./docs/STORAGE_MIGRATION.md)
 
 ### From 4-Layer to Flattened Architecture
 

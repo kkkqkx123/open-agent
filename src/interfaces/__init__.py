@@ -117,6 +117,12 @@ from .container import (
     ServiceStatus
 )
 
+# 存储相关接口
+from .storage import (
+    IUnifiedStorage,
+    IStorageFactory
+)
+
 # 通用相关接口
 from .common import (
     IConfigLoader,
@@ -237,6 +243,10 @@ __all__ = [
     "IDependencyAnalyzer",
     "IScopeManager",
     "ServiceStatus",
+    
+    # 存储接口
+    "IUnifiedStorage",
+    "IStorageFactory",
     
     # 通用接口
     "IConfigLoader",

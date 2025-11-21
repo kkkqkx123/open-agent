@@ -4,7 +4,7 @@
 定义了统一存储的数据结构和相关模型，包括数据验证和序列化支持。
 """
 
-from typing import Dict, Any, Optional, List, Union, Iterator
+from typing import Dict, Any, Optional, List, Iterator
 from datetime import datetime
 from enum import Enum
 from pydantic import BaseModel, Field, validator
@@ -45,7 +45,7 @@ class StorageData(BaseModel):
         use_enum_values = True
     
     @validator('updated_at')
-    def validate_updated_at(cls, v, values):
+    def validate_updated_at(cls, v: datetime, values: Dict[str, Any]) -> datetime:
         """验证更新时间不早于创建时间"""
         if 'created_at' in values and v < values['created_at']:
             raise ValueError("updated_at cannot be earlier than created_at")
