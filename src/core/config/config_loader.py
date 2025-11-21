@@ -6,7 +6,8 @@ import os
 import yaml
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, List
+import re
 
 from ..common.cache import config_cached
 from .exceptions import (
@@ -23,6 +24,39 @@ class ConfigLoader:
         """初始化加载器"""
         self.base_path = base_path or Path("configs")
         self._supported_formats = {'.yaml', '.yml', '.json'}
+        
+        # 配置类型推断的正则模式
+        self._workflow_patterns = [
+            r".*workflow.*\.ya?ml$",
+            r".*react.*\.ya?ml$",
+            r".*plan.*\.ya?ml$",
+            r".*collaborative.*\.ya?ml$",
+            r".*thinking.*\.ya?ml$",
+            r".*deep.*\.ya?ml$",
+            r".*ultra.*\.ya?ml$"
+        ]
+        
+        self._tool_patterns = [
+            r".*tool.*\.ya?ml$",
+            r".*calculator.*\.ya?ml$",
+            r".*fetch.*\.ya?ml$",
+            r".*weather.*\.ya?ml$",
+            r".*database.*\.ya?ml$",
+            r".*search.*\.ya?ml$",
+            r".*hash.*\.ya?ml$"
+        ]
+        
+        self._state_machine_patterns = [
+            r".*state.*machine.*\.ya?ml$",
+            r".*thinking.*\.ya?ml$",
+            r".*deep.*thinking.*\.ya?ml$",
+            r".*ultra.*thinking.*\.ya?ml$"
+        ]
+        
+        # 编译正则表达式
+        self._compiled_workflow_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self._workflow_patterns]
+        self._compiled_tool_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self._tool_patterns]
+        self._compiled_state_machine_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self._state_machine_patterns]
     
     @config_cached(maxsize=256)
     def load(self, config_path: str) -> Dict[str, Any]:
@@ -99,7 +133,58 @@ class ConfigLoader:
                 config_files.extend(search_path.glob(f'*{ext}'))
         
         return [str(f.relative_to(self.base_path)) for f in config_files]
-
+    
+    def infer_config_type(self, config_path: str) -> str:
+        """推断配置类型
+        
+        Args:
+            config_path: 配置文件路径
+            
+        Returns:
+            str: 配置类型 ("workflow", "tool", "state_machine", "unknown")
+        """
+        path_lower = config_path.lower()
+        
+        # 状态机配置优先级最高
+        if "state_machine" in path_lower or any(pattern.search(config_path) for pattern in self._compiled_state_machine_patterns):
+            return "state_machine"
+        
+        # 工作流配置
+        if "workflow" in path_lower or any(pattern.search(config_path) for pattern in self._compiled_workflow_patterns):
+            return "workflow"
+        
+        # 工具配置
+        if "tool" in path_lower or any(pattern.search(config_path) for pattern in self._compiled_tool_patterns):
+            return "tool"
+        
+        # 默认为未知
+        return "unknown"
+    
+    def get_config_files_by_type(self, directory: Optional[str] = None, recursive: bool = True) -> Dict[str, List[str]]:
+        """按类型获取配置文件列表
+        
+        Args:
+            directory: 目录路径
+            recursive: 是否递归搜索
+            
+        Returns:
+            Dict[str, List[str]]: 按类型分组的配置文件列表
+        """
+        config_files = self.get_config_files(directory, recursive)
+        
+        result = {
+            "workflow": [],
+            "tool": [],
+            "state_machine": [],
+            "unknown": []
+        }
+        
+        for file_path in config_files:
+            config_type = self.infer_config_type(file_path)
+            result[config_type].append(file_path)
+        
+        return result
+    
     def invalidate_cache(self, config_path: str) -> None:
         """清除指定配置的缓存"""
         # 通过清除全局缓存来实现

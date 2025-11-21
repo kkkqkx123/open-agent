@@ -9,8 +9,6 @@ import yaml
 import logging
 from copy import deepcopy
 
-from .config_discoverer import ConfigDiscoverer, ConfigDiscoveryResult
-
 logger = logging.getLogger(__name__)
 
 
@@ -87,7 +85,6 @@ class RegistryUpdater:
         """
         self.base_path = Path(base_path)
         self.logger = logging.getLogger(f"{__name__}.RegistryUpdater")
-        self.discoverer = ConfigDiscoverer(base_path)
     
     def update_registries(
         self,
@@ -110,14 +107,14 @@ class RegistryUpdater:
         try:
             self.logger.info("开始注册表自动更新")
             
-            # 1. 发现配置文件
-            discovery_result = self.discoverer.discover_configs()
+            # 1. 发现配置文件 - 这里需要使用新的配置发现逻辑
+            discovery_result = self._discover_configs()
             
             # 2. 加载现有注册表
             existing_registries = self._load_existing_registries()
             
             # 3. 生成更新建议
-            suggestions = self.discoverer.suggest_registry_updates(discovery_result, existing_registries)
+            suggestions = self._suggest_registry_updates(discovery_result, existing_registries)
             
             # 4. 预览更新
             if preview_only:
@@ -192,6 +189,190 @@ class RegistryUpdater:
             result.add_error(error_msg)
         
         return result
+    
+    def _discover_configs(self) -> Dict[str, List[Dict[str, Any]]]:
+        """发现配置文件
+        
+        Returns:
+            Dict[str, List[Dict[str, Any]]]: 发现结果
+        """
+        from src.core.config.config_loader import ConfigLoader
+        
+        loader = ConfigLoader(base_path=Path(self.base_path))
+        config_files = loader.get_config_files(recursive=True)
+        
+        # 按类型分类配置文件
+        result = {
+            "workflows": [],
+            "tools": [],
+            "state_machines": [],
+            "unknown": []
+        }
+        
+        for file_path in config_files:
+            # 推断配置类型
+            config_type = self._infer_config_type(file_path)
+            
+            config_info = {
+                "file_path": file_path,
+                "name": Path(file_path).stem
+            }
+            
+            if config_type == "workflow":
+                result["workflows"].append(config_info)
+            elif config_type == "tool":
+                result["tools"].append(config_info)
+            elif config_type == "state_machine":
+                result["state_machines"].append(config_info)
+            else:
+                result["unknown"].append(config_info)
+        
+        return result
+    
+    def _infer_config_type(self, file_path: str) -> str:
+        """推断配置类型
+        
+        Args:
+            file_path: 文件路径
+            
+        Returns:
+            str: 配置类型
+        """
+        # 检查路径中的关键词
+        path_lower = file_path.lower()
+        
+        # 状态机配置优先级最高
+        if "state_machine" in path_lower or any(pattern in path_lower for pattern in [
+            "state.*machine", "thinking", "deep.*thinking", "ultra.*thinking"
+        ]):
+            return "state_machine"
+        
+        # 工作流配置
+        if "workflow" in path_lower or any(pattern in path_lower for pattern in [
+            "react", "plan", "collaborative", "thinking", "deep", "ultra"
+        ]):
+            return "workflow"
+        
+        # 工具配置
+        if "tool" in path_lower or any(pattern in path_lower for pattern in [
+            "calculator", "fetch", "weather", "database", "search", "hash"
+        ]):
+            return "tool"
+        
+        # 默认为未知
+        return "unknown"
+    
+    def _suggest_registry_updates(
+        self,
+        discovery_result: Dict[str, List[Dict[str, Any]]],
+        existing_registries: Optional[Dict[str, Dict[str, Any]]] = None
+    ) -> Dict[str, Any]:
+        """建议注册表更新
+        
+        Args:
+            discovery_result: 发现结果
+            existing_registries: 现有注册表配置
+            
+        Returns:
+            Dict[str, Any]: 更新建议
+        """
+        if not existing_registries:
+            existing_registries = {}
+        
+        suggestions = {
+            "workflows": {
+                "new_entries": [],
+                "missing_entries": []
+            },
+            "tools": {
+                "new_entries": [],
+                "missing_entries": []
+            },
+            "state_machines": {
+                "new_entries": [],
+                "missing_entries": []
+            }
+        }
+        
+        # 分析工作流配置
+        existing_workflows = set()
+        if "workflows" in existing_registries:
+            workflow_types = existing_registries["workflows"].get("workflow_types", {})
+            existing_workflows = set(workflow_types.keys())
+        
+        discovered_workflows = set(config["name"] for config in discovery_result["workflows"])
+        
+        # 新发现的工作流
+        new_workflows = discovered_workflows - existing_workflows
+        for workflow_name in new_workflows:
+            workflow_config = next(config for config in discovery_result["workflows"] if config["name"] == workflow_name)
+            suggestions["workflows"]["new_entries"].append({
+                "name": workflow_name,
+                "file_path": workflow_config["file_path"],
+                "suggested_config": self._generate_workflow_suggestion(workflow_config)
+            })
+        
+        # 缺失的工作流
+        missing_workflows = existing_workflows - discovered_workflows
+        for workflow_name in missing_workflows:
+            suggestions["workflows"]["missing_entries"].append({
+                "name": workflow_name,
+                "reason": "配置文件未找到"
+            })
+        
+        # 分析工具配置
+        existing_tools = set()
+        if "tools" in existing_registries:
+            tool_types = existing_registries["tools"].get("tool_types", {})
+            existing_tools = set(tool_types.keys())
+        
+        discovered_tools = set(config["name"] for config in discovery_result["tools"])
+        
+        # 新发现的工具
+        new_tools = discovered_tools - existing_tools
+        for tool_name in new_tools:
+            tool_config = next(config for config in discovery_result["tools"] if config["name"] == tool_name)
+            suggestions["tools"]["new_entries"].append({
+                "name": tool_name,
+                "file_path": tool_config["file_path"],
+                "suggested_config": self._generate_tool_suggestion(tool_config)
+            })
+        
+        # 缺失的工具
+        missing_tools = existing_tools - discovered_tools
+        for tool_name in missing_tools:
+            suggestions["tools"]["missing_entries"].append({
+                "name": tool_name,
+                "reason": "配置文件未找到"
+            })
+        
+        # 分析状态机配置
+        existing_state_machines = set()
+        if "state_machine" in existing_registries:
+            state_machine_configs = existing_registries["state_machine"].get("config_files", {})
+            existing_state_machines = set(state_machine_configs.keys())
+        
+        discovered_state_machines = set(config["name"] for config in discovery_result["state_machines"])
+        
+        # 新发现的状态机
+        new_state_machines = discovered_state_machines - existing_state_machines
+        for sm_name in new_state_machines:
+            sm_config = next(config for config in discovery_result["state_machines"] if config["name"] == sm_name)
+            suggestions["state_machines"]["new_entries"].append({
+                "name": sm_name,
+                "file_path": sm_config["file_path"],
+                "suggested_config": self._generate_state_machine_suggestion(sm_config)
+            })
+        
+        # 缺失的状态机
+        missing_state_machines = existing_state_machines - discovered_state_machines
+        for sm_name in missing_state_machines:
+            suggestions["state_machines"]["missing_entries"].append({
+                "name": sm_name,
+                "reason": "配置文件未找到"
+            })
+        
+        return suggestions
     
     def _load_existing_registries(self) -> Dict[str, Dict[str, Any]]:
         """加载现有注册表
@@ -273,7 +454,7 @@ class RegistryUpdater:
             # 缺失条目
             missing_entries = updates.get("missing_entries", [])
             if missing_entries:
-                self.logger.info(f"  缺失条目 ({len(missing_entries)} 个):")
+                self.logger.info(f" 缺失条目 ({len(missing_entries)} 个):")
                 for entry in missing_entries:
                     self.logger.info(f"    - {entry['name']}: {entry['reason']}")
         
@@ -433,3 +614,107 @@ class RegistryUpdater:
         """
         from datetime import datetime
         return datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    def _generate_workflow_suggestion(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """生成工作流配置建议
+        
+        Args:
+            config: 配置信息
+            
+        Returns:
+            Dict[str, Any]: 建议配置
+        """
+        name = config["name"]
+        file_path = config["file_path"]
+        
+        # 根据名称推断类路径
+        class_path = self._infer_workflow_class_path(name)
+        
+        return {
+            "class_path": class_path,
+            "description": f"{name} 工作流",
+            "enabled": True,
+            "config_files": [file_path]
+        }
+    
+    def _generate_tool_suggestion(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """生成工具配置建议
+        
+        Args:
+            config: 配置信息
+            
+        Returns:
+            Dict[str, Any]: 建议配置
+        """
+        name = config["name"]
+        file_path = config["file_path"]
+        
+        # 根据名称推断类路径
+        class_path = self._infer_tool_class_path(name)
+        
+        return {
+            "class_path": class_path,
+            "description": f"{name} 工具",
+            "enabled": True,
+            "config_files": [file_path]
+        }
+    
+    def _generate_state_machine_suggestion(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """生成状态机配置建议
+        
+        Args:
+            config: 配置信息
+            
+        Returns:
+            Dict[str, Any]: 建议配置
+        """
+        name = config["name"]
+        file_path = config["file_path"]
+        
+        return {
+            "file_path": file_path,
+            "description": f"{name} 状态机工作流",
+            "enabled": True
+        }
+    
+    def _infer_workflow_class_path(self, name: str) -> str:
+        """推断工作流类路径
+        
+        Args:
+            name: 工作流名称
+            
+        Returns:
+            str: 类路径
+        """
+        name_lower = name.lower()
+        
+        if "react" in name_lower:
+            return "src.core.workflow.patterns.react:ReActWorkflow"
+        elif "plan" in name_lower:
+            return "src.core.workflow.patterns.plan_execute:PlanExecuteWorkflow"
+        elif "collaborative" in name_lower:
+            return "src.services.workflow.collaborative:CollaborativeWorkflow"
+        elif "thinking" in name_lower:
+            return "src.core.workflow.state_machine:StateMachineWorkflow"
+        else:
+            return "src.core.workflow.base:BaseWorkflow"
+    
+    def _infer_tool_class_path(self, name: str) -> str:
+        """推断工具类路径
+        
+        Args:
+            name: 工具名称
+            
+        Returns:
+            str: 类路径
+        """
+        name_lower = name.lower()
+        
+        if "calculator" in name_lower:
+            return "src.core.tools.types.builtin.calculator:CalculatorTool"
+        elif "fetch" in name_lower or "search" in name_lower:
+            return "src.core.tools.types.rest:RestTool"
+        elif "weather" in name_lower:
+            return "src.core.tools.types.rest:RestTool"
+        else:
+            return "src.core.tools.types.rest:RestTool"

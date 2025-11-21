@@ -14,6 +14,7 @@ from .exceptions import (
     ConfigEnvironmentError,
     ConfigValidationError
 )
+from .validation import BaseConfigValidator, ValidationResult, ValidationSeverity
 
 
 class ConfigProcessor:
@@ -24,6 +25,7 @@ class ConfigProcessor:
         self.loader = loader or ConfigLoader()
         self._inheritance_cache = ConfigCache()  # 使用统一缓存系统
         self._env_var_pattern = re.compile(r'\$\{([^}]+)\}')
+        self._validators = {}  # 存储特定类型的验证器
     
     def process(self, config: Dict[str, Any], config_path: Optional[str] = None) -> Dict[str, Any]:
         """处理配置（继承、环境变量、验证）"""
@@ -34,7 +36,7 @@ class ConfigProcessor:
         config = self._resolve_env_vars(config)
         
         # 3. 验证配置
-        self._validate_config(config)
+        self._validate_config(config, config_path)
         
         return config
     
@@ -157,7 +159,7 @@ class ConfigProcessor:
         except Exception as e:
             raise ConfigEnvironmentError(f"环境变量解析失败: {e}")
     
-    def _validate_config(self, config: Dict[str, Any]) -> None:
+    def _validate_config(self, config: Dict[str, Any], config_path: Optional[str] = None) -> None:
         """验证配置"""
         # 基础验证
         if not isinstance(config, dict):
@@ -173,9 +175,9 @@ class ConfigProcessor:
         # 类型特定验证
         config_type = config.get("type")
         if config_type:
-            self._validate_config_by_type(config, config_type)
+            self._validate_config_by_type(config, config_type, config_path)
     
-    def _validate_config_by_type(self, config: Dict[str, Any], config_type: str) -> None:
+    def _validate_config_by_type(self, config: Dict[str, Any], config_type: str, config_path: Optional[str] = None) -> None:
         """按类型验证配置"""
         # 这里可以添加更具体的类型验证逻辑
         if config_type == "llm":
@@ -184,6 +186,13 @@ class ConfigProcessor:
             self._validate_tool_config(config)
         elif config_type == "tool_set":
             self._validate_tool_set_config(config)
+        elif config_type == "workflow":
+            self._validate_workflow_config(config, config_path)
+        elif config_type == "registry":
+            self._validate_registry_config(config, config_path)
+        else:
+            # 使用通用验证器
+            self._validate_generic_config(config, config_type, config_path)
     
     def _validate_llm_config(self, config: Dict[str, Any]) -> None:
         """验证LLM配置"""
@@ -218,6 +227,40 @@ class ConfigProcessor:
         tools = config.get("tools")
         if not isinstance(tools, list):
             raise ConfigValidationError("工具集配置的 'tools' 字段必须是列表")
+    
+    def _validate_workflow_config(self, config: Dict[str, Any], config_path: Optional[str] = None) -> None:
+        """验证工作流配置"""
+        from .workflow.validation import WorkflowConfigValidator
+        validator = WorkflowConfigValidator()
+        result = validator.validate(config)
+        if not result.is_valid:
+            error_msg = f"工作流配置验证失败: {config_path or 'unknown'}\n"
+            for error in result.errors:
+                error_msg += f"  - {error}\n"
+            raise ConfigValidationError(error_msg)
+    
+    def _validate_registry_config(self, config: Dict[str, Any], config_path: Optional[str] = None) -> None:
+        """验证注册表配置"""
+        from .services.config.registry_validator import RegistryConfigValidator
+        registry_type = config.get("registry_type", "generic")
+        validator = RegistryConfigValidator(registry_type)
+        result = validator.validate(config)
+        if not result.is_valid:
+            error_msg = f"注册表配置验证失败: {config_path or 'unknown'}\n"
+            for error in result.errors:
+                error_msg += f" - {error}\n"
+            raise ConfigValidationError(error_msg)
+    
+    def _validate_generic_config(self, config: Dict[str, Any], config_type: str, config_path: Optional[str] = None) -> None:
+        """验证通用配置"""
+        # 使用基础验证器
+        validator = BaseConfigValidator(f"GenericConfigValidator_{config_type}")
+        result = validator.validate(config)
+        if not result.is_valid:
+            error_msg = f"通用配置验证失败: {config_path or 'unknown'}\n"
+            for error in result.errors:
+                error_msg += f" - {error}\n"
+            raise ConfigValidationError(error_msg)
     
     def _merge_configs(self, base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
         """深度合并配置"""

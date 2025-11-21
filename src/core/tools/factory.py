@@ -4,10 +4,9 @@
 """
 
 from typing import Dict, Any, List, Optional, Type, Union, TYPE_CHECKING
-from abc import ABC
 import logging
 
-from .interfaces import ITool, IToolFactory
+from src.interfaces.tools import ITool, IToolFactory
 
 if TYPE_CHECKING:
     from .config import ToolConfig, NativeToolConfig, RestToolConfig, MCPToolConfig
@@ -22,11 +21,10 @@ except ImportError:
 
 # 导入注册管理器
 try:
-    from src.infrastructure.registry.module_registry_manager import ModuleRegistryManager
-    from src.infrastructure.registry.dynamic_importer import DynamicImporter
+    # 新架构中不再使用 ModuleRegistryManager，使用新的配置管理器
+    from src.core.utils.dynamic_importer import DynamicImporter
     _registry_imported = True
 except ImportError:
-    ModuleRegistryManager = None  # type: ignore
     DynamicImporter = None  # type: ignore
     _registry_imported = False
 

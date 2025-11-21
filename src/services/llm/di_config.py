@@ -3,8 +3,8 @@
 import logging
 from typing import Dict, Any
 
-from src.interfaces.llm_core import (
-    ITaskGroupManager, 
+from src.interfaces.llm import (
+    ITaskGroupManager,
     IPollingPoolManager, 
     IClientFactory, 
     IFallbackManager,

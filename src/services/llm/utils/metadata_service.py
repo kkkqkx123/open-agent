@@ -5,7 +5,7 @@
 
 from typing import Any, Dict, Optional
 
-from src.interfaces.llm_core import ILLMClient
+from src.interfaces.llm import ILLMClient
 
 
 class ClientMetadataService:

@@ -6,11 +6,70 @@
 from typing import Dict, List, Any, Optional, Set
 import os
 import re
+import logging
 
-from .config_validator import BaseConfigValidator, ValidationResult
+logger = logging.getLogger(__name__)
 
 
-class WorkflowConfigValidator(BaseConfigValidator):
+class ValidationSeverity:
+    """验证严重程度枚举"""
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+    CRITICAL = "critical"
+
+
+class ValidationResult:
+    """验证结果数据结构"""
+    def __init__(self):
+        self.is_valid = True
+        self.errors: List[str] = []
+        self.warnings: List[str] = []
+        self.info: List[str] = []
+    
+    def add_error(self, message: str) -> None:
+        """添加错误信息"""
+        self.errors.append(message)
+        self.is_valid = False
+    
+    def add_warning(self, message: str) -> None:
+        """添加警告信息"""
+        self.warnings.append(message)
+    
+    def add_info(self, message: str) -> None:
+        """添加信息"""
+        self.info.append(message)
+    
+    def merge(self, other: 'ValidationResult') -> None:
+        """合并另一个验证结果"""
+        self.errors.extend(other.errors)
+        self.warnings.extend(other.warnings)
+        self.info.extend(other.info)
+        if not other.is_valid:
+            self.is_valid = False
+    
+    def has_messages(self, severity: ValidationSeverity) -> bool:
+        """检查是否有指定严重程度的消息"""
+        if severity == ValidationSeverity.ERROR:
+            return len(self.errors) > 0
+        elif severity == ValidationSeverity.WARNING:
+            return len(self.warnings) > 0
+        elif severity == ValidationSeverity.INFO:
+            return len(self.info) > 0
+        return False
+    
+    def get_messages(self, severity: ValidationSeverity) -> List[str]:
+        """获取指定严重程度的消息"""
+        if severity == ValidationSeverity.ERROR:
+            return self.errors
+        elif severity == ValidationSeverity.WARNING:
+            return self.warnings
+        elif severity == ValidationSeverity.INFO:
+            return self.info
+        return []
+
+
+class WorkflowConfigValidator:
     """工作流配置验证器
     
     验证工作流配置的结构和一致性。
@@ -18,7 +77,44 @@ class WorkflowConfigValidator(BaseConfigValidator):
     
     def __init__(self):
         """初始化工作流配置验证器"""
-        super().__init__("WorkflowConfigValidator")
+        self.name = "WorkflowConfigValidator"
+        self.logger = logging.getLogger(f"{__name__}.WorkflowConfigValidator")
+    
+    def validate(self, config: Dict[str, Any]) -> ValidationResult:
+        """验证配置
+        
+        Args:
+            config: 配置字典
+            
+        Returns:
+            ValidationResult: 验证结果
+        """
+        result = ValidationResult()
+        
+        # 基础验证
+        self._validate_basic_structure(config, result)
+        
+        # 自定义验证
+        self._validate_custom(config, result)
+        
+        # 记录验证结果
+        self._log_validation_result(result)
+        
+        return result
+    
+    def _validate_basic_structure(self, config: Dict[str, Any], result: ValidationResult) -> None:
+        """验证基础结构
+        
+        Args:
+            config: 配置字典
+            result: 验证结果
+        """
+        if not isinstance(config, dict):
+            result.add_error("配置必须是字典类型")
+            return
+        
+        if not config:
+            result.add_error("配置不能为空")
     
     def _validate_custom(self, config: Dict[str, Any], result: ValidationResult) -> None:
         """自定义验证逻辑
@@ -78,7 +174,7 @@ class WorkflowConfigValidator(BaseConfigValidator):
                     "description": str,
                     "author": str
                 }
-                self._validate_field_types(metadata, type_rules, result)
+                self._validate_field_types(config, type_rules, result)
         
         # 验证基础字段
         type_rules = {
@@ -365,7 +461,10 @@ class WorkflowConfigValidator(BaseConfigValidator):
             config: 配置字典
             result: 验证结果
         """
-        inherits_from = config["inherits_from"]
+        inherits_from = config.get("inherits_from")
+        
+        if not inherits_from:
+            return  # 没有继承关系，跳过验证
         
         if not isinstance(inherits_from, str):
             result.add_error("inherits_from 必须是字符串类型")
@@ -383,3 +482,91 @@ class WorkflowConfigValidator(BaseConfigValidator):
         # 检查循环继承（简单检查）
         if "name" in config and inherits_from == config.get("name", "") + ".yaml":
             result.add_error("检测到可能的循环继承")
+    
+    def _validate_required_fields(self, config: Dict[str, Any], required_fields: List[str], result: ValidationResult) -> None:
+        """验证必需字段
+        
+        Args:
+            config: 配置字典
+            required_fields: 必需字段列表
+            result: 验证结果
+        """
+        for field in required_fields:
+            if field not in config:
+                result.add_error(f"缺少必需字段: {field}")
+            elif config[field] is None:
+                result.add_error(f"必需字段不能为空: {field}")
+    
+    def _validate_field_types(self, config: Dict[str, Any], type_rules: Dict[str, type], result: ValidationResult) -> None:
+        """验证字段类型
+        
+        Args:
+            config: 配置字典
+            type_rules: 类型规则字典 {字段名: 期望类型}
+            result: 验证结果
+        """
+        for field, expected_type in type_rules.items():
+            if field in config and config[field] is not None:
+                if not isinstance(config[field], expected_type):
+                    result.add_error(f"字段 '{field}' 类型错误，期望 {expected_type.__name__}，实际 {type(config[field]).__name__}")
+    
+    def _validate_field_values(self, config: Dict[str, Any], value_rules: Dict[str, Dict[str, Any]], result: ValidationResult) -> None:
+        """验证字段值
+        
+        Args:
+            config: 配置字典
+            value_rules: 值规则字典 {字段名: 规则字典}
+            result: 验证结果
+        """
+        for field, rules in value_rules.items():
+            if field not in config or config[field] is None:
+                continue
+            
+            value = config[field]
+            
+            # 验证枚举值
+            if "enum" in rules and value not in rules["enum"]:
+                result.add_error(f"字段 '{field}' 值无效，必须是 {rules['enum']} 中的一个")
+            
+            # 验证范围
+            if "range" in rules:
+                min_val, max_val = rules["range"]
+                if not (min_val <= value <= max_val):
+                    result.add_error(f"字段 '{field}' 值超出范围，必须在 {min_val} 到 {max_val} 之间")
+            
+            # 验证正则表达式
+            if "pattern" in rules:
+                pattern = rules["pattern"]
+                if not re.match(pattern, str(value)):
+                    result.add_error(f"字段 '{field}' 值格式不正确，必须匹配模式: {pattern}")
+            
+            # 验证最小长度
+            if "min_length" in rules:
+                min_len = rules["min_length"]
+                if len(str(value)) < min_len:
+                    result.add_error(f"字段 '{field}' 长度不足，最小长度为 {min_len}")
+            
+            # 验证最大长度
+            if "max_length" in rules:
+                max_len = rules["max_length"]
+                if len(str(value)) > max_len:
+                    result.add_error(f"字段 '{field}' 长度超限，最大长度为 {max_len}")
+    
+    def _log_validation_result(self, result: ValidationResult) -> None:
+        """记录验证结果
+        
+        Args:
+            result: 验证结果
+        """
+        if result.is_valid:
+            self.logger.debug(f"配置验证通过: {self.name}")
+        else:
+            self.logger.error(f"配置验证失败: {self.name}")
+            for error in result.errors:
+                self.logger.error(f"  错误: {error}")
+        
+        for warning in result.warnings:
+            self.logger.warning(f"  警告: {warning}")
+        
+        for info in result.info:
+            self.logger.info(f"  信息: {info}")

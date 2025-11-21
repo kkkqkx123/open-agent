@@ -9,8 +9,6 @@ from dataclasses import dataclass, field
 import logging
 import re
 
-logger = logging.getLogger(__name__)
-
 
 class ValidationSeverity(Enum):
     """验证严重程度枚举"""

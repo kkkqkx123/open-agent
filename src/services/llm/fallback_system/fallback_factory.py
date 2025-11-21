@@ -7,7 +7,7 @@ from typing import Any, Optional, List
 from .fallback_manager import FallbackManager
 from .fallback_config import FallbackConfig
 from .interfaces import IClientFactory, IFallbackLogger
-from src.interfaces.llm_core import ITaskGroupManager, IPollingPoolManager
+from src.interfaces.llm import ITaskGroupManager, IPollingPoolManager
 
 
 def create_fallback_manager(

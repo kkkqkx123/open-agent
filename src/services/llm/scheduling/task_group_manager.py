@@ -6,7 +6,7 @@
 import logging
 from typing import Dict, Any, Optional, List, Tuple
 
-from src.interfaces.llm_core import ITaskGroupManager
+from src.interfaces.llm import ITaskGroupManager
 from ..config.config_manager import ConfigManager
 
 logger = logging.getLogger(__name__)

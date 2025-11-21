@@ -4,13 +4,11 @@
 提供工具的加载、注册、查询和管理功能。
 """
 
-import os
 import importlib
-import inspect
 from typing import Any, Dict, List, Optional, Type, Union
 from pathlib import Path
 
-from .interfaces import ITool, IToolRegistry
+from src.interfaces.tools import ITool, IToolRegistry
 from .config import (
     ToolConfig,
     NativeToolConfig,

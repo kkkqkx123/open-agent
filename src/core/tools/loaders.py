@@ -6,9 +6,8 @@
 
 import os
 from typing import List, Dict, Any
-from pathlib import Path
 
-from .interfaces import ITool
+from src.interfaces.tools import ITool
 from .config import ToolConfig
 
 class DefaultToolLoader:

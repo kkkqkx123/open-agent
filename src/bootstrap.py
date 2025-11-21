@@ -262,21 +262,18 @@ class ApplicationBootstrap:
             logger.warning(f"生命周期管理器初始化失败: {e}")
     
     def _initialize_registry_manager(self) -> None:
-        """初始化注册管理器"""
+        """初始化配置管理器"""
         try:
             if self.container:
-                from src.infrastructure.registry.module_registry_manager import ModuleRegistryManager
+                # 新架构中使用配置管理器替代注册管理器
+                from src.core.config.config_manager import ConfigManager
                 
-                if self.container.has_service(ModuleRegistryManager):
-                    registry_manager = self.container.get(ModuleRegistryManager)
+                if self.container.has_service(ConfigManager):
+                    config_manager = self.container.get(ConfigManager)
                     
-                    # 确保注册管理器已初始化
-                    if not registry_manager.initialized:
-                        registry_manager.initialize()
-                    
-                    logger.info("注册管理器初始化完成")
+                    logger.info("配置管理器初始化完成")
                 else:
-                    logger.warning("注册管理器未注册到容器")
+                    logger.warning("配置管理器未注册到容器")
         except Exception as e:
             logger.warning(f"注册管理器初始化失败: {e}")
     

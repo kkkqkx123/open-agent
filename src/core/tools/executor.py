@@ -1,12 +1,11 @@
 """改进的工具执行器实现
-
-移除不必要的异步包装，提供真正的异步执行能力。
+提供真正的异步执行能力。
 """
 
 import asyncio
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union, Callable
+from typing import Any, Dict, List, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 

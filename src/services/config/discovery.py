@@ -468,15 +468,15 @@ class ConfigDiscoverer:
         name_lower = name.lower()
         
         if "react" in name_lower:
-            return "src.application.workflow.factory:ReActWorkflow"
+            return "src.core.workflow.patterns.react:ReActWorkflow"
         elif "plan" in name_lower:
-            return "src.application.workflow.factory:PlanExecuteWorkflow"
+            return "src.core.workflow.patterns.plan_execute:PlanExecuteWorkflow"
         elif "collaborative" in name_lower:
-            return "src.application.workflow.collaborative:CollaborativeWorkflow"
+            return "src.services.workflow.collaborative:CollaborativeWorkflow"
         elif "thinking" in name_lower:
-            return "src.application.workflow.state_machine.state_machine_workflow:StateMachineWorkflow"
+            return "src.core.workflow.state_machine:StateMachineWorkflow"
         else:
-            return "src.application.workflow.factory:BaseWorkflow"
+            return "src.core.workflow.base:BaseWorkflow"
     
     def _infer_tool_class_path(self, name: str) -> str:
         """推断工具类路径
@@ -490,10 +490,10 @@ class ConfigDiscoverer:
         name_lower = name.lower()
         
         if "calculator" in name_lower:
-            return "src.domain.tools.types.rest_tool:SyncRestTool"
+            return "src.core.tools.types.builtin.calculator:CalculatorTool"
         elif "fetch" in name_lower or "search" in name_lower:
-            return "src.domain.tools.types.rest_tool:RestTool"
+            return "src.core.tools.types.rest:RestTool"
         elif "weather" in name_lower:
-            return "src.domain.tools.types.rest_tool:RestTool"
+            return "src.core.tools.types.rest:RestTool"
         else:
-            return "src.domain.tools.types.rest_tool:RestTool"
+            return "src.core.tools.types.rest:RestTool"

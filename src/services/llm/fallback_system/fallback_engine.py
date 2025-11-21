@@ -17,7 +17,7 @@ from src.core.llm.models import LLMResponse
 from src.core.llm.exceptions import LLMCallError
 
 # Services 层的导入
-from src.interfaces.llm_core import ITaskGroupManager, IPollingPoolManager
+from src.interfaces.llm import ITaskGroupManager, IPollingPoolManager
 from src.core.llm.wrappers.fallback_manager import (
     GroupBasedFallbackStrategy,
     PollingPoolFallbackStrategy,

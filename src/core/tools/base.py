@@ -5,12 +5,12 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Union, Tuple
+from typing import Any, Dict, Optional, Tuple
 import asyncio
 import time
 import json
 
-from .interfaces import ITool, ToolResult
+from src.interfaces.tools import ITool, ToolResult
 
 
 class BaseTool(ITool, ABC):
