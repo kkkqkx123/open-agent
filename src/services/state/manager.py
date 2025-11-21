@@ -14,7 +14,7 @@ from src.interfaces.state.enhanced import (
     IStateSnapshotManager,
     IStateSerializer
 )
-from src.interfaces.state.entities import StateSnapshot, StateHistoryEntry, StateStatistics
+from src.interfaces.state.concrete import StateSnapshot, StateHistoryEntry, StateStatistics
 from src.core.state.base import BaseStateManager, StateValidationMixin
 
 
@@ -171,7 +171,7 @@ class EnhancedStateManager(IEnhancedStateManager, BaseStateManager, StateValidat
         # 创建快照
         snapshot_id = self._snapshot_manager.create_snapshot(
             agent_id=agent_id,
-            domain_state=state_data,
+            state_data=state_data,
             snapshot_name=snapshot_name or f"snapshot_{state_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
             metadata={
                 "state_id": state_id,
@@ -238,7 +238,7 @@ class EnhancedStateManager(IEnhancedStateManager, BaseStateManager, StateValidat
             storage_size_bytes=history_stats.get("storage_size_bytes", 0) +
                               snapshot_stats.get("storage_size_bytes", 0),
             agent_counts=agent_counts,
-            last_updated=datetime.now()
+            last_updated=datetime.now().isoformat()
         )
     
     def execute_with_state_management(

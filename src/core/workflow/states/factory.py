@@ -7,15 +7,18 @@ This module provides factory functions for creating different types of workflow 
 from typing import Any, Dict, List, Optional, Type, Union, Sequence
 from datetime import datetime
 
+# 从base包导入WorkflowState和消息类
 from .base import (
-    WorkflowState, 
-    BaseMessage, 
-    HumanMessage, 
-    AIMessage, 
-    SystemMessage, 
+    WorkflowState,
+    BaseMessage,
+    HumanMessage,
+    AIMessage,
+    SystemMessage,
     ToolMessage,
-    LCBaseMessage,
-    LCHumanMessage
+)
+from langchain_core.messages import (
+    BaseMessage as LCBaseMessage,
+    HumanMessage as LCHumanMessage,
 )
 
 
@@ -68,12 +71,12 @@ class WorkflowStateFactory:
         # Convert to list and cast to Union type
         message_list: List[Union[BaseMessage, LCBaseMessage]] = list(messages)
         
-        return WorkflowState(
-            messages=message_list,
-            input=input_text,
-            max_iterations=max_iterations,
-            start_time=datetime.now()
-        )
+        state = WorkflowState()
+        state.messages = message_list
+        state.input = input_text
+        state.max_iterations = max_iterations
+        state.start_time = datetime.now()
+        return state
     
     @staticmethod
     def create_workflow_state(
@@ -103,17 +106,17 @@ class WorkflowStateFactory:
         # Convert to list
         message_list: List[Union[BaseMessage, LCBaseMessage]] = list(messages)
         
-        return WorkflowState(
-            messages=message_list,
-            input=input_text,
-            workflow_id=workflow_id,
-            workflow_name=workflow_name,
-            workflow_config=workflow_config or {},
-            max_iterations=max_iterations,
-            agent_id=workflow_id,
-            agent_config=workflow_config or {},
-            start_time=datetime.now()
-        )
+        state = WorkflowState()
+        state.messages = message_list
+        state.input = input_text
+        state.workflow_id = workflow_id
+        state.workflow_name = workflow_name
+        state.workflow_config = workflow_config or {}
+        state.max_iterations = max_iterations
+        state.agent_id = workflow_id
+        state.agent_config = workflow_config or {}
+        state.start_time = datetime.now()
+        return state
     
     @staticmethod
     def create_react_state(
@@ -139,10 +142,10 @@ class WorkflowStateFactory:
         )
         
         # Add ReAct-specific custom fields
-        base_state.set_custom_field("thought", None)
-        base_state.set_custom_field("action", None)
-        base_state.set_custom_field("observation", None)
-        base_state.set_custom_field("steps", [])
+        base_state.custom_fields["thought"] = None
+        base_state.custom_fields["action"] = None
+        base_state.custom_fields["observation"] = None
+        base_state.custom_fields["steps"] = []
         
         return base_state
     
@@ -170,10 +173,10 @@ class WorkflowStateFactory:
         )
         
         # Add plan-execute-specific custom fields
-        base_state.set_custom_field("plan", None)
-        base_state.set_custom_field("steps", [])
-        base_state.set_custom_field("current_step", None)
-        base_state.set_custom_field("step_results", [])
+        base_state.custom_fields["plan"] = None
+        base_state.custom_fields["steps"] = []
+        base_state.custom_fields["current_step"] = None
+        base_state.custom_fields["step_results"] = []
         
         return base_state
     

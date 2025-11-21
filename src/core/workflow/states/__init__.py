@@ -1,14 +1,12 @@
 """Workflow states module following the new architecture."""
 from .base import (
-    WorkflowState, 
-    BaseMessage, 
-    SystemMessage, 
-    HumanMessage, 
-    AIMessage, 
-    LCAIMessage,
+    WorkflowState,
+    BaseMessage,
+    SystemMessage,
+    HumanMessage,
+    AIMessage,
     ToolMessage,
     MessageRole,
-    LCBaseMessage
 )
 from .factory import (
     WorkflowStateFactory,
@@ -51,10 +49,8 @@ __all__ = [
     "SystemMessage",
     "HumanMessage",
     "AIMessage",
-    "LCAIMessage",
     "ToolMessage",
     "MessageRole",
-    "LCBaseMessage",
     
     # Factory
     "WorkflowStateFactory",

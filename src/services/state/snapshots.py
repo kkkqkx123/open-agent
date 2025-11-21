@@ -10,7 +10,7 @@ from datetime import datetime
 from src.interfaces.state.snapshot import IStateSnapshotManager
 from src.interfaces.state.serializer import IStateSerializer
 from src.interfaces.state.storage.adapter import IStateStorageAdapter
-from src.interfaces.state.entities import StateSnapshot
+from src.interfaces.state.concrete import StateSnapshot
 from src.core.state.base import BaseStateSnapshotManager
 
 
@@ -42,17 +42,17 @@ class StateSnapshotService(BaseStateSnapshotManager):
         self._snapshot_cache: Dict[str, StateSnapshot] = {}
         self._agent_snapshots_index: Dict[str, List[str]] = {}
     
-    def create_snapshot(self, agent_id: str, domain_state: Dict[str, Any], 
+    def create_snapshot(self, agent_id: str, state_data: Dict[str, Any], 
                        snapshot_name: str = "", metadata: Optional[Dict[str, Any]] = None) -> str:
         """创建状态快照"""
         try:
             # 创建快照对象
-            snapshot = self._create_snapshot(agent_id, domain_state, snapshot_name, metadata)
+            snapshot = self._create_snapshot(agent_id, state_data, snapshot_name, metadata)
             
             # 序列化和压缩状态数据
             if self._serializer:
-                state_data = self._serializer.serialize_state(domain_state)
-                compressed_data = self._serializer.compress_data(state_data)
+                serialized_data = self._serializer.serialize_state(state_data)
+                compressed_data = self._serializer.compress_data(serialized_data)
                 snapshot.compressed_data = compressed_data
                 snapshot.size_bytes = len(compressed_data)
             
@@ -256,8 +256,8 @@ class StateSnapshotService(BaseStateSnapshotManager):
             return []
     
     def get_snapshots_in_time_range(self, agent_id: str, 
-                                  start_time: datetime, 
-                                  end_time: datetime) -> List[StateSnapshot]:
+                                   start_time: datetime, 
+                                   end_time: datetime) -> List[StateSnapshot]:
         """获取指定时间范围内的快照
         
         Args:
@@ -274,7 +274,8 @@ class StateSnapshotService(BaseStateSnapshotManager):
             # 过滤时间范围
             filtered_snapshots = []
             for snapshot in snapshots:
-                if start_time <= snapshot.timestamp <= end_time:
+                snapshot_time = datetime.fromisoformat(snapshot.timestamp)
+                if start_time <= snapshot_time <= end_time:
                     filtered_snapshots.append(snapshot)
             
             return filtered_snapshots
@@ -283,13 +284,13 @@ class StateSnapshotService(BaseStateSnapshotManager):
             logger.error(f"获取时间范围内快照失败: {e}")
             return []
     
-    def create_auto_snapshot(self, agent_id: str, domain_state: Dict[str, Any], 
+    def create_auto_snapshot(self, agent_id: str, state_data: Dict[str, Any], 
                            trigger_reason: str = "") -> str:
         """创建自动快照
         
         Args:
             agent_id: 代理ID
-            domain_state: 域状态
+            state_data: 状态数据
             trigger_reason: 触发原因
             
         Returns:
@@ -302,7 +303,7 @@ class StateSnapshotService(BaseStateSnapshotManager):
             "created_at": datetime.now().isoformat()
         }
         
-        return self.create_snapshot(agent_id, domain_state, snapshot_name, metadata)
+        return self.create_snapshot(agent_id, state_data, snapshot_name, metadata)
     
     def _update_cache(self, snapshot: StateSnapshot) -> None:
         """更新缓存"""

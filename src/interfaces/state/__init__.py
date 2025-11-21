@@ -32,9 +32,18 @@ from .entities import (
     AbstractStateSnapshot,
     AbstractStateHistoryEntry,
     AbstractStateConflict,
-    AbstractConflictType,
-    AbstractConflictResolutionStrategy,
     AbstractStateStatistics
+)
+
+# 具体实现（从核心模块导入）
+from src.core.state.entities import (
+    StateSnapshot,
+    StateHistoryEntry,
+    StateConflict,
+    ConflictType,
+    ConflictResolutionStrategy,
+    StateStatistics,
+    StateDiff
 )
 
 # 存储相关接口
@@ -80,9 +89,16 @@ __all__ = [
     'AbstractStateSnapshot',
     'AbstractStateHistoryEntry',
     'AbstractStateConflict',
-    'AbstractConflictType',
-    'AbstractConflictResolutionStrategy',
     'AbstractStateStatistics',
+    
+    # 具体实现
+    'StateSnapshot',
+    'StateHistoryEntry',
+    'StateConflict',
+    'StateStatistics',
+    'StateDiff',
+    'ConflictType',
+    'ConflictResolutionStrategy',
     
     # 存储相关接口
     'IStorageBackend',

@@ -9,6 +9,7 @@ from typing import Dict, Any, List, Optional
 from .entities import AbstractStateSnapshot
 
 
+# 状态快照管理器接口定义
 class IStateSnapshotManager(ABC):
     """状态快照管理器接口
     
@@ -16,12 +17,12 @@ class IStateSnapshotManager(ABC):
     """
     
     @abstractmethod
-    def create_snapshot(self, agent_id: str, state_data: Dict[str, Any], snapshot_name: str = "") -> AbstractStateSnapshot:
+    def create_snapshot(self, agent_id: str, state_data: Dict[str, Any], snapshot_name: str = "", metadata: Optional[Dict[str, Any]] = None) -> str:
         """创建状态快照
         
         Args:
             agent_id: 代理ID
-            domain_state: 域状态
+            state_data: 状态数据
             snapshot_name: 快照名称
             metadata: 元数据
             

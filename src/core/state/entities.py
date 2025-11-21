@@ -236,21 +236,36 @@ class StateDiff:
         return new_state
 
 
-class ConflictType(Enum):
+class ConflictType(str, Enum):
     """冲突类型枚举"""
+    # 旧版本值（向后兼容）
     FIELD_MODIFICATION = "field_modification"      # 字段修改冲突
     LIST_OPERATION = "list_operation"              # 列表操作冲突
     STRUCTURE_CHANGE = "structure_change"          # 结构变化冲突
     VERSION_MISMATCH = "version_mismatch"          # 版本不匹配冲突
+    
+    # 新增值
+    CONCURRENT_UPDATE = "concurrent_update"        # 并发更新冲突
+    MERGE_CONFLICT = "merge_conflict"              # 合并冲突
+    CONSTRAINT_VIOLATION = "constraint_violation"  # 约束违反
+    UNKNOWN = "unknown"                            # 未知冲突
 
 
-class ConflictResolutionStrategy(Enum):
+class ConflictResolutionStrategy(str, Enum):
     """冲突解决策略"""
+    # 旧版本值（向后兼容）
     LAST_WRITE_WINS = "last_write_wins"           # 最后写入获胜
     FIRST_WRITE_WINS = "first_write_wins"         # 首次写入获胜
     MANUAL_RESOLUTION = "manual_resolution"       # 手动解决
     MERGE_CHANGES = "merge_changes"               # 合并变更
     REJECT_CONFLICT = "reject_conflict"           # 拒绝冲突变更
+    
+    # 新增值（向后兼容的别名）
+    KEEP_MINE = "keep_mine"                       # 保留本地版本
+    TAKE_THEIRS = "take_theirs"                   # 取用远程版本
+    MERGE = "merge"                               # 合并
+    MANUAL_REVIEW = "manual_review"               # 手动审查
+    ABORT = "abort"                               # 中止
 
 
 @dataclass

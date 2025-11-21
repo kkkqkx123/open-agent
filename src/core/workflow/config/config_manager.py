@@ -248,3 +248,19 @@ class WorkflowConfigManager(IWorkflowConfigManager):
                 return hashlib.md5(f.read()).hexdigest()
         except Exception:
             return ""
+
+
+# 全局配置管理器实例
+_global_config_manager: Optional[WorkflowConfigManager] = None
+
+
+def get_global_config_manager() -> WorkflowConfigManager:
+    """获取全局配置管理器
+    
+    Returns:
+        WorkflowConfigManager: 全局配置管理器
+    """
+    global _global_config_manager
+    if _global_config_manager is None:
+        _global_config_manager = WorkflowConfigManager()
+    return _global_config_manager

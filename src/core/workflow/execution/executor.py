@@ -5,12 +5,13 @@
 
 import asyncio
 from typing import Dict, Any, List, Optional, AsyncGenerator
-from src.interfaces.workflow.execution import IStreamingExecutor
 from src.interfaces.workflow.core import IWorkflow, ExecutionContext
 from src.interfaces.state import IWorkflowState, IState
+from .base import BaseExecutor
+from .utils import NextNodesResolver
 
 
-class WorkflowExecutor(IStreamingExecutor):
+class WorkflowExecutor(BaseExecutor):
     """工作流执行器
     
     提供同步、异步和流式执行能力。
@@ -18,7 +19,7 @@ class WorkflowExecutor(IStreamingExecutor):
     
     def __init__(self):
         """初始化执行器"""
-        self._execution_context: Optional[ExecutionContext] = None
+        super().__init__()
 
     def execute(self, workflow: IWorkflow, initial_state: IWorkflowState,
                 context: ExecutionContext) -> IWorkflowState:
@@ -32,11 +33,8 @@ class WorkflowExecutor(IStreamingExecutor):
         Returns:
             IWorkflowState: 执行结果状态
         """
-        self._execution_context = context
-        
-        # 获取入口点
-        if not workflow.entry_point:
-            raise ValueError("工作流未设置入口点")
+        self._set_execution_context(context)
+        self._validate_workflow(workflow)
         
         current_node_id = workflow.entry_point
         current_state: IWorkflowState = initial_state
@@ -81,11 +79,8 @@ class WorkflowExecutor(IStreamingExecutor):
         Returns:
             IWorkflowState: 执行结果状态
         """
-        self._execution_context = context
-        
-        # 获取入口点
-        if not workflow.entry_point:
-            raise ValueError("工作流未设置入口点")
+        self._set_execution_context(context)
+        self._validate_workflow(workflow)
         
         current_node_id = workflow.entry_point
         current_state: IWorkflowState = initial_state
@@ -132,34 +127,23 @@ class WorkflowExecutor(IStreamingExecutor):
         """
         events = []
         
-        # 获取入口点
-        if not workflow.entry_point:
-            raise ValueError("工作流未设置入口点")
+        self._set_execution_context(context)
+        self._validate_workflow(workflow)
         
         current_node_id = workflow.entry_point
         current_state = initial_state
         
         # 添加开始事件
-        events.append({
-            "type": "workflow_started",
-            "workflow_id": context.workflow_id,
-            "execution_id": context.execution_id,
-            "timestamp": self._get_timestamp()
-        })
+        events.append(self._create_workflow_started_event())
         
         while current_node_id:
             # 获取当前节点
-            current_node = workflow.get_node(current_node_id)
-            if not current_node:
-                raise ValueError(f"节点不存在: {current_node_id}")
+            current_node = self._get_node(workflow, current_node_id)
             
             # 添加节点开始事件
-            events.append({
-                "type": "node_started",
-                "node_id": current_node_id,
-                "node_type": current_node.node_type,
-                "timestamp": self._get_timestamp()
-            })
+            events.append(self._create_node_started_event(
+                current_node_id, current_node.node_type
+            ))
             
             # 执行节点
             try:
@@ -167,13 +151,9 @@ class WorkflowExecutor(IStreamingExecutor):
                 current_state = result.state
                 
                 # 添加节点完成事件
-                events.append({
-                    "type": "node_completed",
-                    "node_id": current_node_id,
-                    "node_type": current_node.node_type,
-                    "result": result.metadata,
-                    "timestamp": self._get_timestamp()
-                })
+                events.append(self._create_node_completed_event(
+                    current_node_id, current_node.node_type, result.metadata
+                ))
                 
                 # 确定下一个节点
                 if result.next_node:
@@ -187,26 +167,16 @@ class WorkflowExecutor(IStreamingExecutor):
                         current_node_id = None  # 工作流结束
             except Exception as e:
                 # 添加节点错误事件
-                events.append({
-                    "type": "node_error",
-                    "node_id": current_node_id,
-                    "node_type": current_node.node_type,
-                    "error": str(e),
-                    "timestamp": self._get_timestamp()
-                })
+                events.append(self._create_node_error_event(
+                    current_node_id, current_node.node_type, e
+                ))
                 
                 # 处理执行错误
                 current_state.set_data("error", str(e))
                 current_node_id = None  # 终止工作流
         
         # 添加工作流结束事件
-        events.append({
-            "type": "workflow_completed",
-            "workflow_id": context.workflow_id,
-            "execution_id": context.execution_id,
-            "final_state": current_state.get_data("error") is None,
-            "timestamp": self._get_timestamp()
-        })
+        events.append(self._create_workflow_completed_event(current_state))
         
         return events
 
@@ -223,17 +193,7 @@ class WorkflowExecutor(IStreamingExecutor):
         Returns:
             List[str]: 下一个节点ID列表
         """
-        next_nodes = []
-        
-        # 获取所有出边
-        for edge in workflow._edges.values():
-            if edge.from_node == node_id:
-                # 检查是否可以遍历
-                if edge.can_traverse_with_config(state, config):
-                    next_node_ids = edge.get_next_nodes(state, config)
-                    next_nodes.extend(next_node_ids)
-        
-        return next_nodes
+        return NextNodesResolver.get_next_nodes(workflow, node_id, state, config)
 
     async def _get_next_nodes_async(self, workflow: IWorkflow, node_id: str,
                                 state: IWorkflowState, config: Dict[str, Any]) -> List[str]:
@@ -248,25 +208,7 @@ class WorkflowExecutor(IStreamingExecutor):
         Returns:
             List[str]: 下一个节点ID列表
         """
-        next_nodes = []
-        
-        # 获取所有出边
-        for edge in workflow._edges.values():
-            if edge.from_node == node_id:
-                # 异步检查是否可以遍历
-                if hasattr(edge, 'can_traverse_async'):
-                    can_traverse = await edge.can_traverse_async(state, config)
-                else:
-                    can_traverse = edge.can_traverse_with_config(state, config)
-                
-                if can_traverse:
-                    if hasattr(edge, 'get_next_nodes_async'):
-                        next_node_ids = await edge.get_next_nodes_async(state, config)
-                    else:
-                        next_node_ids = edge.get_next_nodes(state, config)
-                    next_nodes.extend(next_node_ids)
-        
-        return next_nodes
+        return await NextNodesResolver.get_next_nodes_async(workflow, node_id, state, config)
 
     async def execute_stream_async(  # type: ignore[override]
         self, workflow: IWorkflow, initial_state: IWorkflowState,
@@ -282,34 +224,23 @@ class WorkflowExecutor(IStreamingExecutor):
         Yields:
             Dict[str, Any]: 执行事件
         """
-        # 添加开始事件
-        yield {
-            "type": "workflow_started",
-            "workflow_id": context.workflow_id,
-            "execution_id": context.execution_id,
-            "timestamp": self._get_timestamp()
-        }
+        self._set_execution_context(context)
+        self._validate_workflow(workflow)
         
-        # 获取入口点
-        if not workflow.entry_point:
-            raise ValueError("工作流未设置入口点")
+        # 添加开始事件
+        yield self._create_workflow_started_event()
         
         current_node_id = workflow.entry_point
         current_state = initial_state
         
         while current_node_id:
             # 获取当前节点
-            current_node = workflow.get_node(current_node_id)
-            if not current_node:
-                raise ValueError(f"节点不存在: {current_node_id}")
+            current_node = self._get_node(workflow, current_node_id)
             
             # 添加节点开始事件
-            yield {
-                "type": "node_started",
-                "node_id": current_node_id,
-                "node_type": current_node.node_type,
-                "timestamp": self._get_timestamp()
-            }
+            yield self._create_node_started_event(
+                current_node_id, current_node.node_type
+            )
             
             # 异步执行节点
             try:
@@ -317,13 +248,9 @@ class WorkflowExecutor(IStreamingExecutor):
                 current_state = result.state
                 
                 # 添加节点完成事件
-                yield {
-                    "type": "node_completed",
-                    "node_id": current_node_id,
-                    "node_type": current_node.node_type,
-                    "result": result.metadata,
-                    "timestamp": self._get_timestamp()
-                }
+                yield self._create_node_completed_event(
+                    current_node_id, current_node.node_type, result.metadata
+                )
                 
                 # 确定下一个节点
                 if result.next_node:
@@ -337,28 +264,13 @@ class WorkflowExecutor(IStreamingExecutor):
                         current_node_id = None  # 工作流结束
             except Exception as e:
                 # 添加节点错误事件
-                yield {
-                    "type": "node_error",
-                    "node_id": current_node_id,
-                    "node_type": current_node.node_type,
-                    "error": str(e),
-                    "timestamp": self._get_timestamp()
-                }
+                yield self._create_node_error_event(
+                    current_node_id, current_node.node_type, e
+                )
                 
                 # 处理执行错误
                 current_state.set_data("error", str(e))
                 current_node_id = None # 终止工作流
         
         # 添加工作流结束事件
-        yield {
-            "type": "workflow_completed",
-            "workflow_id": context.workflow_id,
-            "execution_id": context.execution_id,
-            "final_state": current_state.get_data("error") is None,
-            "timestamp": self._get_timestamp()
-        }
-
-    def _get_timestamp(self) -> str:
-        """获取当前时间戳"""
-        from datetime import datetime
-        return datetime.now().isoformat()
+        yield self._create_workflow_completed_event(current_state)
