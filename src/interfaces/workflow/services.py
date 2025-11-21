@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Optional, AsyncGenerator, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .core import IWorkflow
-    from ..state.interfaces import IWorkflowState
+    from ..state.workflow import IWorkflowState
 
 
 class IWorkflowManager(ABC):
