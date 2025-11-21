@@ -306,7 +306,7 @@ def setup_container(config_path: Optional[str] = None) -> None:
             from src.infrastructure.threads.metadata_store import IThreadMetadataStore, MemoryThreadMetadataStore
             from src.domain.checkpoint.interfaces import ICheckpointManager
             from src.application.checkpoint.manager import CheckpointManager
-            from src.infrastructure.langgraph.adapter import ILangGraphAdapter, LangGraphAdapter
+            from infrastructure.langgraph.langgraph_adapter import ILangGraphAdapter, LangGraphAdapter
             from src.domain.checkpoint.config import CheckpointConfig
             from src.infrastructure.checkpoint.memory_store import MemoryCheckpointStore
             

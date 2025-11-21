@@ -8,11 +8,10 @@ import logging
 from typing import Dict, Any, Optional, Union
 
 from .registry import BaseNode, NodeExecutionResult, node
-from ...states import WorkflowState
-from ...plugins.manager import PluginManager
-from ...plugins.interfaces import PluginType, PluginContext
-# from ._node_plugin_system import NodeHookManager  # 暂时注释掉，模块不存在
-
+from src.core.workflow.states import WorkflowState
+from src.core.workflow.plugins.manager import PluginManager
+from src.core.workflow.plugins.hooks.executor import HookExecutor
+from src.interfaces.workflow.plugins import PluginType, PluginContext
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +33,8 @@ class EndNode(BaseNode):
         self.plugin_config_path = plugin_config_path
         # 保留原有的PluginManager用于END插件
         self.plugin_manager = PluginManager(plugin_config_path)
-        # 新增NodeHookManager用于Hook插件
-        self.node_hook_manager = NodeHookManager(plugin_config_path)
+        # 新增HookExecutor用于Hook插件
+        self.node_hook_manager = HookExecutor()
         self._initialized = False
     
     @property
@@ -48,8 +47,8 @@ class EndNode(BaseNode):
         if not self._initialized:
             if not self.plugin_manager.initialize():
                 raise RuntimeError("插件管理器初始化失败")
-            if not self.node_hook_manager.initialize():
-                logger.warning("Node Hook管理器初始化失败，将不使用Hook功能")
+            # HookExecutor不需要初始化，直接使用
+            logger.debug("HookExecutor已准备就绪")
             self._initialized = True
     
     def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
@@ -306,7 +305,7 @@ class EndNode(BaseNode):
         if self._initialized:
             stats = {
                 "plugin_manager": self.plugin_manager.get_manager_stats(),
-                "node_hook_manager": self.node_hook_manager.get_manager_stats()
+                "hook_executor": self.node_hook_manager.get_performance_stats()
             }
             return stats
         else:

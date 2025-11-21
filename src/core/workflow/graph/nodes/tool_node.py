@@ -8,8 +8,8 @@ import time
 
 from .registry import BaseNode, NodeExecutionResult, node
 from ...states import WorkflowState
-from src.interfaces.tools_core import ITool, IToolRegistry, ToolCall, ToolResult
-from services.workflow.configuration.node_config_loader import get_node_config_loader
+from src.interfaces.tools import ITool, IToolRegistry, ToolCall, ToolResult
+from ...config.node_config_loader import get_node_config_loader
 
 
 @node("tool_node")

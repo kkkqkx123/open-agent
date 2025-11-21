@@ -15,7 +15,7 @@ from src.application.checkpoint.manager import ICheckpointManager
 from src.infrastructure.threads.metadata_store import IThreadMetadataStore
 from src.infrastructure.threads.branch_store import IThreadBranchStore
 from src.infrastructure.threads.snapshot_store import IThreadSnapshotStore
-from src.infrastructure.langgraph.adapter import LangGraphAdapter
+from infrastructure.langgraph.langgraph_adapter import LangGraphAdapter
 
 logger = logging.getLogger(__name__)
 

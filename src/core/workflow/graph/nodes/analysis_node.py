@@ -8,9 +8,9 @@ from dataclasses import dataclass
 
 from .registry import BaseNode, NodeExecutionResult, node
 from ...states import WorkflowState
-from src.interfaces.llm_core import ILLMClient
+from src.interfaces.llm import ILLMClient
 from src.infrastructure.container_interfaces import IDependencyContainer
-from services.workflow.configuration.node_config_loader import get_node_config_loader
+from ...config.node_config_loader import get_node_config_loader
 from langchain_core.messages import AIMessage, SystemMessage
 
 

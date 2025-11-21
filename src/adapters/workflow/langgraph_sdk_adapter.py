@@ -13,7 +13,7 @@ from ...domain.threads.interfaces import IThreadManager
 logger = logging.getLogger(__name__)
 
 
-class CompleteLangGraphSDKAdapter:
+class LangGraphSDKAdapter:
     """完整的LangGraph SDK适配器"""
     
     def __init__(

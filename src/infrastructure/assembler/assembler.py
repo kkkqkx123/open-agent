@@ -372,7 +372,7 @@ class ComponentAssembler(IComponentAssembler):
         # 注册Thread相关服务
         from ...domain.threads.interfaces import IThreadManager
         from ...domain.threads.manager import ThreadManager
-        from ...infrastructure.langgraph.adapter import LangGraphAdapter
+        from ..langgraph.langgraph_adapter import LangGraphAdapter
         from ...infrastructure.threads.metadata_store import MemoryThreadMetadataStore, IThreadMetadataStore
         from ...application.threads.branch_manager import BranchManager
         from ...application.threads.snapshot_manager import SnapshotManager

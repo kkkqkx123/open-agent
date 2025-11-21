@@ -8,10 +8,10 @@ import time
 from typing import Dict, Any, List, Optional, Callable
 from collections import defaultdict
 
-from ..interfaces import IHookPlugin, HookPoint, HookContext, HookExecutionResult
-from ..registry import PluginRegistry
-from ...states import WorkflowState
-from ...registry import NodeExecutionResult
+from src.interfaces.workflow.plugins import IHookPlugin, HookPoint, HookContext, HookExecutionResult
+from src.core.workflow.plugins.registry import PluginRegistry
+from src.core.workflow.states import WorkflowState
+from src.core.workflow.graph.nodes.registry import NodeExecutionResult
 
 
 logger = logging.getLogger(__name__)
@@ -253,8 +253,14 @@ class HookExecutor:
         
         # 检查是否需要中断执行
         if not before_result.should_continue:
+            # 类型转换：确保状态类型匹配
+            final_state = before_result.modified_state or state
+            if hasattr(final_state, 'to_dict'):
+                # 如果是IWorkflowState，转换为WorkflowState
+                final_state = WorkflowState.from_dict(final_state.to_dict())  # type: ignore
+            
             return NodeExecutionResult(
-                state=before_result.modified_state or state,
+                state=final_state,  # type: ignore
                 next_node=before_result.force_next_node,
                 metadata={
                     "interrupted_by_hooks": True,
@@ -264,7 +270,12 @@ class HookExecutor:
         
         # 更新状态（如果Hook修改了状态）
         if before_result.modified_state:
-            state = before_result.modified_state
+            # 类型转换：确保状态类型匹配
+            if hasattr(before_result.modified_state, 'to_dict'):
+                # 如果是IWorkflowState，转换为WorkflowState
+                state = WorkflowState.from_dict(before_result.modified_state.to_dict())  # type: ignore
+            else:
+                state = before_result.modified_state  # type: ignore
         
         # 执行节点逻辑
         try:
@@ -276,12 +287,20 @@ class HookExecutor:
             self.update_performance_stats(node_type, execution_time, success=True)
             
             # 创建后置Hook上下文
+            # 注意：这里需要使用接口层的NodeExecutionResult类型
+            from src.interfaces.workflow.graph import NodeExecutionResult as InterfaceNodeExecutionResult
+            interface_result = InterfaceNodeExecutionResult(
+                state=result.state,
+                next_node=result.next_node,
+                metadata=result.metadata
+            )
+            
             after_context = HookContext(
                 node_type=node_type,
                 state=result.state,
                 config=config,
                 hook_point=HookPoint.AFTER_EXECUTE,
-                execution_result=result
+                execution_result=interface_result
             )
             
             # 执行后置Hook
@@ -289,7 +308,12 @@ class HookExecutor:
             
             # 应用Hook结果
             if after_result.modified_state:
-                result.state = after_result.modified_state
+                # 类型转换：确保状态类型匹配
+                if hasattr(after_result.modified_state, 'to_dict'):
+                    # 如果是IWorkflowState，转换为WorkflowState
+                    result.state = WorkflowState.from_dict(after_result.modified_state.to_dict())  # type: ignore
+                else:
+                    result.state = after_result.modified_state  # type: ignore
             
             if after_result.force_next_node:
                 result.next_node = after_result.force_next_node
@@ -319,8 +343,14 @@ class HookExecutor:
             
             # 检查Hook是否处理了错误
             if not error_result.should_continue:
+                # 类型转换：确保状态类型匹配
+                final_state = error_result.modified_state or state
+                if hasattr(final_state, 'to_dict'):
+                    # 如果是IWorkflowState，转换为WorkflowState
+                    final_state = WorkflowState.from_dict(final_state.to_dict())
+                
                 return NodeExecutionResult(
-                    state=error_result.modified_state or state,
+                    state=final_state,  # type: ignore
                     next_node=error_result.force_next_node or "error_handler",
                     metadata={
                         "error_handled_by_hooks": True,

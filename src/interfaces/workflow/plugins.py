@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 if TYPE_CHECKING:
-    from ..state.interfaces import IWorkflowState
+    from ..state.workflow import IWorkflowState
     from .graph import NodeExecutionResult
 
 

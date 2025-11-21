@@ -15,7 +15,7 @@ from ...infrastructure.threads.metadata_store import IThreadMetadataStore
 from ...infrastructure.threads.branch_store import IThreadBranchStore
 from ...infrastructure.threads.snapshot_store import IThreadSnapshotStore
 from ...domain.checkpoint.interfaces import ICheckpointManager
-from ...infrastructure.langgraph.adapter import ILangGraphAdapter
+from ...infrastructure.langgraph.langgraph_adapter import ILangGraphAdapter
 from ...infrastructure.graph.config import GraphConfig
 from ...infrastructure.graph.states import WorkflowState
 from ...domain.threads.collaboration import ThreadCollaboration, SharedThreadState
