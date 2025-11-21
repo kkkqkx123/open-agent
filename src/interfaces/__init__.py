@@ -123,6 +123,15 @@ from .storage import (
     IStorageFactory
 )
 
+# 提示词相关接口
+from .prompts import (
+    IPromptRegistry,
+    IPromptLoader,
+    IPromptInjector,
+    PromptMeta,
+    PromptConfig,
+)
+
 # 通用相关接口
 from .common import (
     IConfigLoader,
@@ -247,6 +256,13 @@ __all__ = [
     # 存储接口
     "IUnifiedStorage",
     "IStorageFactory",
+    
+    # 提示词接口
+    "IPromptRegistry",
+    "IPromptLoader",
+    "IPromptInjector",
+    "PromptMeta",
+    "PromptConfig",
     
     # 通用接口
     "IConfigLoader",

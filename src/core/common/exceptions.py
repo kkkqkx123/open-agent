@@ -489,3 +489,53 @@ def create_storage_error(
         details=details,
         cause=cause
     )
+
+
+# 提示词相关异常
+
+class PromptError(CoreError):
+    """提示词基础异常
+    
+    所有提示词相关异常的基类。
+    """
+    pass
+
+
+class PromptRegistryError(PromptError):
+    """提示词注册表异常
+    
+    当提示词注册表操作失败时抛出。
+    """
+    pass
+
+
+class PromptLoadError(PromptError):
+    """提示词加载异常
+    
+    当提示词加载失败时抛出。
+    """
+    pass
+
+
+class PromptInjectionError(PromptError):
+    """提示词注入异常
+    
+    当提示词注入失败时抛出。
+    """
+    pass
+
+
+class PromptConfigurationError(PromptError):
+    """提示词配置异常
+    
+    当提示词配置错误时抛出。
+    """
+    pass
+
+
+class PromptNotFoundError(PromptError):
+    """提示词不存在异常
+    
+    当请求的提示词不存在时抛出。
+    """
+    pass

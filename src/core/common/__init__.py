@@ -24,6 +24,12 @@ from .exceptions import (
     StorageIntegrityError,
     StorageConfigurationError,
     StorageMigrationError,
+    PromptError,
+    PromptRegistryError,
+    PromptLoadError,
+    PromptInjectionError,
+    PromptConfigurationError,
+    PromptNotFoundError,
     EXCEPTION_MAP,
     create_storage_error,
 )
@@ -53,6 +59,16 @@ __all__ = [
     "StorageIntegrityError",
     "StorageConfigurationError",
     "StorageMigrationError",
+    
+    # 提示词异常
+    "PromptError",
+    "PromptRegistryError",
+    "PromptLoadError",
+    "PromptInjectionError",
+    "PromptConfigurationError",
+    "PromptNotFoundError",
+    
+    # 工具函数
     "EXCEPTION_MAP",
     "create_storage_error",
 ]

@@ -4,12 +4,15 @@ import threading
 import time
 import logging
 from abc import ABC, abstractmethod
-from typing import Type, TypeVar, Dict, Any, Optional, List, Set, Callable, Union, ContextManager
+from typing import Type, TypeVar, Dict, Any, Optional, List, Set, Callable, Union, ContextManager, overload
 from enum import Enum
 from dataclasses import dataclass
 from contextlib import contextmanager
 
 from ..infrastructure.infrastructure_types import ServiceRegistration, ServiceLifetime, T
+
+# 泛型类型变量用于 get 方法
+_ServiceT = TypeVar("_ServiceT")
 
 logger = logging.getLogger(__name__)
 
@@ -236,7 +239,7 @@ class IDependencyContainer(ABC):
         pass
 
     @abstractmethod
-    def get(self, service_type: Type[T]) -> T:
+    def get(self, service_type: Type[_ServiceT]) -> _ServiceT:
         """获取服务实例"""
         pass
 

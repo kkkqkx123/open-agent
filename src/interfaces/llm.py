@@ -11,11 +11,20 @@ from typing import (
     Sequence,
     Tuple,
 )
+from dataclasses import dataclass
 
 from langchain_core.messages import BaseMessage
 
-from ..core.llm.models import LLMResponse
 
+@dataclass
+class LLMResponse:
+    """LLM响应数据模型"""
+    
+    content: str  # 响应内容
+    model: Optional[str] = None  # 使用的模型名称
+    finish_reason: Optional[str] = None  # 完成原因（stop/length/tool_calls等）
+    tokens_used: Optional[int] = None  # 使用的token数量
+    metadata: Optional[Dict[str, Any]] = None  # 额外元数据
 
 class ILLMClient(ABC):
     """LLM客户端接口"""
