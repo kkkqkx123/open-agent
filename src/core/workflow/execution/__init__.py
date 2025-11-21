@@ -1,109 +1,152 @@
-"""工作流执行模块
+"""工作流执行模块 - 新架构
 
-提供工作流和节点执行的核心功能。
+提供工作流和节点执行的核心功能，采用基于职责的分层架构。
 """
 
-from src.interfaces import (
-    INodeExecutor,
+# 核心执行层
+from .core import (
+    WorkflowExecutor,
     IWorkflowExecutor,
-    IExecutionStrategy,
-    IExecutionObserver,
-    IStreamingExecutor,
-)
-from .async_executor import (
-    IAsyncNodeExecutor,
-    AsyncNodeExecutor,
-    NodeExecutionContext,
-    NodeExecutionResult,
-    execute_node_async,
-    execute_nodes_batch,
-)
-from .retry_executor import (
-    IRetryExecutor,
-    RetryExecutor,
-    RetryConfig,
-    RetryStrategy,
-    RetryAttempt,
-    RetryResult,
-    RetryConfigs,
-    execute_with_retry,
-    execute_with_retry_async,
-)
-from .batch_executor import (
-    IBatchExecutor,
-    BatchExecutor,
-    BatchExecutionConfig,
+    NodeExecutor,
+    INodeExecutor,
+    ExecutionContext,
+    ExecutionResult,
+    NodeResult,
     BatchJob,
     BatchExecutionResult,
-    ExecutionMode,
-    FailureStrategy,
-    batch_run_workflows,
-    batch_run_workflows_async,
-)
-from .runner import (
-    IWorkflowRunner,
-    WorkflowRunner,
-    WorkflowExecutionResult,
-    run_workflow,
-    run_workflow_async,
-)
-from .collaboration_executor import (
-    ICollaborationExecutor,
-    CollaborationExecutor,
-)
-from .executor import (
-    WorkflowExecutor,
+    ExecutionStatus
 )
 
+# 执行策略层
+from .strategies import (
+    IExecutionStrategy,
+    BaseStrategy,
+    RetryStrategy,
+    IRetryStrategy,
+    RetryConfig,
+    RetryStrategy as RetryStrategyEnum,
+    RetryAttempt,
+    RetryConfigs,
+    BatchStrategy,
+    IBatchStrategy,
+    BatchConfig,
+    ExecutionMode as BatchExecutionMode,
+    FailureStrategy,
+    StreamingStrategy,
+    IStreamingStrategy,
+    StreamingConfig,
+    CollaborationStrategy,
+    ICollaborationStrategy,
+    CollaborationConfig
+)
+
+# 执行模式层
+from .modes import (
+    IExecutionMode,
+    BaseMode,
+    SyncMode,
+    ISyncMode,
+    AsyncMode,
+    IAsyncMode,
+    HybridMode,
+    IHybridMode
+)
+
+# 执行服务层
+from .services import (
+    ExecutionManager,
+    IExecutionManager,
+    ExecutionManagerConfig,
+    ExecutionMonitor,
+    IExecutionMonitor,
+    Metric,
+    MetricType,
+    Alert,
+    AlertLevel,
+    PerformanceReport,
+    ExecutionScheduler,
+    IExecutionScheduler,
+    ExecutionTask,
+    TaskPriority,
+    TaskStatus,
+    SchedulerConfig
+)
+
+# 基础组件（保持向后兼容）
+from .base.executor_base import BaseExecutor as LegacyBaseExecutor
+
+# 便捷函数
+from .core.workflow_executor import WorkflowExecutor as DefaultWorkflowExecutor
+from .core.node_executor import NodeExecutor as DefaultNodeExecutor
+from .services.execution_manager import ExecutionManager as DefaultExecutionManager
+
 __all__ = [
-    # 基础接口
-    "INodeExecutor",
+    # 核心执行层
+    "WorkflowExecutor",
     "IWorkflowExecutor",
-    "IExecutionStrategy",
-    "IExecutionObserver",
-    "IStreamingExecutor",
-    
-    # 异步执行
-    "IAsyncNodeExecutor",
-    "AsyncNodeExecutor",
-    "NodeExecutionContext",
-    "NodeExecutionResult",
-    "execute_node_async",
-    "execute_nodes_batch",
-    
-    # 重试执行
-    "IRetryExecutor",
-    "RetryExecutor",
-    "RetryConfig",
-    "RetryStrategy",
-    "RetryAttempt",
-    "RetryResult",
-    "RetryConfigs",
-    "execute_with_retry",
-    "execute_with_retry_async",
-    
-    # 批量执行
-    "IBatchExecutor",
-    "BatchExecutor",
-    "BatchExecutionConfig",
+    "NodeExecutor", 
+    "INodeExecutor",
+    "ExecutionContext",
+    "ExecutionResult",
+    "NodeResult",
     "BatchJob",
     "BatchExecutionResult",
-    "ExecutionMode",
+    "ExecutionStatus",
+    
+    # 执行策略层
+    "IExecutionStrategy",
+    "BaseStrategy",
+    "RetryStrategy",
+    "IRetryStrategy", 
+    "RetryConfig",
+    "RetryStrategyEnum",
+    "RetryAttempt",
+    "RetryConfigs",
+    "BatchStrategy",
+    "IBatchStrategy",
+    "BatchConfig",
+    "BatchExecutionMode",
     "FailureStrategy",
-    "batch_run_workflows",
-    "batch_run_workflows_async",
+    "StreamingStrategy",
+    "IStreamingStrategy",
+    "StreamingConfig",
+    "CollaborationStrategy",
+    "ICollaborationStrategy",
+    "CollaborationConfig",
     
-    # 工作流运行器
-    "IWorkflowRunner",
-    "WorkflowRunner",
-    "WorkflowExecutionResult",
-    "run_workflow",
-    "run_workflow_async",
+    # 执行模式层
+    "IExecutionMode",
+    "BaseMode",
+    "SyncMode",
+    "ISyncMode",
+    "AsyncMode",
+    "IAsyncMode", 
+    "HybridMode",
+    "IHybridMode",
     
-    # 协作执行
-    "ICollaborationExecutor",
-    "CollaborationExecutor",
+    # 执行服务层
+    "ExecutionManager",
+    "IExecutionManager",
+    "ExecutionManagerConfig",
+    "ExecutionMonitor",
+    "IExecutionMonitor",
+    "Metric",
+    "MetricType",
+    "Alert",
+    "AlertLevel",
+    "PerformanceReport",
+    "ExecutionScheduler",
+    "IExecutionScheduler",
+    "ExecutionTask",
+    "TaskPriority",
+    "TaskStatus",
+    "SchedulerConfig",
     
-    # 工作流执行器
-    "WorkflowExecutor",
+    # 向后兼容
+    "LegacyBaseExecutor",
+    
+    # 默认实现
+    "DefaultWorkflowExecutor",
+    "DefaultNodeExecutor",
+    "DefaultExecutionManager",
 ]
