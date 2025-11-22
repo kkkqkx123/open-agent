@@ -1,13 +1,13 @@
-"""Sessions核心模块初始化"""
+"""会话核心模块导出"""
 
-from .entities import Session, SessionMetadata, SessionStatus
-from .interfaces import ISessionCore
-from .base import SessionBase
+from .entities import SessionEntity, UserInteractionEntity, UserRequestEntity
+from .interfaces import ISessionCore, ISessionValidator, ISessionStateTransition
 
 __all__ = [
-    "Session",
-    "SessionMetadata", 
-    "SessionStatus",
+    "SessionEntity",
+    "UserInteractionEntity", 
+    "UserRequestEntity",
     "ISessionCore",
-    "SessionBase",
+    "ISessionValidator",
+    "ISessionStateTransition"
 ]

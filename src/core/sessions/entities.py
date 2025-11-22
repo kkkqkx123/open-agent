@@ -1,118 +1,152 @@
-"""Session实体定义"""
+"""会话核心实体定义"""
 
-from enum import Enum
-from typing import Dict, Any, Optional, List
+from dataclasses import dataclass, field
 from datetime import datetime
-from pydantic import BaseModel, Field
+from typing import Dict, Any, Optional, List
+from uuid import uuid4
 
 
-class SessionStatus(str, Enum):
-    """会话状态枚举"""
-    ACTIVE = "active"
-    PAUSED = "paused"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    ARCHIVED = "archived"
-
-
-class SessionMetadata(BaseModel):
-    """会话元数据模型"""
+@dataclass
+class SessionEntity:
+    """会话实体"""
+    session_id: str
+    user_id: Optional[str] = None
+    thread_ids: List[str] = field(default_factory=list)
+    status: str = "active"
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+    metadata: Dict[str, Any] = field(default_factory=dict)
     
-    title: Optional[str] = None
-    description: Optional[str] = None
-    tags: List[str] = Field(default_factory=list)
-    custom_data: Dict[str, Any] = Field(default_factory=dict)
+    def __post_init__(self):
+        """初始化后处理"""
+        if not self.session_id:
+            self.session_id = str(uuid4())
     
-    class Config:
-        """Pydantic配置"""
-        extra = "allow"
-
-
-class Session(BaseModel):
-    """会话实体模型"""
+    def add_thread(self, thread_id: str) -> None:
+        """添加线程ID"""
+        if thread_id not in self.thread_ids:
+            self.thread_ids.append(thread_id)
+            self.updated_at = datetime.now()
     
-    id: str = Field(..., description="会话唯一标识")
-    status: SessionStatus = Field(default=SessionStatus.ACTIVE, description="会话状态")
-    graph_id: Optional[str] = Field(None, description="关联的图ID")
-    thread_id: Optional[str] = Field(None, description="关联的线程ID")
+    def remove_thread(self, thread_id: str) -> None:
+        """移除线程ID"""
+        if thread_id in self.thread_ids:
+            self.thread_ids.remove(thread_id)
+            self.updated_at = datetime.now()
     
-    # 时间戳
-    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
-    updated_at: datetime = Field(default_factory=datetime.utcnow, description="更新时间")
+    def update_status(self, status: str) -> None:
+        """更新状态"""
+        self.status = status
+        self.updated_at = datetime.now()
     
-    # 元数据
-    metadata: SessionMetadata = Field(default_factory=SessionMetadata, description="会话元数据")
+    def update_metadata(self, metadata: Dict[str, Any]) -> None:
+        """更新元数据"""
+        self.metadata.update(metadata)
+        self.updated_at = datetime.now()
     
-    # 配置和状态
-    config: Dict[str, Any] = Field(default_factory=dict, description="会话配置")
-    state: Dict[str, Any] = Field(default_factory=dict, description="会话状态")
-    
-    # 统计信息
-    message_count: int = Field(default=0, description="消息数量")
-    checkpoint_count: int = Field(default=0, description="检查点数量")
-    
-    class Config:
-        """Pydantic配置"""
-        extra = "allow"
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-    
-    def update_timestamp(self) -> None:
-        """更新时间戳"""
-        self.updated_at = datetime.utcnow()
-    
-    def increment_message_count(self) -> None:
-        """增加消息计数"""
-        self.message_count += 1
-        self.update_timestamp()
-    
-    def increment_checkpoint_count(self) -> None:
-        """增加检查点计数"""
-        self.checkpoint_count += 1
-        self.update_timestamp()
-    
-    def can_transition_to(self, new_status: SessionStatus) -> bool:
-        """检查是否可以转换到指定状态
-        
-        Args:
-            new_status: 目标状态
-            
-        Returns:
-            可以转换返回True，否则返回False
-        """
-        # 定义状态转换规则
-        valid_transitions = {
-            SessionStatus.ACTIVE: [SessionStatus.PAUSED, SessionStatus.COMPLETED, SessionStatus.FAILED, SessionStatus.ARCHIVED],
-            SessionStatus.PAUSED: [SessionStatus.ACTIVE, SessionStatus.COMPLETED, SessionStatus.FAILED, SessionStatus.ARCHIVED],
-            SessionStatus.COMPLETED: [SessionStatus.ACTIVE, SessionStatus.ARCHIVED],
-            SessionStatus.FAILED: [SessionStatus.ACTIVE, SessionStatus.ARCHIVED],
-            SessionStatus.ARCHIVED: [SessionStatus.ACTIVE]  # 可以重新激活归档的会话
-        }
-        
-        return new_status in valid_transitions.get(self.status, [])
-    
-    def transition_to(self, new_status: SessionStatus) -> bool:
-        """转换会话状态
-        
-        Args:
-            new_status: 目标状态
-            
-        Returns:
-            转换成功返回True，失败返回False
-        """
-        if not self.can_transition_to(new_status):
-            return False
-        
-        self.status = new_status
-        self.update_timestamp()
-        return True
+    def is_active(self) -> bool:
+        """检查会话是否活跃"""
+        return self.status == "active"
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
-        return self.model_dump()
+        return {
+            "session_id": self.session_id,
+            "user_id": self.user_id,
+            "thread_ids": self.thread_ids,
+            "status": self.status,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "metadata": self.metadata
+        }
     
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Session":
-        """从字典创建实例"""
-        return cls(**data)
+    def from_dict(cls, data: Dict[str, Any]) -> 'SessionEntity':
+        """从字典创建实体"""
+        return cls(
+            session_id=data["session_id"],
+            user_id=data.get("user_id"),
+            thread_ids=data.get("thread_ids", []),
+            status=data.get("status", "active"),
+            created_at=datetime.fromisoformat(data["created_at"]),
+            updated_at=datetime.fromisoformat(data["updated_at"]),
+            metadata=data.get("metadata", {})
+        )
+
+
+@dataclass
+class UserInteractionEntity:
+    """用户交互实体"""
+    interaction_id: str
+    session_id: str
+    thread_id: Optional[str] = None
+    interaction_type: str = "user_input"
+    content: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    timestamp: datetime = field(default_factory=datetime.now)
+    
+    def __post_init__(self):
+        """初始化后处理"""
+        if not self.interaction_id:
+            self.interaction_id = str(uuid4())
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            "interaction_id": self.interaction_id,
+            "session_id": self.session_id,
+            "thread_id": self.thread_id,
+            "interaction_type": self.interaction_type,
+            "content": self.content,
+            "metadata": self.metadata,
+            "timestamp": self.timestamp.isoformat()
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'UserInteractionEntity':
+        """从字典创建实体"""
+        return cls(
+            interaction_id=data["interaction_id"],
+            session_id=data["session_id"],
+            thread_id=data.get("thread_id"),
+            interaction_type=data.get("interaction_type", "user_input"),
+            content=data.get("content", ""),
+            metadata=data.get("metadata", {}),
+            timestamp=datetime.fromisoformat(data["timestamp"])
+        )
+
+
+@dataclass
+class UserRequestEntity:
+    """用户请求实体"""
+    request_id: str
+    user_id: Optional[str] = None
+    content: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    timestamp: datetime = field(default_factory=datetime.now)
+    
+    def __post_init__(self):
+        """初始化后处理"""
+        if not self.request_id:
+            self.request_id = str(uuid4())
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            "request_id": self.request_id,
+            "user_id": self.user_id,
+            "content": self.content,
+            "metadata": self.metadata,
+            "timestamp": self.timestamp.isoformat()
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'UserRequestEntity':
+        """从字典创建实体"""
+        return cls(
+            request_id=data["request_id"],
+            user_id=data.get("user_id"),
+            content=data.get("content", ""),
+            metadata=data.get("metadata", {}),
+            timestamp=datetime.fromisoformat(data["timestamp"])
+        )
