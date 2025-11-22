@@ -226,8 +226,10 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
         return ExecutionContext(
             workflow_id=context.workflow_id,
             execution_id=context.execution_id,
-            config=collaboration_config,
-            metadata=collaboration_metadata
+            config={
+                **collaboration_config,
+                **collaboration_metadata
+            }
         )
     
     def _validate_state(self, state: Any, context: 'ExecutionContext') -> List[str]:

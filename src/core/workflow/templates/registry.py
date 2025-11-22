@@ -6,7 +6,8 @@
 from typing import Dict, List, Optional, Any
 import logging
 
-from ..interfaces import IWorkflowTemplate, IWorkflow
+from src.interfaces.workflow.templates import IWorkflowTemplate
+from src.interfaces.workflow.core import IWorkflow  # noqa: F401
 from ..exceptions import WorkflowTemplateError
 
 logger = logging.getLogger(__name__)

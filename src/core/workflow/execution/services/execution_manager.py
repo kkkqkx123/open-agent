@@ -123,8 +123,7 @@ class ExecutionManager(IExecutionManager):
         context = ExecutionContext(
             workflow_id=workflow.config.name,
             execution_id=execution_id,
-            config=config or {},
-            metadata={
+            config=config or {
                 "initial_data": initial_data,
                 "manager_timestamp": datetime.now().isoformat()
             }
@@ -214,8 +213,7 @@ class ExecutionManager(IExecutionManager):
         context = ExecutionContext(
             workflow_id=workflow.config.name,
             execution_id=execution_id,
-            config=config or {},
-            metadata={
+            config=config or {
                 "initial_data": initial_data,
                 "manager_timestamp": datetime.now().isoformat(),
                 "async_execution": True

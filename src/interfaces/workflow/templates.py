@@ -4,8 +4,77 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from ...interfaces.prompts import IPromptInjector, PromptConfig
+
+if TYPE_CHECKING:
+    from ...interfaces.workflow.core import IWorkflow
+
+
+class IWorkflowTemplate(ABC):
+    """工作流模板接口
+    
+    定义工作流模板的基础接口。
+    """
+    
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """模板名称"""
+        pass
+    
+    @property
+    @abstractmethod
+    def description(self) -> str:
+        """模板描述"""
+        pass
+    
+    @property
+    @abstractmethod
+    def category(self) -> str:
+        """模板类别"""
+        pass
+    
+    @property
+    @abstractmethod
+    def version(self) -> str:
+        """模板版本"""
+        pass
+    
+    @abstractmethod
+    def get_parameters(self) -> List[Dict[str, Any]]:
+        """获取模板参数列表
+        
+        Returns:
+            List[Dict[str, Any]]: 参数列表
+        """
+        pass
+    
+    @abstractmethod
+    def validate_parameters(self, config: Dict[str, Any]) -> List[str]:
+        """验证参数
+        
+        Args:
+            config: 配置参数
+            
+        Returns:
+            List[str]: 验证错误列表
+        """
+        pass
+    
+    @abstractmethod
+    def create_workflow(self, name: str, description: str, config: Dict[str, Any]) -> "IWorkflow":
+        """使用模板创建工作流
+        
+        Args:
+            name: 工作流名称
+            description: 工作流描述
+            config: 配置参数
+            
+        Returns:
+            IWorkflow: 创建的工作流实例
+        """
+        pass
 
 
 class IPromptIntegratedTemplate(ABC):
@@ -95,38 +164,50 @@ class IWorkflowTemplateFactory(ABC):
         pass
 
 
-class IPromptTemplateRegistry(ABC):
-    """提示词模板注册表接口
+class IWorkflowTemplateRegistry(ABC):
+    """工作流模板注册表接口
     
-    管理提示词相关模板的注册和获取。
+    管理工作流模板的注册、获取和查询。
     """
     
     @abstractmethod
-    def register_prompt_template(self, template: Any) -> None:
-        """注册提示词模板
+    def register_template(self, template: IWorkflowTemplate) -> None:
+        """注册工作流模板
         
         Args:
-            template: 提示词模板实例
+            template: 工作流模板实例
         """
         pass
     
     @abstractmethod
-    def get_prompt_template(self, template_name: str) -> Optional[Any]:
-        """获取提示词模板
+    def get_template(self, name: str) -> Optional[IWorkflowTemplate]:
+        """获取工作流模板
         
         Args:
-            template_name: 模板名称
+            name: 模板名称
             
         Returns:
-            Optional[Any]: 提示词模板实例
+            Optional[IWorkflowTemplate]: 工作流模板实例
         """
         pass
     
     @abstractmethod
-    def list_prompt_templates(self) -> List[str]:
-        """列出所有提示词模板
+    def list_templates(self) -> List[str]:
+        """列出所有工作流模板
         
         Returns:
-            List[str]: 提示词模板名称列表
+            List[str]: 工作流模板名称列表
+        """
+        pass
+    
+    @abstractmethod
+    def unregister_template(self, name: str) -> bool:
+        """注销工作流模板
+        
+        Args:
+            name: 模板名称
+            
+        Returns:
+            bool: 是否成功注销
         """
         pass

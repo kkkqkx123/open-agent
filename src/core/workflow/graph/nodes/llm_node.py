@@ -11,7 +11,7 @@ from .registry import BaseNode, NodeExecutionResult, node
 from ...states import WorkflowState
 from src.interfaces.llm import ILLMClient
 from src.services.llm.scheduling.task_group_manager import TaskGroupManager
-from ..services.prompt_service import get_workflow_prompt_service
+from ...services.prompt_service import get_workflow_prompt_service
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class LLMNode(BaseNode):
     """LLM调用节点，集成提示词系统"""
     
     def __init__(self,
-                 llm_client: ILLMClient = None,
+                 llm_client: Optional[ILLMClient] = None,
                  task_group_manager: Optional[TaskGroupManager] = None,
                  wrapper_factory: Optional[Any] = None) -> None:
         """初始化LLM节点
@@ -179,7 +179,7 @@ class LLMNode(BaseNode):
         
         # 添加状态数据
         if state:
-            context.update(state.get_data())
+            context.update(state.get("data", {}))
         
         # 添加配置变量
         prompt_variables = config.get("prompt_variables", {})
@@ -242,6 +242,8 @@ class LLMNode(BaseNode):
     def _select_llm_client(self, config: Dict[str, Any]) -> ILLMClient:
         """选择LLM客户端"""
         # 简单实现：使用默认客户端
+        if self._llm_client is None:
+            raise ValueError("LLM客户端未设置")
         return self._llm_client
 
     def get_config_schema(self) -> Dict[str, Any]:
