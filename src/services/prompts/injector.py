@@ -1,191 +1,212 @@
-"""提示词注入器实现
+"""
+提示词注入器实现
 
-负责将提示词注入到工作流状态中。
+提供异步的提示词注入功能，支持缓存和错误处理
 """
 
-from typing import TYPE_CHECKING, Any, Dict, List, cast
-
-from ...interfaces.prompts import IPromptLoader, IPromptInjector, PromptConfig
+from typing import List, TYPE_CHECKING, Dict, Any, Optional
+from ...interfaces.prompts import IPromptInjector, IPromptLoader, IPromptCache, PromptConfig
+from ...interfaces.state.workflow import IWorkflowState
+from ...core.state.state_builder import StateBuilder
 from ...core.common.exceptions import PromptInjectionError
 
 if TYPE_CHECKING:
-    from ...interfaces.state import IWorkflowState
+    from langchain_core.messages import BaseMessage
 
 
 class PromptInjector(IPromptInjector):
-    """提示词注入器实现
+    """提示词注入器实现"""
     
-    负责将提示词内容注入到工作流状态中的消息列表。
-    """
-    
-    def __init__(self, loader: IPromptLoader) -> None:
-        """初始化提示词注入器
-        
-        Args:
-            loader: 提示词加载器实例
-        """
-        self.loader = loader
-        
-    def inject_prompts(
+    def __init__(
         self,
-        state: "IWorkflowState",
+        loader: IPromptLoader,
+        cache: Optional[IPromptCache] = None
+    ):
+        self.loader = loader
+        self.cache = cache
+    
+    async def inject_prompts(
+        self,
+        state: IWorkflowState,
         config: PromptConfig
-    ) -> "IWorkflowState":
-        """将提示词注入工作流状态
-        
-        按顺序注入系统提示、规则和用户指令。
-        
-        Args:
-            state: 工作流状态
-            config: 提示词配置
-            
-        Returns:
-            IWorkflowState: 更新后的工作流状态
-            
-        Raises:
-            PromptInjectionError: 注入失败
-        """
+    ) -> IWorkflowState:
+        """异步注入提示词到工作流状态"""
         try:
-            # 将状态对象强制转换为字典进行处理
-            state_dict = cast(Dict[str, Any], state)
+            builder = StateBuilder(state)
             
             # 注入系统提示词
             if config.system_prompt:
-                self.inject_system_prompt(state, config.system_prompt)
-                
+                await self._inject_system_prompt_async(builder, config.system_prompt)
+            
             # 注入规则提示词
             if config.rules:
-                self.inject_rule_prompts(state, config.rules)
-                
+                await self._inject_rule_prompts_async(builder, config.rules)
+            
             # 注入用户指令
             if config.user_command:
-                self.inject_user_command(state, config.user_command)
-                
-            return state
-        except PromptInjectionError:
-            raise
+                await self._inject_user_command_async(builder, config.user_command)
+            
+            # 注入上下文
+            if config.context:
+                await self._inject_context_prompts_async(builder, config.context)
+            
+            # 注入示例
+            if config.examples:
+                await self._inject_examples_async(builder, config.examples)
+            
+            # 注入约束
+            if config.constraints:
+                await self._inject_constraints_async(builder, config.constraints)
+            
+            # 注入格式
+            if config.format:
+                await self._inject_format_async(builder, config.format)
+            
+            return builder.build()
         except Exception as e:
             raise PromptInjectionError(f"注入提示词失败: {e}") from e
-        
+    
     def inject_system_prompt(
         self,
-        state: "IWorkflowState",
+        state: IWorkflowState,
         prompt_name: str
-    ) -> "IWorkflowState":
-        """注入系统提示词
-        
-        在消息列表最前面插入系统提示词。
-        
-        Args:
-            state: 工作流状态
-            prompt_name: 系统提示词名称
-            
-        Returns:
-            IWorkflowState: 更新后的工作流状态
-            
-        Raises:
-            PromptInjectionError: 注入失败
-        """
-        try:
-            from langchain_core.messages import SystemMessage
-            
-            prompt_content = self.loader.load_prompt("system", prompt_name)
-            system_message = SystemMessage(content=prompt_content)
-            
-            # 强制转换为字典以进行操作
-            state_dict = cast(Dict[str, Any], state)
-            
-            # 安全访问messages列表
-            if "messages" not in state_dict:
-                state_dict["messages"] = []
-            state_dict["messages"].insert(0, system_message)  # 系统消息在最前面
-        except Exception as e:
-            raise PromptInjectionError(
-                f"注入系统提示词失败 {prompt_name}: {e}"
-            ) from e
-
-        return state
-        
+    ) -> IWorkflowState:
+        """注入系统提示词"""
+        builder = StateBuilder(state)
+        content = self.loader.load_prompt("system", prompt_name)
+        message = self._create_system_message(content)
+        builder.add_message(message)
+        return builder.build()
+    
     def inject_rule_prompts(
         self,
-        state: "IWorkflowState",
+        state: IWorkflowState,
         rule_names: List[str]
-    ) -> "IWorkflowState":
-        """注入规则提示词
-        
-        在系统消息之后插入规则提示词。
-        
-        Args:
-            state: 工作流状态
-            rule_names: 规则提示词名称列表
-            
-        Returns:
-            IWorkflowState: 更新后的工作流状态
-            
-        Raises:
-            PromptInjectionError: 注入失败
-        """
-        try:
-            from langchain_core.messages import SystemMessage
-            
-            # 强制转换为字典以进行操作
-            state_dict = cast(Dict[str, Any], state)
-            
-            # 找到插入位置：系统消息之后，其他消息之前
-            insert_index = 0
-            for i, message in enumerate(state_dict.get("messages", [])):
-                if isinstance(message, SystemMessage):
-                    insert_index = i + 1
-                else:
-                    break
-            
-            for rule_name in rule_names:
-                rule_content = self.loader.load_prompt("rules", rule_name)
-                rule_message = SystemMessage(content=rule_content)
-                state_dict["messages"].insert(insert_index, rule_message)  # 规则消息在系统消息之后
-                insert_index += 1
-                
-            return state
-        except Exception as e:
-            raise PromptInjectionError(
-                f"注入规则提示词失败: {e}"
-            ) from e
-        
+    ) -> IWorkflowState:
+        """注入规则提示词"""
+        builder = StateBuilder(state)
+        for rule_name in rule_names:
+            content = self.loader.load_prompt("rules", rule_name)
+            message = self._create_system_message(content)
+            builder.add_message(message)
+        return builder.build()
+    
     def inject_user_command(
         self,
-        state: "IWorkflowState",
+        state: IWorkflowState,
         command_name: str
-    ) -> "IWorkflowState":
-        """注入用户指令
+    ) -> IWorkflowState:
+        """注入用户指令"""
+        builder = StateBuilder(state)
+        content = self.loader.load_prompt("user_commands", command_name)
+        message = self._create_human_message(content)
+        builder.add_message(message)
+        return builder.build()
+    
+    async def _inject_system_prompt_async(
+        self,
+        builder: StateBuilder,
+        prompt_name: str
+    ) -> None:
+        """异步注入系统提示词"""
+        content = await self._load_prompt_cached("system", prompt_name)
+        message = self._create_system_message(content)
+        builder.add_message(message)
+    
+    async def _inject_rule_prompts_async(
+        self,
+        builder: StateBuilder,
+        rule_names: List[str]
+    ) -> None:
+        """异步注入规则提示词"""
+        for rule_name in rule_names:
+            content = await self._load_prompt_cached("rules", rule_name)
+            message = self._create_system_message(content)
+            builder.add_message(message)
+    
+    async def _inject_user_command_async(
+        self,
+        builder: StateBuilder,
+        command_name: str
+    ) -> None:
+        """异步注入用户指令"""
+        content = await self._load_prompt_cached("user_commands", command_name)
+        message = self._create_human_message(content)
+        builder.add_message(message)
+    
+    async def _inject_context_prompts_async(
+        self,
+        builder: StateBuilder,
+        context_names: List[str]
+    ) -> None:
+        """异步注入上下文提示词"""
+        for context_name in context_names:
+            content = await self._load_prompt_cached("context", context_name)
+            message = self._create_system_message(content)
+            builder.add_message(message)
+    
+    async def _inject_examples_async(
+        self,
+        builder: StateBuilder,
+        example_names: List[str]
+    ) -> None:
+        """异步注入示例"""
+        for example_name in example_names:
+            content = await self._load_prompt_cached("examples", example_name)
+            message = self._create_system_message(content)
+            builder.add_message(message)
+    
+    async def _inject_constraints_async(
+        self,
+        builder: StateBuilder,
+        constraint_names: List[str]
+    ) -> None:
+        """异步注入约束"""
+        for constraint_name in constraint_names:
+            content = await self._load_prompt_cached("constraints", constraint_name)
+            message = self._create_system_message(content)
+            builder.add_message(message)
+    
+    async def _inject_format_async(
+        self,
+        builder: StateBuilder,
+        format_name: str
+    ) -> None:
+        """异步注入格式"""
+        content = await self._load_prompt_cached("format", format_name)
+        message = self._create_system_message(content)
+        builder.add_message(message)
+    
+    async def _load_prompt_cached(self, category: str, name: str) -> str:
+        """带缓存的提示词加载"""
+        cache_key = f"{category}:{name}"
         
-        在消息列表最后添加用户指令。
+        if self.cache:
+            cached_content = await self.cache.get(cache_key)
+            if cached_content:
+                return cached_content
         
-        Args:
-            state: 工作流状态
-            command_name: 用户指令名称
-            
-        Returns:
-            IWorkflowState: 更新后的工作流状态
-            
-        Raises:
-            PromptInjectionError: 注入失败
-        """
-        try:
-            from langchain_core.messages import HumanMessage
-            
-            prompt_content = self.loader.load_prompt("user_commands", command_name)
-            user_message = HumanMessage(content=prompt_content)
-            
-            # 强制转换为字典以进行操作
-            state_dict = cast(Dict[str, Any], state)
-            
-            # 安全访问messages列表
-            if "messages" not in state_dict:
-                state_dict["messages"] = []
-            state_dict["messages"].append(user_message)  # 用户指令在最后
-        except Exception as e:
-            raise PromptInjectionError(
-                f"注入用户指令失败 {command_name}: {e}"
-            ) from e
-            
-        return state
+        content = await self.loader.load_prompt_async(category, name)
+        
+        if self.cache:
+            await self.cache.set(cache_key, content)
+        
+        return content
+    
+    def _create_system_message(self, content: str) -> "BaseMessage":
+        """创建系统消息"""
+        from langchain_core.messages import SystemMessage
+        return SystemMessage(content=content)
+    
+    def _create_human_message(self, content: str) -> "BaseMessage":
+        """创建人类消息"""
+        from langchain_core.messages import HumanMessage
+        return HumanMessage(content=content)
+
+
+def create_prompt_injector(
+    loader: IPromptLoader,
+    cache: Optional[IPromptCache] = None
+) -> PromptInjector:
+    """创建提示词注入器"""
+    return PromptInjector(loader, cache)
