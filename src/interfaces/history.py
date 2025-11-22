@@ -5,12 +5,15 @@ from typing import List, Dict, Any, Optional, TYPE_CHECKING
 from datetime import datetime
 
 if TYPE_CHECKING:
-    from ..domain.history.models import MessageRecord, ToolCallRecord, HistoryQuery, HistoryResult
-    from ..domain.history.llm_models import (
+    from ..core.history.entities import (
+        TokenUsageRecord,
+        CostRecord,
         LLMRequestRecord,
         LLMResponseRecord,
-        TokenUsageRecord,
-        CostRecord
+        MessageRecord,
+        ToolCallRecord,
+        HistoryQuery,
+        HistoryResult
     )
 
 

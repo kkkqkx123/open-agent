@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Union, Sequence, AsyncGenerator
 import logging
 from langchain_core.messages import BaseMessage
 
-from src.interfaces.llm import ILLMClient, ILLMManager, IFallbackManager, ITaskGroupManager
+from src.interfaces.llm import ILLMClient, ILLMManager, IFallbackManager, ITaskGroupManager, ILLMCallHook
 from src.core.llm.factory import LLMFactory
 from src.core.llm.config import LLMClientConfig
 from src.core.llm.exceptions import LLMError
@@ -62,6 +62,9 @@ class LLMManager(ILLMManager):
         self._config_validator = config_validator
         self._metadata_service = metadata_service
         self._config = config or {}
+        
+        # 历史记录钩子
+        self._history_hooks: List[ILLMCallHook] = []
         
         # 创建状态机
         self._state_machine = StateMachine()
@@ -315,14 +318,30 @@ class LLMManager(ILLMManager):
         # 获取适合的客户端
         client = await self.get_client_for_task(task_type or "default", preferred_client)
         
-        # 使用请求执行器执行请求
-        return await self._request_executor.execute_with_fallback(
-            client=client,
-            messages=messages,
-            task_type=task_type,
-            parameters=parameters,
-            **kwargs
-        )
+        # 执行前钩子
+        await self._execute_before_hooks(messages, parameters, **kwargs)
+        
+        try:
+            # 使用请求执行器执行请求
+            response = await self._request_executor.execute_with_fallback(
+                client=client,
+                messages=messages,
+                task_type=task_type,
+                parameters=parameters,
+                **kwargs
+            )
+            
+            # 执行后钩子
+            await self._execute_after_hooks(response, messages, parameters, **kwargs)
+            
+            return response
+            
+        except Exception as e:
+            # 执行错误钩子
+            error_response = await self._execute_error_hooks(e, messages, parameters, **kwargs)
+            if error_response is not None:
+                return error_response
+            raise
     
     async def stream_with_fallback(
         self,
@@ -350,15 +369,40 @@ class LLMManager(ILLMManager):
         # 获取适合的客户端
         client = await self.get_client_for_task(task_type or "default", preferred_client)
         
-        # 使用请求执行器执行流式请求
-        async for chunk in self._request_executor.stream_with_fallback(
-            client=client,
-            messages=messages,
-            task_type=task_type,
-            parameters=parameters,
-            **kwargs
-        ):
-            yield chunk
+        # 执行前钩子
+        await self._execute_before_hooks(messages, parameters, **kwargs)
+        
+        try:
+            # 使用请求执行器执行流式请求
+            response_chunks = []
+            async for chunk in self._request_executor.stream_with_fallback(
+                client=client,
+                messages=messages,
+                task_type=task_type,
+                parameters=parameters,
+                **kwargs
+            ):
+                response_chunks.append(chunk)
+                yield chunk
+            
+            # 创建响应对象用于后钩子
+            response = LLMResponse(
+                content=''.join(response_chunks),
+                model=getattr(client, 'model_name', 'unknown'),
+                metadata=kwargs.get('metadata', {})
+            )
+            
+            # 执行后钩子
+            await self._execute_after_hooks(response, messages, parameters, **kwargs)
+            
+        except Exception as e:
+            # 执行错误钩子
+            error_response = await self._execute_error_hooks(e, messages, parameters, **kwargs)
+            if error_response is not None:
+                for chunk in error_response.content:
+                    yield chunk
+            else:
+                raise
     
     async def reload_clients(self) -> None:
         """重新加载所有LLM客户端
@@ -469,3 +513,76 @@ class LLMManager(ILLMManager):
         manager_registry.broadcast_message("llm_manager", "default_client_changed", {
             "name": name
         })
+    
+    def add_history_hook(self, hook: ILLMCallHook) -> None:
+        """添加历史记录钩子
+        
+        Args:
+            hook: 历史记录钩子实例
+        """
+        self._history_hooks.append(hook)
+        logger.info(f"添加历史记录钩子: {hook.__class__.__name__}")
+    
+    def remove_history_hook(self, hook: ILLMCallHook) -> None:
+        """移除历史记录钩子
+        
+        Args:
+            hook: 历史记录钩子实例
+        """
+        if hook in self._history_hooks:
+            self._history_hooks.remove(hook)
+            logger.info(f"移除历史记录钩子: {hook.__class__.__name__}")
+    
+    def clear_history_hooks(self) -> None:
+        """清除所有历史记录钩子"""
+        count = len(self._history_hooks)
+        self._history_hooks.clear()
+        logger.info(f"清除了 {count} 个历史记录钩子")
+    
+    def get_history_hooks_count(self) -> int:
+        """获取历史记录钩子数量"""
+        return len(self._history_hooks)
+    
+    async def _execute_before_hooks(
+        self,
+        messages: Sequence[BaseMessage],
+        parameters: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
+    ) -> None:
+        """执行前钩子"""
+        for hook in self._history_hooks:
+            try:
+                hook.before_call(messages, parameters, **kwargs)
+            except Exception as e:
+                logger.warning(f"执行前钩子失败: {e}")
+    
+    async def _execute_after_hooks(
+        self,
+        response: LLMResponse,
+        messages: Sequence[BaseMessage],
+        parameters: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
+    ) -> None:
+        """执行后钩子"""
+        for hook in self._history_hooks:
+            try:
+                hook.after_call(response, messages, parameters, **kwargs)
+            except Exception as e:
+                logger.warning(f"执行后钩子失败: {e}")
+    
+    async def _execute_error_hooks(
+        self,
+        error: Exception,
+        messages: Sequence[BaseMessage],
+        parameters: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
+    ) -> Optional[LLMResponse]:
+        """执行错误钩子"""
+        for hook in self._history_hooks:
+            try:
+                response = hook.on_error(error, messages, parameters, **kwargs)
+                if response is not None:
+                    return response
+            except Exception as e:
+                logger.warning(f"执行错误钩子失败: {e}")
+        return None

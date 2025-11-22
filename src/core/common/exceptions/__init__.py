@@ -51,6 +51,16 @@ from .prompt import (
     PromptTypeRegistrationError,
 )
 
+# 历史异常
+from .history import (
+    HistoryError,
+    TokenCalculationError,
+    CostCalculationError,
+    StatisticsError,
+    RecordNotFoundError,
+    QuotaExceededError,
+)
+
 __all__ = [
     # 核心异常
     "CoreError",
