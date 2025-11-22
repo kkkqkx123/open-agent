@@ -3,10 +3,15 @@
 提供配置系统服务的创建和依赖注入管理。
 """
 
-from typing import Optional
+from typing import Optional, Dict, Any
 from pathlib import Path
 
 from ...core.config.config_manager import ConfigManager
+from ..prompts.registry import PromptRegistry
+from ..prompts.loader import PromptLoader
+from ..prompts.injector import PromptInjector
+from ..prompts.config import get_global_config_manager
+from .discovery import ConfigDiscoverer
 
 
 class ConfigServiceFactory:
@@ -82,6 +87,82 @@ class ConfigServiceFactory:
             enable_error_recovery=False,
             enable_callback_manager=False
         )
+    
+    @staticmethod
+    async def create_prompt_system(
+        config_manager: Optional[ConfigManager] = None,
+        prompts_directory: str = "configs/prompts",
+        auto_discover: bool = True
+    ) -> Dict[str, Any]:
+        """创建提示词系统
+        
+        Args:
+            config_manager: 配置管理器实例
+            prompts_directory: 提示词目录路径
+            auto_discover: 是否自动发现提示词文件
+            
+        Returns:
+            Dict[str, Any]: 包含 registry, loader, injector 的字典
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # 1. 准备配置管理器
+            if config_manager is None:
+                config_manager = ConfigServiceFactory.create_config_manager()
+            
+            # 2. 创建提示词配置管理器
+            prompt_config_manager = get_global_config_manager()
+            
+            # 3. 创建提示词注册表
+            registry = PromptRegistry(
+                loader=None,  # 稍后设置
+                config=prompt_config_manager.create_config()
+            )
+            
+            # 4. 创建提示词加载器
+            loader = PromptLoader(registry=registry)
+            
+            # 5. 设置注册表的加载器
+            registry._loader = loader
+            
+            # 6. 创建提示词注入器
+            injector = PromptInjector(loader=loader)
+            
+            # 7. 自动发现并加载提示词
+            if auto_discover:
+                try:
+                    discoverer = ConfigDiscoverer(str(Path(prompts_directory).parent))
+                    discovery_result = discoverer.discover_configs(
+                        scan_directories=["prompts"],
+                        file_patterns=[r".*\.md$"]
+                    )
+                    logger.info(f"发现 {len(discovery_result.prompts)} 个提示词文件")
+                    
+                    # 加载发现的提示词
+                    await loader.load_all(registry)
+                    
+                except Exception as e:
+                    logger.warning(f"自动发现提示词失败，继续使用空注册表: {e}")
+            
+            # 8. 记录统计信息
+            try:
+                stats = await registry.get_stats()
+                logger.info(f"提示词系统创建完成，共加载 {stats['total_prompts']} 个提示词")
+            except Exception as e:
+                logger.warning(f"获取提示词统计信息失败: {e}")
+            
+            return {
+                "registry": registry,
+                "loader": loader,
+                "injector": injector,
+                "config_manager": prompt_config_manager
+            }
+            
+        except Exception as e:
+            logger.error(f"创建提示词系统失败: {e}")
+            raise
 
 
 # 便捷函数
@@ -107,6 +188,28 @@ def create_minimal_config_manager(base_path: str = "configs") -> ConfigManager:
         配置管理器实例
     """
     return ConfigServiceFactory.create_minimal_config_manager(base_path)
+
+
+async def create_prompt_system(
+    config_manager: Optional[ConfigManager] = None,
+    prompts_directory: str = "configs/prompts",
+    auto_discover: bool = True
+) -> Dict[str, Any]:
+    """创建提示词系统的便捷函数
+    
+    Args:
+        config_manager: 配置管理器实例
+        prompts_directory: 提示词目录路径
+        auto_discover: 是否自动发现提示词文件
+        
+    Returns:
+        Dict[str, Any]: 包含 registry, loader, injector 的字典
+    """
+    return await ConfigServiceFactory.create_prompt_system(
+        config_manager=config_manager,
+        prompts_directory=prompts_directory,
+        auto_discover=auto_discover
+    )
 
 
 # 为了兼容性，保留ConfigFactory类

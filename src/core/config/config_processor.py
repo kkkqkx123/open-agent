@@ -230,7 +230,7 @@ class ConfigProcessor:
     
     def _validate_workflow_config(self, config: Dict[str, Any], config_path: Optional[str] = None) -> None:
         """验证工作流配置"""
-        from .workflow.validation import WorkflowConfigValidator
+        from ..workflow.validation import WorkflowConfigValidator
         validator = WorkflowConfigValidator()
         result = validator.validate(config)
         if not result.is_valid:
@@ -241,7 +241,7 @@ class ConfigProcessor:
     
     def _validate_registry_config(self, config: Dict[str, Any], config_path: Optional[str] = None) -> None:
         """验证注册表配置"""
-        from .services.config.registry_validator import RegistryConfigValidator
+        from ...services.config.registry_validator import RegistryConfigValidator
         registry_type = config.get("registry_type", "generic")
         validator = RegistryConfigValidator(registry_type)
         result = validator.validate(config)

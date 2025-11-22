@@ -47,8 +47,8 @@ class WorkflowBuilderService(IWorkflowBuilderService):
         )
         
         # 初始化提示词服务
-        from src.core.workflow.services.prompt_service import get_workflow_prompt_service
-        self._prompt_service = get_workflow_prompt_service()
+        from src.core.workflow.services.prompt_service import get_workflow_prompt_service_sync
+        self._prompt_service = get_workflow_prompt_service_sync()
         
         logger.info("工作流构建服务初始化完成（集成提示词系统）")
 

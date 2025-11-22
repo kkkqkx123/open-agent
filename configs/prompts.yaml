@@ -1,25 +1,120 @@
-# 提示词注册表配置
-system:
-  - name: assistant
-    path: configs/prompts/system/assistant.md
-    description: 通用助手系统提示词
-  - name: coder
-    path: configs/prompts/system/coder/
-    description: 代码生成专家系统提示词
-    is_composite: true
+---
+description: 提示词系统配置
+---
 
-rules:
-  - name: safety
-    path: configs/prompts/rules/safety.md
-    description: 安全规则提示词
-  - name: format
-    path: configs/prompts/rules/format.md
-    description: 输出格式规则提示词
-
-user_commands:
-  - name: data_analysis
-    path: configs/prompts/user_commands/data_analysis.md
-    description: 数据分析用户指令
-  - name: code_review
-    path: configs/prompts/user_commands/code_review.md
-    description: 代码审查用户指令
+# 提示词系统配置
+prompt_system:
+  # 是否启用自动发现和加载
+  auto_discover: true
+  
+  # 提示词目录
+  prompts_directory: "configs/prompts"
+  
+  # 扫描配置
+  discovery:
+    # 扫描的子目录
+    scan_directories:
+      - "system"
+      - "rules" 
+      - "user_commands"
+      - "context"
+      - "examples"
+      - "constraints"
+      - "format"
+    
+    # 文件模式
+    file_patterns:
+      - ".*\\.md$"
+    
+    # 排除模式
+    exclude_patterns:
+      - "^_.*"
+      - "^__.*"
+      - ".*test.*"
+      - ".*example.*"
+  
+  # 类别映射
+  categories:
+    system:
+      description: "系统提示词"
+      patterns:
+        - ".*system.*"
+      default_priority: "high"
+    
+    rules:
+      description: "规则提示词"
+      patterns:
+        - ".*rules.*"
+      default_priority: "normal"
+    
+    user_commands:
+      description: "用户命令提示词"
+      patterns:
+        - ".*user.*command.*"
+      default_priority: "normal"
+    
+    context:
+      description: "上下文提示词"
+      patterns:
+        - ".*context.*"
+      default_priority: "low"
+    
+    examples:
+      description: "示例提示词"
+      patterns:
+        - ".*example.*"
+      default_priority: "low"
+    
+    constraints:
+      description: "约束提示词"
+      patterns:
+        - ".*constraint.*"
+      default_priority: "normal"
+    
+    format:
+      description: "格式提示词"
+      patterns:
+        - ".*format.*"
+      default_priority: "low"
+  
+  # 加载配置
+  loading:
+    # 是否启用缓存
+    cache_enabled: true
+    
+    # 缓存TTL（秒）
+    cache_ttl: 3600
+    
+    # 最大内容长度
+    max_content_length: 100000
+    
+    # 是否启用验证
+    enable_validation: true
+    
+    # 加载超时时间（秒）
+    load_timeout: 30
+  
+  # 注入配置
+  injection:
+    # 是否启用引用解析
+    enable_reference_resolution: true
+    
+    # 最大引用深度
+    max_reference_depth: 10
+    
+    # 是否启用错误恢复
+    enable_error_recovery: true
+    
+    # 最大重试次数
+    max_retry_attempts: 3
+  
+  # 监控配置
+  monitoring:
+    # 是否启用统计
+    enable_stats: true
+    
+    # 是否启用性能监控
+    enable_performance_monitoring: true
+    
+    # 统计报告间隔（秒）
+    stats_report_interval: 300

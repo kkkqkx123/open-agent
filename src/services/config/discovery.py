@@ -19,6 +19,7 @@ class ConfigDiscoveryResult:
         self.workflows: List[Dict[str, Any]] = []
         self.tools: List[Dict[str, Any]] = []
         self.state_machines: List[Dict[str, Any]] = []
+        self.prompts: List[Dict[str, Any]] = []
         self.unknown: List[Dict[str, Any]] = []
     
     def add_workflow(self, file_path: str, config_type: str = "workflow") -> None:
@@ -60,6 +61,21 @@ class ConfigDiscoveryResult:
             "name": Path(file_path).stem
         })
     
+    def add_prompt(self, file_path: str, category: str = "unknown", prompt_type: str = "prompt") -> None:
+        """添加提示词配置
+        
+        Args:
+            file_path: 文件路径
+            category: 提示词类别
+            prompt_type: 提示词类型
+        """
+        self.prompts.append({
+            "file_path": file_path,
+            "config_type": prompt_type,
+            "category": category,
+            "name": Path(file_path).stem
+        })
+    
     def add_unknown(self, file_path: str) -> None:
         """添加未知配置
         
@@ -77,7 +93,7 @@ class ConfigDiscoveryResult:
         Returns:
             List[Dict[str, Any]]: 所有配置列表
         """
-        return self.workflows + self.tools + self.state_machines + self.unknown
+        return self.workflows + self.tools + self.state_machines + self.prompts + self.unknown
     
     def get_summary(self) -> Dict[str, int]:
         """获取发现摘要
@@ -89,6 +105,7 @@ class ConfigDiscoveryResult:
             "workflows": len(self.workflows),
             "tools": len(self.tools),
             "state_machines": len(self.state_machines),
+            "prompts": len(self.prompts),
             "unknown": len(self.unknown),
             "total": len(self.get_all_configs())
         }
@@ -137,6 +154,20 @@ class ConfigDiscoverer:
             r".*ultra.*thinking.*\.ya?ml$"
         ]
         
+        self.prompt_patterns = [
+            r".*\.md$"
+        ]
+        
+        self.prompt_categories = {
+            "system": r".*system.*",
+            "rules": r".*rules.*",
+            "user_commands": r".*user.*command.*",
+            "context": r".*context.*",
+            "examples": r".*example.*",
+            "constraints": r".*constraint.*",
+            "format": r".*format.*"
+        }
+        
         # 默认排除模式
         self.default_exclude_patterns = [
             r"^__.*",
@@ -166,11 +197,11 @@ class ConfigDiscoverer:
         
         # 使用默认扫描目录
         if not scan_directories:
-            scan_directories = ["workflows", "tools", "workflows/state_machine"]
+            scan_directories = ["workflows", "tools", "workflows/state_machine", "prompts"]
         
         # 使用默认文件模式
         if not file_patterns:
-            file_patterns = [r".*\.ya?ml$"]
+            file_patterns = [r".*\.ya?ml$", r".*\.md$"]
         
         # 使用默认排除模式
         if not exclude_patterns:
@@ -182,6 +213,8 @@ class ConfigDiscoverer:
         compiled_workflow_patterns = [re.compile(pattern) for pattern in self.workflow_patterns]
         compiled_tool_patterns = [re.compile(pattern) for pattern in self.tool_patterns]
         compiled_state_machine_patterns = [re.compile(pattern) for pattern in self.state_machine_patterns]
+        compiled_prompt_patterns = [re.compile(pattern) for pattern in self.prompt_patterns]
+        compiled_prompt_categories = {category: re.compile(pattern) for category, pattern in self.prompt_categories.items()}
         
         # 扫描目录
         for scan_dir in scan_directories:
@@ -211,11 +244,13 @@ class ConfigDiscoverer:
                 relative_path_str = str(relative_path).replace("\\", "/")
                 
                 # 推断配置类型
-                config_type = self._infer_config_type(
+                config_type, prompt_category = self._infer_config_type(
                     relative_path_str,
                     compiled_workflow_patterns,
                     compiled_tool_patterns,
-                    compiled_state_machine_patterns
+                    compiled_state_machine_patterns,
+                    compiled_prompt_patterns,
+                    compiled_prompt_categories
                 )
                 
                 # 添加到结果
@@ -225,6 +260,8 @@ class ConfigDiscoverer:
                     result.add_tool(relative_path_str)
                 elif config_type == "state_machine":
                     result.add_state_machine(relative_path_str)
+                elif config_type == "prompt":
+                    result.add_prompt(relative_path_str, prompt_category)
                 else:
                     result.add_unknown(relative_path_str)
         
@@ -261,6 +298,10 @@ class ConfigDiscoverer:
                 "missing_entries": []
             },
             "state_machines": {
+                "new_entries": [],
+                "missing_entries": []
+            },
+            "prompts": {
                 "new_entries": [],
                 "missing_entries": []
             }
@@ -344,6 +385,33 @@ class ConfigDiscoverer:
                 "reason": "配置文件未找到"
             })
         
+        # 分析提示词配置
+        existing_prompts = set()
+        if "prompts" in existing_registries:
+            prompt_types = existing_registries["prompts"].get("prompt_types", {})
+            existing_prompts = set(prompt_types.keys())
+        
+        discovered_prompts = set(config["name"] for config in discovery_result.prompts)
+        
+        # 新发现的提示词
+        new_prompts = discovered_prompts - existing_prompts
+        for prompt_name in new_prompts:
+            prompt_config = next(config for config in discovery_result.prompts if config["name"] == prompt_name)
+            suggestions["prompts"]["new_entries"].append({
+                "name": prompt_name,
+                "file_path": prompt_config["file_path"],
+                "category": prompt_config["category"],
+                "suggested_config": self._generate_prompt_suggestion(prompt_config)
+            })
+        
+        # 缺失的提示词
+        missing_prompts = existing_prompts - discovered_prompts
+        for prompt_name in missing_prompts:
+            suggestions["prompts"]["missing_entries"].append({
+                "name": prompt_name,
+                "reason": "配置文件未找到"
+            })
+        
         return suggestions
     
     def _matches_patterns(self, text: str, patterns: List[re.Pattern]) -> bool:
@@ -363,8 +431,10 @@ class ConfigDiscoverer:
         file_path: str,
         workflow_patterns: List[re.Pattern],
         tool_patterns: List[re.Pattern],
-        state_machine_patterns: List[re.Pattern]
-    ) -> str:
+        state_machine_patterns: List[re.Pattern],
+        prompt_patterns: List[re.Pattern],
+        prompt_categories: Dict[str, re.Pattern]
+    ) -> tuple[str, str]:
         """推断配置类型
         
         Args:
@@ -372,26 +442,52 @@ class ConfigDiscoverer:
             workflow_patterns: 工作流模式
             tool_patterns: 工具模式
             state_machine_patterns: 状态机模式
+            prompt_patterns: 提示词模式
+            prompt_categories: 提示词类别模式
             
         Returns:
-            str: 配置类型
+            tuple[str, str]: (配置类型, 提示词类别)
         """
         # 检查路径中的关键词
         path_lower = file_path.lower()
         
         # 状态机配置优先级最高
         if "state_machine" in path_lower or self._matches_patterns(file_path, state_machine_patterns):
-            return "state_machine"
+            return "state_machine", ""
         
         # 工作流配置
         if "workflow" in path_lower or self._matches_patterns(file_path, workflow_patterns):
-            return "workflow"
+            return "workflow", ""
         
         # 工具配置
         if "tool" in path_lower or self._matches_patterns(file_path, tool_patterns):
-            return "tool"
+            return "tool", ""
+        
+        # 提示词配置
+        if "prompts" in path_lower and self._matches_patterns(file_path, prompt_patterns):
+            # 推断提示词类别
+            prompt_category = self._infer_prompt_category(file_path, prompt_categories)
+            return "prompt", prompt_category
         
         # 默认为未知
+        return "unknown", ""
+    
+    def _infer_prompt_category(self, file_path: str, prompt_categories: Dict[str, re.Pattern]) -> str:
+        """推断提示词类别
+        
+        Args:
+            file_path: 文件路径
+            prompt_categories: 提示词类别模式
+            
+        Returns:
+            str: 提示词类别
+        """
+        path_lower = file_path.lower()
+        
+        for category, pattern in prompt_categories.items():
+            if pattern.search(path_lower):
+                return category
+        
         return "unknown"
     
     def _generate_workflow_suggestion(self, config: Dict[str, Any]) -> Dict[str, Any]:
@@ -497,3 +593,24 @@ class ConfigDiscoverer:
             return "src.core.tools.types.rest:RestTool"
         else:
             return "src.core.tools.types.rest:RestTool"
+    
+    def _generate_prompt_suggestion(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """生成提示词配置建议
+        
+        Args:
+            config: 配置信息
+            
+        Returns:
+            Dict[str, Any]: 建议配置
+        """
+        name = config["name"]
+        file_path = config["file_path"]
+        category = config.get("category", "unknown")
+        
+        return {
+            "file_path": file_path,
+            "category": category,
+            "description": f"{name} 提示词",
+            "enabled": True,
+            "prompt_id": f"{category}.{name}"
+        }

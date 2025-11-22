@@ -110,6 +110,29 @@ class PromptRegistry(IPromptRegistry):
             
             return await self.get(self._aliases[alias])
     
+    def get_prompt_meta(self, category: str, name: str) -> PromptMeta:
+        """获取提示词元数据（同步方法）
+        
+        Args:
+            category: 提示词类别
+            name: 提示词名称
+            
+        Returns:
+            PromptMeta: 提示词元数据
+            
+        Raises:
+            PromptNotFoundError: 提示词未找到
+        """
+        prompt_id = f"{category}.{name}"
+        
+        # 检查别名
+        actual_id = self._aliases.get(prompt_id, prompt_id)
+        
+        if actual_id not in self._prompts:
+            raise PromptNotFoundError(f"提示词 '{prompt_id}' 未找到")
+        
+        return self._prompts[actual_id]
+    
     async def list_versions(self, prompt_id: str) -> List[str]:
         """列出提示词的所有版本"""
         with self._lock:
@@ -285,7 +308,10 @@ class PromptRegistry(IPromptRegistry):
             self._cache_misses = 0
             
             # 重新加载
-            await self._loader.load_all(self)
+            if hasattr(self._loader, 'load_all'):
+                await self._loader.load_all(self)
+            else:
+                logger.warning("加载器不支持 load_all 方法，跳过重新加载")
     
     async def _validate_prompt(self, prompt: PromptMeta) -> None:
         """验证提示词"""

@@ -4,7 +4,7 @@
 提供所有工作流通用的提示词处理功能
 """
 
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
 import asyncio
 import logging
 from datetime import datetime
@@ -13,8 +13,10 @@ from src.interfaces.prompts import IPromptInjector
 from src.interfaces.prompts.models import PromptMeta
 from src.core.common.exceptions.prompt import PromptNotFoundError, PromptInjectionError
 from src.core.workflow.templates.workflow_template_processor import WorkflowTemplateProcessor
-from src.interfaces.state import IWorkflowState
 from src.core.workflow.states import WorkflowState
+
+if TYPE_CHECKING:
+    from src.interfaces.prompts import IPromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +27,45 @@ class WorkflowPromptService:
     def __init__(
         self,
         prompt_registry: Optional[Any] = None,
-        prompt_injector: Optional[IPromptInjector] = None
+        prompt_injector: Optional[IPromptInjector] = None,
+        auto_initialize: bool = True,
+        prompts_directory: Optional[str] = None
     ) -> None:
         self._prompt_registry = prompt_registry
         self._prompt_injector = prompt_injector
         self._template_processor = WorkflowTemplateProcessor()
+        self._auto_initialize = auto_initialize
+        self._prompts_directory = prompts_directory
+        self._initialized = False
+        self._prompt_system = None
+    
+    async def auto_initialize(self) -> None:
+        """自动初始化提示词系统"""
+        if self._initialized:
+            logger.info("提示词系统已经初始化")
+            return
+        
+        if self._auto_initialize and not self._prompt_registry:
+            try:
+                # 导入配置工厂
+                from src.services.config import create_prompt_system
+                
+                # 创建提示词系统
+                self._prompt_system = await create_prompt_system(
+                    prompts_directory=self._prompts_directory or "configs/prompts",
+                    auto_discover=True
+                )
+                
+                # 获取组件
+                self._prompt_registry = self._prompt_system["registry"]
+                self._prompt_injector = self._prompt_system["injector"]
+                
+                self._initialized = True
+                logger.info("提示词系统自动初始化完成（通过配置工厂）")
+                
+            except Exception as e:
+                logger.error(f"提示词系统自动初始化失败: {e}")
+                raise
     
     def configure(
         self,
@@ -39,6 +75,7 @@ class WorkflowPromptService:
         """配置提示词系统"""
         self._prompt_registry = prompt_registry
         self._prompt_injector = prompt_injector
+        self._initialized = True
         logger.info("工作流提示词服务已配置")
     
     async def process_prompt_content(
@@ -48,6 +85,10 @@ class WorkflowPromptService:
         prompt_type: Optional[str] = None
     ) -> str:
         """处理提示词内容（通用方法）"""
+        # 确保提示词系统已初始化
+        if not self._initialized:
+            await self.auto_initialize()
+        
         try:
             # 1. 首先处理模板语法（变量替换、循环、条件等）
             processed_content = self._template_processor.process_template(content, context)
@@ -487,6 +528,7 @@ class WorkflowPromptService:
         return {
             "configured": self._prompt_registry is not None and self._prompt_injector is not None,
             "template_processor_available": True,
+            "prompt_system_available": self._prompt_system is not None,
             "supported_features": [
                 "prompt_content_processing",
                 "reference_resolution",
@@ -495,18 +537,108 @@ class WorkflowPromptService:
                 "message_building",
                 "workflow_config_preprocessing",
                 "workflow_node_configuration",
-                "workflow_structure_validation"
+                "workflow_structure_validation",
+                "config_driven_initialization",
+                "automatic_prompt_discovery"
             ]
         }
+    
+    async def get_prompt_system_info(self) -> Optional[Dict[str, Any]]:
+        """获取提示词系统信息
+        
+        Returns:
+            Dict[str, Any]: 提示词系统信息，如果未初始化则返回None
+        """
+        if self._prompt_system and self._prompt_registry:
+            try:
+                stats = await self._prompt_registry.get_stats()
+                return {
+                    "initialized": True,
+                    "registry_stats": stats,
+                    "components": {
+                        "registry": self._prompt_system["registry"] is not None,
+                        "loader": self._prompt_system["loader"] is not None,
+                        "injector": self._prompt_system["injector"] is not None,
+                        "config_manager": self._prompt_system["config_manager"] is not None
+                    }
+                }
+            except Exception as e:
+                logger.warning(f"获取提示词系统信息失败: {e}")
+                return {"initialized": True, "error": str(e)}
+        return {"initialized": False}
+    
+    async def reload_prompts(self) -> None:
+        """重新加载提示词
+        
+        重新创建提示词系统
+        """
+        try:
+            from src.services.config import create_prompt_system
+            
+            # 重新创建提示词系统
+            self._prompt_system = await create_prompt_system(
+                prompts_directory=self._prompts_directory or "configs/prompts",
+                auto_discover=True
+            )
+            
+            # 更新组件引用
+            self._prompt_registry = self._prompt_system["registry"]
+            self._prompt_injector = self._prompt_system["injector"]
+            
+            logger.info("提示词系统重新加载完成")
+            
+        except Exception as e:
+            logger.error(f"重新加载提示词失败: {e}")
+            raise
+    
+    async def validate_prompt_system(self) -> List[str]:
+        """验证提示词系统
+        
+        Returns:
+            List[str]: 验证错误列表
+        """
+        errors = []
+        
+        if not self._prompt_system:
+            errors.append("提示词系统未初始化")
+            return errors
+        
+        if not self._prompt_registry:
+            errors.append("提示词注册表未初始化")
+        
+        if not self._prompt_injector:
+            errors.append("提示词注入器未初始化")
+        
+        # 检查注册表状态
+        if self._prompt_registry:
+            try:
+                stats = await self._prompt_registry.get_stats()
+                if stats["total_prompts"] == 0:
+                    errors.append("没有加载任何提示词")
+            except Exception as e:
+                errors.append(f"获取注册表统计信息失败: {e}")
+        
+        return errors
 
 
 # 全局服务实例
 _global_service: Optional[WorkflowPromptService] = None
 
 
-def get_workflow_prompt_service() -> WorkflowPromptService:
+async def get_workflow_prompt_service() -> WorkflowPromptService:
     """获取全局工作流提示词服务实例"""
     global _global_service
     if _global_service is None:
         _global_service = WorkflowPromptService()
+        # 确保初始化完成
+        if not _global_service._initialized:
+            await _global_service.auto_initialize()
+    return _global_service
+
+
+def get_workflow_prompt_service_sync() -> WorkflowPromptService:
+    """同步获取全局工作流提示词服务实例（向后兼容）"""
+    global _global_service
+    if _global_service is None:
+        _global_service = WorkflowPromptService(auto_initialize=False)
     return _global_service

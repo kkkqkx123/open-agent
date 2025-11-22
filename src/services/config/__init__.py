@@ -9,7 +9,8 @@ from .config_factory import (
     ConfigFactory,
     create_config_manager,
     create_minimal_config_manager,
-    create_config_system_legacy
+    create_config_system_legacy,
+    create_prompt_system
 )
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "ConfigFactory",
     "create_config_manager",
     "create_minimal_config_manager",
-    "create_config_system_legacy"
+    "create_config_system_legacy",
+    "create_prompt_system"
 ]

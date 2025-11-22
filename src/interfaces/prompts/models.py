@@ -237,7 +237,7 @@ class PromptSearchCriteria(BaseModel):
     
     # 排序
     sort_by: str = Field(default="updated_at", description="排序字段")
-    sort_order: str = Field(default="desc", regex="^(asc|desc)$", description="排序顺序")
+    sort_order: str = Field(default="desc", pattern="^(asc|desc)$", description="排序顺序")
     
     class Config:
         extra = "forbid"

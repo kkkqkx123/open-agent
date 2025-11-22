@@ -11,7 +11,7 @@ from .registry import BaseNode, NodeExecutionResult, node
 from ...states import WorkflowState
 from src.interfaces.llm import ILLMClient
 from src.services.llm.scheduling.task_group_manager import TaskGroupManager
-from ...services.prompt_service import get_workflow_prompt_service
+from ...services.prompt_service import get_workflow_prompt_service_sync
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class LLMNode(BaseNode):
         self._llm_client = llm_client
         self._task_group_manager = task_group_manager
         self._wrapper_factory = wrapper_factory
-        self._prompt_service = get_workflow_prompt_service()
+        self._prompt_service = get_workflow_prompt_service_sync()
 
     @property
     def node_type(self) -> str:
