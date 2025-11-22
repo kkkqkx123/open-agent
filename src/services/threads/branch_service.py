@@ -1,12 +1,15 @@
 """线程分支服务实现"""
 
 import asyncio
+import uuid
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from src.core.threads.interfaces import IThreadCore, IThreadBranchCore
+from src.core.threads.entities import Thread, ThreadBranch, ThreadStatus
 from src.interfaces.threads import IThreadBranchService, IThreadRepository, IThreadBranchRepository
-from src.core.common.exceptions import EntityNotFoundError, ValidationError
+from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
+from .repository_adapter import ThreadRepositoryAdapter, ThreadBranchRepositoryAdapter
 
 
 class ThreadBranchService(IThreadBranchService):
@@ -21,8 +24,8 @@ class ThreadBranchService(IThreadBranchService):
     ):
         self._thread_core = thread_core
         self._thread_branch_core = thread_branch_core
-        self._thread_repository = thread_repository
-        self._thread_branch_repository = thread_branch_repository
+        self._thread_repository = ThreadRepositoryAdapter(thread_repository)
+        self._thread_branch_repository = ThreadBranchRepositoryAdapter(thread_branch_repository)
     
     async def create_branch_from_checkpoint(
         self,
@@ -38,22 +41,25 @@ class ThreadBranchService(IThreadBranchService):
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
-            # 验证检查点存在（这里假设检查点服务会验证）
-            # 创建分支实体
-            branch_config = {
-                "thread_id": thread_id,
-                "checkpoint_id": checkpoint_id,
-                "branch_name": branch_name,
-                "metadata": metadata or {},
-                "created_at": datetime.now().isoformat(),
-                "is_active": True
-            }
+            # 生成分支ID
+            branch_id = str(uuid.uuid4())
             
-            branch_id = await self._thread_branch_core.create_branch(branch_config)
+            # 创建分支实体
+            branch_data = self._thread_branch_core.create_branch(
+                branch_id=branch_id,
+                thread_id=thread_id,
+                parent_thread_id=thread_id,
+                source_checkpoint_id=checkpoint_id,
+                branch_name=branch_name,
+                metadata=metadata or {}
+            )
+            
+            # 保存分支
+            branch = ThreadBranch.from_dict(branch_data)
+            await self._thread_branch_repository.save_branch(branch)
             
             # 更新线程的分支计数
-            thread.branch_count += 1
-            thread.updated_at = datetime.now()
+            thread.increment_branch_count()
             await self._thread_repository.update_thread(thread_id, thread)
             
             return branch_id
@@ -82,21 +88,17 @@ class ThreadBranchService(IThreadBranchService):
             
             # 执行合并逻辑（根据策略）
             if merge_strategy == "overwrite":
-                # 覆盖主线状态
-                await self._thread_repository.update_thread_status(
-                    thread_id, 
-                    branch.status
-                )
+                # 覆盖主线状态（简化处理）
+                pass
             elif merge_strategy == "merge":
                 # 合并状态（这里简化处理）
-                # 实际应用中可能需要更复杂的合并逻辑
                 pass
             else:
                 raise ValidationError(f"Unsupported merge strategy: {merge_strategy}")
             
             # 标记分支为非活动
-            branch.is_active = False
-            branch.merged_at = datetime.now()
+            branch.metadata["is_active"] = False
+            branch.metadata["merged_at"] = datetime.now().isoformat()
             await self._thread_branch_repository.update_branch(branch_id, branch)
             
             return True
@@ -114,15 +116,7 @@ class ThreadBranchService(IThreadBranchService):
             # 获取分支历史记录
             history = await self._thread_branch_repository.get_branch_history(branch_id)
             
-            return [
-                {
-                    "event_type": event.event_type,
-                    "event_data": event.event_data,
-                    "created_at": event.created_at.isoformat(),
-                    "user_id": event.user_id
-                }
-                for event in history
-            ]
+            return history
         except Exception as e:
             raise ValidationError(f"Failed to get branch history: {str(e)}")
     
@@ -139,12 +133,12 @@ class ThreadBranchService(IThreadBranchService):
             
             return [
                 {
-                    "branch_id": branch.branch_id,
+                    "branch_id": branch.id,
                     "branch_name": branch.branch_name,
-                    "checkpoint_id": branch.checkpoint_id,
+                    "source_checkpoint_id": branch.source_checkpoint_id,
                     "created_at": branch.created_at.isoformat(),
                     "metadata": branch.metadata,
-                    "is_active": branch.is_active
+                    "is_active": branch.metadata.get("is_active", True)
                 }
                 for branch in branches
             ]
@@ -160,12 +154,13 @@ class ThreadBranchService(IThreadBranchService):
                 return False
             
             # 基本完整性检查
-            if not branch.branch_name or not branch.checkpoint_id:
+            if not branch.branch_name or not branch.source_checkpoint_id:
                 return False
             
-            # 检查检查点是否存在（这里假设检查点服务会验证）
             # 检查分支状态一致性
-            if branch.is_active and branch.merged_at:
+            is_active = branch.metadata.get("is_active", True)
+            merged_at = branch.metadata.get("merged_at")
+            if is_active and merged_at:
                 return False  # 已合并的分支不应标记为活动
             
             return True
@@ -184,7 +179,7 @@ class ThreadBranchService(IThreadBranchService):
                 is_orphaned = await self._is_orphaned_branch(branch)
                 
                 if is_orphaned:
-                    success = await self._thread_branch_repository.delete_branch(branch.branch_id)
+                    success = await self._thread_branch_repository.delete_branch(branch.id)
                     if success:
                         cleaned_count += 1
                         # 更新线程的分支计数
@@ -198,7 +193,7 @@ class ThreadBranchService(IThreadBranchService):
         except Exception as e:
             raise ValidationError(f"Failed to cleanup orphaned branches: {str(e)}")
     
-    async def _is_orphaned_branch(self, branch) -> bool:
+    async def _is_orphaned_branch(self, branch: ThreadBranch) -> bool:
         """检查分支是否为孤立分支"""
         try:
             # 检查对应的检查点是否存在
@@ -206,12 +201,22 @@ class ThreadBranchService(IThreadBranchService):
             checkpoint_exists = True  # 假设检查点存在
             
             # 检查分支是否长时间未活动
-            time_since_last_activity = datetime.now() - branch.updated_at
+            time_since_last_activity = datetime.now() - branch.created_at
             is_inactive = time_since_last_activity.total_seconds() > 86400  # 24小时
             
             # 检查分支是否已合并且长时间未访问
-            is_merged_and_old = branch.merged_at and time_since_last_activity.total_seconds() > 604800  # 7天
+            merged_at = branch.metadata.get("merged_at")
+            is_merged_and_old = False
+            if merged_at:
+                try:
+                    merged_time = datetime.fromisoformat(merged_at)
+                    is_merged_and_old = (datetime.now() - merged_time).total_seconds() > 604800  # 7天
+                except (ValueError, TypeError):
+                    # 如果时间格式无效，不算作旧分支
+                    pass
             
-            return (not checkpoint_exists) or (is_inactive and not branch.is_active) or is_merged_and_old
+            is_active = branch.metadata.get("is_active", True)
+            
+            return (not checkpoint_exists) or (is_inactive and not is_active) or is_merged_and_old
         except Exception:
             return False

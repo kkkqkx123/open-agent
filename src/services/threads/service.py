@@ -1,14 +1,16 @@
 """线程管理服务实现"""
 
 import asyncio
+import uuid
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from src.core.threads.interfaces import IThreadCore
-from src.core.threads.entities import ThreadStatus
+from src.core.threads.entities import ThreadStatus, Thread, ThreadMetadata
 from src.interfaces.threads import IThreadService, IThreadRepository
 from src.interfaces.sessions import ISessionService
-from src.core.common.exceptions import EntityNotFoundError, ValidationError
+from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
+from .repository_adapter import ThreadRepositoryAdapter
 
 
 class ThreadService(IThreadService):
@@ -21,7 +23,7 @@ class ThreadService(IThreadService):
         session_service: Optional[ISessionService] = None
     ):
         self._thread_core = thread_core
-        self._thread_repository = thread_repository
+        self._thread_repository = ThreadRepositoryAdapter(thread_repository)
         self._session_service = session_service
     
     async def create_thread_with_session(
@@ -37,8 +39,21 @@ class ThreadService(IThreadService):
                 if not session:
                     raise EntityNotFoundError(f"Session {session_id} not found")
             
+            # 生成线程ID
+            thread_id = thread_config.get("thread_id") or str(uuid.uuid4())
+            
             # 创建线程实体
-            thread_id = await self._thread_core.create_thread(thread_config)
+            thread_data = self._thread_core.create_thread(
+                thread_id=thread_id,
+                graph_id=thread_config.get("graph_id"),
+                thread_type=thread_config.get("thread_type", "main"),
+                metadata=thread_config.get("metadata"),
+                config=thread_config.get("config")
+            )
+            
+            # 保存线程
+            thread = Thread.from_dict(thread_data)
+            await self._thread_repository.save_thread(thread)
             
             # 关联会话（如果提供）
             if session_id:
@@ -62,18 +77,26 @@ class ThreadService(IThreadService):
             if not source_thread:
                 raise EntityNotFoundError(f"Source thread {source_thread_id} not found")
             
-            # 验证检查点存在（这里假设检查点服务会验证）
-            # 创建分支配置
+            # 生成新线程ID
+            branch_thread_id = str(uuid.uuid4())
+            
+            # 创建分支线程配置
             branch_config = {
+                "thread_id": branch_thread_id,
+                "graph_id": source_thread.graph_id,
+                "thread_type": "branch",
                 "parent_thread_id": source_thread_id,
-                "checkpoint_id": checkpoint_id,
-                "branch_name": branch_name,
-                "metadata": metadata or {},
-                "created_at": datetime.now().isoformat()
+                "source_checkpoint_id": checkpoint_id,
+                "metadata": {
+                    "branch_name": branch_name,
+                    **(metadata or {})
+                }
             }
             
             # 创建分支线程
-            branch_thread_id = await self._thread_core.create_thread(branch_config)
+            thread_data = self._thread_core.create_thread(**branch_config)
+            thread = Thread.from_dict(thread_data)
+            await self._thread_repository.save_thread(thread)
             
             # 更新源线程的分支计数
             await self.increment_branch_count(source_thread_id)
@@ -91,7 +114,9 @@ class ThreadService(IThreadService):
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
             # 更新元数据
-            thread.metadata.update(metadata)
+            current_metadata = thread.metadata.model_dump()
+            current_metadata.update(metadata)
+            thread.metadata = ThreadMetadata(**current_metadata)
             thread.updated_at = datetime.now()
             
             # 保存更新
@@ -107,8 +132,7 @@ class ThreadService(IThreadService):
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
-            thread.message_count += 1
-            thread.updated_at = datetime.now()
+            thread.increment_message_count()
             
             await self._thread_repository.update_thread(thread_id, thread)
             return thread.message_count
@@ -122,8 +146,7 @@ class ThreadService(IThreadService):
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
-            thread.checkpoint_count += 1
-            thread.updated_at = datetime.now()
+            thread.increment_checkpoint_count()
             
             await self._thread_repository.update_thread(thread_id, thread)
             return thread.checkpoint_count
@@ -137,8 +160,7 @@ class ThreadService(IThreadService):
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
-            thread.branch_count += 1
-            thread.updated_at = datetime.now()
+            thread.increment_branch_count()
             
             await self._thread_repository.update_thread(thread_id, thread)
             return thread.branch_count
@@ -153,15 +175,15 @@ class ThreadService(IThreadService):
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
             return {
-                "thread_id": thread.thread_id,
+                "thread_id": thread.id,
                 "status": thread.status.value,
                 "message_count": thread.message_count,
                 "checkpoint_count": thread.checkpoint_count,
                 "branch_count": thread.branch_count,
                 "created_at": thread.created_at.isoformat(),
                 "updated_at": thread.updated_at.isoformat(),
-                "metadata": thread.metadata,
-                "tags": thread.tags
+                "metadata": thread.metadata.model_dump(),
+                "tags": thread.metadata.tags
             }
         except Exception as e:
             raise ValidationError(f"Failed to get thread summary: {str(e)}")
@@ -172,7 +194,7 @@ class ThreadService(IThreadService):
             threads = await self._thread_repository.list_threads_by_type(thread_type)
             return [
                 {
-                    "thread_id": thread.thread_id,
+                    "thread_id": thread.id,
                     "status": thread.status.value,
                     "message_count": thread.message_count,
                     "created_at": thread.created_at.isoformat(),
@@ -217,11 +239,12 @@ class ThreadService(IThreadService):
             
             # 定义状态转换规则
             valid_transitions = {
-                ThreadStatus.PENDING: [ThreadStatus.ACTIVE, ThreadStatus.FAILED],
-                ThreadStatus.ACTIVE: [ThreadStatus.PAUSED, ThreadStatus.COMPLETED, ThreadStatus.FAILED],
-                ThreadStatus.PAUSED: [ThreadStatus.ACTIVE, ThreadStatus.COMPLETED, ThreadStatus.FAILED],
-                ThreadStatus.COMPLETED: [ThreadStatus.ACTIVE],  # 允许重新激活
-                ThreadStatus.FAILED: [ThreadStatus.ACTIVE, ThreadStatus.PENDING]
+                ThreadStatus.ACTIVE: [ThreadStatus.PAUSED, ThreadStatus.COMPLETED, ThreadStatus.FAILED, ThreadStatus.ARCHIVED, ThreadStatus.BRANCHED],
+                ThreadStatus.PAUSED: [ThreadStatus.ACTIVE, ThreadStatus.COMPLETED, ThreadStatus.FAILED, ThreadStatus.ARCHIVED],
+                ThreadStatus.COMPLETED: [ThreadStatus.ACTIVE, ThreadStatus.ARCHIVED],
+                ThreadStatus.FAILED: [ThreadStatus.ACTIVE, ThreadStatus.ARCHIVED],
+                ThreadStatus.ARCHIVED: [ThreadStatus.ACTIVE],  # 可以重新激活归档的线程
+                ThreadStatus.BRANCHED: [ThreadStatus.ACTIVE, ThreadStatus.ARCHIVED]  # 分支状态可以重新激活或归档
             }
             
             try:

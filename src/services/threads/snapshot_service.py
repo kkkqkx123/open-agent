@@ -1,12 +1,15 @@
 """线程快照服务实现"""
 
 import asyncio
+import uuid
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from src.core.threads.interfaces import IThreadCore, IThreadSnapshotCore
+from src.core.threads.entities import Thread, ThreadMetadata, ThreadSnapshot, ThreadStatus
 from src.interfaces.threads import IThreadSnapshotService, IThreadRepository, IThreadSnapshotRepository
-from src.core.common.exceptions import EntityNotFoundError, ValidationError
+from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
+from .repository_adapter import ThreadRepositoryAdapter, ThreadSnapshotRepositoryAdapter
 
 
 class ThreadSnapshotService(IThreadSnapshotService):
@@ -21,8 +24,8 @@ class ThreadSnapshotService(IThreadSnapshotService):
     ):
         self._thread_core = thread_core
         self._thread_snapshot_core = thread_snapshot_core
-        self._thread_repository = thread_repository
-        self._thread_snapshot_repository = thread_snapshot_repository
+        self._thread_repository = ThreadRepositoryAdapter(thread_repository)
+        self._thread_snapshot_repository = ThreadSnapshotRepositoryAdapter(thread_snapshot_repository)
     
     async def create_snapshot_from_thread(
         self,
@@ -38,6 +41,10 @@ class ThreadSnapshotService(IThreadSnapshotService):
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
+            # 生成快照ID和检查点ID
+            snapshot_id = str(uuid.uuid4())
+            checkpoint_id = f"checkpoint_{datetime.now().timestamp()}"
+            
             # 准备快照数据
             snapshot_data = {
                 "thread_id": thread_id,
@@ -45,31 +52,30 @@ class ThreadSnapshotService(IThreadSnapshotService):
                 "message_count": thread.message_count,
                 "checkpoint_count": thread.checkpoint_count,
                 "branch_count": thread.branch_count,
-                "tags": thread.tags,
-                "metadata": thread.metadata if include_metadata else {},
+                "tags": thread.metadata.tags,
+                "metadata": thread.metadata.model_dump() if include_metadata else {},
                 "created_at": thread.created_at.isoformat(),
                 "updated_at": thread.updated_at.isoformat()
             }
             
             # 创建快照实体
-            snapshot_config = {
-                "thread_id": thread_id,
-                "checkpoint_id": f"checkpoint_{datetime.now().timestamp()}",  # 简化处理
-                "snapshot_name": snapshot_name,
-                "description": description or f"Snapshot of thread {thread_id}",
-                "snapshot_data": snapshot_data,
-                "created_at": datetime.now().isoformat()
-            }
-            
-            snapshot_id = await self._thread_snapshot_core.create_snapshot(
-                thread_id,
-                snapshot_config["checkpoint_id"],
-                snapshot_config["snapshot_data"]
+            snapshot_data_dict = self._thread_snapshot_core.create_snapshot(
+                snapshot_id=snapshot_id,
+                thread_id=thread_id,
+                checkpoint_id=checkpoint_id,
+                snapshot_data=snapshot_data,
+                metadata={"description": description or f"Snapshot of thread {thread_id}"}
             )
             
+            # 保存快照
+            snapshot = ThreadSnapshot.from_dict(snapshot_data_dict)
+            snapshot.snapshot_name = snapshot_name
+            if description:
+                snapshot.description = description
+            await self._thread_snapshot_repository.save_snapshot(snapshot)
+            
             # 更新线程的检查点计数
-            thread.checkpoint_count += 1
-            thread.updated_at = datetime.now()
+            thread.increment_checkpoint_count()
             await self._thread_repository.update_thread(thread_id, thread)
             
             return snapshot_id
@@ -96,21 +102,29 @@ class ThreadSnapshotService(IThreadSnapshotService):
             # 根据恢复策略执行恢复
             if restore_strategy == "full":
                 # 完全恢复
-                snapshot_data = snapshot.snapshot_data
-                thread.status = snapshot_data.get("thread_status", thread.status)
+                snapshot_data = snapshot.state_snapshot
+                thread.status = ThreadStatus(snapshot_data.get("thread_status", thread.status.value))
                 thread.message_count = snapshot_data.get("message_count", thread.message_count)
                 thread.checkpoint_count = snapshot_data.get("checkpoint_count", thread.checkpoint_count)
                 thread.branch_count = snapshot_data.get("branch_count", thread.branch_count)
-                thread.tags = snapshot_data.get("tags", thread.tags)
-                thread.metadata.update(snapshot_data.get("metadata", {}))
+                # 更新元数据
+                metadata_update = snapshot_data.get("metadata", {})
+                if metadata_update:
+                    current_metadata = thread.metadata.model_dump()
+                    current_metadata.update(metadata_update)
+                    thread.metadata = ThreadMetadata(**current_metadata)
                 thread.updated_at = datetime.now()
                 
                 await self._thread_repository.update_thread(thread_id, thread)
                 
             elif restore_strategy == "metadata_only":
                 # 仅恢复元数据
-                snapshot_data = snapshot.snapshot_data
-                thread.metadata.update(snapshot_data.get("metadata", {}))
+                snapshot_data = snapshot.state_snapshot
+                metadata_update = snapshot_data.get("metadata", {})
+                if metadata_update:
+                    current_metadata = thread.metadata.model_dump()
+                    current_metadata.update(metadata_update)
+                    thread.metadata = ThreadMetadata(**current_metadata)
                 thread.updated_at = datetime.now()
                 
                 await self._thread_repository.update_thread(thread_id, thread)
@@ -141,8 +155,8 @@ class ThreadSnapshotService(IThreadSnapshotService):
                 raise EntityNotFoundError(f"Snapshot {snapshot_id2} not found for thread {thread_id}")
             
             # 获取快照数据
-            data1 = snapshot1.snapshot_data
-            data2 = snapshot2.snapshot_data
+            data1 = snapshot1.state_snapshot
+            data2 = snapshot2.state_snapshot
             
             # 比较关键字段
             comparison = {
@@ -185,12 +199,12 @@ class ThreadSnapshotService(IThreadSnapshotService):
             
             return [
                 {
-                    "snapshot_id": snapshot.snapshot_id,
+                    "snapshot_id": snapshot.id,
                     "snapshot_name": snapshot.snapshot_name,
                     "description": snapshot.description,
                     "created_at": snapshot.created_at.isoformat(),
-                    "checkpoint_id": snapshot.checkpoint_id,
-                    "snapshot_size": len(str(snapshot.snapshot_data))
+                    "checkpoint_id": "",  # ThreadSnapshot没有checkpoint_id字段
+                    "snapshot_size": len(str(snapshot.state_snapshot))
                 }
                 for snapshot in snapshots
             ]
@@ -206,11 +220,11 @@ class ThreadSnapshotService(IThreadSnapshotService):
                 return False
             
             # 基本完整性检查
-            if not snapshot.snapshot_name or not snapshot.checkpoint_id:
+            if not snapshot.snapshot_name:
                 return False
             
             # 检查快照数据完整性
-            snapshot_data = snapshot.snapshot_data
+            snapshot_data = snapshot.state_snapshot
             required_fields = ["thread_id", "thread_status", "message_count", "checkpoint_count"]
             
             for field in required_fields:
@@ -248,7 +262,7 @@ class ThreadSnapshotService(IThreadSnapshotService):
                 
                 if age_days > max_age_days:
                     # 删除旧快照
-                    success = await self._thread_snapshot_repository.delete_snapshot(snapshot.snapshot_id)
+                    success = await self._thread_snapshot_repository.delete_snapshot(snapshot.id)
                     if success:
                         cleaned_count += 1
             

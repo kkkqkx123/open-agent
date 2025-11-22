@@ -1,13 +1,15 @@
 """线程协调器服务实现"""
 
 import asyncio
+import uuid
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from src.core.threads.interfaces import IThreadCore
-from src.core.threads.entities import ThreadStatus
+from src.core.threads.entities import ThreadStatus, Thread, ThreadMetadata
 from src.interfaces.threads import IThreadCoordinatorService, IThreadRepository
-from src.core.common.exceptions import EntityNotFoundError, ValidationError
+from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
+from .repository_adapter import ThreadRepositoryAdapter
 
 
 class ThreadCoordinatorService(IThreadCoordinatorService):
@@ -19,7 +21,7 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
         thread_repository: IThreadRepository
     ):
         self._thread_core = thread_core
-        self._thread_repository = thread_repository
+        self._thread_repository = ThreadRepositoryAdapter(thread_repository)
         self._coordination_registry = {}  # 协调状态注册表
     
     async def coordinate_thread_creation(
@@ -28,9 +30,9 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
         session_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """协调线程创建"""
+        coordination_id = f"coord_create_{datetime.now().timestamp()}"
+        
         try:
-            coordination_id = f"coord_create_{datetime.now().timestamp()}"
-            
             # 初始化协调状态
             self._coordination_registry[coordination_id] = {
                 "status": "initiated",
@@ -56,7 +58,19 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
             
             # 步骤2: 创建线程
             try:
-                thread_id = await self._thread_core.create_thread(thread_config)
+                thread_id = thread_config.get("thread_id") or str(uuid.uuid4())
+                thread_data = self._thread_core.create_thread(
+                    thread_id=thread_id,
+                    graph_id=thread_config.get("graph_id"),
+                    thread_type=thread_config.get("thread_type", "main"),
+                    metadata=thread_config.get("metadata"),
+                    config=thread_config.get("config")
+                )
+                
+                # 保存线程
+                thread = Thread.from_dict(thread_data)
+                await self._thread_repository.save_thread(thread)
+                
                 self._coordination_registry[coordination_id]["thread_id"] = thread_id
             except Exception as e:
                 self._coordination_registry[coordination_id]["status"] = "failed"
@@ -73,7 +87,7 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
             if session_context and "session_id" in session_context:
                 try:
                     await self._thread_repository.associate_with_session(
-                        thread_id, 
+                        thread_id,
                         session_context["session_id"]
                     )
                 except Exception as e:
@@ -91,6 +105,7 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
             }
             
         except Exception as e:
+            # 确保coordination_id已定义
             if coordination_id in self._coordination_registry:
                 self._coordination_registry[coordination_id]["status"] = "failed"
                 self._coordination_registry[coordination_id]["errors"].append(str(e))
@@ -109,9 +124,9 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
         transition_context: Optional[Dict[str, Any]] = None
     ) -> bool:
         """协调线程状态转换"""
+        coordination_id = f"coord_transition_{datetime.now().timestamp()}"
+        
         try:
-            coordination_id = f"coord_transition_{datetime.now().timestamp()}"
-            
             # 验证线程存在
             thread = await self._thread_repository.get_thread(thread_id)
             if not thread:
@@ -124,10 +139,10 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
                 )
             
             # 执行状态转换
-            thread.status = ThreadStatus(target_status)
-            thread.updated_at = datetime.now()
+            success = thread.transition_to(ThreadStatus(target_status))
             
-            success = await self._thread_repository.update_thread(thread_id, thread)
+            if success:
+                await self._thread_repository.update_thread(thread_id, thread)
             
             # 记录协调结果
             self._coordination_registry[coordination_id] = {
@@ -156,9 +171,9 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
         coordination_context: Optional[Dict[str, Any]] = None
     ) -> str:
         """协调检查点创建"""
+        coordination_id = f"coord_checkpoint_{datetime.now().timestamp()}"
+        
         try:
-            coordination_id = f"coord_checkpoint_{datetime.now().timestamp()}"
-            
             # 验证线程存在
             thread = await self._thread_repository.get_thread(thread_id)
             if not thread:
@@ -172,8 +187,7 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
             checkpoint_id = f"checkpoint_{datetime.now().timestamp()}"
             
             # 更新线程检查点计数
-            thread.checkpoint_count += 1
-            thread.updated_at = datetime.now()
+            thread.increment_checkpoint_count()
             await self._thread_repository.update_thread(thread_id, thread)
             
             # 记录协调结果
@@ -202,9 +216,9 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
         recovery_strategy: str = "latest_checkpoint"
     ) -> bool:
         """协调线程恢复"""
+        coordination_id = f"coord_recovery_{datetime.now().timestamp()}"
+        
         try:
-            coordination_id = f"coord_recovery_{datetime.now().timestamp()}"
-            
             # 验证线程存在
             thread = await self._thread_repository.get_thread(thread_id)
             if not thread:
@@ -327,11 +341,12 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
             
             # 定义有效的状态转换
             valid_transitions = {
-                ThreadStatus.PENDING: [ThreadStatus.ACTIVE, ThreadStatus.FAILED],
-                ThreadStatus.ACTIVE: [ThreadStatus.PAUSED, ThreadStatus.COMPLETED, ThreadStatus.FAILED],
-                ThreadStatus.PAUSED: [ThreadStatus.ACTIVE, ThreadStatus.COMPLETED, ThreadStatus.FAILED],
-                ThreadStatus.COMPLETED: [ThreadStatus.ACTIVE],
-                ThreadStatus.FAILED: [ThreadStatus.ACTIVE, ThreadStatus.PENDING]
+                ThreadStatus.ACTIVE: [ThreadStatus.PAUSED, ThreadStatus.COMPLETED, ThreadStatus.FAILED, ThreadStatus.ARCHIVED, ThreadStatus.BRANCHED],
+                ThreadStatus.PAUSED: [ThreadStatus.ACTIVE, ThreadStatus.COMPLETED, ThreadStatus.FAILED, ThreadStatus.ARCHIVED],
+                ThreadStatus.COMPLETED: [ThreadStatus.ACTIVE, ThreadStatus.ARCHIVED],
+                ThreadStatus.FAILED: [ThreadStatus.ACTIVE, ThreadStatus.ARCHIVED],
+                ThreadStatus.ARCHIVED: [ThreadStatus.ACTIVE],
+                ThreadStatus.BRANCHED: [ThreadStatus.ACTIVE, ThreadStatus.ARCHIVED]
             }
             
             return target in valid_transitions.get(current, [])
