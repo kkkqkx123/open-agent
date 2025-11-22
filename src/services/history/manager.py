@@ -10,11 +10,14 @@ from datetime import datetime
 from src.interfaces.history import IHistoryManager
 from src.core.history.entities import (
     BaseHistoryRecord, LLMRequestRecord, LLMResponseRecord,
-    TokenUsageRecord, CostRecord, WorkflowTokenStatistics
+    TokenUsageRecord, CostRecord, WorkflowTokenStatistics,
+    MessageRecord, ToolCallRecord, HistoryQuery, HistoryResult,
+    RecordType
 )
 from src.core.history.interfaces import IHistoryStorage
 from src.core.history.base import BaseHistoryManager
-from src.core.common.exceptions.history import HistoryError, StorageError
+from src.core.common.exceptions.history import HistoryError
+from src.core.common.exceptions.storage import StorageError
 
 
 logger = logging.getLogger(__name__)
@@ -141,8 +144,7 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             )
             
             # 创建结果对象
-            from src.domain.history.models import HistoryResult
-            result = HistoryResult(records=records, total=len(records))
+            result = HistoryResult(records=records, total_count=len(records))
             
             self._logger.debug(f"查询历史记录: 返回 {len(records)} 条记录")
             
@@ -158,7 +160,7 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             # 获取Token使用记录
             token_records = await self.get_records(
                 session_id=session_id,
-                record_type=TokenUsageRecord().record_type,
+                record_type=RecordType.TOKEN_USAGE,
                 limit=10000
             )
             
@@ -176,7 +178,7 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             total_tokens = 0
             prompt_tokens = 0
             completion_tokens = 0
-            model_breakdown = {}
+            model_breakdown: Dict[str, Dict[str, Any]] = {}
             
             for record in token_records:
                 if not isinstance(record, TokenUsageRecord):
@@ -224,7 +226,7 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             # 获取成本记录
             cost_records = await self.get_records(
                 session_id=session_id,
-                record_type=CostRecord().record_type,
+                record_type=RecordType.COST,
                 limit=10000
             )
             
@@ -239,7 +241,7 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             
             # 统计成本
             total_cost = 0.0
-            model_breakdown = {}
+            model_breakdown: Dict[str, Dict[str, Any]] = {}
             currency = "USD"
             
             for record in cost_records:
@@ -295,20 +297,20 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             # 获取LLM请求和响应记录
             request_records = await self.get_records(
                 session_id=session_id,
-                record_type=LLMRequestRecord().record_type,
+                record_type=RecordType.LLM_REQUEST,
                 limit=10000
             )
             
             response_records = await self.get_records(
                 session_id=session_id,
-                record_type=LLMResponseRecord().record_type,
+                record_type=RecordType.LLM_RESPONSE,
                 limit=10000
             )
             
             # 统计LLM调用
-            model_stats = {}
+            model_stats: Dict[str, Dict[str, Any]] = {}
             total_response_time = 0.0
-            finish_reason_counts = {}
+            finish_reason_counts: Dict[str, int] = {}
             
             for record in response_records:
                 if not isinstance(record, LLMResponseRecord):

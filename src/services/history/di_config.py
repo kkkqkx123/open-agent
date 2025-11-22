@@ -4,20 +4,22 @@
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from pathlib import Path
+from datetime import datetime
 
-from src.services.container import IDependencyContainer
+from src.interfaces.container import IDependencyContainer
 from src.core.history.interfaces import IHistoryStorage, ITokenTracker
 from src.interfaces.history import IHistoryManager, ICostCalculator
+from src.core.history.entities import BaseHistoryRecord, RecordType, WorkflowTokenStatistics
 from src.services.history.manager import HistoryManager
 from src.services.history.hooks import HistoryRecordingHook
 from src.services.history.cost_calculator import CostCalculator
 from src.services.history.token_tracker import WorkflowTokenTracker
 from src.services.history.statistics_service import HistoryStatisticsService
 from src.services.llm.token_calculation_service import TokenCalculationService
-from src.adapters.storage.adapters.file import FileStorageAdapter
-from src.core.common.exceptions.history import ConfigurationError
+from src.adapters.storage.adapters.file import FileStateStorageAdapter
+from src.core.common.exceptions import ConfigurationError
 
 
 logger = logging.getLogger(__name__)
@@ -84,30 +86,33 @@ def _register_storage_services(
             storage_path = Path(storage_config.get("path", "./history"))
             storage_path.mkdir(parents=True, exist_ok=True)
             
-            container.register_singleton(
+            from src.services.container import container as global_container
+            global_container.register_factory(
                 IHistoryStorage,
-                lambda: FileHistoryStorageAdapter(storage_path)
+                lambda c: FileHistoryStorageAdapter(base_path=str(storage_path))
             )
             
             logger.info(f"注册文件存储适配器: {storage_path}")
             
         elif storage_type == "memory":
-            from src.adapters.storage.adapters.memory import MemoryStorageAdapter
+            from src.adapters.storage.adapters.memory import MemoryStateStorageAdapter
             
-            container.register_singleton(
+            from src.services.container import container as global_container
+            global_container.register_factory(
                 IHistoryStorage,
-                lambda: MemoryStorageAdapter()
+                lambda c: MemoryStateStorageAdapter()
             )
             
             logger.info("注册内存存储适配器")
             
         elif storage_type == "sqlite":
-            from src.adapters.storage.adapters.sqlite import SQLiteStorageAdapter
+            from src.adapters.storage.adapters.sqlite import SQLiteStateStorageAdapter
+            from src.services.container import container as global_container
             
             db_path = storage_config.get("db_path", "./history.db")
-            container.register_singleton(
+            global_container.register_factory(
                 IHistoryStorage,
-                lambda: SQLiteStorageAdapter(db_path)
+                lambda c: SQLiteStateStorageAdapter(db_path=db_path)
             )
             
             logger.info(f"注册SQLite存储适配器: {db_path}")
@@ -128,9 +133,10 @@ def _register_token_calculation_service(
         token_config = history_config.get("token_calculation", {})
         default_provider = token_config.get("default_provider", "openai")
         
-        container.register_singleton(
+        from src.services.container import container as global_container
+        global_container.register_factory(
             TokenCalculationService,
-            lambda: TokenCalculationService(default_provider=default_provider)
+            lambda c: TokenCalculationService(default_provider=default_provider)
         )
         
         logger.info(f"注册Token计算服务: 默认提供商={default_provider}")
@@ -147,9 +153,10 @@ def _register_cost_calculator(
     try:
         pricing_config = history_config.get("pricing", {})
         
-        container.register_singleton(
+        from src.services.container import container as global_container
+        global_container.register_factory(
             ICostCalculator,
-            lambda: CostCalculator(pricing_config)
+            lambda c: CostCalculator(pricing_config)
         )
         
         logger.info(f"注册成本计算器: 定价配置项={len(pricing_config)}")
@@ -167,7 +174,8 @@ def _register_token_tracker(
         tracker_config = history_config.get("token_tracker", {})
         cache_ttl = tracker_config.get("cache_ttl", 300)  # 5分钟
         
-        container.register_singleton(
+        from src.services.container import container as global_container
+        global_container.register_factory(
             ITokenTracker,
             lambda c: WorkflowTokenTracker(
                 storage=c.get(IHistoryStorage),
@@ -193,7 +201,8 @@ def _register_history_manager(
         batch_size = manager_config.get("batch_size", 10)
         batch_timeout = manager_config.get("batch_timeout", 1.0)
         
-        container.register_singleton(
+        from src.services.container import container as global_container
+        global_container.register_factory(
             IHistoryManager,
             lambda c: HistoryManager(
                 storage=c.get(IHistoryStorage),
@@ -216,7 +225,8 @@ def _register_statistics_service(
 ) -> None:
     """注册统计服务"""
     try:
-        container.register_singleton(
+        from src.services.container import container as global_container
+        global_container.register_factory(
             HistoryStatisticsService,
             lambda c: HistoryStatisticsService(storage=c.get(IHistoryStorage))
         )
@@ -237,7 +247,8 @@ def _register_history_hook(
         auto_register = hook_config.get("auto_register", True)
         
         if auto_register:
-            container.register_factory(
+            from src.services.container import container as global_container
+            global_container.register_factory(
                 HistoryRecordingHook,
                 lambda c: HistoryRecordingHook(
                     history_manager=c.get(IHistoryManager),
@@ -284,14 +295,16 @@ def register_history_services_with_dependencies(
         
         # 注册提供的Token计算服务
         if token_calculation_service:
-            container.register_instance(TokenCalculationService, token_calculation_service)
+            from src.services.container import container as global_container
+            global_container.register_instance(TokenCalculationService, token_calculation_service)
             logger.info("注册外部Token计算服务")
         else:
             _register_token_calculation_service(container, history_config)
         
         # 注册提供的成本计算器
         if cost_calculator:
-            container.register_instance(ICostCalculator, cost_calculator)
+            from src.services.container import container as global_container
+            global_container.register_instance(ICostCalculator, cost_calculator)
             logger.info("注册外部成本计算器")
         else:
             _register_cost_calculator(container, history_config)
@@ -441,7 +454,7 @@ def validate_history_config(config: Dict[str, Any]) -> bool:
 class FileHistoryStorageAdapter:
     """文件历史存储适配器"""
     
-    def __init__(self, base_path: Path):
+    def __init__(self, base_path: str):
         """
         初始化文件存储适配器
         
@@ -449,38 +462,62 @@ class FileHistoryStorageAdapter:
             base_path: 基础路径
         """
         self.base_path = base_path
-        self.base_path.mkdir(parents=True, exist_ok=True)
     
-    async def save_record(self, record) -> bool:
+    async def save_record(self, record: BaseHistoryRecord) -> bool:
         """保存记录"""
         # 这里应该实现实际的文件存储逻辑
         # 为了简化，这里只是返回True
         return True
     
-    async def save_records(self, records) -> list:
+    async def save_records(self, records: List[BaseHistoryRecord]) -> List[bool]:
         """批量保存记录"""
-        return [await self.save_record(record) for record in records]
+        results = []
+        for record in records:
+            result = await self.save_record(record)
+            results.append(result)
+        return results
     
-    async def get_record_by_id(self, record_id: str):
+    async def get_record_by_id(self, record_id: str) -> Optional[BaseHistoryRecord]:
         """根据ID获取记录"""
         return None
     
-    async def get_records(self, **kwargs) -> list:
+    async def get_records(
+        self,
+        session_id: Optional[str] = None,
+        workflow_id: Optional[str] = None,
+        record_type: Optional[RecordType] = None,
+        model: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[BaseHistoryRecord]:
         """获取记录"""
         return []
     
-    async def get_workflow_token_stats(self, workflow_id: str, model: str = None, **kwargs) -> list:
+    async def get_workflow_token_stats(
+        self,
+        workflow_id: str,
+        model: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None
+    ) -> List[WorkflowTokenStatistics]:
         """获取工作流Token统计"""
         return []
     
-    async def update_workflow_token_stats(self, stats) -> bool:
+    async def update_workflow_token_stats(self, stats: WorkflowTokenStatistics) -> bool:
         """更新工作流Token统计"""
         return True
     
-    async def delete_records(self, **kwargs) -> int:
+    async def delete_records(
+        self,
+        session_id: Optional[str] = None,
+        workflow_id: Optional[str] = None,
+        older_than: Optional[datetime] = None
+    ) -> int:
         """删除记录"""
         return 0
     
-    async def get_storage_statistics(self) -> dict:
+    async def get_storage_statistics(self) -> Dict[str, Any]:
         """获取存储统计"""
         return {"total_records": 0}

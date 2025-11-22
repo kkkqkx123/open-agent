@@ -27,7 +27,7 @@ class ModelPricing:
     model_name: str = ""
     updated_at: Optional[datetime] = None
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
         if self.input_price < 0 or self.output_price < 0:
             raise ValidationError("价格不能为负数")

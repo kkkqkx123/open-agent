@@ -15,7 +15,8 @@ from src.core.history.entities import (
 )
 from src.core.history.base import BaseTokenTracker
 from src.services.llm.token_calculation_service import TokenCalculationService
-from src.core.common.exceptions.history import StatisticsError, ValidationError
+from src.core.common.exceptions.history import StatisticsError
+from src.core.common.exceptions.core import ValidationError
 
 
 logger = logging.getLogger(__name__)
@@ -178,8 +179,11 @@ class WorkflowTokenTracker(BaseTokenTracker):
             cache_key = f"{workflow_id}:{model or 'all'}"
             if self._is_cache_valid(cache_key):
                 cached_stats = self._workflow_stats_cache.get(cache_key)
-                if cached_stats:
-                    return cached_stats
+                if cached_stats and model:
+                    return cached_stats[model]
+                elif cached_stats and not model:
+                    # 如果没有指定模型，返回第一个统计
+                    return list(cached_stats.values())[0] if cached_stats else WorkflowTokenStatistics(workflow_id=workflow_id, model="unknown")
             
             # 从存储获取统计
             stats_list = await self._storage.get_workflow_token_stats(
@@ -381,7 +385,7 @@ class WorkflowTokenTracker(BaseTokenTracker):
                 
                 current_date += timedelta(days=1)
             
-            return daily_stats
+            return daily_stats  # type: ignore
             
         except Exception as e:
             self._logger.error(f"获取模型使用趋势失败: {e}")
@@ -398,21 +402,21 @@ class WorkflowTokenTracker(BaseTokenTracker):
     ) -> None:
         """验证Token使用参数"""
         if not workflow_id:
-            raise ValidationError("工作流ID不能为空", field="workflow_id")
+            raise ValidationError("工作流ID不能为空")
         
         if not model:
-            raise ValidationError("模型名称不能为空", field="model")
+            raise ValidationError("模型名称不能为空")
         
         if not provider:
-            raise ValidationError("提供商不能为空", field="provider")
+            raise ValidationError("提供商不能为空")
         
         if prompt_tokens < 0 or completion_tokens < 0:
             raise ValidationError("Token数量不能为负数")
         
         if not 0.0 <= confidence <= 1.0:
-            raise ValidationError("置信度必须在0.0到1.0之间", field="confidence")
+            raise ValidationError("置信度必须在0.0到1.0之间")
     
-    def _convert_to_langchain_messages(self, messages: List[Dict[str, Any]]) -> List:
+    def _convert_to_langchain_messages(self, messages: List[Dict[str, Any]]) -> List[Any]:
         """转换为LangChain消息格式"""
         try:
             from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -423,9 +427,9 @@ class WorkflowTokenTracker(BaseTokenTracker):
                 content = msg.get("content", "")
                 
                 if msg_type == "human" or msg_type == "user":
-                    lc_messages.append(HumanMessage(content=content))
+                    lc_messages.append(HumanMessage(content=content))  # type: ignore
                 elif msg_type == "ai" or msg_type == "assistant":
-                    lc_messages.append(AIMessage(content=content))
+                    lc_messages.append(AIMessage(content=content))  # type: ignore
                 elif msg_type == "system":
                     lc_messages.append(SystemMessage(content=content))
                 else:

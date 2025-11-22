@@ -9,7 +9,7 @@ import time
 from typing import Dict, Any, List, Optional
 
 from src.interfaces.state.storage.adapter import IStateStorageAdapter
-from src.interfaces.state.entities import StateSnapshot, StateHistoryEntry
+from src.interfaces.state import StateSnapshot, StateHistoryEntry
 from ..core.metrics import StorageMetrics, MetricsContext
 from ..core.transaction import TransactionManager, transaction_context
 from ..core.error_handler import with_error_handling

@@ -4,7 +4,7 @@
 """
 
 import logging
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Union
 from datetime import datetime, timedelta
 from dataclasses import asdict
 
@@ -13,7 +13,8 @@ from src.core.history.entities import (
     WorkflowTokenStatistics, WorkflowTokenSummary, TokenUsageRecord,
     CostRecord, RecordType
 )
-from src.core.common.exceptions.history import StatisticsError, ValidationError
+from src.core.common.exceptions.history import StatisticsError
+from src.core.common.exceptions.core import ValidationError
 
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ class HistoryStatisticsService:
         """
         try:
             if not workflow_id:
-                raise ValidationError("工作流ID不能为空", field="workflow_id")
+                raise ValidationError("工作流ID不能为空")
             
             # 获取指定时间范围内的所有模型统计
             model_stats = await self._storage.get_workflow_token_stats(
@@ -112,7 +113,7 @@ class HistoryStatisticsService:
             if metric not in ["total_tokens", "total_cost", "total_requests"]:
                 raise ValidationError(f"不支持的对比指标: {metric}")
             
-            comparison = {
+            comparison: Dict[str, Any] = {
                 "metric": metric,
                 "workflow_ids": workflow_ids,
                 "period": {
@@ -131,7 +132,7 @@ class HistoryStatisticsService:
                         workflow_id, start_time, end_time
                     )
                     
-                    value = 0
+                    value: Union[int, float] = 0
                     if metric == "total_tokens":
                         value = summary.total_tokens
                     elif metric == "total_cost":
@@ -201,10 +202,10 @@ class HistoryStatisticsService:
         """
         try:
             if not workflow_id:
-                raise ValidationError("工作流ID不能为空", field="workflow_id")
+                raise ValidationError("工作流ID不能为空")
             
             if days <= 0:
-                raise ValidationError("天数必须大于0", field="days")
+                raise ValidationError("天数必须大于0")
             
             if group_by not in ["day", "hour", "model"]:
                 raise ValidationError(f"不支持的分组方式: {group_by}")
@@ -231,7 +232,7 @@ class HistoryStatisticsService:
                 trends["data"] = await self._get_model_trends(workflow_id, start_time, end_time)
             
             # 生成趋势分析
-            trends["analysis"] = self._analyze_trends(trends["data"])
+            trends["analysis"] = self._analyze_trends(trends["data"])  # type: ignore
             
             return trends
             
@@ -279,9 +280,9 @@ class HistoryStatisticsService:
                 }
             
             # 按模型和提供商分组
-            model_costs = {}
-            provider_costs = {}
-            time_costs = {}
+            model_costs: Dict[str, Dict[str, Any]] = {}
+            provider_costs: Dict[str, Dict[str, Any]] = {}
+            time_costs: Dict[str, Dict[str, Any]] = {}
             total_cost = 0.0
             total_requests = len(cost_records)
             
@@ -396,7 +397,7 @@ class HistoryStatisticsService:
             avg_tokens_per_request = total_tokens / total_requests if total_requests > 0 else 0.0
             
             # 按模型分析效率
-            model_stats = {}
+            model_stats: Dict[str, Dict[str, Any]] = {}
             for record in token_records:
                 if not isinstance(record, TokenUsageRecord):
                     continue
@@ -570,7 +571,7 @@ class HistoryStatisticsService:
             # 找到峰值和最低值的时间点
             for key, data in trend_data.items():
                 if data.get("total_tokens", 0) == max_tokens:
-                    analysis["peak_usage"] = {
+                    analysis["peak_usage"] = {  # type: ignore
                         "time": key,
                         "tokens": max_tokens,
                         "cost": data.get("total_cost", 0.0),
@@ -578,7 +579,7 @@ class HistoryStatisticsService:
                     }
                 
                 if data.get("total_tokens", 0) == min_tokens:
-                    analysis["lowest_usage"] = {
+                    analysis["lowest_usage"] = {  # type: ignore
                         "time": key,
                         "tokens": min_tokens,
                         "cost": data.get("total_cost", 0.0),

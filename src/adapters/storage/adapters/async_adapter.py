@@ -8,7 +8,7 @@ import time
 from typing import Dict, Any, List, Optional
 
 from src.interfaces.state.storage.async_adapter import IAsyncStateStorageAdapter
-from src.interfaces.state.entities import StateSnapshot, StateHistoryEntry
+from src.interfaces.state import StateSnapshot, StateHistoryEntry
 from src.interfaces.state.storage.backend import IStorageBackend
 from ..core.metrics import StorageMetrics, MetricsContext
 from ..core.transaction import TransactionManager, TransactionContext

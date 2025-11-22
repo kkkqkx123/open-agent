@@ -5,7 +5,7 @@
 
 import asyncio
 import logging
-from typing import Dict, Any, Optional, Sequence
+from typing import Dict, Any, Optional, Sequence, List
 from datetime import datetime
 from langchain_core.messages import BaseMessage
 
@@ -17,7 +17,8 @@ from src.core.history.entities import (
 )
 from src.services.history.cost_calculator import CostCalculator
 from src.services.llm.token_calculation_service import TokenCalculationService
-from src.core.common.exceptions.history import HistoryError, ValidationError
+from src.core.common.exceptions.history import HistoryError
+from src.core.common.exceptions.core import ValidationError
 
 
 logger = logging.getLogger(__name__)
@@ -174,7 +175,7 @@ class HistoryRecordingHook(ILLMCallHook):
                 prompt_tokens=token_usage.get("prompt_tokens", 0),
                 completion_tokens=token_usage.get("completion_tokens", 0),
                 total_tokens=token_usage.get("total_tokens", 0),
-                source="api",  # 标记为API返回的精确数据
+                source="api",  # type: ignore  # 标记为API返回的精确数据
                 confidence=1.0,
                 metadata={
                     "request_id": request_id,
@@ -293,16 +294,14 @@ class HistoryRecordingHook(ILLMCallHook):
         Returns:
             Dict[str, Any]: token使用信息
         """
-        # 优先使用响应中的token信息
-        if hasattr(response, 'token_usage') and response.token_usage:
-            return response.token_usage
-        
-        # 如果响应中没有token信息，尝试从元数据中提取
+        # 优先使用元数据中的token信息
         if response.metadata and 'usage' in response.metadata:
-            return response.metadata['usage']
+            usage = response.metadata['usage']
+            if isinstance(usage, dict):
+                return usage
         
-        # 尝试从其他字段提取
-        if hasattr(response, 'tokens_used') and response.tokens_used:
+        # 使用响应中的tokens_used字段
+        if response.tokens_used:
             return {
                 "prompt_tokens": 0,  # 无法区分prompt和completion
                 "completion_tokens": response.tokens_used,

@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 from contextlib import contextmanager
 
-from src.interfaces.state.entities import StateSnapshot, StateHistoryEntry, StateStatistics
+from src.interfaces.state import StateSnapshot, StateHistoryEntry, StateStatistics
 from src.interfaces.state.storage.adapter import IStateStorageAdapter
 
 
