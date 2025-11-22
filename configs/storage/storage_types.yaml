@@ -1,0 +1,147 @@
+# 存储类型配置文件
+# 用于存储注册表加载自定义存储类型
+
+# 全局存储配置
+global:
+  default_type: "sqlite"
+  enable_compression: false
+  enable_ttl: true
+  default_ttl_seconds: 3600
+  cleanup_interval_seconds: 300
+  enable_backup: true
+  backup_interval_hours: 24
+  max_backup_files: 7
+
+# 存储类型定义
+storage_types:
+  # SQLite存储类型
+  sqlite:
+    class: "src.adapters.storage.backends.sqlite_backend.SQLiteStorageBackend"
+    description: "SQLite数据库存储后端"
+    metadata:
+      category: "database"
+      features:
+        - "persistent"
+        - "transactional"
+        - "indexed"
+        - "backup"
+      performance:
+        read_speed: "medium"
+        write_speed: "medium"
+        scalability: "low"
+    config:
+      db_path: "storage.db"
+      connection_pool_size: 5
+      timeout: 30.0
+      enable_wal_mode: true
+      enable_foreign_keys: true
+      enable_auto_vacuum: false
+      cache_size: 2000
+      temp_store: "memory"
+      synchronous_mode: "NORMAL"
+      journal_mode: "WAL"
+      backup_path: "backups"
+
+  # 内存存储类型
+  memory:
+    class: "src.adapters.storage.backends.memory_backend.MemoryStorageBackend"
+    description: "内存存储后端"
+    metadata:
+      category: "memory"
+      features:
+        - "fast"
+        - "volatile"
+        - "non-persistent"
+      performance:
+        read_speed: "high"
+        write_speed: "high"
+        scalability: "low"
+    config:
+      max_items: 10000
+      enable_eviction: true
+      eviction_policy: "lru"
+
+  # Redis存储类型（示例）
+  redis:
+    class: "src.adapters.storage.backends.redis_backend.RedisStorageBackend"
+    description: "Redis分布式存储后端"
+    metadata:
+      category: "nosql"
+      features:
+        - "distributed"
+        - "persistent"
+        - "clustered"
+        - "pubsub"
+      performance:
+        read_speed: "high"
+        write_speed: "high"
+        scalability: "high"
+    config:
+      host: "localhost"
+      port: 6379
+      db: 0
+      password: null
+      connection_pool_size: 10
+      socket_timeout: 30
+      socket_connect_timeout: 30
+      retry_on_timeout: true
+      health_check_interval: 30
+
+  # 文件系统存储类型（示例）
+  filesystem:
+    class: "src.adapters.storage.backends.filesystem_backend.FileSystemStorageBackend"
+    description: "文件系统存储后端"
+    metadata:
+      category: "filesystem"
+      features:
+        - "persistent"
+        - "hierarchical"
+        - "portable"
+      performance:
+        read_speed: "medium"
+        write_speed: "medium"
+        scalability: "medium"
+    config:
+      base_path: "./storage_data"
+      create_directories: true
+      file_extension: ".json"
+      compression: false
+      encryption: false
+
+# 环境特定配置
+environments:
+  development:
+    default_type: "memory"
+    storage_types:
+      memory:
+        config:
+          max_items: 1000
+      sqlite:
+        config:
+          db_path: "dev_storage.db"
+          backup_path: "dev_backups"
+
+  testing:
+    default_type: "memory"
+    storage_types:
+      memory:
+        config:
+          max_items: 500
+          enable_eviction: false
+
+  production:
+    default_type: "sqlite"
+    storage_types:
+      sqlite:
+        config:
+          db_path: "/var/lib/app/storage.db"
+          connection_pool_size: 20
+          backup_path: "/var/backups/app/storage"
+          enable_backup: true
+          backup_interval_hours: 6
+      redis:
+        config:
+          host: "${REDIS_HOST:redis-cluster.example.com}"
+          port: "${REDIS_PORT:6379}"
+          password: "${REDIS_PASSWORD}"
+          connection_pool_size: 50

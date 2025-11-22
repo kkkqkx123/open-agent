@@ -19,6 +19,7 @@ from src.core.state.exceptions import (
 )
 from ..adapters.base import StorageBackend, ConnectionPooledStorageBackend, ConnectionPoolMixin
 from ..utils.common_utils import StorageCommonUtils
+from ..utils.memory_optimizer import get_global_optimizer
 
 
 logger = logging.getLogger(__name__)
@@ -346,8 +347,8 @@ class SQLiteStorageBackend(ConnectionPooledStorageBackend):
                 self._return_connection(conn)
     
     async def list_impl(
-        self, 
-        filters: Dict[str, Any], 
+        self,
+        filters: Dict[str, Any],
         limit: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """实际列表实现"""
@@ -398,6 +399,117 @@ class SQLiteStorageBackend(ConnectionPooledStorageBackend):
             if isinstance(e, StorageError):
                 raise
             raise StorageError(f"Failed to list data: {e}")
+        finally:
+            if conn:
+                self._return_connection(conn)
+    
+    async def stream_list_impl(
+        self,
+        filters: Dict[str, Any],
+        batch_size: int = 100,
+        max_memory_mb: int = 100
+    ) -> Any:
+        """流式列表实现
+        
+        使用数据库游标进行真正的流式处理，避免一次性加载所有数据到内存。
+        集成内存优化器，根据内存使用情况自适应调整批次大小。
+        
+        Args:
+            filters: 过滤条件
+            batch_size: 每批处理的记录数
+            max_memory_mb: 最大内存使用限制（MB）
+            
+        Returns:
+            异步生成器，每次产生一批数据
+        """
+        conn = None
+        try:
+            # 获取内存优化器
+            memory_optimizer = get_global_optimizer()
+            
+            # 获取连接
+            conn = self._get_connection()
+            
+            # 构建查询
+            where_clause, params = self._build_where_clause(filters)
+            query = f"SELECT * FROM state_storage {where_clause} ORDER BY created_at DESC"
+            
+            # 创建游标
+            cursor = conn.cursor()
+            
+            # 执行查询
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            
+            # 流式处理结果
+            batch = []
+            memory_usage = 0
+            current_batch_size = batch_size
+            record_count = 0
+            
+            while True:
+                # 获取一行
+                row = cursor.fetchone()
+                if not row:
+                    # 处理最后一批
+                    if batch:
+                        yield batch
+                    break
+                
+                # 转换为字典
+                row_dict = dict(row)
+                
+                # 检查是否过期
+                expires_at = row_dict.get("expires_at")
+                if expires_at and isinstance(expires_at, (int, float)) and expires_at < time.time():
+                    continue
+                
+                # 反序列化数据
+                try:
+                    data_str = row_dict.get("data")
+                    if not isinstance(data_str, str):
+                        logger.error(f"Invalid data type in record {row_dict.get('id', 'unknown')}: {type(data_str)}")
+                        continue
+                    
+                    data = StorageCommonUtils.deserialize_data(data_str)
+                    batch.append(data)
+                    record_count += 1
+                    
+                    # 估算内存使用（简单估算）
+                    record_size = len(str(data)) / (1024 * 1024)  # MB
+                    memory_usage += record_size
+                    
+                    # 检查是否需要调整批次大小
+                    if record_count % 10 == 0:  # 每10条记录检查一次
+                        # 获取最优批次大小
+                        optimal_batch_size = memory_optimizer.get_optimal_batch_size(
+                            data_size_hint=int(record_size * 1024) if record_size > 0 else None
+                        )
+                        
+                        # 如果最优批次大小与当前不同，调整当前批次大小
+                        if optimal_batch_size != current_batch_size:
+                            logger.debug(f"Adjusting batch size from {current_batch_size} to {optimal_batch_size}")
+                            current_batch_size = optimal_batch_size
+                    
+                    # 检查是否达到批次大小或内存限制
+                    if len(batch) >= current_batch_size or memory_usage >= max_memory_mb:
+                        yield batch
+                        batch = []
+                        memory_usage = 0
+                        
+                except Exception as e:
+                    logger.error(f"Failed to deserialize data for record {row_dict.get('id', 'unknown')}: {e}")
+                    continue
+            
+            # 更新统计信息
+            self._update_stats("list")
+            
+        except Exception as e:
+            if isinstance(e, StorageError):
+                raise
+            raise StorageError(f"Failed to stream list data: {e}")
         finally:
             if conn:
                 self._return_connection(conn)

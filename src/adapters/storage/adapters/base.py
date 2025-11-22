@@ -416,18 +416,74 @@ class StorageBackend(IStorageBackend, ABC):
         filters = {"thread_id": thread_id}
         return await self.list_impl(filters)
     
-    def stream_list_impl(
-        self, 
-        filters: Dict[str, Any], 
-        batch_size: int = 100
-    ):
-        """实际流式列表实现"""
-        async def _stream():
-            all_data = await self.list_impl(filters)
-            for i in range(0, len(all_data), batch_size):
-                yield all_data[i:i + batch_size]
+    async def stream_list(
+        self,
+        filters: Dict[str, Any],
+        batch_size: int = 100,
+        max_memory_mb: int = 100
+    ) -> Any:
+        """流式列表数据
         
-        return _stream()
+        使用流式处理处理大数据集，避免一次性加载所有数据到内存。
+        
+        Args:
+            filters: 过滤条件
+            batch_size: 每批处理的记录数
+            max_memory_mb: 最大内存使用限制（MB）
+            
+        Returns:
+            异步生成器，每次产生一批数据
+        """
+        try:
+            # 清理过期项
+            if self.enable_ttl:
+                await self._cleanup_expired_items()
+            
+            # 获取流式数据
+            async for batch in self.stream_list_impl(filters, batch_size, max_memory_mb):
+                # 过滤过期数据
+                if self.enable_ttl:
+                    filtered_batch = []
+                    for data in batch:
+                        if not StorageCommonUtils.is_data_expired(data):
+                            filtered_batch.append(data)
+                        else:
+                            self._stats["expired_items_cleaned"] += 1
+                    batch = filtered_batch
+                
+                if batch:  # 只返回非空批次
+                    yield batch
+            
+            self._update_stats("list")
+            
+        except Exception as e:
+            if isinstance(e, StorageError):
+                raise
+            raise StorageError(f"Failed to stream list data: {e}")
+    
+    async def stream_list_impl(
+        self,
+        filters: Dict[str, Any],
+        batch_size: int = 100,
+        max_memory_mb: int = 100
+    ):
+        """实际流式列表实现 - 默认实现
+        
+        默认实现使用列表接口，子类应该覆盖此方法以提供真正的流式处理。
+        
+        Args:
+            filters: 过滤条件
+            batch_size: 每批处理的记录数
+            max_memory_mb: 最大内存使用限制（MB）
+            
+        Returns:
+            异步生成器，每次产生一批数据
+        """
+        # 默认实现：获取所有数据然后分批返回
+        # 子类应该覆盖此方法以提供真正的流式处理
+        all_data = await self.list_impl(filters)
+        for i in range(0, len(all_data), batch_size):
+            yield all_data[i:i + batch_size]
     
     async def cleanup_old_data_impl(self, retention_days: int) -> int:
         """实际清理旧数据实现 - 默认实现"""
