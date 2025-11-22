@@ -83,6 +83,51 @@ class IPromptTypeRegistry(ABC):
     def exists(self, type_name: str) -> bool:
         """检查类型是否存在"""
         pass
+    
+    @abstractmethod
+    def register_class(self, type_class: type) -> None:
+        """注册提示词类型类"""
+        pass
+    
+    @abstractmethod
+    def get_type(self, type_name: str) -> IPromptType:
+        """获取提示词类型（同义方法）"""
+        pass
+    
+    @abstractmethod
+    def get_type_by_enum(self, prompt_type: PromptType) -> IPromptType:
+        """通过枚举获取提示词类型"""
+        pass
+    
+    @abstractmethod
+    def list_types(self) -> List[str]:
+        """列出所有已注册的类型名称"""
+        pass
+    
+    @abstractmethod
+    def is_registered(self, type_name: str) -> bool:
+        """检查类型是否已注册（同义方法）"""
+        pass
+    
+    @abstractmethod
+    def unregister(self, type_name: str) -> None:
+        """注销提示词类型"""
+        pass
+    
+    @abstractmethod
+    def clear(self) -> None:
+        """清空所有注册的类型"""
+        pass
+    
+    @abstractmethod
+    def get_types_by_injection_order(self) -> List[IPromptType]:
+        """按注入顺序获取所有类型"""
+        pass
+    
+    @abstractmethod
+    def create_instance(self, type_name: str) -> IPromptType:
+        """创建提示词类型的新实例"""
+        pass
 
 
 class PromptTypeConfig:

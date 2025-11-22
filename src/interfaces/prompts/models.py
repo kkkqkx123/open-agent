@@ -179,9 +179,21 @@ class PromptMeta(BaseModel):
 class PromptConfig(BaseModel):
     """提示词配置"""
     
-    # 全局配置
+    # 提示词选择
+    system_prompt: Optional[str] = Field(None, description="系统提示词名称")
+    rules: List[str] = Field(default_factory=list, description="规则提示词列表")
+    user_command: Optional[str] = Field(None, description="用户指令名称")
+    context: Optional[List[str]] = Field(None, description="上下文列表")
+    examples: Optional[List[str]] = Field(None, description="示例列表")
+    constraints: Optional[List[str]] = Field(None, description="约束列表")
+    format: Optional[str] = Field(None, description="格式名称")
+    
+    # 缓存配置
+    cache_enabled: bool = Field(default=True, description="是否启用缓存")
     default_cache_ttl: int = Field(default=3600, description="默认缓存TTL（秒）")
     max_cache_size: int = Field(default=1000, description="最大缓存大小")
+    
+    # 验证配置
     enable_validation: bool = Field(default=True, description="是否启用验证")
     
     # 加载配置

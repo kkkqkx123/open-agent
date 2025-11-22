@@ -35,8 +35,8 @@ class UserCommandPromptType(IPromptType):
                 if isinstance(value, str):
                     processed_content = processed_content.replace(placeholder, value)
         
-        # 处理条件逻辑
-        processed_content = self._process_conditional_logic(processed_content, context)
+        # 注意：复杂的条件逻辑应该使用工作流模板处理器
+        # 这里只保留基本的变量替换功能
         
         return processed_content
     
@@ -66,21 +66,5 @@ class UserCommandPromptType(IPromptType):
         
         return errors
     
-    def _process_conditional_logic(self, content: str, context: Dict[str, Any]) -> str:
-        """处理条件逻辑"""
-        import re
-        
-        # 处理 if-else 语句
-        pattern = r'\{\{if\s+(\w+)\}\}(.*?)\{\{else\}\}(.*?)\{\{endif\}\}'
-        
-        def replace_conditional(match):
-            condition = match.group(1)
-            if_content = match.group(2)
-            else_content = match.group(3)
-            
-            if context.get(condition, False):
-                return if_content
-            else:
-                return else_content
-        
-        return re.sub(pattern, replace_conditional, content, flags=re.DOTALL)
+    # 注意：条件逻辑处理已移至工作流模板处理器
+    # 这样可以保持提示词类型的职责单一

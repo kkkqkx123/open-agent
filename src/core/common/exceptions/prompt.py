@@ -2,7 +2,7 @@
 提示词相关异常定义
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from .core import CoreError
 
@@ -95,7 +95,7 @@ class PromptValidationError(PromptError):
     当提示词验证失败时抛出。
     """
     
-    def __init__(self, message: str, validation_errors: Optional[list[str]] = None) -> None:
+    def __init__(self, message: str, validation_errors: Optional[List[str]] = None) -> None:
         """初始化验证异常
         
         Args:
@@ -129,3 +129,19 @@ class PromptCacheError(PromptError):
         self.details: Dict[str, Any] = {}
         if cache_key:
             self.details["cache_key"] = cache_key
+
+
+class PromptTypeNotFoundError(PromptError):
+    """提示词类型不存在异常
+    
+    当请求的提示词类型不存在时抛出。
+    """
+    pass
+
+
+class PromptTypeRegistrationError(PromptError):
+    """提示词类型注册异常
+    
+    当提示词类型注册失败时抛出。
+    """
+    pass

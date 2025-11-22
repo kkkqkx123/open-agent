@@ -6,7 +6,7 @@
 
 import time
 import re
-from typing import Any, Optional, Dict, List
+from typing import Any, Optional, Dict, List, Sequence
 from datetime import timedelta
 from collections import OrderedDict
 import pickle
@@ -83,7 +83,7 @@ class LRUEvictionPolicy(ICacheEvictionPolicy):
         """LRU策略不主动淘汰，由缓存容量控制"""
         return False
     
-    def select_victim(self, entries: List[ICacheEntry]) -> Optional[ICacheEntry]:
+    def select_victim(self, entries: Sequence[ICacheEntry]) -> Optional[ICacheEntry]:
         """选择最近最少使用的条目"""
         if not entries:
             return None
@@ -103,7 +103,7 @@ class LFUEvictionPolicy(ICacheEvictionPolicy):
         """LFU策略不主动淘汰，由缓存容量控制"""
         return False
     
-    def select_victim(self, entries: List[ICacheEntry]) -> Optional[ICacheEntry]:
+    def select_victim(self, entries: Sequence[ICacheEntry]) -> Optional[ICacheEntry]:
         """选择使用频率最低的条目"""
         if not entries:
             return None
@@ -149,7 +149,7 @@ class MemoryPromptCache(IPromptCache):
         self._eviction_policy = eviction_policy or LRUEvictionPolicy()
         self._serializer = serializer or PickleSerializer()
         
-        self._cache: Dict[str, MemoryCacheEntry] = OrderedDict()
+        self._cache: OrderedDict[str, MemoryCacheEntry] = OrderedDict()
         self._lock = threading.RLock()
         
         # 统计信息

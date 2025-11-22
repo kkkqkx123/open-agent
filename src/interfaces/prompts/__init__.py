@@ -12,6 +12,12 @@ from src.interfaces.prompts.types import (
     create_prompt_type_config,
     get_default_prompt_type_configs,
 )
+from src.interfaces.prompts.models import PromptConfig
+from src.interfaces.prompts.cache import IPromptCache
+from src.interfaces.prompts.injector import (
+    IPromptInjector,
+    IPromptLoader,
+)
 
 __all__ = [
     "IPromptType",
@@ -20,4 +26,8 @@ __all__ = [
     "PromptTypeConfig",
     "create_prompt_type_config",
     "get_default_prompt_type_configs",
+    "PromptConfig",
+    "IPromptCache",
+    "IPromptInjector",
+    "IPromptLoader",
 ]

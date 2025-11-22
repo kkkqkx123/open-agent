@@ -7,11 +7,9 @@
 from .system_prompt import SystemPromptType
 from .rules_prompt import RulesPromptType
 from .user_command_prompt import UserCommandPromptType
-from .workflow_prompt import WorkflowPromptType
 
 __all__ = [
     "SystemPromptType",
-    "RulesPromptType", 
-    "UserCommandPromptType",
-    "WorkflowPromptType"
+    "RulesPromptType",
+    "UserCommandPromptType"
 ]

@@ -5,7 +5,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Dict, List
+from typing import Any, Optional, Dict, List, Sequence
 from datetime import timedelta
 
 
@@ -127,7 +127,7 @@ class ICacheEvictionPolicy(ABC):
         pass
     
     @abstractmethod
-    def select_victim(self, entries: List[ICacheEntry]) -> Optional[ICacheEntry]:
+    def select_victim(self, entries: Sequence[ICacheEntry]) -> Optional[ICacheEntry]:
         """选择要淘汰的条目"""
         pass
 

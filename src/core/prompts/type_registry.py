@@ -4,7 +4,7 @@
 提供提示词类型的注册、发现和管理功能
 """
 
-from typing import Dict, Type, List, Optional
+from typing import Dict, Type, List, Optional as OptionalType
 from src.interfaces.prompts.types import IPromptType, PromptType
 from src.interfaces.prompts import IPromptTypeRegistry
 from src.core.common.exceptions import PromptTypeNotFoundError, PromptTypeRegistrationError
@@ -13,7 +13,7 @@ from src.core.common.exceptions import PromptTypeNotFoundError, PromptTypeRegist
 class PromptTypeRegistry(IPromptTypeRegistry):
     """提示词类型注册表实现"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._types: Dict[str, IPromptType] = {}
         self._type_classes: Dict[str, Type[IPromptType]] = {}
     
@@ -78,10 +78,26 @@ class PromptTypeRegistry(IPromptTypeRegistry):
         
         type_class = self._type_classes[type_name]
         return type_class()
+    
+    def get(self, type_name: str) -> OptionalType[IPromptType]:
+        """获取提示词类型（实现接口）"""
+        return self._types.get(type_name)
+    
+    def get_all(self) -> List[IPromptType]:
+        """获取所有提示词类型（实现接口）"""
+        return list(self._types.values())
+    
+    def get_sorted_by_injection_order(self) -> List[IPromptType]:
+        """按注入顺序排序获取所有类型（实现接口）"""
+        return self.get_types_by_injection_order()
+    
+    def exists(self, type_name: str) -> bool:
+        """检查类型是否存在（实现接口）"""
+        return self.is_registered(type_name)
 
 
 # 全局注册表实例
-_global_registry: Optional[PromptTypeRegistry] = None
+_global_registry: OptionalType[PromptTypeRegistry] = None
 
 
 def get_global_registry() -> PromptTypeRegistry:
@@ -98,10 +114,8 @@ def _register_default_types(registry: PromptTypeRegistry) -> None:
     from .types.system_prompt import SystemPromptType
     from .types.rules_prompt import RulesPromptType
     from .types.user_command_prompt import UserCommandPromptType
-    from .types.workflow_prompt import WorkflowPromptType
     
     # 注册核心提示词类型
     registry.register_class(SystemPromptType)
     registry.register_class(RulesPromptType)
     registry.register_class(UserCommandPromptType)
-    registry.register_class(WorkflowPromptType)

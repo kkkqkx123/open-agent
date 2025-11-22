@@ -47,6 +47,8 @@ from .prompt import (
     PromptNotFoundError,
     PromptValidationError,
     PromptCacheError,
+    PromptTypeNotFoundError,
+    PromptTypeRegistrationError,
 )
 
 __all__ = [
@@ -83,4 +85,6 @@ __all__ = [
     "PromptNotFoundError",
     "PromptValidationError",
     "PromptCacheError",
+    "PromptTypeNotFoundError",
+    "PromptTypeRegistrationError",
 ]
