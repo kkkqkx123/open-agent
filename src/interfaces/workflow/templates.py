@@ -1,107 +1,132 @@
-"""Workflow template interfaces.
+"""工作流模板接口定义
 
-This module contains interfaces related to workflow templates.
+为工作流模板系统提供统一的接口定义。
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
-
-from .core import IWorkflow
-
-
-class IWorkflowTemplate(ABC):
-    """工作流模板接口"""
-    
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """模板名称"""
-        pass
-    
-    @property
-    @abstractmethod
-    def description(self) -> str:
-        """模板描述"""
-        pass
-    
-    @property
-    @abstractmethod
-    def category(self) -> str:
-        """模板类别"""
-        pass
-    
-    @property
-    @abstractmethod
-    def version(self) -> str:
-        """模板版本"""
-        pass
-    
-    @abstractmethod
-    def create_workflow(self, name: str, description: str, config: Dict[str, Any]) -> IWorkflow:
-        """从模板创建工作流"""
-        pass
-    
-    @abstractmethod
-    def get_parameters(self) -> List[Dict[str, Any]]:
-        """获取模板参数定义"""
-        pass
-    
-    @abstractmethod
-    def validate_parameters(self, config: Dict[str, Any]) -> List[str]:
-        """验证参数"""
-        pass
+from typing import Dict, Any, Optional, List
+from ...interfaces.prompts import IPromptInjector, PromptConfig
 
 
-class IWorkflowTemplateRegistry(ABC):
-    """工作流模板注册表接口"""
+class IPromptIntegratedTemplate(ABC):
+    """提示词集成模板接口
+    
+    为需要提示词注入功能的模板提供统一接口。
+    """
     
     @abstractmethod
-    def register_template(self, template: IWorkflowTemplate) -> None:
-        """注册模板"""
+    def set_prompt_injector(self, injector: IPromptInjector) -> None:
+        """设置提示词注入器
+        
+        Args:
+            injector: 提示词注入器实例
+        """
         pass
     
     @abstractmethod
-    def get_template(self, name: str) -> Optional[IWorkflowTemplate]:
-        """获取模板"""
+    def get_prompt_injector(self) -> Optional[IPromptInjector]:
+        """获取提示词注入器
+        
+        Returns:
+            Optional[IPromptInjector]: 提示词注入器实例
+        """
         pass
     
     @abstractmethod
-    def list_templates(self) -> List[str]:
-        """列出所有模板"""
+    def create_prompt_config(self, config: Dict[str, Any]) -> PromptConfig:
+        """从配置创建提示词配置
+        
+        Args:
+            config: 工作流配置
+            
+        Returns:
+            PromptConfig: 提示词配置
+        """
         pass
     
     @abstractmethod
-    def unregister_template(self, name: str) -> bool:
-        """注销模板"""
+    def get_default_prompt_config(self) -> PromptConfig:
+        """获取默认提示词配置
+        
+        Returns:
+            PromptConfig: 默认提示词配置
+        """
+        pass
+
+
+class IWorkflowTemplateFactory(ABC):
+    """工作流模板工厂接口
+    
+    提供创建工作流模板的统一接口。
+    """
+    
+    @abstractmethod
+    def create_template(self, template_name: str, **kwargs: Any) -> Any:
+        """创建工作流模板
+        
+        Args:
+            template_name: 模板名称
+            **kwargs: 模板参数
+            
+        Returns:
+            Any: 工作流模板实例
+        """
         pass
     
     @abstractmethod
-    def validate_template_config(self, template_name: str, config: Dict[str, Any]) -> List[str]:
-        """验证模板配置"""
+    def list_available_templates(self) -> List[str]:
+        """列出可用的模板
+        
+        Returns:
+            List[str]: 可用模板名称列表
+        """
         pass
     
     @abstractmethod
-    def create_workflow_from_template(self, template_name: str, name: str, 
-                                     description: str, config: Dict[str, Any]) -> IWorkflow:
-        """使用模板创建工作流"""
+    def get_template_info(self, template_name: str) -> Dict[str, Any]:
+        """获取模板信息
+        
+        Args:
+            template_name: 模板名称
+            
+        Returns:
+            Dict[str, Any]: 模板信息
+        """
+        pass
+
+
+class IPromptTemplateRegistry(ABC):
+    """提示词模板注册表接口
+    
+    管理提示词相关模板的注册和获取。
+    """
+    
+    @abstractmethod
+    def register_prompt_template(self, template: Any) -> None:
+        """注册提示词模板
+        
+        Args:
+            template: 提示词模板实例
+        """
         pass
     
     @abstractmethod
-    def search_templates(self, keyword: str) -> List[str]:
-        """搜索模板"""
+    def get_prompt_template(self, template_name: str) -> Optional[Any]:
+        """获取提示词模板
+        
+        Args:
+            template_name: 模板名称
+            
+        Returns:
+            Optional[Any]: 提示词模板实例
+        """
         pass
     
     @abstractmethod
-    def get_templates_by_category(self, category: str) -> List[str]:
-        """根据类别获取模板"""
-        pass
-    
-    @abstractmethod
-    def clear(self) -> None:
-        """清除所有模板"""
-        pass
-    
-    @abstractmethod
-    def get_statistics(self) -> Dict[str, Any]:
-        """获取注册表统计信息"""
+    def list_prompt_templates(self) -> List[str]:
+        """列出所有提示词模板
+        
+        Returns:
+            List[str]: 提示词模板名称列表
+        """
         pass

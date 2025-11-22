@@ -259,6 +259,7 @@ def _register_builtin_templates(registry: WorkflowTemplateRegistry) -> None:
         # 延迟导入避免循环依赖
         from .react import ReActWorkflowTemplate, EnhancedReActTemplate
         from .plan_execute import PlanExecuteWorkflowTemplate, CollaborativePlanExecuteTemplate
+        from .prompt_agent import PromptAgentTemplate, SimplePromptAgentTemplate
         
         # 注册ReAct模板
         registry.register_template(ReActWorkflowTemplate())
@@ -267,6 +268,10 @@ def _register_builtin_templates(registry: WorkflowTemplateRegistry) -> None:
         # 注册Plan-Execute模板
         registry.register_template(PlanExecuteWorkflowTemplate())
         registry.register_template(CollaborativePlanExecuteTemplate())
+        
+        # 注册提示词代理模板
+        registry.register_template(PromptAgentTemplate())
+        registry.register_template(SimplePromptAgentTemplate())
         
         logger.info("内置模板注册完成")
     except Exception as e:
