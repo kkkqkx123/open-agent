@@ -46,8 +46,10 @@ src/
 │       └── builders/
 │           └── prompt_aware_builder.py # 提示词感知构建器
 └── core/workflow/
+    ├── services/
+    │   └── prompt_service.py  # 工作流提示词服务（通用）
     ├── graph/nodes/
-    │   └── llm_node.py       # 增强的LLM节点（集成提示词系统）
+    │   └── llm_node.py       # 增强的LLM节点（集成提示词服务）
     └── templates/
         └── workflow_template_processor.py # 工作流模板处理器
 ```
@@ -194,6 +196,31 @@ This content only appears if the prompt exists
 ```
 
 ### 5. 工作流集成
+
+#### 工作流提示词服务（通用）
+```python
+from src.core.workflow.services.prompt_service import get_workflow_prompt_service
+
+# 获取全局提示词服务
+prompt_service = get_workflow_prompt_service()
+
+# 配置提示词系统
+prompt_service.configure(prompt_registry, prompt_injector)
+
+# 处理提示词内容
+processed_content = await prompt_service.process_prompt_content(
+    "Hello {{name}}, your task is: {{task}}",
+    {"name": "Alice", "task": "analysis"}
+)
+
+# 构建消息列表
+messages = await prompt_service.build_messages(
+    base_messages=[SystemMessage(content="You are helpful")],
+    prompt_ids=["system_prompt", "user_prompt"],
+    additional_content="Please help with {{task}}",
+    context={"task": "data analysis"}
+)
+```
 
 #### 工作流模板处理器
 ```python

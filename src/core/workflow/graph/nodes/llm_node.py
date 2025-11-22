@@ -11,9 +11,7 @@ from .registry import BaseNode, NodeExecutionResult, node
 from ...states import WorkflowState
 from src.interfaces.llm import ILLMClient
 from src.services.llm.scheduling.task_group_manager import TaskGroupManager
-from src.interfaces.prompts import IPromptRegistry, IPromptInjector
-from src.interfaces.prompts.models import PromptMeta
-from src.core.common.exceptions.prompts import PromptNotFoundError, PromptInjectionError
+from ..services.prompt_service import get_workflow_prompt_service
 
 logger = logging.getLogger(__name__)
 
@@ -23,25 +21,20 @@ class LLMNode(BaseNode):
     """LLM调用节点，集成提示词系统"""
     
     def __init__(self,
-                 llm_client: ILLMClient,
+                 llm_client: ILLMClient = None,
                  task_group_manager: Optional[TaskGroupManager] = None,
-                 wrapper_factory: Optional[Any] = None,
-                 prompt_registry: Optional[IPromptRegistry] = None,
-                 prompt_injector: Optional[IPromptInjector] = None) -> None:
+                 wrapper_factory: Optional[Any] = None) -> None:
         """初始化LLM节点
 
         Args:
-            llm_client: LLM客户端实例（必需）
+            llm_client: LLM客户端实例（可选，可在运行时设置）
             task_group_manager: 任务组管理器（可选）
             wrapper_factory: 包装器工厂（可选）
-            prompt_registry: 提示词注册表（可选）
-            prompt_injector: 提示词注入器（可选）
         """
         self._llm_client = llm_client
         self._task_group_manager = task_group_manager
         self._wrapper_factory = wrapper_factory
-        self._prompt_registry = prompt_registry
-        self._prompt_injector = prompt_injector
+        self._prompt_service = get_workflow_prompt_service()
 
     @property
     def node_type(self) -> str:
@@ -49,27 +42,41 @@ class LLMNode(BaseNode):
         return "llm_node"
 
     def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
-        """执行LLM调用逻辑
-
-        Args:
-            state: 当前工作流状态
-            config: 节点配置
-
-        Returns:
-            NodeExecutionResult: 执行结果
-        """
+        """执行LLM调用逻辑"""
         try:
             # 使用运行时配置，避免循环依赖
-            merged_config = config
+            import asyncio
+            
+            # 在同步方法中运行异步逻辑
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(self._execute_async(state, config))
+            finally:
+                loop.close()
+                
+        except Exception as e:
+            logger.error(f"LLM节点执行失败: {e}")
+            return NodeExecutionResult(
+                state,
+                None,
+                {"error": str(e), "error_type": type(e).__name__}
+            )
+    
+    async def _execute_async(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+        """异步执行逻辑"""
+        try:
+            # 预处理配置
+            processed_config = await self._preprocess_config(state, config)
             
             # 选择LLM客户端
-            llm_client = self._select_llm_client(merged_config)
+            llm_client = self._select_llm_client(processed_config)
             
-            # 准备消息（集成提示词系统）
-            messages = self._prepare_messages_with_prompts(state, merged_config)
+            # 准备消息（使用提示词服务）
+            messages = await self._prepare_messages_with_prompts(state, processed_config)
             
             # 设置生成参数
-            parameters = self._prepare_parameters(merged_config)
+            parameters = self._prepare_parameters(processed_config)
             
             # 调用LLM
             response = llm_client.generate(messages=messages, parameters=parameters)
@@ -83,24 +90,32 @@ class LLMNode(BaseNode):
             state.get("messages", []).append(ai_message)
             
             # 确定下一步
-            next_node = self._determine_next_node(response, config)
+            next_node = self._determine_next_node(response, processed_config)
             
             # 构建结果元数据
             result_metadata: Dict[str, Any] = {
                 "llm_response": response.content,
                 "token_usage": getattr(response, "token_usage", None),
                 "model_info": llm_client.get_model_info(),
-                "prompt_info": self._get_prompt_info(merged_config)
+                "prompt_info": self._get_prompt_info(processed_config)
             }
             return NodeExecutionResult(state, next_node, result_metadata)
             
         except Exception as e:
-            logger.error(f"LLM节点执行失败: {e}")
-            return NodeExecutionResult(
-                state,
-                None,
-                {"error": str(e), "error_type": type(e).__name__}
+            logger.error(f"LLM节点异步执行失败: {e}")
+            raise
+    
+    async def _preprocess_config(self, state: WorkflowState, config: Dict[str, Any]) -> Dict[str, Any]:
+        """预处理配置"""
+        try:
+            # 使用提示词服务处理配置
+            processed_config = await self._prompt_service.process_node_input(
+                "llm_node", config, state, config
             )
+            return processed_config
+        except Exception as e:
+            logger.warning(f"配置预处理失败，使用原始配置: {e}")
+            return config
 
     def _get_default_system_prompt(self) -> str:
         """获取默认系统提示词"""
@@ -113,61 +128,24 @@ class LLMNode(BaseNode):
 4. 如果有多个步骤的结果，请按逻辑顺序组织回答
 5. 始终保持友好和专业的语调"""
 
-    def _prepare_messages_with_prompts(self, state: WorkflowState, config: Dict[str, Any]) -> List[Union[SystemMessage, Any]]:
-        """准备消息列表（集成提示词系统）"""
+    async def _prepare_messages_with_prompts(self, state: WorkflowState, config: Dict[str, Any]) -> List[Union[SystemMessage, Any]]:
+        """准备消息列表（使用提示词服务）"""
         messages = []
         
-        # 检查是否配置了提示词系统
-        if self._prompt_registry and self._prompt_injector:
-            try:
-                # 尝试使用配置的提示词
-                prompt_messages = self._prepare_prompt_messages(state, config)
-                if prompt_messages:
-                    messages.extend(prompt_messages)
-                else:
-                    # 回退到默认系统提示词
-                    system_prompt = self._get_system_prompt_from_config(config)
-                    messages.append(SystemMessage(content=system_prompt))
-            except Exception as e:
-                logger.warning(f"使用提示词系统失败，回退到默认提示词: {e}")
-                system_prompt = self._get_system_prompt_from_config(config)
-                messages.append(SystemMessage(content=system_prompt))
-        else:
-            # 使用传统方式
-            system_prompt = self._get_system_prompt_from_config(config)
-            messages.append(SystemMessage(content=system_prompt))
+        # 准备基础消息
+        base_messages = []
+        
+        # 添加系统提示词
+        system_prompt = self._get_system_prompt_from_config(config)
+        if system_prompt:
+            base_messages.append(SystemMessage(content=system_prompt))
         
         # 添加历史消息
         if state.get("messages"):
-            messages.extend(state.get("messages", []))
+            base_messages.extend(state.get("messages", []))
         
-        # 添加当前用户输入（如果有）
-        user_input = config.get("user_input")
-        if user_input:
-            # 应用工作流模板处理
-            processed_input = self._process_user_input(user_input, state, config)
-            messages.append(HumanMessage(content=processed_input))
-        
-        return messages
-    
-    def _process_user_input(self, user_input: str, state: WorkflowState, config: Dict[str, Any]) -> str:
-        """处理用户输入，应用工作流模板"""
-        try:
-            # 准备模板上下文
-            context = self._prepare_prompt_context(state, config)
-            
-            # 使用工作流模板处理器
-            from ..templates.workflow_template_processor import WorkflowTemplateProcessor
-            return WorkflowTemplateProcessor.process_template(user_input, context)
-        except Exception as e:
-            logger.warning(f"工作流模板处理失败，使用原始输入: {e}")
-            return user_input
-
-    def _prepare_prompt_messages(self, state: WorkflowState, config: Dict[str, Any]) -> List[Union[SystemMessage, Any]]:
-        """使用提示词系统准备消息"""
+        # 使用提示词服务构建完整消息列表
         prompt_ids = []
-        
-        # 获取配置的提示词ID
         system_prompt_id = config.get("system_prompt_id")
         user_prompt_id = config.get("user_prompt_id")
         
@@ -176,28 +154,24 @@ class LLMNode(BaseNode):
         if user_prompt_id:
             prompt_ids.append(user_prompt_id)
         
-        if not prompt_ids:
-            return []
+        # 准备上下文
+        context = self._prepare_prompt_context(state, config)
         
-        # 准备提示词上下文
-        prompt_context = self._prepare_prompt_context(state, config)
+        # 添加用户输入
+        user_input = config.get("user_input")
         
-        # 注入提示词
-        try:
-            import asyncio
-            # 在同步方法中运行异步操作
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                injected_messages = loop.run_until_complete(
-                    self._prompt_injector.inject_prompts([], prompt_ids, prompt_context)
-                )
-                return injected_messages
-            finally:
-                loop.close()
-        except Exception as e:
-            logger.error(f"注入提示词失败: {e}")
-            raise PromptInjectionError(f"注入提示词失败: {e}")
+        # 使用提示词服务构建消息
+        messages = await self._prompt_service.build_messages(
+            base_messages,
+            prompt_ids if prompt_ids else None,
+            user_input,
+            context
+        )
+        
+        return messages
+
+    # 注意：这个方法已被 _prepare_messages_with_prompts 替代
+    # 保留是为了向后兼容，但不再使用
 
     def _prepare_prompt_context(self, state: WorkflowState, config: Dict[str, Any]) -> Dict[str, Any]:
         """准备提示词上下文"""
@@ -233,7 +207,7 @@ class LLMNode(BaseNode):
     def _get_prompt_info(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """获取提示词信息"""
         prompt_info = {
-            "using_prompt_system": self._prompt_registry is not None and self._prompt_injector is not None,
+            "using_prompt_system": self._prompt_service.get_service_info()["configured"],
             "system_prompt_id": config.get("system_prompt_id"),
             "user_prompt_id": config.get("user_prompt_id"),
             "prompt_variables": config.get("prompt_variables", {})
@@ -317,38 +291,20 @@ class LLMNode(BaseNode):
             "required": []
         }
 
-    def configure_prompt_system(self, prompt_registry: IPromptRegistry, prompt_injector: IPromptInjector) -> None:
+    def configure_prompt_system(self, prompt_registry, prompt_injector) -> None:
         """配置提示词系统"""
-        self._prompt_registry = prompt_registry
-        self._prompt_injector = prompt_injector
+        self._prompt_service.configure(prompt_registry, prompt_injector)
         logger.info("LLM节点已配置提示词系统")
-
+    
+    def set_llm_client(self, llm_client: ILLMClient) -> None:
+        """设置LLM客户端"""
+        self._llm_client = llm_client
+    
     async def validate_prompt_configuration(self, config: Dict[str, Any]) -> List[str]:
         """验证提示词配置"""
-        errors = []
-        
-        if not self._prompt_registry or not self._prompt_injector:
-            return ["提示词系统未配置"]
-        
-        system_prompt_id = config.get("system_prompt_id")
-        user_prompt_id = config.get("user_prompt_id")
-        
-        # 验证系统提示词
-        if system_prompt_id:
-            try:
-                prompt = await self._prompt_registry.get(system_prompt_id)
-                if not prompt.is_active():
-                    errors.append(f"系统提示词 '{system_prompt_id}' 未激活")
-            except PromptNotFoundError:
-                errors.append(f"系统提示词 '{system_prompt_id}' 未找到")
-        
-        # 验证用户提示词
-        if user_prompt_id:
-            try:
-                prompt = await self._prompt_registry.get(user_prompt_id)
-                if not prompt.is_active():
-                    errors.append(f"用户提示词 '{user_prompt_id}' 未激活")
-            except PromptNotFoundError:
-                errors.append(f"用户提示词 '{user_prompt_id}' 未找到")
-        
-        return errors
+        return await self._prompt_service.validate_prompt_configuration(config)
+    
+    async def process_content(self, content: str, context: Optional[Dict[str, Any]] = None) -> str:
+        """处理内容（通用方法）"""
+        context = context or {}
+        return await self._prompt_service.process_prompt_content(content, context)

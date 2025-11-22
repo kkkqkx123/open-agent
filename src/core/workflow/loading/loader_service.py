@@ -17,6 +17,7 @@ from src.services.workflow.function_registry import FunctionRegistry, FunctionTy
 from src.core.workflow.graph.builder.base import UnifiedGraphBuilder
 from ....core.workflow.workflow_instance import WorkflowInstance
 from src.core.workflow.exceptions import WorkflowConfigError, WorkflowValidationError
+from ..services.prompt_service import WorkflowPromptService, get_workflow_prompt_service
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,7 @@ class UniversalLoaderService(IUniversalLoaderService):
         builder: Optional[UnifiedGraphBuilder] = None,
         workflow_validator: Optional[WorkflowValidator] = None,
         state_template_manager: Optional[StateTemplateManager] = None,
+        prompt_service: Optional[WorkflowPromptService] = None,
         enable_caching: bool = True
     ):
         """初始化统一加载器服务
@@ -96,7 +98,8 @@ class UniversalLoaderService(IUniversalLoaderService):
         self.builder = builder or UnifiedGraphBuilder(
             function_registry=self.function_registry
         )
-        self.workflow_validator = workflow_validator or WorkflowValidator()
+        self.prompt_service = prompt_service or get_workflow_prompt_service()
+        self.workflow_validator = workflow_validator or WorkflowValidator(self.prompt_service)
         self.state_template_manager = state_template_manager or StateTemplateManager()
         
         # 缓存
@@ -124,14 +127,17 @@ class UniversalLoaderService(IUniversalLoaderService):
             # 1. 加载配置
             config = self._load_config_from_file(config_path)
             
-            # 2. 验证配置
-            self._validate_config(config)
+            # 2. 预处理提示词配置
+            processed_config = self._preprocess_prompt_config(config)
             
-            # 3. 构建图
-            compiled_graph = self._build_graph(config)
+            # 3. 验证配置
+            self._validate_config(processed_config)
             
-            # 4. 创建工作流实例
-            instance = self._create_workflow_instance(config, compiled_graph)
+            # 4. 构建图
+            compiled_graph = self._build_graph(processed_config)
+            
+            # 5. 创建工作流实例
+            instance = self._create_workflow_instance(processed_config, compiled_graph)
             
             logger.info(f"成功从文件加载工作流: {config.name}")
             return instance
@@ -157,14 +163,17 @@ class UniversalLoaderService(IUniversalLoaderService):
             # 1. 解析配置
             config = GraphConfig.from_dict(config_dict)
             
-            # 2. 验证配置
-            self._validate_config(config)
+            # 2. 预处理提示词配置
+            processed_config = self._preprocess_prompt_config(config)
             
-            # 3. 构建图
-            compiled_graph = self._build_graph(config)
+            # 3. 验证配置
+            self._validate_config(processed_config)
             
-            # 4. 创建工作流实例
-            instance = self._create_workflow_instance(config, compiled_graph)
+            # 4. 构建图
+            compiled_graph = self._build_graph(processed_config)
+            
+            # 5. 创建工作流实例
+            instance = self._create_workflow_instance(processed_config, compiled_graph)
             
             logger.info(f"成功从字典加载工作流: {config.name}")
             return instance
@@ -581,3 +590,29 @@ class UniversalLoaderService(IUniversalLoaderService):
                 "node_functions": {"count": 0, "names": []},
                 "condition_functions": {"count": 0, "names": []}
             }
+    
+    def _preprocess_prompt_config(self, config: GraphConfig) -> GraphConfig:
+        """预处理提示词配置
+        
+        Args:
+            config: 原始配置
+            
+        Returns:
+            GraphConfig: 处理后的配置
+        """
+        try:
+            import asyncio
+            
+            # 在同步方法中运行异步预处理
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                # 使用提示词服务统一处理
+                config_dict = config.to_dict()
+                processed_dict = await self.prompt_service.preprocess_workflow_config(config_dict)
+                return GraphConfig.from_dict(processed_dict)
+            finally:
+                loop.close()
+        except Exception as e:
+            logger.warning(f"提示词配置预处理失败，使用原始配置: {e}")
+            return config

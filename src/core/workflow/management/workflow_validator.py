@@ -11,6 +11,7 @@ from enum import Enum
 import logging
 
 from ..config.config import GraphConfig, EdgeConfig, EdgeType
+from ..services.prompt_service import WorkflowPromptService
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +44,9 @@ class WorkflowValidator:
     # 特殊节点名
     SPECIAL_NODES = {"__start__", "__end__"}
     
-    def __init__(self):
+    def __init__(self, prompt_service: Optional[WorkflowPromptService] = None):
         self.issues: List[ValidationIssue] = []
+        self.prompt_service = prompt_service
     
     def validate_config_file(self, config_path: str) -> List[ValidationIssue]:
         """验证配置文件
@@ -151,6 +153,10 @@ class WorkflowValidator:
                     location=config_path,
                     suggestion=f"确保入口节点 '{entry_point}' 在节点列表中定义"
                 ))
+        
+        # 验证提示词配置
+        if self.prompt_service:
+            self._validate_prompt_config(config_data, config_path)
         
         # 验证图连通性
         if "nodes" in config_data and "edges" in config_data:
@@ -997,6 +1003,49 @@ def main():
     error_count = sum(1 for issue in issues if issue.severity == ValidationSeverity.ERROR)
     if error_count > 0:
         sys.exit(1)
+
+
+    def _validate_prompt_config(self, config_data: Dict[str, Any], config_path: str) -> None:
+        """验证提示词配置"""
+        try:
+            import asyncio
+            
+            # 在同步方法中运行异步验证
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                # 使用提示词服务验证基本配置
+                prompt_errors = loop.run_until_complete(
+                    self.prompt_service.validate_prompt_configuration(config_data)
+                )
+                for error in prompt_errors:
+                    self.issues.append(ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        message=f"提示词配置错误: {error}",
+                        location=f"{config_path}:prompt_config",
+                        suggestion="检查提示词ID和引用是否正确"
+                    ))
+                
+                # 验证工作流结构中的提示词引用
+                structure_errors = loop.run_until_complete(
+                    self.prompt_service.validate_workflow_structure(config_data)
+                )
+                for error in structure_errors:
+                    self.issues.append(ValidationIssue(
+                        severity=ValidationSeverity.ERROR,
+                        message=f"工作流结构提示词错误: {error}",
+                        location=f"{config_path}:structure",
+                        suggestion="检查节点配置中的提示词引用"
+                    ))
+            finally:
+                loop.close()
+        except Exception as e:
+            self.issues.append(ValidationIssue(
+                severity=ValidationSeverity.WARNING,
+                message=f"提示词配置验证失败: {e}",
+                location=f"{config_path}:prompt_config",
+                suggestion="检查提示词服务是否正确配置"
+            ))
 
 
 if __name__ == "__main__":

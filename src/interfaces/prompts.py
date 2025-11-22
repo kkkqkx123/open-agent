@@ -14,6 +14,16 @@ if TYPE_CHECKING:
 class PromptConfig:
     """提示词配置"""
     
+    system_prompt: Optional[str]
+    rules: List[str]
+    user_command: Optional[str]
+    context: List[str]
+    examples: List[str]
+    constraints: List[str]
+    format: Optional[str]
+    cache_enabled: bool
+    cache_ttl: int
+    
     def __init__(
         self,
         system_prompt: Optional[str] = None,
@@ -25,7 +35,7 @@ class PromptConfig:
         format: Optional[str] = None,
         cache_enabled: bool = True,
         cache_ttl: int = 3600
-    ):
+    ) -> None:
         self.system_prompt = system_prompt
         self.rules = rules or []
         self.user_command = user_command
@@ -192,6 +202,23 @@ class IPromptRegistry(ABC):
 class PromptMeta:
     """提示词元信息"""
     
+    name: str
+    category: str
+    path: str
+    description: str
+    version: str
+    tags: List[str]
+    author: str
+    created_at: Optional[str]
+    updated_at: Optional[str]
+    dependencies: List[str]
+    parameters: List[Dict[str, Any]]
+    cache_ttl: int
+    validation: Dict[str, Any]
+    content: str
+    composite: bool
+    components: List[Dict[str, Any]]
+    
     def __init__(
         self,
         name: str,
@@ -210,7 +237,7 @@ class PromptMeta:
         content: str = "",
         composite: bool = False,
         components: Optional[List[Dict[str, Any]]] = None
-    ):
+    ) -> None:
         self.name = name
         self.category = category
         self.path = path

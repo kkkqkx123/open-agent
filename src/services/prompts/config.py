@@ -18,9 +18,13 @@ class PromptConfigManager:
         self._config_cache: Dict[str, PromptConfig] = {}
     
     def create_config(self, system_prompt: Optional[str] = None,
-                     rules: Optional[List[str]] = None,
-                     user_command: Optional[str] = None,
-                     cache_enabled: bool = True) -> PromptConfig:
+                      rules: Optional[List[str]] = None,
+                      user_command: Optional[str] = None,
+                      cache_enabled: bool = True,
+                      context: Optional[List[str]] = None,
+                      examples: Optional[List[str]] = None,
+                      constraints: Optional[List[str]] = None,
+                      format: Optional[str] = None) -> PromptConfig:
         """创建提示词配置
         
         Args:
@@ -28,6 +32,10 @@ class PromptConfigManager:
             rules: 规则提示词列表
             user_command: 用户指令名称
             cache_enabled: 是否启用缓存
+            context: 上下文列表
+            examples: 示例列表
+            constraints: 约束列表
+            format: 提示词格式
             
         Returns:
             PromptConfig: 提示词配置
@@ -36,7 +44,11 @@ class PromptConfigManager:
             system_prompt=system_prompt,
             rules=rules or [],
             user_command=user_command,
-            cache_enabled=cache_enabled
+            cache_enabled=cache_enabled,
+            context=context,
+            examples=examples,
+            constraints=constraints,
+            format=format
         )
     
     def create_from_dict(self, config_dict: Dict[str, Any]) -> PromptConfig:

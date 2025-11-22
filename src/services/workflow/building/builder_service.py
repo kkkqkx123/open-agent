@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 from src.core.workflow.graph.builder.base import UnifiedGraphBuilder
 from src.core.workflow.graph.builder.validator import WorkflowConfigValidator
-from ..interfaces import IWorkflowBuilderService
+from src.interfaces import IWorkflowBuilderService
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,11 @@ class WorkflowBuilderService(IWorkflowBuilderService):
             enable_iteration_management=False  # 暂时禁用迭代管理
         )
         
-        logger.info("工作流构建服务初始化完成")
+        # 初始化提示词服务
+        from src.core.workflow.services.prompt_service import get_workflow_prompt_service
+        self._prompt_service = get_workflow_prompt_service()
+        
+        logger.info("工作流构建服务初始化完成（集成提示词系统）")
 
     def build_workflow(self, config: Dict[str, Any]) -> 'IWorkflow':
         """从配置构建工作流。
@@ -69,12 +73,15 @@ class WorkflowBuilderService(IWorkflowBuilderService):
                 logger.error(error_msg)
                 raise ValueError(error_msg)
 
+            # 预处理配置（应用提示词处理）
+            processed_config = self._preprocess_config(config)
+
             # 提取工作流信息
-            workflow_id = config.get("workflow_id") or config.get("id")
+            workflow_id = processed_config.get("workflow_id") or processed_config.get("id")
             if not workflow_id:
                 raise ValueError("workflow_id 是必需的")
 
-            name = config.get("name", workflow_id)
+            name = processed_config.get("name", workflow_id)
             logger.info(f"开始构建工作流: {workflow_id} ({name})")
 
             # 延迟导入避免循环依赖
@@ -85,19 +92,28 @@ class WorkflowBuilderService(IWorkflowBuilderService):
             workflow = Workflow(workflow_id, name)
 
             # 从字典创建 GraphConfig 对象
-            graph_config = GraphConfig.from_dict(config)
+            graph_config = GraphConfig.from_dict(processed_config)
 
             # 使用核心层的UnifiedGraphBuilder构建图
             graph = self._graph_builder.build_graph(graph_config)
             workflow.set_graph(graph)
 
+            # 配置节点的提示词系统
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(self._configure_node_prompts(graph, processed_config))
+            finally:
+                loop.close()
+
             # 如果指定了入口点，则设置
-            if "entry_point" in config:
-                workflow.set_entry_point(config["entry_point"])
+            if "entry_point" in processed_config:
+                workflow.set_entry_point(processed_config["entry_point"])
 
             # 如果指定了元数据，则设置
-            if "metadata" in config:
-                workflow.metadata = config["metadata"]
+            if "metadata" in processed_config:
+                workflow.metadata = processed_config["metadata"]
 
             logger.info(f"工作流构建完成: {workflow_id}")
             return workflow
@@ -126,11 +142,33 @@ class WorkflowBuilderService(IWorkflowBuilderService):
             if result.has_errors():
                 logger.warning(f"配置验证失败: {result.errors}")
             
+            # 验证提示词配置
+            prompt_errors = self._validate_prompt_config(config)
+            result.errors.extend(prompt_errors)
+            
             return result.errors
             
         except Exception as e:
             logger.error(f"配置验证过程中发生异常: {e}")
             return [f"配置验证异常: {e}"]
+    
+    def _validate_prompt_config(self, config: Dict[str, Any]) -> List[str]:
+        """验证提示词相关配置"""
+        try:
+            import asyncio
+            
+            # 在同步方法中运行异步验证
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(
+                    self._prompt_service.validate_prompt_configuration(config)
+                )
+            finally:
+                loop.close()
+        except Exception as e:
+            logger.warning(f"提示词配置验证失败: {e}")
+            return [f"提示词配置验证异常: {e}"]
 
     def get_config_schema(self) -> Dict[str, Any]:
         """获取配置模式。
@@ -146,3 +184,82 @@ class WorkflowBuilderService(IWorkflowBuilderService):
         except Exception as e:
             logger.error(f"获取配置模式失败: {e}")
             return {}
+    
+    def configure_prompt_system(self, prompt_registry, prompt_injector):
+        """配置提示词系统
+        
+        Args:
+            prompt_registry: 提示词注册表
+            prompt_injector: 提示词注入器
+        """
+        self._prompt_service.configure(prompt_registry, prompt_injector)
+        logger.info("构建器服务已配置提示词系统")
+    
+    async def inject_prompts_to_messages(
+        self,
+        messages: List[Any],
+        prompt_ids: List[str],
+        context: Optional[Dict[str, Any]] = None
+    ) -> List[Any]:
+        """注入提示词到消息列表
+        
+        Args:
+            messages: 基础消息列表
+            prompt_ids: 提示词ID列表
+            context: 上下文变量
+            
+        Returns:
+            包含提示词的消息列表
+        """
+        return await self._prompt_service.build_messages(
+            messages, prompt_ids, None, context or {}
+        )
+    
+    async def resolve_prompt_references(
+        self,
+        prompt_content: str,
+        context: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """解析提示词引用
+        
+        Args:
+            prompt_content: 包含引用的提示词内容
+            context: 上下文变量
+            
+        Returns:
+            解析后的内容
+        """
+        return await self._prompt_service.process_prompt_content(
+            prompt_content, context or {}
+        )
+    
+    def _preprocess_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """预处理配置，应用提示词处理"""
+        try:
+            import asyncio
+            
+            # 在同步方法中运行异步逻辑
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(
+                    self._prompt_service.preprocess_workflow_config(config)
+                )
+            finally:
+                loop.close()
+        except Exception as e:
+            logger.warning(f"配置预处理失败，使用原始配置: {e}")
+            return config
+    
+    async def _configure_node_prompts(self, graph, config: Dict[str, Any]):
+        """配置节点的提示词系统"""
+        try:
+            # 使用提示词服务统一配置节点
+            await self._prompt_service.configure_workflow_nodes(graph, config)
+        except Exception as e:
+            logger.warning(f"配置节点提示词系统失败: {e}")
+    
+    
+    def get_prompt_service_info(self) -> Dict[str, Any]:
+        """获取提示词服务信息"""
+        return self._prompt_service.get_service_info()

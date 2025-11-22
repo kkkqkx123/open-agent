@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import Mock, AsyncMock
 from datetime import datetime
 
-from src.services.workflow.builders.prompt_aware_builder import PromptAwareWorkflowBuilder
+from src.services.workflow.building.builder_service import WorkflowBuilderService
 from src.core.workflow.graph.nodes.llm_node import LLMNode
 from src.services.prompts.registry import PromptRegistry
 from src.services.prompts.injector import PromptInjector
@@ -54,12 +54,9 @@ class TestPromptWorkflowIntegration:
     @pytest.fixture
     def workflow_builder(self, prompt_registry, prompt_injector):
         """创建工作流构建器"""
-        config = PromptConfig()
-        return PromptAwareWorkflowBuilder(
-            prompt_registry,
-            prompt_injector,
-            config
-        )
+        builder = WorkflowBuilderService()
+        builder.configure_prompt_system(prompt_registry, prompt_injector)
+        return builder
     
     @pytest.fixture
     async def sample_prompts(self, prompt_registry):
@@ -128,8 +125,7 @@ class TestPromptWorkflowIntegration:
             "edges": []
         }
         
-        state = WorkflowState()
-        workflow = await workflow_builder.build_from_config(config, state)
+        workflow = workflow_builder.build_workflow(config)
         
         assert workflow is not None
         assert "llm_node" in workflow.nodes
@@ -186,7 +182,7 @@ class TestPromptWorkflowIntegration:
         messages = [HumanMessage(content="Hello")]
         prompt_ids = ["system_prompt", "rules_prompt"]
         
-        injected_messages = await workflow_builder.inject_prompts(
+        injected_messages = await workflow_builder.inject_prompts_to_messages(
             messages,
             prompt_ids,
             {"task": "test"}
@@ -247,11 +243,10 @@ class TestPromptWorkflowIntegration:
             ]
         }
         
-        state = WorkflowState()
-        await workflow_builder.build_from_config(config, state)
+        workflow_builder.build_workflow(config)
         
         # 验证提示词
-        errors = await workflow_builder.validate_workflow_prompts()
+        errors = workflow_builder.validate_config(config)
         assert len(errors) == 0  # 应该没有错误
     
     @pytest.mark.asyncio
@@ -275,11 +270,9 @@ class TestPromptWorkflowIntegration:
             ]
         }
         
-        state = WorkflowState()
-        
         # 应该抛出错误
         with pytest.raises(Exception):
-            await workflow_builder.build_from_config(config, state)
+            workflow_builder.build_workflow(config)
     
     @pytest.mark.asyncio
     async def test_prompt_caching_in_workflow(
@@ -289,14 +282,14 @@ class TestPromptWorkflowIntegration:
     ):
         """测试工作流中的提示词缓存"""
         # 第一次注入
-        messages1 = await workflow_builder.inject_prompts(
+        messages1 = await workflow_builder.inject_prompts_to_messages(
             [],
             ["system_prompt"],
             {}
         )
         
         # 第二次注入（应该使用缓存）
-        messages2 = await workflow_builder.inject_prompts(
+        messages2 = await workflow_builder.inject_prompts_to_messages(
             [],
             ["system_prompt"],
             {}
@@ -346,8 +339,7 @@ class TestPromptWorkflowIntegration:
             ]
         }
         
-        state = WorkflowState()
-        workflow = await workflow_builder.build_from_config(config, state)
+        workflow = workflow_builder.build_workflow(config)
         
         # 验证工作流结构
         assert len(workflow.nodes) == 2
@@ -371,10 +363,11 @@ class TestPromptWorkflowIntegration:
             status=PromptStatus.ACTIVE
         )
         
-        await workflow_builder._prompt_registry.register(var_prompt)
+        # 注册提示词到注册表
+        await workflow_builder._prompt_service._prompt_registry.register(var_prompt)
         
         # 注入带变量的提示词
-        messages = await workflow_builder.inject_prompts(
+        messages = await workflow_builder.inject_prompts_to_messages(
             [],
             ["var_prompt"],
             {
@@ -397,7 +390,7 @@ class TestPromptWorkflowIntegration:
         """测试工作流中的错误处理"""
         # 测试不存在的提示词
         with pytest.raises(Exception):
-            await workflow_builder.inject_prompts(
+            await workflow_builder.inject_prompts_to_messages(
                 [],
                 ["nonexistent_prompt"],
                 {}
