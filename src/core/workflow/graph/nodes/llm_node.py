@@ -217,12 +217,15 @@ class LLMNode(BaseNode):
 
     def _prepare_parameters(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """准备生成参数"""
+        # 使用配置合并获取默认值
+        merged_config = self.merge_configs(config)
+        
         return {
-            "temperature": config.get("temperature", 0.7),
-            "max_tokens": config.get("max_tokens", 1000),
-            "top_p": config.get("top_p", 0.9),
-            "frequency_penalty": config.get("frequency_penalty", 0.0),
-            "presence_penalty": config.get("presence_penalty", 0.0)
+            "temperature": merged_config.get("temperature", 0.7),
+            "max_tokens": merged_config.get("max_tokens", 1000),
+            "top_p": merged_config.get("top_p", 0.9),
+            "frequency_penalty": merged_config.get("frequency_penalty", 0.0),
+            "presence_penalty": merged_config.get("presence_penalty", 0.0)
         }
 
     def _determine_next_node(self, response: Any, config: Dict[str, Any]) -> Optional[str]:

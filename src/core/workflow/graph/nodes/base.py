@@ -48,6 +48,23 @@ class BaseNode(INode, ABC):
         """设置配置"""
         self.config[key] = value
     
+    def merge_configs(self, runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+        """合并默认配置和运行时配置
+        
+        Args:
+            runtime_config: 运行时配置
+            
+        Returns:
+            合并后的配置
+        """
+        from ...config.node_config_loader import get_node_config_loader
+        
+        # 获取节点配置加载器
+        config_loader = get_node_config_loader()
+        
+        # 获取默认配置并合并
+        return config_loader.merge_configs(self.node_type, runtime_config)
+    
     @abstractmethod
     def execute(self, state: IState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行节点

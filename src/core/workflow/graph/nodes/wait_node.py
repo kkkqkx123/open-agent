@@ -65,12 +65,15 @@ class WaitNode(BaseNode):
         Returns:
             NodeExecutionResult: 执行结果
         """
+        # 使用BaseNode的merge_configs方法合并配置
+        merged_config = self.merge_configs(config)
+        
         # 获取配置参数
-        timeout_enabled = config.get("timeout_enabled", True)
-        timeout_seconds = config.get("timeout_seconds", 300)  # 默认5分钟
-        timeout_strategy = TimeoutStrategy(config.get("timeout_strategy", "continue_waiting"))
-        wait_message = config.get("wait_message", "等待人工审核中...")
-        auto_resume_key = config.get("auto_resume_key", "human_review_result")
+        timeout_enabled = merged_config.get("timeout_enabled", True)
+        timeout_seconds = merged_config.get("timeout_seconds", 300)  # 默认5分钟
+        timeout_strategy = TimeoutStrategy(merged_config.get("timeout_strategy", "continue_waiting"))
+        wait_message = merged_config.get("wait_message", "等待人工审核中...")
+        auto_resume_key = merged_config.get("auto_resume_key", "human_review_result")
         
         # 生成唯一的等待ID
         agent_id = state.get("agent_id", "unknown")
@@ -137,16 +140,19 @@ class WaitNode(BaseNode):
 
     def _handle_existing_wait(self, state: WorkflowState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
         """处理现有的等待状态"""
+        # 合并配置
+        merged_config = self.merge_configs(config)
+        
         # 检查是否有外部输入
-        auto_resume_key = config.get("auto_resume_key", "human_review_result")
+        auto_resume_key = merged_config.get("auto_resume_key", "human_review_result")
         if self._has_external_input(state, auto_resume_key):
             return self._resume_from_external_input(state, config)
         
         # 检查是否超时
-        timeout_seconds = config.get("timeout_seconds", 300)
+        timeout_seconds = merged_config.get("timeout_seconds", 300)
         if time.time() - wait_state.start_time > timeout_seconds:
             wait_state.timeout_occurred = True
-            timeout_strategy = TimeoutStrategy(config.get("timeout_strategy", "continue_waiting"))
+            timeout_strategy = TimeoutStrategy(merged_config.get("timeout_strategy", "continue_waiting"))
             result = self._timeout_handlers[timeout_strategy](state, wait_state, config)
             # 确保返回正确的类型
             return cast(NodeExecutionResult, result)
@@ -169,13 +175,16 @@ class WaitNode(BaseNode):
 
     def _resume_from_external_input(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
         """从外部输入恢复执行"""
+        # 合并配置
+        merged_config = self.merge_configs(config)
+        
         # 清除等待状态
         context = state.get("context", {})
         context["is_waiting"] = False
         state.set_value("context", context)
         
         # 添加恢复消息
-        auto_resume_key = config.get("auto_resume_key", "human_review_result")
+        auto_resume_key = merged_config.get("auto_resume_key", "human_review_result")
         custom_fields = state.get("custom_fields", {})
         resume_value = custom_fields.get(auto_resume_key)
         
@@ -202,12 +211,15 @@ class WaitNode(BaseNode):
 
     def _determine_next_node_from_input(self, state: WorkflowState, config: Dict[str, Any]) -> str:
         """根据外部输入确定下一步节点"""
-        auto_resume_key = config.get("auto_resume_key", "human_review_result")
+        # 合并配置
+        merged_config = self.merge_configs(config)
+        
+        auto_resume_key = merged_config.get("auto_resume_key", "human_review_result")
         custom_fields = state.get("custom_fields", {})
         resume_value = custom_fields.get(auto_resume_key)
         
         # 检查配置中的路由规则
-        routing_rules = config.get("routing_rules", {})
+        routing_rules = merged_config.get("routing_rules", {})
         if resume_value in routing_rules:
             result = routing_rules[resume_value]
             return str(result) if result is not None else "final_answer"
@@ -222,7 +234,7 @@ class WaitNode(BaseNode):
                 return "modify_result"
         
         # 默认返回配置的next_node或继续
-        default_node = config.get("default_next_node", "final_answer")
+        default_node = merged_config.get("default_next_node", "final_answer")
         return str(default_node) if default_node is not None else "final_answer"
 
     def _setup_timeout_handler(self, wait_id: str, timeout_seconds: int, strategy: TimeoutStrategy,
@@ -243,8 +255,11 @@ class WaitNode(BaseNode):
 
     def _handle_continue_waiting(self, state: WorkflowState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
         """处理继续等待策略"""
+        # 合并配置
+        merged_config = self.merge_configs(config)
+        
         # 添加超时提示消息
-        timeout_content = f"⚠️ 等待超时 ({config.get('timeout_seconds', 300)}秒)，继续等待..."
+        timeout_content = f"⚠️ 等待超时 ({merged_config.get('timeout_seconds', 300)}秒)，继续等待..."
         timeout_msg = SystemMessage(content=timeout_content)
         
         # 安全访问messages列表
@@ -304,6 +319,9 @@ class WaitNode(BaseNode):
 
     def _handle_llm_continue(self, state: WorkflowState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
         """处理LLM继续策略"""
+        # 合并配置
+        merged_config = self.merge_configs(config)
+        
         # 添加超时提示消息
         timeout_content = f"⚠️ 等待超时，将自动继续之前的任务。"
         timeout_msg = SystemMessage(content=timeout_content)
@@ -323,7 +341,7 @@ class WaitNode(BaseNode):
         context["continue_reason"] = "timeout"
         state.set_value("context", context)
         
-        continue_node = config.get("continue_node", "analyze")
+        continue_node = merged_config.get("continue_node", "analyze")
         return NodeExecutionResult(
             state=state,
             next_node=str(continue_node) if continue_node is not None else "analyze",  # 默认回到分析节点

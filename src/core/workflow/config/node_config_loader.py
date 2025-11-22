@@ -5,9 +5,12 @@
 
 from typing import Dict, Any, Optional
 from pathlib import Path
+import logging
 
 from ....interfaces.common import IConfigLoader
 from ....services.container import get_global_container
+
+logger = logging.getLogger(__name__)
 
 
 class NodeConfigLoader:
@@ -36,10 +39,56 @@ class NodeConfigLoader:
             return
         
         config_loader = self._get_config_loader()
-        # 这里应该从配置文件中加载节点配置
-        # 暂时使用空配置
-        self._node_configs = {}
-        self._loaded = True
+        
+        try:
+            # 1. 加载节点组配置
+            group_config = {}
+            try:
+                group_config = config_loader.load_config("nodes/_group.yaml") or {}
+            except Exception as e:
+                logger.warning(f"无法加载节点组配置: {e}")
+            
+            # 2. 加载各节点特定配置
+            from pathlib import Path
+            import os
+            
+            configs_dir = Path("configs/nodes")
+            if not configs_dir.exists():
+                # 尝试相对于项目根目录的路径
+                project_root = Path(__file__).parent.parent.parent.parent
+                configs_dir = project_root / "configs" / "nodes"
+            
+            if configs_dir.exists():
+                for node_file in configs_dir.glob("*.yaml"):
+                    if node_file.name != "_group.yaml":
+                        try:
+                            node_config = config_loader.load_config(f"nodes/{node_file.name}") or {}
+                            node_type = node_file.stem
+                            
+                            # 3. 处理继承关系
+                            if "inherits_from" in node_config:
+                                base_path = node_config["inherits_from"]
+                                base_config = self._resolve_inheritance(base_path, group_config)
+                                # 合并基础配置和节点特定配置
+                                merged_config = self._deep_merge(base_config, node_config)
+                                self._node_configs[node_type] = merged_config
+                            else:
+                                self._node_configs[node_type] = node_config
+                                
+                            logger.debug(f"已加载节点配置: {node_type}")
+                        except Exception as e:
+                            logger.error(f"加载节点配置失败 {node_file.name}: {e}")
+            else:
+                logger.warning(f"节点配置目录不存在: {configs_dir}")
+            
+            self._loaded = True
+            logger.info(f"节点配置加载完成，共加载 {len(self._node_configs)} 个节点配置")
+            
+        except Exception as e:
+            logger.error(f"加载节点配置失败: {e}")
+            # 使用空配置作为后备
+            self._node_configs = {}
+            self._loaded = True
     
     def get_config(self, node_type: str) -> Dict[str, Any]:
         """获取指定节点类型的配置
@@ -83,6 +132,44 @@ class NodeConfigLoader:
         """
         config = self.get_config(node_type)
         return config.get(key, default)
+    
+    def _resolve_inheritance(self, inheritance_path: str, group_config: Dict[str, Any]) -> Dict[str, Any]:
+        """解析配置继承路径
+        
+        Args:
+            inheritance_path: 继承路径，格式为 "file.yaml#node_type"
+            group_config: 组配置字典
+            
+        Returns:
+            继承的基础配置
+        """
+        try:
+            if "#" in inheritance_path:
+                file_path, node_type = inheritance_path.split("#", 1)
+                if file_path == "_group.yaml" and node_type in group_config:
+                    return group_config[node_type]
+            return {}
+        except Exception as e:
+            logger.warning(f"解析配置继承失败 {inheritance_path}: {e}")
+            return {}
+    
+    def _deep_merge(self, base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+        """深度合并字典
+        
+        Args:
+            base: 基础字典
+            override: 覆盖字典
+            
+        Returns:
+            合并后的字典
+        """
+        result = base.copy()
+        for key, value in override.items():
+            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                result[key] = self._deep_merge(result[key], value)
+            else:
+                result[key] = value
+        return result
 
 
 # 全局节点配置加载器实例

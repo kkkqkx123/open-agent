@@ -33,8 +33,11 @@ class ConditionNode(BaseNode):
         Returns:
             NodeExecutionResult: 执行结果
         """
+        # 使用BaseNode的merge_configs方法合并配置
+        merged_config = self.merge_configs(config)
+        
         # 获取条件配置
-        conditions = config.get("conditions", [])
+        conditions = merged_config.get("conditions", [])
         if not conditions:
             # 如果没有配置条件，使用默认条件
             conditions = [{"type": "has_tool_calls", "next_node": "execute_tool"}]
@@ -53,7 +56,7 @@ class ConditionNode(BaseNode):
                 )
         
         # 如果没有条件满足，使用默认节点
-        default_next = config.get("default_next_node")
+        default_next = merged_config.get("default_next_node")
         return NodeExecutionResult(
             state=state,
             next_node=default_next,
@@ -103,7 +106,7 @@ class ConditionNode(BaseNode):
             "required": []
         }
 
-    def _evaluate_condition(self, condition_config: Dict[str, Any], state: WorkflowState, 
+    def _evaluate_condition(self, condition_config: Dict[str, Any], state: WorkflowState,
                            node_config: Dict[str, Any]) -> bool:
         """评估单个条件
 
@@ -115,12 +118,15 @@ class ConditionNode(BaseNode):
         Returns:
             bool: 条件是否满足
         """
+        # 合并配置以获取默认值
+        merged_config = self.merge_configs(node_config)
+        
         condition_type_str = condition_config.get("type")
         parameters = condition_config.get("parameters", {})
         
-        # 对于自定义条件，尝试从节点配置中获取代码
+        # 对于自定义条件，尝试从合并后的配置中获取代码
         if condition_type_str == "custom" and "custom_condition_code" not in parameters:
-            custom_code = node_config.get("custom_condition_code")
+            custom_code = merged_config.get("custom_condition_code")
             if custom_code:
                 parameters["custom_condition_code"] = custom_code
         

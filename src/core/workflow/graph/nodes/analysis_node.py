@@ -41,9 +41,8 @@ class AnalysisNode(BaseNode):
         Returns:
             NodeExecutionResult: 执行结果
         """
-        # 合并默认配置和运行时配置
-        config_loader = get_node_config_loader()
-        merged_config = config_loader.merge_configs(self.node_type, config)
+        # 使用BaseNode的merge_configs方法合并配置
+        merged_config = self.merge_configs(config)
         
         # 使用注入的LLM客户端
         llm_client = self._llm_client
@@ -129,9 +128,9 @@ class AnalysisNode(BaseNode):
 
     def _get_default_system_prompt(self) -> str:
         """获取默认系统提示词"""
-        config_loader = get_node_config_loader()
-        result = config_loader.get_config_value(
-            self.node_type,
+        # 使用合并后的配置获取默认系统提示词
+        merged_config = self.merge_configs({})
+        result = merged_config.get(
             "system_prompt",
             """你是一个智能助手，负责分析用户输入并决定是否需要调用工具。
 
@@ -214,9 +213,9 @@ class AnalysisNode(BaseNode):
         Returns:
             bool: 是否包含工具调用指示
         """
-        config_loader = get_node_config_loader()
-        tool_keywords = config_loader.get_config_value(
-            self.node_type,
+        # 使用合并后的配置获取工具关键词
+        merged_config = self.merge_configs({})
+        tool_keywords = merged_config.get(
             "tool_keywords",
             ["我需要", "让我查询", "让我搜索", "我需要调用", "工具", "查询", "搜索"]
         )

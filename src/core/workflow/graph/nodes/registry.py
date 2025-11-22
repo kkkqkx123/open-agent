@@ -98,6 +98,23 @@ class BaseNode(ABC):
                     errors.append(f"字段 {field_name} 应为对象类型")
         
         return errors
+    
+    def merge_configs(self, runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+        """合并默认配置和运行时配置
+        
+        Args:
+            runtime_config: 运行时配置
+            
+        Returns:
+            合并后的配置
+        """
+        from src.core.workflow.config.node_config_loader import get_node_config_loader
+        
+        # 获取节点配置加载器
+        config_loader = get_node_config_loader()
+        
+        # 获取默认配置并合并
+        return config_loader.merge_configs(self.node_type, runtime_config)
 
 
 class NodeRegistry:

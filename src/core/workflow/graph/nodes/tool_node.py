@@ -39,9 +39,8 @@ class ToolNode(BaseNode):
         Returns:
             NodeExecutionResult: 执行结果
         """
-        # 合并默认配置和运行时配置
-        config_loader = get_node_config_loader()
-        merged_config = config_loader.merge_configs(self.node_type, config)
+        # 使用BaseNode的merge_configs方法合并配置
+        merged_config = self.merge_configs(config)
         
         # 使用注入的工具管理器
         tool_manager = self._tool_manager
@@ -377,10 +376,9 @@ class ToolNode(BaseNode):
         """
         import re
         
-        # 从配置获取键值对解析模式
-        config_loader = get_node_config_loader()
-        pattern_str = config_loader.get_config_value(
-            self.node_type,
+        # 从合并后的配置获取键值对解析模式
+        merged_config = self.merge_configs({})
+        pattern_str = merged_config.get(
             "key_value_pattern",
             r'(\w+)\s*[:=]\s*["\']?([^"\'\s,]+)["\']?'
         )
@@ -425,9 +423,8 @@ class ToolNode(BaseNode):
         Returns:
             Optional[str]: 下一个节点名称
         """
-        # 合并默认配置和运行时配置
-        config_loader = get_node_config_loader()
-        merged_config = config_loader.merge_configs(self.node_type, config)
+        # 使用BaseNode的merge_configs方法合并配置
+        merged_config = self.merge_configs(config)
         
         # 如果有错误且配置为不继续执行，返回分析节点
         if execution_errors and not merged_config.get("continue_on_error", True):
