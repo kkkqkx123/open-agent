@@ -5,10 +5,9 @@
 """
 
 import os
-from typing import List, Dict, Any
-
-from src.interfaces.tools import ITool
-from .config import ToolConfig
+from typing import List, Dict, Any, Union
+from src.interfaces.tool.base import ITool
+from src.core.tools.config import ToolConfig, RestToolConfig, MCPToolConfig, NativeToolConfig
 
 class DefaultToolLoader:
     """默认工具加载器实现"""
@@ -101,23 +100,18 @@ class DefaultToolLoader:
         
         return tool_configs
     
-    def _parse_tool_config(self, config_data: Dict[str, Any]) -> ToolConfig:
+    def _parse_tool_config(self, config_data: Dict[str, Any]) -> Union[RestToolConfig, MCPToolConfig, NativeToolConfig]:
         """解析工具配置
         
         Args:
             config_data: 配置数据
             
         Returns:
-            ToolConfig: 工具配置对象
+            Union[RestToolConfig, MCPToolConfig, NativeToolConfig]: 工具配置对象
             
         Raises:
             ValueError: 配置格式错误
         """
-        from .config import (
-            RestToolConfig,
-            MCPToolConfig,
-            RestToolConfig
-        )
         
         tool_type = config_data.get("tool_type")
         if not tool_type:
@@ -125,8 +119,8 @@ class DefaultToolLoader:
         
         if tool_type == "rest":
             return RestToolConfig(**config_data)
-        elif tool_type == "rest":
-            return RestToolConfig(**config_data)
+        elif tool_type == "native":
+            return NativeToolConfig(**config_data)
         elif tool_type == "mcp":
             return MCPToolConfig(**config_data)
         else:
@@ -206,20 +200,15 @@ class RegistryBasedToolLoader:
             self.logger.error(f"从注册表加载工具失败: {str(e)}")
             raise Exception(f"从注册表加载工具失败: {str(e)}")
     
-    def _parse_tool_config(self, config_data: Dict[str, Any]) -> ToolConfig:
+    def _parse_tool_config(self, config_data: Dict[str, Any]) -> Union[RestToolConfig, MCPToolConfig, NativeToolConfig]:
         """解析工具配置
         
         Args:
             config_data: 配置数据
             
         Returns:
-            ToolConfig: 工具配置对象
+            Union[RestToolConfig, MCPToolConfig, NativeToolConfig]: 工具配置对象
         """
-        from .config import (
-            RestToolConfig,
-            MCPToolConfig,
-            RestToolConfig
-        )
         
         tool_type = config_data.get("tool_type")
         if not tool_type:
@@ -227,8 +216,8 @@ class RegistryBasedToolLoader:
         
         if tool_type == "rest":
             return RestToolConfig(**config_data)
-        elif tool_type == "rest":
-            return RestToolConfig(**config_data)
+        elif tool_type == "native":
+            return NativeToolConfig(**config_data)
         elif tool_type == "mcp":
             return MCPToolConfig(**config_data)
         else:

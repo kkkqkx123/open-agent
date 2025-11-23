@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, ConfigDict
 
 
-@dataclass(kw_only=True)
+@dataclass
 class ToolConfig:
     """工具配置基类"""
 
@@ -34,7 +34,7 @@ class ToolConfig:
         }
 
 
-@dataclass
+@dataclass(kw_only=True)
 class NativeToolConfig(ToolConfig):
     """原生工具配置 (原rest) - 项目内实现"""
 
@@ -55,7 +55,7 @@ class NativeToolConfig(ToolConfig):
         return data
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RestToolConfig(ToolConfig):
     """REST工具配置 (原rest) - 外部API集成"""
 
@@ -90,7 +90,7 @@ class RestToolConfig(ToolConfig):
         return data
 
 
-@dataclass
+@dataclass(kw_only=True)
 class MCPToolConfig(ToolConfig):
     """MCP工具配置 - 标准协议"""
 

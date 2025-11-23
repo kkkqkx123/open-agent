@@ -21,13 +21,15 @@ class TestFileWatcher:
         self.test_file = os.path.join(self.test_dir, "test.yaml")
         with open(self.test_file, "w") as f:
             f.write("initial content")
+        # 初始化watcher属性，避免teardown_method中的属性访问问题
+        self.watcher = None
 
     def teardown_method(self):
         """测试后清理"""
         # 停止监听器
-        if hasattr(self, 'watcher'):
+        if hasattr(self, 'watcher') and self.watcher is not None:
             self.watcher.stop()
-
+        
         # 删除临时目录
         import shutil
         shutil.rmtree(self.test_dir, ignore_errors=True)

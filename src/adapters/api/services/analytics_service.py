@@ -1,7 +1,6 @@
 """分析服务"""
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
-import asyncio
 
 from ..data_access.session_dao import SessionDAO
 from ..data_access.history_dao import HistoryDAO

@@ -80,7 +80,7 @@ from .llm import (
 )
 
 # 工具相关接口
-from .tools import (
+from .tool.base import (
     ITool,
     IToolRegistry,
     IToolFormatter,
@@ -89,6 +89,15 @@ from .tools import (
     IToolFactory,
     ToolCall,
     ToolResult
+)
+
+# 工具配置相关接口
+from .tool.config import (
+    ToolConfig,
+    NativeToolConfig,
+    RestToolConfig,
+    MCPToolConfig,
+    ToolSetConfig
 )
 
 # 历史相关接口
@@ -235,6 +244,13 @@ __all__ = [
     "IToolFactory",
     "ToolCall",
     "ToolResult",
+    
+    # 工具配置接口
+    "ToolConfig",
+    "NativeToolConfig",
+    "RestToolConfig",
+    "MCPToolConfig",
+    "ToolSetConfig",
     
     # 历史接口
     "IHistoryManager",

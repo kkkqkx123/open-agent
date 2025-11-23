@@ -193,3 +193,60 @@ class HistoryDAO:
             return (end - start).total_seconds()
         except:
             return 0
+    
+    def cleanup_old_records(self, cutoff_date: datetime) -> int:
+        """清理旧记录"""
+        import os
+        import glob
+        
+        cleaned_count = 0
+        
+        try:
+            # 获取所有历史文件
+            history_dir = self.base_path / "history"
+            if not history_dir.exists():
+                return 0
+            
+            # 遍历所有月份目录
+            for month_dir in history_dir.glob("*"):
+                if not month_dir.is_dir():
+                    continue
+                
+                # 处理该目录下的所有会话文件
+                for session_file in month_dir.glob("*.jsonl"):
+                    try:
+                        # 读取文件并过滤旧记录
+                        records_to_keep = []
+                        with open(session_file, 'r', encoding='utf-8') as f:
+                            for line in f:
+                                if line.strip():
+                                    try:
+                                        record = json.loads(line)
+                                        record_time = datetime.fromisoformat(record.get('timestamp', ''))
+                                        if record_time >= cutoff_date:
+                                            records_to_keep.append(line)
+                                    except (json.JSONDecodeError, ValueError):
+                                        # 保留无法解析的记录
+                                        records_to_keep.append(line)
+                        
+                        # 如果有记录被删除，重写文件
+                        original_count = sum(1 for _ in open(session_file, 'r', encoding='utf-8') if _.strip())
+                        kept_count = len(records_to_keep)
+                        
+                        if kept_count < original_count:
+                            with open(session_file, 'w', encoding='utf-8') as f:
+                                f.writelines(records_to_keep)
+                            cleaned_count += (original_count - kept_count)
+                        
+                        # 如果文件为空，删除文件
+                        if kept_count == 0:
+                            session_file.unlink()
+                            cleaned_count += original_count
+                            
+                    except Exception:
+                        continue
+            
+            return cleaned_count
+            
+        except Exception:
+            return 0

@@ -9,7 +9,7 @@ from unittest.mock import patch, mock_open
 import pytest
 
 from src.core.common.utils.schema_loader import SchemaLoader
-from src.core.common.exceptions import ConfigurationError
+from src.core.common.exceptions.config import ConfigError as ConfigurationError
 
 
 class TestSchemaLoader:
@@ -341,7 +341,7 @@ class TestSchemaLoader:
         readonly_dir = Path(self.temp_dir) / "readonly"
         readonly_dir.mkdir(mode=0o444, parents=True, exist_ok=True)  # 只读权限
 
-        loader = SchemaLoader(readonly_dir)
+        loader = SchemaLoader(str(readonly_dir))
         config = {"test": "value"}
 
         try:

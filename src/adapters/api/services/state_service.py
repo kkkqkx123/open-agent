@@ -5,14 +5,15 @@ from abc import ABC
 import json
 from uuid import uuid4
 
-from ....infrastructure.graph.states.interface import IStateManager
-from ....domain.state.interfaces import (
-    IStateLifecycleManager,
-    IStateCrudManager
-)
-from ....infrastructure.state.interfaces import IStateHistoryManager
-from ....infrastructure.exceptions import ServiceNotRegisteredError
-from ....infrastructure.container import EnhancedDependencyContainer as Container
+from ....interfaces.state.interfaces import IStateManager
+from ....interfaces.state.lifecycle import IStateLifecycleManager
+from ....interfaces.state.history import IStateHistoryManager
+from ....services.container.container import DependencyContainer as Container
+
+# 兼容性异常定义
+class ServiceNotRegisteredError(Exception):
+    """服务未注册异常"""
+    pass
 
 
 class StateService:

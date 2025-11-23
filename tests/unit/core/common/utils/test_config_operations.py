@@ -10,7 +10,7 @@ import pytest
 
 from src.core.common.utils.config_operations import ConfigOperations
 from src.core.config.config_manager import ConfigManager
-from src.core.common.exceptions import ConfigurationError
+from src.core.common.exceptions.config import ConfigError as ConfigurationError
 
 
 class TestConfigOperations:

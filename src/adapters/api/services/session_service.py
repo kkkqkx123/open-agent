@@ -1,9 +1,9 @@
 """会话服务"""
 from typing import Optional, Any, List, Dict, Union
 from datetime import datetime
-from src.application.sessions.manager import ISessionManager
-from src.infrastructure.graph.states import WorkflowState
-from src.application.sessions.manager import UserRequest
+from src.interfaces.sessions.service import ISessionService
+from src.core.workflow.states import WorkflowState
+from src.interfaces.sessions.entities import UserRequest
 from ..data_access.session_dao import SessionDAO
 from src.services.logger import get_logger
 
@@ -25,13 +25,13 @@ class SessionService:
     
     def __init__(
         self,
-        session_manager: ISessionManager,
+        session_service: ISessionService,
         session_dao: SessionDAO,
         history_dao: HistoryDAO,
         cache: Union[MemoryCache, 'CacheManager'],
         cache_manager: Optional['CacheManager'] = None
     ):
-        self.session_manager = session_manager
+        self.session_service = session_service
         self.session_dao = session_dao
         self.history_dao = history_dao
         self.cache = cache
@@ -63,7 +63,18 @@ class SessionService:
                 agent_state["start_time"] = None
         
         # 处理消息
-        from src.infrastructure.graph.states import BaseMessage, SystemMessage, HumanMessage
+        # 使用简化的消息类型定义
+        class BaseMessage:
+            def __init__(self, content: str):
+                self.content = content
+        
+        class SystemMessage(BaseMessage):
+            def __init__(self, content: str):
+                super().__init__(content)
+        
+        class HumanMessage(BaseMessage):
+            def __init__(self, content: str):
+                super().__init__(content)
         messages = []
         for msg_data in state_dict.get("messages", []):
             try:
@@ -85,7 +96,7 @@ class SessionService:
         agent_state["messages"] = messages
         
         # 处理工具结果
-        from src.interfaces.tools import ToolResult
+        from src.interfaces.tool.base import ToolResult
         tool_results = []
         for result_data in state_dict.get("tool_results", []):
             try:
@@ -112,7 +123,7 @@ class SessionService:
         
         agent_state["tool_results"] = tool_results_dict
         
-        return agent_state
+        return agent_state  # type: ignore
     
     async def list_sessions(
         self,
@@ -210,7 +221,7 @@ class SessionService:
             raise ValueError("工作流配置路径不能为空")
         
         # 创建UserRequest对象 - 使用正确的参数格式
-        from src.application.sessions.manager import UserRequest
+        from src.interfaces.sessions.entities import UserRequest
         user_request = UserRequest(
             request_id=f"request_{datetime.now().timestamp()}",
             user_id=None,
@@ -224,11 +235,11 @@ class SessionService:
         )
         
         try:
-            # 调用session_manager的create_session方法
-            session_id = await self.session_manager.create_session(user_request)
+            # 调用session_service的create_session方法
+            session_id = await self.session_service.create_session(user_request)
             
             # 获取会话上下文
-            session_context = await self.session_manager.get_session_context(session_id)
+            session_context = await self.session_service.get_session_context(session_id)
             if session_context:
                 # 构建会话数据用于数据库保存
                 session_data = {
@@ -281,8 +292,8 @@ class SessionService:
     async def delete_session(self, session_id: str) -> bool:
         """删除会话"""
         try:
-            # 调用session_manager的delete_session方法
-            await self.session_manager.delete_session(session_id)
+            # 调用session_service的delete_session方法
+            await self.session_service.delete_session(session_id)
             
             # 删除数据库记录
             success = await self.session_dao.delete_session(session_id)
@@ -381,7 +392,7 @@ class SessionService:
         """
         try:
             # 获取会话上下文 - 使用get_session_context方法
-            session_context = await self.session_manager.get_session_context(session_id)
+            session_context = await self.session_service.get_session_context(session_id)
             
             if not session_context:
                 return None
@@ -393,7 +404,7 @@ class SessionService:
             await self.cache.delete(f"session:{session_id}")
             
             # 获取会话的完整信息以构建响应
-            session_info = await self.session_manager.get_session(session_id)
+            session_info = await self.session_service.get_session_info(session_id)
             if not session_info:
                 return None
             
@@ -422,12 +433,12 @@ class SessionService:
         """
         try:
             # 获取会话上下文和交互历史来构建统计信息
-            session_context = await self.session_manager.get_session_context(session_id)
+            session_context = await self.session_service.get_session_context(session_id)
             if not session_context:
                 return {}
             
             # 获取交互历史
-            interactions = await self.session_manager.get_interaction_history(session_id)
+            interactions = await self.session_service.get_interaction_history(session_id)
             
             # 构建基本统计信息
             stats = {

@@ -10,9 +10,7 @@ from typing import Any, Dict, List, Optional, Union, Sequence
 
 from src.interfaces.llm import ILLMClient
 from langchain_core.messages import BaseMessage
-from src.interfaces.tools import IToolFormatter
-from src.interfaces.tools import ToolCall
-from src.interfaces.tools import ITool
+from src.interfaces.tool.base import IToolFormatter, ToolCall, ITool
 
 class FunctionCallingFormatter(IToolFormatter):
     """Function Calling格式化策略

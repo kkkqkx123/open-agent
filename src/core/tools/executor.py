@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 
 from src.interfaces import ILogger
-from src.interfaces.tools import ITool, ToolCall, ToolResult
+from src.interfaces.tool.base import ITool, ToolCall, ToolResult
 from core.common.async_tuils import AsyncLock, AsyncContextManager
 
 

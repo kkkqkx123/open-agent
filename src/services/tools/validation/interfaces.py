@@ -5,7 +5,7 @@
 
 from typing import Dict, List, Any, Optional
 from abc import ABC, abstractmethod
-from src.interfaces.tools import ITool
+from src.interfaces.tool.base import ITool
 from .models import ValidationResult
 
 

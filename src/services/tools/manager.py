@@ -4,13 +4,17 @@
 提供工具的注册、加载、执行和管理功能。
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 import logging
 
-from src.interfaces.tools import ITool, IToolRegistry, IToolManager
+from src.interfaces.tool.base import ITool, IToolRegistry, IToolManager
+from src.interfaces.tool.config import ToolConfig as InterfaceToolConfig
 from src.core.tools.factory import ToolFactory
-from src.core.tools.config import ToolConfig, ToolRegistryConfig
-from src.core.common.exceptions import ServiceError
+from src.core.tools.config import ToolRegistryConfig
+from src.core.common.exceptions import ToolError
+
+if TYPE_CHECKING:
+    from src.interfaces.tool.config import ToolConfig
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +63,7 @@ class ToolManager(IToolManager):
             
         except Exception as e:
             logger.error(f"工具管理器初始化失败: {e}")
-            raise ServiceError(f"工具管理器初始化失败: {e}")
+            raise ToolError(f"工具管理器初始化失败: {e}")
     
     async def register_tool(self, tool: ITool) -> None:
         """注册工具
@@ -77,7 +81,7 @@ class ToolManager(IToolManager):
             
         except Exception as e:
             logger.error(f"工具 {tool.name} 注册失败: {e}")
-            raise ServiceError(f"工具 {tool.name} 注册失败: {e}")
+            raise ToolError(f"工具 {tool.name} 注册失败: {e}")
     
     async def unregister_tool(self, name: str) -> None:
         """注销工具
@@ -96,7 +100,7 @@ class ToolManager(IToolManager):
             
         except Exception as e:
             logger.error(f"工具 {name} 注销失败: {e}")
-            raise ServiceError(f"工具 {name} 注销失败: {e}")
+            raise ToolError(f"工具 {name} 注销失败: {e}")
     
     async def get_tool(self, name: str) -> Optional[ITool]:
         """获取工具
@@ -147,7 +151,7 @@ class ToolManager(IToolManager):
         
         tool = self._tools.get(name)
         if not tool:
-            raise ServiceError(f"工具 {name} 未找到")
+            raise ToolError(f"工具 {name} 未找到")
         
         try:
             logger.debug(f"执行工具 {name}，参数: {arguments}")
@@ -157,7 +161,7 @@ class ToolManager(IToolManager):
             
         except Exception as e:
             logger.error(f"工具 {name} 执行失败: {e}")
-            raise ServiceError(f"工具 {name} 执行失败: {e}")
+            raise ToolError(f"工具 {name} 执行失败: {e}")
     
     async def reload_tools(self) -> None:
         """重新加载所有工具
@@ -178,7 +182,7 @@ class ToolManager(IToolManager):
             
         except Exception as e:
             logger.error(f"工具重新加载失败: {e}")
-            raise ServiceError(f"工具重新加载失败: {e}")
+            raise ToolError(f"工具重新加载失败: {e}")
     
     async def _load_tools_from_config(self) -> None:
         """从配置加载工具"""
@@ -188,8 +192,9 @@ class ToolManager(IToolManager):
         
         for tool_config in self._config.tools:
             try:
-                # 使用工厂创建工具（传入配置对象）
-                tool = self._factory.create_tool(tool_config)
+                # 转换为字典格式，供工厂创建工具
+                config_dict: Dict[str, Any] = tool_config.to_dict()  # type: ignore
+                tool = self._factory.create_tool(config_dict)
                 if tool:
                     await self.register_tool(tool)
                     
@@ -218,22 +223,18 @@ class ToolManager(IToolManager):
             "type": tool.__class__.__name__,
         }
     
-    async def validate_tool_config(self, config: Union[Dict[str, Any], ToolConfig]) -> bool:
+    async def validate_tool_config(self, config: "ToolConfig") -> bool:
         """验证工具配置
         
         Args:
-            config: 工具配置（字典或配置对象）
+            config: 工具配置对象
             
         Returns:
             bool: 验证是否通过
         """
         try:
             # 尝试创建工具实例来验证配置
-            if isinstance(config, dict):
-                tool = self._factory.create_tool(config)
-            else:
-                # 配置对象直接传入
-                tool = self._factory.create_tool(config)
+            tool = self._factory.create_tool(config)
             return tool is not None
             
         except Exception as e:

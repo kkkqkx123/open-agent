@@ -8,8 +8,8 @@ import importlib
 from typing import Any, Dict, List, Optional, Type, Union
 from pathlib import Path
 
-from src.interfaces.tools import ITool, IToolRegistry
-from .config import (
+from src.interfaces.tool.base import ITool, IToolRegistry
+from src.core.tools.config import (
     ToolConfig,
     NativeToolConfig,
     RestToolConfig,
@@ -134,24 +134,18 @@ class ToolManager(IToolRegistry):
             # raise InfrastructureError(f"加载工具配置失败: {str(e)}")
             raise Exception(f"加载工具配置失败: {str(e)}")
 
-    def _parse_tool_config(self, config_data: Dict[str, Any]) -> ToolConfig:
+    def _parse_tool_config(self, config_data: Dict[str, Any]) -> Union[RestToolConfig, MCPToolConfig, NativeToolConfig]:
         """解析工具配置
 
         Args:
             config_data: 配置数据
 
         Returns:
-            ToolConfig: 工具配置对象
+            Union[RestToolConfig, MCPToolConfig, NativeToolConfig]: 工具配置对象
 
         Raises:
             ValueError: 配置格式错误
         """
-        from .config import (
-            RestToolConfig,
-            MCPToolConfig,
-            NativeToolConfig
-        )
-        
         tool_type = config_data.get("tool_type")
         if not tool_type:
             raise ValueError("缺少tool_type配置")
@@ -248,7 +242,6 @@ class ToolManager(IToolRegistry):
             for config_file in tool_sets_config_dir.glob("*.yaml"):
                 try:
                     config_data = self.config_loader.load(str(config_file))
-                    from .config import ToolSetConfig
                     tool_set_config = ToolSetConfig(**config_data)
 
                     if tool_set_config.enabled:

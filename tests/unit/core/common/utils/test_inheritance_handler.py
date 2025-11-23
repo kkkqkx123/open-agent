@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from src.core.common.utils.inheritance_handler import ConfigInheritanceHandler
-from src.core.common.exceptions import ConfigurationError
+from src.core.common.exceptions.config import ConfigError as ConfigurationError
 
 
 class TestConfigInheritanceHandler:

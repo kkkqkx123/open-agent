@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any, List, Union
 from datetime import datetime, timedelta
 import io
 import csv
+import json
 import logging
 
 from ..data_access.history_dao import HistoryDAO
@@ -16,17 +17,58 @@ from ..utils.validation import (
 )
 
 # 导入HistoryManager相关类型
+HISTORY_MANAGER_AVAILABLE = False
+CoreRecordType: Any = None
+CoreHistoryQuery: Any = None
+
 try:
-    from ....application.history.manager import IHistoryManager, HistoryManager
-    from ....application.history.models import (
-        MessageRecord, ToolCallRecord, HistoryQuery, HistoryResult,
-        MessageType, SearchQuery, SearchResult
+    from ....services.history.manager import HistoryManager
+    from ....interfaces.history import IHistoryManager
+    from ....core.history.entities import (
+        MessageRecord, ToolCallRecord, HistoryQuery as CoreHistoryQuery,
+        HistoryResult, RecordType as CoreRecordType
     )
     HISTORY_MANAGER_AVAILABLE = True
+            
 except ImportError:
-    HISTORY_MANAGER_AVAILABLE = False
     logger = logging.getLogger(__name__)
     logger.warning("HistoryManager不可用，使用基础历史服务")
+
+# 创建兼容性的RecordType
+class RecordType:
+    MESSAGE = "message"
+    TOOL_CALL = "tool_call"
+    LLM_REQUEST = "llm_request"
+    LLM_RESPONSE = "llm_response"
+    TOKEN_USAGE = "token_usage"
+    COST = "cost"
+
+# 创建兼容性的HistoryQuery
+class HistoryQuery:
+    def __init__(self, session_id=None, record_type=None, start_time=None, end_time=None, limit=100, offset=0):  # type: ignore
+        self.session_id = session_id
+        self.record_type = record_type
+        self.start_time = start_time
+        self.end_time = end_time
+        self.limit = limit
+        self.offset = offset
+
+# 兼容性类定义 - 在新架构中缺失的类
+class MessageType:
+    USER = "user"
+    ASSISTANT = "assistant"
+    SYSTEM = "system"
+
+class SearchQuery:
+    def __init__(self, session_id: str, search_text: str, limit: int = 20):
+        self.session_id = session_id
+        self.search_text = search_text
+        self.limit = limit
+
+class SearchResult:
+    def __init__(self, results: List[Dict[str, Any]], total: int):
+        self.results = results
+        self.total = total
 
 
 class HistoryService:
@@ -73,13 +115,24 @@ class HistoryService:
                 
                 # 构建查询参数 - 获取所有会话的基础信息
                 query = HistoryQuery(
-                    record_types=["message"],  # 只查询消息来确定会话
-                    limit=1000,  # 获取足够多的记录来分析会话
-                    order_by="timestamp_desc"
+                    record_type=RecordType.MESSAGE,  # 只查询消息来确定会话
+                    limit=1000  # 获取足够多的记录来分析会话
                 )
                 
                 # 执行查询
-                result = self.history_manager.query_history(query)
+                # 如果使用HistoryManager，需要转换查询对象
+                if CoreHistoryQuery and HISTORY_MANAGER_AVAILABLE:
+                    core_query = CoreHistoryQuery(
+                        session_id=query.session_id,
+                        record_type=CoreRecordType.MESSAGE if (CoreRecordType and query.record_type == RecordType.MESSAGE) else None,
+                        start_time=query.start_time,
+                        end_time=query.end_time,
+                        limit=query.limit,
+                        offset=query.offset
+                    )
+                    result = await self.history_manager.query_history(core_query)
+                else:
+                    result = await self.history_manager.query_history(query)  # type: ignore
                 
                 # 分析会话信息
                 sessions_dict = {}
@@ -116,7 +169,7 @@ class HistoryService:
                 start_idx = offset
                 end_idx = min(offset + limit, total_sessions)
                 
-                return sessions[start_idx:end_idx]
+                return sessions[start_idx:end_idx]  # type: ignore
                 
             except Exception as e:
                 self.logger.warning(f"HistoryManager获取会话列表失败，回退到缓存: {e}")
@@ -172,13 +225,25 @@ class HistoryService:
                     session_id=session_id,
                     start_time=start_time,
                     end_time=end_time,
-                    record_types=message_types or ["message"],
+                    record_type=RecordType.MESSAGE,  # 简化处理
                     limit=limit,
                     offset=offset
                 )
                 
                 # 执行查询
-                result = self.history_manager.query_history(query)
+                # 如果使用HistoryManager，需要转换查询对象
+                if CoreHistoryQuery and HISTORY_MANAGER_AVAILABLE:
+                    core_query = CoreHistoryQuery(
+                        session_id=query.session_id,
+                        record_type=CoreRecordType.MESSAGE if (CoreRecordType and query.record_type == RecordType.MESSAGE) else None,
+                        start_time=query.start_time,
+                        end_time=query.end_time,
+                        limit=query.limit,
+                        offset=query.offset
+                    )
+                    result = await self.history_manager.query_history(core_query)
+                else:
+                    result = await self.history_manager.query_history(query)  # type: ignore
                 
                 # 转换结果格式
                 records = []
@@ -193,7 +258,7 @@ class HistoryService:
                 return HistoryResponse(
                     session_id=session_id,
                     records=records,
-                    total=result.total,
+                    total=result.total_count,
                     limit=limit,
                     offset=offset
                 )
@@ -265,32 +330,8 @@ class HistoryService:
             try:
                 self.logger.debug(f"使用HistoryManager搜索会话消息: {session_id}, 查询: {query}")
                 
-                # 构建搜索查询
-                search_query = SearchQuery(
-                    session_id=session_id,
-                    search_text=query,
-                    limit=limit
-                )
-                
-                # 执行搜索（如果HistoryManager支持）
-                if hasattr(self.history_manager, 'search_history'):
-                    search_result = self.history_manager.search_history(search_query)
-                    
-                    results = []
-                    for record in search_result.results:
-                        if hasattr(record, 'to_dict'):
-                            results.append(record.to_dict())
-                        else:
-                            results.append(record.__dict__ if hasattr(record, '__dict__') else {})
-                    
-                    return SearchResponse(
-                        session_id=session_id,
-                        query=query,
-                        results=results,
-                        total=search_result.total
-                    )
-                else:
-                    self.logger.debug("HistoryManager不支持搜索功能，回退到DAO搜索")
+                # 新架构中HistoryManager不支持搜索功能，直接回退到DAO搜索
+                self.logger.debug("HistoryManager不支持搜索功能，回退到DAO搜索")
                     
             except Exception as e:
                 self.logger.warning(f"HistoryManager搜索失败，回退到DAO: {e}")
@@ -343,18 +384,29 @@ class HistoryService:
                 # 构建查询获取所有相关数据
                 query = HistoryQuery(
                     session_id=session_id,
-                    record_types=["message", "tool_call", "error", "bookmark"],
-                    order_by="timestamp_asc"
+                    limit=10000  # 获取足够多的记录
                 )
                 
                 # 执行查询获取所有记录
-                result = self.history_manager.query_history(query)
+                # 如果使用HistoryManager，需要转换查询对象
+                if CoreHistoryQuery and HISTORY_MANAGER_AVAILABLE:
+                    core_query = CoreHistoryQuery(
+                        session_id=query.session_id,
+                        record_type=query.record_type,
+                        start_time=query.start_time,
+                        end_time=query.end_time,
+                        limit=query.limit,
+                        offset=query.offset
+                    )
+                    result = await self.history_manager.query_history(core_query)
+                else:
+                    result = await self.history_manager.query_history(query)  # type: ignore
                 
                 # 分离不同类型的记录
-                messages = []
-                bookmarks = []
-                tool_calls = []
-                errors = []
+                messages: List[Dict[str, Any]] = []
+                bookmarks: List[Dict[str, Any]] = []
+                tool_calls: List[Dict[str, Any]] = []
+                errors: List[Dict[str, Any]] = []
                 
                 for record in result.records:
                     record_dict = record.to_dict() if hasattr(record, 'to_dict') else record.__dict__ if hasattr(record, '__dict__') else {}
@@ -410,7 +462,13 @@ class HistoryService:
             # 缓存结果（较短的TTL，因为导出数据可能很大）
             await self.cache.set(cache_key, export_data, ttl=60)
             
-            return export_data
+            if format.lower() == "json":
+                return str(export_data)
+            else:
+                if format.lower() == "json":
+                    return json.dumps(export_data, ensure_ascii=False, indent=2)
+                else:
+                    return str(export_data)
         except Exception as e:
             raise ValueError(f"导出失败: {str(e)}")
     
@@ -440,9 +498,13 @@ class HistoryService:
             if not timestamps:
                 return "00:00:00"
             
-            # 解析时间戳
-            start_time = datetime.fromisoformat(min(timestamps))
-            end_time = datetime.fromisoformat(max(timestamps))
+            # 解析时间戳 - 过滤掉None值
+            valid_timestamps = [ts for ts in timestamps if ts is not None]
+            if not valid_timestamps:
+                return "00:00:00"
+            
+            start_time = datetime.fromisoformat(min(valid_timestamps))
+            end_time = datetime.fromisoformat(max(valid_timestamps))
             
             duration = end_time - start_time
             hours = duration.seconds // 3600
@@ -556,11 +618,22 @@ class HistoryService:
                 # 获取详细历史记录用于统计
                 query = HistoryQuery(
                     session_id=session_id,
-                    record_types=["message", "tool_call", "error", "token_usage"],
                     limit=10000  # 获取足够多的记录
                 )
                 
-                result = self.history_manager.query_history(query)
+                # 如果使用HistoryManager，需要转换查询对象
+                if CoreHistoryQuery and HISTORY_MANAGER_AVAILABLE:
+                    core_query = CoreHistoryQuery(
+                        session_id=query.session_id,
+                        record_type=query.record_type,
+                        start_time=query.start_time,
+                        end_time=query.end_time,
+                        limit=query.limit,
+                        offset=query.offset
+                    )
+                    result = await self.history_manager.query_history(core_query)
+                else:
+                    result = await self.history_manager.query_history(query)  # type: ignore
                 
                 # 计算统计信息
                 stats = {
@@ -581,21 +654,21 @@ class HistoryService:
                     record_type = getattr(record, 'record_type', '')
                     
                     if record_type == 'message':
-                        stats["total_messages"] += 1
+                        stats["total_messages"] += 1  # type: ignore
                         message_type = getattr(record, 'message_type', 'unknown')
                         message_type_str = str(message_type)
-                        stats["message_types"][message_type_str] = stats["message_types"].get(message_type_str, 0) + 1
+                        stats["message_types"][message_type_str] = stats["message_types"].get(message_type_str, 0) + 1  # type: ignore
                     
                     elif record_type == 'tool_call':
-                        stats["total_tool_calls"] += 1
+                        stats["total_tool_calls"] += 1  # type: ignore
                         tool_name = getattr(record, 'tool_name', 'unknown')
-                        stats["tool_usage"][tool_name] = stats["tool_usage"].get(tool_name, 0) + 1
+                        stats["tool_usage"][tool_name] = stats["tool_usage"].get(tool_name, 0) + 1  # type: ignore
                     
                     elif record_type == 'error':
-                        stats["total_errors"] += 1
+                        stats["total_errors"] += 1  # type: ignore
                     
                     elif record_type == 'token_usage':
-                        stats["total_tokens"] += getattr(record, 'total_tokens', 0)
+                        stats["total_tokens"] += getattr(record, 'total_tokens', 0)  # type: ignore
                     
                     # 收集时间戳
                     timestamp = getattr(record, 'timestamp', None)
@@ -604,8 +677,8 @@ class HistoryService:
                 
                 # 计算时间范围
                 if timestamps:
-                    stats["time_range"]["start"] = min(timestamps).isoformat()
-                    stats["time_range"]["end"] = max(timestamps).isoformat()
+                    stats["time_range"]["start"] = min(timestamps).isoformat()  # type: ignore
+                    stats["time_range"]["end"] = max(timestamps).isoformat()  # type: ignore
                 
                 # 添加缓存
                 cache_key = f"history:stats:{session_id}"
@@ -648,13 +721,23 @@ class HistoryService:
                 # 构建查询参数
                 query = HistoryQuery(
                     session_id=session_id,
-                    record_types=["message", "tool_call", "error"],
-                    limit=limit,
-                    order_by="timestamp_desc"
+                    limit=limit
                 )
                 
                 # 执行查询
-                result = self.history_manager.query_history(query)
+                # 如果使用HistoryManager，需要转换查询对象
+                if CoreHistoryQuery and HISTORY_MANAGER_AVAILABLE:
+                    core_query = CoreHistoryQuery(
+                        session_id=query.session_id,
+                        record_type=query.record_type,
+                        start_time=query.start_time,
+                        end_time=query.end_time,
+                        limit=query.limit,
+                        offset=query.offset
+                    )
+                    result = await self.history_manager.query_history(core_query)
+                else:
+                    result = await self.history_manager.query_history(query)  # type: ignore
                 
                 # 转换结果格式
                 records = []
@@ -710,7 +793,8 @@ class HistoryService:
                 cutoff_date = datetime.now() - timedelta(days=days_to_keep)
                 
                 # 使用HistoryManager的清理功能
-                cleaned_count = self.history_manager.cleanup_old_records(cutoff_date)
+                result = await self.history_manager.cleanup_old_records(older_than=cutoff_date)
+                cleaned_count = result.get("deleted_count", 0)
                 
                 # 同时清理相关缓存
                 cache_keys = await self.cache.get_all_keys()

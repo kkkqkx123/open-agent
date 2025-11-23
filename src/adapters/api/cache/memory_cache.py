@@ -71,3 +71,8 @@ class MemoryCache:
                 "expired_items": expired_items,
                 "active_items": total_items - expired_items
             }
+    
+    async def get_all_keys(self) -> List[str]:
+        """获取所有缓存键"""
+        async with self._lock:
+            return list(self._cache.keys())

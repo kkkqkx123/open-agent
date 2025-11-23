@@ -6,14 +6,14 @@
 from typing import Dict, Any, List, Optional, Type, Union, TYPE_CHECKING
 import logging
 
-from src.interfaces.tools import ITool, IToolFactory
+from src.interfaces.tool.base import ITool, IToolFactory
 
 if TYPE_CHECKING:
-    from .config import ToolConfig, NativeToolConfig, RestToolConfig, MCPToolConfig
+    from src.interfaces.tool.config import ToolConfig, NativeToolConfig, RestToolConfig, MCPToolConfig
 
 # 导入配置类（延迟导入以避免循环依赖）
 try:
-    from .config import ToolConfig, NativeToolConfig, RestToolConfig, MCPToolConfig
+    from src.interfaces.tool.config import ToolConfig, NativeToolConfig, RestToolConfig, MCPToolConfig
     _config_imported = True
 except ImportError:
     # 如果无法导入，使用动态创建

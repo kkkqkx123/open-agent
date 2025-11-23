@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, List, Optional
 from src.interfaces import ILogger
-from src.interfaces.tools import IToolManager
+from src.interfaces.tool.base import IToolManager
 from ..interfaces import IToolValidator
 from ..models import ValidationResult, ValidationStatus
 

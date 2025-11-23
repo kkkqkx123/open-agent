@@ -10,12 +10,9 @@ from dataclasses import dataclass
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from .llm import ILLMClient
+    from ..llm import ILLMClient
+    from .config import ToolConfig
 from langchain_core.messages import BaseMessage
-
-if TYPE_CHECKING:
-    from ..core.tools.factory import ToolFactory
-    from ..core.tools.config import ToolConfig
 
 
 @dataclass
@@ -265,7 +262,7 @@ class IToolManager(ABC):
     
     @property
     @abstractmethod
-    def factory(self) -> "ToolFactory":
+    def factory(self) -> "IToolFactory":
         """获取工具工厂"""
         pass
     

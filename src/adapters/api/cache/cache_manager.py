@@ -141,3 +141,15 @@ class CacheManager:
         
         logger.info("当前仅支持内存缓存类型，无需切换")
         return True
+    
+    async def get_all_keys(self) -> List[str]:
+        """获取所有缓存键"""
+        try:
+            return await self._cache.get_all_keys()
+        except Exception as e:
+            logger.warning(f"获取缓存键失败: {e}")
+            if self.fallback_enabled:
+                logger.info("启用降级机制，返回空列表")
+                return []
+            else:
+                raise

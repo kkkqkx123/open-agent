@@ -71,6 +71,17 @@ class IHistoryManager(ABC):
     async def get_llm_statistics(self, session_id: str) -> Dict[str, Any]:
         """获取LLM统计"""
         pass
+    
+    @abstractmethod
+    async def cleanup_old_records(
+        self,
+        session_id: Optional[str] = None,
+        workflow_id: Optional[str] = None,
+        older_than: Optional[datetime] = None,
+        dry_run: bool = False
+    ) -> Dict[str, Any]:
+        """清理旧记录"""
+        pass
 
 
 class ICostCalculator(ABC):

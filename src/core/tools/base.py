@@ -10,7 +10,7 @@ import asyncio
 import time
 import json
 
-from src.interfaces.tools import ITool, ToolResult
+from src.interfaces.tool.base import ITool, ToolResult
 
 
 class BaseTool(ITool, ABC):
