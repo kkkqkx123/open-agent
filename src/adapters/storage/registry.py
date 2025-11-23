@@ -223,23 +223,44 @@ class StorageRegistry:
         try:
             # 注册内存存储
             self._register_from_module(
-                'memory', 
+                'memory',
                 'src.adapters.storage.backends.memory_backend',
                 {'description': 'In-memory storage backend'}
             )
             
             # 注册SQLite存储
             self._register_from_module(
-                'sqlite', 
+                'sqlite',
                 'src.adapters.storage.backends.sqlite_backend',
                 {'description': 'SQLite storage backend'}
             )
             
             # 注册文件存储
             self._register_from_module(
-                'file', 
+                'file',
                 'src.adapters.storage.backends.file_backend',
                 {'description': 'File-based storage backend'}
+            )
+            
+            # 注册checkpoint内存存储
+            self._register_from_module(
+                'checkpoint_memory',
+                'src.adapters.storage.backends.checkpoint.memory',
+                {'description': 'Checkpoint in-memory storage backend'}
+            )
+            
+            # 注册checkpoint SQLite存储
+            self._register_from_module(
+                'checkpoint_sqlite',
+                'src.adapters.storage.backends.checkpoint.sqlite',
+                {'description': 'Checkpoint SQLite storage backend'}
+            )
+            
+            # 注册LangGraph checkpoint适配器
+            self._register_from_module(
+                'langgraph',
+                'src.adapters.storage.backends.checkpoint.langgraph',
+                {'description': 'LangGraph checkpoint adapter'}
             )
             
             self._auto_loaded = True

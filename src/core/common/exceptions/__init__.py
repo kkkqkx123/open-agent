@@ -61,6 +61,14 @@ from .history import (
     QuotaExceededError,
 )
 
+# Checkpoint异常
+from .checkpoint import (
+    CheckpointError,
+    CheckpointNotFoundError,
+    CheckpointStorageError,
+    CheckpointValidationError,
+)
+
 __all__ = [
     # 核心异常
     "CoreError",
@@ -97,4 +105,16 @@ __all__ = [
     "PromptCacheError",
     "PromptTypeNotFoundError",
     "PromptTypeRegistrationError",
+    # 历史异常
+    "HistoryError",
+    "TokenCalculationError",
+    "CostCalculationError",
+    "StatisticsError",
+    "RecordNotFoundError",
+    "QuotaExceededError",
+    # Checkpoint异常
+    "CheckpointError",
+    "CheckpointNotFoundError",
+    "CheckpointStorageError",
+    "CheckpointValidationError",
 ]

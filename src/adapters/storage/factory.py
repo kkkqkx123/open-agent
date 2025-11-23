@@ -128,12 +128,15 @@ class StorageAdapterFactory(IStorageAdapterFactory):
             return errors
         
         # 根据存储类型验证特定配置
-        if storage_type == 'sqlite':
+        if storage_type in ['sqlite', 'checkpoint_sqlite']:
             if 'database_path' not in config and 'db_path' not in config:
                 errors.append("database_path or db_path is required for sqlite storage")
-        elif storage_type == 'file':
+        elif storage_type in ['file']:
             if 'base_path' not in config and 'storage_path' not in config:
                 errors.append("base_path or storage_path is required for file storage")
+        elif storage_type in ['checkpoint_memory', 'langgraph']:
+            # checkpoint内存存储和langgraph不需要特殊配置验证
+            pass
         
         return errors
 
@@ -223,12 +226,15 @@ class AsyncStorageAdapterFactory:
             return errors
         
         # 根据存储类型验证特定配置
-        if storage_type == 'sqlite':
+        if storage_type in ['sqlite', 'checkpoint_sqlite']:
             if 'database_path' not in config and 'db_path' not in config:
                 errors.append("database_path or db_path is required for sqlite storage")
-        elif storage_type == 'file':
+        elif storage_type in ['file']:
             if 'base_path' not in config and 'storage_path' not in config:
                 errors.append("base_path or storage_path is required for file storage")
+        elif storage_type in ['checkpoint_memory', 'langgraph']:
+            # checkpoint内存存储和langgraph不需要特殊配置验证
+            pass
         
         return errors
 
