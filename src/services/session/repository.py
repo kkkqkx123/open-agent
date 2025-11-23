@@ -332,7 +332,7 @@ class SessionRepository(ISessionRepository):
                 session.metadata["interactions"] = []
             
             session.metadata["interactions"].append(interaction)
-            session.updated_at = datetime.now()
+            session._updated_at = datetime.now()
             
             return await self.update(session)
             

@@ -1,7 +1,6 @@
 """会话服务实现"""
 
 import uuid
-import json
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, List, AsyncGenerator, Callable
@@ -12,7 +11,7 @@ from src.interfaces.sessions.entities import UserRequest, UserInteraction, Sessi
 from src.interfaces.sessions.storage import ISessionRepository
 from src.interfaces.threads.service import IThreadService
 from src.core.sessions.interfaces import ISessionCore, ISessionValidator, ISessionStateTransition
-from src.core.sessions.entities import SessionEntity, UserRequestEntity, UserInteractionEntity, Session
+from src.core.sessions.entities import SessionEntity, UserRequestEntity, UserInteractionEntity, Session, SessionStatus
 from src.core.common.exceptions import ValidationError
 from src.core.common.exceptions import CoreError as EntityNotFoundError
 from src.core.workflow.states.workflow import WorkflowState
@@ -52,6 +51,9 @@ class SessionService(ISessionService):
         self._state_transition = state_transition
         self._git_service = git_service
         self._storage_path = storage_path or Path("./sessions")
+        
+        # 会话存储缓存（在内存中存储会话数据）
+        self._session_store: Dict[str, Dict[str, Any]] = {}
         
         # 确保存储目录存在
         self._storage_path.mkdir(parents=True, exist_ok=True)
@@ -345,12 +347,12 @@ class SessionService(ISessionService):
     async def coordinate_threads(self, session_id: str, thread_configs: List[Dict[str, Any]]) -> Dict[str, str]:
         """协调多个Thread执行"""
         try:
-            session_data = self._session_store.get_session(session_id)
+            session_data = self._session_store.get(session_id)
             if not session_data:
                 raise EntityNotFoundError(f"会话不存在: {session_id}")
             
             thread_ids = {}
-            session_context = self._deserialize_session_context(session_data["context"])
+            session_context = self._deserialize_session_context(session_data.get("context", {}))
             
             # 创建Thread
             for thread_config in thread_configs:
@@ -396,7 +398,7 @@ class SessionService(ISessionService):
             session_data["context"] = self._serialize_session_context(session_context)
             session_data["thread_configs"] = {config["name"]: config for config in thread_configs}
             session_data["updated_at"] = datetime.now().isoformat()
-            self._session_store.save_session(session_id, session_data)
+            self._session_store[session_id] = session_data
             
             logger.info(f"协调Thread执行成功: {session_id}, 创建了{len(thread_ids)}个Thread")
             return thread_ids
@@ -421,7 +423,7 @@ class SessionService(ISessionService):
         
         # 查找Thread ID
         thread_id = None
-        session_data = self._session_store.get_session(session_id)
+        session_data = self._session_store.get(session_id)
         if session_data is None:
             raise EntityNotFoundError(f"会话 {session_id} 不存在")
         thread_configs = session_data.get("thread_configs", {})
@@ -502,7 +504,7 @@ class SessionService(ISessionService):
             
             # 查找Thread ID（类似execute_workflow_in_session）
             thread_id = None
-            session_data = self._session_store.get_session(session_id)
+            session_data = self._session_store.get(session_id)
             if session_data is None:
                 raise EntityNotFoundError(f"会话 {session_id} 不存在")
             thread_configs = session_data.get("thread_configs", {})
@@ -647,6 +649,44 @@ class SessionService(ISessionService):
     
     # === 私有辅助方法 ===
     
+    def _serialize_session_context(self, context: SessionContext) -> Dict[str, Any]:
+        """将 SessionContext 序列化为字典
+        
+        Args:
+            context: SessionContext 对象
+            
+        Returns:
+            序列化后的字典
+        """
+        return {
+            "session_id": context.session_id,
+            "user_id": context.user_id,
+            "thread_ids": context.thread_ids,
+            "status": context.status,
+            "created_at": context.created_at.isoformat(),
+            "updated_at": context.updated_at.isoformat(),
+            "metadata": context.metadata
+        }
+    
+    def _deserialize_session_context(self, data: Dict[str, Any]) -> SessionContext:
+        """从字典反序列化 SessionContext
+        
+        Args:
+            data: 序列化的字典
+            
+        Returns:
+            SessionContext 对象
+        """
+        return SessionContext(
+            session_id=data["session_id"],
+            user_id=data.get("user_id"),
+            thread_ids=data.get("thread_ids", []),
+            status=data.get("status", "active"),
+            created_at=datetime.fromisoformat(data["created_at"]),
+            updated_at=datetime.fromisoformat(data["updated_at"]),
+            metadata=data.get("metadata", {})
+        )
+    
     def _entity_to_session(self, entity: SessionEntity) -> Session:
         """将 SessionEntity 转换为 Session 业务实体
         
@@ -656,9 +696,12 @@ class SessionService(ISessionService):
         Returns:
             Session 业务实体
         """
+        # 将字符串状态转换为 SessionStatus 枚举
+        status = SessionStatus(entity.status) if isinstance(entity.status, str) else entity.status
+        
         return Session(
             session_id=entity.session_id,
-            _status=entity.status,
+            _status=status,
             message_count=getattr(entity, 'message_count', 0),
             checkpoint_count=getattr(entity, 'checkpoint_count', 0),
             _created_at=entity.created_at,
