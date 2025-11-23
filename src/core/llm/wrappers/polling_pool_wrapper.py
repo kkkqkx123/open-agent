@@ -7,10 +7,10 @@ from typing import Dict, Any, Optional, List, Sequence
 from datetime import datetime
 
 from .base_wrapper import BaseLLMWrapper
-from .exceptions import PollingPoolWrapperError, WrapperExecutionError
-from ..interfaces import IPollingPoolManager, ILLMClient
+from ...common.exceptions.llm_wrapper import PollingPoolWrapperError, WrapperExecutionError
+from ..interfaces import IPollingPoolManager
 from ..models import LLMResponse, TokenUsage
-from ..exceptions import LLMError
+from ...common.exceptions.llm import LLMError
 
 logger = logging.getLogger(__name__)
 
@@ -229,7 +229,8 @@ class PollingPoolWrapper(BaseLLMWrapper):
         """创建LLM响应"""
         # 估算token使用量
         if token_usage is None:
-            prompt_tokens = self.get_token_count(content)
+            # 使用简单估算：字符数除以4
+            prompt_tokens = max(1, len(content) // 4)
             completion_tokens = prompt_tokens // 2  # 简单估算
             token_usage = TokenUsage(
                 prompt_tokens=prompt_tokens,

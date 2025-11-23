@@ -81,31 +81,6 @@ class BaseOpenAIClient(ABC):
         """
         pass
     
-    @abstractmethod
-    def get_token_count(self, text: str) -> int:
-        """
-        计算文本 token 数量
-        
-        Args:
-            text: 输入文本
-            
-        Returns:
-            int: token 数量
-        """
-        pass
-    
-    @abstractmethod
-    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
-        """
-        计算消息列表 token 数量
-        
-        Args:
-            messages: 消息列表
-            
-        Returns:
-            int: token 数量
-        """
-        pass
     
     @abstractmethod
     def supports_function_calling(self) -> bool:

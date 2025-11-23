@@ -4,15 +4,15 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Generator, AsyncGenerator, Sequence
 import logging
 
-from ..interfaces import ILLMClient
+from abc import ABC
 from ..models import LLMResponse, TokenUsage
-from ..exceptions import LLMError
+from ...common.exceptions.llm import LLMError
 from langchain_core.messages import HumanMessage
 
 logger = logging.getLogger(__name__)
 
 
-class BaseLLMWrapper(ILLMClient):
+class BaseLLMWrapper(ABC):
     """LLM包装器基类"""
     
     def __init__(self, name: str, config: Dict[str, Any]):
@@ -91,20 +91,6 @@ class BaseLLMWrapper(ILLMClient):
         for i in range(0, len(content), chunk_size):
             yield content[i:i + chunk_size]
     
-    def get_token_count(self, text: str) -> int:
-        """计算文本的token数量（默认实现）"""
-        # 简单实现：按字符数除以4估算
-        return max(1, len(text) // 4)
-    
-    def get_messages_token_count(self, messages: Sequence) -> int:
-        """计算消息列表的token数量（默认实现）"""
-        total_tokens = 0
-        for message in messages:
-            if hasattr(message, 'content'):
-                total_tokens += self.get_token_count(str(message.content))
-            else:
-                total_tokens += self.get_token_count(str(message))
-        return total_tokens
     
     def supports_function_calling(self) -> bool:
         """检查是否支持函数调用（默认实现）"""

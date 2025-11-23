@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional, Sequence
 from langchain_core.messages import BaseMessage
 
 from src.core.llm.models import LLMResponse
-from src.core.llm.exceptions import LLMCallError
+from core.common.exceptions.llm import LLMCallError
 
 
 class IFallbackStrategy(ABC):

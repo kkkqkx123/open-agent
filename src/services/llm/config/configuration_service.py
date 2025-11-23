@@ -8,7 +8,7 @@ import logging
 
 from src.core.llm.factory import LLMFactory
 from src.core.llm.config import LLMClientConfig
-from src.core.llm.exceptions import LLMError
+from core.common.exceptions.llm import LLMError
 from .config_validator import LLMConfigValidator, ValidationResult
 from .config_manager import ConfigManager
 

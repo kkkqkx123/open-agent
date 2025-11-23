@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional, List, Type, Coroutine
 from .base_wrapper import BaseLLMWrapper
 from .task_group_wrapper import TaskGroupWrapper
 from .polling_pool_wrapper import PollingPoolWrapper
-from .exceptions import WrapperFactoryError, WrapperConfigError
+from ...common.exceptions.llm_wrapper import WrapperFactoryError, WrapperConfigError
 from ..interfaces import ITaskGroupManager, IPollingPoolManager, IFallbackManager, ILLMClient
 
 logger = logging.getLogger(__name__)

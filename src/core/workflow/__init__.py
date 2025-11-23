@@ -45,7 +45,7 @@ from .value_objects import (
     RuleType,
     RuleOperator
 )
-from .exceptions import (
+from ..common.exceptions.workflow import (
     WorkflowError,
     WorkflowValidationError,
     WorkflowExecutionError,

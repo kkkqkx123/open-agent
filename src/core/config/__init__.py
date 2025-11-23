@@ -15,7 +15,7 @@ from .models import (
     ConfigInheritance,
     ValidationRule,
 )
-from .exceptions import (
+from ..common.exceptions.config import (
     ConfigError,
     ConfigNotFoundError,
     ConfigValidationError,

@@ -14,7 +14,7 @@ CustomValidationFunction = Callable[[Any, Optional[Dict[str, Any]]], bool]
 
 if TYPE_CHECKING:
     from .entities import Workflow as BusinessWorkflow
-from .exceptions import WorkflowValidationError
+from ..common.exceptions.workflow import WorkflowValidationError
 
 
 class StepType(Enum):

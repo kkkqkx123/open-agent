@@ -9,7 +9,7 @@ from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
 
-from .exceptions import ConfigError
+from ..common.exceptions.config import ConfigError
 
 
 class CallbackPriority(Enum):

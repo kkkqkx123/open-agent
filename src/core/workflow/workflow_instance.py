@@ -14,7 +14,7 @@ from src.core.workflow.state_machine.state_templates import StateTemplateManager
 from src.interfaces.workflow.core import IWorkflow
 from src.interfaces.state import IWorkflowState
 from src.core.workflow.entities import WorkflowState, ExecutionResult
-from src.core.workflow.exceptions import WorkflowExecutionError, WorkflowStateError
+from core.common.exceptions.workflow import WorkflowExecutionError, WorkflowStateError
 
 logger = logging.getLogger(__name__)
 

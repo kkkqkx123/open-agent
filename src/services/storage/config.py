@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, List, Union
 from dataclasses import dataclass, field
 from enum import Enum
 
-from src.core.state.exceptions import StorageError, ConfigurationError
+from core.common.exceptions.state import StorageError, ConfigurationError
 
 
 logger = logging.getLogger(__name__)

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, Callable
 from datetime import datetime
 
-from .exceptions import ConfigError
+from ..common.exceptions.config import ConfigError
 
 
 class ConfigBackupManager:

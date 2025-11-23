@@ -4,10 +4,8 @@
 
 from typing import Dict, Any, Optional, List
 
-from .core import CoreError
 
-
-class PromptError(CoreError):
+class PromptError(Exception):
     """提示词基础异常
     
     所有提示词相关异常的基类。

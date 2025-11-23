@@ -14,7 +14,7 @@ from .strategies import create_fallback_strategy
 
 # 修复导入路径
 from src.core.llm.models import LLMResponse
-from src.core.llm.exceptions import LLMCallError
+from core.common.exceptions.llm import LLMCallError
 
 
 class FallbackExecutor:

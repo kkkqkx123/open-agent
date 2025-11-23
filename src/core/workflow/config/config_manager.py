@@ -11,7 +11,7 @@ import uuid
 import hashlib
 
 from src.core.workflow.config import WorkflowConfig, GraphConfig
-from src.core.workflow.exceptions import WorkflowConfigError, WorkflowValidationError
+from core.common.exceptions.workflow import WorkflowConfigError, WorkflowValidationError
 from src.core.config.config_loader import ConfigLoader
 
 logger = logging.getLogger(__name__)

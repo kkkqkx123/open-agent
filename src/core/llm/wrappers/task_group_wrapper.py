@@ -7,10 +7,10 @@ from typing import Dict, Any, Optional, List, Sequence
 from datetime import datetime
 
 from .base_wrapper import BaseLLMWrapper
-from .exceptions import TaskGroupWrapperError, WrapperExecutionError
+from ...common.exceptions.llm_wrapper import TaskGroupWrapperError, WrapperExecutionError
 from ..interfaces import ITaskGroupManager, IFallbackManager
 from ..models import LLMResponse, TokenUsage
-from ..exceptions import LLMError
+from ...common.exceptions.llm import LLMError
 
 logger = logging.getLogger(__name__)
 
@@ -231,7 +231,7 @@ class TaskGroupWrapper(BaseLLMWrapper):
     ) -> LLMResponse:
         """创建LLM响应"""
         # 估算token使用量
-        prompt_tokens = self.get_token_count(content)
+        prompt_tokens = max(1, len(content) // 4)  # 简单估算：字符数除以4
         completion_tokens = prompt_tokens // 2  # 简单估算
         
         final_token_usage = token_usage or TokenUsage(

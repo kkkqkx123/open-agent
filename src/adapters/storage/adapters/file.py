@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 from src.core.state.entities import StateSnapshot, StateHistoryEntry
-from src.core.state.exceptions import StorageError
+from core.common.exceptions.state import StorageError
 from .sync_adapter import SyncStateStorageAdapter
 from ..backends.file_backend import FileStorageBackend
 from ..core.metrics import StorageMetrics

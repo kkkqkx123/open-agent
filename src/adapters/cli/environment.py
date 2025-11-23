@@ -10,11 +10,10 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple, Union
 from pathlib import Path
 
-from src.core.common.exceptions.core import CoreError
 from src.core.common.types import CheckResult
 
 
-class EnvironmentCheckError(CoreError):
+class EnvironmentCheckError(Exception):
     """环境检查异常"""
     pass
 

@@ -4,15 +4,6 @@
 为了向后兼容，所有异常都可以从此模块导入。
 """
 
-# 核心异常
-from .core import (
-    CoreError,
-    ServiceError,
-    ValidationError,
-    ConfigurationError,
-    DependencyError,
-)
-
 # 工具异常
 from .tool import (
     ToolError,
@@ -70,12 +61,6 @@ from .checkpoint import (
 )
 
 __all__ = [
-    # 核心异常
-    "CoreError",
-    "ServiceError",
-    "ValidationError",
-    "ConfigurationError",
-    "DependencyError",
     # 工具异常
     "ToolError",
     "ToolRegistrationError",

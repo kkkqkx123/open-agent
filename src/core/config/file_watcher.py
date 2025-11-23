@@ -13,7 +13,7 @@ from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 from watchdog.observers.api import BaseObserver
 
 from .config_manager import ConfigManager
-from .exceptions import ConfigError
+from ..common.exceptions.config import ConfigError
 
 
 class ConfigFileWatcher:

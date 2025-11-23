@@ -2,10 +2,8 @@
 工具相关异常定义
 """
 
-from .core import CoreError
 
-
-class ToolError(CoreError):
+class ToolError(Exception):
     """工具错误异常"""
 
     pass

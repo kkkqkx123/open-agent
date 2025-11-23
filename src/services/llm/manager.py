@@ -11,7 +11,7 @@ from langchain_core.messages import BaseMessage
 from src.interfaces.llm import ILLMClient, ILLMManager, IFallbackManager, ITaskGroupManager, ILLMCallHook
 from src.core.llm.factory import LLMFactory
 from src.core.llm.config import LLMClientConfig
-from src.core.llm.exceptions import LLMError
+from core.common.exceptions.llm import LLMError
 from src.core.llm.models import LLMResponse
 from src.services.llm.state_machine import StateMachine, LLMManagerState
 from src.services.llm.config.config_validator import LLMConfigValidator, ValidationResult

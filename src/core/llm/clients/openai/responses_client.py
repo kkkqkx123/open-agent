@@ -11,7 +11,7 @@ from .utils import ResponseConverter, MessageConverter
 from ...models import LLMResponse
 
 
-class LightweightResponsesClient(ResponsesAPIClient):
+class ResponsesClient(ResponsesAPIClient):
     """轻量级 Responses API 客户端"""
     
     def __init__(self, config) -> None:
@@ -346,7 +346,7 @@ class LightweightResponsesClient(ResponsesAPIClient):
         Returns:
             Exception: 处理后的错误
         """
-        from ...exceptions import (
+        from ....common.exceptions.llm import (
             LLMCallError,
             LLMTimeoutError,
             LLMRateLimitError,

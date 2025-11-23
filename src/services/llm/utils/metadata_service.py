@@ -82,10 +82,6 @@ class ClientMetadataService:
         capabilities["supports_sync"] = hasattr(client, 'generate') and callable(getattr(client, 'generate'))
         
         # 检查token计数支持
-        capabilities["supports_token_counting"] = (
-            hasattr(client, 'get_token_count') and callable(getattr(client, 'get_token_count')) and
-            hasattr(client, 'get_messages_token_count') and callable(getattr(client, 'get_messages_token_count'))
-        )
         
         return capabilities
     

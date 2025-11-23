@@ -1,6 +1,6 @@
 """包装器异常类"""
 
-from ..exceptions import LLMError
+from .llm import LLMError
 
 
 class WrapperError(LLMError):

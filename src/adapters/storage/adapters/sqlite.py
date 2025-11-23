@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
 
 from src.core.state.entities import StateSnapshot, StateHistoryEntry
-from src.core.state.exceptions import StorageError
+from core.common.exceptions.state import StorageError
 from .sync_adapter import SyncStateStorageAdapter
 from ..backends.sqlite_backend import SQLiteStorageBackend
 from ..core.metrics import StorageMetrics

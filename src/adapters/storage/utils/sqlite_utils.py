@@ -11,7 +11,7 @@ import logging
 from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
 
-from src.core.state.exceptions import StorageError, StorageConnectionError
+from core.common.exceptions.state import StorageError, StorageConnectionError
 from src.core.state.filters import SQLiteFilterBuilder
 from src.core.state.expiration import ExpirationManager
 from src.core.state.backup_policy import DatabaseBackupStrategy, BackupManager

@@ -1,7 +1,4 @@
 """统一的Token计算服务
-
-根据架构分析文档，将token计算功能从Core层迁移到Services层，
-以符合扁平化架构的单向依赖原则。
 """
 
 from typing import Dict, Any, Optional, Sequence

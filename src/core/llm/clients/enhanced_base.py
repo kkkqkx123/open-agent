@@ -11,7 +11,7 @@ from langchain_core.messages import BaseMessage
 from ..interfaces import ILLMClient, ILLMCallHook
 from ..models import LLMResponse, TokenUsage, LLMError, ModelInfo
 from ..config import LLMClientConfig
-from ..exceptions import (
+from ...common.exceptions.llm import (
     LLMCallError,
     LLMTimeoutError,
     LLMRateLimitError,

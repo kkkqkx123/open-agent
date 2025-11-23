@@ -11,7 +11,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from .base import BaseLLMClient
 from ..models import LLMResponse, TokenUsage
 from ..config import GeminiConfig
-from ..exceptions import (
+from ...common.exceptions.llm import (
     LLMCallError,
     LLMTimeoutError,
     LLMRateLimitError,
@@ -413,4 +413,4 @@ class GeminiClient(BaseLLMClient):
                 # 处理Gemini特定错误
                 raise self._handle_gemini_error(e)
 
-        return _async_generator()
+        return _async_generator()

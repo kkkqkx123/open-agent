@@ -11,7 +11,7 @@ import random
 import json
 
 from src.core.workflow.config import GraphConfig
-from src.core.workflow.exceptions import WorkflowError
+from core.common.exceptions.workflow import WorkflowError
 from src.interfaces.workflow.visualization import IWorkflowVisualizer
 
 logger = logging.getLogger(__name__)

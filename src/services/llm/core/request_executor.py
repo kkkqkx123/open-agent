@@ -9,7 +9,7 @@ from langchain_core.messages import BaseMessage
 
 from src.interfaces.llm import ILLMClient, IFallbackManager, ITaskGroupManager
 from src.core.llm.models import LLMResponse
-from src.core.llm.exceptions import LLMError
+from core.common.exceptions.llm import LLMError
 
 logger = logging.getLogger(__name__)
 

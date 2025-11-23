@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, List, Union
 from enum import Enum
 
 from src.interfaces.state import IStateStorageAdapter
-from src.core.state.exceptions import StorageError, StorageConnectionError
+from core.common.exceptions.state import StorageError, StorageConnectionError
 from src.adapters.storage.adapters.memory import MemoryStateStorageAdapter
 from src.adapters.storage.adapters.sqlite import SQLiteStateStorageAdapter
 from src.adapters.storage.adapters.file import FileStateStorageAdapter

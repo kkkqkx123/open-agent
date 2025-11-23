@@ -4,10 +4,8 @@
 
 from typing import Dict, Any, Optional
 
-from .core import CoreError
 
-
-class StorageError(CoreError):
+class StorageError(Exception):
     """存储基础异常
     
     所有存储相关异常的基类，提供统一的错误处理接口。

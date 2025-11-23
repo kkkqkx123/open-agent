@@ -10,7 +10,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, System
 from .base import BaseLLMClient
 from ..models import LLMResponse, TokenUsage
 from ..config import MockConfig, LLMClientConfig
-from ..exceptions import (
+from ...common.exceptions.llm import (
     LLMTimeoutError,
     LLMRateLimitError,
     LLMServiceUnavailableError,

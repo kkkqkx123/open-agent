@@ -6,15 +6,16 @@
 import logging
 from typing import Dict, Any, Optional, Sequence
 
-from langchain_core.messages import BaseMessage  # type: ignore
+from langchain_core.messages import BaseMessage
 
 from .base_processor import ITokenProcessor, TokenUsage
+from .base_implementation import BaseTokenProcessor
 from ..utils.encoding_protocol import extract_content_as_string
 
 logger = logging.getLogger(__name__)
 
 
-class GeminiTokenProcessor(ITokenProcessor):
+class GeminiTokenProcessor(BaseTokenProcessor):
     """Gemini Token处理器
     
     整合了Gemini的Token计算和解析功能。
@@ -27,8 +28,7 @@ class GeminiTokenProcessor(ITokenProcessor):
         Args:
             model_name: 模型名称
         """
-        self.model_name = model_name
-        self._last_usage: Optional[TokenUsage] = None
+        super().__init__(model_name, "gemini")
     
     def count_tokens(self, text: str) -> Optional[int]:
         """
@@ -118,15 +118,6 @@ class GeminiTokenProcessor(ITokenProcessor):
             logger.error(f"解析Gemini响应失败: {e}")
             return None
     
-    def get_provider_name(self) -> str:
-        """
-        获取提供商名称
-        
-        Returns:
-            str: 提供商名称
-        """
-        return "gemini"
-    
     def get_model_info(self) -> Dict[str, Any]:
         """
         获取模型信息
@@ -134,12 +125,11 @@ class GeminiTokenProcessor(ITokenProcessor):
         Returns:
             Dict[str, Any]: 模型信息
         """
+        base_info = super().get_model_info()
         return {
-            "model_name": self.model_name,
-            "provider": "gemini",
+            **base_info,
             "encoding": "estimated",
             "supports_tiktoken": False,
-            "processor_type": "unified"
         }
     
     def update_from_api_response(self, response: Dict[str, Any], 

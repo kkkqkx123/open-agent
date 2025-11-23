@@ -5,7 +5,7 @@ from threading import RLock
 
 from .interfaces import ILLMClient, ILLMClientFactory
 from .config import LLMClientConfig, LLMModuleConfig
-from .exceptions import LLMClientCreationError, UnsupportedModelTypeError
+from ..common.exceptions.llm import LLMClientCreationError, UnsupportedModelTypeError
 
 
 class LLMFactory(ILLMClientFactory):
@@ -30,11 +30,11 @@ class LLMFactory(ILLMClientFactory):
         """注册默认客户端类型"""
         # 延迟导入避免循环依赖
         try:
-            from .clients.openai.unified_client import OpenAIUnifiedClient
+            from .clients.openai.openai_client import OpenAIClient
 
-            self._client_types["openai"] = OpenAIUnifiedClient
+            self._client_types["openai"] = OpenAIClient
             # 注册siliconflow为OpenAI兼容客户端
-            self._client_types["siliconflow"] = OpenAIUnifiedClient
+            self._client_types["siliconflow"] = OpenAIClient
         except ImportError:
             pass
 

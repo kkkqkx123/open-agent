@@ -7,7 +7,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from .base import BaseLLMClient
 from ..config import HumanRelayConfig
 from ..models import LLMResponse, TokenUsage
-from ..exceptions import LLMTimeoutError, LLMInvalidRequestError
+from ...common.exceptions.llm import LLMTimeoutError, LLMInvalidRequestError
 
 
 class HumanRelayClient(BaseLLMClient):
@@ -226,16 +226,6 @@ class HumanRelayClient(BaseLLMClient):
         # 按字符流式输出
         for char in response.content:
             yield char
-    
-    def get_token_count(self, text: str) -> int:
-        """计算文本的token数量"""
-        # 简单估算
-        return max(len(text) // 4, 1)
-    
-    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
-        """计算消息列表的token数量"""
-        total_text = "\n".join([str(msg.content) for msg in messages])
-        return self.get_token_count(total_text)
     
     def supports_function_calling(self) -> bool:
         """检查是否支持函数调用"""

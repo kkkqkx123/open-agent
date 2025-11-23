@@ -16,7 +16,7 @@ from src.core.workflow.state_machine.state_templates import StateTemplateManager
 from src.services.workflow.function_registry import FunctionRegistry, FunctionType
 from src.core.workflow.graph.builder.base import UnifiedGraphBuilder
 from ....core.workflow.workflow_instance import WorkflowInstance
-from src.core.workflow.exceptions import WorkflowConfigError, WorkflowValidationError
+from core.common.exceptions.workflow import WorkflowConfigError, WorkflowValidationError
 from ..services.prompt_service import WorkflowPromptService, get_workflow_prompt_service
 
 logger = logging.getLogger(__name__)

@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Union
 
 from src.interfaces.state.storage.backend import IStorageBackend
-from src.core.state.exceptions import StorageError, StorageConnectionError
+from core.common.exceptions.state import StorageError, StorageConnectionError
 from ..utils.common_utils import StorageCommonUtils
 
 

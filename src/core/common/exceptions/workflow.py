@@ -3,10 +3,8 @@
 定义工作流相关的异常类。
 """
 from typing import Optional, Any, Dict, Callable
-from ..common.exceptions import CoreError
 
-
-class WorkflowError(CoreError):
+class WorkflowError(Exception):
     """工作流基础异常"""
     
     def __init__(self, message: str, error_code: Optional[str] = None, details: Optional[Dict] = None):

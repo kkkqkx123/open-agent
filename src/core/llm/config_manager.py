@@ -13,7 +13,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 from .config import LLMClientConfig, LLMModuleConfig
-from .exceptions import LLMConfigurationError
+from ..common.exceptions.llm import LLMConfigurationError
 from ..config.config_loader import ConfigLoader
 
 logger = logging.getLogger(__name__)

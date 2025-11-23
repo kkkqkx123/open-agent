@@ -17,7 +17,7 @@ from .base import (
     ConfigMetadata
 )
 from .models import ToolSetConfig
-from .exceptions import (
+from ..common.exceptions.config import (
     ConfigError,
     ConfigNotFoundError,
     ConfigValidationError

@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional, Union, List
 import re
 
 from ..common.cache import config_cached
-from .exceptions import (
+from ..common.exceptions.config import (
     ConfigNotFoundError,
     ConfigFormatError,
     ConfigError

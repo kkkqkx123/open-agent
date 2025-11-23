@@ -6,14 +6,14 @@ from langchain_core.messages import BaseMessage
 
 from ..base import BaseLLMClient
 from ...models import LLMResponse
-from ...exceptions import LLMCallError
+from ....common.exceptions.llm import LLMCallError
 from .config import OpenAIConfig
-from .langchain_client import LangChainChatClient
-from .responses_client import LightweightResponsesClient
+from .chat_client import ChatClient
+from .responses_client import ResponsesClient
 from .interfaces import BaseOpenAIClient
 
 
-class OpenAIUnifiedClient(BaseLLMClient):
+class OpenAIClient(BaseLLMClient):
     """OpenAI 统一客户端 - 简化版本"""
     
     def __init__(self, config: OpenAIConfig) -> None:
@@ -32,10 +32,10 @@ class OpenAIUnifiedClient(BaseLLMClient):
         """根据配置初始化客户端"""
         if self._config.is_chat_completion():
             # 使用 LangChain Chat 客户端
-            self._client = LangChainChatClient(self._config)
+            self._client = ChatClient(self._config)
         elif self._config.is_responses_api():
             # 使用轻量级 Responses 客户端
-            self._client = LightweightResponsesClient(self._config)
+            self._client = ResponsesClient(self._config)
         else:
             raise ValueError(f"不支持的 API 格式: {self._config.api_format}")
     
@@ -78,18 +78,6 @@ class OpenAIUnifiedClient(BaseLLMClient):
         async_gen = await async_gen_coroutine
         async for chunk in async_gen:
             yield chunk
-    
-    def get_token_count(self, text: str) -> int:
-        """计算文本 token 数量"""
-        client = self._get_client()
-        result = client.get_token_count(text)
-        return cast(int, result)
-    
-    def get_messages_token_count(self, messages: Sequence[BaseMessage]) -> int:
-        """计算消息列表 token 数量"""
-        client = self._get_client()
-        result = client.get_messages_token_count(messages)
-        return cast(int, result)
     
     def supports_function_calling(self) -> bool:
         """检查是否支持函数调用"""
@@ -201,7 +189,7 @@ class OpenAIUnifiedClient(BaseLLMClient):
         """
         重置对话历史（仅对 Responses API 有效）
         """
-        if self._config.is_responses_api() and isinstance(self._client, LightweightResponsesClient):
+        if self._config.is_responses_api() and isinstance(self._client, ResponsesClient):
             self._client._conversation_history.clear()
     
     def get_conversation_history(self) -> List[Dict[str, Any]]:
@@ -211,7 +199,7 @@ class OpenAIUnifiedClient(BaseLLMClient):
         Returns:
             List[Dict[str, Any]]: 对话历史
         """
-        if self._config.is_responses_api() and isinstance(self._client, LightweightResponsesClient):
+        if self._config.is_responses_api() and isinstance(self._client, ResponsesClient):
             return self._client._conversation_history.copy()
         return []
     
@@ -246,41 +234,3 @@ class OpenAIUnifiedClient(BaseLLMClient):
         except Exception:
             return False
     
-    def get_estimated_cost(self, messages: Sequence[BaseMessage]) -> Optional[float]:
-        """
-        估算请求成本（简化版本）
-        
-        Args:
-            messages: 消息列表
-            
-        Returns:
-            Optional[float]: 估算成本（美元），如果无法估算则返回 None
-        """
-        try:
-            # 获取 token 数量
-            token_count = self.get_messages_token_count(messages)
-            
-            # 简化的成本计算（基于 GPT-4 的定价）
-            # 实际实现应该根据具体模型和定价来计算
-            if "gpt-4" in self._config.model_name.lower():
-                input_cost_per_1k = 0.03  # GPT-4 输入成本
-                output_cost_per_1k = 0.06  # GPT-4 输出成本
-            elif "gpt-3.5" in self._config.model_name.lower():
-                input_cost_per_1k = 0.0015  # GPT-3.5 输入成本
-                output_cost_per_1k = 0.002  # GPT-3.5 输出成本
-            else:
-                # 未知模型，无法估算
-                return None
-            
-            # 估算输出 token 数量（通常是输入的 1/3 到 1/2）
-            estimated_output_tokens = max(token_count // 3, 100)
-            
-            # 计算总成本
-            input_cost = (token_count / 1000) * input_cost_per_1k
-            output_cost = (estimated_output_tokens / 1000) * output_cost_per_1k
-            total_cost = input_cost + output_cost
-            
-            return round(total_cost, 6)
-            
-        except Exception:
-            return None

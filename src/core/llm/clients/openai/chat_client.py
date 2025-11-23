@@ -11,7 +11,7 @@ from .utils import ResponseConverter
 from ...models import LLMResponse
 
 
-class LangChainChatClient(ChatCompletionClient):
+class ChatClient(ChatCompletionClient):
     """基于 LangChain 的 Chat Completions 客户端"""
     
     def __init__(self, config) -> None:
@@ -229,7 +229,7 @@ class LangChainChatClient(ChatCompletionClient):
         Returns:
             Exception: 处理后的错误
         """
-        from ...exceptions import (
+        from ....common.exceptions.llm import (
             LLMCallError,
             LLMTimeoutError,
             LLMRateLimitError,

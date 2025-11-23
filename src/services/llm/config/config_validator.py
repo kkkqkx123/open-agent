@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from src.core.llm.factory import LLMFactory
 from src.core.llm.config import LLMClientConfig
-from src.core.llm.exceptions import LLMError
+from core.common.exceptions.llm import LLMError
 
 
 @dataclass

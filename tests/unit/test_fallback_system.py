@@ -19,7 +19,7 @@ from src.services.llm.fallback_system import (
 )
 from src.services.llm.fallback_system.interfaces import IClientFactory, IFallbackLogger
 from src.core.llm.models import LLMResponse
-from src.core.llm.exceptions import LLMCallError
+from core.common.exceptions.llm import LLMCallError
 from src.core.llm.wrappers.fallback_manager import DefaultFallbackLogger
 
 

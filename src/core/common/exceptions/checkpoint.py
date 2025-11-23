@@ -3,10 +3,8 @@
 定义checkpoint操作相关的异常类型。
 """
 
-from .core import CoreError
 
-
-class CheckpointError(CoreError):
+class CheckpointError(Exception):
     """Checkpoint操作基础异常"""
     pass
 

@@ -19,7 +19,7 @@ from src.infrastructure.llm import (
     CompositeHook,
     create_client
 )
-from src.core.llm.exceptions import (
+from core.common.exceptions.llm import (
     LLMTimeoutError,
     LLMRateLimitError,
     LLMAuthenticationError
