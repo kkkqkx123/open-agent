@@ -28,15 +28,22 @@ from .state_builder import (
     conversation
 )
 
-# 工厂类
-from .workflow_state import WorkflowStateFactory
+# 工厂类和函数
+from .state_factory import WorkflowStateFactory
+from .state_factory import (
+    create_empty,
+    from_config,
+    with_messages as factory_with_messages,
+    conversation as factory_conversation,
+    from_dict as factory_from_dict
+)
 
 # 导出核心符号
 __all__ = [
     # 核心类
     "WorkflowState",
     "BaseMessage",
-    "HumanMessage", 
+    "HumanMessage",
     "AIMessage",
     "SystemMessage",
     "ToolMessage",
@@ -57,5 +64,12 @@ __all__ = [
     "builder",
     "from_dict",
     "with_messages",
-    "conversation"
+    "conversation",
+    
+    # 工厂函数
+    "create_empty",
+    "from_config",
+    "factory_with_messages",
+    "factory_conversation",
+    "factory_from_dict"
 ]

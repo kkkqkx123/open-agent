@@ -5,14 +5,14 @@
 
 from typing import Any, Dict, List, Optional, Union
 
-from src.interfaces.state.workflow import IWorkflowState
+from src.interfaces.state.workflow import IWorkflowState, IWorkflowStateBuilder
 from .workflow_state import (
-    WorkflowState, BaseMessage, HumanMessage, AIMessage, 
+    WorkflowState, BaseMessage, HumanMessage, AIMessage,
     SystemMessage, ToolMessage, MessageRole
 )
 
 
-class WorkflowStateBuilder:
+class WorkflowStateBuilder(IWorkflowStateBuilder):
     """工作流状态构建器
     
     提供流畅的API来构建和配置工作流状态。
@@ -22,6 +22,74 @@ class WorkflowStateBuilder:
         """初始化构建器"""
         self._state = WorkflowState()
     
+    def add_message(self, message: Union[BaseMessage, str, Dict[str, Any]]) -> "WorkflowStateBuilder":
+        """添加消息
+        
+        Args:
+            message: 消息对象、字符串或消息字典
+            
+        Returns:
+            WorkflowStateBuilder: 构建器实例
+        """
+        if isinstance(message, str):
+            # 默认为人类消息
+            msg = HumanMessage(content=message)
+        elif isinstance(message, dict):
+            msg = _create_message_from_dict(message)
+        else:
+            msg = message
+        
+        self._state.add_message(msg)
+        return self
+    
+    def add_messages(self, messages: List[Union[BaseMessage, str, Dict[str, Any]]]) -> "WorkflowStateBuilder":
+        """添加多个消息
+        
+        Args:
+            messages: 消息列表
+            
+        Returns:
+            WorkflowStateBuilder: 构建器实例
+        """
+        for message in messages:
+            self.add_message(message)
+        return self
+    
+    def set_field(self, key: str, value: Any) -> "WorkflowStateBuilder":
+        """设置字段
+        
+        Args:
+            key: 字段键
+            value: 字段值
+            
+        Returns:
+            WorkflowStateBuilder: 构建器实例
+        """
+        self._state.set_field(key, value)
+        return self
+    
+    def set_metadata(self, key: str, value: Any) -> "WorkflowStateBuilder":
+        """设置元数据
+        
+        Args:
+            key: 元数据键
+            value: 元数据值
+            
+        Returns:
+            WorkflowStateBuilder: 构建器实例
+        """
+        self._state.set_metadata(key, value)
+        return self
+    
+    def build(self) -> WorkflowState:
+        """构建工作流状态
+        
+        Returns:
+            WorkflowState: 构建的工作流状态
+        """
+        return self._state
+    
+    # 其他便利方法
     def with_data(self, data: Dict[str, Any]) -> "WorkflowStateBuilder":
         """设置状态数据
         
@@ -35,7 +103,7 @@ class WorkflowStateBuilder:
         return self
     
     def with_metadata(self, metadata: Dict[str, Any]) -> "WorkflowStateBuilder":
-        """设置元数据
+        """设置元数据（别名方法）
         
         Args:
             metadata: 元数据字典
@@ -106,28 +174,8 @@ class WorkflowStateBuilder:
         self._state._max_iterations = max_iterations
         return self
     
-    def with_message(self, message: Union[BaseMessage, str, Dict[str, Any]]) -> "WorkflowStateBuilder":
-        """添加消息
-        
-        Args:
-            message: 消息对象、字符串或消息字典
-            
-        Returns:
-            WorkflowStateBuilder: 构建器实例
-        """
-        if isinstance(message, str):
-            # 默认为人类消息
-            msg = HumanMessage(content=message)
-        elif isinstance(message, dict):
-            msg = _create_message_from_dict(message)
-        else:
-            msg = message
-        
-        self._state.add_message(msg)
-        return self
-    
     def with_messages(self, messages: List[Union[BaseMessage, str, Dict[str, Any]]]) -> "WorkflowStateBuilder":
-        """添加多个消息
+        """添加多个消息（别名方法）
         
         Args:
             messages: 消息列表
@@ -135,9 +183,7 @@ class WorkflowStateBuilder:
         Returns:
             WorkflowStateBuilder: 构建器实例
         """
-        for message in messages:
-            self.with_message(message)
-        return self
+        return self.add_messages(messages)
     
     def with_human_message(self, content: str) -> "WorkflowStateBuilder":
         """添加人类消息
@@ -201,7 +247,7 @@ class WorkflowStateBuilder:
         return self
     
     def with_field(self, key: str, value: Any) -> "WorkflowStateBuilder":
-        """设置工作流字段
+        """设置工作流字段（别名方法）
         
         Args:
             key: 字段键
@@ -210,8 +256,7 @@ class WorkflowStateBuilder:
         Returns:
             WorkflowStateBuilder: 构建器实例
         """
-        self._state.set_field(key, value)
-        return self
+        return self.set_field(key, value)
     
     def mark_complete(self) -> "WorkflowStateBuilder":
         """标记为完成
@@ -221,14 +266,6 @@ class WorkflowStateBuilder:
         """
         self._state.mark_complete()
         return self
-    
-    def build(self) -> WorkflowState:
-        """构建工作流状态
-        
-        Returns:
-            WorkflowState: 构建的工作流状态
-        """
-        return self._state
     
     def reset(self) -> "WorkflowStateBuilder":
         """重置构建器
