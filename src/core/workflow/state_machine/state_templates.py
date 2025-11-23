@@ -9,7 +9,6 @@ import logging
 from copy import deepcopy
 
 from src.core.workflow.config.config import WorkflowConfig
-from src.core.workflow.states.base import WorkflowState
 from typing import Any
 
 logger = logging.getLogger(__name__)

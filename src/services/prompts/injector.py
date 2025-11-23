@@ -7,7 +7,7 @@
 from typing import List, TYPE_CHECKING, Dict, Any, Optional
 from ...interfaces.prompts import IPromptInjector, IPromptLoader, IPromptCache, PromptConfig
 from ...interfaces.state.workflow import IWorkflowState
-from ...core.state.state_builder import StateBuilder
+from ...core.workflow.states.state_builder import StateBuilder
 from ...core.common.exceptions import PromptInjectionError
 
 if TYPE_CHECKING:

@@ -1,87 +1,61 @@
-"""Workflow states module following the new architecture."""
-from .base import (
+"""工作流状态模块
+
+提供状态管理的核心功能，保持向后兼容性。
+"""
+
+# 核心状态类和消息类
+from .workflow_state import (
     WorkflowState,
     BaseMessage,
-    SystemMessage,
     HumanMessage,
     AIMessage,
+    SystemMessage,
     ToolMessage,
     MessageRole,
-)
-from .factory import (
-    WorkflowStateFactory,
-    create_agent_state,
-    create_workflow_state,
-    create_react_state,
-    create_plan_execute_state,
-    create_message
-)
-from .utils import (
-    update_workflow_state_with_tool_call,
-    update_workflow_state_with_tool_result,
-    update_workflow_state_with_output,
-    update_workflow_state_with_error,
-    increment_workflow_iteration,
-    is_workflow_complete,
-    has_workflow_reached_max_iterations,
-    add_graph_state,
-    get_graph_state,
-    update_graph_state,
-    update_workflow_state_with_analysis,
-    update_workflow_state_with_decision,
-    update_workflow_state_with_context,
-    update_workflow_state_with_custom_field,
-    complete_workflow,
-    get_workflow_duration,
-    has_all_graphs_completed,
-    update_state_with_message,
-    update_state_with_tool_result,
-    update_state_with_error,
-    validate_state,
-    serialize_state,
-    deserialize_state
+    MessageManager
 )
 
+# 状态构建器
+from .state_builder import (
+    WorkflowStateBuilder,
+    create_empty_state,
+    create_state_from_dict,
+    create_state_with_messages,
+    create_state_with_conversation,
+    builder,
+    from_dict,
+    with_messages,
+    conversation
+)
+
+# 工厂类
+from .workflow_state import WorkflowStateFactory
+
+# 导出核心符号
 __all__ = [
-    # Core classes
+    # 核心类
     "WorkflowState",
     "BaseMessage",
-    "SystemMessage",
-    "HumanMessage",
+    "HumanMessage", 
     "AIMessage",
+    "SystemMessage",
     "ToolMessage",
     "MessageRole",
+    "MessageManager",
     
-    # Factory
+    # 构建器
+    "WorkflowStateBuilder",
+    
+    # 工厂类
     "WorkflowStateFactory",
-    "create_agent_state",
-    "create_workflow_state",
-    "create_react_state",
-    "create_plan_execute_state",
-    "create_message",
     
-    # Utilities
-    "update_workflow_state_with_tool_call",
-    "update_workflow_state_with_tool_result",
-    "update_workflow_state_with_output",
-    "update_workflow_state_with_error",
-    "increment_workflow_iteration",
-    "is_workflow_complete",
-    "has_workflow_reached_max_iterations",
-    "add_graph_state",
-    "get_graph_state",
-    "update_graph_state",
-    "update_workflow_state_with_analysis",
-    "update_workflow_state_with_decision",
-    "update_workflow_state_with_context",
-    "update_workflow_state_with_custom_field",
-    "complete_workflow",
-    "get_workflow_duration",
-    "has_all_graphs_completed",
-    "update_state_with_message",
-    "update_state_with_tool_result",
-    "update_state_with_error",
-    "validate_state",
-    "serialize_state",
-    "deserialize_state"
+    # 创建函数
+    "create_empty_state",
+    "create_state_from_dict",
+    "create_state_with_messages",
+    "create_state_with_conversation",
+    "builder",
+    "from_dict",
+    "with_messages",
+    "conversation"
 ]

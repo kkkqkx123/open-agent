@@ -12,21 +12,8 @@ class IState(ABC):
     """基础状态接口
     
     定义状态对象的基本契约，所有状态实现必须遵循此接口。
-    统一了 IState 和 IWorkflowState 的功能。
+    这是纯粹的状态抽象，不包含特定于任何执行引擎的功能。
     """
-    
-    # IWorkflowState 属性
-    @property
-    @abstractmethod
-    def messages(self) -> List[Any]:
-        """消息列表"""
-        pass
-    
-    @property
-    @abstractmethod
-    def fields(self) -> Dict[str, Any]:
-        """字段字典"""
-        pass
     
     @abstractmethod
     def get_data(self, key: str, default: Any = None) -> Any:
@@ -141,66 +128,6 @@ class IState(ABC):
         Args:
             data: 状态的字典表示
             
-        Returns:
-            新的状态实例
-        """
-        pass
-    
-    # IWorkflowState 方法
-    @abstractmethod
-    def get_field(self, key: str, default: Any = None) -> Any:
-        """获取字段值
-        
-        Args:
-            key: 字段键
-            default: 默认值
-            
-        Returns:
-            字段值
-        """
-        pass
-    
-    @abstractmethod
-    def set_field(self, key: str, value: Any) -> 'IState':
-        """创建包含新字段值的状态
-        
-        Args:
-            key: 字段键
-            value: 字段值
-            
-        Returns:
-            新的状态实例
-        """
-        pass
-    
-    @abstractmethod
-    def with_messages(self, messages: List[Any]) -> 'IState':
-        """创建包含新消息的状态
-        
-        Args:
-            messages: 新的消息列表
-            
-        Returns:
-            新的状态实例
-        """
-        pass
-    
-    @abstractmethod
-    def with_metadata(self, metadata: Dict[str, Any]) -> 'IState':
-        """创建包含新元数据的状态
-        
-        Args:
-            metadata: 新的元数据字典
-            
-        Returns:
-            新的状态实例
-        """
-        pass
-    
-    @abstractmethod
-    def copy(self) -> 'IState':
-        """创建状态的深拷贝
-        
         Returns:
             新的状态实例
         """

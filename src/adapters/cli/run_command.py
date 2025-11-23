@@ -11,8 +11,9 @@ from src.services.container import get_global_container
 from src.interfaces.common import IConfigLoader
 from src.interfaces.sessions import ISessionService, UserRequest, UserInteraction
 from src.interfaces.workflow.services import IWorkflowManager
-from src.core.workflow.states.workflow import WorkflowState
+from src.core.workflow.states import WorkflowState
 from src.interfaces.state import IState
+from src.interfaces.state.workflow import IWorkflowState
 from src.services.workflow.state_converter import WorkflowStateConverter
 from langchain_core.messages import HumanMessage, AIMessage
 from datetime import datetime
@@ -138,8 +139,8 @@ class RunCommand:
         self.console.print()
         
         # 初始化状态
-        from src.core.workflow.states.base.workflow_state import WorkflowState as BaseWorkflowState
-        initial_state = BaseWorkflowState()
+        from src.core.workflow.states import WorkflowState
+        initial_state = WorkflowState()
         
         while True:
             try:
@@ -165,7 +166,9 @@ class RunCommand:
                 
                 # 添加用户消息到状态
                 human_message = HumanMessage(content=user_input)
-                initial_state.messages.append(human_message)
+                # WorkflowState 实现了 add_message 方法，但接口中定义为属性
+                # 这里我们直接使用实现的方法
+                initial_state.add_message(human_message)
                 
                 # 追踪用户输入交互
                 user_interaction = UserInteraction(
@@ -190,15 +193,16 @@ class RunCommand:
                     
                     try:
                         # 异步执行工作流
-                        result = await self._execute_workflow(cast(IState, initial_state), workflow_manager)
+                        result = await self._execute_workflow(initial_state, workflow_manager)
                         
                         if result:
                             initial_state = result
                             progress.update(task, description="处理完成")
                             
                             # 显示AI回复
-                            if initial_state.messages:
-                                last_message = initial_state.messages[-1]
+                            messages = initial_state.get_messages()  # 使用方法访问
+                            if messages:
+                                last_message = initial_state.get_last_message()
                                 if hasattr(last_message, 'content'):
                                     content = getattr(last_message, 'content', '')
                                     self.console.print(f"[bold green]助手:[/bold green] {content}")
@@ -245,9 +249,9 @@ class RunCommand:
     
     async def _execute_workflow(
         self,
-        state: IState,
+        state: IWorkflowState,
         workflow_manager: IWorkflowManager
-    ) -> Optional[IState]:
+    ) -> Optional[IWorkflowState]:
         """异步执行工作流"""
         try:
             # 将适配器状态转换为图状态
@@ -269,7 +273,7 @@ class RunCommand:
                     return result_state
             
             # 如果没有可用的工作流，直接返回当前状态
-            return adapter_state
+            return graph_state
             
         except Exception as e:
             self.console.print(f"[red]工作流执行失败: {e}[/red]")

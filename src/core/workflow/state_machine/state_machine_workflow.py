@@ -9,7 +9,7 @@ from enum import Enum
 import logging
 
 from src.core.workflow.config.config import WorkflowConfig
-from src.core.workflow.states.base import WorkflowState
+from src.core.workflow.states.workflow_state import WorkflowState
 
 logger = logging.getLogger(__name__)
 

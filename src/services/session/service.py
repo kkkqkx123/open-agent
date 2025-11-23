@@ -22,7 +22,7 @@ from src.core.common.exceptions.session_thread import (
     ThreadNotFoundError,
     WorkflowExecutionError
 )
-from src.core.workflow.states.workflow import WorkflowState
+from src.core.workflow.states import WorkflowState
 from .git_service import IGitService
 from .coordinator import SessionThreadCoordinator
 

@@ -2,15 +2,19 @@
 
 这个模块提供了所有状态相关的接口定义，包括核心状态、工作流状态、历史管理、快照管理等。
 
-注意：IState 和 IWorkflowState 接口已经统一，IState 现在包含了 IWorkflowState 的所有功能。
-新代码应该优先使用 IState 接口。
+架构层次：
+- IState: 核心状态接口，纯粹的状态抽象
+- IWorkflowState: 工作流状态接口，继承自 IState，添加工作流特定功能
 """
 
-# 核心状态接口（已统一，包含工作流状态功能）
+# 核心状态接口
 from .interfaces import IState, IStateManager
 
-# 工作流状态接口（向后兼容，继承自 IState）
-from .workflow import IWorkflowState
+# 工作流状态接口
+from .workflow import IWorkflowState, IWorkflowStateBuilder
+
+# 工作流状态接口（向后兼容，已弃用）
+from .workflow import IWorkflowState as LegacyIWorkflowState
 
 # 历史管理接口
 from .history import IStateHistoryManager
@@ -69,6 +73,7 @@ __all__ = [
     
     # 工作流状态接口
     'IWorkflowState',
+    'IWorkflowStateBuilder',
     
     # 历史管理接口
     'IStateHistoryManager',

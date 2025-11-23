@@ -1,169 +1,224 @@
-"""
-工作流状态接口定义
+"""工作流状态接口定义
 
-提供类型安全的状态管理接口，支持不可变状态模式
+定义专门用于工作流执行的状态接口，继承自基础状态接口。
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Protocol
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from datetime import datetime
 
+if TYPE_CHECKING:
+    from .interfaces import IState
 
-class IWorkflowState(Protocol):
+
+class IWorkflowState(IState):
     """工作流状态接口
     
-    继承自 IState 接口，提供工作流特定的功能。
-    注意：这是一个向后兼容的接口，新代码应该直接使用 IState。
+    继承自基础状态接口，添加工作流特定的功能。
+    这个接口专门用于与 LangGraph 等工作流引擎交互。
     """
     
-    # 继承 IState 的所有方法和属性
-    # 这里保持 Protocol 定义以确保类型检查兼容性
-    
-    def get_data(self, key: str, default: Any = None) -> Any:
-        """从状态中获取数据（继承自 IState）"""
-        ...
-    
-    def set_data(self, key: str, value: Any) -> None:
-        """在状态中设置数据（继承自 IState）"""
-        ...
-    
-    def get_metadata(self, key: str, default: Any = None) -> Any:
-        """从状态中获取元数据（继承自 IState）"""
-        ...
-    
-    def set_metadata(self, key: str, value: Any) -> None:
-        """在状态中设置元数据（继承自 IState）"""
-        ...
-    
-    def get_id(self) -> Optional[str]:
-        """获取状态ID（继承自 IState）"""
-        ...
-    
-    def set_id(self, id: str) -> None:
-        """设置状态ID（继承自 IState）"""
-        ...
-    
-    def get_created_at(self) -> datetime:
-        """获取创建时间戳（继承自 IState）"""
-        ...
-    
-    def get_updated_at(self) -> datetime:
-        """获取最后更新时间戳（继承自 IState）"""
-        ...
-    
-    def is_complete(self) -> bool:
-        """检查状态是否完成（继承自 IState）"""
-        ...
-    
-    def mark_complete(self) -> None:
-        """将状态标记为完成（继承自 IState）"""
-        ...
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """将状态转换为字典表示（继承自 IState）"""
-        ...
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'IWorkflowState':
-        """从字典创建状态实例（继承自 IState）"""
-        ...
-    
-    # IWorkflowState 特有的属性
+    # 工作流特定属性
     @property
+    @abstractmethod
     def messages(self) -> List[Any]:
-        """消息列表"""
-        ...
+        """消息列表
+        
+        工作流执行过程中的消息序列，用于与 LangGraph 等引擎交互。
+        """
+        pass
     
     @property
-    def metadata(self) -> Dict[str, Any]:
-        """元数据字典"""
-        ...
-    
-    @property
+    @abstractmethod
     def fields(self) -> Dict[str, Any]:
-        """字段字典"""
-        ...
+        """字段字典
+        
+        工作流执行过程中的状态数据，用于节点间传递信息。
+        """
+        pass
     
     @property
-    def created_at(self) -> datetime:
-        """创建时间"""
-        ...
+    @abstractmethod
+    def values(self) -> Dict[str, Any]:
+        """状态值字典
+        
+        所有状态数据的字典表示，支持字典式访问。
+        """
+        pass
     
-    @property
-    def updated_at(self) -> datetime:
-        """更新时间"""
-        ...
-    
-    # IWorkflowState 特有的方法
-    def with_messages(self, messages: List[Any]) -> 'IWorkflowState':
-        """创建包含新消息的状态"""
-        ...
-    
-    def with_metadata(self, metadata: Dict[str, Any]) -> 'IWorkflowState':
-        """创建包含新元数据的状态"""
-        ...
-    
+    # 工作流特定方法
+    @abstractmethod
     def get_field(self, key: str, default: Any = None) -> Any:
-        """获取字段值"""
-        ...
+        """获取字段值
+        
+        Args:
+            key: 字段键
+            default: 默认值
+            
+        Returns:
+            字段值
+        """
+        pass
     
+    @abstractmethod
     def set_field(self, key: str, value: Any) -> 'IWorkflowState':
-        """创建包含新字段值的状态"""
-        ...
+        """创建包含新字段值的状态
+        
+        Args:
+            key: 字段键
+            value: 字段值
+            
+        Returns:
+            新的工作流状态实例
+        """
+        pass
     
+    @abstractmethod
+    def with_messages(self, messages: List[Any]) -> 'IWorkflowState':
+        """创建包含新消息的状态
+        
+        Args:
+            messages: 新的消息列表
+            
+        Returns:
+            新的工作流状态实例
+        """
+        pass
+    
+    @abstractmethod
+    def with_metadata(self, metadata: Dict[str, Any]) -> 'IWorkflowState':
+        """创建包含新元数据的状态
+        
+        Args:
+            metadata: 新的元数据字典
+            
+        Returns:
+            新的工作流状态实例
+        """
+        pass
+    
+    @abstractmethod
+    def add_message(self, message: Any) -> None:
+        """添加消息
+        
+        Args:
+            message: 要添加的消息
+        """
+        pass
+    
+    @abstractmethod
+    def get_messages(self) -> List[Any]:
+        """获取消息列表
+        
+        Returns:
+            List[Any]: 消息列表
+        """
+        pass
+    
+    @abstractmethod
+    def get_last_message(self) -> Any | None:
+        """获取最后一条消息
+        
+        Returns:
+            Any | None: 最后一条消息，如果没有则返回None
+        """
+        pass
+    
+    @abstractmethod
     def copy(self) -> 'IWorkflowState':
-        """创建状态的深拷贝"""
-        ...
+        """创建状态的深拷贝
+        
+        Returns:
+            新的工作流状态实例
+        """
+        pass
+    
+    # 字典式接口支持
+    @abstractmethod
+    def get(self, key: str, default: Any = None) -> Any:
+        """获取状态值（字典式访问）
+        
+        Args:
+            key: 键
+            default: 默认值
+            
+        Returns:
+            状态值
+        """
+        pass
+    
+    @abstractmethod
+    def set_value(self, key: str, value: Any) -> None:
+        """设置状态值
+        
+        Args:
+            key: 键
+            value: 值
+        """
+        pass
 
 
-class IStateBuilder(ABC):
-    """状态构建器接口"""
+class IWorkflowStateBuilder(ABC):
+    """工作流状态构建器接口
+    
+    用于构建工作流状态的工具接口。
+    """
     
     @abstractmethod
-    def add_message(self, message: Any) -> 'IStateBuilder':
-        """添加消息"""
+    def add_message(self, message: Any) -> 'IWorkflowStateBuilder':
+        """添加消息
+        
+        Args:
+            message: 要添加的消息
+            
+        Returns:
+            构建器实例
+        """
         pass
     
     @abstractmethod
-    def add_messages(self, messages: List[Any]) -> 'IStateBuilder':
-        """添加多个消息"""
+    def add_messages(self, messages: List[Any]) -> 'IWorkflowStateBuilder':
+        """添加多个消息
+        
+        Args:
+            messages: 要添加的消息列表
+            
+        Returns:
+            构建器实例
+        """
         pass
     
     @abstractmethod
-    def set_metadata(self, key: str, value: Any) -> 'IStateBuilder':
-        """设置元数据"""
+    def set_field(self, key: str, value: Any) -> 'IWorkflowStateBuilder':
+        """设置字段
+        
+        Args:
+            key: 字段键
+            value: 字段值
+            
+        Returns:
+            构建器实例
+        """
         pass
     
     @abstractmethod
-    def update_metadata(self, metadata: Dict[str, Any]) -> 'IStateBuilder':
-        """更新元数据"""
-        pass
-    
-    @abstractmethod
-    def set_field(self, key: str, value: Any) -> 'IStateBuilder':
-        """设置字段"""
-        pass
-    
-    @abstractmethod
-    def update_fields(self, fields: Dict[str, Any]) -> 'IStateBuilder':
-        """更新多个字段"""
+    def set_metadata(self, key: str, value: Any) -> 'IWorkflowStateBuilder':
+        """设置元数据
+        
+        Args:
+            key: 元数据键
+            value: 元数据值
+            
+        Returns:
+            构建器实例
+        """
         pass
     
     @abstractmethod
     def build(self) -> IWorkflowState:
-        """构建状态"""
-        pass
-
-
-class IStateValidator(ABC):
-    """状态验证器接口"""
-    
-    @abstractmethod
-    def validate_state(self, state: IWorkflowState) -> List[str]:
-        """验证状态，返回错误列表"""
-        pass
-    
-    @abstractmethod
-    def validate_field(self, key: str, value: Any) -> Optional[str]:
-        """验证字段，返回错误信息"""
+        """构建工作流状态
+        
+        Returns:
+            构建的工作流状态实例
+        """
         pass
