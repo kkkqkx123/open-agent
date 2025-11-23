@@ -1,9 +1,9 @@
-"""日志与指标模块"""
+"""日志服务模块"""
 
 from .log_level import LogLevel
 from .logger import ILogger, Logger, get_logger, set_global_config
+from .redactor import LogRedactor, CustomLogRedactor
 from .structured_file_logger import StructuredFileLogger
-from .metrics import IMetricsCollector, MetricsCollector, get_global_metrics_collector
 from .error_handler import (
     IGlobalErrorHandler,
     GlobalErrorHandler,
@@ -13,23 +13,17 @@ from .error_handler import (
     register_error_handler,
     error_handler,
 )
-from .redactor import LogRedactor
-from .config_integration import (
-    LoggingConfigIntegration,
-    get_logging_integration,
-    initialize_logging_integration,
-)
+from .metrics import IMetricsCollector, MetricsCollector, get_global_metrics_collector
 
 __all__ = [
     "ILogger",
-    "StructuredFileLogger",
     "Logger",
     "LogLevel",
     "get_logger",
     "set_global_config",
-    "IMetricsCollector",
-    "MetricsCollector",
-    "get_global_metrics_collector",
+    "LogRedactor",
+    "CustomLogRedactor",
+    "StructuredFileLogger",
     "IGlobalErrorHandler",
     "GlobalErrorHandler",
     "ErrorType",
@@ -37,8 +31,7 @@ __all__ = [
     "handle_error",
     "register_error_handler",
     "error_handler",
-    "LogRedactor",
-    "LoggingConfigIntegration",
-    "get_logging_integration",
-    "initialize_logging_integration",
+    "IMetricsCollector",
+    "MetricsCollector",
+    "get_global_metrics_collector",
 ]

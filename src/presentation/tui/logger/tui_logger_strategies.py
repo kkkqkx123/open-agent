@@ -1,7 +1,7 @@
 """TUI日志记录策略实现"""
 
 from typing import Any, Dict, Optional
-from src.infrastructure.logger.log_level import LogLevel
+from src.core.logger.log_level import LogLevel
 from .tui_logger_base import TUILoggingStrategy
 
 

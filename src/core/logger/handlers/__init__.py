@@ -5,4 +5,9 @@ from .console_handler import ConsoleHandler
 from .file_handler import FileHandler
 from .json_handler import JsonHandler
 
-__all__ = ["BaseHandler", "ConsoleHandler", "FileHandler", "JsonHandler"]
+__all__ = [
+    "BaseHandler",
+    "ConsoleHandler",
+    "FileHandler",
+    "JsonHandler",
+]

@@ -9,7 +9,7 @@ from typing import Optional
 from src.infrastructure.container import DependencyContainer, get_global_container
 from infrastructure.config.loader.file_config_loader import IConfigLoader, FileConfigLoader
 from src.infrastructure.graph.registry import NodeRegistry, get_global_registry
-from src.infrastructure.logger import get_logger
+from src.services.logger import get_logger
 from .workflow import setup_workflow_container
 
 logger = get_logger(__name__)

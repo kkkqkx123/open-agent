@@ -5,7 +5,7 @@ from src.application.sessions.manager import ISessionManager
 from src.infrastructure.graph.states import WorkflowState
 from src.application.sessions.manager import UserRequest
 from ..data_access.session_dao import SessionDAO
-from src.infrastructure.logger import get_logger
+from src.services.logger import get_logger
 
 from ..data_access.history_dao import HistoryDAO
 from ..cache.memory_cache import MemoryCache

@@ -7,8 +7,8 @@ from datetime import datetime
 from enum import Enum
 
 if TYPE_CHECKING:
-    from src.infrastructure.logger.handlers.base_handler import BaseHandler
-    from src.infrastructure.logger.redactor import LogRedactor
+    from src.core.logger.handlers.base_handler import BaseHandler
+    from src.services.logger.redactor import LogRedactor
 
 
 # 抽象数据类型定义

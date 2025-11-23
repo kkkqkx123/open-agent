@@ -6,10 +6,9 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Callable
 
-from src.infrastructure.config.models.global_config import GlobalConfig
-from .handlers.base_handler import BaseHandler
-from .redactor import LogRedactor
 from .log_level import LogLevel
+from ..core.logger.handlers.base_handler import BaseHandler
+from .redactor import LogRedactor
 
 
 class ILogger(ABC):
@@ -67,7 +66,7 @@ class Logger(ILogger):
     def __init__(
         self,
         name: str,
-        config: Optional[GlobalConfig] = None,
+        config: Optional[Dict[str, Any]] = None,
         redactor: Optional[LogRedactor] = None,
     ):
         """初始化日志记录器
@@ -86,7 +85,8 @@ class Logger(ILogger):
 
         # 如果有配置，根据配置设置日志级别和处理器
         if config:
-            self._level = LogLevel.from_string(config.log_level)
+            level_str = config.get("log_level", "INFO")
+            self._level = LogLevel.from_string(level_str)
             self._setup_handlers_from_config(config)
 
     def debug(self, message: str, **kwargs: Any) -> None:
@@ -213,21 +213,23 @@ class Logger(ILogger):
 
         return redacted_record
 
-    def _setup_handlers_from_config(self, config: GlobalConfig) -> None:
+    def _setup_handlers_from_config(self, config: Dict[str, Any]) -> None:
         """根据配置设置处理器
 
         Args:
             config: 全局配置
         """
-        from .handlers.console_handler import ConsoleHandler
-        from .handlers.file_handler import FileHandler
-        from .handlers.json_handler import JsonHandler
+        from ..core.logger.handlers.console_handler import ConsoleHandler
+        from ..core.logger.handlers.file_handler import FileHandler
+        from ..core.logger.handlers.json_handler import JsonHandler
 
-        for output_config in config.log_outputs:
+        log_outputs = config.get("log_outputs", [{"type": "console"}])
+        for output_config in log_outputs:
             # 处理不同类型的配置对象
             if isinstance(output_config, dict):
                 handler_type = output_config.get("type", "console")
-                handler_level = LogLevel.from_string(output_config.get("level", "INFO"))
+                handler_level_str = output_config.get("level", "INFO")
+                handler_level = LogLevel.from_string(handler_level_str)
                 handler_config = output_config
             else:
                 # 假设是对象类型，使用属性访问
@@ -291,10 +293,10 @@ class Logger(ILogger):
 # 全局日志记录器注册表
 _loggers: Dict[str, Logger] = {}
 _loggers_lock = threading.RLock()
-_global_config: Optional[GlobalConfig] = None
+_global_config: Optional[Dict[str, Any]] = None
 
 
-def get_logger(name: str, config: Optional[GlobalConfig] = None) -> Logger:
+def get_logger(name: str, config: Optional[Dict[str, Any]] = None) -> Logger:
     """获取或创建日志记录器
 
     Args:
@@ -314,7 +316,7 @@ def get_logger(name: str, config: Optional[GlobalConfig] = None) -> Logger:
         return _loggers[name]
 
 
-def set_global_config(config: GlobalConfig) -> None:
+def set_global_config(config: Dict[str, Any]) -> None:
     """设置全局配置，更新所有已创建的日志记录器
 
     Args:
@@ -326,7 +328,8 @@ def set_global_config(config: GlobalConfig) -> None:
     with _loggers_lock:
         for logger in _loggers.values():
             logger._config = config
-            logger._level = LogLevel.from_string(config.log_level)
+            level_str = config.get("log_level", "INFO")
+            logger._level = LogLevel.from_string(level_str)
 
             # 清除现有处理器
             for handler in logger._handlers:

@@ -4,8 +4,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 from pathlib import Path
 
-from src.infrastructure.logger.logger import Logger
-from src.infrastructure.logger.log_level import LogLevel
+from src.services.logger.logger import Logger
+from src.core.logger.log_level import LogLevel
 
 
 class TUILoggingStrategy(ABC):

@@ -1,97 +1,78 @@
-"""敏感信息脱敏工具
-
-提供通用的敏感信息脱敏功能，可被多个模块使用。
-"""
+"""日志脱敏器"""
 
 import re
-from typing import List, Pattern, Dict, Any, Optional
-from enum import Enum
+import hashlib
+from typing import List, Optional, Pattern, Dict, Any
+
+from .log_level import LogLevel
 
 
-class LogLevel(Enum):
-    """日志级别枚举"""
+class LogRedactor:
+    """日志脱敏器"""
 
-    DEBUG = 10
-    INFO = 20
-    WARNING = 30
-    ERROR = 40
-    CRITICAL = 50
+    # 默认敏感信息模式
+    DEFAULT_PATTERNS = [
+        # OpenAI API Key
+        (r"sk-[a-zA-Z0-9]{20,}", "sk-***"),
+        # 邮箱地址
+        (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", "***@***.***"),
+        # 手机号（中国）
+        (r"1[3-9]\d{9}", "1*********"),
+        # 身份证号
+        (
+            r"\b[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]\b",
+            "***************",
+        ),
+        # 密码字段
+        (r'(["\']?password["\']?\s*[:=]\s*["\']?)[^"\',\s}]+', r"\1***PASSWORD***"),
+        # Token
+        (r'(["\']?token["\']?\s*[:=]\s*["\']?)[a-zA-Z0-9_-]{20,}', r"\1***TOKEN***"),
+        # API Key通用模式
+        (
+            r'(["\']?api[_-]?key["\']?\s*[:=]\s*["\']?)[a-zA-Z0-9_-]{16,}',
+            r"\1***APIKEY***",
+        ),
+        # Secret Key
+        (
+            r'(["\']?secret[_-]?key["\']?\s*[:=]\s*["\']?)[a-zA-Z0-9_-]{16,}',
+            r"\1***SECRET***",
+        ),
+        # Access Token
+        (
+            r'(["\']?access[_-]?token["\']?\s*[:=]\s*["\']?)[a-zA-Z0-9._-]{20,}',
+            r"\1***ACCESSTOKEN***",
+        ),
+        # Bearer Token
+        (r"Bearer\s+[a-zA-Z0-9._-]{20,}", "Bearer ***"),
+        # JWT Token
+        (r"eyJ[a-zA-Z0-9._-]*\.eyJ[a-zA-Z0-9._-]*\.[a-zA-Z0-9._-]*", "JWT.***.***"),
+    ]
 
-
-class Redactor:
-    """敏感信息脱敏处理器"""
-
-    def __init__(self, patterns: Optional[List[str]] = None, replacement: str = "***"):
-        """初始化脱敏处理器
+    def __init__(
+        self,
+        patterns: Optional[List[tuple[Pattern, str]]] = None,
+        hash_sensitive: bool = False,
+    ):
+        """初始化日志脱敏器
 
         Args:
-            patterns: 敏感信息正则表达式模式列表
-            replacement: 替换字符串
+            patterns: 自定义正则表达式模式列表
+            hash_sensitive: 是否对敏感信息进行哈希处理
         """
-        self.replacement = replacement
-        self._patterns: List[Pattern] = []
-        self._custom_patterns: Dict[str, Pattern] = {}
+        self.patterns = patterns or self._compile_default_patterns()
+        self.hash_sensitive = hash_sensitive
+        self._cache: Dict[str, str] = {}
 
-        # 默认敏感信息模式
-        default_patterns = [
-            # API密钥
-            r"sk-[a-zA-Z0-9]{20,}",
-            r"AIza[a-zA-Z0-9_-]{35}",
-            r"xoxb-[0-9]{10}-[0-9]{10}-[a-zA-Z0-9]{24}",
-            # 邮箱地址
-            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
-            # 手机号
-            r"1[3-9]\d{9}",
-            # 密码字段
-            r'(?i)password["\']?\s*[:=]\s*["\']?[^"\'\s,}]+',
-            r'(?i)passwd["\']?\s*[:=]\s*["\']?[^"\'\s,}]+',
-            r'(?i)pwd["\']?\s*[:=]\s*["\']?[^"\'\s,}]+',
-            # 令牌
-            r"Bearer\s+[a-zA-Z0-9_-]+",
-            r'token["\']?\s*[:=]\s*["\']?[a-zA-Z0-9_-]+',
-            # 数据库连接字符串
-            r"mysql://[^@]+:[^@]+@[^/]+",
-            r"postgresql://[^@]+:[^@]+@[^/]+",
-            r"mongodb://[^@]+:[^@]+@[^/]+",
-            # URL中的用户名密码
-            r"https?://[^:]+:[^@]+@[^/]+",
-        ]
-
-        # 使用提供的模式或默认模式
-        patterns_to_use = patterns or default_patterns
-
-        # 编译正则表达式
-        for pattern in patterns_to_use:
-            try:
-                self._patterns.append(re.compile(pattern, re.IGNORECASE))
-            except re.error as e:
-                print(f"警告: 无效的正则表达式模式 '{pattern}': {e}")
-
-    def add_pattern(self, name: str, pattern: str) -> None:
-        """添加自定义模式
-
-        Args:
-            name: 模式名称
-            pattern: 正则表达式模式
-        """
-        try:
-            self._custom_patterns[name] = re.compile(pattern, re.IGNORECASE)
-        except re.error as e:
-            raise ValueError(f"无效的正则表达式模式 '{pattern}': {e}")
-
-    def remove_pattern(self, name: str) -> bool:
-        """移除自定义模式
-
-        Args:
-            name: 模式名称
+    def _compile_default_patterns(self) -> List[tuple[Pattern, str]]:
+        """编译默认模式
 
         Returns:
-            是否成功移除
+            编译后的正则表达式模式列表
         """
-        if name in self._custom_patterns:
-            del self._custom_patterns[name]
-            return True
-        return False
+        compiled_patterns = []
+        for pattern, replacement in self.DEFAULT_PATTERNS:
+            compiled_patterns.append((re.compile(pattern), replacement))
+        return compiled_patterns
 
     def redact(self, text: str, level: LogLevel = LogLevel.INFO) -> str:
         """脱敏文本
@@ -104,207 +85,201 @@ class Redactor:
             脱敏后的文本
         """
         # DEBUG级别不脱敏
-        if level == LogLevel.DEBUG:
+        if level.value == LogLevel.DEBUG.value:
             return text
 
-        result = text
+        # 检查缓存（DEBUG级别不缓存）
+        cache_key = f"{text}_{level.value}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
 
-        # 应用默认模式
-        for pattern in self._patterns:
-            result = pattern.sub(self.replacement, result)
+        redacted_text = text
 
-        # 应用自定义模式
-        for pattern in self._custom_patterns.values():
-            result = pattern.sub(self.replacement, result)
-
-        return result
-
-    def redact_dict(
-        self,
-        data: Dict[str, Any],
-        level: LogLevel = LogLevel.INFO,
-        recursive: bool = True,
-    ) -> Any:
-        """脱敏字典
-
-        Args:
-            data: 原始字典
-            level: 日志级别
-            recursive: 是否递归处理嵌套字典
-
-        Returns:
-            脱敏后的字典
-        """
-        if not isinstance(data, dict):
-            return data
-
-        result = {}
-
-        for key, value in data.items():
-            if isinstance(value, str):
-                # 对字符串值进行脱敏
-                result[key] = self.redact(value, level)
-            elif isinstance(value, dict) and recursive:
-                # 递归处理嵌套字典
-                result[key] = self.redact_dict(value, level, recursive)
-            elif isinstance(value, list) and recursive:
-                # 递归处理列表
-                result[key] = self.redact_list(value, level, recursive)
+        # 应用所有模式
+        for pattern, replacement in self.patterns:
+            if self.hash_sensitive and replacement == "***":
+                # 使用哈希替换
+                redacted_text = pattern.sub(self._hash_replace, redacted_text)
             else:
-                # 其他类型直接复制
-                result[key] = value
+                # 使用固定替换
+                redacted_text = pattern.sub(replacement, redacted_text)
 
-        return result
+        # 缓存结果
+        self._cache[cache_key] = redacted_text
+        return redacted_text
 
-    def redact_list(
-        self, data: List[Any], level: LogLevel = LogLevel.INFO, recursive: bool = True
-    ) -> Any:
-        """脱敏列表
-
-        Args:
-            data: 原始列表
-            level: 日志级别
-            recursive: 是否递归处理嵌套结构
-
-        Returns:
-            脱敏后的列表
-        """
-        if not isinstance(data, list):
-            return data
-
-        result = []
-
-        for item in data:
-            if isinstance(item, str):
-                # 对字符串项进行脱敏
-                result.append(self.redact(item, level))
-            elif isinstance(item, dict) and recursive:
-                # 递归处理嵌套字典
-                result.append(self.redact_dict(item, level, recursive))
-            elif isinstance(item, list) and recursive:
-                # 递归处理嵌套列表
-                result.append(self.redact_list(item, level, recursive))
-            else:
-                # 其他类型直接复制
-                result.append(item)
-
-        return result
-
-    def redact_json(self, json_str: str, level: LogLevel = LogLevel.INFO) -> str:
-        """脱敏JSON字符串
+    def _hash_replace(self, match: re.Match) -> str:
+        """使用哈希替换匹配的文本
 
         Args:
-            json_str: JSON字符串
-            level: 日志级别
+            match: 正则匹配对象
 
         Returns:
-            脱敏后的JSON字符串
+            哈希替换文本
         """
-        try:
-            import json
+        original = match.group()
 
-            data = json.loads(json_str)
-            redacted_data = self.redact_dict(data, level)
-            return json.dumps(redacted_data, ensure_ascii=False)
-        except Exception:
-            # 如果解析失败，直接对字符串进行脱敏
-            return self.redact(json_str, level)
+        # 使用缓存避免重复计算
+        if original in self._cache:
+            return self._cache[original]
 
-    def is_sensitive(self, text: str) -> bool:
-        """检查文本是否包含敏感信息
+        # 计算哈希值
+        hash_obj = hashlib.sha256(original.encode("utf-8"))
+        hash_hex = hash_obj.hexdigest()[:8]  # 只取前8位
+
+        # 构建替换文本
+        if len(original) <= 10:
+            replacement = "*" * len(original)
+        else:
+            replacement = f"{original[:3]}{hash_hex}{original[-3:]}"
+
+        # 缓存结果
+        self._cache[original] = replacement
+
+        return replacement
+
+    def add_pattern(self, pattern: str, replacement: str = "***") -> None:
+        """添加自定义模式
 
         Args:
-            text: 文本
+            pattern: 正则表达式模式
+            replacement: 替换文本
+        """
+        compiled_pattern = re.compile(pattern)
+        self.patterns.append((compiled_pattern, replacement))
+
+    def remove_pattern(self, pattern: str) -> bool:
+        """移除模式
+
+        Args:
+            pattern: 要移除的正则表达式模式
 
         Returns:
-            是否包含敏感信息
+            是否成功移除
         """
-        # 检查默认模式
-        for pattern in self._patterns:
-            if pattern.search(text):
+        for i, (compiled_pattern, _) in enumerate(self.patterns):
+            if compiled_pattern.pattern == pattern:
+                del self.patterns[i]
                 return True
-
-        # 检查自定义模式
-        for pattern in self._custom_patterns.values():
-            if pattern.search(text):
-                return True
-
         return False
 
-    def get_sensitive_parts(self, text: str) -> List[str]:
-        """获取文本中的敏感信息部分
-
-        Args:
-            text: 文本
-
-        Returns:
-            敏感信息部分列表
-        """
-        sensitive_parts = []
-
-        # 检查默认模式
-        for pattern in self._patterns:
-            matches = pattern.findall(text)
-            sensitive_parts.extend(matches)
-
-        # 检查自定义模式
-        for pattern in self._custom_patterns.values():
-            matches = pattern.findall(text)
-            sensitive_parts.extend(matches)
-
-        return sensitive_parts
-
-    def get_pattern_names(self) -> List[str]:
-        """获取所有自定义模式名称
-
-        Returns:
-            模式名称列表
-        """
-        return list(self._custom_patterns.keys())
-
-    def set_replacement(self, replacement: str) -> None:
-        """设置替换字符串
-
-        Args:
-            replacement: 替换字符串
-        """
-        self.replacement = replacement
-
     def clear_patterns(self) -> None:
-        """清除所有自定义模式"""
-        self._custom_patterns.clear()
+        """清除所有模式"""
+        self.patterns.clear()
 
-    def reset_to_defaults(self, patterns: Optional[List[str]] = None) -> None:
-        """重置为默认模式
+    def reset_to_default(self) -> None:
+        """重置为默认模式"""
+        self.patterns = self._compile_default_patterns()
+
+    def set_hash_sensitive(self, hash_sensitive: bool) -> None:
+        """设置是否对敏感信息进行哈希处理
 
         Args:
-            patterns: 新的默认模式列表（可选）
+            hash_sensitive: 是否进行哈希处理
         """
-        self._patterns.clear()
-        self._custom_patterns.clear()
+        self.hash_sensitive = hash_sensitive
+        if not hash_sensitive:
+            self._cache.clear()
 
-        # 重新初始化默认模式
-        default_patterns = [
-            r"sk-[a-zA-Z0-9]{20,}",
-            r"AIza[a-zA-Z0-9_-]{35}",
-            r"xoxb-[0-9]{10}-[0-9]{10}-[a-zA-Z0-9]{24}",
-            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
-            r"1[3-9]\d{9}",
-            r'(?i)password["\']?\s*[:=]\s*["\']?[^"\'\s,}]+',
-            r'(?i)passwd["\']?\s*[:=]\s*["\']?[^"\'\s,}]+',
-            r'(?i)pwd["\']?\s*[:=]\s*["\']?[^"\'\s,}]+',
-            r"Bearer\s+[a-zA-Z0-9_-]+",
-            r'token["\']?\s*[:=]\s*["\']?[a-zA-Z0-9_-]+',
-            r"mysql://[^@]+:[^@]+@[^/]+",
-            r"postgresql://[^@]+:[^@]+@[^/]+",
-            r"mongodb://[^@]+:[^@]+@[^/]+",
-            r"https?://[^:]+:[^@]+@[^/]+",
-        ]
+    def get_patterns_count(self) -> int:
+        """获取模式数量
 
-        patterns_to_use = patterns or default_patterns
+        Returns:
+            模式数量
+        """
+        return len(self.patterns)
 
-        for pattern in patterns_to_use:
-            try:
-                self._patterns.append(re.compile(pattern, re.IGNORECASE))
-            except re.error as e:
-                print(f"警告: 无效的正则表达式模式 '{pattern}': {e}")
+    def test_redaction(self, text: str) -> Dict[str, Any]:
+        """测试脱敏效果
+
+        Args:
+            text: 测试文本
+
+        Returns:
+            测试结果字典
+        """
+        original_text = text
+        redacted_text = self.redact(text)
+
+        # 检查是否有变化
+        has_changes = original_text != redacted_text
+
+        # 统计匹配的模式
+        matched_patterns = []
+        for pattern, replacement in self.patterns:
+            if pattern.search(text):
+                matched_patterns.append(
+                    {
+                        "pattern": pattern.pattern,
+                        "replacement": replacement,
+                        "matches": len(pattern.findall(text)),
+                    }
+                )
+
+        return {
+            "original": original_text,
+            "redacted": redacted_text,
+            "has_changes": has_changes,
+            "matched_patterns": matched_patterns,
+        }
+
+
+class CustomLogRedactor(LogRedactor):
+    """自定义日志脱敏器"""
+
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        """初始化自定义日志脱敏器
+
+        Args:
+            config: 脱敏配置
+        """
+        self.config = config or {}
+
+        # 从配置中获取模式
+        patterns = self._load_patterns_from_config()
+
+        # 获取哈希设置
+        hash_sensitive = self.config.get("hash_sensitive", False)
+
+        super().__init__(patterns, hash_sensitive)
+
+    def _load_patterns_from_config(self) -> Optional[List[tuple[Pattern, str]]]:
+        """从配置加载模式
+
+        Returns:
+            编译后的正则表达式模式列表
+        """
+        patterns_config = self.config.get("patterns")
+        if not patterns_config:
+            return None
+
+        compiled_patterns = []
+        for pattern_config in patterns_config:
+            pattern_str = pattern_config.get("pattern")
+            replacement = pattern_config.get("replacement", "***")
+
+            if pattern_str:
+                compiled_pattern = re.compile(pattern_str)
+                compiled_patterns.append((compiled_pattern, replacement))
+
+        return compiled_patterns if compiled_patterns else None
+
+    def update_config(self, config: Dict[str, Any]) -> None:
+        """更新配置
+
+        Args:
+            config: 新的脱敏配置
+        """
+        self.config = config
+
+        # 重新加载模式
+        patterns = self._load_patterns_from_config()
+        if patterns:
+            self.patterns = patterns
+        else:
+            self.reset_to_default()
+
+        # 更新哈希设置
+        self.hash_sensitive = config.get("hash_sensitive", False)
+        if not self.hash_sensitive:
+            self._cache.clear()

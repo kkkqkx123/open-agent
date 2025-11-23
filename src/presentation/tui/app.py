@@ -41,8 +41,8 @@ from .session_handler import SessionHandler
 
 from src.infrastructure.container import get_global_container
 from infrastructure.config.loader.file_config_loader import IConfigLoader
-from src.infrastructure.config.models.global_config import GlobalConfig
-from src.infrastructure.logger.logger import set_global_config
+from src.core.config.models.global_config import GlobalConfig
+from src.services.logger.logger import set_global_config
 from src.application.sessions.manager import ISessionManager, SessionManager
 from src.infrastructure.graph.states import WorkflowState, HumanMessage
 from src.application.history.manager import HistoryManager

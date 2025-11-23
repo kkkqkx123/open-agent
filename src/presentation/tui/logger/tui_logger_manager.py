@@ -5,8 +5,8 @@ import threading
 from typing import Optional, Dict, Any, Type
 from pathlib import Path
 
-from src.infrastructure.logger.logger import get_logger, Logger
-from src.infrastructure.config.models.global_config import GlobalConfig, LogOutputConfig
+from src.services.logger.logger import get_logger, Logger
+from src.core.config.models.global_config import GlobalConfig, LogOutputConfig
 
 
 class TUILoggerManager:
@@ -69,8 +69,8 @@ class TUILoggerManager:
         """
         try:
             from pathlib import Path
-            from src.infrastructure.logger.handlers.file_handler import FileHandler
-            from src.infrastructure.logger.log_level import LogLevel
+            from src.core.logger.handlers.file_handler import FileHandler
+            from src.core.logger.log_level import LogLevel
             
             # 对于所有TUI日志记录器，统一使用tui.log配置的路径
             # 这样可以确保所有TUI模块的日志都输出到同一个文件中
@@ -146,12 +146,12 @@ class TUILoggerManager:
             
             # 为TUI日志记录器创建一个新的Logger实例，不使用全局配置中的处理器
             # 这样可以确保TUI日志只输出到TUI专用的日志文件中
-            from src.infrastructure.logger.logger import Logger
+            from src.services.logger.logger import Logger
             logger = Logger(full_name, None)  # 不传递全局配置，避免继承全局处理器
             
             # 如果启用了TUI调试模式，将日志级别设置为DEBUG
             if self._debug_enabled:
-                from src.infrastructure.logger.log_level import LogLevel
+                from src.core.logger.log_level import LogLevel
                 logger.set_level(LogLevel.DEBUG)
             
             # 如果配置已经初始化，直接为新创建的日志记录器添加处理器
@@ -175,7 +175,7 @@ class TUILoggerManager:
         
         # 更新所有现有logger的级别
         if self._debug_enabled:
-            from src.infrastructure.logger.log_level import LogLevel
+            from src.core.logger.log_level import LogLevel
             for logger in self._loggers.values():
                 logger.set_level(LogLevel.DEBUG)
     
@@ -197,8 +197,8 @@ class TUILoggerManager:
         Returns:
             日志记录器实例
         """
-        from src.infrastructure.logger.handlers.file_handler import FileHandler
-        from src.infrastructure.logger.log_level import LogLevel
+        from src.core.logger.handlers.file_handler import FileHandler
+        from src.core.logger.log_level import LogLevel
         
         # 确保日志目录存在
         log_file_path.parent.mkdir(parents=True, exist_ok=True)
