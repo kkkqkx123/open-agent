@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ...exceptions import ConfigurationError
 from ...infrastructure_types import CheckResult
-from ..interfaces import IConfigLoader
+from ...interfaces.common import IConfigLoader
 from ...container_interfaces import ILifecycleAware
 from ...utils.yaml_loader import YamlLoader
 

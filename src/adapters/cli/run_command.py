@@ -7,12 +7,12 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.panel import Panel
 from rich.text import Text
 
-from src.infrastructure.container import get_global_container
-from src.core.config.loader.file_config_loader import IConfigLoader
-from src.services.sessions.manager import ISessionManager, UserRequest
+from src.services.container import get_global_container
+from src.interfaces.common import IConfigLoader
+from src.application.sessions.manager import ISessionManager, UserRequest
 from src.services.workflow.manager import IWorkflowManager
-from src.adapters.storage.graph.states import WorkflowState
-from src.adapters.storage.graph.adapters.state_adapter import StateAdapter, WorkflowStateAdapter
+from src.core.workflow.states.workflow import WorkflowState
+from src.services.workflow.state_converter import WorkflowStateAdapter, WorkflowStateConverter
 from langchain_core.messages import HumanMessage, AIMessage
 from datetime import datetime
 import uuid
@@ -25,7 +25,7 @@ class RunCommand:
         self.config_path = config_path
         self.verbose = verbose
         self.console = Console()
-        self.state_adapter = StateAdapter()
+        self.state_adapter = WorkflowStateConverter()
         
     def execute(self, workflow_config_path: str, agent_config_path: Optional[str], session_id: Optional[str]) -> None:
         """执行运行命令"""
@@ -148,7 +148,7 @@ class RunCommand:
                 if user_input.lower() in ['exit', 'quit', '退出']:
                     self.console.print("[yellow]正在保存会话并退出...[/yellow]")
                     # 追踪用户交互
-                    from src.services.sessions.manager import UserInteraction
+                    from src.application.sessions.manager import UserInteraction
                     interaction = UserInteraction(
                         interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
                         session_id=session_id,
@@ -167,7 +167,7 @@ class RunCommand:
                 adapter_state.messages.append(human_message)
                 
                 # 追踪用户输入交互
-                from src.services.sessions.manager import UserInteraction
+                from src.application.sessions.manager import UserInteraction
                 user_interaction = UserInteraction(
                     interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
                     session_id=session_id,
@@ -225,7 +225,7 @@ class RunCommand:
             except KeyboardInterrupt:
                 self.console.print("\n[yellow]正在保存会话并退出...[/yellow]")
                 # 追踪中断交互
-                from src.services.sessions.manager import UserInteraction
+                from src.application.sessions.manager import UserInteraction
                 interrupt_interaction = UserInteraction(
                     interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
                     session_id=session_id,

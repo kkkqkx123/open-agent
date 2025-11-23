@@ -4,15 +4,18 @@ import os
 import tempfile
 import shutil
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Type, TypeVar, ContextManager
+from typing import Dict, Any, Optional, List, Type, TypeVar, ContextManager, Callable
 from contextlib import contextmanager
 from types import TracebackType
 
 from src.interfaces.container import IDependencyContainer
+from src.interfaces.common import ILogger
 from src.core.common.types import ServiceLifetime
 from src.services.monitoring.environment import IEnvironmentChecker, EnvironmentChecker
 from src.services.monitoring.architecture_check import ArchitectureChecker
-from src.core.common.exceptions import InfrastructureError
+
+# 泛型类型变量
+_ServiceT = TypeVar("_ServiceT")
 
 
 class TestContainer(ContextManager["TestContainer"]):
@@ -39,6 +42,19 @@ class TestContainer(ContextManager["TestContainer"]):
         # 注意：这里需要使用实际的容器实现，暂时使用占位符
         # 在实际使用时需要替换为正确的容器实现
         self.container = self._create_container()
+        
+        # 创建配置加载器代理类
+        class IConfigLoaderProxy:
+            pass
+        
+        # 创建工具管理器代理类
+        class IToolManagerProxy:
+            pass
+        
+        # 保存代理类供 getter 方法使用
+        self.IConfigLoaderProxy = IConfigLoaderProxy
+        self.IToolManagerProxy = IToolManagerProxy
+        
         self._setup_services()
 
     def _create_container(self) -> IDependencyContainer:
@@ -48,26 +64,55 @@ class TestContainer(ContextManager["TestContainer"]):
         """
         # 临时解决方案：创建一个简单的容器模拟
         # 在实际使用时需要替换为真正的容器实现
-        class MockContainer:
-            def __init__(self):
-                self._services = {}
+        class MockContainer(IDependencyContainer):
+            def __init__(self) -> None:
+                self._services: Dict[Type[Any], Any] = {}
+                self._environment = "default"
             
-            def register_factory(self, interface, factory, lifetime="singleton"):
+            def register_factory(
+                self,
+                interface: Type[Any],
+                factory: Callable[[], Any],
+                environment: str = "default",
+                lifetime: str = ServiceLifetime.SINGLETON,
+            ) -> None:
                 self._services[interface] = factory
             
-            def register(self, interface, implementation, lifetime="singleton"):
+            def register(
+                self,
+                interface: Type[Any],
+                implementation: Type[Any],
+                environment: str = "default",
+                lifetime: str = ServiceLifetime.SINGLETON,
+            ) -> None:
                 self._services[interface] = implementation
             
-            def get(self, service_type):
+            def register_instance(
+                self, interface: Type[Any], instance: Any, environment: str = "default"
+            ) -> None:
+                self._services[interface] = instance
+            
+            def get(self, service_type: Type[_ServiceT]) -> _ServiceT:
                 if service_type in self._services:
                     service = self._services[service_type]
-                    if callable(service):
-                        return service()
-                    return service
+                    if callable(service) and not isinstance(service, type):
+                        return service()  # type: ignore
+                    elif isinstance(service, type):
+                        return service()  # type: ignore
+                    return service  # type: ignore
                 raise ValueError(f"Service {service_type} not registered")
             
-            def has_service(self, service_type):
+            def has_service(self, service_type: Type[Any]) -> bool:
                 return service_type in self._services
+            
+            def get_environment(self) -> str:
+                return self._environment
+            
+            def set_environment(self, env: str) -> None:
+                self._environment = env
+            
+            def clear(self) -> None:
+                self._services.clear()
         
         return MockContainer()
 
@@ -75,55 +120,55 @@ class TestContainer(ContextManager["TestContainer"]):
         """设置测试服务"""
         # 注册配置加载器
         self.container.register_factory(
-            "IConfigLoader",  # 使用字符串标识符，避免循环导入
+            self.IConfigLoaderProxy,
             lambda: self._create_config_loader(),
-            lifetime="singleton",
+            lifetime=ServiceLifetime.SINGLETON,
         )
 
         # 注册环境检查器
         self.container.register(
-            "IEnvironmentChecker",
+            IEnvironmentChecker,
             EnvironmentChecker,
-            lifetime="singleton",
+            lifetime=ServiceLifetime.SINGLETON,
         )
 
         # 注册架构检查器
         self.container.register_factory(
-            "ArchitectureChecker",
+            ArchitectureChecker,
             lambda: ArchitectureChecker(str(self.temp_path / "src")),
-            lifetime="singleton",
+            lifetime=ServiceLifetime.SINGLETON,
         )
 
         # 注册日志记录器
-        def create_logger():
+        def create_logger() -> ILogger:
             import logging
-            return logging.getLogger("test")
+            return logging.getLogger("test")  # type: ignore
         
         self.container.register_factory(
-            "ILogger",
+            ILogger,
             create_logger,
-            lifetime="singleton",
+            lifetime=ServiceLifetime.SINGLETON,
         )
 
         # 注册工具管理器
-        def create_tool_manager():
+        def create_tool_manager() -> Any:
             # 简化的工具管理器创建
             class MockToolManager:
-                def __init__(self, config_loader, logger):
+                def __init__(self, config_loader: Any, logger: ILogger) -> None:
                     self.config_loader = config_loader
                     self.logger = logger
                 
-                def get_tool(self, tool_name):
+                def get_tool(self, tool_name: str) -> None:
                     return None
             
-            config_loader = self.container.get("IConfigLoader")
-            logger = self.container.get("ILogger")
+            config_loader = self.container.get(self.IConfigLoaderProxy)
+            logger = self.container.get(ILogger)
             return MockToolManager(config_loader, logger)
         
         self.container.register_factory(
-            "IToolManager",
+            self.IToolManagerProxy,
             create_tool_manager,
-            lifetime="singleton",
+            lifetime=ServiceLifetime.SINGLETON,
         )
 
     def _create_config_loader(self):
@@ -176,25 +221,25 @@ class TestContainer(ContextManager["TestContainer"]):
         with open(module_file, "w", encoding="utf-8") as f:
             f.write(content)
 
-    def get_config_loader(self):
+    def get_config_loader(self) -> Any:
         """获取配置加载器"""
-        return self.container.get("IConfigLoader")
-
+        return self.container.get(self.IConfigLoaderProxy)
+    
     def get_environment_checker(self) -> IEnvironmentChecker:
         """获取环境检查器"""
-        return self.container.get("IEnvironmentChecker")
-
+        return self.container.get(IEnvironmentChecker)
+    
     def get_architecture_checker(self) -> ArchitectureChecker:
         """获取架构检查器"""
-        return self.container.get("ArchitectureChecker")
-
-    def get_tool_manager(self):
+        return self.container.get(ArchitectureChecker)
+    
+    def get_tool_manager(self) -> Any:
         """获取工具管理器"""
-        return self.container.get("IToolManager")
-
-    def get_logger(self):
+        return self.container.get(self.IToolManagerProxy)
+    
+    def get_logger(self) -> ILogger:
         """获取日志记录器"""
-        return self.container.get("ILogger")
+        return self.container.get(ILogger)
 
     def setup_basic_configs(self) -> None:
         """设置基础配置文件"""

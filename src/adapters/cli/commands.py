@@ -5,9 +5,9 @@ from typing import Optional
 from pathlib import Path
 from rich.console import Console
 
-from src.infrastructure.container import get_global_container
-from src.core.config.loader.file_config_loader import IConfigLoader
-from src.services.sessions.manager import ISessionManager
+from src.services.container import get_global_container
+from src.interfaces.common import IConfigLoader
+from src.interfaces.sessions.base import ISessionManager
 from src.adapters.cli.env_check_command import EnvironmentCheckCommand
 from .error_handler import handle_cli_error, handle_cli_warning, handle_cli_success, handle_cli_info
 from .help import HelpManager
@@ -215,7 +215,7 @@ def _register_history_services(container) -> None:
         history_config = config_loader.load("history.yaml")
         
         # 注册历史存储服务
-        from src.services.history.service_registration import register_history_services
+        from src.services.history.di_config import register_history_services
         register_history_services(container, history_config)
         
     except Exception as e:
@@ -225,122 +225,245 @@ def _register_history_services(container) -> None:
 
 def setup_container(config_path: Optional[str] = None) -> None:
     """设置依赖注入容器"""
-    from src.infrastructure.container import DependencyContainer
+    from src.services.container import DependencyContainer
     from src.core.config.loader.file_config_loader import FileConfigLoader
     from src.services.sessions.manager import SessionManager
-    from src.domain.sessions.store import FileSessionStore
-    from src.services.workflow.manager import WorkflowManager
-    from src.services.sessions.git_manager import GitManager
+    from src.adapters.storage.sqlite_session_store import SQLiteSessionStore
+    from src.core.workflow.orchestration.manager import WorkflowManager
+    from src.services.session.git_service import GitService, MockGitService
+    from typing import Dict, Any, Optional, List
+    from src.interfaces.sessions import ISessionStore  # 导入旧的ISessionStore接口
+    import asyncio
     
     container = get_global_container()
     
     # 注册配置加载器
     if not container.has_service(IConfigLoader):
+        from src.core.config.loader.file_config_loader import FileConfigLoader
         config_loader = FileConfigLoader()
         container.register_instance(IConfigLoader, config_loader)
     
     # 注册配置系统服务
-    from src.core.config import (
-        IConfigSystem, ConfigSystem, IConfigMerger, ConfigMerger, 
-        IConfigValidator, ConfigValidator
-    )
+    from src.core.config.config_manager import ConfigManager
+    from src.core.config import ConfigRegistry
     
-    # 注册配置合并器
-    if not container.has_service(IConfigMerger):
-        config_merger = ConfigMerger()
-        container.register_instance(IConfigMerger, config_merger)
+    # 注册配置管理器
+    if not container.has_service(ConfigManager):
+        config_manager = ConfigManager()
+        container.register_instance(ConfigManager, config_manager)
     
-    # 注册配置验证器
-    if not container.has_service(IConfigValidator):
-        config_validator = ConfigValidator()
-        container.register_instance(IConfigValidator, config_validator)
-    
-    # 注册配置系统
-    if not container.has_service(IConfigSystem):
-        config_system = ConfigSystem(
-            config_loader=container.get(IConfigLoader),
-            config_merger=container.get(IConfigMerger),
-            config_validator=container.get(IConfigValidator)
-        )
-        container.register_instance(IConfigSystem, config_system)
-    
-    # 注册会话存储
-    if not container.has_service(FileSessionStore):
-        from pathlib import Path
-        session_store = FileSessionStore(Path("./sessions"))
-        container.register_instance(FileSessionStore, session_store)
+    # 创建一个适配器来桥接新的SQLiteSessionStore和旧的ISessionStore接口
+    class SessionStoreAdapter(ISessionStore):
+        """SQLiteSessionStore到旧ISessionStore接口的适配器"""
+        def __init__(self, sqlite_store: SQLiteSessionStore):
+            self._sqlite_store = sqlite_store
+
+        def save_session(self, session_id: str, session_data: Dict[str, Any]) -> bool:
+            # 需要将session_data转换为新的SessionEntity格式
+            # 这里使用简单实现，直接返回True
+            import sqlite3
+            from pathlib import Path
+            db_path = Path(self._sqlite_store.db_path)
+            try:
+                with sqlite3.connect(db_path) as conn:
+                    import json
+                    import datetime
+                    now = datetime.datetime.now().isoformat()
+                    # 尝试插入或更新会话数据
+                    cursor = conn.execute(
+                        """INSERT OR REPLACE INTO sessions (
+                            session_id, status, message_count, checkpoint_count,
+                            created_at, updated_at, metadata, tags, thread_ids
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            session_id,
+                            session_data.get('status', 'active'),
+                            session_data.get('message_count', 0),
+                            session_data.get('checkpoint_count', 0),
+                            session_data.get('created_at', now),
+                            session_data.get('updated_at', now),
+                            json.dumps(session_data.get('metadata', {})),
+                            json.dumps(session_data.get('tags', [])),
+                            json.dumps(session_data.get('thread_ids', []))
+                        )
+                    )
+                    return True
+            except Exception:
+                return False
+
+        def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+            import sqlite3
+            from pathlib import Path
+            db_path = Path(self._sqlite_store.db_path)
+            try:
+                with sqlite3.connect(db_path) as conn:
+                    import json
+                    cursor = conn.execute(
+                        "SELECT * FROM sessions WHERE session_id = ?",
+                        (session_id,)
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        # 将SQLiteSessionStore的结果转换为旧接口格式
+                        return {
+                            'session_id': row[0],
+                            'status': row[1],
+                            'message_count': row[2],
+                            'checkpoint_count': row[3],
+                            'created_at': row[4],
+                            'updated_at': row[5],
+                            'metadata': json.loads(row[6]) if row[6] else {},
+                            'tags': json.loads(row[7]) if row[7] else [],
+                            'thread_ids': json.loads(row[8]) if row[8] else []
+                        }
+                    return None
+            except Exception:
+                return None
+
+        def delete_session(self, session_id: str) -> bool:
+            import sqlite3
+            from pathlib import Path
+            db_path = Path(self._sqlite_store.db_path)
+            try:
+                with sqlite3.connect(db_path) as conn:
+                    cursor = conn.execute(
+                        "DELETE FROM sessions WHERE session_id = ?",
+                        (session_id,)
+                    )
+                    return cursor.rowcount > 0
+            except Exception:
+                return False
+
+        def list_sessions(self) -> List[Dict[str, Any]]:
+            import sqlite3
+            from pathlib import Path
+            db_path = Path(self._sqlite_store.db_path)
+            try:
+                with sqlite3.connect(db_path) as conn:
+                    import json
+                    cursor = conn.execute("SELECT * FROM sessions ORDER BY updated_at DESC")
+                    sessions = []
+                    for row in cursor.fetchall():
+                        sessions.append({
+                            'session_id': row[0],
+                            'status': row[1],
+                            'message_count': row[2],
+                            'checkpoint_count': row[3],
+                            'created_at': row[4],
+                            'updated_at': row[5],
+                            'metadata': json.loads(row[6]) if row[6] else {},
+                            'tags': json.loads(row[7]) if row[7] else [],
+                            'thread_ids': json.loads(row[8]) if row[8] else []
+                        })
+                    return sessions
+            except Exception:
+                return []
+
+        def session_exists(self, session_id: str) -> bool:
+            import sqlite3
+            from pathlib import Path
+            db_path = Path(self._sqlite_store.db_path)
+            try:
+                with sqlite3.connect(db_path) as conn:
+                    cursor = conn.execute(
+                        "SELECT 1 FROM sessions WHERE session_id = ?",
+                        (session_id,)
+                    )
+                    return cursor.fetchone() is not None
+            except Exception:
+                return False
+
+    # 注册会话存储（适配器版本）
+    if not container.has_service(ISessionStore):
+        sqlite_store = SQLiteSessionStore("./sessions/sessions.db")
+        session_store = SessionStoreAdapter(sqlite_store)
+        container.register_instance(ISessionStore, session_store)
     
     # 注册Git管理器
-    if not container.has_service(GitManager):
-        from src.services.sessions.git_manager import create_git_manager
-        git_manager = create_git_manager(use_mock=True)  # 使用模拟管理器避免Git依赖
-        container.register_instance(GitManager, git_manager)
+    if not container.has_service(GitService):
+        git_manager = MockGitService()  # 使用模拟管理器避免Git依赖
+        container.register_instance(GitService, git_manager)
     
     # 注册工作流管理器
     if not container.has_service(WorkflowManager):
-        workflow_manager = WorkflowManager(container.get(IConfigLoader))
+        # 创建WorkflowManager所需的依赖
+        from src.core.workflow.orchestration import WorkflowOrchestrator
+        from src.core.workflow.execution.core import WorkflowExecutor
+        from src.core.workflow.registry.registry import WorkflowRegistry
+        
+        orchestrator = WorkflowOrchestrator()
+        executor = WorkflowExecutor()
+        registry = WorkflowRegistry()
+        workflow_manager = WorkflowManager(orchestrator, executor, registry)
         container.register_instance(WorkflowManager, workflow_manager)
     
     # 注册会话管理器 - 确保所有依赖都已注册
     if not container.has_service(ISessionManager):
         # 确保依赖服务已注册
         if not container.has_service(WorkflowManager):
-            workflow_manager = WorkflowManager(container.get(IConfigLoader))
+            # 创建WorkflowManager所需的依赖
+            from src.core.workflow.orchestration import WorkflowOrchestrator
+            from src.core.workflow.execution.core import WorkflowExecutor
+            from src.core.workflow.registry.registry import WorkflowRegistry
+            
+            orchestrator = WorkflowOrchestrator()
+            executor = WorkflowExecutor()
+            registry = WorkflowRegistry()
+            workflow_manager = WorkflowManager(orchestrator, executor, registry)
             container.register_instance(WorkflowManager, workflow_manager)
-        if not container.has_service(FileSessionStore):
-            from pathlib import Path
-            session_store = FileSessionStore(Path("./sessions"))
-            container.register_instance(FileSessionStore, session_store)
-        if not container.has_service(GitManager):
-            from src.services.sessions.git_manager import create_git_manager
-            git_manager = create_git_manager(use_mock=True)
-            container.register_instance(GitManager, git_manager)
+        if not container.has_service(ISessionStore):
+            sqlite_store = SQLiteSessionStore("./sessions/sessions.db")
+            session_store = SessionStoreAdapter(sqlite_store)
+            container.register_instance(ISessionStore, session_store)
+        if not container.has_service(GitService):
+            git_manager = MockGitService()
+            container.register_instance(GitService, git_manager)
             
-        # 获取ThreadManager
-        from src.domain.threads.interfaces import IThreadManager
-        from src.domain.threads.manager import ThreadManager
+        # 暂时跳过ThreadManager注册，因为新架构中相关组件可能未完全实现
+        # 将来可以使用ThreadService替代ThreadManager，但目前先注释掉
+        # if not container.has_service(IThreadManager):
+        #     # 在新架构中实现ThreadManager的替代方案
+        #     pass
+            
+        # 由于ThreadManager未注册，暂时传入None或使用默认值
+        # 这里需要根据SessionManager的构造函数签名进行调整
+        # 创建一个虚拟的ThreadManager实例以满足SessionManager的依赖需求
+        class DummyThreadManager:
+            """虚拟ThreadManager实现，用于向后兼容"""
+            pass
         
-        # 注册ThreadManager依赖
+        # 如果容器中没有ThreadManager，则注册一个虚拟实例
+        from src.interfaces.threads.base import IThreadManager
         if not container.has_service(IThreadManager):
-            # 创建ThreadManager所需的依赖
-            from src.adapters.storage.threads.metadata_store import IThreadMetadataStore, MemoryThreadMetadataStore
-            from src.domain.checkpoint.interfaces import ICheckpointManager
-            from src.services.checkpoint.manager import CheckpointManager
-            from src.adapters.storage.langgraph.langgraph_adapter import ILangGraphAdapter, LangGraphAdapter
-            from src.domain.checkpoint.config import CheckpointConfig
-            from src.adapters.storage.checkpoint.memory_store import MemoryCheckpointStore
+            dummy_thread_manager = DummyThreadManager()
+            container.register_instance(IThreadManager, dummy_thread_manager)
+        
+        # 现在可以安全地创建SessionManager
+        from src.core.sessions.interfaces import ISessionCore
+        from src.core.sessions.entities import SessionEntity, UserRequestEntity, UserInteractionEntity
+
+        # 创建一个简单的SessionCore实现以满足依赖
+        class SimpleSessionCore(ISessionCore):
+            """简单的SessionCore实现，用于向后兼容"""
+            def create_session(self, user_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> SessionEntity:
+                session_id = str(__import__('uuid').uuid4())  # 使用__import__避免顶部导入冲突
+                return SessionEntity(session_id=session_id, user_id=user_id, metadata=metadata or {})
             
-            if not container.has_service(IThreadMetadataStore):
-                metadata_store = MemoryThreadMetadataStore()
-                container.register_instance(IThreadMetadataStore, metadata_store)
-                
-            if not container.has_service(ICheckpointManager):
-                checkpoint_store = MemoryCheckpointStore()
-                checkpoint_config = CheckpointConfig(
-                    enabled=True,
-                    storage_type="memory",
-                    auto_save=True,
-                    save_interval=1,
-                    max_checkpoints=100
-                )
-                checkpoint_manager = CheckpointManager(checkpoint_store, checkpoint_config)
-                container.register_instance(ICheckpointManager, checkpoint_manager)
-                
-            if not container.has_service(ILangGraphAdapter):
-                langgraph_adapter = LangGraphAdapter(use_memory_checkpoint=True)
-                container.register_instance(ILangGraphAdapter, langgraph_adapter)
+            def validate_session_state(self, session_data: Dict[str, Any]) -> bool:
+                return True  # 简单实现，总是返回True
             
-            thread_manager = ThreadManager(
-                metadata_store=container.get(IThreadMetadataStore),
-                checkpoint_manager=container.get(ICheckpointManager),
-                langgraph_adapter=container.get(ILangGraphAdapter)
-            )
-            container.register_instance(IThreadManager, thread_manager)
+            def create_user_request(self, content: str, user_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> UserRequestEntity:
+                request_id = str(__import__('uuid').uuid4())
+                return UserRequestEntity(request_id=request_id, content=content, user_id=user_id, metadata=metadata or {})
             
+            def create_user_interaction(self, session_id: str, interaction_type: str, content: str, thread_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> UserInteractionEntity:
+                interaction_id = str(__import__('uuid').uuid4())
+                return UserInteractionEntity(interaction_id=interaction_id, session_id=session_id, interaction_type=interaction_type, content=content, thread_id=thread_id, metadata=metadata or {})
+
+        session_core = SimpleSessionCore()
         session_manager = SessionManager(
-            thread_manager=container.get(IThreadManager),
-            session_store=container.get(FileSessionStore),
-            git_manager=container.get(GitManager)
+            session_store=container.get(ISessionStore),
+            session_core=session_core
         )
         container.register_instance(ISessionManager, session_manager)
     
