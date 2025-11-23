@@ -6,8 +6,13 @@ from pathlib import Path
 from typing import Dict, List, Set, Any, Optional
 from dataclasses import dataclass
 
-from .exceptions import ArchitectureViolationError
-from .infrastructure_types import CheckResult
+from src.core.common.exceptions.core import CoreError
+from src.core.common.types import CheckResult
+
+
+class ArchitectureViolationError(CoreError):
+    """架构违规异常"""
+    pass
 
 
 @dataclass

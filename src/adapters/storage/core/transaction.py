@@ -6,10 +6,29 @@
 import asyncio
 import logging
 import threading
-from typing import Optional, Any, Dict, List
+from typing import Optional, Any, Dict, List, Protocol
 from contextlib import contextmanager
 
-from src.core.state.storage_interfaces import IStorageBackend
+from src.interfaces.storage import IUnifiedStorage
+
+
+class ITransactionalStorage(Protocol):
+    """事务性存储协议
+    
+    定义存储后端需要支持的事务方法。
+    """
+    
+    async def begin_transaction(self) -> None:
+        """开始事务"""
+        ...
+    
+    async def commit_transaction(self) -> None:
+        """提交事务"""
+        ...
+    
+    async def rollback_transaction(self) -> None:
+        """回滚事务"""
+        ...
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +39,7 @@ class TransactionManager:
     管理存储操作的事务生命周期。
     """
     
-    def __init__(self, backend: IStorageBackend):
+    def __init__(self, backend: ITransactionalStorage):
         """初始化事务管理器
         
         Args:

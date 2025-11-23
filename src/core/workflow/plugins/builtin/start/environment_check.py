@@ -10,7 +10,7 @@ import logging
 import platform
 from typing import Dict, Any, List
 
-from ...interfaces import IStartPlugin, PluginMetadata, PluginContext, PluginType
+from src.interfaces import IStartPlugin, PluginMetadata, PluginContext, PluginType
 
 
 logger = logging.getLogger(__name__)

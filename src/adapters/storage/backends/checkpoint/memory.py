@@ -7,7 +7,7 @@ import time
 import uuid
 import threading
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union, cast
 
 from src.interfaces.checkpoint import ICheckpointStore
 from src.adapters.storage.adapters.base import StorageBackend
@@ -40,37 +40,37 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore):
         
         logger.info("CheckpointMemoryBackend initialized")
     
-    async def save(self, checkpoint_data: Dict[str, Any]) -> bool:
+    async def save(self, data: Dict[str, Any]) -> str:
         """保存checkpoint数据
         
         Args:
-            checkpoint_data: checkpoint数据字典
+            data: checkpoint数据字典
             
         Returns:
-            bool: 是否保存成功
+            str: 保存的数据ID
         """
         try:
             # 生成ID（如果没有）
-            if "id" not in checkpoint_data:
-                checkpoint_data["id"] = str(uuid.uuid4())
+            if "id" not in data:
+                data["id"] = str(uuid.uuid4())
             
-            checkpoint_id = checkpoint_data["id"]
-            thread_id = checkpoint_data.get("thread_id", "")
+            checkpoint_id: str = data["id"]
+            thread_id = data.get("thread_id", "")
             
             if not thread_id:
                 raise CheckpointStorageError("checkpoint_data必须包含'thread_id'")
             
             # 添加时间戳
             current_time = time.time()
-            checkpoint_data["created_at"] = checkpoint_data.get("created_at", current_time)
-            checkpoint_data["updated_at"] = current_time
+            data["created_at"] = data.get("created_at", current_time)
+            data["updated_at"] = current_time
             
             # 保存到内存
             with self._storage_lock:
-                self._checkpoints[checkpoint_id] = checkpoint_data
+                self._checkpoints[checkpoint_id] = data
             
             logger.debug(f"Saved checkpoint {checkpoint_id} for thread {thread_id}")
-            return True
+            return checkpoint_id
             
         except Exception as e:
             logger.error(f"Failed to save checkpoint: {e}")
@@ -250,20 +250,26 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore):
         
         expires_at = checkpoint_data.get("expires_at")
         if expires_at and isinstance(expires_at, (int, float)):
-            return expires_at < time.time()
+            return bool(expires_at < time.time())
         
         return False
     
     # 实现StorageBackend的抽象方法
-    async def save_impl(self, data: Dict[str, Any], compressed: bool = False) -> str:
+    async def save_impl(self, data: Union[Dict[str, Any], bytes], compressed: bool = False) -> str:
         """实际保存实现"""
+        # 如果数据是字节类型，需要反序列化
+        if isinstance(data, bytes):
+            data_dict = StorageCommonUtils.deserialize_data(data.decode('utf-8'))
+        else:
+            data_dict: Dict[str, Any] = data  # type: ignore
+        
         # 生成ID
-        item_id = data.get("id", str(uuid.uuid4()))
-        data["id"] = item_id
+        item_id: str = cast(str, data_dict.get("id", str(uuid.uuid4())))
+        data_dict["id"] = item_id
         
         # 保存到内存
         with self._storage_lock:
-            self._checkpoints[item_id] = data
+            self._checkpoints[item_id] = data_dict
         
         return item_id
     

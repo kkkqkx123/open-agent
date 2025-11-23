@@ -3,13 +3,13 @@
 from typing import Optional, Dict, Any, Callable, List
 import asyncio
 from datetime import datetime
-from src.application.sessions.manager import ISessionManager, SessionManager, UserRequest
+from src.interfaces.sessions.service import ISessionService
 
 
 class SessionHandler:
     """会话处理器，专门处理会话相关操作"""
     
-    def __init__(self, session_manager: Optional[ISessionManager] = None) -> None:
+    def __init__(self, session_manager: Optional[ISessionService] = None) -> None:
         """初始化会话处理器
         
         Args:
@@ -37,17 +37,18 @@ class SessionHandler:
             return None
         
         try:
-            # 创建用户请求
+            # 创建用户请求数据
+            from src.interfaces.sessions.entities import UserRequest
+            
             user_request = UserRequest(
                 request_id=f"request_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                user_id=None,
+                user_id="",
                 content=f"创建会话: {workflow_config}",
                 metadata={
                     "workflow_config": workflow_config,
                     "agent_config": agent_config
-                },
-                timestamp=datetime.now()
-            )
+                }
+            )  # type: ignore
             
             # 异步创建会话
             loop = asyncio.new_event_loop()

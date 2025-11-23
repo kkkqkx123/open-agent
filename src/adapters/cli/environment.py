@@ -1,17 +1,22 @@
 """环境检查工具实现"""
 
+import importlib
 import sys
 import os
 import platform
 import subprocess
 import shutil
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Tuple, Union
+from typing import List, Dict, Any, Tuple, Union
 from pathlib import Path
-import importlib.util
 
-from .exceptions import EnvironmentCheckError
-from .infrastructure_types import CheckResult
+from src.core.common.exceptions.core import CoreError
+from src.core.common.types import CheckResult
+
+
+class EnvironmentCheckError(CoreError):
+    """环境检查异常"""
+    pass
 
 
 class IEnvironmentChecker(ABC):

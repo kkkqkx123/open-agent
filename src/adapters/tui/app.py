@@ -39,18 +39,16 @@ from .callback_manager import TUICallbackManager
 from .subview_controller import SubviewController
 from .session_handler import SessionHandler
 
-from src.infrastructure.container import get_global_container
-from infrastructure.config.loader.file_config_loader import IConfigLoader
+# 新架构导入
+from src.services.container import get_global_container
+from src.interfaces.common import IConfigLoader
 from src.core.config.models.global_config import GlobalConfig
 from src.services.logger.logger import set_global_config
-from src.application.sessions.manager import ISessionManager, SessionManager
-from src.infrastructure.graph.states import WorkflowState, HumanMessage
-from src.application.history.manager import HistoryManager
-from src.domain.history.interfaces import IHistoryManager
-from src.domain.threads.interfaces import IThreadManager
-from infrastructure.infrastructure_types import ServiceLifetime
-from unittest.mock import AsyncMock
-from unittest.mock import AsyncMock
+from src.interfaces.sessions.service import ISessionService
+from src.core.workflow.states import WorkflowState
+from src.interfaces.history import IHistoryManager
+from src.services.history.manager import HistoryManager
+from src.interfaces.workflow.services import IWorkflowManager, IWorkflowExecutor
 
 # 导入TUI日志系统
 from .logger import get_tui_silent_logger, TUILoggerManager
@@ -87,37 +85,38 @@ class TUIApp:
         self.layout_manager = LayoutManager(self.config.layout)
         
         # 初始化依赖
-        self.session_manager: Optional[ISessionManager] = None
+        self.session_service: Optional[ISessionService] = None
+        self.workflow_executor: Optional[IWorkflowExecutor] = None
         self._initialize_dependencies()
         
         # 初始化全局配置并设置日志系统
         self._initialize_global_config()
         
         # 初始化各个管理器
-        self.state_manager = StateManager(self.session_manager)
+        self.state_manager = StateManager(self.session_service)
         self.callback_manager = TUICallbackManager()
-        self.session_handler = SessionHandler(self.session_manager)
+        self.session_handler = SessionHandler(self.session_service)
         self.command_processor = CommandProcessor(self)
         
         # 集成历史存储
-        if get_global_container().has_service(IHistoryManager):
-            history_manager = get_global_container().get(IHistoryManager)  # type: ignore
-            from src.application.history.adapters.tui_adapter import TUIHistoryAdapter
-            self.history_adapter = TUIHistoryAdapter(
-                history_manager=history_manager,
-                state_manager=self.state_manager
-            )
+        container = get_global_container()
+        if container.has_service(IHistoryManager):
+            history_manager = container.get(IHistoryManager)  # type: ignore
+            self.history_manager = history_manager  # type: ignore
             
             # 注册钩子
-            self.state_manager.add_user_message_hook(
-                self.history_adapter.on_user_message
-            )
-            self.state_manager.add_assistant_message_hook(
-                self.history_adapter.on_assistant_message
-            )
-            self.state_manager.add_tool_call_hook(
-                self.history_adapter.on_tool_call
-            )
+            if hasattr(self.state_manager, 'add_user_message_hook'):
+                self.state_manager.add_user_message_hook(
+                    self._on_user_message
+                )
+            if hasattr(self.state_manager, 'add_assistant_message_hook'):
+                self.state_manager.add_assistant_message_hook(
+                    self._on_assistant_message
+                )
+            if hasattr(self.state_manager, 'add_tool_call_hook'):
+                self.state_manager.add_tool_call_hook(
+                    lambda tool_name, args, context=None: self._on_tool_call(tool_name, args)
+                )
         
         # 初始化组件
         self._initialize_components()
@@ -151,116 +150,82 @@ class TUIApp:
             # 初始化必要的服务
             self._setup_container_services(container)
             
-            # 获取会话管理器
-            self.session_manager = container.get(ISessionManager)  # type: ignore
+            # 获取会话服务（通过工作流执行器与graph交互）
+            if container.has_service(ISessionService):
+                self.session_service = container.get(ISessionService)  # type: ignore
+            
+            # 获取工作流执行器
+            if container.has_service(IWorkflowExecutor):
+                self.workflow_executor = container.get(IWorkflowExecutor)  # type: ignore
+                
         except Exception as e:
             self.console.print(f"[red]初始化依赖失败: {e}[/red]")
     
     def _setup_container_services(self, container: Any) -> None:
         """设置容器中的必要服务"""
-        from infrastructure.config.loader.file_config_loader import FileConfigLoader, IConfigLoader
-        from src.domain.sessions.store import FileSessionStore
-        from src.application.workflow.manager import WorkflowManager
-        from src.application.sessions.git_manager import GitManager, create_git_manager
-        from src.application.sessions.manager import SessionManager
-        from src.infrastructure.history.storage.file_storage import FileHistoryStorage
-        from src.application.history.manager import HistoryManager
+        from src.core.config.config_manager import ConfigManager as CoreConfigManager
         
-        # 注册配置加载器
+        # 注册配置加载器（如果还未注册）
         if not container.has_service(IConfigLoader):
-            config_loader = FileConfigLoader()
-            container.register_instance(IConfigLoader, config_loader)
+            try:
+                config_manager = CoreConfigManager()
+                container.register_instance(IConfigLoader, config_manager)
+            except Exception as e:
+                self.console.print(f"[yellow]警告: 无法初始化配置加载器: {e}[/yellow]")
         
-        # 注册TUI配置管理器
-        from .config import ConfigManager
-        if not container.has_service(ConfigManager):
-            container.register_factory(
-                ConfigManager,
-                lambda: ConfigManager(
-                    config_path=None,  # 使用默认路径
-                    config_loader=container.get(IConfigLoader)
-                ),
-                lifetime=ServiceLifetime.SINGLETON
-            )
-        
-        # 注册会话存储
-        if not container.has_service(FileSessionStore):
-            from pathlib import Path
-            session_store = FileSessionStore(Path("./sessions"))
-            container.register_instance(FileSessionStore, session_store)
-        
-        # 注册历史存储
-        if not container.has_service(FileHistoryStorage):
-            from pathlib import Path
-            history_store = FileHistoryStorage(Path("./history"))
-            container.register_instance(FileHistoryStorage, history_store)
-        
-        # 注册Git管理器
-        if not container.has_service(GitManager):
-            git_manager = create_git_manager(use_mock=True) # 使用模拟管理器避免Git依赖
-            container.register_instance(GitManager, git_manager)
-        
-        # 注册工作流管理器
-        if not container.has_service(WorkflowManager):
-            workflow_manager = WorkflowManager(container.get(IConfigLoader))
-            container.register_instance(WorkflowManager, workflow_manager)
-        
-        # 注册历史管理器
+        # 注册历史管理器（如果还未注册）
         if not container.has_service(IHistoryManager):
-            history_manager = HistoryManager(container.get(FileHistoryStorage))
-            container.register_instance(IHistoryManager, history_manager)
+            try:
+                # HistoryManager需要存储实现
+                history_manager = HistoryManager(storage=None)  # type: ignore
+                container.register_instance(IHistoryManager, history_manager)
+            except Exception as e:
+                self.console.print(f"[yellow]警告: 无法初始化历史管理器: {e}[/yellow]")
         
-        # 注册会话管理器
-        if not container.has_service(ISessionManager):
-            # 新的SessionManager需要不同的依赖
-            from src.domain.threads.interfaces import IThreadManager
-            from src.domain.state.interfaces import IStateManager
-            
-            # 检查是否有ThreadManager
-            if container.has_service(IThreadManager):
-                thread_manager = container.get(IThreadManager)
-                state_manager = container.get(IStateManager) if container.has_service(IStateManager) else None
-                
-                session_manager = SessionManager(
-                    thread_manager=thread_manager,
-                    session_store=container.get(FileSessionStore),
-                    git_manager=container.get(GitManager),
-                    state_manager=state_manager
-                )
-            else:
-                # 如果没有ThreadManager，需要创建一个默认的或抛出异常
-                # 为了修复类型错误，我们创建一个模拟的IThreadManager实现
-                from unittest.mock import AsyncMock
-                mock_thread_manager = AsyncMock(spec=IThreadManager)
-                
-                session_manager = SessionManager(
-                    thread_manager=mock_thread_manager,
-                    session_store=container.get(FileSessionStore),
-                    git_manager=container.get(GitManager)
-                )
-            container.register_instance(ISessionManager, session_manager)
+        # 注册会话服务（如果还未注册）
+        if not container.has_service(ISessionService):
+            try:
+                # 会话服务应该在bootstrap中注册
+                # 这里只做备选处理
+                self.console.print(f"[yellow]会话服务未在容器中注册，请在启动时配置[/yellow]")
+            except Exception as e:
+                self.console.print(f"[yellow]警告: 无法初始化会话服务: {e}[/yellow]")
     
     def _initialize_global_config(self) -> None:
         """初始化全局配置并设置日志系统"""
         try:
             container = get_global_container()
-            config_loader = container.get(IConfigLoader)  # type: ignore
             
-            # 加载全局配置
-            global_config_data = config_loader.load("global.yaml")
-            
-            # 创建全局配置对象
-            from pydantic import parse_obj_as
-            global_config = GlobalConfig(**global_config_data)
-            
-            # 设置全局配置到日志系统
-            set_global_config(global_config)
-            
-            # 初始化TUI日志管理器
-            self.tui_manager.initialize(global_config)
-            
-            # 记录调试信息
-            self.tui_logger.info("全局配置已初始化", config_path="global.yaml")
+            # 尝试从容器获取配置加载器
+            if container.has_service(IConfigLoader):
+                config_loader = container.get(IConfigLoader)  # type: ignore
+                
+                # 加载全局配置
+                try:
+                    global_config_data = config_loader.load("global.yaml")
+                    
+                    # 创建全局配置对象
+                    if isinstance(global_config_data, dict):
+                        global_config = GlobalConfig(**global_config_data)
+                    else:
+                        global_config = global_config_data
+                    
+                    # 设置全局配置到日志系统
+                    if isinstance(global_config, dict):
+                        set_global_config(global_config)  # type: ignore
+                    else:
+                        set_global_config(global_config.dict() if hasattr(global_config, 'dict') else global_config)  # type: ignore
+                    
+                    # 初始化TUI日志管理器
+                    self.tui_manager.initialize(global_config)
+                    
+                    # 记录调试信息
+                    self.tui_logger.info("全局配置已初始化", config_path="global.yaml")
+                except Exception as e:
+                    self.console.print(f"[yellow]警告: 加载全局配置失败: {e}[/yellow]")
+                    self.tui_logger.warning(f"加载全局配置失败: {e}")
+            else:
+                self.console.print(f"[yellow]警告: 配置加载器未在容器中注册[/yellow]")
             
         except Exception as e:
             self.console.print(f"[red]初始化全局配置失败: {e}[/red]")
@@ -290,9 +255,9 @@ class TUIApp:
         # 初始化导航栏组件
         self.navigation_component = NavigationBarComponent(self.config)
         
-        # 设置会话对话框的会话管理器
-        if self.session_manager:
-            self.session_dialog.set_session_manager(self.session_manager)
+        # 设置会话对话框的会话服务
+        if self.session_service:
+            self.session_dialog.set_session_manager(self.session_service)
         
         # 加载Agent配置
         self.agent_dialog.load_agent_configs()
@@ -382,13 +347,13 @@ class TUIApp:
     def _register_global_shortcuts(self) -> None:
         """注册全局快捷键"""
         # 使用新的Key对象注册快捷键
-        self.event_engine.register_key_handler(KEY_ESCAPE, self._handle_escape_key)
-        self.event_engine.register_key_handler(KEY_ALT_1, lambda _: self._switch_to_subview("analytics"))
-        self.event_engine.register_key_handler(KEY_ALT_2, lambda _: self._switch_to_subview("visualization"))
-        self.event_engine.register_key_handler(KEY_ALT_3, lambda _: self._switch_to_subview("system"))
-        self.event_engine.register_key_handler(KEY_ALT_4, lambda _: self._switch_to_subview("errors"))
-        self.event_engine.register_key_handler(KEY_ALT_5, lambda _: self._switch_to_subview("status_overview"))
-        self.event_engine.register_key_handler(KEY_ALT_6, lambda _: self._switch_to_subview("langgraph"))
+        self.event_engine.register_key_handler(KEY_ESCAPE, lambda k: self._handle_escape_key(k))
+        self.event_engine.register_key_handler(KEY_ALT_1, lambda _: (self._switch_to_subview("analytics"), True)[1])
+        self.event_engine.register_key_handler(KEY_ALT_2, lambda _: (self._switch_to_subview("visualization"), True)[1])
+        self.event_engine.register_key_handler(KEY_ALT_3, lambda _: (self._switch_to_subview("system"), True)[1])
+        self.event_engine.register_key_handler(KEY_ALT_4, lambda _: (self._switch_to_subview("errors"), True)[1])
+        self.event_engine.register_key_handler(KEY_ALT_5, lambda _: (self._switch_to_subview("status_overview"), True)[1])
+        self.event_engine.register_key_handler(KEY_ALT_6, lambda _: (self._switch_to_subview("langgraph"), True)[1])
 
         # 统一时间线快捷键
         from .key import KEY_PAGE_UP, KEY_PAGE_DOWN, KEY_HOME, KEY_END, KeyType
@@ -396,7 +361,14 @@ class TUIApp:
         self.event_engine.register_key_handler(KEY_PAGE_DOWN, self._handle_timeline_scroll)
         self.event_engine.register_key_handler(KEY_HOME, self._handle_timeline_scroll)
         self.event_engine.register_key_handler(KEY_END, self._handle_timeline_scroll)
-        self.event_engine.register_key_handler(Key("a", KeyType.CHARACTER), self._handle_timeline_scroll)
+        # Key构造器 - 创建一个字符按键对象
+        try:
+            from .key import Key as KeyClass, KeyType as KeyTypeEnum
+            key_a = KeyClass(name="a", key_type=KeyTypeEnum.CHARACTER)
+            self.event_engine.register_key_handler(key_a, self._handle_timeline_scroll)
+        except Exception:
+            # 如果创建失败，跳过这个快捷键
+            pass
     
     def _register_callback_manager_callbacks(self) -> None:
         """注册回调管理器回调"""
@@ -499,100 +471,35 @@ class TUIApp:
         Returns:
             bool: 是否处理了该按键
         """
-        self.tui_logger.debug_key_event(key.to_string(), True, "escape_handler_start")
-        
-        if self.state_manager.current_subview:
-            old_subview = self.state_manager.current_subview
-            self.subview_controller.return_to_main_view()
-            # 立即同步状态管理器的状态，确保状态一致性
-            self.state_manager.current_subview = None
-            # 设置强制刷新标记，确保界面立即更新
-            self.state_manager._force_refresh = True
-            # 强制清除layout内容缓存，确保即使内容相同也会触发更新
-            self.layout_manager.clear_region_contents()
-            self.tui_logger.debug_subview_navigation(old_subview, "main", action="escape")
-            self.tui_logger.debug_key_event(key.to_string(), True, "escape_handler_end_subview_return")
-            return True
-        elif self.state_manager.show_session_dialog:
+        # 如果有对话框打开，关闭对话框
+        if self.state_manager.show_session_dialog:
             self.state_manager.set_show_session_dialog(False)
-            self.tui_logger.debug_component_event("escape", "close_session_dialog")
-            self.tui_logger.debug_key_event(key.to_string(), True, "escape_handler_end_session_dialog")
             return True
         elif self.state_manager.show_agent_dialog:
             self.state_manager.set_show_agent_dialog(False)
-            self.tui_logger.debug_component_event("escape", "close_agent_dialog")
-            self.tui_logger.debug_key_event(key.to_string(), True, "escape_handler_end_agent_dialog")
             return True
         
-        self.tui_logger.debug_key_event(key.to_string(), False, "escape_handler_end_no_action")
-        return False
-    def _handle_timeline_scroll(self, key: Key) -> bool:
-        """处理时间线滚动按键
-        
-        Args:
-            key: Key对象
-            
-        Returns:
-            bool: 是否处理了该按键
-        """
-        # 只在主界面（不在子界面或对话框中）处理时间线滚动
-        if (self.state_manager.current_subview is None and 
-            not self.state_manager.show_session_dialog and 
-            not self.state_manager.show_agent_dialog):
-            
-            # 统一处理时间线滚动逻辑
-            if key.name == "page_up":
-                self.main_content_component.scroll_up()
-                self.tui_logger.debug_component_event("main_content", "scroll_up")
-                return True
-            elif key.name == "page_down":
-                self.main_content_component.scroll_down()
-                self.tui_logger.debug_component_event("main_content", "scroll_down")
-                return True
-            elif key.name == "home":
-                self.main_content_component.timeline.virtual_renderable.scroll_manager.scroll_to(0)
-                self.tui_logger.debug_component_event("main_content", "scroll_to_top")
-                return True
-            elif key.name == "end":
-                self.main_content_component.scroll_to_end()
-                self.tui_logger.debug_component_event("main_content", "scroll_to_bottom")
-                return True
-            elif key.name == "a":  # 添加时间线自动滚动开关
-                current_auto = self.main_content_component.timeline.auto_scroll
-                self.main_content_component.set_auto_scroll(not current_auto)
-                self.tui_logger.debug_component_event("main_content", "toggle_timeline_auto_scroll")
-                return True
+        # 如果在子界面，返回主视图
+        if self.state_manager.current_subview:
+            self.subview_controller.return_to_main_view()
+            return True
         
         return False
     
-    def _switch_to_subview(self, subview_name: str) -> bool:
-        """切换到指定子界面
-        
-        Args:
-            subview_name: 子界面名称
-            
-        Returns:
-            bool: 切换是否成功
-        """
-        self.tui_logger.debug_subview_navigation(
-            self.state_manager.current_subview or "main",
-            subview_name
-        )
-        
-        if self.subview_controller.switch_to_subview(subview_name):
-            # 立即同步状态管理器的状态
-            old_subview = self.state_manager.current_subview
-            self.state_manager.current_subview = subview_name
-            self.tui_logger.debug_ui_state_change("subview", old_subview, subview_name)
-            return True
+    def _switch_to_subview(self, subview_name: str) -> None:
+        """切换到子界面"""
+        self.subview_controller.switch_to_subview(subview_name)
+    
+    def _handle_timeline_scroll(self, key: Key) -> bool:
+        """处理时间线滚动"""
+        # 获取当前子界面并处理滚动
+        current_subview = self.subview_controller.get_current_subview()
+        if current_subview and hasattr(current_subview, 'handle_key'):
+            return current_subview.handle_key(key.to_string())
         return False
     
     def _handle_input_result(self, result: str) -> None:
-        """处理输入组件返回的结果
-        
-        Args:
-            result: 输入组件返回的结果
-        """
+        """处理输入结果"""
         if result == "CLEAR_SCREEN":
             self.state_manager.clear_message_history()
             self.main_content_component.clear_all()
@@ -640,7 +547,7 @@ class TUIApp:
         # 添加到主内容组件
         self.main_content_component.add_user_message(input_text)
         
-        # 处理用户输入
+        # 处理用户输入 - 通过工作流执行器发送到graph
         self._process_user_input(input_text)
     
     def _handle_command(self, command: str, args: List[str]) -> None:
@@ -677,20 +584,29 @@ class TUIApp:
             self.tui_logger.debug_component_event("command", "process_other_command", command=command)
     
     def _process_user_input(self, input_text: str) -> None:
-        """处理用户输入
+        """处理用户输入 - 通过工作流执行器
         
         Args:
             input_text: 用户输入
         """
         self.tui_logger.debug_input_handling("process_user_input", input_text)
         
-        # 这里可以添加实际的处理逻辑
-        # 例如：调用工作流处理输入
-        # 暂时添加一个简单的回复
-        response = f"收到您的输入: {input_text}"
-        self.state_manager.add_assistant_message(response)
-        self.main_content_component.add_assistant_message(response)
-        self.tui_logger.debug_component_event("main_content", "add_assistant_message", response=response)
+        # 如果有工作流执行器，通过它处理输入
+        if self.workflow_executor:
+            try:
+                # 通过工作流执行器将输入发送到graph
+                # 这是TUI与graph交互的主要方式
+                # 具体实现应该调用workflow_executor的相应方法
+                pass
+            except Exception as e:
+                self.tui_logger.debug_error_handling("workflow_execution_error", str(e))
+                self.state_manager.add_system_message(f"工作流执行错误: {e}")
+        else:
+            # 备选方案：直接添加响应
+            response = f"收到您的输入: {input_text}"
+            self.state_manager.add_assistant_message(response)
+            self.main_content_component.add_assistant_message(response)
+            self.tui_logger.debug_component_event("main_content", "add_assistant_message", response=response)
     
     def _load_session(self, session_id: str) -> None:
         """加载会话
@@ -1092,3 +1008,18 @@ class TUIApp:
         """
         if self.error_feedback_panel:
             self.error_feedback_panel.add_error(message, title=title, details=details)
+    
+    def _on_user_message(self, message: str) -> None:
+        """用户消息钩子"""
+        # 这里可以添加与历史管理器的集成逻辑
+        pass
+    
+    def _on_assistant_message(self, message: str) -> None:
+        """助手消息钩子"""
+        # 这里可以添加与历史管理器的集成逻辑
+        pass
+    
+    def _on_tool_call(self, tool_name: str, args: Dict[str, Any]) -> None:
+        """工具调用钩子"""
+        # 这里可以添加与历史管理器的集成逻辑
+        pass

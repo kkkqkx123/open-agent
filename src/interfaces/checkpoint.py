@@ -14,14 +14,14 @@ class ICheckpointStore(ABC):
     """
     
     @abstractmethod
-    async def save(self, checkpoint_data: Dict[str, Any]) -> bool:
+    async def save(self, data: Dict[str, Any]) -> str:
         """保存checkpoint数据
         
         Args:
-            checkpoint_data: checkpoint数据字典
+            data: checkpoint数据字典
             
         Returns:
-            bool: 是否保存成功
+            str: 保存的数据ID
         """
         pass
     

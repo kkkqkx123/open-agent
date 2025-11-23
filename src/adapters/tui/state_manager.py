@@ -4,14 +4,14 @@ from typing import Optional, Dict, Any, List, Callable
 from typing import cast
 import asyncio
 from datetime import datetime
-from src.application.sessions.manager import ISessionManager, SessionManager, UserRequest, UserInteraction
-from src.infrastructure.graph.states import WorkflowState, HumanMessage
+from src.interfaces.sessions.service import ISessionService
+from src.core.workflow.states import WorkflowState
 
 
 class StateManager:
     """状态管理器，负责管理应用状态、会话状态、UI状态"""
     
-    def __init__(self, session_manager: Optional[ISessionManager] = None) -> None:
+    def __init__(self, session_manager: Optional[ISessionService] = None) -> None:
         """初始化状态管理器
         
         Args:
@@ -61,9 +61,10 @@ class StateManager:
                 return False
             
             # 创建用户请求
+            from src.interfaces.sessions.entities import UserRequest
             user_request = UserRequest(
                 request_id=f"request_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                user_id=None,
+                user_id="",
                 content=f"创建会话: {workflow_config}",
                 metadata={
                     "workflow_config": workflow_config,
@@ -177,16 +178,15 @@ class StateManager:
         # 更新状态
         if self.current_state:
             try:
-                human_message = HumanMessage(content=content)
+                # 创建消息字典
+                human_message = {"type": "human", "content": content}
                 # WorkflowState是TypedDict，不支持add_message方法，需要使用字典方式添加消息
                 messages = self.current_state.get('messages', [])
                 messages.append(human_message)
                 self.current_state['messages'] = messages
             except Exception:
-                # 如果HumanMessage不可用，使用BaseMessage
-                # 从graph.states导入BaseMessage
-                from src.infrastructure.graph.states import BaseMessage
-                simple_message = BaseMessage(content=content)
+                # 如果出错，使用字典方式
+                simple_message = {"type": "human", "content": content}
                 messages = self.current_state.get('messages', [])
                 messages.append(simple_message)
                 self.current_state['messages'] = messages

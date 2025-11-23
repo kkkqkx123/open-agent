@@ -8,7 +8,7 @@ import sqlite3
 import threading
 import time
 import logging
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List, Union, AsyncIterator, AsyncGenerator
 from pathlib import Path
 
 from src.core.state.exceptions import (
@@ -408,7 +408,7 @@ class SQLiteStorageBackend(ConnectionPooledStorageBackend):
         filters: Dict[str, Any],
         batch_size: int = 100,
         max_memory_mb: int = 100
-    ) -> Any:
+    ) -> AsyncGenerator[List[Dict[str, Any]], None]:
         """流式列表实现
         
         使用数据库游标进行真正的流式处理，避免一次性加载所有数据到内存。

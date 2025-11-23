@@ -9,7 +9,8 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
 
-from src.services.monitoring.environment import IEnvironmentChecker, EnvironmentChecker
+from .architecture_command import ArchitectureCommand
+from .environment import IEnvironmentChecker, EnvironmentChecker
 from typing import Optional
 from src.core.common.types import CheckResult
 
@@ -19,31 +20,17 @@ class EnvironmentCheckCommand:
 
     def __init__(self, checker: Optional[IEnvironmentChecker] = None):
         self.checker = checker or EnvironmentChecker()
+        # 确保checker是EnvironmentChecker实例
+        env_checker = self.checker if isinstance(self.checker, EnvironmentChecker) else EnvironmentChecker()
+        self.arch_command = ArchitectureCommand(env_checker=env_checker)
         self.console = Console()
 
     def run(
         self, format_type: str = "table", output_file: Optional[str] = None
     ) -> None:
         """运行环境检查"""
-        # 执行检查
-        results = self.checker.check_dependencies()
-
-        # 生成报告
-        report = self.checker.generate_report()
-
-        # 根据格式输出结果
-        if format_type == "table":
-            self._print_table_report(results)
-        elif format_type == "json":
-            self._print_json_report(report, output_file)
-        else:
-            raise ValueError(f"Unsupported format: {format_type}")
-
-        # 检查是否有错误
-        errors = [r for r in results if r.is_error()]
-        if errors:
-            self.console.print("\n[red]Environment check failed with errors![/red]")
-            raise click.ClickException("Environment check failed")
+        # 委托给ArchitectureCommand执行环境检查
+        self.arch_command.run_env_check(format_type=format_type, output_file=output_file)
 
     def _print_table_report(self, results: list[CheckResult]) -> None:
         """打印表格格式报告"""

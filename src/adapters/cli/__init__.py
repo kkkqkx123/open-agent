@@ -4,6 +4,9 @@
 """
 
 from .env_check_command import EnvironmentCheckCommand
+from .architecture_command import ArchitectureCommand
+from .environment import EnvironmentChecker, IEnvironmentChecker
+from .architecture_check import ArchitectureChecker
 from .commands import cli
 from .error_handler import (
     CLIErrorHandler,
@@ -18,6 +21,10 @@ from .run_command import RunCommand
 
 __all__ = [
     "EnvironmentCheckCommand",
+    "ArchitectureCommand",
+    "EnvironmentChecker",
+    "IEnvironmentChecker",
+    "ArchitectureChecker",
     "cli",
     "CLIErrorHandler",
     "handle_cli_error",

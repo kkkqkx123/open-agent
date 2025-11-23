@@ -1,11 +1,11 @@
 """TUI布局配置系统"""
 
 import json
-from infrastructure.config.interfaces import IConfigLoader
 import yaml
 from typing import Dict, Any, Optional, Union
 from pathlib import Path
 from dataclasses import dataclass, asdict, field
+from src.interfaces.common import IConfigLoader
 
 from .layout import LayoutConfig, RegionConfig, LayoutRegion
 
@@ -230,9 +230,13 @@ class ConfigManager:
                 if self.config_loader and isinstance(data, dict):
                     # 创建一个临时方法来利用 IConfigLoader 的环境变量处理能力
                     # 这是一个适配器模式的应用
-                    from infrastructure.config.loader.file_config_loader import FileConfigLoader
-                    temp_loader = FileConfigLoader()
-                    data = temp_loader.resolve_env_vars(data)
+                    try:
+                        from src.core.config.env_resolver import EnvResolver
+                        resolver = EnvResolver()
+                        data = resolver.resolve(data)
+                    except Exception:
+                        # 如果配置解析失败，保持原数据
+                        pass
                 
                 self.config = TUIConfig.from_dict(data)
                 return self.config

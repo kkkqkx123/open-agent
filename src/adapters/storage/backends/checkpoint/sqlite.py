@@ -8,7 +8,7 @@ import sqlite3
 import threading
 import time
 import logging
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List, Union, cast
 from pathlib import Path
 
 from src.interfaces.checkpoint import ICheckpointStore
@@ -196,36 +196,36 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore):
             conn.rollback()
             raise CheckpointStorageError(f"Failed to initialize database tables: {e}")
     
-    async def save(self, checkpoint_data: Dict[str, Any]) -> bool:
+    async def save(self, data: Dict[str, Any]) -> str:
         """保存checkpoint数据
         
         Args:
-            checkpoint_data: checkpoint数据字典
+            data: checkpoint数据字典
             
         Returns:
-            bool: 是否保存成功
+            str: 保存的数据ID
         """
         conn = None
         try:
             # 验证必需字段
-            thread_id = checkpoint_data.get("thread_id")
+            thread_id = data.get("thread_id")
             if not thread_id:
                 raise CheckpointStorageError("checkpoint_data必须包含'thread_id'")
             
             # 生成ID（如果没有）
-            if "id" not in checkpoint_data:
+            if "id" not in data:
                 import uuid
-                checkpoint_data["id"] = str(uuid.uuid4())
+                data["id"] = str(uuid.uuid4())
             
-            checkpoint_id = checkpoint_data["id"]
+            checkpoint_id = data["id"]
             current_time = time.time()
             
             # 添加时间戳
-            checkpoint_data["created_at"] = checkpoint_data.get("created_at", current_time)
-            checkpoint_data["updated_at"] = current_time
+            data["created_at"] = data.get("created_at", current_time)
+            data["updated_at"] = current_time
             
             # 序列化元数据
-            metadata = checkpoint_data.get("metadata", {})
+            metadata = data.get("metadata", {})
             serialized_metadata = StorageCommonUtils.serialize_data(metadata)
             
             # 获取连接
@@ -241,20 +241,20 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore):
             params = [
                 checkpoint_id,
                 thread_id,
-                checkpoint_data.get("session_id", ""),
-                checkpoint_data.get("workflow_id", ""),
-                StorageCommonUtils.serialize_data(checkpoint_data.get("state_data", {})),
+                data.get("session_id", ""),
+                data.get("workflow_id", ""),
+                StorageCommonUtils.serialize_data(data.get("state_data", {})),
                 serialized_metadata,
-                checkpoint_data["created_at"],
-                checkpoint_data["updated_at"],
-                checkpoint_data.get("expires_at"),
-                int(checkpoint_data.get("compressed", False))
+                data["created_at"],
+                data["updated_at"],
+                data.get("expires_at"),
+                int(data.get("compressed", False))
             ]
             
             affected_rows = self._execute_update(conn, query, params)
             
             logger.debug(f"Saved checkpoint {checkpoint_id} for thread {thread_id}")
-            return affected_rows > 0
+            return cast(str, checkpoint_id)
             
         except Exception as e:
             logger.error(f"Failed to save checkpoint: {e}")
@@ -495,7 +495,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore):
             # 生成ID（如果没有）
             if isinstance(data, dict):
                 import uuid
-                item_id = data.get("id", str(uuid.uuid4()))
+                item_id: str = cast(str, data.get("id", str(uuid.uuid4())))
                 data["id"] = item_id
                 current_time = time.time()
                 

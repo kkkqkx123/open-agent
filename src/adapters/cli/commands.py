@@ -9,6 +9,7 @@ from src.services.container import get_global_container
 from src.interfaces.common import IConfigLoader
 from src.interfaces.sessions.base import ISessionManager
 from src.adapters.cli.env_check_command import EnvironmentCheckCommand
+from src.adapters.cli.architecture_command import ArchitectureCommand
 from .error_handler import handle_cli_error, handle_cli_warning, handle_cli_success, handle_cli_info
 from .help import HelpManager
 
@@ -132,6 +133,27 @@ def config_check(ctx: click.Context, format: str, output: Optional[str]) -> None
         
     except Exception as e:
         handle_cli_error(e, ctx.obj.get("verbose", False), "检查配置时发生错误")
+
+
+@cli.command("arch-check")
+@click.option("--format", "-f", type=click.Choice(["table", "json"]), default="table", help="输出格式")
+@click.option("--output", "-o", type=click.Path(), help="输出文件路径（仅JSON格式）")
+@click.option("--base-path", "-b", type=click.Path(), default="src", help="架构检查的基础路径")
+@click.pass_context
+def arch_check(ctx: click.Context, format: str, output: Optional[str], base_path: str) -> None:
+    """检查代码架构分层和依赖关系"""
+    try:
+        from .architecture_check import ArchitectureChecker
+        
+        # 创建架构检查器
+        checker = ArchitectureChecker(base_path=base_path)
+        
+        # 创建并运行命令
+        command = ArchitectureCommand(arch_checker=checker)
+        command.run_arch_check(format_type=format, output_file=output)
+        
+    except Exception as e:
+        handle_cli_error(e, ctx.obj.get("verbose", False), "架构检查时发生错误")
 
 
 @cli.command("version")

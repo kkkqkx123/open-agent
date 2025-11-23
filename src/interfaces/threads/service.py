@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, AsyncGenerator, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ...core.workflow.states.workflow import WorkflowState
+    from ..state import IWorkflowState as WorkflowState
 
 
 class IThreadService(ABC):

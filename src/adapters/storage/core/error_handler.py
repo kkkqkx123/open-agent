@@ -227,8 +227,11 @@ class RetryHandler:
                         current_delay *= self.backoff
                 
                 # 所有重试都失败了
-                storage_error = StorageErrorHandler.handle_storage_error(op_name, last_exception)
-                raise storage_error
+                if last_exception is not None:
+                    storage_error = StorageErrorHandler.handle_storage_error(op_name, last_exception)
+                    raise storage_error
+                else:
+                    raise StorageError(f"Operation {op_name} failed after {self.max_retries} retries")
             
             @wraps(func)
             async def async_wrapper(*args, **kwargs):
@@ -250,8 +253,11 @@ class RetryHandler:
                         current_delay *= self.backoff
                 
                 # 所有重试都失败了
-                storage_error = StorageErrorHandler.handle_async_storage_error(op_name, last_exception)
-                raise storage_error
+                if last_exception is not None:
+                    storage_error = StorageErrorHandler.handle_async_storage_error(op_name, last_exception)
+                    raise storage_error
+                else:
+                    raise StorageError(f"Operation {op_name} failed after {self.max_retries} retries")
             
             # 根据函数类型返回相应的包装器
             import asyncio

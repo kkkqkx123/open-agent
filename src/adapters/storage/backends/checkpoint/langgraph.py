@@ -81,41 +81,47 @@ class LangGraphCheckpointAdapter(ICheckpointStore, ILangGraphAdapter):
         self.checkpointer = checkpointer
         self.serializer = Serializer()
     
-    async def save(self, checkpoint_data: Dict[str, Any]) -> bool:
+    async def save(self, data: Dict[str, Any]) -> str:
         """保存checkpoint数据
         
         Args:
-            checkpoint_data: checkpoint数据字典
+            data: checkpoint数据字典
             
         Returns:
-            bool: 是否保存成功
+            str: 保存的数据ID
         """
         try:
             if not self.checkpointer:
                 raise CheckpointStorageError("Checkpointer未初始化")
             
-            thread_id = checkpoint_data.get("thread_id")
+            thread_id = data.get("thread_id")
             if not thread_id:
                 raise CheckpointStorageError("checkpoint_data必须包含'thread_id'")
+            
+            # 生成checkpoint ID
+            import uuid
+            from typing import cast
+            checkpoint_id: str = cast(str, data.get("id", str(uuid.uuid4())))
+            data["id"] = checkpoint_id
             
             # 创建LangGraph配置
             config = self.create_config(thread_id)
             
             # 提取状态数据
-            state_data = checkpoint_data.get("state_data", {})
-            workflow_id = checkpoint_data.get("workflow_id", "")
-            metadata = checkpoint_data.get("metadata", {})
+            state_data = data.get("state_data", {})
+            workflow_id = data.get("workflow_id", "")
+            metadata = data.get("metadata", {})
             
             # 创建LangGraph checkpoint
             langgraph_checkpoint = self.create_checkpoint(state_data, workflow_id, metadata)
             
             # 保存到LangGraph checkpointer
             # LangGraph的put方法需要config, checkpoint, metadata, new_versions参数
-            new_versions = {}
+            new_versions: dict[str, Any] = {}
             self.checkpointer.put(config, langgraph_checkpoint, metadata, new_versions)
             
             logger.debug(f"Saved checkpoint for thread {thread_id}")
-            return True
+            return checkpoint_id
             
         except Exception as e:
             logger.error(f"Failed to save checkpoint: {e}")
