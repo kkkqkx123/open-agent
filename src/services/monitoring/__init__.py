@@ -1,26 +1,16 @@
 """监控服务模块
 
-提供工作流执行统计、性能监控等功能。
+提供系统监控、性能优化和环境检查功能。
 """
 
-from .execution_stats import (
-    ExecutionStatsCollector,
-    ExecutionRecord,
-    WorkflowStatistics,
-    GlobalStatistics,
-    StatisticPeriod,
-    get_global_stats_collector,
-    record_execution,
-    record_batch_execution
-)
+from .memory_optimizer import MemoryOptimizer, get_global_memory_optimizer
+from .environment import IEnvironmentChecker, EnvironmentChecker
+from .architecture_check import ArchitectureChecker
 
 __all__ = [
-    "ExecutionStatsCollector",
-    "ExecutionRecord",
-    "WorkflowStatistics",
-    "GlobalStatistics",
-    "StatisticPeriod",
-    "get_global_stats_collector",
-    "record_execution",
-    "record_batch_execution"
+    "MemoryOptimizer",
+    "get_global_memory_optimizer",
+    "IEnvironmentChecker", 
+    "EnvironmentChecker",
+    "ArchitectureChecker",
 ]
