@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, List
 from src.interfaces.workflow.core import IWorkflow
-from src.interfaces.state import IWorkflowState
+from src.interfaces.state import IWorkflowState, IState
 
 
 class NextNodesResolver:
@@ -34,9 +34,12 @@ class NextNodesResolver:
         for edge in workflow._edges.values():
             if edge.from_node == node_id:
                 # 检查是否可以遍历
-                if edge.can_traverse_with_config(state, config):
-                    next_node_ids = edge.get_next_nodes(state, config)
-                    next_nodes.extend(next_node_ids)
+                # 直接使用状态，因为接口已经统一
+                # IWorkflowState 现在兼容 IState 接口
+                if hasattr(edge, 'can_traverse_with_config'):
+                    if edge.can_traverse_with_config(state, config):  # type: ignore
+                        next_node_ids = edge.get_next_nodes(state, config)  # type: ignore
+                        next_nodes.extend(next_node_ids)
         
         return next_nodes
     
@@ -60,16 +63,18 @@ class NextNodesResolver:
         for edge in workflow._edges.values():
             if edge.from_node == node_id:
                 # 检查是否可以遍历
+                # 直接使用状态，因为接口已经统一
+                # IWorkflowState 现在兼容 IState 接口
                 if hasattr(edge, 'can_traverse_async'):
-                    can_traverse = await edge.can_traverse_async(state, config)
+                    can_traverse = await edge.can_traverse_async(state, config)  # type: ignore
                 else:
-                    can_traverse = edge.can_traverse_with_config(state, config)
+                    can_traverse = edge.can_traverse_with_config(state, config)  # type: ignore
                 
                 if can_traverse:
                     if hasattr(edge, 'get_next_nodes_async'):
-                        next_node_ids = await edge.get_next_nodes_async(state, config)
+                        next_node_ids = await edge.get_next_nodes_async(state, config)  # type: ignore
                     else:
-                        next_node_ids = edge.get_next_nodes(state, config)
+                        next_node_ids = edge.get_next_nodes(state, config)  # type: ignore
                     next_nodes.extend(next_node_ids)
         
         return next_nodes

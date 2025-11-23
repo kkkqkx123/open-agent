@@ -65,6 +65,25 @@ class Session(AbstractSessionData):
             'tags': self.tags,
             'thread_ids': self.thread_ids
         }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'Session':
+        """从字典创建实例"""
+        return cls(
+            session_id=data["session_id"],
+            _status=SessionStatus(data["status"]) if isinstance(data["status"], str) else data["status"],
+            message_count=data.get("message_count", 0),
+            checkpoint_count=data.get("checkpoint_count", 0),
+            _created_at=datetime.fromisoformat(data["created_at"]),
+            _updated_at=datetime.fromisoformat(data["updated_at"]),
+            metadata=data.get("metadata", {}),
+            tags=data.get("tags", []),
+            thread_ids=data.get("thread_ids", [])
+        )
+    
+    def update_timestamp(self) -> None:
+        """更新时间戳"""
+        self._updated_at = datetime.now()
 
 
 @dataclass

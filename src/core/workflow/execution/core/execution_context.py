@@ -10,6 +10,7 @@ from enum import Enum
 
 if TYPE_CHECKING:
     from src.interfaces.state import IWorkflowState
+    from ...workflow_instance import WorkflowInstance
 
 class ExecutionStatus(Enum):
     """执行状态枚举"""
@@ -201,6 +202,7 @@ class BatchJob:
     config_path: Optional[str] = None
     initial_data: Optional[Dict[str, Any]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    workflow_instance: Optional['WorkflowInstance'] = None
     
     def __post_init__(self):
         """初始化后处理"""

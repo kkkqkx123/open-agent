@@ -7,9 +7,9 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, TYPE_CHECKING, AsyncIterator
 
 if TYPE_CHECKING:
-    from ...interfaces.state import IWorkflowState
-    from ...interfaces.workflow.core import INode
-    from ..core.execution_context import ExecutionContext, NodeResult
+    from src.interfaces import IWorkflowState
+    from src.interfaces.workflow.core import INode
+    from src.core.workflow.execution.core.execution_context import ExecutionContext, NodeResult
 
 class IExecutionMode(ABC):
     """执行模式接口
@@ -70,6 +70,25 @@ class IExecutionMode(ABC):
         
         Returns:
             str: 模式名称
+        """
+        pass
+    
+    @abstractmethod
+    def handle_execution_error(
+        self, 
+        error: Exception, 
+        node: 'INode', 
+        state: 'IWorkflowState'
+    ) -> 'NodeResult':
+        """处理执行错误
+        
+        Args:
+            error: 异常
+            node: 节点实例
+            state: 当前状态
+            
+        Returns:
+            NodeResult: 错误结果
         """
         pass
     

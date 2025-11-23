@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from datetime import datetime
 
 if TYPE_CHECKING:
-    from src.core.threads.entities import Thread, ThreadStatus
+    from src.core.threads.entities import Thread, ThreadStatus, ThreadBranch, ThreadSnapshot
 
 
 class IThreadRepository(ABC):
@@ -132,6 +132,146 @@ class IThreadRepository(ABC):
         
         Args:
             thread_id: 线程ID
+            
+        Returns:
+            是否存在
+        """
+        pass
+
+
+class IThreadBranchRepository(ABC):
+    """线程分支仓储接口 - Entity-based"""
+    
+    @abstractmethod
+    async def create(self, branch: 'ThreadBranch') -> bool:
+        """创建分支
+        
+        Args:
+            branch: 分支实体
+            
+        Returns:
+            是否创建成功
+        """
+        pass
+    
+    @abstractmethod
+    async def get(self, branch_id: str) -> Optional['ThreadBranch']:
+        """获取分支
+        
+        Args:
+            branch_id: 分支ID
+            
+        Returns:
+            分支实体，不存在返回None
+        """
+        pass
+    
+    @abstractmethod
+    async def update(self, branch: 'ThreadBranch') -> bool:
+        """更新分支
+        
+        Args:
+            branch: 分支实体
+            
+        Returns:
+            是否更新成功
+        """
+        pass
+    
+    @abstractmethod
+    async def delete(self, branch_id: str) -> bool:
+        """删除分支
+        
+        Args:
+            branch_id: 分支ID
+            
+        Returns:
+            是否删除成功
+        """
+        pass
+    
+    @abstractmethod
+    async def list_by_thread(self, thread_id: str) -> List['ThreadBranch']:
+        """按线程列分支
+        
+        Args:
+            thread_id: 线程ID
+            
+        Returns:
+            分支列表
+        """
+        pass
+    
+    @abstractmethod
+    async def exists(self, branch_id: str) -> bool:
+        """检查分支是否存在
+        
+        Args:
+            branch_id: 分支ID
+            
+        Returns:
+            是否存在
+        """
+        pass
+
+
+class IThreadSnapshotRepository(ABC):
+    """线程快照仓储接口 - Entity-based"""
+    
+    @abstractmethod
+    async def create(self, snapshot: 'ThreadSnapshot') -> bool:
+        """创建快照
+        
+        Args:
+            snapshot: 快照实体
+            
+        Returns:
+            是否创建成功
+        """
+        pass
+    
+    @abstractmethod
+    async def get(self, snapshot_id: str) -> Optional['ThreadSnapshot']:
+        """获取快照
+        
+        Args:
+            snapshot_id: 快照ID
+            
+        Returns:
+            快照实体，不存在返回None
+        """
+        pass
+    
+    @abstractmethod
+    async def delete(self, snapshot_id: str) -> bool:
+        """删除快照
+        
+        Args:
+            snapshot_id: 快照ID
+            
+        Returns:
+            是否删除成功
+        """
+        pass
+    
+    @abstractmethod
+    async def list_by_thread(self, thread_id: str) -> List['ThreadSnapshot']:
+        """按线程列快照
+        
+        Args:
+            thread_id: 线程ID
+            
+        Returns:
+            快照列表
+        """
+        pass
+    
+    @abstractmethod
+    async def exists(self, snapshot_id: str) -> bool:
+        """检查快照是否存在
+        
+        Args:
+            snapshot_id: 快照ID
             
         Returns:
             是否存在

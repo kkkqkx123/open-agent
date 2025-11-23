@@ -2,8 +2,6 @@
 
 from .interfaces import (
     IThreadDomainService,
-    IThreadBranchRepository,
-    IThreadSnapshotRepository,
 )
 from .base import IThreadManager
 from .collaboration import IThreadCollaborationService
@@ -11,7 +9,7 @@ from .service import IThreadService
 from .branch_service import IThreadBranchService
 from .snapshot_service import IThreadSnapshotService
 from .coordinator_service import IThreadCoordinatorService
-from .storage import IThreadRepository
+from .storage import IThreadRepository, IThreadBranchRepository, IThreadSnapshotRepository
 from .backends import IThreadStorageBackend
 
 __all__ = [

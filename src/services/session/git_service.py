@@ -255,7 +255,7 @@ class GitService(IGitService):
 class MockGitService(IGitService):
     """模拟Git服务 - 用于测试"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化模拟Git服务"""
         self._commits: Dict[str, List[Dict[str, Any]]] = {}
         logger.info("MockGitService初始化完成")

@@ -11,9 +11,9 @@ from typing import Dict, Any, Optional, TYPE_CHECKING
 from .mode_base import BaseMode, IExecutionMode
 
 if TYPE_CHECKING:
-    from ...interfaces.state import IWorkflowState
-    from ...interfaces.workflow.core import INode
-    from ..core.execution_context import ExecutionContext, NodeResult
+    from src.interfaces import IWorkflowState
+    from src.interfaces.workflow.core import INode
+    from src.core.workflow.execution.core.execution_context import ExecutionContext, NodeResult
 
 logger = logging.getLogger(__name__)
 
@@ -93,14 +93,10 @@ class AsyncMode(BaseMode, IAsyncMode):
             
             logger.debug(f"异步执行节点: {getattr(node, 'node_id', 'unknown')}")
             
-            # 检查节点是否支持异步执行
-            if hasattr(node, 'execute_async'):
-                # 节点原生支持异步执行
-                node_result = await node.execute_async(state, context.config)
-            else:
-                # 在线程池中执行同步节点
-                loop = asyncio.get_event_loop()
-                node_result = await loop.run_in_executor(None, node.execute, state, context.config)
+            # 异步执行节点（将IWorkflowState作为IState使用）
+            loop = asyncio.get_event_loop()
+            # 在线程池中执行节点
+            node_result = await loop.run_in_executor(None, node.execute, state, context.config)  # type: ignore
             
             # 处理执行结果
             result = self._process_node_result(node_result, state, context)
@@ -155,39 +151,18 @@ class AsyncMode(BaseMode, IAsyncMode):
         }
         
         try:
-            # 检查节点是否支持流式执行
-            if hasattr(node, 'execute_stream_async'):
-                # 节点原生支持异步流式执行
-                async for event in node.execute_stream_async(state, context.config):
-                    yield event
-            elif hasattr(node, 'execute_stream'):
-                # 节点支持同步流式执行，转换为异步
-                import asyncio
-                loop = asyncio.get_event_loop()
-                
-                def sync_generator():
-                    return node.execute_stream(state, context.config)
-                
-                gen = sync_generator()
-                while True:
-                    try:
-                        event = await loop.run_in_executor(None, next, gen)
-                        yield event
-                    except StopIteration:
-                        break
-            else:
-                # 普通节点，执行完成后发送完成事件
-                result = await self.execute_node_async(node, state, context)
-                
-                yield {
-                    "type": "node_completed",
-                    "data": {
-                        "node_id": getattr(node, 'node_id', 'unknown'),
-                        "node_type": getattr(node, 'node_type', 'unknown'),
-                        "result": result.metadata,
-                        "timestamp": time.time()
-                    }
+            # 普通节点，执行完成后发送完成事件
+            result = await self.execute_node_async(node, state, context)
+            
+            yield {
+                "type": "node_completed",
+                "data": {
+                    "node_id": getattr(node, 'node_id', 'unknown'),
+                    "node_type": getattr(node, 'node_type', 'unknown'),
+                    "result": result.metadata,
+                    "timestamp": time.time()
                 }
+            }
                 
         except Exception as e:
             # 发送错误事件
@@ -228,7 +203,7 @@ class AsyncMode(BaseMode, IAsyncMode):
                 if hasattr(final_state, key):
                     setattr(final_state, key, value)
                 else:
-                    final_state.set_data(key, value)
+                    final_state = final_state.set_field(key, value)
         else:
             # 其他情况，保持原始状态
             final_state = original_state
@@ -236,16 +211,16 @@ class AsyncMode(BaseMode, IAsyncMode):
         # 提取下一个节点
         next_node = None
         if hasattr(node_result, 'next_node'):
-            next_node = node_result.next_node
+            next_node = node_result.next_node  # type: ignore
         elif isinstance(node_result, dict):
-            next_node = node_result.get('next_node')
+            next_node = node_result.get('next_node')  # type: ignore
         
         # 提取元数据
-        metadata = {}
+        metadata: Dict[str, Any] = {}
         if hasattr(node_result, 'metadata'):
-            metadata = node_result.metadata
+            metadata = node_result.metadata  # type: ignore
         elif isinstance(node_result, dict):
-            metadata = node_result.get('metadata', {})
+            metadata = node_result.get('metadata', {})  # type: ignore
         
         # 添加节点信息到元数据
         metadata.update({

@@ -6,8 +6,8 @@ from datetime import datetime
 
 from src.interfaces.sessions.storage import ISessionRepository
 from src.interfaces.sessions.backends import ISessionStorageBackend
-from src.core.sessions.entities import Session, SessionStatus
 from src.core.common.exceptions import StorageError
+from src.core.sessions import Session
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,7 @@ class SessionRepository(ISessionRepository):
             logger.error(f"Failed to delete session: {e}")
             raise StorageError(f"Failed to delete session: {e}")
     
-    async def list_by_status(self, status: SessionStatus) -> List[Session]:
+    async def list_by_status(self, status: str) -> List[Session]:
         """按状态列会话 - 从主后端读取并过滤
         
         Args:
@@ -161,7 +161,7 @@ class SessionRepository(ISessionRepository):
         """
         try:
             keys = await self.primary_backend.list_keys()
-            sessions = []
+            sessions: List['Session'] = []
             
             for session_id in keys:
                 session = await self.get(session_id)
@@ -193,7 +193,7 @@ class SessionRepository(ISessionRepository):
         """
         try:
             keys = await self.primary_backend.list_keys()
-            sessions = []
+            sessions: List['Session'] = []
             
             for session_id in keys:
                 session = await self.get(session_id)
@@ -225,7 +225,7 @@ class SessionRepository(ISessionRepository):
         """
         try:
             keys = await self.primary_backend.list_keys()
-            sessions = []
+            sessions: List['Session'] = []
             
             query_lower = query.lower()
             for session_id in keys:
@@ -363,8 +363,17 @@ class SessionRepository(ISessionRepository):
             if limit:
                 interactions = interactions[-limit:]
             
-            logger.debug(f"Retrieved {len(interactions)} interactions for session {session_id}")
-            return interactions
+            # 确保返回类型正确
+            result: List[Dict[str, Any]] = []
+            for interaction in interactions:
+                if isinstance(interaction, dict):
+                    result.append(interaction)
+                else:
+                    # 如果不是字典，尝试转换
+                    result.append({"data": str(interaction)})
+            
+            logger.debug(f"Retrieved {len(result)} interactions for session {session_id}")
+            return result
             
         except Exception as e:
             logger.error(f"Failed to get interactions: {e}")
@@ -398,7 +407,7 @@ class SessionRepository(ISessionRepository):
         """
         return {
             "session_id": session.session_id,
-            "status": session.status.value,
+            "status": session.status.value if hasattr(session.status, 'value') else session.status,
             "message_count": session.message_count,
             "checkpoint_count": session.checkpoint_count,
             "created_at": session.created_at.isoformat(),
@@ -419,7 +428,7 @@ class SessionRepository(ISessionRepository):
         """
         return Session(
             session_id=data["session_id"],
-            _status=SessionStatus(data["status"]),
+            _status=data["status"],
             message_count=data.get("message_count", 0),
             checkpoint_count=data.get("checkpoint_count", 0),
             _created_at=datetime.fromisoformat(data["created_at"]),

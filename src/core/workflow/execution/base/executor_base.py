@@ -74,7 +74,7 @@ class BaseExecutor(IStreamingExecutor, ABC):
             state: 当前状态
             error: 错误对象
         """
-        state.set_data("error", str(error))
+        state.set_field("error", str(error))
     
     def _create_event(self, event_type: str, **kwargs: Any) -> Dict[str, Any]:
         """创建事件
@@ -119,7 +119,7 @@ class BaseExecutor(IStreamingExecutor, ABC):
         """
         return self._create_event(
             "workflow_completed",
-            final_state=final_state.get_data("error") is None
+            final_state=final_state.get_field("error") is None
         )
     
     def _create_node_started_event(self, node_id: str, node_type: str) -> Dict[str, Any]:

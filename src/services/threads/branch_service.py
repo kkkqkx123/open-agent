@@ -9,7 +9,6 @@ from src.core.threads.interfaces import IThreadCore, IThreadBranchCore
 from src.core.threads.entities import Thread, ThreadBranch, ThreadStatus
 from src.interfaces.threads import IThreadBranchService, IThreadRepository, IThreadBranchRepository
 from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
-from .repository_adapter import ThreadRepositoryAdapter, ThreadBranchRepositoryAdapter
 
 
 class ThreadBranchService(IThreadBranchService):
@@ -24,8 +23,8 @@ class ThreadBranchService(IThreadBranchService):
     ):
         self._thread_core = thread_core
         self._thread_branch_core = thread_branch_core
-        self._thread_repository = ThreadRepositoryAdapter(thread_repository)
-        self._thread_branch_repository = ThreadBranchRepositoryAdapter(thread_branch_repository)
+        self._thread_repository = thread_repository
+        self._thread_branch_repository = thread_branch_repository
     
     async def create_branch_from_checkpoint(
         self,
@@ -37,7 +36,7 @@ class ThreadBranchService(IThreadBranchService):
         """从指定checkpoint创建分支"""
         try:
             # 验证线程存在
-            thread = await self._thread_repository.get_thread(thread_id)
+            thread = await self._thread_repository.get(thread_id)
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
@@ -56,11 +55,11 @@ class ThreadBranchService(IThreadBranchService):
             
             # 保存分支
             branch = ThreadBranch.from_dict(branch_data)
-            await self._thread_branch_repository.save_branch(branch)
+            await self._thread_branch_repository.create(branch)
             
             # 更新线程的分支计数
             thread.increment_branch_count()
-            await self._thread_repository.update_thread(thread_id, thread)
+            await self._thread_repository.update(thread)
             
             return branch_id
         except Exception as e:
@@ -75,11 +74,11 @@ class ThreadBranchService(IThreadBranchService):
         """将分支合并到主线"""
         try:
             # 验证线程和分支存在
-            thread = await self._thread_repository.get_thread(thread_id)
+            thread = await self._thread_repository.get(thread_id)
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
-            branch = await self._thread_branch_repository.get_branch(branch_id)
+            branch = await self._thread_branch_repository.get(branch_id)
             if not branch:
                 raise EntityNotFoundError(f"Branch {branch_id} not found")
             
@@ -99,7 +98,7 @@ class ThreadBranchService(IThreadBranchService):
             # 标记分支为非活动
             branch.metadata["is_active"] = False
             branch.metadata["merged_at"] = datetime.now().isoformat()
-            await self._thread_branch_repository.update_branch(branch_id, branch)
+            await self._thread_branch_repository.update(branch)
             
             return True
         except Exception as e:
@@ -109,14 +108,13 @@ class ThreadBranchService(IThreadBranchService):
         """获取分支历史"""
         try:
             # 验证分支存在
-            branch = await self._thread_branch_repository.get_branch(branch_id)
+            branch = await self._thread_branch_repository.get(branch_id)
             if not branch or branch.thread_id != thread_id:
                 raise EntityNotFoundError(f"Branch {branch_id} not found in thread {thread_id}")
             
-            # 获取分支历史记录
-            history = await self._thread_branch_repository.get_branch_history(branch_id)
-            
-            return history
+            # TODO: 分支历史功能应该从专门的历史服务获取，而不是仓储
+            # 目前先返回空列表作为占位符
+            return []
         except Exception as e:
             raise ValidationError(f"Failed to get branch history: {str(e)}")
     
@@ -124,12 +122,13 @@ class ThreadBranchService(IThreadBranchService):
         """列活动分支"""
         try:
             # 验证线程存在
-            thread = await self._thread_repository.get_thread(thread_id)
+            thread = await self._thread_repository.get(thread_id)
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
             # 获取活动分支
-            branches = await self._thread_branch_repository.list_active_branches(thread_id)
+            all_branches = await self._thread_branch_repository.list_by_thread(thread_id)
+            branches = [b for b in all_branches if b.metadata.get("is_active", True)]
             
             return [
                 {
@@ -149,7 +148,7 @@ class ThreadBranchService(IThreadBranchService):
         """验证分支完整性"""
         try:
             # 验证分支存在
-            branch = await self._thread_branch_repository.get_branch(branch_id)
+            branch = await self._thread_branch_repository.get(branch_id)
             if not branch or branch.thread_id != thread_id:
                 return False
             
@@ -171,7 +170,7 @@ class ThreadBranchService(IThreadBranchService):
         """清理孤立分支"""
         try:
             # 获取线程的所有分支
-            all_branches = await self._thread_branch_repository.list_branches_by_thread(thread_id)
+            all_branches = await self._thread_branch_repository.list_by_thread(thread_id)
             
             cleaned_count = 0
             for branch in all_branches:
@@ -183,11 +182,11 @@ class ThreadBranchService(IThreadBranchService):
                     if success:
                         cleaned_count += 1
                         # 更新线程的分支计数
-                        thread = await self._thread_repository.get_thread(thread_id)
+                        thread = await self._thread_repository.get(thread_id)
                         if thread:
                             thread.branch_count = max(0, thread.branch_count - 1)
                             thread.updated_at = datetime.now()
-                            await self._thread_repository.update_thread(thread_id, thread)
+                            await self._thread_repository.update(thread)
             
             return cleaned_count
         except Exception as e:

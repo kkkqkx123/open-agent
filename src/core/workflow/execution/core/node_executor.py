@@ -12,8 +12,8 @@ from ..modes.mode_base import IExecutionMode
 from .execution_context import ExecutionContext, NodeResult
 
 if TYPE_CHECKING:
-    from ...interfaces.state import IWorkflowState
-    from ...interfaces.workflow.core import INode
+    from src.interfaces import IWorkflowState
+    from src.interfaces.workflow.core import INode
 
 logger = logging.getLogger(__name__)
 
@@ -163,8 +163,8 @@ class NodeExecutor(INodeExecutor):
             if self._mode and self._mode.supports_async():
                 result = await self._mode.execute_node_async(node, state, context)
             elif hasattr(node, 'execute_async'):
-                # 节点本身支持异步
-                node_result = await node.execute_async(state, context.config)
+                # 节点本身支持异步（将IWorkflowState作为IState使用）
+                node_result = await node.execute_async(state, context.config)  # type: ignore
                 result = self._process_node_result(node_result, state, context)
             else:
                 # 使用默认异步执行
@@ -239,8 +239,8 @@ class NodeExecutor(INodeExecutor):
         Returns:
             NodeResult: 节点执行结果
         """
-        # 执行节点
-        node_result = node.execute(state, context.config)
+        # 执行节点（将IWorkflowState作为IState使用）
+        node_result = node.execute(state, context.config)  # type: ignore
         
         # 处理执行结果
         return self._process_node_result(node_result, state, context)
@@ -263,9 +263,9 @@ class NodeExecutor(INodeExecutor):
         """
         import asyncio
         
-        # 在线程池中执行同步节点
+        # 在线程池中执行同步节点（将IWorkflowState作为IState使用）
         loop = asyncio.get_event_loop()
-        node_result = await loop.run_in_executor(None, node.execute, state, context.config)
+        node_result = await loop.run_in_executor(None, node.execute, state, context.config)  # type: ignore
         
         # 处理执行结果
         return self._process_node_result(node_result, state, context)
@@ -296,7 +296,7 @@ class NodeExecutor(INodeExecutor):
                 if hasattr(final_state, key):
                     setattr(final_state, key, value)
                 else:
-                    final_state.set_data(key, value)
+                    final_state = final_state.set_field(key, value)
         else:
             # 其他情况，保持原始状态
             final_state = original_state
@@ -304,16 +304,16 @@ class NodeExecutor(INodeExecutor):
         # 提取下一个节点
         next_node = None
         if hasattr(node_result, 'next_node'):
-            next_node = node_result.next_node
+            next_node = node_result.next_node  # type: ignore
         elif isinstance(node_result, dict):
-            next_node = node_result.get('next_node')
+            next_node = node_result.get('next_node')  # type: ignore
         
         # 提取元数据
-        metadata = {}
+        metadata: Dict[str, Any] = {}
         if hasattr(node_result, 'metadata'):
-            metadata = node_result.metadata
+            metadata = node_result.metadata  # type: ignore
         elif isinstance(node_result, dict):
-            metadata = node_result.get('metadata', {})
+            metadata = node_result.get('metadata', {})  # type: ignore
         
         # 添加节点信息到元数据
         metadata.update({

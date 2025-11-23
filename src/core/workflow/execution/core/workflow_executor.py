@@ -14,9 +14,9 @@ from .execution_context import ExecutionContext, ExecutionResult
 from .node_executor import INodeExecutor, NodeExecutor
 
 if TYPE_CHECKING:
-    from ...interfaces.state import IWorkflowState
-    from ...interfaces.workflow.core import IWorkflow
-    from ...workflow_instance import WorkflowInstance
+    from src.interfaces import IWorkflowState
+    from src.interfaces.workflow.core import IWorkflow
+    from src.core.workflow.workflow_instance import WorkflowInstance
 
 logger = logging.getLogger(__name__)
 
@@ -202,12 +202,16 @@ class WorkflowExecutor(IWorkflowExecutor):
             if self._strategy:
                 # 检查策略是否支持异步
                 if hasattr(self._strategy, 'execute_async'):
-                    result = await self._strategy.execute_async(self, workflow, context)
+                    result = await self._strategy.execute_async(self, workflow, context)  # type: ignore
                 else:
                     # 在线程池中执行同步策略
                     import asyncio
+                    import functools
                     loop = asyncio.get_event_loop()
-                    result = await loop.run_in_executor(None, self._strategy.execute, self, workflow, context)
+                    result = await loop.run_in_executor(
+                        None, 
+                        functools.partial(self._strategy.execute, self, workflow, context)
+                    )
             else:
                 result = await self._default_execute_async(workflow, context)
             
@@ -305,19 +309,19 @@ class WorkflowExecutor(IWorkflowExecutor):
         Returns:
             ExecutionResult: 执行结果
         """
-        # 获取初始状态
-        initial_state = workflow.create_initial_state(context.get_config("initial_data"))
+        # 获取初始数据
+        initial_data = context.get_config("initial_data")
         
         # 执行工作流
-        final_state = workflow.run(initial_state, context.config)
+        final_state = workflow.run(initial_data, **context.config)
         
         # 创建执行结果
         return ExecutionResult(
             success=True,
-            result=final_state.get_data() if hasattr(final_state, 'get_data') else {},
+            result=final_state if isinstance(final_state, dict) else (final_state.to_dict() if hasattr(final_state, 'to_dict') else {}),
             metadata={
                 "workflow_name": workflow.config.name,
-                "workflow_id": workflow.config.id,
+                "workflow_id": workflow.config.name,  # 使用name作为id
                 "execution_id": context.execution_id,
                 "total_nodes": len(workflow.config.nodes) if hasattr(workflow.config, 'nodes') else 0
             },
@@ -338,25 +342,29 @@ class WorkflowExecutor(IWorkflowExecutor):
         Returns:
             ExecutionResult: 执行结果
         """
-        # 获取初始状态
-        initial_state = workflow.create_initial_state(context.get_config("initial_data"))
+        # 获取初始数据
+        initial_data = context.get_config("initial_data")
         
         # 异步执行工作流
         if hasattr(workflow, 'run_async'):
-            final_state = await workflow.run_async(initial_state, context.config)
+            final_state = await workflow.run_async(initial_data, **context.config)
         else:
             # 在线程池中执行同步工作流
             import asyncio
+            import functools
             loop = asyncio.get_event_loop()
-            final_state = await loop.run_in_executor(None, workflow.run, initial_state, context.config)
+            final_state = await loop.run_in_executor(
+                None, 
+                functools.partial(workflow.run, initial_data, **context.config)
+            )
         
         # 创建执行结果
         return ExecutionResult(
             success=True,
-            result=final_state.get_data() if hasattr(final_state, 'get_data') else {},
+            result=final_state if isinstance(final_state, dict) else (final_state.to_dict() if hasattr(final_state, 'to_dict') else {}),
             metadata={
                 "workflow_name": workflow.config.name,
-                "workflow_id": workflow.config.id,
+                "workflow_id": workflow.config.name,  # 使用name作为id
                 "execution_id": context.execution_id,
                 "total_nodes": len(workflow.config.nodes) if hasattr(workflow.config, 'nodes') else 0,
                 "execution_mode": "async"
@@ -385,7 +393,7 @@ class WorkflowExecutor(IWorkflowExecutor):
             error=str(error),
             metadata={
                 "workflow_name": workflow.config.name,
-                "workflow_id": workflow.config.id,
+                "workflow_id": workflow.config.name,  # 使用name作为id
                 "execution_id": context.execution_id,
                 "error_type": type(error).__name__,
                 "error_timestamp": time.time()

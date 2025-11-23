@@ -10,9 +10,9 @@ from typing import Dict, Any, Optional, TYPE_CHECKING
 from .mode_base import BaseMode, IExecutionMode
 
 if TYPE_CHECKING:
-    from ...interfaces.state import IWorkflowState
-    from ...interfaces.workflow.core import INode
-    from ..core.execution_context import ExecutionContext, NodeResult
+    from src.interfaces import IWorkflowState
+    from src.interfaces.workflow.core import INode
+    from src.core.workflow.execution.core.execution_context import ExecutionContext, NodeResult
 
 logger = logging.getLogger(__name__)
 
@@ -57,8 +57,8 @@ class SyncMode(BaseMode, ISyncMode):
             
             logger.debug(f"同步执行节点: {getattr(node, 'node_id', 'unknown')}")
             
-            # 执行节点
-            node_result = node.execute(state, context.config)
+            # 执行节点（将IWorkflowState作为IState使用）
+            node_result = node.execute(state, context.config)  # type: ignore
             
             # 处理执行结果
             result = self._process_node_result(node_result, state, context)
@@ -124,7 +124,7 @@ class SyncMode(BaseMode, ISyncMode):
                 if hasattr(final_state, key):
                     setattr(final_state, key, value)
                 else:
-                    final_state.set_data(key, value)
+                    final_state = final_state.set_field(key, value)
         else:
             # 其他情况，保持原始状态
             final_state = original_state
@@ -132,16 +132,16 @@ class SyncMode(BaseMode, ISyncMode):
         # 提取下一个节点
         next_node = None
         if hasattr(node_result, 'next_node'):
-            next_node = node_result.next_node
+            next_node = node_result.next_node  # type: ignore
         elif isinstance(node_result, dict):
-            next_node = node_result.get('next_node')
+            next_node = node_result.get('next_node')  # type: ignore
         
         # 提取元数据
-        metadata = {}
+        metadata: Dict[str, Any] = {}
         if hasattr(node_result, 'metadata'):
-            metadata = node_result.metadata
+            metadata = node_result.metadata  # type: ignore
         elif isinstance(node_result, dict):
-            metadata = node_result.get('metadata', {})
+            metadata = node_result.get('metadata', {})  # type: ignore
         
         # 添加节点信息到元数据
         metadata.update({

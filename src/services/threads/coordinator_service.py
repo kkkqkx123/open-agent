@@ -9,7 +9,6 @@ from src.core.threads.interfaces import IThreadCore
 from src.core.threads.entities import ThreadStatus, Thread, ThreadMetadata
 from src.interfaces.threads import IThreadCoordinatorService, IThreadRepository
 from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
-from .repository_adapter import ThreadRepositoryAdapter
 
 
 class ThreadCoordinatorService(IThreadCoordinatorService):
@@ -21,7 +20,7 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
         thread_repository: IThreadRepository
     ):
         self._thread_core = thread_core
-        self._thread_repository = ThreadRepositoryAdapter(thread_repository)
+        self._thread_repository = thread_repository
         self._coordination_registry = {}  # 协调状态注册表
     
     async def coordinate_thread_creation(
@@ -69,7 +68,7 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
                 
                 # 保存线程
                 thread = Thread.from_dict(thread_data)
-                await self._thread_repository.save_thread(thread)
+                await self._thread_repository.create(thread)
                 
                 self._coordination_registry[coordination_id]["thread_id"] = thread_id
             except Exception as e:
@@ -86,10 +85,9 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
             # 步骤3: 关联会话（如果提供）
             if session_context and "session_id" in session_context:
                 try:
-                    await self._thread_repository.associate_with_session(
-                        thread_id,
-                        session_context["session_id"]
-                    )
+                    # 关联会话逻辑应该在会话服务中处理
+                    # 暂时留作占位符，实际功能应该被移动到适当的服务
+                    pass
                 except Exception as e:
                     # 关联失败不视为致命错误
                     self._coordination_registry[coordination_id]["warnings"] = [str(e)]
@@ -128,7 +126,7 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
         
         try:
             # 验证线程存在
-            thread = await self._thread_repository.get_thread(thread_id)
+            thread = await self._thread_repository.get(thread_id)
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
@@ -142,7 +140,7 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
             success = thread.transition_to(ThreadStatus(target_status))
             
             if success:
-                await self._thread_repository.update_thread(thread_id, thread)
+                await self._thread_repository.update(thread)
             
             # 记录协调结果
             self._coordination_registry[coordination_id] = {
@@ -175,7 +173,7 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
         
         try:
             # 验证线程存在
-            thread = await self._thread_repository.get_thread(thread_id)
+            thread = await self._thread_repository.get(thread_id)
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
@@ -188,7 +186,7 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
             
             # 更新线程检查点计数
             thread.increment_checkpoint_count()
-            await self._thread_repository.update_thread(thread_id, thread)
+            await self._thread_repository.update(thread)
             
             # 记录协调结果
             self._coordination_registry[coordination_id] = {
@@ -220,7 +218,7 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
         
         try:
             # 验证线程存在
-            thread = await self._thread_repository.get_thread(thread_id)
+            thread = await self._thread_repository.get(thread_id)
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
@@ -236,7 +234,7 @@ class ThreadCoordinatorService(IThreadCoordinatorService):
                 # 更新线程状态
                 thread.status = ThreadStatus.ACTIVE
                 thread.updated_at = datetime.now()
-                await self._thread_repository.update_thread(thread_id, thread)
+                await self._thread_repository.update(thread)
             
             # 记录协调结果
             self._coordination_registry[coordination_id] = {

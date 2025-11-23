@@ -3,7 +3,7 @@
 import uuid
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional, List, AsyncGenerator, Callable
+from typing import Dict, Any, Optional, List, AsyncGenerator, Callable, TYPE_CHECKING
 from datetime import datetime
 
 from src.interfaces.sessions.service import ISessionService
@@ -11,11 +11,20 @@ from src.interfaces.sessions.entities import UserRequest, UserInteraction, Sessi
 from src.interfaces.sessions.storage import ISessionRepository
 from src.interfaces.threads.service import IThreadService
 from src.core.sessions.interfaces import ISessionCore, ISessionValidator, ISessionStateTransition
-from src.core.sessions.entities import SessionEntity, UserRequestEntity, UserInteractionEntity, Session, SessionStatus
+from src.core.sessions.entities import SessionEntity, UserRequestEntity, UserInteractionEntity
+from src.interfaces.common import AbstractSessionStatus as SessionStatus
+
+if TYPE_CHECKING:
+    from src.core.sessions.entities import Session
 from src.core.common.exceptions import ValidationError
-from src.core.common.exceptions import CoreError as EntityNotFoundError
+from src.core.common.exceptions.session_thread import (
+    SessionNotFoundError,
+    ThreadNotFoundError,
+    WorkflowExecutionError
+)
 from src.core.workflow.states.workflow import WorkflowState
 from .git_service import IGitService
+from .coordinator import SessionThreadCoordinator
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +37,10 @@ class SessionService(ISessionService):
         session_core: ISessionCore,
         session_repository: ISessionRepository,
         thread_service: IThreadService,
+        coordinator: SessionThreadCoordinator,
         session_validator: Optional[ISessionValidator] = None,
         state_transition: Optional[ISessionStateTransition] = None,
-        git_service: Optional['IGitService'] = None,
+        git_service: Optional[IGitService] = None,
         storage_path: Optional[Path] = None
     ):
         """初始化会话服务
@@ -43,17 +53,16 @@ class SessionService(ISessionService):
             state_transition: 状态转换器
             git_service: Git服务
             storage_path: 存储路径
+            coordinator: Session-Thread协调器（必需）
         """
         self._session_core = session_core
         self._session_repository = session_repository
         self._thread_service = thread_service
+        self._coordinator = coordinator
         self._session_validator = session_validator
         self._state_transition = state_transition
         self._git_service = git_service
         self._storage_path = storage_path or Path("./sessions")
-        
-        # 会话存储缓存（在内存中存储会话数据）
-        self._session_store: Dict[str, Dict[str, Any]] = {}
         
         # 确保存储目录存在
         self._storage_path.mkdir(parents=True, exist_ok=True)
@@ -122,7 +131,7 @@ class SessionService(ISessionService):
                 )
             
             logger.info(f"创建用户会话成功: {session.session_id}, user_id: {user_request.user_id}")
-            return session.session_id
+            return str(session.session_id)
             
         except Exception as e:
             logger.error(f"创建会话失败: {e}")
@@ -172,7 +181,6 @@ class SessionService(ISessionService):
         """列出所有会话"""
         try:
             # 从仓储获取所有活跃会话
-            from src.core.sessions.entities import SessionStatus
             
             sessions = []
             for status in [SessionStatus.ACTIVE, SessionStatus.PAUSED, SessionStatus.COMPLETED]:
@@ -347,62 +355,7 @@ class SessionService(ISessionService):
     async def coordinate_threads(self, session_id: str, thread_configs: List[Dict[str, Any]]) -> Dict[str, str]:
         """协调多个Thread执行"""
         try:
-            session_data = self._session_store.get(session_id)
-            if not session_data:
-                raise EntityNotFoundError(f"会话不存在: {session_id}")
-            
-            thread_ids = {}
-            session_context = self._deserialize_session_context(session_data.get("context", {}))
-            
-            # 创建Thread
-            for thread_config in thread_configs:
-                thread_name = thread_config["name"]
-                config_path = thread_config.get("config_path")
-                initial_state = thread_config.get("initial_state")
-                
-                # 委托ThreadService创建Thread
-                if config_path:
-                    thread_id = await self._thread_service.create_thread_from_config(
-                        config_path, 
-                        metadata={"session_id": session_id, "thread_name": thread_name}
-                    )
-                else:
-                    # 使用graph_id创建
-                    graph_id = thread_config.get("graph_id", "default")
-                    thread_id = await self._thread_service.create_thread(
-                        graph_id,
-                        metadata={"session_id": session_id, "thread_name": thread_name}
-                    )
-                
-                # 如果有初始状态，设置到Thread
-                if initial_state:
-                    await self._thread_service.update_thread_state(thread_id, initial_state)
-                
-                thread_ids[thread_name] = thread_id
-                session_context.thread_ids.append(thread_id)
-                
-                # 追踪Thread创建交互
-                interaction = UserInteraction(
-                    interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
-                    session_id=session_id,
-                    thread_id=thread_id,
-                    interaction_type="thread_created",
-                    content=f"创建Thread: {thread_name}",
-                    metadata={"thread_name": thread_name, "config_path": config_path},
-                    timestamp=datetime.now()
-                )
-                await self.track_user_interaction(session_id, interaction)
-            
-            # 更新会话上下文
-            session_context.updated_at = datetime.now()
-            session_data["context"] = self._serialize_session_context(session_context)
-            session_data["thread_configs"] = {config["name"]: config for config in thread_configs}
-            session_data["updated_at"] = datetime.now().isoformat()
-            self._session_store[session_id] = session_data
-            
-            logger.info(f"协调Thread执行成功: {session_id}, 创建了{len(thread_ids)}个Thread")
-            return thread_ids
-            
+            return await self._coordinator.coordinate_threads(session_id, thread_configs)
         except Exception as e:
             logger.error(f"协调Thread执行失败: {session_id}, error: {e}")
             raise ValidationError(f"协调Thread执行失败: {str(e)}")
@@ -416,78 +369,19 @@ class SessionService(ISessionService):
         config: Optional[Dict[str, Any]] = None
     ) -> WorkflowState:
         """在会话中执行工作流"""
-        # 获取会话上下文
-        session_context = await self.get_session_context(session_id)
-        if not session_context:
-            raise EntityNotFoundError(f"会话不存在: {session_id}")
-        
-        # 查找Thread ID
-        thread_id = None
-        session_data = self._session_store.get(session_id)
-        if session_data is None:
-            raise EntityNotFoundError(f"会话 {session_id} 不存在")
-        thread_configs = session_data.get("thread_configs", {})
-        
-        if thread_name in thread_configs:
-            # 从thread_configs中查找
-            thread_config = thread_configs[thread_name]
-            config_path = thread_config.get("config_path")
-            
-            # 查找对应的thread_id
-            for tid in session_context.thread_ids:
-                thread_info = await self._thread_service.get_thread_info(tid)
-                if thread_info and thread_info.get("metadata", {}).get("thread_name") == thread_name:
-                    thread_id = tid
-                    break
-        else:
-            raise EntityNotFoundError(f"Thread不存在: {thread_name}")
-        
-        if not thread_id:
-            raise EntityNotFoundError(f"找不到Thread: {thread_name}")
-        
-        # 追踪执行开始交互
-        interaction = UserInteraction(
-            interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
-            session_id=session_id,
-            thread_id=thread_id,
-            interaction_type="workflow_execution_start",
-            content=f"开始执行工作流: {thread_name}",
-            metadata={"thread_name": thread_name, "config": config},
-            timestamp=datetime.now()
-        )
-        await self.track_user_interaction(session_id, interaction)
-        
         try:
-            # 委托ThreadService执行工作流
-            result = await self._thread_service.execute_workflow(thread_id, config)
-            
-            # 追踪执行成功交互
-            success_interaction = UserInteraction(
-                interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
-                session_id=session_id,
-                thread_id=thread_id,
-                interaction_type="workflow_execution_success",
-                content=f"工作流执行成功: {thread_name}",
-                metadata={"thread_name": thread_name, "result_keys": list(result.keys()) if isinstance(result, dict) else []},
-                timestamp=datetime.now()
-            )
-            await self.track_user_interaction(session_id, success_interaction)
-            
-            return result  # type: ignore
-            
+            result = await self._coordinator.execute_workflow_in_session(session_id, thread_name, config)
+            # 确保返回类型正确
+            if result is None:
+                raise WorkflowExecutionError(session_id, thread_name, RuntimeError("Coordinator returned None"))
+            # 类型断言：确保返回的是WorkflowState类型
+            if not isinstance(result, WorkflowState):
+                # 如果不是WorkflowState，尝试转换或抛出错误
+                raise WorkflowExecutionError(session_id, thread_name, RuntimeError(f"Expected WorkflowState, got {type(result)}"))
+            return result
         except Exception as e:
-            # 追踪执行错误交互
-            error_interaction = UserInteraction(
-                interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
-                session_id=session_id,
-                thread_id=thread_id,
-                interaction_type="workflow_execution_error",
-                content=f"工作流执行失败: {thread_name}",
-                metadata={"thread_name": thread_name, "error": str(e)},
-                timestamp=datetime.now()
-            )
-            await self.track_user_interaction(session_id, error_interaction)
-            raise
+            logger.error(f"工作流执行失败: {session_id}, {thread_name}, error: {e}")
+            raise WorkflowExecutionError(session_id, thread_name, e)
     
     def stream_workflow_in_session(
         self,
@@ -500,14 +394,14 @@ class SessionService(ISessionService):
             # 获取会话上下文
             session_context = await self.get_session_context(session_id)
             if not session_context:
-                raise EntityNotFoundError(f"会话不存在: {session_id}")
+                raise SessionNotFoundError(f"会话不存在: {session_id}")
             
             # 查找Thread ID（类似execute_workflow_in_session）
             thread_id = None
-            session_data = self._session_store.get(session_id)
-            if session_data is None:
-                raise EntityNotFoundError(f"会话 {session_id} 不存在")
-            thread_configs = session_data.get("thread_configs", {})
+            session = await self._session_repository.get(session_id)
+            if session is None:
+                raise SessionNotFoundError(f"会话 {session_id} 不存在")
+            thread_configs = session.metadata.get("thread_configs", {})
             
             if thread_name in thread_configs:
                 thread_config = thread_configs[thread_name]
@@ -519,10 +413,10 @@ class SessionService(ISessionService):
                         thread_id = tid
                         break
             else:
-                raise EntityNotFoundError(f"Thread不存在: {thread_name}")
+                raise ThreadNotFoundError(f"Thread不存在: {thread_name}")
             
             if not thread_id:
-                raise EntityNotFoundError(f"找不到Thread: {thread_name}")
+                raise ThreadNotFoundError(f"找不到Thread: {thread_name}")
             
             # 追踪流式执行开始交互
             interaction = UserInteraction(
@@ -580,7 +474,7 @@ class SessionService(ISessionService):
         interactions = await self.get_interaction_history(session_id)
         
         # 统计交互类型
-        interaction_stats = {}
+        interaction_stats: Dict[str, int] = {}
         for interaction in interactions:
             interaction_type = interaction.interaction_type
             interaction_stats[interaction_type] = interaction_stats.get(interaction_type, 0) + 1
@@ -647,6 +541,24 @@ class SessionService(ISessionService):
         
         return session_id
     
+    # === 新增协调器方法 ===
+    
+    async def sync_session_data(self, session_id: str) -> Dict[str, Any]:
+        """同步Session数据"""
+        return await self._coordinator.sync_session_data(session_id)
+    
+    async def validate_session_consistency(self, session_id: str) -> List[str]:
+        """验证Session一致性"""
+        return await self._coordinator.validate_session_consistency(session_id)
+    
+    async def repair_session_inconsistencies(self, session_id: str) -> Dict[str, Any]:
+        """修复Session不一致问题"""
+        return await self._coordinator.repair_session_inconsistencies(session_id)
+    
+    async def remove_thread_from_session(self, session_id: str, thread_name: str) -> bool:
+        """从Session中移除Thread"""
+        return await self._coordinator.remove_thread_from_session(session_id, thread_name)
+    
     # === 私有辅助方法 ===
     
     def _serialize_session_context(self, context: SessionContext) -> Dict[str, Any]:
@@ -687,7 +599,7 @@ class SessionService(ISessionService):
             metadata=data.get("metadata", {})
         )
     
-    def _entity_to_session(self, entity: SessionEntity) -> Session:
+    def _entity_to_session(self, entity: SessionEntity) -> 'Session':
         """将 SessionEntity 转换为 Session 业务实体
         
         Args:
@@ -698,6 +610,9 @@ class SessionService(ISessionService):
         """
         # 将字符串状态转换为 SessionStatus 枚举
         status = SessionStatus(entity.status) if isinstance(entity.status, str) else entity.status
+        
+        # 动态导入避免循环依赖
+        from src.core.sessions.entities import Session
         
         return Session(
             session_id=entity.session_id,

@@ -3,9 +3,12 @@
 基于BaseState实现的工作流状态。
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 from datetime import datetime
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from src.interfaces.state.interfaces import IState
 
 # Import LangChain message types - core dependency
 from langchain_core.messages import (
@@ -28,6 +31,7 @@ class WorkflowState(BaseModel, IWorkflowState):
     """工作流状态实现
     
     基于BaseState和IWorkflowState接口的具体实现。
+    现在也实现了统一的 IState 接口。
     """
     # 基础字段
     messages: List[Union[BaseMessage, LCBaseMessage]] = Field(default_factory=list)
@@ -287,6 +291,43 @@ class WorkflowState(BaseModel, IWorkflowState):
     def get_value(self, key: str, default: Any = None) -> Any:
         """从状态获取值"""
         return self.values.get(key, default)
+    
+    # 实现 IState 接口的 fields 属性
+    @property
+    def fields(self) -> Dict[str, Any]:
+        """字段字典（IState 接口）"""
+        return self.values
+    
+    # 实现 IState 接口的 get_field 方法
+    def get_field(self, key: str, default: Any = None) -> Any:
+        """获取字段值（IState 接口）"""
+        return self.get_value(key, default)
+    
+    # 实现 IState 接口的 set_field 方法
+    def set_field(self, key: str, value: Any) -> 'WorkflowState':
+        """创建包含新字段值的状态（IState 接口）"""
+        new_state = self.clone()
+        new_state.set_value(key, value)
+        return new_state
+    
+    # 实现 IState 接口的 with_messages 方法
+    def with_messages(self, messages: List[Any]) -> 'WorkflowState':
+        """创建包含新消息的状态（IState 接口）"""
+        new_state = self.clone()
+        new_state.messages = messages
+        return new_state
+    
+    # 实现 IState 接口的 with_metadata 方法
+    def with_metadata(self, metadata: Dict[str, Any]) -> 'WorkflowState':
+        """创建包含新元数据的状态（IState 接口）"""
+        new_state = self.clone()
+        new_state.metadata = metadata
+        return new_state
+    
+    # 实现 IState 接口的 copy 方法（重命名以避免与 BaseModel 冲突）
+    def copy_state(self) -> 'WorkflowState':
+        """创建状态的深拷贝（IState 接口）"""
+        return self.clone()
     
     def set_value(self, key: str, value: Any) -> None:
         """在状态中设置值"""

@@ -9,7 +9,6 @@ from src.core.threads.interfaces import IThreadCore, IThreadSnapshotCore
 from src.core.threads.entities import Thread, ThreadMetadata, ThreadSnapshot, ThreadStatus
 from src.interfaces.threads import IThreadSnapshotService, IThreadRepository, IThreadSnapshotRepository
 from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
-from .repository_adapter import ThreadRepositoryAdapter, ThreadSnapshotRepositoryAdapter
 
 
 class ThreadSnapshotService(IThreadSnapshotService):
@@ -24,8 +23,8 @@ class ThreadSnapshotService(IThreadSnapshotService):
     ):
         self._thread_core = thread_core
         self._thread_snapshot_core = thread_snapshot_core
-        self._thread_repository = ThreadRepositoryAdapter(thread_repository)
-        self._thread_snapshot_repository = ThreadSnapshotRepositoryAdapter(thread_snapshot_repository)
+        self._thread_repository = thread_repository
+        self._thread_snapshot_repository = thread_snapshot_repository
     
     async def create_snapshot_from_thread(
         self,
@@ -37,7 +36,7 @@ class ThreadSnapshotService(IThreadSnapshotService):
         """从线程创建快照"""
         try:
             # 验证线程存在
-            thread = await self._thread_repository.get_thread(thread_id)
+            thread = await self._thread_repository.get(thread_id)
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
@@ -72,11 +71,11 @@ class ThreadSnapshotService(IThreadSnapshotService):
             snapshot.snapshot_name = snapshot_name
             if description:
                 snapshot.description = description
-            await self._thread_snapshot_repository.save_snapshot(snapshot)
+            await self._thread_snapshot_repository.create(snapshot)
             
             # 更新线程的检查点计数
             thread.increment_checkpoint_count()
-            await self._thread_repository.update_thread(thread_id, thread)
+            await self._thread_repository.update(thread)
             
             return snapshot_id
         except Exception as e:
@@ -91,11 +90,11 @@ class ThreadSnapshotService(IThreadSnapshotService):
         """从快照恢复线程"""
         try:
             # 验证线程和快照存在
-            thread = await self._thread_repository.get_thread(thread_id)
+            thread = await self._thread_repository.get(thread_id)
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
-            snapshot = await self._thread_snapshot_repository.get_snapshot(snapshot_id)
+            snapshot = await self._thread_snapshot_repository.get(snapshot_id)
             if not snapshot or snapshot.thread_id != thread_id:
                 raise EntityNotFoundError(f"Snapshot {snapshot_id} not found for thread {thread_id}")
             
@@ -115,7 +114,7 @@ class ThreadSnapshotService(IThreadSnapshotService):
                     thread.metadata = ThreadMetadata(**current_metadata)
                 thread.updated_at = datetime.now()
                 
-                await self._thread_repository.update_thread(thread_id, thread)
+                await self._thread_repository.update(thread)
                 
             elif restore_strategy == "metadata_only":
                 # 仅恢复元数据
@@ -127,7 +126,7 @@ class ThreadSnapshotService(IThreadSnapshotService):
                     thread.metadata = ThreadMetadata(**current_metadata)
                 thread.updated_at = datetime.now()
                 
-                await self._thread_repository.update_thread(thread_id, thread)
+                await self._thread_repository.update(thread)
                 
             else:
                 raise ValidationError(f"Unsupported restore strategy: {restore_strategy}")
@@ -190,12 +189,12 @@ class ThreadSnapshotService(IThreadSnapshotService):
         """列线程快照"""
         try:
             # 验证线程存在
-            thread = await self._thread_repository.get_thread(thread_id)
+            thread = await self._thread_repository.get(thread_id)
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
             # 获取线程的所有快照
-            snapshots = await self._thread_snapshot_repository.list_snapshots_by_thread(thread_id)
+            snapshots = await self._thread_snapshot_repository.list_by_thread(thread_id)
             
             return [
                 {
@@ -215,7 +214,7 @@ class ThreadSnapshotService(IThreadSnapshotService):
         """验证快照完整性"""
         try:
             # 验证快照存在
-            snapshot = await self._thread_snapshot_repository.get_snapshot(snapshot_id)
+            snapshot = await self._thread_snapshot_repository.get(snapshot_id)
             if not snapshot or snapshot.thread_id != thread_id:
                 return False
             
@@ -246,12 +245,12 @@ class ThreadSnapshotService(IThreadSnapshotService):
         """清理旧快照"""
         try:
             # 验证线程存在
-            thread = await self._thread_repository.get_thread(thread_id)
+            thread = await self._thread_repository.get(thread_id)
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
             # 获取线程的所有快照
-            snapshots = await self._thread_snapshot_repository.list_snapshots_by_thread(thread_id)
+            snapshots = await self._thread_snapshot_repository.list_by_thread(thread_id)
             
             cleaned_count = 0
             current_time = datetime.now()
@@ -262,7 +261,7 @@ class ThreadSnapshotService(IThreadSnapshotService):
                 
                 if age_days > max_age_days:
                     # 删除旧快照
-                    success = await self._thread_snapshot_repository.delete_snapshot(snapshot.id)
+                    success = await self._thread_snapshot_repository.delete(snapshot.id)
                     if success:
                         cleaned_count += 1
             

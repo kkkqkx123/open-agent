@@ -6,10 +6,12 @@
 import logging
 import asyncio
 import concurrent.futures
-from typing import Dict, Any, Optional, List, Callable, Union
+from typing import TYPE_CHECKING, Dict, Any, Optional, List, Callable, Union
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+
+from core.workflow.execution.core.execution_context import BatchExecutionResult
 
 from .strategy_base import BaseStrategy, IExecutionStrategy
 
@@ -86,7 +88,7 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
             ExecutionResult: 执行结果
         """
         # 获取批量作业列表
-        jobs = self._get_batch_jobs(context)
+        jobs = self._get_batch_jobs(context, workflow)
         
         if not jobs:
             return self.create_execution_result(
@@ -169,7 +171,7 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
             ExecutionResult: 执行结果
         """
         # 获取批量作业列表
-        jobs = self._get_batch_jobs(context)
+        jobs = self._get_batch_jobs(context, workflow)
         
         if not jobs:
             return self.create_execution_result(
@@ -242,11 +244,12 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
         """
         return context.get_config("batch_enabled", False) or "batch_jobs" in context.config
     
-    def _get_batch_jobs(self, context: 'ExecutionContext') -> List['BatchJob']:
+    def _get_batch_jobs(self, context: 'ExecutionContext', workflow: 'WorkflowInstance') -> List['BatchJob']:
         """获取批量作业列表
         
         Args:
             context: 执行上下文
+            workflow: 工作流实例
             
         Returns:
             List[BatchJob]: 批量作业列表
@@ -261,7 +264,8 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
                 job_id="single_job",
                 workflow_id=context.workflow_id,
                 initial_data=context.get_config("initial_data"),
-                metadata=context.metadata
+                metadata=context.metadata,
+                workflow_instance=workflow
             )
             jobs = [job]
         
@@ -291,7 +295,7 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
                 job_context = self._create_job_context(job, context)
                 
                 # 执行作业
-                result = executor.execute(job.workflow_instance, job_context)
+                result = self._execute_single_job(executor, job, context)
                 results.append(result)
                 
                 # 调用进度回调
@@ -450,14 +454,16 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
                     logger.error(f"执行作业 {job.job_id} 时发生异常: {result}")
                     
                     # 创建错误结果
-                    error_result = self.create_execution_result(
+                    final_result: 'ExecutionResult' = self.create_execution_result(
                         success=False,
                         error=str(result),
                         metadata={"job_id": job.job_id, "error_type": type(result).__name__}
                     )
-                    results.append(error_result)
                 else:
-                    results.append(result)
+                    # 类型收缩：此时 result 一定是 ExecutionResult
+                    final_result: 'ExecutionResult' = result  # type: ignore[assignment]
+                
+                results.append(final_result)
                 
                 # 调用进度回调
                 if self.config.progress_callback:
@@ -468,7 +474,7 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
                 
                 # 调用结果回调
                 if self.config.result_callback and not isinstance(result, Exception):
-                    self.config.result_callback(job.job_id, result)
+                    self.config.result_callback(job.job_id, final_result)
                     
         except Exception as e:
             logger.error(f"异步批量执行过程中发生异常: {e}")
@@ -495,7 +501,14 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
         job_context = self._create_job_context(job, context)
         
         # 执行作业
-        return executor.execute(job.workflow_instance, job_context)
+        workflow_to_execute = job.workflow_instance
+        if workflow_to_execute is None:
+            # 如果作业中没有工作流实例，则创建错误结果
+            return self.create_execution_result(
+                success=False,
+                error="作业中没有工作流实例"
+            )
+        return executor.execute(workflow_to_execute, job_context)
     
     async def _execute_single_job_async(
         self, 
@@ -517,7 +530,14 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
         job_context = self._create_job_context(job, context)
         
         # 异步执行作业
-        return await executor.execute_async(job.workflow_instance, job_context)
+        workflow_to_execute = job.workflow_instance
+        if workflow_to_execute is None:
+            # 如果作业中没有工作流实例，则创建错误结果
+            return self.create_execution_result(
+                success=False,
+                error="作业中没有工作流实例"
+            )
+        return await executor.execute_async(workflow_to_execute, job_context)
     
     def _create_job_context(
         self, 

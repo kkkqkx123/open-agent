@@ -13,9 +13,9 @@ from .sync_mode import SyncMode
 from .async_mode import AsyncMode
 
 if TYPE_CHECKING:
-    from ...interfaces.state import IWorkflowState
-    from ...interfaces.workflow.core import INode
-    from ..core.execution_context import ExecutionContext, NodeResult
+    from src.interfaces import IWorkflowState
+    from src.interfaces.workflow.core import INode
+    from src.core.workflow.execution.core.execution_context import ExecutionContext, NodeResult
 
 logger = logging.getLogger(__name__)
 
@@ -127,20 +127,9 @@ class HybridMode(BaseMode, IHybridMode):
             async for event in self.async_mode.execute_node_stream(node, state, context):
                 yield event
         else:
-            # 使用同步模式流式执行（转换为异步）
-            import asyncio
-            loop = asyncio.get_event_loop()
-            
-            def sync_generator():
-                return self.sync_mode.execute_node_stream(node, state, context)
-            
-            gen = sync_generator()
-            while True:
-                try:
-                    event = await loop.run_in_executor(None, next, gen)
-                    yield event
-                except StopIteration:
-                    break
+            # 使用异步模式流式执行
+            async for event in self.async_mode.execute_node_stream(node, state, context):
+                yield event
     
     def _select_execution_mode(
         self, 
