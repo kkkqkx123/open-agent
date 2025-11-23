@@ -28,10 +28,21 @@ class CheckpointSerializer(ICheckpointSerializer):
             cache_size: 缓存大小
         """
         self._serializer = Serializer(
-            enable_cache=True, 
+            enable_cache=True,
             cache_size=cache_size
         )
         self._enable_compression = enable_compression
+    
+    def _ensure_str(self, data: Any) -> str:
+        """确保数据是字符串类型"""
+        if isinstance(data, str):
+            return data
+        elif isinstance(data, bytes):
+            return data.decode('utf-8')
+        elif isinstance(data, (bytearray, memoryview)):
+            return bytes(data).decode('utf-8')
+        else:
+            return str(data)
     
     def serialize_workflow_state(self, state: Any) -> str:
         """序列化工作流状态到字符串格式
@@ -45,12 +56,15 @@ class CheckpointSerializer(ICheckpointSerializer):
         try:
             # 使用通用序列化器进行序列化
             serialized_data = self._serializer.serialize(
-                state, 
+                state,
                 format=self._serializer.FORMAT_JSON
             )
             
+            # 确保返回字符串类型
+            result = self._ensure_str(serialized_data)
+            
             logger.debug(f"Serialized workflow state of type: {type(state)}")
-            return serialized_data
+            return result
             
         except Exception as e:
             logger.error(f"Failed to serialize workflow state: {e}")
@@ -91,12 +105,15 @@ class CheckpointSerializer(ICheckpointSerializer):
         try:
             # 序列化消息列表
             serialized_data = self._serializer.serialize(
-                messages, 
+                messages,
                 format=self._serializer.FORMAT_JSON
             )
             
+            # 确保返回字符串类型
+            result = self._ensure_str(serialized_data)
+            
             logger.debug(f"Serialized {len(messages)} messages")
-            return serialized_data
+            return result
             
         except Exception as e:
             logger.error(f"Failed to serialize messages: {e}")
@@ -140,12 +157,15 @@ class CheckpointSerializer(ICheckpointSerializer):
         try:
             # 序列化工具结果
             serialized_data = self._serializer.serialize(
-                tool_results, 
+                tool_results,
                 format=self._serializer.FORMAT_JSON
             )
             
+            # 确保返回字符串类型
+            result = self._ensure_str(serialized_data)
+            
             logger.debug(f"Serialized tool results with {len(tool_results)} entries")
-            return serialized_data
+            return result
             
         except Exception as e:
             logger.error(f"Failed to serialize tool results: {e}")
