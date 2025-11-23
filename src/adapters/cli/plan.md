@@ -1,0 +1,1 @@
+src\adapters\cli\commands.py中的容器初始化改为配置驱动

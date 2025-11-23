@@ -11,14 +11,17 @@ if TYPE_CHECKING:
     from src.services.logger.redactor import LogRedactor
 
 
-# 抽象数据类型定义
+# 会话状态定义
 class AbstractSessionStatus(str, Enum):
-    """会话状态抽象枚举"""
+    """会话状态枚举"""
     ACTIVE = "active"
     PAUSED = "paused"
     COMPLETED = "completed"
     FAILED = "failed"
     ARCHIVED = "archived"
+    
+    # 类变量标记，允许子类化（若需要）
+    # 默认情况下，使用此类直接作为状态，无需继承
 
 
 class AbstractSessionData(ABC):

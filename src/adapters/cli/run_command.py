@@ -9,8 +9,8 @@ from rich.text import Text
 
 from src.services.container import get_global_container
 from src.interfaces.common import IConfigLoader
-from src.application.sessions.manager import ISessionManager, UserRequest
-from src.services.workflow.manager import IWorkflowManager
+from src.interfaces.sessions import ISessionService, UserRequest, UserInteraction
+from src.interfaces.workflow.services import IWorkflowManager
 from src.core.workflow.states.workflow import WorkflowState
 from src.services.workflow.state_converter import WorkflowStateAdapter, WorkflowStateConverter
 from langchain_core.messages import HumanMessage, AIMessage
@@ -32,7 +32,7 @@ class RunCommand:
         try:
             # 获取依赖服务
             container = get_global_container()
-            session_manager = container.get(ISessionManager)  # type: ignore
+            session_manager = container.get(ISessionService)  # type: ignore
             workflow_manager = container.get(IWorkflowManager)  # type: ignore
             
             if session_id:
@@ -55,7 +55,7 @@ class RunCommand:
         self, 
         workflow_config_path: str, 
         agent_config_path: Optional[str],
-        session_manager: ISessionManager,
+        session_manager: ISessionService,
         workflow_manager: IWorkflowManager
     ) -> None:
         """创建会话并运行"""
@@ -84,7 +84,7 @@ class RunCommand:
     async def _restore_and_run(
         self,
         session_id: str,
-        session_manager: ISessionManager,
+        session_manager: ISessionService,
         workflow_manager: IWorkflowManager
     ) -> None:
         """恢复会话并运行"""
@@ -129,7 +129,7 @@ class RunCommand:
     async def _run_interactive_loop(
         self, 
         session_id: str, 
-        session_manager: ISessionManager,
+        session_manager: ISessionService,
         workflow_manager: IWorkflowManager
     ) -> None:
         """运行交互式循环"""
@@ -148,7 +148,6 @@ class RunCommand:
                 if user_input.lower() in ['exit', 'quit', '退出']:
                     self.console.print("[yellow]正在保存会话并退出...[/yellow]")
                     # 追踪用户交互
-                    from src.application.sessions.manager import UserInteraction
                     interaction = UserInteraction(
                         interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
                         session_id=session_id,
@@ -167,7 +166,6 @@ class RunCommand:
                 adapter_state.messages.append(human_message)
                 
                 # 追踪用户输入交互
-                from src.application.sessions.manager import UserInteraction
                 user_interaction = UserInteraction(
                     interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
                     session_id=session_id,
@@ -225,7 +223,6 @@ class RunCommand:
             except KeyboardInterrupt:
                 self.console.print("\n[yellow]正在保存会话并退出...[/yellow]")
                 # 追踪中断交互
-                from src.application.sessions.manager import UserInteraction
                 interrupt_interaction = UserInteraction(
                     interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
                     session_id=session_id,
@@ -258,15 +255,15 @@ class RunCommand:
             # 获取第一个可用的工作流ID
             workflows = workflow_manager.list_workflows()
             if workflows:
-                workflow_id = workflows[0]
-                # 异步执行工作流
-                result_state = await workflow_manager.run_workflow_async(
+                workflow_id = workflows[0]["id"] if isinstance(workflows[0], dict) else workflows[0]
+                # 执行工作流
+                result_state = workflow_manager.execute_workflow(
                     workflow_id=workflow_id,
                     initial_state=graph_state
                 )
                 if result_state:
-                    # 将结果转换回适配器状态
-                    return self.state_adapter.from_graph_state(result_state)
+                    # 将结果转换回适配器状态（处理接口返回的类型）
+                    return self.state_adapter.from_graph_state(cast(WorkflowState, result_state))
             
             # 如果没有可用的工作流，直接返回当前状态
             return adapter_state
