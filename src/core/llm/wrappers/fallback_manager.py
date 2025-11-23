@@ -10,7 +10,7 @@
 import time
 from typing import Any, Optional, Dict, List, Tuple
 
-from ..interfaces import ITaskGroupManager, IPollingPoolManager
+from ....interfaces import ITaskGroupManager, IPollingPoolManager
 
 
 class GroupBasedFallbackStrategy:

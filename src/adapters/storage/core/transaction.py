@@ -6,11 +6,8 @@
 import asyncio
 import logging
 import threading
-from typing import Optional, Any, Dict, List, Protocol
+from typing import Optional, List, Protocol
 from contextlib import contextmanager
-
-from src.interfaces.storage import IUnifiedStorage
-
 
 class ITransactionalStorage(Protocol):
     """事务性存储协议

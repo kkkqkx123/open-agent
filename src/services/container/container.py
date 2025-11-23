@@ -6,7 +6,7 @@
 import logging
 import threading
 import time
-from typing import Type, TypeVar, Dict, Any, Optional, List, Callable, ContextManager
+from typing import Type, TypeVar, Dict, Any, Optional, List, Callable, Iterator, Generator
 from contextlib import contextmanager
 from enum import Enum
 
@@ -176,7 +176,7 @@ class SimpleScopeManager:
                 self._scopes[scope_id][service_type] = instance
     
     @contextmanager
-    def scope_context(self) -> ContextManager[str]:
+    def scope_context(self) -> Iterator[str]:
         scope_id = self.create_scope()
         old_scope_id = self.get_current_scope_id()
         self.set_current_scope_id(scope_id)
@@ -284,7 +284,7 @@ class DependencyContainer(IDependencyContainer):
                 instance = self._instances[service_type]
         
         # 如果是作用域生命周期，检查当前作用域
-        elif registration.lifetime == ServiceLifetime.SCOPE:
+        elif registration.lifetime == ServiceLifetime.SCOPED:
             current_scope_id = self._scope_manager.get_current_scope_id()
             if current_scope_id:
                 instance = self._scope_manager.get_scoped_instance(current_scope_id, service_type)
@@ -296,7 +296,7 @@ class DependencyContainer(IDependencyContainer):
             # 根据生命周期存储实例
             if registration.lifetime == ServiceLifetime.SINGLETON:
                 self._instances[service_type] = instance
-            elif registration.lifetime == ServiceLifetime.SCOPE:
+            elif registration.lifetime == ServiceLifetime.SCOPED:
                 current_scope_id = self._scope_manager.get_current_scope_id()
                 if current_scope_id:
                     self._scope_manager.set_scoped_instance(current_scope_id, service_type, instance)

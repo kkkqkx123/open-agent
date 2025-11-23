@@ -7,18 +7,12 @@ from datetime import datetime
 
 from langchain_core.messages import BaseMessage  # type: ignore
 
-from src.interfaces.llm import ILLMClient, ILLMCallHook
-from ..models import LLMResponse, TokenUsage, LLMError, ModelInfo
+from src.interfaces.llm import ILLMClient, ILLMCallHook, LLMResponse
+from ..models import TokenUsage, LLMError, ModelInfo
 from ..config import LLMClientConfig
 from ...common.exceptions.llm import (
     LLMCallError,
-    LLMTimeoutError,
-    LLMRateLimitError,
-    LLMAuthenticationError,
     LLMModelNotFoundError,
-    LLMTokenLimitError,
-    LLMContentFilterError,
-    LLMServiceUnavailableError,
     LLMInvalidRequestError,
 )
 
@@ -165,22 +159,20 @@ class BaseLLMClient(ILLMClient):
     def _create_response(
         self,
         content: str,
-        message: Any,
-        token_usage: TokenUsage,
+        message: Any = None,
+        token_usage: Optional[TokenUsage] = None,
         finish_reason: Optional[str] = None,
         function_call: Optional[Dict[str, Any]] = None,
         response_time: Optional[float] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> LLMResponse:
         """创建响应对象"""
+        # 使用接口定义的LLMResponse结构
         return LLMResponse(
             content=content,
-            message=message,
-            token_usage=token_usage,
             model=self.config.model_name,
             finish_reason=finish_reason,
-            function_call=function_call,
-            response_time=response_time,
+            tokens_used=token_usage.total_tokens if token_usage else None,
             metadata=metadata or {},
         )
 
@@ -345,9 +337,6 @@ class BaseLLMClient(ILLMClient):
                 self._do_generate, messages, merged_params, **kwargs
             )
 
-            # 设置响应时间
-            response.response_time = response_time
-
             # 调用后置钩子
             self._call_after_hooks(response, messages, merged_params, **kwargs)
 
@@ -402,9 +391,6 @@ class BaseLLMClient(ILLMClient):
             start_time = time.time()
             response = await self._do_generate_async(messages, merged_params, **kwargs)
             response_time = time.time() - start_time
-
-            # 设置响应时间
-            response.response_time = response_time
 
             # 调用后置钩子
             self._call_after_hooks(response, messages, merged_params, **kwargs)

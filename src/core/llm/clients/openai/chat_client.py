@@ -8,7 +8,7 @@ from pydantic import SecretStr
 
 from .interfaces import ChatCompletionClient
 from .utils import ResponseConverter
-from ...models import LLMResponse
+from src.interfaces.llm import LLMResponse
 
 
 class ChatClient(ChatCompletionClient):

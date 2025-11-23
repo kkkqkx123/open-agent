@@ -8,7 +8,8 @@ from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Union, 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 
 from .base import BaseLLMClient
-from ..models import LLMResponse, TokenUsage
+from src.interfaces.llm import LLMResponse
+from ..models import TokenUsage
 from ..config import MockConfig, LLMClientConfig
 from ...common.exceptions.llm import (
     LLMTimeoutError,

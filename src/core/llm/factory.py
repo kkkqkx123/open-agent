@@ -3,7 +3,7 @@
 from typing import Dict, Any, Optional, Type
 from threading import RLock
 
-from .interfaces import ILLMClient, ILLMClientFactory
+from src.interfaces.llm import ILLMClient, ILLMClientFactory
 from .config import LLMClientConfig, LLMModuleConfig
 from ..common.exceptions.llm import LLMClientCreationError, UnsupportedModelTypeError
 

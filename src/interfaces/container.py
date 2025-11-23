@@ -4,7 +4,7 @@ import threading
 import time
 import logging
 from abc import ABC, abstractmethod
-from typing import Type, TypeVar, Dict, Any, Optional, List, Set, Callable, Union, ContextManager, overload
+from typing import Type, TypeVar, Dict, Any, Optional, List, Set, Callable, Union, ContextManager, overload, ClassVar
 from enum import Enum
 from dataclasses import dataclass
 from contextlib import contextmanager
@@ -31,6 +31,9 @@ class ServiceStatus(Enum):
 
 class ILifecycleAware(ABC):
     """生命周期感知接口"""
+    
+    def __init__(self) -> None:
+        self._initialized: bool = False
 
     @abstractmethod
     def initialize(self) -> None:

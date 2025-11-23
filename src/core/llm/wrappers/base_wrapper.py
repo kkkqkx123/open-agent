@@ -5,7 +5,8 @@ from typing import Dict, Any, Optional, List, Generator, AsyncGenerator, Sequenc
 import logging
 
 from abc import ABC
-from ..models import LLMResponse, TokenUsage
+from src.interfaces.llm import LLMResponse
+from ..models import TokenUsage
 from ...common.exceptions.llm import LLMError
 from langchain_core.messages import HumanMessage
 
@@ -161,12 +162,7 @@ class BaseLLMWrapper(ABC):
         """创建LLM响应"""
         return LLMResponse(
             content=content,
-            message=message or HumanMessage(content=content),
-            token_usage=token_usage or TokenUsage(
-                prompt_tokens=0,
-                completion_tokens=0,
-                total_tokens=0
-            ),
             model=model,
+            tokens_used=token_usage.total_tokens if token_usage else 0,
             metadata=metadata or {}
         )

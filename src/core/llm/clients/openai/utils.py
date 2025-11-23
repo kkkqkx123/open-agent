@@ -3,7 +3,8 @@
 from typing import Any, Dict, Optional, Sequence
 
 from langchain_core.messages import BaseMessage, AIMessage
-from ...models import LLMResponse, TokenUsage
+from src.interfaces.llm import LLMResponse
+from ...models import TokenUsage
 
 
 class ResponseConverter:
@@ -32,14 +33,12 @@ class ResponseConverter:
         # 提取完成原因
         finish_reason = ResponseConverter._extract_finish_reason(response)
         
-        # 创建响应对象
+        # 创建响应对象 - 使用接口定义的LLMResponse结构
         return LLMResponse(
             content=content,
-            message=response,
-            token_usage=token_usage,
             model=getattr(response, "model", "unknown"),
             finish_reason=finish_reason,
-            function_call=function_call,
+            tokens_used=token_usage.total_tokens if token_usage else None,
             metadata=getattr(response, "response_metadata", {}),
         )
     
@@ -66,17 +65,12 @@ class ResponseConverter:
         # 提取完成原因
         finish_reason = ResponseConverter._extract_responses_finish_reason(response)
         
-        # 创建 LangChain 消息
-        message = AIMessage(content=content)
-        
-        # 确保消息对象兼容 LLMResponse 期望的类型
+        # 创建响应对象 - 使用接口定义的LLMResponse结构
         return LLMResponse(
             content=content,
-            message=message,
-            token_usage=token_usage,
             model=response.get("model", "unknown"),
             finish_reason=finish_reason,
-            function_call=function_call,
+            tokens_used=token_usage.total_tokens if token_usage else None,
             metadata={
                 "response_id": response.get("id"),
                 "object": response.get("object"),

@@ -120,7 +120,10 @@ from .container import (
 # 存储相关接口
 from .storage import (
     IUnifiedStorage,
-    IStorageFactory
+    IStorageFactory,
+    ISessionStorageBackendFactory,
+    IThreadStorageBackendFactory,
+    ISessionThreadAssociationFactory
 )
 
 # 提示词相关接口
@@ -256,6 +259,9 @@ __all__ = [
     # 存储接口
     "IUnifiedStorage",
     "IStorageFactory",
+    "ISessionStorageBackendFactory",
+    "IThreadStorageBackendFactory",
+    "ISessionThreadAssociationFactory",
     
     # 提示词接口
     "IPromptRegistry",

@@ -14,11 +14,8 @@ if TYPE_CHECKING:
 from langchain_core.messages import BaseMessage
 
 if TYPE_CHECKING:
-    from ..core.tools.base import BaseTool
-    # 移除不存在的导入
-    # from ..core.tools.loaders import ToolLoader
     from ..core.tools.factory import ToolFactory
-    from ..core.tools.config import ToolConfig, ToolRegistryConfig
+    from ..core.tools.config import ToolConfig
 
 
 @dataclass

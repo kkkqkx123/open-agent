@@ -8,7 +8,7 @@ from langchain_core.messages import BaseMessage
 
 from .interfaces import ResponsesAPIClient
 from .utils import ResponseConverter, MessageConverter
-from ...models import LLMResponse
+from src.interfaces.llm import LLMResponse
 
 
 class ResponsesClient(ResponsesAPIClient):

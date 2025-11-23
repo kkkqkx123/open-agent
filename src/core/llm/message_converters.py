@@ -10,7 +10,14 @@ from typing import Dict, Any, List, Optional, Union
 import logging
 from datetime import datetime
 
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    BaseMessage,
+    HumanMessage,
+    AIMessage,
+    SystemMessage,
+    ToolMessage,
+    ToolCall,
+)
 
 from .models import LLMMessage, MessageRole
 
@@ -304,14 +311,28 @@ class MessageConverter:
         """
         if isinstance(message, LLMMessage):
             # 优先使用 tool_calls 属性
-            if hasattr(message, 'tool_calls') and message.tool_calls:
+            if message.tool_calls:
                 return message.tool_calls
             # 回退到 metadata
             return message.metadata.get("tool_calls", [])
+        elif isinstance(message, AIMessage):
+            # 从 AIMessage 提取 tool_calls (仅 AIMessage 具有此属性)
+            tool_calls = getattr(message, 'tool_calls', None)
+            if tool_calls:
+                # 将 ToolCall 对象转换为字典格式
+                return [
+                    {
+                        "id": tc.id,
+                        "name": tc.type if hasattr(tc, 'type') else "function",
+                        "args": tc.args if hasattr(tc, 'args') else {}
+                    }
+                    for tc in tool_calls
+                ] if isinstance(tool_calls, list) else []
+            if hasattr(message, 'additional_kwargs'):
+                return message.additional_kwargs.get("tool_calls", [])
+            return []
         elif isinstance(message, BaseMessage):
-            # 从 LangChain 消息提取
-            if hasattr(message, 'tool_calls') and message.tool_calls:
-                return message.tool_calls
+            # 其他消息类型尝试从 additional_kwargs 提取
             if hasattr(message, 'additional_kwargs'):
                 return message.additional_kwargs.get("tool_calls", [])
             return []

@@ -5,7 +5,7 @@ from typing import Dict, Any, List, Generator, AsyncGenerator, Optional, cast, S
 from langchain_core.messages import BaseMessage
 
 from ..base import BaseLLMClient
-from ...models import LLMResponse
+from src.interfaces.llm import LLMResponse
 from ....common.exceptions.llm import LLMCallError
 from .config import OpenAIConfig
 from .chat_client import ChatClient

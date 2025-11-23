@@ -3,7 +3,12 @@
 import logging
 from typing import Dict, Any
 
+from adapters.storage.backends.file_thread_backend import FileThreadBackend
+from adapters.storage.backends.sqlite_thread_backend import SQLiteThreadBackend
+from src.adapters.storage.association_repository import SessionThreadAssociationRepository
 from src.adapters.storage.backends import SQLiteSessionBackend, FileSessionBackend
+
+from services.threads.repository import ThreadRepository
 from src.services.session.repository import SessionRepository
 from src.services.session.service import SessionService
 from src.services.session.coordinator import SessionThreadCoordinator
@@ -18,8 +23,8 @@ from src.interfaces.sessions.association import (
 )
 from src.interfaces.threads import IThreadRepository, IThreadStorageBackend
 from src.interfaces.threads.service import IThreadService
-from src.core.sessions.interfaces import ISessionCore
-from src.adapters.storage.association_repository import SessionThreadAssociationRepository
+from src.core.sessions.interfaces import ISessionCore, ISessionStateTransition, ISessionValidator
+
 
 logger = logging.getLogger(__name__)
 

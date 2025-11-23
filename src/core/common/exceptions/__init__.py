@@ -4,6 +4,9 @@
 为了向后兼容，所有异常都可以从此模块导入。
 """
 
+# 导入pydantic的ValidationError
+from pydantic import ValidationError
+
 # 工具异常
 from .tool import (
     ToolError,
@@ -61,6 +64,8 @@ from .checkpoint import (
 )
 
 __all__ = [
+    # 基础异常
+    "ValidationError",
     # 工具异常
     "ToolError",
     "ToolRegistrationError",

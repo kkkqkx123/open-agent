@@ -8,8 +8,8 @@ from datetime import datetime
 
 from .base_wrapper import BaseLLMWrapper
 from ...common.exceptions.llm_wrapper import PollingPoolWrapperError, WrapperExecutionError
-from ..interfaces import IPollingPoolManager
-from ..models import LLMResponse, TokenUsage
+from src.interfaces.llm import IPollingPoolManager, LLMResponse
+from ..models import TokenUsage
 from ...common.exceptions.llm import LLMError
 
 logger = logging.getLogger(__name__)

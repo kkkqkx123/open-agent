@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Generator, AsyncGenerator, Optional, Sequence
 
 from langchain_core.messages import BaseMessage
-from ...models import LLMResponse
+from src.interfaces.llm import LLMResponse
 
 
 class BaseOpenAIClient(ABC):
