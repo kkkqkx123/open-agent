@@ -9,10 +9,10 @@ from datetime import datetime
 
 from src.interfaces.sessions.service import ISessionService
 from src.interfaces.sessions.entities import UserRequest, UserInteraction, SessionContext
-from src.interfaces.sessions.interfaces import ISessionStore
+from src.interfaces.sessions.storage import ISessionRepository
 from src.interfaces.threads.service import IThreadService
 from src.core.sessions.interfaces import ISessionCore, ISessionValidator, ISessionStateTransition
-from src.core.sessions.entities import SessionEntity, UserRequestEntity, UserInteractionEntity
+from src.core.sessions.entities import SessionEntity, UserRequestEntity, UserInteractionEntity, Session
 from src.core.common.exceptions import ValidationError
 from src.core.common.exceptions import CoreError as EntityNotFoundError
 from src.core.workflow.states.workflow import WorkflowState
@@ -27,7 +27,7 @@ class SessionService(ISessionService):
     def __init__(
         self,
         session_core: ISessionCore,
-        session_store: ISessionStore,
+        session_repository: ISessionRepository,
         thread_service: IThreadService,
         session_validator: Optional[ISessionValidator] = None,
         state_transition: Optional[ISessionStateTransition] = None,
@@ -38,7 +38,7 @@ class SessionService(ISessionService):
         
         Args:
             session_core: 会话核心接口
-            session_store: 会话存储
+            session_repository: 会话仓储
             thread_service: 线程服务
             session_validator: 会话验证器
             state_transition: 状态转换器
@@ -46,7 +46,7 @@ class SessionService(ISessionService):
             storage_path: 存储路径
         """
         self._session_core = session_core
-        self._session_store = session_store
+        self._session_repository = session_repository
         self._thread_service = thread_service
         self._session_validator = session_validator
         self._state_transition = state_transition
@@ -85,57 +85,42 @@ class SessionService(ISessionService):
                 }
             )
             
+            # 转换为业务实体（Session）
+            session = self._entity_to_session(session_entity)
+            
             # 创建会话目录
-            session_dir = self._storage_path / session_entity.session_id
+            session_dir = self._storage_path / session.session_id
             session_dir.mkdir(exist_ok=True)
             
             # 初始化Git仓库（如果提供了Git服务）
             if self._git_service:
                 self._git_service.init_repo(session_dir)
             
-            # 创建会话上下文
-            session_context = SessionContext(
-                session_id=session_entity.session_id,
-                user_id=session_entity.user_id,
-                thread_ids=session_entity.thread_ids,
-                status=session_entity.status,
-                created_at=session_entity.created_at,
-                updated_at=session_entity.updated_at,
-                metadata=session_entity.metadata
-            )
-            
-            # 保存会话数据
-            session_data = {
-                "context": self._serialize_session_context(session_context),
-                "interactions": [],
-                "thread_configs": {},
-                "created_at": datetime.now().isoformat(),
-                "updated_at": datetime.now().isoformat()
-            }
-            self._session_store.save_session(session_entity.session_id, session_data)
+            # 保存会话到仓储（自动协调所有后端）
+            await self._session_repository.create(session)
             
             # 追踪初始用户交互
             initial_interaction = UserInteraction(
                 interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
-                session_id=session_entity.session_id,
+                session_id=session.session_id,
                 thread_id=None,
                 interaction_type="user_request",
                 content=user_request.content,
                 metadata=user_request.metadata,
                 timestamp=datetime.now()
             )
-            await self.track_user_interaction(session_entity.session_id, initial_interaction)
+            await self.track_user_interaction(session.session_id, initial_interaction)
             
             # 提交初始状态到Git（如果提供了Git服务）
             if self._git_service:
                 self._git_service.commit_changes(
                     session_dir,
                     "初始化用户会话",
-                    {"session_id": session_entity.session_id, "request_id": user_request.request_id}
+                    {"session_id": session.session_id, "request_id": user_request.request_id}
                 )
             
-            logger.info(f"创建用户会话成功: {session_entity.session_id}, user_id: {user_request.user_id}")
-            return session_entity.session_id
+            logger.info(f"创建用户会话成功: {session.session_id}, user_id: {user_request.user_id}")
+            return session.session_id
             
         except Exception as e:
             logger.error(f"创建会话失败: {e}")
@@ -144,11 +129,19 @@ class SessionService(ISessionService):
     async def get_session_context(self, session_id: str) -> Optional[SessionContext]:
         """获取会话上下文"""
         try:
-            session_data = self._session_store.get_session(session_id)
-            if not session_data:
+            session = await self._session_repository.get(session_id)
+            if not session:
                 return None
             
-            return self._deserialize_session_context(session_data["context"])
+            return SessionContext(
+                session_id=session.session_id,
+                user_id=session.metadata.get("user_id"),
+                thread_ids=session.thread_ids,
+                status=session.status.value,
+                created_at=session.created_at,
+                updated_at=session.updated_at,
+                metadata=session.metadata
+            )
             
         except Exception as e:
             logger.error(f"获取会话上下文失败: {session_id}, error: {e}")
@@ -158,7 +151,7 @@ class SessionService(ISessionService):
         """删除会话"""
         try:
             # 删除存储的会话数据
-            self._session_store.delete_session(session_id)
+            await self._session_repository.delete(session_id)
             
             # 删除会话目录
             session_dir = self._storage_path / session_id
@@ -176,27 +169,30 @@ class SessionService(ISessionService):
     async def list_sessions(self) -> List[Dict[str, Any]]:
         """列出所有会话"""
         try:
-            raw_sessions = self._session_store.list_sessions()
+            # 从仓储获取所有活跃会话
+            from src.core.sessions.entities import SessionStatus
             
             sessions = []
-            for raw_session in raw_sessions:
-                session_id = raw_session.get("session_id")
-                if session_id:
-                    session_context = await self.get_session_context(session_id)
-                    if session_context:
+            for status in [SessionStatus.ACTIVE, SessionStatus.PAUSED, SessionStatus.COMPLETED]:
+                try:
+                    status_sessions = await self._session_repository.list_by_status(status)
+                    for session in status_sessions:
+                        interactions = await self._session_repository.get_interactions(session.session_id)
                         session_info = {
-                            "session_id": session_context.session_id,
-                            "user_id": session_context.user_id,
-                            "status": session_context.status,
-                            "created_at": session_context.created_at.isoformat(),
-                            "updated_at": session_context.updated_at.isoformat(),
-                            "thread_count": len(session_context.thread_ids),
-                            "interaction_count": len(await self.get_interaction_history(session_id))
+                            "session_id": session.session_id,
+                            "user_id": session.metadata.get("user_id"),
+                            "status": session.status.value,
+                            "created_at": session.created_at.isoformat(),
+                            "updated_at": session.updated_at.isoformat(),
+                            "thread_count": len(session.thread_ids),
+                            "interaction_count": len(interactions)
                         }
                         sessions.append(session_info)
+                except Exception:
+                    continue
             
-            # 按创建时间倒序排列
-            sessions.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+            # 按更新时间倒序排列
+            sessions.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
             return sessions
             
         except Exception as e:
@@ -205,7 +201,10 @@ class SessionService(ISessionService):
     
     async def session_exists(self, session_id: str) -> bool:
         """检查会话是否存在"""
-        return await self.get_session_context(session_id) is not None
+        try:
+            return await self._session_repository.exists(session_id)
+        except Exception:
+            return False
     
     async def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
         """获取会话信息"""
@@ -244,8 +243,8 @@ class SessionService(ISessionService):
     async def track_user_interaction(self, session_id: str, interaction: UserInteraction) -> None:
         """追踪用户交互"""
         try:
-            session_data = self._session_store.get_session(session_id)
-            if not session_data:
+            # 检查会话是否存在
+            if not await self._session_repository.exists(session_id):
                 logger.warning(f"会话不存在: {session_id}")
                 return
             
@@ -264,14 +263,19 @@ class SessionService(ISessionService):
                     logger.warning(f"用户交互验证失败: {interaction.interaction_id}")
                     return
             
-            # 添加交互记录
-            interactions = session_data.get("interactions", [])
-            interactions.append(self._serialize_user_interaction(interaction))
-            session_data["interactions"] = interactions
-            session_data["updated_at"] = datetime.now().isoformat()
+            # 构造交互数据
+            interaction_dict = {
+                "interaction_id": interaction.interaction_id,
+                "session_id": interaction.session_id,
+                "thread_id": interaction.thread_id,
+                "interaction_type": interaction.interaction_type,
+                "content": interaction.content,
+                "metadata": interaction.metadata,
+                "timestamp": interaction.timestamp.isoformat()
+            }
             
-            # 保存会话数据
-            self._session_store.save_session(session_id, session_data)
+            # 通过仓储添加交互
+            await self._session_repository.add_interaction(session_id, interaction_dict)
             
             # 提交到Git（如果提供了Git服务）
             if self._git_service:
@@ -290,22 +294,26 @@ class SessionService(ISessionService):
     async def get_interaction_history(self, session_id: str, limit: Optional[int] = None) -> List[UserInteraction]:
         """获取交互历史"""
         try:
-            session_data = self._session_store.get_session(session_id)
-            if not session_data:
-                return []
+            # 从仓储获取交互数据
+            interactions_data = await self._session_repository.get_interactions(session_id, limit)
             
-            interactions_data = session_data.get("interactions", [])
-            
-            # 应用限制
-            if limit and len(interactions_data) > limit:
-                interactions_data = interactions_data[-limit:]  # 获取最新的交互
-            
-            # 反序列化交互记录
+            # 转换为 UserInteraction 对象
             interactions = []
             for interaction_data in interactions_data:
-                interaction = self._deserialize_user_interaction(interaction_data)
-                if interaction:
+                try:
+                    interaction = UserInteraction(
+                        interaction_id=interaction_data["interaction_id"],
+                        session_id=interaction_data["session_id"],
+                        thread_id=interaction_data.get("thread_id"),
+                        interaction_type=interaction_data["interaction_type"],
+                        content=interaction_data["content"],
+                        metadata=interaction_data.get("metadata", {}),
+                        timestamp=datetime.fromisoformat(interaction_data["timestamp"])
+                    )
                     interactions.append(interaction)
+                except Exception as e:
+                    logger.warning(f"Failed to deserialize interaction: {e}")
+                    continue
             
             return interactions
             
@@ -639,54 +647,23 @@ class SessionService(ISessionService):
     
     # === 私有辅助方法 ===
     
-    def _serialize_session_context(self, context: SessionContext) -> Dict[str, Any]:
-        """序列化会话上下文"""
-        return {
-            "session_id": context.session_id,
-            "user_id": context.user_id,
-            "thread_ids": context.thread_ids,
-            "status": context.status,
-            "created_at": context.created_at.isoformat(),
-            "updated_at": context.updated_at.isoformat(),
-            "metadata": context.metadata
-        }
-    
-    def _deserialize_session_context(self, data: Dict[str, Any]) -> SessionContext:
-        """反序列化会话上下文"""
-        return SessionContext(
-            session_id=data["session_id"],
-            user_id=data.get("user_id"),
-            thread_ids=data.get("thread_ids", []),
-            status=data.get("status", "active"),
-            created_at=datetime.fromisoformat(data["created_at"]),
-            updated_at=datetime.fromisoformat(data["updated_at"]),
-            metadata=data.get("metadata", {})
+    def _entity_to_session(self, entity: SessionEntity) -> Session:
+        """将 SessionEntity 转换为 Session 业务实体
+        
+        Args:
+            entity: SessionEntity 核心实体
+            
+        Returns:
+            Session 业务实体
+        """
+        return Session(
+            session_id=entity.session_id,
+            _status=entity.status,
+            message_count=getattr(entity, 'message_count', 0),
+            checkpoint_count=getattr(entity, 'checkpoint_count', 0),
+            _created_at=entity.created_at,
+            _updated_at=entity.updated_at,
+            metadata=entity.metadata,
+            tags=getattr(entity, 'tags', []),
+            thread_ids=entity.thread_ids
         )
-    
-    def _serialize_user_interaction(self, interaction: UserInteraction) -> Dict[str, Any]:
-        """序列化用户交互"""
-        return {
-            "interaction_id": interaction.interaction_id,
-            "session_id": interaction.session_id,
-            "thread_id": interaction.thread_id,
-            "interaction_type": interaction.interaction_type,
-            "content": interaction.content,
-            "metadata": interaction.metadata,
-            "timestamp": interaction.timestamp.isoformat()
-        }
-    
-    def _deserialize_user_interaction(self, data: Dict[str, Any]) -> Optional[UserInteraction]:
-        """反序列化用户交互"""
-        try:
-            return UserInteraction(
-                interaction_id=data["interaction_id"],
-                session_id=data["session_id"],
-                thread_id=data.get("thread_id"),
-                interaction_type=data["interaction_type"],
-                content=data["content"],
-                metadata=data.get("metadata", {}),
-                timestamp=datetime.fromisoformat(data["timestamp"])
-            )
-        except Exception as e:
-            logger.error(f"反序列化用户交互失败: {e}")
-            return None

@@ -1,143 +1,139 @@
-"""线程存储适配器接口"""
+"""线程仓储接口"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from datetime import datetime
 
-from src.interfaces.common import (
-    AbstractThreadData, 
-    AbstractThreadBranchData, 
-    AbstractThreadSnapshotData
-)
+if TYPE_CHECKING:
+    from src.core.threads.entities import Thread, ThreadStatus
 
 
-class IThreadStore(ABC):
-    """统一线程存储适配器接口 - 合并线程、分支、快照存储"""
+class IThreadRepository(ABC):
+    """线程仓储接口 - 协调所有线程存储操作"""
     
-    # 线程相关操作
     @abstractmethod
-    async def get_thread(self, thread_id: str) -> Optional[AbstractThreadData]:
-        """获取线程"""
+    async def create(self, thread: 'Thread') -> bool:
+        """创建线程
+        
+        Args:
+            thread: 线程实体
+            
+        Returns:
+            是否创建成功
+        """
         pass
     
     @abstractmethod
-    async def create_thread(self, thread: AbstractThreadData) -> bool:
-        """创建线程"""
+    async def get(self, thread_id: str) -> Optional['Thread']:
+        """获取线程
+        
+        Args:
+            thread_id: 线程ID
+            
+        Returns:
+            线程实体，不存在返回None
+        """
         pass
     
     @abstractmethod
-    async def update_thread(self, thread_id: str, thread: AbstractThreadData) -> bool:
-        """更新线程"""
+    async def update(self, thread: 'Thread') -> bool:
+        """更新线程
+        
+        Args:
+            thread: 线程实体
+            
+        Returns:
+            是否更新成功
+        """
         pass
     
     @abstractmethod
-    async def delete_thread(self, thread_id: str) -> bool:
-        """删除线程"""
+    async def delete(self, thread_id: str) -> bool:
+        """删除线程
+        
+        Args:
+            thread_id: 线程ID
+            
+        Returns:
+            是否删除成功
+        """
         pass
     
     @abstractmethod
-    async def list_threads_by_session(self, session_id: str) -> List[AbstractThreadData]:
-        """按会话列线程"""
+    async def list_by_session(self, session_id: str) -> List['Thread']:
+        """按会话列线程
+        
+        Args:
+            session_id: 会话ID
+            
+        Returns:
+            线程列表
+        """
         pass
     
     @abstractmethod
-    async def search_threads(
+    async def list_by_status(self, status: 'ThreadStatus') -> List['Thread']:
+        """按状态列线程
+        
+        Args:
+            status: 线程状态
+            
+        Returns:
+            线程列表
+        """
+        pass
+    
+    @abstractmethod
+    async def search(
         self, 
         query: str, 
-        session_id: Optional[str] = None,
+        session_id: Optional[str] = None, 
         limit: int = 10
-    ) -> List[AbstractThreadData]:
-        """搜索线程"""
+    ) -> List['Thread']:
+        """搜索线程
+        
+        Args:
+            query: 查询字符串
+            session_id: 会话ID过滤（可选）
+            limit: 返回数量限制
+            
+        Returns:
+            线程列表
+        """
         pass
     
     @abstractmethod
-    async def get_thread_count_by_session(self, session_id: str) -> int:
-        """获取会话线程数量"""
-        pass
-    
-    # 分支相关操作
-    @abstractmethod
-    async def get_branch(self, branch_id: str) -> Optional[AbstractThreadBranchData]:
-        """获取分支"""
-        pass
-    
-    @abstractmethod
-    async def create_branch(self, branch: AbstractThreadBranchData) -> bool:
-        """创建分支"""
+    async def get_count_by_session(self, session_id: str) -> int:
+        """获取会话的线程数量
+        
+        Args:
+            session_id: 会话ID
+            
+        Returns:
+            线程数量
+        """
         pass
     
     @abstractmethod
-    async def update_branch(self, branch_id: str, branch: AbstractThreadBranchData) -> bool:
-        """更新分支"""
+    async def cleanup_old(self, max_age_days: int = 30) -> int:
+        """清理旧线程
+        
+        Args:
+            max_age_days: 最大保留天数
+            
+        Returns:
+            清理的线程数量
+        """
         pass
     
     @abstractmethod
-    async def delete_branch(self, branch_id: str) -> bool:
-        """删除分支"""
-        pass
-    
-    @abstractmethod
-    async def list_branches_by_thread(self, thread_id: str) -> List[AbstractThreadBranchData]:
-        """按线程列分支"""
-        pass
-    
-    @abstractmethod
-    async def get_main_branch(self, thread_id: str) -> Optional[AbstractThreadBranchData]:
-        """获取主分支"""
-        pass
-    
-    @abstractmethod
-    async def merge_branch(self, source_branch_id: str, target_branch_id: str) -> bool:
-        """合并分支"""
-        pass
-    
-    # 快照相关操作
-    @abstractmethod
-    async def get_snapshot(self, snapshot_id: str) -> Optional[AbstractThreadSnapshotData]:
-        """获取快照"""
-        pass
-    
-    @abstractmethod
-    async def create_snapshot(self, snapshot: AbstractThreadSnapshotData) -> bool:
-        """创建快照"""
-        pass
-    
-    @abstractmethod
-    async def delete_snapshot(self, snapshot_id: str) -> bool:
-        """删除快照"""
-        pass
-    
-    @abstractmethod
-    async def list_snapshots_by_thread(self, thread_id: str) -> List[AbstractThreadSnapshotData]:
-        """按线程列快照"""
-        pass
-    
-    @abstractmethod
-    async def get_latest_snapshot(self, thread_id: str) -> Optional[AbstractThreadSnapshotData]:
-        """获取最新快照"""
-        pass
-    
-    @abstractmethod
-    async def compare_snapshots(
-        self, 
-        snapshot_id1: str, 
-        snapshot_id2: str
-    ) -> Dict[str, Any]:
-        """比较快照"""
-        pass
-    
-    # 清理操作
-    @abstractmethod
-    async def cleanup_old_threads(self, max_age_days: int = 30) -> int:
-        """清理旧线程"""
-        pass
-    
-    @abstractmethod
-    async def cleanup_old_branches(self, max_age_days: int = 30) -> int:
-        """清理旧分支"""
-        pass
-    
-    @abstractmethod
-    async def cleanup_old_snapshots(self, max_age_days: int = 30) -> int:
-        """清理旧快照"""
+    async def exists(self, thread_id: str) -> bool:
+        """检查线程是否存在
+        
+        Args:
+            thread_id: 线程ID
+            
+        Returns:
+            是否存在
+        """
         pass

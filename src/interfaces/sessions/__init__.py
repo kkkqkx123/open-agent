@@ -2,12 +2,14 @@
 
 from .service import ISessionService
 from .entities import UserRequest, UserInteraction, SessionContext
-from .interfaces import ISessionStore
+from .storage import ISessionRepository
+from .backends import ISessionStorageBackend
 
 __all__ = [
     "ISessionService",
     "UserRequest", 
     "UserInteraction", 
     "SessionContext",
-    "ISessionStore"
+    "ISessionRepository",
+    "ISessionStorageBackend",
 ]

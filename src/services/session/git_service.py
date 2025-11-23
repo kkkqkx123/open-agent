@@ -1,6 +1,8 @@
 """Git服务实现 - 用于会话版本控制"""
 
 import logging
+import subprocess
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
@@ -8,28 +10,28 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
-class IGitService:
+class IGitService(ABC):
     """Git服务接口"""
     
+    @abstractmethod
     def init_repo(self, repo_path: Path) -> bool:
         """初始化Git仓库"""
-        pass
     
+    @abstractmethod
     def commit_changes(self, repo_path: Path, message: str, metadata: Optional[Dict[str, Any]] = None) -> str:
         """提交更改"""
-        pass
     
+    @abstractmethod
     def get_commit_history(self, repo_path: Path, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """获取提交历史"""
-        pass
     
+    @abstractmethod
     def create_branch(self, repo_path: Path, branch_name: str) -> bool:
         """创建分支"""
-        pass
     
+    @abstractmethod
     def merge_branch(self, repo_path: Path, source_branch: str, target_branch: str) -> bool:
         """合并分支"""
-        pass
 
 
 class GitService(IGitService):
@@ -47,8 +49,6 @@ class GitService(IGitService):
     def init_repo(self, repo_path: Path) -> bool:
         """初始化Git仓库"""
         try:
-            import subprocess
-            
             # 确保目录存在
             repo_path.mkdir(parents=True, exist_ok=True)
             
@@ -112,8 +112,6 @@ class GitService(IGitService):
     def commit_changes(self, repo_path: Path, message: str, metadata: Optional[Dict[str, Any]] = None) -> str:
         """提交更改"""
         try:
-            import subprocess
-            
             # 添加所有更改
             subprocess.run(
                 [self._git_command, "add", "."],
@@ -161,8 +159,6 @@ class GitService(IGitService):
     def get_commit_history(self, repo_path: Path, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """获取提交历史"""
         try:
-            import subprocess
-            
             # 构建git log命令
             cmd = [
                 self._git_command, "log",
@@ -206,8 +202,6 @@ class GitService(IGitService):
     def create_branch(self, repo_path: Path, branch_name: str) -> bool:
         """创建分支"""
         try:
-            import subprocess
-            
             result = subprocess.run(
                 [self._git_command, "checkout", "-b", branch_name],
                 cwd=repo_path,
@@ -229,8 +223,6 @@ class GitService(IGitService):
     def merge_branch(self, repo_path: Path, source_branch: str, target_branch: str) -> bool:
         """合并分支"""
         try:
-            import subprocess
-            
             # 切换到目标分支
             subprocess.run(
                 [self._git_command, "checkout", target_branch],
