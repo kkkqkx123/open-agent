@@ -338,6 +338,13 @@ class IStorage(ABC):
         pass
 
 
+class ServiceLifetime(str, Enum):
+    """服务生命周期枚举"""
+    SINGLETON = "singleton"
+    TRANSIENT = "transient"
+    SCOPED = "scoped"
+
+
 class LogLevel(Enum):
     """日志级别"""
     DEBUG = "DEBUG"

@@ -7,8 +7,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 import logging
 
-from src.interfaces.workflow.core import IWorkflow, IWorkflowBuilder
-from src.core.workflow.entities import Workflow
+from src.interfaces.workflow.core import IWorkflow
+from src.interfaces.workflow.builders import IWorkflowBuilder
 
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class WorkflowRegistry(IWorkflowRegistry):
     管理工作流的注册、查找和版本控制。
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化注册表"""
         self._workflows: Dict[str, IWorkflow] = {}
         self._workflow_builders: Dict[str, IWorkflowBuilder] = {}

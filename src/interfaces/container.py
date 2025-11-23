@@ -9,7 +9,7 @@ from enum import Enum
 from dataclasses import dataclass
 from contextlib import contextmanager
 
-from ..infrastructure.infrastructure_types import ServiceRegistration, ServiceLifetime, T
+from interfaces.common import ServiceLifetime
 
 # 泛型类型变量用于 get 方法
 _ServiceT = TypeVar("_ServiceT")

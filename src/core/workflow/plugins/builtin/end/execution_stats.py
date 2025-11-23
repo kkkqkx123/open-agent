@@ -10,7 +10,7 @@ import logging
 from typing import Dict, Any, List
 from datetime import datetime
 
-from ...interfaces import IEndPlugin, PluginMetadata, PluginContext, PluginType
+from src.interfaces import IEndPlugin, PluginMetadata, PluginContext, PluginType
 
 
 logger = logging.getLogger(__name__)
@@ -461,7 +461,7 @@ class ExecutionStatsPlugin(IEndPlugin):
             if hasattr(process, "num_fds"):
                 try:
                     process_stats["file_descriptors"] = {
-                        "count": process.num_fds()
+                        "count": process.num_fds()  # type: ignore[attr-defined]
                     }
                 except (AttributeError, OSError):
                     pass
