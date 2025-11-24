@@ -1,6 +1,7 @@
 """validation_rules.py模块的单元测试"""
 
 import pytest
+from abc import ABC
 from src.core.config.processor.validation_rules import ValidationRule
 from src.core.config.processor.validation_utils import ValidationLevel
 from src.core.config.processor.validation_report import EnhancedValidationResult
@@ -12,8 +13,12 @@ class TestValidationRule:
     def test_validation_rule_abstract_interface(self):
         """测试验证规则抽象接口"""
         # 验证抽象基类不能被直接实例化
-        with pytest.raises(TypeError):
-            ValidationRule("test_rule", ValidationLevel.SEMANTIC, "Test description")
+        from abc import ABC
+        # 检查ValidationRule是否是ABC的子类
+        assert issubclass(ValidationRule, ABC)
+        # 验证类有抽象方法
+        assert hasattr(ValidationRule, '__abstractmethods__')
+        assert 'validate' in ValidationRule.__abstractmethods__
 
     def test_validation_rule_attributes(self):
         """测试验证规则属性"""
