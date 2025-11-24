@@ -22,9 +22,11 @@ class MetadataManager:
         
         if isinstance(metadata, dict):
             return dict(metadata)
-        elif hasattr(metadata, '__dict__'):
-            return dict(metadata.__dict__)
+        elif isinstance(metadata, (list, tuple, str, bytes)):
+            # 对于内置类型如列表、元组、字符串、字节等，直接返回空字典
+            return {}
         elif hasattr(metadata, '__getitem__') and hasattr(metadata, '__iter__'):
+            # 检查是否为类映射对象（具有__getitem__和__iter__）
             try:
                 # 尝试构建字典
                 result = {}
@@ -45,7 +47,11 @@ class MetadataManager:
                 return result
             except (TypeError, KeyError):
                 return {}
+        elif hasattr(metadata, '__dict__'):
+            # 如果不是类映射对象，则检查是否具有__dict__属性
+            return dict(metadata.__dict__)
         else:
+            # 对于其他类型，如字符串、数字等，返回空字典
             return {}
     
     @staticmethod

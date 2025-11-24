@@ -8,6 +8,9 @@
 from typing import Optional, Dict, Any
 from pydantic import ValidationError
 
+# 导入配置异常
+from .config import ConfigError
+
 # 基础异常
 class CoreError(Exception):
     """核心模块基础异常"""
@@ -22,9 +25,11 @@ class ServiceError(CoreError):
     pass
 
 
-class ConfigurationError(CoreError):
+class ConfigurationError(ConfigError):
     """配置错误异常"""
-    pass
+    
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None, config_path: Optional[str] = None):
+        super().__init__(message, config_path, details)
 
 
 class DependencyError(CoreError):
