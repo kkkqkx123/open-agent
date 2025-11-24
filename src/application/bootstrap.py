@@ -7,7 +7,8 @@ import os
 from typing import Optional
 
 from src.infrastructure.container import DependencyContainer, get_global_container
-from infrastructure.config.loader.file_config_loader import IConfigLoader, FileConfigLoader
+from src.interfaces.common import IConfigLoader
+from src.core.config.config_loader import FileConfigLoader
 from src.infrastructure.graph.registry import NodeRegistry, get_global_registry
 from src.services.logger import get_logger
 from .workflow import setup_workflow_container

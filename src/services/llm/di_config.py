@@ -36,7 +36,7 @@ def register_llm_services(container) -> None:
     """
     try:
         # 注册配置加载器
-        from infrastructure.config.loader.file_config_loader import FileConfigLoader
+        from src.core.config.config_loader import FileConfigLoader
         container.register_singleton(FileConfigLoader)
         
         # 注册LLM工厂
@@ -168,7 +168,7 @@ def create_llm_manager_with_config(container, config: Dict[str, Any]) -> LLMMana
         # 获取配置加载器（可选）
         config_loader = None
         try:
-            from infrastructure.config.loader.file_config_loader import FileConfigLoader
+            from src.core.config.config_loader import FileConfigLoader
             config_loader = container.get(FileConfigLoader)
         except:
             logger.warning("配置加载器未注册，将使用基本配置功能")

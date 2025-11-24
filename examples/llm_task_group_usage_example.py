@@ -4,7 +4,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-from infrastructure.config.loader.file_config_loader import FileConfigLoader
+from src.core.config.config_loader import FileConfigLoader
 from src.core.llm.task_group_manager import TaskGroupManager
 from src.core.llm.polling_pool import PollingPoolManager
 from src.core.llm.enhanced_fallback_manager import EnhancedFallbackManager

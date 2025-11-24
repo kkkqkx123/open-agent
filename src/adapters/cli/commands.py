@@ -251,7 +251,7 @@ def setup_container(config_path: Optional[str] = None) -> None:
     
     # 注册配置加载器
     if not container.has_service(IConfigLoader):
-        from src.core.config.loader.file_config_loader import FileConfigLoader
+        from src.core.config.config_loader import FileConfigLoader
         config_loader = FileConfigLoader()
         container.register_instance(IConfigLoader, config_loader)
     

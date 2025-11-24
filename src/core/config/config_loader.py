@@ -2,61 +2,32 @@
 配置加载器 - 统一配置加载功能
 """
 
-import os
 import yaml
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional, Union, List
-import re
+from typing import Dict, Any, Optional, Union, List, Callable
 
-from ..common.cache import config_cached
-from ..common.exceptions.config import (
+from src.core.common.cache import config_cached
+from src.core.common.exceptions.config import (
     ConfigNotFoundError,
     ConfigFormatError,
     ConfigError
 )
+from src.interfaces.common import IConfigLoader
+from src.interfaces.container import ILifecycleAware
 
-
-class ConfigLoader:
-    """统一配置加载器"""
+class ConfigLoader(IConfigLoader, ILifecycleAware):
+    """统一配置加载器，实现IConfigLoader接口"""
     
     def __init__(self, base_path: Optional[Path] = None):
         """初始化加载器"""
-        self.base_path = base_path or Path("configs")
+        self._base_path = base_path or Path("configs")
         self._supported_formats = {'.yaml', '.yml', '.json'}
-        
-        # 配置类型推断的正则模式
-        self._workflow_patterns = [
-            r".*workflow.*\.ya?ml$",
-            r".*react.*\.ya?ml$",
-            r".*plan.*\.ya?ml$",
-            r".*collaborative.*\.ya?ml$",
-            r".*thinking.*\.ya?ml$",
-            r".*deep.*\.ya?ml$",
-            r".*ultra.*\.ya?ml$"
-        ]
-        
-        self._tool_patterns = [
-            r".*tool.*\.ya?ml$",
-            r".*calculator.*\.ya?ml$",
-            r".*fetch.*\.ya?ml$",
-            r".*weather.*\.ya?ml$",
-            r".*database.*\.ya?ml$",
-            r".*search.*\.ya?ml$",
-            r".*hash.*\.ya?ml$"
-        ]
-        
-        self._state_machine_patterns = [
-            r".*state.*machine.*\.ya?ml$",
-            r".*thinking.*\.ya?ml$",
-            r".*deep.*thinking.*\.ya?ml$",
-            r".*ultra.*thinking.*\.ya?ml$"
-        ]
-        
-        # 编译正则表达式
-        self._compiled_workflow_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self._workflow_patterns]
-        self._compiled_tool_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self._tool_patterns]
-        self._compiled_state_machine_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self._state_machine_patterns]
+    
+    @property
+    def base_path(self) -> Path:
+        """获取配置基础路径"""
+        return self._base_path
     
     @config_cached(maxsize=256)
     def load(self, config_path: str) -> Dict[str, Any]:
@@ -134,56 +105,6 @@ class ConfigLoader:
         
         return [str(f.relative_to(self.base_path)) for f in config_files]
     
-    def infer_config_type(self, config_path: str) -> str:
-        """推断配置类型
-        
-        Args:
-            config_path: 配置文件路径
-            
-        Returns:
-            str: 配置类型 ("workflow", "tool", "state_machine", "unknown")
-        """
-        path_lower = config_path.lower()
-        
-        # 状态机配置优先级最高
-        if "state_machine" in path_lower or any(pattern.search(config_path) for pattern in self._compiled_state_machine_patterns):
-            return "state_machine"
-        
-        # 工作流配置
-        if "workflow" in path_lower or any(pattern.search(config_path) for pattern in self._compiled_workflow_patterns):
-            return "workflow"
-        
-        # 工具配置
-        if "tool" in path_lower or any(pattern.search(config_path) for pattern in self._compiled_tool_patterns):
-            return "tool"
-        
-        # 默认为未知
-        return "unknown"
-    
-    def get_config_files_by_type(self, directory: Optional[str] = None, recursive: bool = True) -> Dict[str, List[str]]:
-        """按类型获取配置文件列表
-        
-        Args:
-            directory: 目录路径
-            recursive: 是否递归搜索
-            
-        Returns:
-            Dict[str, List[str]]: 按类型分组的配置文件列表
-        """
-        config_files = self.get_config_files(directory, recursive)
-        
-        result = {
-            "workflow": [],
-            "tool": [],
-            "state_machine": [],
-            "unknown": []
-        }
-        
-        for file_path in config_files:
-            config_type = self.infer_config_type(file_path)
-            result[config_type].append(file_path)
-        
-        return result
     
     def invalidate_cache(self, config_path: str) -> None:
         """清除指定配置的缓存"""
@@ -191,10 +112,139 @@ class ConfigLoader:
         from ..common.cache import clear_cache
         clear_cache("config_func")
     
+    def load_config(self, config_path: str, config_type: Optional[str] = None) -> Dict[str, Any]:
+        """加载配置文件
+        
+        Args:
+            config_path: 配置文件路径
+            config_type: 配置类型（可选）
+            
+        Returns:
+            配置数据
+        """
+        return self.load(config_path)
+    
+    def get_config(self, config_path: str) -> Optional[Dict[str, Any]]:
+        """获取缓存中的配置
+        
+        Args:
+            config_path: 配置文件路径
+            
+        Returns:
+            配置数据或None
+        """
+        if self.exists(config_path):
+            return self.load(config_path)
+        return None
+    
+    def reload(self) -> None:
+        """重新加载所有配置"""
+        self.clear_cache()
+    
+    def watch_for_changes(self, callback: Callable[[str, Dict[str, Any]], None]) -> None:
+        """监听配置变化 - 已弃用，请使用FileWatcher
+        
+        Args:
+            callback: 变化回调函数
+            
+        Raises:
+            NotImplementedError: 此方法已弃用
+        """
+        raise NotImplementedError(
+            "watch_for_changes is deprecated. Please use FileWatcher instead."
+        )
+    
+    def stop_watching(self) -> None:
+        """停止监听配置变化 - 已弃用，请使用FileWatcher
+        
+        Raises:
+            NotImplementedError: 此方法已弃用
+        """
+        raise NotImplementedError(
+            "stop_watching is deprecated. Please use FileWatcher instead."
+        )
+    
+    def resolve_env_vars(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """解析环境变量 - 已弃用，请使用EnvResolver
+        
+        Args:
+            config: 配置字典
+            
+        Raises:
+            NotImplementedError: 此方法已弃用
+        """
+        raise NotImplementedError(
+            "resolve_env_vars is deprecated. Please use EnvResolver instead."
+        )
+    
+    def save_config(self, config: Dict[str, Any], config_path: str, config_type: Optional[str] = None) -> None:
+        """保存配置
+        
+        Args:
+            config: 配置数据
+            config_path: 配置文件路径
+            config_type: 配置类型（可选）
+        """
+        import yaml
+        full_path = self._base_path / config_path
+        
+        # 确保文件有.yaml扩展名
+        if not full_path.suffix:
+            full_path = full_path.with_suffix('.yaml')
+
+        # 确保目录存在
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            with open(full_path, "w", encoding="utf-8") as f:
+                yaml.dump(config, f, default_flow_style=False,
+                         allow_unicode=True, indent=2)
+        except Exception as e:
+            raise ConfigError(f"Failed to save {config_path}: {e}")
+    
+    def list_configs(self, config_type: Optional[str] = None) -> List[str]:
+        """列出配置文件
+        
+        Args:
+            config_type: 配置类型（可选）
+            
+        Returns:
+            配置文件路径列表
+        """
+        return self.get_config_files()
+    
+    def validate_config_path(self, config_path: str) -> bool:
+        """验证配置路径
+        
+        Args:
+            config_path: 配置文件路径
+            
+        Returns:
+            路径是否有效
+        """
+        return self.exists(config_path)
+    
     def clear_cache(self) -> None:
         """清除所有缓存"""
-        from ..common.cache import clear_cache
+        from src.core.common.cache import clear_cache
         clear_cache("config_func")
+    
+    # ILifecycleAware 接口方法
+    def initialize(self) -> None:
+        """初始化配置加载器"""
+        pass
+    
+    def start(self) -> None:
+        """启动配置加载器"""
+        pass
+    
+    def stop(self) -> None:
+        """停止配置加载器"""
+        pass
+    
+    def dispose(self) -> None:
+        """释放配置加载器资源"""
+        self.clear_cache()
 
 
 # 工具函数
@@ -214,6 +264,8 @@ def merge_configs(*configs: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
+# 保持向后兼容性：FileConfigLoader是ConfigLoader的别名
+FileConfigLoader = ConfigLoader
 def _deep_merge(base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
     """深度合并字典"""
     result = base.copy()

@@ -10,7 +10,7 @@ import sys
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from infrastructure.config.loader.file_config_loader import FileConfigLoader
+from src.core.config.config_loader import FileConfigLoader
 from src.core.llm.task_group_manager import TaskGroupManager
 from src.core.llm.enhanced_fallback_manager import EnhancedFallbackManager
 from src.core.llm.polling_pool import PollingPoolManager

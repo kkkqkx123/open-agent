@@ -6,7 +6,6 @@
 
 import asyncio
 import re
-import warnings
 import random
 from typing import Dict, Any, Tuple, Optional, List
 from urllib.parse import urlparse, urlunparse
@@ -14,7 +13,6 @@ from urllib.parse import urlparse, urlunparse
 import httpx
 import markdownify
 import readabilipy
-from protego import Protego
 
 # 导入BeautifulSoup用于文本提取(需要移除时将BS4_AVAILABLE设置为False即可)
 from bs4 import BeautifulSoup

@@ -29,8 +29,6 @@ The Modular Agent Framework is a Python-based multi-agent system built on LangGr
 uv venv
 
 # Activate virtual environment
-source .venv/bin/activate  # Linux/Mac
-# or
 .venv\Scripts\activate  # Windows
 
 # Install dependencies

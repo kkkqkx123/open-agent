@@ -6,7 +6,7 @@ DuckDuckGo搜索工具实现
 
 import httpx
 from bs4 import BeautifulSoup
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from dataclasses import dataclass
 import urllib.parse
 import asyncio
@@ -18,7 +18,6 @@ from random import randint
 # 配置加载相关导入
 from pathlib import Path
 import sys
-import os
 
 # 添加项目根目录到路径，以便导入基础设施组件
 project_root = Path(__file__).parent.parent.parent
@@ -26,7 +25,7 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 try:
-    from infrastructure.config.loader.file_config_loader import FileConfigLoader
+    from src.core.config.config_loader import FileConfigLoader
 except ImportError:
     # 如果无法导入，使用默认值
     FileConfigLoader = None

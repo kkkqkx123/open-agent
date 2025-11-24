@@ -26,7 +26,7 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 try:
-    from infrastructure.config.loader.file_config_loader import FileConfigLoader
+    from src.core.config.config_loader import FileConfigLoader
 except ImportError:
     # 如果无法导入，使用默认值
     FileConfigLoader = None

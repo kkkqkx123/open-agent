@@ -15,7 +15,7 @@ from src.services.container import get_global_container, DependencyContainer, ID
 from src.infrastructure.di_config import DIConfig, create_container, get_global_container as get_di_container
 from src.infrastructure.lifecycle_manager import LifecycleManager, get_global_lifecycle_manager
 from src.app_config import ApplicationConfig
-from infrastructure.config.loader.file_config_loader import FileConfigLoader
+from src.core.config.config_loader import FileConfigLoader
 from src.infrastructure.exceptions import InfrastructureError
 from src.infrastructure.container_interfaces import ILifecycleAware
 
