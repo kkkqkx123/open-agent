@@ -100,6 +100,13 @@ from .tool.config import (
     ToolSetConfig
 )
 
+# 工具状态管理相关接口
+from .tool.state_manager import (
+    IToolStateManager,
+    StateType,
+    StateEntry
+)
+
 # 历史相关接口
 from .history import (
     IHistoryManager,
@@ -251,6 +258,11 @@ __all__ = [
     "RestToolConfig",
     "MCPToolConfig",
     "ToolSetConfig",
+    
+    # 工具状态管理接口
+    "IToolStateManager",
+    "StateType",
+    "StateEntry",
     
     # 历史接口
     "IHistoryManager",

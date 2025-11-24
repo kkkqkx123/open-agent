@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Sequence, Union, TYPE_CHECKING
 from dataclasses import dataclass
 
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..llm import ILLMClient
     from .config import ToolConfig
@@ -64,6 +63,11 @@ class ITool(ABC):
         pass
 
     @abstractmethod
+    async def execute_async(self, **kwargs: Any) -> Any:
+        """异步执行工具"""
+        pass
+
+    @abstractmethod
     def get_schema(self) -> Dict[str, Any]:
         """获取参数模式"""
         pass
@@ -71,6 +75,21 @@ class ITool(ABC):
     @abstractmethod
     def validate_parameters(self, parameters: Dict[str, Any]) -> bool:
         """验证参数"""
+        pass
+
+    @abstractmethod
+    def initialize_context(self, session_id: Optional[str] = None) -> Optional[str]:
+        """初始化工具上下文"""
+        pass
+
+    @abstractmethod
+    def cleanup_context(self) -> bool:
+        """清理工具上下文"""
+        pass
+
+    @abstractmethod
+    def get_context_info(self) -> Optional[Dict[str, Any]]:
+        """获取上下文信息"""
         pass
 
 

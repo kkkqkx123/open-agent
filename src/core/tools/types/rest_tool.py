@@ -6,15 +6,14 @@ RestTool用于调用外部REST API的工具，支持HTTP请求和认证。
 
 import json
 import asyncio
+import time
 from typing import Any, Dict, Optional, Union
 from urllib.parse import urljoin
 
 import aiohttp
-# 移除顶部导入以避免循环依赖
 from pydantic import BaseModel
 
-from ..base import BaseTool
-
+from ..base_stateful import StatefulBaseTool
 
 
 class HTTPAuth(BaseModel):
@@ -25,41 +24,47 @@ class HTTPAuth(BaseModel):
     header_name: Optional[str] = None
 
 
-class RestTool(BaseTool):
+class RestTool(StatefulBaseTool):
     """REST工具
 
     用于调用外部REST API的工具，支持多种HTTP方法和认证方式。
     """
 
-    def __init__(self, config: Any):
+    def __init__(self, config: Any, state_manager):
         """初始化REST工具
         
         Args:
             config: REST工具配置
+            state_manager: 状态管理器
         """
         super().__init__(
             name=config.name,
             description=config.description,
             parameters_schema=config.parameters_schema,
+            state_manager=state_manager,
+            config=config
         )
-        self.config = config
         self._session: Optional[aiohttp.ClientSession] = None
 
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """获取HTTP会话
-
-        Returns:
-            aiohttp.ClientSession: HTTP会话
-        """
-        if self._session is None or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=self.config.timeout)
-            self._session = aiohttp.ClientSession(timeout=timeout)
+    async def _get_persistent_session(self) -> aiohttp.ClientSession:
+        """获取持久化HTTP会话"""
+        # 检查连接状态
+        conn_state = self.get_connection_state()
+        
+        if conn_state and conn_state.get("session_active") and self._session:
+            if not self._session.closed:
+                return self._session
+        
+        # 创建新会话并维护状态
+        timeout = aiohttp.ClientTimeout(total=self.config.timeout)
+        self._session = aiohttp.ClientSession(timeout=timeout)
+        self.update_connection_state({
+            "session_active": True,
+            "created_at": time.time(),
+            "last_used": time.time()
+        })
+        
         return self._session
-
-    async def _close_session(self) -> None:
-        """关闭HTTP会话"""
-        if self._session and not self._session.closed:
-            await self._session.close()
 
     def _build_headers(self, parameters: Dict[str, Any]) -> Dict[str, str]:
         """构建HTTP请求头
@@ -155,7 +160,7 @@ class RestTool(BaseTool):
             Any: 解析后的响应数据
         """
         # 检查响应状态
-        if response.status >= 400:
+        if response.status >= 40:
             raise ValueError(f"HTTP请求失败: {response.status} {response.reason}")
 
         # 根据Content-Type解析数据
@@ -169,7 +174,7 @@ class RestTool(BaseTool):
             return response_data
 
     def execute(self, **kwargs: Any) -> Any:
-        """同步执行工具（通过EventLoopManager）
+        """同步执行工具（通过异步实现）
 
         Args:
             **kwargs: 工具参数
@@ -177,28 +182,13 @@ class RestTool(BaseTool):
         Returns:
             Any: 执行结果
         """
-        # 使用EventLoopManager运行异步方法
-        # from src.infrastructure.async_utils.event_loop_manager import run_async
-        # return run_async(self.execute_async(**kwargs))
-        
-        # 临时实现，将在更新导入路径时修复
-        import asyncio
+        # 在新事件循环中运行异步方法
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        if loop.is_running():
-            # 如果事件循环已经在运行，创建新的任务
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    lambda: asyncio.run(self.execute_async(**kwargs))
-                )
-                return future.result()
-        else:
             return loop.run_until_complete(self.execute_async(**kwargs))
+        finally:
+            loop.close()
 
     async def execute_async(self, **kwargs: Any) -> Any:
         """异步执行工具
@@ -211,7 +201,7 @@ class RestTool(BaseTool):
         """
         try:
             # 获取HTTP会话
-            session = await self._get_session()
+            session = await self._get_persistent_session()
 
             # 构建请求
             headers = self._build_headers(kwargs)
@@ -234,7 +224,16 @@ class RestTool(BaseTool):
                     response_data = await response.text()
 
                 # 解析并返回结果
-                return self._parse_response(response, response_data)
+                result = self._parse_response(response, response_data)
+
+                # 更新连接状态
+                conn_state = self.get_connection_state()
+                self.update_connection_state({
+                    'last_used': time.time(),
+                    'request_count': (conn_state or {}).get('request_count', 0) + 1
+                })
+
+                return result
 
         except aiohttp.ClientError as e:
             raise ValueError(f"HTTP请求错误: {str(e)}")
@@ -243,8 +242,8 @@ class RestTool(BaseTool):
         except Exception as e:
             raise ValueError(f"工具执行错误: {str(e)}")
         finally:
-            # 清理会话
-            await self._close_session()
+            # 不关闭会话，保持持久化
+            pass
 
     async def __aenter__(self) -> "RestTool":
         """异步上下文管理器入口"""
@@ -252,8 +251,5 @@ class RestTool(BaseTool):
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """异步上下文管理器出口"""
-        await self._close_session()
-
-
-# 向后兼容的别名
-RestTool = RestTool  # 为了向后兼容
+        if self._session and not self._session.closed:
+            await self._session.close()

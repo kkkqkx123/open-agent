@@ -1,488 +1,334 @@
 """
 工具管理器实现
 
-提供工具的加载、注册、查询和管理功能。
+支持新的工具类型层次结构的工具管理器。
 """
 
-import importlib
-from typing import Any, Dict, List, Optional, Type, Union
-from pathlib import Path
+import asyncio
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+import logging
 
-from src.interfaces.tool.base import ITool, IToolRegistry
-from src.core.tools.config import (
-    ToolConfig,
-    NativeToolConfig,
-    RestToolConfig,
-    MCPToolConfig,
-    ToolSetConfig,
-)
-from .types.rest_tool import RestTool
-from .types.mcp_tool import MCPTool
-from .types.native_tool import RestToolFactory
-from .types.native_tool import SyncRestTool, AsyncRestTool
+from src.interfaces.tool.base import ITool, IToolManager, IToolFactory
+from .factory import OptimizedToolFactory
+
+if TYPE_CHECKING:
+    from .config import ToolConfig
 
 
-class ToolManager(IToolRegistry):
-    """工具管理器实现
+logger = logging.getLogger(__name__)
 
-    负责工具的加载、注册、查询和管理，实现IToolRegistry接口。
+
+class ToolManager(IToolManager):
+    """工具管理器
+    
+    支持新工具类型层次结构的工具管理器。
     """
-
-    def __init__(
-        self, 
-        config_loader=None, 
-        logger=None,
-        tool_loader=None,
-        tool_cache=None
-    ):
+    
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """初始化工具管理器
-
-        Args:
-            config_loader: 配置加载器（可选）
-            logger: 日志记录器（可选）
-            tool_loader: 工具加载器（可选）
-            tool_cache: 工具缓存（可选）
-        """
-        self.config_loader = config_loader
-        self.logger = logger
-        # 如果没有提供tool_loader，则创建默认的DefaultToolLoader
-        if tool_loader is None and config_loader is not None and logger is not None:
-            from .loaders import DefaultToolLoader as _DefaultToolLoader
-            self.tool_loader: Any = _DefaultToolLoader(config_loader, logger)
-        else:
-            self.tool_loader = tool_loader
-        self.tool_cache = tool_cache
-        self._tools: Dict[str, ITool] = {}
-        self._tool_sets: Dict[str, ToolSetConfig] = {}
-        self._loaded = False
-
-    def load_tools(self) -> List[ITool]:
-        """加载所有可用工具
-
-        Returns:
-            List[ITool]: 已加载的工具列表
-        """
-        if self._loaded:
-            return list(self._tools.values())
-
-        try:
-            # 加载工具配置
-            if self.logger:
-                self.logger.info("Loading tool configs")
-                self.logger.info("Calling _load_tool_configs")
-            tool_configs = self._load_tool_configs()
-            if self.logger:
-                self.logger.info(f"Loaded {len(tool_configs)} tool configs")
-
-            # 创建工具实例
-            for config in tool_configs:
-                if not config.enabled:
-                    if self.logger:
-                        self.logger.info(f"跳过已禁用的工具: {config.name}")
-                    continue
-
-                try:
-                    tool = self._create_tool(config)
-                    if tool.name not in self._tools:
-                        self._tools[tool.name] = tool
-                        if self.logger:
-                            self.logger.info(f"已加载工具: {tool.name}")
-                    else:
-                        if self.logger:
-                            self.logger.warning(f"工具名称重复: {tool.name}")
-                except Exception as e:
-                    if self.logger:
-                        self.logger.error(f"加载工具失败 {config.name}: {str(e)}")
-
-            # 加载工具集配置
-            self._load_tool_sets()
-
-            self._loaded = True
-            if self.logger:
-                self.logger.info(f"工具加载完成，共加载 {len(self._tools)} 个工具")
-
-            return list(self._tools.values())
-
-        except Exception as e:
-            if self.logger:
-                self.logger.error(f"工具加载失败: {str(e)}")
-            # from src.infrastructure.exceptions import InfrastructureError
-            # raise InfrastructureError(f"工具加载失败: {str(e)}")
-            raise Exception(f"工具加载失败: {str(e)}")
-
-    def _load_tool_configs(self) -> List[ToolConfig]:
-        """加载工具配置
-
-        Returns:
-            List[ToolConfig]: 工具配置列表
-        """
-        try:
-            if self.logger:
-                self.logger.info("开始调用工具加载器加载工具配置")
-                self.logger.info(f"工具加载器类型: {type(self.tool_loader)}")
-            # 使用工具加载器加载工具配置
-            if self.tool_loader is None:
-                raise Exception("工具加载器未初始化")
-            result = self.tool_loader.load_from_config("tools")
-            if self.logger:
-                self.logger.info(f"工具加载器返回结果: {len(result)} 个配置")
-            return result
-        except Exception as e:
-            if self.logger:
-                self.logger.error(f"加载工具配置失败: {str(e)}")
-            # from src.infrastructure.exceptions import InfrastructureError
-            # raise InfrastructureError(f"加载工具配置失败: {str(e)}")
-            raise Exception(f"加载工具配置失败: {str(e)}")
-
-    def _parse_tool_config(self, config_data: Dict[str, Any]) -> Union[RestToolConfig, MCPToolConfig, NativeToolConfig]:
-        """解析工具配置
-
-        Args:
-            config_data: 配置数据
-
-        Returns:
-            Union[RestToolConfig, MCPToolConfig, NativeToolConfig]: 工具配置对象
-
-        Raises:
-            ValueError: 配置格式错误
-        """
-        tool_type = config_data.get("tool_type")
-        if not tool_type:
-            raise ValueError("缺少tool_type配置")
-
-        if tool_type == "rest":
-            return RestToolConfig(**config_data)
-        elif tool_type == "native":
-            return NativeToolConfig(**config_data)
-        elif tool_type == "mcp":
-            return MCPToolConfig(**config_data)
-        else:
-            raise ValueError(f"未知的工具类型: {tool_type}")
-
-    def _create_tool(self, config: ToolConfig) -> ITool:
-        """根据配置创建工具实例
-
-        Args:
-            config: 工具配置
-
-        Returns:
-            ITool: 工具实例
-
-        Raises:
-            ValueError: 创建工具失败
-        """
-        # 检查缓存
-        if self.tool_cache:
-            cached_tool = self.tool_cache.get(config.name)
-            if cached_tool:
-                return cached_tool
         
-        tool: ITool
-        if isinstance(config, NativeToolConfig):
-            # 对于原生工具，需要从配置中获取函数路径并加载函数
-            if hasattr(config, 'function_path') and config.function_path:
-                func = self._load_function_from_path(config.function_path)
-                tool = RestToolFactory.create_tool(func, config)
-            else:
-                raise ValueError("原生工具缺少function_path配置")
-        elif isinstance(config, RestToolConfig):
-            tool = RestTool(config)
-        elif isinstance(config, MCPToolConfig):
-            tool = MCPTool(config)
-        else:
-            raise ValueError(f"未知的工具配置类型: {type(config)}")
-
-        # 缓存工具
-        if self.tool_cache:
-            self.tool_cache.set(config.name, tool)
-
-        return tool
-
-    def _load_function_from_path(self, function_path: str) -> Any:
-        """从路径加载函数
-
         Args:
-            function_path: 函数路径，格式为 "module.submodule:function_name"
-
-        Returns:
-            Any: 函数对象
-
-        Raises:
-            ValueError: 加载函数失败
+            config: 工具管理器配置
         """
-        try:
-            module_path, function_name = function_path.split(":")
-            module = importlib.import_module(module_path)
-            func = getattr(module, function_name)
-
-            if not callable(func):
-                raise ValueError(f"指定路径不是可调用对象: {function_path}")
-
-            return func
-
-        except Exception as e:
-            raise ValueError(f"加载函数失败 {function_path}: {str(e)}")
-
-    def _load_tool_sets(self) -> None:
-        """加载工具集配置"""
-        try:
-            # 加载工具集配置目录
-            tool_sets_config_dir = Path("configs/tool-sets")
-            if not tool_sets_config_dir.exists():
-                if self.logger:
-                    self.logger.warning("工具集配置目录不存在: configs/tool-sets")
-                return
-
-            if self.config_loader is None:
-                if self.logger:
-                    self.logger.warning("配置加载器未初始化，无法加载工具集配置")
-                return
-
-            # 遍历工具集配置文件
-            for config_file in tool_sets_config_dir.glob("*.yaml"):
-                try:
-                    config_data = self.config_loader.load(str(config_file))
-                    tool_set_config = ToolSetConfig(**config_data)
-
-                    if tool_set_config.enabled:
-                        self._tool_sets[tool_set_config.name] = tool_set_config
-                        if self.logger:
-                            self.logger.info(f"已加载工具集: {tool_set_config.name}")
-                    else:
-                        if self.logger:
-                            self.logger.info(f"跳过已禁用的工具集: {tool_set_config.name}")
-
-                except Exception as e:
-                    if self.logger:
-                        self.logger.error(f"解析工具集配置失败 {config_file}: {str(e)}")
-
-        except Exception as e:
-            if self.logger:
-                self.logger.error(f"加载工具集配置失败: {str(e)}")
-
-    def get_tool(self, name: str) -> ITool:
-        """根据名称获取工具
-
-        Args:
-            name: 工具名称
-
-        Returns:
-            ITool: 工具实例
-
-        Raises:
-            ValueError: 工具不存在
+        self.config = config or {}
+        self._tools: Dict[str, ITool] = {}  # 直接存储工具
+        self._factory = OptimizedToolFactory()
+        self._initialized = False
+        self._active_sessions: Dict[str, Dict[str, ITool]] = {}  # session_id -> {tool_name: tool}
+    
+    @property
+    def factory(self) -> IToolFactory:
+        """获取工具工厂"""
+        return self._factory
+    
+    @property
+    def is_initialized(self) -> bool:
+        """检查是否已初始化"""
+        return self._initialized
+    
+    async def initialize(self) -> None:
+        """初始化工具管理器
+        
+        加载配置中指定的所有工具。
         """
-        if not self._loaded:
-            self.load_tools()
-
-        if name not in self._tools:
-            raise ValueError(f"工具不存在: {name}")
-
-        return self._tools[name]
-
-    def get_tool_set(self, name: str) -> List[ITool]:
-        """获取工具集
-
-        Args:
-            name: 工具集名称
-
-        Returns:
-            List[ITool]: 工具集中的工具列表
-
-        Raises:
-            ValueError: 工具集不存在
-        """
-        if not self._loaded:
-            self.load_tools()
-
-        if name not in self._tool_sets:
-            raise ValueError(f"工具集不存在: {name}")
-
-        tool_set_config = self._tool_sets[name]
-        tools = []
-
-        for tool_name in tool_set_config.tools:
+        if self._initialized:
+            return
+        
+        # 加载配置中的工具
+        await self._load_tools_from_config()
+        
+        self._initialized = True
+        logger.info("ToolManager初始化完成")
+    
+    async def _load_tools_from_config(self) -> None:
+        """从配置加载工具"""
+        # 从配置中获取工具列表
+        tools_config = self.config.get('tools', [])
+        
+        for tool_config in tools_config:
             try:
-                tool = self.get_tool(tool_name)
-                tools.append(tool)
-            except ValueError as e:
-                if self.logger:
-                    self.logger.warning(f"工具集中工具不存在 {tool_name}: {str(e)}")
-
-        return tools
-
-    def register_tool(self, tool: ITool) -> None:
-        """注册新工具
-
+                tool = self.factory.create_tool(tool_config)
+                await self.register_tool(tool)
+                logger.info(f"成功加载工具: {tool.name}")
+            except Exception as e:
+                logger.error(f"加载工具失败: {tool_config.get('name', 'Unknown')}, 错误: {e}")
+    
+    async def register_tool(self, tool: ITool) -> None:
+        """注册工具
+        
         Args:
-            tool: 工具实例
-
-        Raises:
-            ValueError: 工具名称已存在
+            tool: 要注册的工具
         """
-        if tool.name in self._tools:
-            raise ValueError(f"工具名称已存在: {tool.name}")
-
         self._tools[tool.name] = tool
-        if self.logger:
-            self.logger.info(f"已注册工具: {tool.name}")
-
-    def list_tools(self) -> List[str]:
-        """列出所有可用工具名称
-
-        Returns:
-            List[str]: 工具名称列表
-        """
-        if not self._loaded:
-            self.load_tools()
-
-        return list(self._tools.keys())
-
-    def list_tool_sets(self) -> List[str]:
-        """列出所有可用工具集名称
-
-        Returns:
-            List[str]: 工具集名称列表
-        """
-        if not self._loaded:
-            self.load_tools()
-
-        return list(self._tool_sets.keys())
-
-    def unregister_tool(self, name: str) -> bool:
+        logger.info(f"注册工具: {tool.name}")
+    
+    async def unregister_tool(self, name: str) -> None:
         """注销工具
-
+        
         Args:
             name: 工具名称
-
-        Returns:
-            bool: 是否成功注销
         """
         if name in self._tools:
             del self._tools[name]
-            if self.logger:
-                self.logger.info(f"已注销工具: {name}")
-            return True
-        return False
-
-    def reload_tools(self) -> List[ITool]:
-        """重新加载所有工具
-
-        Returns:
-            List[ITool]: 重新加载后的工具列表
-        """
-        self._tools.clear()
-        self._tool_sets.clear()
-        self._loaded = False
+            logger.info(f"注销工具: {name}")
+    
+    async def get_tool(self, name: str, session_id: Optional[str] = None) -> Optional[ITool]:
+        """获取工具
         
-        # 清除缓存
-        if self.tool_cache:
-            self.tool_cache.clear()
-            
-        return self.load_tools()
-
-    def get_tool_info(self, name: str) -> Dict[str, Any]:
-        """获取工具详细信息
-
         Args:
             name: 工具名称
-
+            session_id: 会话ID（用于有状态工具）
+            
         Returns:
-            Dict[str, Any]: 工具信息
-
-        Raises:
-            ValueError: 工具不存在
+            Optional[ITool]: 工具实例，如果不存在则返回None
         """
-        tool = self.get_tool(name)
+        # 首先检查是否有活跃的会话工具
+        if session_id and session_id in self._active_sessions:
+            session_tools = self._active_sessions[session_id]
+            if name in session_tools:
+                return session_tools[name]
+        
+        # 从工具存储中获取工具
+        tool = self._tools.get(name)
+        if tool is None:
+            return None
+        
+        # 如果是需要会话的有状态工具，初始化会话
+        if hasattr(tool, 'initialize_context') and session_id:
+            tool.initialize_context(session_id)
+            
+            # 将工具添加到活跃会话中
+            if session_id not in self._active_sessions:
+                self._active_sessions[session_id] = {}
+            self._active_sessions[session_id][name] = tool
+        
+        return tool
+    
+    async def list_tools(self) -> List[str]:
+        """列出所有已注册的工具名称
+        
+        Returns:
+            List[str]: 工具名称列表
+        """
+        return list(self._tools.keys())
+    
+    async def execute_tool(
+        self,
+        name: str,
+        arguments: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        """执行工具
+        
+        Args:
+            name: 工具名称
+            arguments: 工具参数
+            context: 执行上下文
+            
+        Returns:
+            Any: 工具执行结果
+        """
+        session_id = context.get('session_id') if context else None
+        
+        # 获取工具实例
+        tool = await self.get_tool(name, session_id)
+        if not tool:
+            raise ValueError(f"工具不存在: {name}")
+        
+        # 执行工具
+        try:
+            if hasattr(tool, 'execute_async'):
+                return await tool.execute_async(**arguments)
+            else:
+                return tool.execute(**arguments)
+        except Exception as e:
+            logger.error(f"执行工具失败: {name}, 错误: {e}")
+            raise
+    
+    async def reload_tools(self) -> None:
+        """重新加载所有工具
+        
+        清除当前工具并重新加载配置中的工具。
+        """
+        # 清理所有活跃会话
+        for session_id, session_tools in self._active_sessions.items():
+            for tool in session_tools.values():
+                if hasattr(tool, 'cleanup_context'):
+                    tool.cleanup_context()
+        
+        self._active_sessions.clear()
+        
+        # 清空工具存储
+        self._tools.clear()
+        
+        # 重新加载工具
+        await self._load_tools_from_config()
+        
+        logger.info("工具重载完成")
+    
+    def get_tool_info(self, name: str) -> Optional[Dict[str, Any]]:
+        """获取工具信息
+        
+        Args:
+            name: 工具名称
+            
+        Returns:
+            Optional[Dict[str, Any]]: 工具信息，如果不存在则返回None
+        """
+        tool = self._tools.get(name)
+        if not tool:
+            return None
+        
         return {
             "name": tool.name,
             "description": tool.description,
-            "schema": tool.get_schema()
+            "parameters_schema": tool.parameters_schema,
+            "type": getattr(tool, '__class__', type(tool)).__name__
         }
-
-    def get_tool_set_info(self, name: str) -> Dict[str, Any]:
-        """获取工具集详细信息
-
-        Args:
-            name: 工具集名称
-
-        Returns:
-            Dict[str, Any]: 工具集信息
-
-        Raises:
-            ValueError: 工具集不存在
-        """
-        if name not in self._tool_sets:
-            raise ValueError(f"工具集不存在: {name}")
-
-        tool_set_config = self._tool_sets[name]
-        tools = self.get_tool_set(name)
-
-        return {
-            "name": tool_set_config.name,
-            "description": tool_set_config.description,
-            "tools": [self.get_tool_info(tool.name) for tool in tools],
-            "enabled": tool_set_config.enabled,
-            "metadata": tool_set_config.metadata,
-        }
-
-
-class DefaultToolCache:
-    """默认工具缓存实现"""
     
-    def __init__(self) -> None:
-        """初始化工具缓存"""
-        self._cache: Dict[str, Any] = {}
-        self._ttl: Dict[str, float] = {}
-    
-    def get(self, key: str) -> Optional[Any]:
-        """获取缓存的工具
+    async def validate_tool_config(self, config: Any) -> bool:
+        """验证工具配置
         
         Args:
-            key: 缓存键
+            config: 工具配置（可以是ToolConfig对象或Dict）
             
         Returns:
-            Optional[Any]: 工具实例，如果不存在则返回None
+            bool: 验证是否通过
         """
-        import time
-        
-        # 检查TTL
-        if key in self._ttl:
-            if time.time() > self._ttl[key]:
-                self.invalidate(key)
-                return None
+        try:
+            # 将配置转换为字典形式（支持对象和字典）
+            config_dict: Dict[str, Any]
+            if isinstance(config, dict):
+                config_dict = config
+            else:
+                # 如果是对象，转换为字典
+                config_dict = {
+                    "name": getattr(config, "name", None),
+                    "tool_type": getattr(config, "tool_type", None),
+                    "description": getattr(config, "description", None),
+                    "parameters_schema": getattr(config, "parameters_schema", None),
+                }
+            
+            # 基本验证
+            required_fields = ["name", "tool_type", "description", "parameters_schema"]
+            for field in required_fields:
+                if field not in config_dict or config_dict[field] is None:
+                    logger.error(f"工具配置缺少必需字段: {field}")
+                    return False
+            
+            # 验证参数schema格式
+            parameters_schema = config_dict["parameters_schema"]
+            if not isinstance(parameters_schema, dict):
+                logger.error("参数schema必须是字典格式")
+                return False
+            
+            # 验证工具类型
+            tool_type = config_dict["tool_type"]
+            valid_types = ["builtin", "native", "rest", "mcp"]
+            if tool_type not in valid_types:
+                logger.error(f"无效的工具类型: {tool_type}")
+                return False
+            
+            # 针对不同工具类型进行特定验证
+            if tool_type in ["builtin", "native"]:
+                if "function_path" not in config_dict or not getattr(config, "function_path", None) if not isinstance(config, dict) else config_dict.get("function_path"):
+                    logger.error(f"{tool_type}工具必须包含function_path")
+                    return False
+            
+            if tool_type in ["rest", "mcp"]:
+                if tool_type == "rest":
+                    api_url = config_dict.get("api_url") if isinstance(config, dict) else getattr(config, "api_url", None)
+                    if not api_url:
+                        logger.error("REST工具必须包含api_url")
+                        return False
                 
-        return self._cache.get(key)
+                if tool_type == "mcp":
+                    mcp_url = config_dict.get("mcp_server_url") if isinstance(config, dict) else getattr(config, "mcp_server_url", None)
+                    if not mcp_url:
+                        logger.error("MCP工具必须包含mcp_server_url")
+                        return False
+            
+            return True
+        except Exception as e:
+            logger.error(f"工具配置验证失败: {e}")
+            return False
     
-    def set(self, key: str, tool: Any, ttl: Optional[int] = None) -> None:
-        """缓存工具
+    def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """获取会话信息
         
         Args:
-            key: 缓存键
-            tool: 工具实例
-            ttl: 生存时间（秒）
-        """
-        import time
-        
-        self._cache[key] = tool
-        if ttl:
-            self._ttl[key] = time.time() + ttl
-    
-    def invalidate(self, key: str) -> bool:
-        """使缓存失效
-        
-        Args:
-            key: 缓存键
+            session_id: 会话ID
             
         Returns:
-            bool: 是否成功失效
+            Optional[Dict[str, Any]]: 会话信息
         """
-        removed = key in self._cache
-        self._cache.pop(key, None)
-        self._ttl.pop(key, None)
-        return removed
+        if session_id not in self._active_sessions:
+            return None
+        
+        session_tools = self._active_sessions[session_id]
+        info = {
+            'session_id': session_id,
+            'tool_count': len(session_tools),
+            'tools': {}
+        }
+        
+        for name, tool in session_tools.items():
+            if hasattr(tool, 'get_context_info'):
+                context_info = tool.get_context_info()
+                info['tools'][name] = {
+                    'context_info': context_info,
+                    'type': type(tool).__name__
+                }
+            else:
+                info['tools'][name] = {
+                    'type': type(tool).__name__
+                }
+        
+        return info
     
-    def clear(self) -> None:
-        """清除所有缓存"""
-        self._cache.clear()
-        self._ttl.clear()
+    async def cleanup_session(self, session_id: str) -> None:
+        """清理会话
+        
+        Args:
+            session_id: 会话ID
+        """
+        if session_id in self._active_sessions:
+            session_tools = self._active_sessions[session_id]
+            
+            # 清理所有工具的上下文
+            for tool in session_tools.values():
+                if hasattr(tool, 'cleanup_context'):
+                    tool.cleanup_context()
+            
+            # 删除会话
+            del self._active_sessions[session_id]
+            
+            logger.info(f"清理会话: {session_id}")
+    
+    def get_all_sessions(self) -> List[str]:
+        """获取所有活跃会话ID列表
+        
+        Returns:
+            List[str]: 活跃会话ID列表
+        """
+        return list(self._active_sessions.keys())

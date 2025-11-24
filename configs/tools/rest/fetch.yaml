@@ -1,10 +1,14 @@
 # 网页内容获取工具配置
 name: fetch
-tool_type: resr
+tool_type: rest
 description: A tool for fetching web page content from URLs and optionally extracting it as markdown, supporting URL fetching with content type handling and robots.txt compliance
 function_path: src.domain.tools.rest.fetch:fetch_url
 enabled: true
 timeout: 30
+state_config:
+  manager_type: "memory"
+  ttl: 3600
+  auto_cleanup: true
 parameters_schema:
   type: object
   properties:

@@ -1,6 +1,6 @@
 # Hash转换工具配置
 name: hash_convert
-tool_type: native
+tool_type: builtin
 description: A tool for converting text to various hash values, supporting MD5, SHA1, SHA256, SHA512 algorithms
 function_path: src.domain.tools.native.hash_convert:hash_convert
 enabled: true

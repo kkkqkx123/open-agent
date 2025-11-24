@@ -9,10 +9,14 @@ method: GET
 auth_method: api_key
 api_key: "${OPENWEATHER_API_KEY}"
 headers:
-  User-Agent: "ModularAgent/1.0"
-  Content-Type: "application/json"
+ User-Agent: "ModularAgent/1.0"
+ Content-Type: "application/json"
 retry_count: 3
 retry_delay: 1.0
+state_config:
+ manager_type: "memory"
+ ttl: 3600
+ auto_cleanup: true
 parameters_schema:
   type: object
   properties:

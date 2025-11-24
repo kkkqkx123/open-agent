@@ -135,6 +135,30 @@ class BaseTool(ITool, ABC):
         except Exception as e:
             raise ValueError(f"参数验证失败: {str(e)}")
 
+    def initialize_context(self, session_id: Optional[str] = None) -> Optional[str]:
+        """初始化工具上下文（默认实现）
+        
+        对于无状态工具（如BuiltinTool），此方法为空实现。
+        有状态工具（如StatefulBaseTool）会重写此方法。
+        """
+        return session_id
+
+    def cleanup_context(self) -> bool:
+        """清理工具上下文（默认实现）
+        
+        对于无状态工具（如BuiltinTool），此方法为空实现。
+        有状态工具（如StatefulBaseTool）会重写此方法。
+        """
+        return True
+
+    def get_context_info(self) -> Optional[Dict[str, Any]]:
+        """获取上下文信息（默认实现）
+        
+        对于无状态工具（如BuiltinTool），此方法返回None。
+        有状态工具（如StatefulBaseTool）会重写此方法。
+        """
+        return None
+
     def _create_result(
         self,
         success: bool,

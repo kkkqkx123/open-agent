@@ -28,6 +28,10 @@ description: |
 function_path: src.domain.tools.native.sequentialthinking:sequentialthinking
 enabled: true
 timeout: 30
+state_config:
+  manager_type: "memory"
+  ttl: 3600
+  auto_cleanup: true
 parameters_schema:
   type: object
   properties:

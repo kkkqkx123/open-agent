@@ -7,6 +7,10 @@ timeout: 30
 mcp_server_url: "http://localhost:8080/mcp"
 dynamic_schema: true
 refresh_interval: 300  # 5分钟刷新一次Schema
+state_config:
+  manager_type: "memory"
+  ttl: 3600
+  auto_cleanup: true
 parameters_schema:
   type: object
   properties:

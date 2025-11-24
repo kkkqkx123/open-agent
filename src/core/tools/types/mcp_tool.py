@@ -6,14 +6,14 @@ MCPTool用于通过MCP服务器提供的工具，支持与MCP服务器的通信�
 
 import json
 import asyncio
+import time
 from typing import Any, Dict, Optional, List
 from urllib.parse import urljoin
 
 import aiohttp
 from pydantic import BaseModel
 
-from ..base import BaseTool
-
+from ..base_stateful import StatefulBaseTool
 
 
 class MCPClient:
@@ -143,25 +143,26 @@ class MCPClient:
         await self._close_session()
 
 
-class MCPTool(BaseTool):
+class MCPTool(StatefulBaseTool):
     """MCP工具
 
     通过MCP服务器提供的工具实现。
     """
 
-    def __init__(self, config: Any):
-        
+    def __init__(self, config: Any, state_manager):
         """初始化MCP工具
 
         Args:
             config: MCP工具配置
+            state_manager: 状态管理器
         """
         super().__init__(
             name=config.name,
             description=config.description,
             parameters_schema=config.parameters_schema,
+            state_manager=state_manager,
+            config=config
         )
-        self.config = config
         self.mcp_client = MCPClient(
             server_url=config.mcp_server_url, timeout=config.timeout
         )
@@ -193,20 +194,45 @@ class MCPTool(BaseTool):
             Any: 执行结果
         """
         try:
-            async with self.mcp_client:
-                # 如果需要动态获取Schema
-                if self.config.dynamic_schema:
-                    schema = await self.mcp_client.get_tool_schema(self.name)
-                    self.parameters_schema = schema
+            # 检查连接状态并重用连接
+            conn_state = self.get_connection_state()
+            if not conn_state or not conn_state.get("session_active"):
+                # 初始化连接状态
+                self.update_connection_state({
+                    "session_active": True,
+                    "created_at": time.time(),
+                    "last_used": time.time()
+                })
+            
+            # 如果需要动态获取Schema
+            if self.config.dynamic_schema:
+                schema = await self.mcp_client.get_tool_schema(self.name)
+                self.parameters_schema = schema
 
-                # 执行工具
-                result = await self.mcp_client.execute_tool(
-                    tool_name=self.name, arguments=kwargs
-                )
+            # 执行工具
+            result = await self.mcp_client.execute_tool(
+                tool_name=self.name, arguments=kwargs
+            )
+            
+            # 更新连接状态
+            conn_state = self.get_connection_state()
+            self.update_connection_state({
+                'last_used': time.time(),
+                'request_count': (conn_state or {}).get('request_count', 0) + 1
+            })
 
-                return result
+            return result
 
         except Exception as e:
+            # 更新连接状态
+            conn_state = self.get_connection_state()
+            error_count = (conn_state or {}).get('error_count', 0) + 1
+            self.update_connection_state({
+                'last_used': time.time(),
+                'error_count': error_count,
+                'last_error': str(e)
+            })
+            
             raise ValueError(f"MCP工具执行错误: {str(e)}")
 
     async def refresh_schema(self) -> None:
@@ -223,7 +249,7 @@ class MCPTool(BaseTool):
 
     @classmethod
     async def from_mcp_server(
-        cls, server_url: str, tool_name: str, timeout: int = 30
+        cls, server_url: str, tool_name: str, timeout: int = 30, state_manager=None
     ) -> "MCPTool":
         """从MCP服务器创建工具实例
 
@@ -231,6 +257,7 @@ class MCPTool(BaseTool):
             server_url: MCP服务器URL
             tool_name: 工具名称
             timeout: 超时时间
+            state_manager: 状态管理器
 
         Returns:
             MCPTool: 工具实例
@@ -244,18 +271,18 @@ class MCPTool(BaseTool):
                 schema = await client.get_tool_schema(tool_name)
 
                 # 创建配置
-                from src.core.tools.config import MCPToolConfig
-                config = MCPToolConfig(
-                    name=tool_name,
-                    tool_type="mcp",
-                    description=schema.get("description", ""),
-                    parameters_schema=schema.get("parameters", {}),
-                    mcp_server_url=server_url,
-                    timeout=timeout,
-                    dynamic_schema=True,
-                )
+                class SimpleConfig:
+                    def __init__(self):
+                        self.name = tool_name
+                        self.description = schema.get("description", "")
+                        self.parameters_schema = schema.get("parameters", {})
+                        self.mcp_server_url = server_url
+                        self.timeout = timeout
+                        self.dynamic_schema = True
 
-                return cls(config)
+                config = SimpleConfig()
+
+                return cls(config, state_manager)
 
         except Exception as e:
             raise ValueError(f"从MCP服务器创建工具失败: {str(e)}")
