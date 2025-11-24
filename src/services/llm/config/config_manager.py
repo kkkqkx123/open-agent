@@ -3,7 +3,7 @@
 整合所有配置相关的功能，包括配置加载、验证和管理。
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 import logging
 from pathlib import Path
 
@@ -30,7 +30,7 @@ class ConfigManager:
         factory: LLMFactory,
         config_validator: LLMConfigValidator,
         config_loader: Optional[Any] = None,
-        config: Optional[Dict[str, Any]] = None
+        config: Optional[dict[str, Any]] = None
     ) -> None:
         """初始化配置管理器
         
@@ -46,13 +46,13 @@ class ConfigManager:
         self._config = config or {}
         
         # 配置缓存
-        self._config_cache: Dict[str, Any] = {}
-        self._validation_cache: Dict[str, ValidationResult] = {}
+        self._config_cache: dict[str, Any] = {}
+        self._validation_cache: dict[str, ValidationResult] = {}
         
         # 配置基础路径
         self._config_base_path = "llms"
     
-    def get_config(self, config_type: str, use_cache: bool = True) -> Dict[str, Any]:
+    def get_config(self, config_type: str, use_cache: bool = True) -> dict[str, Any]:
         """获取指定类型的配置
         
         Args:
@@ -72,17 +72,16 @@ class ConfigManager:
         
         return config
     
-    def validate_config(self, config_type: str, config: Union[Dict[str, Any], LLMClientConfig]) -> ValidationResult:
-        """验证指定类型的配置
+    def validate_config(self, config: Union[dict[str, Any], LLMClientConfig]) -> ValidationResult:
+        """验证配置
         
         Args:
-            config_type: 配置类型
             config: 配置对象
             
         Returns:
             ValidationResult: 验证结果
         """
-        cache_key = f"{config_type}_{hash(str(config))}"
+        cache_key = f"{hash(str(config))}"
         
         if cache_key in self._validation_cache:
             return self._validation_cache[cache_key]
@@ -92,7 +91,7 @@ class ConfigManager:
         self._validation_cache[cache_key] = result
         return result
     
-    def load_clients_from_config(self) -> Dict[str, Any]:
+    def load_clients_from_config(self) -> dict[str, Any]:
         """从配置加载LLM客户端
         
         Returns:
@@ -102,16 +101,20 @@ class ConfigManager:
             LLMError: 配置加载失败
         """
         clients = {}
-        clients_config = self.get_config("clients")
+        clients_config_data = self.get_config("clients")
+        clients_config: list[Union[dict[str, Any], LLMClientConfig]] = clients_config_data if isinstance(clients_config_data, list) else []
         
         if not clients_config:
             logger.info("配置中没有指定LLM客户端")
             return clients
         
-        for client_config in clients_config:
+        for item in clients_config:
+            if not isinstance(item, (dict, LLMClientConfig)):
+                continue
+            client_config: Union[dict[str, Any], LLMClientConfig] = item
             try:
                 # 使用配置验证器验证配置
-                validation_result = self.validate_config("client", client_config)
+                validation_result = self.validate_config(client_config)
                 if not validation_result.is_valid:
                     client_name = self._get_config_name(client_config)
                     logger.error(f"LLM客户端配置验证失败 {client_name}: {validation_result.errors}")
@@ -143,7 +146,7 @@ class ConfigManager:
         logger.info(f"从配置加载了 {len(clients)} 个LLM客户端")
         return clients
     
-    def get_task_groups(self) -> Dict[str, Any]:
+    def get_task_groups(self) -> dict[str, Any]:
         """获取任务组配置
         
         Returns:
@@ -151,7 +154,7 @@ class ConfigManager:
         """
         return self.get_config("task_groups")
     
-    def get_polling_pools(self) -> Dict[str, Any]:
+    def get_polling_pools(self) -> dict[str, Any]:
         """获取轮询池配置
         
         Returns:
@@ -159,7 +162,7 @@ class ConfigManager:
         """
         return self.get_config("polling_pools")
     
-    def get_global_fallback(self) -> Dict[str, Any]:
+    def get_global_fallback(self) -> dict[str, Any]:
         """获取全局降级配置
         
         Returns:
@@ -167,7 +170,7 @@ class ConfigManager:
         """
         return self.get_config("global_fallback")
     
-    def get_concurrency_control(self) -> Dict[str, Any]:
+    def get_concurrency_control(self) -> dict[str, Any]:
         """获取并发控制配置
         
         Returns:
@@ -175,7 +178,7 @@ class ConfigManager:
         """
         return self.get_config("concurrency_control")
     
-    def get_rate_limiting(self) -> Dict[str, Any]:
+    def get_rate_limiting(self) -> dict[str, Any]:
         """获取速率限制配置
         
         Returns:
@@ -205,7 +208,7 @@ class ConfigManager:
         self._validation_cache.clear()
         logger.info("配置缓存已清除，将重新加载")
     
-    def get_config_status(self) -> Dict[str, Any]:
+    def get_config_status(self) -> dict[str, Any]:
         """获取配置状态
         
         Returns:
@@ -224,7 +227,7 @@ class ConfigManager:
             "rate_limiting_enabled": bool(self.get_rate_limiting())
         }
     
-    def _load_config_by_type(self, config_type: str) -> Dict[str, Any]:
+    def _load_config_by_type(self, config_type: str) -> dict[str, Any]:
         """根据类型加载配置
         
         Args:
@@ -249,7 +252,7 @@ class ConfigManager:
             logger.warning(f"未知的配置类型: {config_type}")
             return {}
     
-    def _load_task_groups(self) -> Dict[str, Any]:
+    def _load_task_groups(self) -> dict[str, Any]:
         """加载任务组配置"""
         if not self._config_loader:
             logger.warning("配置加载器未初始化，返回空的任务组配置")
@@ -298,12 +301,12 @@ class ConfigManager:
         
         return task_groups
     
-    def _load_default_task_groups(self) -> Dict[str, Any]:
+    def _load_default_task_groups(self) -> dict[str, Any]:
         """加载默认任务组配置（后备方案）"""
         logger.info("使用默认任务组配置")
         return {}
     
-    def _load_polling_pools(self) -> Dict[str, Any]:
+    def _load_polling_pools(self) -> dict[str, Any]:
         """加载轮询池配置"""
         if not self._config_loader:
             logger.warning("配置加载器未初始化，返回空的轮询池配置")
@@ -352,12 +355,12 @@ class ConfigManager:
         
         return polling_pools
     
-    def _load_default_polling_pools(self) -> Dict[str, Any]:
+    def _load_default_polling_pools(self) -> dict[str, Any]:
         """加载默认轮询池配置（后备方案）"""
         logger.info("使用默认轮询池配置")
         return {}
     
-    def _load_global_fallback(self) -> Dict[str, Any]:
+    def _load_global_fallback(self) -> dict[str, Any]:
         """加载全局降级配置"""
         if not self._config_loader:
             return self._config.get("global_fallback", {})
@@ -387,7 +390,7 @@ class ConfigManager:
         # 如果注册表加载失败，直接返回配置中的全局降级配置
         return self._config.get("global_fallback", {})
     
-    def _load_concurrency_control(self) -> Dict[str, Any]:
+    def _load_concurrency_control(self) -> dict[str, Any]:
         """加载并发控制配置"""
         if not self._config_loader:
             return self._config.get("concurrency_control", {})
@@ -417,7 +420,7 @@ class ConfigManager:
         # 如果注册表加载失败，直接返回配置中的并发控制配置
         return self._config.get("concurrency_control", {})
     
-    def _load_rate_limiting(self) -> Dict[str, Any]:
+    def _load_rate_limiting(self) -> dict[str, Any]:
         """加载速率限制配置"""
         if not self._config_loader:
             return self._config.get("rate_limiting", {})
@@ -447,7 +450,7 @@ class ConfigManager:
         # 如果注册表加载失败，直接返回配置中的速率限制配置
         return self._config.get("rate_limiting", {})
     
-    def _get_config_name(self, config: Union[Dict[str, Any], LLMClientConfig]) -> str:
+    def _get_config_name(self, config: Union[dict[str, Any], LLMClientConfig]) -> str:
         """获取配置名称
         
         Args:

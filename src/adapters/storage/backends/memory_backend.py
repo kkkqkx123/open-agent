@@ -235,6 +235,7 @@ class MemoryStorageBackend(StorageBackend):
             from src.core.state.statistics import StorageStatistics, HealthCheckHelper
             stats = StorageStatistics(
                 status="healthy",
+                timestamp=time.time(),
                 total_size_bytes=total_size,
                 total_items=len(self._storage),
                 total_records=len(self._storage),

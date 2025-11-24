@@ -8,11 +8,10 @@ from typing import Any, Dict, List, Optional, Union, Sequence, AsyncGenerator
 import logging
 from langchain_core.messages import BaseMessage
 
-from src.interfaces.llm import ILLMClient, ILLMManager, IFallbackManager, ITaskGroupManager, ILLMCallHook
+from src.interfaces.llm import ILLMClient, ILLMManager, IFallbackManager, ITaskGroupManager, ILLMCallHook, LLMResponse
 from src.core.llm.factory import LLMFactory
 from src.core.llm.config import LLMClientConfig
-from core.common.exceptions.llm import LLMError
-from src.core.llm.models import LLMResponse
+from src.core.common.exceptions.llm import LLMError
 from src.services.llm.state_machine import StateMachine, LLMManagerState
 from src.services.llm.config.config_validator import LLMConfigValidator, ValidationResult
 from src.services.llm.utils.metadata_service import ClientMetadataService
@@ -389,6 +388,8 @@ class LLMManager(ILLMManager):
             response = LLMResponse(
                 content=''.join(response_chunks),
                 model=getattr(client, 'model_name', 'unknown'),
+                finish_reason='stop',
+                tokens_used=0,
                 metadata=kwargs.get('metadata', {})
             )
             

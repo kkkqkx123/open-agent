@@ -374,6 +374,7 @@ class FileStorageBackend(StorageBackend):
             # 创建统计对象
             stats = FileStorageStatistics(
                 status="healthy",
+                timestamp=time.time(),
                 total_size_bytes=total_size,
                 total_size_mb=round(total_size / (1024 * 1024), 2),
                 total_items=total_files,

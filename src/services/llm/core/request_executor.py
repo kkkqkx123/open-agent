@@ -7,9 +7,8 @@ from typing import Any, Dict, List, Optional, Sequence, AsyncGenerator
 import logging
 from langchain_core.messages import BaseMessage
 
-from src.interfaces.llm import ILLMClient, IFallbackManager, ITaskGroupManager
-from src.core.llm.models import LLMResponse
-from core.common.exceptions.llm import LLMError
+from src.interfaces.llm import ILLMClient, IFallbackManager, ITaskGroupManager, LLMResponse
+from src.core.common.exceptions.llm import LLMError
 
 logger = logging.getLogger(__name__)
 

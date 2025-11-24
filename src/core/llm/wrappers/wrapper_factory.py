@@ -7,7 +7,7 @@ from .base_wrapper import BaseLLMWrapper
 from .task_group_wrapper import TaskGroupWrapper
 from .polling_pool_wrapper import PollingPoolWrapper
 from ...common.exceptions.llm_wrapper import WrapperFactoryError, WrapperConfigError
-from ..interfaces import ITaskGroupManager, IPollingPoolManager, IFallbackManager, ILLMClient
+from ....interfaces.llm import ITaskGroupManager, IPollingPoolManager, IFallbackManager
 
 logger = logging.getLogger(__name__)
 

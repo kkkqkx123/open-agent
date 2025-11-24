@@ -317,3 +317,51 @@ class Validator(IValidator):
             验证结果
         """
         return self.validate(config, model)
+
+    def validate_global_config(self, config: Dict[str, Any]) -> ValidationResult:
+        """验证全局配置
+        
+        Args:
+            config: 配置字典
+            
+        Returns:
+            验证结果
+        """
+        # 基本实现，可以被子类覆盖
+        return ValidationResult(True)
+
+    def validate_llm_config(self, config: Dict[str, Any]) -> ValidationResult:
+        """验证LLM配置
+        
+        Args:
+            config: 配置字典
+            
+        Returns:
+            验证结果
+        """
+        # 基本实现，可以被子类覆盖
+        return ValidationResult(True)
+
+    def validate_tool_config(self, config: Dict[str, Any]) -> ValidationResult:
+        """验证工具配置
+        
+        Args:
+            config: 配置字典
+            
+        Returns:
+            验证结果
+        """
+        # 基本实现，可以被子类覆盖
+        return ValidationResult(True)
+
+    def validate_token_counter_config(self, config: Dict[str, Any]) -> ValidationResult:
+        """验证Token计数器配置
+        
+        Args:
+            config: 配置字典
+            
+        Returns:
+            验证结果
+        """
+        # 基本实现，可以被子类覆盖
+        return ValidationResult(True)
