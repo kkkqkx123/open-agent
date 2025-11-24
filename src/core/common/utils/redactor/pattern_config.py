@@ -15,18 +15,12 @@ try:
 except ImportError:
     toml = None
 
-# 尝试导入项目的配置加载器和字典合并器
+# 尝试导入项目的配置加载器
 try:
     from ....config.config_loader import ConfigLoader
     HAS_CONFIG_LOADER = True
 except ImportError:
     HAS_CONFIG_LOADER = False
-
-try:
-    from ..dict_merger import DictMerger
-    HAS_DICT_MERGER = True
-except ImportError:
-    HAS_DICT_MERGER = False
 
 
 class ConfigFormat(Enum):
@@ -141,37 +135,25 @@ class PatternConfigManager:
 
     def _load_default_configs(self):
         """加载默认配置"""
-        # 创建硬编码的默认配置作为基础
-        base_config = self._create_default_config()
-        base_config_dict = base_config.to_dict()
-        
-        # 尝试从项目配置目录加载覆盖配置
-        project_config_dict = None
+        # 尝试从项目配置目录加载配置
         if HAS_CONFIG_LOADER:
             try:
                 config_loader = ConfigLoader(base_path=Path("configs"))  # type: ignore
-                project_config_dict = config_loader.load("redactor/default")
+                config_data = config_loader.load("redactor/default")
+                self._configs['default'] = RedactorConfig.from_dict(config_data)
+                # 保存配置到本地文件
+                self.save_config('default', self._configs['default'])
+                return
             except Exception:
-                # 如果项目配置加载失败，忽略并使用基础配置
+                # 如果项目配置加载失败，使用硬编码的默认配置
                 pass
         
-        # 合并配置
-        if project_config_dict and HAS_DICT_MERGER:
-            # 使用字典合并器合并配置
-            merger = DictMerger()  # type: ignore
-            merged_config_dict = merger.deep_merge(base_config_dict, project_config_dict)
-            self._configs['default'] = RedactorConfig.from_dict(merged_config_dict)
-        elif project_config_dict:
-            # 如果没有字典合并器，简单覆盖
-            merged_config_dict = base_config_dict.copy()
-            merged_config_dict.update(project_config_dict)
-            self._configs['default'] = RedactorConfig.from_dict(merged_config_dict)
-        else:
-            # 使用基础配置
-            self._configs['default'] = base_config
+        # 创建并使用硬编码的默认配置
+        default_config = self._create_default_config()
+        self._configs['default'] = default_config
         
-        # 保存合并后的配置到文件
-        self.save_config('default', self._configs['default'])
+        # 保存默认配置到文件
+        self.save_config('default', default_config)
 
     def _create_default_config(self) -> RedactorConfig:
         """创建默认配置
@@ -229,14 +211,6 @@ class PatternConfigManager:
                 priority=100,
                 tags=["password", "credentials", "security"]
             ),
-            PatternConfig(
-                name="chinese_name",
-                pattern=r"(?<![\u4e00-\u9fff])[\u4e00-\u9fff]{2,4}(?![\u4e00-\u9fff])",
-                category="chinese",
-                description="中文姓名",
-                priority=70,
-                tags=["name", "chinese", "pii"]
-            ),
         ]
         
         return RedactorConfig(
@@ -293,8 +267,19 @@ class PatternConfigManager:
         if name in self._configs:
             return self._configs[name]
         
-        # 尝试从本地文件加载基础配置
-        local_config_dict = None
+        # 优先尝试从项目配置目录加载
+        if HAS_CONFIG_LOADER and format is None:
+            try:
+                config_loader = ConfigLoader(base_path=Path("configs"))  # type: ignore
+                config_data = config_loader.load(f"redactor/{name}")
+                config = RedactorConfig.from_dict(config_data)
+                self._configs[name] = config
+                return config
+            except Exception:
+                # 如果项目配置加载失败，回退到本地文件
+                pass
+        
+        # 从本地文件加载
         if format is None:
             for fmt in ConfigFormat:
                 filepath = self.config_dir / f"{name}.{fmt.value}"
@@ -302,53 +287,21 @@ class PatternConfigManager:
                     format = fmt
                     break
             else:
-                # 如果本地文件不存在，尝试从项目配置目录加载
-                if HAS_CONFIG_LOADER:
-                    try:
-                        config_loader = ConfigLoader(base_path=Path("configs"))  # type: ignore
-                        config_data = config_loader.load(f"redactor/{name}")
-                        config = RedactorConfig.from_dict(config_data)
-                        self._configs[name] = config
-                        return config
-                    except Exception:
-                        pass
                 raise FileNotFoundError(f"配置文件 '{name}' 不存在")
         
-        # 加载本地配置文件
         filepath = self.config_dir / f"{name}.{format.value}"
+        
         with open(filepath, 'r', encoding='utf-8') as f:
             if format == ConfigFormat.JSON:
-                local_config_dict = json.load(f)
+                config_dict = json.load(f)
             elif format == ConfigFormat.YAML:
-                local_config_dict = yaml.safe_load(f)
+                config_dict = yaml.safe_load(f)
             elif format == ConfigFormat.TOML:
                 if toml is None:
                     raise ImportError("TOML support requires 'toml' package. Install with: pip install toml")
-                local_config_dict = toml.load(f)
+                config_dict = toml.load(f)
         
-        # 尝试从项目配置目录加载覆盖配置
-        project_config_dict = None
-        if HAS_CONFIG_LOADER:
-            try:
-                config_loader = ConfigLoader(base_path=Path("configs"))  # type: ignore
-                project_config_dict = config_loader.load(f"redactor/{name}")
-            except Exception:
-                # 如果项目配置加载失败，忽略并使用本地配置
-                pass
-        
-        # 合并配置
-        if project_config_dict and HAS_DICT_MERGER and local_config_dict:
-            # 使用字典合并器合并配置
-            merger = DictMerger()  # type: ignore
-            merged_config_dict = merger.deep_merge(local_config_dict, project_config_dict)
-            config = RedactorConfig.from_dict(merged_config_dict)
-        elif project_config_dict:
-            # 如果没有本地配置，直接使用项目配置
-            config = RedactorConfig.from_dict(project_config_dict)
-        else:
-            # 使用本地配置
-            config = RedactorConfig.from_dict(local_config_dict)
-        
+        config = RedactorConfig.from_dict(config_dict)
         self._configs[name] = config
         return config
 

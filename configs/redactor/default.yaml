@@ -29,7 +29,7 @@ patterns:
   - credentials
   - security
 - category: identity
-  description: 中国身份证号
+  description: 身份证号
   enabled: true
   flags: 0
   name: id_card_china
@@ -75,7 +75,7 @@ patterns:
   - contact
   - pii
 - category: contact
-  description: 中国手机号
+  description: 手机号
   enabled: true
   flags: 0
   name: phone_china
@@ -85,18 +85,5 @@ patterns:
   tags:
   - phone
   - contact
-  - china
-  - pii
-- category: chinese
-  description: 中文姓名
-  enabled: true
-  flags: 0
-  name: chinese_name
-  pattern: (?<![\u4e00-\u9fff])[\u4e00-\u9fff]{2,4}(?![\u4e00-\u9fff])
-  priority: 70
-  replacement: null
-  tags:
-  - name
-  - chinese
   - pii
 performance_monitoring: false

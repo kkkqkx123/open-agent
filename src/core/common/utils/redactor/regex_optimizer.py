@@ -86,15 +86,15 @@ class RegexOptimizer:
         # 移除不必要的转义
         optimized = re.sub(r'\\([^\w\s])', r'\1', pattern)
         
-        # 优化字符类
-        optimized = re.sub(r'\[a-zA-Z\]', r'[A-Za-z]', optimized)
-        optimized = re.sub(r'\[0-9\]', r'\d', optimized)
-        optimized = re.sub(r'\[A-Za-z0-9_\]', r'\w', optimized)
+        # 优化字符类 - 使用lambda函数避免转义问题
+        optimized = re.sub(r'\[a-zA-Z\]', lambda m: '[A-Za-z]', optimized)
+        optimized = re.sub(r'\[0-9\]', lambda m: '\\d', optimized)
+        optimized = re.sub(r'\[A-Za-z0-9_\]', lambda m: '\\w', optimized)
         
         # 优化量词
-        optimized = re.sub(r'\{0,1\}', r'?', optimized)
-        optimized = re.sub(r'\{0,\}', r'*', optimized)
-        optimized = re.sub(r'\{1,\}', r'+', optimized)
+        optimized = re.sub(r'\{0,1\}', lambda m: '?', optimized)
+        optimized = re.sub(r'\{0,\}', lambda m: '*', optimized)
+        optimized = re.sub(r'\{1,\}', lambda m: '+', optimized)
         
         # 合并相邻的字符类
         optimized = re.sub(r'(\[([^\]]+)\])\1', r'\1', optimized)

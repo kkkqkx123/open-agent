@@ -36,14 +36,14 @@ class BoundaryMatcher:
     def _build_unicode_patterns(self) -> Dict[UnicodeCategory, str]:
         """构建Unicode字符分类模式"""
         return {
-            UnicodeCategory.LETTER: r"\p{L}",
-            UnicodeCategory.NUMBER: r"\p{N}",
-            UnicodeCategory.PUNCTUATION: r"\p{P}",
-            UnicodeCategory.SYMBOL: r"\p{S}",
-            UnicodeCategory.SPACE: r"\p{Z}",
-            UnicodeCategory.CJK: r"[\u4e00-\u9fff\u3400-\u4dbf\U00020000-\U0002a6df]",
+            UnicodeCategory.LETTER: r"[A-Za-z\u00c0-\u00ff\u0100-\u017f\u0180-\u024f]",
+            UnicodeCategory.NUMBER: r"[0-9\u0660-\u0669\u06f0-\u06f9]",
+            UnicodeCategory.PUNCTUATION: r"[.,;:!?\"'()\\[\\]{}@#%&*+-=<>/\\\\]",
+            UnicodeCategory.SYMBOL: r"[~`^|]",
+            UnicodeCategory.SPACE: r"[ \t\r\n\f\v]",
+            UnicodeCategory.CJK: r"[\u4e00-\u9fff\u3400-\u4dbf]",
             UnicodeCategory.LATIN: r"[A-Za-zÀ-ÖØ-öø-ÿ]",
-            UnicodeCategory.OTHER: r"[^\p{L}\p{N}\p{P}\p{S}\p{Z}]"
+            UnicodeCategory.OTHER: r"[^A-Za-z0-9\u00c0-\u00ff\u0100-\u017f\u0180-\u024f\u0660-\u0669\u06f0-\u06f9.,;:!?\"'()\\[\\]{}@#%&*+-=<>/\\\\~`^| \t\r\n\f\v]"
         }
 
     def get_unicode_category(self, char: str) -> UnicodeCategory:
@@ -192,19 +192,9 @@ class BoundaryMatcher:
         """
         email_core = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
         
-        # 定义邮箱字符分类（排除中文字符）
-        email_chars = {
-            UnicodeCategory.LETTER,
-            UnicodeCategory.NUMBER,
-            UnicodeCategory.LATIN
-        }
-        
-        return self.create_boundary_pattern(
-            email_core,
-            left_boundary=email_chars,
-            right_boundary=email_chars,
-            flags=flags
-        )
+        # 使用简单的边界匹配，避免look-behind的固定宽度限制
+        pattern = f"(?<![a-zA-Z0-9._%+-])({email_core})(?![a-zA-Z0-9.-])"
+        return re.compile(pattern, flags | re.UNICODE)
 
     def create_phone_pattern(self, country: str = "china", flags: int = 0) -> Pattern:
         """创建精确的电话号码匹配模式
@@ -223,11 +213,11 @@ class BoundaryMatcher:
         else:
             phone_core = r"\d{7,15}"
         
-        # 电话号码边界：前后不能是数字
+        # 电话号码边界：前后不能是数字，使用自定义边界以支持中文环境
         return self.create_boundary_pattern(
             phone_core,
-            left_boundary=BoundaryType.WORD,
-            right_boundary=BoundaryType.WORD,
+            left_boundary={UnicodeCategory.NUMBER},
+            right_boundary={UnicodeCategory.NUMBER},
             flags=flags
         )
 
@@ -267,13 +257,9 @@ class BoundaryMatcher:
         # 中文姓名：2-4个中文字符
         name_core = r"[\u4e00-\u9fff]{2,4}"
         
-        # 中文姓名边界：前后不能是中文字符
-        return self.create_boundary_pattern(
-            name_core,
-            left_boundary={UnicodeCategory.CJK},
-            right_boundary={UnicodeCategory.CJK},
-            flags=flags
-        )
+        # 中文姓名边界：前后不能是中文字符，使用正向和负向查找
+        pattern = f"(?<![\u4e00-\u9fff])({name_core})(?![\u4e00-\u9fff])"
+        return re.compile(pattern, flags | re.UNICODE)
 
     def create_credit_card_pattern(self, flags: int = 0) -> Pattern:
         """创建精确的信用卡号匹配模式

@@ -154,10 +154,11 @@ class Redactor:
             # 技术信息模式
             RedactorPattern(
                 name="password_field",
-                pattern=r'(?i)(password|passwd|pwd)["\']?\s*[:=]\s*["\']?[^"\'\s,}]+',
+                pattern=r'(?i)((password|passwd|pwd)["\']?\s*[:=]\s*["\']?[^"\'\s,}]+)',
                 category=PatternCategory.TECHNICAL,
                 description="密码字段",
-                priority=100
+                priority=100,
+                replacement="***"  # 完全替换密码字段
             ),
             RedactorPattern(
                 name="bearer_token",
@@ -195,14 +196,6 @@ class Redactor:
                 priority=80
             ),
             
-            # 中文信息模式
-            RedactorPattern(
-                name="chinese_name",
-                pattern=r"(?<![\u4e00-\u9fff])[\u4e00-\u9fff]{2,4}(?![\u4e00-\u9fff])",
-                category=PatternCategory.CHINESE,
-                description="中文姓名",
-                priority=70
-            ),
             RedactorPattern(
                 name="chinese_address",
                 pattern=r"[\u4e00-\u9fff]{2,}(?:省|市|区|县|镇|街道|路|号|室|栋|楼|层|单元)",
