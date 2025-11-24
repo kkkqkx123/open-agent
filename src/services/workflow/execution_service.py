@@ -14,7 +14,7 @@ from src.core.workflow.execution.executor import WorkflowExecutor
 from src.core.workflow.execution.streaming import StreamingExecutor
 from src.core.workflow.execution.async_executor import AsyncNodeExecutor
 from src.core.workflow.graph.nodes.registry import get_global_registry
-from src.core.workflow.states.workflow import WorkflowState
+from src.core.state import WorkflowState
 from src.interfaces.workflow.services import IWorkflowExecutor as ServiceIWorkflowExecutor
 
 logger = logging.getLogger(__name__)

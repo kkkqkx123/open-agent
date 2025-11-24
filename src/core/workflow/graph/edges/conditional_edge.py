@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
 from src.core.workflow.config import EdgeConfig
-from src.core.workflow.states.workflow import WorkflowState
+from src.core.state import WorkflowState
 from src.core.workflow.graph.edges.conditions import ConditionType, ConditionEvaluator
 
 

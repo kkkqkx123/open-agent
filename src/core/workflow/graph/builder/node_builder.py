@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, Optional, Union
 import logging
 
 from src.core.workflow.config.config import GraphConfig, NodeConfig
-from src.core.workflow.states.workflow import WorkflowState
+from src.core.state import WorkflowState
 from src.interfaces.state import IStateLifecycleManager
 
 logger = logging.getLogger(__name__)

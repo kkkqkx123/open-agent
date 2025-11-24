@@ -111,7 +111,7 @@ class WorkflowManager(IWorkflowManager):
         """
         import uuid
         from src.interfaces.workflow.core import ExecutionContext
-        from src.core.workflow.states.factory import WorkflowStateFactory
+        from src.core.state.factories.state_factory import WorkflowStateFactory
         
         # 从注册表获取工作流
         workflow = self._registry.get_workflow(workflow_id)

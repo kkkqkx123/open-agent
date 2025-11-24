@@ -6,7 +6,7 @@ from datetime import datetime
 
 if TYPE_CHECKING:
     from .entities import UserRequest, UserInteraction, SessionContext
-    from ...core.workflow.states.workflow import WorkflowState
+    from ...core.state import WorkflowState
 
 
 class ISessionService(ABC):

@@ -4,7 +4,7 @@ from datetime import datetime
 import asyncio
 import logging
 from src.interfaces.workflow.services import IWorkflowManager, IWorkflowRegistry
-from src.core.workflow.states import WorkflowState
+from src.core.state import WorkflowState
 from ..data_access.workflow_dao import WorkflowDAO
 
 logger = logging.getLogger(__name__)

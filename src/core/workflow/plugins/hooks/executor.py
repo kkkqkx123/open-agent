@@ -10,7 +10,7 @@ from collections import defaultdict
 
 from src.interfaces.workflow.plugins import IHookPlugin, HookPoint, HookContext, HookExecutionResult
 from src.core.workflow.plugins.registry import PluginRegistry
-from src.core.workflow.states import WorkflowState
+from src.core.state import WorkflowState
 from src.core.workflow.graph.nodes.registry import NodeExecutionResult
 
 

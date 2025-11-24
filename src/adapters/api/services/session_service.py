@@ -2,7 +2,7 @@
 from typing import Optional, Any, List, Dict, Union
 from datetime import datetime
 from src.interfaces.sessions.service import ISessionService
-from src.core.workflow.states import WorkflowState
+from src.core.state import WorkflowState
 from src.interfaces.sessions.entities import UserRequest
 from ..data_access.session_dao import SessionDAO
 from src.services.logger import get_logger

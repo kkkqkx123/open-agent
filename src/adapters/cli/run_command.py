@@ -11,7 +11,7 @@ from src.services.container import get_global_container
 from src.interfaces.common import IConfigLoader
 from src.interfaces.sessions import ISessionService, UserRequest, UserInteraction
 from src.interfaces.workflow.services import IWorkflowManager
-from src.core.workflow.states import WorkflowState
+from src.core.state import WorkflowState
 from src.interfaces.state import IState
 from src.interfaces.state.workflow import IWorkflowState
 from src.services.workflow.state_converter import WorkflowStateConverter
@@ -139,7 +139,7 @@ class RunCommand:
         self.console.print()
         
         # 初始化状态
-        from src.core.workflow.states import WorkflowState
+        from src.core.state import WorkflowState
         initial_state = WorkflowState()
         
         while True:

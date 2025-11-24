@@ -8,7 +8,7 @@ import logging
 from typing import Dict, Any, Optional, Union
 
 from .registry import BaseNode, NodeExecutionResult, node
-from src.core.workflow.states import WorkflowState
+from src.core.state import WorkflowState
 from src.core.workflow.plugins.manager import PluginManager
 from src.core.workflow.plugins.hooks.executor import HookExecutor
 from src.interfaces.workflow.plugins import PluginType, PluginContext

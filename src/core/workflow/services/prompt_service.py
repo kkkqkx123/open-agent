@@ -13,7 +13,7 @@ from src.interfaces.prompts import IPromptInjector
 from src.interfaces.prompts.models import PromptMeta
 from src.core.common.exceptions.prompt import PromptNotFoundError, PromptInjectionError
 from src.core.workflow.templates.workflow_template_processor import WorkflowTemplateProcessor
-from src.core.workflow.states import WorkflowState
+from src.core.state import WorkflowState
 
 if TYPE_CHECKING:
     from src.interfaces.prompts import IPromptRegistry

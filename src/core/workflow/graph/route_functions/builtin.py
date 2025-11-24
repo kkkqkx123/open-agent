@@ -5,7 +5,7 @@
 
 from typing import Dict, Any
 
-from src.core.workflow.states import WorkflowState
+from src.core.state import WorkflowState
 
 
 class BuiltinRouteFunctions:

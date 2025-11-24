@@ -5,7 +5,7 @@ from typing import cast
 import asyncio
 from datetime import datetime
 from src.interfaces.sessions.service import ISessionService
-from src.core.workflow.states import WorkflowState
+from src.core.state import WorkflowState
 
 
 class StateManager:

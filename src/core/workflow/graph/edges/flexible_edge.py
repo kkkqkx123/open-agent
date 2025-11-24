@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import logging
 
 from src.core.workflow.graph.route_functions import RouteFunctionManager
-from src.core.workflow.states.workflow import WorkflowState
+from src.core.state import WorkflowState
 from src.core.workflow.config.config import EdgeConfig, EdgeType
 
 logger = logging.getLogger(__name__)

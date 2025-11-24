@@ -6,7 +6,7 @@
 from typing import Callable, Dict, Optional, Union, Protocol
 import logging
 
-from src.core.workflow.states.workflow import WorkflowState
+from src.core.state import WorkflowState
 from src.core.workflow.graph.registry import NodeRegistry, get_global_registry
 
 logger = logging.getLogger(__name__)

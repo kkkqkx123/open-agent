@@ -15,7 +15,7 @@ else:
     RunnableConfig = Dict[str, Any]
 
 from src.core.workflow.config.config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
-from src.core.workflow.states.workflow import WorkflowState
+from src.core.state import WorkflowState
 from src.core.workflow.graph.registry import NodeRegistry, get_global_registry
 from src.interfaces.state import IStateLifecycleManager
 

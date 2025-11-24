@@ -45,7 +45,7 @@ from src.interfaces.common import IConfigLoader
 from src.core.config.models.global_config import GlobalConfig
 from src.services.logger.logger import set_global_config
 from src.interfaces.sessions.service import ISessionService
-from src.core.workflow.states import WorkflowState
+from src.core.state import WorkflowState
 from src.interfaces.history import IHistoryManager
 from src.services.history.manager import HistoryManager
 from src.interfaces.workflow.services import IWorkflowManager, IWorkflowExecutor

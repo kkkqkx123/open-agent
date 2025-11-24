@@ -11,7 +11,8 @@ from typing import Dict, Any, Optional, List, cast
 from dataclasses import dataclass, asdict, field
 import logging
 
-from src.core.workflow.states import WorkflowState, LCBaseMessage
+from src.core.state import WorkflowState
+from src.core.state.implementations.workflow_state import LCBaseMessage
 from src.core.llm.message_converters import MessageConverter
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 
