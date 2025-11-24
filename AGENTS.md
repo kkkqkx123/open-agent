@@ -29,7 +29,6 @@ The Modular Agent Framework is a Python-based multi-agent system built on LangGr
 uv venv
 
 # Activate virtual environment
-#(In VSCode, you can skip this step. IDE can automatically activate virtual environment)
 source .venv/bin/activate  # Linux/Mac
 # or
 .venv\Scripts\activate  # Windows
@@ -43,10 +42,20 @@ uv sync
 When you find environment issues, you can use uv run to execute python commands in the virtual environment, or use .venv\Scripts\activate to activate the virtual environment first.
 
 You can use the following commands to check the code quality:
-mypy <relative path to the file> --follow-imports=silent
-flake8 <relative path to the file>
+
+```bash
+uv run mypy <relative path to the file> --follow-imports=silent
+uv run flake8 <relative path to the file>
+```
+
 Usually mypy is enough. if I didn't ask you to use remaining tools, you can skip them
 If I don't ask you to check whole codebase, always use --follow-imports=silent to avoid check relative files.
+
+
+**test**
+```bash
+uv run pytest <file-path or directory-path>
+```
 
 ## Codebase Architecture
 

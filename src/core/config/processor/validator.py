@@ -1,10 +1,10 @@
 """配置验证器
 
-配置专用验证器，在通用数据验证基础上添加业务规则验证。
+配置专用验证器，在通用数据验证基础上添加业务规则验证和高级功能。
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Type
+from typing import Dict, Any, Type, List, Optional
 from pydantic import BaseModel
 from src.core.common.utils.validator import Validator as UtilsValidator
 from src.core.common.utils.validator import ValidationResult as UtilsValidationResult
@@ -14,6 +14,11 @@ from ..models.global_config import GlobalConfig
 from ..models.llm_config import LLMConfig
 from ..models.tool_config import ToolConfig
 from ..models.token_counter_config import TokenCounterConfig
+
+# 导入增强功能模块
+from .validation_utils import ValidationCache, ValidationLevel, ValidationSeverity, load_config_file, generate_cache_key
+from .validation_report import ValidationReport, EnhancedValidationResult, FixSuggestion
+from .config_fixer import ConfigFixer
 
 # 保持接口兼容
 ValidationResult = UtilsValidationResult
@@ -42,12 +47,48 @@ class IConfigValidator(ABC):
         """验证Token计数器配置"""
         pass
 
+    # 新增增强方法
+    @abstractmethod
+    def validate_global_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
+        """验证全局配置并返回详细报告"""
+        pass
+
+    @abstractmethod
+    def validate_llm_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
+        """验证LLM配置并返回详细报告"""
+        pass
+
+    @abstractmethod
+    def validate_tool_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
+        """验证工具配置并返回详细报告"""
+        pass
+
+    @abstractmethod
+    def validate_token_counter_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
+        """验证Token计数器配置并返回详细报告"""
+        pass
+
+    @abstractmethod
+    def validate_config_with_cache(self, config_path: str, config_type: str) -> ValidationReport:
+        """带缓存的配置验证"""
+        pass
+
+    @abstractmethod
+    def suggest_config_fixes(self, config: Dict[str, Any], config_type: str) -> List[FixSuggestion]:
+        """为配置提供修复建议"""
+        pass
+
 
 class ConfigValidator(UtilsValidator, IConfigValidator):
     """配置验证器
     
-    在通用数据验证基础上添加配置特定的业务规则验证。
+    在通用数据验证基础上添加配置特定的业务规则验证和高级功能。
     """
+    
+    def __init__(self):
+        super().__init__()
+        self.cache = ValidationCache()
+        self.config_fixer = ConfigFixer()
 
     def validate_global_config(self, config: Dict[str, Any]) -> ValidationResult:
         """验证全局配置
@@ -115,38 +156,38 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
             if isinstance(retry_config, dict):
                 max_retries = retry_config.get("max_retries")
                 if max_retries is not None and (not isinstance(max_retries, int) or max_retries < 0):
-                    result.add_error("retry_config.max_retries必须是非负整数")
+                    result.add_error(f"retry_config.max_retries必须是非负整数，当前值: {max_retries}")
                 
                 base_delay = retry_config.get("base_delay")
                 if base_delay is not None and (not isinstance(base_delay, (int, float)) or base_delay <= 0):
-                    result.add_error("retry_config.base_delay必须是正数")
+                    result.add_error(f"retry_config.base_delay必须是正数，当前值: {base_delay}")
                 
                 max_delay = retry_config.get("max_delay")
                 if max_delay is not None and (not isinstance(max_delay, (int, float)) or max_delay <= 0):
-                    result.add_error("retry_config.max_delay必须是正数")
+                    result.add_error(f"retry_config.max_delay必须是正数，当前值: {max_delay}")
                 
                 exponential_base = retry_config.get("exponential_base")
                 if exponential_base is not None and (not isinstance(exponential_base, (int, float)) or exponential_base <= 1):
-                    result.add_error("retry_config.exponential_base必须大于1")
+                    result.add_error(f"retry_config.exponential_base必须大于1，当前值: {exponential_base}")
             
             # 验证超时配置
             timeout_config = config.get("timeout_config", {})
             if isinstance(timeout_config, dict):
                 request_timeout = timeout_config.get("request_timeout")
                 if request_timeout is not None and (not isinstance(request_timeout, int) or request_timeout <= 0):
-                    result.add_error("timeout_config.request_timeout必须是正整数")
+                    result.add_error(f"timeout_config.request_timeout必须是正整数，当前值: {request_timeout}")
                 
                 connect_timeout = timeout_config.get("connect_timeout")
                 if connect_timeout is not None and (not isinstance(connect_timeout, int) or connect_timeout <= 0):
-                    result.add_error("timeout_config.connect_timeout必须是正整数")
+                    result.add_error(f"timeout_config.connect_timeout必须是正整数，当前值: {connect_timeout}")
                 
                 read_timeout = timeout_config.get("read_timeout")
                 if read_timeout is not None and (not isinstance(read_timeout, int) or read_timeout <= 0):
-                    result.add_error("timeout_config.read_timeout必须是正整数")
+                    result.add_error(f"timeout_config.read_timeout必须是正整数，当前值: {read_timeout}")
                 
                 write_timeout = timeout_config.get("write_timeout")
                 if write_timeout is not None and (not isinstance(write_timeout, int) or write_timeout <= 0):
-                    result.add_error("timeout_config.write_timeout必须是正整数")
+                    result.add_error(f"timeout_config.write_timeout必须是正整数，当前值: {write_timeout}")
 
         return result
 
@@ -204,3 +245,146 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
                 result.add_warning(f"Gemini模型名称 {model_name} 可能不符合命名规范")
 
         return result
+
+    # 新增增强功能方法
+    def validate_global_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
+        """验证全局配置并返回详细报告"""
+        report = ValidationReport("global_config")
+        # 基础验证
+        basic_result = self.validate_global_config(config)
+        
+        # 创建增强验证结果
+        enhanced_result = EnhancedValidationResult(
+            rule_id="global_config_basic",
+            level=ValidationLevel.SCHEMA,
+            passed=basic_result.is_valid,
+            message="基础验证结果"
+        )
+        
+        # 将基础验证结果转换为增强验证结果
+        if not basic_result.is_valid:
+            enhanced_result.message = "; ".join(basic_result.errors)
+            enhanced_result.severity = ValidationSeverity.ERROR
+        elif basic_result.has_warnings():
+            enhanced_result.message = "; ".join(basic_result.warnings)
+            enhanced_result.severity = ValidationSeverity.WARNING
+        
+        report.add_level_results(ValidationLevel.SCHEMA, [enhanced_result])
+        return report
+
+    def validate_llm_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
+        """验证LLM配置并返回详细报告"""
+        report = ValidationReport("llm_config")
+        # 基础验证
+        basic_result = self.validate_llm_config(config)
+        
+        # 创建增强验证结果
+        enhanced_result = EnhancedValidationResult(
+            rule_id="llm_config_basic",
+            level=ValidationLevel.SCHEMA,
+            passed=basic_result.is_valid,
+            message="基础验证结果"
+        )
+        
+        # 将基础验证结果转换为增强验证结果
+        if not basic_result.is_valid:
+            enhanced_result.message = "; ".join(basic_result.errors)
+            enhanced_result.severity = ValidationSeverity.ERROR
+        elif basic_result.has_warnings():
+            enhanced_result.message = "; ".join(basic_result.warnings)
+            enhanced_result.severity = ValidationSeverity.WARNING
+        
+        report.add_level_results(ValidationLevel.SCHEMA, [enhanced_result])
+        return report
+
+    def validate_tool_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
+        """验证工具配置并返回详细报告"""
+        report = ValidationReport("tool_config")
+        # 基础验证
+        basic_result = self.validate_tool_config(config)
+        
+        # 创建增强验证结果
+        enhanced_result = EnhancedValidationResult(
+            rule_id="tool_config_basic",
+            level=ValidationLevel.SCHEMA,
+            passed=basic_result.is_valid,
+            message="基础验证结果"
+        )
+        
+        # 将基础验证结果转换为增强验证结果
+        if not basic_result.is_valid:
+            enhanced_result.message = "; ".join(basic_result.errors)
+            enhanced_result.severity = ValidationSeverity.ERROR
+        elif basic_result.has_warnings():
+            enhanced_result.message = "; ".join(basic_result.warnings)
+            enhanced_result.severity = ValidationSeverity.WARNING
+        
+        report.add_level_results(ValidationLevel.SCHEMA, [enhanced_result])
+        return report
+
+    def validate_token_counter_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
+        """验证Token计数器配置并返回详细报告"""
+        report = ValidationReport("token_counter_config")
+        # 基础验证
+        basic_result = self.validate_token_counter_config(config)
+        
+        # 创建增强验证结果
+        enhanced_result = EnhancedValidationResult(
+            rule_id="token_counter_config_basic",
+            level=ValidationLevel.SCHEMA,
+            passed=basic_result.is_valid,
+            message="基础验证结果"
+        )
+        
+        # 将基础验证结果转换为增强验证结果
+        if not basic_result.is_valid:
+            enhanced_result.message = "; ".join(basic_result.errors)
+            enhanced_result.severity = ValidationSeverity.ERROR
+        elif basic_result.has_warnings():
+            enhanced_result.message = "; ".join(basic_result.warnings)
+            enhanced_result.severity = ValidationSeverity.WARNING
+        
+        report.add_level_results(ValidationLevel.SCHEMA, [enhanced_result])
+        return report
+
+    def validate_config_with_cache(self, config_path: str, config_type: str) -> ValidationReport:
+        """带缓存的配置验证"""
+        cache_key = f"{config_path}_{config_type}"
+        cached_result = self.cache.get(cache_key)
+        
+        if cached_result:
+            return cached_result
+        
+        # 根据配置类型加载并验证配置
+        config_data = load_config_file(config_path)
+        
+        if config_type == "global":
+            result = self.validate_global_config_with_report(config_data)
+        elif config_type == "llm":
+            result = self.validate_llm_config_with_report(config_data)
+        elif config_type == "tool":
+            result = self.validate_tool_config_with_report(config_data)
+        elif config_type == "token_counter":
+            result = self.validate_token_counter_config_with_report(config_data)
+        else:
+            raise ValueError(f"不支持的配置类型: {config_type}")
+        
+        self.cache.set(cache_key, result)
+        return result
+
+    def suggest_config_fixes(self, config: Dict[str, Any], config_type: str) -> List[FixSuggestion]:
+        """为配置提供修复建议"""
+        # 先验证配置获取问题
+        if config_type == "global":
+            report = self.validate_global_config_with_report(config)
+        elif config_type == "llm":
+            report = self.validate_llm_config_with_report(config)
+        elif config_type == "tool":
+            report = self.validate_tool_config_with_report(config)
+        elif config_type == "token_counter":
+            report = self.validate_token_counter_config_with_report(config)
+        else:
+            raise ValueError(f"不支持的配置类型: {config_type}")
+        
+        # 从报告中提取修复建议
+        return report.get_fix_suggestions()
