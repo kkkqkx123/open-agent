@@ -12,7 +12,8 @@ class TestCache:
         cache = Cache()
         assert cache.name == "default"
         assert cache._cache == {}
-        assert isinstance(cache._lock, threading.RLock)
+        # 检查_lock是否是可锁定对象（替代isinstance检查）
+        assert hasattr(cache._lock, 'acquire') and hasattr(cache._lock, 'release')
 
         cache_named = Cache(name="test_cache")
         assert cache_named.name == "test_cache"

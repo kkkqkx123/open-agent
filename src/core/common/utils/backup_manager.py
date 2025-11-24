@@ -112,12 +112,22 @@ class BackupManager:
         backups = []
         for backup_path in self.backup_dir.glob(backup_name_pattern):
             stat = backup_path.stat()
+            # 从文件名中提取时间戳而不是使用修改时间
+            filename = backup_path.name
+            # 提取时间戳部分：例如 test_20231201_123456_123456.txt -> 20231201_123456_123456
+            parts = filename.split('_')
+            if len(parts) >= 3:  # 确保有足够部分来提取完整时间戳
+                timestamp = '_'.join(parts[1:]).replace(backup_path.suffix, '')  # 从第二部分开始连接并移除扩展名
+            else:
+                # 如果无法从文件名提取时间戳，使用修改时间作为后备
+                timestamp = datetime.fromtimestamp(stat.st_mtime).strftime(
+                    "%Y%m%d_%H%M%S"
+                )
+            
             backups.append(
                 {
                     "path": str(backup_path),
-                    "timestamp": datetime.fromtimestamp(stat.st_mtime).strftime(
-                        "%Y%m%d_%H%M%S"
-                    ),
+                    "timestamp": timestamp,
                     "size": stat.st_size,
                     "created": datetime.fromtimestamp(stat.st_ctime).isoformat(),
                 }
@@ -180,8 +190,20 @@ class BackupManager:
         backup_name_pattern = f"{file_stem}_*"
         backups = list(self.backup_dir.glob(backup_name_pattern))
 
-        # 按修改时间排序（最新的在前）
-        backups.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        # 按文件名中的时间戳排序（最新的在前）
+        def extract_timestamp_from_filename(backup_path):
+            """从备份文件名中提取时间戳用于排序"""
+            filename = backup_path.name
+            parts = filename.split('_')
+            if len(parts) >= 3:  # 确保有足够部分来提取完整时间戳
+                # 提取时间戳部分：例如 test_20231201_123456_123456.txt -> 20231201_123456_123456
+                timestamp = '_'.join(parts[1:]).replace(backup_path.suffix, '')  # 从第二部分开始连接并移除扩展名
+                return timestamp
+            else:
+                # 如果无法从文件名提取时间戳，使用修改时间作为后备
+                return str(backup_path.stat().st_mtime)
+        
+        backups.sort(key=extract_timestamp_from_filename, reverse=True)
 
         # 删除超出数量限制的备份
         for backup_path in backups[self.max_backups :]:

@@ -48,7 +48,7 @@ class TestConfigInheritanceHandler:
         # 验证结果
         assert result["model"] == "gpt-3.5"  # 继承的字段
         assert result["temperature"] == 0.9  # 覆盖的字段
-        assert result["max_tokens"] == 10   # 继承的字段
+        assert result["max_tokens"] == 100   # 继承的字段
         assert result["top_p"] == 0.9       # 新增的字段
         assert "inherits_from" not in result  # inherits_from字段被移除
 

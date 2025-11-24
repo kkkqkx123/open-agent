@@ -274,7 +274,8 @@ class ConfigOperations:
                 config1 = self._config_manager.load_config(f"tool-sets/{config_name1}")
                 config2 = self._config_manager.load_config(f"tool-sets/{config_name2}")
             else:
-                raise ValueError(f"不支持的配置类型: {config_type}")
+                comparison["error"] = f"不支持的配置类型: {config_type}"
+                return comparison
             
             # 转换为字典进行比较
             dict1 = self._to_dict(config1)
@@ -303,14 +304,14 @@ class ConfigOperations:
         return comparison
     
     @staticmethod
-    def _to_dict(obj: Any) -> Dict[str, Any]:
-        """将对象转换为字典
+    def _to_dict(obj: Any) -> Any:
+        """将对象转换为字典或返回原始值
         
         Args:
             obj: 要转换的对象
             
         Returns:
-            字典对象
+            字典对象或原始值
         """
         if hasattr(obj, 'dict'):
             return obj.dict()
@@ -319,4 +320,5 @@ class ConfigOperations:
         elif isinstance(obj, dict):
             return obj
         else:
-            return {}
+            # 对于其他类型，返回原值
+            return obj

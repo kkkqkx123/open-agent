@@ -6,8 +6,15 @@ import time
 from typing import Optional
 
 
+import threading
+
 class IDGenerator:
     """统一ID生成器"""
+    
+    # 类变量，用于确保ID唯一性
+    _sequence = 0
+    _sequence_lock = threading.Lock()
+    _last_timestamp = 0
     
     @staticmethod
     def generate_id(prefix: str = "", length: int = 8) -> str:
@@ -105,10 +112,21 @@ class IDGenerator:
         # 简化版Snowflake ID
         timestamp = int(time.time() * 1000)  # 毫秒级时间戳
         machine_id = 1  # 可以配置为机器标识
-        sequence = 0    # 序列号，实际应用中需要原子递增
+        
+        # 使用线程安全的序列号确保唯一性
+        with IDGenerator._sequence_lock:
+            current_timestamp = timestamp
+            if current_timestamp == IDGenerator._last_timestamp:
+                # 如果时间戳相同，递增序列号
+                IDGenerator._sequence = (IDGenerator._sequence + 1) % 4096  # 12位序列号
+            else:
+                # 如果时间戳不同，重置序列号
+                IDGenerator._sequence = 0
+                IDGenerator._last_timestamp = current_timestamp
+            sequence = IDGenerator._sequence
         
         # 组合时间戳、机器ID和序列号
-        snowflake_id = (timestamp << 2) | (machine_id << 12) | sequence
+        snowflake_id = (timestamp << 22) | (machine_id << 12) | (sequence & 0xFFF)
         return str(snowflake_id)
     
     @staticmethod

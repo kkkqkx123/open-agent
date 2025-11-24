@@ -85,8 +85,9 @@ class TestBackupManager:
         # 创建备份
         backup_path = self.backup_manager.create_backup(test_file)
         backup_filename = Path(backup_path).name
-        # 提取时间戳部分
-        timestamp = backup_filename.split("_")[-1].replace(".txt", "")
+        # 提取时间戳部分 - 从第二个下划线开始到扩展名前
+        parts = backup_filename.split("_")
+        timestamp = "_".join(parts[1:]).replace(".txt", "")
 
         # 修改原文件内容
         with open(test_file, "w", encoding="utf-8") as f:
@@ -135,7 +136,9 @@ class TestBackupManager:
         # 创建备份
         backup_path = self.backup_manager.create_backup(test_file)
         backup_filename = Path(backup_path).name
-        timestamp = backup_filename.split("_")[-1].replace(".txt", "")
+        # 提取时间戳部分 - 从第二个下划线开始到扩展名前
+        parts = backup_filename.split("_")
+        timestamp = "_".join(parts[1:]).replace(".txt", "")
 
         # 验证备份存在
         assert os.path.exists(backup_path)

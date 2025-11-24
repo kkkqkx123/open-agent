@@ -212,6 +212,7 @@ class TestMultiPathFileWatcher:
 
         # 停止所有监听
         multi_watcher.stop_all()
+        time.sleep(0.1)  # 等待监听器停止
         assert not multi_watcher.is_watching(self.test_dir1)
         assert not multi_watcher.is_watching(self.test_dir2)
 

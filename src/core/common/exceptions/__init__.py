@@ -5,7 +5,32 @@
 """
 
 # 导入pydantic的ValidationError
+from typing import Optional, Dict, Any
 from pydantic import ValidationError
+
+# 基础异常
+class CoreError(Exception):
+    """核心模块基础异常"""
+    
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message)
+        self.details = details or {}
+
+
+class ServiceError(CoreError):
+    """服务模块基础异常"""
+    pass
+
+
+class ConfigurationError(CoreError):
+    """配置错误异常"""
+    pass
+
+
+class DependencyError(CoreError):
+    """依赖错误异常"""
+    pass
+
 
 # 工具异常
 from .tool import (
@@ -65,7 +90,11 @@ from .checkpoint import (
 
 __all__ = [
     # 基础异常
+    "CoreError",
+    "ServiceError",
     "ValidationError",
+    "ConfigurationError",
+    "DependencyError",
     # 工具异常
     "ToolError",
     "ToolRegistrationError",

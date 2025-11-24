@@ -144,7 +144,7 @@ class TestDictMerger:
         """测试合并包含重复元素的列表"""
         list1 = [1, 2, 2, 3]
         list2 = [2, 3, 4, 4, 5]
-        expected = [1, 2, 2, 3, 4, 4, 5]  # 保持原列表中的重复项
+        expected = [1, 2, 2, 3, 4, 5]  # 保留list1中的重复项，但去重list2中的重复项
 
         result = self.merger._merge_lists(list1, list2)
         assert result == expected

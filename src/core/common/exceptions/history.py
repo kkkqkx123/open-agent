@@ -52,7 +52,7 @@ class TokenCalculationError(HistoryError):
         message: str,
         model: Optional[str] = None,
         provider: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ):
         """
         初始化Token计算异常
@@ -84,7 +84,7 @@ class CostCalculationError(HistoryError):
         message: str,
         model: Optional[str] = None,
         pricing_info: Optional[Dict[str, Any]] = None,
-        **kwargs
+        **kwargs: Any
     ):
         """
         初始化成本计算异常
@@ -116,7 +116,7 @@ class StatisticsError(HistoryError):
         message: str,
         workflow_id: Optional[str] = None,
         statistic_type: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ):
         """
         初始化统计异常
@@ -148,7 +148,7 @@ class RecordNotFoundError(HistoryError):
         message: str,
         record_id: Optional[str] = None,
         record_type: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ):
         """
         初始化记录未找到异常
@@ -181,7 +181,7 @@ class QuotaExceededError(HistoryError):
         quota_type: Optional[str] = None,
         current_usage: Optional[int] = None,
         quota_limit: Optional[int] = None,
-        **kwargs
+        **kwargs: Any
     ):
         """
         初始化配额超限异常

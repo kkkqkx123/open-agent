@@ -6,22 +6,25 @@
 import os
 import time
 import threading
-from typing import Callable, Dict, List, Optional, Any
+from typing import Callable, Dict, List, Optional, Any, TYPE_CHECKING
 from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 from watchdog.observers.api import BaseObserver
 
-from .config_manager import ConfigManager
 from ..common.exceptions.config import ConfigError
+
+# 仅在类型检查时导入，避免循环导入
+if TYPE_CHECKING:
+    from .config_manager import ConfigManager
 
 
 class ConfigFileWatcher:
     """配置文件监听器"""
     
     def __init__(
-        self, 
-        config_manager: ConfigManager,
+        self,
+        config_manager: 'ConfigManager',
         watch_path: Optional[str] = None,
         patterns: Optional[List[str]] = None
     ):
@@ -207,10 +210,10 @@ class _ConfigFileHandler(FileSystemEventHandler):
 
 # 便捷函数
 def create_config_watcher(
-    config_manager: ConfigManager,
+    config_manager: 'ConfigManager',
     watch_path: Optional[str] = None,
     patterns: Optional[List[str]] = None
-) -> ConfigFileWatcher:
+) -> 'ConfigFileWatcher':
     """创建配置文件监听器的便捷函数
     
     Args:
