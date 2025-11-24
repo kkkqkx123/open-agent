@@ -6,11 +6,6 @@
 # 导入主要的适配器类
 from .adapters.sync_adapter import SyncStateStorageAdapter
 from .adapters.async_adapter import AsyncStateStorageAdapter
-from .sqlite import SQLiteAdapter
-from .memory import MemoryAdapter
-from .file import FileAdapter
-from .sqlite_session_store import SQLiteSessionStore
-from .sqlite_thread_store import SQLiteThreadStore
 
 # 导入工厂类
 from .factory import StorageAdapterFactory, AsyncStorageAdapterFactory, create_storage_adapter
@@ -25,11 +20,6 @@ __all__ = [
     # 适配器类
     'SyncStateStorageAdapter',
     'AsyncStateStorageAdapter',
-    'SQLiteAdapter',
-    'MemoryAdapter',
-    'FileAdapter',
-    'SQLiteSessionStore',
-    'SQLiteThreadStore',
     
     # 工厂类
     'StorageAdapterFactory',

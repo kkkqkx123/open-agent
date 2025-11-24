@@ -7,7 +7,7 @@ from typing import TypedDict, List, Dict, Optional, Any
 from datetime import datetime
 
 from ..config.config import GraphConfig
-from ...states import WorkflowState
+from ...state.implementations.workflow_state import WorkflowState
 
 # 定义迭代记录类型
 class IterationRecord(TypedDict):

@@ -7,29 +7,68 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from enum import Enum
+from src.interfaces.state.entities import AbstractStateSnapshot, AbstractStateHistoryEntry
 
 
 @dataclass
-class StateSnapshot:
+class StateSnapshot(AbstractStateSnapshot):
     """状态快照实体
     
     表示某个时间点的状态完整快照。
     """
-    snapshot_id: str
-    agent_id: str
-    domain_state: Dict[str, Any]  # 序列化的域状态
-    timestamp: datetime
-    snapshot_name: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    _snapshot_id: str = field(repr=False)
+    _agent_id: str = field(repr=False)
+    _domain_state: Dict[str, Any] = field(repr=False)  # 序列化的域状态
+    _timestamp: str = field(repr=False)  # 时间戳字符串
+    _snapshot_name: str = field(repr=False)
+    _metadata: Dict[str, Any] = field(default_factory=dict, repr=False)
     
     # 性能优化字段
     compressed_data: Optional[bytes] = None
     size_bytes: int = 0
     
-    def __post_init__(self):
-        """初始化后处理"""
-        if not self.snapshot_name:
-            self.snapshot_name = f"snapshot_{self.timestamp.strftime('%Y%m%d_%H%M%S')}"
+    def __init__(self, snapshot_id: str, agent_id: str, domain_state: Dict[str, Any], 
+                 timestamp: str, snapshot_name: str, metadata: Optional[Dict[str, Any]] = None,
+                 compressed_data: Optional[bytes] = None, size_bytes: int = 0):
+        """初始化状态快照"""
+        self._snapshot_id = snapshot_id
+        self._agent_id = agent_id
+        self._domain_state = domain_state
+        self._timestamp = timestamp if isinstance(timestamp, str) else timestamp.isoformat()
+        self._snapshot_name = snapshot_name or f"snapshot_{self._timestamp.replace(':', '').replace('-', '')}"
+        self._metadata = metadata or {}
+        self.compressed_data = compressed_data
+        self.size_bytes = size_bytes
+    
+    @property
+    def snapshot_id(self) -> str:
+        """快照ID"""
+        return self._snapshot_id
+    
+    @property
+    def agent_id(self) -> str:
+        """代理ID"""
+        return self._agent_id
+    
+    @property
+    def domain_state(self) -> Dict[str, Any]:
+        """域状态数据"""
+        return self._domain_state
+    
+    @property
+    def timestamp(self) -> str:
+        """时间戳"""
+        return self._timestamp
+    
+    @property
+    def snapshot_name(self) -> str:
+        """快照名称"""
+        return self._snapshot_name
+    
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        """元数据"""
+        return self._metadata
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典表示
@@ -38,12 +77,12 @@ class StateSnapshot:
             字典表示的快照
         """
         return {
-            "snapshot_id": self.snapshot_id,
-            "agent_id": self.agent_id,
-            "domain_state": self.domain_state,
-            "timestamp": self.timestamp.isoformat(),
-            "snapshot_name": self.snapshot_name,
-            "metadata": self.metadata,
+            "snapshot_id": self._snapshot_id,
+            "agent_id": self._agent_id,
+            "domain_state": self._domain_state,
+            "timestamp": self._timestamp,
+            "snapshot_name": self._snapshot_name,
+            "metadata": self._metadata,
             "size_bytes": self.size_bytes
         }
     
@@ -61,7 +100,7 @@ class StateSnapshot:
             snapshot_id=data["snapshot_id"],
             agent_id=data["agent_id"],
             domain_state=data["domain_state"],
-            timestamp=datetime.fromisoformat(data["timestamp"]),
+            timestamp=data["timestamp"],
             snapshot_name=data.get("snapshot_name", ""),
             metadata=data.get("metadata", {}),
             compressed_data=data.get("compressed_data"),
@@ -70,25 +109,62 @@ class StateSnapshot:
 
 
 @dataclass
-class StateHistoryEntry:
+class StateHistoryEntry(AbstractStateHistoryEntry):
     """状态历史记录实体
     
     表示一次状态变更的记录。
     """
-    history_id: str
-    agent_id: str
-    timestamp: datetime
-    action: str  # "state_change", "tool_call", "message_added", etc.
-    state_diff: Dict[str, Any]  # 状态变化差异
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    _history_id: str = field(repr=False)
+    _agent_id: str = field(repr=False)
+    _timestamp: str = field(repr=False)
+    _action: str = field(repr=False)  # "state_change", "tool_call", "message_added", etc.
+    _state_diff: Dict[str, Any] = field(repr=False)  # 状态变化差异
+    _metadata: Dict[str, Any] = field(default_factory=dict, repr=False)
     
     # 性能优化字段
     compressed_diff: Optional[bytes] = None
     
-    def __post_init__(self):
-        """初始化后处理"""
-        if not self.metadata:
-            self.metadata = {}
+    def __init__(self, history_id: str, agent_id: str, timestamp: str, action: str,
+                 state_diff: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None,
+                 compressed_diff: Optional[bytes] = None):
+        """初始化历史记录条目"""
+        self._history_id = history_id
+        self._agent_id = agent_id
+        self._timestamp = timestamp if isinstance(timestamp, str) else timestamp.isoformat()
+        self._action = action
+        self._state_diff = state_diff
+        self._metadata = metadata or {}
+        self.compressed_diff = compressed_diff
+    
+    @property
+    def history_id(self) -> str:
+        """历史记录ID"""
+        return self._history_id
+    
+    @property
+    def agent_id(self) -> str:
+        """代理ID"""
+        return self._agent_id
+    
+    @property
+    def timestamp(self) -> str:
+        """时间戳"""
+        return self._timestamp
+    
+    @property
+    def action(self) -> str:
+        """动作类型"""
+        return self._action
+    
+    @property
+    def state_diff(self) -> Dict[str, Any]:
+        """状态差异"""
+        return self._state_diff
+    
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        """元数据"""
+        return self._metadata
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典表示
@@ -97,12 +173,12 @@ class StateHistoryEntry:
             字典表示的历史记录
         """
         return {
-            "history_id": self.history_id,
-            "agent_id": self.agent_id,
-            "timestamp": self.timestamp.isoformat(),
-            "action": self.action,
-            "state_diff": self.state_diff,
-            "metadata": self.metadata
+            "history_id": self._history_id,
+            "agent_id": self._agent_id,
+            "timestamp": self._timestamp,
+            "action": self._action,
+            "state_diff": self._state_diff,
+            "metadata": self._metadata
         }
     
     @classmethod
@@ -118,7 +194,7 @@ class StateHistoryEntry:
         return cls(
             history_id=data["history_id"],
             agent_id=data["agent_id"],
-            timestamp=datetime.fromisoformat(data["timestamp"]),
+            timestamp=data["timestamp"],
             action=data["action"],
             state_diff=data["state_diff"],
             metadata=data.get("metadata", {}),

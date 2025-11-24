@@ -5,7 +5,7 @@
 
 from typing import Any, Dict, List, Optional, Type, Union
 
-from ..interfaces.base import IState, IStateType
+from ..interfaces.base import IState
 from ..interfaces.workflow import IWorkflowState
 from ..interfaces.tools import IToolState
 from ..interfaces.sessions import ISessionState
@@ -35,7 +35,7 @@ class StateFactory:
     }
     
     @classmethod
-    def create_state(cls, state_type: Union[str, IStateType], **kwargs) -> IState:
+    def create_state(cls, state_type: str, **kwargs) -> IState:
         """创建状态对象
         
         Args:
@@ -125,7 +125,7 @@ class StateFactory:
         return CheckpointState(**kwargs)
     
     @classmethod
-    def create_state_from_dict(cls, state_type: Union[str, IStateType], data: Dict[str, Any]) -> IState:
+    def create_state_from_dict(cls, state_type: str, data: Dict[str, Any]) -> IState:
         """从字典创建状态对象
         
         Args:
@@ -184,7 +184,7 @@ class StateFactory:
         return list(cls._state_registry.keys())
     
     @classmethod
-    def is_type_supported(cls, state_type: Union[str, IStateType]) -> bool:
+    def is_type_supported(cls, state_type: str) -> bool:
         """检查状态类型是否支持
         
         Args:
@@ -203,7 +203,7 @@ class StateFactory:
 
 
 # 便捷函数
-def create_state(state_type: Union[str, IStateType], **kwargs) -> IState:
+def create_state(state_type: str, **kwargs) -> IState:
     """创建状态对象的便捷函数
     
     Args:

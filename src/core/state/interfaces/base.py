@@ -204,31 +204,3 @@ class IStateCache(ABC):
         """获取所有键"""
         pass
 
-
-class IStateStorageAdapter(ABC):
-    """状态存储适配器接口"""
-    
-    @abstractmethod
-    def save(self, state_id: str, state_data: Any) -> bool:
-        """保存状态"""
-        pass
-    
-    @abstractmethod
-    def get(self, state_id: str) -> Optional[Any]:
-        """获取状态"""
-        pass
-    
-    @abstractmethod
-    def delete(self, state_id: str) -> bool:
-        """删除状态"""
-        pass
-    
-    @abstractmethod
-    def list(self, filters: Optional[Dict[str, Any]] = None) -> List[str]:
-        """列出状态ID"""
-        pass
-    
-    @abstractmethod
-    def get_statistics(self) -> Dict[str, Any]:
-        """获取统计信息"""
-        pass

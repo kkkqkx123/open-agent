@@ -4,11 +4,10 @@
 """
 
 import logging
-import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence
 
 from src.interfaces.state.storage.async_adapter import IAsyncStateStorageAdapter
-from src.interfaces.state import StateSnapshot, StateHistoryEntry
+from src.interfaces.state import StateSnapshot, StateHistoryEntry, AbstractStateSnapshot, AbstractStateHistoryEntry
 from src.interfaces.state.storage.backend import IStorageBackend
 from ..core.metrics import StorageMetrics, MetricsContext
 from ..core.transaction import TransactionManager, TransactionContext
@@ -39,7 +38,7 @@ class AsyncStateStorageAdapter(IAsyncStateStorageAdapter):
         self._transaction_manager = transaction_manager or TransactionManager(backend)
     
     @with_error_handling("save_history_entry")
-    async def save_history_entry(self, entry: StateHistoryEntry) -> bool:
+    async def save_history_entry(self, entry: AbstractStateHistoryEntry) -> bool:
         """异步保存历史记录条目
         
         Args:
@@ -58,7 +57,7 @@ class AsyncStateStorageAdapter(IAsyncStateStorageAdapter):
             return bool(result)
     
     @with_error_handling("get_history_entries")
-    async def get_history_entries(self, agent_id: str, limit: int = 100) -> List[StateHistoryEntry]:
+    async def get_history_entries(self, agent_id: str, limit: int = 100) -> Sequence[AbstractStateHistoryEntry]:
         """异步获取历史记录条目
         
         Args:
@@ -75,7 +74,7 @@ class AsyncStateStorageAdapter(IAsyncStateStorageAdapter):
             results = await self._backend.list_impl(filters, limit)
             
             # 转换为历史记录条目
-            entries = []
+            entries: List[AbstractStateHistoryEntry] = []
             for data in results:
                 entry = StateHistoryEntry.from_dict(data)
                 entries.append(entry)
@@ -119,7 +118,7 @@ class AsyncStateStorageAdapter(IAsyncStateStorageAdapter):
             return success
     
     @with_error_handling("save_snapshot")
-    async def save_snapshot(self, snapshot: StateSnapshot) -> bool:
+    async def save_snapshot(self, snapshot: AbstractStateSnapshot) -> bool:
         """异步保存状态快照
         
         Args:
@@ -138,7 +137,7 @@ class AsyncStateStorageAdapter(IAsyncStateStorageAdapter):
             return bool(result)
     
     @with_error_handling("load_snapshot")
-    async def load_snapshot(self, snapshot_id: str) -> Optional[StateSnapshot]:
+    async def load_snapshot(self, snapshot_id: str) -> Optional[AbstractStateSnapshot]:
         """异步加载状态快照
         
         Args:
@@ -158,7 +157,7 @@ class AsyncStateStorageAdapter(IAsyncStateStorageAdapter):
             return StateSnapshot.from_dict(data)
     
     @with_error_handling("get_snapshots_by_agent")
-    async def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> List[StateSnapshot]:
+    async def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> Sequence[AbstractStateSnapshot]:
         """异步获取指定代理的快照列表
         
         Args:
@@ -175,7 +174,7 @@ class AsyncStateStorageAdapter(IAsyncStateStorageAdapter):
             results = await self._backend.list_impl(filters, limit)
             
             # 转换为快照对象
-            snapshots = []
+            snapshots: List[AbstractStateSnapshot] = []
             for data in results:
                 snapshot = StateSnapshot.from_dict(data)
                 snapshots.append(snapshot)

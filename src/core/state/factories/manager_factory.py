@@ -5,13 +5,12 @@
 
 from typing import Any, Dict, Optional, Type, Union
 
-from ...interfaces.state.interfaces import IStateManager
-from ...interfaces.state.storage.adapter import IStorageAdapter
+from ..interfaces import IStateManager
+from src.interfaces.state.storage.adapter import IStateStorageAdapter as IStorageAdapter
 from ..core.state_manager import StateManager
-from ..storage.memory_adapter import MemoryStateAdapter
-from ..storage.sqlite_adapter import SQLiteStateAdapter
-from ..storage.file_adapter import FileStateAdapter
-from ..config.settings import StateConfig
+from src.adapters.storage.adapters.memory import MemoryStateStorageAdapter
+from src.adapters.storage.adapters.sqlite import SQLiteStateStorageAdapter
+from src.adapters.storage.adapters.file import FileStateStorageAdapter
 
 
 class StateManagerFactory:
@@ -21,16 +20,16 @@ class StateManagerFactory:
     """
     
     # 存储适配器注册表
-    _adapter_registry: Dict[str, Type[IStorageAdapter]] = {
-        "memory": MemoryStateAdapter,
-        "sqlite": SQLiteStateAdapter,
-        "file": FileStateAdapter
+    _adapter_registry: Dict[str, Union[Type[IStorageAdapter], Any]] = {
+        "memory": MemoryStateStorageAdapter,
+        "sqlite": SQLiteStateStorageAdapter,
+        "file": FileStateStorageAdapter
     }
     
     @classmethod
-    def create_manager(cls, 
+    def create_manager(cls,
                       storage_type: str = "memory",
-                      config: Optional[StateConfig] = None,
+                      config: Optional[Dict[str, Any]] = None,
                       **storage_kwargs) -> IStateManager:
         """创建状态管理器
         
@@ -45,15 +44,24 @@ class StateManagerFactory:
         Raises:
             ValueError: 当存储类型不支持时
         """
-        # 获取存储适配器
-        adapter = cls.create_storage_adapter(storage_type, **storage_kwargs)
+        # 创建配置字典
+        full_config = {
+            "storage": {
+                "type": storage_type,
+                **storage_kwargs
+            }
+        }
+        
+        # 合并用户配置
+        if config:
+            full_config.update(config)
         
         # 创建状态管理器
-        return StateManager(adapter, config)
+        return StateManager(full_config)
     
     @classmethod
-    def create_memory_manager(cls, 
-                             config: Optional[StateConfig] = None,
+    def create_memory_manager(cls,
+                             config: Optional[Dict[str, Any]] = None,
                              **kwargs) -> IStateManager:
         """创建内存状态管理器
         
@@ -69,7 +77,7 @@ class StateManagerFactory:
     @classmethod
     def create_sqlite_manager(cls,
                              database_path: str,
-                             config: Optional[StateConfig] = None,
+                             config: Optional[Dict[str, Any]] = None,
                              **kwargs) -> IStateManager:
         """创建SQLite状态管理器
         
@@ -86,7 +94,7 @@ class StateManagerFactory:
     @classmethod
     def create_file_manager(cls,
                            storage_path: str,
-                           config: Optional[StateConfig] = None,
+                           config: Optional[Dict[str, Any]] = None,
                            **kwargs) -> IStateManager:
         """创建文件状态管理器
         
@@ -101,7 +109,7 @@ class StateManagerFactory:
         return cls.create_manager("file", config, storage_path=storage_path, **kwargs)
     
     @classmethod
-    def create_from_config(cls, config: StateConfig) -> IStateManager:
+    def create_from_config(cls, config: Dict[str, Any]) -> IStateManager:
         """从配置创建状态管理器
         
         Args:
@@ -110,8 +118,8 @@ class StateManagerFactory:
         Returns:
             IStateManager: 状态管理器实例
         """
-        storage_type = config.storage_type
-        storage_config = config.storage_config or {}
+        storage_type = config.get("storage", {}).get("type", "memory")
+        storage_config = config.get("storage", {})
         
         return cls.create_manager(storage_type, config, **storage_config)
     
@@ -179,7 +187,7 @@ class StateManagerFactory:
 
 # 便捷函数
 def create_state_manager(storage_type: str = "memory",
-                        config: Optional[StateConfig] = None,
+                        config: Optional[Dict[str, Any]] = None,
                         **storage_kwargs) -> IStateManager:
     """创建状态管理器的便捷函数
     
@@ -194,7 +202,7 @@ def create_state_manager(storage_type: str = "memory",
     return StateManagerFactory.create_manager(storage_type, config, **storage_kwargs)
 
 
-def create_memory_state_manager(config: Optional[StateConfig] = None,
+def create_memory_state_manager(config: Optional[Dict[str, Any]] = None,
                                **kwargs) -> IStateManager:
     """创建内存状态管理器的便捷函数
     
@@ -209,7 +217,7 @@ def create_memory_state_manager(config: Optional[StateConfig] = None,
 
 
 def create_sqlite_state_manager(database_path: str,
-                               config: Optional[StateConfig] = None,
+                               config: Optional[Dict[str, Any]] = None,
                                **kwargs) -> IStateManager:
     """创建SQLite状态管理器的便捷函数
     
@@ -225,7 +233,7 @@ def create_sqlite_state_manager(database_path: str,
 
 
 def create_file_state_manager(storage_path: str,
-                             config: Optional[StateConfig] = None,
+                             config: Optional[Dict[str, Any]] = None,
                              **kwargs) -> IStateManager:
     """创建文件状态管理器的便捷函数
     

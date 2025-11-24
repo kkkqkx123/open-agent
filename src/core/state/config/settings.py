@@ -5,10 +5,10 @@
 
 import os
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from pathlib import Path
 
-from ...core.config.yaml_loader import YamlConfigLoader
+from ...config.config_loader import ConfigLoader
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class StateManagementConfig:
         """
         self.config_path = config_path or "configs/state_management.yaml"
         self._config: Dict[str, Any] = {}
-        self._loader = YamlConfigLoader()
+        self._loader = ConfigLoader()
         
         # 加载配置
         self._load_config()
@@ -37,7 +37,7 @@ class StateManagementConfig:
         """加载配置文件"""
         try:
             if os.path.exists(self.config_path):
-                self._config = self._loader.load_config(self.config_path)
+                self._config = self._loader.load(self.config_path)
                 logger.info(f"已加载状态管理配置: {self.config_path}")
             else:
                 logger.warning(f"配置文件不存在: {self.config_path}，使用默认配置")

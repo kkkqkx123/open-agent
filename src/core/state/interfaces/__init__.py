@@ -10,8 +10,7 @@ from .base import (
     IStateSerializer,
     IStateValidator,
     IStateLifecycleManager,
-    IStateCache,
-    IStateStorageAdapter
+    IStateCache
 )
 
 # 工作流状态接口
@@ -54,7 +53,6 @@ __all__ = [
     "IStateValidator",
     "IStateLifecycleManager",
     "IStateCache",
-    "IStateStorageAdapter",
     
     # 工作流状态接口
     "IWorkflowState",

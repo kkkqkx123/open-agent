@@ -4,15 +4,17 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence
 
+from src.interfaces.storage.base import IUnifiedStorage
 from ..entities import AbstractStateSnapshot, AbstractStateHistoryEntry
 
 
 class IStateStorageAdapter(ABC):
     """状态存储适配器接口
     
-    定义状态存储的统一接口，支持历史记录和快照的存储操作。
+    专注于状态特有的存储功能，如历史记录和快照管理。
+    与通用存储接口IUnifiedStorage协同工作，但保持同步接口特性。
     """
     
     @abstractmethod
@@ -28,7 +30,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    def get_history_entries(self, agent_id: str, limit: int = 100) -> List[AbstractStateHistoryEntry]:
+    def get_history_entries(self, agent_id: str, limit: int = 100) -> Sequence[AbstractStateHistoryEntry]:
         """获取历史记录条目
         
         Args:
@@ -65,11 +67,11 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    def save_snapshot(self, entry: AbstractStateSnapshot) -> bool:
+    def save_snapshot(self, snapshot: AbstractStateSnapshot) -> bool:
         """保存状态快照
         
         Args:
-            entry: 状态快照条目
+            snapshot: 状态快照条目
             
         Returns:
             保存成功返回True，失败返回False
@@ -89,7 +91,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> List[AbstractStateSnapshot]:
+    def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> Sequence[AbstractStateSnapshot]:
         """获取指定代理的快照列表
         
         Args:
@@ -150,6 +152,15 @@ class IStateStorageAdapter(ABC):
     def close(self) -> None:
         """关闭存储连接"""
         pass
+
+    def get_unified_storage(self) -> Optional[IUnifiedStorage]:
+        """获取通用存储接口实例（可选功能）
+        
+        Returns:
+            通用存储接口实例，如果不可用则返回None
+        """
+        # 默认返回None，表示不支持
+        return None
     
     @abstractmethod
     def health_check(self) -> bool:

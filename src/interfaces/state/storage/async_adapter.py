@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence
 
 from ..entities import AbstractStateSnapshot, AbstractStateHistoryEntry
 
@@ -28,7 +28,7 @@ class IAsyncStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    async def get_history_entries(self, agent_id: str, limit: int = 100) -> List[AbstractStateHistoryEntry]:
+    async def get_history_entries(self, agent_id: str, limit: int = 100) -> Sequence[AbstractStateHistoryEntry]:
         """异步获取历史记录条目
         
         Args:
@@ -89,7 +89,7 @@ class IAsyncStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    async def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> List[AbstractStateSnapshot]:
+    async def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> Sequence[AbstractStateSnapshot]:
         """异步获取指定代理的快照列表
         
         Args:

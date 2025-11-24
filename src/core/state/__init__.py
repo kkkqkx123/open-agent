@@ -15,7 +15,6 @@ from .interfaces import (
     IStateValidator,
     IStateLifecycleManager,
     IStateCache,
-    IStateStorageAdapter,
     
     # 工作流状态接口
     IWorkflowState,
@@ -90,13 +89,6 @@ from .implementations import (
     # 检查点状态实现
     CheckpointState,
     AutoCheckpointState
-)
-
-# 存储适配器
-from .storage import (
-    MemoryStateAdapter,
-    SQLiteStateAdapter,
-    FileStateAdapter
 )
 
 # 工厂类
@@ -250,7 +242,6 @@ __all__ = [
     "IStateValidator",
     "IStateLifecycleManager",
     "IStateCache",
-    "IStateStorageAdapter",
     "IWorkflowState",
     "IWorkflowStateBuilder",
     "IToolState",
@@ -293,11 +284,6 @@ __all__ = [
     "BranchThreadState",
     "CheckpointState",
     "AutoCheckpointState",
-    
-    # 存储适配器
-    "MemoryStateAdapter",
-    "SQLiteStateAdapter",
-    "FileStateAdapter",
     
     # 工厂类
     "StateFactory",

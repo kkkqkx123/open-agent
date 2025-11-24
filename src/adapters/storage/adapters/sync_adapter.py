@@ -6,10 +6,10 @@
 import asyncio
 import logging
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence
 
 from src.interfaces.state.storage.adapter import IStateStorageAdapter
-from src.interfaces.state import StateSnapshot, StateHistoryEntry
+from src.interfaces.state import StateSnapshot, StateHistoryEntry, AbstractStateSnapshot, AbstractStateHistoryEntry
 from ..core.metrics import StorageMetrics, MetricsContext
 from ..core.transaction import TransactionManager, transaction_context
 from ..core.error_handler import with_error_handling
@@ -39,7 +39,7 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
         self._transaction_manager = transaction_manager
     
     @with_error_handling("save_history_entry")
-    def save_history_entry(self, entry: StateHistoryEntry) -> bool:
+    def save_history_entry(self, entry: AbstractStateHistoryEntry) -> bool:
         """同步保存历史记录条目
         
         Args:
@@ -58,7 +58,7 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
             return bool(result)
     
     @with_error_handling("get_history_entries")
-    def get_history_entries(self, agent_id: str, limit: int = 100) -> List[StateHistoryEntry]:
+    def get_history_entries(self, agent_id: str, limit: int = 100) -> Sequence[AbstractStateHistoryEntry]:
         """同步获取历史记录条目
         
         Args:
@@ -75,7 +75,7 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
             results = self._backend.list_impl(filters, limit)
             
             # 转换为历史记录条目
-            entries = []
+            entries: List[AbstractStateHistoryEntry] = []
             for data in results:
                 entry = StateHistoryEntry.from_dict(data)
                 entries.append(entry)
@@ -119,7 +119,7 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
             return success
     
     @with_error_handling("save_snapshot")
-    def save_snapshot(self, snapshot: StateSnapshot) -> bool:
+    def save_snapshot(self, snapshot: AbstractStateSnapshot) -> bool:
         """同步保存状态快照
         
         Args:
@@ -138,7 +138,7 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
             return bool(result)
     
     @with_error_handling("load_snapshot")
-    def load_snapshot(self, snapshot_id: str) -> Optional[StateSnapshot]:
+    def load_snapshot(self, snapshot_id: str) -> Optional[AbstractStateSnapshot]:
         """同步加载状态快照
         
         Args:
@@ -158,7 +158,7 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
             return StateSnapshot.from_dict(data)
     
     @with_error_handling("get_snapshots_by_agent")
-    def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> List[StateSnapshot]:
+    def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> Sequence[AbstractStateSnapshot]:
         """同步获取指定代理的快照列表
         
         Args:
@@ -175,7 +175,7 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
             results = self._backend.list_impl(filters, limit)
             
             # 转换为快照对象
-            snapshots = []
+            snapshots: List[AbstractStateSnapshot] = []
             for data in results:
                 snapshot = StateSnapshot.from_dict(data)
                 snapshots.append(snapshot)

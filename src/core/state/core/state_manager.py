@@ -19,7 +19,7 @@ from ..interfaces.sessions import ISessionState
 from ..interfaces.threads import IThreadState
 from ..interfaces.checkpoints import ICheckpointState
 from .base import BaseStateSerializer, BaseStateValidator, BaseStateLifecycleManager
-from ..storage.memory_adapter import MemoryStateAdapter
+from ..storage import MemoryStateAdapter, SQLiteStateAdapter, FileStateAdapter
 
 
 logger = logging.getLogger(__name__)
@@ -93,10 +93,8 @@ class StateManager(IStateManager):
         if adapter_type == 'memory':
             return MemoryStateAdapter(storage_config)
         elif adapter_type == 'sqlite':
-            from ..storage.sqlite_adapter import SQLiteStateAdapter
             return SQLiteStateAdapter(storage_config)
         elif adapter_type == 'file':
-            from ..storage.file_adapter import FileStateAdapter
             return FileStateAdapter(storage_config)
         else:
             raise ValueError(f"不支持的存储类型: {adapter_type}")

@@ -327,6 +327,42 @@ class WorkflowState(BaseStateImpl, IWorkflowState):
         self._data[key] = value
         self._updated_at = datetime.now()
     
+    # 字典访问方法
+    def __getitem__(self, key: str) -> Any:
+        """字典式获取"""
+        value = self.get(key)
+        if value is None:
+            raise KeyError(f"Key '{key}' not found in state")
+        return value
+    
+    def __setitem__(self, key: str, value: Any) -> None:
+        """字典式设置"""
+        self.set_value(key, value)
+    
+    def setdefault(self, key: str, default: Any = None) -> Any:
+        """字典式setdefault"""
+        if key not in self._data and self.get_field(key) is None:
+            self.set_value(key, default)
+            return default
+        return self.get(key)
+    
+    def __contains__(self, key: str) -> bool:
+        """字典式包含检查"""
+        return key in self._data or self.get_field(key) is not None
+    
+    def keys(self):
+        """获取所有键"""
+        all_keys = set(self._data.keys())
+        all_keys.update(self.fields.keys())
+        return all_keys
+    
+    def items(self):
+        """获取所有键值对"""
+        result = {}
+        result.update(self._data)
+        result.update(self.fields)
+        return result.items()
+    
     # 工作流特定方法
     def add_error(self, error: str) -> None:
         """添加错误"""

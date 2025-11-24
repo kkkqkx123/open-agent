@@ -13,7 +13,7 @@ from src.interfaces.workflow.core import IWorkflow, ExecutionContext
 from src.interfaces.state import IWorkflowState
 from src.interfaces.workflow.execution import IWorkflowExecutor
 from src.core.workflow.entities import Workflow, WorkflowExecution, ExecutionResult
-from ..services.prompt_service import WorkflowPromptService, get_workflow_prompt_service
+from ..services.prompt_service import WorkflowPromptService, get_workflow_prompt_service, get_workflow_prompt_service_sync
 
 
 logger = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ class WorkflowOrchestrator(IWorkflowOrchestrator):
             prompt_service: 提示词服务
         """
         self.executor = executor
-        self.prompt_service = prompt_service or get_workflow_prompt_service()
+        self.prompt_service = prompt_service or get_workflow_prompt_service_sync()
         self._workflow_templates: Dict[str, IWorkflow] = {}
         self._active_executions: Dict[str, WorkflowExecution] = {}
 
