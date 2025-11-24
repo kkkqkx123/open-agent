@@ -17,6 +17,7 @@ class SchemaLoader:
         Args:
             schema_dir: 模式文件目录
         """
+        # 确保路径是绝对路径或正确处理相对路径
         self.schema_dir = Path(schema_dir)
         self._schemas: Dict[str, Dict[str, Any]] = {}
 
@@ -32,7 +33,12 @@ class SchemaLoader:
         if schema_name in self._schemas:
             return self._schemas[schema_name]
 
-        schema_file = self.schema_dir / f"{schema_name}.json"
+        # 在 schemas 子目录中查找
+        schema_file = self.schema_dir / "schemas" / f"{schema_name}.json"
+        
+        # 如果在 schemas 子目录中找不到，也尝试在主目录中查找
+        if not schema_file.exists():
+            schema_file = self.schema_dir / f"{schema_name}.json"
 
         if not schema_file.exists():
             raise FileNotFoundError(f"模式文件不存在: {schema_file}")
@@ -50,6 +56,9 @@ class SchemaLoader:
 
         except json.JSONDecodeError as e:
             raise ValueError(f"无效的JSON模式文件 {schema_file}: {e}")
+        except ValueError as e:
+            # 重新抛出 ValueError，不包装
+            raise
         except Exception as e:
             raise RuntimeError(f"加载模式文件失败 {schema_file}: {e}")
 
@@ -138,6 +147,15 @@ class SchemaLoader:
         Returns:
             模式名称列表
         """
+        # 首先尝试在 schemas 子目录中查找
+        schemas_subdir = self.schema_dir / "schemas"
+        if schemas_subdir.exists():
+            schemas = []
+            for file_path in schemas_subdir.glob("*.json"):
+                schemas.append(file_path.stem)
+            return schemas
+
+        # 如果 schemas 子目录不存在，则在主目录中查找
         if not self.schema_dir.exists():
             return []
 
@@ -173,10 +191,11 @@ class SchemaLoader:
         """
         schema = self._generate_schema_from_config(config)
 
-        # 确保目录存在
-        self.schema_dir.mkdir(parents=True, exist_ok=True)
+        # 确保 schemas 目录存在
+        schemas_dir = self.schema_dir / "schemas"
+        schemas_dir.mkdir(parents=True, exist_ok=True)
 
-        schema_file = self.schema_dir / f"{schema_name}.json"
+        schema_file = schemas_dir / f"{schema_name}.json"
 
         try:
             with open(schema_file, "w", encoding="utf-8") as f:
@@ -224,14 +243,14 @@ class SchemaLoader:
         Returns:
             字段模式字典
         """
-        if isinstance(value, str):
+        if isinstance(value, bool):  # 检查布尔值必须在检查整数之前
+            return {"type": "boolean"}
+        elif isinstance(value, str):
             return {"type": "string"}
         elif isinstance(value, int):
             return {"type": "integer"}
         elif isinstance(value, float):
             return {"type": "number"}
-        elif isinstance(value, bool):
-            return {"type": "boolean"}
         elif isinstance(value, list):
             if value:
                 item_schema = self._infer_field_schema(value[0])

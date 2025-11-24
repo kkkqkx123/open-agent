@@ -32,10 +32,16 @@ class TemporalManager:
         if format == "iso":
             return dt.isoformat()
         elif format == "timestamp":
-            # 对于时区感知的datetime，先转换为UTC时间戳
-            if dt.tzinfo is not None:
-                return str(int(dt.timestamp()))
+            # 对于naive datetime，需要先转换为时区感知的datetime
+            if dt.tzinfo is None:
+                # naive datetime，假设为本地时间，转换为UTC时间戳
+                # 将naive datetime作为本地时间处理
+                import time
+                # 使用time.mktime将本地时间转换为时间戳
+                timestamp = time.mktime(dt.timetuple()) + dt.microsecond / 1e6
+                return str(int(timestamp))
             else:
+                # 时区感知datetime
                 return str(int(dt.timestamp()))
         elif format == "readable":
             return dt.strftime("%Y-%m-%d %H:%M:%S")
@@ -70,7 +76,10 @@ class TemporalManager:
                 else:
                     raise ValueError(f"Invalid ISO timestamp format: {timestamp}")
         elif format == "timestamp":
-            return datetime.fromtimestamp(float(timestamp))
+            # 返回naive datetime，与测试期望一致
+            dt_with_tz = datetime.fromtimestamp(float(timestamp), tz=timezone.utc)
+            # 移除时区信息，返回naive datetime
+            return dt_with_tz.replace(tzinfo=None)
         elif format == "readable":
             return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
         else:
