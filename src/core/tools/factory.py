@@ -22,7 +22,7 @@ except ImportError:
 # 导入注册管理器
 try:
     # 新架构中不再使用 ModuleRegistryManager，使用新的配置管理器
-    from src.core.utils.dynamic_importer import DynamicImporter
+    from core.common.dynamic_importer import DynamicImporter
     _registry_imported = True
 except ImportError:
     DynamicImporter = None  # type: ignore

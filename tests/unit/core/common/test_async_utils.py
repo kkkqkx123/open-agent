@@ -4,7 +4,7 @@ import asyncio
 import pytest
 import threading
 from unittest.mock import Mock, patch
-from core.common.async_tuils import AsyncUtils, run_async, AsyncContextManager, AsyncLock
+from core.common.async_utils import AsyncUtils, run_async, AsyncContextManager, AsyncLock
 
 
 class TestAsyncUtils:

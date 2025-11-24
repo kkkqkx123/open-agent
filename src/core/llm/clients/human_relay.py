@@ -43,7 +43,7 @@ class HumanRelayClient(BaseLLMClient):
     ) -> LLMResponse:
         """执行生成操作"""
         # 使用EventLoopManager运行异步方法
-        from core.common.async_tuils import run_async
+        from core.common.async_utils import run_async
         return run_async(self._do_generate_async(messages, parameters, **kwargs))
     
     async def _single_turn_generate(
@@ -203,7 +203,7 @@ class HumanRelayClient(BaseLLMClient):
     ) -> Generator[str, None, None]:
         """执行流式生成操作"""
         # 使用EventLoopManager运行异步方法
-        from core.common.async_tuils import run_async
+        from core.common.async_utils import run_async
         
         # 获取完整响应
         response = run_async(self._do_generate_async(messages, parameters, **kwargs))

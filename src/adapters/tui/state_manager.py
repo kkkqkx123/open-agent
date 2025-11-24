@@ -74,7 +74,7 @@ class StateManager:
             )
             
             # 使用EventLoopManager异步创建会话
-            from core.common.async_tuils import run_async
+            from core.common.async_utils import run_async
             self.session_id = run_async(
                 self.session_manager.create_session(user_request)
             )
@@ -111,7 +111,7 @@ class StateManager:
         
         try:
             # 使用EventLoopManager异步加载会话
-            from core.common.async_tuils import run_async
+            from core.common.async_utils import run_async
             session_context = run_async(
                 self.session_manager.get_session_context(session_id)
             )

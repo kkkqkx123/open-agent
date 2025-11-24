@@ -73,7 +73,7 @@ class TestCacheEntry:
         assert result == "test_value"
         assert entry.access_count == initial_count + 1
         # 检查最后访问时间是否更新
-        assert entry.last_accessed >= entry.created_at
+        assert entry.last_accessed is not None and entry.last_accessed >= entry.created_at
     
     def test_cache_entry_extend_ttl(self):
         """测试延长TTL"""
@@ -188,7 +188,7 @@ class TestCacheManager:
         manager = CacheManager()
         
         # 设置一个立即过期的值
-        await manager.set('expired_key', 'expired_value', ttl=0.01)
+        await manager.set('expired_key', 'expired_value', ttl=1)
         
         # 立即获取，应该存在
         value = await manager.get('expired_key')
@@ -238,8 +238,8 @@ class TestCacheManager:
         assert exists
         
         # 设置一个立即过期的值
-        await manager.set('expired_key', 'expired_value', ttl=0.01)
-        await asyncio.sleep(0.02)
+        await manager.set('expired_key', 'expired_value', ttl=1)
+        await asyncio.sleep(1.1)
         
         # 过期的键
         exists = await manager.exists('expired_key')
@@ -292,8 +292,8 @@ class TestCacheManager:
         manager = CacheManager()
         
         # 设置一个立即过期的值
-        await manager.set('cleanup_key', 'cleanup_value', ttl=0.01)
-        await asyncio.sleep(0.02)
+        await manager.set('cleanup_key', 'cleanup_value', ttl=1)
+        await asyncio.sleep(1.1)
         
         # 清理过期项
         cleanup_count = await manager.cleanup_expired()

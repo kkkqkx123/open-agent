@@ -11,7 +11,7 @@ import threading
 from typing import Dict, Any, Optional, List, Callable
 from pathlib import Path
 
-from src.infrastructure.container import get_global_container, DependencyContainer, IDependencyContainer
+from src.services.container import get_global_container, DependencyContainer, IDependencyContainer
 from src.infrastructure.di_config import DIConfig, create_container, get_global_container as get_di_container
 from src.infrastructure.lifecycle_manager import LifecycleManager, get_global_lifecycle_manager
 from src.app_config import ApplicationConfig
