@@ -85,6 +85,10 @@ class Serializer:
                 self._update_stats(True, time.time() - start_time)
                 return cast(Union[str, bytes], cached_result)
         
+        # 检查格式
+        if format not in [self.FORMAT_JSON, self.FORMAT_COMPACT_JSON, self.FORMAT_PICKLE]:
+            raise SerializationError(f"不支持的序列化格式: {format}")
+        
         try:
             # 预处理数据
             processed_data = self._preprocess_data(data)
@@ -96,6 +100,7 @@ class Serializer:
             elif format == self.FORMAT_PICKLE:
                 result = pickle.dumps(processed_data)
             else:
+                # 这个分支实际上不会执行，因为上面已经检查了格式
                 raise ValueError(f"不支持的序列化格式: {format}")
             
             # 缓存结果
@@ -126,6 +131,10 @@ class Serializer:
         """
         start_time = time.time()
         
+        # 检查格式
+        if format not in [self.FORMAT_JSON, self.FORMAT_COMPACT_JSON, self.FORMAT_PICKLE]:
+            raise SerializationError(f"不支持的格式: {format}")
+        
         # 计算数据哈希用于缓存
         data_hash = self._calculate_hash(data) if (self._enable_cache and enable_cache) else None
         
@@ -151,6 +160,7 @@ class Serializer:
                     pickle_data = data
                 result = pickle.loads(pickle_data)
             else:
+                # 这个分支实际上不会执行，因为上面已经检查了格式
                 raise ValueError(f"不支持的格式: {format}")
             
             # 缓存结果
