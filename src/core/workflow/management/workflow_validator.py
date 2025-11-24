@@ -946,46 +946,49 @@ class WorkflowValidator:
             ))
     
     def _validate_prompt_config(self, config_data: Dict[str, Any], config_path: str) -> None:
-        """验证提示词配置"""
-        try:
-            import asyncio
-            
-            # 在同步方法中运行异步验证
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                # 使用提示词服务验证基本配置
-                prompt_errors = loop.run_until_complete(
-                    self.prompt_service.validate_prompt_configuration(config_data)
-                )
-                for error in prompt_errors:
-                    self.issues.append(ValidationIssue(
-                        severity=ValidationSeverity.ERROR,
-                        message=f"提示词配置错误: {error}",
-                        location=f"{config_path}:prompt_config",
-                        suggestion="检查提示词ID和引用是否正确"
-                    ))
-                
-                # 验证工作流结构中的提示词引用
-                structure_errors = loop.run_until_complete(
-                    self.prompt_service.validate_workflow_structure(config_data)
-                )
-                for error in structure_errors:
-                    self.issues.append(ValidationIssue(
-                        severity=ValidationSeverity.ERROR,
-                        message=f"工作流结构提示词错误: {error}",
-                        location=f"{config_path}:structure",
-                        suggestion="检查节点配置中的提示词引用"
-                    ))
-            finally:
-                loop.close()
-        except Exception as e:
-            self.issues.append(ValidationIssue(
-                severity=ValidationSeverity.WARNING,
-                message=f"提示词配置验证失败: {e}",
-                location=f"{config_path}:prompt_config",
-                suggestion="检查提示词服务是否正确配置"
-            ))
+         """验证提示词配置"""
+         if not self.prompt_service:
+             return
+             
+         try:
+             import asyncio
+             
+             # 在同步方法中运行异步验证
+             loop = asyncio.new_event_loop()
+             asyncio.set_event_loop(loop)
+             try:
+                 # 使用提示词服务验证基本配置
+                 prompt_errors = loop.run_until_complete(
+                     self.prompt_service.validate_prompt_configuration(config_data)
+                 )
+                 for error in prompt_errors:
+                     self.issues.append(ValidationIssue(
+                         severity=ValidationSeverity.ERROR,
+                         message=f"提示词配置错误: {error}",
+                         location=f"{config_path}:prompt_config",
+                         suggestion="检查提示词ID和引用是否正确"
+                     ))
+                 
+                 # 验证工作流结构中的提示词引用
+                 structure_errors = loop.run_until_complete(
+                     self.prompt_service.validate_workflow_structure(config_data)
+                 )
+                 for error in structure_errors:
+                     self.issues.append(ValidationIssue(
+                         severity=ValidationSeverity.ERROR,
+                         message=f"工作流结构提示词错误: {error}",
+                         location=f"{config_path}:structure",
+                         suggestion="检查节点配置中的提示词引用"
+                     ))
+             finally:
+                 loop.close()
+         except Exception as e:
+             self.issues.append(ValidationIssue(
+                 severity=ValidationSeverity.WARNING,
+                 message=f"提示词配置验证失败: {e}",
+                 location=f"{config_path}:prompt_config",
+                 suggestion="检查提示词服务是否正确配置"
+             ))
     
     def print_issues(self, issues: List[ValidationIssue]) -> None:
         """打印验证问题"""
@@ -1045,49 +1048,6 @@ def main():
     error_count = sum(1 for issue in issues if issue.severity == ValidationSeverity.ERROR)
     if error_count > 0:
         sys.exit(1)
-
-
-    def _validate_prompt_config(self, config_data: Dict[str, Any], config_path: str) -> None:
-        """验证提示词配置"""
-        try:
-            import asyncio
-            
-            # 在同步方法中运行异步验证
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                # 使用提示词服务验证基本配置
-                prompt_errors = loop.run_until_complete(
-                    self.prompt_service.validate_prompt_configuration(config_data)
-                )
-                for error in prompt_errors:
-                    self.issues.append(ValidationIssue(
-                        severity=ValidationSeverity.ERROR,
-                        message=f"提示词配置错误: {error}",
-                        location=f"{config_path}:prompt_config",
-                        suggestion="检查提示词ID和引用是否正确"
-                    ))
-                
-                # 验证工作流结构中的提示词引用
-                structure_errors = loop.run_until_complete(
-                    self.prompt_service.validate_workflow_structure(config_data)
-                )
-                for error in structure_errors:
-                    self.issues.append(ValidationIssue(
-                        severity=ValidationSeverity.ERROR,
-                        message=f"工作流结构提示词错误: {error}",
-                        location=f"{config_path}:structure",
-                        suggestion="检查节点配置中的提示词引用"
-                    ))
-            finally:
-                loop.close()
-        except Exception as e:
-            self.issues.append(ValidationIssue(
-                severity=ValidationSeverity.WARNING,
-                message=f"提示词配置验证失败: {e}",
-                location=f"{config_path}:prompt_config",
-                suggestion="检查提示词服务是否正确配置"
-            ))
 
 
 if __name__ == "__main__":
