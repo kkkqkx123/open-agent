@@ -9,7 +9,7 @@ from datetime import datetime
 
 from src.interfaces.state.history import IStateHistoryManager
 from src.interfaces.state.serializer import IStateSerializer
-from src.interfaces.state.storage.adapter import IStateStorageAdapter
+from src.interfaces.repository import IHistoryRepository
 from src.interfaces.state import StateHistoryEntry
 from src.core.state.base import BaseStateHistoryManager
 from src.core.state.entities import StateDiff
@@ -24,26 +24,26 @@ class StateHistoryService(BaseStateHistoryManager):
     提供完整的历史记录管理功能。
     """
     
-    def __init__(self, 
-                 storage_adapter: IStateStorageAdapter,
+    def __init__(self,
+                 history_repository: IHistoryRepository,
                  serializer: Optional[IStateSerializer] = None,
                  max_history_size: int = 1000):
         """初始化历史管理服务
         
         Args:
-            storage_adapter: 存储适配器
+            history_repository: 历史Repository
             serializer: 序列化器
             max_history_size: 最大历史记录数量
         """
         super().__init__(max_history_size)
-        self._storage_adapter = storage_adapter
+        self._history_repository = history_repository
         self._serializer = serializer
         
         # 内存缓存
         self._history_cache: Dict[str, List[StateHistoryEntry]] = {}
         self._agent_history_index: Dict[str, List[str]] = {}
     
-    def record_state_change(self, agent_id: str, old_state: Dict[str, Any], 
+    def record_state_change(self, agent_id: str, old_state: Dict[str, Any],
                           new_state: Dict[str, Any], action: str) -> str:
         """记录状态变化"""
         try:
@@ -55,8 +55,20 @@ class StateHistoryService(BaseStateHistoryManager):
                 diff_data = self._serializer.serialize_state(entry.state_diff)
                 entry.compressed_diff = self._serializer.compress_data(diff_data)
             
-            # 保存到存储
-            self._storage_adapter.save_history_entry(entry)
+            # 转换为字典格式保存到Repository
+            entry_dict = {
+                "history_id": entry.history_id,
+                "agent_id": entry.agent_id,
+                "timestamp": entry.timestamp,
+                "action": entry.action,
+                "old_state": entry.old_state,
+                "new_state": entry.new_state,
+                "state_diff": entry.state_diff,
+                "metadata": entry.metadata or {}
+            }
+            
+            # 保存到Repository
+            await self._history_repository.save_history(entry_dict)
             
             # 更新缓存
             self._update_cache(entry)
@@ -71,7 +83,7 @@ class StateHistoryService(BaseStateHistoryManager):
             logger.error(f"记录状态变化失败: {e}")
             raise
     
-    def get_state_history(self, agent_id: str, limit: int = 100) -> List[StateHistoryEntry]:
+    async def get_state_history(self, agent_id: str, limit: int = 100) -> List[StateHistoryEntry]:
         """获取状态历史"""
         try:
             # 先从缓存获取
@@ -80,14 +92,23 @@ class StateHistoryService(BaseStateHistoryManager):
                 if len(cached_entries) >= limit:
                     return cached_entries[-limit:]
             
-            # 从存储获取
-            entries = self._storage_adapter.get_history_entries(agent_id, limit)
+            # 从Repository获取
+            entry_dicts = await self._history_repository.get_history(agent_id, limit)
             
-            # 解压缩数据
-            for entry in entries:
-                if entry.compressed_diff and not entry.state_diff and self._serializer:
-                    compressed_data = self._serializer.decompress_data(entry.compressed_diff)
-                    entry.state_diff = self._serializer.deserialize_state(compressed_data)
+            # 转换为StateHistoryEntry对象
+            entries = []
+            for entry_dict in entry_dicts:
+                entry = StateHistoryEntry(
+                    history_id=entry_dict["history_id"],
+                    agent_id=entry_dict["agent_id"],
+                    timestamp=entry_dict["timestamp"],
+                    action=entry_dict["action"],
+                    old_state=entry_dict.get("old_state", {}),
+                    new_state=entry_dict.get("new_state", {}),
+                    state_diff=entry_dict.get("state_diff", {}),
+                    metadata=entry_dict.get("metadata", {})
+                )
+                entries.append(entry)
             
             # 更新缓存
             self._history_cache[agent_id] = entries
@@ -98,12 +119,12 @@ class StateHistoryService(BaseStateHistoryManager):
             logger.error(f"获取状态历史失败: {e}")
             return []
     
-    def replay_history(self, agent_id: str, base_state: Dict[str, Any], 
+    async def replay_history(self, agent_id: str, base_state: Dict[str, Any],
                       until_timestamp: Optional[datetime] = None) -> Dict[str, Any]:
         """重放历史记录到指定时间点"""
         try:
             current_state = base_state.copy()
-            history_entries = self.get_state_history(agent_id, limit=1000)
+            history_entries = await self.get_state_history(agent_id, limit=1000)
             
             # 按时间排序
             history_entries.sort(key=lambda x: x.timestamp)
@@ -123,11 +144,11 @@ class StateHistoryService(BaseStateHistoryManager):
             logger.error(f"重放历史记录失败: {e}")
             return base_state
     
-    def cleanup_old_entries(self, agent_id: str, max_entries: int = 1000) -> int:
+    async def cleanup_old_entries(self, agent_id: str, max_entries: int = 1000) -> int:
         """清理旧的历史记录"""
         try:
             # 获取当前历史记录数量
-            current_entries = self.get_state_history(agent_id, limit=10000)
+            current_entries = await self.get_state_history(agent_id, limit=10000)
             
             if len(current_entries) <= max_entries:
                 return 0
@@ -136,10 +157,10 @@ class StateHistoryService(BaseStateHistoryManager):
             to_delete_count = len(current_entries) - max_entries
             entries_to_delete = current_entries[:to_delete_count]
             
-            # 从存储删除
+            # 从Repository删除
             deleted_count = 0
             for entry in entries_to_delete:
-                if self._storage_adapter.delete_history_entry(entry.history_id):
+                if await self._history_repository.delete_history(entry.history_id):
                     deleted_count += 1
             
             # 更新缓存
@@ -153,11 +174,11 @@ class StateHistoryService(BaseStateHistoryManager):
             logger.error(f"清理历史记录失败: {e}")
             return 0
     
-    def get_history_statistics(self) -> Dict[str, Any]:
+    async def get_history_statistics(self) -> Dict[str, Any]:
         """获取历史统计信息"""
         try:
-            # 从存储适配器获取统计信息
-            stats = self._storage_adapter.get_history_statistics()
+            # 从Repository获取统计信息
+            stats = await self._history_repository.get_history_statistics()
             
             # 添加缓存统计
             cache_stats = {
@@ -172,11 +193,11 @@ class StateHistoryService(BaseStateHistoryManager):
             logger.error(f"获取历史统计信息失败: {e}")
             return {}
     
-    def clear_history(self, agent_id: str) -> bool:
+    async def clear_history(self, agent_id: str) -> bool:
         """清空指定代理的历史记录"""
         try:
-            # 从存储删除
-            success = self._storage_adapter.clear_agent_history(agent_id)
+            # 从Repository删除
+            success = await self._history_repository.clear_agent_history(agent_id)
             
             # 清空缓存
             if agent_id in self._history_cache:
@@ -191,11 +212,11 @@ class StateHistoryService(BaseStateHistoryManager):
             logger.error(f"清空历史记录失败: {e}")
             return False
     
-    def get_state_at_time(self, agent_id: str, target_time: datetime) -> Optional[Dict[str, Any]]:
+    async def get_state_at_time(self, agent_id: str, target_time: datetime) -> Optional[Dict[str, Any]]:
         """获取指定时间点的状态"""
         try:
             # 获取历史记录
-            history_entries = self.get_state_history(agent_id, limit=1000)
+            history_entries = await self.get_state_history(agent_id, limit=1000)
             
             # 找到目标时间点之前的历史记录
             relevant_entries = [
@@ -273,7 +294,7 @@ class StateHistoryAnalyzer:
             分析结果
         """
         try:
-            history_entries = self._history_service.get_state_history(agent_id, limit=1000)
+            history_entries = await self._history_service.get_state_history(agent_id, limit=1000)
             
             # 过滤时间范围
             if start_time or end_time:
@@ -325,7 +346,7 @@ class StateHistoryAnalyzer:
             异常列表
         """
         try:
-            history_entries = self._history_service.get_state_history(agent_id, limit=1000)
+            history_entries = await self._history_service.get_state_history(agent_id, limit=1000)
             anomalies = []
             
             # 检测异常模式

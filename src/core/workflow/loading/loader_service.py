@@ -17,12 +17,12 @@ from src.services.workflow.function_registry import FunctionRegistry, FunctionTy
 from src.core.workflow.graph.builder.base import UnifiedGraphBuilder
 from ....core.workflow.workflow_instance import WorkflowInstance
 from core.common.exceptions.workflow import WorkflowConfigError, WorkflowValidationError
-from ..services.prompt_service import WorkflowPromptService, get_workflow_prompt_service
+from ..services.prompt_service import WorkflowPromptService, get_workflow_prompt_service_sync
 
 logger = logging.getLogger(__name__)
 
 
-class IUniversalLoaderService(ABC):
+class ILoaderService(ABC):
     """统一加载器服务接口"""
     
     @abstractmethod
@@ -66,7 +66,7 @@ class IUniversalLoaderService(ABC):
         pass
 
 
-class UniversalLoaderService(IUniversalLoaderService):
+class LoaderService(ILoaderService):
     """统一工作流加载器服务 - 新架构实现
     
     整合所有加载相关功能，作为工作流相关服务的统一入口。
@@ -98,7 +98,8 @@ class UniversalLoaderService(IUniversalLoaderService):
         self.builder = builder or UnifiedGraphBuilder(
             function_registry=self.function_registry
         )
-        self.prompt_service = prompt_service or get_workflow_prompt_service()
+        # 使用同步版本获取提示词服务
+        self.prompt_service = prompt_service or get_workflow_prompt_service_sync()
         self.workflow_validator = workflow_validator or WorkflowValidator(self.prompt_service)
         self.state_template_manager = state_template_manager or StateTemplateManager()
         
@@ -602,17 +603,43 @@ class UniversalLoaderService(IUniversalLoaderService):
         """
         try:
             import asyncio
+            import inspect
+            from typing import cast
             
-            # 在同步方法中运行异步预处理
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                # 使用提示词服务统一处理
-                config_dict = config.to_dict()
-                processed_dict = await self.prompt_service.preprocess_workflow_config(config_dict)
+            # 使用提示词服务统一处理
+            config_dict = config.to_dict()
+            
+            # 检查方法是否为异步
+            if inspect.iscoroutinefunction(self.prompt_service.preprocess_workflow_config):
+                # 在同步方法中运行异步预处理
+                try:
+                    # 尝试获取当前事件循环
+                    loop = asyncio.get_running_loop()
+                    # 如果在运行的循环中，创建任务
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(
+                            asyncio.run,
+                            self.prompt_service.preprocess_workflow_config(config_dict)
+                        )
+                        processed_dict: Dict[str, Any] = cast(Dict[str, Any], future.result())
+                except RuntimeError:
+                    # 没有运行的循环，创建新循环
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        result = loop.run_until_complete(
+                            self.prompt_service.preprocess_workflow_config(config_dict)
+                        )
+                        processed_dict = cast(Dict[str, Any], result)
+                    finally:
+                        loop.close()
+                
                 return GraphConfig.from_dict(processed_dict)
-            finally:
-                loop.close()
+            else:
+                # 直接调用同步方法
+                processed_dict = cast(Dict[str, Any], self.prompt_service.preprocess_workflow_config(config_dict))
+                return GraphConfig.from_dict(processed_dict)
         except Exception as e:
             logger.warning(f"提示词配置预处理失败，使用原始配置: {e}")
             return config

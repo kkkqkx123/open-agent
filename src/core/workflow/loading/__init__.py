@@ -4,11 +4,11 @@
 """
 
 from .loader_service import (
-    IUniversalLoaderService,
-    UniversalLoaderService,
+    ILoaderService,
+    LoaderService,
 )
 
 __all__ = [
-    "IUniversalLoaderService",
-    "UniversalLoaderService",
+    "ILoaderService",
+    "LoaderService",
 ]

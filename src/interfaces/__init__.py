@@ -120,6 +120,14 @@ from .checkpoint import (
     ICheckpointPolicy
 )
 
+# Repository接口
+from .repository import (
+    IStateRepository,
+    IHistoryRepository,
+    ISnapshotRepository,
+    ICheckpointRepository
+)
+
 # 容器相关接口
 from .container import (
     IDependencyContainer,
@@ -271,6 +279,12 @@ __all__ = [
     "ICheckpointSerializer",
     "ICheckpointManager",
     "ICheckpointPolicy",
+    
+    # Repository接口
+    "IStateRepository",
+    "IHistoryRepository",
+    "ISnapshotRepository",
+    "ICheckpointRepository",
     
     # 容器接口
     "IDependencyContainer",

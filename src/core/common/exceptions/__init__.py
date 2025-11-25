@@ -93,6 +93,16 @@ from .checkpoint import (
     CheckpointValidationError,
 )
 
+# Repository异常
+from .repository import (
+    RepositoryError,
+    RepositoryNotFoundError,
+    RepositoryAlreadyExistsError,
+    RepositoryOperationError,
+    RepositoryConnectionError,
+    RepositoryTransactionError,
+)
+
 __all__ = [
     # 基础异常
     "CoreError",
@@ -141,4 +151,11 @@ __all__ = [
     "CheckpointNotFoundError",
     "CheckpointStorageError",
     "CheckpointValidationError",
+    # Repository异常
+    "RepositoryError",
+    "RepositoryNotFoundError",
+    "RepositoryAlreadyExistsError",
+    "RepositoryOperationError",
+    "RepositoryConnectionError",
+    "RepositoryTransactionError",
 ]
