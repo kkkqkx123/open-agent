@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 from datetime import datetime
 
-from src.interfaces.threads.backends import IThreadStorageBackend
+from .thread_base import IThreadStorageBackend
 from src.core.common.exceptions import StorageError
 
 logger = logging.getLogger(__name__)

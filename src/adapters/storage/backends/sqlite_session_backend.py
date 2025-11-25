@@ -5,9 +5,8 @@ import sqlite3
 import logging
 from typing import Dict, Any, Optional, List
 from pathlib import Path
-from datetime import datetime
 
-from src.interfaces.sessions.backends import ISessionStorageBackend
+from .base import ISessionStorageBackend
 from src.core.common.exceptions import StorageError
 
 logger = logging.getLogger(__name__)

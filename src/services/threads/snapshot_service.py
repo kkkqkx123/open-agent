@@ -7,11 +7,12 @@ from datetime import datetime
 
 from src.core.threads.interfaces import IThreadCore, IThreadSnapshotCore
 from src.core.threads.entities import Thread, ThreadMetadata, ThreadSnapshot, ThreadStatus
-from src.interfaces.threads import IThreadSnapshotService, IThreadRepository, IThreadSnapshotRepository
+from src.interfaces.threads import IThreadRepository, IThreadSnapshotRepository
+from src.interfaces.repository import ISnapshotRepository
 from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
 
 
-class ThreadSnapshotService(IThreadSnapshotService):
+class ThreadSnapshotService:
     """线程快照业务服务实现"""
     
     def __init__(
@@ -144,8 +145,8 @@ class ThreadSnapshotService(IThreadSnapshotService):
         """比较两个快照"""
         try:
             # 验证快照存在
-            snapshot1 = await self._thread_snapshot_repository.get_snapshot(snapshot_id1)
-            snapshot2 = await self._thread_snapshot_repository.get_snapshot(snapshot_id2)
+            snapshot1 = await self._thread_snapshot_repository.get(snapshot_id1)
+            snapshot2 = await self._thread_snapshot_repository.get(snapshot_id2)
             
             if not snapshot1 or snapshot1.thread_id != thread_id:
                 raise EntityNotFoundError(f"Snapshot {snapshot_id1} not found for thread {thread_id}")

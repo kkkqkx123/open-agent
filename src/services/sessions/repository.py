@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from interfaces.repository.session import ISessionRepository
-from src.interfaces.sessions.backends import ISessionStorageBackend
+from src.adapters.storage.backends.base import ISessionStorageBackend
 from src.core.common.exceptions import StorageError
 from src.core.sessions import Session
 

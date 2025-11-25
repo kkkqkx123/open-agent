@@ -2,8 +2,10 @@
 
 import asyncio
 import uuid
-from typing import Dict, Any, Optional, List
+from typing import AsyncGenerator, Dict, Any, Optional, List
 from datetime import datetime
+
+from interfaces.state import IWorkflowState as WorkflowState
 
 from src.core.threads.interfaces import IThreadCore
 from src.core.threads.entities import ThreadStatus, Thread, ThreadMetadata
@@ -254,3 +256,75 @@ class ThreadService(IThreadService):
             return target_status in valid_transitions.get(current_status, [])
         except Exception:
             return False
+
+    async def create_thread(self, graph_id: str, metadata: Dict[str, Any] | None = None) -> str:
+        raise NotImplementedError
+
+    async def create_thread_from_config(self, config_path: str, metadata: Dict[str, Any] | None = None) -> str:
+        raise NotImplementedError
+
+    async def get_thread_info(self, thread_id: str) -> Dict[str, Any] | None:
+        raise NotImplementedError
+
+    async def update_thread_status(self, thread_id: str, status: str) -> bool:
+        raise NotImplementedError
+
+    async def delete_thread(self, thread_id: str) -> bool:
+        raise NotImplementedError
+
+    async def list_threads(self, filters: Dict[str, Any] | None = None, limit: int | None = None) -> List[Dict[str, Any]]:
+        raise NotImplementedError
+
+    async def thread_exists(self, thread_id: str) -> bool:
+        raise NotImplementedError
+
+    async def execute_workflow(self, thread_id: str, config: Dict[str, Any] | None = None, initial_state: Dict[str, Any] | None = None) -> IWorkflowState:
+        raise NotImplementedError
+
+    async def stream_workflow(self, thread_id: str, config: Dict[str, Any] | None = None, initial_state: Dict[str, Any] | None = None) -> AsyncGenerator[Dict[str, Any], None]:
+        raise NotImplementedError
+
+    async def get_thread_state(self, thread_id: str) -> Dict[str, Any] | None:
+        raise NotImplementedError
+
+    async def update_thread_state(self, thread_id: str, state: Dict[str, Any]) -> bool:
+        raise NotImplementedError
+
+    async def create_branch(self, thread_id: str, checkpoint_id: str, branch_name: str, metadata: Dict[str, Any] | None = None) -> str:
+        raise NotImplementedError
+
+    async def get_thread_branches(self, thread_id: str) -> List[Dict[str, Any]]:
+        raise NotImplementedError
+
+    async def merge_branch(self, target_thread_id: str, source_thread_id: str, merge_strategy: str = "latest") -> bool:
+        raise NotImplementedError
+
+    async def create_snapshot(self, thread_id: str, snapshot_name: str, description: str | None = None) -> str:
+        raise NotImplementedError
+
+    async def restore_snapshot(self, thread_id: str, snapshot_id: str) -> bool:
+        raise NotImplementedError
+
+    async def delete_snapshot(self, snapshot_id: str) -> bool:
+        raise NotImplementedError
+
+    async def rollback_thread(self, thread_id: str, checkpoint_id: str) -> bool:
+        raise NotImplementedError
+
+    async def search_threads(self, filters: Dict[str, Any] | None = None, limit: int | None = None, offset: int | None = None) -> List[Dict[str, Any]]:
+        raise NotImplementedError
+
+    async def get_thread_statistics(self) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    async def get_thread_history(self, thread_id: str, limit: int | None = None) -> List[Dict[str, Any]]:
+        raise NotImplementedError
+
+    async def share_thread_state(self, source_thread_id: str, target_thread_id: str, checkpoint_id: str, permissions: Dict[str, Any] | None = None) -> bool:
+        raise NotImplementedError
+
+    async def create_shared_session(self, thread_ids: List[str], session_config: Dict[str, Any]) -> str:
+        raise NotImplementedError
+
+    async def sync_thread_states(self, thread_ids: List[str], sync_strategy: str = "bidirectional") -> bool:
+        raise NotImplementedError

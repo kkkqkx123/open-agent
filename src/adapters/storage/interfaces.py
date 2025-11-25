@@ -1,16 +1,16 @@
 """
-存储后端工厂接口
+Adapters 层存储工厂接口
 
-定义了会话和线程存储后端的工厂接口，用于解耦Services层和Adapters层。
-Services层通过工厂接口创建后端，不直接依赖具体的后端实现。
+仅在 Adapters 层内部使用的工厂接口，负责创建和管理存储后端及关联仓储实例。
 """
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.interfaces.sessions import ISessionStorageBackend
-    from src.interfaces.threads import IThreadStorageBackend
+    from .backends.base import ISessionStorageBackend
+    from .backends.thread_base import IThreadStorageBackend
+    from src.interfaces.sessions.association import ISessionThreadAssociationRepository
 
 
 class ISessionStorageBackendFactory(ABC):
@@ -103,5 +103,32 @@ class IThreadStorageBackendFactory(ABC):
             
         Returns:
             辅助后端实例列表
+        """
+        pass
+
+
+class ISessionThreadAssociationFactory(ABC):
+    """Session-Thread关联仓储工厂接口
+    
+    负责创建Session-Thread关联仓储实例，仅在Adapters层内部使用。
+    """
+    
+    @abstractmethod
+    def create_repository(
+        self,
+        session_backend,
+        thread_backend
+    ) -> "ISessionThreadAssociationRepository":
+        """创建Session-Thread关联仓储
+        
+        Args:
+            session_backend: 会话存储后端实例
+            thread_backend: 线程存储后端实例
+            
+        Returns:
+            关联仓储实例
+            
+        Raises:
+            StorageError: 创建失败时抛出
         """
         pass

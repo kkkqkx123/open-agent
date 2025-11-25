@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 
 from src.interfaces.threads.storage import IThreadRepository
-from src.interfaces.threads.backends import IThreadStorageBackend
+from src.adapters.storage.backends.thread_base import IThreadStorageBackend
 from src.core.threads.entities import Thread, ThreadStatus
 from src.core.common.exceptions import StorageError
 

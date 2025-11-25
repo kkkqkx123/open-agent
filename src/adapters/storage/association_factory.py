@@ -4,7 +4,7 @@ Session-Thread关联工厂实现
 Adapters层的工厂实现，负责创建Session-Thread关联仓储实例。
 """
 
-from src.interfaces.storage.association import ISessionThreadAssociationFactory
+from .interfaces import ISessionThreadAssociationFactory
 from src.interfaces.sessions.association import ISessionThreadAssociationRepository
 from .association_repository import SessionThreadAssociationRepository
 

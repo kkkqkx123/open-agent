@@ -3,10 +3,7 @@
 提供基于文件的存储后端实现，使用增强基类减少重复代码。
 """
 
-import asyncio
 import os
-import shutil
-import threading
 import time
 import logging
 from typing import Dict, Any, Optional, List, Union
@@ -15,7 +12,6 @@ from pathlib import Path
 from core.common.exceptions.state import (
     StorageError,
     StorageConnectionError,
-    StorageTransactionError,
     StorageCapacityError
 )
 from ..adapters.base import StorageBackend

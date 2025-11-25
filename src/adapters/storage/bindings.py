@@ -8,11 +8,11 @@
 import logging
 from typing import Dict, Any
 
-from src.interfaces.storage.backends import (
+from .interfaces import (
     ISessionStorageBackendFactory,
     IThreadStorageBackendFactory,
+    ISessionThreadAssociationFactory,
 )
-from src.interfaces.storage.association import ISessionThreadAssociationFactory
 from .backend_factory import SessionStorageBackendFactory, ThreadStorageBackendFactory
 from .association_factory import SessionThreadAssociationFactory
 

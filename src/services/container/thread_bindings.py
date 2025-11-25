@@ -6,7 +6,7 @@ from typing import Dict, Any
 from src.adapters.storage.backends import SQLiteThreadBackend, FileThreadBackend
 from src.services.threads.repository import ThreadRepository
 from src.services.threads.service import ThreadService
-from src.interfaces.threads import IThreadRepository, IThreadStorageBackend
+from src.interfaces.threads import IThreadRepository
 from src.interfaces.threads.service import IThreadService
 from src.interfaces.sessions.service import ISessionService
 from src.core.threads.interfaces import IThreadCore

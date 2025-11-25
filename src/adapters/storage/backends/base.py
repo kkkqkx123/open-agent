@@ -1,4 +1,4 @@
-"""会话存储后端接口"""
+"""存储后端基础接口"""
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List

@@ -6,8 +6,8 @@ from typing import Dict, Any, Optional, List, Union, cast, Sequence
 from datetime import datetime
 
 from src.interfaces.sessions.association import ISessionThreadAssociationRepository, ISessionThreadAssociation
-from src.interfaces.sessions.backends import ISessionStorageBackend
-from src.interfaces.threads.backends import IThreadStorageBackend
+from .backends.base import ISessionStorageBackend
+from .backends.thread_base import IThreadStorageBackend
 from src.core.sessions.association import SessionThreadAssociation
 from src.core.common.exceptions import StorageError
 

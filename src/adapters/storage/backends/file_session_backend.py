@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
-from src.interfaces.sessions.backends import ISessionStorageBackend
+from .base import ISessionStorageBackend
 from src.core.common.exceptions import StorageError
 
 logger = logging.getLogger(__name__)

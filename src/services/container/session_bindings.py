@@ -14,14 +14,16 @@ from src.services.sessions.service import SessionService
 from src.services.sessions.coordinator import SessionThreadCoordinator
 from src.services.sessions.synchronizer import SessionThreadSynchronizer
 from src.services.sessions.transaction import SessionThreadTransaction
-from src.interfaces.sessions import ISessionRepository, ISessionStorageBackend
+from src.interfaces.sessions import ISessionRepository
+from src.adapters.storage.backends.base import ISessionStorageBackend
 from src.interfaces.sessions.service import ISessionService
 from src.interfaces.sessions.association import (
     ISessionThreadAssociationRepository,
     ISessionThreadSynchronizer,
     ISessionThreadTransaction
 )
-from src.interfaces.threads import IThreadRepository, IThreadStorageBackend
+from src.interfaces.threads import IThreadRepository
+from src.adapters.storage.backends.thread_base import IThreadStorageBackend
 from src.interfaces.threads.service import IThreadService
 from src.core.sessions.interfaces import ISessionCore, ISessionStateTransition, ISessionValidator
 

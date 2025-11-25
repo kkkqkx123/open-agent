@@ -7,12 +7,12 @@ Adapters层的工厂实现，负责创建具体的存储后端实例。
 import logging
 from typing import Dict, Any, List
 
-from src.interfaces.storage.backends import (
+from .interfaces import (
     ISessionStorageBackendFactory,
     IThreadStorageBackendFactory,
 )
-from src.interfaces.sessions import ISessionStorageBackend
-from src.interfaces.threads import IThreadStorageBackend
+from .backends.base import ISessionStorageBackend
+from .backends.thread_base import IThreadStorageBackend
 from .backends import SQLiteSessionBackend, FileSessionBackend
 from .backends.sqlite_thread_backend import SQLiteThreadBackend
 from .backends.file_thread_backend import FileThreadBackend

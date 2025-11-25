@@ -11,6 +11,7 @@ class ISnapshotRepository(ABC):
     """快照仓库接口
     
     专注于快照数据的存储和检索，不包含业务逻辑。
+    支持通用快照操作和线程特定的快照操作。
     """
     
     @abstractmethod
@@ -105,5 +106,34 @@ class ISnapshotRepository(ABC):
             
         Returns:
             删除的快照数量
+        """
+        pass
+    
+    @abstractmethod
+    async def get_snapshot_comparison(
+        self,
+        snapshot_id1: str,
+        snapshot_id2: str
+    ) -> Dict[str, Any]:
+        """比较两个快照
+        
+        Args:
+            snapshot_id1: 第一个快照ID
+            snapshot_id2: 第二个快照ID
+            
+        Returns:
+            比较结果字典
+        """
+        pass
+    
+    @abstractmethod
+    async def validate_snapshot_integrity(self, snapshot_id: str) -> bool:
+        """验证快照完整性
+        
+        Args:
+            snapshot_id: 快照ID
+            
+        Returns:
+            快照完整返回True，否则返回False
         """
         pass
