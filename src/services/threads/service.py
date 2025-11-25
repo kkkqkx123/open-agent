@@ -6,6 +6,7 @@ from typing import AsyncGenerator, Dict, Any, Optional, List
 from datetime import datetime
 
 from interfaces.state import IWorkflowState as WorkflowState
+from interfaces.state.workflow import IWorkflowState
 
 from src.core.threads.interfaces import IThreadCore
 from src.core.threads.entities import ThreadStatus, Thread, ThreadMetadata

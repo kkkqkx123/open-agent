@@ -13,12 +13,6 @@ from .base import (
     IStateCache
 )
 
-# 工作流状态接口
-from .workflow import (
-    IWorkflowState,
-    IWorkflowStateBuilder
-)
-
 # 工具状态接口
 from .tools import (
     IToolState,
@@ -53,10 +47,6 @@ __all__ = [
     "IStateValidator",
     "IStateLifecycleManager",
     "IStateCache",
-    
-    # 工作流状态接口
-    "IWorkflowState",
-    "IWorkflowStateBuilder",
     
     # 工具状态接口
     "IToolState",

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from src.interfaces.threads.storage import IThreadRepository
 from src.adapters.storage.backends.thread_base import IThreadStorageBackend
-from src.core.threads.entities import Thread, ThreadStatus
+from src.core.threads.entities import Thread, ThreadStatus, ThreadType
 from src.core.common.exceptions import StorageError
 
 logger = logging.getLogger(__name__)
@@ -326,6 +326,201 @@ class ThreadRepository(IThreadRepository):
         except Exception as e:
             logger.error(f"Failed to check thread existence: {e}")
             raise StorageError(f"Failed to check thread existence: {e}")
+    
+    async def list_by_type(self, thread_type: ThreadType) -> List[Thread]:
+        """按类型列线程
+        
+        Args:
+            thread_type: 线程类型
+            
+        Returns:
+            线程列表
+        """
+        try:
+            keys = await self.primary_backend.list_keys()
+            threads = []
+            
+            for thread_id in keys:
+                thread = await self.get(thread_id)
+                if thread and thread.type == thread_type:
+                    threads.append(thread)
+            
+            # 按更新时间倒序
+            threads.sort(key=lambda t: t.updated_at, reverse=True)
+            logger.debug(f"Listed {len(threads)} threads of type {thread_type}")
+            return threads
+            
+        except Exception as e:
+            logger.error(f"Failed to list threads by type: {e}")
+            raise StorageError(f"Failed to list threads by type: {e}")
+    
+    async def get_statistics(self) -> Dict[str, Any]:
+        """获取线程统计信息
+        
+        Returns:
+            统计信息字典
+        """
+        try:
+            keys = await self.primary_backend.list_keys()
+            
+            stats = {
+                "total_threads": len(keys),
+                "by_status": {},
+                "by_type": {},
+                "total_messages": 0,
+                "total_checkpoints": 0,
+                "total_branches": 0,
+                "active_threads": 0,
+                "completed_threads": 0,
+                "failed_threads": 0
+            }
+            
+            for thread_id in keys:
+                thread = await self.get(thread_id)
+                if thread:
+                    # 按状态统计
+                    status_key = thread.status.value
+                    stats["by_status"][status_key] = stats["by_status"].get(status_key, 0) + 1
+                    
+                    # 按类型统计
+                    type_key = thread.type.value
+                    stats["by_type"][type_key] = stats["by_type"].get(type_key, 0) + 1
+                    
+                    # 累计统计
+                    stats["total_messages"] += thread.message_count
+                    stats["total_checkpoints"] += thread.checkpoint_count
+                    stats["total_branches"] += thread.branch_count
+                    
+                    # 活跃线程统计
+                    if thread.status == ThreadStatus.ACTIVE:
+                        stats["active_threads"] += 1
+                    elif thread.status == ThreadStatus.COMPLETED:
+                        stats["completed_threads"] += 1
+                    elif thread.status == ThreadStatus.FAILED:
+                        stats["failed_threads"] += 1
+            
+            logger.debug(f"Generated thread statistics: {stats}")
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Failed to get thread statistics: {e}")
+            raise StorageError(f"Failed to get thread statistics: {e}")
+    
+    async def search_with_filters(
+        self,
+        filters: Dict[str, Any],
+        limit: Optional[int] = None,
+        offset: Optional[int] = None
+    ) -> List[Thread]:
+        """根据过滤条件搜索线程
+        
+        Args:
+            filters: 过滤条件
+            limit: 返回数量限制
+            offset: 偏移量
+            
+        Returns:
+            线程列表
+        """
+        try:
+            keys = await self.primary_backend.list_keys()
+            threads = []
+            
+            # 应用偏移量
+            start_index = offset or 0
+            current_index = 0
+            
+            for thread_id in keys:
+                thread = await self.get(thread_id)
+                if not thread:
+                    continue
+                
+                # 检查是否匹配所有过滤条件
+                matches = True
+                
+                # 状态过滤
+                if "status" in filters:
+                    if isinstance(filters["status"], str):
+                        if thread.status.value != filters["status"]:
+                            matches = False
+                    elif isinstance(filters["status"], list):
+                        if thread.status.value not in filters["status"]:
+                            matches = False
+                
+                # 类型过滤
+                if "type" in filters and matches:
+                    if isinstance(filters["type"], str):
+                        if thread.type.value != filters["type"]:
+                            matches = False
+                    elif isinstance(filters["type"], list):
+                        if thread.type.value not in filters["type"]:
+                            matches = False
+                
+                # 会话ID过滤
+                if "session_id" in filters and matches:
+                    if thread.graph_id != filters["session_id"]:
+                        matches = False
+                
+                # 父线程ID过滤
+                if "parent_thread_id" in filters and matches:
+                    if thread.parent_thread_id != filters["parent_thread_id"]:
+                        matches = False
+                
+                # 标签过滤
+                if "tags" in filters and matches:
+                    required_tags = filters["tags"]
+                    if isinstance(required_tags, str):
+                        required_tags = [required_tags]
+                    
+                    thread_tags = thread.metadata.tags if hasattr(thread.metadata, 'tags') else []
+                    if not any(tag in thread_tags for tag in required_tags):
+                        matches = False
+                
+                # 创建时间范围过滤
+                if "created_after" in filters and matches:
+                    created_after = filters["created_after"]
+                    if isinstance(created_after, str):
+                        created_after = datetime.fromisoformat(created_after)
+                    if thread.created_at < created_after:
+                        matches = False
+                
+                if "created_before" in filters and matches:
+                    created_before = filters["created_before"]
+                    if isinstance(created_before, str):
+                        created_before = datetime.fromisoformat(created_before)
+                    if thread.created_at > created_before:
+                        matches = False
+                
+                # 更新时间范围过滤
+                if "updated_after" in filters and matches:
+                    updated_after = filters["updated_after"]
+                    if isinstance(updated_after, str):
+                        updated_after = datetime.fromisoformat(updated_after)
+                    if thread.updated_at < updated_after:
+                        matches = False
+                
+                if "updated_before" in filters and matches:
+                    updated_before = filters["updated_before"]
+                    if isinstance(updated_before, str):
+                        updated_before = datetime.fromisoformat(updated_before)
+                    if thread.updated_at > updated_before:
+                        matches = False
+                
+                if matches:
+                    current_index += 1
+                    if current_index > start_index:
+                        threads.append(thread)
+                        if limit and len(threads) >= limit:
+                            break
+            
+            # 按更新时间倒序
+            threads.sort(key=lambda t: t.updated_at, reverse=True)
+            logger.debug(f"Found {len(threads)} threads matching filters")
+            return threads
+            
+        except Exception as e:
+            logger.error(f"Failed to search threads with filters: {e}")
+            raise StorageError(f"Failed to search threads with filters: {e}")
     
     # === 私有方法 ===
     

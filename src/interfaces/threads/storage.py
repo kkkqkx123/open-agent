@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from datetime import datetime
 
 if TYPE_CHECKING:
-    from src.core.threads.entities import Thread, ThreadStatus, ThreadBranch, ThreadSnapshot
+    from src.core.threads.entities import Thread, ThreadStatus, ThreadType, ThreadBranch, ThreadSnapshot
 
 
 class IThreadRepository(ABC):
@@ -135,6 +135,46 @@ class IThreadRepository(ABC):
             
         Returns:
             是否存在
+        """
+        pass
+    
+    @abstractmethod
+    async def list_by_type(self, thread_type: 'ThreadType') -> List['Thread']:
+        """按类型列线程
+        
+        Args:
+            thread_type: 线程类型
+            
+        Returns:
+            线程列表
+        """
+        pass
+    
+    @abstractmethod
+    async def get_statistics(self) -> Dict[str, Any]:
+        """获取线程统计信息
+        
+        Returns:
+            统计信息字典
+        """
+        pass
+    
+    @abstractmethod
+    async def search_with_filters(
+        self,
+        filters: Dict[str, Any],
+        limit: Optional[int] = None,
+        offset: Optional[int] = None
+    ) -> List['Thread']:
+        """根据过滤条件搜索线程
+        
+        Args:
+            filters: 过滤条件
+            limit: 返回数量限制
+            offset: 偏移量
+            
+        Returns:
+            线程列表
         """
         pass
 

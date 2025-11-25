@@ -1,8 +1,4 @@
 """线程管理接口定义"""
-
-from .interfaces import (
-    IThreadDomainService,
-)
 from .base import IThreadManager
 from .collaboration import IThreadCollaborationService
 from .service import IThreadService
@@ -11,7 +7,6 @@ from .coordinator_service import IThreadCoordinatorService
 from .storage import IThreadRepository, IThreadBranchRepository, IThreadSnapshotRepository
 
 __all__ = [
-    "IThreadDomainService", 
     "IThreadBranchRepository",
     "IThreadSnapshotRepository",
     "IThreadManager",
