@@ -14,7 +14,7 @@ from src.core.history.entities import (
     CostRecord, RecordType
 )
 from src.core.common.exceptions.history import StatisticsError
-from src.core.common.exceptions.core import ValidationError
+from src.core.common.exceptions import ValidationError
 
 
 logger = logging.getLogger(__name__)

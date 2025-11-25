@@ -10,7 +10,7 @@ from datetime import datetime
 from langchain_core.messages import BaseMessage
 
 from src.interfaces.llm import ILLMCallHook, LLMResponse
-from src.interfaces.history import IHistoryManager
+from src.interfaces.history import IHistoryManager, ICostCalculator
 from src.core.history.entities import (
     LLMRequestRecord, LLMResponseRecord, 
     TokenUsageRecord, CostRecord
@@ -18,7 +18,7 @@ from src.core.history.entities import (
 from src.services.history.cost_calculator import CostCalculator
 from src.services.llm.token_calculation_service import TokenCalculationService
 from src.core.common.exceptions.history import HistoryError
-from src.core.common.exceptions.core import ValidationError
+from src.core.common.exceptions import ValidationError
 
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class HistoryRecordingHook(ILLMCallHook):
         self,
         history_manager: IHistoryManager,
         token_calculation_service: TokenCalculationService,
-        cost_calculator: CostCalculator,
+        cost_calculator: ICostCalculator,
         workflow_context: Optional[Dict[str, Any]] = None
     ):
         """

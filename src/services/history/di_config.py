@@ -86,10 +86,9 @@ def _register_storage_services(
             storage_path = Path(storage_config.get("path", "./history"))
             storage_path.mkdir(parents=True, exist_ok=True)
             
-            from src.services.container import container as global_container
-            global_container.register_factory(
+            container.register_factory(
                 IHistoryStorage,
-                lambda c: FileHistoryStorageAdapter(base_path=str(storage_path))
+                lambda: FileHistoryStorageAdapter(base_path=str(storage_path))
             )
             
             logger.info(f"注册文件存储适配器: {storage_path}")
@@ -97,22 +96,19 @@ def _register_storage_services(
         elif storage_type == "memory":
             from src.adapters.storage.adapters.memory import MemoryStateStorageAdapter
             
-            from src.services.container import container as global_container
-            global_container.register_factory(
+            container.register_factory(
                 IHistoryStorage,
-                lambda c: MemoryStateStorageAdapter()
+                lambda: MemoryStateStorageAdapter()
             )
             
             logger.info("注册内存存储适配器")
             
         elif storage_type == "sqlite":
             from src.adapters.storage.adapters.sqlite import SQLiteStateStorageAdapter
-            from src.services.container import container as global_container
-            
             db_path = storage_config.get("db_path", "./history.db")
-            global_container.register_factory(
+            container.register_factory(
                 IHistoryStorage,
-                lambda c: SQLiteStateStorageAdapter(db_path=db_path)
+                lambda: SQLiteStateStorageAdapter(db_path=db_path)
             )
             
             logger.info(f"注册SQLite存储适配器: {db_path}")
@@ -133,10 +129,9 @@ def _register_token_calculation_service(
         token_config = history_config.get("token_calculation", {})
         default_provider = token_config.get("default_provider", "openai")
         
-        from src.services.container import container as global_container
-        global_container.register_factory(
+        container.register_factory(
             TokenCalculationService,
-            lambda c: TokenCalculationService(default_provider=default_provider)
+            lambda: TokenCalculationService(default_provider=default_provider)
         )
         
         logger.info(f"注册Token计算服务: 默认提供商={default_provider}")
@@ -153,10 +148,9 @@ def _register_cost_calculator(
     try:
         pricing_config = history_config.get("pricing", {})
         
-        from src.services.container import container as global_container
-        global_container.register_factory(
+        container.register_factory(
             ICostCalculator,
-            lambda c: CostCalculator(pricing_config)
+            lambda: CostCalculator(pricing_config)
         )
         
         logger.info(f"注册成本计算器: 定价配置项={len(pricing_config)}")
@@ -174,12 +168,11 @@ def _register_token_tracker(
         tracker_config = history_config.get("token_tracker", {})
         cache_ttl = tracker_config.get("cache_ttl", 300)  # 5分钟
         
-        from src.services.container import container as global_container
-        global_container.register_factory(
+        container.register_factory(
             ITokenTracker,
-            lambda c: WorkflowTokenTracker(
-                storage=c.get(IHistoryStorage),
-                token_calculation_service=c.get(TokenCalculationService),
+            lambda: WorkflowTokenTracker(
+                storage=container.get(IHistoryStorage),
+                token_calculation_service=container.get(TokenCalculationService),
                 cache_ttl=cache_ttl
             )
         )
@@ -201,11 +194,10 @@ def _register_history_manager(
         batch_size = manager_config.get("batch_size", 10)
         batch_timeout = manager_config.get("batch_timeout", 1.0)
         
-        from src.services.container import container as global_container
-        global_container.register_factory(
+        container.register_factory(
             IHistoryManager,
-            lambda c: HistoryManager(
-                storage=c.get(IHistoryStorage),
+            lambda: HistoryManager(
+                storage=container.get(IHistoryStorage),
                 enable_async_batching=enable_async_batching,
                 batch_size=batch_size,
                 batch_timeout=batch_timeout
@@ -225,10 +217,9 @@ def _register_statistics_service(
 ) -> None:
     """注册统计服务"""
     try:
-        from src.services.container import container as global_container
-        global_container.register_factory(
+        container.register_factory(
             HistoryStatisticsService,
-            lambda c: HistoryStatisticsService(storage=c.get(IHistoryStorage))
+            lambda: HistoryStatisticsService(storage=container.get(IHistoryStorage))
         )
         
         logger.info("注册历史统计服务")
@@ -247,13 +238,12 @@ def _register_history_hook(
         auto_register = hook_config.get("auto_register", True)
         
         if auto_register:
-            from src.services.container import container as global_container
-            global_container.register_factory(
+            container.register_factory(
                 HistoryRecordingHook,
-                lambda c: HistoryRecordingHook(
-                    history_manager=c.get(IHistoryManager),
-                    token_calculation_service=c.get(TokenCalculationService),
-                    cost_calculator=c.get(ICostCalculator),
+                lambda: HistoryRecordingHook(
+                    history_manager=container.get(IHistoryManager),
+                    token_calculation_service=container.get(TokenCalculationService),
+                    cost_calculator=container.get(ICostCalculator),
                     workflow_context=hook_config.get("workflow_context", {})
                 )
             )
@@ -295,16 +285,14 @@ def register_history_services_with_dependencies(
         
         # 注册提供的Token计算服务
         if token_calculation_service:
-            from src.services.container import container as global_container
-            global_container.register_instance(TokenCalculationService, token_calculation_service)
+            container.register_instance(TokenCalculationService, token_calculation_service)
             logger.info("注册外部Token计算服务")
         else:
             _register_token_calculation_service(container, history_config)
         
         # 注册提供的成本计算器
         if cost_calculator:
-            from src.services.container import container as global_container
-            global_container.register_instance(ICostCalculator, cost_calculator)
+            container.register_instance(ICostCalculator, cost_calculator)
             logger.info("注册外部成本计算器")
         else:
             _register_cost_calculator(container, history_config)
