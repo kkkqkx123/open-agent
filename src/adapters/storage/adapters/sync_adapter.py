@@ -9,7 +9,9 @@ import time
 from typing import Dict, Any, List, Optional, Sequence
 
 from src.interfaces.state.storage.adapter import IStateStorageAdapter
-from src.interfaces.state import StateSnapshot, StateHistoryEntry, AbstractStateSnapshot, AbstractStateHistoryEntry
+# 修复循环导入：直接从核心模块导入具体实现，从接口层导入抽象类
+from src.core.state.entities import StateSnapshot, StateHistoryEntry
+from src.interfaces.state.entities import AbstractStateSnapshot, AbstractStateHistoryEntry
 from ..core.metrics import StorageMetrics, MetricsContext
 from ..core.transaction import TransactionManager, transaction_context
 from ..core.error_handler import with_error_handling

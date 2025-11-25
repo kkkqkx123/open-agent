@@ -18,6 +18,12 @@ from .error_handler import (
 from .help import HelpManager
 from .main import main
 from .run_command import RunCommand
+from .dependency_analyzer_tool import (
+    StaticDependencyAnalyzer,
+    DependencyAnalysisResult,
+    CircularDependency
+)
+from .dependency_analysis_command import DependencyAnalysisCommand
 
 __all__ = [
     "EnvironmentCheckCommand",
@@ -34,4 +40,8 @@ __all__ = [
     "HelpManager",
     "main",
     "RunCommand",
+    "StaticDependencyAnalyzer",
+    "DependencyAnalysisResult",
+    "CircularDependency",
+    "DependencyAnalysisCommand",
 ]

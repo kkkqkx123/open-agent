@@ -404,7 +404,29 @@ class AutoCheckpointState(CheckpointState):
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'AutoCheckpointState':
         """从字典创建状态"""
-        instance = super().from_dict(data)
+        # 首先创建父类实例，然后转换为子类类型
+        checkpoint_state = CheckpointState.from_dict(data)
+        instance: 'AutoCheckpointState' = cls.__new__(cls)
+        
+        # 复制父类属性
+        instance._id = checkpoint_state._id
+        instance._data = checkpoint_state._data
+        instance._metadata = checkpoint_state._metadata
+        instance._complete = checkpoint_state._complete
+        instance._created_at = checkpoint_state._created_at
+        instance._updated_at = checkpoint_state._updated_at
+        
+        # 复制 CheckpointState 属性
+        instance._thread_id = checkpoint_state._thread_id
+        instance._checkpoint_data = checkpoint_state._checkpoint_data
+        instance._step_number = checkpoint_state._step_number
+        instance._node_name = checkpoint_state._node_name
+        instance._config_snapshot = checkpoint_state._config_snapshot
+        instance._pending_writes = checkpoint_state._pending_writes
+        instance._validation_errors = checkpoint_state._validation_errors
+        instance._checkpoint_type = checkpoint_state._checkpoint_type
+        
+        # 设置 AutoCheckpointState 特定属性
         instance._trigger_reason = data.get("trigger_reason", "")
         instance._trigger_data = data.get("trigger_data", {})
         instance._auto_checkpoint_interval = data.get("auto_checkpoint_interval", 0)
@@ -413,5 +435,7 @@ class AutoCheckpointState(CheckpointState):
         next_checkpoint_str = data.get("next_auto_checkpoint")
         if next_checkpoint_str:
             instance._next_auto_checkpoint = datetime.fromisoformat(next_checkpoint_str)
+        else:
+            instance._next_auto_checkpoint = None
         
         return instance
