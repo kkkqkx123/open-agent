@@ -11,8 +11,6 @@ from types import TracebackType
 from src.interfaces.container import IDependencyContainer
 from src.interfaces.common import ILogger
 from src.core.common.types import ServiceLifetime
-from src.services.monitoring.environment import IEnvironmentChecker, EnvironmentChecker
-from src.services.monitoring.architecture_check import ArchitectureChecker
 
 # 泛型类型变量
 _ServiceT = TypeVar("_ServiceT")
@@ -125,20 +123,6 @@ class TestContainer(ContextManager["TestContainer"]):
             lifetime=ServiceLifetime.SINGLETON,
         )
 
-        # 注册环境检查器
-        self.container.register(
-            IEnvironmentChecker,
-            EnvironmentChecker,
-            lifetime=ServiceLifetime.SINGLETON,
-        )
-
-        # 注册架构检查器
-        self.container.register_factory(
-            ArchitectureChecker,
-            lambda: ArchitectureChecker(str(self.temp_path / "src")),
-            lifetime=ServiceLifetime.SINGLETON,
-        )
-
         # 注册日志记录器
         def create_logger() -> ILogger:
             import logging
@@ -224,14 +208,6 @@ class TestContainer(ContextManager["TestContainer"]):
     def get_config_loader(self) -> Any:
         """获取配置加载器"""
         return self.container.get(self.IConfigLoaderProxy)
-    
-    def get_environment_checker(self) -> IEnvironmentChecker:
-        """获取环境检查器"""
-        return self.container.get(IEnvironmentChecker)
-    
-    def get_architecture_checker(self) -> ArchitectureChecker:
-        """获取架构检查器"""
-        return self.container.get(ArchitectureChecker)
     
     def get_tool_manager(self) -> Any:
         """获取工具管理器"""
