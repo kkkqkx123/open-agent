@@ -9,14 +9,14 @@ from typing import Dict, Any, Optional, List, AsyncGenerator, Callable, TYPE_CHE
 from datetime import datetime, timedelta
 
 from src.core.sessions.interfaces import ISessionCore, ISessionValidator, ISessionStateTransition
-from src.core.sessions.entities import SessionStatus, SessionEntity, UserRequestEntity, UserInteractionEntity
-from src.interfaces.sessions import ISessionService, ISessionStore
+from src.core.sessions.entities import SessionStatus, SessionEntity, UserRequestEntity, UserInteractionEntity, SessionContext
+from src.interfaces.sessions import ISessionService
 from src.interfaces.sessions.service import ISessionService as ISessionServiceInterface
-from src.interfaces.sessions.entities import UserRequest, UserInteraction, SessionContext
-from src.interfaces.sessions.storage import ISessionRepository
+from interfaces.repository.session import ISessionRepository
 from src.interfaces.threads.service import IThreadService
 from src.interfaces.common import AbstractSessionStatus
-from src.core.common.exceptions import EntityNotFoundError, ValidationError
+from src.core.common.exceptions import ValidationError
+from src.core.common.exceptions.storage import StorageNotFoundError as EntityNotFoundError
 from src.core.common.exceptions.session_thread import (
     SessionNotFoundError,
     ThreadNotFoundError,
@@ -39,7 +39,6 @@ class SessionService(ISessionService):
     def __init__(
         self,
         session_core: ISessionCore,
-        session_store: Optional[ISessionStore] = None,
         session_repository: Optional[ISessionRepository] = None,
         thread_service: Optional[IThreadService] = None,
         coordinator: Optional[SessionThreadCoordinator] = None,
@@ -52,7 +51,6 @@ class SessionService(ISessionService):
         
         Args:
             session_core: 会话核心接口
-            session_store: 会话存储（简化版方法）
             session_repository: 会话仓储（完整版方法）
             thread_service: 线程服务
             coordinator: Session-Thread协调器
@@ -62,7 +60,6 @@ class SessionService(ISessionService):
             storage_path: 存储路径
         """
         self._session_core = session_core
-        self._session_store = session_store
         self._session_repository = session_repository
         self._thread_service = thread_service
         self._coordinator = coordinator
@@ -77,17 +74,20 @@ class SessionService(ISessionService):
         
         logger.info("SessionService初始化完成")
     
-    # === 简化版方法（ISessionStore 接口） ===
+    # === 会话管理方法（基于ISessionRepository） ===
     
     async def create_session_with_thread(
-        self, 
+        self,
         session_config: Dict[str, Any],
         thread_config: Optional[Dict[str, Any]] = None
     ) -> str:
         """创建会话并关联线程"""
         try:
             # 创建会话实体
-            session_id = await self._session_core.create_session(session_config)
+            session_id = self._session_core.create_session(
+                user_id=session_config.get("user_id"),
+                metadata=session_config.get("metadata", {})
+            ).session_id
             
             # 如果需要，创建关联线程
             if thread_config:
@@ -101,177 +101,148 @@ class SessionService(ISessionService):
     async def update_session_metadata(self, session_id: str, metadata: Dict[str, Any]) -> bool:
         """更新会话元数据"""
         try:
-            if self._session_store:
-                # 验证会话存在
-                session = await self._session_store.get_session(session_id)
-                if not session:
-                    raise EntityNotFoundError(f"Session {session_id} not found")
-                
-                # 更新元数据
-                session.metadata.update(metadata)
-                session.updated_at = datetime.now()
-                
-                # 保存更新
-                success = await self._session_store.update_session(session_id, session)
-                return success
-            return False
+            if not self._session_repository:
+                raise ValidationError("session_repository is required for this operation")
+            
+            # 验证会话存在
+            session = await self._session_repository.get(session_id)
+            if not session:
+                raise EntityNotFoundError(f"Session {session_id} not found")
+            
+            # 更新元数据
+            session.metadata.update(metadata)
+            session._updated_at = datetime.now()
+            
+            # 保存更新
+            success = await self._session_repository.update(session)
+            return success
         except Exception as e:
             raise ValidationError(f"Failed to update session metadata: {str(e)}")
     
     async def increment_message_count(self, session_id: str) -> int:
         """增加消息计数"""
         try:
-            if self._session_store:
-                session = await self._session_store.get_session(session_id)
-                if not session:
-                    raise EntityNotFoundError(f"Session {session_id} not found")
-                
-                session.message_count += 1
-                session.updated_at = datetime.now()
-                
-                await self._session_store.update_session(session_id, session)
-                return session.message_count
-            return 0
+            if not self._session_repository:
+                raise ValidationError("session_repository is required for this operation")
+            
+            session = await self._session_repository.get(session_id)
+            if not session:
+                raise EntityNotFoundError(f"Session {session_id} not found")
+            
+            session.message_count += 1
+            session._updated_at = datetime.now()
+            
+            await self._session_repository.update(session)
+            return session.message_count
         except Exception as e:
             raise ValidationError(f"Failed to increment message count: {str(e)}")
     
     async def increment_checkpoint_count(self, session_id: str) -> int:
         """增加检查点计数"""
         try:
-            if self._session_store:
-                session = await self._session_store.get_session(session_id)
-                if not session:
-                    raise EntityNotFoundError(f"Session {session_id} not found")
-                
-                session.checkpoint_count += 1
-                session.updated_at = datetime.now()
-                
-                await self._session_store.update_session(session_id, session)
-                return session.checkpoint_count
-            return 0
+            if not self._session_repository:
+                raise ValidationError("session_repository is required for this operation")
+            
+            session = await self._session_repository.get(session_id)
+            if not session:
+                raise EntityNotFoundError(f"Session {session_id} not found")
+            
+            session.checkpoint_count += 1
+            session._updated_at = datetime.now()
+            
+            await self._session_repository.update(session)
+            return session.checkpoint_count
         except Exception as e:
             raise ValidationError(f"Failed to increment checkpoint count: {str(e)}")
     
     async def get_session_summary(self, session_id: str) -> Dict[str, Any]:
         """获取会话摘要信息"""
         try:
-            if self._session_repository:
-                # 完整版实现
-                session_context = await self.get_session_context(session_id)
-                if not session_context:
-                    return {}
-                
-                interactions = await self.get_interaction_history(session_id)
-                
-                # 统计交互类型
-                interaction_stats: Dict[str, int] = {}
-                for interaction in interactions:
-                    interaction_type = interaction.interaction_type
-                    interaction_stats[interaction_type] = interaction_stats.get(interaction_type, 0) + 1
-                
-                # 获取Thread状态
-                thread_states = {}
-                if self._thread_service:
-                    for thread_id in session_context.thread_ids:
-                        thread_info = await self._thread_service.get_thread_info(thread_id)
-                        if thread_info:
-                            thread_states[thread_id] = {
-                                "status": thread_info.get("status"),
-                                "checkpoint_count": thread_info.get("checkpoint_count", 0),
-                                "updated_at": thread_info.get("updated_at")
-                            }
-                
-                return {
-                    "session_id": session_id,
-                    "user_id": session_context.user_id,
-                    "status": session_context.status,
-                    "created_at": session_context.created_at.isoformat(),
-                    "updated_at": session_context.updated_at.isoformat(),
-                    "thread_count": len(session_context.thread_ids),
-                    "interaction_count": len(interactions),
-                    "interaction_stats": interaction_stats,
-                    "thread_states": thread_states
-                }
-            elif self._session_store:
-                # 简化版实现
-                session = await self._session_store.get_session(session_id)
-                if not session:
-                    raise EntityNotFoundError(f"Session {session_id} not found")
-                
-                return {
-                    "session_id": session.session_id,
-                    "status": session.status.value,
-                    "message_count": session.message_count,
-                    "checkpoint_count": session.checkpoint_count,
-                    "created_at": session.created_at.isoformat(),
-                    "updated_at": session.updated_at.isoformat(),
-                    "metadata": session.metadata,
-                    "tags": session.tags,
-                    "thread_count": len(session.thread_ids) if hasattr(session, 'thread_ids') else 0
-                }
-            return {}
+            if not self._session_repository:
+                raise ValidationError("session_repository is required for this operation")
+            
+            # 完整版实现
+            session_context = await self.get_session_context(session_id)
+            if not session_context:
+                return {}
+            
+            interactions = await self.get_interaction_history(session_id)
+            
+            # 统计交互类型
+            interaction_stats: Dict[str, int] = {}
+            for interaction in interactions:
+                interaction_type = interaction.interaction_type
+                interaction_stats[interaction_type] = interaction_stats.get(interaction_type, 0) + 1
+            
+            # 获取Thread状态
+            thread_states = {}
+            if self._thread_service:
+                for thread_id in session_context.thread_ids:
+                    thread_info = await self._thread_service.get_thread_info(thread_id)
+                    if thread_info:
+                        thread_states[thread_id] = {
+                            "status": thread_info.get("status"),
+                            "checkpoint_count": thread_info.get("checkpoint_count", 0),
+                            "updated_at": thread_info.get("updated_at")
+                        }
+            
+            return {
+                "session_id": session_id,
+                "user_id": session_context.user_id,
+                "status": session_context.status,
+                "created_at": session_context.created_at.isoformat(),
+                "updated_at": session_context.updated_at.isoformat(),
+                "thread_count": len(session_context.thread_ids),
+                "interaction_count": len(interactions),
+                "interaction_stats": interaction_stats,
+                "thread_states": thread_states
+            }
         except Exception as e:
             raise ValidationError(f"Failed to get session summary: {str(e)}")
     
     async def list_sessions_by_status(self, status: str) -> List[Dict[str, Any]]:
         """按状态列会话"""
         try:
-            if self._session_store:
-                # 验证状态有效性
-                try:
-                    session_status = SessionStatus(status)
-                except ValueError:
-                    raise ValidationError(f"Invalid session status: {status}")
-                
-                sessions = await self._session_store.list_sessions_by_status(session_status)
-                
-                return [
-                    {
-                        "session_id": session.session_id,
-                        "status": session.status.value,
-                        "message_count": session.message_count,
-                        "created_at": session.created_at.isoformat(),
-                        "updated_at": session.updated_at.isoformat(),
-                        "metadata": session.metadata
-                    }
-                    for session in sessions
-                ]
-            return []
+            if not self._session_repository:
+                raise ValidationError("session_repository is required for this operation")
+            
+            # 验证状态有效性
+            try:
+                session_status = SessionStatus(status)
+            except ValueError:
+                raise ValidationError(f"Invalid session status: {status}")
+            
+            sessions = await self._session_repository.list_by_status(session_status)
+            
+            return [
+                {
+                    "session_id": session.session_id,
+                    "status": session.status.value,
+                    "message_count": session.message_count,
+                    "created_at": session.created_at.isoformat(),
+                    "updated_at": session.updated_at.isoformat(),
+                    "metadata": session.metadata
+                }
+                for session in sessions
+            ]
         except Exception as e:
             raise ValidationError(f"Failed to list sessions by status: {str(e)}")
     
     async def cleanup_inactive_sessions(self, max_age_hours: int = 24) -> int:
         """清理不活动的会话"""
         try:
-            if self._session_store:
-                # 获取所有非活动会话
-                inactive_sessions = await self._session_store.list_sessions_by_status(SessionStatus.COMPLETED)
-                failed_sessions = await self._session_store.list_sessions_by_status(SessionStatus.FAILED)
-                
-                all_sessions = inactive_sessions + failed_sessions
-                
-                # 筛选出超过指定时间的会话
-                cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
-                sessions_to_cleanup = [
-                    session for session in all_sessions
-                    if session.updated_at < cutoff_time
-                ]
-                
-                # 清理会话
-                cleaned_count = 0
-                for session in sessions_to_cleanup:
-                    success = await self._session_store.delete_session(session.session_id)
-                    if success:
-                        cleaned_count += 1
-                
-                return cleaned_count
-            return 0
+            if not self._session_repository:
+                raise ValidationError("session_repository is required for this operation")
+            
+            # 使用仓储的清理方法
+            max_age_days = max_age_hours // 24 or 1  # 转换为天数，至少1天
+            return await self._session_repository.cleanup_old(max_age_days)
         except Exception as e:
             raise ValidationError(f"Failed to cleanup inactive sessions: {str(e)}")
     
     # === 会话生命周期管理 ===
     
-    async def create_session(self, user_request: UserRequest) -> str:
+    async def create_session(self, user_request: UserRequestEntity) -> str:
         """创建用户会话"""
         try:
             if not self._session_repository:
@@ -279,14 +250,7 @@ class SessionService(ISessionService):
             
             # 验证用户请求
             if self._session_validator:
-                request_entity = UserRequestEntity.from_dict({
-                    "request_id": user_request.request_id,
-                    "user_id": user_request.user_id,
-                    "content": user_request.content,
-                    "metadata": user_request.metadata,
-                    "timestamp": user_request.timestamp.isoformat()
-                })
-                if not self._session_validator.validate_user_request(request_entity):
+                if not self._session_validator.validate_user_request(user_request):
                     raise ValidationError("用户请求验证失败")
             
             # 创建会话实体
@@ -314,7 +278,7 @@ class SessionService(ISessionService):
             await self._session_repository.create(session)
             
             # 追踪初始用户交互
-            initial_interaction = UserInteraction(
+            initial_interaction = UserInteractionEntity(
                 interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
                 session_id=session.session_id,
                 thread_id=None,
@@ -463,7 +427,7 @@ class SessionService(ISessionService):
     
     # === 用户交互管理 ===
     
-    async def track_user_interaction(self, session_id: str, interaction: UserInteraction) -> None:
+    async def track_user_interaction(self, session_id: str, interaction: UserInteractionEntity) -> None:
         """追踪用户交互"""
         try:
             if not self._session_repository:
@@ -476,16 +440,7 @@ class SessionService(ISessionService):
             
             # 验证交互
             if self._session_validator:
-                interaction_entity = UserInteractionEntity.from_dict({
-                    "interaction_id": interaction.interaction_id,
-                    "session_id": interaction.session_id,
-                    "thread_id": interaction.thread_id,
-                    "interaction_type": interaction.interaction_type,
-                    "content": interaction.content,
-                    "metadata": interaction.metadata,
-                    "timestamp": interaction.timestamp.isoformat()
-                })
-                if not self._session_validator.validate_user_interaction(interaction_entity):
+                if not self._session_validator.validate_user_interaction(interaction):
                     logger.warning(f"用户交互验证失败: {interaction.interaction_id}")
                     return
             
@@ -517,7 +472,7 @@ class SessionService(ISessionService):
         except Exception as e:
             logger.error(f"追踪用户交互失败: {session_id}, error: {e}")
     
-    async def get_interaction_history(self, session_id: str, limit: Optional[int] = None) -> List[UserInteraction]:
+    async def get_interaction_history(self, session_id: str, limit: Optional[int] = None) -> List[UserInteractionEntity]:
         """获取交互历史"""
         try:
             if not self._session_repository:
@@ -526,11 +481,11 @@ class SessionService(ISessionService):
             # 从仓储获取交互数据
             interactions_data = await self._session_repository.get_interactions(session_id, limit)
             
-            # 转换为 UserInteraction 对象
+            # 转换为 UserInteractionEntity 对象
             interactions = []
             for interaction_data in interactions_data:
                 try:
-                    interaction = UserInteraction(
+                    interaction = UserInteractionEntity(
                         interaction_id=interaction_data["interaction_id"],
                         session_id=interaction_data["session_id"],
                         thread_id=interaction_data.get("thread_id"),
@@ -646,7 +601,7 @@ class SessionService(ISessionService):
                 raise ThreadNotFoundError(f"找不到Thread: {thread_name}")
             
             # 追踪流式执行开始交互
-            interaction = UserInteraction(
+            interaction = UserInteractionEntity(
                 interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
                 session_id=session_id,
                 thread_id=thread_id,
@@ -663,7 +618,7 @@ class SessionService(ISessionService):
                     yield state
                 
                 # 追踪流式执行完成交互
-                completion_interaction = UserInteraction(
+                completion_interaction = UserInteractionEntity(
                     interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
                     session_id=session_id,
                     thread_id=thread_id,
@@ -676,7 +631,7 @@ class SessionService(ISessionService):
                 
             except Exception as e:
                 # 追踪流式执行错误交互
-                error_interaction = UserInteraction(
+                error_interaction = UserInteractionEntity(
                     interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
                     session_id=session_id,
                     thread_id=thread_id,
@@ -701,7 +656,7 @@ class SessionService(ISessionService):
     ) -> str:
         """创建会话并关联多个Thread（向后兼容）"""
         # 创建用户请求
-        user_request = UserRequest(
+        user_request = UserRequestEntity(
             request_id=f"request_{uuid.uuid4().hex[:8]}",
             user_id=None,
             content=f"创建多线程会话: {list(workflow_configs.keys())}",

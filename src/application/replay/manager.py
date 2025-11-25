@@ -6,7 +6,7 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 
 from src.domain.history.interfaces import IHistoryManager
-from src.application.sessions.manager import ISessionManager
+from src.interfaces.sessions.base import ISessionManager
 from src.domain.replay.interfaces import (
     IReplayEngine, IReplayAnalyzer, ReplayAnalysis, ReplayConfig, ReplayMode, ReplayFilter
 )

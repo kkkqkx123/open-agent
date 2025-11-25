@@ -3,7 +3,7 @@ from typing import Optional, Any, List, Dict, Union
 from datetime import datetime
 from src.interfaces.sessions.service import ISessionService
 from src.core.state import WorkflowState
-from src.interfaces.sessions.entities import UserRequest
+from src.core.sessions.entities import UserRequestEntity
 from ..data_access.session_dao import SessionDAO
 from src.services.logger import get_logger
 
@@ -221,8 +221,7 @@ class SessionService:
             raise ValueError("工作流配置路径不能为空")
         
         # 创建UserRequest对象 - 使用正确的参数格式
-        from src.interfaces.sessions.entities import UserRequest
-        user_request = UserRequest(
+        user_request = UserRequestEntity(
             request_id=f"request_{datetime.now().timestamp()}",
             user_id=None,
             content=f"创建会话: {request.workflow_config_path}",

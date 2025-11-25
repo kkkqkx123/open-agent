@@ -197,55 +197,25 @@ configs/
 ├── application.yaml     # 应用特定设置
 ├── history.yaml         # 历史和检查点配置
 ├── prompts.yaml         # 提示模板和系统消息
-├── threads.yaml         # 线程管理配置
-├── checkpoints/         # 检查点配置
-│   └── _group.yaml      # 检查点组配置
-├── graphs/              # 图和工作流示例配置
-│   ├── react_example.yaml
-│   └── react_with_hooks_example.yaml
-├── hooks/               # 钩子配置
-│   ├── _group.yaml      # 钩子组配置
-│   ├── agent_execution_node_hooks.yaml
-│   ├── global_hooks.yaml
-│   ├── llm_node_hooks.yaml
-│   └── tool_node_hooks.yaml
 ├── monitoring.yaml      # 性能监控配置
 ├── llms/                # 模型配置
 │   ├── _group.yaml      # 模型组配置
 │   ├── mock.yaml        # 模拟LLM配置
 │   ├── test_no_function_calling.yaml
 │   ├── provider/        # 供应商特定配置
-│   │   ├── anthropic/   # Anthropic模型（Claude）
-│   │   ├── gemini/      # Gemini模型（Gemini Pro）
+│   │   ├── anthropic/   # Anthropic模型
+│   │   ├── gemini/      # Gemini模型
 │   │   ├── human_relay/ # 人工中继模型
-│   │   └── openai/      # OpenAI模型（GPT-4，GPT-3.5）
+│   │   └── openai/      # OpenAI模型
 │   └── tokens_counter/  # 标记计数配置
 ├── nodes/               # 节点配置
-│   └── _group.yaml
 ├── prompts/             # 提示模板和系统消息
 │   ├── rules/           # 提示规则
 │   ├── system/          # 系统提示
 │   └── user_commands/   # 用户命令提示
 ├── tool-sets/           # 工具集配置
-│   └── _group.yaml      # 工具集组配置（已改进）
 ├── tools/               # 个体工具配置
-│   ├── calculator.yaml  # 计算器工具
-│   ├── database.yaml    # 数据库工具
-│   ├── fetch.yaml       # 获取工具
-│   ├── hash_convert.yaml # 哈希转换工具
-│   ├── sequentialthinking.yaml # 顺序思考工具
-│   └── weather.yaml     # 天气工具
 └── workflows/           # 工作流配置
-    ├── base_workflow.yaml        # 基础工作流模板
-    ├── react_workflow.yaml       # ReAct工作流
-    ├── react_agent_workflow.yaml  # ReAct代理工作流
-    ├── plan_execute.yaml        # 计划执行工作流
-    ├── plan_execute_agent_workflow.yaml # 计划执行代理工作流
-    ├── collaborative.yaml       # 协作工作流
-    ├── human_review.yaml        # 人工审核工作流
-    ├── bad_example_workflow.yaml # 错误示例工作流
-    ├── connectivity_test_workflow.yaml # 连通性测试工作流
-    └── react.yaml              # React配置
 
 关键特性：
 - **配置继承**：使用`inherits_from`字段进行组配置与个体覆盖
@@ -341,49 +311,7 @@ Interfaces (Abstract Contracts)
 3. **统一导出**：通过 `src/interfaces/__init__.py` 统一导出所有接口
 4. **向后兼容**：各层可以重新导出接口层的接口以保持兼容性
 
-## Sessions 服务模块说明(Sessions才是服务层的顶层模块，workflow是与langgraph交互的模块)
-
-### 目录结构
-会话相关服务统一位于：`src/services/sessions/`
-
-```
-src/services/sessions/
-├── service.py                  # SessionService（主要服务，包含所有功能）
-├── manager.py                  # SessionManager（适配器层）
-├── lifecycle.py                # SessionLifecycleManager（生命周期管理）
-├── events.py                   # SessionEventManager（事件管理）
-├── coordinator.py              # SessionThreadCoordinator
-├── repository.py               # SessionRepository
-├── synchronizer.py             # SessionThreadSynchronizer
-├── transaction.py              # SessionThreadTransaction
-├── git_service.py              # Git集成服务
-└── __init__.py                 # 统一导出
-```
-
-### SessionService 功能模块
-
-**1. 简化版方法**（基于 ISessionStore）
-- `create_session_with_thread` - 创建会话并关联线程
-- `update_session_metadata` - 更新会话元数据
-- `increment_message_count` - 增加消息计数
-- `increment_checkpoint_count` - 增加检查点计数
-- `get_session_summary` - 获取会话摘要（简化版）
-- `list_sessions_by_status` - 按状态列会话
-- `cleanup_inactive_sessions` - 清理不活动会话
-
-**2. 完整版方法**（基于 ISessionRepository）
-- **生命周期**：`create_session`, `get_session_context`, `delete_session`, `list_sessions`, `session_exists`, `get_session_info`
-- **交互追踪**：`track_user_interaction`, `get_interaction_history`, `get_session_history`
-- **多线程协调**：`coordinate_threads`, `remove_thread_from_session`
-- **工作流执行**：`execute_workflow_in_session`, `stream_workflow_in_session`
-- **数据一致性**：`sync_session_data`, `validate_session_consistency`, `repair_session_inconsistencies`
-- **摘要查询**：`get_session_summary`（完整版）
-
-### 依赖注入配置
-DI 容器通过 `src/services/container/session_bindings.py` 配置，所有服务都自动注册为单例：
-- 所有依赖都是可选的，支持向后兼容
-- 简化使用：仅需 `session_core` 和 `session_store`
-- 完整使用：提供所有可选的服务
+**注意：Sessions 服务模块说明(Sessions才是服务层的顶层模块，workflow是与langgraph交互的模块)**
 
 ## Language
 代码和文档中始终使用中文。但在配置文件和与LLM提示相关的代码中，优先使用英文。

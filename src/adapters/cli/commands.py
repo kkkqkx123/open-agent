@@ -261,41 +261,8 @@ def setup_container(config_path: Optional[str] = None) -> None:
         config_manager = ConfigManager()
         container.register_instance(ConfigManager, config_manager)
     
-    # 注册会话存储
-    from src.interfaces.sessions.interfaces import ISessionStore
-    if not container.has_service(ISessionStore):
-        # 使用内存存储作为简化实现
-        from typing import Dict, Any, Optional, List
-        import json
-        import uuid
-        from datetime import datetime
-        
-        class SimpleSessionStore(ISessionStore):
-            """简单会话存储实现"""
-            def __init__(self):
-                self._sessions = {}
-            
-            def save_session(self, session_id: str, session_data: Dict[str, Any]) -> bool:
-                self._sessions[session_id] = session_data.copy()
-                return True
-            
-            def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
-                return self._sessions.get(session_id)
-            
-            def delete_session(self, session_id: str) -> bool:
-                if session_id in self._sessions:
-                    del self._sessions[session_id]
-                    return True
-                return False
-            
-            def list_sessions(self) -> List[Dict[str, Any]]:
-                return list(self._sessions.values())
-            
-            def session_exists(self, session_id: str) -> bool:
-                return session_id in self._sessions
-        
-        session_store = SimpleSessionStore()
-        container.register_instance(ISessionStore, session_store)
+    # ISessionStore已废弃，不再注册
+    # 所有会话存储操作现在使用ISessionRepository
     
     # 注册Git服务
     from src.services.session.git_service import IGitService
@@ -367,7 +334,6 @@ def setup_container(config_path: Optional[str] = None) -> None:
     if not container.has_service(ISessionManager):
         from src.services.sessions.manager import SessionManager
         session_manager = SessionManager(
-            session_store=container.get(ISessionStore),
             session_core=container.get(ISessionCore)
         )
         container.register_instance(ISessionManager, session_manager)

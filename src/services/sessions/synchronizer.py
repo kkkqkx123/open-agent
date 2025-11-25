@@ -8,7 +8,7 @@ from src.interfaces.sessions.association import (
     ISessionThreadAssociationRepository,
     ISessionThreadSynchronizer
 )
-from src.interfaces.sessions.storage import ISessionRepository
+from interfaces.repository.session import ISessionRepository
 from src.interfaces.threads.storage import IThreadRepository
 from src.core.sessions.association import SessionThreadAssociation
 from src.core.common.exceptions import StorageError, ValidationError

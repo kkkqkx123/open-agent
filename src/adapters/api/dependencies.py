@@ -5,7 +5,7 @@ import asyncio
 
 from fastapi import Depends
 
-from ...application.sessions.manager import ISessionManager
+from ...interfaces.sessions.base import ISessionManager
 from ...application.workflow.manager import IWorkflowManager
 from ...domain.workflow.interfaces import IWorkflowRegistry, IWorkflowConfigManager, IWorkflowVisualizer
 from .data_access.session_dao import SessionDAO
@@ -99,15 +99,12 @@ async def get_session_manager() -> ISessionManager:
     # 暂时返回一个模拟实例
     from ...application.sessions.manager import SessionManager
     from ...application.workflow.manager import WorkflowManager
-    from ...domain.sessions.store import FileSessionStore
     
     # 创建必要的依赖
     workflow_manager = WorkflowManager()
-    session_store = FileSessionStore(Path("./sessions"))
     
     return SessionManager(
-        workflow_manager=workflow_manager,
-        session_store=session_store
+        workflow_manager=workflow_manager
     )
 
 

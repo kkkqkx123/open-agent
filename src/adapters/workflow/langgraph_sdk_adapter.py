@@ -7,7 +7,7 @@ import logging
 
 from ...application.threads.query_manager import ThreadQueryManager
 from ...application.checkpoint.manager import CheckpointManager
-from ...application.sessions.manager import ISessionManager
+from ...interfaces.sessions.base import ISessionManager
 from ...domain.threads.interfaces import IThreadManager
 
 logger = logging.getLogger(__name__)

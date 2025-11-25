@@ -7,10 +7,12 @@ from .state import IStateRepository
 from .history import IHistoryRepository  
 from .snapshot import ISnapshotRepository
 from .checkpoint import ICheckpointRepository
+from .session import ISessionRepository
 
 __all__ = [
     "IStateRepository",
     "IHistoryRepository", 
     "ISnapshotRepository",
-    "ICheckpointRepository"
+    "ICheckpointRepository",
+    "ISessionRepository",
 ]

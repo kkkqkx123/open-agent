@@ -318,7 +318,7 @@ class ApplicationBootstrap:
                 from src.application.workflow.manager import IWorkflowManager
                 return IWorkflowManager
             elif interface_name == "ISessionManager":
-                from src.application.sessions.manager import ISessionManager
+                from src.interfaces.sessions.base import ISessionManager
                 return ISessionManager
             return None
         except ImportError:

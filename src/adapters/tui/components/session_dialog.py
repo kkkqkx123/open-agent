@@ -16,7 +16,7 @@ from rich.console import Console, ConsoleOptions, RenderResult
 from rich.prompt import Prompt, Confirm
 
 from ..config import TUIConfig
-from src.application.sessions.manager import ISessionManager
+from src.interfaces.sessions.base import ISessionManager
 
 
 class SessionListComponent:

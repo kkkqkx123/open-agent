@@ -5,7 +5,7 @@ import logging
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from datetime import datetime
 
-from src.core.sessions.entities import SessionStatus
+from src.core.sessions.entities import SessionStatus, UserRequestEntity
 
 if TYPE_CHECKING:
     from .service import SessionService
@@ -39,8 +39,7 @@ class SessionManager:
     ) -> str:
         """创建新会话"""
         if self._session_service:
-            from src.interfaces.sessions.entities import UserRequest
-            user_request = UserRequest(
+            user_request = UserRequestEntity(
                 request_id=f"req_{uuid.uuid4().hex[:8]}",
                 user_id=None,
                 content=f"创建会话: graph={graph_id}, thread={thread_id}",

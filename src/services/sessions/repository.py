@@ -4,7 +4,7 @@ import logging
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
-from src.interfaces.sessions.storage import ISessionRepository
+from interfaces.repository.session import ISessionRepository
 from src.interfaces.sessions.backends import ISessionStorageBackend
 from src.core.common.exceptions import StorageError
 from src.core.sessions import Session

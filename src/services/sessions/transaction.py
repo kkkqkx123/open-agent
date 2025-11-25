@@ -9,7 +9,7 @@ from src.interfaces.sessions.association import (
     ISessionThreadAssociationRepository,
     ISessionThreadTransaction
 )
-from src.interfaces.sessions.storage import ISessionRepository
+from interfaces.repository.session import ISessionRepository
 from src.interfaces.threads.storage import IThreadRepository
 from src.interfaces.threads.service import IThreadService
 from src.core.sessions.association import SessionThreadAssociation

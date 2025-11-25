@@ -230,3 +230,15 @@ class UserRequestEntity:
             metadata=data.get("metadata", {}),
             timestamp=datetime.fromisoformat(data["timestamp"])
         )
+
+
+@dataclass
+class SessionContext:
+    """会话上下文"""
+    session_id: str
+    user_id: Optional[str]
+    thread_ids: List[str]
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    metadata: Dict[str, Any]

@@ -11,7 +11,7 @@ from src.interfaces.sessions.association import (
 )
 from src.interfaces.sessions.service import ISessionService
 from src.interfaces.threads.service import IThreadService
-from src.interfaces.sessions.entities import UserInteraction
+from src.core.sessions.entities import UserInteractionEntity
 from src.core.common.exceptions import ValidationError, StorageError
 
 logger = logging.getLogger(__name__)

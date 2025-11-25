@@ -38,9 +38,9 @@ class SessionHandler:
         
         try:
             # 创建用户请求数据
-            from src.interfaces.sessions.entities import UserRequest
+            from src.core.sessions.entities import UserRequestEntity
             
-            user_request = UserRequest(
+            user_request = UserRequestEntity(
                 request_id=f"request_{datetime.now().strftime('%Y%m%d%H%M%S')}",
                 user_id="",
                 content=f"创建会话: {workflow_config}",

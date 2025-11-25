@@ -61,8 +61,8 @@ class StateManager:
                 return False
             
             # 创建用户请求
-            from src.interfaces.sessions.entities import UserRequest
-            user_request = UserRequest(
+            from src.core.sessions.entities import UserRequestEntity
+            user_request = UserRequestEntity(
                 request_id=f"request_{datetime.now().strftime('%Y%m%d%H%M%S')}",
                 user_id="",
                 content=f"创建会话: {workflow_config}",
