@@ -12,7 +12,7 @@ from src.interfaces.state.history import IStateHistoryManager
 from src.interfaces.state.serializer import IStateSerializer
 from src.interfaces.repository import IHistoryRepository
 from src.interfaces.state import StateHistoryEntry, AbstractStateHistoryEntry
-from src.core.state.base import BaseStateHistoryManager
+from src.core.state.core.base import BaseStateHistoryManager
 from src.core.state.entities import StateDiff
 
 

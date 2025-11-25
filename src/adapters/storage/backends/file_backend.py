@@ -144,13 +144,13 @@ class FileStorageBackend(StorageBackend):
                 # 压缩数据（如果需要）
                 processed_data: Union[Dict[str, Any], bytes] = data
                 if not compressed and self.enable_compression:
-                    import json
-                    data_size = len(json.dumps(data))
-                    if data_size > self.compression_threshold:
-                        from src.core.state.base import BaseStateSerializer
-                        serializer = BaseStateSerializer(compression=True)
-                        processed_data = serializer.serialize_state(data)
-                        compressed = True
+                     import json
+                     data_size = len(json.dumps(data))
+                     if data_size > self.compression_threshold:
+                         from src.core.state.core.base import BaseStateSerializer
+                         serializer = BaseStateSerializer(compression=True)
+                         processed_data = serializer.serialize_state(data)
+                         compressed = True
                 
                 # 获取文件路径
                 file_path = self._get_file_path(item_id, data)
@@ -211,11 +211,11 @@ class FileStorageBackend(StorageBackend):
                                 compressed_data = f.read()
                             
                             # 检查是否是压缩数据
-                            try:
-                                from src.core.state.base import BaseStateSerializer
-                                serializer = BaseStateSerializer(compression=True)
-                                data = serializer.deserialize_state(compressed_data)
-                            except:
+                             try:
+                                 from src.core.state.core.base import BaseStateSerializer
+                                 serializer = BaseStateSerializer(compression=True)
+                                 data = serializer.deserialize_state(compressed_data)
+                             except:
                                 # 如果解压失败，尝试作为普通文件加载
                                 data = FileStorageUtils.load_data_from_file(file_path)
                             

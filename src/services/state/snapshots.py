@@ -12,7 +12,7 @@ from src.interfaces.state.snapshot import IStateSnapshotManager
 from src.interfaces.state.serializer import IStateSerializer
 from src.interfaces.repository import ISnapshotRepository
 from src.core.state.entities import StateSnapshot
-from src.core.state.base import BaseStateSnapshotManager
+from src.core.state.core.base import BaseStateSnapshotManager
 from src.interfaces.state.entities import AbstractStateSnapshot
 
 

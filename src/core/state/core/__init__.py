@@ -8,7 +8,11 @@ from .base import (
     BaseState,
     BaseStateSerializer,
     BaseStateValidator,
-    BaseStateLifecycleManager
+    BaseStateLifecycleManager,
+    BaseStateHistoryManager,
+    BaseStateSnapshotManager,
+    BaseStateManager,
+    StateValidationMixin
 )
 
 # 状态管理器
@@ -20,6 +24,10 @@ __all__ = [
     "BaseStateSerializer",
     "BaseStateValidator",
     "BaseStateLifecycleManager",
+    "BaseStateHistoryManager",
+    "BaseStateSnapshotManager",
+    "BaseStateManager",
+    "StateValidationMixin",
     
     # 状态管理器
     "StateManager"

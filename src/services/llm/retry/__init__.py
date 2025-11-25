@@ -3,10 +3,7 @@
 from typing import Optional
 from .retry_manager import RetryManager, get_global_retry_manager, set_global_retry_manager, retry
 from .retry_config import RetryConfig, RetryAttempt, RetrySession, RetryStats
-from .interfaces import (
-    IRetryStrategy, IRetryLogger, IRetryCondition,
-    IRetryDelayCalculator, IRetryContext
-)
+from src.interfaces.llm import IRetryStrategy, IRetryLogger
 from .strategies import (
     DefaultRetryLogger,
     ExponentialBackoffStrategy,
@@ -15,8 +12,8 @@ from .strategies import (
     AdaptiveRetryStrategy,
     ConditionalRetryStrategy,
     create_retry_strategy,
-    StatusCodeRetryCondition,
-    ErrorTypeRetryCondition
+    create_status_code_checker,
+    create_error_type_checker
 )
 
 
@@ -45,9 +42,6 @@ __all__ = [
     "RetryStats",
     "IRetryStrategy",
     "IRetryLogger",
-    "IRetryCondition",
-    "IRetryDelayCalculator",
-    "IRetryContext",
     "DefaultRetryLogger",
     "ExponentialBackoffStrategy",
     "LinearBackoffStrategy",
@@ -55,7 +49,7 @@ __all__ = [
     "AdaptiveRetryStrategy",
     "ConditionalRetryStrategy",
     "create_retry_strategy",
-    "StatusCodeRetryCondition",
-    "ErrorTypeRetryCondition",
+    "create_status_code_checker",
+    "create_error_type_checker",
     "create_retry_manager"
 ]

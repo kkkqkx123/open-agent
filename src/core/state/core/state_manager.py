@@ -7,19 +7,12 @@ import threading
 import uuid
 import logging
 from typing import Any, Dict, List, Optional, Type, Callable
-from datetime import datetime
 
 from ..interfaces.base import (
     IState, IStateManager, IStateSerializer, IStateValidator, 
     IStateLifecycleManager, IStateCache, IStateStorageAdapter
 )
-from ..interfaces.workflow import IWorkflowState
-from ..interfaces.tools import IToolState
-from ..interfaces.sessions import ISessionState
-from ..interfaces.threads import IThreadState
-from ..interfaces.checkpoints import ICheckpointState
 from .base import BaseStateSerializer, BaseStateValidator, BaseStateLifecycleManager
-from ..storage import MemoryStateAdapter, SQLiteStateAdapter, FileStateAdapter
 
 
 logger = logging.getLogger(__name__)
@@ -31,18 +24,19 @@ class StateManager(IStateManager):
     提供集中化的状态管理功能，支持多种状态类型和存储后端。
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], storage_adapter: IStateStorageAdapter):
         """初始化状态管理器
         
         Args:
             config: 配置字典
+            storage_adapter: 存储适配器（通过DI注入）
         """
         self.config = config
         self._serializer = self._create_serializer(config.get('serializer', {}))
         self._validator = self._create_validator(config.get('validation', {}))
         self._lifecycle = self._create_lifecycle_manager(config.get('lifecycle', {}))
         self._cache = self._create_cache(config.get('cache', {}))
-        self._storage = self._create_storage_adapter(config.get('storage', {}))
+        self._storage = storage_adapter
         self._lock = threading.RLock()
         
         # 状态类型注册表
@@ -87,18 +81,7 @@ class StateManager(IStateManager):
             from .cache_adapter import NoOpCacheAdapter
             return NoOpCacheAdapter()
     
-    def _create_storage_adapter(self, storage_config: Dict[str, Any]) -> IStateStorageAdapter:
-        """创建存储适配器"""
-        adapter_type = storage_config.get('type', 'memory')
-        if adapter_type == 'memory':
-            return MemoryStateAdapter(storage_config)
-        elif adapter_type == 'sqlite':
-            return SQLiteStateAdapter(storage_config)
-        elif adapter_type == 'file':
-            return FileStateAdapter(storage_config)
-        else:
-            raise ValueError(f"不支持的存储类型: {adapter_type}")
-    
+
     def _register_default_state_types(self):
         """注册默认状态类型"""
         # 延迟导入避免循环依赖
@@ -219,6 +202,13 @@ class StateManager(IStateManager):
         """
         with self._lock:
             try:
+                # 获取状态ID
+                state_id = state.get_id()
+                if not state_id:
+                    logger.error("无法保存状态：状态ID为空")
+                    self._statistics["total_errors"] += 1
+                    return False
+                
                 # 验证状态
                 errors = self._validator.validate_state(state)
                 if errors:
@@ -228,11 +218,11 @@ class StateManager(IStateManager):
                 serialized_data = self._serializer.serialize(state)
                 
                 # 保存到存储
-                success = self._storage.save(state.get_id(), serialized_data)
+                success = self._storage.save(state_id, serialized_data)
                 
                 if success:
                     # 更新缓存
-                    self._cache.put(state.get_id(), state)
+                    self._cache.put(state_id, state)
                     
                     # 触发生命周期事件
                     self._lifecycle.on_state_saved(state)
@@ -313,16 +303,9 @@ class StateManager(IStateManager):
         """清空缓存"""
         with self._lock:
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # 如果事件循环正在运行，使用同步方式
-                    self._cache.clear()
-                else:
-                    # 如果没有事件循环，创建新的
-                    asyncio.run(self._cache.clear())
-            except RuntimeError:
-                # 如果无法获取事件循环，使用同步方式
                 self._cache.clear()
+            except Exception as e:
+                logger.warning(f"清空缓存失败: {e}")
             logger.debug("清空状态缓存")
     
     def cleanup_expired_states(self) -> int:
@@ -340,8 +323,16 @@ class StateManager(IStateManager):
                 
                 for state_id in state_ids:
                     state = self.get_state(state_id)
-                    if state and hasattr(state, 'is_expired') and state.is_expired():
-                        if self.delete_state(state_id):
+                    if state:
+                        # 检查状态是否有is_expired方法或检查更新时间
+                        is_expired = False
+                        if hasattr(state, 'is_expired'):
+                            try:
+                                is_expired = getattr(state, 'is_expired')()  # type: ignore
+                            except Exception:
+                                is_expired = False
+                        
+                        if is_expired and self.delete_state(state_id):
                             cleaned_count += 1
                 
                 logger.info(f"清理了 {cleaned_count} 个过期状态")

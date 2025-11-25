@@ -3,7 +3,7 @@
 提供从快照恢复状态的功能。
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from ..interfaces.base import IState
 from ..factories.state_factory import StateFactory
@@ -45,9 +45,9 @@ class StateSnapshotRestorer:
             # 如果恢复失败，返回None
             return None
     
-    def restore_with_validation(self, 
+    def restore_with_validation(self,
                                snapshot: StateSnapshot,
-                               validator: Optional[callable] = None) -> Optional[IState]:
+                               validator: Optional[Callable[[IState], bool]] = None) -> Optional[IState]:
         """带验证的状态恢复
         
         Args:
@@ -113,7 +113,11 @@ class StateSnapshotRestorer:
             state_data = snapshot.state_data
             
             if "metadata" in state_data:
-                return state_data["metadata"].copy()
+                metadata = state_data["metadata"]
+                if isinstance(metadata, dict):
+                    return metadata.copy()
+                else:
+                    return {}
             
             return {}
             
@@ -203,9 +207,9 @@ class StateSnapshotRestorer:
         
         # 尝试从数据中提取状态类型
         if "state_type" in data:
-            return data["state_type"]
+            return str(data["state_type"])
         elif "type" in data:
-            return data["type"]
+            return str(data["type"])
         elif "workflow" in str(data).lower():
             return "workflow"
         elif "tool" in str(data).lower():
@@ -294,7 +298,7 @@ class StateSnapshotRestorer:
         Returns:
             Dict[str, Any]: 差异信息
         """
-        diff = {
+        diff: Dict[str, Dict[str, Any]] = {
             "added": {},
             "removed": {},
             "modified": {}

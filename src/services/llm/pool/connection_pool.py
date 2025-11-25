@@ -1,6 +1,6 @@
 import asyncio
 import aiohttp
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, cast
 from threading import Lock
 from datetime import datetime, timedelta
 from .interfaces import IConnectionPool
@@ -202,14 +202,14 @@ class HTTPConnectionPool(IConnectionPool, BaseFactory):
 class ConnectionPoolManager(BaseFactory):
     """连接池管理器 - 用于管理全局连接池实例"""
     
-    def __init__(self):
-        self._pool: Optional[HTTPConnectionPool] = None
+    _pool: Optional[HTTPConnectionPool] = None
     
     def create(self, max_connections: int = 10, max_keepalive: int = 10, timeout: float = 30.0) -> HTTPConnectionPool:
         """获取连接池实例"""
-        if self._pool is None:
-            self._pool = HTTPConnectionPool(max_connections, max_keepalive, timeout)
-        return self._pool
+        if ConnectionPoolManager._pool is None:
+            pool = HTTPConnectionPool(max_connections, max_keepalive, timeout)
+            ConnectionPoolManager._pool = cast(Optional[HTTPConnectionPool], pool)
+        return cast(HTTPConnectionPool, ConnectionPoolManager._pool)
     
     async def close_all(self) -> None:
         """关闭所有连接池"""

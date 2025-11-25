@@ -203,4 +203,53 @@ class IStateCache(ABC):
     def get_all_keys(self) -> List[str]:
         """获取所有键"""
         pass
+    
+    @abstractmethod
+    def get_statistics(self) -> Dict[str, Any]:
+        """获取缓存统计信息"""
+        pass
+    
+    @abstractmethod
+    def get_many(self, keys: List[str]) -> Dict[str, IState]:
+        """批量获取缓存状态"""
+        pass
+    
+    @abstractmethod
+    def set_many(self, states: Dict[str, IState]) -> None:
+        """批量设置缓存状态"""
+        pass
+    
+    @abstractmethod
+    def cleanup_expired(self) -> int:
+        """清理过期缓存项"""
+        pass
+
+
+class IStateStorageAdapter(ABC):
+    """状态存储适配器接口"""
+    
+    @abstractmethod
+    def get(self, key: str) -> Optional[Union[str, bytes]]:
+        """获取存储数据"""
+        pass
+    
+    @abstractmethod
+    def save(self, key: str, data: Union[str, bytes]) -> bool:
+        """保存存储数据"""
+        pass
+    
+    @abstractmethod
+    def delete(self, key: str) -> bool:
+        """删除存储数据"""
+        pass
+    
+    @abstractmethod
+    def list(self, filters: Optional[Dict[str, Any]] = None) -> List[str]:
+        """列出所有键"""
+        pass
+    
+    @abstractmethod
+    def get_statistics(self) -> Dict[str, Any]:
+        """获取存储统计信息"""
+        pass
 

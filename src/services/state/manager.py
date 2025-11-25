@@ -15,7 +15,7 @@ from src.interfaces.state.manager import (
     IStateSerializer
 )
 from src.core.state.entities import StateStatistics
-from src.core.state.base import BaseStateManager, StateValidationMixin
+from src.core.state.core.base import BaseStateManager, StateValidationMixin
 
 
 logger = logging.getLogger(__name__)

@@ -99,7 +99,6 @@ __all__ = [
     "IExecutionStrategy",
     "BaseStrategy",
     "RetryStrategy",
-    "IRetryStrategy",
     "RetryConfig",
     "RetryStrategyEnum",
     "RetryAttempt",

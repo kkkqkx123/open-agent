@@ -4,7 +4,7 @@ import time
 import random
 from typing import Optional, List, Callable, Any
 
-from .interfaces import IRetryStrategy, IRetryLogger, IRetryCondition, IRetryDelayCalculator
+from src.interfaces.llm import IRetryStrategy, IRetryLogger
 from .retry_config import RetryConfig, RetryAttempt, RetrySession
 
 
@@ -313,18 +313,18 @@ class AdaptiveRetryStrategy(IRetryStrategy):
 class ConditionalRetryStrategy(IRetryStrategy):
     """条件重试策略"""
     
-    def __init__(self, config: RetryConfig, conditions: List[IRetryCondition], 
+    def __init__(self, config: RetryConfig, condition_checkers: List[Callable[[Exception, int], bool]],
                  logger: Optional[IRetryLogger] = None):
         """
         初始化条件重试策略
         
         Args:
             config: 重试配置
-            conditions: 重试条件列表
+            condition_checkers: 重试条件检查函数列表
             logger: 日志记录器
         """
         self.config = config
-        self.conditions = conditions
+        self.condition_checkers = condition_checkers
         self.logger = logger or DefaultRetryLogger()
     
     def should_retry(self, error: Exception, attempt: int) -> bool:
@@ -333,15 +333,15 @@ class ConditionalRetryStrategy(IRetryStrategy):
             return False
         
         # 检查所有条件
-        for condition in self.conditions:
-            if not condition.should_retry(error, attempt):
+        for checker in self.condition_checkers:
+            if not checker(error, attempt):
                 return False
         
-        # 如果有条件，且所有条件都通过，则应该重试
-        if self.conditions:
+        # 如果有条件检查器，且所有条件都通过，则应该重试
+        if self.condition_checkers:
             return True
             
-        # 如果没有条件，回退到默认的错误检查
+        # 如果没有条件检查器，回退到默认的错误检查
         return self.config.should_retry_on_error(error)
     
     def get_retry_delay(self, error: Exception, attempt: int) -> float:
@@ -385,59 +385,36 @@ def create_retry_strategy(config: RetryConfig, logger: Optional[IRetryLogger] = 
     elif strategy_type == "adaptive":
         return AdaptiveRetryStrategy(config, logger)
     elif strategy_type == "conditional":
-        return ConditionalRetryStrategy(config, kwargs.get("conditions", []), logger)
+        return ConditionalRetryStrategy(config, kwargs.get("condition_checkers", []), logger)
     else:
         raise ValueError(f"不支持的重试策略类型: {strategy_type}")
 
 
-class StatusCodeRetryCondition(IRetryCondition):
-    """状态码重试条件"""
-    
-    def __init__(self, retry_status_codes: List[int]):
-        """
-        初始化状态码重试条件
-        
-        Args:
-            retry_status_codes: 需要重试的状态码列表
-        """
-        self.retry_status_codes = retry_status_codes
-
-    def should_retry(self, error: Exception, attempt: int) -> bool:
-        """判断是否应该重试"""
+def create_status_code_checker(retry_status_codes: List[int]) -> Callable[[Exception, int], bool]:
+    """创建状态码重试条件检查器"""
+    def checker(error: Exception, attempt: int) -> bool:
         if hasattr(error, "response"):
             response = getattr(error, "response")
             if hasattr(response, "status_code"):
-                return response.status_code in self.retry_status_codes
+                return response.status_code in retry_status_codes
         return False
+    return checker
 
 
-class ErrorTypeRetryCondition(IRetryCondition):
-    """错误类型重试条件"""
-    
-    def __init__(self, retry_error_types: List[str], block_error_types: Optional[List[str]] = None):
-        """
-        初始化错误类型重试条件
-        
-        Args:
-            retry_error_types: 需要重试的错误类型列表
-            block_error_types: 不重试的错误类型列表
-        """
-        self.retry_error_types = retry_error_types
-        self.block_error_types = block_error_types or []
-    
-    def should_retry(self, error: Exception, attempt: int) -> bool:
-        """判断是否应该重试"""
+def create_error_type_checker(retry_error_types: List[str], block_error_types: Optional[List[str]] = None) -> Callable[[Exception, int], bool]:
+    """创建错误类型重试条件检查器"""
+    def checker(error: Exception, attempt: int) -> bool:
         error_type = type(error).__name__
         error_str = str(error).lower()
         
         # 检查是否在阻塞列表中
-        for block_type in self.block_error_types:
+        for block_type in block_error_types or []:
             if block_type in error_type or block_type in error_str:
                 return False
         
         # 如果有重试列表，只允许重试列表中的错误类型
-        if self.retry_error_types:
-            for retry_type in self.retry_error_types:
+        if retry_error_types:
+            for retry_type in retry_error_types:
                 # 检查错误类型名称或错误消息是否包含重试类型
                 if retry_type.lower() in error_type.lower() or retry_type.lower() in error_str:
                     return True
@@ -445,3 +422,4 @@ class ErrorTypeRetryCondition(IRetryCondition):
         else:
             # 如果没有重试列表，默认允许重试（除非被阻塞）
             return True
+    return checker

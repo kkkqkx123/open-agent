@@ -178,7 +178,7 @@ class ThreadBranchService(IThreadBranchService):
                 is_orphaned = await self._is_orphaned_branch(branch)
                 
                 if is_orphaned:
-                    success = await self._thread_branch_repository.delete_branch(branch.id)
+                    success = await self._thread_branch_repository.delete(branch.id)
                     if success:
                         cleaned_count += 1
                         # 更新线程的分支计数

@@ -6,7 +6,7 @@
 import logging
 import time
 import asyncio
-from typing import Dict, Any, Optional, List, Callable, Union
+from typing import Optional, List, Callable, Union
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -121,12 +121,7 @@ class RetryAttempt:
         return None
 
 
-class IRetryStrategy(IExecutionStrategy):
-    """重试策略接口"""
-    pass
-
-
-class RetryStrategyImpl(BaseStrategy, IRetryStrategy):
+class RetryStrategyImpl(BaseStrategy):
     """重试策略实现
     
     提供可配置的重试机制，支持多种重试策略和条件判断。

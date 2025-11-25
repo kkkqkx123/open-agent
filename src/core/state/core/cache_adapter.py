@@ -143,6 +143,10 @@ class StateCacheAdapter(IStateCache):
         keys = await self._cache_manager.get_all_keys()
         return len(keys)
     
+    async def _get_all_keys_async(self) -> List[str]:
+        """异步获取所有键"""
+        return await self._cache_manager.get_all_keys()
+    
     def get_all_keys(self) -> List[str]:
         """获取所有键
         
@@ -150,7 +154,7 @@ class StateCacheAdapter(IStateCache):
             所有状态ID列表
         """
         try:
-            return self._run_async(self._cache_manager.get_all_keys())
+            return self._run_async(self._get_all_keys_async())
         except Exception as e:
             logger.warning(f"获取所有键失败: {e}")
             return []
@@ -264,7 +268,7 @@ class NoOpCacheAdapter(IStateCache):
         """获取缓存大小（总是返回0）"""
         return 0
     
-    async def get_all_keys(self) -> List[str]:
+    def get_all_keys(self) -> List[str]:
         """获取所有键（总是返回空列表）"""
         return []
     
@@ -282,6 +286,18 @@ class NoOpCacheAdapter(IStateCache):
             "cache_name": "noop",
             "enable_serialization": False
         }
+    
+    def get_many(self, keys: List[str]) -> Dict[str, IState]:
+        """批量获取（总是返回空字典）"""
+        return {}
+    
+    def set_many(self, states: Dict[str, IState]) -> None:
+        """批量设置（无操作）"""
+        pass
+    
+    def cleanup_expired(self) -> int:
+        """清理过期项（总是返回0）"""
+        return 0
 
 
 class TieredStateCacheAdapter(IStateCache):
@@ -346,6 +362,39 @@ class TieredStateCacheAdapter(IStateCache):
             "primary_cache": self.primary_cache.get_statistics() if hasattr(self.primary_cache, 'get_statistics') else {},
             "secondary_cache": self.secondary_cache.get_statistics() if hasattr(self.secondary_cache, 'get_statistics') else {}
         }
+    
+    def get_many(self, keys: List[str]) -> Dict[str, IState]:
+        """批量获取缓存状态"""
+        result: Dict[str, IState] = {}
+        missing_keys = []
+        
+        # 从主缓存获取
+        primary_result = self.primary_cache.get_many(keys)
+        result.update(primary_result)
+        
+        # 记录缺失的键
+        missing_keys = [k for k in keys if k not in primary_result]
+        
+        if missing_keys:
+            # 从次级缓存获取缺失的
+            secondary_result = self.secondary_cache.get_many(missing_keys)
+            # 将次级缓存的结果提升到主缓存
+            for k, v in secondary_result.items():
+                self.primary_cache.put(k, v)
+            result.update(secondary_result)
+        
+        return result
+    
+    def set_many(self, states: Dict[str, IState]) -> None:
+        """批量设置缓存状态"""
+        self.primary_cache.set_many(states)
+        self.secondary_cache.set_many(states)
+    
+    def cleanup_expired(self) -> int:
+        """清理过期缓存项"""
+        primary_cleaned = self.primary_cache.cleanup_expired()
+        secondary_cleaned = self.secondary_cache.cleanup_expired()
+        return primary_cleaned + secondary_cleaned
 
 
 # 便捷函数

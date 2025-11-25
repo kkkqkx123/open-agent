@@ -59,7 +59,9 @@ class StateSnapshotManager:
         
         # 自动清理
         if self._auto_cleanup:
-            self._cleanup_old_snapshots(state.get_id())
+            state_id = state.get_id()
+            if state_id is not None:
+                self._cleanup_old_snapshots(state_id)
         
         return snapshot.id
     
@@ -286,7 +288,7 @@ class StateSnapshotManager:
         total_size = sum(s.size for s in snapshots)
         
         # 按标签分组
-        tag_counts = {}
+        tag_counts: Dict[str, int] = {}
         for snapshot in snapshots:
             for tag in snapshot.tags:
                 tag_counts[tag] = tag_counts.get(tag, 0) + 1
@@ -384,7 +386,7 @@ class StateSnapshotManager:
         Returns:
             Dict[str, Any]: 比较结果
         """
-        differences = {
+        differences: Dict[str, Dict[str, Any]] = {
             "added": {},
             "removed": {},
             "modified": {}

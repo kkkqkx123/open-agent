@@ -16,7 +16,7 @@ else:
 from src.interfaces.state.serializer import IStateSerializer
 from src.interfaces.state.history import IStateHistoryManager
 from src.interfaces.state.snapshot import IStateSnapshotManager
-from src.core.state.base import BaseStateSerializer
+from src.core.state.core.base import BaseStateSerializer
 from src.services.state import (
     EnhancedStateManager,
     StateHistoryService,

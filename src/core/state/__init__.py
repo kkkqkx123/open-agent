@@ -3,7 +3,7 @@
 提供统一的状态管理功能，整合了接口、核心组件、实现和存储适配器。
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
 
 # 接口定义
@@ -15,10 +15,6 @@ from .interfaces import (
     IStateValidator,
     IStateLifecycleManager,
     IStateCache,
-    
-    # 工作流状态接口
-    IWorkflowState,
-    IWorkflowStateBuilder,
     
     # 工具状态接口
     IToolState,
@@ -46,6 +42,10 @@ from .core import (
     BaseStateSerializer,
     BaseStateValidator,
     BaseStateLifecycleManager,
+    BaseStateHistoryManager,
+    BaseStateSnapshotManager,
+    BaseStateManager,
+    StateValidationMixin,
     
     # 状态管理器
     StateManager
@@ -130,11 +130,13 @@ from .snapshots import (
 # )
 
 # 便捷函数
-def create_state_manager(config: Optional[Dict[str, Any]] = None) -> StateManager:
+def create_state_manager(config: Optional[Dict[str, Any]] = None, 
+                        storage_adapter: Optional[Any] = None) -> StateManager:
     """创建状态管理器的便捷函数
     
     Args:
         config: 配置字典，如果为None则使用默认配置
+        storage_adapter: 存储适配器，如果为None则使用默认内存适配器
         
     Returns:
         状态管理器实例
@@ -158,7 +160,36 @@ def create_state_manager(config: Optional[Dict[str, Any]] = None) -> StateManage
             }
         }
     
-    return StateManager(config)
+    # 如果没有提供存储适配器，创建一个默认的内存适配器
+    if storage_adapter is None:
+        # 创建一个简单的内存存储适配器
+        class _SimpleMemoryAdapter:
+            """简单的内存存储适配器实现"""
+            def __init__(self):
+                self._data: Dict[str, Union[str, bytes]] = {}
+            
+            def get(self, key: str) -> Optional[Union[str, bytes]]:
+                return self._data.get(key)
+            
+            def save(self, key: str, data: Union[str, bytes]) -> bool:
+                self._data[key] = data
+                return True
+            
+            def delete(self, key: str) -> bool:
+                if key in self._data:
+                    del self._data[key]
+                    return True
+                return False
+            
+            def list(self, filters: Optional[Dict[str, Any]] = None) -> List[str]:
+                return list(self._data.keys())
+            
+            def get_statistics(self) -> Dict[str, Any]:
+                return {'total_items': len(self._data), 'type': 'memory'}
+        
+        storage_adapter = _SimpleMemoryAdapter()
+    
+    return StateManager(config, storage_adapter=storage_adapter)
 
 
 def create_workflow_state(**kwargs) -> WorkflowState:
@@ -242,8 +273,6 @@ __all__ = [
     "IStateValidator",
     "IStateLifecycleManager",
     "IStateCache",
-    "IWorkflowState",
-    "IWorkflowStateBuilder",
     "IToolState",
     "IToolStateManager",
     "IToolStateBuilder",
@@ -260,6 +289,10 @@ __all__ = [
     "BaseStateSerializer",
     "BaseStateValidator",
     "BaseStateLifecycleManager",
+    "BaseStateHistoryManager",
+    "BaseStateSnapshotManager",
+    "BaseStateManager",
+    "StateValidationMixin",
     "StateManager",
     "StateCacheAdapter",
     "NoOpCacheAdapter",

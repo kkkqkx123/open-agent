@@ -22,7 +22,7 @@ class ConnectionPoolFactory:
         Returns:
             HTTPConnectionPool: 连接池实例
         """
-        return connection_pool_manager.get_pool(
+        return connection_pool_manager.create(
             max_connections=max_connections,
             max_keepalive=max_keepalive,
             timeout=timeout
@@ -36,7 +36,7 @@ class ConnectionPoolFactory:
         Returns:
             HTTPConnectionPool: 全局连接池实例
         """
-        return connection_pool_manager.get_pool()
+        return connection_pool_manager.create()
 
 
 # 全局连接池工厂实例

@@ -6,7 +6,7 @@ import functools
 from typing import Any, Callable, Optional, Dict, List, Union
 from concurrent.futures import TimeoutError
 
-from .interfaces import IRetryStrategy, IRetryLogger
+from src.interfaces.llm import IRetryLogger
 from .retry_config import RetryConfig, RetryAttempt, RetrySession, RetryStats
 from .strategies import create_retry_strategy, DefaultRetryLogger
 

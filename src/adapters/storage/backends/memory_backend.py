@@ -144,9 +144,10 @@ class MemoryStorageBackend(StorageBackend):
             
             # 解压缩数据（如果需要）
             if item.compressed and isinstance(data, bytes):
-                from src.core.state.base import BaseStateSerializer
+                from src.core.state.core.base import BaseStateSerializer
                 serializer = BaseStateSerializer(compression=True)
-                data = serializer.deserialize_state(data)
+                state_obj = serializer.deserialize(data)
+                data = state_obj.to_dict()
             
             # 确保返回值是 Dict[str, Any] 或 None
             if isinstance(data, dict):
@@ -198,9 +199,10 @@ class MemoryStorageBackend(StorageBackend):
                         
                         # 解压缩数据（如果需要）
                         if item.compressed and isinstance(data, bytes):
-                            from src.core.state.base import BaseStateSerializer
+                            from src.core.state.core.base import BaseStateSerializer
                             serializer = BaseStateSerializer(compression=True)
-                            data = serializer.deserialize_state(data)
+                            state_obj = serializer.deserialize(data)
+                            data = state_obj.to_dict()
                         
                         # 检查过滤器
                         if isinstance(data, dict) and StorageCommonUtils.matches_filters(data, filters):
