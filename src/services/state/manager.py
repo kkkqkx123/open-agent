@@ -7,21 +7,21 @@ import logging
 from typing import Dict, Any, Optional, List, Callable, Tuple
 from datetime import datetime
 
-from src.interfaces.state.interfaces import IState, IStateManager
-from src.interfaces.state.enhanced import (
-    IEnhancedStateManager,
+from src.interfaces.state.interfaces import IState
+from src.interfaces.state.manager import (
+    IStateManager,
     IStateHistoryManager,
     IStateSnapshotManager,
     IStateSerializer
 )
-from src.interfaces.state.concrete import StateSnapshot, StateHistoryEntry, StateStatistics
+from src.core.state.entities import StateStatistics
 from src.core.state.base import BaseStateManager, StateValidationMixin
 
 
 logger = logging.getLogger(__name__)
 
 
-class EnhancedStateManager(IEnhancedStateManager, BaseStateManager, StateValidationMixin):
+class EnhancedStateManager(IStateManager, BaseStateManager, StateValidationMixin):
     """增强的状态管理器实现
     
     整合基础状态管理、历史记录和快照功能。
@@ -223,7 +223,7 @@ class EnhancedStateManager(IEnhancedStateManager, BaseStateManager, StateValidat
         base_stats = super().get_statistics()
         
         # 统计代理数量
-        agent_counts = {}
+        agent_counts: Dict[str, int] = {}
         for agent_id in self._state_agents.values():
             agent_counts[agent_id] = agent_counts.get(agent_id, 0) + 1
         
@@ -238,7 +238,7 @@ class EnhancedStateManager(IEnhancedStateManager, BaseStateManager, StateValidat
             storage_size_bytes=history_stats.get("storage_size_bytes", 0) +
                               snapshot_stats.get("storage_size_bytes", 0),
             agent_counts=agent_counts,
-            last_updated=datetime.now().isoformat()
+            last_updated=datetime.now()
         )
     
     def execute_with_state_management(
@@ -308,7 +308,7 @@ class StateWrapper(IState):
     将字典数据包装为IState接口实现。
     """
     
-    def __init__(self, state_data: Dict[str, Any], manager: Optional[EnhancedStateManager] = None):
+    def __init__(self, state_data: Dict[str, Any], manager: Optional[IStateManager] = None):
         """初始化状态包装器
         
         Args:
@@ -364,7 +364,7 @@ class StateWrapper(IState):
     
     def is_complete(self) -> bool:
         """检查是否完成"""
-        return self._state_data.get('complete', False)
+        return bool(self._state_data.get('complete', False))
     
     def mark_complete(self) -> None:
         """标记为完成"""

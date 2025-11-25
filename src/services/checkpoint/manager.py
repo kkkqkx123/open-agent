@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 
 from src.interfaces.checkpoint import ICheckpointManager
-from src.core.checkpoints.entities import CheckpointData
+from src.interfaces.repository import ICheckpointRepository
 from src.core.common.exceptions import (
     CheckpointNotFoundError,
     CheckpointStorageError,
@@ -29,12 +29,16 @@ class CheckpointManager(ICheckpointManager):
     提供checkpoint的完整生命周期管理功能。
     """
     
-    def __init__(self, config_service: Optional[CheckpointConfigService] = None):
+    def __init__(self,
+                 checkpoint_repository: ICheckpointRepository,
+                 config_service: Optional[CheckpointConfigService] = None):
         """初始化checkpoint管理器
         
         Args:
+            checkpoint_repository: checkpoint Repository
             config_service: 配置服务实例
         """
+        self._checkpoint_repository = checkpoint_repository
         self.config_service = config_service or CheckpointConfigService()
         self.core_config: CoreCheckpointConfig = self.config_service.get_config()
         self.serializer = Serializer()
@@ -76,20 +80,21 @@ class CheckpointManager(ICheckpointManager):
             # 序列化状态
             serialized_state = self.serializer.serialize(state, format=self.serializer.FORMAT_JSON)
             
-            # 创建checkpoint数据
-            checkpoint_data = CheckpointData(
-                id=checkpoint_id,
-                thread_id=thread_id,
-                session_id="",  # 暂时为空，可从上下文获取
-                workflow_id=workflow_id,
-                state_data=serialized_state,
-                metadata=metadata or {},
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            )
+            # 准备checkpoint数据字典
+            checkpoint_data_dict = {
+                "id": checkpoint_id,
+                "thread_id": thread_id,
+                "session_id": "",  # 暂时为空，可从上下文获取
+                "workflow_id": workflow_id,
+                "state_data": serialized_state,
+                "metadata": metadata or {},
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat()
+            }
             
-            # 保存到存储
-            # TODO: 需要集成存储服务
+            # 保存到Repository
+            checkpoint_id = await self._checkpoint_repository.save_checkpoint(checkpoint_data_dict)
+            
             logger.info(f"Created checkpoint: {checkpoint_id} for thread: {thread_id}, workflow: {workflow_id}")
             
             return checkpoint_id
@@ -109,9 +114,15 @@ class CheckpointManager(ICheckpointManager):
             Optional[Dict[str, Any]]: checkpoint数据，如果不存在则返回None
         """
         try:
-            # TODO: 从存储获取checkpoint数据
+            # 从Repository获取checkpoint数据
+            checkpoint_data = await self._checkpoint_repository.load_checkpoint(checkpoint_id)
+            
+            if not checkpoint_data:
+                logger.info(f"Checkpoint not found: {checkpoint_id} for thread: {thread_id}")
+                return None
+                
             logger.info(f"Getting checkpoint: {checkpoint_id} for thread: {thread_id}")
-            return None  # 临时返回None，需要实现存储获取逻辑
+            return checkpoint_data
             
         except CheckpointNotFoundError:
             logger.info(f"Checkpoint not found: {checkpoint_id} for thread: {thread_id}")
@@ -130,9 +141,11 @@ class CheckpointManager(ICheckpointManager):
             List[Dict[str, Any]]: checkpoint列表，按创建时间倒序排列
         """
         try:
-            # TODO: 从存储获取checkpoint列表
+            # 从Repository获取checkpoint列表
+            checkpoints = await self._checkpoint_repository.list_checkpoints(thread_id)
+            
             logger.info(f"Listing checkpoints for thread: {thread_id}")
-            return []  # 临时返回空列表，需要实现存储获取逻辑
+            return checkpoints
             
         except Exception as e:
             logger.error(f"Failed to list checkpoints: {e}")
@@ -149,9 +162,11 @@ class CheckpointManager(ICheckpointManager):
             bool: 是否删除成功
         """
         try:
-            # TODO: 从存储删除checkpoint
+            # 从Repository删除checkpoint
+            success = await self._checkpoint_repository.delete_checkpoint(checkpoint_id)
+            
             logger.info(f"Deleting checkpoint: {checkpoint_id} for thread: {thread_id}")
-            return True # 临时返回True，需要实现存储删除逻辑
+            return success
             
         except Exception as e:
             logger.error(f"Failed to delete checkpoint: {e}")
@@ -167,9 +182,15 @@ class CheckpointManager(ICheckpointManager):
             Optional[Dict[str, Any]]: 最新的checkpoint数据，如果不存在则返回None
         """
         try:
-            # TODO: 从存储获取最新checkpoint
-            logger.info(f"Getting latest checkpoint for thread: {thread_id}")
-            return None  # 临时返回None，需要实现存储获取逻辑
+            # 从Repository获取最新checkpoint
+            checkpoint_data = await self._checkpoint_repository.get_latest_checkpoint(thread_id)
+            
+            if checkpoint_data:
+                logger.info(f"Getting latest checkpoint for thread: {thread_id}")
+                return checkpoint_data
+            else:
+                logger.info(f"No checkpoint found for thread: {thread_id}")
+                return None
             
         except CheckpointNotFoundError:
             logger.info(f"No checkpoint found for thread: {thread_id}")
@@ -323,7 +344,8 @@ class CheckpointManager(ICheckpointManager):
             source_checkpoint['updated_at'] = datetime.now().isoformat()
             
             # 保存到目标thread
-            # TODO: 需要实现存储保存逻辑
+            await self._checkpoint_repository.save_checkpoint(source_checkpoint)
+            
             logger.info(f"Copied checkpoint from {source_thread_id}:{source_checkpoint_id} to {target_thread_id}:{new_checkpoint_id}")
             
             return new_checkpoint_id
@@ -365,7 +387,8 @@ class CheckpointManager(ICheckpointManager):
             checkpoint_data['updated_at'] = datetime.now().isoformat()
             
             # 保存checkpoint
-            # TODO: 需要实现存储保存逻辑
+            await self._checkpoint_repository.save_checkpoint(checkpoint_data)
+            
             logger.info(f"Imported checkpoint: {new_checkpoint_id} to thread: {thread_id}")
             
             return new_checkpoint_id

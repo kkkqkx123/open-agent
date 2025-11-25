@@ -8,7 +8,7 @@
 """
 
 # 核心状态接口
-from .interfaces import IState, IStateManager
+from .interfaces import IState
 
 # 工作流状态接口
 from .workflow import IWorkflowState, IWorkflowStateBuilder
@@ -26,7 +26,7 @@ from .snapshot import IStateSnapshotManager
 from .serializer import IStateSerializer
 
 # 增强状态管理接口
-from .enhanced import IEnhancedStateManager
+from .manager import IStateManager
 
 # 工厂接口
 from .factory import IStateFactory
@@ -85,7 +85,7 @@ __all__ = [
     'IStateSerializer',
     
     # 增强状态管理接口
-    'IEnhancedStateManager',
+    'IStateManager',
     
     # 工厂接口
     'IStateFactory',

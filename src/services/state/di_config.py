@@ -4,6 +4,7 @@
 """
 
 import logging
+import asyncio
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 
 from src.infrastructure.infrastructure_types import ServiceLifetime
@@ -24,9 +25,7 @@ from src.services.state import (
     StateBackupService,
     WorkflowStateManager
 )
-from src.adapters.storage.factory import StorageAdapterFactory, create_storage_adapter
-from src.interfaces.state.storage.adapter import IStateStorageAdapter
-from src.adapters.storage.adapters.sync_adapter import SyncStateStorageAdapter
+from src.interfaces.repository import IHistoryRepository, ISnapshotRepository
 
 
 logger = logging.getLogger(__name__)
@@ -43,20 +42,20 @@ def configure_state_services(container: ServiceContainer, config: Dict[str, Any]
         # 配置序列化器
         _configure_serializer(container, config.get("serialization", {}))
         
-        # 配置存储适配器
-        _configure_storage_adapter(container, config.get("storage", {}))
+        # 配置Repository实现
+        _configure_repositories(container, config.get("storage", {}))
         
-        # 配置历史管理服务
-        _configure_history_service(container, config.get("history", {}))
+        # 配置历史管理服务（使用Repository）
+        _configure_history_service_with_repository(container, config.get("history", {}))
         
-        # 配置快照管理服务
-        _configure_snapshot_service(container, config.get("snapshots", {}))
+        # 配置快照管理服务（使用Repository）
+        _configure_snapshot_service_with_repository(container, config.get("snapshots", {}))
         
         # 配置增强状态管理器
         _configure_enhanced_state_manager(container, config)
         
-        # 配置持久化服务
-        _configure_persistence_service(container, config.get("performance", {}))
+        # 配置持久化服务（使用Repository）
+        _configure_persistence_service_with_repository(container, config.get("performance", {}))
         
         # 配置备份服务
         _configure_backup_service(container)
@@ -86,86 +85,58 @@ def _configure_serializer(container: ServiceContainer, config: Dict[str, Any]) -
     )
 
 
-def _configure_storage_adapter(container: ServiceContainer, config: Dict[str, Any]) -> None:
-    """配置存储适配器"""
+def _configure_repositories(container: ServiceContainer, config: Dict[str, Any]) -> None:
+    """配置Repository实现"""
     default_storage = config.get("default", "sqlite")
     storage_configs = config.get("sqlite", {})
     
-    def storage_adapter_factory() -> IStateStorageAdapter:
-        # 直接创建同步适配器
+    def history_repository_factory() -> IHistoryRepository:
+        # 创建历史记录Repository
         if default_storage == "sqlite":
-            from src.adapters.storage.adapters.sqlite import SyncStateStorageAdapter
+            from src.adapters.repository.history.sqlite_repository import SQLiteHistoryRepository
             # 确保配置中包含数据库路径
             if "db_path" not in storage_configs:
                 storage_configs["db_path"] = "data/state_storage.db"
-            from src.adapters.storage.backends.sqlite_backend import SQLiteStorageBackend
-            sqlite_backend = SQLiteStorageBackend(**storage_configs)
-            return SyncStateStorageAdapter(backend=sqlite_backend)
+            return SQLiteHistoryRepository(**storage_configs)
         elif default_storage == "memory":
-            from src.adapters.storage.adapters.memory import SyncStateStorageAdapter
-            from src.adapters.storage.backends.memory_backend import MemoryStorageBackend
-            memory_backend = MemoryStorageBackend()
-            return SyncStateStorageAdapter(backend=memory_backend)
-        elif default_storage == "file":
-            from src.adapters.storage.adapters.file import SyncStateStorageAdapter
-            from src.adapters.storage.backends.file_backend import FileStorageBackend
-            file_backend = FileStorageBackend()
-            return SyncStateStorageAdapter(backend=file_backend)
+            from src.adapters.repository.history.memory_repository import MemoryHistoryRepository
+            return MemoryHistoryRepository()
         else:
-            from src.adapters.storage.adapters.sqlite import SyncStateStorageAdapter
+            from src.adapters.repository.history.sqlite_repository import SQLiteHistoryRepository
             if "db_path" not in storage_configs:
                 storage_configs["db_path"] = "data/state_storage.db"
-            from src.adapters.storage.backends.sqlite_backend import SQLiteStorageBackend
-            sqlite_backend = SQLiteStorageBackend(**storage_configs)
-            return SyncStateStorageAdapter(backend=sqlite_backend)
+            return SQLiteHistoryRepository(**storage_configs)
+    
+    def snapshot_repository_factory() -> ISnapshotRepository:
+        # 创建快照Repository
+        if default_storage == "sqlite":
+            from src.adapters.repository.snapshot.sqlite_repository import SQLiteSnapshotRepository
+            # 确保配置中包含数据库路径
+            if "db_path" not in storage_configs:
+                storage_configs["db_path"] = "data/state_storage.db"
+            return SQLiteSnapshotRepository(**storage_configs)
+        elif default_storage == "memory":
+            from src.adapters.repository.snapshot.memory_repository import MemorySnapshotRepository
+            return MemorySnapshotRepository()
+        else:
+            from src.adapters.repository.snapshot.sqlite_repository import SQLiteSnapshotRepository
+            if "db_path" not in storage_configs:
+                storage_configs["db_path"] = "data/state_storage.db"
+            return SQLiteSnapshotRepository(**storage_configs)
     
     container.register_factory(
-        IStateStorageAdapter,
-        storage_adapter_factory,
+        IHistoryRepository,
+        history_repository_factory,
+        lifetime=ServiceLifetime.SINGLETON
+    )
+    
+    container.register_factory(
+        ISnapshotRepository,
+        snapshot_repository_factory,
         lifetime=ServiceLifetime.SINGLETON
     )
 
 
-def _configure_history_service(container: ServiceContainer, config: Dict[str, Any]) -> None:
-    """配置历史管理服务"""
-    max_entries = config.get("max_entries", 1000)
-    
-    def history_service_factory() -> IStateHistoryManager:
-        # 从容器获取依赖
-        storage_adapter: IStateStorageAdapter = container.get(IStateStorageAdapter)  # type: ignore
-        serializer: IStateSerializer = container.get(IStateSerializer)  # type: ignore
-        return StateHistoryService(
-            storage_adapter=storage_adapter,
-            serializer=serializer,
-            max_history_size=max_entries
-        )
-    
-    container.register_factory(
-        IStateHistoryManager,
-        history_service_factory,
-        lifetime=ServiceLifetime.SINGLETON
-    )
-
-
-def _configure_snapshot_service(container: ServiceContainer, config: Dict[str, Any]) -> None:
-    """配置快照管理服务"""
-    max_snapshots = config.get("max_per_agent", 50)
-    
-    def snapshot_service_factory() -> IStateSnapshotManager:
-        # 从容器获取依赖
-        storage_adapter: IStateStorageAdapter = container.get(IStateStorageAdapter)  # type: ignore
-        serializer: IStateSerializer = container.get(IStateSerializer)  # type: ignore
-        return StateSnapshotService(
-            storage_adapter=storage_adapter,
-            serializer=serializer,
-            max_snapshots_per_agent=max_snapshots
-        )
-    
-    container.register_factory(
-        IStateSnapshotManager,
-        snapshot_service_factory,
-        lifetime=ServiceLifetime.SINGLETON
-    )
 
 
 def _configure_enhanced_state_manager(container: ServiceContainer, config: Dict[str, Any]) -> None:
@@ -188,15 +159,17 @@ def _configure_enhanced_state_manager(container: ServiceContainer, config: Dict[
     )
 
 
-def _configure_persistence_service(container: ServiceContainer, config: Dict[str, Any]) -> None:
-    """配置持久化服务"""
+def _configure_persistence_service_with_repository(container: ServiceContainer, config: Dict[str, Any]) -> None:
+    """配置持久化服务（使用Repository）"""
     enable_transactions = config.get("enable_transactions", True)
     
     def persistence_service_factory() -> StatePersistenceService:
         # 从容器获取依赖
-        storage_adapter: IStateStorageAdapter = container.get(IStateStorageAdapter)  # type: ignore
+        history_repository: IHistoryRepository = container.get(IHistoryRepository)  # type: ignore
+        snapshot_repository: ISnapshotRepository = container.get(ISnapshotRepository)  # type: ignore
         return StatePersistenceService(
-            storage_adapter=storage_adapter,
+            history_repository=history_repository,
+            snapshot_repository=snapshot_repository,
             enable_transactions=enable_transactions
         )
     

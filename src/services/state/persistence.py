@@ -4,12 +4,13 @@
 """
 
 import logging
+import asyncio
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 from contextlib import contextmanager
 
 from src.interfaces.state import StateSnapshot, StateHistoryEntry, StateStatistics
-from src.interfaces.state.storage.adapter import IStateStorageAdapter
+from src.interfaces.repository import IHistoryRepository, ISnapshotRepository
 
 
 logger = logging.getLogger(__name__)
@@ -21,16 +22,19 @@ class StatePersistenceService:
     协调状态数据的持久化操作，确保数据一致性。
     """
     
-    def __init__(self, 
-                 storage_adapter: IStateStorageAdapter,
+    def __init__(self,
+                 history_repository: IHistoryRepository,
+                 snapshot_repository: ISnapshotRepository,
                  enable_transactions: bool = True):
         """初始化持久化服务
         
         Args:
-            storage_adapter: 存储适配器
+            history_repository: 历史记录Repository
+            snapshot_repository: 快照Repository
             enable_transactions: 是否启用事务支持
         """
-        self._storage_adapter = storage_adapter
+        self._history_repository = history_repository
+        self._snapshot_repository = snapshot_repository
         self._enable_transactions = enable_transactions
         self._transaction_active = False
     
@@ -60,7 +64,7 @@ class StatePersistenceService:
                 history_entry = StateHistoryEntry(
                     history_id=self._generate_id(),
                     agent_id=agent_id,
-                    timestamp=datetime.now(),
+                    timestamp=datetime.now().isoformat(),
                     action=action,
                     state_diff=self._calculate_diff(old_state, state_data),
                     metadata={
@@ -69,7 +73,18 @@ class StatePersistenceService:
                     }
                 )
                 
-                self._storage_adapter.save_history_entry(history_entry)
+                # 转换为字典格式保存到Repository
+                history_dict = {
+                    "history_id": history_entry.history_id,
+                    "agent_id": history_entry.agent_id,
+                    "timestamp": history_entry.timestamp,
+                    "action": history_entry.action,
+                    "state_diff": history_entry.state_diff,
+                    "metadata": history_entry.metadata
+                }
+                
+                # 保存到历史Repository
+                asyncio.run(self._history_repository.save_history(history_dict))
                 history_id = history_entry.history_id
                 
                 # 创建快照（如果需要）
@@ -79,7 +94,7 @@ class StatePersistenceService:
                         snapshot_id=self._generate_id(),
                         agent_id=agent_id,
                         domain_state=state_data,
-                        timestamp=datetime.now(),
+                        timestamp=datetime.now().isoformat(),
                         snapshot_name=snapshot_name or f"snapshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                         metadata={
                             "history_id": history_id,
@@ -87,8 +102,18 @@ class StatePersistenceService:
                         }
                     )
                     
-                    self._storage_adapter.save_snapshot(snapshot)
-                    snapshot_id = snapshot.snapshot_id
+                    # 转换为字典格式保存到Repository
+                    snapshot_dict = {
+                        "snapshot_id": snapshot.snapshot_id,
+                        "agent_id": snapshot.agent_id,
+                        "domain_state": snapshot.domain_state,
+                        "timestamp": snapshot.timestamp,
+                        "snapshot_name": snapshot.snapshot_name,
+                        "metadata": snapshot.metadata
+                    }
+                    
+                    # 保存到快照Repository
+                    snapshot_id = asyncio.run(self._snapshot_repository.save_snapshot(snapshot_dict))
                 
                 logger.debug(f"状态保存成功: history_id={history_id}, snapshot_id={snapshot_id}")
                 return history_id, snapshot_id
@@ -108,25 +133,46 @@ class StatePersistenceService:
         """
         try:
             with self._transaction():
-                snapshot = self._storage_adapter.load_snapshot(snapshot_id)
-                if not snapshot:
+                # 从快照Repository加载
+                snapshot_dict = asyncio.run(self._snapshot_repository.load_snapshot(snapshot_id))
+                if not snapshot_dict:
                     return None
+                
+                # 创建StateSnapshot对象
+                snapshot = StateSnapshot(
+                    snapshot_id=snapshot_dict["snapshot_id"],
+                    agent_id=snapshot_dict["agent_id"],
+                    domain_state=snapshot_dict["domain_state"],
+                    timestamp=snapshot_dict["timestamp"],
+                    snapshot_name=snapshot_dict.get("snapshot_name", ""),
+                    metadata=snapshot_dict.get("metadata", {})
+                )
                 
                 # 记录恢复操作
                 restore_entry = StateHistoryEntry(
                     history_id=self._generate_id(),
                     agent_id=snapshot.agent_id,
-                    timestamp=datetime.now(),
+                    timestamp=datetime.now().isoformat(),
                     action="restore_snapshot",
                     state_diff={},
                     metadata={
                         "snapshot_id": snapshot_id,
                         "snapshot_name": snapshot.snapshot_name,
-                        "snapshot_timestamp": snapshot.timestamp.isoformat()
+                        "snapshot_timestamp": snapshot.timestamp
                     }
                 )
                 
-                self._storage_adapter.save_history_entry(restore_entry)
+                # 转换为字典格式保存到历史Repository
+                history_dict = {
+                    "history_id": restore_entry.history_id,
+                    "agent_id": restore_entry.agent_id,
+                    "timestamp": restore_entry.timestamp,
+                    "action": restore_entry.action,
+                    "state_diff": restore_entry.state_diff,
+                    "metadata": restore_entry.metadata
+                }
+                
+                asyncio.run(self._history_repository.save_history(history_dict))
                 
                 logger.debug(f"状态恢复成功: snapshot_id={snapshot_id}")
                 return snapshot
@@ -148,7 +194,17 @@ class StatePersistenceService:
             with self._transaction():
                 saved_ids = []
                 for entry in entries:
-                    self._storage_adapter.save_history_entry(entry)
+                    # 转换为字典格式保存到Repository
+                    history_dict = {
+                        "history_id": entry.history_id,
+                        "agent_id": entry.agent_id,
+                        "timestamp": entry.timestamp,
+                        "action": entry.action,
+                        "state_diff": entry.state_diff,
+                        "metadata": entry.metadata
+                    }
+                    
+                    asyncio.run(self._history_repository.save_history(history_dict))
                     saved_ids.append(entry.history_id)
                 
                 logger.debug(f"批量保存历史记录成功: {len(saved_ids)} 条")
@@ -171,8 +227,18 @@ class StatePersistenceService:
             with self._transaction():
                 saved_ids = []
                 for snapshot in snapshots:
-                    self._storage_adapter.save_snapshot(snapshot)
-                    saved_ids.append(snapshot.snapshot_id)
+                    # 转换为字典格式保存到Repository
+                    snapshot_dict = {
+                        "snapshot_id": snapshot.snapshot_id,
+                        "agent_id": snapshot.agent_id,
+                        "domain_state": snapshot.domain_state,
+                        "timestamp": snapshot.timestamp,
+                        "snapshot_name": snapshot.snapshot_name,
+                        "metadata": snapshot.metadata
+                    }
+                    
+                    snapshot_id = asyncio.run(self._snapshot_repository.save_snapshot(snapshot_dict))
+                    saved_ids.append(snapshot_id)
                 
                 logger.debug(f"批量保存快照成功: {len(saved_ids)} 个")
                 return saved_ids
@@ -197,23 +263,23 @@ class StatePersistenceService:
         try:
             with self._transaction():
                 # 清理历史记录
-                history_entries = self._storage_adapter.get_history_entries(agent_id, limit=10000)
-                if len(history_entries) > keep_history:
-                    to_delete = history_entries[:-keep_history]
+                history_entries_dicts = asyncio.run(self._history_repository.get_history(agent_id, limit=1000))
+                if len(history_entries_dicts) > keep_history:
+                    to_delete = history_entries_dicts[:-keep_history]
                     deleted_history = 0
-                    for entry in to_delete:
-                        if self._storage_adapter.delete_history_entry(entry.history_id):
+                    for entry_dict in to_delete:
+                        if asyncio.run(self._history_repository.delete_history(entry_dict["history_id"])):
                             deleted_history += 1
                 else:
                     deleted_history = 0
                 
                 # 清理快照
-                snapshots = self._storage_adapter.get_snapshots_by_agent(agent_id, limit=1000)
-                if len(snapshots) > keep_snapshots:
-                    to_delete = snapshots[:-keep_snapshots]
+                snapshots_dicts = asyncio.run(self._snapshot_repository.get_snapshots(agent_id, limit=1000))
+                if len(snapshots_dicts) > keep_snapshots:
+                    to_delete = snapshots_dicts[:-keep_snapshots]
                     deleted_snapshots = 0
-                    for snapshot in to_delete:
-                        if self._storage_adapter.delete_snapshot(snapshot.snapshot_id):
+                    for snapshot_dict in to_delete:
+                        if asyncio.run(self._snapshot_repository.delete_snapshot(snapshot_dict["snapshot_id"])):
                             deleted_snapshots += 1
                 else:
                     deleted_snapshots = 0
@@ -238,13 +304,13 @@ class StatePersistenceService:
             包含历史和快照的统计信息
         """
         try:
-            history_stats = self._storage_adapter.get_history_statistics()
-            snapshot_stats = self._storage_adapter.get_snapshot_statistics()
+            history_stats = asyncio.run(self._history_repository.get_history_statistics())
+            snapshot_stats = asyncio.run(self._snapshot_repository.get_snapshot_statistics())
             
             combined_stats = {
                 "history": history_stats,
                 "snapshots": snapshot_stats,
-                "total_storage_size": history_stats.get("storage_size_bytes", 0) + 
+                "total_storage_size": history_stats.get("storage_size_bytes", 0) +
                                    snapshot_stats.get("storage_size_bytes", 0),
                 "last_updated": datetime.now().isoformat()
             }
@@ -277,12 +343,12 @@ class StatePersistenceService:
             }
             
             if include_history:
-                history_entries = self._storage_adapter.get_history_entries(agent_id, limit=10000)
-                export_data["history"] = [entry.to_dict() for entry in history_entries]
+                history_entries = asyncio.run(self._history_repository.get_history(agent_id, limit=10000))
+                export_data["history"] = history_entries
             
             if include_snapshots:
-                snapshots = self._storage_adapter.get_snapshots_by_agent(agent_id, limit=1000)
-                export_data["snapshots"] = [snapshot.to_dict() for snapshot in snapshots]
+                snapshots = asyncio.run(self._snapshot_repository.get_snapshots(agent_id, limit=1000))
+                export_data["snapshots"] = snapshots
             
             logger.debug(f"代理数据导出完成: agent_id={agent_id}")
             return export_data
@@ -310,22 +376,20 @@ class StatePersistenceService:
             with self._transaction():
                 # 如果需要覆盖，先清理现有数据
                 if overwrite:
-                    self._storage_adapter.clear_agent_history(agent_id)
-                    # 注意：这里假设存储适配器有清理快照的方法
-                    # self._storage_adapter.clear_agent_snapshots(agent_id)
+                    asyncio.run(self._history_repository.clear_agent_history(agent_id))
                 
                 # 导入历史记录
                 imported_history = 0
                 for history_data in import_data.get("history", []):
-                    entry = StateHistoryEntry.from_dict(history_data)
-                    self._storage_adapter.save_history_entry(entry)
+                    # 直接使用字典数据保存到Repository
+                    history_id = asyncio.run(self._history_repository.save_history(history_data))
                     imported_history += 1
                 
                 # 导入快照
                 imported_snapshots = 0
                 for snapshot_data in import_data.get("snapshots", []):
-                    snapshot = StateSnapshot.from_dict(snapshot_data)
-                    self._storage_adapter.save_snapshot(snapshot)
+                    # 直接使用字典数据保存到Repository
+                    snapshot_id = asyncio.run(self._snapshot_repository.save_snapshot(snapshot_data))
                     imported_snapshots += 1
                 
                 import_stats = {
@@ -343,7 +407,7 @@ class StatePersistenceService:
     
     @contextmanager
     def _transaction(self):
-        """事务上下文管理器"""
+        """事务上下文管理器 - 简化版本，Repository本身处理事务"""
         if not self._enable_transactions:
             yield
             return
@@ -353,18 +417,12 @@ class StatePersistenceService:
             yield
             return
         
+        self._transaction_active = True
         try:
-            self._transaction_active = True
-            self._storage_adapter.begin_transaction()
             yield
-            self._storage_adapter.commit_transaction()
-            logger.debug("事务提交成功")
+            logger.debug("操作执行成功")
         except Exception as e:
-            try:
-                self._storage_adapter.rollback_transaction()
-                logger.debug("事务回滚成功")
-            except Exception as rollback_error:
-                logger.error(f"事务回滚失败: {rollback_error}")
+            logger.error(f"操作执行失败: {e}")
             raise
         finally:
             self._transaction_active = False

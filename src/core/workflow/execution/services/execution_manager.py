@@ -18,7 +18,7 @@ from ..modes.mode_base import IExecutionMode
 
 if TYPE_CHECKING:
     from ...workflow_instance import WorkflowInstance
-    from src.interfaces.state import IEnhancedStateManager
+    from src.interfaces.state import IStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class ExecutionManager(IExecutionManager):
     def __init__(
         self, 
         config: Optional[ExecutionManagerConfig] = None,
-        state_manager: Optional['IEnhancedStateManager'] = None
+        state_manager: Optional['IStateManager'] = None
     ):
         """初始化执行管理器
         

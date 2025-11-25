@@ -3,15 +3,17 @@
 提供状态快照的创建、恢复和清理功能。
 """
 
+import asyncio
 import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 from src.interfaces.state.snapshot import IStateSnapshotManager
 from src.interfaces.state.serializer import IStateSerializer
-from src.interfaces.state.storage.adapter import IStateStorageAdapter
-from src.interfaces.state.concrete import StateSnapshot
+from src.interfaces.repository import ISnapshotRepository
+from src.core.state.entities import StateSnapshot
 from src.core.state.base import BaseStateSnapshotManager
+from src.interfaces.state.entities import AbstractStateSnapshot
 
 
 logger = logging.getLogger(__name__)
@@ -23,26 +25,26 @@ class StateSnapshotService(BaseStateSnapshotManager):
     提供完整的快照管理功能。
     """
     
-    def __init__(self, 
-                 storage_adapter: IStateStorageAdapter,
+    def __init__(self,
+                 snapshot_repository: ISnapshotRepository,
                  serializer: Optional[IStateSerializer] = None,
                  max_snapshots_per_agent: int = 50):
         """初始化快照管理服务
         
         Args:
-            storage_adapter: 存储适配器
+            snapshot_repository: 快照Repository
             serializer: 序列化器
             max_snapshots_per_agent: 每个代理的最大快照数量
         """
         super().__init__(max_snapshots_per_agent)
-        self._storage_adapter = storage_adapter
+        self._snapshot_repository = snapshot_repository
         self._serializer = serializer
         
         # 内存缓存
         self._snapshot_cache: Dict[str, StateSnapshot] = {}
         self._agent_snapshots_index: Dict[str, List[str]] = {}
     
-    def create_snapshot(self, agent_id: str, state_data: Dict[str, Any], 
+    def create_snapshot(self, agent_id: str, state_data: Dict[str, Any],
                        snapshot_name: str = "", metadata: Optional[Dict[str, Any]] = None) -> str:
         """创建状态快照"""
         try:
@@ -56,8 +58,20 @@ class StateSnapshotService(BaseStateSnapshotManager):
                 snapshot.compressed_data = compressed_data
                 snapshot.size_bytes = len(compressed_data)
             
-            # 保存到存储
-            self._storage_adapter.save_snapshot(snapshot)
+            # 转换为字典格式保存到Repository
+            snapshot_dict = {
+                "snapshot_id": snapshot.snapshot_id,
+                "agent_id": snapshot.agent_id,
+                "domain_state": snapshot.domain_state,
+                "timestamp": snapshot.timestamp,
+                "snapshot_name": snapshot.snapshot_name,
+                "metadata": snapshot.metadata or {},
+                "compressed_data": getattr(snapshot, 'compressed_data', None),
+                "size_bytes": getattr(snapshot, 'size_bytes', 0)
+            }
+            
+            # 保存到Repository
+            snapshot_id = asyncio.run(self._snapshot_repository.save_snapshot(snapshot_dict))
             
             # 更新缓存
             self._update_cache(snapshot)
@@ -65,30 +79,48 @@ class StateSnapshotService(BaseStateSnapshotManager):
             # 清理旧快照
             self.cleanup_old_snapshots(agent_id)
             
-            logger.debug(f"快照创建成功: {snapshot.snapshot_id}")
-            return snapshot.snapshot_id
+            logger.debug(f"快照创建成功: {snapshot_id}")
+            return snapshot_id
             
         except Exception as e:
             logger.error(f"创建快照失败: {e}")
             raise
     
-    def restore_snapshot(self, snapshot_id: str) -> Optional[StateSnapshot]:
+    def restore_snapshot(self, snapshot_id: str) -> Optional[AbstractStateSnapshot]:
         """恢复状态快照"""
         try:
             # 先从缓存获取
             if snapshot_id in self._snapshot_cache:
                 snapshot = self._snapshot_cache[snapshot_id]
             else:
-                # 从存储获取
-                snapshot = self._storage_adapter.load_snapshot(snapshot_id)
-                if not snapshot:
+                # 从Repository获取
+                snapshot_dict = asyncio.run(self._snapshot_repository.load_snapshot(snapshot_id))
+                if not snapshot_dict:
                     logger.warning(f"快照不存在: {snapshot_id}")
                     return None
+                
+                # 创建StateSnapshot对象
+                snapshot = StateSnapshot(
+                    snapshot_id=snapshot_dict["snapshot_id"],
+                    agent_id=snapshot_dict["agent_id"],
+                    domain_state=snapshot_dict["domain_state"],
+                    timestamp=snapshot_dict["timestamp"],
+                    snapshot_name=snapshot_dict.get("snapshot_name", ""),
+                    metadata=snapshot_dict.get("metadata", {})
+                )
+                
+                # 设置额外属性
+                if "compressed_data" in snapshot_dict:
+                    snapshot.compressed_data = snapshot_dict["compressed_data"]
+                if "size_bytes" in snapshot_dict:
+                    snapshot.size_bytes = snapshot_dict["size_bytes"]
                 
                 # 解压缩状态数据
                 if snapshot.compressed_data and not snapshot.domain_state and self._serializer:
                     compressed_data = self._serializer.decompress_data(snapshot.compressed_data)
-                    snapshot.domain_state = self._serializer.deserialize_state(compressed_data)
+                    # 由于StateSnapshot是不可变对象，我们需要处理这个问题
+                    # 通过更新domain_state属性
+                    snapshot.__dict__['domain_state'] = self._serializer.deserialize_state(compressed_data)
                 
                 # 更新缓存
                 self._snapshot_cache[snapshot_id] = snapshot
@@ -100,7 +132,7 @@ class StateSnapshotService(BaseStateSnapshotManager):
             logger.error(f"恢复快照失败: {e}")
             return None
     
-    def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> List[StateSnapshot]:
+    def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> List[AbstractStateSnapshot]:
         """获取指定代理的快照列表"""
         try:
             # 先从缓存索引获取
@@ -112,25 +144,60 @@ class StateSnapshotService(BaseStateSnapshotManager):
                     if snapshot_id in self._snapshot_cache:
                         snapshot = self._snapshot_cache[snapshot_id]
                     else:
-                        snapshot = self._storage_adapter.load_snapshot(snapshot_id)
-                        if snapshot:
+                        snapshot_dict = asyncio.run(self._snapshot_repository.load_snapshot(snapshot_id))
+                        if snapshot_dict:
+                            snapshot = StateSnapshot(
+                                snapshot_id=snapshot_dict["snapshot_id"],
+                                agent_id=snapshot_dict["agent_id"],
+                                domain_state=snapshot_dict["domain_state"],
+                                timestamp=snapshot_dict["timestamp"],
+                                snapshot_name=snapshot_dict.get("snapshot_name", ""),
+                                metadata=snapshot_dict.get("metadata", {})
+                            )
+                            
+                            # 设置额外属性
+                            if "compressed_data" in snapshot_dict:
+                                snapshot.compressed_data = snapshot_dict["compressed_data"]
+                            if "size_bytes" in snapshot_dict:
+                                snapshot.size_bytes = snapshot_dict["size_bytes"]
+                            
                             self._snapshot_cache[snapshot_id] = snapshot
+                        else:
+                            continue
                     
                     if snapshot:
                         snapshots.append(snapshot)
                 
                 return snapshots
             
-            # 从存储获取
-            snapshots = self._storage_adapter.get_snapshots_by_agent(agent_id, limit)
+            # 从Repository获取
+            snapshot_dicts = asyncio.run(self._snapshot_repository.get_snapshots(agent_id, limit))
             
+            snapshots = []
             # 解压缩数据并更新缓存
-            for snapshot in snapshots:
+            for snapshot_dict in snapshot_dicts:
+                snapshot = StateSnapshot(
+                    snapshot_id=snapshot_dict["snapshot_id"],
+                    agent_id=snapshot_dict["agent_id"],
+                    domain_state=snapshot_dict["domain_state"],
+                    timestamp=snapshot_dict["timestamp"],
+                    snapshot_name=snapshot_dict.get("snapshot_name", ""),
+                    metadata=snapshot_dict.get("metadata", {})
+                )
+                
+                # 设置额外属性
+                if "compressed_data" in snapshot_dict:
+                    snapshot.compressed_data = snapshot_dict["compressed_data"]
+                if "size_bytes" in snapshot_dict:
+                    snapshot.size_bytes = snapshot_dict["size_bytes"]
+                
                 if snapshot.compressed_data and not snapshot.domain_state and self._serializer:
                     compressed_data = self._serializer.decompress_data(snapshot.compressed_data)
-                    snapshot.domain_state = self._serializer.deserialize_state(compressed_data)
+                    # 使用__dict__更新属性
+                    snapshot.__dict__['domain_state'] = self._serializer.deserialize_state(compressed_data)
                 
                 self._snapshot_cache[snapshot.snapshot_id] = snapshot
+                snapshots.append(snapshot)
             
             # 更新索引
             if agent_id not in self._agent_snapshots_index:
@@ -161,7 +228,8 @@ class StateSnapshotService(BaseStateSnapshotManager):
             
             deleted_count = 0
             for snapshot in to_delete:
-                if self._storage_adapter.delete_snapshot(snapshot.snapshot_id):
+                success = asyncio.run(self._snapshot_repository.delete_snapshot(snapshot.snapshot_id))
+                if success:
                     # 从缓存删除
                     if snapshot.snapshot_id in self._snapshot_cache:
                         del self._snapshot_cache[snapshot.snapshot_id]
@@ -183,8 +251,8 @@ class StateSnapshotService(BaseStateSnapshotManager):
     def delete_snapshot(self, snapshot_id: str) -> bool:
         """删除指定快照"""
         try:
-            # 从存储删除
-            success = self._storage_adapter.delete_snapshot(snapshot_id)
+            # 从Repository删除
+            success = asyncio.run(self._snapshot_repository.delete_snapshot(snapshot_id))
             
             if success:
                 # 从缓存删除
@@ -209,8 +277,8 @@ class StateSnapshotService(BaseStateSnapshotManager):
     def get_snapshot_statistics(self) -> Dict[str, Any]:
         """获取快照统计信息"""
         try:
-            # 从存储适配器获取统计信息
-            stats = self._storage_adapter.get_snapshot_statistics()
+            # 从Repository获取统计信息
+            stats = asyncio.run(self._snapshot_repository.get_snapshot_statistics())
             
             # 添加缓存统计
             cache_stats = {
@@ -228,7 +296,7 @@ class StateSnapshotService(BaseStateSnapshotManager):
             logger.error(f"获取快照统计信息失败: {e}")
             return {}
     
-    def find_snapshots_by_name(self, agent_id: str, name_pattern: str) -> List[StateSnapshot]:
+    def find_snapshots_by_name(self, agent_id: str, name_pattern: str) -> List[AbstractStateSnapshot]:
         """根据名称模式查找快照
         
         Args:
@@ -255,9 +323,9 @@ class StateSnapshotService(BaseStateSnapshotManager):
             logger.error(f"根据名称查找快照失败: {e}")
             return []
     
-    def get_snapshots_in_time_range(self, agent_id: str, 
-                                   start_time: datetime, 
-                                   end_time: datetime) -> List[StateSnapshot]:
+    def get_snapshots_in_time_range(self, agent_id: str,
+                                   start_time: datetime,
+                                   end_time: datetime) -> List[AbstractStateSnapshot]:
         """获取指定时间范围内的快照
         
         Args:
@@ -284,7 +352,7 @@ class StateSnapshotService(BaseStateSnapshotManager):
             logger.error(f"获取时间范围内快照失败: {e}")
             return []
     
-    def create_auto_snapshot(self, agent_id: str, state_data: Dict[str, Any], 
+    def create_auto_snapshot(self, agent_id: str, state_data: Dict[str, Any],
                            trigger_reason: str = "") -> str:
         """创建自动快照
         

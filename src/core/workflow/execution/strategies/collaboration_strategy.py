@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from ..core.workflow_executor import IWorkflowExecutor
     from ..core.execution_context import ExecutionContext, ExecutionResult
     from ...workflow_instance import WorkflowInstance
-    from src.interfaces.state.enhanced import IEnhancedStateManager
+    from interfaces.state.manager import IStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
     
     def __init__(
         self, 
-        state_manager: Optional['IEnhancedStateManager'] = None,
+        state_manager: Optional['IStateManager'] = None,
         config: Optional[CollaborationConfig] = None
     ):
         """初始化协作策略
@@ -385,7 +385,7 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
         else:
             return {"value": state}
     
-    def set_state_manager(self, state_manager: 'IEnhancedStateManager') -> None:
+    def set_state_manager(self, state_manager: 'IStateManager') -> None:
         """设置状态管理器
         
         Args:

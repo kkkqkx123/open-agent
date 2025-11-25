@@ -15,7 +15,7 @@ from src.services.state.di_config import (
 
 if TYPE_CHECKING:
     from src.interfaces.container import IDependencyContainer as ServiceContainer
-    from src.interfaces.state.enhanced import IEnhancedStateManager
+    from interfaces.state.manager import IStateManager
     from src.interfaces.state.history import IStateHistoryManager
     from src.interfaces.state.snapshot import IStateSnapshotManager
 
@@ -67,7 +67,7 @@ def initialize_state_services(container: Optional[Any] = None,
         return False
 
 
-def get_state_manager() -> Optional[IEnhancedStateManager]:
+def get_state_manager() -> Optional[IStateManager]:
     """获取状态管理器实例
     
     Returns:
@@ -75,7 +75,7 @@ def get_state_manager() -> Optional[IEnhancedStateManager]:
     """
     try:
         from src.services.container import container
-        return container.get(IEnhancedStateManager)  # type: ignore
+        return container.get(IStateManager)  # type: ignore
     except Exception as e:
         logger.error(f"获取状态管理器失败: {e}")
         return None
@@ -134,7 +134,7 @@ def get_service_status() -> Dict[str, Any]:
         from src.services.container import container
         
         services_to_check = [
-            ("state_manager", IEnhancedStateManager),
+            ("state_manager", IStateManager),
             ("history_service", IStateHistoryManager),
             ("snapshot_service", IStateSnapshotManager)
         ]
