@@ -286,7 +286,26 @@ class ConnectionState(ToolState):
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ConnectionState':
         """从字典创建状态"""
-        instance = super().from_dict(data)
+        # 首先创建父类实例，然后转换为子类类型
+        tool_state = ToolState.from_dict(data)
+        instance: 'ConnectionState' = cls.__new__(cls)
+        
+        # 复制父类属性
+        instance._id = tool_state._id
+        instance._data = tool_state._data
+        instance._metadata = tool_state._metadata
+        instance._complete = tool_state._complete
+        instance._created_at = tool_state._created_at
+        instance._updated_at = tool_state._updated_at
+        
+        # 复制 ToolState 属性
+        instance._context_id = tool_state._context_id
+        instance._state_type = tool_state._state_type
+        instance._tool_type = tool_state._tool_type
+        instance._expires_at = tool_state._expires_at
+        instance._version = tool_state._version
+        
+        # 设置 ConnectionState 特定属性
         instance._connection_status = data.get("connection_status", 'disconnected')
         instance._connection_params = data.get("connection_params", {})
         instance._last_error = data.get("last_error")
@@ -380,7 +399,26 @@ class CacheState(ToolState):
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'CacheState':
         """从字典创建状态"""
-        instance = super().from_dict(data)
+        # 首先创建父类实例，然后转换为子类类型
+        tool_state = ToolState.from_dict(data)
+        instance: 'CacheState' = cls.__new__(cls)
+        
+        # 复制父类属性
+        instance._id = tool_state._id
+        instance._data = tool_state._data
+        instance._metadata = tool_state._metadata
+        instance._complete = tool_state._complete
+        instance._created_at = tool_state._created_at
+        instance._updated_at = tool_state._updated_at
+        
+        # 复制 ToolState 属性
+        instance._context_id = tool_state._context_id
+        instance._state_type = tool_state._state_type
+        instance._tool_type = tool_state._tool_type
+        instance._expires_at = tool_state._expires_at
+        instance._version = tool_state._version
+        
+        # 设置 CacheState 特定属性
         instance._cache_key = data.get("cache_key", "")
         instance._cache_size = data.get("cache_size", 0)
         instance._hit_count = data.get("hit_count", 0)

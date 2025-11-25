@@ -2,9 +2,7 @@
 
 import logging
 import threading
-import time
 from typing import Dict, Any, List, Optional, Callable, Set
-from enum import Enum
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -16,6 +14,10 @@ from src.interfaces.container import (
 )
 
 logger = logging.getLogger(__name__)
+
+# 全局生命周期管理器实例
+_global_lifecycle_manager: Optional["LifecycleManager"] = None
+_global_lifecycle_manager_lock = threading.Lock()
 
 
 @dataclass
@@ -500,3 +502,16 @@ class LifecycleManager(ILifecycleManager):
                 "recent_events_count": len(self._events),
                 "dependency_edges": sum(len(deps) for deps in self._dependency_graph.values())
             }
+
+
+def get_global_lifecycle_manager() -> LifecycleManager:
+    """获取全局生命周期管理器实例（单例模式）"""
+    global _global_lifecycle_manager
+    
+    if _global_lifecycle_manager is None:
+        with _global_lifecycle_manager_lock:
+            if _global_lifecycle_manager is None:
+                _global_lifecycle_manager = LifecycleManager()
+                logger.debug("创建全局LifecycleManager实例")
+    
+    return _global_lifecycle_manager

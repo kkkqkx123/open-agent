@@ -5,7 +5,8 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
-from ...interfaces.prompts import IPromptInjector, PromptConfig
+# 修复相对导入路径：从 workflow/templates.py 到 prompts/ 只需要向上两级
+from ..prompts import IPromptInjector, PromptConfig
 
 if TYPE_CHECKING:
     from ...interfaces.workflow.core import IWorkflow

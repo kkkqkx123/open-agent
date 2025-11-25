@@ -342,7 +342,27 @@ class UserSessionState(SessionState):
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'UserSessionState':
         """从字典创建状态"""
-        instance = super().from_dict(data)
+        # 首先创建父类实例，然后转换为子类类型
+        session_state = SessionState.from_dict(data)
+        instance: 'UserSessionState' = cls.__new__(cls)
+        
+        # 复制父类属性
+        instance._id = session_state._id
+        instance._data = session_state._data
+        instance._metadata = session_state._metadata
+        instance._complete = session_state._complete
+        instance._created_at = session_state._created_at
+        instance._updated_at = session_state._updated_at
+        
+        # 复制 SessionState 属性
+        instance._user_id = session_state._user_id
+        instance._session_metadata = session_state._session_metadata
+        instance._is_active = session_state._is_active
+        instance._last_activity = session_state._last_activity
+        instance._thread_ids = session_state._thread_ids
+        instance._max_inactive_duration = session_state._max_inactive_duration
+        
+        # 设置 UserSessionState 特定属性
         instance._user_preferences = data.get("user_preferences", {})
         instance._user_permissions = data.get("user_permissions", [])
         instance._session_type = data.get("session_type", "user")
@@ -351,9 +371,13 @@ class UserSessionState(SessionState):
         login_time_str = data.get("login_time")
         if login_time_str:
             instance._login_time = datetime.fromisoformat(login_time_str)
+        else:
+            instance._login_time = datetime.now()
         
         logout_time_str = data.get("logout_time")
         if logout_time_str:
             instance._logout_time = datetime.fromisoformat(logout_time_str)
+        else:
+            instance._logout_time = None
         
         return instance

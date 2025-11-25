@@ -9,7 +9,7 @@ import logging
 
 from src.interfaces.tool.base import ITool, IToolRegistry, IToolManager
 from src.interfaces.tool.config import ToolConfig as InterfaceToolConfig
-from src.core.tools.factory import ToolFactory
+from src.core.tools.factory import OptimizedToolFactory as ToolFactory
 from src.core.tools.config import ToolRegistryConfig
 from src.core.common.exceptions import ToolError
 
@@ -234,7 +234,8 @@ class ToolManager(IToolManager):
         """
         try:
             # 尝试创建工具实例来验证配置
-            tool = self._factory.create_tool(config)
+            config_dict: Dict[str, Any] = config.to_dict()  # type: ignore
+            tool = self._factory.create_tool(config_dict)
             return tool is not None
             
         except Exception as e:

@@ -3,10 +3,10 @@
 提供创建各种适配器的工厂类，用于与现有系统集成。
 """
 
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type, cast
 
 from ..interfaces.base import IState, IStateManager
-from ..interfaces.workflow import IWorkflowState
+from src.interfaces.state.workflow import IWorkflowState
 from ..interfaces.tools import IToolState
 
 
@@ -31,11 +31,11 @@ class StateAdapterFactory:
         """
         # 动态导入以避免循环依赖
         try:
-            from ...workflow.states.workflow_state_adapter import WorkflowStateAdapter
+            from src.services.workflow.state_converter import WorkflowStateAdapter
             if new_state:
-                return WorkflowStateAdapter(new_state)
+                return WorkflowStateAdapter()
             elif legacy_state:
-                return WorkflowStateAdapter.adapt_existing_state(legacy_state)
+                return WorkflowStateAdapter()
             else:
                 return WorkflowStateAdapter()
         except ImportError:
@@ -57,14 +57,31 @@ class StateAdapterFactory:
         """
         # 动态导入以避免循环依赖
         try:
-            from ...tools.state.memory_state_manager import MemoryStateManager
+            # 创建一个简单的状态管理器包装器
+            class SimpleStateManager:
+                def __init__(self) -> None:
+                    self._states: Dict[str, Any] = {}
+                
+                def get_state(self, state_id: str) -> Optional[Any]:
+                    return self._states.get(state_id)
+                
+                def set_state(self, state_id: str, state_data: Any) -> None:
+                    self._states[state_id] = state_data
+                
+                @classmethod
+                def from_new_state(cls, new_state: Any) -> 'SimpleStateManager':
+                    """从新状态创建管理器"""
+                    manager = cls()
+                    manager.set_state("default", new_state)
+                    return manager
+            
             if new_state:
                 # 创建一个新的内存状态管理器来包装新状态
-                return MemoryStateManager.from_new_state(new_state)
+                return SimpleStateManager.from_new_state(new_state)
             elif legacy_state:
                 return legacy_state  # 已经是遗留状态
             else:
-                return MemoryStateManager()
+                return SimpleStateManager()
         except ImportError:
             # 如果无法导入工具适配器，返回原始状态
             return new_state or legacy_state
@@ -180,9 +197,9 @@ class StateAdapterFactory:
         state_type = getattr(new_state, 'state_type', 'unknown')
         
         if state_type == 'workflow':
-            return cls.create_workflow_adapter(new_state)
+            return cls.create_workflow_adapter(cast(IWorkflowState, new_state) if new_state else None)
         elif state_type == 'tool':
-            return cls.create_tool_adapter(new_state)
+            return cls.create_tool_adapter(cast(IToolState, new_state) if new_state else None)
         elif state_type == 'session':
             return cls.create_session_adapter(new_state)
         elif state_type == 'thread':
@@ -207,9 +224,9 @@ class StateAdapterFactory:
             双向适配器实例
         """
         if state_type == "workflow":
-            return cls.create_workflow_adapter(new_state, legacy_state)
+            return cls.create_workflow_adapter(cast(IWorkflowState, new_state) if new_state else None, legacy_state)
         elif state_type == "tool":
-            return cls.create_tool_adapter(new_state, legacy_state)
+            return cls.create_tool_adapter(cast(IToolState, new_state) if new_state else None, legacy_state)
         elif state_type == "session":
             return cls.create_session_adapter(new_state, legacy_state)
         elif state_type == "thread":

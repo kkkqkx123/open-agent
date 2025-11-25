@@ -10,6 +10,7 @@ from src.interfaces.common import IConfigLoader
 from src.interfaces.sessions.base import ISessionManager
 from src.adapters.cli.env_check_command import EnvironmentCheckCommand
 from src.adapters.cli.architecture_command import ArchitectureCommand
+from src.adapters.cli.dependency_analysis_command import DependencyAnalysisCommand
 from .error_handler import handle_cli_error, handle_cli_warning, handle_cli_success, handle_cli_info
 from .help import HelpManager
 
@@ -156,6 +157,66 @@ def arch_check(ctx: click.Context, format: str, output: Optional[str], base_path
         handle_cli_error(e, ctx.obj.get("verbose", False), "架构检查时发生错误")
 
 
+@cli.group()
+def dependency() -> None:
+    """依赖分析命令"""
+    pass
+
+
+@dependency.command("analyze")
+@click.option("--format", "-f", type=click.Choice(["text", "json", "dot"]), default="text", help="输出格式")
+@click.option("--output", "-o", type=click.Path(), help="输出文件路径")
+@click.pass_context
+def dependency_analyze(ctx: click.Context, format: str, output: Optional[str]) -> None:
+    """分析DI容器的依赖关系
+    
+    示例：
+        python -m src.adapters.cli dependency analyze --format json --output report.json
+    """
+    try:
+        command = DependencyAnalysisCommand()
+        
+        # 这里可以集成实际的容器分析逻辑
+        # 目前只是演示
+        console.print("[yellow]依赖分析工具[/yellow]")
+        console.print("使用方法: 从代码中提取容器配置或注册信息")
+        
+        if output:
+            command.export_report(output, format)
+            console.print(f"[green]报告已导出到: {output}[/green]")
+        else:
+            if format == "text":
+                console.print(command.generate_text_report())
+            elif format == "json":
+                console.print(command.generate_json_report())
+            elif format == "dot":
+                console.print(command.generate_dot_diagram())
+        
+    except Exception as e:
+        handle_cli_error(e, ctx.obj.get("verbose", False), "依赖分析时发生错误")
+
+
+@dependency.command("check-circular")
+@click.pass_context
+def dependency_check_circular(ctx: click.Context) -> None:
+    """检查是否存在循环依赖"""
+    try:
+        command = DependencyAnalysisCommand()
+        
+        has_circular = command.check_circular_dependencies()
+        
+        if has_circular:
+            circular_deps = command.get_circular_dependencies()
+            console.print("[red]✗ 检测到循环依赖:[/red]")
+            for cycle in circular_deps:
+                console.print(f"  {' -> '.join(cycle)}")
+        else:
+            console.print("[green]✓ 未检测到循环依赖[/green]")
+        
+    except Exception as e:
+        handle_cli_error(e, ctx.obj.get("verbose", False), "循环依赖检查时发生错误")
+
+
 @cli.command("version")
 @click.pass_context
 def version(ctx: click.Context) -> None:
@@ -265,24 +326,24 @@ def setup_container(config_path: Optional[str] = None) -> None:
     # 所有会话存储操作现在使用ISessionRepository
     
     # 注册Git服务
-    from src.services.session.git_service import IGitService
+    from src.services.sessions.git_service import IGitService
     if not container.has_service(IGitService):
-        from src.services.session.git_service import MockGitService
+        from src.services.sessions.git_service import MockGitService
         git_manager = MockGitService()
         container.register_instance(IGitService, git_manager)
     
     # 注册工作流管理器
     from src.core.workflow.orchestration.manager import IWorkflowManager
     if not container.has_service(IWorkflowManager):
-        from src.core.workflow.orchestration import WorkflowOrchestrator
-        from src.core.workflow.execution.core import WorkflowExecutor
+        from src.core.workflow.orchestration.orchestrator import WorkflowOrchestrator
+        from src.core.workflow.execution.core.workflow_executor import WorkflowExecutor
         from src.core.workflow.registry.registry import WorkflowRegistry
         from src.core.workflow.orchestration.manager import WorkflowManager
         
         orchestrator = WorkflowOrchestrator()
-        executor = WorkflowExecutor()
+        executor = WorkflowExecutor()  # type: ignore
         registry = WorkflowRegistry()
-        workflow_manager = WorkflowManager(orchestrator, executor, registry)
+        workflow_manager = WorkflowManager(orchestrator, executor, registry)  # type: ignore
         container.register_instance(IWorkflowManager, workflow_manager)
     
     # 注册会话核心服务
@@ -334,7 +395,7 @@ def setup_container(config_path: Optional[str] = None) -> None:
     if not container.has_service(ISessionManager):
         from src.services.sessions.manager import SessionManager
         session_manager = SessionManager(
-            session_core=container.get(ISessionCore)
+            session_service=None
         )
         container.register_instance(ISessionManager, session_manager)
     

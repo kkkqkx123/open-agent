@@ -7,7 +7,7 @@
 from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from .types import PromptType
 
 
@@ -37,8 +37,7 @@ class PromptReference(BaseModel):
     version: Optional[str] = Field(None, description="引用版本")
     alias: Optional[str] = Field(None, description="引用别名")
     
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class PromptVariable(BaseModel):
@@ -49,8 +48,7 @@ class PromptVariable(BaseModel):
     required: bool = Field(default=True, description="是否必需")
     description: Optional[str] = Field(None, description="变量描述")
     
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class PromptValidation(BaseModel):
@@ -61,8 +59,7 @@ class PromptValidation(BaseModel):
     forbidden_words: Optional[List[str]] = Field(None, description="禁用词汇")
     required_keywords: Optional[List[str]] = Field(None, description="必需关键词")
     
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class PromptMeta(BaseModel):
@@ -108,18 +105,21 @@ class PromptMeta(BaseModel):
     # 扩展属性
     metadata: Dict[str, Any] = Field(default_factory=dict, description="扩展元数据")
     
-    class Config:
-        extra = "forbid"
-        use_enum_values = True
+    model_config = ConfigDict(
+        extra="forbid",
+        use_enum_values=True
+    )
     
-    @validator('content')
-    def validate_content_not_empty(cls, v):
+    @field_validator('content')
+    @classmethod
+    def validate_content_not_empty(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError('提示词内容不能为空')
         return v
     
-    @validator('id')
-    def validate_id_format(cls, v):
+    @field_validator('id')
+    @classmethod
+    def validate_id_format(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError('提示词ID不能为空')
         # 简单的ID格式验证
@@ -128,11 +128,11 @@ class PromptMeta(BaseModel):
             raise ValueError('提示词ID只能包含字母、数字、下划线和连字符')
         return v
     
-    def update_timestamp(self):
+    def update_timestamp(self) -> None:
         """更新时间戳"""
         self.updated_at = datetime.now()
     
-    def add_reference(self, ref: PromptReference):
+    def add_reference(self, ref: PromptReference) -> None:
         """添加引用"""
         # 检查是否已存在
         for existing_ref in self.references:
@@ -142,15 +142,15 @@ class PromptMeta(BaseModel):
         self.references.append(ref)
         self.update_timestamp()
     
-    def remove_reference(self, ref_id: str, ref_path: str):
+    def remove_reference(self, ref_id: str, ref_path: str) -> None:
         """移除引用"""
         self.references = [
-            ref for ref in self.references 
+            ref for ref in self.references
             if not (ref.ref_id == ref_id and ref.ref_path == ref_path)
         ]
         self.update_timestamp()
     
-    def add_variable(self, var: PromptVariable):
+    def add_variable(self, var: PromptVariable) -> None:
         """添加变量"""
         # 检查是否已存在
         for existing_var in self.variables:
@@ -208,8 +208,7 @@ class PromptConfig(BaseModel):
     enable_error_recovery: bool = Field(default=True, description="是否启用错误恢复")
     max_retry_attempts: int = Field(default=3, description="最大重试次数")
     
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class PromptSearchCriteria(BaseModel):
@@ -239,8 +238,7 @@ class PromptSearchCriteria(BaseModel):
     sort_by: str = Field(default="updated_at", description="排序字段")
     sort_order: str = Field(default="desc", pattern="^(asc|desc)$", description="排序顺序")
     
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class PromptSearchResult(BaseModel):
@@ -251,5 +249,4 @@ class PromptSearchResult(BaseModel):
     offset: int = Field(default=0, description="偏移量")
     limit: int = Field(default=50, description="限制数量")
     
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")

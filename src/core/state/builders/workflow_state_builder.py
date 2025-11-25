@@ -5,7 +5,7 @@
 
 from typing import Any, Dict, List, Optional, Union
 
-from ..interfaces.workflow import IWorkflowState
+from src.interfaces.state.workflow import IWorkflowState
 from ..implementations.workflow_state import WorkflowState
 from ..implementations.workflow_state import (
     HumanMessage, AIMessage, SystemMessage, ToolMessage,

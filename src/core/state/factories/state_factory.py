@@ -3,10 +3,14 @@
 提供创建各种状态对象的统一工厂类。
 """
 
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union, TYPE_CHECKING
+from enum import Enum
+
+# 定义状态类型的类型别名
+StateType = Union[str, Enum]
 
 from ..interfaces.base import IState
-from ..interfaces.workflow import IWorkflowState
+from src.interfaces.state.workflow import IWorkflowState
 from ..interfaces.tools import IToolState
 from ..interfaces.sessions import ISessionState
 from ..interfaces.threads import IThreadState
@@ -35,7 +39,7 @@ class StateFactory:
     }
     
     @classmethod
-    def create_state(cls, state_type: str, **kwargs) -> IState:
+    def create_state(cls, state_type: StateType, **kwargs) -> IState:
         """创建状态对象
         
         Args:
@@ -49,7 +53,7 @@ class StateFactory:
             ValueError: 当状态类型不支持时
         """
         # 处理枚举类型
-        if hasattr(state_type, 'value'):
+        if isinstance(state_type, Enum):
             state_type_str = state_type.value
         else:
             state_type_str = str(state_type)
@@ -125,7 +129,7 @@ class StateFactory:
         return CheckpointState(**kwargs)
     
     @classmethod
-    def create_state_from_dict(cls, state_type: str, data: Dict[str, Any]) -> IState:
+    def create_state_from_dict(cls, state_type: StateType, data: Dict[str, Any]) -> IState:
         """从字典创建状态对象
         
         Args:
@@ -139,7 +143,7 @@ class StateFactory:
             ValueError: 当状态类型不支持时
         """
         # 处理枚举类型
-        if hasattr(state_type, 'value'):
+        if isinstance(state_type, Enum):
             state_type_str = state_type.value
         else:
             state_type_str = str(state_type)
@@ -159,7 +163,7 @@ class StateFactory:
             return state_class(**data)
     
     @classmethod
-    def register_state_type(cls, state_type: str, state_class: Type[IState]) -> None:
+    def register_state_type(cls, state_type: StateType, state_class: Type[IState]) -> None:
         """注册新的状态类型
         
         Args:
@@ -172,7 +176,13 @@ class StateFactory:
         if not issubclass(state_class, IState):
             raise TypeError(f"State class must inherit from IState: {state_class}")
         
-        cls._state_registry[state_type] = state_class
+        # 处理枚举类型
+        if isinstance(state_type, Enum):
+            state_type_str = state_type.value
+        else:
+            state_type_str = str(state_type)
+        
+        cls._state_registry[state_type_str] = state_class
     
     @classmethod
     def get_supported_types(cls) -> List[str]:
@@ -184,7 +194,7 @@ class StateFactory:
         return list(cls._state_registry.keys())
     
     @classmethod
-    def is_type_supported(cls, state_type: str) -> bool:
+    def is_type_supported(cls, state_type: StateType) -> bool:
         """检查状态类型是否支持
         
         Args:
@@ -194,7 +204,7 @@ class StateFactory:
             bool: 是否支持
         """
         # 处理枚举类型
-        if hasattr(state_type, 'value'):
+        if isinstance(state_type, Enum):
             state_type_str = state_type.value
         else:
             state_type_str = str(state_type)
@@ -203,7 +213,7 @@ class StateFactory:
 
 
 # 便捷函数
-def create_state(state_type: str, **kwargs) -> IState:
+def create_state(state_type: StateType, **kwargs) -> IState:
     """创建状态对象的便捷函数
     
     Args:

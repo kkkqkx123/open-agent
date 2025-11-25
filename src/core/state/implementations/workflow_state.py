@@ -8,7 +8,7 @@ import logging
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
 
-from ..interfaces.workflow import IWorkflowState
+from interfaces.state.workflow import IWorkflowState
 from ..implementations.base_state import BaseStateImpl
 
 

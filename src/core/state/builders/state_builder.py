@@ -5,9 +5,12 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, Optional, TypeVar, Generic
+from typing import Any, Dict, List, Optional, TypeVar, Generic, TYPE_CHECKING, Type
 
-from ..interfaces.base import IState
+if TYPE_CHECKING:
+    from src.interfaces.state.interfaces import IState
+else:
+    from src.interfaces.state.interfaces import IState
 
 T = TypeVar('T', bound=IState)
 

@@ -348,7 +348,27 @@ class BranchThreadState(ThreadState):
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'BranchThreadState':
         """从字典创建状态"""
-        instance = super().from_dict(data)
+        # 首先创建父类实例，然后转换为子类类型
+        thread_state = ThreadState.from_dict(data)
+        instance: 'BranchThreadState' = cls.__new__(cls)
+        
+        # 复制父类属性
+        instance._id = thread_state._id
+        instance._data = thread_state._data
+        instance._metadata = thread_state._metadata
+        instance._complete = thread_state._complete
+        instance._created_at = thread_state._created_at
+        instance._updated_at = thread_state._updated_at
+        
+        # 复制 ThreadState 属性
+        instance._session_id = thread_state._session_id
+        instance._thread_metadata = thread_state._thread_metadata
+        instance._parent_thread_id = thread_state._parent_thread_id
+        instance._child_thread_ids = thread_state._child_thread_ids
+        instance._branch_point = thread_state._branch_point
+        instance._created_from_snapshot = thread_state._created_from_snapshot
+        
+        # 设置 BranchThreadState 特定属性
         instance._branch_reason = data.get("branch_reason", "")
         instance._branch_data = data.get("branch_data", {})
         instance._merge_target_id = data.get("merge_target_id")
@@ -358,5 +378,7 @@ class BranchThreadState(ThreadState):
         branch_timestamp_str = data.get("branch_timestamp")
         if branch_timestamp_str:
             instance._branch_timestamp = datetime.fromisoformat(branch_timestamp_str)
+        else:
+            instance._branch_timestamp = datetime.now()
         
         return instance

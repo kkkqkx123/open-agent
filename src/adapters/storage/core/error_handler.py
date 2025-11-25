@@ -3,7 +3,9 @@
 提供统一的存储错误处理功能。
 """
 
+import asyncio
 import logging
+import inspect
 from functools import wraps
 from typing import Any, Callable, Optional, TypeVar, Union
 
@@ -71,9 +73,9 @@ class StorageErrorHandler:
         return StorageErrorHandler.handle_storage_error(operation, error)
 
 
-def with_error_handling(operation_name: Optional[str] = None, 
+def with_error_handling(operation_name: Optional[str] = None,
                        return_on_error: Optional[Any] = None,
-                       reraise: bool = True):
+                       reraise: bool = True) -> Callable[[F], F]:
     """错误处理装饰器
     
     Args:
@@ -88,7 +90,7 @@ def with_error_handling(operation_name: Optional[str] = None,
         op_name = operation_name or func.__name__
         
         @wraps(func)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 return func(*args, **kwargs)
             except Exception as e:
@@ -100,7 +102,7 @@ def with_error_handling(operation_name: Optional[str] = None,
                     return return_on_error
         
         @wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 return await func(*args, **kwargs)
             except Exception as e:
@@ -112,8 +114,7 @@ def with_error_handling(operation_name: Optional[str] = None,
                     return return_on_error
         
         # 根据函数类型返回相应的包装器
-        import asyncio
-        if asyncio.iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
             return async_wrapper  # type: ignore
         else:
             return sync_wrapper  # type: ignore
@@ -121,11 +122,11 @@ def with_error_handling(operation_name: Optional[str] = None,
     return decorator
 
 
-def safe_execute(func: Callable[..., Any], 
-                *args, 
+def safe_execute(func: Callable[..., Any],
+                *args: Any,
                 operation_name: Optional[str] = None,
                 default_return: Optional[Any] = None,
-                **kwargs) -> Any:
+                **kwargs: Any) -> Any:
     """安全执行函数
     
     Args:
@@ -147,11 +148,11 @@ def safe_execute(func: Callable[..., Any],
         return default_return
 
 
-async def safe_execute_async(func: Callable[..., Any], 
-                           *args, 
+async def safe_execute_async(func: Callable[..., Any],
+                           *args: Any,
                            operation_name: Optional[str] = None,
                            default_return: Optional[Any] = None,
-                           **kwargs) -> Any:
+                           **kwargs: Any) -> Any:
     """安全执行异步函数
     
     Args:
@@ -191,8 +192,8 @@ class RetryHandler:
         self.delay = delay
         self.backoff = backoff
     
-    def retry(self, operation_name: Optional[str] = None, 
-              retry_on: Optional[tuple] = None):
+    def retry(self, operation_name: Optional[str] = None,
+              retry_on: Optional[tuple] = None) -> Callable[[F], F]:
         """重试装饰器
         
         Args:
@@ -207,7 +208,7 @@ class RetryHandler:
             retry_exceptions = retry_on or (StorageConnectionError, StorageTimeoutError)
             
             @wraps(func)
-            def sync_wrapper(*args, **kwargs):
+            def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
                 last_exception = None
                 current_delay = self.delay
                 
@@ -234,7 +235,7 @@ class RetryHandler:
                     raise StorageError(f"Operation {op_name} failed after {self.max_retries} retries")
             
             @wraps(func)
-            async def async_wrapper(*args, **kwargs):
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 last_exception = None
                 current_delay = self.delay
                 
@@ -260,8 +261,7 @@ class RetryHandler:
                     raise StorageError(f"Operation {op_name} failed after {self.max_retries} retries")
             
             # 根据函数类型返回相应的包装器
-            import asyncio
-            if asyncio.iscoroutinefunction(func):
+            if inspect.iscoroutinefunction(func):
                 return async_wrapper  # type: ignore
             else:
                 return sync_wrapper  # type: ignore

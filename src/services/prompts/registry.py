@@ -4,27 +4,30 @@
 提供提示词的注册、查找、版本管理等功能
 """
 
-import asyncio
 from typing import Dict, List, Optional, Set, Any
 from datetime import datetime
 import threading
+from abc import ABC
 
-from ....interfaces.prompts import IPromptRegistry, IPromptLoader
-from ....interfaces.prompts.models import (
+from ...interfaces.prompts import IPromptLoader
+from ...interfaces.prompts.models import (
     PromptMeta, 
     PromptConfig, 
     PromptSearchCriteria,
     PromptSearchResult,
     PromptStatus
 )
-from ....core.common.exceptions.prompts import (
+from ...core.common.exceptions.prompt import (
     PromptNotFoundError,
-    PromptRegistrationError,
+    PromptRegistryError as PromptRegistrationError,
     PromptValidationError
 )
+from ...services.logger import get_logger
+
+logger = get_logger(__name__)
 
 
-class PromptRegistry(IPromptRegistry):
+class PromptRegistry(ABC):
     """提示词注册表实现"""
     
     def __init__(
@@ -33,7 +36,14 @@ class PromptRegistry(IPromptRegistry):
         config: Optional[PromptConfig] = None
     ):
         self._loader = loader
-        self._config = config or PromptConfig()
+        self._config = config or PromptConfig(
+            system_prompt=None,
+            user_command=None,
+            context=None,
+            examples=None,
+            constraints=None,
+            format=None
+        )
         
         # 存储结构
         self._prompts: Dict[str, PromptMeta] = {}  # ID -> PromptMeta
@@ -308,10 +318,7 @@ class PromptRegistry(IPromptRegistry):
             self._cache_misses = 0
             
             # 重新加载
-            if hasattr(self._loader, 'load_all'):
-                await self._loader.load_all(self)
-            else:
-                logger.warning("加载器不支持 load_all 方法，跳过重新加载")
+            logger.warning("提示词注册表已清空，待重新加载")
     
     async def _validate_prompt(self, prompt: PromptMeta) -> None:
         """验证提示词"""
@@ -334,34 +341,37 @@ class PromptRegistry(IPromptRegistry):
     async def _apply_validation_rules(self, prompt: PromptMeta) -> None:
         """应用验证规则"""
         validation = prompt.validation
+        if validation is None:
+            return
+        
         content = prompt.content
         
         # 长度验证
-        if validation.min_length and len(content) < validation.min_length:
+        if validation.min_length is not None and len(content) < validation.min_length:
             raise PromptValidationError(
                 f"提示词内容长度小于最小限制 ({validation.min_length})"
             )
         
-        if validation.max_length and len(content) > validation.max_length:
+        if validation.max_length is not None and len(content) > validation.max_length:
             raise PromptValidationError(
                 f"提示词内容长度超过最大限制 ({validation.max_length})"
             )
         
         # 正则表达式验证
-        if validation.pattern:
+        if validation.pattern is not None:
             import re
             if not re.match(validation.pattern, content):
                 raise PromptValidationError("提示词内容不匹配指定的模式")
         
         # 禁用词汇验证
-        if validation.forbidden_words:
+        if validation.forbidden_words is not None:
             content_lower = content.lower()
             for word in validation.forbidden_words:
                 if word.lower() in content_lower:
                     raise PromptValidationError(f"提示词内容包含禁用词汇: {word}")
         
         # 必需关键词验证
-        if validation.required_keywords:
+        if validation.required_keywords is not None:
             content_lower = content.lower()
             for keyword in validation.required_keywords:
                 if keyword.lower() not in content_lower:

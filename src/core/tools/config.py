@@ -145,3 +145,24 @@ class MCPToolConfig(ToolConfig):
     tool_type: str = "mcp"
     dynamic_schema: bool = False # 是否动态获取Schema
     state_config: StateManagerConfig = field(default_factory=StateManagerConfig)
+
+
+@dataclass(kw_only=True)
+class ToolRegistryConfig:
+    """工具注册表配置"""
+    
+    # 基础配置
+    auto_discover: bool = True  # 自动发现工具
+    discovery_paths: List[str] = field(default_factory=list)  # 发现路径
+    reload_on_change: bool = False  # 变化时重新加载
+    tools: List[ToolConfig] = field(default_factory=list)  # 工具配置列表
+    
+    # 工具管理配置
+    max_tools: int = 1000  # 最大工具数量
+    enable_caching: bool = True  # 启用缓存
+    cache_ttl: int = 300  # 缓存生存时间（秒）
+    
+    # 安全配置
+    allow_dynamic_loading: bool = True  # 允许动态加载
+    validate_schemas: bool = True  # 验证模式
+    sandbox_mode: bool = False  # 沙盒模式
