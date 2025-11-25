@@ -7,14 +7,10 @@
 from typing import Dict, Any, Optional, Generator, AsyncIterator, List
 from datetime import datetime
 import logging
-import asyncio
 
 from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.state_machine.state_templates import StateTemplateManager
-from src.interfaces.workflow.core import IWorkflow
-from src.interfaces.state import IWorkflowState
-from src.core.workflow.entities import WorkflowState, ExecutionResult
-from core.common.exceptions.workflow import WorkflowExecutionError, WorkflowStateError
+from core.common.exceptions.workflow import WorkflowExecutionError
 
 logger = logging.getLogger(__name__)
 
@@ -472,6 +468,88 @@ class WorkflowInstance:
             "field_count": len(state_schema.fields) if hasattr(state_schema, 'fields') else 0,
             "template": getattr(self.config, 'state_template', None)
         }
+    
+    def get_node(self, node_id: str) -> Optional[Any]:
+        """获取工作流中的节点
+        
+        Args:
+            node_id: 节点ID
+            
+        Returns:
+            Optional[Any]: 节点对象，如果不存在返回None
+        """
+        if node_id in self.config.nodes:
+            return self.config.nodes[node_id]
+        return None
+    
+    def create_initial_state(self, initial_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """创建初始状态（公开方法）
+        
+        Args:
+            initial_data: 初始数据
+            
+        Returns:
+            Dict[str, Any]: 初始状态
+        """
+        return self._create_initial_state(initial_data)
+    
+    def get_next_nodes(
+        self,
+        node_id: str,
+        state: Any,
+        config: Dict[str, Any]
+    ) -> List[str]:
+        """获取下一个节点列表（同步）
+        
+        Args:
+            node_id: 当前节点ID
+            state: 当前状态
+            config: 配置
+            
+        Returns:
+            List[str]: 下一个节点ID列表
+        """
+        next_nodes = []
+        
+        # 从配置的边中查找出边
+        for edge in self.config.edges:
+            if edge.from_node == node_id:
+                # 检查条件
+                if edge.condition:
+                    try:
+                        # 评估条件
+                        if callable(edge.condition):
+                            if edge.condition(state):
+                                next_nodes.append(edge.to_node)
+                        else:
+                            # 简单的字符串条件
+                            next_nodes.append(edge.to_node)
+                    except Exception as e:
+                        logger.warning(f"评估边条件失败: {e}")
+                        next_nodes.append(edge.to_node)
+                else:
+                    next_nodes.append(edge.to_node)
+        
+        return next_nodes
+    
+    async def get_next_nodes_async(
+        self,
+        node_id: str,
+        state: Any,
+        config: Dict[str, Any]
+    ) -> List[str]:
+        """获取下一个节点列表（异步）
+        
+        Args:
+            node_id: 当前节点ID
+            state: 当前状态
+            config: 配置
+            
+        Returns:
+            List[str]: 下一个节点ID列表
+        """
+        # 异步版本与同步版本实现相同
+        return self.get_next_nodes(node_id, state, config)
     
     def validate(self) -> List[str]:
         """验证工作流实例

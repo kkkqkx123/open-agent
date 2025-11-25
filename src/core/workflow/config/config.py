@@ -190,7 +190,8 @@ class NodeConfig:
 class GraphConfig:
     """图配置 - 符合LangGraph StateGraph模式"""
     name: str
-    description: str
+    id: str = ""  # 添加 id 属性
+    description: str = ""
     version: str = "1.0"
     state_schema: GraphStateConfig = field(default_factory=lambda: GraphStateConfig("GraphState"))
     nodes: Dict[str, NodeConfig] = field(default_factory=dict)
@@ -236,7 +237,8 @@ class GraphConfig:
 
         return cls(
             name=data["name"],
-            description=data["description"],
+            id=data.get("id", data.get("name", "")),  # 使用name作为默认id
+            description=data.get("description", ""),
             version=data.get("version", "1.0"),
             state_schema=state_schema,
             nodes=nodes,
@@ -253,6 +255,7 @@ class GraphConfig:
         """转换为字典"""
         result: Dict[str, Any] = {
             "name": self.name,
+            "id": self.id or self.name,  # 如果id为空，使用name
             "description": self.description,
             "version": self.version,
         }
@@ -280,7 +283,7 @@ class GraphConfig:
         # 节点
         if self.nodes:
             result["nodes"] = {
-                name: config.to_dict() 
+                name: config.to_dict()
                 for name, config in self.nodes.items()
             }
         

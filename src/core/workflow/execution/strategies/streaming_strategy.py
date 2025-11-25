@@ -5,7 +5,7 @@
 
 import logging
 import asyncio
-from typing import Dict, Any, Optional, List, AsyncIterator, Iterator
+from typing import Dict, Any, Optional, List, AsyncIterator, Iterator, TYPE_CHECKING
 from dataclasses import dataclass, field
 
 from .strategy_base import BaseStrategy, IExecutionStrategy
@@ -76,7 +76,7 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         streaming_context = self._create_streaming_context(context)
         
         # 执行流式工作流
-        events = list(self._execute_stream(executor, workflow, streaming_context))
+        events = [e for e in list(self._execute_stream(executor, workflow, streaming_context)) if e is not None]
         
         # 处理最终结果
         final_result = self._process_streaming_result(events, workflow, streaming_context)
@@ -109,7 +109,8 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         # 异步执行流式工作流
         events = []
         async for event in self._execute_stream_async(executor, workflow, streaming_context):
-            events.append(event)
+            if event is not None:
+                events.append(event)
         
         # 处理最终结果
         final_result = self._process_streaming_result(events, workflow, streaming_context)
@@ -188,12 +189,12 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         Returns:
             ExecutionContext: 流式执行上下文
         """
-        # 复制原始上下文并添加流式配置
-        streaming_context = ExecutionContext(
-            workflow_id=context.workflow_id,
-            execution_id=context.execution_id,
-            config={**context.config, "streaming": True},
-            metadata={**context.metadata, "streaming_enabled": True}
+        # 复�贝原始上下文并添加流式配置
+        # 注意：实际的ExecutionContext构造函数参数可能不同，这里进行兼容处理
+        streaming_context = context.__class__(
+            **{**context.__dict__, 
+               "config": {**context.config, "streaming": True},
+               "metadata": {**context.metadata, "streaming_enabled": True}}
         )
         
         return streaming_context
@@ -217,18 +218,22 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         import time
         
         # 发送开始事件
-        yield self._create_event("workflow_started", {
+        event = self._create_event("workflow_started", {
             "workflow_name": workflow.config.name,
             "workflow_id": workflow.config.id
         })
+        if event:
+            yield event
         
         # 获取初始状态
-        initial_state = workflow.create_initial_state(context.get_config("initial_data"))
+        initial_data = context.get_config("initial_data") if hasattr(context, 'get_config') else None
+        initial_state = workflow.create_initial_state(initial_data)
         current_state = initial_state
         current_node_id = workflow.config.entry_point
         
         # 执行工作流节点
         while current_node_id:
+            current_node = None
             try:
                 # 获取当前节点
                 current_node = workflow.get_node(current_node_id)
@@ -236,10 +241,12 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
                     raise ValueError(f"节点不存在: {current_node_id}")
                 
                 # 发送节点开始事件
-                yield self._create_event("node_started", {
+                event = self._create_event("node_started", {
                     "node_id": current_node_id,
                     "node_type": getattr(current_node, 'node_type', 'unknown')
                 })
+                if event:
+                    yield event
                 
                 # 执行节点
                 start_time = time.time()
@@ -251,12 +258,14 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
                     current_state = node_result.state
                 
                 # 发送节点完成事件
-                yield self._create_event("node_completed", {
+                event = self._create_event("node_completed", {
                     "node_id": current_node_id,
                     "node_type": getattr(current_node, 'node_type', 'unknown'),
                     "execution_time": execution_time,
                     "result": getattr(node_result, 'result', None)
                 })
+                if event:
+                    yield event
                 
                 # 确定下一个节点
                 if hasattr(node_result, 'next_node') and node_result.next_node:
@@ -268,12 +277,14 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
                     
             except Exception as e:
                 # 发送节点错误事件
-                yield self._create_event("node_error", {
+                event = self._create_event("node_error", {
                     "node_id": current_node_id,
-                    "node_type": getattr(current_node, 'node_type', 'unknown'),
+                    "node_type": getattr(current_node, 'node_type', 'unknown') if current_node else 'unknown',
                     "error": str(e),
                     "error_type": type(e).__name__
                 })
+                if event:
+                    yield event
                 
                 # 根据配置决定是否继续
                 if context.get_config("stop_on_error", True):
@@ -284,11 +295,14 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
                     current_node_id = next_nodes[0] if next_nodes else None
         
         # 发送工作流完成事件
-        yield self._create_event("workflow_completed", {
+        final_state = current_state if isinstance(current_state, dict) else (current_state.get_data() if hasattr(current_state, 'get_data') else {})
+        event = self._create_event("workflow_completed", {
             "workflow_name": workflow.config.name,
             "workflow_id": workflow.config.id,
-            "final_state": current_state.get_data() if hasattr(current_state, 'get_data') else {}
+            "final_state": final_state
         })
+        if event:
+            yield event
     
     async def _execute_stream_async(
         self, 
@@ -309,18 +323,22 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         import time
         
         # 发送开始事件
-        yield self._create_event("workflow_started", {
+        event = self._create_event("workflow_started", {
             "workflow_name": workflow.config.name,
             "workflow_id": workflow.config.id
         })
+        if event:
+            yield event
         
         # 获取初始状态
-        initial_state = workflow.create_initial_state(context.get_config("initial_data"))
+        initial_data = context.get_config("initial_data") if hasattr(context, 'get_config') else None
+        initial_state = workflow.create_initial_state(initial_data)
         current_state = initial_state
         current_node_id = workflow.config.entry_point
         
         # 异步执行工作流节点
         while current_node_id:
+            current_node = None
             try:
                 # 获取当前节点
                 current_node = workflow.get_node(current_node_id)
@@ -328,10 +346,12 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
                     raise ValueError(f"节点不存在: {current_node_id}")
                 
                 # 发送节点开始事件
-                yield self._create_event("node_started", {
+                event = self._create_event("node_started", {
                     "node_id": current_node_id,
                     "node_type": getattr(current_node, 'node_type', 'unknown')
                 })
+                if event:
+                    yield event
                 
                 # 异步执行节点
                 start_time = time.time()
@@ -350,12 +370,14 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
                     current_state = node_result.state
                 
                 # 发送节点完成事件
-                yield self._create_event("node_completed", {
+                event = self._create_event("node_completed", {
                     "node_id": current_node_id,
                     "node_type": getattr(current_node, 'node_type', 'unknown'),
                     "execution_time": execution_time,
                     "result": getattr(node_result, 'result', None)
                 })
+                if event:
+                    yield event
                 
                 # 确定下一个节点
                 if hasattr(node_result, 'next_node') and node_result.next_node:
@@ -367,12 +389,14 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
                     
             except Exception as e:
                 # 发送节点错误事件
-                yield self._create_event("node_error", {
+                event = self._create_event("node_error", {
                     "node_id": current_node_id,
-                    "node_type": getattr(current_node, 'node_type', 'unknown'),
+                    "node_type": getattr(current_node, 'node_type', 'unknown') if current_node else 'unknown',
                     "error": str(e),
                     "error_type": type(e).__name__
                 })
+                if event:
+                    yield event
                 
                 # 根据配置决定是否继续
                 if context.get_config("stop_on_error", True):
@@ -383,13 +407,16 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
                     current_node_id = next_nodes[0] if next_nodes else None
         
         # 发送工作流完成事件
-        yield self._create_event("workflow_completed", {
+        final_state = current_state if isinstance(current_state, dict) else (current_state.get_data() if hasattr(current_state, 'get_data') else {})
+        event = self._create_event("workflow_completed", {
             "workflow_name": workflow.config.name,
             "workflow_id": workflow.config.id,
-            "final_state": current_state.get_data() if hasattr(current_state, 'get_data') else {}
+            "final_state": final_state
         })
+        if event:
+            yield event
     
-    def _create_event(self, event_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _create_event(self, event_type: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """创建流式事件
         
         Args:
@@ -397,7 +424,7 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
             data: 事件数据
             
         Returns:
-            Dict[str, Any]: 流式事件
+            Optional[Dict[str, Any]]: 流式事件，如果事件类型被过滤则返回None
         """
         import time
         
@@ -435,15 +462,15 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         """处理流式执行结果
         
         Args:
-            events: 流式事件列表
+            events: 流式事件列表（仅包含非None事件）
             workflow: 工作流实例
             context: 执行上下文
             
         Returns:
             ExecutionResult: 执行结果
         """
-        # 过滤有效事件
-        valid_events = [e for e in events if e is not None]
+        # 事件列表已经被过滤，只包含非None值
+        valid_events = events
         
         # 检查是否有错误
         error_events = [e for e in valid_events if e["type"] == "node_error"]
