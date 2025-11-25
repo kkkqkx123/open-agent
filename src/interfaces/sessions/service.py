@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, List, AsyncGenerator, TYPE_CHECKING, Cal
 from datetime import datetime
 
 if TYPE_CHECKING:
-    from .entities import UserRequest, UserInteraction, SessionContext
+    from ...core.sessions.entities import UserRequestEntity as UserRequest, UserInteractionEntity as UserInteraction, SessionContext
     from ...core.state import WorkflowState
 
 

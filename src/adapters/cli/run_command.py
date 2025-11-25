@@ -9,7 +9,8 @@ from rich.text import Text
 
 from src.services.container import get_global_container
 from src.interfaces.common import IConfigLoader
-from src.interfaces.sessions import ISessionService, UserRequest, UserInteraction
+from src.interfaces.sessions import ISessionService
+from src.core.sessions.entities import UserRequestEntity, UserInteractionEntity
 from src.interfaces.workflow.services import IWorkflowManager
 from src.core.state import WorkflowState
 from src.interfaces.state import IState
@@ -62,7 +63,7 @@ class RunCommand:
     ) -> None:
         """创建会话并运行"""
         # 创建用户请求
-        user_request = UserRequest(
+        user_request = UserRequestEntity(
             request_id=f"request_{uuid.uuid4().hex[:8]}",
             user_id=None,
             content=f"创建会话: {workflow_config_path}",
@@ -151,7 +152,7 @@ class RunCommand:
                 if user_input.lower() in ['exit', 'quit', '退出']:
                     self.console.print("[yellow]正在保存会话并退出...[/yellow]")
                     # 追踪用户交互
-                    interaction = UserInteraction(
+                    interaction = UserInteractionEntity(
                         interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
                         session_id=session_id,
                         thread_id=None,
@@ -171,7 +172,7 @@ class RunCommand:
                 initial_state.add_message(human_message)
                 
                 # 追踪用户输入交互
-                user_interaction = UserInteraction(
+                user_interaction = UserInteractionEntity(
                     interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
                     session_id=session_id,
                     thread_id=None,
@@ -193,7 +194,7 @@ class RunCommand:
                     
                     try:
                         # 异步执行工作流
-                        result = await self._execute_workflow(initial_state, workflow_manager)
+                        result = await self._execute_workflow(cast(IWorkflowState, initial_state), workflow_manager)
                         
                         if result:
                             initial_state = result
@@ -208,7 +209,7 @@ class RunCommand:
                                     self.console.print(f"[bold green]助手:[/bold green] {content}")
                                     
                                     # 追踪AI响应交互
-                                    ai_interaction = UserInteraction(
+                                    ai_interaction = UserInteractionEntity(
                                         interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
                                         session_id=session_id,
                                         thread_id=None,
@@ -229,7 +230,7 @@ class RunCommand:
             except KeyboardInterrupt:
                 self.console.print("\n[yellow]正在保存会话并退出...[/yellow]")
                 # 追踪中断交互
-                interrupt_interaction = UserInteraction(
+                interrupt_interaction = UserInteractionEntity(
                     interaction_id=f"interaction_{uuid.uuid4().hex[:8]}",
                     session_id=session_id,
                     thread_id=None,
