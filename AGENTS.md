@@ -257,9 +257,7 @@ configs/
 - **类型安全**：所有配置选项强类型验证
 - **性能**：缓存和懒加载以实现最佳性能
 
-## Module Dependencies and Relationships
-
-### New Architecture Dependencies
+## 模块依赖关系
 
 模块依赖关系：
 接口层提供所有接口定义，是系统的基础约束。
@@ -270,7 +268,9 @@ configs/
 配置系统为所有层级提供配置支持。
 日志与监控系统贯穿所有层级。
 
-### Simplified Dependency Flow
+旧的infrastructure已经废弃，留下的监控模块等待迁移。
+
+### 依赖关系流
 
 ```
 Adapters (API/TUI/CLI)
@@ -282,7 +282,7 @@ Core (Entities & Core Logic)
 Interfaces (Abstract Contracts)
 ```
 
-## Development Workflow
+## 开发流程
 
 ### 1. 新功能开发
 - 遵循扁平化架构约束（Interfaces → Core → Services → Adapters）
@@ -303,9 +303,6 @@ Interfaces (Abstract Contracts)
 
 ### 3. 代码质量标准
 - 使用类型注解（由mypy严格模式强制执行）
-- 遵循black格式化（行长度：88，目标Python 3.13+）
-- 使用isort组织导入（black配置文件）
-- 通过flake8全面规则进行linting
 - 编写包含参数和返回类型文档的完整docstring
 - 遵循所有服务实例化的依赖注入模式
 - 对所有外部依赖使用配置驱动方法
@@ -320,57 +317,16 @@ Interfaces (Abstract Contracts)
 - 测试配置继承和环境变量解析
 - 添加新选项时更新配置验证模式
 
-### 5. 服务注册
-- 在适当的服务模块中注册服务
-- 使用适当的服务生命周期（共享资源使用单例，请求范围使用瞬态）
-- 为所有外部依赖实现服务接口
-- 为所有服务提供测试实现
-- 使用依赖注入容器进行所有服务解析
-
-### 6. 错误处理
+### 5. 错误处理
 - 使用来自`src.core.common.exceptions`的特定异常类型
 - 在各层之间实现适当的错误传播
 - 使用适当的上下文和严重性记录错误
 - 为用户提供有意义的错误消息
 - 优雅地处理配置错误并提供备用方案
 
-## Error Handling Patterns
-
-使用来自`src.core.common.exceptions`的特定异常类型：
-- `CoreError` - 核心异常
-- `ServiceError` - 服务层异常
-- `AdapterError` - 适配器层异常
-- `ConfigurationError` - 配置加载问题
-- `ValidationError` - 验证失败
-- `DependencyError` - 依赖问题
-
-## Testing Utilities
-
-框架提供了简化的测试工具：
-- 配置系统测试工具
-- 服务容器测试工具
-- 模拟适配器测试工具
-
-## Language
-代码和文档中始终使用中文。但在配置文件和与LLM提示相关的代码中，优先使用英文。
 
 ## Coding Specifications
 必须遵循mypy类型规范。例如，函数必须用类型提示进行注解。
-
-## Architecture Dependencies Rules
-
-### 核心依赖原则
-遵循单向依赖流向，禁止循环依赖：
-
-```
-Adapters (API/TUI/CLI/Storage)
-    ↓
-Services (Business Logic)
-    ↓
-Core (Entities & Logic)
-    ↓
-Interfaces (Abstract Contracts)
-```
 
 ### 接口定义位置
 - **所有接口定义必须放在集中的接口层** (`src/interfaces/`)
@@ -379,105 +335,55 @@ Interfaces (Abstract Contracts)
 - Adapters 层实现或依赖接口层的接口
 - 不允许在各层中定义分散的接口文件
 
-### 接口集中化架构
-```
-src/interfaces/
-├── workflow/           # 工作流相关接口
-│   ├── core.py             # 核心工作流接口
-│   ├── execution.py        # 执行相关接口
-│   ├── execution_core.py   # 执行核心接口
-│   ├── graph.py            # 图相关接口
-│   ├── builders.py         # 构建器接口
-│   ├── templates.py        # 模板相关接口
-│   ├── plugins.py          # 插件接口
-│   ├── plugins_core.py     # 插件核心接口
-│   ├── services.py         # 工作流服务接口
-│   ├── services_core.py    # 服务核心接口
-│   ├── visualization.py    # 可视化接口
-│   └── __init__.py         # 工作流接口导出
-├── state/                  # 状态管理接口
-│   ├── interfaces.py       # 状态相关接口
-│   └── __init__.py         # 状态接口导出
-├── checkpoint.py           # 检查点接口定义
-├── container.py            # 依赖注入容器接口
-├── history.py              # 历史管理接口
-├── llm.py                  # LLM客户端接口
-├── llm_core.py             # LLM核心接口
-├── tools.py                # 工具相关接口
-├── tools_core.py           # 工具核心接口
-├── state_core.py           # 状态核心接口
-├── storage.py              # 存储接口定义（IUnifiedStorage, IStorageFactory）
-├── common.py               # 通用接口（IConfigLoader, ILogger等）
-├── common_core.py          # 通用核心接口
-└── __init__.py             # 统一导出所有接口
-```
-
 ### 接口使用原则
 1. **单一真实来源**：所有接口定义集中在 `src/interfaces/` 目录
-2. **类型安全**：使用 `TYPE_CHECKING` 避免运行时循环依赖
+2. **类型安全**：使用 `TYPE_CHECKING` 避免运行时循环依赖。对于核心外部依赖，如langchain，不需要保证类型安全。
 3. **统一导出**：通过 `src/interfaces/__init__.py` 统一导出所有接口
 4. **向后兼容**：各层可以重新导出接口层的接口以保持兼容性
 
-### 状态管理接口示例
-- `IStateStorageAdapter` 定义在 `src/interfaces/state/interfaces.py`
-- 实现在 `src/adapters/storage/` 中（SQLite、Memory等）
-- Services 层从接口层导入接口
-- 向后兼容性：各层可以重新导出接口层的接口
+## Sessions 服务模块说明(Sessions才是服务层的顶层模块，workflow是与langgraph交互的模块)
 
-### 接口迁移指南
-当需要迁移现有接口到集中接口层时：
-1. 在 `src/interfaces/` 中创建相应的接口文件
-2. 使用 `TYPE_CHECKING` 处理前向引用
-3. 更新所有导入路径指向新接口位置
-4. 删除原有的分散接口文件
-5. 运行 `mypy src/interfaces/ --follow-imports=silent` 验证接口层
-6. 更新相关模块的导入语句
+### 目录结构
+会话相关服务统一位于：`src/services/sessions/`
 
-## Migration Notes
+```
+src/services/sessions/
+├── service.py                  # SessionService（主要服务，包含所有功能）
+├── manager.py                  # SessionManager（适配器层）
+├── lifecycle.py                # SessionLifecycleManager（生命周期管理）
+├── events.py                   # SessionEventManager（事件管理）
+├── coordinator.py              # SessionThreadCoordinator
+├── repository.py               # SessionRepository
+├── synchronizer.py             # SessionThreadSynchronizer
+├── transaction.py              # SessionThreadTransaction
+├── git_service.py              # Git集成服务
+└── __init__.py                 # 统一导出
+```
 
-### 已完成的迁移
+### SessionService 功能模块
 
-#### 存储模块迁移（2025-11-21）
-存储模块已从 `src/domain/storage/` 迁移到新架构：
-- **异常** → `src/core/common/exceptions.py`
-  - `StorageError` 及其所有子类
-  - `create_storage_error()` 工厂函数
-- **接口** → `src/interfaces/storage.py`
-  - `IUnifiedStorage` - 统一存储接口
-  - `IStorageFactory` - 存储工厂接口
-- **模型** → `src/core/storage/models.py`
-  - `StorageData`, `StorageQuery`, `StorageTransaction` 等
+**1. 简化版方法**（基于 ISessionStore）
+- `create_session_with_thread` - 创建会话并关联线程
+- `update_session_metadata` - 更新会话元数据
+- `increment_message_count` - 增加消息计数
+- `increment_checkpoint_count` - 增加检查点计数
+- `get_session_summary` - 获取会话摘要（简化版）
+- `list_sessions_by_status` - 按状态列会话
+- `cleanup_inactive_sessions` - 清理不活动会话
 
-详见：[docs/STORAGE_MIGRATION.md](./docs/STORAGE_MIGRATION.md)
+**2. 完整版方法**（基于 ISessionRepository）
+- **生命周期**：`create_session`, `get_session_context`, `delete_session`, `list_sessions`, `session_exists`, `get_session_info`
+- **交互追踪**：`track_user_interaction`, `get_interaction_history`, `get_session_history`
+- **多线程协调**：`coordinate_threads`, `remove_thread_from_session`
+- **工作流执行**：`execute_workflow_in_session`, `stream_workflow_in_session`
+- **数据一致性**：`sync_session_data`, `validate_session_consistency`, `repair_session_inconsistencies`
+- **摘要查询**：`get_session_summary`（完整版）
 
-### From 4-Layer to Flattened Architecture
+### 依赖注入配置
+DI 容器通过 `src/services/container/session_bindings.py` 配置，所有服务都自动注册为单例：
+- 所有依赖都是可选的，支持向后兼容
+- 简化使用：仅需 `session_core` 和 `session_store`
+- 完整使用：提供所有可选的服务
 
-1. **Domain Layer → Core Layer**
-   - 接口和实体定义移至 `src/core/`
-   - 保持纯业务逻辑，无外部依赖
-
-2. **Infrastructure Layer → Core + Services**
-   - 核心技术实现移至 `src/core/`
-   - 业务服务实现移至 `src/services/`
-
-3. **Application Layer → Services**
-   - 用例和编排逻辑移至 `src/services/`
-
-4. **Presentation Layer → Adapters**
-   - UI和API接口移至 `src/adapters/`
-
-### Benefits of New Architecture
-
-1. **Reduced Complexity**: 从4层减少到3层，降低跨层级依赖
-2. **Improved Cohesion**: 相关功能集中在同一模块
-3. **Better Testability**: 清晰的依赖关系便于测试
-4. **Enhanced Maintainability**: 简化的结构便于理解和修改
-5. **Performance Optimization**: 减少不必要的抽象层
-
-### Configuration System Improvements
-
-1. **Unified API**: 单一配置管理器入口
-2. **Type Safety**: Pydantic模型验证
-3. **Performance**: 多层缓存机制
-4. **Extensibility**: 易于添加新配置类型
-5. **Developer Experience**: 丰富的工具和示例
+## Language
+代码和文档中始终使用中文。但在配置文件和与LLM提示相关的代码中，优先使用英文。

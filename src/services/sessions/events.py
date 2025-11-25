@@ -1,11 +1,16 @@
-"""Session事件管理器"""
+"""Session事件管理器 - 简化实现"""
 
 import asyncio
-from typing import Dict, Any, Optional, List, Callable
+import logging
+from typing import Dict, Any, Optional, List, Callable, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum
 
-from src.interfaces.sessions import ISessionManager
+if TYPE_CHECKING:
+    from .service import SessionService
+    from .manager import SessionManager
+
+logger = logging.getLogger(__name__)
 
 
 class SessionEventType(str, Enum):
@@ -21,15 +26,24 @@ class SessionEventType(str, Enum):
 
 
 class SessionEventManager:
-    """Session事件管理器"""
+    """Session事件管理器
     
-    def __init__(self, session_manager: ISessionManager):
+    管理会话相关事件，支持监听器注册和事件触发
+    """
+    
+    def __init__(
+        self, 
+        session_manager: Optional['SessionManager'] = None,
+        session_service: Optional['SessionService'] = None
+    ):
         """初始化事件管理器
         
         Args:
-            session_manager: 会话管理器
+            session_manager: 会话管理器（可选）
+            session_service: 会话服务（可选）
         """
         self._session_manager = session_manager
+        self._session_service = session_service
         self._event_listeners: Dict[SessionEventType, List[Callable]] = {}
         self._global_listeners: List[Callable] = []
         self._event_history: List[Dict[str, Any]] = []
@@ -49,6 +63,7 @@ class SessionEventManager:
         if event_type not in self._event_listeners:
             self._event_listeners[event_type] = []
         self._event_listeners[event_type].append(listener)
+        logger.debug(f"Added event listener for {event_type.value}")
     
     def remove_event_listener(
         self, 
@@ -63,6 +78,7 @@ class SessionEventManager:
         """
         if event_type in self._event_listeners and listener in self._event_listeners[event_type]:
             self._event_listeners[event_type].remove(listener)
+            logger.debug(f"Removed event listener for {event_type.value}")
     
     def add_global_event_listener(self, listener: Callable[[Dict[str, Any]], None]) -> None:
         """添加全局事件监听器
@@ -71,6 +87,7 @@ class SessionEventManager:
             listener: 监听器函数
         """
         self._global_listeners.append(listener)
+        logger.debug("Added global event listener")
     
     def remove_global_event_listener(self, listener: Callable[[Dict[str, Any]], None]) -> None:
         """移除全局事件监听器
@@ -80,6 +97,7 @@ class SessionEventManager:
         """
         if listener in self._global_listeners:
             self._global_listeners.remove(listener)
+            logger.debug("Removed global event listener")
     
     async def emit_event(
         self, 
@@ -130,9 +148,11 @@ class SessionEventManager:
                     tasks.append(listener(event_data))
                 else:
                     # 同步函数在异步环境中执行
-                    tasks.append(asyncio.create_task(asyncio.to_thread(listener, event_data)))
+                    tasks.append(asyncio.create_task(
+                        asyncio.to_thread(listener, event_data)
+                    ))
             except Exception as e:
-                print(f"Error creating listener task: {e}")
+                logger.error(f"Error creating listener task: {e}")
         
         # 并行执行所有监听器
         if tasks:
@@ -208,7 +228,12 @@ class SessionEventManager:
         """监控会话删除"""
         await self.emit_event(SessionEventType.DELETED, session_id)
     
-    async def monitor_status_changed(self, session_id: str, old_status: str, new_status: str) -> None:
+    async def monitor_status_changed(
+        self, 
+        session_id: str, 
+        old_status: str, 
+        new_status: str
+    ) -> None:
         """监控状态变更"""
         await self.emit_event(SessionEventType.STATUS_CHANGED, session_id, {
             "old_status": old_status,

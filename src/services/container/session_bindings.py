@@ -9,11 +9,11 @@ from src.adapters.storage.association_repository import SessionThreadAssociation
 from src.adapters.storage.backends import SQLiteSessionBackend, FileSessionBackend
 
 from services.threads.repository import ThreadRepository
-from src.services.session.repository import SessionRepository
-from src.services.session.service import SessionService
-from src.services.session.coordinator import SessionThreadCoordinator
-from src.services.session.synchronizer import SessionThreadSynchronizer
-from src.services.session.transaction import SessionThreadTransaction
+from src.services.sessions.repository import SessionRepository
+from src.services.sessions.service import SessionService
+from src.services.sessions.coordinator import SessionThreadCoordinator
+from src.services.sessions.synchronizer import SessionThreadSynchronizer
+from src.services.sessions.transaction import SessionThreadTransaction
 from src.interfaces.sessions import ISessionRepository, ISessionStorageBackend
 from src.interfaces.sessions.service import ISessionService
 from src.interfaces.sessions.association import (
