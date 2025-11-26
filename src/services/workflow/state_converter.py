@@ -13,7 +13,7 @@ import logging
 
 from src.core.state import WorkflowState
 from src.core.state.implementations.workflow_state import BaseMessage
-from src.core.llm.message_converters import MessageConverter
+from core.llm.utils.message_converters import MessageConverter
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 
 logger = logging.getLogger(__name__)

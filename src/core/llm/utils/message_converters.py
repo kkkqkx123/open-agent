@@ -16,10 +16,9 @@ from langchain_core.messages import (
     AIMessage,
     SystemMessage,
     ToolMessage,
-    ToolCall,
 )
 
-from .models import LLMMessage, MessageRole
+from ..models import LLMMessage, MessageRole
 
 logger = logging.getLogger(__name__)
 

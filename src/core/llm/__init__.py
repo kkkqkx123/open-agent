@@ -7,7 +7,7 @@
 """
 
 from .models import LLMMessage, MessageRole
-from .message_converters import MessageConverter, get_message_converter
+from .utils.message_converters import MessageConverter, get_message_converter
 
 __all__ = [
     "LLMMessage",
