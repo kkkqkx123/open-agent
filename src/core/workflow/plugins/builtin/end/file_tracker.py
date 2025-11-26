@@ -11,7 +11,7 @@ from typing import Dict, Any, List, Set
 from datetime import datetime
 from pathlib import Path
 
-from ...interfaces import IEndPlugin, PluginMetadata, PluginContext, PluginType
+from src.interfaces.workflow.plugins import IEndPlugin, PluginMetadata, PluginContext, PluginType
 
 
 logger = logging.getLogger(__name__)

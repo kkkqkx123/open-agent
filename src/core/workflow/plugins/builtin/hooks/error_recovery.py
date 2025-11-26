@@ -7,7 +7,7 @@ import logging
 import time
 from typing import Dict, Any, List, Optional
 
-from ...interfaces import IHookPlugin, PluginMetadata, PluginContext, HookContext, HookPoint, HookExecutionResult, PluginType
+from src.interfaces.workflow.plugins import IHookPlugin, PluginMetadata, PluginContext, HookContext, HookPoint, HookExecutionResult, PluginType
 
 
 logger = logging.getLogger(__name__)

@@ -11,11 +11,11 @@ from src.core.workflow.config.schema_generator import SchemaGenerator, generate_
 class TestSchemaGenerator:
     """测试Schema生成器"""
     
-    def setup_method(self):
+    def setup_method(self) -> None:
         """设置测试环境"""
         self.generator = SchemaGenerator()
     
-    def test_generate_schema_from_config_llm_node(self):
+    def test_generate_schema_from_config_llm_node(self) -> None:
         """测试从配置生成LLM节点Schema"""
         # 模拟配置加载器
         mock_config = {
@@ -53,7 +53,7 @@ class TestSchemaGenerator:
             assert properties["include_tool_results"]["type"] == "boolean"
             assert properties["follow_up_indicators"]["type"] == "array"
     
-    def test_generate_schema_from_config_tool_node(self):
+    def test_generate_schema_from_config_tool_node(self) -> None:
         """测试从配置生成工具节点Schema"""
         mock_config = {
             "timeout": 30,
@@ -77,7 +77,7 @@ class TestSchemaGenerator:
             assert properties["max_parallel_calls"]["type"] == "integer"
             assert properties["retry_on_failure"]["type"] == "boolean"
     
-    def test_generate_schema_with_nested_objects(self):
+    def test_generate_schema_with_nested_objects(self) -> None:
         """测试生成包含嵌套对象的Schema"""
         mock_config = {
             "simple_field": "value",
@@ -104,7 +104,7 @@ class TestSchemaGenerator:
             # 验证数组
             assert properties["array_field"]["type"] == "array"
     
-    def test_generate_schema_no_config(self):
+    def test_generate_schema_no_config(self) -> None:
         """测试当配置不存在时返回默认Schema"""
         with patch.object(self.generator._config_loader, 'get_config', return_value={}):
             schema = self.generator.generate_schema_from_config("nonexistent_node")
@@ -114,7 +114,7 @@ class TestSchemaGenerator:
             assert schema["properties"] == {}
             assert schema["required"] == []
     
-    def test_schema_caching(self):
+    def test_schema_caching(self) -> None:
         """测试Schema缓存功能"""
         mock_config = {"test_field": "test_value"}
         
@@ -131,7 +131,7 @@ class TestSchemaGenerator:
             # 验证配置加载器只被调用一次
             mock_get_config.assert_called_once()
     
-    def test_clear_cache(self):
+    def test_clear_cache(self) -> None:
         """测试清除缓存功能"""
         mock_config = {"test_field": "test_value"}
         
@@ -148,7 +148,7 @@ class TestSchemaGenerator:
             # 验证配置加载器被调用了两次
             assert mock_get_config.call_count == 2
     
-    def test_is_required_field_tool_node(self):
+    def test_is_required_field_tool_node(self) -> None:
         """测试工具节点必需字段判断"""
         # tool_manager应该是必需的
         assert self.generator._is_required_field("tool_manager", "some_value", "tool_node")
@@ -156,20 +156,20 @@ class TestSchemaGenerator:
         assert not self.generator._is_required_field("timeout", 30, "tool_node")
         assert not self.generator._is_required_field("max_retries", 3, "tool_node")
     
-    def test_is_required_field_llm_node(self):
+    def test_is_required_field_llm_node(self) -> None:
         """测试LLM节点必需字段判断"""
         # LLM节点没有必需字段
         assert not self.generator._is_required_field("temperature", 0.7, "llm_node")
         assert not self.generator._is_required_field("max_tokens", 2000, "llm_node")
     
-    def test_is_required_field_start_end_nodes(self):
+    def test_is_required_field_start_end_nodes(self) -> None:
         """测试START和END节点必需字段判断"""
         # START和END节点没有必需字段
         assert not self.generator._is_required_field("plugin_config_path", "path", "start_node")
         assert not self.generator._is_required_field("next_node", "node", "start_node")
         assert not self.generator._is_required_field("output_directory", "dir", "end_node")
     
-    def test_is_required_field_condition_node(self):
+    def test_is_required_field_condition_node(self) -> None:
         """测试条件节点必需字段判断"""
         # conditions应该是必需的
         assert self.generator._is_required_field("conditions", [], "condition_node")
@@ -180,7 +180,7 @@ class TestSchemaGenerator:
 class TestGenerateNodeSchema:
     """测试全局函数"""
     
-    def test_generate_node_schema_function(self):
+    def test_generate_node_schema_function(self) -> None:
         """测试全局generate_node_schema函数"""
         mock_config = {"test_field": "test_value"}
         

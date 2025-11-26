@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, List
 
-from ...interfaces import IStartPlugin, PluginMetadata, PluginContext, PluginType
+from src.interfaces.workflow.plugins import IStartPlugin, PluginMetadata, PluginContext, PluginType
 
 
 logger = logging.getLogger(__name__)

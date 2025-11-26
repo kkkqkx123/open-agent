@@ -5,7 +5,7 @@
 
 import logging
 from typing import Any, Dict, List, Optional, Type, cast
-from .interfaces import IPlugin, PluginType, PluginStatus
+from src.interfaces.workflow.plugins import IPlugin, PluginType, PluginStatus
 
 
 logger = logging.getLogger(__name__)
