@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, Callable, Optional
 from .condition_types import ConditionType
-from ...states.workflow import WorkflowState
+from src.core.state import WorkflowState
 
 
 class ConditionEvaluator:

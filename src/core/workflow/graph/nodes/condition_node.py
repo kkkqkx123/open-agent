@@ -68,6 +68,17 @@ class ConditionNode(BaseNode):
 
     def get_config_schema(self) -> Dict[str, Any]:
         """获取节点配置Schema"""
+        try:
+            from ...config.schema_generator import generate_node_schema
+            return generate_node_schema("condition_node")
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"无法从配置文件生成Schema，使用默认Schema: {e}")
+            return self._get_fallback_schema()
+    
+    def _get_fallback_schema(self) -> Dict[str, Any]:
+        """获取备用Schema（当配置文件不可用时）"""
         return {
             "type": "object",
             "properties": {

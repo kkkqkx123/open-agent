@@ -6,11 +6,6 @@ node-related functionality.
 
 from typing import Callable, Type, TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from .interfaces import INode
-    from .nodes.base import BaseNode
-
-
 def node(node_type: str) -> Callable:
     """节点注册装饰器
     

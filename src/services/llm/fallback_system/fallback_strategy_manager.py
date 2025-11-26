@@ -4,7 +4,7 @@
 """
 
 from typing import Optional
-from .interfaces import IFallbackStrategy
+from src.interfaces.llm import IFallbackStrategy
 from .fallback_config import FallbackConfig
 from .strategies import create_fallback_strategy
 

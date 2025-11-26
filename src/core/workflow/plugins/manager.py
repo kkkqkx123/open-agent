@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Callable, Sequence
 from collections import defaultdict
 
-from .interfaces import (
+from src.interfaces.workflow.plugins import (
     IPlugin, IStartPlugin, IEndPlugin, PluginType, PluginStatus,
     PluginContext, PluginError, PluginInitializationError, PluginExecutionError
 )

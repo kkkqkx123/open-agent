@@ -26,7 +26,7 @@ from .entities import (
     ExecutionResult,
     WorkflowMetadata
 )
-from .workflow import Workflow
+from .workflow_instance import Workflow
 
 from langchain_core.messages import AIMessage as LCAIMessage
 from .value_objects import (

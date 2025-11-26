@@ -4,7 +4,7 @@ This module provides plugin system functionality for workflows,
 including plugin interfaces, registry, and built-in plugins.
 """
 
-from .interfaces import (
+from src.interfaces import (
     IPlugin,
     IStartPlugin,
     IEndPlugin,

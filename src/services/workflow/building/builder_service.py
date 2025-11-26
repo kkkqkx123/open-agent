@@ -85,7 +85,7 @@ class WorkflowBuilderService(IWorkflowBuilderService):
             logger.info(f"开始构建工作流: {workflow_id} ({name})")
 
             # 延迟导入避免循环依赖
-            from src.core.workflow.workflow import Workflow
+            from src.core.workflow.workflow_instance import Workflow
             from src.core.workflow.config.config import GraphConfig
 
             # 创建工作流

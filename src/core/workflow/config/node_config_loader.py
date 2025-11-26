@@ -7,8 +7,8 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 import logging
 
-from ....interfaces.common import IConfigLoader
-from ....services.container import get_global_container
+from src.interfaces.common import IConfigLoader
+from src.services.container import get_global_container
 
 logger = logging.getLogger(__name__)
 

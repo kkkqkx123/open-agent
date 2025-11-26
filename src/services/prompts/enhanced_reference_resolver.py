@@ -40,7 +40,7 @@ class ResolvedReference:
     variables: Dict[str, Any]  # 使用的变量
 
 
-class PromptReferenceResolver:
+class EnhancedPromptReferenceResolver:
     """增强的提示词引用解析器
     
     支持的引用格式：

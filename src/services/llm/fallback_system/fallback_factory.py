@@ -3,10 +3,12 @@
 提供创建FallbackManager实例的工厂函数。
 """
 
-from typing import Any, Optional, List, cast
-from .fallback_manager import FallbackManager
+from typing import Any, Optional, List, TYPE_CHECKING
 from .fallback_config import FallbackConfig
 from src.interfaces.llm import IClientFactory, IFallbackLogger, ITaskGroupManager, IPollingPoolManager
+
+if TYPE_CHECKING:
+    from .fallback_manager import FallbackManager
 
 
 def create_fallback_manager(
@@ -16,7 +18,7 @@ def create_fallback_manager(
     logger: Optional[IFallbackLogger] = None,
     task_group_manager: Optional[ITaskGroupManager] = None,
     polling_pool_manager: Optional[IPollingPoolManager] = None
-) -> FallbackManager:
+) -> "FallbackManager":
     """
     创建FallbackManager实例
     
@@ -31,6 +33,9 @@ def create_fallback_manager(
     Returns:
         FallbackManager实例
     """
+    # 延迟导入避免循环依赖
+    from .fallback_manager import FallbackManager
+    
     # 如果提供了client但没有client_factory，创建一个简单的工厂
     if client is not None and client_factory is None:
         class SimpleClientFactory(IClientFactory):
@@ -55,15 +60,3 @@ def create_fallback_manager(
         task_group_manager=task_group_manager,
         polling_pool_manager=polling_pool_manager
     )
-
-
-def create_default_fallback_logger() -> IFallbackLogger:
-    """
-    创建默认的降级日志记录器
-    
-    Returns:
-        IFallbackLogger 实例，直接使用 Core 层的 DefaultFallbackLogger
-    """
-    from src.core.llm.wrappers.fallback_manager import DefaultFallbackLogger
-    # 现在不需要类型转换，因为接口已经统一
-    return DefaultFallbackLogger()

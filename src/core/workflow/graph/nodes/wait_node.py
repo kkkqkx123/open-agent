@@ -6,6 +6,7 @@
 
 import time
 import threading
+import logging
 from typing import Dict, Any, Optional, List, Callable, cast, Union
 from dataclasses import dataclass
 from enum import Enum
@@ -13,6 +14,8 @@ from enum import Enum
 from .registry import BaseNode, NodeExecutionResult, node
 from src.core.state import WorkflowState
 from langchain_core.messages import SystemMessage, BaseMessage as LCBaseMessage
+
+logger = logging.getLogger(__name__)
 
 
 class TimeoutStrategy(Enum):
@@ -355,6 +358,15 @@ class WaitNode(BaseNode):
 
     def get_config_schema(self) -> Dict[str, Any]:
         """获取节点配置Schema"""
+        try:
+            from ...config.schema_generator import generate_node_schema
+            return generate_node_schema("wait_node")
+        except Exception as e:
+            logger.warning(f"无法从配置文件生成Schema，使用默认Schema: {e}")
+            return self._get_fallback_schema()
+    
+    def _get_fallback_schema(self) -> Dict[str, Any]:
+        """获取备用Schema（当配置文件不可用时）"""
         return {
             "type": "object",
             "properties": {

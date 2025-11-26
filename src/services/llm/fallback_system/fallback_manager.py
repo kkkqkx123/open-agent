@@ -16,16 +16,13 @@ from .fallback_engine import FallbackEngine
 from .fallback_tracker import FallbackTracker
 from .fallback_strategy_manager import FallbackStrategyManager
 from .fallback_config_manager import FallbackConfigManager
-from .fallback_factory import create_default_fallback_logger
 
 # 修复导入路径
 from core.common.exceptions.llm import LLMCallError
 
 # Services 层的导入
 from src.interfaces.llm import ITaskGroupManager, IPollingPoolManager
-from src.core.llm.wrappers.fallback_manager import (
-    DefaultFallbackLogger as CoreDefaultFallbackLogger,
-)
+from src.core.llm.wrappers.fallback_manager import DefaultFallbackLogger
 
 
 class FallbackManager:
@@ -56,11 +53,11 @@ class FallbackManager:
             task_group_manager: 任务组管理器（Services 层）
             polling_pool_manager: 轮询池管理器（Services 层）
         """
-        # 处理日志记录器 - 直接使用工厂函数
+        # 处理日志记录器 - 直接创建默认日志记录器
         if logger is not None:
             fallback_logger = logger
         else:
-            fallback_logger = create_default_fallback_logger()
+            fallback_logger = DefaultFallbackLogger()
         
         # 初始化各个组件
         self._config_manager = FallbackConfigManager(config, client_factory)

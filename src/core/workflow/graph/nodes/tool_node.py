@@ -5,11 +5,14 @@
 
 from typing import Dict, Any, Optional, List
 import time
+import logging
 
 from .registry import BaseNode, NodeExecutionResult, node
 from src.core.state import WorkflowState
 from src.interfaces.tool.base import ITool, IToolRegistry, ToolCall, ToolResult
-from ...config.node_config_loader import get_node_config_loader
+from src.core.workflow.config.node_config_loader import get_node_config_loader
+
+logger = logging.getLogger(__name__)
 
 
 @node("tool_node")
@@ -139,6 +142,15 @@ class ToolNode(BaseNode):
 
     def get_config_schema(self) -> Dict[str, Any]:
         """获取节点配置Schema"""
+        try:
+            from ...config.schema_generator import generate_node_schema
+            return generate_node_schema("tool_node")
+        except Exception as e:
+            logger.warning(f"无法从配置文件生成Schema，使用默认Schema: {e}")
+            return self._get_fallback_schema()
+    
+    def _get_fallback_schema(self) -> Dict[str, Any]:
+        """获取备用Schema（当配置文件不可用时）"""
         return {
             "type": "object",
             "properties": {

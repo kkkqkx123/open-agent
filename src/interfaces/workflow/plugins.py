@@ -77,6 +77,18 @@ class PluginContext:
 
 
 @dataclass
+class PluginExecutionResult:
+    """插件执行结果"""
+    plugin_id: str
+    status: str
+    success: bool
+    error: Optional[str] = None
+    execution_time: float = 0.0
+    data: Dict[str, Any] = field(default_factory=dict)
+    timestamp: float = field(default_factory=0.0)
+
+
+@dataclass
 class HookContext:
     """Hook执行上下文"""
     node_type: str

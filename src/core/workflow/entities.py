@@ -6,7 +6,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-from .interfaces import IWorkflowState
+from src.interfaces import IWorkflowState
 
 
 @dataclass

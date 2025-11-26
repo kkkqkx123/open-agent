@@ -1,11 +1,12 @@
 """
 增强的缓存系统 - 基于cachetools库并整合基础设施层高级功能
+
+使用time.time()作为时间戳基础以保证轻量级、高效和与interfaces接口兼容
 """
 
 import time
 import threading
 from typing import Any, Optional, Dict, Union, List
-from datetime import datetime, timedelta
 from collections import OrderedDict
 from dataclasses import dataclass
 
@@ -13,13 +14,16 @@ from cachetools import TTLCache, LRUCache, cached
 
 @dataclass
 class CacheEntry:
-    """缓存条目"""
+    """缓存条目
+    
+    使用float时间戳（秒级）存储时间，与IPromptCache接口兼容
+    """
     key: str
     value: Any
-    created_at: datetime
-    expires_at: Optional[datetime] = None
+    created_at: float  # time.time()返回的时间戳
+    expires_at: Optional[float] = None  # TTL过期时间戳
     access_count: int = 0
-    last_accessed: Optional[datetime] = None
+    last_accessed: Optional[float] = None
     
     def __post_init__(self) -> None:
         if self.last_accessed is None:
@@ -29,20 +33,20 @@ class CacheEntry:
         """检查是否过期"""
         if self.expires_at is None:
             return False
-        return datetime.now() > self.expires_at
+        return time.time() > self.expires_at
     
     def access(self) -> Any:
         """访问缓存项"""
         self.access_count += 1
-        self.last_accessed = datetime.now()
+        self.last_accessed = time.time()
         return self.value
     
     def extend_ttl(self, seconds: int) -> None:
-        """延长TTL"""
+        """延长TTL（秒）"""
         if self.expires_at:
-            self.expires_at = max(self.expires_at, datetime.now() + timedelta(seconds=seconds))
+            self.expires_at = max(self.expires_at, time.time() + seconds)
         else:
-            self.expires_at = datetime.now() + timedelta(seconds=seconds)
+            self.expires_at = time.time() + seconds
 
 
 @dataclass
@@ -187,7 +191,7 @@ class CacheManager:
             metadata: 元数据
         """
         ttl = ttl or self.default_ttl
-        expires_at = datetime.now() + timedelta(seconds=ttl) if ttl > 0 else None
+        expires_at = time.time() + ttl if ttl > 0 else None
         
         # 序列化值
         serialized_value = self._serialize_value(value)
@@ -210,7 +214,7 @@ class CacheManager:
             entry = CacheEntry(
                 key=key,
                 value=serialized_value,
-                created_at=datetime.now(),
+                created_at=time.time(),
                 expires_at=expires_at
             )
             
@@ -295,7 +299,7 @@ class CacheManager:
                 return 0
                 
             expired_keys = []
-            current_time = datetime.now()
+            current_time = time.time()
             
             for key, entry in self._cache_entries['default'].items():
                 if entry.is_expired():

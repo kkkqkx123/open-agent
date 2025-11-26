@@ -275,5 +275,33 @@ class DefaultFallbackLogger(IFallbackLogger):
             return
         
         print(f"[Fallback] 失败: {primary_model}, 总尝试: {total_attempts}, 错误: {error}")
+    
+    def log_retry_success(self, func_name: str, result: Any, attempt: int) -> None:
+        """
+        记录重试成功
+        
+        Args:
+            func_name: 函数名称
+            result: 结果
+            attempt: 尝试次数
+        """
+        if not self.enabled:
+            return
+        
+        print(f"[Retry] 成功: {func_name}, 尝试: {attempt}")
+    
+    def log_retry_failure(self, func_name: str, error: Exception, total_attempts: int) -> None:
+        """
+        记录重试失败
+        
+        Args:
+            func_name: 函数名称
+            error: 最后的错误
+            total_attempts: 总尝试次数
+        """
+        if not self.enabled:
+            return
+        
+        print(f"[Retry] 失败: {func_name}, 总尝试: {total_attempts}, 错误: {error}")
 
 

@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional, Type
 from src.interfaces.workflow.core import IWorkflow
 from src.interfaces.workflow.templates import IWorkflowTemplate
 from src.interfaces.workflow.services import IWorkflowFactory
-from src.core.workflow.workflow import Workflow
+from src.core.workflow.workflow_instance import Workflow
 from src.core.workflow.templates import get_global_template_registry
 from src.core.workflow.orchestration.manager import WorkflowManager
 from src.core.workflow.registry.registry import WorkflowRegistry

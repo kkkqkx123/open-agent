@@ -11,7 +11,6 @@ from .registry import BaseNode, NodeExecutionResult, node
 from src.core.state import WorkflowState
 from src.interfaces.llm import ILLMClient
 from src.services.llm.scheduling.task_group_manager import TaskGroupManager
-from ...services.prompt_service import get_workflow_prompt_service_sync
 
 logger = logging.getLogger(__name__)
 
@@ -23,18 +22,20 @@ class LLMNode(BaseNode):
     def __init__(self,
                  llm_client: Optional[ILLMClient] = None,
                  task_group_manager: Optional[TaskGroupManager] = None,
-                 wrapper_factory: Optional[Any] = None) -> None:
+                 wrapper_factory: Optional[Any] = None,
+                 prompt_service: Optional[Any] = None) -> None:
         """初始化LLM节点
 
         Args:
             llm_client: LLM客户端实例（可选，可在运行时设置）
             task_group_manager: 任务组管理器（可选）
             wrapper_factory: 包装器工厂（可选）
+            prompt_service: 提示词服务（可选，通过依赖注入提供）
         """
         self._llm_client = llm_client
         self._task_group_manager = task_group_manager
         self._wrapper_factory = wrapper_factory
-        self._prompt_service = get_workflow_prompt_service_sync()
+        self._prompt_service = prompt_service
 
     @property
     def node_type(self) -> str:
@@ -108,11 +109,13 @@ class LLMNode(BaseNode):
     async def _preprocess_config(self, state: WorkflowState, config: Dict[str, Any]) -> Dict[str, Any]:
         """预处理配置"""
         try:
-            # 使用提示词服务处理配置
-            processed_config = await self._prompt_service.process_node_input(
-                "llm_node", config, state, config
-            )
-            return processed_config
+            # 使用提示词服务处理配置（如果已注入）
+            if self._prompt_service and hasattr(self._prompt_service, 'process_node_input'):
+                processed_config = await self._prompt_service.process_node_input(
+                    "llm_node", config, state, config
+                )
+                return processed_config
+            return config
         except Exception as e:
             logger.warning(f"配置预处理失败，使用原始配置: {e}")
             return config
@@ -129,14 +132,112 @@ class LLMNode(BaseNode):
 5. 始终保持友好和专业的语调"""
 
     async def _prepare_messages_with_prompts(self, state: WorkflowState, config: Dict[str, Any]) -> List[Union[SystemMessage, Any]]:
-        """准备消息列表（使用提示词服务）"""
+        """准备消息列表（使用提示词服务，支持缓存和多种配置方式）"""
+        # 生成缓存键
+        cache_key = self._generate_prompt_cache_key(config)
+        
+        # 尝试从缓存获取消息
+        cached_messages = await self._get_cached_messages(state, cache_key)
+        if cached_messages:
+            logger.debug(f"LLM节点消息缓存命中: {cache_key}")
+            return cached_messages
+        
+        # 解析和处理提示词
+        messages = await self._resolve_and_process_prompts(state, config)
+        
+        # 缓存处理结果
+        await self._cache_processed_messages(state, cache_key, messages)
+        
+        return messages
+    
+    def _generate_prompt_cache_key(self, config: Dict[str, Any]) -> str:
+        """生成提示词缓存键"""
+        from ....common.utils.cache_key_generator import CacheKeyGenerator
+        
+        # 提取影响提示词的关键配置
+        key_config = {
+            "system_prompt": config.get("system_prompt"),
+            "system_prompt_ref": config.get("system_prompt_ref"),
+            "system_prompt_template": config.get("system_prompt_template"),
+            "system_prompt_parts": config.get("system_prompt_parts"),
+            "user_prompt_id": config.get("user_prompt_id"),
+            "user_input": config.get("user_input"),
+            "prompt_variables": config.get("prompt_variables", {}),
+            "prompt_ids": config.get("prompt_ids", [])
+        }
+        
+        return CacheKeyGenerator.generate_params_key(key_config)
+    
+    async def _get_cached_messages(self, state: WorkflowState, cache_key: str) -> Optional[List[Union[SystemMessage, Any]]]:
+        """获取缓存的消息"""
+        try:
+            # 检查是否启用缓存
+            cache_scope = state.get("prompt_cache_scope", "state")
+            if cache_scope == "none":
+                return None
+            
+            # 从提示词服务获取缓存（如果已注入）
+            if self._prompt_service and hasattr(self._prompt_service, 'resolve_prompt_references'):
+                cached_content = await self._prompt_service.resolve_prompt_references(
+                    [cache_key],
+                    self._prepare_prompt_context(state, {}),
+                    cache_scope=cache_scope
+                )
+                
+                if cached_content:
+                    # 将缓存的内容转换为消息列表
+                    messages = []
+                    for content in cached_content:
+                        if hasattr(content, 'content'):
+                            messages.append(SystemMessage(content=content.content))
+                    return messages
+            
+        except Exception as e:
+            logger.warning(f"获取缓存消息失败: {e}")
+        
+        return None
+    
+    async def _cache_processed_messages(self, state: WorkflowState, cache_key: str, messages: List[Union[SystemMessage, Any]]) -> None:
+        """缓存处理后的消息"""
+        try:
+            # 检查是否启用缓存
+            cache_scope = state.get("prompt_cache_scope", "state")
+            cache_ttl = state.get("prompt_cache_ttl", 3600)
+            
+            if cache_scope == "none":
+                return
+            
+            # 如果未注入提示词服务，跳过缓存
+            if not self._prompt_service or not hasattr(self._prompt_service, 'process_prompt_content'):
+                return
+            
+            # 将消息列表转换为可缓存的内容
+            content_parts = []
+            for msg in messages:
+                if hasattr(msg, 'content') and isinstance(msg.content, str):
+                    content_parts.append(msg.content)
+            content = "\n".join(content_parts)
+            
+            # 缓存内容
+            await self._prompt_service.process_prompt_content(
+                content,
+                {"cache_key": cache_key},
+                cache_scope=cache_scope,
+                cache_ttl=cache_ttl
+            )
+            
+        except Exception as e:
+            logger.warning(f"缓存处理消息失败: {e}")
+    
+    async def _resolve_and_process_prompts(self, state: WorkflowState, config: Dict[str, Any]) -> List[Union[SystemMessage, Any]]:
+        """解析和处理提示词"""
         messages = []
         
         # 准备基础消息
         base_messages = []
         
-        # 添加系统提示词
-        system_prompt = self._get_system_prompt_from_config(config)
+        # 处理系统提示词（支持多种配置方式）
+        system_prompt = await self._resolve_system_prompt(config, state)
         if system_prompt:
             base_messages.append(SystemMessage(content=system_prompt))
         
@@ -144,8 +245,111 @@ class LLMNode(BaseNode):
         if state.get("messages"):
             base_messages.extend(state.get("messages", []))
         
-        # 使用提示词服务构建完整消息列表
+        # 处理提示词引用
+        prompt_ids = self._extract_prompt_ids(config)
+        
+        # 准备上下文
+        context = self._prepare_prompt_context(state, config)
+        
+        # 添加用户输入
+        user_input = config.get("user_input")
+        
+        # 使用提示词服务构建消息（如果已注入）
+        if self._prompt_service and hasattr(self._prompt_service, 'build_messages'):
+            messages = await self._prompt_service.build_messages(
+                base_messages,
+                prompt_ids if prompt_ids else None,
+                user_input,
+                context
+            )
+        else:
+            messages = base_messages
+            if user_input:
+                messages.append(HumanMessage(content=user_input))
+        
+        return messages
+    
+    async def _resolve_system_prompt(self, config: Dict[str, Any], state: WorkflowState) -> Optional[str]:
+        """解析系统提示词（支持多种配置方式）"""
+        # 1. 直接定义（向后兼容）
+        if "system_prompt" in config:
+            return config["system_prompt"]
+        
+        # 2. 引用文件化提示词
+        if "system_prompt_ref" in config:
+            prompt_ref = config["system_prompt_ref"]
+            try:
+                # 检查提示词服务是否可用
+                if self._prompt_service and hasattr(self._prompt_service, 'resolve_prompt_references'):
+                    context = self._prepare_prompt_context(state, config)
+                    
+                    # 尝试从缓存获取
+                    cached_prompt = await self._prompt_service.resolve_prompt_references(
+                        [prompt_ref],
+                        context,
+                        cache_scope=config.get("prompt_cache_scope", "state")
+                    )
+                    
+                    if cached_prompt:
+                        return cached_prompt[0].content if hasattr(cached_prompt[0], 'content') else str(cached_prompt[0])
+                
+            except Exception as e:
+                logger.warning(f"解析系统提示词引用失败: {prompt_ref}, 错误: {e}")
+        
+        # 3. 模板化提示词
+        if "system_prompt_template" in config:
+            try:
+                # 检查提示词服务是否可用
+                if self._prompt_service and hasattr(self._prompt_service, 'process_prompt_content'):
+                    template = config["system_prompt_template"]
+                    context = self._prepare_prompt_context(state, config)
+                    
+                    # 处理模板变量
+                    processed_template = await self._prompt_service.process_prompt_content(
+                        template,
+                        context,
+                        cache_scope=config.get("prompt_cache_scope", "state")
+                    )
+                    
+                    return processed_template
+                
+            except Exception as e:
+                logger.warning(f"处理系统提示词模板失败: {e}")
+        
+        # 4. 组合式提示词
+        if "system_prompt_parts" in config:
+            try:
+                # 检查提示词服务是否可用
+                if self._prompt_service and hasattr(self._prompt_service, 'resolve_prompt_references'):
+                    parts = config["system_prompt_parts"]
+                    context = self._prepare_prompt_context(state, config)
+                    
+                    combined_prompt = ""
+                    for part in parts:
+                        # 解析每个部分
+                        part_content = await self._prompt_service.resolve_prompt_references(
+                            [part],
+                            context,
+                            cache_scope=config.get("prompt_cache_scope", "state")
+                        )
+                        
+                        if part_content:
+                            combined_prompt += part_content[0].content if hasattr(part_content[0], 'content') else str(part_content[0])
+                            combined_prompt += "\n\n"
+                    
+                    return combined_prompt.strip()
+                
+            except Exception as e:
+                logger.warning(f"处理组合式系统提示词失败: {e}")
+        
+        # 回退到默认提示词
+        return self._get_default_system_prompt()
+    
+    def _extract_prompt_ids(self, config: Dict[str, Any]) -> List[str]:
+        """提取提示词ID"""
         prompt_ids = []
+        
+        # 传统方式
         system_prompt_id = config.get("system_prompt_id")
         user_prompt_id = config.get("user_prompt_id")
         
@@ -154,21 +358,12 @@ class LLMNode(BaseNode):
         if user_prompt_id:
             prompt_ids.append(user_prompt_id)
         
-        # 准备上下文
-        context = self._prepare_prompt_context(state, config)
+        # 新的提示词列表方式
+        prompt_ids_list = config.get("prompt_ids", [])
+        if prompt_ids_list:
+            prompt_ids.extend(prompt_ids_list)
         
-        # 添加用户输入
-        user_input = config.get("user_input")
-        
-        # 使用提示词服务构建消息
-        messages = await self._prompt_service.build_messages(
-            base_messages,
-            prompt_ids if prompt_ids else None,
-            user_input,
-            context
-        )
-        
-        return messages
+        return list(set(prompt_ids))  # 去重
 
     # 注意：这个方法已被 _prepare_messages_with_prompts 替代
     # 保留是为了向后兼容，但不再使用
@@ -207,7 +402,11 @@ class LLMNode(BaseNode):
     def _get_prompt_info(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """获取提示词信息"""
         prompt_info = {
-            "using_prompt_system": self._prompt_service.get_service_info()["configured"],
+            "using_prompt_system": (
+                self._prompt_service.get_service_info()["configured"]
+                if self._prompt_service and hasattr(self._prompt_service, 'get_service_info')
+                else False
+            ),
             "system_prompt_id": config.get("system_prompt_id"),
             "user_prompt_id": config.get("user_prompt_id"),
             "prompt_variables": config.get("prompt_variables", {})
@@ -251,6 +450,15 @@ class LLMNode(BaseNode):
 
     def get_config_schema(self) -> Dict[str, Any]:
         """获取节点配置Schema"""
+        try:
+            from ...config.schema_generator import generate_node_schema
+            return generate_node_schema("llm_node")
+        except Exception as e:
+            logger.warning(f"无法从配置文件生成Schema，使用默认Schema: {e}")
+            return self._get_fallback_schema()
+    
+    def _get_fallback_schema(self) -> Dict[str, Any]:
+        """获取备用Schema（当配置文件不可用时）"""
         return {
             "type": "object",
             "properties": {
@@ -270,23 +478,7 @@ class LLMNode(BaseNode):
                 },
                 "system_prompt": {
                     "type": "string",
-                    "description": "系统提示词（传统方式）"
-                },
-                "system_prompt_id": {
-                    "type": "string",
-                    "description": "系统提示词ID（提示词系统）"
-                },
-                "user_prompt_id": {
-                    "type": "string",
-                    "description": "用户提示词ID（提示词系统）"
-                },
-                "prompt_variables": {
-                    "type": "object",
-                    "description": "提示词变量"
-                },
-                "user_input": {
-                    "type": "string",
-                    "description": "用户输入"
+                    "description": "系统提示词"
                 },
                 "next_node": {
                     "type": "string",
@@ -298,8 +490,11 @@ class LLMNode(BaseNode):
 
     def configure_prompt_system(self, prompt_registry, prompt_injector) -> None:
         """配置提示词系统"""
-        self._prompt_service.configure(prompt_registry, prompt_injector)
-        logger.info("LLM节点已配置提示词系统")
+        if self._prompt_service and hasattr(self._prompt_service, 'configure'):
+            self._prompt_service.configure(prompt_registry, prompt_injector)
+            logger.info("LLM节点已配置提示词系统")
+        else:
+            logger.warning("提示词服务未注入，配置失败")
     
     def set_llm_client(self, llm_client: ILLMClient) -> None:
         """设置LLM客户端"""
@@ -307,9 +502,51 @@ class LLMNode(BaseNode):
     
     async def validate_prompt_configuration(self, config: Dict[str, Any]) -> List[str]:
         """验证提示词配置"""
-        return await self._prompt_service.validate_prompt_configuration(config)
+        if self._prompt_service and hasattr(self._prompt_service, 'validate_prompt_configuration'):
+            return await self._prompt_service.validate_prompt_configuration(config)
+        return []
     
     async def process_content(self, content: str, context: Optional[Dict[str, Any]] = None) -> str:
         """处理内容（通用方法）"""
         context = context or {}
-        return await self._prompt_service.process_prompt_content(content, context)
+        if self._prompt_service and hasattr(self._prompt_service, 'process_prompt_content'):
+            return await self._prompt_service.process_prompt_content(content, context)
+        return content
+    
+    async def invalidate_prompt_cache(self, prompt_ref: Optional[str] = None, cache_scope: str = "all") -> None:
+        """失效提示词缓存
+        
+        Args:
+            prompt_ref: 提示词引用，如果为None则清理所有缓存
+            cache_scope: 缓存范围
+        """
+        try:
+            if self._prompt_service and hasattr(self._prompt_service, 'invalidate_prompt_cache'):
+                await self._prompt_service.invalidate_prompt_cache(prompt_ref, cache_scope)
+                logger.info(f"LLM节点提示词缓存已清理: {prompt_ref}, 范围: {cache_scope}")
+        except Exception as e:
+            logger.warning(f"清理LLM节点提示词缓存失败: {e}")
+    
+    async def preload_prompts(self, prompt_refs: List[str], cache_scope: str = "session") -> None:
+        """预加载提示词到缓存
+        
+        Args:
+            prompt_refs: 提示词引用列表
+            cache_scope: 缓存范围
+        """
+        try:
+            if self._prompt_service and hasattr(self._prompt_service, 'preload_prompts'):
+                await self._prompt_service.preload_prompts(prompt_refs, cache_scope)
+                logger.info(f"LLM节点预加载提示词完成: {len(prompt_refs)} 个")
+        except Exception as e:
+            logger.warning(f"LLM节点预加载提示词失败: {e}")
+    
+    def get_prompt_cache_statistics(self) -> Dict[str, Any]:
+        """获取提示词缓存统计信息"""
+        try:
+            if self._prompt_service and hasattr(self._prompt_service, 'get_service_info'):
+                service_info = self._prompt_service.get_service_info()
+                return service_info.get("cache_statistics", {})
+        except Exception as e:
+            logger.warning(f"获取提示词缓存统计信息失败: {e}")
+        return {}
