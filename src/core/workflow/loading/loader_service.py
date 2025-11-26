@@ -12,7 +12,7 @@ import yaml
 from src.core.config.config_manager import ConfigManager
 from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.management.workflow_validator import WorkflowValidator, ValidationIssue
-from src.core.workflow.state_machine.state_templates import StateTemplateManager
+from core.workflow.graph.nodes.state_machine.templates import StateTemplateManager
 from src.services.workflow.function_registry import FunctionRegistry, FunctionType
 from src.core.workflow.graph.builder.base import UnifiedGraphBuilder
 from ....core.workflow.workflow_instance import WorkflowInstance

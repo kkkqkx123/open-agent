@@ -9,7 +9,7 @@ from datetime import datetime
 import logging
 
 from src.core.workflow.config.config import GraphConfig
-from src.core.workflow.state_machine.state_templates import StateTemplateManager
+from core.workflow.graph.nodes.state_machine.templates import StateTemplateManager
 from core.common.exceptions.workflow import WorkflowExecutionError
 
 logger = logging.getLogger(__name__)
