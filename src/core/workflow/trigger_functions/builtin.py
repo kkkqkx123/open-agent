@@ -3,12 +3,13 @@
 提供系统内置的常用触发器函数。
 """
 
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, TYPE_CHECKING
 from datetime import datetime, timedelta
 import time
 import re
 
-from ..states import WorkflowState
+if TYPE_CHECKING:
+    from ....interfaces.state.workflow import IWorkflowState as WorkflowState
 
 
 class BuiltinTriggerFunctions:

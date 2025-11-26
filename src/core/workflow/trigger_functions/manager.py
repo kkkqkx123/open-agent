@@ -8,7 +8,7 @@ import logging
 
 from .registry import TriggerFunctionRegistry, TriggerFunctionConfig
 from .loader import TriggerFunctionLoader
-from .rest import BuiltinTriggerFunctions
+from .builtin import BuiltinTriggerFunctions
 from .config import TriggerCompositionConfig
 
 logger = logging.getLogger(__name__)
@@ -426,7 +426,7 @@ class TriggerFunctionManager:
         
         # 创建触发器
         try:
-            from ..triggers.rest_triggers import CustomTrigger
+            from ..triggers.builtin_triggers import CustomTrigger
             
             return CustomTrigger(
                 trigger_id=trigger_id,

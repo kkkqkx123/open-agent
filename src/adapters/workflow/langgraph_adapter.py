@@ -22,9 +22,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.pregel import Pregel
 from langchain_core.messages import BaseMessage
 
-from ..graph.config import GraphConfig, NodeConfig, EdgeConfig
-from ..graph.states import WorkflowState
-from ..graph.builder import GraphBuilder
+from ....interfaces.state.workflow import IWorkflowState as WorkflowState
 from ..graph.registry import get_global_registry
 from ...domain.state.interfaces import IStateLifecycleManager
 

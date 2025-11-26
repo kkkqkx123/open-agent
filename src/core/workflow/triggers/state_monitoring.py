@@ -9,7 +9,7 @@ from datetime import datetime
 from .monitoring_base import MonitoringTrigger, TriggerType
 
 if TYPE_CHECKING:
-    from ..states import WorkflowState
+    from ....interfaces.state.workflow import IWorkflowState
 
 
 class WorkflowStateCaptureTrigger(MonitoringTrigger):
@@ -48,7 +48,7 @@ class WorkflowStateCaptureTrigger(MonitoringTrigger):
         self._include_tool_results = self._config["include_tool_results"]
         self._last_capture_time: Optional[datetime] = None
     
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -77,7 +77,7 @@ class WorkflowStateCaptureTrigger(MonitoringTrigger):
         
         return True
     
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -178,7 +178,7 @@ class WorkflowStateChangeTrigger(MonitoringTrigger):
         self._monitored_transitions = self._config["monitored_transitions"]
         self._monitor_all_changes = self._config["monitor_all_changes"]
     
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -224,7 +224,7 @@ class WorkflowStateChangeTrigger(MonitoringTrigger):
         
         return False
     
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -297,7 +297,7 @@ class WorkflowErrorStateTrigger(MonitoringTrigger):
         self._monitor_llm_errors = self._config["monitor_llm_errors"]
         self._monitor_system_errors = self._config["monitor_system_errors"]
     
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -329,7 +329,7 @@ class WorkflowErrorStateTrigger(MonitoringTrigger):
         
         return error_count >= self._error_threshold
     
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:

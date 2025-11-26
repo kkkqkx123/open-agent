@@ -11,7 +11,7 @@ from datetime import datetime
 import uuid
 
 if TYPE_CHECKING:
-    from ..states import WorkflowState
+    from ....interfaces.state.workflow import IWorkflowState
 
 
 class TriggerType(Enum):
@@ -53,7 +53,7 @@ class ITrigger(ABC):
         pass
 
     @abstractmethod
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估触发器是否应该触发
 
         Args:
@@ -66,7 +66,7 @@ class ITrigger(ABC):
         pass
 
     @abstractmethod
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
 
         Args:

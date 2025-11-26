@@ -32,11 +32,6 @@ from .pattern_matching import (
     ToolOutputPatternTrigger,
     StatePatternTrigger
 )
-from .system_monitoring import (
-    MemoryMonitoringTrigger,
-    PerformanceMonitoringTrigger,
-    ResourceMonitoringTrigger
-)
 from ..trigger_functions import get_trigger_function_manager, TriggerCompositionConfig
 
 logger = logging.getLogger(__name__)
@@ -133,14 +128,6 @@ class TriggerFactory:
             return ToolOutputPatternTrigger(trigger_id, config)
         elif trigger_class == "StatePatternTrigger":
             return StatePatternTrigger(trigger_id, config)
-        
-        # 系统监控触发器
-        elif trigger_class == "MemoryMonitoringTrigger":
-            return MemoryMonitoringTrigger(trigger_id, config)
-        elif trigger_class == "PerformanceMonitoringTrigger":
-            return PerformanceMonitoringTrigger(trigger_id, config)
-        elif trigger_class == "ResourceMonitoringTrigger":
-            return ResourceMonitoringTrigger(trigger_id, config)
         
         else:
             raise ValueError(f"不支持的监控触发器类: {trigger_class}")
@@ -293,12 +280,6 @@ class TriggerFactory:
             return cast(ITrigger, ToolExecutionTimingTrigger(trigger_id, config))
         elif special_type == "llm_timing":
             return cast(ITrigger, LLMResponseTimingTrigger(trigger_id, config))
-        elif special_type == "memory_monitoring":
-            return cast(ITrigger, MemoryMonitoringTrigger(trigger_id, config))
-        elif special_type == "performance_monitoring":
-            return cast(ITrigger, PerformanceMonitoringTrigger(trigger_id, config))
-        elif special_type == "resource_monitoring":
-            return cast(ITrigger, ResourceMonitoringTrigger(trigger_id, config))
         
         # 使用函数管理器创建自定义触发器
         if evaluate_function and execute_function:

@@ -349,5 +349,9 @@ class GraphConfig:
 
     def get_state_class(self) -> Type[Dict[str, Any]]:
         """获取状态类"""
-        from ..states.factory import WorkflowStateFactory
-        return WorkflowStateFactory.create_state_class_from_config(self.state_schema)
+        # TODO: 实现状态工厂或使用接口
+        # from ..states.factory import WorkflowStateFactory
+        # return WorkflowStateFactory.create_state_class_from_config(self.state_schema)
+        
+        # 临时返回基本字典类型
+        return Dict[str, Any]

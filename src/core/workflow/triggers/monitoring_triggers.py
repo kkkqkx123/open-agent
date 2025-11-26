@@ -10,7 +10,7 @@ import re
 from .monitoring_base import MonitoringTrigger, TriggerType
 
 if TYPE_CHECKING:
-    from ..states import WorkflowState
+    from ....interfaces.state.workflow import IWorkflowState
 
 
 class ToolExecutionTimingTrigger(MonitoringTrigger):
@@ -48,7 +48,7 @@ class ToolExecutionTimingTrigger(MonitoringTrigger):
         self._monitor_all_tools = self._config["monitor_all_tools"]
         self._monitored_tools = set(self._config["monitored_tools"])
     
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -86,7 +86,7 @@ class ToolExecutionTimingTrigger(MonitoringTrigger):
         # 检查是否超过阈值
         return execution_time >= self._timeout_threshold
     
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -185,7 +185,7 @@ class LLMResponseTimingTrigger(MonitoringTrigger):
         self._monitor_all_models = self._config["monitor_all_models"]
         self._monitored_models = set(self._config["monitored_models"])
     
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -225,7 +225,7 @@ class LLMResponseTimingTrigger(MonitoringTrigger):
         # 检查是否超过阈值
         return response_time >= self._timeout_threshold
     
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -322,7 +322,7 @@ class WorkflowStateTimingTrigger(MonitoringTrigger):
         self._warning_threshold = self._config["warning_threshold"]
         self._monitored_states = set(self._config["monitored_states"])
     
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -355,7 +355,7 @@ class WorkflowStateTimingTrigger(MonitoringTrigger):
         # 检查是否超过停滞阈值
         return time_since_change >= self._stall_threshold
     
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -430,7 +430,7 @@ class WorkflowStateCaptureTrigger(MonitoringTrigger):
         self._include_tool_results = self._config["include_tool_results"]
         self._last_capture_time: Optional[datetime] = None
     
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -459,7 +459,7 @@ class WorkflowStateCaptureTrigger(MonitoringTrigger):
         
         return True
     
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -560,7 +560,7 @@ class UserInputPatternTrigger(MonitoringTrigger):
         self._case_sensitive = self._config["case_sensitive"]
         self._processed_messages: List[str] = []
     
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -596,7 +596,7 @@ class UserInputPatternTrigger(MonitoringTrigger):
         
         return False
     
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -662,7 +662,7 @@ class LLMOutputPatternTrigger(MonitoringTrigger):
         self._case_sensitive = self._config["case_sensitive"]
         self._processed_messages: List[str] = []
     
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -698,7 +698,7 @@ class LLMOutputPatternTrigger(MonitoringTrigger):
         
         return False
     
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -768,7 +768,7 @@ class MemoryMonitoringTrigger(MonitoringTrigger):
         self._system_memory_threshold_percent = self._config["system_memory_threshold_percent"]
         self._check_interval = self._config["check_interval"]
     
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -790,7 +790,7 @@ class MemoryMonitoringTrigger(MonitoringTrigger):
         return (memory_info.process_memory_mb > self._memory_threshold_mb or
                 memory_info.system_memory_percent > self._system_memory_threshold_percent)
     
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:

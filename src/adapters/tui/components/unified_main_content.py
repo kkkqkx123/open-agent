@@ -11,7 +11,7 @@ from rich.text import Text
 from rich.table import Table
 from rich.console import Console, ConsoleOptions, RenderResult
 
-from src.infrastructure.graph.states import WorkflowState
+from ....interfaces.state.workflow import IWorkflowState as WorkflowState
 from src.presentation.tui.config import TUIConfig
 from .unified_timeline import (
     UnifiedTimelineComponent,

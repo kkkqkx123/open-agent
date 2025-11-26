@@ -18,7 +18,7 @@ from rich.align import Align
 from rich.console import Console, ConsoleOptions, RenderResult
 from rich.spinner import Spinner
 
-from src.infrastructure.graph.states import WorkflowState, BaseMessage
+from ....interfaces.state.workflow import IWorkflowState as WorkflowState
 from typing import Any as ToolResult
 from ..config import TUIConfig
 

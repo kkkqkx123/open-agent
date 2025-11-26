@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from .base import ITrigger, TriggerEvent, TriggerHandler, TriggerType
 
 if TYPE_CHECKING:
-    from ..states import WorkflowState
+    from ....interfaces.state.workflow import IWorkflowState
 
 
 class TriggerSystem:
@@ -127,7 +127,7 @@ class TriggerSystem:
                 return True
             return False
 
-    def evaluate_triggers(self, state: "WorkflowState", context: Dict[str, Any]) -> List[TriggerEvent]:
+    def evaluate_triggers(self, state: "IWorkflowState", context: Dict[str, Any]) -> List[TriggerEvent]:
         """评估所有触发器
 
         Args:
@@ -339,7 +339,7 @@ class WorkflowTriggerSystem(TriggerSystem):
         super().__init__(max_workers)
         self.workflow_manager = workflow_manager
 
-    def evaluate_workflow_triggers(self, workflow_id: str, state: "WorkflowState") -> List[TriggerEvent]:
+    def evaluate_workflow_triggers(self, workflow_id: str, state: "IWorkflowState") -> List[TriggerEvent]:
         """评估工作流触发器
 
         Args:

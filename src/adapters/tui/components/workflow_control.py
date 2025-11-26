@@ -16,7 +16,7 @@ from rich.console import Console, ConsoleOptions, RenderResult
 from rich.tree import Tree
 
 from ..config import TUIConfig
-from src.infrastructure.graph.states import WorkflowState as InfraWorkflowState
+from ....interfaces.state.workflow import IWorkflowState as InfraWorkflowState
 
 
 class WorkflowState(Enum):

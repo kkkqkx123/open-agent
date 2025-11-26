@@ -11,7 +11,7 @@ import re
 from .base import BaseTrigger, TriggerType
 
 if TYPE_CHECKING:
-    from ..states import WorkflowState
+    from ....interfaces.state.workflow import IWorkflowState
 
 
 class TimeTrigger(BaseTrigger):
@@ -39,7 +39,7 @@ class TimeTrigger(BaseTrigger):
         self._next_trigger: Optional[datetime] = None
         self._calculate_next_trigger()
 
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发"""
         if not self.can_trigger():
             return False
@@ -54,7 +54,7 @@ class TimeTrigger(BaseTrigger):
         
         return False
 
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作"""
         self._update_trigger_info()
         # 对于间隔时间触发器，需要计算下一次触发时间
@@ -124,7 +124,7 @@ class StateTrigger(BaseTrigger):
         )
         self._condition = condition
 
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发"""
         if not self.can_trigger():
             return False
@@ -158,7 +158,7 @@ class StateTrigger(BaseTrigger):
         except Exception:
             return False
 
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作"""
         self._update_trigger_info()
         
@@ -208,7 +208,7 @@ class EventTrigger(BaseTrigger):
         self._event_pattern = event_pattern
         self._compiled_pattern = re.compile(event_pattern) if event_pattern else None
 
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发"""
         if not self.can_trigger():
             return False
@@ -229,7 +229,7 @@ class EventTrigger(BaseTrigger):
         
         return False
 
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作"""
         self._update_trigger_info()
         
@@ -268,8 +268,8 @@ class CustomTrigger(BaseTrigger):
     def __init__(
         self,
         trigger_id: str,
-        evaluate_func: Callable[["WorkflowState", Dict[str, Any]], bool],
-        execute_func: Callable[["WorkflowState", Dict[str, Any]], Dict[str, Any]],
+        evaluate_func: Callable[["IWorkflowState", Dict[str, Any]], bool],
+        execute_func: Callable[["IWorkflowState", Dict[str, Any]], Dict[str, Any]],
         config: Optional[Dict[str, Any]] = None
     ) -> None:
         """初始化自定义触发器
@@ -288,7 +288,7 @@ class CustomTrigger(BaseTrigger):
         self._evaluate_func = evaluate_func
         self._execute_func = execute_func
 
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发"""
         if not self.can_trigger():
             return False
@@ -298,7 +298,7 @@ class CustomTrigger(BaseTrigger):
         except Exception:
             return False
 
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作"""
         self._update_trigger_info()
         
@@ -339,7 +339,7 @@ class ToolErrorTrigger(BaseTrigger):
         )
         self._error_threshold = error_threshold
 
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发"""
         if not self.can_trigger():
             return False
@@ -349,7 +349,7 @@ class ToolErrorTrigger(BaseTrigger):
         error_count = sum(1 for result in tool_results if not result.get("success", True))
         return error_count >= self._error_threshold
 
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作"""
         self._update_trigger_info()
         
@@ -403,7 +403,7 @@ class IterationLimitTrigger(BaseTrigger):
         )
         self._max_iterations = max_iterations
 
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发"""
         if not self.can_trigger():
             return False
@@ -411,7 +411,7 @@ class IterationLimitTrigger(BaseTrigger):
         iteration_count = state.get("iteration_count", 0)
         return iteration_count >= self._max_iterations
 
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作"""
         self._update_trigger_info()
         

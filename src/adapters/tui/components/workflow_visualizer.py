@@ -19,7 +19,7 @@ from rich.layout import Layout
 from rich.columns import Columns
 
 from ..config import TUIConfig
-from src.infrastructure.graph.states import WorkflowState
+from ....interfaces.state.workflow import IWorkflowState as WorkflowState
 
 
 class NodeType(Enum):

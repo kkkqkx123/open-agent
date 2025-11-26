@@ -9,7 +9,7 @@ from datetime import datetime
 from .monitoring_base import MonitoringTrigger, TriggerType
 
 if TYPE_CHECKING:
-    from ..states import WorkflowState
+    from ....interfaces.state.workflow import IWorkflowState
 
 
 class UserInputPatternTrigger(MonitoringTrigger):
@@ -43,7 +43,7 @@ class UserInputPatternTrigger(MonitoringTrigger):
         self._case_sensitive = self._config["case_sensitive"]
         self._processed_messages: List[str] = []
     
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -79,7 +79,7 @@ class UserInputPatternTrigger(MonitoringTrigger):
         
         return False
     
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -145,7 +145,7 @@ class LLMOutputPatternTrigger(MonitoringTrigger):
         self._case_sensitive = self._config["case_sensitive"]
         self._processed_messages: List[str] = []
     
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -181,7 +181,7 @@ class LLMOutputPatternTrigger(MonitoringTrigger):
         
         return False
     
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -251,7 +251,7 @@ class ToolOutputPatternTrigger(MonitoringTrigger):
         self._monitored_tools = set(self._config["monitored_tools"])
         self._processed_results: List[str] = []
     
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -298,7 +298,7 @@ class ToolOutputPatternTrigger(MonitoringTrigger):
         
         return False
     
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -369,7 +369,7 @@ class StatePatternTrigger(MonitoringTrigger):
         self._data_patterns = self._config["data_patterns"]
         self._processed_states: List[str] = []
     
-    def evaluate(self, state: "WorkflowState", context: Dict[str, Any]) -> bool:
+    def evaluate(self, state: "IWorkflowState", context: Dict[str, Any]) -> bool:
         """评估是否应该触发
         
         Args:
@@ -406,7 +406,7 @@ class StatePatternTrigger(MonitoringTrigger):
         
         return False
     
-    def execute(self, state: "WorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作
         
         Args:
@@ -459,7 +459,7 @@ class StatePatternTrigger(MonitoringTrigger):
         
         return pattern in text
     
-    def _match_state_data(self, pattern: str, state: "WorkflowState") -> bool:
+    def _match_state_data(self, pattern: str, state: "IWorkflowState") -> bool:
         """匹配状态数据模式
         
         Args:

@@ -16,7 +16,7 @@ from collections import defaultdict
 from .base import BaseTrigger, TriggerType, TriggerEvent
 
 if TYPE_CHECKING:
-    from ..states import WorkflowState
+    from ....interfaces.state.workflow import IWorkflowState
 
 
 @dataclass
