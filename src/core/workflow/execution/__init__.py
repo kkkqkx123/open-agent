@@ -19,7 +19,7 @@ from .core.execution_context import (
 from .strategies.strategy_base import IExecutionStrategy, BaseStrategy
 from .strategies.retry_strategy import (
     RetryStrategy,
-    IRetryStrategy,
+    RetryStrategyImpl,
     RetryConfig,
     RetryStrategy as RetryStrategyEnum,
     RetryAttempt,
@@ -99,6 +99,7 @@ __all__ = [
     "IExecutionStrategy",
     "BaseStrategy",
     "RetryStrategy",
+    "RetryStrategyImpl",
     "RetryConfig",
     "RetryStrategyEnum",
     "RetryAttempt",

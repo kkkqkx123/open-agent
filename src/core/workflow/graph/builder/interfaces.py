@@ -4,9 +4,11 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 from src.core.workflow.config.config import GraphConfig
-from src.core.workflow.graph.builder.validator import ValidationResult
+
+if TYPE_CHECKING:
+    from src.core.workflow.graph.builder.validator import ValidationResult
 
 
 class IGraphBuilder(ABC):
@@ -28,7 +30,7 @@ class IGraphBuilder(ABC):
         pass
     
     @abstractmethod
-    def validate_config(self, config: GraphConfig) -> ValidationResult:
+    def validate_config(self, config: GraphConfig) -> "ValidationResult":
         """验证配置
         
         Args:

@@ -12,7 +12,8 @@ from datetime import datetime
 from src.interfaces.workflow.core import IWorkflow, ExecutionContext
 from src.interfaces.state import IWorkflowState
 from src.interfaces.workflow.execution import IWorkflowExecutor
-from src.core.workflow.entities import Workflow, WorkflowExecution, ExecutionResult
+from src.core.workflow.workflow_instance import Workflow
+from src.core.workflow.entities import WorkflowExecution, ExecutionResult
 
 
 logger = logging.getLogger(__name__)

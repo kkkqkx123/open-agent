@@ -6,14 +6,11 @@
 from .base import BaseWorkflowTemplate
 from .react import ReActWorkflowTemplate, EnhancedReActTemplate
 from .plan_execute import PlanExecuteWorkflowTemplate, CollaborativePlanExecuteTemplate
-from .prompt_integration import PromptIntegratedTemplate
 from .registry import WorkflowTemplateRegistry, get_global_template_registry
 
 __all__ = [
     # 基础模板
     "BaseWorkflowTemplate",
-    "PromptIntegratedTemplate",
-    
     # ReAct模板
     "ReActWorkflowTemplate",
     "EnhancedReActTemplate",

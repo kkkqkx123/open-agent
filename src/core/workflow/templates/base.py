@@ -7,8 +7,9 @@ from abc import ABC
 from typing import Dict, Any, List, Optional
 import logging
 
-from ..interfaces import IWorkflowTemplate, IWorkflow
-from ..workflow import Workflow
+from src.interfaces.workflow.templates import IWorkflowTemplate
+from src.interfaces.workflow.core import IWorkflow
+from ..workflow_instance import Workflow
 from ..value_objects import WorkflowStep, WorkflowTransition, WorkflowRule, StepType, TransitionType
 
 logger = logging.getLogger(__name__)
@@ -81,7 +82,7 @@ class BaseWorkflowTemplate(IWorkflowTemplate, ABC):
         logger.info(f"从模板 '{self.name}' 创建工作流: {name}")
         return workflow
     
-    def _build_workflow_structure(self, workflow: Workflow, config: Dict[str, Any]) -> None:
+    def _build_workflow_structure(self, workflow: IWorkflow, config: Dict[str, Any]) -> None:
         """构建工作流结构
         
         Args:

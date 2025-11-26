@@ -16,7 +16,7 @@ from core.workflow.execution.core.execution_context import BatchExecutionResult
 from .strategy_base import BaseStrategy, IExecutionStrategy
 
 if TYPE_CHECKING:
-    from ..core.workflow_executor import IWorkflowExecutor
+    from src.interfaces.workflow.execution import IWorkflowExecutor
     from ..core.execution_context import ExecutionContext, ExecutionResult, BatchJob
     from ...workflow_instance import WorkflowInstance
 

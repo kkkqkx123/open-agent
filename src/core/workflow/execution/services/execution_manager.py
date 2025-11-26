@@ -10,7 +10,8 @@ from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from datetime import datetime
 from dataclasses import dataclass, field
 
-from ..core.workflow_executor import IWorkflowExecutor, WorkflowExecutor
+from src.interfaces.workflow.execution import IWorkflowExecutor
+from ..core.workflow_executor import WorkflowExecutor
 from ..core.node_executor import INodeExecutor, NodeExecutor
 from ..core.execution_context import ExecutionContext, ExecutionResult
 from ..strategies.strategy_base import IExecutionStrategy

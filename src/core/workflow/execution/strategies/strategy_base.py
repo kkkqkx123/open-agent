@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..core.workflow_executor import IWorkflowExecutor
+    from src.interfaces.workflow.execution import IWorkflowExecutor
     from ..core.execution_context import ExecutionContext, ExecutionResult
     from ...workflow_instance import WorkflowInstance
 

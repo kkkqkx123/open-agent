@@ -7,7 +7,7 @@ from typing import Dict, Any, List
 import logging
 
 from .base import BaseWorkflowTemplate
-from ..workflow import Workflow
+from src.interfaces.workflow.core import IWorkflow
 from ..value_objects import WorkflowStep, WorkflowTransition, StepType, TransitionType
 
 logger = logging.getLogger(__name__)
@@ -119,7 +119,7 @@ class PlanExecuteWorkflowTemplate(BaseWorkflowTemplate):
             }
         ]
     
-    def _build_workflow_structure(self, workflow: 'Workflow', config: Dict[str, Any]) -> None:
+    def _build_workflow_structure(self, workflow: IWorkflow, config: Dict[str, Any]) -> None:
         """构建Plan-Execute工作流结构
         
         Args:
@@ -308,7 +308,7 @@ class CollaborativePlanExecuteTemplate(PlanExecuteWorkflowTemplate):
         
         self._parameters.extend(collaboration_params)
     
-    def _build_workflow_structure(self, workflow: 'Workflow', config: Dict[str, Any]) -> None:
+    def _build_workflow_structure(self, workflow: IWorkflow, config: Dict[str, Any]) -> None:
         """构建协作式Plan-Execute工作流结构
         
         Args:

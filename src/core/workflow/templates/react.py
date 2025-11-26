@@ -7,7 +7,7 @@ from typing import Dict, Any, List
 import logging
 
 from .base import BaseWorkflowTemplate
-from ..workflow import Workflow
+from src.interfaces.workflow.core import IWorkflow
 from ..value_objects import WorkflowStep, WorkflowTransition, StepType, TransitionType
 
 logger = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ class ReActWorkflowTemplate(BaseWorkflowTemplate):
             }
         ]
     
-    def _build_workflow_structure(self, workflow: 'Workflow', config: Dict[str, Any]) -> None:
+    def _build_workflow_structure(self, workflow: IWorkflow, config: Dict[str, Any]) -> None:
         """构建ReAct工作流结构
         
         Args:
@@ -253,7 +253,7 @@ class EnhancedReActTemplate(ReActWorkflowTemplate):
         
         self._parameters.extend(enhanced_params)
     
-    def _build_workflow_structure(self, workflow: 'Workflow', config: Dict[str, Any]) -> None:
+    def _build_workflow_structure(self, workflow: IWorkflow, config: Dict[str, Any]) -> None:
         """构建增强的ReAct工作流结构
         
         Args:

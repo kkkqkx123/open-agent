@@ -14,7 +14,6 @@ from src.interfaces.workflow.services import (
     IWorkflowRegistry,
     IWorkflowBuilderService
 )
-from .di_config import configure_workflow_services
 
 from .function_registry import (
     FunctionRegistry,
@@ -45,7 +44,6 @@ __all__ = [
     "IWorkflowOrchestrator",
     "IWorkflowRegistry",
     "IWorkflowBuilderService",
-    "configure_workflow_services",
     
     # Newly migrated services
     "FunctionRegistry",

@@ -131,6 +131,21 @@ class IWorkflow(ABC):
         pass
 
     @abstractmethod
+    def add_step(self, step: Any) -> None:
+        """添加步骤"""
+        pass
+
+    @abstractmethod
+    def add_transition(self, transition: Any) -> None:
+        """添加转换"""
+        pass
+
+    @abstractmethod
+    def get_step(self, step_id: str) -> Any:
+        """获取步骤"""
+        pass
+
+    @abstractmethod
     def execute(self, initial_state: 'IWorkflowState', context: ExecutionContext) -> 'IWorkflowState':
         """执行工作流"""
         pass

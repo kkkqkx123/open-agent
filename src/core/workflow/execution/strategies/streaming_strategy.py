@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from .strategy_base import BaseStrategy, IExecutionStrategy
 
 if TYPE_CHECKING:
-    from ..core.workflow_executor import IWorkflowExecutor
+    from src.interfaces.workflow.execution import IWorkflowExecutor
     from ..core.execution_context import ExecutionContext, ExecutionResult
     from ...workflow_instance import WorkflowInstance
 
