@@ -12,7 +12,7 @@ from dataclasses import dataclass, asdict, field
 import logging
 
 from src.core.state import WorkflowState
-from src.core.state.implementations.workflow_state import LCBaseMessage
+from src.core.state.implementations.workflow_state import BaseMessage
 from src.core.llm.message_converters import MessageConverter
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 
@@ -30,7 +30,7 @@ class WorkflowStateAdapter:
     workflow_type: str = ""
     
     # 消息相关
-    messages: List[LCBaseMessage] = field(default_factory=list)
+    messages: List[BaseMessage] = field(default_factory=list)
     
     # 任务相关
     current_task: Optional[str] = None
@@ -213,7 +213,7 @@ class WorkflowStateConverter:
         
         return self._dict_to_adapter_state(state_dict)
     
-    def _convert_messages_from_langchain(self, messages: List) -> List[LCBaseMessage]:
+    def _convert_messages_from_langchain(self, messages: List) -> List[BaseMessage]:
         """将LangChain消息转换为内部消息格式"""
         converted_messages = []
         
@@ -265,7 +265,7 @@ class WorkflowStateConverter:
         
         return converted_messages
     
-    def _convert_messages_to_langchain(self, messages: List) -> List[LCBaseMessage]:
+    def _convert_messages_to_langchain(self, messages: List) -> List[BaseMessage]:
         """将内部消息格式转换为LangChain消息"""
         converted_messages = []
         

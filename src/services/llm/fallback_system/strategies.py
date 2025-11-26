@@ -5,7 +5,7 @@ import asyncio
 import concurrent.futures
 from typing import Optional, List, Callable, Any
 
-from .interfaces import IFallbackStrategy
+from src.interfaces.llm import IFallbackStrategy
 from .fallback_config import FallbackConfig
 
 

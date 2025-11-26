@@ -10,7 +10,7 @@
 import time
 from typing import Any, Optional, Dict, List, Tuple
 
-from ....interfaces import ITaskGroupManager, IPollingPoolManager
+from ....interfaces.llm import ITaskGroupManager, IPollingPoolManager, IFallbackLogger, LLMResponse
 
 
 class GroupBasedFallbackStrategy:
@@ -217,7 +217,7 @@ class PollingPoolFallbackStrategy:
         return []
 
 
-class DefaultFallbackLogger:
+class DefaultFallbackLogger(IFallbackLogger):
     """默认降级日志记录器"""
     
     def __init__(self, enabled: bool = True):
@@ -245,8 +245,8 @@ class DefaultFallbackLogger:
         
         print(f"[Fallback] 尝试 {attempt}: {primary_model} -> {fallback_model}, 错误: {error}")
     
-    def log_fallback_success(self, primary_model: str, fallback_model: str, 
-                           response: Any, attempt: int) -> None:
+    def log_fallback_success(self, primary_model: str, fallback_model: str,
+                           response: LLMResponse, attempt: int) -> None:
         """
         记录降级成功
         

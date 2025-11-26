@@ -4,11 +4,11 @@
 """
 
 from typing import List, Optional, Dict, Any
-from .interfaces import IClientFactory
+from src.interfaces.llm import IClientFactory
 from .fallback_config import FallbackConfig
 
 
-class FallbackConfigurationManager:
+class FallbackConfigManager:
     """降级配置管理器
     
     负责配置的管理和更新，包括：

@@ -7,8 +7,8 @@ from .fallback_manager import FallbackManager
 from .fallback_engine import FallbackEngine
 from .fallback_tracker import FallbackTracker
 from .fallback_config import FallbackConfig, FallbackAttempt, FallbackSession
-from .fallback_factory import create_fallback_manager
-from .interfaces import IFallbackStrategy, IClientFactory, IFallbackLogger
+from .fallback_factory import create_fallback_manager, create_default_fallback_logger
+from src.interfaces.llm import IFallbackStrategy, IClientFactory, IFallbackLogger
 
 __all__ = [
     "FallbackManager",
@@ -18,6 +18,7 @@ __all__ = [
     "FallbackAttempt",
     "FallbackSession",
     "create_fallback_manager",
+    "create_default_fallback_logger",
     "IFallbackStrategy",
     "IClientFactory",
     "IFallbackLogger"

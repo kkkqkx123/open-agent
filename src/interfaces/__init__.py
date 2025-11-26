@@ -173,6 +173,14 @@ from .common import (
     AbstractThreadSnapshotData
 )
 
+# 配置相关接口
+from .configuration import (
+    ValidationResult,
+    ValidationSeverity,
+    IConfigValidator,
+    IConfigManager
+)
+
 # 导出所有接口的__all__列表
 __all__ = [
     # 工作流接口
@@ -320,4 +328,10 @@ __all__ = [
     "AbstractThreadData",
     "AbstractThreadBranchData",
     "AbstractThreadSnapshotData",
+    
+    # 配置接口
+    "ValidationResult",
+    "ValidationSeverity",
+    "IConfigValidator",
+    "IConfigManager",
 ]

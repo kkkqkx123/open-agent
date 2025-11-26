@@ -3,11 +3,10 @@
 提供创建FallbackManager实例的工厂函数。
 """
 
-from typing import Any, Optional, List
+from typing import Any, Optional, List, cast
 from .fallback_manager import FallbackManager
 from .fallback_config import FallbackConfig
-from .interfaces import IClientFactory, IFallbackLogger
-from src.interfaces.llm import ITaskGroupManager, IPollingPoolManager
+from src.interfaces.llm import IClientFactory, IFallbackLogger, ITaskGroupManager, IPollingPoolManager
 
 
 def create_fallback_manager(
@@ -56,3 +55,15 @@ def create_fallback_manager(
         task_group_manager=task_group_manager,
         polling_pool_manager=polling_pool_manager
     )
+
+
+def create_default_fallback_logger() -> IFallbackLogger:
+    """
+    创建默认的降级日志记录器
+    
+    Returns:
+        IFallbackLogger 实例，直接使用 Core 层的 DefaultFallbackLogger
+    """
+    from src.core.llm.wrappers.fallback_manager import DefaultFallbackLogger
+    # 现在不需要类型转换，因为接口已经统一
+    return DefaultFallbackLogger()

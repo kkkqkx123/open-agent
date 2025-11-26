@@ -8,12 +8,11 @@ import asyncio
 from typing import Any, Optional, Sequence, Dict, List, Tuple
 from langchain_core.messages import BaseMessage
 
-from .interfaces import IFallbackStrategy, IClientFactory, IFallbackLogger
+from src.interfaces.llm import IFallbackStrategy, IClientFactory, IFallbackLogger, LLMResponse
 from .fallback_config import FallbackConfig, FallbackAttempt, FallbackSession
 from .strategies import create_fallback_strategy
 
 # 修复导入路径
-from src.core.llm.models import LLMResponse
 from core.common.exceptions.llm import LLMCallError
 
 # Services 层的导入

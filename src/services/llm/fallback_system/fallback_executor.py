@@ -8,12 +8,11 @@ import asyncio
 from typing import Any, Optional, Sequence, Dict, List, Tuple
 from langchain_core.messages import BaseMessage
 
-from .interfaces import IFallbackStrategy, IClientFactory, IFallbackLogger
+from src.interfaces.llm import IFallbackStrategy, IClientFactory, IFallbackLogger, LLMResponse
 from .fallback_config import FallbackConfig, FallbackAttempt, FallbackSession
 from .strategies import create_fallback_strategy
 
 # 修复导入路径
-from src.core.llm.models import LLMResponse
 from core.common.exceptions.llm import LLMCallError
 
 
@@ -44,10 +43,10 @@ class FallbackExecutor:
         self.logger = logger
         
         # 延迟初始化策略，避免循环依赖
-        self._strategy = None
+        self._strategy: Optional[IFallbackStrategy] = None
         self._strategies_initialized = False
     
-    def _initialize_strategy(self):
+    def _initialize_strategy(self) -> None:
         """延迟初始化策略，避免循环依赖"""
         if self._strategies_initialized:
             return
@@ -138,9 +137,10 @@ class FallbackExecutor:
                     session.add_attempt(fallback_attempt)
                     session.mark_success(response)
                     
-                    self.logger.log_fallback_success(
-                        primary_model or "", "parallel_fallback", response, 1
-                    )
+                    if self.logger:
+                        self.logger.log_fallback_success(
+                            primary_model or "", "parallel_fallback", response, 1
+                        )
                     
                     return response, session
                     
@@ -158,7 +158,8 @@ class FallbackExecutor:
                     )
                     session.add_attempt(fallback_attempt)
                     
-                    self.logger.log_fallback_failure(primary_model or "", e, 1)
+                    if self.logger:
+                        self.logger.log_fallback_failure(primary_model or "", e, 1)
                     session.mark_failure(e)
                     raise e
             else:
@@ -208,9 +209,10 @@ class FallbackExecutor:
                         
                         # 记录成功日志
                         if attempt > 0:
-                            self.logger.log_fallback_success(
-                                primary_model or "", target_model, response, attempt + 1
-                            )
+                            if self.logger:
+                                self.logger.log_fallback_success(
+                                    primary_model or "", target_model, response, attempt + 1
+                                )
                         
                         return response, session
                         
@@ -222,9 +224,10 @@ class FallbackExecutor:
                         
                         # 记录尝试日志
                         if attempt > 0:
-                            self.logger.log_fallback_attempt(
-                                primary_model or "", target_model, e, attempt + 1
-                            )
+                            if self.logger:
+                                self.logger.log_fallback_attempt(
+                                    primary_model or "", target_model, e, attempt + 1
+                                )
                         
                         # 检查是否应该继续降级
                         if self._strategy and not self._strategy.should_fallback(e, attempt + 1):
@@ -235,7 +238,8 @@ class FallbackExecutor:
             # 所有尝试都失败
             final_error = last_error or LLMCallError("未知错误")
             session.mark_failure(final_error)
-            self.logger.log_fallback_failure(primary_model or "", final_error, attempt)
+            if self.logger:
+                self.logger.log_fallback_failure(primary_model or "", final_error, attempt)
             
             # 抛出最后的错误
             raise last_error or LLMCallError("降级失败")

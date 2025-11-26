@@ -8,18 +8,17 @@ import asyncio
 from typing import Any, Optional, Sequence, Dict, List, Tuple
 from langchain_core.messages import BaseMessage
 
-from .interfaces import IFallbackStrategy, IClientFactory, IFallbackLogger
+from src.interfaces.llm import IFallbackStrategy, IClientFactory, IFallbackLogger, LLMResponse
 from .fallback_config import FallbackConfig, FallbackAttempt, FallbackSession
 
 # 新组件导入
 from .fallback_engine import FallbackEngine
 from .fallback_tracker import FallbackTracker
 from .fallback_strategy_manager import FallbackStrategyManager
-from .fallback_configuration_manager import FallbackConfigurationManager
-from .logger_adapter import LoggerAdapter
+from .fallback_config_manager import FallbackConfigManager
+from .fallback_factory import create_default_fallback_logger
 
 # 修复导入路径
-from src.core.llm.models import LLMResponse
 from core.common.exceptions.llm import LLMCallError
 
 # Services 层的导入
@@ -57,15 +56,14 @@ class FallbackManager:
             task_group_manager: 任务组管理器（Services 层）
             polling_pool_manager: 轮询池管理器（Services 层）
         """
-        # 处理日志记录器类型转换
+        # 处理日志记录器 - 直接使用工厂函数
         if logger is not None:
             fallback_logger = logger
         else:
-            core_logger = CoreDefaultFallbackLogger()
-            fallback_logger = LoggerAdapter(core_logger)
+            fallback_logger = create_default_fallback_logger()
         
         # 初始化各个组件
-        self._config_manager = FallbackConfigurationManager(config, client_factory)
+        self._config_manager = FallbackConfigManager(config, client_factory)
         self._tracker = FallbackTracker()
         self._strategy_manager = FallbackStrategyManager(config, task_group_manager, polling_pool_manager)
         self._engine = FallbackEngine(
