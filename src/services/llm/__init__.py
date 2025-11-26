@@ -6,7 +6,6 @@
 from .manager import LLMManager
 from .fallback_system.fallback_manager import FallbackManager
 from .scheduling.task_group_manager import TaskGroupManager
-from .config.configuration_service import LLMClientConfigurationService
 from .config.config_manager import ConfigManager
 from .core.client_manager import LLMClientManager
 from .core.request_executor import LLMRequestExecutor
@@ -15,7 +14,6 @@ from .core.manager_registry import ManagerRegistry, ManagerStatus, manager_regis
 from .config.config_validator import LLMConfigValidator
 from .utils.metadata_service import ClientMetadataService
 from .state_machine import StateMachine, LLMManagerState
-from .di_config import register_llm_services, configure_llm_module, create_llm_manager_with_config
 from .factory.client_factory import ClientFactory
 from .token_processing import (
     ITokenProcessor, 
@@ -33,7 +31,6 @@ __all__ = [
     
     # 配置管理
     "ConfigManager",
-    "LLMClientConfigurationService",
     "LLMConfigValidator",
     
     # 核心组件
@@ -58,9 +55,4 @@ __all__ = [
     "OpenAITokenProcessor",
     "AnthropicTokenProcessor",
     "GeminiTokenProcessor",
-    
-    # 依赖注入
-    "register_llm_services",
-    "configure_llm_module",
-    "create_llm_manager_with_config",
 ]

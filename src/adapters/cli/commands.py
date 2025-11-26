@@ -322,9 +322,6 @@ def setup_container(config_path: Optional[str] = None) -> None:
         config_manager = ConfigManager()
         container.register_instance(ConfigManager, config_manager)
     
-    # ISessionStore已废弃，不再注册
-    # 所有会话存储操作现在使用ISessionRepository
-    
     # 注册Git服务
     from src.services.sessions.git_service import IGitService
     if not container.has_service(IGitService):

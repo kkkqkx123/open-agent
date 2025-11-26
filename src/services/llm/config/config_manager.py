@@ -52,7 +52,7 @@ class ConfigManager:
         # 配置基础路径
         self._config_base_path = "llms"
     
-    def get_config(self, config_type: str, use_cache: bool = True) -> dict[str, Any]:
+    def get_config(self, config_type: str, use_cache: bool = True) -> Union[dict[str, Any], list[Any]]:
         """获取指定类型的配置
         
         Args:
@@ -63,14 +63,14 @@ class ConfigManager:
             Dict[str, Any]: 配置字典
         """
         if use_cache and config_type in self._config_cache:
-            return self._config_cache[config_type]
+            return self._config_cache[config_type]  # type: ignore
         
         config = self._load_config_by_type(config_type)
         
         if use_cache:
             self._config_cache[config_type] = config
         
-        return config
+        return config or {}
     
     def validate_config(self, config: Union[dict[str, Any], LLMClientConfig]) -> ValidationResult:
         """验证配置
@@ -100,7 +100,7 @@ class ConfigManager:
         Raises:
             LLMError: 配置加载失败
         """
-        clients = {}
+        clients: dict[str, Any] = {}
         clients_config_data = self.get_config("clients")
         clients_config: list[Union[dict[str, Any], LLMClientConfig]] = clients_config_data if isinstance(clients_config_data, list) else []
         
@@ -152,7 +152,8 @@ class ConfigManager:
         Returns:
             Dict[str, Any]: 任务组配置字典
         """
-        return self.get_config("task_groups")
+        config = self.get_config("task_groups")
+        return config if isinstance(config, dict) else {}
     
     def get_polling_pools(self) -> dict[str, Any]:
         """获取轮询池配置
@@ -160,7 +161,8 @@ class ConfigManager:
         Returns:
             Dict[str, Any]: 轮询池配置字典
         """
-        return self.get_config("polling_pools")
+        config = self.get_config("polling_pools")
+        return config if isinstance(config, dict) else {}
     
     def get_global_fallback(self) -> dict[str, Any]:
         """获取全局降级配置
@@ -168,7 +170,8 @@ class ConfigManager:
         Returns:
             Dict[str, Any]: 全局降级配置字典
         """
-        return self.get_config("global_fallback")
+        config = self.get_config("global_fallback")
+        return config if isinstance(config, dict) else {}
     
     def get_concurrency_control(self) -> dict[str, Any]:
         """获取并发控制配置
@@ -176,7 +179,8 @@ class ConfigManager:
         Returns:
             Dict[str, Any]: 并发控制配置字典
         """
-        return self.get_config("concurrency_control")
+        config = self.get_config("concurrency_control")
+        return config if isinstance(config, dict) else {}
     
     def get_rate_limiting(self) -> dict[str, Any]:
         """获取速率限制配置
@@ -184,7 +188,8 @@ class ConfigManager:
         Returns:
             Dict[str, Any]: 速率限制配置字典
         """
-        return self.get_config("rate_limiting")
+        config = self.get_config("rate_limiting")
+        return config if isinstance(config, dict) else {}
     
     def get_default_client_name(self) -> Optional[str]:
         """获取默认客户端名称
@@ -200,7 +205,7 @@ class ConfigManager:
         Returns:
             bool: 是否为严格模式
         """
-        return self._config.get("strict_mode", False)
+        return bool(self._config.get("strict_mode", False))
     
     def reload_config(self) -> None:
         """重新加载配置，清除缓存"""
@@ -227,7 +232,7 @@ class ConfigManager:
             "rate_limiting_enabled": bool(self.get_rate_limiting())
         }
     
-    def _load_config_by_type(self, config_type: str) -> dict[str, Any]:
+    def _load_config_by_type(self, config_type: str) -> Union[dict[str, Any], list[Any]]:
         """根据类型加载配置
         
         Args:
@@ -237,7 +242,7 @@ class ConfigManager:
             Dict[str, Any]: 配置字典
         """
         if config_type == "clients":
-            return self._config.get("clients", [])
+            return self._config.get("clients", [])  # type: ignore
         elif config_type == "task_groups":
             return self._load_task_groups()
         elif config_type == "polling_pools":
@@ -363,7 +368,7 @@ class ConfigManager:
     def _load_global_fallback(self) -> dict[str, Any]:
         """加载全局降级配置"""
         if not self._config_loader:
-            return self._config.get("global_fallback", {})
+            return self._config.get("global_fallback", {}) or {}
         
         try:
             registry_path = f"{self._config_base_path}/groups/_task_groups.yaml"
@@ -382,18 +387,18 @@ class ConfigManager:
                 config_path = f"{self._config_base_path}/{fallback_file}"
                 config = self._config_loader.load(config_path)
                 logger.debug("从注册表成功加载全局降级配置")
-                return config
+                return config or {}
                 
         except Exception as e:
             logger.warning(f"从注册表加载全局降级配置失败: {e}")
         
         # 如果注册表加载失败，直接返回配置中的全局降级配置
-        return self._config.get("global_fallback", {})
+        return self._config.get("global_fallback", {}) or {}
     
     def _load_concurrency_control(self) -> dict[str, Any]:
         """加载并发控制配置"""
         if not self._config_loader:
-            return self._config.get("concurrency_control", {})
+            return self._config.get("concurrency_control", {}) or {}
         
         try:
             registry_path = f"{self._config_base_path}/groups/_task_groups.yaml"
@@ -412,18 +417,18 @@ class ConfigManager:
                 config_path = f"{self._config_base_path}/{concurrency_file}"
                 config = self._config_loader.load(config_path)
                 logger.debug("从注册表成功加载并发控制配置")
-                return config
+                return config or {}
                 
         except Exception as e:
             logger.warning(f"从注册表加载并发控制配置失败: {e}")
         
         # 如果注册表加载失败，直接返回配置中的并发控制配置
-        return self._config.get("concurrency_control", {})
+        return self._config.get("concurrency_control", {}) or {}
     
     def _load_rate_limiting(self) -> dict[str, Any]:
         """加载速率限制配置"""
         if not self._config_loader:
-            return self._config.get("rate_limiting", {})
+            return self._config.get("rate_limiting", {}) or {}
         
         try:
             registry_path = f"{self._config_base_path}/groups/_task_groups.yaml"
@@ -442,13 +447,13 @@ class ConfigManager:
                 config_path = f"{self._config_base_path}/{rate_limiting_file}"
                 config = self._config_loader.load(config_path)
                 logger.debug("从注册表成功加载速率限制配置")
-                return config
+                return config or {}
                 
         except Exception as e:
             logger.warning(f"从注册表加载速率限制配置失败: {e}")
         
         # 如果注册表加载失败，直接返回配置中的速率限制配置
-        return self._config.get("rate_limiting", {})
+        return self._config.get("rate_limiting", {}) or {}
     
     def _get_config_name(self, config: Union[dict[str, Any], LLMClientConfig]) -> str:
         """获取配置名称
@@ -463,6 +468,6 @@ class ConfigManager:
             return config.model_name
         
         if isinstance(config, dict):
-            return config.get("name", config.get("model_name", "unknown"))
+            return config.get("name", config.get("model_name", "unknown")) or "unknown"
         
         return "unknown"

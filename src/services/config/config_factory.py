@@ -117,7 +117,7 @@ class ConfigServiceFactory:
             
             # 3. 创建提示词注册表
             registry = PromptRegistry(
-                loader=None,  # 稍后设置
+                loader=None,
                 config=prompt_config_manager.create_config()
             )
             

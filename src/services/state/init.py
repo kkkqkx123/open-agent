@@ -7,15 +7,15 @@ import logging
 from typing import Dict, Any, Optional, TYPE_CHECKING
 
 from src.core.config.config_manager import ConfigManager
-from src.services.state.di_config import (
-    configure_state_services,
+from .config import (
+    get_state_service_config,
     validate_state_configuration,
-    get_state_service_config
+    configure_state_services
 )
 
 if TYPE_CHECKING:
     from src.interfaces.container import IDependencyContainer as ServiceContainer
-    from interfaces.state.manager import IStateManager
+    from src.interfaces.state.manager import IStateManager
     from src.interfaces.state.history import IStateHistoryManager
     from src.interfaces.state.snapshot import IStateSnapshotManager
 
@@ -38,15 +38,15 @@ def initialize_state_services(container: Optional[Any] = None,
         # 使用全局容器（如果未提供）
         actual_container = container
         if actual_container is None:
-            from src.services.container import container as global_container
-            actual_container = global_container
+            from src.services.container import get_global_container
+            actual_container = get_global_container()
         
         # 获取配置
         actual_config = config
         if actual_config is None:
             try:
-                config_manager = actual_container.get(ConfigManager)  # type: ignore
-                actual_config = config_manager.get_config("state", {})
+                config_manager = actual_container.get(ConfigManager)
+                actual_config = config_manager.load_config("state_management")
             except Exception:
                 actual_config = get_state_service_config()
         
@@ -57,7 +57,7 @@ def initialize_state_services(container: Optional[Any] = None,
             return False
         
         # 配置状态管理服务
-        configure_state_services(actual_container, actual_config)  # type: ignore
+        configure_state_services(actual_container, actual_config)
         
         logger.info("状态管理服务初始化成功")
         return True
@@ -123,7 +123,7 @@ def get_service_status() -> Dict[str, Any]:
     Returns:
         服务状态字典
     """
-    status = {
+    status: Dict[str, Any] = {
         "initialized": False,
         "services": {},
         "storage": {},
@@ -131,7 +131,8 @@ def get_service_status() -> Dict[str, Any]:
     }
     
     try:
-        from src.services.container import container
+        from src.services.container import get_global_container
+        container = get_global_container()
         
         services_to_check = [
             ("state_manager", IStateManager),
@@ -141,7 +142,7 @@ def get_service_status() -> Dict[str, Any]:
         
         for service_name, service_type in services_to_check:
             try:
-                service = container.get(service_type)  # type: ignore
+                service = container.get(service_type)
                 status["services"][service_name] = service is not None
             except Exception as e:
                 status["services"][service_name] = False

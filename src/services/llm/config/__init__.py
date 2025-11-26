@@ -5,11 +5,9 @@
 
 from .config_manager import ConfigManager
 from .config_validator import LLMConfigValidator, ValidationResult
-from .configuration_service import LLMClientConfigurationService
 
 __all__ = [
     "ConfigManager",
     "LLMConfigValidator",
-    "ValidationResult",
-    "LLMClientConfigurationService"
+    "ValidationResult"
 ]

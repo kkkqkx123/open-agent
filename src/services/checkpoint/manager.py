@@ -16,7 +16,7 @@ from src.core.common.exceptions import (
     CheckpointValidationError
 )
 from src.core.common.serialization import Serializer
-from src.services.config.checkpoint_service import CheckpointConfigService
+from .config_service import CheckpointConfigService
 from src.core.config.models.checkpoint_config import CheckpointConfig as CoreCheckpointConfig
 
 

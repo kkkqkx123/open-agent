@@ -15,7 +15,6 @@ from src.core.common.exceptions.llm import LLMError
 from src.services.llm.state_machine import StateMachine, LLMManagerState
 from src.services.llm.config.config_validator import LLMConfigValidator, ValidationResult
 from src.services.llm.utils.metadata_service import ClientMetadataService
-from src.services.llm.config.configuration_service import LLMClientConfigurationService
 from src.services.llm.config.config_manager import ConfigManager
 from src.services.llm.core.client_manager import LLMClientManager
 from src.services.llm.core.request_executor import LLMRequestExecutor
@@ -76,12 +75,6 @@ class LLMManager(ILLMManager):
             config=config
         )
         
-        # 创建配置服务
-        self._config_service = LLMClientConfigurationService(
-            factory=factory,
-            config_validator=config_validator,
-            config_manager=self._config_manager
-        )
         
         # 创建客户端管理器
         self._client_manager = LLMClientManager(
@@ -184,14 +177,14 @@ class LLMManager(ILLMManager):
             self._state_machine.transition_to(LLMManagerState.INITIALIZING)
             logger.info("初始化LLM管理器...")
             
-            # 使用配置服务加载客户端
-            clients = self._config_service.load_clients_from_config()
+            # 使用配置管理器加载客户端
+            clients = self._config_manager.load_clients_from_config()
             
             # 使用客户端管理器加载客户端
             self._client_manager.load_clients_from_dict(clients)
             
             # 设置默认客户端
-            default_client_name = self._config_service.get_default_client_name()
+            default_client_name = self._config_manager.get_default_client_name()
             if default_client_name and self._client_manager.has_client(default_client_name):
                 self._client_manager.set_default_client(default_client_name)
             elif self._client_manager.get_client_count() > 0:
@@ -455,7 +448,7 @@ class LLMManager(ILLMManager):
         Returns:
             bool: 验证是否通过
         """
-        result = self._config_service.validate_client_config(config)
+        result = self._config_manager.validate_config(config)
         return result.is_valid
     
     def get_config_status(self) -> Dict[str, Any]:
