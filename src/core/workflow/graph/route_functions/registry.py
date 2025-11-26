@@ -4,22 +4,42 @@
 """
 
 from typing import Dict, Any, Callable, Optional, List
-from dataclasses import dataclass, field
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
 class RouteFunctionConfig:
     """路由函数配置"""
-    name: str
-    description: str
-    parameters: Dict[str, Any] = field(default_factory=dict)  # 参数配置
-    return_values: List[str] = field(default_factory=list)   # 可能的返回值列表
-    category: str = "general"   # 路由函数分类
-    implementation: str = ""    # 实现方式：rest, config, custom
-    metadata: Dict[str, Any] = field(default_factory=dict)  # 元数据
+    
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        parameters: Optional[Dict[str, Any]] = None,
+        return_values: Optional[List[str]] = None,
+        category: str = "general",
+        implementation: str = "",
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """初始化路由函数配置
+        
+        Args:
+            name: 路由函数名称
+            description: 路由函数描述
+            parameters: 参数配置
+            return_values: 可能的返回值列表
+            category: 路由函数分类
+            implementation: 实现方式：builtin, config, custom
+            metadata: 元数据
+        """
+        self.name = name  # 路由函数名称
+        self.description = description  # 路由函数描述
+        self.parameters = parameters if parameters is not None else {}  # 参数配置
+        self.return_values = return_values if return_values is not None else []  # 可能的返回值列表
+        self.category = category  # 路由函数分类
+        self.implementation = implementation  # 实现方式：builtin, config, custom
+        self.metadata = metadata if metadata is not None else {}  # 元数据
 
 
 class RouteFunctionRegistry:

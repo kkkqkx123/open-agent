@@ -17,7 +17,6 @@ from src.services.workflow.function_registry import FunctionRegistry, FunctionTy
 from src.core.workflow.graph.builder.base import UnifiedGraphBuilder
 from ....core.workflow.workflow_instance import WorkflowInstance
 from core.common.exceptions.workflow import WorkflowConfigError, WorkflowValidationError
-from ..services.prompt_service import WorkflowPromptService, get_workflow_prompt_service_sync
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +78,7 @@ class LoaderService(ILoaderService):
         builder: Optional[UnifiedGraphBuilder] = None,
         workflow_validator: Optional[WorkflowValidator] = None,
         state_template_manager: Optional[StateTemplateManager] = None,
-        prompt_service: Optional[WorkflowPromptService] = None,
+        prompt_service: Optional[Any] = None,  # 使用 Any 类型，因为旧的 WorkflowPromptService 已弃用
         enable_caching: bool = True
     ):
         """初始化统一加载器服务
@@ -98,8 +97,26 @@ class LoaderService(ILoaderService):
         self.builder = builder or UnifiedGraphBuilder(
             function_registry=self.function_registry
         )
-        # 使用同步版本获取提示词服务
-        self.prompt_service = prompt_service or get_workflow_prompt_service_sync()
+        # 使用新的提示词系统替代已弃用的 WorkflowPromptService
+        if prompt_service is None:
+            try:
+                # 尝试创建新的提示词系统
+                import asyncio
+                from src.services.prompts import create_prompt_system
+                
+                # 在同步方法中运行异步创建
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    prompt_system = loop.run_until_complete(create_prompt_system())
+                    self.prompt_service = prompt_system["injector"]  # 使用注入器作为提示词服务
+                finally:
+                    loop.close()
+            except Exception as e:
+                logger.warning(f"创建提示词系统失败，使用 None: {e}")
+                self.prompt_service = None
+        else:
+            self.prompt_service = prompt_service
         self.workflow_validator = workflow_validator or WorkflowValidator(self.prompt_service)
         self.state_template_manager = state_template_manager or StateTemplateManager()
         
@@ -128,8 +145,8 @@ class LoaderService(ILoaderService):
             # 1. 加载配置
             config = self._load_config_from_file(config_path)
             
-            # 2. 预处理提示词配置
-            processed_config = self._preprocess_prompt_config(config)
+            # 2. 跳过提示词配置预处理（应该在 prompt 模块中实现）
+            processed_config = config
             
             # 3. 验证配置
             self._validate_config(processed_config)
@@ -164,8 +181,8 @@ class LoaderService(ILoaderService):
             # 1. 解析配置
             config = GraphConfig.from_dict(config_dict)
             
-            # 2. 预处理提示词配置
-            processed_config = self._preprocess_prompt_config(config)
+            # 2. 跳过提示词配置预处理（应该在 prompt 模块中实现）
+            processed_config = config
             
             # 3. 验证配置
             self._validate_config(processed_config)
@@ -592,54 +609,3 @@ class LoaderService(ILoaderService):
                 "condition_functions": {"count": 0, "names": []}
             }
     
-    def _preprocess_prompt_config(self, config: GraphConfig) -> GraphConfig:
-        """预处理提示词配置
-        
-        Args:
-            config: 原始配置
-            
-        Returns:
-            GraphConfig: 处理后的配置
-        """
-        try:
-            import asyncio
-            import inspect
-            from typing import cast
-            
-            # 使用提示词服务统一处理
-            config_dict = config.to_dict()
-            
-            # 检查方法是否为异步
-            if inspect.iscoroutinefunction(self.prompt_service.preprocess_workflow_config):
-                # 在同步方法中运行异步预处理
-                try:
-                    # 尝试获取当前事件循环
-                    loop = asyncio.get_running_loop()
-                    # 如果在运行的循环中，创建任务
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(
-                            asyncio.run,
-                            self.prompt_service.preprocess_workflow_config(config_dict)
-                        )
-                        processed_dict: Dict[str, Any] = cast(Dict[str, Any], future.result())
-                except RuntimeError:
-                    # 没有运行的循环，创建新循环
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    try:
-                        result = loop.run_until_complete(
-                            self.prompt_service.preprocess_workflow_config(config_dict)
-                        )
-                        processed_dict = cast(Dict[str, Any], result)
-                    finally:
-                        loop.close()
-                
-                return GraphConfig.from_dict(processed_dict)
-            else:
-                # 直接调用同步方法
-                processed_dict = cast(Dict[str, Any], self.prompt_service.preprocess_workflow_config(config_dict))
-                return GraphConfig.from_dict(processed_dict)
-        except Exception as e:
-            logger.warning(f"提示词配置预处理失败，使用原始配置: {e}")
-            return config

@@ -13,7 +13,6 @@ from src.interfaces.workflow.core import IWorkflow, ExecutionContext
 from src.interfaces.state import IWorkflowState
 from src.interfaces.workflow.execution import IWorkflowExecutor
 from src.core.workflow.entities import Workflow, WorkflowExecution, ExecutionResult
-from ..services.prompt_service import WorkflowPromptService, get_workflow_prompt_service, get_workflow_prompt_service_sync
 
 
 logger = logging.getLogger(__name__)
@@ -61,7 +60,7 @@ class WorkflowOrchestrator(IWorkflowOrchestrator):
     管理工作流的生命周期、编排多个工作流的执行。
     """
     
-    def __init__(self, executor: Optional[IWorkflowExecutor] = None, prompt_service: Optional[WorkflowPromptService] = None):
+    def __init__(self, executor: Optional[IWorkflowExecutor] = None, prompt_service: Optional[Any] = None):  # 使用 Any 类型，因为旧的 WorkflowPromptService 已弃用
         """初始化编排器
         
         Args:
@@ -69,7 +68,25 @@ class WorkflowOrchestrator(IWorkflowOrchestrator):
             prompt_service: 提示词服务
         """
         self.executor = executor
-        self.prompt_service = prompt_service or get_workflow_prompt_service_sync()
+        # 使用新的提示词系统替代已弃用的 WorkflowPromptService
+        if prompt_service is None:
+            try:
+                import asyncio
+                from src.services.prompts import create_prompt_system
+                
+                # 在同步方法中运行异步创建
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    prompt_system = loop.run_until_complete(create_prompt_system())
+                    self.prompt_service = prompt_system["injector"]  # 使用注入器作为提示词服务
+                finally:
+                    loop.close()
+            except Exception as e:
+                logger.warning(f"创建提示词系统失败，使用 None: {e}")
+                self.prompt_service = None
+        else:
+            self.prompt_service = prompt_service
         self._workflow_templates: Dict[str, IWorkflow] = {}
         self._active_executions: Dict[str, WorkflowExecution] = {}
 
@@ -120,14 +137,15 @@ class WorkflowOrchestrator(IWorkflowOrchestrator):
         
         execution_id = str(uuid.uuid4())
         
-        # 准备执行上下文，包含提示词信息
-        enhanced_config = self._prepare_execution_config(config, workflow_id, initial_state)
-        
+        # 创建执行上下文
         context = ExecutionContext(
             workflow_id=workflow_id,
             execution_id=execution_id,
-            metadata=enhanced_config.get("metadata", {}),
-            config=enhanced_config
+            config=config or {
+                "initial_data": initial_state.values if hasattr(initial_state, 'values') else {},
+                "orchestrator_timestamp": datetime.now().isoformat()
+            },
+            metadata={}
         )
         
         # 记录执行开始
@@ -182,14 +200,15 @@ class WorkflowOrchestrator(IWorkflowOrchestrator):
         
         execution_id = str(uuid.uuid4())
         
-        # 准备执行上下文，包含提示词信息
-        enhanced_config = await self.prompt_service.prepare_execution_context(config, workflow_id, initial_state)
-        
+        # 创建执行上下文
         context = ExecutionContext(
             workflow_id=workflow_id,
             execution_id=execution_id,
-            metadata=enhanced_config.get("metadata", {}),
-            config=enhanced_config
+            config=config or {
+                "initial_data": initial_state.values if hasattr(initial_state, 'values') else {},
+                "orchestrator_timestamp": datetime.now().isoformat()
+            },
+            metadata={}
         )
         
         # 记录执行开始
@@ -268,29 +287,3 @@ class WorkflowOrchestrator(IWorkflowOrchestrator):
             "workflow_ids": list(self._workflow_templates.keys())
         }
     
-    def _prepare_execution_config(self, config: Optional[Dict[str, Any]], workflow_id: str, initial_state: IWorkflowState) -> Dict[str, Any]:
-        """准备执行配置（同步版本）
-        
-        Args:
-            config: 原始配置
-            workflow_id: 工作流ID
-            initial_state: 初始状态
-            
-        Returns:
-            Dict[str, Any]: 增强的配置
-        """
-        try:
-            import asyncio
-            
-            # 在同步方法中运行异步准备
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                return loop.run_until_complete(
-                    self.prompt_service.prepare_execution_context(config, workflow_id, initial_state)
-                )
-            finally:
-                loop.close()
-        except Exception as e:
-            logger.warning(f"执行配置准备失败，使用原始配置: {e}")
-            return config or {}

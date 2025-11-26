@@ -15,7 +15,7 @@ class NodeFunctionConfig:
     description: str
     function_type: str  # "llm", "tool", "analysis", "condition", "custom" 等
     parameters: Dict[str, Any]
-    implementation: str  # "rest", "config", "custom.module.path"
+    implementation: str  # "builtin", "config", "custom.module.path"
     metadata: Dict[str, Any]
     dependencies: List[str]  # 依赖的其他函数或工具
     return_schema: Dict[str, Any]  # 返回值结构定义
@@ -72,7 +72,7 @@ class NodeFunctionConfigLoader:
                 description=func_data.get("description", ""),
                 function_type=func_data.get("function_type", "custom"),
                 parameters=func_data.get("parameters", {}),
-                implementation=func_data.get("implementation", "rest"),
+                implementation=func_data.get("implementation", "builtin"),
                 metadata=func_data.get("metadata", {}),
                 dependencies=func_data.get("dependencies", []),
                 return_schema=func_data.get("return_schema", {}),

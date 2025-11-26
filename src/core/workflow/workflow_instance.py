@@ -69,10 +69,9 @@ class WorkflowInstance:
         """初始化Services层组件"""
         try:
             # 延迟导入避免循环依赖
-            from src.services.workflow.building.builder_service import WorkflowBuilderService
             from src.services.workflow.execution_service import WorkflowInstanceExecutor
             
-            self._builder_service = WorkflowBuilderService()
+            self._builder_service = None  # 延迟初始化
             self._instance_executor = WorkflowInstanceExecutor()
             
             logger.debug("Services层组件初始化完成")
@@ -88,6 +87,11 @@ class WorkflowInstance:
             编译后的图
         """
         try:
+            # 延迟导入避免循环依赖
+            if self._builder_service is None:
+                from src.services.workflow.building.builder_service import WorkflowBuilderService
+                self._builder_service = WorkflowBuilderService()
+            
             # 使用Services层的构建服务
             workflow = self._builder_service.build_workflow(self.config.to_dict())
             return workflow.get_graph()

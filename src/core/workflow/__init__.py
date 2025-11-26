@@ -26,7 +26,7 @@ from .entities import (
     ExecutionResult,
     WorkflowMetadata
 )
-from .workflow_instance import Workflow
+# Workflow is imported lazily to avoid circular imports
 
 from langchain_core.messages import AIMessage as LCAIMessage
 from .value_objects import (
@@ -78,7 +78,6 @@ from .graph import (
     list_node_types,
     LLMNode,
     ToolNode,
-    AnalysisNode,
     ConditionNode,
     WaitNode,
     StartNode,
@@ -218,7 +217,6 @@ __all__ = [
     "WorkflowMetadata",
     
     # Core implementations
-    "Workflow", 
     "LCAIMessage",
     # Value objects
     "WorkflowStep",
@@ -273,7 +271,6 @@ __all__ = [
     # Graph node implementations
     "LLMNode",
     "ToolNode",
-    "AnalysisNode",
     "ConditionNode",
     "WaitNode",
     "StartNode",

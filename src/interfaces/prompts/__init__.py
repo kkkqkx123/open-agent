@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from ..state.workflow import IWorkflowState
 
 from .models import PromptMeta
+from .types import IPromptTypeRegistry, IPromptType as IPromptTypeBase, IPromptType
 
 
 class PromptConfig:
@@ -148,36 +149,6 @@ class IPromptCache(ABC):
         pass
 
 
-class IPromptType(ABC):
-    """提示词类型接口"""
-    
-    @property
-    @abstractmethod
-    def type_name(self) -> str:
-        """类型名称"""
-        pass
-    
-    @property
-    @abstractmethod
-    def injection_order(self) -> int:
-        """注入顺序（数字越小越先注入）"""
-        pass
-    
-    @abstractmethod
-    async def process_prompt(
-        self,
-        content: str,
-        context: Dict[str, Any]
-    ) -> str:
-        """处理提示词内容"""
-        pass
-    
-    @abstractmethod
-    def create_message(self, content: str) -> Any:
-        """创建消息对象"""
-        pass
-
-
 class IPromptRegistry(ABC):
     """提示词注册表接口"""
     
@@ -245,8 +216,9 @@ __all__ = [
     "IPromptInjector",
     "IPromptLoader",
     "IPromptCache",
-    "IPromptType",
+    "IPromptTypeBase",
     "IPromptRegistry",
+    "IPromptTypeRegistry",
     "PromptMeta",
     "IPromptReferenceResolver",
 ]

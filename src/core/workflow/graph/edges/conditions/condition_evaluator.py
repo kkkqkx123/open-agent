@@ -208,7 +208,7 @@ class ConditionEvaluator:
         try:
             # 创建安全的执行环境
             safe_globals = {
-                "__rests__": {
+                "__builtins__": {
                     "len": len,
                     "str": str,
                     "int": int,

@@ -29,31 +29,31 @@ class RouteFunctionManager:
         self.loader = RouteFunctionLoader(self.registry)
         
         # 注册内置函数
-        self._register_rest_functions()
+        self._register_builtin_functions()
         
         # 从配置目录加载
         if config_dir:
             self.loader.load_from_config_directory(config_dir)
     
-    def _register_rest_functions(self) -> None:
+    def _register_builtin_functions(self) -> None:
         """注册内置函数"""
-        rest_functions = BuiltinRouteFunctions.get_all_functions()
+        builtin_functions = BuiltinRouteFunctions.get_all_functions()
         
-        for name, func in rest_functions.items():
+        for name, func in builtin_functions.items():
             # 创建配置
             config = RouteFunctionConfig(
                 name=name,
                 description=f"内置路由函数: {name}",
                 parameters={},
                 return_values=["continue", "end"],
-                category="rest",
-                implementation="rest"
+                category="builtin",
+                implementation="builtin"
             )
             
             self.registry.register_route_function(name, func, config)
         
         # 注册到加载器
-        self.loader.register_rest_functions(rest_functions)
+        self.loader.register_builtin_functions(builtin_functions)
     
     def get_route_function(self, name: str) -> Optional[Callable]:
         """获取路由函数
@@ -211,9 +211,9 @@ class RouteFunctionManager:
             config_dir: 配置目录路径
         """
         # 清除现有的配置函数（保留内置函数）
-        rest_functions = self.registry.list_route_functions("rest")
+        builtin_functions = self.registry.list_route_functions("builtin")
         custom_functions = [name for name in self.registry.list_route_functions() 
-                          if name not in rest_functions]
+                          if name not in builtin_functions]
         
         for func_name in custom_functions:
             self.registry.unregister(func_name)

@@ -24,7 +24,7 @@ class NodeFunctionLoader:
     
     def __init__(self, registry: Optional[NodeFunctionRegistry] = None):
         self.registry = registry or get_global_node_function_registry()
-        self._rest_functions: Dict[str, Callable] = {}
+        self._builtin_functions: Dict[str, Callable] = {}
     
     def load_from_config_directory(self, config_dir: str) -> None:
         """从配置目录加载节点函数
@@ -127,8 +127,8 @@ class NodeFunctionLoader:
         """
         implementation = config.get("implementation", "config")
         
-        if implementation == "rest":
-            return self._get_rest_function(name)
+        if implementation == "builtin":
+            return self._get_builtin_function(name)
         elif implementation == "config":
             return self._create_config_based_function(config)
         elif implementation.startswith("custom."):
@@ -314,7 +314,7 @@ class NodeFunctionLoader:
         
         return transformer_function
     
-    def _get_rest_function(self, name: str) -> Optional[Callable]:
+    def _get_builtin_function(self, name: str) -> Optional[Callable]:
         """获取内置函数
         
         Args:
@@ -323,7 +323,7 @@ class NodeFunctionLoader:
         Returns:
             Optional[Callable]: 内置函数，如果不存在返回None
         """
-        return self._rest_functions.get(name)
+        return self._builtin_functions.get(name)
     
     def _load_custom_function(self, module_path: str) -> Optional[Callable]:
         """加载自定义函数
@@ -349,11 +349,11 @@ class NodeFunctionLoader:
             logger.error(f"加载自定义函数失败 {module_path}: {e}")
             return None
     
-    def register_rest_functions(self, rest_functions: Dict[str, Callable]) -> None:
+    def register_builtin_functions(self, builtin_functions: Dict[str, Callable]) -> None:
         """注册内置函数
         
         Args:
-            rest_functions: 内置函数字典
+            builtin_functions: 内置函数字典
         """
-        self._rest_functions.update(rest_functions)
-        logger.debug(f"注册 {len(rest_functions)} 个内置函数")
+        self._builtin_functions.update(builtin_functions)
+        logger.debug(f"注册 {len(builtin_functions)} 个内置函数")
