@@ -6,7 +6,7 @@
 from typing import Dict, Any, Optional, List, Callable
 
 from .registry import BaseNode, NodeExecutionResult, node
-from ...states import WorkflowState
+from src.core.state import WorkflowState
 from ..edges.conditions import ConditionType, ConditionEvaluator #作为临时实现，后续需要单独实现
 
 

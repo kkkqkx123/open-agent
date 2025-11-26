@@ -8,8 +8,14 @@ from .loader import PromptLoader
 from .injector import PromptInjector
 from .config import PromptConfigManager, get_global_config_manager
 
-# 重新导出配置服务中的便捷函数
-from ..config.config_factory import create_prompt_system
+# 重新导出提示词工厂的便捷函数
+from .prompt_factory import (
+    create_prompt_system,
+    create_prompt_registry,
+    create_prompt_loader,
+    create_prompt_injector,
+    PromptSystemFactory
+)
 
 __all__ = [
     # 核心服务
@@ -19,6 +25,12 @@ __all__ = [
     "PromptConfigManager",
     "get_global_config_manager",
     
-    # 配置服务便捷函数
+    # 提示词工厂
+    "PromptSystemFactory",
+    
+    # 提示词工厂便捷函数
     "create_prompt_system",
+    "create_prompt_registry",
+    "create_prompt_loader",
+    "create_prompt_injector",
 ]

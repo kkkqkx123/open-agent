@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from .registry import BaseNode, NodeExecutionResult, node
-from ...states import WorkflowState
+from src.core.state import WorkflowState
 from langchain_core.messages import SystemMessage, BaseMessage as LCBaseMessage
 
 

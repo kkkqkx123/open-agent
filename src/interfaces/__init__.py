@@ -146,13 +146,16 @@ from .storage import (
     IStorageFactory,
 )
 
-# 提示词相关接口
+# 导入提示词相关接口
 from .prompts import (
-    IPromptRegistry,
     IPromptLoader,
     IPromptInjector,
     PromptMeta,
     PromptConfig,
+    IPromptRegistry,
+    IPromptCache,
+    IPromptType,
+    IPromptReferenceResolver,
 )
 
 # 通用相关接口
@@ -309,6 +312,9 @@ __all__ = [
     "IPromptRegistry",
     "IPromptLoader",
     "IPromptInjector",
+    "IPromptCache",
+    "IPromptType",
+    "IPromptReferenceResolver",
     "PromptMeta",
     "PromptConfig",
     

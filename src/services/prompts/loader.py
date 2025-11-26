@@ -4,11 +4,12 @@
 """
 
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import asyncio
 import logging
+import yaml
 
-from ...interfaces.prompts import IPromptLoader, IPromptRegistry
+from ...interfaces import IPromptLoader, IPromptRegistry
 from ...core.common.exceptions import PromptLoadError
 
 logger = logging.getLogger(__name__)
@@ -52,11 +53,20 @@ class PromptLoader(IPromptLoader):
             # 获取元信息
             meta = self.registry.get_prompt_meta(category, name)
             
+            if meta is None:
+                raise PromptLoadError(
+                    f"提示词元数据未找到: {category}.{name}"
+                )
+            
+            # 从元数据中获取是否为复合提示词的标志
+            is_composite = meta.metadata.get('is_composite', False)
+            file_path = Path(meta.metadata.get('file_path', ''))
+            
             # 加载提示词
-            if meta.is_composite:
-                content = self.load_composite_prompt(meta.path)
+            if is_composite:
+                content = self.load_composite_prompt(file_path)
             else:
-                content = self.load_simple_prompt(meta.path)
+                content = self.load_simple_prompt(file_path)
                 
             # 缓存结果
             self._cache[cache_key] = content
@@ -174,7 +184,7 @@ class PromptLoader(IPromptLoader):
                 f"异步加载提示词 {category}.{name} 失败: {e}"
             ) from e
     
-    def load_prompts(self, category: str) -> dict:
+    def load_prompts(self, category: str) -> Dict[str, str]:
         """加载指定类别的所有提示词
         
         Args:
@@ -185,28 +195,24 @@ class PromptLoader(IPromptLoader):
         """
         try:
             # 获取该类别下所有提示词的元数据
-            prompts = {}
+            prompts: Dict[str, str] = {}
             
-            # 尝试从注册表获取该类别的所有提示词
-            if hasattr(self.registry, 'list_by_category'):
-                # 使用异步方法在同步上下文中运行
-                import asyncio
-                try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        # 如果事件循环正在运行，创建新的任务
-                        task = asyncio.create_task(self.registry.list_by_category(category))
-                        # 这里需要特殊处理，因为不能在运行中的循环中直接运行
-                        logger.warning(f"无法在运行中的事件循环中同步获取类别 {category} 的提示词列表")
-                        return prompts
-                    else:
-                        prompt_metas = loop.run_until_complete(self.registry.list_by_category(category))
-                except RuntimeError:
-                    # 没有事件循环，创建新的
-                    prompt_metas = asyncio.run(self.registry.list_by_category(category))
-            else:
-                logger.warning(f"注册表不支持按类别列出提示词，无法加载类别 {category}")
-                return prompts
+            # 从注册表获取该类别的所有提示词
+            # 使用异步方法在同步上下文中运行
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # 如果事件循环正在运行，创建新的任务
+                    task = asyncio.create_task(self.registry.list_by_category(category))
+                    # 这里需要特殊处理，因为不能在运行中的循环中直接运行
+                    logger.warning(f"无法在运行中的事件循环中同步获取类别 {category} 的提示词列表")
+                    return prompts
+                else:
+                    prompt_metas = loop.run_until_complete(self.registry.list_by_category(category))
+            except RuntimeError:
+                # 没有事件循环，创建新的
+                prompt_metas = asyncio.run(self.registry.list_by_category(category))
             
             # 加载每个提示词的内容
             for prompt_meta in prompt_metas:
@@ -249,75 +255,200 @@ class PromptLoader(IPromptLoader):
             category = category_dir.name
             logger.info(f"扫描类别: {category}")
             
-            # 扫描类别目录中的所有文件
-            for prompt_file in category_dir.glob("**/*.md"):
-                if prompt_file.name.startswith('_'):
+            # 扫描类别目录中的所有文件和目录
+            for item in category_dir.iterdir():
+                if item.name.startswith('_'):
                     continue
                 
-                try:
-                    # 读取文件内容
-                    with open(prompt_file, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                    
-                    # 解析 frontmatter
-                    frontmatter = {}
-                    prompt_content = content
-                    
-                    if content.startswith('---'):
-                        parts = content.split('---', 2)
-                        if len(parts) >= 3:
-                            try:
-                                frontmatter = yaml.safe_load(parts[1])
-                                prompt_content = parts[2].strip()
-                            except yaml.YAMLError as e:
-                                logger.warning(f"解析 frontmatter 失败 {prompt_file}: {e}")
-                    
-                    # 生成提示词ID和名称
-                    relative_path = prompt_file.relative_to(category_dir)
-                    prompt_id = f"{category}.{relative_path.stem}"
-                    prompt_name = relative_path.stem
-                    
-                    # 创建提示词元数据
-                    from ....interfaces.prompts.models import (
-                        PromptMeta, PromptType, PromptStatus, PromptPriority
-                    )
-                    
-                    # 根据类别确定提示词类型
-                    if category == 'system':
-                        prompt_type = PromptType.SYSTEM
-                    elif category == 'user_commands':
-                        prompt_type = PromptType.USER
-                    elif category == 'rules':
-                        prompt_type = PromptType.RULE if hasattr(PromptType, 'RULE') else PromptType.SYSTEM
+                if item.is_file() and item.suffix == '.md':
+                    # 处理简单提示词文件
+                    await self._process_simple_prompt(item, category, category_dir, registry)
+                elif item.is_dir():
+                    # 检查是否为复合提示词目录（包含 index.md）
+                    index_file = item / 'index.md'
+                    if index_file.exists():
+                        # 处理复合提示词目录
+                        await self._process_composite_prompt(item, category, category_dir, registry)
                     else:
-                        prompt_type = PromptType.USER
-                    
-                    prompt_meta = PromptMeta(
-                        id=prompt_id,
-                        name=prompt_name,
-                        description=frontmatter.get('description', f'{category}类别提示词: {prompt_name}'),
-                        type=prompt_type,
-                        content=prompt_content,
-                        status=PromptStatus.ACTIVE,
-                        priority=PromptPriority.NORMAL,
-                        category=category,
-                        tags=frontmatter.get('tags', []),
-                        metadata={
-                            'file_path': str(prompt_file),
-                            'relative_path': str(relative_path),
-                            **{k: v for k, v in frontmatter.items() if k not in ['description', 'tags']}
-                        }
-                    )
-                    
-                    # 注册到注册表
-                    await registry.register(prompt_meta)
-                    logger.debug(f"注册提示词: {prompt_id}")
-                    
-                except Exception as e:
-                    logger.error(f"加载提示词文件失败 {prompt_file}: {e}")
-                    continue
+                        # 递归扫描子目录中的文件
+                        for prompt_file in item.glob("**/*.md"):
+                            if prompt_file.name.startswith('_'):
+                                continue
+                            await self._process_simple_prompt(prompt_file, category, category_dir, registry)
         
         logger.info("提示词扫描和注册完成")
+    
+    async def _process_simple_prompt(self, prompt_file: Path, category: str, category_dir: Path, registry: "IPromptRegistry") -> None:
+        """处理简单提示词文件
+        
+        Args:
+            prompt_file: 提示词文件路径
+            category: 提示词类别
+            category_dir: 类别目录路径
+            registry: 提示词注册表
+        """
+        try:
+            # 读取文件内容
+            with open(prompt_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # 解析 frontmatter
+            frontmatter = {}
+            prompt_content = content
+            
+            if content.startswith('---'):
+                parts = content.split('---', 2)
+                if len(parts) >= 3:
+                    try:
+                        frontmatter = yaml.safe_load(parts[1])
+                        prompt_content = parts[2].strip()
+                    except yaml.YAMLError as e:
+                        logger.warning(f"解析 frontmatter 失败 {prompt_file}: {e}")
+            
+            # 生成提示词ID和名称
+            relative_path = prompt_file.relative_to(category_dir)
+            prompt_id = f"{category}.{relative_path.stem}"
+            prompt_name = relative_path.stem
+            
+            # 创建提示词元数据
+            from ...interfaces.prompts.models import (
+                PromptMeta, PromptType, PromptStatus, PromptPriority
+            )
+            
+            # 根据类别确定提示词类型
+            if category == 'system':
+                prompt_type = PromptType.SYSTEM
+            elif category == 'user_commands':
+                prompt_type = PromptType.USER_COMMAND
+            elif category == 'rules':
+                prompt_type = PromptType.RULES
+            elif category == 'context':
+                prompt_type = PromptType.CONTEXT
+            elif category == 'examples':
+                prompt_type = PromptType.EXAMPLES
+            elif category == 'constraints':
+                prompt_type = PromptType.CONSTRAINTS
+            elif category == 'format':
+                prompt_type = PromptType.FORMAT
+            else:
+                prompt_type = PromptType.CUSTOM
+            
+            prompt_meta = PromptMeta(
+                id=prompt_id,
+                name=prompt_name,
+                description=frontmatter.get('description', f'{category}类别提示词: {prompt_name}'),
+                type=prompt_type,
+                content=prompt_content,
+                template=None,
+                status=PromptStatus.ACTIVE,
+                priority=PromptPriority.NORMAL,
+                category=category,
+                tags=frontmatter.get('tags', []),
+                created_by='system',
+                updated_by='system',
+                validation=None,
+                cache_ttl=3600,
+                metadata={
+                    'file_path': str(prompt_file),
+                    'relative_path': str(relative_path),
+                    'is_composite': False,
+                    **{k: v for k, v in frontmatter.items() if k not in ['description', 'tags']}
+                }
+            )
+            
+            # 注册到注册表
+            await registry.register(prompt_meta)
+            logger.debug(f"注册简单提示词: {prompt_id}")
+            
+        except Exception as e:
+            logger.error(f"处理简单提示词文件失败 {prompt_file}: {e}")
+    
+    async def _process_composite_prompt(self, prompt_dir: Path, category: str, category_dir: Path, registry: "IPromptRegistry") -> None:
+        """处理复合提示词目录
+        
+        Args:
+            prompt_dir: 提示词目录路径
+            category: 提示词类别
+            category_dir: 类别目录路径
+            registry: 提示词注册表
+        """
+        try:
+            # 使用现有的复合提示词加载逻辑
+            content = self.load_composite_prompt(prompt_dir)
+            
+            # 读取 index.md 的 frontmatter
+            index_file = prompt_dir / 'index.md'
+            frontmatter = {}
+            
+            with open(index_file, 'r', encoding='utf-8') as f:
+                index_content = f.read()
+                
+            if index_content.startswith('---'):
+                parts = index_content.split('---', 2)
+                if len(parts) >= 3:
+                    try:
+                        frontmatter = yaml.safe_load(parts[1])
+                    except yaml.YAMLError as e:
+                        logger.warning(f"解析 frontmatter 失败 {index_file}: {e}")
+            
+            # 生成提示词ID和名称
+            relative_path = prompt_dir.relative_to(category_dir)
+            prompt_id = f"{category}.{relative_path.stem}"
+            prompt_name = relative_path.stem
+            
+            # 创建提示词元数据
+            from ...interfaces.prompts.models import (
+                PromptMeta, PromptType, PromptStatus, PromptPriority
+            )
+            
+            # 根据类别确定提示词类型
+            if category == 'system':
+                prompt_type = PromptType.SYSTEM
+            elif category == 'user_commands':
+                prompt_type = PromptType.USER_COMMAND
+            elif category == 'rules':
+                prompt_type = PromptType.RULES
+            elif category == 'context':
+                prompt_type = PromptType.CONTEXT
+            elif category == 'examples':
+                prompt_type = PromptType.EXAMPLES
+            elif category == 'constraints':
+                prompt_type = PromptType.CONSTRAINTS
+            elif category == 'format':
+                prompt_type = PromptType.FORMAT
+            else:
+                prompt_type = PromptType.CUSTOM
+            
+            prompt_meta = PromptMeta(
+                id=prompt_id,
+                name=prompt_name,
+                description=frontmatter.get('description', f'{category}类别复合提示词: {prompt_name}'),
+                type=prompt_type,
+                content=content,
+                template=None,
+                status=PromptStatus.ACTIVE,
+                priority=PromptPriority.NORMAL,
+                category=category,
+                tags=frontmatter.get('tags', []),
+                created_by='system',
+                updated_by='system',
+                validation=None,
+                cache_ttl=3600,
+                metadata={
+                    'file_path': str(prompt_dir),
+                    'relative_path': str(relative_path),
+                    'is_composite': True,
+                    'sub_files': [f.name for f in prompt_dir.iterdir() if f.is_file() and f.suffix == '.md'],
+                    **{k: v for k, v in frontmatter.items() if k not in ['description', 'tags']}
+                }
+            )
+            
+            # 注册到注册表
+            await registry.register(prompt_meta)
+            logger.debug(f"注册复合提示词: {prompt_id}")
+            
+        except Exception as e:
+            logger.error(f"处理复合提示词目录失败 {prompt_dir}: {e}")
     
     def clear_cache(self) -> None:
         """清空缓存
@@ -325,3 +456,49 @@ class PromptLoader(IPromptLoader):
         清空所有已加载的提示词缓存。
         """
         self._cache.clear()
+    
+    def list_prompts(self, category: Optional[str] = None) -> List[str]:
+        """列出提示词
+        
+        Args:
+            category: 提示词类别，如果为None则列出所有提示词名称
+            
+        Returns:
+            list: 提示词名称列表
+        """
+        prompts: List[str] = []
+        if category:
+            # 列出指定类别的提示词
+            try:
+                import asyncio
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        logger.warning(f"无法在运行中的事件循环中同步获取类别 {category} 的提示词列表")
+                        return prompts
+                    else:
+                        prompt_metas = loop.run_until_complete(self.registry.list_by_category(category))
+                except RuntimeError:
+                    prompt_metas = asyncio.run(self.registry.list_by_category(category))
+                
+                prompts = [meta.name for meta in prompt_metas]
+            except Exception as e:
+                logger.error(f"列出类别 {category} 的提示词失败: {e}")
+        
+        return prompts
+    
+    def exists(self, category: str, name: str) -> bool:
+        """检查提示词是否存在
+        
+        Args:
+            category: 提示词类别
+            name: 提示词名称
+            
+        Returns:
+            bool: 提示词是否存在
+        """
+        try:
+            self.registry.get_prompt_meta(category, name)
+            return True
+        except Exception:
+            return False

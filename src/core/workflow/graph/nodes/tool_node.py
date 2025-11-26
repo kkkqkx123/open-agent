@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List
 import time
 
 from .registry import BaseNode, NodeExecutionResult, node
-from ...states import WorkflowState
+from src.core.state import WorkflowState
 from src.interfaces.tool.base import ITool, IToolRegistry, ToolCall, ToolResult
 from ...config.node_config_loader import get_node_config_loader
 

@@ -143,3 +143,19 @@ class PromptTypeRegistrationError(PromptError):
     当提示词类型注册失败时抛出。
     """
     pass
+
+
+class PromptReferenceError(PromptError):
+    """提示词引用异常
+    
+    当提示词引用解析失败时抛出。
+    """
+    pass
+
+
+class PromptCircularReferenceError(PromptError):
+    """提示词循环引用异常
+    
+    当检测到提示词循环引用时抛出。
+    """
+    pass

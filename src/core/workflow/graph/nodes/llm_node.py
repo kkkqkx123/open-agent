@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
 import logging
 
 from .registry import BaseNode, NodeExecutionResult, node
-from ...states import WorkflowState
+from src.core.state import WorkflowState
 from src.interfaces.llm import ILLMClient
 from src.services.llm.scheduling.task_group_manager import TaskGroupManager
 from ...services.prompt_service import get_workflow_prompt_service_sync

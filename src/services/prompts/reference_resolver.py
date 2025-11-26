@@ -9,13 +9,10 @@ from typing import Dict, List, Set, Optional, Any, Tuple
 from dataclasses import dataclass
 import asyncio
 
-from ....interfaces.prompts import IPromptRegistry
-from ....interfaces.prompts.models import (
-    PromptMeta, 
-    PromptReference,
-    PromptConfig
-)
-from ....core.common.exceptions.prompts import (
+from interfaces.prompts.models import PromptReference
+
+from ...interfaces import IPromptRegistry, PromptMeta, PromptConfig
+from ...core.common.exceptions import (
     PromptReferenceError,
     PromptNotFoundError,
     PromptCircularReferenceError
@@ -40,7 +37,14 @@ class PromptReferenceResolver:
         config: Optional[PromptConfig] = None
     ):
         self._registry = registry
-        self._config = config or PromptConfig()
+        self._config = config or PromptConfig(
+            system_prompt=None,
+            user_command=None,
+            context=None,
+            examples=None,
+            constraints=None,
+            format=None
+        )
         
         # 引用模式
         self._reference_pattern = re.compile(

@@ -73,6 +73,8 @@ from .prompt import (
     PromptCacheError,
     PromptTypeNotFoundError,
     PromptTypeRegistrationError,
+    PromptReferenceError,
+    PromptCircularReferenceError,
 )
 
 # 历史异常
@@ -139,6 +141,8 @@ __all__ = [
     "PromptCacheError",
     "PromptTypeNotFoundError",
     "PromptTypeRegistrationError",
+    "PromptReferenceError",
+    "PromptCircularReferenceError",
     # 历史异常
     "HistoryError",
     "TokenCalculationError",

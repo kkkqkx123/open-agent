@@ -9,14 +9,11 @@ import asyncio
 import logging
 from datetime import datetime
 
-from src.interfaces.prompts import IPromptInjector
+from src.interfaces.prompts import IPromptInjector, IPromptRegistry
 from src.interfaces.prompts.models import PromptMeta
 from src.core.common.exceptions.prompt import PromptNotFoundError, PromptInjectionError
 from src.core.workflow.templates.workflow_template_processor import WorkflowTemplateProcessor
 from src.core.state import WorkflowState
-
-if TYPE_CHECKING:
-    from src.interfaces.prompts import IPromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +23,7 @@ class WorkflowPromptService:
     
     def __init__(
         self,
-        prompt_registry: Optional[Any] = None,
+        prompt_registry: Optional[IPromptRegistry] = None,
         prompt_injector: Optional[IPromptInjector] = None,
         auto_initialize: bool = True,
         prompts_directory: Optional[str] = None
@@ -47,8 +44,8 @@ class WorkflowPromptService:
         
         if self._auto_initialize and not self._prompt_registry:
             try:
-                # 导入配置工厂
-                from src.services.config import create_prompt_system
+                # 导入提示词工厂
+                from src.services.prompts import create_prompt_system
                 
                 # 创建提示词系统
                 self._prompt_system = await create_prompt_system(
@@ -69,7 +66,7 @@ class WorkflowPromptService:
     
     def configure(
         self,
-        prompt_registry: Any,
+        prompt_registry: IPromptRegistry,
         prompt_injector: IPromptInjector
     ) -> None:
         """配置提示词系统"""
@@ -285,6 +282,9 @@ class WorkflowPromptService:
     async def _resolve_references(self, content: str, context: Dict[str, Any]) -> str:
         """解析引用"""
         try:
+            if not self._prompt_registry:
+                return content
+            
             from src.services.prompts.reference_resolver import PromptReferenceResolver
             from src.interfaces.prompts import PromptConfig
             
@@ -551,10 +551,8 @@ class WorkflowPromptService:
         """
         if self._prompt_system and self._prompt_registry:
             try:
-                stats = await self._prompt_registry.get_stats()
                 return {
                     "initialized": True,
-                    "registry_stats": stats,
                     "components": {
                         "registry": self._prompt_system["registry"] is not None,
                         "loader": self._prompt_system["loader"] is not None,
@@ -573,7 +571,7 @@ class WorkflowPromptService:
         重新创建提示词系统
         """
         try:
-            from src.services.config import create_prompt_system
+            from src.services.prompts import create_prompt_system
             
             # 重新创建提示词系统
             self._prompt_system = await create_prompt_system(
@@ -608,15 +606,6 @@ class WorkflowPromptService:
         
         if not self._prompt_injector:
             errors.append("提示词注入器未初始化")
-        
-        # 检查注册表状态
-        if self._prompt_registry:
-            try:
-                stats = await self._prompt_registry.get_stats()
-                if stats["total_prompts"] == 0:
-                    errors.append("没有加载任何提示词")
-            except Exception as e:
-                errors.append(f"获取注册表统计信息失败: {e}")
         
         return errors
 

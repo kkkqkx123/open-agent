@@ -7,9 +7,8 @@
 from typing import Dict, List, Optional, Set, Any
 from datetime import datetime
 import threading
-from abc import ABC
 
-from ...interfaces.prompts import IPromptLoader
+from ...interfaces.prompts import IPromptLoader, IPromptRegistry
 from ...interfaces.prompts.models import (
     PromptMeta, 
     PromptConfig, 
@@ -27,7 +26,7 @@ from ...services.logger import get_logger
 logger = get_logger(__name__)
 
 
-class PromptRegistry(ABC):
+class PromptRegistry(IPromptRegistry):
     """提示词注册表实现"""
     
     def __init__(
@@ -60,42 +59,42 @@ class PromptRegistry(ABC):
         self._cache_hits = 0
         self._cache_misses = 0
     
-    async def register(self, prompt: PromptMeta) -> None:
+    async def register(self, meta: PromptMeta) -> None:
         """注册提示词"""
         with self._lock:
             # 验证提示词
-            await self._validate_prompt(prompt)
+            await self._validate_prompt(meta)
             
             # 检查是否已存在
-            if prompt.id in self._prompts:
-                existing = self._prompts[prompt.id]
-                if existing.version == prompt.version:
+            if meta.id in self._prompts:
+                existing = self._prompts[meta.id]
+                if existing.version == meta.version:
                     raise PromptRegistrationError(
-                        f"提示词 '{prompt.id}' 版本 '{prompt.version}' 已存在"
+                        f"提示词 '{meta.id}' 版本 '{meta.version}' 已存在"
                     )
             
             # 存储提示词
-            self._prompts[prompt.id] = prompt
+            self._prompts[meta.id] = meta
             
             # 版本管理
-            if prompt.id not in self._versions:
-                self._versions[prompt.id] = {}
-            self._versions[prompt.id][prompt.version] = prompt
+            if meta.id not in self._versions:
+                self._versions[meta.id] = {}
+            self._versions[meta.id][meta.version] = meta
             
             # 更新索引
-            self._update_indexes(prompt)
+            self._update_indexes(meta)
             
             self._load_count += 1
     
-    async def get(self, prompt_id: str, version: Optional[str] = None) -> PromptMeta:
+    async def get(self, ref_id: str, version: Optional[str] = None) -> PromptMeta:
         """获取提示词"""
         with self._lock:
             # 检查别名
-            actual_id = self._aliases.get(prompt_id, prompt_id)
+            actual_id = self._aliases.get(ref_id, ref_id)
             
             if actual_id not in self._prompts:
                 self._cache_misses += 1
-                raise PromptNotFoundError(f"提示词 '{prompt_id}' 未找到")
+                raise PromptNotFoundError(f"提示词 '{ref_id}' 未找到")
             
             if version:
                 if actual_id not in self._versions:
@@ -190,6 +189,22 @@ class PromptRegistry(ABC):
             
             prompt_ids = self._tags_index[tag]
             return [self._prompts[prompt_id] for prompt_id in prompt_ids]
+    
+    async def list_prompts(self, category: str, tags: Optional[List[str]] = None) -> List[PromptMeta]:
+        """列出提示词（按类别和可选的标签过滤）"""
+        with self._lock:
+            if category not in self._categories_index:
+                return []
+            
+            prompt_ids = self._categories_index[category]
+            prompts = [self._prompts[prompt_id] for prompt_id in prompt_ids]
+            
+            # 按标签过滤
+            if tags:
+                tag_set = set(tags)
+                prompts = [p for p in prompts if tag_set.intersection(set(p.tags))]
+            
+            return prompts
     
     async def list_by_category(self, category: str) -> List[PromptMeta]:
         """按分类列出提示词"""
@@ -319,6 +334,34 @@ class PromptRegistry(ABC):
             
             # 重新加载
             logger.warning("提示词注册表已清空，待重新加载")
+    
+    async def resolve_dependencies(self, prompt_name: str) -> List[PromptMeta]:
+        """解析提示词依赖"""
+        with self._lock:
+            # 查找对应的提示词
+            result = []
+            for prompt in self._prompts.values():
+                if prompt.name == prompt_name:
+                    # 返回该提示词的所有依赖项
+                    for dep_id in prompt.dependencies:
+                        if dep_id in self._prompts:
+                            result.append(self._prompts[dep_id])
+                    return result
+            
+            return result
+    
+    async def validate_prompt(self, meta: PromptMeta) -> List[str]:
+        """验证提示词，返回验证错误列表"""
+        errors: List[str] = []
+        
+        try:
+            await self._validate_prompt(meta)
+        except PromptValidationError as e:
+            errors.append(str(e))
+        except Exception as e:
+            errors.append(f"验证失败: {str(e)}")
+        
+        return errors
     
     async def _validate_prompt(self, prompt: PromptMeta) -> None:
         """验证提示词"""

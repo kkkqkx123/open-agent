@@ -32,7 +32,7 @@ class PromptInjector(IPromptInjector):
     ) -> IWorkflowState:
         """异步注入提示词到工作流状态"""
         try:
-            builder = StateBuilder(state)
+            builder = StateBuilder()
             
             # 注入系统提示词
             if config.system_prompt:
@@ -72,10 +72,9 @@ class PromptInjector(IPromptInjector):
         prompt_name: str
     ) -> IWorkflowState:
         """注入系统提示词"""
-        builder = StateBuilder(state)
+        builder = StateBuilder()
         content = self.loader.load_prompt("system", prompt_name)
-        message = self._create_system_message(content)
-        builder.add_message(message)
+        builder.add_message({"role": "system", "content": content})
         return builder.build()
     
     def inject_rule_prompts(
@@ -84,11 +83,10 @@ class PromptInjector(IPromptInjector):
         rule_names: List[str]
     ) -> IWorkflowState:
         """注入规则提示词"""
-        builder = StateBuilder(state)
+        builder = StateBuilder()
         for rule_name in rule_names:
             content = self.loader.load_prompt("rules", rule_name)
-            message = self._create_system_message(content)
-            builder.add_message(message)
+            builder.add_message({"role": "system", "content": content})
         return builder.build()
     
     def inject_user_command(
@@ -97,10 +95,9 @@ class PromptInjector(IPromptInjector):
         command_name: str
     ) -> IWorkflowState:
         """注入用户指令"""
-        builder = StateBuilder(state)
+        builder = StateBuilder()
         content = self.loader.load_prompt("user_commands", command_name)
-        message = self._create_human_message(content)
-        builder.add_message(message)
+        builder.add_message({"role": "human", "content": content})
         return builder.build()
     
     async def _inject_system_prompt_async(
@@ -110,8 +107,7 @@ class PromptInjector(IPromptInjector):
     ) -> None:
         """异步注入系统提示词"""
         content = await self._load_prompt_cached("system", prompt_name)
-        message = self._create_system_message(content)
-        builder.add_message(message)
+        builder.add_message({"role": "system", "content": content})
     
     async def _inject_rule_prompts_async(
         self,
@@ -121,8 +117,7 @@ class PromptInjector(IPromptInjector):
         """异步注入规则提示词"""
         for rule_name in rule_names:
             content = await self._load_prompt_cached("rules", rule_name)
-            message = self._create_system_message(content)
-            builder.add_message(message)
+            builder.add_message({"role": "system", "content": content})
     
     async def _inject_user_command_async(
         self,
@@ -131,8 +126,7 @@ class PromptInjector(IPromptInjector):
     ) -> None:
         """异步注入用户指令"""
         content = await self._load_prompt_cached("user_commands", command_name)
-        message = self._create_human_message(content)
-        builder.add_message(message)
+        builder.add_message({"role": "human", "content": content})
     
     async def _inject_context_prompts_async(
         self,
@@ -142,8 +136,7 @@ class PromptInjector(IPromptInjector):
         """异步注入上下文提示词"""
         for context_name in context_names:
             content = await self._load_prompt_cached("context", context_name)
-            message = self._create_system_message(content)
-            builder.add_message(message)
+            builder.add_message({"role": "system", "content": content})
     
     async def _inject_examples_async(
         self,
@@ -153,8 +146,7 @@ class PromptInjector(IPromptInjector):
         """异步注入示例"""
         for example_name in example_names:
             content = await self._load_prompt_cached("examples", example_name)
-            message = self._create_system_message(content)
-            builder.add_message(message)
+            builder.add_message({"role": "system", "content": content})
     
     async def _inject_constraints_async(
         self,
@@ -164,8 +156,7 @@ class PromptInjector(IPromptInjector):
         """异步注入约束"""
         for constraint_name in constraint_names:
             content = await self._load_prompt_cached("constraints", constraint_name)
-            message = self._create_system_message(content)
-            builder.add_message(message)
+            builder.add_message({"role": "system", "content": content})
     
     async def _inject_format_async(
         self,
@@ -174,8 +165,7 @@ class PromptInjector(IPromptInjector):
     ) -> None:
         """异步注入格式"""
         content = await self._load_prompt_cached("format", format_name)
-        message = self._create_system_message(content)
-        builder.add_message(message)
+        builder.add_message({"role": "system", "content": content})
     
     async def _load_prompt_cached(self, category: str, name: str) -> str:
         """带缓存的提示词加载"""
@@ -192,16 +182,7 @@ class PromptInjector(IPromptInjector):
             await self.cache.set(cache_key, content)
         
         return content
-    
-    def _create_system_message(self, content: str) -> "BaseMessage":
-        """创建系统消息"""
-        from langchain_core.messages import SystemMessage
-        return SystemMessage(content=content)
-    
-    def _create_human_message(self, content: str) -> "BaseMessage":
-        """创建人类消息"""
-        from langchain_core.messages import HumanMessage
-        return HumanMessage(content=content)
+
 
 
 def create_prompt_injector(
