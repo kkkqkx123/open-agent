@@ -8,6 +8,7 @@ import logging
 
 from src.interfaces.workflow.graph import NodeExecutionResult
 from src.interfaces.state.interfaces import IState
+from src.interfaces.state.workflow import IWorkflowState
 from .base import BaseNode
 
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ class SyncNode(BaseNode):
     
     async def execute_async(
         self, 
-        state: IState, 
+        state: IWorkflowState, 
         config: Dict[str, Any]
     ) -> NodeExecutionResult:
         """异步执行节点（不支持）
