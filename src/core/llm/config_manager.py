@@ -14,7 +14,8 @@ from watchdog.events import FileSystemEventHandler
 
 from .config import LLMClientConfig, LLMModuleConfig
 from ..common.exceptions.llm import LLMConfigurationError
-from ..config.config_loader import ConfigLoader
+from ..config.config_manager import ConfigManager
+# 注意：这里移除了循环导入，LLMConfigManager现在直接使用ConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -206,11 +207,11 @@ class ConfigFileHandler(FileSystemEventHandler):
 
 
 class LLMConfigManager:
-    """LLM配置管理器"""
+    """LLM配置管理器 - 使用适配器模式包装基础配置管理器"""
     
     def __init__(
         self,
-        config_loader: Optional[ConfigLoader] = None,
+        base_config_manager: Optional['ConfigManager'] = None,
         config_subdir: str = "llms",
         enable_hot_reload: bool = True,
         validation_enabled: bool = True,
@@ -219,14 +220,17 @@ class LLMConfigManager:
         初始化配置管理器
         
         Args:
-            config_loader: 核心配置加载器实例，若为None则使用默认加载器
+            base_config_manager: 基础配置管理器实例，若为None则使用默认管理器
             config_subdir: 相对于configs的子目录
             enable_hot_reload: 是否启用热重载
             validation_enabled: 是否启用配置验证
         """
-        if config_loader is None:
-            config_loader = ConfigLoader()
-        self.config_loader = config_loader
+        if base_config_manager is None:
+            from ..config.config_manager import get_default_manager
+            base_config_manager = get_default_manager()
+        
+        # 直接使用基础配置管理器
+        self.config_manager = base_config_manager
         self.config_subdir = config_subdir
         self.config_dir = Path("configs") / self.config_subdir
         self.enable_hot_reload = enable_hot_reload
@@ -237,8 +241,8 @@ class LLMConfigManager:
         self._client_configs: Dict[str, LLMClientConfig] = {}
         self._module_config: Optional[LLMModuleConfig] = None
         
-        # 验证器
-        self.validator = ConfigValidator()
+        # 初始化验证器（避免循环导入）
+        self._validator = None  # 延迟初始化
         
         # 热重载相关
         self._observer: Optional[Any] = None
@@ -249,6 +253,13 @@ class LLMConfigManager:
         
         # 初始化
         self._initialize()
+    
+    @property
+    def validator(self):
+        """延迟加载验证器以避免循环导入"""
+        if self._validator is None:
+            self._validator = ConfigValidator()
+        return self._validator
     
     def _initialize(self) -> None:
         """初始化配置管理器"""
@@ -320,8 +331,8 @@ class LLMConfigManager:
     def _load_config_file(self, config_path: str) -> Optional[Dict[str, Any]]:
         """加载单个配置文件"""
         try:
-            # 委托给核心加载器，它负责读取、解析、环境变量、继承等所有事
-            config_data = self.config_loader.load(config_path)
+            # 使用基础配置管理器加载配置
+            config_data = self.config_manager.load_config_for_module(config_path, "llm")
             
             # 配置验证逻辑保留，因为这是 LLMConfigManager 的特定职责
             if self.validation_enabled:

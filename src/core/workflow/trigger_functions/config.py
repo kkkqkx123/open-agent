@@ -38,17 +38,23 @@ class TriggerFunctionConfigLoader:
     """触发器函数配置加载器"""
     
     @staticmethod
-    def load_from_file(file_path: str) -> TriggerCompositionConfig:
+    def load_from_file(file_path: str, config_manager: Optional[Any] = None) -> TriggerCompositionConfig:
         """从文件加载触发器组合配置
         
         Args:
             file_path: 配置文件路径
+            config_manager: 配置管理器，如果为None则直接读取文件
             
         Returns:
             TriggerCompositionConfig: 触发器组合配置
         """
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = yaml.safe_load(f)
+        if config_manager:
+            # 使用统一配置管理器加载
+            data = config_manager.load_config_for_module(file_path, "workflow")
+        else:
+            # 直接读取文件（向后兼容）
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
         
         return TriggerFunctionConfigLoader.from_dict(data)
     

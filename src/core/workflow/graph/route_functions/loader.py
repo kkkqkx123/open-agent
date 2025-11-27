@@ -8,10 +8,11 @@ import importlib
 import inspect
 from pathlib import Path
 from typing import Dict, Any, Callable, Optional
+import logging
 
 from .registry import RouteFunctionRegistry, RouteFunctionConfig
 
-logger = __import__("logging").getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class RouteFunctionLoader:
@@ -20,8 +21,16 @@ class RouteFunctionLoader:
     负责从配置文件和代码中加载路由函数。
     """
     
-    def __init__(self, registry: RouteFunctionRegistry):
+    def __init__(self, registry: RouteFunctionRegistry, config_manager: Optional[Any] = None):
         self.registry = registry
+        # 如果config_manager为None，使用默认管理器
+        if config_manager is None:
+            try:
+                from src.core.config.config_manager import get_default_manager
+                config_manager = get_default_manager()
+            except Exception:
+                pass
+        self.config_manager = config_manager
         self._builtin_functions: Dict[str, Callable] = {}
     
     def load_from_config_directory(self, config_dir: str) -> None:
@@ -51,8 +60,16 @@ class RouteFunctionLoader:
                 continue  # 跳过组配置文件
                 
             try:
-                with open(config_file, 'r', encoding='utf-8') as f:
-                    config_data = yaml.safe_load(f)
+                # 使用统一配置管理器加载
+                if self.config_manager is not None:
+                    config_data = self.config_manager.load_config_for_module(
+                        str(config_file.relative_to(config_file.parent.parent)),
+                        "workflow"
+                    )
+                else:
+                    # 降级到直接加载YAML
+                    with open(config_file, 'r', encoding='utf-8') as f:
+                        config_data = yaml.safe_load(f) or {}
                 
                 self._process_route_functions_config(config_data, config_file)
                 logger.debug(f"加载路由函数配置: {config_file}")

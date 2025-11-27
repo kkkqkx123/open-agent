@@ -8,7 +8,7 @@ import logging
 from typing import Any, Dict, Optional, List
 from pathlib import Path
 
-from ...config.config_loader import ConfigLoader
+from ...config.config_manager import get_default_manager, ConfigManager
 
 
 logger = logging.getLogger(__name__)
@@ -20,24 +20,28 @@ class StateManagementConfig:
     负责加载和管理状态管理的配置。
     """
     
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, config_manager: Optional[ConfigManager] = None):
         """初始化配置管理器
-        
+         
         Args:
             config_path: 配置文件路径，如果为None则使用默认路径
+            config_manager: 配置管理器，如果为None则使用默认管理器
         """
         self.config_path = config_path or "configs/state_management.yaml"
         self._config: Dict[str, Any] = {}
-        self._loader = ConfigLoader()
-        
+        self.config_manager = config_manager or get_default_manager()
+         
         # 加载配置
         self._load_config()
     
     def _load_config(self) -> None:
         """加载配置文件"""
         try:
-            if os.path.exists(self.config_path):
-                self._config = self._loader.load(self.config_path)
+            if self.config_manager.loader.exists(self.config_path):
+                self._config = self.config_manager.load_config_for_module(
+                    self.config_path,
+                    "state"
+                )
                 logger.info(f"已加载状态管理配置: {self.config_path}")
             else:
                 logger.warning(f"配置文件不存在: {self.config_path}，使用默认配置")
@@ -351,7 +355,9 @@ class StateManagementConfig:
             Path(save_path).parent.mkdir(parents=True, exist_ok=True)
             
             # 保存配置
-            self._loader.save_config(self._config, save_path)
+            import yaml
+            with open(save_path, 'w', encoding='utf-8') as f:
+                yaml.dump(self._config, f, allow_unicode=True, default_flow_style=False)
             logger.info(f"配置已保存到: {save_path}")
         except Exception as e:
             logger.error(f"保存配置失败: {e}")

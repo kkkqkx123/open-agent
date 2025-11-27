@@ -131,9 +131,10 @@ class WorkflowConfigValidator:
             ConfigValidationError: 配置加载失败
         """
         try:
-            import yaml
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config_data = yaml.safe_load(f)
+            # 使用统一配置管理器加载
+            from src.core.config.config_manager import get_default_manager
+            config_manager = get_default_manager()
+            config_data = config_manager.load_config_for_module(config_path, "workflow")
             
             return GraphConfig.from_dict(config_data)
             

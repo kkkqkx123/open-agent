@@ -18,6 +18,7 @@ from .processor.config_processor_chain import (
     EnvironmentVariableProcessor,
     ReferenceProcessor
 )
+from .adapter_factory import AdapterFactory
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,13 @@ def register_config_services(container: IDependencyContainer) -> None:
             ReferenceProcessor,
             lifetime=ServiceLifetime.SINGLETON
         )
+        # 注册适配器工厂
+        container.register_factory(
+            AdapterFactory,
+            _create_adapter_factory,
+            lifetime=ServiceLifetime.SINGLETON
+        )
+        logger.debug("已注册 AdapterFactory")
         logger.debug("已注册 ReferenceProcessor")
         
         logger.info("配置系统服务注册完成")
@@ -109,6 +117,22 @@ def _create_processor_chain() -> ConfigProcessorChain:
         
     except Exception as e:
         logger.error(f"创建配置处理器链失败: {e}")
+        raise
+
+
+def _create_adapter_factory() -> AdapterFactory:
+    """创建适配器工厂
+    Returns:
+        适配器工厂实例
+    """
+    try:
+        from .config_manager import get_default_manager
+        config_manager = get_default_manager()
+        adapter_factory = AdapterFactory(config_manager)
+        logger.debug("适配器工厂创建完成")
+        return adapter_factory
+    except Exception as e:
+        logger.error(f"创建适配器工厂失败: {e}")
         raise
 
 
@@ -181,7 +205,8 @@ def get_config_service_status(container: IDependencyContainer) -> Dict[str, Any]
             ConfigProcessorChain,
             InheritanceProcessor,
             EnvironmentVariableProcessor,
-            ReferenceProcessor
+            ReferenceProcessor,
+            AdapterFactory
         ]
         
         for service_type in service_types:

@@ -5,22 +5,26 @@
 """
 
 import os
-from typing import List, Dict, Any, Union
+import logging
+from typing import List, Dict, Any, Union, Optional
 from src.interfaces.tool.base import ITool
 from src.core.tools.config import ToolConfig, RestToolConfig, MCPToolConfig, NativeToolConfig
+from ..config.config_manager import get_default_manager, ConfigManager
+
+logger = logging.getLogger(__name__)
 
 class DefaultToolLoader:
     """默认工具加载器实现"""
     
-    def __init__(self, config_loader, logger):
+    def __init__(self, config_manager: Optional[ConfigManager] = None, logger_arg: Optional[logging.Logger] = None):
         """初始化工具加载器
-        
+         
         Args:
-            config_loader: 配置加载器
-            logger: 日志记录器
+            config_manager: 配置管理器，如果为None则使用默认管理器
+            logger_arg: 日志记录器
         """
-        self.config_loader = config_loader
-        self.logger = logger
+        self.config_manager = config_manager or get_default_manager()
+        self.logger = logger_arg or logger
     
     def load_from_config(self, config_path: str) -> List[ToolConfig]:
         """从配置文件加载工具配置
@@ -58,46 +62,53 @@ class DefaultToolLoader:
     
     def _load_tool_type_configs(self, tool_type: str) -> List[ToolConfig]:
         """加载指定工具类型的配置
-        
+         
         Args:
-            tool_type: 工具类型 (rest, rest, mcp)
-            
+            tool_type: 工具类型 (rest, native, mcp)
+             
         Returns:
             List[ToolConfig]: 工具配置列表
         """
         tool_configs = []
-        
+         
         # 构建配置目录路径
         config_dir_path = os.path.join("configs", "tools", tool_type)
         self.logger.info(f"配置目录路径: {config_dir_path}")
-        
+         
         # 检查目录是否存在
         if not os.path.exists(config_dir_path):
             self.logger.warning(f"配置目录不存在: {config_dir_path}")
             return tool_configs
-        
-        # 遍历目录中的所有YAML文件
-        yaml_files = [f for f in os.listdir(config_dir_path) if f.endswith('.yaml')]
-        self.logger.info(f"找到 {len(yaml_files)} 个YAML配置文件")
-        
-        for yaml_file in yaml_files:
-            try:
-                full_path = os.path.join("tools", tool_type, yaml_file)
-                self.logger.info(f"Loading tool config from {full_path}")
-                # 加载配置文件
-                config_data = self.config_loader.load(full_path)
-                self.logger.info(f"成功加载配置文件 {full_path}")
-                
-                # 解析工具配置
-                tool_config = self._parse_tool_config(config_data)
-                tool_configs.append(tool_config)
-                self.logger.info(f"Successfully loaded tool config: {tool_config.name}")
-                
-            except Exception as e:
-                self.logger.error(f"加载工具配置文件失败 {yaml_file}: {str(e)}")
-                # 继续加载其他配置文件
-                continue
-        
+         
+        # 使用配置管理器列出配置文件
+        try:
+            config_files = self.config_manager.list_config_files(f"tools/{tool_type}")
+            self.logger.info(f"找到 {len(config_files)} 个工具配置文件")
+             
+            for config_file in config_files:
+                try:
+                    full_path = f"tools/{tool_type}/{config_file}"
+                    self.logger.info(f"Loading tool config from {full_path}")
+                    # 使用统一配置管理器加载
+                    config_data = self.config_manager.load_config_for_module(
+                        full_path,
+                        "tools"
+                    )
+                    self.logger.info(f"成功加载配置文件 {full_path}")
+                     
+                    # 解析工具配置
+                    tool_config = self._parse_tool_config(config_data)
+                    tool_configs.append(tool_config)
+                    self.logger.info(f"Successfully loaded tool config: {tool_config.name}")
+                     
+                except Exception as e:
+                    self.logger.error(f"加载工具配置文件失败 {config_file}: {str(e)}")
+                    # 继续加载其他配置文件
+                    continue
+             
+        except Exception as e:
+            self.logger.error(f"列出工具配置文件失败: {str(e)}")
+         
         return tool_configs
     
     def _parse_tool_config(self, config_data: Dict[str, Any]) -> Union[RestToolConfig, MCPToolConfig, NativeToolConfig]:
@@ -142,17 +153,17 @@ class DefaultToolLoader:
 class RegistryBasedToolLoader:
     """基于注册表的工具加载器"""
     
-    def __init__(self, config_loader, logger, registry_config: Dict[str, Any]):
+    def __init__(self, config_manager: Optional[ConfigManager] = None, logger_arg: Optional[logging.Logger] = None, registry_config: Optional[Dict[str, Any]] = None):
         """初始化基于注册表的工具加载器
-        
+         
         Args:
-            config_loader: 配置加载器
-            logger: 日志记录器
+            config_manager: 配置管理器，如果为None则使用默认管理器
+            logger_arg: 日志记录器
             registry_config: 注册表配置
         """
-        self.config_loader = config_loader
-        self.logger = logger
-        self.registry_config = registry_config
+        self.config_manager = config_manager or get_default_manager()
+        self.logger = logger_arg or logger
+        self.registry_config = registry_config or {}
     
     def load_all_tools(self) -> List[ToolConfig]:
         """从注册表加载所有工具
@@ -178,7 +189,7 @@ class RegistryBasedToolLoader:
                 for config_file in config_files:
                     try:
                         config_path = os.path.join("tools", config_directory, config_file)
-                        config_data = self.config_loader.load(config_path)
+                        config_data = self.config_manager.load_config_for_module(config_path, "tools")
                         
                         # 确保工具类型正确
                         config_data["tool_type"] = tool_type

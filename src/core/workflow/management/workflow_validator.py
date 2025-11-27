@@ -67,24 +67,19 @@ class WorkflowValidator:
             return self.issues
         
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config_data = yaml.safe_load(f)
+            # 使用统一配置管理器加载
+            from src.core.config.config_manager import get_default_manager
+            config_manager = get_default_manager()
+            config_data = config_manager.load_config_for_module(config_path, "workflow")
             
             self._validate_config_data(config_data, config_path)
             
-        except yaml.YAMLError as e:
-            self.issues.append(ValidationIssue(
-                severity=ValidationSeverity.ERROR,
-                message=f"YAML解析错误: {e}",
-                location=config_path,
-                suggestion="检查YAML语法是否正确"
-            ))
         except Exception as e:
             self.issues.append(ValidationIssue(
                 severity=ValidationSeverity.ERROR,
                 message=f"配置文件读取错误: {e}",
                 location=config_path,
-                suggestion="检查文件权限和格式"
+                suggestion="检查文件路径是否正确，或配置管理器是否正确初始化"
             ))
         
         return self.issues

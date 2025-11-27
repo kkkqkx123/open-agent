@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, List
-from infrastructure.config.loader.file_config_loader import IConfigLoader
+from src.core.config.config_manager import ConfigManager, get_default_manager
 from src.interfaces import ILogger
 from ..interfaces import IToolValidator
 from ..models import ValidationResult, ValidationStatus
@@ -13,32 +13,32 @@ from ..models import ValidationResult, ValidationStatus
 class ConfigValidator(IToolValidator):
     """配置验证器"""
     
-    def __init__(self, config_loader: IConfigLoader, logger: ILogger):
+    def __init__(self, config_manager: ConfigManager, logger: ILogger):
         """初始化配置验证器
-        
+         
         Args:
-            config_loader: 配置加载器
+            config_manager: 配置管理器
             logger: 日志记录器
         """
-        self.config_loader = config_loader
+        self.config_manager = config_manager
         self.logger = logger
     
     def validate_config(self, config_path: str) -> ValidationResult:
         """验证工具配置文件
-        
+         
         Args:
             config_path: 配置文件路径
-            
+             
         Returns:
             ValidationResult: 验证结果
         """
         result = ValidationResult("unknown", "unknown", ValidationStatus.SUCCESS)
-        
+         
         try:
-            # 加载配置
-            config_data = self.config_loader.load(config_path)
+            # 使用统一配置管理器加载配置
+            config_data = self.config_manager.load_config_for_module(config_path, "tools")
             result.metadata["config_data"] = config_data
-            
+             
             # 验证必需字段
             required_fields = ["name", "tool_type", "description", "parameters_schema"]
             for field in required_fields:
@@ -48,32 +48,32 @@ class ConfigValidator(IToolValidator):
                         f"缺少必需字段: {field}",
                         field=field
                     )
-            
+             
             # 验证工具类型
             tool_type = config_data.get("tool_type")
-            if tool_type not in ["rest", "rest", "mcp"]:
+            if tool_type not in ["rest", "native", "mcp"]:
                 result.add_issue(
                     ValidationStatus.ERROR,
                     f"无效的工具类型: {tool_type}",
                     tool_type=tool_type
                 )
-            
+             
             # 验证参数Schema
             if "parameters_schema" in config_data:
                 schema_errors = self._validate_schema(config_data["parameters_schema"])
                 for error in schema_errors:
                     result.add_issue(ValidationStatus.ERROR, error)
-            
+             
             # 更新结果元数据
             result.tool_name = config_data.get("name", "unknown")
             result.tool_type = tool_type or "unknown"
-            
+             
         except Exception as e:
             result.add_issue(ValidationStatus.ERROR, f"配置文件加载失败: {e}")
-        
+         
         return result
     
-    def validate_loading(self, tool_name: str) -> ValidationResult:
+    async def validate_loading(self, tool_name: str) -> ValidationResult:
         """验证工具加载过程 - 配置验证器不实现此方法"""
         result = ValidationResult(tool_name, "unknown", ValidationStatus.WARNING)
         result.add_issue(
@@ -95,7 +95,7 @@ class ConfigValidator(IToolValidator):
     
     def get_supported_tool_types(self) -> List[str]:
         """获取支持的工具类型列表"""
-        return ["rest", "rest", "mcp"]
+        return ["rest", "native", "mcp"]
     
     def _validate_schema(self, schema: Dict[str, Any]) -> List[str]:
         """验证参数Schema

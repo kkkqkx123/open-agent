@@ -111,8 +111,10 @@ class StateMachineWorkflowFactory:
         if not config_file.exists():
             raise FileNotFoundError(f"配置文件不存在: {config_path}")
         
-        with open(config_file, 'r', encoding='utf-8') as f:
-            config_data = yaml.safe_load(f)
+        # 使用统一配置管理器加载
+        from src.core.config.config_manager import get_default_manager
+        config_manager = get_default_manager()
+        config_data = config_manager.load_config_for_module(str(config_file), "workflow")
         
         # 转换为WorkflowConfig对象
         return WorkflowConfig.from_dict(config_data)
@@ -305,8 +307,10 @@ class StateMachineConfigLoader:
         """
         import yaml
         
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = yaml.safe_load(f)
+        # 使用统一配置管理器加载
+        from src.core.config.config_manager import get_default_manager
+        config_manager = get_default_manager()
+        data = config_manager.load_config_for_module(file_path, "workflow")
         
         return StateMachineConfigLoader._parse_config(data)
     

@@ -11,6 +11,7 @@ import logging
 from .state_machine_workflow import StateMachineWorkflow, StateMachineConfig, StateDefinition, Transition, StateType
 from .state_machine_workflow_factory import StateMachineWorkflowFactory
 from src.core.workflow.config.config import WorkflowConfig
+from src.core.config.config_manager import get_default_manager, ConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +22,15 @@ class StateMachineWorkflowLoader:
     提供一站式状态机工作流配置加载和实例创建功能。
     """
     
-    def __init__(self, factory: Optional[StateMachineWorkflowFactory] = None):
+    def __init__(self, factory: Optional[StateMachineWorkflowFactory] = None, config_manager: Optional[ConfigManager] = None):
         """初始化加载器
-        
+         
         Args:
             factory: 状态机工作流工厂，如果为None则使用全局工厂
+            config_manager: 配置管理器，如果为None则使用默认管理器
         """
         self.factory = factory or StateMachineWorkflowFactory()
+        self.config_manager = config_manager or get_default_manager()
     
     def load_from_file(self, config_path: str) -> StateMachineWorkflow:
         """从配置文件加载并创建工作流实例
@@ -78,19 +81,15 @@ class StateMachineWorkflowLoader:
     
     def _load_yaml_file(self, config_path: str) -> Dict[str, Any]:
         """加载YAML配置文件
-        
+         
         Args:
             config_path: 配置文件路径
-            
+             
         Returns:
             Dict[str, Any]: 配置数据
         """
-        config_file = Path(config_path)
-        if not config_file.exists():
-            raise FileNotFoundError(f"配置文件不存在: {config_path}")
-        
-        with open(config_file, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f)
+        # 使用统一配置管理器加载
+        return self.config_manager.load_config_for_module(config_path, "workflow")
     
     def _parse_config(self, config_data: Dict[str, Any]) -> tuple:
         """解析配置数据

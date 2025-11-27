@@ -409,8 +409,10 @@ class RegistryUpdater:
             Dict[str, Any]: 配置数据
         """
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return yaml.safe_load(f) or {}
+            # 使用统一配置管理器加载
+            from src.core.config.config_manager import get_default_manager
+            config_manager = get_default_manager()
+            return config_manager.load_config_for_module(str(file_path), "registry") or {}
         except Exception as e:
             self.logger.error(f"加载注册表配置失败: {file_path}, 错误: {e}")
             return {}

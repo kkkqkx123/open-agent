@@ -12,6 +12,7 @@ import logging
 
 from .registry import NodeFunctionRegistry, get_global_node_function_registry
 from .config import NodeFunctionConfig, NodeCompositionConfig, NodeFunctionConfigLoader
+from ....config.config_manager import get_default_manager, ConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,9 @@ class NodeFunctionLoader:
     负责从配置文件和代码中加载节点函数。
     """
     
-    def __init__(self, registry: Optional[NodeFunctionRegistry] = None):
+    def __init__(self, registry: Optional[NodeFunctionRegistry] = None, config_manager: Optional[ConfigManager] = None):
         self.registry = registry or get_global_node_function_registry()
+        self.config_manager = config_manager or get_default_manager()
         self._builtin_functions: Dict[str, Callable] = {}
     
     def load_from_config_directory(self, config_dir: str) -> None:
@@ -49,7 +51,7 @@ class NodeFunctionLoader:
     
     def _load_node_functions_from_directory(self, dir_path: Path) -> None:
         """从目录加载节点函数配置
-        
+         
         Args:
             dir_path: 配置目录路径
         """
@@ -58,8 +60,13 @@ class NodeFunctionLoader:
                 continue  # 跳过组配置文件
                 
             try:
-                with open(config_file, 'r', encoding='utf-8') as f:
-                    config_data = yaml.safe_load(f)
+                # 使用统一配置管理器加载
+                relative_path = config_file.relative_to(Path("configs"))
+                config_path = str(relative_path)
+                config_data = self.config_manager.load_config_for_module(
+                    config_path,
+                    "workflow"
+                )
                 
                 self._process_node_functions_config(config_data, config_file)
                 logger.debug(f"加载节点函数配置: {config_file}")
