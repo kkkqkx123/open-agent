@@ -4,14 +4,13 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, Callable, TYPE_CHECKING
+from typing import Dict, Any, Optional, List, Callable
 from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime
 import uuid
 
-if TYPE_CHECKING:
-    from ....interfaces.state.workflow import IWorkflowState
+from src.interfaces.state.workflow import IWorkflowState
 
 
 class TriggerType(Enum):

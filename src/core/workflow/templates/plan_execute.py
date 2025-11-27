@@ -8,7 +8,7 @@ import logging
 
 from .base import BaseWorkflowTemplate
 from src.interfaces.workflow.core import IWorkflow
-from ..value_objects import WorkflowStep, WorkflowTransition, StepType, TransitionType
+from ..value_objects import StepType, TransitionType
 
 logger = logging.getLogger(__name__)
 

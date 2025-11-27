@@ -203,6 +203,11 @@ class WorkflowState(BaseStateImpl, IWorkflowState):
     def values(self) -> Dict[str, Any]:
         """所有状态值"""
         return {**self._data, **self.fields}
+
+    @property
+    def iteration_count(self) -> int:
+        """迭代计数"""
+        return self._iteration_count
     
     def get_field(self, key: str, default: Any = None) -> Any:
         """获取字段值"""

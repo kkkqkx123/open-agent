@@ -3,20 +3,17 @@
 提供计时、监控和模式匹配功能的触发器基类。
 """
 
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, Callable, Pattern, TYPE_CHECKING
+from abc import abstractmethod
+from typing import Dict, Any, Optional, List, Pattern
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 import re
 import psutil
 import threading
-import time
-from collections import defaultdict
 
 from .base import BaseTrigger, TriggerType, TriggerEvent
 
-if TYPE_CHECKING:
-    from ....interfaces.state.workflow import IWorkflowState
+from src.interfaces.state.workflow import IWorkflowState
 
 
 @dataclass

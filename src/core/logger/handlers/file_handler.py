@@ -53,15 +53,16 @@ class FileHandler(BaseHandler):
         
         with self._lock:
             try:
-                self.stream.write(formatted_msg + "\n")
-                self.stream.flush()
+                if self.stream is not None:
+                    self.stream.write(formatted_msg + "\n")
+                    self.stream.flush()
             except Exception:
                 self.handleError(record)
 
     def flush(self) -> None:
         """刷新文件流"""
         with self._lock:
-            if hasattr(self.stream, "flush"):
+            if self.stream is not None and hasattr(self.stream, "flush"):
                 self.stream.flush()
 
     def close(self) -> None:

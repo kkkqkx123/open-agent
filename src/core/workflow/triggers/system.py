@@ -3,7 +3,7 @@
 管理和协调所有触发器的执行。
 """
 
-from typing import Dict, Any, List, Optional, Callable, TYPE_CHECKING
+from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime
 import threading
 import time
@@ -11,8 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .base import ITrigger, TriggerEvent, TriggerHandler, TriggerType
 
-if TYPE_CHECKING:
-    from ....interfaces.state.workflow import IWorkflowState
+from src.interfaces.state.workflow import IWorkflowState
 
 
 class TriggerSystem:

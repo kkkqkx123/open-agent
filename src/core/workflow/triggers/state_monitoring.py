@@ -3,13 +3,12 @@
 提供工作流状态监控功能的触发器实现。
 """
 
-from typing import Dict, Any, Optional, List, TYPE_CHECKING
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from .monitoring_base import MonitoringTrigger, TriggerType
 
-if TYPE_CHECKING:
-    from ....interfaces.state.workflow import IWorkflowState
+from src.interfaces.state.workflow import IWorkflowState
 
 
 class WorkflowStateCaptureTrigger(MonitoringTrigger):

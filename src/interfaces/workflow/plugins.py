@@ -49,6 +49,7 @@ class PluginMetadata:
     plugin_type: PluginType
     dependencies: Optional[List[str]] = field(default_factory=list)
     config_schema: Optional[Dict[str, Any]] = field(default_factory=dict)
+    supported_hook_points: Optional[List['HookPoint']] = field(default_factory=list)
         
     def __post_init__(self) -> None:
         """初始化后处理"""
@@ -56,6 +57,8 @@ class PluginMetadata:
             self.dependencies = []
         if self.config_schema is None:
             self.config_schema = {}
+        if self.supported_hook_points is None:
+            self.supported_hook_points = []
 
 
 @dataclass
@@ -85,7 +88,7 @@ class PluginExecutionResult:
     error: Optional[str] = None
     execution_time: float = 0.0
     data: Dict[str, Any] = field(default_factory=dict)
-    timestamp: float = field(default_factory=0.0)
+    timestamp: float = 0.0
 
 
 @dataclass

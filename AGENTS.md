@@ -54,12 +54,11 @@ uv run pytest <file-path or directory-path>
 
 ## Codebase Architecture
 
-### New Flattened Architecture
+### Flattened Architecture
 
 The framework has been redesigned from a traditional 4-layer architecture to a flattened structure that reduces complexity while maintaining functionality:
 
-**Previous Architecture**: Entity → Application → Infrastructure → Presentation
-**New Architecture**: Core + Services + Adapters
+**Architecture**: Core + Services + Adapters
 
 ### Directory Structure
 src/

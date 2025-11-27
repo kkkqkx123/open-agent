@@ -40,11 +40,6 @@ from .pattern_matching import (
     ToolOutputPatternTrigger,
     StatePatternTrigger
 )
-from .system_monitoring import (
-    MemoryMonitoringTrigger,
-    PerformanceMonitoringTrigger,
-    ResourceMonitoringTrigger
-)
 from .factory import (
     TriggerFactory,
     get_trigger_factory,
@@ -92,11 +87,6 @@ __all__ = [
     "LLMOutputPatternTrigger",
     "ToolOutputPatternTrigger",
     "StatePatternTrigger",
-    
-    # 系统监控触发器
-    "MemoryMonitoringTrigger",
-    "PerformanceMonitoringTrigger",
-    "ResourceMonitoringTrigger",
     
     # 工厂和系统
     "TriggerFactory",

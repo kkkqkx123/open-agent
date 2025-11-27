@@ -3,15 +3,13 @@
 提供常用的触发器实现。
 """
 
-from typing import Dict, Any, Optional, Callable, TYPE_CHECKING
+from typing import Dict, Any, Optional, Callable
 from datetime import datetime, timedelta
-import time
 import re
 
 from .base import BaseTrigger, TriggerType
 
-if TYPE_CHECKING:
-    from ....interfaces.state.workflow import IWorkflowState
+from src.interfaces.state.workflow import IWorkflowState
 
 
 class TimeTrigger(BaseTrigger):

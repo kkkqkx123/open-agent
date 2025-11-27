@@ -1,6 +1,7 @@
 """JSON格式日志处理器"""
 
 import json
+import os
 import threading
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -51,8 +52,9 @@ class JsonHandler(BaseHandler):
         
         with self._lock:
             try:
-                self.stream.write(json_str + "\n")
-                self.stream.flush()
+                if self.stream is not None:
+                    self.stream.write(json_str + "\n")
+                    self.stream.flush()
             except Exception:
                 self.handleError(record)
 
@@ -78,7 +80,7 @@ class JsonHandler(BaseHandler):
     def flush(self) -> None:
         """刷新文件流"""
         with self._lock:
-            if hasattr(self.stream, "flush"):
+            if self.stream is not None and hasattr(self.stream, "flush"):
                 self.stream.flush()
 
     def close(self) -> None:

@@ -45,6 +45,15 @@ class IWorkflowState(IState):
         """
         pass
     
+    @property
+    @abstractmethod
+    def iteration_count(self) -> int:
+        """迭代计数
+        
+        工作流执行过程中的迭代次数。
+        """
+        pass
+    
     # 工作流特定方法
     @abstractmethod
     def get_field(self, key: str, default: Any = None) -> Any:
