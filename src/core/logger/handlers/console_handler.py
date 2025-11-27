@@ -39,11 +39,14 @@ class ConsoleHandler(BaseHandler):
             record: 日志记录
         """
         formatted_record = self.format(record)
-        formatted_msg = formatted_record.get("formatted_message", str(record["message"]))
+        formatted_msg = formatted_record.get("formatted_message", str(record.get("message", "")))
         
         # 写入到流
-        self.stream.write(formatted_msg + "\n")
-        self.stream.flush()
+        try:
+            self.stream.write(formatted_msg + "\n")
+            self.stream.flush()
+        except Exception:
+            self.handleError(record)
 
     def flush(self) -> None:
         """刷新输出流"""

@@ -49,7 +49,7 @@ class FileHandler(BaseHandler):
             record: 日志记录
         """
         formatted_record = self.format(record)
-        formatted_msg = formatted_record.get("formatted_message", str(record["message"]))
+        formatted_msg = formatted_record.get("formatted_message", str(record.get("message", "")))
         
         with self._lock:
             try:
@@ -67,11 +67,12 @@ class FileHandler(BaseHandler):
 
     def close(self) -> None:
         """关闭文件"""
-        with self._lock:
-            if self.stream and not self.stream.closed:
-                self.flush()
-                self.stream.close()
-                self.stream = None
+        if self.stream and not self.stream.closed:
+            # 直接刷新而不使用锁，避免死锁
+            if hasattr(self.stream, "flush"):
+                self.stream.flush()
+            self.stream.close()
+            self.stream = None
 
     def __del__(self):
         """析构函数"""

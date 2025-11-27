@@ -120,6 +120,12 @@ class TestBaseFormatter:
         # 测试 LogLevel 枚举
         assert formatter.format_level(LogLevel.DEBUG) == "DEBUG"
         
-        # 测试其他类型（应该会出错）
-        with pytest.raises(AttributeError):
-            formatter.format_level("not a log level")  # type: ignore
+        # 测试字符串类型（现在应该能够处理）
+        assert formatter.format_level("DEBUG") == "DEBUG"
+        assert formatter.format_level("INFO") == "INFO"
+        assert formatter.format_level("WARNING") == "WARNING"
+        assert formatter.format_level("ERROR") == "ERROR"
+        assert formatter.format_level("CRITICAL") == "CRITICAL"
+        
+        # 测试无效的字符串类型（应该返回原始字符串）
+        assert formatter.format_level("INVALID_LEVEL") == "INVALID_LEVEL"

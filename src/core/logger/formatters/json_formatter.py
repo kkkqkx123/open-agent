@@ -51,6 +51,32 @@ class JsonFormatter(BaseFormatter):
                 json_record[key] = value.isoformat()
             elif isinstance(value, LogLevel):
                 json_record[key] = value.name
+            elif isinstance(value, dict):
+                # 递归处理嵌套字典
+                json_record[key] = self._prepare_json_record(value)
+            elif isinstance(value, list):
+                # 处理列表，对列表中的每个元素进行处理
+                json_record[key] = [self._prepare_json_value(item) for item in value]
             else:
                 json_record[key] = value
         return json_record
+
+    def _prepare_json_value(self, value: Any) -> Any:
+        """准备JSON格式的单个值
+
+        Args:
+            value: 原始值
+
+        Returns:
+            JSON可序列化的值
+        """
+        if isinstance(value, datetime):
+            return value.isoformat()
+        elif isinstance(value, LogLevel):
+            return value.name
+        elif isinstance(value, dict):
+            return self._prepare_json_record(value)
+        elif isinstance(value, list):
+            return [self._prepare_json_value(item) for item in value]
+        else:
+            return value

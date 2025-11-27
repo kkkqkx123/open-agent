@@ -1,5 +1,6 @@
 """文本格式化器"""
 
+from datetime import datetime
 from typing import Any, Dict
 
 from .base_formatter import BaseFormatter
@@ -37,9 +38,13 @@ class TextFormatter(BaseFormatter):
         
         # 替换时间戳
         if "%(asctime)s" in formatted:
-            formatted = formatted.replace(
-                "%(asctime)s", self.format_time(record.get("timestamp", ""))
-            )
+            timestamp = record.get("timestamp")
+            if timestamp is None:
+                formatted = formatted.replace("%(asctime)s", "")
+            else:
+                formatted = formatted.replace(
+                    "%(asctime)s", self.format_time(timestamp)
+                )
         
         # 替换日志器名称
         if "%(name)s" in formatted:
@@ -74,17 +79,22 @@ class TextFormatter(BaseFormatter):
         Returns:
             更新后的格式化字符串
         """
-        # 处理 %(field_name)s 格式的占位符
+        # 处理 %(field_name)format 格式的占位符
         import re
         
-        # 查找所有 %(field_name)s 格式的占位符
-        pattern = r"%\((\w+)\)s"
+        # 查找所有 %(field_name)format 格式的占位符
+        pattern = r"%\((\w+)\)([sd])"
         matches = re.findall(pattern, formatted)
         
-        for field_name in matches:
-            placeholder = f"%({field_name})s"
+        for field_name, format_type in matches:
+            placeholder = f"%({field_name}){format_type}"
             if placeholder in formatted:
                 field_value = record.get(field_name, "")
-                formatted = formatted.replace(placeholder, str(field_value))
+                if format_type == "d" and isinstance(field_value, (int, float)):
+                    # 数字格式
+                    formatted = formatted.replace(placeholder, str(int(field_value)))
+                else:
+                    # 字符串格式
+                    formatted = formatted.replace(placeholder, str(field_value))
         
         return formatted

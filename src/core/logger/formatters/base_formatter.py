@@ -41,7 +41,7 @@ class BaseFormatter(ABC):
         """
         return timestamp.strftime(self.datefmt)
 
-    def format_level(self, level: LogLevel) -> str:
+    def format_level(self, level: LogLevel | str) -> str:
         """格式化日志级别
 
         Args:
@@ -50,7 +50,16 @@ class BaseFormatter(ABC):
         Returns:
             格式化后的日志级别字符串
         """
-        return level.name
+        if isinstance(level, LogLevel):
+            return level.name
+        else:
+            # 如果是字符串，尝试转换为 LogLevel
+            try:
+                log_level = LogLevel[level.upper()]
+                return log_level.name
+            except (KeyError, AttributeError):
+                # 如果转换失败，返回原始字符串
+                return str(level)
 
     def _get_record_value(
         self, record: Dict[str, Any], key: str, default: Any = None

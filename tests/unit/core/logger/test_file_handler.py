@@ -40,6 +40,9 @@ class TestFileHandler:
                     handler.close()
                 except:
                     pass
+            # 等待一小段时间确保文件句柄被释放
+            import time
+            time.sleep(0.01)
             if os.path.exists(temp_filename):
                 try:
                     os.unlink(temp_filename)
@@ -369,8 +372,8 @@ class TestFileHandler:
 
     def test_concurrent_writes(self):
         """测试并发写入"""
-        with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.log') as tmp_file:
-            temp_filename = tmp_file.name
+        temp_filename = os.path.join("logs", "test_file_handler_concurrent.log")
+        handler = None
         
         try:
             config = {"filename": temp_filename}
@@ -403,8 +406,18 @@ class TestFileHandler:
                 assert f"Message {i}" in content
         finally:
             # 清理临时文件
+            if handler is not None:
+                try:
+                    handler.close()
+                except:
+                    pass
+            import time
+            time.sleep(0.01)
             if os.path.exists(temp_filename):
-                os.unlink(temp_filename)
+                try:
+                    os.unlink(temp_filename)
+                except:
+                    pass
 
     def test_set_formatter(self):
         """测试设置格式化器"""
