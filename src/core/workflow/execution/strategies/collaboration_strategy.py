@@ -3,6 +3,7 @@
 提供工作流的协作执行策略实现。
 """
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Dict, Any, Optional, List, Callable, Union
 from dataclasses import dataclass, field
@@ -12,9 +13,11 @@ from .strategy_base import BaseStrategy, IExecutionStrategy
 
 if TYPE_CHECKING:
     from src.interfaces.workflow.execution import IWorkflowExecutor
+    from src.interfaces.workflow.core import IWorkflow
+    from src.interfaces.state import IWorkflowState
     from ..core.execution_context import ExecutionContext, ExecutionResult
     from ...workflow_instance import WorkflowInstance
-    from interfaces.state.manager import IStateManager
+    from src.interfaces.state.manager import IStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -80,22 +83,19 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
         collaboration_context = self._create_collaboration_context(context)
         
         try:
-            # 执行工作流
-            result = executor.execute(workflow, collaboration_context)
+            # 执行工作流 - WorkflowInstance 现在实现了 IWorkflow 接口
+            result: Any = executor.execute(workflow, collaboration_context)  # type: ignore
             
             # 添加协作元数据
-            result.metadata.update({
-                "collaboration_enabled": True,
-                "collaboration_config": {
-                    "enable_snapshots": self.config.enable_snapshots,
-                    "enable_validation": self.config.enable_validation,
-                    "enable_history_tracking": self.config.enable_history_tracking
-                }
+            self._add_collaboration_metadata(result, {
+                "enable_snapshots": self.config.enable_snapshots,
+                "enable_validation": self.config.enable_validation,
+                "enable_history_tracking": self.config.enable_history_tracking
             })
             
             logger.debug(f"协作执行完成: {workflow.config.name}")
             
-            return result
+            return result  # type: ignore
             
         except Exception as e:
             logger.error(f"协作执行失败: {e}")
@@ -139,23 +139,19 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
         collaboration_context = self._create_collaboration_context(context)
         
         try:
-            # 异步执行工作流
-            result = await executor.execute_async(workflow, collaboration_context)
+            # 异步执行工作流 - WorkflowInstance 现在实现了 IWorkflow 接口
+            result: Any = await executor.execute_async(workflow, collaboration_context)  # type: ignore
             
             # 添加协作元数据
-            result.metadata.update({
-                "collaboration_enabled": True,
-                "collaboration_config": {
-                    "enable_snapshots": self.config.enable_snapshots,
-                    "enable_validation": self.config.enable_validation,
-                    "enable_history_tracking": self.config.enable_history_tracking
-                },
-                "execution_mode": "async"
-            })
+            self._add_collaboration_metadata(result, {
+                "enable_snapshots": self.config.enable_snapshots,
+                "enable_validation": self.config.enable_validation,
+                "enable_history_tracking": self.config.enable_history_tracking
+            }, execution_mode="async")
             
             logger.debug(f"异步协作执行完成: {workflow.config.name}")
             
-            return result
+            return result  # type: ignore
             
         except Exception as e:
             logger.error(f"异步协作执行失败: {e}")
@@ -363,6 +359,37 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
             
         except Exception as e:
             logger.error(f"记录协作错误失败: {e}")
+    
+    def _add_collaboration_metadata(
+        self, 
+        result: Any,
+        collaboration_config: Dict[str, Any],
+        execution_mode: str = "sync"
+    ) -> None:
+        """添加协作元数据到执行结果
+        
+        Args:
+            result: 执行结果
+            collaboration_config: 协作配置
+            execution_mode: 执行模式（sync/async）
+        """
+        metadata_update: Dict[str, Any] = {
+            "collaboration_enabled": True,
+            "collaboration_config": collaboration_config
+        }
+        
+        if execution_mode == "async":
+            metadata_update["execution_mode"] = "async"
+        
+        # 尝试更新元数据
+        if isinstance(result, dict):
+            if 'metadata' in result and isinstance(result['metadata'], dict):
+                result['metadata'].update(metadata_update)  # type: ignore
+            else:
+                result['metadata'] = metadata_update  # type: ignore
+        elif hasattr(result, 'metadata'):
+            if isinstance(getattr(result, 'metadata', None), dict):
+                result.metadata.update(metadata_update)  # type: ignore
     
     def _state_to_dict(self, state: Any) -> Dict[str, Any]:
         """将状态转换为字典

@@ -30,54 +30,8 @@ class PromptLoader(IPromptLoader):
         self.registry = registry
         self._cache: Dict[str, str] = {}
         
-    def load_prompt(self, category: str, name: str) -> str:
-        """加载提示词内容
-        
-        Args:
-            category: 提示词类别
-            name: 提示词名称
-            
-        Returns:
-            str: 提示词内容
-            
-        Raises:
-            PromptLoadError: 加载失败
-        """
-        cache_key = f"{category}.{name}"
-        
-        # 检查缓存
-        if cache_key in self._cache:
-            return self._cache[cache_key]
-            
-        try:
-            # 获取元信息
-            meta = self.registry.get_prompt_meta(category, name)
-            
-            if meta is None:
-                raise PromptLoadError(
-                    f"提示词元数据未找到: {category}.{name}"
-                )
-            
-            # 从元数据中获取是否为复合提示词的标志
-            is_composite = meta.metadata.get('is_composite', False)
-            file_path = Path(meta.metadata.get('file_path', ''))
-            
-            # 加载提示词
-            if is_composite:
-                content = self.load_composite_prompt(file_path)
-            else:
-                content = self.load_simple_prompt(file_path)
-                
-            # 缓存结果
-            self._cache[cache_key] = content
-            return content
-        except Exception as e:
-            raise PromptLoadError(
-                f"无法加载提示词 {category}.{name}: {e}"
-            ) from e
-        
-    def load_simple_prompt(self, file_path: Path) -> str:
-        """加载简单提示词
+    async def load_simple_prompt_async(self, file_path: Path) -> str:
+        """异步加载简单提示词
         
         从单个文件加载提示词，支持YAML frontmatter。
         
@@ -94,8 +48,11 @@ class PromptLoader(IPromptLoader):
             raise PromptLoadError(f"提示词文件不存在: {file_path}")
             
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read().strip()
+            # 使用 aiofiles 进行异步文件读取
+            import aiofiles
+            async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+                content = await f.read()
+                content = content.strip()
                 
             # 移除元信息部分（如果有）
             if content.startswith('---'):
@@ -109,8 +66,8 @@ class PromptLoader(IPromptLoader):
                 f"读取提示词文件失败 {file_path}: {e}"
             ) from e
         
-    def load_composite_prompt(self, dir_path: Path) -> str:
-        """加载复合提示词
+    async def load_composite_prompt_async(self, dir_path: Path) -> str:
+        """异步加载复合提示词
         
         从目录加载复合提示词。加载顺序：
         1. index.md（如果存在）
@@ -136,23 +93,29 @@ class PromptLoader(IPromptLoader):
                     f"复合提示词缺少index.md: {dir_path}"
                 )
                 
-            content = self.load_simple_prompt(index_file)
+            content = await self.load_simple_prompt_async(index_file)
             
             # 加载子章节文件
             chapter_files = []
             for file_path in dir_path.iterdir():
-                if (file_path.is_file() and 
+                if (file_path.is_file() and
                     file_path.name.startswith(('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'))):
                     chapter_files.append(file_path)
                     
             # 按文件名排序
             chapter_files.sort(key=lambda x: x.name)
             
-            # 合并内容
+            # 并发加载子章节文件
+            chapter_tasks = []
             for chapter_file in chapter_files:
                 if chapter_file.name != "index.md":  # 跳过已加载的主文件
-                    chapter_content = self.load_simple_prompt(chapter_file)
-                    content += f"\n\n---\n\n{chapter_content}"
+                    chapter_tasks.append(self.load_simple_prompt_async(chapter_file))
+            
+            chapter_contents = await asyncio.gather(*chapter_tasks)
+            
+            # 合并内容
+            for chapter_content in chapter_contents:
+                content += f"\n\n---\n\n{chapter_content}"
                     
             return content
         except PromptLoadError:
@@ -184,8 +147,8 @@ class PromptLoader(IPromptLoader):
                 f"异步加载提示词 {category}.{name} 失败: {e}"
             ) from e
     
-    def load_prompts(self, category: str) -> Dict[str, str]:
-        """加载指定类别的所有提示词
+    async def load_prompts_async(self, category: str) -> Dict[str, str]:
+        """异步加载指定类别的所有提示词
         
         Args:
             category: 提示词类别
@@ -198,30 +161,24 @@ class PromptLoader(IPromptLoader):
             prompts: Dict[str, str] = {}
             
             # 从注册表获取该类别的所有提示词
-            # 使用异步方法在同步上下文中运行
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # 如果事件循环正在运行，创建新的任务
-                    task = asyncio.create_task(self.registry.list_by_category(category))
-                    # 这里需要特殊处理，因为不能在运行中的循环中直接运行
-                    logger.warning(f"无法在运行中的事件循环中同步获取类别 {category} 的提示词列表")
-                    return prompts
-                else:
-                    prompt_metas = loop.run_until_complete(self.registry.list_by_category(category))
-            except RuntimeError:
-                # 没有事件循环，创建新的
-                prompt_metas = asyncio.run(self.registry.list_by_category(category))
+            prompt_metas = await self.registry.list_by_category(category)
             
-            # 加载每个提示词的内容
+            # 并发加载每个提示词的内容
+            load_tasks = []
+            prompt_names = []
             for prompt_meta in prompt_metas:
-                try:
-                    content = self.load_prompt(category, prompt_meta.name)
-                    prompts[prompt_meta.name] = content
-                except Exception as e:
-                    logger.error(f"加载提示词 {category}.{prompt_meta.name} 失败: {e}")
-                    continue
+                load_tasks.append(self.load_prompt_async(category, prompt_meta.name))
+                prompt_names.append(prompt_meta.name)
+            
+            # 等待所有加载完成
+            contents = await asyncio.gather(*load_tasks, return_exceptions=True)
+            
+            # 处理结果
+            for i, content in enumerate(contents):
+                if isinstance(content, Exception):
+                    logger.error(f"加载提示词 {category}.{prompt_names[i]} 失败: {content}")
+                else:
+                    prompts[prompt_names[i]] = content  # type: ignore
             
             return prompts
             
@@ -374,7 +331,7 @@ class PromptLoader(IPromptLoader):
         """
         try:
             # 使用现有的复合提示词加载逻辑
-            content = self.load_composite_prompt(prompt_dir)
+            content = await self.load_composite_prompt_async(prompt_dir)
             
             # 读取 index.md 的 frontmatter
             index_file = prompt_dir / 'index.md'
@@ -457,8 +414,8 @@ class PromptLoader(IPromptLoader):
         """
         self._cache.clear()
     
-    def list_prompts(self, category: Optional[str] = None) -> List[str]:
-        """列出提示词
+    async def list_prompts_async(self, category: Optional[str] = None) -> List[str]:
+        """异步列出提示词
         
         Args:
             category: 提示词类别，如果为None则列出所有提示词名称
@@ -470,17 +427,7 @@ class PromptLoader(IPromptLoader):
         if category:
             # 列出指定类别的提示词
             try:
-                import asyncio
-                try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        logger.warning(f"无法在运行中的事件循环中同步获取类别 {category} 的提示词列表")
-                        return prompts
-                    else:
-                        prompt_metas = loop.run_until_complete(self.registry.list_by_category(category))
-                except RuntimeError:
-                    prompt_metas = asyncio.run(self.registry.list_by_category(category))
-                
+                prompt_metas = await self.registry.list_by_category(category)
                 prompts = [meta.name for meta in prompt_metas]
             except Exception as e:
                 logger.error(f"列出类别 {category} 的提示词失败: {e}")

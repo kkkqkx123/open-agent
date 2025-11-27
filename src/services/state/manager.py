@@ -3,6 +3,7 @@
 提供增强的状态管理功能，整合CRUD操作、历史记录和快照管理。
 """
 
+import asyncio
 import logging
 from typing import Dict, Any, Optional, List, Callable, Tuple
 from datetime import datetime
@@ -11,9 +12,9 @@ from src.interfaces.state.interfaces import IState
 from src.interfaces.state.manager import (
     IStateManager,
     IStateHistoryManager,
-    IStateSnapshotManager,
-    IStateSerializer
+    IStateSnapshotManager
 )
+from src.interfaces.state.serializer import IStateSerializer
 from src.core.state.entities import StateStatistics
 from src.core.state.core.base import BaseStateManager, StateValidationMixin
 

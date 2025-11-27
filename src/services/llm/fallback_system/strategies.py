@@ -441,7 +441,7 @@ class ParallelFallbackStrategy(IFallbackStrategy):
                     return await client.generate_async(messages, parameters, **kwargs)
                 else:
                     # 如果没有异步方法，在线程池中运行同步方法
-                    loop = asyncio.get_event_loop()
+                    loop = asyncio.get_running_loop()
                     return await loop.run_in_executor(
                         None, client.generate, messages, parameters, **kwargs
                     )

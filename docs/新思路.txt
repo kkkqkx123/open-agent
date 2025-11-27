@@ -190,3 +190,7 @@ undo_edit工具
 针对todo list判断工作流大小：由思考模型检查。如果太大，部分工作直接剔除，并回调todo list及修改意见
 
 工作流：文件名检查
+
+codemap：notebook+AST节点。
+把代码内容和ast解析结果【仅提取实体】交给llm，要求llm把分析内容填在AST节点对应块中。
+然后渲染notebook

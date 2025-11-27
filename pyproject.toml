@@ -60,6 +60,7 @@ dependencies = [
     "pytz>=2025.2",
     "mypy>=1.18.2",
     "cachetools>=6.2.1",
+    "aiofiles>=25.1.0",
 ]
 
 [project.optional-dependencies]

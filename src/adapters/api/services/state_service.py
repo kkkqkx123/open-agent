@@ -1,11 +1,12 @@
 """状态管理服务"""
+import asyncio
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from abc import ABC
 import json
 from uuid import uuid4
 
-from ....interfaces.state.interfaces import IStateManager
+from ....interfaces.state.manager import IStateManager
 from ....interfaces.state.lifecycle import IStateLifecycleManager
 from ....interfaces.state.history import IStateHistoryManager
 from ....services.container.container import DependencyContainer as Container
@@ -280,7 +281,7 @@ class StateService:
             lifecycle_manager = await self._get_lifecycle_manager()
             
             # 创建快照
-            snapshot_id = lifecycle_manager.create_snapshot({"state_id": state_id}, description)
+            snapshot_id = asyncio.run(lifecycle_manager.create_snapshot_async({"state_id": state_id}, description))
             
             return {
                 "snapshot_id": snapshot_id,
@@ -343,7 +344,7 @@ class StateService:
             lifecycle_manager = await self._get_lifecycle_manager()
             
             # 恢复快照
-            lifecycle_manager.restore_snapshot(snapshot_id)
+            asyncio.run(lifecycle_manager.restore_snapshot_async(snapshot_id))
             
             # 获取恢复后的状态
             state_manager = await self._get_state_manager()
@@ -375,7 +376,7 @@ class StateService:
             history_manager = await self._get_history_manager()
             
             # 获取历史记录
-            history_entries = history_manager.get_state_history(state_id, limit)
+            history_entries = asyncio.run(history_manager.get_state_history_async(state_id, limit))
             
             # 转换为响应格式
             entries_data = []

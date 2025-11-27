@@ -44,9 +44,9 @@ class StateSnapshotService(BaseStateSnapshotManager):
         self._snapshot_cache: Dict[str, StateSnapshot] = {}
         self._agent_snapshots_index: Dict[str, List[str]] = {}
     
-    def create_snapshot(self, agent_id: str, state_data: Dict[str, Any],
-                       snapshot_name: str = "", metadata: Optional[Dict[str, Any]] = None) -> str:
-        """创建状态快照"""
+    async def create_snapshot_async(self, agent_id: str, state_data: Dict[str, Any],
+                                   snapshot_name: str = "", metadata: Optional[Dict[str, Any]] = None) -> str:
+        """异步创建状态快照"""
         try:
             # 创建快照对象
             snapshot = self._create_snapshot(agent_id, state_data, snapshot_name, metadata)
@@ -70,14 +70,14 @@ class StateSnapshotService(BaseStateSnapshotManager):
                 "size_bytes": getattr(snapshot, 'size_bytes', 0)
             }
             
-            # 保存到Repository
-            snapshot_id = asyncio.run(self._snapshot_repository.save_snapshot(snapshot_dict))
+            # 直接异步调用，无需转换
+            snapshot_id = await self._snapshot_repository.save_snapshot(snapshot_dict)
             
             # 更新缓存
             self._update_cache(snapshot)
             
             # 清理旧快照
-            self.cleanup_old_snapshots(agent_id)
+            await self.cleanup_old_snapshots_async(agent_id)
             
             logger.debug(f"快照创建成功: {snapshot_id}")
             return snapshot_id
@@ -86,15 +86,15 @@ class StateSnapshotService(BaseStateSnapshotManager):
             logger.error(f"创建快照失败: {e}")
             raise
     
-    def restore_snapshot(self, snapshot_id: str) -> Optional[AbstractStateSnapshot]:
-        """恢复状态快照"""
+    async def restore_snapshot_async(self, snapshot_id: str) -> Optional[AbstractStateSnapshot]:
+        """异步恢复状态快照"""
         try:
             # 先从缓存获取
             if snapshot_id in self._snapshot_cache:
                 snapshot = self._snapshot_cache[snapshot_id]
             else:
                 # 从Repository获取
-                snapshot_dict = asyncio.run(self._snapshot_repository.load_snapshot(snapshot_id))
+                snapshot_dict = await self._snapshot_repository.load_snapshot(snapshot_id)
                 if not snapshot_dict:
                     logger.warning(f"快照不存在: {snapshot_id}")
                     return None
@@ -132,8 +132,8 @@ class StateSnapshotService(BaseStateSnapshotManager):
             logger.error(f"恢复快照失败: {e}")
             return None
     
-    def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> List[AbstractStateSnapshot]:
-        """获取指定代理的快照列表"""
+    async def get_snapshots_by_agent_async(self, agent_id: str, limit: int = 50) -> List[AbstractStateSnapshot]:
+        """异步获取指定代理的快照列表"""
         try:
             # 先从缓存索引获取
             if agent_id in self._agent_snapshots_index:
@@ -144,7 +144,7 @@ class StateSnapshotService(BaseStateSnapshotManager):
                     if snapshot_id in self._snapshot_cache:
                         snapshot = self._snapshot_cache[snapshot_id]
                     else:
-                        snapshot_dict = asyncio.run(self._snapshot_repository.load_snapshot(snapshot_id))
+                        snapshot_dict = await self._snapshot_repository.load_snapshot(snapshot_id)
                         if snapshot_dict:
                             snapshot = StateSnapshot(
                                 snapshot_id=snapshot_dict["snapshot_id"],
@@ -171,7 +171,7 @@ class StateSnapshotService(BaseStateSnapshotManager):
                 return snapshots
             
             # 从Repository获取
-            snapshot_dicts = asyncio.run(self._snapshot_repository.get_snapshots(agent_id, limit))
+            snapshot_dicts = await self._snapshot_repository.get_snapshots(agent_id, limit)
             
             snapshots = []
             # 解压缩数据并更新缓存
@@ -213,11 +213,11 @@ class StateSnapshotService(BaseStateSnapshotManager):
             logger.error(f"获取代理快照列表失败: {e}")
             return []
     
-    def cleanup_old_snapshots(self, agent_id: str, max_snapshots: int = 50) -> int:
-        """清理旧快照"""
+    async def cleanup_old_snapshots_async(self, agent_id: str, max_snapshots: int = 50) -> int:
+        """异步清理旧快照"""
         try:
             # 获取当前快照列表
-            snapshots = self.get_snapshots_by_agent(agent_id, limit=1000)
+            snapshots = await self.get_snapshots_by_agent_async(agent_id, limit=1000)
             
             if len(snapshots) <= max_snapshots:
                 return 0
@@ -228,7 +228,7 @@ class StateSnapshotService(BaseStateSnapshotManager):
             
             deleted_count = 0
             for snapshot in to_delete:
-                success = asyncio.run(self._snapshot_repository.delete_snapshot(snapshot.snapshot_id))
+                success = await self._snapshot_repository.delete_snapshot(snapshot.snapshot_id)
                 if success:
                     # 从缓存删除
                     if snapshot.snapshot_id in self._snapshot_cache:
@@ -248,11 +248,11 @@ class StateSnapshotService(BaseStateSnapshotManager):
             logger.error(f"清理旧快照失败: {e}")
             return 0
     
-    def delete_snapshot(self, snapshot_id: str) -> bool:
-        """删除指定快照"""
+    async def delete_snapshot_async(self, snapshot_id: str) -> bool:
+        """异步删除指定快照"""
         try:
             # 从Repository删除
-            success = asyncio.run(self._snapshot_repository.delete_snapshot(snapshot_id))
+            success = await self._snapshot_repository.delete_snapshot(snapshot_id)
             
             if success:
                 # 从缓存删除
@@ -274,11 +274,11 @@ class StateSnapshotService(BaseStateSnapshotManager):
             logger.error(f"删除快照失败: {e}")
             return False
     
-    def get_snapshot_statistics(self) -> Dict[str, Any]:
-        """获取快照统计信息"""
+    async def get_snapshot_statistics_async(self) -> Dict[str, Any]:
+        """异步获取快照统计信息"""
         try:
             # 从Repository获取统计信息
-            stats = asyncio.run(self._snapshot_repository.get_snapshot_statistics())
+            stats = await self._snapshot_repository.get_snapshot_statistics()
             
             # 添加缓存统计
             cache_stats = {
@@ -296,8 +296,8 @@ class StateSnapshotService(BaseStateSnapshotManager):
             logger.error(f"获取快照统计信息失败: {e}")
             return {}
     
-    def find_snapshots_by_name(self, agent_id: str, name_pattern: str) -> List[AbstractStateSnapshot]:
-        """根据名称模式查找快照
+    async def find_snapshots_by_name_async(self, agent_id: str, name_pattern: str) -> List[AbstractStateSnapshot]:
+        """异步根据名称模式查找快照
         
         Args:
             agent_id: 代理ID
@@ -307,7 +307,7 @@ class StateSnapshotService(BaseStateSnapshotManager):
             匹配的快照列表
         """
         try:
-            snapshots = self.get_snapshots_by_agent(agent_id, limit=1000)
+            snapshots = await self.get_snapshots_by_agent_async(agent_id, limit=1000)
             
             # 简单的模式匹配
             import fnmatch
@@ -323,10 +323,10 @@ class StateSnapshotService(BaseStateSnapshotManager):
             logger.error(f"根据名称查找快照失败: {e}")
             return []
     
-    def get_snapshots_in_time_range(self, agent_id: str,
-                                   start_time: datetime,
-                                   end_time: datetime) -> List[AbstractStateSnapshot]:
-        """获取指定时间范围内的快照
+    async def get_snapshots_in_time_range_async(self, agent_id: str,
+                                              start_time: datetime,
+                                              end_time: datetime) -> List[AbstractStateSnapshot]:
+        """异步获取指定时间范围内的快照
         
         Args:
             agent_id: 代理ID
@@ -337,7 +337,7 @@ class StateSnapshotService(BaseStateSnapshotManager):
             时间范围内的快照列表
         """
         try:
-            snapshots = self.get_snapshots_by_agent(agent_id, limit=1000)
+            snapshots = await self.get_snapshots_by_agent_async(agent_id, limit=1000)
             
             # 过滤时间范围
             filtered_snapshots = []
@@ -352,9 +352,9 @@ class StateSnapshotService(BaseStateSnapshotManager):
             logger.error(f"获取时间范围内快照失败: {e}")
             return []
     
-    def create_auto_snapshot(self, agent_id: str, state_data: Dict[str, Any],
-                           trigger_reason: str = "") -> str:
-        """创建自动快照
+    async def create_auto_snapshot_async(self, agent_id: str, state_data: Dict[str, Any],
+                                       trigger_reason: str = "") -> str:
+        """异步创建自动快照
         
         Args:
             agent_id: 代理ID
@@ -371,7 +371,7 @@ class StateSnapshotService(BaseStateSnapshotManager):
             "created_at": datetime.now().isoformat()
         }
         
-        return self.create_snapshot(agent_id, state_data, snapshot_name, metadata)
+        return await self.create_snapshot_async(agent_id, state_data, snapshot_name, metadata)
     
     def _update_cache(self, snapshot: StateSnapshot) -> None:
         """更新缓存"""
@@ -459,14 +459,14 @@ class SnapshotScheduler:
         if (schedule["last_snapshot"] is None or 
             (now - schedule["last_snapshot"]).total_seconds() >= schedule["interval_minutes"] * 60):
             
-            snapshot_id = self._snapshot_service.create_auto_snapshot(
+            snapshot_id = asyncio.run(self._snapshot_service.create_auto_snapshot_async(
                 agent_id, domain_state, "scheduled"
-            )
+            ))
             
             schedule["last_snapshot"] = now
             
             # 清理旧快照
-            self._snapshot_service.cleanup_old_snapshots(agent_id, schedule["max_snapshots"])
+            asyncio.run(self._snapshot_service.cleanup_old_snapshots_async(agent_id, schedule["max_snapshots"]))
             
             logger.debug(f"为代理 {agent_id} 创建自动快照: {snapshot_id}")
             return snapshot_id

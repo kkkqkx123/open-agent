@@ -58,9 +58,9 @@ class StateHistoryService(BaseStateHistoryManager):
             state_diff=state_diff.to_dict()
         )
 
-    def record_state_change(self, agent_id: str, old_state: Dict[str, Any],
-                          new_state: Dict[str, Any], action: str) -> str:
-        """记录状态变化"""
+    async def record_state_change_async(self, agent_id: str, old_state: Dict[str, Any],
+                                       new_state: Dict[str, Any], action: str) -> str:
+        """异步记录状态变化"""
         try:
             # 创建历史记录条目
             entry = self._create_history_entry(agent_id, old_state, new_state, action)
@@ -81,13 +81,13 @@ class StateHistoryService(BaseStateHistoryManager):
             }
             
             # 保存到Repository
-            asyncio.run(self._history_repository.save_history(entry_dict))
+            await self._history_repository.save_history(entry_dict)
             
             # 更新缓存
             self._update_cache(entry)
             
             # 清理旧记录
-            self.cleanup_old_entries(agent_id)
+            await self.cleanup_old_entries_async(agent_id)
             
             logger.debug(f"状态变化记录成功: {entry.history_id}")
             return entry.history_id
@@ -96,8 +96,8 @@ class StateHistoryService(BaseStateHistoryManager):
             logger.error(f"记录状态变化失败: {e}")
             raise
     
-    def get_state_history(self, agent_id: str, limit: Optional[int] = None) -> List[AbstractStateHistoryEntry]:
-        """获取状态历史"""
+    async def get_state_history_async(self, agent_id: str, limit: Optional[int] = None) -> List[AbstractStateHistoryEntry]:
+        """异步获取状态历史"""
         try:
             if limit is None:
                 limit = 10
@@ -109,7 +109,7 @@ class StateHistoryService(BaseStateHistoryManager):
                     return cached_entries[-limit:]  # type: ignore
             
             # 从Repository获取
-            entry_dicts = asyncio.run(self._history_repository.get_history(agent_id, limit))
+            entry_dicts = await self._history_repository.get_history(agent_id, limit)
             
             # 转换为StateHistoryEntry对象
             entries = []
@@ -159,11 +159,11 @@ class StateHistoryService(BaseStateHistoryManager):
             logger.error(f"重放历史记录失败: {e}")
             return base_state
     
-    def cleanup_old_entries(self, agent_id: str, max_entries: int = 1000) -> int:
-        """清理旧的历史记录"""
+    async def cleanup_old_entries_async(self, agent_id: str, max_entries: int = 1000) -> int:
+        """异步清理旧的历史记录"""
         try:
             # 获取当前历史记录数量
-            current_entries = self.get_state_history(agent_id, limit=1000)
+            current_entries = await self.get_state_history_async(agent_id, limit=1000)
             
             if len(current_entries) <= max_entries:
                 return 0
@@ -172,11 +172,13 @@ class StateHistoryService(BaseStateHistoryManager):
             to_delete_count = len(current_entries) - max_entries
             entries_to_delete = current_entries[:to_delete_count]
             
-            # 从Repository删除
-            deleted_count = 0
-            for entry in entries_to_delete:
-                if asyncio.run(self._history_repository.delete_history(entry.history_id)):
-                    deleted_count += 1
+            # 并发从Repository删除
+            delete_tasks = [
+                self._history_repository.delete_history(entry.history_id)
+                for entry in entries_to_delete
+            ]
+            delete_results = await asyncio.gather(*delete_tasks)
+            deleted_count = sum(1 for result in delete_results if result)
             
             # 更新缓存
             if agent_id in self._history_cache:
@@ -189,11 +191,11 @@ class StateHistoryService(BaseStateHistoryManager):
             logger.error(f"清理历史记录失败: {e}")
             return 0
     
-    def get_history_statistics(self) -> Dict[str, Any]:
-        """获取历史统计信息"""
+    async def get_history_statistics_async(self) -> Dict[str, Any]:
+        """异步获取历史统计信息"""
         try:
             # 从Repository获取统计信息
-            stats = asyncio.run(self._history_repository.get_history_statistics())
+            stats = await self._history_repository.get_history_statistics()
             
             # 添加缓存统计
             cache_stats = {
@@ -208,11 +210,11 @@ class StateHistoryService(BaseStateHistoryManager):
             logger.error(f"获取历史统计信息失败: {e}")
             return {}
     
-    def clear_history(self, agent_id: str) -> bool:
-        """清空指定代理的历史记录"""
+    async def clear_history_async(self, agent_id: str) -> bool:
+        """异步清空指定代理的历史记录"""
         try:
             # 从Repository删除
-            success = asyncio.run(self._history_repository.clear_agent_history(agent_id))
+            success = await self._history_repository.clear_agent_history(agent_id)
             
             # 清空缓存
             if agent_id in self._history_cache:
@@ -227,11 +229,11 @@ class StateHistoryService(BaseStateHistoryManager):
             logger.error(f"清空历史记录失败: {e}")
             return False
     
-    def get_state_at_time(self, agent_id: str, target_time: datetime) -> Optional[Dict[str, Any]]:
-        """获取指定时间点的状态"""
+    async def get_state_at_time_async(self, agent_id: str, target_time: datetime) -> Optional[Dict[str, Any]]:
+        """异步获取指定时间点的状态"""
         try:
             # 获取历史记录
-            history_entries = self.get_state_history(agent_id, limit=1000)
+            history_entries = await self.get_state_history_async(agent_id, limit=1000)
             
             # 找到目标时间点之前的历史记录
             relevant_entries = [

@@ -1,7 +1,6 @@
 """工作流实例 - 重构后实现
 
 封装已编译的图和配置，提供统一的执行接口。
-使用Services层组件，避免循环依赖。
 """
 
 from typing import Dict, Any, Optional, Generator, AsyncIterator, List, TYPE_CHECKING
@@ -14,6 +13,7 @@ from src.core.common.exceptions.workflow import WorkflowExecutionError
 from src.interfaces.workflow.core import IWorkflow, ExecutionContext
 from src.interfaces.state import IWorkflowState
 from src.interfaces.workflow.graph import IGraph, INode, IEdge
+from abc import ABC
 
 if TYPE_CHECKING:
     from src.core.workflow.value_objects import WorkflowStep, WorkflowTransition
@@ -21,11 +21,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class WorkflowInstance:
+class WorkflowInstance(IWorkflow):
     """工作流实例 - 重构后实现
     
     封装已编译的图和配置，提供统一的执行接口。
     使用Services层组件，避免循环依赖。
+    实现 IWorkflow 接口以支持策略层的类型检查。
     """
     
     def __init__(
