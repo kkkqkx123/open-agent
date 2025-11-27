@@ -34,3 +34,27 @@ class LogLevel(Enum):
     def __str__(self) -> str:
         """返回日志级别的字符串表示"""
         return self.name
+
+    def __lt__(self, other: "LogLevel") -> bool:
+        """比较日志级别大小"""
+        if not isinstance(other, LogLevel):
+            return NotImplemented
+        return self.value < other.value
+
+    def __le__(self, other: "LogLevel") -> bool:
+        """比较日志级别大小"""
+        if not isinstance(other, LogLevel):
+            return NotImplemented
+        return self.value <= other.value
+
+    def __gt__(self, other: "LogLevel") -> bool:
+        """比较日志级别大小"""
+        if not isinstance(other, LogLevel):
+            return NotImplemented
+        return self.value > other.value
+
+    def __ge__(self, other: "LogLevel") -> bool:
+        """比较日志级别大小"""
+        if not isinstance(other, LogLevel):
+            return NotImplemented
+        return self.value >= other.value
