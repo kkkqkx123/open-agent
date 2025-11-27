@@ -6,33 +6,22 @@
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
 
-# 接口定义
-from .interfaces import (
-    # 基础接口
-    IState,
-    IStateManager,
-    IStateSerializer,
-    IStateValidator,
-    IStateLifecycleManager,
-    IStateCache,
-    
-    # 工具状态接口
-    IToolState,
-    IToolStateManager,
-    IToolStateBuilder,
-    StateType,
-    
-    # 会话状态接口
-    ISessionState,
-    ISessionStateManager,
-    
-    # 线程状态接口
-    IThreadState,
-    IThreadStateManager,
-    
-    # 检查点状态接口
-    ICheckpointState,
-    ICheckpointStateManager
+# 注意：接口定义应该从src.interfaces.state导入使用，而不是从此模块导出
+# 此模块的职责是提供具体实现，而非重新导出接口
+# 本模块只导出Core层的具体实现和工厂类
+
+# 从interfaces导入工具状态类型
+from .interfaces.tools import StateType
+
+# 实体定义（具体实现）
+from .entities import (
+    StateSnapshot,
+    StateHistoryEntry,
+    StateConflict,
+    ConflictType,
+    ConflictResolutionStrategy,
+    StateStatistics,
+    StateDiff
 )
 
 # 核心组件
@@ -130,8 +119,10 @@ from .snapshots import (
 # )
 
 # 便捷函数
-def create_state_manager(config: Optional[Dict[str, Any]] = None, 
-                        storage_adapter: Optional[Any] = None) -> StateManager:
+def create_state_manager(
+    config: Optional[Dict[str, Any]] = None,
+    storage_adapter: Optional[Any] = None
+) -> StateManager:
     """创建状态管理器的便捷函数
     
     Args:
@@ -163,9 +154,9 @@ def create_state_manager(config: Optional[Dict[str, Any]] = None,
     # 如果没有提供存储适配器，创建一个默认的内存适配器
     if storage_adapter is None:
         # 创建一个简单的内存存储适配器
-        class _SimpleMemoryAdapter:
+        class _SimpleMemoryAdapter:  # type: ignore[no-untyped-call]
             """简单的内存存储适配器实现"""
-            def __init__(self):
+            def __init__(self) -> None:
                 self._data: Dict[str, Union[str, bytes]] = {}
             
             def get(self, key: str) -> Optional[Union[str, bytes]]:
@@ -187,12 +178,12 @@ def create_state_manager(config: Optional[Dict[str, Any]] = None,
             def get_statistics(self) -> Dict[str, Any]:
                 return {'total_items': len(self._data), 'type': 'memory'}
         
-        storage_adapter = _SimpleMemoryAdapter()
+        storage_adapter = _SimpleMemoryAdapter()  # type: ignore[assignment]
     
     return StateManager(config, storage_adapter=storage_adapter)
 
 
-def create_workflow_state(**kwargs) -> WorkflowState:
+def create_workflow_state(**kwargs: Any) -> WorkflowState:
     """创建工作流状态的便捷函数
     
     Args:
@@ -218,7 +209,7 @@ def create_tool_state(state_type: StateType = StateType.BUSINESS, **kwargs) -> T
     return ToolState(**kwargs)
 
 
-def create_session_state(**kwargs) -> SessionState:
+def create_session_state(**kwargs: Any) -> SessionState:
     """创建会话状态的便捷函数
     
     Args:
@@ -230,7 +221,7 @@ def create_session_state(**kwargs) -> SessionState:
     return SessionState(**kwargs)
 
 
-def create_thread_state(**kwargs) -> ThreadState:
+def create_thread_state(**kwargs: Any) -> ThreadState:
     """创建线程状态的便捷函数
     
     Args:
@@ -242,7 +233,7 @@ def create_thread_state(**kwargs) -> ThreadState:
     return ThreadState(**kwargs)
 
 
-def create_checkpoint_state(**kwargs) -> CheckpointState:
+def create_checkpoint_state(**kwargs: Any) -> CheckpointState:
     """创建检查点状态的便捷函数
     
     Args:
@@ -266,23 +257,18 @@ __all__ = [
     "__author__",
     "__description__",
     
-    # 接口定义
-    "IState",
-    "IStateManager",
-    "IStateSerializer",
-    "IStateValidator",
-    "IStateLifecycleManager",
-    "IStateCache",
-    "IToolState",
-    "IToolStateManager",
-    "IToolStateBuilder",
+    # 注意：接口定义应该从src.interfaces.state导入，不在此模块导出
+    # 工具状态类型（从interfaces.tools导入）
     "StateType",
-    "ISessionState",
-    "ISessionStateManager",
-    "IThreadState",
-    "IThreadStateManager",
-    "ICheckpointState",
-    "ICheckpointStateManager",
+    
+    # 实体定义（具体实现）
+    "StateSnapshot",
+    "StateHistoryEntry",
+    "StateConflict",
+    "ConflictType",
+    "ConflictResolutionStrategy",
+    "StateStatistics",
+    "StateDiff",
     
     # 核心组件
     "BaseState",

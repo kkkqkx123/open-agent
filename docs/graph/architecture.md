@@ -238,7 +238,7 @@ workflow.add_transition(WorkflowTransition(
 ### 构建和执行工作流
 ```python
 from src.services.workflow.manager import WorkflowManager
-from src.core.state.interfaces import IState
+from src.interfaces.state.interfaces import IState
 
 # 创建工作流管理器
 manager = WorkflowManager()

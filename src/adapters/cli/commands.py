@@ -291,17 +291,10 @@ def _print_sessions_table(sessions: list) -> None:
 def _register_history_services(container) -> None:
     """注册历史存储服务"""
     try:
-        # 获取配置加载器
-        config_loader = container.get(IConfigLoader)
-        
-        # 加载历史配置
-        history_config = config_loader.load("history.yaml")
-        
-        # 注册历史存储服务
-        from src.services.history.di_config import register_history_services
-        register_history_services(container, history_config)
-        
-    except Exception as e:
+        # 历史存储服务是可选的，当需要时由其他模块单独注册
+        # 这里仅作为占位符，保留扩展空间
+        pass
+    except Exception:
         # 如果历史配置不存在或加载失败，忽略错误
         # 历史存储是可选功能
         pass

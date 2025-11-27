@@ -39,7 +39,7 @@ from .workflow.services import (
     IWorkflowBuilderService
 )
 
-# 状态相关接口
+# 状态相关接口（仅导出接口，不导出具体实现）
 from .state import (
     IState,
     IStateManager,
@@ -49,13 +49,6 @@ from .state import (
     IStateSnapshotManager,
     IStateSerializer,
     IStateFactory,
-    IStateManager,
-    StateSnapshot,
-    StateHistoryEntry,
-    StateConflict,
-    ConflictType,
-    ConflictResolutionStrategy,
-    StateStatistics,
     IStorageBackend,
     IStorageAdapterFactory,
     IStorageMigration,
@@ -65,6 +58,8 @@ from .state import (
     IStorageCache,
     IStorageMetrics
 )
+
+# 注意：具体实现（StateSnapshot等）应该从src.core.state导入，而不是从接口层
 
 # LLM相关接口
 from .llm import (
@@ -230,13 +225,6 @@ __all__ = [
     "IStateSnapshotManager",
     "IStateSerializer",
     "IStateFactory",
-    "IStateManager",
-    "StateSnapshot",
-    "StateHistoryEntry",
-    "StateConflict",
-    "ConflictType",
-    "ConflictResolutionStrategy",
-    "StateStatistics",
     "IStorageBackend",
     "IStorageAdapterFactory",
     "IStorageMigration",

@@ -42,16 +42,8 @@ from .entities import (
     AbstractStateStatistics
 )
 
-# 具体实现（从核心模块导入）
-from src.core.state.entities import (
-    StateSnapshot,
-    StateHistoryEntry,
-    StateConflict,
-    ConflictType,
-    ConflictResolutionStrategy,
-    StateStatistics,
-    StateDiff
-)
+# 注意：具体实现（StateSnapshot等）应该从src.core.state导入，而不是从接口层
+# 接口层只负责定义合约，不导出具体实现
 
 # 存储相关接口
 from .storage import (
@@ -99,14 +91,6 @@ __all__ = [
     'AbstractStateConflict',
     'AbstractStateStatistics',
     
-    # 具体实现
-    'StateSnapshot',
-    'StateHistoryEntry',
-    'StateConflict',
-    'StateStatistics',
-    'StateDiff',
-    'ConflictType',
-    'ConflictResolutionStrategy',
     
     # 存储相关接口
     'IStorageBackend',

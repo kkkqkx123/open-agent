@@ -3,11 +3,9 @@
 提供所有状态管理相关的接口定义。
 """
 
-# 基础接口
+# 基础接口 - 从base导出
 from .base import (
-    IState,
     IStateManager,
-    IStateSerializer,
     IStateValidator,
     IStateLifecycleManager,
     IStateCache
@@ -41,9 +39,7 @@ from .checkpoints import (
 
 __all__ = [
     # 基础接口
-    "IState",
     "IStateManager",
-    "IStateSerializer",
     "IStateValidator",
     "IStateLifecycleManager",
     "IStateCache",

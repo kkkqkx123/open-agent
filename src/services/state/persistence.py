@@ -10,7 +10,7 @@ from typing import Dict, Any, List, Optional, Tuple, Generator, AsyncGenerator
 from datetime import datetime
 from contextlib import contextmanager
 
-from src.interfaces.state import StateSnapshot, StateHistoryEntry, StateStatistics
+from src.core.state import StateSnapshot, StateHistoryEntry
 from src.interfaces.repository import IHistoryRepository, ISnapshotRepository
 
 

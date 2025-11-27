@@ -12,7 +12,6 @@ from datetime import datetime
 # 使用中央接口层的IState
 from src.interfaces.state.interfaces import IState
 
-
 class IStateValidator(ABC):
     """状态验证器接口"""
     
