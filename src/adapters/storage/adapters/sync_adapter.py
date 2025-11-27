@@ -246,18 +246,9 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
     def begin_transaction(self) -> None:
         """同步开始事务"""
         if self._transaction_manager:
-            # 使用同步上下文管理器
-            import asyncio
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # 如果已经在事件循环中，使用线程池
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(asyncio.run, self._transaction_manager.begin_transaction())
-                        future.result()
-                else:
-                    asyncio.run(self._transaction_manager.begin_transaction())
+                # 直接调用，移除复杂的事件循环检测
+                asyncio.run(self._transaction_manager.begin_transaction())
             except Exception as e:
                 logger.error(f"Failed to begin transaction: {e}")
                 raise
@@ -266,17 +257,9 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
     def commit_transaction(self) -> None:
         """同步提交事务"""
         if self._transaction_manager:
-            import asyncio
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # 如果已经在事件循环中，使用线程池
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(asyncio.run, self._transaction_manager.commit_transaction())
-                        future.result()
-                else:
-                    asyncio.run(self._transaction_manager.commit_transaction())
+                # 直接调用，移除复杂的事件循环检测
+                asyncio.run(self._transaction_manager.commit_transaction())
             except Exception as e:
                 logger.error(f"Failed to commit transaction: {e}")
                 raise
@@ -285,17 +268,9 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
     def rollback_transaction(self) -> None:
         """同步回滚事务"""
         if self._transaction_manager:
-            import asyncio
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # 如果已经在事件循环中，使用线程池
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(asyncio.run, self._transaction_manager.rollback_transaction())
-                        future.result()
-                else:
-                    asyncio.run(self._transaction_manager.rollback_transaction())
+                # 直接调用，移除复杂的事件循环检测
+                asyncio.run(self._transaction_manager.rollback_transaction())
             except Exception as e:
                 logger.error(f"Failed to rollback transaction: {e}")
                 raise
@@ -305,17 +280,9 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
         """同步关闭存储连接"""
         if hasattr(self._backend, 'disconnect'):
             if asyncio.iscoroutinefunction(self._backend.disconnect):
-                # 如果是异步方法，需要特殊处理
+                # 如果是异步方法，直接调用
                 try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        # 如果已经在事件循环中，使用线程池
-                        import concurrent.futures
-                        with concurrent.futures.ThreadPoolExecutor() as executor:
-                            future = executor.submit(asyncio.run, self._backend.disconnect())
-                            future.result()
-                    else:
-                        asyncio.run(self._backend.disconnect())
+                    asyncio.run(self._backend.disconnect())
                 except Exception as e:
                     logger.error(f"Failed to close storage: {e}")
             else:
@@ -333,17 +300,9 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
             # 获取健康检查信息
             if hasattr(self._backend, 'health_check_impl'):
                 if asyncio.iscoroutinefunction(self._backend.health_check_impl):
-                    # 如果是异步方法，需要特殊处理
+                    # 如果是异步方法，直接调用
                     try:
-                        loop = asyncio.get_event_loop()
-                        if loop.is_running():
-                            # 如果已经在事件循环中，使用线程池
-                            import concurrent.futures
-                            with concurrent.futures.ThreadPoolExecutor() as executor:
-                                future = executor.submit(asyncio.run, self._backend.health_check_impl())
-                                health_info = future.result()
-                        else:
-                            health_info = asyncio.run(self._backend.health_check_impl())
+                        health_info = asyncio.run(self._backend.health_check_impl())
                     except Exception as e:
                         logger.error(f"Health check failed: {e}")
                         return False
@@ -392,7 +351,7 @@ class SyncStateStorageAdapter(IStateStorageAdapter):
             return self._transaction_manager.get_active_transactions()
         return []
     
-    def transaction_context(self):
+    def transaction_context(self) -> Any:
         """获取事务上下文管理器
         
         Returns:

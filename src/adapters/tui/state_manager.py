@@ -73,9 +73,8 @@ class StateManager:
                 timestamp=datetime.now()
             )
             
-            # 使用EventLoopManager异步创建会话
-            from core.common.async_utils import run_async
-            self.session_id = run_async(
+            # 直接异步创建会话
+            self.session_id = asyncio.run(
                 self.session_manager.create_session(user_request)
             )
             
@@ -110,9 +109,8 @@ class StateManager:
             return False
         
         try:
-            # 使用EventLoopManager异步加载会话
-            from core.common.async_utils import run_async
-            session_context = run_async(
+            # 直接异步加载会话
+            session_context = asyncio.run(
                 self.session_manager.get_session_context(session_id)
             )
                 

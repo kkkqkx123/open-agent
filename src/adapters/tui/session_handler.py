@@ -51,14 +51,9 @@ class SessionHandler:
             )  # type: ignore
             
             # 异步创建会话
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                session_id = loop.run_until_complete(
-                    self.session_manager.create_session(user_request)
-                )
-            finally:
-                loop.close()
+            session_id = asyncio.run(
+                self.session_manager.create_session(user_request)
+            )
             
             if session_id:
                 # 触发创建回调
@@ -82,14 +77,10 @@ class SessionHandler:
             return None
         
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                session_context = loop.run_until_complete(
-                    self.session_manager.get_session_context(session_id)
-                )
-            finally:
-                loop.close()
+            # 异步加载会话
+            session_context = asyncio.run(
+                self.session_manager.get_session_context(session_id)
+            )
                 
             if session_context:
                 # 触发加载回调
@@ -155,14 +146,9 @@ class SessionHandler:
         
         try:
             # 异步调用list_sessions
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                sessions = loop.run_until_complete(
-                    self.session_manager.list_sessions()
-                )
-            finally:
-                loop.close()
+            sessions = asyncio.run(
+                self.session_manager.list_sessions()
+            )
             return sessions or []
         except Exception as e:
             print(f"列出会话失败: {e}")
@@ -181,14 +167,10 @@ class SessionHandler:
             return None
         
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                session_context = loop.run_until_complete(
-                    self.session_manager.get_session_context(session_id)
-                )
-            finally:
-                loop.close()
+            # 异步获取会话信息
+            session_context = asyncio.run(
+                self.session_manager.get_session_context(session_id)
+            )
                 
             if session_context:
                 # 将SessionContext转换为字典格式
@@ -220,14 +202,10 @@ class SessionHandler:
             return False
         
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                session_context = loop.run_until_complete(
-                    self.session_manager.get_session_context(session_id)
-                )
-            finally:
-                loop.close()
+            # 异步检查会话存在性
+            session_context = asyncio.run(
+                self.session_manager.get_session_context(session_id)
+            )
                 
             return session_context is not None
         except Exception as e:

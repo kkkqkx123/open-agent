@@ -6,7 +6,7 @@
 import asyncio
 import logging
 import threading
-from typing import Optional, List, Protocol
+from typing import Optional, List, Protocol, Any
 from contextlib import contextmanager
 
 class ITransactionalStorage(Protocol):
@@ -185,9 +185,9 @@ class TransactionManager:
         Returns:
             当前事务ID，如果没有则返回None
         """
-        if (hasattr(self._transaction_stack, 'stack') and 
+        if (hasattr(self._transaction_stack, 'stack') and
             self._transaction_stack.stack):
-            return self._transaction_stack.stack[-1]
+            return self._transaction_stack.stack[-1]  # type: ignore
         return None
 
 
@@ -212,7 +212,7 @@ class TransactionContext:
         self._transaction_id = await self._transaction_manager.begin_transaction()
         return self
     
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """退出异步上下文"""
         if self._transaction_id is None:
             return
@@ -226,7 +226,7 @@ class TransactionContext:
             if self._should_commit:
                 await self._transaction_manager.commit_transaction(self._transaction_id)
     
-    def rollback(self):
+    def rollback(self) -> None:
         """标记事务需要回滚"""
         self._should_commit = False
     
@@ -237,7 +237,7 @@ class TransactionContext:
 
 
 @contextmanager
-def transaction_context(transaction_manager: TransactionManager):
+def transaction_context(transaction_manager: TransactionManager) -> Any:
     """同步事务上下文管理器
     
     Args:
@@ -248,38 +248,18 @@ def transaction_context(transaction_manager: TransactionManager):
     """
     context = TransactionContext(transaction_manager)
     
-    # 在新的事件循环中运行异步上下文
+    # 直接运行异步上下文，移除复杂的事件循环检测
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # 如果已经在事件循环中，使用线程池
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, context.__aenter__())
-                transaction_context_obj = future.result()
-                try:
-                    yield transaction_context_obj
-                    if transaction_context_obj._should_commit:
-                        future = executor.submit(asyncio.run, context.__aexit__(None, None, None))
-                    else:
-                        future = executor.submit(asyncio.run, context.__aexit__(Exception, Exception("Rollback"), None))
-                    future.result()
-                except Exception as e:
-                    future = executor.submit(asyncio.run, context.__aexit__(Exception, e, None))
-                    future.result()
-                    raise
-        else:
-            # 如果没有运行的事件循环，直接运行
-            transaction_context_obj = asyncio.run(context.__aenter__())
-            try:
-                yield transaction_context_obj
-                if transaction_context_obj._should_commit:
-                    asyncio.run(context.__aexit__(None, None, None))
-                else:
-                    asyncio.run(context.__aexit__(Exception, Exception("Rollback"), None))
-            except Exception as e:
-                asyncio.run(context.__aexit__(Exception, e, None))
-                raise
+        transaction_context_obj = asyncio.run(context.__aenter__())
+        try:
+            yield transaction_context_obj
+            if transaction_context_obj._should_commit:
+                asyncio.run(context.__aexit__(None, None, None))
+            else:
+                asyncio.run(context.__aexit__(Exception, Exception("Rollback"), None))
+        except Exception as e:
+            asyncio.run(context.__aexit__(Exception, e, None))
+            raise
     except Exception as e:
         logger.error(f"Transaction context failed: {e}")
         raise

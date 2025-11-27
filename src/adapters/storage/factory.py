@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class StorageAdapterFactory(IStorageAdapterFactory):
     """存储适配器工厂实现
     
-    提供创建同步存储适配器的功能，使用注册表管理存储类型。
+    提供创建同步和异步存储适配器的功能，使用注册表管理存储类型。
     """
     
     def __init__(self, config_path: Optional[str] = None):
@@ -67,7 +67,7 @@ class StorageAdapterFactory(IStorageAdapterFactory):
             # 创建事务管理器
             transaction_manager = TransactionManager(backend)
             
-            # 创建适配器
+            # 创建同步适配器
             adapter = SyncStateStorageAdapter(
                 backend=backend,
                 metrics=metrics,
@@ -79,6 +79,50 @@ class StorageAdapterFactory(IStorageAdapterFactory):
             
         except Exception as e:
             logger.error(f"Failed to create adapter for type '{storage_type}': {e}")
+            raise
+    
+    def create_async_adapter(self, storage_type: str, config: Dict[str, Any]) -> IAsyncStateStorageAdapter:
+        """创建异步存储适配器
+        
+        Args:
+            storage_type: 存储类型
+            config: 配置参数
+            
+        Returns:
+            异步存储适配器实例
+        """
+        try:
+            # 获取存储类
+            storage_class = storage_registry.get_storage_class(storage_type)
+            
+            # 获取工厂函数（如果有）
+            factory = storage_registry.get_storage_factory(storage_type)
+            
+            if factory:
+                # 使用工厂函数创建后端
+                backend = factory(**config)
+            else:
+                # 直接实例化存储类
+                backend = storage_class(**config)
+            
+            # 创建指标收集器
+            metrics = StorageMetrics()
+            
+            # 创建事务管理器
+            transaction_manager = TransactionManager(backend)
+            
+            # 创建异步适配器
+            adapter = AsyncStateStorageAdapter(
+                backend=backend,
+                metrics=metrics,
+                transaction_manager=transaction_manager
+            )
+            
+            logger.info(f"Created async storage adapter for type: {storage_type}")
+            return adapter
+            
+        except Exception as e:
+            logger.error(f"Failed to create async adapter for type '{storage_type}': {e}")
             raise
     
     def get_supported_types(self) -> List[str]:
@@ -239,8 +283,8 @@ class AsyncStorageAdapterFactory:
         return errors
 
 
-def create_storage_adapter(storage_type: str, config: Dict[str, Any], 
-                          async_mode: bool = False, 
+def create_storage_adapter(storage_type: str, config: Dict[str, Any],
+                          async_mode: bool = False,
                           config_path: Optional[str] = None) -> Union[IStateStorageAdapter, IAsyncStateStorageAdapter]:
     """创建存储适配器的便捷函数
     
@@ -261,17 +305,9 @@ def create_storage_adapter(storage_type: str, config: Dict[str, Any],
             factory = AsyncStorageAdapterFactory(config_path)
             return await factory.create_adapter(storage_type, config)
         
-        # 如果在事件循环中，使用 run_coroutine_threadsafe
-        try:
-            loop = asyncio.get_running_loop()
-            # 如果已经在事件循环中，需要特殊处理
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, _create())
-                return future.result()
-        except RuntimeError:
-            # 没有运行的事件循环，直接运行
-            return asyncio.run(_create())
+        # 直接运行，移除复杂的事件循环检测
+        result: Union[IStateStorageAdapter, IAsyncStateStorageAdapter] = asyncio.run(_create())
+        return result
     else:
         factory = StorageAdapterFactory(config_path)
         return factory.create_adapter(storage_type, config)

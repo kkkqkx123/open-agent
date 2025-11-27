@@ -219,8 +219,8 @@ class StatePersistenceService:
             logger.error(f"批量保存历史记录失败: {e}")
             raise
     
-    def batch_save_snapshots(self, snapshots: List[StateSnapshot]) -> List[str]:
-        """批量保存快照
+    async def batch_save_snapshots_async(self, snapshots: List[StateSnapshot]) -> List[str]:
+        """异步批量保存快照
         
         Args:
             snapshots: 快照列表
@@ -229,8 +229,9 @@ class StatePersistenceService:
             成功保存的快照ID列表
         """
         try:
-            with self._transaction():
-                saved_ids = []
+            async with self._transaction_async():
+                # 并发保存所有快照
+                tasks = []
                 for snapshot in snapshots:
                     # 转换为字典格式保存到Repository
                     snapshot_dict = {
@@ -241,16 +242,36 @@ class StatePersistenceService:
                         "snapshot_name": snapshot.snapshot_name,
                         "metadata": snapshot.metadata
                     }
-                    
-                    snapshot_id = asyncio.run(self._snapshot_repository.save_snapshot(snapshot_dict))
-                    saved_ids.append(snapshot_id)
+                    tasks.append(self._snapshot_repository.save_snapshot(snapshot_dict))
                 
+                # 并发执行所有保存操作
+                saved_ids = await asyncio.gather(*tasks)
                 logger.debug(f"批量保存快照成功: {len(saved_ids)} 个")
                 return saved_ids
                 
         except Exception as e:
             logger.error(f"批量保存快照失败: {e}")
             raise
+    
+    def batch_save_snapshots(self, snapshots: List[StateSnapshot]) -> List[str]:
+        """批量保存快照（同步适配器）
+        
+        Args:
+            snapshots: 快照列表
+            
+        Returns:
+            成功保存的快照ID列表
+        """
+        # 添加弃用警告
+        import warnings
+        warnings.warn(
+            "batch_save_snapshots is deprecated, use batch_save_snapshots_async instead",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
+        # 调用异步版本
+        return asyncio.run(self.batch_save_snapshots_async(snapshots))
     
     async def cleanup_agent_data_async(self, agent_id: str,
                                      keep_history: int = 100,
@@ -620,8 +641,8 @@ class StateBackupService:
         """
         self._persistence_service = persistence_service
     
-    def create_full_backup(self, backup_path: str) -> bool:
-        """创建完整备份
+    async def create_full_backup_async(self, backup_path: str) -> bool:
+        """异步创建完整备份
         
         Args:
             backup_path: 备份文件路径
@@ -632,6 +653,7 @@ class StateBackupService:
         try:
             import json
             import os
+            import aiofiles
             
             # 确保备份目录存在
             backup_dir = os.path.dirname(backup_path)
@@ -641,7 +663,7 @@ class StateBackupService:
             logger.info(f"开始创建完整备份: {backup_path}")
             
             # 获取所有代理的数据
-            agents_data = asyncio.run(self._persistence_service.get_all_agents_data_async())
+            agents_data = await self._persistence_service.get_all_agents_data_async()
             
             # 构建备份数据结构
             backup_data = {
@@ -664,9 +686,9 @@ class StateBackupService:
                 }
             }
             
-            # 写入备份文件
-            with open(backup_path, 'w', encoding='utf-8') as f:
-                json.dump(backup_data, f, ensure_ascii=False, indent=2)
+            # 异步写入备份文件
+            async with aiofiles.open(backup_path, 'w', encoding='utf-8') as f:
+                await f.write(json.dumps(backup_data, ensure_ascii=False, indent=2))
             
             # 记录备份统计信息
             stats = backup_data.get("statistics", {})
@@ -688,8 +710,8 @@ class StateBackupService:
             logger.error(f"创建完整备份失败: {e}")
             return False
     
-    def restore_full_backup(self, backup_path: str) -> bool:
-        """从完整备份恢复
+    async def restore_full_backup_async(self, backup_path: str) -> bool:
+        """异步从完整备份恢复
         
         Args:
             backup_path: 备份文件路径
@@ -700,6 +722,7 @@ class StateBackupService:
         try:
             import json
             import os
+            import aiofiles
             
             # 检查备份文件是否存在
             if not os.path.exists(backup_path):
@@ -708,9 +731,10 @@ class StateBackupService:
             
             logger.info(f"开始从备份恢复: {backup_path}")
             
-            # 读取备份文件
-            with open(backup_path, 'r', encoding='utf-8') as f:
-                backup_data = json.load(f)
+            # 异步读取备份文件
+            async with aiofiles.open(backup_path, 'r', encoding='utf-8') as f:
+                content = await f.read()
+                backup_data = json.loads(content)
             
             # 验证备份数据格式
             if "agents" not in backup_data:
@@ -726,18 +750,26 @@ class StateBackupService:
             
             logger.info(f"准备恢复 {total_agents} 个代理的数据")
             
-            # 恢复数据
+            # 并发恢复数据
+            restore_tasks = []
+            for agent_id, agent_data in agents_data.items():
+                restore_tasks.append(self._persistence_service.import_agent_data_async(agent_data, overwrite=True))
+            
+            # 并发执行所有恢复操作
+            restore_results = await asyncio.gather(*restore_tasks, return_exceptions=True)
+            
+            # 统计结果
             successful_restores = 0
             failed_restores = 0
             
-            for agent_id, agent_data in agents_data.items():
-                try:
-                    asyncio.run(self._persistence_service.import_agent_data_async(agent_data, overwrite=True))
+            for i, result in enumerate(restore_results):
+                agent_id = list(agents_data.keys())[i]
+                if isinstance(result, Exception):
+                    failed_restores += 1
+                    logger.error(f"代理 {agent_id} 恢复失败: {result}")
+                else:
                     successful_restores += 1
                     logger.debug(f"代理 {agent_id} 恢复成功")
-                except Exception as e:
-                    failed_restores += 1
-                    logger.error(f"代理 {agent_id} 恢复失败: {e}")
             
             # 记录恢复统计信息
             logger.info(f"备份恢复完成: {backup_path}")
@@ -751,3 +783,43 @@ class StateBackupService:
         except Exception as e:
             logger.error(f"从备份恢复失败: {e}")
             return False
+    
+    def create_full_backup(self, backup_path: str) -> bool:
+        """创建完整备份（同步适配器）
+        
+        Args:
+            backup_path: 备份文件路径
+            
+        Returns:
+            是否成功创建备份
+        """
+        # 添加弃用警告
+        import warnings
+        warnings.warn(
+            "create_full_backup is deprecated, use create_full_backup_async instead",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
+        # 调用异步版本
+        return asyncio.run(self.create_full_backup_async(backup_path))
+    
+    def restore_full_backup(self, backup_path: str) -> bool:
+        """从完整备份恢复（同步适配器）
+        
+        Args:
+            backup_path: 备份文件路径
+            
+        Returns:
+            是否成功恢复
+        """
+        # 添加弃用警告
+        import warnings
+        warnings.warn(
+            "restore_full_backup is deprecated, use restore_full_backup_async instead",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
+        # 调用异步版本
+        return asyncio.run(self.restore_full_backup_async(backup_path))
