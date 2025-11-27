@@ -10,8 +10,9 @@ from collections import defaultdict
 
 from src.interfaces.workflow.plugins import IHookPlugin, HookPoint, HookContext, HookExecutionResult
 from src.core.workflow.plugins.registry import PluginRegistry
+from src.interfaces.state import IWorkflowState
+from src.interfaces.workflow.graph import NodeExecutionResult
 from src.core.state import WorkflowState
-from src.core.workflow.graph.nodes.registry import NodeExecutionResult
 
 
 logger = logging.getLogger(__name__)
@@ -222,9 +223,9 @@ class HookExecutor:
     def execute_with_hooks(
         self,
         node_type: str,
-        state: WorkflowState,
+        state: IWorkflowState,
         config: Dict[str, Any],
-        node_executor_func: Callable[[WorkflowState, Dict[str, Any]], NodeExecutionResult]
+        node_executor_func: Callable[[IWorkflowState, Dict[str, Any]], NodeExecutionResult]
     ) -> NodeExecutionResult:
         """统一的Hook执行接口
         
@@ -295,9 +296,12 @@ class HookExecutor:
                 metadata=result.metadata
             )
             
+            # 确保 result.state 是 IWorkflowState 类型
+            final_state = result.state if isinstance(result.state, IWorkflowState) else state
+            
             after_context = HookContext(
                 node_type=node_type,
-                state=result.state,
+                state=final_state,
                 config=config,
                 hook_point=HookPoint.AFTER_EXECUTE,
                 execution_result=interface_result

@@ -11,9 +11,10 @@ from typing import Dict, Any, Optional, List, Callable, cast, Union
 from dataclasses import dataclass
 from enum import Enum
 
-from .registry import NodeExecutionResult, node
+from .registry import node
 from .sync_node import SyncNode
-from src.core.state import WorkflowState
+from src.interfaces.workflow.graph import NodeExecutionResult
+from src.interfaces.state.interfaces import IState
 from langchain_core.messages import SystemMessage, BaseMessage as LCBaseMessage
 
 logger = logging.getLogger(__name__)
@@ -62,7 +63,7 @@ class WaitNode(SyncNode):
         """节点类型标识"""
         return "wait_node"
 
-    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: IState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行等待逻辑
 
         Args:
@@ -83,7 +84,7 @@ class WaitNode(SyncNode):
         auto_resume_key = merged_config.get("auto_resume_key", "human_review_result")
         
         # 生成唯一的等待ID
-        agent_id = state.get("agent_id", "unknown")
+        agent_id = state.get_data("agent_id", "unknown")
         wait_id = f"{agent_id}_{int(time.time())}"
         
         # 检查是否已经有等待状态
@@ -108,15 +109,15 @@ class WaitNode(SyncNode):
         wait_msg = SystemMessage(content=wait_content)
         
         # 安全访问messages列表
-        if state.get("messages") is None:
-            state.set_value("messages", [])
-        state.get("messages", []).append(wait_msg)
+        if state.get_data("messages") is None:
+            state.set_data("messages", [])
+        state.get_data("messages", []).append(wait_msg)
         
         # 设置等待标志 - 使用WorkflowState中定义的字段
-        context = state.get("context", {})
+        context = state.get_data("context", {})
         context["is_waiting"] = True
         context["wait_start_time"] = wait_state.start_time
-        state.set_value("context", context)
+        state.set_data("context", context)
         
         # 如果启用超时，设置超时处理
         if timeout_enabled:
@@ -136,16 +137,16 @@ class WaitNode(SyncNode):
             }
         )
 
-    def _get_existing_wait(self, state: WorkflowState) -> Optional[WaitState]:
+    def _get_existing_wait(self, state: IState) -> Optional[WaitState]:
         """获取现有的等待状态"""
-        wait_start_time = state.get("wait_start_time")
+        wait_start_time = state.get_data("wait_start_time")
         if wait_start_time is not None:
             for wait_state in self._active_waits.values():
                 if abs(wait_state.start_time - wait_start_time) < 1.0:  # 1秒误差范围
                     return wait_state
         return None
 
-    def _handle_existing_wait(self, state: WorkflowState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def _handle_existing_wait(self, state: IState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
         """处理现有的等待状态"""
         # 合并配置
         merged_config = self.merge_configs(config)
@@ -174,34 +175,34 @@ class WaitNode(SyncNode):
             }
         )
 
-    def _has_external_input(self, state: WorkflowState, key: str) -> bool:
+    def _has_external_input(self, state: IState, key: str) -> bool:
         """检查是否有外部输入"""
         # 检查custom_fields中的动态属性
-        custom_fields = state.get("custom_fields", {})
+        custom_fields = state.get_data("custom_fields", {})
         return key in custom_fields and custom_fields[key] is not None
 
-    def _resume_from_external_input(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def _resume_from_external_input(self, state: IState, config: Dict[str, Any]) -> NodeExecutionResult:
         """从外部输入恢复执行"""
         # 合并配置
         merged_config = self.merge_configs(config)
         
         # 清除等待状态
-        context = state.get("context", {})
+        context = state.get_data("context", {})
         context["is_waiting"] = False
-        state.set_value("context", context)
+        state.set_data("context", context)
         
         # 添加恢复消息
         auto_resume_key = merged_config.get("auto_resume_key", "human_review_result")
-        custom_fields = state.get("custom_fields", {})
+        custom_fields = state.get_data("custom_fields", {})
         resume_value = custom_fields.get(auto_resume_key)
         
         resume_content = f"✅ 收到外部输入，恢复执行: {resume_value}"
         resume_msg = SystemMessage(content=resume_content)
         
         # 安全访问messages列表
-        if state.get("messages") is None:
-            state.set_value("messages", [])
-        state.get("messages", []).append(resume_msg)
+        if state.get_data("messages") is None:
+            state.set_data("messages", [])
+        state.get_data("messages", []).append(resume_msg)
         
         # 确定下一步
         next_node = self._determine_next_node_from_input(state, config)
@@ -216,13 +217,13 @@ class WaitNode(SyncNode):
             }
         )
 
-    def _determine_next_node_from_input(self, state: WorkflowState, config: Dict[str, Any]) -> str:
+    def _determine_next_node_from_input(self, state: IState, config: Dict[str, Any]) -> str:
         """根据外部输入确定下一步节点"""
         # 合并配置
         merged_config = self.merge_configs(config)
         
         auto_resume_key = merged_config.get("auto_resume_key", "human_review_result")
-        custom_fields = state.get("custom_fields", {})
+        custom_fields = state.get_data("custom_fields", {})
         resume_value = custom_fields.get(auto_resume_key)
         
         # 检查配置中的路由规则
@@ -245,7 +246,7 @@ class WaitNode(SyncNode):
         return str(default_node) if default_node is not None else "final_answer"
 
     def _setup_timeout_handler(self, wait_id: str, timeout_seconds: int, strategy: TimeoutStrategy,
-                              state: WorkflowState, config: Dict[str, Any]) -> None:
+                              state: IState, config: Dict[str, Any]) -> None:
         """设置超时处理器"""
         def timeout_handler() -> None:
             time.sleep(timeout_seconds)
@@ -260,7 +261,7 @@ class WaitNode(SyncNode):
         timeout_thread = threading.Thread(target=timeout_handler, daemon=True)
         timeout_thread.start()
 
-    def _handle_continue_waiting(self, state: WorkflowState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def _handle_continue_waiting(self, state: IState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
         """处理继续等待策略"""
         # 合并配置
         merged_config = self.merge_configs(config)
@@ -270,9 +271,9 @@ class WaitNode(SyncNode):
         timeout_msg = SystemMessage(content=timeout_content)
         
         # 安全访问messages列表
-        if state.get("messages") is None:
-            state.set_value("messages", [])
-        cast(List[LCBaseMessage], state.get("messages", [])).append(timeout_msg)
+        if state.get_data("messages") is None:
+            state.set_data("messages", [])
+        cast(List[LCBaseMessage], state.get_data("messages", [])).append(timeout_msg)
         
         # 重置等待时间
         wait_state.start_time = time.time()
@@ -288,15 +289,15 @@ class WaitNode(SyncNode):
             }
         )
 
-    def _handle_cache_and_exit(self, state: WorkflowState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def _handle_cache_and_exit(self, state: IState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
         """处理缓存并退出策略"""
         # 缓存当前状态
-        messages = state.get("messages", [])
+        messages = state.get_data("messages", [])
         wait_state.cached_state = {
             "messages": [msg.__dict__ if hasattr(msg, '__dict__') else str(msg) for msg in messages],
-            "agent_id": state.get("agent_id", ""),
-            "current_task": state.get("current_task", ""),
-            "context": state.get("context", {}),
+            "agent_id": state.get_data("agent_id", ""),
+            "current_task": state.get_data("current_task", ""),
+            "context": state.get_data("context", {}),
         }
         
         # 添加退出消息
@@ -304,14 +305,14 @@ class WaitNode(SyncNode):
         exit_msg = SystemMessage(content=exit_content)
         
         # 安全访问messages列表
-        if state.get("messages") is None:
-            state.set_value("messages", [])
-        cast(List[LCBaseMessage], state.get("messages", [])).append(exit_msg)
+        if state.get_data("messages") is None:
+            state.set_data("messages", [])
+        cast(List[LCBaseMessage], state.get_data("messages", [])).append(exit_msg)
         
         # 清除等待状态
-        context = state.get("context", {})
+        context = state.get_data("context", {})
         context["is_waiting"] = False
-        state.set_value("context", context)
+        state.set_data("context", context)
         
         return NodeExecutionResult(
             state=state,
@@ -324,7 +325,7 @@ class WaitNode(SyncNode):
             }
         )
 
-    def _handle_llm_continue(self, state: WorkflowState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def _handle_llm_continue(self, state: IState, wait_state: WaitState, config: Dict[str, Any]) -> NodeExecutionResult:
         """处理LLM继续策略"""
         # 合并配置
         merged_config = self.merge_configs(config)
@@ -334,19 +335,19 @@ class WaitNode(SyncNode):
         timeout_msg = SystemMessage(content=timeout_content)
 
         # 安全访问messages列表
-        if state.get("messages") is None:
-            state.set_value("messages", [])
-        cast(List[LCBaseMessage], state.get("messages", [])).append(timeout_msg)
+        if state.get_data("messages") is None:
+            state.set_data("messages", [])
+        cast(List[LCBaseMessage], state.get_data("messages", [])).append(timeout_msg)
         
         # 清除等待状态
-        context = state.get("context", {})
+        context = state.get_data("context", {})
         context["is_waiting"] = False
-        state.set_value("context", context)
+        state.set_data("context", context)
         
         # 设置自动继续标志
         context["auto_continue"] = True
         context["continue_reason"] = "timeout"
-        state.set_value("context", context)
+        state.set_data("context", context)
         
         continue_node = merged_config.get("continue_node", "analyze")
         return NodeExecutionResult(

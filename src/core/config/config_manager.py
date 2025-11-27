@@ -1,8 +1,11 @@
 """
 配置管理器 - 统一的配置管理入口
+
+提供模块特定的配置管理功能，支持不同模块的配置验证、缓存和热重载。
 """
 
 import os
+import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Type, TypeVar, Generic, Callable
 
@@ -10,13 +13,9 @@ from ..common.cache import ConfigCache, get_global_cache_manager, clear_cache
 from .config_loader import ConfigLoader
 from .config_processor import ConfigProcessor
 from .base import (
-    BaseConfig, 
-    ConfigType, 
-    ValidationRule,
-    ConfigInheritance,
-    ConfigMetadata
+    BaseConfig,
+    ConfigType,
 )
-from .models import ToolSetConfig
 from ..common.exceptions.config import (
     ConfigError,
     ConfigNotFoundError,
@@ -30,12 +29,16 @@ from .callback_manager import (
     ConfigCallbackManager,
     ConfigChangeContext
 )
+from ...interfaces.config.interfaces import IConfigValidator, IUnifiedConfigManager
+from ...interfaces.configuration import ValidationResult
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar('T', bound=BaseConfig)
 
 
-class ConfigManager:
-    """统一配置管理器"""
+class ConfigManager(IUnifiedConfigManager):
+    """配置管理器 - 提供模块特定的配置管理功能"""
     
     def __init__(
         self,
@@ -79,18 +82,40 @@ class ConfigManager:
         self._callback_manager: Optional[ConfigCallbackManager] = None
         if enable_callback_manager:
             self._callback_manager = get_global_callback_manager()
+        
+        # 模块特定验证器注册表
+        self._module_validators: Dict[str, IConfigValidator] = {}
+        
+        # 模块配置缓存
+        self._module_configs: Dict[str, Dict[str, Any]] = {}
+        
+        # 配置变更回调
+        self._config_callbacks: Dict[str, Callable[[str, Dict[str, Any]], None]] = {}
+        
+        logger.info("配置管理器初始化完成")
     
-    def load_config(self, config_path: str, config_type: Optional[ConfigType] = None) -> Dict[str, Any]:
-        """加载并处理配置"""
+    def load_config(self, config_path: str, module_type: Optional[str] = None) -> Dict[str, Any]:
+        """加载并处理配置
+        
+        Args:
+            config_path: 配置文件路径
+            module_type: 模块类型（可选）
+            
+        Returns:
+            配置数据
+        """
+        config_type: Optional[ConfigType] = None
         try:
             # 检查缓存
-            cache_key = config_path
+            cache_key = f"{config_path}:{module_type or 'default'}"
             cached_config = self._config_cache.get(cache_key)
             if cached_config is not None:
+                logger.debug(f"从缓存加载配置: {config_path}")
                 return cached_config
             
             # 加载原始配置（带错误恢复）
             try:
+                logger.debug(f"加载配置文件: {config_path}")
                 raw_config = self.loader.load(config_path)
             except Exception as e:
                 if self._error_recovery:
@@ -110,17 +135,47 @@ class ConfigManager:
                     raise ConfigError(f"加载配置文件失败: {e}")
             
             # 处理配置（继承、环境变量、验证）
+            logger.debug(f"处理配置: {config_path}")
             processed_config = self.processor.process(raw_config, config_path)
+            
+            # 使用模块特定验证器验证配置
+            validator = self._get_validator(module_type)
+            logger.debug(f"验证配置: {config_path}")
+            validation_result = self._validate_with_validator(processed_config, validator)
+            
+            if not validation_result.is_valid:
+                error_msg = f"配置验证失败 {config_path}: " + "; ".join(validation_result.errors)
+                logger.error(error_msg)
+                raise ConfigValidationError(error_msg)
             
             # 缓存处理后的配置
             self._config_cache.put(cache_key, processed_config)
+            logger.debug(f"配置已缓存: {config_path}")
             
+            # 注册热重载（如果启用）
+            if self.auto_reload and config_path not in self._config_callbacks:
+                callback = self._create_config_callback(config_path, module_type)
+                self.watch_for_changes(callback)
+                self._config_callbacks[config_path] = callback
+                logger.debug(f"已注册热重载: {config_path}")
+            
+            # 更新模块配置缓存
+            if module_type:
+                if module_type not in self._module_configs:
+                    self._module_configs[module_type] = {}
+                self._module_configs[module_type][config_path] = processed_config
+                logger.debug(f"已更新模块配置缓存: {module_type} -> {config_path}")
+            
+            logger.info(f"配置加载成功: {config_path}")
             return processed_config
             
         except ConfigNotFoundError:
             raise
         except Exception as e:
-            raise ConfigError(f"加载配置失败: {e}", config_path)
+            logger.error(f"配置加载失败 {config_path}: {e}")
+            if isinstance(e, (ConfigError, ConfigValidationError)):
+                raise
+            raise ConfigError(f"配置加载失败: {e}") from e
     
     def load_config_model(self, config_path: str, model_class: Optional[Type[T]] = None) -> T:
         """加载配置并转换为模型实例"""
@@ -199,54 +254,97 @@ class ConfigManager:
         """列出配置文件"""
         return self.loader.get_config_files(directory, recursive)
     
-    def reload_config(self, config_path: str) -> Dict[str, Any]:
-        """重新加载配置"""
-        # 清除缓存
-        self._config_cache.clear()
-        self._model_cache.clear()
+    def load_config_for_module(self, config_path: str, module_type: str) -> Dict[str, Any]:
+        """加载模块特定配置
         
-        # 清除加载器缓存
-        self.loader.invalidate_cache(config_path)
+        Args:
+            config_path: 配置文件路径
+            module_type: 模块类型
+            
+        Returns:
+            配置数据
+        """
+        return self.load_config(config_path, module_type=module_type)
+    
+    def reload_config(self, config_path: str, module_type: Optional[str] = None) -> Dict[str, Any]:
+        """重新加载配置
+        
+        Args:
+            config_path: 配置文件路径
+            module_type: 模块类型（可选）
+            
+        Returns:
+            重新加载的配置数据
+        """
+        # 清除缓存
+        self.invalidate_cache(config_path)
         
         # 重新加载
-        return self.load_config(config_path)
+        return self.load_config(config_path, module_type=module_type)
     
     def invalidate_cache(self, config_path: Optional[str] = None) -> None:
-        """清除缓存"""
+        """清除缓存
+        
+        Args:
+            config_path: 配置文件路径，如果为None则清除所有缓存
+        """
         if config_path:
-            # 清除指定配置的缓存
-            # 简化实现：清除所有缓存
-            self._config_cache.clear()
-            self._model_cache.clear()
+            # 清除特定配置的缓存
+            # 这里需要清除所有可能的缓存键
+            keys_to_remove = []
+            for key in self._config_cache._cache.keys() if hasattr(self._config_cache, '_cache') else []:
+                if key.startswith(f"{config_path}:"):
+                    keys_to_remove.append(key)
             
-            # 清除加载器缓存
-            self.loader.invalidate_cache(config_path)
+            for key in keys_to_remove:
+                self._config_cache.remove(key)
+            
+            # 清除模块配置缓存
+            for module_configs in self._module_configs.values():
+                if config_path in module_configs:
+                    del module_configs[config_path]
+            
+            logger.debug(f"已清除配置缓存: {config_path}")
         else:
             # 清除所有缓存
             self._config_cache.clear()
             self._model_cache.clear()
+            self._module_configs.clear()
+            logger.debug("已清除所有配置缓存")
+        
+        # 清除加载器缓存
+        if config_path:
+            self.loader.invalidate_cache(config_path)
+        else:
             self.loader.clear_cache()
     
-    def validate_config(self, config_data: Dict[str, Any], config_type: Optional[ConfigType] = None) -> bool:
-        """验证配置数据"""
-        try:
-            if config_type:
-                errors = validate_config_with_model(config_data, config_type)
-                if errors:
-                    raise ConfigValidationError(f"配置验证失败: {'; '.join(errors)}")
-            else:
-                # 基础验证
-                if not isinstance(config_data, dict):
-                    raise ConfigValidationError("配置必须是字典类型")
-                if not config_data:
-                    raise ConfigValidationError("配置不能为空")
-                if "name" not in config_data:
-                    raise ConfigValidationError("配置必须包含 'name' 字段")
-            
-            return True
-            
-        except Exception as e:
-            raise ConfigValidationError(f"配置验证失败: {e}")
+    def validate_config(self, config: Dict[str, Any]) -> ValidationResult:
+         """验证配置数据"""
+         try:
+             # 基础验证
+             if not isinstance(config, dict):
+                 return ValidationResult(
+                     is_valid=False,
+                     errors=["配置必须是字典类型"]
+                 )
+             if not config:
+                 return ValidationResult(
+                     is_valid=False,
+                     errors=["配置不能为空"]
+                 )
+             if "name" not in config:
+                 return ValidationResult(
+                     is_valid=False,
+                     errors=["配置必须包含 'name' 字段"]
+                 )
+             
+             return ValidationResult(is_valid=True, errors=[])
+             
+         except Exception as e:
+             return ValidationResult(
+                 is_valid=False,
+                 errors=[f"配置验证失败: {e}"]
+             )
     
     def merge_configs(self, *config_paths: str) -> Dict[str, Any]:
         """合并多个配置"""
@@ -475,6 +573,189 @@ class ConfigManager:
         import yaml
         with open(output_file, "w", encoding="utf-8") as f:
             yaml.dump(template, f, default_flow_style=False, allow_unicode=True)
+    
+    def register_module_validator(self, module_type: str, validator: IConfigValidator) -> None:
+        """注册模块特定验证器
+        
+        Args:
+            module_type: 模块类型
+            validator: 验证器
+        """
+        self._module_validators[module_type] = validator
+        logger.info(f"已注册模块验证器: {module_type}")
+    
+    def get_module_config(self, module_type: str) -> Dict[str, Any]:
+        """获取模块配置
+        
+        Args:
+            module_type: 模块类型
+            
+        Returns:
+            模块配置
+        """
+        return self._module_configs.get(module_type, {})
+    
+    def reload_module_configs(self, module_type: str) -> None:
+        """重新加载模块配置
+        
+        Args:
+            module_type: 模块类型
+        """
+        if module_type not in self._module_configs:
+            logger.warning(f"模块 {module_type} 没有已加载的配置")
+            return
+        
+        module_configs = self._module_configs[module_type].copy()
+        self._module_configs[module_type].clear()
+        
+        for config_path in module_configs.keys():
+            try:
+                self.load_config(config_path, module_type=module_type)
+                logger.info(f"重新加载配置成功: {config_path}")
+            except Exception as e:
+                logger.error(f"重新加载配置失败 {config_path}: {e}")
+    
+    def get_config_status(self) -> Dict[str, Any]:
+        """获取配置管理器状态
+        
+        Returns:
+            状态信息
+        """
+        return {
+            "loaded_modules": list(self._module_configs.keys()),
+            "module_configs_count": {k: len(v) for k, v in self._module_configs.items()},
+            "cache_size": len(self._config_cache._cache) if hasattr(self._config_cache, '_cache') else 0,
+            "registered_validators": list(self._module_validators.keys()),
+            "auto_reload_enabled": self.auto_reload,
+            "watched_files": list(self._config_callbacks.keys())
+        }
+    
+    def _get_validator(self, module_type: Optional[str]) -> IConfigValidator:
+        """获取模块特定的验证器
+        
+        Args:
+            module_type: 模块类型
+            
+        Returns:
+            配置验证器
+        """
+        if module_type and module_type in self._module_validators:
+            return self._module_validators[module_type]
+        
+        # 返回默认验证器
+        return DefaultConfigValidator()
+    
+    def _validate_with_validator(self, config: Dict[str, Any], validator: IConfigValidator) -> ValidationResult:
+        """使用指定验证器验证配置
+        
+        Args:
+            config: 配置数据
+            validator: 验证器
+            
+        Returns:
+            验证结果
+        """
+        try:
+            return validator.validate(config)
+        except Exception as e:
+            result = ValidationResult()
+            result.add_error(f"验证过程出错: {e}")
+            return result
+    
+    def _create_config_callback(self, config_path: str, module_type: Optional[str]) -> Callable[[str, Dict[str, Any]], None]:
+        """创建配置变更回调函数
+        
+        Args:
+            config_path: 配置文件路径
+            module_type: 模块类型
+            
+        Returns:
+            回调函数
+        """
+        def callback(file_path: str, new_config: Dict[str, Any]) -> None:
+            """配置变更回调"""
+            try:
+                logger.info(f"检测到配置文件变更: {file_path}")
+                
+                # 清除缓存
+                self.invalidate_cache(config_path)
+                
+                # 重新加载配置
+                reloaded_config = self.load_config(config_path, module_type=module_type)
+                
+                logger.info(f"配置文件重新加载完成: {file_path}")
+                
+            except Exception as e:
+                logger.error(f"处理配置文件变更失败 {file_path}: {e}")
+        
+        return callback
+    
+    def _get_nested_value(self, data: Dict[str, Any], key: str, default: Any = None) -> Any:
+        """获取嵌套字典中的值
+        
+        Args:
+            data: 数据字典
+            key: 键（支持点号分隔）
+            default: 默认值
+            
+        Returns:
+            值
+        """
+        keys = key.split('.')
+        current = data
+        
+        try:
+            for k in keys:
+                current = current[k]
+            return current
+        except (KeyError, TypeError):
+            return default
+
+
+class DefaultConfigValidator(IConfigValidator):
+    """默认配置验证器"""
+    
+    def validate(self, config: Dict[str, Any]) -> ValidationResult:
+        """验证配置
+        
+        Args:
+            config: 配置数据
+            
+        Returns:
+            验证结果
+        """
+        result = ValidationResult()
+        
+        try:
+            # 基础验证
+            if not isinstance(config, dict):
+                result.add_error("配置必须是字典类型")
+                return result
+            
+            if not config:
+                result.add_error("配置不能为空")
+                return result
+            
+            # 检查必需字段
+            if "name" not in config:
+                result.add_warning("配置建议包含 'name' 字段")
+            
+            return result
+            
+        except Exception as e:
+            result.add_error(f"验证过程出错: {e}")
+            return result
+    
+    def supports_module_type(self, module_type: str) -> bool:
+        """检查是否支持指定模块类型
+        
+        Args:
+            module_type: 模块类型
+            
+        Returns:
+            是否支持
+        """
+        return True  # 默认验证器支持所有模块类型
 
 
 # 配置注册表

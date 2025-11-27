@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 
 if TYPE_CHECKING:
     from ..state.interfaces import IState
+    from ..state.workflow import IWorkflowState
 
 
 @dataclass
@@ -96,7 +97,7 @@ class INode(ABC):
         pass
 
     @abstractmethod
-    def execute(self, state: 'IState', config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: 'IWorkflowState', config: Dict[str, Any]) -> NodeExecutionResult:
         """执行节点逻辑
 
         Args:
@@ -109,7 +110,7 @@ class INode(ABC):
         pass
 
     @abstractmethod
-    async def execute_async(self, state: 'IState', config: Dict[str, Any]) -> NodeExecutionResult:
+    async def execute_async(self, state: 'IWorkflowState', config: Dict[str, Any]) -> NodeExecutionResult:
         """异步执行节点逻辑
 
         Args:

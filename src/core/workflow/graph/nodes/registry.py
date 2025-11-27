@@ -6,17 +6,9 @@
 import asyncio
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Type, Optional, Callable, TYPE_CHECKING
-from dataclasses import dataclass, field
 
-from src.core.state import WorkflowState
-
-
-@dataclass
-class NodeExecutionResult:
-    """节点执行结果"""
-    state: WorkflowState
-    next_node: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+from src.interfaces.workflow.graph import NodeExecutionResult
+from src.interfaces.state.interfaces import IState
 
 
 class BaseNode(ABC):
@@ -29,7 +21,7 @@ class BaseNode(ABC):
         pass
 
     @abstractmethod
-    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: IState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行节点逻辑
 
         Args:
@@ -40,7 +32,7 @@ class BaseNode(ABC):
             NodeExecutionResult: 执行结果
         """
         pass
-    async def execute_async(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+    async def execute_async(self, state: IState, config: Dict[str, Any]) -> NodeExecutionResult:
         """异步执行节点逻辑
 
         Args:

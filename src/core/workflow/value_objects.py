@@ -26,6 +26,8 @@ class StepType(Enum):
     NOTIFICATION = "notification"
     START = "start"
     END = "end"
+    PARALLEL = "parallel"
+    CONTROL = "control"
 
 
 class TransitionType(Enum):

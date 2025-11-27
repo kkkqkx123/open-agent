@@ -5,11 +5,13 @@
 
 import time
 import logging
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional
 
-from .registry import NodeExecutionResult, node
+from .registry import node
 from .sync_node import SyncNode
-from src.core.state import WorkflowState
+from src.interfaces.workflow.graph import NodeExecutionResult
+from src.interfaces.state.interfaces import IState
+from src.interfaces.state.workflow import IWorkflowState
 from src.core.workflow.plugins.manager import PluginManager
 from src.core.workflow.plugins.hooks.executor import HookExecutor
 from src.interfaces.workflow.plugins import PluginType, PluginContext
@@ -54,7 +56,7 @@ class EndNode(SyncNode):
             logger.debug("HookExecutor已准备就绪")
             self._initialized = True
     
-    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: IWorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行END节点逻辑
         
         Args:
@@ -73,15 +75,15 @@ class EndNode(SyncNode):
         
         # 创建执行上下文
         context = PluginContext(
-            workflow_id=state.get('workflow_id', 'unknown'),
-            thread_id=state.get('thread_id'),
-            session_id=state.get('session_id'),
-            execution_start_time=state.get('start_metadata', {}).get('timestamp'),
+            workflow_id=state.get_data('workflow_id', 'unknown'),
+            thread_id=state.get_data('thread_id'),
+            session_id=state.get_data('session_id'),
+            execution_start_time=state.get_data('start_metadata', {}).get('timestamp'),
             metadata=config.get('context_metadata', {})
         )
         
         # 定义节点执行函数
-        def _execute_end_logic(state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+        def _execute_end_logic(state: IWorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
             """实际的END节点执行逻辑"""
             # 执行END插件
             try:
@@ -97,9 +99,9 @@ class EndNode(SyncNode):
                     context
                 )
                 
-                # 将字典转换回WorkflowState
+                # 将字典转换回原始状态对象
                 if hasattr(state, 'from_dict'):
-                    updated_state = WorkflowState.from_dict(updated_state_dict)
+                    updated_state = state.__class__.from_dict(updated_state_dict)
                 else:
                     # 如果没有from_dict方法，直接使用字典
                     updated_state = state  # 保持原始状态类型
@@ -107,7 +109,7 @@ class EndNode(SyncNode):
                 # 添加执行元数据
                 execution_time = time.time() - start_time
                 if isinstance(updated_state, dict):
-                    updated_state['end_metadata'] = updated_state.get('end_metadata', {})
+                    updated_state['end_metadata'] = updated_state.get_data('end_metadata', {})
                     updated_state['end_metadata'].update({
                         'execution_time': execution_time,
                         'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
@@ -146,13 +148,19 @@ class EndNode(SyncNode):
                     updated_state['workflow_completed'] = True
                     updated_state['completion_timestamp'] = time.time()
                 else:
-                    updated_state.set_value('workflow_completed', True)
-                    updated_state.set_value('completion_timestamp', time.time())
+                    updated_state.set_data('workflow_completed', True)
+                    updated_state.set_data('completion_timestamp', time.time())
+                
+                # 确保 updated_state 是 IState 类型
+                if isinstance(updated_state, dict):
+                    # 如果是字典，需要转换回 IState 对象
+                    if hasattr(state, 'from_dict'):
+                        updated_state = state.__class__.from_dict(updated_state)
                 
                 return NodeExecutionResult(
-                    state=updated_state,  # 确保传递WorkflowState类型
+                    state=updated_state,
                     next_node=None,  # END节点没有下一个节点
-                    metadata=updated_state.get('end_metadata', {}) if not isinstance(updated_state, dict) else updated_state.get('end_metadata', {})
+                    metadata=updated_state.get_data('end_metadata', {}) if hasattr(updated_state, 'get') else updated_state.get_data('end_metadata', {})
                 )
                 
             except Exception as e:
@@ -161,7 +169,7 @@ class EndNode(SyncNode):
                 
                 # 添加错误信息到状态
                 if isinstance(state, dict):
-                    state['end_metadata'] = state.get('end_metadata', {})
+                    state['end_metadata'] = state.get_data('end_metadata', {})
                     state['end_metadata'].update({
                         'execution_time': execution_time,
                         'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
@@ -189,9 +197,9 @@ class EndNode(SyncNode):
                     state.set_metadata('end_metadata', end_metadata)
                     
                     # 即使出错也标记工作流完成
-                    state.set_value('workflow_completed', True)
-                    state.set_value('completion_timestamp', time.time())
-                    state.set_value('workflow_failed', True)
+                    state.set_data('workflow_completed', True)
+                    state.set_data('completion_timestamp', time.time())
+                    state.set_data('workflow_failed', True)
                 
                 return NodeExecutionResult(
                     state=state,  # 确保传递WorkflowState类型
@@ -323,7 +331,7 @@ class EndNode(SyncNode):
         else:
             return {"initialized": False}
     
-    def get_workflow_summary(self, state: WorkflowState) -> Dict[str, Any]:
+    def get_workflow_summary(self, state: IWorkflowState) -> Dict[str, Any]:
         """获取工作流摘要
         
         Args:
@@ -333,14 +341,14 @@ class EndNode(SyncNode):
             Dict[str, Any]: 工作流摘要
         """
         summary = {
-            "workflow_id": state.get('workflow_id'),
-            "completed": state.get('workflow_completed', False),
-            "failed": state.get('workflow_failed', False),
-            "completion_timestamp": state.get('completion_timestamp')
+            "workflow_id": state.get_data('workflow_id'),
+            "completed": state.get_data('workflow_completed', False),
+            "failed": state.get_data('workflow_failed', False),
+            "completion_timestamp": state.get_data('completion_timestamp')
         }
         
         # 添加开始元数据
-        start_metadata = state.get('start_metadata', {})
+        start_metadata = state.get_data('start_metadata', {})
         if start_metadata:
             summary["start"] = {
                 "timestamp": start_metadata.get('timestamp'),
@@ -350,7 +358,7 @@ class EndNode(SyncNode):
             }
         
         # 添加结束元数据
-        end_metadata = state.get('end_metadata', {})
+        end_metadata = state.get_data('end_metadata', {})
         if end_metadata:
             summary["end"] = {
                 "timestamp": end_metadata.get('timestamp'),
@@ -361,8 +369,8 @@ class EndNode(SyncNode):
             }
         
         # 添加插件执行信息
-        if state.get("plugin_executions"):
-            plugin_executions = state.get("plugin_executions")
+        if state.get_data("plugin_executions"):
+            plugin_executions = state.get_data("plugin_executions")
             summary["plugin_executions"] = {
                 "total": len(plugin_executions),
                 "successful": len([p for p in plugin_executions if p.get("status") == "success"]),
@@ -371,15 +379,15 @@ class EndNode(SyncNode):
             }
         
         # 添加错误信息
-        if state.get("errors"):
+        if state.get_data("errors"):
             summary["errors"] = {
-                "count": len(state.get("errors")),
-                "details": state.get("errors")
+                "count": len(state.get_data("errors")),
+                "details": state.get_data("errors")
             }
         
         # 添加输出信息
-        if state.get("output"):
-            summary["output"] = state.get("output")
+        if state.get_data("output"):
+            summary["output"] = state.get_data("output")
         
         return summary
     

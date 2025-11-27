@@ -7,9 +7,11 @@ import time
 import logging
 from typing import Dict, Any, Optional, Union
 
-from .registry import NodeExecutionResult, node
+from .registry import node
 from .sync_node import SyncNode
-from src.core.state import WorkflowState
+from src.interfaces.workflow.graph import NodeExecutionResult
+from src.interfaces.state.interfaces import IState
+from src.interfaces.state.workflow import IWorkflowState
 from src.core.workflow.plugins.manager import PluginManager
 from src.core.workflow.plugins.hooks.executor import HookExecutor
 from src.interfaces.workflow.plugins import PluginType, PluginContext
@@ -55,7 +57,7 @@ class StartNode(SyncNode):
             logger.debug("HookExecutor已准备就绪")
             self._initialized = True
     
-    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: IWorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行START节点逻辑
         
         Args:
@@ -74,15 +76,15 @@ class StartNode(SyncNode):
         
         # 创建执行上下文
         context = PluginContext(
-            workflow_id=state.get('workflow_id', 'unknown'),
-            thread_id=state.get('thread_id'),
-            session_id=state.get('session_id'),
+            workflow_id=state.get_data('workflow_id', 'unknown'),
+            thread_id=state.get_data('thread_id'),
+            session_id=state.get_data('session_id'),
             execution_start_time=start_time,
             metadata=config.get('context_metadata', {})
         )
         
         # 定义节点执行函数
-        def _execute_start_logic(state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+        def _execute_start_logic(state: IWorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
             """实际的START节点执行逻辑"""
             # 执行START插件
             try:
@@ -98,9 +100,9 @@ class StartNode(SyncNode):
                     context
                 )
                 
-                # 将字典转换回WorkflowState
+                # 将字典转换回原始状态对象
                 if hasattr(state, 'from_dict'):
-                    updated_state = WorkflowState.from_dict(updated_state_dict)
+                    updated_state = state.__class__.from_dict(updated_state_dict)
                 else:
                     # 如果没有from_dict方法，直接使用字典
                     updated_state = state  # 保持原始状态类型
@@ -108,7 +110,7 @@ class StartNode(SyncNode):
                 # 添加执行元数据
                 execution_time = time.time() - start_time
                 if isinstance(updated_state, dict):
-                    updated_state['start_metadata'] = updated_state.get('start_metadata', {})
+                    updated_state['start_metadata'] = updated_state.get_data('start_metadata', {})
                     updated_state['start_metadata'].update({
                         'execution_time': execution_time,
                         'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.START)),
@@ -133,7 +135,7 @@ class StartNode(SyncNode):
                 return NodeExecutionResult(
                     state=updated_state,  # 确保传递WorkflowState类型
                     next_node=config.get('next_node'),
-                    metadata=updated_state.get('start_metadata', {}) if not isinstance(updated_state, dict) else updated_state.get('start_metadata', {})
+                    metadata=updated_state.get_data('start_metadata', {}) if not isinstance(updated_state, dict) else updated_state.get_data('start_metadata', {})
                 )
                 
             except Exception as e:
@@ -142,7 +144,7 @@ class StartNode(SyncNode):
                 
                 # 添加错误信息到状态
                 if isinstance(state, dict):
-                    state['start_metadata'] = state.get('start_metadata', {})
+                    state['start_metadata'] = state.get_data('start_metadata', {})
                     state['start_metadata'].update({
                         'execution_time': execution_time,
                         'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.START)),

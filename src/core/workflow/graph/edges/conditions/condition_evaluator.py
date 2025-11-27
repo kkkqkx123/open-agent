@@ -5,7 +5,8 @@
 
 from typing import Dict, Any, Callable, Optional
 from .condition_types import ConditionType
-from src.core.state import WorkflowState
+from src.interfaces.state.interfaces import IState
+from src.interfaces.state.workflow import IWorkflowState
 
 
 class ConditionEvaluator:
@@ -29,7 +30,7 @@ class ConditionEvaluator:
             ConditionType.CUSTOM: self._custom_condition,
         }
     
-    def evaluate(self, condition_type: ConditionType, state: WorkflowState, 
+    def evaluate(self, condition_type: ConditionType, state: IState, 
                  parameters: Optional[Dict[str, Any]] = None,
                  config: Optional[Dict[str, Any]] = None) -> bool:
         """评估条件是否满足
@@ -72,10 +73,10 @@ class ConditionEvaluator:
         return list(self._condition_functions.keys())
     
     # 内置条件函数实现
-    def _has_tool_calls(self, state: WorkflowState, parameters: Dict[str, Any],
+    def _has_tool_calls(self, state: IState, parameters: Dict[str, Any],
                        config: Dict[str, Any]) -> bool:
         """检查是否有工具调用"""
-        messages = state.get("messages", [])
+        messages = state.get_data("messages", [])
         if not messages:
             return False
 
@@ -97,42 +98,42 @@ class ConditionEvaluator:
 
         return False
 
-    def _no_tool_calls(self, state: WorkflowState, parameters: Dict[str, Any], 
+    def _no_tool_calls(self, state: IState, parameters: Dict[str, Any], 
                       config: Dict[str, Any]) -> bool:
         """检查是否没有工具调用"""
         return not self._has_tool_calls(state, parameters, config)
 
-    def _has_tool_results(self, state: WorkflowState, parameters: Dict[str, Any], 
+    def _has_tool_results(self, state: IState, parameters: Dict[str, Any], 
                          config: Dict[str, Any]) -> bool:
         """检查是否有工具执行结果"""
-        return len(state.get("tool_results", [])) > 0
+        return len(state.get_data("tool_results", [])) > 0
 
-    def _max_iterations_reached(self, state: WorkflowState, parameters: Dict[str, Any],
+    def _max_iterations_reached(self, state: IState, parameters: Dict[str, Any],
                                config: Dict[str, Any]) -> bool:
         """检查是否达到最大迭代次数"""
         # 优先使用工作流级别的迭代计数
-        workflow_iteration_count = state.get("workflow_iteration_count")
-        workflow_max_iterations = state.get("workflow_max_iterations")
+        workflow_iteration_count = state.get_data("workflow_iteration_count")
+        workflow_max_iterations = state.get_data("workflow_max_iterations")
         
         # 如果没有工作流级别的计数，使用旧的字段
         if workflow_iteration_count is None:
-            workflow_iteration_count = state.get("iteration_count", 0)
+            workflow_iteration_count = state.get_data("iteration_count", 0)
         if workflow_max_iterations is None:
-            workflow_max_iterations = state.get("max_iterations", 10)
+            workflow_max_iterations = state.get_data("max_iterations", 10)
             
         return bool(workflow_iteration_count >= workflow_max_iterations)
 
-    def _has_errors(self, state: WorkflowState, parameters: Dict[str, Any],
+    def _has_errors(self, state: IState, parameters: Dict[str, Any],
                    config: Dict[str, Any]) -> bool:
         """检查是否有错误"""
         # 检查工具结果中的错误
-        for result in state.get("tool_results", []):
+        for result in state.get_data("tool_results", []):
             # 处理字典格式的工具结果
             if isinstance(result, dict):
                 if not result.get("success", True):
                     return True
             # 处理Mock对象（用于测试）- 优先检查Mock对象
-            elif hasattr(result, 'get') and callable(result.get):
+            elif hasattr(result, 'get_data') and callable(result.get):
                 try:
                     success = result.get("success", True)
                     # 如果success为False，表示有错误
@@ -151,15 +152,15 @@ class ConditionEvaluator:
                     pass
         return False
 
-    def _no_errors(self, state: WorkflowState, parameters: Dict[str, Any], 
+    def _no_errors(self, state: IState, parameters: Dict[str, Any], 
                   config: Dict[str, Any]) -> bool:
         """检查是否没有错误"""
         return not self._has_errors(state, parameters, config)
 
-    def _message_contains(self, state: WorkflowState, parameters: Dict[str, Any], 
+    def _message_contains(self, state: IState, parameters: Dict[str, Any], 
                          config: Dict[str, Any]) -> bool:
         """检查消息是否包含指定内容"""
-        messages = state.get("messages", [])
+        messages = state.get_data("messages", [])
         if not messages or "text" not in parameters:
             return False
         
@@ -176,27 +177,27 @@ class ConditionEvaluator:
         
         return False
 
-    def _iteration_count_equals(self, state: WorkflowState, parameters: Dict[str, Any], 
+    def _iteration_count_equals(self, state: IState, parameters: Dict[str, Any], 
                                config: Dict[str, Any]) -> bool:
         """检查迭代次数是否等于指定值"""
         if "count" not in parameters:
             return False
         
-        iteration_count = state.get("iteration_count", 0)
+        iteration_count = state.get_data("iteration_count", 0)
         count = parameters["count"]
         return bool(iteration_count == count)
 
-    def _iteration_count_greater_than(self, state: WorkflowState, parameters: Dict[str, Any], 
+    def _iteration_count_greater_than(self, state: IState, parameters: Dict[str, Any], 
                                      config: Dict[str, Any]) -> bool:
         """检查迭代次数是否大于指定值"""
         if "count" not in parameters:
             return False
         
-        iteration_count = state.get("iteration_count", 0)
+        iteration_count = state.get_data("iteration_count", 0)
         count = parameters["count"]
         return bool(iteration_count > count)
 
-    def _custom_condition(self, state: WorkflowState, parameters: Dict[str, Any], 
+    def _custom_condition(self, state: IState, parameters: Dict[str, Any], 
                          config: Dict[str, Any]) -> bool:
         """执行自定义条件"""
         # 首先尝试从参数中获取代码
@@ -247,7 +248,7 @@ def get_condition_evaluator() -> ConditionEvaluator:
     return _global_evaluator
 
 
-def evaluate_condition(condition_type: ConditionType, state: WorkflowState, 
+def evaluate_condition(condition_type: ConditionType, state: IWorkflowState, 
                       parameters: Optional[Dict[str, Any]] = None,
                       config: Optional[Dict[str, Any]] = None) -> bool:
     """便捷函数：评估条件

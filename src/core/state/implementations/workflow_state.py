@@ -3,12 +3,12 @@
 提供工作流状态的具体实现，继承自基础状态并实现工作流特定功能。
 """
 
-import uuid
 import logging
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
 
-from interfaces.state.workflow import IWorkflowState
+from src.interfaces.state.workflow import IWorkflowState
+from src.interfaces.state.interfaces import IState
 from ..implementations.base_state import BaseStateImpl
 
 
@@ -155,7 +155,7 @@ class MessageManager:
         return manager
 
 
-class WorkflowState(BaseStateImpl, IWorkflowState):
+class WorkflowState(BaseStateImpl, IWorkflowState, IState):
     """工作流状态实现
     
     继承自基础状态实现，添加工作流特定的功能。

@@ -12,13 +12,6 @@ if TYPE_CHECKING:
     from ..state import IWorkflowState
     from .graph import IGraph, INode, IEdge
 
-# 需要延迟导入避免循环依赖
-try:
-    from ...core.workflow.config.config import GraphConfig
-except ImportError:
-    GraphConfig = Any  # type: ignore
-
-
 @dataclass
 class ExecutionContext:
     """执行上下文"""

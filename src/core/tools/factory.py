@@ -4,10 +4,9 @@
 根据docs/tools/update.md中的建议，实现支持新工具类型的工厂。
 """
 
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type
 from enum import Enum
 import importlib
-import logging
 
 from src.interfaces.tool.base import ITool, IToolFactory
 from src.interfaces.tool.state_manager import IToolStateManager
@@ -84,11 +83,14 @@ class OptimizedToolFactory(IToolFactory):
     
     def _create_native_tool(self, config: Dict[str, Any]) -> NativeTool:
         """创建有状态原生工具"""
+        if not self.state_manager:
+            raise ValueError(
+                "创建有状态工具(native)需要状态管理器。"
+                "请在工厂初始化时通过 state_manager 参数提供。"
+            )
+        
         # 加载函数
         func = self._load_function(config['function_path'])
-        
-        # 获取或创建状态管理器
-        state_manager = self._get_state_manager(config.get('state_config', {}))
         
         # 创建配置对象
         class SimpleConfig(dict):
@@ -104,12 +106,15 @@ class OptimizedToolFactory(IToolFactory):
                 return self[key] if key in self else default
         
         config_obj = SimpleConfig(config)
-        return NativeTool(func, config_obj, state_manager)
+        return NativeTool(func, config_obj, self.state_manager)
     
     def _create_rest_tool(self, config: Dict[str, Any]) -> RestTool:
         """创建有状态REST工具"""
-        # 获取或创建状态管理器
-        state_manager = self._get_state_manager(config.get('state_config', {}))
+        if not self.state_manager:
+            raise ValueError(
+                "创建有状态工具(rest)需要状态管理器。"
+                "请在工厂初始化时通过 state_manager 参数提供。"
+            )
         
         # 创建配置对象
         class SimpleConfig:
@@ -125,12 +130,15 @@ class OptimizedToolFactory(IToolFactory):
                 self.timeout = config_dict.get('timeout', 30)
         
         config_obj = SimpleConfig(config)
-        return RestTool(config_obj, state_manager)
+        return RestTool(config_obj, self.state_manager)
     
     def _create_mcp_tool(self, config: Dict[str, Any]) -> MCPTool:
         """创建有状态MCP工具"""
-        # 获取或创建状态管理器
-        state_manager = self._get_state_manager(config.get('state_config', {}))
+        if not self.state_manager:
+            raise ValueError(
+                "创建有状态工具(mcp)需要状态管理器。"
+                "请在工厂初始化时通过 state_manager 参数提供。"
+            )
         
         # 创建配置对象
         class SimpleConfig:
@@ -143,7 +151,7 @@ class OptimizedToolFactory(IToolFactory):
                 self.dynamic_schema = config_dict.get('dynamic_schema', False)
         
         config_obj = SimpleConfig(config)
-        return MCPTool(config_obj, state_manager)
+        return MCPTool(config_obj, self.state_manager)
     
     def _load_function(self, function_path: str):
         """加载函数"""
@@ -153,21 +161,6 @@ class OptimizedToolFactory(IToolFactory):
             return getattr(module, function_name)
         except Exception as e:
             raise ValueError(f"无法加载函数 {function_path}: {str(e)}")
-    
-    def _get_state_manager(self, state_config: Dict[str, Any]) -> IToolStateManager:
-        """获取状态管理器"""
-        if self.state_manager:
-            return self.state_manager
-        
-        # 根据配置创建状态管理器
-        manager_type = state_config.get('manager_type', 'memory')
-        if manager_type == 'memory':
-            from .state.memory_state_manager import MemoryStateManager
-            return MemoryStateManager(state_config)
-        else:
-            # 默认使用内存状态管理器
-            from .state.memory_state_manager import MemoryStateManager
-            return MemoryStateManager({})
     
     def register_tool_type(self, tool_type: str, tool_class: type) -> None:
         """注册工具类型"""

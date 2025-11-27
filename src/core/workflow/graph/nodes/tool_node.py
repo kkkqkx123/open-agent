@@ -7,9 +7,10 @@ from typing import Dict, Any, Optional, List
 import time
 import logging
 
-from .registry import NodeExecutionResult, node
+from .registry import node
 from .sync_node import SyncNode
-from src.core.state import WorkflowState
+from src.interfaces.workflow.graph import NodeExecutionResult
+from src.interfaces.state.interfaces import IState
 from src.interfaces.tool.base import ITool, IToolRegistry, ToolCall, ToolResult
 from src.core.workflow.config.node_config_loader import get_node_config_loader
 
@@ -42,7 +43,7 @@ class ToolNode(SyncNode):
         """节点类型标识"""
         return "tool_node"
 
-    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: IState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行工具调用逻辑
 
         Args:
@@ -74,8 +75,8 @@ class ToolNode(SyncNode):
         execution_errors = []
         
         # 确保 tool_results 列表存在
-        if state.get("tool_results") is None:
-            state.set_value("tool_results", [])
+        if state.get_data("tool_results") is None:
+            state.set_data("tool_results", [])
         
         for tool_call in tool_calls:
             try:
@@ -109,7 +110,7 @@ class ToolNode(SyncNode):
                 tool_results.append(tool_result)
                 
                 # 添加到状态 - 转换为字典格式
-                current_tool_results = state.get("tool_results", [])
+                current_tool_results = state.get_data("tool_results", [])
                 current_tool_results.append({
                     "tool_name": tool_result.tool_name,
                     "success": tool_result.success,
@@ -117,14 +118,14 @@ class ToolNode(SyncNode):
                     "error": tool_result.error,
                     "execution_time": tool_result.execution_time
                 })
-                state.set_value("tool_results", current_tool_results)
+                state.set_data("tool_results", current_tool_results)
                 
             except Exception as e:
                 error_msg = f"工具 '{tool_call.name}' 执行失败: {str(e)}"
                 execution_errors.append(error_msg)
                 
                 # 记录错误结果 - 转换为字典格式
-                current_tool_results = state.get("tool_results", [])
+                current_tool_results = state.get_data("tool_results", [])
                 error_result = {
                     "tool_name": tool_call.name,
                     "success": False,
@@ -133,7 +134,7 @@ class ToolNode(SyncNode):
                     "execution_time": 0
                 }
                 current_tool_results.append(error_result)
-                state.set_value("tool_results", current_tool_results)
+                state.set_data("tool_results", current_tool_results)
 
         # 确定下一步
         next_node = self._determine_next_node(tool_results, execution_errors, config)
@@ -198,7 +199,7 @@ class ToolNode(SyncNode):
         }
 
 
-    def _extract_tool_calls(self, state: WorkflowState, config: Dict[str, Any]) -> List[ToolCall]:
+    def _extract_tool_calls(self, state: IState, config: Dict[str, Any]) -> List[ToolCall]:
         """从状态中提取工具调用
 
         Args:
@@ -213,7 +214,7 @@ class ToolNode(SyncNode):
         logger = logging.getLogger(__name__)
 
         # 从最后一条消息中提取工具调用
-        messages = state.get("messages", [])
+        messages = state.get_data("messages", [])
         if messages:
             last_message = messages[-1]
             

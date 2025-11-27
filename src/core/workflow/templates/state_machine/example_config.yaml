@@ -1,0 +1,148 @@
+# 状态机子工作流示例配置
+# 展示如何使用新的子工作流实现LLM-工具-LLM循环结构
+
+config_type: state_machine_subworkflow
+name: example_state_machine
+description: 示例状态机，展示LLM-工具-LLM循环结构
+version: 1.0.0
+
+# 初始状态
+initial_state: analyze
+
+# 最大迭代次数
+max_iterations: 10
+
+# LLM和工具配置
+llm_client: "default"
+tool_manager: "default"
+
+# 启用循环控制
+enable_loop_control: true
+
+# 终止状态列表
+termination_states:
+  - "end"
+
+# 状态定义
+states:
+  analyze:
+    type: "process"
+    description: "分析用户输入并决定是否需要调用工具"
+    config:
+      model: "gpt-4"
+      temperature: 0.7
+      max_tokens: 1000
+      system_prompt: |
+        你是一个智能助手，请分析用户输入并决定是否需要调用工具。
+        
+        请根据以下原则进行判断：
+        1. 如果需要获取外部信息或执行特定操作，请调用相应工具
+        2. 如果可以直接回答，请提供答案
+        3. 如果信息不足，请明确说明需要什么信息
+        
+        请保持回答简洁明了。
+    transitions:
+      - target: "execute_tool"
+        condition: "has_tool_call"
+        description: "有工具调用时执行工具"
+      - target: "end"
+        condition: "no_tool_call"
+        description: "无工具调用时直接结束"
+
+  execute_tool:
+    type: "process"
+    description: "执行工具调用"
+    config:
+      timeout: 30
+      max_parallel_calls: 3
+      continue_on_error: true
+      tools:
+        - "search"
+        - "calculator"
+        - "weather"
+    transitions:
+      - target: "process_result"
+        description: "工具执行完成后处理结果"
+
+  process_result:
+    type: "process"
+    description: "处理工具执行结果并生成最终回答"
+    config:
+      model: "gpt-4"
+      temperature: 0.3
+      max_tokens: 1500
+      system_prompt: |
+        请基于工具执行结果生成最终回答。
+        
+        要求：
+        1. 综合分析所有工具结果
+        2. 提供准确、有用的回答
+        3. 如果有错误，请说明原因
+        4. 保持回答结构清晰
+    transitions:
+      - target: "end"
+        description: "处理完成后结束"
+
+  end:
+    type: "end"
+    description: "工作流结束状态"
+    config: {}
+
+# 状态转移配置
+transitions:
+  - from: "analyze"
+    to: "execute_tool"
+    type: "conditional"
+    condition: "has_tool_call"
+    description: "分析后需要调用工具"
+
+  - from: "analyze"
+    to: "end"
+    type: "conditional"
+    condition: "no_tool_call"
+    description: "分析后无需调用工具"
+
+  - from: "execute_tool"
+    to: "process_result"
+    type: "simple"
+    description: "工具执行完成后处理结果"
+
+  - from: "process_result"
+    to: "end"
+    type: "simple"
+    description: "结果处理完成后结束"
+
+# 循环控制配置
+loop_control:
+  max_iterations: 10
+  termination_states:
+    - "end"
+  continue_condition: "not_terminated"
+
+# 错误处理配置
+error_handling:
+  max_retries: 3
+  retry_delay: 1000
+  fallback_state: "end"
+  error_conditions:
+    - "has_errors"
+    - "timeout"
+
+# 监控配置
+monitoring:
+  enable_metrics: true
+  log_level: "info"
+  metrics:
+    - "execution_time"
+    - "iteration_count"
+    - "tool_calls_count"
+    - "error_count"
+    - "state_transitions"
+
+# 示例输入
+example_input:
+  problem: "查询北京今天的天气并计算温度转换"
+  context:
+    user_preferences:
+      temperature_unit: "celsius"
+      language: "zh-CN"

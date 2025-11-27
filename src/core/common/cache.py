@@ -419,6 +419,11 @@ class ConfigCache:
     def put(self, key: str, value: Any):
         self._cache[key] = value
     
+    def remove(self, key: str) -> None:
+        """删除指定的缓存键"""
+        if key in self._cache:
+            del self._cache[key]
+    
     def clear(self):
         self._cache.clear()
 
@@ -435,6 +440,11 @@ class LLMCache:
     def put(self, key: str, value: Any):
         self._cache[key] = value
     
+    def remove(self, key: str) -> None:
+        """删除指定的缓存键"""
+        if key in self._cache:
+            del self._cache[key]
+    
     def clear(self):
         self._cache.clear()
 
@@ -450,6 +460,11 @@ class GraphCache:
     
     def put(self, key: str, value: Any):
         self._cache[key] = value
+    
+    def remove(self, key: str) -> None:
+        """删除指定的缓存键"""
+        if key in self._cache:
+            del self._cache[key]
     
     def clear(self):
         self._cache.clear()

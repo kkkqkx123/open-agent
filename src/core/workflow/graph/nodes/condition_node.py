@@ -5,9 +5,10 @@
 
 from typing import Dict, Any, Optional, List, Callable
 
-from .registry import NodeExecutionResult, node
+from .registry import node
 from .sync_node import SyncNode
-from src.core.state import WorkflowState
+from src.interfaces.state.interfaces import IState
+from src.interfaces.workflow.graph import NodeExecutionResult
 from ..edges.conditions import ConditionType, ConditionEvaluator #作为临时实现，后续需要单独实现
 
 
@@ -31,7 +32,7 @@ class ConditionNode(SyncNode):
         """节点类型标识"""
         return "condition_node"
 
-    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: IState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行条件判断逻辑
 
         Args:
@@ -125,7 +126,7 @@ class ConditionNode(SyncNode):
             "required": []
         }
 
-    def _evaluate_condition(self, condition_config: Dict[str, Any], state: WorkflowState,
+    def _evaluate_condition(self, condition_config: Dict[str, Any], state: IState,
                            node_config: Dict[str, Any]) -> bool:
         """评估单个条件
 

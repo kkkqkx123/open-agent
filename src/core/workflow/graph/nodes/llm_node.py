@@ -7,9 +7,10 @@ from typing import Dict, Any, List, Optional, Union
 from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
 import logging
 
-from .registry import NodeExecutionResult, node
+from .registry import node
 from .async_node import AsyncNode
-from src.core.state import WorkflowState
+from src.interfaces.workflow.graph import NodeExecutionResult
+from src.interfaces.state.interfaces import IState
 from src.interfaces.llm import ILLMClient
 from src.services.llm.scheduling.task_group_manager import TaskGroupManager
 
@@ -51,7 +52,7 @@ class LLMNode(AsyncNode):
         """节点类型标识"""
         return "llm_node"
 
-    async def execute_async(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+    async def execute_async(self, state: IState, config: Dict[str, Any]) -> NodeExecutionResult:
         """异步执行逻辑"""
         try:
             # 预处理配置
@@ -73,9 +74,9 @@ class LLMNode(AsyncNode):
             ai_message = AIMessage(content=response.content)
             
             # 安全地更新消息列表
-            if state.get("messages") is None:
-                state.set_value("messages", [])
-            state.get("messages", []).append(ai_message)
+            if state.get_data("messages") is None:
+                state.set_data("messages", [])
+            state.get_data("messages", []).append(ai_message)
             
             # 确定下一步
             next_node = self._determine_next_node(response, processed_config)
@@ -93,7 +94,7 @@ class LLMNode(AsyncNode):
             logger.error(f"LLM节点异步执行失败: {e}")
             raise
     
-    async def _preprocess_config(self, state: WorkflowState, config: Dict[str, Any]) -> Dict[str, Any]:
+    async def _preprocess_config(self, state: IState, config: Dict[str, Any]) -> Dict[str, Any]:
         """预处理配置"""
         try:
             # 使用提示词服务处理配置（如果已注入）
@@ -118,7 +119,7 @@ class LLMNode(AsyncNode):
 4. 如果有多个步骤的结果，请按逻辑顺序组织回答
 5. 始终保持友好和专业的语调"""
 
-    async def _prepare_messages_with_prompts(self, state: WorkflowState, config: Dict[str, Any]) -> List[Union[SystemMessage, Any]]:
+    async def _prepare_messages_with_prompts(self, state: IState, config: Dict[str, Any]) -> List[Union[SystemMessage, Any]]:
         """准备消息列表（使用提示词服务，支持缓存和多种配置方式）"""
         # 生成缓存键
         cache_key = self._generate_prompt_cache_key(config)
@@ -155,11 +156,11 @@ class LLMNode(AsyncNode):
         
         return CacheKeyGenerator.generate_params_key(key_config)
     
-    async def _get_cached_messages(self, state: WorkflowState, cache_key: str) -> Optional[List[Union[SystemMessage, Any]]]:
+    async def _get_cached_messages(self, state: IState, cache_key: str) -> Optional[List[Union[SystemMessage, Any]]]:
         """获取缓存的消息"""
         try:
             # 检查是否启用缓存
-            cache_scope = state.get("prompt_cache_scope", "state")
+            cache_scope = state.get_data("prompt_cache_scope", "state")
             if cache_scope == "none":
                 return None
             
@@ -184,12 +185,12 @@ class LLMNode(AsyncNode):
         
         return None
     
-    async def _cache_processed_messages(self, state: WorkflowState, cache_key: str, messages: List[Union[SystemMessage, Any]]) -> None:
+    async def _cache_processed_messages(self, state: IState, cache_key: str, messages: List[Union[SystemMessage, Any]]) -> None:
         """缓存处理后的消息"""
         try:
             # 检查是否启用缓存
-            cache_scope = state.get("prompt_cache_scope", "state")
-            cache_ttl = state.get("prompt_cache_ttl", 3600)
+            cache_scope = state.get_data("prompt_cache_scope", "state")
+            cache_ttl = state.get_data("prompt_cache_ttl", 3600)
             
             if cache_scope == "none":
                 return
@@ -216,7 +217,7 @@ class LLMNode(AsyncNode):
         except Exception as e:
             logger.warning(f"缓存处理消息失败: {e}")
     
-    async def _resolve_and_process_prompts(self, state: WorkflowState, config: Dict[str, Any]) -> List[Union[SystemMessage, Any]]:
+    async def _resolve_and_process_prompts(self, state: IState, config: Dict[str, Any]) -> List[Union[SystemMessage, Any]]:
         """解析和处理提示词"""
         messages = []
         
@@ -229,8 +230,8 @@ class LLMNode(AsyncNode):
             base_messages.append(SystemMessage(content=system_prompt))
         
         # 添加历史消息
-        if state.get("messages"):
-            base_messages.extend(state.get("messages", []))
+        if state.get_data("messages"):
+            base_messages.extend(state.get_data("messages", []))
         
         # 处理提示词引用
         prompt_ids = self._extract_prompt_ids(config)
@@ -256,7 +257,7 @@ class LLMNode(AsyncNode):
         
         return messages
     
-    async def _resolve_system_prompt(self, config: Dict[str, Any], state: WorkflowState) -> Optional[str]:
+    async def _resolve_system_prompt(self, config: Dict[str, Any], state: IState) -> Optional[str]:
         """解析系统提示词（支持多种配置方式）"""
         # 1. 直接定义（向后兼容）
         if "system_prompt" in config:
@@ -355,13 +356,13 @@ class LLMNode(AsyncNode):
     # 注意：这个方法已被 _prepare_messages_with_prompts 替代
     # 保留是为了向后兼容，但不再使用
 
-    def _prepare_prompt_context(self, state: WorkflowState, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _prepare_prompt_context(self, state: IState, config: Dict[str, Any]) -> Dict[str, Any]:
         """准备提示词上下文"""
         context = {}
         
         # 添加状态数据
         if state:
-            context.update(state.get("data", {}))
+            context.update(state.get_data("data", {}))
         
         # 添加配置变量
         prompt_variables = config.get("prompt_variables", {})
@@ -370,7 +371,7 @@ class LLMNode(AsyncNode):
         # 添加系统变量
         context.update({
             "node_id": "llm_node",
-            "timestamp": str(state.get("timestamp", "")),
+            "timestamp": str(state.get_data("timestamp", "")),
             "max_tokens": config.get("max_tokens", 1000),
             "temperature": config.get("temperature", 0.7)
         })

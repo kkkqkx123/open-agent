@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional
 
 from src.interfaces.workflow.graph import INode, NodeExecutionResult
 from src.interfaces.state.interfaces import IState
+from src.interfaces.state.workflow import IWorkflowState
 
 
 class BaseNode(INode, ABC):
@@ -66,7 +67,7 @@ class BaseNode(INode, ABC):
         return config_loader.merge_configs(self.node_type, runtime_config)
     
     @abstractmethod
-    def execute(self, state: IState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: IWorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
         """执行节点
         
         Args:
@@ -79,7 +80,7 @@ class BaseNode(INode, ABC):
         pass
     
     @abstractmethod
-    async def execute_async(self, state: IState, config: Dict[str, Any]) -> NodeExecutionResult:
+    async def execute_async(self, state: IWorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
         """异步执行节点
         
         Args:
