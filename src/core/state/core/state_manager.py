@@ -110,7 +110,7 @@ class StateManager(IStateManager):
             self._state_types[state_type] = state_class
             logger.debug(f"注册状态类型: {state_type} -> {state_class.__name__}")
     
-    def create_state(self, state_type: str, **kwargs: Any) -> IState:
+    async def create_state(self, state_type: str, **kwargs: Any) -> IState:
         """创建状态
         
         Args:
@@ -145,7 +145,7 @@ class StateManager(IStateManager):
                 self._lifecycle.register_state(state)
                 
                 # 保存到存储
-                self.save_state(state)
+                await self.save_state(state)
                 
                 self._statistics["total_created"] += 1
                 logger.debug(f"创建状态: {state.get_id()} (类型: {state_type})")
@@ -156,7 +156,7 @@ class StateManager(IStateManager):
                 logger.error(f"创建状态失败: {e}")
                 raise
     
-    def get_state(self, state_id: str) -> Optional[IState]:
+    async def get_state(self, state_id: str) -> Optional[IState]:
         """获取状态
         
         Args:
@@ -174,7 +174,7 @@ class StateManager(IStateManager):
                     return cached_state
                 
                 # 从存储获取
-                state_data = self._storage.get(state_id)
+                state_data = await self._storage.get(state_id)
                 if not state_data:
                     return None
                 
@@ -193,7 +193,7 @@ class StateManager(IStateManager):
                 logger.error(f"获取状态失败: {e}")
                 return None
     
-    def save_state(self, state: IState) -> bool:
+    async def save_state(self, state: IState) -> bool:
         """保存状态
         
         Args:
@@ -220,7 +220,7 @@ class StateManager(IStateManager):
                 serialized_data = self._serializer.serialize(state)
                 
                 # 保存到存储
-                success = self._storage.save(state_id, serialized_data)
+                success = await self._storage.save(state_id, serialized_data)
                 
                 if success:
                     # 更新缓存
@@ -239,7 +239,7 @@ class StateManager(IStateManager):
                 logger.error(f"保存状态失败: {e}")
                 return False
     
-    def delete_state(self, state_id: str) -> bool:
+    async def delete_state(self, state_id: str) -> bool:
         """删除状态
         
         Args:
@@ -251,7 +251,7 @@ class StateManager(IStateManager):
         with self._lock:
             try:
                 # 从存储删除
-                success = self._storage.delete(state_id)
+                success = await self._storage.delete(state_id)
                 
                 if success:
                     # 从缓存删除
@@ -269,7 +269,7 @@ class StateManager(IStateManager):
                 logger.error(f"删除状态失败: {e}")
                 return False
     
-    def list_states(self, filters: Optional[Dict[str, Any]] = None) -> List[str]:
+    async def list_states(self, filters: Optional[Dict[str, Any]] = None) -> List[str]:
         """列出状态ID
         
         Args:
@@ -280,13 +280,13 @@ class StateManager(IStateManager):
         """
         with self._lock:
             try:
-                return self._storage.list(filters)
+                return await self._storage.list(filters)
             except Exception as e:
                 self._statistics["total_errors"] += 1
                 logger.error(f"列出状态失败: {e}")
                 return []
     
-    def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> Dict[str, Any]:
         """获取统计信息
         
         Returns:
@@ -296,7 +296,7 @@ class StateManager(IStateManager):
             return {
                 **self._statistics,
                 "cache_stats": self._cache.get_statistics() if hasattr(self._cache, 'get_statistics') else {},
-                "storage_stats": self._storage.get_statistics(),
+                "storage_stats": await self._storage.get_statistics(),
                 "lifecycle_stats": self._lifecycle.get_statistics(),
                 "registered_state_types": list(self._state_types.keys())
             }
@@ -310,7 +310,7 @@ class StateManager(IStateManager):
                 logger.warning(f"清空缓存失败: {e}")
             logger.debug("清空状态缓存")
     
-    def cleanup_expired_states(self) -> int:
+    async def cleanup_expired_states(self) -> int:
         """清理过期状态
         
         Returns:
@@ -321,10 +321,10 @@ class StateManager(IStateManager):
             
             try:
                 # 获取所有状态
-                state_ids = self.list_states()
+                state_ids = await self.list_states()
                 
                 for state_id in state_ids:
-                    state = self.get_state(state_id)
+                    state = await self.get_state(state_id)
                     if state:
                         # 检查状态是否有is_expired方法或检查更新时间
                         is_expired = False
@@ -334,7 +334,7 @@ class StateManager(IStateManager):
                             except Exception:
                                 is_expired = False
                         
-                        if is_expired and self.delete_state(state_id):
+                        if is_expired and await self.delete_state(state_id):
                             cleaned_count += 1
                 
                 logger.info(f"清理了 {cleaned_count} 个过期状态")

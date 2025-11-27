@@ -64,32 +64,32 @@ class IStateManager(ABC):
     """统一状态管理器接口"""
     
     @abstractmethod
-    def create_state(self, state_type: str, **kwargs) -> IState:
+    async def create_state(self, state_type: str, **kwargs) -> IState:
         """创建状态"""
         pass
     
     @abstractmethod
-    def get_state(self, state_id: str) -> Optional[IState]:
+    async def get_state(self, state_id: str) -> Optional[IState]:
         """获取状态"""
         pass
     
     @abstractmethod
-    def save_state(self, state: IState) -> bool:
+    async def save_state(self, state: IState) -> bool:
         """保存状态"""
         pass
     
     @abstractmethod
-    def delete_state(self, state_id: str) -> bool:
+    async def delete_state(self, state_id: str) -> bool:
         """删除状态"""
         pass
     
     @abstractmethod
-    def list_states(self, filters: Optional[Dict[str, Any]] = None) -> List[str]:
+    async def list_states(self, filters: Optional[Dict[str, Any]] = None) -> List[str]:
         """列出状态ID"""
         pass
     
     @abstractmethod
-    def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> Dict[str, Any]:
         """获取统计信息"""
         pass
 
@@ -152,26 +152,26 @@ class IStateStorageAdapter(ABC):
     """状态存储适配器接口"""
     
     @abstractmethod
-    def get(self, key: str) -> Optional[Union[str, bytes]]:
+    async def get(self, key: str) -> Optional[Union[str, bytes]]:
         """获取存储数据"""
         pass
     
     @abstractmethod
-    def save(self, key: str, data: Union[str, bytes]) -> bool:
+    async def save(self, key: str, data: Union[str, bytes]) -> bool:
         """保存存储数据"""
         pass
     
     @abstractmethod
-    def delete(self, key: str) -> bool:
+    async def delete(self, key: str) -> bool:
         """删除存储数据"""
         pass
     
     @abstractmethod
-    def list(self, filters: Optional[Dict[str, Any]] = None) -> List[str]:
+    async def list(self, filters: Optional[Dict[str, Any]] = None) -> List[str]:
         """列出所有键"""
         pass
     
     @abstractmethod
-    def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> Dict[str, Any]:
         """获取存储统计信息"""
         pass

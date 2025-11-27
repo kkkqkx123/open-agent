@@ -1,6 +1,6 @@
 """状态存储适配器接口定义
 
-定义状态存储适配器的核心接口，包括存储适配器、工厂和迁移接口。
+定义状态存储适配器的纯异步接口，支持历史记录和快照的存储操作。
 """
 
 from abc import ABC, abstractmethod
@@ -14,11 +14,11 @@ class IStateStorageAdapter(ABC):
     """状态存储适配器接口
     
     专注于状态特有的存储功能，如历史记录和快照管理。
-    与通用存储接口IUnifiedStorage协同工作，但保持同步接口特性。
+    统一采用异步接口设计。
     """
     
     @abstractmethod
-    def save_history_entry(self, entry: AbstractStateHistoryEntry) -> bool:
+    async def save_history_entry(self, entry: AbstractStateHistoryEntry) -> bool:
         """保存历史记录条目
         
         Args:
@@ -30,7 +30,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    def get_history_entries(self, agent_id: str, limit: int = 100) -> Sequence[AbstractStateHistoryEntry]:
+    async def get_history_entries(self, agent_id: str, limit: int = 100) -> Sequence[AbstractStateHistoryEntry]:
         """获取历史记录条目
         
         Args:
@@ -43,7 +43,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    def delete_history_entry(self, history_id: str) -> bool:
+    async def delete_history_entry(self, history_id: str) -> bool:
         """删除历史记录条目
         
         Args:
@@ -55,7 +55,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    def clear_agent_history(self, agent_id: str) -> bool:
+    async def clear_agent_history(self, agent_id: str) -> bool:
         """清空代理的历史记录
         
         Args:
@@ -67,7 +67,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    def save_snapshot(self, snapshot: AbstractStateSnapshot) -> bool:
+    async def save_snapshot(self, snapshot: AbstractStateSnapshot) -> bool:
         """保存状态快照
         
         Args:
@@ -79,7 +79,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    def load_snapshot(self, snapshot_id: str) -> Optional[AbstractStateSnapshot]:
+    async def load_snapshot(self, snapshot_id: str) -> Optional[AbstractStateSnapshot]:
         """加载状态快照
         
         Args:
@@ -91,7 +91,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> Sequence[AbstractStateSnapshot]:
+    async def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> Sequence[AbstractStateSnapshot]:
         """获取指定代理的快照列表
         
         Args:
@@ -104,7 +104,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    def delete_snapshot(self, snapshot_id: str) -> bool:
+    async def delete_snapshot(self, snapshot_id: str) -> bool:
         """删除状态快照
         
         Args:
@@ -116,7 +116,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    def get_history_statistics(self) -> Dict[str, Any]:
+    async def get_history_statistics(self) -> Dict[str, Any]:
         """获取历史记录统计信息
         
         Returns:
@@ -125,7 +125,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    def get_snapshot_statistics(self) -> Dict[str, Any]:
+    async def get_snapshot_statistics(self) -> Dict[str, Any]:
         """获取快照统计信息
         
         Returns:
@@ -134,26 +134,26 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    def begin_transaction(self) -> None:
+    async def begin_transaction(self) -> None:
         """开始事务"""
         pass
     
     @abstractmethod
-    def commit_transaction(self) -> None:
+    async def commit_transaction(self) -> None:
         """提交事务"""
         pass
     
     @abstractmethod
-    def rollback_transaction(self) -> None:
+    async def rollback_transaction(self) -> None:
         """回滚事务"""
         pass
     
     @abstractmethod
-    def close(self) -> None:
+    async def close(self) -> None:
         """关闭存储连接"""
         pass
 
-    def get_unified_storage(self) -> Optional[IUnifiedStorage]:
+    async def get_unified_storage(self) -> Optional[IUnifiedStorage]:
         """获取通用存储接口实例（可选功能）
         
         Returns:
@@ -163,7 +163,7 @@ class IStateStorageAdapter(ABC):
         return None
     
     @abstractmethod
-    def health_check(self) -> bool:
+    async def health_check(self) -> bool:
         """健康检查
         
         Returns:
@@ -184,7 +184,7 @@ class IStateStorageAdapter(ABC):
         pass
 
     @abstractmethod
-    def backup_database(self, backup_path: Optional[str] = None) -> str:
+    async def backup_database(self, backup_path: Optional[str] = None) -> str:
         """备份数据库
         
         Args:
@@ -196,7 +196,7 @@ class IStateStorageAdapter(ABC):
         pass
 
     @abstractmethod
-    def restore_database(self, backup_path: str) -> bool:
+    async def restore_database(self, backup_path: str) -> bool:
         """恢复数据库
         
         Args:
@@ -208,7 +208,7 @@ class IStateStorageAdapter(ABC):
         pass
 
     @abstractmethod
-    def backup_storage(self, backup_path: Optional[str] = None) -> str:
+    async def backup_storage(self, backup_path: Optional[str] = None) -> str:
         """备份存储
         
         Args:
@@ -220,7 +220,7 @@ class IStateStorageAdapter(ABC):
         pass
 
     @abstractmethod
-    def restore_storage(self, backup_path: str) -> bool:
+    async def restore_storage(self, backup_path: str) -> bool:
         """恢复存储
         
         Args:
@@ -239,7 +239,7 @@ class IStorageAdapterFactory(ABC):
     """
     
     @abstractmethod
-    def create_adapter(self, storage_type: str, config: Dict[str, Any]) -> IStateStorageAdapter:
+    async def create_adapter(self, storage_type: str, config: Dict[str, Any]) -> IStateStorageAdapter:
         """创建存储适配器
         
         Args:
@@ -261,7 +261,7 @@ class IStorageAdapterFactory(ABC):
         pass
     
     @abstractmethod
-    def validate_config(self, storage_type: str, config: Dict[str, Any]) -> List[str]:
+    async def validate_config(self, storage_type: str, config: Dict[str, Any]) -> List[str]:
         """验证配置参数
         
         Args:
@@ -281,8 +281,8 @@ class IStorageMigration(ABC):
     """
     
     @abstractmethod
-    def migrate_from(self, source_adapter: IStateStorageAdapter, 
-                    target_adapter: IStateStorageAdapter) -> Dict[str, Any]:
+    async def migrate_from(self, source_adapter: IStateStorageAdapter, 
+                          target_adapter: IStateStorageAdapter) -> Dict[str, Any]:
         """从源存储迁移到目标存储
         
         Args:
@@ -295,8 +295,8 @@ class IStorageMigration(ABC):
         pass
     
     @abstractmethod
-    def validate_migration(self, source_adapter: IStateStorageAdapter,
-                          target_adapter: IStateStorageAdapter) -> Dict[str, Any]:
+    async def validate_migration(self, source_adapter: IStateStorageAdapter,
+                                target_adapter: IStateStorageAdapter) -> Dict[str, Any]:
         """验证迁移结果
         
         Args:

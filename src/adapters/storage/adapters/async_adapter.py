@@ -1,4 +1,4 @@
-"""异步状态存储适配器
+"""状态存储适配器实现
 
 提供纯异步的状态存储适配器实现。
 """
@@ -6,7 +6,7 @@
 import logging
 from typing import Dict, Any, List, Optional, Sequence
 
-from src.interfaces.state.storage.async_adapter import IAsyncStateStorageAdapter
+from src.interfaces.state.storage.adapter import IStateStorageAdapter
 # 修复循环导入：直接从核心模块导入具体实现，从接口层导入抽象类
 from src.core.state.entities import StateSnapshot, StateHistoryEntry
 from src.interfaces.state.entities import AbstractStateSnapshot, AbstractStateHistoryEntry
@@ -18,7 +18,7 @@ from ..core.error_handler import with_error_handling
 logger = logging.getLogger(__name__)
 
 
-class AsyncStateStorageAdapter(IAsyncStateStorageAdapter):
+class AsyncStateStorageAdapter(IStateStorageAdapter):
     """纯异步状态存储适配器
     
     实现状态存储的异步接口，专注于存储逻辑。
@@ -313,3 +313,69 @@ class AsyncStateStorageAdapter(IAsyncStateStorageAdapter):
             事务上下文管理器
         """
         return TransactionContext(self._transaction_manager)
+
+    @property
+    def _backend(self) -> IStorageBackend:
+        """获取存储后端"""
+        return self.__backend
+
+    @_backend.setter
+    def _backend(self, value: IStorageBackend) -> None:
+        """设置存储后端"""
+        self.__backend = value
+
+    @with_error_handling("backup_database")
+    async def backup_database(self, backup_path: Optional[str] = None) -> str:
+        """备份数据库
+        
+        Args:
+            backup_path: 备份路径（可选）
+            
+        Returns:
+            备份文件路径
+        """
+        # 默认实现：不支持备份
+        logger.warning("backup_database not implemented for this adapter type")
+        return ""
+
+    @with_error_handling("restore_database")
+    async def restore_database(self, backup_path: str) -> bool:
+        """恢复数据库
+        
+        Args:
+            backup_path: 备份文件路径
+            
+        Returns:
+            是否恢复成功
+        """
+        # 默认实现：不支持恢复
+        logger.warning("restore_database not implemented for this adapter type")
+        return False
+
+    @with_error_handling("backup_storage")
+    async def backup_storage(self, backup_path: Optional[str] = None) -> str:
+        """备份存储
+        
+        Args:
+            backup_path: 备份路径（可选）
+            
+        Returns:
+            备份文件路径
+        """
+        # 默认实现：不支持备份
+        logger.warning("backup_storage not implemented for this adapter type")
+        return ""
+
+    @with_error_handling("restore_storage")
+    async def restore_storage(self, backup_path: str) -> bool:
+        """恢复存储
+        
+        Args:
+            backup_path: 备份文件路径
+            
+        Returns:
+            是否恢复成功
+        """
+        # 默认实现：不支持恢复
+        logger.warning("restore_storage not implemented for this adapter type")
+        return False

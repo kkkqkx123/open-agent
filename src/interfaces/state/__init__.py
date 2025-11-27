@@ -45,15 +45,12 @@ from .entities import (
 # 注意：具体实现（StateSnapshot等）应该从src.core.state导入，而不是从接口层
 # 接口层只负责定义合约，不导出具体实现
 
-# 存储相关接口
+# 存储相关接口（统一为异步接口）
 from .storage import (
     IStorageBackend,
     IStateStorageAdapter,
     IStorageAdapterFactory,
     IStorageMigration,
-    IAsyncStateStorageAdapter,
-    IAsyncStorageAdapterFactory,
-    IAsyncStorageMigration,
     IStorageCache,
     IStorageMetrics
 )
@@ -92,14 +89,11 @@ __all__ = [
     'AbstractStateStatistics',
     
     
-    # 存储相关接口
+    # 存储相关接口（统一异步）
     'IStorageBackend',
     'IStateStorageAdapter',
     'IStorageAdapterFactory',
     'IStorageMigration',
-    'IAsyncStateStorageAdapter',
-    'IAsyncStorageAdapterFactory',
-    'IAsyncStorageMigration',
     'IStorageCache',
     'IStorageMetrics'
 ]

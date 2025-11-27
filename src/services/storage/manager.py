@@ -158,14 +158,14 @@ class StorageManager:
                 for name, adapter in self._adapters.items():
                     # 获取适配器健康状态
                     try:
-                        is_healthy = adapter.health_check()
+                        is_healthy = await adapter.health_check()
                     except Exception as e:
                         is_healthy = False
                         logger.error(f"Health check failed for adapter {name}: {e}")
                     
                     # 获取适配器统计信息
                     try:
-                        stats = adapter.get_history_statistics()
+                        stats = await adapter.get_history_statistics()
                     except Exception as e:
                         stats = {"error": str(e)}
                         logger.error(f"Failed to get statistics for adapter {name}: {e}")
@@ -233,7 +233,7 @@ class StorageManager:
                     return {"name": name, "status": "not_found"}
                 
                 try:
-                    is_healthy = adapter.health_check()
+                    is_healthy = await adapter.health_check()
                     return {"name": name, "status": "healthy" if is_healthy else "unhealthy"}
                 except Exception as e:
                     return {"name": name, "status": "error", "error": str(e)}
@@ -341,11 +341,11 @@ class StorageManager:
                     adapter_backup_dir.mkdir(exist_ok=True)
                     
                     if adapter_type == "sqlite":
-                        sqlite_backup_path: str = adapter.backup_database(str(adapter_backup_dir / "database.db"))
+                        sqlite_backup_path: str = await adapter.backup_database(str(adapter_backup_dir / "database.db"))
                         if sqlite_backup_path:
                             results[adapter_name] = sqlite_backup_path
                     elif adapter_type == "file":
-                        file_backup_path: str = adapter.backup_storage(str(adapter_backup_dir))
+                        file_backup_path: str = await adapter.backup_storage(str(adapter_backup_dir))
                         if file_backup_path:
                             results[adapter_name] = file_backup_path
                     elif adapter_type == "memory":
@@ -393,9 +393,9 @@ class StorageManager:
             adapter_type = storage_type.value if isinstance(storage_type, StorageType) else storage_type
             
             if adapter_type == "sqlite":
-                success = adapter.restore_database(backup_path)
+                success = await adapter.restore_database(backup_path)
             elif adapter_type == "file":
-                success = adapter.restore_storage(backup_path)
+                success = await adapter.restore_storage(backup_path)
             else:
                 logger.warning(f"Restore not supported for adapter type: {adapter_type}")
                 success = False

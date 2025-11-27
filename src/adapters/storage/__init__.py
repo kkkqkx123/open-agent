@@ -1,33 +1,45 @@
-"""存储适配器包
+"""存储适配器模块
 
-提供状态存储的适配器实现。
+提供统一的异步存储适配器实现。
 """
 
 # 导入主要的适配器类
-from .adapters.sync_adapter import SyncStateStorageAdapter
 from .adapters.async_adapter import AsyncStateStorageAdapter
+from .adapters.sqlite import SQLiteStateStorageAdapter
+from .adapters.memory import MemoryStateStorageAdapter
+from .adapters.file import FileStateStorageAdapter
 
 # 导入工厂类
-from .factory import StorageAdapterFactory, AsyncStorageAdapterFactory, create_storage_adapter
+from .factory import StorageAdapterFactory, create_storage_adapter
 
-# 导入辅助类
-from .core.metrics import StorageMetrics
-from .core.transaction import TransactionManager
-from .core.error_handler import StorageErrorHandler
+# 导入接口
+from .interfaces import (
+    ISessionStorageBackendFactory,
+    IThreadStorageBackendFactory,
+    ISessionThreadAssociationFactory
+)
 
-# 定义包的公共接口
+# 导入后端
+from .backends.base import ISessionStorageBackend
+from .backends.thread_base import IThreadStorageBackend
+
 __all__ = [
     # 适配器类
-    'SyncStateStorageAdapter',
     'AsyncStateStorageAdapter',
+    'SQLiteStateStorageAdapter',
+    'MemoryStateStorageAdapter',
+    'FileStateStorageAdapter',
     
     # 工厂类
     'StorageAdapterFactory',
-    'AsyncStorageAdapterFactory',
     'create_storage_adapter',
     
-    # 辅助类
-    'StorageMetrics',
-    'TransactionManager',
-    'StorageErrorHandler',
+    # 接口
+    'ISessionStorageBackendFactory',
+    'IThreadStorageBackendFactory',
+    'ISessionThreadAssociationFactory',
+    
+    # 后端
+    'ISessionStorageBackend',
+    'IThreadStorageBackend',
 ]

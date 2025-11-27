@@ -52,9 +52,6 @@ from .state import (
     IStorageBackend,
     IStorageAdapterFactory,
     IStorageMigration,
-    IAsyncStateStorageAdapter,
-    IAsyncStorageAdapterFactory,
-    IAsyncStorageMigration,
     IStorageCache,
     IStorageMetrics
 )
@@ -228,9 +225,6 @@ __all__ = [
     "IStorageBackend",
     "IStorageAdapterFactory",
     "IStorageMigration",
-    "IAsyncStateStorageAdapter",
-    "IAsyncStorageAdapterFactory",
-    "IAsyncStorageMigration",
     "IStorageCache",
     "IStorageMetrics",
     
