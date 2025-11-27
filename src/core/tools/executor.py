@@ -7,6 +7,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 import logging
 
 from src.interfaces import ILogger
@@ -397,13 +398,11 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
             ToolResult: 执行结果
         """
         start_time = time.time()
+        timeout = tool_call.timeout or self.default_timeout
         
         try:
             # 获取工具实例
             tool = self.tool_manager.get_tool(tool_call.name)
-            
-            # 设置超时时间
-            timeout = tool_call.timeout or self.default_timeout
             
             # 记录调用开始
             self.logger.info(f"开始异步执行工具: {tool_call.name}")
@@ -446,7 +445,7 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
                     result_obj = await asyncio.wait_for(
                         loop.run_in_executor(
                             thread_pool,
-                            lambda: tool.safe_execute(**tool_call.arguments)
+                            partial(tool.safe_execute, **tool_call.arguments)
                         ),
                         timeout=timeout
                     )
@@ -460,7 +459,7 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
                     output = await asyncio.wait_for(
                         loop.run_in_executor(
                             thread_pool,
-                            lambda: tool.execute(**tool_call.arguments)
+                            partial(tool.execute, **tool_call.arguments)
                         ),
                         timeout=timeout
                     )
@@ -487,7 +486,7 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
             
         except asyncio.TimeoutError:
             execution_time = time.time() - start_time
-            error_msg = f"工具执行超时: {timeout}秒" # type: ignore
+            error_msg = f"工具执行超时: {timeout}秒"
             self.logger.error(f"工具超时: {tool_call.name}")
             return ToolResult(
                 success=False,

@@ -14,13 +14,102 @@ from src.interfaces.tool.base import ITool, ToolResult
 
 
 class BaseTool(ITool, ABC):
-    """工具基类 - 支持同步和异步两种执行模式
+    """工具基类 - 支持多种实现模式
+    
+    设计目标：工具系统应该包容各种工具类型，不强制统一的执行方式。
+    
+    三种工具实现模式：
+    ═════════════════════════════════════════════════════════════════════════
+    
+    【模式1】纯同步工具（本地计算密集）
+    ───────────────────────────────────────
+    适用场景：CPU密集、本地操作、快速完成、无I/O等待
+    
+    示例：
+        class Calculator(BaseTool):
+            def execute(self, x: int, y: int) -> int:
+                return x + y
+            # execute_async()会自动在线程池中调用execute()
+    
+    性能特征：
+        同步调用: T = 直接执行时间
+        异步调用: T = 线程调度 + 直接执行时间 + 上下文切换
+    
+    何时使用：
+        ✓ 函数本身很快（<100ms）
+        ✓ 不涉及I/O
+        ✓ CPU密集操作
+        ✗ 不适合长时间阻塞
+    
+    
+    【模式2】纯异步工具（I/O密集）
+    ───────────────────────────────────────
+    适用场景：网络请求、数据库查询、文件I/O、外部API调用
+    
+    示例：
+        class APIClient(BaseTool):
+            async def execute_async(self, url: str) -> str:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url) as resp:
+                        return await resp.text()
+            # execute()会自动创建新事件循环调用execute_async()
+    
+    性能特征：
+        同步调用: T = 新循环开销 + I/O等待时间 + 关闭开销
+        异步调用: T = I/O等待时间（无线程开销！）
+    
+    何时使用：
+        ✓ I/O密集操作
+        ✓ 需要处理长延迟
+        ✓ 在异步上下文中频繁调用
+        ⚠ 同步调用时会有循环创建开销
+    
+    
+    【模式3】混合工具（优化路径）
+    ───────────────────────────────────────
+    适用场景：需要同时优化同步和异步调用路径
+    
+    示例：
+        class CachingAPI(BaseTool):
+            def __init__(self):
+                self.cache = {}
+            
+            def execute(self, key: str) -> str:
+                # 同步快速路径：检查缓存
+                if key in self.cache:
+                    return self.cache[key]
+                # 如果没有缓存，执行同步请求
+                return requests.get(f"https://api.example.com/{key}").text
+            
+            async def execute_async(self, key: str) -> str:
+                # 异步优化路径：异步请求+缓存
+                if key in self.cache:
+                    return self.cache[key]
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(f"https://api.example.com/{key}") as resp:
+                        result = await resp.text()
+                        self.cache[key] = result
+                        return result
+    
+    性能特征：
+        同步调用: T = 缓存检查 + 同步网络请求
+        异步调用: T = 缓存检查 + 异步网络请求（无额外开销）
+    
+    何时使用：
+        ✓ 既有缓存也有I/O
+        ✓ 同步和异步调用都很频繁
+        ✓ 需要两种调用路径都高效
+    
+    重要：两个方法应该返回相同的结果！
+    
+    ═════════════════════════════════════════════════════════════════════════
     
     设计原则：
-    1. 子类必须实现 execute() 或 execute_async() 之一（或都实现）
-    2. 同步工具：只实现 execute()，异步调用通过线程池包装
-    3. 异步工具：优先实现 execute_async()，同步调用通过新事件循环包装（仅在必要时）
-    4. 双模工具：都实现，同步快速路径不依赖异步
+    1. 子类应该明确自己属于哪种模式
+    2. 只实现必要的方法（其他会自动适配）
+    3. 如果两个都实现，确保结果一致（幂等性）
+    4. 不要在两个方法间相互调用（会导致性能问题）
+    5. 通过重写方法来优化性能，不要依赖默认实现
     """
 
     def __init__(self, name: str, description: str, parameters_schema: Dict[str, Any]):
@@ -60,11 +149,38 @@ class BaseTool(ITool, ABC):
     def execute(self, **kwargs: Any) -> Any:
         """同步执行工具
         
-        默认实现：在新事件循环中运行 execute_async()（用于纯异步工具）
+        default默认实现取决于子类：
         
-        子类实现选项：
-        1. 重写此方法为同步实现（推荐用于本地快速工具）
-        2. 不重写，使用默认异步包装（I/O密集工具）
+        1. 如果子类重写此方法 → 直接执行该方法
+        2. 如果子类只实现execute_async() → 在新循环中运行execute_async()
+        
+        行为：
+        ├─ 首先检查是否在运行的事件循环中（avoid嵌套循环）
+        ├─ 如果在循环中，抛出RuntimeError
+        └─ 如果不在循环中，创建新循环运行execute_async()
+        
+        推荐实现（根据工具类型）：
+        
+        【纯同步工具】
+        class FastTool(BaseTool):
+            def execute(self, **kwargs):
+                return self.func(**kwargs)
+            # 使用默认execute_async()（线程池方式）
+        
+        【纯异步工具】
+        class AsyncTool(BaseTool):
+            # 不重写execute()
+            # 使用默认实现（创建新循环）
+        
+        【混合工具】
+        class HybridTool(BaseTool):
+            def execute(self, **kwargs):
+                # 同步快速路径
+                return self._sync_path(**kwargs)
+            
+            async def execute_async(self, **kwargs):
+                # 异步优化路径
+                return await self._async_path(**kwargs)
         
         Args:
             **kwargs: 工具参数
@@ -73,7 +189,7 @@ class BaseTool(ITool, ABC):
             Any: 执行结果
             
         Raises:
-            RuntimeError: 在嵌套事件循环中调用
+            RuntimeError: 在嵌套事件循环中调用（避免死锁）
         """
         # 检查是否已有运行中的事件循环（避免嵌套）
         try:
@@ -97,17 +213,49 @@ class BaseTool(ITool, ABC):
     async def execute_async(self, **kwargs: Any) -> Any:
         """异步执行工具
         
-        默认实现：在线程池中运行 execute()（用于纯同步工具）
+        默认实现取决于子类：
         
-        子类实现选项：
-        1. 重写此方法为异步实现（推荐用于I/O密集工具）
-        2. 不重写，使用默认线程池包装（同步工具保持兼容）
+        1. 如果子类重写此方法 → 直接执行该方法
+        2. 如果子类只实现execute() → 在线程池中运行execute()
+        
+        行为：
+        └─ 获取当前事件循环，在线程池中运行execute()
+        
+        推荐实现（根据工具类型）：
+        
+        【纯同步工具】
+        class FastTool(BaseTool):
+            def execute(self, **kwargs):
+                return heavy_computation(**kwargs)
+            # 使用默认execute_async()（线程池方式）
+            # 异步调用会委托给线程池：避免阻塞事件循环
+        
+        【纯异步工具】
+        class AsyncTool(BaseTool):
+            async def execute_async(self, **kwargs):
+                return await aiohttp.get(...)
+            # 不重写execute()
+            # 使用默认execute()（创建新循环）
+        
+        【混合工具】
+        class HybridTool(BaseTool):
+            def execute(self, **kwargs):
+                # 同步快速路径
+                return self._sync_path(**kwargs)
+            
+            async def execute_async(self, **kwargs):
+                # 异步优化路径
+                return await self._async_path(**kwargs)
         
         Args:
             **kwargs: 工具参数
             
         Returns:
             Any: 执行结果
+        
+        Note:
+            纯同步工具在异步调用时会使用线程池，这增加了少量开销（线程调度）。
+            如果纯同步工具是I/O密集的，应考虑改为纯异步工具。
         """
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, lambda: self.execute(**kwargs))

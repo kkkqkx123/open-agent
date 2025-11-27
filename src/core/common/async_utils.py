@@ -16,7 +16,36 @@ logger = logging.getLogger(__name__)
 class AsyncUtils:
     """事件循环管理器
     
-    提供单例模式的事件循环管理，确保在同步环境中正确运行异步代码。
+    用于在同步代码中调用异步函数，避免频繁创建新事件循环的开销。
+    
+    重要提示：
+    - 仅在同步代码中调用异步代码时使用
+    - 不要在异步函数中使用（用 await 代替）
+    - 与 asyncio.run() 的区别：本模块重用后台循环，避免频繁创建循环
+    - 应用退出前必须调用 shutdown()
+    
+    使用场景：
+    ✅ 在同步函数中需要运行异步代码
+    ✅ 无法使用 asyncio.run()（已经有运行的循环）
+    ✅ 频繁执行异步操作（性能要求高）
+    
+    不适用场景：
+    ❌ 在异步函数中（用 await 代替）
+    ❌ 可以使用 asyncio.run() 的地方
+    ❌ 单次执行异步代码（asyncio.run() 足够）
+    
+    示例：
+        # ✅ 正确用法
+        async def fetch_data(url):
+            return await http_client.get(url)
+        
+        def sync_function():
+            result = event_loop_manager.run_async(fetch_data("https://example.com"))
+            return result
+    
+    警告：
+        - 不要与 asyncio.run() 混用
+        - 应用退出时需要调用 shutdown() 清理
     """
     
     _instance: Optional['AsyncUtils'] = None
@@ -68,25 +97,29 @@ class AsyncUtils:
                 self._loop.close()
     
     def run_async(self, coro: Coroutine[Any, Any, Any]) -> Any:
-        """在事件循环中运行协程
+        """在后台事件循环中运行协程
+        
+        使用后台线程中的事件循环运行协程，避免创建新的事件循环。
         
         Args:
             coro: 要运行的协程
             
         Returns:
             协程的执行结果
+            
+        Raises:
+            Exception: 如果协程执行失败
+            
+        警告：
+            - 不要在异步函数中使用（用 await 代替）
+            - 应用退出前必须调用 shutdown()
+            - 对于单次执行，考虑使用 asyncio.run() 替代
         """
         loop = self._ensure_loop()
         
-        # 如果在事件循环线程中，直接运行
-        if threading.current_thread() == self._thread:
-            # 创建任务并等待完成
-            task = asyncio.run_coroutine_threadsafe(coro, loop)
-            return task.result()
-        else:
-            # 在其他线程中，使用线程安全的方式运行
-            future = asyncio.run_coroutine_threadsafe(coro, loop)
-            return future.result()
+        # 使用线程安全的方式运行协程
+        future = asyncio.run_coroutine_threadsafe(coro, loop)
+        return future.result()
     
     def create_task(self, coro: Coroutine[Any, Any, Any]) -> concurrent.futures.Future[Any]:
         """创建异步任务
@@ -101,14 +134,17 @@ class AsyncUtils:
         return asyncio.run_coroutine_threadsafe(coro, loop)
     
     def shutdown(self) -> None:
-        """关闭事件循环管理器"""
+        """关闭事件循环管理器
+        
+        应该在应用退出前调用，清理后台事件循环线程。
+        """
         if self._loop and not self._loop.is_closed():
             self._loop.call_soon_threadsafe(self._loop.stop)
         
         if self._thread and self._thread.is_alive():
             self._shutdown_event.wait(timeout=5.0)
             
-        logger.info("EventLoopManager shutdown")
+        logger.info("事件循环管理器已关闭")
 
 
 # 全局事件循环管理器实例

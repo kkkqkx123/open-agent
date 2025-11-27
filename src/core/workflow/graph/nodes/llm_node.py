@@ -7,7 +7,8 @@ from typing import Dict, Any, List, Optional, Union
 from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
 import logging
 
-from .registry import BaseNode, NodeExecutionResult, node
+from .registry import NodeExecutionResult, node
+from .async_node import AsyncNode
 from src.core.state import WorkflowState
 from src.interfaces.llm import ILLMClient
 from src.services.llm.scheduling.task_group_manager import TaskGroupManager
@@ -16,8 +17,16 @@ logger = logging.getLogger(__name__)
 
 
 @node("llm_node")
-class LLMNode(BaseNode):
-    """LLM调用节点，集成提示词系统"""
+class LLMNode(AsyncNode):
+    """LLM调用节点，集成提示词系统
+    
+    这是一个异步节点，用于调用大语言模型API。
+    
+    特点：
+    - execute_async() 有真实的异步实现，直接调用LLM
+    - execute() 会创建新事件循环（仅作为兼容性提供）
+    - 推荐在AsyncMode中使用execute_async()调用
+    """
     
     def __init__(self,
                  llm_client: Optional[ILLMClient] = None,
@@ -42,29 +51,7 @@ class LLMNode(BaseNode):
         """节点类型标识"""
         return "llm_node"
 
-    def execute(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
-        """执行LLM调用逻辑"""
-        try:
-            # 使用运行时配置，避免循环依赖
-            import asyncio
-            
-            # 在同步方法中运行异步逻辑
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                return loop.run_until_complete(self._execute_async(state, config))
-            finally:
-                loop.close()
-                
-        except Exception as e:
-            logger.error(f"LLM节点执行失败: {e}")
-            return NodeExecutionResult(
-                state,
-                None,
-                {"error": str(e), "error_type": type(e).__name__}
-            )
-    
-    async def _execute_async(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+    async def execute_async(self, state: WorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
         """异步执行逻辑"""
         try:
             # 预处理配置

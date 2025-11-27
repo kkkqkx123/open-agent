@@ -82,21 +82,24 @@ class SyncMode(BaseMode, ISyncMode):
         state: 'IWorkflowState', 
         context: 'ExecutionContext'
     ) -> 'NodeResult':
-        """异步执行节点（同步模式的异步实现）
+        """异步执行节点（同步模式不支持）
+        
+        同步模式不支持异步执行。
+        如需异步执行，请使用AsyncMode。
         
         Args:
             node: 节点实例
             state: 当前状态
             context: 执行上下文
             
-        Returns:
-            NodeResult: 节点执行结果
+        Raises:
+            RuntimeError: 同步模式不支持异步执行
         """
-        import asyncio
-        
-        # 在线程池中执行同步节点
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self.execute_node, node, state, context)
+        raise RuntimeError(
+            f"SyncMode does not support async execution. "
+            f"Use AsyncMode for async execution of node '{getattr(node, 'node_id', 'unknown')}'. "
+            f"Or call execute_node() instead of execute_node_async()."
+        )
     
     def _process_node_result(
         self, 

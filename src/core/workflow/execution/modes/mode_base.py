@@ -15,6 +15,12 @@ class IExecutionMode(ABC):
     """执行模式接口
     
     定义不同的执行模式接口。
+    
+    设计原则：
+    1. 每个模式只实现其主要方法
+    2. SyncMode: 实现execute_node()用于同步执行
+    3. AsyncMode: 实现execute_node_async()用于异步执行
+    4. 禁止跨模式调用（调用另一种方法）
     """
     
     @abstractmethod
@@ -24,7 +30,9 @@ class IExecutionMode(ABC):
         state: 'IWorkflowState', 
         context: 'ExecutionContext'
     ) -> 'NodeResult':
-        """执行节点
+        """同步执行节点
+        
+        仅在SyncMode中使用。AsyncMode必须使用execute_node_async()。
         
         Args:
             node: 节点实例
@@ -33,6 +41,9 @@ class IExecutionMode(ABC):
             
         Returns:
             NodeResult: 节点执行结果
+            
+        Raises:
+            RuntimeError: 在不支持的模式中调用
         """
         pass
     
@@ -45,6 +56,8 @@ class IExecutionMode(ABC):
     ) -> 'NodeResult':
         """异步执行节点
         
+        仅在AsyncMode中使用。SyncMode必须使用execute_node()。
+        
         Args:
             node: 节点实例
             state: 当前状态
@@ -52,6 +65,9 @@ class IExecutionMode(ABC):
             
         Returns:
             NodeResult: 节点执行结果
+            
+        Raises:
+            RuntimeError: 在不支持的模式中调用
         """
         pass
     

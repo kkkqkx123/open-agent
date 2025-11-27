@@ -5,14 +5,22 @@
 
 from typing import Dict, Any, Optional, List, Callable
 
-from .registry import BaseNode, NodeExecutionResult, node
+from .registry import NodeExecutionResult, node
+from .sync_node import SyncNode
 from src.core.state import WorkflowState
 from ..edges.conditions import ConditionType, ConditionEvaluator #作为临时实现，后续需要单独实现
 
 
 @node("condition_node")
-class ConditionNode(BaseNode):
-    """条件判断节点"""
+class ConditionNode(SyncNode):
+    """条件判断节点
+    
+    这是一个纯同步节点，用于条件判断和路由决策。
+    
+    特点：
+    - execute() 有真实的同步实现，快速评估条件
+    - execute_async() 抛出RuntimeError（不支持异步）
+    """
 
     def __init__(self) -> None:
         """初始化条件节点"""

@@ -11,7 +11,8 @@ from typing import Dict, Any, Optional, List, Callable, cast, Union
 from dataclasses import dataclass
 from enum import Enum
 
-from .registry import BaseNode, NodeExecutionResult, node
+from .registry import NodeExecutionResult, node
+from .sync_node import SyncNode
 from src.core.state import WorkflowState
 from langchain_core.messages import SystemMessage, BaseMessage as LCBaseMessage
 
@@ -36,8 +37,11 @@ class WaitState:
 
 
 @node("wait_node")
-class WaitNode(BaseNode):
-    """等待节点 - 支持超时机制和多种处理策略"""
+class WaitNode(SyncNode):
+    """等待节点 - 支持超时机制和多种处理策略
+    
+    这是一个纯同步节点，用于处理工作流的暂停等待。
+    """
 
     def __init__(self) -> None:
         """初始化等待节点"""

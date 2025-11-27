@@ -7,7 +7,8 @@ from typing import Dict, Any, Optional, List
 import time
 import logging
 
-from .registry import BaseNode, NodeExecutionResult, node
+from .registry import NodeExecutionResult, node
+from .sync_node import SyncNode
 from src.core.state import WorkflowState
 from src.interfaces.tool.base import ITool, IToolRegistry, ToolCall, ToolResult
 from src.core.workflow.config.node_config_loader import get_node_config_loader
@@ -16,8 +17,17 @@ logger = logging.getLogger(__name__)
 
 
 @node("tool_node")
-class ToolNode(BaseNode):
-    """工具执行节点"""
+class ToolNode(SyncNode):
+    """工具执行节点
+    
+    这是一个纯同步节点，用于协调工具执行。
+    工具本身可能是同步或异步的，但节点层面是同步协调。
+    
+    特点：
+    - execute() 有真实的同步实现，协调工具执行
+    - execute_async() 抛出RuntimeError（不支持异步）
+    - 工具的异步性由工具系统内部处理
+    """
 
     def __init__(self, tool_manager: IToolRegistry) -> None:
         """初始化工具节点

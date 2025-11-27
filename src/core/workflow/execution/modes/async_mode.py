@@ -5,7 +5,6 @@
 
 import logging
 import time
-import asyncio
 from typing import Dict, Any, Optional, TYPE_CHECKING
 
 from .mode_base import BaseMode, IExecutionMode
@@ -29,7 +28,7 @@ class AsyncMode(BaseMode, IAsyncMode):
     提供节点的异步执行能力，支持原生异步节点和同步节点的异步包装。
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化异步模式"""
         super().__init__("async", supports_async=True)
         logger.debug("异步执行模式初始化完成")
@@ -40,34 +39,24 @@ class AsyncMode(BaseMode, IAsyncMode):
         state: 'IWorkflowState', 
         context: 'ExecutionContext'
     ) -> 'NodeResult':
-        """同步执行节点（异步模式的同步实现）
+        """同步执行节点（异步模式不支持）
+        
+        异步模式不支持同步执行。
+        如需同步执行，请使用SyncMode。
         
         Args:
             node: 节点实例
             state: 当前状态
             context: 执行上下文
             
-        Returns:
-            NodeResult: 节点执行结果
+        Raises:
+            RuntimeError: 异步模式不支持同步执行
         """
-        # 在新的事件循环中运行异步执行
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # 如果已经在运行的事件循环中，使用 run_in_executor
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        asyncio.run, 
-                        self.execute_node_async(node, state, context)
-                    )
-                    return future.result()
-            else:
-                # 如果没有运行的事件循环，直接运行
-                return asyncio.run(self.execute_node_async(node, state, context))
-        except Exception as e:
-            logger.error(f"异步模式同步执行失败: {e}")
-            return self.handle_execution_error(e, node, state)
+        raise RuntimeError(
+            f"AsyncMode does not support sync execution. "
+            f"Use SyncMode for sync execution of node '{getattr(node, 'node_id', 'unknown')}'. "
+            f"Or call execute_node_async() instead of execute_node()."
+        )
     
     async def execute_node_async(
         self, 
@@ -75,7 +64,9 @@ class AsyncMode(BaseMode, IAsyncMode):
         state: 'IWorkflowState', 
         context: 'ExecutionContext'
     ) -> 'NodeResult':
-        """异步执行节点
+        """异步执行节点（真正的异步实现）
+        
+        直接调用节点的异步方法，支持真正的异步节点。
         
         Args:
             node: 节点实例
@@ -93,10 +84,8 @@ class AsyncMode(BaseMode, IAsyncMode):
             
             logger.debug(f"异步执行节点: {getattr(node, 'node_id', 'unknown')}")
             
-            # 异步执行节点（将IWorkflowState作为IState使用）
-            loop = asyncio.get_event_loop()
-            # 在线程池中执行节点
-            node_result = await loop.run_in_executor(None, node.execute, state, context.config)  # type: ignore
+            # 直接调用节点的异步方法（真正的异步，不阻塞事件循环）
+            node_result = await node.execute_async(state, context.config)  # type: ignore
             
             # 处理执行结果
             result = self._process_node_result(node_result, state, context)
@@ -122,7 +111,7 @@ class AsyncMode(BaseMode, IAsyncMode):
         """
         return True
     
-    async def execute_node_stream(
+    def execute_node_stream(
         self, 
         node: 'INode', 
         state: 'IWorkflowState', 
@@ -138,44 +127,47 @@ class AsyncMode(BaseMode, IAsyncMode):
         Yields:
             Dict[str, Any]: 流式事件
         """
-        import time
-        
-        # 发送开始事件
-        yield {
-            "type": "node_started",
-            "data": {
-                "node_id": getattr(node, 'node_id', 'unknown'),
-                "node_type": getattr(node, 'node_type', 'unknown'),
-                "timestamp": time.time()
-            }
-        }
-        
-        try:
-            # 普通节点，执行完成后发送完成事件
-            result = await self.execute_node_async(node, state, context)
+        async def _stream_generator():
+            import time
             
+            # 发送开始事件
             yield {
-                "type": "node_completed",
+                "type": "node_started",
                 "data": {
                     "node_id": getattr(node, 'node_id', 'unknown'),
                     "node_type": getattr(node, 'node_type', 'unknown'),
-                    "result": result.metadata,
                     "timestamp": time.time()
                 }
             }
+            
+            try:
+                # 普通节点，执行完成后发送完成事件
+                result = await self.execute_node_async(node, state, context)
                 
-        except Exception as e:
-            # 发送错误事件
-            yield {
-                "type": "node_error",
-                "data": {
-                    "node_id": getattr(node, 'node_id', 'unknown'),
-                    "node_type": getattr(node, 'node_type', 'unknown'),
-                    "error": str(e),
-                    "error_type": type(e).__name__,
-                    "timestamp": time.time()
+                yield {
+                    "type": "node_completed",
+                    "data": {
+                        "node_id": getattr(node, 'node_id', 'unknown'),
+                        "node_type": getattr(node, 'node_type', 'unknown'),
+                        "result": result.metadata,
+                        "timestamp": time.time()
+                    }
                 }
-            }
+                    
+            except Exception as e:
+                # 发送错误事件
+                yield {
+                    "type": "node_error",
+                    "data": {
+                        "node_id": getattr(node, 'node_id', 'unknown'),
+                        "node_type": getattr(node, 'node_type', 'unknown'),
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                        "timestamp": time.time()
+                    }
+                }
+        
+        return _stream_generator()
     
     def _process_node_result(
         self, 

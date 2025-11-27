@@ -7,7 +7,8 @@ import time
 import logging
 from typing import Dict, Any, Optional, Union
 
-from .registry import BaseNode, NodeExecutionResult, node
+from .registry import NodeExecutionResult, node
+from .sync_node import SyncNode
 from src.core.state import WorkflowState
 from src.core.workflow.plugins.manager import PluginManager
 from src.core.workflow.plugins.hooks.executor import HookExecutor
@@ -18,11 +19,13 @@ logger = logging.getLogger(__name__)
 
 
 @node("start_node")
-class StartNode(BaseNode):
+class StartNode(SyncNode):
     """START节点 - 支持插件化扩展
     
     在工作流开始时执行各种初始化和准备操作。
     使用新的Node Hook管理器来处理Hook插件。
+    
+    这是一个纯同步节点，用于工作流初始化。
     """
     
     def __init__(self, plugin_config_path: Optional[str] = None):
