@@ -17,9 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 class NativeTool(StatefulBaseTool):
-    """原生工具
+    """原生工具 - 同步实现
     
     用于包装复杂的、有状态的Python函数，支持状态管理。
+    
+    设计：
+    - execute() 是主要实现（带状态管理）
+    - execute_async() 通过基类默认包装（使用线程池）
     """
     
     def __init__(self, func: Callable, config: Any, state_manager):

@@ -5,7 +5,7 @@
 import asyncio
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Callable
+from typing import Any, Dict, List, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 
@@ -52,7 +52,7 @@ class ConcurrencyLimiter:
         self.active_tasks = 0
         self._lock = AsyncLock()
     
-    async def execute_with_limit(self, coro: Callable, *args, **kwargs):
+    async def execute_with_limit(self, coro: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         """在并发限制下执行协程"""
         async with self.semaphore:
             async with self._lock:
@@ -73,20 +73,20 @@ class AsyncBatchProcessor:
     将多个工具调用批量处理，提高效率。
     """
     
-    def __init__(self, batch_size: int = 10, timeout: float = 1.0):
+    def __init__(self, batch_size: int = 10, timeout: float = 1.0) -> None:
         self.batch_size = batch_size
         self.timeout = timeout
-        self.queue = asyncio.Queue()
-        self.results = {}
+        self.queue: asyncio.Queue[Tuple[str, Any]] = asyncio.Queue()
+        self.results: Dict[str, Any] = {}
         self.processing = False
     
-    async def add_request(self, request_id: str, coro):
+    async def add_request(self, request_id: str, coro: Any) -> None:
         """添加请求到批处理队列"""
         await self.queue.put((request_id, coro))
     
     async def process_batch(self) -> Dict[str, Any]:
         """处理一批请求"""
-        batch = []
+        batch: List[Tuple[str, Any]] = []
         
         # 收集批次
         while len(batch) < self.batch_size:
@@ -105,7 +105,7 @@ class AsyncBatchProcessor:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         # 存储结果
-        batch_results = {}
+        batch_results: Dict[str, Any] = {}
         for (request_id, _), result in zip(batch, results):
             if isinstance(result, Exception):
                 batch_results[request_id] = ToolResult(
@@ -159,10 +159,6 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
         
         logger.info(f"AsyncToolExecutor initialized with max_concurrent={max_concurrent}")
     
-    async def _get_thread_pool(self) -> ThreadPoolExecutor:
-        """获取线程池"""
-        return self._thread_pool
-    
     def execute(self, tool_call: ToolCall) -> ToolResult:
         """同步执行工具调用
         
@@ -195,7 +191,10 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
             
             # 执行工具
             if hasattr(tool, "safe_execute"):
-                result = tool.safe_execute(**tool_call.arguments)
+                safe_result = tool.safe_execute(**tool_call.arguments)
+                result = safe_result if isinstance(safe_result, ToolResult) else ToolResult(
+                    success=True, output=safe_result, tool_name=tool_call.name
+                )
             else:
                 # 使用工具的execute方法
                 output = tool.execute(**tool_call.arguments)
@@ -231,33 +230,7 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
                 execution_time=execution_time,
             )
     
-    async def _execute_tool_with_timeout(
-        self, 
-        tool: ITool, 
-        tool_call: ToolCall, 
-        timeout: int
-    ) -> ToolResult:
-        """带超时的工具执行"""
-        try:
-            # 同步工具在线程池中执行
-            thread_pool = await self._get_thread_pool()
-            loop = asyncio.get_running_loop()
-            
-            output = await asyncio.wait_for(
-                loop.run_in_executor(
-                    thread_pool,
-                    lambda: tool.execute(**tool_call.arguments)
-                ),
-                timeout=timeout
-            )
-            return ToolResult(
-                success=True,
-                output=output,
-                tool_name=tool_call.name
-            )
-                
-        except asyncio.TimeoutError:
-            raise ValueError(f"工具执行超时: {timeout}秒")
+
     
     def execute_parallel(
         self,
@@ -361,6 +334,34 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
         
         return ordered_results
     
+    def _is_async_native_implementation(self, tool: ITool) -> bool:
+        """检查工具是否有真正的异步实现
+        
+        返回True表示工具有真正的异步实现（不是基类默认包装）
+        返回False表示工具的execute_async()是基类默认包装的（实际是同步工具）
+        
+        Args:
+            tool: 工具实例
+            
+        Returns:
+            bool: 是否有真正的异步实现
+        """
+        tool_class: type = type(tool)
+        
+        # 获取方法的定义类
+        execute_async_method = getattr(tool_class, 'execute_async', None)
+        if execute_async_method is None:
+            return False
+        
+        # 检查方法是否在子类中自定义实现
+        # 如果在子类中定义，则为真正的异步实现；如果在基类中定义，则是默认包装
+        for cls in tool_class.__mro__:
+            if 'execute_async' in cls.__dict__:
+                # 找到定义execute_async的类，检查是否是BaseTool
+                return cls.__name__ != 'BaseTool'
+        
+        return False
+    
     def validate_tool_call(self, tool_call: ToolCall) -> bool:
         """验证工具调用
         
@@ -384,6 +385,10 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
     
     async def execute_async(self, tool_call: ToolCall) -> ToolResult:
         """异步执行工具调用
+        
+        策略：
+        - 优先调用工具的 execute_async() 方法
+        - 对于纯同步工具，在线程池中执行
         
         Args:
             tool_call: 工具调用请求
@@ -412,36 +417,84 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
                     execution_time=time.time() - start_time
                 )
             
-            # 检查工具是否支持异步执行
-            if hasattr(tool, "execute_async"):
-                # 使用工具的异步执行方法
-                result = await tool.execute_async(**tool_call.arguments)
-                execution_time = time.time() - start_time
-                tool_result = ToolResult(
-                    success=True,
-                    output=result,
-                    tool_name=tool_call.name,
-                    execution_time=execution_time
-                )
+            # 检查是否有真正的异步实现（不是基类默认包装）
+            is_async_native = self._is_async_native_implementation(tool)
+            
+            if is_async_native:
+                # 异步工具 - 直接调用异步方法（使用safe_execute_async）
+                if hasattr(tool, "safe_execute_async"):
+                    safe_result = await tool.safe_execute_async(**tool_call.arguments)
+                    result = safe_result if isinstance(safe_result, ToolResult) else ToolResult(
+                        success=True,
+                        output=safe_result,
+                        tool_name=tool_call.name
+                    )
+                else:
+                    # 降级到execute_async
+                    output = await tool.execute_async(**tool_call.arguments)
+                    result = ToolResult(
+                        success=True,
+                        output=output,
+                        tool_name=tool_call.name
+                    )
             else:
-                # 对于同步工具，使用并发限制器在线程池中执行
-                tool_result = await self.concurrency_limiter.execute_with_limit(
-                    self._execute_tool_with_timeout, tool, tool_call, timeout
-                )
-                tool_result.execution_time = time.time() - start_time
+                # 纯同步工具 - 在线程池中执行（使用safe_execute）
+                thread_pool = self._thread_pool
+                loop = asyncio.get_running_loop()
+                
+                if hasattr(tool, "safe_execute"):
+                    result_obj = await asyncio.wait_for(
+                        loop.run_in_executor(
+                            thread_pool,
+                            lambda: tool.safe_execute(**tool_call.arguments)
+                        ),
+                        timeout=timeout
+                    )
+                    result = result_obj if isinstance(result_obj, ToolResult) else ToolResult(
+                        success=True,
+                        output=result_obj,
+                        tool_name=tool_call.name
+                    )
+                else:
+                    # 降级到execute
+                    output = await asyncio.wait_for(
+                        loop.run_in_executor(
+                            thread_pool,
+                            lambda: tool.execute(**tool_call.arguments)
+                        ),
+                        timeout=timeout
+                    )
+                    result = ToolResult(
+                        success=True,
+                        output=output,
+                        tool_name=tool_call.name
+                    )
+            
+            # 计算执行时间
+            result.execution_time = time.time() - start_time
             
             # 记录调用完成
-            if tool_result.success:
+            if result.success:
                 self.logger.info(
-                    f"异步工具执行成功: {tool_call.name}, 耗时: {tool_result.execution_time:.2f}秒"
+                    f"异步工具执行成功: {tool_call.name}, 耗时: {result.execution_time:.2f}秒"
                 )
             else:
                 self.logger.error(
-                    f"异步工具执行失败: {tool_call.name}, 错误: {tool_result.error}"
+                    f"异步工具执行失败: {tool_call.name}, 错误: {result.error}"
                 )
             
-            return tool_result
+            return result
             
+        except asyncio.TimeoutError:
+            execution_time = time.time() - start_time
+            error_msg = f"工具执行超时: {timeout}秒" # type: ignore
+            self.logger.error(f"工具超时: {tool_call.name}")
+            return ToolResult(
+                success=False,
+                error=error_msg,
+                tool_name=tool_call.name,
+                execution_time=execution_time,
+            )
         except Exception as e:
             execution_time = time.time() - start_time
             error_msg = f"异步工具执行异常: {str(e)}"
@@ -476,7 +529,7 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         # 处理异常结果
-        processed_results = []
+        processed_results: List[ToolResult] = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 error_msg = f"异步并行执行异常: {str(result)}"
@@ -490,7 +543,7 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
                         tool_name=tool_calls[i].name
                     )
                 )
-            else:
+            elif isinstance(result, ToolResult):
                 processed_results.append(result)
         
         total_time = time.time() - start_time
@@ -498,7 +551,7 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
         
         return processed_results
     
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         """清理资源"""
         if self._thread_pool:
             self._thread_pool.shutdown(wait=True)

@@ -14,9 +14,13 @@ from src.interfaces.tool.base import ITool, ToolResult
 
 
 class BaseTool(ITool, ABC):
-    """工具基类
-
-    所有工具类型的基础抽象类，定义了工具的基本接口和通用功能。
+    """工具基类 - 支持同步和异步两种执行模式
+    
+    设计原则：
+    1. 子类必须实现 execute() 或 execute_async() 之一（或都实现）
+    2. 同步工具：只实现 execute()，异步调用通过线程池包装
+    3. 异步工具：优先实现 execute_async()，同步调用通过新事件循环包装（仅在必要时）
+    4. 双模工具：都实现，同步快速路径不依赖异步
     """
 
     def __init__(self, name: str, description: str, parameters_schema: Dict[str, Any]):
@@ -51,22 +55,53 @@ class BaseTool(ITool, ABC):
         """设置参数Schema"""
         self._parameters_schema = value
 
-    @abstractmethod
+    # ==================== 执行接口 ====================
+    
     def execute(self, **kwargs: Any) -> Any:
         """同步执行工具
-
+        
+        默认实现：在新事件循环中运行 execute_async()（用于纯异步工具）
+        
+        子类实现选项：
+        1. 重写此方法为同步实现（推荐用于本地快速工具）
+        2. 不重写，使用默认异步包装（I/O密集工具）
+        
         Args:
             **kwargs: 工具参数
-
+            
         Returns:
             Any: 执行结果
+            
+        Raises:
+            RuntimeError: 在嵌套事件循环中调用
         """
-        pass
+        # 检查是否已有运行中的事件循环（避免嵌套）
+        try:
+            loop = asyncio.get_running_loop()
+            raise RuntimeError(
+                f"工具 {self.name} 不支持在异步上下文中同步调用。"
+                "请使用 execute_async() 或在线程池中执行。"
+            )
+        except RuntimeError as e:
+            if "no running event loop" not in str(e).lower():
+                raise
+        
+        # 创建新事件循环执行异步方法
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(self.execute_async(**kwargs))
+        finally:
+            loop.close()
 
     async def execute_async(self, **kwargs: Any) -> Any:
-        """异步执行工具（默认实现）
+        """异步执行工具
         
-        默认实现使用线程池执行同步方法，子类可以重写此方法提供真正的异步实现。
+        默认实现：在线程池中运行 execute()（用于纯同步工具）
+        
+        子类实现选项：
+        1. 重写此方法为异步实现（推荐用于I/O密集工具）
+        2. 不重写，使用默认线程池包装（同步工具保持兼容）
         
         Args:
             **kwargs: 工具参数

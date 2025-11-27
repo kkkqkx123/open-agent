@@ -144,9 +144,14 @@ class MCPClient:
 
 
 class MCPTool(StatefulBaseTool):
-    """MCP工具
-
+    """MCP工具 - 纯异步实现
+    
     通过MCP服务器提供的工具实现。
+    
+    设计：
+    - execute_async() 是主要实现
+    - execute() 通过基类默认包装（创建新事件循环）
+    - 不应在同步上下文中频繁调用 execute()，应优先使用异步版本
     """
 
     def __init__(self, config: Any, state_manager):
@@ -166,23 +171,6 @@ class MCPTool(StatefulBaseTool):
         self.mcp_client = MCPClient(
             server_url=config.mcp_server_url, timeout=config.timeout
         )
-
-    def execute(self, **kwargs: Any) -> Any:
-        """同步执行工具（通过异步实现）
-
-        Args:
-            **kwargs: 工具参数
-
-        Returns:
-            Any: 执行结果
-        """
-        # 在新事件循环中运行异步方法
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(self.execute_async(**kwargs))
-        finally:
-            loop.close()
 
     async def execute_async(self, **kwargs: Any) -> Any:
         """异步执行工具

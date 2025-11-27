@@ -173,23 +173,6 @@ class RestTool(StatefulBaseTool):
         else:
             return response_data
 
-    def execute(self, **kwargs: Any) -> Any:
-        """同步执行工具（通过异步实现）
-
-        Args:
-            **kwargs: 工具参数
-
-        Returns:
-            Any: 执行结果
-        """
-        # 在新事件循环中运行异步方法
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(self.execute_async(**kwargs))
-        finally:
-            loop.close()
-
     async def execute_async(self, **kwargs: Any) -> Any:
         """异步执行工具
 

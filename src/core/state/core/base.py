@@ -30,7 +30,7 @@ class BaseState(IState):
     提供状态的基本功能实现。
     """
     
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         """初始化基础状态"""
         self._data: Dict[str, Any] = kwargs.get('data', {})
         self._metadata: Dict[str, Any] = kwargs.get('metadata', {})
@@ -176,7 +176,7 @@ class BaseStateSerializer(IStateSerializer):
             else:  # pickle
                 state_dict = pickle.loads(data)
             
-            return state_dict
+            return state_dict  # type: ignore
         except Exception as e:
             logger.error(f"反序列化状态失败: {e}")
             raise
@@ -237,7 +237,7 @@ class BaseStateSerializer(IStateSerializer):
                 if isinstance(data, bytes):
                     state_dict = json.loads(data.decode('utf-8'))
                 else:
-                    state_dict = json.loads(data)  # type: ignore
+                    state_dict = json.loads(data)
             else:  # pickle
                 state_dict = pickle.loads(data)
             
@@ -312,7 +312,7 @@ class BaseStateValidator(IStateValidator):
 class BaseStateLifecycleManager(IStateLifecycleManager):
     """基础状态生命周期管理器实现"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化生命周期管理器"""
         self._states: Dict[str, IState] = {}
         self._statistics = {
@@ -320,8 +320,39 @@ class BaseStateLifecycleManager(IStateLifecycleManager):
             "total_unregistered": 0,
             "total_saved": 0,
             "total_deleted": 0,
-            "total_errors": 0
+            "total_errors": 0,
+            "total_initialized": 0,
+            "total_cleaned": 0
         }
+    
+    def initialize_state(self, state: IState) -> None:
+        """初始化状态"""
+        state_id = state.get_id()
+        if state_id:
+            self._states[state_id] = state
+            self._statistics["total_initialized"] += 1
+            logger.debug(f"初始化状态: {state_id}")
+    
+    def cleanup_state(self, state: IState) -> None:
+        """清理状态"""
+        state_id = state.get_id()
+        if state_id and state_id in self._states:
+            del self._states[state_id]
+            self._statistics["total_cleaned"] += 1
+            logger.debug(f"清理状态: {state_id}")
+    
+    def validate_state(self, state: IState) -> List[str]:
+        """验证状态"""
+        errors = []
+        
+        # 基础验证
+        if not state.get_id():
+            errors.append("状态ID不能为空")
+        
+        if state.get_created_at() > state.get_updated_at():
+            errors.append("创建时间不能晚于更新时间")
+        
+        return errors
     
     def register_state(self, state: IState) -> None:
         """注册状态"""
@@ -329,21 +360,25 @@ class BaseStateLifecycleManager(IStateLifecycleManager):
         if state_id:
             self._states[state_id] = state
             self._statistics["total_registered"] += 1
+            logger.debug(f"注册状态: {state_id}")
     
     def unregister_state(self, state_id: str) -> None:
         """注销状态"""
         if state_id in self._states:
             del self._states[state_id]
             self._statistics["total_unregistered"] += 1
+            logger.debug(f"注销状态: {state_id}")
     
     def on_state_saved(self, state: IState) -> None:
         """状态保存事件"""
         self._statistics["total_saved"] += 1
+        logger.debug(f"状态保存事件: {state.get_id()}")
     
     def on_state_deleted(self, state_id: str) -> None:
         """状态删除事件"""
         self.unregister_state(state_id)
         self._statistics["total_deleted"] += 1
+        logger.debug(f"状态删除事件: {state_id}")
     
     def on_state_error(self, state: IState, error: Exception) -> None:
         """状态错误事件"""

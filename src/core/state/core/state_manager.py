@@ -9,9 +9,11 @@ import logging
 from typing import Any, Dict, List, Optional, Type, Callable
 
 from ..interfaces.base import (
-    IState, IStateManager, IStateSerializer, IStateValidator, 
-    IStateLifecycleManager, IStateCache, IStateStorageAdapter
+    IState, IStateManager, IStateValidator,
+    IStateCache, IStateStorageAdapter
 )
+from src.interfaces.state.serializer import IStateSerializer
+from src.interfaces.state.lifecycle import IStateLifecycleManager
 from .base import BaseStateSerializer, BaseStateValidator, BaseStateLifecycleManager
 
 
@@ -82,7 +84,7 @@ class StateManager(IStateManager):
             return NoOpCacheAdapter()
     
 
-    def _register_default_state_types(self):
+    def _register_default_state_types(self) -> None:
         """注册默认状态类型"""
         # 延迟导入避免循环依赖
         from ..implementations.workflow_state import WorkflowState
@@ -97,7 +99,7 @@ class StateManager(IStateManager):
         self.register_state_type('thread', ThreadState)
         self.register_state_type('checkpoint', CheckpointState)
     
-    def register_state_type(self, state_type: str, state_class: Type[IState]):
+    def register_state_type(self, state_type: str, state_class: Type[IState]) -> None:
         """注册状态类型
         
         Args:
@@ -108,7 +110,7 @@ class StateManager(IStateManager):
             self._state_types[state_type] = state_class
             logger.debug(f"注册状态类型: {state_type} -> {state_class.__name__}")
     
-    def create_state(self, state_type: str, **kwargs) -> IState:
+    def create_state(self, state_type: str, **kwargs: Any) -> IState:
         """创建状态
         
         Args:
@@ -328,7 +330,7 @@ class StateManager(IStateManager):
                         is_expired = False
                         if hasattr(state, 'is_expired'):
                             try:
-                                is_expired = getattr(state, 'is_expired')()  # type: ignore
+                                is_expired = getattr(state, 'is_expired')()
                             except Exception:
                                 is_expired = False
                         

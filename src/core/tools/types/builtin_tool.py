@@ -16,9 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 class BuiltinTool(BaseTool):
-    """内置工具
+    """内置工具 - 纯同步实现
     
     用于包装简单的、无状态的Python函数，如计算器、哈希转换等。
+    
+    设计：
+    - execute() 是直接实现（快速同步路径）
+    - execute_async() 通过基类默认包装（使用线程池）
     """
     
     def __init__(self, func: Callable, config: Any):
