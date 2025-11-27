@@ -124,11 +124,16 @@ from .repository import (
 from .container import (
     IDependencyContainer,
     ILifecycleAware,
+    ILifecycleManager,
+    IServiceRegistry,
+    IServiceResolver,
     IServiceTracker,
-    IServiceCache,
     IPerformanceMonitor,
     IDependencyAnalyzer,
+    IServiceCache,
     IScopeManager,
+    ServiceRegistration,
+    DependencyChain,
     ServiceStatus
 )
 
@@ -151,15 +156,17 @@ from .prompts import (
 )
 
 # 通用相关接口
-from .common import (
+from .common_infra import (
     IConfigLoader,
     IConfigInheritanceHandler,
-    ISerializable,
-    ICacheable,
-    ITimestamped,
     IStorage,
     ILogger,
     LogLevel,
+)
+from .common_domain import (
+    ISerializable,
+    ICacheable,
+    ITimestamped,
     # 抽象数据类型
     AbstractSessionStatus,
     AbstractSessionData,
@@ -279,11 +286,16 @@ __all__ = [
     # 容器接口
     "IDependencyContainer",
     "ILifecycleAware",
+    "ILifecycleManager",
+    "IServiceRegistry",
+    "IServiceResolver",
     "IServiceTracker",
-    "IServiceCache",
     "IPerformanceMonitor",
     "IDependencyAnalyzer",
+    "IServiceCache",
     "IScopeManager",
+    "ServiceRegistration",
+    "DependencyChain",
     "ServiceStatus",
     
     # 存储接口

@@ -151,7 +151,7 @@ class PromptTypeConfig:
 def create_prompt_type_config(
     type_name: str,
     injection_order: int,
-    **kwargs
+    **kwargs: Any
 ) -> PromptTypeConfig:
     """创建提示词类型配置"""
     return PromptTypeConfig(type_name, injection_order, **kwargs)

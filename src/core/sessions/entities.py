@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 from uuid import uuid4
 from enum import Enum
-from src.interfaces.common import AbstractSessionData, AbstractSessionStatus
+from src.interfaces.common_domain import AbstractSessionData, AbstractSessionStatus
 
 
 # 直接使用接口层定义的会话状态枚举

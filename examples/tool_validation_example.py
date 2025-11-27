@@ -13,7 +13,7 @@ sys.path.insert(0, str(project_root))
 from src.infrastructure.container import get_global_container
 from src.services.tools.validation.manager import ToolValidationManager
 from infrastructure.config.loader.file_config_loader import IConfigLoader
-from src.interfaces.common import ILogger
+from src.interfaces.common_infra import ILogger
 from src.core.tools.interfaces import IToolManager
 
 

@@ -7,21 +7,21 @@
 #### 1.1.1 建议的三层架构
 ```
 ┌─────────────────────────────────────┐
-│           应用层接口                  │
+│           应用层接口                 │
 │  (Application Layer Interfaces)     │
 │  - ISessionService                  │
 │  - IWorkflowManager                 │
 │  - IToolManager                     │
 └─────────────────────────────────────┘
 ┌─────────────────────────────────────┐
-│           领域层接口                  │
+│           领域层接口                 │
 │  (Domain Layer Interfaces)          │
 │  - ISession                         │
 │  - IWorkflow                        │
 │  - ITool                            │
 └─────────────────────────────────────┘
 ┌─────────────────────────────────────┐
-│           基础设施层接口              │
+│           基础设施层接口             │
 │  (Infrastructure Layer Interfaces)  │
 │  - ISessionRepository               │
 │  - IWorkflowExecutor                │

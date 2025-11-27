@@ -4,11 +4,10 @@
 """
 
 from .backend import IStorageBackend
-from .adapter import IStateStorageAdapter, IStorageAdapterFactory
-from .async_adapter import IAsyncStateStorageAdapter, IAsyncStorageAdapterFactory, IAsyncStorageMigration
+from .adapter import IStateStorageAdapter, IStorageAdapterFactory, IStorageMigration
 from .cache import IStorageCache
 from .metrics import IStorageMetrics
-from .migration import IStorageMigration
+from .migration import IAsyncStorageMigration
 
 __all__ = [
     # 存储后端接口
@@ -18,11 +17,6 @@ __all__ = [
     'IStateStorageAdapter',
     'IStorageAdapterFactory',
     
-    # 异步适配器接口
-    'IAsyncStateStorageAdapter',
-    'IAsyncStorageAdapterFactory',
-    'IAsyncStorageMigration',
-    
     # 缓存接口
     'IStorageCache',
     
@@ -30,5 +24,6 @@ __all__ = [
     'IStorageMetrics',
     
     # 迁移接口
-    'IStorageMigration'
+    'IStorageMigration',
+    'IAsyncStorageMigration'
 ]

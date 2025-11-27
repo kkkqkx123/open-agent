@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from types import TracebackType
 
 from src.interfaces.container import IDependencyContainer
-from src.interfaces.common import ILogger
+from src.interfaces.common_infra import ILogger
 from src.core.common.types import ServiceLifetime
 
 # 泛型类型变量

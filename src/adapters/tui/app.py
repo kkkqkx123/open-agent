@@ -41,7 +41,7 @@ from .session_handler import SessionHandler
 
 # 新架构导入
 from src.services.container import get_global_container
-from src.interfaces.common import IConfigLoader
+from src.interfaces.common_infra import IConfigLoader
 from src.core.config.models.global_config import GlobalConfig
 from src.services.logger.logger import set_global_config
 from src.interfaces.sessions.service import ISessionService

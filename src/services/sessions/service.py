@@ -14,7 +14,7 @@ from src.interfaces.sessions import ISessionService
 from src.interfaces.sessions.service import ISessionService as ISessionServiceInterface
 from interfaces.repository.session import ISessionRepository
 from src.interfaces.threads.service import IThreadService
-from src.interfaces.common import AbstractSessionStatus
+from src.interfaces.common_domain import AbstractSessionStatus
 from src.core.common.exceptions import ValidationError
 from src.core.common.exceptions.storage import StorageNotFoundError as EntityNotFoundError
 from src.core.common.exceptions.session_thread import (
