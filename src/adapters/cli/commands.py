@@ -305,8 +305,8 @@ def setup_container(config_path: Optional[str] = None) -> None:
     
     # 注册配置加载器
     if not container.has_service(IConfigLoader):
-        from src.core.config.config_loader import FileConfigLoader
-        config_loader = FileConfigLoader()
+        from src.core.config.config_loader import ConfigLoader
+        config_loader = ConfigLoader()
         container.register_instance(IConfigLoader, config_loader)
     
     # 注册配置管理器

@@ -256,24 +256,13 @@ def load_config_file(file_path: Union[str, Path]) -> Dict[str, Any]:
 
 def merge_configs(*configs: Dict[str, Any]) -> Dict[str, Any]:
     """合并多个配置"""
+    from src.core.common.utils.dict_merger import DictMerger
+    merger = DictMerger()
     result = {}
     for config in configs:
         if config:
-            # 深度合并
-            result = _deep_merge(result, config)
+            # 使用通用的字典合并器进行深度合并
+            result = merger.deep_merge(result, config)
     return result
 
 
-# 保持向后兼容性：FileConfigLoader是ConfigLoader的别名
-FileConfigLoader = ConfigLoader
-def _deep_merge(base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
-    """深度合并字典"""
-    result = base.copy()
-
-    for key, value in update.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = _deep_merge(result[key], value)
-        else:
-            result[key] = value
-
-    return result

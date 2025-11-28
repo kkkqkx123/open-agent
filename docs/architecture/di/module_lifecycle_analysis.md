@@ -60,7 +60,7 @@ def analyze_state_lifecycle_requirements():
 **生命周期使用特点**：
 - **全部使用单例模式**：所有LLM相关服务都使用 `container.register_singleton()`
 - **核心服务单例化**：
-  - 配置加载器 (`FileConfigLoader`) - 单例，配置访问统一
+  - 配置加载器 (`ConfigLoader`) - 单例，配置访问统一
   - LLM工厂 (`LLMFactory`) - 单例，LLM实例创建统一
   - 配置验证器 (`LLMConfigValidator`) - 单例，验证规则统一
   - 配置管理器 (`ConfigManager`) - 单例，配置管理统一

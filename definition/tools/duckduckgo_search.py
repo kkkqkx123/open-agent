@@ -26,10 +26,10 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 try:
-    from src.core.config.config_loader import FileConfigLoader
+    from src.core.config.config_loader import ConfigLoader
 except ImportError:
     # 如果无法导入，使用默认值
-    FileConfigLoader = None
+    ConfigLoader = None
 
 
 @dataclass
@@ -93,7 +93,7 @@ from .fetch import get_browser_headers
 
 def _load_duckduckgo_config():
     """加载DuckDuckGo搜索工具配置"""
-    if FileConfigLoader is None:
+    if ConfigLoader is None:
         # 如果无法导入配置加载器，使用默认值
         return {
             "timeout": 30.0,
@@ -104,7 +104,7 @@ def _load_duckduckgo_config():
         }
 
     try:
-        config_loader = FileConfigLoader()
+        config_loader = ConfigLoader()
         config = config_loader.load("tools/duckduckgo_search.yaml")
 
         # 提取搜索相关配置

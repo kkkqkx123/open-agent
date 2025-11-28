@@ -96,7 +96,7 @@ Adapters (适配器层)
 
 #### 3.3 配置加载器
 
-- `FileConfigLoader`: 基于YamlLoader的配置加载器
+- `ConfigLoader`: 基于YamlLoader的配置加载器
 - 支持缓存、验证、环境变量解析
 - 生命周期管理
 

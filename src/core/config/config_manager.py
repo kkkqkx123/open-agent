@@ -353,8 +353,14 @@ class ConfigManager(IUnifiedConfigManager):
             config = self.load_config(path)
             configs.append(config)
         
-        # 使用处理器的合并逻辑
-        return self.processor._merge_configs(*configs)
+        # 使用通用的字典合并器合并多个配置
+        from src.core.common.utils.dict_merger import DictMerger
+        merger = DictMerger()
+        result = {}
+        for config in configs:
+            result = merger.deep_merge(result, config)
+        
+        return result
     
     def process_config(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
         """处理配置数据（不加载文件）"""

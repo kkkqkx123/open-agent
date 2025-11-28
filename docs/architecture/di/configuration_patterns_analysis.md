@@ -405,8 +405,8 @@ def configure_workflow_services() -> None:
     
 # LLM模块
 def register_llm_services(container) -> None:
-    # 直接注册，没有错误处理
-    container.register_singleton(FileConfigLoader)
+ # 直接注册，没有错误处理
+ container.register_singleton(ConfigLoader)
 ```
 
 #### ✅ 建议的统一错误处理
@@ -458,12 +458,12 @@ def configure_state_services(container: ServiceContainer, config: Dict[str, Any]
 
 ```python
 def register_llm_services(container) -> None:
-    # 注册配置加载器
-    container.register_singleton(FileConfigLoader)
-    # 注册LLM工厂
-    container.register_singleton(LLMFactory)
-    # 注册配置验证器
-    container.register_singleton(LLMConfigValidator)
+     # 注册配置加载器
+     container.register_singleton(ConfigLoader)
+     # 注册LLM工厂
+     container.register_singleton(LLMFactory)
+     # 注册配置验证器
+     container.register_singleton(LLMConfigValidator)
 ```
 
 #### 模式3：简化注册模式

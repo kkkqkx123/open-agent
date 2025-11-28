@@ -42,46 +42,11 @@ class ConfigProcessor:
     
     def _process_inheritance(self, config: Dict[str, Any], config_path: Optional[str] = None) -> Dict[str, Any]:
         """处理继承关系"""
-        inherits_from = config.get("inherits_from")
-        if not inherits_from:
-            return config
-        
-        # 标准化继承配置
-        if isinstance(inherits_from, str):
-            parent_configs = [inherits_from]
-        elif isinstance(inherits_from, list):
-            parent_configs = inherits_from
-        else:
-            raise ConfigInheritanceError(
-                f"无效的继承配置格式: {inherits_from}",
-                config_path
-            )
-        
-        # 处理每个父配置
-        merged_config = {}
-        for parent_path in parent_configs:
-            try:
-                # 加载父配置
-                parent_config = self._load_parent_config(parent_path, config_path)
-                
-                # 合并父配置
-                merged_config = self._merge_configs(merged_config, parent_config)
-                
-            except Exception as e:
-                raise ConfigInheritanceError(
-                    f"处理继承配置失败: {parent_path} - {e}",
-                    config_path,
-                    parent_path
-                )
-        
-        # 合并当前配置（当前配置优先级更高）
-        merged_config = self._merge_configs(merged_config, config)
-        
-        # 移除继承字段
-        if "inherits_from" in merged_config:
-            del merged_config["inherits_from"]
-        
-        return merged_config
+        from src.core.common.utils.inheritance_handler import ConfigInheritanceHandler
+        handler = ConfigInheritanceHandler(self.loader)
+        # 获取配置文件的目录路径
+        base_path = Path(config_path).parent if config_path else None
+        return handler.resolve_inheritance(config, base_path)
     
     def _load_parent_config(self, parent_path: str, current_path: Optional[str] = None) -> Dict[str, Any]:
         """加载父配置"""
@@ -113,54 +78,16 @@ class ConfigProcessor:
     
     def _resolve_env_vars(self, obj: Any) -> Any:
         """解析环境变量"""
-        if isinstance(obj, dict):
-            return {k: self._resolve_env_vars(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [self._resolve_env_vars(item) for item in obj]
-        elif isinstance(obj, str):
-            return self._resolve_env_string(obj)
-        else:
-            return obj
-    
-    def _resolve_env_string(self, text: str) -> str:
-        """解析环境变量字符串"""
-        def replace_var(match):
-            var_expr = match.group(1).strip()
-            
-            # 处理默认值语法 ${VAR:default}
-            if ":" in var_expr:
-                var_name, default_value = var_expr.split(":", 1)
-                var_name = var_name.strip()
-                default_value = default_value.strip()
-                
-                # 获取环境变量值
-                env_value = os.getenv(var_name)
-                if env_value is not None:
-                    return env_value
-                
-                # 如果环境变量不存在，返回默认值
-                return default_value
-            
-            else:
-                # 简单的环境变量 ${VAR}
-                var_name = var_expr.strip()
-                env_value = os.getenv(var_name)
-                
-                if env_value is None:
-                    raise ConfigEnvironmentError(
-                        f"环境变量未找到: {var_name}",
-                        env_var=var_name
-                    )
-                
-                return env_value
-        
-        try:
-            return self._env_var_pattern.sub(replace_var, text)
-        except Exception as e:
-            raise ConfigEnvironmentError(f"环境变量解析失败: {e}")
+        from src.core.common.utils.env_resolver import EnvResolver
+        resolver = EnvResolver()
+        return resolver.resolve(obj)
     
     def _validate_config(self, config: Dict[str, Any], config_path: Optional[str] = None) -> None:
         """验证配置"""
+        # 使用通用验证器进行基础验证
+        from src.core.common.utils.validator import Validator
+        validator = Validator()
+        
         # 基础验证
         if not isinstance(config, dict):
             raise ConfigValidationError("配置必须是字典类型")
@@ -171,6 +98,12 @@ class ConfigProcessor:
         # 验证必需字段
         if "name" not in config:
             raise ConfigValidationError("配置必须包含 'name' 字段")
+        
+        # 使用通用验证器验证结构
+        validation_result = validator.validate_structure(config, [])
+        if not validation_result.is_valid:
+            for error in validation_result.errors:
+                raise ConfigValidationError(f"配置结构验证失败: {error}")
         
         # 类型特定验证
         config_type = config.get("type")
@@ -264,18 +197,9 @@ class ConfigProcessor:
     
     def _merge_configs(self, base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
         """深度合并配置"""
-        result = base.copy()
-        
-        for key, value in update.items():
-            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-                result[key] = self._merge_configs(result[key], value)
-            elif key in result and isinstance(result[key], list) and isinstance(value, list):
-                # 列表合并策略：追加新项
-                result[key] = result[key] + [item for item in value if item not in result[key]]
-            else:
-                result[key] = value
-        
-        return result
+        from src.core.common.utils.dict_merger import DictMerger
+        merger = DictMerger()
+        return merger.deep_merge(base, update)
     
     def clear_cache(self) -> None:
         """清除继承缓存"""
