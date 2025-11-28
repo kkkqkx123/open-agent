@@ -109,6 +109,16 @@ class ICacheProvider(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        获取缓存统计信息
+
+        Returns:
+            包含缓存统计信息的字典
+        """
+        pass
+
 
 class ICacheKeyGenerator(ABC):
     """缓存键生成器接口"""

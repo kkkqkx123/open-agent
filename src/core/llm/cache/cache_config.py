@@ -1,84 +1,105 @@
-"""缓存配置"""
+"""统一的缓存配置体系"""
 
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 
 
 @dataclass
-class CacheConfig:
-    """缓存配置"""
-    
-    # 基础配置
+class BaseCacheConfig:
+    """基础缓存配置"""
     enabled: bool = True
-    ttl_seconds: int = 3600  # 默认1小时
-    max_size: int = 1000  # 最大缓存项数
-    
-    # 缓存类型配置
-    cache_type: str = "memory"  # memory, redis, etc.
-    
-    # Anthropic特定缓存配置
-    cache_control_type: Optional[str] = None  # ephemeral, persistent
-    max_tokens: Optional[int] = None  # 缓存的最大token数
-    
-    # Gemini特定缓存配置
-    content_cache_enabled: bool = False
-    content_cache_ttl: str = "3600s"  # Gemini使用字符串格式
-    content_cache_display_name: Optional[str] = None
-    
-    # 通用缓存参数
+    ttl_seconds: int = 3600
+    max_size: int = 1000
+    cache_type: str = "memory"
     provider_config: Dict[str, Any] = field(default_factory=dict)
     
-    def __post_init__(self) -> None:
-        """初始化后处理"""
-        # 基础类不需要特殊处理，但提供一个空方法供子类调用
-        pass
-    
     def is_enabled(self) -> bool:
-        """检查缓存是否启用"""
         return self.enabled
     
     def get_ttl_seconds(self) -> int:
-        """获取TTL（秒）"""
         return self.ttl_seconds
     
     def get_max_size(self) -> int:
-        """获取最大缓存大小"""
         return self.max_size
     
     def get_provider_config(self) -> Dict[str, Any]:
-        """获取提供者特定配置"""
         return self.provider_config.copy()
+
+
+@dataclass
+class LLMCacheConfig(BaseCacheConfig):
+    """LLM缓存配置"""
+    # 缓存策略
+    strategy: str = "client"  # "client", "server", "hybrid"
+    auto_server_cache: bool = False
+    large_content_threshold: int = 1048576  # 1MB
+    
+    # 服务器端缓存
+    server_cache_enabled: bool = False
+    server_cache_ttl: str = "3600s"
+    server_cache_display_name: Optional[str] = None
+    server_cache_for_large_content: bool = True
+    
+    def __post_init__(self) -> None:
+        """验证配置"""
+        valid_strategies = ["client", "server", "hybrid"]
+        if self.strategy not in valid_strategies:
+            raise ValueError(f"无效的缓存策略: {self.strategy}")
+        
+        if not self._is_valid_ttl_format(self.server_cache_ttl):
+            raise ValueError(f"无效的TTL格式: {self.server_cache_ttl}")
+    
+    def _is_valid_ttl_format(self, ttl: str) -> bool:
+        """验证TTL格式"""
+        import re
+        pattern = r'^\d+[smhdw]$'
+        return bool(re.match(pattern, ttl))
+    
+    def should_use_server_cache(self, content_size: int) -> bool:
+        """判断是否应该使用服务器端缓存"""
+        if not self.server_cache_enabled:
+            return False
+        
+        if self.server_cache_for_large_content:
+            return content_size >= self.large_content_threshold
+        
+        return self.auto_server_cache
+
+
+@dataclass
+class GeminiCacheConfig(LLMCacheConfig):
+    """Gemini缓存配置"""
+    model_name: str = "gemini-2.0-flash-001"
+    large_content_threshold: int = 512 * 1024  # 512KB
     
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> "CacheConfig":
-        """从字典创建配置"""
+    def create_default(cls) -> "GeminiCacheConfig":
+        """创建默认配置"""
         return cls(
-            enabled=config_dict.get("enabled", True),
-            ttl_seconds=config_dict.get("ttl_seconds", 3600),
-            max_size=config_dict.get("max_size", 1000),
-            cache_type=config_dict.get("cache_type", "memory"),
-            cache_control_type=config_dict.get("cache_control_type"),
-            max_tokens=config_dict.get("max_tokens"),
-            content_cache_enabled=config_dict.get("content_cache_enabled", False),
-            content_cache_ttl=config_dict.get("content_cache_ttl", "3600s"),
-            content_cache_display_name=config_dict.get("content_cache_display_name"),
-            provider_config=config_dict.get("provider_config", {}),
+            enabled=True,
+            strategy="hybrid",
+            server_cache_enabled=True,
+            auto_server_cache=True,
+            server_cache_ttl="3600s"
         )
+
+
+@dataclass
+class AnthropicCacheConfig(LLMCacheConfig):
+    """Anthropic缓存配置"""
+    cache_control_type: Optional[str] = None  # ephemeral, persistent
+    max_tokens: Optional[int] = None
     
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
-        return {
-            "enabled": self.enabled,
-            "ttl_seconds": self.ttl_seconds,
-            "max_size": self.max_size,
-            "cache_type": self.cache_type,
-            "cache_control_type": self.cache_control_type,
-            "max_tokens": self.max_tokens,
-            "content_cache_enabled": self.content_cache_enabled,
-            "content_cache_ttl": self.content_cache_ttl,
-            "content_cache_display_name": self.content_cache_display_name,
-            "provider_config": self.provider_config,
-        }
+    @classmethod
+    def create_default(cls) -> "AnthropicCacheConfig":
+        """创建默认配置"""
+        return cls(
+            enabled=True,
+            strategy="client",
+            cache_control_type="ephemeral"
+        )
+
+
 
 
 @dataclass
