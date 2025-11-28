@@ -1,7 +1,7 @@
 """HumanRelay LLM客户端实现"""
 
 import asyncio
-from typing import List, Dict, Any, Optional, AsyncGenerator, Generator, Sequence
+from typing import List, Dict, Any, Optional, AsyncGenerator, Generator, Sequence, cast
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 
 from .base import BaseLLMClient
@@ -43,8 +43,9 @@ class HumanRelayClient(BaseLLMClient):
     ) -> LLMResponse:
         """执行生成操作"""
         # 使用EventLoopManager运行异步方法
-        from core.common.async_utils import run_async
-        return run_async(self._do_generate_async(messages, parameters, **kwargs))
+        from core.common.async_utils import run_async  # type: ignore
+        result = run_async(self._do_generate_async(messages, parameters, **kwargs))
+        return cast(LLMResponse, result)
     
     async def _single_turn_generate(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
@@ -184,7 +185,7 @@ class HumanRelayClient(BaseLLMClient):
             timeout = self.config.metadata_config.get('frontend_timeout', 300)
         
         # 返回验证后的超时值，限制在合理范围内
-        return max(10, min(timeout, 3600))  # 限制在10秒到1小时之间
+        return cast(int, max(10, min(timeout, 3600)))  # 限制在10秒到1小时之间
     
     def _do_stream_generate_async(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any

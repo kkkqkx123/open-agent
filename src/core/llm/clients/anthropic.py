@@ -79,18 +79,27 @@ class AnthropicClient(BaseLLMClient):
             model_kwargs["top_k"] = config.top_k
 
         # 为ChatAnthropic准备参数，需要处理api_key可能为None的情况
-        client_kwargs = {
-            "model_name": config.model_name,
+        client_kwargs: Dict[str, Any] = {
+            "model": config.model_name,
             "temperature": config.temperature,
             "top_p": config.top_p,
             "timeout": config.timeout,
             "max_retries": config.max_retries,
-            **model_kwargs
         }
 
         # 只有当api_key不为None时才添加
         if config.api_key is not None:
             client_kwargs["api_key"] = config.api_key
+
+        # 添加其他支持的参数
+        if config.max_tokens is not None:
+            client_kwargs["max_tokens"] = config.max_tokens
+        if config.stop_sequences is not None:
+            client_kwargs["stop_sequences"] = config.stop_sequences
+        if config.tools is not None:
+            client_kwargs["tools"] = config.tools
+        if config.tool_choice is not None:
+            client_kwargs["tool_choice"] = config.tool_choice
 
         self._client = ChatAnthropic(**client_kwargs)
 

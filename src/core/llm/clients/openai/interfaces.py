@@ -10,7 +10,7 @@ from src.interfaces.llm import LLMResponse
 class BaseOpenAIClient(ABC):
     """OpenAI 客户端基类接口"""
     
-    def __init__(self, config) -> None:
+    def __init__(self, config: Any) -> None:
         """
         初始化客户端
         

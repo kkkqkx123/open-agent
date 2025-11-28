@@ -14,7 +14,7 @@ from src.interfaces.llm import LLMResponse
 class ResponsesClient(ResponsesAPIClient):
     """轻量级 Responses API 客户端"""
     
-    def __init__(self, config) -> None:
+    def __init__(self, config: Any) -> None:
         """
         初始化 Responses API 客户端
         
@@ -326,73 +326,73 @@ class ResponsesClient(ResponsesAPIClient):
                 status_code = getattr(response, "status_code", None)
                 if status_code is not None:
                     if status_code == 401:
-                        llm_error = LLMAuthenticationError("OpenAI API 密钥无效")
-                        llm_error.original_error = error
-                        return llm_error
+                        auth_error = LLMAuthenticationError("OpenAI API 密钥无效")
+                        auth_error.original_error = error
+                        return auth_error
                     elif status_code == 429:
                         retry_after = None
                         headers = getattr(response, "headers", None)
                         if headers and "retry-after" in headers:
                             retry_after = int(headers["retry-after"])
-                        llm_error = LLMRateLimitError(
+                        rate_error = LLMRateLimitError(
                             "OpenAI API 频率限制", retry_after=retry_after
                         )
-                        llm_error.original_error = error
-                        return llm_error
+                        rate_error.original_error = error
+                        return rate_error
                     elif status_code == 404:
-                        llm_error = LLMModelNotFoundError(self.config.model_name)
-                        llm_error.original_error = error
-                        return llm_error
+                        model_error = LLMModelNotFoundError(self.config.model_name)
+                        model_error.original_error = error
+                        return model_error
                     elif status_code == 400:
-                        llm_error = LLMInvalidRequestError("OpenAI API 请求无效")
-                        llm_error.original_error = error
-                        return llm_error
+                        request_error = LLMInvalidRequestError("OpenAI API 请求无效")
+                        request_error.original_error = error
+                        return request_error
                     elif status_code in [500, 502, 503]:
-                        llm_error = LLMServiceUnavailableError("OpenAI 服务不可用")
-                        llm_error.original_error = error
-                        return llm_error
+                        service_error = LLMServiceUnavailableError("OpenAI 服务不可用")
+                        service_error.original_error = error
+                        return service_error
         except (AttributeError, ValueError, TypeError):
             # 如果访问属性时出错，忽略并继续执行其他错误检查
             pass
         
         # 根据错误消息判断
         if "timeout" in error_str or "timed out" in error_str:
-            llm_error = LLMTimeoutError(str(error), timeout=self.config.timeout)
-            llm_error.original_error = error
-            return llm_error
+            timeout_error = LLMTimeoutError(str(error), timeout=self.config.timeout)
+            timeout_error.original_error = error
+            return timeout_error
         elif "rate limit" in error_str or "too many requests" in error_str:
-            llm_error = LLMRateLimitError(str(error))
-            llm_error.original_error = error
-            return llm_error
+            rate_error = LLMRateLimitError(str(error))
+            rate_error.original_error = error
+            return rate_error
         elif (
             "authentication" in error_str
             or "unauthorized" in error_str
             or "invalid api key" in error_str
         ):
-            llm_error = LLMAuthenticationError(str(error))
-            llm_error.original_error = error
-            return llm_error
+            auth_error = LLMAuthenticationError(str(error))
+            auth_error.original_error = error
+            return auth_error
         elif "model not found" in error_str or "not found" in error_str:
-            llm_error = LLMModelNotFoundError(self.config.model_name)
-            llm_error.original_error = error
-            return llm_error
+            model_error = LLMModelNotFoundError(self.config.model_name)
+            model_error.original_error = error
+            return model_error
         elif "token" in error_str and "limit" in error_str:
-            llm_error = LLMTokenLimitError(str(error))
-            llm_error.original_error = error
-            return llm_error
+            token_error = LLMTokenLimitError(str(error))
+            token_error.original_error = error
+            return token_error
         elif "content filter" in error_str or "content policy" in error_str:
-            llm_error = LLMContentFilterError(str(error))
-            llm_error.original_error = error
-            return llm_error
+            content_error = LLMContentFilterError(str(error))
+            content_error.original_error = error
+            return content_error
         elif "service unavailable" in error_str or "503" in error_str:
-            llm_error = LLMServiceUnavailableError(str(error))
-            llm_error.original_error = error
-            return llm_error
+            service_error = LLMServiceUnavailableError(str(error))
+            service_error.original_error = error
+            return service_error
         elif "invalid request" in error_str or "bad request" in error_str:
-            llm_error = LLMInvalidRequestError(str(error))
-            llm_error.original_error = error
-            return llm_error
+            request_error = LLMInvalidRequestError(str(error))
+            request_error.original_error = error
+            return request_error
         else:
-            llm_error = LLMCallError(str(error))
-            llm_error.original_error = error
-            return llm_error
+            call_error = LLMCallError(str(error))
+            call_error.original_error = error
+            return call_error

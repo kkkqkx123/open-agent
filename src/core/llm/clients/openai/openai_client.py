@@ -70,8 +70,7 @@ class OpenAIClient(BaseLLMClient):
     def supports_function_calling(self) -> bool:
         """检查是否支持函数调用"""
         client = self._get_client()
-        result = client.supports_function_calling()
-        return cast(bool, result)
+        return client.supports_function_calling()
     
     def switch_api_format(self, api_format: str) -> None:
         """

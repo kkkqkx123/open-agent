@@ -109,7 +109,7 @@ class GeminiClient(BaseLLMClient):
 
     def _convert_messages(self, messages: Sequence[BaseMessage]) -> List[BaseMessage]:
         """转换消息格式以适应Gemini API"""
-        converted_messages = []
+        converted_messages: List[BaseMessage] = []
 
         for message in messages:
             if isinstance(message, SystemMessage):
