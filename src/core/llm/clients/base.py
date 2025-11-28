@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Sequence
 from datetime import datetime
 
-from langchain_core.messages import BaseMessage  # type: ignore
+from langchain_core.messages import BaseMessage
 
 from src.interfaces.llm import ILLMClient, ILLMCallHook, LLMResponse
 from ..models import TokenUsage, LLMError, ModelInfo
@@ -304,69 +304,14 @@ class BaseLLMClient(ILLMClient):
         # 如果需要精确的token验证，应通过依赖注入获取TokenCalculationService
         pass
 
-    def generate(
+    async def generate(
         self,
         messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
         """
-        生成文本响应
-
-        Args:
-            messages: 消息列表
-            parameters: 生成参数
-            **kwargs: 其他参数
-
-        Returns:
-            LLMResponse: 生成的响应
-        """
-        # 验证输入
-        self._validate_messages(messages)
-        self._validate_token_limit(messages)
-
-        # 合并参数
-        merged_params = self._merge_parameters(parameters)
-
-        # 调用前置钩子
-        self._call_before_hooks(messages, merged_params, **kwargs)
-
-        try:
-            # 测量执行时间
-            response, response_time = self._measure_time(
-                self._do_generate, messages, merged_params, **kwargs
-            )
-
-            # 调用后置钩子
-            self._call_after_hooks(response, messages, merged_params, **kwargs)
-
-            return response
-
-        except Exception as e:
-            # 转换为LLM错误
-            if not isinstance(e, LLMCallError):
-                llm_error = self._handle_api_error(e)
-            else:
-                llm_error = e
-
-            # 尝试通过钩子恢复
-            fallback_response = self._call_error_hooks(
-                llm_error, messages, merged_params, **kwargs
-            )
-            if fallback_response is not None:
-                return fallback_response
-
-            # 抛出错误
-            raise llm_error
-
-    async def generate_async(
-        self,
-        messages: Sequence[BaseMessage],
-        parameters: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
-    ) -> LLMResponse:
-        """
-        异步生成文本响应
+        生成文本响应（异步）
 
         Args:
             messages: 消息列表
@@ -414,14 +359,14 @@ class BaseLLMClient(ILLMClient):
             # 抛出错误
             raise llm_error
 
-    async def stream_generate_async(
+    async def stream_generate(
         self,
         messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> AsyncGenerator[str, None]:
         """
-        异步流式生成文本响应
+        流式生成文本响应（异步）
 
         Args:
             messages: 消息列表
@@ -443,60 +388,7 @@ class BaseLLMClient(ILLMClient):
 
         try:
             # 调用内部异步流式生成方法
-            async for chunk in self._do_stream_generate_async(
-                messages, merged_params, **kwargs
-            ):
-                yield chunk
-
-        except Exception as e:
-            # 转换为LLM错误
-            if not isinstance(e, LLMCallError):
-                llm_error = self._handle_api_error(e)
-            else:
-                llm_error = e
-
-            # 尝试通过钩子恢复
-            fallback_response = self._call_error_hooks(
-                llm_error, messages, merged_params, **kwargs
-            )
-            if fallback_response is not None:
-                # 如果钩子返回了响应，则返回模拟的流式内容
-                for chunk in fallback_response.content.split():
-                    yield chunk + " "
-            else:
-                # 抛出错误
-                raise llm_error
-
-    def stream_generate(
-        self,
-        messages: Sequence[BaseMessage],
-        parameters: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
-    ) -> Generator[str, None, None]:
-        """
-        流式生成文本响应
-
-        Args:
-            messages: 消息列表
-            parameters: 生成参数
-            **kwargs: 其他参数
-
-        Yields:
-            str: 生成的文本片段
-        """
-        # 验证输入
-        self._validate_messages(messages)
-        self._validate_token_limit(messages)
-
-        # 合并参数
-        merged_params = self._merge_parameters(parameters)
-
-        # 调用前置钩子
-        self._call_before_hooks(messages, merged_params, **kwargs)
-
-        try:
-            # 调用内部流式生成方法
-            for chunk in self._do_stream_generate(messages, merged_params, **kwargs):
+            async for chunk in self._do_stream_generate_async(messages, merged_params, **kwargs):
                 yield chunk
 
         except Exception as e:
@@ -519,10 +411,10 @@ class BaseLLMClient(ILLMClient):
                 raise llm_error
 
     @abstractmethod
-    def _do_stream_generate(
+    async def _do_generate_async(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
-    ) -> Generator[str, None, None]:
-        """执行流式生成操作（子类实现）"""
+    ) -> LLMResponse:
+        """执行异步生成操作（子类实现）"""
         pass
 
     @abstractmethod
@@ -530,20 +422,6 @@ class BaseLLMClient(ILLMClient):
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作（子类实现）"""
-        pass
-
-    @abstractmethod
-    def _do_generate(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
-    ) -> LLMResponse:
-        """执行生成操作（子类实现）"""
-        pass
-
-    @abstractmethod
-    async def _do_generate_async(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
-    ) -> LLMResponse:
-        """执行异步生成操作（子类实现）"""
         pass
 
 

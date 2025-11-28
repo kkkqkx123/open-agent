@@ -119,42 +119,6 @@ class AnthropicClient(BaseLLMClient):
 
         return converted_messages
 
-    def _do_generate(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
-    ) -> LLMResponse:
-        """执行生成操作"""
-        try:
-            # 转换消息格式
-            converted_messages = self._convert_messages(messages)
-
-            # 调用Anthropic API（系统消息已经在_convert_messages中处理）
-            response = self._client.invoke(converted_messages, **parameters)
-
-            # 提取Token使用情况
-            token_usage = self._extract_token_usage(response)
-
-            # 提取函数调用信息
-            function_call = self._extract_function_call(response)
-
-            # 处理content可能是列表的情况
-            content = response.content
-            if isinstance(content, list):
-                # 如果content是列表，将其转换为字符串
-                content = str(content)
-
-            # 创建响应对象
-            return self._create_response(
-                content=content,
-                message=response,
-                token_usage=token_usage,
-                finish_reason=self._extract_finish_reason(response),
-                function_call=function_call,
-            )
-
-        except Exception as e:
-            # 处理Anthropic特定错误
-            raise self._handle_anthropic_error(e)
-
     async def _do_generate_async(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
@@ -340,50 +304,29 @@ class AnthropicClient(BaseLLMClient):
                 error
             )
 
-    def _do_stream_generate(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
-    ) -> Generator[str, None, None]:
-        """执行流式生成操作"""
-        try:
-            # 转换消息格式
-            converted_messages = self._convert_messages(messages)
-
-            # 流式生成（系统消息已经在_convert_messages中处理）
-            stream = self._client.stream(converted_messages, **parameters)
-
-            # 收集完整响应
-            for chunk in stream:
-                if chunk.content:
-                    content = chunk.content
-                    if isinstance(content, list):
-                        # 如果content是列表，将其转换为字符串
-                        content = str(content)
-                    yield content
-
-        except Exception as e:
-            # 处理Anthropic特定错误
-            raise self._handle_anthropic_error(e)
-
-    async def _do_stream_generate_async(
+    def _do_stream_generate_async(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
-        try:
-            # 转换消息格式
-            converted_messages = self._convert_messages(messages)
+        async def _async_generator() -> AsyncGenerator[str, None]:
+            try:
+                # 转换消息格式
+                converted_messages = self._convert_messages(messages)
 
-            # 异步流式生成（系统消息已经在_convert_messages中处理）
-            stream = self._client.astream(converted_messages, **parameters)
+                # 异步流式生成（系统消息已经在_convert_messages中处理）
+                stream = self._client.astream(converted_messages, **parameters)
 
-            # 收集完整响应
-            async for chunk in stream:
-                if chunk.content:
-                    content = chunk.content
-                    if isinstance(content, list):
-                        # 如果content是列表，将其转换为字符串
-                        content = str(content)
-                    yield content
+                # 收集完整响应
+                async for chunk in stream:
+                    if chunk.content:
+                        content = chunk.content
+                        if isinstance(content, list):
+                            # 如果content是列表，将其转换为字符串
+                            content = str(content)
+                        yield content
 
-        except Exception as e:
-            # 处理Anthropic特定错误
-            raise self._handle_anthropic_error(e)
+            except Exception as e:
+                # 处理Anthropic特定错误
+                raise self._handle_anthropic_error(e)
+
+        return _async_generator()

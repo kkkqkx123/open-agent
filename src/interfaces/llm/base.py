@@ -40,14 +40,14 @@ class ILLMClient(ABC):
         pass
 
     @abstractmethod
-    def generate(
+    async def generate(
         self,
         messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
         """
-        生成文本响应
+        生成文本响应（异步）
 
         Args:
             messages: 消息列表
@@ -56,46 +56,6 @@ class ILLMClient(ABC):
 
         Returns:
             LLMResponse: 生成的响应
-        """
-        pass
-
-    @abstractmethod
-    async def generate_async(
-        self,
-        messages: Sequence[BaseMessage],
-        parameters: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
-    ) -> LLMResponse:
-        """
-        异步生成文本响应
-
-        Args:
-            messages: 消息列表
-            parameters: 生成参数
-            **kwargs: 其他参数
-
-        Returns:
-            LLMResponse: 生成的响应
-        """
-        pass
-
-    @abstractmethod
-    def stream_generate_async(
-        self,
-        messages: Sequence[BaseMessage],
-        parameters: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
-    ) -> AsyncGenerator[str, None]:
-        """
-        异步流式生成文本响应
-
-        Args:
-            messages: 消息列表
-            parameters: 生成参数
-            **kwargs: 其他参数
-
-        Yields:
-            str: 生成的文本片段
         """
         pass
 
@@ -105,9 +65,9 @@ class ILLMClient(ABC):
         messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
-    ) -> Generator[str, None, None]:
+    ) -> AsyncGenerator[str, None]:
         """
-        流式生成文本响应
+        流式生成文本响应（异步）
 
         Args:
             messages: 消息列表

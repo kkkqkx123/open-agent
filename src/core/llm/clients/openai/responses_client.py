@@ -36,49 +36,6 @@ class ResponsesClient(ResponsesAPIClient):
         # 设置 HTTP 标头
         self.headers = config.get_resolved_headers()
     
-    def generate(self, messages: Sequence[BaseMessage], **kwargs: Any) -> LLMResponse:
-        """
-        同步生成响应
-        
-        Args:
-            messages: 消息列表
-            **kwargs: 其他参数
-            
-        Returns:
-            LLMResponse: 生成的响应
-        """
-        # 转换消息为 input 格式
-        input_text = self._messages_to_input(messages)
-        
-        # 获取之前的响应 ID（如果有）
-        previous_response_id = self._get_previous_response_id()
-        
-        # 构建请求载荷
-        payload = self._build_payload(input_text, previous_response_id, **kwargs)
-        
-        try:
-            # 发送请求
-            with httpx.Client(timeout=self.config.timeout) as client:
-                response = client.post(
-                    f"{self.base_url}/responses",
-                    headers=self.headers,
-                    json=payload
-                )
-                response.raise_for_status()
-                api_response = response.json()
-            
-            # 转换响应格式
-            llm_response = self._converter.convert_responses_response(api_response)
-            
-            # 更新对话历史
-            self._update_conversation_history(api_response)
-            
-            return llm_response
-            
-        except Exception as e:
-            # 错误处理
-            raise self._handle_error(e)
-    
     async def generate_async(
         self, messages: Sequence[BaseMessage], **kwargs: Any
     ) -> LLMResponse:

@@ -68,7 +68,7 @@ class LLMNode(AsyncNode):
             parameters = self._prepare_parameters(processed_config)
             
             # 调用LLM
-            response = llm_client.generate(messages=messages, parameters=parameters)
+            response = await llm_client.generate(messages=messages, parameters=parameters)
             
             # 更新状态 - 添加LLM响应到消息列表
             ai_message = AIMessage(content=response.content)

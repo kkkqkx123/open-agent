@@ -52,31 +52,6 @@ class MockLLMClient(BaseLLMClient):
             "translation": "这是一个翻译的模拟响应：Hello, World! -> 你好，世界！",
         }
 
-    def _do_generate(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
-    ) -> LLMResponse:
-        """执行生成操作"""
-        # 模拟响应延迟
-        if self.response_delay > 0:
-            time.sleep(self.response_delay)
-
-        # 模拟错误
-        self._maybe_throw_error()
-
-        # 生成响应内容
-        content = self._generate_response_content(messages, parameters)
-
-        # 估算Token使用情况
-        token_usage = self._estimate_token_usage(content)
-
-        # 创建响应对象
-        return self._create_response(
-            content=content,
-            message=AIMessage(content=content),
-            token_usage=token_usage,
-            finish_reason="stop",
-        )
-
     async def _do_generate_async(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
@@ -102,49 +77,30 @@ class MockLLMClient(BaseLLMClient):
             finish_reason="stop",
         )
 
-    def _do_stream_generate(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
-    ) -> Generator[str, None, None]:
-        """执行流式生成操作"""
-        try:
-            # 模拟错误
-            self._maybe_throw_error()
-
-            # 生成完整响应
-            content = self._generate_response_content(messages, parameters)
-
-            # 确保有多个chunk，即使内容很短也要分割
-            # 总是按字符分割以确保有多个chunk
-            for i, char in enumerate(content):
-                # 模拟延迟
-                if self.response_delay > 0:
-                    time.sleep(self.response_delay / len(content))
-                yield char
-
-        except Exception as e:
-            raise self._handle_mock_error(e)
-
-    async def _do_stream_generate_async(
+    def _do_stream_generate_async(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
-        try:
-            # 模拟错误
-            self._maybe_throw_error()
+        async def _async_generator() -> AsyncGenerator[str, None]:
+            try:
+                # 模拟错误
+                self._maybe_throw_error()
 
-            # 生成完整响应
-            content = self._generate_response_content(messages, parameters)
+                # 生成完整响应
+                content = self._generate_response_content(messages, parameters)
 
-            # 确保有多个chunk，即使内容很短也要分割
-            # 总是按字符分割以确保有多个chunk
-            for i, char in enumerate(content):
-                # 模拟延迟
-                if self.response_delay > 0:
-                    await asyncio.sleep(self.response_delay / len(content))
-                yield char
+                # 确保有多个chunk，即使内容很短也要分割
+                # 总是按字符分割以确保有多个chunk
+                for i, char in enumerate(content):
+                    # 模拟延迟
+                    if self.response_delay > 0:
+                        await asyncio.sleep(self.response_delay / len(content))
+                    yield char
 
-        except Exception as e:
-            raise self._handle_mock_error(e)
+            except Exception as e:
+                raise self._handle_mock_error(e)
+
+        return _async_generator()
 
 
     def supports_function_calling(self) -> bool:

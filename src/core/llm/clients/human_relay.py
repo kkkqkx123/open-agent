@@ -186,31 +186,21 @@ class HumanRelayClient(BaseLLMClient):
         # 返回验证后的超时值，限制在合理范围内
         return max(10, min(timeout, 3600))  # 限制在10秒到1小时之间
     
-    async def _do_stream_generate_async(
+    def _do_stream_generate_async(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
-        # HumanRelay不支持真正的流式生成，但可以模拟
-        response = await self._do_generate_async(messages, parameters, **kwargs)
-        
-        # 按字符流式输出
-        for char in response.content:
-            yield char
-            await asyncio.sleep(0.01)  # 模拟流式延迟
+        async def _async_generator() -> AsyncGenerator[str, None]:
+            # HumanRelay不支持真正的流式生成，但可以模拟
+            response = await self._do_generate_async(messages, parameters, **kwargs)
+            
+            # 按字符流式输出
+            for char in response.content:
+                yield char
+                await asyncio.sleep(0.01)  # 模拟流式延迟
+
+        return _async_generator()
     
-    def _do_stream_generate(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
-    ) -> Generator[str, None, None]:
-        """执行流式生成操作"""
-        # 使用EventLoopManager运行异步方法
-        from core.common.async_utils import run_async
-        
-        # 获取完整响应
-        response = run_async(self._do_generate_async(messages, parameters, **kwargs))
-        
-        # 按字符流式输出
-        for char in response.content:
-            yield char
     
     def supports_function_calling(self) -> bool:
         """检查是否支持函数调用"""

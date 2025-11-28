@@ -122,36 +122,6 @@ class GeminiClient(BaseLLMClient):
 
         return converted_messages
 
-    def _do_generate(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
-    ) -> LLMResponse:
-        """执行生成操作"""
-        try:
-            # 转换消息格式
-            converted_messages = self._convert_messages(messages)
-
-            # 调用Gemini API
-            response = self._client.invoke(converted_messages, **parameters)
-
-            # 提取Token使用情况
-            token_usage = self._extract_token_usage(response)
-
-            # 提取函数调用信息
-            function_call = self._extract_function_call(response)
-
-            # 创建响应对象
-            return self._create_response(
-                content=self._extract_content(response),
-                message=response,
-                token_usage=token_usage,
-                finish_reason=self._extract_finish_reason(response),
-                function_call=function_call,
-            )
-
-        except Exception as e:
-            # 处理Gemini特定错误
-            raise self._handle_gemini_error(e)
-
     async def _do_generate_async(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
@@ -366,34 +336,10 @@ class GeminiClient(BaseLLMClient):
                 error
             )
 
-    def _do_stream_generate(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
-    ) -> Generator[str, None, None]:
-        """执行流式生成操作"""
-        try:
-            # 转换消息格式
-            converted_messages = self._convert_messages(messages)
-
-            # 流式生成
-            stream = self._client.stream(converted_messages, **parameters)
-
-            # 收集完整响应
-            for chunk in stream:
-                if chunk.content:
-                    # 使用_extract_content方法确保返回字符串类型
-                    content = self._extract_content(chunk)
-                    if content:
-                        yield content
-
-        except Exception as e:
-            # 处理Gemini特定错误
-            raise self._handle_gemini_error(e)
-
     def _do_stream_generate_async(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
-
         async def _async_generator() -> AsyncGenerator[str, None]:
             try:
                 # 转换消息格式

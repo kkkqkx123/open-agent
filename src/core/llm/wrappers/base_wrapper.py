@@ -60,29 +60,13 @@ class BaseLLMWrapper(ABC):
         """获取模型信息"""
         pass
     
-    def stream_generate(
-        self,
-        messages: Sequence,
-        parameters: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
-    ) -> Generator[str, None, None]:
-        """流式生成（默认实现）"""
-        # 默认实现：使用generate方法并模拟流式输出
-        response = self.generate(messages, parameters, **kwargs)
-        content = response.content
-        
-        # 简单的分块输出
-        chunk_size = 10
-        for i in range(0, len(content), chunk_size):
-            yield content[i:i + chunk_size]
-    
-    async def stream_generate_async(
+    async def stream_generate(
         self,
         messages: Sequence,
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> AsyncGenerator[str, None]:
-        """异步流式生成（默认实现）"""
+        """流式生成（默认实现）"""
         # 默认实现：使用generate_async方法并模拟流式输出
         response = await self.generate_async(messages, parameters, **kwargs)
         content = response.content

@@ -3,7 +3,7 @@
 验证工具加载过程的正确性
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from src.interfaces import ILogger
 from src.interfaces.tool.base import IToolManager
 from ..interfaces import IToolValidator

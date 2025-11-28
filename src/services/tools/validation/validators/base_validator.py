@@ -30,7 +30,7 @@ class BaseValidator(IToolValidator):
         )
         return result
     
-    def validate_loading(self, tool_name: str) -> ValidationResult:
+    async def validate_loading(self, tool_name: str) -> ValidationResult:
         """验证工具加载过程 - 基础验证器不实现此方法"""
         result = ValidationResult(tool_name, "unknown", ValidationStatus.WARNING)
         result.add_issue(

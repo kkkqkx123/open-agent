@@ -45,13 +45,6 @@ class OpenAIClient(BaseLLMClient):
             raise RuntimeError("客户端未初始化")
         return self._client
     
-    def _do_generate(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
-    ) -> LLMResponse:
-        """执行生成操作"""
-        client = self._get_client()
-        return client.generate(messages, **parameters, **kwargs)
-    
     async def _do_generate_async(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
@@ -59,25 +52,20 @@ class OpenAIClient(BaseLLMClient):
         client = self._get_client()
         return await client.generate_async(messages, **parameters, **kwargs)
     
-    def _do_stream_generate(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
-    ) -> Generator[str, None, None]:
-        """执行流式生成操作"""
-        client = self._get_client()
-        result = client.stream_generate(messages, **parameters, **kwargs)
-        return cast(Generator[str, None, None], result)
-    
-    async def _do_stream_generate_async(
+    def _do_stream_generate_async(
         self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
-        client = self._get_client()
-        async_gen_coroutine = client.stream_generate_async(
-            messages, **parameters, **kwargs
-        )
-        async_gen = await async_gen_coroutine
-        async for chunk in async_gen:
-            yield chunk
+        async def _async_generator() -> AsyncGenerator[str, None]:
+            client = self._get_client()
+            async_gen_coroutine = client.stream_generate_async(
+                messages, **parameters, **kwargs
+            )
+            async_gen = await async_gen_coroutine
+            async for chunk in async_gen:
+                yield chunk
+
+        return _async_generator()
     
     def supports_function_calling(self) -> bool:
         """检查是否支持函数调用"""
@@ -122,7 +110,7 @@ class OpenAIClient(BaseLLMClient):
         """
         return ["chat_completion", "responses"]
     
-    def generate_with_fallback(
+    async def generate_with_fallback(
         self,
         messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
@@ -144,7 +132,7 @@ class OpenAIClient(BaseLLMClient):
         """
         # 简化版本：直接使用当前格式
         # 如果需要降级功能，可以在这里实现
-        return self.generate(messages, parameters, **kwargs)
+        return await self._do_generate_async(messages, parameters or {}, **kwargs)
     
     async def generate_with_fallback_async(
         self,
@@ -168,7 +156,7 @@ class OpenAIClient(BaseLLMClient):
         """
         # 简化版本：直接使用当前格式
         # 如果需要降级功能，可以在这里实现
-        return await self.generate_async(messages, parameters, **kwargs)
+        return await self._do_generate_async(messages, parameters or {}, **kwargs)
     
     def get_client_info(self) -> Dict[str, Any]:
         """

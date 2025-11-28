@@ -20,20 +20,6 @@ class BaseOpenAIClient(ABC):
         self.config = config
     
     @abstractmethod
-    def generate(self, messages: Sequence[BaseMessage], **kwargs: Any) -> LLMResponse:
-        """
-        同步生成响应
-        
-        Args:
-            messages: 消息列表
-            **kwargs: 其他参数
-            
-        Returns:
-            LLMResponse: 生成的响应
-        """
-        pass
-    
-    @abstractmethod
     async def generate_async(
         self, messages: Sequence[BaseMessage], **kwargs: Any
     ) -> LLMResponse:
@@ -46,22 +32,6 @@ class BaseOpenAIClient(ABC):
             
         Returns:
             LLMResponse: 生成的响应
-        """
-        pass
-    
-    @abstractmethod
-    def stream_generate(
-        self, messages: Sequence[BaseMessage], **kwargs: Any
-    ) -> Generator[str, None, None]:
-        """
-        同步流式生成
-        
-        Args:
-            messages: 消息列表
-            **kwargs: 其他参数
-            
-        Yields:
-            str: 流式响应块
         """
         pass
     
