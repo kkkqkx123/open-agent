@@ -422,7 +422,8 @@ class InheritanceConfigLoader(IConfigLoader):
     
     def _handle_file_change(self, file_path: str) -> None:
         """处理文件变化事件"""
-        self.base_loader._handle_file_change(file_path)
+        if hasattr(self.base_loader, '_handle_file_change'):
+            self.base_loader._handle_file_change(file_path)  # type: ignore[attr-defined]
     
     def save_config(self, config: Dict[str, Any], config_path: str, config_type: Optional[str] = None) -> None:
         """保存配置

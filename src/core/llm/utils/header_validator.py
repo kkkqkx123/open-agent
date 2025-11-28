@@ -11,10 +11,34 @@ logger = logging.getLogger(__name__)
 class HeaderValidator:
     """HTTP标头验证器"""
 
-    # 白名单标头
-    ALLOWED_HEADERS = {"x-api-key", "x-custom-header", "user-agent", "authorization"}
+    # 白名单标头 - 包含常用的HTTP标头
+    ALLOWED_HEADERS = {
+        "authorization",      # 认证标头
+        "x-api-key",         # API密钥标头
+        "x-custom-header",   # 自定义标头
+        "user-agent",        # 用户代理标头
+        "content-type",      # 内容类型标头
+        "content-length",    # 内容长度标头
+        "accept",            # 接受类型标头
+        "accept-encoding",   # 接受编码标头
+        "accept-language",   # 接受语言标头
+        "cache-control",     # 缓存控制标头
+        "pragma",            # pragma标头
+        "x-requested-with",  # 请求来源标头
+        "x-forwarded-for",   # 转发IP标头
+        "x-forwarded-proto", # 转发协议标头
+        "x-forwarded-host",  # 转发主机标头
+        "referer",          # 引用页标头
+        "origin",           # 来源标头
+        "host",             # 主机标头
+        "connection",       # 连接标头
+        "accept-charset",   # 接受字符集标头
+        "accept-datetime", # 接受日期时间标头
+        "x-csrf-token",     # CSRF令牌标头
+        "x-http-method-override", # HTTP方法重写标头
+    }
 
-    # 敏感标头（需要环境变量引用）
+    # 敏感标头（需要环境变量引用）- 仅包含真正敏感的标头
     SENSITIVE_HEADERS = {"authorization", "x-api-key"}
 
     # 环境变量引用模式

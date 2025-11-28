@@ -29,7 +29,7 @@ class MessageConverter:
     提供在不同消息格式之间的双向转换。
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化消息转换器"""
         self.logger = logging.getLogger(__name__)
     
@@ -119,8 +119,14 @@ class MessageConverter:
             Dict[str, Any]: 字典格式消息
         """
         try:
-            result = {
-                "content": message.content,
+            content: Union[str, List[Union[str, Dict[str, Any]]]]
+            if isinstance(message.content, str):
+                content = message.content
+            else:
+                content = message.content  # type: ignore[assignment]
+            
+            result: Dict[str, Any] = {
+                "content": content,
                 "type": self._get_message_type(message)
             }
             
@@ -313,27 +319,31 @@ class MessageConverter:
             if message.tool_calls:
                 return message.tool_calls
             # 回退到 metadata
-            return message.metadata.get("tool_calls", [])
+            tool_calls_meta = message.metadata.get("tool_calls", [])
+            return tool_calls_meta if isinstance(tool_calls_meta, list) else []
         elif isinstance(message, AIMessage):
             # 从 AIMessage 提取 tool_calls (仅 AIMessage 具有此属性)
             tool_calls = getattr(message, 'tool_calls', None)
             if tool_calls:
                 # 将 ToolCall 对象转换为字典格式
-                return [
-                    {
-                        "id": tc.id,
-                        "name": tc.type if hasattr(tc, 'type') else "function",
-                        "args": tc.args if hasattr(tc, 'args') else {}
-                    }
-                    for tc in tool_calls
-                ] if isinstance(tool_calls, list) else []
+                result: List[Dict[str, Any]] = []
+                if isinstance(tool_calls, list):
+                    for tc in tool_calls:
+                        result.append({
+                            "id": tc.id,
+                            "name": tc.type if hasattr(tc, 'type') else "function",
+                            "args": tc.args if hasattr(tc, 'args') else {}
+                        })
+                return result
             if hasattr(message, 'additional_kwargs'):
-                return message.additional_kwargs.get("tool_calls", [])
+                tool_calls_kwargs = message.additional_kwargs.get("tool_calls", [])
+                return tool_calls_kwargs if isinstance(tool_calls_kwargs, list) else []
             return []
         elif isinstance(message, BaseMessage):
             # 其他消息类型尝试从 additional_kwargs 提取
             if hasattr(message, 'additional_kwargs'):
-                return message.additional_kwargs.get("tool_calls", [])
+                tool_calls_base = message.additional_kwargs.get("tool_calls", [])
+                return tool_calls_base if isinstance(tool_calls_base, list) else []
             return []
         else:
             return []
