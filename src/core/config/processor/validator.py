@@ -4,11 +4,9 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Type, List, Optional
-from pydantic import BaseModel
+from typing import Dict, Any, List
 from src.core.common.utils.validator import Validator as UtilsValidator
 from src.core.common.utils.validator import ValidationResult as UtilsValidationResult
-from src.core.common.utils.validator import IValidator as UtilsIValidator
 
 from ..models.global_config import GlobalConfig
 from ..models.llm_config import LLMConfig
@@ -16,9 +14,17 @@ from ..models.tool_config import ToolConfig
 from ..models.token_counter_config import TokenCounterConfig
 
 # 导入增强功能模块
-from .validation_utils import ValidationCache, ValidationLevel, ValidationSeverity, load_config_file, generate_cache_key
-from .validation_report import ValidationReport, EnhancedValidationResult, FixSuggestion
-from .config_fixer import ConfigFixer
+from ..validation import (
+    ValidationCache,
+    ValidationLevel,
+    ValidationSeverity,
+    load_config_file,
+    generate_cache_key,
+    ValidationReport,
+    EnhancedValidationResult,
+    ConfigFixer,
+    FixSuggestion
+)
 
 # 保持接口兼容
 ValidationResult = UtilsValidationResult
@@ -247,20 +253,21 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
         return result
 
     # 新增增强功能方法
-    def validate_global_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
-        """验证全局配置并返回详细报告"""
-        report = ValidationReport("global_config")
+    def _validate_config_with_report(self, config: Dict[str, Any], config_type: str,
+                                   validation_method) -> ValidationReport:
+        """通用验证报告方法"""
+        report = ValidationReport(f"{config_type}_config")
         # 基础验证
-        basic_result = self.validate_global_config(config)
+        basic_result = validation_method(config)
         
         # 创建增强验证结果
         enhanced_result = EnhancedValidationResult(
-            rule_id="global_config_basic",
+            rule_id=f"{config_type}_config_basic",
             level=ValidationLevel.SCHEMA,
             passed=basic_result.is_valid,
             message="基础验证结果"
         )
-        
+                
         # 将基础验证结果转换为增强验证结果
         if not basic_result.is_valid:
             enhanced_result.message = "; ".join(basic_result.errors)
@@ -268,84 +275,25 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
         elif basic_result.has_warnings():
             enhanced_result.message = "; ".join(basic_result.warnings)
             enhanced_result.severity = ValidationSeverity.WARNING
-        
+                
         report.add_level_results(ValidationLevel.SCHEMA, [enhanced_result])
         return report
+
+    def validate_global_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
+        """验证全局配置并返回详细报告"""
+        return self._validate_config_with_report(config, "global", self.validate_global_config)
 
     def validate_llm_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
         """验证LLM配置并返回详细报告"""
-        report = ValidationReport("llm_config")
-        # 基础验证
-        basic_result = self.validate_llm_config(config)
-        
-        # 创建增强验证结果
-        enhanced_result = EnhancedValidationResult(
-            rule_id="llm_config_basic",
-            level=ValidationLevel.SCHEMA,
-            passed=basic_result.is_valid,
-            message="基础验证结果"
-        )
-        
-        # 将基础验证结果转换为增强验证结果
-        if not basic_result.is_valid:
-            enhanced_result.message = "; ".join(basic_result.errors)
-            enhanced_result.severity = ValidationSeverity.ERROR
-        elif basic_result.has_warnings():
-            enhanced_result.message = "; ".join(basic_result.warnings)
-            enhanced_result.severity = ValidationSeverity.WARNING
-        
-        report.add_level_results(ValidationLevel.SCHEMA, [enhanced_result])
-        return report
+        return self._validate_config_with_report(config, "llm", self.validate_llm_config)
 
     def validate_tool_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
         """验证工具配置并返回详细报告"""
-        report = ValidationReport("tool_config")
-        # 基础验证
-        basic_result = self.validate_tool_config(config)
-        
-        # 创建增强验证结果
-        enhanced_result = EnhancedValidationResult(
-            rule_id="tool_config_basic",
-            level=ValidationLevel.SCHEMA,
-            passed=basic_result.is_valid,
-            message="基础验证结果"
-        )
-        
-        # 将基础验证结果转换为增强验证结果
-        if not basic_result.is_valid:
-            enhanced_result.message = "; ".join(basic_result.errors)
-            enhanced_result.severity = ValidationSeverity.ERROR
-        elif basic_result.has_warnings():
-            enhanced_result.message = "; ".join(basic_result.warnings)
-            enhanced_result.severity = ValidationSeverity.WARNING
-        
-        report.add_level_results(ValidationLevel.SCHEMA, [enhanced_result])
-        return report
+        return self._validate_config_with_report(config, "tool", self.validate_tool_config)
 
     def validate_token_counter_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
         """验证Token计数器配置并返回详细报告"""
-        report = ValidationReport("token_counter_config")
-        # 基础验证
-        basic_result = self.validate_token_counter_config(config)
-        
-        # 创建增强验证结果
-        enhanced_result = EnhancedValidationResult(
-            rule_id="token_counter_config_basic",
-            level=ValidationLevel.SCHEMA,
-            passed=basic_result.is_valid,
-            message="基础验证结果"
-        )
-        
-        # 将基础验证结果转换为增强验证结果
-        if not basic_result.is_valid:
-            enhanced_result.message = "; ".join(basic_result.errors)
-            enhanced_result.severity = ValidationSeverity.ERROR
-        elif basic_result.has_warnings():
-            enhanced_result.message = "; ".join(basic_result.warnings)
-            enhanced_result.severity = ValidationSeverity.WARNING
-        
-        report.add_level_results(ValidationLevel.SCHEMA, [enhanced_result])
-        return report
+        return self._validate_config_with_report(config, "token_counter", self.validate_token_counter_config)
 
     def validate_config_with_cache(self, config_path: str, config_type: str) -> ValidationReport:
         """带缓存的配置验证"""

@@ -8,8 +8,8 @@ import re
 from typing import Dict, Any, Optional, List, Union, Callable
 from pathlib import Path
 import yaml
-from pydantic import BaseModel, ValidationError
-from abc import ABC, abstractmethod
+from pydantic import ValidationError
+from abc import abstractmethod
 
 from ..exceptions import ConfigurationError
 from src.interfaces.common_infra import IConfigLoader
@@ -164,19 +164,15 @@ class ConfigInheritanceHandler(IConfigInheritanceHandler):
         Returns:
             合并后的配置
         """
-        result = parent.copy()
+        from .dict_merger import DictMerger
+        merger = DictMerger()
         
-        for key, value in child.items():
-            if key == "inherits_from":
-                # 跳过inherits_from字段，因为它已在上层处理
-                continue
-            
-            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-                # 如果两个值都是字典，递归合并
-                result[key] = self._merge_configs(result[key], value)
-            else:
-                # 否则直接覆盖
-                result[key] = value
+        # 创建一个副本以避免修改原始数据
+        result = merger.deep_merge(parent.copy(), child)
+        
+        # 移除inherits_from字段，因为它已在上层处理
+        if "inherits_from" in result:
+            del result["inherits_from"]
         
         return result
     
@@ -294,6 +290,15 @@ class ConfigInheritanceHandler(IConfigInheritanceHandler):
                 getattr(schema, 'model_validate')(config)
             except ValidationError as e:
                 errors.extend([str(err) for err in e.errors()])
+        
+        # 使用通用验证器进行结构和类型验证
+        from .validator import Validator
+        validator = Validator()
+        
+        # 执行结构验证
+        structure_result = validator.validate_structure(config, [])
+        if not structure_result.is_valid:
+            errors.extend(structure_result.errors)
         
         # 执行自定义验证规则
         errors.extend(self._custom_validation(config))

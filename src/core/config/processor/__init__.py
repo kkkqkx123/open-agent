@@ -1,9 +1,7 @@
 """配置处理器模块"""
 
 from .validator import ConfigValidator, IConfigValidator, ValidationResult
-from .validation_utils import ValidationLevel, ValidationSeverity, ValidationCache
-from .validation_report import ValidationReport, EnhancedValidationResult, FixSuggestion
-from .config_fixer import ConfigFixer
+from ..validation import ValidationLevel, ValidationSeverity, ValidationCache, ValidationReport, EnhancedValidationResult, ConfigFixer, FixSuggestion
 
 __all__ = [
     'ConfigValidator',

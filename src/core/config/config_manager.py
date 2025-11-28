@@ -368,7 +368,7 @@ class ConfigManager(IUnifiedConfigManager):
     
     def resolve_env_vars(self, obj: Any) -> Any:
         """解析环境变量"""
-        return self.processor._resolve_env_vars(obj)
+        return self.processor.resolve_env_vars(obj)
     
     def watch_for_changes(
         self, 
