@@ -7,7 +7,7 @@ import logging
 
 from src.services.checkpoint.manager import CheckpointManager
 from src.interfaces.sessions.base import ISessionManager
-from src.interfaces.threads.base import IThreadManager
+from src.interfaces.threads.service import IThreadService
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class LangGraphSDKAdapter:
     def __init__(
         self,
         checkpoint_manager: CheckpointManager,
-        thread_manager: IThreadManager,
+        thread_manager: IThreadService,
         session_manager: ISessionManager,
         query_manager: Optional[Any] = None
     ):
@@ -503,7 +503,7 @@ class LangGraphSDKAdapter:
             raise ValueError(f"Checkpoint不存在: {checkpoint_id}")
         
         # 创建分支
-        new_thread_id = await self.thread_manager.fork_thread(
+        new_thread_id = await self.thread_manager.create_branch(
             thread_id,
             checkpoint_id,
             branch_name

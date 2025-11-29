@@ -1,14 +1,16 @@
 """线程协作服务"""
 
 import uuid
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from datetime import datetime
 import logging
 
 from src.interfaces.threads.storage import IThreadRepository
 from src.interfaces.history import IHistoryManager
-from src.core.threads.entities import Thread, ThreadStatus
 from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
+
+if TYPE_CHECKING:
+    from src.interfaces.checkpoint import ICheckpointManager
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +21,19 @@ class ThreadCollaborationService:
     def __init__(
         self,
         thread_repository: IThreadRepository,
-        history_manager: Optional[IHistoryManager] = None
+        history_manager: Optional[IHistoryManager] = None,
+        checkpoint_manager: Optional['ICheckpointManager'] = None
     ):
         """初始化协作服务
         
         Args:
             thread_repository: 线程仓储接口
             history_manager: 历史管理器（可选）
+            checkpoint_manager: 检查点管理器（可选）
         """
         self._thread_repository = thread_repository
         self._history_manager = history_manager
+        self._checkpoint_manager = checkpoint_manager
     
     async def get_thread_state(self, thread_id: str) -> Optional[Dict[str, Any]]:
         """获取Thread状态
@@ -111,15 +116,15 @@ class ThreadCollaborationService:
             if not thread:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
-            # TODO: 实际的回滚逻辑
-            # 这里需要与检查点系统集成
-            # 目前简化处理
+            # 需要与检查点系统集成
+            # 由于我们没有直接的依赖，这里使用一个通用方法获取检查点状态
+            # 实际实现中需要从checkpoint_manager获取指定checkpoint的状态
+            checkpoint_state = await self._get_checkpoint_state(thread_id, checkpoint_id)
+            if checkpoint_state is None:
+                raise EntityNotFoundError(f"Checkpoint {checkpoint_id} not found")
             
-            # 模拟回滚操作
-            logger.info(f"Rolling back thread {thread_id} to checkpoint {checkpoint_id}")
-            
-            # 更新线程状态
-            thread.state = {"rolled_back": True, "checkpoint_id": checkpoint_id}
+            # 更新线程状态为检查点状态
+            thread.state = checkpoint_state
             thread.update_timestamp()
             
             success = await self._thread_repository.update(thread)
@@ -130,6 +135,9 @@ class ThreadCollaborationService:
                     await self._record_rollback(thread_id, checkpoint_id)
                 except Exception as e:
                     logger.warning(f"Failed to record rollback: {e}")
+            
+            if success:
+                logger.info(f"Thread {thread_id} rolled back to checkpoint {checkpoint_id}")
             
             return success
             
@@ -346,6 +354,21 @@ class ThreadCollaborationService:
             raise ValidationError(f"Failed to get thread history: {str(e)}")
     
     # === 私有方法 ===
+    
+    async def _get_checkpoint_state(self, thread_id: str, checkpoint_id: str) -> Optional[Dict[str, Any]]:
+        """获取检查点状态
+        """
+        if not self._checkpoint_manager:
+            return None
+        
+        try:
+            checkpoint_data = await self._checkpoint_manager.get_checkpoint(thread_id, checkpoint_id)
+            if checkpoint_data:
+                # 从checkpoint数据中提取状态
+                return checkpoint_data.get("state_data", {})
+            return None
+        except Exception:
+            return None
     
     def _apply_permissions(self, state: Dict[str, Any], permissions: Dict[str, Any]) -> Dict[str, Any]:
         """应用权限过滤

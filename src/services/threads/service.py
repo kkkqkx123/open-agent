@@ -306,3 +306,11 @@ class ThreadService(IThreadService):
         # ThreadSnapshotService没有直接的delete方法，需要实现
         # 暂时返回False
         return False
+    
+    # === 委托给基础服务的fork方法 ===
+    
+    async def fork_thread(self, source_thread_id: str, checkpoint_id: str, branch_name: str) -> str:
+        """创建线程分支"""
+        return await self._branch_service.create_branch_from_checkpoint(
+            source_thread_id, checkpoint_id, branch_name
+        )
