@@ -1,52 +1,108 @@
 """统一工作流执行器
 
-整合所有执行逻辑，提供统一的工作流执行接口。
+基于新架构原则，专注于工作流执行逻辑，不包含验证和管理功能。
 """
 
 import logging
 import uuid
 from typing import Dict, Any, Optional, AsyncIterator, List
 from datetime import datetime
+from enum import Enum
 
 from src.interfaces.workflow.core import IWorkflow
 from src.interfaces.state import IWorkflowState
-from src.core.workflow.execution.core.execution_context import ExecutionContext
-from src.core.workflow.execution.core.node_executor import INodeExecutor, NodeExecutor
 from src.interfaces.workflow.execution import IWorkflowExecutor
 from src.core.workflow.core.builder import WorkflowBuilder
-from src.core.workflow.core.validator import WorkflowValidator
 
 logger = logging.getLogger(__name__)
+
+
+class ExecutionStatus(Enum):
+    """执行状态枚举"""
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class ExecutionContext:
+    """执行上下文"""
+    
+    def __init__(
+        self,
+        workflow_id: str,
+        execution_id: str,
+        config: Dict[str, Any],
+        metadata: Optional[Dict[str, Any]] = None
+    ):
+        """初始化执行上下文
+        
+        Args:
+            workflow_id: 工作流ID
+            execution_id: 执行ID
+            config: 执行配置
+            metadata: 元数据
+        """
+        self.workflow_id = workflow_id
+        self.execution_id = execution_id
+        self.config = config or {}
+        self.metadata = metadata or {}
+        self.status = ExecutionStatus.PENDING
+        self.start_time: Optional[datetime] = None
+        self.end_time: Optional[datetime] = None
+        self.error: Optional[str] = None
+    
+    def mark_started(self) -> None:
+        """标记为开始执行"""
+        self.status = ExecutionStatus.RUNNING
+        self.start_time = datetime.now()
+    
+    def mark_completed(self) -> None:
+        """标记为完成"""
+        self.status = ExecutionStatus.COMPLETED
+        self.end_time = datetime.now()
+    
+    def mark_failed(self, error: Optional[str] = None) -> None:
+        """标记为失败"""
+        self.status = ExecutionStatus.FAILED
+        self.end_time = datetime.now()
+        self.error = error
+    
+    def mark_cancelled(self) -> None:
+        """标记为取消"""
+        self.status = ExecutionStatus.CANCELLED
+        self.end_time = datetime.now()
+    
+    @property
+    def execution_time(self) -> float:
+        """获取执行时间（秒）"""
+        if self.start_time and self.end_time:
+            return (self.end_time - self.start_time).total_seconds()
+        elif self.start_time:
+            return (datetime.now() - self.start_time).total_seconds()
+        return 0.0
 
 
 class WorkflowExecutor(IWorkflowExecutor):
     """统一工作流执行器
     
-    整合所有执行逻辑，提供统一的同步和异步执行接口。
-    移除了WorkflowInstanceCoordinator中的重复执行逻辑。
+    专注于工作流执行逻辑，提供统一的同步和异步执行接口。
+    不包含验证和管理功能，这些由 WorkflowManager 负责。
     """
     
-    def __init__(
-        self,
-        node_executor: Optional[INodeExecutor] = None,
-        workflow_builder: Optional[WorkflowBuilder] = None,
-        workflow_validator: Optional[WorkflowValidator] = None
-    ):
-        """初始化统一工作流执行器
+    def __init__(self, workflow_builder: Optional[WorkflowBuilder] = None):
+        """初始化工作流执行器
         
         Args:
-            node_executor: 节点执行器
             workflow_builder: 工作流构建器
-            workflow_validator: 工作流验证器
         """
-        self.node_executor = node_executor or NodeExecutor()
         self.workflow_builder = workflow_builder or WorkflowBuilder()
-        self.workflow_validator = workflow_validator or WorkflowValidator()
         
         # 执行记录管理
         self._active_executions: Dict[str, ExecutionContext] = {}
         
-        logger.debug("统一工作流执行器初始化完成")
+        logger.debug("工作流执行器初始化完成")
     
     def execute(
         self,
@@ -65,7 +121,6 @@ class WorkflowExecutor(IWorkflowExecutor):
             IWorkflowState: 执行结果状态
         """
         execution_id = str(uuid.uuid4())
-        start_time = datetime.now()
         
         try:
             logger.debug(f"开始执行工作流: {workflow.workflow_id} ({execution_id})")
@@ -73,14 +128,11 @@ class WorkflowExecutor(IWorkflowExecutor):
             # 创建执行上下文
             exec_context = self._create_execution_context(workflow, execution_id, context)
             
-            # 验证工作流
-            self._validate_workflow(workflow)
-            
             # 确保工作流已编译
             self._ensure_workflow_compiled(workflow)
             
             # 执行工作流
-            result_state = self._execute_with_compiled_graph(workflow, initial_state, context)
+            result_state = self._execute_with_compiled_graph(workflow, initial_state, context, execution_id)
             
             # 更新执行状态
             exec_context.mark_completed()
@@ -94,7 +146,7 @@ class WorkflowExecutor(IWorkflowExecutor):
         except Exception as e:
             # 更新执行状态为失败
             if execution_id in self._active_executions:
-                self._active_executions[execution_id].mark_failed()
+                self._active_executions[execution_id].mark_failed(str(e))
             
             logger.error(f"工作流执行失败: {workflow.workflow_id} ({execution_id}): {e}")
             raise
@@ -116,7 +168,6 @@ class WorkflowExecutor(IWorkflowExecutor):
             IWorkflowState: 执行结果状态
         """
         execution_id = str(uuid.uuid4())
-        start_time = datetime.now()
         
         try:
             logger.debug(f"开始异步执行工作流: {workflow.workflow_id} ({execution_id})")
@@ -124,14 +175,13 @@ class WorkflowExecutor(IWorkflowExecutor):
             # 创建执行上下文
             exec_context = self._create_execution_context(workflow, execution_id, context)
             
-            # 验证工作流
-            self._validate_workflow(workflow)
-            
             # 确保工作流已编译
             self._ensure_workflow_compiled(workflow)
             
             # 异步执行工作流
-            result_state = await self._execute_with_compiled_graph_async(workflow, initial_state, context)
+            result_state = await self._execute_with_compiled_graph_async(
+                workflow, initial_state, context, execution_id
+            )
             
             # 更新执行状态
             exec_context.mark_completed()
@@ -145,12 +195,12 @@ class WorkflowExecutor(IWorkflowExecutor):
         except Exception as e:
             # 更新执行状态为失败
             if execution_id in self._active_executions:
-                self._active_executions[execution_id].mark_failed()
+                self._active_executions[execution_id].mark_failed(str(e))
             
             logger.error(f"工作流异步执行失败: {workflow.workflow_id} ({execution_id}): {e}")
             raise
     
-    def execute_stream(
+    async def execute_stream(
         self,
         workflow: IWorkflow,
         initial_state: IWorkflowState,
@@ -167,9 +217,55 @@ class WorkflowExecutor(IWorkflowExecutor):
             Dict[str, Any]: 执行事件
         """
         logger.debug(f"开始流式执行工作流: {workflow.workflow_id}")
-        # 默认实现：不生成任何事件
-        return
-        yield  # type: ignore
+        
+        execution_id = str(uuid.uuid4())
+        exec_context = self._create_execution_context(workflow, execution_id, context)
+        
+        try:
+            # 确保工作流已编译
+            self._ensure_workflow_compiled(workflow)
+            
+            # 发送开始事件
+            yield {
+                "type": "execution_start",
+                "execution_id": execution_id,
+                "workflow_id": workflow.workflow_id,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # 执行工作流（简化实现，实际应该支持真正的流式执行）
+            result_state = self._execute_with_compiled_graph(workflow, initial_state, context, execution_id)
+            
+            # 发送完成事件
+            result_data = {}
+            if hasattr(result_state, 'values'):
+                result_data = result_state.values
+            elif hasattr(result_state, 'get'):
+                result_data = result_state.get('data', {})
+                
+            yield {
+                "type": "execution_complete",
+                "execution_id": execution_id,
+                "workflow_id": workflow.workflow_id,
+                "timestamp": datetime.now().isoformat(),
+                "result": result_data
+            }
+            
+            exec_context.mark_completed()
+            self._cleanup_execution(execution_id)
+            
+        except Exception as e:
+            exec_context.mark_failed(str(e))
+            self._cleanup_execution(execution_id)
+            
+            # 发送错误事件
+            yield {
+                "type": "execution_error",
+                "execution_id": execution_id,
+                "workflow_id": workflow.workflow_id,
+                "timestamp": datetime.now().isoformat(),
+                "error": str(e)
+            }
     
     async def execute_stream_async(
         self,
@@ -188,9 +284,57 @@ class WorkflowExecutor(IWorkflowExecutor):
             Dict[str, Any]: 执行事件
         """
         logger.debug(f"开始异步流式执行工作流: {workflow.workflow_id}")
-        # 默认实现：不生成任何事件
-        return
-        yield  # type: ignore
+        
+        execution_id = str(uuid.uuid4())
+        exec_context = self._create_execution_context(workflow, execution_id, context)
+        
+        try:
+            # 确保工作流已编译
+            self._ensure_workflow_compiled(workflow)
+            
+            # 发送开始事件
+            yield {
+                "type": "execution_start",
+                "execution_id": execution_id,
+                "workflow_id": workflow.workflow_id,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # 异步执行工作流
+            result_state = await self._execute_with_compiled_graph_async(
+                workflow, initial_state, context, execution_id
+            )
+            
+            # 发送完成事件
+            result_data = {}
+            if hasattr(result_state, 'values'):
+                result_data = result_state.values
+            elif hasattr(result_state, 'get'):
+                result_data = result_state.get('data', {})
+                
+            yield {
+                "type": "execution_complete",
+                "execution_id": execution_id,
+                "workflow_id": workflow.workflow_id,
+                "timestamp": datetime.now().isoformat(),
+                "result": result_data
+            }
+            
+            exec_context.mark_completed()
+            self._cleanup_execution(execution_id)
+            
+        except Exception as e:
+            exec_context.mark_failed(str(e))
+            self._cleanup_execution(execution_id)
+            
+            # 发送错误事件
+            yield {
+                "type": "execution_error",
+                "execution_id": execution_id,
+                "workflow_id": workflow.workflow_id,
+                "timestamp": datetime.now().isoformat(),
+                "error": str(e)
+            }
     
     def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
         """获取执行状态
@@ -214,7 +358,8 @@ class WorkflowExecutor(IWorkflowExecutor):
             "status": context.status.value,
             "start_time": context.start_time.isoformat() if context.start_time else None,
             "end_time": context.end_time.isoformat() if context.end_time else None,
-            "execution_time": context.execution_time
+            "execution_time": context.execution_time,
+            "error": context.error
         }
     
     def cancel_execution(self, execution_id: str) -> bool:
@@ -263,7 +408,6 @@ class WorkflowExecutor(IWorkflowExecutor):
         """
         return {
             "active_executions": len(self._active_executions),
-            "total_executions": len(self._active_executions),  # 简化实现
             "execution_ids": list(self._active_executions.keys())
         }
     
@@ -300,37 +444,6 @@ class WorkflowExecutor(IWorkflowExecutor):
         
         return exec_context
     
-    def _validate_workflow(self, workflow: IWorkflow) -> None:
-        """验证工作流
-        
-        Args:
-            workflow: 工作流实例
-            
-        Raises:
-            WorkflowValidationError: 验证失败
-        """
-        try:
-            # 获取工作流配置
-            config = getattr(workflow, 'config', None)
-            if config is None:
-                logger.warning("工作流未包含config属性，跳过验证")
-                return
-                
-            # 使用配置验证器验证工作流
-            issues = self.workflow_validator.validate_config_object(config)
-            
-            # 检查是否有错误
-            errors = [issue for issue in issues if issue.severity.value == "error"]
-            if errors:
-                error_messages = [error.message for error in errors]
-                from src.core.common.exceptions.workflow import WorkflowValidationError
-                raise WorkflowValidationError(f"工作流验证失败: {'; '.join(error_messages)}")
-                
-        except Exception as e:
-            if "WorkflowValidationError" in str(type(e)):
-                raise
-            logger.warning(f"工作流验证异常: {e}")
-    
     def _ensure_workflow_compiled(self, workflow: IWorkflow) -> None:
         """确保工作流已编译
         
@@ -338,21 +451,22 @@ class WorkflowExecutor(IWorkflowExecutor):
             workflow: 工作流实例
             
         Raises:
-            WorkflowConfigError: 编译失败
+            ValueError: 编译失败
         """
-        if not workflow.graph:
+        if not workflow.compiled_graph:
             try:
                 # 使用构建器编译图
                 self.workflow_builder.build_and_set_graph(workflow)  # type: ignore
             except Exception as e:
-                from src.core.common.exceptions.workflow import WorkflowConfigError
-                raise WorkflowConfigError(f"工作流图编译失败: {e}") from e
+                logger.error(f"工作流图编译失败: {e}")
+                raise ValueError(f"工作流图编译失败: {e}") from e
     
     def _execute_with_compiled_graph(
         self,
         workflow: IWorkflow,
         initial_state: IWorkflowState,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
+        execution_id: Optional[str] = None
     ) -> IWorkflowState:
         """使用编译的图执行工作流
         
@@ -360,12 +474,13 @@ class WorkflowExecutor(IWorkflowExecutor):
             workflow: 工作流实例
             initial_state: 初始状态
             context: 执行配置
+            execution_id: 执行ID
             
         Returns:
             IWorkflowState: 执行结果状态
         """
-        execution_id = str(uuid.uuid4())
         start_time = datetime.now()
+        exec_id = execution_id or str(uuid.uuid4())
         
         try:
             # 准备运行配置
@@ -374,7 +489,7 @@ class WorkflowExecutor(IWorkflowExecutor):
                 run_config["recursion_limit"] = 10
             
             # 使用编译的图执行
-            compiled_graph = workflow.graph
+            compiled_graph = workflow.compiled_graph
             if not compiled_graph:
                 raise ValueError("工作流图未编译")
             
@@ -387,10 +502,10 @@ class WorkflowExecutor(IWorkflowExecutor):
             # 创建结果状态
             from src.core.state.implementations.workflow_state import WorkflowState
             return WorkflowState(
-                id=execution_id,
-                data=result if isinstance(result, dict) else {},
-                status="completed",
                 workflow_id=workflow.workflow_id,
+                execution_id=exec_id,
+                status="completed",
+                data=result if isinstance(result, dict) else {},
                 execution_time=(datetime.now() - start_time).total_seconds()
             )
             
@@ -398,10 +513,10 @@ class WorkflowExecutor(IWorkflowExecutor):
             logger.error(f"图执行失败: {e}")
             from src.core.state.implementations.workflow_state import WorkflowState
             return WorkflowState(
-                id=execution_id,
-                data={},
-                status="failed",
                 workflow_id=workflow.workflow_id,
+                execution_id=exec_id,
+                status="failed",
+                data={},
                 error=str(e),
                 execution_time=(datetime.now() - start_time).total_seconds()
             )
@@ -410,7 +525,8 @@ class WorkflowExecutor(IWorkflowExecutor):
         self,
         workflow: IWorkflow,
         initial_state: IWorkflowState,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
+        execution_id: Optional[str] = None
     ) -> IWorkflowState:
         """使用编译的图异步执行工作流
         
@@ -418,12 +534,13 @@ class WorkflowExecutor(IWorkflowExecutor):
             workflow: 工作流实例
             initial_state: 初始状态
             context: 执行配置
+            execution_id: 执行ID
             
         Returns:
             IWorkflowState: 执行结果状态
         """
-        execution_id = str(uuid.uuid4())
         start_time = datetime.now()
+        exec_id = execution_id or str(uuid.uuid4())
         
         try:
             # 准备运行配置
@@ -432,7 +549,7 @@ class WorkflowExecutor(IWorkflowExecutor):
                 run_config["recursion_limit"] = 10
             
             # 使用编译的图异步执行
-            compiled_graph = workflow.graph
+            compiled_graph = workflow.compiled_graph
             if not compiled_graph:
                 raise ValueError("工作流图未编译")
             
@@ -456,10 +573,10 @@ class WorkflowExecutor(IWorkflowExecutor):
             # 创建结果状态
             from src.core.state.implementations.workflow_state import WorkflowState
             return WorkflowState(
-                id=execution_id,
-                data=result if isinstance(result, dict) else {},
-                status="completed",
                 workflow_id=workflow.workflow_id,
+                execution_id=exec_id,
+                status="completed",
+                data=result if isinstance(result, dict) else {},
                 execution_time=(datetime.now() - start_time).total_seconds(),
                 execution_mode="async"
             )
@@ -468,10 +585,10 @@ class WorkflowExecutor(IWorkflowExecutor):
             logger.error(f"异步图执行失败: {e}")
             from src.core.state.implementations.workflow_state import WorkflowState
             return WorkflowState(
-                id=execution_id,
-                data={},
-                status="failed",
                 workflow_id=workflow.workflow_id,
+                execution_id=exec_id,
+                status="failed",
+                data={},
                 error=str(e),
                 execution_time=(datetime.now() - start_time).total_seconds(),
                 execution_mode="async"

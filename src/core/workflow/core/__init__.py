@@ -3,7 +3,6 @@
 提供工作流的核心功能，包括数据模型、验证、构建和注册。
 """
 
-# Workflow在上级目录，不在core模块中
 from .validator import (
     IWorkflowValidator,
     WorkflowValidator,

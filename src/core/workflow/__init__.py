@@ -18,9 +18,11 @@
 from .workflow import Workflow
 
 # 核心功能模块
-from .core.validator import WorkflowValidator
 from .core.builder import WorkflowBuilder
 from .core.registry import WorkflowRegistry
+
+# 验证和管理模块
+from .validation import WorkflowManager, WorkflowValidator, get_workflow_manager, get_workflow_validator
 
 # 加载模块
 from .loading.loader import WorkflowLoader
@@ -29,7 +31,7 @@ from .loading.loader import WorkflowLoader
 from .management.lifecycle import WorkflowLifecycleManager
 
 # 执行模块
-from .execution.executor import WorkflowExecutor
+from .execution.executor import WorkflowExecutor, execute_workflow, execute_workflow_async
 from .execution.services.execution_manager import ExecutionManager
 from .execution.services.execution_monitor import ExecutionMonitor
 from .execution.services.execution_scheduler import ExecutionScheduler
@@ -58,6 +60,24 @@ def create_workflow(config: GraphConfig) -> Workflow:
     return Workflow(config)
 
 
+def create_workflow_manager() -> WorkflowManager:
+    """创建工作流管理器
+    
+    Returns:
+        WorkflowManager: 工作流管理器实例
+    """
+    return get_workflow_manager()
+
+
+def create_workflow_validator() -> WorkflowValidator:
+    """创建工作流验证器
+    
+    Returns:
+        WorkflowValidator: 工作流验证器实例
+    """
+    return get_workflow_validator()
+
+
 def create_workflow_loader() -> WorkflowLoader:
     """创建工作流加载器
     
@@ -74,15 +94,6 @@ def create_workflow_executor() -> WorkflowExecutor:
         WorkflowExecutor: 统一工作流执行器实例
     """
     return WorkflowExecutor()
-
-
-def create_workflow_validator() -> WorkflowValidator:
-    """创建工作流验证器
-    
-    Returns:
-        WorkflowValidator: 工作流验证器实例
-    """
-    return WorkflowValidator()
 
 
 def create_workflow_builder() -> WorkflowBuilder:
@@ -126,9 +137,14 @@ __all__ = [
     "Workflow",
     
     # 核心功能模块
-    "WorkflowValidator",
-    "WorkflowBuilder", 
+    "WorkflowBuilder",
     "WorkflowRegistry",
+    
+    # 验证和管理模块
+    "WorkflowManager",
+    "WorkflowValidator",
+    "get_workflow_manager",
+    "get_workflow_validator",
     
     # 加载模块
     "WorkflowLoader",
@@ -138,6 +154,8 @@ __all__ = [
     
     # 执行模块
     "WorkflowExecutor",
+    "execute_workflow",
+    "execute_workflow_async",
     "ExecutionManager",
     "ExecutionMonitor",
     "ExecutionScheduler",
@@ -153,9 +171,10 @@ __all__ = [
     
     # 便捷函数
     "create_workflow",
+    "create_workflow_manager",
+    "create_workflow_validator",
     "create_workflow_loader",
     "create_workflow_executor",
-    "create_workflow_validator",
     "create_workflow_builder",
     "create_workflow_registry",
     "create_lifecycle_manager",

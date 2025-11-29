@@ -4,13 +4,17 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional
+from typing import Any, List, Optional, TYPE_CHECKING
 import logging
 
 from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.workflow import Workflow
 from src.interfaces.workflow.element_builder import BuildContext
 from src.core.workflow.graph.builder.element_builder_factory import get_builder_factory
+from src.interfaces.workflow.core import IWorkflow
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -130,13 +134,13 @@ class WorkflowBuilder(IWorkflowBuilder):
             from core.common.exceptions.workflow import WorkflowConfigError
             raise WorkflowConfigError(f"构建图失败: {e}") from e
     
-    def build_and_set_graph(self, workflow: Workflow) -> None:
+    def build_and_set_graph(self, workflow: IWorkflow) -> None:
         """构建图并设置到工作流实例
         
         Args:
             workflow: 工作流实例
         """
-        compiled_graph = self.build_graph(workflow)
+        compiled_graph = self.build_graph(workflow)  # type: ignore
         workflow.set_graph(compiled_graph)
     
     def validate_build_requirements(self, workflow: Workflow) -> List[str]:
@@ -163,7 +167,7 @@ class WorkflowBuilder(IWorkflowBuilder):
         
         # 检查节点配置
         for node_name, node_config in config.nodes.items():
-            if not hasattr(node_config, 'type') and not hasattr(node_config, 'function'):
+            if not hasattr(node_config, 'type') and not hasattr(node_config, 'function_name'):
                 errors.append(f"节点 '{node_name}' 缺少类型或函数定义")
         
         # 检查边配置

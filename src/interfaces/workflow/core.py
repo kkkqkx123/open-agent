@@ -11,6 +11,8 @@ from dataclasses import dataclass
 if TYPE_CHECKING:
     from ..state import IWorkflowState
     from .graph import IGraph, INode, IEdge
+    from ...core.workflow.config.config import GraphConfig
+
 
 @dataclass
 class ExecutionContext:
@@ -21,8 +23,17 @@ class ExecutionContext:
     config: Dict[str, Any]
 
 
+@dataclass
+class ValidationResult:
+    """验证结果"""
+    is_valid: bool
+    errors: List[str]
+    warnings: List[str]
+    metadata: Dict[str, Any]
+
+
 class IWorkflow(ABC):
-    """工作流接口"""
+    """工作流接口 - 纯数据容器"""
 
     @property
     @abstractmethod
@@ -34,24 +45,6 @@ class IWorkflow(ABC):
     @abstractmethod
     def name(self) -> str:
         """工作流名称"""
-        pass
-
-    @property
-    @abstractmethod
-    def _nodes(self) -> Dict[str, 'INode']:
-        """工作流节点字典"""
-        pass
-
-    @property
-    @abstractmethod
-    def _edges(self) -> Dict[str, 'IEdge']:
-        """工作流边字典"""
-        pass
-
-    @property
-    @abstractmethod
-    def entry_point(self) -> Optional[str]:
-        """入口点"""
         pass
 
     @property
@@ -80,14 +73,20 @@ class IWorkflow(ABC):
 
     @property
     @abstractmethod
-    def graph(self) -> Optional['IGraph']:
-        """工作流图"""
+    def config(self) -> 'GraphConfig':
+        """工作流配置"""
+        pass
+
+    @property
+    @abstractmethod
+    def entry_point(self) -> Optional[str]:
+        """入口点"""
         pass
 
     @property
     @abstractmethod
     def compiled_graph(self) -> Optional[Any]:
-        """编译后的图（可选属性）"""
+        """编译后的图"""
         pass
 
     @abstractmethod
@@ -97,23 +96,10 @@ class IWorkflow(ABC):
 
     @abstractmethod
     def set_graph(self, graph: Any) -> None:
-        """设置工作流图"""
+        """设置编译后的图"""
         pass
 
-    def get_graph(self) -> Any:
-        """获取工作流图"""
-        return self.graph
-
-    @abstractmethod
-    def add_node(self, node: 'INode') -> None:
-        """添加节点"""
-        pass
-
-    @abstractmethod
-    def add_edge(self, edge: 'IEdge') -> None:
-        """添加边"""
-        pass
-
+    # 数据访问方法
     @abstractmethod
     def get_node(self, node_id: str) -> Optional['INode']:
         """获取节点"""
@@ -125,31 +111,173 @@ class IWorkflow(ABC):
         pass
 
     @abstractmethod
-    def validate(self) -> List[str]:
-        """验证工作流"""
+    def get_nodes(self) -> Dict[str, 'INode']:
+        """获取所有节点"""
         pass
 
     @abstractmethod
-    def add_step(self, step: Any) -> None:
-        """添加步骤"""
+    def get_edges(self) -> Dict[str, 'IEdge']:
+        """获取所有边"""
+        pass
+    
+    @abstractmethod
+    def add_node(self, node_config: Any) -> None:
+        """添加节点
+        
+        Args:
+            node_config: 节点配置
+        """
+        pass
+    
+    @abstractmethod
+    def add_edge(self, edge_config: Any) -> None:
+        """添加边
+        
+        Args:
+            edge_config: 边配置
+        """
+        pass
+
+
+class IWorkflowManager(ABC):
+    """工作流管理器接口 - 统一管理工作流生命周期"""
+
+    @abstractmethod
+    def create_workflow(self, config: 'GraphConfig') -> IWorkflow:
+        """创建工作流
+        
+        Args:
+            config: 工作流配置
+            
+        Returns:
+            IWorkflow: 工作流实例
+        """
         pass
 
     @abstractmethod
-    def add_transition(self, transition: Any) -> None:
-        """添加转换"""
+    def execute_workflow(
+        self,
+        workflow: IWorkflow,
+        initial_state: 'IWorkflowState',
+        context: Optional[Dict[str, Any]] = None
+    ) -> 'IWorkflowState':
+        """执行工作流
+        
+        Args:
+            workflow: 工作流实例
+            initial_state: 初始状态
+            context: 执行上下文
+            
+        Returns:
+            IWorkflowState: 执行结果状态
+        """
         pass
 
     @abstractmethod
-    def get_step(self, step_id: str) -> Any:
-        """获取步骤"""
+    async def execute_workflow_async(
+        self,
+        workflow: IWorkflow,
+        initial_state: 'IWorkflowState',
+        context: Optional[Dict[str, Any]] = None
+    ) -> 'IWorkflowState':
+        """异步执行工作流
+        
+        Args:
+            workflow: 工作流实例
+            initial_state: 初始状态
+            context: 执行上下文
+            
+        Returns:
+            IWorkflowState: 执行结果状态
+        """
         pass
 
     @abstractmethod
-    def execute(self, initial_state: 'IWorkflowState', context: ExecutionContext) -> 'IWorkflowState':
-        """执行工作流"""
+    def validate_workflow(self, workflow: IWorkflow) -> ValidationResult:
+        """验证工作流
+        
+        Args:
+            workflow: 工作流实例
+            
+        Returns:
+            ValidationResult: 验证结果
+        """
         pass
 
     @abstractmethod
-    async def execute_async(self, initial_state: 'IWorkflowState', context: ExecutionContext) -> 'IWorkflowState':
-        """异步执行工作流"""
+    def compile_workflow(self, workflow: IWorkflow) -> None:
+        """编译工作流
+        
+        Args:
+            workflow: 工作流实例
+        """
+        pass
+
+    @abstractmethod
+    def get_workflow_status(self, workflow: IWorkflow) -> Dict[str, Any]:
+        """获取工作流状态
+        
+        Args:
+            workflow: 工作流实例
+            
+        Returns:
+            Dict[str, Any]: 工作流状态信息
+        """
+        pass
+
+
+class IWorkflowValidator(ABC):
+    """工作流验证器接口"""
+
+    @abstractmethod
+    def validate(self, workflow: IWorkflow) -> ValidationResult:
+        """验证工作流
+        
+        Args:
+            workflow: 工作流实例
+            
+        Returns:
+            ValidationResult: 验证结果
+        """
+        pass
+
+    @abstractmethod
+    def validate_config(self, config: 'GraphConfig') -> ValidationResult:
+        """验证工作流配置
+        
+        Args:
+            config: 工作流配置
+            
+        Returns:
+            ValidationResult: 验证结果
+        """
+        pass
+
+
+class IWorkflowRegistry(ABC):
+    """工作流注册表接口"""
+
+    @abstractmethod
+    def register_workflow(self, workflow_id: str, workflow: IWorkflow) -> None:
+        """注册工作流"""
+        pass
+
+    @abstractmethod
+    def get_workflow(self, workflow_id: str) -> Optional[IWorkflow]:
+        """获取工作流"""
+        pass
+
+    @abstractmethod
+    def unregister_workflow(self, workflow_id: str) -> bool:
+        """注销工作流"""
+        pass
+
+    @abstractmethod
+    def list_workflows(self) -> List[str]:
+        """列出所有已注册的工作流"""
+        pass
+
+    @abstractmethod
+    def clear(self) -> None:
+        """清空注册表"""
         pass
