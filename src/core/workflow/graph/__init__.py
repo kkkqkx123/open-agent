@@ -17,11 +17,20 @@ from src.interfaces.workflow.graph import (
 from .decorators import node
 from .registry import (
     NodeRegistry,
+    EdgeRegistry,
+    FunctionRegistry,
+    GlobalRegistry,
+    get_global_registry
+)
+from .registry.global_registry import (
     register_node,
-    get_global_registry,
+    register_edge,
+    register_node_function,
+    register_route_function,
     get_node_class,
-    get_node_instance,
-    list_node_types
+    get_edge_class,
+    get_node_function,
+    get_route_function
 )
 from .nodes import (
     LLMNode,
@@ -37,10 +46,16 @@ from .edges import (
     ConditionalEdge,
     FlexibleConditionalEdge
 )
-# GraphBuilder 已移除，因为接口已移至 src/interfaces
-# from .builder import GraphBuilder
+from .service import GraphService, get_graph_service, IGraphService
+from .graph import Graph
 
 __all__ = [
+    # Service
+    "IGraphService",
+    "GraphService",
+    "get_graph_service",
+    # Graph
+    "Graph",
     # Interfaces
     "IGraph",
     "INode",
@@ -55,11 +70,18 @@ __all__ = [
     
     # Registry
     "NodeRegistry",
-    "register_node",
+    "EdgeRegistry",
+    "FunctionRegistry",
+    "GlobalRegistry",
     "get_global_registry",
+    "register_node",
+    "register_edge",
+    "register_node_function",
+    "register_route_function",
     "get_node_class",
-    "get_node_instance",
-    "list_node_types",
+    "get_edge_class",
+    "get_node_function",
+    "get_route_function",
     
     # Nodes
     "LLMNode",

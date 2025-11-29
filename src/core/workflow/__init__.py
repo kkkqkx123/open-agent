@@ -47,6 +47,32 @@ from .config.config import (
     EdgeType
 )
 
+# 图服务模块
+from .graph import (
+    IGraphService,
+    GraphService,
+    get_graph_service,
+    NodeRegistry,
+    EdgeRegistry,
+    FunctionRegistry,
+    GlobalRegistry,
+    get_global_registry,
+    register_node,
+    register_edge,
+    register_node_function,
+    register_route_function,
+    get_node_class,
+    get_edge_class,
+    get_node_function,
+    get_route_function
+)
+from .graph.extensions import (
+    ITrigger,
+    IPlugin,
+    TriggerFactory,
+    PluginManager
+)
+
 # 便捷函数
 def create_workflow(config: GraphConfig) -> Workflow:
     """创建工作流实例
@@ -168,6 +194,28 @@ __all__ = [
     "StateFieldConfig",
     "GraphStateConfig",
     "EdgeType",
+    
+    # 图服务模块
+    "IGraphService",
+    "GraphService",
+    "get_graph_service",
+    "NodeRegistry",
+    "EdgeRegistry",
+    "FunctionRegistry",
+    "GlobalRegistry",
+    "get_global_registry",
+    "register_node",
+    "register_edge",
+    "register_node_function",
+    "register_route_function",
+    "get_node_class",
+    "get_edge_class",
+    "get_node_function",
+    "get_route_function",
+    "ITrigger",
+    "IPlugin",
+    "TriggerFactory",
+    "PluginManager",
     
     # 便捷函数
     "create_workflow",
