@@ -8,17 +8,12 @@ import threading
 import time
 from typing import Type, TypeVar, Dict, Any, Optional, List, Callable, Iterator, Generator
 from contextlib import contextmanager
-from enum import Enum
 
 from src.interfaces.container import (
     IDependencyContainer, 
     ILifecycleAware, 
-    ServiceStatus, 
-    IServiceTracker, 
-    IServiceCache,
-    IPerformanceMonitor,
-    IScopeManager
 )
+from src.interfaces.configuration import ValidationResult
 from src.core.common.types import ServiceLifetime
 
 
@@ -207,6 +202,7 @@ class DependencyContainer(IDependencyContainer):
         implementation: Type,
         environment: str = "default",
         lifetime: str = ServiceLifetime.SINGLETON,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """注册服务实现"""
         with self._lock:
@@ -227,6 +223,7 @@ class DependencyContainer(IDependencyContainer):
         factory: Callable[[], Any],
         environment: str = "default",
         lifetime: str = ServiceLifetime.SINGLETON,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """注册服务工厂"""
         with self._lock:
@@ -242,7 +239,11 @@ class DependencyContainer(IDependencyContainer):
             logger.debug(f"工厂注册: {interface.__name__}, lifetime: {lifetime}")
     
     def register_instance(
-        self, interface: Type, instance: Any, environment: str = "default"
+        self, 
+        interface: Type, 
+        instance: Any, 
+        environment: str = "default",
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """注册服务实例"""
         with self._lock:
@@ -390,6 +391,59 @@ class DependencyContainer(IDependencyContainer):
             self._instances.clear()
             self._service_cache.clear()
             logger.debug("DependencyContainer已清除")
+    
+    def try_get(self, service_type: Type[T]) -> Optional[T]:
+        """尝试获取服务实例，如果不存在返回None"""
+        try:
+            return self.get(service_type)
+        except (ValueError, Exception):
+            return None
+    
+    def validate_configuration(self) -> ValidationResult:
+        """验证容器配置"""
+        errors = []
+        warnings = []
+        
+        # 验证所有注册的服务
+        for environment, registrations in self._registrations.items():
+            for interface, registration in registrations.items():
+                # 验证注册信息
+                reg_errors = []
+                
+                # 检查至少有一种实现方式
+                if not any([registration.implementation, registration.factory, registration.instance]):
+                    reg_errors.append(f"必须提供 implementation、factory 或 instance 中的一个 (环境: {environment}, 接口: {interface.__name__})")
+                
+                # 检查不能同时提供多种实现方式
+                impl_count = sum([
+                    1 for item in [registration.implementation, registration.factory, registration.instance]
+                    if item is not None
+                ])
+                if impl_count > 1:
+                    reg_errors.append(f"只能提供 implementation、factory 或 instance 中的一种 (环境: {environment}, 接口: {interface.__name__})")
+                
+                errors.extend(reg_errors)
+        
+        return ValidationResult(
+            is_valid=len(errors) == 0,
+            errors=errors,
+            warnings=warnings
+        )
+    
+    def get_registration_count(self) -> int:
+        """获取注册的服务数量"""
+        count = 0
+        for registrations in self._registrations.values():
+            count += len(registrations)
+        return count
+    
+    def get_registered_services(self) -> List[Type]:
+        """获取已注册的服务类型列表"""
+        services = []
+        for registrations in self._registrations.values():
+            services.extend(registrations.keys())
+        # 返回唯一的服务类型
+        return list(set(services))
 
 
 # 全局容器实例

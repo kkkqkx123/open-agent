@@ -4,9 +4,9 @@
 这是纯适配器，不包含业务逻辑，只负责框架集成。
 """
 
-from typing import Dict, Any, Optional, List, Callable
+from typing import Dict, Any, Optional, List
 import logging
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import START, END
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +25,12 @@ class LangGraphAdapter:
         """将核心图转换为LangGraph格式
         
         Args:
-            core_graph: 核心图实例（由UnifiedGraphBuilder构建）
+            core_graph: 核心图实例（由GraphBuilder构建）
             
         Returns:
             Any: 编译后的LangGraph图
         """
-        # 由于核心层的UnifiedGraphBuilder已经构建了LangGraph图
+        # 由于核心层的GraphBuilder已经构建了LangGraph图
         # 这里主要是提供缓存和适配功能
         if hasattr(core_graph, 'compiled') and core_graph.compiled:
             # 如果已经是编译后的图，直接返回

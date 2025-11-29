@@ -9,8 +9,7 @@ from contextlib import contextmanager
 from types import TracebackType
 
 from src.interfaces.container import IDependencyContainer
-from src.interfaces.common_infra import ILogger
-from src.core.common.types import ServiceLifetime
+from src.interfaces.common_infra import ILogger, ServiceLifetime
 
 # 泛型类型变量
 _ServiceT = TypeVar("_ServiceT")
@@ -72,7 +71,8 @@ class TestContainer(ContextManager["TestContainer"]):
                 interface: Type[Any],
                 factory: Callable[[], Any],
                 environment: str = "default",
-                lifetime: str = ServiceLifetime.SINGLETON,
+                lifetime: ServiceLifetime = ServiceLifetime.SINGLETON,
+                metadata: Optional[Dict[str, Any]] = None
             ) -> None:
                 self._services[interface] = factory
             
@@ -81,12 +81,17 @@ class TestContainer(ContextManager["TestContainer"]):
                 interface: Type[Any],
                 implementation: Type[Any],
                 environment: str = "default",
-                lifetime: str = ServiceLifetime.SINGLETON,
+                lifetime: ServiceLifetime = ServiceLifetime.SINGLETON,
+                metadata: Optional[Dict[str, Any]] = None
             ) -> None:
                 self._services[interface] = implementation
             
             def register_instance(
-                self, interface: Type[Any], instance: Any, environment: str = "default"
+                self, 
+                interface: Type[Any], 
+                instance: Any, 
+                environment: str = "default",
+                metadata: Optional[Dict[str, Any]] = None
             ) -> None:
                 self._services[interface] = instance
             
@@ -100,6 +105,12 @@ class TestContainer(ContextManager["TestContainer"]):
                     return service  # type: ignore
                 raise ValueError(f"Service {service_type} not registered")
             
+            def try_get(self, service_type: Type[_ServiceT]) -> Optional[_ServiceT]:
+                try:
+                    return self.get(service_type)
+                except ValueError:
+                    return None
+            
             def has_service(self, service_type: Type[Any]) -> bool:
                 return service_type in self._services
             
@@ -111,6 +122,16 @@ class TestContainer(ContextManager["TestContainer"]):
             
             def clear(self) -> None:
                 self._services.clear()
+            
+            def validate_configuration(self) -> Any:
+                # 返回简单的验证结果
+                return type('ValidationResult', (), {'is_valid': True, 'errors': []})()
+            
+            def get_registration_count(self) -> int:
+                return len(self._services)
+            
+            def get_registered_services(self) -> List[Type]:
+                return list(self._services.keys())
         
         return MockContainer()
 

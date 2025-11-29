@@ -22,9 +22,11 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.pregel import Pregel
 from langchain_core.messages import BaseMessage
 
-from ....interfaces.state.workflow import IWorkflowState as WorkflowState
-from ..graph.registry import get_global_registry
-from ...domain.state.interfaces import IStateLifecycleManager
+from src.interfaces.state.workflow import IWorkflowState as WorkflowState
+from src.core.workflow.graph.registry import get_global_registry
+from src.core.workflow.config.config import GraphConfig
+from src.core.workflow.graph.builder.graph_builder import GraphBuilder
+from src.interfaces.state import IStateLifecycleManager
 
 logger = logging.getLogger(__name__)
 
@@ -127,8 +129,9 @@ class LangGraphAdapter(ILangGraphAdapter):
     
     def _create_default_graph_builder(self) -> GraphBuilder:
         """创建默认图构建器"""
+        from src.core.workflow.graph.builder.base import UnifiedGraphBuilder
         node_registry = get_global_registry()
-        return cast(GraphBuilder, GraphBuilder(node_registry=node_registry))
+        return cast(GraphBuilder, UnifiedGraphBuilder(node_registry=node_registry))
     
     async def create_graph(self, config: GraphConfig) -> Pregel:
         """创建LangGraph图

@@ -1,7 +1,6 @@
 """配置系统依赖注入配置
 
 注册配置相关的服务到依赖注入容器。
-为了避免架构层次问题，不集中到service层的container目录中。
 """
 
 import logging
@@ -10,15 +9,15 @@ from typing import Dict, Any
 from src.interfaces.container import IDependencyContainer
 from src.interfaces.common_infra import ServiceLifetime
 from src.interfaces.config.interfaces import IConfigValidator
-from .config_manager import ConfigManager, DefaultConfigValidator
-from .config_manager_factory import ConfigManagerFactory
-from .processor.config_processor_chain import (
+from ...core.config.config_manager import ConfigManager, DefaultConfigValidator
+from ...core.config.config_manager_factory import ConfigManagerFactory
+from ...core.config.processor.config_processor_chain import (
     ConfigProcessorChain,
     InheritanceProcessor,
     EnvironmentVariableProcessor,
     ReferenceProcessor
 )
-from .adapter_factory import AdapterFactory
+from ...core.config.adapter_factory import AdapterFactory
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +125,7 @@ def _create_adapter_factory() -> AdapterFactory:
         适配器工厂实例
     """
     try:
-        from .config_manager import get_default_manager
+        from ...core.config.config_manager import get_default_manager
         config_manager = get_default_manager()
         adapter_factory = AdapterFactory(config_manager)
         logger.debug("适配器工厂创建完成")

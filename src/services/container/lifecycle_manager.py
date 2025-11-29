@@ -1,5 +1,6 @@
 """生命周期管理器实现"""
 
+import asyncio
 import logging
 import threading
 from typing import Dict, Any, List, Optional, Callable, Set
@@ -114,7 +115,7 @@ class LifecycleManager(ILifecycleManager):
             
             logger.debug(f"注册服务: {service_name}")
     
-    def unregister_service(self, service_name: str) -> None:
+    async def unregister_service(self, service_name: str) -> None:
         """注销服务"""
         with self._lock:
             if service_name not in self._services:
@@ -123,7 +124,7 @@ class LifecycleManager(ILifecycleManager):
             
             # 先释放服务
             try:
-                self.dispose_service(service_name)
+                await self.dispose_service(service_name)
             except Exception as e:
                 logger.error(f"释放服务 {service_name} 失败: {e}")
             
@@ -145,7 +146,7 @@ class LifecycleManager(ILifecycleManager):
             
             logger.debug(f"注销服务: {service_name}")
     
-    def initialize_service(self, service_name: str) -> bool:
+    async def initialize_service(self, service_name: str) -> bool:
         """初始化服务"""
         with self._lock:
             service_info = self._services.get(service_name)
@@ -160,7 +161,7 @@ class LifecycleManager(ILifecycleManager):
             try:
                 # 先初始化依赖
                 for dep in self._dependency_graph.get(service_name, set()):
-                    if not self.initialize_service(dep):
+                    if not await self.initialize_service(dep):
                         logger.error(f"初始化依赖服务失败: {dep}")
                         return False
                 
@@ -183,7 +184,7 @@ class LifecycleManager(ILifecycleManager):
                 self._record_event(service_name, "initialize_failed", {"error": str(e)})
                 return False
     
-    def start_service(self, service_name: str) -> bool:
+    async def start_service(self, service_name: str) -> bool:
         """启动服务"""
         with self._lock:
             service_info = self._services.get(service_name)
@@ -198,7 +199,7 @@ class LifecycleManager(ILifecycleManager):
             try:
                 # 先启动依赖
                 for dep in self._dependency_graph.get(service_name, set()):
-                    if not self.start_service(dep):
+                    if not await self.start_service(dep):
                         logger.error(f"启动依赖服务失败: {dep}")
                         return False
                 
@@ -221,7 +222,7 @@ class LifecycleManager(ILifecycleManager):
                 self._record_event(service_name, "start_failed", {"error": str(e)})
                 return False
     
-    def stop_service(self, service_name: str) -> bool:
+    async def stop_service(self, service_name: str) -> bool:
         """停止服务"""
         with self._lock:
             service_info = self._services.get(service_name)
@@ -236,7 +237,7 @@ class LifecycleManager(ILifecycleManager):
             try:
                 # 先停止依赖此服务的服务
                 for dependent in self._reverse_dependency_graph.get(service_name, set()):
-                    if not self.stop_service(dependent):
+                    if not await self.stop_service(dependent):
                         logger.error(f"停止依赖服务失败: {dependent}")
                         return False
                 
@@ -259,7 +260,7 @@ class LifecycleManager(ILifecycleManager):
                 self._record_event(service_name, "stop_failed", {"error": str(e)})
                 return False
     
-    def dispose_service(self, service_name: str) -> bool:
+    async def dispose_service(self, service_name: str) -> bool:
         """释放服务"""
         with self._lock:
             service_info = self._services.get(service_name)
@@ -274,7 +275,7 @@ class LifecycleManager(ILifecycleManager):
             try:
                 # 先释放依赖此服务的服务
                 for dependent in self._reverse_dependency_graph.get(service_name, set()):
-                    if not self.dispose_service(dependent):
+                    if not await self.dispose_service(dependent):
                         logger.error(f"释放依赖服务失败: {dependent}")
                         return False
                 
@@ -297,7 +298,7 @@ class LifecycleManager(ILifecycleManager):
                 self._record_event(service_name, "dispose_failed", {"error": str(e)})
                 return False
     
-    def initialize_all_services(self) -> Dict[str, bool]:
+    async def initialize_all_services(self) -> Dict[str, bool]:
         """初始化所有服务"""
         results = {}
         
@@ -305,11 +306,11 @@ class LifecycleManager(ILifecycleManager):
         ordered_services = self._get_topological_order()
         
         for service_name in ordered_services:
-            results[service_name] = self.initialize_service(service_name)
+            results[service_name] = await self.initialize_service(service_name)
         
         return results
     
-    def start_all_services(self) -> Dict[str, bool]:
+    async def start_all_services(self) -> Dict[str, bool]:
         """启动所有服务"""
         results = {}
         
@@ -317,11 +318,11 @@ class LifecycleManager(ILifecycleManager):
         ordered_services = self._get_topological_order()
         
         for service_name in ordered_services:
-            results[service_name] = self.start_service(service_name)
+            results[service_name] = await self.start_service(service_name)
         
         return results
     
-    def stop_all_services(self) -> Dict[str, bool]:
+    async def stop_all_services(self) -> Dict[str, bool]:
         """停止所有服务"""
         results = {}
         
@@ -329,11 +330,11 @@ class LifecycleManager(ILifecycleManager):
         ordered_services = list(reversed(self._get_topological_order()))
         
         for service_name in ordered_services:
-            results[service_name] = self.stop_service(service_name)
+            results[service_name] = await self.stop_service(service_name)
         
         return results
     
-    def dispose_all_services(self) -> Dict[str, bool]:
+    async def dispose_all_services(self) -> Dict[str, bool]:
         """释放所有服务"""
         results = {}
         
@@ -341,7 +342,7 @@ class LifecycleManager(ILifecycleManager):
         ordered_services = list(reversed(self._get_topological_order()))
         
         for service_name in ordered_services:
-            results[service_name] = self.dispose_service(service_name)
+            results[service_name] = await self.dispose_service(service_name)
         
         return results
     
@@ -362,15 +363,18 @@ class LifecycleManager(ILifecycleManager):
             self._event_handlers[event_type].append(handler)
             logger.debug(f"注册事件处理器: {event_type}")
     
-    def unregister_lifecycle_event_handler(self, event_type: str, handler: Callable[[str], None]) -> None:
+    def unregister_lifecycle_event_handler(self, event_type: str, handler: Callable[[str], None]) -> bool:
         """注销生命周期事件处理器"""
         with self._lock:
             if event_type in self._event_handlers:
                 try:
                     self._event_handlers[event_type].remove(handler)
                     logger.debug(f"注销事件处理器: {event_type}")
+                    return True
                 except ValueError:
                     logger.warning(f"事件处理器不存在: {event_type}")
+                    return False
+            return False
     
     def get_service_info(self, service_name: str) -> Optional[ServiceLifecycleInfo]:
         """获取服务详细信息"""
@@ -502,6 +506,55 @@ class LifecycleManager(ILifecycleManager):
                 "recent_events_count": len(self._events),
                 "dependency_edges": sum(len(deps) for deps in self._dependency_graph.values())
             }
+    
+    async def execute_lifecycle_phase(
+        self, 
+        phase: str, 
+        service_names: Optional[List[str]] = None
+    ) -> Dict[str, bool]:
+        """执行生命周期阶段"""
+        results: Dict[str, bool] = {}
+        
+        # 如果未指定服务名称，使用所有服务
+        target_services = service_names if service_names else list(self._services.keys())
+        
+        # 获取排序顺序（对于停止和释放，需要反向）
+        if phase in ["stop", "dispose"]:
+            ordered_services = list(reversed(self._get_topological_order()))
+            # 只保留目标服务
+            ordered_services = [s for s in ordered_services if s in target_services]
+        else:
+            ordered_services = self._get_topological_order()
+            # 只保留目标服务
+            ordered_services = [s for s in ordered_services if s in target_services]
+        
+        # 执行对应的生命周期方法
+        if phase == "initialize":
+            for service_name in ordered_services:
+                results[service_name] = await self.initialize_service(service_name)
+        elif phase == "start":
+            for service_name in ordered_services:
+                results[service_name] = await self.start_service(service_name)
+        elif phase == "stop":
+            for service_name in ordered_services:
+                results[service_name] = await self.stop_service(service_name)
+        elif phase == "dispose":
+            for service_name in ordered_services:
+                results[service_name] = await self.dispose_service(service_name)
+        else:
+            logger.error(f"无效的生命周期阶段: {phase}")
+        
+        return results
+    
+    def get_dependency_order(self, service_names: Optional[List[str]] = None) -> List[str]:
+        """获取服务依赖顺序"""
+        if service_names:
+            # 只返回指定服务的依赖顺序
+            ordered = self._get_topological_order()
+            return [s for s in ordered if s in service_names]
+        else:
+            # 返回所有服务的依赖顺序
+            return self._get_topological_order()
 
 
 def get_global_lifecycle_manager() -> LifecycleManager:

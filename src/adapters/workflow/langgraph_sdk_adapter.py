@@ -5,10 +5,9 @@ import asyncio
 from datetime import datetime
 import logging
 
-from ...application.threads.query_manager import ThreadQueryManager
-from ...application.checkpoint.manager import CheckpointManager
-from ...interfaces.sessions.base import ISessionManager
-from ...domain.threads.interfaces import IThreadManager
+from src.services.checkpoint.manager import CheckpointManager
+from src.interfaces.sessions.base import ISessionManager
+from src.interfaces.threads.base import IThreadManager
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,7 @@ class LangGraphSDKAdapter:
         checkpoint_manager: CheckpointManager,
         thread_manager: IThreadManager,
         session_manager: ISessionManager,
-        query_manager: Optional[ThreadQueryManager] = None
+        query_manager: Optional[Any] = None
     ):
         """初始化完整的LangGraph SDK适配器
         
@@ -34,7 +33,7 @@ class LangGraphSDKAdapter:
         self.checkpoint_manager = checkpoint_manager
         self.thread_manager = thread_manager
         self.session_manager = session_manager
-        self.query_manager = query_manager or ThreadQueryManager(thread_manager)
+        self.query_manager = query_manager
     
     async def threads_create(
         self,
@@ -263,6 +262,8 @@ class LangGraphSDKAdapter:
             Thread列表
         """
         # 使用查询管理器列出threads
+        if not self.query_manager:
+            raise ValueError("查询管理器未配置")
         threads = await self.query_manager.search_threads(filters)
         
         # 添加额外信息
@@ -397,6 +398,8 @@ class LangGraphSDKAdapter:
             filters["created_before"] = created_before
         
         # 使用查询管理器进行搜索
+        if not self.query_manager:
+            raise ValueError("查询管理器未配置")
         results = await self.query_manager.search_threads(
             filters=filters,
             limit=limit,
@@ -503,9 +506,12 @@ class LangGraphSDKAdapter:
         new_thread_id = await self.thread_manager.fork_thread(
             thread_id,
             checkpoint_id,
-            branch_name,
-            metadata={"forked_from": thread_id, "forked_at": datetime.now().isoformat()}
+            branch_name
         )
+        
+        # 更新新线程的元数据
+        fork_metadata = {"forked_from": thread_id, "forked_at": datetime.now().isoformat()}
+        await self.thread_manager.update_thread_metadata(new_thread_id, fork_metadata)
         
         result = {
             "thread_id": new_thread_id,
