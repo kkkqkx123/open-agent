@@ -6,11 +6,12 @@
 import logging
 import time
 import uuid
-from typing import Dict, Any, Optional, List, TYPE_CHECKING
+from typing import Dict, Any, Optional, List, TYPE_CHECKING, Union
 from datetime import datetime
 from dataclasses import dataclass, field
 
 from src.interfaces.workflow.execution import IWorkflowExecutor
+from src.interfaces.workflow.core import IWorkflow
 from ..core.workflow_executor import WorkflowExecutor
 from ..core.node_executor import INodeExecutor, NodeExecutor
 from ..core.execution_context import ExecutionContext, ExecutionResult
@@ -69,7 +70,7 @@ class ExecutionManager(IExecutionManager):
         self._modes: Dict[str, IExecutionMode] = {}
         
         # 执行统计
-        self._execution_stats = {
+        self._execution_stats: Dict[str, Any] = {
             "total_executions": 0,
             "successful_executions": 0,
             "failed_executions": 0,
@@ -102,8 +103,8 @@ class ExecutionManager(IExecutionManager):
         logger.debug(f"执行模式已注册: {mode.get_mode_name()}")
     
     def execute_workflow(
-        self, 
-        workflow: 'WorkflowInstance', 
+        self,
+        workflow: Union['WorkflowInstance', IWorkflow],
         initial_data: Optional[Dict[str, Any]] = None,
         config: Optional[Dict[str, Any]] = None
     ) -> ExecutionResult:
@@ -121,8 +122,12 @@ class ExecutionManager(IExecutionManager):
         execution_id = str(uuid.uuid4())
         
         # 创建执行上下文
+        # 使用 getattr 安全访问 config 属性，因为 workflow 可能是 IWorkflow 接口
+        workflow_config = getattr(workflow, 'config', None)
+        workflow_name = getattr(workflow_config, 'name', getattr(workflow, 'workflow_id', 'unknown'))
+        
         context = ExecutionContext(
-            workflow_id=workflow.config.name,
+            workflow_id=workflow_name,
             execution_id=execution_id,
             config=config or {
                 "initial_data": initial_data,
@@ -137,41 +142,51 @@ class ExecutionManager(IExecutionManager):
         start_time = time.time()
         
         try:
-            logger.info(f"开始执行工作流: {workflow.config.name} (ID: {execution_id})")
+            logger.info(f"开始执行工作流: {workflow_name} (ID: {execution_id})")
             
             # 检查缓存
-            if self.config.enable_caching:
+            if self.config.enable_caching and isinstance(workflow, WorkflowInstance):
                 cached_result = self._get_cached_result(workflow, context)
                 if cached_result:
-                    logger.info(f"使用缓存结果: {workflow.config.name}")
+                    logger.info(f"使用缓存结果: {workflow_name}")
                     return cached_result
             
-            # 自动选择合适的策略和模式
-            strategy = self._select_strategy(workflow, context)
-            mode = self._select_mode(workflow, context)
-            
-            # 设置执行器
-            self._workflow_executor.set_strategy(strategy)
-            self._workflow_executor.set_mode(mode)
-            self._workflow_executor.set_node_executor(self._node_executor)
-            
-            # 执行工作流
-            result = self._workflow_executor.execute(workflow, context)
+            # 统一使用协调器执行工作流
+            from src.core.workflow.orchestration.workflow_instance_coordinator import WorkflowInstanceCoordinator
+            coordinator = WorkflowInstanceCoordinator(workflow)
+            from src.core.state.implementations.workflow_state import WorkflowState
+            initial_state = WorkflowState(
+                workflow_id=workflow_name,
+                execution_id=execution_id,
+                data=initial_data or {}
+            )
+            result_state = coordinator.execute_workflow(initial_state, context.config)
+            final_state = getattr(result_state, 'data', result_state)
+            result = ExecutionResult(
+                success=True,
+                result=final_state if isinstance(final_state, dict) else {},
+                metadata={
+                    "workflow_name": workflow_name,
+                    "workflow_id": workflow_name,
+                    "execution_id": execution_id,
+                    "execution_time": time.time() - start_time,
+                }
+            )
             
             # 缓存结果
-            if self.config.enable_caching and result.success:
+            if self.config.enable_caching and result.success and isinstance(workflow, WorkflowInstance):
                 self._cache_result(workflow, context, result)
             
             # 更新统计
-            self._update_stats(True, time.time() - start_time, strategy.get_strategy_name(), mode.get_mode_name())
+            self._update_stats(True, time.time() - start_time, "coordinator", "sync")
             
-            logger.info(f"工作流执行完成: {workflow.config.name} (ID: {execution_id}), 耗时: {result.execution_time:.2f}s")
+            logger.info(f"工作流执行完成: {workflow_name} (ID: {execution_id}), 耗时: {result.execution_time:.2f}s")
             
             return result
             
         except Exception as e:
             execution_time = time.time() - start_time
-            logger.error(f"工作流执行失败: {workflow.config.name} (ID: {execution_id}), 错误: {e}")
+            logger.error(f"工作流执行失败: {workflow_name} (ID: {execution_id}), 错误: {e}")
             
             # 更新统计
             self._update_stats(False, execution_time, None, None)
@@ -181,8 +196,8 @@ class ExecutionManager(IExecutionManager):
                 success=False,
                 error=str(e),
                 metadata={
-                    "workflow_name": workflow.config.name,
-                    "workflow_id": workflow.config.name,
+                    "workflow_name": workflow_name,
+                    "workflow_id": workflow_name,
                     "execution_id": execution_id,
                     "error_type": type(e).__name__,
                     "execution_time": execution_time
@@ -192,8 +207,8 @@ class ExecutionManager(IExecutionManager):
             return result
     
     async def execute_workflow_async(
-        self, 
-        workflow: 'WorkflowInstance', 
+        self,
+        workflow: Union['WorkflowInstance', IWorkflow],
         initial_data: Optional[Dict[str, Any]] = None,
         config: Optional[Dict[str, Any]] = None
     ) -> ExecutionResult:
@@ -211,8 +226,12 @@ class ExecutionManager(IExecutionManager):
         execution_id = str(uuid.uuid4())
         
         # 创建执行上下文
+        # 使用 getattr 安全访问 config 属性，因为 workflow 可能是 IWorkflow 接口
+        workflow_config = getattr(workflow, 'config', None)
+        workflow_name = getattr(workflow_config, 'name', getattr(workflow, 'workflow_id', 'unknown'))
+        
         context = ExecutionContext(
-            workflow_id=workflow.config.name,
+            workflow_id=workflow_name,
             execution_id=execution_id,
             config=config or {
                 "initial_data": initial_data,
@@ -228,41 +247,52 @@ class ExecutionManager(IExecutionManager):
         start_time = time.time()
         
         try:
-            logger.info(f"开始异步执行工作流: {workflow.config.name} (ID: {execution_id})")
+            logger.info(f"开始异步执行工作流: {workflow_name} (ID: {execution_id})")
             
             # 检查缓存
-            if self.config.enable_caching:
+            if self.config.enable_caching and isinstance(workflow, WorkflowInstance):
                 cached_result = self._get_cached_result(workflow, context)
                 if cached_result:
-                    logger.info(f"使用缓存结果: {workflow.config.name}")
+                    logger.info(f"使用缓存结果: {workflow_name}")
                     return cached_result
             
-            # 自动选择合适的策略和模式
-            strategy = self._select_strategy(workflow, context)
-            mode = self._select_mode(workflow, context)
-            
-            # 设置执行器
-            self._workflow_executor.set_strategy(strategy)
-            self._workflow_executor.set_mode(mode)
-            self._workflow_executor.set_node_executor(self._node_executor)
-            
-            # 异步执行工作流
-            result = await self._workflow_executor.execute_async(workflow, context)
+            # 统一使用协调器异步执行工作流
+            from src.core.workflow.orchestration.workflow_instance_coordinator import WorkflowInstanceCoordinator
+            coordinator = WorkflowInstanceCoordinator(workflow)
+            from src.core.state.implementations.workflow_state import WorkflowState
+            initial_state = WorkflowState(
+                workflow_id=workflow_name,
+                execution_id=execution_id,
+                data=initial_data or {}
+            )
+            result_state = await coordinator.execute_workflow_async(initial_state, context.config)
+            final_state = getattr(result_state, 'data', result_state)
+            result = ExecutionResult(
+                success=True,
+                result=final_state if isinstance(final_state, dict) else {},
+                metadata={
+                    "workflow_name": workflow_name,
+                    "workflow_id": workflow_name,
+                    "execution_id": execution_id,
+                    "execution_time": time.time() - start_time,
+                    "async_execution": True
+                }
+            )
             
             # 缓存结果
-            if self.config.enable_caching and result.success:
+            if self.config.enable_caching and result.success and isinstance(workflow, WorkflowInstance):
                 self._cache_result(workflow, context, result)
             
             # 更新统计
-            self._update_stats(True, time.time() - start_time, strategy.get_strategy_name(), mode.get_mode_name())
+            self._update_stats(True, time.time() - start_time, "coordinator", "async")
             
-            logger.info(f"工作流异步执行完成: {workflow.config.name} (ID: {execution_id}), 耗时: {result.execution_time:.2f}s")
+            logger.info(f"工作流异步执行完成: {workflow_name} (ID: {execution_id}), 耗时: {result.execution_time:.2f}s")
             
             return result
             
         except Exception as e:
             execution_time = time.time() - start_time
-            logger.error(f"工作流异步执行失败: {workflow.config.name} (ID: {execution_id}), 错误: {e}")
+            logger.error(f"工作流异步执行失败: {workflow_name} (ID: {execution_id}), 错误: {e}")
             
             # 更新统计
             self._update_stats(False, execution_time, None, None)
@@ -272,8 +302,8 @@ class ExecutionManager(IExecutionManager):
                 success=False,
                 error=str(e),
                 metadata={
-                    "workflow_name": workflow.config.name,
-                    "workflow_id": workflow.config.name,
+                    "workflow_name": workflow_name,
+                    "workflow_id": workflow_name,
                     "execution_id": execution_id,
                     "error_type": type(e).__name__,
                     "execution_time": execution_time,
@@ -468,13 +498,13 @@ class ExecutionManager(IExecutionManager):
         current_time = time.time()
         
         # 缓存有效期为1小时
-        return (current_time - cached_at) < 3600
+        return (current_time - float(cached_at)) < 3600
     
     def _update_stats(
-        self, 
-        success: bool, 
-        execution_time: float, 
-        strategy_name: Optional[str], 
+        self,
+        success: bool,
+        execution_time: float,
+        strategy_name: Optional[str],
         mode_name: Optional[str]
     ) -> None:
         """更新执行统计
@@ -513,9 +543,10 @@ class ExecutionManager(IExecutionManager):
         """
         stats = self._execution_stats.copy()
         
-        if stats["total_executions"] > 0:
-            stats["success_rate"] = stats["successful_executions"] / stats["total_executions"]
-            stats["average_execution_time"] = stats["total_execution_time"] / stats["total_executions"]
+        total_executions = stats["total_executions"]
+        if total_executions > 0:
+            stats["success_rate"] = stats["successful_executions"] / total_executions
+            stats["average_execution_time"] = stats["total_execution_time"] / total_executions
         else:
             stats["success_rate"] = 0.0
             stats["average_execution_time"] = 0.0

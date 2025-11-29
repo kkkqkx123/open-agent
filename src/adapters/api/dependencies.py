@@ -8,6 +8,7 @@ from fastapi import Depends
 from ...interfaces.sessions.base import ISessionManager
 from ...application.workflow.manager import IWorkflowManager
 from ...domain.workflow.interfaces import IWorkflowRegistry, IWorkflowConfigManager, IWorkflowVisualizer
+from ...interfaces.workflow.services import IWorkflowRegistryCoordinator
 from .data_access.session_dao import SessionDAO
 from .data_access.history_dao import HistoryDAO
 from .data_access.workflow_dao import WorkflowDAO
@@ -96,9 +97,13 @@ def get_workflow_dao() -> WorkflowDAO:
 async def get_session_manager() -> ISessionManager:
     """获取会话管理器"""
     # 这里应该从依赖注入容器中获取
-    # 暂时返回一个模拟实例
-    from ...application.sessions.manager import SessionManager
-    from ...application.workflow.manager import WorkflowManager
+    # 使用新的协调器系统
+    from ...core.workflow.registry.registry import WorkflowRegistry
+    from ...core.workflow.orchestration.workflow_registry_coordinator import WorkflowRegistryCoordinator
+    
+    registry = WorkflowRegistry()
+    workflow_coordinator = WorkflowRegistryCoordinator(registry)
+    return workflow_coordinator
     
     # 创建必要的依赖
     workflow_manager = WorkflowManager()

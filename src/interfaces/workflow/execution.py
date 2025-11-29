@@ -27,13 +27,13 @@ class IWorkflowExecutor(ABC):
         pass
 
     @abstractmethod
-    async def execute_stream(self, workflow: 'IWorkflow', initial_state: 'IWorkflowState',
+    def execute_stream(self, workflow: 'IWorkflow', initial_state: 'IWorkflowState',
                        context: Optional[Dict[str, Any]] = None) -> AsyncIterator[Dict[str, Any]]:
         """流式执行工作流"""
         pass
 
     @abstractmethod
-    async def execute_stream_async(self, workflow: 'IWorkflow', initial_state: 'IWorkflowState',
+    def execute_stream_async(self, workflow: 'IWorkflow', initial_state: 'IWorkflowState',
                                   context: Optional[Dict[str, Any]] = None) -> AsyncIterator[Dict[str, Any]]:
         """异步流式执行工作流"""
         pass

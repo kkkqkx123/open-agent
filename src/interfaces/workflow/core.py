@@ -84,6 +84,12 @@ class IWorkflow(ABC):
         """工作流图"""
         pass
 
+    @property
+    @abstractmethod
+    def compiled_graph(self) -> Optional[Any]:
+        """编译后的图（可选属性）"""
+        pass
+
     @abstractmethod
     def set_entry_point(self, entry_point: str) -> None:
         """设置入口点"""

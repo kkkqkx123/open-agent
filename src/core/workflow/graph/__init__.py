@@ -37,7 +37,8 @@ from .edges import (
     ConditionalEdge,
     FlexibleConditionalEdge
 )
-from .builder import GraphBuilder
+# GraphBuilder 已移除，因为接口已移至 src/interfaces
+# from .builder import GraphBuilder
 
 __all__ = [
     # Interfaces
@@ -73,7 +74,4 @@ __all__ = [
     "SimpleEdge",
     "ConditionalEdge",
     "FlexibleConditionalEdge",
-    
-    # Builder
-    "GraphBuilder"
 ]

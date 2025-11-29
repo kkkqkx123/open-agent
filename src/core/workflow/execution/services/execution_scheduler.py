@@ -7,8 +7,8 @@ import logging
 import time
 import threading
 import queue
-import asyncio
-from typing import Dict, Any, Optional, List, Callable, Union, TYPE_CHECKING
+import uuid
+from typing import Dict, Any, Optional, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -389,14 +389,24 @@ class ExecutionScheduler(IExecutionScheduler):
             if self.execution_callback:
                 result = self.execution_callback(task)
             else:
-                # 默认执行逻辑
-                result = task.workflow.run(task.context.get_config("initial_data"))
+                # 使用协调器执行工作流
+                from src.core.workflow.orchestration.workflow_instance_coordinator import WorkflowInstanceCoordinator
+                coordinator = WorkflowInstanceCoordinator(task.workflow)
+                from src.core.state.implementations.workflow_state import WorkflowState
+                initial_state = WorkflowState(
+                    workflow_id=task.workflow.workflow_id,
+                    execution_id=str(uuid.uuid4()),
+                    data=task.context.get_config("initial_data") or {}
+                )
+                result_state = coordinator.execute_workflow(initial_state, task.context.config)
+                # 使用 getattr 安全访问 data 属性，因为 IWorkflowState 接口可能没有定义 data
+                final_data = getattr(result_state, 'data', result_state)
                 
                 # 创建执行结果
                 from ..core.execution_context import ExecutionResult
                 result = ExecutionResult(
                     success=True,
-                    result=result if isinstance(result, dict) else {"result": result},
+                    result=final_data if isinstance(final_data, dict) else {"result": final_data},
                     metadata={
                         "task_id": task.task_id,
                         "workflow_name": task.workflow.config.name,

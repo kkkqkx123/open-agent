@@ -16,7 +16,7 @@ from core.workflow.graph.nodes.state_machine.templates import StateTemplateManag
 from src.services.workflow.function_registry import FunctionRegistry, FunctionType
 from src.core.workflow.graph.builder.element_builder_factory import get_builder_factory
 from src.interfaces.workflow.element_builder import BuildContext
-from ....core.workflow.workflow_instance import WorkflowInstance
+from ..workflow_instance import WorkflowInstance
 from core.common.exceptions.workflow import WorkflowConfigError, WorkflowValidationError
 
 logger = logging.getLogger(__name__)
@@ -516,7 +516,6 @@ class LoaderService(ILoaderService):
                 config=config,
                 compiled_graph=compiled_graph,
                 state_template_manager=self.state_template_manager,
-                use_services_layer=False
             )
             
             # 缓存实例

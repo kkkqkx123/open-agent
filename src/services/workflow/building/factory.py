@@ -4,14 +4,15 @@ This module provides the workflow factory service that creates workflows
 from configurations and templates.
 """
 
-from typing import Dict, Any, List, Optional, Type
+from typing import Dict, Any, List, Type
 from src.interfaces.workflow.core import IWorkflow
 from src.interfaces.workflow.templates import IWorkflowTemplate
 from src.interfaces.workflow.services import IWorkflowFactory
-from src.core.workflow.workflow_instance import Workflow
+from src.core.workflow.workflow_instance import WorkflowInstance
 from src.core.workflow.templates import get_global_template_registry
-from src.core.workflow.orchestration.manager import WorkflowManager
+from src.core.workflow.orchestration.workflow_registry_coordinator import WorkflowRegistryCoordinator
 from src.core.workflow.registry.registry import WorkflowRegistry
+from src.core.workflow.config.config import GraphConfig
 
 
 class WorkflowFactory(IWorkflowFactory):
@@ -21,18 +22,24 @@ class WorkflowFactory(IWorkflowFactory):
     including configurations, templates, and predefined types.
     """
     
-    def __init__(self, registry: WorkflowRegistry):
+    def __init__(self, registry: WorkflowRegistry, use_coordinator: bool = True):
         """Initialize the workflow factory.
         
         Args:
             registry: Workflow registry service
+            use_coordinator: Whether to use the new coordinator system
         """
         self._registry = registry
+        self._use_coordinator = use_coordinator
         self._template_registry: Dict[str, Dict[str, Any]] = {}
         self._workflow_types: Dict[str, Type[IWorkflow]] = {
-            "default": Workflow
+            "default": WorkflowInstance
         }
         self._template_manager = get_global_template_registry()
+        
+        # Initialize coordinator if enabled
+        if use_coordinator:
+            self._coordinator = WorkflowRegistryCoordinator(registry)
     
     def create_from_config(self, config: Dict[str, Any]) -> IWorkflow:
         """Create a workflow from a configuration dictionary.
@@ -49,8 +56,17 @@ class WorkflowFactory(IWorkflowFactory):
         
         name = config.get("name", workflow_id)
         
-        # Create the workflow
-        workflow = Workflow(workflow_id, name)
+        # Create the workflow configuration
+        graph_config = GraphConfig(
+            name=workflow_id,
+            description=config.get("description", ""),
+            nodes=config.get("nodes", {}),
+            edges=config.get("edges", []),
+            entry_point=config.get("entry_point", None)
+        )
+        
+        # Create the workflow instance
+        workflow = WorkflowInstance(graph_config)
         
         # Configure the workflow
         self._configure_workflow(workflow, config)

@@ -5,7 +5,7 @@ providing contracts for workflow management, execution, and orchestration.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, AsyncGenerator, TYPE_CHECKING
+from typing import Dict, Any, List, Optional, AsyncGenerator, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from .core import IWorkflow
@@ -124,43 +124,6 @@ class IWorkflowExecutor(ABC):
         pass
 
 
-class IWorkflowOrchestrator(ABC):
-    """Interface for workflow orchestrator service."""
-    
-    @abstractmethod
-    def orchestrate(
-        self, 
-        workflows: List["IWorkflow"], 
-        config: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, "IWorkflowState"]:
-        """Orchestrate multiple workflows."""
-        pass
-    
-    @abstractmethod
-    async def orchestrate_async(
-        self, 
-        workflows: List["IWorkflow"], 
-        config: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, "IWorkflowState"]:
-        """Orchestrate multiple workflows asynchronously."""
-        pass
-    
-    @abstractmethod
-    def add_workflow_dependency(self, workflow_id: str, depends_on: str) -> None:
-        """Add a dependency between workflows."""
-        pass
-    
-    @abstractmethod
-    def remove_workflow_dependency(self, workflow_id: str, depends_on: str) -> None:
-        """Remove a dependency between workflows."""
-        pass
-    
-    @abstractmethod
-    def get_workflow_dependencies(self, workflow_id: str) -> List[str]:
-        """Get dependencies for a workflow."""
-        pass
-
-
 class IWorkflowRegistry(ABC):
     """Interface for workflow registry service."""
     
@@ -192,6 +155,55 @@ class IWorkflowRegistry(ABC):
     @abstractmethod
     def clear(self) -> None:
         """Clear all registered workflows."""
+        pass
+
+
+class IWorkflowRegistryCoordinator(ABC):
+    """Interface for workflow registry coordinator service."""
+    
+    @abstractmethod
+    def register_workflow(self, workflow_id: str, workflow: "IWorkflow") -> None:
+        """Register a workflow."""
+        pass
+    
+    @abstractmethod
+    def get_workflow(self, workflow_id: str) -> Optional["IWorkflow"]:
+        """Get a workflow by ID."""
+        pass
+    
+    @abstractmethod
+    def create_workflow_coordinator(self, workflow_id: str) -> Any:
+        """Create a workflow instance coordinator."""
+        pass
+    
+    @abstractmethod
+    def execute_workflow(
+        self,
+        workflow_id: str,
+        initial_state: Optional["IWorkflowState"] = None,
+        config: Optional[Dict[str, Any]] = None
+    ) -> "IWorkflowState":
+        """Execute a workflow."""
+        pass
+    
+    @abstractmethod
+    async def execute_workflow_async(
+        self,
+        workflow_id: str,
+        initial_state: Optional["IWorkflowState"] = None,
+        config: Optional[Dict[str, Any]] = None
+    ) -> "IWorkflowState":
+        """Execute a workflow asynchronously."""
+        pass
+    
+    @abstractmethod
+    def list_workflows(self) -> List[Dict[str, Any]]:
+        """List all registered workflows."""
+        pass
+    
+    @abstractmethod
+    def delete_workflow(self, workflow_id: str) -> bool:
+        """Delete a workflow."""
         pass
 
 

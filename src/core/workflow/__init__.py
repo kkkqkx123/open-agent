@@ -26,7 +26,8 @@ from .entities import (
     ExecutionResult,
     WorkflowMetadata
 )
-# Workflow is imported lazily to avoid circular imports
+# Workflow instance implementation
+from .workflow_instance import WorkflowInstance
 
 from langchain_core.messages import AIMessage as LCAIMessage
 from .value_objects import (
@@ -65,7 +66,6 @@ from .graph import (
     IGraph,
     INode,
     IEdge,
-    IGraphBuilder,
     INodeRegistry,
     IRoutingFunction,
     IRoutingRegistry,
@@ -85,8 +85,7 @@ from .graph import (
     BaseEdge,
     SimpleEdge,
     ConditionalEdge,
-    FlexibleConditionalEdge,
-    GraphBuilder
+    FlexibleConditionalEdge
 )
 
 # Configuration sub-module
@@ -209,6 +208,9 @@ __all__ = [
     "IWorkflowTemplate",
     "IWorkflowTemplateRegistry",
     
+    # Core implementations
+    "WorkflowInstance",
+    
     # Core entities
     "WorkflowEntity",
     "WorkflowExecution",
@@ -252,7 +254,6 @@ __all__ = [
     "IGraph",
     "INode",
     "IEdge",
-    "IGraphBuilder",
     "INodeRegistry",
     "IRoutingFunction",
     "IRoutingRegistry",
@@ -281,9 +282,6 @@ __all__ = [
     "SimpleEdge",
     "ConditionalEdge",
     "FlexibleConditionalEdge",
-    
-    # Graph builder
-    "GraphBuilder",
     
     # Configuration
     "GraphConfig",

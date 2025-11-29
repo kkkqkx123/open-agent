@@ -322,19 +322,21 @@ def setup_container(config_path: Optional[str] = None) -> None:
         git_manager = MockGitService()
         container.register_instance(IGitService, git_manager)
     
-    # 注册工作流管理器
+    # 注册工作流管理器（使用新的协调器）
     from src.core.workflow.orchestration.manager import IWorkflowManager
+    from src.interfaces.workflow.services import IWorkflowRegistryCoordinator
     if not container.has_service(IWorkflowManager):
-        from src.core.workflow.orchestration.orchestrator import WorkflowOrchestrator
-        from src.core.workflow.execution.core.workflow_executor import WorkflowExecutor
         from src.core.workflow.registry.registry import WorkflowRegistry
-        from src.core.workflow.orchestration.manager import WorkflowManager
+        from src.core.workflow.orchestration.workflow_registry_coordinator import WorkflowRegistryCoordinator
         
-        orchestrator = WorkflowOrchestrator()
-        executor = WorkflowExecutor()  # type: ignore
         registry = WorkflowRegistry()
-        workflow_manager = WorkflowManager(orchestrator, executor, registry)  # type: ignore
-        container.register_instance(IWorkflowManager, workflow_manager)
+        workflow_coordinator = WorkflowRegistryCoordinator(registry)
+        
+        # 注册新的协调器
+        container.register_instance(IWorkflowRegistryCoordinator, workflow_coordinator)
+        
+        # 为了向后兼容，也将协调器注册为 IWorkflowManager
+        container.register_instance(IWorkflowManager, workflow_coordinator)  # type: ignore
     
     # 注册会话核心服务
     from src.core.sessions.interfaces import ISessionCore

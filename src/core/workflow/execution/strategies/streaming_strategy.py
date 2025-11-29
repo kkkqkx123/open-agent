@@ -227,7 +227,14 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         
         # 获取初始状态
         initial_data = context.get_config("initial_data") if hasattr(context, 'get_config') else None
-        initial_state = workflow.create_initial_state(initial_data)
+        # 使用 WorkflowState 创建初始状态，因为新的 WorkflowInstance 没有 create_initial_state 方法
+        from src.core.state.implementations.workflow_state import WorkflowState
+        import uuid
+        initial_state = WorkflowState(
+            workflow_id=workflow.workflow_id,
+            execution_id=str(uuid.uuid4()),
+            data=initial_data or {}
+        )
         current_state = initial_state
         current_node_id = workflow.config.entry_point
         
@@ -295,7 +302,7 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
                     current_node_id = next_nodes[0] if next_nodes else None
         
         # 发送工作流完成事件
-        final_state = current_state if isinstance(current_state, dict) else (current_state.get_data() if hasattr(current_state, 'get_data') else {})
+        final_state = current_state if isinstance(current_state, dict) else (getattr(current_state, 'data', {}) if hasattr(current_state, 'data') else {})
         event = self._create_event("workflow_completed", {
             "workflow_name": workflow.config.name,
             "workflow_id": workflow.config.id,
@@ -332,7 +339,14 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         
         # 获取初始状态
         initial_data = context.get_config("initial_data") if hasattr(context, 'get_config') else None
-        initial_state = workflow.create_initial_state(initial_data)
+        # 使用 WorkflowState 创建初始状态，因为新的 WorkflowInstance 没有 create_initial_state 方法
+        from src.core.state.implementations.workflow_state import WorkflowState
+        import uuid
+        initial_state = WorkflowState(
+            workflow_id=workflow.workflow_id,
+            execution_id=str(uuid.uuid4()),
+            data=initial_data or {}
+        )
         current_state = initial_state
         current_node_id = workflow.config.entry_point
         
@@ -407,7 +421,7 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
                     current_node_id = next_nodes[0] if next_nodes else None
         
         # 发送工作流完成事件
-        final_state = current_state if isinstance(current_state, dict) else (current_state.get_data() if hasattr(current_state, 'get_data') else {})
+        final_state = current_state if isinstance(current_state, dict) else (getattr(current_state, 'data', {}) if hasattr(current_state, 'data') else {})
         event = self._create_event("workflow_completed", {
             "workflow_name": workflow.config.name,
             "workflow_id": workflow.config.id,
@@ -519,8 +533,10 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
             List[str]: 下一个节点ID列表
         """
         # 简化实现，实际应该根据工作流的边定义来查找
-        if hasattr(workflow, 'get_next_nodes'):
-            return workflow.get_next_nodes(node_id, state, config)
+        # 使用 WorkflowInstanceCoordinator 来获取下一个节点
+        from src.core.workflow.orchestration.workflow_instance_coordinator import WorkflowInstanceCoordinator
+        coordinator = WorkflowInstanceCoordinator(workflow)
+        return coordinator.get_next_nodes(node_id, state, config)
         return []
     
     async def _get_next_nodes_async(
@@ -542,8 +558,8 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
             List[str]: 下一个节点ID列表
         """
         # 简化实现，实际应该根据工作流的边定义来查找
-        if hasattr(workflow, 'get_next_nodes_async'):
-            return await workflow.get_next_nodes_async(node_id, state, config)
-        elif hasattr(workflow, 'get_next_nodes'):
-            return workflow.get_next_nodes(node_id, state, config)
+        # 使用 WorkflowInstanceCoordinator 来获取下一个节点
+        from src.core.workflow.orchestration.workflow_instance_coordinator import WorkflowInstanceCoordinator
+        coordinator = WorkflowInstanceCoordinator(workflow)
+        return coordinator.get_next_nodes(node_id, state, config)
         return []

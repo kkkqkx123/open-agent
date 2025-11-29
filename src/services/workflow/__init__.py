@@ -38,11 +38,10 @@ __all__ = [
     # Original services
     "WorkflowBuilderService",
     "WorkflowFactory",
-    "IWorkflowManager",
     "IWorkflowFactory",
     "IWorkflowExecutor",
-    "IWorkflowOrchestrator",
     "IWorkflowRegistry",
+    "IWorkflowRegistryCoordinator",
     "IWorkflowBuilderService",
     
     # Newly migrated services

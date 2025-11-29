@@ -252,8 +252,18 @@ class WorkflowBuilderService(IWorkflowBuilderService):
             IWorkflow: 工作流实例
         """
         # 延迟导入避免循环依赖
-        from src.core.workflow.workflow_instance import Workflow
-        return Workflow(workflow_id, name)
+        from core.workflow.workflow_instance import WorkflowInstance
+        from src.core.workflow.config.config import GraphConfig
+        
+        # 创建基础配置
+        config = GraphConfig(
+            name=workflow_id,
+            nodes={},
+            edges=[],
+            entry_point="__start__"
+        )
+        
+        return WorkflowInstance(config)
     
     def get_cache_stats(self) -> Dict[str, Any]:
         """获取缓存统计信息
