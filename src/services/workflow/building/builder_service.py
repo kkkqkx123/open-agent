@@ -172,15 +172,26 @@ class WorkflowBuilderService(IWorkflowBuilderService):
             
             # 延迟导入验证器避免循环依赖
             if self._validator is None:
-                from src.core.workflow.graph.builder.validator import WorkflowConfigValidator
-                self._validator = WorkflowConfigValidator()
+                from src.core.workflow.graph.builder.validation_rules import get_validation_registry
+                self._validator = get_validation_registry()
             
-            result = self._validator.validate_config(config_obj)
+            # 使用新的验证规则系统进行基础验证
+            validation_errors = []
+            
+            # 基础配置验证
+            if not config_obj.name or not config_obj.name.strip():
+                validation_errors.append("工作流名称不能为空")
+            
+            if not config_obj.nodes:
+                validation_errors.append("工作流必须定义至少一个节点")
+            
+            if not config_obj.state_schema:
+                validation_errors.append("工作流必须定义状态模式")
             
             # 过滤掉内置函数的错误
             builtin_functions = {"start_node", "end_node", "passthrough_node"}
             filtered_errors = []
-            for error in result.errors:
+            for error in validation_errors:
                 # 检查是否是内置函数不存在的错误
                 is_builtin_function_error = False
                 for builtin_func in builtin_functions:
@@ -210,13 +221,21 @@ class WorkflowBuilderService(IWorkflowBuilderService):
             配置模式
         """
         try:
-            # 延迟导入验证器避免循环依赖
-            if self._validator is None:
-                from src.core.workflow.graph.builder.validator import WorkflowConfigValidator
-                self._validator = WorkflowConfigValidator()
-            
-            # 返回核心层验证器的验证规则作为模式
-            schema = self._validator.get_validation_rules()
+            # 返回简化的配置模式
+            schema = {
+                "required_fields": {
+                    "name": "工作流名称（必需）",
+                    "nodes": "节点定义（必需）",
+                    "state_schema": "状态模式（必需）"
+                },
+                "optional_fields": {
+                    "description": "工作流描述",
+                    "version": "版本号",
+                    "edges": "边定义",
+                    "entry_point": "入口点",
+                    "checkpointer": "检查点配置"
+                }
+            }
             logger.debug("返回配置模式")
             return schema
         except Exception as e:

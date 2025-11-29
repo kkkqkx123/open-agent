@@ -14,7 +14,8 @@ from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.management.workflow_validator import WorkflowValidator, ValidationIssue
 from core.workflow.graph.nodes.state_machine.templates import StateTemplateManager
 from src.services.workflow.function_registry import FunctionRegistry, FunctionType
-from src.core.workflow.graph.builder.base import GraphBuilder
+from src.core.workflow.graph.builder.element_builder_factory import get_builder_factory
+from src.interfaces.workflow.element_builder import BuildContext
 from ....core.workflow.workflow_instance import WorkflowInstance
 from core.common.exceptions.workflow import WorkflowConfigError, WorkflowValidationError
 
@@ -75,7 +76,7 @@ class LoaderService(ILoaderService):
         self,
         config_manager: Optional[ConfigManager] = None,
         function_registry: Optional[FunctionRegistry] = None,
-        builder: Optional[GraphBuilder] = None,
+        builder: Optional[Any] = None,
         workflow_validator: Optional[WorkflowValidator] = None,
         state_template_manager: Optional[StateTemplateManager] = None,
         prompt_service: Optional[Any] = None,  # 使用 Any 类型，因为旧的 WorkflowPromptService 已弃用
@@ -94,8 +95,19 @@ class LoaderService(ILoaderService):
         # 初始化核心组件
         self.config_manager = config_manager or ConfigManager()
         self.function_registry = function_registry or FunctionRegistry()
-        self.builder = builder or GraphBuilder(
-            function_registry=self.function_registry
+        # 使用新的构建器工厂系统
+        if builder is not None:
+            # 如果提供了自定义构建器，使用它
+            self.builder_factory = builder
+        else:
+            # 使用新的构建器工厂
+            self.builder_factory = get_builder_factory()
+        
+        # 创建构建上下文
+        self.build_context = BuildContext(
+            graph_config=None,
+            function_resolver=self.function_registry,
+            logger=logger
         )
         # 使用新的提示词系统替代已弃用的 WorkflowPromptService
         if prompt_service is None:
@@ -467,8 +479,8 @@ class LoaderService(ILoaderService):
             return self._graph_cache[config_hash]
         
         try:
-            # 构建图
-            compiled_graph = self.builder.build_graph(config)
+            # 使用新的构建器系统构建图
+            compiled_graph = self._build_graph_with_new_system(config)
             
             # 缓存图
             if self.enable_caching:
@@ -501,9 +513,10 @@ class LoaderService(ILoaderService):
         try:
             # 创建工作流实例
             instance = WorkflowInstance(
-                compiled_graph=compiled_graph,
                 config=config,
-                state_template_manager=self.state_template_manager
+                compiled_graph=compiled_graph,
+                state_template_manager=self.state_template_manager,
+                use_services_layer=False
             )
             
             # 缓存实例
@@ -608,4 +621,43 @@ class LoaderService(ILoaderService):
                 "node_functions": {"count": 0, "names": []},
                 "condition_functions": {"count": 0, "names": []}
             }
+    
+    def _build_graph_with_new_system(self, config: GraphConfig) -> Any:
+        """使用新的构建器系统构建图"""
+        try:
+            # 更新构建上下文
+            self.build_context.graph_config = config
+            
+            # 使用新的构建器工厂创建节点和边构建器
+            node_builder = self.builder_factory.create_node_builder("node", self.build_context)
+            edge_builder = self.builder_factory.create_edge_builder("edge", self.build_context)
+            
+            # 创建StateGraph
+            from langgraph.graph import StateGraph
+            from typing import cast, Any
+            builder = StateGraph(cast(Any, config.get_state_class()))
+            
+            # 添加节点
+            for node_name, node_config in config.nodes.items():
+                node_function = node_builder.build_element(node_config, self.build_context)
+                if node_function:
+                    node_builder.add_to_graph(node_function, builder, node_config, self.build_context)
+            
+            # 添加边
+            for edge in config.edges:
+                edge_element = edge_builder.build_element(edge, self.build_context)
+                edge_builder.add_to_graph(edge_element, builder, edge, self.build_context)
+            
+            # 设置入口点
+            if config.entry_point:
+                from langgraph.graph import START
+                builder.add_edge(START, config.entry_point)
+            
+            # 编译图
+            compiled_graph = builder.compile()
+            
+            return compiled_graph
+            
+        except Exception as e:
+            raise WorkflowConfigError(f"构建图失败: {e}") from e
     

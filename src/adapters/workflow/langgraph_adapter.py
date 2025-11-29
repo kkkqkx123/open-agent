@@ -24,13 +24,13 @@ from langchain_core.messages import BaseMessage
 
 from src.interfaces.state.workflow import IWorkflowState as WorkflowState
 from src.interfaces.workflow.core import IWorkflow
+from src.interfaces.workflow.graph import IGraph
 from src.core.workflow.graph.registry import get_global_registry
 from src.core.workflow.config.config import GraphConfig
-from src.core.workflow.graph.builder.graph_builder import GraphBuilder
+from src.core.workflow.graph.builder.element_builder_factory import get_builder_factory
+from src.interfaces.workflow.element_builder import BuildContext
 from src.interfaces.state import IStateLifecycleManager
-
-if TYPE_CHECKING:
-    from src.services.workflow.graph_cache import GraphCache
+from src.services.workflow.graph_cache import GraphCache
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ class LangGraphAdapter(ILangGraphAdapter):
     def __init__(
         self,
         checkpoint_saver: Optional[BaseCheckpointSaver] = None,
-        graph_builder: Optional[GraphBuilder] = None,
+        graph_builder: Optional[Any] = None,  # 改为Any类型
         state_manager: Optional[IStateLifecycleManager] = None,
         use_memory_checkpoint: bool = False,
         graph_cache: Optional["GraphCache"] = None,  # 使用外部缓存
@@ -127,10 +127,10 @@ class LangGraphAdapter(ILangGraphAdapter):
         
         # 使用外部缓存或内部简单缓存
         if graph_cache:
-            self._graph_cache = graph_cache  # type: ignore
+            self._graph_cache: Union[GraphCache, Dict[str, Pregel]] = graph_cache
             self._external_cache = True
         else:
-            self._graph_cache: Dict[str, Pregel] = {}
+            self._graph_cache = {}
             self._external_cache = False
         
         logger.info("LangGraphAdapter初始化完成")
@@ -146,11 +146,19 @@ class LangGraphAdapter(ILangGraphAdapter):
         conn = sqlite3.connect(":memory:")
         return SqliteSaver(conn)
     
-    def _create_default_graph_builder(self) -> GraphBuilder:
+    def _create_default_graph_builder(self):
         """创建默认图构建器"""
-        from src.core.workflow.graph.builder.base import GraphBuilder
-        node_registry = get_global_registry()
-        return cast(GraphBuilder, GraphBuilder())
+        # 使用新的构建器工厂
+        self.builder_factory = get_builder_factory()
+        
+        # 创建构建上下文
+        self.build_context = BuildContext(
+            graph_config=None,
+            function_resolver=self.function_registry,
+            logger=logger
+        )
+        
+        return self  # 返回自身，因为构建逻辑现在在适配器中
     
     async def create_graph(self, config: GraphConfig) -> Pregel:
         """创建LangGraph图
@@ -170,15 +178,15 @@ class LangGraphAdapter(ILangGraphAdapter):
             
             # 构建图
             logger.info(f"开始构建LangGraph图: {config.name}")
-            graph = await self.graph_builder.build_graph(config)
+            graph = await self._build_graph_with_new_system(config)
             
-            # 编译图（添加checkpoint支持）- 检查是否已经编译
-            if hasattr(graph, 'compile') and not hasattr(graph, 'invoke'):
-                # 未编译的图，需要编译
-                compiled_graph = graph.compile(checkpointer=self.checkpoint_saver)
-            else:
+            # 检查图是否已经编译
+            if hasattr(graph, 'invoke'):
                 # 已经编译的图，直接使用
                 compiled_graph = graph
+            else:
+                # 未编译的图，需要编译
+                compiled_graph = graph.compile(checkpointer=self.checkpoint_saver)  # type: ignore
             
             # 缓存图
             self._cache_graph(config, compiled_graph)
@@ -208,15 +216,15 @@ class LangGraphAdapter(ILangGraphAdapter):
             
             # 构建图（同步方式）
             logger.info(f"开始构建LangGraph图: {config.name}")
-            graph = self.graph_builder.build_graph(config)
+            graph = self._build_graph_with_new_system_sync(config)
             
-            # 编译图（添加checkpoint支持）- 检查是否已经编译
-            if hasattr(graph, 'compile') and not hasattr(graph, 'invoke'):
-                # 未编译的图，需要编译
-                compiled_graph = graph.compile(checkpointer=self.checkpoint_saver)
-            else:
+            # 检查图是否已经编译
+            if hasattr(graph, 'invoke'):
                 # 已经编译的图，直接使用
                 compiled_graph = graph
+            else:
+                # 未编译的图，需要编译
+                compiled_graph = graph.compile(checkpointer=self.checkpoint_saver)  # type: ignore
             
             # 缓存图
             self._cache_graph(config, compiled_graph)
@@ -235,11 +243,13 @@ class LangGraphAdapter(ILangGraphAdapter):
             from src.services.workflow.graph_cache import calculate_config_hash
             config_dict = config.to_dict() if hasattr(config, 'to_dict') else config.__dict__
             config_hash = calculate_config_hash(config_dict)
-            return self._graph_cache.get_graph(config_hash)  # type: ignore
+            graph_cache = cast(GraphCache, self._graph_cache)
+            return graph_cache.get_graph(config_hash)
         else:
             # 使用内部简单缓存
             cache_key = self._generate_graph_cache_key(config)
-            return self._graph_cache.get(cache_key)
+            cache_dict = cast(Dict[str, Pregel], self._graph_cache)
+            return cache_dict.get(cache_key)
     
     def _cache_graph(self, config: GraphConfig, graph: Pregel) -> None:
         """缓存图"""
@@ -248,11 +258,13 @@ class LangGraphAdapter(ILangGraphAdapter):
             from src.services.workflow.graph_cache import calculate_config_hash
             config_dict = config.to_dict() if hasattr(config, 'to_dict') else config.__dict__
             config_hash = calculate_config_hash(config_dict)
-            self._graph_cache.cache_graph(config_hash, graph, config_dict)  # type: ignore
+            graph_cache = cast(GraphCache, self._graph_cache)
+            graph_cache.cache_graph(config_hash, graph, config_dict)
         else:
             # 使用内部简单缓存
             cache_key = self._generate_graph_cache_key(config)
-            self._graph_cache[cache_key] = graph
+            cache_dict = cast(Dict[str, Pregel], self._graph_cache)
+            cache_dict[cache_key] = graph
     
     async def execute_graph(
     self,
@@ -287,11 +299,11 @@ class LangGraphAdapter(ILangGraphAdapter):
             raise
     
     async def stream_graph(  # type: ignore[override]
-    self,
-    graph: Pregel,
-    thread_id: str,
-    config: Optional[RunnableConfig] = None
-    ) -> AsyncGenerator[WorkflowState, None]:
+        self,
+        graph: Pregel,
+        thread_id: str,
+        config: Optional[RunnableConfig] = None
+    ) -> AsyncGenerator[Any, None]:
         """流式执行LangGraph图
         
         Args:
@@ -309,8 +321,12 @@ class LangGraphAdapter(ILangGraphAdapter):
             logger.info(f"开始流式执行LangGraph图: thread_id={thread_id}")
             
             # 流式执行图
-            async for state in graph.astream(run_config) if hasattr(graph, 'astream') else graph.stream(run_config):  # type: ignore
-                yield state
+            if hasattr(graph, 'astream'):
+                async for state in graph.astream(run_config):
+                    yield cast(WorkflowState, state)
+            else:
+                for state in graph.stream(run_config):
+                    yield cast(WorkflowState, state)
             
             logger.info(f"LangGraph图流式执行完成: thread_id={thread_id}")
             
@@ -572,11 +588,13 @@ class LangGraphAdapter(ILangGraphAdapter):
             Dict[str, Any]: 缓存信息
         """
         if self._external_cache:
-            return self._graph_cache.get_cache_stats()  # type: ignore
+            graph_cache = cast(GraphCache, self._graph_cache)
+            return graph_cache.get_cache_stats()
         else:
+            cache_dict = cast(Dict[str, Pregel], self._graph_cache)
             return {
-                "graph_cache_size": len(self._graph_cache),
-                "cached_graphs": list(self._graph_cache.keys()),
+                "graph_cache_size": len(cache_dict),
+                "cached_graphs": list(cache_dict.keys()),
                 "cache_type": "internal"
             }
     
@@ -587,11 +605,13 @@ class LangGraphAdapter(ILangGraphAdapter):
             Dict[str, Any]: 缓存信息
         """
         if self._external_cache:
-            return self._graph_cache.get_cache_stats()  # type: ignore
+            graph_cache = cast(GraphCache, self._graph_cache)
+            return graph_cache.get_cache_stats()
         else:
+            cache_dict = cast(Dict[str, Pregel], self._graph_cache)
             return {
-                "graph_cache_size": len(self._graph_cache),
-                "cached_graphs": list(self._graph_cache.keys()),
+                "graph_cache_size": len(cache_dict),
+                "cached_graphs": list(cache_dict.keys()),
                 "cache_type": "internal"
             }
     
@@ -619,7 +639,8 @@ class LangGraphAdapter(ILangGraphAdapter):
             workflow = Workflow(workflow_id, name)
             
             # 设置图 - 使用类型转换避免类型检查问题
-            workflow.set_graph(compiled_graph)  # type: ignore
+            # Pregel运行时兼容IGraph接口，使用cast来处理类型检查
+            workflow.set_graph(cast(IGraph, compiled_graph))
             
             # 设置其他属性
             if "entry_point" in config:
@@ -635,17 +656,119 @@ class LangGraphAdapter(ILangGraphAdapter):
     
     def validate_and_build_sync(self, config: Dict[str, Any]) -> IWorkflow:
         """同步验证配置并构建工作流（集成验证逻辑）"""
-        # 延迟导入验证器
-        from src.core.workflow.graph.builder.validator import WorkflowConfigValidator
-        validator = WorkflowConfigValidator()
+        # 使用新的验证规则系统
+        from src.core.workflow.graph.builder.validation_rules import get_validation_registry
+        from src.interfaces.workflow.element_builder import BuildContext
+        
+        # 获取验证注册表
+        validation_registry = get_validation_registry()
         
         # 验证配置
         from src.core.workflow.config.config import GraphConfig
         graph_config = GraphConfig.from_dict(config)
-        result = validator.validate_config(graph_config)
         
-        if result.has_errors():
-            raise ValueError(f"配置验证失败: {result.errors}")
+        # 创建构建上下文
+        context = BuildContext(
+            graph_config=graph_config,
+            logger=logger
+        )
+        
+        # 执行基础验证
+        validation_errors = []
+        
+        # 基础配置验证
+        if not graph_config.name or not graph_config.name.strip():
+            validation_errors.append("工作流名称不能为空")
+        
+        if not graph_config.nodes:
+            validation_errors.append("工作流必须定义至少一个节点")
+        
+        if not graph_config.state_schema:
+            validation_errors.append("工作流必须定义状态模式")
+        
+        if validation_errors:
+            raise ValueError(f"配置验证失败: {validation_errors}")
         
         # 构建工作流
         return self.create_workflow_sync(config)
+    
+    async def _build_graph_with_new_system(self, config: GraphConfig) -> Pregel:
+        """使用新的构建器系统异步构建图"""
+        try:
+            # 更新构建上下文
+            self.build_context.graph_config = config
+            
+            # 使用新的构建器工厂创建节点和边构建器
+            node_builder = self.builder_factory.create_node_builder("node", self.build_context)
+            edge_builder = self.builder_factory.create_edge_builder("edge", self.build_context)
+            
+            # 创建StateGraph
+            from langgraph.graph import StateGraph
+            from typing import cast, Any
+            builder = StateGraph(cast(Any, config.get_state_class()))
+            
+            # 添加节点
+            for node_name, node_config in config.nodes.items():
+                node_function = node_builder.build_element(node_config, self.build_context)
+                if node_function:
+                    node_builder.add_to_graph(node_function, builder, node_config, self.build_context)
+            
+            # 添加边
+            for edge in config.edges:
+                edge_element = edge_builder.build_element(edge, self.build_context)
+                edge_builder.add_to_graph(edge_element, builder, edge, self.build_context)
+            
+            # 设置入口点
+            if config.entry_point:
+                from langgraph.graph import START
+                builder.add_edge(START, config.entry_point)
+            
+            # 编译图
+            compiled_graph = builder.compile(checkpointer=self.checkpoint_saver)
+            
+            return compiled_graph
+            
+        except Exception as e:
+            logger.error(f"创建LangGraph图失败: {config.name}, error: {e}")
+            raise
+    
+    def _build_graph_with_new_system_sync(self, config: GraphConfig) -> Pregel:
+        """使用新的构建器系统同步构建图"""
+        try:
+            # 更新构建上下文
+            self.build_context.graph_config = config
+            
+            # 使用新的构建器工厂创建节点和边构建器
+            node_builder = self.builder_factory.create_node_builder("node", self.build_context)
+            edge_builder = self.builder_factory.create_edge_builder("edge", self.build_context)
+            
+            # 创建StateGraph
+            from langgraph.graph import StateGraph
+            from typing import cast, Any
+            builder = StateGraph(cast(Any, config.get_state_class()))
+            
+            # 添加节点
+            for node_name, node_config in config.nodes.items():
+                node_function = node_builder.build_element(node_config, self.build_context)
+                if node_function:
+                    node_builder.add_to_graph(node_function, builder, node_config, self.build_context)
+            
+            # 添加边
+            for edge in config.edges:
+                edge_element = edge_builder.build_element(edge, self.build_context)
+                edge_builder.add_to_graph(edge_element, builder, edge, self.build_context)
+            
+            # 设置入口点
+            if config.entry_point:
+                from langgraph.graph import START
+                builder.add_edge(START, config.entry_point)
+            
+            # 编译图
+            compiled_graph = builder.compile(checkpointer=self.checkpoint_saver)
+            
+            logger.info(f"LangGraph图构建完成: {config.name}")
+            return compiled_graph
+            
+        except Exception as e:
+            logger.error(f"创建LangGraph图失败: {config.name}, error: {e}")
+            raise

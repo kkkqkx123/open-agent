@@ -66,6 +66,106 @@ class WorkflowInstance(IWorkflow):
         
         logger.debug(f"工作流实例初始化完成: {config.name}")
     
+    @property
+    def workflow_id(self) -> str:
+        """工作流ID"""
+        return self.config.name
+    
+    @property
+    def name(self) -> str:
+        """工作流名称"""
+        return self.config.name
+    
+    @property
+    def description(self) -> Optional[str]:
+        """工作流描述"""
+        return self.config.description
+    
+    @property
+    def version(self) -> str:
+        """工作流版本"""
+        return getattr(self.config, 'version', '1.0.0')
+    
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        """工作流元数据"""
+        return getattr(self.config, 'metadata', {})
+    
+    @metadata.setter
+    def metadata(self, value: Dict[str, Any]) -> None:
+        """设置工作流元数据"""
+        if hasattr(self.config, 'metadata'):
+            setattr(self.config, 'metadata', value)
+    
+    @property
+    def _nodes(self) -> Dict[str, Any]:
+        """工作流节点字典"""
+        return self.config.nodes
+    
+    @property
+    def _edges(self) -> Dict[str, Any]:
+        """工作流边字典"""
+        return {edge.from_node + "->" + edge.to_node: edge for edge in self.config.edges}
+    
+    @property
+    def entry_point(self) -> Optional[str]:
+        """入口点"""
+        return self.config.entry_point
+    
+    @property
+    def graph(self) -> Optional[Any]:
+        """工作流图"""
+        return self.compiled_graph
+    
+    def set_entry_point(self, entry_point: str) -> None:
+        """设置入口点"""
+        self.config.entry_point = entry_point
+    
+    def set_graph(self, graph: Any) -> None:
+        """设置工作流图"""
+        self.compiled_graph = graph
+    
+    def add_node(self, node: Any) -> None:
+        """添加节点"""
+        if not hasattr(self.config, 'nodes'):
+            self.config.nodes = {}
+        self.config.nodes[node.node_id] = node
+    
+    def add_edge(self, edge: Any) -> None:
+        """添加边"""
+        if not hasattr(self.config, 'edges'):
+            self.config.edges = []
+        self.config.edges.append(edge)
+    
+    def get_edge(self, edge_id: str) -> Optional[Any]:
+        """获取边"""
+        edges_dict = {edge.from_node + "->" + edge.to_node: edge for edge in self.config.edges}
+        return edges_dict.get(edge_id)
+    
+    def add_step(self, step: Any) -> None:
+        """添加步骤"""
+        # 将步骤转换为节点并添加
+        self.add_node(step)
+    
+    def add_transition(self, transition: Any) -> None:
+        """添加转换"""
+        # 将转换转换为边并添加
+        self.add_edge(transition)
+    
+    def get_step(self, step_id: str) -> Optional[Any]:
+        """获取步骤"""
+        return self.get_node(step_id)
+    
+    def execute(self, initial_state: Any, context: Any) -> Any:
+        """执行工作流"""
+        # 调用 run 方法
+        return self.run(initial_state)
+    
+    async def execute_async(self, initial_state: Any, context: Any) -> Any:
+        """异步执行工作流"""
+        # 调用 run_async 方法
+        return await self.run_async(initial_state)
+    
     def _init_services_layer(self):
         """初始化Services层组件"""
         try:

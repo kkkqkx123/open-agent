@@ -3,7 +3,7 @@
 提供统一的元素构建器创建和管理功能。
 """
 
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type
 import logging
 
 from src.interfaces.workflow.element_builder import (

@@ -3,7 +3,7 @@
 提供可复用的验证规则，减少各构建器中的重复验证逻辑。
 """
 
-from typing import Any, Dict, List, Optional, Union, Callable
+from typing import Dict, List, Optional, Union, Callable
 import re
 
 from src.interfaces.workflow.element_builder import IValidationRule, BuildContext
