@@ -162,23 +162,37 @@ class NodeFunctionRegistry:
         return name in self._compositions
 
 
-# 全局节点函数注册表实例
-_global_node_function_registry: Optional[NodeFunctionRegistry] = None
-
+# 注意：全局注册表已被移除，请使用依赖注入方式注册节点函数
+# 以下函数已被弃用，请使用新的注册表接口
 
 def get_global_node_function_registry() -> NodeFunctionRegistry:
-    """获取全局节点函数注册表
+    """获取全局节点函数注册表（已弃用）
     
     Returns:
         NodeFunctionRegistry: 全局节点函数注册表
+        
+    Raises:
+        DeprecationWarning: 此函数已被弃用，请使用依赖注入方式
     """
-    global _global_node_function_registry
-    if _global_node_function_registry is None:
-        _global_node_function_registry = NodeFunctionRegistry()
-    return _global_node_function_registry
+    import warnings
+    warnings.warn(
+        "get_global_node_function_registry 已被弃用，请使用依赖注入方式",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    raise NotImplementedError("请使用依赖注入方式获取节点函数注册表")
 
 
 def reset_global_node_function_registry() -> None:
-    """重置全局节点函数注册表（用于测试）"""
-    global _global_node_function_registry
-    _global_node_function_registry = None
+    """重置全局节点函数注册表（已弃用）
+    
+    Raises:
+        DeprecationWarning: 此函数已被弃用，请使用依赖注入方式
+    """
+    import warnings
+    warnings.warn(
+        "reset_global_node_function_registry 已被弃用，请使用依赖注入方式",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    raise NotImplementedError("请使用依赖注入方式管理节点函数注册表")

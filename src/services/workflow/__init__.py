@@ -6,11 +6,18 @@ including builders, executors, and utilities.
 
 from .building.builder_service import WorkflowBuilderService
 from .building.factory import WorkflowFactory
+from .workflow_service_factory import (
+    WorkflowServiceFactory,
+    create_workflow_service_factory
+)
+from .workflow_orchestrator import (
+    WorkflowOrchestrator,
+    create_workflow_orchestrator
+)
 from src.interfaces.workflow.services import (
     IWorkflowManager,
     IWorkflowFactory,
     IWorkflowExecutor,
-    IWorkflowOrchestrator,
     IWorkflowRegistry,
     IWorkflowBuilderService
 )
@@ -36,13 +43,21 @@ from .graph_cache import (
 
 __all__ = [
     # Original services
+    "IWorkflowManager",
     "WorkflowBuilderService",
     "WorkflowFactory",
     "IWorkflowFactory",
     "IWorkflowExecutor",
     "IWorkflowRegistry",
-    "IWorkflowRegistryCoordinator",
     "IWorkflowBuilderService",
+    
+    # Service factory
+    "WorkflowServiceFactory",
+    "create_workflow_service_factory",
+    
+    # Orchestrator
+    "WorkflowOrchestrator",
+    "create_workflow_orchestrator",
     
     # Newly migrated services
     "FunctionRegistry",

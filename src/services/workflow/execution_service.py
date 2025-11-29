@@ -10,10 +10,10 @@ from datetime import datetime
 
 from src.interfaces.workflow.core import IWorkflow, IWorkflowState, ExecutionContext
 from src.interfaces.workflow.execution import IWorkflowExecutor as CoreIWorkflowExecutor
-from src.core.workflow.execution import WorkflowExecutor
-from src.core.workflow.graph.nodes.registry import get_global_registry
-from src.core.state import WorkflowState
+from src.core.workflow.execution.executor import WorkflowExecutor
+from src.core.state.implementations.workflow_state import WorkflowState
 from src.interfaces.workflow.services import IWorkflowExecutor as ServiceIWorkflowExecutor
+from src.interfaces.workflow.registry import IWorkflowRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -26,20 +26,17 @@ class WorkflowExecutionService(ServiceIWorkflowExecutor):
     """
     
     def __init__(self,
-                 node_registry: Optional[Any] = None,
-                 function_registry: Optional[Any] = None,
+                 workflow_registry: Optional[IWorkflowRegistry] = None,
                  enable_streaming: bool = True,
                  enable_async: bool = True):
         """初始化工作流执行服务
         
         Args:
-            node_registry: 节点注册表
-            function_registry: 函数注册表
+            workflow_registry: 工作流注册表（通过依赖注入提供）
             enable_streaming: 是否启用流式执行
             enable_async: 是否启用异步执行
         """
-        self.node_registry = node_registry or get_global_registry()
-        self.function_registry = function_registry
+        self.workflow_registry = workflow_registry
         self.enable_streaming = enable_streaming
         self.enable_async = enable_async
         

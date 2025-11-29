@@ -413,44 +413,80 @@ def get_global_function_registry() -> FunctionRegistry:
 
 
 def register_node_function(name: str, function: Callable) -> None:
-    """注册节点函数到全局注册表
+    """注册节点函数到全局注册表（已弃用）
     
     Args:
         name: 函数名称
         function: 函数对象
+        
+    Raises:
+        DeprecationWarning: 此函数已被弃用，请使用依赖注入方式
     """
+    import warnings
+    warnings.warn(
+        "register_node_function 已被弃用，请使用依赖注入方式注册节点函数",
+        DeprecationWarning,
+        stacklevel=2
+    )
     get_global_function_registry().register(name, function, FunctionType.NODE_FUNCTION)
 
 
 def register_condition_function(name: str, function: Callable) -> None:
-    """注册条件函数到全局注册表
+    """注册条件函数到全局注册表（已弃用）
     
     Args:
         name: 函数名称
         function: 函数对象
+        
+    Raises:
+        DeprecationWarning: 此函数已被弃用，请使用依赖注入方式
     """
+    import warnings
+    warnings.warn(
+        "register_condition_function 已被弃用，请使用依赖注入方式注册条件函数",
+        DeprecationWarning,
+        stacklevel=2
+    )
     get_global_function_registry().register(name, function, FunctionType.CONDITION_FUNCTION)
 
 
 def get_node_function(name: str) -> Optional[Callable]:
-    """从全局注册表获取节点函数
+    """从全局注册表获取节点函数（已弃用）
     
     Args:
         name: 函数名称
         
     Returns:
         Optional[Callable]: 节点函数
+        
+    Raises:
+        DeprecationWarning: 此函数已被弃用，请使用依赖注入方式
     """
+    import warnings
+    warnings.warn(
+        "get_node_function 已被弃用，请使用依赖注入方式获取节点函数",
+        DeprecationWarning,
+        stacklevel=2
+    )
     return get_global_function_registry().get_node_function(name)
 
 
 def get_condition_function(name: str) -> Optional[Callable]:
-    """从全局注册表获取条件函数
+    """从全局注册表获取条件函数（已弃用）
     
     Args:
         name: 函数名称
         
     Returns:
         Optional[Callable]: 条件函数
+        
+    Raises:
+        DeprecationWarning: 此函数已被弃用，请使用依赖注入方式
     """
+    import warnings
+    warnings.warn(
+        "get_condition_function 已被弃用，请使用依赖注入方式获取条件函数",
+        DeprecationWarning,
+        stacklevel=2
+    )
     return get_global_function_registry().get_condition_function(name)

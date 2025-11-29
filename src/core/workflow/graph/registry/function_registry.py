@@ -187,9 +187,11 @@ def node_function(name: str):
         装饰器函数
     """
     def decorator(func: Callable) -> Callable:
-        # 注册到全局注册表
-        from .global_registry import get_global_registry
-        get_global_registry().function_registry.register_node_function(name, func)
+        # 注意：全局注册表已被移除，请使用依赖注入方式注册
+        # 这里保留装饰器功能但不再自动注册到全局注册表
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"节点函数 {name} 装饰器已使用，但全局注册表已被移除。请使用依赖注入方式注册。")
         
         return func
     
@@ -206,9 +208,11 @@ def route_function(name: str):
         装饰器函数
     """
     def decorator(func: Callable) -> Callable:
-        # 注册到全局注册表
-        from .global_registry import get_global_registry
-        get_global_registry().function_registry.register_route_function(name, func)
+        # 注意：全局注册表已被移除，请使用依赖注入方式注册
+        # 这里保留装饰器功能但不再自动注册到全局注册表
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"路由函数 {name} 装饰器已使用，但全局注册表已被移除。请使用依赖注入方式注册。")
         
         return func
     

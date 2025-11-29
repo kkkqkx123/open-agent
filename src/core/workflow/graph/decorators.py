@@ -36,9 +36,11 @@ def node(node_type: str) -> Callable:
         # 为包装类添加 node_type 属性，以便注册系统能够获取
         setattr(WrappedNode, '_decorator_node_type', node_type)
 
-        # 注册到全局注册表
-        from .registry.global_registry import get_global_registry
-        get_global_registry().node_registry.register_node(WrappedNode)
+        # 注意：全局注册表已被移除，装饰器不再自动注册
+        # 推荐使用依赖注入方式注册节点
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"节点装饰器已使用，但不再自动注册到全局注册表。请使用依赖注入方式注册节点类型: {node_type}")
 
         return WrappedNode
 

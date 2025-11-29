@@ -25,7 +25,7 @@ from langchain_core.messages import BaseMessage
 from src.interfaces.state.workflow import IWorkflowState as WorkflowState
 from src.interfaces.workflow.core import IWorkflow
 from src.interfaces.workflow.graph import IGraph
-from src.core.workflow.graph.registry import get_global_registry
+from src.interfaces.workflow.registry import IWorkflowRegistry
 from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.graph.builder.element_builder_factory import get_builder_factory
 from src.interfaces.workflow.element_builder import BuildContext
@@ -103,8 +103,9 @@ class LangGraphAdapter(ILangGraphAdapter):
         state_manager: Optional[IStateLifecycleManager] = None,
         use_memory_checkpoint: bool = False,
         graph_cache: Optional["GraphCache"] = None,  # 使用外部缓存
-        node_registry=None,  # 兼容性参数
-        function_registry=None  # 兼容性参数
+        workflow_registry: Optional[IWorkflowRegistry] = None,  # 新的依赖注入参数
+        node_registry=None,  # 兼容性参数（已弃用）
+        function_registry=None  # 兼容性参数（已弃用）
     ):
         """初始化LangGraph适配器
         
@@ -114,14 +115,25 @@ class LangGraphAdapter(ILangGraphAdapter):
             state_manager: 状态管理器
             use_memory_checkpoint: 是否使用内存checkpoint
             graph_cache: 外部图缓存实例
-            node_registry: 节点注册表（兼容性参数）
-            function_registry: 函数注册表（兼容性参数）
+            workflow_registry: 工作流注册表（通过依赖注入提供）
+            node_registry: 节点注册表（兼容性参数，已弃用）
+            function_registry: 函数注册表（兼容性参数，已弃用）
         """
         self.checkpoint_saver = checkpoint_saver or self._create_default_checkpoint_saver(use_memory_checkpoint)
         self.graph_builder = graph_builder or self._create_default_graph_builder()
         self.state_manager = state_manager
         
-        # 保存兼容性参数
+        # 使用新的工作流注册表
+        self.workflow_registry = workflow_registry
+        
+        # 保存兼容性参数（已弃用）
+        if node_registry is not None or function_registry is not None:
+            import warnings
+            warnings.warn(
+                "node_registry 和 function_registry 参数已弃用，请使用 workflow_registry",
+                DeprecationWarning,
+                stacklevel=2
+            )
         self.node_registry = node_registry
         self.function_registry = function_registry
         
@@ -630,13 +642,13 @@ class LangGraphAdapter(ILangGraphAdapter):
             compiled_graph = self.create_graph_sync(graph_config)
             
             # 创建工作流实例
-            from src.core.workflow.workflow_instance import Workflow
+            from src.core.workflow import Workflow as WorkflowImpl
             workflow_id = config.get("workflow_id") or config.get("id")
             if not workflow_id:
                 raise ValueError("workflow_id 是必需的")
             
             name = config.get("name", workflow_id)
-            workflow = Workflow(workflow_id, name)
+            workflow = WorkflowImpl(graph_config)
             
             # 设置图 - 使用类型转换避免类型检查问题
             # Pregel运行时兼容IGraph接口，使用cast来处理类型检查

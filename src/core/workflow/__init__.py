@@ -14,12 +14,23 @@
 - 易扩展：接口驱动的设计便于扩展
 """
 
+from typing import Dict, Any, Optional, TYPE_CHECKING
+from datetime import datetime
+
+if TYPE_CHECKING:
+    from src.interfaces.workflow.execution import IWorkflowExecutor
+    from src.interfaces.workflow.core import IWorkflowValidator
+    from src.interfaces.workflow.coordinator import IWorkflowCoordinator
+
 # 核心数据模型
 from .workflow import Workflow
 
 # 核心功能模块
 from .core.builder import WorkflowBuilder
 from .core.registry import WorkflowRegistry
+
+# 协调器模块
+from .coordinator import WorkflowCoordinator, create_workflow_coordinator
 
 # 验证和管理模块
 from .validation import WorkflowManager, WorkflowValidator, get_workflow_manager, get_workflow_validator
@@ -51,20 +62,13 @@ from .config.config import (
 from .graph import (
     IGraphService,
     GraphService,
-    get_graph_service,
-    NodeRegistry,
-    EdgeRegistry,
-    FunctionRegistry,
-    GlobalRegistry,
-    get_global_registry,
-    register_node,
-    register_edge,
-    register_node_function,
-    register_route_function,
-    get_node_class,
-    get_edge_class,
-    get_node_function,
-    get_route_function
+    create_graph_service,
+)
+
+# 注册表模块
+from .registry import (
+    WorkflowRegistry,
+    create_workflow_registry,
 )
 from .graph.extensions import (
     ITrigger,
@@ -140,6 +144,29 @@ def create_workflow_registry() -> WorkflowRegistry:
     return WorkflowRegistry()
 
 
+def create_workflow_coordinator_simple(builder: WorkflowBuilder,
+                                     executor: "IWorkflowExecutor",
+                                     validator: "IWorkflowValidator",
+                                     lifecycle_manager: Any) -> "WorkflowCoordinator":
+    """创建工作流协调器（简化版本）
+    
+    Args:
+        builder: 工作流构建器
+        executor: 工作流执行器
+        validator: 工作流验证器
+        lifecycle_manager: 生命周期管理器
+        
+    Returns:
+        WorkflowCoordinator: 工作流协调器实例
+    """
+    return create_workflow_coordinator(
+        builder=builder,
+        executor=executor,
+        validator=validator,
+        lifecycle_manager=lifecycle_manager
+    )
+
+
 def create_lifecycle_manager(config: GraphConfig) -> WorkflowLifecycleManager:
     """创建生命周期管理器
     
@@ -165,6 +192,11 @@ __all__ = [
     # 核心功能模块
     "WorkflowBuilder",
     "WorkflowRegistry",
+    
+    # 协调器模块
+    "WorkflowCoordinator",
+    "create_workflow_coordinator",
+    "create_workflow_coordinator_simple",
     
     # 验证和管理模块
     "WorkflowManager",
@@ -198,20 +230,11 @@ __all__ = [
     # 图服务模块
     "IGraphService",
     "GraphService",
-    "get_graph_service",
-    "NodeRegistry",
-    "EdgeRegistry",
-    "FunctionRegistry",
-    "GlobalRegistry",
-    "get_global_registry",
-    "register_node",
-    "register_edge",
-    "register_node_function",
-    "register_route_function",
-    "get_node_class",
-    "get_edge_class",
-    "get_node_function",
-    "get_route_function",
+    "create_graph_service",
+    
+    # 注册表模块
+    "WorkflowRegistry",
+    "create_workflow_registry",
     "ITrigger",
     "IPlugin",
     "TriggerFactory",

@@ -34,14 +34,17 @@ class WorkflowBuilder(IWorkflowBuilder):
     将配置编译为可执行的图，不包含其他业务逻辑。
     """
     
-    def __init__(self, function_registry: Optional[Any] = None):
+    def __init__(self,
+                 function_registry: Optional[Any] = None,
+                 builder_factory: Optional[Any] = None):
         """初始化工作流构建器
         
         Args:
             function_registry: 函数注册表
+            builder_factory: 构建器工厂
         """
         # 使用构建器工厂
-        self.builder_factory = get_builder_factory()
+        self.builder_factory = builder_factory or get_builder_factory()
         
         # 创建构建上下文
         if function_registry:
@@ -51,22 +54,13 @@ class WorkflowBuilder(IWorkflowBuilder):
                 logger=logger
             )
         else:
-            # 如果没有提供函数注册表，尝试获取默认的
-            try:
-                from src.services.workflow.function_registry import FunctionRegistry
-                function_registry = FunctionRegistry()
-                self.build_context = BuildContext(
-                    graph_config=None,
-                    function_resolver=function_registry,
-                    logger=logger
-                )
-            except Exception as e:
-                logger.warning(f"无法创建函数注册表，使用空上下文: {e}")
-                self.build_context = BuildContext(
-                    graph_config=None,
-                    function_resolver=None,
-                    logger=logger
-                )
+            # 如果没有提供函数注册表，创建空的上下文
+            logger.warning("未提供函数注册表，使用空上下文")
+            self.build_context = BuildContext(
+                graph_config=None,
+                function_resolver=None,
+                logger=logger
+            )
         
         logger.debug("工作流构建器初始化完成")
     

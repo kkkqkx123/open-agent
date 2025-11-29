@@ -6,12 +6,9 @@
 from .node_registry import NodeRegistry
 from .edge_registry import EdgeRegistry
 from .function_registry import FunctionRegistry
-from .global_registry import GlobalRegistry, get_global_registry
 
 __all__ = [
     "NodeRegistry",
-    "EdgeRegistry", 
-    "FunctionRegistry",
-    "GlobalRegistry",
-    "get_global_registry"
+    "EdgeRegistry",
+    "FunctionRegistry"
 ]

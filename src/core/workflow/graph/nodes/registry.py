@@ -273,68 +273,80 @@ class NodeRegistry:
         self._node_instances.clear()
 
 
-# 全局节点注册表实例
-_global_registry: Optional[NodeRegistry] = None
-
-
-def get_global_registry() -> NodeRegistry:
-    """获取全局节点注册表
-
-    Returns:
-        NodeRegistry: 全局节点注册表
-    """
-    global _global_registry
-    if _global_registry is None:
-        _global_registry = NodeRegistry()
-    return _global_registry
-
+# 注意：全局注册表已被移除，请使用依赖注入方式注册节点
+# 以下函数已被弃用，请使用新的注册表接口
 
 def register_node(node_class: Type[BaseNode]) -> None:
-    """注册节点类型到全局注册表
+    """注册节点类型到全局注册表（已弃用）
 
     Args:
         node_class: 节点类
+        
+    Raises:
+        DeprecationWarning: 此函数已被弃用，请使用依赖注入方式
     """
-    if node_class is None:
-        raise ValueError("节点类不能为None")
-    
-    get_global_registry().register_node(node_class)
+    import warnings
+    warnings.warn(
+        "register_node 已被弃用，请使用依赖注入方式注册节点",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    raise NotImplementedError("请使用依赖注入方式注册节点")
 
 
 def register_node_instance(node: BaseNode) -> None:
-    """注册节点实例到全局注册表
+    """注册节点实例到全局注册表（已弃用）
 
     Args:
         node: 节点实例
+        
+    Raises:
+        DeprecationWarning: 此函数已被弃用，请使用依赖注入方式
     """
-    if node is None:
-        raise ValueError("节点实例不能为None")
-    
-    get_global_registry().register_node_instance(node)
+    import warnings
+    warnings.warn(
+        "register_node_instance 已被弃用，请使用依赖注入方式注册节点",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    raise NotImplementedError("请使用依赖注入方式注册节点")
 
 
 def get_node(node_type: str) -> BaseNode:
-    """从全局注册表获取节点实例
+    """从全局注册表获取节点实例（已弃用）
 
     Args:
         node_type: 节点类型
-
-    Returns:
-        BaseNode: 节点实例
+        
+    Raises:
+        DeprecationWarning: 此函数已被弃用，请使用依赖注入方式
     """
-    return get_global_registry().get_node_instance(node_type)
+    import warnings
+    warnings.warn(
+        "get_node 已被弃用，请使用依赖注入方式获取节点",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    raise NotImplementedError("请使用依赖注入方式获取节点")
 
 
-# 装饰器版本，用于自动注册节点
+# 装饰器版本，用于自动注册节点（已弃用）
 def node(node_type: str) -> Callable:
-    """节点注册装饰器
+    """节点注册装饰器（已弃用）
 
     Args:
         node_type: 节点类型
-
-    Returns:
-        Callable: 装饰器函数
+        
+    Raises:
+        DeprecationWarning: 此函数已被弃用，请使用依赖注入方式
     """
+    import warnings
+    warnings.warn(
+        "node 装饰器已被弃用，请使用依赖注入方式注册节点",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
     def decorator(node_class: Type[BaseNode]) -> Type[BaseNode]:
         # 创建一个新的类，覆盖 node_type 属性
         class WrappedNode(node_class):  # type: ignore
@@ -355,9 +367,7 @@ def node(node_type: str) -> Callable:
         # 为包装类添加 node_type 属性，以便注册系统能够获取
         setattr(WrappedNode, '_decorator_node_type', node_type)
         
-        # 注册到全局注册表
-        register_node(WrappedNode)
-        
+        # 不再自动注册到全局注册表
         return WrappedNode
     
     return decorator

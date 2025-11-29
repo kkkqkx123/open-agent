@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from src.interfaces.workflow.graph import IGraph, INode, IEdge, NodeExecutionResult
 from src.interfaces.state.interfaces import IState
 from src.interfaces.state.workflow import IWorkflowState
-from .registry.global_registry import get_global_registry
+from src.interfaces.workflow.registry import IWorkflowRegistry
 
 if TYPE_CHECKING:
     from .extensions.triggers.base import ITrigger
@@ -18,26 +18,6 @@ if TYPE_CHECKING:
 
 class IGraphService(ABC):
     """图服务接口"""
-    
-    @abstractmethod
-    def register_node_type(self, node_type: str, node_class: Type[INode]) -> None:
-        """注册节点类型"""
-        pass
-    
-    @abstractmethod
-    def register_edge_type(self, edge_type: str, edge_class: Type[IEdge]) -> None:
-        """注册边类型"""
-        pass
-    
-    @abstractmethod
-    def register_trigger(self, trigger: "ITrigger") -> None:
-        """注册触发器"""
-        pass
-    
-    @abstractmethod
-    def register_plugin(self, plugin: "IPlugin") -> None:
-        """注册插件"""
-        pass
     
     @abstractmethod
     def build_graph(self, config: Dict[str, Any]) -> IGraph:
@@ -53,25 +33,26 @@ class IGraphService(ABC):
 class GraphService(IGraphService):
     """图服务实现"""
     
-    def __init__(self) -> None:
-        """初始化图服务"""
-        self._global_registry = get_global_registry()
-        self._triggers: List["ITrigger"] = []
-        self._plugins: List["IPlugin"] = []
+    def __init__(self,
+                 workflow_registry: IWorkflowRegistry,
+                 triggers: Optional[List["ITrigger"]] = None,
+                 plugins: Optional[List["IPlugin"]] = None) -> None:
+        """初始化图服务
+        
+        Args:
+            workflow_registry: 工作流注册表
+            triggers: 触发器列表
+            plugins: 插件列表
+        """
+        self._workflow_registry = workflow_registry
+        self._triggers: List["ITrigger"] = triggers or []
+        self._plugins: List["IPlugin"] = plugins or []
     
-    def register_node_type(self, node_type: str, node_class: Type[INode]) -> None:
-        """注册节点类型"""
-        self._global_registry.node_registry.register(node_type, node_class)
-    
-    def register_edge_type(self, edge_type: str, edge_class: Type[IEdge]) -> None:
-        """注册边类型"""
-        self._global_registry.edge_registry.register_edge(edge_type, edge_class)
-    
-    def register_trigger(self, trigger: ITrigger) -> None:
+    def register_trigger(self, trigger: "ITrigger") -> None:
         """注册触发器"""
         self._triggers.append(trigger)
     
-    def register_plugin(self, plugin: IPlugin) -> None:
+    def register_plugin(self, plugin: "IPlugin") -> None:
         """注册插件"""
         self._plugins.append(plugin)
     
@@ -132,7 +113,7 @@ class GraphService(IGraphService):
             
             try:
                 # 从注册表获取节点类
-                node_class = self._global_registry.node_registry.get_node_class(node_type)
+                node_class = self._workflow_registry.component_registry.get_node_class(node_type)
                 if not node_class:
                     raise ValueError(f"未注册的节点类型: {node_type}")
                 
@@ -168,7 +149,7 @@ class GraphService(IGraphService):
             
             try:
                 # 从注册表获取边类
-                edge_class = self._global_registry.edge_registry.get_edge_class(edge_type)
+                edge_class = self._workflow_registry.component_registry.get_edge_class(edge_type)
                 if not edge_class:
                     raise ValueError(f"未注册的边类型: {edge_type}")
                 
@@ -298,7 +279,7 @@ class GraphService(IGraphService):
     
     def get_service_stats(self) -> Dict[str, Any]:
         """获取服务统计信息"""
-        registry_stats = self._global_registry.get_registry_stats()
+        registry_stats = self._workflow_registry.get_registry_stats()
         
         return {
             **registry_stats,
@@ -311,19 +292,13 @@ class GraphService(IGraphService):
 _global_graph_service: Optional[GraphService] = None
 
 
-def get_graph_service() -> GraphService:
-    """获取全局图服务实例
+def create_graph_service(workflow_registry: IWorkflowRegistry) -> GraphService:
+    """创建图服务实例
     
+    Args:
+        workflow_registry: 工作流注册表
+        
     Returns:
         GraphService: 图服务实例
     """
-    global _global_graph_service
-    if _global_graph_service is None:
-        _global_graph_service = GraphService()
-    return _global_graph_service
-
-
-def reset_graph_service() -> None:
-    """重置全局图服务"""
-    global _global_graph_service
-    _global_graph_service = None
+    return GraphService(workflow_registry)
