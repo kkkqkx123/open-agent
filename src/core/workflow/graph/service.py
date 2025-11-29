@@ -3,7 +3,7 @@
 提供统一的图操作接口，集成节点、边、触发器、插件等所有组件。
 """
 
-from typing import Dict, Any, List, Optional, Type, Union, TYPE_CHECKING
+from typing import Dict, Any, List, Optional, Type, Union, TYPE_CHECKING, cast
 from abc import ABC, abstractmethod
 
 from src.interfaces.workflow.graph import IGraph, INode, IEdge, NodeExecutionResult
@@ -172,8 +172,8 @@ class GraphService(IGraphService):
                 if not edge_class:
                     raise ValueError(f"未注册的边类型: {edge_type}")
                 
-                # 尝试用标准方式创建边
-                edge = edge_class(source_node, target_node)  # type: ignore
+                # 创建边实例（使用 type: ignore 处理动态类型）
+                edge: IEdge = edge_class(edge_id, source_node, target_node)  # type: ignore[call-arg]
                 graph.add_edge(edge)
                 
             except ValueError as ve:
@@ -209,7 +209,7 @@ class GraphService(IGraphService):
                 raise ValueError("图没有入口节点")
             
             current_node_id = entry_points[0]
-            current_state = initial_state
+            current_state: IWorkflowState = initial_state
             
             # 执行图
             while current_node_id:
@@ -224,7 +224,7 @@ class GraphService(IGraphService):
                 
                 # 执行节点
                 result = current_node.execute(current_state, {})
-                current_state = result.state  # type: ignore
+                current_state = cast(IWorkflowState, result.state)
                 
                 # 执行后触发器检查
                 self._check_triggers_after_execution(current_node, result)

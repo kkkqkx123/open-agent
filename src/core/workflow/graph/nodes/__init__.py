@@ -19,6 +19,7 @@ from .start_node import StartNode
 from .end_node import EndNode
 from .condition_node import ConditionNode
 from .wait_node import WaitNode
+from .simple_node import SimpleNode
 
 __all__ = [
     "BaseNode",
@@ -29,5 +30,6 @@ __all__ = [
     "StartNode",
     "EndNode",
     "ConditionNode",
-    "WaitNode"
+    "WaitNode",
+    "SimpleNode",
 ]
