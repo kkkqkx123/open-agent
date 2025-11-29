@@ -8,10 +8,9 @@ from typing import Dict, Any, List, Type
 from src.interfaces.workflow.core import IWorkflow
 from src.interfaces.workflow.templates import IWorkflowTemplate
 from src.interfaces.workflow.services import IWorkflowFactory
-from src.core.workflow.workflow_instance import WorkflowInstance
+from src.core.workflow.workflow import Workflow
 from src.core.workflow.templates import get_global_template_registry
-from src.core.workflow.orchestration.workflow_registry_coordinator import WorkflowRegistryCoordinator
-from src.core.workflow.registry.registry import WorkflowRegistry
+from src.core.workflow.core.registry import WorkflowRegistry
 from src.core.workflow.config.config import GraphConfig
 
 
@@ -33,13 +32,14 @@ class WorkflowFactory(IWorkflowFactory):
         self._use_coordinator = use_coordinator
         self._template_registry: Dict[str, Dict[str, Any]] = {}
         self._workflow_types: Dict[str, Type[IWorkflow]] = {
-            "default": WorkflowInstance
+            "default": Workflow
         }
         self._template_manager = get_global_template_registry()
         
         # Initialize coordinator if enabled
         if use_coordinator:
-            self._coordinator = WorkflowRegistryCoordinator(registry)
+            # 简化实现，直接使用注册表
+            self._registry = registry
     
     def create_from_config(self, config: Dict[str, Any]) -> IWorkflow:
         """Create a workflow from a configuration dictionary.
@@ -66,7 +66,7 @@ class WorkflowFactory(IWorkflowFactory):
         )
         
         # Create the workflow instance
-        workflow = WorkflowInstance(graph_config)
+        workflow = Workflow(graph_config)
         
         # Configure the workflow
         self._configure_workflow(workflow, config)

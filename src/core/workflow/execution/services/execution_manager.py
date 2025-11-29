@@ -12,14 +12,14 @@ from dataclasses import dataclass, field
 
 from src.interfaces.workflow.execution import IWorkflowExecutor
 from src.interfaces.workflow.core import IWorkflow
-from ..core.workflow_executor import WorkflowExecutor
+from ..executor import WorkflowExecutor
 from ..core.node_executor import INodeExecutor, NodeExecutor
 from ..core.execution_context import ExecutionContext, ExecutionResult
 from ..strategies.strategy_base import IExecutionStrategy
 from ..modes.mode_base import IExecutionMode
 
 if TYPE_CHECKING:
-    from ...workflow_instance import WorkflowInstance
+    from ...workflow import Workflow
     from src.interfaces.state import IStateManager
 
 logger = logging.getLogger(__name__)
@@ -104,7 +104,7 @@ class ExecutionManager(IExecutionManager):
     
     def execute_workflow(
         self,
-        workflow: Union['WorkflowInstance', IWorkflow],
+        workflow: Union['Workflow', IWorkflow],
         initial_data: Optional[Dict[str, Any]] = None,
         config: Optional[Dict[str, Any]] = None
     ) -> ExecutionResult:
@@ -145,22 +145,22 @@ class ExecutionManager(IExecutionManager):
             logger.info(f"开始执行工作流: {workflow_name} (ID: {execution_id})")
             
             # 检查缓存
-            if self.config.enable_caching and isinstance(workflow, WorkflowInstance):
+            if self.config.enable_caching and isinstance(workflow, Workflow):
                 cached_result = self._get_cached_result(workflow, context)
                 if cached_result:
                     logger.info(f"使用缓存结果: {workflow_name}")
                     return cached_result
             
-            # 统一使用协调器执行工作流
-            from src.core.workflow.orchestration.workflow_instance_coordinator import WorkflowInstanceCoordinator
-            coordinator = WorkflowInstanceCoordinator(workflow)
+            # 使用新的执行器执行工作流
+            from ..executor import WorkflowExecutor
+            executor = WorkflowExecutor()
             from src.core.state.implementations.workflow_state import WorkflowState
             initial_state = WorkflowState(
                 workflow_id=workflow_name,
                 execution_id=execution_id,
                 data=initial_data or {}
             )
-            result_state = coordinator.execute_workflow(initial_state, context.config)
+            result_state = executor.execute(workflow, initial_state, context.config)
             final_state = getattr(result_state, 'data', result_state)
             result = ExecutionResult(
                 success=True,
@@ -174,7 +174,7 @@ class ExecutionManager(IExecutionManager):
             )
             
             # 缓存结果
-            if self.config.enable_caching and result.success and isinstance(workflow, WorkflowInstance):
+            if self.config.enable_caching and result.success and isinstance(workflow, Workflow):
                 self._cache_result(workflow, context, result)
             
             # 更新统计
@@ -208,7 +208,7 @@ class ExecutionManager(IExecutionManager):
     
     async def execute_workflow_async(
         self,
-        workflow: Union['WorkflowInstance', IWorkflow],
+        workflow: Union['Workflow', IWorkflow],
         initial_data: Optional[Dict[str, Any]] = None,
         config: Optional[Dict[str, Any]] = None
     ) -> ExecutionResult:
@@ -250,22 +250,22 @@ class ExecutionManager(IExecutionManager):
             logger.info(f"开始异步执行工作流: {workflow_name} (ID: {execution_id})")
             
             # 检查缓存
-            if self.config.enable_caching and isinstance(workflow, WorkflowInstance):
+            if self.config.enable_caching and isinstance(workflow, Workflow):
                 cached_result = self._get_cached_result(workflow, context)
                 if cached_result:
                     logger.info(f"使用缓存结果: {workflow_name}")
                     return cached_result
             
             # 统一使用协调器异步执行工作流
-            from src.core.workflow.orchestration.workflow_instance_coordinator import WorkflowInstanceCoordinator
-            coordinator = WorkflowInstanceCoordinator(workflow)
+            from ..executor import WorkflowExecutor
+            executor = WorkflowExecutor()
             from src.core.state.implementations.workflow_state import WorkflowState
             initial_state = WorkflowState(
                 workflow_id=workflow_name,
                 execution_id=execution_id,
                 data=initial_data or {}
             )
-            result_state = await coordinator.execute_workflow_async(initial_state, context.config)
+            result_state = await executor.execute_async(workflow, initial_state, context.config)
             final_state = getattr(result_state, 'data', result_state)
             result = ExecutionResult(
                 success=True,
@@ -280,7 +280,7 @@ class ExecutionManager(IExecutionManager):
             )
             
             # 缓存结果
-            if self.config.enable_caching and result.success and isinstance(workflow, WorkflowInstance):
+            if self.config.enable_caching and result.success and isinstance(workflow, Workflow):
                 self._cache_result(workflow, context, result)
             
             # 更新统计
@@ -315,7 +315,7 @@ class ExecutionManager(IExecutionManager):
     
     def _select_strategy(
         self, 
-        workflow: 'WorkflowInstance', 
+        workflow: 'Workflow',
         context: ExecutionContext
     ) -> IExecutionStrategy:
         """自动选择执行策略
@@ -355,7 +355,7 @@ class ExecutionManager(IExecutionManager):
     
     def _select_mode(
         self, 
-        workflow: 'WorkflowInstance', 
+        workflow: 'Workflow',
         context: ExecutionContext
     ) -> IExecutionMode:
         """自动选择执行模式
@@ -400,7 +400,7 @@ class ExecutionManager(IExecutionManager):
     
     def _get_cached_result(
         self, 
-        workflow: 'WorkflowInstance', 
+        workflow: 'Workflow',
         context: ExecutionContext
     ) -> Optional[ExecutionResult]:
         """获取缓存结果
@@ -430,7 +430,7 @@ class ExecutionManager(IExecutionManager):
     
     def _cache_result(
         self, 
-        workflow: 'WorkflowInstance', 
+        workflow: 'Workflow',
         context: ExecutionContext, 
         result: ExecutionResult
     ) -> None:
@@ -459,7 +459,7 @@ class ExecutionManager(IExecutionManager):
     
     def _generate_cache_key(
         self, 
-        workflow: 'WorkflowInstance', 
+        workflow: 'Workflow',
         context: ExecutionContext
     ) -> str:
         """生成缓存键

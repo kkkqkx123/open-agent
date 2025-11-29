@@ -1,392 +1,167 @@
-"""Core workflow module following the new architecture.
+"""工作流核心模块
 
-This module provides the core workflow functionality, including interfaces,
-entities, implementations, and sub-modules for graph, execution, and plugins.
+重构后的工作流模块，采用扁平化架构设计：
+- 核心数据模型：纯数据容器，不包含业务逻辑
+- 核心功能模块：验证、构建、注册等专门功能
+- 加载模块：简化的配置加载功能
+- 管理模块：生命周期管理
+- 执行模块：统一的执行逻辑
+
+新架构特点：
+- 职责单一：每个模块都有明确的单一职责
+- 松耦合：模块间依赖最小化
+- 高内聚：相关功能集中在专门模块中
+- 易扩展：接口驱动的设计便于扩展
 """
 
-from src.interfaces.workflow.core import (
-    IWorkflow,
-    ExecutionContext,
-)
-from src.interfaces.workflow.execution import (
-    IWorkflowExecutor,
-)
-from src.interfaces.workflow.builders import (
-    IWorkflowBuilder,
-)
-from src.interfaces.workflow.templates import (
-    IWorkflowTemplate,
-    IWorkflowTemplateRegistry,
-)
-from src.interfaces.state import IWorkflowState
-from .entities import (
-    Workflow as WorkflowEntity,
-    WorkflowExecution,
-    NodeExecution,
-    ExecutionResult,
-    WorkflowMetadata
-)
-# Workflow instance implementation
-from .workflow_instance import WorkflowInstance
+# 核心数据模型
+from .workflow import Workflow
 
-from langchain_core.messages import AIMessage as LCAIMessage
-from .value_objects import (
-    WorkflowStep,
-    WorkflowTransition,
-    WorkflowRule,
-    WorkflowTemplate,
-    StepType,
-    TransitionType,
-    RuleType,
-    RuleOperator
-)
-from ..common.exceptions.workflow import (
-    WorkflowError,
-    WorkflowValidationError,
-    WorkflowExecutionError,
-    WorkflowStepError,
-    WorkflowTransitionError,
-    WorkflowRuleError,
-    WorkflowTimeoutError,
-    WorkflowStateError,
-    WorkflowConfigError,
-    WorkflowDependencyError,
-    WorkflowPermissionError,
-    WorkflowConcurrencyError,
-    WorkflowResourceError,
-    WorkflowIntegrationError,
-    WorkflowTemplateError,
-    WorkflowVersionError,
-    create_workflow_exception,
-    handle_workflow_exception
-)
+# 核心功能模块
+from .core.validator import WorkflowValidator
+from .core.builder import WorkflowBuilder
+from .core.registry import WorkflowRegistry
 
-# Graph sub-module
-from .graph import (
-    IGraph,
-    INode,
-    IEdge,
-    INodeRegistry,
-    IRoutingFunction,
-    IRoutingRegistry,
-    node,
-    NodeRegistry,
-    register_node,
-    get_global_registry,
-    get_node_class,
-    get_node_instance,
-    list_node_types,
-    LLMNode,
-    ToolNode,
-    ConditionNode,
-    WaitNode,
-    StartNode,
-    EndNode,
-    BaseEdge,
-    SimpleEdge,
-    ConditionalEdge,
-    FlexibleConditionalEdge
-)
+# 加载模块
+from .loading.loader import WorkflowLoader
 
-# Configuration sub-module
-from .config import (
+# 管理模块
+from .management.lifecycle import WorkflowLifecycleManager
+
+# 执行模块
+from .execution.executor import WorkflowExecutor
+from .execution.services.execution_manager import ExecutionManager
+from .execution.services.execution_monitor import ExecutionMonitor
+from .execution.services.execution_scheduler import ExecutionScheduler
+
+# 配置模块
+from .config.config import (
     GraphConfig,
     NodeConfig,
     EdgeConfig,
-    EdgeType,
+    WorkflowConfig,
     StateFieldConfig,
     GraphStateConfig,
-    WorkflowConfig
+    EdgeType
 )
 
-# Management sub-module
-from .management import (
-    IterationManager,
-    WorkflowValidator,
-    ValidationSeverity,
-    ValidationIssue,
-    validate_workflow_config
-)
-
-# Nodes and Edges sub-modules are exported through graph module
-# No need to import them separately
-
-# Execution sub-module - New Architecture
-from .execution import (
-    # Core execution layer
-    WorkflowExecutor,
-    IWorkflowExecutor,
-    NodeExecutor,
-    INodeExecutor,
-    ExecutionContext,
-    ExecutionResult,
-    NodeResult,
-    BatchJob,
-    BatchExecutionResult,
-    ExecutionStatus,
+# 便捷函数
+def create_workflow(config: GraphConfig) -> Workflow:
+    """创建工作流实例
     
-    # Execution strategies
-    IExecutionStrategy,
-    BaseStrategy,
-    RetryStrategy,
-    RetryConfig,
-    RetryStrategy as RetryStrategyEnum,
-    RetryAttempt,
-    RetryConfigs,
-    BatchStrategy,
-    IBatchStrategy,
-    BatchConfig,
-    ExecutionMode,
-    BatchExecutionMode,
-    FailureStrategy,
-    StreamingStrategy,
-    IStreamingStrategy,
-    StreamingConfig,
-    CollaborationStrategy,
-    ICollaborationStrategy,
-    CollaborationConfig,
-    
-    # Execution modes
-    IExecutionMode,
-    BaseMode,
-    SyncMode,
-    ISyncMode,
-    AsyncMode,
-    IAsyncMode,
-    HybridMode,
-    IHybridMode,
-    
-    # Execution services
-    ExecutionManager,
-    IExecutionManager,
-    ExecutionManagerConfig,
-    ExecutionMonitor,
-    IExecutionMonitor,
-    Metric,
-    MetricType,
-    Alert,
-    AlertLevel,
-    PerformanceReport,
-    ExecutionScheduler,
-    IExecutionScheduler,
-    ExecutionTask,
-    TaskPriority,
-    TaskStatus,
-    SchedulerConfig,
-    
-    # Default implementations
-    DefaultWorkflowExecutor,
-    DefaultNodeExecutor,
-    DefaultExecutionManager
-)
+    Args:
+        config: 工作流配置
+        
+    Returns:
+        Workflow: 工作流实例
+    """
+    return Workflow(config)
 
-# Plugin sub-module
-from .plugins import (
-    BasePlugin,
-    PluginRegistry,
-    PluginManager,
-    ContextSummaryPlugin,
-    EnvironmentCheckPlugin,
-    MetadataCollectorPlugin,
-    CleanupManagerPlugin,
-    ExecutionStatsPlugin,
-    FileTrackerPlugin,
-    ResultSummaryPlugin,
-    DeadLoopDetectionPlugin,
-    ErrorRecoveryPlugin,
-    LoggingPlugin,
-    MetricsCollectionPlugin,
-    PerformanceMonitoringPlugin
-)
 
+def create_workflow_loader() -> WorkflowLoader:
+    """创建工作流加载器
+    
+    Returns:
+        WorkflowLoader: 工作流加载器实例
+    """
+    return WorkflowLoader()
+
+
+def create_workflow_executor() -> WorkflowExecutor:
+    """创建统一工作流执行器
+    
+    Returns:
+        WorkflowExecutor: 统一工作流执行器实例
+    """
+    return WorkflowExecutor()
+
+
+def create_workflow_validator() -> WorkflowValidator:
+    """创建工作流验证器
+    
+    Returns:
+        WorkflowValidator: 工作流验证器实例
+    """
+    return WorkflowValidator()
+
+
+def create_workflow_builder() -> WorkflowBuilder:
+    """创建工作流构建器
+    
+    Returns:
+        WorkflowBuilder: 工作流构建器实例
+    """
+    return WorkflowBuilder()
+
+
+def create_workflow_registry() -> WorkflowRegistry:
+    """创建工作流注册表
+    
+    Returns:
+        WorkflowRegistry: 工作流注册表实例
+    """
+    return WorkflowRegistry()
+
+
+def create_lifecycle_manager(config: GraphConfig) -> WorkflowLifecycleManager:
+    """创建生命周期管理器
+    
+    Args:
+        config: 图配置
+        
+    Returns:
+        WorkflowLifecycleManager: 生命周期管理器实例
+    """
+    return WorkflowLifecycleManager(config)
+
+
+# 版本信息
+__version__ = "2.0.0"
+__author__ = "Workflow Team"
+__description__ = "重构后的工作流核心模块，采用扁平化架构设计"
+
+# 导出列表
 __all__ = [
-    # Core interfaces
-    "IWorkflow",
-    "IWorkflowState",
-    "IWorkflowExecutor",
-    "IWorkflowBuilder",
-    "IWorkflowTemplate",
-    "IWorkflowTemplateRegistry",
+    # 核心数据模型
+    "Workflow",
     
-    # Core implementations
-    "WorkflowInstance",
+    # 核心功能模块
+    "WorkflowValidator",
+    "WorkflowBuilder", 
+    "WorkflowRegistry",
     
-    # Core entities
-    "WorkflowEntity",
-    "WorkflowExecution",
-    "NodeExecution",
-    "ExecutionResult",
-    "WorkflowMetadata",
+    # 加载模块
+    "WorkflowLoader",
     
-    # Core implementations
-    "LCAIMessage",
-    # Value objects
-    "WorkflowStep",
-    "WorkflowTransition",
-    "WorkflowRule",
-    "WorkflowTemplate",
-    "StepType",
-    "TransitionType",
-    "RuleType",
-    "RuleOperator",
+    # 管理模块
+    "WorkflowLifecycleManager",
     
-    # Exceptions
-    "WorkflowError",
-    "WorkflowValidationError",
-    "WorkflowExecutionError",
-    "WorkflowStepError",
-    "WorkflowTransitionError",
-    "WorkflowRuleError",
-    "WorkflowTimeoutError",
-    "WorkflowStateError",
-    "WorkflowConfigError",
-    "WorkflowDependencyError",
-    "WorkflowPermissionError",
-    "WorkflowConcurrencyError",
-    "WorkflowResourceError",
-    "WorkflowIntegrationError",
-    "WorkflowTemplateError",
-    "WorkflowVersionError",
-    "create_workflow_exception",
-    "handle_workflow_exception",
+    # 执行模块
+    "WorkflowExecutor",
+    "ExecutionManager",
+    "ExecutionMonitor",
+    "ExecutionScheduler",
     
-    # Graph interfaces
-    "IGraph",
-    "INode",
-    "IEdge",
-    "INodeRegistry",
-    "IRoutingFunction",
-    "IRoutingRegistry",
-    
-    # Graph decorators
-    "node",
-    
-    # Graph registry
-    "NodeRegistry",
-    "register_node",
-    "get_global_registry",
-    "get_node_class",
-    "get_node_instance",
-    "list_node_types",
-    
-    # Graph node implementations
-    "LLMNode",
-    "ToolNode",
-    "ConditionNode",
-    "WaitNode",
-    "StartNode",
-    "EndNode",
-    
-    # Graph edge implementations
-    "BaseEdge",
-    "SimpleEdge",
-    "ConditionalEdge",
-    "FlexibleConditionalEdge",
-    
-    # Configuration
+    # 配置模块
     "GraphConfig",
     "NodeConfig",
     "EdgeConfig",
-    "EdgeType",
+    "WorkflowConfig",
     "StateFieldConfig",
     "GraphStateConfig",
-    "WorkflowConfig",
+    "EdgeType",
     
-    # Management
-    "IterationManager",
-    "WorkflowValidator",
-    "ValidationSeverity",
-    "ValidationIssue",
-    "validate_workflow_config",
+    # 便捷函数
+    "create_workflow",
+    "create_workflow_loader",
+    "create_workflow_executor",
+    "create_workflow_validator",
+    "create_workflow_builder",
+    "create_workflow_registry",
+    "create_lifecycle_manager",
     
-    # New Architecture - Core execution layer
-    "WorkflowExecutor",
-    "IWorkflowExecutor",
-    "NodeExecutor",
-    "INodeExecutor",
-    "ExecutionContext",
-    "ExecutionResult",
-    "NodeResult",
-    "BatchJob",
-    "BatchExecutionResult",
-    "ExecutionStatus",
-    
-    # New Architecture - Execution strategies
-    "IExecutionStrategy",
-    "BaseStrategy",
-    "RetryStrategy",
-    "RetryConfig",
-    "RetryStrategyEnum",
-    "RetryAttempt",
-    "RetryConfigs",
-    "BatchStrategy",
-    "IBatchStrategy",
-    "BatchConfig",
-    "ExecutionMode",
-    "BatchExecutionMode",
-    "FailureStrategy",
-    "StreamingStrategy",
-    "IStreamingStrategy",
-    "StreamingConfig",
-    "CollaborationStrategy",
-    "ICollaborationStrategy",
-    "CollaborationConfig",
-    
-    # New Architecture - Execution modes
-    "IExecutionMode",
-    "BaseMode",
-    "SyncMode",
-    "ISyncMode",
-    "AsyncMode",
-    "IAsyncMode",
-    "HybridMode",
-    "IHybridMode",
-    
-    # New Architecture - Execution services
-    "ExecutionManager",
-    "IExecutionManager",
-    "ExecutionManagerConfig",
-    "ExecutionMonitor",
-    "IExecutionMonitor",
-    "Metric",
-    "MetricType",
-    "Alert",
-    "AlertLevel",
-    "PerformanceReport",
-    "ExecutionScheduler",
-    "IExecutionScheduler",
-    "ExecutionTask",
-    "TaskPriority",
-    "TaskStatus",
-    "SchedulerConfig",
-    
-    # New Architecture - Default implementations
-    "DefaultWorkflowExecutor",
-    "DefaultNodeExecutor",
-    "DefaultExecutionManager",
-    
-    # Plugin base classes
-    "BasePlugin",
-    
-    # Plugin implementations
-    "PluginRegistry",
-    "PluginManager",
-    
-    # Built-in start plugins
-    "ContextSummaryPlugin",
-    "EnvironmentCheckPlugin",
-    "MetadataCollectorPlugin",
-    
-    # Built-in end plugins
-    "CleanupManagerPlugin",
-    "ExecutionStatsPlugin",
-    "FileTrackerPlugin",
-    "ResultSummaryPlugin",
-    
-    # Built-in hook plugins
-    "DeadLoopDetectionPlugin",
-    "ErrorRecoveryPlugin",
-    "LoggingPlugin",
-    "MetricsCollectionPlugin",
-    "PerformanceMonitoringPlugin"
+    # 版本信息
+    "__version__",
+    "__author__",
+    "__description__",
 ]

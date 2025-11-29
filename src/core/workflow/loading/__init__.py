@@ -1,14 +1,14 @@
 """工作流加载模块
 
-提供工作流配置加载、验证和实例化的核心功能。
+提供工作流配置加载的核心功能，不包含验证、构建等业务逻辑。
 """
 
-from .loader_service import (
-    ILoaderService,
-    LoaderService,
+from .loader import (
+    IWorkflowLoader,
+    WorkflowLoader,
 )
 
 __all__ = [
-    "ILoaderService",
-    "LoaderService",
+    "IWorkflowLoader",
+    "WorkflowLoader",
 ]

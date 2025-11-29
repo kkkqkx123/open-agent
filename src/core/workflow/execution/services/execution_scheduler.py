@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 
 if TYPE_CHECKING:
     from ..core.execution_context import ExecutionContext, ExecutionResult
-    from ...workflow_instance import WorkflowInstance
+    from ...workflow import Workflow
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class TaskStatus(Enum):
 class ExecutionTask:
     """执行任务"""
     task_id: str
-    workflow: 'WorkflowInstance'
+    workflow: 'Workflow'
     context: 'ExecutionContext'
     priority: TaskPriority = TaskPriority.NORMAL
     created_at: datetime = field(default_factory=datetime.now)
@@ -171,7 +171,7 @@ class ExecutionScheduler(IExecutionScheduler):
     
     def submit_task(
         self, 
-        workflow: 'WorkflowInstance', 
+        workflow: 'Workflow',
         context: 'ExecutionContext',
         priority: TaskPriority = TaskPriority.NORMAL,
         scheduled_at: Optional[datetime] = None
@@ -390,15 +390,15 @@ class ExecutionScheduler(IExecutionScheduler):
                 result = self.execution_callback(task)
             else:
                 # 使用协调器执行工作流
-                from src.core.workflow.orchestration.workflow_instance_coordinator import WorkflowInstanceCoordinator
-                coordinator = WorkflowInstanceCoordinator(task.workflow)
+                from ..executor import WorkflowExecutor
+                executor = WorkflowExecutor()
                 from src.core.state.implementations.workflow_state import WorkflowState
                 initial_state = WorkflowState(
                     workflow_id=task.workflow.workflow_id,
                     execution_id=str(uuid.uuid4()),
                     data=task.context.get_config("initial_data") or {}
                 )
-                result_state = coordinator.execute_workflow(initial_state, task.context.config)
+                result_state = executor.execute(task.workflow, initial_state, task.context.config)
                 # 使用 getattr 安全访问 data 属性，因为 IWorkflowState 接口可能没有定义 data
                 final_data = getattr(result_state, 'data', result_state)
                 

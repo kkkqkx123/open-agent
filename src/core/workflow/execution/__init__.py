@@ -1,92 +1,95 @@
-"""工作流执行模块 - 新架构
+"""工作流执行模块
 
-提供工作流和节点执行的核心功能，采用基于职责的分层架构。
+提供统一的工作流执行功能。
 """
 
-# 核心执行层
-from .core.workflow_executor import WorkflowExecutor, IWorkflowExecutor
-from .core.node_executor import NodeExecutor, INodeExecutor
-from .core.execution_context import (
-    ExecutionContext, 
-    ExecutionResult, 
-    NodeResult, 
-    BatchJob, 
-    BatchExecutionResult,
-    ExecutionStatus
+from .executor import (
+    WorkflowExecutor,
+    execute_workflow,
+    execute_workflow_async,
+    default_executor
 )
 
-# 执行策略层
-from .strategies.strategy_base import IExecutionStrategy, BaseStrategy
-from .strategies.retry_strategy import (
+# 保留原有的核心执行组件
+from .core import (
+    # Core execution layer
+    WorkflowExecutor,
+    IWorkflowExecutor,
+    NodeExecutor,
+    INodeExecutor,
+    ExecutionContext,
+    ExecutionResult,
+    NodeResult,
+    BatchJob,
+    BatchExecutionResult,
+    ExecutionStatus,
+    
+    # Execution strategies
+    IExecutionStrategy,
+    BaseStrategy,
     RetryStrategy,
-    RetryStrategyImpl,
     RetryConfig,
     RetryStrategy as RetryStrategyEnum,
     RetryAttempt,
-    RetryConfigs
-)
-from .strategies.batch_strategy import (
+    RetryConfigs,
     BatchStrategy,
     IBatchStrategy,
     BatchConfig,
     ExecutionMode,
-    ExecutionMode as BatchExecutionMode,
-    FailureStrategy
-)
-from .strategies.streaming_strategy import (
+    BatchExecutionMode,
+    FailureStrategy,
     StreamingStrategy,
     IStreamingStrategy,
-    StreamingConfig
-)
-from .strategies.collaboration_strategy import (
+    StreamingConfig,
     CollaborationStrategy,
     ICollaborationStrategy,
-    CollaborationConfig
-)
-
-# 执行模式层
-from .modes.mode_base import IExecutionMode, BaseMode
-from .modes.sync_mode import SyncMode, ISyncMode
-from .modes.async_mode import AsyncMode, IAsyncMode
-from .modes.hybrid_mode import HybridMode, IHybridMode
-
-# 执行服务层
-from .services.execution_manager import (
+    CollaborationConfig,
+    
+    # Execution modes
+    IExecutionMode,
+    BaseMode,
+    SyncMode,
+    ISyncMode,
+    AsyncMode,
+    IAsyncMode,
+    HybridMode,
+    IHybridMode,
+    
+    # Execution services
     ExecutionManager,
     IExecutionManager,
-    ExecutionManagerConfig
-)
-from .services.execution_monitor import (
+    ExecutionManagerConfig,
     ExecutionMonitor,
     IExecutionMonitor,
     Metric,
     MetricType,
     Alert,
     AlertLevel,
-    PerformanceReport
-)
-from .services.execution_scheduler import (
+    PerformanceReport,
     ExecutionScheduler,
     IExecutionScheduler,
     ExecutionTask,
     TaskPriority,
     TaskStatus,
-    SchedulerConfig
+    SchedulerConfig,
+    
+    # Default implementations
+    DefaultWorkflowExecutor,
+    DefaultNodeExecutor,
+    DefaultExecutionManager
 )
 
-# 基础组件
-from .base.executor_base import BaseExecutor
-
-# 便捷函数
-from .core.workflow_executor import WorkflowExecutor as DefaultWorkflowExecutor
-from .core.node_executor import NodeExecutor as DefaultNodeExecutor
-from .services.execution_manager import ExecutionManager as DefaultExecutionManager
-
 __all__ = [
-    # 核心执行层
+    # 统一执行器
+    "WorkflowExecutor",
+    "execute_workflow",
+    "execute_workflow_async",
+    "default_executor",
+    
+    # Core execution layer
     "WorkflowExecutor",
     "IWorkflowExecutor",
-    "NodeExecutor", 
+    "NodeExecutor",
     "INodeExecutor",
     "ExecutionContext",
     "ExecutionResult",
@@ -95,11 +98,10 @@ __all__ = [
     "BatchExecutionResult",
     "ExecutionStatus",
     
-    # 执行策略层
+    # Execution strategies
     "IExecutionStrategy",
     "BaseStrategy",
     "RetryStrategy",
-    "RetryStrategyImpl",
     "RetryConfig",
     "RetryStrategyEnum",
     "RetryAttempt",
@@ -117,17 +119,17 @@ __all__ = [
     "ICollaborationStrategy",
     "CollaborationConfig",
     
-    # 执行模式层
+    # Execution modes
     "IExecutionMode",
     "BaseMode",
     "SyncMode",
     "ISyncMode",
     "AsyncMode",
-    "IAsyncMode", 
+    "IAsyncMode",
     "HybridMode",
     "IHybridMode",
     
-    # 执行服务层
+    # Execution services
     "ExecutionManager",
     "IExecutionManager",
     "ExecutionManagerConfig",
@@ -145,10 +147,7 @@ __all__ = [
     "TaskStatus",
     "SchedulerConfig",
     
-    # 基础组件
-    "BaseExecutor",
-    
-    # 默认实现
+    # Default implementations
     "DefaultWorkflowExecutor",
     "DefaultNodeExecutor",
     "DefaultExecutionManager",
