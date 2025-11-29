@@ -1,18 +1,19 @@
 """工作流构建服务实现，遵循新架构。
 
 此模块提供工作流构建服务，处理从配置创建工作流和验证功能。
-优化后使用核心层的UnifiedGraphBuilder，消除重复代码。
+重构后使用Adapters层的LangGraphAdapter，实现清晰的层级分离。
 """
 
-from typing import Dict, Any, List, Optional, TYPE_CHECKING
+from typing import Dict, Any, List, TYPE_CHECKING, Optional
 import logging
+import asyncio
 
 if TYPE_CHECKING:
     from src.interfaces.workflow.core import IWorkflow
     from src.core.workflow.config.config import GraphConfig
 
-from src.core.workflow.graph.builder.base import UnifiedGraphBuilder
 from src.interfaces import IWorkflowBuilderService
+from src.services.workflow.graph_cache import GraphCache, create_graph_cache, calculate_config_hash
 
 logger = logging.getLogger(__name__)
 
@@ -23,47 +24,70 @@ class WorkflowBuilderService(IWorkflowBuilderService):
     此类提供从配置构建工作流的方法，
     验证配置，并管理工作流构建过程。
     
-    优化后：
-    - 使用核心层的UnifiedGraphBuilder
+    重构后：
+    - 使用Adapters层的LangGraphAdapter
+    - 集成专业的图缓存管理
     - 简化配置验证逻辑
     - 增强错误处理和日志记录
     """
 
-    def __init__(self, node_registry=None, function_registry=None):
+    def __init__(self,
+                 node_registry=None,
+                 function_registry=None,
+                 langgraph_adapter=None,
+                 graph_cache=None):
         """初始化工作流构建服务。
         
         Args:
             node_registry: 节点注册表（可选）
             function_registry: 函数注册表（可选）
+            langgraph_adapter: LangGraph适配器实例（可选）
+            graph_cache: 图缓存实例（可选）
         """
         # 延迟导入避免循环依赖
         self._validator = None
-        # 使用核心层的UnifiedGraphBuilder替代GraphBuilder
-        self._graph_builder = UnifiedGraphBuilder(
-            node_registry=node_registry,
-            function_registry=function_registry,
-            enable_function_fallback=True,
-            enable_iteration_management=False  # 暂时禁用迭代管理
-        )
+        
+        # 初始化LangGraph适配器
+        if langgraph_adapter:
+            self._langgraph_adapter = langgraph_adapter
+        else:
+            # 延迟导入避免循环依赖
+            from src.adapters.workflow.langgraph_adapter import LangGraphAdapter
+            self._langgraph_adapter = LangGraphAdapter(
+                node_registry=node_registry,
+                function_registry=function_registry
+            )
+        
+        # 初始化图缓存
+        if graph_cache:
+            self._graph_cache = graph_cache
+        else:
+            self._graph_cache = create_graph_cache(
+                max_size=100,
+                ttl_seconds=3600,
+                eviction_policy="lru"
+            )
         
         # 初始化提示词服务
+        self._prompt_service = self._init_prompt_service()
+        
+        logger.info("工作流构建服务初始化完成（集成LangGraphAdapter和图缓存）")
+    
+    def _init_prompt_service(self):
+        """初始化提示词服务"""
         try:
-            import asyncio
-            from src.services.prompts import create_prompt_system
-            
             # 在同步方法中运行异步创建
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
+                from src.services.prompts import create_prompt_system
                 prompt_system = loop.run_until_complete(create_prompt_system())
-                self._prompt_service = prompt_system["injector"]  # 使用注入器作为提示词服务
+                return prompt_system["injector"]  # 使用注入器作为提示词服务
             finally:
                 loop.close()
         except Exception as e:
             logger.warning(f"创建提示词系统失败，使用 None: {e}")
-            self._prompt_service = None
-        
-        logger.info("工作流构建服务初始化完成（集成提示词系统）")
+            return None
 
     def build_workflow(self, config: Dict[str, Any]) -> 'IWorkflow':
         """从配置构建工作流。
@@ -86,39 +110,42 @@ class WorkflowBuilderService(IWorkflowBuilderService):
                 logger.error(error_msg)
                 raise ValueError(error_msg)
 
-            # 跳过配置预处理（应该在 prompt 模块中实现）
-            processed_config = config
-
             # 提取工作流信息
-            workflow_id = processed_config.get("workflow_id") or processed_config.get("id")
+            workflow_id = config.get("workflow_id") or config.get("id")
             if not workflow_id:
                 raise ValueError("workflow_id 是必需的")
 
-            name = processed_config.get("name", workflow_id)
+            name = config.get("name", workflow_id)
             logger.info(f"开始构建工作流: {workflow_id} ({name})")
 
-            # 延迟导入避免循环依赖
-            from src.core.workflow.config.config import GraphConfig
+            # 检查缓存
+            config_hash = calculate_config_hash(config)
+            cached_graph = self._graph_cache.get_graph(config_hash)
+            
+            if cached_graph:
+                logger.info(f"使用缓存图: {workflow_id}")
+                graph = cached_graph
+            else:
+                # 使用LangGraphAdapter创建图（同步方式）
+                from src.core.workflow.config.config import GraphConfig
+                graph_config = GraphConfig.from_dict(config)
+                graph = self._langgraph_adapter.create_graph_sync(graph_config)
+                
+                # 缓存图
+                self._graph_cache.cache_graph(config_hash, graph, config)
+                logger.info(f"图已缓存: {workflow_id}")
 
-            # 创建工作流 - 使用工厂方法避免直接导入
+            # 创建工作流实例
             workflow = self._create_workflow_instance(workflow_id, name)
-
-            # 从字典创建 GraphConfig 对象
-            graph_config = GraphConfig.from_dict(processed_config)
-
-            # 使用核心层的UnifiedGraphBuilder构建图
-            graph = self._graph_builder.build_graph(graph_config)
             workflow.set_graph(graph)
 
-            # 跳过节点的提示词系统配置（应该在 prompt 模块中实现）
-
             # 如果指定了入口点，则设置
-            if "entry_point" in processed_config:
-                workflow.set_entry_point(processed_config["entry_point"])
+            if "entry_point" in config:
+                workflow.set_entry_point(config["entry_point"])
 
             # 如果指定了元数据，则设置
-            if "metadata" in processed_config:
-                workflow.metadata = processed_config["metadata"]
+            if "metadata" in config:
+                workflow.metadata = config["metadata"]
 
             logger.info(f"工作流构建完成: {workflow_id}")
             return workflow
@@ -150,12 +177,26 @@ class WorkflowBuilderService(IWorkflowBuilderService):
             
             result = self._validator.validate_config(config_obj)
             
-            if result.has_errors():
-                logger.warning(f"配置验证失败: {result.errors}")
+            # 过滤掉内置函数的错误
+            builtin_functions = {"start_node", "end_node", "passthrough_node"}
+            filtered_errors = []
+            for error in result.errors:
+                # 检查是否是内置函数不存在的错误
+                is_builtin_function_error = False
+                for builtin_func in builtin_functions:
+                    if f"函数 '{builtin_func}' 不存在" in error:
+                        is_builtin_function_error = True
+                        break
+                
+                if not is_builtin_function_error:
+                    filtered_errors.append(error)
+            
+            if filtered_errors:
+                logger.warning(f"配置验证失败: {filtered_errors}")
             
             # 提示词配置验证应该在 prompt 模块中实现，这里不再重复验证
             
-            return result.errors
+            return filtered_errors
             
         except Exception as e:
             logger.error(f"配置验证过程中发生异常: {e}")
@@ -181,7 +222,6 @@ class WorkflowBuilderService(IWorkflowBuilderService):
         except Exception as e:
             logger.error(f"获取配置模式失败: {e}")
             return {}
-    
     def _create_workflow_instance(self, workflow_id: str, name: str) -> 'IWorkflow':
         """创建工作流实例，避免循环导入
         
@@ -196,4 +236,37 @@ class WorkflowBuilderService(IWorkflowBuilderService):
         from src.core.workflow.workflow_instance import Workflow
         return Workflow(workflow_id, name)
     
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """获取缓存统计信息
+        
+        Returns:
+            Dict[str, Any]: 缓存统计信息
+        """
+        return self._graph_cache.get_cache_stats()
+    
+    def clear_cache(self) -> None:
+        """清除图缓存"""
+        self._graph_cache.clear()
+        logger.info("图缓存已清除")
+    
+    def invalidate_cache_by_pattern(self, pattern: str) -> int:
+        """按模式失效缓存
+        
+        Args:
+            pattern: 匹配模式
+            
+        Returns:
+            int: 失效的缓存条目数量
+        """
+        count = self._graph_cache.invalidate_by_pattern(pattern)
+        logger.info(f"按模式 {pattern} 失效了 {count} 个缓存条目")
+        return count
+    
+    def get_langgraph_adapter(self):
+        """获取LangGraph适配器实例
+        
+        Returns:
+            LangGraph适配器实例
+        """
+        return self._langgraph_adapter
     

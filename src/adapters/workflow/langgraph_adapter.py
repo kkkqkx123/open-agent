@@ -23,10 +23,14 @@ from langgraph.pregel import Pregel
 from langchain_core.messages import BaseMessage
 
 from src.interfaces.state.workflow import IWorkflowState as WorkflowState
+from src.interfaces.workflow.core import IWorkflow
 from src.core.workflow.graph.registry import get_global_registry
 from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.graph.builder.graph_builder import GraphBuilder
 from src.interfaces.state import IStateLifecycleManager
+
+if TYPE_CHECKING:
+    from src.services.workflow.graph_cache import GraphCache
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +101,10 @@ class LangGraphAdapter(ILangGraphAdapter):
         checkpoint_saver: Optional[BaseCheckpointSaver] = None,
         graph_builder: Optional[GraphBuilder] = None,
         state_manager: Optional[IStateLifecycleManager] = None,
-        use_memory_checkpoint: bool = False
+        use_memory_checkpoint: bool = False,
+        graph_cache: Optional["GraphCache"] = None,  # 使用外部缓存
+        node_registry=None,  # 兼容性参数
+        function_registry=None  # 兼容性参数
     ):
         """初始化LangGraph适配器
         
@@ -106,13 +113,25 @@ class LangGraphAdapter(ILangGraphAdapter):
             graph_builder: 图构建器
             state_manager: 状态管理器
             use_memory_checkpoint: 是否使用内存checkpoint
+            graph_cache: 外部图缓存实例
+            node_registry: 节点注册表（兼容性参数）
+            function_registry: 函数注册表（兼容性参数）
         """
         self.checkpoint_saver = checkpoint_saver or self._create_default_checkpoint_saver(use_memory_checkpoint)
         self.graph_builder = graph_builder or self._create_default_graph_builder()
         self.state_manager = state_manager
         
-        # 图缓存
-        self._graph_cache: Dict[str, Pregel] = {}
+        # 保存兼容性参数
+        self.node_registry = node_registry
+        self.function_registry = function_registry
+        
+        # 使用外部缓存或内部简单缓存
+        if graph_cache:
+            self._graph_cache = graph_cache  # type: ignore
+            self._external_cache = True
+        else:
+            self._graph_cache: Dict[str, Pregel] = {}
+            self._external_cache = False
         
         logger.info("LangGraphAdapter初始化完成")
     
@@ -129,9 +148,9 @@ class LangGraphAdapter(ILangGraphAdapter):
     
     def _create_default_graph_builder(self) -> GraphBuilder:
         """创建默认图构建器"""
-        from src.core.workflow.graph.builder.base import UnifiedGraphBuilder
+        from src.core.workflow.graph.builder.base import GraphBuilder
         node_registry = get_global_registry()
-        return cast(GraphBuilder, UnifiedGraphBuilder(node_registry=node_registry))
+        return cast(GraphBuilder, GraphBuilder())
     
     async def create_graph(self, config: GraphConfig) -> Pregel:
         """创建LangGraph图
@@ -144,20 +163,25 @@ class LangGraphAdapter(ILangGraphAdapter):
         """
         try:
             # 检查缓存
-            cache_key = self._generate_graph_cache_key(config)
-            if cache_key in self._graph_cache:
-                logger.debug(f"从缓存获取图: {cache_key}")
-                return self._graph_cache[cache_key]
+            cached_graph = self._get_cached_graph(config)
+            if cached_graph:
+                logger.debug(f"从缓存获取图: {config.name}")
+                return cached_graph
             
             # 构建图
             logger.info(f"开始构建LangGraph图: {config.name}")
             graph = await self.graph_builder.build_graph(config)
             
-            # 编译图（添加checkpoint支持）
-            compiled_graph = graph.compile(checkpointer=self.checkpoint_saver)
+            # 编译图（添加checkpoint支持）- 检查是否已经编译
+            if hasattr(graph, 'compile') and not hasattr(graph, 'invoke'):
+                # 未编译的图，需要编译
+                compiled_graph = graph.compile(checkpointer=self.checkpoint_saver)
+            else:
+                # 已经编译的图，直接使用
+                compiled_graph = graph
             
             # 缓存图
-            self._graph_cache[cache_key] = compiled_graph
+            self._cache_graph(config, compiled_graph)
             
             logger.info(f"LangGraph图构建完成: {config.name}")
             return compiled_graph
@@ -165,6 +189,70 @@ class LangGraphAdapter(ILangGraphAdapter):
         except Exception as e:
             logger.error(f"创建LangGraph图失败: {config.name}, error: {e}")
             raise
+    
+    def create_graph_sync(self, config: GraphConfig) -> Pregel:
+        """同步创建LangGraph图
+        
+        Args:
+            config: 图配置
+            
+        Returns:
+            StateGraph: 构建好的LangGraph图
+        """
+        try:
+            # 检查缓存
+            cached_graph = self._get_cached_graph(config)
+            if cached_graph:
+                logger.debug(f"从缓存获取图: {config.name}")
+                return cached_graph
+            
+            # 构建图（同步方式）
+            logger.info(f"开始构建LangGraph图: {config.name}")
+            graph = self.graph_builder.build_graph(config)
+            
+            # 编译图（添加checkpoint支持）- 检查是否已经编译
+            if hasattr(graph, 'compile') and not hasattr(graph, 'invoke'):
+                # 未编译的图，需要编译
+                compiled_graph = graph.compile(checkpointer=self.checkpoint_saver)
+            else:
+                # 已经编译的图，直接使用
+                compiled_graph = graph
+            
+            # 缓存图
+            self._cache_graph(config, compiled_graph)
+            
+            logger.info(f"LangGraph图构建完成: {config.name}")
+            return compiled_graph
+            
+        except Exception as e:
+            logger.error(f"创建LangGraph图失败: {config.name}, error: {e}")
+            raise
+    
+    def _get_cached_graph(self, config: GraphConfig) -> Optional[Pregel]:
+        """获取缓存的图"""
+        if self._external_cache:
+            # 使用外部缓存（GraphCache）
+            from src.services.workflow.graph_cache import calculate_config_hash
+            config_dict = config.to_dict() if hasattr(config, 'to_dict') else config.__dict__
+            config_hash = calculate_config_hash(config_dict)
+            return self._graph_cache.get_graph(config_hash)  # type: ignore
+        else:
+            # 使用内部简单缓存
+            cache_key = self._generate_graph_cache_key(config)
+            return self._graph_cache.get(cache_key)
+    
+    def _cache_graph(self, config: GraphConfig, graph: Pregel) -> None:
+        """缓存图"""
+        if self._external_cache:
+            # 使用外部缓存（GraphCache）
+            from src.services.workflow.graph_cache import calculate_config_hash
+            config_dict = config.to_dict() if hasattr(config, 'to_dict') else config.__dict__
+            config_hash = calculate_config_hash(config_dict)
+            self._graph_cache.cache_graph(config_hash, graph, config_dict)  # type: ignore
+        else:
+            # 使用内部简单缓存
+            cache_key = self._generate_graph_cache_key(config)
+            self._graph_cache[cache_key] = graph
     
     async def execute_graph(
     self,
@@ -463,7 +551,18 @@ class LangGraphAdapter(ILangGraphAdapter):
     
     async def clear_graph_cache(self) -> None:
         """清空图缓存"""
-        self._graph_cache.clear()
+        if self._external_cache:
+            self._graph_cache.clear()
+        else:
+            self._graph_cache.clear()
+        logger.info("图缓存已清空")
+    
+    def clear_graph_cache_sync(self) -> None:
+        """同步清空图缓存"""
+        if self._external_cache:
+            self._graph_cache.clear()
+        else:
+            self._graph_cache.clear()
         logger.info("图缓存已清空")
     
     async def get_cache_info(self) -> Dict[str, Any]:
@@ -472,7 +571,81 @@ class LangGraphAdapter(ILangGraphAdapter):
         Returns:
             Dict[str, Any]: 缓存信息
         """
-        return {
-            "graph_cache_size": len(self._graph_cache),
-            "cached_graphs": list(self._graph_cache.keys())
-        }
+        if self._external_cache:
+            return self._graph_cache.get_cache_stats()  # type: ignore
+        else:
+            return {
+                "graph_cache_size": len(self._graph_cache),
+                "cached_graphs": list(self._graph_cache.keys()),
+                "cache_type": "internal"
+            }
+    
+    def get_cache_info_sync(self) -> Dict[str, Any]:
+        """同步获取缓存信息
+        
+        Returns:
+            Dict[str, Any]: 缓存信息
+        """
+        if self._external_cache:
+            return self._graph_cache.get_cache_stats()  # type: ignore
+        else:
+            return {
+                "graph_cache_size": len(self._graph_cache),
+                "cached_graphs": list(self._graph_cache.keys()),
+                "cache_type": "internal"
+            }
+    
+    def get_graph_builder(self):
+        """获取底层图构建器（用于高级配置）"""
+        return self.graph_builder
+    
+    def create_workflow_sync(self, config: Dict[str, Any]) -> IWorkflow:
+        """同步创建完整的工作流实例（Services层专用接口）"""
+        try:
+            # 创建GraphConfig
+            from src.core.workflow.config.config import GraphConfig
+            graph_config = GraphConfig.from_dict(config)
+            
+            # 创建图
+            compiled_graph = self.create_graph_sync(graph_config)
+            
+            # 创建工作流实例
+            from src.core.workflow.workflow_instance import Workflow
+            workflow_id = config.get("workflow_id") or config.get("id")
+            if not workflow_id:
+                raise ValueError("workflow_id 是必需的")
+            
+            name = config.get("name", workflow_id)
+            workflow = Workflow(workflow_id, name)
+            
+            # 设置图 - 使用类型转换避免类型检查问题
+            workflow.set_graph(compiled_graph)  # type: ignore
+            
+            # 设置其他属性
+            if "entry_point" in config:
+                workflow.set_entry_point(config["entry_point"])
+            if "metadata" in config:
+                workflow.metadata = config["metadata"]
+                
+            return workflow
+            
+        except Exception as e:
+            logger.error(f"创建工作流失败: {e}")
+            raise
+    
+    def validate_and_build_sync(self, config: Dict[str, Any]) -> IWorkflow:
+        """同步验证配置并构建工作流（集成验证逻辑）"""
+        # 延迟导入验证器
+        from src.core.workflow.graph.builder.validator import WorkflowConfigValidator
+        validator = WorkflowConfigValidator()
+        
+        # 验证配置
+        from src.core.workflow.config.config import GraphConfig
+        graph_config = GraphConfig.from_dict(config)
+        result = validator.validate_config(graph_config)
+        
+        if result.has_errors():
+            raise ValueError(f"配置验证失败: {result.errors}")
+        
+        # 构建工作流
+        return self.create_workflow_sync(config)

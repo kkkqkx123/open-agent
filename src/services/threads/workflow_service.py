@@ -8,6 +8,7 @@ from interfaces.state import IWorkflowState as WorkflowState
 from src.interfaces.threads.storage import IThreadRepository
 from src.core.threads.entities import Thread, ThreadStatus
 from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
+from src.core.state.implementations.workflow_state import WorkflowState as WorkflowStateImpl
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +77,11 @@ class WorkflowThreadService:
             logger.info(f"Workflow execution completed for thread {thread_id}")
             
             # 返回工作流状态对象
-            # 这里需要根据实际的WorkflowState接口来创建对象
-            # 暂时返回模拟对象
-            return MockWorkflowState(result_state)
+            return WorkflowStateImpl(
+                thread_id=thread_id,
+                data=result_state,
+                iteration_count=0
+            )
             
         except Exception as e:
             logger.error(f"Failed to execute workflow for thread {thread_id}: {e}")
@@ -154,210 +157,3 @@ class WorkflowThreadService:
         except Exception as e:
             logger.error(f"Failed to stream workflow for thread {thread_id}: {e}")
             raise ValidationError(f"Failed to stream workflow: {str(e)}")
-
-
-class MockWorkflowState(WorkflowState):
-    """模拟工作流状态对象
-    
-    TODO: 替换为实际的WorkflowState实现
-    """
-    
-    def __init__(self, state_data: Dict[str, Any]):
-        self._state_data = state_data.copy()
-        self._messages: List[Any] = []
-        self._fields = state_data.copy()
-        self._metadata: Dict[str, Any] = {}
-        self._id = state_data.get("thread_id", "")
-        self._created_at = datetime.now()
-        self._updated_at = datetime.now()
-        self._complete = state_data.get("status") == "completed"
-    
-    # IState 接口实现
-    def get_data(self, key: str, default: Any = None) -> Any:
-        """从状态中获取数据"""
-        return self._state_data.get(key, default)
-    
-    def set_data(self, key: str, value: Any) -> None:
-        """在状态中设置数据"""
-        self._state_data[key] = value
-        self._updated_at = datetime.now()
-    
-    def get_metadata(self, key: str, default: Any = None) -> Any:
-        """从状态中获取元数据"""
-        return self._metadata.get(key, default)
-    
-    def set_metadata(self, key: str, value: Any) -> None:
-        """在状态中设置元数据"""
-        self._metadata[key] = value
-        self._updated_at = datetime.now()
-    
-    def get_id(self) -> Optional[str]:
-        """获取状态ID"""
-        return self._id if self._id else None
-    
-    def set_id(self, id: str) -> None:
-        """设置状态ID"""
-        self._id = id
-        self._updated_at = datetime.now()
-    
-    def get_created_at(self) -> datetime:
-        """获取创建时间戳"""
-        return self._created_at
-    
-    def get_updated_at(self) -> datetime:
-        """获取最后更新时间戳"""
-        return self._updated_at
-    
-    def is_complete(self) -> bool:
-        """检查状态是否完成"""
-        return self._complete
-    
-    def mark_complete(self) -> None:
-        """将状态标记为完成"""
-        self._complete = True
-        self._updated_at = datetime.now()
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """将状态转换为字典表示"""
-        result = self._state_data.copy()
-        result.update({
-            "id": self._id,
-            "created_at": self._created_at.isoformat(),
-            "updated_at": self._updated_at.isoformat(),
-            "complete": self._complete,
-            "metadata": self._metadata.copy(),
-            "messages": [str(msg) for msg in self._messages],
-            "fields": self._fields.copy()
-        })
-        return result
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'MockWorkflowState':
-        """从字典创建状态实例"""
-        instance = cls(data)
-        instance._id = data.get("id", "")
-        instance._complete = data.get("complete", False)
-        instance._metadata = data.get("metadata", {}).copy()
-        instance._fields = data.get("fields", {}).copy()
-        if "created_at" in data:
-            instance._created_at = datetime.fromisoformat(data["created_at"])
-        if "updated_at" in data:
-            instance._updated_at = datetime.fromisoformat(data["updated_at"])
-        return instance
-    
-    # IWorkflowState 接口实现
-    @property
-    def messages(self) -> List[Any]:
-        """消息列表"""
-        return self._messages.copy()
-    
-    @property
-    def fields(self) -> Dict[str, Any]:
-        """字段字典"""
-        return self._fields.copy()
-    
-    @property
-    def values(self) -> Dict[str, Any]:
-        """状态值字典"""
-        return self._state_data.copy()
-    
-    def get_field(self, key: str, default: Any = None) -> Any:
-        """获取字段值"""
-        return self._fields.get(key, default)
-    
-    def set_field(self, key: str, value: Any) -> WorkflowState:
-        """创建包含新字段值的状态"""
-        new_state = MockWorkflowState(self._state_data)
-        new_state._fields = self._fields.copy()
-        new_state._fields[key] = value
-        new_state._messages = self._messages.copy()
-        new_state._metadata = self._metadata.copy()
-        new_state._id = self._id
-        new_state._created_at = self._created_at
-        new_state._updated_at = datetime.now()
-        new_state._complete = self._complete
-        return new_state
-    
-    def with_messages(self, messages: List[Any]) -> WorkflowState:
-        """创建包含新消息的状态"""
-        new_state = MockWorkflowState(self._state_data)
-        new_state._fields = self._fields.copy()
-        new_state._messages = messages.copy()
-        new_state._metadata = self._metadata.copy()
-        new_state._id = self._id
-        new_state._created_at = self._created_at
-        new_state._updated_at = datetime.now()
-        new_state._complete = self._complete
-        return new_state
-    
-    def with_metadata(self, metadata: Dict[str, Any]) -> WorkflowState:
-        """创建包含新元数据的状态"""
-        new_state = MockWorkflowState(self._state_data)
-        new_state._fields = self._fields.copy()
-        new_state._messages = self._messages.copy()
-        new_state._metadata = metadata.copy()
-        new_state._id = self._id
-        new_state._created_at = self._created_at
-        new_state._updated_at = datetime.now()
-        new_state._complete = self._complete
-        return new_state
-    
-    def add_message(self, message: Any) -> None:
-        """添加消息"""
-        self._messages.append(message)
-        self._updated_at = datetime.now()
-    
-    def get_messages(self) -> List[Any]:
-        """获取消息列表"""
-        return self._messages.copy()
-    
-    def get_last_message(self) -> Any | None:
-        """获取最后一条消息"""
-        return self._messages[-1] if self._messages else None
-    
-    def copy(self) -> WorkflowState:
-        """创建状态的深拷贝"""
-        new_state = MockWorkflowState(self._state_data)
-        new_state._fields = self._fields.copy()
-        new_state._messages = self._messages.copy()
-        new_state._metadata = self._metadata.copy()
-        new_state._id = self._id
-        new_state._created_at = self._created_at
-        new_state._updated_at = datetime.now()
-        new_state._complete = self._complete
-        return new_state
-    
-    def get(self, key: str, default: Any = None) -> Any:
-        """获取状态值（字典式访问）"""
-        return self._state_data.get(key, default)
-    
-    def set_value(self, key: str, value: Any) -> None:
-        """设置状态值"""
-        self._state_data[key] = value
-        self._updated_at = datetime.now()
-    
-    # 保留原有的属性方法以保持兼容性
-    @property
-    def thread_id(self) -> str:
-        """线程ID"""
-        return str(self._state_data.get("thread_id", ""))
-    
-    @property
-    def status(self) -> str:
-        """状态"""
-        return str(self._state_data.get("status", "unknown"))
-    
-    @property
-    def result(self) -> Any:
-        """结果"""
-        return self._state_data.get("result")
-    
-    @property
-    def execution_time(self) -> float:
-        """执行时间"""
-        return float(self._state_data.get("execution_time", 0.0))
-    
-    @property
-    def steps_executed(self) -> int:
-        """执行的步骤数"""
-        return int(self._state_data.get("steps_executed", 0))

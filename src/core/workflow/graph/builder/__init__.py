@@ -3,7 +3,7 @@
 提供图构建器的实现。
 """
 
-from .base import UnifiedGraphBuilder, GraphBuilder
+from .base import GraphBuilder, GraphBuilder
 from .validator import WorkflowConfigValidator, ValidationResult
 from .interfaces import (
     IGraphBuilder,
@@ -13,7 +13,7 @@ from .interfaces import (
 )
 
 __all__ = [
-    "UnifiedGraphBuilder",
+    "GraphBuilder",
     "GraphBuilder",
     "WorkflowConfigValidator",
     "ValidationResult",

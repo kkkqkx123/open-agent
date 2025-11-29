@@ -1,10 +1,11 @@
 """线程管理服务实现 - 主服务门面"""
 
-from typing import AsyncGenerator, Dict, Any, Optional, List, Coroutine
+from typing import AsyncGenerator, Dict, Any, Optional, List, Coroutine, cast
 
 from interfaces.state import IWorkflowState as WorkflowState
 from interfaces.state.workflow import IWorkflowState
 from src.interfaces.threads.service import IThreadService
+from src.interfaces.threads import IThreadCoordinatorService
 from src.interfaces.sessions.service import ISessionService
 from src.core.threads.interfaces import IThreadCore
 from src.interfaces.threads.storage import IThreadRepository
@@ -15,6 +16,7 @@ from .workflow_service import WorkflowThreadService
 from .collaboration_service import ThreadCollaborationService
 from .branch_service import ThreadBranchService
 from .snapshot_service import ThreadSnapshotService
+from .coordinator_service import ThreadCoordinatorService
 
 from src.core.common.exceptions import ValidationError
 
@@ -31,6 +33,7 @@ class ThreadService(IThreadService):
         collaboration_service: ThreadCollaborationService,
         branch_service: ThreadBranchService,
         snapshot_service: ThreadSnapshotService,
+        coordinator_service: IThreadCoordinatorService,
         session_service: Optional[ISessionService] = None,
         history_manager: Optional[IHistoryManager] = None
     ):
@@ -44,6 +47,7 @@ class ThreadService(IThreadService):
             collaboration_service: 协作服务
             branch_service: 分支服务
             snapshot_service: 快照服务
+            coordinator_service: 线程协调器服务
             session_service: 会话服务（可选）
             history_manager: 历史管理器（可选）
         """
@@ -54,6 +58,7 @@ class ThreadService(IThreadService):
         self._collaboration_service = collaboration_service
         self._branch_service = branch_service
         self._snapshot_service = snapshot_service
+        self._coordinator_service = coordinator_service
         self._session_service = session_service
         self._history_manager = history_manager
     
@@ -72,25 +77,25 @@ class ThreadService(IThreadService):
                 if not session:
                     raise ValidationError(f"Session {session_id} not found")
             
-            # 使用基础服务创建线程
-            graph_id = thread_config.get("graph_id")
-            if not graph_id:
-                raise ValidationError("graph_id is required")
-            
-            metadata = thread_config.get("metadata", {})
+            # 使用协调器服务进行线程创建协调
+            session_context = None
             if session_id:
-                metadata["session_id"] = session_id
+                session_context = {"session_id": session_id}
             
-            thread_id = await self._basic_service.create_thread(graph_id, metadata)
+            coordination_result = await self._coordinator_service.coordinate_thread_creation(
+                thread_config=thread_config,
+                session_context=session_context
+            )
             
-            # 更新线程配置
-            if "config" in thread_config:
-                thread = await self._thread_repository.get(thread_id)
-                if thread:
-                    thread.config = thread_config["config"]
-                    await self._thread_repository.update(thread)
+            if coordination_result.get("status") != "completed":
+                raise ValidationError(
+                    f"Thread creation coordination failed: {coordination_result.get('errors', [])}"
+                )
             
-            return thread_id
+            thread_id: Any = coordination_result.get("thread_id")
+            if not thread_id or not isinstance(thread_id, str):
+                raise ValidationError("Failed to obtain thread_id from coordination result")
+            return cast(str, thread_id)
             
         except Exception as e:
             raise ValidationError(f"Failed to create thread with session: {str(e)}")
@@ -146,6 +151,18 @@ class ThreadService(IThreadService):
             if not thread:
                 raise ValidationError(f"Thread {thread_id} not found")
             
+            # 使用协调器服务进行检查点创建协调
+            checkpoint_config = {
+                "thread_id": thread_id,
+                "checkpoint_number": thread.checkpoint_count + 1
+            }
+            
+            checkpoint_id = await self._coordinator_service.coordinate_checkpoint_creation(
+                thread_id=thread_id,
+                checkpoint_config=checkpoint_config
+            )
+            
+            # 协调成功后更新计数
             thread.increment_checkpoint_count()
             await self._thread_repository.update(thread)
             
@@ -204,7 +221,25 @@ class ThreadService(IThreadService):
     
     async def update_thread_status(self, thread_id: str, status: str) -> bool:
         """更新Thread状态"""
-        return await self._basic_service.update_thread_status(thread_id, status)
+        try:
+            # 获取当前线程状态
+            thread = await self._thread_repository.get(thread_id)
+            if not thread:
+                raise ValidationError(f"Thread {thread_id} not found")
+            
+            current_status = thread.status.value
+            
+            # 使用协调器服务进行状态转换协调
+            success = await self._coordinator_service.coordinate_thread_transition(
+                thread_id=thread_id,
+                current_status=current_status,
+                target_status=status
+            )
+            
+            return success
+        except Exception as e:
+            # 降级到基础服务
+            return await self._basic_service.update_thread_status(thread_id, status)
     
     async def delete_thread(self, thread_id: str) -> bool:
         """删除Thread"""
@@ -299,7 +334,22 @@ class ThreadService(IThreadService):
     
     async def restore_snapshot(self, thread_id: str, snapshot_id: str) -> bool:
         """从快照恢复Thread状态"""
-        return await self._snapshot_service.restore_thread_from_snapshot(thread_id, snapshot_id)
+        try:
+            # 使用协调器服务进行线程恢复协调
+            success = await self._coordinator_service.coordinate_thread_recovery(
+                thread_id=thread_id,
+                recovery_point=snapshot_id,
+                recovery_strategy="specific_checkpoint"
+            )
+            
+            if success:
+                # 恢复成功后调用快照服务进行状态恢复
+                return await self._snapshot_service.restore_thread_from_snapshot(thread_id, snapshot_id)
+            
+            return False
+        except Exception:
+            # 降级到快照服务直接恢复
+            return await self._snapshot_service.restore_thread_from_snapshot(thread_id, snapshot_id)
     
     async def delete_snapshot(self, snapshot_id: str) -> bool:
         """删除快照"""

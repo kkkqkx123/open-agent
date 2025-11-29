@@ -10,9 +10,10 @@ from src.services.threads.workflow_service import WorkflowThreadService
 from src.services.threads.collaboration_service import ThreadCollaborationService
 from src.services.threads.branch_service import ThreadBranchService
 from src.services.threads.snapshot_service import ThreadSnapshotService
+from src.services.threads.coordinator_service import ThreadCoordinatorService
 from src.services.threads.service import ThreadService
 
-from src.interfaces.threads import IThreadRepository
+from src.interfaces.threads import IThreadRepository, IThreadCoordinatorService
 from src.interfaces.threads.service import IThreadService
 from src.interfaces.sessions.service import ISessionService
 from src.core.threads.interfaces import IThreadCore
@@ -247,6 +248,38 @@ def register_snapshot_thread_service(container: Any, config: Dict[str, Any]) -> 
     logger.info("Snapshot thread service registered")
 
 
+def register_thread_coordinator_service(container: Any, config: Dict[str, Any]) -> None:
+    """注册线程协调器服务
+    
+    Args:
+        container: 依赖注入容器
+        config: 配置字典
+    """
+    # 确保依赖已注册
+    register_thread_repository(container, config)
+    
+    # 创建服务工厂函数
+    def thread_coordinator_factory() -> ThreadCoordinatorService:
+        thread_core = container.get(IThreadCore)
+        thread_repository = container.get(IThreadRepository)
+        
+        return ThreadCoordinatorService(
+            thread_core=thread_core,
+            thread_repository=thread_repository
+        )
+    
+    # 注册服务为单例
+    container.register_singleton("thread_coordinator_service", thread_coordinator_factory)
+    
+    # 注册接口
+    container.register_singleton(
+        IThreadCoordinatorService,
+        lambda: container.get("thread_coordinator_service")
+    )
+    
+    logger.info("Thread coordinator service registered")
+
+
 def register_thread_service(container: Any, config: Dict[str, Any]) -> None:
     """注册主线程服务
     
@@ -260,6 +293,7 @@ def register_thread_service(container: Any, config: Dict[str, Any]) -> None:
     register_collaboration_thread_service(container, config)
     register_branch_thread_service(container, config)
     register_snapshot_thread_service(container, config)
+    register_thread_coordinator_service(container, config)
     
     # 创建主服务工厂函数
     def thread_service_factory() -> ThreadService:
@@ -270,6 +304,7 @@ def register_thread_service(container: Any, config: Dict[str, Any]) -> None:
         collaboration_service = container.get("collaboration_thread_service")
         branch_service = container.get("branch_thread_service")
         snapshot_service = container.get("snapshot_thread_service")
+        coordinator_service = container.get(IThreadCoordinatorService)
         session_service = container.get(ISessionService, default=None)
         history_manager = container.get(IHistoryManager, default=None)
         
@@ -281,6 +316,7 @@ def register_thread_service(container: Any, config: Dict[str, Any]) -> None:
             collaboration_service=collaboration_service,
             branch_service=branch_service,
             snapshot_service=snapshot_service,
+            coordinator_service=coordinator_service,
             session_service=session_service,
             history_manager=history_manager
         )

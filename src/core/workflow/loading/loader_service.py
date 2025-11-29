@@ -14,7 +14,7 @@ from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.management.workflow_validator import WorkflowValidator, ValidationIssue
 from core.workflow.graph.nodes.state_machine.templates import StateTemplateManager
 from src.services.workflow.function_registry import FunctionRegistry, FunctionType
-from src.core.workflow.graph.builder.base import UnifiedGraphBuilder
+from src.core.workflow.graph.builder.base import GraphBuilder
 from ....core.workflow.workflow_instance import WorkflowInstance
 from core.common.exceptions.workflow import WorkflowConfigError, WorkflowValidationError
 
@@ -75,7 +75,7 @@ class LoaderService(ILoaderService):
         self,
         config_manager: Optional[ConfigManager] = None,
         function_registry: Optional[FunctionRegistry] = None,
-        builder: Optional[UnifiedGraphBuilder] = None,
+        builder: Optional[GraphBuilder] = None,
         workflow_validator: Optional[WorkflowValidator] = None,
         state_template_manager: Optional[StateTemplateManager] = None,
         prompt_service: Optional[Any] = None,  # 使用 Any 类型，因为旧的 WorkflowPromptService 已弃用
@@ -94,7 +94,7 @@ class LoaderService(ILoaderService):
         # 初始化核心组件
         self.config_manager = config_manager or ConfigManager()
         self.function_registry = function_registry or FunctionRegistry()
-        self.builder = builder or UnifiedGraphBuilder(
+        self.builder = builder or GraphBuilder(
             function_registry=self.function_registry
         )
         # 使用新的提示词系统替代已弃用的 WorkflowPromptService
