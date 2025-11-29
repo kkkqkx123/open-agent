@@ -3,16 +3,11 @@
 集成所有功能的统一图构建器，包含基础构建、函数注册表集成和迭代管理功能。
 """
 
-from typing import Dict, Any, Optional, List, Callable, Union, TYPE_CHECKING, cast, Protocol
+from typing import Dict, Any, Optional, List, Callable, Union, cast, Protocol
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from enum import Enum
-if TYPE_CHECKING:
-    from langchain_core.runnables import RunnableConfig
-else:
-    # 运行时使用Dict作为RunnableConfig的替代
-    RunnableConfig = Dict[str, Any]
+from langchain_core.runnables import RunnableConfig
 
 from src.core.workflow.config.config import GraphConfig, NodeConfig, EdgeConfig, EdgeType
 from src.core.state import WorkflowState
@@ -27,12 +22,6 @@ class FunctionRegistryProtocol(Protocol):
     def get_condition_function(self, name: str) -> Optional[Callable]: ...
 
 logger = logging.getLogger(__name__)
-
-# 导入LangGraph核心组件
-from langgraph.graph import StateGraph, START, END
-from langchain_core.runnables import RunnableConfig
-from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.checkpoint.sqlite import SqliteSaver
 
 # 导入灵活条件边相关组件
 from src.core.workflow.graph.edges.flexible_edge import FlexibleConditionalEdgeFactory
