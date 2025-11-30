@@ -5,6 +5,9 @@ from datetime import datetime
 
 from .interfaces import IThreadCore, IThreadBranchCore, IThreadSnapshotCore
 from .entities import Thread, ThreadBranch, ThreadSnapshot, ThreadStatus, ThreadType, ThreadMetadata
+from .error_handler import ThreadOperationHandler
+from src.core.common.error_management import create_error_context, handle_error
+from src.core.common.exceptions.session_thread import ThreadCreationError
 
 
 class ThreadFactory(IThreadCore):
@@ -21,7 +24,15 @@ class ThreadFactory(IThreadCore):
         source_checkpoint_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """创建新的Thread实体"""
-        try:
+        context = create_error_context(
+            "threads",
+            "create_thread",
+            thread_id=thread_id,
+            thread_type=thread_type,
+            graph_id=graph_id
+        )
+        
+        def _create_thread():
             # 创建Thread实体
             thread = Thread(
                 id=thread_id,
@@ -34,8 +45,20 @@ class ThreadFactory(IThreadCore):
             )
             
             return thread.to_dict()
+        
+        try:
+            return ThreadOperationHandler.safe_thread_creation(
+                lambda: _create_thread(),
+                max_retries=2,
+                context=context
+            )
         except Exception as e:
-            raise ValueError(f"Failed to create thread: {str(e)}")
+            handle_error(e, context)
+            raise ThreadCreationError(
+                session_id="unknown",
+                thread_config=context,
+                cause=e
+            ) from e
     
     def get_thread_status(self, thread_data: Dict[str, Any]) -> str:
         """获取线程状态"""
@@ -43,26 +66,67 @@ class ThreadFactory(IThreadCore):
     
     def update_thread_status(self, thread_data: Dict[str, Any], new_status: str) -> bool:
         """更新线程状态"""
-        try:
+        thread_id = thread_data.get("id", "unknown")
+        context = create_error_context(
+            "threads",
+            "update_thread_status",
+            thread_id=thread_id,
+            current_status=thread_data.get("status"),
+            target_status=new_status
+        )
+        
+        def _update_status():
             thread = Thread.from_dict(thread_data)
+            current_status = thread.status
             success = thread.transition_to(ThreadStatus(new_status))
             if success:
                 thread_data.update(thread.to_dict())
             return success
-        except Exception:
+        
+        try:
+            return ThreadOperationHandler.safe_thread_state_transition(
+                lambda: _update_status(),
+                thread_id,
+                thread_data.get("status", "unknown"),
+                new_status,
+                context=context
+            )
+        except Exception as e:
+            handle_error(e, context)
             return False
     
     def can_transition_status(self, thread_data: Dict[str, Any], target_status: str) -> bool:
         """检查状态是否可以转换"""
-        try:
+        thread_id = thread_data.get("id", "unknown")
+        context = create_error_context(
+            "threads",
+            "can_transition_status",
+            thread_id=thread_id,
+            current_status=thread_data.get("status"),
+            target_status=target_status
+        )
+        
+        def _check_transition():
             thread = Thread.from_dict(thread_data)
             return thread.can_transition_to(ThreadStatus(target_status))
-        except Exception:
+        
+        try:
+            from src.core.common.error_management import safe_execution
+            return safe_execution(_check_transition, default_return=False, context=context)
+        except Exception as e:
+            handle_error(e, context)
             return False
     
     def validate_thread_data(self, thread_data: Dict[str, Any]) -> bool:
         """验证线程数据的有效性"""
-        try:
+        thread_id = thread_data.get("id", "unknown")
+        context = create_error_context(
+            "threads",
+            "validate_thread_data",
+            thread_id=thread_id
+        )
+        
+        def _validate():
             # 检查必要字段
             required_fields = ["id", "status", "type", "created_at", "updated_at", "metadata", "config", "state"]
             for field in required_fields:
@@ -72,7 +136,12 @@ class ThreadFactory(IThreadCore):
             # 尝试创建Thread实例
             Thread.from_dict(thread_data)
             return True
-        except Exception:
+        
+        try:
+            from src.core.common.error_management import safe_execution
+            return safe_execution(_validate, default_return=False, context=context)
+        except Exception as e:
+            handle_error(e, context)
             return False
 
 
@@ -89,7 +158,15 @@ class ThreadBranchFactory(IThreadBranchCore):
         metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """创建分支实体"""
-        try:
+        context = create_error_context(
+            "threads",
+            "create_branch",
+            branch_id=branch_id,
+            thread_id=thread_id,
+            branch_name=branch_name
+        )
+        
+        def _create_branch():
             branch = ThreadBranch(
                 id=branch_id,
                 thread_id=thread_id,
@@ -100,12 +177,28 @@ class ThreadBranchFactory(IThreadBranchCore):
             )
             
             return branch.to_dict()
+        
+        try:
+            from src.core.common.error_management import safe_execution
+            return safe_execution(_create_branch, context=context)
         except Exception as e:
-            raise ValueError(f"Failed to create branch: {str(e)}")
+            handle_error(e, context)
+            raise ThreadCreationError(
+                session_id="unknown",
+                thread_config=context,
+                cause=e
+            ) from e
     
     def validate_branch_data(self, branch_data: Dict[str, Any]) -> bool:
         """验证分支数据的有效性"""
-        try:
+        branch_id = branch_data.get("id", "unknown")
+        context = create_error_context(
+            "threads",
+            "validate_branch_data",
+            branch_id=branch_id
+        )
+        
+        def _validate():
             # 检查必要字段
             required_fields = ["id", "thread_id", "parent_thread_id", "source_checkpoint_id", "branch_name", "created_at", "metadata"]
             for field in required_fields:
@@ -115,7 +208,12 @@ class ThreadBranchFactory(IThreadBranchCore):
             # 尝试创建ThreadBranch实例
             ThreadBranch.from_dict(branch_data)
             return True
-        except Exception:
+        
+        try:
+            from src.core.common.error_management import safe_execution
+            return safe_execution(_validate, default_return=False, context=context)
+        except Exception as e:
+            handle_error(e, context)
             return False
 
 
@@ -132,7 +230,14 @@ class ThreadSnapshotFactory(IThreadSnapshotCore):
         description: Optional[str] = None
     ) -> Dict[str, Any]:
         """创建快照实体"""
-        try:
+        context = create_error_context(
+            "threads",
+            "create_snapshot",
+            snapshot_id=snapshot_id,
+            thread_id=thread_id
+        )
+        
+        def _create_snapshot():
             snapshot = ThreadSnapshot(
                 id=snapshot_id,
                 thread_id=thread_id,
@@ -143,12 +248,28 @@ class ThreadSnapshotFactory(IThreadSnapshotCore):
             )
             
             return snapshot.to_dict()
+        
+        try:
+            from src.core.common.error_management import safe_execution
+            return safe_execution(_create_snapshot, context=context)
         except Exception as e:
-            raise ValueError(f"Failed to create snapshot: {str(e)}")
+            handle_error(e, context)
+            raise ThreadCreationError(
+                session_id="unknown",
+                thread_config=context,
+                cause=e
+            ) from e
     
     def validate_snapshot_data(self, snapshot_data: Dict[str, Any]) -> bool:
         """验证快照数据的有效性"""
-        try:
+        snapshot_id = snapshot_data.get("id", "unknown")
+        context = create_error_context(
+            "threads",
+            "validate_snapshot_data",
+            snapshot_id=snapshot_id
+        )
+        
+        def _validate():
             # 检查必要字段
             required_fields = ["id", "thread_id", "snapshot_name", "created_at", "state_snapshot", "metadata"]
             for field in required_fields:
@@ -158,5 +279,10 @@ class ThreadSnapshotFactory(IThreadSnapshotCore):
             # 尝试创建ThreadSnapshot实例
             ThreadSnapshot.from_dict(snapshot_data)
             return True
-        except Exception:
+        
+        try:
+            from src.core.common.error_management import safe_execution
+            return safe_execution(_validate, default_return=False, context=context)
+        except Exception as e:
+            handle_error(e, context)
             return False

@@ -5,6 +5,10 @@ from datetime import datetime
 from typing import Dict, Any, Optional, TYPE_CHECKING
 from uuid import uuid4
 
+from .error_handler import SessionOperationHandler
+from src.core.common.error_management import create_error_context, handle_error
+from src.core.common.exceptions.session_thread import AssociationNotFoundError
+
 if TYPE_CHECKING:
     from src.interfaces.sessions.association import ISessionThreadAssociation
 
@@ -32,12 +36,32 @@ class SessionThreadAssociation:
     
     def __post_init__(self):
         """初始化后处理"""
-        if not self.session_id:
-            raise ValueError("session_id cannot be empty")
-        if not self.thread_id:
-            raise ValueError("thread_id cannot be empty")
-        if not self.thread_name:
-            raise ValueError("thread_name cannot be empty")
+        context = create_error_context(
+            "sessions",
+            "association_post_init",
+            session_id=self.session_id,
+            thread_id=self.thread_id,
+            thread_name=self.thread_name
+        )
+        
+        def _validate():
+            if not self.session_id:
+                raise ValueError("session_id cannot be empty")
+            if not self.thread_id:
+                raise ValueError("thread_id cannot be empty")
+            if not self.thread_name:
+                raise ValueError("thread_name cannot be empty")
+        
+        try:
+            from src.core.common.error_management import safe_execution
+            safe_execution(_validate, context=context)
+        except Exception as e:
+            handle_error(e, context)
+            raise AssociationNotFoundError(
+                self.session_id,
+                self.thread_id,
+                cause=e
+            ) from e
     
     def update_timestamp(self) -> None:
         """更新时间戳"""
@@ -75,17 +99,42 @@ class SessionThreadAssociation:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'SessionThreadAssociation':
         """从字典创建实例"""
-        return cls(
-            association_id=data.get("association_id", str(uuid4())),
-            session_id=data["session_id"],
-            thread_id=data["thread_id"],
-            thread_name=data["thread_name"],
-            created_at=datetime.fromisoformat(data["created_at"]),
-            updated_at=datetime.fromisoformat(data["updated_at"]),
-            is_active=data.get("is_active", True),
-            association_type=data.get("association_type", "session_thread"),
-            metadata=data.get("metadata", {})
+        context = create_error_context(
+            "sessions",
+            "association_from_dict",
+            session_id=data.get("session_id"),
+            thread_id=data.get("thread_id"),
+            thread_name=data.get("thread_name")
         )
+        
+        def _create_from_dict():
+            return cls(
+                association_id=data.get("association_id", str(uuid4())),
+                session_id=data["session_id"],
+                thread_id=data["thread_id"],
+                thread_name=data["thread_name"],
+                created_at=datetime.fromisoformat(data["created_at"]),
+                updated_at=datetime.fromisoformat(data["updated_at"]),
+                is_active=data.get("is_active", True),
+                association_type=data.get("association_type", "session_thread"),
+                metadata=data.get("metadata", {})
+            )
+        
+        try:
+            return SessionOperationHandler.safe_association_creation(
+                lambda: _create_from_dict(),
+                data["session_id"],
+                data["thread_id"],
+                data["thread_name"],
+                context=context
+            )
+        except Exception as e:
+            handle_error(e, context)
+            raise AssociationNotFoundError(
+                data["session_id"],
+                data["thread_id"],
+                cause=e
+            ) from e
     
     def __str__(self) -> str:
         """字符串表示"""

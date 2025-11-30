@@ -1,31 +1,79 @@
-"""Threads核心模块初始化"""
+"""Threads核心模块
 
-from .entities import Thread, ThreadBranch, ThreadSnapshot, ThreadStatus, ThreadType, ThreadMetadata
+提供Thread相关的核心功能，包括实体定义、接口、工厂和错误处理。
+"""
+
 from .interfaces import IThreadCore, IThreadBranchCore, IThreadSnapshotCore
+from .entities import Thread, ThreadBranch, ThreadSnapshot, ThreadStatus, ThreadType, ThreadMetadata
 from .base import ThreadBase
 from .factories import ThreadFactory, ThreadBranchFactory, ThreadSnapshotFactory
+from .error_handler import ThreadErrorHandler, ThreadOperationHandler
 
-# 为了向后兼容，保留原有的类名
-ThreadCore = ThreadFactory
-ThreadBranchCore = ThreadBranchFactory
-ThreadSnapshotCore = ThreadSnapshotFactory
+# 导出错误处理相关
+def register_thread_error_handler():
+    """注册Thread错误处理器到统一错误处理框架"""
+    from src.core.common.error_management import register_error_handler
+    from src.core.common.exceptions.session_thread import (
+        SessionThreadException,
+        ThreadCreationError,
+        ThreadRemovalError,
+        ThreadTransferError,
+        SessionThreadInconsistencyError,
+        AssociationNotFoundError,
+        DuplicateThreadNameError,
+        ThreadNotFoundError,
+        SessionNotFoundError,
+        TransactionRollbackError,
+        WorkflowExecutionError,
+        SynchronizationError,
+        ConfigurationValidationError
+    )
+    
+    # 注册Thread错误处理器
+    thread_handler = ThreadErrorHandler()
+    
+    # 注册所有Thread相关异常
+    thread_exceptions = [
+        SessionThreadException,
+        ThreadCreationError,
+        ThreadRemovalError,
+        ThreadTransferError,
+        SessionThreadInconsistencyError,
+        AssociationNotFoundError,
+        DuplicateThreadNameError,
+        ThreadNotFoundError,
+        SessionNotFoundError,
+        TransactionRollbackError,
+        WorkflowExecutionError,
+        SynchronizationError,
+        ConfigurationValidationError
+    ]
+    
+    for exception_type in thread_exceptions:
+        register_error_handler(exception_type, thread_handler)
 
 __all__ = [
+    # 核心接口
+    "IThreadCore",
+    "IThreadBranchCore", 
+    "IThreadSnapshotCore",
+    
+    # 实体定义
     "Thread",
     "ThreadBranch",
     "ThreadSnapshot",
     "ThreadStatus",
     "ThreadType",
     "ThreadMetadata",
-    "IThreadCore",
-    "IThreadBranchCore",
-    "IThreadSnapshotCore",
+    
+    # 基础类和工厂
     "ThreadBase",
     "ThreadFactory",
     "ThreadBranchFactory",
     "ThreadSnapshotFactory",
-    # 向后兼容的别名
-    "ThreadCore",
-    "ThreadBranchCore",
-    "ThreadSnapshotCore",
+    
+    # 错误处理
+    "ThreadErrorHandler",
+    "ThreadOperationHandler",
+    "register_thread_error_handler"
 ]

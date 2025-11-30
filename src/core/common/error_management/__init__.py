@@ -41,6 +41,31 @@ except (ImportError, ModuleNotFoundError):
     def register_workflow_error_handler():
         pass
 
+# 导入核心模块的错误处理器
+try:
+    from ...checkpoints import register_checkpoint_error_handler
+except (ImportError, ModuleNotFoundError):
+    def register_checkpoint_error_handler():
+        pass
+
+try:
+    from ...storage import register_storage_error_handler
+except (ImportError, ModuleNotFoundError):
+    def register_storage_error_handler():
+        pass
+
+try:
+    from ...threads import register_thread_error_handler
+except (ImportError, ModuleNotFoundError):
+    def register_thread_error_handler():
+        pass
+
+try:
+    from ...sessions import register_session_error_handler
+except (ImportError, ModuleNotFoundError):
+    def register_session_error_handler():
+        pass
+
 
 def initialize_error_handling():
     """初始化统一错误处理框架
@@ -56,6 +81,12 @@ def initialize_error_handling():
         
         # 注册工作流错误处理器
         register_workflow_error_handler()
+        
+        # 注册核心模块错误处理器
+        register_checkpoint_error_handler()
+        register_storage_error_handler()
+        register_thread_error_handler()
+        register_session_error_handler()
         
         print("统一错误处理框架初始化完成")
         
@@ -148,5 +179,9 @@ __all__ = [
     # 模块注册函数
     "register_tool_error_handler",
     "register_prompt_error_handler",
-    "register_workflow_error_handler"
+    "register_workflow_error_handler",
+    "register_checkpoint_error_handler",
+    "register_storage_error_handler",
+    "register_thread_error_handler",
+    "register_session_error_handler"
 ]
