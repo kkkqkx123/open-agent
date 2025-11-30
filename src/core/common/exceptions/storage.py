@@ -364,52 +364,300 @@ class StorageConfigurationError(StorageError):
 
 
 class StorageMigrationError(StorageError):
-    """存储迁移异常
-    
-    当数据迁移失败时抛出。
-    """
-    
-    def __init__(
-        self, 
-        message: str = "Storage migration failed",
-        migration_version: Optional[str] = None,
-        migration_step: Optional[str] = None,
-        **kwargs: Any
-    ) -> None:
-        """初始化迁移异常
-        
-        Args:
-            message: 错误消息
-            migration_version: 迁移版本
-            migration_step: 迁移步骤
-            **kwargs: 其他参数
-        """
-        super().__init__(
-            message=message,
-            error_code="STORAGE_MIGRATION_ERROR",
-            **kwargs
-        )
-        self.migration_version = migration_version
-        self.migration_step = migration_step
-        
-        if migration_version:
-            self.details["migration_version"] = migration_version
-        if migration_step:
-            self.details["migration_step"] = migration_step
+     """存储迁移异常
+     
+     当数据迁移失败时抛出。
+     """
+     
+     def __init__(
+         self, 
+         message: str = "Storage migration failed",
+         migration_version: Optional[str] = None,
+         migration_step: Optional[str] = None,
+         **kwargs: Any
+     ) -> None:
+         """初始化迁移异常
+         
+         Args:
+             message: 错误消息
+             migration_version: 迁移版本
+             migration_step: 迁移步骤
+             **kwargs: 其他参数
+         """
+         super().__init__(
+             message=message,
+             error_code="STORAGE_MIGRATION_ERROR",
+             **kwargs
+         )
+         self.migration_version = migration_version
+         self.migration_step = migration_step
+         
+         if migration_version:
+             self.details["migration_version"] = migration_version
+         if migration_step:
+             self.details["migration_step"] = migration_step
+
+
+class StorageSerializationError(StorageError):
+     """存储序列化异常
+     
+     当数据序列化失败时抛出。
+     """
+     
+     def __init__(
+         self, 
+         message: str = "Storage serialization failed",
+         data_type: Optional[str] = None,
+         **kwargs: Any
+     ) -> None:
+         """初始化序列化异常
+         
+         Args:
+             message: 错误消息
+             data_type: 数据类型
+             **kwargs: 其他参数
+         """
+         super().__init__(
+             message=message,
+             error_code="STORAGE_SERIALIZATION_ERROR",
+             **kwargs
+         )
+         self.data_type = data_type
+         
+         if data_type:
+             self.details["data_type"] = data_type
+
+
+class StorageCompressionError(StorageError):
+     """存储压缩异常
+     
+     当数据压缩失败时抛出。
+     """
+     
+     def __init__(
+         self, 
+         message: str = "Storage compression failed",
+         compression_algorithm: Optional[str] = None,
+         **kwargs: Any
+     ) -> None:
+         """初始化压缩异常
+         
+         Args:
+             message: 错误消息
+             compression_algorithm: 压缩算法
+             **kwargs: 其他参数
+         """
+         super().__init__(
+             message=message,
+             error_code="STORAGE_COMPRESSION_ERROR",
+             **kwargs
+         )
+         self.compression_algorithm = compression_algorithm
+         
+         if compression_algorithm:
+             self.details["compression_algorithm"] = compression_algorithm
+
+
+class StorageEncryptionError(StorageError):
+     """存储加密异常
+     
+     当数据加密失败时抛出。
+     """
+     
+     def __init__(
+         self, 
+         message: str = "Storage encryption failed",
+         encryption_algorithm: Optional[str] = None,
+         **kwargs: Any
+     ) -> None:
+         """初始化加密异常
+         
+         Args:
+             message: 错误消息
+             encryption_algorithm: 加密算法
+             **kwargs: 其他参数
+         """
+         super().__init__(
+             message=message,
+             error_code="STORAGE_ENCRYPTION_ERROR",
+             **kwargs
+         )
+         self.encryption_algorithm = encryption_algorithm
+         
+         if encryption_algorithm:
+             self.details["encryption_algorithm"] = encryption_algorithm
+
+
+class StorageIndexError(StorageError):
+     """存储索引异常
+     
+     当索引操作失败时抛出。
+     """
+     
+     def __init__(
+         self, 
+         message: str = "Storage index error",
+         index_name: Optional[str] = None,
+         **kwargs: Any
+     ) -> None:
+         """初始化索引异常
+         
+         Args:
+             message: 错误消息
+             index_name: 索引名称
+             **kwargs: 其他参数
+         """
+         super().__init__(
+             message=message,
+             error_code="STORAGE_INDEX_ERROR",
+             **kwargs
+         )
+         self.index_name = index_name
+         
+         if index_name:
+             self.details["index_name"] = index_name
+
+
+class StorageBackupError(StorageError):
+     """存储备份异常
+     
+     当备份操作失败时抛出。
+     """
+     
+     def __init__(
+         self, 
+         message: str = "Storage backup failed",
+         backup_location: Optional[str] = None,
+         **kwargs: Any
+     ) -> None:
+         """初始化备份异常
+         
+         Args:
+             message: 错误消息
+             backup_location: 备份位置
+             **kwargs: 其他参数
+         """
+         super().__init__(
+             message=message,
+             error_code="STORAGE_BACKUP_ERROR",
+             **kwargs
+         )
+         self.backup_location = backup_location
+         
+         if backup_location:
+             self.details["backup_location"] = backup_location
+
+
+class StorageLockError(StorageError):
+     """存储锁定异常
+     
+     当锁定操作失败时抛出。
+     """
+     
+     def __init__(
+         self, 
+         message: str = "Storage lock error",
+         lock_id: Optional[str] = None,
+         **kwargs: Any
+     ) -> None:
+         """初始化锁定异常
+         
+         Args:
+             message: 错误消息
+             lock_id: 锁定ID
+             **kwargs: 其他参数
+         """
+         super().__init__(
+             message=message,
+             error_code="STORAGE_LOCK_ERROR",
+             **kwargs
+         )
+         self.lock_id = lock_id
+         
+         if lock_id:
+             self.details["lock_id"] = lock_id
+
+
+class StorageQueryError(StorageError):
+     """存储查询异常
+     
+     当查询操作失败时抛出。
+     """
+     
+     def __init__(
+         self, 
+         message: str = "Storage query error",
+         query: Optional[str] = None,
+         **kwargs: Any
+     ) -> None:
+         """初始化查询异常
+         
+         Args:
+             message: 错误消息
+             query: 查询语句
+             **kwargs: 其他参数
+         """
+         super().__init__(
+             message=message,
+             error_code="STORAGE_QUERY_ERROR",
+             **kwargs
+         )
+         self.query = query
+         
+         if query:
+             self.details["query"] = query
+
+
+class StorageHealthError(StorageError):
+     """存储健康检查异常
+     
+     当健康检查失败时抛出。
+     """
+     
+     def __init__(
+         self, 
+         message: str = "Storage health check failed",
+         component: Optional[str] = None,
+         **kwargs: Any
+     ) -> None:
+         """初始化健康检查异常
+         
+         Args:
+             message: 错误消息
+             component: 组件名称
+             **kwargs: 其他参数
+         """
+         super().__init__(
+             message=message,
+             error_code="STORAGE_HEALTH_ERROR",
+             **kwargs
+         )
+         self.component = component
+         
+         if component:
+             self.details["component"] = component
 
 
 # 异常映射字典，用于根据错误代码创建异常
 EXCEPTION_MAP = {
-    "STORAGE_CONNECTION_ERROR": StorageConnectionError,
-    "STORAGE_TRANSACTION_ERROR": StorageTransactionError,
-    "STORAGE_VALIDATION_ERROR": StorageValidationError,
-    "STORAGE_NOT_FOUND_ERROR": StorageNotFoundError,
-    "STORAGE_PERMISSION_ERROR": StoragePermissionError,
-    "STORAGE_TIMEOUT_ERROR": StorageTimeoutError,
-    "STORAGE_CAPACITY_ERROR": StorageCapacityError,
-    "STORAGE_INTEGRITY_ERROR": StorageIntegrityError,
-    "STORAGE_CONFIGURATION_ERROR": StorageConfigurationError,
-    "STORAGE_MIGRATION_ERROR": StorageMigrationError,
+     "STORAGE_CONNECTION_ERROR": StorageConnectionError,
+     "STORAGE_TRANSACTION_ERROR": StorageTransactionError,
+     "STORAGE_VALIDATION_ERROR": StorageValidationError,
+     "STORAGE_NOT_FOUND_ERROR": StorageNotFoundError,
+     "STORAGE_PERMISSION_ERROR": StoragePermissionError,
+     "STORAGE_TIMEOUT_ERROR": StorageTimeoutError,
+     "STORAGE_CAPACITY_ERROR": StorageCapacityError,
+     "STORAGE_INTEGRITY_ERROR": StorageIntegrityError,
+     "STORAGE_CONFIGURATION_ERROR": StorageConfigurationError,
+     "STORAGE_MIGRATION_ERROR": StorageMigrationError,
+     "STORAGE_SERIALIZATION_ERROR": StorageSerializationError,
+     "STORAGE_COMPRESSION_ERROR": StorageCompressionError,
+     "STORAGE_ENCRYPTION_ERROR": StorageEncryptionError,
+     "STORAGE_INDEX_ERROR": StorageIndexError,
+     "STORAGE_BACKUP_ERROR": StorageBackupError,
+     "STORAGE_LOCK_ERROR": StorageLockError,
+     "STORAGE_QUERY_ERROR": StorageQueryError,
+     "STORAGE_HEALTH_ERROR": StorageHealthError,
 }
 
 

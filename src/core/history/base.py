@@ -15,9 +15,10 @@ from .entities import (
     RecordType, TokenSource
 )
 from src.core.common.exceptions.history import (
-    HistoryError, StatisticsError, RecordNotFoundError
+     HistoryError, StatisticsError, RecordNotFoundError, TokenCalculationError, CostCalculationError
 )
-from src.core.common.exceptions import StorageError, ValidationError
+from src.core.common.exceptions.storage import StorageError
+from src.core.common.error_management import handle_error, ErrorCategory, ErrorSeverity
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +69,20 @@ class BaseHistoryManager(ABC):
             return success
             
         except Exception as e:
-            if isinstance(e, (ValidationError, StorageError)):
+            if isinstance(e, (HistoryError, StorageError)):
                 raise
+            
+            # 使用统一错误处理
+            error_context = {
+                "record_id": record.record_id if hasattr(record, 'record_id') else None,
+                "record_type": record.record_type.value if hasattr(record, 'record_type') else None,
+                "session_id": record.session_id if hasattr(record, 'session_id') else None,
+                "operation": "save_record"
+            }
+            handle_error(e, error_context)
+            
             self._logger.error(f"保存历史记录时发生未知错误: {e}")
-            raise HistoryError(f"保存历史记录失败: {e}")
+            raise HistoryError(f"保存历史记录失败: {e}") from e
     
     async def save_records(self, records: List[BaseHistoryRecord]) -> List[bool]:
         """
@@ -89,6 +100,14 @@ class BaseHistoryManager(ABC):
                 result = await self.save_record(record)
                 results.append(result)
             except Exception as e:
+                # 使用统一错误处理
+                error_context = {
+                    "record_id": record.record_id if hasattr(record, 'record_id') else None,
+                    "record_type": record.record_type.value if hasattr(record, 'record_type') else None,
+                    "operation": "save_records_batch"
+                }
+                handle_error(e, error_context)
+                
                 self._logger.error(f"批量保存中记录失败: {record.record_id}, 错误: {e}")
                 results.append(False)
         
@@ -108,8 +127,15 @@ class BaseHistoryManager(ABC):
             record = await self._storage.get_record_by_id(record_id)
             return record
         except Exception as e:
+            # 使用统一错误处理
+            error_context = {
+                "record_id": record_id,
+                "operation": "get_record_by_id"
+            }
+            handle_error(e, error_context)
+            
             self._logger.error(f"获取记录失败: {record_id}, 错误: {e}")
-            raise HistoryError(f"获取记录失败: {e}")
+            raise HistoryError(f"获取记录失败: {e}") from e
     
     async def get_records(
         self,
@@ -151,8 +177,20 @@ class BaseHistoryManager(ABC):
             )
             return records
         except Exception as e:
+            # 使用统一错误处理
+            error_context = {
+                "session_id": session_id,
+                "workflow_id": workflow_id,
+                "record_type": record_type.value if record_type else None,
+                "model": model,
+                "limit": limit,
+                "offset": offset,
+                "operation": "get_records"
+            }
+            handle_error(e, error_context)
+            
             self._logger.error(f"获取历史记录失败: {e}")
-            raise HistoryError(f"获取历史记录失败: {e}")
+            raise HistoryError(f"获取历史记录失败: {e}") from e
     
     def _validate_record(self, record: BaseHistoryRecord) -> None:
         """
@@ -162,19 +200,19 @@ class BaseHistoryManager(ABC):
             record: 历史记录
             
         Raises:
-            ValidationError: 验证失败
+            HistoryError: 验证失败
         """
         if not record:
-            raise ValidationError("记录不能为空")
+            raise HistoryError("记录不能为空")
         
         if not record.record_id:
-            raise ValidationError("记录ID不能为空")
+            raise HistoryError("记录ID不能为空")
         
         if not record.session_id:
-            raise ValidationError("会话ID不能为空")
+            raise HistoryError("会话ID不能为空")
         
         if not isinstance(record.timestamp, datetime):
-            raise ValidationError("时间戳格式无效")
+            raise HistoryError("时间戳格式无效")
         
         # 根据记录类型进行特定验证
         if isinstance(record, LLMRequestRecord):
@@ -187,57 +225,57 @@ class BaseHistoryManager(ABC):
             self._validate_cost_record(record)
     
     def _validate_llm_request_record(self, record: LLMRequestRecord) -> None:
-         """验证LLM请求记录"""
-         if not record.model:
-             raise ValidationError("模型名称不能为空")
-         
-         if not record.provider:
-             raise ValidationError("提供商不能为空")
-         
-         if record.estimated_tokens < 0:
-             raise ValidationError("估算Token数量不能为负数")
-    
-    def _validate_llm_response_record(self, record: LLMResponseRecord) -> None:
-         """验证LLM响应记录"""
-         if not record.request_id:
-             raise ValidationError("请求ID不能为空")
-         
-         if record.response_time < 0:
-             raise ValidationError("响应时间不能为负数")
-    
-    def _validate_token_usage_record(self, record: TokenUsageRecord) -> None:
-         """验证Token使用记录"""
-         if not record.model:
-             raise ValidationError("模型名称不能为空")
-         
-         if not record.provider:
-             raise ValidationError("提供商不能为空")
-         
-         if any(tokens < 0 for tokens in [
-             record.prompt_tokens, record.completion_tokens, record.total_tokens
-         ]):
-             raise ValidationError("Token数量不能为负数")
-         
-         if not 0.0 <= record.confidence <= 1.0:
-             raise ValidationError("置信度必须在0.0到1.0之间")
-    
-    def _validate_cost_record(self, record: CostRecord) -> None:
-        """验证成本记录"""
+        """验证LLM请求记录"""
         if not record.model:
-            raise ValidationError("模型名称不能为空")
+            raise HistoryError("模型名称不能为空")
         
         if not record.provider:
-            raise ValidationError("提供商不能为空")
+            raise HistoryError("提供商不能为空")
         
-        if any(cost < 0 for cost in [
-            record.prompt_cost, record.completion_cost, record.total_cost
-        ]):
-            raise ValidationError("成本不能为负数")
+        if record.estimated_tokens < 0:
+            raise HistoryError("估算Token数量不能为负数")
+    
+    def _validate_llm_response_record(self, record: LLMResponseRecord) -> None:
+        """验证LLM响应记录"""
+        if not record.request_id:
+            raise HistoryError("请求ID不能为空")
+        
+        if record.response_time < 0:
+            raise HistoryError("响应时间不能为负数")
+    
+    def _validate_token_usage_record(self, record: TokenUsageRecord) -> None:
+        """验证Token使用记录"""
+        if not record.model:
+            raise HistoryError("模型名称不能为空")
+        
+        if not record.provider:
+            raise HistoryError("提供商不能为空")
         
         if any(tokens < 0 for tokens in [
             record.prompt_tokens, record.completion_tokens, record.total_tokens
         ]):
-            raise ValidationError("Token数量不能为负数")
+            raise HistoryError("Token数量不能为负数")
+        
+        if not 0.0 <= record.confidence <= 1.0:
+            raise HistoryError("置信度必须在0.0到1.0之间")
+    
+    def _validate_cost_record(self, record: CostRecord) -> None:
+        """验证成本记录"""
+        if not record.model:
+            raise HistoryError("模型名称不能为空")
+        
+        if not record.provider:
+            raise HistoryError("提供商不能为空")
+        
+        if any(cost < 0 for cost in [
+            record.prompt_cost, record.completion_cost, record.total_cost
+        ]):
+            raise HistoryError("成本不能为负数")
+        
+        if any(tokens < 0 for tokens in [
+            record.prompt_tokens, record.completion_tokens, record.total_tokens
+        ]):
+            raise HistoryError("Token数量不能为负数")
 
 
 class BaseTokenTracker(ITokenTracker):
@@ -308,8 +346,19 @@ class BaseTokenTracker(ITokenTracker):
                              f"Token={token_record.total_tokens}")
             
         except Exception as e:
+            # 使用统一错误处理
+            error_context = {
+                "workflow_id": workflow_id,
+                "model": model,
+                "provider": provider,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "operation": "track_workflow_token_usage"
+            }
+            handle_error(e, error_context)
+            
             self._logger.error(f"追踪Token使用失败: {e}")
-            raise StatisticsError(f"追踪Token使用失败: {e}", workflow_id=workflow_id)
+            raise StatisticsError(f"追踪Token使用失败: {e}", workflow_id=workflow_id) from e
     
     async def track_llm_request(
         self,
@@ -364,8 +413,19 @@ class BaseTokenTracker(ITokenTracker):
             return request_record.record_id
             
         except Exception as e:
+            # 使用统一错误处理
+            error_context = {
+                "workflow_id": workflow_id,
+                "session_id": session_id,
+                "model": model,
+                "provider": provider,
+                "estimated_tokens": estimated_tokens,
+                "operation": "track_llm_request"
+            }
+            handle_error(e, error_context)
+            
             self._logger.error(f"追踪LLM请求失败: {e}")
-            raise StatisticsError(f"追踪LLM请求失败: {e}")
+            raise StatisticsError(f"追踪LLM请求失败: {e}") from e
     
     async def track_llm_response(
         self,
@@ -445,8 +505,16 @@ class BaseTokenTracker(ITokenTracker):
             self._logger.debug(f"成功追踪LLM响应: {request_id}")
             
         except Exception as e:
+            # 使用统一错误处理
+            error_context = {
+                "request_id": request_id,
+                "response_time": response_time,
+                "operation": "track_llm_response"
+            }
+            handle_error(e, error_context)
+            
             self._logger.error(f"追踪LLM响应失败: {e}")
-            raise StatisticsError(f"追踪LLM响应失败: {e}")
+            raise StatisticsError(f"追踪LLM响应失败: {e}") from e
     
     async def _update_workflow_statistics(
         self,
@@ -484,6 +552,14 @@ class BaseTokenTracker(ITokenTracker):
             await self._storage.update_workflow_token_stats(stats)
             
         except Exception as e:
+            # 使用统一错误处理
+            error_context = {
+                "workflow_id": workflow_id,
+                "model": model,
+                "operation": "update_workflow_statistics"
+            }
+            handle_error(e, error_context)
+            
             self._logger.error(f"更新工作流统计失败: {e}")
             # 不抛出异常，避免影响主要功能
     

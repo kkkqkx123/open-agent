@@ -3,13 +3,21 @@
 提供状态历史记录、查询和回放功能。
 """
 
+import json
+import logging
+import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Sequence
 
 from ..interfaces.base import IState
 from .history_storage import IHistoryStorage, MemoryHistoryStorage
-from .history_recorder import StateHistoryRecorder
+from .history_recorder import StateHistoryRecorder, HistoryEntry
 from .history_player import StateHistoryPlayer
+from ...common.exceptions.state import StateError, StateValidationError
+from ...common.exceptions.history import HistoryError
+from ...common.error_management import handle_error, ErrorCategory, ErrorSeverity, operation_with_retry
+
+logger = logging.getLogger(__name__)
 
 
 class StateHistoryManager:
@@ -32,7 +40,7 @@ class StateHistoryManager:
         self._recorder = StateHistoryRecorder()
         self._player = StateHistoryPlayer()
     
-    def record_state_change(self, 
+    def record_state_change(self,
                            state: IState,
                            operation: str = "update",
                            context: Optional[Dict[str, Any]] = None) -> str:
@@ -45,21 +53,134 @@ class StateHistoryManager:
             
         Returns:
             str: 历史记录ID
+            
+        Raises:
+            StateValidationError: 输入验证失败
+            HistoryError: 记录操作失败
         """
-        # 创建历史记录
-        history_entry = self._recorder.record_change(state, operation, context)
+        try:
+            # 输入验证
+            if state is None:
+                raise StateValidationError("状态对象不能为None")
+            
+            if not isinstance(state, IState):
+                raise StateValidationError(
+                    f"状态对象必须实现IState接口，实际类型: {type(state).__name__}"
+                )
+            
+            if not operation:
+                raise StateValidationError("操作类型不能为空")
+            
+            if not isinstance(operation, str):
+                raise StateValidationError(
+                    f"操作类型必须是字符串，实际类型: {type(operation).__name__}"
+                )
+            
+            # 验证状态数据可以序列化
+            try:
+                state_dict = state.to_dict()
+                json.dumps(state_dict)  # 测试序列化
+            except Exception as e:
+                raise StateValidationError(
+                    f"状态数据无法序列化: {e}",
+                    details={"state_type": type(state).__name__}
+                ) from e
+            
+            # 验证上下文数据可以序列化
+            if context is not None:
+                if not isinstance(context, dict):
+                    raise StateValidationError(
+                        f"上下文必须是字典类型，实际类型: {type(context).__name__}"
+                    )
+                try:
+                    json.dumps(context)  # 测试序列化
+                except Exception as e:
+                    raise StateValidationError(
+                        f"上下文数据无法序列化: {e}",
+                        details={"context_keys": list(context.keys()) if isinstance(context, dict) else None}
+                    ) from e
+            
+            # 创建历史记录
+            try:
+                history_entry = self._recorder.record_change(state, operation, context)
+            except Exception as e:
+                raise HistoryError(f"创建历史记录失败: {e}") from e
+            
+            # 验证历史记录
+            if not hasattr(history_entry, 'id') or not history_entry.id:
+                raise HistoryError("创建的历史记录缺少有效的ID")
+            
+            # 存储历史记录（带重试）
+            try:
+                self._store_with_retry(history_entry)
+            except Exception as e:
+                raise HistoryError(f"存储历史记录失败: {e}") from e
+            
+            # 清理旧记录
+            try:
+                self._cleanup_old_records()
+            except Exception as e:
+                # 清理失败不应该影响主要功能，只记录警告
+                logger.warning(f"清理旧记录失败: {e}")
+            
+            logger.info(f"成功记录状态变化: {history_entry.id}")
+            return history_entry.id
+            
+        except (StateValidationError, HistoryError):
+            # 重新抛出已知异常
+            raise
+        except Exception as e:
+            # 包装其他异常
+            error_context = {
+                "state_id": state.get_id() if hasattr(state, 'get_id') else None,
+                "state_type": type(state).__name__ if state else None,
+                "operation": operation,
+                "context_keys": list(context.keys()) if context and isinstance(context, dict) else None
+            }
+            
+            # 使用统一错误处理
+            handle_error(e, error_context)
+            
+            raise HistoryError(
+                f"记录状态变化失败: {e}",
+                details={"original_error": str(e), **error_context}
+            ) from e
+    
+    def _store_with_retry(self, history_entry, max_retries: int = 3) -> None:
+        """带重试的存储操作
         
-        # 存储历史记录
-        self._storage.save_history_entry(history_entry)
+        Args:
+            history_entry: 历史记录条目
+            max_retries: 最大重试次数
+            
+        Raises:
+            HistoryError: 存储失败
+        """
+        last_error = None
         
-        # 清理旧记录
-        self._cleanup_old_records()
+        for attempt in range(max_retries):
+            try:
+                self._storage.save_history_entry(history_entry)
+                return  # 成功存储，退出函数
+                
+            except Exception as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # 指数退避
+                    logger.warning(f"存储历史记录失败，{wait_time}秒后重试 (尝试 {attempt + 1}/{max_retries}): {e}")
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"存储历史记录失败，已达到最大重试次数: {e}")
         
-        return history_entry.id
+        # 所有重试都失败
+        raise HistoryError(
+            f"存储历史记录失败，重试{max_retries}次后放弃",
+            details={"last_error": str(last_error)}
+        ) from last_error
     
     def get_state_history(self, 
                          state_id: str,
-                         limit: Optional[int] = None) -> List[Dict[str, Any]]:
+                         limit: Optional[int] = None) -> List[HistoryEntry]:
         """获取状态历史
         
         Args:
@@ -67,7 +188,7 @@ class StateHistoryManager:
             limit: 限制返回数量
             
         Returns:
-            List[Dict[str, Any]]: 历史记录列表
+            List[HistoryEntry]: 历史记录列表
         """
         return self._storage.get_state_history(state_id, limit)
     

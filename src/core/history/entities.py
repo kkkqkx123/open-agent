@@ -3,10 +3,18 @@
 定义所有历史记录相关的数据结构和枚举类型。
 """
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from enum import Enum
+
+from src.core.common.exceptions.history import (
+    HistoryError, TokenCalculationError, CostCalculationError, StatisticsError
+)
+from src.core.common.error_management import handle_error, ErrorCategory, ErrorSeverity
+
+logger = logging.getLogger(__name__)
 
 
 class RecordType(Enum):
@@ -39,12 +47,22 @@ class BaseHistoryRecord:
     record_type: RecordType = RecordType.MESSAGE
     metadata: Dict[str, Any] = field(default_factory=dict)
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
-        if not self.record_id:
-            raise ValueError("record_id 不能为空")
-        if not self.session_id:
-            raise ValueError("session_id 不能为空")
+        try:
+            if not self.record_id:
+                raise ValueError("record_id 不能为空")
+            if not self.session_id:
+                raise ValueError("session_id 不能为空")
+        except ValueError as e:
+            # 使用统一错误处理
+            error_context = {
+                "record_type": self.record_type.value if hasattr(self, 'record_type') else None,
+                "operation": "__post_init__",
+                "entity_class": self.__class__.__name__
+            }
+            handle_error(e, error_context)
+            raise HistoryError(f"历史记录验证失败: {e}") from e
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
@@ -60,15 +78,58 @@ class BaseHistoryRecord:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'BaseHistoryRecord':
-        """从字典创建实例"""
-        # 处理特殊字段
-        if 'timestamp' in data and isinstance(data['timestamp'], str):
-            data['timestamp'] = datetime.fromisoformat(data['timestamp'])
+        """从字典创建实例
         
-        if 'record_type' in data and isinstance(data['record_type'], str):
-            data['record_type'] = RecordType(data['record_type'])
-        
-        return cls(**data)
+        Args:
+            data: 字典数据
+            
+        Returns:
+            历史记录实例
+            
+        Raises:
+            HistoryError: 创建失败
+        """
+        try:
+            # 输入验证
+            if data is None:
+                raise HistoryError("数据不能为None")
+            
+            if not isinstance(data, dict):
+                raise HistoryError(f"数据必须是字典类型，实际类型: {type(data).__name__}")
+            
+            # 处理特殊字段
+            if 'timestamp' in data:
+                if isinstance(data['timestamp'], str):
+                    try:
+                        data['timestamp'] = datetime.fromisoformat(data['timestamp'])
+                    except ValueError as e:
+                        raise HistoryError(f"时间戳格式无效: {e}") from e
+                elif not isinstance(data['timestamp'], datetime):
+                    raise HistoryError(f"时间戳必须是字符串或datetime类型，实际类型: {type(data['timestamp']).__name__}")
+            
+            if 'record_type' in data:
+                if isinstance(data['record_type'], str):
+                    try:
+                        data['record_type'] = RecordType(data['record_type'])
+                    except ValueError as e:
+                        raise HistoryError(f"记录类型无效: {e}") from e
+                elif not isinstance(data['record_type'], RecordType):
+                    raise HistoryError(f"记录类型必须是字符串或RecordType枚举，实际类型: {type(data['record_type']).__name__}")
+            
+            return cls(**data)
+            
+        except HistoryError:
+            # 重新抛出已知异常
+            raise
+        except Exception as e:
+            # 包装其他异常
+            error_context = {
+                "data_keys": list(data.keys()) if isinstance(data, dict) else None,
+                "operation": "from_dict",
+                "entity_class": cls.__name__
+            }
+            handle_error(e, error_context)
+            raise HistoryError(f"从字典创建历史记录失败: {e}") from e
 
 
 @dataclass
@@ -84,11 +145,22 @@ class LLMRequestRecord(BaseHistoryRecord):
     parameters: Dict[str, Any] = field(default_factory=dict)
     estimated_tokens: int = 0
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
-        super().__post_init__()
-        if self.estimated_tokens < 0:
-            raise ValueError("estimated_tokens 不能为负数")
+        try:
+            super().__post_init__()
+            if self.estimated_tokens < 0:
+                raise ValueError("estimated_tokens 不能为负数")
+        except ValueError as e:
+            error_context = {
+                "estimated_tokens": self.estimated_tokens,
+                "model": self.model,
+                "provider": self.provider,
+                "operation": "__post_init__",
+                "entity_class": self.__class__.__name__
+            }
+            handle_error(e, error_context)
+            raise HistoryError(f"LLM请求记录验证失败: {e}") from e
 
 
 @dataclass
@@ -105,26 +177,37 @@ class LLMResponseRecord(BaseHistoryRecord):
     response_time: float = 0.0
     model: str = ""
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
-        super().__post_init__()
-        if self.response_time < 0:
-            raise ValueError("response_time 不能为负数")
+        try:
+            super().__post_init__()
+            if self.response_time < 0:
+                raise ValueError("response_time 不能为负数")
+        except ValueError as e:
+            error_context = {
+                "response_time": self.response_time,
+                "request_id": self.request_id,
+                "model": self.model,
+                "operation": "__post_init__",
+                "entity_class": self.__class__.__name__
+            }
+            handle_error(e, error_context)
+            raise HistoryError(f"LLM响应记录验证失败: {e}") from e
     
     @property
     def prompt_tokens(self) -> int:
         """获取prompt token数量"""
-        return self.token_usage.get("prompt_tokens", 0)
+        return int(self.token_usage.get("prompt_tokens", 0))
     
     @property
     def completion_tokens(self) -> int:
         """获取completion token数量"""
-        return self.token_usage.get("completion_tokens", 0)
+        return int(self.token_usage.get("completion_tokens", 0))
     
     @property
     def total_tokens(self) -> int:
         """获取总token数量"""
-        return self.token_usage.get("total_tokens", 0)
+        return int(self.token_usage.get("total_tokens", 0))
 
 
 @dataclass
@@ -142,18 +225,38 @@ class TokenUsageRecord(BaseHistoryRecord):
     source: TokenSource = TokenSource.API
     confidence: float = 1.0
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
-        super().__post_init__()
-        if self.prompt_tokens < 0 or self.completion_tokens < 0 or self.total_tokens < 0:
-            raise ValueError("Token数量不能为负数")
-        if not 0.0 <= self.confidence <= 1.0:
-            raise ValueError("confidence 必须在0.0到1.0之间")
-        
-        # 确保total_tokens等于prompt_tokens + completion_tokens
-        calculated_total = self.prompt_tokens + self.completion_tokens
-        if self.total_tokens != calculated_total:
-            self.total_tokens = calculated_total
+        try:
+            super().__post_init__()
+            
+            # 验证Token数量
+            if self.prompt_tokens < 0 or self.completion_tokens < 0 or self.total_tokens < 0:
+                raise ValueError("Token数量不能为负数")
+            
+            # 验证置信度
+            if not 0.0 <= self.confidence <= 1.0:
+                raise ValueError("confidence 必须在0.0到1.0之间")
+            
+            # 确保total_tokens等于prompt_tokens + completion_tokens
+            calculated_total = self.prompt_tokens + self.completion_tokens
+            if self.total_tokens != calculated_total:
+                logger.warning(f"Token总数不一致，自动修正: {self.total_tokens} -> {calculated_total}")
+                self.total_tokens = calculated_total
+                
+        except ValueError as e:
+            error_context = {
+                "prompt_tokens": self.prompt_tokens,
+                "completion_tokens": self.completion_tokens,
+                "total_tokens": self.total_tokens,
+                "confidence": self.confidence,
+                "model": self.model,
+                "provider": self.provider,
+                "operation": "__post_init__",
+                "entity_class": self.__class__.__name__
+            }
+            handle_error(e, error_context)
+            raise TokenCalculationError(f"Token使用记录验证失败: {e}") from e
     
     @property
     def prompt_cost_per_1k(self) -> Optional[float]:
@@ -183,33 +286,94 @@ class CostRecord(BaseHistoryRecord):
     total_cost: float = 0.0
     currency: str = "USD"
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
-        super().__post_init__()
-        if any(cost < 0 for cost in [self.prompt_cost, self.completion_cost, self.total_cost]):
-            raise ValueError("成本不能为负数")
-        if self.prompt_tokens < 0 or self.completion_tokens < 0 or self.total_tokens < 0:
-            raise ValueError("Token数量不能为负数")
-        
-        # 确保total_cost等于prompt_cost + completion_cost
-        calculated_total = self.prompt_cost + self.completion_cost
-        if abs(self.total_cost - calculated_total) > 0.0001:  # 允许小的浮点误差
-            self.total_cost = calculated_total
+        try:
+            super().__post_init__()
+            
+            # 验证成本
+            if any(cost < 0 for cost in [self.prompt_cost, self.completion_cost, self.total_cost]):
+                raise ValueError("成本不能为负数")
+            
+            # 验证Token数量
+            if self.prompt_tokens < 0 or self.completion_tokens < 0 or self.total_tokens < 0:
+                raise ValueError("Token数量不能为负数")
+            
+            # 确保total_cost等于prompt_cost + completion_cost
+            calculated_total = self.prompt_cost + self.completion_cost
+            if abs(self.total_cost - calculated_total) > 0.0001:  # 允许小的浮点误差
+                logger.warning(f"总成本不一致，自动修正: {self.total_cost} -> {calculated_total}")
+                self.total_cost = calculated_total
+                
+        except ValueError as e:
+            error_context = {
+                "prompt_cost": self.prompt_cost,
+                "completion_cost": self.completion_cost,
+                "total_cost": self.total_cost,
+                "prompt_tokens": self.prompt_tokens,
+                "completion_tokens": self.completion_tokens,
+                "total_tokens": self.total_tokens,
+                "model": self.model,
+                "provider": self.provider,
+                "operation": "__post_init__",
+                "entity_class": self.__class__.__name__
+            }
+            handle_error(e, error_context)
+            raise CostCalculationError(f"成本记录验证失败: {e}") from e
     
     @property
     def avg_cost_per_token(self) -> float:
         """获取平均每个token的成本"""
-        return self.total_cost / self.total_tokens if self.total_tokens > 0 else 0.0
+        try:
+            if self.total_tokens <= 0:
+                logger.warning("Token数量为0或负数，返回0.0")
+                return 0.0
+            return self.total_cost / self.total_tokens
+        except Exception as e:
+            error_context = {
+                "total_cost": self.total_cost,
+                "total_tokens": self.total_tokens,
+                "operation": "avg_cost_per_token",
+                "entity_class": self.__class__.__name__
+            }
+            handle_error(e, error_context)
+            raise CostCalculationError(f"计算平均每token成本失败: {e}") from e
     
     @property
     def prompt_cost_per_1k(self) -> float:
         """获取每1K prompt tokens的成本"""
-        return (self.prompt_cost / self.prompt_tokens * 1000) if self.prompt_tokens > 0 else 0.0
+        try:
+            if self.prompt_tokens <= 0:
+                logger.warning("Prompt token数量为0或负数，返回0.0")
+                return 0.0
+            return (self.prompt_cost / self.prompt_tokens * 1000)
+        except Exception as e:
+            error_context = {
+                "prompt_cost": self.prompt_cost,
+                "prompt_tokens": self.prompt_tokens,
+                "operation": "prompt_cost_per_1k",
+                "entity_class": self.__class__.__name__
+            }
+            handle_error(e, error_context)
+            raise CostCalculationError(f"计算每1K prompt tokens成本失败: {e}") from e
     
     @property
     def completion_cost_per_1k(self) -> float:
         """获取每1K completion tokens的成本"""
-        return (self.completion_cost / self.completion_tokens * 1000) if self.completion_tokens > 0 else 0.0
+        try:
+            if self.completion_tokens <= 0:
+                logger.warning("Completion token数量为0或负数，返回0.0")
+                return 0.0
+            return (self.completion_cost / self.completion_tokens * 1000)
+        except Exception as e:
+            error_context = {
+                "completion_cost": self.completion_cost,
+                "completion_tokens": self.completion_tokens,
+                "operation": "completion_cost_per_1k",
+                "entity_class": self.__class__.__name__
+            }
+            handle_error(e, error_context)
+            raise CostCalculationError(f"计算每1K completion tokens成本失败: {e}") from e
 
 
 @dataclass
@@ -229,14 +393,14 @@ class WorkflowTokenStatistics:
     period_start: Optional[datetime] = None
     period_end: Optional[datetime] = None
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
         if not self.workflow_id:
             raise ValueError("workflow_id 不能为空")
         if not self.model:
             raise ValueError("model 不能为空")
         if any(value < 0 for value in [
-            self.total_prompt_tokens, self.total_completion_tokens, 
+            self.total_prompt_tokens, self.total_completion_tokens,
             self.total_tokens, self.total_cost, self.request_count
         ]):
             raise ValueError("统计值不能为负数")
@@ -344,7 +508,7 @@ class MessageRecord(BaseHistoryRecord):
     role: str = ""
     content: str = ""
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
         super().__post_init__()
         if not self.role:
@@ -363,7 +527,7 @@ class ToolCallRecord(BaseHistoryRecord):
     tool_output: Dict[str, Any] = field(default_factory=dict)
     status: str = "success"  # success, error, pending
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """初始化后处理"""
         super().__post_init__()
         if not self.tool_name:

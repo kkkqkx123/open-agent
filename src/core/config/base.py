@@ -1,9 +1,15 @@
 """基础配置模型"""
 
+import logging
 from abc import ABC
 from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, Field, ConfigDict
 from enum import Enum
+
+from ..common.exceptions.config import ConfigError, ConfigValidationError
+from ..common.error_management import handle_error, ErrorCategory, ErrorSeverity
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigType(str, Enum):
@@ -62,28 +68,160 @@ class BaseConfig(BaseModel, ABC):
 
     def merge_with(self, other: "BaseConfig") -> "BaseConfig":
         """与另一个配置合并"""
-        current_dict = self.to_dict()
-        other_dict = other.to_dict()
+        try:
+            # 输入验证
+            if other is None:
+                raise ConfigValidationError("合并的配置对象不能为None")
+            
+            if not isinstance(other, BaseConfig):
+                raise ConfigValidationError(
+                    f"合并对象必须是BaseConfig类型，实际类型: {type(other).__name__}"
+                )
 
-        # 深度合并字典
-        merged = _deep_merge(current_dict, other_dict)
-        return self.__class__.from_dict(merged)
+            current_dict = self.to_dict()
+            other_dict = other.to_dict()
+
+            # 深度合并字典
+            merged = _deep_merge(current_dict, other_dict)
+            return self.__class__.from_dict(merged)
+            
+        except ConfigValidationError:
+            # 重新抛出验证错误
+            raise
+        except Exception as e:
+            # 包装其他异常
+            error_context = {
+                "config_class": self.__class__.__name__,
+                "other_config_class": other.__class__.__name__ if other else "None",
+                "operation": "merge_with"
+            }
+            
+            # 使用统一错误处理
+            handle_error(e, error_context)
+            
+            raise ConfigError(
+                f"配置合并失败: {e}",
+                details={"original_error": str(e), **error_context}
+            ) from e
 
     def update(self, **kwargs: Any) -> "BaseConfig":
         """更新配置"""
-        current_dict = self.to_dict()
-        current_dict.update(kwargs)
-        return self.__class__.from_dict(current_dict)
+        try:
+            # 输入验证
+            if not kwargs:
+                logger.warning("更新配置时没有提供任何参数")
+                return self
+
+            current_dict = self.to_dict()
+            
+            # 验证更新参数
+            for key, value in kwargs.items():
+                if value is None:
+                    logger.warning(f"更新配置时参数 {key} 的值为None")
+            
+            current_dict.update(kwargs)
+            return self.__class__.from_dict(current_dict)
+            
+        except ConfigValidationError:
+            # 重新抛出验证错误
+            raise
+        except Exception as e:
+            # 包装其他异常
+            error_context = {
+                "config_class": self.__class__.__name__,
+                "update_keys": list(kwargs.keys()),
+                "operation": "update"
+            }
+            
+            # 使用统一错误处理
+            handle_error(e, error_context)
+            
+            raise ConfigError(
+                f"配置更新失败: {e}",
+                details={"original_error": str(e), **error_context}
+            ) from e
 
 
-def _deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
-    """深度合并两个字典"""
-    result = dict1.copy()
+def _deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any], max_depth: int = 10, current_depth: int = 0) -> Dict[str, Any]:
+    """安全的深度合并两个字典
+    
+    Args:
+        dict1: 第一个字典
+        dict2: 第二个字典
+        max_depth: 最大递归深度
+        current_depth: 当前递归深度
+        
+    Returns:
+        合并后的字典
+        
+    Raises:
+        ConfigValidationError: 输入验证失败
+        ConfigError: 合并操作失败
+    """
+    try:
+        # 输入验证
+        if not isinstance(dict1, dict):
+            raise ConfigValidationError(
+                f"第一个参数必须是字典类型，实际类型: {type(dict1).__name__}"
+            )
+        
+        if not isinstance(dict2, dict):
+            raise ConfigValidationError(
+                f"第二个参数必须是字典类型，实际类型: {type(dict2).__name__}"
+            )
+        
+        # 递归深度检查
+        if current_depth >= max_depth:
+            raise ConfigError(f"配置合并深度超过限制: {max_depth}")
+        
+        result = dict1.copy()
 
-    for key, value in dict2.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = _deep_merge(result[key], value)
-        else:
-            result[key] = value
+        for key, value in dict2.items():
+            try:
+                if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                    # 递归合并嵌套字典
+                    result[key] = _deep_merge(
+                        result[key],
+                        value,
+                        max_depth,
+                        current_depth + 1
+                    )
+                else:
+                    # 直接赋值
+                    result[key] = value
+                    
+            except Exception as e:
+                # 记录字段级别的错误，但继续处理其他字段
+                logger.warning(f"合并配置字段 {key} 失败: {e}")
+                raise ConfigError(
+                    f"无法合并配置字段 {key}: {e}",
+                    details={
+                        "field": key,
+                        "field_type": type(value).__name__,
+                        "existing_type": type(result.get(key)).__name__ if key in result else None,
+                        "original_error": str(e)
+                    }
+                ) from e
 
-    return result
+        return result
+        
+    except ConfigValidationError:
+        # 重新抛出验证错误
+        raise
+    except Exception as e:
+        # 包装其他异常
+        error_context = {
+            "dict1_keys": list(dict1.keys()) if isinstance(dict1, dict) else None,
+            "dict2_keys": list(dict2.keys()) if isinstance(dict2, dict) else None,
+            "current_depth": current_depth,
+            "max_depth": max_depth,
+            "operation": "_deep_merge"
+        }
+        
+        # 使用统一错误处理
+        handle_error(e, error_context)
+        
+        raise ConfigError(
+            f"深度合并失败: {e}",
+            details={"original_error": str(e), **error_context}
+        ) from e

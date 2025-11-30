@@ -3,6 +3,7 @@
 提供创建各种状态对象的统一工厂类。
 """
 
+import logging
 from typing import Any, Dict, List, Optional, Type, Union, TYPE_CHECKING
 from enum import Enum
 
@@ -21,6 +22,10 @@ from ..implementations.tool_state import ToolState
 from ..implementations.session_state import SessionState
 from ..implementations.thread_state import ThreadState
 from ..implementations.checkpoint_state import CheckpointState
+from ...common.exceptions.state import StateError, StateValidationError
+from ...common.error_management import handle_error, ErrorCategory, ErrorSeverity
+
+logger = logging.getLogger(__name__)
 
 
 class StateFactory:
@@ -140,27 +145,109 @@ class StateFactory:
             IState: 状态对象
             
         Raises:
-            ValueError: 当状态类型不支持时
+            StateValidationError: 输入验证失败
+            StateError: 创建操作失败
         """
-        # 处理枚举类型
-        if isinstance(state_type, Enum):
-            state_type_str = state_type.value
-        else:
-            state_type_str = str(state_type)
-        
-        # 检查状态类型是否支持
-        if state_type_str not in cls._state_registry:
-            raise ValueError(f"Unsupported state type: {state_type_str}")
-        
-        # 获取状态类
-        state_class = cls._state_registry[state_type_str]
-        
-        # 从字典创建状态实例
-        if hasattr(state_class, 'from_dict'):
-            return state_class.from_dict(data)
-        else:
-            # 如果没有from_dict方法，使用构造函数
-            return state_class(**data)
+        try:
+            # 输入验证
+            if state_type is None:
+                raise StateValidationError("状态类型不能为None")
+            
+            if data is None:
+                raise StateValidationError("状态数据不能为None")
+            
+            if not isinstance(data, dict):
+                raise StateValidationError(
+                    f"状态数据必须是字典类型，实际类型: {type(data).__name__}"
+                )
+            
+            # 处理枚举类型
+            if isinstance(state_type, Enum):
+                state_type_str = state_type.value
+            else:
+                state_type_str = str(state_type)
+            
+            if not state_type_str:
+                raise StateValidationError("状态类型不能为空字符串")
+            
+            # 检查状态类型是否支持
+            if state_type_str not in cls._state_registry:
+                supported_types = list(cls._state_registry.keys())
+                raise StateValidationError(
+                    f"不支持的状态类型: {state_type_str}",
+                    details={
+                        "state_type": state_type_str,
+                        "supported_types": supported_types
+                    }
+                )
+            
+            # 获取状态类
+            state_class = cls._state_registry[state_type_str]
+            
+            # 验证状态类
+            if not isinstance(state_class, type):
+                raise StateError(f"状态注册项不是有效的类类型: {state_class}")
+            
+            # 验证状态类是否实现了IState接口
+            if not issubclass(state_class, IState):
+                raise StateError(
+                    f"状态类 {state_class.__name__} 必须实现 IState 接口"
+                )
+            
+            # 从字典创建状态实例
+            try:
+                if hasattr(state_class, 'from_dict'):
+                    # 使用from_dict方法
+                    state_instance = state_class.from_dict(data)
+                else:
+                    # 使用构造函数
+                    state_instance = state_class(**data)
+                
+                # 验证创建的实例
+                if not isinstance(state_instance, IState):
+                    raise StateError(
+                        f"创建的状态实例不是IState类型: {type(state_instance).__name__}"
+                    )
+                
+                # 验证实例的基本功能
+                if not hasattr(state_instance, 'to_dict'):
+                    logger.warning(f"状态类 {state_class.__name__} 缺少 to_dict 方法")
+                
+                logger.info(f"成功从字典创建状态: {state_type_str} -> {state_class.__name__}")
+                return state_instance
+                
+            except StateValidationError:
+                # 重新抛出验证错误
+                raise
+            except Exception as e:
+                raise StateError(
+                    f"实例化状态类 {state_class.__name__} 失败: {e}",
+                    details={
+                        "state_type": state_type_str,
+                        "state_class": state_class.__name__,
+                        "data_keys": list(data.keys())
+                    }
+                ) from e
+                
+        except StateValidationError:
+            # 重新抛出验证错误
+            raise
+        except Exception as e:
+            # 包装其他异常
+            error_context = {
+                "state_type": str(state_type) if state_type else None,
+                "data_type": type(data).__name__ if data else None,
+                "operation": "create_state_from_dict",
+                "factory_class": cls.__name__
+            }
+            
+            # 使用统一错误处理
+            handle_error(e, error_context)
+            
+            raise StateError(
+                f"从字典创建状态失败: {e}",
+                details={"original_error": str(e), **error_context}
+            ) from e
     
     @classmethod
     def register_state_type(cls, state_type: StateType, state_class: Type[IState]) -> None:

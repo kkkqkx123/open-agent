@@ -9,11 +9,13 @@ import threading
 import logging
 from typing import Dict, Any, Optional, List, Union
 
-from core.common.exceptions.state import (
+from src.core.common.exceptions.state import (
     StorageError,
     StorageConnectionError,
-    StorageCapacityError
+    StorageCapacityError,
+    StorageValidationError
 )
+from src.core.common.error_management import handle_error, ErrorCategory, ErrorSeverity
 from ..adapters.base import StorageBackend
 from ..utils.common_utils import StorageCommonUtils
 from ..utils.memory_utils import MemoryStorageUtils, MemoryStorageItem
@@ -92,7 +94,14 @@ class MemoryStorageBackend(StorageBackend):
             await super().disconnect()
             
         except Exception as e:
-            raise StorageConnectionError(f"Failed to disconnect MemoryStorageBackend: {e}")
+            # 使用统一错误处理
+            error_context = {
+                "backend_type": "memory",
+                "operation": "disconnect",
+                "enable_persistence": self.enable_persistence
+            }
+            handle_error(e, error_context)
+            raise StorageConnectionError(f"Failed to disconnect MemoryStorageBackend: {e}") from e
     
     async def save_impl(self, data: Union[Dict[str, Any], bytes], compressed: bool = False) -> str:
         """实际保存实现"""
@@ -121,7 +130,17 @@ class MemoryStorageBackend(StorageBackend):
         except Exception as e:
             if isinstance(e, StorageError):
                 raise
-            raise StorageError(f"Failed to save data: {e}")
+            
+            # 使用统一错误处理
+            error_context = {
+                "backend_type": "memory",
+                "operation": "save_impl",
+                "data_type": type(data).__name__,
+                "compressed": compressed,
+                "storage_size": len(self._storage)
+            }
+            handle_error(e, error_context)
+            raise StorageError(f"Failed to save data: {e}") from e
     
     async def load_impl(self, id: str) -> Optional[Dict[str, Any]]:
         """实际加载实现"""
@@ -160,7 +179,16 @@ class MemoryStorageBackend(StorageBackend):
         except Exception as e:
             if isinstance(e, StorageError):
                 raise
-            raise StorageError(f"Failed to load data {id}: {e}")
+            
+            # 使用统一错误处理
+            error_context = {
+                "backend_type": "memory",
+                "operation": "load_impl",
+                "item_id": id,
+                "storage_size": len(self._storage)
+            }
+            handle_error(e, error_context)
+            raise StorageError(f"Failed to load data {id}: {e}") from e
     
     async def delete_impl(self, id: str) -> bool:
         """实际删除实现"""
@@ -176,7 +204,16 @@ class MemoryStorageBackend(StorageBackend):
         except Exception as e:
             if isinstance(e, StorageError):
                 raise
-            raise StorageError(f"Failed to delete data {id}: {e}")
+            
+            # 使用统一错误处理
+            error_context = {
+                "backend_type": "memory",
+                "operation": "delete_impl",
+                "item_id": id,
+                "storage_size": len(self._storage)
+            }
+            handle_error(e, error_context)
+            raise StorageError(f"Failed to delete data {id}: {e}") from e
     
     async def list_impl(self, filters: Dict[str, Any], limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """实际列表实现"""
@@ -217,7 +254,17 @@ class MemoryStorageBackend(StorageBackend):
         except Exception as e:
             if isinstance(e, StorageError):
                 raise
-            raise StorageError(f"Failed to list data: {e}")
+            
+            # 使用统一错误处理
+            error_context = {
+                "backend_type": "memory",
+                "operation": "list_impl",
+                "filters": filters,
+                "limit": limit,
+                "storage_size": len(self._storage)
+            }
+            handle_error(e, error_context)
+            raise StorageError(f"Failed to list data: {e}") from e
     
     async def health_check_impl(self) -> Dict[str, Any]:
         """实际健康检查实现"""
@@ -262,7 +309,14 @@ class MemoryStorageBackend(StorageBackend):
             )
             
         except Exception as e:
-            raise StorageConnectionError(f"Health check failed: {e}")
+            # 使用统一错误处理
+            error_context = {
+                "backend_type": "memory",
+                "operation": "health_check_impl",
+                "storage_size": len(self._storage)
+            }
+            handle_error(e, error_context)
+            raise StorageConnectionError(f"Health check failed: {e}") from e
     
     # 内部辅助方法
     def _validate_capacity(self) -> None:
@@ -330,6 +384,13 @@ class MemoryStorageBackend(StorageBackend):
                         logger.debug(f"Cleaned {len(expired_items)} expired items from memory storage")
                         
         except Exception as e:
+            # 使用统一错误处理
+            error_context = {
+                "backend_type": "memory",
+                "operation": "_cleanup_expired_items_impl",
+                "storage_size": len(self._storage)
+            }
+            handle_error(e, error_context)
             logger.error(f"Error cleaning expired items in memory storage: {e}")
     
     async def _save_persistence(self) -> None:
@@ -358,6 +419,14 @@ class MemoryStorageBackend(StorageBackend):
                 logger.debug(f"Saved {len(persistence_data)} items to persistence file")
                 
         except Exception as e:
+            # 使用统一错误处理
+            error_context = {
+                "backend_type": "memory",
+                "operation": "_save_persistence",
+                "persistence_path": self.persistence_path,
+                "storage_size": len(self._storage)
+            }
+            handle_error(e, error_context)
             logger.error(f"Failed to save persistence data: {e}")
     
     async def _load_persistence(self) -> None:
@@ -397,6 +466,13 @@ class MemoryStorageBackend(StorageBackend):
                     logger.debug(f"Loaded {len(self._storage)} items from persistence file")
                 
         except Exception as e:
+            # 使用统一错误处理
+            error_context = {
+                "backend_type": "memory",
+                "operation": "_load_persistence",
+                "persistence_path": self.persistence_path
+            }
+            handle_error(e, error_context)
             logger.error(f"Failed to load persistence data: {e}")
     
     async def _create_backup_impl(self) -> None:
@@ -412,4 +488,12 @@ class MemoryStorageBackend(StorageBackend):
             await self._save_persistence()
             logger.info(f"Created memory storage backup at {self.persistence_path}")
         except Exception as e:
-            raise StorageError(f"Failed to create memory storage backup: {e}")
+            # 使用统一错误处理
+            error_context = {
+                "backend_type": "memory",
+                "operation": "_create_backup_impl",
+                "persistence_path": self.persistence_path,
+                "backup_path": self.backup_path
+            }
+            handle_error(e, error_context)
+            raise StorageError(f"Failed to create memory storage backup: {e}") from e

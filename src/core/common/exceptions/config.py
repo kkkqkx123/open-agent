@@ -24,8 +24,8 @@ class ConfigNotFoundError(ConfigError):
 class ConfigValidationError(ConfigError):
     """配置验证异常"""
     
-    def __init__(self, message: str, config_path: Optional[str] = None, field: Optional[str] = None):
-        super().__init__(message, config_path)
+    def __init__(self, message: str, config_path: Optional[str] = None, field: Optional[str] = None, details: Optional[Any] = None):
+        super().__init__(message, config_path, details)
         self.field = field
 
 

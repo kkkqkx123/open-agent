@@ -3,6 +3,7 @@
 为配置系统提供回调管理功能，支持配置变化事件通知。
 """
 
+import logging
 import threading
 from typing import Dict, Any, List, Callable, Optional
 from enum import Enum
@@ -10,6 +11,9 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ..common.exceptions.config import ConfigError
+from ..common.error_management import handle_error, ErrorCategory, ErrorSeverity
+
+logger = logging.getLogger(__name__)
 
 
 class CallbackPriority(Enum):
@@ -250,6 +254,27 @@ class ConfigCallbackManager:
                 except Exception as e:
                     # 记录执行失败
                     self._record_execution_error(callback_id, context, e)
+                    
+                    # 使用统一错误处理
+                    error_context = {
+                        "callback_id": callback_id,
+                        "config_path": config_path,
+                        "callback_priority": callback.priority.name,
+                        "callback_once": callback.once,
+                        "execution_order": self._execution_order.index(callback_id) if callback_id in self._execution_order else -1,
+                        "total_callbacks": len(self._execution_order)
+                    }
+                    
+                    handle_error(e, error_context)
+                    
+                    # 根据错误严重程度决定是否继续执行其他回调
+                    if isinstance(e, (KeyboardInterrupt, SystemExit, MemoryError)):
+                        # 严重错误，停止执行后续回调
+                        logger.error(f"回调 {callback_id} 遇到严重错误，停止执行后续回调: {e}")
+                        break
+                    else:
+                        # 一般错误，记录但继续执行
+                        logger.warning(f"回调 {callback_id} 执行失败，继续执行下一个回调: {e}")
 
     def _update_execution_order(self) -> None:
         """更新回调执行顺序（按优先级排序）"""
