@@ -38,23 +38,16 @@ class ThreadMetadata(BaseModel):
 
 
 class Thread(BaseModel):
-    """线程实体模型 - 集成LangGraph"""
+    """线程实体模型"""
     
     id: str = Field(..., description="线程唯一标识")
     status: ThreadStatus = Field(default=ThreadStatus.ACTIVE, description="线程状态")
     type: ThreadType = Field(default=ThreadType.MAIN, description="线程类型")
     
     # 关联关系
-    graph_id: Optional[str] = Field(None, description="关联的LangGraph图ID")
+    graph_id: Optional[str] = Field(None, description="关联的图ID")
     parent_thread_id: Optional[str] = Field(None, description="父线程ID")
     source_checkpoint_id: Optional[str] = Field(None, description="源检查点ID")
-    
-    # LangGraph集成字段
-    langgraph_thread_id: Optional[str] = Field(None, description="LangGraph thread ID")
-    langgraph_checkpoint_id: Optional[str] = Field(None, description="当前checkpoint ID")
-    langgraph_config: Optional[Dict[str, Any]] = Field(None, description="LangGraph配置")
-    langgraph_state_version: Optional[int] = Field(None, description="LangGraph状态版本")
-    langgraph_created_at: Optional[datetime] = Field(None, description="LangGraph创建时间")
     
     # 时间戳
     created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
@@ -63,11 +56,11 @@ class Thread(BaseModel):
     # 元数据
     metadata: ThreadMetadata = Field(default_factory=ThreadMetadata, description="线程元数据")
     
-    # 配置和状态 (与LangGraph状态同步)
+    # 配置和状态
     config: Dict[str, Any] = Field(default_factory=dict, description="线程配置")
     state: Dict[str, Any] = Field(default_factory=dict, description="线程状态")
     
-    # 统计信息 (基于LangGraph checkpoint)
+    # 统计信息
     message_count: int = Field(default=0, description="消息数量")
     checkpoint_count: int = Field(default=0, description="检查点数量")
     branch_count: int = Field(default=0, description="分支数量")
@@ -97,37 +90,6 @@ class Thread(BaseModel):
         """增加分支计数"""
         self.branch_count += 1
         self.update_timestamp()
-    
-    def sync_with_langgraph_state(self, langgraph_state: Dict[str, Any]) -> None:
-        """与LangGraph状态同步"""
-        self.state = langgraph_state
-        self.langgraph_state_version = langgraph_state.get("version", self.langgraph_state_version or 0)
-        self.update_timestamp()
-    
-    def get_langgraph_config(self) -> Dict[str, Any]:
-        """获取LangGraph配置"""
-        if self.langgraph_config:
-            return self.langgraph_config
-        
-        # 创建默认LangGraph配置
-        return {
-            "configurable": {
-                "thread_id": self.langgraph_thread_id or self.id,
-                "graph_id": self.graph_id
-            }
-        }
-    
-    def update_langgraph_checkpoint(self, checkpoint_id: str) -> None:
-        """更新LangGraph checkpoint ID"""
-        self.langgraph_checkpoint_id = checkpoint_id
-        self.increment_checkpoint_count()
-    
-    def is_langgraph_active(self) -> bool:
-        """检查是否为LangGraph活跃状态"""
-        return (
-            self.status in [ThreadStatus.ACTIVE, ThreadStatus.PAUSED] and
-            self.langgraph_thread_id is not None
-        )
     
     def can_transition_to(self, new_status: ThreadStatus) -> bool:
         """检查是否可以转换到指定状态
@@ -185,7 +147,7 @@ class Thread(BaseModel):
 
 
 class ThreadBranch(BaseModel):
-    """线程分支实体模型 - 基于LangGraph time travel"""
+    """线程分支实体模型"""
     
     id: str = Field(..., description="分支唯一标识")
     thread_id: str = Field(..., description="所属线程ID")
@@ -195,21 +157,11 @@ class ThreadBranch(BaseModel):
     branch_name: str = Field(..., description="分支名称")
     branch_type: str = Field(default="user", description="分支类型")
     
-    # LangGraph集成字段
-    langgraph_branch_thread_id: Optional[str] = Field(None, description="LangGraph分支thread ID")
-    langgraph_created_from_checkpoint: Optional[str] = Field(None, description="创建分支的checkpoint")
-    langgraph_merge_status: Optional[str] = Field(None, description="合并状态")
-    
     # 时间戳
     created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
-    merged_at: Optional[datetime] = Field(None, description="合并时间")
     
     # 元数据
     metadata: Dict[str, Any] = Field(default_factory=dict, description="分支元数据")
-    
-    # 分支状态
-    is_active: bool = Field(default=True, description="是否活跃")
-    merge_strategy: Optional[str] = Field(None, description="合并策略")
     
     class Config:
         """Pydantic配置"""
@@ -229,7 +181,7 @@ class ThreadBranch(BaseModel):
 
 
 class ThreadSnapshot(BaseModel):
-    """线程快照实体模型 - 基于LangGraph checkpoint"""
+    """线程快照实体模型"""
     
     id: str = Field(..., description="快照唯一标识")
     thread_id: str = Field(..., description="所属线程ID")
@@ -237,27 +189,16 @@ class ThreadSnapshot(BaseModel):
     snapshot_name: str = Field(..., description="快照名称")
     description: Optional[str] = Field(None, description="快照描述")
     
-    # LangGraph集成字段
-    langgraph_checkpoint_id: Optional[str] = Field(None, description="对应的LangGraph checkpoint ID")
-    langgraph_state_version: Optional[int] = Field(None, description="状态版本")
-    
     # 时间戳
     created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
     
-    # 状态快照 (与LangGraph checkpoint同步)
+    # 状态快照
     state_snapshot: Dict[str, Any] = Field(default_factory=dict, description="状态快照")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="快照元数据")
     
     # 统计信息
     message_count: int = Field(default=0, description="消息数量")
     checkpoint_count: int = Field(default=0, description="检查点数量")
-    
-    # 快照类型
-    snapshot_type: str = Field(default="manual", description="快照类型: manual, auto, checkpoint")
-    
-    def is_langgraph_checkpoint(self) -> bool:
-        """检查是否为LangGraph checkpoint"""
-        return self.langgraph_checkpoint_id is not None
     
     class Config:
         """Pydantic配置"""
