@@ -40,6 +40,11 @@ class ThreadFactory(IThreadCore):
                 type=ThreadType(thread_type),
                 parent_thread_id=parent_thread_id,
                 source_checkpoint_id=source_checkpoint_id,
+                langgraph_thread_id=None,
+                langgraph_checkpoint_id=None,
+                langgraph_config=None,
+                langgraph_state_version=None,
+                langgraph_created_at=None,
                 metadata=ThreadMetadata(**(metadata or {})),
                 config=config or {}
             )
@@ -173,6 +178,11 @@ class ThreadBranchFactory(IThreadBranchCore):
                 parent_thread_id=parent_thread_id,
                 source_checkpoint_id=source_checkpoint_id,
                 branch_name=branch_name,
+                langgraph_branch_thread_id=None,
+                langgraph_created_from_checkpoint=None,
+                langgraph_merge_status=None,
+                merged_at=None,
+                merge_strategy=None,
                 metadata=metadata or {}
             )
             
@@ -243,6 +253,8 @@ class ThreadSnapshotFactory(IThreadSnapshotCore):
                 thread_id=thread_id,
                 snapshot_name=f"snapshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                 description=description,
+                langgraph_checkpoint_id=None,
+                langgraph_state_version=None,
                 state_snapshot=snapshot_data,
                 metadata=metadata or {}
             )

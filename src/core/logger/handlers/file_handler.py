@@ -2,7 +2,6 @@
 
 import os
 import threading
-from datetime import datetime
 from typing import Any, Dict, Optional
 
 from .base_handler import BaseHandler
