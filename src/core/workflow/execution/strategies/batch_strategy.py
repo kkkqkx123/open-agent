@@ -11,16 +11,20 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 
-from core.workflow.execution.core.execution_context import BatchExecutionResult
+from core.workflow.execution.core.execution_context import BatchExecutionResult, ExecutionResult, NodeResult
 
 from .strategy_base import BaseStrategy, IExecutionStrategy
 
 if TYPE_CHECKING:
     from src.interfaces.workflow.execution import IWorkflowExecutor
-    from ..core.execution_context import ExecutionContext, ExecutionResult, BatchJob
-    from ...workflow_instance import WorkflowInstance
+    from ..core.execution_context import ExecutionContext, BatchJob
+    from src.interfaces.workflow.core import IWorkflow
+    from src.interfaces.state import IWorkflowState
 
 logger = logging.getLogger(__name__)
+
+# 添加状态工厂导入
+from src.core.state.factories.state_factory import create_workflow_state
 
 
 class ExecutionMode(Enum):
@@ -72,9 +76,9 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
         logger.debug(f"批量策略初始化完成，模式: {self.config.mode.value}")
     
     def execute(
-        self, 
-        executor: 'IWorkflowExecutor', 
-        workflow: 'WorkflowInstance', 
+        self,
+        executor: 'IWorkflowExecutor',
+        workflow: 'IWorkflow',
         context: 'ExecutionContext'
     ) -> 'ExecutionResult':
         """使用批量策略执行工作流
@@ -155,9 +159,9 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
             )
     
     async def execute_async(
-        self, 
-        executor: 'IWorkflowExecutor', 
-        workflow: 'WorkflowInstance', 
+        self,
+        executor: 'IWorkflowExecutor',
+        workflow: 'IWorkflow',
         context: 'ExecutionContext'
     ) -> 'ExecutionResult':
         """异步使用批量策略执行工作流
@@ -232,7 +236,7 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
                 }
             )
     
-    def can_handle(self, workflow: 'WorkflowInstance', context: 'ExecutionContext') -> bool:
+    def can_handle(self, workflow: 'IWorkflow', context: 'ExecutionContext') -> bool:
         """判断是否适用批量策略
         
         Args:
@@ -244,7 +248,7 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
         """
         return context.get_config("batch_enabled", False) or "batch_jobs" in context.config
     
-    def _get_batch_jobs(self, context: 'ExecutionContext', workflow: 'WorkflowInstance') -> List['BatchJob']:
+    def _get_batch_jobs(self, context: 'ExecutionContext', workflow: 'IWorkflow') -> List['BatchJob']:
         """获取批量作业列表
         
         Args:
@@ -260,16 +264,91 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
         if not jobs and context.get_config("create_single_job", False):
             from ..core.execution_context import BatchJob
             
+            # 由于 BatchJob 期望的是 Workflow 类型而不是 IWorkflow，
+            # 我们需要检查 workflow 是否是具体的 Workflow 实例
+            workflow_instance = None
+            if hasattr(workflow, '_config'):  # 检查是否是 Workflow 实例
+                from src.core.workflow.workflow import Workflow
+                if isinstance(workflow, Workflow):
+                    workflow_instance = workflow
+            
             job = BatchJob(
                 job_id="single_job",
                 workflow_id=context.workflow_id,
                 initial_data=context.get_config("initial_data"),
                 metadata=context.metadata,
-                workflow_instance=workflow
+                workflow_instance=workflow_instance
             )
             jobs = [job]
         
         return jobs
+    
+    def _create_workflow_state_from_context(self, context: 'ExecutionContext') -> 'IWorkflowState':
+        """从执行上下文创建工作流状态
+        
+        Args:
+            context: 执行上下文
+            
+        Returns:
+            IWorkflowState: 工作流状态
+        """
+        # 创建初始状态数据
+        state_data = {
+            "workflow_id": context.workflow_id,
+            "execution_id": context.execution_id,
+            "config": context.config,
+            "metadata": context.metadata,
+        }
+        
+        # 使用状态工厂创建工作流状态
+        return create_workflow_state(**state_data)
+    
+    def _convert_workflow_state_to_execution_result(self, state: 'IWorkflowState') -> 'ExecutionResult':
+        """将工作流状态转换为执行结果
+        
+        Args:
+            state: 工作流状态
+            
+        Returns:
+            ExecutionResult: 执行结果
+        """
+        # 获取状态值
+        state_values = {}
+        if hasattr(state, 'values'):
+            state_values = state.values
+        elif hasattr(state, 'get'):
+            # 尝试获取一些常见的字段
+            try:
+                state_values = {
+                    "messages": state.get("messages", []),
+                    "current_node": state.get("current_node"),
+                    "iteration_count": state.get("iteration_count", 0)
+                }
+            except:
+                state_values = {}
+        
+        # 获取元数据（通过 get 方法）
+        metadata = {}
+        if hasattr(state, 'get'):
+            # 尝试获取元数据字段
+            metadata = state.get('metadata', {})
+        
+        # 创建节点结果
+        node_result = NodeResult(
+            success=True,  # 假设成功，除非有错误信息
+            state=state,
+            metadata=metadata
+        )
+        
+        # 创建执行结果
+        execution_result = ExecutionResult(
+            success=True,  # 假设成功，除非有错误信息
+            result=state_values,
+            metadata=metadata,
+            node_results=[node_result]
+        )
+        
+        return execution_result
     
     def _execute_sequential(
         self, 
@@ -454,14 +533,14 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
                     logger.error(f"执行作业 {job.job_id} 时发生异常: {result}")
                     
                     # 创建错误结果
-                    final_result: 'ExecutionResult' = self.create_execution_result(
+                    final_result = self.create_execution_result(
                         success=False,
                         error=str(result),
                         metadata={"job_id": job.job_id, "error_type": type(result).__name__}
                     )
                 else:
                     # 类型收缩：此时 result 一定是 ExecutionResult
-                    final_result: 'ExecutionResult' = result  # type: ignore[assignment]
+                    final_result = result
                 
                 results.append(final_result)
                 
@@ -473,8 +552,9 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
                     })
                 
                 # 调用结果回调
-                if self.config.result_callback and not isinstance(result, Exception):
-                    self.config.result_callback(job.job_id, final_result)
+                if self.config.result_callback:
+                    if isinstance(final_result, ExecutionResult):
+                        self.config.result_callback(job.job_id, final_result)
                     
         except Exception as e:
             logger.error(f"异步批量执行过程中发生异常: {e}")
@@ -508,7 +588,15 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
                 success=False,
                 error="作业中没有工作流实例"
             )
-        return executor.execute(workflow_to_execute, job_context)
+        
+        # 将 ExecutionContext 转换为 IWorkflowState
+        initial_state = self._create_workflow_state_from_context(job_context)
+        
+        # 执行工作流
+        workflow_state_result = executor.execute(workflow_to_execute, initial_state)
+        
+        # 将 IWorkflowState 结果转换为 ExecutionResult
+        return self._convert_workflow_state_to_execution_result(workflow_state_result)
     
     async def _execute_single_job_async(
         self, 
@@ -537,7 +625,14 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
                 success=False,
                 error="作业中没有工作流实例"
             )
-        return await executor.execute_async(workflow_to_execute, job_context)
+        # 将 ExecutionContext 转换为 IWorkflowState
+        initial_state = self._create_workflow_state_from_context(job_context)
+        
+        # 异步执行工作流
+        workflow_state_result = await executor.execute_async(workflow_to_execute, initial_state)
+        
+        # 将 IWorkflowState 结果转换为 ExecutionResult
+        return self._convert_workflow_state_to_execution_result(workflow_state_result)
     
     def _create_job_context(
         self, 

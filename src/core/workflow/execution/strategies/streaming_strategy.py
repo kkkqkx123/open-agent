@@ -5,7 +5,7 @@
 
 import logging
 import asyncio
-from typing import Dict, Any, Optional, List, AsyncIterator, Iterator, TYPE_CHECKING
+from typing import Dict, Any, Optional, List, AsyncIterator, Iterator, TYPE_CHECKING, cast
 from dataclasses import dataclass, field
 
 from .strategy_base import BaseStrategy, IExecutionStrategy
@@ -13,7 +13,8 @@ from .strategy_base import BaseStrategy, IExecutionStrategy
 if TYPE_CHECKING:
     from src.interfaces.workflow.execution import IWorkflowExecutor
     from ..core.execution_context import ExecutionContext, ExecutionResult
-    from ...workflow import Workflow
+    from src.interfaces.workflow.core import IWorkflow
+    from src.interfaces.state.workflow import IWorkflowState
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +56,9 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         logger.debug("流式策略初始化完成")
     
     def execute(
-        self, 
-        executor: 'IWorkflowExecutor', 
-        workflow: 'Workflow',
+        self,
+        executor: 'IWorkflowExecutor',
+        workflow: 'IWorkflow',
         context: 'ExecutionContext'
     ) -> 'ExecutionResult':
         """使用流式策略执行工作流
@@ -86,9 +87,9 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         return final_result
     
     async def execute_async(
-        self, 
-        executor: 'IWorkflowExecutor', 
-        workflow: 'Workflow',
+        self,
+        executor: 'IWorkflowExecutor',
+        workflow: 'IWorkflow',
         context: 'ExecutionContext'
     ) -> 'ExecutionResult':
         """异步使用流式策略执行工作流
@@ -119,7 +120,7 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         
         return final_result
     
-    def can_handle(self, workflow: 'Workflow', context: 'ExecutionContext') -> bool:
+    def can_handle(self, workflow: 'IWorkflow', context: 'ExecutionContext') -> bool:
         """判断是否适用流式策略
         
         Args:
@@ -132,9 +133,9 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         return context.get_config("streaming_enabled", False)
     
     def execute_stream(
-        self, 
-        executor: 'IWorkflowExecutor', 
-        workflow: 'Workflow',
+        self,
+        executor: 'IWorkflowExecutor',
+        workflow: 'IWorkflow',
         context: 'ExecutionContext'
     ) -> Iterator[Dict[str, Any]]:
         """流式执行工作流（同步生成器）
@@ -156,9 +157,9 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         yield from self._execute_stream(executor, workflow, streaming_context)
     
     async def execute_stream_async(
-        self, 
-        executor: 'IWorkflowExecutor', 
-        workflow: 'Workflow',
+        self,
+        executor: 'IWorkflowExecutor',
+        workflow: 'IWorkflow',
         context: 'ExecutionContext'
     ) -> AsyncIterator[Dict[str, Any]]:
         """异步流式执行工作流（异步生成器）
@@ -200,9 +201,9 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         return streaming_context
     
     def _execute_stream(
-        self, 
-        executor: 'IWorkflowExecutor', 
-        workflow: 'Workflow',
+        self,
+        executor: 'IWorkflowExecutor',
+        workflow: 'IWorkflow',
         context: 'ExecutionContext'
     ) -> Iterator[Dict[str, Any]]:
         """执行流式工作流（同步）
@@ -257,7 +258,7 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
                 
                 # 执行节点
                 start_time = time.time()
-                node_result = current_node.execute(current_state, context.config)
+                node_result = current_node.execute(cast('IWorkflowState', current_state), context.config)
                 execution_time = time.time() - start_time
                 
                 # 更新状态
@@ -312,9 +313,9 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
             yield event
     
     async def _execute_stream_async(
-        self, 
-        executor: 'IWorkflowExecutor', 
-        workflow: 'Workflow',
+        self,
+        executor: 'IWorkflowExecutor',
+        workflow: 'IWorkflow',
         context: 'ExecutionContext'
     ) -> AsyncIterator[Dict[str, Any]]:
         """异步执行流式工作流
@@ -370,12 +371,12 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
                 # 异步执行节点
                 start_time = time.time()
                 if hasattr(current_node, 'execute_async'):
-                    node_result = await current_node.execute_async(current_state, context.config)
+                    node_result = await current_node.execute_async(cast('IWorkflowState', current_state), context.config)
                 else:
                     # 在线程池中执行同步节点
                     import asyncio
                     loop = asyncio.get_event_loop()
-                    node_result = await loop.run_in_executor(None, current_node.execute, current_state, context.config)
+                    node_result = await loop.run_in_executor(None, current_node.execute, cast('IWorkflowState', current_state), context.config)
                 
                 execution_time = time.time() - start_time
                 
@@ -468,9 +469,9 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         return event
     
     def _process_streaming_result(
-        self, 
-        events: List[Dict[str, Any]], 
-        workflow: 'Workflow',
+        self,
+        events: List[Dict[str, Any]],
+        workflow: 'IWorkflow',
         context: 'ExecutionContext'
     ) -> 'ExecutionResult':
         """处理流式执行结果
@@ -515,10 +516,10 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         )
     
     def _get_next_nodes(
-        self, 
-        workflow: 'Workflow',
-        node_id: str, 
-        state: Any, 
+        self,
+        workflow: 'IWorkflow',
+        node_id: str,
+        state: Any,
         config: Dict[str, Any]
     ) -> List[str]:
         """获取下一个节点列表（同步）
@@ -541,10 +542,10 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         return []
     
     async def _get_next_nodes_async(
-        self, 
-        workflow: 'Workflow',
-        node_id: str, 
-        state: Any, 
+        self,
+        workflow: 'IWorkflow',
+        node_id: str,
+        state: Any,
         config: Dict[str, Any]
     ) -> List[str]:
         """获取下一个节点列表（异步）
@@ -563,5 +564,4 @@ class StreamingStrategy(BaseStrategy, IStreamingStrategy):
         from ..executor import WorkflowExecutor
         executor = WorkflowExecutor()
         # 简化实现，返回空列表，实际应该根据工作流的边定义来查找
-        return []
         return []

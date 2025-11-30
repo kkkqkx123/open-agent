@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from src.interfaces.workflow.execution import IWorkflowExecutor
     from ..core.execution_context import ExecutionContext, ExecutionResult
-    from ...workflow_instance import WorkflowInstance
+    from src.interfaces.workflow.core import IWorkflow
 
 class IExecutionStrategy(ABC):
     """执行策略接口
@@ -21,7 +21,7 @@ class IExecutionStrategy(ABC):
     def execute(
         self, 
         executor: 'IWorkflowExecutor', 
-        workflow: 'WorkflowInstance', 
+        workflow: 'IWorkflow', 
         context: 'ExecutionContext'
     ) -> 'ExecutionResult':
         """使用策略执行工作流
@@ -37,7 +37,7 @@ class IExecutionStrategy(ABC):
         pass
     
     @abstractmethod
-    def can_handle(self, workflow: 'WorkflowInstance', context: 'ExecutionContext') -> bool:
+    def can_handle(self, workflow: 'IWorkflow', context: 'ExecutionContext') -> bool:
         """判断策略是否适用
         
         Args:

@@ -3,7 +3,7 @@
 重构后的状态机节点，使用子工作流实现LLM-工具-LLM循环结构。
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, cast
 import logging
 
 from ..registry import node
@@ -286,16 +286,21 @@ class StateMachineSubWorkflowNode(AsyncNode):
             NodeExecutionResult: 步骤执行结果
         """
         try:
+            from src.interfaces.state import IWorkflowState
+            
             # 获取当前步骤
-            step = subworkflow.get_step(current_state)
+            step = subworkflow.get_node(current_state)
             if not step:
                 raise ValueError(f"步骤不存在: {current_state}")
             
-            # 执行步骤
-            if hasattr(step, 'execute_async'):
-                result = await step.execute_async(workflow_state, step.config)
-            else:
-                result = step.execute(workflow_state, step.config)
+            # 获取节点配置（从节点对象获取）
+            step_config = getattr(step, 'config', {}) if hasattr(step, 'config') else {}
+            
+            # 强制类型转换为 IWorkflowState（假设 IState 兼容 IWorkflowState）
+            wf_state = cast(IWorkflowState, workflow_state)
+            
+            # 执行步骤（INode 接口要求）
+            result = await step.execute_async(wf_state, step_config)
             
             return result
             

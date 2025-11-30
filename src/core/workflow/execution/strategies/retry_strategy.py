@@ -11,11 +11,15 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 
+from typing import TYPE_CHECKING
+
 from .strategy_base import BaseStrategy, IExecutionStrategy
 
 from src.interfaces.workflow.execution import IWorkflowExecutor
 from ..core.execution_context import ExecutionContext, ExecutionResult
-from ...workflow_instance import WorkflowInstance
+
+if TYPE_CHECKING:
+    from src.interfaces.workflow.core import IWorkflow
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +144,7 @@ class RetryStrategyImpl(BaseStrategy):
     def execute(
         self, 
         executor: 'IWorkflowExecutor', 
-        workflow: 'WorkflowInstance', 
+        workflow: 'IWorkflow', 
         context: 'ExecutionContext'
     ) -> 'ExecutionResult':
         """使用重试策略执行工作流
@@ -169,8 +173,23 @@ class RetryStrategyImpl(BaseStrategy):
             
             try:
                 # 执行工作流
-                logger.debug(f"执行工作流尝试 {attempt + 1}/{self.config.max_retries + 1}: {workflow.config.name}")
-                result = executor.execute(workflow, context)
+                logger.debug(f"执行工作流尝试 {attempt + 1}/{self.config.max_retries + 1}: {workflow.name}")
+                
+                # 创建初始状态（从工作流创建）
+                from src.core.state.factories.state_factory import create_workflow_state
+                initial_state = create_workflow_state(
+                    values=context.metadata or {},
+                    config=context.config or {}
+                )
+                
+                result_state = executor.execute(workflow, initial_state, context.config)
+                
+                # 转换状态为执行结果
+                execution_result = self.create_execution_result(
+                    success=True,
+                    result=result_state.values if hasattr(result_state, 'values') else {},
+                    metadata=getattr(result_state, 'metadata', {}) or {}
+                )
                 
                 # 记录成功的尝试
                 attempt_end = datetime.now()
@@ -184,10 +203,10 @@ class RetryStrategyImpl(BaseStrategy):
                 attempts.append(attempt_record)
                 
                 total_time = (attempt_end - start_time).total_seconds()
-                logger.info(f"工作流执行成功: {workflow.config.name}, 尝试次数: {attempt + 1}, 总耗时: {total_time:.2f}秒")
+                logger.info(f"工作流执行成功: {workflow.name}, 尝试次数: {attempt + 1}, 总耗时: {total_time:.2f}秒")
                 
                 # 添加重试元数据到结果
-                result.metadata.update({
+                execution_result.metadata.update({
                     "retry_attempts": attempt + 1,
                     "retry_total_time": total_time,
                     "retry_strategy": self.config.strategy.value,
@@ -201,7 +220,7 @@ class RetryStrategyImpl(BaseStrategy):
                     ]
                 })
                 
-                return result
+                return execution_result
                 
             except Exception as e:
                 # 记录失败的尝试
@@ -254,7 +273,7 @@ class RetryStrategyImpl(BaseStrategy):
     async def execute_async(
         self, 
         executor: 'IWorkflowExecutor', 
-        workflow: 'WorkflowInstance', 
+        workflow: 'IWorkflow', 
         context: 'ExecutionContext'
     ) -> 'ExecutionResult':
         """异步使用重试策略执行工作流
@@ -283,8 +302,23 @@ class RetryStrategyImpl(BaseStrategy):
             
             try:
                 # 异步执行工作流
-                logger.debug(f"异步执行工作流尝试 {attempt + 1}/{self.config.max_retries + 1}: {workflow.config.name}")
-                result = await executor.execute_async(workflow, context)
+                logger.debug(f"异步执行工作流尝试 {attempt + 1}/{self.config.max_retries + 1}: {workflow.name}")
+                
+                # 创建初始状态（从工作流创建）
+                from src.core.state.factories.state_factory import create_workflow_state
+                initial_state = create_workflow_state(
+                    values=context.metadata or {},
+                    config=context.config or {}
+                )
+                
+                result_state = await executor.execute_async(workflow, initial_state, context.config)
+                
+                # 转换状态为执行结果
+                execution_result = self.create_execution_result(
+                    success=True,
+                    result=result_state.values if hasattr(result_state, 'values') else {},
+                    metadata=getattr(result_state, 'metadata', {}) or {}
+                )
                 
                 # 记录成功的尝试
                 attempt_end = datetime.now()
@@ -298,10 +332,10 @@ class RetryStrategyImpl(BaseStrategy):
                 attempts.append(attempt_record)
                 
                 total_time = (attempt_end - start_time).total_seconds()
-                logger.info(f"工作流异步执行成功: {workflow.config.name}, 尝试次数: {attempt + 1}, 总耗时: {total_time:.2f}秒")
+                logger.info(f"工作流异步执行成功: {workflow.name}, 尝试次数: {attempt + 1}, 总耗时: {total_time:.2f}秒")
                 
                 # 添加重试元数据到结果
-                result.metadata.update({
+                execution_result.metadata.update({
                     "retry_attempts": attempt + 1,
                     "retry_total_time": total_time,
                     "retry_strategy": self.config.strategy.value,
@@ -316,7 +350,7 @@ class RetryStrategyImpl(BaseStrategy):
                     "execution_mode": "async"
                 })
                 
-                return result
+                return execution_result
                 
             except Exception as e:
                 # 记录失败的尝试
@@ -367,7 +401,7 @@ class RetryStrategyImpl(BaseStrategy):
         
         return result
     
-    def can_handle(self, workflow: 'WorkflowInstance', context: 'ExecutionContext') -> bool:
+    def can_handle(self, workflow: 'IWorkflow', context: 'ExecutionContext') -> bool:
         """判断是否适用重试策略
         
         Args:

@@ -3,9 +3,8 @@
 提供工作流的协作执行策略实现。
 """
 
-import asyncio
 import logging
-from typing import TYPE_CHECKING, Dict, Any, Optional, List, Callable, Union
+from typing import TYPE_CHECKING, Dict, Any, Optional, List, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -14,9 +13,8 @@ from .strategy_base import BaseStrategy, IExecutionStrategy
 if TYPE_CHECKING:
     from src.interfaces.workflow.execution import IWorkflowExecutor
     from src.interfaces.workflow.core import IWorkflow
-    from src.interfaces.state import IWorkflowState
     from ..core.execution_context import ExecutionContext, ExecutionResult
-    from ...workflow_instance import WorkflowInstance
+    from src.interfaces.workflow.core import IWorkflow
     from src.interfaces.state.manager import IStateManager
 
 logger = logging.getLogger(__name__)
@@ -62,9 +60,9 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
         logger.debug("协作策略初始化完成")
     
     def execute(
-        self, 
-        executor: 'IWorkflowExecutor', 
-        workflow: 'WorkflowInstance', 
+        self,
+        executor: 'IWorkflowExecutor',
+        workflow: 'IWorkflow',
         context: 'ExecutionContext'
     ) -> 'ExecutionResult':
         """使用协作策略执行工作流
@@ -83,19 +81,35 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
         collaboration_context = self._create_collaboration_context(context)
         
         try:
-            # 执行工作流 - WorkflowInstance 现在实现了 IWorkflow 接口
-            result: Any = executor.execute(workflow, collaboration_context)  # type: ignore
+            # 创建初始状态
+            from src.core.state.factories.state_factory import create_workflow_state
+            initial_state = create_workflow_state(
+                workflow_id=collaboration_context.workflow_id,
+                execution_id=collaboration_context.execution_id,
+                config=collaboration_context.config,
+                metadata=collaboration_context.metadata
+            )
+            
+            # 执行工作流
+            workflow_state_result = executor.execute(workflow, initial_state)
+            
+            # 将 IWorkflowState 结果转换为 ExecutionResult
+            execution_result = self.create_execution_result(
+                success=True,
+                result=workflow_state_result.values if hasattr(workflow_state_result, 'values') else {},
+                metadata=getattr(workflow_state_result, 'metadata', {}) or {}
+            )
             
             # 添加协作元数据
-            self._add_collaboration_metadata(result, {
+            self._add_collaboration_metadata(execution_result, {
                 "enable_snapshots": self.config.enable_snapshots,
                 "enable_validation": self.config.enable_validation,
                 "enable_history_tracking": self.config.enable_history_tracking
             })
             
-            logger.debug(f"协作执行完成: {workflow.config.name}")
+            logger.debug(f"协作执行完成: {getattr(workflow, 'name', 'Unknown')}")
             
-            return result  # type: ignore
+            return execution_result
             
         except Exception as e:
             logger.error(f"协作执行失败: {e}")
@@ -118,9 +132,9 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
             return result
     
     async def execute_async(
-        self, 
-        executor: 'IWorkflowExecutor', 
-        workflow: 'WorkflowInstance', 
+        self,
+        executor: 'IWorkflowExecutor',
+        workflow: 'IWorkflow',
         context: 'ExecutionContext'
     ) -> 'ExecutionResult':
         """异步使用协作策略执行工作流
@@ -133,25 +147,41 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
         Returns:
             ExecutionResult: 执行结果
         """
-        logger.debug(f"开始异步协作执行工作流: {workflow.config.name}")
+        logger.debug(f"开始异步协作执行工作流: {getattr(workflow, 'name', 'Unknown')}")
         
         # 创建协作执行上下文
         collaboration_context = self._create_collaboration_context(context)
         
         try:
-            # 异步执行工作流 - WorkflowInstance 现在实现了 IWorkflow 接口
-            result: Any = await executor.execute_async(workflow, collaboration_context)  # type: ignore
+            # 创建初始状态
+            from src.core.state.factories.state_factory import create_workflow_state
+            initial_state = create_workflow_state(
+                workflow_id=collaboration_context.workflow_id,
+                execution_id=collaboration_context.execution_id,
+                config=collaboration_context.config,
+                metadata=collaboration_context.metadata
+            )
+            
+            # 异步执行工作流
+            workflow_state_result = await executor.execute_async(workflow, initial_state)
+            
+            # 将 IWorkflowState 结果转换为 ExecutionResult
+            execution_result = self.create_execution_result(
+                success=True,
+                result=workflow_state_result.values if hasattr(workflow_state_result, 'values') else {},
+                metadata=getattr(workflow_state_result, 'metadata', {}) or {}
+            )
             
             # 添加协作元数据
-            self._add_collaboration_metadata(result, {
+            self._add_collaboration_metadata(execution_result, {
                 "enable_snapshots": self.config.enable_snapshots,
                 "enable_validation": self.config.enable_validation,
                 "enable_history_tracking": self.config.enable_history_tracking
             }, execution_mode="async")
             
-            logger.debug(f"异步协作执行完成: {workflow.config.name}")
+            logger.debug(f"异步协作执行完成: {getattr(workflow, 'name', 'Unknown')}")
             
-            return result  # type: ignore
+            return execution_result
             
         except Exception as e:
             logger.error(f"异步协作执行失败: {e}")
@@ -174,7 +204,7 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
             
             return result
     
-    def can_handle(self, workflow: 'WorkflowInstance', context: 'ExecutionContext') -> bool:
+    def can_handle(self, workflow: 'IWorkflow', context: 'ExecutionContext') -> bool:
         """判断是否适用协作策略
         
         Args:
@@ -185,7 +215,7 @@ class CollaborationStrategy(BaseStrategy, ICollaborationStrategy):
             bool: 是否适用协作策略
         """
         return (
-            context.get_config("collaboration_enabled", False) or 
+            context.get_config("collaboration_enabled", False) or
             self.state_manager is not None or
             any(key in context.config for key in [
                 "enable_snapshots", "enable_validation", "enable_history_tracking"
