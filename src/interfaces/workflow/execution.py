@@ -9,6 +9,10 @@ from typing import Dict, Any, List, Optional, AsyncIterator, TYPE_CHECKING
 if TYPE_CHECKING:
     from .core import IWorkflow
     from ..state import IWorkflowState
+from ...core.common.exceptions.workflow import WorkflowError
+from ...core.workflow.error_handler import (
+    handle_workflow_error, create_workflow_error_context, WorkflowValidator
+)
 
 
 class IWorkflowExecutor(ABC):
@@ -170,9 +174,10 @@ class IExecutionStrategy(ABC):
         """
         pass
     
-    @abstractmethod
     def handle_error(self, error: Exception, state: 'IWorkflowState', context: Dict[str, Any]) -> 'IWorkflowState':
         """处理执行错误
+        
+        默认实现使用统一错误处理框架
         
         Args:
             error: 异常
@@ -182,7 +187,29 @@ class IExecutionStrategy(ABC):
         Returns:
             处理后的状态
         """
-        pass
+        # 创建错误上下文
+        workflow_id = getattr(state, 'workflow_id', None)
+        step_id = context.get('step_id')
+        execution_id = context.get('execution_id')
+        
+        error_context = create_workflow_error_context(
+            workflow_id=workflow_id,
+            step_id=step_id,
+            execution_id=execution_id,
+            state_data=state.to_dict() if hasattr(state, 'to_dict') else None,
+            error=error,
+            **context
+        )
+        
+        # 使用统一错误处理
+        handle_workflow_error(error, error_context)
+        
+        # 如果是工作流错误，尝试恢复
+        if isinstance(error, WorkflowError):
+            # 这里可以添加恢复逻辑
+            pass
+        
+        return state
 
 
 class IExecutionObserver(ABC):

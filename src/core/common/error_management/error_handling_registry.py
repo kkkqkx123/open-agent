@@ -1,9 +1,11 @@
 """统一错误处理注册表"""
 
 import logging
+import time
 from typing import Any, Callable, Dict, Optional, Type
+from functools import wraps
 
-from .error_handler import IErrorHandler
+from .error_handler import IErrorHandler, BaseErrorHandler
 from .error_category import ErrorCategory
 from .error_severity import ErrorSeverity
 
@@ -228,3 +230,100 @@ def handle_error(
     """
     registry = get_error_handling_registry()
     registry.handle_error(error, context)
+
+
+def operation_with_retry(
+    func: Callable,
+    max_retries: int = 3,
+    retryable_exceptions: tuple = (Exception,),
+    context: Optional[Dict[str, Any]] = None
+) -> Any:
+    """执行带重试的操作
+    
+    Args:
+        func: 要执行的函数
+        max_retries: 最大重试次数
+        retryable_exceptions: 可重试的异常类型
+        context: 错误上下文
+        
+    Returns:
+        函数执行结果
+    """
+    retry_count = 0
+    last_exception = None
+    
+    while retry_count < max_retries:
+        try:
+            return func()
+        except retryable_exceptions as e:
+            last_exception = e
+            retry_count += 1
+            if retry_count < max_retries:
+                # 指数退避策略
+                backoff_time = (2 ** retry_count) - 1
+                logger.warning(
+                    f"操作失败，{backoff_time}秒后重试 (重试 {retry_count}/{max_retries}): {e}",
+                    extra={"context": context or {}}
+                )
+                time.sleep(min(backoff_time, 60))  # 最多等待60秒
+            else:
+                logger.error(
+                    f"操作在{max_retries}次重试后失败: {e}",
+                    extra={"context": context or {}}
+                )
+    
+    if last_exception:
+        raise last_exception
+    raise RuntimeError("Unknown error occurred")
+
+
+def operation_with_fallback(
+    primary_func: Callable,
+    fallback_func: Callable,
+    fallback_exceptions: tuple = (Exception,),
+    context: Optional[Dict[str, Any]] = None
+) -> Any:
+    """执行带降级的操作
+    
+    Args:
+        primary_func: 主函数
+        fallback_func: 降级函数
+        fallback_exceptions: 触发降级的异常类型
+        context: 错误上下文
+        
+    Returns:
+        函数执行结果
+    """
+    try:
+        return primary_func()
+    except fallback_exceptions as e:
+        logger.warning(
+            f"主操作失败，降级到备选操作: {e}",
+            extra={"context": context or {}}
+        )
+        return fallback_func()
+
+
+def safe_execution(
+    func: Callable,
+    default_return: Any = None,
+    context: Optional[Dict[str, Any]] = None
+) -> Any:
+    """安全执行函数，捕获所有异常
+    
+    Args:
+        func: 要执行的函数
+        default_return: 发生异常时的默认返回值
+        context: 错误上下文
+        
+    Returns:
+        函数执行结果或默认值
+    """
+    try:
+        return func()
+    except Exception as e:
+        logger.error(
+            f"函数执行失败: {e}",
+            extra={"context": context or {}}
+        )
+        return default_return

@@ -1,7 +1,6 @@
 """Threads实体工厂 - 负责创建和验证Thread实体"""
 
 from typing import Dict, Any, Optional
-import uuid
 from datetime import datetime
 
 from .interfaces import IThreadCore, IThreadBranchCore, IThreadSnapshotCore

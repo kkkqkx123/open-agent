@@ -345,7 +345,8 @@ class BatchStrategy(BaseStrategy, IBatchStrategy):
             success=True,  # 假设成功，除非有错误信息
             result=state_values,
             metadata=metadata,
-            node_results=[node_result]
+            node_results=[node_result],
+            execution_time=0.0
         )
         
         return execution_result

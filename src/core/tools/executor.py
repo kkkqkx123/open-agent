@@ -1,5 +1,5 @@
 """改进的工具执行器实现
-提供真正的异步执行能力。
+提供真正的异步执行能力和统一的错误处理。
 """
 
 import asyncio
@@ -13,6 +13,11 @@ import logging
 from src.interfaces import ILogger
 from src.interfaces.tool.base import ITool, ToolCall, ToolResult
 from core.common.async_utils import AsyncLock, AsyncContextManager
+from src.core.common.exceptions.tool import ToolError, ToolExecutionError
+from src.core.tools.error_handler import (
+    ToolErrorHandler, ToolExecutionValidator, ToolErrorRecoveryManager,
+    handle_tool_error, create_tool_error_context, register_tool_error_handler
+)
 
 
 class IToolExecutor(ABC):
@@ -123,7 +128,7 @@ class AsyncBatchProcessor:
 class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
     """改进的异步工具执行器
     
-    提供真正的异步执行能力，移除不必要的同步包装。
+    提供真正的异步执行能力、移除不必要的同步包装和统一的错误处理。
     """
     
     def __init__(
@@ -158,6 +163,14 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
         self._thread_pool: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=max_workers)
         self._lock = AsyncLock()
         
+        # 错误处理组件
+        self.error_handler = ToolErrorHandler()
+        self.validator = ToolExecutionValidator()
+        self.recovery_manager = ToolErrorRecoveryManager(self.error_handler)
+        
+        # 注册错误处理器到全局注册表
+        register_tool_error_handler()
+        
         logger.info(f"AsyncToolExecutor initialized with max_concurrent={max_concurrent}")
     
     def execute(self, tool_call: ToolCall) -> ToolResult:
@@ -172,8 +185,32 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
         start_time = time.time()
         
         try:
+            # 验证工具调用
+            validation_errors = self.validator.validate_tool_call(tool_call)
+            if validation_errors:
+                error_msg = f"工具调用验证失败: {', '.join(validation_errors)}"
+                self.logger.error(f"工具调用验证失败: {tool_call.name}, 错误: {error_msg}")
+                
+                return ToolResult(
+                    success=False,
+                    error=error_msg,
+                    tool_name=tool_call.name,
+                    execution_time=time.time() - start_time,
+                    metadata={"validation_errors": validation_errors}
+                )
+            
             # 获取工具实例
             tool = self.tool_manager.get_tool(tool_call.name)
+            if not tool:
+                error_msg = f"工具不存在: {tool_call.name}"
+                self.logger.error(error_msg)
+                
+                return ToolResult(
+                    success=False,
+                    error=error_msg,
+                    tool_name=tool_call.name,
+                    execution_time=time.time() - start_time
+                )
             
             # 设置超时时间
             timeout = tool_call.timeout or self.default_timeout
@@ -183,9 +220,12 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
             
             # 验证参数
             if not tool.validate_parameters(tool_call.arguments):
+                error_msg = "参数验证失败"
+                self.logger.error(f"工具参数验证失败: {tool_call.name}")
+                
                 return ToolResult(
                     success=False,
-                    error="参数验证失败",
+                    error=error_msg,
                     tool_name=tool_call.name,
                     execution_time=time.time() - start_time
                 )
@@ -207,6 +247,13 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
             execution_time = time.time() - start_time
             result.execution_time = execution_time
             
+            # 验证结果
+            result_errors = self.validator.validate_tool_result(result)
+            if result_errors:
+                self.logger.warning(f"工具结果验证失败: {tool_call.name}, 错误: {result_errors}")
+                result.metadata = result.metadata or {}
+                result.metadata["result_validation_errors"] = result_errors
+            
             # 记录调用完成
             if result.success:
                 self.logger.info(
@@ -219,16 +266,50 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
             
             return result
             
-        except Exception as e:
+        except ToolError as e:
+            # 工具特定错误，使用错误处理器
             execution_time = time.time() - start_time
-            error_msg = f"工具执行异常: {str(e)}"
-            self.logger.error(f"工具执行异常: {tool_call.name}, 错误: {error_msg}")
+            context = create_tool_error_context(tool_call, execution_time=execution_time)
+            
+            # 处理错误并尝试恢复
+            recovery_result = self.recovery_manager.attempt_recovery(
+                e, tool_call, lambda tc: self._execute_without_error_handling(tc)
+            )
+            
+            return recovery_result
+            
+        except Exception as e:
+            # 未知错误，包装为工具错误
+            execution_time = time.time() - start_time
+            tool_error = ToolExecutionError(f"工具执行异常: {str(e)}")
+            context = create_tool_error_context(tool_call, execution_time=execution_time)
+            
+            # 处理错误
+            handle_tool_error(tool_error, context)
             
             return ToolResult(
                 success=False,
-                error=error_msg,
+                error=str(tool_error),
                 tool_name=tool_call.name,
                 execution_time=execution_time,
+                metadata={"unexpected_error": True}
+            )
+    
+    def _execute_without_error_handling(self, tool_call: ToolCall) -> ToolResult:
+        """不进行错误处理的工具执行（用于恢复重试）"""
+        tool = self.tool_manager.get_tool(tool_call.name)
+        if not tool:
+            raise ToolExecutionError(f"工具不存在: {tool_call.name}")
+        
+        if hasattr(tool, "safe_execute"):
+            safe_result = tool.safe_execute(**tool_call.arguments)
+            return safe_result if isinstance(safe_result, ToolResult) else ToolResult(
+                success=True, output=safe_result, tool_name=tool_call.name
+            )
+        else:
+            output = tool.execute(**tool_call.arguments)
+            return ToolResult(
+                success=True, output=output, tool_name=tool_call.name
             )
     
 
@@ -390,6 +471,7 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
         策略：
         - 优先调用工具的 execute_async() 方法
         - 对于纯同步工具，在线程池中执行
+        - 统一的错误处理和恢复机制
         
         Args:
             tool_call: 工具调用请求
@@ -401,17 +483,44 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
         timeout = tool_call.timeout or self.default_timeout
         
         try:
+            # 验证工具调用
+            validation_errors = self.validator.validate_tool_call(tool_call)
+            if validation_errors:
+                error_msg = f"工具调用验证失败: {', '.join(validation_errors)}"
+                self.logger.error(f"异步工具调用验证失败: {tool_call.name}, 错误: {error_msg}")
+                
+                return ToolResult(
+                    success=False,
+                    error=error_msg,
+                    tool_name=tool_call.name,
+                    execution_time=time.time() - start_time,
+                    metadata={"validation_errors": validation_errors}
+                )
+            
             # 获取工具实例
             tool = self.tool_manager.get_tool(tool_call.name)
+            if not tool:
+                error_msg = f"工具不存在: {tool_call.name}"
+                self.logger.error(error_msg)
+                
+                return ToolResult(
+                    success=False,
+                    error=error_msg,
+                    tool_name=tool_call.name,
+                    execution_time=time.time() - start_time
+                )
             
             # 记录调用开始
             self.logger.info(f"开始异步执行工具: {tool_call.name}")
             
             # 验证参数
             if not tool.validate_parameters(tool_call.arguments):
+                error_msg = "参数验证失败"
+                self.logger.error(f"异步工具参数验证失败: {tool_call.name}")
+                
                 return ToolResult(
                     success=False,
-                    error="参数验证失败",
+                    error=error_msg,
                     tool_name=tool_call.name,
                     execution_time=time.time() - start_time
                 )
@@ -472,6 +581,13 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
             # 计算执行时间
             result.execution_time = time.time() - start_time
             
+            # 验证结果
+            result_errors = self.validator.validate_tool_result(result)
+            if result_errors:
+                self.logger.warning(f"异步工具结果验证失败: {tool_call.name}, 错误: {result_errors}")
+                result.metadata = result.metadata or {}
+                result.metadata["result_validation_errors"] = result_errors
+            
             # 记录调用完成
             if result.success:
                 self.logger.info(
@@ -484,27 +600,85 @@ class AsyncToolExecutor(IToolExecutor, AsyncContextManager):
             
             return result
             
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as e:
+            # 超时错误，使用错误处理器
             execution_time = time.time() - start_time
-            error_msg = f"工具执行超时: {timeout}秒"
-            self.logger.error(f"工具超时: {tool_call.name}")
-            return ToolResult(
-                success=False,
-                error=error_msg,
-                tool_name=tool_call.name,
-                execution_time=execution_time,
+            tool_error = ToolExecutionError(f"工具执行超时: {timeout}秒")
+            context = create_tool_error_context(tool_call, execution_time=execution_time, timeout=timeout)
+            
+            # 处理错误并尝试恢复
+            recovery_result = self.recovery_manager.attempt_recovery(
+                tool_error, tool_call, lambda tc: self._execute_async_without_error_handling(tc)
             )
-        except Exception as e:
+            
+            return recovery_result
+            
+        except ToolError as e:
+            # 工具特定错误，使用错误处理器
             execution_time = time.time() - start_time
-            error_msg = f"异步工具执行异常: {str(e)}"
-            self.logger.error(f"异步工具执行异常: {tool_call.name}, 错误: {error_msg}")
+            context = create_tool_error_context(tool_call, execution_time=execution_time)
+            
+            # 处理错误并尝试恢复
+            recovery_result = self.recovery_manager.attempt_recovery(
+                e, tool_call, lambda tc: self._execute_async_without_error_handling(tc)
+            )
+            
+            return recovery_result
+            
+        except Exception as e:
+            # 未知错误，包装为工具错误
+            execution_time = time.time() - start_time
+            tool_error = ToolExecutionError(f"异步工具执行异常: {str(e)}")
+            context = create_tool_error_context(tool_call, execution_time=execution_time)
+            
+            # 处理错误
+            handle_tool_error(tool_error, context)
             
             return ToolResult(
                 success=False,
-                error=error_msg,
+                error=str(tool_error),
                 tool_name=tool_call.name,
                 execution_time=execution_time,
+                metadata={"unexpected_error": True}
             )
+    
+    async def _execute_async_without_error_handling(self, tool_call: ToolCall) -> ToolResult:
+        """不进行错误处理的异步工具执行（用于恢复重试）"""
+        tool = self.tool_manager.get_tool(tool_call.name)
+        if not tool:
+            raise ToolExecutionError(f"工具不存在: {tool_call.name}")
+        
+        # 检查是否有真正的异步实现
+        is_async_native = self._is_async_native_implementation(tool)
+        
+        if is_async_native:
+            if hasattr(tool, "safe_execute_async"):
+                safe_result = await tool.safe_execute_async(**tool_call.arguments)
+                return safe_result if isinstance(safe_result, ToolResult) else ToolResult(
+                    success=True, output=safe_result, tool_name=tool_call.name
+                )
+            else:
+                output = await tool.execute_async(**tool_call.arguments)
+                return ToolResult(success=True, output=output, tool_name=tool_call.name)
+        else:
+            # 纯同步工具 - 在线程池中执行
+            thread_pool = self._thread_pool
+            loop = asyncio.get_running_loop()
+            
+            if hasattr(tool, "safe_execute"):
+                result_obj = await loop.run_in_executor(
+                    thread_pool,
+                    partial(tool.safe_execute, **tool_call.arguments)
+                )
+                return result_obj if isinstance(result_obj, ToolResult) else ToolResult(
+                    success=True, output=result_obj, tool_name=tool_call.name
+                )
+            else:
+                output = await loop.run_in_executor(
+                    thread_pool,
+                    partial(tool.execute, **tool_call.arguments)
+                )
+                return ToolResult(success=True, output=output, tool_name=tool_call.name)
     
     async def execute_parallel_async(self, tool_calls: List[ToolCall]) -> List[ToolResult]:
         """异步并行执行多个工具调用
