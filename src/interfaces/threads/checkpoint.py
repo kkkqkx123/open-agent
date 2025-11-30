@@ -11,7 +11,6 @@ from ...core.threads.checkpoints.storage.models import (
     ThreadCheckpoint,
     CheckpointStatus,
     CheckpointType,
-    CheckpointMetadata,
     CheckpointStatistics
 )
 

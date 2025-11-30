@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, TYPE_CHECKING
 from datetime import datetime
+from dataclasses import dataclass
 
 if TYPE_CHECKING:
     from ..core.history.entities import (
@@ -13,8 +14,17 @@ if TYPE_CHECKING:
         MessageRecord,
         ToolCallRecord,
         HistoryQuery,
-        HistoryResult
+        HistoryResult,
+        RecordType
     )
+
+
+@dataclass
+class DeleteResult:
+    """删除结果"""
+    deleted_count: int
+    success: bool
+    error: Optional[str] = None
 
 
 class IHistoryManager(ABC):
@@ -81,6 +91,48 @@ class IHistoryManager(ABC):
         dry_run: bool = False
     ) -> Dict[str, Any]:
         """清理旧记录"""
+        pass
+    
+    @abstractmethod
+    async def query_history_by_thread(
+        self,
+        thread_id: str,
+        limit: int = 100,
+        offset: int = 0,
+        record_type: Optional['RecordType'] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        model: Optional[str] = None
+    ) -> 'HistoryResult':
+        """按thread_id查询历史记录
+        
+        Args:
+            thread_id: 线程ID
+            limit: 返回记录数量限制
+            offset: 偏移量
+            record_type: 记录类型过滤
+            start_time: 开始时间
+            end_time: 结束时间
+            model: 模型过滤
+            
+        Returns:
+            历史查询结果
+        """
+        pass
+    
+    @abstractmethod
+    async def delete_history(
+        self,
+        query: 'HistoryQuery'
+    ) -> DeleteResult:
+        """删除历史记录
+        
+        Args:
+            query: 删除查询条件
+            
+        Returns:
+            删除结果
+        """
         pass
 
 

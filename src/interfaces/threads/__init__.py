@@ -16,7 +16,6 @@ from .checkpoint_adapter import (
     LegacyCheckpointPolicyAdapter,
     CheckpointCompatibilityWrapper
 )
-
 __all__ = [
     "IThreadBranchRepository",
     "IThreadSnapshotRepository",

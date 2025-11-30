@@ -7,6 +7,7 @@ import logging
 
 from src.interfaces.threads.storage import IThreadRepository
 from src.interfaces.threads.collaboration import IThreadCollaborationService
+from src.interfaces.threads.checkpoint import IThreadCheckpointManager
 from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
 from .base_service import BaseThreadService
 
@@ -19,13 +20,16 @@ class ThreadCollaborationService(BaseThreadService, IThreadCollaborationService)
     def __init__(
         self,
         thread_repository: IThreadRepository,
+        checkpoint_manager: IThreadCheckpointManager
     ):
         """初始化协作服务
         
         Args:
             thread_repository: 线程仓储接口
+            checkpoint_manager: 检查点管理器
         """
         super().__init__(thread_repository)
+        self._checkpoint_manager = checkpoint_manager
         self._collaboration_store: Dict[str, Dict[str, Any]] = {}  # 简化的协作存储，实际应用中应使用数据库
     
     async def create_collaborative_thread(
@@ -306,3 +310,84 @@ class ThreadCollaborationService(BaseThreadService, IThreadCollaborationService)
         }
         
         return role_permissions.get(role, ["read"])
+    
+    async def share_thread_state(
+        self,
+        source_thread_id: str,
+        target_thread_id: str,
+        checkpoint_id: str
+    ) -> bool:
+        """共享Thread状态到其他Thread
+        
+        Args:
+            source_thread_id: 源Thread ID
+            target_thread_id: 目标Thread ID
+            checkpoint_id: 检查点ID
+            
+        Returns:
+            共享是否成功
+        """
+        try:
+            self._log_operation("share_thread_state",
+                              source_thread_id=source_thread_id,
+                              target_thread_id=target_thread_id,
+                              checkpoint_id=checkpoint_id)
+            
+            # 1. 验证线程存在
+            source_thread = await self._validate_thread_exists(source_thread_id)
+            target_thread = await self._validate_thread_exists(target_thread_id)
+            
+            # 2. 验证检查点存在
+            checkpoint = await self._checkpoint_manager.get_checkpoint(source_thread_id, checkpoint_id)
+            if not checkpoint:
+                raise ValidationError(f"Checkpoint {checkpoint_id} not found")
+            
+            # 3. 获取源线程状态
+            source_state = await self._get_thread_state_at_checkpoint(
+                source_thread_id, checkpoint_id
+            )
+            
+            # 4. 简单状态复制
+            replicated_state = source_state.get("state", {})
+            
+            # 5. 更新目标线程状态
+            target_thread.state.update(replicated_state)
+            target_thread.update_timestamp()
+            
+            # 添加共享元数据
+            target_thread.metadata.custom_data['shared_from'] = {
+                'source_thread_id': source_thread_id,
+                'checkpoint_id': checkpoint_id,
+                'shared_at': datetime.now().isoformat()
+            }
+            
+            await self._thread_repository.update(target_thread)
+            
+            return True
+            
+        except Exception as e:
+            self._handle_exception(e, "share thread state")
+            return False
+    
+    async def _get_thread_state_at_checkpoint(
+        self,
+        thread_id: str,
+        checkpoint_id: str
+    ) -> Dict[str, Any]:
+        """获取指定检查点的线程状态"""
+        # 从检查点服务获取状态
+        checkpoint_data = await self._checkpoint_manager.export_checkpoint(thread_id, checkpoint_id)
+        
+        # 获取当前线程信息
+        thread = await self._thread_repository.get(thread_id)
+        if not thread:
+            raise ValidationError(f"Thread {thread_id} not found")
+        
+        return {
+            "thread_id": thread_id,
+            "checkpoint_id": checkpoint_id,
+            "state": checkpoint_data.get("state", {}),
+            "config": thread.config if thread else {},
+            "metadata": thread.metadata.model_dump() if thread else {},
+            "timestamp": checkpoint_data.get("created_at", datetime.now().isoformat())
+        }
