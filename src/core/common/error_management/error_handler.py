@@ -77,8 +77,8 @@ class BaseErrorHandler(IErrorHandler):
             raise error
     
     def _log_error(
-        self, 
-        error: Exception, 
+        self,
+        error: Exception,
         context: Optional[Dict[str, Any]] = None
     ) -> None:
         """记录错误日志
@@ -87,8 +87,10 @@ class BaseErrorHandler(IErrorHandler):
             error: 异常对象
             context: 错误上下文信息
         """
-        # 这里需要导入logger，但为了避免循环依赖，我们稍后实现
-        # 暂时使用print作为占位符
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
         error_info = {
             "category": self.error_category.value,
             "severity": self.error_severity.value,
@@ -96,4 +98,15 @@ class BaseErrorHandler(IErrorHandler):
             "error_message": str(error),
             "context": context or {}
         }
-        print(f"错误处理: {error_info}")
+        
+        # 根据严重度选择日志级别
+        if self.error_severity == ErrorSeverity.CRITICAL:
+            logger.critical(f"严重错误: {error_info}", exc_info=True)
+        elif self.error_severity == ErrorSeverity.HIGH:
+            logger.error(f"高级错误: {error_info}", exc_info=True)
+        elif self.error_severity == ErrorSeverity.MEDIUM:
+            logger.warning(f"中级错误: {error_info}")
+        elif self.error_severity == ErrorSeverity.LOW:
+            logger.info(f"低级错误: {error_info}")
+        else:  # INFO
+            logger.debug(f"信息性错误: {error_info}")

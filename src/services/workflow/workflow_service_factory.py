@@ -18,6 +18,8 @@ from src.core.workflow.core.builder import WorkflowBuilder
 from src.core.workflow.execution.executor import WorkflowExecutor
 from src.core.workflow.validation import WorkflowValidator
 from src.core.workflow.management.lifecycle import WorkflowLifecycleManager
+from src.core.common.error_management import handle_error, ErrorCategory, ErrorSeverity
+from src.core.common.exceptions.workflow import WorkflowError
 from src.core.workflow.registry import create_workflow_registry
 from src.core.workflow.graph.service import create_graph_service
 
@@ -67,8 +69,22 @@ class WorkflowServiceFactory:
             return coordinator
             
         except Exception as e:
+            # 使用统一错误处理框架
+            error_context = {
+                "operation": "create_workflow_coordinator",
+                "factory_class": self.__class__.__name__,
+                "container_services": [
+                    "IWorkflowBuilder",
+                    "IWorkflowExecutor",
+                    "IWorkflowValidator",
+                    "WorkflowLifecycleManager"
+                ]
+            }
+            
+            handle_error(e, error_context)
+            
             self._logger.error(f"创建工作流协调器失败: {e}")
-            raise
+            raise WorkflowError(f"创建工作流协调器失败: {e}") from e
     
     def create_workflow_registry(self) -> IWorkflowRegistry:
         """创建工作流注册表
@@ -81,8 +97,16 @@ class WorkflowServiceFactory:
             self._logger.debug("工作流注册表创建成功")
             return registry
         except Exception as e:
+            # 使用统一错误处理框架
+            error_context = {
+                "operation": "create_workflow_registry",
+                "factory_class": self.__class__.__name__
+            }
+            
+            handle_error(e, error_context)
+            
             self._logger.error(f"创建工作流注册表失败: {e}")
-            raise
+            raise WorkflowError(f"创建工作流注册表失败: {e}") from e
     
     def register_workflow_services(self, 
                                  environment: str = "default",

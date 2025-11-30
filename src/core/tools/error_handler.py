@@ -6,14 +6,12 @@
 
 import logging
 import time
-from typing import Type, Dict, Callable, Optional, Any, List
+from typing import Dict, Callable, Optional, Any, List
 from enum import Enum
 
-from src.core.common.error_management.error_handler import BaseErrorHandler
-from src.core.common.error_management.error_category import ErrorCategory
-from src.core.common.error_management.error_severity import ErrorSeverity
-from src.core.common.error_management.error_handling_registry import (
-    ErrorHandlingRegistry, operation_with_retry, operation_with_fallback
+from src.core.common.error_management import (
+    BaseErrorHandler, ErrorCategory, ErrorSeverity,
+    ErrorHandlingRegistry, operation_with_retry
 )
 from src.core.common.exceptions.tool import ToolError, ToolExecutionError, ToolRegistrationError
 from src.interfaces.tool.base import ToolCall, ToolResult
@@ -283,9 +281,9 @@ class ToolErrorRecoveryManager:
         )
     
     def _retry_execution(
-        self, 
-        tool_call: ToolCall, 
-        executor_func: Callable, 
+        self,
+        tool_call: ToolCall,
+        executor_func: Callable,
         recovery_suggestion: Dict[str, Any]
     ) -> ToolResult:
         """重试执行"""
@@ -294,8 +292,32 @@ class ToolErrorRecoveryManager:
             if recovery_suggestion.get("new_timeout"):
                 tool_call.timeout = recovery_suggestion["new_timeout"]
             
-            # 执行重试
-            result = executor_func(tool_call)
+            # 使用统一框架的重试机制
+            max_retries = recovery_suggestion.get("max_retries", 3)
+            backoff_factor = recovery_suggestion.get("backoff_factor", 2.0)
+            
+            def execute_tool():
+                return executor_func(tool_call)
+            
+            # 定义可重试的异常类型
+            retryable_exceptions = (
+                TimeoutError,
+                ConnectionError,
+                OSError,
+                ToolExecutionError
+            )
+            
+            # 使用统一框架的重试函数
+            result = operation_with_retry(
+                execute_tool,
+                max_retries=max_retries,
+                retryable_exceptions=retryable_exceptions,
+                context={
+                    "tool_name": tool_call.name,
+                    "tool_call": tool_call,
+                    "recovery_suggestion": recovery_suggestion
+                }
+            )
             
             # 记录成功恢复
             self._record_recovery(tool_call.name, "success", recovery_suggestion)

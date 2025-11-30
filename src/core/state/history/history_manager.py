@@ -156,27 +156,37 @@ class StateHistoryManager:
         Raises:
             HistoryError: 存储失败
         """
-        last_error = None
-        
-        for attempt in range(max_retries):
-            try:
-                self._storage.save_history_entry(history_entry)
-                return  # 成功存储，退出函数
-                
-            except Exception as e:
-                last_error = e
-                if attempt < max_retries - 1:
-                    wait_time = 2 ** attempt  # 指数退避
-                    logger.warning(f"存储历史记录失败，{wait_time}秒后重试 (尝试 {attempt + 1}/{max_retries}): {e}")
-                    time.sleep(wait_time)
-                else:
-                    logger.error(f"存储历史记录失败，已达到最大重试次数: {e}")
-        
-        # 所有重试都失败
-        raise HistoryError(
-            f"存储历史记录失败，重试{max_retries}次后放弃",
-            details={"last_error": str(last_error)}
-        ) from last_error
+        try:
+            # 使用统一框架的重试机制
+            def store_entry():
+                return self._storage.save_history_entry(history_entry)
+            
+            # 定义可重试的异常类型
+            retryable_exceptions = (
+                ConnectionError,
+                OSError,
+                TimeoutError,
+                IOError
+            )
+            
+            # 使用统一框架的重试函数
+            operation_with_retry(
+                store_entry,
+                max_retries=max_retries,
+                retryable_exceptions=retryable_exceptions,
+                context={
+                    "operation": "save_history_entry",
+                    "entry_id": getattr(history_entry, 'id', 'unknown'),
+                    "entry_type": type(history_entry).__name__
+                }
+            )
+            
+        except Exception as e:
+            # 所有重试都失败，抛出HistoryError
+            raise HistoryError(
+                f"存储历史记录失败，重试{max_retries}次后放弃: {e}",
+                details={"last_error": str(e)}
+            ) from e
     
     def get_state_history(self, 
                          state_id: str,

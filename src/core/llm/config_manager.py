@@ -1,21 +1,20 @@
 """LLM配置管理器 - 统一配置加载、验证和热重载"""
 
-import os
 import yaml
 import json
 import logging
 from typing import Dict, Any, Optional, List, Union, Callable, Type
 from pathlib import Path
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from threading import Lock, Thread
+from threading import Lock
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 from .config import LLMClientConfig, LLMModuleConfig
 from ..common.exceptions.llm import LLMConfigurationError
 from ..config.config_manager import ConfigManager
-# 注意：这里移除了循环导入，LLMConfigManager现在直接使用ConfigManager
+# LLMConfigManager现在直接使用ConfigManager
 
 logger = logging.getLogger(__name__)
 

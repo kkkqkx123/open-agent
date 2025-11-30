@@ -83,6 +83,16 @@ class StorageManager:
                 return True
                 
         except Exception as e:
+            # 使用统一错误处理框架
+            error_context = {
+                "operation": "register_adapter",
+                "adapter_name": name,
+                "adapter_type": storage_type,
+                "manager_class": self.__class__.__name__
+            }
+            
+            handle_error(e, error_context)
+            
             logger.error(f"Failed to register adapter {name}: {e}")
             return False
     
