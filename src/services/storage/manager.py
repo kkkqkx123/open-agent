@@ -15,6 +15,7 @@ from src.core.storage import (
     StorageOperation,
     StorageResult,
     StorageBackendType,
+    StorageOperationType,
     StorageConnectionError,
     StorageOperationError,
     StorageConfigurationError
@@ -227,6 +228,7 @@ class StorageManager(IStorageManager):
                 return StorageResult(
                     success=False,
                     error="No backend available",
+                    data=None,
                     operation_id=str(id(operation))
                 )
             
@@ -237,12 +239,14 @@ class StorageManager(IStorageManager):
                     return StorageResult(
                         success=success,
                         data={"key": operation.key} if success else None,
+                        error=None,
                         operation_id=str(id(operation))
                     )
                 else:
                     return StorageResult(
                         success=False,
                         error="Missing key or data for save operation",
+                        data=None,
                         operation_id=str(id(operation))
                     )
             
@@ -252,12 +256,14 @@ class StorageManager(IStorageManager):
                     return StorageResult(
                         success=data is not None,
                         data=data,
+                        error=None,
                         operation_id=str(id(operation))
                     )
                 else:
                     return StorageResult(
                         success=False,
                         error="Missing key for load operation",
+                        data=None,
                         operation_id=str(id(operation))
                     )
             
@@ -267,12 +273,14 @@ class StorageManager(IStorageManager):
                     return StorageResult(
                         success=success,
                         data={"key": operation.key} if success else None,
+                        error=None,
                         operation_id=str(id(operation))
                     )
                 else:
                     return StorageResult(
                         success=False,
                         error="Missing key for delete operation",
+                        data=None,
                         operation_id=str(id(operation))
                     )
             
@@ -280,6 +288,7 @@ class StorageManager(IStorageManager):
                 return StorageResult(
                     success=False,
                     error=f"Unsupported operation type: {operation.operation_type}",
+                    data=None,
                     operation_id=str(id(operation))
                 )
                 
@@ -288,6 +297,7 @@ class StorageManager(IStorageManager):
             return StorageResult(
                 success=False,
                 error=str(e),
+                data=None,
                 operation_id=str(id(operation))
             )
     

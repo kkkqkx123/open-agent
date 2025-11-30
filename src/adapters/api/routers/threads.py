@@ -7,8 +7,9 @@ from datetime import datetime
 from ..models.responses import ThreadResponse, ThreadListResponse, OperationResponse
 from ..models.requests import ThreadCreateRequest, ThreadForkRequest, ThreadRollbackRequest, ThreadSnapshotRequest
 from ..services.session_service import SessionService
-from ....application.threads.interfaces import IThreadService
-from ....application.checkpoint.interfaces import ICheckpointManager
+from src.interfaces.threads.service import IThreadService
+from src.interfaces.checkpoint import ICheckpointStore
+from src.interfaces.threads.checkpoint import IThreadCheckpointStorage
 
 router = APIRouter(prefix="/api/threads", tags=["threads"])
 
@@ -16,16 +17,20 @@ router = APIRouter(prefix="/api/threads", tags=["threads"])
 # 依赖注入获取服务
 def get_thread_service() -> IThreadService:
     """获取Thread服务"""
-    # 这里需要从依赖注入容器获取，暂时使用占位符
-    from ....infrastructure.container import get_global_container
-    return get_global_container().get(IThreadService)
+    # TODO: 从依赖注入容器获取真实实现
+    raise NotImplementedError("Thread service must be provided via dependency injection")
 
 
-def get_checkpoint_manager() -> ICheckpointManager:
-    """获取Checkpoint管理器"""
-    # 这里需要从依赖注入容器获取，暂时使用占位符
-    from ....infrastructure.container import get_global_container
-    return get_global_container().get(ICheckpointManager)
+def get_checkpoint_store() -> ICheckpointStore:
+    """获取Checkpoint存储器"""
+    # TODO: 从依赖注入容器获取真实实现
+    raise NotImplementedError("Checkpoint store must be provided via dependency injection")
+
+
+def get_thread_checkpoint_storage() -> IThreadCheckpointStorage:
+    """获取Thread Checkpoint存储器"""
+    # TODO: 从依赖注入容器获取真实实现
+    return None  # type: ignore
 
 
 # Session-Thread映射器已删除，Session将直接管理多个Thread
@@ -36,7 +41,8 @@ async def fork_thread(
     thread_id: str = Path(..., description="Thread ID"),
     request: ThreadForkRequest = Body(...),
     thread_service: IThreadService = Depends(get_thread_service),
-    checkpoint_manager: ICheckpointManager = Depends(get_checkpoint_manager)
+    checkpoint_store: ICheckpointStore = Depends(get_checkpoint_store),
+    thread_checkpoint_storage: IThreadCheckpointStorage = Depends(get_thread_checkpoint_storage)
 ) -> ThreadResponse:
     """创建thread分支"""
     try:
@@ -45,7 +51,17 @@ async def fork_thread(
             raise HTTPException(status_code=404, detail=f"Thread不存在: {thread_id}")
         
         # 验证checkpoint存在
-        checkpoint = await checkpoint_manager.get_checkpoint(thread_id, request.checkpoint_id)
+        checkpoint = None
+        if thread_checkpoint_storage:
+            # 优先使用新的Thread checkpoint存储器
+            checkpoint_obj = await thread_checkpoint_storage.load_checkpoint(thread_id, request.checkpoint_id)
+            if checkpoint_obj:
+                checkpoint = checkpoint_obj.to_dict()
+        
+        if not checkpoint and checkpoint_store:
+            # 回退到旧的checkpoint存储器
+            checkpoint = await checkpoint_store.load_by_thread(thread_id, request.checkpoint_id)
+        
         if not checkpoint:
             raise HTTPException(status_code=404, detail=f"Checkpoint不存在: {request.checkpoint_id}")
         

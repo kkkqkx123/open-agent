@@ -11,6 +11,7 @@ from src.core.common.exceptions import ValidationError, StorageNotFoundError as 
 
 if TYPE_CHECKING:
     from src.interfaces.checkpoint import ICheckpointManager
+    from src.interfaces.threads.checkpoint import IThreadCheckpointManager
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,8 @@ class ThreadCollaborationService:
         self,
         thread_repository: IThreadRepository,
         history_manager: Optional[IHistoryManager] = None,
-        checkpoint_manager: Optional['ICheckpointManager'] = None
+        checkpoint_manager: Optional['ICheckpointManager'] = None,
+        thread_checkpoint_manager: Optional['IThreadCheckpointManager'] = None
     ):
         """初始化协作服务
         
@@ -34,6 +36,7 @@ class ThreadCollaborationService:
         self._thread_repository = thread_repository
         self._history_manager = history_manager
         self._checkpoint_manager = checkpoint_manager
+        self._thread_checkpoint_manager = thread_checkpoint_manager
     
     async def get_thread_state(self, thread_id: str) -> Optional[Dict[str, Any]]:
         """获取Thread状态
@@ -358,17 +361,28 @@ class ThreadCollaborationService:
     async def _get_checkpoint_state(self, thread_id: str, checkpoint_id: str) -> Optional[Dict[str, Any]]:
         """获取检查点状态
         """
-        if not self._checkpoint_manager:
-            return None
+        # 优先使用新的Thread checkpoint管理器
+        if self._thread_checkpoint_manager:
+            try:
+                checkpoint = await self._thread_checkpoint_manager.get_checkpoint(thread_id, checkpoint_id)
+                if checkpoint:
+                    return checkpoint.state_data
+                return None
+            except Exception:
+                return None
         
-        try:
-            checkpoint_data = await self._checkpoint_manager.get_checkpoint(thread_id, checkpoint_id)
-            if checkpoint_data:
-                # 从checkpoint数据中提取状态
-                return checkpoint_data.get("state_data", {})
-            return None
-        except Exception:
-            return None
+        # 回退到旧的checkpoint管理器
+        if self._checkpoint_manager:
+            try:
+                checkpoint_data = await self._checkpoint_manager.get_checkpoint(thread_id, checkpoint_id)
+                if checkpoint_data:
+                    # 从checkpoint数据中提取状态
+                    return checkpoint_data.get("state_data", {})
+                return None
+            except Exception:
+                return None
+        
+        return None
     
     def _apply_permissions(self, state: Dict[str, Any], permissions: Dict[str, Any]) -> Dict[str, Any]:
         """应用权限过滤

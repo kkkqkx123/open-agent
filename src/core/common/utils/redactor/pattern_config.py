@@ -17,10 +17,14 @@ except ImportError:
 
 # 尝试导入项目的配置加载器
 try:
-    from ....config.config_loader import ConfigLoader
+    from src.core.config.config_loader import ConfigLoader
     HAS_CONFIG_LOADER = True
-except ImportError:
+except ImportError as e:
+    # 记录导入失败的原因，便于调试
     HAS_CONFIG_LOADER = False
+    _CONFIG_LOADER_IMPORT_ERROR = str(e)
+else:
+    _CONFIG_LOADER_IMPORT_ERROR = None
 
 
 class ConfigFormat(Enum):
@@ -115,45 +119,66 @@ class PatternConfigManager:
         Args:
             config_dir: 配置文件目录
         """
-        # 优先使用项目根目录下的 configs/redactor 目录，否则使用默认位置
+        # 配置目录优先级：
+        # 1. 显式指定的 config_dir
+        # 2. 项目根目录下的 configs/redactor（推荐）
+        # 3. 代码内部的 configs 目录（仅作为备选）
         if config_dir:
             self.config_dir = Path(config_dir)
         else:
-            # 尝试使用项目根目录下的 configs/redactor 目录
-            project_root = Path(__file__).parent.parent.parent.parent.parent
+            # 使用当前工作目录作为项目根目录
+            project_root = Path.cwd()
             project_config_dir = project_root / "configs" / "redactor"
+            
+            # 优先使用项目配置目录
             if project_config_dir.exists():
                 self.config_dir = project_config_dir
             else:
-                # 回退到默认位置
+                # 如果项目配置目录不存在，回退到内部配置目录
                 self.config_dir = Path(__file__).parent / "configs"
         
-        self.config_dir.mkdir(exist_ok=True, parents=True)
+        # 注意：不在这里创建目录，让配置加载逻辑决定是否需要创建
         
         self._configs: Dict[str, RedactorConfig] = {}
         self._load_default_configs()
 
     def _load_default_configs(self):
-        """加载默认配置"""
+        """加载默认配置
+        
+        配置优先级：
+        1. configs/redactor/default.yaml（项目配置）
+        2. 硬编码默认配置（仅在配置文件不存在时使用）
+        """
         # 尝试从项目配置目录加载配置
         if HAS_CONFIG_LOADER:
             try:
                 config_loader = ConfigLoader(base_path=Path("configs"))  # type: ignore
                 config_data = config_loader.load("redactor/default")
                 self._configs['default'] = RedactorConfig.from_dict(config_data)
-                # 保存配置到本地文件
-                self.save_config('default', self._configs['default'])
+                # 成功加载项目配置，不需要保存到本地文件
                 return
             except Exception:
-                # 如果项目配置加载失败，使用硬编码的默认配置
+                # 如果项目配置加载失败，继续尝试其他方式
                 pass
         
-        # 创建并使用硬编码的默认配置
+        # 尝试直接从配置文件加载（不使用 ConfigLoader）
+        config_file = self.config_dir / "default.yaml"
+        if config_file.exists():
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config_dict = yaml.safe_load(f)
+                self._configs['default'] = RedactorConfig.from_dict(config_dict)
+                return
+            except Exception:
+                # 配置文件存在但加载失败，继续使用硬编码配置
+                pass
+        
+        # 最后的备选：使用硬编码的默认配置
         default_config = self._create_default_config()
         self._configs['default'] = default_config
         
-        # 保存默认配置到文件
-        self.save_config('default', default_config)
+        # 不再自动保存默认配置文件
+        # 如果需要保存配置，应该显式调用 save_config() 方法
 
     def _create_default_config(self) -> RedactorConfig:
         """创建默认配置
@@ -233,9 +258,27 @@ class PatternConfigManager:
 
         Returns:
             配置文件路径
+            
+        Note:
+            此方法会显式保存配置到文件。请注意：
+            - 保存到项目配置目录会覆盖现有配置
+            - 建议在开发环境中使用内部配置目录
+            - 生产环境应该通过配置管理工具管理配置文件
         """
         filename = f"{name}.{format.value}"
         filepath = self.config_dir / filename
+        
+        # 检查是否在项目配置目录中
+        if self.is_using_project_config() and name == "default":
+            import warnings
+            warnings.warn(
+                f"正在保存默认配置到项目配置目录 ({self.config_dir})，"
+                "这会覆盖现有的项目配置。请确认这是您想要的操作。",
+                UserWarning
+            )
+        
+        # 确保目录存在
+        self.config_dir.mkdir(exist_ok=True, parents=True)
         
         config_dict = config.to_dict()
         
@@ -253,6 +296,31 @@ class PatternConfigManager:
         
         self._configs[name] = config
         return str(filepath)
+    
+    def is_using_project_config(self) -> bool:
+        """检查是否使用项目配置目录
+        
+        Returns:
+            True 如果使用项目配置目录 (configs/redactor/)
+        """
+        config_dir_str = str(self.config_dir).replace('\\', '/')  # 统一路径分隔符
+        return config_dir_str.endswith("/configs/redactor") or "/configs/redactor" in config_dir_str
+    
+    def get_config_source_info(self) -> Dict[str, Any]:
+        """获取配置源信息
+        
+        Returns:
+            包含配置源信息的字典
+        """
+        return {
+            "config_dir": str(self.config_dir),
+            "is_project_config": self.is_using_project_config(),
+            "config_file_exists": (self.config_dir / "default.yaml").exists(),
+            "has_config_loader": HAS_CONFIG_LOADER,
+            "config_loader_import_error": _CONFIG_LOADER_IMPORT_ERROR if not HAS_CONFIG_LOADER else None,
+            "project_config_dir": str(Path(__file__).parent.parent.parent.parent.parent / "configs" / "redactor"),
+            "internal_config_dir": str(Path(__file__).parent / "configs")
+        }
 
     def load_config(self, name: str, format: Optional[ConfigFormat] = None) -> RedactorConfig:
         """从文件加载配置

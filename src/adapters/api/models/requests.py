@@ -152,7 +152,8 @@ class ConfigUpdateRequest(BaseModel):
 
 class ThreadCreateRequest(BaseModel):
     """创建Thread请求"""
-    graph_id: str = Field(..., description="关联的图ID")
+    graph_id: Optional[str] = Field(None, description="关联的图ID")
+    config_path: Optional[str] = Field(None, description="配置文件路径")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Thread元数据")
 
     class Config:
@@ -198,6 +199,16 @@ class ThreadRollbackRequest(BaseModel):
 
 class ThreadSnapshotRequest(BaseModel):
     """Thread快照请求"""
+    snapshot_name: str = Field(..., description="快照名称")
+    description: Optional[str] = Field(None, description="快照描述")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "snapshot_name": "v1.0_release",
+                "description": "发布版本1.0的快照"
+            }
+        }
 
 
 class StateCreateRequest(BaseModel):

@@ -112,6 +112,14 @@ from .checkpoint import (
     ICheckpointPolicy
 )
 
+# Thread检查点相关接口
+from .threads.checkpoint import (
+    IThreadCheckpointStorage,
+    IThreadCheckpointManager,
+    IThreadCheckpointSerializer,
+    IThreadCheckpointPolicy
+)
+
 # Repository接口
 from .repository import (
     IStateRepository,
@@ -276,6 +284,12 @@ __all__ = [
     "ICheckpointSerializer",
     "ICheckpointManager",
     "ICheckpointPolicy",
+    
+    # Thread检查点接口
+    "IThreadCheckpointStorage",
+    "IThreadCheckpointManager",
+    "IThreadCheckpointSerializer",
+    "IThreadCheckpointPolicy",
     
     # Repository接口
     "IStateRepository",

@@ -1,6 +1,6 @@
 """Checkpoint SQLite存储后端
 
-提供基于SQLite的checkpoint存储实现，实现ICheckpointStore接口。
+提供基于SQLite的checkpoint存储实现，实现ICheckpointStore和IThreadCheckpointStorage接口。
 """
 
 import asyncio
@@ -12,21 +12,27 @@ from typing import Dict, Any, Optional, List, Union, cast
 from pathlib import Path
 
 from src.interfaces.checkpoint import ICheckpointStore
+from src.interfaces.threads.checkpoint import IThreadCheckpointStorage
 from src.adapters.storage.adapters.base import ConnectionPooledStorageBackend
 from src.core.common.exceptions import (
     CheckpointNotFoundError,
     CheckpointStorageError
 )
 from src.adapters.storage.utils.common_utils import StorageCommonUtils
+from src.core.threads.checkpoints.storage.models import (
+    ThreadCheckpoint,
+    CheckpointStatus,
+    CheckpointStatistics
+)
 
 
 logger = logging.getLogger(__name__)
 
 
-class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore):
+class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, IThreadCheckpointStorage):
     """Checkpoint SQLite存储后端实现
     
-    提供基于SQLite的checkpoint存储功能，实现ICheckpointStore接口。
+    提供基于SQLite的checkpoint存储功能，实现ICheckpointStore和IThreadCheckpointStorage接口。
     """
     
     def __init__(self, **config: Any) -> None:
@@ -860,6 +866,204 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore):
             if isinstance(e, CheckpointStorageError):
                 raise
             raise CheckpointStorageError(f"Failed to cleanup old data: {e}")
+        finally:
+            if conn:
+                self._return_connection(conn)
+    
+    # === IThreadCheckpointStorage 接口实现 ===
+    
+    async def save_checkpoint(self, thread_id: str, checkpoint: ThreadCheckpoint) -> str:
+        """保存Thread检查点"""
+        conn = None
+        try:
+            # 确保thread_id匹配
+            checkpoint.thread_id = thread_id
+            
+            # 转换为字典格式保存
+            checkpoint_data = checkpoint.to_dict()
+            return await self.save(checkpoint_data)
+            
+        except Exception as e:
+            logger.error(f"Failed to save thread checkpoint: {e}")
+            raise CheckpointStorageError(f"保存Thread检查点失败: {e}") from e
+    
+    async def load_checkpoint(self, thread_id: str, checkpoint_id: str) -> Optional[ThreadCheckpoint]:
+        """加载Thread检查点"""
+        try:
+            checkpoint_data = await self.load_by_thread(thread_id, checkpoint_id)
+            if checkpoint_data:
+                return ThreadCheckpoint.from_dict(checkpoint_data)
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to load thread checkpoint: {e}")
+            raise CheckpointStorageError(f"加载Thread检查点失败: {e}") from e
+    
+    async def list_checkpoints(self, thread_id: str, status: Optional[CheckpointStatus] = None) -> List[ThreadCheckpoint]:
+        """列出Thread的所有检查点"""
+        conn = None
+        try:
+            # 获取连接
+            conn = self._get_connection()
+            
+            # 构建查询
+            query = """
+                SELECT * FROM checkpoint_storage
+                WHERE thread_id = ?
+            """
+            params = [thread_id]
+            
+            if status:
+                query += " AND metadata LIKE ?"
+                params.append(f'%"status": "{status.value}"%')
+            
+            query += " ORDER BY created_at DESC"
+            
+            # 执行查询
+            results = self._execute_query(conn, query, params)
+            
+            checkpoints = []
+            if results and isinstance(results, list):
+                for row in results:
+                    if not isinstance(row, dict):
+                        continue
+                    
+                    # 检查是否过期
+                    expires_at = row.get("expires_at")
+                    if expires_at and isinstance(expires_at, (int, float)) and expires_at < time.time():
+                        continue
+                    
+                    # 反序列化数据
+                    try:
+                        checkpoint_data = {
+                            "id": row["id"],
+                            "thread_id": row["thread_id"],
+                            "session_id": row["session_id"],
+                            "workflow_id": row["workflow_id"],
+                            "state_data": StorageCommonUtils.deserialize_data(row["state_data"]),
+                            "metadata": StorageCommonUtils.deserialize_data(row["metadata"]),
+                            "created_at": row["created_at"],
+                            "updated_at": row["updated_at"],
+                            "expires_at": row["expires_at"],
+                            "compressed": bool(row["compressed"])
+                        }
+                        
+                        checkpoint = ThreadCheckpoint.from_dict(checkpoint_data)
+                        if status is None or checkpoint.status == status:
+                            checkpoints.append(checkpoint)
+                    except Exception as e:
+                        logger.error(f"Failed to deserialize checkpoint data for {row.get('id', 'unknown')}: {e}")
+                        continue
+            
+            logger.debug(f"Listed {len(checkpoints)} checkpoints for thread {thread_id}")
+            return checkpoints
+            
+        except Exception as e:
+            logger.error(f"Failed to list thread checkpoints: {e}")
+            raise CheckpointStorageError(f"列出Thread检查点失败: {e}") from e
+        finally:
+            if conn:
+                self._return_connection(conn)
+    
+    async def delete_checkpoint(self, thread_id: str, checkpoint_id: str) -> bool:
+        """删除Thread检查点"""
+        try:
+            return await self.delete_by_thread(thread_id, checkpoint_id)
+            
+        except Exception as e:
+            logger.error(f"Failed to delete thread checkpoint: {e}")
+            raise CheckpointStorageError(f"删除Thread检查点失败: {e}") from e
+    
+    async def get_latest_checkpoint(self, thread_id: str) -> Optional[ThreadCheckpoint]:
+        """获取Thread的最新检查点"""
+        try:
+            checkpoint_data = await self.get_latest(thread_id)
+            if checkpoint_data:
+                return ThreadCheckpoint.from_dict(checkpoint_data)
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to get latest thread checkpoint: {e}")
+            raise CheckpointStorageError(f"获取最新Thread检查点失败: {e}") from e
+    
+    async def cleanup_old_thread_checkpoints(self, thread_id: str, max_count: int) -> int:
+        """清理旧的Thread检查点"""
+        try:
+            return await self.cleanup_old_checkpoints(thread_id, max_count)
+            
+        except Exception as e:
+            logger.error(f"Failed to cleanup old thread checkpoints: {e}")
+            raise CheckpointStorageError(f"清理旧Thread检查点失败: {e}") from e
+    
+    async def get_checkpoint_statistics(self, thread_id: str) -> CheckpointStatistics:
+        """获取Thread检查点统计信息"""
+        conn = None
+        try:
+            # 获取连接
+            conn = self._get_connection()
+            
+            # 获取所有检查点的基本统计
+            query = """
+                SELECT
+                    COUNT(*) as total_count,
+                    SUM(CASE WHEN metadata LIKE '%"status": "active"%' THEN 1 ELSE 0 END) as active_count,
+                    SUM(CASE WHEN metadata LIKE '%"status": "expired"%' THEN 1 ELSE 0 END) as expired_count,
+                    SUM(CASE WHEN metadata LIKE '%"status": "corrupted"%' THEN 1 ELSE 0 END) as corrupted_count,
+                    SUM(CASE WHEN metadata LIKE '%"status": "archived"%' THEN 1 ELSE 0 END) as archived_count,
+                    SUM(CAST(LENGTH(state_data) AS INTEGER)) as total_size,
+                    MIN(created_at) as oldest_created,
+                    MAX(created_at) as newest_created,
+                    SUM(CASE WHEN metadata LIKE '%"restore_count":%' THEN
+                        CAST(SUBSTR(metadata, INSTR(metadata, '"restore_count":') + 16,
+                               INSTR(SUBSTR(metadata, INSTR(metadata, '"restore_count":') + 16), ',') - 1) AS INTEGER)
+                    ELSE 0 END) as total_restores
+                FROM checkpoint_storage
+                WHERE thread_id = ?
+            """
+            
+            result = self._execute_query(conn, query, [thread_id], fetch_one=True)
+            
+            if not result or not isinstance(result, dict):
+                return CheckpointStatistics()
+            
+            # 创建统计对象
+            stats = CheckpointStatistics()
+            stats.total_checkpoints = result["total_count"] or 0
+            stats.active_checkpoints = result["active_count"] or 0
+            stats.expired_checkpoints = result["expired_count"] or 0
+            stats.corrupted_checkpoints = result["corrupted_count"] or 0
+            stats.archived_checkpoints = result["archived_count"] or 0
+            stats.total_size_bytes = result["total_size"] or 0
+            stats.total_restores = result["total_restores"] or 0
+            
+            # 计算平均值
+            if stats.total_checkpoints > 0:
+                stats.average_size_bytes = stats.total_size_bytes / stats.total_checkpoints
+                stats.average_restores = stats.total_restores / stats.total_checkpoints
+            
+            # 获取最大和最小检查点大小
+            size_query = """
+                SELECT MAX(LENGTH(state_data)) as max_size, MIN(LENGTH(state_data)) as min_size
+                FROM checkpoint_storage
+                WHERE thread_id = ?
+            """
+            size_result = self._execute_query(conn, size_query, [thread_id], fetch_one=True)
+            if size_result and isinstance(size_result, dict):
+                stats.largest_checkpoint_bytes = size_result["max_size"] or 0
+                stats.smallest_checkpoint_bytes = size_result["min_size"] or 0
+            
+            # 计算年龄统计
+            if result["oldest_created"] and result["newest_created"]:
+                current_time = time.time()
+                stats.oldest_checkpoint_age_hours = (current_time - result["oldest_created"]) / 3600.0
+                stats.newest_checkpoint_age_hours = (current_time - result["newest_created"]) / 3600.0
+                stats.average_age_hours = (stats.oldest_checkpoint_age_hours + stats.newest_checkpoint_age_hours) / 2
+            
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Failed to get thread checkpoint statistics: {e}")
+            raise CheckpointStorageError(f"获取Thread检查点统计失败: {e}") from e
         finally:
             if conn:
                 self._return_connection(conn)

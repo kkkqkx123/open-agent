@@ -19,6 +19,7 @@ from src.interfaces.sessions.service import ISessionService
 from src.core.threads.interfaces import IThreadCore
 from src.interfaces.history import IHistoryManager
 from src.interfaces.checkpoint import ICheckpointManager
+from src.interfaces.threads.checkpoint import IThreadCheckpointManager
 
 logger = logging.getLogger(__name__)
 
@@ -161,11 +162,13 @@ def register_collaboration_thread_service(container: Any, config: Dict[str, Any]
         thread_repository = container.get(IThreadRepository)
         history_manager = container.get(IHistoryManager, default=None)
         checkpoint_manager = container.get(ICheckpointManager, default=None)
+        thread_checkpoint_manager = container.get(IThreadCheckpointManager, default=None)
         
         return ThreadCollaborationService(
             thread_repository=thread_repository,
             history_manager=history_manager,
-            checkpoint_manager=checkpoint_manager
+            checkpoint_manager=checkpoint_manager,
+            thread_checkpoint_manager=thread_checkpoint_manager
         )
     
     # 注册服务为单例
