@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, List, Union
 from dataclasses import dataclass, field
 from enum import Enum
 
-from core.common.exceptions.state import StorageError, ConfigurationError
+from src.core.storage import StorageError, StorageConfigurationError
 
 
 logger = logging.getLogger(__name__)
@@ -301,14 +301,14 @@ class StorageConfigManager:
             config: 存储配置
             
         Raises:
-            ConfigurationError: 配置验证失败
+            StorageConfigurationError: 配置验证失败
         """
         # 验证基本字段
         if not config.name:
-            raise ConfigurationError("Config name is required")
+            raise StorageConfigurationError("Config name is required")
         
         if not isinstance(config.storage_type, StorageType):
-            raise ConfigurationError(f"Invalid storage type: {config.storage_type}")
+            raise StorageConfigurationError(f"Invalid storage type: {config.storage_type}")
         
         # 根据存储类型验证特定配置
         if config.storage_type == StorageType.MEMORY:
@@ -325,28 +325,28 @@ class StorageConfigManager:
             config: 配置字典
             
         Raises:
-            ConfigurationError: 配置验证失败
+            StorageConfigurationError: 配置验证失败
         """
         # 验证数值范围
         if "max_size" in config and config["max_size"] is not None:
             if not isinstance(config["max_size"], int) or config["max_size"] <= 0:
-                raise ConfigurationError("max_size must be a positive integer")
+                raise StorageConfigurationError("max_size must be a positive integer")
         
         if "max_memory_mb" in config and config["max_memory_mb"] is not None:
             if not isinstance(config["max_memory_mb"], int) or config["max_memory_mb"] <= 0:
-                raise ConfigurationError("max_memory_mb must be a positive integer")
+                raise StorageConfigurationError("max_memory_mb must be a positive integer")
         
         if "default_ttl_seconds" in config:
             if not isinstance(config["default_ttl_seconds"], int) or config["default_ttl_seconds"] <= 0:
-                raise ConfigurationError("default_ttl_seconds must be a positive integer")
+                raise StorageConfigurationError("default_ttl_seconds must be a positive integer")
         
         if "cleanup_interval_seconds" in config:
             if not isinstance(config["cleanup_interval_seconds"], int) or config["cleanup_interval_seconds"] <= 0:
-                raise ConfigurationError("cleanup_interval_seconds must be a positive integer")
+                raise StorageConfigurationError("cleanup_interval_seconds must be a positive integer")
         
         if "compression_threshold" in config:
             if not isinstance(config["compression_threshold"], int) or config["compression_threshold"] <= 0:
-                raise ConfigurationError("compression_threshold must be a positive integer")
+                raise StorageConfigurationError("compression_threshold must be a positive integer")
     
     def _validate_sqlite_config(self, config: Dict[str, Any]) -> None:
         """验证SQLite存储配置
@@ -355,40 +355,40 @@ class StorageConfigManager:
             config: 配置字典
             
         Raises:
-            ConfigurationError: 配置验证失败
+            StorageConfigurationError: 配置验证失败
         """
         # 验证必需字段
         if "db_path" not in config or not config["db_path"]:
-            raise ConfigurationError("db_path is required for SQLite storage")
+            raise StorageConfigurationError("db_path is required for SQLite storage")
         
         # 验证数值范围
         if "timeout" in config:
             if not isinstance(config["timeout"], (int, float)) or config["timeout"] <= 0:
-                raise ConfigurationError("timeout must be a positive number")
+                raise StorageConfigurationError("timeout must be a positive number")
         
         if "connection_pool_size" in config:
             if not isinstance(config["connection_pool_size"], int) or config["connection_pool_size"] <= 0:
-                raise ConfigurationError("connection_pool_size must be a positive integer")
+                raise StorageConfigurationError("connection_pool_size must be a positive integer")
         
         if "cache_size" in config:
             if not isinstance(config["cache_size"], int) or config["cache_size"] <= 0:
-                raise ConfigurationError("cache_size must be a positive integer")
+                raise StorageConfigurationError("cache_size must be a positive integer")
         
         # 验证枚举值
         if "temp_store" in config:
             valid_values = ["memory", "file", "default"]
             if config["temp_store"] not in valid_values:
-                raise ConfigurationError(f"temp_store must be one of {valid_values}")
+                raise StorageConfigurationError(f"temp_store must be one of {valid_values}")
         
         if "synchronous_mode" in config:
             valid_values = ["OFF", "NORMAL", "FULL", "EXTRA"]
             if config["synchronous_mode"] not in valid_values:
-                raise ConfigurationError(f"synchronous_mode must be one of {valid_values}")
+                raise StorageConfigurationError(f"synchronous_mode must be one of {valid_values}")
         
         if "journal_mode" in config:
             valid_values = ["DELETE", "TRUNCATE", "PERSIST", "MEMORY", "WAL", "OFF"]
             if config["journal_mode"] not in valid_values:
-                raise ConfigurationError(f"journal_mode must be one of {valid_values}")
+                raise StorageConfigurationError(f"journal_mode must be one of {valid_values}")
     
     def _validate_file_config(self, config: Dict[str, Any]) -> None:
         """验证文件存储配置
@@ -397,34 +397,34 @@ class StorageConfigManager:
             config: 配置字典
             
         Raises:
-            ConfigurationError: 配置验证失败
+            StorageConfigurationError: 配置验证失败
         """
         # 验证必需字段
         if "base_path" not in config or not config["base_path"]:
-            raise ConfigurationError("base_path is required for file storage")
+            raise StorageConfigurationError("base_path is required for file storage")
         
         # 验证数值范围
         if "default_ttl_seconds" in config:
             if not isinstance(config["default_ttl_seconds"], int) or config["default_ttl_seconds"] <= 0:
-                raise ConfigurationError("default_ttl_seconds must be a positive integer")
+                raise StorageConfigurationError("default_ttl_seconds must be a positive integer")
         
         if "cleanup_interval_seconds" in config:
             if not isinstance(config["cleanup_interval_seconds"], int) or config["cleanup_interval_seconds"] <= 0:
-                raise ConfigurationError("cleanup_interval_seconds must be a positive integer")
+                raise StorageConfigurationError("cleanup_interval_seconds must be a positive integer")
         
         if "compression_threshold" in config:
             if not isinstance(config["compression_threshold"], int) or config["compression_threshold"] <= 0:
-                raise ConfigurationError("compression_threshold must be a positive integer")
+                raise StorageConfigurationError("compression_threshold must be a positive integer")
         
         if "max_files_per_directory" in config:
             if not isinstance(config["max_files_per_directory"], int) or config["max_files_per_directory"] <= 0:
-                raise ConfigurationError("max_files_per_directory must be a positive integer")
+                raise StorageConfigurationError("max_files_per_directory must be a positive integer")
         
         # 验证枚举值
         if "directory_structure" in config:
             valid_values = ["flat", "by_type", "by_date", "by_agent"]
             if config["directory_structure"] not in valid_values:
-                raise ConfigurationError(f"directory_structure must be one of {valid_values}")
+                raise StorageConfigurationError(f"directory_structure must be one of {valid_values}")
     
     def _process_env_variables(self, config: StorageConfig) -> StorageConfig:
         """处理环境变量注入

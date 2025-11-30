@@ -50,6 +50,14 @@ from .exceptions import (
 
 from .error_handler import StorageErrorHandler
 
+from .config import (
+    StorageType,
+    StorageConfigManager,
+    MemoryStorageConfig,
+    SQLiteStorageConfig,
+    FileStorageConfig
+)
+
 __all__ = [
     # 接口
     "IStorageBackend",
@@ -93,5 +101,12 @@ __all__ = [
     "StorageEncryptionError",
     
     # 错误处理
-    "StorageErrorHandler"
+    "StorageErrorHandler",
+    
+    # 配置管理
+    "StorageType",
+    "StorageConfigManager",
+    "MemoryStorageConfig",
+    "SQLiteStorageConfig",
+    "FileStorageConfig"
 ]
