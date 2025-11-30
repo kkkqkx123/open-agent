@@ -1,6 +1,7 @@
 """配置错误恢复机制
 
 为配置系统提供错误恢复功能，包括备份管理和自动恢复策略。
+整合了所有配置错误恢复相关的功能。
 """
 
 import os
@@ -10,7 +11,8 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, Callable
 from datetime import datetime
 
-from ..common.exceptions.config import ConfigError
+from ..common.exceptions.config import ConfigError, ConfigValidationError
+from ..common.error_management import handle_error, operation_with_retry
 
 
 class ConfigBackupManager:
@@ -58,6 +60,16 @@ class ConfigBackupManager:
             return str(backup_path)
 
         except Exception as e:
+            # 使用统一错误处理
+            error_context = {
+                "config_path": config_path,
+                "operation": "create_backup",
+                "module": "config_backup_manager",
+                "backup_dir": str(self.backup_dir)
+            }
+            
+            # 记录错误并抛出配置异常
+            handle_error(e, error_context)
             raise ConfigError(f"创建配置备份失败: {e}")
 
     def restore_backup(
@@ -96,7 +108,16 @@ class ConfigBackupManager:
             shutil.copy2(backup_path, source_path)
             return True
 
-        except Exception:
+        except Exception as e:
+            # 使用统一错误处理
+            error_context = {
+                "config_path": config_path,
+                "backup_timestamp": backup_timestamp,
+                "operation": "restore_backup",
+                "module": "config_backup_manager"
+            }
+            
+            handle_error(e, error_context)
             return False
 
     def list_backups(self, config_path: str) -> List[Dict[str, Any]]:
@@ -145,12 +166,27 @@ class ConfigBackupManager:
         for backup_path in backups[self.max_backups :]:
             try:
                 backup_path.unlink()
-            except Exception:
+            except Exception as e:
+                # 使用统一错误处理，但不影响备份创建流程
+                error_context = {
+                    "backup_path": str(backup_path),
+                    "operation": "cleanup_old_backup",
+                    "module": "config_backup_manager"
+                }
+                
+                handle_error(e, error_context)
                 pass  # 忽略删除错误
 
 
 class ConfigErrorRecovery:
-    """配置错误恢复器"""
+    """配置错误恢复器
+    
+    整合了所有配置错误恢复相关的功能，包括：
+    - 备份恢复策略
+    - 默认配置恢复策略
+    - 重试和降级策略
+    - 自定义恢复策略
+    """
 
     def __init__(self, backup_manager: Optional[ConfigBackupManager] = None):
         """初始化错误恢复器
@@ -188,7 +224,16 @@ class ConfigErrorRecovery:
             try:
                 if strategy(config_path, error):
                     return True
-            except Exception:
+            except Exception as e:
+                # 使用统一错误处理记录恢复策略失败
+                error_context = {
+                    "config_path": config_path,
+                    "strategy": strategy.__name__,
+                    "operation": "config_recovery",
+                    "module": "config_error_recovery"
+                }
+                
+                handle_error(e, error_context)
                 continue  # 尝试下一个策略
 
         return False
@@ -241,7 +286,16 @@ class ConfigErrorRecovery:
                 with open(config_path, "w", encoding="utf-8") as f:
                     yaml.dump(default_configs[config_name], f, default_flow_style=False)
                 return True
-            except Exception:
+            except Exception as e:
+                # 使用统一错误处理
+                error_context = {
+                    "config_path": config_path,
+                    "config_name": config_name,
+                    "operation": "reset_to_default",
+                    "module": "config_error_recovery"
+                }
+                
+                handle_error(e, error_context)
                 pass
 
         return False
@@ -265,7 +319,15 @@ class ConfigErrorRecovery:
                 f.write("# Configuration file - auto created\n")
 
             return True
-        except Exception:
+        except Exception as e:
+            # 使用统一错误处理
+            error_context = {
+                "config_path": config_path,
+                "operation": "create_empty_config",
+                "module": "config_error_recovery"
+            }
+            
+            handle_error(e, error_context)
             return False
 
     def add_recovery_strategy(self, strategy: Callable[[str, Exception], bool]) -> None:
@@ -298,6 +360,47 @@ class ConfigErrorRecovery:
 
         # 检查是否可以创建空文件
         return True
+    
+    # 从 error_handler.py 移动过来的恢复策略
+    @staticmethod
+    def retry_config_load(config_loader_func: Callable, max_retries: int = 3) -> Any:
+        """重试配置加载"""
+        return operation_with_retry(
+            config_loader_func,
+            max_retries=max_retries,
+            retryable_exceptions=(IOError, TimeoutError, ConnectionError),
+            context={"operation": "config_load"}
+        )
+    
+    @staticmethod
+    def fallback_to_default_config(primary_config_func: Callable, default_config_func: Callable) -> Any:
+        """降级到默认配置"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            return primary_config_func()
+        except Exception as e:
+            logger.warning(f"主配置加载失败，使用默认配置: {e}")
+            return default_config_func()
+    
+    @staticmethod
+    def validate_config_before_load(config_data: Dict[str, Any], schema: Dict[str, Any]) -> bool:
+        """加载前验证配置"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # 简单的配置验证逻辑
+            required_fields = schema.get('required', [])
+            for field in required_fields:
+                if field not in config_data:
+                    raise ConfigValidationError(f"缺少必需字段: {field}")
+            
+            return True
+        except Exception as e:
+            logger.error(f"配置验证失败: {e}")
+            return False
 
 
 class ConfigValidatorWithRecovery:
@@ -346,6 +449,17 @@ class ConfigValidatorWithRecovery:
 
             except Exception as e:
                 last_error = e
+                
+                # 使用统一错误处理
+                error_context = {
+                    "config_path": config_path,
+                    "attempt": attempt + 1,
+                    "max_attempts": max_attempts,
+                    "operation": "validate_with_recovery",
+                    "module": "config_validator_with_recovery"
+                }
+                
+                handle_error(e, error_context)
 
                 # 如果不是最后一次尝试，尝试恢复
                 if attempt < max_attempts - 1:
@@ -355,6 +469,15 @@ class ConfigValidatorWithRecovery:
                         continue
 
         # 所有尝试都失败了
+        final_error_context = {
+            "config_path": config_path,
+            "max_attempts": max_attempts,
+            "operation": "validate_with_recovery_final",
+            "module": "config_validator_with_recovery"
+        }
+        
+        if last_error:
+            handle_error(last_error, final_error_context)
         raise ConfigError(f"无法加载或验证配置文件 {config_path}: {last_error}")
 
 

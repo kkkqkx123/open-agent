@@ -1,14 +1,14 @@
 """配置模块错误处理器
 
-为配置系统提供专门的错误处理和恢复策略。
+为配置系统提供专门的错误处理和分类策略。
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable
 
 from ..common.error_management import (
-    BaseErrorHandler, ErrorCategory, ErrorSeverity, 
-    register_error_handler, operation_with_retry
+    BaseErrorHandler, ErrorCategory, ErrorSeverity,
+    register_error_handler
 )
 from ..common.exceptions.config import (
     ConfigError, ConfigValidationError, ConfigNotFoundError,
@@ -19,12 +19,16 @@ logger = logging.getLogger(__name__)
 
 
 class ConfigErrorHandler(BaseErrorHandler):
-    """配置模块错误处理器"""
+    """配置模块错误处理器
     
-    def __init__(self):
+    专注于配置错误的分类处理和日志记录，不包含恢复策略。
+    恢复策略由 error_recovery.py 模块提供。
+    """
+    
+    def __init__(self) -> None:
         """初始化配置错误处理器"""
         super().__init__(ErrorCategory.CONFIGURATION, ErrorSeverity.HIGH)
-        self._recovery_strategies = {
+        self._handling_strategies: Dict[type, Callable] = {
             ConfigValidationError: self._handle_validation_error,
             ConfigNotFoundError: self._handle_not_found_error,
             ConfigInheritanceError: self._handle_inheritance_error,
@@ -43,10 +47,11 @@ class ConfigErrorHandler(BaseErrorHandler):
             # 记录错误日志
             self._log_error(error, context)
             
-            # 根据错误类型选择恢复策略
+            # 根据错误类型选择处理策略
             error_type = type(error)
-            if error_type in self._recovery_strategies:
-                self._recovery_strategies[error_type](error, context)
+            if error_type in self._handling_strategies:
+                strategy = self._handling_strategies[error_type]
+                strategy(error, context)
             else:
                 # 通用配置错误处理
                 self._handle_generic_config_error(error, context)
@@ -161,46 +166,8 @@ class ConfigErrorHandler(BaseErrorHandler):
             logger.info(f"配置信息: {error_info}")
 
 
-class ConfigErrorRecovery:
-    """配置错误恢复策略"""
-    
-    @staticmethod
-    def retry_config_load(config_loader_func, max_retries: int = 3):
-        """重试配置加载"""
-        return operation_with_retry(
-            config_loader_func,
-            max_retries=max_retries,
-            retryable_exceptions=(IOError, TimeoutError, ConnectionError),
-            context={"operation": "config_load"}
-        )
-    
-    @staticmethod
-    def fallback_to_default_config(primary_config_func, default_config_func):
-        """降级到默认配置"""
-        try:
-            return primary_config_func()
-        except Exception as e:
-            logger.warning(f"主配置加载失败，使用默认配置: {e}")
-            return default_config_func()
-    
-    @staticmethod
-    def validate_config_before_load(config_data: Dict[str, Any], schema: Dict[str, Any]) -> bool:
-        """加载前验证配置"""
-        try:
-            # 简单的配置验证逻辑
-            required_fields = schema.get('required', [])
-            for field in required_fields:
-                if field not in config_data:
-                    raise ConfigValidationError(f"缺少必需字段: {field}")
-            
-            return True
-        except Exception as e:
-            logger.error(f"配置验证失败: {e}")
-            return False
-
-
 # 注册配置错误处理器
-def register_config_error_handler():
+def register_config_error_handler() -> None:
     """注册配置错误处理器到全局注册表"""
     config_handler = ConfigErrorHandler()
     

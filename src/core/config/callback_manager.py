@@ -255,14 +255,17 @@ class ConfigCallbackManager:
                     # 记录执行失败
                     self._record_execution_error(callback_id, context, e)
                     
-                    # 使用统一错误处理
+                    # 使用统一错误处理，添加配置相关的上下文信息
                     error_context = {
                         "callback_id": callback_id,
                         "config_path": config_path,
                         "callback_priority": callback.priority.name,
                         "callback_once": callback.once,
                         "execution_order": self._execution_order.index(callback_id) if callback_id in self._execution_order else -1,
-                        "total_callbacks": len(self._execution_order)
+                        "total_callbacks": len(self._execution_order),
+                        "module": "config_callback_manager",
+                        "operation": "callback_execution",
+                        "error_category": "configuration" if isinstance(e, ConfigError) else "callback"
                     }
                     
                     handle_error(e, error_context)
