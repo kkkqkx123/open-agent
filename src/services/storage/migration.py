@@ -13,11 +13,10 @@ from enum import Enum
 
 from src.core.state.entities import StateSnapshot, StateHistoryEntry
 from src.core.common.exceptions import StorageError, StorageConnectionError
-from src.adapters.storage import (
-    IStateStorageAdapter,
-    MemoryStateStorageAdapter,
-    SQLiteStateStorageAdapter,
-    FileStateStorageAdapter
+from src.core.storage import (
+    IStorageBackend,
+    StorageConfig,
+    StorageBackendType
 )
 
 
@@ -38,8 +37,8 @@ class MigrationTask:
     """迁移任务数据类"""
     id: str
     name: str
-    source_adapter: IStateStorageAdapter
-    target_adapter: IStateStorageAdapter
+    source_backend: IStorageBackend
+    target_backend: IStorageBackend
     status: MigrationStatus = MigrationStatus.PENDING
     progress: float = 0.0
     total_items: int = 0
@@ -48,7 +47,7 @@ class MigrationTask:
     start_time: Optional[float] = None
     end_time: Optional[float] = None
     error_message: Optional[str] = None
-    options: Dict[str, Any] = None
+    options: Optional[Dict[str, Any]] = None
     
     def __post_init__(self):
         if self.options is None:
@@ -72,8 +71,8 @@ class StorageMigrationService:
     async def create_migration_task(
         self,
         name: str,
-        source_adapter: IStateStorageAdapter,
-        target_adapter: IStateStorageAdapter,
+        source_backend: IStorageBackend,
+        target_backend: IStorageBackend,
         options: Optional[Dict[str, Any]] = None
     ) -> str:
         """创建迁移任务
@@ -95,8 +94,8 @@ class StorageMigrationService:
             task = MigrationTask(
                 id=task_id,
                 name=name,
-                source_adapter=source_adapter,
-                target_adapter=target_adapter,
+                source_backend=source_backend,
+                target_backend=target_backend,
                 options=options or {}
             )
             
@@ -284,7 +283,7 @@ class StorageMigrationService:
             logger.info(f"Executing migration task: {task.name}")
             
             # 获取迁移选项
-            options = task.options
+            options = task.options or {}
             batch_size = options.get("batch_size", 100)
             validate_data = options.get("validate_data", True)
             migrate_history = options.get("migrate_history", True)
@@ -368,8 +367,12 @@ class StorageMigrationService:
                         # 转换数据格式
                         converted_entry = self._convert_history_entry(entry_data)
                         
-                        # 保存到目标适配器
-                        success = task.target_adapter.save_history_entry(converted_entry)
+                        # 生成存储键
+                        entry_key = entry_data.get("history_id", f"history_{task.processed_items}")
+                        
+                        # 保存到目标适配器 - 转换为字典格式
+                        entry_dict = converted_entry.to_dict() if hasattr(converted_entry, 'to_dict') else entry_data
+                        success = task.target_backend.save(entry_key, entry_dict)
                         
                         if success:
                             task.processed_items += 1
@@ -427,8 +430,12 @@ class StorageMigrationService:
                         # 转换数据格式
                         converted_snapshot = self._convert_snapshot(snapshot_data)
                         
-                        # 保存到目标适配器
-                        success = task.target_adapter.save_snapshot(converted_snapshot)
+                        # 生成存储键
+                        snapshot_key = snapshot_data.get("snapshot_id", f"snapshot_{task.processed_items}")
+                        
+                        # 保存到目标适配器 - 转换为字典格式
+                        snapshot_dict = converted_snapshot.to_dict() if hasattr(converted_snapshot, 'to_dict') else snapshot_data
+                        success = task.target_backend.save(snapshot_key, snapshot_dict)
                         
                         if success:
                             task.processed_items += 1
@@ -510,9 +517,9 @@ class StorageMigrationService:
         return StateSnapshot.from_dict(snapshot_data)
     
     async def validate_migration(
-        self, 
-        source_adapter: IStateStorageAdapter, 
-        target_adapter: IStateStorageAdapter
+        self,
+        source_backend: IStorageBackend,
+        target_backend: IStorageBackend
     ) -> Dict[str, Any]:
         """验证迁移结果
         

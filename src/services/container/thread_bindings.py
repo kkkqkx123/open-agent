@@ -1,4 +1,4 @@
-"""线程服务依赖注入绑定配置 - 重构版本"""
+"""线程服务依赖注入绑定配置"""
 
 import logging
 from typing import Dict, Any, List, Union

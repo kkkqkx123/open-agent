@@ -1,90 +1,97 @@
-"""Storage核心模块
+"""
+通用存储核心模块
 
-提供统一存储的核心功能，包括数据模型和错误处理。
+提供存储系统的核心接口、模型和异常定义。
 """
 
+from .interfaces import (
+    IStorageBackend,
+    IStorageRepository,
+    IStorageManager,
+    IStorageMonitoring,
+    IStorageMigration,
+    IStorageTransaction
+)
+
 from .models import (
-    DataType,
+    StorageBackendType,
+    StorageOperationType,
+    StorageStatus,
     StorageData,
     StorageQuery,
+    StorageOperation,
+    StorageResult,
     StorageTransaction,
     StorageStatistics,
     StorageHealth,
     StorageConfig,
     StorageBatch,
-    StorageMigration
+    StorageMigration,
+    StorageBackendInfo
 )
-from .error_handler import StorageErrorHandler, StorageOperationHandler
 
-# 导出错误处理相关
-def register_storage_error_handler():
-    """注册Storage错误处理器到统一错误处理框架"""
-    from src.core.common.error_management import register_error_handler
-    from src.core.common.exceptions.storage import (
-        StorageError,
-        StorageConnectionError,
-        StorageTransactionError,
-        StorageValidationError,
-        StorageNotFoundError,
-        StoragePermissionError,
-        StorageTimeoutError,
-        StorageCapacityError,
-        StorageIntegrityError,
-        StorageConfigurationError,
-        StorageMigrationError,
-        StorageSerializationError,
-        StorageCompressionError,
-        StorageEncryptionError,
-        StorageIndexError,
-        StorageBackupError,
-        StorageLockError,
-        StorageQueryError,
-        StorageHealthError
-    )
-    
-    # 注册Storage错误处理器
-    storage_handler = StorageErrorHandler()
-    
-    # 注册所有存储相关异常
-    storage_exceptions = [
-        StorageError,
-        StorageConnectionError,
-        StorageTransactionError,
-        StorageValidationError,
-        StorageNotFoundError,
-        StoragePermissionError,
-        StorageTimeoutError,
-        StorageCapacityError,
-        StorageIntegrityError,
-        StorageConfigurationError,
-        StorageMigrationError,
-        StorageSerializationError,
-        StorageCompressionError,
-        StorageEncryptionError,
-        StorageIndexError,
-        StorageBackupError,
-        StorageLockError,
-        StorageQueryError,
-        StorageHealthError
-    ]
-    
-    for exception_type in storage_exceptions:
-        register_error_handler(exception_type, storage_handler)
+from .exceptions import (
+    StorageError,
+    StorageConnectionError,
+    StorageOperationError,
+    StorageValidationError,
+    StorageNotFoundError,
+    StorageTimeoutError,
+    StorageCapacityError,
+    StorageIntegrityError,
+    StorageConfigurationError,
+    StorageMigrationError,
+    StorageTransactionError,
+    StoragePermissionError,
+    StorageSerializationError,
+    StorageCompressionError,
+    StorageEncryptionError
+)
+
+from .error_handler import StorageErrorHandler
 
 __all__ = [
-    # 数据模型
-    "DataType",
+    # 接口
+    "IStorageBackend",
+    "IStorageRepository",
+    "IStorageManager",
+    "IStorageMonitoring",
+    "IStorageMigration",
+    "IStorageTransaction",
+    
+    # 模型
+    "StorageBackendType",
+    "StorageOperationType",
+    "StorageStatus",
     "StorageData",
-    "StorageQuery", 
+    "StorageQuery",
+    "StorageOperation",
+    "StorageResult",
     "StorageTransaction",
     "StorageStatistics",
     "StorageHealth",
     "StorageConfig",
     "StorageBatch",
     "StorageMigration",
+    "StorageBackendInfo",
+    
+    # 异常
+    "StorageError",
+    "StorageConnectionError",
+    "StorageOperationError",
+    "StorageValidationError",
+    "StorageNotFoundError",
+    "StorageTimeoutError",
+    "StorageCapacityError",
+    "StorageIntegrityError",
+    "StorageConfigurationError",
+    "StorageMigrationError",
+    "StorageTransactionError",
+    "StoragePermissionError",
+    "StorageSerializationError",
+    "StorageCompressionError",
+    "StorageEncryptionError",
     
     # 错误处理
-    "StorageErrorHandler",
-    "StorageOperationHandler",
-    "register_storage_error_handler"
+    "StorageErrorHandler"
 ]

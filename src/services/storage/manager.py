@@ -1,59 +1,59 @@
-"""存储管理服务
+"""存储管理器
 
-提供存储适配器的生命周期管理和统一入口。
+提供存储后端的生命周期管理和统一技术入口。
+专注于技术实现，不包含业务逻辑。
 """
 
 import asyncio
 import logging
 from typing import Dict, Any, Optional, List, Union
-from enum import Enum
 
-from src.interfaces.state.storage.adapter import IStateStorageAdapter
-from core.common.exceptions.state import StorageError, StorageConnectionError
-from src.adapters.storage.adapters.memory import MemoryStateStorageAdapter
-from src.adapters.storage.adapters.sqlite import SQLiteStateStorageAdapter
-from src.adapters.storage.adapters.file import FileStateStorageAdapter
+from src.core.storage import (
+    IStorageBackend,
+    IStorageManager,
+    StorageConfig,
+    StorageOperation,
+    StorageResult,
+    StorageBackendType,
+    StorageConnectionError,
+    StorageOperationError,
+    StorageConfigurationError
+)
 
 
 logger = logging.getLogger(__name__)
 
 
-class StorageType(Enum):
-    """存储类型枚举"""
-    MEMORY = "memory"
-    SQLITE = "sqlite"
-    FILE = "file"
-
-
-class StorageManager:
-    """存储管理服务
+class StorageManager(IStorageManager):
+    """存储管理器 - 技术实现层
     
-    提供存储适配器的生命周期管理和统一入口。
+    专注于存储后端的技术管理，包括连接、生命周期管理等。
+    不包含业务逻辑，业务逻辑由上层的编排器处理。
     """
     
     def __init__(self) -> None:
-        """初始化存储管理服务"""
-        self._adapters: Dict[str, IStateStorageAdapter] = {}
-        self._adapter_configs: Dict[str, Dict[str, Any]] = {}
-        self._default_adapter: Optional[str] = None
+        """初始化存储管理器"""
+        self._backends: Dict[str, IStorageBackend] = {}
+        self._backend_configs: Dict[str, StorageConfig] = {}
+        self._default_backend: Optional[str] = None
         self._lock = asyncio.Lock()
         
         logger.info("StorageManager initialized")
     
-    async def register_adapter(
-        self, 
-        name: str, 
-        storage_type: Union[str, StorageType], 
-        config: Dict[str, Any],
+    async def register_backend(
+        self,
+        name: str,
+        backend: IStorageBackend,
+        config: Optional[StorageConfig] = None,
         set_as_default: bool = False
     ) -> bool:
-        """注册存储适配器
+        """注册存储后端
         
         Args:
-            name: 适配器名称
-            storage_type: 存储类型
-            config: 配置参数
-            set_as_default: 是否设为默认适配器
+            name: 后端名称
+            backend: 存储后端实例
+            config: 存储配置
+            set_as_default: 是否设为默认后端
             
         Returns:
             是否注册成功
@@ -61,414 +61,266 @@ class StorageManager:
         try:
             async with self._lock:
                 # 检查名称是否已存在
-                if name in self._adapters:
-                    logger.warning(f"Adapter {name} already exists, updating...")
-                    await self.unregister_adapter(name)
+                if name in self._backends:
+                    logger.warning(f"Backend {name} already exists, updating...")
+                    await self.unregister_backend(name)
                 
-                # 创建适配器
-                adapter = await self._create_adapter(storage_type, config)
+                # 连接后端
+                if not await backend.connect():
+                    raise StorageConnectionError(f"Failed to connect backend {name}")
                 
-                # 连接适配器
-                await adapter._backend.connect()
+                # 注册后端
+                self._backends[name] = backend
+                if config:
+                    self._backend_configs[name] = config
                 
-                # 注册适配器
-                self._adapters[name] = adapter
-                self._adapter_configs[name] = config.copy()
+                # 设置默认后端
+                if set_as_default or self._default_backend is None:
+                    self._default_backend = name
                 
-                # 设置默认适配器
-                if set_as_default or self._default_adapter is None:
-                    self._default_adapter = name
-                
-                logger.info(f"Registered storage adapter: {name} ({storage_type})")
+                logger.info(f"Registered storage backend: {name}")
                 return True
                 
         except Exception as e:
-            # 使用统一错误处理框架
-            error_context = {
-                "operation": "register_adapter",
-                "adapter_name": name,
-                "adapter_type": storage_type,
-                "manager_class": self.__class__.__name__
-            }
-            
-            handle_error(e, error_context)
-            
-            logger.error(f"Failed to register adapter {name}: {e}")
+            logger.error(f"Failed to register backend {name}: {e}")
             return False
     
-    async def unregister_adapter(self, name: str) -> bool:
-        """注销存储适配器
+    async def unregister_backend(self, name: str) -> bool:
+        """注销存储后端
         
         Args:
-            name: 适配器名称
+            name: 后端名称
             
         Returns:
             是否注销成功
         """
         try:
             async with self._lock:
-                if name not in self._adapters:
-                    logger.warning(f"Adapter {name} not found")
+                if name not in self._backends:
+                    logger.warning(f"Backend {name} not found")
                     return False
                 
-                # 断开适配器连接
-                adapter = self._adapters[name]
-                await adapter._backend.disconnect()
+                # 断开后端连接
+                backend = self._backends[name]
+                await backend.disconnect()
                 
-                # 移除适配器
-                del self._adapters[name]
-                del self._adapter_configs[name]
+                # 移除后端
+                del self._backends[name]
+                if name in self._backend_configs:
+                    del self._backend_configs[name]
                 
-                # 如果是默认适配器，重新选择默认适配器
-                if self._default_adapter == name:
-                    self._default_adapter = next(iter(self._adapters.keys()), None)
+                # 如果是默认后端，重新选择默认后端
+                if self._default_backend == name:
+                    self._default_backend = next(iter(self._backends.keys()), None)
                 
-                logger.info(f"Unregistered storage adapter: {name}")
+                logger.info(f"Unregistered storage backend: {name}")
                 return True
                 
         except Exception as e:
-            logger.error(f"Failed to unregister adapter {name}: {e}")
+            logger.error(f"Failed to unregister backend {name}: {e}")
             return False
     
-    async def get_adapter(self, name: Optional[str] = None) -> Optional[IStateStorageAdapter]:
-        """获取存储适配器
+    async def get_backend(self, name: Optional[str] = None) -> Optional[IStorageBackend]:
+        """获取存储后端
         
         Args:
-            name: 适配器名称，如果为None则返回默认适配器
+            name: 后端名称，如果为None则返回默认后端
             
         Returns:
-            存储适配器或None
+            存储后端或None
         """
         try:
             async with self._lock:
-                # 如果未指定名称，使用默认适配器
+                # 如果未指定名称，使用默认后端
                 if name is None:
-                    name = self._default_adapter
+                    name = self._default_backend
                 
                 if name is None:
-                    logger.warning("No default adapter set")
+                    logger.warning("No default backend set")
                     return None
                 
-                return self._adapters.get(name)
+                return self._backends.get(name)
                 
         except Exception as e:
-            logger.error(f"Failed to get adapter {name}: {e}")
+            logger.error(f"Failed to get backend {name}: {e}")
             return None
     
-    async def list_adapters(self) -> List[Dict[str, Any]]:
-        """列出所有已注册的适配器
+    async def list_backends(self) -> List[Dict[str, Any]]:
+        """列出所有已注册的后端
         
         Returns:
-            适配器信息列表
+            后端信息列表
         """
         try:
             async with self._lock:
-                adapters_info = []
+                backends_info = []
                 
-                for name, adapter in self._adapters.items():
-                    # 获取适配器健康状态
+                for name, backend in self._backends.items():
+                    # 获取后端健康状态
                     try:
-                        is_healthy = await adapter.health_check()
+                        health_info = await backend.health_check()
+                        is_healthy = health_info.get("status", "unknown") == "healthy"
                     except Exception as e:
                         is_healthy = False
-                        logger.error(f"Health check failed for adapter {name}: {e}")
+                        logger.error(f"Health check failed for backend {name}: {e}")
+                        health_info = {"error": str(e)}
                     
-                    # 获取适配器统计信息
+                    # 获取后端统计信息
                     try:
-                        stats = await adapter.get_history_statistics()
+                        stats = await backend.get_statistics()
                     except Exception as e:
                         stats = {"error": str(e)}
-                        logger.error(f"Failed to get statistics for adapter {name}: {e}")
+                        logger.error(f"Failed to get statistics for backend {name}: {e}")
                     
-                    adapters_info.append({
+                    backends_info.append({
                         "name": name,
-                        "type": adapter.__class__.__name__.replace("StateStorageAdapter", "").lower(),
-                        "is_default": name == self._default_adapter,
+                        "type": backend.__class__.__name__,
+                        "is_default": name == self._default_backend,
                         "is_healthy": is_healthy,
+                        "is_connected": await backend.is_connected(),
                         "statistics": stats,
-                        "config": self._adapter_configs.get(name, {})
+                        "health": health_info,
+                        "config": self._backend_configs.get(name)
                     })
                 
-                return adapters_info
+                return backends_info
                 
         except Exception as e:
-            logger.error(f"Failed to list adapters: {e}")
+            logger.error(f"Failed to list backends: {e}")
             return []
     
-    async def set_default_adapter(self, name: str) -> bool:
-        """设置默认适配器
+    async def set_default_backend(self, name: str) -> bool:
+        """设置默认后端
         
         Args:
-            name: 适配器名称
+            name: 后端名称
             
         Returns:
             是否设置成功
         """
         try:
             async with self._lock:
-                if name not in self._adapters:
-                    logger.warning(f"Adapter {name} not found")
+                if name not in self._backends:
+                    logger.warning(f"Backend {name} not found")
                     return False
                 
-                self._default_adapter = name
-                logger.info(f"Set default adapter: {name}")
+                self._default_backend = name
+                logger.info(f"Set default backend: {name}")
                 return True
                 
         except Exception as e:
-            logger.error(f"Failed to set default adapter {name}: {e}")
+            logger.error(f"Failed to set default backend {name}: {e}")
             return False
     
-    async def get_default_adapter(self) -> Optional[IStateStorageAdapter]:
-        """获取默认适配器
-        
-        Returns:
-            默认适配器或None
-        """
-        return await self.get_adapter(None)
-    
-    async def health_check(self, name: Optional[str] = None) -> Dict[str, Any]:
-        """执行健康检查
+    async def execute_operation(self, operation: StorageOperation) -> StorageResult:
+        """执行存储操作
         
         Args:
-            name: 适配器名称，如果为None则检查所有适配器
+            operation: 存储操作
             
         Returns:
-            健康检查结果
+            操作结果
         """
         try:
-            if name is not None:
-                # 检查指定适配器
-                adapter = await self.get_adapter(name)
-                if adapter is None:
-                    return {"name": name, "status": "not_found"}
-                
-                try:
-                    is_healthy = await adapter.health_check()
-                    return {"name": name, "status": "healthy" if is_healthy else "unhealthy"}
-                except Exception as e:
-                    return {"name": name, "status": "error", "error": str(e)}
+            backend = await self.get_backend()
+            if backend is None:
+                return StorageResult(
+                    success=False,
+                    error="No backend available",
+                    operation_id=str(id(operation))
+                )
+            
+            # 根据操作类型执行相应的操作
+            if operation.operation_type == StorageOperationType.SAVE:
+                if operation.key and operation.data:
+                    success = await backend.save(operation.key, operation.data)
+                    return StorageResult(
+                        success=success,
+                        data={"key": operation.key} if success else None,
+                        operation_id=str(id(operation))
+                    )
+                else:
+                    return StorageResult(
+                        success=False,
+                        error="Missing key or data for save operation",
+                        operation_id=str(id(operation))
+                    )
+            
+            elif operation.operation_type == StorageOperationType.LOAD:
+                if operation.key:
+                    data = await backend.load(operation.key)
+                    return StorageResult(
+                        success=data is not None,
+                        data=data,
+                        operation_id=str(id(operation))
+                    )
+                else:
+                    return StorageResult(
+                        success=False,
+                        error="Missing key for load operation",
+                        operation_id=str(id(operation))
+                    )
+            
+            elif operation.operation_type == StorageOperationType.DELETE:
+                if operation.key:
+                    success = await backend.delete(operation.key)
+                    return StorageResult(
+                        success=success,
+                        data={"key": operation.key} if success else None,
+                        operation_id=str(id(operation))
+                    )
+                else:
+                    return StorageResult(
+                        success=False,
+                        error="Missing key for delete operation",
+                        operation_id=str(id(operation))
+                    )
+            
             else:
-                # 检查所有适配器
-                results = {}
-                adapters_info = await self.list_adapters()
-                
-                for adapter_info in adapters_info:
-                    adapter_name = adapter_info["name"]
-                    results[adapter_name] = {
-                        "status": "healthy" if adapter_info["is_healthy"] else "unhealthy",
-                        "type": adapter_info["type"],
-                        "is_default": adapter_info["is_default"]
-                    }
-                
-                return results
+                return StorageResult(
+                    success=False,
+                    error=f"Unsupported operation type: {operation.operation_type}",
+                    operation_id=str(id(operation))
+                )
                 
         except Exception as e:
-            logger.error(f"Failed to perform health check: {e}")
-            return {"status": "error", "error": str(e)}
+            logger.error(f"Failed to execute operation {operation.operation_type}: {e}")
+            return StorageResult(
+                success=False,
+                error=str(e),
+                operation_id=str(id(operation))
+            )
     
-    async def cleanup_expired_data(self, name: Optional[str] = None) -> Dict[str, int]:
-        """清理过期数据
+    async def execute_batch_operations(self, operations: List[StorageOperation]) -> List[StorageResult]:
+        """批量执行存储操作
         
         Args:
-            name: 适配器名称，如果为None则清理所有适配器
+            operations: 存储操作列表
             
         Returns:
-            清理结果
+            操作结果列表
         """
-        try:
-            results = {}
-            
-            if name is not None:
-                # 清理指定适配器
-                adapter = await self.get_adapter(name)
-                if adapter is None:
-                    return {name: 0}
-                
-                try:
-                    # 这里需要适配器支持清理方法
-                    # 由于接口中没有定义，我们暂时返回0
-                    results[name] = 0
-                except Exception as e:
-                    logger.error(f"Failed to cleanup expired data for adapter {name}: {e}")
-                    results[name] = 0
-            else:
-                # 清理所有适配器
-                adapters_info = await self.list_adapters()
-                
-                for adapter_info in adapters_info:
-                    adapter_name = adapter_info["name"]
-                    try:
-                        # 这里需要适配器支持清理方法
-                        # 由于接口中没有定义，我们暂时返回0
-                        results[adapter_name] = 0
-                    except Exception as e:
-                        logger.error(f"Failed to cleanup expired data for adapter {adapter_name}: {e}")
-                        results[adapter_name] = 0
-            
-            return results
-            
-        except Exception as e:
-            logger.error(f"Failed to cleanup expired data: {e}")
-            return {}
-    
-    async def backup_all_adapters(self, backup_dir: str = "backups") -> Dict[str, Any]:
-        """备份所有适配器
-        
-        Args:
-            backup_dir: 备份目录
-            
-        Returns:
-            备份结果
-        """
-        try:
-            import os
-            from pathlib import Path
-            import time
-            
-            # 确保备份目录存在
-            backup_path = Path(backup_dir)
-            backup_path.mkdir(parents=True, exist_ok=True)
-            
-            # 创建时间戳目录
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
-            timestamp_dir = backup_path / f"backup_{timestamp}"
-            timestamp_dir.mkdir(exist_ok=True)
-            
-            results = {}
-            adapters_info = await self.list_adapters()
-            
-            for adapter_info in adapters_info:
-                adapter_name = adapter_info["name"]
-                adapter_type = adapter_info["type"]
-                
-                try:
-                    adapter = await self.get_adapter(adapter_name)
-                    if adapter is None:
-                        continue
-                    
-                    # 根据适配器类型执行备份
-                    adapter_backup_dir = timestamp_dir / adapter_name
-                    adapter_backup_dir.mkdir(exist_ok=True)
-                    
-                    if adapter_type == "sqlite":
-                        sqlite_backup_path: str = await adapter.backup_database(str(adapter_backup_dir / "database.db"))
-                        if sqlite_backup_path:
-                            results[adapter_name] = sqlite_backup_path
-                    elif adapter_type == "file":
-                        file_backup_path: str = await adapter.backup_storage(str(adapter_backup_dir))
-                        if file_backup_path:
-                            results[adapter_name] = file_backup_path
-                    elif adapter_type == "memory":
-                        # 内存适配器无法备份，跳过
-                        results[adapter_name] = "memory_adapter_no_backup"
-                    
-                except Exception as e:
-                    logger.error(f"Failed to backup adapter {adapter_name}: {e}")
-                    results[adapter_name] = f"error: {str(e)}"
-            
-            logger.info(f"Backup completed: {timestamp_dir}")
-            return {"backup_dir": str(timestamp_dir), "results": results}
-            
-        except Exception as e:
-            logger.error(f"Failed to backup adapters: {e}")
-            return {"error": str(e)}
-    
-    async def restore_adapter(
-        self, 
-        name: str, 
-        backup_path: str, 
-        storage_type: Union[str, StorageType],
-        config: Dict[str, Any]
-    ) -> bool:
-        """恢复适配器
-        
-        Args:
-            name: 适配器名称
-            backup_path: 备份路径
-            storage_type: 存储类型
-            config: 配置参数
-            
-        Returns:
-            是否恢复成功
-        """
-        try:
-            # 先注销现有适配器
-            if name in self._adapters:
-                await self.unregister_adapter(name)
-            
-            # 创建新适配器
-            adapter = await self._create_adapter(storage_type, config)
-            
-            # 恢复数据
-            adapter_type = storage_type.value if isinstance(storage_type, StorageType) else storage_type
-            
-            if adapter_type == "sqlite":
-                success = await adapter.restore_database(backup_path)
-            elif adapter_type == "file":
-                success = await adapter.restore_storage(backup_path)
-            else:
-                logger.warning(f"Restore not supported for adapter type: {adapter_type}")
-                success = False
-            
-            if success:
-                # 连接适配器
-                await adapter._backend.connect()
-                
-                # 注册适配器
-                self._adapters[name] = adapter
-                self._adapter_configs[name] = config.copy()
-                
-                logger.info(f"Restored adapter: {name}")
-                return True
-            else:
-                logger.error(f"Failed to restore adapter: {name}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Failed to restore adapter {name}: {e}")
-            return False
-    
-    async def _create_adapter(
-        self, 
-        storage_type: Union[str, StorageType], 
-        config: Dict[str, Any]
-    ) -> IStateStorageAdapter:
-        """创建存储适配器
-        
-        Args:
-            storage_type: 存储类型
-            config: 配置参数
-            
-        Returns:
-            存储适配器
-        """
-        if isinstance(storage_type, str):
-            storage_type = StorageType(storage_type.lower())
-        
-        if storage_type == StorageType.MEMORY:
-            return MemoryStateStorageAdapter(**config)
-        elif storage_type == StorageType.SQLITE:
-            return SQLiteStateStorageAdapter(**config)
-        elif storage_type == StorageType.FILE:
-            return FileStateStorageAdapter(**config)
-        else:
-            raise StorageError(f"Unsupported storage type: {storage_type}")
+        results = []
+        for operation in operations:
+            result = await self.execute_operation(operation)
+            results.append(result)
+        return results
     
     async def close(self) -> None:
-        """关闭存储管理服务"""
+        """关闭存储管理器"""
         try:
             async with self._lock:
-                # 断开所有适配器连接
-                for name, adapter in self._adapters.items():
+                # 断开所有后端连接
+                for name, backend in self._backends.items():
                     try:
-                        await adapter._backend.disconnect()
+                        await backend.disconnect()
                     except Exception as e:
-                        logger.error(f"Failed to disconnect adapter {name}: {e}")
+                        logger.error(f"Failed to disconnect backend {name}: {e}")
                 
-                # 清空适配器
-                self._adapters.clear()
-                self._adapter_configs.clear()
-                self._default_adapter = None
+                # 清空后端
+                self._backends.clear()
+                self._backend_configs.clear()
+                self._default_backend = None
                 
                 logger.info("StorageManager closed")
                 

@@ -1,41 +1,55 @@
 """
-统一存储领域模型
+通用存储数据模型
 
-定义了统一存储的数据结构和相关模型，包括数据验证和序列化支持。
+定义了存储系统的通用数据结构和相关模型，移除了领域特定的内容。
 """
 
-from typing import Dict, Any, Optional, List, Iterator
+from typing import Dict, Any, Optional, List, Iterator, Union
 from datetime import datetime
-from enum import Enum
+from enum import Enum, auto
 from pydantic import BaseModel, Field, validator
 
 
-class DataType(str, Enum):
-    """数据类型枚举"""
-    SESSION = "session"
-    THREAD = "thread"
-    THREAD_BRANCH = "thread_branch"
-    THREAD_SNAPSHOT = "thread_snapshot"
-    MESSAGE = "message"
-    TOOL_CALL = "tool_call"
-    LLM_REQUEST = "llm_request"
-    LLM_RESPONSE = "llm_response"
-    TOKEN_USAGE = "token_usage"
-    COST = "cost"
-    CHECKPOINT = "checkpoint"
-    CHECKPOINT_VERSION = "checkpoint_version"
+class StorageBackendType(str, Enum):
+    """存储后端类型枚举"""
+    MEMORY = "memory"
+    SQLITE = "sqlite"
+    FILE = "file"
+    REDIS = "redis"
+    POSTGRESQL = "postgresql"
+    MONGODB = "mongodb"
+
+
+class StorageOperationType(str, Enum):
+    """存储操作类型枚举"""
+    SAVE = "save"
+    LOAD = "load"
+    DELETE = "delete"
+    QUERY = "query"
+    BATCH = "batch"
+    TRANSACTION = "transaction"
+
+
+class StorageStatus(str, Enum):
+    """存储状态枚举"""
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    MAINTENANCE = "maintenance"
+    ERROR = "error"
 
 
 class StorageData(BaseModel):
-    """统一存储数据模型"""
-    id: str = Field(..., description="数据唯一标识")
-    type: DataType = Field(..., description="数据类型")
-    data: Dict[str, Any] = Field(..., description="实际数据内容")
-    session_id: Optional[str] = Field(None, description="关联的会话ID")
-    thread_id: Optional[str] = Field(None, description="关联的线程ID")
+    """通用存储数据模型"""
+    key: str = Field(..., description="数据键")
+    value: Dict[str, Any] = Field(..., description="数据值")
+    content_type: Optional[str] = Field("application/json", description="内容类型")
+    encoding: Optional[str] = Field("utf-8", description="编码格式")
+    checksum: Optional[str] = Field(None, description="数据校验和")
+    size: Optional[int] = Field(None, description="数据大小（字节）")
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="元数据")
     created_at: datetime = Field(default_factory=datetime.now, description="创建时间")
     updated_at: datetime = Field(default_factory=datetime.now, description="更新时间")
+    expires_at: Optional[datetime] = Field(None, description="过期时间")
     
     class Config:
         """Pydantic配置"""
@@ -50,6 +64,19 @@ class StorageData(BaseModel):
         if 'created_at' in values and v < values['created_at']:
             raise ValueError("updated_at cannot be earlier than created_at")
         return v
+    
+    @validator('expires_at')
+    def validate_expires_at(cls, v: Optional[datetime], values: Dict[str, Any]) -> Optional[datetime]:
+        """验证过期时间不早于创建时间"""
+        if v is not None and 'created_at' in values and v < values['created_at']:
+            raise ValueError("expires_at cannot be earlier than created_at")
+        return v
+    
+    def is_expired(self) -> bool:
+        """检查是否已过期"""
+        if self.expires_at is None:
+            return False
+        return datetime.now() > self.expires_at
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -78,42 +105,63 @@ class StorageQuery(BaseModel):
         return self.dict()
 
 
+class StorageOperation(BaseModel):
+    """存储操作模型"""
+    operation_type: StorageOperationType = Field(..., description="操作类型")
+    key: Optional[str] = Field(None, description="操作键")
+    data: Optional[Dict[str, Any]] = Field(None, description="操作数据")
+    criteria: Optional[Dict[str, Any]] = Field(None, description="查询条件")
+    timestamp: datetime = Field(default_factory=datetime.now, description="操作时间")
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="操作元数据")
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return self.dict()
+
+
+class StorageResult(BaseModel):
+    """存储结果模型"""
+    success: bool = Field(..., description="是否成功")
+    data: Optional[Dict[str, Any]] = Field(None, description="结果数据")
+    error: Optional[str] = Field(None, description="错误信息")
+    operation_id: Optional[str] = Field(None, description="操作ID")
+    timestamp: datetime = Field(default_factory=datetime.now, description="结果时间")
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="结果元数据")
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return self.dict()
+
+
 class StorageTransaction(BaseModel):
     """存储事务模型"""
-    operations: List[Dict[str, Any]] = Field(..., description="操作列表")
+    transaction_id: str = Field(..., description="事务ID")
+    operations: List[StorageOperation] = Field(default_factory=list, description="操作列表")
+    status: str = Field("pending", description="事务状态")
+    created_at: datetime = Field(default_factory=datetime.now, description="创建时间")
+    updated_at: datetime = Field(default_factory=datetime.now, description="更新时间")
     
-    def add_save(self, data: Dict[str, Any]) -> None:
-        """添加保存操作"""
-        self.operations.append({
-            "type": "save",
-            "data": data
-        })
-    
-    def add_update(self, id: str, updates: Dict[str, Any]) -> None:
-        """添加更新操作"""
-        self.operations.append({
-            "type": "update",
-            "id": id,
-            "data": updates
-        })
-    
-    def add_delete(self, id: str) -> None:
-        """添加删除操作"""
-        self.operations.append({
-            "type": "delete",
-            "id": id
-        })
+    def add_operation(self, operation: StorageOperation) -> None:
+        """添加操作"""
+        self.operations.append(operation)
+        self.updated_at = datetime.now()
     
     def is_empty(self) -> bool:
         """检查是否为空事务"""
         return len(self.operations) == 0
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return self.dict()
 
 
 class StorageStatistics(BaseModel):
     """存储统计模型"""
     total_count: int = Field(..., ge=0, description="总数量")
     total_size: int = Field(..., ge=0, description="总大小（字节）")
-    type_distribution: Dict[str, int] = Field(default_factory=dict, description="类型分布")
+    backend_type: StorageBackendType = Field(..., description="后端类型")
+    hit_rate: Optional[float] = Field(None, ge=0, le=1, description="命中率")
+    avg_response_time: Optional[float] = Field(None, ge=0, description="平均响应时间（毫秒）")
     oldest_record: Optional[datetime] = Field(None, description="最早记录时间")
     newest_record: Optional[datetime] = Field(None, description="最新记录时间")
     
@@ -124,15 +172,16 @@ class StorageStatistics(BaseModel):
 
 class StorageHealth(BaseModel):
     """存储健康状态模型"""
-    status: str = Field(..., description="健康状态")
+    status: StorageStatus = Field(..., description="健康状态")
     message: Optional[str] = Field(None, description="状态消息")
     response_time: Optional[float] = Field(None, ge=0, description="响应时间（毫秒）")
     error_count: int = Field(0, ge=0, description="错误计数")
     last_check: datetime = Field(default_factory=datetime.now, description="最后检查时间")
+    backend_type: StorageBackendType = Field(..., description="后端类型")
     
     def is_healthy(self) -> bool:
         """检查是否健康"""
-        return self.status.lower() == "healthy"
+        return self.status == StorageStatus.ACTIVE
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -141,12 +190,14 @@ class StorageHealth(BaseModel):
 
 class StorageConfig(BaseModel):
     """存储配置模型"""
-    storage_type: str = Field(..., description="存储类型")
+    backend_type: StorageBackendType = Field(..., description="存储后端类型")
     connection_string: Optional[str] = Field(None, description="连接字符串")
     parameters: Dict[str, Any] = Field(default_factory=dict, description="配置参数")
     pool_size: int = Field(10, ge=1, description="连接池大小")
     timeout: int = Field(30, ge=1, description="超时时间（秒）")
     retry_count: int = Field(3, ge=0, description="重试次数")
+    enable_compression: bool = Field(False, description="是否启用压缩")
+    enable_encryption: bool = Field(False, description="是否启用加密")
     
     def get_parameter(self, key: str, default: Any = None) -> Any:
         """获取配置参数"""
@@ -163,18 +214,19 @@ class StorageConfig(BaseModel):
 
 class StorageBatch(BaseModel):
     """存储批处理模型"""
-    items: List[Dict[str, Any]] = Field(..., description="批处理项目")
+    operations: List[StorageOperation] = Field(..., description="批处理操作")
     batch_size: int = Field(100, ge=1, description="批次大小")
     max_retries: int = Field(3, ge=0, description="最大重试次数")
+    continue_on_error: bool = Field(True, description="遇到错误时是否继续")
     
-    def iter_batches(self) -> Iterator[List[Dict[str, Any]]]:
-        """迭代器，按批次返回数据"""
-        for i in range(0, len(self.items), self.batch_size):
-            yield self.items[i:i + self.batch_size]
+    def iter_batches(self) -> Iterator[List[StorageOperation]]:
+        """迭代器，按批次返回操作"""
+        for i in range(0, len(self.operations), self.batch_size):
+            yield self.operations[i:i + self.batch_size]
     
     def batch_count(self) -> int:
         """获取批次数量"""
-        return (len(self.items) + self.batch_size - 1) // self.batch_size
+        return (len(self.operations) + self.batch_size - 1) // self.batch_size
 
 
 class StorageMigration(BaseModel):
@@ -185,6 +237,7 @@ class StorageMigration(BaseModel):
     dependencies: List[str] = Field(default_factory=list, description="依赖版本")
     rollback_script: Optional[str] = Field(None, description="回滚脚本")
     applied_at: Optional[datetime] = Field(None, description="应用时间")
+    backend_type: StorageBackendType = Field(..., description="适用的后端类型")
     
     def is_applied(self) -> bool:
         """检查是否已应用"""
@@ -193,6 +246,23 @@ class StorageMigration(BaseModel):
     def mark_applied(self) -> None:
         """标记为已应用"""
         self.applied_at = datetime.now()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return self.dict()
+
+
+class StorageBackendInfo(BaseModel):
+    """存储后端信息模型"""
+    name: str = Field(..., description="后端名称")
+    backend_type: StorageBackendType = Field(..., description="后端类型")
+    status: StorageStatus = Field(..., description="后端状态")
+    is_default: bool = Field(False, description="是否为默认后端")
+    config: StorageConfig = Field(..., description="后端配置")
+    statistics: Optional[StorageStatistics] = Field(None, description="统计信息")
+    health: Optional[StorageHealth] = Field(None, description="健康状态")
+    created_at: datetime = Field(default_factory=datetime.now, description="创建时间")
+    last_accessed: Optional[datetime] = Field(None, description="最后访问时间")
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
