@@ -1,11 +1,13 @@
 """线程管理服务实现 - 主服务门面"""
 
-from typing import AsyncGenerator, Dict, Any, Optional, List, Coroutine, cast
+from typing import AsyncGenerator, Dict, Any, Optional, List, Coroutine, cast, TYPE_CHECKING
 
-from interfaces.state import IWorkflowState as WorkflowState
-from interfaces.state.workflow import IWorkflowState
+if TYPE_CHECKING:
+    from interfaces.state import IWorkflowState as WorkflowState  # type: ignore[import-untyped]
+    from interfaces.state.workflow import IWorkflowState  # type: ignore[import-untyped]
+else:
+    IWorkflowState = Any  # type: ignore[assignment]
 from src.interfaces.threads.service import IThreadService
-from src.interfaces.threads import IThreadCoordinatorService
 from src.interfaces.sessions.service import ISessionService
 from src.core.threads.interfaces import IThreadCore
 from src.interfaces.threads.storage import IThreadRepository
@@ -16,7 +18,6 @@ from .workflow_service import WorkflowThreadService
 from .collaboration_service import ThreadCollaborationService
 from .branch_service import ThreadBranchService
 from .snapshot_service import ThreadSnapshotService
-from .coordinator_service import ThreadCoordinatorService
 
 from src.core.common.exceptions import ValidationError
 
@@ -33,7 +34,6 @@ class ThreadService(IThreadService):
         collaboration_service: ThreadCollaborationService,
         branch_service: ThreadBranchService,
         snapshot_service: ThreadSnapshotService,
-        coordinator_service: IThreadCoordinatorService,
         session_service: Optional[ISessionService] = None,
         history_manager: Optional[IHistoryManager] = None
     ):
@@ -47,7 +47,6 @@ class ThreadService(IThreadService):
             collaboration_service: 协作服务
             branch_service: 分支服务
             snapshot_service: 快照服务
-            coordinator_service: 线程协调器服务
             session_service: 会话服务（可选）
             history_manager: 历史管理器（可选）
         """
@@ -58,7 +57,6 @@ class ThreadService(IThreadService):
         self._collaboration_service = collaboration_service
         self._branch_service = branch_service
         self._snapshot_service = snapshot_service
-        self._coordinator_service = coordinator_service
         self._session_service = session_service
         self._history_manager = history_manager
     
@@ -77,25 +75,18 @@ class ThreadService(IThreadService):
                 if not session:
                     raise ValidationError(f"Session {session_id} not found")
             
-            # 使用协调器服务进行线程创建协调
-            session_context = None
+            # 直接使用基础服务创建线程
+            graph_id = thread_config.get("graph_id")
+            if not graph_id:
+                raise ValidationError("graph_id is required in thread_config")
+            
+            metadata = thread_config.get("metadata", {})
             if session_id:
-                session_context = {"session_id": session_id}
+                metadata["session_id"] = session_id
             
-            coordination_result = await self._coordinator_service.coordinate_thread_creation(
-                thread_config=thread_config,
-                session_context=session_context
-            )
+            thread_id = await self._basic_service.create_thread(graph_id, metadata)
             
-            if coordination_result.get("status") != "completed":
-                raise ValidationError(
-                    f"Thread creation coordination failed: {coordination_result.get('errors', [])}"
-                )
-            
-            thread_id: Any = coordination_result.get("thread_id")
-            if not thread_id or not isinstance(thread_id, str):
-                raise ValidationError("Failed to obtain thread_id from coordination result")
-            return cast(str, thread_id)
+            return thread_id
             
         except Exception as e:
             raise ValidationError(f"Failed to create thread with session: {str(e)}")
@@ -151,18 +142,7 @@ class ThreadService(IThreadService):
             if not thread:
                 raise ValidationError(f"Thread {thread_id} not found")
             
-            # 使用协调器服务进行检查点创建协调
-            checkpoint_config = {
-                "thread_id": thread_id,
-                "checkpoint_number": thread.checkpoint_count + 1
-            }
-            
-            checkpoint_id = await self._coordinator_service.coordinate_checkpoint_creation(
-                thread_id=thread_id,
-                checkpoint_config=checkpoint_config
-            )
-            
-            # 协调成功后更新计数
+            # 直接更新计数
             thread.increment_checkpoint_count()
             await self._thread_repository.update(thread)
             
@@ -221,25 +201,7 @@ class ThreadService(IThreadService):
     
     async def update_thread_status(self, thread_id: str, status: str) -> bool:
         """更新Thread状态"""
-        try:
-            # 获取当前线程状态
-            thread = await self._thread_repository.get(thread_id)
-            if not thread:
-                raise ValidationError(f"Thread {thread_id} not found")
-            
-            current_status = thread.status.value
-            
-            # 使用协调器服务进行状态转换协调
-            success = await self._coordinator_service.coordinate_thread_transition(
-                thread_id=thread_id,
-                current_status=current_status,
-                target_status=status
-            )
-            
-            return success
-        except Exception as e:
-            # 降级到基础服务
-            return await self._basic_service.update_thread_status(thread_id, status)
+        return await self._basic_service.update_thread_status(thread_id, status)
     
     async def delete_thread(self, thread_id: str) -> bool:
         """删除Thread"""
@@ -276,33 +238,97 @@ class ThreadService(IThreadService):
     
     async def get_thread_state(self, thread_id: str) -> Optional[Dict[str, Any]]:
         """获取Thread状态"""
-        return await self._collaboration_service.get_thread_state(thread_id)
+        return await self._basic_service.get_thread_state(thread_id)
     
     async def update_thread_state(self, thread_id: str, state: Dict[str, Any]) -> bool:
         """更新Thread状态"""
-        return await self._collaboration_service.update_thread_state(thread_id, state)
+        return await self._basic_service.update_thread_state(thread_id, state)
     
     async def rollback_thread(self, thread_id: str, checkpoint_id: str) -> bool:
         """回滚Thread到指定检查点"""
-        return await self._collaboration_service.rollback_thread(thread_id, checkpoint_id)
+        return await self._basic_service.rollback_thread(thread_id, checkpoint_id)
     
     async def share_thread_state(self, source_thread_id: str, target_thread_id: str, checkpoint_id: str, permissions: Optional[Dict[str, Any]] = None) -> bool:
         """共享Thread状态到其他Thread"""
-        return await self._collaboration_service.share_thread_state(
-            source_thread_id, target_thread_id, checkpoint_id, permissions
-        )
+        # 简化实现：复制状态从源线程到目标线程
+        try:
+            source_state = await self._basic_service.get_thread_state(source_thread_id)
+            if not source_state:
+                return False
+            
+            state_to_share = source_state.get("state", {})
+            return await self._basic_service.update_thread_state(target_thread_id, state_to_share)
+        except Exception:
+            return False
     
     async def create_shared_session(self, thread_ids: List[str], session_config: Dict[str, Any]) -> str:
         """创建共享会话"""
-        return await self._collaboration_service.create_shared_session(thread_ids, session_config)
+        # 简化实现：生成共享会话ID
+        try:
+            import uuid
+            shared_session_id = str(uuid.uuid4())
+            
+            # 将会话ID记录到线程的自定义数据中（ThreadMetadata支持extra="allow"）
+            for thread_id in thread_ids:
+                thread = await self._thread_repository.get(thread_id)
+                if thread:
+                    # 使用ThreadMetadata的custom_data字段来存储共享会话
+                    if 'shared_sessions' not in thread.metadata.custom_data:
+                        thread.metadata.custom_data['shared_sessions'] = []
+                    thread.metadata.custom_data['shared_sessions'].append(shared_session_id)
+                    thread.update_timestamp()
+                    await self._thread_repository.update(thread)
+            
+            return shared_session_id
+        except Exception:
+            raise ValidationError("Failed to create shared session")
     
     async def sync_thread_states(self, thread_ids: List[str], sync_strategy: str = "bidirectional") -> bool:
         """同步多个Thread状态"""
-        return await self._collaboration_service.sync_thread_states(thread_ids, sync_strategy)
+        try:
+            if not thread_ids:
+                return False
+            
+            # 简化实现：获取第一个线程的状态，同步到其他线程
+            first_state = await self._basic_service.get_thread_state(thread_ids[0])
+            if not first_state:
+                return False
+            
+            state_to_sync = first_state.get("state", {})
+            
+            for thread_id in thread_ids[1:]:
+                success = await self._basic_service.update_thread_state(thread_id, state_to_sync)
+                if not success:
+                    return False
+            
+            return True
+        except Exception:
+            return False
     
     async def get_thread_history(self, thread_id: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-        """获取Thread历史记录"""
-        return await self._collaboration_service.get_thread_history(thread_id, limit)
+        """获取Thread历史记录
+        
+        注：当前实现为简化版本，完整实现需要：
+        1. 在Thread实体中添加历史记录ID关联
+        2. 在IHistoryManager中添加按thread_id查询的支持
+        3. 或实现专门的ThreadHistoryService
+        """
+        try:
+            # 目前暂时返回空列表，表示需要与history_manager集成
+            # TODO: 完整实现需要添加对thread_id的历史查询支持
+            if self._history_manager:
+                # 当history_manager支持thread_id查询时，应该这样实现：
+                # from src.core.history.entities import HistoryQuery
+                # query = HistoryQuery(
+                #     session_id=None,  # 如果Thread关联了session_id
+                #     limit=limit or 100
+                # )
+                # result = await self._history_manager.query_history(query)
+                # return [record.dict() for record in result.records]
+                pass
+            return []
+        except Exception:
+            return []
     
     # === 委托给分支服务的方法 ===
     
@@ -335,21 +361,10 @@ class ThreadService(IThreadService):
     async def restore_snapshot(self, thread_id: str, snapshot_id: str) -> bool:
         """从快照恢复Thread状态"""
         try:
-            # 使用协调器服务进行线程恢复协调
-            success = await self._coordinator_service.coordinate_thread_recovery(
-                thread_id=thread_id,
-                recovery_point=snapshot_id,
-                recovery_strategy="specific_checkpoint"
-            )
-            
-            if success:
-                # 恢复成功后调用快照服务进行状态恢复
-                return await self._snapshot_service.restore_thread_from_snapshot(thread_id, snapshot_id)
-            
-            return False
-        except Exception:
-            # 降级到快照服务直接恢复
+            # 直接调用快照服务进行状态恢复
             return await self._snapshot_service.restore_thread_from_snapshot(thread_id, snapshot_id)
+        except Exception as e:
+            raise ValidationError(f"Failed to restore snapshot: {str(e)}")
     
     async def delete_snapshot(self, snapshot_id: str) -> bool:
         """删除快照"""

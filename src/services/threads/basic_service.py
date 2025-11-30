@@ -9,9 +9,10 @@ from src.core.threads.interfaces import IThreadCore
 from src.core.threads.entities import Thread, ThreadStatus, ThreadType, ThreadMetadata
 from src.interfaces.threads.storage import IThreadRepository
 from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
+from .base_service import BaseThreadService
 
 
-class BasicThreadService:
+class BasicThreadService(BaseThreadService):
     """基础线程管理服务"""
     
     def __init__(
@@ -25,8 +26,8 @@ class BasicThreadService:
             thread_core: 线程核心接口
             thread_repository: 线程仓储接口
         """
+        super().__init__(thread_repository)
         self._thread_core = thread_core
-        self._thread_repository = thread_repository
     
     async def create_thread(self, graph_id: str, metadata: Optional[Dict[str, Any]] = None) -> str:
         """创建新的Thread
@@ -39,6 +40,8 @@ class BasicThreadService:
             创建的Thread ID
         """
         try:
+            self._log_operation("create_thread", metadata=metadata)
+            
             # 生成线程ID
             thread_id = str(uuid.uuid4())
             
@@ -60,7 +63,8 @@ class BasicThreadService:
             return thread_id
             
         except Exception as e:
-            raise ValidationError(f"Failed to create thread: {str(e)}")
+            self._handle_exception(e, "create thread")
+            raise
     
     async def create_thread_from_config(self, config_path: str, metadata: Optional[Dict[str, Any]] = None) -> str:
         """从配置文件创建Thread
@@ -116,6 +120,8 @@ class BasicThreadService:
             Thread信息，如果不存在则返回None
         """
         try:
+            self._log_operation("get_thread_info", thread_id)
+            
             thread = await self._thread_repository.get(thread_id)
             if not thread:
                 return None
@@ -137,7 +143,8 @@ class BasicThreadService:
             }
             
         except Exception as e:
-            raise ValidationError(f"Failed to get thread info: {str(e)}")
+            self._handle_exception(e, "get thread info")
+            return None
     
     async def update_thread_status(self, thread_id: str, status: str) -> bool:
         """更新Thread状态
@@ -150,9 +157,9 @@ class BasicThreadService:
             更新是否成功
         """
         try:
-            thread = await self._thread_repository.get(thread_id)
-            if not thread:
-                raise EntityNotFoundError(f"Thread {thread_id} not found")
+            self._log_operation("update_thread_status", thread_id, status=status)
+            
+            thread = await self._validate_thread_exists(thread_id)
             
             # 验证状态
             try:
@@ -171,7 +178,8 @@ class BasicThreadService:
             return success
             
         except Exception as e:
-            raise ValidationError(f"Failed to update thread status: {str(e)}")
+            self._handle_exception(e, "update thread status")
+            return False
     
     async def delete_thread(self, thread_id: str) -> bool:
         """删除Thread
@@ -183,6 +191,8 @@ class BasicThreadService:
             删除是否成功
         """
         try:
+            self._log_operation("delete_thread", thread_id)
+            
             # 检查线程是否存在
             thread = await self._thread_repository.get(thread_id)
             if not thread:
@@ -192,7 +202,8 @@ class BasicThreadService:
             return await self._thread_repository.delete(thread_id)
             
         except Exception as e:
-            raise ValidationError(f"Failed to delete thread: {str(e)}")
+            self._handle_exception(e, "delete thread")
+            return False
     
     async def list_threads(self, filters: Optional[Dict[str, Any]] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """列出Threads
@@ -213,9 +224,9 @@ class BasicThreadService:
                 threads = await self._thread_repository.search("", limit=1000)  # 限制最大数量
             
             # 转换为字典格式
-            result = []
+            result: List[Dict[str, Any]] = []
             for thread in threads:
-                thread_info = {
+                thread_info: Dict[str, Any] = {
                     "id": thread.id,
                     "status": thread.status.value,
                     "type": thread.type.value,
@@ -264,6 +275,8 @@ class BasicThreadService:
             状态有效返回True，无效返回False
         """
         try:
+            self._log_operation("validate_thread_state", thread_id)
+            
             thread = await self._thread_repository.get(thread_id)
             if not thread:
                 return False
@@ -399,3 +412,88 @@ class BasicThreadService:
             
         except Exception as e:
             raise ValidationError(f"Failed to list threads by type: {str(e)}")
+    
+    # === 状态管理功能（从协作服务迁移） ===
+    
+    async def get_thread_state(self, thread_id: str) -> Optional[Dict[str, Any]]:
+        """获取Thread状态
+        
+        Args:
+            thread_id: Thread ID
+            
+        Returns:
+            Thread状态，如果不存在则返回None
+        """
+        try:
+            self._log_operation("get_thread_state", thread_id)
+            
+            thread = await self._thread_repository.get(thread_id)
+            if not thread:
+                return None
+            
+            return {
+                "thread_id": thread.id,
+                "status": thread.status.value,
+                "state": thread.state.copy(),
+                "config": thread.config.copy(),
+                "metadata": thread.metadata.model_dump(),
+                "updated_at": thread.updated_at.isoformat(),
+                "message_count": thread.message_count,
+                "checkpoint_count": thread.checkpoint_count,
+                "branch_count": thread.branch_count
+            }
+            
+        except Exception as e:
+            self._handle_exception(e, "get thread state")
+            return None
+    
+    async def update_thread_state(self, thread_id: str, state: Dict[str, Any]) -> bool:
+        """更新Thread状态
+        
+        Args:
+            thread_id: Thread ID
+            state: 新状态
+            
+        Returns:
+            更新是否成功
+        """
+        try:
+            self._log_operation("update_thread_state", thread_id, state_keys=list(state.keys()))
+            
+            thread = await self._validate_thread_exists(thread_id)
+            
+            # 更新状态
+            thread.state.update(state)
+            thread.update_timestamp()
+            
+            # 保存线程
+            success = await self._thread_repository.update(thread)
+            
+            return success
+            
+        except Exception as e:
+            self._handle_exception(e, "update thread state")
+            return False
+    
+    async def rollback_thread(self, thread_id: str, checkpoint_id: str) -> bool:
+        """回滚Thread到指定检查点
+        
+        Args:
+            thread_id: Thread ID
+            checkpoint_id: 检查点ID
+            
+        Returns:
+            回滚是否成功
+        """
+        try:
+            self._log_operation("rollback_thread", thread_id, checkpoint_id=checkpoint_id)
+            
+            thread = await self._validate_thread_exists(thread_id)
+            
+            # 这里简化处理，实际应用中需要从检查点服务获取状态
+            # 暂时返回False，表示需要与检查点服务集成
+            raise ValidationError("Rollback functionality requires checkpoint service integration")
+            
+        except Exception as e:
+            self._handle_exception(e, "rollback thread")
+            return False

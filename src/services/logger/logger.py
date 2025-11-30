@@ -6,8 +6,8 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Callable
 
-from .log_level import LogLevel
-from ..core.logger.handlers.base_handler import BaseHandler
+from ...core.logger.log_level import LogLevel
+from ...core.logger.handlers.base_handler import BaseHandler
 from .redactor import LogRedactor
 
 
@@ -219,9 +219,9 @@ class Logger(ILogger):
         Args:
             config: 全局配置
         """
-        from ..core.logger.handlers.console_handler import ConsoleHandler
-        from ..core.logger.handlers.file_handler import FileHandler
-        from ..core.logger.handlers.json_handler import JsonHandler
+        from ...core.logger.handlers.console_handler import ConsoleHandler
+        from ...core.logger.handlers.file_handler import FileHandler
+        from ...core.logger.handlers.json_handler import JsonHandler
 
         log_outputs = config.get("log_outputs", [{"type": "console"}])
         for output_config in log_outputs:

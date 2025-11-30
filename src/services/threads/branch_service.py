@@ -1,17 +1,17 @@
 """线程分支服务实现"""
 
-import asyncio
 import uuid
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from src.core.threads.interfaces import IThreadCore, IThreadBranchCore
-from src.core.threads.entities import Thread, ThreadBranch, ThreadStatus
+from src.core.threads.entities import ThreadBranch
 from src.interfaces.threads import IThreadBranchService, IThreadRepository, IThreadBranchRepository
 from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
+from .base_service import BaseThreadService
 
 
-class ThreadBranchService(IThreadBranchService):
+class ThreadBranchService(BaseThreadService, IThreadBranchService):
     """线程分支业务服务实现"""
     
     def __init__(
@@ -21,9 +21,9 @@ class ThreadBranchService(IThreadBranchService):
         thread_repository: IThreadRepository,
         thread_branch_repository: IThreadBranchRepository
     ):
+        super().__init__(thread_repository)
         self._thread_core = thread_core
         self._thread_branch_core = thread_branch_core
-        self._thread_repository = thread_repository
         self._thread_branch_repository = thread_branch_repository
     
     async def create_branch_from_checkpoint(
@@ -35,10 +35,11 @@ class ThreadBranchService(IThreadBranchService):
     ) -> str:
         """从指定checkpoint创建分支"""
         try:
+            self._log_operation("create_branch_from_checkpoint", thread_id,
+                              checkpoint_id=checkpoint_id, branch_name=branch_name)
+            
             # 验证线程存在
-            thread = await self._thread_repository.get(thread_id)
-            if not thread:
-                raise EntityNotFoundError(f"Thread {thread_id} not found")
+            thread = await self._validate_thread_exists(thread_id)
             
             # 生成分支ID
             branch_id = str(uuid.uuid4())
@@ -63,7 +64,8 @@ class ThreadBranchService(IThreadBranchService):
             
             return branch_id
         except Exception as e:
-            raise ValidationError(f"Failed to create branch from checkpoint: {str(e)}")
+            self._handle_exception(e, "create branch from checkpoint")
+            raise
     
     async def merge_branch_to_main(
         self,
@@ -73,10 +75,11 @@ class ThreadBranchService(IThreadBranchService):
     ) -> bool:
         """将分支合并到主线"""
         try:
+            self._log_operation("merge_branch_to_main", thread_id,
+                              branch_id=branch_id, merge_strategy=merge_strategy)
+            
             # 验证线程和分支存在
-            thread = await self._thread_repository.get(thread_id)
-            if not thread:
-                raise EntityNotFoundError(f"Thread {thread_id} not found")
+            thread = await self._validate_thread_exists(thread_id)
             
             branch = await self._thread_branch_repository.get(branch_id)
             if not branch:
@@ -102,7 +105,8 @@ class ThreadBranchService(IThreadBranchService):
             
             return True
         except Exception as e:
-            raise ValidationError(f"Failed to merge branch to main: {str(e)}")
+            self._handle_exception(e, "merge branch to main")
+            return False
     
     async def get_branch_history(self, thread_id: str, branch_id: str) -> List[Dict[str, Any]]:
         """获取分支历史"""
