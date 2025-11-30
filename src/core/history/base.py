@@ -8,7 +8,8 @@ from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
 from abc import ABC, abstractmethod
 
-from .interfaces import IHistoryStorage, ITokenTracker
+from .interfaces import ITokenTracker
+from src.interfaces.repository.history import IHistoryRepository
 from .entities import (
     BaseHistoryRecord, LLMRequestRecord, LLMResponseRecord,
     TokenUsageRecord, CostRecord, WorkflowTokenStatistics,
@@ -29,7 +30,7 @@ class BaseHistoryManager(ABC):
     提供历史记录管理的通用功能和默认实现。
     """
     
-    def __init__(self, storage: IHistoryStorage):
+    def __init__(self, storage: IHistoryRepository):
         """
         初始化历史管理器
         
@@ -284,7 +285,7 @@ class BaseTokenTracker(ITokenTracker):
     提供Token追踪的通用功能和默认实现。
     """
     
-    def __init__(self, storage: IHistoryStorage):
+    def __init__(self, storage: IHistoryRepository):
         """
         初始化Token追踪器
         

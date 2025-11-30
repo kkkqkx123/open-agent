@@ -144,6 +144,33 @@ class ThreadFactory(IThreadCore):
             handle_error(e, context)
             return False
 
+    def update_thread_state(self, thread_data: Dict[str, Any], state_data: Dict[str, Any]) -> None:
+        """更新线程状态数据
+        
+        Args:
+            thread_data: 线程数据
+            state_data: 新的状态数据
+        """
+        thread_id = thread_data.get("id", "unknown")
+        context = create_error_context(
+            "threads",
+            "update_thread_state",
+            thread_id=thread_id
+        )
+        
+        def _update_state():
+            thread = Thread.from_dict(thread_data)
+            thread.state = state_data
+            thread.update_timestamp()
+            thread_data.update(thread.to_dict())
+        
+        try:
+            from src.core.common.error_management import safe_execution
+            return safe_execution(_update_state, context=context)
+        except Exception as e:
+            handle_error(e, context)
+            raise
+
 
 class ThreadBranchFactory(IThreadBranchCore):
     """Thread分支实体工厂 - 负责ThreadBranch实体的创建和验证"""

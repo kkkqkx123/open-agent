@@ -80,6 +80,16 @@ class IThreadCore(ABC):
         """
         pass
 
+    @abstractmethod
+    def update_thread_state(self, thread_data: Dict[str, Any], state_data: Dict[str, Any]) -> None:
+        """更新线程状态数据
+        
+        Args:
+            thread_data: 线程数据
+            state_data: 新的状态数据
+        """
+        pass
+
 
 class IThreadBranchCore(ABC):
     """Thread分支核心接口 - 定义Thread分支实体的基础行为"""
@@ -147,6 +157,8 @@ class IThreadSnapshotCore(ABC):
             创建的快照数据
         """
         pass
+
+
     
     @abstractmethod
     def validate_snapshot_data(self, snapshot_data: Dict[str, Any]) -> bool:

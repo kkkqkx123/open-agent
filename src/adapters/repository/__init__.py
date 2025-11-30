@@ -13,7 +13,7 @@ from .file_base import FileBaseRepository
 from .utils import JsonUtils, TimeUtils, FileUtils, SQLiteUtils, IdUtils
 
 # 历史记录Repository
-from .history import SQLiteHistoryRepository, MemoryHistoryRepository, FileHistoryRepository
+from .history import SQLiteHistoryRepository, MemoryHistoryRepository
 
 # 快照Repository
 from .snapshot import SQLiteSnapshotRepository, MemorySnapshotRepository, FileSnapshotRepository
@@ -41,7 +41,6 @@ __all__ = [
     # 历史记录Repository
     "SQLiteHistoryRepository",
     "MemoryHistoryRepository",
-    "FileHistoryRepository",
     
     # 快照Repository
     "SQLiteSnapshotRepository",

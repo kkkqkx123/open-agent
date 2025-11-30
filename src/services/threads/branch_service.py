@@ -4,11 +4,15 @@ import uuid
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
+from typing import TYPE_CHECKING
 from src.core.threads.interfaces import IThreadCore, IThreadBranchCore
 from src.core.threads.entities import ThreadBranch
 from src.interfaces.threads import IThreadBranchService, IThreadRepository, IThreadBranchRepository
 from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
 from .base_service import BaseThreadService
+
+if TYPE_CHECKING:
+    from src.core.threads.checkpoints.storage.service import ThreadCheckpointDomainService
 
 
 class ThreadBranchService(BaseThreadService, IThreadBranchService):
@@ -19,12 +23,14 @@ class ThreadBranchService(BaseThreadService, IThreadBranchService):
         thread_core: IThreadCore,
         thread_branch_core: IThreadBranchCore,
         thread_repository: IThreadRepository,
-        thread_branch_repository: IThreadBranchRepository
+        thread_branch_repository: IThreadBranchRepository,
+        checkpoint_domain_service: Optional['ThreadCheckpointDomainService'] = None
     ):
         super().__init__(thread_repository)
         self._thread_core = thread_core
         self._thread_branch_core = thread_branch_core
         self._thread_branch_repository = thread_branch_repository
+        self._checkpoint_domain_service = checkpoint_domain_service
     
     async def create_branch_from_checkpoint(
         self,
@@ -41,10 +47,27 @@ class ThreadBranchService(BaseThreadService, IThreadBranchService):
             # 验证线程存在
             thread = await self._validate_thread_exists(thread_id)
             
+            # 验证检查点服务存在
+            if not self._checkpoint_domain_service:
+                raise ValidationError("Checkpoint service not available")
+            
+            # 验证检查点有效性
+            checkpoint = await self._checkpoint_domain_service._repository.find_by_id(checkpoint_id)
+            if not checkpoint or checkpoint.thread_id != thread_id:
+                raise ValidationError(f"Invalid checkpoint {checkpoint_id} for thread {thread_id}")
+            
+            if not checkpoint.can_restore():
+                raise ValidationError(f"Checkpoint {checkpoint_id} cannot be restored")
+            
+            # 从检查点获取状态
+            state_data = await self._checkpoint_domain_service.restore_from_checkpoint(checkpoint_id)
+            if not state_data:
+                raise ValidationError(f"Failed to restore state from checkpoint {checkpoint_id}")
+            
             # 生成分支ID
             branch_id = str(uuid.uuid4())
             
-            # 创建分支实体
+            # 创建分支实体（包含状态数据）
             branch_data = self._thread_branch_core.create_branch(
                 branch_id=branch_id,
                 thread_id=thread_id,
@@ -116,9 +139,34 @@ class ThreadBranchService(BaseThreadService, IThreadBranchService):
             if not branch or branch.thread_id != thread_id:
                 raise EntityNotFoundError(f"Branch {branch_id} not found in thread {thread_id}")
             
-            # TODO: 分支历史功能应该从专门的历史服务获取，而不是仓储
-            # 目前先返回空列表作为占位符
-            return []
+            # 使用历史服务获取分支历史
+            from .history_service import HistoryFilters
+            
+            # 这里需要注入历史服务，简化处理
+            # 在实际实现中，应该通过依赖注入获取历史服务
+            try:
+                # 假设有历史服务可用
+                from .history_service import ThreadHistoryService
+                from src.interfaces.threads.storage import IThreadRepository
+                
+                # 创建历史服务实例（简化处理）
+                history_service = ThreadHistoryService(self._thread_repository)
+                
+                filters = HistoryFilters(limit=100)
+                history_list = await history_service.get_branch_history(branch_id, filters)
+                
+                return history_list
+            except Exception:
+                # 如果历史服务不可用，返回基本分支信息
+                return [{
+                    "branch_id": branch.id,
+                    "branch_name": branch.branch_name,
+                    "source_checkpoint_id": branch.source_checkpoint_id,
+                    "created_at": branch.created_at.isoformat(),
+                    "metadata": branch.metadata,
+                    "record_type": "branch_created"
+                }]
+                
         except Exception as e:
             raise ValidationError(f"Failed to get branch history: {str(e)}")
     

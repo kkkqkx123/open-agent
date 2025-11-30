@@ -18,6 +18,12 @@ from .thread_checkpoint_bindings import (
     register_thread_checkpoint_test_services,
     get_thread_checkpoint_service_config
 )
+from .history_bindings import (
+    register_history_services,
+    register_history_test_services,
+    get_history_service_config,
+    validate_history_config
+)
 
 __all__ = [
     # 核心容器
@@ -33,4 +39,10 @@ __all__ = [
     "register_thread_checkpoint_services_with_custom_backend",
     "register_thread_checkpoint_test_services",
     "get_thread_checkpoint_service_config",
+    
+    # History服务绑定
+    "register_history_services",
+    "register_history_test_services",
+    "get_history_service_config",
+    "validate_history_config",
 ]

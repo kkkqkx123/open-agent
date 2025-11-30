@@ -8,7 +8,8 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 from dataclasses import asdict
 
-from src.core.history.interfaces import ITokenTracker, IHistoryStorage
+from src.core.history.interfaces import ITokenTracker
+from src.interfaces.repository.history import IHistoryRepository
 from src.core.history.entities import (
     TokenUsageRecord, WorkflowTokenStatistics, WorkflowTokenSummary,
     TokenSource
@@ -30,7 +31,7 @@ class WorkflowTokenTracker(BaseTokenTracker):
     
     def __init__(
         self,
-        storage: IHistoryStorage,
+        storage: IHistoryRepository,
         token_calculation_service: TokenCalculationService,
         cache_ttl: int = 300  # 缓存5分钟
     ):

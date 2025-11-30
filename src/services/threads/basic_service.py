@@ -5,11 +5,15 @@ import yaml
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
+from typing import TYPE_CHECKING
 from src.core.threads.interfaces import IThreadCore
 from src.core.threads.entities import Thread, ThreadStatus, ThreadType, ThreadMetadata
 from src.interfaces.threads.storage import IThreadRepository
 from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
 from .base_service import BaseThreadService
+
+if TYPE_CHECKING:
+    from src.core.threads.checkpoints.storage.service import ThreadCheckpointDomainService
 
 
 class BasicThreadService(BaseThreadService):
@@ -18,16 +22,19 @@ class BasicThreadService(BaseThreadService):
     def __init__(
         self,
         thread_core: IThreadCore,
-        thread_repository: IThreadRepository
+        thread_repository: IThreadRepository,
+        checkpoint_domain_service: Optional['ThreadCheckpointDomainService'] = None
     ):
         """初始化基础线程服务
         
         Args:
             thread_core: 线程核心接口
             thread_repository: 线程仓储接口
+            checkpoint_domain_service: 检查点领域服务
         """
         super().__init__(thread_repository)
         self._thread_core = thread_core
+        self._checkpoint_domain_service = checkpoint_domain_service
     
     async def create_thread(self, graph_id: str, metadata: Optional[Dict[str, Any]] = None) -> str:
         """创建新的Thread
@@ -413,67 +420,7 @@ class BasicThreadService(BaseThreadService):
         except Exception as e:
             raise ValidationError(f"Failed to list threads by type: {str(e)}")
     
-    # === 状态管理功能（从协作服务迁移） ===
-    
-    async def get_thread_state(self, thread_id: str) -> Optional[Dict[str, Any]]:
-        """获取Thread状态
-        
-        Args:
-            thread_id: Thread ID
-            
-        Returns:
-            Thread状态，如果不存在则返回None
-        """
-        try:
-            self._log_operation("get_thread_state", thread_id)
-            
-            thread = await self._thread_repository.get(thread_id)
-            if not thread:
-                return None
-            
-            return {
-                "thread_id": thread.id,
-                "status": thread.status.value,
-                "state": thread.state.copy(),
-                "config": thread.config.copy(),
-                "metadata": thread.metadata.model_dump(),
-                "updated_at": thread.updated_at.isoformat(),
-                "message_count": thread.message_count,
-                "checkpoint_count": thread.checkpoint_count,
-                "branch_count": thread.branch_count
-            }
-            
-        except Exception as e:
-            self._handle_exception(e, "get thread state")
-            return None
-    
-    async def update_thread_state(self, thread_id: str, state: Dict[str, Any]) -> bool:
-        """更新Thread状态
-        
-        Args:
-            thread_id: Thread ID
-            state: 新状态
-            
-        Returns:
-            更新是否成功
-        """
-        try:
-            self._log_operation("update_thread_state", thread_id, state_keys=list(state.keys()))
-            
-            thread = await self._validate_thread_exists(thread_id)
-            
-            # 更新状态
-            thread.state.update(state)
-            thread.update_timestamp()
-            
-            # 保存线程
-            success = await self._thread_repository.update(thread)
-            
-            return success
-            
-        except Exception as e:
-            self._handle_exception(e, "update thread state")
-            return False
+    # === 核心业务方法 ===
     
     async def rollback_thread(self, thread_id: str, checkpoint_id: str) -> bool:
         """回滚Thread到指定检查点
@@ -488,11 +435,29 @@ class BasicThreadService(BaseThreadService):
         try:
             self._log_operation("rollback_thread", thread_id, checkpoint_id=checkpoint_id)
             
+            # 验证线程存在
             thread = await self._validate_thread_exists(thread_id)
             
-            # 这里简化处理，实际应用中需要从检查点服务获取状态
-            # 暂时返回False，表示需要与检查点服务集成
-            raise ValidationError("Rollback functionality requires checkpoint service integration")
+            # 验证检查点服务存在
+            if not self._checkpoint_domain_service:
+                raise ValidationError("Checkpoint service not available")
+            
+            # 从检查点服务获取状态
+            state_data = await self._checkpoint_domain_service.restore_from_checkpoint(checkpoint_id)
+            if not state_data:
+                raise ValidationError(f"Checkpoint {checkpoint_id} not found or invalid")
+            
+            # 使用核心服务更新线程状态
+            thread_dict = thread.to_dict()
+            self._thread_core.update_thread_state(thread_dict, state_data)
+            
+            # 从更新后的字典创建新线程对象
+            updated_thread = Thread.from_dict(thread_dict)
+            
+            # 保存更新后的线程
+            success = await self._thread_repository.update(updated_thread)
+            
+            return success
             
         except Exception as e:
             self._handle_exception(e, "rollback thread")

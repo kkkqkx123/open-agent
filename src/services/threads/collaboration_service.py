@@ -7,9 +7,13 @@ import logging
 
 from src.interfaces.threads.storage import IThreadRepository
 from src.interfaces.threads.collaboration import IThreadCollaborationService
+from typing import TYPE_CHECKING
 from src.interfaces.threads.checkpoint import IThreadCheckpointManager
 from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
 from .base_service import BaseThreadService
+
+if TYPE_CHECKING:
+    from src.interfaces.history import IHistoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -20,16 +24,19 @@ class ThreadCollaborationService(BaseThreadService, IThreadCollaborationService)
     def __init__(
         self,
         thread_repository: IThreadRepository,
-        checkpoint_manager: IThreadCheckpointManager
+        checkpoint_manager: IThreadCheckpointManager,
+        history_manager: Optional['IHistoryManager'] = None
     ):
         """初始化协作服务
         
         Args:
             thread_repository: 线程仓储接口
             checkpoint_manager: 检查点管理器
+            history_manager: 历史管理器（可选）
         """
         super().__init__(thread_repository)
         self._checkpoint_manager = checkpoint_manager
+        self._history_manager = history_manager
         self._collaboration_store: Dict[str, Dict[str, Any]] = {}  # 简化的协作存储，实际应用中应使用数据库
     
     async def create_collaborative_thread(

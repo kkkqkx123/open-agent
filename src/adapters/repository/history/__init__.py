@@ -1,11 +1,12 @@
-"""历史记录Repository模块"""
+"""历史Repository模块
 
-from .sqlite_repository import SQLiteHistoryRepository
+提供符合IHistoryRepository接口的历史记录存储实现。
+"""
+
 from .memory_repository import MemoryHistoryRepository
-from .file_repository import FileHistoryRepository
+from .sqlite_repository import SQLiteHistoryRepository
 
 __all__ = [
-    "SQLiteHistoryRepository",
-    "MemoryHistoryRepository", 
-    "FileHistoryRepository"
+    "MemoryHistoryRepository",
+    "SQLiteHistoryRepository"
 ]

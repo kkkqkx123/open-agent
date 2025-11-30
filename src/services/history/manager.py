@@ -14,7 +14,7 @@ from src.core.history.entities import (
     MessageRecord, ToolCallRecord, HistoryQuery, HistoryResult,
     RecordType
 )
-from src.core.history.interfaces import IHistoryStorage
+from src.interfaces.repository.history import IHistoryRepository
 from src.core.history.base import BaseHistoryManager
 from src.core.common.exceptions.history import HistoryError
 from src.core.common.exceptions.storage import StorageError
@@ -32,7 +32,7 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
     
     def __init__(
         self,
-        storage: IHistoryStorage,
+        storage: IHistoryRepository,
         enable_async_batching: bool = True,
         batch_size: int = 10,
         batch_timeout: float = 1.0
@@ -504,3 +504,76 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
         except Exception as e:
             self._logger.error(f"获取存储信息失败: {e}")
             raise HistoryError(f"获取存储信息失败: {e}")
+    
+    async def query_history_by_thread(
+        self,
+        thread_id: str,
+        limit: int = 10,
+        offset: int = 0,
+        record_type: Optional['RecordType'] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        model: Optional[str] = None
+    ) -> 'HistoryResult':
+        """按thread_id查询历史记录"""
+        try:
+            # 通过thread_id查询历史记录
+            # 假设历史记录中包含thread_id字段，或者通过session_id关联
+            records = await self.get_records(
+                session_id=None,  # 不按session_id过滤
+                workflow_id=None,  # 不按workflow_id过滤
+                record_type=record_type,
+                model=model,
+                start_time=start_time,
+                end_time=end_time,
+                limit=limit,
+                offset=offset
+            )
+            
+            # 过滤包含thread_id的记录
+            # 这里假设记录的metadata中包含thread_id信息
+            filtered_records = []
+            for record in records:
+                if hasattr(record, 'metadata') and record.metadata:
+                    if record.metadata.get('thread_id') == thread_id:
+                        filtered_records.append(record)
+                elif hasattr(record, 'thread_id') and record.thread_id == thread_id:
+                    filtered_records.append(record)
+            
+            # 创建结果对象
+            result = HistoryResult(
+                records=filtered_records,
+                total_count=len(filtered_records),
+                limit=limit,
+                offset=offset
+            )
+            
+            self._logger.debug(f"按thread_id查询历史记录: {thread_id}, 返回 {len(filtered_records)} 条记录")
+            
+            return result
+            
+        except Exception as e:
+            self._logger.error(f"按thread_id查询历史记录失败: {e}")
+            raise HistoryError(f"按thread_id查询历史记录失败: {e}")
+    
+    async def delete_history(
+        self,
+        query: 'HistoryQuery'
+    ) -> 'DeleteResult':
+        """删除历史记录"""
+        try:
+            # 通过存储接口删除记录
+            deleted_count = await self._storage.delete_records_by_query(query)
+            
+            from src.interfaces.history import DeleteResult
+            result = DeleteResult(
+                deleted_count=deleted_count,
+                success=True
+            )
+            
+            self._logger.debug(f"删除历史记录: {deleted_count} 条记录")
+            return result
+            
+        except Exception as e:
+            self._logger.error(f"删除历史记录失败: {e}")
+            raise HistoryError(f"删除历史记录失败: {e}")

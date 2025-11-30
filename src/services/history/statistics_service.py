@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional, Tuple, Union
 from datetime import datetime, timedelta
 from dataclasses import asdict
 
-from src.core.history.interfaces import IHistoryStorage
+from src.interfaces.repository.history import IHistoryRepository
 from src.core.history.entities import (
     WorkflowTokenStatistics, WorkflowTokenSummary, TokenUsageRecord,
     CostRecord, RecordType
@@ -26,7 +26,7 @@ class HistoryStatisticsService:
     提供历史数据的查询、分析和报告功能。
     """
     
-    def __init__(self, storage: IHistoryStorage):
+    def __init__(self, storage: IHistoryRepository):
         """
         初始化统计服务
         
