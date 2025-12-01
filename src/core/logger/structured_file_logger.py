@@ -7,8 +7,11 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 from .log_level import LogLevel
-from .logger import Logger
 from .redactor import LogRedactor
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from ...interfaces.common_infra import ILogRedactor
 
 
 class StructuredFileLogger:
@@ -18,7 +21,7 @@ class StructuredFileLogger:
         self,
         filename: str,
         level: LogLevel = LogLevel.INFO,
-        redactor: Optional[LogRedactor] = None,
+        redactor: Optional['ILogRedactor'] = None,
         encoding: str = "utf-8",
     ):
         """初始化结构化文件日志记录器
@@ -29,11 +32,11 @@ class StructuredFileLogger:
             redactor: 脱敏器
             encoding: 文件编码
         """
-        self.filename = filename
-        self.level = level
-        self.redactor = redactor or LogRedactor()
-        self.encoding = encoding
-        self._lock = threading.Lock()
+        self.filename: str = filename
+        self.level: LogLevel = level
+        self.redactor: 'ILogRedactor' = redactor or LogRedactor()
+        self.encoding: str = encoding
+        self._lock: threading.Lock = threading.Lock()
 
         # 确保目录存在
         directory = os.path.dirname(self.filename)

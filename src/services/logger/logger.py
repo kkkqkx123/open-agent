@@ -5,10 +5,10 @@ import threading
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Callable
 
-from ...interfaces.common_infra import ILogger, LogLevel
+from ...interfaces.common_infra import ILogger, IBaseHandler, ILogRedactor, LogLevel
 from ...core.logger.handlers.base_handler import BaseHandler
 from ...core.logger.log_level import LogLevel as CoreLogLevel
-from .redactor import LogRedactor
+from ...core.logger.redactor import LogRedactor
 
 
 def _log_level_from_string(level_str: str) -> LogLevel:
@@ -49,7 +49,7 @@ class Logger(ILogger):
         self,
         name: str,
         config: Optional[Dict[str, Any]] = None,
-        redactor: Optional[LogRedactor] = None,
+        redactor: Optional[ILogRedactor] = None,
     ):
         """初始化日志记录器
 
@@ -61,7 +61,7 @@ class Logger(ILogger):
         self.name = name
         self._config = config
         self._redactor = redactor or LogRedactor()
-        self._handlers: List[BaseHandler] = []
+        self._handlers: List[IBaseHandler] = []
         self._level = LogLevel.INFO
         self._lock = threading.RLock()
 
@@ -96,19 +96,19 @@ class Logger(ILogger):
         with self._lock:
             self._level = level
 
-    def add_handler(self, handler: BaseHandler) -> None:
+    def add_handler(self, handler: IBaseHandler) -> None:
         """添加日志处理器"""
         with self._lock:
             if handler not in self._handlers:
                 self._handlers.append(handler)
 
-    def remove_handler(self, handler: BaseHandler) -> None:
+    def remove_handler(self, handler: IBaseHandler) -> None:
         """移除日志处理器"""
         with self._lock:
             if handler in self._handlers:
                 self._handlers.remove(handler)
 
-    def set_redactor(self, redactor: LogRedactor) -> None:
+    def set_redactor(self, redactor: ILogRedactor) -> None:
         """设置日志脱敏器"""
         with self._lock:
             self._redactor = redactor
@@ -244,7 +244,8 @@ class Logger(ILogger):
             else:
                 continue  # 跳过未知类型的处理器
 
-            self.add_handler(handler)
+            # 类型转换：BaseHandler 实现了 IBaseHandler 接口
+            self.add_handler(handler)  # type: ignore
 
     def get_level(self) -> LogLevel:
         """获取当前日志级别
@@ -254,7 +255,7 @@ class Logger(ILogger):
         """
         return self._level
 
-    def get_handlers(self) -> List[BaseHandler]:
+    def get_handlers(self) -> List[IBaseHandler]:
         """获取所有处理器
 
         Returns:

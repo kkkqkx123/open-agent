@@ -169,8 +169,11 @@ from .common_infra import (
     IConfigInheritanceHandler,
     IStorage,
     ILogger,
-    LogLevel,
+    IBaseHandler,
+    ILogRedactor,
 )
+# 直接从 core 层导入 LogLevel 避免循环依赖
+from ..core.logger.log_level import LogLevel
 from .common_domain import (
     ISerializable,
     ICacheable,
@@ -334,6 +337,8 @@ __all__ = [
     "ITimestamped",
     "IStorage",
     "ILogger",
+    "IBaseHandler",
+    "ILogRedactor",
     "LogLevel",
     
     # 抽象数据类型

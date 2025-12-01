@@ -4,17 +4,17 @@
 提供统一的工作流错误处理和恢复策略，集成到统一错误处理框架中。
 """
 
-from src.services.logger import get_logger
 import time
 from typing import Dict, Callable, Optional, Any, List
 from enum import Enum
 
+from src.core.logger import get_logger
 from src.core.common.error_management import (
-    BaseErrorHandler, ErrorCategory, ErrorSeverity, 
+    BaseErrorHandler, ErrorCategory, ErrorSeverity,
     ErrorHandlingRegistry, operation_with_retry, operation_with_fallback
 )
 from src.core.common.exceptions.workflow import (
-    WorkflowError, WorkflowValidationError, WorkflowExecutionError, 
+    WorkflowError, WorkflowValidationError, WorkflowExecutionError,
     WorkflowStepError, WorkflowTimeoutError, WorkflowStateError,
     WorkflowConfigError, WorkflowDependencyError
 )

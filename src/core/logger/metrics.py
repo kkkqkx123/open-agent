@@ -57,7 +57,7 @@ class IMetricsCollector(ABC):
 class MetricsCollector(IMetricsCollector):
     """指标收集器实现"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化指标收集器"""
         self._counters: Dict[str, float] = {}
         self._gauges: Dict[str, float] = {}

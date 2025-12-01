@@ -9,9 +9,20 @@
 ### 整体架构
 
 ```
-日志模块架构
+日志模块架构 (SimpleLogger 优化后)
+├── 接口层 (src/interfaces/common_infra.py)
+│   ├── ILogger (日志记录器接口)
+│   ├── IBaseHandler (处理器接口)
+│   ├── ILogRedactor (脱敏器接口)
+│   └── LogLevel (统一日志级别)
 ├── 核心层 (src/core/logger/)
-│   ├── 日志级别 (LogLevel)
+│   ├── 基础组件
+│   │   ├── LogLevel (日志级别定义)
+│   │   ├── LoggerFactory (日志工厂)
+│   │   ├── LogRedactor (日志脱敏器)
+│   │   ├── StructuredFileLogger (结构化文件日志记录器)
+│   │   ├── MetricsCollector (指标收集器)
+│   │   └── BaseErrorHandler (错误处理基础组件)
 │   ├── 格式化器 (Formatters)
 │   │   ├── BaseFormatter (基础格式化器)
 │   │   ├── TextFormatter (文本格式化器)
@@ -23,20 +34,27 @@
 │       ├── FileHandler (文件处理器)
 │       └── JsonHandler (JSON处理器)
 └── 服务层 (src/services/logger/)
-    ├── 日志记录器 (Logger)
-    ├── 脱敏器 (LogRedactor)
-    ├── 错误处理器 (ErrorHandler)
-    ├── 指标收集器 (MetricsCollector)
-    └── 结构化文件日志记录器 (StructuredFileLogger)
+    ├── Logger (主要日志记录器实现)
+    └── GlobalErrorHandler (全局错误处理器服务)
 ```
 
 ### 设计原则
 
-1. **分层架构**：核心层提供基础功能，服务层提供高级功能
+1. **扁平化架构**：采用 Core + Services + Interfaces 三层架构，职责清晰
 2. **接口驱动**：所有核心组件都定义了接口，便于扩展和测试
-3. **配置驱动**：支持通过配置文件灵活配置日志行为
-4. **线程安全**：所有组件都考虑了多线程环境下的安全性
-5. **性能优化**：包括缓存机制和异步处理能力
+3. **依赖解耦**：通过接口层实现层间解耦，避免循环依赖
+4. **配置驱动**：支持通过配置文件灵活配置日志行为
+5. **线程安全**：所有组件都考虑了多线程环境下的安全性
+6. **性能优化**：包括缓存机制和异步处理能力
+
+### 迁移优化
+
+1. **统一 LogLevel**：消除重复定义，使用统一的数值枚举
+2. **接口解耦**：添加 IBaseHandler 和 ILogRedactor 接口
+3. **职责分离**：核心基础设施移至 core 层，业务逻辑保留在 services 层
+4. **类型安全**：完善类型注解，通过 mypy 类型检查
+5. **SimpleLogger 移除**：消除跨层依赖，统一使用 ILogger 接口
+6. **日志工厂**：通过 LoggerFactory 为 Core 层提供统一的日志获取接口
 
 ## 核心功能
 

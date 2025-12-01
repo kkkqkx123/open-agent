@@ -1,12 +1,12 @@
 """Sessions模块错误处理器
-
+ 
 为Session操作提供统一的错误处理机制。
 """
 
 from typing import Any, Dict, Optional
-from src.services.logger import get_logger
 import time
 
+from src.core.logger import get_logger
 from src.core.common.error_management import BaseErrorHandler, ErrorCategory, ErrorSeverity
 from src.core.common.exceptions.session_thread import (
     SessionThreadException,

@@ -2,9 +2,12 @@
 
 import sys
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from ..log_level import LogLevel
+
+if TYPE_CHECKING:
+    from ....interfaces.common_infra import IBaseHandler
 
 
 class BaseHandler(ABC):

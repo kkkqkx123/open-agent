@@ -2,12 +2,17 @@
 
 import re
 import hashlib
-from typing import List, Optional, Pattern, Dict, Any
+from typing import List, Optional, Pattern, Dict, Any, TYPE_CHECKING
 
-from ...interfaces.common_infra import LogLevel
+from .log_level import LogLevel
+
+if TYPE_CHECKING:
+    from ...interfaces.common_infra import ILogRedactor
+else:
+    ILogRedactor = object  # type: ignore
 
 
-class LogRedactor:
+class LogRedactor(ILogRedactor):
     """日志脱敏器"""
 
     # 默认敏感信息模式

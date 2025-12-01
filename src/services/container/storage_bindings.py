@@ -1,11 +1,11 @@
 """存储相关服务依赖注入绑定配置
-
+ 
 统一注册 Session 和 Thread 的存储服务。
 """
 
-from src.services.logger import get_logger
 from typing import Dict, Any
 
+from src.services.logger import get_logger
 from .session_bindings import (
     register_session_backends,
     register_session_repository,

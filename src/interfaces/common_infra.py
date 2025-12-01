@@ -10,8 +10,8 @@ from datetime import datetime
 from enum import Enum
 
 if TYPE_CHECKING:
-    from src.core.logger.handlers.base_handler import BaseHandler
-    from src.services.logger.redactor import LogRedactor
+    from ..core.logger.handlers.base_handler import BaseHandler
+    from ..core.logger.redactor import LogRedactor
 
 # 泛型类型变量
 T = TypeVar('T')
@@ -32,17 +32,10 @@ class ServiceLifetime(str, Enum):
     SCOPED = "scoped"       # 作用域模式，在特定作用域内是单例
 
 
-class LogLevel(Enum):
-    """
-    日志级别枚举
-    
-    定义日志记录的严重程度级别。
-    """
-    DEBUG = "DEBUG"      # 调试信息，用于开发调试
-    INFO = "INFO"        # 一般信息，记录正常运行状态
-    WARNING = "WARNING"  # 警告信息，表示潜在问题
-    ERROR = "ERROR"      # 错误信息，表示错误但程序可继续
-    CRITICAL = "CRITICAL"  # 严重错误，表示程序可能无法继续
+# LogLevel 作为运行时类型别名，在需要时从 core 层导入
+# 为避免循环导入，这里只在 TYPE_CHECKING 时导入
+if TYPE_CHECKING:
+    from ..core.logger.log_level import LogLevel
 
 
 '''
@@ -293,6 +286,80 @@ class IStorage(ABC):
 日志接口
 '''
 
+class IBaseHandler(ABC):
+    """
+    日志处理器接口
+    
+    定义日志处理器的基础契约，避免接口层对具体实现的依赖。
+    """
+    
+    @abstractmethod
+    def handle(self, record: Dict[str, Any]) -> None:
+        """
+        处理日志记录
+        
+        Args:
+            record: 日志记录字典
+        """
+        pass
+    
+    @abstractmethod
+    def set_level(self, level: LogLevel) -> None:
+        """
+        设置日志级别
+        
+        Args:
+            level: 日志级别
+        """
+        pass
+    
+    @abstractmethod
+    def set_formatter(self, formatter: Any) -> None:
+        """
+        设置格式化器
+        
+        Args:
+            formatter: 格式化器实例
+        """
+        pass
+    
+    @abstractmethod
+    def flush(self) -> None:
+        """
+        刷新缓冲区
+        """
+        pass
+    
+    @abstractmethod
+    def close(self) -> None:
+        """
+        关闭处理器
+        """
+        pass
+
+
+class ILogRedactor(ABC):
+    """
+    日志脱敏器接口
+    
+    定义日志脱敏功能的基础契约。
+    """
+    
+    @abstractmethod
+    def redact(self, text: str, level: LogLevel = LogLevel.INFO) -> str:
+        """
+        脱敏文本
+        
+        Args:
+            text: 原始文本
+            level: 日志级别
+            
+        Returns:
+            脱敏后的文本
+        """
+        pass
+
+
 class ILogger(ABC):
     """
     日志记录器接口
@@ -366,7 +433,7 @@ class ILogger(ABC):
         pass
     
     @abstractmethod
-    def add_handler(self, handler: 'BaseHandler') -> None:
+    def add_handler(self, handler: IBaseHandler) -> None:
         """
         添加日志处理器
         
@@ -376,7 +443,7 @@ class ILogger(ABC):
         pass
     
     @abstractmethod
-    def remove_handler(self, handler: 'BaseHandler') -> None:
+    def remove_handler(self, handler: IBaseHandler) -> None:
         """
         移除日志处理器
         
@@ -386,7 +453,7 @@ class ILogger(ABC):
         pass
     
     @abstractmethod
-    def set_redactor(self, redactor: 'LogRedactor') -> None:
+    def set_redactor(self, redactor: ILogRedactor) -> None:
         """
         设置日志脱敏器
         
@@ -514,3 +581,11 @@ class IDependencyContainer(ABC):
         清除所有服务和缓存
         """
         pass
+
+
+def __getattr__(name: str) -> Any:
+    """运行时导出LogLevel，避免循环导入"""
+    if name == 'LogLevel':
+        from ..core.logger.log_level import LogLevel
+        return LogLevel
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

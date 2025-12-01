@@ -1,17 +1,17 @@
 """依赖注入容器实现
-
+ 
 提供依赖注入容器功能，支持单例、瞬态和作用域生命周期。
 """
 
-from src.services.logger import get_logger
 import threading
 import time
 from typing import Type, TypeVar, Dict, Any, Optional, List, Callable, Iterator, Generator
 from contextlib import contextmanager
 
+from src.services.logger import get_logger
 from src.interfaces.container import (
-    IDependencyContainer, 
-    ILifecycleAware, 
+    IDependencyContainer,
+    ILifecycleAware,
 )
 from src.interfaces.configuration import ValidationResult
 from src.core.common.types import ServiceLifetime

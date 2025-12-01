@@ -1,10 +1,10 @@
 """统一错误处理注册表"""
-
-from src.services.logger import get_logger
+ 
 import time
 from typing import Any, Callable, Dict, Optional, Type
 from functools import wraps
 
+from src.core.logger import get_logger
 from .error_handler import IErrorHandler, BaseErrorHandler
 from .error_category import ErrorCategory
 from .error_severity import ErrorSeverity

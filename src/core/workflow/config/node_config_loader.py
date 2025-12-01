@@ -1,12 +1,12 @@
 """节点配置加载器
-
+ 
 负责从配置文件中加载节点的默认配置，并提供配置合并功能。
 """
 
 from typing import Dict, Any, Optional
 from pathlib import Path
-from src.services.logger import get_logger
 
+from src.core.logger import get_logger
 from src.interfaces.common_infra import IConfigLoader
 from src.services.container import get_global_container
 
