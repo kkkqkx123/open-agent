@@ -76,7 +76,7 @@ async def export_session_data(
             return export_data
         elif format == "csv":
             # 返回CSV文件下载
-            csv_content = export_data["content"]
+            csv_content = export_data if isinstance(export_data, str) else str(export_data)
             return StreamingResponse(
                 io.BytesIO(csv_content.encode('utf-8')),
                 media_type="text/csv",

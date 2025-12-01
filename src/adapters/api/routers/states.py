@@ -108,7 +108,7 @@ async def update_state(
     """
     try:
         state_data = await state_service.update_state(
-            state_id, request.current_state, request.updates
+            state_id, request.updates
         )
         return StateResponse(**state_data)
     except ValueError as e:

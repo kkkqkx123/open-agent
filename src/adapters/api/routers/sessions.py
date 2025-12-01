@@ -140,7 +140,7 @@ async def save_session_state(
 ) -> ApiResponse:
     """保存会话状态"""
     try:
-        success = await session_service.save_session_state(session_id)
+        success = await session_service.save_session_state(session_id, {})
         if not success:
             raise HTTPException(status_code=404, detail="会话不存在")
         return ApiResponse(success=True, message="会话状态已保存", data=None)

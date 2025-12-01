@@ -6,7 +6,7 @@ Provides time and timezone conversion functionality.
 
 import time
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import pytz
 
 
@@ -15,7 +15,7 @@ def get_current_time(timezone: str = "UTC") -> Dict[str, Any]:
     
     Args:
         timezone: IANA timezone name (e.g., 'America/New_York', 'Europe/London'). 
-                 Defaults to 'UTC' if no timezone provided.
+            Defaults to 'UTC' if no timezone provided.
     
     Returns:
         Dict[str, Any]: Time information including timezone, datetime, and DST status
