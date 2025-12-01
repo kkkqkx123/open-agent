@@ -6,7 +6,7 @@
 
 import time
 import threading
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Callable, cast, Union
 from dataclasses import dataclass
 from enum import Enum
@@ -17,7 +17,7 @@ from src.interfaces.workflow.graph import NodeExecutionResult
 from src.interfaces.state.interfaces import IState
 from langchain_core.messages import SystemMessage, BaseMessage as LCBaseMessage
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TimeoutStrategy(Enum):

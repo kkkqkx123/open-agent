@@ -5,12 +5,12 @@
 
 from typing import Dict, Any, Optional
 from pathlib import Path
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces.common_infra import IConfigLoader
 from src.services.container import get_global_container
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class NodeConfigLoader:

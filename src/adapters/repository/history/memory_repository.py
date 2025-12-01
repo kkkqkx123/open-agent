@@ -3,7 +3,7 @@
 提供基于内存的历史记录Repository实现，用于测试和开发环境。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import threading
@@ -19,7 +19,7 @@ from ..memory_base import MemoryBaseRepository
 from ..utils import TimeUtils, IdUtils
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MemoryHistoryRepository(MemoryBaseRepository, IHistoryRepository):

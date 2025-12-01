@@ -1,6 +1,6 @@
 """LLM包装器工厂"""
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Type, Coroutine
 
 from .base_wrapper import BaseLLMWrapper
@@ -9,7 +9,7 @@ from .polling_pool_wrapper import PollingPoolWrapper
 from ...common.exceptions.llm_wrapper import WrapperFactoryError, WrapperConfigError
 from ....interfaces.llm import ITaskGroupManager, IPollingPoolManager, IFallbackManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LLMWrapperFactory:

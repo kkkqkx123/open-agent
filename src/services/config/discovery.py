@@ -6,9 +6,9 @@
 from typing import Dict, List, Any, Optional, Set, Tuple
 from pathlib import Path
 import re
-import logging
+from src.services.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConfigDiscoveryResult:
@@ -124,7 +124,7 @@ class ConfigDiscoverer:
             base_path: 基础路径
         """
         self.base_path = Path(base_path)
-        self.logger = logging.getLogger(f"{__name__}.ConfigDiscoverer")
+        self.logger = get_logger(f"{__name__}.ConfigDiscoverer")
         
         # 文件模式映射
         self.workflow_patterns = [

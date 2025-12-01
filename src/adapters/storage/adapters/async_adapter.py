@@ -3,7 +3,7 @@
 提供纯异步的状态存储适配器实现。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional, Sequence
 
 from src.interfaces.state.storage.adapter import IStateStorageAdapter
@@ -15,7 +15,7 @@ from ..core.metrics import StorageMetrics, MetricsContext
 from ..core.transaction import TransactionManager, TransactionContext
 from ..core.error_handler import with_error_handling
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AsyncStateStorageAdapter(IStateStorageAdapter):

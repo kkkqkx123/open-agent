@@ -7,10 +7,10 @@ import asyncio
 import threading
 from typing import Optional, Any, Coroutine
 from functools import wraps
-import logging
+from src.services.logger import get_logger
 import concurrent.futures
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AsyncUtils:

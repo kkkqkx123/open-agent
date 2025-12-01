@@ -5,7 +5,7 @@ LLM管理服务
 """
 
 from typing import Any, Dict, List, Optional, Union, Sequence, AsyncGenerator
-import logging
+from src.services.logger import get_logger
 from langchain_core.messages import BaseMessage
 
 from src.interfaces.llm import ILLMClient, ILLMManager, IFallbackManager, ITaskGroupManager, ILLMCallHook, LLMResponse
@@ -20,7 +20,7 @@ from src.services.llm.core.client_manager import LLMClientManager
 from src.services.llm.core.request_executor import LLMRequestExecutor
 from src.services.llm.core.manager_registry import manager_registry, ManagerStatus
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LLMManager(ILLMManager):

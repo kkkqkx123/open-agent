@@ -3,7 +3,7 @@
 提供工作流执行的调度和资源管理服务。
 """
 
-import logging
+from src.services.logger import get_logger
 import time
 import threading
 import queue
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from ..core.execution_context import ExecutionContext, ExecutionResult
     from ...workflow import Workflow
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TaskPriority(Enum):

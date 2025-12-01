@@ -5,14 +5,14 @@
 
 import os
 import subprocess
-import logging
+from src.services.logger import get_logger
 from pathlib import Path
 from typing import Dict, Any, List
 
 from src.interfaces.workflow.plugins import IStartPlugin, PluginMetadata, PluginContext, PluginType
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ContextSummaryPlugin(IStartPlugin):

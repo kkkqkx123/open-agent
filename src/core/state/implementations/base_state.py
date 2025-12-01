@@ -4,7 +4,7 @@
 """
 
 import uuid
-import logging
+from src.services.logger import get_logger
 from typing import Any, Dict, Optional
 from datetime import datetime
 
@@ -13,7 +13,7 @@ from ..interfaces.base import IState
 from ...common.exceptions.state import StateError, StateValidationError
 from ...common.error_management import handle_error, ErrorCategory, ErrorSeverity
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BaseStateImpl(BaseState):

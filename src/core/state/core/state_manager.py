@@ -5,7 +5,7 @@
 
 import threading
 import uuid
-import logging
+from src.services.logger import get_logger
 from typing import Any, Dict, List, Optional, Type, Callable
 
 from ..interfaces.base import (
@@ -17,7 +17,7 @@ from src.interfaces.state.lifecycle import IStateLifecycleManager
 from .base import BaseStateSerializer, BaseStateValidator, BaseStateLifecycleManager
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StateManager(IStateManager):

@@ -3,7 +3,7 @@
 提供创建异步存储适配器的工厂实现。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List
 
 from src.interfaces.state.storage.adapter import (
@@ -16,7 +16,7 @@ from .core.metrics import StorageMetrics
 from .core.transaction import TransactionManager
 from .registry import storage_registry
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StorageAdapterFactory(IStorageAdapterFactory):

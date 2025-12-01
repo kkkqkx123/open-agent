@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Union, Callable
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces.workflow.element_builder import (
     IElementBuilder, INodeBuilder, IEdgeBuilder, 
@@ -33,7 +33,7 @@ class BaseElementBuilder(IElementBuilder, ABC):
             enable_caching: 是否启用缓存
             enable_validation: 是否启用验证
         """
-        self.logger = logger or logging.getLogger(self.__class__.__name__)
+        self.logger = logger or get_logger(self.__class__.__name__)
         self.enable_caching = enable_caching
         self.enable_validation = enable_validation
         self._validation_rules: List[IValidationRule] = []

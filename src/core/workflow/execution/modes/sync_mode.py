@@ -3,7 +3,7 @@
 提供工作流的同步执行模式实现。
 """
 
-import logging
+from src.services.logger import get_logger
 import time
 from typing import Dict, Any, Optional, TYPE_CHECKING
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from src.interfaces.workflow.core import INode
     from src.core.workflow.execution.core.execution_context import ExecutionContext, NodeResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ISyncMode(IExecutionMode):

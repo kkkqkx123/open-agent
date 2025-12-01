@@ -3,11 +3,11 @@
 负责管理LLM管理器的状态转换。
 """
 
-import logging
+from src.services.logger import get_logger
 from enum import Enum
 from typing import Callable, Dict, Optional, Any
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LLMManagerState(Enum):

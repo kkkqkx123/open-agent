@@ -3,7 +3,7 @@
 import uuid
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces.threads.storage import IThreadRepository
 from src.interfaces.threads.collaboration import IThreadCollaborationService
@@ -15,7 +15,7 @@ from .base_service import BaseThreadService
 if TYPE_CHECKING:
     from src.interfaces.history import IHistoryManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ThreadCollaborationService(BaseThreadService, IThreadCollaborationService):

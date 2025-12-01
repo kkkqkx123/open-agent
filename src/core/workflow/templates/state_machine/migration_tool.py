@@ -6,7 +6,7 @@
 from typing import Dict, Any, List, Optional, Tuple
 import json
 import yaml
-import logging
+from src.services.logger import get_logger
 from pathlib import Path
 
 from .config_adapter import StateMachineConfigAdapter
@@ -14,7 +14,7 @@ from src.core.workflow.graph.nodes.state_machine.state_machine_workflow import (
     StateMachineConfig, StateDefinition, StateType, Transition
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StateMachineMigrationTool:

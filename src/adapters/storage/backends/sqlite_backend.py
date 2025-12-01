@@ -7,7 +7,7 @@ import asyncio
 import sqlite3
 import threading
 import time
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Union, AsyncIterator, AsyncGenerator
 from pathlib import Path
 
@@ -22,7 +22,7 @@ from ..utils.common_utils import StorageCommonUtils
 from ..utils.memory_optimizer import get_global_optimizer
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SQLiteStorageBackend(ConnectionPooledStorageBackend):

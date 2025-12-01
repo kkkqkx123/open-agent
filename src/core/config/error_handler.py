@@ -3,7 +3,7 @@
 为配置系统提供专门的错误处理和分类策略。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, Callable
 
 from ..common.error_management import (
@@ -15,7 +15,7 @@ from ..common.exceptions.config import (
     ConfigInheritanceError, ConfigFormatError, ConfigEnvironmentError
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConfigErrorHandler(BaseErrorHandler):

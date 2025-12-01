@@ -2,7 +2,7 @@
 
 import json
 import sqlite3
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 from datetime import datetime
@@ -10,7 +10,7 @@ from datetime import datetime
 from .thread_base import IThreadStorageBackend
 from src.core.common.exceptions import StorageError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SQLiteThreadBackend(IThreadStorageBackend):

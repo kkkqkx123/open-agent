@@ -3,7 +3,7 @@
 提供Thread检查点的高级管理功能，协调多个领域服务。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
@@ -12,7 +12,7 @@ from .storage.models import ThreadCheckpoint, CheckpointStatistics, CheckpointTy
 from .storage.repository import IThreadCheckpointRepository
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ThreadCheckpointManager:

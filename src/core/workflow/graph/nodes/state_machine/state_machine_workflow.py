@@ -6,12 +6,12 @@
 from typing import Dict, Any, Optional, List, Set, Union
 from abc import ABC, abstractmethod
 from enum import Enum
-import logging
+from src.services.logger import get_logger
 
 from src.core.workflow.config.config import WorkflowConfig
 from src.core.state import WorkflowState
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StateType(Enum):

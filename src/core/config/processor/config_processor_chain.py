@@ -3,13 +3,13 @@
 提供可组合的配置处理功能，支持继承、环境变量替换和引用解析。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional, Set
 from pathlib import Path
 
 from ....interfaces.config.interfaces import IConfigProcessor
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConfigProcessorChain(IConfigProcessor):

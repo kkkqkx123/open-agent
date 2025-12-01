@@ -4,14 +4,14 @@
 """
 
 from typing import Dict, Any, Callable, Optional, List
-import logging
+from src.services.logger import get_logger
 
 from .registry import TriggerFunctionRegistry, TriggerFunctionConfig
 from .loader import TriggerFunctionLoader
 from .builtin import BuiltinTriggerFunctions
 from .config import TriggerCompositionConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TriggerFunctionManager:
@@ -426,7 +426,7 @@ class TriggerFunctionManager:
         
         # 创建触发器
         try:
-            from ..triggers.builtin_triggers import CustomTrigger
+            from ..graph.extensions.triggers.builtin_triggers import CustomTrigger
             
             return CustomTrigger(
                 trigger_id=trigger_id,

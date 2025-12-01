@@ -7,7 +7,7 @@
 """
 
 from typing import Dict, Any, List, Optional, Union
-import logging
+from src.services.logger import get_logger
 from datetime import datetime
 
 from langchain_core.messages import (
@@ -20,7 +20,7 @@ from langchain_core.messages import (
 
 from ..models import LLMMessage, MessageRole
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MessageConverter:
@@ -31,7 +31,7 @@ class MessageConverter:
     
     def __init__(self) -> None:
         """初始化消息转换器"""
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
     
     def to_langchain_message(self, message: Any) -> BaseMessage:
         """将任意消息格式转换为LangChain消息

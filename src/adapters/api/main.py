@@ -1,6 +1,7 @@
 """FastAPI应用入口"""
-import logging
+from src.services.logger import get_logger
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -49,7 +50,7 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时执行
     setup_logging()
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     
     logger.info("Starting FastAPI application...")
     
@@ -164,7 +165,7 @@ def create_app() -> FastAPI:
     
     @app.exception_handler(Exception)
     async def general_exception_handler(request, exc):
-        logger = logging.getLogger(__name__)
+        logger = get_logger(__name__)
         logger.error(f"Unhandled exception: {exc}", exc_info=True)
         
         return JSONResponse(

@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, Optional, List
 from pathlib import Path
-import logging
+from src.services.logger import get_logger
 from datetime import datetime
 import uuid
 import hashlib
@@ -14,7 +14,7 @@ from src.core.workflow.config import WorkflowConfig, GraphConfig
 from core.common.exceptions.workflow import WorkflowConfigError, WorkflowValidationError
 from src.core.config.config_loader import ConfigLoader
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class IWorkflowConfigManager:

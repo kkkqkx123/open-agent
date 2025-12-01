@@ -3,7 +3,7 @@
 注册配置相关的服务到依赖注入容器。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any
 
 from src.interfaces.container import IDependencyContainer
@@ -19,7 +19,7 @@ from ...core.config.processor.config_processor_chain import (
 )
 from ...core.config.adapter_factory import AdapterFactory
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def register_config_services(container: IDependencyContainer) -> None:

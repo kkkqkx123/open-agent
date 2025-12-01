@@ -87,9 +87,9 @@ class BaseErrorHandler(IErrorHandler):
             error: 异常对象
             context: 错误上下文信息
         """
-        import logging
+        from src.services.logger import get_logger
         
-        logger = logging.getLogger(__name__)
+        logger = get_logger(__name__)
         
         error_info = {
             "category": self.error_category.value,

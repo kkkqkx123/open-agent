@@ -1,7 +1,7 @@
 """依赖分析命令 - CLI接口"""
 
 import json
-import logging
+from src.services.logger import get_logger
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from abc import ABC, abstractmethod
@@ -11,7 +11,7 @@ from src.adapters.cli.dependency_analyzer_tool import (
     DependencyAnalysisResult
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class IDependencyAnalysisCommand(ABC):

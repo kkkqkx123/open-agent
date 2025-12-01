@@ -9,7 +9,7 @@
 
 from typing import Dict, Any, Optional, List, AsyncGenerator, Union, TYPE_CHECKING, cast
 from datetime import datetime
-import logging
+from src.services.logger import get_logger
 import asyncio
 from abc import ABC, abstractmethod
 import inspect
@@ -32,7 +32,7 @@ from src.interfaces.workflow.element_builder import BuildContext
 from src.interfaces.state import IStateLifecycleManager
 from src.services.workflow.graph_cache import GraphCache
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ILangGraphAdapter(ABC):

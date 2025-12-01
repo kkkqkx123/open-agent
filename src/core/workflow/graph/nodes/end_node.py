@@ -4,7 +4,7 @@
 """
 
 import time
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional
 
 from .registry import node
@@ -16,7 +16,7 @@ from src.core.workflow.plugins.manager import PluginManager
 from src.core.workflow.plugins.hooks.executor import HookExecutor
 from src.interfaces.workflow.plugins import PluginType, PluginContext
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @node("end_node")

@@ -8,7 +8,7 @@ import asyncio
 from typing import Dict, List, Set, Optional, Any, Tuple, Union
 from dataclasses import dataclass
 from pathlib import Path
-import logging
+from src.services.logger import get_logger
 
 from ...interfaces import IPromptRegistry, PromptMeta, PromptConfig
 from ...core.common.exceptions import (
@@ -17,7 +17,7 @@ from ...core.common.exceptions import (
     PromptCircularReferenceError
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

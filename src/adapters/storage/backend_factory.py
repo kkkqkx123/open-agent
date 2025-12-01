@@ -4,7 +4,7 @@
 Adapters层的工厂实现，负责创建具体的存储后端实例。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List
 
 from .interfaces import (
@@ -18,7 +18,7 @@ from .backends.sqlite_thread_backend import SQLiteThreadBackend
 from .backends.file_thread_backend import FileThreadBackend
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SessionStorageBackendFactory(ISessionStorageBackendFactory):

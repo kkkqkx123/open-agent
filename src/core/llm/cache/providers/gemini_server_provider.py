@@ -2,11 +2,11 @@
 
 from typing import Any, Optional, List, Dict
 from datetime import datetime
-import logging
+from src.services.logger import get_logger
 
 from ..server_interfaces import IServerCacheProvider
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class GeminiServerCacheProvider(IServerCacheProvider):

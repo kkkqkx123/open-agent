@@ -1,12 +1,12 @@
 """内存缓存管理器 - 提供轻量级缓存服务"""
 
-from typing import Any, Optional, Dict, Union
-import logging
+from typing import Any, Optional, Dict, Union, List
+from src.services.logger import get_logger
 from pathlib import Path
 
 from .memory_cache import MemoryCache
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CacheManager:
@@ -117,9 +117,9 @@ class CacheManager:
         }
         
         try:
-            if hasattr(self._cache, 'get_cache_info'):
-                cache_info = self._cache.get_cache_info()
-                info["memory_cache"] = cache_info
+            # 从内存缓存中获取缓存统计信息
+            if hasattr(self._cache, '_storage'):
+                info["cache_entries"] = len(self._cache._storage)
             
         except Exception as e:
             info["error"] = str(e)

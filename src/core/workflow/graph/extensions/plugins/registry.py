@@ -3,12 +3,12 @@
 管理插件的注册、获取和查询功能。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Any, Dict, List, Optional, Type, cast
 from src.interfaces.workflow.plugins import IPlugin, PluginType, PluginStatus
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PluginRegistry:

@@ -1,13 +1,13 @@
 """SQLite Repository基类"""
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional
 
 from .base import BaseRepository
 from .utils import SQLiteUtils
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SQLiteBaseRepository(BaseRepository):

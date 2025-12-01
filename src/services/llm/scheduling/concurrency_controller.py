@@ -6,9 +6,9 @@ import threading
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 from enum import Enum
-import logging
+from src.services.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConcurrencyLevel(Enum):

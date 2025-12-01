@@ -3,13 +3,13 @@
 提供所有Repository实现的通用基类和功能。
 """
 
-import logging
+from src.services.logger import get_logger
 from abc import ABC
 from typing import Dict, Any, Optional
 
 from src.core.common.exceptions import RepositoryError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BaseRepository(ABC):
@@ -22,7 +22,7 @@ class BaseRepository(ABC):
             config: 配置参数
         """
         self.config = config
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = get_logger(self.__class__.__name__)
     
     def _log_operation(self, operation: str, success: bool, details: str = "") -> None:
         """记录操作日志

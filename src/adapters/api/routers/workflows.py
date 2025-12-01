@@ -1,5 +1,5 @@
 """工作流管理API路由"""
-import logging
+from src.services.logger import get_logger
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from typing import Optional, List
@@ -12,7 +12,7 @@ from ..services.workflow_service import WorkflowService
 from ..dependencies import get_workflow_service
 
 # 配置日志
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 

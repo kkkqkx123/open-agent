@@ -3,7 +3,7 @@
 统一注册History管理、统计、追踪、成本计算等服务。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional
 
 from src.interfaces.history import IHistoryManager, ICostCalculator
@@ -22,7 +22,7 @@ from src.interfaces.common_infra import ILogger
 # 导入日志绑定
 from .logger_bindings import register_logger_services
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def register_history_services(

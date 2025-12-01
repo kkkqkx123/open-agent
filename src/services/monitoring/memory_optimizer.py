@@ -4,7 +4,7 @@
 """
 
 import gc
-import logging
+from src.services.logger import get_logger
 import threading
 import time
 import weakref
@@ -14,7 +14,7 @@ from collections import defaultdict
 import psutil
 import os
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

@@ -3,7 +3,7 @@
 提供历史记录管理的基础实现和通用功能。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
 from abc import ABC, abstractmethod
@@ -21,7 +21,7 @@ from src.core.common.exceptions.history import (
 from src.core.common.exceptions.storage import StorageError
 from src.core.common.error_management import handle_error, ErrorCategory, ErrorSeverity
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BaseHistoryManager(ABC):
@@ -38,7 +38,7 @@ class BaseHistoryManager(ABC):
             storage: 历史存储实例
         """
         self._storage = storage
-        self._logger = logging.getLogger(self.__class__.__name__)
+        self._logger = get_logger(self.__class__.__name__)
     
     async def save_record(self, record: BaseHistoryRecord) -> bool:
         """
@@ -293,7 +293,7 @@ class BaseTokenTracker(ITokenTracker):
             storage: 历史存储实例
         """
         self._storage = storage
-        self._logger = logging.getLogger(self.__class__.__name__)
+        self._logger = get_logger(self.__class__.__name__)
         self._pending_requests: Dict[str, LLMRequestRecord] = {}
     
     async def track_workflow_token_usage(

@@ -5,13 +5,13 @@
 """
 
 import os
-import logging
+from src.services.logger import get_logger
 from typing import List, Dict, Any, Union, Optional
 from src.interfaces.tool.base import ITool
 from src.core.tools.config import ToolConfig, RestToolConfig, MCPToolConfig, NativeToolConfig
 from ..config.config_manager import get_default_manager, ConfigManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class DefaultToolLoader:
     """默认工具加载器实现"""

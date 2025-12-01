@@ -5,11 +5,11 @@
 
 from typing import Dict, Any, Callable, Optional, List
 from dataclasses import dataclass
-import logging
+from src.services.logger import get_logger
 
 from .config import TriggerFunctionConfig, TriggerCompositionConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

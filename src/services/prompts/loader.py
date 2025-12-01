@@ -6,13 +6,13 @@
 from pathlib import Path
 from typing import Dict, Optional, List
 import asyncio
-import logging
+from src.services.logger import get_logger
 import yaml
 
 from ...interfaces import IPromptLoader, IPromptRegistry
 from ...core.common.exceptions import PromptLoadError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PromptLoader(IPromptLoader):

@@ -3,7 +3,7 @@
 提供工作流的流式执行策略实现。
 """
 
-import logging
+from src.services.logger import get_logger
 import asyncio
 from typing import Dict, Any, Optional, List, AsyncIterator, Iterator, TYPE_CHECKING, cast
 from dataclasses import dataclass, field
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from src.interfaces.workflow.core import IWorkflow
     from src.interfaces.state.workflow import IWorkflowState
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

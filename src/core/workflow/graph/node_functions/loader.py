@@ -8,13 +8,13 @@ import importlib
 import inspect
 from pathlib import Path
 from typing import Dict, Any, Callable, Optional, List
-import logging
+from src.services.logger import get_logger
 
 from .registry import NodeFunctionRegistry, get_global_node_function_registry
 from .config import NodeFunctionConfig, NodeCompositionConfig, NodeFunctionConfigLoader
 from ....config.config_manager import get_default_manager, ConfigManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class NodeFunctionLoader:

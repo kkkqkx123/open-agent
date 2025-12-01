@@ -7,13 +7,13 @@ import os
 import re
 from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
-import logging
+from src.services.logger import get_logger
 import yaml
 
 from ...core.config.config_manager import ConfigManager
 from ...interfaces.prompts.models import PromptConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PromptConfigProcessor:

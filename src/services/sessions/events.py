@@ -1,7 +1,7 @@
 """Session事件管理器 - 简化实现"""
 
 import asyncio
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Callable, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from .service import SessionService
     from .manager import SessionManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SessionEventType(str, Enum):

@@ -3,7 +3,7 @@
 跟踪和管理对话历史，提供详细的token使用统计。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
@@ -12,7 +12,7 @@ from langchain_core.messages import BaseMessage
 from .token_types import TokenUsage
 from ..utils.encoding_protocol import extract_content_as_string
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConversationTracker:

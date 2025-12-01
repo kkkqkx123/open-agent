@@ -6,14 +6,14 @@
 import os
 import sys
 import shutil
-import logging
+from src.services.logger import get_logger
 import platform
 from typing import Dict, Any, List
 
 from src.interfaces import IStartPlugin, PluginMetadata, PluginContext, PluginType
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class EnvironmentCheckPlugin(IStartPlugin):

@@ -3,7 +3,7 @@
 提供基于内存的异步状态存储适配器实现。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any
 
 from src.interfaces.state.storage.adapter import IStateStorageAdapter
@@ -11,7 +11,7 @@ from ..backends.memory_backend import MemoryStorageBackend
 from ..core.metrics import StorageMetrics
 from ..core.transaction import TransactionManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MemoryStateStorageAdapter(IStateStorageAdapter):

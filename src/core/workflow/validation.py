@@ -3,8 +3,9 @@
 基于新架构原则，提供统一的工作流管理和验证功能。
 """
 
+from src.services.logger import get_logger
 from typing import Dict, List, Any, Optional
-import logging
+from src.services.logger import get_logger
 from datetime import datetime
 
 from src.core.workflow.config.config import GraphConfig
@@ -16,7 +17,7 @@ from src.interfaces.state import IWorkflowState
 from src.core.workflow.execution.executor import WorkflowExecutor
 from src.core.workflow.core.builder import WorkflowBuilder
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class WorkflowValidator(IWorkflowValidator):
@@ -24,7 +25,7 @@ class WorkflowValidator(IWorkflowValidator):
     
     def __init__(self):
         """初始化工作流验证器"""
-        self.logger = logging.getLogger(f"{__name__}.WorkflowValidator")
+        self.logger = get_logger(f"{__name__}.WorkflowValidator")
     
     def validate(self, workflow: IWorkflow) -> ValidationResult:
         """验证工作流
@@ -219,7 +220,7 @@ class WorkflowManager(IWorkflowManager):
         self.executor = executor or WorkflowExecutor()
         self.builder = builder or WorkflowBuilder()
         self.validator = validator or WorkflowValidator()
-        self.logger = logging.getLogger(f"{__name__}.WorkflowManager")
+        self.logger = get_logger(f"{__name__}.WorkflowManager")
         
         # 工作流状态跟踪
         self._workflow_status: Dict[str, Dict[str, Any]] = {}

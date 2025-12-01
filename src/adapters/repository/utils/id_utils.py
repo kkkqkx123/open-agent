@@ -3,12 +3,12 @@
 提供Repository中ID生成的通用方法，基于全局IDGenerator。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Optional
 
 from src.core.common.utils.id_generator import IDGenerator
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class IdUtils:

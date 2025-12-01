@@ -5,7 +5,7 @@
 
 import time
 import uuid
-import logging
+from src.services.logger import get_logger
 from typing import Any, Dict, Optional
 from datetime import datetime
 
@@ -13,7 +13,7 @@ from ..interfaces.tools import IToolState, StateType
 from ..implementations.base_state import BaseStateImpl
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ToolState(BaseStateImpl, IToolState):

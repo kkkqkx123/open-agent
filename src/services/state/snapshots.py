@@ -4,7 +4,7 @@
 """
 
 import asyncio
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
@@ -16,7 +16,7 @@ from src.core.state.core.base import BaseStateSnapshotManager
 from src.interfaces.state.entities import AbstractStateSnapshot
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StateSnapshotService(BaseStateSnapshotManager):

@@ -3,7 +3,7 @@
 提供存储相关的业务编排功能，协调多个领域服务。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
@@ -17,7 +17,7 @@ from src.core.threads.checkpoints.storage.repository import IThreadCheckpointRep
 from src.core.threads.checkpoints.storage.models import ThreadCheckpoint
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StorageOrchestrator:

@@ -4,12 +4,12 @@
 """
 
 from typing import Dict, Any, Optional, Type, Union
-import logging
+from src.services.logger import get_logger
 
 from .state_machine_workflow import StateMachineWorkflow, StateMachineConfig, StateDefinition, Transition, StateType
 from src.core.workflow.config.config import WorkflowConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StateMachineWorkflowFactory:

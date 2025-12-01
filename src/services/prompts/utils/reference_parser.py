@@ -6,9 +6,9 @@
 import re
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
-import logging
+from src.services.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

@@ -4,7 +4,7 @@
 """
 
 from typing import Any, Dict, Optional
-import logging
+from src.services.logger import get_logger
 import time
 
 from src.core.common.error_management import BaseErrorHandler, ErrorCategory, ErrorSeverity
@@ -20,7 +20,7 @@ from src.core.common.exceptions.session_thread import (
     ConfigurationValidationError
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SessionErrorHandler(BaseErrorHandler):

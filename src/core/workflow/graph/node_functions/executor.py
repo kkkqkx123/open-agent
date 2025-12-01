@@ -4,13 +4,13 @@
 """
 
 from typing import Dict, Any, Callable, Optional, List
-import logging
+from src.services.logger import get_logger
 from datetime import datetime
 
 from .registry import NodeFunctionRegistry
 from .config import NodeCompositionConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class NodeFunctionExecutor:

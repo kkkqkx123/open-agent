@@ -1,6 +1,6 @@
 """线程服务依赖注入绑定配置"""
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Union
 
 from src.adapters.storage.backends import SQLiteThreadBackend, FileThreadBackend
@@ -25,7 +25,7 @@ from src.interfaces.common_infra import ILogger
 # 导入日志绑定
 from .logger_bindings import register_logger_services
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def register_thread_backends(container: Any, config: Dict[str, Any]) -> None:

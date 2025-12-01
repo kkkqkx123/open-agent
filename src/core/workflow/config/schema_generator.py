@@ -4,12 +4,12 @@
 """
 
 from typing import Dict, Any, List, Optional
-import logging
+from src.services.logger import get_logger
 from pathlib import Path
 
 from .node_config_loader import get_node_config_loader
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SchemaGenerator:

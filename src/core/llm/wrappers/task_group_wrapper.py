@@ -1,7 +1,7 @@
 """任务组LLM包装器"""
 
 import asyncio
-import logging
+from src.services.logger import get_logger
 import time
 from typing import Dict, Any, Optional, List, Sequence
 from datetime import datetime
@@ -12,7 +12,7 @@ from src.interfaces.llm import ITaskGroupManager, IFallbackManager, LLMResponse
 from ..models import TokenUsage
 from ...common.exceptions.llm import LLMError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TaskGroupWrapper(BaseLLMWrapper):

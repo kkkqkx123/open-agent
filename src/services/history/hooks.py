@@ -4,7 +4,7 @@
 """
 
 import asyncio
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, Sequence, List
 from datetime import datetime
 from langchain_core.messages import BaseMessage
@@ -21,7 +21,7 @@ from src.core.common.exceptions.history import HistoryError
 from src.core.common.exceptions import ValidationError
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class HistoryRecordingHook(ILLMCallHook):
@@ -51,7 +51,7 @@ class HistoryRecordingHook(ILLMCallHook):
         self.cost_calculator = cost_calculator
         self.workflow_context = workflow_context or {}
         self.pending_requests: Dict[str, LLMRequestRecord] = {}
-        self._logger = logging.getLogger(self.__class__.__name__)
+        self._logger = get_logger(self.__class__.__name__)
     
     def before_call(
         self,

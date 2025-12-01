@@ -4,14 +4,14 @@
 已更新：使用新的Hook插件接口。
 """
 
-import logging
+from src.services.logger import get_logger
 import time
 from typing import Dict, Any, List, Optional
 
 from src.interfaces.workflow.plugins import IHookPlugin, PluginMetadata, PluginContext, HookContext, HookPoint, HookExecutionResult, PluginType
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PerformanceMonitoringPlugin(IHookPlugin):

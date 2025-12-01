@@ -4,13 +4,13 @@
 """
 
 import sqlite3
-import logging
+from src.services.logger import get_logger
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
 from .json_utils import JsonUtils
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SQLiteUtils:

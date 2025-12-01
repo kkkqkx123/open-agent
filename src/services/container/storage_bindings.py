@@ -3,7 +3,7 @@
 统一注册 Session 和 Thread 的存储服务。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any
 
 from .session_bindings import (
@@ -18,7 +18,7 @@ from .thread_bindings import (
 )
 from .logger_bindings import register_logger_services
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def register_all_storage_services(container, config: Dict[str, Any]) -> None:

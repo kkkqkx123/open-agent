@@ -6,12 +6,12 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-import logging
+from src.services.logger import get_logger
 
 from .models import ThreadCheckpoint, CheckpointStatistics, CheckpointStatus, CheckpointType
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class IThreadCheckpointRepository(ABC):

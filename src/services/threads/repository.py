@@ -1,6 +1,6 @@
 """线程仓储实现"""
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 
@@ -9,7 +9,7 @@ from src.adapters.storage.backends.thread_base import IThreadStorageBackend
 from src.core.threads.entities import Thread, ThreadStatus, ThreadType
 from src.core.common.exceptions import StorageError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ThreadRepository(IThreadRepository):

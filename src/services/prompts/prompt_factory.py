@@ -5,7 +5,7 @@
 
 from typing import Optional, Dict, Any, List
 from pathlib import Path
-import logging
+from src.services.logger import get_logger
 
 from ...core.config.config_manager import ConfigManager
 from .registry import PromptRegistry
@@ -15,7 +15,7 @@ from .config import get_global_config_manager
 from ..config.discovery import ConfigDiscoverer
 from ...interfaces.prompts.models import PromptConfig as PromptConfigModel
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PromptSystemFactory:

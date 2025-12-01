@@ -8,7 +8,7 @@ from enum import Enum
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Union, Tuple, Callable, Type
 from datetime import datetime
-import logging
+from src.services.logger import get_logger
 import re
 import yaml
 import json
@@ -345,7 +345,7 @@ class BaseConfigValidator:
             name: 验证器名称
         """
         self.name = name
-        self.logger = logging.getLogger(f"{__name__}.{name}")
+        self.logger = get_logger(f"{__name__}.{name}")
     
     def validate(self, config: Dict[str, Any]) -> ValidationResult:
         """验证配置
@@ -522,4 +522,4 @@ class BaseConfigValidator:
             self.logger.info(f"  信息: {info}")
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)

@@ -3,7 +3,7 @@
 提供节点的核心执行功能。
 """
 
-import logging
+from src.services.logger import get_logger
 import time
 from typing import Dict, Any, Optional, TYPE_CHECKING
 from abc import ABC, abstractmethod
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from src.interfaces import IWorkflowState
     from src.interfaces.workflow.core import INode
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class INodeExecutor(ABC):

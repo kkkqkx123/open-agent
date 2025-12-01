@@ -5,7 +5,7 @@
 """
 
 import importlib
-import logging
+from src.services.logger import get_logger
 import time
 import concurrent.futures
 from pathlib import Path
@@ -19,7 +19,7 @@ from src.interfaces.workflow.plugins import (
 from .registry import PluginRegistry
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PluginManager:

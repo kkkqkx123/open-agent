@@ -4,13 +4,13 @@
 """
 
 from typing import Any, Dict, List, Optional, Sequence, AsyncGenerator
-import logging
+from src.services.logger import get_logger
 from langchain_core.messages import BaseMessage
 
 from src.interfaces.llm import ILLMClient, IFallbackManager, ITaskGroupManager, LLMResponse
 from src.core.common.exceptions.llm import LLMError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LLMRequestExecutor:

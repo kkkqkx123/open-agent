@@ -3,7 +3,7 @@
 提供工作流执行的统一管理服务。
 """
 
-import logging
+from src.services.logger import get_logger
 import time
 import uuid
 from typing import Dict, Any, Optional, List, TYPE_CHECKING, Union
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from ...workflow import Workflow
     from src.interfaces.state import IStateManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

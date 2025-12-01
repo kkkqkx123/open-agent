@@ -3,7 +3,7 @@
 提供工作流的协作执行策略实现。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import TYPE_CHECKING, Dict, Any, Optional, List, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from src.interfaces.workflow.core import IWorkflow
     from src.interfaces.state.manager import IStateManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

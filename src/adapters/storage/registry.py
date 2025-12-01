@@ -6,10 +6,10 @@
 from typing import Dict, Type, Any, List, Optional, Callable
 import importlib
 import inspect
-import logging
+from src.services.logger import get_logger
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StorageRegistry:

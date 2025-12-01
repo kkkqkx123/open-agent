@@ -4,7 +4,7 @@
 """
 
 from typing import Any, Dict, List, Optional, Type
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces.workflow.element_builder import (
     IElementBuilder, INodeBuilder, IEdgeBuilder,
@@ -28,7 +28,7 @@ class ElementBuilderFactory(IElementBuilderFactory):
         Args:
             logger: 日志记录器
         """
-        self.logger = logger or logging.getLogger(self.__class__.__name__)
+        self.logger = logger or get_logger(self.__class__.__name__)
         self._builder_classes: Dict[str, Type[IElementBuilder]] = {}
         self._builder_instances: Dict[str, IElementBuilder] = {}
         self._node_builder_classes: Dict[str, Type[INodeBuilder]] = {}
@@ -359,7 +359,7 @@ class ElementBuilderManager:
         Args:
             logger: 日志记录器
         """
-        self.logger = logger or logging.getLogger(self.__class__.__name__)
+        self.logger = logger or get_logger(self.__class__.__name__)
         self._factories: Dict[str, ElementBuilderFactory] = {}
         self._default_factory_name = "default"
         

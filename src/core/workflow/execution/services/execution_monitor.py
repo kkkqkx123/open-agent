@@ -3,7 +3,7 @@
 提供工作流执行的监控和性能分析服务。
 """
 
-import logging
+from src.services.logger import get_logger
 import time
 import threading
 from typing import Dict, Any, Optional, List, Callable, TYPE_CHECKING
@@ -15,7 +15,7 @@ from collections import defaultdict, deque
 if TYPE_CHECKING:
     from ..core.execution_context import ExecutionContext, ExecutionResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MetricType(Enum):

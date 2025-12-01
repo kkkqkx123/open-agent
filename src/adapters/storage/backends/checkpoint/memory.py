@@ -6,7 +6,7 @@
 import time
 import uuid
 import threading
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Union, cast
 
 from src.interfaces.checkpoint import ICheckpointStore
@@ -24,7 +24,7 @@ from src.core.threads.checkpoints.storage.models import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpointStorage):

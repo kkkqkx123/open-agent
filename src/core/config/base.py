@@ -1,6 +1,6 @@
 """基础配置模型"""
 
-import logging
+from src.services.logger import get_logger
 from abc import ABC
 from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, Field, ConfigDict
@@ -9,7 +9,7 @@ from enum import Enum
 from ..common.exceptions.config import ConfigError, ConfigValidationError
 from ..common.error_management import handle_error, ErrorCategory, ErrorSeverity
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConfigType(str, Enum):

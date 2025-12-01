@@ -3,10 +3,10 @@
 提供状态管理服务的配置获取、验证和服务配置功能。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def get_state_service_config() -> Dict[str, Any]:

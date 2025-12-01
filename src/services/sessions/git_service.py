@@ -1,13 +1,13 @@
 """Git服务实现 - 用于会话版本控制"""
 
-import logging
+from src.services.logger import get_logger
 import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class IGitService(ABC):

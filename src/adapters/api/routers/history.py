@@ -4,14 +4,14 @@ from fastapi.responses import StreamingResponse
 from typing import Optional, List
 from datetime import datetime
 import io
-import logging
+from src.services.logger import get_logger
 
 from ..models.requests import BookmarkCreateRequest
 from ..models.responses import HistoryResponse, SearchResponse, BookmarkResponse, ApiResponse
 from ..services.history_service import HistoryService
 from ..dependencies import get_history_service
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/history", tags=["history"])
 

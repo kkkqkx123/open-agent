@@ -4,14 +4,14 @@
 """
 
 from typing import Any, Dict, List, Optional
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces.llm import ILLMClient
 from core.common.exceptions.llm import LLMError
 from src.services.llm.state_machine import StateMachine, LLMManagerState
 from src.services.llm.utils.metadata_service import ClientMetadataService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LLMClientManager:

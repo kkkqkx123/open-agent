@@ -4,14 +4,14 @@
 """
 
 import os
-import logging
+from src.services.logger import get_logger
 from typing import Any, Dict, Optional, List
 from pathlib import Path
 
 from ...config.config_manager import get_default_manager, ConfigManager
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StateManagementConfig:

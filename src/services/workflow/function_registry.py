@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, Optional, List, Callable, Union, TYPE_CHECKING
 from enum import Enum
-import logging
+from src.services.logger import get_logger
 import importlib
 import inspect
 from pathlib import Path
@@ -13,7 +13,7 @@ from pathlib import Path
 if TYPE_CHECKING:
     from src.core.workflow.entities import WorkflowState
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FunctionType(Enum):

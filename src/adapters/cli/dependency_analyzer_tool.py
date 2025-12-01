@@ -1,12 +1,12 @@
 """依赖分析CLI工具 - 用于静态分析DI容器依赖关系"""
 
-import logging
+from src.services.logger import get_logger
 import inspect
 from typing import Type, TypeVar, Dict, Any, Set, List, Optional
 from collections import defaultdict, deque
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 T = TypeVar('T')
 

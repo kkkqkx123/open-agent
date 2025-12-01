@@ -5,14 +5,14 @@
 
 from abc import ABC
 from typing import Dict, Any, List, Optional
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces.workflow.templates import IWorkflowTemplate
 from src.interfaces.workflow.core import IWorkflow
 from ..workflow_instance import Workflow
 from ..value_objects import WorkflowStep, WorkflowTransition, WorkflowRule, StepType, TransitionType
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BaseWorkflowTemplate(IWorkflowTemplate, ABC):

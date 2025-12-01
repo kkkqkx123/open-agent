@@ -1,6 +1,6 @@
 """本地Token计算器"""
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional, Sequence
 
 from langchain_core.messages import BaseMessage  # type: ignore
@@ -8,7 +8,7 @@ from langchain_core.messages import BaseMessage  # type: ignore
 from .token_types import TokenUsage
 from ..utils.encoding_protocol import extract_content_as_string
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LocalTokenCalculator:

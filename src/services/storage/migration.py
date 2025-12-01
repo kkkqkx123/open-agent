@@ -5,7 +5,7 @@
 
 import asyncio
 import json
-import logging
+from src.services.logger import get_logger
 import time
 from typing import Dict, Any, List, Optional, Tuple, Callable
 from dataclasses import dataclass
@@ -20,7 +20,7 @@ from src.core.storage import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MigrationStatus(Enum):

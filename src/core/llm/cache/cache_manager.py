@@ -416,8 +416,8 @@ class CacheManager:
         try:
             return self._server_provider.create_cache(contents, **kwargs)
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
+            from src.services.logger import get_logger
+            logger = get_logger(__name__)
             logger.error(f"创建服务器端缓存失败: {e}")
             return None
     
@@ -429,8 +429,8 @@ class CacheManager:
         try:
             return self._server_provider.use_cache(cache_name, contents)
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
+            from src.services.logger import get_logger
+            logger = get_logger(__name__)
             logger.error(f"使用服务器端缓存失败: {e}")
             return None
     
@@ -442,8 +442,8 @@ class CacheManager:
         try:
             return self._server_provider.get_or_create_cache(contents, **kwargs)
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
+            from src.services.logger import get_logger
+            logger = get_logger(__name__)
             logger.error(f"获取或创建服务器端缓存失败: {e}")
             return None
     

@@ -3,7 +3,7 @@
 基于新架构原则，专注于工作流执行逻辑，不包含验证和管理功能。
 """
 
-import logging
+from src.services.logger import get_logger
 import uuid
 from typing import Dict, Any, Optional, AsyncIterator, List
 from datetime import datetime
@@ -14,7 +14,7 @@ from src.interfaces.state import IWorkflowState
 from src.interfaces.workflow.execution import IWorkflowExecutor
 from src.core.workflow.core.builder import WorkflowBuilder
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ExecutionStatus(Enum):

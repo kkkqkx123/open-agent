@@ -1,6 +1,6 @@
 """Session-Thread同步器实现"""
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 
@@ -13,7 +13,7 @@ from src.interfaces.threads.storage import IThreadRepository
 from src.core.sessions.association import SessionThreadAssociation
 from src.core.common.exceptions import StorageError, ValidationError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SessionThreadSynchronizer(ISessionThreadSynchronizer):

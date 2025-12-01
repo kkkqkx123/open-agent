@@ -4,7 +4,7 @@
 """
 
 import asyncio
-import logging
+from src.services.logger import get_logger
 import inspect
 from functools import wraps
 from typing import Any, Callable, Optional, TypeVar, Union
@@ -16,7 +16,7 @@ from core.common.exceptions.state import (
     StorageTransactionError
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 F = TypeVar('F', bound=Callable[..., Any])
 

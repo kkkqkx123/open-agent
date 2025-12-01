@@ -4,7 +4,7 @@
 """
 
 import json
-import logging
+from src.services.logger import get_logger
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union, Sequence
@@ -17,7 +17,7 @@ from ...common.exceptions.state import StateError, StateValidationError
 from ...common.exceptions.history import HistoryError
 from ...common.error_management import handle_error, ErrorCategory, ErrorSeverity, operation_with_retry
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StateHistoryManager:

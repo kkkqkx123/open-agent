@@ -3,13 +3,13 @@
 提供Repository中时间相关的通用方法，基于全局TemporalManager。
 """
 
-import logging
+from src.services.logger import get_logger
 from datetime import datetime as dt
 from typing import Any, Dict, List, Optional
 
 from src.core.common.utils.temporal import TemporalManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TimeUtils:

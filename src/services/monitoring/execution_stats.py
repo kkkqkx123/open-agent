@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List, Union, Callable, TypeVar
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-import logging
+from src.services.logger import get_logger
 import threading
 import time
 import json
@@ -15,7 +15,7 @@ from pathlib import Path
 
 from src.core.workflow.execution import BatchExecutionResult, ExecutionResult as WorkflowExecutionResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 定义支持比较的类型变量
 T = TypeVar('T', bound=Union[int, float])

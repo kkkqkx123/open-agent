@@ -5,7 +5,7 @@
 
 import os
 import time
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Union
 from pathlib import Path
 
@@ -21,7 +21,7 @@ from ..utils.common_utils import StorageCommonUtils
 from ..utils.file_utils import FileStorageUtils
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FileStorageBackend(StorageBackend):

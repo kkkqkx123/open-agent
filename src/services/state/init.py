@@ -3,7 +3,7 @@
 提供状态管理服务的初始化和配置功能。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, TYPE_CHECKING
 
 from src.core.config.config_manager import ConfigManager
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from src.interfaces.state.snapshot import IStateSnapshotManager
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def initialize_state_services(container: Optional[Any] = None,

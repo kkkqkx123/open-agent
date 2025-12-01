@@ -5,12 +5,12 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces.workflow.core import IWorkflow
 from src.core.workflow.workflow import Workflow
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class IWorkflowRegistry(ABC):

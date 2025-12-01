@@ -1,7 +1,7 @@
 """存储服务依赖注入使用示例"""
 
 import asyncio
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any
 
 from src.services.container import (
@@ -11,7 +11,7 @@ from src.services.container import (
 from src.interfaces.sessions import ISessionService
 from src.interfaces.threads import IThreadService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def load_config_from_yaml(config_path: str) -> Dict[str, Any]:

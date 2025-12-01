@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, Optional, cast
-import logging
+from src.services.logger import get_logger
 
 from ..registry import node
 from ..async_node import AsyncNode
@@ -16,7 +16,7 @@ from src.core.workflow.graph.nodes.state_machine.state_machine_workflow import S
 from src.core.workflow.templates.state_machine import StateMachineSubWorkflowTemplate
 from src.core.workflow.templates.state_machine.state_mapper import StateMachineStateMapper
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @node("state_machine_subworkflow_node")

@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, Tuple, List, Callable
 from dataclasses import dataclass
 from enum import Enum
 import time
-import logging
+from src.services.logger import get_logger
 
 from rich.console import Console
 from rich.layout import Layout

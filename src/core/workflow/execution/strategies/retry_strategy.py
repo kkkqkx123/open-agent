@@ -3,7 +3,7 @@
 提供工作流执行的重试策略实现。
 """
 
-import logging
+from src.services.logger import get_logger
 import time
 import asyncio
 from typing import Optional, List, Callable, Union
@@ -21,7 +21,7 @@ from ..core.execution_context import ExecutionContext, ExecutionResult
 if TYPE_CHECKING:
     from src.interfaces.workflow.core import IWorkflow
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RetryStrategy(Enum):

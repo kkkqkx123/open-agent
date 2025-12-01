@@ -6,10 +6,10 @@
 from typing import Dict, List, Any, Optional, Union
 from pathlib import Path
 import yaml
-import logging
+from src.services.logger import get_logger
 from copy import deepcopy
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RegistryUpdateResult:
@@ -84,7 +84,7 @@ class RegistryUpdater:
             base_path: 基础路径
         """
         self.base_path = Path(base_path)
-        self.logger = logging.getLogger(f"{__name__}.RegistryUpdater")
+        self.logger = get_logger(f"{__name__}.RegistryUpdater")
     
     def update_registries(
         self,

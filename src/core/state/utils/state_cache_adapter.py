@@ -4,14 +4,14 @@
 """
 
 import asyncio
-import logging
+from src.services.logger import get_logger
 from typing import Any, Dict, List, Optional
 
 from ...core.common.cache import CacheManager
 from ..interfaces.base import IState, IStateCache
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StateCacheAdapter(IStateCache):

@@ -4,13 +4,13 @@
 """
 
 from typing import Dict, Any, List
-import logging
+from src.services.logger import get_logger
 
 from .base import BaseWorkflowTemplate
 from src.interfaces.workflow.core import IWorkflow
 from ..value_objects import StepType, TransitionType
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PlanExecuteWorkflowTemplate(BaseWorkflowTemplate):

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import io
 import csv
 import json
-import logging
+from src.services.logger import get_logger
 
 from ..data_access.history_dao import HistoryDAO
 from ..cache.memory_cache import MemoryCache
@@ -31,7 +31,7 @@ try:
     HISTORY_MANAGER_AVAILABLE = True
             
 except ImportError:
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     logger.warning("HistoryManager不可用，使用基础历史服务")
 
 # 创建兼容性的RecordType
@@ -86,7 +86,7 @@ class HistoryService:
         self.history_manager = history_manager
         self.cache_manager = cache_manager
         self._bookmarks: Dict[str, List[Dict[str, Any]]] = {}  # 简化的书签存储
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         self.cache_key_prefix = "history"  # 缓存键前缀
         
         # 检查HistoryManager可用性

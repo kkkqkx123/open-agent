@@ -7,9 +7,9 @@ import os
 import re
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
-import logging
+from src.services.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FileLoader:

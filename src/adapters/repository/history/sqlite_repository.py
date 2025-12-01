@@ -4,7 +4,7 @@
 """
 
 import asyncio
-import logging
+from src.services.logger import get_logger
 import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime
@@ -20,7 +20,7 @@ from ..sqlite_base import SQLiteBaseRepository
 from ..utils import TimeUtils, IdUtils
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SQLiteHistoryRepository(SQLiteBaseRepository, IHistoryRepository):

@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from enum import Enum
-import logging
+from src.services.logger import get_logger
 from datetime import datetime
 
 
@@ -140,7 +140,7 @@ class BasePlugin(IPlugin):
         self._description = description
         self._status = PluginStatus.INACTIVE
         self._config: Dict[str, Any] = {}
-        self._logger = logging.getLogger(f"plugin.{plugin_id}")
+        self._logger = get_logger(f"plugin.{plugin_id}")
 
     @property
     def plugin_id(self) -> str:

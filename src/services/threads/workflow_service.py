@@ -1,7 +1,7 @@
 """工作流执行服务"""
 
 from typing import AsyncGenerator, Dict, Any, Optional, List
-import logging
+from src.services.logger import get_logger
 from datetime import datetime
 
 from interfaces.state import IWorkflowState as WorkflowState
@@ -10,7 +10,7 @@ from src.core.threads.entities import Thread, ThreadStatus
 from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
 from src.core.state.implementations.workflow_state import WorkflowState as WorkflowStateImpl
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class WorkflowThreadService:

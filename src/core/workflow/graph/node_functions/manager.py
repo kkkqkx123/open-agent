@@ -5,14 +5,14 @@
 
 from typing import Dict, Any, Callable, Optional, List
 from pathlib import Path
-import logging
+from src.services.logger import get_logger
 
 from .registry import NodeFunctionRegistry, get_global_node_function_registry
 from .loader import NodeFunctionLoader
 from .config import NodeFunctionConfig, NodeCompositionConfig
 from .executor import NodeFunctionExecutor
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class NodeFunctionManager:

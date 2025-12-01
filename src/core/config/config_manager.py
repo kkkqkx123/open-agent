@@ -5,7 +5,7 @@
 """
 
 import os
-import logging
+from src.services.logger import get_logger
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Type, TypeVar, Generic, Callable
 
@@ -32,7 +32,7 @@ from .callback_manager import (
 from ...interfaces.config.interfaces import IConfigValidator, IUnifiedConfigManager
 from ...interfaces.configuration import ValidationResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 T = TypeVar('T', bound=BaseConfig)
 

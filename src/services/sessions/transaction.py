@@ -1,6 +1,6 @@
 """Session-Thread事务管理实现"""
 
-import logging
+from src.services.logger import get_logger
 import uuid
 from typing import Dict, Any, Optional
 from datetime import datetime
@@ -15,7 +15,7 @@ from src.interfaces.threads.service import IThreadService
 from src.core.sessions.association import SessionThreadAssociation
 from src.core.common.exceptions import ValidationError, StorageError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SessionThreadTransaction(ISessionThreadTransaction):

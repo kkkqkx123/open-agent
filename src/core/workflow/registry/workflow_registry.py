@@ -3,8 +3,9 @@
 实现工作流相关组件的注册表，支持依赖注入。
 """
 
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Type, Optional
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces.workflow.registry import (
     IComponentRegistry, 
@@ -13,7 +14,7 @@ from src.interfaces.workflow.registry import (
 )
 from src.interfaces.workflow.graph import INode, IEdge
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ComponentRegistry(IComponentRegistry):
@@ -23,7 +24,7 @@ class ComponentRegistry(IComponentRegistry):
         """初始化组件注册表"""
         self._node_types: Dict[str, Type[INode]] = {}
         self._edge_types: Dict[str, Type[IEdge]] = {}
-        self._logger = logging.getLogger(f"{__name__}.ComponentRegistry")
+        self._logger = get_logger(f"{__name__}.ComponentRegistry")
     
     def register_node(self, node_type: str, node_class: Type[INode]) -> None:
         """注册节点类型"""
@@ -71,7 +72,7 @@ class FunctionRegistry(IFunctionRegistry):
         """初始化函数注册表"""
         self._node_functions: Dict[str, Any] = {}
         self._route_functions: Dict[str, Any] = {}
-        self._logger = logging.getLogger(f"{__name__}.FunctionRegistry")
+        self._logger = get_logger(f"{__name__}.FunctionRegistry")
     
     def register_node_function(self, name: str, function: Any) -> None:
         """注册节点函数"""
@@ -119,7 +120,7 @@ class WorkflowRegistry(IWorkflowRegistry):
         """初始化工作流注册表"""
         self._component_registry = ComponentRegistry()
         self._function_registry = FunctionRegistry()
-        self._logger = logging.getLogger(f"{__name__}.WorkflowRegistry")
+        self._logger = get_logger(f"{__name__}.WorkflowRegistry")
     
     @property
     def component_registry(self) -> IComponentRegistry:
@@ -138,20 +139,32 @@ class WorkflowRegistry(IWorkflowRegistry):
         # 验证节点类型的依赖
         for node_type in self._component_registry.list_node_types():
             node_class = self._component_registry.get_node_class(node_type)
-            if node_class and hasattr(node_class, 'get_required_functions'):
-                required_functions = node_class.get_required_functions()
-                for func_name in required_functions:
-                    if not self._function_registry.get_node_function(func_name):
-                        errors.append(f"节点类型 {node_type} 需要函数 {func_name} 但未注册")
+            if node_class:
+                get_required_func = getattr(node_class, 'get_required_functions', None)
+                if callable(get_required_func):
+                    try:
+                        required_functions = get_required_func()
+                        if isinstance(required_functions, (list, tuple)):
+                            for func_name in required_functions:
+                                if not self._function_registry.get_node_function(func_name):
+                                    errors.append(f"节点类型 {node_type} 需要函数 {func_name} 但未注册")
+                    except Exception as e:
+                        self._logger.warning(f"获取节点类型 {node_type} 的必需函数失败: {e}")
         
         # 验证边类型的依赖
         for edge_type in self._component_registry.list_edge_types():
             edge_class = self._component_registry.get_edge_class(edge_type)
-            if edge_class and hasattr(edge_class, 'get_required_functions'):
-                required_functions = edge_class.get_required_functions()
-                for func_name in required_functions:
-                    if not self._function_registry.get_route_function(func_name):
-                        errors.append(f"边类型 {edge_type} 需要函数 {func_name} 但未注册")
+            if edge_class:
+                get_required_func = getattr(edge_class, 'get_required_functions', None)
+                if callable(get_required_func):
+                    try:
+                        required_functions = get_required_func()
+                        if isinstance(required_functions, (list, tuple)):
+                            for func_name in required_functions:
+                                if not self._function_registry.get_route_function(func_name):
+                                    errors.append(f"边类型 {edge_type} 需要函数 {func_name} 但未注册")
+                    except Exception as e:
+                        self._logger.warning(f"获取边类型 {edge_type} 的必需函数失败: {e}")
         
         return errors
     

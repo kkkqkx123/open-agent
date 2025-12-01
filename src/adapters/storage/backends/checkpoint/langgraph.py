@@ -3,7 +3,7 @@
 将LangGraph的checkpoint接口适配到项目的接口，实现ICheckpointStore和IThreadCheckpointStorage接口。
 """
 
-import logging
+from src.services.logger import get_logger
 import uuid
 from typing import Dict, Any, Optional, List
 from abc import ABC, abstractmethod
@@ -25,7 +25,7 @@ from src.core.threads.checkpoints.storage.models import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ILangGraphAdapter(ABC):

@@ -3,7 +3,7 @@
 提供基于LLM模块的精确Token追踪功能，支持工作流和模型维度统计。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 from dataclasses import asdict
@@ -20,7 +20,7 @@ from src.core.common.exceptions.history import StatisticsError
 from src.core.common.exceptions import ValidationError
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class WorkflowTokenTracker(BaseTokenTracker):
@@ -48,7 +48,7 @@ class WorkflowTokenTracker(BaseTokenTracker):
         self._cache_ttl = cache_ttl
         self._workflow_stats_cache: Dict[str, Dict[str, WorkflowTokenStatistics]] = {}
         self._cache_timestamps: Dict[str, datetime] = {}
-        self._logger = logging.getLogger(self.__class__.__name__)
+        self._logger = get_logger(self.__class__.__name__)
     
     async def track_workflow_token_usage(
         self,

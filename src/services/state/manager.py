@@ -4,7 +4,7 @@
 """
 
 import asyncio
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Callable, Tuple
 from datetime import datetime
 
@@ -19,7 +19,7 @@ from src.core.state.entities import StateStatistics
 from src.core.state.core.base import BaseStateManager, StateValidationMixin
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class EnhancedStateManager(IStateManager, BaseStateManager, StateValidationMixin):

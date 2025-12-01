@@ -7,14 +7,14 @@ import os
 import sys
 import platform
 import getpass
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any
 from datetime import datetime
 
 from src.interfaces.workflow.plugins import IStartPlugin, PluginMetadata, PluginContext, PluginType
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MetadataCollectorPlugin(IStartPlugin):

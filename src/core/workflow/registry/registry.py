@@ -5,13 +5,13 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces.workflow.core import IWorkflow
 from src.interfaces.workflow.builders import IWorkflowBuilder
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class IWorkflowRegistry(ABC):
@@ -149,7 +149,16 @@ class WorkflowRegistry(IWorkflowRegistry):
         if not workflow:
             return [f"工作流不存在: {workflow_id}"]
         
-        return workflow.validate()
+        # IWorkflow接口不包含validate方法，此方法应交由外部验证器或管理器处理
+        # 这里只返回工作流基本信息验证
+        errors = []
+        if not workflow.workflow_id:
+            errors.append("工作流ID不能为空")
+        if not workflow.name:
+            errors.append("工作流名称不能为空")
+        if not workflow.version:
+            errors.append("工作流版本不能为空")
+        return errors
 
     def unregister_workflow(self, workflow_id: str) -> bool:
         """注销工作流

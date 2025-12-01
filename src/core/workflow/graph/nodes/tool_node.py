@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, Optional, List
 import time
-import logging
+from src.services.logger import get_logger
 
 from .registry import node
 from .sync_node import SyncNode
@@ -14,7 +14,7 @@ from src.interfaces.state.interfaces import IState
 from src.interfaces.tool.base import ITool, IToolRegistry, ToolCall, ToolResult
 from src.core.workflow.config.node_config_loader import get_node_config_loader
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @node("tool_node")
@@ -210,8 +210,8 @@ class ToolNode(SyncNode):
             List[ToolCall]: 工具调用列表
         """
         tool_calls: List[ToolCall] = []
-        import logging
-        logger = logging.getLogger(__name__)
+        from src.services.logger import get_logger
+        logger = get_logger(__name__)
 
         # 从最后一条消息中提取工具调用
         messages = state.get_data("messages", [])
@@ -311,10 +311,10 @@ class ToolNode(SyncNode):
         Returns:
             List[ToolCall]: 工具调用列表
         """
-        import logging
+        from src.services.logger import get_logger
         import json
         import re
-        logger = logging.getLogger(__name__)
+        logger = get_logger(__name__)
         
         tool_calls: List[ToolCall] = []
         

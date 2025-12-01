@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces import ILogger
 from src.interfaces.tool.base import ITool, ToolCall, ToolResult
@@ -43,7 +43,7 @@ class IToolExecutor(ABC):
         """异步并行执行多个工具调用"""
         pass
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConcurrencyLimiter:

@@ -5,14 +5,14 @@
 
 import os
 import json
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List
 from datetime import datetime
 
 from src.interfaces.workflow.plugins import IEndPlugin, PluginMetadata, PluginContext, PluginType
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ResultSummaryPlugin(IEndPlugin):

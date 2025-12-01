@@ -3,7 +3,7 @@
 负责 workflow 层内部的组件协调，不承担全局协调职责。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional
 
 from src.interfaces.workflow.coordinator import IWorkflowCoordinator
@@ -13,7 +13,7 @@ from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.workflow import Workflow
 from src.core.workflow.management.lifecycle import WorkflowLifecycleManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class WorkflowCoordinator(IWorkflowCoordinator):
@@ -39,7 +39,7 @@ class WorkflowCoordinator(IWorkflowCoordinator):
         self._validator = validator
         self._lifecycle_manager = lifecycle_manager
         self._graph_service = graph_service
-        self._logger = logging.getLogger(f"{__name__}.WorkflowCoordinator")
+        self._logger = get_logger(f"{__name__}.WorkflowCoordinator")
     
     def create_workflow(self, config: GraphConfig) -> IWorkflow:
         """创建工作流实例

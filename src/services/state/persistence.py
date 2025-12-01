@@ -3,7 +3,7 @@
 协调历史记录和快照的持久化操作，提供事务支持和数据一致性保证。
 """
 
-import logging
+from src.services.logger import get_logger
 import asyncio
 import contextlib
 from typing import Dict, Any, List, Optional, Tuple, Generator, AsyncGenerator
@@ -14,7 +14,7 @@ from src.core.state import StateSnapshot, StateHistoryEntry
 from src.interfaces.repository import IHistoryRepository, ISnapshotRepository
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StatePersistenceService:

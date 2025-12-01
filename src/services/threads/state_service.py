@@ -1,6 +1,6 @@
 """线程状态管理服务"""
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from enum import Enum
@@ -10,7 +10,7 @@ from src.core.threads.entities import Thread
 from src.core.common.exceptions import ValidationError
 from .base_service import BaseThreadService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SyncStrategy(str, Enum):

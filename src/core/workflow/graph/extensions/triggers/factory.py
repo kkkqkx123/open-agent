@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, Optional, List, cast
-import logging
+from src.services.logger import get_logger
 
 from .base import ITrigger, TriggerType
 from .builtin_triggers import (
@@ -34,7 +34,7 @@ from .pattern_matching import (
 )
 from ..trigger_functions import get_trigger_function_manager, TriggerCompositionConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TriggerFactory:

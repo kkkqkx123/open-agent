@@ -5,7 +5,7 @@
 这个文件应该由bootstrap或其他引导代码调用，以完成依赖注入的配置。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any
 
 from .interfaces import (
@@ -17,7 +17,7 @@ from .backend_factory import SessionStorageBackendFactory, ThreadStorageBackendF
 from .association_factory import SessionThreadAssociationFactory
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def register_storage_factories(container, config: Dict[str, Any]) -> None:

@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, List, Optional, Union
 from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
-import logging
+from src.services.logger import get_logger
 
 from .registry import node
 from .async_node import AsyncNode
@@ -14,7 +14,7 @@ from src.interfaces.state.interfaces import IState
 from src.interfaces.llm import ILLMClient
 from src.services.llm.scheduling.task_group_manager import TaskGroupManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @node("llm_node")

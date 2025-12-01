@@ -3,7 +3,7 @@
 提供依赖注入容器功能，支持单例、瞬态和作用域生命周期。
 """
 
-import logging
+from src.services.logger import get_logger
 import threading
 import time
 from typing import Type, TypeVar, Dict, Any, Optional, List, Callable, Iterator, Generator
@@ -17,7 +17,7 @@ from src.interfaces.configuration import ValidationResult
 from src.core.common.types import ServiceLifetime
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 T = TypeVar('T')
 

@@ -2,7 +2,7 @@
 
 import asyncio
 import time
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -15,7 +15,7 @@ from src.interfaces.llm import IPollingPoolManager
 from src.interfaces.llm import ILLMClient
 from core.common.exceptions.llm import LLMError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class InstanceStatus(Enum):

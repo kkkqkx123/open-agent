@@ -6,7 +6,7 @@
 import time
 import uuid
 import threading
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Union
 
 from src.core.common.exceptions.state import (
@@ -21,7 +21,7 @@ from ..utils.common_utils import StorageCommonUtils
 from ..utils.memory_utils import MemoryStorageUtils, MemoryStorageItem
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 

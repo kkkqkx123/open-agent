@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, Optional, List
-import logging
+from src.services.logger import get_logger
 from datetime import datetime
 import math
 import random
@@ -14,7 +14,7 @@ from src.core.workflow.config import GraphConfig
 from core.common.exceptions.workflow import WorkflowError
 from src.interfaces.workflow.visualization import IWorkflowVisualizer
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class WorkflowVisualizer(IWorkflowVisualizer):

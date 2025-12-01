@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Generator, AsyncGenerator, Sequence
-import logging
+from src.services.logger import get_logger
 
 from abc import ABC
 from src.interfaces.llm import LLMResponse
@@ -10,7 +10,7 @@ from ..models import TokenUsage
 from ...common.exceptions.llm import LLMError
 from langchain_core.messages import HumanMessage
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BaseLLMWrapper(ABC):

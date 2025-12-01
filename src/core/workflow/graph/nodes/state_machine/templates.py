@@ -5,13 +5,13 @@
 
 from typing import Dict, Any, Optional, List, Union
 from dataclasses import dataclass, field
-import logging
+from src.services.logger import get_logger
 from copy import deepcopy
 
 from src.core.workflow.config.config import WorkflowConfig
 from typing import Any
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

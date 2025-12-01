@@ -6,13 +6,13 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-import logging
+from src.services.logger import get_logger
 import uuid
 
 from src.interfaces.workflow.core import IWorkflow
 from core.common.exceptions.workflow import WorkflowError, WorkflowValidationError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class IWorkflowRegistryService(ABC):

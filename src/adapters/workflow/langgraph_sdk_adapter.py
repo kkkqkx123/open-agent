@@ -3,13 +3,13 @@
 from typing import Dict, Any, Optional, List, AsyncGenerator
 import asyncio
 from datetime import datetime
-import logging
+from src.services.logger import get_logger
 
 from src.services.checkpoint.manager import CheckpointManager
 from src.interfaces.sessions.base import ISessionManager
 from src.interfaces.threads.service import IThreadService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LangGraphSDKAdapter:

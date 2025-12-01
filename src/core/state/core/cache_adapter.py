@@ -3,14 +3,14 @@
 复用现有的通用缓存系统来为状态管理提供缓存功能。
 """
 
-import logging
+from src.services.logger import get_logger
 import asyncio
 from typing import Any, Dict, List, Optional
 
 from ...common.cache import CacheManager, get_global_cache_manager
 from ..interfaces.base import IState, IStateCache
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StateCacheAdapter(IStateCache):

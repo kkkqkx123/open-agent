@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, TYPE_CHECKING
-import logging
+from src.services.logger import get_logger
 
 from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.workflow import Workflow
@@ -16,7 +16,7 @@ from src.interfaces.workflow.core import IWorkflow
 if TYPE_CHECKING:
     pass
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class IWorkflowBuilder(ABC):

@@ -6,14 +6,14 @@
 from typing import Dict, Any, Optional, Type
 import yaml
 from pathlib import Path
-import logging
+from src.services.logger import get_logger
 
 from .state_machine_workflow import StateMachineWorkflow, StateMachineConfig, StateDefinition, Transition, StateType
 from .state_machine_workflow_factory import StateMachineWorkflowFactory
 from src.core.workflow.config.config import WorkflowConfig
 from src.core.config.config_manager import get_default_manager, ConfigManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StateMachineWorkflowLoader:

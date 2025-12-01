@@ -8,11 +8,11 @@ import asyncio
 import inspect
 from typing import Any, Dict, Callable, Optional, Union, Coroutine
 from functools import wraps
-import logging
+from src.services.logger import get_logger
 
 from ..base import BaseTool
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BuiltinTool(BaseTool):

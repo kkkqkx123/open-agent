@@ -375,8 +375,8 @@ class ConfigErrorRecovery:
     @staticmethod
     def fallback_to_default_config(primary_config_func: Callable, default_config_func: Callable) -> Any:
         """降级到默认配置"""
-        import logging
-        logger = logging.getLogger(__name__)
+        from src.services.logger import get_logger
+        logger = get_logger(__name__)
         
         try:
             return primary_config_func()
@@ -387,8 +387,8 @@ class ConfigErrorRecovery:
     @staticmethod
     def validate_config_before_load(config_data: Dict[str, Any], schema: Dict[str, Any]) -> bool:
         """加载前验证配置"""
-        import logging
-        logger = logging.getLogger(__name__)
+        from src.services.logger import get_logger
+        logger = get_logger(__name__)
         
         try:
             # 简单的配置验证逻辑

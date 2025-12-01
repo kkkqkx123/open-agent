@@ -5,11 +5,11 @@
 
 from typing import Dict, Any, Optional, List, Callable
 from enum import Enum
-import logging
+from src.services.logger import get_logger
 from dataclasses import dataclass
 from datetime import datetime
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ManagerStatus(Enum):

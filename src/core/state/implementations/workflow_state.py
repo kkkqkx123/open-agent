@@ -3,7 +3,7 @@
 提供工作流状态的具体实现，继承自基础状态并实现工作流特定功能。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
 
@@ -12,7 +12,7 @@ from src.interfaces.state.interfaces import IState
 from ..implementations.base_state import BaseStateImpl
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # 消息类型定义

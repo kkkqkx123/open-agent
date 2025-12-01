@@ -5,9 +5,9 @@
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Type
-import logging
+from src.services.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BaseFactory(ABC):

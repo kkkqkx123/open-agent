@@ -7,7 +7,7 @@
 from typing import Any, Dict, List, Optional, Type
 from enum import Enum
 import importlib
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces.tool.base import ITool, IToolFactory
 from src.interfaces.tool.state_manager import IToolStateManager
@@ -18,7 +18,7 @@ from .types.mcp_tool import MCPTool
 from src.core.common.exceptions.tool import ToolError, ToolRegistrationError
 from src.core.tools.error_handler import handle_tool_error, create_tool_error_context
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ToolType(Enum):

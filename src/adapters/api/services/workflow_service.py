@@ -2,12 +2,12 @@
 from typing import Optional, Dict, Any, List, AsyncGenerator
 from datetime import datetime
 import asyncio
-import logging
+from src.services.logger import get_logger
 from src.interfaces.workflow.services import IWorkflowManager, IWorkflowRegistry
 from src.core.state import WorkflowState
 from ..data_access.workflow_dao import WorkflowDAO
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 兼容性接口定义
 class IWorkflowVisualizer:

@@ -5,7 +5,7 @@
 """
 
 import asyncio
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Union
 
 from src.core.storage import (
@@ -22,7 +22,7 @@ from src.core.storage import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StorageManager(IStorageManager):

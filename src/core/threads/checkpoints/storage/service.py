@@ -3,7 +3,7 @@
 实现Thread检查点的业务逻辑和领域规则，遵循DDD领域服务原则。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 import uuid
@@ -12,7 +12,7 @@ from .models import ThreadCheckpoint, CheckpointStatistics, CheckpointStatus, Ch
 from .repository import IThreadCheckpointRepository, RepositoryError
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ThreadCheckpointDomainService:

@@ -4,7 +4,7 @@
 """
 
 import os
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Union
 from dataclasses import dataclass, field
 from enum import Enum
@@ -12,7 +12,7 @@ from enum import Enum
 from src.core.storage import StorageError, StorageConfigurationError
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StorageType(Enum):

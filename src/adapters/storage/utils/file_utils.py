@@ -4,7 +4,7 @@
 """
 
 import os
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
 
@@ -14,7 +14,7 @@ from src.core.state.backup_policy import FileBackupStrategy, BackupManager
 from .common_utils import StorageCommonUtils
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FileStorageUtils:

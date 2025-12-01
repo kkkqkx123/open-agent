@@ -1,6 +1,6 @@
 """线程历史记录管理服务"""
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from dataclasses import dataclass
@@ -11,7 +11,7 @@ from src.core.history.entities import RecordType
 from src.core.common.exceptions import ValidationError
 from .base_service import BaseThreadService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

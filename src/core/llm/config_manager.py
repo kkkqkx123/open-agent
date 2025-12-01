@@ -2,7 +2,7 @@
 
 import yaml
 import json
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Union, Callable, Type
 from pathlib import Path
 from dataclasses import dataclass
@@ -16,7 +16,7 @@ from ..common.exceptions.llm import LLMConfigurationError
 from ..config.config_manager import ConfigManager
 # LLMConfigManager现在直接使用ConfigManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

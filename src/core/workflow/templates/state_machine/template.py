@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, List, Optional
-import logging
+from src.services.logger import get_logger
 
 from ..base import BaseWorkflowTemplate
 from .config_adapter import StateMachineConfigAdapter
@@ -15,7 +15,7 @@ from src.core.workflow.graph.nodes.state_machine.state_machine_workflow import (
     StateMachineConfig, StateType
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StateMachineSubWorkflowTemplate(BaseWorkflowTemplate):
@@ -165,7 +165,9 @@ class StateMachineSubWorkflowTemplate(BaseWorkflowTemplate):
                     node_specific_config, llm_client
                 )
             
-            workflow.add_step(step)
+            # 添加节点到工作流（注意：IWorkflow接口应该支持add_step）
+            if hasattr(workflow, 'add_step'):
+                workflow.add_step(step)
     
     def _create_llm_step(self, workflow: IWorkflow, step_id: str, description: str,
                         config: Dict[str, Any], llm_client: str):
@@ -324,7 +326,9 @@ class StateMachineSubWorkflowTemplate(BaseWorkflowTemplate):
                 description=description
             )
             
-            workflow.add_transition(transition)
+            # 添加转换到工作流（注意：IWorkflow接口应该支持add_transition）
+            if hasattr(workflow, 'add_transition'):
+                workflow.add_transition(transition)
     
     def _setup_loop_control(self, workflow: IWorkflow, config: Dict[str, Any]) -> None:
         """设置循环控制
@@ -351,7 +355,8 @@ class StateMachineSubWorkflowTemplate(BaseWorkflowTemplate):
                 "continue_condition": "should_continue"
             }
         )
-        workflow.add_step(loop_control_step)
+        if hasattr(workflow, 'add_step'):
+            workflow.add_step(loop_control_step)
         
         # 为每个非终止状态添加到循环控制的转换
         states = config.get("states", {})
@@ -372,7 +377,8 @@ class StateMachineSubWorkflowTemplate(BaseWorkflowTemplate):
                         transition_type=TransitionType.SIMPLE,
                         description="默认循环控制转换"
                     )
-                    workflow.add_transition(transition)
+                    if hasattr(workflow, 'add_transition'):
+                        workflow.add_transition(transition)
         
         # 添加循环控制的条件转换
         for state_name, node_config in states.items():
@@ -386,7 +392,8 @@ class StateMachineSubWorkflowTemplate(BaseWorkflowTemplate):
                     condition="should_continue",
                     description="继续执行状态机"
                 )
-                workflow.add_transition(continue_transition)
+                if hasattr(workflow, 'add_transition'):
+                    workflow.add_transition(continue_transition)
         
         # 添加终止转换
         if termination_states:
@@ -399,7 +406,8 @@ class StateMachineSubWorkflowTemplate(BaseWorkflowTemplate):
                     condition="should_terminate",
                     description="终止状态机执行"
                 )
-                workflow.add_transition(terminate_transition)
+                if hasattr(workflow, 'add_transition'):
+                    workflow.add_transition(terminate_transition)
     
     def create_from_state_machine_config(self, state_machine_config: StateMachineConfig,
                                       name: str, description: str = "",

@@ -2,6 +2,7 @@
 import os
 import time
 import uuid
+import logging
 
 from fastapi import Request, Response, FastAPI
 from fastapi.middleware.cors import CORSMiddleware as FastAPICORSMiddleware
@@ -9,9 +10,9 @@ from fastapi.responses import JSONResponse
 from starlette.types import ASGIApp
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.base import RequestResponseEndpoint
-import logging
+from src.services.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
@@ -107,7 +108,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                 content={
                     "success": False,
                     "message": "内部服务器错误",
-                    "error": str(e) if logger.isEnabledFor(logging.DEBUG) else None,
+                    "error": str(e) if logger.level <= logging.DEBUG else None,
                     "timestamp": time.time(),
                 }
             )

@@ -2,14 +2,14 @@
 
 import json
 import sqlite3
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
 from .base import ISessionStorageBackend
 from src.core.common.exceptions import StorageError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SQLiteSessionBackend(ISessionStorageBackend):

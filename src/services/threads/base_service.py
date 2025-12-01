@@ -1,6 +1,6 @@
 """线程服务基类"""
 
-import logging
+from src.services.logger import get_logger
 from abc import ABC
 from typing import Optional
 
@@ -8,7 +8,7 @@ from src.core.threads.entities import Thread
 from src.interfaces.threads.storage import IThreadRepository
 from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BaseThreadService(ABC):

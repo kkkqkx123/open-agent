@@ -3,7 +3,7 @@
 为存储管理系统提供专门的错误处理和恢复策略。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional
 
 from ...core.common.error_management import (
@@ -19,7 +19,7 @@ from ...core.common.exceptions.storage import (
      StorageQueryError, StorageHealthError
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StorageErrorHandler(BaseErrorHandler):

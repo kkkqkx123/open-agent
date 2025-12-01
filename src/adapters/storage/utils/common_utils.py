@@ -12,7 +12,7 @@
 
 import json
 import time
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional
 from pathlib import Path
 
@@ -21,7 +21,7 @@ from src.core.state.filters import MemoryFilterBuilder, FilterValidator
 from src.core.state.expiration import ExpirationManager
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StorageCommonUtils:

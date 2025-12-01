@@ -3,7 +3,7 @@
 提供节点执行过程中的日志记录功能。
 """
 
-import logging
+from src.services.logger import get_logger
 import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime
@@ -11,7 +11,7 @@ from datetime import datetime
 from src.interfaces.workflow.plugins import IHookPlugin, PluginMetadata, PluginContext, HookContext, HookPoint, HookExecutionResult, PluginType
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LoggingPlugin(IHookPlugin):

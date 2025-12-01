@@ -3,7 +3,7 @@
 提供工作流的混合执行模式实现，可以根据节点特性自动选择同步或异步执行。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 
 from .mode_base import BaseMode, IExecutionMode
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from src.interfaces.workflow.core import INode
     from src.core.workflow.execution.core.execution_context import ExecutionContext, NodeResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class IHybridMode(IExecutionMode):

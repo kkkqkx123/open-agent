@@ -5,13 +5,13 @@
 
 from typing import Dict, Any, Optional, List, Callable
 from dataclasses import dataclass
-import logging
+from src.services.logger import get_logger
 
 from src.core.workflow.graph.route_functions import RouteFunctionManager
 from src.core.state import WorkflowState
 from src.core.workflow.config.config import EdgeConfig, EdgeType
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

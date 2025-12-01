@@ -3,7 +3,7 @@
 为ITokenProcessor提供默认实现。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, Sequence
 
 from langchain_core.messages import BaseMessage  # type: ignore
@@ -11,7 +11,7 @@ from langchain_core.messages import BaseMessage  # type: ignore
 from .base_processor import ITokenProcessor
 from .token_types import TokenUsage
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BaseTokenProcessor(ITokenProcessor):

@@ -4,7 +4,7 @@
 """
 
 import asyncio
-import logging
+from src.services.logger import get_logger
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -15,7 +15,7 @@ from core.common.exceptions.state import StorageError, StorageConnectionError
 from ..utils.common_utils import StorageCommonUtils
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StorageBackend(IStorageBackend, ABC):

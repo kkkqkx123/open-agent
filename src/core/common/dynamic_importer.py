@@ -6,10 +6,10 @@
 from typing import Type, Any, Optional, Dict, Callable
 import importlib
 import inspect
-import logging
+from src.services.logger import get_logger
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DynamicImportError(Exception):
@@ -25,7 +25,7 @@ class DynamicImporter:
     
     def __init__(self):
         """初始化动态导入器"""
-        self.logger = logging.getLogger(f"{__name__}.DynamicImporter")
+        self.logger = get_logger(f"{__name__}.DynamicImporter")
         
         # 导入缓存
         self._module_cache: Dict[str, Any] = {}

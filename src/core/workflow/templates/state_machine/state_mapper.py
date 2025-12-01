@@ -4,14 +4,14 @@
 """
 
 from typing import Dict, Any, List, Optional
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces.state.interfaces import IState
 from src.core.workflow.graph.nodes.state_machine.state_machine_workflow import (
     StateMachineConfig, StateDefinition, StateType
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StateMachineStateMapper:

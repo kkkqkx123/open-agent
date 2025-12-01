@@ -5,7 +5,7 @@
 """
 
 from typing import Dict, Any, Optional, AsyncGenerator
-import logging
+from src.services.logger import get_logger
 from datetime import datetime
 
 from src.interfaces.workflow.core import IWorkflow, IWorkflowState, ExecutionContext
@@ -15,7 +15,7 @@ from src.core.state.implementations.workflow_state import WorkflowState
 from src.interfaces.workflow.services import IWorkflowExecutor as ServiceIWorkflowExecutor
 from src.interfaces.workflow.registry import IWorkflowRegistry
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class WorkflowExecutionService(ServiceIWorkflowExecutor):

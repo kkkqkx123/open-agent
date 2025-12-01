@@ -7,7 +7,7 @@ import json
 import pickle
 import zlib
 import uuid
-import logging
+from src.services.logger import get_logger
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union, Type
 from datetime import datetime
@@ -21,7 +21,7 @@ from ..entities import StateSnapshot, StateHistoryEntry, StateStatistics, StateD
 from ..interfaces.base import IStateValidator
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BaseState(IState):

@@ -5,7 +5,7 @@
 """
 
 from typing import Dict, Any, List, TYPE_CHECKING, Optional
-import logging
+from src.services.logger import get_logger
 import asyncio
 
 if TYPE_CHECKING:
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 from src.interfaces import IWorkflowBuilderService
 from src.services.workflow.graph_cache import GraphCache, create_graph_cache, calculate_config_hash
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class WorkflowBuilderService(IWorkflowBuilderService):

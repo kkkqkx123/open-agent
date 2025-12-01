@@ -6,7 +6,7 @@
 
 import asyncio
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces.tool.base import ITool, IToolManager, IToolFactory
 from .factory import OptimizedToolFactory
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from .config import ToolConfig
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ToolManager(IToolManager):

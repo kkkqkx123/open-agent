@@ -3,13 +3,13 @@
 重构后专注于任务组和轮询池的业务逻辑，配置管理委托给ConfigManager。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Tuple
 
 from src.interfaces.llm import ITaskGroupManager
 from ..config.config_manager import ConfigManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TaskGroupManager(ITaskGroupManager):

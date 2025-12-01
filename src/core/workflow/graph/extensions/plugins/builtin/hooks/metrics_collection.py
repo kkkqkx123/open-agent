@@ -3,14 +3,14 @@
 收集节点执行过程中的各种指标数据。
 """
 
-import logging
+from src.services.logger import get_logger
 import time
 from typing import Dict, Any, List, Optional
 
 from src.interfaces.workflow.plugins import IHookPlugin, PluginMetadata, PluginContext, HookContext, HookPoint, HookExecutionResult, PluginType
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MetricsCollectionPlugin(IHookPlugin):

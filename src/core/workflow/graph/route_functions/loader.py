@@ -8,11 +8,11 @@ import importlib
 import inspect
 from pathlib import Path
 from typing import Dict, Any, Callable, Optional
-import logging
+from src.services.logger import get_logger
 
 from .registry import RouteFunctionRegistry, RouteFunctionConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RouteFunctionLoader:

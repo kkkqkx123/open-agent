@@ -4,7 +4,7 @@
 """
 
 import asyncio
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any
 
 from src.interfaces.workflow.graph import NodeExecutionResult
@@ -12,7 +12,7 @@ from src.interfaces.state.interfaces import IState
 from src.interfaces.state.workflow import IWorkflowState
 from .base import BaseNode
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AsyncNode(BaseNode):

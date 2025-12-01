@@ -3,7 +3,7 @@
 配置Thread检查点相关服务的依赖注入。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any
 
 from src.services.container import DependencyContainer
@@ -26,7 +26,7 @@ from src.adapters.threads.checkpoints import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def register_thread_checkpoint_services(container: DependencyContainer, config: Dict[str, Any]) -> None:

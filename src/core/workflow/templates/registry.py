@@ -4,13 +4,13 @@
 """
 
 from typing import Dict, List, Optional, Any
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces.workflow.templates import IWorkflowTemplate
 from src.interfaces.workflow.core import IWorkflow  # noqa: F401
 from ...common.exceptions.workflow import WorkflowTemplateError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class WorkflowTemplateRegistry:

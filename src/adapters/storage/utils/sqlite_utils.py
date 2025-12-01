@@ -7,7 +7,7 @@ import json
 import sqlite3
 import threading
 import time
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
 
@@ -18,7 +18,7 @@ from src.core.state.backup_policy import DatabaseBackupStrategy, BackupManager
 from .common_utils import StorageCommonUtils
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SQLiteStorageUtils:

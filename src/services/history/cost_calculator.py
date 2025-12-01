@@ -3,7 +3,7 @@
 提供LLM调用的成本计算功能，支持多模型定价。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from dataclasses import dataclass
@@ -14,7 +14,7 @@ from src.core.common.exceptions import CostCalculationError, ValidationError
 from src.core.history.entities import TokenUsageRecord, CostRecord
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -55,7 +55,7 @@ class CostCalculator(ICostCalculator):
         """
         self.pricing_config = pricing_config or {}
         self._model_pricing: Dict[str, ModelPricing] = {}
-        self._logger = logging.getLogger(self.__class__.__name__)
+        self._logger = get_logger(self.__class__.__name__)
         
         # 加载默认定价配置
         self._load_default_pricing()

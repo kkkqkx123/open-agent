@@ -9,11 +9,11 @@ import inspect
 import time
 from typing import Any, Dict, Callable, Optional, Union, Coroutine
 from functools import wraps
-import logging
+from src.services.logger import get_logger
 
 from ..base_stateful import StatefulBaseTool
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class NativeTool(StatefulBaseTool):

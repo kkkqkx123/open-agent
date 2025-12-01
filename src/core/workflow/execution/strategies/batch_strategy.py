@@ -3,7 +3,7 @@
 提供工作流的批量执行策略实现。
 """
 
-import logging
+from src.services.logger import get_logger
 import asyncio
 import concurrent.futures
 from typing import TYPE_CHECKING, Dict, Any, Optional, List, Callable, Union
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from src.interfaces.workflow.core import IWorkflow
     from src.interfaces.state import IWorkflowState
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 添加状态工厂导入
 from src.core.state.factories.state_factory import create_workflow_state

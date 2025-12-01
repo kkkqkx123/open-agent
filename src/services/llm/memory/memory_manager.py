@@ -3,12 +3,12 @@ import psutil
 import asyncio
 from typing import Dict, Any, Optional, Callable
 from pathlib import Path
-import logging
+from src.services.logger import get_logger
 from datetime import datetime
 
 from ..core.base_factory import BaseFactory
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MemoryManager(BaseFactory):
@@ -26,7 +26,7 @@ class MemoryManager(BaseFactory):
         self.gc_threshold = gc_threshold_mb
         self._current_usage = 0
         self._monitoring_enabled = True
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         self._callbacks: Dict[str, Callable] = {}
         
         # 设置垃圾回收阈值

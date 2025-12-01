@@ -7,7 +7,7 @@ import asyncio
 import sqlite3
 import threading
 import time
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Union, cast
 from pathlib import Path
 
@@ -26,7 +26,7 @@ from src.core.threads.checkpoints.storage.models import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, IThreadCheckpointStorage):

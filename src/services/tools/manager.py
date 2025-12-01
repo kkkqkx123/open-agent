@@ -5,7 +5,7 @@
 """
 
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
-import logging
+from src.services.logger import get_logger
 
 from src.interfaces.tool.base import ITool, IToolRegistry, IToolManager
 from src.interfaces.tool.config import ToolConfig as InterfaceToolConfig
@@ -16,7 +16,7 @@ from src.core.common.exceptions import ToolError
 if TYPE_CHECKING:
     from src.interfaces.tool.config import ToolConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ToolManager(IToolManager):

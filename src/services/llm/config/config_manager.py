@@ -4,7 +4,7 @@
 """
 
 from typing import Any, Optional, Union
-import logging
+from src.services.logger import get_logger
 from pathlib import Path
 
 from src.core.llm.factory import LLMFactory
@@ -12,7 +12,7 @@ from src.core.llm.config import LLMClientConfig
 from core.common.exceptions.llm import LLMError
 from .config_validator import LLMConfigValidator, ValidationResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConfigManager:

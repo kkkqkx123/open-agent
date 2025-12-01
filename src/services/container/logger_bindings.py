@@ -3,14 +3,14 @@
 统一注册日志相关服务，包括ILogger接口和LogRedactor等。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional
 
 from src.interfaces.common_infra import ILogger, LogLevel, ServiceLifetime
 from src.services.logger.logger import Logger
 from src.services.logger.redactor import LogRedactor, CustomLogRedactor
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def register_logger_services(container, config: Dict[str, Any], environment: str = "default") -> None:

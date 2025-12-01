@@ -3,7 +3,7 @@
 提供模块特定的配置管理器创建和管理功能。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, Type
 
 from src.interfaces.config.interfaces import IConfigManagerFactory, IUnifiedConfigManager
@@ -11,7 +11,7 @@ from src.interfaces.container import IDependencyContainer
 from src.core.common.types import ServiceLifetime
 from .config_manager import ConfigManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ConfigManagerFactory(IConfigManagerFactory):

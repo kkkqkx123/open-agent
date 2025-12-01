@@ -5,7 +5,7 @@
 """
 
 import hashlib
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 
@@ -13,7 +13,7 @@ from ...core.state import WorkflowState, StateCacheAdapter
 from ...core.common.cache import CacheManager, CacheEntry
 from ...interfaces.prompts import IPromptRegistry
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PromptCacheManager:

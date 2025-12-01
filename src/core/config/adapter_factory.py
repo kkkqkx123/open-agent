@@ -2,7 +2,7 @@
 适配器工厂 - 负责创建和管理模块特定配置适配器
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Type, Any
 from .adapters import (
     BaseConfigAdapter,
@@ -15,7 +15,7 @@ from .config_manager import ConfigManager
 from ..common.exceptions.config import ConfigError, ConfigValidationError
 from ..common.error_management import handle_error, ErrorCategory, ErrorSeverity
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AdapterFactory:

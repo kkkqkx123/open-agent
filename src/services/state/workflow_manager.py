@@ -3,7 +3,7 @@
 专门处理WorkflowState类型的状态管理。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List, Callable, Tuple
 from datetime import datetime
 
@@ -16,7 +16,7 @@ from src.interfaces.state import (
 from .manager import EnhancedStateManager
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class WorkflowStateManager(EnhancedStateManager):

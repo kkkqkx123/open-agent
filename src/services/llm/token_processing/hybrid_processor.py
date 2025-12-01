@@ -3,7 +3,7 @@
 整合了本地计算、API计算和降级策略的统一处理器。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, Sequence
 
 from langchain_core.messages import BaseMessage  # type: ignore
@@ -13,7 +13,7 @@ from .token_types import TokenUsage
 from .local_calculator import LocalTokenCalculator
 from ..utils.encoding_protocol import extract_content_as_string
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class HybridTokenProcessor(CachedTokenProcessor, DegradationTokenProcessor):

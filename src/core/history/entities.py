@@ -3,7 +3,7 @@
 定义所有历史记录相关的数据结构和枚举类型。
 """
 
-import logging
+from src.services.logger import get_logger
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Any, Optional, List
@@ -14,7 +14,7 @@ from src.core.common.exceptions.history import (
 )
 from src.core.common.error_management import handle_error, ErrorCategory, ErrorSeverity
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RecordType(Enum):

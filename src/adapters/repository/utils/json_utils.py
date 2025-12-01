@@ -3,12 +3,12 @@
 提供Repository中JSON序列化和反序列化的通用方法，基于全局MetadataManager。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional
 
 from src.core.common.utils.metadata import MetadataManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class JsonUtils:

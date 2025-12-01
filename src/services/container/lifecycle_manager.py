@@ -1,7 +1,7 @@
 """生命周期管理器实现"""
 
 import asyncio
-import logging
+from src.services.logger import get_logger
 import threading
 from typing import Dict, Any, List, Optional, Callable, Set
 from collections import defaultdict
@@ -14,7 +14,7 @@ from src.interfaces.container import (
     ServiceStatus
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # 全局生命周期管理器实例
 _global_lifecycle_manager: Optional["LifecycleManager"] = None

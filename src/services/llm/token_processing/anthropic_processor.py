@@ -3,7 +3,7 @@
 整合了Anthropic的Token计算和解析功能。
 """
 
-import logging
+from src.services.logger import get_logger
 from typing import Dict, Any, Optional, Sequence
 
 from langchain_core.messages import BaseMessage  # type: ignore
@@ -12,7 +12,7 @@ from .base_processor import ITokenProcessor, TokenUsage
 from .base_implementation import BaseTokenProcessor
 from ..utils.encoding_protocol import extract_content_as_string
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AnthropicTokenProcessor(BaseTokenProcessor):

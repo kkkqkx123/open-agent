@@ -3,7 +3,7 @@
 专门负责Hook插件的执行逻辑，从PluginManager中分离出来。
 """
 
-import logging
+from src.services.logger import get_logger
 import time
 from typing import Dict, Any, List, Optional, Callable
 from collections import defaultdict
@@ -15,7 +15,7 @@ from src.interfaces.workflow.graph import NodeExecutionResult
 from src.core.state import WorkflowState
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class HookExecutor:

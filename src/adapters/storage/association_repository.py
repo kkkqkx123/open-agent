@@ -1,6 +1,6 @@
 """Session-Thread关联仓储实现"""
 
-import logging
+from src.services.logger import get_logger
 import json
 from typing import Dict, Any, Optional, List, Union, cast, Sequence
 from datetime import datetime
@@ -11,7 +11,7 @@ from .backends.thread_base import IThreadStorageBackend
 from src.core.sessions.association import SessionThreadAssociation
 from src.core.common.exceptions import StorageError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SessionThreadAssociationRepository(ISessionThreadAssociationRepository):
