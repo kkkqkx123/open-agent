@@ -3,7 +3,7 @@
 from typing import Any, Dict
 
 from .text_formatter import TextFormatter
-from ..log_level import LogLevel
+from ...core.logger.log_level import LogLevel
 
 
 class ColorFormatter(TextFormatter):

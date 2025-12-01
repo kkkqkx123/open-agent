@@ -4,7 +4,7 @@ import sys
 from typing import Any, Dict, Optional
 
 from .base_handler import BaseHandler
-from ..log_level import LogLevel
+from ...core.logger.log_level import LogLevel
 from ..formatters.text_formatter import TextFormatter
 from ..formatters.color_formatter import ColorFormatter
 

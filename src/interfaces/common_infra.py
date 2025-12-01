@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 
 if TYPE_CHECKING:
-    from ..core.logger.handlers.base_handler import BaseHandler
+    from ..adapters.logger.handlers.base_handler import BaseHandler
     from ..core.logger.redactor import LogRedactor
 
 # 泛型类型变量
@@ -32,8 +32,7 @@ class ServiceLifetime(str, Enum):
     SCOPED = "scoped"       # 作用域模式，在特定作用域内是单例
 
 
-# LogLevel 作为运行时类型别名，在需要时从 core 层导入
-# 为避免循环导入，这里只在 TYPE_CHECKING 时导入
+# LogLevel 类型提示
 if TYPE_CHECKING:
     from ..core.logger.log_level import LogLevel
 
@@ -583,10 +582,4 @@ class IDependencyContainer(ABC):
         pass
 
 
-def __getattr__(name: str) -> Any:
-    """运行时导出LogLevel，避免循环导入"""
-    if name == 'LogLevel':
-        from ..core.logger.log_level import LogLevel
-        return LogLevel
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

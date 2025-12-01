@@ -1,9 +1,9 @@
-"""日志记录器实现"""
+"""日志服务实现"""
 
 import os
 import threading
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, List, Optional
 
 from ...interfaces.common_infra import ILogger, IBaseHandler, ILogRedactor, LogLevel
 from ...core.logger.log_level import LogLevel as CoreLogLevel
@@ -41,34 +41,35 @@ def _to_core_log_level(interface_level: LogLevel) -> CoreLogLevel:
     return mapping[interface_level]
 
 
-class Logger(ILogger):
-    """日志记录器实现"""
+class LoggerService(ILogger):
+    """日志服务实现 - 纯业务逻辑"""
 
     def __init__(
         self,
         name: str,
+        redactor: ILogRedactor,
+        handlers: List[IBaseHandler],
         config: Optional[Dict[str, Any]] = None,
-        redactor: Optional[ILogRedactor] = None,
     ):
-        """初始化日志记录器
+        """初始化日志服务
 
         Args:
             name: 日志记录器名称
-            config: 全局配置
             redactor: 日志脱敏器
+            handlers: 日志处理器列表
+            config: 配置
         """
         self.name = name
-        self._config = config
-        self._redactor = redactor or LogRedactor()
-        self._handlers: List[IBaseHandler] = []
+        self._redactor = redactor
+        self._handlers = handlers
+        self._config = config or {}
         self._level = LogLevel.INFO
         self._lock = threading.RLock()
 
-        # 如果有配置，根据配置设置日志级别和处理器
+        # 从配置设置日志级别
         if config:
             level_str = config.get("log_level", "INFO")
             self._level = _log_level_from_string(level_str)
-            self._setup_handlers_from_config(config)
 
     def debug(self, message: str, **kwargs: Any) -> None:
         """记录调试日志"""
@@ -202,53 +203,6 @@ class Logger(ILogger):
 
         return redacted_record
 
-    def _setup_handlers_from_config(self, config: Dict[str, Any]) -> None:
-        """根据配置设置处理器
-
-        Args:
-            config: 全局配置
-        """
-        # Services层不应该直接导入handlers，应该通过依赖注入获取
-        # 这些处理器应该通过构造函数或依赖注入容器提供
-        raise NotImplementedError(
-            "Services层不应该直接创建handlers。"
-            "请通过依赖注入容器获取handlers，或使用LoggerService。"
-        )
-
-        log_outputs = config.get("log_outputs", [{"type": "console"}])
-        for output_config in log_outputs:
-            # 处理不同类型的配置对象
-            if isinstance(output_config, dict):
-                handler_type = output_config.get("type", "console")
-                handler_level_str = output_config.get("level", "INFO")
-                handler_level = _log_level_from_string(handler_level_str)
-                handler_config = output_config
-            else:
-                # 假设是对象类型，使用属性访问
-                handler_type = getattr(output_config, "type", "console")
-                handler_level = _log_level_from_string(
-                    getattr(output_config, "level", "INFO")
-                )
-                handler_config = (
-                    output_config.__dict__ if hasattr(output_config, "__dict__") else {}
-                )
-
-            handler: IBaseHandler
-            if handler_type == "console":
-                core_level = _to_core_log_level(handler_level)
-                handler = ConsoleHandler(core_level, handler_config)
-            elif handler_type == "file":
-                core_level = _to_core_log_level(handler_level)
-                handler = FileHandler(core_level, handler_config)
-            elif handler_type == "json":
-                core_level = _to_core_log_level(handler_level)
-                handler = JsonHandler(core_level, handler_config)
-            else:
-                continue  # 跳过未知类型的处理器
-
-            # 添加处理器到列表
-            self.add_handler(handler)
-
     def get_level(self) -> LogLevel:
         """获取当前日志级别
 
@@ -286,51 +240,97 @@ class Logger(ILogger):
             self._handlers.clear()
 
 
-# 全局日志记录器注册表
-_loggers: Dict[str, Logger] = {}
-_loggers_lock = threading.RLock()
-_global_config: Optional[Dict[str, Any]] = None
+class LoggerFactory:
+    """日志工厂 - 用于依赖注入容器"""
+    
+    def __init__(self):
+        """初始化日志工厂"""
+        self._loggers: Dict[str, LoggerService] = {}
+        self._lock = threading.RLock()
+    
+    def create_logger(
+        self,
+        name: str,
+        redactor: ILogRedactor,
+        handlers: List[IBaseHandler],
+        config: Optional[Dict[str, Any]] = None,
+    ) -> LoggerService:
+        """创建日志服务实例
+        
+        Args:
+            name: 日志记录器名称
+            redactor: 日志脱敏器
+            handlers: 日志处理器列表
+            config: 配置
+            
+        Returns:
+            日志服务实例
+        """
+        return LoggerService(name, redactor, handlers, config)
+    
+    def get_logger(
+        self,
+        name: str,
+        redactor: ILogRedactor,
+        handlers: List[IBaseHandler],
+        config: Optional[Dict[str, Any]] = None,
+    ) -> LoggerService:
+        """获取或创建日志服务实例（单例）
+        
+        Args:
+            name: 日志记录器名称
+            redactor: 日志脱敏器
+            handlers: 日志处理器列表
+            config: 配置
+            
+        Returns:
+            日志服务实例
+        """
+        with self._lock:
+            if name not in self._loggers:
+                self._loggers[name] = self.create_logger(name, redactor, handlers, config)
+            return self._loggers[name]
 
 
-def get_logger(name: str, config: Optional[Dict[str, Any]] = None) -> Logger:
-    """获取或创建日志记录器
+# 全局工厂实例（临时，将被依赖注入替代）
+_global_factory: Optional[LoggerFactory] = None
 
+
+def get_logger_factory() -> LoggerFactory:
+    """获取全局日志工厂
+    
+    Returns:
+        日志工厂实例
+    """
+    global _global_factory
+    if _global_factory is None:
+        _global_factory = LoggerFactory()
+    return _global_factory
+
+
+def get_logger(name: str, config: Optional[Dict[str, Any]] = None) -> LoggerService:
+    """获取日志记录器（临时函数，将被依赖注入替代）
+    
     Args:
         name: 日志记录器名称
-        config: 全局配置
-
+        config: 配置
+        
     Returns:
-        日志记录器实例
+        日志服务实例
     """
-    with _loggers_lock:
-        if name not in _loggers:
-            # 如果没有提供配置，使用全局配置
-            if config is None and _global_config is not None:
-                config = _global_config
-            _loggers[name] = Logger(name, config)
-            return _loggers[name]
-        return _loggers[name]
+    # 临时实现，创建默认的redactor和handlers
+    redactor = LogRedactor()
+    handlers = []
+    
+    factory = get_logger_factory()
+    return factory.get_logger(name, redactor, handlers, config)
 
 
 def set_global_config(config: Dict[str, Any]) -> None:
-    """设置全局配置，更新所有已创建的日志记录器
-
+    """设置全局配置（临时函数，将被依赖注入替代）
+    
     Args:
         config: 全局配置
     """
-    global _global_config
-    _global_config = config
-
-    with _loggers_lock:
-        for logger in _loggers.values():
-            logger._config = config
-            level_str = config.get("log_level", "INFO")
-            logger._level = _log_level_from_string(level_str)
-
-            # 清除现有处理器
-            for handler in logger._handlers:
-                handler.close()
-            logger._handlers.clear()
-
-            # 根据新配置设置处理器
-            logger._setup_handlers_from_config(config)
+    # 临时实现，这里应该通过依赖注入容器重新配置服务
+    pass

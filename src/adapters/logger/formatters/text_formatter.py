@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Dict
 
 from .base_formatter import BaseFormatter
-from ..log_level import LogLevel
+from ...core.logger.log_level import LogLevel
 
 
 class TextFormatter(BaseFormatter):

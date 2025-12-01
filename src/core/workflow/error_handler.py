@@ -8,7 +8,8 @@ import time
 from typing import Dict, Callable, Optional, Any, List
 from enum import Enum
 
-from src.core.logger import get_logger
+from src.interfaces.common_infra import ILogger
+from src.services.container import get_global_container
 from src.core.common.error_management import (
     BaseErrorHandler, ErrorCategory, ErrorSeverity,
     ErrorHandlingRegistry, operation_with_retry, operation_with_fallback
@@ -18,9 +19,6 @@ from src.core.common.exceptions.workflow import (
     WorkflowStepError, WorkflowTimeoutError, WorkflowStateError,
     WorkflowConfigError, WorkflowDependencyError
 )
-
-logger = get_logger(__name__)
-
 
 class WorkflowErrorType(Enum):
     """工作流错误类型"""
@@ -42,11 +40,27 @@ class WorkflowErrorType(Enum):
 class WorkflowErrorHandler(BaseErrorHandler):
     """增强的工作流错误处理器"""
     
-    def __init__(self):
+    def __init__(self, logger: Optional[ILogger] = None):
         super().__init__(ErrorCategory.WORKFLOW, ErrorSeverity.HIGH)
+        self._logger = logger or self._get_logger_from_container()
         self._retry_strategies: Dict[WorkflowErrorType, Callable] = {}
         self._fallback_strategies: Dict[WorkflowErrorType, Callable] = {}
         self._register_default_strategies()
+    
+    def _get_logger_from_container(self) -> ILogger:
+        """从依赖注入容器获取logger"""
+        try:
+            container = get_global_container()
+            return container.get(ILogger)
+        except Exception:
+            # 如果容器中没有注册logger，创建一个简单的替代实现
+            import sys
+            class FallbackLogger:
+                def info(self, msg, **kwargs): print(f"INFO: {msg}")
+                def warning(self, msg, **kwargs): print(f"WARNING: {msg}", file=sys.stderr)
+                def error(self, msg, **kwargs): print(f"ERROR: {msg}", file=sys.stderr)
+                def debug(self, msg, **kwargs): print(f"DEBUG: {msg}")
+            return FallbackLogger()  # type: ignore
     
     def _register_default_strategies(self):
         """注册默认的错误处理策略"""
@@ -69,13 +83,13 @@ class WorkflowErrorHandler(BaseErrorHandler):
     def handle(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> None:
         """处理工作流错误"""
         if not isinstance(error, WorkflowError):
-            logger.warning(f"非工作流错误，无法处理: {type(error).__name__}")
+            self._logger.warning(f"非工作流错误，无法处理: {type(error).__name__}")
             return
         
         context = context or {}
         error_type = self._classify_error(error, context)
         
-        logger.error(
+        self._logger.error(
             f"工作流错误处理: {error_type.value}",
             extra={
                 "error_message": str(error),
@@ -89,9 +103,9 @@ class WorkflowErrorHandler(BaseErrorHandler):
         # 尝试恢复
         recovery_result = self._attempt_recovery(error, error_type, context)
         if recovery_result:
-            logger.info(f"工作流错误已恢复: {error_type.value}")
+            self._logger.info(f"工作流错误已恢复: {error_type.value}")
         else:
-            logger.warning(f"工作流错误无法恢复: {error_type.value}")
+            self._logger.warning(f"工作流错误无法恢复: {error_type.value}")
     
     def _classify_error(self, error: WorkflowError, context: Dict[str, Any]) -> WorkflowErrorType:
         """分类工作流错误"""
@@ -139,14 +153,14 @@ class WorkflowErrorHandler(BaseErrorHandler):
             try:
                 return self._retry_strategies[error_type](error, context)
             except Exception as e:
-                logger.warning(f"重试策略失败: {e}")
+                self._logger.warning(f"重试策略失败: {e}")
         
         # 然后尝试降级策略
         if error_type in self._fallback_strategies:
             try:
                 return self._fallback_strategies[error_type](error, context)
             except Exception as e:
-                logger.warning(f"降级策略失败: {e}")
+                self._logger.warning(f"降级策略失败: {e}")
         
         return None
     
@@ -155,7 +169,7 @@ class WorkflowErrorHandler(BaseErrorHandler):
         step_id = getattr(error, 'step_id', None) or context.get('step_id')
         timeout = getattr(error, 'timeout', None)
         
-        logger.info(f"工作流超时重试: 步骤={step_id}, 超时={timeout}")
+        self._logger.info(f"工作流超时重试: 步骤={step_id}, 超时={timeout}")
         
         # 增加超时时间重试
         new_timeout = timeout * 1.5 if timeout else 60
@@ -170,7 +184,7 @@ class WorkflowErrorHandler(BaseErrorHandler):
     
     def _retry_resource(self, error: WorkflowError, context: Dict[str, Any]) -> Optional[Any]:
         """资源错误重试策略"""
-        logger.info("工作流资源错误重试: 延迟后重试")
+        self._logger.info("工作流资源错误重试: 延迟后重试")
         
         return {
             "action": "retry",
@@ -184,7 +198,7 @@ class WorkflowErrorHandler(BaseErrorHandler):
         """依赖错误重试策略"""
         dependency_name = getattr(error, 'dependency_name', None)
         
-        logger.info(f"工作流依赖错误重试: {dependency_name}")
+        self._logger.info(f"工作流依赖错误重试: {dependency_name}")
         
         return {
             "action": "retry",
@@ -195,7 +209,7 @@ class WorkflowErrorHandler(BaseErrorHandler):
     
     def _retry_integration(self, error: WorkflowError, context: Dict[str, Any]) -> Optional[Any]:
         """集成错误重试策略"""
-        logger.info("工作流集成错误重试: 使用指数退避")
+        self._logger.info("工作流集成错误重试: 使用指数退避")
         
         return {
             "action": "retry",
@@ -210,7 +224,7 @@ class WorkflowErrorHandler(BaseErrorHandler):
         execution_id = getattr(error, 'execution_id', None)
         step_id = getattr(error, 'step_id', None)
         
-        logger.warning(f"工作流执行错误降级: 执行={execution_id}, 步骤={step_id}")
+        self._logger.warning(f"工作流执行错误降级: 执行={execution_id}, 步骤={step_id}")
         
         return {
             "action": "fallback",
@@ -225,7 +239,7 @@ class WorkflowErrorHandler(BaseErrorHandler):
         step_id = getattr(error, 'step_id', None)
         step_type = getattr(error, 'step_type', None)
         
-        logger.warning(f"工作流步骤错误降级: 步骤={step_id}, 类型={step_type}")
+        self._logger.warning(f"工作流步骤错误降级: 步骤={step_id}, 类型={step_type}")
         
         return {
             "action": "fallback",
@@ -240,7 +254,7 @@ class WorkflowErrorHandler(BaseErrorHandler):
         current_state = getattr(error, 'current_state', None)
         expected_state = getattr(error, 'expected_state', None)
         
-        logger.warning(f"工作流状态错误降级: 当前={current_state}, 期望={expected_state}")
+        self._logger.warning(f"工作流状态错误降级: 当前={current_state}, 期望={expected_state}")
         
         return {
             "action": "fallback",
@@ -254,7 +268,7 @@ class WorkflowErrorHandler(BaseErrorHandler):
         """配置错误降级策略"""
         config_key = getattr(error, 'config_key', None)
         
-        logger.warning(f"工作流配置错误降级: 配置键={config_key}")
+        self._logger.warning(f"工作流配置错误降级: 配置键={config_key}")
         
         return {
             "action": "fallback",
@@ -267,9 +281,25 @@ class WorkflowErrorHandler(BaseErrorHandler):
 class WorkflowErrorRecoveryManager:
     """工作流错误恢复管理器"""
     
-    def __init__(self, error_handler: WorkflowErrorHandler):
+    def __init__(self, error_handler: WorkflowErrorHandler, logger: Optional[ILogger] = None):
         self.error_handler = error_handler
+        self._logger = logger or self._get_logger_from_container()
         self._recovery_history: Dict[str, List[Dict[str, Any]]] = {}
+    
+    def _get_logger_from_container(self) -> ILogger:
+        """从依赖注入容器获取logger"""
+        try:
+            container = get_global_container()
+            return container.get(ILogger)
+        except Exception:
+            # 如果容器中没有注册logger，创建一个简单的替代实现
+            import sys
+            class FallbackLogger:
+                def info(self, msg, **kwargs): print(f"INFO: {msg}")
+                def warning(self, msg, **kwargs): print(f"WARNING: {msg}", file=sys.stderr)
+                def error(self, msg, **kwargs): print(f"ERROR: {msg}", file=sys.stderr)
+                def debug(self, msg, **kwargs): print(f"DEBUG: {msg}")
+            return FallbackLogger()  # type: ignore
     
     def attempt_recovery(
         self, 
@@ -306,7 +336,7 @@ class WorkflowErrorRecoveryManager:
             except Exception as e:
                 # 记录恢复失败
                 self._record_recovery(workflow_id, "failed", recovery_suggestion)
-                logger.error(f"工作流恢复执行失败: {e}")
+                self._logger.error(f"工作流恢复执行失败: {e}")
         
         return recovery_suggestion
     
@@ -420,7 +450,8 @@ def register_workflow_error_handler():
     registry.register_handler(WorkflowConfigError, workflow_handler)
     registry.register_handler(WorkflowDependencyError, workflow_handler)
     
-    logger.info("工作流错误处理器已注册到全局注册表")
+    # 注册时无法获取logger，使用print作为后备
+    print("工作流错误处理器已注册到全局注册表")
 
 
 # 便捷函数

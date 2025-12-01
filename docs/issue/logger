@@ -1,0 +1,205 @@
+## 🔍 依赖注入容器日志服务绑定配置分析
+
+基于对 [`src/services/container/logger_bindings.py`](src/services/container/logger_bindings.py:1) 的分析，我发现了以下问题：
+
+### 1. **依赖注入配置问题**
+
+**当前问题：**
+- [`logger_bindings.py:6`](src/services/container/logger_bindings.py:6) 直接导入 `get_logger` 函数，违反了依赖注入原则
+- [`logger_bindings.py:13`](src/services/container/logger_bindings.py:13) 在绑定配置中直接使用 `get_logger(__name__)`，这是硬编码依赖
+- 绑定配置本身依赖于具体的实现，而不是接口
+
+**正确的依赖注入应该是：**
+- 容器绑定应该只依赖接口
+- 服务实例应该通过容器创建，而不是直接调用工厂函数
+- 配置应该通过构造函数注入，而不是全局状态
+
+### 2. **循环依赖风险**
+
+**当前架构存在循环依赖：**
+- `logger_bindings.py` → `services.logger` → `core.logger` → 可能回到 `services`
+- 这种循环依赖会导致模块加载问题
+
+### 3. **服务生命周期管理不当**
+
+**问题分析：**
+- [`register_logger`](src/services/container/logger_bindings.py:97) 函数创建的 Logger 实例虽然是单例，但创建过程依赖全局状态
+- 没有正确的资源清理机制
+- 配置更新时需要重新创建实例，但旧实例可能仍在使用
+
+---
+
+## 📋 当前架构依赖注入原则评估
+
+### 1. **依赖倒置原则违反**
+
+**问题分析：**
+- 高层模块（core 层）直接依赖低层模块（services 层）的具体实现
+- 例如：[`src/core/workflow/error_handler.py:11`](src/core/workflow/error_handler.py:11) 导入 `from src.core.logger import get_logger`
+- 但实际上 core 层应该只依赖接口，不依赖具体实现
+
+**正确做法：**
+- Core 层应该通过构造函数接收 `ILogger` 接口
+- 具体实现应该通过依赖注入容器提供
+
+### 2. **单一职责原则违反**
+
+**问题分析：**
+- [`src/services/logger/logger.py`](src/services/logger/logger.py:1) 既实现了 Logger 类，又提供了全局工厂函数
+- 服务层承担了太多职责：实现、工厂、配置管理
+- 这违反了单一职责原则
+
+### 3. **开闭原则违反**
+
+**问题分析：**
+- 当前架构难以扩展新的日志实现
+- 所有模块都直接依赖 `get_logger` 函数，更换实现需要修改大量代码
+- 没有良好的抽象层支持扩展
+
+### 4. **接口隔离原则违反**
+
+**问题分析：**
+- [`ILogger`](src/interfaces/common_infra.py:363) 接口设计过于庞大
+- 包含了所有可能的日志操作，不同使用者可能只需要部分功能
+- 没有针对不同使用场景的专门接口
+
+### 5. **依赖注入容器使用不当**
+
+**问题分析：**
+- 容器绑定配置依赖具体实现
+- 服务层模块直接调用工厂函数，而不是通过容器获取依赖
+- 没有充分利用依赖注入容器的优势
+
+---
+
+## 🛠️ 重构建议和解决方案
+
+基于前面的分析，我提出以下重构建议来解决功能重叠和职责划分不当的问题：
+
+### 1. **重新设计架构层次**
+
+**建议的新架构：**
+
+```
+src/
+├── interfaces/                    # 接口层
+│   └── common_infra.py           # 日志相关接口定义
+├── core/                         # 核心层
+│   └── common/                   # 通用核心组件
+│       ├── log_level.py          # 日志级别枚举
+│       └── log_context.py        # 日志上下文实体
+├── services/                     # 服务层
+│   └── logger/                   # 日志服务
+│       ├── logger_service.py     # 日志服务实现
+│       └── logger_factory.py     # 日志工厂（仅用于容器绑定）
+└── adapters/                     # 适配器层
+    └── logger/                   # 日志适配器
+        ├── handlers/             # 处理器实现
+        ├── formatters/           # 格式化器实现
+        └── implementations/      # 具体日志实现
+```
+
+### 2. **解决功能重叠问题**
+
+**具体措施：**
+
+1. **移除 core/logger 目录中的基础设施组件**
+   - 将 [`handlers/`](src/core/logger/handlers/) 和 [`formatters/`](src/core/logger/formatters/) 移动到 `adapters/logger/`
+   - 保留核心实体：[`log_level.py`](src/core/logger/log_level.py:1)、[`redactor.py`](src/core/logger/redactor.py:1)
+
+2. **重构 services/logger 目录**
+   - [`logger.py`](src/services/logger/logger.py:1) 重命名为 `logger_service.py`，专注于服务实现
+   - 移除全局状态和工厂函数，改为纯服务类
+   - [`error_handler.py`](src/services/logger/error_handler.py:1) 重构为错误处理服务
+
+3. **修复缺失的引用**
+   - 创建缺失的 `logger_factory.py` 或修复 [`__init__.py`](src/core/logger/__init__.py:4) 中的引用
+
+### 3. **实现正确的依赖注入**
+
+**新的依赖注入配置：**
+
+```python
+# src/services/container/logger_bindings.py
+def register_logger_services(container, config: Dict[str, Any], environment: str = "default") -> None:
+    """注册日志相关服务"""
+    
+    # 注册日志级别枚举
+    container.register_instance(LogLevel, LogLevel, environment=environment)
+    
+    # 注册日志脱敏器
+    container.register_factory(
+        ILogRedactor,
+        lambda: create_redactor_from_config(config),
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
+    
+    # 注册日志服务
+    container.register_factory(
+        ILogger,
+        lambda: create_logger_service(container, config, environment),
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
+```
+
+### 4. **重构核心层依赖**
+
+**Core 层应该通过构造函数注入：**
+
+```python
+# 示例：core/workflow/manager.py
+class WorkflowManager:
+    def __init__(self, logger: ILogger, config: IConfigLoader):
+        self._logger = logger
+        self._config = config
+    
+    def create_workflow(self, workflow_config: Dict[str, Any]) -> IWorkflow:
+        self._logger.info(f"创建工作流: {workflow_config.get('name')}")
+        # 实现逻辑...
+```
+
+### 5. **分阶段重构计划**
+
+**第一阶段：修复紧急问题**
+1. 修复 [`src/core/logger/__init__.py`](src/core/logger/__init__.py:4) 中缺失的 `logger_factory` 引用
+2. 移除循环依赖
+3. 统一日志获取方式
+
+**第二阶段：重构架构**
+1. 将基础设施组件移动到适配器层
+2. 重构服务层实现
+3. 更新依赖注入配置
+
+**第三阶段：优化和清理**
+1. 移除全局状态
+2. 优化接口设计
+3. 添加单元测试
+
+### 6. **具体代码修改建议**
+
+**立即需要修复的问题：**
+
+1. **修复 core/logger/__init__.py**
+```python
+# 移除不存在的引用
+# from .logger_factory import get_core_logger, get_logger
+
+# 改为
+from .log_level import LogLevel
+from .redactor import LogRedactor, CustomLogRedactor
+# ... 其他存在的导入
+```
+
+2. **统一日志获取方式**
+```python
+# 所有模块都应该通过依赖注入获取 logger
+# 而不是直接导入 get_logger
+```
+
+3. **重构依赖注入配置**
+```python
+# 移除对 get_logger 的直接依赖
+# 改为通过容器创建服务实例
+```

@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict
 
-from ..log_level import LogLevel
+from ...core.logger.log_level import LogLevel
 
 
 class BaseFormatter(ABC):

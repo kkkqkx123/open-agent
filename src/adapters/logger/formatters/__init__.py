@@ -1,4 +1,7 @@
-"""日志格式化器模块"""
+"""日志格式化器适配器
+
+提供各种日志格式化器的技术实现。
+"""
 
 from .base_formatter import BaseFormatter
 from .text_formatter import TextFormatter

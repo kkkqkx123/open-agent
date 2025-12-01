@@ -1,11 +1,11 @@
-"""指标收集器"""
+"""指标收集器服务"""
 
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from threading import Lock
 
-from .log_level import LogLevel
+from ...core.logger.log_level import LogLevel
 
 
 class IMetricsCollector(ABC):
