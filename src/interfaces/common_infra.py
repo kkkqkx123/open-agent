@@ -345,7 +345,7 @@ class ILogRedactor(ABC):
     """
     
     @abstractmethod
-    def redact(self, text: str, level = "INFO") -> str:
+    def redact(self, text: str, level: "LogLevel | str" = "INFO") -> str:
         """
         脱敏文本
         

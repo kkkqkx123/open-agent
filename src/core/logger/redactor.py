@@ -79,7 +79,7 @@ class LogRedactor(ILogRedactor):
             compiled_patterns.append((re.compile(pattern), replacement))
         return compiled_patterns
 
-    def redact(self, text: str, level: LogLevel = LogLevel.INFO) -> str:
+    def redact(self, text: str, level: LogLevel | str = LogLevel.INFO) -> str:
         """脱敏文本
 
         Args:
@@ -89,6 +89,10 @@ class LogRedactor(ILogRedactor):
         Returns:
             脱敏后的文本
         """
+        # 将字符串级别转换为LogLevel
+        if isinstance(level, str):
+            level = LogLevel[level]
+        
         # DEBUG级别不脱敏
         if level.value == LogLevel.DEBUG.value:
             return text

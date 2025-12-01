@@ -2,15 +2,13 @@
 
 import sys
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, Optional
 
 from ...core.logger.log_level import LogLevel
-
-if TYPE_CHECKING:
-    from ....interfaces.common_infra import IBaseHandler
+from ....interfaces.common_infra import IBaseHandler
 
 
-class BaseHandler(ABC):
+class BaseHandler(IBaseHandler, ABC):
     """日志处理器基础类"""
 
     def __init__(

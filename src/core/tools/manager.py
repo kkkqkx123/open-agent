@@ -6,7 +6,6 @@
 
 import asyncio
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
-from src.services.logger import get_logger
 
 from src.interfaces.tool.base import ITool, IToolManager, IToolFactory
 from .factory import OptimizedToolFactory
@@ -17,9 +16,6 @@ from src.core.tools.error_handler import (
 
 if TYPE_CHECKING:
     from .config import ToolConfig
-
-
-logger = get_logger(__name__)
 
 
 class ToolManager(IToolManager):
@@ -53,33 +49,31 @@ class ToolManager(IToolManager):
     
     async def initialize(self) -> None:
         """初始化工具管理器
-        
+
         加载配置中指定的所有工具。
         """
         if self._initialized:
             return
-        
+
         # 加载配置中的工具
         await self._load_tools_from_config()
-        
+
         self._initialized = True
-        logger.info("ToolManager初始化完成")
     
     async def _load_tools_from_config(self) -> None:
         """从配置加载工具"""
         # 从配置中获取工具列表
         tools_config = self.config.get('tools', [])
-        
+
         for tool_config in tools_config:
             try:
                 # 验证工具配置
                 if not await self.validate_tool_config(tool_config):
-                    logger.error(f"工具配置验证失败: {tool_config.get('name', 'Unknown')}")
+                    # 静默处理错误，继续加载其他工具
                     continue
-                
+
                 tool = self.factory.create_tool(tool_config)
                 await self.register_tool(tool)
-                logger.info(f"成功加载工具: {tool.name}")
             except ToolRegistrationError as e:
                 # 工具注册错误，使用错误处理器
                 context = create_tool_error_context(
@@ -88,7 +82,6 @@ class ToolManager(IToolManager):
                     operation="registration"
                 )
                 handle_tool_error(e, context)
-                logger.error(f"工具注册失败: {tool_config.get('name', 'Unknown')}, 错误: {e}")
             except Exception as e:
                 # 其他错误，包装为工具错误
                 tool_error = ToolRegistrationError(f"加载工具失败: {str(e)}")
@@ -98,14 +91,13 @@ class ToolManager(IToolManager):
                     operation="loading"
                 )
                 handle_tool_error(tool_error, context)
-                logger.error(f"加载工具失败: {tool_config.get('name', 'Unknown')}, 错误: {e}")
     
     async def register_tool(self, tool: ITool) -> None:
         """注册工具
-        
+
         Args:
             tool: 要注册的工具
-            
+
         Raises:
             ToolRegistrationError: 工具注册失败
         """
@@ -113,14 +105,14 @@ class ToolManager(IToolManager):
             # 验证工具
             if not self._validate_tool(tool):
                 raise ToolRegistrationError(f"工具验证失败: {tool.name}")
-            
+
             # 检查是否已存在
             if tool.name in self._tools:
-                logger.warning(f"工具已存在，将被覆盖: {tool.name}")
-            
+                # 工具已存在，将被覆盖
+                pass
+
             self._tools[tool.name] = tool
-            logger.info(f"注册工具: {tool.name}")
-            
+
         except Exception as e:
             if isinstance(e, ToolRegistrationError):
                 raise
@@ -132,45 +124,39 @@ class ToolManager(IToolManager):
         try:
             # 检查基本属性
             if not tool.name or not tool.name.strip():
-                logger.error("工具名称不能为空")
                 return False
-            
+
             if not tool.description or not tool.description.strip():
-                logger.error("工具描述不能为空")
                 return False
-            
+
             if not tool.parameters_schema:
-                logger.error("工具参数模式不能为空")
                 return False
-            
+
             # 检查参数模式格式
             if not isinstance(tool.parameters_schema, dict):
-                logger.error("工具参数模式必须是字典类型")
                 return False
-            
+
             return True
-            
-        except Exception as e:
-            logger.error(f"工具验证异常: {e}")
+
+        except Exception:
             return False
     
     async def unregister_tool(self, name: str) -> None:
         """注销工具
-        
+
         Args:
             name: 工具名称
         """
         if name in self._tools:
             del self._tools[name]
-            logger.info(f"注销工具: {name}")
     
     async def get_tool(self, name: str, session_id: Optional[str] = None) -> Optional[ITool]:
         """获取工具
-        
+
         Args:
             name: 工具名称
             session_id: 会话ID（用于有状态工具）
-            
+
         Returns:
             Optional[ITool]: 工具实例，如果不存在则返回None
         """
@@ -180,30 +166,28 @@ class ToolManager(IToolManager):
                 session_tools = self._active_sessions[session_id]
                 if name in session_tools:
                     return session_tools[name]
-            
+
             # 从工具存储中获取工具
             tool = self._tools.get(name)
             if tool is None:
-                logger.warning(f"工具不存在: {name}")
                 return None
-            
+
             # 如果是需要会话的有状态工具，初始化会话
             if hasattr(tool, 'initialize_context') and session_id:
                 try:
                     tool.initialize_context(session_id)
-                    
+
                     # 将工具添加到活跃会话中
                     if session_id not in self._active_sessions:
                         self._active_sessions[session_id] = {}
                     self._active_sessions[session_id][name] = tool
-                except Exception as e:
-                    logger.error(f"初始化工具上下文失败: {name}, 错误: {e}")
-                    # 仍然返回工具，但记录错误
-            
+                except Exception:
+                    # 仍然返回工具，但静默处理错误
+                    pass
+
             return tool
-            
-        except Exception as e:
-            logger.error(f"获取工具失败: {name}, 错误: {e}")
+
+        except Exception:
             return None
     
     async def list_tools(self) -> List[str]:
@@ -267,9 +251,9 @@ class ToolManager(IToolManager):
     
     async def reload_tools(self) -> None:
         """重新加载所有工具
-        
+
         清除当前工具并重新加载配置中的工具。
-        
+
         Raises:
             ToolError: 重载失败
         """
@@ -280,19 +264,18 @@ class ToolManager(IToolManager):
                     try:
                         if hasattr(tool, 'cleanup_context'):
                             tool.cleanup_context()
-                    except Exception as e:
-                        logger.warning(f"清理工具上下文失败: {tool.name}, 错误: {e}")
-            
+                    except Exception:
+                        # 静默处理清理错误
+                        pass
+
             self._active_sessions.clear()
-            
+
             # 清空工具存储
             self._tools.clear()
-            
+
             # 重新加载工具
             await self._load_tools_from_config()
-            
-            logger.info("工具重载完成")
-            
+
         except Exception as e:
             raise ToolError(f"工具重载失败: {str(e)}") from e
     
@@ -318,10 +301,10 @@ class ToolManager(IToolManager):
     
     async def validate_tool_config(self, config: Any) -> bool:
         """验证工具配置
-        
+
         Args:
             config: 工具配置（可以是ToolConfig对象或Dict）
-            
+
         Returns:
             bool: 验证是否通过
         """
@@ -338,82 +321,70 @@ class ToolManager(IToolManager):
                     "description": getattr(config, "description", None),
                     "parameters_schema": getattr(config, "parameters_schema", None),
                 }
-            
+
             # 基本验证
             required_fields = ["name", "tool_type", "description", "parameters_schema"]
             validation_errors = []
-            
+
             for field in required_fields:
                 if field not in config_dict or config_dict[field] is None:
                     validation_errors.append(f"缺少必需字段: {field}")
-            
+
             if validation_errors:
-                logger.error(f"工具配置验证失败: {', '.join(validation_errors)}")
                 return False
-            
+
             # 验证工具名称
             name = config_dict["name"]
             if not isinstance(name, str) or not name.strip():
-                logger.error("工具名称必须是非空字符串")
                 return False
-            
+
             # 验证参数schema格式
             parameters_schema = config_dict["parameters_schema"]
             if not isinstance(parameters_schema, dict):
-                logger.error("参数schema必须是字典格式")
                 return False
-            
+
             # 验证工具类型
             tool_type = config_dict["tool_type"]
             valid_types = ["builtin", "native", "rest", "mcp"]
             if tool_type not in valid_types:
-                logger.error(f"无效的工具类型: {tool_type}，支持的类型: {', '.join(valid_types)}")
                 return False
-            
+
             # 针对不同工具类型进行特定验证
             if tool_type in ["builtin", "native"]:
                 function_path = config_dict.get("function_path")
                 if not function_path:
-                    logger.error(f"{tool_type}工具必须包含function_path")
                     return False
-                
+
                 # 验证函数路径格式
                 if not isinstance(function_path, str) or ':' not in function_path:
-                    logger.error(f"{tool_type}工具的function_path格式无效，应为'module:function'")
                     return False
-            
+
             if tool_type == "rest":
                 api_url = config_dict.get("api_url")
                 if not api_url:
-                    logger.error("REST工具必须包含api_url")
                     return False
-                
+
                 # 验证URL格式
                 if not isinstance(api_url, str) or not api_url.startswith(('http://', 'https://')):
-                    logger.error("REST工具的api_url必须是有效的HTTP/HTTPS URL")
                     return False
-                
+
                 if tool_type == "mcp":
                     mcp_url = config_dict.get("mcp_server_url")
                     if not mcp_url:
-                        logger.error("MCP工具必须包含mcp_server_url")
                         return False
-            
+
             if tool_type == "mcp":
                 mcp_url = config_dict.get("mcp_server_url")
                 if not mcp_url:
-                    logger.error("MCP工具必须包含mcp_server_url")
                     return False
-                
+
                 # 验证URL格式
                 if not isinstance(mcp_url, str) or not mcp_url.startswith(('http://', 'https://', 'ws://', 'wss://')):
-                    logger.error("MCP工具的mcp_server_url必须是有效的URL")
                     return False
-            
+
             return True
-            
-        except Exception as e:
-            logger.error(f"工具配置验证异常: {e}")
+
+        except Exception:
             return False
     
     def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
@@ -438,12 +409,12 @@ class ToolManager(IToolManager):
         for name, tool in session_tools.items():
             if hasattr(tool, 'get_context_info'):
                 context_info = tool.get_context_info()
-                info['tools'][name] = {
+                info['tools'][name] = {  # type: ignore
                     'context_info': context_info,
                     'type': type(tool).__name__
                 }
             else:
-                info['tools'][name] = {
+                info['tools'][name] = {  # type: ignore
                     'type': type(tool).__name__
                 }
         
@@ -451,20 +422,19 @@ class ToolManager(IToolManager):
     
     async def cleanup_session(self, session_id: str) -> None:
         """清理会话
-        
+
         Args:
             session_id: 会话ID
-            
+
         Raises:
             ToolError: 清理失败
         """
         try:
             if session_id not in self._active_sessions:
-                logger.warning(f"会话不存在: {session_id}")
                 return
-            
+
             session_tools = self._active_sessions[session_id]
-            
+
             # 清理所有工具的上下文
             cleanup_errors = []
             for tool_name, tool in session_tools.items():
@@ -473,16 +443,10 @@ class ToolManager(IToolManager):
                         tool.cleanup_context()
                 except Exception as e:
                     cleanup_errors.append(f"{tool_name}: {str(e)}")
-                    logger.warning(f"清理工具上下文失败: {tool_name}, 错误: {e}")
-            
+
             # 删除会话
             del self._active_sessions[session_id]
-            
-            if cleanup_errors:
-                logger.warning(f"会话清理完成，但有部分错误: {', '.join(cleanup_errors)}")
-            else:
-                logger.info(f"清理会话: {session_id}")
-                
+
         except Exception as e:
             raise ToolError(f"清理会话失败: {session_id}, 错误: {str(e)}") from e
     

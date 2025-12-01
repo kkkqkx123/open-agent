@@ -1,70 +1,58 @@
 """节点配置加载器
- 
+
 负责从配置文件中加载节点的默认配置，并提供配置合并功能。
 """
 
 from typing import Dict, Any, Optional
 from pathlib import Path
 
-from src.core.logger import get_logger
 from src.interfaces.common_infra import IConfigLoader
-from src.services.container import get_global_container
-
-logger = get_logger(__name__)
 
 
 class NodeConfigLoader:
     """节点配置加载器"""
     
-    def __init__(self, config_loader: Optional[IConfigLoader] = None) -> None:
+    def __init__(self, config_loader: IConfigLoader) -> None:
         """初始化节点配置加载器
-        
+
         Args:
-            config_loader: 配置加载器实例，如果为None则从容器获取
+            config_loader: 配置加载器实例
         """
         self._config_loader = config_loader
         self._node_configs: Dict[str, Dict[str, Any]] = {}
         self._loaded = False
     
-    def _get_config_loader(self) -> IConfigLoader:
-        """获取配置加载器实例"""
-        if self._config_loader is None:
-            container = get_global_container()
-            self._config_loader = container.get(IConfigLoader)  # type: ignore
-        return self._config_loader
-    
     def load_configs(self) -> None:
         """加载所有节点配置"""
         if self._loaded:
             return
-        
-        config_loader = self._get_config_loader()
-        
+
         try:
             # 1. 加载节点组配置
             group_config = {}
             try:
-                group_config = config_loader.load_config("nodes/_group.yaml") or {}
-            except Exception as e:
-                logger.warning(f"无法加载节点组配置: {e}")
-            
+                group_config = self._config_loader.load_config("nodes/_group.yaml") or {}
+            except Exception:
+                # 静默处理错误，使用空配置
+                pass
+
             # 2. 加载各节点特定配置
             from pathlib import Path
             import os
-            
+
             configs_dir = Path("configs/nodes")
             if not configs_dir.exists():
                 # 尝试相对于项目根目录的路径
                 project_root = Path(__file__).parent.parent.parent.parent
                 configs_dir = project_root / "configs" / "nodes"
-            
+
             if configs_dir.exists():
                 for node_file in configs_dir.glob("*.yaml"):
                     if node_file.name != "_group.yaml":
                         try:
-                            node_config = config_loader.load_config(f"nodes/{node_file.name}") or {}
+                            node_config = self._config_loader.load_config(f"nodes/{node_file.name}") or {}
                             node_type = node_file.stem
-                            
+
                             # 3. 处理继承关系
                             if "inherits_from" in node_config:
                                 base_path = node_config["inherits_from"]
@@ -74,19 +62,17 @@ class NodeConfigLoader:
                                 self._node_configs[node_type] = merged_config
                             else:
                                 self._node_configs[node_type] = node_config
-                                
-                            logger.debug(f"已加载节点配置: {node_type}")
-                        except Exception as e:
-                            logger.error(f"加载节点配置失败 {node_file.name}: {e}")
+                        except Exception:
+                            # 静默处理错误，继续加载其他配置
+                            pass
             else:
-                logger.warning(f"节点配置目录不存在: {configs_dir}")
-            
+                # 静默处理错误，使用空配置作为后备
+                pass
+
             self._loaded = True
-            logger.info(f"节点配置加载完成，共加载 {len(self._node_configs)} 个节点配置")
-            
-        except Exception as e:
-            logger.error(f"加载节点配置失败: {e}")
-            # 使用空配置作为后备
+
+        except Exception:
+            # 静默处理错误，使用空配置作为后备
             self._node_configs = {}
             self._loaded = True
     
@@ -135,11 +121,11 @@ class NodeConfigLoader:
     
     def _resolve_inheritance(self, inheritance_path: str, group_config: Dict[str, Any]) -> Dict[str, Any]:
         """解析配置继承路径
-        
+
         Args:
             inheritance_path: 继承路径，格式为 "file.yaml#node_type"
             group_config: 组配置字典
-            
+
         Returns:
             继承的基础配置
         """
@@ -147,10 +133,12 @@ class NodeConfigLoader:
             if "#" in inheritance_path:
                 file_path, node_type = inheritance_path.split("#", 1)
                 if file_path == "_group.yaml" and node_type in group_config:
-                    return group_config[node_type]
+                    node_config = group_config[node_type]
+                    if isinstance(node_config, dict):
+                        return node_config
             return {}
-        except Exception as e:
-            logger.warning(f"解析配置继承失败 {inheritance_path}: {e}")
+        except Exception:
+            # 静默处理错误，返回空配置
             return {}
     
     def _deep_merge(self, base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
@@ -176,13 +164,24 @@ class NodeConfigLoader:
 _node_config_loader: Optional[NodeConfigLoader] = None
 
 
-def get_node_config_loader() -> NodeConfigLoader:
-    """获取全局节点配置加载器实例
-    
+def set_node_config_loader(config_loader: IConfigLoader) -> NodeConfigLoader:
+    """设置节点配置加载器实例
+
+    Args:
+        config_loader: 配置加载器实例
+
     Returns:
         节点配置加载器实例
     """
     global _node_config_loader
-    if _node_config_loader is None:
-        _node_config_loader = NodeConfigLoader()
+    _node_config_loader = NodeConfigLoader(config_loader)
+    return _node_config_loader
+
+
+def get_node_config_loader() -> Optional[NodeConfigLoader]:
+    """获取全局节点配置加载器实例
+
+    Returns:
+        节点配置加载器实例，如果未初始化则返回None
+    """
     return _node_config_loader

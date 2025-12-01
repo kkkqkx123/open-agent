@@ -3,11 +3,14 @@
 统一注册日志相关服务，包括ILogger接口和LogRedactor等。
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 
 from src.interfaces.common_infra import ILogger, IBaseHandler, ILogRedactor, LogLevel, ServiceLifetime
 from src.services.logger.logger_service import LoggerService
 from src.core.logger.redactor import LogRedactor, CustomLogRedactor
+
+if TYPE_CHECKING:
+    from src.core.logger.log_level import LogLevel as CoreLogLevel
 
 
 def register_logger_services(container, config: Dict[str, Any], environment: str = "default") -> None:
@@ -161,7 +164,7 @@ def _log_level_from_string(level_str: str) -> LogLevel:
     return level_map[upper_level]
 
 
-def _to_core_log_level(interface_level: LogLevel) -> CoreLogLevel:
+def _to_core_log_level(interface_level: LogLevel) -> "CoreLogLevel":
     """将接口层LogLevel转换为核心层LogLevel"""
     from src.core.logger.log_level import LogLevel as CoreLogLevel
     

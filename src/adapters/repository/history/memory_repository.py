@@ -377,21 +377,21 @@ class MemoryHistoryRepository(MemoryBaseRepository, IHistoryRepository):
         success = await self.save_record(record)
         return record_id if success else ""
     
-    async def get_history(self, agent_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+    async def get_history(self, thread_id: str, limit: int = 100) -> List[Dict[str, Any]]:
         """获取历史记录（兼容性方法）"""
-        records = await self.get_records(session_id=agent_id, limit=limit)
+        records = await self.get_records(session_id=thread_id, limit=limit)
         return [record.to_dict() for record in records]
     
     async def get_history_by_timerange(
         self, 
-        agent_id: str, 
+        thread_id: str, 
         start_time: datetime, 
         end_time: datetime,
         limit: int = 100
     ) -> List[Dict[str, Any]]:
         """按时间范围获取历史记录（兼容性方法）"""
         records = await self.get_records(
-            session_id=agent_id,
+            session_id=thread_id,
             start_time=start_time,
             end_time=end_time,
             limit=limit
@@ -406,6 +406,18 @@ class MemoryHistoryRepository(MemoryBaseRepository, IHistoryRepository):
     async def clear_agent_history(self, agent_id: str) -> bool:
         """清空代理的历史记录（兼容性方法）"""
         deleted_count = await self.delete_records(session_id=agent_id)
+        return deleted_count > 0
+    
+    async def clear_thread_history(self, thread_id: str) -> bool:
+        """清空线程的历史记录
+        
+        Args:
+            thread_id: 线程ID
+            
+        Returns:
+            bool: 是否清空成功
+        """
+        deleted_count = await self.delete_records(session_id=thread_id)
         return deleted_count > 0
     
     async def get_history_statistics(self) -> Dict[str, Any]:

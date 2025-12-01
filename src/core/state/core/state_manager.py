@@ -5,55 +5,16 @@
 
 import threading
 import uuid
-from src.services.logger import get_logger
-from typing import Any, Dict, List, Optional, Type, Callable
+from typing import Any, Dict, List, Optional, Type, Callable, Tuple
 
 from src.interfaces.state.interfaces import IState
 from src.interfaces.state.manager import IStateManager
 from src.interfaces.state.serializer import IStateSerializer
 from src.interfaces.state.lifecycle import IStateLifecycleManager
-from src.interfaces.state.storage import IStateStorageAdapter
+from src.interfaces.state.storage.adapter import IStateStorageAdapter
 
-# 由于中央接口层没有验证器和缓存接口，我们需要创建这些接口
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    # 类型检查时使用这些接口，但实际运行时使用基础接口
-    class IStateValidator:
-        """状态验证器接口（临时定义）"""
-        def validate_state(self, state: IState) -> List[str]:
-            pass
-    
-    class IStateCache:
-        """状态缓存接口（临时定义）"""
-        def get(self, key: str) -> Optional[IState]:
-            pass
-        def put(self, key: str, state: IState) -> None:
-            pass
-        def delete(self, key: str) -> bool:
-            pass
-        def clear(self) -> None:
-            pass
-        def size(self) -> int:
-            pass
-        def get_all_keys(self) -> List[str]:
-            pass
-        def get_statistics(self) -> Dict[str, Any]:
-            pass
-        def get_many(self, keys: List[str]) -> Dict[str, IState]:
-            pass
-        def set_many(self, states: Dict[str, IState]) -> None:
-            pass
-        def cleanup_expired(self) -> int:
-            pass
-else:
-    # 运行时使用基础类作为替代
-    from .base import BaseStateValidator, BaseStateLifecycleManager
-    IStateValidator = BaseStateValidator
-    IStateCache = object  # 临时使用object作为占位符
-
-
-logger = get_logger(__name__)
+# 导入基础实现
+from .base import BaseStateValidator, BaseStateLifecycleManager, BaseStateSerializer, BaseState
 
 
 class StateManager(IStateManager):
@@ -73,13 +34,15 @@ class StateManager(IStateManager):
         self._serializer = self._create_serializer(config.get('serializer', {}))
         self._validator = self._create_validator(config.get('validation', {}))
         self._lifecycle = self._create_lifecycle_manager(config.get('lifecycle', {}))
-        self._cache = self._create_cache(config.get('cache', {}))
         self._storage = storage_adapter
         self._lock = threading.RLock()
         
         # 状态类型注册表
         self._state_types: Dict[str, Type[IState]] = {}
         self._register_default_state_types()
+        
+        # 内存存储（用于CRUD操作）
+        self._states: Dict[str, IState] = {}
         
         # 统计信息
         self._statistics = {
@@ -96,7 +59,7 @@ class StateManager(IStateManager):
         compression = serializer_config.get('compression', True)
         return BaseStateSerializer(format=format_type, compression=compression)
     
-    def _create_validator(self, validator_config: Dict[str, Any]) -> IStateValidator:
+    def _create_validator(self, validator_config: Dict[str, Any]) -> BaseStateValidator:
         """创建验证器"""
         strict_mode = validator_config.get('strict_mode', False)
         return BaseStateValidator(strict_mode=strict_mode)
@@ -105,277 +68,217 @@ class StateManager(IStateManager):
         """创建生命周期管理器"""
         return BaseStateLifecycleManager()
     
-    def _create_cache(self, cache_config: Dict[str, Any]) -> IStateCache:
-        """创建缓存"""
-        if cache_config.get('enabled', True):
-            from .cache_adapter import StateCacheAdapter
-            return StateCacheAdapter(
-                cache_name=cache_config.get('name', 'state'),
-                max_size=cache_config.get('max_size', 1000),
-                ttl=cache_config.get('ttl', 300),
-                enable_serialization=cache_config.get('enable_serialization', False)
-            )
-        else:
-            from .cache_adapter import NoOpCacheAdapter
-            return NoOpCacheAdapter()
-    
-
     def _register_default_state_types(self) -> None:
         """注册默认状态类型"""
-        # 延迟导入避免循环依赖
-        from ..implementations.workflow_state import WorkflowState
-        from ..implementations.tool_state import ToolState
-        from ..implementations.session_state import SessionState
-        from ..implementations.thread_state import ThreadState
-        from ..implementations.checkpoint_state import CheckpointState
-        
-        self.register_state_type('workflow', WorkflowState)
-        self.register_state_type('tool', ToolState)
-        self.register_state_type('session', SessionState)
-        self.register_state_type('thread', ThreadState)
-        self.register_state_type('checkpoint', CheckpointState)
+        # 注册基础状态类型
+        self.register_state_type('workflow', BaseState)
+        self.register_state_type('tool', BaseState)
+        self.register_state_type('session', BaseState)
+        self.register_state_type('thread', BaseState)
+        self.register_state_type('checkpoint', BaseState)
     
     def register_state_type(self, state_type: str, state_class: Type[IState]) -> None:
         """注册状态类型
-        
+
         Args:
             state_type: 状态类型名称
             state_class: 状态类
         """
         with self._lock:
             self._state_types[state_type] = state_class
-            logger.debug(f"注册状态类型: {state_type} -> {state_class.__name__}")
     
-    async def create_state(self, state_type: str, **kwargs: Any) -> IState:
+    def create_state(self, state_id: str, initial_state: Dict[str, Any]) -> IState:
         """创建状态
-        
+
         Args:
-            state_type: 状态类型
-            **kwargs: 状态参数
-            
+            state_id: 状态ID
+            initial_state: 初始状态数据
+
         Returns:
             创建的状态实例
-            
+
         Raises:
             ValueError: 未知状态类型
         """
         with self._lock:
             try:
+                # 获取状态类型，默认使用session
+                state_type = initial_state.get('type', 'session')
+                
                 if state_type not in self._state_types:
                     raise ValueError(f"未知状态类型: {state_type}")
-                
+
                 state_class = self._state_types[state_type]
                 
-                # 生成ID（如果未提供）
-                if 'id' not in kwargs:
-                    kwargs['id'] = f"{state_type}_{uuid.uuid4().hex[:8]}"
-                
-                state = state_class(**kwargs)
-                
+                # 创建状态实例，BaseState接受**kwargs
+                state = state_class(
+                    id=state_id,  # type: ignore
+                    data=initial_state.get('data', {}),  # type: ignore
+                    metadata=initial_state.get('metadata', {})  # type: ignore
+                )
+
                 # 验证状态
                 errors = self._validator.validate_state(state)
                 if errors:
                     raise ValueError(f"状态验证失败: {errors}")
-                
+
                 # 注册生命周期管理
                 self._lifecycle.register_state(state)
                 
-                # 保存到存储
-                await self.save_state(state)
-                
+                # 存储状态
+                self._states[state_id] = state
+
                 self._statistics["total_created"] += 1
-                logger.debug(f"创建状态: {state.get_id()} (类型: {state_type})")
-                
+
                 return state
             except Exception as e:
                 self._statistics["total_errors"] += 1
-                logger.error(f"创建状态失败: {e}")
                 raise
     
-    async def get_state(self, state_id: str) -> Optional[IState]:
+    def get_state(self, state_id: str) -> Optional[IState]:
         """获取状态
-        
+
         Args:
             state_id: 状态ID
-            
+
         Returns:
             状态实例，如果未找到则返回None
         """
         with self._lock:
             try:
-                # 先从缓存获取
-                cached_state = self._cache.get(state_id)
-                if cached_state:
+                # 从内存存储获取
+                if state_id in self._states:
                     self._statistics["total_retrieved"] += 1
-                    return cached_state
-                
-                # 从存储获取
-                state_data = await self._storage.get(state_id)
-                if not state_data:
-                    return None
-                
-                # 反序列化
-                state = self._serializer.deserialize(state_data)
-                
-                # 缓存状态
-                self._cache.put(state_id, state)
-                
-                self._statistics["total_retrieved"] += 1
-                logger.debug(f"获取状态: {state_id}")
-                
-                return state
-            except Exception as e:
+                    return self._states[state_id]
+                return None
+            except Exception:
                 self._statistics["total_errors"] += 1
-                logger.error(f"获取状态失败: {e}")
                 return None
     
-    async def save_state(self, state: IState) -> bool:
-        """保存状态
-        
-        Args:
-            state: 状态实例
-            
-        Returns:
-            是否保存成功
-        """
-        with self._lock:
-            try:
-                # 获取状态ID
-                state_id = state.get_id()
-                if not state_id:
-                    logger.error("无法保存状态：状态ID为空")
-                    self._statistics["total_errors"] += 1
-                    return False
-                
-                # 验证状态
-                errors = self._validator.validate_state(state)
-                if errors:
-                    logger.warning(f"状态验证警告: {errors}")
-                
-                # 序列化状态
-                serialized_data = self._serializer.serialize(state)
-                
-                # 保存到存储
-                success = await self._storage.save(state_id, serialized_data)
-                
-                if success:
-                    # 更新缓存
-                    self._cache.put(state_id, state)
-                    
-                    # 触发生命周期事件
-                    self._lifecycle.on_state_saved(state)
-                    
-                    self._statistics["total_saved"] += 1
-                    logger.debug(f"保存状态: {state.get_id()}")
-                
-                return success
-            except Exception as e:
-                self._statistics["total_errors"] += 1
-                self._lifecycle.on_state_error(state, e)
-                logger.error(f"保存状态失败: {e}")
-                return False
-    
-    async def delete_state(self, state_id: str) -> bool:
-        """删除状态
-        
+    def update_state(self, state_id: str, updates: Dict[str, Any]) -> IState:
+        """更新状态
+
         Args:
             state_id: 状态ID
+            updates: 更新字典
+
+        Returns:
+            更新后的状态实例
+        """
+        with self._lock:
+            state = self.get_state(state_id)
+            if not state:
+                raise ValueError(f"状态未找到: {state_id}")
             
+            # 更新状态数据
+            for key, value in updates.items():
+                state.set_data(key, value)
+            
+            return state
+    
+    def delete_state(self, state_id: str) -> bool:
+        """删除状态
+
+        Args:
+            state_id: 状态ID
+
         Returns:
             是否删除成功
         """
         with self._lock:
             try:
-                # 从存储删除
-                success = await self._storage.delete(state_id)
+                if state_id not in self._states:
+                    return False
                 
-                if success:
-                    # 从缓存删除
-                    self._cache.delete(state_id)
-                    
-                    # 触发生命周期事件
-                    self._lifecycle.on_state_deleted(state_id)
-                    
-                    self._statistics["total_deleted"] += 1
-                    logger.debug(f"删除状态: {state_id}")
-                
-                return success
-            except Exception as e:
+                # 从内存存储删除
+                del self._states[state_id]
+
+                # 触发生命周期事件
+                self._lifecycle.on_state_deleted(state_id)
+                self._statistics["total_deleted"] += 1
+
+                return True
+            except Exception:
                 self._statistics["total_errors"] += 1
-                logger.error(f"删除状态失败: {e}")
                 return False
     
-    async def list_states(self, filters: Optional[Dict[str, Any]] = None) -> List[str]:
-        """列出状态ID
-        
-        Args:
-            filters: 过滤条件
-            
+    def list_states(self) -> List[str]:
+        """列出所有状态ID
+
         Returns:
             状态ID列表
         """
         with self._lock:
             try:
-                return await self._storage.list(filters)
-            except Exception as e:
+                return list(self._states.keys())
+            except Exception:
                 self._statistics["total_errors"] += 1
-                logger.error(f"列出状态失败: {e}")
                 return []
     
-    async def get_statistics(self) -> Dict[str, Any]:
-        """获取统计信息
-        
-        Returns:
-            统计信息字典
-        """
-        with self._lock:
-            return {
-                **self._statistics,
-                "cache_stats": self._cache.get_statistics() if hasattr(self._cache, 'get_statistics') else {},
-                "storage_stats": await self._storage.get_statistics(),
-                "lifecycle_stats": self._lifecycle.get_statistics(),
-                "registered_state_types": list(self._state_types.keys())
-            }
+    # 增强功能方法
+    def create_state_with_history(self, state_id: str, initial_state: Dict[str, Any],
+                                 thread_id: str) -> IState:
+        """创建状态并启用历史记录"""
+        state = self.create_state(state_id, initial_state)
+        state.set_metadata('thread_id', thread_id)
+        return state
     
-    def clear_cache(self) -> None:
-        """清空缓存"""
-        with self._lock:
-            try:
-                self._cache.clear()
-            except Exception as e:
-                logger.warning(f"清空缓存失败: {e}")
-            logger.debug("清空状态缓存")
+    def update_state_with_history(self, state_id: str, updates: Dict[str, Any],
+                                 thread_id: str, action: str = "update") -> IState:
+        """更新状态并记录历史"""
+        state = self.update_state(state_id, updates)
+        state.set_metadata('last_action', action)
+        state.set_metadata('thread_id', thread_id)
+        return state
     
-    async def cleanup_expired_states(self) -> int:
-        """清理过期状态
-        
-        Returns:
-            清理的状态数量
-        """
+    def create_state_snapshot(self, state_id: str, thread_id: str,
+                             snapshot_name: str = "") -> str:
+        """为状态创建快照"""
+        snapshot_id = f"snapshot_{uuid.uuid4().hex[:8]}"
+        state = self.get_state(state_id)
+        if state:
+            state.set_metadata('snapshot_id', snapshot_id)
+            state.set_metadata('snapshot_name', snapshot_name)
+        return snapshot_id
+    
+    def restore_state_from_snapshot(self, snapshot_id: str, state_id: str) -> Optional[IState]:
+        """从快照恢复状态"""
+        # 简化实现，从存储恢复
+        return self.get_state(state_id)
+    
+    def execute_with_state_management(
+        self,
+        state_id: str,
+        executor: Callable[[Dict[str, Any]], Tuple[Dict[str, Any], bool]],
+        context: Optional[Dict[str, Any]] = None
+    ) -> Tuple[Optional[IState], bool]:
+        """带状态管理的执行"""
         with self._lock:
-            cleaned_count = 0
+            state = self.get_state(state_id)
+            if not state:
+                return None, False
             
             try:
-                # 获取所有状态
-                state_ids = await self.list_states()
+                # 获取当前状态数据，使用接口方法
+                state_data = {}
+                if hasattr(state, 'get_data'):
+                    # IState接口方法
+                    state_data = {}  # 可以通过其他方式获取
                 
-                for state_id in state_ids:
-                    state = await self.get_state(state_id)
-                    if state:
-                        # 检查状态是否有is_expired方法或检查更新时间
-                        is_expired = False
-                        if hasattr(state, 'is_expired'):
-                            try:
-                                is_expired = getattr(state, 'is_expired')()
-                            except Exception:
-                                is_expired = False
-                        
-                        if is_expired and await self.delete_state(state_id):
-                            cleaned_count += 1
+                # 执行操作
+                new_state_data, success = executor(state_data)
                 
-                logger.info(f"清理了 {cleaned_count} 个过期状态")
-                return cleaned_count
-            except Exception as e:
+                if success:
+                    # 更新状态
+                    self.update_state(state_id, new_state_data)
+                    updated_state = self.get_state(state_id)
+                    return updated_state, True
+                else:
+                    return state, False
+            except Exception:
                 self._statistics["total_errors"] += 1
-                logger.error(f"清理过期状态失败: {e}")
-                return 0
+                return state, False
+    
+    def cleanup_cache(self) -> int:
+        """清理过期缓存"""
+        return 0

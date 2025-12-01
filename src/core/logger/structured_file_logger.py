@@ -82,7 +82,7 @@ class StructuredFileLogger:
         redacted_record = {}
         for key, value in record.items():
             if isinstance(value, str):
-                redacted_record[key] = self.redactor.redact(value, self.level)
+                redacted_record[key] = self.redactor.redact(value, self.level.name)
             else:
                 redacted_record[key] = value
         return redacted_record

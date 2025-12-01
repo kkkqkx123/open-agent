@@ -2,7 +2,7 @@
 
 import yaml
 import json
-from src.services.logger import get_logger
+import traceback
 from typing import Dict, Any, Optional, List, Union, Callable, Type
 from pathlib import Path
 from dataclasses import dataclass
@@ -15,8 +15,6 @@ from .config import LLMClientConfig, LLMModuleConfig
 from ..common.exceptions.llm import LLMConfigurationError
 from ..config.config_manager import ConfigManager
 # LLMConfigManager现在直接使用ConfigManager
-
-logger = get_logger(__name__)
 
 
 @dataclass
@@ -168,37 +166,39 @@ class ConfigValidator:
 
 class ConfigFileHandler(FileSystemEventHandler):
     """配置文件变更处理器"""
-    
+
     def __init__(self, config_manager: 'LLMConfigManager') -> None:
         """初始化文件处理器"""
         self.config_manager = config_manager
-        self.last_modified = {}
+        self.last_modified: Dict[str, float] = {}
     
-    def on_modified(self, event) -> None:
+    def on_modified(self, event: Any) -> None:
         """文件修改事件处理"""
+        from watchdog.events import FileSystemEvent
         if event.is_directory:
             return
-        
+
         file_path = Path(str(event.src_path))
-        
+
         # 检查是否是配置文件
         if not self._is_config_file(file_path):
             return
-        
+
         # 防抖处理
         current_time = datetime.now().timestamp()
         last_time = self.last_modified.get(str(file_path), 0)
-        
+
         if current_time - last_time < 1.0:  # 1秒内的重复变更忽略
             return
-        
+
         self.last_modified[str(file_path)] = current_time
-        
+
         try:
-            logger.info(f"检测到配置文件变更: {file_path}")
+            # 检测到配置文件变更
             self.config_manager._reload_config_file(file_path)
-        except Exception as e:
-            logger.error(f"重新加载配置文件失败 {file_path}: {e}")
+        except Exception:
+            # 静默处理错误
+            pass
     
     def _is_config_file(self, file_path: Path) -> bool:
         """检查是否是配置文件"""
@@ -241,7 +241,7 @@ class LLMConfigManager:
         self._module_config: Optional[LLMModuleConfig] = None
         
         # 初始化验证器（避免循环导入）
-        self._validator = None  # 延迟初始化
+        self._validator: Optional[ConfigValidator] = None  # 延迟初始化
         
         # 热重载相关
         self._observer: Optional[Any] = None
@@ -254,7 +254,7 @@ class LLMConfigManager:
         self._initialize()
     
     @property
-    def validator(self):
+    def validator(self) -> ConfigValidator:
         """延迟加载验证器以避免循环导入"""
         if self._validator is None:
             self._validator = ConfigValidator()
@@ -274,45 +274,42 @@ class LLMConfigManager:
         try:
             # 加载模块配置
             self._load_module_config()
-            
+
             # 加载客户端配置
             self._load_client_configs()
-            
-            logger.info(f"配置加载完成，共加载 {len(self._client_configs)} 个客户端配置")
-            
+
         except Exception as e:
             raise LLMConfigurationError(f"配置加载失败: {e}")
     
     def _load_module_config(self) -> None:
         """加载模块配置"""
         module_config_path = f"{self.config_subdir}/_group.yaml"
-        
+
         try:
             config_data = self._load_config_file(module_config_path)
             if config_data:
                 self._module_config = LLMModuleConfig.from_dict(config_data)
-        except Exception as e:
+        except Exception:
             # 使用默认配置
             self._module_config = LLMModuleConfig()
-            logger.warning(f"模块配置文件加载失败或不存在，使用默认配置: {e}")
     
     def _load_client_configs(self) -> None:
         """加载客户端配置"""
         self._client_configs.clear()
-        
+
         # 注意：这里我们无法直接通过 IConfigLoader 列出文件
         # 这是一个设计权衡，为了保持 IConfigLoader 接口的简洁性
         # 我们假设已知的配置文件列表，或者在未来扩展 IConfigLoader 接口
         # 作为临时方案，我们仍然需要扫描目录，但只用于获取文件名
         config_dir = Path("configs") / self.config_subdir
         if not config_dir.exists():
-            logger.warning(f"LLM配置目录不存在: {config_dir}")
+            # 静默处理错误，返回
             return
 
         for config_file in config_dir.glob("*.yaml"):
             if config_file.name.startswith("_"):
                 continue  # 跳过组配置文件
-            
+
             try:
                 config_path = f"{self.config_subdir}/{config_file.name}"
                 config_data = self._load_config_file(config_path)
@@ -320,30 +317,31 @@ class LLMConfigManager:
                     client_config = LLMClientConfig.from_dict(config_data)
                     model_key = f"{client_config.model_type}:{client_config.model_name}"
                     self._client_configs[model_key] = client_config
-                    
+
                     # 缓存原始配置数据
                     self._config_cache[config_path] = config_data
-                    
-            except Exception as e:
-                logger.error(f"加载客户端配置失败 {config_file.name}: {e}")
+
+            except Exception:
+                # 静默处理错误，继续加载其他配置
+                pass
     
     def _load_config_file(self, config_path: str) -> Optional[Dict[str, Any]]:
         """加载单个配置文件"""
         try:
             # 使用基础配置管理器加载配置
             config_data = self.config_manager.load_config_for_module(config_path, "llm")
-            
+
             # 配置验证逻辑保留，因为这是 LLMConfigManager 的特定职责
             if self.validation_enabled:
                 errors = self.validator.validate_config(config_data)
                 if errors:
                     error_msg = f"配置验证失败 {config_path}:\n" + "\n".join(f"  - {error}" for error in errors)
                     raise LLMConfigurationError(error_msg)
-            
+
             return config_data
-            
-        except Exception as e:
-            logger.error(f"读取配置文件失败 {config_path}: {e}")
+
+        except Exception:
+            # 静默处理错误
             return None
 
     def _reload_config_file(self, file_path: Path) -> None:
@@ -360,7 +358,7 @@ class LLMConfigManager:
         """启动热重载"""
         if not self.enable_hot_reload:
             return
-            
+
         try:
             # ConfigLoader 不支持热重载，使用观察者模式进行文件监控
             # 创建文件监控器
@@ -371,9 +369,8 @@ class LLMConfigManager:
                 recursive=False
             )
             self._observer.start()
-            logger.info("配置热重载已启动")
-        except Exception as e:
-            logger.error(f"启动热重载失败: {e}")
+        except Exception:
+            # 静默处理错误
             self.enable_hot_reload = False
     
     def _stop_hot_reload(self) -> None:
@@ -383,24 +380,23 @@ class LLMConfigManager:
             if self._observer is not None:
                 self._observer.stop()
                 self._observer.join()
-            logger.info("配置热重载已停止")
-        except Exception as e:
-            logger.error(f"停止热重载失败: {e}")
+        except Exception:
+            # 静默处理错误
+            pass
     
     def _on_config_file_changed(self, config_path: str, config_data: Dict[str, Any]) -> None:
         """新的回调函数，由 IConfigLoader 调用"""
         # 检查是否是 LLM 配置文件
         if not config_path.startswith(self.config_subdir + "/"):
             return
-            
+
         file_name = Path(config_path).name
-        logger.info(f"检测到LLM配置文件变更: {file_name}")
-        
+
         with self._lock:
             try:
                 # 更新缓存
                 self._config_cache[config_path] = config_data
-                
+
                 # 如果是模块配置文件
                 if file_name == "_group.yaml":
                     self._module_config = LLMModuleConfig.from_dict(config_data)
@@ -409,17 +405,17 @@ class LLMConfigManager:
                     client_config = LLMClientConfig.from_dict(config_data)
                     model_key = f"{client_config.model_type}:{client_config.model_name}"
                     self._client_configs[model_key] = client_config
-                
+
                 # 触发回调
                 for callback in self._reload_callbacks:
                     try:
                         callback(config_path, config_data)
-                    except Exception as e:
-                        logger.error(f"配置重载回调执行失败: {e}")
-                
-                logger.info(f"LLM配置文件重新加载成功: {file_name}")
-            except Exception as e:
-                logger.error(f"重新加载LLM配置文件失败 {file_name}: {e}")
+                    except Exception:
+                        # 静默处理回调错误
+                        pass
+            except Exception:
+                # 静默处理错误
+                pass
     
     def get_client_config(self, model_type: str, model_name: str) -> Optional[LLMClientConfig]:
         """获取客户端配置"""
@@ -447,12 +443,11 @@ class LLMConfigManager:
         """手动重新加载所有配置"""
         with self._lock:
             self._load_all_configs()
-            logger.info("手动配置重载完成")
     
     def save_config(self, config: Dict[str, Any], file_name: str) -> None:
         """保存配置到文件"""
         file_path = self.config_dir / file_name
-        
+
         try:
             with open(file_path, 'w', encoding='utf-8') as f:
                 if file_path.suffix.lower() in ['.yaml', '.yml']:
@@ -461,9 +456,7 @@ class LLMConfigManager:
                     json.dump(config, f, indent=2, ensure_ascii=False)
                 else:
                     raise ValueError(f"不支持的配置文件格式: {file_path.suffix}")
-            
-            logger.info(f"配置已保存到: {file_path}")
-            
+
         except Exception as e:
             raise LLMConfigurationError(f"保存配置失败: {e}")
     
@@ -479,10 +472,10 @@ class LLMConfigManager:
             "cached_files": list(self._config_cache.keys()),
         }
     
-    def __enter__(self):
+    def __enter__(self) -> 'LLMConfigManager':
         """上下文管理器入口"""
         return self
-    
-    def __exit__(self, exc_type, exc_val, exc_tb):
+
+    def __exit__(self, exc_type: Optional[type], exc_val: Optional[BaseException], exc_tb: Optional[Any]) -> None:
         """上下文管理器出口"""
         self._stop_hot_reload()

@@ -9,9 +9,8 @@ from datetime import datetime
 
 if TYPE_CHECKING:
     from src.core.history.entities import (
-        BaseHistoryRecord, LLMRequestRecord, LLMResponseRecord,
-        TokenUsageRecord, CostRecord, WorkflowTokenStatistics,
-        RecordType
+        BaseHistoryRecord, WorkflowTokenStatistics,
+        RecordType, HistoryQuery
     )
 
 
