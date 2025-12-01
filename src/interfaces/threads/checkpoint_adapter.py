@@ -13,7 +13,7 @@ from .checkpoint import (
     IThreadCheckpointSerializer,
     IThreadCheckpointPolicy
 )
-from ...core.threads.checkpoints.storage.models import (
+from src.core.threads.checkpoints.storage.models import (
     ThreadCheckpoint,
     CheckpointStatus,
     CheckpointType,

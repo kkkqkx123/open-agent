@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Optional, Callable
 from collections import defaultdict
 
 from src.interfaces.workflow.plugins import IHookPlugin, HookPoint, HookContext, HookExecutionResult
-from src.core.workflow.plugins.registry import PluginRegistry
+from src.core.workflow.graph.extensions.plugins.registry import PluginRegistry
 from src.interfaces.state import IWorkflowState
 from src.interfaces.workflow.graph import NodeExecutionResult
 from src.core.state import WorkflowState

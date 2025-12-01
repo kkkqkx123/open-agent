@@ -32,7 +32,7 @@ from .pattern_matching import (
     ToolOutputPatternTrigger,
     StatePatternTrigger
 )
-from ..trigger_functions import get_trigger_function_manager, TriggerCompositionConfig
+from src.core.workflow.trigger_functions import get_trigger_function_manager, TriggerCompositionConfig
 
 logger = get_logger(__name__)
 

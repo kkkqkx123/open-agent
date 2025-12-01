@@ -1,5 +1,5 @@
 """内存缓存实现"""
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, List
 from datetime import datetime, timedelta
 import asyncio
 

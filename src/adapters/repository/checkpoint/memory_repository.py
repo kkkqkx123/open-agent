@@ -109,7 +109,13 @@ class MemoryCheckpointRepository(MemoryBaseRepository, ICheckpointRepository):
         """获取thread的最新checkpoint"""
         try:
             def _get_latest():
-                checkpoints = await self.list_checkpoints(thread_id)
+                checkpoint_ids = self._get_from_index("thread", thread_id)
+                # 过滤掉None值，确保只返回有效的检查点
+                checkpoints = [item for cid in checkpoint_ids if (item := self._load_item(cid)) is not None]
+                
+                # 按创建时间倒序排序
+                checkpoints = TimeUtils.sort_by_time(checkpoints, "created_at", True)
+                
                 return checkpoints[0] if checkpoints else None
             
             return await asyncio.get_event_loop().run_in_executor(None, _get_latest)
@@ -145,7 +151,12 @@ class MemoryCheckpointRepository(MemoryBaseRepository, ICheckpointRepository):
         """清理旧的checkpoint，保留最新的max_count个"""
         try:
             def _cleanup():
-                checkpoints = await self.list_checkpoints(thread_id)
+                checkpoint_ids = self._get_from_index("thread", thread_id)
+                # 过滤掉None值，确保只返回有效的检查点
+                checkpoints = [item for cid in checkpoint_ids if (item := self._load_item(cid)) is not None]
+                
+                # 按创建时间倒序排序
+                checkpoints = TimeUtils.sort_by_time(checkpoints, "created_at", True)
                 
                 if len(checkpoints) <= max_count:
                     return 0
@@ -156,7 +167,14 @@ class MemoryCheckpointRepository(MemoryBaseRepository, ICheckpointRepository):
                 # 删除旧checkpoint
                 deleted_count = 0
                 for checkpoint in to_delete:
-                    if await self.delete_checkpoint(checkpoint["checkpoint_id"]):
+                    checkpoint_id = checkpoint["checkpoint_id"]
+                    # 从索引中移除
+                    self._remove_from_index("thread", checkpoint["thread_id"], checkpoint_id)
+                    if "workflow_id" in checkpoint:
+                        self._remove_from_index("workflow", checkpoint["workflow_id"], checkpoint_id)
+                    
+                    # 从存储中删除
+                    if self._delete_item(checkpoint_id):
                         deleted_count += 1
                 
                 self._log_operation("清理内存旧检查点", True, f"{thread_id}, 删除{deleted_count}条")

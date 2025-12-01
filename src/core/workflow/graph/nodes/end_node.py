@@ -12,8 +12,8 @@ from .sync_node import SyncNode
 from src.interfaces.workflow.graph import NodeExecutionResult
 from src.interfaces.state.interfaces import IState
 from src.interfaces.state.workflow import IWorkflowState
-from src.core.workflow.plugins.manager import PluginManager
-from src.core.workflow.plugins.hooks.executor import HookExecutor
+from src.core.workflow.graph.extensions.plugins.manager import PluginManager
+from src.core.workflow.graph.extensions.plugins.hooks.executor import HookExecutor
 from src.interfaces.workflow.plugins import PluginType, PluginContext
 
 logger = get_logger(__name__)

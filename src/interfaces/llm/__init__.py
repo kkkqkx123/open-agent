@@ -24,6 +24,9 @@ from .retry.base import IRetryStrategy, IRetryLogger
 # 从polling模块导入
 from .polling import IPollingPoolManager
 
+# 从cache模块导入
+from .cache import ICacheProvider, ICacheKeyGenerator
+
 # 定义导出列表
 __all__ = [
     'LLMResponse',
@@ -39,4 +42,6 @@ __all__ = [
     'IRetryStrategy',
     'IRetryLogger',
     'IPollingPoolManager',
+    'ICacheProvider',
+    'ICacheKeyGenerator',
 ]

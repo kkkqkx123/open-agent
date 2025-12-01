@@ -103,12 +103,13 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             )
             
             # 返回标准错误响应
+            from src.interfaces.common_infra import LogLevel
             return JSONResponse(
                 status_code=500,
                 content={
                     "success": False,
                     "message": "内部服务器错误",
-                    "error": str(e) if logger.level <= logging.DEBUG else None,
+                    "error": str(e) if logger.get_level() == LogLevel.DEBUG else None,
                     "timestamp": time.time(),
                 }
             )

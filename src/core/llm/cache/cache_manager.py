@@ -6,7 +6,7 @@ from typing import Any, Optional, List, Dict, Sequence
 from langchain_core.messages import BaseMessage
 
 from .cache_config import BaseCacheConfig, LLMCacheConfig
-from .interfaces import ICacheProvider
+from src.interfaces.llm import ICacheProvider
 from .server_interfaces import IServerCacheProvider
 from .key_generator import ICacheKeyGenerator, LLMCacheKeyGenerator
 from .memory_provider import MemoryCacheProvider

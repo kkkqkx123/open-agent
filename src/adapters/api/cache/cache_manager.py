@@ -118,8 +118,8 @@ class CacheManager:
         
         try:
             # 从内存缓存中获取缓存统计信息
-            if hasattr(self._cache, '_storage'):
-                info["cache_entries"] = len(self._cache._storage)
+            if hasattr(self._cache, '_cache'):
+                info["cache_entries"] = len(self._cache._cache)
             
         except Exception as e:
             info["error"] = str(e)

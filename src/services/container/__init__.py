@@ -3,7 +3,7 @@
 提供服务的依赖注入和管理功能。
 """
 
-from .container import DependencyContainer
+from .container import DependencyContainer, get_global_container, reset_global_container
 
 # 向后兼容别名
 Container = DependencyContainer
@@ -28,6 +28,9 @@ from .history_bindings import (
 __all__ = [
     # 核心容器
     "Container",
+    "DependencyContainer",
+    "get_global_container",
+    "reset_global_container",
     
     # 存储服务绑定
     "register_all_storage_services",

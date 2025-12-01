@@ -106,7 +106,11 @@ class FileCheckpointRepository(FileBaseRepository, ICheckpointRepository):
         """获取thread的最新checkpoint"""
         try:
             def _get_latest():
-                checkpoints = await self.list_checkpoints(thread_id)
+                checkpoints = self._list_items(thread_id)
+                
+                # 按创建时间倒序排序
+                checkpoints = TimeUtils.sort_by_time(checkpoints, "created_at", True)
+                
                 return checkpoints[0] if checkpoints else None
             
             return await asyncio.get_event_loop().run_in_executor(None, _get_latest)
@@ -119,11 +123,14 @@ class FileCheckpointRepository(FileBaseRepository, ICheckpointRepository):
         """获取指定工作流的所有checkpoint"""
         try:
             def _get_by_workflow():
-                checkpoints = await self.list_checkpoints(thread_id)
+                checkpoints = self._list_items(thread_id)
+                
+                # 按创建时间倒序排序
+                checkpoints = TimeUtils.sort_by_time(checkpoints, "created_at", True)
                 
                 # 过滤指定工作流的检查点
                 workflow_checkpoints = [
-                    cp for cp in checkpoints 
+                    cp for cp in checkpoints
                     if cp.get("workflow_id") == workflow_id
                 ]
                 
@@ -140,7 +147,10 @@ class FileCheckpointRepository(FileBaseRepository, ICheckpointRepository):
         """清理旧的checkpoint，保留最新的max_count个"""
         try:
             def _cleanup():
-                checkpoints = await self.list_checkpoints(thread_id)
+                checkpoints = self._list_items(thread_id)
+                
+                # 按创建时间倒序排序
+                checkpoints = TimeUtils.sort_by_time(checkpoints, "created_at", True)
                 
                 if len(checkpoints) <= max_count:
                     return 0
@@ -151,7 +161,9 @@ class FileCheckpointRepository(FileBaseRepository, ICheckpointRepository):
                 # 删除旧checkpoint
                 deleted_count = 0
                 for checkpoint in to_delete:
-                    if await self.delete_checkpoint(checkpoint["checkpoint_id"]):
+                    checkpoint_id = checkpoint["checkpoint_id"]
+                    deleted = self._delete_item(thread_id, checkpoint_id)
+                    if deleted:
                         deleted_count += 1
                 
                 self._log_operation("清理文件旧检查点", True, f"{thread_id}, 删除{deleted_count}条")

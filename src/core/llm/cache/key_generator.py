@@ -5,7 +5,7 @@ import json
 from typing import Any, Dict, Optional, Sequence, List, Set
 from langchain_core.messages import BaseMessage
 
-from .interfaces import ICacheKeyGenerator
+from src.interfaces.llm import ICacheKeyGenerator
 
 
 class BaseKeySerializer:

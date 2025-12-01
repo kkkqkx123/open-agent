@@ -3,7 +3,7 @@
 from typing import Optional
 from .cache_manager import CacheManager
 from .cache_config import BaseCacheConfig, LLMCacheConfig, GeminiCacheConfig, AnthropicCacheConfig
-from .interfaces import ICacheProvider, ICacheKeyGenerator
+from src.interfaces.llm import ICacheProvider, ICacheKeyGenerator
 from .server_interfaces import IServerCacheProvider
 from .memory_provider import MemoryCacheProvider
 from .key_generator import (

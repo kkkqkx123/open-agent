@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
-from ...core.threads.checkpoints.storage.models import (
+from src.core.threads.checkpoints.storage.models import (
     ThreadCheckpoint,
     CheckpointStatus,
     CheckpointType,

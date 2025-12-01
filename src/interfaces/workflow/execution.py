@@ -9,8 +9,8 @@ from typing import Dict, Any, List, Optional, AsyncIterator, TYPE_CHECKING
 if TYPE_CHECKING:
     from .core import IWorkflow
     from ..state import IWorkflowState
-from ...core.common.exceptions.workflow import WorkflowError
-from ...core.workflow.error_handler import (
+from src.core.common.exceptions.workflow import WorkflowError
+from src.core.workflow.error_handler import (
     handle_workflow_error, create_workflow_error_context, WorkflowValidator
 )
 

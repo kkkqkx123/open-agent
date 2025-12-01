@@ -1,12 +1,17 @@
-"""缓存接口定义"""
+"""LLM缓存接口定义
+
+提供LLM专用缓存的抽象接口，支持客户端和服务器端缓存策略。
+"""
 
 from abc import ABC, abstractmethod
 from typing import Any, Optional, Dict
-from datetime import datetime, timedelta
 
 
 class ICacheProvider(ABC):
-    """缓存提供者接口"""
+    """缓存提供者接口
+    
+    定义LLM缓存提供者的基本契约，支持同步和异步操作。
+    """
     
     @abstractmethod
     def get(self, key: str) -> Optional[Any]:
@@ -121,7 +126,10 @@ class ICacheProvider(ABC):
 
 
 class ICacheKeyGenerator(ABC):
-    """缓存键生成器接口"""
+    """缓存键生成器接口
+    
+    定义LLM缓存键生成的契约，支持多种键生成策略。
+    """
     
     @abstractmethod
     def generate_key(self, *args, **kwargs) -> str:

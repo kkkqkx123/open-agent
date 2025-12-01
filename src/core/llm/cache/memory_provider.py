@@ -6,7 +6,7 @@ import asyncio
 from typing import Any, Optional, Dict
 from collections import OrderedDict
 
-from .interfaces import ICacheProvider
+from src.interfaces.llm import ICacheProvider
 from .cache_config import CacheEntry
 
 
