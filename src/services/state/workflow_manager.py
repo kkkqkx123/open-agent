@@ -8,32 +8,38 @@ from typing import Dict, Any, Optional, List, Callable, Tuple
 from datetime import datetime
 
 from src.interfaces.state.interfaces import IState
-from src.interfaces.state import (
-    IStateHistoryManager,
-    IStateSnapshotManager,
-    IStateSerializer
-)
-from .manager import EnhancedStateManager
+from src.interfaces.state.serializer import IStateSerializer
+from src.interfaces.repository import IHistoryRepository, ISnapshotRepository
+
+from .manager import StateManager
 
 
 logger = get_logger(__name__)
 
 
-class WorkflowStateManager(EnhancedStateManager):
+class WorkflowStateManager(StateManager):
     """工作流状态管理器，专门处理WorkflowState类型的状态"""
     
     def __init__(self, 
-                 history_manager: IStateHistoryManager,
-                 snapshot_manager: IStateSnapshotManager,
-                 serializer: Optional[IStateSerializer] = None):
-        super().__init__(history_manager, snapshot_manager, serializer)
+                 history_repository: IHistoryRepository,
+                 snapshot_repository: ISnapshotRepository,
+                 serializer: Optional[IStateSerializer] = None,
+                 cache_size: int = 1000,
+                 cache_ttl: int = 300):
+        super().__init__(
+            history_repository=history_repository,
+            snapshot_repository=snapshot_repository,
+            serializer=serializer,
+            cache_size=cache_size,
+            cache_ttl=cache_ttl
+        )
     
-    def create_workflow_state(self, state_id: str, initial_state: Dict[str, Any], 
-                             agent_id: str) -> IState:
+    def create_workflow_state(self, state_id: str, initial_state: Dict[str, Any],
+                             thread_id: str) -> IState:
         """创建工作流状态，确保包含必要的字段"""
         # 验证和补充必要的工作流字段
         workflow_state = self._ensure_workflow_fields(initial_state)
-        return self.create_state_with_history(state_id, workflow_state, agent_id)
+        return self.create_state_with_history(state_id, workflow_state, thread_id)
     
     def _ensure_workflow_fields(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """确保状态包含工作流必需的字段"""

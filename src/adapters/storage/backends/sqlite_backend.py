@@ -203,7 +203,6 @@ class SQLiteStorageBackend(ConnectionPooledStorageBackend):
                     expires_at REAL,
                     compressed INTEGER DEFAULT 0,
                     type TEXT,
-                    agent_id TEXT,
                     thread_id TEXT,
                     session_id TEXT,
                     metadata TEXT
@@ -212,7 +211,6 @@ class SQLiteStorageBackend(ConnectionPooledStorageBackend):
             
             # 创建索引
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_state_type ON state_storage(type)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_state_agent_id ON state_storage(agent_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_state_thread_id ON state_storage(thread_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_state_session_id ON state_storage(session_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_state_expires_at ON state_storage(expires_at)")
@@ -247,9 +245,9 @@ class SQLiteStorageBackend(ConnectionPooledStorageBackend):
                 
                 # 插入或更新记录
                 query = """
-                    INSERT OR REPLACE INTO state_storage 
-                    (id, data, created_at, updated_at, expires_at, compressed, type, agent_id, thread_id, session_id, metadata)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT OR REPLACE INTO state_storage
+                    (id, data, created_at, updated_at, expires_at, compressed, type, thread_id, session_id, metadata)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """
                 
                 params = [
@@ -260,7 +258,6 @@ class SQLiteStorageBackend(ConnectionPooledStorageBackend):
                     data.get("expires_at"),
                     int(compressed),
                     data.get("type"),
-                    data.get("agent_id"),
                     data.get("thread_id"),
                     data.get("session_id"),
                     StorageCommonUtils.serialize_data(data.get("metadata", {}))

@@ -17,7 +17,7 @@ class StateSnapshot(AbstractStateSnapshot):
     表示某个时间点的状态完整快照。
     """
     _snapshot_id: str = field(repr=False)
-    _agent_id: str = field(repr=False)
+    _thread_id: str = field(repr=False)
     _domain_state: Dict[str, Any] = field(repr=False)  # 序列化的域状态
     _timestamp: str = field(repr=False)  # 时间戳字符串
     _snapshot_name: str = field(repr=False)
@@ -27,12 +27,12 @@ class StateSnapshot(AbstractStateSnapshot):
     compressed_data: Optional[bytes] = None
     size_bytes: int = 0
     
-    def __init__(self, snapshot_id: str, agent_id: str, domain_state: Dict[str, Any], 
+    def __init__(self, snapshot_id: str, thread_id: str, domain_state: Dict[str, Any],
                  timestamp: str, snapshot_name: str, metadata: Optional[Dict[str, Any]] = None,
                  compressed_data: Optional[bytes] = None, size_bytes: int = 0):
         """初始化状态快照"""
         self._snapshot_id = snapshot_id
-        self._agent_id = agent_id
+        self._thread_id = thread_id
         self._domain_state = domain_state
         self._timestamp = timestamp if isinstance(timestamp, str) else timestamp.isoformat()
         self._snapshot_name = snapshot_name or f"snapshot_{self._timestamp.replace(':', '').replace('-', '')}"
@@ -46,9 +46,9 @@ class StateSnapshot(AbstractStateSnapshot):
         return self._snapshot_id
     
     @property
-    def agent_id(self) -> str:
-        """代理ID"""
-        return self._agent_id
+    def thread_id(self) -> str:
+        """线程ID"""
+        return self._thread_id
     
     @property
     def domain_state(self) -> Dict[str, Any]:
@@ -78,7 +78,7 @@ class StateSnapshot(AbstractStateSnapshot):
         """
         return {
             "snapshot_id": self._snapshot_id,
-            "agent_id": self._agent_id,
+            "thread_id": self._thread_id,
             "domain_state": self._domain_state,
             "timestamp": self._timestamp,
             "snapshot_name": self._snapshot_name,
@@ -98,7 +98,7 @@ class StateSnapshot(AbstractStateSnapshot):
         """
         return cls(
             snapshot_id=data["snapshot_id"],
-            agent_id=data["agent_id"],
+            thread_id=data["thread_id"],
             domain_state=data["domain_state"],
             timestamp=data["timestamp"],
             snapshot_name=data.get("snapshot_name", ""),
@@ -115,7 +115,7 @@ class StateHistoryEntry(AbstractStateHistoryEntry):
     表示一次状态变更的记录。
     """
     _history_id: str = field(repr=False)
-    _agent_id: str = field(repr=False)
+    _thread_id: str = field(repr=False)
     _timestamp: str = field(repr=False)
     _action: str = field(repr=False)  # "state_change", "tool_call", "message_added", etc.
     _state_diff: Dict[str, Any] = field(repr=False)  # 状态变化差异
@@ -124,12 +124,12 @@ class StateHistoryEntry(AbstractStateHistoryEntry):
     # 性能优化字段
     compressed_diff: Optional[bytes] = None
     
-    def __init__(self, history_id: str, agent_id: str, timestamp: str, action: str,
+    def __init__(self, history_id: str, thread_id: str, timestamp: str, action: str,
                  state_diff: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None,
                  compressed_diff: Optional[bytes] = None):
         """初始化历史记录条目"""
         self._history_id = history_id
-        self._agent_id = agent_id
+        self._thread_id = thread_id
         self._timestamp = timestamp if isinstance(timestamp, str) else timestamp.isoformat()
         self._action = action
         self._state_diff = state_diff
@@ -142,9 +142,9 @@ class StateHistoryEntry(AbstractStateHistoryEntry):
         return self._history_id
     
     @property
-    def agent_id(self) -> str:
-        """代理ID"""
-        return self._agent_id
+    def thread_id(self) -> str:
+        """线程ID"""
+        return self._thread_id
     
     @property
     def timestamp(self) -> str:
@@ -174,7 +174,7 @@ class StateHistoryEntry(AbstractStateHistoryEntry):
         """
         return {
             "history_id": self._history_id,
-            "agent_id": self._agent_id,
+            "thread_id": self._thread_id,
             "timestamp": self._timestamp,
             "action": self._action,
             "state_diff": self._state_diff,
@@ -193,7 +193,7 @@ class StateHistoryEntry(AbstractStateHistoryEntry):
         """
         return cls(
             history_id=data["history_id"],
-            agent_id=data["agent_id"],
+            thread_id=data["thread_id"],
             timestamp=data["timestamp"],
             action=data["action"],
             state_diff=data["state_diff"],
@@ -396,7 +396,7 @@ class StateStatistics:
     total_snapshots: int = 0
     total_history_entries: int = 0
     storage_size_bytes: int = 0
-    agent_counts: Dict[str, int] = field(default_factory=dict)
+    thread_counts: Dict[str, int] = field(default_factory=dict)
     last_updated: datetime = field(default_factory=datetime.now)
     
     def to_dict(self) -> Dict[str, Any]:
@@ -410,7 +410,7 @@ class StateStatistics:
             "total_snapshots": self.total_snapshots,
             "total_history_entries": self.total_history_entries,
             "storage_size_bytes": self.storage_size_bytes,
-            "agent_counts": self.agent_counts,
+            "thread_counts": self.thread_counts,
             "last_updated": self.last_updated.isoformat()
         }
     
@@ -429,6 +429,6 @@ class StateStatistics:
             total_snapshots=data.get("total_snapshots", 0),
             total_history_entries=data.get("total_history_entries", 0),
             storage_size_bytes=data.get("storage_size_bytes", 0),
-            agent_counts=data.get("agent_counts", {}),
+            thread_counts=data.get("thread_counts", {}),
             last_updated=datetime.fromisoformat(data.get("last_updated", datetime.now().isoformat()))
         )

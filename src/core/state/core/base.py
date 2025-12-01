@@ -421,14 +421,14 @@ class BaseStateHistoryManager(IStateHistoryManager):
         state_diff = StateDiff.from_dict(diff)
         return state_diff.apply_to_state(current_state)
     
-    def _create_history_entry(self, agent_id: str, old_state: Dict[str, Any], 
+    def _create_history_entry(self, thread_id: str, old_state: Dict[str, Any],
                             new_state: Dict[str, Any], action: str) -> StateHistoryEntry:
         """创建历史记录条目"""
         state_diff = self._calculate_state_diff(old_state, new_state)
         
         return StateHistoryEntry(
             history_id=self._generate_history_id(),
-            agent_id=agent_id,
+            thread_id=thread_id,
             timestamp=datetime.now().isoformat(),
             action=action,
             state_diff=state_diff,
@@ -445,24 +445,24 @@ class BaseStateSnapshotManager(IStateSnapshotManager):
     提供快照管理的通用功能。
     """
     
-    def __init__(self, max_snapshots_per_agent: int = 50):
+    def __init__(self, max_snapshots_per_thread: int = 50):
         """初始化快照管理器
         
         Args:
-            max_snapshots_per_agent: 每个代理的最大快照数量
+            max_snapshots_per_thread: 每个线程的最大快照数量
         """
-        self.max_snapshots_per_agent = max_snapshots_per_agent
+        self.max_snapshots_per_thread = max_snapshots_per_thread
     
     def _generate_snapshot_id(self) -> str:
         """生成快照ID"""
         return str(uuid.uuid4())
     
-    def _create_snapshot(self, agent_id: str, domain_state: Dict[str, Any], 
+    def _create_snapshot(self, thread_id: str, domain_state: Dict[str, Any],
                         snapshot_name: str = "", metadata: Optional[Dict[str, Any]] = None) -> StateSnapshot:
         """创建快照对象"""
         return StateSnapshot(
             snapshot_id=self._generate_snapshot_id(),
-            agent_id=agent_id,
+            thread_id=thread_id,
             domain_state=domain_state,
             timestamp=datetime.now().isoformat(),
             snapshot_name=snapshot_name,

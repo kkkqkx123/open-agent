@@ -16,6 +16,9 @@ from .workflow import IWorkflowState, IWorkflowStateBuilder
 # 工作流状态接口（向后兼容，已弃用）
 from .workflow import IWorkflowState as LegacyIWorkflowState
 
+# 会话状态接口
+from .session import ISessionState, ISessionStateManager
+
 # 历史管理接口
 from .history import IStateHistoryManager
 
@@ -63,6 +66,10 @@ __all__ = [
     # 工作流状态接口
     'IWorkflowState',
     'IWorkflowStateBuilder',
+    
+    # 会话状态接口
+    'ISessionState',
+    'ISessionStateManager',
     
     # 历史管理接口
     'IStateHistoryManager',

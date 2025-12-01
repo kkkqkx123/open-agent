@@ -17,11 +17,11 @@ class IStateSnapshotManager(ABC):
     """
     
     @abstractmethod
-    def create_snapshot(self, agent_id: str, state_data: Dict[str, Any], snapshot_name: str = "", metadata: Optional[Dict[str, Any]] = None) -> str:
+    def create_snapshot(self, thread_id: str, state_data: Dict[str, Any], snapshot_name: str = "", metadata: Optional[Dict[str, Any]] = None) -> str:
         """创建状态快照
         
         Args:
-            agent_id: 代理ID
+            thread_id: 线程ID
             state_data: 状态数据
             snapshot_name: 快照名称
             metadata: 元数据
@@ -44,11 +44,11 @@ class IStateSnapshotManager(ABC):
         pass
     
     @abstractmethod
-    def get_snapshots_by_agent(self, agent_id: str) -> List[AbstractStateSnapshot]:
-        """获取指定代理的快照列表
+    def get_snapshots_by_thread(self, thread_id: str) -> List[AbstractStateSnapshot]:
+        """获取指定线程的快照列表
         
         Args:
-            agent_id: 代理ID
+            thread_id: 线程ID
             limit: 返回快照数限制
             
         Returns:
@@ -57,11 +57,11 @@ class IStateSnapshotManager(ABC):
         pass
     
     @abstractmethod
-    def cleanup_old_snapshots(self, agent_id: str, max_snapshots: int = 50) -> int:
+    def cleanup_old_snapshots(self, thread_id: str, max_snapshots: int = 50) -> int:
         """清理旧快照
         
         Args:
-            agent_id: 代理ID
+            thread_id: 线程ID
             max_snapshots: 保留的最大快照数
             
         Returns:

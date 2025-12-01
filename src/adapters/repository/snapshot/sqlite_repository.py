@@ -16,8 +16,7 @@ class SQLiteSnapshotRepository(SQLiteBaseRepository, ISnapshotRepository):
         table_sql = """
             CREATE TABLE IF NOT EXISTS snapshots (
                 snapshot_id TEXT PRIMARY KEY,
-                agent_id TEXT NOT NULL,
-                thread_id TEXT,
+                thread_id TEXT NOT NULL,
                 workflow_id TEXT,
                 timestamp TEXT NOT NULL,
                 state_data TEXT NOT NULL,
@@ -27,7 +26,7 @@ class SQLiteSnapshotRepository(SQLiteBaseRepository, ISnapshotRepository):
         """
         
         indexes_sql = [
-            "CREATE INDEX IF NOT EXISTS idx_snapshots_agent_id ON snapshots(agent_id)",
+            "CREATE INDEX IF NOT EXISTS idx_snapshots_thread_id ON snapshots(thread_id)",
             "CREATE INDEX IF NOT EXISTS idx_snapshots_created_at ON snapshots(created_at)"
         ]
         
@@ -43,8 +42,7 @@ class SQLiteSnapshotRepository(SQLiteBaseRepository, ISnapshotRepository):
                 
                 data = {
                     "snapshot_id": snapshot_id,
-                    "agent_id": snapshot["agent_id"],
-                    "thread_id": snapshot.get("thread_id"),
+                    "thread_id": snapshot["thread_id"],
                     "workflow_id": snapshot.get("workflow_id"),
                     "timestamp": snapshot.get("timestamp", TimeUtils.now_iso()),
                     "state_data": JsonUtils.serialize(snapshot["state_data"]),
@@ -69,13 +67,12 @@ class SQLiteSnapshotRepository(SQLiteBaseRepository, ISnapshotRepository):
                 if row:
                     return {
                         "snapshot_id": row[0],
-                        "agent_id": row[1],
-                        "thread_id": row[2],
-                        "workflow_id": row[3],
-                        "timestamp": row[4],
-                        "state_data": JsonUtils.deserialize(row[5]),
-                        "metadata": JsonUtils.deserialize(row[6]),
-                        "created_at": row[7]
+                        "thread_id": row[1],
+                        "workflow_id": row[2],
+                        "timestamp": row[3],
+                        "state_data": JsonUtils.deserialize(row[4]),
+                        "metadata": JsonUtils.deserialize(row[5]),
+                        "created_at": row[6]
                     }
                 return None
             
@@ -85,34 +82,33 @@ class SQLiteSnapshotRepository(SQLiteBaseRepository, ISnapshotRepository):
             self._handle_exception("加载快照", e)
             raise  # 重新抛出异常
     
-    async def get_snapshots(self, agent_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-        """获取代理的快照列表"""
+    async def get_snapshots(self, thread_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """获取线程的快照列表"""
         try:
             def _get():
                 query = """
-                    SELECT snapshot_id, agent_id, thread_id, workflow_id, 
+                    SELECT snapshot_id, thread_id, workflow_id,
                            timestamp, state_data, metadata, created_at
                     FROM snapshots
-                    WHERE agent_id = ?
+                    WHERE thread_id = ?
                     ORDER BY created_at DESC
                     LIMIT ?
                 """
-                results = SQLiteUtils.execute_query(self.db_path, query, (agent_id, limit))
+                results = SQLiteUtils.execute_query(self.db_path, query, (thread_id, limit))
                 
                 snapshots = []
                 for row in results:
                     snapshots.append({
                         "snapshot_id": row[0],
-                        "agent_id": row[1],
-                        "thread_id": row[2],
-                        "workflow_id": row[3],
-                        "timestamp": row[4],
-                        "state_data": JsonUtils.deserialize(row[5]),
-                        "metadata": JsonUtils.deserialize(row[6]),
-                        "created_at": row[7]
+                        "thread_id": row[1],
+                        "workflow_id": row[2],
+                        "timestamp": row[3],
+                        "state_data": JsonUtils.deserialize(row[4]),
+                        "metadata": JsonUtils.deserialize(row[5]),
+                        "created_at": row[6]
                     })
                 
-                self._log_operation("获取快照列表", True, f"{agent_id}, 共{len(snapshots)}条")
+                self._log_operation("获取快照列表", True, f"{thread_id}, 共{len(snapshots)}条")
                 return snapshots
             
             return await asyncio.get_event_loop().run_in_executor(None, _get)
@@ -142,16 +138,16 @@ class SQLiteSnapshotRepository(SQLiteBaseRepository, ISnapshotRepository):
                 # 总快照数
                 total_count = self._count_records()
                 
-                # 按代理统计
-                top_agents_results = SQLiteUtils.get_top_records(
-                    self.db_path, self.table_name, "agent_id", "created_at", 10
+                # 按线程统计
+                top_threads_results = SQLiteUtils.get_top_records(
+                    self.db_path, self.table_name, "thread_id", "created_at", 10
                 )
-                top_agents = [{"agent_id": row[0], "count": row[1]} for row in top_agents_results]
+                top_threads = [{"thread_id": row[0], "count": row[1]} for row in top_threads_results]
                 
                 stats = {
                     "total_count": total_count,
-                    "agent_count": len(top_agents),
-                    "top_agents": top_agents
+                    "thread_count": len(top_threads),
+                    "top_threads": top_threads
                 }
                 
                 self._log_operation("获取快照统计信息", True)

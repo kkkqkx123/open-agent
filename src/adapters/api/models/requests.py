@@ -214,12 +214,14 @@ class ThreadSnapshotRequest(BaseModel):
 class StateCreateRequest(BaseModel):
     """创建状态请求"""
     state_id: str = Field(..., description="状态ID")
+    thread_id: str = Field(..., description="线程ID")
     initial_state: Dict[str, Any] = Field(..., description="初始状态数据")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "state_id": "state_123456",
+                "thread_id": "thread_123456",
                 "initial_state": {
                     "messages": [],
                     "tool_results": [],
@@ -231,12 +233,14 @@ class StateCreateRequest(BaseModel):
 
 class StateUpdateRequest(BaseModel):
     """更新状态请求"""
+    thread_id: str = Field(..., description="线程ID")
     current_state: Dict[str, Any] = Field(..., description="当前状态")
     updates: Dict[str, Any] = Field(..., description="更新内容")
     
     class Config:
         json_schema_extra = {
             "example": {
+                "thread_id": "thread_123456",
                 "current_state": {
                     "messages": [{"role": "user", "content": "你好"}],
                     "tool_results": [],
@@ -268,11 +272,13 @@ class StateValidateRequest(BaseModel):
 
 class StateSnapshotRequest(BaseModel):
     """创建状态快照请求"""
+    thread_id: str = Field(..., description="线程ID")
     description: str = Field("", description="快照描述")
     
     class Config:
         json_schema_extra = {
             "example": {
+                "thread_id": "thread_123456",
                 "description": "处理用户问候语后的状态"
             }
         }
@@ -280,6 +286,7 @@ class StateSnapshotRequest(BaseModel):
 
 class StateRestoreRequest(BaseModel):
     """恢复状态快照请求"""
+    thread_id: str = Field(..., description="线程ID")
     snapshot_id: str = Field(..., description="快照ID")
     snapshot_name: str = Field(..., description="快照名称")
     description: Optional[str] = Field(None, description="快照描述")
@@ -287,6 +294,7 @@ class StateRestoreRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
+                "thread_id": "thread_123456",
                 "snapshot_id": "snapshot_123456",
                 "snapshot_name": "v1.0_release",
                 "description": "发布版本1.0的快照"

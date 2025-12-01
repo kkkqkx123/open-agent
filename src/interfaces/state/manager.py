@@ -83,35 +83,16 @@ class IStateManager(ABC):
         """
         pass
     
-    # 增强功能属性
-    @property
-    @abstractmethod
-    def history_manager(self) -> IStateHistoryManager:
-        """获取历史管理器"""
-        pass
-    
-    @property
-    @abstractmethod
-    def snapshot_manager(self) -> IStateSnapshotManager:
-        """获取快照管理器"""
-        pass
-    
-    @property
-    @abstractmethod
-    def serializer(self) -> IStateSerializer:
-        """获取序列化器"""
-        pass
-    
     # 增强功能方法
     @abstractmethod
-    def create_state_with_history(self, state_id: str, initial_state: Dict[str, Any], 
-                                 agent_id: str) -> IState:
+    def create_state_with_history(self, state_id: str, initial_state: Dict[str, Any],
+                                 thread_id: str) -> IState:
         """创建状态并启用历史记录
         
         Args:
             state_id: 状态ID
             initial_state: 初始状态
-            agent_id: 代理ID
+            thread_id: 线程ID
             
         Returns:
             创建的状态实例
@@ -119,14 +100,14 @@ class IStateManager(ABC):
         pass
     
     @abstractmethod
-    def update_state_with_history(self, state_id: str, updates: Dict[str, Any], 
-                                 agent_id: str, action: str = "update") -> IState:
+    def update_state_with_history(self, state_id: str, updates: Dict[str, Any],
+                                 thread_id: str, action: str = "update") -> IState:
         """更新状态并记录历史
         
         Args:
             state_id: 状态ID
             updates: 更新内容
-            agent_id: 代理ID
+            thread_id: 线程ID
             action: 执行的动作
             
         Returns:
@@ -135,13 +116,13 @@ class IStateManager(ABC):
         pass
     
     @abstractmethod
-    def create_state_snapshot(self, state_id: str, agent_id: str, 
+    def create_state_snapshot(self, state_id: str, thread_id: str,
                              snapshot_name: str = "") -> str:
         """为状态创建快照
         
         Args:
             state_id: 状态ID
-            agent_id: 代理ID
+            thread_id: 线程ID
             snapshot_name: 快照名称
             
         Returns:
@@ -178,6 +159,15 @@ class IStateManager(ABC):
             
         Returns:
             (执行后的状态, 是否成功)
+        """
+        pass
+    
+    @abstractmethod
+    def cleanup_cache(self) -> int:
+        """清理过期缓存
+        
+        Returns:
+            清理的缓存项数量
         """
         pass
 

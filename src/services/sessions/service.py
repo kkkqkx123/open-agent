@@ -11,7 +11,7 @@ from src.core.sessions.interfaces import ISessionCore, ISessionValidator, ISessi
 from src.core.sessions.entities import SessionStatus, SessionEntity, UserRequestEntity, UserInteractionEntity, SessionContext
 from src.interfaces.sessions import ISessionService
 from src.interfaces.sessions.service import ISessionService as ISessionServiceInterface
-from interfaces.repository.session import ISessionRepository
+from src.interfaces.repository.session import ISessionRepository
 from src.interfaces.threads.service import IThreadService
 from src.interfaces.common_domain import AbstractSessionStatus
 from src.interfaces.common_infra import ILogger
@@ -23,6 +23,7 @@ from src.core.common.exceptions.session_thread import (
     WorkflowExecutionError
 )
 from src.core.state import WorkflowState
+from src.interfaces.state.session import ISessionStateManager
 
 if TYPE_CHECKING:
     from src.core.sessions.entities import Session
@@ -44,7 +45,8 @@ class SessionService(ISessionService):
         state_transition: Optional[ISessionStateTransition] = None,
         git_service: Optional[IGitService] = None,
         storage_path: Optional[Path] = None,
-        logger: Optional[ILogger] = None
+        logger: Optional[ILogger] = None,
+        session_state_manager: Optional[ISessionStateManager] = None
     ):
         """初始化会话服务
         
@@ -58,6 +60,7 @@ class SessionService(ISessionService):
             git_service: Git服务
             storage_path: 存储路径
             logger: 日志记录器
+            session_state_manager: 会话状态管理器
         """
         self._session_core = session_core
         self._session_repository = session_repository
@@ -66,6 +69,7 @@ class SessionService(ISessionService):
         self._session_validator = session_validator
         self._state_transition = state_transition
         self._git_service = git_service
+        self._session_state_manager = session_state_manager
         self._storage_path = storage_path or Path("./sessions")
         self._logger = logger
         
@@ -86,15 +90,33 @@ class SessionService(ISessionService):
         """创建会话并关联线程"""
         try:
             # 创建会话实体
-            session_id = self._session_core.create_session(
+            session = self._session_core.create_session(
                 user_id=session_config.get("user_id"),
                 metadata=session_config.get("metadata", {})
-            ).session_id
+            )
+            session_id = session.session_id
+            
+            # 创建对应的会话状态对象
+            if self._session_state_manager:
+                session_state = self._session_state_manager.create_session_state(
+                    session_id=session_id,
+                    user_id=session_config.get("user_id"),
+                    config=session_config.get("config", {})
+                )
+                
+                # 如果有线程配置，添加线程ID
+                if thread_config and hasattr(session_state, 'add_thread'):
+                    thread_id = thread_config.get("thread_id", f"thread_{session_id}")
+                    session_state.add_thread(thread_id)
+                
+                # 保存状态
+                self._session_state_manager.save_session_state(session_state)
             
             # 如果需要，创建关联线程
-            if thread_config:
-                # 这里简化处理，实际应用中可能需要调用线程服务
-                pass
+            if thread_config and self._thread_service:
+                # 调用线程服务创建线程
+                thread_id = thread_config.get("thread_id", f"thread_{session_id}")
+                await self._thread_service.create_thread(thread_id, thread_config)
             
             return session_id
         except Exception as e:
@@ -115,6 +137,17 @@ class SessionService(ISessionService):
             session.metadata.update(metadata)
             session._updated_at = datetime.now()
             
+            # 同步更新状态管理器中的状态
+            if self._session_state_manager:
+                session_state = self._session_state_manager.get_session_state(session_id)
+                if session_state:
+                    # 更新状态中的元数据
+                    if hasattr(session_state, 'set_session_metadata'):
+                        current_metadata = session_state.get_session_metadata() if hasattr(session_state, 'get_session_metadata') else {}
+                        current_metadata.update(metadata)
+                        session_state.set_session_metadata(current_metadata)
+                    self._session_state_manager.save_session_state(session_state)
+            
             # 保存更新
             success = await self._session_repository.update(session)
             return success
@@ -133,6 +166,13 @@ class SessionService(ISessionService):
             
             session.message_count += 1
             session._updated_at = datetime.now()
+            
+            # 同步更新状态管理器中的计数
+            if self._session_state_manager:
+                session_state = self._session_state_manager.get_session_state(session_id)
+                if session_state:
+                    session_state.increment_message_count()
+                    self._session_state_manager.save_session_state(session_state)
             
             await self._session_repository.update(session)
             return session.message_count
@@ -383,7 +423,9 @@ class SessionService(ISessionService):
                     continue
             
             # 按更新时间倒序排列
-            sessions.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
+            def sort_key(x: Dict[str, Any]) -> str:
+                return str(x.get("updated_at", ""))
+            sessions.sort(key=sort_key, reverse=True)
             return sessions
             
         except Exception as e:
@@ -420,7 +462,14 @@ class SessionService(ISessionService):
                         "updated_at": thread_info.get("updated_at")
                     }
         
-        return {
+        # 获取状态管理器中的会话摘要（如果可用）
+        session_summary = None
+        if self._session_state_manager:
+            session_state = self._session_state_manager.get_session_state(session_context.session_id)
+            if session_state:
+                session_summary = session_state.get_session_summary()
+        
+        result = {
             "session_id": session_context.session_id,
             "user_id": session_context.user_id,
             "status": session_context.status,
@@ -432,6 +481,19 @@ class SessionService(ISessionService):
             "interaction_count": len(interactions),
             "thread_states": thread_states
         }
+        
+        # 合并状态管理器提供的信息
+        if session_summary:
+            result.update({
+                "message_count": session_summary.get("message_count", 0),
+                "checkpoint_count": session_summary.get("checkpoint_count", 0),
+                "last_activity": session_summary.get("last_activity"),
+                "is_active": session_summary.get("is_active", True),
+                "duration_minutes": session_summary.get("duration_minutes", 0),
+                "idle_time_minutes": session_summary.get("idle_time_minutes", 0)
+            })
+        
+        return result
     
     # === 用户交互管理 ===
     

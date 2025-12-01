@@ -17,12 +17,12 @@ class IStateHistoryManager(ABC):
     """
     
     @abstractmethod
-    def record_state_change(self, agent_id: str, old_state: Dict[str, Any], 
+    def record_state_change(self, thread_id: str, old_state: Dict[str, Any],
                           new_state: Dict[str, Any], action: str) -> str:
         """记录状态变化
         
         Args:
-            agent_id: 代理ID
+            thread_id: 线程ID
             old_state: 旧状态
             new_state: 新状态
             action: 执行的动作
@@ -33,11 +33,11 @@ class IStateHistoryManager(ABC):
         pass
     
     @abstractmethod
-    def get_state_history(self, agent_id: str, limit: Optional[int] = None) -> List[AbstractStateHistoryEntry]:
-        """获取代理的状态历史
+    def get_state_history(self, thread_id: str, limit: Optional[int] = None) -> List[AbstractStateHistoryEntry]:
+        """获取线程的状态历史
         
         Args:
-            agent_id: 代理ID
+            thread_id: 线程ID
             limit: 返回记录的数量限制
             
         Returns:
@@ -46,12 +46,12 @@ class IStateHistoryManager(ABC):
         pass
     
     @abstractmethod
-    def replay_history(self, agent_id: str, base_state: Dict[str, Any], 
+    def replay_history(self, thread_id: str, base_state: Dict[str, Any],
                       until_timestamp: Optional[datetime] = None) -> Dict[str, Any]:
         """重放历史记录到指定时间点
         
         Args:
-            agent_id: 代理ID
+            thread_id: 线程ID
             base_state: 基础状态
             until_timestamp: 重放到的指定时间点
             
@@ -61,11 +61,11 @@ class IStateHistoryManager(ABC):
         pass
     
     @abstractmethod
-    def cleanup_old_entries(self, agent_id: str, max_entries: int = 1000) -> int:
+    def cleanup_old_entries(self, thread_id: str, max_entries: int = 1000) -> int:
         """清理旧的历史记录
         
         Args:
-            agent_id: 代理ID
+            thread_id: 线程ID
             max_entries: 保留的最大记录数
             
         Returns:

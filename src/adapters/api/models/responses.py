@@ -229,7 +229,7 @@ class StateResponse(BaseModel):
                 "updated_at": "2024-10-22T17:50:30Z",
                 "metadata": {
                     "version": "1.0",
-                    "agent_id": "agent_123"
+                    "thread_id": "thread_123"
                 }
             }
         }
@@ -258,7 +258,7 @@ class StateListResponse(BaseModel):
                         "updated_at": "2024-10-22T17:50:30Z",
                         "metadata": {
                             "version": "1.0",
-                            "agent_id": "agent_123"
+                            "thread_id": "thread_123"
                         }
                     }
                 ],
@@ -341,6 +341,7 @@ class StateSnapshotListResponse(BaseModel):
 class StateHistoryEntry(BaseModel):
     """状态历史条目"""
     history_id: str = Field(..., description="历史记录ID")
+    thread_id: str = Field(..., description="线程ID")
     state_id: str = Field(..., description="状态ID")
     action: str = Field(..., description="操作类型")
     old_state: Dict[str, Any] = Field(..., description="旧状态")
@@ -352,6 +353,7 @@ class StateHistoryEntry(BaseModel):
         json_schema_extra = {
             "example": {
                 "history_id": "history_123456",
+                "thread_id": "thread_123456",
                 "state_id": "state_123456",
                 "action": "update",
                 "old_state": {
@@ -367,7 +369,6 @@ class StateHistoryEntry(BaseModel):
                 },
                 "timestamp": "2024-10-22T17:50:30Z",
                 "metadata": {
-                    "agent_id": "agent_123",
                     "operation": "message_processing"
                 }
             }
@@ -387,6 +388,7 @@ class StateHistoryResponse(BaseModel):
                 "history": [
                     {
                         "history_id": "history_123456",
+                        "thread_id": "thread_123456",
                         "state_id": "state_123456",
                         "action": "update",
                         "old_state": {
@@ -402,7 +404,6 @@ class StateHistoryResponse(BaseModel):
                         },
                         "timestamp": "2024-10-22T17:50:30Z",
                         "metadata": {
-                            "agent_id": "agent_123",
                             "operation": "message_processing"
                         }
                     }

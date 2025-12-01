@@ -20,8 +20,8 @@ class AbstractStateSnapshot(ABC):
     
     @property
     @abstractmethod
-    def agent_id(self) -> str:
-        """代理ID"""
+    def thread_id(self) -> str:
+        """线程ID"""
         pass
     
     @property
@@ -68,8 +68,8 @@ class AbstractStateHistoryEntry(ABC):
     
     @property
     @abstractmethod
-    def agent_id(self) -> str:
-        """代理ID"""
+    def thread_id(self) -> str:
+        """线程ID"""
         pass
     
     @property
@@ -214,8 +214,8 @@ class AbstractStateStatistics(ABC):
     
     @property
     @abstractmethod
-    def agent_counts(self) -> Dict[str, int]:
-        """代理计数"""
+    def thread_counts(self) -> Dict[str, int]:
+        """线程计数"""
         pass
     
     @property

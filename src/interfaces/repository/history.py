@@ -170,10 +170,10 @@ class IHistoryRepository(ABC):
     
     @abstractmethod
     async def save_history(self, entry: Dict[str, Any]) -> str:
-        """保存历史记录（兼容性方法）
+        """保存历史记录
         
         Args:
-            entry: 历史记录条目，包含agent_id、timestamp、action等字段
+            entry: 历史记录条目，包含thread_id、timestamp、action等字段
             
         Returns:
             保存的历史记录ID
@@ -181,11 +181,11 @@ class IHistoryRepository(ABC):
         pass
     
     @abstractmethod
-    async def get_history(self, agent_id: str, limit: int = 100) -> List[Dict[str, Any]]:
-        """获取历史记录（兼容性方法）
+    async def get_history(self, thread_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """获取历史记录
         
         Args:
-            agent_id: 代理ID
+            thread_id: 线程ID
             limit: 返回记录数限制
             
         Returns:
@@ -196,15 +196,15 @@ class IHistoryRepository(ABC):
     @abstractmethod
     async def get_history_by_timerange(
         self,
-        agent_id: str,
+        thread_id: str,
         start_time: datetime,
         end_time: datetime,
         limit: int = 100
     ) -> List[Dict[str, Any]]:
-        """按时间范围获取历史记录（兼容性方法）
+        """按时间范围获取历史记录
         
         Args:
-            agent_id: 代理ID
+            thread_id: 线程ID
             start_time: 开始时间
             end_time: 结束时间
             limit: 返回记录数限制
@@ -227,11 +227,11 @@ class IHistoryRepository(ABC):
         pass
     
     @abstractmethod
-    async def clear_agent_history(self, agent_id: str) -> bool:
-        """清空代理的历史记录（兼容性方法）
+    async def clear_thread_history(self, thread_id: str) -> bool:
+        """清空线程的历史记录
         
         Args:
-            agent_id: 代理ID
+            thread_id: 线程ID
             
         Returns:
             是否清空成功
@@ -240,10 +240,10 @@ class IHistoryRepository(ABC):
     
     @abstractmethod
     async def get_history_statistics(self) -> Dict[str, Any]:
-        """获取历史记录统计信息（兼容性方法）
+        """获取历史记录统计信息
         
         Returns:
-            统计信息字典，包含总记录数、代理数量等
+            统计信息字典，包含总记录数、线程数量等
         """
         pass
     

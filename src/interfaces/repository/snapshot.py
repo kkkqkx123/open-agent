@@ -19,7 +19,7 @@ class ISnapshotRepository(ABC):
         """保存快照
         
         Args:
-            snapshot: 快照数据，包含agent_id、state_data、metadata等字段
+            snapshot: 快照数据，包含thread_id、state_data、metadata等字段
             
         Returns:
             保存的快照ID
@@ -39,11 +39,11 @@ class ISnapshotRepository(ABC):
         pass
     
     @abstractmethod
-    async def get_snapshots(self, agent_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-        """获取代理的快照列表
+    async def get_snapshots(self, thread_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """获取线程的快照列表
         
         Args:
-            agent_id: 代理ID
+            thread_id: 线程ID
             limit: 返回记录数限制
             
         Returns:
@@ -64,11 +64,11 @@ class ISnapshotRepository(ABC):
         pass
     
     @abstractmethod
-    async def delete_snapshots_by_agent(self, agent_id: str) -> int:
-        """删除代理的所有快照
+    async def delete_snapshots_by_thread(self, thread_id: str) -> int:
+        """删除线程的所有快照
         
         Args:
-            agent_id: 代理ID
+            thread_id: 线程ID
             
         Returns:
             删除的快照数量
@@ -80,16 +80,16 @@ class ISnapshotRepository(ABC):
         """获取快照统计信息
         
         Returns:
-            统计信息字典，包含总快照数、代理数量等
+            统计信息字典，包含总快照数、线程数量等
         """
         pass
     
     @abstractmethod
-    async def get_latest_snapshot(self, agent_id: str) -> Optional[Dict[str, Any]]:
-        """获取代理的最新快照
+    async def get_latest_snapshot(self, thread_id: str) -> Optional[Dict[str, Any]]:
+        """获取线程的最新快照
         
         Args:
-            agent_id: 代理ID
+            thread_id: 线程ID
             
         Returns:
             最新快照，如果不存在则返回None
@@ -97,11 +97,11 @@ class ISnapshotRepository(ABC):
         pass
     
     @abstractmethod
-    async def cleanup_old_snapshots(self, agent_id: str, max_count: int) -> int:
+    async def cleanup_old_snapshots(self, thread_id: str, max_count: int) -> int:
         """清理旧的快照，保留最新的max_count个
         
         Args:
-            agent_id: 代理ID
+            thread_id: 线程ID
             max_count: 保留的最大数量
             
         Returns:
