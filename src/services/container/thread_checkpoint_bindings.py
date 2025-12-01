@@ -17,9 +17,9 @@ from src.core.threads.checkpoints.manager import ThreadCheckpointManager
 from src.core.common.types import ServiceLifetime
 from src.services.storage import (
     StorageOrchestrator,
-    ThreadStorageService,
-    StorageConfigManager
+    ThreadStorageService
 )
+from src.core.storage import StorageConfigManager
 from src.adapters.threads.checkpoints import (
     LangGraphCheckpointAdapter,
     MemoryLangGraphCheckpointAdapter

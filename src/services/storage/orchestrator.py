@@ -564,7 +564,7 @@ class ThreadStorageService:
                 include_backups=False
             )
             
-            backup_results = {}
+            backup_results: Dict[str, List[str]] = {}
             
             # 2. 为每个重要检查点创建备份
             for item in timeline:

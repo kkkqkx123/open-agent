@@ -10,18 +10,19 @@ import time
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Union
 
+from src.interfaces.storage import IStorage, StorageError, StorageConnectionError
 from src.interfaces.state.storage.backend import IStorageBackend
-from core.common.exceptions.state import StorageError, StorageConnectionError
 from ..utils.common_utils import StorageCommonUtils
 
 
 logger = get_logger(__name__)
 
 
-class StorageBackend(IStorageBackend, ABC):
+class StorageBackend(IStorage, IStorageBackend, ABC):
     """增强的存储后端基类
     
     提供通用的存储后端功能，减少具体实现类的重复代码。
+    实现统一存储接口和状态存储后端接口。
     """
     
     def __init__(self, **config: Any) -> None:
@@ -419,9 +420,8 @@ class StorageBackend(IStorageBackend, ABC):
     async def stream_list(
         self,
         filters: Dict[str, Any],
-        batch_size: int = 100,
-        max_memory_mb: int = 100
-    ) -> Any:
+        batch_size: int = 100
+    ):
         """流式列表数据
         
         使用流式处理处理大数据集，避免一次性加载所有数据到内存。
@@ -429,10 +429,9 @@ class StorageBackend(IStorageBackend, ABC):
         Args:
             filters: 过滤条件
             batch_size: 每批处理的记录数
-            max_memory_mb: 最大内存使用限制（MB）
             
-        Returns:
-            异步生成器，每次产生一批数据
+        Yields:
+            数据批次列表
         """
         try:
             # 清理过期项
@@ -440,7 +439,7 @@ class StorageBackend(IStorageBackend, ABC):
                 await self._cleanup_expired_items()
             
             # 获取流式数据
-            async for batch in self.stream_list_impl(filters, batch_size, max_memory_mb):
+            async for batch in self.stream_list_impl(filters, batch_size):
                 # 过滤过期数据
                 if self.enable_ttl:
                     filtered_batch = []
@@ -464,8 +463,7 @@ class StorageBackend(IStorageBackend, ABC):
     async def stream_list_impl(
         self,
         filters: Dict[str, Any],
-        batch_size: int = 100,
-        max_memory_mb: int = 100
+        batch_size: int = 100
     ):
         """实际流式列表实现 - 默认实现
         
@@ -474,10 +472,9 @@ class StorageBackend(IStorageBackend, ABC):
         Args:
             filters: 过滤条件
             batch_size: 每批处理的记录数
-            max_memory_mb: 最大内存使用限制（MB）
             
-        Returns:
-            异步生成器，每次产生一批数据
+        Yields:
+            数据批次列表
         """
         # 默认实现：获取所有数据然后分批返回
         # 子类应该覆盖此方法以提供真正的流式处理

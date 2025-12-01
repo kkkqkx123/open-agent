@@ -9,13 +9,6 @@ from .checkpoint import (
     IThreadCheckpointSerializer,
     IThreadCheckpointPolicy
 )
-from .checkpoint_adapter import (
-    LegacyCheckpointStoreAdapter,
-    LegacyCheckpointManagerAdapter,
-    LegacyCheckpointSerializerAdapter,
-    LegacyCheckpointPolicyAdapter,
-    CheckpointCompatibilityWrapper
-)
 __all__ = [
     "IThreadBranchRepository",
     "IThreadSnapshotRepository",
@@ -27,9 +20,4 @@ __all__ = [
     "IThreadCheckpointManager",
     "IThreadCheckpointSerializer",
     "IThreadCheckpointPolicy",
-    "LegacyCheckpointStoreAdapter",
-    "LegacyCheckpointManagerAdapter",
-    "LegacyCheckpointSerializerAdapter",
-    "LegacyCheckpointPolicyAdapter",
-    "CheckpointCompatibilityWrapper",
 ]

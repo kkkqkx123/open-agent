@@ -1,16 +1,20 @@
 """
-统一存储接口
+统一存储接口基础定义
 
-定义了所有存储操作的基本接口，包括CRUD操作、查询操作、
-高级操作和模块特定操作。
+定义了所有存储操作的基础接口，为整个系统提供统一的存储抽象层。
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, AsyncIterator
+from typing import Dict, Any, Optional, List, AsyncIterator, Union
+from datetime import datetime
 
 
-class IUnifiedStorage(ABC):
-    """统一存储接口 - 所有模块的基础"""
+class IStorage(ABC):
+    """统一存储接口 - 所有模块的基础存储抽象
+    
+    提供统一的CRUD操作、查询操作和高级操作接口，
+    作为所有存储实现的统一抽象层。
+    """
     
     # 基础CRUD操作
     @abstractmethod
@@ -184,52 +188,6 @@ class IUnifiedStorage(ABC):
         """
         pass
     
-    # 模块特定操作
-    @abstractmethod
-    async def get_by_session(self, session_id: str) -> List[Dict[str, Any]]:
-        """根据会话ID获取数据
-        
-        Args:
-            session_id: 会话ID
-            
-        Returns:
-            数据列表
-            
-        Raises:
-            StorageError: 查询失败时抛出
-        """
-        pass
-    
-    @abstractmethod
-    async def get_by_thread(self, thread_id: str) -> List[Dict[str, Any]]:
-        """根据线程ID获取数据
-        
-        Args:
-            thread_id: 线程ID
-            
-        Returns:
-            数据列表
-            
-        Raises:
-            StorageError: 查询失败时抛出
-        """
-        pass
-    
-    @abstractmethod
-    async def cleanup_old_data(self, retention_days: int) -> int:
-        """清理旧数据
-        
-        Args:
-            retention_days: 保留天数
-            
-        Returns:
-            清理的数据数量
-            
-        Raises:
-            StorageError: 清理失败时抛出
-        """
-        pass
-    
     # 流式操作
     @abstractmethod
     def stream_list(
@@ -274,10 +232,13 @@ class IUnifiedStorage(ABC):
 
 
 class IStorageFactory(ABC):
-    """存储工厂接口"""
+    """存储工厂接口
+    
+    定义存储实例的创建和管理接口。
+    """
     
     @abstractmethod
-    def create_storage(self, storage_type: str, config: Dict[str, Any]) -> IUnifiedStorage:
+    def create_storage(self, storage_type: str, config: Dict[str, Any]) -> IStorage:
         """创建存储实例
         
         Args:

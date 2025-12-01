@@ -27,9 +27,9 @@ if TYPE_CHECKING:
     class IStateValidator:
         """状态验证器接口（临时定义）"""
         def validate_state(self, state: IState) -> List[str]:
-            pass
+            return []
         def validate_state_data(self, data: Dict[str, Any]) -> List[str]:
-            pass
+            return []
 else:
     # 运行时使用基础类作为替代
     IStateValidator = object  # 临时使用object作为占位符

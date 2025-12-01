@@ -6,7 +6,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Sequence
 
-from src.interfaces.storage.base import IUnifiedStorage
+from src.interfaces.storage.base import IStorage
 # 移除已删除的抽象接口导入
 # from ..entities import AbstractStateSnapshot, AbstractStateHistoryEntry
 from src.core.state.entities import StateSnapshot, StateHistoryEntry
@@ -155,7 +155,7 @@ class IStateStorageAdapter(ABC):
         """关闭存储连接"""
         pass
 
-    async def get_unified_storage(self) -> Optional[IUnifiedStorage]:
+    async def get_unified_storage(self) -> Optional[IStorage]:
         """获取通用存储接口实例（可选功能）
         
         Returns:

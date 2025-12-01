@@ -2,16 +2,53 @@
 通用存储核心模块
 
 提供存储系统的核心接口、模型和异常定义。
+现在使用统一的存储接口架构。
 """
 
-from .interfaces import (
-    IStorageBackend,
-    IStorageRepository,
-    IStorageManager,
+# 从统一存储接口导入
+from src.interfaces.storage import (
+    IStorage,
+    IStorageFactory,
     IStorageMonitoring,
+    IStorageMetrics,
+    IStorageAlerting,
     IStorageMigration,
-    IStorageTransaction
+    ISchemaMigration,
+    IDataTransformer,
+    IMigrationPlanner,
+    IStorageTransaction,
+    IDistributedTransaction,
+    ITransactionRecovery,
+    ITransactionManager,
+    IConsistencyManager,
+    # 异常类型
+    StorageError,
+    StorageConnectionError,
+    StorageOperationError,
+    StorageValidationError,
+    StorageNotFoundError,
+    StorageTimeoutError,
+    StorageCapacityError,
+    StorageIntegrityError,
+    StorageConfigurationError,
+    StorageMigrationError,
+    StorageTransactionError,
+    StoragePermissionError,
+    StorageSerializationError,
+    StorageCompressionError,
+    StorageEncryptionError,
+    StorageIndexError,
+    StorageBackupError,
+    StorageLockError,
+    StorageQueryError,
+    StorageHealthError,
+    StorageConsistencyError,
+    StorageDistributedTransactionError
 )
+
+# 核心模块特有的接口已迁移到统一接口，从统一接口导入
+from src.interfaces.storage import IStorage
+from src.interfaces.state.storage.backend import IStorageBackend
 
 from .models import (
     StorageBackendType,
@@ -30,24 +67,6 @@ from .models import (
     StorageBackendInfo
 )
 
-from .exceptions import (
-    StorageError,
-    StorageConnectionError,
-    StorageOperationError,
-    StorageValidationError,
-    StorageNotFoundError,
-    StorageTimeoutError,
-    StorageCapacityError,
-    StorageIntegrityError,
-    StorageConfigurationError,
-    StorageMigrationError,
-    StorageTransactionError,
-    StoragePermissionError,
-    StorageSerializationError,
-    StorageCompressionError,
-    StorageEncryptionError
-)
-
 from .error_handler import StorageErrorHandler
 
 from .config import (
@@ -59,13 +78,27 @@ from .config import (
 )
 
 __all__ = [
-    # 接口
-    "IStorageBackend",
-    "IStorageRepository",
-    "IStorageManager",
+    # 统一存储接口（推荐使用）
+    "IStorage",
+    "IStorageFactory",
     "IStorageMonitoring",
+    "IStorageMetrics",
+    "IStorageAlerting",
     "IStorageMigration",
+    "ISchemaMigration",
+    "IDataTransformer",
+    "IMigrationPlanner",
     "IStorageTransaction",
+    "IDistributedTransaction",
+    "ITransactionRecovery",
+    "ITransactionManager",
+    "IConsistencyManager",
+    
+    # 核心模块特有接口（向后兼容）
+    "IStorage",
+    "IStorageBackend",
+    # "IStorageRepository",
+    # "IStorageManager",
     
     # 模型
     "StorageBackendType",
@@ -83,7 +116,7 @@ __all__ = [
     "StorageMigration",
     "StorageBackendInfo",
     
-    # 异常
+    # 统一异常类型
     "StorageError",
     "StorageConnectionError",
     "StorageOperationError",
@@ -99,6 +132,13 @@ __all__ = [
     "StorageSerializationError",
     "StorageCompressionError",
     "StorageEncryptionError",
+    "StorageIndexError",
+    "StorageBackupError",
+    "StorageLockError",
+    "StorageQueryError",
+    "StorageHealthError",
+    "StorageConsistencyError",
+    "StorageDistributedTransactionError",
     
     # 错误处理
     "StorageErrorHandler",

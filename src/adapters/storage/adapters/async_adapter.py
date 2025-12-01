@@ -24,14 +24,14 @@ class AsyncStateStorageAdapter(IStateStorageAdapter):
     实现状态存储的异步接口，专注于存储逻辑。
     """
     
-    def __init__(self, 
-                 backend: IStorageBackend, 
+    def __init__(self,
+                 backend: IStorageBackend,
                  metrics: Optional[StorageMetrics] = None,
                  transaction_manager: Optional[TransactionManager] = None):
         """初始化异步状态存储适配器
         
         Args:
-            backend: 存储后端
+            backend: 统一存储后端
             metrics: 指标收集器
             transaction_manager: 事务管理器
         """

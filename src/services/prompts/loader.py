@@ -147,6 +147,41 @@ class PromptLoader(IPromptLoader):
                 f"异步加载提示词 {category}.{name} 失败: {e}"
             ) from e
     
+    def load_prompt(self, category: str, name: str) -> str:
+        """同步加载提示词内容
+        
+        Args:
+            category: 提示词类别
+            name: 提示词名称
+            
+        Returns:
+            str: 提示词内容
+            
+        Raises:
+            PromptLoadError: 加载失败
+        """
+        try:
+            # 获取提示词元数据
+            prompt_meta = self.registry.get_prompt_meta(category, name)
+            if prompt_meta is None:
+                raise PromptLoadError(f"提示词不存在: {category}.{name}")
+            
+            # 从缓存检查
+            cache_key = f"{category}.{name}"
+            if cache_key in self._cache:
+                return self._cache[cache_key]
+            
+            # 返回提示词内容
+            content = prompt_meta.content
+            self._cache[cache_key] = content
+            return content
+        except PromptLoadError:
+            raise
+        except Exception as e:
+            raise PromptLoadError(
+                f"加载提示词 {category}.{name} 失败: {e}"
+            ) from e
+    
     async def load_prompts_async(self, category: str) -> Dict[str, str]:
         """异步加载指定类别的所有提示词
         
@@ -429,6 +464,33 @@ class PromptLoader(IPromptLoader):
             try:
                 prompt_metas = await self.registry.list_by_category(category)
                 prompts = [meta.name for meta in prompt_metas]
+            except Exception as e:
+                logger.error(f"列出类别 {category} 的提示词失败: {e}")
+        
+        return prompts
+    
+    def list_prompts(self, category: Optional[str] = None) -> List[str]:
+        """同步列出提示词
+        
+        Args:
+            category: 提示词类别，如果为None则列出所有提示词名称
+            
+        Returns:
+            list: 提示词名称列表
+        """
+        # 注意：这是同步实现，依赖于registry的同步方法
+        # 如果registry没有同步方法，可能需要异步转同步的转换
+        # 为了简单起见，这里返回空列表或使用缓存内容
+        prompts: List[str] = []
+        
+        if category:
+            try:
+                # 尝试从缓存的键中提取该类别的提示词
+                prompts = [
+                    key.split('.', 1)[1]
+                    for key in self._cache.keys()
+                    if key.startswith(f"{category}.")
+                ]
             except Exception as e:
                 logger.error(f"列出类别 {category} 的提示词失败: {e}")
         

@@ -18,25 +18,25 @@ if TYPE_CHECKING:
     class IStateCache:
         """状态缓存接口（临时定义）"""
         def get(self, key: str) -> Optional[IState]:
-            pass
+            return None
         def put(self, key: str, state: IState) -> None:
             pass
         def delete(self, key: str) -> bool:
-            pass
+            return False
         def clear(self) -> None:
             pass
         def size(self) -> int:
-            pass
+            return 0
         def get_all_keys(self) -> List[str]:
-            pass
+            return []
         def get_statistics(self) -> Dict[str, Any]:
-            pass
+            return {}
         def get_many(self, keys: List[str]) -> Dict[str, IState]:
-            pass
+            return {}
         def set_many(self, states: Dict[str, IState]) -> None:
             pass
         def cleanup_expired(self) -> int:
-            pass
+            return 0
 else:
     # 运行时使用基础类作为替代
     IStateCache = object  # 临时使用object作为占位符
@@ -81,7 +81,7 @@ class StateCacheAdapter(IStateCache):
         
         logger.debug(f"初始化状态缓存适配器: {cache_name}, max_size={max_size}, ttl={ttl}")
     
-    def _run_async(self, coro):
+    def _run_async(self, coro: Any) -> Any:
         """运行异步协程的辅助方法"""
         try:
             loop = asyncio.get_event_loop()
@@ -108,7 +108,8 @@ class StateCacheAdapter(IStateCache):
             状态实例，如果未找到或已过期则返回None
         """
         try:
-            return self._run_async(self._cache_manager.get(key))
+            result = self._run_async(self._cache_manager.get(key))
+            return result  # type: ignore
         except Exception as e:
             logger.warning(f"获取缓存状态失败: {key}, 错误: {e}")
             return None
@@ -135,7 +136,8 @@ class StateCacheAdapter(IStateCache):
             是否删除成功
         """
         try:
-            return self._run_async(self._cache_manager.delete(key))
+            result = self._run_async(self._cache_manager.delete(key))
+            return result  # type: ignore
         except Exception as e:
             logger.warning(f"删除缓存状态失败: {key}, 错误: {e}")
             return False
@@ -185,7 +187,8 @@ class StateCacheAdapter(IStateCache):
             所有状态ID列表
         """
         try:
-            return self._run_async(self._get_all_keys_async())
+            result = self._run_async(self._get_all_keys_async())
+            return result  # type: ignore
         except Exception as e:
             logger.warning(f"获取所有键失败: {e}")
             return []
@@ -240,7 +243,8 @@ class StateCacheAdapter(IStateCache):
             清理的项数
         """
         try:
-            return self._run_async(self._cache_manager.cleanup_expired())
+            result = self._run_async(self._cache_manager.cleanup_expired())
+            return result  # type: ignore
         except Exception as e:
             logger.warning(f"清理过期缓存项失败: {e}")
             return 0
@@ -256,7 +260,7 @@ class StateCacheAdapter(IStateCache):
         """
         try:
             values = self._run_async(self._cache_manager.get_many(keys))
-            return values
+            return values  # type: ignore
         except Exception as e:
             logger.warning(f"批量获取缓存状态失败: {e}")
             return {}

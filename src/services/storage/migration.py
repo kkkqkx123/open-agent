@@ -7,17 +7,17 @@ import asyncio
 import json
 from src.services.logger import get_logger
 import time
-from typing import Dict, Any, List, Optional, Tuple, Callable
+from typing import Dict, Any, List, Optional, Tuple, Callable, TYPE_CHECKING
 from dataclasses import dataclass
 from enum import Enum
 
 from src.core.state.entities import StateSnapshot, StateHistoryEntry
 from src.core.common.exceptions import StorageError, StorageConnectionError
 from src.core.storage import (
-    IStorageBackend,
     StorageConfig,
     StorageBackendType
 )
+from src.interfaces.storage import IStorageMigration, IStorage
 
 
 logger = get_logger(__name__)
@@ -37,8 +37,8 @@ class MigrationTask:
     """迁移任务数据类"""
     id: str
     name: str
-    source_backend: IStorageBackend
-    target_backend: IStorageBackend
+    source_backend: IStorage
+    target_backend: IStorage
     status: MigrationStatus = MigrationStatus.PENDING
     progress: float = 0.0
     total_items: int = 0
@@ -49,18 +49,19 @@ class MigrationTask:
     error_message: Optional[str] = None
     options: Optional[Dict[str, Any]] = None
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.options is None:
             self.options = {}
 
 
-class StorageMigrationService:
+class StorageMigrationService(IStorageMigration):
     """存储迁移服务
     
     提供旧格式到新格式的数据迁移功能，支持增量迁移和数据验证。
+    实现统一存储迁移接口。
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化存储迁移服务"""
         self._tasks: Dict[str, MigrationTask] = {}
         self._running_tasks: Dict[str, asyncio.Task] = {}
@@ -71,8 +72,8 @@ class StorageMigrationService:
     async def create_migration_task(
         self,
         name: str,
-        source_backend: IStorageBackend,
-        target_backend: IStorageBackend,
+        source_backend: IStorage,
+        target_backend: IStorage,
         options: Optional[Dict[str, Any]] = None
     ) -> str:
         """创建迁移任务
@@ -352,7 +353,7 @@ class StorageMigrationService:
             # 由于接口中没有定义，我们使用一个模拟实现
             
             # 模拟获取历史记录
-            history_entries = []
+            history_entries: List[Dict[str, Any]] = []
             
             # 分批处理
             for i in range(0, len(history_entries), batch_size):
@@ -372,7 +373,12 @@ class StorageMigrationService:
                         
                         # 保存到目标适配器 - 转换为字典格式
                         entry_dict = converted_entry.to_dict() if hasattr(converted_entry, 'to_dict') else entry_data
-                        success = task.target_backend.save(entry_key, entry_dict)
+                        try:
+                            returned_id = await task.target_backend.save(entry_dict)
+                            success = bool(returned_id)
+                        except Exception as e:
+                            logger.error(f"Failed to save entry to target backend: {e}")
+                            success = False
                         
                         if success:
                             task.processed_items += 1
@@ -415,7 +421,7 @@ class StorageMigrationService:
             # 由于接口中没有定义，我们使用一个模拟实现
             
             # 模拟获取快照
-            snapshots = []
+            snapshots: List[Dict[str, Any]] = []
             
             # 分批处理
             for i in range(0, len(snapshots), batch_size):
@@ -435,7 +441,12 @@ class StorageMigrationService:
                         
                         # 保存到目标适配器 - 转换为字典格式
                         snapshot_dict = converted_snapshot.to_dict() if hasattr(converted_snapshot, 'to_dict') else snapshot_data
-                        success = task.target_backend.save(snapshot_key, snapshot_dict)
+                        try:
+                            returned_id = await task.target_backend.save(snapshot_dict)
+                            success = bool(returned_id)
+                        except Exception as e:
+                            logger.error(f"Failed to save snapshot to target backend: {e}")
+                            success = False
                         
                         if success:
                             task.processed_items += 1
@@ -516,12 +527,12 @@ class StorageMigrationService:
         # 目前直接使用原始数据创建对象
         return StateSnapshot.from_dict(snapshot_data)
     
-    async def validate_migration(
+    async def _validate_migration_internal(
         self,
-        source_backend: IStorageBackend,
-        target_backend: IStorageBackend
+        source_backend: IStorage,
+        target_backend: IStorage
     ) -> Dict[str, Any]:
-        """验证迁移结果
+        """验证迁移结果（内部方法）
         
         Args:
             source_adapter: 源存储适配器
@@ -531,7 +542,7 @@ class StorageMigrationService:
             验证结果
         """
         try:
-            validation_result = {
+            validation_result: Dict[str, Any] = {
                 "history_entries": {"source": 0, "target": 0, "match": False},
                 "snapshots": {"source": 0, "target": 0, "match": False},
                 "overall_match": False
@@ -570,6 +581,122 @@ class StorageMigrationService:
                 "overall_match": False
             }
     
+    # 实现 IStorageMigration 接口方法
+    async def migrate_from(
+        self,
+        source_storage: 'IStorage',
+        target_storage: 'IStorage',
+        config: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """从源存储迁移到目标存储
+        
+        Args:
+            source_storage: 源存储实例
+            target_storage: 目标存储实例
+            config: 迁移配置
+            
+        Returns:
+            迁移结果统计
+        """
+        try:
+            # 创建迁移任务
+            task_id = await self.create_migration_task(
+                name="interface_migration",
+                source_backend=source_storage,
+                target_backend=target_storage,
+                options=config
+            )
+            
+            # 开始迁移
+            success = await self.start_migration(task_id)
+            
+            if not success:
+                raise StorageError("Failed to start migration task")
+            
+            # 等待迁移完成
+            while True:
+                status = await self.get_migration_status(task_id)
+                if status is None:
+                    raise StorageError("Migration task not found")
+                
+                if status["status"] in ["completed", "failed", "cancelled"]:
+                    break
+                
+                await asyncio.sleep(0.1)
+            
+            final_status = await self.get_migration_status(task_id)
+            if final_status is None:
+                raise StorageError("Failed to get final migration status")
+            
+            return {
+                "success": final_status["status"] == "completed",
+                "total_items": final_status["total_items"],
+                "processed_items": final_status["processed_items"],
+                "failed_items": final_status["failed_items"],
+                "duration": final_status["duration"],
+                "error_message": final_status.get("error_message")
+            }
+            
+        except Exception as e:
+            logger.error(f"Migration failed: {e}")
+            raise StorageError(f"Migration failed: {e}")
+    
+    async def validate_migration(
+        self,
+        source_storage: 'IStorage',
+        target_storage: 'IStorage'
+    ) -> Dict[str, Any]:
+        """验证迁移结果
+        
+        Args:
+            source_storage: 源存储实例
+            target_storage: 目标存储实例
+            
+        Returns:
+            验证结果
+        """
+        try:
+            return await self._validate_migration_internal(
+                source_backend=source_storage,
+                target_backend=target_storage
+            )
+        except Exception as e:
+            logger.error(f"Migration validation failed: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "overall_match": False
+            }
+    
+    async def rollback_migration(
+        self,
+        migration_id: str,
+        target_storage: 'IStorage'
+    ) -> bool:
+        """回滚迁移
+        
+        Args:
+            migration_id: 迁移ID
+            target_storage: 目标存储实例
+            
+        Returns:
+            是否回滚成功
+        """
+        try:
+            # 取消正在运行的迁移任务
+            success = await self.cancel_migration(migration_id)
+            
+            if success:
+                logger.info(f"Successfully rolled back migration {migration_id}")
+            else:
+                logger.warning(f"Failed to rollback migration {migration_id}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Migration rollback failed: {e}")
+            return False
+    
     async def close(self) -> None:
         """关闭迁移服务"""
         try:
@@ -587,10 +714,10 @@ class StorageMigrationService:
         except Exception as e:
             logger.error(f"Failed to close StorageMigrationService: {e}")
     
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'StorageMigrationService':
         """异步上下文管理器入口"""
         return self
     
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Optional[type], exc_val: Optional[Exception], exc_tb: Optional[object]) -> None:
         """异步上下文管理器出口"""
         await self.close()
