@@ -8,7 +8,7 @@ from adapters.storage.backends.sqlite_thread_backend import SQLiteThreadBackend
 from src.adapters.storage.association_repository import SessionThreadAssociationRepository
 from src.adapters.storage.backends import SQLiteSessionBackend, FileSessionBackend
 
-from services.threads.repository import ThreadRepository
+from src.services.threads.repository import ThreadRepository
 from src.services.sessions.repository import SessionRepository
 from src.services.sessions.service import SessionService
 from src.services.sessions.coordinator import SessionThreadCoordinator
@@ -26,7 +26,10 @@ from src.interfaces.threads import IThreadRepository
 from src.adapters.storage.backends.thread_base import IThreadStorageBackend
 from src.interfaces.threads.service import IThreadService
 from src.core.sessions.interfaces import ISessionCore, ISessionStateTransition, ISessionValidator
+from src.interfaces.common_infra import ILogger
 
+# 导入日志绑定
+from .logger_bindings import register_logger_services
 
 logger = logging.getLogger(__name__)
 
@@ -361,6 +364,9 @@ def register_all_session_services(container, config: Dict[str, Any]) -> None:
         container: 依赖注入容器
         config: 配置字典
     """
+    # 首先注册日志服务
+    register_logger_services(container, config)
+    
     register_session_backends(container, config)
     register_session_repository(container, config)
     register_thread_backends(container, config)

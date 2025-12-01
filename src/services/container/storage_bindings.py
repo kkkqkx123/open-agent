@@ -16,6 +16,7 @@ from .thread_bindings import (
     register_thread_repository,
     register_thread_service,
 )
+from .logger_bindings import register_logger_services
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,11 @@ def register_all_storage_services(container, config: Dict[str, Any]) -> None:
     logger.info("Starting to register all storage services...")
     
     try:
+        # 首先注册日志服务
+        logger.info("Registering Logger services...")
+        register_logger_services(container, config)
+        logger.info("Logger services registered successfully")
+        
         # 注册 Session 服务
         logger.info("Registering Session services...")
         register_session_backends(container, config)

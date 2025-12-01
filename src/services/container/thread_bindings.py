@@ -20,6 +20,10 @@ from src.interfaces.sessions.service import ISessionService
 from src.core.threads.interfaces import IThreadCore
 from src.interfaces.history import IHistoryManager
 from src.interfaces.threads.checkpoint import IThreadCheckpointManager
+from src.interfaces.common_infra import ILogger
+
+# 导入日志绑定
+from .logger_bindings import register_logger_services
 
 logger = logging.getLogger(__name__)
 
@@ -365,6 +369,9 @@ def register_all_thread_services(container: Any, config: Dict[str, Any]) -> None
         container: 依赖注入容器
         config: 配置字典
     """
+    # 首先注册日志服务
+    register_logger_services(container, config)
+    
     register_thread_backends(container, config)
     register_thread_repository(container, config)
     register_thread_service(container, config)

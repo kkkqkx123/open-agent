@@ -11,6 +11,9 @@ from types import TracebackType
 from src.interfaces.container import IDependencyContainer
 from src.interfaces.common_infra import ILogger, ServiceLifetime
 
+# 导入日志绑定
+from .logger_bindings import register_test_logger_services
+
 # 泛型类型变量
 _ServiceT = TypeVar("_ServiceT")
 
@@ -144,16 +147,22 @@ class TestContainer(ContextManager["TestContainer"]):
             lifetime=ServiceLifetime.SINGLETON,
         )
 
-        # 注册日志记录器
-        def create_logger() -> ILogger:
-            import logging
-            return logging.getLogger("test")  # type: ignore
-        
-        self.container.register_factory(
-            ILogger,
-            create_logger,
-            lifetime=ServiceLifetime.SINGLETON,
-        )
+        # 注册日志记录器 - 使用自定义Logger实现
+        test_config = {
+            "log_level": "DEBUG",
+            "log_outputs": [
+                {
+                    "type": "console",
+                    "level": "DEBUG",
+                    "format": "text"
+                }
+            ],
+            "secret_patterns": [
+                "sk-[a-zA-Z0-9]{20,}",
+                "\\w+@\\w+\\.\\w+"
+            ]
+        }
+        register_test_logger_services(self.container, test_config)
 
         # 注册工具管理器
         def create_tool_manager() -> Any:

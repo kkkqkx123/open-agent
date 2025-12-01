@@ -2,62 +2,44 @@
 
 import os
 import threading
-from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Callable
 
-from ...core.logger.log_level import LogLevel
+from ...interfaces.common_infra import ILogger, LogLevel
 from ...core.logger.handlers.base_handler import BaseHandler
+from ...core.logger.log_level import LogLevel as CoreLogLevel
 from .redactor import LogRedactor
 
 
-class ILogger(ABC):
-    """日志记录器接口"""
+def _log_level_from_string(level_str: str) -> LogLevel:
+    """从字符串创建日志级别"""
+    level_map = {
+        "DEBUG": LogLevel.DEBUG,
+        "INFO": LogLevel.INFO,
+        "WARNING": LogLevel.WARNING,
+        "WARN": LogLevel.WARNING,
+        "ERROR": LogLevel.ERROR,
+        "CRITICAL": LogLevel.CRITICAL,
+        "FATAL": LogLevel.CRITICAL,
+    }
 
-    @abstractmethod
-    def debug(self, message: str, **kwargs: Any) -> None:
-        """记录调试日志"""
-        pass
+    upper_level = level_str.upper()
+    if upper_level not in level_map:
+        raise ValueError(f"无效的日志级别: {level_str}")
 
-    @abstractmethod
-    def info(self, message: str, **kwargs: Any) -> None:
-        """记录信息日志"""
-        pass
+    return level_map[upper_level]
 
-    @abstractmethod
-    def warning(self, message: str, **kwargs: Any) -> None:
-        """记录警告日志"""
-        pass
 
-    @abstractmethod
-    def error(self, message: str, **kwargs: Any) -> None:
-        """记录错误日志"""
-        pass
-
-    @abstractmethod
-    def critical(self, message: str, **kwargs: Any) -> None:
-        """记录严重错误日志"""
-        pass
-
-    @abstractmethod
-    def set_level(self, level: LogLevel) -> None:
-        """设置日志级别"""
-        pass
-
-    @abstractmethod
-    def add_handler(self, handler: BaseHandler) -> None:
-        """添加日志处理器"""
-        pass
-
-    @abstractmethod
-    def remove_handler(self, handler: BaseHandler) -> None:
-        """移除日志处理器"""
-        pass
-
-    @abstractmethod
-    def set_redactor(self, redactor: LogRedactor) -> None:
-        """设置日志脱敏器"""
-        pass
+def _to_core_log_level(interface_level: LogLevel) -> CoreLogLevel:
+    """将接口层LogLevel转换为核心层LogLevel"""
+    mapping = {
+        LogLevel.DEBUG: CoreLogLevel.DEBUG,
+        LogLevel.INFO: CoreLogLevel.INFO,
+        LogLevel.WARNING: CoreLogLevel.WARNING,
+        LogLevel.ERROR: CoreLogLevel.ERROR,
+        LogLevel.CRITICAL: CoreLogLevel.CRITICAL,
+    }
+    return mapping[interface_level]
 
 
 class Logger(ILogger):
@@ -86,7 +68,7 @@ class Logger(ILogger):
         # 如果有配置，根据配置设置日志级别和处理器
         if config:
             level_str = config.get("log_level", "INFO")
-            self._level = LogLevel.from_string(level_str)
+            self._level = _log_level_from_string(level_str)
             self._setup_handlers_from_config(config)
 
     def debug(self, message: str, **kwargs: Any) -> None:
@@ -166,7 +148,15 @@ class Logger(ILogger):
         Returns:
             是否应该记录
         """
-        return level.value >= self._level.value
+        # 创建级别映射用于比较
+        level_values = {
+            LogLevel.DEBUG: 10,
+            LogLevel.INFO: 20,
+            LogLevel.WARNING: 30,
+            LogLevel.ERROR: 40,
+            LogLevel.CRITICAL: 50,
+        }
+        return level_values[level] >= level_values[self._level]
 
     def _create_log_record(
         self, level: LogLevel, message: str, **kwargs: Any
@@ -229,12 +219,12 @@ class Logger(ILogger):
             if isinstance(output_config, dict):
                 handler_type = output_config.get("type", "console")
                 handler_level_str = output_config.get("level", "INFO")
-                handler_level = LogLevel.from_string(handler_level_str)
+                handler_level = _log_level_from_string(handler_level_str)
                 handler_config = output_config
             else:
                 # 假设是对象类型，使用属性访问
                 handler_type = getattr(output_config, "type", "console")
-                handler_level = LogLevel.from_string(
+                handler_level = _log_level_from_string(
                     getattr(output_config, "level", "INFO")
                 )
                 handler_config = (
@@ -243,11 +233,14 @@ class Logger(ILogger):
 
             handler: BaseHandler
             if handler_type == "console":
-                handler = ConsoleHandler(handler_level, handler_config)
+                core_level = _to_core_log_level(handler_level)
+                handler = ConsoleHandler(core_level, handler_config)
             elif handler_type == "file":
-                handler = FileHandler(handler_level, handler_config)
+                core_level = _to_core_log_level(handler_level)
+                handler = FileHandler(core_level, handler_config)
             elif handler_type == "json":
-                handler = JsonHandler(handler_level, handler_config)
+                core_level = _to_core_log_level(handler_level)
+                handler = JsonHandler(core_level, handler_config)
             else:
                 continue  # 跳过未知类型的处理器
 
@@ -329,7 +322,7 @@ def set_global_config(config: Dict[str, Any]) -> None:
         for logger in _loggers.values():
             logger._config = config
             level_str = config.get("log_level", "INFO")
-            logger._level = LogLevel.from_string(level_str)
+            logger._level = _log_level_from_string(level_str)
 
             # 清除现有处理器
             for handler in logger._handlers:

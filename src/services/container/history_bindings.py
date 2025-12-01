@@ -17,7 +17,10 @@ from src.services.history.hooks import HistoryRecordingHook
 from src.services.llm.token_calculation_service import TokenCalculationService
 from src.adapters.repository.history import SQLiteHistoryRepository, MemoryHistoryRepository
 from src.core.common.types import ServiceLifetime
+from src.interfaces.common_infra import ILogger
 
+# 导入日志绑定
+from .logger_bindings import register_logger_services
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +67,9 @@ def register_history_services(
     logger.info("开始注册History服务...")
     
     try:
+        # 首先注册日志服务
+        register_logger_services(container, config, environment)
+        
         # 注册存储后端
         register_history_storage(container, config, environment)
         

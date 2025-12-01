@@ -4,7 +4,7 @@ import re
 import hashlib
 from typing import List, Optional, Pattern, Dict, Any
 
-from .log_level import LogLevel
+from ...interfaces.common_infra import LogLevel
 
 
 class LogRedactor:
