@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional
 
 from src.interfaces.common_infra import ILogger, LogLevel, ServiceLifetime
 from src.services.logger.logger import Logger
-from src.services.logger.redactor import LogRedactor, CustomLogRedactor
+from src.core.logger.redactor import LogRedactor, CustomLogRedactor
 
 logger = get_logger(__name__)
 

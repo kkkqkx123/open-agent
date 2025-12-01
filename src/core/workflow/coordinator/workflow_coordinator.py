@@ -7,7 +7,9 @@ from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional
 
 from src.interfaces.workflow.coordinator import IWorkflowCoordinator
-from src.interfaces.workflow.core import IWorkflow, IWorkflowValidator, IWorkflowBuilder, IWorkflowExecutor
+from src.interfaces.workflow.core import IWorkflow
+from src.interfaces.workflow.execution import IWorkflowValidator, IWorkflowExecutor
+from src.interfaces.workflow.builders import IWorkflowBuilder
 from src.interfaces.state.workflow import IWorkflowState
 from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.workflow import Workflow

@@ -172,8 +172,13 @@ from .common_infra import (
     IBaseHandler,
     ILogRedactor,
 )
-# 直接从 core 层导入 LogLevel 避免循环依赖
-from ..core.logger.log_level import LogLevel
+# 从 core 层导入 LogLevel 以避免循环依赖
+# 使用延迟导入方式
+def __getattr__(name):
+    if name == 'LogLevel':
+        from src.core.logger.log_level import LogLevel
+        return LogLevel
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 from .common_domain import (
     ISerializable,
     ICacheable,
@@ -339,7 +344,6 @@ __all__ = [
     "ILogger",
     "IBaseHandler",
     "ILogRedactor",
-    "LogLevel",
     
     # 抽象数据类型
     "AbstractSessionStatus",

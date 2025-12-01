@@ -3,11 +3,12 @@
 表示基于条件判断的节点连接，支持多种条件类型。
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from dataclasses import dataclass
 
 from src.core.workflow.config import EdgeConfig
-from src.core.state import WorkflowState
+if TYPE_CHECKING:
+    from src.core.state import WorkflowState
 from src.core.workflow.graph.edges.conditions import ConditionType, ConditionEvaluator
 
 
@@ -72,7 +73,7 @@ class ConditionalEdge:
             description=self.description
         )
     
-    def evaluate(self, state: WorkflowState) -> bool:
+    def evaluate(self, state: "WorkflowState") -> bool:
         """评估条件是否满足
         
         Args:

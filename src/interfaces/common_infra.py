@@ -304,7 +304,7 @@ class IBaseHandler(ABC):
         pass
     
     @abstractmethod
-    def set_level(self, level: LogLevel) -> None:
+    def set_level(self, level: "LogLevel") -> None:
         """
         设置日志级别
         
@@ -346,13 +346,13 @@ class ILogRedactor(ABC):
     """
     
     @abstractmethod
-    def redact(self, text: str, level: LogLevel = LogLevel.INFO) -> str:
+    def redact(self, text: str, level = "INFO") -> str:
         """
         脱敏文本
         
         Args:
             text: 原始文本
-            level: 日志级别
+            level: 日志级别，可以是字符串或LogLevel枚举
             
         Returns:
             脱敏后的文本
@@ -423,7 +423,7 @@ class ILogger(ABC):
         pass
     
     @abstractmethod
-    def set_level(self, level: LogLevel) -> None:
+    def set_level(self, level: "LogLevel") -> None:
         """
         设置日志级别
         
@@ -589,3 +589,4 @@ def __getattr__(name: str) -> Any:
         from ..core.logger.log_level import LogLevel
         return LogLevel
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+

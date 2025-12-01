@@ -6,7 +6,7 @@
 from .registry import TriggerFunctionRegistry, TriggerFunctionConfig
 from .manager import TriggerFunctionManager, get_trigger_function_manager
 from .loader import TriggerFunctionLoader
-from .rest import BuiltinTriggerFunctions
+# from .rest import BuiltinTriggerFunctions  # 模块不存在，已注释
 from .config import TriggerCompositionConfig, TriggerFunctionConfigLoader
 
 __all__ = [
@@ -14,7 +14,7 @@ __all__ = [
     "TriggerFunctionConfig", 
     "TriggerFunctionManager",
     "TriggerFunctionLoader",
-    "BuiltinTriggerFunctions",
+    # "BuiltinTriggerFunctions",  # 模块不存在，已移除
     "TriggerCompositionConfig",
     "TriggerFunctionConfigLoader",
     "get_trigger_function_manager",

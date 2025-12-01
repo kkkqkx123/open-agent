@@ -22,7 +22,8 @@ from src.core.common.exceptions.session_thread import (
     ThreadNotFoundError,
     WorkflowExecutionError
 )
-from src.core.state import WorkflowState
+if TYPE_CHECKING:
+    from src.core.state import WorkflowState
 from src.interfaces.state.session import ISessionStateManager
 
 if TYPE_CHECKING:
@@ -620,7 +621,7 @@ class SessionService(ISessionService):
         session_id: str,
         thread_name: str,
         config: Optional[Dict[str, Any]] = None
-    ) -> WorkflowState:
+    ) -> "WorkflowState":
         """在会话中执行工作流"""
         try:
             if not self._coordinator:
@@ -631,7 +632,7 @@ class SessionService(ISessionService):
             if result is None:
                 raise WorkflowExecutionError(session_id, thread_name, RuntimeError("Coordinator returned None"))
             # 类型断言：确保返回的是WorkflowState类型
-            if not isinstance(result, WorkflowState):
+            if result.__class__.__name__ != 'WorkflowState' and not hasattr(result, 'messages'):
                 # 如果不是WorkflowState，尝试转换或抛出错误
                 raise WorkflowExecutionError(session_id, thread_name, RuntimeError(f"Expected WorkflowState, got {type(result)}"))
             return result
@@ -730,7 +731,7 @@ class SessionService(ISessionService):
         workflow_configs: Dict[str, str],
         dependencies: Optional[Dict[str, List[str]]] = None,
         agent_config: Optional[Dict[str, Any]] = None,
-        initial_states: Optional[Dict[str, WorkflowState]] = None
+        initial_states: Optional[Dict[str, "WorkflowState"]] = None
     ) -> str:
         """创建会话并关联多个Thread（向后兼容）"""
         # 创建用户请求

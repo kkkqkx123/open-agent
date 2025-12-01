@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from src.interfaces.workflow.core import IWorkflow
     from src.core.workflow.config.config import GraphConfig
 
-from src.interfaces import IWorkflowBuilderService
+from src.interfaces.workflow.services import IWorkflowBuilderService
 from src.services.workflow.graph_cache import GraphCache, create_graph_cache, calculate_config_hash
 
 logger = get_logger(__name__)

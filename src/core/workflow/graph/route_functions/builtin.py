@@ -5,7 +5,10 @@
 
 from typing import Dict, Any
 
-from src.core.state import WorkflowState
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.core.state import WorkflowState
 
 
 class BuiltinRouteFunctions:

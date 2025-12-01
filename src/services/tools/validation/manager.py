@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional, Mapping
 from pathlib import Path
 import os
 
-from src.interfaces import IConfigLoader, ILogger
+from src.interfaces.common_infra import IConfigLoader, ILogger
 from src.services.tools.manager import ToolManager
 from src.interfaces.tool.base import IToolManager
 

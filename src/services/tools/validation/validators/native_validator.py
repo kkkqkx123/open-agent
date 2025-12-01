@@ -6,7 +6,7 @@ Native工具验证器
 import re
 import importlib
 from typing import Dict, Any, List
-from src.interfaces import ILogger
+from src.interfaces.common_infra import ILogger
 from ..models import ValidationResult, ValidationStatus
 from ..validators.base_validator import BaseValidator
 

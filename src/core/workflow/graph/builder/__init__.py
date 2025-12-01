@@ -9,13 +9,11 @@ from .element_builder_factory import ElementBuilderFactory
 from src.interfaces.workflow.builders import (
     IWorkflowBuilder,
 )
-from src.interfaces.workflow.execution import (
-    INodeExecutor,
-)
+# 由于循环导入问题，暂时移除这个导入
+# INodeExecutor 会在需要时通过其他方式获取
 
 __all__ = [
     "BaseElementBuilder",
     "ElementBuilderFactory",
-    "INodeExecutor",
     "IWorkflowBuilder",
 ]

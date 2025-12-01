@@ -5,14 +5,15 @@
 
 from src.services.logger import get_logger
 import time
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, List, Optional, Callable, TYPE_CHECKING
 from collections import defaultdict
 
 from src.interfaces.workflow.plugins import IHookPlugin, HookPoint, HookContext, HookExecutionResult
 from src.core.workflow.graph.extensions.plugins.registry import PluginRegistry
 from src.interfaces.state import IWorkflowState
 from src.interfaces.workflow.graph import NodeExecutionResult
-from src.core.state import WorkflowState
+if TYPE_CHECKING:
+    from src.core.state import WorkflowState
 
 
 logger = get_logger(__name__)
@@ -39,6 +40,11 @@ class HookExecutor:
         self._execution_counters: Dict[str, int] = defaultdict(int)
         self._performance_stats: Dict[str, Dict[str, Any]] = defaultdict(dict)
         self._hook_configs: Dict[str, Any] = {}
+    
+    def _get_workflow_state(self):
+        """延迟导入WorkflowState以避免循环导入"""
+        from src.core.state import WorkflowState
+        return WorkflowState
     
     def set_hook_configs(self, configs: Dict[str, Any]) -> None:
         """设置Hook配置
@@ -258,7 +264,7 @@ class HookExecutor:
             final_state = before_result.modified_state or state
             if hasattr(final_state, 'to_dict'):
                 # 如果是IWorkflowState，转换为WorkflowState
-                final_state = WorkflowState.from_dict(final_state.to_dict())  # type: ignore
+                final_state = self._get_workflow_state().from_dict(final_state.to_dict())  # type: ignore
             
             return NodeExecutionResult(
                 state=final_state,  # type: ignore
@@ -274,7 +280,7 @@ class HookExecutor:
             # 类型转换：确保状态类型匹配
             if hasattr(before_result.modified_state, 'to_dict'):
                 # 如果是IWorkflowState，转换为WorkflowState
-                state = WorkflowState.from_dict(before_result.modified_state.to_dict())  # type: ignore
+                state = self._get_workflow_state().from_dict(before_result.modified_state.to_dict())  # type: ignore
             else:
                 state = before_result.modified_state  # type: ignore
         
@@ -315,7 +321,7 @@ class HookExecutor:
                 # 类型转换：确保状态类型匹配
                 if hasattr(after_result.modified_state, 'to_dict'):
                     # 如果是IWorkflowState，转换为WorkflowState
-                    result.state = WorkflowState.from_dict(after_result.modified_state.to_dict())  # type: ignore
+                    result.state = self._get_workflow_state().from_dict(after_result.modified_state.to_dict())  # type: ignore
                 else:
                     result.state = after_result.modified_state  # type: ignore
             
@@ -351,7 +357,7 @@ class HookExecutor:
                 final_state = error_result.modified_state or state
                 if hasattr(final_state, 'to_dict'):
                     # 如果是IWorkflowState，转换为WorkflowState
-                    final_state = WorkflowState.from_dict(final_state.to_dict())
+                    final_state = self._get_workflow_state().from_dict(final_state.to_dict())
                 
                 return NodeExecutionResult(
                     state=final_state,  # type: ignore

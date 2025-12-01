@@ -10,7 +10,7 @@ from src.services.logger import get_logger
 from typing import Dict, Any, List
 from datetime import datetime
 
-from src.interfaces import IEndPlugin, PluginMetadata, PluginContext, PluginType
+from src.interfaces.workflow.plugins import IEndPlugin, PluginMetadata, PluginContext, PluginType
 
 
 logger = get_logger(__name__)

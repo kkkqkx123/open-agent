@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, List
 from src.core.config.config_manager import ConfigManager, get_default_manager
-from src.interfaces import ILogger
+from src.interfaces.common_infra import ILogger
 from ..interfaces import IToolValidator
 from ..models import ValidationResult, ValidationStatus
 

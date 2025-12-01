@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from src.services.logger import get_logger
 
-from src.interfaces import ILogger
+from src.interfaces.common_infra import ILogger
 from src.interfaces.tool.base import ITool, ToolCall, ToolResult
 from core.common.async_utils import AsyncLock, AsyncContextManager
 from src.core.common.exceptions.tool import ToolError, ToolExecutionError

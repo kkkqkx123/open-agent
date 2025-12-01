@@ -5,7 +5,7 @@
 
 from typing import Any, Dict, Optional, Type, Union
 
-from ..interfaces import IStateManager
+from src.interfaces.state.manager import IStateManager
 from src.interfaces.state.storage.adapter import IStateStorageAdapter as IStorageAdapter
 from ..core.state_manager import StateManager
 from src.adapters.storage.adapters.memory import MemoryStateStorageAdapter

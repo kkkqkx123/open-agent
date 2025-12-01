@@ -8,7 +8,10 @@ from dataclasses import dataclass
 from src.services.logger import get_logger
 
 from src.core.workflow.graph.route_functions import RouteFunctionManager
-from src.core.state import WorkflowState
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.core.state import WorkflowState
 from src.core.workflow.config.config import EdgeConfig, EdgeType
 
 logger = get_logger(__name__)
