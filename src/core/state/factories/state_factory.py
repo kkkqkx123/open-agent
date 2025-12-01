@@ -19,7 +19,7 @@ from ..interfaces.checkpoints import ICheckpointState
 
 from ..implementations.workflow_state import WorkflowState
 from ..implementations.tool_state import ToolState
-from ..implementations.session_state import SessionState
+from ..implementations.session_state import SessionStateImpl as SessionState
 from ..implementations.thread_state import ThreadState
 from ..implementations.checkpoint_state import CheckpointState
 from ...common.exceptions.state import StateError, StateValidationError

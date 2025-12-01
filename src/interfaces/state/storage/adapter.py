@@ -7,7 +7,9 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Sequence
 
 from src.interfaces.storage.base import IUnifiedStorage
-from ..entities import AbstractStateSnapshot, AbstractStateHistoryEntry
+# 移除已删除的抽象接口导入
+# from ..entities import AbstractStateSnapshot, AbstractStateHistoryEntry
+from src.core.state.entities import StateSnapshot, StateHistoryEntry
 
 
 class IStateStorageAdapter(ABC):
@@ -18,7 +20,7 @@ class IStateStorageAdapter(ABC):
     """
     
     @abstractmethod
-    async def save_history_entry(self, entry: AbstractStateHistoryEntry) -> bool:
+    async def save_history_entry(self, entry: StateHistoryEntry) -> bool:
         """保存历史记录条目
         
         Args:
@@ -30,7 +32,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    async def get_history_entries(self, agent_id: str, limit: int = 100) -> Sequence[AbstractStateHistoryEntry]:
+    async def get_history_entries(self, agent_id: str, limit: int = 100) -> Sequence[StateHistoryEntry]:
         """获取历史记录条目
         
         Args:
@@ -67,7 +69,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    async def save_snapshot(self, snapshot: AbstractStateSnapshot) -> bool:
+    async def save_snapshot(self, snapshot: StateSnapshot) -> bool:
         """保存状态快照
         
         Args:
@@ -79,7 +81,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    async def load_snapshot(self, snapshot_id: str) -> Optional[AbstractStateSnapshot]:
+    async def load_snapshot(self, snapshot_id: str) -> Optional[StateSnapshot]:
         """加载状态快照
         
         Args:
@@ -91,7 +93,7 @@ class IStateStorageAdapter(ABC):
         pass
     
     @abstractmethod
-    async def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> Sequence[AbstractStateSnapshot]:
+    async def get_snapshots_by_agent(self, agent_id: str, limit: int = 50) -> Sequence[StateSnapshot]:
         """获取指定代理的快照列表
         
         Args:

@@ -38,12 +38,13 @@ from .factory import IStateFactory
 from .lifecycle import IStateLifecycleManager
 
 # 实体定义
-from .entities import (
-    AbstractStateSnapshot,
-    AbstractStateHistoryEntry,
-    AbstractStateConflict,
-    AbstractStateStatistics
-)
+# 移除已删除的抽象接口导入，因为这些接口文件已被删除
+# from .entities import (
+#     AbstractStateSnapshot,
+#     AbstractStateHistoryEntry,
+#     AbstractStateConflict,
+#     AbstractStateStatistics
+# )
 
 # 注意：具体实现（StateSnapshot等）应该从src.core.state导入，而不是从接口层
 # 接口层只负责定义合约，不导出具体实现
@@ -89,11 +90,11 @@ __all__ = [
     # 生命周期管理接口
     'IStateLifecycleManager',
     
-    # 实体定义
-    'AbstractStateSnapshot',
-    'AbstractStateHistoryEntry',
-    'AbstractStateConflict',
-    'AbstractStateStatistics',
+    # 实体定义 - 已移除已删除的抽象接口
+    # 'AbstractStateSnapshot',
+    # 'AbstractStateHistoryEntry',
+    # 'AbstractStateConflict',
+    # 'AbstractStateStatistics',
     
     
     # 存储相关接口（统一异步）

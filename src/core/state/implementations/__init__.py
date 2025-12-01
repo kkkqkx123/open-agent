@@ -28,8 +28,7 @@ from .tool_state import (
 
 # 会话状态实现
 from .session_state import (
-    SessionState,
-    UserSessionState
+    SessionStateImpl as SessionState
 )
 
 # 线程状态实现
@@ -66,7 +65,6 @@ __all__ = [
     
     # 会话状态实现
     "SessionState",
-    "UserSessionState",
     
     # 线程状态实现
     "ThreadState",

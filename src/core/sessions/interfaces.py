@@ -3,15 +3,17 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from datetime import datetime
+from typing import TYPE_CHECKING
 
-from .entities import SessionEntity, UserRequestEntity, UserInteractionEntity
+if TYPE_CHECKING:
+    from .entities import SessionEntity, UserRequestEntity, UserInteractionEntity
 
 
 class ISessionCore(ABC):
     """会话核心接口"""
     
     @abstractmethod
-    def create_session(self, user_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> SessionEntity:
+    def create_session(self, user_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> 'SessionEntity':
         """创建会话实体
         
         Args:
@@ -36,7 +38,7 @@ class ISessionCore(ABC):
         pass
     
     @abstractmethod
-    def create_user_request(self, content: str, user_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> UserRequestEntity:
+    def create_user_request(self, content: str, user_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> 'UserRequestEntity':
         """创建用户请求实体
         
         Args:
@@ -50,7 +52,7 @@ class ISessionCore(ABC):
         pass
     
     @abstractmethod
-    def create_user_interaction(self, session_id: str, interaction_type: str, content: str, thread_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> UserInteractionEntity:
+    def create_user_interaction(self, session_id: str, interaction_type: str, content: str, thread_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> 'UserInteractionEntity':
         """创建用户交互实体
         
         Args:
@@ -82,7 +84,7 @@ class ISessionValidator(ABC):
         pass
     
     @abstractmethod
-    def validate_user_request(self, request: UserRequestEntity) -> bool:
+    def validate_user_request(self, request: 'UserRequestEntity') -> bool:
         """验证用户请求
         
         Args:
@@ -94,7 +96,7 @@ class ISessionValidator(ABC):
         pass
     
     @abstractmethod
-    def validate_user_interaction(self, interaction: UserInteractionEntity) -> bool:
+    def validate_user_interaction(self, interaction: 'UserInteractionEntity') -> bool:
         """验证用户交互
         
         Args:

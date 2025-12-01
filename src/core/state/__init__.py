@@ -69,7 +69,6 @@ from .implementations import (
     
     # 会话状态实现
     SessionState,
-    UserSessionState,
     
     # 线程状态实现
     ThreadState,
@@ -298,7 +297,6 @@ __all__ = [
     "ConnectionState",
     "CacheState",
     "SessionState",
-    "UserSessionState",
     "ThreadState",
     "BranchThreadState",
     "CheckpointState",

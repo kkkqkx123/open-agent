@@ -7,11 +7,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from enum import Enum
-from src.interfaces.state.entities import AbstractStateSnapshot, AbstractStateHistoryEntry
+# 移除接口导入，因为不再需要继承抽象接口
+# from src.interfaces.state.entities import AbstractStateSnapshot, AbstractStateHistoryEntry
 
 
 @dataclass
-class StateSnapshot(AbstractStateSnapshot):
+class StateSnapshot:
     """状态快照实体
     
     表示某个时间点的状态完整快照。
@@ -109,7 +110,7 @@ class StateSnapshot(AbstractStateSnapshot):
 
 
 @dataclass
-class StateHistoryEntry(AbstractStateHistoryEntry):
+class StateHistoryEntry:
     """状态历史记录实体
     
     表示一次状态变更的记录。

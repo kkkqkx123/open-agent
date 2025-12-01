@@ -5,15 +5,33 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 from uuid import uuid4
 from enum import Enum
-from src.interfaces.common_domain import AbstractSessionData, AbstractSessionStatus
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.interfaces.common_domain import AbstractSessionData, AbstractSessionStatus
 
 
-# 直接使用接口层定义的会话状态枚举
-SessionStatus = AbstractSessionStatus
+# 重新定义会话状态枚举以避免循环导入
+class SessionStatus(str, Enum):
+    """
+    会话状态枚举
+
+    定义会话的可能状态，用于会话生命周期管理。
+
+    状态流转：
+    ACTIVE -> PAUSED -> COMPLETED
+    ACTIVE -> FAILED
+    ACTIVE/PAUSED/COMPLETED/FAILED -> ARCHIVED
+    """
+    ACTIVE = "active"      # 活跃状态，会话正在进行
+    PAUSED = "paused"      # 暂停状态，会话暂时停止
+    COMPLETED = "completed"  # 完成状态，会话正常结束
+    FAILED = "failed"      # 失败状态，会话异常结束
+    ARCHIVED = "archived"  # 归档状态，会话已归档
 
 
 @dataclass
-class Session(AbstractSessionData):
+class Session:
     """会话实体"""
     session_id: str
     _status: SessionStatus = SessionStatus.ACTIVE  # 使用私有属性避免属性冲突
@@ -38,7 +56,7 @@ class Session(AbstractSessionData):
         return self.session_id
 
     @property
-    def status(self) -> AbstractSessionStatus:
+    def status(self) -> SessionStatus:
         """会话状态"""
         return self._status
 
@@ -71,7 +89,7 @@ class Session(AbstractSessionData):
         """从字典创建实例"""
         return cls(
             session_id=data["session_id"],
-            _status=SessionStatus(data["status"]) if isinstance(data["status"], str) else data["status"],
+            _status=SessionStatus(data["status"]) if isinstance(data["status"], str) else SessionStatus(data["status"]),
             message_count=data.get("message_count", 0),
             checkpoint_count=data.get("checkpoint_count", 0),
             _created_at=datetime.fromisoformat(data["created_at"]),

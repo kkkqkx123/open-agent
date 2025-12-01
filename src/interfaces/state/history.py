@@ -7,7 +7,9 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from .entities import AbstractStateHistoryEntry
+# 移除已删除的抽象接口导入
+# from .entities import AbstractStateHistoryEntry
+from src.core.state.entities import StateHistoryEntry
 
 
 class IStateHistoryManager(ABC):
@@ -33,7 +35,7 @@ class IStateHistoryManager(ABC):
         pass
     
     @abstractmethod
-    def get_state_history(self, thread_id: str, limit: Optional[int] = None) -> List[AbstractStateHistoryEntry]:
+    def get_state_history(self, thread_id: str, limit: Optional[int] = None) -> List[StateHistoryEntry]:
         """获取线程的状态历史
         
         Args:
