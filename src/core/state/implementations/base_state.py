@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 from datetime import datetime
 
 from ..core.base import BaseState
-from ..interfaces.base import IState
+from src.interfaces.state.interfaces import IState
 from ...common.exceptions.state import StateError, StateValidationError
 from ...common.error_management import handle_error, ErrorCategory, ErrorSeverity
 

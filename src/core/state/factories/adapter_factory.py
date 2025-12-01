@@ -5,9 +5,12 @@
 
 from typing import Any, Dict, Optional, Type, cast
 
-from ..interfaces.base import IState, IStateManager
+from src.interfaces.state.interfaces import IState
+from src.interfaces.state.manager import IStateManager
 from src.interfaces.state.workflow import IWorkflowState
-from ..interfaces.tools import IToolState
+
+# 由于中央接口层没有工具状态特化接口，使用基础接口作为替代
+IToolState = IState
 
 
 class StateAdapterFactory:

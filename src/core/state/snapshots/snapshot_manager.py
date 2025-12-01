@@ -6,7 +6,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from ..interfaces.base import IState
+from src.interfaces.state.interfaces import IState
 from .snapshot_storage import ISnapshotStorage, MemorySnapshotStorage
 from .snapshot_creator import StateSnapshotCreator
 from .snapshot_restorer import StateSnapshotRestorer

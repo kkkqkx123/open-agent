@@ -9,8 +9,21 @@ from src.services.logger import get_logger
 from typing import Any, Dict, Optional
 from datetime import datetime
 
-from ..interfaces.tools import IToolState, StateType
+from src.interfaces.state.interfaces import IState
 from ..implementations.base_state import BaseStateImpl
+
+# 由于中央接口层没有工具状态特化接口，使用基础接口作为替代
+IToolState = IState
+
+# 工具状态类型枚举
+from enum import Enum
+
+class StateType(Enum):
+    """状态类型枚举"""
+    CONNECTION = "connection"
+    SESSION = "session"
+    BUSINESS = "business"
+    CACHE = "cache"
 
 
 logger = get_logger(__name__)

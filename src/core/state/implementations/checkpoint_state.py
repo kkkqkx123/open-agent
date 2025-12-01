@@ -8,8 +8,11 @@ from src.services.logger import get_logger
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
 
-from ..interfaces.checkpoints import ICheckpointState
+from src.interfaces.state.interfaces import IState
 from ..implementations.base_state import BaseStateImpl
+
+# 由于中央接口层没有检查点状态特化接口，使用基础接口作为替代
+ICheckpointState = IState
 
 
 logger = get_logger(__name__)

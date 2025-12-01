@@ -10,12 +10,32 @@ from enum import Enum
 # 定义状态类型的类型别名
 StateType = Union[str, Enum]
 
-from ..interfaces.base import IState
+from src.interfaces.state.interfaces import IState
 from src.interfaces.state.workflow import IWorkflowState
-from ..interfaces.tools import IToolState
-from ..interfaces.sessions import ISessionState
-from ..interfaces.threads import IThreadState
-from ..interfaces.checkpoints import ICheckpointState
+from src.interfaces.state.session import ISessionState
+
+# 由于中央接口层没有工具、线程、检查点的特化接口，我们需要创建这些接口
+# 或者使用基础接口作为替代
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # 类型检查时使用这些接口，但实际运行时使用基础接口
+    class IToolState(IState):
+        """工具状态接口（临时定义）"""
+        pass
+    
+    class IThreadState(IState):
+        """线程状态接口（临时定义）"""
+        pass
+    
+    class ICheckpointState(IState):
+        """检查点状态接口（临时定义）"""
+        pass
+else:
+    # 运行时使用基础接口作为替代
+    IToolState = IState
+    IThreadState = IState
+    ICheckpointState = IState
 
 from ..implementations.workflow_state import WorkflowState
 from ..implementations.tool_state import ToolState

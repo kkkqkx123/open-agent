@@ -8,7 +8,38 @@ from src.services.logger import get_logger
 from typing import Any, Dict, List, Optional
 
 from ...core.common.cache import CacheManager
-from ..interfaces.base import IState, IStateCache
+from src.interfaces.state.interfaces import IState
+
+# 由于中央接口层没有缓存接口，我们需要创建这个接口
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # 类型检查时使用这个接口，但实际运行时使用基础接口
+    class IStateCache:
+        """状态缓存接口（临时定义）"""
+        def get(self, key: str) -> Optional[IState]:
+            pass
+        def put(self, key: str, state: IState) -> None:
+            pass
+        def delete(self, key: str) -> bool:
+            pass
+        def clear(self) -> None:
+            pass
+        def size(self) -> int:
+            pass
+        def get_all_keys(self) -> List[str]:
+            pass
+        def get_statistics(self) -> Dict[str, Any]:
+            pass
+        def cleanup_expired(self) -> int:
+            pass
+        def get_many(self, keys: List[str]) -> Dict[str, IState]:
+            pass
+        def set_many(self, states: Dict[str, IState]) -> None:
+            pass
+else:
+    # 运行时使用基础类作为替代
+    IStateCache = object  # 临时使用object作为占位符
 
 
 logger = get_logger(__name__)

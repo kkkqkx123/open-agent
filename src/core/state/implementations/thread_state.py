@@ -8,8 +8,11 @@ from src.services.logger import get_logger
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
-from ..interfaces.threads import IThreadState
+from src.interfaces.state.interfaces import IState
 from ..implementations.base_state import BaseStateImpl
+
+# 由于中央接口层没有线程状态特化接口，使用基础接口作为替代
+IThreadState = IState
 
 
 logger = get_logger(__name__)

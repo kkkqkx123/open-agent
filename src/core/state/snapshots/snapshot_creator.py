@@ -6,7 +6,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from ..interfaces.base import IState
+from src.interfaces.state.interfaces import IState
 from .snapshot_storage import StateSnapshot
 
 

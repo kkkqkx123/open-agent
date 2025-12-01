@@ -10,8 +10,27 @@ from datetime import datetime
 # 此模块的职责是提供具体实现，而非重新导出接口
 # 本模块只导出Core层的具体实现和工厂类
 
-# 从interfaces导入工具状态类型
-from .interfaces.tools import StateType
+# 从中央接口层导入工具状态类型
+from src.interfaces.state import IState
+from src.interfaces.state.workflow import IWorkflowState
+from src.interfaces.state.session import ISessionState
+from src.interfaces.state.manager import IStateManager
+from src.interfaces.state.lifecycle import IStateLifecycleManager
+from src.interfaces.state.serializer import IStateSerializer
+from src.interfaces.state.history import IStateHistoryManager
+from src.interfaces.state.snapshot import IStateSnapshotManager
+from src.interfaces.state.factory import IStateFactory
+from src.interfaces.state.storage import IStorageBackend, IStateStorageAdapter
+
+# 工具状态类型枚举 - 需要从中央接口层获取或重新定义
+from enum import Enum
+
+class StateType(Enum):
+    """状态类型枚举"""
+    CONNECTION = "connection"
+    SESSION = "session"
+    BUSINESS = "business"
+    CACHE = "cache"
 
 # 实体定义（具体实现）
 from .entities import (

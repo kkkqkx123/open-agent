@@ -18,7 +18,21 @@ from src.interfaces.state.lifecycle import IStateLifecycleManager
 from src.interfaces.state.history import IStateHistoryManager
 from src.interfaces.state.snapshot import IStateSnapshotManager
 from ..entities import StateSnapshot, StateHistoryEntry, StateStatistics, StateDiff
-from ..interfaces.base import IStateValidator
+
+# 由于中央接口层没有验证器接口，我们需要创建这个接口
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # 类型检查时使用这个接口，但实际运行时使用基础接口
+    class IStateValidator:
+        """状态验证器接口（临时定义）"""
+        def validate_state(self, state: IState) -> List[str]:
+            pass
+        def validate_state_data(self, data: Dict[str, Any]) -> List[str]:
+            pass
+else:
+    # 运行时使用基础类作为替代
+    IStateValidator = object  # 临时使用object作为占位符
 
 
 logger = get_logger(__name__)
