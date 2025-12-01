@@ -107,6 +107,18 @@ class IHistoryRepository(ABC):
         """
         pass
     
+    @abstractmethod
+    async def delete_records_by_query(self, query: 'HistoryQuery') -> int:
+        """根据查询条件删除历史记录
+        
+        Args:
+            query: 查询条件对象
+            
+        Returns:
+            int: 删除的记录数量
+        """
+        pass
+    
     # === 统计相关操作 ===
     
     @abstractmethod

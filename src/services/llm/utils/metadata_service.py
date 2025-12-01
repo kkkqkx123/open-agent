@@ -3,7 +3,7 @@
 负责获取和管理LLM客户端的元数据信息。
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from src.interfaces.llm import ILLMClient
 

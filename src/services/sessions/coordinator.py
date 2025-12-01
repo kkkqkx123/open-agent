@@ -1,6 +1,5 @@
 """Session-Thread协调器实现"""
 
-import logging
 from typing import Dict, Any, List, Optional, Callable, AsyncGenerator
 from datetime import datetime
 
@@ -11,10 +10,9 @@ from src.interfaces.sessions.association import (
 )
 from src.interfaces.sessions.service import ISessionService
 from src.interfaces.threads.service import IThreadService
+from src.interfaces.common_infra import ILogger
 from src.core.sessions.entities import UserInteractionEntity
 from src.core.common.exceptions import ValidationError, StorageError
-
-logger = logging.getLogger(__name__)
 
 
 class SessionThreadCoordinator:
@@ -26,7 +24,8 @@ class SessionThreadCoordinator:
         thread_service: IThreadService,
         association_repository: ISessionThreadAssociationRepository,
         synchronizer: ISessionThreadSynchronizer,
-        transaction: ISessionThreadTransaction
+        transaction: ISessionThreadTransaction,
+        logger: Optional[ILogger] = None
     ):
         """初始化协调器
         
@@ -36,13 +35,16 @@ class SessionThreadCoordinator:
             association_repository: 关联仓储
             synchronizer: 同步器
             transaction: 事务管理器
+            logger: 日志记录器
         """
         self._session_service = session_service
         self._thread_service = thread_service
         self._association_repository = association_repository
         self._synchronizer = synchronizer
         self._transaction = transaction
-        logger.info("SessionThreadCoordinator initialized")
+        self._logger = logger
+        if self._logger:
+            self._logger.info("SessionThreadCoordinator initialized")
     
     async def coordinate_threads(
         self, 
@@ -59,7 +61,8 @@ class SessionThreadCoordinator:
             Thread名称到Thread ID的映射
         """
         try:
-            logger.info(f"Coordinating thread creation for session: {session_id}")
+            if self._logger:
+                self._logger.info(f"Coordinating thread creation for session: {session_id}")
             
             # 1. 验证Session存在
             session_context = await self._session_service.get_session_context(session_id)
@@ -99,7 +102,7 @@ class SessionThreadCoordinator:
                     created_threads.append((thread_name, thread_id))
                     
                     # 追踪Thread创建交互
-                    interaction = UserInteraction(
+                    interaction = UserInteractionEntity(
                         interaction_id=f"interaction_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{len(created_threads)}",
                         session_id=session_id,
                         thread_id=thread_id,
@@ -114,19 +117,23 @@ class SessionThreadCoordinator:
                     )
                     await self._session_service.track_user_interaction(session_id, interaction)
                     
-                    logger.debug(f"Created thread {thread_name} with ID {thread_id}")
-                
-                logger.info(f"Successfully coordinated creation of {len(thread_ids)} threads for session {session_id}")
+                    if self._logger:
+                        self._logger.debug(f"Created thread {thread_name} with ID {thread_id}")
+
+                if self._logger:
+                    self._logger.info(f"Successfully coordinated creation of {len(thread_ids)} threads for session {session_id}")
                 return thread_ids
                 
             except Exception as e:
                 # 清理已创建的Thread
-                logger.error(f"Failed to coordinate threads, cleaning up: {e}")
+                if self._logger:
+                    self._logger.error(f"Failed to coordinate threads, cleaning up: {e}")
                 await self._cleanup_created_threads(session_id, created_threads)
                 raise
         
         except Exception as e:
-            logger.error(f"Thread coordination failed for session {session_id}: {e}")
+            if self._logger:
+                self._logger.error(f"Thread coordination failed for session {session_id}: {e}")
             raise StorageError(f"Thread coordination failed: {e}")
     
     async def execute_workflow_in_session(
@@ -146,7 +153,8 @@ class SessionThreadCoordinator:
             工作流执行结果
         """
         try:
-            logger.info(f"Executing workflow in session {session_id}, thread {thread_name}")
+            if self._logger:
+                self._logger.info(f"Executing workflow in session {session_id}, thread {thread_name}")
             
             # 1. 验证Session存在
             session_context = await self._session_service.get_session_context(session_id)
@@ -168,7 +176,7 @@ class SessionThreadCoordinator:
             thread_id = target_association.thread_id
             
             # 3. 追踪执行开始交互
-            start_interaction = UserInteraction(
+            start_interaction = UserInteractionEntity(
                 interaction_id=f"interaction_{datetime.now().strftime('%Y%m%d_%H%M%S')}_start",
                 session_id=session_id,
                 thread_id=thread_id,
@@ -188,7 +196,7 @@ class SessionThreadCoordinator:
                 result = await self._thread_service.execute_workflow(thread_id, config)
                 
                 # 5. 追踪执行成功交互
-                success_interaction = UserInteraction(
+                success_interaction = UserInteractionEntity(
                     interaction_id=f"interaction_{datetime.now().strftime('%Y%m%d_%H%M%S')}_success",
                     session_id=session_id,
                     thread_id=thread_id,
@@ -203,12 +211,13 @@ class SessionThreadCoordinator:
                 )
                 await self._session_service.track_user_interaction(session_id, success_interaction)
                 
-                logger.info(f"Workflow execution completed successfully for thread {thread_name}")
+                if self._logger:
+                    self._logger.info(f"Workflow execution completed successfully for thread {thread_name}")
                 return result
                 
             except Exception as e:
                 # 6. 追踪执行错误交互
-                error_interaction = UserInteraction(
+                error_interaction = UserInteractionEntity(
                     interaction_id=f"interaction_{datetime.now().strftime('%Y%m%d_%H%M%S')}_error",
                     session_id=session_id,
                     thread_id=thread_id,
@@ -225,7 +234,8 @@ class SessionThreadCoordinator:
                 raise
         
         except Exception as e:
-            logger.error(f"Workflow execution failed for session {session_id}, thread {thread_name}: {e}")
+            if self._logger:
+                self._logger.error(f"Workflow execution failed for session {session_id}, thread {thread_name}: {e}")
             raise StorageError(f"Workflow execution failed: {e}")
     
     async def stream_workflow_in_session(
@@ -246,7 +256,8 @@ class SessionThreadCoordinator:
         """
         async def _stream_impl() -> AsyncGenerator[Dict[str, Any], None]:
             try:
-                logger.info(f"Starting workflow stream in session {session_id}, thread {thread_name}")
+                if self._logger:
+                    self._logger.info(f"Starting workflow stream in session {session_id}, thread {thread_name}")
                 
                 # 1. 验证Session存在
                 session_context = await self._session_service.get_session_context(session_id)
@@ -268,7 +279,7 @@ class SessionThreadCoordinator:
                 thread_id = target_association.thread_id
                 
                 # 3. 追踪流式执行开始交互
-                start_interaction = UserInteraction(
+                start_interaction = UserInteractionEntity(
                     interaction_id=f"interaction_{datetime.now().strftime('%Y%m%d_%H%M%S')}_stream_start",
                     session_id=session_id,
                     thread_id=thread_id,
@@ -289,7 +300,7 @@ class SessionThreadCoordinator:
                         yield state
                     
                     # 5. 追踪流式执行完成交互
-                    completion_interaction = UserInteraction(
+                    completion_interaction = UserInteractionEntity(
                         interaction_id=f"interaction_{datetime.now().strftime('%Y%m%d_%H%M%S')}_stream_complete",
                         session_id=session_id,
                         thread_id=thread_id,
@@ -303,11 +314,12 @@ class SessionThreadCoordinator:
                     )
                     await self._session_service.track_user_interaction(session_id, completion_interaction)
                     
-                    logger.info(f"Workflow stream completed successfully for thread {thread_name}")
+                    if self._logger:
+                        self._logger.info(f"Workflow stream completed successfully for thread {thread_name}")
                     
                 except Exception as e:
                     # 6. 追踪流式执行错误交互
-                    error_interaction = UserInteraction(
+                    error_interaction = UserInteractionEntity(
                         interaction_id=f"interaction_{datetime.now().strftime('%Y%m%d_%H%M%S')}_stream_error",
                         session_id=session_id,
                         thread_id=thread_id,
@@ -324,7 +336,8 @@ class SessionThreadCoordinator:
                     raise
             
             except Exception as e:
-                logger.error(f"Workflow stream failed for session {session_id}, thread {thread_name}: {e}")
+                if self._logger:
+                    self._logger.error(f"Workflow stream failed for session {session_id}, thread {thread_name}: {e}")
                 raise StorageError(f"Workflow stream failed: {e}")
         
         return _stream_impl
@@ -339,10 +352,12 @@ class SessionThreadCoordinator:
             同步结果
         """
         try:
-            logger.info(f"Syncing session data for: {session_id}")
+            if self._logger:
+                self._logger.info(f"Syncing session data for: {session_id}")
             return await self._synchronizer.sync_session_threads(session_id)
         except Exception as e:
-            logger.error(f"Session data sync failed for {session_id}: {e}")
+            if self._logger:
+                self._logger.error(f"Session data sync failed for {session_id}: {e}")
             raise StorageError(f"Session data sync failed: {e}")
     
     async def validate_session_consistency(self, session_id: str) -> List[str]:
@@ -355,10 +370,12 @@ class SessionThreadCoordinator:
             发现的问题列表
         """
         try:
-            logger.info(f"Validating session consistency for: {session_id}")
+            if self._logger:
+                self._logger.info(f"Validating session consistency for: {session_id}")
             return await self._synchronizer.validate_consistency(session_id)
         except Exception as e:
-            logger.error(f"Session consistency validation failed for {session_id}: {e}")
+            if self._logger:
+                self._logger.error(f"Session consistency validation failed for {session_id}: {e}")
             raise StorageError(f"Session consistency validation failed: {e}")
     
     async def repair_session_inconsistencies(self, session_id: str) -> Dict[str, Any]:
@@ -371,10 +388,12 @@ class SessionThreadCoordinator:
             修复结果
         """
         try:
-            logger.info(f"Repairing session inconsistencies for: {session_id}")
+            if self._logger:
+                self._logger.info(f"Repairing session inconsistencies for: {session_id}")
             return await self._synchronizer.repair_inconsistencies(session_id)
         except Exception as e:
-            logger.error(f"Session inconsistency repair failed for {session_id}: {e}")
+            if self._logger:
+                self._logger.error(f"Session inconsistency repair failed for {session_id}: {e}")
             raise StorageError(f"Session inconsistency repair failed: {e}")
     
     async def remove_thread_from_session(
@@ -392,7 +411,8 @@ class SessionThreadCoordinator:
             是否移除成功
         """
         try:
-            logger.info(f"Removing thread {thread_name} from session {session_id}")
+            if self._logger:
+                self._logger.info(f"Removing thread {thread_name} from session {session_id}")
             
             # 1. 查找Thread
             associations = await self._association_repository.list_by_session(session_id)
@@ -413,7 +433,7 @@ class SessionThreadCoordinator:
             
             if success:
                 # 3. 追踪移除交互
-                interaction = UserInteraction(
+                interaction = UserInteractionEntity(
                     interaction_id=f"interaction_{datetime.now().strftime('%Y%m%d_%H%M%S')}_remove",
                     session_id=session_id,
                     thread_id=thread_id,
@@ -427,12 +447,14 @@ class SessionThreadCoordinator:
                 )
                 await self._session_service.track_user_interaction(session_id, interaction)
                 
-                logger.info(f"Successfully removed thread {thread_name} from session {session_id}")
+                if self._logger:
+                    self._logger.info(f"Successfully removed thread {thread_name} from session {session_id}")
             
             return success
             
         except Exception as e:
-            logger.error(f"Failed to remove thread {thread_name} from session {session_id}: {e}")
+            if self._logger:
+                self._logger.error(f"Failed to remove thread {thread_name} from session {session_id}: {e}")
             raise StorageError(f"Thread removal failed: {e}")
     
     # === 私有辅助方法 ===
@@ -448,11 +470,14 @@ class SessionThreadCoordinator:
             session_id: 会话ID
             created_threads: 已创建的Thread列表 [(thread_name, thread_id), ...]
         """
-        logger.warning(f"Cleaning up {len(created_threads)} created threads")
+        if self._logger:
+            self._logger.warning(f"Cleaning up {len(created_threads)} created threads")
         
         for thread_name, thread_id in created_threads:
             try:
                 await self._transaction.remove_thread_from_session(session_id, thread_id)
-                logger.debug(f"Cleaned up thread {thread_name} ({thread_id})")
+                if self._logger:
+                    self._logger.debug(f"Cleaned up thread {thread_name} ({thread_id})")
             except Exception as e:
-                logger.error(f"Failed to cleanup thread {thread_name} ({thread_id}): {e}")
+                if self._logger:
+                    self._logger.error(f"Failed to cleanup thread {thread_name} ({thread_id}): {e}")

@@ -3,11 +3,10 @@
 提供统一的历史记录管理服务。
 """
 
-import logging
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
-from src.interfaces.history import IHistoryManager
+from src.interfaces.history import IHistoryManager, DeleteResult
 from src.core.history.entities import (
     BaseHistoryRecord, LLMRequestRecord, LLMResponseRecord,
     TokenUsageRecord, CostRecord, WorkflowTokenStatistics,
@@ -15,12 +14,10 @@ from src.core.history.entities import (
     RecordType
 )
 from src.interfaces.repository.history import IHistoryRepository
+from src.interfaces.common_infra import ILogger
 from src.core.history.base import BaseHistoryManager
 from src.core.common.exceptions.history import HistoryError
 from src.core.common.exceptions.storage import StorageError
-
-
-logger = logging.getLogger(__name__)
 
 
 class HistoryManager(BaseHistoryManager, IHistoryManager):
@@ -35,7 +32,8 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
         storage: IHistoryRepository,
         enable_async_batching: bool = True,
         batch_size: int = 10,
-        batch_timeout: float = 1.0
+        batch_timeout: float = 1.0,
+        logger: Optional[ILogger] = None
     ):
         """
         初始化历史管理器
@@ -45,6 +43,7 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             enable_async_batching: 是否启用异步批处理
             batch_size: 批处理大小
             batch_timeout: 批处理超时时间（秒）
+            logger: 日志记录器
         """
         super().__init__(storage)
         self.enable_async_batching = enable_async_batching
@@ -55,25 +54,30 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
         self._batch_queue: List[BaseHistoryRecord] = []
         self._last_batch_time = datetime.now()
         
-        self._logger = logging.getLogger(self.__class__.__name__)
-        self._logger.info(f"历史管理器初始化完成，批处理: {enable_async_batching}")
+        self._logger = logger
+        if self._logger:
+            self._logger.info(f"历史管理器初始化完成，批处理: {enable_async_batching}")
     
     async def record_message(self, record: 'MessageRecord') -> None:
         """记录消息"""
         try:
             await self.save_record(record)
-            self._logger.debug(f"记录消息: {record.record_id}")
+            if self._logger:
+                self._logger.debug(f"记录消息: {record.record_id}")
         except Exception as e:
-            self._logger.error(f"记录消息失败: {e}")
+            if self._logger:
+                self._logger.error(f"记录消息失败: {e}")
             raise HistoryError(f"记录消息失败: {e}")
     
     async def record_tool_call(self, record: 'ToolCallRecord') -> None:
         """记录工具调用"""
         try:
             await self.save_record(record)
-            self._logger.debug(f"记录工具调用: {record.record_id}")
+            if self._logger:
+                self._logger.debug(f"记录工具调用: {record.record_id}")
         except Exception as e:
-            self._logger.error(f"记录工具调用失败: {e}")
+            if self._logger:
+                self._logger.error(f"记录工具调用失败: {e}")
             raise HistoryError(f"记录工具调用失败: {e}")
     
     async def record_llm_request(self, record: LLMRequestRecord) -> None:
@@ -84,9 +88,11 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             else:
                 await self.save_record(record)
             
-            self._logger.debug(f"记录LLM请求: {record.record_id}")
+            if self._logger:
+                self._logger.debug(f"记录LLM请求: {record.record_id}")
         except Exception as e:
-            self._logger.error(f"记录LLM请求失败: {e}")
+            if self._logger:
+                self._logger.error(f"记录LLM请求失败: {e}")
             raise HistoryError(f"记录LLM请求失败: {e}")
     
     async def record_llm_response(self, record: LLMResponseRecord) -> None:
@@ -97,9 +103,11 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             else:
                 await self.save_record(record)
             
-            self._logger.debug(f"记录LLM响应: {record.record_id}")
+            if self._logger:
+                self._logger.debug(f"记录LLM响应: {record.record_id}")
         except Exception as e:
-            self._logger.error(f"记录LLM响应失败: {e}")
+            if self._logger:
+                self._logger.error(f"记录LLM响应失败: {e}")
             raise HistoryError(f"记录LLM响应失败: {e}")
     
     async def record_token_usage(self, record: TokenUsageRecord) -> None:
@@ -110,9 +118,11 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             else:
                 await self.save_record(record)
             
-            self._logger.debug(f"记录Token使用: {record.record_id}")
+            if self._logger:
+                self._logger.debug(f"记录Token使用: {record.record_id}")
         except Exception as e:
-            self._logger.error(f"记录Token使用失败: {e}")
+            if self._logger:
+                self._logger.error(f"记录Token使用失败: {e}")
             raise HistoryError(f"记录Token使用失败: {e}")
     
     async def record_cost(self, record: CostRecord) -> None:
@@ -123,9 +133,11 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             else:
                 await self.save_record(record)
             
-            self._logger.debug(f"记录成本: {record.record_id}")
+            if self._logger:
+                self._logger.debug(f"记录成本: {record.record_id}")
         except Exception as e:
-            self._logger.error(f"记录成本失败: {e}")
+            if self._logger:
+                self._logger.error(f"记录成本失败: {e}")
             raise HistoryError(f"记录成本失败: {e}")
     
     async def query_history(self, query: 'HistoryQuery') -> 'HistoryResult':
@@ -146,12 +158,14 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             # 创建结果对象
             result = HistoryResult(records=records, total_count=len(records))
             
-            self._logger.debug(f"查询历史记录: 返回 {len(records)} 条记录")
+            if self._logger:
+                self._logger.debug(f"查询历史记录: 返回 {len(records)} 条记录")
             
             return result
             
         except Exception as e:
-            self._logger.error(f"查询历史记录失败: {e}")
+            if self._logger:
+                self._logger.error(f"查询历史记录失败: {e}")
             raise HistoryError(f"查询历史记录失败: {e}")
     
     async def get_token_statistics(self, session_id: str) -> Dict[str, Any]:
@@ -212,12 +226,14 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
                 "avg_tokens_per_request": total_tokens / len(token_records) if token_records else 0
             }
             
-            self._logger.debug(f"获取Token统计: 会话={session_id}, 总Token={total_tokens}")
+            if self._logger:
+                self._logger.debug(f"获取Token统计: 会话={session_id}, 总Token={total_tokens}")
             
             return statistics
             
         except Exception as e:
-            self._logger.error(f"获取Token统计失败: {e}")
+            if self._logger:
+                self._logger.error(f"获取Token统计失败: {e}")
             raise HistoryError(f"获取Token统计失败: {e}")
     
     async def get_cost_statistics(self, session_id: str) -> Dict[str, Any]:
@@ -283,12 +299,14 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
                 "avg_cost_per_request": total_cost / len(cost_records) if cost_records else 0.0
             }
             
-            self._logger.debug(f"获取成本统计: 会话={session_id}, 总成本={total_cost:.6f}")
+            if self._logger:
+                self._logger.debug(f"获取成本统计: 会话={session_id}, 总成本={total_cost:.6f}")
             
             return statistics
             
         except Exception as e:
-            self._logger.error(f"获取成本统计失败: {e}")
+            if self._logger:
+                self._logger.error(f"获取成本统计失败: {e}")
             raise HistoryError(f"获取成本统计失败: {e}")
     
     async def get_llm_statistics(self, session_id: str) -> Dict[str, Any]:
@@ -370,12 +388,14 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
                 "finish_reason_distribution": finish_reason_counts
             }
             
-            self._logger.debug(f"获取LLM统计: 会话={session_id}, 请求数={len(request_records)}")
+            if self._logger:
+                self._logger.debug(f"获取LLM统计: 会话={session_id}, 请求数={len(request_records)}")
             
             return statistics
             
         except Exception as e:
-            self._logger.error(f"获取LLM统计失败: {e}")
+            if self._logger:
+                self._logger.error(f"获取LLM统计失败: {e}")
             raise HistoryError(f"获取LLM统计失败: {e}")
     
     async def _add_to_batch(self, record: BaseHistoryRecord) -> None:
@@ -413,12 +433,15 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             success_count = sum(results)
             
             if success_count == len(batch):
-                self._logger.debug(f"批处理成功: {success_count}/{len(batch)} 条记录")
+                if self._logger:
+                    self._logger.debug(f"批处理成功: {success_count}/{len(batch)} 条记录")
             else:
-                self._logger.warning(f"批处理部分失败: {success_count}/{len(batch)} 条记录")
+                if self._logger:
+                    self._logger.warning(f"批处理部分失败: {success_count}/{len(batch)} 条记录")
                 
         except Exception as e:
-            self._logger.error(f"批处理失败: {e}")
+            if self._logger:
+                self._logger.error(f"批处理失败: {e}")
             # 重新加入队列进行重试
             self._batch_queue.extend(batch)
     
@@ -426,7 +449,8 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
         """强制处理当前批次"""
         if self._batch_queue:
             await self._process_batch()
-            self._logger.info("强制处理批次完成")
+            if self._logger:
+                self._logger.info("强制处理批次完成")
     
     def get_batch_status(self) -> Dict[str, Any]:
         """获取批处理状态"""
@@ -472,7 +496,8 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
                     older_than=older_than
                 )
                 
-                self._logger.info(f"清理旧记录完成: 删除了 {deleted_count} 条记录")
+                if self._logger:
+                    self._logger.info(f"清理旧记录完成: 删除了 {deleted_count} 条记录")
                 
                 return {
                     "dry_run": False,
@@ -483,7 +508,8 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
                 }
                 
         except Exception as e:
-            self._logger.error(f"清理旧记录失败: {e}")
+            if self._logger:
+                self._logger.error(f"清理旧记录失败: {e}")
             raise HistoryError(f"清理旧记录失败: {e}")
     
     async def get_storage_info(self) -> Dict[str, Any]:
@@ -502,7 +528,8 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             }
             
         except Exception as e:
-            self._logger.error(f"获取存储信息失败: {e}")
+            if self._logger:
+                self._logger.error(f"获取存储信息失败: {e}")
             raise HistoryError(f"获取存储信息失败: {e}")
     
     async def query_history_by_thread(
@@ -537,8 +564,6 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
                 if hasattr(record, 'metadata') and record.metadata:
                     if record.metadata.get('thread_id') == thread_id:
                         filtered_records.append(record)
-                elif hasattr(record, 'thread_id') and record.thread_id == thread_id:
-                    filtered_records.append(record)
             
             # 创建结果对象
             result = HistoryResult(
@@ -548,12 +573,14 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
                 offset=offset
             )
             
-            self._logger.debug(f"按thread_id查询历史记录: {thread_id}, 返回 {len(filtered_records)} 条记录")
+            if self._logger:
+                self._logger.debug(f"按thread_id查询历史记录: {thread_id}, 返回 {len(filtered_records)} 条记录")
             
             return result
             
         except Exception as e:
-            self._logger.error(f"按thread_id查询历史记录失败: {e}")
+            if self._logger:
+                self._logger.error(f"按thread_id查询历史记录失败: {e}")
             raise HistoryError(f"按thread_id查询历史记录失败: {e}")
     
     async def delete_history(
@@ -565,15 +592,16 @@ class HistoryManager(BaseHistoryManager, IHistoryManager):
             # 通过存储接口删除记录
             deleted_count = await self._storage.delete_records_by_query(query)
             
-            from src.interfaces.history import DeleteResult
             result = DeleteResult(
                 deleted_count=deleted_count,
                 success=True
             )
             
-            self._logger.debug(f"删除历史记录: {deleted_count} 条记录")
+            if self._logger:
+                self._logger.debug(f"删除历史记录: {deleted_count} 条记录")
             return result
             
         except Exception as e:
-            self._logger.error(f"删除历史记录失败: {e}")
+            if self._logger:
+                self._logger.error(f"删除历史记录失败: {e}")
             raise HistoryError(f"删除历史记录失败: {e}")

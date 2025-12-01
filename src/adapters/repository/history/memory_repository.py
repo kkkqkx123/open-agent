@@ -13,7 +13,7 @@ from src.interfaces.repository.history import IHistoryRepository
 from src.core.history.entities import (
     BaseHistoryRecord, LLMRequestRecord, LLMResponseRecord,
     TokenUsageRecord, CostRecord, WorkflowTokenStatistics,
-    RecordType
+    RecordType, HistoryQuery
 )
 from ..memory_base import MemoryBaseRepository
 from ..utils import TimeUtils, IdUtils
@@ -206,6 +206,60 @@ class MemoryHistoryRepository(MemoryBaseRepository, IHistoryRepository):
             self._handle_exception("删除历史记录", e)
             return 0
     
+    async def delete_records_by_query(self, query: HistoryQuery) -> int:
+        """根据查询条件删除历史记录"""
+        try:
+            def _delete():
+                with self._lock:
+                    records_to_delete = []
+                    
+                    for record_id, record_data in self._storage.items():
+                        should_delete = True
+                        
+                        # 应用所有过滤条件
+                        if query.session_id and record_data.get('session_id') != query.session_id:
+                            should_delete = False
+                        
+                        if query.workflow_id and record_data.get('workflow_id') != query.workflow_id:
+                            should_delete = False
+                        
+                        if query.record_type:
+                            record_type_value = record_data.get('record_type')
+                            if record_type_value != query.record_type.value:
+                                should_delete = False
+                        
+                        if query.model and record_data.get('model') != query.model:
+                            should_delete = False
+                        
+                        # 时间范围过滤
+                        if should_delete:
+                            timestamp = record_data.get('timestamp')
+                            if timestamp:
+                                record_time = datetime.fromisoformat(timestamp)
+                                if query.start_time and record_time < query.start_time:
+                                    should_delete = False
+                                if query.end_time and record_time > query.end_time:
+                                    should_delete = False
+                        
+                        if should_delete:
+                            records_to_delete.append(record_id)
+                    
+                    # 删除记录
+                    for record_id in records_to_delete:
+                        record_data = self._load_item(record_id)
+                        if record_data:
+                            self._remove_from_indexes(record_data)
+                            self._delete_item(record_id)
+                    
+                    self._log_operation("根据查询条件删除历史记录", True, f"删除了 {len(records_to_delete)} 条记录")
+                    return len(records_to_delete)
+            
+            return await asyncio.get_event_loop().run_in_executor(None, _delete)
+            
+        except Exception as e:
+            self._handle_exception("根据查询条件删除历史记录", e)
+            return 0
+    
     # === 统计相关操作 ===
     
     async def get_workflow_token_stats(
@@ -371,11 +425,11 @@ class MemoryHistoryRepository(MemoryBaseRepository, IHistoryRepository):
         record_id = record.record_id
         
         # 会话ID索引
-        if hasattr(record, 'session_id') and record.session_id:
+        if record.session_id:
             self._add_to_index("session_id", record.session_id, record_id)
         
         # 工作流ID索引
-        if hasattr(record, 'workflow_id') and record.workflow_id:
+        if record.workflow_id:
             self._add_to_index("workflow_id", record.workflow_id, record_id)
         
         # 记录类型索引
@@ -383,8 +437,10 @@ class MemoryHistoryRepository(MemoryBaseRepository, IHistoryRepository):
             self._add_to_index("record_type", record.record_type.value, record_id)
         
         # 模型索引
-        if hasattr(record, 'model') and record.model:
-            self._add_to_index("model", record.model, record_id)
+        if hasattr(record, 'model'):
+            model = getattr(record, 'model', None)
+            if model:
+                self._add_to_index("model", model, record_id)
     
     def _remove_from_indexes(self, record_data: Dict[str, Any]) -> None:
         """从索引中移除记录"""
@@ -410,6 +466,9 @@ class MemoryHistoryRepository(MemoryBaseRepository, IHistoryRepository):
     
     def _update_workflow_stats(self, record: TokenUsageRecord) -> None:
         """更新工作流统计"""
+        if not record.workflow_id:
+            return
+        
         key = f"{record.workflow_id}:{record.model}"
         
         if key not in self._workflow_stats:
@@ -419,7 +478,7 @@ class MemoryHistoryRepository(MemoryBaseRepository, IHistoryRepository):
             )
         
         stats = self._workflow_stats[key]
-        stats.update_from_token_record(record)
+        stats.update_from_record(record)
     
     def _is_stat_in_time_range(
         self,

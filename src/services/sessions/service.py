@@ -1,7 +1,6 @@
 """会话业务服务实现（增强版）"""
 
 import uuid
-import logging
 import asyncio
 import shutil
 from pathlib import Path
@@ -15,6 +14,7 @@ from src.interfaces.sessions.service import ISessionService as ISessionServiceIn
 from interfaces.repository.session import ISessionRepository
 from src.interfaces.threads.service import IThreadService
 from src.interfaces.common_domain import AbstractSessionStatus
+from src.interfaces.common_infra import ILogger
 from src.core.common.exceptions import ValidationError
 from src.core.common.exceptions.storage import StorageNotFoundError as EntityNotFoundError
 from src.core.common.exceptions.session_thread import (
@@ -30,8 +30,6 @@ if TYPE_CHECKING:
 from .git_service import IGitService
 from .coordinator import SessionThreadCoordinator
 
-logger = logging.getLogger(__name__)
-
 
 class SessionService(ISessionService):
     """会话业务服务实现（增强版）"""
@@ -45,7 +43,8 @@ class SessionService(ISessionService):
         session_validator: Optional[ISessionValidator] = None,
         state_transition: Optional[ISessionStateTransition] = None,
         git_service: Optional[IGitService] = None,
-        storage_path: Optional[Path] = None
+        storage_path: Optional[Path] = None,
+        logger: Optional[ILogger] = None
     ):
         """初始化会话服务
         
@@ -58,6 +57,7 @@ class SessionService(ISessionService):
             state_transition: 状态转换器
             git_service: Git服务
             storage_path: 存储路径
+            logger: 日志记录器
         """
         self._session_core = session_core
         self._session_repository = session_repository
@@ -67,12 +67,14 @@ class SessionService(ISessionService):
         self._state_transition = state_transition
         self._git_service = git_service
         self._storage_path = storage_path or Path("./sessions")
+        self._logger = logger
         
         # 确保存储目录存在
         if self._storage_path:
             self._storage_path.mkdir(parents=True, exist_ok=True)
         
-        logger.info("SessionService初始化完成")
+        if self._logger:
+            self._logger.info("SessionService初始化完成")
     
     # === 会话管理方法（基于ISessionRepository） ===
     
@@ -297,11 +299,13 @@ class SessionService(ISessionService):
                     {"session_id": session.session_id, "request_id": user_request.request_id}
                 )
             
-            logger.info(f"创建用户会话成功: {session.session_id}, user_id: {user_request.user_id}")
+            if self._logger:
+                self._logger.info(f"创建用户会话成功: {session.session_id}, user_id: {user_request.user_id}")
             return str(session.session_id)
             
         except Exception as e:
-            logger.error(f"创建会话失败: {e}")
+            if self._logger:
+                self._logger.error(f"创建会话失败: {e}")
             raise ValidationError(f"创建会话失败: {str(e)}")
     
     async def get_session_context(self, session_id: str) -> Optional[SessionContext]:
@@ -325,7 +329,8 @@ class SessionService(ISessionService):
             )
             
         except Exception as e:
-            logger.error(f"获取会话上下文失败: {session_id}, error: {e}")
+            if self._logger:
+                self._logger.error(f"获取会话上下文失败: {session_id}, error: {e}")
             return None
     
     async def delete_session(self, session_id: str) -> bool:
@@ -342,11 +347,13 @@ class SessionService(ISessionService):
             if session_dir.exists():
                 shutil.rmtree(session_dir)
             
-            logger.info(f"删除会话成功: {session_id}")
+            if self._logger:
+                self._logger.info(f"删除会话成功: {session_id}")
             return True
             
         except Exception as e:
-            logger.error(f"删除会话失败: {session_id}, error: {e}")
+            if self._logger:
+                self._logger.error(f"删除会话失败: {session_id}, error: {e}")
             return False
     
     async def list_sessions(self) -> List[Dict[str, Any]]:
@@ -380,7 +387,8 @@ class SessionService(ISessionService):
             return sessions
             
         except Exception as e:
-            logger.error(f"列出会话失败: {e}")
+            if self._logger:
+                self._logger.error(f"列出会话失败: {e}")
             return []
     
     async def session_exists(self, session_id: str) -> bool:
@@ -435,13 +443,15 @@ class SessionService(ISessionService):
             
             # 检查会话是否存在
             if not await self._session_repository.exists(session_id):
-                logger.warning(f"会话不存在: {session_id}")
+                if self._logger:
+                    self._logger.warning(f"会话不存在: {session_id}")
                 return
             
             # 验证交互
             if self._session_validator:
                 if not self._session_validator.validate_user_interaction(interaction):
-                    logger.warning(f"用户交互验证失败: {interaction.interaction_id}")
+                    if self._logger:
+                        self._logger.warning(f"用户交互验证失败: {interaction.interaction_id}")
                     return
             
             # 构造交互数据
@@ -467,10 +477,12 @@ class SessionService(ISessionService):
                     {"session_id": session_id, "interaction_id": interaction.interaction_id}
                 )
             
-            logger.debug(f"追踪用户交互成功: {session_id}, {interaction.interaction_type}")
-            
+            if self._logger:
+                self._logger.debug(f"追踪用户交互成功: {session_id}, {interaction.interaction_type}")
+
         except Exception as e:
-            logger.error(f"追踪用户交互失败: {session_id}, error: {e}")
+            if self._logger:
+                self._logger.error(f"追踪用户交互失败: {session_id}, error: {e}")
     
     async def get_interaction_history(self, session_id: str, limit: Optional[int] = None) -> List[UserInteractionEntity]:
         """获取交互历史"""
@@ -496,13 +508,15 @@ class SessionService(ISessionService):
                     )
                     interactions.append(interaction)
                 except Exception as e:
-                    logger.warning(f"Failed to deserialize interaction: {e}")
+                    if self._logger:
+                        self._logger.warning(f"Failed to deserialize interaction: {e}")
                     continue
             
             return interactions
             
         except Exception as e:
-            logger.error(f"获取交互历史失败: {session_id}, error: {e}")
+            if self._logger:
+                self._logger.error(f"获取交互历史失败: {session_id}, error: {e}")
             return []
     
     async def get_session_history(self, session_id: str) -> List[Dict[str, Any]]:
@@ -533,7 +547,8 @@ class SessionService(ISessionService):
                 raise ValidationError("coordinator is required for this operation")
             return await self._coordinator.coordinate_threads(session_id, thread_configs)
         except Exception as e:
-            logger.error(f"协调Thread执行失败: {session_id}, error: {e}")
+            if self._logger:
+                self._logger.error(f"协调Thread执行失败: {session_id}, error: {e}")
             raise ValidationError(f"协调Thread执行失败: {str(e)}")
     
     # === 工作流执行 ===
@@ -559,7 +574,8 @@ class SessionService(ISessionService):
                 raise WorkflowExecutionError(session_id, thread_name, RuntimeError(f"Expected WorkflowState, got {type(result)}"))
             return result
         except Exception as e:
-            logger.error(f"工作流执行失败: {session_id}, {thread_name}, error: {e}")
+            if self._logger:
+                self._logger.error(f"工作流执行失败: {session_id}, {thread_name}, error: {e}")
             raise WorkflowExecutionError(session_id, thread_name, e)
     
     def stream_workflow_in_session(

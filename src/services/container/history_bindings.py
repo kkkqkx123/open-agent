@@ -152,7 +152,8 @@ def register_history_manager(
             storage=container.get(IHistoryRepository),
             enable_async_batching=enable_async_batching,
             batch_size=batch_size,
-            batch_timeout=batch_timeout
+            batch_timeout=batch_timeout,
+            logger=container.get(ILogger, default=None)
         ),
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
@@ -232,7 +233,10 @@ def register_statistics_service(
     
     container.register_factory(
         HistoryStatisticsService,
-        lambda: HistoryStatisticsService(storage=container.get(IHistoryRepository)),
+        lambda: HistoryStatisticsService(
+            storage=container.get(IHistoryRepository),
+            logger=container.get(ILogger, default=None)
+        ),
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )

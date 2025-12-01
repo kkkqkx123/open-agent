@@ -3,16 +3,14 @@
 在 services 层负责业务逻辑协调，与 workflow 层的执行逻辑分离。
 """
 
-import logging
 from typing import Dict, Any, Optional, List
 
 from src.interfaces.workflow.coordinator import IWorkflowCoordinator
 from src.interfaces.workflow.core import IWorkflow
 from src.interfaces.state.workflow import IWorkflowState
+from src.interfaces.common_infra import ILogger
 from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.workflow import Workflow
-
-logger = logging.getLogger(__name__)
 
 
 class WorkflowOrchestrator:
@@ -21,14 +19,15 @@ class WorkflowOrchestrator:
     负责业务逻辑处理，与 workflow 层的执行逻辑分离。
     """
     
-    def __init__(self, workflow_coordinator: IWorkflowCoordinator):
+    def __init__(self, workflow_coordinator: IWorkflowCoordinator, logger: Optional[ILogger] = None):
         """初始化工作流编排器
         
         Args:
             workflow_coordinator: 工作流协调器
+            logger: 日志记录器
         """
         self._workflow_coordinator = workflow_coordinator
-        self._logger = logging.getLogger(f"{__name__}.WorkflowOrchestrator")
+        self._logger = logger
     
     def orchestrate_workflow_execution(self, 
                                      workflow_config: Dict[str, Any],
@@ -62,7 +61,8 @@ class WorkflowOrchestrator:
             return self._process_business_result(result_state, business_context)
             
         except Exception as e:
-            self._logger.error(f"编排工作流执行失败: {e}")
+            if self._logger:
+                self._logger.error(f"编排工作流执行失败: {e}")
             raise
     
     def create_workflow_with_business_logic(self, 
@@ -87,11 +87,13 @@ class WorkflowOrchestrator:
             # 创建工作流
             workflow = self._workflow_coordinator.create_workflow(config)
             
-            self._logger.info(f"成功创建工作流: {workflow.name}")
+            if self._logger:
+                self._logger.info(f"成功创建工作流: {workflow.name}")
             return workflow
-            
+
         except Exception as e:
-            self._logger.error(f"创建工作流失败: {e}")
+            if self._logger:
+                self._logger.error(f"创建工作流失败: {e}")
             raise
     
     def execute_workflow_with_business_logic(self,
@@ -117,7 +119,8 @@ class WorkflowOrchestrator:
             return self._process_business_result(result_state, business_context)
             
         except Exception as e:
-            self._logger.error(f"执行工作流失败: {e}")
+            if self._logger:
+                self._logger.error(f"执行工作流失败: {e}")
             raise
     
     def validate_workflow_with_business_rules(self,
@@ -148,7 +151,8 @@ class WorkflowOrchestrator:
             errors.extend(validation_errors)
             
         except Exception as e:
-            self._logger.error(f"验证工作流配置失败: {e}")
+            if self._logger:
+                self._logger.error(f"验证工作流配置失败: {e}")
             errors.append(f"配置验证失败: {str(e)}")
         
         return errors
@@ -187,7 +191,8 @@ class WorkflowOrchestrator:
         if context_vars:
             processed_config.setdefault("context_variables", context_vars)
         
-        self._logger.debug(f"业务规则处理完成，环境: {business_context.get('environment')}")
+            if self._logger:
+                self._logger.debug(f"业务规则处理完成，环境: {business_context.get('environment')}")
         return processed_config
     
     def _validate_business_rules(self,
@@ -253,7 +258,8 @@ class WorkflowOrchestrator:
         for key, value in variables.items():
             state.set_data(key, value)
         
-        self._logger.debug(f"创建初始状态完成，用户: {business_context.get('user_id')}")
+            if self._logger:
+                self._logger.debug(f"创建初始状态完成，用户: {business_context.get('user_id')}")
         return state
     
     def _process_business_result(self, 
@@ -295,7 +301,8 @@ class WorkflowOrchestrator:
                 "workflow_id": result_state.get_data("workflow_id"),
             }
         
-        self._logger.debug(f"业务结果处理完成，用户: {business_context.get('user_id')}")
+            if self._logger:
+                self._logger.debug(f"业务结果处理完成，用户: {business_context.get('user_id')}")
         return result
 
 

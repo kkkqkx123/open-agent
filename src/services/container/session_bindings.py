@@ -93,7 +93,8 @@ def register_session_repository(container, config: Dict[str, Any]) -> None:
     def session_repository_factory():
         primary_backend = container.get("session_primary_backend")
         secondary_backends = container.get("session_secondary_backends", default=[])
-        return SessionRepository(primary_backend, secondary_backends)
+        logger = container.get(ILogger, default=None)
+        return SessionRepository(primary_backend, secondary_backends, logger)
     
     # 注册仓储为单例
     container.register_singleton("session_repository", session_repository_factory)
@@ -299,12 +300,14 @@ def register_coordinator(container, config: Dict[str, Any]) -> None:
         association_repository = container.get(ISessionThreadAssociationRepository)
         synchronizer = container.get(ISessionThreadSynchronizer)
         transaction = container.get(ISessionThreadTransaction)
+        logger = container.get(ILogger, default=None)
         return SessionThreadCoordinator(
             session_service=session_service,
             thread_service=thread_service,
             association_repository=association_repository,
             synchronizer=synchronizer,
-            transaction=transaction
+            transaction=transaction,
+            logger=logger
         )
     
     # 注册协调器为单例
@@ -333,6 +336,7 @@ def register_session_service(container, config: Dict[str, Any]) -> None:
         session_validator = container.get(ISessionValidator, default=None)
         state_transition = container.get(ISessionStateTransition, default=None)
         git_service = container.get("IGitService", default=None)
+        logger = container.get(ILogger, default=None)
         
         return SessionService(
             session_core=session_core,
@@ -342,7 +346,8 @@ def register_session_service(container, config: Dict[str, Any]) -> None:
             session_validator=session_validator,
             state_transition=state_transition,
             git_service=git_service,
-            storage_path=config.get("session", {}).get("storage_path", "./sessions")
+            storage_path=config.get("session", {}).get("storage_path", "./sessions"),
+            logger=logger
         )
     
     # 注册服务为单例

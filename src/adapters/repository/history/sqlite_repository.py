@@ -14,7 +14,7 @@ from src.interfaces.repository.history import IHistoryRepository
 from src.core.history.entities import (
     BaseHistoryRecord, LLMRequestRecord, LLMResponseRecord,
     TokenUsageRecord, CostRecord, WorkflowTokenStatistics,
-    RecordType
+    RecordType, HistoryQuery
 )
 from ..sqlite_base import SQLiteBaseRepository
 from ..utils import TimeUtils, IdUtils
@@ -256,6 +256,49 @@ class SQLiteHistoryRepository(SQLiteBaseRepository, IHistoryRepository):
             
         except Exception as e:
             self._handle_exception("删除历史记录", e)
+            return 0
+    
+    async def delete_records_by_query(self, query: HistoryQuery) -> int:
+        """根据查询条件删除历史记录"""
+        try:
+            def _delete():
+                from ..utils import SQLiteUtils
+                
+                delete_query = "DELETE FROM history_records WHERE 1=1"
+                params = []
+                
+                if query.session_id:
+                    delete_query += " AND session_id = ?"
+                    params.append(query.session_id)
+                
+                if query.workflow_id:
+                    delete_query += " AND workflow_id = ?"
+                    params.append(query.workflow_id)
+                
+                if query.record_type:
+                    delete_query += " AND record_type = ?"
+                    params.append(query.record_type.value)
+                
+                if query.model:
+                    delete_query += " AND model = ?"
+                    params.append(query.model)
+                
+                if query.start_time:
+                    delete_query += " AND timestamp >= ?"
+                    params.append(query.start_time.isoformat())
+                
+                if query.end_time:
+                    delete_query += " AND timestamp <= ?"
+                    params.append(query.end_time.isoformat())
+                
+                deleted_count = SQLiteUtils.execute_update(self.db_path, delete_query, tuple(params))
+                self._log_operation("根据查询条件删除历史记录", True, f"删除了 {deleted_count} 条记录")
+                return deleted_count
+            
+            return await asyncio.get_event_loop().run_in_executor(None, _delete)
+            
+        except Exception as e:
+            self._handle_exception("根据查询条件删除历史记录", e)
             return 0
     
     # === 统计相关操作 ===

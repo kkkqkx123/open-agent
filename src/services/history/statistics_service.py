@@ -3,12 +3,12 @@
 提供丰富的历史数据查询和分析功能。
 """
 
-import logging
 from typing import Dict, Any, List, Optional, Tuple, Union
 from datetime import datetime, timedelta
 from dataclasses import asdict
 
 from src.interfaces.repository.history import IHistoryRepository
+from src.interfaces.common_infra import ILogger
 from src.core.history.entities import (
     WorkflowTokenStatistics, WorkflowTokenSummary, TokenUsageRecord,
     CostRecord, RecordType
@@ -17,24 +17,22 @@ from src.core.common.exceptions.history import StatisticsError
 from src.core.common.exceptions import ValidationError
 
 
-logger = logging.getLogger(__name__)
-
-
 class HistoryStatisticsService:
     """历史统计服务
     
     提供历史数据的查询、分析和报告功能。
     """
     
-    def __init__(self, storage: IHistoryRepository):
+    def __init__(self, storage: IHistoryRepository, logger: Optional[ILogger] = None):
         """
         初始化统计服务
         
         Args:
             storage: 历史存储
+            logger: 日志记录器
         """
         self._storage = storage
-        self._logger = logging.getLogger(self.__class__.__name__)
+        self._logger = logger
     
     async def get_workflow_token_summary(
         self,
@@ -75,16 +73,18 @@ class HistoryStatisticsService:
             if end_time:
                 summary.period_end = end_time
             
-            self._logger.debug(f"获取工作流汇总统计: {workflow_id}, "
-                             f"总Token: {summary.total_tokens}, "
-                             f"总成本: {summary.total_cost:.6f}")
+            if self._logger:
+                self._logger.debug(f"获取工作流汇总统计: {workflow_id}, "
+                                 f"总Token: {summary.total_tokens}, "
+                                 f"总成本: {summary.total_cost:.6f}")
             
             return summary
             
         except Exception as e:
             if isinstance(e, ValidationError):
                 raise
-            self._logger.error(f"获取工作流汇总统计失败: {e}")
+            if self._logger:
+                self._logger.error(f"获取工作流汇总统计失败: {e}")
             raise StatisticsError(f"获取工作流汇总统计失败: {e}", workflow_id=workflow_id)
     
     async def get_cross_workflow_comparison(
@@ -148,7 +148,8 @@ class HistoryStatisticsService:
                     }
                     
                 except Exception as e:
-                    self._logger.warning(f"获取工作流 {workflow_id} 统计失败: {e}")
+                    if self._logger:
+                        self._logger.warning(f"获取工作流 {workflow_id} 统计失败: {e}")
                     comparison["data"][workflow_id] = {
                         "value": 0,
                         "error": str(e)
@@ -180,7 +181,8 @@ class HistoryStatisticsService:
         except Exception as e:
             if isinstance(e, ValidationError):
                 raise
-            self._logger.error(f"获取跨工作流对比统计失败: {e}")
+            if self._logger:
+                self._logger.error(f"获取跨工作流对比统计失败: {e}")
             raise StatisticsError(f"获取跨工作流对比统计失败: {e}")
     
     async def get_model_usage_trends(
@@ -239,7 +241,8 @@ class HistoryStatisticsService:
         except Exception as e:
             if isinstance(e, ValidationError):
                 raise
-            self._logger.error(f"获取模型使用趋势失败: {e}")
+            if self._logger:
+                self._logger.error(f"获取模型使用趋势失败: {e}")
             raise StatisticsError(f"获取模型使用趋势失败: {e}", workflow_id=workflow_id)
     
     async def get_cost_analysis(
@@ -353,7 +356,8 @@ class HistoryStatisticsService:
             }
             
         except Exception as e:
-            self._logger.error(f"获取成本分析失败: {e}")
+            if self._logger:
+                self._logger.error(f"获取成本分析失败: {e}")
             raise StatisticsError(f"获取成本分析失败: {e}")
     
     async def get_efficiency_metrics(
@@ -427,7 +431,8 @@ class HistoryStatisticsService:
                             cost_data["total_tokens"] / cost_data["total_cost"]
                         )
             except Exception as e:
-                self._logger.warning(f"获取成本分析失败，跳过成本效率计算: {e}")
+                if self._logger:
+                    self._logger.warning(f"获取成本分析失败，跳过成本效率计算: {e}")
             
             # 计算整体效率指标
             efficiency_metrics = {
@@ -445,7 +450,8 @@ class HistoryStatisticsService:
             return efficiency_metrics
             
         except Exception as e:
-            self._logger.error(f"获取效率指标失败: {e}")
+            if self._logger:
+                self._logger.error(f"获取效率指标失败: {e}")
             raise StatisticsError(f"获取效率指标失败: {e}", workflow_id=workflow_id)
     
     async def _get_daily_trends(

@@ -1,36 +1,38 @@
 """会话仓储实现"""
 
-import logging
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from interfaces.repository.session import ISessionRepository
 from src.adapters.storage.backends.base import ISessionStorageBackend
+from src.interfaces.common_infra import ILogger
 from src.core.common.exceptions import StorageError
 from src.core.sessions import Session
-
-logger = logging.getLogger(__name__)
 
 
 class SessionRepository(ISessionRepository):
     """会话仓储实现 - 协调多个存储后端"""
     
     def __init__(
-        self, 
+        self,
         primary_backend: ISessionStorageBackend,
-        secondary_backends: Optional[List[ISessionStorageBackend]] = None
+        secondary_backends: Optional[List[ISessionStorageBackend]] = None,
+        logger: Optional[ILogger] = None
     ):
         """初始化会话仓储
         
         Args:
             primary_backend: 主存储后端（必须）
             secondary_backends: 辅助存储后端列表，用于冗余和查询扩展
+            logger: 日志记录器
         """
         self.primary_backend = primary_backend
         self.secondary_backends = secondary_backends or []
-        logger.info(
-            f"SessionRepository initialized with {1 + len(self.secondary_backends)} backend(s)"
-        )
+        self._logger = logger
+        if self._logger:
+            self._logger.info(
+                f"SessionRepository initialized with {1 + len(self.secondary_backends)} backend(s)"
+            )
     
     async def create(self, session: Session) -> bool:
         """创建会话 - 保存到所有后端
@@ -54,13 +56,16 @@ class SessionRepository(ISessionRepository):
                 try:
                     await backend.save(session.session_id, data)
                 except Exception as e:
-                    logger.warning(f"Failed to save to secondary backend: {e}")
+                    if self._logger:
+                        self._logger.warning(f"Failed to save to secondary backend: {e}")
             
-            logger.info(f"Session created: {session.session_id}")
+            if self._logger:
+                self._logger.info(f"Session created: {session.session_id}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to create session: {e}")
+            if self._logger:
+                self._logger.error(f"Failed to create session: {e}")
             raise StorageError(f"Failed to create session: {e}")
     
     async def get(self, session_id: str) -> Optional[Session]:
@@ -90,7 +95,8 @@ class SessionRepository(ISessionRepository):
             return None
             
         except Exception as e:
-            logger.error(f"Failed to get session {session_id}: {e}")
+            if self._logger:
+                self._logger.error(f"Failed to get session {session_id}: {e}")
             return None
     
     async def update(self, session: Session) -> bool:
@@ -114,13 +120,16 @@ class SessionRepository(ISessionRepository):
                 try:
                     await backend.save(session.session_id, data)
                 except Exception as e:
-                    logger.warning(f"Failed to update secondary backend: {e}")
+                    if self._logger:
+                        self._logger.warning(f"Failed to update secondary backend: {e}")
             
-            logger.debug(f"Session updated: {session.session_id}")
+            if self._logger:
+                self._logger.debug(f"Session updated: {session.session_id}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to update session: {e}")
+            if self._logger:
+                self._logger.error(f"Failed to update session: {e}")
             raise StorageError(f"Failed to update session: {e}")
     
     async def delete(self, session_id: str) -> bool:
@@ -141,13 +150,16 @@ class SessionRepository(ISessionRepository):
                 try:
                     await backend.delete(session_id)
                 except Exception as e:
-                    logger.warning(f"Failed to delete from secondary backend: {e}")
+                    if self._logger:
+                        self._logger.warning(f"Failed to delete from secondary backend: {e}")
             
-            logger.info(f"Session deleted: {session_id}")
+            if self._logger:
+                self._logger.info(f"Session deleted: {session_id}")
             return primary_deleted
             
         except Exception as e:
-            logger.error(f"Failed to delete session: {e}")
+            if self._logger:
+                self._logger.error(f"Failed to delete session: {e}")
             raise StorageError(f"Failed to delete session: {e}")
     
     async def list_by_status(self, status: str) -> List[Session]:
@@ -170,11 +182,13 @@ class SessionRepository(ISessionRepository):
             
             # 按更新时间倒序
             sessions.sort(key=lambda s: s.updated_at, reverse=True)
-            logger.debug(f"Listed {len(sessions)} sessions with status {status}")
+            if self._logger:
+                self._logger.debug(f"Listed {len(sessions)} sessions with status {status}")
             return sessions
             
         except Exception as e:
-            logger.error(f"Failed to list sessions by status: {e}")
+            if self._logger:
+                self._logger.error(f"Failed to list sessions by status: {e}")
             raise StorageError(f"Failed to list sessions by status: {e}")
     
     async def list_by_date_range(
@@ -202,11 +216,13 @@ class SessionRepository(ISessionRepository):
             
             # 按创建时间倒序
             sessions.sort(key=lambda s: s.created_at, reverse=True)
-            logger.debug(f"Listed {len(sessions)} sessions in date range")
+            if self._logger:
+                self._logger.debug(f"Listed {len(sessions)} sessions in date range")
             return sessions
             
         except Exception as e:
-            logger.error(f"Failed to list sessions by date range: {e}")
+            if self._logger:
+                self._logger.error(f"Failed to list sessions by date range: {e}")
             raise StorageError(f"Failed to list sessions by date range: {e}")
     
     async def search(
@@ -248,11 +264,13 @@ class SessionRepository(ISessionRepository):
             
             # 按更新时间倒序
             sessions.sort(key=lambda s: s.updated_at, reverse=True)
-            logger.debug(f"Searched and found {len(sessions)} sessions matching '{query}'")
+            if self._logger:
+                self._logger.debug(f"Searched and found {len(sessions)} sessions matching '{query}'")
             return sessions
             
         except Exception as e:
-            logger.error(f"Failed to search sessions: {e}")
+            if self._logger:
+                self._logger.error(f"Failed to search sessions: {e}")
             raise StorageError(f"Failed to search sessions: {e}")
     
     async def get_count_by_status(self) -> Dict[str, int]:
@@ -271,11 +289,13 @@ class SessionRepository(ISessionRepository):
                     status_key = session.status.value
                     count_map[status_key] = count_map.get(status_key, 0) + 1
             
-            logger.debug(f"Session count by status: {count_map}")
+            if self._logger:
+                self._logger.debug(f"Session count by status: {count_map}")
             return count_map
             
         except Exception as e:
-            logger.error(f"Failed to get session count by status: {e}")
+            if self._logger:
+                self._logger.error(f"Failed to get session count by status: {e}")
             raise StorageError(f"Failed to get session count by status: {e}")
     
     async def cleanup_old(self, max_age_days: int = 30) -> int:
@@ -305,11 +325,13 @@ class SessionRepository(ISessionRepository):
                         if await self.delete(session_id):
                             deleted_count += 1
             
-            logger.info(f"Cleaned up {deleted_count} old sessions")
+            if self._logger:
+                self._logger.info(f"Cleaned up {deleted_count} old sessions")
             return deleted_count
             
         except Exception as e:
-            logger.error(f"Failed to cleanup old sessions: {e}")
+            if self._logger:
+                self._logger.error(f"Failed to cleanup old sessions: {e}")
             raise StorageError(f"Failed to cleanup old sessions: {e}")
     
     async def add_interaction(self, session_id: str, interaction: Dict[str, Any]) -> bool:
@@ -337,7 +359,8 @@ class SessionRepository(ISessionRepository):
             return await self.update(session)
             
         except Exception as e:
-            logger.error(f"Failed to add interaction: {e}")
+            if self._logger:
+                self._logger.error(f"Failed to add interaction: {e}")
             raise StorageError(f"Failed to add interaction: {e}")
     
     async def get_interactions(
@@ -372,11 +395,13 @@ class SessionRepository(ISessionRepository):
                     # 如果不是字典，尝试转换
                     result.append({"data": str(interaction)})
             
-            logger.debug(f"Retrieved {len(result)} interactions for session {session_id}")
+            if self._logger:
+                self._logger.debug(f"Retrieved {len(result)} interactions for session {session_id}")
             return result
             
         except Exception as e:
-            logger.error(f"Failed to get interactions: {e}")
+            if self._logger:
+                self._logger.error(f"Failed to get interactions: {e}")
             raise StorageError(f"Failed to get interactions: {e}")
     
     async def exists(self, session_id: str) -> bool:
@@ -391,7 +416,8 @@ class SessionRepository(ISessionRepository):
         try:
             return await self.primary_backend.exists(session_id)
         except Exception as e:
-            logger.error(f"Failed to check session existence: {e}")
+            if self._logger:
+                self._logger.error(f"Failed to check session existence: {e}")
             raise StorageError(f"Failed to check session existence: {e}")
     
     # === 私有方法 ===

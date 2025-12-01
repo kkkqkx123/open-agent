@@ -3,11 +3,10 @@
 负责创建和配置 workflow 层服务，支持依赖注入。
 """
 
-import logging
 from typing import List, Optional, Dict, Any
 
 from src.interfaces.container import IDependencyContainer
-from src.interfaces.common_infra import ServiceLifetime
+from src.interfaces.common_infra import ServiceLifetime, ILogger
 from src.interfaces.workflow.coordinator import IWorkflowCoordinator
 from src.interfaces.workflow.builders import IWorkflowBuilder
 from src.interfaces.workflow.execution import IWorkflowExecutor
@@ -23,20 +22,19 @@ from src.core.common.exceptions.workflow import WorkflowError
 from src.core.workflow.registry import create_workflow_registry
 from src.core.workflow.graph.service import create_graph_service
 
-logger = logging.getLogger(__name__)
-
 
 class WorkflowServiceFactory:
     """工作流服务工厂 - 负责创建和配置 workflow 层服务"""
     
-    def __init__(self, container: IDependencyContainer):
+    def __init__(self, container: IDependencyContainer, logger: Optional[ILogger] = None):
         """初始化服务工厂
         
         Args:
             container: 依赖注入容器
+            logger: 日志记录器
         """
         self._container = container
-        self._logger = logging.getLogger(f"{__name__}.WorkflowServiceFactory")
+        self._logger = logger
     
     def create_workflow_coordinator(self) -> IWorkflowCoordinator:
         """创建工作流协调器
@@ -173,10 +171,12 @@ class WorkflowServiceFactory:
                 lifetime=ServiceLifetime.TRANSIENT
             )
             
-            self._logger.info(f"工作流服务注册完成，环境: {environment}")
-            
+            if self._logger:
+                self._logger.info(f"工作流服务注册完成，环境: {environment}")
+
         except Exception as e:
-            self._logger.error(f"注册工作流服务失败: {e}")
+            if self._logger:
+                self._logger.error(f"注册工作流服务失败: {e}")
             raise
     
     def validate_service_configuration(self) -> List[str]:
@@ -213,7 +213,8 @@ class WorkflowServiceFactory:
                 errors.extend(dependency_errors)
             
         except Exception as e:
-            self._logger.error(f"验证服务配置时发生错误: {e}")
+            if self._logger:
+                self._logger.error(f"验证服务配置时发生错误: {e}")
             errors.append(f"服务配置验证失败: {str(e)}")
         
         return errors

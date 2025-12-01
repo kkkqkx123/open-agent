@@ -336,6 +336,7 @@ def register_thread_service(container: Any, config: Dict[str, Any]) -> None:
         history_service = container.get("history_thread_service")
         session_service = container.get(ISessionService, default=None)
         history_manager = container.get(IHistoryManager, default=None)
+        logger = container.get(ILogger, default=None)
         
         return ThreadService(
             thread_core=thread_core,
@@ -348,7 +349,8 @@ def register_thread_service(container: Any, config: Dict[str, Any]) -> None:
             state_service=state_service,
             history_service=history_service,
             session_service=session_service,
-            history_manager=history_manager
+            history_manager=history_manager,
+            logger=logger
         )
     
     # 注册主服务为单例

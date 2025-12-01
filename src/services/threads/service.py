@@ -1,6 +1,5 @@
 """线程管理服务实现 - 主服务门面"""
 
-import logging
 from datetime import datetime
 from typing import AsyncGenerator, Dict, Any, Optional, List, Coroutine, cast, TYPE_CHECKING
 
@@ -15,6 +14,7 @@ from src.interfaces.threads.service import IThreadService
 from src.interfaces.sessions.service import ISessionService
 from src.core.threads.interfaces import IThreadCore
 from src.interfaces.threads.storage import IThreadRepository
+from src.interfaces.common_infra import ILogger
 
 from .basic_service import BasicThreadService
 from .workflow_service import WorkflowThreadService
@@ -25,8 +25,6 @@ from .state_service import ThreadStateService
 from .history_service import ThreadHistoryService
 
 from src.core.common.exceptions import ValidationError
-
-logger = logging.getLogger(__name__)
 
 
 class ThreadService(IThreadService):
@@ -44,7 +42,8 @@ class ThreadService(IThreadService):
         state_service: ThreadStateService,
         history_service: ThreadHistoryService,
         session_service: Optional[ISessionService] = None,
-        history_manager: Optional[IHistoryManager] = None
+        history_manager: Optional[IHistoryManager] = None,
+        logger: Optional[ILogger] = None
     ):
         """初始化线程服务
         
@@ -59,6 +58,7 @@ class ThreadService(IThreadService):
             history_service: 历史服务
             session_service: 会话服务（可选）
             history_manager: 历史管理器（可选）
+            logger: 日志记录器（可选）
         """
         self._thread_core = thread_core
         self._thread_repository = thread_repository
@@ -71,6 +71,7 @@ class ThreadService(IThreadService):
         self._history_service = history_service
         self._session_service = session_service
         self._history_manager = history_manager
+        self._logger = logger
     
     # === 已实现的方法 ===
     
@@ -278,11 +279,13 @@ class ThreadService(IThreadService):
             target_thread = await self._thread_repository.get(target_thread_id)
             
             if not source_thread:
-                logger.warning(f"Source thread {source_thread_id} not found")
+                if self._logger:
+                    self._logger.warning(f"Source thread {source_thread_id} not found")
                 return False
             
             if not target_thread:
-                logger.warning(f"Target thread {target_thread_id} not found")
+                if self._logger:
+                    self._logger.warning(f"Target thread {target_thread_id} not found")
                 return False
             
             # 验证检查点存在（如果提供了checkpoint_id）
@@ -294,7 +297,8 @@ class ThreadService(IThreadService):
             # 获取源线程状态
             source_state = await self._state_service.get_thread_state(source_thread_id)
             if not source_state:
-                logger.warning(f"Failed to get state from source thread {source_thread_id}")
+                if self._logger:
+                    self._logger.warning(f"Failed to get state from source thread {source_thread_id}")
                 return False
             
             # 准备要共享的状态数据
@@ -317,12 +321,14 @@ class ThreadService(IThreadService):
                 target_thread.update_timestamp()
                 await self._thread_repository.update(target_thread)
                 
-                logger.info(f"State shared from thread {source_thread_id} to {target_thread_id}")
+                if self._logger:
+                    self._logger.info(f"State shared from thread {source_thread_id} to {target_thread_id}")
             
             return success
             
         except Exception as e:
-            logger.error(f"共享线程状态失败: {e}")
+            if self._logger:
+                self._logger.error(f"共享线程状态失败: {e}")
             return False
     
     async def create_shared_session(self, thread_ids: List[str], session_config: Dict[str, Any]) -> str:
@@ -356,7 +362,8 @@ class ThreadService(IThreadService):
                 if thread:
                     valid_thread_ids.append(thread_id)
                 else:
-                    logger.warning(f"Thread {thread_id} not found, skipping")
+                    if self._logger:
+                        self._logger.warning(f"Thread {thread_id} not found, skipping")
             
             if not valid_thread_ids:
                 raise ValidationError("No valid threads found")
@@ -389,13 +396,15 @@ class ThreadService(IThreadService):
                     thread.update_timestamp()
                     await self._thread_repository.update(thread)
             
-            logger.info(f"Shared session {shared_session_id} created for threads {valid_thread_ids}")
+            if self._logger:
+                self._logger.info(f"Shared session {shared_session_id} created for threads {valid_thread_ids}")
             return shared_session_id
             
         except ValidationError:
             raise
         except Exception as e:
-            logger.error(f"创建共享会话失败: {e}")
+            if self._logger:
+                self._logger.error(f"创建共享会话失败: {e}")
             raise ValidationError(f"Failed to create shared session: {str(e)}")
     
     async def sync_thread_states(self, thread_ids: List[str], sync_strategy: str = "bidirectional") -> bool:
@@ -411,11 +420,13 @@ class ThreadService(IThreadService):
         try:
             # 验证输入参数
             if not thread_ids or len(thread_ids) < 2:
-                logger.warning("需要至少两个线程进行同步")
+                if self._logger:
+                    self._logger.warning("需要至少两个线程进行同步")
                 return False
-            
+
             if sync_strategy not in ["unidirectional", "bidirectional", "merge"]:
-                logger.warning(f"不支持的同步策略: {sync_strategy}")
+                if self._logger:
+                    self._logger.warning(f"不支持的同步策略: {sync_strategy}")
                 return False
             
             # 验证所有线程存在
@@ -425,10 +436,12 @@ class ThreadService(IThreadService):
                 if thread:
                     valid_threads.append(thread)
                 else:
-                    logger.warning(f"Thread {thread_id} not found, skipping")
-            
+                    if self._logger:
+                        self._logger.warning(f"Thread {thread_id} not found, skipping")
+
             if len(valid_threads) < 2:
-                logger.warning("需要至少两个有效线程进行同步")
+                if self._logger:
+                    self._logger.warning("需要至少两个有效线程进行同步")
                 return False
             
             # 根据同步策略执行同步
@@ -438,7 +451,8 @@ class ThreadService(IThreadService):
                 source_state = await self._state_service.get_thread_state(source_thread.id)
                 
                 if not source_state:
-                    logger.warning(f"Failed to get state from source thread {source_thread.id}")
+                    if self._logger:
+                        self._logger.warning(f"Failed to get state from source thread {source_thread.id}")
                     return False
                 
                 state_to_sync = source_state.get("state", {})
@@ -447,7 +461,8 @@ class ThreadService(IThreadService):
                 for thread in valid_threads[1:]:
                     success = await self._state_service.update_thread_state(thread.id, state_to_sync)
                     if not success:
-                        logger.warning(f"Failed to sync state to thread {thread.id}")
+                        if self._logger:
+                            self._logger.warning(f"Failed to sync state to thread {thread.id}")
                         return False
                     
                     # 记录同步信息
@@ -473,7 +488,8 @@ class ThreadService(IThreadService):
                 for thread in valid_threads:
                     success = await self._state_service.update_thread_state(thread.id, merged_state)
                     if not success:
-                        logger.warning(f"Failed to sync merged state to thread {thread.id}")
+                        if self._logger:
+                            self._logger.warning(f"Failed to sync merged state to thread {thread.id}")
                         return False
                     
                     # 记录同步信息
@@ -508,7 +524,8 @@ class ThreadService(IThreadService):
                 for thread in valid_threads:
                     success = await self._state_service.update_thread_state(thread.id, merged_state)
                     if not success:
-                        logger.warning(f"Failed to sync merged state to thread {thread.id}")
+                        if self._logger:
+                            self._logger.warning(f"Failed to sync merged state to thread {thread.id}")
                         return False
                     
                     # 记录同步信息
@@ -521,11 +538,13 @@ class ThreadService(IThreadService):
                     thread.update_timestamp()
                     await self._thread_repository.update(thread)
             
-            logger.info(f"Thread states synchronized using strategy: {sync_strategy}")
+            if self._logger:
+                self._logger.info(f"Thread states synchronized using strategy: {sync_strategy}")
             return True
-            
+
         except Exception as e:
-            logger.error(f"同步线程状态失败: {e}")
+            if self._logger:
+                self._logger.error(f"同步线程状态失败: {e}")
             return False
     
     async def get_thread_history(self, thread_id: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
@@ -542,7 +561,8 @@ class ThreadService(IThreadService):
             # 验证线程存在
             thread = await self._thread_repository.get(thread_id)
             if not thread:
-                logger.warning(f"Thread {thread_id} not found")
+                if self._logger:
+                    self._logger.warning(f"Thread {thread_id} not found")
                 return []
             
             # 优先使用HistoryManager查询历史记录
@@ -571,11 +591,13 @@ class ThreadService(IThreadService):
                 return history_list
             
             # 如果都没有，返回空列表
-            logger.warning("No history service available, returning empty history")
+            if self._logger:
+                self._logger.warning("No history service available, returning empty history")
             return []
             
         except Exception as e:
-            logger.error(f"获取线程历史记录失败: {e}")
+            if self._logger:
+                self._logger.error(f"获取线程历史记录失败: {e}")
             return []
     
     # === 委托给分支服务的方法 ===
@@ -607,21 +629,25 @@ class ThreadService(IThreadService):
             source_thread = await self._thread_repository.get(source_thread_id)
             
             if not target_thread:
-                logger.warning(f"Target thread {target_thread_id} not found")
+                if self._logger:
+                    self._logger.warning(f"Target thread {target_thread_id} not found")
                 return False
             
             if not source_thread:
-                logger.warning(f"Source thread {source_thread_id} not found")
+                if self._logger:
+                    self._logger.warning(f"Source thread {source_thread_id} not found")
                 return False
             
             # 验证源线程是否为分支
             if source_thread.parent_thread_id != target_thread_id:
-                logger.warning(f"Source thread {source_thread_id} is not a branch of target thread {target_thread_id}")
+                if self._logger:
+                    self._logger.warning(f"Source thread {source_thread_id} is not a branch of target thread {target_thread_id}")
                 return False
             
             # 验证合并策略
             if merge_strategy not in ["latest", "overwrite", "merge"]:
-                logger.warning(f"Unsupported merge strategy: {merge_strategy}")
+                if self._logger:
+                    self._logger.warning(f"Unsupported merge strategy: {merge_strategy}")
                 return False
             
             # 执行分支合并
@@ -644,12 +670,14 @@ class ThreadService(IThreadService):
                 }
                 await self._thread_repository.update(target_thread)
                 
-                logger.info(f"Branch {source_thread_id} merged into {target_thread_id}")
+                if self._logger:
+                    self._logger.info(f"Branch {source_thread_id} merged into {target_thread_id}")
             
             return success
             
         except Exception as e:
-            logger.error(f"合并分支失败: {e}")
+            if self._logger:
+                self._logger.error(f"合并分支失败: {e}")
             return False
     
     # === 委托给快照服务的方法 ===
@@ -681,26 +709,30 @@ class ThreadService(IThreadService):
             # 验证快照存在
             snapshot = await self._snapshot_service._thread_snapshot_repository.get(snapshot_id)
             if not snapshot:
-                logger.warning(f"Snapshot {snapshot_id} not found")
+                if self._logger:
+                    self._logger.warning(f"Snapshot {snapshot_id} not found")
                 return False
             
             # 删除快照
             success = await self._snapshot_service._thread_snapshot_repository.delete(snapshot_id)
             
             if success:
-                logger.info(f"Snapshot {snapshot_id} deleted successfully")
+                if self._logger:
+                    self._logger.info(f"Snapshot {snapshot_id} deleted successfully")
                 # 更新对应线程的检查点计数
                 thread = await self._thread_repository.get(snapshot.thread_id)
                 if thread and thread.checkpoint_count > 0:
                     thread.checkpoint_count -= 1
                     await self._thread_repository.update(thread)
             else:
-                logger.error(f"Failed to delete snapshot {snapshot_id}")
+                if self._logger:
+                    self._logger.error(f"Failed to delete snapshot {snapshot_id}")
             
             return success
             
         except Exception as e:
-            logger.error(f"删除快照失败: {e}")
+            if self._logger:
+                self._logger.error(f"删除快照失败: {e}")
             return False
     
     # === 委托给基础服务的fork方法 ===
