@@ -142,12 +142,50 @@ class OpenAITokenProcessor(BaseTokenProcessor):
             if not usage:
                 logger.warning("OpenAI响应中未找到usage信息")
                 return None
+            
+            # 解析缓存token信息
+            prompt_details = usage.get("prompt_tokens_details", {})
+            completion_details = usage.get("completion_tokens_details", {})
+            
+            cached_tokens = prompt_details.get("cached_tokens", 0)
+            
+            # 解析扩展token信息
+            extended_tokens = {}
+            
+            # 音频token
+            audio_tokens = prompt_details.get("audio_tokens", 0)
+            if audio_tokens > 0:
+                extended_tokens["prompt_audio_tokens"] = audio_tokens
+            
+            completion_audio_tokens = completion_details.get("audio_tokens", 0)
+            if completion_audio_tokens > 0:
+                extended_tokens["completion_audio_tokens"] = completion_audio_tokens
+                extended_tokens["audio_tokens"] = audio_tokens + completion_audio_tokens
+            
+            # 推理token
+            reasoning_tokens = completion_details.get("reasoning_tokens", 0)
+            if reasoning_tokens > 0:
+                extended_tokens["reasoning_tokens"] = reasoning_tokens
+            
+            # 预测token
+            accepted_prediction_tokens = completion_details.get("accepted_prediction_tokens", 0)
+            rejected_prediction_tokens = completion_details.get("rejected_prediction_tokens", 0)
+            if accepted_prediction_tokens > 0:
+                extended_tokens["accepted_prediction_tokens"] = accepted_prediction_tokens
+            if rejected_prediction_tokens > 0:
+                extended_tokens["rejected_prediction_tokens"] = rejected_prediction_tokens
                 
             token_usage = TokenUsage(
                 prompt_tokens=usage.get("prompt_tokens", 0),
                 completion_tokens=usage.get("completion_tokens", 0),
                 total_tokens=usage.get("total_tokens", 0),
                 source="api",
+                # 缓存token统计
+                cached_tokens=cached_tokens,
+                cached_prompt_tokens=cached_tokens,  # OpenAI中缓存token主要是prompt_tokens
+                cached_completion_tokens=0,  # OpenAI通常不缓存completion_tokens
+                # 扩展token统计
+                extended_tokens=extended_tokens,
                 additional_info={
                     "model": response.get("model"),
                     "response_id": response.get("id"),

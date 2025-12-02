@@ -8,12 +8,6 @@ inherits_from: "provider/openai/common.yaml"
 model_name: gpt-4
 model_type: openai
 
-# GPT-4 特定的定价配置（覆盖通用配置）
-pricing:
-  input_token_cost: 0.03    # GPT-4输入价格：$0.03/1K tokens
-  output_token_cost: 0.06   # GPT-4输出价格：$0.06/1K tokens
-  currency: "USD"
-
 # GPT-4 特定的参数限制
 limits:
   max_tokens: 8192          # GPT-4的最大token限制
@@ -45,12 +39,3 @@ error_handling:
   retry_on_rate_limit: true
   retry_on_server_error: true
   max_retry_backoff: 120.0   # GPT-4可能需要更长的退避时间
-
-# 模型特定的优化建议
-optimization:
-  recommended_temperature_range: [0.1, 1.0]
-  recommended_max_tokens: 2048  # 建议的输出长度
-  cost_optimization_tips:
-    - "使用较短的提示以减少输入成本"
-    - "设置合理的max_tokens限制"
-    - "考虑使用GPT-3.5-turbo进行简单任务"

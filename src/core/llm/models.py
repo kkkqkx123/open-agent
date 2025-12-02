@@ -23,6 +23,30 @@ class TokenUsage:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+    
+    # 缓存相关token统计
+    cached_tokens: int = 0
+    cached_prompt_tokens: int = 0
+    cached_completion_tokens: int = 0
+    
+    # 音频相关token
+    prompt_audio_tokens: int = 0
+    completion_audio_tokens: int = 0
+    
+    # 推理相关token
+    reasoning_tokens: int = 0
+    
+    # 预测相关token
+    accepted_prediction_tokens: int = 0
+    rejected_prediction_tokens: int = 0
+    
+    # 思考相关token（Gemini）
+    thoughts_tokens: int = 0
+    
+    # 工具调用相关token
+    tool_call_tokens: int = 0
+    
+    # 元数据（保持向后兼容）
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __add__(self, other: "TokenUsage") -> "TokenUsage":
@@ -31,7 +55,36 @@ class TokenUsage:
             prompt_tokens=self.prompt_tokens + other.prompt_tokens,
             completion_tokens=self.completion_tokens + other.completion_tokens,
             total_tokens=self.total_tokens + other.total_tokens,
+            cached_tokens=self.cached_tokens + other.cached_tokens,
+            cached_prompt_tokens=self.cached_prompt_tokens + other.cached_prompt_tokens,
+            cached_completion_tokens=self.cached_completion_tokens + other.cached_completion_tokens,
+            prompt_audio_tokens=self.prompt_audio_tokens + other.prompt_audio_tokens,
+            completion_audio_tokens=self.completion_audio_tokens + other.completion_audio_tokens,
+            reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
+            accepted_prediction_tokens=self.accepted_prediction_tokens + other.accepted_prediction_tokens,
+            rejected_prediction_tokens=self.rejected_prediction_tokens + other.rejected_prediction_tokens,
+            thoughts_tokens=self.thoughts_tokens + other.thoughts_tokens,
+            tool_call_tokens=self.tool_call_tokens + other.tool_call_tokens,
+            metadata={**self.metadata, **other.metadata},
         )
+    
+    def get_cache_hit_rate(self) -> float:
+        """计算缓存命中率"""
+        if self.total_tokens == 0:
+            return 0.0
+        return (self.cached_tokens / self.total_tokens) * 100
+    
+    def get_effective_tokens(self) -> int:
+        """获取有效token数量（总token - 缓存token）"""
+        return self.total_tokens - self.cached_tokens
+    
+    def get_audio_tokens(self) -> int:
+        """获取音频token总数"""
+        return self.prompt_audio_tokens + self.completion_audio_tokens
+    
+    def get_prediction_tokens(self) -> int:
+        """获取预测token总数"""
+        return self.accepted_prediction_tokens + self.rejected_prediction_tokens
 
 
 @dataclass

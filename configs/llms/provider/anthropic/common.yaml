@@ -8,6 +8,8 @@ headers:
 function_calling_supported: true
 function_calling_mode: "auto"
 
+# 缓存配置
+supports_caching: true  # Anthropic支持缓存控制
 
 # 通用参数模板
 default_parameters:

@@ -82,17 +82,60 @@ class GeminiTokenProcessor(BaseTokenProcessor):
                 logger.warning("Gemini响应中未找到usageMetadata信息")
                 return None
                 
+            # 解析缓存token信息
+            cached_content_tokens = metadata.get("cachedContentTokenCount", 0)
+            
+            # 解析扩展token信息
+            extended_tokens = {}
+            
+            # 推理token（思考过程）
+            thoughts_tokens = metadata.get("thoughtsTokenCount", 0)
+            if thoughts_tokens > 0:
+                extended_tokens["thoughts_tokens"] = thoughts_tokens
+            
+            # 工具使用token
+            tool_use_prompt_tokens = metadata.get("toolUsePromptTokenCount", 0)
+            if tool_use_prompt_tokens > 0:
+                extended_tokens["tool_use_prompt_tokens"] = tool_use_prompt_tokens
+            
+            # 提示词token详情（按模态分类）
+            prompt_tokens_details = metadata.get("promptTokensDetails", [])
+            if prompt_tokens_details:
+                for detail in prompt_tokens_details:
+                    modality = detail.get("modality", "unknown")
+                    token_count = detail.get("tokenCount", 0)
+                    if token_count > 0:
+                        extended_tokens[f"prompt_{modality.lower()}_tokens"] = token_count
+            
+            # 工具使用提示词token详情
+            tool_use_prompt_tokens_details = metadata.get("toolUsePromptTokensDetails", [])
+            if tool_use_prompt_tokens_details:
+                for detail in tool_use_prompt_tokens_details:
+                    modality = detail.get("modality", "unknown")
+                    token_count = detail.get("tokenCount", 0)
+                    if token_count > 0:
+                        extended_tokens[f"tool_use_{modality.lower()}_tokens"] = token_count
+            
             token_usage = TokenUsage(
                 prompt_tokens=metadata.get("promptTokenCount", 0),
                 completion_tokens=metadata.get("candidatesTokenCount", 0),
                 total_tokens=metadata.get("totalTokenCount", 0),
                 source="api",
+                # 缓存token统计
+                cached_tokens=cached_content_tokens,
+                cached_prompt_tokens=cached_content_tokens,  # Gemini缓存主要是prompt_tokens
+                cached_completion_tokens=0,  # Gemini通常不缓存completion_tokens
+                # 扩展token统计
+                extended_tokens=extended_tokens,
                 additional_info={
                     "model": response.get("model"),
-                    "thoughts_tokens": metadata.get("thoughtsTokenCount", 0),
-                    "cached_tokens": metadata.get("cachedContentTokenCount", 0),
+                    "thoughts_tokens": thoughts_tokens,
+                    "cached_content_tokens": cached_content_tokens,
+                    "tool_use_prompt_tokens": tool_use_prompt_tokens,
                     "candidates": response.get("candidates"),
-                    "prompt_feedback": response.get("promptFeedback")
+                    "prompt_feedback": response.get("promptFeedback"),
+                    "prompt_tokens_details": prompt_tokens_details,
+                    "tool_use_prompt_tokens_details": tool_use_prompt_tokens_details
                 }
             )
             
@@ -141,19 +184,3 @@ class GeminiTokenProcessor(BaseTokenProcessor):
             ])
         )
     
-    def get_model_pricing(self) -> Optional[Dict[str, float]]:
-        """
-        获取模型定价信息
-        
-        Returns:
-            Optional[Dict[str, float]]: 定价信息，格式为 {"prompt": 0.0005, "completion": 0.0015}
-        """
-        # Gemini模型定价
-        pricing_map = {
-            "gemini-pro": {"prompt": 0.0005, "completion": 0.0015},
-            "gemini-pro-vision": {"prompt": 0.00025, "completion": 0.0005},
-            "gemini-1.5-pro": {"prompt": 0.0025, "completion": 0.0075},
-            "gemini-1.5-flash": {"prompt": 0.000075, "completion": 0.00015},
-        }
-        
-        return pricing_map.get(self.model_name)

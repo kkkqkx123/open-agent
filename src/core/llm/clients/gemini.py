@@ -160,26 +160,60 @@ class GeminiClient(BaseLLMClient):
 
     def _extract_token_usage(self, response: Any) -> TokenUsage:
         """提取Token使用情况"""
-        # Gemini可能不提供详细的token使用情况
+        token_usage = TokenUsage()
+        
+        # Gemini可能提供详细的token使用情况
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             usage = response.usage_metadata
-            return TokenUsage(
-                prompt_tokens=usage.get("input_tokens", 0),
-                completion_tokens=usage.get("output_tokens", 0),
-                total_tokens=usage.get("total_tokens", 0),
-            )
+            
+            # 基础token信息
+            token_usage.prompt_tokens = usage.get("input_tokens", 0)
+            token_usage.completion_tokens = usage.get("output_tokens", 0)
+            token_usage.total_tokens = usage.get("total_tokens", 0)
+            
+            # Gemini特定的缓存token信息
+            cached_content_tokens = usage.get("cachedContentTokenCount", 0)
+            token_usage.cached_tokens = cached_content_tokens
+            token_usage.cached_prompt_tokens = cached_content_tokens  # Gemini缓存主要是prompt
+            
+            # 思考token（Gemini思考模式）
+            thoughts_tokens = usage.get("thoughtsTokenCount", 0)
+            token_usage.thoughts_tokens = thoughts_tokens
+            
+            # 工具调用相关token
+            tool_call_tokens = usage.get("toolCallTokenCount", 0)
+            token_usage.tool_call_tokens = tool_call_tokens
+            
+            # 其他可能的token类型
+            if "citationTokenCount" in usage:
+                token_usage.metadata["citation_tokens"] = usage["citationTokenCount"]
+            if "codeExecutionTokenCount" in usage:
+                token_usage.metadata["code_execution_tokens"] = usage["codeExecutionTokenCount"]
+                
         elif hasattr(response, "response_metadata") and response.response_metadata:
             metadata = response.response_metadata
             if "token_usage" in metadata:
                 usage = metadata["token_usage"]
-                return TokenUsage(
-                    prompt_tokens=usage.get("prompt_tokens", 0),
-                    completion_tokens=usage.get("completion_tokens", 0),
-                    total_tokens=usage.get("total_tokens", 0),
-                )
+                
+                # 基础token信息
+                token_usage.prompt_tokens = usage.get("prompt_tokens", 0)
+                token_usage.completion_tokens = usage.get("completion_tokens", 0)
+                token_usage.total_tokens = usage.get("total_tokens", 0)
+                
+                # 缓存token信息
+                cached_content_tokens = usage.get("cachedContentTokenCount", 0)
+                token_usage.cached_tokens = cached_content_tokens
+                token_usage.cached_prompt_tokens = cached_content_tokens
+                
+                # 思考token
+                thoughts_tokens = usage.get("thoughtsTokenCount", 0)
+                token_usage.thoughts_tokens = thoughts_tokens
+                
+                # 工具调用token
+                tool_call_tokens = usage.get("toolCallTokenCount", 0)
+                token_usage.tool_call_tokens = tool_call_tokens
 
-        # 默认返回0
-        return TokenUsage()
+        return token_usage
 
     def _extract_function_call(self, response: Any) -> Optional[Dict[str, Any]]:
         """提取函数调用信息"""

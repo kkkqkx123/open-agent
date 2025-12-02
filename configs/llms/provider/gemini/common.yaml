@@ -8,6 +8,8 @@ headers:
 function_calling_supported: true
 function_calling_mode: "auto"
 
+# 缓存配置
+supports_caching: true  # Gemini明确支持缓存API
 
 # 通用参数模板
 default_parameters:

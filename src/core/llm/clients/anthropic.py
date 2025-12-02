@@ -172,26 +172,63 @@ class AnthropicClient(BaseLLMClient):
 
     def _extract_token_usage(self, response: Any) -> TokenUsage:
         """提取Token使用情况"""
+        token_usage = TokenUsage()
+        
         # Anthropic可能提供详细的token使用情况
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             usage = response.usage_metadata
-            return TokenUsage(
-                prompt_tokens=usage.get("input_tokens", 0),
-                completion_tokens=usage.get("output_tokens", 0),
-                total_tokens=usage.get("total_tokens", 0),
-            )
+            
+            # 基础token信息
+            token_usage.prompt_tokens = usage.get("input_tokens", 0)
+            token_usage.completion_tokens = usage.get("output_tokens", 0)
+            token_usage.total_tokens = usage.get("total_tokens", 0)
+            
+            # 缓存token信息（Anthropic特定格式）
+            cache_creation_input_tokens = usage.get("cache_creation_input_tokens", 0)
+            cache_read_input_tokens = usage.get("cache_read_input_tokens", 0)
+            
+            # Anthropic的缓存token统计
+            token_usage.cached_prompt_tokens = cache_read_input_tokens
+            token_usage.cached_tokens = cache_read_input_tokens
+            
+            # 缓存创建token（这些是实际消耗的，不应该计入缓存）
+            # 但我们可以记录在metadata中用于分析
+            if cache_creation_input_tokens > 0:
+                token_usage.metadata["cache_creation_input_tokens"] = cache_creation_input_tokens
+            
+            # 处理Anthropic的缓存详情（如果有TTL信息）
+            cache_details = usage.get("cache", {})
+            if cache_details:
+                # 按TTL分类的缓存读取token
+                ephemeral_1h_input_tokens = cache_details.get("ephemeral_1h_input_tokens", 0)
+                ephememal_5m_input_tokens = cache_details.get("ephememal_5m_input_tokens", 0)
+                
+                if ephemeral_1h_input_tokens > 0:
+                    token_usage.metadata["ephemeral_1h_input_tokens"] = ephemeral_1h_input_tokens
+                if ephememal_5m_input_tokens > 0:
+                    token_usage.metadata["ephememal_5m_input_tokens"] = ephememal_5m_input_tokens
+            
         elif hasattr(response, "response_metadata") and response.response_metadata:
             metadata = response.response_metadata
             if "token_usage" in metadata:
                 usage = metadata["token_usage"]
-                return TokenUsage(
-                    prompt_tokens=usage.get("prompt_tokens", 0),
-                    completion_tokens=usage.get("completion_tokens", 0),
-                    total_tokens=usage.get("total_tokens", 0),
-                )
+                
+                # 基础token信息
+                token_usage.prompt_tokens = usage.get("prompt_tokens", 0)
+                token_usage.completion_tokens = usage.get("completion_tokens", 0)
+                token_usage.total_tokens = usage.get("total_tokens", 0)
+                
+                # 缓存token信息
+                cache_creation_input_tokens = usage.get("cache_creation_input_tokens", 0)
+                cache_read_input_tokens = usage.get("cache_read_input_tokens", 0)
+                
+                token_usage.cached_prompt_tokens = cache_read_input_tokens
+                token_usage.cached_tokens = cache_read_input_tokens
+                
+                if cache_creation_input_tokens > 0:
+                    token_usage.metadata["cache_creation_input_tokens"] = cache_creation_input_tokens
 
-        # 默认返回0
-        return TokenUsage()
+        return token_usage
 
     def _extract_function_call(self, response: Any) -> Optional[Dict[str, Any]]:
         """提取函数调用信息"""

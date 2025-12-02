@@ -588,10 +588,10 @@ class LLMModuleConfig:
     default_timeout: int = 30
     default_max_retries: int = 3
 
-    # 缓存配置
+    # API请求缓存配置（用于控制LLM API请求缓存，提高性能和降低成本）
     cache_enabled: bool = True
     cache_ttl: int = 3600  # 缓存生存时间（秒）
-    cache_max_size: int = 100
+    cache_max_size: int = 100  # 最大缓存条目数
 
     # 钩子配置
     hooks_enabled: bool = True
@@ -685,16 +685,16 @@ class OpenAIConfig(LLMClientConfig):
 class GeminiConfig(LLMClientConfig):
     """Gemini特定配置"""
     
-    # Gemini缓存特定参数
-    content_cache_enabled: bool = False
-    content_cache_ttl: str = "3600s"  # Gemini使用字符串格式
-    content_cache_display_name: Optional[str] = None
+    # Gemini API请求缓存特定参数（用于控制Gemini API的缓存功能）
+    content_cache_enabled: bool = False  # 是否启用Gemini内容缓存
+    content_cache_ttl: str = "3600s"  # Gemini使用字符串格式的TTL
+    content_cache_display_name: Optional[str] = None  # 缓存显示名称
     
-    # 增强缓存配置
-    server_cache_enabled: bool = False
-    auto_server_cache: bool = False
-    server_cache_ttl: str = "3600s"
-    large_content_threshold: int = 1048576  # 1MB
+    # Gemini服务器端缓存配置（用于大内容的服务器端缓存）
+    server_cache_enabled: bool = False  # 是否启用服务器端缓存
+    auto_server_cache: bool = False  # 是否自动使用服务器端缓存
+    server_cache_ttl: str = "3600s"  # 服务器端缓存TTL
+    large_content_threshold: int = 1048576  # 1MB，大内容阈值
     cache_strategy: str = "client_first"  # client_first, server_first, hybrid
 
     def __post_init__(self) -> None:

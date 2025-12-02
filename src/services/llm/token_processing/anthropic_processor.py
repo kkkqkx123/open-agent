@@ -85,11 +85,50 @@ class AnthropicTokenProcessor(BaseTokenProcessor):
             input_tokens = usage.get("input_tokens", 0)
             output_tokens = usage.get("output_tokens", 0)
             
+            # 解析缓存token信息
+            cache_creation_input_tokens = usage.get("cache_creation_input_tokens", 0)
+            cache_read_input_tokens = usage.get("cache_read_input_tokens", 0)
+            
+            # Anthropic的总缓存token = 创建缓存token + 读取缓存token
+            total_cached_tokens = cache_creation_input_tokens + cache_read_input_tokens
+            
+            # 解析扩展token信息
+            extended_tokens = {}
+            
+            # 缓存创建详情（按TTL分类）
+            cache_creation = usage.get("cache_creation", {})
+            if cache_creation:
+                ephemeral_1h_tokens = cache_creation.get("ephemeral_1h_input_tokens", 0)
+                ephemeral_5m_tokens = cache_creation.get("ephemeral_5m_input_tokens", 0)
+                
+                if ephemeral_1h_tokens > 0:
+                    extended_tokens["cache_creation_1h_tokens"] = ephemeral_1h_tokens
+                if ephemeral_5m_tokens > 0:
+                    extended_tokens["cache_creation_5m_tokens"] = ephemeral_5m_tokens
+            
+            # 服务器工具使用
+            server_tool_use = usage.get("server_tool_use", {})
+            if server_tool_use:
+                web_search_requests = server_tool_use.get("web_search_requests", 0)
+                if web_search_requests > 0:
+                    extended_tokens["web_search_requests"] = web_search_requests
+            
+            # 服务层级
+            service_tier = usage.get("service_tier")
+            if service_tier:
+                extended_tokens["service_tier"] = 1  # 标记使用了服务层级
+            
             token_usage = TokenUsage(
                 prompt_tokens=input_tokens,
                 completion_tokens=output_tokens,
                 total_tokens=input_tokens + output_tokens,
                 source="api",
+                # 缓存token统计
+                cached_tokens=total_cached_tokens,
+                cached_prompt_tokens=total_cached_tokens,  # Anthropic缓存主要是prompt_tokens
+                cached_completion_tokens=0,  # Anthropic通常不缓存completion_tokens
+                # 扩展token统计
+                extended_tokens=extended_tokens,
                 additional_info={
                     "model": response.get("model"),
                     "id": response.get("id"),
@@ -97,10 +136,11 @@ class AnthropicTokenProcessor(BaseTokenProcessor):
                     "role": response.get("role"),
                     "stop_reason": response.get("stop_reason"),
                     "stop_sequence": response.get("stop_sequence"),
-                    "cache_creation_tokens": usage.get("cache_creation_input_tokens", 0),
-                    "cache_read_tokens": usage.get("cache_read_input_tokens", 0),
-                    "cache_creation_input_tokens": usage.get("cache_creation_input_tokens", 0),
-                    "cache_read_input_tokens": usage.get("cache_read_input_tokens", 0)
+                    "cache_creation_input_tokens": cache_creation_input_tokens,
+                    "cache_read_input_tokens": cache_read_input_tokens,
+                    "service_tier": service_tier,
+                    "cache_creation": cache_creation,
+                    "server_tool_use": server_tool_use
                 }
             )
             
@@ -149,20 +189,4 @@ class AnthropicTokenProcessor(BaseTokenProcessor):
             # 检查是否有Anthropic特有的响应结构
             "type" in response and response.get("type") == "message"
         )
-    
-    def get_model_pricing(self) -> Optional[Dict[str, float]]:
-        """
-        获取模型定价信息
-        
-        Returns:
-            Optional[Dict[str, float]]: 定价信息，格式为 {"prompt": 0.003, "completion": 0.015}
-        """
-        # Anthropic模型定价
-        pricing_map = {
-            "claude-3-haiku-20240307": {"prompt": 0.00025, "completion": 0.00125},
-            "claude-3-sonnet-20240229": {"prompt": 0.003, "completion": 0.015},
-            "claude-3-opus-20240229": {"prompt": 0.015, "completion": 0.075},
-            "claude-3-5-sonnet-20240620": {"prompt": 0.003, "completion": 0.015},
-        }
-        
-        return pricing_map.get(self.model_name)
+   
