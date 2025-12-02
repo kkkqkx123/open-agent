@@ -4,8 +4,7 @@
 """
 
 from .token_types import TokenUsage
-from .base_processor import ITokenProcessor
-from .base_implementation import BaseTokenProcessor, CachedTokenProcessor, DegradationTokenProcessor
+from .base_processor import ITokenProcessor, BaseTokenProcessor
 from .openai_processor import OpenAITokenProcessor
 from .gemini_processor import GeminiTokenProcessor
 from .anthropic_processor import AnthropicTokenProcessor
@@ -16,8 +15,6 @@ __all__ = [
     "TokenUsage",
     "ITokenProcessor",
     "BaseTokenProcessor",
-    "CachedTokenProcessor", 
-    "DegradationTokenProcessor",
     "OpenAITokenProcessor",
     "GeminiTokenProcessor",
     "AnthropicTokenProcessor",

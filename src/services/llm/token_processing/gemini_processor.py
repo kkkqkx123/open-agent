@@ -8,9 +8,10 @@ from typing import Dict, Any, Optional, Sequence
 
 from langchain_core.messages import BaseMessage
 
-from .base_processor import ITokenProcessor, TokenUsage
-from .base_implementation import BaseTokenProcessor
-from ..utils.encoding_protocol import extract_content_as_string
+from .base_processor import BaseTokenProcessor
+from .token_types import TokenUsage
+from ..utils.encoding_protocol import TiktokenEncoding
+from src.interfaces.llm.encoding import EncodingProtocol
 
 logger = get_logger(__name__)
 
@@ -29,6 +30,24 @@ class GeminiTokenProcessor(BaseTokenProcessor):
             model_name: 模型名称
         """
         super().__init__(model_name, "gemini")
+        self._encoding: Optional[EncodingProtocol] = None
+        self._load_encoding()
+    
+    def _load_encoding(self) -> None:
+        """加载tiktoken编码器"""
+        try:
+            import tiktoken
+            
+            # Gemini模型使用cl100k_base编码器（与GPT-4相同）
+            # 这是目前最接近Gemini tokenization的公开编码器
+            encoding = tiktoken.get_encoding("cl100k_base")
+            self._encoding = TiktokenEncoding(encoding)
+            
+            logger.info(f"Gemini处理器使用tiktoken编码器: {self._encoding.name}")
+                
+        except ImportError:
+            # 如果没有安装tiktoken，抛出异常而不是降级到除4估算
+            raise ImportError("tiktoken is required for Gemini token processing. Please install it with: pip install tiktoken")
     
     def count_tokens(self, text: str) -> Optional[int]:
         """
@@ -40,45 +59,12 @@ class GeminiTokenProcessor(BaseTokenProcessor):
         Returns:
             Optional[int]: token数量
         """
-        # Gemini没有公开的token计算库，使用估算
-        # Gemini大约4个字符=1个token
-        return len(text) // 4
-    
-    def count_messages_tokens(self, messages: Sequence[BaseMessage], api_response: Optional[Dict[str, Any]] = None) -> Optional[int]:
-        """
-        计算消息列表的token数量
-        
-        Args:
-            messages: 消息列表
-            api_response: API响应（可选，用于更准确的计算）
-            
-        Returns:
-            Optional[int]: token数量
-        """
-        # 如果有API响应，优先使用API响应中的token数量
-        if api_response:
-            usage = self.parse_response(api_response)
-            if usage and usage.total_tokens > 0:
-                return usage.total_tokens
-        
-        # 否则使用本地计算
-        total_tokens = 0
-        
-        for message in messages:
-            # 计算消息内容的token
-            content_tokens = self.count_tokens(
-                extract_content_as_string(message.content)
-            )
-            if content_tokens is not None:
-                total_tokens += content_tokens
-            
-            # 添加格式化的token（每个消息约4个token）
-            total_tokens += 4
-        
-        # 添加回复的token（约3个token）
-        total_tokens += 3
-        
-        return total_tokens
+        if self._encoding:
+            return len(self._encoding.encode(text))
+        else:
+            # 如果编码器不可用，返回None而不是使用除4估算
+            logger.warning("Encoding not available, cannot count tokens")
+            return None
     
     def parse_response(self, response: Dict[str, Any]) -> Optional[TokenUsage]:
         """
@@ -126,44 +112,15 @@ class GeminiTokenProcessor(BaseTokenProcessor):
             Dict[str, Any]: 模型信息
         """
         base_info = super().get_model_info()
+        encoding_name = "estimated"
+        if self._encoding:
+            encoding_name = getattr(self._encoding, 'name', 'tiktoken')
+        
         return {
             **base_info,
-            "encoding": "estimated",
-            "supports_tiktoken": False,
+            "encoding": encoding_name,
+            "supports_tiktoken": self._encoding is not None,
         }
-    
-    def update_from_api_response(self, response: Dict[str, Any], 
-                                context: Optional[str] = None) -> bool:
-        """
-        从API响应更新token信息
-        
-        Args:
-            response: API响应数据
-            context: 上下文文本（可选）
-            
-        Returns:
-            bool: 是否成功更新
-        """
-        usage = self.parse_response(response)
-        return usage is not None
-    
-    def get_last_api_usage(self) -> Optional[TokenUsage]:
-        """
-        获取最近的API使用情况
-        
-        Returns:
-            Optional[TokenUsage]: 最近的API使用情况
-        """
-        return self._last_usage
-    
-    def is_api_usage_available(self) -> bool:
-        """
-        检查是否有可用的API使用数据
-        
-        Returns:
-            bool: 是否有可用的API使用数据
-        """
-        return self._last_usage is not None
     
     def is_supported_response(self, response: Dict[str, Any]) -> bool:
         """

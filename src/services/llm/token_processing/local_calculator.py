@@ -3,7 +3,7 @@
 from src.services.logger import get_logger
 from typing import Dict, Any, List, Optional, Sequence
 
-from langchain_core.messages import BaseMessage  # type: ignore
+from langchain_core.messages import BaseMessage
 
 from .token_types import TokenUsage
 from ..utils.encoding_protocol import extract_content_as_string
@@ -28,7 +28,7 @@ class LocalTokenCalculator:
         self._load_encoding()
     
     def _load_encoding(self) -> None:
-        """加载编码器"""
+        """加载tiktoken编码器"""
         try:
             import tiktoken
             
@@ -42,9 +42,8 @@ class LocalTokenCalculator:
             logger.info(f"使用tiktoken编码器: {self._encoding.name}")
                 
         except ImportError:
-            # 如果没有安装tiktoken，使用简单的估算
-            self._encoding = None
-            logger.warning("tiktoken not available, falling back to estimation (len(text) // 4)")
+            # 如果没有安装tiktoken，抛出异常而不是降级到除4估算
+            raise ImportError("tiktoken is required for token processing. Please install it with: pip install tiktoken")
     
     def count_tokens(self, text: str) -> Optional[int]:
         """
@@ -54,13 +53,14 @@ class LocalTokenCalculator:
             text: 输入文本
             
         Returns:
-            Optional[int]: token数量，本地计算器总是能返回结果
+            Optional[int]: token数量
         """
         if self._encoding:
             return len(self._encoding.encode(text))
         else:
-            # 简单估算：大约4个字符=1个token
-            return len(text) // 4
+            # 如果编码器不可用，返回None而不是使用除4估算
+            logger.warning("Encoding not available, cannot count tokens")
+            return None
     
     def count_messages_tokens(self, messages: Sequence[BaseMessage], api_response: Optional[Dict[str, Any]] = None) -> Optional[int]:
         """
@@ -108,24 +108,9 @@ class LocalTokenCalculator:
         return total_tokens
     
     def _count_messages_tokens_estimation(self, messages: List[BaseMessage]) -> int:
-        """使用估算方法计算消息格式的token数量"""
-        total_tokens = 0
-        
-        for message in messages:
-            # 每条消息内容的token
-            content_tokens = self.count_tokens(
-                extract_content_as_string(message.content)
-            )
-            if content_tokens is not None:
-                total_tokens += content_tokens
-            
-            # 添加格式化的token（每个消息4个token）
-            total_tokens += 4
-        
-        # 添加回复的token（3个token）
-        total_tokens += 3
-        
-        return total_tokens
+        """当编码器不可用时返回0"""
+        logger.warning("Encoding not available, cannot count message tokens")
+        return 0
     
     def get_model_info(self) -> Dict[str, Any]:
         """

@@ -6,11 +6,12 @@
 from src.services.logger import get_logger
 from typing import Dict, Any, Optional, Sequence
 
-from langchain_core.messages import BaseMessage  # type: ignore
+from langchain_core.messages import BaseMessage
 
-from .base_processor import ITokenProcessor, TokenUsage
-from .base_implementation import BaseTokenProcessor
-from ..utils.encoding_protocol import extract_content_as_string, EncodingProtocol, TiktokenEncoding
+from .base_processor import BaseTokenProcessor
+from .token_types import TokenUsage
+from ..utils.encoding_protocol import extract_content_as_string, TiktokenEncoding
+from src.interfaces.llm.encoding import EncodingProtocol
 
 logger = get_logger(__name__)
 
@@ -33,7 +34,7 @@ class OpenAITokenProcessor(BaseTokenProcessor):
         self._load_encoding()
     
     def _load_encoding(self) -> None:
-        """加载编码器"""
+        """加载tiktoken编码器"""
         try:
             import tiktoken
             
@@ -46,12 +47,11 @@ class OpenAITokenProcessor(BaseTokenProcessor):
                 encoding = tiktoken.get_encoding("cl100k_base")
                 self._encoding = TiktokenEncoding(encoding)
                 
-            logger.info(f"使用tiktoken编码器: {self._encoding.name}")
+            logger.info(f"OpenAI处理器使用tiktoken编码器: {self._encoding.name}")
                 
         except ImportError:
-            # 如果没有安装tiktoken，使用简单的估算
-            self._encoding = None
-            logger.warning("tiktoken not available, falling back to estimation (len(text) // 4)")
+            # 如果没有安装tiktoken，抛出异常而不是降级到除4估算
+            raise ImportError("tiktoken is required for OpenAI token processing. Please install it with: pip install tiktoken")
     
     def count_tokens(self, text: str) -> Optional[int]:
         """
@@ -66,8 +66,9 @@ class OpenAITokenProcessor(BaseTokenProcessor):
         if self._encoding:
             return len(self._encoding.encode(text))
         else:
-            # 简单估算：大约4个字符=1个token
-            return len(text) // 4
+            # 如果编码器不可用，返回None而不是使用除4估算
+            logger.warning("Encoding not available, cannot count tokens")
+            return None
     
     def count_messages_tokens(self, messages: Sequence[BaseMessage], api_response: Optional[Dict[str, Any]] = None) -> Optional[int]:
         """
@@ -122,24 +123,9 @@ class OpenAITokenProcessor(BaseTokenProcessor):
         return total_tokens
     
     def _count_messages_tokens_estimation(self, messages: list[BaseMessage]) -> int:
-        """使用估算方法计算消息格式的token数量"""
-        total_tokens = 0
-        
-        for message in messages:
-            # 每条消息内容的token
-            content_tokens = self.count_tokens(
-                extract_content_as_string(message.content)
-            )
-            if content_tokens is not None:
-                total_tokens += content_tokens
-            
-            # 添加格式化的token（每个消息4个token）
-            total_tokens += 4
-        
-        # 添加回复的token（3个token）
-        total_tokens += 3
-        
-        return total_tokens
+        """当编码器不可用时返回0"""
+        logger.warning("Encoding not available, cannot count message tokens")
+        return 0
     
     def parse_response(self, response: Dict[str, Any]) -> Optional[TokenUsage]:
         """
@@ -196,39 +182,6 @@ class OpenAITokenProcessor(BaseTokenProcessor):
             "encoding": encoding_name,
             "supports_tiktoken": self._encoding is not None,
         }
-    
-    def update_from_api_response(self, response: Dict[str, Any], 
-                                context: Optional[str] = None) -> bool:
-        """
-        从API响应更新token信息
-        
-        Args:
-            response: API响应数据
-            context: 上下文文本（可选）
-            
-        Returns:
-            bool: 是否成功更新
-        """
-        usage = self.parse_response(response)
-        return usage is not None
-    
-    def get_last_api_usage(self) -> Optional[TokenUsage]:
-        """
-        获取最近的API使用情况
-        
-        Returns:
-            Optional[TokenUsage]: 最近的API使用情况
-        """
-        return self._last_usage
-    
-    def is_api_usage_available(self) -> bool:
-        """
-        检查是否有可用的API使用数据
-        
-        Returns:
-            bool: 是否有可用的API使用数据
-        """
-        return self._last_usage is not None
     
     def is_supported_response(self, response: Dict[str, Any]) -> bool:
         """

@@ -1,8 +1,12 @@
-"""编码协议和工具函数"""
+"""编码工具函数和实现"""
 
-from abc import ABC, abstractmethod
-from typing import Any, Union
-from langchain_core.messages import BaseMessage
+from typing import Any, Union, TYPE_CHECKING
+
+from src.interfaces.llm.encoding import EncodingProtocol
+
+if TYPE_CHECKING:
+    # 避免运行时依赖tiktoken
+    import tiktoken
 
 
 def extract_content_as_string(content: Union[str, list, Any]) -> str:
@@ -36,44 +40,10 @@ def extract_content_as_string(content: Union[str, list, Any]) -> str:
         return str(content)
 
 
-class EncodingProtocol(ABC):
-    """编码协议接口"""
-    
-    @abstractmethod
-    def encode(self, text: str) -> list[int]:
-        """编码文本为token列表
-        
-        Args:
-            text: 要编码的文本
-            
-        Returns:
-            list[int]: token列表
-        """
-        pass
-    
-    @abstractmethod
-    def decode(self, tokens: list[int]) -> str:
-        """解码token列表为文本
-        
-        Args:
-            tokens: token列表
-            
-        Returns:
-            str: 解码的文本
-        """
-        pass
-    
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """获取编码器名称"""
-        pass
-
-
 class TiktokenEncoding(EncodingProtocol):
     """Tiktoken编码器适配器"""
     
-    def __init__(self, encoding):
+    def __init__(self, encoding: "tiktoken.Encoding") -> None:
         """初始化Tiktoken编码器
         
         Args:
