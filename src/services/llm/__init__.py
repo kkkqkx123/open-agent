@@ -16,11 +16,17 @@ from .utils.metadata_service import ClientMetadataService
 from .state_machine import StateMachine, LLMManagerState
 from .factory.client_factory import ClientFactory
 from .token_processing import (
-    ITokenProcessor, 
-    TokenUsage, 
-    OpenAITokenProcessor, 
-    AnthropicTokenProcessor, 
+    ITokenProcessor,
+    TokenUsage,
+    OpenAITokenProcessor,
+    AnthropicTokenProcessor,
     GeminiTokenProcessor
+)
+from .token_calculation_service import TokenCalculationService
+from .token_calculation_decorator import TokenCalculationDecorator
+from .config import (
+    ProviderConfigTokenConfigProvider,
+    ProviderConfigTokenCostCalculator
 )
 
 __all__ = [
@@ -55,4 +61,12 @@ __all__ = [
     "OpenAITokenProcessor",
     "AnthropicTokenProcessor",
     "GeminiTokenProcessor",
+    
+    # Token计算服务
+    "TokenCalculationService",
+    "TokenCalculationDecorator",
+    
+    # Token配置服务
+    "ProviderConfigTokenConfigProvider",
+    "ProviderConfigTokenCostCalculator",
 ]

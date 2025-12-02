@@ -27,6 +27,14 @@ from .polling import IPollingPoolManager
 # 从cache模块导入
 from .cache import ICacheProvider, ICacheKeyGenerator
 
+# 从token_config模块导入
+from .token_config import (
+    ITokenConfigProvider,
+    ITokenCostCalculator,
+    TokenCalculationConfig,
+    TokenCostInfo
+)
+
 # 定义导出列表
 __all__ = [
     'LLMResponse',
@@ -44,4 +52,9 @@ __all__ = [
     'IPollingPoolManager',
     'ICacheProvider',
     'ICacheKeyGenerator',
+    # Token配置相关接口
+    'ITokenConfigProvider',
+    'ITokenCostCalculator',
+    'TokenCalculationConfig',
+    'TokenCostInfo',
 ]

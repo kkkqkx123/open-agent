@@ -116,7 +116,7 @@ def main():
     if config_manager._provider_discovery:
         # 获取GPT-4的完整配置（包含继承的配置）
         gpt4_config = config_manager._provider_discovery.get_provider_config(
-            "openai", "gpt-4", config_manager.config_manager
+            "openai", "gpt-4"
         )
         
         if gpt4_config:

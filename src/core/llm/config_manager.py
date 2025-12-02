@@ -1,481 +1,346 @@
-"""LLM配置管理器 - 统一配置加载、验证和热重载"""
+"""增强的LLM配置管理器
 
-import yaml
-import json
-import traceback
-from typing import Dict, Any, Optional, List, Union, Callable, Type
+使用混合架构，复用通用配置系统，保留LLM特定功能。
+"""
+
 from pathlib import Path
-from dataclasses import dataclass
-from datetime import datetime
+from typing import Dict, Any, Optional, List, Union, Callable
 from threading import Lock
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 
-from .config import LLMClientConfig, LLMModuleConfig
-from ..common.exceptions.llm import LLMConfigurationError
-from ..config.config_manager import ConfigManager
-# LLMConfigManager现在直接使用ConfigManager
+from src.services.logger import get_logger
+from src.core.common.exceptions.config import ConfigError, ConfigNotFoundError
+from src.core.config.config_loader import IConfigLoader, ConfigLoader
+from src.core.config.config_manager import ConfigManager
+from src.core.llm.config_validator_adapter import LLMConfigValidatorAdapter
+from src.core.llm.config_merger_adapter import LLMConfigMergerAdapter
+from src.core.llm.provider_config_discovery import ProviderConfigDiscovery
 
-
-@dataclass
-class ConfigValidationRule:
-    """配置验证规则"""
-    field_path: str  # 字段路径，如 "model_type", "timeout"
-    required: bool = True
-    field_type: Optional[Type] = None
-    min_value: Optional[Union[int, float]] = None
-    max_value: Optional[Union[int, float]] = None
-    allowed_values: Optional[List[Any]] = None
-    custom_validator: Optional[Callable[[Any], bool]] = None
-    error_message: Optional[str] = None
-
-
-class ConfigValidator:
-    """配置验证器"""
-    
-    def __init__(self) -> None:
-        """初始化配置验证器"""
-        self.rules: List[ConfigValidationRule] = []
-        self._setup_default_rules()
-    
-    def _setup_default_rules(self) -> None:
-        """设置默认验证规则"""
-        # LLMClientConfig 验证规则
-        self.rules.extend([
-            ConfigValidationRule(
-                field_path="model_type",
-                required=True,
-                field_type=str,
-                allowed_values=["openai", "gemini", "anthropic", "claude", "mock"],
-                error_message="model_type必须是支持的类型: openai, gemini, anthropic, claude, mock"
-            ),
-            ConfigValidationRule(
-                field_path="model_name",
-                required=True,
-                field_type=str,
-                error_message="model_name是必需的字符串字段"
-            ),
-            ConfigValidationRule(
-                field_path="timeout",
-                required=False,
-                field_type=int,
-                min_value=1,
-                max_value=300,
-                error_message="timeout必须是1-300之间的整数"
-            ),
-            ConfigValidationRule(
-                field_path="max_retries",
-                required=False,
-                field_type=int,
-                min_value=0,
-                max_value=10,
-                error_message="max_retries必须是0-10之间的整数"
-            ),
-            ConfigValidationRule(
-                field_path="temperature",
-                required=False,
-                field_type=float,
-                min_value=0.0,
-                max_value=2.0,
-                error_message="temperature必须是0.0-2.0之间的浮点数"
-            ),
-            ConfigValidationRule(
-                field_path="max_tokens",
-                required=False,
-                field_type=int,
-                min_value=1,
-                max_value=100000,
-                error_message="max_tokens必须是1-100000之间的整数"
-            ),
-        ])
-    
-    def add_rule(self, rule: ConfigValidationRule) -> None:
-        """添加验证规则"""
-        self.rules.append(rule)
-    
-    def validate_config(self, config: Dict[str, Any]) -> List[str]:
-        """验证配置"""
-        errors = []
-        
-        for rule in self.rules:
-            try:
-                value = self._get_nested_value(config, rule.field_path)
-                
-                # 检查必需字段
-                if rule.required and value is None:
-                    errors.append(f"必需字段 '{rule.field_path}' 缺失")
-                    continue
-                
-                # 如果值为None且不是必需的，跳过其他验证
-                if value is None:
-                    continue
-                
-                # 类型验证
-                if rule.field_type and not isinstance(value, rule.field_type):
-                    errors.append(
-                        f"字段 '{rule.field_path}' 类型错误: "
-                        f"期望 {rule.field_type.__name__}, 实际 {type(value).__name__}"
-                    )
-                    continue
-                
-                # 数值范围验证
-                if isinstance(value, (int, float)):
-                    if rule.min_value is not None and value < rule.min_value:
-                        errors.append(
-                            f"字段 '{rule.field_path}' 值过小: "
-                            f"最小值 {rule.min_value}, 实际值 {value}"
-                        )
-                    if rule.max_value is not None and value > rule.max_value:
-                        errors.append(
-                            f"字段 '{rule.field_path}' 值过大: "
-                            f"最大值 {rule.max_value}, 实际值 {value}"
-                        )
-                
-                # 允许值验证
-                if rule.allowed_values and value not in rule.allowed_values:
-                    errors.append(
-                        f"字段 '{rule.field_path}' 值无效: "
-                        f"允许值 {rule.allowed_values}, 实际值 {value}"
-                    )
-                
-                # 自定义验证
-                if rule.custom_validator and not rule.custom_validator(value):
-                    errors.append(
-                        rule.error_message or 
-                        f"字段 '{rule.field_path}' 自定义验证失败"
-                    )
-                    
-            except Exception as e:
-                errors.append(f"验证字段 '{rule.field_path}' 时出错: {str(e)}")
-        
-        return errors
-    
-    def _get_nested_value(self, data: Dict[str, Any], path: str) -> Any:
-        """获取嵌套字典中的值"""
-        keys = path.split('.')
-        current = data
-        
-        for key in keys:
-            if isinstance(current, dict) and key in current:
-                current = current[key]
-            else:
-                return None
-        
-        return current
-
-
-class ConfigFileHandler(FileSystemEventHandler):
-    """配置文件变更处理器"""
-
-    def __init__(self, config_manager: 'LLMConfigManager') -> None:
-        """初始化文件处理器"""
-        self.config_manager = config_manager
-        self.last_modified: Dict[str, float] = {}
-    
-    def on_modified(self, event: Any) -> None:
-        """文件修改事件处理"""
-        from watchdog.events import FileSystemEvent
-        if event.is_directory:
-            return
-
-        file_path = Path(str(event.src_path))
-
-        # 检查是否是配置文件
-        if not self._is_config_file(file_path):
-            return
-
-        # 防抖处理
-        current_time = datetime.now().timestamp()
-        last_time = self.last_modified.get(str(file_path), 0)
-
-        if current_time - last_time < 1.0:  # 1秒内的重复变更忽略
-            return
-
-        self.last_modified[str(file_path)] = current_time
-
-        try:
-            # 检测到配置文件变更
-            self.config_manager._reload_config_file(file_path)
-        except Exception:
-            # 静默处理错误
-            pass
-    
-    def _is_config_file(self, file_path: Path) -> bool:
-        """检查是否是配置文件"""
-        return file_path.suffix.lower() in ['.yaml', '.yml', '.json']
+logger = get_logger(__name__)
 
 
 class LLMConfigManager:
-    """LLM配置管理器 - 使用适配器模式包装基础配置管理器"""
+    """增强的LLM配置管理器
     
-    def __init__(
-        self,
-        base_config_manager: Optional['ConfigManager'] = None,
-        config_subdir: str = "llms",
-        enable_hot_reload: bool = True,
-        validation_enabled: bool = True,
-    ) -> None:
-        """
-        初始化配置管理器
+    使用混合架构：
+    - 复用通用配置加载器进行文件I/O
+    - 使用LLM特定适配器进行验证和合并
+    - 保留LLM特定的发现和管理逻辑
+    """
+    
+    def __init__(self, 
+                 config_loader: Optional[IConfigLoader] = None,
+                 base_path: str = "configs/llms",
+                 enable_provider_configs: bool = True):
+        """初始化增强的LLM配置管理器
         
         Args:
-            base_config_manager: 基础配置管理器实例，若为None则使用默认管理器
-            config_subdir: 相对于configs的子目录
-            enable_hot_reload: 是否启用热重载
-            validation_enabled: 是否启用配置验证
+            config_loader: 通用配置加载器
+            base_path: LLM配置基础路径
+            enable_provider_configs: 是否启用Provider配置
         """
-        if base_config_manager is None:
-            from ..config.config_manager import get_default_manager
-            base_config_manager = get_default_manager()
+        self.base_path = Path(base_path)
         
-        # 直接使用基础配置管理器
-        self.config_manager = base_config_manager
-        self.config_subdir = config_subdir
-        self.config_dir = Path("configs") / self.config_subdir
-        self.enable_hot_reload = enable_hot_reload
-        self.validation_enabled = validation_enabled
+        # 初始化通用配置加载器
+        self.config_loader = config_loader or ConfigLoader(self.base_path)
+        
+        # 初始化通用配置管理器
+        self.config_manager = ConfigManager(
+            base_path=self.base_path,
+            use_cache=True,
+            auto_reload=False
+        )
+        
+        # 初始化LLM特定适配器
+        self.validator_adapter = LLMConfigValidatorAdapter()
+        self.merger_adapter = LLMConfigMergerAdapter()
+        
+        # Provider配置发现器
+        self.provider_discovery: Optional[ProviderConfigDiscovery] = None
+        if enable_provider_configs:
+            self.provider_discovery = ProviderConfigDiscovery(
+                self.config_loader, 
+                str(self.base_path)
+            )
         
         # 配置缓存
         self._config_cache: Dict[str, Dict[str, Any]] = {}
-        self._client_configs: Dict[str, LLMClientConfig] = {}
-        self._module_config: Optional[LLMModuleConfig] = None
-        
-        # 初始化验证器（避免循环导入）
-        self._validator: Optional[ConfigValidator] = None  # 延迟初始化
-        
-        # 热重载相关
-        self._observer: Optional[Any] = None
         self._lock = Lock()
         
-        # 回调函数
-        self._reload_callbacks: List[Callable[[str, Dict[str, Any]], None]] = []
+        logger.info(f"增强LLM配置管理器初始化完成，基础路径: {self.base_path}")
+    
+    def load_llm_config(self, config_path: str, validate: bool = True) -> Dict[str, Any]:
+        """加载LLM配置
         
-        # 初始化
-        self._initialize()
+        Args:
+            config_path: 配置文件路径
+            validate: 是否验证配置
+            
+        Returns:
+            Dict[str, Any]: 配置数据
+        """
+        with self._lock:
+            # 检查缓存
+            cache_key = f"llm:{config_path}"
+            if cache_key in self._config_cache:
+                logger.debug(f"从缓存加载LLM配置: {config_path}")
+                return self._config_cache[cache_key]
+            
+            try:
+                # 使用通用配置管理器加载配置
+                config = self.config_manager.load_config(config_path, module_type="llm")
+                
+                # 使用LLM验证器适配器验证
+                if validate:
+                    validation_result = self.validator_adapter.validate_llm_config(config)
+                    if not validation_result.is_valid:
+                        error_msg = f"LLM配置验证失败 {config_path}: " + "; ".join(validation_result.errors)
+                        logger.error(error_msg)
+                        raise ConfigError(error_msg)
+                    
+                    # 记录警告和信息
+                    for warning in validation_result.warnings:
+                        logger.warning(f"LLM配置警告 {config_path}: {warning}")
+                    for info in validation_result.info:
+                        logger.info(f"LLM配置信息 {config_path}: {info}")
+                
+                # 缓存配置
+                self._config_cache[cache_key] = config
+                
+                logger.info(f"LLM配置加载成功: {config_path}")
+                return config
+                
+            except Exception as e:
+                logger.error(f"加载LLM配置失败 {config_path}: {e}")
+                raise
     
-    @property
-    def validator(self) -> ConfigValidator:
-        """延迟加载验证器以避免循环导入"""
-        if self._validator is None:
-            self._validator = ConfigValidator()
-        return self._validator
-    
-    def _initialize(self) -> None:
-        """初始化配置管理器"""
-        # 加载所有配置
-        self._load_all_configs()
+    def load_provider_config(self, provider_name: str, model_name: str, 
+                           validate: bool = True) -> Dict[str, Any]:
+        """加载Provider配置
         
-        # 启动热重载
-        if self.enable_hot_reload:
-            self._start_hot_reload()
-    
-    def _load_all_configs(self) -> None:
-        """加载所有配置文件"""
-        try:
-            # 加载模块配置
-            self._load_module_config()
-
-            # 加载客户端配置
-            self._load_client_configs()
-
-        except Exception as e:
-            raise LLMConfigurationError(f"配置加载失败: {e}")
-    
-    def _load_module_config(self) -> None:
-        """加载模块配置"""
-        module_config_path = f"{self.config_subdir}/_group.yaml"
-
-        try:
-            config_data = self._load_config_file(module_config_path)
-            if config_data:
-                self._module_config = LLMModuleConfig.from_dict(config_data)
-        except Exception:
-            # 使用默认配置
-            self._module_config = LLMModuleConfig()
-    
-    def _load_client_configs(self) -> None:
-        """加载客户端配置"""
-        self._client_configs.clear()
-
-        # 注意：这里我们无法直接通过 IConfigLoader 列出文件
-        # 这是一个设计权衡，为了保持 IConfigLoader 接口的简洁性
-        # 我们假设已知的配置文件列表，或者在未来扩展 IConfigLoader 接口
-        # 作为临时方案，我们仍然需要扫描目录，但只用于获取文件名
-        config_dir = Path("configs") / self.config_subdir
-        if not config_dir.exists():
-            # 静默处理错误，返回
-            return
-
-        for config_file in config_dir.glob("*.yaml"):
-            if config_file.name.startswith("_"):
-                continue  # 跳过组配置文件
-
-            try:
-                config_path = f"{self.config_subdir}/{config_file.name}"
-                config_data = self._load_config_file(config_path)
-                if config_data:
-                    client_config = LLMClientConfig.from_dict(config_data)
-                    model_key = f"{client_config.model_type}:{client_config.model_name}"
-                    self._client_configs[model_key] = client_config
-
-                    # 缓存原始配置数据
-                    self._config_cache[config_path] = config_data
-
-            except Exception:
-                # 静默处理错误，继续加载其他配置
-                pass
-    
-    def _load_config_file(self, config_path: str) -> Optional[Dict[str, Any]]:
-        """加载单个配置文件"""
-        try:
-            # 使用基础配置管理器加载配置
-            config_data = self.config_manager.load_config_for_module(config_path, "llm")
-
-            # 配置验证逻辑保留，因为这是 LLMConfigManager 的特定职责
-            if self.validation_enabled:
-                errors = self.validator.validate_config(config_data)
-                if errors:
-                    error_msg = f"配置验证失败 {config_path}:\n" + "\n".join(f"  - {error}" for error in errors)
-                    raise LLMConfigurationError(error_msg)
-
-            return config_data
-
-        except Exception:
-            # 静默处理错误
-            return None
-
-    def _reload_config_file(self, file_path: Path) -> None:
-        """重新加载配置文件（用于向后兼容）"""
-        config_path = f"{self.config_subdir}/{file_path.name}"
-        config_data = self._load_config_file(config_path)
-        if config_data:
-            self._on_config_file_changed(config_path, config_data)
-
-    # _substitute_env_vars 和 _replace_env_vars 方法已被移除，
-    # 因为这些功能现在由 IConfigLoader 提供
-    
-    def _start_hot_reload(self) -> None:
-        """启动热重载"""
-        if not self.enable_hot_reload:
-            return
-
-        try:
-            # ConfigLoader 不支持热重载，使用观察者模式进行文件监控
-            # 创建文件监控器
-            self._observer = Observer()
-            self._observer.schedule(
-                ConfigFileHandler(self),
-                path=str(self.config_dir),
-                recursive=False
-            )
-            self._observer.start()
-        except Exception:
-            # 静默处理错误
-            self.enable_hot_reload = False
-    
-    def _stop_hot_reload(self) -> None:
-        """停止热重载"""
-        try:
-            # 停止文件观察者
-            if self._observer is not None:
-                self._observer.stop()
-                self._observer.join()
-        except Exception:
-            # 静默处理错误
-            pass
-    
-    def _on_config_file_changed(self, config_path: str, config_data: Dict[str, Any]) -> None:
-        """新的回调函数，由 IConfigLoader 调用"""
-        # 检查是否是 LLM 配置文件
-        if not config_path.startswith(self.config_subdir + "/"):
-            return
-
-        file_name = Path(config_path).name
-
+        Args:
+            provider_name: Provider名称
+            model_name: 模型名称
+            validate: 是否验证配置
+            
+        Returns:
+            Dict[str, Any]: 配置数据
+        """
+        if not self.provider_discovery:
+            raise ConfigError("Provider配置发现器未启用")
+        
         with self._lock:
+            cache_key = f"provider:{provider_name}:{model_name}"
+            if cache_key in self._config_cache:
+                logger.debug(f"从缓存加载Provider配置: {provider_name}/{model_name}")
+                return self._config_cache[cache_key]
+            
             try:
-                # 更新缓存
-                self._config_cache[config_path] = config_data
-
-                # 如果是模块配置文件
-                if file_name == "_group.yaml":
-                    self._module_config = LLMModuleConfig.from_dict(config_data)
-                else:
-                    # 客户端配置
-                    client_config = LLMClientConfig.from_dict(config_data)
-                    model_key = f"{client_config.model_type}:{client_config.model_name}"
-                    self._client_configs[model_key] = client_config
-
-                # 触发回调
-                for callback in self._reload_callbacks:
-                    try:
-                        callback(config_path, config_data)
-                    except Exception:
-                        # 静默处理回调错误
-                        pass
-            except Exception:
-                # 静默处理错误
-                pass
+                # 使用Provider配置发现器加载配置
+                config = self.provider_discovery.get_provider_config(provider_name, model_name)
+                
+                if not config:
+                    raise ConfigNotFoundError(f"未找到Provider配置: {provider_name}/{model_name}")
+                
+                # 使用LLM验证器适配器验证
+                if validate:
+                    validation_result = self.validator_adapter.validate_provider_config(config)
+                    if not validation_result.is_valid:
+                        error_msg = f"Provider配置验证失败 {provider_name}/{model_name}: " + "; ".join(validation_result.errors)
+                        logger.error(error_msg)
+                        raise ConfigError(error_msg)
+                
+                # 缓存配置
+                self._config_cache[cache_key] = config
+                
+                logger.info(f"Provider配置加载成功: {provider_name}/{model_name}")
+                return config
+                
+            except Exception as e:
+                logger.error(f"加载Provider配置失败 {provider_name}/{model_name}: {e}")
+                raise
     
-    def get_client_config(self, model_type: str, model_name: str) -> Optional[LLMClientConfig]:
-        """获取客户端配置"""
-        model_key = f"{model_type}:{model_name}"
-        return self._client_configs.get(model_key)
-    
-    def get_module_config(self) -> LLMModuleConfig:
-        """获取模块配置"""
-        return self._module_config or LLMModuleConfig()
-    
-    def list_available_models(self) -> List[str]:
-        """列出所有可用模型"""
-        return list(self._client_configs.keys())
-    
-    def add_reload_callback(self, callback: Callable[[str, Dict[str, Any]], None]) -> None:
-        """添加配置重载回调"""
-        self._reload_callbacks.append(callback)
-    
-    def remove_reload_callback(self, callback: Callable[[str, Dict[str, Any]], None]) -> None:
-        """移除配置重载回调"""
-        if callback in self._reload_callbacks:
-            self._reload_callbacks.remove(callback)
-    
-    def reload_all_configs(self) -> None:
-        """手动重新加载所有配置"""
-        with self._lock:
-            self._load_all_configs()
-    
-    def save_config(self, config: Dict[str, Any], file_name: str) -> None:
-        """保存配置到文件"""
-        file_path = self.config_dir / file_name
-
+    def merge_llm_configs(self, config_paths: List[str], 
+                         validate: bool = True) -> Dict[str, Any]:
+        """合并多个LLM配置
+        
+        Args:
+            config_paths: 配置文件路径列表
+            validate: 是否验证合并后的配置
+            
+        Returns:
+            Dict[str, Any]: 合并后的配置
+        """
         try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                if file_path.suffix.lower() in ['.yaml', '.yml']:
-                    yaml.dump(config, f, default_flow_style=False, allow_unicode=True, indent=2)
-                elif file_path.suffix.lower() == '.json':
-                    json.dump(config, f, indent=2, ensure_ascii=False)
-                else:
-                    raise ValueError(f"不支持的配置文件格式: {file_path.suffix}")
-
+            # 加载所有配置
+            configs = []
+            for config_path in config_paths:
+                config = self.load_llm_config(config_path, validate=False)
+                configs.append(config)
+            
+            # 使用LLM合并适配器合并配置
+            merged_config = self.merger_adapter.merge_llm_configs(configs)
+            
+            # 验证合并后的配置
+            if validate:
+                validation_result = self.validator_adapter.validate_llm_config(merged_config)
+                if not validation_result.is_valid:
+                    error_msg = f"合并配置验证失败: " + "; ".join(validation_result.errors)
+                    logger.error(error_msg)
+                    raise ConfigError(error_msg)
+            
+            logger.info(f"LLM配置合并成功: {len(config_paths)} 个配置")
+            return merged_config
+            
         except Exception as e:
-            raise LLMConfigurationError(f"保存配置失败: {e}")
+            logger.error(f"合并LLM配置失败: {e}")
+            raise
+    
+    def discover_providers(self) -> Dict[str, Any]:
+        """发现所有可用的Provider
+        
+        Returns:
+            Dict[str, Any]: Provider信息
+        """
+        if not self.provider_discovery:
+            return {}
+        
+        return self.provider_discovery.discover_providers()
+    
+    def list_provider_models(self, provider_name: str) -> List[str]:
+        """列出Provider的所有模型
+        
+        Args:
+            provider_name: Provider名称
+            
+        Returns:
+            List[str]: 模型名称列表
+        """
+        if not self.provider_discovery:
+            return []
+        
+        return self.provider_discovery.list_provider_models(provider_name)
+    
+    def validate_config(self, config: Dict[str, Any], 
+                       config_type: str = "llm") -> bool:
+        """验证配置
+        
+        Args:
+            config: 配置数据
+            config_type: 配置类型 ("llm" 或 "provider")
+            
+        Returns:
+            bool: 是否有效
+        """
+        try:
+            if config_type == "llm":
+                result = self.validator_adapter.validate_llm_config(config)
+            elif config_type == "provider":
+                result = self.validator_adapter.validate_provider_config(config)
+            else:
+                logger.error(f"不支持的配置类型: {config_type}")
+                return False
+            
+            return result.is_valid
+            
+        except Exception as e:
+            logger.error(f"配置验证失败: {e}")
+            return False
+    
+    def reload_config(self, config_path: str) -> Dict[str, Any]:
+        """重新加载配置
+        
+        Args:
+            config_path: 配置文件路径
+            
+        Returns:
+            Dict[str, Any]: 重新加载的配置
+        """
+        with self._lock:
+            # 清除缓存
+            keys_to_remove = [key for key in self._config_cache.keys() 
+                           if config_path in key]
+            for key in keys_to_remove:
+                del self._config_cache[key]
+            
+            # 清除通用配置管理器缓存
+            self.config_manager.invalidate_cache(config_path)
+            
+            # 重新加载
+            return self.load_llm_config(config_path)
+    
+    def clear_cache(self) -> None:
+        """清除所有缓存"""
+        with self._lock:
+            self._config_cache.clear()
+            self.config_manager.invalidate_cache()
+            logger.debug("已清除所有配置缓存")
     
     def get_config_status(self) -> Dict[str, Any]:
-        """获取配置状态"""
-        return {
-            "config_dir": str(self.config_dir),
-            "hot_reload_enabled": self.enable_hot_reload,
-            "validation_enabled": self.validation_enabled,
-            "loaded_client_configs": len(self._client_configs),
-            "available_models": list(self._client_configs.keys()),
-            "module_config_loaded": self._module_config is not None,
-            "cached_files": list(self._config_cache.keys()),
+        """获取配置管理器状态
+        
+        Returns:
+            Dict[str, Any]: 状态信息
+        """
+        status = {
+            "base_path": str(self.base_path),
+            "config_loader_type": type(self.config_loader).__name__,
+            "cache_size": len(self._config_cache),
+            "cached_configs": list(self._config_cache.keys()),
+            "validator_rules": self.validator_adapter.get_llm_rules_summary(),
+            "merger_rules": self.merger_adapter.get_merge_rules_summary()
         }
+        
+        if self.provider_discovery:
+            status["provider_discovery"] = self.provider_discovery.get_discovery_status()
+        
+        return status
     
-    def __enter__(self) -> 'LLMConfigManager':
-        """上下文管理器入口"""
-        return self
-
-    def __exit__(self, exc_type: Optional[type], exc_val: Optional[BaseException], exc_tb: Optional[Any]) -> None:
-        """上下文管理器出口"""
-        self._stop_hot_reload()
+    def register_custom_validator(self, field_path: str, 
+                                validator: Callable,
+                                error_message: str,
+                                severity: str = "error") -> None:
+        """注册自定义验证规则
+        
+        Args:
+            field_path: 字段路径
+            validator: 验证函数
+            error_message: 错误消息
+            severity: 严重程度
+        """
+        from src.core.config.validation import ValidationSeverity
+        from src.core.llm.config_validator_adapter import LLMValidationRule
+        
+        severity_enum = ValidationSeverity(severity.lower())
+        
+        rule = LLMValidationRule(
+            field_path=field_path,
+            validator=validator,
+            error_message=error_message,
+            severity=severity_enum,
+            description=f"自定义验证规则: {field_path}"
+        )
+        
+        self.validator_adapter.add_llm_rule(rule)
+        logger.info(f"已注册自定义验证规则: {field_path}")
+    
+    def register_custom_merge_rule(self, field_path: str, 
+                                 merge_strategy: str,
+                                 priority: int = 50) -> None:
+        """注册自定义合并规则
+        
+        Args:
+            field_path: 字段路径
+            merge_strategy: 合并策略
+            priority: 优先级
+        """
+        from src.core.llm.config_merger_adapter import LLMMergeRule
+        
+        rule = LLMMergeRule(
+            field_path=field_path,
+            merge_strategy=merge_strategy,
+            priority=priority,
+            description=f"自定义合并规则: {field_path}"
+        )
+        
+        self.merger_adapter.add_merge_rule(rule)
+        logger.info(f"已注册自定义合并规则: {field_path}")

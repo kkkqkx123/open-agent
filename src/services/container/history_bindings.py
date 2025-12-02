@@ -15,6 +15,7 @@ from src.services.history.cost_calculator import CostCalculator
 from src.services.history.token_tracker import WorkflowTokenTracker
 from src.services.history.hooks import HistoryRecordingHook
 from src.services.llm.token_calculation_service import TokenCalculationService
+from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
 from src.adapters.repository.history import SQLiteHistoryRepository, MemoryHistoryRepository
 from src.core.common.types import ServiceLifetime
 from src.interfaces.common_infra import ILogger
@@ -209,11 +210,18 @@ def register_token_tracker(
             lifetime=ServiceLifetime.SINGLETON
         )
     
+    # 优先使用装饰器，如果不存在则使用基础服务
+    def get_token_service():
+        if container.has_service(TokenCalculationDecorator):
+            return container.get(TokenCalculationDecorator)
+        else:
+            return container.get(TokenCalculationService)
+    
     container.register_factory(
         ITokenTracker,
         lambda: WorkflowTokenTracker(
             storage=container.get(IHistoryRepository),
-            token_calculation_service=container.get(TokenCalculationService),
+            token_calculation_service=get_token_service(),
             cache_ttl=cache_ttl
         ),
         environment=environment,
@@ -254,9 +262,16 @@ def register_history_hooks(
     
     # 注册HistoryRecordingHook工厂
     def create_history_hook(workflow_context: Optional[Dict[str, Any]] = None):
+        # 优先使用装饰器，如果不存在则使用基础服务
+        def get_token_service():
+            if container.has_service(TokenCalculationDecorator):
+                return container.get(TokenCalculationDecorator)
+            else:
+                return container.get(TokenCalculationService)
+        
         return HistoryRecordingHook(
             history_manager=container.get(IHistoryManager),
-            token_calculation_service=container.get(TokenCalculationService),
+            token_calculation_service=get_token_service(),
             cost_calculator=container.get(ICostCalculator),
             workflow_context=workflow_context or {}
         )
