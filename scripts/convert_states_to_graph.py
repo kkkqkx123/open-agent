@@ -1,5 +1,5 @@
 """将基于状态机的工作流配置转换为基于图的配置格式"""
-"""例如把configs\workflows\ultra_thinking_workflow.yaml改为configs\workflows\ultra_thinking_workflow_convert.yaml"""
+"""例如把configs/workflows/ultra_thinking_workflow.yaml改为configs/workflows/ultra_thinking_workflow_convert.yaml"""
 
 import yaml
 import os
@@ -202,7 +202,7 @@ def validate_converted_config(config_file: str) -> bool:
         import sys
         sys.path.append(os.path.dirname(os.path.abspath(__file__)))
         
-        from src.infrastructure.graph.workflow_validator import WorkflowValidator
+        from src.core.workflow.core.validator import WorkflowValidator
         
         validator = WorkflowValidator()
         issues = validator.validate_config_file(config_file)
