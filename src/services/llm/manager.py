@@ -13,9 +13,10 @@ from src.core.llm.factory import LLMFactory
 from src.core.llm.config import LLMClientConfig
 from src.core.common.exceptions.llm import LLMError
 from src.services.llm.state_machine import StateMachine, LLMManagerState
-from src.services.llm.config.config_validator import LLMConfigValidator, ValidationResult
 from src.services.llm.utils.metadata_service import ClientMetadataService
-from src.services.llm.config.config_manager import ConfigManager
+from src.core.config.processor.validator import ConfigValidator
+from src.core.config.validation import ValidationResult
+from src.core.config.config_manager import ConfigManager
 from src.services.llm.core.client_manager import LLMClientManager
 from src.services.llm.core.request_executor import LLMRequestExecutor
 from src.services.llm.core.manager_registry import manager_registry, ManagerStatus
@@ -38,7 +39,7 @@ class LLMManager(ILLMManager):
         factory: LLMFactory,
         fallback_manager: IFallbackManager,
         task_group_manager: ITaskGroupManager,
-        config_validator: LLMConfigValidator,
+        config_validator: ConfigValidator,
         metadata_service: ClientMetadataService,
         config: Optional[Dict[str, Any]] = None,
         config_loader: Optional[Any] = None

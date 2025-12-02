@@ -11,7 +11,7 @@ from .core.client_manager import LLMClientManager
 from .core.request_executor import LLMRequestExecutor
 from .core.base_factory import BaseFactory, FactoryManager, factory_manager
 from .core.manager_registry import ManagerRegistry, ManagerStatus, manager_registry
-from .config.config_validator import LLMConfigValidator
+from src.core.config.processor.validator import ConfigValidator as LLMConfigValidator
 from .utils.metadata_service import ClientMetadataService
 from .state_machine import StateMachine, LLMManagerState
 from .factory.client_factory import ClientFactory

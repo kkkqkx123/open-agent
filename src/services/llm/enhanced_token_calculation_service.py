@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from langchain_core.messages import BaseMessage
 from src.services.logger import get_logger
-from src.core.llm.config_manager import LLMConfigManager
+from src.core.config.config_manager import ConfigManager as LLMConfigManager
 from src.core.llm.provider_config_discovery import ProviderConfigDiscovery
 
 from .token_calculation_service import TokenCalculationService

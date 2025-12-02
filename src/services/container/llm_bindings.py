@@ -16,7 +16,7 @@ from src.services.llm.config import (
     ProviderConfigTokenConfigProvider,
     ProviderConfigTokenCostCalculator
 )
-from src.core.llm.config_manager import LLMConfigManager
+from src.core.config.config_manager import ConfigManager as LLMConfigManager
 from src.core.llm.provider_config_discovery import ProviderConfigDiscovery
 from src.core.config.config_loader import ConfigLoader
 from src.core.common.types import ServiceLifetime

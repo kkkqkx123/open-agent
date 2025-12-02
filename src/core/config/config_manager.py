@@ -7,7 +7,7 @@
 import os
 from src.services.logger import get_logger
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Type, TypeVar, Generic, Callable
+from typing import Dict, Any, Optional, List, Type, TypeVar, Callable
 
 from ..common.cache import ConfigCache, get_global_cache_manager, clear_cache
 from .config_loader import ConfigLoader
@@ -292,9 +292,12 @@ class ConfigManager(IUnifiedConfigManager):
             # 清除特定配置的缓存
             # 这里需要清除所有可能的缓存键
             keys_to_remove = []
-            for key in self._config_cache._cache.keys() if hasattr(self._config_cache, '_cache') else []:
-                if key.startswith(f"{config_path}:"):
-                    keys_to_remove.append(key)
+            # 获取缓存管理器中的缓存条目
+            cache_manager = self._config_cache._manager
+            if "config" in cache_manager._cache_entries:
+                for key in cache_manager._cache_entries["config"].keys():
+                    if key.startswith(f"{config_path}:"):
+                        keys_to_remove.append(key)
             
             for key in keys_to_remove:
                 self._config_cache.remove(key)
@@ -627,10 +630,14 @@ class ConfigManager(IUnifiedConfigManager):
         Returns:
             状态信息
         """
+        # 获取缓存大小
+        cache_manager = self._config_cache._manager
+        cache_size = len(cache_manager._cache_entries.get("config", {}))
+        
         return {
             "loaded_modules": list(self._module_configs.keys()),
             "module_configs_count": {k: len(v) for k, v in self._module_configs.items()},
-            "cache_size": len(self._config_cache._cache) if hasattr(self._config_cache, '_cache') else 0,
+            "cache_size": cache_size,
             "registered_validators": list(self._module_validators.keys()),
             "auto_reload_enabled": self.auto_reload,
             "watched_files": list(self._config_callbacks.keys())

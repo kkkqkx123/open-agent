@@ -37,15 +37,6 @@ class LLMConfigAdapter(BaseConfigAdapter):
         super().__init__(base_manager)
         self.client_configs: Dict[str, LLMClientConfig] = {}
         self.module_config: Optional[LLMModuleConfig] = None
-        self._validator = None  # 延迟初始化验证器
-    
-    @property
-    def validator(self):
-        """延迟加载验证器以避免循环导入"""
-        if self._validator is None:
-            from ..llm.config_manager import ConfigValidator as LLMConfigValidator
-            self._validator = LLMConfigValidator()
-        return self._validator
     
     def load_config(self, config_path: str, **kwargs) -> Dict[str, Any]:
         """
@@ -80,8 +71,9 @@ class LLMConfigAdapter(BaseConfigAdapter):
         Returns:
             验证是否通过
         """
-        errors = self.validator.validate_config(config)
-        return len(errors) == 0
+        # 基础验证：检查必需的字段
+        required_keys = {"model_type", "model_name"}
+        return all(key in config for key in required_keys)
 
 
 class WorkflowConfigAdapter(BaseConfigAdapter):

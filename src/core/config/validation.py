@@ -80,6 +80,20 @@ class ValidationResult:
         elif severity == ValidationSeverity.INFO:
             return self.info
         return []
+    
+    def get_summary(self) -> str:
+        """获取验证结果摘要"""
+        if self.is_valid:
+            return "验证通过"
+        else:
+            error_count = len(self.errors)
+            warning_count = len(self.warnings)
+            summary_parts = []
+            if error_count > 0:
+                summary_parts.append(f"{error_count}个错误")
+            if warning_count > 0:
+                summary_parts.append(f"{warning_count}个警告")
+            return f"验证失败: {', '.join(summary_parts)}"
 
 
 class EnhancedValidationResult:
