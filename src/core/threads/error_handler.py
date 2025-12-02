@@ -3,9 +3,11 @@
 为Thread操作提供统一的错误处理机制。
 """
 
-from typing import Any, Dict, Optional
-from src.services.logger import get_logger
+from typing import Any, Dict, Optional, TYPE_CHECKING
 import time
+
+if TYPE_CHECKING:
+    from src.services.logger import get_logger
 
 from src.core.common.error_management import BaseErrorHandler, ErrorCategory, ErrorSeverity
 from src.core.common.exceptions.session_thread import (
@@ -24,7 +26,15 @@ from src.core.common.exceptions.session_thread import (
     ConfigurationValidationError
 )
 
-logger = get_logger(__name__)
+# 延迟初始化logger以避免循环导入
+logger = None
+
+def _get_logger():
+    global logger
+    if logger is None:
+        from src.services.logger import get_logger
+        logger = get_logger(__name__)
+    return logger
 
 
 class ThreadErrorHandler(BaseErrorHandler):
@@ -138,32 +148,33 @@ class ThreadErrorHandler(BaseErrorHandler):
             error: 异常对象
             context: 错误上下文
         """
+        log = _get_logger()
         if isinstance(error, (SessionThreadInconsistencyError, TransactionRollbackError)):
-            logger.critical(
+            log.critical(
                 f"Thread严重错误: {error}",
                 extra={"context": context},
                 exc_info=True
             )
         elif isinstance(error, (ThreadCreationError, ThreadRemovalError, WorkflowExecutionError)):
-            logger.error(
+            log.error(
                 f"Thread操作错误: {error}",
                 extra={"context": context},
                 exc_info=True
             )
         elif isinstance(error, (ThreadNotFoundError, SessionNotFoundError, AssociationNotFoundError)):
-            logger.warning(
+            log.warning(
                 f"Thread未找到错误: {error}",
                 extra={"context": context},
                 exc_info=True
             )
         elif isinstance(error, (DuplicateThreadNameError, ConfigurationValidationError)):
-            logger.info(
+            log.info(
                 f"Thread验证错误: {error}",
                 extra={"context": context},
                 exc_info=True
             )
         else:
-            logger.error(
+            log.error(
                 f"Thread未知错误: {error}",
                 extra={"context": context},
                 exc_info=True
@@ -180,7 +191,7 @@ class ThreadErrorHandler(BaseErrorHandler):
             error: Thread创建错误
             context: 错误上下文
         """
-        logger.error(f"Thread创建失败: {context.get('thread_id')}")
+        _get_logger().error(f"Thread创建失败: {context.get('thread_id')}")
         
         # 创建错误可能需要重试或清理资源
         self._cleanup_failed_creation(context)
@@ -199,7 +210,7 @@ class ThreadErrorHandler(BaseErrorHandler):
             error: Thread未找到错误
             context: 错误上下文
         """
-        logger.warning(f"Thread未找到: {context.get('thread_id')}")
+        _get_logger().warning(f"Thread未找到: {context.get('thread_id')}")
         
         # 未找到错误可能需要创建默认Thread或返回空结果
         self._handle_missing_thread(context)
@@ -219,7 +230,7 @@ class ThreadErrorHandler(BaseErrorHandler):
             error: Thread移除错误
             context: 错误上下文
         """
-        logger.error(f"Thread移除失败: {context.get('thread_id')}")
+        _get_logger().error(f"Thread移除失败: {context.get('thread_id')}")
         
         # 移除错误可能需要强制清理或标记为删除
         self._force_thread_removal(context)
@@ -238,7 +249,7 @@ class ThreadErrorHandler(BaseErrorHandler):
             error: Session-Thread不一致错误
             context: 错误上下文
         """
-        logger.critical(f"Session-Thread数据不一致")
+        _get_logger().critical(f"Session-Thread数据不一致")
         
         # 不一致错误需要立即修复
         self._repair_inconsistency(context)
@@ -257,7 +268,7 @@ class ThreadErrorHandler(BaseErrorHandler):
             error: 同步错误
             context: 错误上下文
         """
-        logger.error(f"Thread同步失败")
+        _get_logger().error(f"Thread同步失败")
         
         # 同步错误可能需要重试或重新同步
         self._resynchronize_thread(context)
@@ -276,7 +287,7 @@ class ThreadErrorHandler(BaseErrorHandler):
             error: 工作流执行错误
             context: 错误上下文
         """
-        logger.error(f"Thread工作流执行失败: {context.get('workflow_id')}")
+        _get_logger().error(f"Thread工作流执行失败: {context.get('workflow_id')}")
         
         # 工作流错误可能需要回滚或重试
         self._handle_workflow_failure(context)
@@ -290,7 +301,7 @@ class ThreadErrorHandler(BaseErrorHandler):
         Args:
             context: 错误上下文
         """
-        logger.info("清理失败的Thread创建操作")
+        _get_logger().info("清理失败的Thread创建操作")
         # 这里可以实现具体的清理逻辑
     
     def _handle_missing_thread(self, context: Dict[str, Any]) -> None:
@@ -299,7 +310,7 @@ class ThreadErrorHandler(BaseErrorHandler):
         Args:
             context: 错误上下文
         """
-        logger.info("处理缺失的Thread")
+        _get_logger().info("处理缺失的Thread")
         # 这里可以实现具体的处理逻辑，如创建默认Thread
     
     def _force_thread_removal(self, context: Dict[str, Any]) -> None:
@@ -308,7 +319,7 @@ class ThreadErrorHandler(BaseErrorHandler):
         Args:
             context: 错误上下文
         """
-        logger.info("强制移除Thread")
+        _get_logger().info("强制移除Thread")
         # 这里可以实现具体的强制移除逻辑
     
     def _repair_inconsistency(self, context: Dict[str, Any]) -> None:
@@ -317,7 +328,7 @@ class ThreadErrorHandler(BaseErrorHandler):
         Args:
             context: 错误上下文
         """
-        logger.critical("修复Session-Thread不一致性")
+        _get_logger().critical("修复Session-Thread不一致性")
         # 这里可以实现具体的修复逻辑
     
     def _resynchronize_thread(self, context: Dict[str, Any]) -> None:
@@ -326,7 +337,7 @@ class ThreadErrorHandler(BaseErrorHandler):
         Args:
             context: 错误上下文
         """
-        logger.info("重新同步Thread")
+        _get_logger().info("重新同步Thread")
         # 这里可以实现具体的重新同步逻辑
     
     def _handle_workflow_failure(self, context: Dict[str, Any]) -> None:
@@ -335,7 +346,7 @@ class ThreadErrorHandler(BaseErrorHandler):
         Args:
             context: 错误上下文
         """
-        logger.info("处理Thread工作流失败")
+        _get_logger().info("处理Thread工作流失败")
         # 这里可以实现具体的工作流失败处理逻辑
 
 

@@ -1,16 +1,26 @@
 """统一错误处理注册表"""
  
 import time
-from typing import Any, Callable, Dict, Optional, Type
+from typing import Any, Callable, Dict, Optional, Type, TYPE_CHECKING
 from functools import wraps
 
-from src.core.logger import get_logger
+if TYPE_CHECKING:
+    from src.services.logger import get_logger
+
 from .error_handler import IErrorHandler, BaseErrorHandler
 from .error_category import ErrorCategory
 from .error_severity import ErrorSeverity
 
 
-logger = get_logger(__name__)
+# 延迟初始化logger以避免循环导入
+logger = None
+
+def _get_logger():
+    global logger
+    if logger is None:
+        from src.services.logger import get_logger
+        logger = get_logger(__name__)
+    return logger
 
 
 class ErrorHandlingRegistry:
@@ -48,7 +58,7 @@ class ErrorHandlingRegistry:
             handler: 错误处理器
         """
         self.handlers[exception_type] = handler
-        logger.info(f"注册错误处理器: {exception_type.__name__} -> {handler.__class__.__name__}")
+        _get_logger().info(f"注册错误处理器: {exception_type.__name__} -> {handler.__class__.__name__}")
     
     def register_recovery_strategy(
         self,
@@ -62,7 +72,7 @@ class ErrorHandlingRegistry:
             strategy_func: 策略函数
         """
         self.recovery_strategies[strategy_name] = strategy_func
-        logger.info(f"注册恢复策略: {strategy_name}")
+        _get_logger().info(f"注册恢复策略: {strategy_name}")
     
     def register_error_mapping(
         self,
@@ -76,7 +86,7 @@ class ErrorHandlingRegistry:
             mapping: 映射配置
         """
         self.error_mappings[error_code] = mapping
-        logger.info(f"注册错误映射: {error_code}")
+        _get_logger().info(f"注册错误映射: {error_code}")
     
     def handle_error(
         self,
@@ -128,7 +138,7 @@ class ErrorHandlingRegistry:
             error: 异常对象
             context: 错误上下文信息
         """
-        logger.error(
+        _get_logger().error(
             f"未处理的异常: {type(error).__name__}",
             extra={
                 "error": str(error),
@@ -261,13 +271,13 @@ def operation_with_retry(
             if retry_count < max_retries:
                 # 指数退避策略
                 backoff_time = (2 ** retry_count) - 1
-                logger.warning(
+                _get_logger().warning(
                     f"操作失败，{backoff_time}秒后重试 (重试 {retry_count}/{max_retries}): {e}",
                     extra={"context": context or {}}
                 )
                 time.sleep(min(backoff_time, 60))  # 最多等待60秒
             else:
-                logger.error(
+                _get_logger().error(
                     f"操作在{max_retries}次重试后失败: {e}",
                     extra={"context": context or {}}
                 )
@@ -297,7 +307,7 @@ def operation_with_fallback(
     try:
         return primary_func()
     except fallback_exceptions as e:
-        logger.warning(
+        _get_logger().warning(
             f"主操作失败，降级到备选操作: {e}",
             extra={"context": context or {}}
         )
@@ -322,7 +332,7 @@ def safe_execution(
     try:
         return func()
     except Exception as e:
-        logger.error(
+        _get_logger().error(
             f"函数执行失败: {e}",
             extra={"context": context or {}}
         )

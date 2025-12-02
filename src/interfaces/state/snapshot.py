@@ -6,9 +6,8 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 
-# 移除已删除的抽象接口导入
-# from .entities import AbstractStateSnapshot
-from src.core.state.entities import StateSnapshot
+# 使用接口定义，遵循分层架构
+from .entities import IStateSnapshot
 
 
 # 状态快照管理器接口定义
@@ -34,7 +33,7 @@ class IStateSnapshotManager(ABC):
         pass
     
     @abstractmethod
-    def restore_snapshot(self, snapshot_id: str) -> Optional[StateSnapshot]:
+    def restore_snapshot(self, snapshot_id: str) -> Optional[IStateSnapshot]:
         """恢复状态快照
         
         Args:
@@ -46,7 +45,7 @@ class IStateSnapshotManager(ABC):
         pass
     
     @abstractmethod
-    def get_snapshots_by_thread(self, thread_id: str) -> List[StateSnapshot]:
+    def get_snapshots_by_thread(self, thread_id: str) -> List[IStateSnapshot]:
         """获取指定线程的快照列表
         
         Args:

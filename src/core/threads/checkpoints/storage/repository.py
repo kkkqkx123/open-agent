@@ -4,14 +4,24 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from datetime import datetime
-from src.services.logger import get_logger
+
+if TYPE_CHECKING:
+    from src.services.logger import get_logger
 
 from .models import ThreadCheckpoint, CheckpointStatistics, CheckpointStatus, CheckpointType
 
 
-logger = get_logger(__name__)
+# 延迟初始化logger以避免循环导入
+logger = None
+
+def _get_logger():
+    global logger
+    if logger is None:
+        from src.services.logger import get_logger
+        logger = get_logger(__name__)
+    return logger
 
 
 class IThreadCheckpointRepository(ABC):
@@ -289,7 +299,7 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
             storage_backend: 存储后端
         """
         self._backend = storage_backend
-        logger.info("ThreadCheckpointRepository initialized")
+        _get_logger().info("ThreadCheckpointRepository initialized")
     
     async def save(self, checkpoint: ThreadCheckpoint) -> bool:
         """保存检查点"""
@@ -305,11 +315,11 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
             # 保存到后端
             result = await self._backend.save_impl(data)
             
-            logger.info(f"Saved checkpoint {checkpoint.id} for thread {checkpoint.thread_id}")
+            _get_logger().info(f"Saved checkpoint {checkpoint.id} for thread {checkpoint.thread_id}")
             return bool(result)
             
         except Exception as e:
-            logger.error(f"Failed to save checkpoint {checkpoint.id}: {e}")
+            _get_logger().error(f"Failed to save checkpoint {checkpoint.id}: {e}")
             raise RepositoryError(f"Failed to save checkpoint: {e}") from e
     
     async def find_by_id(self, checkpoint_id: str) -> Optional[ThreadCheckpoint]:
@@ -323,14 +333,14 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
             
             # 验证数据类型
             if data.get("type") != "thread_checkpoint":
-                logger.warning(f"Data {checkpoint_id} is not a thread checkpoint")
+                _get_logger().warning(f"Data {checkpoint_id} is not a thread checkpoint")
                 return None
             
             # 转换为领域对象
             return ThreadCheckpoint.from_dict(data)
             
         except Exception as e:
-            logger.error(f"Failed to find checkpoint {checkpoint_id}: {e}")
+            _get_logger().error(f"Failed to find checkpoint {checkpoint_id}: {e}")
             raise RepositoryError(f"Failed to find checkpoint: {e}") from e
     
     async def find_by_thread(self, thread_id: str) -> List[ThreadCheckpoint]:
@@ -347,17 +357,17 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
                     checkpoint = ThreadCheckpoint.from_dict(data)
                     checkpoints.append(checkpoint)
                 except Exception as e:
-                    logger.warning(f"Failed to convert checkpoint data: {e}")
+                    _get_logger().warning(f"Failed to convert checkpoint data: {e}")
                     continue
             
             # 按创建时间排序（最新的在前）
             checkpoints.sort(key=lambda x: x.created_at, reverse=True)
             
-            logger.info(f"Found {len(checkpoints)} checkpoints for thread {thread_id}")
+            _get_logger().info(f"Found {len(checkpoints)} checkpoints for thread {thread_id}")
             return checkpoints
             
         except Exception as e:
-            logger.error(f"Failed to find checkpoints for thread {thread_id}: {e}")
+            _get_logger().error(f"Failed to find checkpoints for thread {thread_id}: {e}")
             raise RepositoryError(f"Failed to find checkpoints: {e}") from e
     
     async def find_active_by_thread(self, thread_id: str) -> List[ThreadCheckpoint]:
@@ -372,11 +382,11 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
                 if cp.status == CheckpointStatus.ACTIVE and not cp.is_expired()
             ]
             
-            logger.info(f"Found {len(active_checkpoints)} active checkpoints for thread {thread_id}")
+            _get_logger().info(f"Found {len(active_checkpoints)} active checkpoints for thread {thread_id}")
             return active_checkpoints
             
         except Exception as e:
-            logger.error(f"Failed to find active checkpoints for thread {thread_id}: {e}")
+            _get_logger().error(f"Failed to find active checkpoints for thread {thread_id}: {e}")
             raise RepositoryError(f"Failed to find active checkpoints: {e}") from e
     
     async def find_by_status(self, status: CheckpointStatus) -> List[ThreadCheckpoint]:
@@ -393,14 +403,14 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
                     checkpoint = ThreadCheckpoint.from_dict(data)
                     checkpoints.append(checkpoint)
                 except Exception as e:
-                    logger.warning(f"Failed to convert checkpoint data: {e}")
+                    _get_logger().warning(f"Failed to convert checkpoint data: {e}")
                     continue
             
-            logger.info(f"Found {len(checkpoints)} checkpoints with status {status}")
+            _get_logger().info(f"Found {len(checkpoints)} checkpoints with status {status}")
             return checkpoints
             
         except Exception as e:
-            logger.error(f"Failed to find checkpoints with status {status}: {e}")
+            _get_logger().error(f"Failed to find checkpoints with status {status}: {e}")
             raise RepositoryError(f"Failed to find checkpoints: {e}") from e
     
     async def find_by_type(self, checkpoint_type: CheckpointType) -> List[ThreadCheckpoint]:
@@ -417,14 +427,14 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
                     checkpoint = ThreadCheckpoint.from_dict(data)
                     checkpoints.append(checkpoint)
                 except Exception as e:
-                    logger.warning(f"Failed to convert checkpoint data: {e}")
+                    _get_logger().warning(f"Failed to convert checkpoint data: {e}")
                     continue
             
-            logger.info(f"Found {len(checkpoints)} checkpoints with type {checkpoint_type}")
+            _get_logger().info(f"Found {len(checkpoints)} checkpoints with type {checkpoint_type}")
             return checkpoints
             
         except Exception as e:
-            logger.error(f"Failed to find checkpoints with type {checkpoint_type}: {e}")
+            _get_logger().error(f"Failed to find checkpoints with type {checkpoint_type}: {e}")
             raise RepositoryError(f"Failed to find checkpoints: {e}") from e
     
     async def find_expired(self, before_time: Optional[datetime] = None) -> List[ThreadCheckpoint]:
@@ -446,14 +456,14 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
                     if checkpoint.is_expired() or checkpoint.expires_at and checkpoint.expires_at < before_time:
                         expired_checkpoints.append(checkpoint)
                 except Exception as e:
-                    logger.warning(f"Failed to convert checkpoint data: {e}")
+                    _get_logger().warning(f"Failed to convert checkpoint data: {e}")
                     continue
             
-            logger.info(f"Found {len(expired_checkpoints)} expired checkpoints")
+            _get_logger().info(f"Found {len(expired_checkpoints)} expired checkpoints")
             return expired_checkpoints
             
         except Exception as e:
-            logger.error(f"Failed to find expired checkpoints: {e}")
+            _get_logger().error(f"Failed to find expired checkpoints: {e}")
             raise RepositoryError(f"Failed to find expired checkpoints: {e}") from e
     
     async def update(self, checkpoint: ThreadCheckpoint) -> bool:
@@ -475,11 +485,11 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
             # 更新到后端
             result = await self._backend.save_impl(data)
             
-            logger.info(f"Updated checkpoint {checkpoint.id}")
+            _get_logger().info(f"Updated checkpoint {checkpoint.id}")
             return bool(result)
             
         except Exception as e:
-            logger.error(f"Failed to update checkpoint {checkpoint.id}: {e}")
+            _get_logger().error(f"Failed to update checkpoint {checkpoint.id}: {e}")
             raise RepositoryError(f"Failed to update checkpoint: {e}") from e
     
     async def delete(self, checkpoint_id: str) -> bool:
@@ -489,14 +499,14 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
             result = await self._backend.delete_impl(checkpoint_id)
             
             if result:
-                logger.info(f"Deleted checkpoint {checkpoint_id}")
+                _get_logger().info(f"Deleted checkpoint {checkpoint_id}")
             else:
-                logger.warning(f"Checkpoint {checkpoint_id} not found for deletion")
+                _get_logger().warning(f"Checkpoint {checkpoint_id} not found for deletion")
             
             return result
             
         except Exception as e:
-            logger.error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
+            _get_logger().error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
             raise RepositoryError(f"Failed to delete checkpoint: {e}") from e
     
     async def delete_by_thread(self, thread_id: str) -> int:
@@ -511,11 +521,11 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
                 if await self.delete(checkpoint.id):
                     deleted_count += 1
             
-            logger.info(f"Deleted {deleted_count} checkpoints for thread {thread_id}")
+            _get_logger().info(f"Deleted {deleted_count} checkpoints for thread {thread_id}")
             return deleted_count
             
         except Exception as e:
-            logger.error(f"Failed to delete checkpoints for thread {thread_id}: {e}")
+            _get_logger().error(f"Failed to delete checkpoints for thread {thread_id}: {e}")
             raise RepositoryError(f"Failed to delete checkpoints: {e}") from e
     
     async def delete_expired(self, before_time: Optional[datetime] = None) -> int:
@@ -530,11 +540,11 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
                 if await self.delete(checkpoint.id):
                     deleted_count += 1
             
-            logger.info(f"Deleted {deleted_count} expired checkpoints")
+            _get_logger().info(f"Deleted {deleted_count} expired checkpoints")
             return deleted_count
             
         except Exception as e:
-            logger.error(f"Failed to delete expired checkpoints: {e}")
+            _get_logger().error(f"Failed to delete expired checkpoints: {e}")
             raise RepositoryError(f"Failed to delete expired checkpoints: {e}") from e
     
     async def count_by_thread(self, thread_id: str) -> int:
@@ -544,7 +554,7 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
             return len(checkpoints)
             
         except Exception as e:
-            logger.error(f"Failed to count checkpoints for thread {thread_id}: {e}")
+            _get_logger().error(f"Failed to count checkpoints for thread {thread_id}: {e}")
             raise RepositoryError(f"Failed to count checkpoints: {e}") from e
     
     async def count_by_status(self, status: CheckpointStatus) -> int:
@@ -554,7 +564,7 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
             return len(checkpoints)
             
         except Exception as e:
-            logger.error(f"Failed to count checkpoints with status {status}: {e}")
+            _get_logger().error(f"Failed to count checkpoints with status {status}: {e}")
             raise RepositoryError(f"Failed to count checkpoints: {e}") from e
     
     async def get_statistics(self, thread_id: Optional[str] = None) -> CheckpointStatistics:
@@ -573,7 +583,7 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
                         checkpoint = ThreadCheckpoint.from_dict(data)
                         checkpoints.append(checkpoint)
                     except Exception as e:
-                        logger.warning(f"Failed to convert checkpoint data: {e}")
+                        _get_logger().warning(f"Failed to convert checkpoint data: {e}")
                         continue
             
             # 计算统计信息
@@ -612,11 +622,11 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
             stats.newest_checkpoint_age_hours = min(ages)
             stats.average_age_hours = sum(ages) / len(ages)
             
-            logger.info(f"Generated statistics for {len(checkpoints)} checkpoints")
+            _get_logger().info(f"Generated statistics for {len(checkpoints)} checkpoints")
             return stats
             
         except Exception as e:
-            logger.error(f"Failed to generate statistics: {e}")
+            _get_logger().error(f"Failed to generate statistics: {e}")
             raise RepositoryError(f"Failed to generate statistics: {e}") from e
     
     async def exists(self, checkpoint_id: str) -> bool:
@@ -626,7 +636,7 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
             return checkpoint is not None
             
         except Exception as e:
-            logger.error(f"Failed to check existence of checkpoint {checkpoint_id}: {e}")
+            _get_logger().error(f"Failed to check existence of checkpoint {checkpoint_id}: {e}")
             raise RepositoryError(f"Failed to check existence: {e}") from e
     
     async def find_latest_by_thread(self, thread_id: str) -> Optional[ThreadCheckpoint]:
@@ -636,7 +646,7 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
             return checkpoints[0] if checkpoints else None
             
         except Exception as e:
-            logger.error(f"Failed to find latest checkpoint for thread {thread_id}: {e}")
+            _get_logger().error(f"Failed to find latest checkpoint for thread {thread_id}: {e}")
             raise RepositoryError(f"Failed to find latest checkpoint: {e}") from e
     
     async def find_oldest_by_thread(self, thread_id: str) -> Optional[ThreadCheckpoint]:
@@ -646,7 +656,7 @@ class ThreadCheckpointRepository(IThreadCheckpointRepository):
             return checkpoints[-1] if checkpoints else None
             
         except Exception as e:
-            logger.error(f"Failed to find oldest checkpoint for thread {thread_id}: {e}")
+            _get_logger().error(f"Failed to find oldest checkpoint for thread {thread_id}: {e}")
             raise RepositoryError(f"Failed to find oldest checkpoint: {e}") from e
 
 

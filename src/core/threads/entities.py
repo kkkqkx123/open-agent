@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict, field_serializer
 
 
 class ThreadStatus(str, Enum):
@@ -27,18 +27,18 @@ class ThreadType(str, Enum):
 class ThreadMetadata(BaseModel):
     """线程元数据模型"""
     
+    model_config = ConfigDict(extra="allow")
+    
     title: Optional[str] = None
     description: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
     custom_data: Dict[str, Any] = Field(default_factory=dict)
-    
-    class Config:
-        """Pydantic配置"""
-        extra = "allow"
 
 
 class Thread(BaseModel):
     """线程实体模型"""
+    
+    model_config = ConfigDict(extra="allow")
     
     id: str = Field(..., description="线程唯一标识")
     status: ThreadStatus = Field(default=ThreadStatus.ACTIVE, description="线程状态")
@@ -65,12 +65,10 @@ class Thread(BaseModel):
     checkpoint_count: int = Field(default=0, description="检查点数量")
     branch_count: int = Field(default=0, description="分支数量")
     
-    class Config:
-        """Pydantic配置"""
-        extra = "allow"
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+    @field_serializer('created_at', 'updated_at')
+    def serialize_datetime(self, value: datetime) -> str:
+        """序列化datetime为ISO格式"""
+        return value.isoformat()
     
     def update_timestamp(self) -> None:
         """更新时间戳"""
@@ -149,6 +147,8 @@ class Thread(BaseModel):
 class ThreadBranch(BaseModel):
     """线程分支实体模型"""
     
+    model_config = ConfigDict(extra="allow")
+    
     id: str = Field(..., description="分支唯一标识")
     thread_id: str = Field(..., description="所属线程ID")
     parent_thread_id: str = Field(..., description="父线程ID")
@@ -163,12 +163,10 @@ class ThreadBranch(BaseModel):
     # 元数据
     metadata: Dict[str, Any] = Field(default_factory=dict, description="分支元数据")
     
-    class Config:
-        """Pydantic配置"""
-        extra = "allow"
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+    @field_serializer('created_at')
+    def serialize_datetime(self, value: datetime) -> str:
+        """序列化datetime为ISO格式"""
+        return value.isoformat()
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -182,6 +180,8 @@ class ThreadBranch(BaseModel):
 
 class ThreadSnapshot(BaseModel):
     """线程快照实体模型"""
+    
+    model_config = ConfigDict(extra="allow")
     
     id: str = Field(..., description="快照唯一标识")
     thread_id: str = Field(..., description="所属线程ID")
@@ -200,12 +200,10 @@ class ThreadSnapshot(BaseModel):
     message_count: int = Field(default=0, description="消息数量")
     checkpoint_count: int = Field(default=0, description="检查点数量")
     
-    class Config:
-        """Pydantic配置"""
-        extra = "allow"
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+    @field_serializer('created_at')
+    def serialize_datetime(self, value: datetime) -> str:
+        """序列化datetime为ISO格式"""
+        return value.isoformat()
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""

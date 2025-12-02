@@ -7,7 +7,7 @@
 from typing import Dict, Any, Optional, List, Iterator, Union
 from datetime import datetime
 from enum import Enum, auto
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 
 class StorageBackendType(str, Enum):
@@ -40,6 +40,8 @@ class StorageStatus(str, Enum):
 
 class StorageData(BaseModel):
     """通用存储数据模型"""
+    model_config = ConfigDict(use_enum_values=True)
+    
     key: str = Field(..., description="数据键")
     value: Dict[str, Any] = Field(..., description="数据值")
     content_type: Optional[str] = Field("application/json", description="内容类型")
@@ -51,25 +53,23 @@ class StorageData(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.now, description="更新时间")
     expires_at: Optional[datetime] = Field(None, description="过期时间")
     
-    class Config:
-        """Pydantic配置"""
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-        use_enum_values = True
-    
-    @validator('updated_at')
-    def validate_updated_at(cls, v: datetime, values: Dict[str, Any]) -> datetime:
+    @field_validator('updated_at', mode='after')
+    @classmethod
+    def validate_updated_at(cls, v: datetime, info) -> datetime:
         """验证更新时间不早于创建时间"""
-        if 'created_at' in values and v < values['created_at']:
+        created_at = info.data.get('created_at')
+        if created_at and v < created_at:
             raise ValueError("updated_at cannot be earlier than created_at")
         return v
     
-    @validator('expires_at')
-    def validate_expires_at(cls, v: Optional[datetime], values: Dict[str, Any]) -> Optional[datetime]:
+    @field_validator('expires_at', mode='after')
+    @classmethod
+    def validate_expires_at(cls, v: Optional[datetime], info) -> Optional[datetime]:
         """验证过期时间不早于创建时间"""
-        if v is not None and 'created_at' in values and v < values['created_at']:
-            raise ValueError("expires_at cannot be earlier than created_at")
+        if v is not None:
+            created_at = info.data.get('created_at')
+            if created_at and v < created_at:
+                raise ValueError("expires_at cannot be earlier than created_at")
         return v
     
     def is_expired(self) -> bool:

@@ -32,9 +32,43 @@ class ServiceLifetime(str, Enum):
     SCOPED = "scoped"       # 作用域模式，在特定作用域内是单例
 
 
-# LogLevel 类型提示
-if TYPE_CHECKING:
-    from ..core.logger.log_level import LogLevel
+# LogLevel 枚举定义 - 在Interface层定义，Core层实现
+class LogLevel(str, Enum):
+    """
+    日志级别枚举
+    
+    定义日志记录的级别层次，用于控制日志输出的详细程度。
+    """
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARNING = "WARNING"
+    WARN = "WARN"
+    ERROR = "ERROR"
+    CRITICAL = "CRITICAL"
+    FATAL = "FATAL"
+    
+    @classmethod
+    def from_string(cls, level_str: str) -> "LogLevel":
+        """从字符串创建日志级别"""
+        level_map = {
+            "DEBUG": cls.DEBUG,
+            "INFO": cls.INFO,
+            "WARNING": cls.WARNING,
+            "WARN": cls.WARN,
+            "ERROR": cls.ERROR,
+            "CRITICAL": cls.CRITICAL,
+            "FATAL": cls.FATAL,
+        }
+
+        upper_level = level_str.upper()
+        if upper_level not in level_map:
+            raise ValueError(f"无效的日志级别: {level_str}")
+
+        return level_map[upper_level]
+    
+    def __str__(self) -> str:
+        """返回日志级别的字符串表示"""
+        return self.value
 
 
 '''
