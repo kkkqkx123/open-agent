@@ -7,7 +7,7 @@
 import time
 import threading
 import asyncio
-from typing import Any, Optional, Dict, Union, List, TYPE_CHECKING
+from typing import Any, Optional, Dict, Union, List, TYPE_CHECKING, Callable, Awaitable
 from collections import OrderedDict
 from dataclasses import dataclass
 
@@ -480,16 +480,40 @@ def clear_cache(name: Optional[str] = None) -> None:
 
 
 # 专用缓存类 - 适配新的统一缓存机制
-class ConfigCache:
-    """配置专用缓存
+class BaseCache:
+    """基础缓存类
     
     提供同步接口，内部基于CacheManager的同步操作。
     所有缓存操作都是同步的，因为缓存存储是内存操作，不涉及I/O阻塞。
     """
     
-    def __init__(self) -> None:
+    def __init__(self, cache_name: str, default_ttl: int) -> None:
+        """初始化基础缓存类
+        
+        Args:
+            cache_name: 缓存名称
+            default_ttl: 默认TTL（秒）
+        """
         self._manager = get_global_cache_manager()
-        self._cache_name = "config"
+        self._cache_name = cache_name
+        self._default_ttl = default_ttl
+    
+    def _run_async(self, coro: Any) -> Any:
+        """同步运行异步协程的通用方法
+        
+        Args:
+            coro: 要运行的异步协程
+            
+        Returns:
+            协程的返回值
+        """
+        try:
+            return asyncio.run(coro)
+        except RuntimeError:
+            # 如果当前已有事件循环，则创建新线程来运行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(asyncio.run, coro).result()
     
     def get(self, key: str) -> Optional[Any]:
         """同步获取缓存值
@@ -500,14 +524,7 @@ class ConfigCache:
         Returns:
             缓存值，如果不存在或过期则返回None
         """
-        # 同步调用异步方法 - 使用asyncio.run创建新事件循环
-        try:
-            return asyncio.run(self._manager.get(key, self._cache_name))
-        except RuntimeError:
-            # 如果当前已有事件循环，则创建新线程来运行
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                return executor.submit(asyncio.run, self._manager.get(key, self._cache_name)).result()
+        return self._run_async(self._manager.get(key, self._cache_name))
     
     def put(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
         """同步设置缓存值
@@ -515,15 +532,9 @@ class ConfigCache:
         Args:
             key: 缓存键
             value: 缓存值
-            ttl: TTL（秒），如果为None则使用默认值（2小时）
+            ttl: TTL（秒），如果为None则使用默认值
         """
-        try:
-            asyncio.run(self._manager.set(key, value, ttl or 7200, self._cache_name))
-        except RuntimeError:
-            # 如果当前已有事件循环，则创建新线程来运行
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                executor.submit(asyncio.run, self._manager.set(key, value, ttl or 7200, self._cache_name)).result()
+        self._run_async(self._manager.set(key, value, ttl or self._default_ttl, self._cache_name))
     
     def remove(self, key: str) -> bool:
         """同步删除指定的缓存键
@@ -534,254 +545,112 @@ class ConfigCache:
         Returns:
             是否删除成功
         """
-        try:
-            return asyncio.run(self._manager.delete(key, self._cache_name))
-        except RuntimeError:
-            # 如果当前已有事件循环，则创建新线程来运行
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                return executor.submit(asyncio.run, self._manager.delete(key, self._cache_name)).result()
+        result = self._run_async(self._manager.delete(key, self._cache_name))
+        return bool(result)
     
     def clear(self) -> None:
         """同步清空缓存"""
-        try:
-            asyncio.run(self._manager.clear(self._cache_name))
-        except RuntimeError:
-            # 如果当前已有事件循环，则创建新线程来运行
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                executor.submit(asyncio.run, self._manager.clear(self._cache_name)).result()
+        self._run_async(self._manager.clear(self._cache_name))
 
 
-class LLMCache:
+class ConfigCache(BaseCache):
+    """配置专用缓存
+    
+    提供同步接口，内部基于CacheManager的同步操作。
+    所有缓存操作都是同步的，因为缓存存储是内存操作，不涉及I/O阻塞。
+    """
+    
+    def __init__(self) -> None:
+        super().__init__(cache_name="config", default_ttl=7200)  # 2小时
+
+
+class LLMCache(BaseCache):
     """LLM专用缓存
     
     提供同步接口，内部基于CacheManager的同步操作。
     """
     
     def __init__(self) -> None:
-        self._manager = get_global_cache_manager()
-        self._cache_name = "llm"
-    
-    def get(self, key: str) -> Optional[Any]:
-        """同步获取缓存值"""
-        try:
-            return asyncio.run(self._manager.get(key, self._cache_name))
-        except RuntimeError:
-            # 如果当前已有事件循环，则创建新线程来运行
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                return executor.submit(asyncio.run, self._manager.get(key, self._cache_name)).result()
-    
-    def put(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
-        """同步设置缓存值"""
-        try:
-            asyncio.run(self._manager.set(key, value, ttl or 3600, self._cache_name))
-        except RuntimeError:
-            # 如果当前已有事件循环，则创建新线程来运行
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                executor.submit(asyncio.run, self._manager.set(key, value, ttl or 3600, self._cache_name)).result()
-    
-    def remove(self, key: str) -> bool:
-        """同步删除指定的缓存键"""
-        try:
-            return asyncio.run(self._manager.delete(key, self._cache_name))
-        except RuntimeError:
-            # 如果当前已有事件循环，则创建新线程来运行
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                return executor.submit(asyncio.run, self._manager.delete(key, self._cache_name)).result()
-    
-    def clear(self) -> None:
-        """同步清空缓存"""
-        try:
-            asyncio.run(self._manager.clear(self._cache_name))
-        except RuntimeError:
-            # 如果当前已有事件循环，则创建新线程来运行
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                executor.submit(asyncio.run, self._manager.clear(self._cache_name)).result()
+        super().__init__(cache_name="llm", default_ttl=3600)  # 1小时
 
 
-class GraphCache:
+class GraphCache(BaseCache):
     """图实例专用缓存
     
     提供同步接口，内部基于CacheManager的同步操作。
     """
     
     def __init__(self) -> None:
-        self._manager = get_global_cache_manager()
-        self._cache_name = "graph"
-    
-    def get(self, key: str) -> Optional[Any]:
-        """同步获取缓存值"""
-        try:
-            return asyncio.run(self._manager.get(key, self._cache_name))
-        except RuntimeError:
-            # 如果当前已有事件循环，则创建新线程来运行
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                return executor.submit(asyncio.run, self._manager.get(key, self._cache_name)).result()
-    
-    def put(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
-        """同步设置缓存值"""
-        try:
-            asyncio.run(self._manager.set(key, value, ttl or 1800, self._cache_name))
-        except RuntimeError:
-            # 如果当前已有事件循环，则创建新线程来运行
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                executor.submit(asyncio.run, self._manager.set(key, value, ttl or 1800, self._cache_name)).result()
-    
-    def remove(self, key: str) -> bool:
-        """同步删除指定的缓存键"""
-        try:
-            return asyncio.run(self._manager.delete(key, self._cache_name))
-        except RuntimeError:
-            # 如果当前已有事件循环，则创建新线程来运行
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                return executor.submit(asyncio.run, self._manager.delete(key, self._cache_name)).result()
-    
-    def clear(self) -> None:
-        """同步清空缓存"""
-        try:
-            asyncio.run(self._manager.clear(self._cache_name))
-        except RuntimeError:
-            # 如果当前已有事件循环，则创建新线程来运行
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                executor.submit(asyncio.run, self._manager.clear(self._cache_name)).result()
+        super().__init__(cache_name="graph", default_ttl=1800)  # 30分钟
 
 
 # 缓存装饰器 - 使用新的缓存机制
-def config_cached(maxsize: int = 128, ttl: Optional[int] = None):
+def _create_cached_decorator(cache_name: str, default_ttl: Optional[int] = None) -> Callable:
+    """创建缓存装饰器的通用函数
+    
+    Args:
+        cache_name: 缓存名称
+        default_ttl: 默认TTL（秒）
+        
+    Returns:
+        缓存装饰器函数
+    """
+    manager = get_global_cache_manager()
+    
+    def decorator(maxsize: int = 1000, ttl: Optional[int] = None) -> Callable:
+        """缓存装饰器
+        
+        Args:
+            maxsize: 最大缓存大小（暂未使用，为兼容性保留）
+            ttl: TTL（秒），如果为None则使用默认值
+            
+        Returns:
+            装饰后的函数
+        """
+        def wrapper_func(func: Callable) -> Callable:
+            async def wrapper(*args: Any, **kwargs: Any) -> Any:
+                # 生成缓存键
+                import inspect
+                sig = inspect.signature(func)
+                bound_args = sig.bind(*args, **kwargs)
+                bound_args.apply_defaults()
+                
+                from .utils.cache_key_generator import CacheKeyGenerator
+                cache_key = CacheKeyGenerator.generate_params_key(
+                    {"func": func.__name__, "args": bound_args.arguments},
+                    algorithm="md5"  # 装饰器使用md5以保持兼容性
+                )
+                
+                # 尝试从缓存获取
+                cached_result = await manager.get(cache_key, cache_name)
+                if cached_result is not None:
+                    return cached_result
+                
+                # 执行函数并缓存结果
+                result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
+                await manager.set(cache_key, result, ttl or default_ttl, cache_name)
+                return result
+            
+            return wrapper
+        return wrapper_func
+    return decorator
+
+
+def config_cached(maxsize: int = 128, ttl: Optional[int] = None) -> Callable[..., Any]:
     """配置缓存装饰器"""
-    manager = get_global_cache_manager()
-    cache_name = "config_func"
-    
-    def decorator(func):
-        async def wrapper(*args, **kwargs):
-            # 生成缓存键
-            import inspect
-            sig = inspect.signature(func)
-            bound_args = sig.bind(*args, **kwargs)
-            bound_args.apply_defaults()
-            
-            from .utils.cache_key_generator import CacheKeyGenerator
-            cache_key = CacheKeyGenerator.generate_params_key(
-                {"func": func.__name__, "args": bound_args.arguments},
-                algorithm="md5"  # 装饰器使用md5以保持兼容性
-            )
-            
-            # 尝试从缓存获取
-            cached_result = await manager.get(cache_key, cache_name)
-            if cached_result is not None:
-                return cached_result
-            
-            # 执行函数并缓存结果
-            result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
-            await manager.set(cache_key, result, ttl or 7200, cache_name)
-            return result
-        
-        return wrapper
-    return decorator
+    return _create_cached_decorator("config_func", 7200)(maxsize, ttl)
 
 
-def llm_cached(maxsize: int = 256, ttl: Optional[int] = None):
+def llm_cached(maxsize: int = 256, ttl: Optional[int] = None) -> Callable[..., Any]:
     """LLM缓存装饰器"""
-    manager = get_global_cache_manager()
-    cache_name = "llm_func"
-    
-    def decorator(func):
-        async def wrapper(*args, **kwargs):
-            # 生成缓存键
-            import inspect
-            sig = inspect.signature(func)
-            bound_args = sig.bind(*args, **kwargs)
-            bound_args.apply_defaults()
-            
-            from .utils.cache_key_generator import CacheKeyGenerator
-            cache_key = CacheKeyGenerator.generate_params_key(
-                {"func": func.__name__, "args": bound_args.arguments},
-                algorithm="md5"
-            )
-            
-            # 尝试从缓存获取
-            cached_result = await manager.get(cache_key, cache_name)
-            if cached_result is not None:
-                return cached_result
-            
-            # 执行函数并缓存结果
-            result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
-            await manager.set(cache_key, result, ttl or 3600, cache_name)
-            return result
-        
-        return wrapper
-    return decorator
+    return _create_cached_decorator("llm_func", 3600)(maxsize, ttl)
 
 
-def graph_cached(maxsize: int = 64, ttl: Optional[int] = None):
+def graph_cached(maxsize: int = 64, ttl: Optional[int] = None) -> Callable[..., Any]:
     """图缓存装饰器"""
-    manager = get_global_cache_manager()
-    cache_name = "graph_func"
-    
-    def decorator(func):
-        async def wrapper(*args, **kwargs):
-            # 生成缓存键
-            import inspect
-            sig = inspect.signature(func)
-            bound_args = sig.bind(*args, **kwargs)
-            bound_args.apply_defaults()
-            
-            from .utils.cache_key_generator import CacheKeyGenerator
-            cache_key = CacheKeyGenerator.generate_params_key(
-                {"func": func.__name__, "args": bound_args.arguments},
-                algorithm="md5"
-            )
-            
-            # 尝试从缓存获取
-            cached_result = await manager.get(cache_key, cache_name)
-            if cached_result is not None:
-                return cached_result
-            
-            # 执行函数并缓存结果
-            result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
-            await manager.set(cache_key, result, ttl or 1800, cache_name)
-            return result
-        
-        return wrapper
-    return decorator
+    return _create_cached_decorator("graph_func", 1800)(maxsize, ttl)
 
 
-def simple_cached(cache_name: str, maxsize: int = 1000, ttl: Optional[int] = None):
+def simple_cached(cache_name: str, maxsize: int = 1000, ttl: Optional[int] = None) -> Callable[..., Any]:
     """简单缓存装饰器"""
-    manager = get_global_cache_manager()
-    
-    def decorator(func):
-        async def wrapper(*args, **kwargs):
-            # 生成缓存键
-            import inspect
-            sig = inspect.signature(func)
-            bound_args = sig.bind(*args, **kwargs)
-            bound_args.apply_defaults()
-            
-            from .utils.cache_key_generator import CacheKeyGenerator
-            cache_key = CacheKeyGenerator.generate_params_key(
-                {"func": func.__name__, "args": bound_args.arguments},
-                algorithm="md5"
-            )
-            
-            # 尝试从缓存获取
-            cached_result = await manager.get(cache_key, cache_name)
-            if cached_result is not None:
-                return cached_result
-            
-            # 执行函数并缓存结果
-            result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
-            await manager.set(cache_key, result, ttl, cache_name)
-            return result
-        
-        return wrapper
-    return decorator
+    return _create_cached_decorator(cache_name, None)(maxsize, ttl)

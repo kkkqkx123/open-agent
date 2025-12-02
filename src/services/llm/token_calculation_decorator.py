@@ -10,11 +10,13 @@ from src.services.logger import get_logger
 from src.interfaces.llm import (
     ITokenConfigProvider,
     ITokenCostCalculator,
-    TokenCostInfo
+    TokenCostInfo,
+    TokenCalculationConfig
 )
 from src.services.llm.token_calculation_service import TokenCalculationService
 from src.services.llm.token_processing.base_processor import ITokenProcessor
 from src.services.llm.token_processing.token_types import TokenUsage
+from src.services.llm.utils.config_extractor import TokenConfigExtractor
 
 logger = get_logger(__name__)
 
@@ -256,10 +258,10 @@ class TokenCalculationDecorator:
             return self._base_service._get_processor_for_model(model_type, model_name)
     
     def _create_processor_with_config(
-        self, 
-        model_type: str, 
-        model_name: str, 
-        token_config
+        self,
+        model_type: str,
+        model_name: str,
+        token_config: TokenCalculationConfig
     ) -> ITokenProcessor:
         """
         根据配置创建处理器
@@ -279,6 +281,7 @@ class TokenCalculationDecorator:
         from .token_processing.hybrid_processor import HybridTokenProcessor
         
         # 根据模型类型创建处理器
+        processor: ITokenProcessor
         if model_type.lower() == "openai":
             processor = OpenAITokenProcessor(model_name)
         elif model_type.lower() == "gemini":
@@ -327,11 +330,104 @@ class TokenCalculationDecorator:
         
         if self._config_provider:
             status["config_provider_type"] = type(self._config_provider).__name__
+            # 如果配置提供者有缓存统计，添加到状态中
+            try:
+                if hasattr(self._config_provider, '_config_cache'):
+                    config_cache = getattr(self._config_provider, '_config_cache', None)
+                    if config_cache and hasattr(config_cache, '_manager'):
+                        # 使用core/common/cache的统计接口
+                        import asyncio
+                        try:
+                            cache_stats = asyncio.run(config_cache._manager.get_stats(config_cache._cache_name))
+                            status["config_cache_stats"] = cache_stats
+                        except RuntimeError:
+                            # 如果无法运行异步，提供基本信息
+                            status["config_cache_info"] = {
+                                "cache_type": type(config_cache).__name__,
+                                "cache_name": getattr(config_cache, '_cache_name', 'unknown')
+                            }
+            except Exception as e:
+                logger.debug(f"无法获取配置缓存统计: {e}")
         
         if self._cost_calculator:
             status["cost_calculator_type"] = type(self._cost_calculator).__name__
         
         return status
+    
+    def get_enhanced_token_config(self, model_type: str, model_name: str) -> Optional[TokenCalculationConfig]:
+        """
+        获取增强的Token配置（包含缓存统计）
+        
+        Args:
+            model_type: 模型类型
+            model_name: 模型名称
+            
+        Returns:
+            Optional[TokenCalculationConfig]: Token计算配置
+        """
+        if not self._config_provider:
+            logger.warning("未设置配置提供者，无法获取Token配置")
+            return None
+        
+        return self._config_provider.get_token_config(model_type, model_name)
+    
+    def calculate_enhanced_cost(
+        self,
+        input_tokens: int,
+        output_tokens: int,
+        model_type: str,
+        model_name: str
+    ) -> Dict[str, Any]:
+        """
+        计算增强的成本信息（包含配置详情）
+        
+        Args:
+            input_tokens: 输入token数量
+            output_tokens: 输出token数量
+            model_type: 模型类型
+            model_name: 模型名称
+            
+        Returns:
+            Dict[str, Any]: 增强的成本信息
+        """
+        result = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "model_type": model_type,
+            "model_name": model_name,
+            "cost_calculated": False,
+            "cost_info": None,
+            "config_info": None
+        }
+        
+        # 获取配置信息
+        if self._config_provider:
+            # 检查是否有成本计算器来获取定价信息
+            if self._cost_calculator and hasattr(self._cost_calculator, 'get_model_pricing_info'):
+                config_info = self._cost_calculator.get_model_pricing_info(model_type, model_name)
+                result["config_info"] = config_info
+            else:
+                # 获取基础配置信息
+                token_config = self._config_provider.get_token_config(model_type, model_name)
+                if token_config:
+                    result["config_info"] = {
+                        "model_type": model_type,
+                        "model_name": model_name,
+                        "input_token_cost": token_config.cost_per_input_token,
+                        "output_token_cost": token_config.cost_per_output_token,
+                        "tokenizer_type": token_config.tokenizer_type,
+                        "custom_tokenizer": token_config.custom_tokenizer,
+                        "fallback_enabled": token_config.fallback_enabled,
+                        "cache_enabled": token_config.cache_enabled
+                    }
+        
+        # 计算成本
+        if self._cost_calculator:
+            cost_info = self._cost_calculator.calculate_cost(input_tokens, output_tokens, model_type, model_name)
+            result["cost_info"] = cost_info
+            result["cost_calculated"] = cost_info is not None
+        
+        return result
     
     @property
     def base_service(self) -> TokenCalculationService:

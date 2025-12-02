@@ -93,22 +93,3 @@ class TiktokenEncoding(EncodingProtocol):
     def name(self) -> str:
         """获取编码器名称"""
         return getattr(self._encoding, 'name', 'tiktoken')
-
-
-class SimpleEstimationEncoding(EncodingProtocol):
-    """简单估算编码器（当tiktoken不可用时使用）"""
-    
-    def encode(self, text: str) -> list[int]:
-        """编码文本为token列表（简单估算）"""
-        # 简单估算：大约4个字符=1个token
-        return list(range(len(text) // 4))
-    
-    def decode(self, tokens: list[int]) -> str:
-        """解码token列表为文本（简单估算）"""
-        # 简单估算：无法准确解码，返回占位符
-        return "[ESTIMATED_TOKENS]"
-    
-    @property
-    def name(self) -> str:
-        """获取编码器名称"""
-        return "estimated"

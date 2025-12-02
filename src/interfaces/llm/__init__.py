@@ -35,6 +35,9 @@ from .token_config import (
     TokenCostInfo
 )
 
+# 从encoding模块导入
+from .encoding import EncodingProtocol
+
 # 定义导出列表
 __all__ = [
     'LLMResponse',
@@ -57,4 +60,6 @@ __all__ = [
     'ITokenCostCalculator',
     'TokenCalculationConfig',
     'TokenCostInfo',
+    # 编码相关接口
+    'EncodingProtocol',
 ]

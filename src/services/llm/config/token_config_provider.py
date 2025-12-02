@@ -4,7 +4,6 @@
 """
 
 from typing import Dict, Any, Optional, List
-from threading import Lock
 
 from src.services.logger import get_logger
 from src.interfaces.llm import (
@@ -14,6 +13,8 @@ from src.interfaces.llm import (
     TokenCostInfo
 )
 from src.core.llm.provider_config_discovery import ProviderConfigDiscovery
+from src.services.llm.utils.config_extractor import TokenConfigExtractor, create_config_key
+from src.core.common.cache import ConfigCache
 
 logger = get_logger(__name__)
 
@@ -32,8 +33,7 @@ class ProviderConfigTokenConfigProvider(ITokenConfigProvider):
             provider_discovery: Provider配置发现器
         """
         self._provider_discovery = provider_discovery
-        self._config_cache: Dict[str, TokenCalculationConfig] = {}
-        self._lock = Lock()
+        self._config_cache = ConfigCache()
         
         logger.debug("ProviderConfigTokenConfigProvider初始化完成")
     
@@ -48,21 +48,21 @@ class ProviderConfigTokenConfigProvider(ITokenConfigProvider):
         Returns:
             Optional[TokenCalculationConfig]: Token计算配置
         """
-        config_key = f"{model_type}:{model_name}"
+        config_key = create_config_key(model_type, model_name)
         
-        with self._lock:
-            # 检查缓存
-            if config_key in self._config_cache:
-                return self._config_cache[config_key]
-            
-            # 从Provider配置中加载
-            config = self._load_config_from_provider(model_type, model_name)
-            
-            # 缓存配置
-            if config:
-                self._config_cache[config_key] = config
-            
-            return config
+        # 检查缓存
+        cached_config = self._config_cache.get(config_key)
+        if cached_config is not None:
+            return cached_config  # type: ignore
+        
+        # 从Provider配置中加载
+        config = self._load_config_from_provider(model_type, model_name)
+        
+        # 缓存配置
+        if config:
+            self._config_cache.put(config_key, config)
+        
+        return config
     
     def _load_config_from_provider(self, model_type: str, model_name: str) -> Optional[TokenCalculationConfig]:
         """
@@ -91,9 +91,9 @@ class ProviderConfigTokenConfigProvider(ITokenConfigProvider):
             return None
     
     def _extract_token_config(
-        self, 
-        provider_config: Dict[str, Any], 
-        model_type: str, 
+        self,
+        provider_config: Dict[str, Any],
+        model_type: str,
         model_name: str
     ) -> TokenCalculationConfig:
         """
@@ -107,26 +107,7 @@ class ProviderConfigTokenConfigProvider(ITokenConfigProvider):
         Returns:
             TokenCalculationConfig: Token计算配置
         """
-        # 查找token_calculation配置段
-        token_config_data = provider_config.get("token_calculation", {})
-        
-        # 查找pricing配置段
-        pricing_config = provider_config.get("pricing", {})
-        
-        # 查找tokenizer配置段
-        tokenizer_config = provider_config.get("tokenizer", {})
-        
-        return TokenCalculationConfig(
-            provider_name=model_type,
-            model_name=model_name,
-            tokenizer_type=token_config_data.get("type"),
-            tokenizer_config=tokenizer_config,
-            cost_per_input_token=pricing_config.get("input_token_cost"),
-            cost_per_output_token=pricing_config.get("output_token_cost"),
-            custom_tokenizer=token_config_data.get("custom_tokenizer"),
-            fallback_enabled=token_config_data.get("fallback_enabled", True),
-            cache_enabled=token_config_data.get("cache_enabled", True)
-        )
+        return TokenConfigExtractor.extract_token_config(provider_config, model_type, model_name)
     
     def get_supported_models(self) -> Dict[str, List[str]]:
         """
@@ -162,9 +143,8 @@ class ProviderConfigTokenConfigProvider(ITokenConfigProvider):
         """
         刷新配置缓存
         """
-        with self._lock:
-            self._config_cache.clear()
-            self._provider_discovery.refresh_cache()
+        self._config_cache.clear()
+        self._provider_discovery.refresh_cache()
         
         logger.info("Token配置缓存已刷新")
 
