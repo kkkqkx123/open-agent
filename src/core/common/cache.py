@@ -6,11 +6,18 @@
 
 import time
 import threading
-from typing import Any, Optional, Dict, Union, List
+import asyncio
+from typing import Any, Optional, Dict, Union, List, TYPE_CHECKING
 from collections import OrderedDict
 from dataclasses import dataclass
 
 from cachetools import TTLCache, LRUCache, cached
+from src.services.logger import get_logger
+
+if TYPE_CHECKING:
+    from .serialization import Serializer
+
+logger = get_logger(__name__)
 
 @dataclass
 class CacheEntry:
@@ -80,12 +87,15 @@ class CacheStats:
 
 
 class CacheManager:
-    """增强的缓存管理器，整合了基础设施层的高级功能"""
+    """增强的缓存管理器，整合了基础设施层的高级功能
     
-    def __init__(self, 
-                 max_size: int = 1000, 
-                 default_ttl: int = 3600, 
-                 enable_serialization: bool = False, 
+    修复了双重缓存存储问题，现在使用统一的缓存存储机制
+    """
+    
+    def __init__(self,
+                 max_size: int = 1000,
+                 default_ttl: int = 3600,
+                 enable_serialization: bool = False,
                  serialization_format: str = "json"):
         """初始化缓存管理器
         Args:
@@ -99,26 +109,31 @@ class CacheManager:
         self.enable_serialization = enable_serialization
         self.serialization_format = serialization_format
         
-        # 使用cachetools的缓存作为底层存储
-        self._caches: Dict[str, Union[TTLCache, LRUCache]] = {}
-        self._cache_entries: Dict[str, OrderedDict[str, CacheEntry]] = {}  # 用于高级功能
+        # 统一缓存存储：只使用OrderedDict存储CacheEntry，移除双重存储
+        self._cache_entries: Dict[str, OrderedDict[str, CacheEntry]] = {}
         
         # 统计信息
         self._stats = CacheStats()
         
-        # 线程锁
-        self._lock = threading.RLock()
+        # 细粒度锁：为不同操作使用不同的锁
+        self._cache_lock = threading.RLock()  # 缓存操作锁
+        self._stats_lock = threading.Lock()   # 统计信息锁
         
-        # 序列化器（如果需要）
-        self._serializer = None
+        # 预加载序列化器（如果需要）
+        self._serializer: Optional['Serializer'] = None
         if enable_serialization:
-            from .serialization import Serializer
-            self._serializer = Serializer()
+            try:
+                from .serialization import Serializer
+                self._serializer = Serializer()
+            except ImportError as e:
+                logger.warning(f"无法加载序列化器，将禁用序列化功能: {e}")
+                self.enable_serialization = False
         
-        # 清理任务
-        self._cleanup_task = None
-        self._cleanup_interval = 30  # 5分钟清理一次
-        self._stop_cleanup = False
+        # 后台清理任务
+        self._cleanup_task: Optional[asyncio.Task] = None
+        self._cleanup_interval = 300  # 5分钟清理一次
+        self._stop_cleanup = threading.Event()
+        self._cleanup_loop = None
 
     def _deserialize_value(self, value: Any) -> Any:
         """反序列化值（如果配置了序列化器）"""
@@ -132,55 +147,50 @@ class CacheManager:
             return self._serializer.serialize(value, self.serialization_format)
         return value
 
-    def get_cache(self, name: str, maxsize: int = 1000, ttl: Optional[int] = None) -> Union[TTLCache, LRUCache]:
-        """获取缓存实例"""
-        with self._lock:
-            if name not in self._caches:
-                if ttl and ttl > 0:
-                    self._caches[name] = TTLCache(maxsize=maxsize, ttl=ttl)
-                else:
-                    self._caches[name] = LRUCache(maxsize=maxsize)
-            return self._caches[name]
+    def _ensure_cache_dict(self, name: str = 'default') -> OrderedDict[str, CacheEntry]:
+        """确保缓存字典存在"""
+        with self._cache_lock:
+            if name not in self._cache_entries:
+                self._cache_entries[name] = OrderedDict()
+            return self._cache_entries[name]
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str, cache_name: str = 'default') -> Optional[Any]:
         """获取缓存值
         Args:
             key: 缓存键
+            cache_name: 缓存名称，默认为'default'
         Returns:
             缓存值，如果不存在或过期则返回None
         """
-        with self._lock:
-            # 检查高级缓存条目（用于统计和过期检查）
-            if key in self._cache_entries.get('default', {}):
-                entry = self._cache_entries['default'][key]
+        with self._cache_lock:
+            cache_dict = self._ensure_cache_dict(cache_name)
+            
+            if key in cache_dict:
+                entry = cache_dict[key]
+                
+                # 检查是否过期
                 if entry.is_expired():
-                    del self._cache_entries['default'][key]
-                    self._stats.record_miss()
+                    del cache_dict[key]
+                    self._record_miss()
                     return None
                 
                 # 移动到末尾（LRU）
-                cache_dict = self._cache_entries['default']
                 cache_dict.move_to_end(key)
-                self._stats.record_hit()
+                self._record_hit()
                 
+                # 访问缓存项并返回值
                 value = entry.access()
                 return self._deserialize_value(value)
             else:
-                # 检查cachetools缓存
-                cache = self.get_cache('default')
-                value = cache.get(key)
-                if value is not None:
-                    self._stats.record_hit()
-                    return self._deserialize_value(value)
-                else:
-                    self._stats.record_miss()
-                    return None
+                self._record_miss()
+                return None
 
     async def set(
         self,
         key: str,
         value: Any,
         ttl: Optional[int] = None,
+        cache_name: str = 'default',
         metadata: Optional[Dict[str, Any]] = None
     ) -> None:
         """设置缓存值
@@ -188,27 +198,27 @@ class CacheManager:
             key: 缓存键
             value: 缓存值
             ttl: TTL（秒），如果为None则使用默认值
-            metadata: 元数据
+            cache_name: 缓存名称，默认为'default'
+            metadata: 元数据（暂未使用，为未来扩展保留）
         """
+        if not key:
+            raise ValueError("缓存键不能为空")
+            
         ttl = ttl or self.default_ttl
         expires_at = time.time() + ttl if ttl > 0 else None
         
         # 序列化值
         serialized_value = self._serialize_value(value)
         
-        with self._lock:
-            # 确保cache_entries字典存在
-            if 'default' not in self._cache_entries:
-                self._cache_entries['default'] = OrderedDict()
-            
-            cache_dict = self._cache_entries['default']
+        with self._cache_lock:
+            cache_dict = self._ensure_cache_dict(cache_name)
             
             # 检查是否需要淘汰
             if key not in cache_dict and len(cache_dict) >= self.max_size:
                 # LRU淘汰 - 删除最久未使用的项
                 oldest_key = next(iter(cache_dict))
                 del cache_dict[oldest_key]
-                self._stats.record_eviction()
+                self._record_eviction()
             
             # 创建缓存条目
             entry = CacheEntry(
@@ -220,165 +230,224 @@ class CacheManager:
             
             cache_dict[key] = entry
             cache_dict.move_to_end(key)
-            
-            # 同时设置到cachetools缓存
-            cache = self.get_cache('default')
-            cache[key] = serialized_value
 
-    async def delete(self, key: str) -> bool:
+    async def delete(self, key: str, cache_name: str = 'default') -> bool:
         """删除缓存项
         Args:
             key: 缓存键
+            cache_name: 缓存名称，默认为'default'
         Returns:
             是否删除成功
         """
-        with self._lock:
-            success = False
-            if 'default' in self._cache_entries and key in self._cache_entries['default']:
-                del self._cache_entries['default'][key]
-                success = True
-            # 同时从cachetools缓存删除
-            cache = self.get_cache('default')
-            if key in cache:
-                del cache[key]
-                success = True
-            return success
+        with self._cache_lock:
+            cache_dict = self._ensure_cache_dict(cache_name)
+            if key in cache_dict:
+                del cache_dict[key]
+                return True
+            return False
 
-    async def clear(self) -> None:
-        """清空所有缓存"""
-        with self._lock:
-            if 'default' in self._cache_entries:
-                self._cache_entries['default'].clear()
-            for cache in self._caches.values():
-                cache.clear()
+    async def clear(self, cache_name: Optional[str] = None) -> None:
+        """清空缓存
+        Args:
+            cache_name: 缓存名称，如果为None则清空所有缓存
+        """
+        with self._cache_lock:
+            if cache_name:
+                if cache_name in self._cache_entries:
+                    self._cache_entries[cache_name].clear()
+            else:
+                for cache_dict in self._cache_entries.values():
+                    cache_dict.clear()
 
-    async def exists(self, key: str) -> bool:
+    async def exists(self, key: str, cache_name: str = 'default') -> bool:
         """检查缓存项是否存在且未过期
         Args:
             key: 缓存键
+            cache_name: 缓存名称，默认为'default'
         Returns:
             是否存在
         """
-        with self._lock:
-            if key in self._cache_entries.get('default', {}):
-                entry = self._cache_entries['default'][key]
+        with self._cache_lock:
+            cache_dict = self._ensure_cache_dict(cache_name)
+            if key in cache_dict:
+                entry = cache_dict[key]
                 if entry.is_expired():
-                    del self._cache_entries['default'][key]
+                    del cache_dict[key]
                     return False
                 return True
-            else:
-                cache = self.get_cache('default')
-                return key in cache
+            return False
 
-    async def get_stats(self) -> Dict[str, Any]:
+    def _record_hit(self) -> None:
+        """记录缓存命中（线程安全）"""
+        with self._stats_lock:
+            self._stats.record_hit()
+
+    def _record_miss(self) -> None:
+        """记录缓存未命中（线程安全）"""
+        with self._stats_lock:
+            self._stats.record_miss()
+
+    def _record_eviction(self) -> None:
+        """记录缓存淘汰（线程安全）"""
+        with self._stats_lock:
+            self._stats.record_eviction()
+
+    async def get_stats(self, cache_name: str = 'default') -> Dict[str, Any]:
         """获取缓存统计信息
+        Args:
+            cache_name: 缓存名称，默认为'default'
         Returns:
             统计信息字典
         """
-        with self._lock:
+        with self._cache_lock:
+            cache_size = len(self._cache_entries.get(cache_name, {}))
+        
+        with self._stats_lock:
             return {
                 "hits": self._stats.hits,
                 "misses": self._stats.misses,
                 "evictions": self._stats.evictions,
                 "total_requests": self._stats.total_requests,
                 "hit_rate": self._stats.hit_rate,
-                "cache_size": len(self._cache_entries.get('default', {})),
+                "cache_size": cache_size,
                 "max_size": self.max_size,
                 "default_ttl": self.default_ttl,
                 "enable_serialization": self.enable_serialization,
-                "serialization_format": self.serialization_format
+                "serialization_format": self.serialization_format,
+                "cache_name": cache_name
             }
 
-    async def cleanup_expired(self) -> int:
+    async def cleanup_expired(self, cache_name: str = 'default') -> int:
         """清理过期缓存项
+        Args:
+            cache_name: 缓存名称，默认为'default'
         Returns:
             清理的项数
         """
-        with self._lock:
-            if 'default' not in self._cache_entries:
+        with self._cache_lock:
+            if cache_name not in self._cache_entries:
                 return 0
                 
             expired_keys = []
             current_time = time.time()
+            cache_dict = self._cache_entries[cache_name]
             
-            for key, entry in self._cache_entries['default'].items():
+            for key, entry in cache_dict.items():
                 if entry.is_expired():
                     expired_keys.append(key)
             
             for key in expired_keys:
-                del self._cache_entries['default'][key]
+                del cache_dict[key]
             
-            cleanup_count = len(expired_keys)
-            if cleanup_count > 0:
-                # 也从cachetools缓存中清理
-                cache = self.get_cache('default')
-                for key in expired_keys:
-                    if key in cache:
-                        del cache[key]
-            
-            return cleanup_count
+            return len(expired_keys)
 
-    async def get_all_keys(self) -> List[str]:
+    async def get_all_keys(self, cache_name: str = 'default') -> List[str]:
         """获取所有缓存键（不包含过期项）
+        Args:
+            cache_name: 缓存名称，默认为'default'
         Returns:
             缓存键列表
         """
-        with self._lock:
-            # 先清理过期项
-            await self.cleanup_expired()
-            return list(self._cache_entries.get('default', {}).keys())
+        # 先清理过期项
+        await self.cleanup_expired(cache_name)
+        
+        with self._cache_lock:
+            return list(self._cache_entries.get(cache_name, {}).keys())
 
-    async def get_many(self, keys: List[str]) -> Dict[str, Any]:
+    async def get_many(self, keys: List[str], cache_name: str = 'default') -> Dict[str, Any]:
         """批量获取缓存值
         Args:
             keys: 缓存键列表
+            cache_name: 缓存名称，默认为'default'
         Returns:
             键值对字典
         """
         result = {}
         for key in keys:
-            value = await self.get(key)
+            value = await self.get(key, cache_name)
             if value is not None:
                 result[key] = value
         return result
 
-    async def set_many(self, items: Dict[str, Any], ttl: Optional[int] = None) -> None:
+    async def set_many(self, items: Dict[str, Any], ttl: Optional[int] = None, cache_name: str = 'default') -> None:
         """批量设置缓存值
         Args:
             items: 键值对字典
             ttl: TTL（秒）
+            cache_name: 缓存名称，默认为'default'
         """
         for key, value in items.items():
-            await self.set(key, value, ttl)
+            await self.set(key, value, ttl, cache_name)
 
     def clear_cache(self, name: Optional[str] = None) -> None:
         """清除缓存（兼容原有接口）"""
-        with self._lock:
-            if name:
-                if name in self._caches:
-                    self._caches[name].clear()
-            else:
-                for cache in self._caches.values():
-                    cache.clear()
+        import asyncio
+        if name:
+            asyncio.create_task(self.clear(name))
+        else:
+            asyncio.create_task(self.clear())
 
     def get_cache_info(self, name: str) -> Dict[str, Any]:
         """获取缓存信息（兼容原有接口）"""
-        with self._lock:
-            if name not in self._caches:
+        with self._cache_lock:
+            if name not in self._cache_entries:
                 return {"error": f"Cache '{name}' not found"}
             
-            cache = self._caches[name]
+            cache_dict = self._cache_entries[name]
             return {
                 "name": name,
-                "size": len(cache),
-                "maxsize": getattr(cache, 'maxsize', 'unknown'),
-                "type": type(cache).__name__
+                "size": len(cache_dict),
+                "maxsize": self.max_size,
+                "type": "OrderedDict[CacheEntry]"
             }
 
     def get_all_cache_info(self) -> Dict[str, Dict[str, Any]]:
         """获取所有缓存信息（兼容原有接口）"""
-        with self._lock:
-            return {name: self.get_cache_info(name) for name in self._caches.keys()}
+        with self._cache_lock:
+            return {name: self.get_cache_info(name) for name in self._cache_entries.keys()}
+
+    async def start_cleanup_task(self) -> None:
+        """启动后台清理任务"""
+        if self._cleanup_task is None or self._cleanup_task.done():
+            try:
+                self._cleanup_loop = asyncio.get_event_loop()
+            except RuntimeError:
+                # 如果没有事件循环，创建一个新的
+                self._cleanup_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(self._cleanup_loop)
+            
+            self._cleanup_task = self._cleanup_loop.create_task(self._cleanup_worker())
+            logger.info("后台清理任务已启动")
+
+    async def stop_cleanup_task(self) -> None:
+        """停止后台清理任务"""
+        self._stop_cleanup.set()
+        if self._cleanup_task and not self._cleanup_task.done():
+            self._cleanup_task.cancel()
+            try:
+                await self._cleanup_task
+            except asyncio.CancelledError:
+                pass
+        logger.info("后台清理任务已停止")
+
+    async def _cleanup_worker(self) -> None:
+        """后台清理工作线程"""
+        while not self._stop_cleanup.is_set():
+            try:
+                # 清理所有缓存的过期项
+                for cache_name in list(self._cache_entries.keys()):
+                    cleaned_count = await self.cleanup_expired(cache_name)
+                    if cleaned_count > 0:
+                        logger.debug(f"缓存 '{cache_name}' 清理了 {cleaned_count} 个过期项")
+                
+                # 等待下次清理
+                await asyncio.sleep(self._cleanup_interval)
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"后台清理任务出错: {e}")
+                await asyncio.sleep(60)  # 出错后等待1分钟再重试
 
 
 # 全局缓存管理器
@@ -393,12 +462,16 @@ def get_global_cache_manager() -> CacheManager:
         with _manager_lock:
             if _global_manager is None:
                 _global_manager = CacheManager()
+                # 启动后台清理任务
+                import asyncio
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        asyncio.create_task(_global_manager.start_cleanup_task())
+                except RuntimeError:
+                    # 如果没有运行的事件循环，跳过后台任务启动
+                    pass
     return _global_manager
-
-
-def get_cache(name: str, maxsize: int = 1000, ttl: Optional[int] = None) -> Union[TTLCache, LRUCache]:
-    """便捷函数：获取缓存实例"""
-    return get_global_cache_manager().get_cache(name, maxsize, ttl)
 
 
 def clear_cache(name: Optional[str] = None) -> None:
@@ -406,90 +479,309 @@ def clear_cache(name: Optional[str] = None) -> None:
     get_global_cache_manager().clear_cache(name)
 
 
-# 专用缓存类
+# 专用缓存类 - 适配新的统一缓存机制
 class ConfigCache:
-    """配置专用缓存"""
+    """配置专用缓存
     
-    def __init__(self):
-        self._cache = get_cache("config", maxsize=500, ttl=7200)  # 2小时
+    提供同步接口，内部基于CacheManager的同步操作。
+    所有缓存操作都是同步的，因为缓存存储是内存操作，不涉及I/O阻塞。
+    """
+    
+    def __init__(self) -> None:
+        self._manager = get_global_cache_manager()
+        self._cache_name = "config"
     
     def get(self, key: str) -> Optional[Any]:
-        return self._cache.get(key)
+        """同步获取缓存值
+        
+        Args:
+            key: 缓存键
+            
+        Returns:
+            缓存值，如果不存在或过期则返回None
+        """
+        # 同步调用异步方法 - 使用asyncio.run创建新事件循环
+        try:
+            return asyncio.run(self._manager.get(key, self._cache_name))
+        except RuntimeError:
+            # 如果当前已有事件循环，则创建新线程来运行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(asyncio.run, self._manager.get(key, self._cache_name)).result()
     
-    def put(self, key: str, value: Any):
-        self._cache[key] = value
+    def put(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+        """同步设置缓存值
+        
+        Args:
+            key: 缓存键
+            value: 缓存值
+            ttl: TTL（秒），如果为None则使用默认值（2小时）
+        """
+        try:
+            asyncio.run(self._manager.set(key, value, ttl or 7200, self._cache_name))
+        except RuntimeError:
+            # 如果当前已有事件循环，则创建新线程来运行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(asyncio.run, self._manager.set(key, value, ttl or 7200, self._cache_name)).result()
     
-    def remove(self, key: str) -> None:
-        """删除指定的缓存键"""
-        if key in self._cache:
-            del self._cache[key]
+    def remove(self, key: str) -> bool:
+        """同步删除指定的缓存键
+        
+        Args:
+            key: 缓存键
+            
+        Returns:
+            是否删除成功
+        """
+        try:
+            return asyncio.run(self._manager.delete(key, self._cache_name))
+        except RuntimeError:
+            # 如果当前已有事件循环，则创建新线程来运行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(asyncio.run, self._manager.delete(key, self._cache_name)).result()
     
-    def clear(self):
-        self._cache.clear()
+    def clear(self) -> None:
+        """同步清空缓存"""
+        try:
+            asyncio.run(self._manager.clear(self._cache_name))
+        except RuntimeError:
+            # 如果当前已有事件循环，则创建新线程来运行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(asyncio.run, self._manager.clear(self._cache_name)).result()
 
 
 class LLMCache:
-    """LLM专用缓存"""
+    """LLM专用缓存
     
-    def __init__(self):
-        self._cache = get_cache("llm", maxsize=1000, ttl=3600)  # 1小时
+    提供同步接口，内部基于CacheManager的同步操作。
+    """
+    
+    def __init__(self) -> None:
+        self._manager = get_global_cache_manager()
+        self._cache_name = "llm"
     
     def get(self, key: str) -> Optional[Any]:
-        return self._cache.get(key)
+        """同步获取缓存值"""
+        try:
+            return asyncio.run(self._manager.get(key, self._cache_name))
+        except RuntimeError:
+            # 如果当前已有事件循环，则创建新线程来运行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(asyncio.run, self._manager.get(key, self._cache_name)).result()
     
-    def put(self, key: str, value: Any):
-        self._cache[key] = value
+    def put(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+        """同步设置缓存值"""
+        try:
+            asyncio.run(self._manager.set(key, value, ttl or 3600, self._cache_name))
+        except RuntimeError:
+            # 如果当前已有事件循环，则创建新线程来运行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(asyncio.run, self._manager.set(key, value, ttl or 3600, self._cache_name)).result()
     
-    def remove(self, key: str) -> None:
-        """删除指定的缓存键"""
-        if key in self._cache:
-            del self._cache[key]
+    def remove(self, key: str) -> bool:
+        """同步删除指定的缓存键"""
+        try:
+            return asyncio.run(self._manager.delete(key, self._cache_name))
+        except RuntimeError:
+            # 如果当前已有事件循环，则创建新线程来运行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(asyncio.run, self._manager.delete(key, self._cache_name)).result()
     
-    def clear(self):
-        self._cache.clear()
+    def clear(self) -> None:
+        """同步清空缓存"""
+        try:
+            asyncio.run(self._manager.clear(self._cache_name))
+        except RuntimeError:
+            # 如果当前已有事件循环，则创建新线程来运行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(asyncio.run, self._manager.clear(self._cache_name)).result()
 
 
 class GraphCache:
-    """图实例专用缓存"""
+    """图实例专用缓存
     
-    def __init__(self):
-        self._cache = get_cache("graph", maxsize=100, ttl=1800)  # 30分钟
+    提供同步接口，内部基于CacheManager的同步操作。
+    """
+    
+    def __init__(self) -> None:
+        self._manager = get_global_cache_manager()
+        self._cache_name = "graph"
     
     def get(self, key: str) -> Optional[Any]:
-        return self._cache.get(key)
+        """同步获取缓存值"""
+        try:
+            return asyncio.run(self._manager.get(key, self._cache_name))
+        except RuntimeError:
+            # 如果当前已有事件循环，则创建新线程来运行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(asyncio.run, self._manager.get(key, self._cache_name)).result()
     
-    def put(self, key: str, value: Any):
-        self._cache[key] = value
+    def put(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+        """同步设置缓存值"""
+        try:
+            asyncio.run(self._manager.set(key, value, ttl or 1800, self._cache_name))
+        except RuntimeError:
+            # 如果当前已有事件循环，则创建新线程来运行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(asyncio.run, self._manager.set(key, value, ttl or 1800, self._cache_name)).result()
     
-    def remove(self, key: str) -> None:
-        """删除指定的缓存键"""
-        if key in self._cache:
-            del self._cache[key]
+    def remove(self, key: str) -> bool:
+        """同步删除指定的缓存键"""
+        try:
+            return asyncio.run(self._manager.delete(key, self._cache_name))
+        except RuntimeError:
+            # 如果当前已有事件循环，则创建新线程来运行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(asyncio.run, self._manager.delete(key, self._cache_name)).result()
     
-    def clear(self):
-        self._cache.clear()
+    def clear(self) -> None:
+        """同步清空缓存"""
+        try:
+            asyncio.run(self._manager.clear(self._cache_name))
+        except RuntimeError:
+            # 如果当前已有事件循环，则创建新线程来运行
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(asyncio.run, self._manager.clear(self._cache_name)).result()
 
 
-# 缓存装饰器 - 直接使用cachetools的cached装饰器
+# 缓存装饰器 - 使用新的缓存机制
 def config_cached(maxsize: int = 128, ttl: Optional[int] = None):
     """配置缓存装饰器"""
-    cache = get_cache("config_func", maxsize, ttl or 7200)
-    return cached(cache)
+    manager = get_global_cache_manager()
+    cache_name = "config_func"
+    
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            # 生成缓存键
+            import inspect
+            sig = inspect.signature(func)
+            bound_args = sig.bind(*args, **kwargs)
+            bound_args.apply_defaults()
+            
+            from .utils.cache_key_generator import CacheKeyGenerator
+            cache_key = CacheKeyGenerator.generate_params_key(
+                {"func": func.__name__, "args": bound_args.arguments},
+                algorithm="md5"  # 装饰器使用md5以保持兼容性
+            )
+            
+            # 尝试从缓存获取
+            cached_result = await manager.get(cache_key, cache_name)
+            if cached_result is not None:
+                return cached_result
+            
+            # 执行函数并缓存结果
+            result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
+            await manager.set(cache_key, result, ttl or 7200, cache_name)
+            return result
+        
+        return wrapper
+    return decorator
 
 
 def llm_cached(maxsize: int = 256, ttl: Optional[int] = None):
     """LLM缓存装饰器"""
-    cache = get_cache("llm_func", maxsize, ttl or 3600)
-    return cached(cache)
+    manager = get_global_cache_manager()
+    cache_name = "llm_func"
+    
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            # 生成缓存键
+            import inspect
+            sig = inspect.signature(func)
+            bound_args = sig.bind(*args, **kwargs)
+            bound_args.apply_defaults()
+            
+            from .utils.cache_key_generator import CacheKeyGenerator
+            cache_key = CacheKeyGenerator.generate_params_key(
+                {"func": func.__name__, "args": bound_args.arguments},
+                algorithm="md5"
+            )
+            
+            # 尝试从缓存获取
+            cached_result = await manager.get(cache_key, cache_name)
+            if cached_result is not None:
+                return cached_result
+            
+            # 执行函数并缓存结果
+            result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
+            await manager.set(cache_key, result, ttl or 3600, cache_name)
+            return result
+        
+        return wrapper
+    return decorator
 
 
 def graph_cached(maxsize: int = 64, ttl: Optional[int] = None):
     """图缓存装饰器"""
-    cache = get_cache("graph_func", maxsize, ttl or 1800)
-    return cached(cache)
+    manager = get_global_cache_manager()
+    cache_name = "graph_func"
+    
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            # 生成缓存键
+            import inspect
+            sig = inspect.signature(func)
+            bound_args = sig.bind(*args, **kwargs)
+            bound_args.apply_defaults()
+            
+            from .utils.cache_key_generator import CacheKeyGenerator
+            cache_key = CacheKeyGenerator.generate_params_key(
+                {"func": func.__name__, "args": bound_args.arguments},
+                algorithm="md5"
+            )
+            
+            # 尝试从缓存获取
+            cached_result = await manager.get(cache_key, cache_name)
+            if cached_result is not None:
+                return cached_result
+            
+            # 执行函数并缓存结果
+            result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
+            await manager.set(cache_key, result, ttl or 1800, cache_name)
+            return result
+        
+        return wrapper
+    return decorator
 
 
 def simple_cached(cache_name: str, maxsize: int = 1000, ttl: Optional[int] = None):
     """简单缓存装饰器"""
-    cache = get_cache(cache_name, maxsize, ttl)
-    return cached(cache)
+    manager = get_global_cache_manager()
+    
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            # 生成缓存键
+            import inspect
+            sig = inspect.signature(func)
+            bound_args = sig.bind(*args, **kwargs)
+            bound_args.apply_defaults()
+            
+            from .utils.cache_key_generator import CacheKeyGenerator
+            cache_key = CacheKeyGenerator.generate_params_key(
+                {"func": func.__name__, "args": bound_args.arguments},
+                algorithm="md5"
+            )
+            
+            # 尝试从缓存获取
+            cached_result = await manager.get(cache_key, cache_name)
+            if cached_result is not None:
+                return cached_result
+            
+            # 执行函数并缓存结果
+            result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
+            await manager.set(cache_key, result, ttl, cache_name)
+            return result
+        
+        return wrapper
+    return decorator

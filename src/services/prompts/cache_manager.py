@@ -4,7 +4,6 @@
 支持状态级、线程级和会话级缓存。
 """
 
-import hashlib
 from src.services.logger import get_logger
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
