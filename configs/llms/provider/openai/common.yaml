@@ -1,60 +1,61 @@
-# OpenAI Provider通用配置模板
-provider_type: openai
-base_url: "https://api.openai.com/v1"
-headers:
-  User-Agent: "ModularAgent/1.0"
+# OpenAI Provider通用配置
+# 此文件包含所有OpenAI模型的通用配置
 
-# 工具调用配置
-function_calling_supported: true
-function_calling_mode: "auto"
+# 基础配置
+model_type: openai
+provider: openai
 
-# 缓存配置
-supports_caching: false  # OpenAI不直接支持API级缓存
-cache_config:
-  enabled: false
-  ttl_seconds: 3600
-  max_size: 1000
+# API配置
+api_base_url: "https://api.openai.com/v1"
+api_version: "2023-07-01-preview"
 
-# 通用参数模板
-default_parameters:
+# 通用请求配置
+timeout: 30
+max_retries: 3
+retry_delay: 1.0
+
+# Token计算配置
+token_calculation:
+  type: "tiktoken"
+  fallback_enabled: true
+  cache_enabled: true
+  custom_tokenizer: null  # 可选：自定义tokenizer名称
+
+# 定价配置（美元/千token）
+pricing:
+  input_token_cost: 0.0015   # GPT-3.5-turbo输入价格示例
+  output_token_cost: 0.002   # GPT-3.5-turbo输出价格示例
+  currency: "USD"
+
+# Tokenizer配置
+tokenizer:
+  encoding: "cl100k_base"  # OpenAI的默认编码
+  special_tokens:
+    - "<|endoftext|>"
+    - "<|im_start|>"
+    - "<|im_end|>"
+
+# 限流配置
+rate_limiting:
+  requests_per_minute: 3500
+  tokens_per_minute: 90000
+
+# 功能支持
+features:
+  function_calling: true
+  streaming: true
+  vision: false  # 部分模型支持
+
+# 默认参数
+defaults:
   temperature: 0.7
-  max_tokens: 2000
-  max_completion_tokens: null
+  max_tokens: 2048
   top_p: 1.0
   frequency_penalty: 0.0
   presence_penalty: 0.0
-  stop: null
-  top_logprobs: null
-  tool_choice: null
-  tools: null
-  response_format: null
-  stream: false
-  stream_options: null
-  service_tier: "auto"
-  safety_identifier: null
-  store: false
-  reasoning: null
-  verbosity: "medium"
-  web_search_options: null
-  seed: null
-  user: null
-  timeout: 30
-  max_retries: 3
 
-# 降级配置
-fallback_config:
-  enabled: true
-  max_attempts: 3
-
-# 元数据
-metadata:
-  provider: openai
-  version: "1.0"
-  description: "OpenAI Provider通用配置"
-  supported_features:
-    - function_calling
-    - streaming
-    - json_mode
-    - vision
-  unsupported_features:
-    - api_caching
+# 错误处理
+error_handling:
+  retry_on_rate_limit: true
+  retry_on_server_error: true
+  max_retry_backoff: 60.0
