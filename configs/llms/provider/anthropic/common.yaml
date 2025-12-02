@@ -8,13 +8,6 @@ headers:
 function_calling_supported: true
 function_calling_mode: "auto"
 
-# 缓存配置
-supports_caching: true  # Anthropic支持缓存控制
-cache_config:
-  enabled: true
-  ttl_seconds: 3600
-  max_size: 1000
-  cache_control_type: "ephemeral"  # ephemeral 或 persistent
 
 # 通用参数模板
 default_parameters:
@@ -34,14 +27,6 @@ default_parameters:
   timeout: 30
   max_retries: 3
 
-# 缓存相关参数
-cache_parameters:
-  cache_control:
-    type: "ephemeral"  # CacheControlEphemeral
-    max_tokens: null   # 可选：缓存的最大token数
-  cache_creation:
-    enabled: false     # 是否创建持久缓存
-    ttl: null         # 缓存生存时间
 
 # 降级配置
 fallback_config:
@@ -57,7 +42,6 @@ metadata:
     - function_calling
     - streaming
     - thinking_mode
-    - api_caching
     - vision
   unsupported_features:
     - json_mode  # 通过response_format实现

@@ -278,7 +278,6 @@ class TokenCalculationDecorator:
         from .token_processing.openai_processor import OpenAITokenProcessor
         from .token_processing.gemini_processor import GeminiTokenProcessor
         from .token_processing.anthropic_processor import AnthropicTokenProcessor
-        from .token_processing.hybrid_processor import HybridTokenProcessor
         
         # 根据模型类型创建处理器
         processor: ITokenProcessor
@@ -289,7 +288,8 @@ class TokenCalculationDecorator:
         elif model_type.lower() == "anthropic":
             processor = AnthropicTokenProcessor(model_name)
         else:
-            processor = HybridTokenProcessor(model_name, model_type)
+            # 对于未知类型，使用OpenAI处理器作为默认选项
+            processor = OpenAITokenProcessor(model_name)
         
         # 如果有自定义tokenizer配置，应用它
         if token_config.custom_tokenizer:

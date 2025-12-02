@@ -30,6 +30,8 @@ class ValidationRule:
     field_type: Optional[Type] = None
     min_value: Optional[Union[int, float]] = None
     max_value: Optional[Union[int, float]] = None
+    min_length: Optional[int] = None  # 最小字符串长度
+    max_length: Optional[int] = None  # 最大字符串长度
     allowed_values: Optional[List[Any]] = None
     pattern: Optional[str] = None  # 正则表达式模式
     custom_validator: Optional[Callable[[Any], bool]] = None
@@ -95,7 +97,7 @@ class LLMConfigValidator:
     4. 配置完整性验证
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化验证器"""
         self.rules: List[ValidationRule] = []
         self._setup_default_rules()
@@ -550,7 +552,7 @@ class LLMConfigValidator:
         Returns:
             Dict[str, Any]: 规则摘要信息
         """
-        rules_by_severity = {}
+        rules_by_severity: Dict[str, List[str]] = {}
         for rule in self.rules:
             severity = rule.severity.value
             if severity not in rules_by_severity:

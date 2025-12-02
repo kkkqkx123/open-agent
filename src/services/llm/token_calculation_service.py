@@ -8,7 +8,6 @@ from .token_processing.base_processor import ITokenProcessor
 from .token_processing.openai_processor import OpenAITokenProcessor
 from .token_processing.gemini_processor import GeminiTokenProcessor
 from .token_processing.anthropic_processor import AnthropicTokenProcessor
-from .token_processing.hybrid_processor import HybridTokenProcessor
 from .token_processing.token_types import TokenUsage
 
 
@@ -44,6 +43,7 @@ class TokenCalculationService:
             return self._processors[processor_key]
         
         # 根据模型类型创建处理器
+        processor: ITokenProcessor
         if model_type.lower() == "openai":
             processor = OpenAITokenProcessor(model_name)
         elif model_type.lower() == "gemini":
@@ -52,8 +52,8 @@ class TokenCalculationService:
         elif model_type.lower() == "anthropic":
             processor = AnthropicTokenProcessor(model_name)
         else:
-            # 使用混合处理器作为默认选项
-            processor = HybridTokenProcessor(model_type, model_name)
+            # 对于未知类型，使用OpenAI处理器作为默认选项
+            processor = OpenAITokenProcessor(model_name)
         
         # 缓存处理器
         self._processors[processor_key] = processor
@@ -103,6 +103,7 @@ class TokenCalculationService:
             Optional[TokenUsage]: token使用情况
         """
         # 根据模型类型创建临时处理器来解析响应
+        processor: ITokenProcessor
         if model_type.lower() == "openai":
             processor = OpenAITokenProcessor("gpt-3.5-turbo")  # 临时使用默认模型名
         elif model_type.lower() == "gemini":
@@ -110,7 +111,7 @@ class TokenCalculationService:
         elif model_type.lower() == "anthropic":
             processor = AnthropicTokenProcessor("claude-3")  # 临时使用默认模型名
         else:
-            processor = HybridTokenProcessor(model_type, "default")
+            processor = OpenAITokenProcessor("default")  # 使用OpenAI作为默认选项
         
         return processor.parse_response(response)
     

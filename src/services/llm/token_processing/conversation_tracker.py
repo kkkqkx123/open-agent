@@ -128,11 +128,17 @@ class ConversationTracker:
             "api_usage": api_usage
         }
         
+        # 确保内容预览是字符串类型
+        content_preview = message_record["content_preview"]
+        if not isinstance(content_preview, str):
+            content_preview = str(content_preview)
+            message_record["content_preview"] = content_preview
+        
         # 确保内容预览不超过103个字符（100个字符 + "..."）
-        if len(message_record["content_preview"]) > 103:
-            message_record["content_preview"] = message_record["content_preview"][:100] + "..."
+        if len(content_preview) > 103:
+            message_record["content_preview"] = content_preview[:100] + "..."
         # 如果内容超过100个字符，确保预览以"..."结尾
-        elif len(content) > 100 and not message_record["content_preview"].endswith("..."):
+        elif len(content) > 100 and not content_preview.endswith("..."):
             message_record["content_preview"] = content[:100] + "..."
         
         # 添加到当前会话

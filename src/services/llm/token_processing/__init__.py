@@ -8,7 +8,6 @@ from .base_processor import ITokenProcessor, BaseTokenProcessor
 from .openai_processor import OpenAITokenProcessor
 from .gemini_processor import GeminiTokenProcessor
 from .anthropic_processor import AnthropicTokenProcessor
-from .hybrid_processor import HybridTokenProcessor
 from .conversation_tracker import ConversationTracker
 
 __all__ = [
@@ -18,6 +17,5 @@ __all__ = [
     "OpenAITokenProcessor",
     "GeminiTokenProcessor",
     "AnthropicTokenProcessor",
-    "HybridTokenProcessor",
     "ConversationTracker",
 ]

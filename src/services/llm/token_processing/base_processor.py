@@ -96,33 +96,6 @@ class ITokenProcessor(ABC):
         """
         pass
     
-    # 缓存相关方法
-    def supports_caching(self) -> bool:
-        """
-        检查是否支持缓存功能
-        
-        Returns:
-            bool: 是否支持缓存
-        """
-        return False
-    
-    def clear_cache(self) -> None:
-        """清空缓存"""
-        pass
-    
-    def get_cache_stats(self) -> Dict[str, Any]:
-        """
-        获取缓存统计信息
-        
-        Returns:
-            Dict[str, Any]: 缓存统计信息
-        """
-        return {
-            "supports_caching": False,
-            "cache_size": 0,
-            "cache_hits": 0,
-            "cache_misses": 0
-        }
     
     # 降级策略相关方法
     def supports_degradation(self) -> bool:
@@ -298,14 +271,8 @@ class BaseTokenProcessor(ITokenProcessor):
             "total_requests": 0,
             "successful_calculations": 0,
             "failed_calculations": 0,
-            "cache_hits": 0,
-            "cache_misses": 0,
             "degradation_events": 0
         }
-        
-        # 缓存功能
-        self._usage_cache: Dict[str, TokenUsage] = {}
-        self._cache_size = 1000
         
         # 降级功能
         self._degradation_enabled = False
@@ -326,48 +293,7 @@ class BaseTokenProcessor(ITokenProcessor):
         except ImportError:
             # 如果没有安装tiktoken，抛出异常而不是降级到除4估算
             raise ImportError("tiktoken is required for token processing. Please install it with: pip install tiktoken")
-    
-    # 缓存相关方法
-    def supports_caching(self) -> bool:
-        """支持缓存"""
-        return True
-    
-    def clear_cache(self) -> None:
-        """清空缓存"""
-        self._usage_cache.clear()
-    
-    def get_cache_stats(self) -> Dict[str, Any]:
-        """获取缓存统计信息"""
-        return {
-            "supports_caching": True,
-            "cache_size": len(self._usage_cache),
-            "max_cache_size": self._cache_size,
-            "cache_hits": self._stats["cache_hits"],
-            "cache_misses": self._stats["cache_misses"]
-        }
-    
-    def _get_from_cache(self, cache_key: str) -> Optional[TokenUsage]:
-        """从缓存获取数据"""
-        if cache_key in self._usage_cache:
-            self._stats["cache_hits"] += 1
-            return self._usage_cache[cache_key]
-        self._stats["cache_misses"] += 1
-        return None
-    
-    def _add_to_cache(self, cache_key: str, usage: TokenUsage) -> None:
-        """添加数据到缓存"""
-        # 如果缓存已满，删除最旧的条目
-        if len(self._usage_cache) >= self._cache_size:
-            # 简单的FIFO策略，删除第一个条目
-            oldest_key = next(iter(self._usage_cache))
-            del self._usage_cache[oldest_key]
-        
-        self._usage_cache[cache_key] = usage
-    
-    def _generate_cache_key(self, content: str) -> str:
-        """生成缓存key"""
-        import hashlib
-        return hashlib.md5(f"{self.provider}:{self.model_name}:{content}".encode()).hexdigest()
+
     
     # 降级策略相关方法
     def supports_degradation(self) -> bool:
@@ -417,7 +343,6 @@ class BaseTokenProcessor(ITokenProcessor):
             "success_rate_percent": success_rate,
             "model_name": self.model_name,
             "provider": self.provider,
-            "supports_caching": self.supports_caching(),
             "supports_degradation": self.supports_degradation(),
             "supports_conversation_tracking": self.supports_conversation_tracking()
         }
@@ -428,8 +353,6 @@ class BaseTokenProcessor(ITokenProcessor):
             "total_requests": 0,
             "successful_calculations": 0,
             "failed_calculations": 0,
-            "cache_hits": 0,
-            "cache_misses": 0,
             "degradation_events": 0
         }
     
@@ -494,7 +417,6 @@ class BaseTokenProcessor(ITokenProcessor):
             "model_name": self.model_name,
             "provider": self.provider,
             "processor_type": self.__class__.__name__,
-            "supports_caching": self.supports_caching(),
             "supports_degradation": self.supports_degradation(),
             "supports_conversation_tracking": self.supports_conversation_tracking(),
             "stats": self.get_stats()

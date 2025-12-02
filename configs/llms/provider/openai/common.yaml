@@ -18,7 +18,6 @@ retry_delay: 1.0
 token_calculation:
   type: "tiktoken"
   fallback_enabled: true
-  cache_enabled: true
   custom_tokenizer: null  # 可选：自定义tokenizer名称
 
 # 定价配置（美元/千token）

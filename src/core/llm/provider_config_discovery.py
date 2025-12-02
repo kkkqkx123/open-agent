@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from src.services.logger import get_logger
 from src.core.common.exceptions.config import ConfigNotFoundError, ConfigError
 from src.core.config.config_loader import IConfigLoader
-from src.core.llm.config_merger_adapter import LLMConfigMergerAdapter
+from src.core.common.utils.dict_merger import DictMerger
 
 logger = get_logger(__name__)
 
@@ -52,7 +52,7 @@ class ProviderConfigDiscovery:
         self.provider_dir = self.base_config_path / "provider"
         self._providers_cache: Optional[Dict[str, ProviderInfo]] = None
         self._supported_formats = {'.yaml', '.yml', '.json'}
-        self.config_merger = LLMConfigMergerAdapter()
+        self.config_merger = DictMerger()
         
         logger.debug(f"Provider配置发现器初始化完成，基础路径: {self.base_config_path}")
     
@@ -68,7 +68,7 @@ class ProviderConfigDiscovery:
         if self._providers_cache is not None and not force_refresh:
             return self._providers_cache
         
-        providers = {}
+        providers: Dict[str, ProviderInfo] = {}
         
         if not self.provider_dir.exists():
             logger.warning(f"Provider配置目录不存在: {self.provider_dir}")
@@ -176,8 +176,8 @@ class ProviderConfigDiscovery:
             model_config = self.config_loader.load(model_config_path)
             common_config = self.config_loader.load(provider_info.common_config_path)
             
-            # 使用LLM配置合并适配器合并配置
-            merged_config = self.config_merger.merge_provider_configs(common_config, model_config)
+            # 使用DictMerger合并配置（模型配置覆盖common配置）
+            merged_config = self.config_merger.deep_merge(common_config, model_config)
             
             # 添加Provider元信息
             merged_config["_provider_meta"] = {
@@ -300,7 +300,7 @@ class ProviderConfigDiscovery:
     def _merge_configs(self, base_config: Dict[str, Any], override_config: Dict[str, Any]) -> Dict[str, Any]:
         """合并配置（override_config覆盖base_config）
         
-        注意：此方法已弃用，请使用 config_merger.merge_provider_configs()
+        注意：此方法已弃用，请使用 config_merger.deep_merge()
         
         Args:
             base_config: 基础配置
@@ -309,8 +309,8 @@ class ProviderConfigDiscovery:
         Returns:
             Dict[str, Any]: 合并后的配置
         """
-        logger.warning("_merge_configs方法已弃用，请使用config_merger.merge_provider_configs()")
-        return self.config_merger.merge_provider_configs(base_config, override_config)
+        logger.warning("_merge_configs方法已弃用，请使用config_merger.deep_merge()")
+        return self.config_merger.deep_merge(base_config, override_config)
     
     def refresh_cache(self) -> None:
         """刷新缓存"""
@@ -403,7 +403,7 @@ class ProviderConfigDiscovery:
         """
         providers = self.discover_providers()
         
-        summary = {
+        summary: Dict[str, Any] = {
             "total_providers": len(providers),
             "total_models": 0,
             "providers_by_type": {},
@@ -412,13 +412,13 @@ class ProviderConfigDiscovery:
         
         for provider_name, provider_info in providers.items():
             model_count = len(provider_info.config_files)
-            summary["total_models"] += model_count
+            summary["total_models"] = summary["total_models"] + model_count
             
             # 按类型分组
             provider_type = provider_name  # 这里可以进一步解析provider类型
             if provider_type not in summary["providers_by_type"]:
                 summary["providers_by_type"][provider_type] = 0
-            summary["providers_by_type"][provider_type] += 1
+            summary["providers_by_type"][provider_type] = summary["providers_by_type"][provider_type] + 1
             
             # 模型分布
             summary["model_distribution"][provider_name] = model_count

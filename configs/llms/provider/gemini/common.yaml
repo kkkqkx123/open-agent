@@ -8,13 +8,6 @@ headers:
 function_calling_supported: true
 function_calling_mode: "auto"
 
-# 缓存配置
-supports_caching: true  # Gemini明确支持缓存API
-cache_config:
-  enabled: true
-  ttl_seconds: 3600
-  max_size: 1000
-  cache_type: "content_cache"  # 内容缓存类型
 
 # 通用参数模板
 default_parameters:
@@ -36,15 +29,6 @@ default_parameters:
   timeout: 30
   max_retries: 3
 
-# 缓存相关参数
-cache_parameters:
-  content_cache:
-    enabled: true
-    ttl: "3600s"  # 缓存生存时间，如"3600s", "1h"
-    display_name: null  # 缓存显示名称
-    system_instruction: null  # 缓存的系统指令
-  generation_config:
-    cached_content: null  # 使用的缓存内容名称
 
 # 降级配置
 fallback_config:
@@ -59,8 +43,6 @@ metadata:
   supported_features:
     - function_calling
     - streaming
-    - api_caching
-    - content_cache
     - vision
     - code_execution
   unsupported_features:
