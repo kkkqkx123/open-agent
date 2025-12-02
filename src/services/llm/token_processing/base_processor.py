@@ -527,7 +527,7 @@ class BaseTokenProcessor(ITokenProcessor):
             return None
     
     def _count_messages_tokens_with_encoding(self, messages: list[BaseMessage]) -> int:
-        """使用编码器计算消息格式的token数量"""
+        """使用编码器计算消息格式的token数量。这是在计算格式信息，而非硬编码的消息计算"""
         if not self._encoding:
             return 0
             

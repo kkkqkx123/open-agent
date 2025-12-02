@@ -107,22 +107,68 @@ class ResponseConverter:
     @staticmethod
     def _extract_token_usage(response: Any) -> TokenUsage:
         """提取 Token 使用情况"""
+        usage = None
+        
+        # 首先检查 LangChain 的 usage_metadata
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             usage = response.usage_metadata
-            return TokenUsage(
-                prompt_tokens=usage.get("input_tokens", 0),
-                completion_tokens=usage.get("output_tokens", 0),
-                total_tokens=usage.get("total_tokens", 0),
-            )
+        # 检查 response_metadata 中的 token_usage
         elif hasattr(response, "response_metadata") and response.response_metadata:
             metadata = response.response_metadata
             if "token_usage" in metadata:
                 usage = metadata["token_usage"]
-                return TokenUsage(
-                    prompt_tokens=usage.get("prompt_tokens", 0),
-                    completion_tokens=usage.get("completion_tokens", 0),
-                    total_tokens=usage.get("total_tokens", 0),
-                )
+        # 直接检查 OpenAI 原始响应的 usage 字段
+        elif hasattr(response, "usage") and response.usage:
+            usage = response.usage
+        
+        if not usage:
+            return TokenUsage()
+        
+        # 提取基础token信息
+        prompt_tokens = usage.get("prompt_tokens", 0)
+        completion_tokens = usage.get("completion_tokens", 0)
+        total_tokens = usage.get("total_tokens", 0)
+
+        # 创建TokenUsage对象
+        token_usage = TokenUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        )
+
+        # 提取详细的token信息（如果可用）
+        prompt_details = usage.get("prompt_tokens_details", {})
+        completion_details = usage.get("completion_tokens_details", {})
+        
+        # 添加缓存token信息
+        cached_tokens = prompt_details.get("cached_tokens", 0)
+        if cached_tokens > 0:
+            token_usage.metadata["cached_tokens"] = cached_tokens
+        
+        # 添加音频token信息
+        audio_tokens = prompt_details.get("audio_tokens", 0)
+        if audio_tokens > 0:
+            token_usage.metadata["prompt_audio_tokens"] = audio_tokens
+        
+        completion_audio_tokens = completion_details.get("audio_tokens", 0)
+        if completion_audio_tokens > 0:
+            token_usage.metadata["completion_audio_tokens"] = completion_audio_tokens
+        
+        # 添加推理token信息
+        reasoning_tokens = completion_details.get("reasoning_tokens", 0)
+        if reasoning_tokens > 0:
+            token_usage.metadata["reasoning_tokens"] = reasoning_tokens
+        
+        # 添加预测token信息
+        accepted_prediction_tokens = completion_details.get("accepted_prediction_tokens", 0)
+        rejected_prediction_tokens = completion_details.get("rejected_prediction_tokens", 0)
+        
+        if accepted_prediction_tokens > 0:
+            token_usage.metadata["accepted_prediction_tokens"] = accepted_prediction_tokens
+        if rejected_prediction_tokens > 0:
+            token_usage.metadata["rejected_prediction_tokens"] = rejected_prediction_tokens
+
+        return token_usage
         
         return TokenUsage()
     
@@ -167,12 +213,52 @@ class ResponseConverter:
     def _extract_responses_token_usage(response: Dict[str, Any]) -> TokenUsage:
         """提取 Responses API Token 使用情况"""
         usage = response.get("usage", {})
-        
-        return TokenUsage(
-            prompt_tokens=usage.get("prompt_tokens", 0),
-            completion_tokens=usage.get("completion_tokens", 0),
-            total_tokens=usage.get("total_tokens", 0),
+
+        # 提取基础token信息
+        prompt_tokens = usage.get("prompt_tokens", 0)
+        completion_tokens = usage.get("completion_tokens", 0)
+        total_tokens = usage.get("total_tokens", 0)
+
+        # 创建TokenUsage对象
+        token_usage = TokenUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
         )
+
+        # 提取详细的token信息（如果可用）
+        prompt_details = usage.get("prompt_tokens_details", {})
+        completion_details = usage.get("completion_tokens_details", {})
+        
+        # 添加缓存token信息
+        cached_tokens = prompt_details.get("cached_tokens", 0)
+        if cached_tokens > 0:
+            token_usage.metadata["cached_tokens"] = cached_tokens
+        
+        # 添加音频token信息
+        audio_tokens = prompt_details.get("audio_tokens", 0)
+        if audio_tokens > 0:
+            token_usage.metadata["prompt_audio_tokens"] = audio_tokens
+        
+        completion_audio_tokens = completion_details.get("audio_tokens", 0)
+        if completion_audio_tokens > 0:
+            token_usage.metadata["completion_audio_tokens"] = completion_audio_tokens
+        
+        # 添加推理token信息
+        reasoning_tokens = completion_details.get("reasoning_tokens", 0)
+        if reasoning_tokens > 0:
+            token_usage.metadata["reasoning_tokens"] = reasoning_tokens
+        
+        # 添加预测token信息
+        accepted_prediction_tokens = completion_details.get("accepted_prediction_tokens", 0)
+        rejected_prediction_tokens = completion_details.get("rejected_prediction_tokens", 0)
+        
+        if accepted_prediction_tokens > 0:
+            token_usage.metadata["accepted_prediction_tokens"] = accepted_prediction_tokens
+        if rejected_prediction_tokens > 0:
+            token_usage.metadata["rejected_prediction_tokens"] = rejected_prediction_tokens
+
+        return token_usage
     
     @staticmethod
     def _extract_responses_function_call(

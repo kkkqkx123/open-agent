@@ -23,6 +23,7 @@ class TokenUsage:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __add__(self, other: "TokenUsage") -> "TokenUsage":
         """合并Token使用情况"""
