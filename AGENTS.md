@@ -9,7 +9,7 @@ The Modular Agent Framework is a Python-based multi-agent system built on LangGr
 - **Flexible tool system** supporting native, MCP, and built-in tools
 - **Configuration-driven architecture** with YAML-based configs and environment variable injection
 - **LangGraph Studio integration** for visualization and debugging
-- **Flattened architectural layers**: Core + Services + Adapters
+- **Layered architecture with clear separation**: Core + Services + Adapters + Infrastructure
 - **Complete dependency injection** with multi-environment support
 - **Real-time TUI interface** with rich components
 - **RESTful API** for external integration
@@ -54,11 +54,11 @@ uv run pytest <file-path or directory-path>
 
 ## Codebase Architecture
 
-### Flattened Architecture
+### Layered Architecture
 
-The framework has been redesigned from a traditional 4-layer architecture to a flattened structure that reduces complexity while maintaining functionality:
+The framework has evolved from a traditional 4-layer architecture to a balanced structure that reduces complexity while maintaining functionality:
 
-**Architecture**: Core + Services + Adapters
+**Architecture**: Core + Services + Adapters + Infrastructure
 
 ### Directory Structure
 src/
@@ -93,6 +93,11 @@ src/
 │   ├── api/                # API adapter
 │   ├── tui/                # TUI adapter
 │   └── cli/                # CLI adapter
+├── infrastructure/         # Infrastructure layer (external dependency replacements)
+│   ├── cache/              # Cache system implementation
+│   ├── llm/                # LLM infrastructure (HTTP clients, converters, etc.)
+│   ├── messages/           # Message system implementation
+│   └── tools/              # Tool infrastructure components
 └── bootstrap.py            # Application startup entry point
 
 ### Core Infrastructure Components
@@ -230,23 +235,19 @@ Interface layer provides all interface definitions as the foundation constraints
 Core layer contains entities, base classes, and core logic, depending on interface layer.
 Service layer depends on core layer and interface layer, providing specific business service implementations.
 Adapter layer depends on core layer, service layer, and interface layer, providing external interface adaptations.
+Infrastructure layer provides concrete implementations of external dependencies, depending only on interface layer.
 Dependency injection container provides service resolution for all layers.
 Configuration system provides configuration support for all layers.
 Logging and monitoring systems span across all layers.
 
-### Dependency Flow
-
-```
-Adapters (API/TUI/CLI) → Services (Business Logic) → Core (Entities & Core Logic) → Interfaces (Abstract Contracts)
-```
-
 ## Development Process
 
 ### 1. Feature Development
-- Follow flattened architecture constraints (Interfaces-Core-Services-Adapters)
+- Follow layered architecture constraints (Interfaces-Core-Services-Adapters-Infrastructure)
 - Define interfaces and entities in the core layer
 - Implement business logic in the service layer
 - Provide external interfaces in the adapter layer
+- Implement infrastructure components in the infrastructure layer, depending only on interfaces
 - Register services in the dependency container with appropriate lifecycle (singleton, transient, scoped)
 - Use configuration files for customization, supporting inheritance and environment variable injection
 - Write unit and integration tests with appropriate mocking
@@ -257,6 +258,7 @@ Adapters (API/TUI/CLI) → Services (Business Logic) → Core (Entities & Core L
 ### 2. Testing Strategy
 - **Unit tests**: Core layer and service layer core business logic coverage ≥ 90%
 - **Integration tests**: Module interaction and infrastructure component coverage ≥ 80%
+- **Infrastructure tests**: Infrastructure layer implementation coverage ≥ 85%
 - **End-to-end tests**: Complete workflow and user scenario coverage ≥ 70%
 
 ### 3. Code Quality Standards
@@ -264,6 +266,8 @@ Adapters (API/TUI/CLI) → Services (Business Logic) → Core (Entities & Core L
 - Write complete docstrings with parameter and return type documentation
 - Follow dependency injection pattern for all service instantiation
 - Use configuration-driven approach for all external dependencies
+- Infrastructure components must only depend on interface layer, never on core, services, or adapters
+- Implement proper abstraction layers to enable seamless replacement of infrastructure components
 
 ### 4. Configuration Changes
 - Use the new configuration system API for configuration management
@@ -291,6 +295,7 @@ Must follow mypy type specifications. For example, functions must be annotated w
 - Core layer implements interfaces from the interface layer
 - Services layer depends on interfaces from the interface layer
 - Adapters layer implements or depends on interfaces from the interface layer
+- Infrastructure layer implements interfaces from the interface layer only
 - Scattered interface files across layers are not allowed
 
 ### Interface Usage Principles
@@ -298,6 +303,7 @@ Must follow mypy type specifications. For example, functions must be annotated w
 2. **Type Safety**: Use `TYPE_CHECKING` to avoid runtime circular dependencies. For core external dependencies like langchain, type safety is not required.
 3. **Unified Export**: Export all interfaces through `src/interfaces/__init__.py`
 4. **Backward Compatibility**: Each layer can re-export interfaces from the interface layer for compatibility
+5. **Infrastructure Isolation**: Infrastructure components must only depend on interfaces, never on concrete implementations from other layers
 
 **Note: Sessions service module (Sessions is the top-level module in the service layer, workflow is the module for LangGraph interaction)**
 
