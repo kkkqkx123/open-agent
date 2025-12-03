@@ -163,11 +163,17 @@ class HttpClientFactory:
             return self.config_discovery.load_provider_config(provider, model)
         else:
             # 如果没有指定模型，尝试获取提供商的通用配置
+            # 查找名为 common.yaml 的配置文件作为默认配置
             configs = self.config_discovery.discover_configs(provider)
             if configs:
-                # 使用优先级最高的配置
-                config_info = configs[0]
-                return self.config_discovery._load_config_file(config_info.path)
+                # 优先查找 common 配置作为默认配置
+                common_config = next((c for c in configs if c.path.stem == 'common'), None)
+                if common_config:
+                    return self.config_discovery._load_config_file(common_config.path)
+                else:
+                    # 如果没有 common 配置，使用第一个配置
+                    config_info = configs[0]
+                    return self.config_discovery._load_config_file(config_info.path)
             else:
                 # 返回默认配置
                 return self.config_discovery._get_default_config(provider)

@@ -10,6 +10,8 @@ from .openai_responses_validation_utils import (
     OpenAIResponsesValidationError,
     OpenAIResponsesFormatError
 )
+from .openai_responses_multimodal_utils import OpenAIResponsesMultimodalUtils
+from .openai_responses_stream_utils import OpenAIResponsesStreamUtils
 
 __all__ = [
     "OpenAIResponsesFormatUtils",
@@ -17,4 +19,6 @@ __all__ = [
     "OpenAIResponsesValidationUtils",
     "OpenAIResponsesValidationError",
     "OpenAIResponsesFormatError",
+    "OpenAIResponsesMultimodalUtils",
+    "OpenAIResponsesStreamUtils",
 ]

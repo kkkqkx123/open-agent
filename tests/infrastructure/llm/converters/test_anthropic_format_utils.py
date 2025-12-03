@@ -7,8 +7,8 @@ import pytest
 from typing import Dict, Any, List, Sequence
 from unittest.mock import Mock, patch
 
-from src.infrastructure.llm.converters.anthropic_format_utils import AnthropicFormatUtils
-from src.infrastructure.llm.converters.anthropic_validation_utils import AnthropicValidationError, AnthropicFormatError
+from src.infrastructure.llm.converters.anthropic.anthropic_format_utils import AnthropicFormatUtils
+from src.infrastructure.llm.converters.anthropic.anthropic_validation_utils import AnthropicValidationError, AnthropicFormatError
 from src.infrastructure.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 
 
@@ -369,7 +369,7 @@ class TestAnthropicMultimodalUtils:
     def test_process_text_content(self) -> None:
         """测试文本内容处理"""
         content = "Hello, world!"
-        result = self.multimodal_utils.process_content_to_anthropic_format(content)
+        result = self.multimodal_utils.process_content_to_provider_format(content)
         
         assert len(result) == 1
         assert result[0]["type"] == "text"
@@ -381,7 +381,7 @@ class TestAnthropicMultimodalUtils:
             {"type": "text", "text": "Hello"},
             "world"
         ]
-        result = self.multimodal_utils.process_content_to_anthropic_format(content)
+        result = self.multimodal_utils.process_content_to_provider_format(content)
         
         assert len(result) == 2
         assert result[0]["type"] == "text"

@@ -50,8 +50,7 @@ class TestConfigDiscovery:
         # 创建测试配置文件
         config_data = {
             "provider": "openai",
-            "models": ["gpt-4", "gpt-3.5-turbo"],
-            "priority": 10
+            "models": ["gpt-4", "gpt-3.5-turbo"]
         }
         
         config_file = self.config_dir / "test_config.yaml"
@@ -65,7 +64,6 @@ class TestConfigDiscovery:
         assert isinstance(configs[0], ConfigInfo)
         assert configs[0].provider == "openai"
         assert configs[0].models == ["gpt-4", "gpt-3.5-turbo"]
-        assert configs[0].priority == 10
     
     def test_discover_configs_with_provider_filter(self):
         """测试使用提供商过滤器发现配置"""

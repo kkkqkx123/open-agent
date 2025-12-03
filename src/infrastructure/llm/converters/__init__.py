@@ -10,7 +10,6 @@ from .provider_format_utils import (
     ProviderFormatUtilsFactory,
     get_provider_format_utils_factory,
 )
-from .openai_format_utils import OpenAIFormatUtils
 from .gemini.gemini_format_utils import GeminiFormatUtils
 from .anthropic.anthropic_format_utils import AnthropicFormatUtils
 
@@ -21,7 +20,6 @@ __all__ = [
     "BaseProviderFormatUtils",
     "ProviderFormatUtilsFactory",
     "get_provider_format_utils_factory",
-    "OpenAIFormatUtils",
     "GeminiFormatUtils",
     "AnthropicFormatUtils",
 ]

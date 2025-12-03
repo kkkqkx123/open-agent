@@ -19,7 +19,6 @@ class ConfigInfo:
     path: Path
     provider: str
     models: List[str]
-    priority: int = 0
     inherits_from: Optional[str] = None
 
 
@@ -60,7 +59,7 @@ class ConfigDiscovery:
         Returns:
             List[ConfigInfo]: 配置信息列表
         """
-        configs = []
+        configs: List[ConfigInfo] = []
         
         if not self.config_dir.exists():
             self.logger.warning(f"配置目录不存在: {self.config_dir}")
@@ -76,8 +75,6 @@ class ConfigDiscovery:
                 self.logger.error(f"解析配置文件失败 {config_file}: {e}")
                 continue
         
-        # 按优先级排序
-        configs.sort(key=lambda x: x.priority, reverse=True)
         
         self.logger.debug(f"发现 {len(configs)} 个配置文件")
         return configs
@@ -174,14 +171,12 @@ class ConfigDiscovery:
             models = self._extract_models_from_config(config)
             
             # 提取其他信息
-            priority = config.get("priority", 0)
             inherits_from = config.get("inherits_from")
             
             return ConfigInfo(
                 path=config_file,
                 provider=provider,
                 models=models,
-                priority=priority,
                 inherits_from=inherits_from
             )
             

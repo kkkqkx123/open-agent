@@ -9,6 +9,8 @@ if TYPE_CHECKING:
     from src.interfaces.messages import IBaseMessage
     from src.infrastructure.llm.converters.base.base_tools_utils import BaseToolsUtils
     from src.infrastructure.llm.converters.base.base_validation_utils import BaseValidationUtils
+    from src.infrastructure.llm.converters.base.base_multimodal_utils import BaseMultimodalUtils
+    from src.infrastructure.llm.converters.base.base_stream_utils import BaseStreamUtils
 
 from src.infrastructure.messages import (
     HumanMessage,
@@ -19,10 +21,12 @@ from src.infrastructure.messages import (
 from src.infrastructure.llm.converters.base.base_provider_utils import BaseProviderUtils
 from src.infrastructure.llm.converters.openai_response.openai_responses_tools_utils import OpenAIResponsesToolsUtils
 from src.infrastructure.llm.converters.openai_response.openai_responses_validation_utils import (
-    OpenAIResponsesValidationUtils, 
-    OpenAIResponsesValidationError, 
+    OpenAIResponsesValidationUtils,
+    OpenAIResponsesValidationError,
     OpenAIResponsesFormatError
 )
+from src.infrastructure.llm.converters.openai_response.openai_responses_multimodal_utils import OpenAIResponsesMultimodalUtils
+from src.infrastructure.llm.converters.openai_response.openai_responses_stream_utils import OpenAIResponsesStreamUtils
 
 
 class OpenAIResponsesFormatUtils(BaseProviderUtils):
@@ -33,6 +37,8 @@ class OpenAIResponsesFormatUtils(BaseProviderUtils):
         super().__init__()
         self.tools_utils: "OpenAIResponsesToolsUtils" = OpenAIResponsesToolsUtils()
         self.validation_utils: "OpenAIResponsesValidationUtils" = OpenAIResponsesValidationUtils()
+        self.multimodal_utils: "OpenAIResponsesMultimodalUtils" = OpenAIResponsesMultimodalUtils()
+        self.stream_utils: "OpenAIResponsesStreamUtils" = OpenAIResponsesStreamUtils()
     
     def get_provider_name(self) -> str:
         """获取提供商名称"""
@@ -46,13 +52,13 @@ class OpenAIResponsesFormatUtils(BaseProviderUtils):
             if validation_errors:
                 raise OpenAIResponsesValidationError(f"请求参数验证失败: {'; '.join(validation_errors)}")
             
-            # 将消息转换为输入字符串
-            input_text = self._convert_messages_to_input(messages)
+            # 将消息转换为Responses API格式
+            input_data = self._convert_messages_to_responses_format(messages)
             
             # 构建请求数据
             request_data = {
                 "model": parameters.get("model", "gpt-5.1"),
-                "input": input_text
+                "input": input_data
             }
             
             # 添加reasoning配置
@@ -142,19 +148,83 @@ class OpenAIResponsesFormatUtils(BaseProviderUtils):
     def convert_stream_response(self, events: List[Dict[str, Any]]) -> "IBaseMessage":
         """从OpenAI Responses API流式响应转换"""
         try:
-            # Responses API的流式处理逻辑
-            # 这里提供基本实现，可以根据需要扩展
-            if not events:
-                return AIMessage(content="")
+            # 验证流式事件
+            validation_errors = self.stream_utils.validate_stream_events(events)
+            if validation_errors:
+                self.logger.warning(f"流式事件验证失败: {'; '.join(validation_errors)}")
             
-            # 合并所有事件
-            merged_response = self._merge_responses_stream_events(events)
-            return self.convert_response(merged_response)
+            # 使用流式工具处理事件
+            response = self.stream_utils.process_stream_events(events)
+            return self.convert_response(response)
         except Exception as e:
             raise OpenAIResponsesFormatError(f"转换OpenAI Responses API流式响应失败: {e}")
     
-    def _convert_messages_to_input(self, messages: Sequence["IBaseMessage"]) -> str:
-        """将消息序列转换为输入字符串"""
+    def _convert_messages_to_responses_format(self, messages: Sequence["IBaseMessage"]) -> Union[str, List[Dict[str, Any]]]:
+        """将消息序列转换为OpenAI Responses API格式"""
+        # 检查是否包含多模态内容
+        has_multimodal = self._has_multimodal_content(messages)
+        
+        if has_multimodal:
+            # 多模态内容使用数组格式
+            return self._convert_messages_to_multimodal_format(messages)
+        else:
+            # 纯文本内容使用字符串格式
+            return self._convert_messages_to_text_format(messages)
+    
+    def _has_multimodal_content(self, messages: Sequence["IBaseMessage"]) -> bool:
+        """检查消息是否包含多模态内容"""
+        for message in messages:
+            if isinstance(message.content, list):
+                for item in message.content:
+                    if isinstance(item, dict) and item.get("type") in ["image", "image_url", "input_image"]:
+                        return True
+        return False
+    
+    def _convert_messages_to_multimodal_format(self, messages: Sequence["IBaseMessage"]) -> List[Dict[str, Any]]:
+        """将消息序列转换为多模态格式"""
+        input_items = []
+        
+        for message in messages:
+            if isinstance(message, SystemMessage):
+                # 系统消息
+                content = self.multimodal_utils.process_content_to_provider_format(message.content)
+                if content:
+                    input_items.append({
+                        "role": "system",
+                        "content": content
+                    })
+            elif isinstance(message, HumanMessage):
+                # 人类消息
+                content = self.multimodal_utils.process_content_to_provider_format(message.content)
+                if content:
+                    input_items.append({
+                        "role": "user",
+                        "content": content
+                    })
+            elif isinstance(message, AIMessage):
+                # AI消息
+                content = self.multimodal_utils.process_content_to_provider_format(message.content)
+                if content:
+                    input_items.append({
+                        "role": "assistant",
+                        "content": content
+                    })
+            elif isinstance(message, ToolMessage):
+                # 工具消息
+                tool_content = self._extract_text_content(message)
+                if tool_content:
+                    input_items.append({
+                        "role": "user",
+                        "content": [{
+                            "type": "input_text",
+                            "text": f"Tool Result: {tool_content}"
+                        }]
+                    })
+        
+        return input_items
+    
+    def _convert_messages_to_text_format(self, messages: Sequence["IBaseMessage"]) -> str:
+        """将消息序列转换为文本格式"""
         input_parts = []
         
         for message in messages:
@@ -399,8 +469,49 @@ class OpenAIResponsesFormatUtils(BaseProviderUtils):
         
         return responses_request
     
-    def _convert_chat_messages_to_input(self, messages: List[Dict[str, Any]]) -> str:
-        """将Chat Completions格式的messages转换为input字符串"""
+    def _convert_chat_messages_to_input(self, messages: List[Dict[str, Any]]) -> Union[str, List[Dict[str, Any]]]:
+        """将Chat Completions格式的messages转换为Responses API input格式"""
+        # 检查是否包含多模态内容
+        has_multimodal = any(
+            isinstance(msg.get("content"), list) for msg in messages
+        )
+        
+        if has_multimodal:
+            # 多模态内容转换为Responses API格式
+            return self._convert_chat_messages_to_multimodal_format(messages)
+        else:
+            # 纯文本内容转换为字符串格式
+            return self._convert_chat_messages_to_text_format(messages)
+    
+    def _convert_chat_messages_to_multimodal_format(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """将Chat Completions格式的messages转换为多模态格式"""
+        input_items = []
+        
+        for message in messages:
+            role = message.get("role", "")
+            content = message.get("content", "")
+            
+            if isinstance(content, list):
+                # 多模态内容，需要转换格式
+                converted_content = self.multimodal_utils.convert_from_openai_format(content)
+                input_items.append({
+                    "role": role,
+                    "content": converted_content
+                })
+            else:
+                # 文本内容
+                input_items.append({
+                    "role": role,
+                    "content": [{
+                        "type": "input_text",
+                        "text": content
+                    }]
+                })
+        
+        return input_items
+    
+    def _convert_chat_messages_to_text_format(self, messages: List[Dict[str, Any]]) -> str:
+        """将Chat Completions格式的messages转换为文本格式"""
         input_parts = []
         
         for message in messages:

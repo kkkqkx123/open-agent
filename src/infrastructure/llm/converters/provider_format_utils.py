@@ -16,7 +16,7 @@ from src.interfaces.llm.converters import IProviderConverter
 
 # 导入具体的供应商格式转换器
 from src.infrastructure.llm.converters.base.base_provider_utils import BaseProviderUtils
-from src.infrastructure.llm.converters.openai_format_utils import OpenAIFormatUtils
+from src.infrastructure.llm.converters.openai.openai_format_utils import OpenAIFormatUtils
 from src.infrastructure.llm.converters.gemini.gemini_format_utils import GeminiFormatUtils
 from src.infrastructure.llm.converters.anthropic.anthropic_format_utils import AnthropicFormatUtils
 
