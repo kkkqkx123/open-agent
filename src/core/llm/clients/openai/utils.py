@@ -2,7 +2,8 @@
 
 from typing import Any, Dict, Optional, Sequence
 
-from langchain_core.messages import BaseMessage, AIMessage
+from src.interfaces.messages import IBaseMessage
+from src.infrastructure.messages.types import AIMessage
 from src.interfaces.llm import LLMResponse
 from ...models import TokenUsage
 
@@ -261,7 +262,7 @@ class MessageConverter:
     """消息转换工具类"""
     
     @staticmethod
-    def messages_to_input(messages: Sequence[BaseMessage]) -> str:
+    def messages_to_input(messages: Sequence[IBaseMessage]) -> str:
         """
         将消息列表转换为 input 字符串（用于 Responses API）
         

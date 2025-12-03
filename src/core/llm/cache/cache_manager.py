@@ -3,7 +3,7 @@
 import time
 import threading
 from typing import Any, Optional, List, Dict, Sequence
-from langchain_core.messages import BaseMessage
+from src.interfaces.messages import IBaseMessage
 
 from .cache_config import BaseCacheConfig, LLMCacheConfig
 from src.interfaces.llm import ICacheProvider
@@ -386,7 +386,7 @@ class CacheManager:
         except Exception:
             pass  # 忽略清理错误
     
-    def generate_llm_key(self, messages: Sequence[BaseMessage], model: str = "",
+    def generate_llm_key(self, messages: Sequence[IBaseMessage], model: str = "",
                         parameters: Optional[Dict[str, Any]] = None, **kwargs) -> str:
         """生成LLM缓存键"""
         if isinstance(self._key_generator, LLMCacheKeyGenerator):
@@ -395,13 +395,13 @@ class CacheManager:
             # 使用默认键生成器
             return self._key_generator.generate_key(messages, model, parameters)
     
-    def get_llm_response(self, messages: Sequence[BaseMessage], model: str = "",
+    def get_llm_response(self, messages: Sequence[IBaseMessage], model: str = "",
                         parameters: Optional[Dict[str, Any]] = None) -> Optional[Any]:
         """获取LLM响应缓存"""
         key = self.generate_llm_key(messages, model, parameters)
         return self.get(key)
     
-    def set_llm_response(self, messages: Sequence[BaseMessage], response: Any,
+    def set_llm_response(self, messages: Sequence[IBaseMessage], response: Any,
                         model: str = "", parameters: Optional[Dict[str, Any]] = None,
                         ttl: Optional[int] = None) -> None:
         """设置LLM响应缓存"""
@@ -478,8 +478,8 @@ class CacheManager:
         )
     
     def smart_cache_decision(
-        self, 
-        messages: Sequence[BaseMessage], 
+        self,
+        messages: Sequence[IBaseMessage],
         contents: Optional[List[Any]] = None,
         system_instruction: Optional[str] = None
     ) -> Dict[str, Any]:

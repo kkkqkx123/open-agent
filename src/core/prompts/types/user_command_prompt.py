@@ -42,7 +42,7 @@ class UserCommandPromptType(IPromptType):
     
     def create_message(self, content: str) -> Any:
         """创建用户消息"""
-        from langchain_core.messages import HumanMessage
+        from src.infrastructure.messages.types import HumanMessage
         return HumanMessage(content=content)
     
     def validate_content(self, content: str) -> List[str]:

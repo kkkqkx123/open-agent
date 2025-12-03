@@ -5,7 +5,8 @@ import time
 from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Union, Sequence
 import asyncio
 
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from src.interfaces.messages import IBaseMessage
+from src.infrastructure.messages.types import HumanMessage, AIMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from .base import BaseLLMClient
@@ -107,9 +108,9 @@ class GeminiClient(BaseLLMClient):
 
         self._client = ChatGoogleGenerativeAI(**client_kwargs)
 
-    def _convert_messages(self, messages: Sequence[BaseMessage]) -> List[BaseMessage]:
+    def _convert_messages(self, messages: Sequence[IBaseMessage]) -> List[IBaseMessage]:
         """转换消息格式以适应Gemini API"""
-        converted_messages: List[BaseMessage] = []
+        converted_messages: List[IBaseMessage] = []
 
         for message in messages:
             if isinstance(message, SystemMessage):
@@ -123,7 +124,7 @@ class GeminiClient(BaseLLMClient):
         return converted_messages
 
     async def _do_generate_async(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行异步生成操作"""
         try:
@@ -131,7 +132,8 @@ class GeminiClient(BaseLLMClient):
             converted_messages = self._convert_messages(messages)
 
             # 调用Gemini API
-            response = await self._client.ainvoke(converted_messages, **parameters)
+            # LangChain期望BaseMessage类型，这里的IBaseMessage兼容
+            response = await self._client.ainvoke(converted_messages, **parameters)  # type: ignore
 
             # 提取Token使用情况
             token_usage = self._extract_token_usage(response)
@@ -371,7 +373,7 @@ class GeminiClient(BaseLLMClient):
             )
 
     def _do_stream_generate_async(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
         async def _async_generator() -> AsyncGenerator[str, None]:
@@ -380,7 +382,8 @@ class GeminiClient(BaseLLMClient):
                 converted_messages = self._convert_messages(messages)
 
                 # 异步流式生成
-                stream = self._client.astream(converted_messages, **parameters)
+                # LangChain期望BaseMessage类型，这里的IBaseMessage兼容
+                stream = self._client.astream(converted_messages, **parameters)  # type: ignore
 
                 # 收集完整响应
                 async for chunk in stream:

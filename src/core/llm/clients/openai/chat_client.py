@@ -2,7 +2,7 @@
 
 from typing import List, Dict, Any, Generator, AsyncGenerator, Sequence
 
-from langchain_core.messages import BaseMessage
+from src.interfaces.messages import IBaseMessage
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
@@ -102,7 +102,7 @@ class ChatClient(ChatCompletionClient):
         )
     
     async def generate_async(
-        self, messages: Sequence[BaseMessage], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], **kwargs: Any
     ) -> LLMResponse:
         """
         异步生成响应
@@ -116,7 +116,8 @@ class ChatClient(ChatCompletionClient):
         """
         try:
             # 调用 LangChain ChatOpenAI 异步方法
-            response = await self._client.ainvoke(list(messages), **kwargs)
+            # LangChain期望BaseMessage类型，这里的IBaseMessage兼容
+            response = await self._client.ainvoke(list(messages), **kwargs)  # type: ignore
             
             # 转换响应格式
             return self._converter.convert_langchain_response(response)
@@ -126,7 +127,7 @@ class ChatClient(ChatCompletionClient):
             raise self._handle_error(e)
     
     def stream_generate(
-        self, messages: Sequence[BaseMessage], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], **kwargs: Any
     ) -> Generator[str, None, None]:
         """
         同步流式生成
@@ -140,7 +141,8 @@ class ChatClient(ChatCompletionClient):
         """
         try:
             # 流式生成
-            stream = self._client.stream(list(messages), **kwargs)
+            # LangChain期望BaseMessage类型，这里的IBaseMessage兼容
+            stream = self._client.stream(list(messages), **kwargs)  # type: ignore
             
             # 收集完整响应
             for chunk in stream:
@@ -156,7 +158,7 @@ class ChatClient(ChatCompletionClient):
             raise self._handle_error(e)
     
     async def stream_generate_async(
-        self, messages: Sequence[BaseMessage], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """
         异步流式生成
@@ -171,7 +173,8 @@ class ChatClient(ChatCompletionClient):
         async def _async_generator() -> AsyncGenerator[str, None]:
             try:
                 # 异步流式生成
-                stream = self._client.astream(list(messages), **kwargs)
+                # LangChain期望BaseMessage类型，这里的IBaseMessage兼容
+                stream = self._client.astream(list(messages), **kwargs)  # type: ignore
                 
                 # 收集完整响应
                 async for chunk in stream:

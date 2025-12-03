@@ -10,14 +10,19 @@ from typing import Dict, Any, List, Optional, Union
 from src.services.logger import get_logger
 from datetime import datetime
 
-from langchain_core.messages import (
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.interfaces.messages import IBaseMessage
+
+from src.infrastructure.messages import (
     BaseMessage,
     HumanMessage,
     AIMessage,
     SystemMessage,
     ToolMessage,
 )
-
+from src.infrastructure.messages.converters import MessageConverter as InfraMessageConverter
 from ..models import LLMMessage, MessageRole
 
 logger = get_logger(__name__)
@@ -33,28 +38,28 @@ class MessageConverter:
         """初始化消息转换器"""
         self.logger = get_logger(__name__)
     
-    def to_langchain_message(self, message: Any) -> BaseMessage:
-        """将任意消息格式转换为LangChain消息
+    def to_base_message(self, message: Any) -> "IBaseMessage":
+        """将任意消息格式转换为基础消息
         
         Args:
             message: 输入消息
             
         Returns:
-            BaseMessage: LangChain消息
+            IBaseMessage: 基础消息
         """
         try:
             if isinstance(message, BaseMessage):
-                # 已经是LangChain消息
+                # 已经是基础消息
                 return message
             elif isinstance(message, LLMMessage):
                 # LLMMessage格式
-                return self._llm_message_to_langchain(message)
+                return self._llm_message_to_base(message)
             elif isinstance(message, dict):
                 # 字典格式
-                return self._dict_to_langchain(message)
+                return self._dict_to_base(message)
             elif hasattr(message, 'content') and hasattr(message, 'role'):
                 # 对象格式
-                return self._object_to_langchain(message)
+                return self._object_to_base(message)
             else:
                 # 其他格式，转换为人类消息
                 return HumanMessage(content=str(message))
@@ -62,11 +67,11 @@ class MessageConverter:
             self.logger.error(f"消息转换失败: {e}")
             return HumanMessage(content=str(message))
     
-    def from_langchain_message(self, message: BaseMessage) -> LLMMessage:
-        """将LangChain消息转换为LLMMessage格式
+    def from_base_message(self, message: "IBaseMessage") -> LLMMessage:
+        """将基础消息转换为LLMMessage格式
         
         Args:
-            message: LangChain消息
+            message: 基础消息
             
         Returns:
             LLMMessage: LLM消息
@@ -83,7 +88,7 @@ class MessageConverter:
             else:
                 role = MessageRole.USER
 
-            # 处理内容类型 - LangChain消息内容可以是字符串或列表
+            # 处理内容类型 - 基础消息内容可以是字符串或列表
             content = message.content
             if isinstance(content, list):
                 # 如果是列表，提取文本内容
@@ -95,11 +100,21 @@ class MessageConverter:
             elif not isinstance(content, str):
                 content = str(content)
 
+            # 构建元数据
+            metadata = getattr(message, "additional_kwargs", {}).copy()
+            
+            # 处理特殊字段
+            if isinstance(message, ToolMessage):
+                metadata["tool_call_id"] = message.tool_call_id
+            elif isinstance(message, AIMessage) and hasattr(message, 'tool_calls') and message.tool_calls:
+                metadata["tool_calls"] = message.tool_calls
+
             return LLMMessage(
                 role=role,
                 content=content,
-                metadata=getattr(message, "additional_kwargs", {}),
-                timestamp=datetime.now()
+                name=message.name,
+                metadata=metadata,
+                timestamp=message.timestamp if hasattr(message, 'timestamp') else datetime.now()
             )
         except Exception as e:
             self.logger.error(f"消息转换失败: {e}")
@@ -109,11 +124,11 @@ class MessageConverter:
                 timestamp=datetime.now()
             )
     
-    def from_langchain_message_dict(self, message: BaseMessage) -> Dict[str, Any]:
-        """将LangChain消息转换为字典格式
+    def from_base_message_dict(self, message: "IBaseMessage") -> Dict[str, Any]:
+        """将基础消息转换为字典格式
         
         Args:
-            message: LangChain消息
+            message: 基础消息
             
         Returns:
             Dict[str, Any]: 字典格式消息
@@ -123,7 +138,7 @@ class MessageConverter:
             if isinstance(message.content, str):
                 content = message.content
             else:
-                content = message.content  # type: ignore[assignment]
+                content = message.content
             
             result: Dict[str, Any] = {
                 "content": content,
@@ -146,50 +161,55 @@ class MessageConverter:
                 "type": "human"
             }
     
-    def convert_message_list(self, messages: List[Any]) -> List[BaseMessage]:
-        """批量转换消息列表为LangChain格式
+    def convert_message_list(self, messages: List[Any]) -> List["IBaseMessage"]:
+        """批量转换消息列表为基础格式
         
         Args:
             messages: 消息列表
             
         Returns:
-            List[BaseMessage]: LangChain消息列表
+            List[IBaseMessage]: 基础消息列表
         """
         converted_messages = []
         for msg in messages:
-            converted_messages.append(self.to_langchain_message(msg))
+            converted_messages.append(self.to_base_message(msg))
         return converted_messages
     
-    def convert_from_langchain_list(self, messages: List[BaseMessage]) -> List[LLMMessage]:
-        """批量转换LangChain消息列表
+    def convert_from_base_list(self, messages: List["IBaseMessage"]) -> List[LLMMessage]:
+        """批量转换基础消息列表
         
         Args:
-            messages: LangChain消息列表
+            messages: 基础消息列表
             
         Returns:
             List[LLMMessage]: LLM消息列表
         """
         converted_messages = []
         for msg in messages:
-            converted_messages.append(self.from_langchain_message(msg))
+            converted_messages.append(self.from_base_message(msg))
         return converted_messages
     
-    def _llm_message_to_langchain(self, message: LLMMessage) -> BaseMessage:
-        """将LLMMessage转换为LangChain消息"""
+    def _llm_message_to_base(self, message: LLMMessage) -> "IBaseMessage":
+        """将LLMMessage转换为基础消息"""
         if message.role == MessageRole.USER:
-            return HumanMessage(content=message.content)
+            return HumanMessage(content=message.content, name=message.name, additional_kwargs=message.metadata)
         elif message.role == MessageRole.ASSISTANT:
-            return AIMessage(content=message.content)
+            return AIMessage(
+                content=message.content,
+                name=message.name,
+                tool_calls=message.tool_calls,
+                additional_kwargs=message.metadata
+            )
         elif message.role == MessageRole.SYSTEM:
-            return SystemMessage(content=message.content)
+            return SystemMessage(content=message.content, name=message.name, additional_kwargs=message.metadata)
         elif message.role == MessageRole.TOOL:
             tool_call_id = message.metadata.get("tool_call_id", "")
-            return ToolMessage(content=message.content, tool_call_id=tool_call_id)
+            return ToolMessage(content=message.content, tool_call_id=tool_call_id, name=message.name, additional_kwargs=message.metadata)
         else:
-            return HumanMessage(content=message.content)
+            return HumanMessage(content=message.content, name=message.name, additional_kwargs=message.metadata)
     
-    def _dict_to_langchain(self, message_dict: Dict[str, Any]) -> BaseMessage:
-        """将字典转换为LangChain消息"""
+    def _dict_to_base(self, message_dict: Dict[str, Any]) -> "IBaseMessage":
+        """将字典转换为基础消息"""
         content = message_dict.get("content", "")
         role = message_dict.get("role", "human")
         
@@ -206,8 +226,8 @@ class MessageConverter:
             # 默认为人类消息
             return HumanMessage(content=content)
     
-    def _object_to_langchain(self, message_obj: Any) -> BaseMessage:
-        """将对象转换为LangChain消息"""
+    def _object_to_base(self, message_obj: Any) -> "IBaseMessage":
+        """将对象转换为基础消息"""
         content = getattr(message_obj, 'content', '')
         role = getattr(message_obj, 'role', 'human')
         
@@ -230,7 +250,7 @@ class MessageConverter:
             # 默认为人类消息
             return HumanMessage(content=content)
     
-    def _get_message_type(self, message: BaseMessage) -> str:
+    def _get_message_type(self, message: "IBaseMessage") -> str:
         """获取消息类型"""
         if isinstance(message, HumanMessage):
             return "human"
@@ -305,11 +325,11 @@ class MessageConverter:
             timestamp=datetime.now()
         )
 
-    def extract_tool_calls(self, message: Union[LLMMessage, BaseMessage]) -> List[Dict[str, Any]]:
+    def extract_tool_calls(self, message: Union[LLMMessage, "IBaseMessage"]) -> List[Dict[str, Any]]:
         """提取工具调用信息
         
         Args:
-            message: LLM消息或LangChain消息
+            message: LLM消息或基础消息
             
         Returns:
             List[Dict[str, Any]]: 工具调用列表
@@ -322,19 +342,10 @@ class MessageConverter:
             tool_calls_meta = message.metadata.get("tool_calls", [])
             return tool_calls_meta if isinstance(tool_calls_meta, list) else []
         elif isinstance(message, AIMessage):
-            # 从 AIMessage 提取 tool_calls (仅 AIMessage 具有此属性)
+            # 从 AIMessage 提取 tool_calls
             tool_calls = getattr(message, 'tool_calls', None)
             if tool_calls:
-                # 将 ToolCall 对象转换为字典格式
-                result: List[Dict[str, Any]] = []
-                if isinstance(tool_calls, list):
-                    for tc in tool_calls:
-                        result.append({
-                            "id": tc.id,
-                            "name": tc.type if hasattr(tc, 'type') else "function",
-                            "args": tc.args if hasattr(tc, 'args') else {}
-                        })
-                return result
+                return tool_calls if isinstance(tool_calls, list) else []
             if hasattr(message, 'additional_kwargs'):
                 tool_calls_kwargs = message.additional_kwargs.get("tool_calls", [])
                 return tool_calls_kwargs if isinstance(tool_calls_kwargs, list) else []

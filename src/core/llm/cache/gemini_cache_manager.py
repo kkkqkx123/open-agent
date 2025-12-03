@@ -1,7 +1,7 @@
 """Gemini专用缓存管理器"""
 
 from typing import Any, Optional, Sequence, Dict
-from langchain_core.messages import BaseMessage
+from src.interfaces.messages import IBaseMessage
 
 from .cache_manager import CacheManager
 from .cache_config import BaseCacheConfig
@@ -22,7 +22,7 @@ class GeminiCacheManager(CacheManager):
         # 使用Gemini专用的键生成器
         self._key_generator = GeminiCacheKeyGenerator()
     
-    def generate_gemini_key(self, messages: Sequence[BaseMessage], model: str = "",
+    def generate_gemini_key(self, messages: Sequence[IBaseMessage], model: str = "",
     parameters: Optional[Dict[str, Any]] = None, **kwargs) -> str:
         """
         生成Gemini缓存键
@@ -38,7 +38,7 @@ class GeminiCacheManager(CacheManager):
         """
         return self._key_generator.generate_key(messages, model, parameters, **kwargs)
     
-    def get_gemini_response(self, messages: Sequence[BaseMessage], model: str = "",
+    def get_gemini_response(self, messages: Sequence[IBaseMessage], model: str = "",
     parameters: Optional[Dict[str, Any]] = None, **kwargs) -> Optional[Any]:
         """
         获取Gemini响应缓存
@@ -55,7 +55,7 @@ class GeminiCacheManager(CacheManager):
         key = self.generate_gemini_key(messages, model, parameters, **kwargs)
         return self.get(key)
     
-    def set_gemini_response(self, messages: Sequence[BaseMessage], response: Any,
+    def set_gemini_response(self, messages: Sequence[IBaseMessage], response: Any,
     model: str = "", parameters: Optional[Dict[str, Any]] = None, ttl: Optional[int] = None,
     **kwargs) -> None:
         """
@@ -76,7 +76,7 @@ class GeminiCacheManager(CacheManager):
 class GeminiCacheKeyGenerator(LLMCacheKeyGenerator):
     """Gemini专用缓存键生成器"""
     
-    def generate_key(self, messages: Sequence[BaseMessage], model: str = "",
+    def generate_key(self, messages: Sequence[IBaseMessage], model: str = "",
                     parameters: Optional[Dict[str, Any]] = None, **kwargs) -> str:
         """
         生成Gemini缓存键

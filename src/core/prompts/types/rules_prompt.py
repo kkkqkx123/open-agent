@@ -39,7 +39,7 @@ class RulesPromptType(IPromptType):
     
     def create_message(self, content: str) -> Any:
         """创建系统消息"""
-        from langchain_core.messages import SystemMessage
+        from src.infrastructure.messages.types import SystemMessage
         return SystemMessage(content=content)
     
     def validate_content(self, content: str) -> List[str]:

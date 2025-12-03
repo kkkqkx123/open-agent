@@ -14,6 +14,11 @@ from dataclasses import dataclass
 
 from langchain_core.messages import BaseMessage
 
+# 使用 TYPE_CHECKING 避免循环导入
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...interfaces.messages import IBaseMessage
+
 
 @dataclass
 class LLMResponse:
@@ -60,7 +65,7 @@ class ILLMClient(ABC):
         pass
 
     @abstractmethod
-    def stream_generate(
+    async def stream_generate(
         self,
         messages: Sequence[BaseMessage],
         parameters: Optional[Dict[str, Any]] = None,

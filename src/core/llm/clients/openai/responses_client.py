@@ -4,7 +4,7 @@ import httpx
 import json
 from typing import Dict, Any, List, Optional, AsyncGenerator, Generator, Sequence
 
-from langchain_core.messages import BaseMessage
+from src.interfaces.messages import IBaseMessage
 
 from .interfaces import ResponsesAPIClient
 from .utils import ResponseConverter, MessageConverter
@@ -37,7 +37,7 @@ class ResponsesClient(ResponsesAPIClient):
         self.headers = config.get_resolved_headers()
     
     async def generate_async(
-        self, messages: Sequence[BaseMessage], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], **kwargs: Any
     ) -> LLMResponse:
         """
         异步生成响应
@@ -82,7 +82,7 @@ class ResponsesClient(ResponsesAPIClient):
             raise self._handle_error(e)
     
     def stream_generate(
-        self, messages: Sequence[BaseMessage], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], **kwargs: Any
     ) -> Generator[str, None, None]:
         """
         同步流式生成
@@ -133,7 +133,7 @@ class ResponsesClient(ResponsesAPIClient):
             raise self._handle_error(e)
     
     async def stream_generate_async(
-        self, messages: Sequence[BaseMessage], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """
         异步流式生成
@@ -212,7 +212,7 @@ class ResponsesClient(ResponsesAPIClient):
         if len(self._conversation_history) > max_history:
             self._conversation_history = self._conversation_history[-max_history:]
     
-    def _messages_to_input(self, messages: Sequence[BaseMessage]) -> str:
+    def _messages_to_input(self, messages: Sequence[IBaseMessage]) -> str:
         """
         将消息列表转换为 input 字符串
         

@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Generator, AsyncGenerator, Optional, Sequence
 
-from langchain_core.messages import BaseMessage
+from src.interfaces.messages import IBaseMessage
 from src.interfaces.llm import LLMResponse
 
 
@@ -21,7 +21,7 @@ class BaseOpenAIClient(ABC):
     
     @abstractmethod
     async def generate_async(
-        self, messages: Sequence[BaseMessage], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], **kwargs: Any
     ) -> LLMResponse:
         """
         异步生成响应
@@ -37,7 +37,7 @@ class BaseOpenAIClient(ABC):
     
     @abstractmethod
     async def stream_generate_async(
-        self, messages: Sequence[BaseMessage], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """
         异步流式生成
@@ -99,7 +99,7 @@ class ResponsesAPIClient(BaseOpenAIClient):
         pass
     
     @abstractmethod
-    def _messages_to_input(self, messages: List[BaseMessage]) -> str:
+    def _messages_to_input(self, messages: List[IBaseMessage]) -> str:
         """
         将消息列表转换为 input 字符串
         

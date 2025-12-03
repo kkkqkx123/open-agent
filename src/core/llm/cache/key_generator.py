@@ -3,7 +3,7 @@
 import hashlib
 import json
 from typing import Any, Dict, Optional, Sequence, List, Set
-from langchain_core.messages import BaseMessage
+from src.interfaces.messages import IBaseMessage
 
 from src.interfaces.llm import ICacheKeyGenerator
 
@@ -57,7 +57,7 @@ class MessageSerializer:
     """消息序列化器"""
     
     @staticmethod
-    def serialize_messages_json(messages: Sequence[BaseMessage]) -> str:
+    def serialize_messages_json(messages: Sequence[IBaseMessage]) -> str:
         """
         使用JSON格式序列化消息列表
         
@@ -83,7 +83,7 @@ class MessageSerializer:
         return f"[{','.join(serialized)}]"
     
     @staticmethod
-    def serialize_messages_kv(messages: Sequence[BaseMessage]) -> str:
+    def serialize_messages_kv(messages: Sequence[IBaseMessage]) -> str:
         """
         使用键值对格式序列化消息列表
         
@@ -222,7 +222,7 @@ class LLMCacheKeyGenerator(ICacheKeyGenerator):
         self.include_parameters = include_parameters
         self.provider_prefix = provider_prefix
 
-    def generate_key(self, messages: Sequence[BaseMessage], model: str = "",
+    def generate_key(self, messages: Sequence[IBaseMessage], model: str = "",
                     parameters: Optional[Dict[str, Any]] = None, **kwargs) -> str:
         """
         生成LLM缓存键
@@ -263,7 +263,7 @@ class LLMCacheKeyGenerator(ICacheKeyGenerator):
         key_string = "|".join(key_parts)
         return BaseKeySerializer.hash_string(key_string)
     
-    def _serialize_messages(self, messages: Sequence[BaseMessage]) -> str:
+    def _serialize_messages(self, messages: Sequence[IBaseMessage]) -> str:
         """序列化消息列表（子类可重写）"""
         return MessageSerializer.serialize_messages_json(messages)
     
@@ -308,7 +308,7 @@ class GeminiCacheKeyGenerator(LLMCacheKeyGenerator):
             provider_prefix="gemini"
         )
     
-    def _serialize_messages(self, messages: Sequence[BaseMessage]) -> str:
+    def _serialize_messages(self, messages: Sequence[IBaseMessage]) -> str:
         """序列化Gemini消息（使用键值对格式）"""
         return MessageSerializer.serialize_messages_kv(messages)
     

@@ -5,7 +5,11 @@ from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum
 
-from langchain_core.messages import BaseMessage
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # 避免运行时循环依赖
+    from ...interfaces.messages import IBaseMessage
 
 class MessageRole(Enum):
     """消息角色枚举"""
@@ -122,19 +126,35 @@ class LLMMessage:
         return result
 
     @classmethod
-    def from_base_message(cls, message: "BaseMessage") -> "LLMMessage":
-        """从LangChain BaseMessage创建LLMMessage"""
+    def from_base_message(cls, message: "IBaseMessage") -> "LLMMessage":
+        """从基础消息创建LLMMessage"""
         try:
-            from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+            # 尝试使用新的消息系统
+            from ...infrastructure.messages.types import (
+                HumanMessage as InfraHumanMessage,
+                AIMessage as InfraAIMessage,
+                SystemMessage as InfraSystemMessage
+            )
             
-            if isinstance(message, HumanMessage):
+            if isinstance(message, InfraHumanMessage):
                 role = MessageRole.USER
-            elif isinstance(message, AIMessage):
+            elif isinstance(message, InfraAIMessage):
                 role = MessageRole.ASSISTANT
-            elif isinstance(message, SystemMessage):
+            elif isinstance(message, InfraSystemMessage):
                 role = MessageRole.SYSTEM
             else:
-                role = MessageRole.USER  # 默认为用户角色
+                # 回退到类型检查
+                if hasattr(message, 'type'):
+                    if message.type == "human":
+                        role = MessageRole.USER
+                    elif message.type == "ai":
+                        role = MessageRole.ASSISTANT
+                    elif message.type == "system":
+                        role = MessageRole.SYSTEM
+                    else:
+                        role = MessageRole.USER
+                else:
+                    role = MessageRole.USER  # 默认为用户角色
 
             # 提取函数调用信息
             function_call = None
@@ -144,7 +164,7 @@ class LLMMessage:
             ):
                 function_call = message.additional_kwargs["function_call"]
 
-            # 处理内容类型 - LangChain消息内容可以是字符串或列表
+            # 处理内容类型 - 消息内容可以是字符串或列表
             content = message.content
             if isinstance(content, list):
                 # 如果是列表，提取文本内容
@@ -156,15 +176,23 @@ class LLMMessage:
             elif not isinstance(content, str):
                 content = str(content)
 
+            # 提取工具调用信息
+            tool_calls = None
+            if hasattr(message, 'tool_calls') and message.tool_calls:
+                tool_calls = message.tool_calls
+            elif hasattr(message, "additional_kwargs") and "tool_calls" in message.additional_kwargs:
+                tool_calls = message.additional_kwargs["tool_calls"]
+
             return cls(
                 role=role,
                 content=content,
                 name=getattr(message, "name", None),
                 function_call=function_call,
+                tool_calls=tool_calls,
                 metadata=getattr(message, "additional_kwargs", {}),
             )
         except ImportError:
-            # 如果无法导入langchain，使用默认值
+            # 如果无法导入新消息系统，使用默认值
             role = MessageRole.USER
             content = str(getattr(message, "content", ""))
             return cls(
@@ -172,6 +200,7 @@ class LLMMessage:
                 content=content,
                 name=getattr(message, "name", None),
                 function_call=None,
+                tool_calls=None,
                 metadata=getattr(message, "additional_kwargs", {}),
             )
 
@@ -181,7 +210,7 @@ class LLMResponse:
     """LLM响应模型"""
 
     content: str
-    message: "BaseMessage"
+    message: "IBaseMessage"
     token_usage: TokenUsage
     model: str
     finish_reason: Optional[str] = None
@@ -255,7 +284,7 @@ class LLMError:
 class LLMRequest:
     """LLM请求模型"""
 
-    messages: List["BaseMessage"]
+    messages: List["IBaseMessage"]
     parameters: Dict[str, Any] = field(default_factory=dict)
     stream: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)

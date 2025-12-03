@@ -5,7 +5,8 @@ import time
 import asyncio
 from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Union, Sequence
 
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from src.interfaces.messages import IBaseMessage
+from src.infrastructure.messages.types import HumanMessage, AIMessage, SystemMessage
 
 from .base import BaseLLMClient
 from src.interfaces.llm import LLMResponse
@@ -53,7 +54,7 @@ class MockLLMClient(BaseLLMClient):
         }
 
     async def _do_generate_async(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行异步生成操作"""
         # 模拟响应延迟
@@ -78,7 +79,7 @@ class MockLLMClient(BaseLLMClient):
         )
 
     def _do_stream_generate_async(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
         async def _async_generator() -> AsyncGenerator[str, None]:
@@ -109,7 +110,7 @@ class MockLLMClient(BaseLLMClient):
         return getattr(self.config, 'function_calling_supported', True)
 
     def _generate_response_content(
-        self, messages: Sequence[BaseMessage], parameters: Optional[Dict[str, Any]] = None
+        self, messages: Sequence[IBaseMessage], parameters: Optional[Dict[str, Any]] = None
     ) -> str:
         """生成响应内容"""
         if not messages:
@@ -294,7 +295,7 @@ class MockLLMClient(BaseLLMClient):
         else:
             raise ValueError("响应延迟必须大于等于0")
 
-    def _validate_messages(self, messages: Sequence[BaseMessage]) -> None:
+    def _validate_messages(self, messages: Sequence[IBaseMessage]) -> None:
         """验证消息列表（Mock客户端允许空消息列表）"""
         # Mock客户端允许空消息列表，用于测试
         pass

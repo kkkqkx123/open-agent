@@ -131,7 +131,7 @@ class IToolFormatter(ABC):
         pass
 
     @abstractmethod
-    def parse_llm_response(self, response: BaseMessage) -> ToolCall:
+    def parse_llm_response(self, response: "BaseMessage") -> ToolCall:
         """解析LLM的工具调用响应"""
         pass
 

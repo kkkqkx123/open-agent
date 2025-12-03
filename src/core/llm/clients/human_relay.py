@@ -2,7 +2,8 @@
 
 import asyncio
 from typing import List, Dict, Any, Optional, AsyncGenerator, Generator, Sequence, cast
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from src.interfaces.messages import IBaseMessage
+from src.infrastructure.messages.types import HumanMessage, AIMessage
 
 from .base import BaseLLMClient
 from ..config import HumanRelayConfig
@@ -24,13 +25,13 @@ class HumanRelayClient(BaseLLMClient):
         super().__init__(config)
         self.mode = config.mode  # "single" 或 "multi"
 
-        self.conversation_history: List[BaseMessage] = []
+        self.conversation_history: List[IBaseMessage] = []
         self.max_history_length = config.max_history_length
         self.prompt_template = config.prompt_template
         self.incremental_prompt_template = config.incremental_prompt_template
     
     async def _do_generate_async(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行异步生成操作"""
         if self.mode == "single":
@@ -39,7 +40,7 @@ class HumanRelayClient(BaseLLMClient):
             return await self._multi_turn_generate(messages, parameters, **kwargs)
     
     def _do_generate(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行生成操作"""
         # 使用EventLoopManager运行异步方法
@@ -48,7 +49,7 @@ class HumanRelayClient(BaseLLMClient):
         return cast(LLMResponse, result)
     
     async def _single_turn_generate(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """单轮对话模式"""
         # 构建完整提示词
@@ -68,7 +69,7 @@ class HumanRelayClient(BaseLLMClient):
         return self._create_human_relay_response(user_response, messages)
     
     async def _multi_turn_generate(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """多轮对话模式"""
         # 更新对话历史
@@ -90,7 +91,7 @@ class HumanRelayClient(BaseLLMClient):
         # 创建响应
         return self._create_human_relay_response(user_response, messages)
     
-    def _build_full_prompt(self, messages: Sequence[BaseMessage]) -> str:
+    def _build_full_prompt(self, messages: Sequence[IBaseMessage]) -> str:
         """构建完整提示词"""
         if not messages:
             raise LLMInvalidRequestError("消息列表不能为空")
@@ -101,7 +102,7 @@ class HumanRelayClient(BaseLLMClient):
         # 使用模板
         return self.prompt_template.format(prompt=formatted_messages)
     
-    def _build_incremental_prompt(self, messages: Sequence[BaseMessage]) -> str:
+    def _build_incremental_prompt(self, messages: Sequence[IBaseMessage]) -> str:
         """构建增量提示词"""
         if not messages:
             raise LLMInvalidRequestError("消息列表不能为空")
@@ -118,7 +119,7 @@ class HumanRelayClient(BaseLLMClient):
             conversation_history=formatted_history
         )
     
-    def _format_messages(self, messages: Sequence[BaseMessage]) -> str:
+    def _format_messages(self, messages: Sequence[IBaseMessage]) -> str:
         """格式化消息为文本"""
         formatted_lines = []
         for message in messages:
@@ -128,7 +129,7 @@ class HumanRelayClient(BaseLLMClient):
         
         return "\n".join(formatted_lines)
     
-    def _update_conversation_history(self, messages: Sequence[BaseMessage]) -> None:
+    def _update_conversation_history(self, messages: Sequence[IBaseMessage]) -> None:
         """更新对话历史"""
         self.conversation_history.extend(messages)
         
@@ -138,7 +139,7 @@ class HumanRelayClient(BaseLLMClient):
             self.conversation_history = self.conversation_history[-self.max_history_length:]
     
     def _create_human_relay_response(
-        self, user_response: str, original_messages: Sequence[BaseMessage]
+        self, user_response: str, original_messages: Sequence[IBaseMessage]
     ) -> LLMResponse:
         """创建HumanRelay响应"""
         # 创建AI消息
@@ -161,7 +162,7 @@ class HumanRelayClient(BaseLLMClient):
         )
     
     def _estimate_token_usage(
-        self, response: str, messages: Sequence[BaseMessage]
+        self, response: str, messages: Sequence[IBaseMessage]
     ) -> TokenUsage:
         """估算Token使用情况"""
         # 简单估算：按字符数除以4估算token数
@@ -188,7 +189,7 @@ class HumanRelayClient(BaseLLMClient):
         return cast(int, max(10, min(timeout, 3600)))  # 限制在10秒到1小时之间
     
     def _do_stream_generate_async(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
         async def _async_generator() -> AsyncGenerator[str, None]:
@@ -212,11 +213,11 @@ class HumanRelayClient(BaseLLMClient):
         """清除对话历史"""
         self.conversation_history.clear()
     
-    def get_conversation_history(self) -> List[BaseMessage]:
+    def get_conversation_history(self) -> List[IBaseMessage]:
         """获取对话历史"""
         return self.conversation_history.copy()
     
-    def set_conversation_history(self, history: List[BaseMessage]) -> None:
+    def set_conversation_history(self, history: List[IBaseMessage]) -> None:
         """设置对话历史"""
         self.conversation_history = history.copy()
         # 限制历史长度

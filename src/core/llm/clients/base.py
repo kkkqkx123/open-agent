@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Sequence
 from datetime import datetime
 
-from langchain_core.messages import BaseMessage
+from src.interfaces.messages import IBaseMessage
 
 from src.interfaces.llm import ILLMClient, ILLMCallHook, LLMResponse
 from ..models import TokenUsage, LLMError, ModelInfo
@@ -56,14 +56,15 @@ class BaseLLMClient(ILLMClient):
 
     def _call_before_hooks(
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence[IBaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         """调用前置钩子"""
         for hook in self._hooks:
             try:
-                hook.before_call(messages, parameters, **kwargs)
+                # 类型转换：IBaseMessage -> BaseMessage，用于hooks接口兼容
+                hook.before_call(messages, parameters, **kwargs)  # type: ignore
             except Exception as e:
                 # 钩子错误不应该影响主流程
                 print(f"Warning: Hook before_call failed: {e}")
@@ -71,14 +72,14 @@ class BaseLLMClient(ILLMClient):
     def _call_after_hooks(
         self,
         response: LLMResponse,
-        messages: Sequence[BaseMessage],
+        messages: Sequence[IBaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         """调用后置钩子"""
         for hook in self._hooks:
             try:
-                hook.after_call(response, messages, parameters, **kwargs)
+                hook.after_call(response, messages, parameters, **kwargs)  # type: ignore
             except Exception as e:
                 # 钩子错误不应该影响主流程
                 print(f"Warning: Hook after_call failed: {e}")
@@ -86,14 +87,14 @@ class BaseLLMClient(ILLMClient):
     def _call_error_hooks(
         self,
         error: Exception,
-        messages: Sequence[BaseMessage],
+        messages: Sequence[IBaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Optional[LLMResponse]:
         """调用错误钩子"""
         for hook in self._hooks:
             try:
-                response = hook.on_error(error, messages, parameters, **kwargs)
+                response = hook.on_error(error, messages, parameters, **kwargs)  # type: ignore
                 if response is not None:
                     return response
             except Exception as e:
@@ -203,9 +204,9 @@ class BaseLLMClient(ILLMClient):
 
         return merged
     
-    def _extract_system_message(self, messages: Sequence[BaseMessage]) -> Optional[str]:
+    def _extract_system_message(self, messages: Sequence[IBaseMessage]) -> Optional[str]:
         """提取系统消息内容"""
-        from langchain_core.messages import SystemMessage
+        from src.infrastructure.messages.types import SystemMessage
         
         for message in messages:
             if isinstance(message, SystemMessage):
@@ -220,9 +221,9 @@ class BaseLLMClient(ILLMClient):
     
     def _prepare_parameters_with_system_message(
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence[IBaseMessage],
         parameters: Dict[str, Any]
-    ) -> tuple[Sequence[BaseMessage], Dict[str, Any]]:
+    ) -> tuple[Sequence[IBaseMessage], Dict[str, Any]]:
         """准备参数，包括系统消息处理"""
         # 提取系统消息
         system_message = self._extract_system_message(messages)
@@ -287,7 +288,7 @@ class BaseLLMClient(ILLMClient):
         
         return None
 
-    def _validate_messages(self, messages: Sequence[BaseMessage]) -> None:
+    def _validate_messages(self, messages: Sequence[IBaseMessage]) -> None:
         """验证消息列表"""
         if not messages:
             raise LLMInvalidRequestError("消息列表不能为空")
@@ -297,16 +298,16 @@ class BaseLLMClient(ILLMClient):
             if not hasattr(message, "content") or not message.content:
                 raise LLMInvalidRequestError(f"消息 {i} 缺少内容")
 
-    def _validate_token_limit(self, messages: Sequence[BaseMessage]) -> None:
+    def _validate_token_limit(self, messages: Sequence[IBaseMessage]) -> None:
         """验证Token限制"""
         # 注意：由于已移除Core层的token计算方法，此验证需要通过依赖注入的TokenCalculationService来完成
         # 为保持向后兼容，暂时跳过此验证，后续需要重构客户端以使用TokenCalculationService
         # 如果需要精确的token验证，应通过依赖注入获取TokenCalculationService
         pass
 
-    async def generate(
+    async def generate(  # type: ignore[override]
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence[IBaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
@@ -359,9 +360,9 @@ class BaseLLMClient(ILLMClient):
             # 抛出错误
             raise llm_error
 
-    async def stream_generate(
+    async def stream_generate(  # type: ignore[override]
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence[IBaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> AsyncGenerator[str, None]:
@@ -412,14 +413,14 @@ class BaseLLMClient(ILLMClient):
 
     @abstractmethod
     async def _do_generate_async(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行异步生成操作（子类实现）"""
         pass
 
     @abstractmethod
     def _do_stream_generate_async(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作（子类实现）"""
         pass

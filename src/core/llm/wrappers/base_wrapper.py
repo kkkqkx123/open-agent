@@ -8,7 +8,7 @@ from abc import ABC
 from src.interfaces.llm import LLMResponse
 from ..models import TokenUsage
 from ...common.exceptions.llm import LLMError
-from langchain_core.messages import HumanMessage
+from src.infrastructure.messages.types import HumanMessage
 
 logger = get_logger(__name__)
 

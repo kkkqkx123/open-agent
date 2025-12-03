@@ -2,7 +2,7 @@
 
 from typing import Dict, Any, List, Generator, AsyncGenerator, Optional, cast, Sequence
 
-from langchain_core.messages import BaseMessage
+from src.interfaces.messages import IBaseMessage
 
 from ..base import BaseLLMClient
 from src.interfaces.llm import LLMResponse
@@ -46,14 +46,14 @@ class OpenAIClient(BaseLLMClient):
         return self._client
     
     async def _do_generate_async(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行异步生成操作"""
         client = self._get_client()
         return await client.generate_async(messages, **parameters, **kwargs)
     
     def _do_stream_generate_async(
-        self, messages: Sequence[BaseMessage], parameters: Dict[str, Any], **kwargs: Any
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
         async def _async_generator() -> AsyncGenerator[str, None]:
@@ -111,7 +111,7 @@ class OpenAIClient(BaseLLMClient):
     
     async def generate_with_fallback(
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence[IBaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
@@ -135,7 +135,7 @@ class OpenAIClient(BaseLLMClient):
     
     async def generate_with_fallback_async(
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence[IBaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> LLMResponse:

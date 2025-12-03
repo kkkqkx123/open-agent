@@ -3,8 +3,13 @@
 提供LLM调用功能，集成提示词系统。
 """
 
-from typing import Dict, Any, List, Optional, Union
-from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
+from typing import Dict, Any, List, Optional, Union, cast, Sequence
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.interfaces.messages import IBaseMessage
+
+from src.infrastructure.messages import AIMessage, SystemMessage, HumanMessage
 from src.services.logger import get_logger
 
 from .registry import node
@@ -62,13 +67,22 @@ class LLMNode(AsyncNode):
             llm_client = self._select_llm_client(processed_config)
             
             # 准备消息（使用提示词服务）
-            messages = await self._prepare_messages_with_prompts(state, processed_config)
+            prepared_messages = await self._prepare_messages_with_prompts(state, processed_config)
+            
+            # 确保所有消息都是BaseMessage类型
+            messages: List[Union[HumanMessage, AIMessage, SystemMessage]] = []
+            for msg in prepared_messages:
+                if isinstance(msg, (HumanMessage, AIMessage, SystemMessage)):
+                    messages.append(msg)
+                else:
+                    # 如果是其他类型，转换为HumanMessage
+                    messages.append(HumanMessage(content=str(getattr(msg, 'content', msg))))
             
             # 设置生成参数
             parameters = self._prepare_parameters(processed_config)
             
-            # 调用LLM
-            response = await llm_client.generate(messages=messages, parameters=parameters)
+            # 调用LLM (类型转换：我们的消息类型与langchain兼容)
+            response = await llm_client.generate(messages=cast(Sequence[Any], messages), parameters=parameters)
             
             # 更新状态 - 添加LLM响应到消息列表
             ai_message = AIMessage(content=response.content)
@@ -102,7 +116,7 @@ class LLMNode(AsyncNode):
                 processed_config = await self._prompt_service.process_node_input(
                     "llm_node", config, state, config
                 )
-                return processed_config
+                return cast(Dict[str, Any], processed_config)
             return config
         except Exception as e:
             logger.warning(f"配置预处理失败，使用原始配置: {e}")
@@ -119,7 +133,7 @@ class LLMNode(AsyncNode):
 4. 如果有多个步骤的结果，请按逻辑顺序组织回答
 5. 始终保持友好和专业的语调"""
 
-    async def _prepare_messages_with_prompts(self, state: IState, config: Dict[str, Any]) -> List[Union[SystemMessage, Any]]:
+    async def _prepare_messages_with_prompts(self, state: IState, config: Dict[str, Any]) -> List[Union["IBaseMessage", Any]]:
         """准备消息列表（使用提示词服务，支持缓存和多种配置方式）"""
         # 生成缓存键
         cache_key = self._generate_prompt_cache_key(config)
@@ -156,7 +170,7 @@ class LLMNode(AsyncNode):
         
         return CacheKeyGenerator.generate_params_key(key_config)
     
-    async def _get_cached_messages(self, state: IState, cache_key: str) -> Optional[List[Union[SystemMessage, Any]]]:
+    async def _get_cached_messages(self, state: IState, cache_key: str) -> Optional[List[Union["IBaseMessage", Any]]]:
         """获取缓存的消息"""
         try:
             # 检查是否启用缓存
@@ -185,7 +199,7 @@ class LLMNode(AsyncNode):
         
         return None
     
-    async def _cache_processed_messages(self, state: IState, cache_key: str, messages: List[Union[SystemMessage, Any]]) -> None:
+    async def _cache_processed_messages(self, state: IState, cache_key: str, messages: List[Union["IBaseMessage", Any]]) -> None:
         """缓存处理后的消息"""
         try:
             # 检查是否启用缓存
@@ -217,7 +231,7 @@ class LLMNode(AsyncNode):
         except Exception as e:
             logger.warning(f"缓存处理消息失败: {e}")
     
-    async def _resolve_and_process_prompts(self, state: IState, config: Dict[str, Any]) -> List[Union[SystemMessage, Any]]:
+    async def _resolve_and_process_prompts(self, state: IState, config: Dict[str, Any]) -> List[Union["IBaseMessage", Any]]:
         """解析和处理提示词"""
         messages = []
         
