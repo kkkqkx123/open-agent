@@ -5,19 +5,20 @@
 
 from typing import Dict, Any, List, Optional, Union
 from src.services.logger import get_logger
+from src.infrastructure.llm.converters.base.base_validation_utils import BaseValidationUtils, BaseValidationError, BaseFormatError
 
 
-class AnthropicValidationError(Exception):
+class AnthropicValidationError(BaseValidationError):
     """Anthropic验证错误"""
     pass
 
 
-class AnthropicFormatError(Exception):
+class AnthropicFormatError(BaseFormatError):
     """Anthropic格式错误"""
     pass
 
 
-class AnthropicValidationUtils:
+class AnthropicValidationUtils(BaseValidationUtils):
     """Anthropic验证工具类"""
     
     # 支持的模型列表
@@ -25,7 +26,10 @@ class AnthropicValidationUtils:
         "claude-sonnet-4-5",
         "claude-3-opus",
         "claude-3-sonnet",
-        "claude-3-haiku"
+        "claude-3-haiku",
+        "claude-2.1",
+        "claude-2.0",
+        "claude-instant-1.2"
     }
     
     # 最大token限制
@@ -33,22 +37,18 @@ class AnthropicValidationUtils:
         "claude-sonnet-4-5": 8192,
         "claude-3-opus": 4096,
         "claude-3-sonnet": 4096,
-        "claude-3-haiku": 4096
+        "claude-3-haiku": 4096,
+        "claude-2.1": 4096,
+        "claude-2.0": 4096,
+        "claude-instant-1.2": 4096
     }
     
     def __init__(self) -> None:
         """初始化验证工具"""
-        self.logger = get_logger(__name__)
+        super().__init__()
     
     def validate_request_parameters(self, parameters: Dict[str, Any]) -> List[str]:
-        """验证请求参数
-        
-        Args:
-            parameters: 请求参数
-            
-        Returns:
-            List[str]: 验证错误列表
-        """
+        """验证请求参数"""
         errors = []
         
         # 验证必需参数
@@ -76,7 +76,8 @@ class AnthropicValidationUtils:
             "stream": self._validate_stream,
             "metadata": self._validate_metadata,
             "tools": self._validate_tools,
-            "tool_choice": self._validate_tool_choice
+            "tool_choice": self._validate_tool_choice,
+            "system": self._validate_system
         }
         
         for param, validator in optional_params.items():
@@ -88,14 +89,7 @@ class AnthropicValidationUtils:
     
     def _validate_model(self, model: str) -> List[str]:
         """验证模型参数"""
-        errors = []
-        
-        if not isinstance(model, str):
-            errors.append("model参数必须是字符串")
-        elif model not in self.SUPPORTED_MODELS:
-            errors.append(f"不支持的模型: {model}，支持的模型: {', '.join(self.SUPPORTED_MODELS)}")
-        
-        return errors
+        return self._validate_model(model, self.SUPPORTED_MODELS)
     
     def _validate_max_tokens(self, max_tokens: int, model: Optional[str]) -> List[str]:
         """验证max_tokens参数"""
@@ -105,6 +99,8 @@ class AnthropicValidationUtils:
             errors.append("max_tokens参数必须是整数")
         elif max_tokens <= 0:
             errors.append("max_tokens参数必须大于0")
+        elif max_tokens > 8192:
+            errors.append("max_tokens参数不能超过8192")
         elif model and model in self.MAX_TOKENS_LIMITS:
             limit = self.MAX_TOKENS_LIMITS[model]
             if max_tokens > limit:
@@ -114,25 +110,11 @@ class AnthropicValidationUtils:
     
     def _validate_temperature(self, temperature: Union[int, float]) -> List[str]:
         """验证temperature参数"""
-        errors = []
-        
-        if not isinstance(temperature, (int, float)):
-            errors.append("temperature参数必须是数字")
-        elif temperature < 0.0 or temperature > 1.0:
-            errors.append("temperature参数必须在0.0-1.0范围内")
-        
-        return errors
+        return self._validate_temperature(temperature, 0.0, 1.0)
     
     def _validate_top_p(self, top_p: Union[int, float]) -> List[str]:
         """验证top_p参数"""
-        errors = []
-        
-        if not isinstance(top_p, (int, float)):
-            errors.append("top_p参数必须是数字")
-        elif top_p <= 0.0 or top_p > 1.0:
-            errors.append("top_p参数必须在0.0-1.0范围内")
-        
-        return errors
+        return self._validate_top_p(top_p, 0.0, 1.0)
     
     def _validate_top_k(self, top_k: int) -> List[str]:
         """验证top_k参数"""
@@ -140,8 +122,10 @@ class AnthropicValidationUtils:
         
         if not isinstance(top_k, int):
             errors.append("top_k参数必须是整数")
-        elif top_k <= 0:
-            errors.append("top_k参数必须大于0")
+        elif top_k < 0:
+            errors.append("top_k参数必须大于等于0")
+        elif top_k > 500:
+            errors.append("top_k参数不能超过500")
         
         return errors
     
@@ -164,12 +148,9 @@ class AnthropicValidationUtils:
     
     def _validate_stream(self, stream: bool) -> List[str]:
         """验证stream参数"""
-        errors = []
-        
         if not isinstance(stream, bool):
-            errors.append("stream参数必须是布尔值")
-        
-        return errors
+            return ["stream参数必须是布尔值"]
+        return []
     
     def _validate_metadata(self, metadata: Dict[str, Any]) -> List[str]:
         """验证metadata参数"""
@@ -232,10 +213,10 @@ class AnthropicValidationUtils:
             errors.append(f"tools[{index}]的描述必须是字符串")
         
         # 验证参数
-        if "parameters" in tool:
-            parameters = tool["parameters"]
+        if "input_schema" in tool:
+            parameters = tool["input_schema"]
             if not isinstance(parameters, dict):
-                errors.append(f"tools[{index}]的参数必须是字典")
+                errors.append(f"tools[{index}]的input_schema必须是字典")
             else:
                 param_errors = self._validate_tool_parameters(parameters, index)
                 errors.extend(param_errors)
@@ -249,29 +230,29 @@ class AnthropicValidationUtils:
         # 验证类型
         param_type = parameters.get("type")
         if param_type != "object":
-            errors.append(f"tools[{tool_index}].parameters.type必须是object")
+            errors.append(f"tools[{tool_index}].input_schema.type必须是object")
         
         # 验证properties
         properties = parameters.get("properties", {})
         if not isinstance(properties, dict):
-            errors.append(f"tools[{tool_index}].parameters.properties必须是字典")
+            errors.append(f"tools[{tool_index}].input_schema.properties必须是字典")
         else:
             for prop_name, prop_schema in properties.items():
                 if not isinstance(prop_schema, dict):
-                    errors.append(f"tools[{tool_index}].parameters.properties.{prop_name}必须是字典")
+                    errors.append(f"tools[{tool_index}].input_schema.properties.{prop_name}必须是字典")
                     continue
                 
                 if "type" not in prop_schema:
-                    errors.append(f"tools[{tool_index}].parameters.properties.{prop_name}缺少type字段")
+                    errors.append(f"tools[{tool_index}].input_schema.properties.{prop_name}缺少type字段")
         
         # 验证required
         required = parameters.get("required", [])
         if not isinstance(required, list):
-            errors.append(f"tools[{tool_index}].parameters.required必须是列表")
+            errors.append(f"tools[{tool_index}].input_schema.required必须是列表")
         else:
             for req_name in required:
                 if req_name not in properties:
-                    errors.append(f"tools[{tool_index}].parameters.required中的'{req_name}'不在properties中")
+                    errors.append(f"tools[{tool_index}].input_schema.required中的'{req_name}'不在properties中")
         
         return errors
     
@@ -298,15 +279,32 @@ class AnthropicValidationUtils:
         
         return errors
     
-    def validate_response(self, response: Dict[str, Any]) -> List[str]:
-        """验证响应格式
+    def _validate_system(self, system: Union[str, List[Dict[str, Any]]]) -> List[str]:
+        """验证system参数"""
+        errors = []
         
-        Args:
-            response: API响应
+        if isinstance(system, str):
+            if len(system) > 200000:
+                errors.append("system消息长度不能超过200000个字符")
+        elif isinstance(system, list):
+            if len(system) > 10:
+                errors.append("system消息列表不能超过10个元素")
             
-        Returns:
-            List[str]: 验证错误列表
-        """
+            for i, item in enumerate(system):
+                if not isinstance(item, dict):
+                    errors.append(f"system消息[{i}]必须是字典")
+                elif item.get("type") == "text":
+                    if not isinstance(item.get("text"), str):
+                        errors.append(f"system消息[{i}]的text字段必须是字符串")
+                else:
+                    errors.append(f"system消息[{i}]的type必须是'text'")
+        else:
+            errors.append("system参数必须是字符串或列表")
+        
+        return errors
+    
+    def validate_response(self, response: Dict[str, Any]) -> List[str]:
+        """验证响应格式"""
         errors = []
         
         # 验证必需字段
@@ -372,6 +370,11 @@ class AnthropicValidationUtils:
                 for field in required_tool_fields:
                     if field not in item:
                         errors.append(f"content[{i}]的tool_use类型缺少{field}字段")
+            elif item_type == "tool_result":
+                required_result_fields = ["tool_use_id"]
+                for field in required_result_fields:
+                    if field not in item:
+                        errors.append(f"content[{i}]的tool_result类型缺少{field}字段")
             else:
                 errors.append(f"content[{i}]有未知类型: {item_type}")
         
@@ -395,14 +398,7 @@ class AnthropicValidationUtils:
         return errors
     
     def handle_api_error(self, error_response: Dict[str, Any]) -> str:
-        """处理API错误响应
-        
-        Args:
-            error_response: 错误响应
-            
-        Returns:
-            str: 用户友好的错误消息
-        """
+        """处理API错误响应"""
         error_type = error_response.get("error", {}).get("type", "unknown")
         error_message = error_response.get("error", {}).get("message", "未知错误")
         

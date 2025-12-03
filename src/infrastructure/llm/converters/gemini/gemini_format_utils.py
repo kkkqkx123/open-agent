@@ -3,11 +3,14 @@
 提供Gemini API的格式转换功能。
 """
 
-from typing import Dict, Any, List, Union, Sequence, Optional
-from typing import TYPE_CHECKING
+from typing import Dict, Any, List, Union, Sequence, Optional, TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from src.interfaces.messages import IBaseMessage
+    from src.infrastructure.llm.converters.base.base_multimodal_utils import BaseMultimodalUtils
+    from src.infrastructure.llm.converters.base.base_tools_utils import BaseToolsUtils
+    from src.infrastructure.llm.converters.base.base_stream_utils import BaseStreamUtils
+    from src.infrastructure.llm.converters.base.base_validation_utils import BaseValidationUtils
 
 from src.infrastructure.messages import (
     HumanMessage,
@@ -15,15 +18,20 @@ from src.infrastructure.messages import (
     SystemMessage,
     ToolMessage,
 )
-from src.infrastructure.llm.converters.provider_format_utils import BaseProviderFormatUtils
-from .gemini_multimodal_utils import GeminiMultimodalUtils
-from .gemini_tools_utils import GeminiToolsUtils
-from .gemini_validation_utils import GeminiValidationUtils, GeminiValidationError, GeminiFormatError
-from .gemini_stream_utils import GeminiStreamUtils
+from src.infrastructure.llm.converters.base.base_provider_utils import BaseProviderUtils
+from src.infrastructure.llm.converters.gemini.gemini_multimodal_utils import GeminiMultimodalUtils
+from src.infrastructure.llm.converters.gemini.gemini_tools_utils import GeminiToolsUtils
+from src.infrastructure.llm.converters.gemini.gemini_validation_utils import GeminiValidationUtils, GeminiValidationError, GeminiFormatError
+from src.infrastructure.llm.converters.gemini.gemini_stream_utils import GeminiStreamUtils
 
 
-class GeminiFormatUtils(BaseProviderFormatUtils):
+class GeminiFormatUtils(BaseProviderUtils):
     """Gemini格式转换工具类"""
+    
+    multimodal_utils: GeminiMultimodalUtils
+    tools_utils: GeminiToolsUtils
+    validation_utils: GeminiValidationUtils
+    stream_utils: GeminiStreamUtils
     
     def __init__(self) -> None:
         """初始化Gemini格式工具"""
@@ -57,7 +65,7 @@ class GeminiFormatUtils(BaseProviderFormatUtils):
                 role = "user" if isinstance(message, (HumanMessage, ToolMessage)) else "model"
                 
                 # 使用多模态工具处理内容
-                parts = self.multimodal_utils.process_content_to_gemini_format(message.content)
+                parts = self.multimodal_utils.process_content_to_provider_format(message.content)
                 
                 # 处理工具消息的特殊情况
                 if isinstance(message, ToolMessage):
@@ -94,7 +102,7 @@ class GeminiFormatUtils(BaseProviderFormatUtils):
                 if tool_errors:
                     self.logger.warning(f"工具验证失败: {tool_errors}")
                 else:
-                    request_data["tools"] = self.tools_utils.convert_tools_to_gemini_format(tools)
+                    request_data["tools"] = self.tools_utils.convert_tools_to_provider_format(tools)
                     
                     # 处理工具选择策略
                     tool_config = self.tools_utils.process_tool_config(parameters)
@@ -195,7 +203,7 @@ class GeminiFormatUtils(BaseProviderFormatUtils):
                     gemini_content.append(item)
                 else:
                     gemini_content.append({"text": str(item)})
-            return self.multimodal_utils.extract_text_from_gemini_content(gemini_content)
+            return self.multimodal_utils.extract_text_from_provider_content(gemini_content)
         else:
             return str(message.content)
     
@@ -298,15 +306,7 @@ class GeminiFormatUtils(BaseProviderFormatUtils):
         return mapping.get(reasoning_effort, "medium")
     
     def validate_request(self, messages: Sequence["IBaseMessage"], parameters: Dict[str, Any]) -> List[str]:
-        """验证请求参数
-        
-        Args:
-            messages: 消息列表
-            parameters: 请求参数
-            
-        Returns:
-            List[str]: 验证错误列表
-        """
+        """验证请求参数"""
         errors = []
         
         # 验证消息列表
@@ -325,14 +325,7 @@ class GeminiFormatUtils(BaseProviderFormatUtils):
         return errors
     
     def handle_api_error(self, error_response: Dict[str, Any]) -> str:
-        """处理API错误响应
-        
-        Args:
-            error_response: 错误响应
-            
-        Returns:
-            str: 用户友好的错误消息
-        """
+        """处理API错误响应"""
         return self.validation_utils.handle_api_error(error_response)
     
     def _validate_message_content(self, message: "IBaseMessage", index: int) -> List[str]:
@@ -348,7 +341,7 @@ class GeminiFormatUtils(BaseProviderFormatUtils):
                 else:
                     gemini_content.append({"text": str(item)})
             # 确保列表中的元素都是字典格式
-            content_errors = self.multimodal_utils.validate_gemini_content(gemini_content)
+            content_errors = self.multimodal_utils.validate_provider_content(gemini_content)
             for error in content_errors:
                 errors.append(f"消息 {index}: {error}")
         
@@ -356,4 +349,4 @@ class GeminiFormatUtils(BaseProviderFormatUtils):
     
     def _convert_tools_to_gemini_format(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """转换工具格式为Gemini格式（兼容性方法）"""
-        return self.tools_utils.convert_tools_to_gemini_format(tools)
+        return self.tools_utils.convert_tools_to_provider_format(tools)

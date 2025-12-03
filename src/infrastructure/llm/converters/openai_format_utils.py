@@ -15,10 +15,10 @@ from src.infrastructure.messages import (
     SystemMessage,
     ToolMessage,
 )
-from src.infrastructure.llm.converters.provider_format_utils import BaseProviderFormatUtils
+from src.infrastructure.llm.converters.base.base_provider_utils import BaseProviderUtils
 
 
-class OpenAIFormatUtils(BaseProviderFormatUtils):
+class OpenAIFormatUtils(BaseProviderUtils):
     """OpenAI格式转换工具类"""
     
     def get_provider_name(self) -> str:

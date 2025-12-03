@@ -11,8 +11,8 @@ from .provider_format_utils import (
     get_provider_format_utils_factory,
 )
 from .openai_format_utils import OpenAIFormatUtils
-from .gemini_format_utils import GeminiFormatUtils
-from .anthropic_format_utils import AnthropicFormatUtils
+from .gemini.gemini_format_utils import GeminiFormatUtils
+from .anthropic.anthropic_format_utils import AnthropicFormatUtils
 
 __all__ = [
     "MessageConverter",

@@ -1,25 +1,22 @@
-"""提供商格式转换工具类
+"""提供商基础工具类
 
-提供各种LLM提供商的格式转换工具，采用基础类+具体实现的模式。
+定义所有LLM提供商的通用接口和基础功能。
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Union, Sequence
+from typing import Dict, Any, List, Optional, Sequence, TYPE_CHECKING
 from src.services.logger import get_logger
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.interfaces.messages import IBaseMessage
-
-# 导入具体的供应商格式转换器
-from src.infrastructure.llm.converters.base.base_provider_utils import BaseProviderUtils
-from src.infrastructure.llm.converters.openai_format_utils import OpenAIFormatUtils
-from src.infrastructure.llm.converters.gemini.gemini_format_utils import GeminiFormatUtils
-from src.infrastructure.llm.converters.anthropic.anthropic_format_utils import AnthropicFormatUtils
+    from src.infrastructure.llm.converters.base.base_multimodal_utils import BaseMultimodalUtils
+    from src.infrastructure.llm.converters.base.base_tools_utils import BaseToolsUtils
+    from src.infrastructure.llm.converters.base.base_stream_utils import BaseStreamUtils
+    from src.infrastructure.llm.converters.base.base_validation_utils import BaseValidationUtils
 
 
-class BaseProviderFormatUtils(ABC):
-    """提供商格式转换基础工具类
+class BaseProviderUtils(ABC):
+    """提供商基础工具类
     
     定义提供商格式转换的通用接口和公共方法。
     """
@@ -27,6 +24,10 @@ class BaseProviderFormatUtils(ABC):
     def __init__(self) -> None:
         """初始化基础工具类"""
         self.logger = get_logger(__name__)
+        self.multimodal_utils: Any = None
+        self.tools_utils: Any = None
+        self.stream_utils: Any = None
+        self.validation_utils: Any = None
     
     @abstractmethod
     def get_provider_name(self) -> str:
@@ -49,9 +50,8 @@ class BaseProviderFormatUtils(ABC):
         # 子类可以重写此方法以提供更高效的流式处理
         try:
             # 尝试使用流式工具
-            stream_utils = getattr(self, 'stream_utils', None)
-            if stream_utils:
-                response = stream_utils.process_stream_events(events)
+            if self.stream_utils:
+                response = self.stream_utils.process_stream_events(events)
                 return self.convert_response(response)
             else:
                 # 回退到基本处理
@@ -89,7 +89,7 @@ class BaseProviderFormatUtils(ABC):
         
         return openai_tools
     
-    def _extract_text_from_content(self, content: Union[str, List[Union[str, Dict[str, Any]]]]) -> str:
+    def _extract_text_from_content(self, content: Any) -> str:
         """从内容中提取文本（通用方法）"""
         if isinstance(content, str):
             return content
@@ -153,9 +153,8 @@ class BaseProviderFormatUtils(ABC):
             errors.append("消息列表不能为空")
         
         # 尝试使用验证工具
-        validation_utils = getattr(self, 'validation_utils', None)
-        if validation_utils:
-            param_errors = validation_utils.validate_request_parameters(parameters)
+        if self.validation_utils:
+            param_errors = self.validation_utils.validate_request_parameters(parameters)
             errors.extend(param_errors)
         
         return errors
@@ -168,73 +167,3 @@ class BaseProviderFormatUtils(ABC):
         error_code = error.get("code", "unknown")
         
         return f"API错误 ({error_code}): {error_message}"
-
-
-class ProviderFormatUtilsFactory:
-    """提供商格式工具工厂
-    
-    负责创建和管理各种提供商的格式转换工具。
-    """
-    
-    def __init__(self) -> None:
-        """初始化工厂"""
-        self.logger = get_logger(__name__)
-        self._utils_cache: Dict[str, BaseProviderUtils] = {}
-    
-    def get_format_utils(self, provider: str) -> BaseProviderUtils:
-        """获取提供商格式转换工具
-        
-        Args:
-            provider: 提供商名称
-            
-        Returns:
-            BaseProviderFormatUtils: 格式转换工具实例
-        """
-        if provider not in self._utils_cache:
-            if provider == "openai":
-                self._utils_cache[provider] = OpenAIFormatUtils()
-            elif provider == "gemini":
-                self._utils_cache[provider] = GeminiFormatUtils()
-            elif provider == "anthropic":
-                self._utils_cache[provider] = AnthropicFormatUtils()
-            else:
-                raise ValueError(f"不支持的提供商: {provider}")
-        
-        return self._utils_cache[provider]
-    
-    def get_supported_providers(self) -> List[str]:
-        """获取支持的提供商列表
-        
-        Returns:
-            List[str]: 支持的提供商名称列表
-        """
-        return ["openai", "gemini", "anthropic"]
-    
-    def register_provider(self, provider: str, utils_class: type) -> None:
-        """注册新的提供商格式转换工具
-        
-        Args:
-            provider: 提供商名称
-            utils_class: 工具类
-        """
-        if not issubclass(utils_class, BaseProviderUtils):
-            raise ValueError("工具类必须继承自BaseProviderUtils")
-        
-        self._utils_cache[provider] = utils_class()
-        self.logger.info(f"已注册提供商格式转换工具: {provider}")
-
-
-# 全局工厂实例
-_global_format_utils_factory: Optional[ProviderFormatUtilsFactory] = None
-
-
-def get_provider_format_utils_factory() -> ProviderFormatUtilsFactory:
-    """获取全局提供商格式工具工厂实例
-    
-    Returns:
-        ProviderFormatUtilsFactory: 工厂实例
-    """
-    global _global_format_utils_factory
-    if _global_format_utils_factory is None:
-        _global_format_utils_factory = ProviderFormatUtilsFactory()
-    return _global_format_utils_factory

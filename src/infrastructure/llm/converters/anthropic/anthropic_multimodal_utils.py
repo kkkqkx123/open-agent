@@ -7,9 +7,10 @@ from typing import Dict, Any, List, Union, Optional
 import base64
 import mimetypes
 from src.services.logger import get_logger
+from src.infrastructure.llm.converters.base.base_multimodal_utils import BaseMultimodalUtils
 
 
-class AnthropicMultimodalUtils:
+class AnthropicMultimodalUtils(BaseMultimodalUtils):
     """Anthropic多模态内容处理工具类"""
     
     # 支持的图像格式
@@ -25,9 +26,9 @@ class AnthropicMultimodalUtils:
     
     def __init__(self) -> None:
         """初始化多模态工具"""
-        self.logger = get_logger(__name__)
+        super().__init__()
     
-    def process_content_to_anthropic_format(
+    def process_content_to_provider_format(
         self, 
         content: Union[str, List[Union[str, Dict[str, Any]]]]
     ) -> List[Dict[str, Any]]:
@@ -46,6 +47,28 @@ class AnthropicMultimodalUtils:
         else:
             return [{"type": "text", "text": str(content)}]
     
+    def extract_text_from_provider_content(self, content: List[Dict[str, Any]]) -> str:
+        """从Anthropic格式内容中提取文本
+        
+        Args:
+            content: Anthropic格式的内容列表
+            
+        Returns:
+            str: 提取的文本内容
+        """
+        return self._extract_text_from_content_list(content)
+    
+    def validate_provider_content(self, content: List[Dict[str, Any]]) -> List[str]:
+        """验证Anthropic格式内容
+        
+        Args:
+            content: Anthropic格式的内容列表
+            
+        Returns:
+            List[str]: 验证错误列表
+        """
+        return self._validate_anthropic_content(content)
+    
     def _process_content_list(self, content_list: List[Union[str, Dict[str, Any]]]) -> List[Dict[str, Any]]:
         """处理内容列表"""
         anthropic_content = []
@@ -54,28 +77,31 @@ class AnthropicMultimodalUtils:
             if isinstance(item, str):
                 anthropic_content.append({"type": "text", "text": item})
             elif isinstance(item, dict):
-                if item.get("type") == "text":
-                    anthropic_content.append({
-                        "type": "text",
-                        "text": item.get("text", "")
-                    })
-                elif item.get("type") == "image":
-                    processed_image = self._process_image_content(item)
-                    if processed_image:
-                        anthropic_content.append(processed_image)
-                else:
-                    # 尝试将其他类型转换为文本
-                    anthropic_content.append({
-                        "type": "text", 
-                        "text": str(item)
-                    })
+                processed_item = self._process_dict_content(item)
+                if processed_item:
+                    anthropic_content.append(processed_item)
             else:
-                anthropic_content.append({
-                    "type": "text",
-                    "text": str(item)
-                })
+                anthropic_content.append({"type": "text", "text": str(item)})
         
         return anthropic_content
+    
+    def _process_dict_content(self, content_dict: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """处理字典内容"""
+        content_type = content_dict.get("type")
+        
+        if content_type == "text":
+            return {
+                "type": "text",
+                "text": content_dict.get("text", "")
+            }
+        elif content_type == "image":
+            return self._process_image_content(content_dict)
+        else:
+            # 尝试将其他类型转换为文本
+            return {
+                "type": "text", 
+                "text": str(content_dict)
+            }
     
     def _process_image_content(self, image_item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """处理图像内容"""
@@ -116,35 +142,8 @@ class AnthropicMultimodalUtils:
             self.logger.error(f"处理图像内容失败: {e}")
             return None
     
-    def extract_text_from_anthropic_content(self, content: List[Dict[str, Any]]) -> str:
-        """从Anthropic格式内容中提取文本
-        
-        Args:
-            content: Anthropic格式的内容列表
-            
-        Returns:
-            str: 提取的文本内容
-        """
-        text_parts = []
-        
-        for item in content:
-            if isinstance(item, dict):
-                if item.get("type") == "text":
-                    text_parts.append(item.get("text", ""))
-                elif item.get("type") == "image":
-                    text_parts.append("[图像内容]")
-        
-        return " ".join(text_parts)
-    
-    def validate_anthropic_content(self, content: List[Dict[str, Any]]) -> List[str]:
-        """验证Anthropic格式内容
-        
-        Args:
-            content: Anthropic格式的内容列表
-            
-        Returns:
-            List[str]: 验证错误列表
-        """
+    def _validate_anthropic_content(self, content: List[Dict[str, Any]]) -> List[str]:
+        """验证Anthropic格式内容"""
         errors = []
         image_count = 0
         
@@ -214,6 +213,29 @@ class AnthropicMultimodalUtils:
         
         return errors
     
+    def _create_text_content(self, text: str) -> Dict[str, Any]:
+        """创建文本内容"""
+        return {"type": "text", "text": text}
+    
+    def _create_image_content_dict(self, media_type: str, encoded_data: str) -> Dict[str, Any]:
+        """创建图像内容字典"""
+        return {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": media_type,
+                "data": encoded_data
+            }
+        }
+    
+    def _get_max_image_size(self) -> int:
+        """获取最大图像大小限制"""
+        return self.MAX_IMAGE_SIZE
+    
+    def _get_supported_image_formats(self) -> set:
+        """获取支持的图像格式"""
+        return self.SUPPORTED_IMAGE_FORMATS
+    
     def create_image_content(
         self, 
         image_path: str, 
@@ -255,3 +277,11 @@ class AnthropicMultimodalUtils:
         except Exception as e:
             self.logger.error(f"创建图像内容失败: {e}")
             raise
+    
+    def extract_text_from_anthropic_content(self, content: List[Dict[str, Any]]) -> str:
+        """从Anthropic格式内容中提取文本（兼容性方法）"""
+        return self.extract_text_from_provider_content(content)
+    
+    def validate_anthropic_content(self, content: List[Dict[str, Any]]) -> List[str]:
+        """验证Anthropic格式内容（兼容性方法）"""
+        return self.validate_provider_content(content)

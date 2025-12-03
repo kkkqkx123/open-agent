@@ -3,11 +3,14 @@
 提供Anthropic API的格式转换功能。
 """
 
-from typing import Dict, Any, List, Union, Optional, Sequence
-from typing import TYPE_CHECKING
+from typing import Dict, Any, List, Union, Sequence, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.interfaces.messages import IBaseMessage
+    from src.infrastructure.llm.converters.base.base_multimodal_utils import BaseMultimodalUtils
+    from src.infrastructure.llm.converters.base.base_tools_utils import BaseToolsUtils
+    from src.infrastructure.llm.converters.base.base_stream_utils import BaseStreamUtils
+    from src.infrastructure.llm.converters.base.base_validation_utils import BaseValidationUtils
 
 from src.infrastructure.messages import (
     HumanMessage,
@@ -15,23 +18,23 @@ from src.infrastructure.messages import (
     SystemMessage,
     ToolMessage,
 )
-from src.infrastructure.llm.converters.provider_format_utils import BaseProviderFormatUtils
-from .anthropic_multimodal_utils import AnthropicMultimodalUtils
-from .anthropic_tools_utils import AnthropicToolsUtils
-from .anthropic_stream_utils import AnthropicStreamUtils
-from .anthropic_validation_utils import AnthropicValidationUtils, AnthropicValidationError, AnthropicFormatError
+from src.infrastructure.llm.converters.base.base_provider_utils import BaseProviderUtils
+from src.infrastructure.llm.converters.anthropic.anthropic_multimodal_utils import AnthropicMultimodalUtils
+from src.infrastructure.llm.converters.anthropic.anthropic_tools_utils import AnthropicToolsUtils
+from src.infrastructure.llm.converters.anthropic.anthropic_stream_utils import AnthropicStreamUtils
+from src.infrastructure.llm.converters.anthropic.anthropic_validation_utils import AnthropicValidationUtils, AnthropicValidationError, AnthropicFormatError
 
 
-class AnthropicFormatUtils(BaseProviderFormatUtils):
+class AnthropicFormatUtils(BaseProviderUtils):
     """Anthropic格式转换工具类"""
     
     def __init__(self) -> None:
         """初始化Anthropic格式工具"""
         super().__init__()
-        self.multimodal_utils = AnthropicMultimodalUtils()
-        self.tools_utils = AnthropicToolsUtils()
-        self.stream_utils = AnthropicStreamUtils()
-        self.validation_utils = AnthropicValidationUtils()
+        self.multimodal_utils: "AnthropicMultimodalUtils" = AnthropicMultimodalUtils()
+        self.tools_utils: "AnthropicToolsUtils" = AnthropicToolsUtils()
+        self.stream_utils: "AnthropicStreamUtils" = AnthropicStreamUtils()
+        self.validation_utils: "AnthropicValidationUtils" = AnthropicValidationUtils()
     
     def get_provider_name(self) -> str:
         """获取提供商名称"""
@@ -57,7 +60,7 @@ class AnthropicFormatUtils(BaseProviderFormatUtils):
                 role = "user" if isinstance(message, (HumanMessage, ToolMessage)) else "assistant"
                 
                 # 使用多模态工具处理内容
-                content = self.multimodal_utils.process_content_to_anthropic_format(message.content)
+                content = self.multimodal_utils.process_content_to_provider_format(message.content)
                 
                 # 处理工具消息的特殊情况
                 if isinstance(message, ToolMessage):
@@ -106,7 +109,7 @@ class AnthropicFormatUtils(BaseProviderFormatUtils):
                 if tool_errors:
                     self.logger.warning(f"工具验证失败: {tool_errors}")
                 else:
-                    request_data["tools"] = self.tools_utils.convert_tools_to_anthropic_format(tools)
+                    request_data["tools"] = self.tools_utils.convert_tools_to_provider_format(tools)
                     
                     # 处理工具选择策略
                     if "tool_choice" in parameters:
@@ -197,7 +200,7 @@ class AnthropicFormatUtils(BaseProviderFormatUtils):
                     content_list.append(item)
                 else:
                     content_list.append({"type": "text", "text": str(item)})
-            return self.multimodal_utils.extract_text_from_anthropic_content(content_list)
+            return self.multimodal_utils.extract_text_from_provider_content(content_list)
         else:
             return str(message.content)
     
@@ -239,15 +242,7 @@ class AnthropicFormatUtils(BaseProviderFormatUtils):
             return content
     
     def validate_request(self, messages: Sequence["IBaseMessage"], parameters: Dict[str, Any]) -> List[str]:
-        """验证请求参数
-        
-        Args:
-            messages: 消息列表
-            parameters: 请求参数
-            
-        Returns:
-            List[str]: 验证错误列表
-        """
+        """验证请求参数"""
         errors = []
         
         # 验证消息列表
@@ -266,14 +261,7 @@ class AnthropicFormatUtils(BaseProviderFormatUtils):
         return errors
     
     def handle_api_error(self, error_response: Dict[str, Any]) -> str:
-        """处理API错误响应
-        
-        Args:
-            error_response: 错误响应
-            
-        Returns:
-            str: 用户友好的错误消息
-        """
+        """处理API错误响应"""
         return self.validation_utils.handle_api_error(error_response)
     
     def _validate_message_content(self, message: "IBaseMessage", index: int) -> List[str]:
@@ -289,7 +277,7 @@ class AnthropicFormatUtils(BaseProviderFormatUtils):
                 else:
                     content_list.append({"type": "text", "text": str(item)})
             
-            content_errors = self.multimodal_utils.validate_anthropic_content(content_list)
+            content_errors = self.multimodal_utils.validate_provider_content(content_list)
             for error in content_errors:
                 errors.append(f"消息 {index}: {error}")
         
