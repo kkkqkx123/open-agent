@@ -125,6 +125,8 @@ class OpenAIResponsesToolsUtils(BaseToolsUtils):
     
     def _extract_single_tool_call_from_response(self, raw_call: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """从OpenAI Responses API响应中提取单个工具调用"""
+        import json
+        
         try:
             # 验证必需字段
             call_id = raw_call.get("id")
@@ -144,9 +146,7 @@ class OpenAIResponsesToolsUtils(BaseToolsUtils):
             
             if arguments_str:
                 try:
-                    import json
-                    json_module = json  # Avoid unbound variable warning
-                    arguments = json_module.loads(arguments_str)
+                    arguments = json.loads(arguments_str)
                 except json.JSONDecodeError as e:
                     self.logger.warning(f"工具调用参数解析失败: {e}")
                     arguments = {}

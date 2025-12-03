@@ -38,6 +38,9 @@ from .token_config import (
 # 从encoding模块导入
 from .encoding import EncodingProtocol
 
+# 从http_client模块导入
+from .http_client import IHttpClient, ILLMHttpClient
+
 # 从converters模块导入
 from .converters import IProviderConverter
 
@@ -65,6 +68,9 @@ __all__ = [
     'TokenCostInfo',
     # 编码相关接口
     'EncodingProtocol',
+    # HTTP客户端相关接口
+    'IHttpClient',
+    'ILLMHttpClient',
     # 转换器相关接口
     'IProviderConverter',
 ]

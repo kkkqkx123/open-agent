@@ -1,15 +1,11 @@
-"""
-配置管理模块
+"""配置管理模块
 
-提供 LLM 配置发现、加载和验证功能
+提供LLM客户端的配置发现、加载、验证和管理功能。
 """
 
-from .config_discovery import ConfigDiscovery
-from .config_loader import ConfigLoader
-from .config_validator import ConfigValidator
+from .config_discovery import ConfigDiscovery, ConfigInfo
 
 __all__ = [
     "ConfigDiscovery",
-    "ConfigLoader", 
-    "ConfigValidator",
+    "ConfigInfo",
 ]
