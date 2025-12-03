@@ -4,12 +4,11 @@
 提供 LLM 相关的通用工具函数
 """
 
-from .encoding_protocol import EncodingProtocol
-from .header_validator import HeaderValidator
+from .header_validator import HeaderValidator, HeaderProcessor
 from .content_extractor import ContentExtractor
 
 __all__ = [
-    "EncodingProtocol",
     "HeaderValidator",
+    "HeaderProcessor",
     "ContentExtractor",
 ]

@@ -11,6 +11,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from src.interfaces.messages import IBaseMessage
 
+# 导入接口定义
+from src.interfaces.llm.converters import IProviderConverter
+
 # 导入具体的供应商格式转换器
 from src.infrastructure.llm.converters.base.base_provider_utils import BaseProviderUtils
 from src.infrastructure.llm.converters.openai_format_utils import OpenAIFormatUtils
@@ -18,7 +21,7 @@ from src.infrastructure.llm.converters.gemini.gemini_format_utils import GeminiF
 from src.infrastructure.llm.converters.anthropic.anthropic_format_utils import AnthropicFormatUtils
 
 
-class BaseProviderFormatUtils(ABC):
+class BaseProviderFormatUtils(IProviderConverter, ABC):
     """提供商格式转换基础工具类
     
     定义提供商格式转换的通用接口和公共方法。
@@ -179,16 +182,16 @@ class ProviderFormatUtilsFactory:
     def __init__(self) -> None:
         """初始化工厂"""
         self.logger = get_logger(__name__)
-        self._utils_cache: Dict[str, BaseProviderUtils] = {}
+        self._utils_cache: Dict[str, IProviderConverter] = {}
     
-    def get_format_utils(self, provider: str) -> BaseProviderUtils:
+    def get_format_utils(self, provider: str) -> IProviderConverter:
         """获取提供商格式转换工具
         
         Args:
             provider: 提供商名称
             
         Returns:
-            BaseProviderFormatUtils: 格式转换工具实例
+            IProviderConverter: 格式转换工具实例
         """
         if provider not in self._utils_cache:
             if provider == "openai":

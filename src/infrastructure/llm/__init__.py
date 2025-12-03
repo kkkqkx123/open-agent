@@ -31,7 +31,6 @@ __all__ = [
     "ConfigValidator",
     
     # 工具
-    "EncodingProtocol",
     "HeaderValidator",
     "ContentExtractor",
 ]

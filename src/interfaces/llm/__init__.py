@@ -38,6 +38,9 @@ from .token_config import (
 # 从encoding模块导入
 from .encoding import EncodingProtocol
 
+# 从converters模块导入
+from .converters import IProviderConverter
+
 # 定义导出列表
 __all__ = [
     'LLMResponse',
@@ -62,4 +65,6 @@ __all__ = [
     'TokenCostInfo',
     # 编码相关接口
     'EncodingProtocol',
+    # 转换器相关接口
+    'IProviderConverter',
 ]

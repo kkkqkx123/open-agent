@@ -14,8 +14,11 @@ if TYPE_CHECKING:
     from src.infrastructure.llm.converters.base.base_stream_utils import BaseStreamUtils
     from src.infrastructure.llm.converters.base.base_validation_utils import BaseValidationUtils
 
+# 导入接口定义
+from src.interfaces.llm.converters import IProviderConverter
 
-class BaseProviderUtils(ABC):
+
+class BaseProviderUtils(IProviderConverter, ABC):
     """提供商基础工具类
     
     定义提供商格式转换的通用接口和公共方法。

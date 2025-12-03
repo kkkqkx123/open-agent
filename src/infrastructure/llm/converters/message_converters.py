@@ -7,7 +7,7 @@
 - 提供商特定格式 <-> 基础消息格式
 """
 
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Sequence
 from src.services.logger import get_logger
 from datetime import datetime
 
@@ -30,9 +30,13 @@ logger = get_logger(__name__)
 
 
 class MessageConverter:
-    """消息转换器
+    """消息转换器 - 统一的消息格式转换门面
     
-    提供在不同消息格式之间的双向转换，支持提供商特定格式。
+    这是消息转换系统的主入口，负责：
+    1. 提供统一的消息格式转换API
+    2. 支持多种消息格式之间的双向转换
+    3. 委托给具体的转换器进行实际转换
+    4. 提供便捷的消息创建和操作方法
     """
     
     def __init__(self) -> None:
@@ -690,14 +694,22 @@ class MessageConverter:
         role = "user" if message.type == "human" else "model"
         
         # 使用Gemini多模态工具处理内容
-        from .gemini_multimodal_utils import GeminiMultimodalUtils
-        multimodal_utils = GeminiMultimodalUtils()
+        try:
+            from .gemini.gemini_multimodal_utils import GeminiMultimodalUtils
+            multimodal_utils = GeminiMultimodalUtils()
+        except ImportError:
+            # 如果模块不存在，使用基本处理
+            multimodal_utils = None
         
         # 处理内容
         if isinstance(message.content, str):
             parts = [{"text": message.content}]
         elif isinstance(message.content, list):
-            parts = multimodal_utils.process_content_to_gemini_format(message.content)
+            if multimodal_utils:
+                parts = multimodal_utils.process_content_to_provider_format(message.content)
+            else:
+                # 基本处理
+                parts = [{"text": " ".join(str(item) for item in message.content)}]
         else:
             parts = [{"text": str(message.content)}]
         
@@ -722,8 +734,12 @@ class MessageConverter:
         
         # 处理工具消息
         elif isinstance(message, ToolMessage):
-            from .gemini_tools_utils import GeminiToolsUtils
-            tools_utils = GeminiToolsUtils()
+            try:
+                from .gemini.gemini_tools_utils import GeminiToolsUtils
+                tools_utils = GeminiToolsUtils()
+            except ImportError:
+                # 如果模块不存在，使用基本处理
+                tools_utils = None
             
             # 确保工具结果是字符串或字典格式
             tool_result_content = message.content
@@ -741,11 +757,15 @@ class MessageConverter:
             elif not isinstance(tool_result_content, (str, dict)):
                 tool_result_content = str(tool_result_content)
             
-            tool_response = tools_utils.create_tool_response_content(
-                message.tool_call_id,
-                tool_result_content  # type: ignore
-            )
-            parts = [tool_response]
+            if tools_utils:
+                tool_response = tools_utils.create_tool_response_content(
+                    message.tool_call_id,
+                    tool_result_content  # type: ignore
+                )
+                parts = [tool_response]
+            else:
+                # 基本处理
+                parts = [{"text": str(tool_result_content)}]
         
         result = {
             "role": role,
@@ -811,20 +831,30 @@ class MessageConverter:
         return result
 
 
-class ProviderRequestConverter:
-    """提供商请求转换器
+class RequestConverter:
+    """请求转换器 - 统一的对外入口
     
-    使用提供商格式工具类处理向LLM提供商发送请求时的格式转换。
+    这是转换系统的主入口，负责：
+    1. 提供统一的API供服务层调用
+    2. 委托给provider_format_utils进行实际转换
+    3. 添加额外的验证和错误处理
+    4. 支持格式检测和自动选择提供商
     """
     
     def __init__(self) -> None:
-        """初始化提供商请求转换器"""
+        """初始化请求转换器"""
         self.logger = get_logger(__name__)
         from .provider_format_utils import get_provider_format_utils_factory
         self.format_utils_factory = get_provider_format_utils_factory()
+        self._cache: Dict[str, Any] = {}  # 缓存优化
     
-    def convert_to_provider_request(self, provider: str, messages: List["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
-        """转换为提供商API请求格式
+    def convert_to_provider_request(
+        self,
+        provider: str,
+        messages: Sequence["IBaseMessage"],
+        parameters: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """转换为提供商API请求格式 - 标准入口
         
         Args:
             provider: 提供商名称
@@ -834,36 +864,57 @@ class ProviderRequestConverter:
         Returns:
             Dict[str, Any]: 提供商API请求格式
         """
+        # 输入验证
+        if not provider or not messages:
+            raise ValueError("provider和messages不能为空")
+        
+        # 使用缓存和委托
         format_utils = self.format_utils_factory.get_format_utils(provider)
+        
+        # 添加额外的验证
+        errors = format_utils.validate_request(messages, parameters)
+        if errors:
+            self.logger.warning(f"请求参数验证警告: {errors}")
+        
+        # 执行转换
         return format_utils.convert_request(messages, parameters)
     
-    def convert_to_openai_request(self, messages: List["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
+    def convert_to_openai_request(self, messages: Sequence["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
         """转换为OpenAI API请求格式（兼容性方法）"""
         return self.convert_to_provider_request("openai", messages, parameters)
     
-    def convert_to_gemini_request(self, messages: List["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
+    def convert_to_gemini_request(self, messages: Sequence["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
         """转换为Gemini API请求格式（兼容性方法）"""
         return self.convert_to_provider_request("gemini", messages, parameters)
     
-    def convert_to_anthropic_request(self, messages: List["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
+    def convert_to_anthropic_request(self, messages: Sequence["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
         """转换为Anthropic API请求格式（兼容性方法）"""
         return self.convert_to_provider_request("anthropic", messages, parameters)
 
 
-class ProviderResponseConverter:
-    """提供商响应转换器
+class ResponseConverter:
+    """响应转换器 - 统一的对外入口
     
-    使用提供商格式工具类处理从LLM提供商接收响应时的格式转换。
+    这是响应转换系统的主入口，负责：
+    1. 提供统一的API供服务层调用
+    2. 委托给provider_format_utils进行实际转换
+    3. 添加额外的验证和错误处理
+    4. 支持流式响应处理
     """
     
     def __init__(self) -> None:
-        """初始化提供商响应转换器"""
+        """初始化响应转换器"""
         self.logger = get_logger(__name__)
         from .provider_format_utils import get_provider_format_utils_factory
         self.format_utils_factory = get_provider_format_utils_factory()
+        self._cache: Dict[str, Any] = {}  # 缓存优化
     
-    def convert_from_provider_response(self, provider: str, response: Dict[str, Any]) -> "IBaseMessage":
-        """从提供商API响应转换
+    def convert_from_provider_response(
+        self,
+        provider: str,
+        response: Dict[str, Any]
+    ) -> "IBaseMessage":
+        """从提供商API响应转换 - 标准入口
         
         Args:
             provider: 提供商名称
@@ -872,8 +923,51 @@ class ProviderResponseConverter:
         Returns:
             IBaseMessage: 基础消息
         """
+        # 输入验证
+        if not provider or not response:
+            raise ValueError("provider和response不能为空")
+        
+        # 使用缓存和委托
         format_utils = self.format_utils_factory.get_format_utils(provider)
-        return format_utils.convert_response(response)
+        
+        # 执行转换
+        try:
+            return format_utils.convert_response(response)
+        except Exception as e:
+            self.logger.error(f"转换{provider}响应失败: {e}")
+            # 创建一个基本的AI消息作为回退
+            from src.infrastructure.messages import AIMessage
+            return AIMessage(content="")
+    
+    def convert_from_provider_stream_response(
+        self,
+        provider: str,
+        events: List[Dict[str, Any]]
+    ) -> "IBaseMessage":
+        """从提供商流式响应转换 - 标准入口
+        
+        Args:
+            provider: 提供商名称
+            events: 流式事件列表
+            
+        Returns:
+            IBaseMessage: 基础消息
+        """
+        # 输入验证
+        if not provider or not events:
+            raise ValueError("provider和events不能为空")
+        
+        # 使用缓存和委托
+        format_utils = self.format_utils_factory.get_format_utils(provider)
+        
+        # 执行转换
+        try:
+            return format_utils.convert_stream_response(events)
+        except Exception as e:
+            self.logger.error(f"转换{provider}流式响应失败: {e}")
+            # 创建一个基本的AI消息作为回退
+            from src.infrastructure.messages import AIMessage
+            return AIMessage(content="")
     
     def convert_from_openai_response(self, response: Dict[str, Any]) -> "IBaseMessage":
         """从OpenAI API响应转换（兼容性方法）"""
@@ -892,7 +986,7 @@ class ProviderResponseConverter:
             self.logger.error(f"转换Gemini流式响应失败: {e}")
             # 回退到基本处理
             try:
-                from .gemini_stream_utils import GeminiStreamUtils
+                from .gemini.gemini_stream_utils import GeminiStreamUtils
                 stream_utils = GeminiStreamUtils()
                 text_content = stream_utils.extract_text_from_stream_events(events)
                 return AIMessage(content=text_content)
@@ -913,7 +1007,7 @@ class ProviderResponseConverter:
             IBaseMessage: 基础消息
         """
         try:
-            from .anthropic_stream_utils import AnthropicStreamUtils
+            from .anthropic.anthropic_stream_utils import AnthropicStreamUtils
             stream_utils = AnthropicStreamUtils()
             
             # 处理流式事件
@@ -925,7 +1019,7 @@ class ProviderResponseConverter:
             self.logger.error(f"转换Anthropic流式事件失败: {e}")
             # 回退到基本处理
             try:
-                from .anthropic_stream_utils import AnthropicStreamUtils
+                from .anthropic.anthropic_stream_utils import AnthropicStreamUtils
                 stream_utils = AnthropicStreamUtils()
                 text_content = stream_utils.extract_text_from_stream_events(events)
                 return AIMessage(content=text_content)
@@ -942,7 +1036,7 @@ class ProviderResponseConverter:
             str: 提取的文本内容
         """
         try:
-            from .anthropic_stream_utils import AnthropicStreamUtils
+            from .anthropic.anthropic_stream_utils import AnthropicStreamUtils
             stream_utils = AnthropicStreamUtils()
             return stream_utils.extract_text_from_stream_events(events)
         except Exception as e:
@@ -959,7 +1053,7 @@ class ProviderResponseConverter:
             List[Dict[str, Any]]: 工具调用列表
         """
         try:
-            from .anthropic_stream_utils import AnthropicStreamUtils
+            from .anthropic.anthropic_stream_utils import AnthropicStreamUtils
             stream_utils = AnthropicStreamUtils()
             return stream_utils.extract_tool_calls_from_stream_events(events)
         except Exception as e:
@@ -969,7 +1063,7 @@ class ProviderResponseConverter:
     def extract_text_from_gemini_stream(self, events: List[Dict[str, Any]]) -> str:
         """从Gemini流式事件中提取文本内容"""
         try:
-            from .gemini_stream_utils import GeminiStreamUtils
+            from .gemini.gemini_stream_utils import GeminiStreamUtils
             stream_utils = GeminiStreamUtils()
             return stream_utils.extract_text_from_stream_events(events)
         except Exception as e:
@@ -979,7 +1073,7 @@ class ProviderResponseConverter:
     def extract_tool_calls_from_gemini_stream(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """从Gemini流式事件中提取工具调用"""
         try:
-            from .gemini_stream_utils import GeminiStreamUtils
+            from .gemini.gemini_stream_utils import GeminiStreamUtils
             stream_utils = GeminiStreamUtils()
             return stream_utils.extract_tool_calls_from_stream_events(events)
         except Exception as e:
@@ -989,7 +1083,7 @@ class ProviderResponseConverter:
     def extract_thoughts_from_gemini_stream(self, events: List[Dict[str, Any]]) -> List[str]:
         """从Gemini流式事件中提取思考过程"""
         try:
-            from .gemini_stream_utils import GeminiStreamUtils
+            from .gemini.gemini_stream_utils import GeminiStreamUtils
             stream_utils = GeminiStreamUtils()
             return stream_utils.extract_thoughts_from_stream_events(events)
         except Exception as e:
@@ -1006,7 +1100,7 @@ class ProviderResponseConverter:
             Optional[Dict[str, Any]]: 解析后的事件
         """
         try:
-            from .anthropic_stream_utils import AnthropicStreamUtils
+            from .anthropic.anthropic_stream_utils import AnthropicStreamUtils
             stream_utils = AnthropicStreamUtils()
             return stream_utils.parse_stream_event(line)
         except Exception as e:
@@ -1212,9 +1306,13 @@ class MessageFactory:
 
 
 class MessageSerializer:
-    """消息序列化器
+    """消息序列化器 - 统一的消息序列化门面
     
-    提供消息的序列化和反序列化功能。
+    这是消息序列化系统的主入口，负责：
+    1. 提供统一的消息序列化API
+    2. 支持单个消息和消息列表的序列化
+    3. 提供错误处理和日志记录
+    4. 支持JSON格式的序列化和反序列化
     """
     
     def __init__(self) -> None:
@@ -1293,9 +1391,13 @@ class MessageSerializer:
 
 
 class MessageValidator:
-    """消息验证器
+    """消息验证器 - 统一的消息验证门面
     
-    提供消息验证功能。
+    这是消息验证系统的主入口，负责：
+    1. 提供统一的消息验证API
+    2. 支持消息内容和结构的验证
+    3. 提供详细的错误信息
+    4. 支持批量验证
     """
     
     def __init__(self) -> None:
@@ -1370,8 +1472,8 @@ class MessageValidator:
 
 # 全局消息转换器实例
 _global_converter: Optional[MessageConverter] = None
-_global_request_converter: Optional[ProviderRequestConverter] = None
-_global_response_converter: Optional[ProviderResponseConverter] = None
+_global_request_converter: Optional[RequestConverter] = None
+_global_response_converter: Optional[ResponseConverter] = None
 _global_message_factory: Optional[MessageFactory] = None
 _global_message_serializer: Optional[MessageSerializer] = None
 _global_message_validator: Optional[MessageValidator] = None
@@ -1389,27 +1491,27 @@ def get_message_converter() -> MessageConverter:
     return _global_converter
 
 
-def get_provider_request_converter() -> ProviderRequestConverter:
-    """获取全局提供商请求转换器实例
+def get_provider_request_converter() -> RequestConverter:
+    """获取全局请求转换器实例
     
     Returns:
-        ProviderRequestConverter: 提供商请求转换器实例
+        RequestConverter: 请求转换器实例
     """
     global _global_request_converter
     if _global_request_converter is None:
-        _global_request_converter = ProviderRequestConverter()
+        _global_request_converter = RequestConverter()
     return _global_request_converter
 
 
-def get_provider_response_converter() -> ProviderResponseConverter:
-    """获取全局提供商响应转换器实例
+def get_provider_response_converter() -> ResponseConverter:
+    """获取全局响应转换器实例
     
     Returns:
-        ProviderResponseConverter: 提供商响应转换器实例
+        ResponseConverter: 响应转换器实例
     """
     global _global_response_converter
     if _global_response_converter is None:
-        _global_response_converter = ProviderResponseConverter()
+        _global_response_converter = ResponseConverter()
     return _global_response_converter
 
 

@@ -67,7 +67,8 @@ from .llm import (
     IFallbackManager,
     IPollingPoolManager,
     IClientFactory,
-    ILLMManager
+    ILLMManager,
+    IProviderConverter
 )
 
 # 工具相关接口
@@ -295,6 +296,7 @@ __all__ = [
     "IPollingPoolManager",
     "IClientFactory",
     "ILLMManager",
+    "IProviderConverter",
     
     # 工具接口
     "ITool",

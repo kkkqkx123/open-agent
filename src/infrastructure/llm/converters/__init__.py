@@ -4,7 +4,7 @@
 提供 LLM 消息格式的转换功能
 """
 
-from .message_converters import MessageConverter
+from .message_converters import MessageConverter, RequestConverter, ResponseConverter
 from .provider_format_utils import (
     BaseProviderFormatUtils,
     ProviderFormatUtilsFactory,
@@ -16,6 +16,8 @@ from .anthropic.anthropic_format_utils import AnthropicFormatUtils
 
 __all__ = [
     "MessageConverter",
+    "RequestConverter",
+    "ResponseConverter",
     "BaseProviderFormatUtils",
     "ProviderFormatUtilsFactory",
     "get_provider_format_utils_factory",

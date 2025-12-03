@@ -288,6 +288,17 @@ class AnthropicStreamUtils(BaseStreamUtils):
         
         return tool_calls
     
+    def extract_tool_calls_from_stream_events(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """从流式事件中提取工具调用（别名方法）
+        
+        Args:
+            events: 流式事件列表
+            
+        Returns:
+            List[Dict[str, Any]]: 工具调用列表
+        """
+        return self.extract_tool_calls_from_events(events)
+    
     def create_stream_response(
         self, 
         content: str, 

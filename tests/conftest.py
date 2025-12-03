@@ -26,11 +26,4 @@ sys.modules['src.services.logger'] = mock_logger
 sys.modules['src.core.logger'] = mock_logger
 
 # 添加调试日志
-print(f"=== 测试环境路径配置 ===")
-print(f"项目根目录: {project_root}")
-print(f"src目录: {src_path}")
-print(f"Python路径包含:")
-for i, path in enumerate(sys.path[:5]):  # 只显示前5个路径
-    print(f"  [{i}] {path}")
 print(f"使用标准库logging进行测试，避免循环导入")
-print(f"========================")
