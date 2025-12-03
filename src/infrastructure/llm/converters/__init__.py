@@ -1,8 +1,15 @@
-"""LLM转换器模块"""
+"""
+消息转换器模块
 
-from .message_converters import MessageConverter, get_message_converter
+提供 LLM 消息格式的转换功能
+"""
+
+from .message_converter import MessageConverter
+from .request_converter import RequestConverter
+from .response_converter import ResponseConverter
 
 __all__ = [
     "MessageConverter",
-    "get_message_converter",
+    "RequestConverter",
+    "ResponseConverter",
 ]
