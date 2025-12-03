@@ -17,6 +17,7 @@ from src.interfaces.llm.converters import IProviderConverter
 # 导入具体的供应商格式转换器
 from src.infrastructure.llm.converters.base.base_provider_utils import BaseProviderUtils
 from src.infrastructure.llm.converters.openai.openai_format_utils import OpenAIFormatUtils
+from src.infrastructure.llm.converters.openai_response.openai_responses_format_utils import OpenAIResponsesFormatUtils
 from src.infrastructure.llm.converters.gemini.gemini_format_utils import GeminiFormatUtils
 from src.infrastructure.llm.converters.anthropic.anthropic_format_utils import AnthropicFormatUtils
 
@@ -196,6 +197,8 @@ class ProviderFormatUtilsFactory:
         if provider not in self._utils_cache:
             if provider == "openai":
                 self._utils_cache[provider] = OpenAIFormatUtils()
+            elif provider == "openai-responses":
+                self._utils_cache[provider] = OpenAIResponsesFormatUtils()
             elif provider == "gemini":
                 self._utils_cache[provider] = GeminiFormatUtils()
             elif provider == "anthropic":
@@ -211,7 +214,7 @@ class ProviderFormatUtilsFactory:
         Returns:
             List[str]: 支持的提供商名称列表
         """
-        return ["openai", "gemini", "anthropic"]
+        return ["openai", "openai-responses", "gemini", "anthropic"]
     
     def register_provider(self, provider: str, utils_class: type) -> None:
         """注册新的提供商格式转换工具

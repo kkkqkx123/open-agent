@@ -44,6 +44,7 @@ class MessageConverter:
         self.logger = get_logger(__name__)
         self._provider_handlers = {
             "openai": self._convert_from_openai_format,
+            "openai-responses": self._convert_from_openai_responses_format,
             "gemini": self._convert_from_gemini_format,
             "anthropic": self._convert_from_anthropic_format,
         }
@@ -416,6 +417,9 @@ class MessageConverter:
                 return "dict"
         elif "parts" in message_dict:
             return "gemini"
+        elif "input" in message_dict and not "role" in message_dict:
+            # Responses API格式：有input字段但没有role字段
+            return "openai-responses"
         else:
             return "dict"
     
@@ -459,6 +463,74 @@ class MessageConverter:
             )
         else:
             return HumanMessage(content=content)
+    
+    def _convert_from_openai_responses_format(self, message_dict: Dict[str, Any]) -> "IBaseMessage":
+        """从OpenAI Responses API格式转换
+        
+        Args:
+            message_dict: OpenAI Responses API格式消息
+            
+        Returns:
+            IBaseMessage: 基础消息
+        """
+        # Responses API格式的消息结构不同
+        # 可能是单个input字符串，或者是包含role和content的结构
+        
+        if "input" in message_dict and "role" in message_dict:
+            # 标准的Responses API消息格式
+            role = message_dict.get("role", "user")
+            content = message_dict.get("input", "")
+            
+            # 处理多模态内容
+            if isinstance(content, list):
+                # 多模态内容，提取文本
+                text_parts = []
+                for item in content:
+                    if isinstance(item, dict):
+                        if item.get("type") == "input_text":
+                            text_parts.append(item.get("text", ""))
+                        elif item.get("type") == "text":
+                            text_parts.append(item.get("text", ""))
+                        else:
+                            text_parts.append(str(item))
+                    else:
+                        text_parts.append(str(item))
+                content = " ".join(text_parts)
+            elif not isinstance(content, str):
+                content = str(content)
+            
+            if role == "user":
+                return HumanMessage(
+                    content=content,
+                    name=message_dict.get("name"),
+                    additional_kwargs=message_dict.get("additional_kwargs", {})
+                )
+            elif role == "assistant":
+                return AIMessage(
+                    content=content,
+                    name=message_dict.get("name"),
+                    tool_calls=message_dict.get("tool_calls"),
+                    additional_kwargs=message_dict.get("additional_kwargs", {})
+                )
+            elif role == "system":
+                return SystemMessage(
+                    content=content,
+                    name=message_dict.get("name"),
+                    additional_kwargs=message_dict.get("additional_kwargs", {})
+                )
+            elif role == "tool":
+                return ToolMessage(
+                    content=content,
+                    tool_call_id=message_dict.get("tool_call_id", ""),
+                    name=message_dict.get("name"),
+                    additional_kwargs=message_dict.get("additional_kwargs", {})
+                )
+            else:
+                return HumanMessage(content=content)
+        else:
+            # 简单的input格式，作为用户消息处理
+            input_content = message_dict.get("input", "")
+            return HumanMessage(content=str(input_content))
     
     def _convert_from_gemini_format(self, message_dict: Dict[str, Any]) -> "IBaseMessage":
         """从Gemini格式转换
@@ -664,6 +736,8 @@ class MessageConverter:
         """
         if provider == "openai":
             return self._convert_to_openai_format(message)
+        elif provider == "openai-responses":
+            return self._convert_to_openai_responses_format(message)
         elif provider == "gemini":
             return self._convert_to_gemini_format(message)
         elif provider == "anthropic":
@@ -686,6 +760,67 @@ class MessageConverter:
         
         if isinstance(message, ToolMessage):
             result["tool_call_id"] = message.tool_call_id
+        
+        return result
+    
+    def _convert_to_openai_responses_format(self, message: "IBaseMessage") -> Dict[str, Any]:
+        """转换为OpenAI Responses API格式"""
+        # Responses API使用不同的格式
+        
+        # 处理内容
+        content = message.content
+        if isinstance(content, list):
+            # 多模态内容，需要转换为Responses API格式
+            try:
+                from .openai_response.openai_responses_multimodal_utils import OpenAIResponsesMultimodalUtils
+                multimodal_utils = OpenAIResponsesMultimodalUtils()
+                processed_content = multimodal_utils.process_content_to_provider_format(content)
+            except ImportError:
+                # 如果模块不存在，使用基本处理
+                processed_content = [{"type": "input_text", "text": " ".join(str(item) for item in content)}]
+        elif isinstance(content, str):
+            processed_content = [{"type": "input_text", "text": content}]
+        else:
+            processed_content = [{"type": "input_text", "text": str(content)}]
+        
+        # 构建结果
+        if isinstance(message, HumanMessage):
+            result = {
+                "role": "user",
+                "content": processed_content
+            }
+        elif isinstance(message, AIMessage):
+            result = {
+                "role": "assistant",
+                "content": processed_content
+            }
+            # 添加工具调用
+            if message.tool_calls:
+                result["tool_calls"] = message.tool_calls
+        elif isinstance(message, SystemMessage):
+            result = {
+                "role": "system",
+                "content": processed_content
+            }
+        elif isinstance(message, ToolMessage):
+            result = {
+                "role": "user",
+                "content": [{
+                    "type": "input_text",
+                    "text": f"Tool Result: {message.content}"
+                }],
+                "tool_call_id": message.tool_call_id
+            }
+        else:
+            # 默认为用户消息
+            result = {
+                "role": "user",
+                "content": processed_content
+            }
+        
+        # 添加名称（如果有）
+        if message.name:
+            result["name"] = message.name
         
         return result
     
@@ -728,9 +863,9 @@ class MessageConverter:
             
             # 如果有文本内容，保留
             if message.content and isinstance(message.content, str) and message.content.strip():
-                tool_parts.insert(0, {"text": message.content})
+                tool_parts.insert(0, {"text": message.content})  # type: ignore
             
-            parts = tool_parts
+            parts = tool_parts  # type: ignore
         
         # 处理工具消息
         elif isinstance(message, ToolMessage):
@@ -760,7 +895,7 @@ class MessageConverter:
             if tools_utils:
                 tool_response = tools_utils.create_tool_response_content(
                     message.tool_call_id,
-                    tool_result_content  # type: ignore
+                    tool_result_content
                 )
                 parts = [tool_response]
             else:
@@ -883,6 +1018,10 @@ class RequestConverter:
         """转换为OpenAI API请求格式（兼容性方法）"""
         return self.convert_to_provider_request("openai", messages, parameters)
     
+    def convert_to_openai_responses_request(self, messages: Sequence["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """转换为OpenAI Responses API请求格式（兼容性方法）"""
+        return self.convert_to_provider_request("openai-responses", messages, parameters)
+    
     def convert_to_gemini_request(self, messages: Sequence["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
         """转换为Gemini API请求格式（兼容性方法）"""
         return self.convert_to_provider_request("gemini", messages, parameters)
@@ -973,6 +1112,10 @@ class ResponseConverter:
         """从OpenAI API响应转换（兼容性方法）"""
         return self.convert_from_provider_response("openai", response)
     
+    def convert_from_openai_responses_response(self, response: Dict[str, Any]) -> "IBaseMessage":
+        """从OpenAI Responses API响应转换（兼容性方法）"""
+        return self.convert_from_provider_response("openai-responses", response)
+    
     def convert_from_gemini_response(self, response: Dict[str, Any]) -> "IBaseMessage":
         """从Gemini API响应转换（兼容性方法）"""
         return self.convert_from_provider_response("gemini", response)
@@ -996,6 +1139,10 @@ class ResponseConverter:
     def convert_from_anthropic_response(self, response: Dict[str, Any]) -> "IBaseMessage":
         """从Anthropic API响应转换（兼容性方法）"""
         return self.convert_from_provider_response("anthropic", response)
+    
+    def convert_from_openai_responses_stream_response(self, events: List[Dict[str, Any]]) -> "IBaseMessage":
+        """从OpenAI Responses API流式响应转换（兼容性方法）"""
+        return self.convert_from_provider_stream_response("openai-responses", events)
     
     def convert_from_anthropic_stream_events(self, events: List[Dict[str, Any]]) -> "IBaseMessage":
         """从Anthropic流式事件转换

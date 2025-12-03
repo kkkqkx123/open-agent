@@ -471,7 +471,7 @@ class OpenAIResponsesStreamUtils(BaseStreamUtils):
             if reasoning:
                 if "response" not in chunk:
                     chunk["response"] = {}
-                chunk["response"]["reasoning"] = reasoning
+                chunk["response"]["reasoning"] = reasoning.get("chain_of_thought", "") if isinstance(reasoning, dict) else reasoning
         
         return chunk
     
