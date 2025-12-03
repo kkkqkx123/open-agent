@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
 from datetime import datetime
 
 from ...interfaces.messages import IMessageConverter, IBaseMessage
-from ...core.llm.models import LLMMessage, MessageRole
+from ...infrastructure.llm.models import LLMMessage, MessageRole
 from .types import HumanMessage, AIMessage, SystemMessage, ToolMessage, create_message_from_dict
 
 if TYPE_CHECKING:

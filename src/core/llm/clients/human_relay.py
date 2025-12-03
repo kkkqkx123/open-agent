@@ -7,7 +7,7 @@ from src.infrastructure.messages.types import HumanMessage, AIMessage
 
 from .base import BaseLLMClient
 from ..config import HumanRelayConfig
-from ..models import TokenUsage
+from src.infrastructure.llm.models import TokenUsage
 from ...common.exceptions.llm import LLMTimeoutError, LLMInvalidRequestError
 from src.interfaces.llm import LLMResponse
 

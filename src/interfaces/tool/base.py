@@ -11,7 +11,9 @@ from dataclasses import dataclass
 if TYPE_CHECKING:
     from ..llm import ILLMClient
     from .config import ToolConfig
-from langchain_core.messages import BaseMessage
+    from ..messages import IBaseMessage
+else:
+    from src.interfaces.messages import IBaseMessage
 
 
 @dataclass
@@ -131,7 +133,7 @@ class IToolFormatter(ABC):
         pass
 
     @abstractmethod
-    def parse_llm_response(self, response: "BaseMessage") -> ToolCall:
+    def parse_llm_response(self, response: "IBaseMessage") -> ToolCall:
         """解析LLM的工具调用响应"""
         pass
 

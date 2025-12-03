@@ -5,8 +5,6 @@ from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum
 
-from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
     # 避免运行时循环依赖
     from ...interfaces.messages import IBaseMessage
@@ -178,7 +176,9 @@ class LLMMessage:
 
             # 提取工具调用信息
             tool_calls = None
-            if hasattr(message, 'tool_calls') and message.tool_calls:
+            # AIMessage有tool_calls属性
+            from ...infrastructure.messages.types import AIMessage as InfraAIMessage
+            if isinstance(message, InfraAIMessage) and message.tool_calls:
                 tool_calls = message.tool_calls
             elif hasattr(message, "additional_kwargs") and "tool_calls" in message.additional_kwargs:
                 tool_calls = message.additional_kwargs["tool_calls"]

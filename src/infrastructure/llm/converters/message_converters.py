@@ -23,7 +23,7 @@ from src.infrastructure.messages import (
     ToolMessage,
 )
 from src.infrastructure.messages.converters import MessageConverter as InfraMessageConverter
-from src.infrastructure.llm.models import LLMMessage, MessageRole
+from ..models import LLMMessage, MessageRole
 
 logger = get_logger(__name__)
 
@@ -327,12 +327,12 @@ class MessageConverter:
 
     def extract_tool_calls(self, message: Union[LLMMessage, "IBaseMessage"]) -> List[Dict[str, Any]]:
         """提取工具调用信息
-        
+         
         Args:
-            message: LLM消息或基础消息
-            
+             message: LLM消息或基础消息
+             
         Returns:
-            List[Dict[str, Any]]: 工具调用列表
+             List[Dict[str, Any]]: 工具调用列表
         """
         if isinstance(message, LLMMessage):
             # 优先使用 tool_calls 属性
@@ -342,17 +342,16 @@ class MessageConverter:
             tool_calls_meta = message.metadata.get("tool_calls", [])
             return tool_calls_meta if isinstance(tool_calls_meta, list) else []
         elif isinstance(message, AIMessage):
-            # 从 AIMessage 提取 tool_calls
-            tool_calls = getattr(message, 'tool_calls', None)
-            if tool_calls:
-                return tool_calls if isinstance(tool_calls, list) else []
-            if hasattr(message, 'additional_kwargs'):
+            # 从 AIMessage 提取 tool_calls - AIMessage有tool_calls属性
+            if message.tool_calls:
+                return message.tool_calls if isinstance(message.tool_calls, list) else []
+            if message.additional_kwargs:
                 tool_calls_kwargs = message.additional_kwargs.get("tool_calls", [])
                 return tool_calls_kwargs if isinstance(tool_calls_kwargs, list) else []
             return []
         elif isinstance(message, BaseMessage):
             # 其他消息类型尝试从 additional_kwargs 提取
-            if hasattr(message, 'additional_kwargs'):
+            if message.additional_kwargs:
                 tool_calls_base = message.additional_kwargs.get("tool_calls", [])
                 return tool_calls_base if isinstance(tool_calls_base, list) else []
             return []

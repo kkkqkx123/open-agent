@@ -11,7 +11,7 @@ from src.infrastructure.messages import (
     BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage,
     MessageConverter, MessageFactory, LangChainCompatibilityAdapter
 )
-from src.core.llm.models import LLMMessage, MessageRole
+from src.infrastructure.llm.models import LLMMessage, MessageRole
 
 
 class TestBaseMessage:

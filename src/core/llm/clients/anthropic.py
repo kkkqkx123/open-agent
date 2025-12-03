@@ -11,7 +11,7 @@ from langchain_anthropic import ChatAnthropic
 
 from .base import BaseLLMClient
 from src.interfaces.llm import LLMResponse
-from ..models import TokenUsage
+from src.infrastructure.llm.models import TokenUsage
 from ..config import AnthropicConfig
 from ...common.exceptions.llm import (
     LLMCallError,

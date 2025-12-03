@@ -6,7 +6,7 @@ from src.services.logger import get_logger
 
 from abc import ABC
 from src.interfaces.llm import LLMResponse
-from ..models import TokenUsage
+from src.infrastructure.llm.models import TokenUsage
 from ...common.exceptions.llm import LLMError
 from src.infrastructure.messages.types import HumanMessage
 

@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, Sequence
 from src.interfaces.messages import IBaseMessage
 from src.infrastructure.messages.types import AIMessage
 from src.interfaces.llm import LLMResponse
-from ...models import TokenUsage
+from src.infrastructure.llm.models import TokenUsage
 
 
 class ResponseConverter:

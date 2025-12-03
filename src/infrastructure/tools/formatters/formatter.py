@@ -8,8 +8,8 @@ import json
 import re
 from typing import Any, Dict, List, Optional, Union, Sequence
 
-from src.interfaces.llm import ILLMClient
 from src.interfaces.messages import IBaseMessage
+from src.interfaces.llm import ILLMClient
 from src.interfaces.tool.base import IToolFormatter, ToolCall, ITool
 
 class FunctionCallingFormatter(IToolFormatter):
@@ -225,8 +225,8 @@ class StructuredOutputFormatter(IToolFormatter):
                 json_str = json_match.group(0)
                 data = json.loads(json_str)
                 if "name" in data and "parameters" in data:
-                    arguments = data["parameters"]
-                    call_id = data.get("call_id")
+                    arguments: Dict[str, Any] = data["parameters"]
+                    call_id: Optional[str] = data.get("call_id")
                     return ToolCall(
                         name=data["name"],
                         arguments=arguments,

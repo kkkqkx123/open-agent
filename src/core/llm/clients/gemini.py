@@ -11,7 +11,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from .base import BaseLLMClient
 from src.interfaces.llm import LLMResponse
-from ..models import TokenUsage
+from src.infrastructure.llm.models import TokenUsage
 from ..config import GeminiConfig
 from ...common.exceptions.llm import (
     LLMCallError,

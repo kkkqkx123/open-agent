@@ -10,7 +10,7 @@ from src.infrastructure.messages.types import HumanMessage, AIMessage, SystemMes
 
 from .base import BaseLLMClient
 from src.interfaces.llm import LLMResponse
-from ..models import TokenUsage
+from src.infrastructure.llm.models import TokenUsage
 from ..config import MockConfig, LLMClientConfig
 from ...common.exceptions.llm import (
     LLMTimeoutError,
