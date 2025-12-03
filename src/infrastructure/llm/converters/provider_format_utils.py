@@ -42,6 +42,30 @@ class BaseProviderFormatUtils(ABC):
         """转换响应格式"""
         pass
     
+    def convert_stream_response(self, events: List[Dict[str, Any]]) -> "IBaseMessage":
+        """转换流式响应格式（默认实现）"""
+        # 默认实现：将流式事件合并为完整响应后转换
+        # 子类可以重写此方法以提供更高效的流式处理
+        try:
+            # 尝试使用流式工具
+            stream_utils = getattr(self, 'stream_utils', None)
+            if stream_utils:
+                response = stream_utils.process_stream_events(events)
+                return self.convert_response(response)
+            else:
+                # 回退到基本处理
+                self.logger.warning("提供商格式工具缺少流式处理工具，使用基本处理")
+                # 简单合并所有事件
+                merged_response = {}
+                for event in events:
+                    merged_response.update(event)
+                return self.convert_response(merged_response)
+        except Exception as e:
+            self.logger.error(f"转换流式响应失败: {e}")
+            # 创建一个基本的AI消息作为回退
+            from src.infrastructure.messages import AIMessage
+            return AIMessage(content="")
+    
     def _convert_tools_to_openai_format(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """转换工具格式为OpenAI格式（通用方法）"""
         openai_tools = []
@@ -118,6 +142,31 @@ class BaseProviderFormatUtils(ABC):
             )
         else:
             return HumanMessage(content=content, **common_kwargs)
+    
+    def validate_request(self, messages: Sequence["IBaseMessage"], parameters: Dict[str, Any]) -> List[str]:
+        """验证请求参数（默认实现）"""
+        # 默认实现：基本验证
+        errors = []
+        
+        if not messages:
+            errors.append("消息列表不能为空")
+        
+        # 尝试使用验证工具
+        validation_utils = getattr(self, 'validation_utils', None)
+        if validation_utils:
+            param_errors = validation_utils.validate_request_parameters(parameters)
+            errors.extend(param_errors)
+        
+        return errors
+    
+    def handle_api_error(self, error_response: Dict[str, Any]) -> str:
+        """处理API错误响应（默认实现）"""
+        # 默认实现：基本错误处理
+        error = error_response.get("error", {})
+        error_message = error.get("message", "未知错误")
+        error_code = error.get("code", "unknown")
+        
+        return f"API错误 ({error_code}): {error_message}"
 
 
 class ProviderFormatUtilsFactory:

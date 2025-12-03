@@ -468,26 +468,76 @@ class MessageConverter:
         role = message_dict.get("role", "user")
         parts = message_dict.get("parts", [])
         
-        # 提取文本内容
+        # 提取文本内容、工具调用和思考过程
         content_parts = []
+        tool_calls = []
+        thoughts = []
+        
         for part in parts:
             if isinstance(part, dict):
                 if "text" in part:
                     content_parts.append(part["text"])
                 elif "inline_data" in part:
                     # 处理多模态内容
-                    content_parts.append(f"[ multimodal content: {part['inline_data'].get('mime_type', 'unknown')} ]")
+                    mime_type = part['inline_data'].get('mime_type', 'unknown')
+                    if mime_type.startswith("image/"):
+                        content_parts.append("[图像内容]")
+                    elif mime_type.startswith("audio/"):
+                        content_parts.append("[音频内容]")
+                    elif mime_type.startswith("video/"):
+                        content_parts.append("[视频内容]")
+                    else:
+                        content_parts.append(f"[多模态内容: {mime_type}]")
+                elif "functionCall" in part:
+                    # 处理工具调用
+                    function_call = part["functionCall"]
+                    tool_call = {
+                        "id": f"call_{hash(str(function_call))}",  # Gemini不提供ID，生成一个
+                        "type": "function",
+                        "function": {
+                            "name": function_call.get("name", ""),
+                            "arguments": function_call.get("args", {})
+                        }
+                    }
+                    tool_calls.append(tool_call)
+                elif "thought" in part:
+                    # 处理思考过程
+                    thoughts.append(part["thought"])
             else:
                 content_parts.append(str(part))
         
         content = " ".join(content_parts)
         
+        # 构建额外参数
+        additional_kwargs = {
+            "role": role,
+            "original_parts": parts
+        }
+        
+        # 添加工具调用信息
+        if tool_calls:
+            additional_kwargs["tool_calls"] = tool_calls
+        
+        # 添加思考过程
+        if thoughts:
+            additional_kwargs["thoughts"] = thoughts
+        
         if role == "user":
-            return HumanMessage(content=content)
+            return HumanMessage(
+                content=content,
+                additional_kwargs=additional_kwargs
+            )
         elif role == "model":
-            return AIMessage(content=content)
+            return AIMessage(
+                content=content,
+                tool_calls=tool_calls if tool_calls else None,
+                additional_kwargs=additional_kwargs
+            )
         else:
-            return HumanMessage(content=content)
+            return HumanMessage(
+                content=content,
+                additional_kwargs=additional_kwargs
+            )
     
     def _convert_from_anthropic_format(self, message_dict: Dict[str, Any]) -> "IBaseMessage":
         """从Anthropic格式转换
@@ -639,11 +689,63 @@ class MessageConverter:
         """转换为Gemini格式"""
         role = "user" if message.type == "human" else "model"
         
+        # 使用Gemini多模态工具处理内容
+        from .gemini_multimodal_utils import GeminiMultimodalUtils
+        multimodal_utils = GeminiMultimodalUtils()
+        
         # 处理内容
         if isinstance(message.content, str):
             parts = [{"text": message.content}]
+        elif isinstance(message.content, list):
+            parts = multimodal_utils.process_content_to_gemini_format(message.content)
         else:
-            parts = message.content  # type: ignore
+            parts = [{"text": str(message.content)}]
+        
+        # 处理工具调用
+        if isinstance(message, AIMessage) and message.tool_calls:
+            # 替换内容为工具调用
+            tool_parts = []
+            for tool_call in message.tool_calls:
+                function_call = {
+                    "name": tool_call.get("function", {}).get("name", ""),
+                    "args": tool_call.get("function", {}).get("arguments", {})
+                }
+                tool_parts.append({
+                    "functionCall": function_call
+                })
+            
+            # 如果有文本内容，保留
+            if message.content and isinstance(message.content, str) and message.content.strip():
+                tool_parts.insert(0, {"text": message.content})
+            
+            parts = tool_parts
+        
+        # 处理工具消息
+        elif isinstance(message, ToolMessage):
+            from .gemini_tools_utils import GeminiToolsUtils
+            tools_utils = GeminiToolsUtils()
+            
+            # 确保工具结果是字符串或字典格式
+            tool_result_content = message.content
+            if isinstance(tool_result_content, list):
+                # 如果是列表，手动提取文本内容
+                text_parts = []
+                for item in tool_result_content:
+                    if isinstance(item, str):
+                        text_parts.append(item)
+                    elif isinstance(item, dict) and "text" in item:
+                        text_parts.append(item["text"])
+                    else:
+                        text_parts.append(str(item))
+                tool_result_content = " ".join(text_parts)
+            elif not isinstance(tool_result_content, (str, dict)):
+                tool_result_content = str(tool_result_content)
+            
+            tool_response = tools_utils.create_tool_response_content(
+                message.tool_call_id,
+                tool_result_content  # type: ignore
+            )
+            parts = [tool_response]
         
         result = {
             "role": role,
@@ -781,6 +883,22 @@ class ProviderResponseConverter:
         """从Gemini API响应转换（兼容性方法）"""
         return self.convert_from_provider_response("gemini", response)
     
+    def convert_from_gemini_stream_response(self, events: List[Dict[str, Any]]) -> "IBaseMessage":
+        """从Gemini流式响应转换"""
+        try:
+            format_utils = self.format_utils_factory.get_format_utils("gemini")
+            return format_utils.convert_stream_response(events)
+        except Exception as e:
+            self.logger.error(f"转换Gemini流式响应失败: {e}")
+            # 回退到基本处理
+            try:
+                from .gemini_stream_utils import GeminiStreamUtils
+                stream_utils = GeminiStreamUtils()
+                text_content = stream_utils.extract_text_from_stream_events(events)
+                return AIMessage(content=text_content)
+            except:
+                return AIMessage(content="")
+    
     def convert_from_anthropic_response(self, response: Dict[str, Any]) -> "IBaseMessage":
         """从Anthropic API响应转换（兼容性方法）"""
         return self.convert_from_provider_response("anthropic", response)
@@ -846,6 +964,36 @@ class ProviderResponseConverter:
             return stream_utils.extract_tool_calls_from_stream_events(events)
         except Exception as e:
             self.logger.error(f"提取Anthropic流式工具调用失败: {e}")
+            return []
+    
+    def extract_text_from_gemini_stream(self, events: List[Dict[str, Any]]) -> str:
+        """从Gemini流式事件中提取文本内容"""
+        try:
+            from .gemini_stream_utils import GeminiStreamUtils
+            stream_utils = GeminiStreamUtils()
+            return stream_utils.extract_text_from_stream_events(events)
+        except Exception as e:
+            self.logger.error(f"提取Gemini流式文本失败: {e}")
+            return ""
+    
+    def extract_tool_calls_from_gemini_stream(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """从Gemini流式事件中提取工具调用"""
+        try:
+            from .gemini_stream_utils import GeminiStreamUtils
+            stream_utils = GeminiStreamUtils()
+            return stream_utils.extract_tool_calls_from_stream_events(events)
+        except Exception as e:
+            self.logger.error(f"提取Gemini流式工具调用失败: {e}")
+            return []
+    
+    def extract_thoughts_from_gemini_stream(self, events: List[Dict[str, Any]]) -> List[str]:
+        """从Gemini流式事件中提取思考过程"""
+        try:
+            from .gemini_stream_utils import GeminiStreamUtils
+            stream_utils = GeminiStreamUtils()
+            return stream_utils.extract_thoughts_from_stream_events(events)
+        except Exception as e:
+            self.logger.error(f"提取Gemini流式思考过程失败: {e}")
             return []
     
     def parse_anthropic_stream_line(self, line: str) -> Optional[Dict[str, Any]]:
