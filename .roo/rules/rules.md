@@ -1,4 +1,4 @@
-## 🔍 Method Naming Conventions
+## 🔍 File/Method Naming Conventions
 
 ### Terms to Avoid
 - Enhanced / EnhancedXxx
@@ -12,3 +12,4 @@
 - Strategy-oriented: `executeWithReliability`, `generateCacheKey`
 - Management-oriented: `manageBatchProcessing`, `handleCacheInvalidation`
 - Coordination-oriented: `coordinateModuleUpdates`, `synchroniseIndexes`
+
