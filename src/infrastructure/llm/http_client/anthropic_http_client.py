@@ -50,7 +50,7 @@ class AnthropicHttpClient(BaseHttpClient, ILLMHttpClient):
         self,
         api_key: str,
         base_url: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ):
         """初始化Anthropic HTTP客户端
         
@@ -129,32 +129,6 @@ class AnthropicHttpClient(BaseHttpClient, ILLMHttpClient):
             self.logger.error(f"Anthropic API调用失败: {e}")
             raise
     
-    async def responses_api(
-        self,
-        input_text: str,
-        model: str,
-        parameters: Optional[Dict[str, Any]] = None,
-        stream: bool = False
-    ) -> Union[LLMResponse, AsyncGenerator[str, None]]:
-        """调用Anthropic API（兼容接口）
-        
-        Anthropic没有专门的Responses API，这里使用messages接口。
-        
-        Args:
-            input_text: 输入文本
-            model: 模型名称
-            parameters: 请求参数
-            stream: 是否流式响应
-            
-        Returns:
-            Union[LLMResponse, AsyncGenerator[str, None]]: 响应对象或流式生成器
-        """
-        # 将输入文本转换为消息格式
-        from src.infrastructure.messages import HumanMessage
-        messages = [HumanMessage(content=input_text)]
-        
-        return await self.chat_completions(messages, model, parameters, stream)
-    
     async def _stream_anthropic_response(
         self, request_data: Dict[str, Any]
     ) -> AsyncGenerator[str, None]:
@@ -217,8 +191,12 @@ class AnthropicHttpClient(BaseHttpClient, ILLMHttpClient):
             # 提取停止原因
             stop_reason = data.get("stop_reason")
             
+            # 确保内容是字符串类型
+            content_value = message.content if hasattr(message, 'content') else str(message)
+            content_str = content_value if isinstance(content_value, str) else str(content_value)
+            
             return LLMResponse(
-                content=message.content if hasattr(message, 'content') else str(message),
+                content=content_str,
                 message=message,
                 token_usage=token_usage,
                 model=model,
@@ -248,14 +226,14 @@ class AnthropicHttpClient(BaseHttpClient, ILLMHttpClient):
             # 检查是否为内容块
             if data.get("type") == "content_block_delta":
                 delta = data.get("delta", {})
-                return delta.get("text")
+                return delta.get("text") or None
             
             # 检查是否为消息开始
             elif data.get("type") == "message_start":
                 message = data.get("message", {})
                 content = message.get("content", [])
                 if content and isinstance(content, list):
-                    return content[0].get("text", "")
+                    return content[0].get("text", "") or None
             
             return None
             

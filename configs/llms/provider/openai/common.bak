@@ -1,0 +1,54 @@
+# OpenAI Provider通用配置
+# 此文件包含所有OpenAI模型的通用配置
+
+# 基础配置
+model_type: openai
+provider: openai
+
+# API配置
+api_base_url: "https://api.openai.com/v1"
+
+# 通用请求配置
+timeout: 30
+max_retries: 3
+retry_delay: 1.0
+cache_enabled: true
+
+# Token计算配置
+token_calculation:
+  type: "tiktoken"
+  fallback_enabled: true
+  custom_tokenizer: null  # 可选：自定义tokenizer名称
+
+# Tokenizer配置
+tokenizer:
+  encoding: "cl100k_base"  # OpenAI的默认编码
+  special_tokens:
+    - "<|endoftext|>"
+    - "<|im_start|>"
+    - "<|im_end|>"
+
+# 限流配置
+rate_limiting:
+  requests_per_minute: 3500
+  tokens_per_minute: 90000
+
+# 功能支持
+features:
+  function_calling: true
+  streaming: true
+  vision: false  # 部分模型支持
+
+# 默认参数
+defaults:
+  temperature: 0.7
+  max_tokens: 2048
+  top_p: 1.0
+  frequency_penalty: 0.0
+  presence_penalty: 0.0
+
+# 错误处理
+error_handling:
+  retry_on_rate_limit: true
+  retry_on_server_error: true
+  max_retry_backoff: 60.0

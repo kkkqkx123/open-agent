@@ -44,7 +44,7 @@ class IHttpClient(ABC):
         pass
     
     @abstractmethod
-    async def stream_post(
+    def stream_post(
         self,
         endpoint: str,
         data: Dict[str, Any],
@@ -99,6 +99,26 @@ class ILLMHttpClient(IHttpClient):
     
     扩展基础HTTP客户端接口，添加LLM特定的方法。
     """
+    
+    @property
+    @abstractmethod
+    def timeout(self) -> Optional[float]:
+        """获取超时时间
+        
+        Returns:
+            Optional[float]: 超时时间（秒）
+        """
+        pass
+    
+    @property
+    @abstractmethod
+    def max_retries(self) -> int:
+        """获取最大重试次数
+        
+        Returns:
+            int: 最大重试次数
+        """
+        pass
     
     @abstractmethod
     async def chat_completions(

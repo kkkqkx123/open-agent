@@ -6,6 +6,7 @@
 import pytest
 import asyncio
 from unittest.mock import Mock, patch, AsyncMock
+from typing import cast, AsyncGenerator
 from httpx import Response
 
 from src.infrastructure.llm.http_client import create_http_client
@@ -197,21 +198,25 @@ class TestHttpClientIntegration:
     async def test_openai_streaming_integration(self):
         """测试OpenAI流式响应集成"""
         # 模拟流式响应数据
-        stream_chunks = [
-            'data: {"choices": [{"delta": {"content": "Hello"}}]}\n',
-            'data: {"choices": [{"delta": {"content": "!"}}]}\n',
-            'data: {"choices": [{"delta": {"content": " How"}}]}\n',
-            'data: {"choices": [{"delta": {"content": " can"}}]}\n',
-            'data: {"choices": [{"delta": {"content": " I"}}]}\n',
-            'data: {"choices": [{"delta": {"content": " help"}}]}\n',
-            'data: {"choices": [{"delta": {"content": " you"}}]}\n',
-            'data: {"choices": [{"delta": {"content": "?"}}]}\n',
-            'data: [DONE]\n'
-        ]
+        async def stream_generator():
+            """生成流式响应的异步生成器"""
+            stream_chunks = [
+                'data: {"choices": [{"delta": {"content": "Hello"}}]}\n',
+                'data: {"choices": [{"delta": {"content": "!"}}]}\n',
+                'data: {"choices": [{"delta": {"content": " How"}}]}\n',
+                'data: {"choices": [{"delta": {"content": " can"}}]}\n',
+                'data: {"choices": [{"delta": {"content": " I"}}]}\n',
+                'data: {"choices": [{"delta": {"content": " help"}}]}\n',
+                'data: {"choices": [{"delta": {"content": " you"}}]}\n',
+                'data: {"choices": [{"delta": {"content": "?"}}]}\n',
+                'data: [DONE]\n'
+            ]
+            for chunk in stream_chunks:
+                yield chunk
         
         # 创建客户端
         with patch('src.infrastructure.llm.http_client.openai_http_client.OpenAIHttpClient.stream_post') as mock_stream:
-            mock_stream.return_value = stream_chunks.__aiter__()
+            mock_stream.return_value = stream_generator()
             
             client = create_http_client(
                 provider="openai",
@@ -221,7 +226,7 @@ class TestHttpClientIntegration:
             
             # 测试流式聊天完成
             messages = [HumanMessage(content="Hello")]
-            stream_response = client.chat_completions(
+            stream_response = await client.chat_completions(
                 messages=messages,
                 model="gpt-4",
                 stream=True
@@ -229,7 +234,8 @@ class TestHttpClientIntegration:
             
             # 收集流式响应
             content_chunks = []
-            async for chunk in stream_response:
+            stream_response_gen = cast(AsyncGenerator[str, None], stream_response)
+            async for chunk in stream_response_gen:
                 content_chunks.append(chunk)
             
             # 验证流式响应
@@ -334,9 +340,11 @@ class TestHttpClientIntegration:
                 api_key="test-api-key"
             )
             
-            # 测试Responses API
-            response = await client.responses_api(
-                input_text="Test input",
+            # 测试通过chat_completions自动选择Responses API（GPT-5模型）
+            from src.infrastructure.messages import HumanMessage
+            messages = [HumanMessage(content="Test input")]
+            response = await client.chat_completions(
+                messages=messages,
                 model="gpt-5"
             )
             

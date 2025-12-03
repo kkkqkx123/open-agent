@@ -47,7 +47,7 @@ class GeminiHttpClient(BaseHttpClient, ILLMHttpClient):
         self,
         api_key: str,
         base_url: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ):
         """初始化Gemini HTTP客户端
         
@@ -128,32 +128,6 @@ class GeminiHttpClient(BaseHttpClient, ILLMHttpClient):
             self.logger.error(f"Gemini API调用失败: {e}")
             raise
     
-    async def responses_api(
-        self,
-        input_text: str,
-        model: str,
-        parameters: Optional[Dict[str, Any]] = None,
-        stream: bool = False
-    ) -> Union[LLMResponse, AsyncGenerator[str, None]]:
-        """调用Gemini API（兼容接口）
-        
-        Gemini没有专门的Responses API，这里使用generateContent接口。
-        
-        Args:
-            input_text: 输入文本
-            model: 模型名称
-            parameters: 请求参数
-            stream: 是否流式响应
-            
-        Returns:
-            Union[LLMResponse, AsyncGenerator[str, None]]: 响应对象或流式生成器
-        """
-        # 将输入文本转换为消息格式
-        from src.infrastructure.messages import HumanMessage
-        messages = [HumanMessage(content=input_text)]
-        
-        return await self.chat_completions(messages, model, parameters, stream)
-    
     async def _stream_gemini_response(
         self, request_data: Dict[str, Any], endpoint: str
     ) -> AsyncGenerator[str, None]:
@@ -212,8 +186,12 @@ class GeminiHttpClient(BaseHttpClient, ILLMHttpClient):
             candidates = data.get("candidates", [])
             finish_reason = candidates[0].get("finishReason") if candidates else None
             
+            # 确保内容是字符串类型
+            content_value = message.content if hasattr(message, 'content') else str(message)
+            content_str = content_value if isinstance(content_value, str) else str(content_value)
+            
             return LLMResponse(
-                content=message.content if hasattr(message, 'content') else str(message),
+                content=content_str,
                 message=message,
                 token_usage=token_usage,
                 model=model,
@@ -246,7 +224,7 @@ class GeminiHttpClient(BaseHttpClient, ILLMHttpClient):
             content_parts = candidate.get("content", {}).get("parts", [])
             
             if content_parts:
-                return content_parts[0].get("text", "")
+                return content_parts[0].get("text", "") or None
             
             return None
             

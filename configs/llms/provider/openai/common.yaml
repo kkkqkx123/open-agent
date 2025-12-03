@@ -1,43 +1,34 @@
-# OpenAI Provider通用配置
-# 此文件包含所有OpenAI模型的通用配置
+# OpenAI HTTP客户端通用配置
+# 此文件包含所有OpenAI HTTP客户端的通用配置
 
 # 基础配置
-model_type: openai
 provider: openai
+model_type: openai
 
 # API配置
-api_base_url: "https://api.openai.com/v1"
+base_url: "https://api.openai.com/v1"
+api_version: "v1"
+api_key: "${OPENAI_API_KEY}"
+api_format: "chat_completion"  # 支持 "chat_completion" 或 "responses"
 
-# 通用请求配置
+# HTTP客户端配置
 timeout: 30
 max_retries: 3
 retry_delay: 1.0
-cache_enabled: true
+backoff_factor: 2.0
+pool_connections: 10
 
-# Token计算配置
-token_calculation:
-  type: "tiktoken"
-  fallback_enabled: true
-  custom_tokenizer: null  # 可选：自定义tokenizer名称
-
-# Tokenizer配置
-tokenizer:
-  encoding: "cl100k_base"  # OpenAI的默认编码
-  special_tokens:
-    - "<|endoftext|>"
-    - "<|im_start|>"
-    - "<|im_end|>"
-
-# 限流配置
-rate_limiting:
-  requests_per_minute: 3500
-  tokens_per_minute: 90000
+# 默认请求头
+default_headers:
+  Content-Type: "application/json"
+  User-Agent: "OpenAI-HTTP-Client/1.0"
 
 # 功能支持
 features:
   function_calling: true
   streaming: true
-  vision: false  # 部分模型支持
+  vision: true
+  responses_api: true
 
 # 默认参数
 defaults:
@@ -52,3 +43,17 @@ error_handling:
   retry_on_rate_limit: true
   retry_on_server_error: true
   max_retry_backoff: 60.0
+
+# 支持的模型列表
+models:
+  - "gpt-4"
+  - "gpt-4-turbo"
+  - "gpt-4o"
+  - "gpt-4o-mini"
+  - "gpt-3.5-turbo"
+  - "gpt-5"  # 未来模型
+
+# 限流配置
+rate_limiting:
+  requests_per_minute: 3500
+  tokens_per_minute: 90000

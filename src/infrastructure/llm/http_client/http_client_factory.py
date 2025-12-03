@@ -46,7 +46,7 @@ class HttpClientFactory:
         provider: str,
         model: Optional[str] = None,
         api_key: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ) -> ILLMHttpClient:
         """创建HTTP客户端
         
@@ -121,7 +121,7 @@ class HttpClientFactory:
         """
         import asyncio
         
-        async def _close_clients():
+        async def _close_clients() -> None:
             for client in self._client_cache.values():
                 if hasattr(client, 'close'):
                     await client.close()
@@ -176,7 +176,7 @@ class HttpClientFactory:
         self,
         config: Dict[str, Any],
         api_key: Optional[str] = None,
-        **kwargs
+        **kwargs: Any
     ) -> Dict[str, Any]:
         """合并配置和参数
         
@@ -287,7 +287,7 @@ class HttpClientFactory:
         ]
         
         # OpenAI特定参数
-        openai_params = ["api_version", "organization"]
+        openai_params = ["api_version", "organization", "api_format"]
         
         # 提取参数
         init_params = {}
@@ -353,7 +353,7 @@ def create_http_client(
     provider: str,
     model: Optional[str] = None,
     api_key: Optional[str] = None,
-    **kwargs
+    **kwargs: Any
 ) -> ILLMHttpClient:
     """创建HTTP客户端的便捷函数
     

@@ -10,7 +10,7 @@ from datetime import datetime
 
 from src.interfaces.llm.http_client import IHttpClient
 from src.services.logger import get_logger
-from src.infrastructure.llm.utils.header_validator import HeaderValidator
+from src.infrastructure.llm.utils.header_validator import HeaderProcessor
 
 
 class BaseHttpClient(IHttpClient):
@@ -53,8 +53,8 @@ class BaseHttpClient(IHttpClient):
         self.backoff_factor = backoff_factor
         self.logger = get_logger(__name__)
         
-        # 初始化头部验证器
-        self.header_validator = HeaderValidator()
+        # 初始化头部处理器
+        self.header_processor = HeaderProcessor()
         
         # 配置HTTP客户端
         self.client = httpx.AsyncClient(
@@ -95,7 +95,7 @@ class BaseHttpClient(IHttpClient):
         
         # 验证和处理请求头
         resolved_headers, sanitized_headers, is_valid, errors = \
-            self.header_validator.process_headers(request_headers)
+            self.header_processor.process_headers(request_headers)
         
         if not is_valid:
             error_msg = f"请求头验证失败: {', '.join(errors)}"
@@ -197,7 +197,7 @@ class BaseHttpClient(IHttpClient):
         
         # 验证和处理请求头
         resolved_headers, sanitized_headers, is_valid, errors = \
-            self.header_validator.process_headers(request_headers)
+            self.header_processor.process_headers(request_headers)
         
         if not is_valid:
             error_msg = f"请求头验证失败: {', '.join(errors)}"

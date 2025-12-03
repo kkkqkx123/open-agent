@@ -55,7 +55,8 @@ class OpenAIHttpClient(BaseHttpClient, ILLMHttpClient):
         api_version: str = "v1",
         base_url: Optional[str] = None,
         organization: Optional[str] = None,
-        **kwargs
+        api_format: str = "chat_completion",
+        **kwargs: Any
     ):
         """初始化OpenAI HTTP客户端
         
@@ -64,6 +65,7 @@ class OpenAIHttpClient(BaseHttpClient, ILLMHttpClient):
             api_version: API版本
             base_url: 基础URL（可选，默认使用官方API）
             organization: 组织ID（可选）
+            api_format: API格式，支持 "chat_completion" 或 "responses"
             **kwargs: 其他参数传递给BaseHttpClient
         """
         # 设置默认基础URL
@@ -86,8 +88,9 @@ class OpenAIHttpClient(BaseHttpClient, ILLMHttpClient):
         self.format_utils = OpenAIFormatUtils()
         self.api_version = api_version
         self.api_key = api_key
+        self.api_format = api_format
         
-        self.logger.info(f"初始化OpenAI HTTP客户端，API版本: {api_version}")
+        self.logger.info(f"初始化OpenAI HTTP客户端，API版本: {api_version}，API格式: {api_format}")
     
     async def chat_completions(
         self,
@@ -96,7 +99,35 @@ class OpenAIHttpClient(BaseHttpClient, ILLMHttpClient):
         parameters: Optional[Dict[str, Any]] = None,
         stream: bool = False
     ) -> Union[LLMResponse, AsyncGenerator[str, None]]:
-        """调用Chat Completions API
+        """智能API选择：根据配置和模型自动选择合适的API
+        
+        Args:
+            messages: 消息列表
+            model: 模型名称
+            parameters: 请求参数
+            stream: 是否流式响应
+            
+        Returns:
+            Union[LLMResponse, AsyncGenerator[str, None]]: 响应对象或流式生成器
+        """
+        # 智能API选择逻辑
+        if self._should_use_responses_api(model):
+            self.logger.debug(f"模型 {model} 使用 Responses API")
+            # 将消息转换为输入文本
+            input_text = self._messages_to_input(messages)
+            return await self.responses_api(input_text, model, parameters, stream)
+        else:
+            self.logger.debug(f"模型 {model} 使用 Chat Completions API")
+            return await self._chat_completions_impl(messages, model, parameters, stream)
+    
+    async def _chat_completions_impl(
+        self,
+        messages: Sequence["IBaseMessage"],
+        model: str,
+        parameters: Optional[Dict[str, Any]] = None,
+        stream: bool = False
+    ) -> Union[LLMResponse, AsyncGenerator[str, None]]:
+        """Chat Completions API的具体实现
         
         Args:
             messages: 消息列表
@@ -284,8 +315,12 @@ class OpenAIHttpClient(BaseHttpClient, ILLMHttpClient):
             choices = data.get("choices", [])
             finish_reason = choices[0].get("finish_reason") if choices else None
             
+            # 确保内容是字符串类型
+            content_value = message.content if hasattr(message, 'content') else str(message)
+            content_str = content_value if isinstance(content_value, str) else str(content_value)
+            
             return LLMResponse(
-                content=message.content if hasattr(message, 'content') else str(message),
+                content=content_str,
                 message=message,
                 token_usage=token_usage,
                 model=data.get("model", ""),
@@ -343,8 +378,12 @@ class OpenAIHttpClient(BaseHttpClient, ILLMHttpClient):
                 reasoning_tokens=usage_data.get("reasoning_tokens", 0)
             )
             
+            # 确保内容是字符串类型
+            content_value = message.content if hasattr(message, 'content') else str(message)
+            content_str = content_value if isinstance(content_value, str) else str(content_value)
+            
             return LLMResponse(
-                content=message.content,
+                content=content_str,
                 message=message,
                 token_usage=token_usage,
                 model=data.get("model", ""),
@@ -435,7 +474,7 @@ class OpenAIHttpClient(BaseHttpClient, ILLMHttpClient):
             
             choice = choices[0]
             delta = choice.get("delta", {})
-            return delta.get("content")
+            return delta.get("content") or None
             
         except Exception as e:
             self.logger.warning(f"提取流式内容失败: {e}")
@@ -453,7 +492,7 @@ class OpenAIHttpClient(BaseHttpClient, ILLMHttpClient):
         try:
             # Responses API的流式格式可能不同
             if "content" in data:
-                return data["content"]
+                return data["content"] or None
             
             choices = data.get("choices", [])
             if not choices:
@@ -461,14 +500,55 @@ class OpenAIHttpClient(BaseHttpClient, ILLMHttpClient):
             
             choice = choices[0]
             if "content" in choice:
-                return choice["content"]
+                return choice["content"] or None
             
             delta = choice.get("delta", {})
-            return delta.get("content")
+            return delta.get("content") or None
             
         except Exception as e:
             self.logger.warning(f"提取Responses流式内容失败: {e}")
             return None
+    
+    def _should_use_responses_api(self, model: str) -> bool:
+        """判断是否应该使用Responses API
+        
+        Args:
+            model: 模型名称
+            
+        Returns:
+            bool: 是否使用Responses API
+        """
+        # 如果配置明确指定使用responses API
+        if self.api_format == "responses":
+            return True
+        
+        # 如果配置明确指定使用chat_completion API
+        if self.api_format == "chat_completion":
+            return False
+        
+        # 根据模型自动判断
+        responses_models = {"gpt-5", "gpt-5-codex", "gpt-5.1"}
+        return model in responses_models
+    
+    def _messages_to_input(self, messages: Sequence["IBaseMessage"]) -> str:
+        """将消息列表转换为输入文本
+        
+        Args:
+            messages: 消息列表
+            
+        Returns:
+            str: 转换后的输入文本
+        """
+        if not messages:
+            return ""
+        
+        # 简单的消息转换逻辑
+        content_parts = []
+        for message in messages:
+            if hasattr(message, 'content'):
+                content_parts.append(str(message.content))
+        
+        return "\n".join(content_parts)
     
     def get_provider_name(self) -> str:
         """获取提供商名称

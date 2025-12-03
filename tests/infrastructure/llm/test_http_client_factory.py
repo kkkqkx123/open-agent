@@ -6,6 +6,7 @@
 import pytest
 from unittest.mock import Mock, patch
 from pathlib import Path
+from typing import cast
 
 from src.infrastructure.llm.http_client.http_client_factory import (
     HttpClientFactory,
@@ -15,6 +16,7 @@ from src.infrastructure.llm.http_client.http_client_factory import (
 from src.infrastructure.llm.http_client.openai_http_client import OpenAIHttpClient
 from src.infrastructure.llm.http_client.gemini_http_client import GeminiHttpClient
 from src.infrastructure.llm.http_client.anthropic_http_client import AnthropicHttpClient
+from src.interfaces.llm.http_client import ILLMHttpClient
 
 
 class TestHttpClientFactory:
@@ -99,11 +101,9 @@ class TestHttpClientFactory:
     
     def test_register_provider(self):
         """测试注册新提供商"""
-        # 创建模拟客户端类
-        mock_client_class = Mock()
-        
+        # 使用一个真实的HTTP客户端实现进行测试，而不是Mock
         # 注册提供商
-        self.factory.register_provider("test_provider", mock_client_class)
+        self.factory.register_provider("test_provider", OpenAIHttpClient)
         
         # 验证提供商已注册
         providers = self.factory.get_supported_providers()
@@ -115,7 +115,7 @@ class TestHttpClientFactory:
             pass
         
         with pytest.raises(ValueError, match="客户端类必须实现ILLMHttpClient接口"):
-            self.factory.register_provider("invalid", InvalidClient)
+            self.factory.register_provider("invalid", cast(type[ILLMHttpClient], InvalidClient))
     
     def test_clear_cache(self):
         """测试清除缓存"""
