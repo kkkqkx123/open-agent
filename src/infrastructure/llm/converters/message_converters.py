@@ -500,23 +500,103 @@ class MessageConverter:
         """
         role = message_dict.get("role", "user")
         content = message_dict.get("content", "")
+        name = message_dict.get("name")
+        
+        # 处理内容
+        text_content = ""
+        tool_calls = []
+        additional_kwargs = {}
         
         if isinstance(content, list):
-            # 处理多模态内容
+            # 处理多模态内容和工具使用
             text_parts = []
+            tool_use_blocks = []
+            
             for item in content:
-                if isinstance(item, dict) and item.get("type") == "text":
-                    text_parts.append(item.get("text", ""))
-                elif isinstance(item, dict) and item.get("type") == "image":
-                    text_parts.append("[ image content ]")
-            content = " ".join(text_parts)
-        
-        if role == "user":
-            return HumanMessage(content=content)
-        elif role == "assistant":
-            return AIMessage(content=content)
+                if isinstance(item, dict):
+                    item_type = item.get("type")
+                    
+                    if item_type == "text":
+                        text_parts.append(item.get("text", ""))
+                    elif item_type == "image":
+                        text_parts.append("[图像内容]")
+                    elif item_type == "tool_use":
+                        # 处理工具使用
+                        tool_call = self._extract_tool_call_from_anthropic(item)
+                        if tool_call:
+                            tool_calls.append(tool_call)
+                            tool_use_blocks.append(item)
+                    else:
+                        text_parts.append(f"[{item_type} content]")
+            
+            text_content = " ".join(text_parts)
+            
+            # 保存工具使用块到额外参数
+            if tool_use_blocks:
+                additional_kwargs["tool_use_blocks"] = tool_use_blocks
         else:
-            return HumanMessage(content=content)
+            text_content = str(content)
+        
+        # 构建额外参数
+        additional_kwargs.update({
+            "role": role,
+            "original_content": content
+        })
+        
+        # 创建消息
+        if role == "user":
+            return HumanMessage(
+                content=text_content,
+                name=name,
+                additional_kwargs=additional_kwargs
+            )
+        elif role == "assistant":
+            return AIMessage(
+                content=text_content,
+                name=name,
+                tool_calls=tool_calls if tool_calls else None,
+                additional_kwargs=additional_kwargs
+            )
+        elif role == "system":
+            return SystemMessage(
+                content=text_content,
+                name=name,
+                additional_kwargs=additional_kwargs
+            )
+        else:
+            # 默认为用户消息
+            return HumanMessage(
+                content=text_content,
+                name=name,
+                additional_kwargs=additional_kwargs
+            )
+    
+    def _extract_tool_call_from_anthropic(self, tool_use_item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """从Anthropic工具使用项中提取工具调用
+        
+        Args:
+            tool_use_item: Anthropic工具使用项
+            
+        Returns:
+            Optional[Dict[str, Any]]: 标准格式的工具调用
+        """
+        try:
+            tool_call = {
+                "id": tool_use_item.get("id", ""),
+                "type": "function",
+                "function": {
+                    "name": tool_use_item.get("name", ""),
+                    "arguments": tool_use_item.get("input", {})
+                }
+            }
+            
+            # 验证必需字段
+            if not tool_call["id"] or not tool_call["function"]["name"]:
+                return None
+            
+            return tool_call
+        except Exception:
+            return None
     
     def convert_to_provider_format(self, message: "IBaseMessage", provider: str) -> Dict[str, Any]:
         """转换为基础消息为提供商格式
@@ -579,13 +659,52 @@ class MessageConverter:
         # 处理内容
         if isinstance(message.content, str):
             content = [{"type": "text", "text": message.content}]
+        elif isinstance(message.content, list):
+            # 确保列表中的元素都是正确的格式
+            content = []
+            for item in message.content:
+                if isinstance(item, dict):
+                    content.append(item)
+                else:
+                    content.append({"type": "text", "text": str(item)})
         else:
-            content = message.content  # type: ignore
+            content = [{"type": "text", "text": str(message.content)}]
+        
+        # 处理工具调用
+        if isinstance(message, AIMessage) and message.tool_calls:
+            # 替换内容为工具使用块
+            tool_content = []
+            for tool_call in message.tool_calls:
+                tool_use_block = {
+                    "type": "tool_use",
+                    "id": tool_call.get("id", ""),
+                    "name": tool_call.get("function", {}).get("name", ""),
+                    "input": tool_call.get("function", {}).get("arguments", {})
+                }
+                tool_content.append(tool_use_block)
+            
+            # 如果有文本内容，保留
+            if message.content and isinstance(message.content, str) and message.content.strip():
+                tool_content.insert(0, {"type": "text", "text": message.content})
+            
+            content = tool_content
+        
+        # 处理工具消息
+        elif isinstance(message, ToolMessage):
+            content = [{
+                "type": "tool_result",
+                "tool_use_id": message.tool_call_id,
+                "content": message.content if isinstance(message.content, str) else str(message.content)
+            }]
         
         result = {
             "role": role,
             "content": content
         }
+        
+        # 添加名称（如果有）
+        if message.name:
+            result["name"] = message.name
         
         return result
 
@@ -665,6 +784,86 @@ class ProviderResponseConverter:
     def convert_from_anthropic_response(self, response: Dict[str, Any]) -> "IBaseMessage":
         """从Anthropic API响应转换（兼容性方法）"""
         return self.convert_from_provider_response("anthropic", response)
+    
+    def convert_from_anthropic_stream_events(self, events: List[Dict[str, Any]]) -> "IBaseMessage":
+        """从Anthropic流式事件转换
+        
+        Args:
+            events: Anthropic流式事件列表
+            
+        Returns:
+            IBaseMessage: 基础消息
+        """
+        try:
+            from .anthropic_stream_utils import AnthropicStreamUtils
+            stream_utils = AnthropicStreamUtils()
+            
+            # 处理流式事件
+            response = stream_utils.process_stream_events(events)
+            
+            # 转换为标准消息
+            return self.convert_from_provider_response("anthropic", response)
+        except Exception as e:
+            self.logger.error(f"转换Anthropic流式事件失败: {e}")
+            # 回退到基本处理
+            try:
+                from .anthropic_stream_utils import AnthropicStreamUtils
+                stream_utils = AnthropicStreamUtils()
+                text_content = stream_utils.extract_text_from_stream_events(events)
+                return AIMessage(content=text_content)
+            except:
+                return AIMessage(content="")
+    
+    def extract_text_from_anthropic_stream(self, events: List[Dict[str, Any]]) -> str:
+        """从Anthropic流式事件中提取文本内容
+        
+        Args:
+            events: Anthropic流式事件列表
+            
+        Returns:
+            str: 提取的文本内容
+        """
+        try:
+            from .anthropic_stream_utils import AnthropicStreamUtils
+            stream_utils = AnthropicStreamUtils()
+            return stream_utils.extract_text_from_stream_events(events)
+        except Exception as e:
+            self.logger.error(f"提取Anthropic流式文本失败: {e}")
+            return ""
+    
+    def extract_tool_calls_from_anthropic_stream(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """从Anthropic流式事件中提取工具调用
+        
+        Args:
+            events: Anthropic流式事件列表
+            
+        Returns:
+            List[Dict[str, Any]]: 工具调用列表
+        """
+        try:
+            from .anthropic_stream_utils import AnthropicStreamUtils
+            stream_utils = AnthropicStreamUtils()
+            return stream_utils.extract_tool_calls_from_stream_events(events)
+        except Exception as e:
+            self.logger.error(f"提取Anthropic流式工具调用失败: {e}")
+            return []
+    
+    def parse_anthropic_stream_line(self, line: str) -> Optional[Dict[str, Any]]:
+        """解析Anthropic流式响应行
+        
+        Args:
+            line: 流式响应行
+            
+        Returns:
+            Optional[Dict[str, Any]]: 解析后的事件
+        """
+        try:
+            from .anthropic_stream_utils import AnthropicStreamUtils
+            stream_utils = AnthropicStreamUtils()
+            return stream_utils.parse_stream_event(line)
+        except Exception as e:
+            self.logger.error(f"解析Anthropic流式行失败: {e}")
+            return None
 
 
 class MessageFactory:

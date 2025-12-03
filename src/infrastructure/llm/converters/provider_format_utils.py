@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Sequence
 from src.services.logger import get_logger
 from typing import TYPE_CHECKING
 
@@ -33,7 +33,7 @@ class BaseProviderFormatUtils(ABC):
         pass
     
     @abstractmethod
-    def convert_request(self, messages: List["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
+    def convert_request(self, messages: Sequence["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
         """转换请求格式"""
         pass
     

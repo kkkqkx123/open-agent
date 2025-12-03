@@ -3,7 +3,7 @@
 提供Gemini API的格式转换功能。
 """
 
-from typing import Dict, Any, List, Union
+from typing import Dict, Any, List, Union, Sequence
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -25,7 +25,7 @@ class GeminiFormatUtils(BaseProviderFormatUtils):
         """获取提供商名称"""
         return "gemini"
     
-    def convert_request(self, messages: List["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
+    def convert_request(self, messages: Sequence["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
         """转换为Gemini API请求格式"""
         contents = []
         system_instruction = None

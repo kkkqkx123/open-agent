@@ -3,7 +3,7 @@
 提供OpenAI API的格式转换功能。
 """
 
-from typing import Dict, Any, List, Union
+from typing import Dict, Any, List, Union, Sequence
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -25,7 +25,7 @@ class OpenAIFormatUtils(BaseProviderFormatUtils):
         """获取提供商名称"""
         return "openai"
     
-    def convert_request(self, messages: List["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
+    def convert_request(self, messages: Sequence["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
         """转换为OpenAI API请求格式"""
         openai_messages = []
         
