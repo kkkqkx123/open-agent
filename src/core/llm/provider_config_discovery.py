@@ -5,15 +5,15 @@
 """
 
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List, Optional, Set, TYPE_CHECKING
 from dataclasses import dataclass
 
-from src.services.logger import get_logger
 from src.core.common.exceptions.config import ConfigNotFoundError, ConfigError
 from src.core.config.config_loader import IConfigLoader
 from src.core.common.utils.dict_merger import DictMerger
 
-logger = get_logger(__name__)
+if TYPE_CHECKING:
+    from src.interfaces.common_infra import ILogger
 
 
 @dataclass
@@ -40,12 +40,13 @@ class ProviderConfigDiscovery:
     - 使用配置合并适配器处理配置合并
     """
     
-    def __init__(self, config_loader: IConfigLoader, base_config_path: str = "configs/llms"):
+    def __init__(self, config_loader: IConfigLoader, base_config_path: str = "configs/llms", logger: Optional["ILogger"] = None):
         """初始化Provider配置发现器
         
         Args:
             config_loader: 通用配置加载器
             base_config_path: LLM配置基础路径
+            logger: 日志记录器实例（可选）
         """
         self.config_loader = config_loader
         self.base_config_path = Path(base_config_path)
@@ -53,8 +54,10 @@ class ProviderConfigDiscovery:
         self._providers_cache: Optional[Dict[str, ProviderInfo]] = None
         self._supported_formats = {'.yaml', '.yml', '.json'}
         self.config_merger = DictMerger()
+        self.logger = logger
         
-        logger.debug(f"Provider配置发现器初始化完成，基础路径: {self.base_config_path}")
+        if self.logger:
+            self.logger.debug(f"Provider配置发现器初始化完成，基础路径: {self.base_config_path}")
     
     def discover_providers(self, force_refresh: bool = False) -> Dict[str, ProviderInfo]:
         """发现所有可用的Provider
@@ -71,7 +74,8 @@ class ProviderConfigDiscovery:
         providers: Dict[str, ProviderInfo] = {}
         
         if not self.provider_dir.exists():
-            logger.warning(f"Provider配置目录不存在: {self.provider_dir}")
+            if self.logger:
+                self.logger.warning(f"Provider配置目录不存在: {self.provider_dir}")
             return providers
         
         # 扫描provider目录下的子目录
@@ -84,10 +88,12 @@ class ProviderConfigDiscovery:
             
             if provider_info:
                 providers[provider_name] = provider_info
-                logger.debug(f"发现Provider: {provider_name}, 配置文件: {len(provider_info.config_files)}")
+                if self.logger:
+                    self.logger.debug(f"发现Provider: {provider_name}, 配置文件: {len(provider_info.config_files)}")
         
         self._providers_cache = providers
-        logger.info(f"发现 {len(providers)} 个Provider配置")
+        if self.logger:
+            self.logger.info(f"发现 {len(providers)} 个Provider配置")
         
         return providers
     
@@ -113,7 +119,8 @@ class ProviderConfigDiscovery:
                     break
             
             if not common_config_path:
-                logger.warning(f"Provider {provider_name} 缺少common配置文件")
+                if self.logger:
+                    self.logger.warning(f"Provider {provider_name} 缺少common配置文件")
                 return None
             
             # 查找模型特定配置文件
@@ -127,7 +134,8 @@ class ProviderConfigDiscovery:
                     config_files.append(relative_path)
             
             if not config_files:
-                logger.warning(f"Provider {provider_name} 没有找到模型配置文件")
+                if self.logger:
+                    self.logger.warning(f"Provider {provider_name} 没有找到模型配置文件")
                 return None
             
             return ProviderInfo(
@@ -138,7 +146,8 @@ class ProviderConfigDiscovery:
             )
             
         except Exception as e:
-            logger.error(f"扫描Provider目录失败 {provider_name}: {e}")
+            if self.logger:
+                self.logger.error(f"扫描Provider目录失败 {provider_name}: {e}")
             return None
     
     def get_provider_config(self, provider_name: str, model_name: str) -> Optional[Dict[str, Any]]:
@@ -154,7 +163,8 @@ class ProviderConfigDiscovery:
         providers = self.discover_providers()
         
         if provider_name not in providers:
-            logger.warning(f"未找到Provider: {provider_name}")
+            if self.logger:
+                self.logger.warning(f"未找到Provider: {provider_name}")
             return None
         
         provider_info = providers[provider_name]
@@ -168,7 +178,8 @@ class ProviderConfigDiscovery:
                 break
         
         if not model_config_path:
-            logger.warning(f"Provider {provider_name} 中未找到模型 {model_name} 的配置")
+            if self.logger:
+                self.logger.warning(f"Provider {provider_name} 中未找到模型 {model_name} 的配置")
             return None
         
         try:
@@ -187,11 +198,13 @@ class ProviderConfigDiscovery:
                 "model_config_path": model_config_path
             }
             
-            logger.debug(f"成功加载Provider配置: {provider_name}/{model_name}")
+            if self.logger:
+                self.logger.debug(f"成功加载Provider配置: {provider_name}/{model_name}")
             return merged_config
             
         except Exception as e:
-            logger.error(f"加载Provider配置失败 {provider_name}/{model_name}: {e}")
+            if self.logger:
+                self.logger.error(f"加载Provider配置失败 {provider_name}/{model_name}: {e}")
             return None
     
     def list_provider_models_legacy(self, provider_name: str) -> List[str]:
@@ -273,7 +286,8 @@ class ProviderConfigDiscovery:
         
         if self._providers_cache and provider_name in self._providers_cache:
             self._providers_cache[provider_name].enabled = True
-            logger.info(f"已启用Provider: {provider_name}")
+            if self.logger:
+                self.logger.info(f"已启用Provider: {provider_name}")
             return True
         
         return False
@@ -292,7 +306,8 @@ class ProviderConfigDiscovery:
         
         if self._providers_cache and provider_name in self._providers_cache:
             self._providers_cache[provider_name].enabled = False
-            logger.info(f"已禁用Provider: {provider_name}")
+            if self.logger:
+                self.logger.info(f"已禁用Provider: {provider_name}")
             return True
         
         return False
@@ -309,13 +324,15 @@ class ProviderConfigDiscovery:
         Returns:
             Dict[str, Any]: 合并后的配置
         """
-        logger.warning("_merge_configs方法已弃用，请使用config_merger.deep_merge()")
+        if self.logger:
+            self.logger.warning("_merge_configs方法已弃用，请使用config_merger.deep_merge()")
         return self.config_merger.deep_merge(base_config, override_config)
     
     def refresh_cache(self) -> None:
         """刷新缓存"""
         self._providers_cache = None
-        logger.debug("Provider配置缓存已清除")
+        if self.logger:
+            self.logger.debug("Provider配置缓存已清除")
     
     def get_discovery_status(self) -> Dict[str, Any]:
         """获取发现状态
@@ -392,7 +409,8 @@ class ProviderConfigDiscovery:
             config = self.get_provider_config(provider_name, model_name)
             return config is not None and "_provider_meta" in config
         except Exception as e:
-            logger.error(f"验证Provider配置失败 {provider_name}/{model_name}: {e}")
+            if self.logger:
+                self.logger.error(f"验证Provider配置失败 {provider_name}/{model_name}: {e}")
             return False
     
     def get_config_summary(self) -> Dict[str, Any]:

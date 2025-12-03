@@ -3,15 +3,15 @@
 提供全面的LLM配置验证功能，包括Provider配置验证。
 """
 
-from typing import Dict, Any, List, Optional, Type, Callable, Union
+from typing import Dict, Any, List, Optional, Type, Callable, Union, TYPE_CHECKING
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-from src.services.logger import get_logger
 from src.core.common.exceptions.config import ConfigError
 
-logger = get_logger(__name__)
+if TYPE_CHECKING:
+    from src.interfaces.common_infra import ILogger
 
 
 class ValidationSeverity(Enum):
@@ -97,11 +97,17 @@ class LLMConfigValidator:
     4. 配置完整性验证
     """
     
-    def __init__(self) -> None:
-        """初始化验证器"""
+    def __init__(self, logger: Optional["ILogger"] = None) -> None:
+        """初始化验证器
+        
+        Args:
+            logger: 日志记录器实例（可选）
+        """
         self.rules: List[ValidationRule] = []
+        self.logger = logger
         self._setup_default_rules()
-        logger.debug("LLM配置验证器初始化完成")
+        if self.logger:
+            self.logger.debug("LLM配置验证器初始化完成")
     
     def _setup_default_rules(self) -> None:
         """设置默认验证规则"""
@@ -243,7 +249,8 @@ class LLMConfigValidator:
         # 配置完整性验证
         self._validate_config_completeness(config, result, config_path)
         
-        logger.debug(f"配置验证完成: {result.get_summary()}")
+        if self.logger:
+            self.logger.debug(f"配置验证完成: {result.get_summary()}")
         return result
     
     def _validate_rule(self, config: Dict[str, Any], rule: ValidationRule, 
@@ -461,7 +468,8 @@ class LLMConfigValidator:
         # 检查模型名称格式
         if not model_name.startswith(("gpt-", "text-", "code-", "davinci-", "curie-", "babbage-", "ada-")):
             # 可能是自定义模型，发出警告而不是错误
-            logger.warning(f"OpenAI模型名称格式不常见: {model_name}")
+            if self.logger:
+                self.logger.warning(f"OpenAI模型名称格式不常见: {model_name}")
         
         return True
     
@@ -479,7 +487,8 @@ class LLMConfigValidator:
         
         # 检查模型名称格式
         if not model_name.startswith("claude-"):
-            logger.warning(f"Anthropic模型名称格式不常见: {model_name}")
+            if self.logger:
+                self.logger.warning(f"Anthropic模型名称格式不常见: {model_name}")
         
         return True
     
@@ -526,7 +535,8 @@ class LLMConfigValidator:
             rule: 验证规则
         """
         self.rules.append(rule)
-        logger.debug(f"添加验证规则: {rule.field_path}")
+        if self.logger:
+            self.logger.debug(f"添加验证规则: {rule.field_path}")
     
     def remove_rule(self, field_path: str) -> bool:
         """移除验证规则
@@ -541,8 +551,8 @@ class LLMConfigValidator:
         self.rules = [rule for rule in self.rules if rule.field_path != field_path]
         removed = len(self.rules) < original_count
         
-        if removed:
-            logger.debug(f"移除验证规则: {field_path}")
+        if removed and self.logger:
+            self.logger.debug(f"移除验证规则: {field_path}")
         
         return removed
     

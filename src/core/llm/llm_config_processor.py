@@ -4,12 +4,12 @@
 """
 
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Set
-from src.services.logger import get_logger
+from typing import Dict, Any, List, Optional, Set, TYPE_CHECKING
 from src.core.config.processor.config_processor_chain import IConfigProcessor
 from src.core.common.exceptions.config import ConfigError
 
-logger = get_logger(__name__)
+if TYPE_CHECKING:
+    from src.interfaces.common_infra import ILogger
 
 
 class LLMInheritanceProcessor(IConfigProcessor):
@@ -21,15 +21,18 @@ class LLMInheritanceProcessor(IConfigProcessor):
     3. 循环继承检测
     """
     
-    def __init__(self, base_config_path: str = "configs/llms"):
+    def __init__(self, base_config_path: str = "configs/llms", logger: Optional["ILogger"] = None):
         """初始化LLM继承处理器
         
         Args:
             base_config_path: LLM配置基础路径
+            logger: 日志记录器实例（可选）
         """
         self.base_config_path = Path(base_config_path)
         self._loading_stack: List[str] = []
-        logger.debug(f"LLM继承处理器初始化完成，基础路径: {self.base_config_path}")
+        self.logger = logger
+        if self.logger:
+            self.logger.debug(f"LLM继承处理器初始化完成，基础路径: {self.base_config_path}")
     
     def process(self, config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
         """处理配置继承
@@ -138,16 +141,19 @@ class LLMInheritanceProcessor(IConfigProcessor):
         if parent_path.startswith("provider/"):
             # Provider路径：相对于LLM配置基础路径
             full_path = self.base_config_path / parent_path
-            logger.debug(f"解析Provider路径: {parent_path} -> {full_path}")
+            if self.logger:
+                self.logger.debug(f"解析Provider路径: {parent_path} -> {full_path}")
         elif parent_path.startswith("/"):
             # 绝对路径：相对于LLM配置基础路径
             full_path = self.base_config_path / parent_path.lstrip("/")
-            logger.debug(f"解析绝对路径: {parent_path} -> {full_path}")
+            if self.logger:
+                self.logger.debug(f"解析绝对路径: {parent_path} -> {full_path}")
         else:
             # 相对路径：相对于当前配置文件的目录
             current_dir = Path(current_path).parent
             full_path = current_dir / parent_path
-            logger.debug(f"解析相对路径: {parent_path} -> {full_path}")
+            if self.logger:
+                self.logger.debug(f"解析相对路径: {parent_path} -> {full_path}")
         
         # 确保文件有正确的扩展名
         if not full_path.suffix:
@@ -266,24 +272,27 @@ class LLMConfigProcessorChain:
     3. 引用处理器
     """
     
-    def __init__(self, base_config_path: str = "configs/llms"):
+    def __init__(self, base_config_path: str = "configs/llms", logger: Optional["ILogger"] = None):
         """初始化LLM配置处理器链
         
         Args:
             base_config_path: LLM配置基础路径
+            logger: 日志记录器实例（可选）
         """
         self.base_config_path = base_config_path
         self.processors: List[IConfigProcessor] = []
+        self.logger = logger
         
         # 添加默认处理器
         self._setup_default_processors()
         
-        logger.debug("LLM配置处理器链初始化完成")
+        if self.logger:
+            self.logger.debug("LLM配置处理器链初始化完成")
     
     def _setup_default_processors(self) -> None:
         """设置默认处理器"""
         # 1. 继承处理器（支持Provider路径）
-        self.add_processor(LLMInheritanceProcessor(self.base_config_path))
+        self.add_processor(LLMInheritanceProcessor(self.base_config_path, self.logger))
         
         # 2. 环境变量处理器
         from src.core.config.processor.config_processor_chain import EnvironmentVariableProcessor
@@ -300,7 +309,8 @@ class LLMConfigProcessorChain:
             processor: 配置处理器
         """
         self.processors.append(processor)
-        logger.debug(f"已添加LLM配置处理器: {processor.__class__.__name__}")
+        if self.logger:
+            self.logger.debug(f"已添加LLM配置处理器: {processor.__class__.__name__}")
     
     def process_config(self, config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
         """处理配置
@@ -316,13 +326,16 @@ class LLMConfigProcessorChain:
         
         for i, processor in enumerate(self.processors):
             try:
-                logger.debug(f"执行LLM处理器 {i+1}/{len(self.processors)}: {processor.__class__.__name__}")
+                if self.logger:
+                    self.logger.debug(f"执行LLM处理器 {i+1}/{len(self.processors)}: {processor.__class__.__name__}")
                 result = processor.process(result, config_path)
             except Exception as e:
-                logger.error(f"LLM处理器 {processor.__class__.__name__} 执行失败: {e}")
+                if self.logger:
+                    self.logger.error(f"LLM处理器 {processor.__class__.__name__} 执行失败: {e}")
                 raise
         
-        logger.debug(f"LLM配置处理完成，共执行 {len(self.processors)} 个处理器")
+        if self.logger:
+            self.logger.debug(f"LLM配置处理完成，共执行 {len(self.processors)} 个处理器")
         return result
     
     def get_processor_count(self) -> int:

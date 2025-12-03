@@ -1,7 +1,7 @@
 """HumanRelay LLM客户端实现"""
 
 import asyncio
-from typing import List, Dict, Any, Optional, AsyncGenerator, Generator, Sequence, cast
+from typing import List, Dict, Any, AsyncGenerator, Sequence, cast
 from src.interfaces.messages import IBaseMessage
 from src.infrastructure.messages.types import HumanMessage, AIMessage
 

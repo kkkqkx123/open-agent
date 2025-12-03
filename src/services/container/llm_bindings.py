@@ -10,6 +10,7 @@ from src.interfaces.llm import (
     ITokenConfigProvider,
     ITokenCostCalculator
 )
+from src.interfaces.common_infra import ILogger
 from src.services.llm.token_calculation_service import TokenCalculationService
 from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
 from src.services.llm.config import (
@@ -112,20 +113,18 @@ def register_config_manager(
     
     llm_config = config.get("llm", {})
     config_manager_config = llm_config.get("config_manager", {})
-    enable_provider_configs = config_manager_config.get("enable_provider_configs", True)
+    base_path = config_manager_config.get("base_path", "configs/llms")
     
     container.register_factory(
         LLMConfigManager,
         lambda: LLMConfigManager(
-            config_loader=container.get(ConfigLoader),
-            base_path=config_manager_config.get("base_path", "configs/llms"),
-            enable_provider_configs=enable_provider_configs
+            base_path=base_path
         ),
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
     
-    logger.info(f"注册LLM配置管理器: provider_configs={enable_provider_configs}")
+    logger.info(f"注册LLM配置管理器: base_path={base_path}")
 
 
 def register_provider_discovery(
@@ -144,7 +143,8 @@ def register_provider_discovery(
         ProviderConfigDiscovery,
         lambda: ProviderConfigDiscovery(
             config_loader=container.get(ConfigLoader),
-            base_config_path=base_path
+            base_config_path=base_path,
+            logger=container.get(ILogger)
         ),
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
