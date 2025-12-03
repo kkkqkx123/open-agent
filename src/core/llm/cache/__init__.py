@@ -1,18 +1,25 @@
-"""缓存模块初始化文件"""
+"""缓存模块初始化文件（向后兼容层）
+
+本模块已迁移到 src/infrastructure/cache/，此文件仅为向后兼容性保留。
+新代码应该直接从 src/infrastructure/cache/ 导入。
+"""
 
 from typing import Optional
-from .cache_manager import CacheManager
-from .cache_config import BaseCacheConfig, LLMCacheConfig, GeminiCacheConfig, AnthropicCacheConfig
+# 从新位置导入，提供向后兼容性
+from src.infrastructure.cache.core.cache_manager import CacheManager
+from src.infrastructure.cache.config.cache_config import (
+    BaseCacheConfig, LLMCacheConfig, GeminiCacheConfig, AnthropicCacheConfig
+)
 from src.interfaces.llm import ICacheProvider, ICacheKeyGenerator
 from .server_interfaces import IServerCacheProvider
-from .memory_provider import MemoryCacheProvider
-from .key_generator import (
+from src.infrastructure.cache.providers.memory.memory_provider import MemoryCacheProvider
+from src.infrastructure.cache.core.key_generator import (
     LLMCacheKeyGenerator,
     GeminiCacheKeyGenerator,
     AnthropicCacheKeyGenerator,
     DefaultCacheKeyGenerator
 )
-from .gemini_cache_manager import GeminiCacheManager
+from src.infrastructure.cache.providers.gemini.gemini_cache_manager import GeminiCacheManager
 from .providers.gemini_server_provider import GeminiServerCacheProvider
 
 # 工厂函数

@@ -7,7 +7,7 @@ from typing import Any, Optional, Dict
 from collections import OrderedDict
 
 from src.interfaces.llm import ICacheProvider
-from ....core.llm.cache.cache_config import CacheEntry
+from ...config.cache_config import CacheEntry
 
 
 class MemoryCacheProvider(ICacheProvider):

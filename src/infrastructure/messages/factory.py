@@ -129,7 +129,7 @@ class MessageFactory(IMessageFactory):
         
         # 创建消息
         if message_class == ToolMessage:
-            tool_call_id = kwargs.get("tool_call_id")
+            tool_call_id = kwargs.pop("tool_call_id", None)
             if not tool_call_id:
                 raise ValueError("Tool message requires tool_call_id")
             return message_class(content, tool_call_id, **kwargs)

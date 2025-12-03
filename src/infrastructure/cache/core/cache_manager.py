@@ -5,11 +5,11 @@ import threading
 from typing import Any, Optional, List, Dict, Sequence
 from src.interfaces.messages import IBaseMessage
 
-from ...core.llm.cache.cache_config import BaseCacheConfig, LLMCacheConfig
+from ..config.cache_config import BaseCacheConfig, LLMCacheConfig
 from src.interfaces.llm import ICacheProvider
-from ...core.llm.cache.server_interfaces import IServerCacheProvider
+from src.core.llm.cache.server_interfaces import IServerCacheProvider
 from .key_generator import ICacheKeyGenerator, LLMCacheKeyGenerator
-from .providers.memory_provider import MemoryCacheProvider
+from ..providers.memory.memory_provider import MemoryCacheProvider
 
 
 class CacheManager:

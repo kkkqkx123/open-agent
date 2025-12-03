@@ -3,9 +3,9 @@
 from typing import Any, Optional, Sequence, Dict
 from src.interfaces.messages import IBaseMessage
 
-from ..cache_manager import CacheManager
-from ....core.llm.cache.cache_config import BaseCacheConfig
-from ..key_generator import LLMCacheKeyGenerator
+from ...core.cache_manager import CacheManager
+from ...config.cache_config import BaseCacheConfig
+from ...core.key_generator import LLMCacheKeyGenerator
 
 
 class GeminiCacheManager(CacheManager):
@@ -91,7 +91,7 @@ class GeminiCacheKeyGenerator(LLMCacheKeyGenerator):
             缓存键
         """
         # 委托给统一的Gemini键生成器
-        from ..key_generator import GeminiCacheKeyGenerator
+        from ...core.key_generator import GeminiCacheKeyGenerator
         gemini_generator = GeminiCacheKeyGenerator(
             include_model=self.include_model,
             include_parameters=self.include_parameters

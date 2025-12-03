@@ -7,17 +7,15 @@ from .base import BaseMessage
 from .types import HumanMessage, AIMessage, SystemMessage, ToolMessage
 from .converters import MessageConverter
 from .factory import MessageFactory
-from .adapters import LangChainCompatibilityAdapter
 from .utils import MessageUtils
 
 __all__ = [
     "BaseMessage",
-    "HumanMessage", 
+    "HumanMessage",
     "AIMessage",
     "SystemMessage",
     "ToolMessage",
     "MessageConverter",
     "MessageFactory",
-    "LangChainCompatibilityAdapter",
     "MessageUtils"
 ]
