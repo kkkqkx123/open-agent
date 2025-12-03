@@ -16,6 +16,7 @@ from typing import (
     get_args,
     get_origin,
     get_type_hints,
+    TYPE_CHECKING,
 )
 
 from langchain_core.runnables import (
@@ -23,6 +24,9 @@ from langchain_core.runnables import (
     RunnableConfig,
     RunnableLambda,
 )
+
+if TYPE_CHECKING:
+    from langchain_core.runnables import RunnableLambda as RunnableLambdaType
 
 from langgraph._internal._runnable import (
     RunnableCallable,
@@ -52,16 +56,18 @@ def _get_branch_path_input_schema(
             | None
         ) = None
         if isinstance(path, (RunnableCallable, RunnableLambda)):
-            if isfunction(path.func) or ismethod(path.func):
-                callable_ = path.func
-            elif (callable_method := getattr(path.func, "__call__", None)) and ismethod(
+            func = getattr(path, "func", None)
+            afunc = getattr(path, "afunc", None)
+            if func and (isfunction(func) or ismethod(func)):
+                callable_ = func
+            elif func and (callable_method := getattr(func, "__call__", None)) and ismethod(
                 callable_method
             ):
                 callable_ = callable_method
-            elif isfunction(path.afunc) or ismethod(path.afunc):
-                callable_ = path.afunc
-            elif (
-                callable_method := getattr(path.afunc, "__call__", None)
+            elif afunc and (isfunction(afunc) or ismethod(afunc)):
+                callable_ = afunc
+            elif afunc and (
+                callable_method := getattr(afunc, "__call__", None)
             ) and ismethod(callable_method):
                 callable_ = callable_method
         elif callable(path):
@@ -103,7 +109,7 @@ class BranchSpec(NamedTuple):
                 # find func
                 func: Callable | None = None
                 if isinstance(path, (RunnableCallable, RunnableLambda)):
-                    func = path.func or path.afunc
+                    func = getattr(path, "func", None) or getattr(path, "afunc", None)
                 if func is not None:
                     # find callable method
                     if (cal := getattr(path, "__call__", None)) and ismethod(cal):

@@ -196,10 +196,10 @@ def add_messages(
         for m in convert_to_messages(right)
     ]
     # assign missing ids
-    for m in left:
+    for m in cast(list[BaseMessage], left):
         if m.id is None:
             m.id = str(uuid.uuid4())
-    for idx, m in enumerate(right):
+    for idx, m in enumerate(cast(list[BaseMessage], right)):
         if m.id is None:
             m.id = str(uuid.uuid4())
         if isinstance(m, RemoveMessage) and m.id == REMOVE_ALL_MESSAGES:
@@ -210,9 +210,11 @@ def add_messages(
 
     # merge
     merged = left.copy()
-    merged_by_id = {m.id: i for i, m in enumerate(merged)}
+    merged_cast = cast(list[BaseMessage], merged)
+    merged_by_id = {m.id: i for i, m in enumerate(merged_cast)}
     ids_to_remove = set()
-    for m in right:
+    right_cast = cast(list[BaseMessage], right)
+    for m in right_cast:
         if (existing_idx := merged_by_id.get(m.id)) is not None:
             if isinstance(m, RemoveMessage):
                 ids_to_remove.add(m.id)
@@ -227,7 +229,7 @@ def add_messages(
 
             merged_by_id[m.id] = len(merged)
             merged.append(m)
-    merged = [m for m in merged if m.id not in ids_to_remove]
+    merged = [m for m in merged_cast if m.id not in ids_to_remove]
 
     if format == "langchain-openai":
         merged = _format_messages(merged)
@@ -237,7 +239,7 @@ def add_messages(
     else:
         pass
 
-    return merged
+    return cast(Messages, merged)
 
 
 @deprecated(
@@ -344,18 +346,20 @@ def push_message(
     if message.id is None:
         raise ValueError("Message ID is required")
 
-    if isinstance(config["callbacks"], BaseCallbackManager):
-        manager = config["callbacks"]
+    handlers: list[BaseCallbackHandler] | None = None
+    callbacks = config.get("callbacks")
+    if isinstance(callbacks, BaseCallbackManager):
+        manager = callbacks
         handlers = manager.handlers
-    elif isinstance(config["callbacks"], list) and all(
-        isinstance(x, BaseCallbackHandler) for x in config["callbacks"]
+    elif isinstance(callbacks, list) and all(
+        isinstance(x, BaseCallbackHandler) for x in callbacks
     ):
-        handlers = config["callbacks"]
+        handlers = callbacks
 
-    if stream_handler := next(
+    if handlers and (stream_handler := next(
         (x for x in handlers if isinstance(x, StreamMessagesHandler)), None
-    ):
-        metadata = config["metadata"]
+    )):
+        metadata = config.get("metadata", {})
         message_meta = (
             tuple(cast(str, metadata["langgraph_checkpoint_ns"]).split(NS_SEP)),
             metadata,
@@ -363,6 +367,8 @@ def push_message(
         stream_handler._emit(message_meta, message, dedupe=False)
 
     if state_key:
-        config[CONF][CONFIG_KEY_SEND]([(state_key, message)])
+        conf = config.get(CONF, {})
+        if isinstance(conf, dict) and CONFIG_KEY_SEND in conf:
+            conf[CONFIG_KEY_SEND]([(state_key, message)])
 
-    return message
+    return cast(AnyMessage, message)

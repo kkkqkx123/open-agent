@@ -126,7 +126,9 @@ def push_ui_message(
 
     writer(evt)
     if state_key:
-        config[CONF][CONFIG_KEY_SEND]([(state_key, evt)])
+        conf = config.get(CONF, {})
+        if isinstance(conf, dict) and CONFIG_KEY_SEND in conf:
+            conf[CONFIG_KEY_SEND]([(state_key, evt)])
 
     return evt
 
@@ -158,7 +160,9 @@ def delete_ui_message(id: str, *, state_key: str = "ui") -> RemoveUIMessage:
     evt: RemoveUIMessage = {"type": "remove-ui", "id": id}
 
     writer(evt)
-    config[CONF][CONFIG_KEY_SEND]([(state_key, evt)])
+    conf = config.get(CONF, {})
+    if isinstance(conf, dict) and CONFIG_KEY_SEND in conf:
+        conf[CONFIG_KEY_SEND]([(state_key, evt)])
 
     return evt
 
@@ -209,10 +213,12 @@ def ui_message_reducer(
             else:
                 ids_to_remove.discard(msg_id)
 
-                if cast(UIMessage, msg).get("metadata", {}).get("merge", False):
-                    prev_msg = merged[existing_idx]
+                ui_msg = cast(UIMessage, msg)
+                if ui_msg.get("metadata", {}).get("merge", False):
+                    prev_msg = cast(UIMessage, merged[existing_idx])
                     msg = msg.copy()
-                    msg["props"] = {**prev_msg["props"], **msg["props"]}
+                    ui_msg = cast(UIMessage, msg)
+                    ui_msg["props"] = {**prev_msg.get("props", {}), **ui_msg.get("props", {})}
 
                 merged[existing_idx] = msg
         else:
