@@ -31,8 +31,6 @@ class OpenAIValidationUtils(BaseValidationUtils):
     def __init__(self) -> None:
         """初始化OpenAI验证工具"""
         super().__init__()
-        self._supported_models = self._get_supported_models()
-        self._model_limits = self._get_model_limits()
     
     def validate_request_parameters(self, parameters: Dict[str, Any]) -> List[str]:
         """验证请求参数"""
@@ -117,7 +115,7 @@ class OpenAIValidationUtils(BaseValidationUtils):
         else:
             return f"{friendly_message}: {error_message}"
     
-    def _validate_model_parameter(self, model: str) -> List[str]:
+    def _validate_model_parameter(self, model: str, config: Optional[Dict[str, Any]] = None) -> List[str]:
         """验证模型参数"""
         errors = []
         
@@ -129,9 +127,16 @@ class OpenAIValidationUtils(BaseValidationUtils):
             errors.append("model参数不能为空")
             return errors
         
-        # 检查是否为支持的模型
-        if model not in self._supported_models:
-            errors.append(f"不支持的模型: {model}，支持的模型: {', '.join(sorted(self._supported_models))}")
+        # 从配置中获取支持的模型列表
+        if config and "models" in config:
+            supported_models = set(config["models"])
+            if isinstance(supported_models, list):
+                supported_models = set(supported_models)
+            # 使用基类的验证方法
+            model_errors = super()._validate_model(model, supported_models)
+            errors.extend(model_errors)
+        else:
+            errors.append(f"无法验证模型 {model}，缺少配置信息")
         
         return errors
     
@@ -248,9 +253,8 @@ class OpenAIValidationUtils(BaseValidationUtils):
         if "max_tokens" in parameters:
             model = parameters.get("model")
             max_tokens_errors = self._validate_max_tokens(
-                parameters["max_tokens"], 
-                model, 
-                self._model_limits
+                parameters["max_tokens"],
+                model
             )
             errors.extend(max_tokens_errors)
         
@@ -561,56 +565,3 @@ class OpenAIValidationUtils(BaseValidationUtils):
         
         return errors
     
-    def _get_supported_models(self) -> Set[str]:
-        """获取支持的模型列表"""
-        return {
-            # GPT-4系列
-            "gpt-4", "gpt-4-32k", "gpt-4-0613", "gpt-4-32k-0613",
-            "gpt-4-turbo", "gpt-4-turbo-2024-04-09", "gpt-4-1106-preview",
-            "gpt-4-0125-preview", "gpt-4-turbo-preview",
-            
-            # GPT-4o系列
-            "gpt-4o", "gpt-4o-2024-05-13", "gpt-4o-2024-08-06",
-            
-            # GPT-3.5系列
-            "gpt-3.5-turbo", "gpt-3.5-turbo-16k", "gpt-3.5-turbo-0613",
-            "gpt-3.5-turbo-16k-0613", "gpt-3.5-turbo-1106", "gpt-3.5-turbo-0125",
-            
-            # GPT-5系列（假设的未来模型）
-            "gpt-5", "gpt-5.1", "gpt-5-pro", "gpt-5-mini", "gpt-5-nano"
-        }
-    
-    def _get_model_limits(self) -> Dict[str, int]:
-        """获取模型的token限制"""
-        return {
-            # GPT-4系列
-            "gpt-4": 8192,
-            "gpt-4-32k": 32768,
-            "gpt-4-0613": 8192,
-            "gpt-4-32k-0613": 32768,
-            "gpt-4-turbo": 128000,
-            "gpt-4-turbo-2024-04-09": 128000,
-            "gpt-4-1106-preview": 128000,
-            "gpt-4-0125-preview": 128000,
-            "gpt-4-turbo-preview": 128000,
-            
-            # GPT-4o系列
-            "gpt-4o": 128000,
-            "gpt-4o-2024-05-13": 128000,
-            "gpt-4o-2024-08-06": 128000,
-            
-            # GPT-3.5系列
-            "gpt-3.5-turbo": 4096,
-            "gpt-3.5-turbo-16k": 16384,
-            "gpt-3.5-turbo-0613": 4096,
-            "gpt-3.5-turbo-16k-0613": 16384,
-            "gpt-3.5-turbo-1106": 16384,
-            "gpt-3.5-turbo-0125": 16384,
-            
-            # GPT-5系列（假设的限制）
-            "gpt-5": 200000,
-            "gpt-5.1": 200000,
-            "gpt-5-pro": 200000,
-            "gpt-5-mini": 100000,
-            "gpt-5-nano": 50000
-        }

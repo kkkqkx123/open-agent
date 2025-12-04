@@ -3,7 +3,7 @@
 专门处理Anthropic API的验证和错误处理逻辑。
 """
 
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Set
 from src.services.logger import get_logger
 from src.infrastructure.llm.converters.base.base_validation_utils import BaseValidationUtils, BaseValidationError, BaseFormatError
 
@@ -20,28 +20,6 @@ class AnthropicFormatError(BaseFormatError):
 
 class AnthropicValidationUtils(BaseValidationUtils):
     """Anthropic验证工具类"""
-    
-    # 支持的模型列表
-    SUPPORTED_MODELS = {
-        "claude-sonnet-4-5",
-        "claude-3-opus",
-        "claude-3-sonnet",
-        "claude-3-haiku",
-        "claude-2.1",
-        "claude-2.0",
-        "claude-instant-1.2"
-    }
-    
-    # 最大token限制
-    MAX_TOKENS_LIMITS = {
-        "claude-sonnet-4-5": 8192,
-        "claude-3-opus": 4096,
-        "claude-3-sonnet": 4096,
-        "claude-3-haiku": 4096,
-        "claude-2.1": 4096,
-        "claude-2.0": 4096,
-        "claude-instant-1.2": 4096
-    }
     
     def __init__(self) -> None:
         """初始化验证工具"""
@@ -87,11 +65,25 @@ class AnthropicValidationUtils(BaseValidationUtils):
         
         return errors
     
-    def _validate_model(self, model: str) -> List[str]:
+    def _validate_model(self, model: str, supported_models: Optional[Set[str]] = None) -> List[str]:
         """验证模型参数"""
-        return self._validate_model(model, self.SUPPORTED_MODELS)
+        errors = []
+        
+        if not isinstance(model, str):
+            errors.append("model参数必须是字符串")
+            return errors
+        
+        if not model.strip():
+            errors.append("model参数不能为空")
+            return errors
+        
+        # 如果提供了支持的模型列表，进行验证
+        if supported_models and model not in supported_models:
+            errors.append(f"不支持的模型: {model}，支持的模型: {', '.join(sorted(supported_models))}")
+        
+        return errors
     
-    def _validate_max_tokens(self, max_tokens: int, model: Optional[str]) -> List[str]:
+    def _validate_max_tokens(self, max_tokens: int, model: Optional[str] = None, limits: Optional[Dict[str, int]] = None) -> List[str]:
         """验证max_tokens参数"""
         errors = []
         
@@ -99,22 +91,26 @@ class AnthropicValidationUtils(BaseValidationUtils):
             errors.append("max_tokens参数必须是整数")
         elif max_tokens <= 0:
             errors.append("max_tokens参数必须大于0")
-        elif max_tokens > 8192:
-            errors.append("max_tokens参数不能超过8192")
-        elif model and model in self.MAX_TOKENS_LIMITS:
-            limit = self.MAX_TOKENS_LIMITS[model]
-            if max_tokens > limit:
-                errors.append(f"模型 {model} 的max_tokens不能超过 {limit}")
+        else:
+            # 如果提供了限制，使用限制进行验证
+            if limits and model and model in limits:
+                limit = limits[model]
+                if max_tokens > limit:
+                    errors.append(f"max_tokens参数不能超过模型限制 {limit}")
+            else:
+                # 使用默认限制
+                if max_tokens > 8192:
+                    errors.append("max_tokens参数不能超过8192")
         
         return errors
     
-    def _validate_temperature(self, temperature: Union[int, float]) -> List[str]:
+    def _validate_temperature(self, temperature: Union[int, float], min_val: float = 0.0, max_val: float = 1.0) -> List[str]:
         """验证temperature参数"""
-        return self._validate_temperature(temperature, 0.0, 1.0)
+        return super()._validate_temperature(temperature, min_val, max_val)
     
-    def _validate_top_p(self, top_p: Union[int, float]) -> List[str]:
+    def _validate_top_p(self, top_p: Union[int, float], min_val: float = 0.0, max_val: float = 1.0) -> List[str]:
         """验证top_p参数"""
-        return self._validate_top_p(top_p, 0.0, 1.0)
+        return super()._validate_top_p(top_p, min_val, max_val)
     
     def _validate_top_k(self, top_k: int) -> List[str]:
         """验证top_k参数"""
@@ -129,14 +125,14 @@ class AnthropicValidationUtils(BaseValidationUtils):
         
         return errors
     
-    def _validate_stop_sequences(self, stop_sequences: List[str]) -> List[str]:
+    def _validate_stop_sequences(self, stop_sequences: List[str], max_count: int = 4) -> List[str]:
         """验证stop_sequences参数"""
         errors = []
         
         if not isinstance(stop_sequences, list):
             errors.append("stop_sequences参数必须是列表")
-        elif len(stop_sequences) > 4:
-            errors.append("stop_sequences最多支持4个序列")
+        elif len(stop_sequences) > max_count:
+            errors.append(f"stop_sequences最多支持{max_count}个序列")
         else:
             for i, sequence in enumerate(stop_sequences):
                 if not isinstance(sequence, str):
@@ -169,14 +165,14 @@ class AnthropicValidationUtils(BaseValidationUtils):
         
         return errors
     
-    def _validate_tools(self, tools: List[Dict[str, Any]]) -> List[str]:
+    def _validate_tools(self, tools: List[Dict[str, Any]], max_count: int = 100) -> List[str]:
         """验证tools参数"""
         errors = []
         
         if not isinstance(tools, list):
             errors.append("tools参数必须是列表")
-        elif len(tools) > 100:
-            errors.append("tools参数不能超过100个工具")
+        elif len(tools) > max_count:
+            errors.append(f"tools参数不能超过{max_count}个工具")
         else:
             tool_names = set()
             for i, tool in enumerate(tools):
@@ -415,3 +411,4 @@ class AnthropicValidationUtils(BaseValidationUtils):
         
         friendly_message = error_mappings.get(error_type, f"未知错误类型: {error_type}")
         return f"{friendly_message}: {error_message}"
+    

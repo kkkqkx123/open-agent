@@ -3,7 +3,7 @@
 专门处理Gemini API的响应和请求验证。
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Set
 from src.services.logger import get_logger
 
 
