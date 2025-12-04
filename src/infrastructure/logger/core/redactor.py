@@ -7,7 +7,7 @@ from typing import List, Optional, Pattern, Dict, Any, TYPE_CHECKING
 from .log_level import LogLevel
 
 if TYPE_CHECKING:
-    from ...interfaces.common_infra import ILogRedactor
+    from ....interfaces.logger import ILogRedactor
 else:
     ILogRedactor = object  # type: ignore
 

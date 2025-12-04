@@ -1,7 +1,4 @@
-"""日志格式化器适配器
-
-提供各种日志格式化器的技术实现。
-"""
+"""基础设施层日志格式化器"""
 
 from .base_formatter import BaseFormatter
 from .text_formatter import TextFormatter

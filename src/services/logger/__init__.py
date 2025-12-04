@@ -1,8 +1,8 @@
 """日志服务模块"""
 
-from ...interfaces.common_infra import LogLevel
-from ...core.logger.redactor import LogRedactor, CustomLogRedactor
-from ...core.logger.structured_file_logger import StructuredFileLogger
+from ...interfaces.logger import LogLevel, ILogRedactor
+from ...infrastructure.logger.core.redactor import LogRedactor, CustomLogRedactor
+from ...infrastructure.logger.core.structured_file_logger import StructuredFileLogger
 from .logger_service import LoggerService, LoggerFactory, get_logger, set_global_config
 from .error_handler import (
     ErrorType,

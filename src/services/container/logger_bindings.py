@@ -1,16 +1,19 @@
 """日志服务依赖注入绑定配置
 
 统一注册日志相关服务，包括ILogger接口和LogRedactor等。
+更新后使用基础设施层的组件。
 """
 
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 
-from src.interfaces.common_infra import ILogger, IBaseHandler, ILogRedactor, LogLevel, ServiceLifetime
+from src.interfaces.logger import ILogger, IBaseHandler, ILogRedactor, LogLevel
+from src.interfaces.common_infra import ServiceLifetime
 from src.services.logger.logger_service import LoggerService
-from src.core.logger.redactor import LogRedactor, CustomLogRedactor
+from src.infrastructure.logger.core.redactor import LogRedactor, CustomLogRedactor
+from src.infrastructure.logger.factory.logger_factory import LoggerFactory
 
 if TYPE_CHECKING:
-    from src.core.logger.log_level import LogLevel as CoreLogLevel
+    pass
 
 
 def register_logger_services(container, config: Dict[str, Any], environment: str = "default") -> None:
@@ -27,24 +30,33 @@ def register_logger_services(container, config: Dict[str, Any], environment: str
     log_outputs:
       - type: "console"
         level: "INFO"
-        format: "text"
+        formatter: "color"
       - type: "file"
         level: "DEBUG"
-        format: "json"
-        path: "logs/app.log"
-    
-    secret_patterns:
-      - "sk-[a-zA-Z0-9]{20,}"
-      - "\\w+@\\w+\\.\\w+"
+        formatter: "json"
+        filename: "logs/app.log"
+        max_bytes: 10485760
+        backup_count: 5
     
     log_redactor:
       hash_sensitive: false
       patterns:
         - pattern: "custom_pattern"
           replacement: "***CUSTOM***"
+    
+    business_config:
+      enable_audit: true
+      audit_keywords: ["login", "logout", "auth"]
+      enable_business_filter: true
+      business_rules:
+        - type: "level_filter"
+          min_level: "INFO"
     ```
     """
     try:
+        # 注册日志工厂
+        register_logger_factory(container, config, environment)
+        
         # 注册日志脱敏器
         register_log_redactor(container, config, environment)
         
@@ -60,6 +72,22 @@ def register_logger_services(container, config: Dict[str, Any], environment: str
         raise
 
 
+def register_logger_factory(container, config: Dict[str, Any], environment: str = "default") -> None:
+    """注册日志工厂"""
+    
+    def logger_factory_factory() -> LoggerFactory:
+        """创建日志工厂实例"""
+        return LoggerFactory()
+    
+    # 注册日志工厂为单例
+    container.register_factory(
+        LoggerFactory,
+        logger_factory_factory,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
+
+
 def register_log_redactor(container, config: Dict[str, Any], environment: str = "default") -> None:
     """注册日志脱敏器"""
     
@@ -67,7 +95,7 @@ def register_log_redactor(container, config: Dict[str, Any], environment: str = 
     redactor_config = config.get("log_redactor", {})
     
     # 创建脱敏器工厂函数
-    def redactor_factory() -> LogRedactor:
+    def redactor_factory() -> ILogRedactor:
         if redactor_config:
             # 使用自定义脱敏器
             return CustomLogRedactor(redactor_config)
@@ -96,11 +124,15 @@ def register_handlers(container, config: Dict[str, Any], environment: str = "def
     
     def handlers_factory() -> List[IBaseHandler]:
         """创建处理器列表"""
+        # 获取日志工厂
+        logger_factory = container.get(LoggerFactory)
+        
+        # 从配置创建处理器
         handlers = []
         log_outputs = config.get("log_outputs", [{"type": "console"}])
         
         for output_config in log_outputs:
-            handler = create_handler_from_config(output_config)
+            handler = create_handler_from_config(output_config, logger_factory)
             if handler:
                 handlers.append(handler)
         
@@ -115,31 +147,48 @@ def register_handlers(container, config: Dict[str, Any], environment: str = "def
     )
 
 
-def create_handler_from_config(output_config: Dict[str, Any]) -> Optional[IBaseHandler]:
+def create_handler_from_config(output_config: Dict[str, Any], logger_factory: LoggerFactory) -> Optional[IBaseHandler]:
     """根据配置创建处理器
     
     Args:
         output_config: 输出配置
+        logger_factory: 日志工厂实例
         
     Returns:
         处理器实例或None
     """
-    from src.adapters.logger.handlers.console_handler import ConsoleHandler
-    from src.adapters.logger.handlers.file_handler import FileHandler
-    from src.adapters.logger.handlers.json_handler import JsonHandler
-    from src.core.logger.log_level import LogLevel as CoreLogLevel
-    
     handler_type = output_config.get("type", "console")
     handler_level_str = output_config.get("level", "INFO")
     handler_level = _log_level_from_string(handler_level_str)
-    core_level = _to_core_log_level(handler_level)
     
     if handler_type == "console":
-        return ConsoleHandler(core_level, output_config)
+        formatter_name = output_config.get("formatter", "color")
+        use_colors = output_config.get("use_colors")
+        return logger_factory.create_console_handler(handler_level, formatter_name, use_colors)
+    
     elif handler_type == "file":
-        return FileHandler(core_level, output_config)
+        filename = output_config.get("filename", "logs/app.log")
+        formatter_name = output_config.get("formatter", "text")
+        encoding = output_config.get("encoding", "utf-8")
+        max_bytes = output_config.get("max_bytes")
+        backup_count = output_config.get("backup_count", 0)
+        return logger_factory.create_file_handler(
+            filename, handler_level, formatter_name, encoding, max_bytes, backup_count
+        )
+    
     elif handler_type == "json":
-        return JsonHandler(core_level, output_config)
+        filename = output_config.get("filename", "logs/app.json")
+        encoding = output_config.get("encoding", "utf-8")
+        max_bytes = output_config.get("max_bytes")
+        backup_count = output_config.get("backup_count", 0)
+        ensure_ascii = output_config.get("ensure_ascii", False)
+        indent = output_config.get("indent")
+        sort_keys = output_config.get("sort_keys", False)
+        return logger_factory.create_json_handler(
+            filename, handler_level, encoding, max_bytes, backup_count,
+            ensure_ascii, indent, sort_keys
+        )
+    
     else:
         # 跳过未知类型的处理器
         return None
@@ -147,50 +196,33 @@ def create_handler_from_config(output_config: Dict[str, Any]) -> Optional[IBaseH
 
 def _log_level_from_string(level_str: str) -> LogLevel:
     """从字符串创建日志级别"""
-    level_map = {
-        "DEBUG": LogLevel.DEBUG,
-        "INFO": LogLevel.INFO,
-        "WARNING": LogLevel.WARNING,
-        "WARN": LogLevel.WARNING,
-        "ERROR": LogLevel.ERROR,
-        "CRITICAL": LogLevel.CRITICAL,
-        "FATAL": LogLevel.CRITICAL,
-    }
-
-    upper_level = level_str.upper()
-    if upper_level not in level_map:
-        raise ValueError(f"无效的日志级别: {level_str}")
-
-    return level_map[upper_level]
-
-
-def _to_core_log_level(interface_level: LogLevel) -> "CoreLogLevel":
-    """将接口层LogLevel转换为核心层LogLevel"""
-    from src.core.logger.log_level import LogLevel as CoreLogLevel
-    
-    mapping = {
-        LogLevel.DEBUG: CoreLogLevel.DEBUG,
-        LogLevel.INFO: CoreLogLevel.INFO,
-        LogLevel.WARNING: CoreLogLevel.WARNING,
-        LogLevel.ERROR: CoreLogLevel.ERROR,
-        LogLevel.CRITICAL: CoreLogLevel.CRITICAL,
-    }
-    return mapping[interface_level]
+    return LogLevel.from_string(level_str)
 
 
 def register_logger_service(container, config: Dict[str, Any], environment: str = "default") -> None:
     """注册Logger服务"""
     
     def logger_factory() -> ILogger:
+        # 获取日志工厂
+        logger_factory_instance = container.get(LoggerFactory)
+        
         # 获取脱敏器
         redactor = container.get(ILogRedactor)
         
         # 获取处理器列表
         handlers = container.get(List[IBaseHandler])
         
-        # 创建LoggerService实例
+        # 创建基础设施层日志记录器
         logger_name = f"{environment}_application"
-        return LoggerService(logger_name, redactor, handlers, config)
+        infra_logger = logger_factory_instance.create_logger(
+            name=logger_name,
+            handlers=handlers,
+            config=config
+        )
+        
+        # 创建业务层日志服务
+        business_config = config.get("business_config", {})
+        return LoggerService(logger_name, infra_logger, business_config)
     
     # 注册LoggerService为单例
     container.register_factory(
@@ -217,13 +249,17 @@ def register_test_logger_services(container, config: Optional[Dict[str, Any]] = 
                 {
                     "type": "console",
                     "level": "DEBUG",
-                    "format": "text"
+                    "formatter": "color"
                 }
             ],
             "secret_patterns": [
                 "sk-[a-zA-Z0-9]{20,}",
                 "\\w+@\\w+\\.\\w+"
-            ]
+            ],
+            "business_config": {
+                "enable_audit": False,
+                "enable_business_filter": False
+            }
         }
     
     # 注册测试环境服务
@@ -251,10 +287,26 @@ def register_production_logger_services(container, config: Dict[str, Any]) -> No
             {
                 "type": "file",
                 "level": "INFO",
-                "format": "json",
-                "path": "logs/production.log"
+                "formatter": "json",
+                "filename": "logs/production.log",
+                "max_bytes": 52428800,  # 50MB
+                "backup_count": 10
             }
         ]
+    
+    # 生产环境业务配置
+    if "business_config" not in production_config:
+        production_config["business_config"] = {
+            "enable_audit": True,
+            "audit_keywords": ["login", "logout", "auth", "payment", "admin"],
+            "enable_business_filter": True,
+            "business_rules": [
+                {
+                    "type": "level_filter",
+                    "min_level": "INFO"
+                }
+            ]
+        }
     
     # 注册生产环境服务
     register_logger_services(container, production_config, environment="production")
@@ -281,9 +333,17 @@ def register_development_logger_services(container, config: Dict[str, Any]) -> N
             {
                 "type": "console",
                 "level": "DEBUG",
-                "format": "text"
+                "formatter": "color"
             }
         ]
+    
+    # 开发环境业务配置
+    if "business_config" not in development_config:
+        development_config["business_config"] = {
+            "enable_audit": True,
+            "audit_keywords": ["login", "logout", "auth"],
+            "enable_business_filter": False
+        }
     
     # 注册开发环境服务
     register_logger_services(container, development_config, environment="development")
@@ -303,7 +363,10 @@ def get_logger_service_config(config: Dict[str, Any]) -> Dict[str, Any]:
         "log_outputs_count": len(config.get("log_outputs", [])),
         "has_secret_patterns": bool(config.get("secret_patterns")),
         "has_custom_redactor": bool(config.get("log_redactor")),
-        "redactor_hash_sensitive": config.get("log_redactor", {}).get("hash_sensitive", False)
+        "redactor_hash_sensitive": config.get("log_redactor", {}).get("hash_sensitive", False),
+        "has_business_config": bool(config.get("business_config")),
+        "audit_enabled": config.get("business_config", {}).get("enable_audit", False),
+        "business_filter_enabled": config.get("business_config", {}).get("enable_business_filter", False)
     }
 
 
@@ -320,8 +383,10 @@ def validate_logger_config(config: Dict[str, Any]) -> tuple[bool, list[str]]:
     
     # 验证日志级别
     log_level = config.get("log_level", "INFO")
-    valid_levels = [level.value for level in LogLevel]
-    if log_level not in valid_levels:
+    try:
+        LogLevel.from_string(log_level)
+    except ValueError:
+        valid_levels = [level.value for level in LogLevel]
         errors.append(f"无效的日志级别: {log_level}，有效值: {valid_levels}")
     
     # 验证日志输出配置
@@ -342,8 +407,8 @@ def validate_logger_config(config: Dict[str, Any]) -> tuple[bool, list[str]]:
                 errors.append(f"log_outputs[{i}]无效的type: {output_type}")
             
             # 验证文件输出配置
-            if output_type == "file" and not output.get("path"):
-                errors.append(f"log_outputs[{i}]文件输出缺少path配置")
+            if output_type == "file" and not output.get("filename"):
+                errors.append(f"log_outputs[{i}]文件输出缺少filename配置")
     
     # 验证脱敏配置
     redactor_config = config.get("log_redactor", {})
@@ -353,5 +418,20 @@ def validate_logger_config(config: Dict[str, Any]) -> tuple[bool, list[str]]:
         patterns = redactor_config.get("patterns")
         if patterns is not None and not isinstance(patterns, list):
             errors.append("log_redactor.patterns必须是列表类型")
+    
+    # 验证业务配置
+    business_config = config.get("business_config", {})
+    if business_config and not isinstance(business_config, dict):
+        errors.append("business_config必须是字典类型")
+    elif business_config:
+        # 验证审计关键词
+        audit_keywords = business_config.get("audit_keywords")
+        if audit_keywords is not None and not isinstance(audit_keywords, list):
+            errors.append("business_config.audit_keywords必须是列表类型")
+        
+        # 验证业务规则
+        business_rules = business_config.get("business_rules")
+        if business_rules is not None and not isinstance(business_rules, list):
+            errors.append("business_config.business_rules必须是列表类型")
     
     return len(errors) == 0, errors

@@ -12,7 +12,7 @@ from src.interfaces.llm import (
     IRetryLogger,
     IFallbackLogger
 )
-from src.interfaces.common_infra import ILogger
+from src.interfaces.logger import ILogger
 from src.services.llm.token_calculation_service import TokenCalculationService
 from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
 from src.services.llm.config import (

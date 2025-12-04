@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from threading import Lock
 
-from ...core.logger.log_level import LogLevel
+from ....interfaces.logger import LogLevel
 
 
 class IMetricsCollector(ABC):

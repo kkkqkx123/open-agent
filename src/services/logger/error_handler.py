@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, Optional, Union
 from datetime import datetime
 from abc import ABC, abstractmethod
 
-from ...core.logger.log_level import LogLevel
+from ....interfaces.logger import LogLevel
 
 
 class ErrorType(Enum):

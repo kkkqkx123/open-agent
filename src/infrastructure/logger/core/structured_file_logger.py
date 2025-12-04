@@ -11,7 +11,7 @@ from .redactor import LogRedactor
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from ...interfaces.common_infra import ILogRedactor
+    from ....interfaces.logger import ILogRedactor
 
 
 class StructuredFileLogger:
