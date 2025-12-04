@@ -122,7 +122,7 @@ class WorkflowTokenTracker(BaseTokenTracker):
         """
         try:
             # 使用LLM模块的精确Token计算
-            from langchain_core.messages import BaseMessage
+            from src.infrastructure.messages.base import BaseMessage
             
             # 转换消息格式
             lc_messages = self._convert_to_langchain_messages(messages)
@@ -420,7 +420,7 @@ class WorkflowTokenTracker(BaseTokenTracker):
     def _convert_to_langchain_messages(self, messages: List[Dict[str, Any]]) -> List[Any]:
         """转换为LangChain消息格式"""
         try:
-            from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+            from src.infrastructure.messages.types import HumanMessage, AIMessage, SystemMessage
             
             lc_messages = []
             for msg in messages:

@@ -1,20 +1,16 @@
-"""降级跟踪器
+"""降级跟踪器基础设施模块
 
-整合了统计信息和会话管理功能，提供统一的降级跟踪和统计。
+提供统一的降级跟踪和统计功能。
 """
 
 from typing import Any, Dict, List, Optional, Tuple
-from .fallback_config import FallbackSession
+from .fallback_config import FallbackSession, FallbackStats
 
 
 class FallbackTracker:
     """降级跟踪器
     
-    整合了统计信息和会话管理功能，包括：
-    1. 会话的创建、跟踪和管理
-    2. 统计信息的收集和管理
-    3. Core 层和 Services 层的统计数据
-    4. 统计数据的计算和查询
+    提供统一的降级跟踪和统计功能，包括会话管理和统计分析。
     """
     
     def __init__(self, max_sessions: int = 1000):
@@ -26,24 +22,7 @@ class FallbackTracker:
         """
         self._sessions: List[FallbackSession] = []
         self._max_sessions = max_sessions
-        
-        # 统计信息（整合 Core 和 Services 层）
-        self._stats = {
-            # Core 层统计
-            "total_sessions": 0,
-            "successful_sessions": 0,
-            "failed_sessions": 0,
-            "total_attempts": 0,
-            "average_attempts": 0.0,
-            "fallback_usage": 0,
-            "fallback_rate": 0.0,
-            # Services 层统计
-            "total_requests": 0,
-            "successful_requests": 0,
-            "failed_requests": 0,
-            "group_fallbacks": 0,
-            "pool_fallbacks": 0
-        }
+        self._stats = FallbackStats()
     
     # === 会话管理方法 ===
     
@@ -62,7 +41,7 @@ class FallbackTracker:
             self._sessions = self._sessions[-self._max_sessions:]
         
         # 更新统计信息
-        self._update_core_stats()
+        self._stats.update(session)
     
     def get_sessions(self, limit: Optional[int] = None) -> List[FallbackSession]:
         """
@@ -125,10 +104,25 @@ class FallbackTracker:
             sessions = sessions[-limit:]
         return sessions
     
+    def get_fallback_sessions(self, limit: Optional[int] = None) -> List[FallbackSession]:
+        """
+        获取使用了降级的会话记录
+        
+        Args:
+            limit: 限制返回数量
+            
+        Returns:
+            使用了降级的会话记录列表
+        """
+        sessions = [s for s in self._sessions if s.get_fallback_usage()]
+        if limit:
+            sessions = sessions[-limit:]
+        return sessions
+    
     def clear_sessions(self) -> None:
         """清空会话记录"""
         self._sessions.clear()
-        self._reset_stats()
+        self._stats = FallbackStats()
     
     def clear_old_sessions(self, keep_count: int) -> None:
         """
@@ -142,75 +136,23 @@ class FallbackTracker:
         
         if len(self._sessions) > keep_count:
             self._sessions = self._sessions[-keep_count:]
-            self._update_core_stats()
+            # 重新计算统计信息
+            self._recalculate_stats()
     
     # === 统计信息方法 ===
     
-    def increment_total_requests(self) -> None:
-        """增加总请求数"""
-        self._stats["total_requests"] += 1
-    
-    def increment_successful_requests(self) -> None:
-        """增加成功请求数"""
-        self._stats["successful_requests"] += 1
-    
-    def increment_failed_requests(self) -> None:
-        """增加失败请求数"""
-        self._stats["failed_requests"] += 1
-    
-    def increment_group_fallbacks(self) -> None:
-        """增加任务组降级次数"""
-        self._stats["group_fallbacks"] += 1
-    
-    def increment_pool_fallbacks(self) -> None:
-        """增加轮询池降级次数"""
-        self._stats["pool_fallbacks"] += 1
-    
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> FallbackStats:
         """
-        获取降级统计信息（整合 Core 和 Services 层）
+        获取降级统计信息
         
         Returns:
-            统计信息字典
+            统计信息对象
         """
-        return self._stats.copy()
-    
-    def get_core_stats(self) -> Dict[str, Any]:
-        """
-        获取 Core 层统计信息
-        
-        Returns:
-            Core 层统计信息字典
-        """
-        return {
-            "total_sessions": self._stats["total_sessions"],
-            "successful_sessions": self._stats["successful_sessions"],
-            "failed_sessions": self._stats["failed_sessions"],
-            "success_rate": self._stats.get("success_rate", 0),
-            "total_attempts": self._stats["total_attempts"],
-            "average_attempts": self._stats["average_attempts"],
-            "fallback_usage": self._stats["fallback_usage"],
-            "fallback_rate": self._stats["fallback_rate"],
-        }
-    
-    def get_services_stats(self) -> Dict[str, Any]:
-        """
-        获取 Services 层统计信息
-        
-        Returns:
-            Services 层统计信息字典
-        """
-        return {
-            "total_requests": self._stats["total_requests"],
-            "successful_requests": self._stats["successful_requests"],
-            "failed_requests": self._stats["failed_requests"],
-            "group_fallbacks": self._stats["group_fallbacks"],
-            "pool_fallbacks": self._stats["pool_fallbacks"],
-        }
+        return self._stats
     
     def reset_stats(self) -> None:
-        """重置所有统计信息"""
-        self._reset_stats()
+        """重置统计信息"""
+        self._stats = FallbackStats()
     
     # === 分析方法 ===
     
@@ -241,6 +183,15 @@ class FallbackTracker:
         """
         return sum(1 for s in self._sessions if not s.success)
     
+    def get_fallback_usage_count(self) -> int:
+        """
+        获取降级使用次数
+        
+        Returns:
+            降级使用次数
+        """
+        return sum(1 for s in self._sessions if s.get_fallback_usage())
+    
     def get_average_attempts(self) -> float:
         """
         获取平均尝试次数
@@ -264,8 +215,21 @@ class FallbackTracker:
         if not self._sessions:
             return 0.0
         
-        fallback_usage = sum(1 for s in self._sessions if s.get_total_attempts() > 1)
+        fallback_usage = sum(1 for s in self._sessions if s.get_fallback_usage())
         return fallback_usage / len(self._sessions)
+    
+    def get_success_rate(self) -> float:
+        """
+        获取成功率
+        
+        Returns:
+            成功率（0-1之间的浮点数）
+        """
+        if not self._sessions:
+            return 0.0
+        
+        successful_count = sum(1 for s in self._sessions if s.success)
+        return successful_count / len(self._sessions)
     
     def get_most_used_models(self, limit: int = 10) -> List[Tuple[str, int]]:
         """
@@ -281,6 +245,27 @@ class FallbackTracker:
         for session in self._sessions:
             model_name = session.primary_model
             model_counts[model_name] = model_counts.get(model_name, 0) + 1
+        
+        # 按使用次数排序
+        sorted_models = sorted(model_counts.items(), key=lambda x: x[1], reverse=True)
+        return sorted_models[:limit]
+    
+    def get_most_used_fallback_models(self, limit: int = 10) -> List[Tuple[str, int]]:
+        """
+        获取最常用的降级模型列表
+        
+        Args:
+            limit: 返回的模型数量限制
+            
+        Returns:
+            按使用次数排序的降级模型列表，每个元素为 (model_name, count) 元组
+        """
+        model_counts = {}
+        for session in self._sessions:
+            for attempt in session.attempts:
+                if attempt.fallback_model and attempt.success:
+                    model_name = attempt.fallback_model
+                    model_counts[model_name] = model_counts.get(model_name, 0) + 1
         
         # 按使用次数排序
         sorted_models = sorted(model_counts.items(), key=lambda x: x[1], reverse=True)
@@ -306,51 +291,97 @@ class FallbackTracker:
         sorted_errors = sorted(error_counts.items(), key=lambda x: x[1], reverse=True)
         return sorted_errors[:limit]
     
+    def get_performance_summary(self) -> Dict[str, Any]:
+        """
+        获取性能摘要
+        
+        Returns:
+            性能摘要字典
+        """
+        if not self._sessions:
+            return {
+                "average_duration": 0.0,
+                "min_duration": 0.0,
+                "max_duration": 0.0,
+                "total_duration": 0.0,
+            }
+        
+        durations = []
+        for session in self._sessions:
+            duration = session.get_total_duration()
+            if duration is not None:
+                durations.append(duration)
+        
+        if not durations:
+            return {
+                "average_duration": 0.0,
+                "min_duration": 0.0,
+                "max_duration": 0.0,
+                "total_duration": 0.0,
+            }
+        
+        return {
+            "average_duration": sum(durations) / len(durations),
+            "min_duration": min(durations),
+            "max_duration": max(durations),
+            "total_duration": sum(durations),
+        }
+    
+    def get_recent_activity(self, hours: int = 24) -> Dict[str, Any]:
+        """
+        获取最近活动统计
+        
+        Args:
+            hours: 时间范围（小时）
+            
+        Returns:
+            最近活动统计字典
+        """
+        import time
+        cutoff_time = time.time() - (hours * 3600)
+        
+        recent_sessions = [s for s in self._sessions if s.start_time >= cutoff_time]
+        
+        if not recent_sessions:
+            return {
+                "total_sessions": 0,
+                "successful_sessions": 0,
+                "failed_sessions": 0,
+                "fallback_usage": 0,
+                "success_rate": 0.0,
+                "fallback_rate": 0.0,
+            }
+        
+        successful_count = sum(1 for s in recent_sessions if s.success)
+        fallback_usage = sum(1 for s in recent_sessions if s.get_fallback_usage())
+        
+        return {
+            "total_sessions": len(recent_sessions),
+            "successful_sessions": successful_count,
+            "failed_sessions": len(recent_sessions) - successful_count,
+            "fallback_usage": fallback_usage,
+            "success_rate": successful_count / len(recent_sessions),
+            "fallback_rate": fallback_usage / len(recent_sessions),
+        }
+    
     # === 内部方法 ===
     
-    def _update_core_stats(self) -> None:
-        """
-        更新 Core 层统计信息
-        """
-        total_sessions = len(self._sessions)
-        successful_sessions = sum(1 for s in self._sessions if s.success)
-        failed_sessions = total_sessions - successful_sessions
-        
-        total_attempts = sum(s.get_total_attempts() for s in self._sessions)
-        
-        # 计算平均尝试次数
-        avg_attempts = total_attempts / total_sessions if total_sessions > 0 else 0
-        
-        # 计算降级使用率
-        fallback_usage = sum(1 for s in self._sessions if s.get_total_attempts() > 1)
-        fallback_rate = fallback_usage / total_sessions if total_sessions > 0 else 0
-        
-        self._stats.update({
-            "total_sessions": total_sessions,
-            "successful_sessions": successful_sessions,
-            "failed_sessions": failed_sessions,
-            "success_rate": successful_sessions / total_sessions if total_sessions > 0 else 0,
-            "total_attempts": total_attempts,
-            "average_attempts": avg_attempts,
-            "fallback_usage": fallback_usage,
-            "fallback_rate": fallback_rate,
-        })
+    def _recalculate_stats(self) -> None:
+        """重新计算统计信息"""
+        self._stats = FallbackStats()
+        for session in self._sessions:
+            self._stats.update(session)
+
+
+class FallbackTrackerFactory:
+    """降级跟踪器工厂"""
     
-    def _reset_stats(self) -> None:
-        """重置统计信息"""
-        self._stats = {
-            # Core 层统计
-            "total_sessions": 0,
-            "successful_sessions": 0,
-            "failed_sessions": 0,
-            "total_attempts": 0,
-            "average_attempts": 0.0,
-            "fallback_usage": 0,
-            "fallback_rate": 0.0,
-            # Services 层统计
-            "total_requests": 0,
-            "successful_requests": 0,
-            "failed_requests": 0,
-            "group_fallbacks": 0,
-            "pool_fallbacks": 0
-        }
+    @staticmethod
+    def create_default() -> FallbackTracker:
+        """创建默认降级跟踪器"""
+        return FallbackTracker()
+    
+    @staticmethod
+    def create_with_max_sessions(max_sessions: int) -> FallbackTracker:
+        """创建指定最大会话数的降级跟踪器"""
+        return FallbackTracker(max_sessions)

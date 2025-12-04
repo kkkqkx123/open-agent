@@ -6,14 +6,13 @@
 import time
 import asyncio
 from typing import Any, Optional, Sequence, Dict, List, Tuple
-from langchain_core.messages import BaseMessage
+from src.infrastructure.messages.base import BaseMessage
 
 from src.interfaces.llm import IFallbackStrategy, IClientFactory, IFallbackLogger, LLMResponse
-from .fallback_config import FallbackConfig, FallbackAttempt, FallbackSession
+# 从基础设施层导入降级配置和组件
+from src.infrastructure.llm.fallback import FallbackConfig, FallbackAttempt, FallbackSession, FallbackEngine, FallbackTracker
 
 # 新组件导入
-from .fallback_engine import FallbackEngine
-from .fallback_tracker import FallbackTracker
 from .fallback_strategy_manager import FallbackStrategyManager
 from .fallback_config_manager import FallbackConfigManager
 

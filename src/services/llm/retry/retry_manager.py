@@ -7,8 +7,9 @@ from typing import Any, Callable, Optional, Dict, List, Union
 from concurrent.futures import TimeoutError
 
 from src.interfaces.llm import IRetryLogger
-from .retry_config import RetryConfig, RetryAttempt, RetrySession, RetryStats
-from .strategies import create_retry_strategy, DefaultRetryLogger
+# 从基础设施层导入重试配置和策略
+from src.infrastructure.llm.retry import RetryConfig, RetryAttempt, RetrySession, RetryStats, create_retry_strategy
+from .strategies import DefaultRetryLogger
 
 
 class RetryManager:
@@ -24,7 +25,7 @@ class RetryManager:
         """
         self.config = config
         self.logger = logger or DefaultRetryLogger()
-        self._strategy = create_retry_strategy(config, logger)
+        self._strategy = create_retry_strategy(config)
         self._sessions: List[RetrySession] = []
         self._stats = RetryStats()
     
@@ -437,7 +438,7 @@ class RetryManager:
             config: 新的重试配置
         """
         self.config = config
-        self._strategy = create_retry_strategy(config, self.logger)
+        self._strategy = create_retry_strategy(config)
 
 
 # 全局重试管理器实例

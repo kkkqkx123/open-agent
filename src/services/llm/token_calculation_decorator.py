@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, Optional, Sequence
-from langchain_core.messages import BaseMessage
+from src.infrastructure.messages.base import BaseMessage
 
 from src.services.logger import get_logger
 from src.interfaces.llm import (

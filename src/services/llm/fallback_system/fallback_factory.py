@@ -4,7 +4,8 @@
 """
 
 from typing import Any, Optional, List, TYPE_CHECKING
-from .fallback_config import FallbackConfig
+# 从基础设施层导入降级配置
+from src.infrastructure.llm.fallback import FallbackConfig
 from src.interfaces.llm import IClientFactory, IFallbackLogger, ITaskGroupManager, IPollingPoolManager
 
 if TYPE_CHECKING:

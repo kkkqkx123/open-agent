@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, Optional, Sequence
-from langchain_core.messages import BaseMessage
+from src.infrastructure.messages.base import BaseMessage
 
 # 使用 infrastructure 层的实现
 from src.infrastructure.llm.token_calculators import get_token_calculator_factory

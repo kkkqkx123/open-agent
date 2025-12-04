@@ -16,7 +16,7 @@ from src.core.state import WorkflowState
 from src.interfaces.state import IState
 from src.interfaces.state.workflow import IWorkflowState
 from src.services.workflow.state_converter import WorkflowStateConverter
-from langchain_core.messages import HumanMessage, AIMessage
+from src.infrastructure.messages.types import HumanMessage, AIMessage
 from datetime import datetime
 import uuid
 

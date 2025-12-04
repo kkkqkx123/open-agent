@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from langchain_core.messages import BaseMessage
+    from src.infrastructure.messages.base import BaseMessage
     from ..state.workflow import IWorkflowState
     from .models import PromptConfig
 

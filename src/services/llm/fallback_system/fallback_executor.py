@@ -6,11 +6,11 @@
 import time
 import asyncio
 from typing import Any, Optional, Sequence, Dict, List, Tuple
-from langchain_core.messages import BaseMessage
+from src.infrastructure.messages.base import BaseMessage
 
 from src.interfaces.llm import IFallbackStrategy, IClientFactory, IFallbackLogger, LLMResponse
-from .fallback_config import FallbackConfig, FallbackAttempt, FallbackSession
-from .strategies import create_fallback_strategy
+# 从基础设施层导入降级配置和策略
+from src.infrastructure.llm.fallback import FallbackConfig, FallbackAttempt, FallbackSession, create_fallback_strategy
 
 # 修复导入路径
 from core.common.exceptions.llm import LLMCallError
@@ -115,7 +115,7 @@ class FallbackExecutor:
             last_error = None
             
             # 检查是否是并行降级策略
-            from .strategies import ParallelFallbackStrategy
+            from src.infrastructure.llm.fallback import ParallelFallbackStrategy
             if self._strategy and isinstance(self._strategy, ParallelFallbackStrategy):
                 # 并行降级策略
                 try:

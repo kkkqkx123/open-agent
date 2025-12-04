@@ -1,12 +1,28 @@
-"""降级配置"""
+"""降级配置基础设施模块
+
+提供统一的降级配置管理功能，支持多种降级策略和条件判断。
+"""
 
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
+from enum import Enum
+import time
+
+
+class FallbackStrategy(Enum):
+    """降级策略枚举"""
+    SEQUENTIAL = "sequential"
+    PRIORITY = "priority"
+    RANDOM = "random"
+    PARALLEL = "parallel"
 
 
 @dataclass
 class FallbackConfig:
-    """降级配置"""
+    """降级配置
+    
+    提供完整的降级配置管理，包括策略、延迟、条件等。
+    """
     
     # 基础配置
     enabled: bool = True
@@ -16,7 +32,7 @@ class FallbackConfig:
     fallback_models: List[str] = field(default_factory=list)
     
     # 降级策略配置
-    strategy_type: str = "sequential"  # sequential, priority, random
+    strategy: FallbackStrategy = FallbackStrategy.SEQUENTIAL
     
     # 错误类型映射
     error_mappings: Dict[str, List[str]] = field(default_factory=dict)
@@ -33,7 +49,11 @@ class FallbackConfig:
         "timeout", "rate_limit", "service_unavailable", "overloaded_error"
     ])
     
-    # 其他配置
+    # 并行降级配置
+    parallel_timeout: Optional[float] = None  # 并行降级超时时间
+    parallel_success_threshold: int = 1  # 并行降级成功阈值
+    
+    # 提供商特定配置
     provider_config: Dict[str, Any] = field(default_factory=dict)
     
     def is_enabled(self) -> bool:
@@ -99,14 +119,60 @@ class FallbackConfig:
         
         return delay
     
+    def get_fallback_target(self, error: Exception, attempt: int) -> Optional[str]:
+        """
+        根据策略获取降级目标
+        
+        Args:
+            error: 错误对象
+            attempt: 尝试次数
+            
+        Returns:
+            降级目标模型名称
+        """
+        if not self.fallback_models:
+            return None
+        
+        if self.strategy == FallbackStrategy.SEQUENTIAL:
+            # 顺序策略：按列表顺序选择
+            index = min(attempt - 1, len(self.fallback_models) - 1)
+            return self.fallback_models[index]
+        
+        elif self.strategy == FallbackStrategy.PRIORITY:
+            # 优先级策略：根据错误类型选择
+            error_str = str(error).lower()
+            for error_pattern, models in self.error_mappings.items():
+                if error_pattern in error_str:
+                    if models:
+                        return models[0]
+            # 如果没有匹配的错误映射，使用第一个模型
+            return self.fallback_models[0]
+        
+        elif self.strategy == FallbackStrategy.RANDOM:
+            # 随机策略：随机选择一个模型
+            import random
+            return random.choice(self.fallback_models)
+        
+        elif self.strategy == FallbackStrategy.PARALLEL:
+            # 并行策略：返回特殊标记
+            return "parallel_fallback"
+        
+        return None
+    
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> "FallbackConfig":
         """从字典创建配置"""
+        strategy_str = config_dict.get("strategy", "sequential")
+        try:
+            strategy = FallbackStrategy(strategy_str)
+        except ValueError:
+            strategy = FallbackStrategy.SEQUENTIAL
+        
         return cls(
             enabled=config_dict.get("enabled", True),
             max_attempts=config_dict.get("max_attempts", 3),
             fallback_models=config_dict.get("fallback_models", []),
-            strategy_type=config_dict.get("strategy_type", "sequential"),
+            strategy=strategy,
             error_mappings=config_dict.get("error_mappings", {}),
             base_delay=config_dict.get("base_delay", 1.0),
             max_delay=config_dict.get("max_delay", 60.0),
@@ -116,6 +182,8 @@ class FallbackConfig:
             fallback_on_errors=config_dict.get("fallback_on_errors", [
                 "timeout", "rate_limit", "service_unavailable", "overloaded_error"
             ]),
+            parallel_timeout=config_dict.get("parallel_timeout"),
+            parallel_success_threshold=config_dict.get("parallel_success_threshold", 1),
             provider_config=config_dict.get("provider_config", {}),
         )
     
@@ -125,7 +193,7 @@ class FallbackConfig:
             "enabled": self.enabled,
             "max_attempts": self.max_attempts,
             "fallback_models": self.fallback_models,
-            "strategy_type": self.strategy_type,
+            "strategy": self.strategy.value,
             "error_mappings": self.error_mappings,
             "base_delay": self.base_delay,
             "max_delay": self.max_delay,
@@ -133,6 +201,8 @@ class FallbackConfig:
             "jitter": self.jitter,
             "fallback_on_status_codes": self.fallback_on_status_codes,
             "fallback_on_errors": self.fallback_on_errors,
+            "parallel_timeout": self.parallel_timeout,
+            "parallel_success_threshold": self.parallel_success_threshold,
             "provider_config": self.provider_config,
         }
 
@@ -149,11 +219,11 @@ class FallbackAttempt:
     success: bool
     response: Optional[Any] = None
     delay: float = 0.0
+    duration: Optional[float] = None
     
     def get_duration(self) -> Optional[float]:
         """获取尝试持续时间（如果有的话）"""
-        # 这里可以扩展以记录开始和结束时间
-        return None
+        return self.duration
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -166,6 +236,7 @@ class FallbackAttempt:
             "timestamp": self.timestamp,
             "success": self.success,
             "delay": self.delay,
+            "duration": self.duration,
         }
 
 
@@ -187,14 +258,12 @@ class FallbackSession:
     
     def mark_success(self, response: Any) -> None:
         """标记会话成功"""
-        import time
         self.success = True
         self.final_response = response
         self.end_time = time.time()
     
     def mark_failure(self, error: Exception) -> None:
         """标记会话失败"""
-        import time
         self.success = False
         self.final_error = error
         self.end_time = time.time()
@@ -216,6 +285,12 @@ class FallbackSession:
                 return attempt
         return None
     
+    def get_fallback_usage(self) -> bool:
+        """是否使用了降级"""
+        return len(self.attempts) > 1 or (
+            len(self.attempts) == 1 and self.attempts[0].fallback_model is not None
+        )
+    
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         return {
@@ -225,6 +300,52 @@ class FallbackSession:
             "total_duration": self.get_total_duration(),
             "total_attempts": self.get_total_attempts(),
             "success": self.success,
+            "fallback_used": self.get_fallback_usage(),
             "final_error": str(self.final_error) if self.final_error else None,
             "attempts": [attempt.to_dict() for attempt in self.attempts],
+        }
+
+
+@dataclass
+class FallbackStats:
+    """降级统计信息"""
+    
+    total_sessions: int = 0
+    successful_sessions: int = 0
+    failed_sessions: int = 0
+    fallback_usage_count: int = 0
+    total_attempts: int = 0
+    average_attempts: float = 0.0
+    fallback_rate: float = 0.0
+    success_rate: float = 0.0
+    
+    def update(self, session: FallbackSession) -> None:
+        """更新统计信息"""
+        self.total_sessions += 1
+        if session.success:
+            self.successful_sessions += 1
+        else:
+            self.failed_sessions += 1
+        
+        if session.get_fallback_usage():
+            self.fallback_usage_count += 1
+        
+        self.total_attempts += session.get_total_attempts()
+        
+        # 重新计算平均值
+        self.average_attempts = self.total_attempts / self.total_sessions
+        self.fallback_rate = self.fallback_usage_count / self.total_sessions
+        self.success_rate = self.successful_sessions / self.total_sessions
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            "total_sessions": self.total_sessions,
+            "successful_sessions": self.successful_sessions,
+            "failed_sessions": self.failed_sessions,
+            "fallback_usage_count": self.fallback_usage_count,
+            "total_attempts": self.total_attempts,
+            "average_attempts": self.average_attempts,
+            "fallback_rate": self.fallback_rate,
+            "success_rate": self.success_rate,
         }

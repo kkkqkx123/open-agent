@@ -20,7 +20,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.pregel import Pregel
-from langchain_core.messages import BaseMessage
+from src.infrastructure.messages.base import BaseMessage
 
 from src.interfaces.state.workflow import IWorkflowState as WorkflowState
 from src.interfaces.workflow.core import IWorkflow

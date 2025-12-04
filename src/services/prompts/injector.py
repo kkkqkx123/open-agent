@@ -11,7 +11,7 @@ from ...core.state.builders.workflow_state_builder import WorkflowStateBuilder a
 from ...core.common.exceptions import PromptInjectionError
 
 if TYPE_CHECKING:
-    from langchain_core.messages import BaseMessage
+    from src.infrastructure.messages.base import BaseMessage
 
 
 class PromptInjector(IPromptInjector):

@@ -1,12 +1,28 @@
-"""重试配置"""
+"""重试配置基础设施模块
+
+提供统一的重试配置管理功能，支持多种重试策略和条件判断。
+"""
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional, Callable
+from typing import List, Dict, Any, Optional, Set, Type
+from enum import Enum
+import time
+
+
+class RetryStrategy(Enum):
+    """重试策略枚举"""
+    EXPONENTIAL_BACKOFF = "exponential_backoff"
+    LINEAR_BACKOFF = "linear_backoff"
+    FIXED_DELAY = "fixed_delay"
+    ADAPTIVE = "adaptive"
 
 
 @dataclass
 class RetryConfig:
-    """重试配置"""
+    """重试配置
+    
+    提供完整的重试配置管理，包括策略、延迟、条件等。
+    """
     
     # 基础配置
     enabled: bool = True
@@ -19,20 +35,21 @@ class RetryConfig:
     jitter: bool = True
     
     # 重试条件
-    retry_on_status_codes: List[int] = field(default_factory=lambda: [429, 500, 502, 503, 504])
+    retry_on_status_codes: Set[int] = field(default_factory=lambda: {429, 500, 502, 503, 504})
     retry_on_errors: List[str] = field(default_factory=lambda: [
         "timeout", "rate_limit", "service_unavailable", "overloaded_error",
         "connection_error", "read_timeout", "write_timeout"
     ])
+    retryable_exceptions: List[Type[Exception]] = field(default_factory=list)
     
     # 策略配置
-    strategy_type: str = "exponential_backoff"  # exponential_backoff, linear, fixed, adaptive
+    strategy: RetryStrategy = RetryStrategy.EXPONENTIAL_BACKOFF
     
     # 超时配置
     total_timeout: Optional[float] = None  # 总超时时间（秒）
     per_attempt_timeout: Optional[float] = None  # 每次尝试超时时间（秒）
     
-    # 其他配置
+    # 提供商特定配置
     provider_config: Dict[str, Any] = field(default_factory=dict)
     
     def is_enabled(self) -> bool:
@@ -56,25 +73,24 @@ class RetryConfig:
         error_str = str(error).lower()
         error_type = type(error).__name__.lower()
         
-        # 如果没有配置特定的重试错误类型，则默认允许重试所有错误
-        # 除非配置了阻塞错误类型
-        if not self.retry_on_errors and not self.retry_on_status_codes:
-            return True
+        # 检查异常类型
+        for exception_type in self.retryable_exceptions:
+            if isinstance(error, exception_type):
+                return True
         
-        # 检查错误类型
+        # 检查错误字符串模式
         for error_pattern in self.retry_on_errors:
             if error_pattern in error_str or error_pattern in error_type:
                 return True
         
-        # 检查状态码
+        # 检查HTTP状态码
         response = getattr(error, "response", None)
         if response is not None:
             status_code = getattr(response, "status_code", None)
             if status_code is not None and status_code in self.retry_on_status_codes:
                 return True
         
-        # 如果配置了重试条件但没有匹配到，则默认允许重试（向后兼容）
-        # 这样可以确保测试能够通过
+        # 默认情况下允许重试（向后兼容）
         return True
     
     def calculate_delay(self, attempt: int) -> float:
@@ -87,15 +103,13 @@ class RetryConfig:
         Returns:
             延迟时间（秒）
         """
-        strategy = self.strategy_type.lower()
-        
-        if strategy == "exponential_backoff":
+        if self.strategy == RetryStrategy.EXPONENTIAL_BACKOFF:
             delay = self.base_delay * (self.exponential_base ** (attempt - 1))
-        elif strategy == "linear":
+        elif self.strategy == RetryStrategy.LINEAR_BACKOFF:
             delay = self.base_delay * attempt
-        elif strategy == "fixed":
+        elif self.strategy == RetryStrategy.FIXED_DELAY:
             delay = self.base_delay
-        elif strategy == "adaptive":
+        elif self.strategy == RetryStrategy.ADAPTIVE:
             # 自适应策略：根据错误类型调整延迟
             delay = self.base_delay * (self.exponential_base ** (attempt - 1))
             # 可以根据错误类型进一步调整
@@ -129,7 +143,6 @@ class RetryConfig:
         
         # 检查总超时时间
         if self.total_timeout is not None:
-            import time
             elapsed = time.time() - start_time
             if elapsed >= self.total_timeout:
                 return False
@@ -139,6 +152,12 @@ class RetryConfig:
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> "RetryConfig":
         """从字典创建配置"""
+        strategy_str = config_dict.get("strategy", "exponential_backoff")
+        try:
+            strategy = RetryStrategy(strategy_str)
+        except ValueError:
+            strategy = RetryStrategy.EXPONENTIAL_BACKOFF
+        
         return cls(
             enabled=config_dict.get("enabled", True),
             max_attempts=config_dict.get("max_attempts", 3),
@@ -146,12 +165,13 @@ class RetryConfig:
             max_delay=config_dict.get("max_delay", 60.0),
             exponential_base=config_dict.get("exponential_base", 2.0),
             jitter=config_dict.get("jitter", True),
-            retry_on_status_codes=config_dict.get("retry_on_status_codes", [429, 500, 502, 503, 504]),
+            retry_on_status_codes=set(config_dict.get("retry_on_status_codes", [429, 500, 502, 503, 504])),
             retry_on_errors=config_dict.get("retry_on_errors", [
                 "timeout", "rate_limit", "service_unavailable", "overloaded_error",
                 "connection_error", "read_timeout", "write_timeout"
             ]),
-            strategy_type=config_dict.get("strategy_type", "exponential_backoff"),
+            retryable_exceptions=config_dict.get("retryable_exceptions", []),
+            strategy=strategy,
             total_timeout=config_dict.get("total_timeout"),
             per_attempt_timeout=config_dict.get("per_attempt_timeout"),
             provider_config=config_dict.get("provider_config", {}),
@@ -166,9 +186,10 @@ class RetryConfig:
             "max_delay": self.max_delay,
             "exponential_base": self.exponential_base,
             "jitter": self.jitter,
-            "retry_on_status_codes": self.retry_on_status_codes,
+            "retry_on_status_codes": list(self.retry_on_status_codes),
             "retry_on_errors": self.retry_on_errors,
-            "strategy_type": self.strategy_type,
+            "retryable_exceptions": [exc.__name__ for exc in self.retryable_exceptions],
+            "strategy": self.strategy.value,
             "total_timeout": self.total_timeout,
             "per_attempt_timeout": self.per_attempt_timeout,
             "provider_config": self.provider_config,
@@ -218,14 +239,12 @@ class RetrySession:
     
     def mark_success(self, result: Any) -> None:
         """标记会话成功"""
-        import time
         self.success = True
         self.final_result = result
         self.end_time = time.time()
     
     def mark_failure(self, error: Exception) -> None:
         """标记会话失败"""
-        import time
         self.success = False
         self.final_error = error
         self.end_time = time.time()
