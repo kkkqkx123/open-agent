@@ -4,11 +4,15 @@
 """
 
 import pytest
+from typing import Dict, Any, Sequence, TYPE_CHECKING
 from src.infrastructure.llm.converters.base.base_provider_utils import BaseProviderUtils
 from src.infrastructure.llm.converters.base.base_multimodal_utils import BaseMultimodalUtils
 from src.infrastructure.llm.converters.base.base_tools_utils import BaseToolsUtils
 from src.infrastructure.llm.converters.base.base_stream_utils import BaseStreamUtils
 from src.infrastructure.llm.converters.base.base_validation_utils import BaseValidationUtils
+
+if TYPE_CHECKING:
+    from src.interfaces.messages import IBaseMessage
 
 
 class TestBaseProviderUtils:
@@ -17,25 +21,27 @@ class TestBaseProviderUtils:
     def test_abstract_methods(self):
         """测试抽象方法不能直接实例化"""
         with pytest.raises(TypeError):
-            BaseProviderUtils()
+            BaseProviderUtils()  # type: ignore
     
     def test_concrete_implementation(self):
         """测试具体实现类"""
+        from src.infrastructure.messages import AIMessage
         
         class ConcreteProviderUtils(BaseProviderUtils):
             def get_provider_name(self) -> str:
                 return "test"
             
-            def convert_request(self, messages, parameters):
+            def convert_request(self, messages: Sequence["IBaseMessage"], parameters: Dict[str, Any]) -> Dict[str, Any]:
                 return {}
             
-            def convert_response(self, response):
-                return None
+            def convert_response(self, response: Dict[str, Any]) -> "IBaseMessage":
+                return AIMessage(content="test response")
         
         provider = ConcreteProviderUtils()
         assert provider.get_provider_name() == "test"
         assert provider.convert_request([], {}) == {}
-        assert provider.convert_response({}) is None
+        result = provider.convert_response({})
+        assert result.content == "test response"
 
 
 class TestBaseMultimodalUtils:
@@ -44,7 +50,7 @@ class TestBaseMultimodalUtils:
     def test_abstract_methods(self):
         """测试抽象方法不能直接实例化"""
         with pytest.raises(TypeError):
-            BaseMultimodalUtils()
+            BaseMultimodalUtils()  # type: ignore
     
     def test_concrete_implementation(self):
         """测试具体实现类"""
@@ -72,7 +78,7 @@ class TestBaseToolsUtils:
     def test_abstract_methods(self):
         """测试抽象方法不能直接实例化"""
         with pytest.raises(TypeError):
-            BaseToolsUtils()
+            BaseToolsUtils()  # type: ignore
     
     def test_concrete_implementation(self):
         """测试具体实现类"""
@@ -101,7 +107,7 @@ class TestBaseStreamUtils:
     def test_abstract_methods(self):
         """测试抽象方法不能直接实例化"""
         with pytest.raises(TypeError):
-            BaseStreamUtils()
+            BaseStreamUtils()  # type: ignore
     
     def test_concrete_implementation(self):
         """测试具体实现类"""
@@ -129,7 +135,7 @@ class TestBaseValidationUtils:
     def test_abstract_methods(self):
         """测试抽象方法不能直接实例化"""
         with pytest.raises(TypeError):
-            BaseValidationUtils()
+            BaseValidationUtils()  # type: ignore
     
     def test_concrete_implementation(self):
         """测试具体实现类"""
@@ -180,6 +186,6 @@ class TestBaseValidationUtils:
         assert "不能大于5" in errors[0]
         
         # 测试枚举验证
-        errors = utils._validate_enum("invalid", "test_param", {"valid1", "valid2"})
+        errors = utils._validate_enum_value("invalid", ["valid1", "valid2"], "test_param")
         assert len(errors) == 1
-        assert "valid1, valid2" in errors[0]
+        assert "valid1" in errors[0] and "valid2" in errors[0]

@@ -14,6 +14,14 @@ from src.services.logger import get_logger
 
 
 @dataclass
+class ConfigLocation:
+    """配置位置信息"""
+    path: Path
+    provider: Optional[str] = None
+    model: Optional[str] = None
+
+
+@dataclass
 class ConfigInfo:
     """配置信息"""
     path: Path
@@ -401,3 +409,62 @@ class ConfigDiscovery:
         }
         
         return defaults.get(provider, {})
+    
+    def get_config_file(self, config_type: str, provider: Optional[str] = None, model: Optional[str] = None) -> Optional[ConfigLocation]:
+        """获取配置文件位置
+        
+        Args:
+            config_type: 配置类型
+            provider: 提供商名称
+            model: 模型名称
+            
+        Returns:
+            Optional[ConfigLocation]: 配置位置信息
+        """
+        # 根据配置类型构造路径
+        if config_type == "global":
+            config_path = self.config_dir / "global.yaml"
+        elif config_type == "provider" and provider:
+            config_path = self.config_dir / "provider" / f"{provider}.yaml"
+        elif config_type == "model" and provider and model:
+            config_path = self.config_dir / "provider" / provider / f"{model}.yaml"
+        else:
+            return None
+        
+        if config_path.exists():
+            return ConfigLocation(path=config_path, provider=provider, model=model)
+        
+        return None
+    
+    def load_config(self, config_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
+        """加载配置文件
+        
+        Args:
+            config_path: 配置文件路径
+            
+        Returns:
+            Optional[Dict[str, Any]]: 配置数据
+        """
+        if isinstance(config_path, str):
+            config_path = Path(config_path)
+        
+        return self._load_config_file(config_path)
+
+
+# 全局配置发现器实例
+_global_discovery: Optional[ConfigDiscovery] = None
+
+
+def get_config_discovery(config_dir: Optional[Union[str, Path]] = None) -> ConfigDiscovery:
+    """获取全局配置发现器实例
+    
+    Args:
+        config_dir: 配置目录路径
+        
+    Returns:
+        ConfigDiscovery: 配置发现器实例
+    """
+    global _global_discovery
+    if _global_discovery is None:
+        _global_discovery = ConfigDiscovery(config_dir)
+    return _global_discovery

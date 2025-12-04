@@ -227,6 +227,15 @@ from .common_domain import (
     AbstractThreadSnapshotData
 )
 
+# 消息相关接口
+from .messages import (
+    IBaseMessage,
+    IMessageConverter,
+    IMessageFactory,
+    IMessageSerializer,
+    IMessageValidator
+)
+
 # 配置相关接口
 from .configuration import (
     ValidationResult,
@@ -424,6 +433,13 @@ __all__ = [
     "AbstractThreadData",
     "AbstractThreadBranchData",
     "AbstractThreadSnapshotData",
+    
+    # 消息接口
+    "IBaseMessage",
+    "IMessageConverter",
+    "IMessageFactory",
+    "IMessageSerializer",
+    "IMessageValidator",
     
     # 配置接口
     "ValidationResult",

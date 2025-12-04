@@ -1,11 +1,34 @@
-"""配置管理模块
+"""
+配置管理模块
 
-提供LLM客户端的配置发现、加载、验证和管理功能。
+提供 LLM 配置发现、加载和验证功能
 """
 
-from .config_discovery import ConfigDiscovery, ConfigInfo
+from .config_discovery import ConfigDiscovery, ConfigLocation, get_config_discovery, ConfigInfo
+from .config_loader import ConfigLoader, LoadOptions, get_config_loader
+from .config_validator import (
+    ConfigValidator, 
+    ValidationResult, 
+    ValidationReport, 
+    ValidationSeverity,
+    get_config_validator
+)
 
 __all__ = [
+    # 核心类
     "ConfigDiscovery",
-    "ConfigInfo",
+    "ConfigLoader", 
+    "ConfigValidator",
+    
+    # 数据类
+    "ConfigLocation",
+    "LoadOptions",
+    "ValidationResult",
+    "ValidationReport",
+    "ValidationSeverity",
+    
+    # 全局函数
+    "get_config_discovery",
+    "get_config_loader",
+    "get_config_validator",
 ]

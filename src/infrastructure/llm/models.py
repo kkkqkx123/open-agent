@@ -7,7 +7,7 @@ from enum import Enum
 
 if TYPE_CHECKING:
     # 避免运行时循环依赖
-    from ...interfaces.messages import IBaseMessage
+    from src.interfaces.messages import IBaseMessage
 
 class MessageRole(Enum):
     """消息角色枚举"""
