@@ -14,8 +14,9 @@ from src.interfaces.llm import (
     TokenCalculationConfig
 )
 from src.services.llm.token_calculation_service import TokenCalculationService
-from src.services.llm.token_processing.base_processor import ITokenProcessor
-from src.services.llm.token_processing.token_types import TokenUsage
+# 使用 infrastructure 层的实现
+from src.infrastructure.llm.token_calculators import ITokenCalculator
+from src.infrastructure.llm.models import TokenUsage
 from src.services.llm.utils.config_extractor import TokenConfigExtractor
 
 logger = get_logger(__name__)
@@ -227,7 +228,7 @@ class TokenCalculationDecorator:
         else:
             logger.warning("未设置配置提供者，无法刷新缓存")
     
-    def get_enhanced_processor_for_model(self, model_type: str, model_name: str) -> Optional[ITokenProcessor]:
+    def get_enhanced_processor_for_model(self, model_type: str, model_name: str) -> Optional[ITokenCalculator]:
         """
         获取增强的处理器（配置驱动）
         
@@ -236,11 +237,11 @@ class TokenCalculationDecorator:
             model_name: 模型名称
             
         Returns:
-            Optional[ITokenProcessor]: 增强的处理器
+            Optional[ITokenCalculator]: 增强的处理器
         """
         if not self._config_provider:
             logger.debug("未设置配置提供者，使用基础处理器")
-            return self._base_service._get_processor_for_model(model_type, model_name)
+            return self._base_service._factory.get_calculator(model_type, model_name)
         
         try:
             # 获取配置
@@ -248,21 +249,21 @@ class TokenCalculationDecorator:
             
             if not token_config:
                 logger.debug(f"未找到模型配置: {model_type}:{model_name}，使用基础处理器")
-                return self._base_service._get_processor_for_model(model_type, model_name)
+                return self._base_service._factory.get_calculator(model_type, model_name)
             
             # 根据配置创建处理器
             return self._create_processor_with_config(model_type, model_name, token_config)
             
         except Exception as e:
             logger.error(f"创建增强处理器失败 {model_type}:{model_name}: {e}")
-            return self._base_service._get_processor_for_model(model_type, model_name)
+            return self._base_service._factory.get_calculator(model_type, model_name)
     
     def _create_processor_with_config(
         self,
         model_type: str,
         model_name: str,
         token_config: TokenCalculationConfig
-    ) -> ITokenProcessor:
+    ) -> ITokenCalculator:
         """
         根据配置创建处理器
         
@@ -272,24 +273,10 @@ class TokenCalculationDecorator:
             token_config: Token计算配置
             
         Returns:
-            ITokenProcessor: 处理器实例
+            ITokenCalculator: 处理器实例
         """
-        # 导入处理器类
-        from .token_processing.openai_processor import OpenAITokenProcessor
-        from .token_processing.gemini_processor import GeminiTokenProcessor
-        from .token_processing.anthropic_processor import AnthropicTokenProcessor
-        
-        # 根据模型类型创建处理器
-        processor: ITokenProcessor
-        if model_type.lower() == "openai":
-            processor = OpenAITokenProcessor(model_name)
-        elif model_type.lower() == "gemini":
-            processor = GeminiTokenProcessor(model_name)
-        elif model_type.lower() == "anthropic":
-            processor = AnthropicTokenProcessor(model_name)
-        else:
-            # 对于未知类型，使用OpenAI处理器作为默认选项
-            processor = OpenAITokenProcessor(model_name)
+        # 使用 infrastructure 层的工厂创建处理器
+        processor = self._base_service._factory.get_calculator(model_type, model_name)
         
         # 如果有自定义tokenizer配置，应用它
         if token_config.custom_tokenizer:
@@ -297,7 +284,7 @@ class TokenCalculationDecorator:
         
         return processor
     
-    def _apply_custom_tokenizer(self, processor: ITokenProcessor, custom_tokenizer: str) -> ITokenProcessor:
+    def _apply_custom_tokenizer(self, processor: ITokenCalculator, custom_tokenizer: str) -> ITokenCalculator:
         """
         应用自定义tokenizer
         
@@ -306,7 +293,7 @@ class TokenCalculationDecorator:
             custom_tokenizer: 自定义tokenizer配置
             
         Returns:
-            ITokenProcessor: 增强的处理器
+            ITokenCalculator: 增强的处理器
         """
         # 这里可以根据custom_tokenizer配置来增强处理器
         logger.debug(f"应用自定义tokenizer: {custom_tokenizer}")

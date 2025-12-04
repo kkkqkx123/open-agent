@@ -16,13 +16,9 @@ from .utils.metadata_service import ClientMetadataService
 from .utils.config_extractor import TokenConfigExtractor, create_config_key
 from .state_machine import StateMachine, LLMManagerState
 from .factory.client_factory import ClientFactory
-from .token_processing import (
-    ITokenProcessor,
-    TokenUsage,
-    OpenAITokenProcessor,
-    AnthropicTokenProcessor,
-    GeminiTokenProcessor
-)
+# Token processing 现在使用 infrastructure 层的实现
+from src.infrastructure.llm.models import TokenUsage
+from src.infrastructure.llm.token_calculators import ITokenCalculator
 from .token_calculation_service import TokenCalculationService
 from .token_calculation_decorator import TokenCalculationDecorator
 from .config import (
@@ -56,12 +52,9 @@ __all__ = [
     "StateMachine",
     "LLMManagerState",
     
-    # Token处理
-    "ITokenProcessor",
+    # Token处理（使用 infrastructure 层）
     "TokenUsage",
-    "OpenAITokenProcessor",
-    "AnthropicTokenProcessor",
-    "GeminiTokenProcessor",
+    "ITokenCalculator",
     
     # Token计算服务
     "TokenCalculationService",

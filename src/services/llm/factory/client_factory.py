@@ -1,4 +1,7 @@
-"""LLM客户端工厂实现"""
+"""LLM客户端工厂实现 - 重构版本
+
+简化为直接使用 Core 层的 LLMFactory。
+"""
 
 from typing import List, Dict, Any, Optional
 
@@ -7,7 +10,10 @@ from src.core.llm.factory import LLMFactory
 
 
 class ClientFactory(IClientFactory):
-    """客户端工厂实现"""
+    """客户端工厂实现 - 重构版本
+    
+    简化为直接使用 Core 层的 LLMFactory，减少不必要的抽象层。
+    """
     
     def __init__(self, llm_factory: Optional[LLMFactory] = None):
         """
