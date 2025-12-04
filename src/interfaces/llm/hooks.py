@@ -1,9 +1,12 @@
 """LLM钩子接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, AsyncGenerator, Sequence
+from typing import Dict, Any, Optional, AsyncGenerator, Sequence, TYPE_CHECKING
 from .base import LLMResponse
-from langchain_core.messages import BaseMessage
+
+# 使用 TYPE_CHECKING 避免循环导入
+if TYPE_CHECKING:
+    from src.interfaces.messages import IBaseMessage
 
 
 class ILLMCallHook(ABC):
@@ -12,7 +15,7 @@ class ILLMCallHook(ABC):
     @abstractmethod
     def before_call(
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence["IBaseMessage"],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -30,7 +33,7 @@ class ILLMCallHook(ABC):
     def after_call(
         self,
         response: Optional[LLMResponse],
-        messages: Sequence[BaseMessage],
+        messages: Sequence["IBaseMessage"],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -49,7 +52,7 @@ class ILLMCallHook(ABC):
     def on_error(
         self,
         error: Exception,
-        messages: Sequence[BaseMessage],
+        messages: Sequence["IBaseMessage"],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Optional[LLMResponse]:

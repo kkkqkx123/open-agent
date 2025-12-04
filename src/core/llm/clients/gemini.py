@@ -124,9 +124,11 @@ class GeminiClient(BaseLLMClient):
         if system_instruction and gemini_messages:
             first_message = gemini_messages[0]
             if first_message["role"] == "user":
-                first_message["parts"].insert(0, {
-                    "text": f"系统指令: {system_instruction}"
-                })
+                parts = first_message["parts"]
+                if isinstance(parts, list):
+                    parts.insert(0, {
+                        "text": f"系统指令: {system_instruction}"
+                    })
         
         return gemini_messages
     
@@ -417,6 +419,8 @@ class GeminiClient(BaseLLMClient):
         if self._http_client is None:
             raise RuntimeError("HTTP客户端未设置")
         
+        http_client = self._http_client
+        
         async def _async_generator() -> AsyncGenerator[str, None]:
             try:
                 # 转换消息格式
@@ -426,10 +430,13 @@ class GeminiClient(BaseLLMClient):
                 request_params = self._prepare_request_params(parameters, **kwargs)
 
                 # 异步流式生成
-                async for chunk in self._http_client.stream_generate_content(
+                # stream_generate_content 返回 Coroutine[Any, Any, AsyncGenerator]，需要await
+                generator_coro = http_client.stream_generate_content(
                     contents=converted_messages,
                     **request_params
-                ):
+                )
+                generator = await generator_coro
+                async for chunk in generator:
                     if chunk.get("candidates"):
                         candidate = chunk["candidates"][0]
                         if candidate.get("content"):

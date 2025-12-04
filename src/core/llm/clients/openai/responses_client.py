@@ -1,14 +1,13 @@
 """轻量级 Responses API 客户端"""
 
-import httpx
 import json
 from typing import Dict, Any, List, Optional, AsyncGenerator, Generator, Sequence
 
 from src.interfaces.messages import IBaseMessage
 
 from .interfaces import ResponsesAPIClient
-from .utils import ResponseConverter, MessageConverter
 from src.interfaces.llm import LLMResponse
+from src.infrastructure.llm.http_client.openai_http_client import OpenAIHttpClient
 
 
 class ResponsesClient(ResponsesAPIClient):
@@ -22,19 +21,47 @@ class ResponsesClient(ResponsesAPIClient):
             config: OpenAI 配置
         """
         super().__init__(config)
-        self._converter = ResponseConverter()
-        self._message_converter = MessageConverter()
         self._conversation_history: List[Dict[str, Any]] = []
         
-        # 设置基础 URL
-        self.base_url = (
-            config.base_url.rstrip("/")
-            if config.base_url
-            else "https://api.openai.com/v1"
-        )
+        # 延迟导入基础设施层组件，避免循环依赖
+        self._http_client = None  # type: ignore
+        self._message_converter = None  # type: ignore
+        self._stream_utils = None  # type: ignore
+        self._error_handler = None  # type: ignore
+        self._token_parser = None  # type: ignore
+        self._response_converter = None  # type: ignore
         
-        # 设置 HTTP 标头
-        self.headers = config.get_resolved_headers()
+        # 初始化基础设施层HTTP客户端
+        self._http_client = OpenAIHttpClient(
+            api_key=config.api_key,
+            base_url=config.base_url,
+            timeout=config.timeout,
+            api_format="responses"
+        )
+    
+    def _get_infrastructure_components(self) -> tuple[Any, Any, Any, Any, Any]:
+        """获取基础设施层组件（延迟初始化）"""
+        if self._message_converter is None:
+            from src.infrastructure.llm.converters.message_converters import get_message_converter
+            from src.infrastructure.llm.converters.openai.openai_stream_utils import OpenAIStreamUtils
+            from src.infrastructure.llm.converters.common.error_handlers import ErrorHandler
+            from src.infrastructure.llm.token_calculators.token_response_parser import get_token_response_parser
+            from src.infrastructure.llm.converters.message_converters import get_provider_response_converter
+            
+            self._message_converter = get_message_converter()
+            self._stream_utils = OpenAIStreamUtils()
+            self._error_handler = ErrorHandler()
+            self._token_parser = get_token_response_parser()
+            self._response_converter = get_provider_response_converter()
+        
+        # 确保所有组件都已初始化
+        assert self._message_converter is not None
+        assert self._stream_utils is not None
+        assert self._error_handler is not None
+        assert self._token_parser is not None
+        assert self._response_converter is not None
+        return (self._message_converter, self._stream_utils, self._error_handler,
+                self._token_parser, self._response_converter)
     
     async def generate_async(
         self, messages: Sequence[IBaseMessage], **kwargs: Any
@@ -49,6 +76,9 @@ class ResponsesClient(ResponsesAPIClient):
         Returns:
             LLMResponse: 生成的响应
         """
+        # 获取基础设施层组件
+        message_converter, stream_utils, error_handler, token_parser, response_converter = self._get_infrastructure_components()
+        
         # 转换消息为 input 格式
         input_text = self._messages_to_input(messages)
         
@@ -59,18 +89,13 @@ class ResponsesClient(ResponsesAPIClient):
         payload = self._build_payload(input_text, previous_response_id, **kwargs)
         
         try:
-            # 发送异步请求
-            async with httpx.AsyncClient(timeout=self.config.timeout) as client:
-                response = await client.post(
-                    f"{self.base_url}/responses",
-                    headers=self.headers,
-                    json=payload
-                )
-                response.raise_for_status()
-                api_response = response.json()
+            # 使用基础设施层的 HTTP 客户端发送请求
+            assert self._http_client is not None
+            response = await self._http_client.post("responses", payload)
+            api_response = response.json()
             
             # 转换响应格式
-            llm_response = self._converter.convert_responses_response(api_response)
+            llm_response = self._convert_responses_response(api_response)
             
             # 更新对话历史
             self._update_conversation_history(api_response)
@@ -78,8 +103,8 @@ class ResponsesClient(ResponsesAPIClient):
             return llm_response
             
         except Exception as e:
-            # 错误处理
-            raise self._handle_error(e)
+            # 使用基础设施层的错误处理器
+            raise self._handle_error_with_infrastructure(e)
     
     def stream_generate(
         self, messages: Sequence[IBaseMessage], **kwargs: Any
@@ -94,6 +119,12 @@ class ResponsesClient(ResponsesAPIClient):
         Yields:
             str: 流式响应块
         """
+        import asyncio
+        import httpx
+        
+        # 获取基础设施层组件
+        message_converter, stream_utils, error_handler, token_parser, response_converter = self._get_infrastructure_components()
+        
         # 转换消息为 input 格式
         input_text = self._messages_to_input(messages)
         
@@ -104,12 +135,13 @@ class ResponsesClient(ResponsesAPIClient):
         payload = self._build_payload(input_text, previous_response_id, stream=True, **kwargs)
         
         try:
-            # 发送流式请求
+            # 使用同步 HTTP 客户端发送流式请求
+            assert self._http_client is not None
             with httpx.Client(timeout=self.config.timeout) as client:
                 with client.stream(
                     "POST",
-                    f"{self.base_url}/responses",
-                    headers=self.headers,
+                    f"{self._http_client.base_url}/responses",
+                    headers=self._http_client.default_headers,
                     json=payload
                 ) as response:
                     response.raise_for_status()
@@ -121,6 +153,11 @@ class ResponsesClient(ResponsesAPIClient):
                                 break
                             try:
                                 chunk = json.loads(data)
+                                # 使用基础设施层的流式工具解析事件
+                                event = stream_utils.parse_stream_event(f"data: {data}")
+                                if event and event.get("type") == "done":
+                                    break
+                                
                                 # 提取文本内容
                                 content = self._extract_stream_content(chunk)
                                 if content:
@@ -129,10 +166,10 @@ class ResponsesClient(ResponsesAPIClient):
                                 continue
                                 
         except Exception as e:
-            # 错误处理
-            raise self._handle_error(e)
+            # 使用基础设施层的错误处理器
+            raise self._handle_error_with_infrastructure(e)
     
-    async def stream_generate_async(
+    async def stream_generate_async(  # type: ignore[override]
         self, messages: Sequence[IBaseMessage], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """
@@ -145,6 +182,9 @@ class ResponsesClient(ResponsesAPIClient):
         Yields:
             str: 流式响应块
         """
+        # 获取基础设施层组件
+        message_converter, stream_utils, error_handler, token_parser, response_converter = self._get_infrastructure_components()
+        
         # 转换消息为 input 格式
         input_text = self._messages_to_input(messages)
         
@@ -154,37 +194,23 @@ class ResponsesClient(ResponsesAPIClient):
         # 构建请求载荷
         payload = self._build_payload(input_text, previous_response_id, stream=True, **kwargs)
         
-        async def _async_generator() -> AsyncGenerator[str, None]:
-            try:
-                # 发送异步流式请求
-                async with httpx.AsyncClient(timeout=self.config.timeout) as client:
-                    async with client.stream(
-                        "POST",
-                        f"{self.base_url}/responses",
-                        headers=self.headers,
-                        json=payload
-                    ) as response:
-                        response.raise_for_status()
-                        
-                        async for line in response.aiter_lines():
-                            if line.startswith("data: "):
-                                data = line[6:]  # 移除 "data: " 前缀
-                                if data == "[DONE]":
-                                    break
-                                try:
-                                    chunk = json.loads(data)
-                                    # 提取文本内容
-                                    content = self._extract_stream_content(chunk)
-                                    if content:
-                                        yield content
-                                except json.JSONDecodeError:
-                                    continue
-                                    
-            except Exception as e:
-                # 错误处理
-                raise self._handle_error(e)
-        
-        return _async_generator()
+        try:
+            # 使用基础设施层的 HTTP 客户端发送异步流式请求
+            assert self._http_client is not None
+            async for chunk in self._http_client.stream_post("responses", payload):
+                # 使用基础设施层的流式工具解析事件
+                event = stream_utils.parse_stream_event(chunk)
+                if event and event.get("type") == "done":
+                    break
+                
+                # 提取文本内容
+                content = self._extract_stream_content(event) if event else ""
+                if content:
+                    yield content
+                                   
+        except Exception as e:
+            # 使用基础设施层的错误处理器
+            raise self._handle_error_with_infrastructure(e)
     
     
     def _get_previous_response_id(self) -> Optional[str]:
@@ -222,7 +248,49 @@ class ResponsesClient(ResponsesAPIClient):
         Returns:
             str: 转换后的 input 字符串
         """
-        return self._message_converter.messages_to_input(messages)
+        # 获取基础设施层组件
+        message_converter, stream_utils, error_handler, token_parser, response_converter = self._get_infrastructure_components()
+        
+        # 使用基础设施层的消息转换器
+        input_parts = []
+        for message in messages:
+            # 转换为OpenAI Responses格式
+            openai_responses_msg = message_converter.from_base_message(message, "openai-responses")
+            
+            # 提取内容
+            if isinstance(openai_responses_msg, dict):
+                content = openai_responses_msg.get("content", "")
+                if isinstance(content, list):
+                    # 多模态内容，提取文本
+                    text_parts = []
+                    for item in content:
+                        if isinstance(item, dict):
+                            if item.get("type") == "input_text":
+                                text_parts.append(item.get("text", ""))
+                            elif item.get("type") == "text":
+                                text_parts.append(item.get("text", ""))
+                            else:
+                                text_parts.append(str(item))
+                        else:
+                            text_parts.append(str(item))
+                    content = " ".join(text_parts)
+                elif not isinstance(content, str):
+                    content = str(content)
+                
+                # 添加角色前缀
+                role = openai_responses_msg.get("role", "user")
+                if role == "system":
+                    input_parts.append(f"System: {content}")
+                elif role == "user":
+                    input_parts.append(f"User: {content}")
+                elif role == "assistant":
+                    input_parts.append(f"Assistant: {content}")
+                else:
+                    input_parts.append(content)
+            else:
+                input_parts.append(str(openai_responses_msg))
+        
+        return "\n".join(input_parts)
     
     def _build_payload(
         self, 
@@ -266,6 +334,137 @@ class ResponsesClient(ResponsesAPIClient):
         
         return payload
     
+    def _convert_responses_response(self, response: Dict[str, Any]) -> LLMResponse:
+        """
+        转换 Responses API 响应为统一格式
+        
+        Args:
+            response: Responses API 响应
+            
+        Returns:
+            LLMResponse: 统一格式的响应
+        """
+        # 提取输出内容
+        content = self._extract_output_text(response)
+        
+        # 提取 Token 使用情况
+        token_usage = self._extract_responses_token_usage(response)
+        
+        # 提取函数调用
+        function_call = self._extract_responses_function_call(response)
+        
+        # 提取完成原因
+        finish_reason = self._extract_responses_finish_reason(response)
+        
+        # 创建响应对象 - 使用接口定义的LLMResponse结构
+        return LLMResponse(
+            content=content,
+            model=response.get("model", "unknown"),
+            finish_reason=finish_reason,
+            tokens_used=token_usage.total_tokens if token_usage else None,
+            metadata={
+                "response_id": response.get("id"),
+                "object": response.get("object"),
+                "created_at": response.get("created_at"),
+                "output_items": response.get("output", []),
+            },
+        )
+    
+    def _extract_output_text(self, response: Dict[str, Any]) -> str:
+        """提取 Responses API 输出文本"""
+        output_items = response.get("output", [])
+        
+        for item in output_items:
+            if item.get("type") == "message":
+                content = item.get("content", [])
+                for content_item in content:
+                    if content_item.get("type") == "output_text":
+                        text = content_item.get("text", "")
+                        return str(text) if text is not None else ""
+        
+        return ""
+    
+    def _extract_responses_token_usage(self, response: Dict[str, Any]) -> Optional[Any]:
+        """提取 Responses API Token 使用情况"""
+        # 获取基础设施层组件
+        message_converter, stream_utils, error_handler, token_parser, response_converter = self._get_infrastructure_components()
+        
+        try:
+            # 使用基础设施层的 Token 响应解析器
+            token_usage = token_parser.parse_response(response, "openai")
+            
+            if token_usage is None:
+                # 回退到基本实现
+                return self._extract_responses_token_usage_fallback(response)
+            
+            return token_usage
+            
+        except Exception as e:
+            # 如果使用基础设施层解析器失败，回退到基本实现
+            from src.services.logger import get_logger
+            logger = get_logger(__name__)
+            logger.warning(f"使用基础设施层Token解析器失败，回退到基本实现: {e}")
+            return self._extract_responses_token_usage_fallback(response)
+    
+    def _extract_responses_token_usage_fallback(self, response: Dict[str, Any]) -> Any:
+        """Token提取的回退实现"""
+        from src.infrastructure.llm.models import TokenUsage
+        
+        usage = response.get("usage", {})
+
+        # 提取基础token信息
+        prompt_tokens = usage.get("prompt_tokens", 0)
+        completion_tokens = usage.get("completion_tokens", 0)
+        total_tokens = usage.get("total_tokens", 0)
+
+        # 创建TokenUsage对象
+        token_usage = TokenUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        )
+
+        # 提取详细的token信息（如果可用）
+        prompt_details = usage.get("prompt_tokens_details", {})
+        completion_details = usage.get("completion_tokens_details", {})
+        
+        # 添加API响应中的缓存token统计信息（从OpenAI API响应中提取，用于计费统计）
+        token_usage.cached_tokens = prompt_details.get("cached_tokens", 0)
+        token_usage.cached_prompt_tokens = token_usage.cached_tokens  # OpenAI中缓存token主要是prompt
+        
+        # 添加音频token信息
+        token_usage.prompt_audio_tokens = prompt_details.get("audio_tokens", 0)
+        token_usage.completion_audio_tokens = completion_details.get("audio_tokens", 0)
+        
+        # 添加推理token信息
+        token_usage.reasoning_tokens = completion_details.get("reasoning_tokens", 0)
+        
+        # 添加预测token信息
+        token_usage.accepted_prediction_tokens = completion_details.get("accepted_prediction_tokens", 0)
+        token_usage.rejected_prediction_tokens = completion_details.get("rejected_prediction_tokens", 0)
+
+        return token_usage
+    
+    def _extract_responses_function_call(
+        self, response: Dict[str, Any]
+    ) -> Optional[dict[str, Any]]:
+        """提取 Responses API 函数调用信息"""
+        output_items = response.get("output", [])
+        
+        for item in output_items:
+            if item.get("type") == "function_call":
+                return {
+                    "id": item.get("id"),
+                    "name": item.get("name"),
+                    "arguments": item.get("arguments"),
+                }
+        
+        return None
+    
+    def _extract_responses_finish_reason(self, response: Dict[str, Any]) -> Optional[str]:
+        """提取 Responses API 完成原因"""
+        return response.get("status") or response.get("finish_reason")
+    
     def _extract_stream_content(self, chunk: Dict[str, Any]) -> str:
         """
         从流式响应块中提取文本内容
@@ -276,6 +475,9 @@ class ResponsesClient(ResponsesAPIClient):
         Returns:
             str: 提取的文本内容
         """
+        if not chunk:
+            return ""
+            
         # 检查是否是完成信号
         if chunk.get("type") == "done":
             return ""
@@ -293,9 +495,9 @@ class ResponsesClient(ResponsesAPIClient):
         
         return ""
     
-    def _handle_error(self, error: Exception) -> Exception:
+    def _handle_error_with_infrastructure(self, error: Exception) -> Exception:
         """
-        处理错误
+        使用基础设施层处理错误
         
         Args:
             error: 原始错误
@@ -315,6 +517,30 @@ class ResponsesClient(ResponsesAPIClient):
             LLMInvalidRequestError,
         )
         
+        # 获取基础设施层组件
+        message_converter, stream_utils, error_handler, token_parser, response_converter = self._get_infrastructure_components()
+        
+        # 使用基础设施层的错误处理器获取友好的错误消息
+        try:
+            # 尝试从错误中提取 HTTP 响应信息
+            response = getattr(error, "response", None)
+            if response is not None:
+                # 如果有 HTTP 响应，使用基础设施层的错误处理器
+                error_response = {
+                    "error": {
+                        "type": self._get_error_type_from_status_code(response.status_code),
+                        "message": str(error)
+                    }
+                }
+                friendly_message = error_handler.handle_api_error(error_response, "openai")
+            else:
+                # 网络错误或其他错误
+                friendly_message = error_handler.handle_network_error(error, "openai")
+        except Exception:
+            # 如果错误处理器失败，使用原始错误消息
+            friendly_message = str(error)
+        
+        # 根据错误类型创建相应的异常
         error_str = str(error).lower()
         
         # 尝试从错误中提取更多信息
@@ -326,7 +552,7 @@ class ResponsesClient(ResponsesAPIClient):
                 status_code = getattr(response, "status_code", None)
                 if status_code is not None:
                     if status_code == 401:
-                        auth_error = LLMAuthenticationError("OpenAI API 密钥无效")
+                        auth_error = LLMAuthenticationError(friendly_message)
                         auth_error.original_error = error
                         return auth_error
                     elif status_code == 429:
@@ -335,7 +561,7 @@ class ResponsesClient(ResponsesAPIClient):
                         if headers and "retry-after" in headers:
                             retry_after = int(headers["retry-after"])
                         rate_error = LLMRateLimitError(
-                            "OpenAI API 频率限制", retry_after=retry_after
+                            friendly_message, retry_after=retry_after
                         )
                         rate_error.original_error = error
                         return rate_error
@@ -344,11 +570,11 @@ class ResponsesClient(ResponsesAPIClient):
                         model_error.original_error = error
                         return model_error
                     elif status_code == 400:
-                        request_error = LLMInvalidRequestError("OpenAI API 请求无效")
+                        request_error = LLMInvalidRequestError(friendly_message)
                         request_error.original_error = error
                         return request_error
                     elif status_code in [500, 502, 503]:
-                        service_error = LLMServiceUnavailableError("OpenAI 服务不可用")
+                        service_error = LLMServiceUnavailableError(friendly_message)
                         service_error.original_error = error
                         return service_error
         except (AttributeError, ValueError, TypeError):
@@ -357,11 +583,11 @@ class ResponsesClient(ResponsesAPIClient):
         
         # 根据错误消息判断
         if "timeout" in error_str or "timed out" in error_str:
-            timeout_error = LLMTimeoutError(str(error), timeout=self.config.timeout)
+            timeout_error = LLMTimeoutError(friendly_message, timeout=self.config.timeout)
             timeout_error.original_error = error
             return timeout_error
         elif "rate limit" in error_str or "too many requests" in error_str:
-            rate_error = LLMRateLimitError(str(error))
+            rate_error = LLMRateLimitError(friendly_message)
             rate_error.original_error = error
             return rate_error
         elif (
@@ -369,7 +595,7 @@ class ResponsesClient(ResponsesAPIClient):
             or "unauthorized" in error_str
             or "invalid api key" in error_str
         ):
-            auth_error = LLMAuthenticationError(str(error))
+            auth_error = LLMAuthenticationError(friendly_message)
             auth_error.original_error = error
             return auth_error
         elif "model not found" in error_str or "not found" in error_str:
@@ -377,22 +603,37 @@ class ResponsesClient(ResponsesAPIClient):
             model_error.original_error = error
             return model_error
         elif "token" in error_str and "limit" in error_str:
-            token_error = LLMTokenLimitError(str(error))
+            token_error = LLMTokenLimitError(friendly_message)
             token_error.original_error = error
             return token_error
         elif "content filter" in error_str or "content policy" in error_str:
-            content_error = LLMContentFilterError(str(error))
+            content_error = LLMContentFilterError(friendly_message)
             content_error.original_error = error
             return content_error
         elif "service unavailable" in error_str or "503" in error_str:
-            service_error = LLMServiceUnavailableError(str(error))
+            service_error = LLMServiceUnavailableError(friendly_message)
             service_error.original_error = error
             return service_error
         elif "invalid request" in error_str or "bad request" in error_str:
-            request_error = LLMInvalidRequestError(str(error))
+            request_error = LLMInvalidRequestError(friendly_message)
             request_error.original_error = error
             return request_error
         else:
-            call_error = LLMCallError(str(error))
+            call_error = LLMCallError(friendly_message)
             call_error.original_error = error
             return call_error
+    
+    def _get_error_type_from_status_code(self, status_code: int) -> str:
+        """根据 HTTP 状态码获取错误类型"""
+        status_code_to_error_type = {
+            400: "invalid_request_error",
+            401: "authentication_error",
+            403: "permission_error",
+            404: "not_found_error",
+            429: "rate_limit_error",
+            500: "api_error",
+            502: "api_error",
+            503: "overloaded_error",
+            504: "timeout_error"
+        }
+        return status_code_to_error_type.get(status_code, "unknown_error")

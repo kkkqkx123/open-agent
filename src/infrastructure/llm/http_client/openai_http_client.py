@@ -4,7 +4,7 @@
 """
 
 import json
-from typing import Dict, Any, List, Optional, AsyncGenerator, Union, Sequence
+from typing import Dict, Any, List, Optional, AsyncGenerator, Union, Sequence, Coroutine
 from httpx import Response
 
 from src.interfaces.llm.http_client import ILLMHttpClient
@@ -565,3 +565,181 @@ class OpenAIHttpClient(BaseHttpClient, ILLMHttpClient):
             List[str]: 支持的模型名称列表
         """
         return self.SUPPORTED_MODELS.copy()
+    
+    async def chat_completion(
+        self,
+        messages: Sequence[Dict[str, Any]],
+        **kwargs: Any
+    ) -> Dict[str, Any]:
+        """OpenAI风格的Chat Completion API
+        
+        Args:
+            messages: 消息列表
+            **kwargs: 其他参数（model, temperature等）
+            
+        Returns:
+            Dict[str, Any]: 响应对象
+        """
+        request_params = kwargs or {}
+        request_params["stream"] = False
+        # 将字典消息列表转换为IBaseMessage用于请求格式化
+        request_data = self._prepare_request_data(messages, request_params)
+        response = await self.post("chat/completions", request_data)
+        result = self._convert_chat_response(response)
+        
+        # 转换为字典格式
+        if isinstance(result, dict):
+            return result
+        elif hasattr(result, '__dict__'):
+            return result.__dict__
+        else:
+            return {"content": str(result)}
+    
+    def stream_chat_completion(
+        self,
+        messages: Sequence[Dict[str, Any]],
+        **kwargs: Any
+    ) -> Coroutine[Any, Any, AsyncGenerator[Dict[str, Any], None]]:
+        """OpenAI风格的流式Chat Completion API
+        
+        Args:
+            messages: 消息列表
+            **kwargs: 其他参数
+            
+        Returns:
+            Coroutine that yields Dict[str, Any]: 流式响应块
+        """
+        return self._stream_chat_completion_impl(messages, **kwargs)  # type: ignore
+    
+    async def _stream_chat_completion_impl(
+        self,
+        messages: Sequence[Dict[str, Any]],
+        **kwargs: Any
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """OpenAI风格的流式Chat Completion API实现"""
+        request_params = kwargs or {}
+        request_params["stream"] = True
+        request_data = self._prepare_request_data(messages, request_params)
+        
+        async for chunk in self._stream_chat_response(request_data):
+            yield {"content": chunk} if isinstance(chunk, str) else chunk
+    
+    def async_stream_chat_completion(
+        self,
+        messages: Sequence[Dict[str, Any]],
+        **kwargs: Any
+    ) -> Coroutine[Any, Any, AsyncGenerator[Dict[str, Any], None]]:
+        """OpenAI风格的异步流式Chat Completion API
+        
+        Args:
+            messages: 消息列表
+            **kwargs: 其他参数
+            
+        Returns:
+            Coroutine that yields Dict[str, Any]: 流式响应块
+        """
+        return self._async_stream_chat_completion_impl(messages, **kwargs)  # type: ignore
+    
+    async def _async_stream_chat_completion_impl(
+        self,
+        messages: Sequence[Dict[str, Any]],
+        **kwargs: Any
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """OpenAI风格的异步流式Chat Completion API实现"""
+        request_params = kwargs or {}
+        request_params["stream"] = True
+        request_data = self._prepare_request_data(messages, request_params)
+        
+        async for chunk in self._stream_chat_response(request_data):
+            yield {"content": chunk} if isinstance(chunk, str) else chunk
+    
+    async def generate_content(
+        self,
+        contents: Sequence[Dict[str, Any]],
+        **kwargs: Any
+    ) -> Dict[str, Any]:
+        """Gemini风格的Generate Content API（OpenAI适配）
+        
+        Args:
+            contents: 内容列表
+            **kwargs: 其他参数
+            
+        Returns:
+            Dict[str, Any]: 响应对象
+        """
+        # 转换Gemini格式到OpenAI格式
+        messages = self._convert_gemini_to_openai_format(contents)
+        return await self.chat_completion(messages, **kwargs)
+    
+    def stream_generate_content(
+        self,
+        contents: Sequence[Dict[str, Any]],
+        **kwargs: Any
+    ) -> Coroutine[Any, Any, AsyncGenerator[Dict[str, Any], None]]:
+        """Gemini风格的流式Generate Content API（OpenAI适配）
+        
+        Args:
+            contents: 内容列表
+            **kwargs: 其他参数
+            
+        Returns:
+            Coroutine that yields Dict[str, Any]: 流式响应块
+        """
+        # 转换Gemini格式到OpenAI格式
+        messages = self._convert_gemini_to_openai_format(contents)
+        return self._stream_generate_content_impl(messages, **kwargs)  # type: ignore
+    
+    async def _stream_generate_content_impl(
+        self,
+        messages: Sequence[Dict[str, Any]],
+        **kwargs: Any
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """Gemini风格的流式Generate Content API实现"""
+        # 调用_stream_chat_completion_impl获取生成器
+        async for chunk in self._stream_chat_completion_impl(messages, **kwargs):
+            yield chunk
+    
+    def _prepare_request_data(self, messages: Sequence[Dict[str, Any]], request_params: Dict[str, Any]) -> Dict[str, Any]:
+        """准备请求数据
+        
+        Args:
+            messages: 消息列表
+            request_params: 请求参数
+            
+        Returns:
+            Dict[str, Any]: 请求数据
+        """
+        # 创建简单的请求数据，避免使用convert_request
+        return {
+            "messages": list(messages),
+            **request_params
+        }
+    
+    def _convert_gemini_to_openai_format(self, contents: Sequence[Dict[str, Any]]) -> Sequence[Dict[str, Any]]:
+        """将Gemini格式转换为OpenAI格式
+        
+        Args:
+            contents: Gemini格式的内容
+            
+        Returns:
+            Sequence[Dict[str, Any]]: OpenAI格式的消息
+        """
+        messages = []
+        for content in contents:
+            role = content.get("role", "user")
+            parts = content.get("parts", [])
+            text_parts = []
+            
+            for part in parts:
+                if isinstance(part, dict) and "text" in part:
+                    text_parts.append(part["text"])
+                elif isinstance(part, str):
+                    text_parts.append(part)
+            
+            if text_parts:
+                messages.append({
+                    "role": role,
+                    "content": "\n".join(text_parts)
+                })
+        
+        return messages

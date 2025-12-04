@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, AsyncGenerator, Union, Sequence
+from typing import Dict, Any, Optional, AsyncGenerator, Union, Sequence, Coroutine
 from httpx import Response
 
 # 使用 TYPE_CHECKING 避免循环导入
@@ -138,6 +138,91 @@ class ILLMHttpClient(IHttpClient):
             
         Returns:
             Union[LLMResponse, AsyncGenerator[str, None]]: 响应对象或流式生成器
+        """
+        pass
+    
+    @abstractmethod
+    async def chat_completion(
+        self,
+        messages: Sequence[Dict[str, Any]],
+        **kwargs: Any
+    ) -> Dict[str, Any]:
+        """OpenAI风格的Chat Completion API
+        
+        Args:
+            messages: 消息列表
+            **kwargs: 其他参数（model, temperature等）
+            
+        Returns:
+            Dict[str, Any]: 响应对象
+        """
+        pass
+    
+    @abstractmethod
+    def stream_chat_completion(
+        self,
+        messages: Sequence[Dict[str, Any]],
+        **kwargs: Any
+    ) -> Coroutine[Any, Any, AsyncGenerator[Dict[str, Any], None]]:
+        """OpenAI风格的流式Chat Completion API
+        
+        Args:
+            messages: 消息列表
+            **kwargs: 其他参数
+            
+        Returns:
+            Coroutine that yields Dict[str, Any]: 流式响应块
+        """
+        pass
+    
+    @abstractmethod
+    def async_stream_chat_completion(
+        self,
+        messages: Sequence[Dict[str, Any]],
+        **kwargs: Any
+    ) -> Coroutine[Any, Any, AsyncGenerator[Dict[str, Any], None]]:
+        """OpenAI风格的异步流式Chat Completion API
+        
+        Args:
+            messages: 消息列表
+            **kwargs: 其他参数
+            
+        Returns:
+            Coroutine that yields Dict[str, Any]: 流式响应块
+        """
+        pass
+    
+    @abstractmethod
+    async def generate_content(
+        self,
+        contents: Sequence[Dict[str, Any]],
+        **kwargs: Any
+    ) -> Dict[str, Any]:
+        """Gemini风格的Generate Content API
+        
+        Args:
+            contents: 内容列表
+            **kwargs: 其他参数
+            
+        Returns:
+            Dict[str, Any]: 响应对象
+        """
+        pass
+    
+    @abstractmethod
+    def stream_generate_content(
+        self,
+        contents: Sequence[Dict[str, Any]],
+        **kwargs: Any
+    ) -> Coroutine[Any, Any, AsyncGenerator[Dict[str, Any], None]]:
+        """Gemini风格的流式Generate Content API
+        
+        Args:
+            contents: 内容列表
+            **kwargs: 其他参数
+            
+        Returns:
+            Coroutine that yields Dict[str, Any]: 流式响应块
         """
         pass
     

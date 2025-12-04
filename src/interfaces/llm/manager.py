@@ -1,9 +1,12 @@
 """LLM管理器接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, AsyncGenerator, Sequence
+from typing import Dict, Any, Optional, List, AsyncGenerator, Sequence, TYPE_CHECKING
 from .base import ILLMClient, LLMResponse
-from langchain_core.messages import BaseMessage
+
+# 使用 TYPE_CHECKING 避免循环导入
+if TYPE_CHECKING:
+    from ..messages import IBaseMessage
 
 
 class ILLMManager(ABC):
@@ -46,7 +49,7 @@ class ILLMManager(ABC):
     @abstractmethod
     async def execute_with_fallback(
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence["IBaseMessage"],
         task_type: Optional[str] = None,
         preferred_client: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None,
@@ -58,7 +61,7 @@ class ILLMManager(ABC):
     @abstractmethod
     def stream_with_fallback(
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence["IBaseMessage"],
         task_type: Optional[str] = None,
         preferred_client: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None,

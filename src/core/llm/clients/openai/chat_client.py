@@ -1,12 +1,11 @@
 """基于基础设施层的 Chat Completions 客户端"""
 
-from typing import List, Dict, Any, Generator, AsyncGenerator, Sequence
+from typing import List, Dict, Any, Generator, AsyncGenerator, Sequence, Optional
 
 from src.interfaces.messages import IBaseMessage
 from src.interfaces.llm.http_client import ILLMHttpClient
 
 from .interfaces import ChatCompletionClient
-from .utils import ResponseConverter
 from src.interfaces.llm import LLMResponse
 
 
@@ -22,7 +21,32 @@ class ChatClient(ChatCompletionClient):
         """
         super().__init__(config)
         self._http_client: Optional[ILLMHttpClient] = None
-        self._converter = ResponseConverter()
+        # 延迟导入基础设施层组件，避免循环依赖
+        self._response_converter = None  # type: ignore
+        self._message_converter = None  # type: ignore
+        self._token_parser = None  # type: ignore
+        self._error_handler = None  # type: ignore
+    
+    def _get_infrastructure_components(self) -> tuple[Any, Any, Any, Any]:
+        """获取基础设施层组件（延迟初始化）"""
+        if self._response_converter is None:
+            from src.infrastructure.llm.converters.message_converters import get_provider_response_converter
+            from src.infrastructure.llm.converters.message_converters import get_message_converter
+            from src.infrastructure.llm.token_calculators.token_response_parser import get_token_response_parser
+            from src.infrastructure.llm.converters.common.error_handlers import ErrorHandler
+            
+            self._response_converter = get_provider_response_converter()
+            self._message_converter = get_message_converter()
+            self._token_parser = get_token_response_parser()
+            self._error_handler = ErrorHandler()
+        
+        # 确保所有组件都已初始化，返回类型
+        assert self._response_converter is not None
+        assert self._message_converter is not None
+        assert self._token_parser is not None
+        assert self._error_handler is not None
+        return (self._response_converter, self._message_converter,
+                self._token_parser, self._error_handler)
     
     def set_http_client(self, http_client: ILLMHttpClient) -> None:
         """设置HTTP客户端
@@ -48,9 +72,15 @@ class ChatClient(ChatCompletionClient):
         if self._http_client is None:
             raise RuntimeError("HTTP客户端未设置")
         
+        # 获取基础设施层组件
+        response_converter, message_converter, token_parser, error_handler = self._get_infrastructure_components()
+        
         try:
-            # 转换消息格式
-            openai_messages = self._convert_messages_to_openai_format(messages)
+            # 使用基础设施层的消息转换器
+            openai_messages = []
+            for message in messages:
+                openai_msg = message_converter.from_base_message(message, "openai")
+                openai_messages.append(openai_msg)
             
             # 准备请求参数
             request_params = self._prepare_request_params(**kwargs)
@@ -61,78 +91,47 @@ class ChatClient(ChatCompletionClient):
                 **request_params
             )
             
-            # 转换响应格式
-            return self._converter.convert_openai_response(response)
+            # 使用基础设施层的响应转换器
+            base_message = response_converter.convert_from_provider_response("openai", response)
+            
+            # 创建LLMResponse
+            from src.infrastructure.llm.models import TokenUsage
+            token_usage = token_parser.parse_response(response, "openai") or TokenUsage()
+            
+            # 确保内容是字符串类型
+            content = base_message.content if hasattr(base_message, 'content') else str(base_message)
+            if isinstance(content, list):
+                # 如果是列表，提取文本内容
+                content = " ".join(
+                    item.get("text", "") if isinstance(item, dict) else str(item)
+                    for item in content
+                    if isinstance(item, (dict, str))
+                )
+            elif not isinstance(content, str):
+                content = str(content)
+            
+            return LLMResponse(
+                content=content,
+                model=response.get("model", "unknown"),
+                finish_reason=self._extract_finish_reason(response),
+                tokens_used=token_usage.total_tokens,
+                metadata={
+                    "response_id": response.get("id"),
+                    "object": response.get("object"),
+                    "created": response.get("created"),
+                }
+            )
             
         except Exception as e:
-            # 错误处理
-            raise self._handle_error(e)
+            # 使用基础设施层的错误处理器
+            raise self._handle_error_with_infrastructure(e)
     
-    def _convert_messages_to_openai_format(self, messages: Sequence[IBaseMessage]) -> List[Dict[str, Any]]:
-        """转换消息为OpenAI格式
-        
-        Args:
-            messages: 消息列表
-            
-        Returns:
-            List[Dict[str, Any]]: OpenAI格式的消息列表
-        """
-        openai_messages = []
-        
-        for message in messages:
-            openai_message = {
-                "role": self._get_message_role(message),
-                "content": self._get_message_content(message)
-            }
-            
-            # 添加名称（如果有）
-            if hasattr(message, 'name') and message.name:
-                openai_message["name"] = message.name
-            
-            openai_messages.append(openai_message)
-        
-        return openai_messages
-    
-    def _get_message_role(self, message: IBaseMessage) -> str:
-        """获取消息角色"""
-        if hasattr(message, 'type'):
-            if message.type == "system":
-                return "system"
-            elif message.type == "human":
-                return "user"
-            elif message.type == "ai":
-                return "assistant"
-            elif message.type == "tool":
-                return "tool"
-        
-        # 根据类名判断
-        message_class = message.__class__.__name__.lower()
-        if "system" in message_class:
-            return "system"
-        elif "human" in message_class or "user" in message_class:
-            return "user"
-        elif "ai" in message_class or "assistant" in message_class:
-            return "assistant"
-        elif "tool" in message_class:
-            return "tool"
-        
-        # 默认为用户消息
-        return "user"
-    
-    def _get_message_content(self, message: IBaseMessage) -> Any:
-        """获取消息内容"""
-        content = getattr(message, 'content', '')
-        
-        # 如果内容是字符串，直接返回
-        if isinstance(content, str):
-            return content
-        
-        # 如果内容是列表，返回原样（OpenAI支持多模态内容）
-        if isinstance(content, list):
-            return content
-        
-        # 其他类型转换为字符串
-        return str(content)
+    def _extract_finish_reason(self, response: Dict[str, Any]) -> Optional[str]:
+        """提取完成原因"""
+        choices = response.get("choices", [])
+        if choices:
+            return choices[0].get("finish_reason")
+        return None
     
     def _prepare_request_params(self, **kwargs: Any) -> Dict[str, Any]:
         """准备请求参数
@@ -155,9 +154,9 @@ class ChatClient(ChatCompletionClient):
         
         if self.config.top_p != 1.0:
             params["top_p"] = self.config.top_p
-        
+         
         # 从配置中获取其他参数
-        chat_params = getattr(self.config, 'get_chat_completion_params', lambda: {})()
+        chat_params: Dict[str, Any] = getattr(self.config, 'get_chat_completion_params', lambda: {})()
         params.update(chat_params)
         
         # 添加传入的参数
@@ -165,11 +164,11 @@ class ChatClient(ChatCompletionClient):
         
         return params
     
-    def stream_generate(
+    async def stream_generate(
         self, messages: Sequence[IBaseMessage], **kwargs: Any
-    ) -> Generator[str, None, None]:
+    ) -> AsyncGenerator[str, None]:
         """
-        同步流式生成
+        流式生成（异步）
         
         Args:
             messages: 消息列表
@@ -181,65 +180,81 @@ class ChatClient(ChatCompletionClient):
         if self._http_client is None:
             raise RuntimeError("HTTP客户端未设置")
         
+        # 获取基础设施层组件
+        response_converter, message_converter, token_parser, error_handler = self._get_infrastructure_components()
+        
         try:
-            # 转换消息格式
-            openai_messages = self._convert_messages_to_openai_format(messages)
+            # 使用基础设施层的消息转换器
+            openai_messages = []
+            for message in messages:
+                openai_msg = message_converter.from_base_message(message, "openai")
+                openai_messages.append(openai_msg)
             
             # 准备请求参数
             request_params = self._prepare_request_params(**kwargs)
             request_params["stream"] = True
             
             # 调用基础设施层HTTP客户端流式接口
-            for chunk in self._http_client.stream_chat_completion(
+            generator_coro = self._http_client.stream_chat_completion(
                 messages=openai_messages,
                 **request_params
-            ):
+            )
+            generator = await generator_coro
+            async for chunk in generator:
                 if chunk.get("choices"):
                     delta = chunk["choices"][0].get("delta", {})
                     if delta.get("content"):
                         yield delta["content"]
                         
         except Exception as e:
-            # 错误处理
-            raise self._handle_error(e)
+            # 使用基础设施层的错误处理器
+            raise self._handle_error_with_infrastructure(e)
     
-    async def stream_generate_async(
-        self, messages: Sequence[IBaseMessage], **kwargs: Any
-    ) -> AsyncGenerator[str, None]:
-        """
-        异步流式生成
-        
-        Args:
-            messages: 消息列表
-            **kwargs: 其他参数
-            
-        Yields:
-            str: 流式响应块
-        """
-        if self._http_client is None:
-            raise RuntimeError("HTTP客户端未设置")
-        
-        try:
-            # 转换消息格式
-            openai_messages = self._convert_messages_to_openai_format(messages)
-            
-            # 准备请求参数
-            request_params = self._prepare_request_params(**kwargs)
-            request_params["stream"] = True
-            
-            # 调用基础设施层HTTP客户端异步流式接口
-            async for chunk in self._http_client.async_stream_chat_completion(
-                messages=openai_messages,
-                **request_params
-            ):
-                if chunk.get("choices"):
-                    delta = chunk["choices"][0].get("delta", {})
-                    if delta.get("content"):
-                        yield delta["content"]
-                        
-        except Exception as e:
-            # 错误处理
-            raise self._handle_error(e)
+    async def stream_generate_async(  # type: ignore[override]
+         self, messages: Sequence[IBaseMessage], **kwargs: Any
+     ) -> AsyncGenerator[str, None]:
+         """
+         异步流式生成
+         
+         Args:
+             messages: 消息列表
+             **kwargs: 其他参数
+             
+         Yields:
+             str: 流式响应块
+         """
+         if self._http_client is None:
+             raise RuntimeError("HTTP客户端未设置")
+         
+         # 获取基础设施层组件
+         response_converter, message_converter, token_parser, error_handler = self._get_infrastructure_components()
+         
+         try:
+             # 使用基础设施层的消息转换器
+             openai_messages = []
+             for message in messages:
+                 openai_msg = message_converter.from_base_message(message, "openai")
+                 openai_messages.append(openai_msg)
+             
+             # 准备请求参数
+             request_params = self._prepare_request_params(**kwargs)
+             request_params["stream"] = True
+             
+             # 调用基础设施层HTTP客户端异步流式接口
+             generator_coro = self._http_client.async_stream_chat_completion(
+                 messages=openai_messages,
+                 **request_params
+             )
+             generator = await generator_coro
+             async for chunk in generator:
+                 if chunk.get("choices"):
+                     delta = chunk["choices"][0].get("delta", {})
+                     if delta.get("content"):
+                         yield delta["content"]
+                         
+         except Exception as e:
+             # 使用基础设施层的错误处理器
+             raise self._handle_error_with_infrastructure(e)
     
     
     def supports_function_calling(self) -> bool:
@@ -252,9 +267,9 @@ class ChatClient(ChatCompletionClient):
         # 从配置中读取是否支持函数调用
         return getattr(self.config, 'function_calling_supported', True)
     
-    def _handle_error(self, error: Exception) -> Exception:
+    def _handle_error_with_infrastructure(self, error: Exception) -> Exception:
         """
-        处理错误
+        使用基础设施层处理错误
         
         Args:
             error: 原始错误
@@ -274,6 +289,30 @@ class ChatClient(ChatCompletionClient):
             LLMInvalidRequestError,
         )
         
+        # 确保基础设施层组件已初始化
+        response_converter, message_converter, token_parser, error_handler = self._get_infrastructure_components()
+        
+        # 使用基础设施层的错误处理器获取友好的错误消息
+        try:
+            # 尝试从错误中提取 HTTP 响应信息
+            response = getattr(error, "response", None)
+            if response is not None:
+                # 如果有 HTTP 响应，使用基础设施层的错误处理器
+                error_response = {
+                    "error": {
+                        "type": self._get_error_type_from_status_code(response.status_code),
+                        "message": str(error)
+                    }
+                }
+                friendly_message = error_handler.handle_api_error(error_response, "openai")
+            else:
+                # 网络错误或其他错误
+                friendly_message = error_handler.handle_network_error(error, "openai")
+        except Exception:
+            # 如果错误处理器失败，使用原始错误消息
+            friendly_message = str(error)
+        
+        # 根据错误类型创建相应的异常
         error_str = str(error).lower()
         
         # 尝试从错误中提取更多信息
@@ -285,7 +324,7 @@ class ChatClient(ChatCompletionClient):
                 status_code = getattr(response, "status_code", None)
                 if status_code is not None:
                     if status_code == 401:
-                        auth_error = LLMAuthenticationError("OpenAI API 密钥无效")
+                        auth_error = LLMAuthenticationError(friendly_message)
                         auth_error.original_error = error
                         return auth_error
                     elif status_code == 429:
@@ -294,7 +333,7 @@ class ChatClient(ChatCompletionClient):
                         if headers and "retry-after" in headers:
                             retry_after = int(headers["retry-after"])
                         rate_error = LLMRateLimitError(
-                            "OpenAI API 频率限制", retry_after=retry_after
+                            friendly_message, retry_after=retry_after
                         )
                         rate_error.original_error = error
                         return rate_error
@@ -303,11 +342,11 @@ class ChatClient(ChatCompletionClient):
                         model_error.original_error = error
                         return model_error
                     elif status_code == 400:
-                        request_error = LLMInvalidRequestError("OpenAI API 请求无效")
+                        request_error = LLMInvalidRequestError(friendly_message)
                         request_error.original_error = error
                         return request_error
                     elif status_code in [500, 502, 503]:
-                        service_error = LLMServiceUnavailableError("OpenAI 服务不可用")
+                        service_error = LLMServiceUnavailableError(friendly_message)
                         service_error.original_error = error
                         return service_error
         except (AttributeError, ValueError, TypeError):
@@ -316,11 +355,11 @@ class ChatClient(ChatCompletionClient):
         
         # 根据错误消息判断
         if "timeout" in error_str or "timed out" in error_str:
-            timeout_error = LLMTimeoutError(str(error), timeout=self.config.timeout)
+            timeout_error = LLMTimeoutError(friendly_message, timeout=self.config.timeout)
             timeout_error.original_error = error
             return timeout_error
         elif "rate limit" in error_str or "too many requests" in error_str:
-            rate_error = LLMRateLimitError(str(error))
+            rate_error = LLMRateLimitError(friendly_message)
             rate_error.original_error = error
             return rate_error
         elif (
@@ -328,7 +367,7 @@ class ChatClient(ChatCompletionClient):
             or "unauthorized" in error_str
             or "invalid api key" in error_str
         ):
-            auth_error = LLMAuthenticationError(str(error))
+            auth_error = LLMAuthenticationError(friendly_message)
             auth_error.original_error = error
             return auth_error
         elif "model not found" in error_str or "not found" in error_str:
@@ -336,22 +375,37 @@ class ChatClient(ChatCompletionClient):
             model_error.original_error = error
             return model_error
         elif "token" in error_str and "limit" in error_str:
-            token_error = LLMTokenLimitError(str(error))
+            token_error = LLMTokenLimitError(friendly_message)
             token_error.original_error = error
             return token_error
         elif "content filter" in error_str or "content policy" in error_str:
-            content_error = LLMContentFilterError(str(error))
+            content_error = LLMContentFilterError(friendly_message)
             content_error.original_error = error
             return content_error
         elif "service unavailable" in error_str or "503" in error_str:
-            service_error = LLMServiceUnavailableError(str(error))
+            service_error = LLMServiceUnavailableError(friendly_message)
             service_error.original_error = error
             return service_error
         elif "invalid request" in error_str or "bad request" in error_str:
-            request_error = LLMInvalidRequestError(str(error))
+            request_error = LLMInvalidRequestError(friendly_message)
             request_error.original_error = error
             return request_error
         else:
-            call_error = LLMCallError(str(error))
+            call_error = LLMCallError(friendly_message)
             call_error.original_error = error
             return call_error
+    
+    def _get_error_type_from_status_code(self, status_code: int) -> str:
+        """根据 HTTP 状态码获取错误类型"""
+        status_code_to_error_type = {
+            400: "invalid_request_error",
+            401: "authentication_error",
+            403: "permission_error",
+            404: "not_found_error",
+            429: "rate_limit_error",
+            500: "api_error",
+            502: "api_error",
+            503: "overloaded_error",
+            504: "timeout_error"
+        }
+        return status_code_to_error_type.get(status_code, "unknown_error")

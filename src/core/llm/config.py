@@ -86,6 +86,8 @@ class LLMClientConfig:
     system_instruction: Optional[Dict[str, Any]] = None
     response_mime_type: Optional[str] = None
     safety_settings: Optional[Dict[str, Any]] = None
+    content_cache_enabled: bool = False
+    content_cache_display_name: Optional[str] = None
 
     # 通用参数
     stream: bool = False

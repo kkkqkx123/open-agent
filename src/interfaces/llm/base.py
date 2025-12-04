@@ -9,15 +9,14 @@ from typing import (
     AsyncGenerator,
     Generator,
     Sequence,
+    TYPE_CHECKING,
 )
 from dataclasses import dataclass
 
-from langchain_core.messages import BaseMessage
-
 # 使用 TYPE_CHECKING 避免循环导入
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ...interfaces.messages import IBaseMessage
+    from .http_client import ILLMHttpClient
 
 
 @dataclass
@@ -47,7 +46,7 @@ class ILLMClient(ABC):
     @abstractmethod
     async def generate(
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence["IBaseMessage"],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> LLMResponse:
@@ -67,7 +66,7 @@ class ILLMClient(ABC):
     @abstractmethod
     async def stream_generate(
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence["IBaseMessage"],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> AsyncGenerator[str, None]:
@@ -102,5 +101,13 @@ class ILLMClient(ABC):
 
         Returns:
             Dict[str, Any]: 模型信息
+        """
+        pass
+    
+    def set_http_client(self, http_client: "ILLMHttpClient") -> None:
+        """设置HTTP客户端
+        
+        Args:
+            http_client: HTTP客户端实例
         """
         pass

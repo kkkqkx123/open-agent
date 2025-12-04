@@ -1,9 +1,12 @@
 """LLM降级管理接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List, Tuple, TYPE_CHECKING
 from ..base import LLMResponse
-from langchain_core.messages import BaseMessage
+
+# 使用 TYPE_CHECKING 避免循环导入
+if TYPE_CHECKING:
+    from src.interfaces.messages import IBaseMessage
 
 
 class IFallbackManager(ABC):

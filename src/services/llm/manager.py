@@ -4,22 +4,24 @@ LLM管理服务
 提供LLM客户端的统一管理和协调功能。
 """
 
-from typing import Any, Dict, List, Optional, Union, Sequence, AsyncGenerator
+from typing import Any, Dict, List, Optional, Union, Sequence, AsyncGenerator, TYPE_CHECKING
 from src.services.logger import get_logger
-from langchain_core.messages import BaseMessage
 
 from src.interfaces.llm import ILLMClient, ILLMManager, IFallbackManager, ITaskGroupManager, ILLMCallHook, LLMResponse
+from src.interfaces.messages import IBaseMessage
 from src.core.llm.factory import LLMFactory
 from src.core.llm.config import LLMClientConfig
 from src.core.common.exceptions.llm import LLMError
 from src.services.llm.state_machine import StateMachine, LLMManagerState
 from src.services.llm.utils.metadata_service import ClientMetadataService
-from src.core.config.processor.validator import ConfigValidator
-from src.core.config.validation import ValidationResult
 from src.core.config.config_manager import ConfigManager
 from src.services.llm.core.client_manager import LLMClientManager
 from src.services.llm.core.request_executor import LLMRequestExecutor
 from src.services.llm.core.manager_registry import manager_registry, ManagerStatus
+from src.interfaces.configuration import ValidationResult
+
+if TYPE_CHECKING:
+    from src.infrastructure.messages import BaseMessage
 
 logger = get_logger(__name__)
 
@@ -39,10 +41,7 @@ class LLMManager(ILLMManager):
         factory: LLMFactory,
         fallback_manager: IFallbackManager,
         task_group_manager: ITaskGroupManager,
-        config_validator: ConfigValidator,
-        metadata_service: ClientMetadataService,
-        config: Optional[Dict[str, Any]] = None,
-        config_loader: Optional[Any] = None
+        metadata_service: ClientMetadataService
     ) -> None:
         """初始化LLM管理器
         
@@ -50,17 +49,12 @@ class LLMManager(ILLMManager):
             factory: LLM工厂
             fallback_manager: 降级管理器
             task_group_manager: 任务组管理器
-            config_validator: 配置验证器
             metadata_service: 元数据服务
-            config: LLM配置字典
-            config_loader: 配置加载器
         """
         self._factory = factory
         self._fallback_manager = fallback_manager
         self._task_group_manager = task_group_manager
-        self._config_validator = config_validator
         self._metadata_service = metadata_service
-        self._config = config or {}
         
         # 历史记录钩子
         self._history_hooks: List[ILLMCallHook] = []
@@ -69,12 +63,7 @@ class LLMManager(ILLMManager):
         self._state_machine = StateMachine()
         
         # 创建配置管理器
-        self._config_manager = ConfigManager(
-            factory=factory,
-            config_validator=config_validator,
-            config_loader=config_loader,
-            config=config
-        )
+        self._config_manager = ConfigManager()
         
         
         # 创建客户端管理器
@@ -149,7 +138,8 @@ class LLMManager(ILLMManager):
         logger.info(f"收到配置更新事件，来源: {from_manager}")
         # 可以在这里实现配置热更新逻辑
         try:
-            self._config_manager.reload_config()
+            # 清除所有缓存以强制重新加载
+            self._config_manager.invalidate_cache()
             logger.info("配置热更新完成")
         except Exception as e:
             logger.error(f"配置热更新失败: {e}")
@@ -178,18 +168,16 @@ class LLMManager(ILLMManager):
             self._state_machine.transition_to(LLMManagerState.INITIALIZING)
             logger.info("初始化LLM管理器...")
             
-            # 使用配置管理器加载客户端
-            clients = self._config_manager.load_clients_from_config()
+            # 使用工厂创建客户端
+            # 注：这里可以根据需要从配置加载客户端信息
+            clients = {}
             
             # 使用客户端管理器加载客户端
             self._client_manager.load_clients_from_dict(clients)
             
             # 设置默认客户端
-            default_client_name = self._config_manager.get_default_client_name()
-            if default_client_name and self._client_manager.has_client(default_client_name):
-                self._client_manager.set_default_client(default_client_name)
-            elif self._client_manager.get_client_count() > 0:
-                # 如果没有指定默认客户端，使用第一个
+            if self._client_manager.get_client_count() > 0:
+                # 如果有多个客户端，使用第一个作为默认
                 first_client = self._client_manager.list_clients()[0]
                 self._client_manager.set_default_client(first_client)
             
@@ -287,7 +275,7 @@ class LLMManager(ILLMManager):
     
     async def execute_with_fallback(
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence[IBaseMessage],
         task_type: Optional[str] = None,
         preferred_client: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None,
@@ -338,7 +326,7 @@ class LLMManager(ILLMManager):
     
     async def stream_with_fallback(
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence[IBaseMessage],
         task_type: Optional[str] = None,
         preferred_client: Optional[str] = None,
         parameters: Optional[Dict[str, Any]] = None,
@@ -449,7 +437,12 @@ class LLMManager(ILLMManager):
         Returns:
             bool: 验证是否通过
         """
-        result = self._config_manager.validate_config(config)
+        # 如果是LLMClientConfig对象，转换为字典
+        if isinstance(config, LLMClientConfig):
+            config_dict = config.to_dict() if hasattr(config, 'to_dict') else vars(config)
+        else:
+            config_dict = config
+        result = self._config_manager.validate_config(config_dict)
         return result.is_valid
     
     def get_config_status(self) -> Dict[str, Any]:
@@ -540,7 +533,7 @@ class LLMManager(ILLMManager):
     
     async def _execute_before_hooks(
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence[IBaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any
     ) -> None:
@@ -554,7 +547,7 @@ class LLMManager(ILLMManager):
     async def _execute_after_hooks(
         self,
         response: LLMResponse,
-        messages: Sequence[BaseMessage],
+        messages: Sequence[IBaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any
     ) -> None:
@@ -568,7 +561,7 @@ class LLMManager(ILLMManager):
     async def _execute_error_hooks(
         self,
         error: Exception,
-        messages: Sequence[BaseMessage],
+        messages: Sequence[IBaseMessage],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any
     ) -> Optional[LLMResponse]:

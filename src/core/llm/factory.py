@@ -169,7 +169,7 @@ class LLMFactory(ILLMClientFactory):
         if hasattr(client, 'set_http_client'):
             client.set_http_client(http_client)
         elif hasattr(client, '_http_client'):
-            client._http_client = http_client
+            setattr(client, '_http_client', http_client)
         
         return client
 
@@ -292,10 +292,12 @@ class LLMFactory(ILLMClientFactory):
         
         # 获取基础设施层的缓存信息
         try:
-            # 这里假设HTTP客户端工厂有获取缓存信息的方法
-            if hasattr(self._http_factory, 'get_cache_info'):
-                infra_cache_info = self._http_factory.get_cache_info()
-                core_cache_info["infrastructure_cache"] = infra_cache_info
+            # 获取HTTP客户端工厂的缓存信息
+            infra_cache_info = {
+                "cache_size": len(self._http_factory._client_cache),
+                "cached_clients": list(self._http_factory._client_cache.keys())
+            }
+            core_cache_info["infrastructure_cache"] = infra_cache_info
         except Exception:
             # 如果获取基础设施层缓存信息失败，忽略错误
             pass

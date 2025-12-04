@@ -5,7 +5,6 @@ from .openai_client import OpenAIClient
 from .chat_client import ChatClient
 from .responses_client import ResponsesClient
 from .interfaces import BaseOpenAIClient, ChatCompletionClient, ResponsesAPIClient
-from .utils import ResponseConverter, MessageConverter
 
 __all__ = [
     "OpenAIConfig",
@@ -15,6 +14,4 @@ __all__ = [
     "BaseOpenAIClient",
     "ChatCompletionClient",
     "ResponsesAPIClient",
-    "ResponseConverter",
-    "MessageConverter",
 ]

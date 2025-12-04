@@ -113,14 +113,13 @@ class ConfigProcessor:
     
     def _validate_workflow_config(self, config: Dict[str, Any], config_path: Optional[str] = None) -> None:
         """验证工作流配置"""
-        from ..workflow.validation import WorkflowConfigValidator
-        validator = WorkflowConfigValidator()
-        result = validator.validate(config)
-        if not result.is_valid:
-            error_msg = f"工作流配置验证失败: {config_path or 'unknown'}\n"
-            for error in result.errors:
-                error_msg += f"  - {error}\n"
-            raise ConfigValidationError(error_msg)
+        # 基础工作流配置验证
+        if not isinstance(config, dict):
+            raise ConfigValidationError("工作流配置必须是字典类型")
+        
+        # 验证必需字段
+        if "name" not in config:
+            raise ConfigValidationError("工作流配置必须包含 'name' 字段")
     
     def _validate_registry_config(self, config: Dict[str, Any], config_path: Optional[str] = None) -> None:
         """验证注册表配置"""
