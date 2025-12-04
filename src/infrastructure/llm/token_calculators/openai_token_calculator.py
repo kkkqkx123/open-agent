@@ -2,6 +2,7 @@
 OpenAI Token计算器
 
 基于tiktoken库实现OpenAI模型的精确Token计算。
+支持Chat Completions API和Responses API (GPT-5)。
 """
 
 import time
@@ -17,98 +18,12 @@ from src.interfaces.messages import IBaseMessage
 logger = get_logger(__name__)
 
 
-@dataclass
-class OpenAIModelInfo:
-    """OpenAI模型信息"""
-    
-    name: str
-    encoding_name: str
-    max_tokens: int
-    input_cost: float  # 每1K tokens的成本
-    output_cost: float  # 每1K tokens的成本
-    supports_function_calling: bool = True
-    supports_vision: bool = False
-
-
 class OpenAITokenCalculator(BaseTokenCalculator):
     """OpenAI Token计算器
     
     使用tiktoken库提供精确的Token计算功能。
+    统一使用cl100k_base编码器，移除硬编码的模型和价格信息。
     """
-    
-    # OpenAI模型配置
-    MODELS = {
-        "gpt-3.5-turbo": OpenAIModelInfo(
-            name="gpt-3.5-turbo",
-            encoding_name="cl100k_base",
-            max_tokens=4096,
-            input_cost=0.0005,
-            output_cost=0.0015
-        ),
-        "gpt-3.5-turbo-16k": OpenAIModelInfo(
-            name="gpt-3.5-turbo-16k",
-            encoding_name="cl100k_base",
-            max_tokens=16384,
-            input_cost=0.003,
-            output_cost=0.004
-        ),
-        "gpt-4": OpenAIModelInfo(
-            name="gpt-4",
-            encoding_name="cl100k_base",
-            max_tokens=8192,
-            input_cost=0.03,
-            output_cost=0.06
-        ),
-        "gpt-4-32k": OpenAIModelInfo(
-            name="gpt-4-32k",
-            encoding_name="cl100k_base",
-            max_tokens=32768,
-            input_cost=0.06,
-            output_cost=0.12
-        ),
-        "gpt-4-turbo": OpenAIModelInfo(
-            name="gpt-4-turbo",
-            encoding_name="cl100k_base",
-            max_tokens=128000,
-            input_cost=0.01,
-            output_cost=0.03
-        ),
-        "gpt-4-turbo-preview": OpenAIModelInfo(
-            name="gpt-4-turbo-preview",
-            encoding_name="cl100k_base",
-            max_tokens=128000,
-            input_cost=0.01,
-            output_cost=0.03
-        ),
-        "gpt-4o": OpenAIModelInfo(
-            name="gpt-4o",
-            encoding_name="o200k_base",
-            max_tokens=128000,
-            input_cost=0.005,
-            output_cost=0.015
-        ),
-        "gpt-4o-mini": OpenAIModelInfo(
-            name="gpt-4o-mini",
-            encoding_name="o200k_base",
-            max_tokens=128000,
-            input_cost=0.00015,
-            output_cost=0.0006
-        ),
-        "text-davinci-003": OpenAIModelInfo(
-            name="text-davinci-003",
-            encoding_name="p50k_base",
-            max_tokens=4097,
-            input_cost=0.02,
-            output_cost=0.02
-        ),
-        "text-curie-001": OpenAIModelInfo(
-            name="text-curie-001",
-            encoding_name="p50k_base",
-            max_tokens=2049,
-            input_cost=0.002,
-            output_cost=0.002
-        ),
-    }
     
     def __init__(self, model_name: str = "gpt-3.5-turbo", enable_cache: bool = True):
         """
@@ -123,34 +38,18 @@ class OpenAITokenCalculator(BaseTokenCalculator):
         self.enable_cache = enable_cache
         self.cache = TokenCache() if enable_cache else None
         
-        # 验证模型支持
-        if model_name not in self.MODELS:
-            logger.warning(f"未知模型: {model_name}，使用默认配置")
-            # 创建默认模型配置
-            self.model_info = OpenAIModelInfo(
-                name=model_name,
-                encoding_name="cl100k_base",
-                max_tokens=4096,
-                input_cost=0.001,
-                output_cost=0.002
-            )
-        else:
-            self.model_info = self.MODELS[model_name]
+        # 统一使用cl100k_base编码器
+        self.encoding_name = "cl100k_base"
         
-        logger.info(f"OpenAI Token计算器初始化完成: {model_name}")
+        logger.info(f"OpenAI Token计算器初始化完成: {model_name}, 使用编码器: {self.encoding_name}")
     
     def _load_encoding(self) -> None:
         """加载tiktoken编码器"""
         try:
             import tiktoken
             
-            # 尝试获取模型特定的编码器
-            try:
-                self._encoding = tiktoken.encoding_for_model(self.model_name)
-            except KeyError:
-                # 如果模型没有特定编码器，使用配置中的编码器
-                self._encoding = tiktoken.get_encoding(self.model_info.encoding_name)
-                
+            # 统一使用cl100k_base编码器
+            self._encoding = tiktoken.get_encoding(self.encoding_name)
             logger.debug(f"OpenAI计算器使用编码器: {self._encoding.name}")
                 
         except ImportError:
@@ -373,7 +272,9 @@ class OpenAITokenCalculator(BaseTokenCalculator):
     
     def get_supported_models(self) -> List[str]:
         """获取支持的模型列表"""
-        return list(self.MODELS.keys())
+        # 移除硬编码模型列表，从配置文件获取
+        logger.warning("模型列表已移除硬编码，请从配置文件获取支持的模型")
+        return []
     
     def get_model_pricing(self, model_name: str) -> Optional[Dict[str, float]]:
         """
@@ -385,18 +286,14 @@ class OpenAITokenCalculator(BaseTokenCalculator):
         Returns:
             Optional[Dict[str, float]]: 定价信息
         """
-        model_info = self.MODELS.get(model_name)
-        if not model_info:
-            return None
-        
-        return {
-            "prompt": model_info.input_cost / 1000,  # 转换为每个token的成本
-            "completion": model_info.output_cost / 1000
-        }
+        # 移除硬编码的价格信息，返回None表示价格信息需要从配置中获取
+        logger.warning(f"模型价格信息已移除硬编码，请从配置文件获取: {model_name}")
+        return None
     
     def is_supported_response(self, response: Dict[str, Any]) -> bool:
         """
         检查是否支持解析该响应
+        支持Chat Completions API和Responses API
         
         Args:
             response: API响应数据
@@ -404,6 +301,7 @@ class OpenAITokenCalculator(BaseTokenCalculator):
         Returns:
             bool: 是否支持解析
         """
+        # 基础usage字段检查，与其他提供商保持一致
         return (
             "usage" in response and
             isinstance(response.get("usage"), dict) and
@@ -468,17 +366,18 @@ class OpenAITokenCalculator(BaseTokenCalculator):
         
         return results
     
-    def get_model_info(self, model_name: str) -> Optional[OpenAIModelInfo]:
+    def is_model_supported(self, model_name: str) -> bool:
         """
-        获取模型详细信息
+        检查是否支持指定的OpenAI模型
         
         Args:
             model_name: 模型名称
             
         Returns:
-            Optional[OpenAIModelInfo]: 模型信息
+            bool: 是否支持
         """
-        return self.MODELS.get(model_name)
+        supported_models = self.get_supported_models()
+        return model_name in supported_models or model_name.startswith(("gpt-", "text-"))
     
     def clear_cache(self) -> None:
         """清空缓存"""

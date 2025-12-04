@@ -7,7 +7,7 @@ import os
 import re
 import yaml
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Set
 from dataclasses import dataclass
 
 from src.services.logger import get_logger
@@ -52,21 +52,30 @@ class ConfigDiscovery:
         self.logger = get_logger(__name__)
         self._config_cache: Dict[str, Dict[str, Any]] = {}
         self._config_info_cache: Dict[str, ConfigInfo] = {}
+        self._discovered_configs: List[ConfigInfo] = []
         
         # 环境变量引用模式
         self.env_var_pattern = re.compile(r"^\$\{([^}:]+)(?::([^}]*))?\}$")
         
+        # 支持的配置文件类型
+        self.supported_extensions = {'.yaml', '.yml'}
+        
         self.logger.info(f"初始化配置发现器，配置目录: {self.config_dir}")
     
-    def discover_configs(self, provider: Optional[str] = None) -> List[ConfigInfo]:
+    def discover_configs(self, provider: Optional[str] = None, force_refresh: bool = False) -> List[ConfigInfo]:
         """发现配置文件
         
         Args:
             provider: 提供商名称，如果为None则发现所有提供商的配置
+            force_refresh: 是否强制刷新缓存
             
         Returns:
             List[ConfigInfo]: 配置信息列表
         """
+        # 检查缓存
+        if not force_refresh and self._discovered_configs and not provider:
+            return self._discovered_configs
+        
         configs: List[ConfigInfo] = []
         
         if not self.config_dir.exists():
@@ -74,15 +83,19 @@ class ConfigDiscovery:
             return configs
         
         # 遍历配置目录
-        for config_file in self.config_dir.rglob("*.yaml"):
-            try:
-                config_info = self._parse_config_file(config_file, provider)
-                if config_info:
-                    configs.append(config_info)
-            except Exception as e:
-                self.logger.error(f"解析配置文件失败 {config_file}: {e}")
-                continue
+        for config_file in self.config_dir.rglob("*"):
+            if config_file.suffix.lower() in self.supported_extensions:
+                try:
+                    config_info = self._parse_config_file(config_file, provider)
+                    if config_info:
+                        configs.append(config_info)
+                except Exception as e:
+                    self.logger.error(f"解析配置文件失败 {config_file}: {e}")
+                    continue
         
+        # 缓存结果
+        if not provider:
+            self._discovered_configs = configs
         
         self.logger.debug(f"发现 {len(configs)} 个配置文件")
         return configs
@@ -449,6 +462,73 @@ class ConfigDiscovery:
             config_path = Path(config_path)
         
         return self._load_config_file(config_path)
+    
+    def get_config_hierarchy(self) -> Dict[str, List[ConfigInfo]]:
+        """获取配置层次结构
+        
+        Returns:
+            Dict[str, List[ConfigInfo]]: 按类型分组的配置信息
+        """
+        configs = self.discover_configs()
+        hierarchy = {
+            "global": [],
+            "provider": [],
+            "model": [],
+            "tools": [],
+            "other": []
+        }
+        
+        for config in configs:
+            path_parts = config.path.relative_to(self.config_dir).parts
+            
+            if len(path_parts) == 1 and path_parts[0].startswith("global"):
+                hierarchy["global"].append(config)
+            elif len(path_parts) == 2 and path_parts[0] == "provider":
+                hierarchy["provider"].append(config)
+            elif len(path_parts) == 3 and path_parts[0] == "provider":
+                hierarchy["model"].append(config)
+            elif "tools" in path_parts:
+                hierarchy["tools"].append(config)
+            else:
+                hierarchy["other"].append(config)
+        
+        return hierarchy
+    
+    def validate_config_structure(self) -> Dict[str, List[str]]:
+        """验证配置文件结构
+        
+        Returns:
+            Dict[str, List[str]]: 验证结果，包含错误和警告信息
+        """
+        result = {
+            "errors": [],
+            "warnings": []
+        }
+        
+        if not self.config_dir.exists():
+            result["errors"].append(f"配置目录不存在: {self.config_dir}")
+            return result
+        
+        # 检查必需的配置文件
+        required_configs = [
+            self.config_dir / "global.yaml",
+            self.config_dir / "_group.yaml"
+        ]
+        
+        for required_config in required_configs:
+            if not required_config.exists():
+                result["warnings"].append(f"推荐配置文件不存在: {required_config}")
+        
+        # 检查提供商配置目录
+        provider_dir = self.config_dir / "provider"
+        if provider_dir.exists():
+            providers = [d.name for d in provider_dir.iterdir() if d.is_dir()]
+            if not providers:
+                result["warnings"].append("提供商配置目录存在但为空")
+        else:
+            result["warnings"].append("提供商配置目录不存在")
+        
+        return result
 
 
 # 全局配置发现器实例

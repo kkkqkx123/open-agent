@@ -87,17 +87,9 @@ class AnthropicTokenCalculator(LocalTokenCalculator):
     
     def get_supported_models(self) -> List[str]:
         """获取支持的Anthropic模型列表"""
-        return [
-            "claude-3-5-sonnet-20241022",
-            "claude-3-5-haiku-20241022",
-            "claude-3-sonnet-20240229",
-            "claude-3-sonnet-20240229",
-            "claude-3-haiku-20240307",
-            "claude-3-opus-20240229",
-            "claude-2.1",
-            "claude-2.0",
-            "claude-instant-1.2"
-        ]
+        # 移除硬编码模型列表，从配置文件获取
+        logger.warning("模型列表已移除硬编码，请从配置文件获取支持的模型")
+        return []
     
     def is_model_supported(self, model_name: str) -> bool:
         """检查是否支持指定的Anthropic模型"""

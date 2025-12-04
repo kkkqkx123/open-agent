@@ -84,16 +84,9 @@ class GeminiTokenCalculator(LocalTokenCalculator):
     
     def get_supported_models(self) -> List[str]:
         """获取支持的Gemini模型列表"""
-        return [
-            "gemini-pro",
-            "gemini-pro-vision",
-            "gemini-1.5-pro",
-            "gemini-1.5-pro-latest",
-            "gemini-1.5-flash",
-            "gemini-1.5-flash-latest",
-            "gemini-2.0-flash-exp",
-            "gemini-2.0-pro-exp"
-        ]
+        # 移除硬编码模型列表，从配置文件获取
+        logger.warning("模型列表已移除硬编码，请从配置文件获取支持的模型")
+        return []
     
     def is_model_supported(self, model_name: str) -> bool:
         """检查是否支持指定的Gemini模型"""
