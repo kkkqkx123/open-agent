@@ -7,8 +7,8 @@ import sys
 from typing import Optional
 
 from src.interfaces.logger import ILogger
-from src.services.container.injection_base import get_global_injection_registry
-from src.services.container.injection_decorators import injectable
+from src.services.container.injection.injection_base import get_global_injection_registry
+from src.services.container.injection.injection_decorators import injectable
 
 
 class _StubLogger(ILogger):

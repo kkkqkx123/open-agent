@@ -9,7 +9,7 @@ from uuid import uuid4
 from ....interfaces.state.manager import IStateManager
 from ....interfaces.state.lifecycle import IStateLifecycleManager
 from ....interfaces.state.history import IStateHistoryManager
-from ....services.container.container import DependencyContainer as Container
+from ....services.container.core.container import DependencyContainer as Container
 
 # 兼容性异常定义
 class ServiceNotRegisteredError(Exception):

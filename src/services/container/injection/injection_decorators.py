@@ -5,7 +5,7 @@
 
 from typing import TypeVar, Type, Optional, Callable, Any, Dict, cast
 from functools import wraps
-from src.services.container.injection_base import get_global_injection_registry
+from src.services.container.injection.injection_base import get_global_injection_registry
 
 T = TypeVar('T')
 

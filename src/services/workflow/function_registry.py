@@ -3,15 +3,12 @@
 提供统一的节点函数和条件函数注册、发现和管理功能。
 """
 
-from typing import Dict, Any, Optional, List, Callable, Union, TYPE_CHECKING
+from typing import Dict, Any, Optional, List, Callable
 from enum import Enum
 from src.services.logger import get_logger
 import importlib
 import inspect
-from pathlib import Path
 
-if TYPE_CHECKING:
-    from src.core.workflow.entities import WorkflowState
 
 logger = get_logger(__name__)
 

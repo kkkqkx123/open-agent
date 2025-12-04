@@ -13,7 +13,7 @@ from src.interfaces.common_infra import ServiceLifetime
 from src.services.logger.logger_service import LoggerService
 from src.infrastructure.logger.core.redactor import LogRedactor, CustomLogRedactor
 from src.infrastructure.logger.factory.logger_factory import LoggerFactory
-from src.services.container.base_service_bindings import BaseServiceBindings
+from src.services.container.core.base_service_bindings import BaseServiceBindings
 
 
 class LoggerLifecycleManager:
@@ -77,21 +77,35 @@ class LoggerServiceBindings(BaseServiceBindings):
         _register_logger_service(container, config, environment)
     
     def _post_register(
-        self, 
-        container: Any, 
-        config: Dict[str, Any], 
+        self,
+        container: Any,
+        config: Dict[str, Any],
         environment: str = "default"
     ) -> None:
         """注册后处理"""
-        # 设置全局logger实例
+        # 设置注入层
         try:
+            # 为日志服务设置注入层
+            self.setup_service_injection(
+                container,
+                ILogger,
+                self._create_fallback_logger
+            )
+            
+            # 设置全局logger实例（向后兼容）
             logger_instance = container.get(ILogger)
             from src.services.logger.injection import set_logger_instance
             set_logger_instance(logger_instance)
+            
             if logger_instance:
-                logger_instance.debug(f"already set logger instance (environment: {environment})")
+                logger_instance.debug(f"已设置logger实例和注入层 (environment: {environment})")
         except Exception as e:
-            print(f"[WARNING] 设置全局 logger 实例失败: {e}", file=sys.stderr)
+            print(f"[WARNING] 设置logger注入层失败: {e}", file=sys.stderr)
+    
+    def _create_fallback_logger(self) -> ILogger:
+        """创建fallback logger"""
+        from src.services.logger.injection import _StubLogger
+        return _StubLogger()
 
 
 def _register_logger_factory(container: Any, config: Dict[str, Any], environment: str = "default") -> None:

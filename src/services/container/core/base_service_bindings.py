@@ -20,6 +20,7 @@ from src.interfaces.container.exceptions import (
     RegistrationError,
 )
 from src.interfaces.common_infra import ServiceLifetime
+from src.services.container.injection.injection_base import get_global_injection_registry
 
 
 class BaseServiceBindings(ABC):
@@ -305,6 +306,97 @@ class BaseServiceBindings(ABC):
             )
             self._handle_registration_error(error, environment)
             raise error
+    
+    def setup_injection_layer(
+        self,
+        container: IDependencyContainer,
+        service_types: List[Type],
+        fallback_factories: Optional[Dict[Type, Callable[[], Any]]] = None
+    ) -> None:
+        """为指定服务设置注入层
+        
+        Args:
+            container: 依赖注入容器
+            service_types: 要设置注入层的服务类型列表
+            fallback_factories: fallback工厂字典
+        """
+        if fallback_factories is None:
+            fallback_factories = {}
+        
+        injection_registry = get_global_injection_registry()
+        
+        for service_type in service_types:
+            try:
+                # 获取服务实例
+                service_instance = container.get(service_type)
+                
+                # 注册到注入层
+                fallback_factory = fallback_factories.get(service_type)
+                injection = injection_registry.register(service_type, fallback_factory)
+                injection.set_instance(service_instance)
+                
+            except Exception as e:
+                # 记录错误但不影响主要流程
+                print(f"[WARNING] 设置注入层失败 {service_type.__name__}: {e}", file=sys.stderr)
+    
+    def setup_service_injection(
+        self,
+        container: IDependencyContainer,
+        service_type: Type,
+        fallback_factory: Optional[Callable[[], Any]] = None
+    ) -> None:
+        """为单个服务设置注入层
+        
+        Args:
+            container: 依赖注入容器
+            service_type: 服务类型
+            fallback_factory: fallback工厂函数
+        """
+        fallback_factories = {service_type: fallback_factory} if fallback_factory else None
+        self.setup_injection_layer(container, [service_type], fallback_factories)
+    
+    def clear_injection_layer(self, service_types: Optional[List[Type]] = None) -> None:
+        """清除注入层实例
+        
+        Args:
+            service_types: 要清除的服务类型列表，如果为None则清除所有
+        """
+        injection_registry = get_global_injection_registry()
+        
+        if service_types is None:
+            injection_registry.clear_all()
+        else:
+            for service_type in service_types:
+                try:
+                    injection = injection_registry.get_injection(service_type)
+                    injection.clear_instance()
+                except ValueError:
+                    # 服务类型未注册，忽略
+                    pass
+    
+    def get_injection_status(self, service_types: Optional[List[Type]] = None) -> Dict[str, Dict[str, Any]]:
+        """获取注入层状态
+        
+        Args:
+            service_types: 要查询的服务类型列表，如果为None则查询所有
+            
+        Returns:
+            状态信息字典
+        """
+        injection_registry = get_global_injection_registry()
+        all_status = injection_registry.get_all_status()
+        
+        if service_types is None:
+            return all_status
+        
+        # 过滤指定的服务类型
+        filtered_status = {}
+        for service_type in service_types:
+            service_name = service_type.__name__
+            if service_name in all_status:
+                filtered_status[service_name] = all_status[service_name]
+        
+        return filtered_status
 
 
 class EnvironmentSpecificBindings(BaseServiceBindings):

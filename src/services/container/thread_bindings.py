@@ -20,7 +20,7 @@ from src.interfaces.sessions.service import ISessionService
 from src.core.threads.interfaces import IThreadCore
 from src.interfaces.history import IHistoryManager
 from src.interfaces.threads.checkpoint import IThreadCheckpointManager
-from src.interfaces.common_infra import ILogger
+from src.interfaces.logger import ILogger
 
 # 导入日志绑定
 from .logger_bindings import register_logger_services

@@ -43,7 +43,6 @@ from .session_handler import SessionHandler
 from src.services.container import get_global_container
 from src.interfaces.common_infra import IConfigLoader
 from src.core.config.models.global_config import GlobalConfig
-from src.services.logger.logger import set_global_config
 from src.interfaces.sessions.service import ISessionService
 from src.core.state import WorkflowState
 from src.interfaces.history import IHistoryManager
@@ -209,12 +208,6 @@ class TUIApp:
                         global_config = GlobalConfig(**global_config_data)
                     else:
                         global_config = global_config_data
-                    
-                    # 设置全局配置到日志系统
-                    if isinstance(global_config, dict):
-                        set_global_config(global_config)  # type: ignore
-                    else:
-                        set_global_config(global_config.dict() if hasattr(global_config, 'dict') else global_config)  # type: ignore
                     
                     # 初始化TUI日志管理器
                     self.tui_manager.initialize(global_config)

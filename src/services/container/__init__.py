@@ -3,10 +3,8 @@
 提供服务的依赖注入和管理功能。
 """
 
-from .container import DependencyContainer, get_global_container, reset_global_container
+from .core.container import DependencyContainer, get_global_container, reset_global_container
 
-# 向后兼容别名
-Container = DependencyContainer
 from .storage_bindings import (
     register_all_storage_services,
     register_session_storage_only,
@@ -41,7 +39,7 @@ from .logger_bindings import (
 
 __all__ = [
     # 核心容器
-    "Container",
+    "DependencyContainer",
     "DependencyContainer",
     "get_global_container",
     "reset_global_container",

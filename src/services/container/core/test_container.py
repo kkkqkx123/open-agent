@@ -9,10 +9,10 @@ from contextlib import contextmanager
 from types import TracebackType
 
 from src.interfaces.container import IDependencyContainer
-from src.interfaces.common_infra import ILogger, ServiceLifetime
+from src.interfaces.logger import ILogger, ServiceLifetime
 
 # 导入日志绑定
-from .logger_bindings import register_test_logger_services
+from ..logger_bindings import register_test_logger_services
 
 # 泛型类型变量
 _ServiceT = TypeVar("_ServiceT")

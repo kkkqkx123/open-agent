@@ -4,8 +4,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 from pathlib import Path
 
-from src.services.logger.logger import Logger
-from src.core.logger.log_level import LogLevel
+from .logger_wrapper import TUILogger
+from src.interfaces.logger import LogLevel
 
 
 class TUILoggingStrategy(ABC):
@@ -69,7 +69,7 @@ class TUILoggerBase:
         # 延迟导入避免循环依赖
         from .tui_logger_manager import TUILoggerManager
         self.tui_manager = TUILoggerManager()
-        self._logger: Optional[Logger] = None
+        self._logger: Optional[TUILogger] = None
         self._initialized = False
         
     def _ensure_initialized(self) -> None:

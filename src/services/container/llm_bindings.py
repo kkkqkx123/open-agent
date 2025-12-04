@@ -1,10 +1,11 @@
 """LLM服务依赖注入绑定配置
 
 统一注册LLM相关的服务，包括Token计算、配置管理等。
+使用基础设施层组件，通过继承BaseServiceBindings简化代码。
 """
 
-from src.services.logger import get_logger
-from typing import Dict, Any, Optional
+import sys
+from typing import Dict, Any
 
 from src.interfaces.llm import (
     ITokenConfigProvider,
@@ -29,8 +30,105 @@ from src.infrastructure.llm.retry import RetryConfig
 from src.infrastructure.llm.fallback import FallbackConfig
 from src.core.config.config_loader import ConfigLoader
 from src.core.common.types import ServiceLifetime
+from src.services.container.core.base_service_bindings import BaseServiceBindings
 
-logger = get_logger(__name__)
+
+class LLMServiceBindings(BaseServiceBindings):
+    """LLM服务绑定类
+    
+    负责注册所有LLM相关服务，包括：
+    - 配置加载器和管理器
+    - Token计算相关服务
+    - 重试和降级服务
+    """
+    
+    def _validate_config(self, config: Dict[str, Any]) -> None:
+        """验证LLM配置"""
+        is_valid, errors = validate_llm_config(config)
+        if not is_valid:
+            raise ValueError(f"LLM配置验证失败: {errors}")
+    
+    def _do_register_services(
+        self,
+        container,
+        config: Dict[str, Any],
+        environment: str = "default"
+    ) -> None:
+        """执行LLM服务注册"""
+        register_config_loader(container, config, environment)
+        register_config_manager(container, config, environment)
+        register_provider_discovery(container, config, environment)
+        register_token_config_provider(container, config, environment)
+        register_token_cost_calculator(container, config, environment)
+        register_token_calculation_service(container, config, environment)
+        register_token_calculation_decorator(container, config, environment)
+        register_retry_services(container, config, environment)
+        register_fallback_services(container, config, environment)
+    
+    def _post_register(
+        self,
+        container,
+        config: Dict[str, Any],
+        environment: str = "default"
+    ) -> None:
+        """注册后处理"""
+        # 设置注入层
+        try:
+            # 为LLM服务设置注入层
+            service_types = [
+                ITokenConfigProvider,
+                ITokenCostCalculator,
+                IRetryLogger,
+                IFallbackLogger,
+                TokenCalculationService,
+                TokenCalculationDecorator,
+                RetryManager,
+                FallbackExecutor
+            ]
+            
+            self.setup_injection_layer(container, service_types)
+            
+            # 设置全局实例（向后兼容）
+            from src.services.llm.injection import (
+                set_token_config_provider_instance,
+                set_token_cost_calculator_instance,
+                set_retry_logger_instance,
+                set_fallback_logger_instance,
+                set_token_calculation_service_instance,
+                set_token_calculation_decorator_instance,
+                set_retry_manager_instance,
+                set_fallback_executor_instance
+            )
+            
+            if container.has_service(ITokenConfigProvider):
+                set_token_config_provider_instance(container.get(ITokenConfigProvider))
+            
+            if container.has_service(ITokenCostCalculator):
+                set_token_cost_calculator_instance(container.get(ITokenCostCalculator))
+            
+            if container.has_service(IRetryLogger):
+                set_retry_logger_instance(container.get(IRetryLogger))
+            
+            if container.has_service(IFallbackLogger):
+                set_fallback_logger_instance(container.get(IFallbackLogger))
+            
+            if container.has_service(TokenCalculationService):
+                set_token_calculation_service_instance(container.get(TokenCalculationService))
+            
+            if container.has_service(TokenCalculationDecorator):
+                set_token_calculation_decorator_instance(container.get(TokenCalculationDecorator))
+            
+            if container.has_service(RetryManager):
+                set_retry_manager_instance(container.get(RetryManager))
+            
+            if container.has_service(FallbackExecutor):
+                set_fallback_executor_instance(container.get(FallbackExecutor))
+            
+            logger = self.safe_get_service(container, ILogger)
+            if logger:
+                logger.debug(f"已设置LLM服务注入层 (environment: {environment})")
+        except Exception as e:
+            print(f"[WARNING] 设置LLM注入层失败: {e}", file=__import__('sys').stderr)
 
 
 def register_llm_services(
@@ -38,7 +136,7 @@ def register_llm_services(
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
-    """注册所有LLM相关服务
+    """注册所有LLM相关服务的便捷函数
     
     Args:
         container: 依赖注入容器
@@ -58,41 +156,8 @@ def register_llm_services(
         enable_provider_configs: true
     ```
     """
-    logger.info("开始注册LLM服务...")
-    
-    try:
-        # 注册配置加载器
-        register_config_loader(container, config, environment)
-        
-        # 注册配置管理器
-        register_config_manager(container, config, environment)
-        
-        # 注册Provider配置发现器
-        register_provider_discovery(container, config, environment)
-        
-        # 注册Token配置提供者
-        register_token_config_provider(container, config, environment)
-        
-        # 注册Token成本计算器
-        register_token_cost_calculator(container, config, environment)
-        
-        # 注册基础Token计算服务
-        register_token_calculation_service(container, config, environment)
-        
-        # 注册Token计算装饰器
-        register_token_calculation_decorator(container, config, environment)
-        
-        # 注册重试服务
-        register_retry_services(container, config, environment)
-        
-        # 注册降级服务
-        register_fallback_services(container, config, environment)
-        
-        logger.info("LLM服务注册完成")
-        
-    except Exception as e:
-        logger.error(f"注册LLM服务失败: {e}")
-        raise
+    bindings = LLMServiceBindings()
+    bindings.register_services(container, config, environment)
 
 
 def register_config_loader(
@@ -101,7 +166,7 @@ def register_config_loader(
     environment: str = "default"
 ) -> None:
     """注册配置加载器"""
-    logger.info("注册配置加载器...")
+    print(f"[INFO] 注册配置加载器...", file=sys.stdout)
     
     llm_config = config.get("llm", {})
     config_manager_config = llm_config.get("config_manager", {})
@@ -114,7 +179,7 @@ def register_config_loader(
         lifetime=ServiceLifetime.SINGLETON
     )
     
-    logger.info(f"注册配置加载器: base_path={base_path}")
+    print(f"[INFO] 注册配置加载器: base_path={base_path}", file=sys.stdout)
 
 
 def register_config_manager(
@@ -123,7 +188,7 @@ def register_config_manager(
     environment: str = "default"
 ) -> None:
     """注册LLM配置管理器"""
-    logger.info("注册LLM配置管理器...")
+    print(f"[INFO] 注册LLM配置管理器...", file=sys.stdout)
     
     llm_config = config.get("llm", {})
     config_manager_config = llm_config.get("config_manager", {})
@@ -138,7 +203,7 @@ def register_config_manager(
         lifetime=ServiceLifetime.SINGLETON
     )
     
-    logger.info(f"注册LLM配置管理器: base_path={base_path}")
+    print(f"[INFO] 注册LLM配置管理器: base_path={base_path}", file=sys.stdout)
 
 
 def register_provider_discovery(
@@ -147,7 +212,7 @@ def register_provider_discovery(
     environment: str = "default"
 ) -> None:
     """注册Provider配置发现器"""
-    logger.info("注册Provider配置发现器...")
+    print(f"[INFO] 注册Provider配置发现器...", file=sys.stdout)
     
     llm_config = config.get("llm", {})
     config_manager_config = llm_config.get("config_manager", {})
@@ -160,7 +225,7 @@ def register_provider_discovery(
         lifetime=ServiceLifetime.SINGLETON
     )
     
-    logger.info("注册Provider配置发现器完成")
+    print(f"[INFO] 注册Provider配置发现器完成", file=sys.stdout)
 
 
 def register_token_config_provider(
@@ -169,7 +234,7 @@ def register_token_config_provider(
     environment: str = "default"
 ) -> None:
     """注册Token配置提供者"""
-    logger.info("注册Token配置提供者...")
+    print(f"[INFO] 注册Token配置提供者...", file=sys.stdout)
     
     llm_config = config.get("llm", {})
     token_calc_config = llm_config.get("token_calculation", {})
@@ -195,9 +260,9 @@ def register_token_config_provider(
             lifetime=ServiceLifetime.SINGLETON
         )
         
-        logger.info("注册Token配置提供者完成")
+        print(f"[INFO] 注册Token配置提供者完成", file=sys.stdout)
     else:
-        logger.info("Token配置提供者已禁用")
+        print(f"[INFO] Token配置提供者已禁用", file=sys.stdout)
 
 
 def register_token_cost_calculator(
@@ -206,7 +271,7 @@ def register_token_cost_calculator(
     environment: str = "default"
 ) -> None:
     """注册Token成本计算器"""
-    logger.info("注册Token成本计算器...")
+    print(f"[INFO] 注册Token成本计算器...", file=sys.stdout)
     
     llm_config = config.get("llm", {})
     token_calc_config = llm_config.get("token_calculation", {})
@@ -232,9 +297,9 @@ def register_token_cost_calculator(
             lifetime=ServiceLifetime.SINGLETON
         )
         
-        logger.info("注册Token成本计算器完成")
+        print(f"[INFO] 注册Token成本计算器完成", file=sys.stdout)
     else:
-        logger.info("Token成本计算器已禁用或缺少依赖")
+        print(f"[INFO] Token成本计算器已禁用或缺少依赖", file=sys.stdout)
 
 
 def register_token_calculation_service(
@@ -243,7 +308,7 @@ def register_token_calculation_service(
     environment: str = "default"
 ) -> None:
     """注册基础Token计算服务"""
-    logger.info("注册基础Token计算服务...")
+    print(f"[INFO] 注册基础Token计算服务...", file=sys.stdout)
     
     llm_config = config.get("llm", {})
     token_calc_config = llm_config.get("token_calculation", {})
@@ -256,7 +321,7 @@ def register_token_calculation_service(
         lifetime=ServiceLifetime.SINGLETON
     )
     
-    logger.info(f"注册基础Token计算服务: default_provider={default_provider}")
+    print(f"[INFO] 注册基础Token计算服务: default_provider={default_provider}", file=sys.stdout)
 
 
 def register_token_calculation_decorator(
@@ -265,7 +330,7 @@ def register_token_calculation_decorator(
     environment: str = "default"
 ) -> None:
     """注册Token计算装饰器"""
-    logger.info("注册Token计算装饰器...")
+    print(f"[INFO] 注册Token计算装饰器...", file=sys.stdout)
     
     def create_decorator():
         base_service = container.get(TokenCalculationService)
@@ -285,7 +350,7 @@ def register_token_calculation_decorator(
         lifetime=ServiceLifetime.SINGLETON
     )
     
-    logger.info("注册Token计算装饰器完成")
+    print(f"[INFO] 注册Token计算装饰器完成", file=sys.stdout)
 
 
 def register_llm_test_services(
@@ -293,7 +358,7 @@ def register_llm_test_services(
     environment: str = "test"
 ) -> None:
     """注册测试环境的LLM服务"""
-    logger.info("注册测试环境LLM服务...")
+    print(f"[INFO] 注册测试环境LLM服务...", file=sys.stdout)
     
     test_config = {
         "llm": {
@@ -320,7 +385,7 @@ def register_llm_test_services(
     }
     
     register_llm_services(container, test_config, environment)
-    logger.info("测试环境LLM服务注册完成")
+    print(f"[INFO] 测试环境LLM服务注册完成", file=sys.stdout)
 
 
 def get_llm_service_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -420,7 +485,7 @@ def register_retry_services(
     environment: str = "default"
 ) -> None:
     """注册重试相关服务"""
-    logger.info("注册重试服务...")
+    print(f"[INFO] 注册重试服务...", file=sys.stdout)
     
     llm_config = config.get("llm", {})
     retry_config = llm_config.get("retry", {})
@@ -454,9 +519,9 @@ def register_retry_services(
             lifetime=ServiceLifetime.SINGLETON
         )
         
-        logger.info("重试服务注册完成")
+        print(f"[INFO] 重试服务注册完成", file=sys.stdout)
     else:
-        logger.info("重试服务已禁用")
+        print(f"[INFO] 重试服务已禁用", file=sys.stdout)
 
 
 def register_fallback_services(
@@ -465,7 +530,7 @@ def register_fallback_services(
     environment: str = "default"
 ) -> None:
     """注册降级相关服务"""
-    logger.info("注册降级服务...")
+    print(f"[INFO] 注册降级服务...", file=sys.stdout)
     
     llm_config = config.get("llm", {})
     fallback_config = llm_config.get("fallback", {})
@@ -506,6 +571,6 @@ def register_fallback_services(
             environment=environment
         )
         
-        logger.info("降级服务注册完成")
+        print(f"[INFO] 降级服务注册完成", file=sys.stdout)
     else:
-        logger.info("降级服务已禁用")
+        print(f"[INFO] 降级服务已禁用", file=sys.stdout)

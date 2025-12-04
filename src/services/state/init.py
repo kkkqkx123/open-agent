@@ -104,7 +104,7 @@ def get_state_manager() -> Optional["IStateManager"]:
         状态管理器实例，如果未初始化则返回None
     """
     try:
-        from src.services.container import container
+        from src.services.container.core import container
         return container.get(StateManager)  # type: ignore
     except Exception as e:
         logger.error(f"获取状态管理器失败: {e}")
@@ -118,7 +118,7 @@ def get_session_manager() -> Optional["ISessionStateManager"]:
         会话管理器实例，如果未初始化则返回None
     """
     try:
-        from src.services.container import container
+        from src.services.container.core import container
         return container.get(SessionStateManager)  # type: ignore
     except Exception as e:
         logger.error(f"获取会话管理器失败: {e}")
