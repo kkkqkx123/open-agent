@@ -76,7 +76,7 @@ class LoggerFactory:
         
         # 使用默认脱敏器
         if redactor is None:
-            redactor = self.get_redactor("default")
+            redactor = self.get_redactor("default") or LogRedactor()
         
         # 创建日志记录器
         # 注意：这里返回的是基础设施层的日志记录器实现
@@ -113,7 +113,7 @@ class LoggerFactory:
         """
         # 这里创建一个简单的基础设施层日志记录器
         # 实际的ILogger实现会在服务层提供
-        class InfrastructureLogger:
+        class InfrastructureLogger(ILogger):
             def __init__(self, name, handlers, level, redactor, config):
                 self.name = name
                 self.handlers = handlers
@@ -403,7 +403,7 @@ class LoggerFactory:
         """
         return self._formatters.get(name)
     
-    def get_redactor(self, name: str) -> ILogRedactor:
+    def get_redactor(self, name: str) -> Optional[ILogRedactor]:
         """获取脱敏器
         
         Args:

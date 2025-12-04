@@ -3,18 +3,7 @@
 from ...interfaces.logger import LogLevel, ILogRedactor
 from ...infrastructure.logger.core.redactor import LogRedactor, CustomLogRedactor
 from ...infrastructure.logger.core.structured_file_logger import StructuredFileLogger
-from .logger_service import LoggerService, LoggerFactory, get_logger, set_global_config
-from .error_handler import (
-    ErrorType,
-    IGlobalErrorHandler,
-    BaseErrorHandler,
-    GlobalErrorHandler,
-    get_global_error_handler,
-    handle_error,
-    register_error_handler,
-    error_handler,
-)
-from .metrics import IMetricsCollector, MetricsCollector, get_global_metrics_collector
+from .logger_service import LoggerService, create_logger_service
 
 __all__ = [
     # 核心组件
@@ -24,20 +13,5 @@ __all__ = [
     "StructuredFileLogger",
     # 日志服务
     "LoggerService",
-    "LoggerFactory",
-    "get_logger",
-    "set_global_config",
-    # 错误处理
-    "ErrorType",
-    "IGlobalErrorHandler",
-    "BaseErrorHandler",
-    "GlobalErrorHandler",
-    "get_global_error_handler",
-    "handle_error",
-    "register_error_handler",
-    "error_handler",
-    # 指标收集
-    "IMetricsCollector",
-    "MetricsCollector",
-    "get_global_metrics_collector",
+    "create_logger_service",
 ]

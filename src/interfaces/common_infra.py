@@ -6,12 +6,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Callable, TYPE_CHECKING, TypeVar, Generic
 from pathlib import Path
-from datetime import datetime
 from enum import Enum
-
-if TYPE_CHECKING:
-    from ..adapters.logger.handlers.base_handler import BaseHandler
-    from ..core.logger.redactor import LogRedactor
 
 # 泛型类型变量
 T = TypeVar('T')

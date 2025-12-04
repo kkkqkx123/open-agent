@@ -226,7 +226,9 @@ class LoggerService(ILogger):
         elif rule_type == "context_filter":
             context_key = rule.get("context_key")
             expected_value = rule.get("expected_value")
-            return kwargs.get(context_key) == expected_value
+            if context_key is not None:
+                return kwargs.get(context_key) == expected_value
+            return True
         
         return True
 
