@@ -263,6 +263,51 @@ class IDependencyContainer(ABC):
         pass
     
     @abstractmethod
+    def register_factory_with_delayed_resolution(
+        self,
+        interface: Type,
+        factory_factory: Callable[[], Callable[..., Any]],
+        environment: str = "default",
+        lifetime: ServiceLifetime = ServiceLifetime.SINGLETON,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """
+        注册延迟解析的工厂工厂
+        
+        这种方式允许在工厂函数中解析依赖，避免注册阶段的循环依赖。
+        
+        Args:
+            interface: 接口类型
+            factory_factory: 工厂工厂函数，返回实际的工厂函数
+            environment: 环境名称
+            lifetime: 生命周期类型
+            metadata: 元数据
+            
+        Raises:
+            RegistrationError: 注册失败时抛出
+            TypeError: 参数类型错误时抛出
+        """
+        pass
+    
+    @abstractmethod
+    def resolve_dependencies(self, service_types: List[Type]) -> Dict[Type, Any]:
+        """
+        批量解析依赖
+        
+        Args:
+            service_types: 要解析的服务类型列表
+            
+        Returns:
+            Dict[Type, Any]: 服务类型到实例的映射
+            
+        Raises:
+            ServiceNotFoundError: 服务未找到时抛出
+            ServiceCreationError: 服务创建失败时抛出
+            CircularDependencyError: 存在循环依赖时抛出
+        """
+        pass
+    
+    @abstractmethod
     def try_get(self, service_type: Type[_ServiceT]) -> Optional[_ServiceT]:
         """
         尝试获取服务实例
@@ -346,5 +391,28 @@ class IDependencyContainer(ABC):
         
         Returns:
             List[Type]: 已注册的服务类型列表
+        """
+        pass
+    
+    @abstractmethod
+    def create_test_isolation(self, isolation_id: Optional[str] = None) -> "IDependencyContainer":
+        """
+        创建测试隔离容器
+        
+        Args:
+            isolation_id: 隔离ID
+            
+        Returns:
+            IDependencyContainer: 隔离的容器实例
+        """
+        pass
+    
+    @abstractmethod
+    def reset_test_state(self, isolation_id: Optional[str] = None) -> None:
+        """
+        重置测试状态
+        
+        Args:
+            isolation_id: 隔离ID
         """
         pass

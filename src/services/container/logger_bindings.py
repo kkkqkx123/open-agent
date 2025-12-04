@@ -1,116 +1,125 @@
 """日志服务依赖注入绑定配置
 
 统一注册日志相关服务，包括ILogger接口和LogRedactor等。
-更新后使用基础设施层的组件。
+使用基础设施层组件，通过继承BaseServiceBindings简化代码。
 """
 
-from typing import Dict, Any, Optional, List, TYPE_CHECKING
+import sys
+import atexit
+from typing import Dict, Any, Optional, List, Callable
 
 from src.interfaces.logger import ILogger, IBaseHandler, ILogRedactor, LogLevel
 from src.interfaces.common_infra import ServiceLifetime
 from src.services.logger.logger_service import LoggerService
 from src.infrastructure.logger.core.redactor import LogRedactor, CustomLogRedactor
 from src.infrastructure.logger.factory.logger_factory import LoggerFactory
-
-if TYPE_CHECKING:
-    pass
+from src.services.container.base_service_bindings import BaseServiceBindings
 
 
-def register_logger_services(container, config: Dict[str, Any], environment: str = "default") -> None:
-    """注册日志相关服务
+class LoggerLifecycleManager:
+    """日志系统生命周期管理器"""
     
-    Args:
-        container: 依赖注入容器
-        config: 配置字典
-        environment: 环境名称
+    def __init__(self) -> None:
+        self._shutdown_handlers: List[Callable] = []
+        self._is_shutdown = False
     
-    示例配置:
-    ```yaml
-    log_level: "INFO"
-    log_outputs:
-      - type: "console"
-        level: "INFO"
-        formatter: "color"
-      - type: "file"
-        level: "DEBUG"
-        formatter: "json"
-        filename: "logs/app.log"
-        max_bytes: 10485760
-        backup_count: 5
+    def register_shutdown_handler(self, handler: Callable) -> None:
+        """注册关闭处理器"""
+        if not self._is_shutdown:
+            self._shutdown_handlers.append(handler)
     
-    log_redactor:
-      hash_sensitive: false
-      patterns:
-        - pattern: "custom_pattern"
-          replacement: "***CUSTOM***"
+    def shutdown(self) -> None:
+        """优雅关闭日志系统"""
+        if self._is_shutdown:
+            return
+        
+        self._is_shutdown = True
+        
+        # 执行所有关闭处理器
+        for handler in reversed(self._shutdown_handlers):
+            try:
+                handler()
+            except Exception as e:
+                print(f"[ERROR] 关闭处理器执行失败: {e}", file=sys.stderr)
+        
+        self._shutdown_handlers.clear()
+
+
+# 全局生命周期管理器实例
+_lifecycle_manager = LoggerLifecycleManager()
+
+class LoggerServiceBindings(BaseServiceBindings):
+    """日志服务绑定类
     
-    business_config:
-      enable_audit: true
-      audit_keywords: ["login", "logout", "auth"]
-      enable_business_filter: true
-      business_rules:
-        - type: "level_filter"
-          min_level: "INFO"
-    ```
+    负责注册所有日志相关服务，包括：
+    - LoggerFactory
+    - ILogRedactor
+    - IBaseHandler列表
+    - ILogger服务
     """
-    try:
-        # 注册日志工厂
-        register_logger_factory(container, config, environment)
-        
-        # 注册日志脱敏器
-        register_log_redactor(container, config, environment)
-        
-        # 注册日志处理器
-        register_handlers(container, config, environment)
-        
-        # 注册Logger服务
-        register_logger_service(container, config, environment)
-        
-    except Exception as e:
-        # 避免在注册过程中使用logger，直接输出
-        print(f"注册日志服务失败: {e}")
-        raise
+    
+    def _validate_config(self, config: Dict[str, Any]) -> None:
+        """验证日志配置"""
+        is_valid, errors = validate_logger_config(config)
+        if not is_valid:
+            raise ValueError(f"日志配置验证失败: {errors}")
+    
+    def _do_register_services(
+        self, 
+        container: Any, 
+        config: Dict[str, Any], 
+        environment: str = "default"
+    ) -> None:
+        """执行日志服务注册"""
+        _register_logger_factory(container, config, environment)
+        _register_log_redactor(container, config, environment)
+        _register_handlers(container, config, environment)
+        _register_logger_service(container, config, environment)
+    
+    def _post_register(
+        self, 
+        container: Any, 
+        config: Dict[str, Any], 
+        environment: str = "default"
+    ) -> None:
+        """注册后处理"""
+        # 设置全局logger实例
+        try:
+            logger_instance = container.get(ILogger)
+            from src.services.logger.injection import set_logger_instance
+            set_logger_instance(logger_instance)
+            if logger_instance:
+                logger_instance.debug(f"already set logger instance (environment: {environment})")
+        except Exception as e:
+            print(f"[WARNING] 设置全局 logger 实例失败: {e}", file=sys.stderr)
 
 
-def register_logger_factory(container, config: Dict[str, Any], environment: str = "default") -> None:
+def _register_logger_factory(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册日志工厂"""
-    
-    def logger_factory_factory() -> LoggerFactory:
-        """创建日志工厂实例"""
-        return LoggerFactory()
-    
-    # 注册日志工厂为单例
     container.register_factory(
         LoggerFactory,
-        logger_factory_factory,
+        lambda: LoggerFactory(),
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
 
 
-def register_log_redactor(container, config: Dict[str, Any], environment: str = "default") -> None:
+def _register_log_redactor(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册日志脱敏器"""
-    
-    # 获取脱敏配置
     redactor_config = config.get("log_redactor", {})
     
-    # 创建脱敏器工厂函数
     def redactor_factory() -> ILogRedactor:
         if redactor_config:
-            # 使用自定义脱敏器
             return CustomLogRedactor(redactor_config)
-        else:
-            # 使用默认脱敏器，但从全局配置中获取敏感模式
-            secret_patterns = config.get("secret_patterns", [])
-            if secret_patterns:
-                # 创建带有自定义模式的默认脱敏器
-                redactor = LogRedactor()
-                for pattern in secret_patterns:
-                    redactor.add_pattern(pattern)
-                return redactor
-            return LogRedactor()
+        
+        secret_patterns = config.get("secret_patterns", [])
+        if secret_patterns:
+            redactor = LogRedactor()
+            for pattern in secret_patterns:
+                redactor.add_pattern(pattern)
+            return redactor
+        return LogRedactor()
     
-    # 注册脱敏器为单例
     container.register_factory(
         ILogRedactor,
         redactor_factory,
@@ -119,26 +128,20 @@ def register_log_redactor(container, config: Dict[str, Any], environment: str = 
     )
 
 
-def register_handlers(container, config: Dict[str, Any], environment: str = "default") -> None:
+def _register_handlers(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册日志处理器"""
-    
     def handlers_factory() -> List[IBaseHandler]:
-        """创建处理器列表"""
-        # 获取日志工厂
         logger_factory = container.get(LoggerFactory)
-        
-        # 从配置创建处理器
-        handlers = []
+        handlers: List[IBaseHandler] = []
         log_outputs = config.get("log_outputs", [{"type": "console"}])
         
         for output_config in log_outputs:
-            handler = create_handler_from_config(output_config, logger_factory)
+            handler = _create_handler_from_config(output_config, logger_factory)
             if handler:
                 handlers.append(handler)
         
         return handlers
     
-    # 注册处理器列表为单例
     container.register_factory(
         List[IBaseHandler],
         handlers_factory,
@@ -147,19 +150,11 @@ def register_handlers(container, config: Dict[str, Any], environment: str = "def
     )
 
 
-def create_handler_from_config(output_config: Dict[str, Any], logger_factory: LoggerFactory) -> Optional[IBaseHandler]:
-    """根据配置创建处理器
-    
-    Args:
-        output_config: 输出配置
-        logger_factory: 日志工厂实例
-        
-    Returns:
-        处理器实例或None
-    """
+def _create_handler_from_config(output_config: Dict[str, Any], logger_factory: LoggerFactory) -> Optional[IBaseHandler]:
+    """根据配置创建处理器"""
     handler_type = output_config.get("type", "console")
     handler_level_str = output_config.get("level", "INFO")
-    handler_level = _log_level_from_string(handler_level_str)
+    handler_level = LogLevel.from_string(handler_level_str)
     
     if handler_type == "console":
         formatter_name = output_config.get("formatter", "color")
@@ -189,30 +184,16 @@ def create_handler_from_config(output_config: Dict[str, Any], logger_factory: Lo
             ensure_ascii, indent, sort_keys
         )
     
-    else:
-        # 跳过未知类型的处理器
-        return None
+    return None
 
 
-def _log_level_from_string(level_str: str) -> LogLevel:
-    """从字符串创建日志级别"""
-    return LogLevel.from_string(level_str)
-
-
-def register_logger_service(container, config: Dict[str, Any], environment: str = "default") -> None:
+def _register_logger_service(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册Logger服务"""
-    
     def logger_factory() -> ILogger:
-        # 获取日志工厂
         logger_factory_instance = container.get(LoggerFactory)
-        
-        # 获取脱敏器
         redactor = container.get(ILogRedactor)
-        
-        # 获取处理器列表
         handlers = container.get(List[IBaseHandler])
         
-        # 创建基础设施层日志记录器
         logger_name = f"{environment}_application"
         infra_logger = logger_factory_instance.create_logger(
             name=logger_name,
@@ -220,11 +201,9 @@ def register_logger_service(container, config: Dict[str, Any], environment: str 
             config=config
         )
         
-        # 创建业务层日志服务
         business_config = config.get("business_config", {})
         return LoggerService(logger_name, infra_logger, business_config)
     
-    # 注册LoggerService为单例
     container.register_factory(
         ILogger,
         logger_factory,
@@ -233,15 +212,32 @@ def register_logger_service(container, config: Dict[str, Any], environment: str 
     )
 
 
-def register_test_logger_services(container, config: Optional[Dict[str, Any]] = None) -> None:
+def register_logger_services(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
+    """注册日志相关服务的便捷函数
+    
+    Args:
+        container: 依赖注入容器
+        config: 配置字典
+        environment: 环境名称
+    """
+    bindings = LoggerServiceBindings()
+    bindings.register_services(container, config, environment)
+
+
+def register_test_logger_services(
+    container: Any,
+    config: Optional[Dict[str, Any]] = None,
+    isolation_id: Optional[str] = None
+) -> None:
     """注册测试环境的日志服务
     
     Args:
         container: 依赖注入容器
         config: 测试配置，如果为None则使用默认测试配置
+        isolation_id: 测试隔离ID，用于创建独立的日志命名空间
     """
+    test_namespace = f"test_{isolation_id or 'default'}"
     
-    # 默认测试配置
     if config is None:
         config = {
             "log_level": "DEBUG",
@@ -262,26 +258,21 @@ def register_test_logger_services(container, config: Optional[Dict[str, Any]] = 
             }
         }
     
-    # 注册测试环境服务
-    register_logger_services(container, config, environment="test")
+    register_logger_services(container, config, environment=test_namespace)
 
 
-def register_production_logger_services(container, config: Dict[str, Any]) -> None:
+def register_production_logger_services(container: Any, config: Dict[str, Any]) -> None:
     """注册生产环境的日志服务
     
     Args:
         container: 依赖注入容器
         config: 生产环境配置
     """
-    
-    # 确保生产环境配置合理
     production_config = config.copy()
     
-    # 生产环境默认使用INFO级别
     if "log_level" not in production_config:
         production_config["log_level"] = "INFO"
     
-    # 确保有日志输出配置
     if "log_outputs" not in production_config:
         production_config["log_outputs"] = [
             {
@@ -294,7 +285,6 @@ def register_production_logger_services(container, config: Dict[str, Any]) -> No
             }
         ]
     
-    # 生产环境业务配置
     if "business_config" not in production_config:
         production_config["business_config"] = {
             "enable_audit": True,
@@ -308,26 +298,21 @@ def register_production_logger_services(container, config: Dict[str, Any]) -> No
             ]
         }
     
-    # 注册生产环境服务
     register_logger_services(container, production_config, environment="production")
 
 
-def register_development_logger_services(container, config: Dict[str, Any]) -> None:
+def register_development_logger_services(container: Any, config: Dict[str, Any]) -> None:
     """注册开发环境的日志服务
     
     Args:
         container: 依赖注入容器
         config: 开发环境配置
     """
-    
-    # 确保开发环境配置合理
     development_config = config.copy()
     
-    # 开发环境默认使用DEBUG级别
     if "log_level" not in development_config:
         development_config["log_level"] = "DEBUG"
     
-    # 确保有控制台输出
     if "log_outputs" not in development_config:
         development_config["log_outputs"] = [
             {
@@ -337,7 +322,6 @@ def register_development_logger_services(container, config: Dict[str, Any]) -> N
             }
         ]
     
-    # 开发环境业务配置
     if "business_config" not in development_config:
         development_config["business_config"] = {
             "enable_audit": True,
@@ -345,7 +329,6 @@ def register_development_logger_services(container, config: Dict[str, Any]) -> N
             "enable_business_filter": False
         }
     
-    # 注册开发环境服务
     register_logger_services(container, development_config, environment="development")
 
 
@@ -435,3 +418,82 @@ def validate_logger_config(config: Dict[str, Any]) -> tuple[bool, list[str]]:
             errors.append("business_config.business_rules必须是列表类型")
     
     return len(errors) == 0, errors
+
+
+def setup_global_logger_services(
+    container: Any,
+    config: Dict[str, Any],
+    environment: str = "default"
+) -> None:
+    """设置全局日志服务
+    
+    这是推荐的统一入口，用于在应用启动时注册日志服务。
+    
+    Args:
+        container: 依赖注入容器
+        config: 日志配置字典
+        environment: 环境名称
+        
+    Raises:
+        RuntimeError: 当配置验证失败时
+    """
+    is_valid, errors = validate_logger_config(config)
+    if not is_valid:
+        raise RuntimeError(f"日志配置验证失败: {errors}")
+    
+    register_logger_services(container, config, environment)
+    print(f"[INFO] 全局日志服务注册完成，环境: {environment}", file=sys.stdout)
+
+
+def shutdown_logger_services() -> None:
+    """优雅关闭日志系统
+    
+    应该在应用关闭时调用此函数。
+    """
+    try:
+        _lifecycle_manager.shutdown()
+        print("[INFO] 日志系统已优雅关闭", file=sys.stdout)
+    except Exception as e:
+        print(f"[ERROR] 关闭日志系统时发生错误: {e}", file=sys.stderr)
+
+
+def get_logger_service_status(container: Any) -> Dict[str, Any]:
+    """获取日志服务状态
+    
+    Args:
+        container: 依赖注入容器
+        
+    Returns:
+        日志服务状态信息
+    """
+    status: Dict[str, Any] = {
+        "services_registered": [],
+        "environment": "unknown",
+        "lifecycle_status": "unknown"
+    }
+    
+    try:
+        service_types = [
+            LoggerFactory,
+            ILogRedactor,
+            List[IBaseHandler],
+            ILogger
+        ]
+        
+        for service_type in service_types:
+            if container.has_service(service_type):
+                status["services_registered"].append(service_type.__name__)
+        
+        if hasattr(container, 'get_environment'):
+            status["environment"] = container.get_environment()
+        
+        status["lifecycle_status"] = "shutdown" if _lifecycle_manager._is_shutdown else "active"
+        
+    except Exception as e:
+        status["error"] = str(e)
+    
+    return status
+
+
+# 自动注册关闭处理器
+atexit.register(shutdown_logger_services)

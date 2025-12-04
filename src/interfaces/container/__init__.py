@@ -44,12 +44,34 @@ from .scoping import (
     IScopeManager,
 )
 
+# 异常处理接口
+from .exceptions import (
+    ContainerException,
+    RegistrationError,
+    ServiceNotFoundError,
+    ServiceCreationError,
+    CircularDependencyError,
+    ValidationError,
+    IExceptionHandler,
+    DefaultExceptionHandler,
+)
+
+# 测试支持接口
+from .testing import (
+    ITestContainerManager,
+    IMockServiceRegistry,
+    ITestIsolationStrategy,
+    DefaultTestIsolationStrategy,
+    TestContainerManager,
+    MockServiceRegistry,
+)
+
 # 统一导出
 __all__ = [
     # 核心接口
     "IDependencyContainer",
     "ServiceRegistration",
-    "DependencyChain", 
+    "DependencyChain",
     "ServiceStatus",
     
     # 生命周期管理
@@ -70,4 +92,22 @@ __all__ = [
     # 缓存和作用域
     "IServiceCache",
     "IScopeManager",
+    
+    # 异常处理
+    "ContainerException",
+    "RegistrationError",
+    "ServiceNotFoundError",
+    "ServiceCreationError",
+    "CircularDependencyError",
+    "ValidationError",
+    "IExceptionHandler",
+    "DefaultExceptionHandler",
+    
+    # 测试支持
+    "ITestContainerManager",
+    "IMockServiceRegistry",
+    "ITestIsolationStrategy",
+    "DefaultTestIsolationStrategy",
+    "TestContainerManager",
+    "MockServiceRegistry",
 ]

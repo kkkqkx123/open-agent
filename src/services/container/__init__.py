@@ -24,6 +24,20 @@ from .history_bindings import (
     get_history_service_config,
     validate_history_config
 )
+from .logger_bindings import (
+    register_logger_services,
+    register_test_logger_services,
+    register_production_logger_services,
+    register_development_logger_services,
+    setup_global_logger_services,
+    shutdown_logger_services,
+    get_logger_service_status,
+    isolated_test_logger,
+    reset_test_logger_services,
+    get_logger_lifecycle_manager,
+    validate_logger_config,
+    get_logger_service_config
+)
 
 __all__ = [
     # 核心容器
@@ -31,6 +45,20 @@ __all__ = [
     "DependencyContainer",
     "get_global_container",
     "reset_global_container",
+    
+    # 日志服务绑定（优化后的全局日志依赖注入容器）
+    "register_logger_services",
+    "register_test_logger_services",
+    "register_production_logger_services",
+    "register_development_logger_services",
+    "setup_global_logger_services",
+    "shutdown_logger_services",
+    "get_logger_service_status",
+    "isolated_test_logger",
+    "reset_test_logger_services",
+    "get_logger_lifecycle_manager",
+    "validate_logger_config",
+    "get_logger_service_config",
     
     # 存储服务绑定
     "register_all_storage_services",
