@@ -4,7 +4,7 @@
 提供 LLM 配置发现、加载和验证功能
 """
 
-from .config_discovery import ConfigDiscovery, ConfigLocation, get_config_discovery, ConfigInfo
+from .config_discovery import ConfigDiscovery, ConfigLocation, get_config_discovery, ConfigInfo, ProviderInfo
 from .config_loader import ConfigLoader, LoadOptions, get_config_loader
 from .config_validator import (
     ConfigValidator, 

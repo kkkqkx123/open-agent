@@ -12,12 +12,12 @@ class ResponseConverter:
     """响应转换工具类"""
     
     @staticmethod
-    def convert_langchain_response(response: Any) -> LLMResponse:
+    def convert_openai_response(response: Any) -> LLMResponse:
         """
-        转换 LangChain 响应为统一格式
+        转换 OpenAI 原始响应为统一格式
         
         Args:
-            response: LangChain 响应
+            response: OpenAI 原始响应
             
         Returns:
             LLMResponse: 统一格式的响应
@@ -107,20 +107,49 @@ class ResponseConverter:
     
     @staticmethod
     def _extract_token_usage(response: Any) -> TokenUsage:
-        """提取 Token 使用情况"""
+        """提取 Token 使用情况 - 使用基础设施层的TokenResponseParser"""
+        try:
+            # 导入基础设施层的Token响应解析器
+            from src.infrastructure.llm.token_calculators.token_response_parser import get_token_response_parser
+            
+            # 将响应转换为字典格式（如果需要）
+            if hasattr(response, 'dict'):
+                response_dict = response.dict()
+            elif hasattr(response, '__dict__'):
+                response_dict = response.__dict__
+            else:
+                response_dict = response
+            
+            # 使用基础设施层的解析器
+            parser = get_token_response_parser()
+            token_usage = parser.parse_response(response_dict, "openai")
+            
+            # 如果解析失败，返回空的TokenUsage
+            if token_usage is None:
+                return TokenUsage()
+            
+            return token_usage
+            
+        except Exception as e:
+            # 如果使用基础设施层解析器失败，回退到基本实现
+            from src.services.logger import get_logger
+            logger = get_logger(__name__)
+            logger.warning(f"使用基础设施层Token解析器失败，回退到基本实现: {e}")
+            return ResponseConverter._extract_token_usage_fallback(response)
+    
+    @staticmethod
+    def _extract_token_usage_fallback(response: Any) -> TokenUsage:
+        """Token提取的回退实现"""
         usage = None
         
-        # 首先检查 LangChain 的 usage_metadata
-        if hasattr(response, "usage_metadata") and response.usage_metadata:
-            usage = response.usage_metadata
+        # 直接检查 OpenAI 原始响应的 usage 字段
+        if hasattr(response, "usage") and response.usage:
+            usage = response.usage
         # 检查 response_metadata 中的 token_usage
         elif hasattr(response, "response_metadata") and response.response_metadata:
             metadata = response.response_metadata
             if "token_usage" in metadata:
                 usage = metadata["token_usage"]
-        # 直接检查 OpenAI 原始响应的 usage 字段
-        elif hasattr(response, "usage") and response.usage:
-            usage = response.usage
         
         if not usage:
             return TokenUsage()
@@ -137,28 +166,7 @@ class ResponseConverter:
             total_tokens=total_tokens,
         )
 
-        # 提取详细的token信息（如果可用）
-        prompt_details = usage.get("prompt_tokens_details", {})
-        completion_details = usage.get("completion_tokens_details", {})
-        
-        # 添加API响应中的缓存token统计信息（从OpenAI API响应中提取，用于计费统计）
-        token_usage.cached_tokens = prompt_details.get("cached_tokens", 0)
-        token_usage.cached_prompt_tokens = token_usage.cached_tokens  # OpenAI中缓存token主要是prompt
-        
-        # 添加音频token信息
-        token_usage.prompt_audio_tokens = prompt_details.get("audio_tokens", 0)
-        token_usage.completion_audio_tokens = completion_details.get("audio_tokens", 0)
-        
-        # 添加推理token信息
-        token_usage.reasoning_tokens = completion_details.get("reasoning_tokens", 0)
-        
-        # 添加预测token信息
-        token_usage.accepted_prediction_tokens = completion_details.get("accepted_prediction_tokens", 0)
-        token_usage.rejected_prediction_tokens = completion_details.get("rejected_prediction_tokens", 0)
-
         return token_usage
-        
-        return TokenUsage()
     
     @staticmethod
     def _extract_function_call(response: Any) -> Optional[dict[str, Any]]:
@@ -267,7 +275,7 @@ class MessageConverter:
         将消息列表转换为 input 字符串（用于 Responses API）
         
         Args:
-            messages: LangChain 消息列表
+            messages: 消息列表
             
         Returns:
             str: 转换后的 input 字符串

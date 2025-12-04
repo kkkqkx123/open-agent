@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List, AsyncGenerator, Union, Sequence
 
 from src.interfaces.messages import IBaseMessage
 from src.infrastructure.messages.types import HumanMessage, AIMessage, SystemMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
+from src.interfaces.llm.http_client import ILLMHttpClient
 
 from .base import BaseLLMClient
 from src.interfaces.llm import LLMResponse
@@ -33,77 +33,15 @@ class GeminiClient(BaseLLMClient):
             config: Gemini配置
         """
         super().__init__(config)
-
-        # 创建LangChain ChatGoogleGenerativeAI实例
-        # 准备模型参数，使用联合类型来满足mypy的类型检查
-        model_kwargs: Dict[str, Union[str, int, float, List[str], List[Dict[str, Any]], Dict[str, Any], bool]] = {}
-
-        # 基础参数
-        if config.max_tokens is not None:
-            model_kwargs["max_tokens"] = config.max_tokens
-        if config.max_output_tokens is not None:
-            model_kwargs["max_output_tokens"] = config.max_output_tokens
-
-        # 采样参数
-        if config.top_p is not None:
-            model_kwargs["top_p"] = config.top_p
-        if config.top_k is not None:
-            model_kwargs["top_k"] = config.top_k
-
-        # 停止序列
-        if config.stop_sequences is not None:
-            model_kwargs["stop_sequences"] = config.stop_sequences
-
-        # 候选数量
-        if config.candidate_count is not None:
-            model_kwargs["candidate_count"] = config.candidate_count
-
-        # 系统指令
-        if config.system_instruction is not None:
-            model_kwargs["system_instruction"] = config.system_instruction
-
-        # 响应MIME类型
-        if config.response_mime_type is not None:
-            model_kwargs["response_mime_type"] = config.response_mime_type
-
-        # 思考配置
-        if config.thinking_config is not None:
-            model_kwargs["thinking_config"] = config.thinking_config
-
-        # 安全设置
-        if config.safety_settings is not None:
-            model_kwargs["safety_settings"] = config.safety_settings
-
-        # 工具调用参数
-        if config.tools:
-            model_kwargs["tools"] = config.tools
-            if config.tool_choice is not None:
-                model_kwargs["tool_choice"] = config.tool_choice
-
-        # 用户标识
-        if config.user is not None:
-            model_kwargs["user"] = config.user
+        self._http_client: Optional[ILLMHttpClient] = None
+    
+    def set_http_client(self, http_client: ILLMHttpClient) -> None:
+        """设置HTTP客户端
         
-        # 缓存参数
-        if hasattr(config, 'content_cache_enabled') and config.content_cache_enabled:
-            if hasattr(config, 'content_cache_display_name') and config.content_cache_display_name:
-                model_kwargs["cached_content"] = config.content_cache_display_name
-
-        # 为ChatGoogleGenerativeAI准备参数，需要处理api_key可能为None的情况
-        client_kwargs = {
-            "model": config.model_name,
-            "temperature": config.temperature,
-            "timeout": config.timeout,
-            "max_retries": config.max_retries,
-            "request_timeout": config.timeout,
-            **model_kwargs
-        }
-
-        # 只有当api_key不为None时才添加
-        if config.api_key is not None:
-            client_kwargs["google_api_key"] = config.api_key
-
-        self._client = ChatGoogleGenerativeAI(**client_kwargs)
+        Args:
+            http_client: HTTP客户端实例
+        """
+        self._http_client = http_client
 
     def _convert_messages(self, messages: Sequence[IBaseMessage]) -> List[IBaseMessage]:
         """转换消息格式以适应Gemini API"""
@@ -124,13 +62,21 @@ class GeminiClient(BaseLLMClient):
         self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行异步生成操作"""
+        if self._http_client is None:
+            raise RuntimeError("HTTP客户端未设置")
+        
         try:
             # 转换消息格式
-            converted_messages = self._convert_messages(messages)
+            converted_messages = self._convert_messages_to_gemini_format(messages)
 
-            # 调用Gemini API
-            # LangChain期望BaseMessage类型，这里的IBaseMessage兼容
-            response = await self._client.ainvoke(converted_messages, **parameters)  # type: ignore
+            # 准备请求参数
+            request_params = self._prepare_request_params(parameters, **kwargs)
+
+            # 调用基础设施层HTTP客户端
+            response = await self._http_client.generate_content(
+                contents=converted_messages,
+                **request_params
+            )
 
             # 提取Token使用情况
             token_usage = self._extract_token_usage(response)
@@ -150,6 +96,114 @@ class GeminiClient(BaseLLMClient):
         except Exception as e:
             # 处理Gemini特定错误
             raise self._handle_gemini_error(e)
+    
+    def _convert_messages_to_gemini_format(self, messages: Sequence[IBaseMessage]) -> List[Dict[str, Any]]:
+        """转换消息为Gemini格式
+        
+        Args:
+            messages: 消息列表
+            
+        Returns:
+            List[Dict[str, Any]]: Gemini格式的消息列表
+        """
+        gemini_messages = []
+        system_instruction = None
+        
+        for message in messages:
+            if isinstance(message, SystemMessage):
+                # Gemini将系统指令作为单独的参数
+                system_instruction = message.content
+            else:
+                gemini_message = {
+                    "role": self._get_message_role(message),
+                    "parts": [{"text": str(message.content)}]
+                }
+                gemini_messages.append(gemini_message)
+        
+        # 如果有系统指令，将其添加到第一个用户消息中
+        if system_instruction and gemini_messages:
+            first_message = gemini_messages[0]
+            if first_message["role"] == "user":
+                first_message["parts"].insert(0, {
+                    "text": f"系统指令: {system_instruction}"
+                })
+        
+        return gemini_messages
+    
+    def _get_message_role(self, message: IBaseMessage) -> str:
+        """获取消息角色"""
+        if isinstance(message, HumanMessage):
+            return "user"
+        elif isinstance(message, AIMessage):
+            return "model"
+        else:
+            # 根据类型属性判断
+            if hasattr(message, 'type'):
+                if message.type == "human":
+                    return "user"
+                elif message.type == "ai":
+                    return "model"
+            
+            # 默认为用户消息
+            return "user"
+    
+    def _prepare_request_params(self, parameters: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]:
+        """准备请求参数
+        
+        Args:
+            parameters: 合并后的参数
+            **kwargs: 额外参数
+            
+        Returns:
+            Dict[str, Any]: 请求参数
+        """
+        # 基础参数
+        params = {
+            "model": self.config.model_name,
+            "temperature": self.config.temperature,
+        }
+        
+        # 从配置中获取Gemini特定参数
+        if hasattr(self.config, 'max_output_tokens') and self.config.max_output_tokens:
+            params["max_output_tokens"] = self.config.max_output_tokens
+        
+        if hasattr(self.config, 'top_p') and self.config.top_p:
+            params["top_p"] = self.config.top_p
+        
+        if hasattr(self.config, 'top_k') and self.config.top_k:
+            params["top_k"] = self.config.top_k
+        
+        if hasattr(self.config, 'stop_sequences') and self.config.stop_sequences:
+            params["stop_sequences"] = self.config.stop_sequences
+        
+        if hasattr(self.config, 'candidate_count') and self.config.candidate_count:
+            params["candidate_count"] = self.config.candidate_count
+        
+        if hasattr(self.config, 'response_mime_type') and self.config.response_mime_type:
+            params["response_mime_type"] = self.config.response_mime_type
+        
+        if hasattr(self.config, 'thinking_config') and self.config.thinking_config:
+            params["thinking_config"] = self.config.thinking_config
+        
+        if hasattr(self.config, 'safety_settings') and self.config.safety_settings:
+            params["safety_settings"] = self.config.safety_settings
+        
+        # 工具调用参数
+        if hasattr(self.config, 'tools') and self.config.tools:
+            params["tools"] = self.config.tools
+            if hasattr(self.config, 'tool_choice') and self.config.tool_choice:
+                params["tool_choice"] = self.config.tool_choice
+        
+        # 缓存参数
+        if hasattr(self.config, 'content_cache_enabled') and self.config.content_cache_enabled:
+            if hasattr(self.config, 'content_cache_display_name') and self.config.content_cache_display_name:
+                params["cached_content"] = self.config.content_cache_display_name
+        
+        # 添加传入的参数
+        params.update(parameters)
+        params.update(kwargs)
+        
+        return params
 
 
     def supports_function_calling(self) -> bool:
@@ -158,60 +212,47 @@ class GeminiClient(BaseLLMClient):
         return getattr(self.config, 'function_calling_supported', True)
 
     def _extract_token_usage(self, response: Any) -> TokenUsage:
-        """提取Token使用情况"""
+        """提取Token使用情况 - 使用基础设施层的TokenResponseParser"""
+        try:
+            # 导入基础设施层的Token响应解析器
+            from src.infrastructure.llm.token_calculators.token_response_parser import get_token_response_parser
+            
+            # 将响应转换为字典格式（如果需要）
+            if hasattr(response, 'dict'):
+                response_dict = response.dict()
+            elif hasattr(response, '__dict__'):
+                response_dict = response.__dict__
+            else:
+                response_dict = response
+            
+            # 使用基础设施层的解析器
+            parser = get_token_response_parser()
+            token_usage = parser.parse_response(response_dict, "gemini")
+            
+            # 如果解析失败，返回空的TokenUsage
+            if token_usage is None:
+                return TokenUsage()
+            
+            return token_usage
+            
+        except Exception as e:
+            # 如果使用基础设施层解析器失败，回退到基本实现
+            from src.services.logger import get_logger
+            logger = get_logger(__name__)
+            logger.warning(f"使用基础设施层Token解析器失败，回退到基本实现: {e}")
+            return self._extract_token_usage_fallback(response)
+    
+    def _extract_token_usage_fallback(self, response: Any) -> TokenUsage:
+        """Token提取的回退实现"""
         token_usage = TokenUsage()
         
-        # Gemini可能提供详细的token使用情况
+        # 基本的token提取逻辑
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             usage = response.usage_metadata
-            
-            # 基础token信息
             token_usage.prompt_tokens = usage.get("input_tokens", 0)
             token_usage.completion_tokens = usage.get("output_tokens", 0)
             token_usage.total_tokens = usage.get("total_tokens", 0)
-            
-            # Gemini特定的缓存token信息
-            cached_content_tokens = usage.get("cachedContentTokenCount", 0)
-            token_usage.cached_tokens = cached_content_tokens
-            token_usage.cached_prompt_tokens = cached_content_tokens  # Gemini缓存主要是prompt
-            
-            # 思考token（Gemini思考模式）
-            thoughts_tokens = usage.get("thoughtsTokenCount", 0)
-            token_usage.thoughts_tokens = thoughts_tokens
-            
-            # 工具调用相关token
-            tool_call_tokens = usage.get("toolCallTokenCount", 0)
-            token_usage.tool_call_tokens = tool_call_tokens
-            
-            # 其他可能的token类型
-            if "citationTokenCount" in usage:
-                token_usage.metadata["citation_tokens"] = usage["citationTokenCount"]
-            if "codeExecutionTokenCount" in usage:
-                token_usage.metadata["code_execution_tokens"] = usage["codeExecutionTokenCount"]
-                
-        elif hasattr(response, "response_metadata") and response.response_metadata:
-            metadata = response.response_metadata
-            if "token_usage" in metadata:
-                usage = metadata["token_usage"]
-                
-                # 基础token信息
-                token_usage.prompt_tokens = usage.get("prompt_tokens", 0)
-                token_usage.completion_tokens = usage.get("completion_tokens", 0)
-                token_usage.total_tokens = usage.get("total_tokens", 0)
-                
-                # 缓存token信息
-                cached_content_tokens = usage.get("cachedContentTokenCount", 0)
-                token_usage.cached_tokens = cached_content_tokens
-                token_usage.cached_prompt_tokens = cached_content_tokens
-                
-                # 思考token
-                thoughts_tokens = usage.get("thoughtsTokenCount", 0)
-                token_usage.thoughts_tokens = thoughts_tokens
-                
-                # 工具调用token
-                tool_call_tokens = usage.get("toolCallTokenCount", 0)
-                token_usage.tool_call_tokens = tool_call_tokens
-
+        
         return token_usage
 
     def _extract_function_call(self, response: Any) -> Optional[Dict[str, Any]]:
@@ -373,22 +414,29 @@ class GeminiClient(BaseLLMClient):
         self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
+        if self._http_client is None:
+            raise RuntimeError("HTTP客户端未设置")
+        
         async def _async_generator() -> AsyncGenerator[str, None]:
             try:
                 # 转换消息格式
-                converted_messages = self._convert_messages(messages)
+                converted_messages = self._convert_messages_to_gemini_format(messages)
+
+                # 准备请求参数
+                request_params = self._prepare_request_params(parameters, **kwargs)
 
                 # 异步流式生成
-                # LangChain期望BaseMessage类型，这里的IBaseMessage兼容
-                stream = self._client.astream(converted_messages, **parameters)  # type: ignore
-
-                # 收集完整响应
-                async for chunk in stream:
-                    if chunk.content:
-                        # 使用_extract_content方法确保返回字符串类型
-                        content = self._extract_content(chunk)
-                        if content:
-                            yield content
+                async for chunk in self._http_client.stream_generate_content(
+                    contents=converted_messages,
+                    **request_params
+                ):
+                    if chunk.get("candidates"):
+                        candidate = chunk["candidates"][0]
+                        if candidate.get("content"):
+                            parts = candidate["content"].get("parts", [])
+                            for part in parts:
+                                if part.get("text"):
+                                    yield part["text"]
 
             except Exception as e:
                 # 处理Gemini特定错误

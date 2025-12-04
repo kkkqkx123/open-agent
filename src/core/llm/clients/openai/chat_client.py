@@ -1,10 +1,9 @@
-"""基于 LangChain 的 Chat Completions 客户端"""
+"""基于基础设施层的 Chat Completions 客户端"""
 
 from typing import List, Dict, Any, Generator, AsyncGenerator, Sequence
 
 from src.interfaces.messages import IBaseMessage
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
+from src.interfaces.llm.http_client import ILLMHttpClient
 
 from .interfaces import ChatCompletionClient
 from .utils import ResponseConverter
@@ -12,94 +11,26 @@ from src.interfaces.llm import LLMResponse
 
 
 class ChatClient(ChatCompletionClient):
-    """基于 LangChain 的 Chat Completions 客户端"""
+    """基于基础设施层的 Chat Completions 客户端"""
     
     def __init__(self, config: Any) -> None:
         """
-        初始化 LangChain Chat 客户端
+        初始化 Chat 客户端
         
         Args:
             config: OpenAI 配置
         """
         super().__init__(config)
-        self._client: ChatOpenAI = self._create_client()
+        self._http_client: Optional[ILLMHttpClient] = None
         self._converter = ResponseConverter()
     
-    def _create_client(self) -> ChatOpenAI:
-        """创建 LangChain ChatOpenAI 客户端"""
-        # 获取 Chat Completions 特定参数
-        chat_params = self.config.get_chat_completion_params()
+    def set_http_client(self, http_client: ILLMHttpClient) -> None:
+        """设置HTTP客户端
         
-        # 转换 api_key 为 SecretStr 类型
-        api_key = SecretStr(self.config.api_key) if self.config.api_key else None
-        
-        # 构建超时配置
-        timeout_config = getattr(self.config, 'timeout_config', None)
-        if timeout_config and hasattr(timeout_config, 'get_client_timeout_kwargs'):
-            # 使用新的超时配置
-            timeout_kwargs = timeout_config.get_client_timeout_kwargs()
-            timeout_value = timeout_kwargs.get('request_timeout', self.config.timeout)
-        else:
-            # 使用旧的超时配置
-            timeout_value = self.config.timeout
-        
-        # 创建 ChatOpenAI 客户端
-        # 提取ChatOpenAI直接支持的参数
-        direct_params = {}
-        
-        # 基础参数
-        if 'top_p' in chat_params:
-            direct_params['top_p'] = chat_params['top_p']
-        if 'frequency_penalty' in chat_params:
-            direct_params['frequency_penalty'] = chat_params['frequency_penalty']
-        if 'presence_penalty' in chat_params:
-            direct_params['presence_penalty'] = chat_params['presence_penalty']
-        if 'stop' in chat_params:
-            direct_params['stop'] = chat_params['stop']
-        
-        # 高级参数
-        if 'top_logprobs' in chat_params:
-            direct_params['top_logprobs'] = chat_params['top_logprobs']
-        if 'service_tier' in chat_params:
-            direct_params['service_tier'] = chat_params['service_tier']
-        if 'safety_identifier' in chat_params:
-            direct_params['safety_identifier'] = chat_params['safety_identifier']
-        if 'seed' in chat_params:
-            direct_params['seed'] = chat_params['seed']
-        if 'user' in chat_params:
-            direct_params['user'] = chat_params['user']
-        
-        # 工具调用参数
-        if 'tool_choice' in chat_params:
-            direct_params['tool_choice'] = chat_params['tool_choice']
-        if 'tools' in chat_params:
-            direct_params['tools'] = chat_params['tools']
-        
-        # 响应格式参数
-        if 'response_format' in chat_params:
-            direct_params['response_format'] = chat_params['response_format']
-        
-        # 流式选项
-        if 'stream_options' in chat_params:
-            direct_params['stream_options'] = chat_params['stream_options']
-        
-        # 其他特殊参数放入model_kwargs
-        model_kwargs = {k: v for k, v in chat_params.items() 
-                       if k not in ['temperature', 'model', 'api_key', 'base_url', 'timeout', 'max_retries',
-                                   'top_p', 'frequency_penalty', 'presence_penalty', 'stop',
-                                   'top_logprobs', 'service_tier', 'safety_identifier', 'seed', 'user',
-                                   'tool_choice', 'tools', 'response_format', 'stream_options']}
-        
-        return ChatOpenAI(
-            model=self.config.model_name,
-            api_key=api_key,
-            base_url=self.config.base_url,
-            temperature=self.config.temperature,
-            timeout=timeout_value,
-            max_retries=self.config.max_retries,
-            **direct_params,
-            model_kwargs=model_kwargs,
-        )
+        Args:
+            http_client: HTTP客户端实例
+        """
+        self._http_client = http_client
     
     async def generate_async(
         self, messages: Sequence[IBaseMessage], **kwargs: Any
@@ -114,17 +45,125 @@ class ChatClient(ChatCompletionClient):
         Returns:
             LLMResponse: 生成的响应
         """
+        if self._http_client is None:
+            raise RuntimeError("HTTP客户端未设置")
+        
         try:
-            # 调用 LangChain ChatOpenAI 异步方法
-            # LangChain期望BaseMessage类型，这里的IBaseMessage兼容
-            response = await self._client.ainvoke(list(messages), **kwargs)  # type: ignore
+            # 转换消息格式
+            openai_messages = self._convert_messages_to_openai_format(messages)
+            
+            # 准备请求参数
+            request_params = self._prepare_request_params(**kwargs)
+            
+            # 调用基础设施层HTTP客户端
+            response = await self._http_client.chat_completion(
+                messages=openai_messages,
+                **request_params
+            )
             
             # 转换响应格式
-            return self._converter.convert_langchain_response(response)
+            return self._converter.convert_openai_response(response)
             
         except Exception as e:
             # 错误处理
             raise self._handle_error(e)
+    
+    def _convert_messages_to_openai_format(self, messages: Sequence[IBaseMessage]) -> List[Dict[str, Any]]:
+        """转换消息为OpenAI格式
+        
+        Args:
+            messages: 消息列表
+            
+        Returns:
+            List[Dict[str, Any]]: OpenAI格式的消息列表
+        """
+        openai_messages = []
+        
+        for message in messages:
+            openai_message = {
+                "role": self._get_message_role(message),
+                "content": self._get_message_content(message)
+            }
+            
+            # 添加名称（如果有）
+            if hasattr(message, 'name') and message.name:
+                openai_message["name"] = message.name
+            
+            openai_messages.append(openai_message)
+        
+        return openai_messages
+    
+    def _get_message_role(self, message: IBaseMessage) -> str:
+        """获取消息角色"""
+        if hasattr(message, 'type'):
+            if message.type == "system":
+                return "system"
+            elif message.type == "human":
+                return "user"
+            elif message.type == "ai":
+                return "assistant"
+            elif message.type == "tool":
+                return "tool"
+        
+        # 根据类名判断
+        message_class = message.__class__.__name__.lower()
+        if "system" in message_class:
+            return "system"
+        elif "human" in message_class or "user" in message_class:
+            return "user"
+        elif "ai" in message_class or "assistant" in message_class:
+            return "assistant"
+        elif "tool" in message_class:
+            return "tool"
+        
+        # 默认为用户消息
+        return "user"
+    
+    def _get_message_content(self, message: IBaseMessage) -> Any:
+        """获取消息内容"""
+        content = getattr(message, 'content', '')
+        
+        # 如果内容是字符串，直接返回
+        if isinstance(content, str):
+            return content
+        
+        # 如果内容是列表，返回原样（OpenAI支持多模态内容）
+        if isinstance(content, list):
+            return content
+        
+        # 其他类型转换为字符串
+        return str(content)
+    
+    def _prepare_request_params(self, **kwargs: Any) -> Dict[str, Any]:
+        """准备请求参数
+        
+        Args:
+            **kwargs: 额外参数
+            
+        Returns:
+            Dict[str, Any]: 请求参数
+        """
+        # 基础参数
+        params = {
+            "model": self.config.model_name,
+            "temperature": self.config.temperature,
+        }
+        
+        # 可选参数
+        if self.config.max_tokens:
+            params["max_tokens"] = self.config.max_tokens
+        
+        if self.config.top_p != 1.0:
+            params["top_p"] = self.config.top_p
+        
+        # 从配置中获取其他参数
+        chat_params = getattr(self.config, 'get_chat_completion_params', lambda: {})()
+        params.update(chat_params)
+        
+        # 添加传入的参数
+        params.update(kwargs)
+        
+        return params
     
     def stream_generate(
         self, messages: Sequence[IBaseMessage], **kwargs: Any
@@ -139,19 +178,26 @@ class ChatClient(ChatCompletionClient):
         Yields:
             str: 流式响应块
         """
+        if self._http_client is None:
+            raise RuntimeError("HTTP客户端未设置")
+        
         try:
-            # 流式生成
-            # LangChain期望BaseMessage类型，这里的IBaseMessage兼容
-            stream = self._client.stream(list(messages), **kwargs)  # type: ignore
+            # 转换消息格式
+            openai_messages = self._convert_messages_to_openai_format(messages)
             
-            # 收集完整响应
-            for chunk in stream:
-                # 检查chunk是否有content属性
-                if hasattr(chunk, 'content') and chunk.content:
-                    # 提取内容
-                    content = self._converter._extract_content(chunk)
-                    if content:
-                        yield content
+            # 准备请求参数
+            request_params = self._prepare_request_params(**kwargs)
+            request_params["stream"] = True
+            
+            # 调用基础设施层HTTP客户端流式接口
+            for chunk in self._http_client.stream_chat_completion(
+                messages=openai_messages,
+                **request_params
+            ):
+                if chunk.get("choices"):
+                    delta = chunk["choices"][0].get("delta", {})
+                    if delta.get("content"):
+                        yield delta["content"]
                         
         except Exception as e:
             # 错误处理
@@ -170,26 +216,30 @@ class ChatClient(ChatCompletionClient):
         Yields:
             str: 流式响应块
         """
-        async def _async_generator() -> AsyncGenerator[str, None]:
-            try:
-                # 异步流式生成
-                # LangChain期望BaseMessage类型，这里的IBaseMessage兼容
-                stream = self._client.astream(list(messages), **kwargs)  # type: ignore
-                
-                # 收集完整响应
-                async for chunk in stream:
-                    # 检查chunk是否有content属性
-                    if hasattr(chunk, 'content') and chunk.content:
-                        # 提取内容
-                        content = self._converter._extract_content(chunk)
-                        if content:
-                            yield content
-                            
-            except Exception as e:
-                # 错误处理
-                raise self._handle_error(e)
+        if self._http_client is None:
+            raise RuntimeError("HTTP客户端未设置")
         
-        return _async_generator()
+        try:
+            # 转换消息格式
+            openai_messages = self._convert_messages_to_openai_format(messages)
+            
+            # 准备请求参数
+            request_params = self._prepare_request_params(**kwargs)
+            request_params["stream"] = True
+            
+            # 调用基础设施层HTTP客户端异步流式接口
+            async for chunk in self._http_client.async_stream_chat_completion(
+                messages=openai_messages,
+                **request_params
+            ):
+                if chunk.get("choices"):
+                    delta = chunk["choices"][0].get("delta", {})
+                    if delta.get("content"):
+                        yield delta["content"]
+                        
+        except Exception as e:
+            # 错误处理
+            raise self._handle_error(e)
     
     
     def supports_function_calling(self) -> bool:

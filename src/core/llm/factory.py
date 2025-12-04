@@ -1,4 +1,7 @@
-"""LLM客户端工厂实现"""
+"""LLM客户端工厂实现 - 重构版本
+
+使用基础设施层的HTTP客户端工厂，专注于业务逻辑包装。
+"""
 
 from typing import Dict, Any, Optional, Type
 from threading import RLock
@@ -9,7 +12,10 @@ from ..common.exceptions.llm import LLMClientCreationError, UnsupportedModelType
 
 
 class LLMFactory(ILLMClientFactory):
-    """LLM客户端工厂实现"""
+    """LLM客户端工厂实现 - 重构版本
+    
+    使用基础设施层的HTTP客户端工厂，专注于业务逻辑包装。
+    """
 
     def __init__(self, config: Optional[LLMModuleConfig] = None) -> None:
         """
@@ -22,6 +28,10 @@ class LLMFactory(ILLMClientFactory):
         self._client_cache: Dict[str, ILLMClient] = {}
         self._client_types: Dict[str, Type[ILLMClient]] = {}
         self._lock = RLock()
+
+        # 使用基础设施层的HTTP客户端工厂
+        from src.infrastructure.llm.http_client.http_client_factory import get_http_client_factory
+        self._http_factory = get_http_client_factory()
 
         # 注册默认客户端类型
         self._register_default_clients()
@@ -119,7 +129,9 @@ class LLMFactory(ILLMClientFactory):
         # 创建客户端实例
         try:
             client_class = self._client_types[model_type]
-            client = client_class(client_config)
+            
+            # 为客户端注入基础设施层的HTTP客户端
+            client = self._create_client_with_http_infrastructure(client_class, client_config)
 
             # 自动缓存客户端
             if self.config.cache_enabled:
@@ -128,6 +140,38 @@ class LLMFactory(ILLMClientFactory):
             return client
         except Exception as e:
             raise LLMClientCreationError(f"创建LLM客户端失败: {e}")
+    
+    def _create_client_with_http_infrastructure(self, client_class: Type[ILLMClient], client_config: LLMClientConfig) -> ILLMClient:
+        """创建客户端实例并注入基础设施层的HTTP客户端
+        
+        Args:
+            client_class: 客户端类
+            client_config: 客户端配置
+            
+        Returns:
+            ILLMClient: 客户端实例
+        """
+        # 创建基础设施层的HTTP客户端
+        http_client = self._http_factory.create_client(
+            provider=client_config.model_type,
+            model=client_config.model_name,
+            api_key=client_config.api_key,
+            base_url=client_config.base_url,
+            timeout=client_config.timeout,
+            max_retries=client_config.max_retries,
+            headers=client_config.headers
+        )
+        
+        # 创建核心层客户端并注入HTTP客户端
+        client = client_class(client_config)
+        
+        # 如果客户端支持设置HTTP客户端，则注入
+        if hasattr(client, 'set_http_client'):
+            client.set_http_client(http_client)
+        elif hasattr(client, '_http_client'):
+            client._http_client = http_client
+        
+        return client
 
     def create_client_from_config(self, client_config: LLMClientConfig) -> ILLMClient:
         """
@@ -190,6 +234,9 @@ class LLMFactory(ILLMClientFactory):
         """清除所有缓存的客户端实例"""
         with self._lock:
             self._client_cache.clear()
+        
+        # 同时清除基础设施层的HTTP客户端缓存
+        self._http_factory.clear_cache()
 
     def get_or_create_client(
         self, model_name: str, config: Dict[str, Any]
@@ -236,12 +283,36 @@ class LLMFactory(ILLMClientFactory):
             Dict[str, Any]: 缓存信息
         """
         with self._lock:
-            return {
+            core_cache_info = {
                 "cache_size": len(self._client_cache),
                 "max_cache_size": self.config.cache_max_size,
                 "cached_models": list(self._client_cache.keys()),
                 "cache_enabled": self.config.cache_enabled,
             }
+        
+        # 获取基础设施层的缓存信息
+        try:
+            # 这里假设HTTP客户端工厂有获取缓存信息的方法
+            if hasattr(self._http_factory, 'get_cache_info'):
+                infra_cache_info = self._http_factory.get_cache_info()
+                core_cache_info["infrastructure_cache"] = infra_cache_info
+        except Exception:
+            # 如果获取基础设施层缓存信息失败，忽略错误
+            pass
+        
+        return core_cache_info
+    
+    def get_supported_providers(self) -> list[str]:
+        """获取支持的提供商列表
+        
+        Returns:
+            list[str]: 支持的提供商名称列表
+        """
+        return self._http_factory.get_supported_providers()
+    
+    def reload_configs(self) -> None:
+        """重新加载配置"""
+        self._http_factory.reload_configs()
 
 
 # 全局工厂实例

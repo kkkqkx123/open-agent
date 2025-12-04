@@ -132,7 +132,7 @@ class LLMConfig(BaseConfig):
     def validate_headers_and_resolve(self) -> "LLMConfig":
         """验证HTTP标头并解析环境变量"""
         # 延迟导入避免循环依赖
-        from ....core.llm.utils.header_validator import HeaderProcessor
+        from ....infrastructure.llm.utils.header_validator import HeaderProcessor
 
         processor = HeaderProcessor()
         
@@ -142,7 +142,7 @@ class LLMConfig(BaseConfig):
         
         if self.api_key:
             # 检查API密钥是否是环境变量引用格式
-            from ....core.llm.utils.header_validator import HeaderValidator
+            from ....infrastructure.llm.utils.header_validator import HeaderValidator
             validator = HeaderValidator()
             
             if validator._is_env_var_reference(self.api_key):
@@ -254,7 +254,7 @@ class LLMConfig(BaseConfig):
                 headers["x-api-key"] = self.api_key
 
         # 解析其他标头中的环境变量
-        from ....core.llm.utils.header_validator import HeaderValidator
+        from ....infrastructure.llm.utils.header_validator import HeaderValidator
 
         validator = HeaderValidator()
         resolved_headers = validator.resolve_headers(headers)
@@ -283,7 +283,7 @@ class LLMConfig(BaseConfig):
                 headers["x-api-key"] = self.api_key
 
         # 脱敏处理
-        from ....core.llm.utils.header_validator import HeaderValidator
+        from ....infrastructure.llm.utils.header_validator import HeaderValidator
 
         validator = HeaderValidator()
         sanitized_headers = validator.sanitize_headers_for_logging(headers)

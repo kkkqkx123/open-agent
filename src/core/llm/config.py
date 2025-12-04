@@ -244,8 +244,8 @@ class LLMClientConfig:
         if self._resolved_headers is not None:
             return self._resolved_headers.copy()
 
-        # 解析标头
-        from .utils.header_validator import HeaderProcessor
+        # 使用基础设施层的标头处理器
+        from ...infrastructure.llm.utils.header_validator import HeaderProcessor
 
         processor = HeaderProcessor()
         resolved_headers, _, is_valid, errors = processor.process_headers(self.headers)
@@ -256,7 +256,7 @@ class LLMClientConfig:
         # 处理API密钥
         headers = resolved_headers.copy()
         if self.api_key:
-            from .utils.header_validator import HeaderValidator
+            from ...infrastructure.llm.utils.header_validator import HeaderValidator
 
             validator = HeaderValidator()
 
@@ -304,7 +304,7 @@ class LLMClientConfig:
                 headers["x-api-key"] = self.api_key
 
         # 脱敏处理
-        from .utils.header_validator import HeaderValidator
+        from ...infrastructure.llm.utils.header_validator import HeaderValidator
 
         validator = HeaderValidator()
         sanitized_headers = validator.sanitize_headers_for_logging(headers)
@@ -316,7 +316,7 @@ class LLMClientConfig:
 
     def validate_headers(self) -> Tuple[bool, List[str]]:
         """验证HTTP标头"""
-        from .utils.header_validator import HeaderValidator
+        from ...infrastructure.llm.utils.header_validator import HeaderValidator
 
         validator = HeaderValidator()
         return validator.validate_headers(self.headers)

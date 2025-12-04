@@ -12,7 +12,7 @@ from src.interfaces.llm import (
     TokenCalculationConfig,
     TokenCostInfo
 )
-from src.core.llm.provider_config_discovery import ProviderConfigDiscovery
+from src.infrastructure.llm.config import ConfigDiscovery, ProviderInfo
 from src.services.llm.utils.config_extractor import TokenConfigExtractor, create_config_key
 from src.core.common.cache import ConfigCache
 
@@ -22,17 +22,17 @@ logger = get_logger(__name__)
 class ProviderConfigTokenConfigProvider(ITokenConfigProvider):
     """基于Provider配置的Token配置提供者
     
-    从Provider配置发现器中获取Token计算相关配置。
+    从配置发现器中获取Token计算相关配置。
     """
     
-    def __init__(self, provider_discovery: ProviderConfigDiscovery):
+    def __init__(self, config_discovery: ConfigDiscovery):
         """
         初始化配置提供者
         
         Args:
-            provider_discovery: Provider配置发现器
+            config_discovery: 配置发现器
         """
-        self._provider_discovery = provider_discovery
+        self._config_discovery = config_discovery
         self._config_cache = ConfigCache()
         
         logger.debug("ProviderConfigTokenConfigProvider初始化完成")
@@ -77,7 +77,7 @@ class ProviderConfigTokenConfigProvider(ITokenConfigProvider):
         """
         try:
             # 获取Provider配置
-            provider_config = self._provider_discovery.get_provider_config(model_type, model_name)
+            provider_config = self._config_discovery.get_provider_config(model_type, model_name)
             
             if not provider_config:
                 logger.debug(f"未找到Provider配置: {model_type}:{model_name}")

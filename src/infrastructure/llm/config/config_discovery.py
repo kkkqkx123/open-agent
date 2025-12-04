@@ -11,6 +11,7 @@ from typing import Dict, Any, List, Optional, Union, Set
 from dataclasses import dataclass
 
 from src.services.logger import get_logger
+from src.core.common.utils.dict_merger import DictMerger
 
 
 @dataclass
@@ -28,6 +29,15 @@ class ConfigInfo:
     provider: str
     models: List[str]
     inherits_from: Optional[str] = None
+
+
+@dataclass
+class ProviderInfo:
+    """Provider信息"""
+    name: str
+    config_files: List[str]
+    common_config_path: str
+    enabled: bool = True
 
 
 class ConfigDiscovery:
@@ -53,12 +63,16 @@ class ConfigDiscovery:
         self._config_cache: Dict[str, Dict[str, Any]] = {}
         self._config_info_cache: Dict[str, ConfigInfo] = {}
         self._discovered_configs: List[ConfigInfo] = []
+        self._providers_cache: Optional[Dict[str, ProviderInfo]] = None
         
         # 环境变量引用模式
         self.env_var_pattern = re.compile(r"^\$\{([^}:]+)(?::([^}]*))?\}$")
         
         # 支持的配置文件类型
-        self.supported_extensions = {'.yaml', '.yml'}
+        self.supported_extensions = {'.yaml', '.yml', '.json'}
+        
+        # 配置合并器
+        self.config_merger = DictMerger()
         
         self.logger.info(f"初始化配置发现器，配置目录: {self.config_dir}")
     
@@ -529,6 +543,236 @@ class ConfigDiscovery:
             result["warnings"].append("提供商配置目录不存在")
         
         return result
+    
+    # Provider 管理方法（从 Core 层迁移过来）
+    def discover_providers(self, force_refresh: bool = False) -> Dict[str, ProviderInfo]:
+        """发现所有可用的Provider
+        
+        Args:
+            force_refresh: 是否强制刷新缓存
+            
+        Returns:
+            Dict[str, ProviderInfo]: Provider名称到Provider信息的映射
+        """
+        if self._providers_cache is not None and not force_refresh:
+            return self._providers_cache
+        
+        providers: Dict[str, ProviderInfo] = {}
+        provider_dir = self.config_dir / "provider"
+        
+        if not provider_dir.exists():
+            self.logger.warning(f"Provider配置目录不存在: {provider_dir}")
+            return providers
+        
+        # 扫描provider目录下的子目录
+        for provider_path in provider_dir.iterdir():
+            if not provider_path.is_dir():
+                continue
+                
+            provider_name = provider_path.name
+            provider_info = self._scan_provider_directory(provider_name, provider_path)
+            
+            if provider_info:
+                providers[provider_name] = provider_info
+                self.logger.debug(f"发现Provider: {provider_name}, 配置文件: {len(provider_info.config_files)}")
+        
+        self._providers_cache = providers
+        self.logger.info(f"发现 {len(providers)} 个Provider配置")
+        
+        return providers
+    
+    def _scan_provider_directory(self, provider_name: str, provider_path: Path) -> Optional[ProviderInfo]:
+        """扫描单个Provider目录
+        
+        Args:
+            provider_name: Provider名称
+            provider_path: Provider目录路径
+            
+        Returns:
+            ProviderInfo: Provider信息，如果扫描失败返回None
+        """
+        try:
+            config_files = []
+            common_config_path = None
+            
+            # 查找common配置文件
+            for ext in self.supported_extensions:
+                common_file = provider_path / f"common{ext}"
+                if common_file.exists():
+                    common_config_path = str(common_file.relative_to(self.config_dir))
+                    break
+            
+            if not common_config_path:
+                self.logger.warning(f"Provider {provider_name} 缺少common配置文件")
+                return None
+            
+            # 查找模型特定配置文件
+            for config_file in provider_path.iterdir():
+                if config_file.is_file() and config_file.suffix in self.supported_extensions:
+                    # 跳过common配置文件，因为它已经单独处理
+                    if config_file.stem == "common":
+                        continue
+                    
+                    relative_path = str(config_file.relative_to(self.config_dir))
+                    config_files.append(relative_path)
+            
+            if not config_files:
+                self.logger.warning(f"Provider {provider_name} 没有找到模型配置文件")
+                return None
+            
+            return ProviderInfo(
+                name=provider_name,
+                config_files=config_files,
+                common_config_path=common_config_path,
+                enabled=True
+            )
+            
+        except Exception as e:
+            self.logger.error(f"扫描Provider目录失败 {provider_name}: {e}")
+            return None
+    
+    def get_provider_config(self, provider_name: str, model_name: str) -> Optional[Dict[str, Any]]:
+        """获取特定Provider和模型的配置
+        
+        Args:
+            provider_name: Provider名称
+            model_name: 模型名称
+            
+        Returns:
+            Dict[str, Any]: 配置数据，如果加载失败返回None
+        """
+        providers = self.discover_providers()
+        
+        if provider_name not in providers:
+            self.logger.warning(f"未找到Provider: {provider_name}")
+            return None
+        
+        provider_info = providers[provider_name]
+        
+        # 查找模型配置文件
+        model_config_path = None
+        for config_file in provider_info.config_files:
+            config_file_name = Path(config_file).stem
+            if config_file_name == model_name:
+                model_config_path = config_file
+                break
+        
+        if not model_config_path:
+            self.logger.warning(f"Provider {provider_name} 中未找到模型 {model_name} 的配置")
+            return None
+        
+        try:
+            # 加载配置文件
+            model_config = self._load_config_file(Path(model_config_path))
+            common_config = self._load_config_file(Path(provider_info.common_config_path))
+            
+            # 使用DictMerger合并配置（模型配置覆盖common配置）
+            merged_config = self.config_merger.deep_merge(common_config, model_config)
+            
+            # 添加Provider元信息
+            merged_config["_provider_meta"] = {
+                "provider_name": provider_name,
+                "model_name": model_name,
+                "common_config_path": provider_info.common_config_path,
+                "model_config_path": model_config_path
+            }
+            
+            self.logger.debug(f"成功加载Provider配置: {provider_name}/{model_name}")
+            return merged_config
+            
+        except Exception as e:
+            self.logger.error(f"加载Provider配置失败 {provider_name}/{model_name}: {e}")
+            return None
+    
+    def list_provider_models(self, provider_name: str) -> List[str]:
+        """列出指定Provider的所有模型
+        
+        Args:
+            provider_name: Provider名称
+            
+        Returns:
+            List[str]: 模型名称列表
+        """
+        providers = self.discover_providers()
+        
+        if provider_name not in providers:
+            return []
+        
+        provider_info = providers[provider_name]
+        models = []
+        
+        for config_file in provider_info.config_files:
+            model_name = Path(config_file).stem
+            models.append(model_name)
+        
+        return models
+    
+    def get_provider_info(self, provider_name: str) -> Optional[ProviderInfo]:
+        """获取Provider信息
+        
+        Args:
+            provider_name: Provider名称
+            
+        Returns:
+            ProviderInfo: Provider信息，如果不存在返回None
+        """
+        providers = self.discover_providers()
+        return providers.get(provider_name)
+    
+    def is_provider_available(self, provider_name: str) -> bool:
+        """检查Provider是否可用
+        
+        Args:
+            provider_name: Provider名称
+            
+        Returns:
+            bool: 是否可用
+        """
+        provider_info = self.get_provider_info(provider_name)
+        return provider_info is not None and provider_info.enabled
+    
+    def enable_provider(self, provider_name: str) -> bool:
+        """启用Provider
+        
+        Args:
+            provider_name: Provider名称
+            
+        Returns:
+            bool: 是否成功启用
+        """
+        if self._providers_cache is None:
+            self.discover_providers()
+        
+        if self._providers_cache and provider_name in self._providers_cache:
+            self._providers_cache[provider_name].enabled = True
+            self.logger.info(f"已启用Provider: {provider_name}")
+            return True
+        
+        return False
+    
+    def disable_provider(self, provider_name: str) -> bool:
+        """禁用Provider
+        
+        Args:
+            provider_name: Provider名称
+            
+        Returns:
+            bool: 是否成功禁用
+        """
+        if self._providers_cache is None:
+            self.discover_providers()
+        
+        if self._providers_cache and provider_name in self._providers_cache:
+            self._providers_cache[provider_name].enabled = False
+            self.logger.info(f"已禁用Provider: {provider_name}")
+            return True
+        
+        return False
+    
+    def refresh_providers_cache(self) -> None:
+        """刷新Provider缓存"""
+        self._providers_cache = None
+        self.logger.debug("Provider配置缓存已清除")
 
 
 # 全局配置发现器实例

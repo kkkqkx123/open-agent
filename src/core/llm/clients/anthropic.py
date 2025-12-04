@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Union, 
 
 from src.interfaces.messages import IBaseMessage
 from src.infrastructure.messages.types import HumanMessage, AIMessage, SystemMessage
-from langchain_anthropic import ChatAnthropic
+from src.interfaces.llm.http_client import ILLMHttpClient
 
 from .base import BaseLLMClient
 from src.interfaces.llm import LLMResponse
@@ -33,73 +33,15 @@ class AnthropicClient(BaseLLMClient):
             config: Anthropic配置
         """
         super().__init__(config)
-
-        # 创建LangChain ChatAnthropic实例
-        # 准备模型参数，使用联合类型来满足mypy的类型检查
-        model_kwargs: Dict[str, Union[str, int, float, List[str], List[Dict[str, Any]], Dict[str, Any], bool]] = {}
-
-        # 基础参数
-        if config.max_tokens is not None:
-            model_kwargs["max_tokens"] = config.max_tokens
-
-        # 停止序列
-        if config.stop_sequences is not None:
-            model_kwargs["stop_sequences"] = config.stop_sequences
-
-        # 工具调用参数
-        if config.tools:
-            model_kwargs["tools"] = config.tools
-            if config.tool_choice is not None:
-                model_kwargs["tool_choice"] = config.tool_choice
-
-        # 系统指令
-        if config.system is not None:
-            model_kwargs["system"] = config.system
-
-        # 思考配置
-        if config.thinking_config is not None:
-            model_kwargs["thinking_config"] = config.thinking_config
-
-        # 响应格式
-        if config.response_format is not None:
-            model_kwargs["response_format"] = config.response_format
-
-        # 元数据
-        if config.metadata is not None:
-            model_kwargs["metadata"] = config.metadata
-
-        # 用户标识
-        if config.user is not None:
-            model_kwargs["user"] = config.user
-
-        # Gemini特定参数（可能不需要，但保留以兼容配置）
-        if config.top_k is not None:
-            model_kwargs["top_k"] = config.top_k
-
-        # 为ChatAnthropic准备参数，需要处理api_key可能为None的情况
-        client_kwargs: Dict[str, Any] = {
-            "model": config.model_name,
-            "temperature": config.temperature,
-            "top_p": config.top_p,
-            "timeout": config.timeout,
-            "max_retries": config.max_retries,
-        }
-
-        # 只有当api_key不为None时才添加
-        if config.api_key is not None:
-            client_kwargs["api_key"] = config.api_key
-
-        # 添加其他支持的参数
-        if config.max_tokens is not None:
-            client_kwargs["max_tokens"] = config.max_tokens
-        if config.stop_sequences is not None:
-            client_kwargs["stop_sequences"] = config.stop_sequences
-        if config.tools is not None:
-            client_kwargs["tools"] = config.tools
-        if config.tool_choice is not None:
-            client_kwargs["tool_choice"] = config.tool_choice
-
-        self._client = ChatAnthropic(**client_kwargs)
+        self._http_client: Optional[ILLMHttpClient] = None
+    
+    def set_http_client(self, http_client: ILLMHttpClient) -> None:
+        """设置HTTP客户端
+        
+        Args:
+            http_client: HTTP客户端实例
+        """
+        self._http_client = http_client
 
     def _convert_messages(self, messages: Sequence[IBaseMessage]) -> List[IBaseMessage]:
         """转换消息格式以适应Anthropic API"""
@@ -132,13 +74,28 @@ class AnthropicClient(BaseLLMClient):
         self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> LLMResponse:
         """执行异步生成操作"""
+        http_client = self._http_client
+        if http_client is None:
+            raise RuntimeError("HTTP客户端未设置")
+        
         try:
             # 转换消息格式
-            converted_messages = self._convert_messages(messages)
+            converted_messages, system_message = self._convert_messages_to_anthropic_format(messages)
 
-            # 调用Anthropic API（系统消息已经在_convert_messages中处理）
-            # LangChain期望BaseMessage类型，这里的IBaseMessage兼容
-            response = await self._client.ainvoke(converted_messages, **parameters)  # type: ignore
+            # 准备请求参数
+            request_params = self._prepare_request_params(parameters, **kwargs)
+            
+            # 添加系统消息到请求参数
+            if system_message:
+                request_params["system"] = system_message
+
+            # 调用HTTP客户端的chat_completions方法
+            response = await http_client.chat_completions(
+                messages=converted_messages,
+                model=self.config.model_name,
+                parameters=request_params,
+                stream=False
+            )
 
             # 提取Token使用情况
             token_usage = self._extract_token_usage(response)
@@ -147,10 +104,7 @@ class AnthropicClient(BaseLLMClient):
             function_call = self._extract_function_call(response)
 
             # 处理content可能是列表的情况
-            content = response.content
-            if isinstance(content, list):
-                # 如果content是列表，将其转换为字符串
-                content = str(content)
+            content = self._extract_content(response)
 
             # 创建响应对象
             return self._create_response(
@@ -164,6 +118,109 @@ class AnthropicClient(BaseLLMClient):
         except Exception as e:
             # 处理Anthropic特定错误
             raise self._handle_anthropic_error(e)
+    
+    def _convert_messages_to_anthropic_format(self, messages: Sequence[IBaseMessage]) -> tuple[List[IBaseMessage], Optional[str]]:
+        """转换消息为Anthropic格式，返回IBaseMessage序列
+        
+        Args:
+            messages: 消息列表
+            
+        Returns:
+            tuple[List[IBaseMessage], Optional[str]]: (消息列表, 系统消息)
+        """
+        anthropic_messages = []
+        system_message = None
+
+        for message in messages:
+            if isinstance(message, SystemMessage):
+                # Anthropic支持系统消息，但作为单独参数
+                system_message = str(message.content)
+            else:
+                anthropic_messages.append(message)
+
+        return anthropic_messages, system_message
+    
+    def _get_message_role(self, message: IBaseMessage) -> str:
+        """获取消息角色"""
+        if isinstance(message, HumanMessage):
+            return "user"
+        elif isinstance(message, AIMessage):
+            return "assistant"
+        else:
+            # 根据类型属性判断
+            if hasattr(message, 'type'):
+                if message.type == "human":
+                    return "user"
+                elif message.type == "ai":
+                    return "assistant"
+                elif message.type == "tool":
+                    return "tool"
+            
+            # 默认为用户消息
+            return "user"
+    
+    def _get_message_content(self, message: IBaseMessage) -> Any:
+        """获取消息内容"""
+        content = getattr(message, 'content', '')
+        
+        # 如果内容是字符串，直接返回
+        if isinstance(content, str):
+            return content
+        
+        # 如果内容是列表，返回原样（Anthropic支持多模态内容）
+        if isinstance(content, list):
+            return content
+        
+        # 其他类型转换为字符串
+        return str(content)
+    
+    def _prepare_request_params(self, parameters: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]:
+        """准备请求参数
+        
+        Args:
+            parameters: 合并后的参数
+            **kwargs: 额外参数
+            
+        Returns:
+            Dict[str, Any]: 请求参数
+        """
+        # 基础参数
+        params = {
+            "model": self.config.model_name,
+            "temperature": self.config.temperature,
+            "max_tokens": self.config.max_tokens or 1024,  # Anthropic需要max_tokens
+        }
+        
+        # 从配置中获取Anthropic特定参数
+        if hasattr(self.config, 'top_p') and self.config.top_p != 1.0:
+            params["top_p"] = self.config.top_p
+        
+        if hasattr(self.config, 'stop_sequences') and self.config.stop_sequences:
+            params["stop_sequences"] = self.config.stop_sequences
+        
+        if hasattr(self.config, 'thinking_config') and self.config.thinking_config:
+            params["thinking_config"] = self.config.thinking_config
+        
+        if hasattr(self.config, 'response_format') and self.config.response_format:
+            params["response_format"] = self.config.response_format
+        
+        if hasattr(self.config, 'metadata') and self.config.metadata:
+            params["metadata"] = self.config.metadata
+        
+        if hasattr(self.config, 'user') and self.config.user:
+            params["user"] = self.config.user
+        
+        # 工具调用参数
+        if hasattr(self.config, 'tools') and self.config.tools:
+            params["tools"] = self.config.tools
+            if hasattr(self.config, 'tool_choice') and self.config.tool_choice:
+                params["tool_choice"] = self.config.tool_choice
+        
+        # 添加传入的参数
+        params.update(parameters)
+        params.update(kwargs)
+        
+        return params
 
 
     def supports_function_calling(self) -> bool:
@@ -172,68 +229,84 @@ class AnthropicClient(BaseLLMClient):
         return getattr(self.config, 'function_calling_supported', True)
 
     def _extract_token_usage(self, response: Any) -> TokenUsage:
-        """提取Token使用情况"""
+        """提取Token使用情况 - 使用基础设施层的TokenResponseParser"""
+        try:
+            # 导入基础设施层的Token响应解析器
+            from src.infrastructure.llm.token_calculators.token_response_parser import get_token_response_parser
+            
+            # 将响应转换为字典格式（如果需要）
+            if hasattr(response, 'dict'):
+                response_dict = response.dict()
+            elif hasattr(response, '__dict__'):
+                response_dict = response.__dict__
+            else:
+                response_dict = response
+            
+            # 使用基础设施层的解析器
+            parser = get_token_response_parser()
+            token_usage = parser.parse_response(response_dict, "anthropic")
+            
+            # 如果解析失败，返回空的TokenUsage
+            if token_usage is None:
+                return TokenUsage()
+            
+            return token_usage
+            
+        except Exception as e:
+            # 如果使用基础设施层解析器失败，回退到基本实现
+            from src.services.logger import get_logger
+            logger = get_logger(__name__)
+            logger.warning(f"使用基础设施层Token解析器失败，回退到基本实现: {e}")
+            return self._extract_token_usage_fallback(response)
+    
+    def _extract_token_usage_fallback(self, response: Any) -> TokenUsage:
+        """Token提取的回退实现"""
         token_usage = TokenUsage()
         
-        # Anthropic可能提供详细的token使用情况
+        # 基本的token提取逻辑
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             usage = response.usage_metadata
-            
-            # 基础token信息
             token_usage.prompt_tokens = usage.get("input_tokens", 0)
             token_usage.completion_tokens = usage.get("output_tokens", 0)
             token_usage.total_tokens = usage.get("total_tokens", 0)
-            
-            # 缓存token信息（Anthropic特定格式）
-            cache_creation_input_tokens = usage.get("cache_creation_input_tokens", 0)
-            cache_read_input_tokens = usage.get("cache_read_input_tokens", 0)
-            
-            # Anthropic的缓存token统计
-            token_usage.cached_prompt_tokens = cache_read_input_tokens
-            token_usage.cached_tokens = cache_read_input_tokens
-            
-            # 缓存创建token（这些是实际消耗的，不应该计入缓存）
-            # 但我们可以记录在metadata中用于分析
-            if cache_creation_input_tokens > 0:
-                token_usage.metadata["cache_creation_input_tokens"] = cache_creation_input_tokens
-            
-            # 处理Anthropic的缓存详情（如果有TTL信息）
-            cache_details = usage.get("cache", {})
-            if cache_details:
-                # 按TTL分类的缓存读取token
-                ephemeral_1h_input_tokens = cache_details.get("ephemeral_1h_input_tokens", 0)
-                ephememal_5m_input_tokens = cache_details.get("ephememal_5m_input_tokens", 0)
-                
-                if ephemeral_1h_input_tokens > 0:
-                    token_usage.metadata["ephemeral_1h_input_tokens"] = ephemeral_1h_input_tokens
-                if ephememal_5m_input_tokens > 0:
-                    token_usage.metadata["ephememal_5m_input_tokens"] = ephememal_5m_input_tokens
-            
-        elif hasattr(response, "response_metadata") and response.response_metadata:
-            metadata = response.response_metadata
-            if "token_usage" in metadata:
-                usage = metadata["token_usage"]
-                
-                # 基础token信息
-                token_usage.prompt_tokens = usage.get("prompt_tokens", 0)
-                token_usage.completion_tokens = usage.get("completion_tokens", 0)
-                token_usage.total_tokens = usage.get("total_tokens", 0)
-                
-                # 缓存token信息
-                cache_creation_input_tokens = usage.get("cache_creation_input_tokens", 0)
-                cache_read_input_tokens = usage.get("cache_read_input_tokens", 0)
-                
-                token_usage.cached_prompt_tokens = cache_read_input_tokens
-                token_usage.cached_tokens = cache_read_input_tokens
-                
-                if cache_creation_input_tokens > 0:
-                    token_usage.metadata["cache_creation_input_tokens"] = cache_creation_input_tokens
-
+        
         return token_usage
 
     def _extract_function_call(self, response: Any) -> Optional[Dict[str, Any]]:
         """提取函数调用信息"""
         return self._extract_function_call_enhanced(response)
+
+    def _extract_content(self, response: Any) -> str:
+        """提取响应内容
+        
+        Args:
+            response: LLM响应对象
+            
+        Returns:
+            str: 响应内容字符串
+        """
+        if hasattr(response, "content"):
+            content = response.content
+            # 如果content是列表，提取第一个元素的文本
+            if isinstance(content, list) and len(content) > 0:
+                first_item = content[0]
+                if hasattr(first_item, "text"):
+                    return first_item.text
+                elif isinstance(first_item, dict) and "text" in first_item:
+                    return first_item["text"]
+            # 如果content是字符串，直接返回
+            elif isinstance(content, str):
+                return content
+        
+        # 如果没有content属性，尝试其他可能的属性
+        if hasattr(response, "text"):
+            return response.text
+        
+        # 如果response本身是字符串
+        if isinstance(response, str):
+            return response
+        
+        return ""
 
     def _extract_finish_reason(self, response: Any) -> Optional[str]:
         """提取完成原因"""
@@ -355,23 +428,50 @@ class AnthropicClient(BaseLLMClient):
         self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """执行异步流式生成操作"""
+        http_client = self._http_client
+        if http_client is None:
+            raise RuntimeError("HTTP客户端未设置")
+        
         async def _async_generator() -> AsyncGenerator[str, None]:
             try:
                 # 转换消息格式
-                converted_messages = self._convert_messages(messages)
+                converted_messages, system_message = self._convert_messages_to_anthropic_format(messages)
 
-                # 异步流式生成（系统消息已经在_convert_messages中处理）
-                # LangChain期望BaseMessage类型，这里的IBaseMessage兼容
-                stream = self._client.astream(converted_messages, **parameters)  # type: ignore
+                # 准备请求参数
+                request_params = self._prepare_request_params(parameters, **kwargs)
+                
+                # 添加系统消息到请求参数
+                if system_message:
+                    request_params["system"] = system_message
 
-                # 收集完整响应
-                async for chunk in stream:
-                    if chunk.content:
-                        content = chunk.content
-                        if isinstance(content, list):
-                            # 如果content是列表，将其转换为字符串
-                            content = str(content)
-                        yield content
+                # 异步流式生成 - 使用chat_completions方法的stream参数
+                response = await http_client.chat_completions(
+                    messages=converted_messages,
+                    model=self.config.model_name,
+                    parameters=request_params,
+                    stream=True
+                )
+                
+                # 如果response是异步生成器，则迭代它
+                if hasattr(response, "__aiter__"):
+                    async for chunk in response:  # type: ignore
+                        # 处理不同的chunk格式
+                        if isinstance(chunk, str):
+                            if chunk:
+                                yield chunk
+                        elif isinstance(chunk, dict):
+                            if chunk.get("type") == "content_block_delta":
+                                delta = chunk.get("delta", {})
+                                if delta.get("type") == "text_delta":
+                                    text = delta.get("text", "")
+                                    if text:
+                                        yield text
+                        elif hasattr(chunk, "content"):
+                            # 处理对象形式的响应
+                            content = chunk.content
+                            if isinstance(content, str):
+                                if content:
+                                    yield content
 
             except Exception as e:
                 # 处理Anthropic特定错误

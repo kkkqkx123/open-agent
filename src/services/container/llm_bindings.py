@@ -18,7 +18,7 @@ from src.services.llm.config import (
     ProviderConfigTokenCostCalculator
 )
 from src.core.config.config_manager import ConfigManager as LLMConfigManager
-from src.core.llm.provider_config_discovery import ProviderConfigDiscovery
+from src.infrastructure.llm.config import ConfigDiscovery
 from src.core.config.config_loader import ConfigLoader
 from src.core.common.types import ServiceLifetime
 
@@ -140,12 +140,8 @@ def register_provider_discovery(
     base_path = config_manager_config.get("base_path", "configs/llms")
     
     container.register_factory(
-        ProviderConfigDiscovery,
-        lambda: ProviderConfigDiscovery(
-            config_loader=container.get(ConfigLoader),
-            base_config_path=base_path,
-            logger=container.get(ILogger)
-        ),
+        ConfigDiscovery,
+        lambda: ConfigDiscovery(config_dir=base_path),
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
@@ -169,7 +165,7 @@ def register_token_config_provider(
         container.register_factory(
             ITokenConfigProvider,
             lambda: ProviderConfigTokenConfigProvider(
-                provider_discovery=container.get(ProviderConfigDiscovery)
+                config_discovery=container.get(ConfigDiscovery)
             ),
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
@@ -179,7 +175,7 @@ def register_token_config_provider(
         container.register_factory(
             ProviderConfigTokenConfigProvider,
             lambda: ProviderConfigTokenConfigProvider(
-                provider_discovery=container.get(ProviderConfigDiscovery)
+                config_discovery=container.get(ConfigDiscovery)
             ),
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
