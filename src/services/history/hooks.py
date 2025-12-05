@@ -172,18 +172,18 @@ class HistoryRecordingHook(ILLMCallHook):
                 session_id=request_record.session_id,
                 workflow_id=request_record.workflow_id,
                 timestamp=datetime.now(),
+                record_type="token_usage",
+                metadata={
+                    "request_id": request_id,
+                    "model_info": kwargs.get("model_info", {}),
+                    "response_time": getattr(response, 'response_time', 0.0)
+                },
                 model=request_record.model,
                 provider=request_record.provider,
                 prompt_tokens=token_usage.get("prompt_tokens", 0),
                 completion_tokens=token_usage.get("completion_tokens", 0),
                 total_tokens=token_usage.get("total_tokens", 0),
-                source="api",  # type: ignore  # 标记为API返回的精确数据
-                confidence=1.0,
-                metadata={
-                    "request_id": request_id,
-                    "model_info": kwargs.get("model_info", {}),
-                    "response_time": getattr(response, 'response_time', 0.0)
-                }
+                confidence=1.0
             )
             
             # 计算成本

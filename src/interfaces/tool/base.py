@@ -12,8 +12,6 @@ if TYPE_CHECKING:
     from ..llm import ILLMClient
     from .config import ToolConfig
     from ..messages import IBaseMessage
-else:
-    from src.interfaces.messages import IBaseMessage
 
 
 @dataclass

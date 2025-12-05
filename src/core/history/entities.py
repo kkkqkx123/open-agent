@@ -12,7 +12,11 @@ from enum import Enum
 from src.interfaces.history.exceptions import (
     HistoryError, TokenCalculationError, CostCalculationError, StatisticsError
 )
-from src.core.common.error_management import handle_error, ErrorCategory, ErrorSeverity
+from src.interfaces.history.entities import (
+    IBaseHistoryRecord, ILLMRequestRecord, ILLMResponseRecord,
+    ITokenUsageRecord, ICostRecord, IMessageRecord, IToolCallRecord
+)
+from src.infrastructure.error_management import handle_error, ErrorCategory, ErrorSeverity
 
 logger = get_logger(__name__)
 
@@ -34,18 +38,59 @@ class TokenSource(Enum):
     HYBRID = "hybrid"     # 混合来源
 
 
-@dataclass
-class BaseHistoryRecord:
+class BaseHistoryRecord(IBaseHistoryRecord):
     """历史记录基类
     
     所有历史记录的通用基类，包含基本字段和通用方法。
     """
-    record_id: str
-    session_id: str
-    workflow_id: Optional[str] = None
-    timestamp: datetime = field(default_factory=datetime.now)
-    record_type: RecordType = RecordType.MESSAGE
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def __init__(
+        self,
+        record_id: str,
+        session_id: str,
+        workflow_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        record_type: str = "message",
+        metadata: Optional[Dict[str, Any]] = None
+    ):
+        """初始化历史记录基类"""
+        self._record_id = record_id
+        self._session_id = session_id
+        self._workflow_id = workflow_id
+        self._timestamp = timestamp or datetime.now()
+        self._record_type = record_type
+        self._metadata = metadata or {}
+
+    # 实现IBaseHistoryRecord接口的属性
+    @property
+    def record_id(self) -> str:
+        """记录ID"""
+        return self._record_id
+
+    @property
+    def session_id(self) -> str:
+        """会话ID"""
+        return self._session_id
+
+    @property
+    def workflow_id(self) -> Optional[str]:
+        """工作流ID"""
+        return self._workflow_id
+
+    @property
+    def timestamp(self) -> datetime:
+        """时间戳"""
+        return self._timestamp
+
+    @property
+    def record_type(self) -> str:
+        """记录类型"""
+        return self._record_type
+
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        """元数据"""
+        return self._metadata
     
     def __post_init__(self) -> None:
         """初始化后处理"""
@@ -57,7 +102,7 @@ class BaseHistoryRecord:
         except ValueError as e:
             # 使用统一错误处理
             error_context = {
-                "record_type": self.record_type.value if hasattr(self, 'record_type') else None,
+                "record_type": self.record_type,
                 "operation": "__post_init__",
                 "entity_class": self.__class__.__name__
             }
@@ -132,18 +177,65 @@ class BaseHistoryRecord:
             raise HistoryError(f"从字典创建历史记录失败: {e}") from e
 
 
-@dataclass
-class LLMRequestRecord(BaseHistoryRecord):
+class LLMRequestRecord(BaseHistoryRecord, ILLMRequestRecord):
     """LLM请求记录
     
     记录每次LLM调用的请求信息。
     """
-    record_type: RecordType = RecordType.LLM_REQUEST
-    model: str = ""
-    provider: str = ""
-    messages: List[Dict[str, Any]] = field(default_factory=list)
-    parameters: Dict[str, Any] = field(default_factory=dict)
-    estimated_tokens: int = 0
+    
+    def __init__(
+        self,
+        record_id: str,
+        session_id: str,
+        workflow_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        model: str = "",
+        provider: str = "",
+        messages: Optional[List[Dict[str, Any]]] = None,
+        parameters: Optional[Dict[str, Any]] = None,
+        estimated_tokens: int = 0
+    ):
+        """初始化LLM请求记录"""
+        super().__init__(
+            record_id=record_id,
+            session_id=session_id,
+            workflow_id=workflow_id,
+            timestamp=timestamp,
+            record_type="llm_request",
+            metadata=metadata
+        )
+        self._model = model
+        self._provider = provider
+        self._messages = messages or []
+        self._parameters = parameters or {}
+        self._estimated_tokens = estimated_tokens
+
+    # 实现ILLMRequestRecord接口的属性
+    @property
+    def model(self) -> str:
+        """模型名称"""
+        return self._model
+
+    @property
+    def provider(self) -> str:
+        """提供商"""
+        return self._provider
+
+    @property
+    def messages(self) -> List[Dict[str, Any]]:
+        """消息列表"""
+        return self._messages
+
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        """请求参数"""
+        return self._parameters
+
+    @property
+    def estimated_tokens(self) -> int:
+        """估算的token数量"""
+        return self._estimated_tokens
     
     def __post_init__(self) -> None:
         """初始化后处理"""
@@ -163,19 +255,87 @@ class LLMRequestRecord(BaseHistoryRecord):
             raise HistoryError(f"LLM请求记录验证失败: {e}") from e
 
 
-@dataclass
-class LLMResponseRecord(BaseHistoryRecord):
+class LLMResponseRecord(BaseHistoryRecord, ILLMResponseRecord):
     """LLM响应记录
     
     记录每次LLM调用的响应信息。
     """
-    record_type: RecordType = RecordType.LLM_RESPONSE
-    request_id: str = ""
-    content: str = ""
-    finish_reason: str = ""
-    token_usage: Dict[str, Any] = field(default_factory=dict)
-    response_time: float = 0.0
-    model: str = ""
+    
+    def __init__(
+        self,
+        record_id: str,
+        session_id: str,
+        workflow_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        request_id: str = "",
+        content: str = "",
+        finish_reason: str = "",
+        token_usage: Optional[Dict[str, Any]] = None,
+        response_time: float = 0.0,
+        model: str = ""
+    ):
+        """初始化LLM响应记录"""
+        super().__init__(
+            record_id=record_id,
+            session_id=session_id,
+            workflow_id=workflow_id,
+            timestamp=timestamp,
+            record_type="llm_response",
+            metadata=metadata
+        )
+        self._request_id = request_id
+        self._content = content
+        self._finish_reason = finish_reason
+        self._token_usage = token_usage or {}
+        self._response_time = response_time
+        self._model = model
+
+    # 实现ILLMResponseRecord接口的属性
+    @property
+    def request_id(self) -> str:
+        """关联的请求ID"""
+        return self._request_id
+
+    @property
+    def content(self) -> str:
+        """响应内容"""
+        return self._content
+
+    @property
+    def finish_reason(self) -> str:
+        """完成原因"""
+        return self._finish_reason
+
+    @property
+    def token_usage(self) -> Dict[str, Any]:
+        """Token使用情况"""
+        return self._token_usage
+
+    @property
+    def response_time(self) -> float:
+        """响应时间（秒）"""
+        return self._response_time
+
+    @property
+    def model(self) -> str:
+        """使用的模型"""
+        return self._model
+
+    @property
+    def prompt_tokens(self) -> int:
+        """获取prompt token数量"""
+        return int(self.token_usage.get("prompt_tokens", 0))
+
+    @property
+    def completion_tokens(self) -> int:
+        """获取completion token数量"""
+        return int(self.token_usage.get("completion_tokens", 0))
+
+    @property
+    def total_tokens(self) -> int:
+        """获取总token数量"""
+        return int(self.token_usage.get("total_tokens", 0))
     
     def __post_init__(self) -> None:
         """初始化后处理"""
@@ -193,37 +353,81 @@ class LLMResponseRecord(BaseHistoryRecord):
             }
             handle_error(e, error_context)
             raise HistoryError(f"LLM响应记录验证失败: {e}") from e
-    
-    @property
-    def prompt_tokens(self) -> int:
-        """获取prompt token数量"""
-        return int(self.token_usage.get("prompt_tokens", 0))
-    
-    @property
-    def completion_tokens(self) -> int:
-        """获取completion token数量"""
-        return int(self.token_usage.get("completion_tokens", 0))
-    
-    @property
-    def total_tokens(self) -> int:
-        """获取总token数量"""
-        return int(self.token_usage.get("total_tokens", 0))
 
 
-@dataclass
 class TokenUsageRecord(BaseHistoryRecord):
     """Token使用记录
     
     记录详细的Token使用情况，支持多维度统计。
     """
-    record_type: RecordType = RecordType.TOKEN_USAGE
-    model: str = ""
-    provider: str = ""
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    total_tokens: int = 0
-    source: TokenSource = TokenSource.API
-    confidence: float = 1.0
+    
+    def __init__(
+        self,
+        record_id: str,
+        session_id: str,
+        workflow_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        record_type: str = "token_usage",
+        metadata: Optional[Dict[str, Any]] = None,
+        model: str = "",
+        provider: str = "",
+        prompt_tokens: int = 0,
+        completion_tokens: int = 0,
+        total_tokens: int = 0,
+        source: TokenSource = TokenSource.API,
+        confidence: float = 1.0
+    ):
+        """初始化Token使用记录"""
+        super().__init__(
+            record_id=record_id,
+            session_id=session_id,
+            workflow_id=workflow_id,
+            timestamp=timestamp,
+            record_type=record_type,
+            metadata=metadata
+        )
+        self._model = model
+        self._provider = provider
+        self._prompt_tokens = prompt_tokens
+        self._completion_tokens = completion_tokens
+        self._total_tokens = total_tokens
+        self._source = source
+        self._confidence = confidence
+    
+    @property
+    def model(self) -> str:
+        """模型名称"""
+        return self._model
+    
+    @property
+    def provider(self) -> str:
+        """提供商"""
+        return self._provider
+    
+    @property
+    def prompt_tokens(self) -> int:
+        """Prompt token数量"""
+        return self._prompt_tokens
+    
+    @property
+    def completion_tokens(self) -> int:
+        """Completion token数量"""
+        return self._completion_tokens
+    
+    @property
+    def total_tokens(self) -> int:
+        """总token数量"""
+        return self._total_tokens
+    
+    @property
+    def source(self) -> TokenSource:
+        """Token来源"""
+        return self._source
+    
+    @property
+    def confidence(self) -> float:
+        """置信度"""
+        return self._confidence
     
     def __post_init__(self) -> None:
         """初始化后处理"""
@@ -242,7 +446,7 @@ class TokenUsageRecord(BaseHistoryRecord):
             calculated_total = self.prompt_tokens + self.completion_tokens
             if self.total_tokens != calculated_total:
                 logger.warning(f"Token总数不一致，自动修正: {self.total_tokens} -> {calculated_total}")
-                self.total_tokens = calculated_total
+                self._total_tokens = calculated_total
                 
         except ValueError as e:
             error_context = {
@@ -259,32 +463,103 @@ class TokenUsageRecord(BaseHistoryRecord):
             raise TokenCalculationError(f"Token使用记录验证失败: {e}") from e
     
     @property
-    def prompt_cost_per_1k(self) -> Optional[float]:
-        """获取每1K prompt tokens的成本"""
-        return self.metadata.get("prompt_cost_per_1k")
+    def prompt_cost_per_1m(self) -> Optional[float]:
+        """获取每1M prompt tokens的成本"""
+        return self.metadata.get("prompt_cost_per_1m")
     
     @property
-    def completion_cost_per_1k(self) -> Optional[float]:
-        """获取每1K completion tokens的成本"""
-        return self.metadata.get("completion_cost_per_1k")
+    def completion_cost_per_1m(self) -> Optional[float]:
+        """获取每1M completion tokens的成本"""
+        return self.metadata.get("completion_cost_per_1m")
 
 
-@dataclass
 class CostRecord(BaseHistoryRecord):
     """成本记录
     
     记录LLM调用的成本信息。
     """
-    record_type: RecordType = RecordType.COST
-    model: str = ""
-    provider: str = ""
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    total_tokens: int = 0
-    prompt_cost: float = 0.0
-    completion_cost: float = 0.0
-    total_cost: float = 0.0
-    currency: str = "USD"
+    
+    def __init__(
+        self,
+        record_id: str,
+        session_id: str,
+        workflow_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        record_type: str = "cost",
+        metadata: Optional[Dict[str, Any]] = None,
+        model: str = "",
+        provider: str = "",
+        prompt_tokens: int = 0,
+        completion_tokens: int = 0,
+        total_tokens: int = 0,
+        prompt_cost: float = 0.0,
+        completion_cost: float = 0.0,
+        total_cost: float = 0.0,
+        currency: str = "USD"
+    ):
+        """初始化成本记录"""
+        super().__init__(
+            record_id=record_id,
+            session_id=session_id,
+            workflow_id=workflow_id,
+            timestamp=timestamp,
+            record_type=record_type,
+            metadata=metadata
+        )
+        self._model = model
+        self._provider = provider
+        self._prompt_tokens = prompt_tokens
+        self._completion_tokens = completion_tokens
+        self._total_tokens = total_tokens
+        self._prompt_cost = prompt_cost
+        self._completion_cost = completion_cost
+        self._total_cost = total_cost
+        self._currency = currency
+    
+    @property
+    def model(self) -> str:
+        """模型名称"""
+        return self._model
+    
+    @property
+    def provider(self) -> str:
+        """提供商"""
+        return self._provider
+    
+    @property
+    def prompt_tokens(self) -> int:
+        """Prompt token数量"""
+        return self._prompt_tokens
+    
+    @property
+    def completion_tokens(self) -> int:
+        """Completion token数量"""
+        return self._completion_tokens
+    
+    @property
+    def total_tokens(self) -> int:
+        """总token数量"""
+        return self._total_tokens
+    
+    @property
+    def prompt_cost(self) -> float:
+        """Prompt成本"""
+        return self._prompt_cost
+    
+    @property
+    def completion_cost(self) -> float:
+        """Completion成本"""
+        return self._completion_cost
+    
+    @property
+    def total_cost(self) -> float:
+        """总成本"""
+        return self._total_cost
+    
+    @property
+    def currency(self) -> str:
+        """货币单位"""
+        return self._currency
     
     def __post_init__(self) -> None:
         """初始化后处理"""
@@ -303,7 +578,7 @@ class CostRecord(BaseHistoryRecord):
             calculated_total = self.prompt_cost + self.completion_cost
             if abs(self.total_cost - calculated_total) > 0.0001:  # 允许小的浮点误差
                 logger.warning(f"总成本不一致，自动修正: {self.total_cost} -> {calculated_total}")
-                self.total_cost = calculated_total
+                self._total_cost = calculated_total
                 
         except ValueError as e:
             error_context = {
@@ -340,8 +615,8 @@ class CostRecord(BaseHistoryRecord):
             raise CostCalculationError(f"计算平均每token成本失败: {e}") from e
     
     @property
-    def prompt_cost_per_1k(self) -> float:
-        """获取每1K prompt tokens的成本"""
+    def prompt_cost_per_1m(self) -> float:
+        """获取每1M prompt tokens的成本"""
         try:
             if self.prompt_tokens <= 0:
                 logger.warning("Prompt token数量为0或负数，返回0.0")
@@ -351,15 +626,15 @@ class CostRecord(BaseHistoryRecord):
             error_context = {
                 "prompt_cost": self.prompt_cost,
                 "prompt_tokens": self.prompt_tokens,
-                "operation": "prompt_cost_per_1k",
+                "operation": "prompt_cost_per_1M",
                 "entity_class": self.__class__.__name__
             }
             handle_error(e, error_context)
-            raise CostCalculationError(f"计算每1K prompt tokens成本失败: {e}") from e
+            raise CostCalculationError(f"计算每1M prompt tokens成本失败: {e}") from e
     
     @property
-    def completion_cost_per_1k(self) -> float:
-        """获取每1K completion tokens的成本"""
+    def completion_cost_per_1m(self) -> float:
+        """获取每1M completion tokens的成本"""
         try:
             if self.completion_tokens <= 0:
                 logger.warning("Completion token数量为0或负数，返回0.0")
@@ -369,11 +644,11 @@ class CostRecord(BaseHistoryRecord):
             error_context = {
                 "completion_cost": self.completion_cost,
                 "completion_tokens": self.completion_tokens,
-                "operation": "completion_cost_per_1k",
+                "operation": "completion_cost_per_1m",
                 "entity_class": self.__class__.__name__
             }
             handle_error(e, error_context)
-            raise CostCalculationError(f"计算每1K completion tokens成本失败: {e}") from e
+            raise CostCalculationError(f"计算每1M completion tokens成本失败: {e}") from e
 
 
 @dataclass
@@ -498,40 +773,98 @@ class WorkflowTokenSummary:
         return max(self.model_breakdown.items(), key=lambda x: x[1].total_cost)[0]
 
 
-@dataclass
-class MessageRecord(BaseHistoryRecord):
+class MessageRecord(BaseHistoryRecord, IMessageRecord):
     """消息记录
     
     记录对话中的消息。
     """
-    record_type: RecordType = RecordType.MESSAGE
-    role: str = ""
-    content: str = ""
     
-    def __post_init__(self) -> None:
-        """初始化后处理"""
-        super().__post_init__()
-        if not self.role:
-            raise ValueError("role 不能为空")
+    def __init__(
+        self,
+        record_id: str,
+        session_id: str,
+        workflow_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        role: str = "",
+        content: str = ""
+    ):
+        """初始化消息记录"""
+        super().__init__(
+            record_id=record_id,
+            session_id=session_id,
+            workflow_id=workflow_id,
+            timestamp=timestamp,
+            record_type="message",
+            metadata=metadata
+        )
+        self._role = role
+        self._content = content
+
+    # 实现IMessageRecord接口的属性
+    @property
+    def role(self) -> str:
+        """消息角色"""
+        return self._role
+
+    @property
+    def content(self) -> str:
+        """消息内容"""
+        return self._content
 
 
-@dataclass
-class ToolCallRecord(BaseHistoryRecord):
+class ToolCallRecord(BaseHistoryRecord, IToolCallRecord):
     """工具调用记录
     
     记录工具的调用和执行情况。
     """
-    record_type: RecordType = RecordType.TOOL_CALL
-    tool_name: str = ""
-    tool_input: Dict[str, Any] = field(default_factory=dict)
-    tool_output: Dict[str, Any] = field(default_factory=dict)
-    status: str = "success"  # success, error, pending
     
-    def __post_init__(self) -> None:
-        """初始化后处理"""
-        super().__post_init__()
-        if not self.tool_name:
-            raise ValueError("tool_name 不能为空")
+    def __init__(
+        self,
+        record_id: str,
+        session_id: str,
+        workflow_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        tool_name: str = "",
+        tool_input: Optional[Dict[str, Any]] = None,
+        tool_output: Optional[Dict[str, Any]] = None,
+        status: str = "success"
+    ):
+        """初始化工具调用记录"""
+        super().__init__(
+            record_id=record_id,
+            session_id=session_id,
+            workflow_id=workflow_id,
+            timestamp=timestamp,
+            record_type="tool_call",
+            metadata=metadata
+        )
+        self._tool_name = tool_name
+        self._tool_input = tool_input or {}
+        self._tool_output = tool_output or {}
+        self._status = status
+
+    # 实现IToolCallRecord接口的属性
+    @property
+    def tool_name(self) -> str:
+        """工具名称"""
+        return self._tool_name
+
+    @property
+    def tool_input(self) -> Dict[str, Any]:
+        """工具输入"""
+        return self._tool_input
+
+    @property
+    def tool_output(self) -> Dict[str, Any]:
+        """工具输出"""
+        return self._tool_output
+
+    @property
+    def status(self) -> str:
+        """调用状态"""
+        return self._status
 
 
 @dataclass

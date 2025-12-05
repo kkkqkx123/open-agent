@@ -9,6 +9,8 @@ from .checkpoint import (
     IThreadCheckpointSerializer,
     IThreadCheckpointPolicy
 )
+from .entities import IThread, IThreadBranch, IThreadSnapshot
+
 __all__ = [
     "IThreadBranchRepository",
     "IThreadSnapshotRepository",
@@ -20,4 +22,7 @@ __all__ = [
     "IThreadCheckpointManager",
     "IThreadCheckpointSerializer",
     "IThreadCheckpointPolicy",
+    "IThread",
+    "IThreadBranch",
+    "IThreadSnapshot",
 ]

@@ -5,6 +5,16 @@ from typing import Dict, Any, Optional, TYPE_CHECKING
 from datetime import datetime
 from dataclasses import dataclass
 
+from .entities import (
+    IBaseHistoryRecord,
+    ILLMRequestRecord,
+    ILLMResponseRecord,
+    ITokenUsageRecord,
+    ICostRecord,
+    IMessageRecord,
+    IToolCallRecord
+)
+
 if TYPE_CHECKING:
     from ...core.history.entities import (
         TokenUsageRecord,
@@ -153,3 +163,17 @@ class ICostCalculator(ABC):
     def update_pricing(self, model_name: str, input_price: float, output_price: float) -> None:
         """更新定价"""
         pass
+
+
+__all__ = [
+    "IBaseHistoryRecord",
+    "ILLMRequestRecord",
+    "ILLMResponseRecord",
+    "ITokenUsageRecord",
+    "ICostRecord",
+    "IMessageRecord",
+    "IToolCallRecord",
+    "IHistoryManager",
+    "ICostCalculator",
+    "DeleteResult",
+]

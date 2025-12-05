@@ -37,6 +37,15 @@ from .visualization import (
     IWorkflowVisualizer
 )
 
+from .entities import (
+    IWorkflowState,
+    IExecutionResult,
+    IWorkflow as IWorkflowEntity,
+    IWorkflowExecution,
+    INodeExecution,
+    IWorkflowMetadata
+)
+
 __all__ = [
     # Core interfaces
     "IWorkflow",
@@ -62,5 +71,13 @@ __all__ = [
     "IWorkflowBuilder",
     
     # Visualization interfaces
-    "IWorkflowVisualizer"
+    "IWorkflowVisualizer",
+    
+    # Entity interfaces
+    "IWorkflowState",
+    "IExecutionResult",
+    "IWorkflowEntity",
+    "IWorkflowExecution",
+    "INodeExecution",
+    "IWorkflowMetadata",
 ]
