@@ -17,6 +17,7 @@ from rich.prompt import Prompt, Confirm
 
 from ..config import TUIConfig
 from src.interfaces.sessions.base import ISessionManager
+from src.interfaces.sessions.service import ISessionService
 
 
 class SessionListComponent:
@@ -258,7 +259,7 @@ class SessionManagerDialog:
     
     def __init__(self, config: Optional[TUIConfig] = None):
         self.config = config
-        self.session_manager: Optional[ISessionManager] = None
+        self.session_manager: Optional[Union[ISessionManager, ISessionService]] = None
         self.current_mode = "list"  # list, create, confirm_delete
         self.session_list = SessionListComponent()
         self.create_dialog = SessionCreateDialog()
@@ -269,11 +270,11 @@ class SessionManagerDialog:
         self.on_session_created: Optional[Callable[[str, Optional[str]], None]] = None
         self.on_session_deleted: Optional[Callable[[str], None]] = None
     
-    def set_session_manager(self, session_manager: ISessionManager) -> None:
+    def set_session_manager(self, session_manager: Union[ISessionManager, ISessionService]) -> None:
         """设置会话管理器
         
         Args:
-            session_manager: 会话管理器
+            session_manager: 会话管理器或会话服务
         """
         self.session_manager = session_manager
     

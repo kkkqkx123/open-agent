@@ -1,12 +1,12 @@
 """历史管理接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, TYPE_CHECKING
+from typing import Dict, Any, Optional, TYPE_CHECKING
 from datetime import datetime
 from dataclasses import dataclass
 
 if TYPE_CHECKING:
-    from ..core.history.entities import (
+    from ...core.history.entities import (
         TokenUsageRecord,
         CostRecord,
         LLMRequestRecord,

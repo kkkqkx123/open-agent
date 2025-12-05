@@ -105,12 +105,16 @@ from .history import (
     ICostCalculator
 )
 
-# 检查点相关接口
+# 检查点相关接口（所有接口和异常）
 from .checkpoint import (
-    ICheckpointStore,
-    ICheckpointSerializer,
-    ICheckpointManager,
-    ICheckpointPolicy
+    CheckpointInterface,
+    CheckpointError,
+    CheckpointNotFoundError,
+    CheckpointStorageError,
+    CheckpointValidationError,
+    CheckpointSerializationError,
+    CheckpointTimeoutError,
+    CheckpointVersionError,
 )
 
 # Thread检查点相关接口
@@ -205,13 +209,6 @@ from .prompts import (
     IPromptCache,
     IPromptType,
     IPromptReferenceResolver,
-)
-
-# 通用相关接口
-from .common_infra import (
-    IConfigLoader,
-    IConfigInheritanceHandler,
-    IStorage,
 )
 # 日志相关接口
 from .logger import (
@@ -340,10 +337,14 @@ __all__ = [
     "ICostCalculator",
     
     # 检查点接口
-    "ICheckpointStore",
-    "ICheckpointSerializer",
-    "ICheckpointManager",
-    "ICheckpointPolicy",
+    "CheckpointInterface",
+    "CheckpointError",
+    "CheckpointNotFoundError",
+    "CheckpointStorageError",
+    "CheckpointValidationError",
+    "CheckpointSerializationError",
+    "CheckpointTimeoutError",
+    "CheckpointVersionError",
     
     # Thread检查点接口
     "IThreadCheckpointStorage",
@@ -431,8 +432,6 @@ __all__ = [
     "PromptConfig",
     
     # 通用接口
-    "IConfigLoader",
-    "IConfigInheritanceHandler",
     "ISerializable",
     "ICacheable",
     "ITimestamped",

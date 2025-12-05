@@ -5,20 +5,20 @@
 
 import asyncio
 from src.services.logger.injection import get_logger
-from typing import Dict, Any, Optional, Sequence, List
+from typing import Dict, Any, Optional, Sequence, List, TYPE_CHECKING
 from datetime import datetime
-from src.infrastructure.messages.base import BaseMessage
 
 from src.interfaces.llm import ILLMCallHook, LLMResponse
+from src.infrastructure.messages.base import BaseMessage
+
+if TYPE_CHECKING:
+    from src.interfaces.messages import IBaseMessage
 from src.interfaces.history import IHistoryManager, ICostCalculator
 from src.core.history.entities import (
     LLMRequestRecord, LLMResponseRecord, 
     TokenUsageRecord, CostRecord
 )
-from src.services.history.cost_calculator import CostCalculator
 from src.services.llm.token_calculation_service import TokenCalculationService
-from src.interfaces.history.exceptions import HistoryError
-from src.core.common.exceptions import ValidationError
 
 
 logger = get_logger(__name__)
@@ -55,7 +55,7 @@ class HistoryRecordingHook(ILLMCallHook):
     
     def before_call(
         self,
-        messages: Sequence[BaseMessage],
+        messages: Sequence["IBaseMessage"],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any
     ) -> None:
@@ -84,8 +84,10 @@ class HistoryRecordingHook(ILLMCallHook):
             converted_messages = self._convert_messages(messages)
             
             # 使用LLM模块的精确token计算，不进行估算
+            # 类型转换：IBaseMessage -> BaseMessage（运行时兼容）
             estimated_tokens = self.token_service.calculate_messages_tokens(
-                messages, model_type, model_name
+                messages,
+                model_type, model_name
             )
             
             # 创建请求记录
@@ -122,7 +124,7 @@ class HistoryRecordingHook(ILLMCallHook):
     def after_call(
         self,
         response: Optional[LLMResponse],
-        messages: Sequence[BaseMessage],
+        messages: Sequence["IBaseMessage"],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any
     ) -> None:
@@ -203,7 +205,7 @@ class HistoryRecordingHook(ILLMCallHook):
     def on_error(
         self,
         error: Exception,
-        messages: Sequence[BaseMessage],
+        messages: Sequence["IBaseMessage"],
         parameters: Optional[Dict[str, Any]] = None,
         **kwargs: Any
     ) -> Optional[LLMResponse]:
@@ -311,7 +313,7 @@ class HistoryRecordingHook(ILLMCallHook):
         # 默认返回空字典
         return {}
     
-    def _convert_messages(self, messages: Sequence[BaseMessage]) -> List[Dict[str, Any]]:
+    def _convert_messages(self, messages: Sequence["IBaseMessage"]) -> List[Dict[str, Any]]:
         """
         将BaseMessage转换为字典格式
         

@@ -9,7 +9,7 @@ from src.interfaces.threads.storage import IThreadRepository
 from src.interfaces.threads.collaboration import IThreadCollaborationService
 from typing import TYPE_CHECKING
 from src.interfaces.threads.checkpoint import IThreadCheckpointManager
-from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
+from src.interfaces.repository import RepositoryValidationError
 from .base_service import BaseThreadService
 
 if TYPE_CHECKING:
@@ -62,7 +62,7 @@ class ThreadCollaborationService(BaseThreadService, IThreadCollaborationService)
                               participants=participants)
             
             if not participants:
-                raise ValidationError("Participants list cannot be empty")
+                raise RepositoryValidationError("Participants list cannot be empty")
             
             # 创建基础线程
             from src.core.threads.interfaces import IThreadCore
@@ -116,7 +116,7 @@ class ThreadCollaborationService(BaseThreadService, IThreadCollaborationService)
             # 获取协作信息
             collaboration_info = self._collaboration_store.get(thread_id)
             if not collaboration_info:
-                raise ValidationError(f"Thread {thread_id} is not a collaborative thread")
+                raise RepositoryValidationError(f"Thread {thread_id} is not a collaborative thread")
             
             # 添加参与者
             collaboration_info["participants"][participant_id] = {
@@ -151,7 +151,7 @@ class ThreadCollaborationService(BaseThreadService, IThreadCollaborationService)
             # 获取协作信息
             collaboration_info = self._collaboration_store.get(thread_id)
             if not collaboration_info:
-                raise ValidationError(f"Thread {thread_id} is not a collaborative thread")
+                raise RepositoryValidationError(f"Thread {thread_id} is not a collaborative thread")
             
             # 移除参与者
             if participant_id in collaboration_info["participants"]:
@@ -222,7 +222,7 @@ class ThreadCollaborationService(BaseThreadService, IThreadCollaborationService)
             # 获取协作信息
             collaboration_info = self._collaboration_store.get(thread_id)
             if not collaboration_info:
-                raise ValidationError(f"Thread {thread_id} is not a collaborative thread")
+                raise RepositoryValidationError(f"Thread {thread_id} is not a collaborative thread")
             
             # 更新参与者角色
             if participant_id in collaboration_info["participants"]:
@@ -347,7 +347,7 @@ class ThreadCollaborationService(BaseThreadService, IThreadCollaborationService)
             # 2. 验证检查点存在
             checkpoint = await self._checkpoint_manager.get_checkpoint(source_thread_id, checkpoint_id)
             if not checkpoint:
-                raise ValidationError(f"Checkpoint {checkpoint_id} not found")
+                raise RepositoryValidationError(f"Checkpoint {checkpoint_id} not found")
             
             # 3. 获取源线程状态
             source_state = await self._get_thread_state_at_checkpoint(
@@ -388,7 +388,7 @@ class ThreadCollaborationService(BaseThreadService, IThreadCollaborationService)
         # 获取当前线程信息
         thread = await self._thread_repository.get(thread_id)
         if not thread:
-            raise ValidationError(f"Thread {thread_id} not found")
+            raise RepositoryValidationError(f"Thread {thread_id} not found")
         
         return {
             "thread_id": thread_id,

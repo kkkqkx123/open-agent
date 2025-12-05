@@ -3,12 +3,16 @@
 使用 infrastructure 层的 TokenCalculatorFactory 实现。
 """
 
-from typing import Dict, Any, Optional, Sequence
+from typing import Dict, Any, Optional, Sequence, TYPE_CHECKING
+from dataclasses import asdict
 from src.infrastructure.messages.base import BaseMessage
 
 # 使用 infrastructure 层的实现
 from src.infrastructure.llm.token_calculators import get_token_calculator_factory
 from src.infrastructure.llm.models import TokenUsage
+
+if TYPE_CHECKING:
+    from src.interfaces.messages import IBaseMessage
 
 
 class TokenCalculationService:
@@ -44,7 +48,7 @@ class TokenCalculationService:
         result = calculator.count_tokens(text)
         return result if result is not None else 0
     
-    def calculate_messages_tokens(self, messages: Sequence[BaseMessage], model_type: str, model_name: str) -> int:
+    def calculate_messages_tokens(self, messages: Sequence["IBaseMessage"], model_type: str, model_name: str) -> int:
         """
         计算消息列表的token数量
         
@@ -89,5 +93,6 @@ class TokenCalculationService:
         """
         calculator = self._factory.get_calculator(model_type, model_name)
         if hasattr(calculator, 'get_stats'):
-            return calculator.get_stats()
+            stats = calculator.get_stats()
+            return asdict(stats)
         return {}
