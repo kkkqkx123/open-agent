@@ -44,8 +44,58 @@ class LLMServiceBindings(BaseServiceBindings):
     
     def _validate_config(self, config: Dict[str, Any]) -> None:
         """验证LLM配置"""
-        is_valid, errors = validate_llm_config(config)
-        if not is_valid:
+        errors = []
+        
+        if "llm" not in config:
+            errors.append("缺少llm配置节")
+        else:
+            llm_config = config["llm"]
+            
+            # 验证Token计算配置
+            if "token_calculation" in llm_config:
+                token_calc_config = llm_config["token_calculation"]
+                default_provider = token_calc_config.get("default_provider")
+                
+                if default_provider and not isinstance(default_provider, str):
+                    errors.append("token_calculation.default_provider必须是字符串")
+            
+            # 验证配置管理器配置
+            if "config_manager" in llm_config:
+                config_manager_config = llm_config["config_manager"]
+                base_path = config_manager_config.get("base_path")
+                
+                if base_path and not isinstance(base_path, str):
+                    errors.append("config_manager.base_path必须是字符串")
+            
+            # 验证重试配置
+            if "retry" in llm_config:
+                retry_config = llm_config["retry"]
+                if not isinstance(retry_config, dict):
+                    errors.append("retry配置必须是字典")
+                else:
+                    max_attempts = retry_config.get("max_attempts")
+                    if max_attempts is not None and (not isinstance(max_attempts, int) or max_attempts < 1):
+                        errors.append("retry.max_attempts必须是大于0的整数")
+                    
+                    base_delay = retry_config.get("base_delay")
+                    if base_delay is not None and (not isinstance(base_delay, (int, float)) or base_delay < 0):
+                        errors.append("retry.base_delay必须是非负数")
+            
+            # 验证降级配置
+            if "fallback" in llm_config:
+                fallback_config = llm_config["fallback"]
+                if not isinstance(fallback_config, dict):
+                    errors.append("fallback配置必须是字典")
+                else:
+                    max_attempts = fallback_config.get("max_attempts")
+                    if max_attempts is not None and (not isinstance(max_attempts, int) or max_attempts < 1):
+                        errors.append("fallback.max_attempts必须是大于0的整数")
+                    
+                    fallback_models = fallback_config.get("fallback_models")
+                    if fallback_models is not None and not isinstance(fallback_models, list):
+                        errors.append("fallback.fallback_models必须是列表")
+        
+        if errors:
             raise ValueError(f"LLM配置验证失败: {errors}")
     
     def _do_register_services(
@@ -129,35 +179,6 @@ class LLMServiceBindings(BaseServiceBindings):
                 logger.debug(f"已设置LLM服务注入层 (environment: {environment})")
         except Exception as e:
             print(f"[WARNING] 设置LLM注入层失败: {e}", file=__import__('sys').stderr)
-
-
-def register_llm_services(
-    container,
-    config: Dict[str, Any],
-    environment: str = "default"
-) -> None:
-    """注册所有LLM相关服务的便捷函数
-    
-    Args:
-        container: 依赖注入容器
-        config: 配置字典
-        environment: 环境名称
-    
-    示例配置:
-    ```yaml
-    llm:
-      token_calculation:
-        default_provider: "openai"
-        enable_config_provider: true
-        enable_cost_calculator: true
-      
-      config_manager:
-        base_path: "configs/llms"
-        enable_provider_configs: true
-    ```
-    """
-    bindings = LLMServiceBindings()
-    bindings.register_services(container, config, environment)
 
 
 def register_config_loader(
@@ -353,130 +374,6 @@ def register_token_calculation_decorator(
     print(f"[INFO] 注册Token计算装饰器完成", file=sys.stdout)
 
 
-def register_llm_test_services(
-    container,
-    environment: str = "test"
-) -> None:
-    """注册测试环境的LLM服务"""
-    print(f"[INFO] 注册测试环境LLM服务...", file=sys.stdout)
-    
-    test_config = {
-        "llm": {
-            "token_calculation": {
-                "default_provider": "openai",
-                "enable_config_provider": False,  # 测试环境禁用配置提供者
-                "enable_cost_calculator": False   # 测试环境禁用成本计算器
-            },
-            "config_manager": {
-                "base_path": "configs/llms",
-                "enable_provider_configs": False
-            },
-            "retry": {
-                "enabled": False,  # 测试环境禁用重试
-                "max_attempts": 3,
-                "base_delay": 0.1
-            },
-            "fallback": {
-                "enabled": False,  # 测试环境禁用降级
-                "max_attempts": 2,
-                "fallback_models": []
-            }
-        }
-    }
-    
-    register_llm_services(container, test_config, environment)
-    print(f"[INFO] 测试环境LLM服务注册完成", file=sys.stdout)
-
-
-def get_llm_service_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    """获取LLM服务配置摘要
-    
-    Args:
-        config: 完整配置字典
-        
-    Returns:
-        Dict[str, Any]: LLM服务配置摘要
-    """
-    llm_config = config.get("llm", {})
-    token_calc_config = llm_config.get("token_calculation", {})
-    config_manager_config = llm_config.get("config_manager", {})
-    
-    retry_config = llm_config.get("retry", {})
-    fallback_config = llm_config.get("fallback", {})
-    
-    return {
-        "default_provider": token_calc_config.get("default_provider", "openai"),
-        "config_provider_enabled": token_calc_config.get("enable_config_provider", True),
-        "cost_calculator_enabled": token_calc_config.get("enable_cost_calculator", True),
-        "provider_configs_enabled": config_manager_config.get("enable_provider_configs", True),
-        "config_base_path": config_manager_config.get("base_path", "configs/llms"),
-        "retry_enabled": retry_config.get("enabled", True),
-        "fallback_enabled": fallback_config.get("enabled", True)
-    }
-
-
-def validate_llm_config(config: Dict[str, Any]) -> tuple[bool, list[str]]:
-    """验证LLM服务配置
-    
-    Args:
-        config: 配置字典
-        
-    Returns:
-        tuple[bool, list[str]]: (是否有效, 错误列表)
-    """
-    errors = []
-    
-    if "llm" not in config:
-        errors.append("缺少llm配置节")
-        return False, errors
-    
-    llm_config = config["llm"]
-    
-    # 验证Token计算配置
-    if "token_calculation" in llm_config:
-        token_calc_config = llm_config["token_calculation"]
-        default_provider = token_calc_config.get("default_provider")
-        
-        if default_provider and not isinstance(default_provider, str):
-            errors.append("token_calculation.default_provider必须是字符串")
-    
-    # 验证配置管理器配置
-    if "config_manager" in llm_config:
-        config_manager_config = llm_config["config_manager"]
-        base_path = config_manager_config.get("base_path")
-        
-        if base_path and not isinstance(base_path, str):
-            errors.append("config_manager.base_path必须是字符串")
-    
-    # 验证重试配置
-    if "retry" in llm_config:
-        retry_config = llm_config["retry"]
-        if not isinstance(retry_config, dict):
-            errors.append("retry配置必须是字典")
-        else:
-            max_attempts = retry_config.get("max_attempts")
-            if max_attempts is not None and (not isinstance(max_attempts, int) or max_attempts < 1):
-                errors.append("retry.max_attempts必须是大于0的整数")
-            
-            base_delay = retry_config.get("base_delay")
-            if base_delay is not None and (not isinstance(base_delay, (int, float)) or base_delay < 0):
-                errors.append("retry.base_delay必须是非负数")
-    
-    # 验证降级配置
-    if "fallback" in llm_config:
-        fallback_config = llm_config["fallback"]
-        if not isinstance(fallback_config, dict):
-            errors.append("fallback配置必须是字典")
-        else:
-            max_attempts = fallback_config.get("max_attempts")
-            if max_attempts is not None and (not isinstance(max_attempts, int) or max_attempts < 1):
-                errors.append("fallback.max_attempts必须是大于0的整数")
-            
-            fallback_models = fallback_config.get("fallback_models")
-            if fallback_models is not None and not isinstance(fallback_models, list):
-                errors.append("fallback.fallback_models必须是列表")
-    
-    return len(errors) == 0, errors
 
 
 def register_retry_services(

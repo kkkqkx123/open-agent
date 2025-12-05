@@ -5,23 +5,12 @@
 
 from .core.container import DependencyContainer, get_global_container, reset_global_container
 
-from .bindings.storage_bindings import (
-    register_all_storage_services,
-    register_session_storage_only,
-    register_thread_storage_only
-)
-from .bindings.thread_checkpoint_bindings import (
-    register_thread_checkpoint_services,
-    register_thread_checkpoint_services_with_custom_backend,
-    register_thread_checkpoint_test_services,
-    get_thread_checkpoint_service_config
-)
-from .bindings.history_bindings import (
-    register_history_services,
-    register_history_test_services,
-    get_history_service_config,
-    validate_history_config
-)
+from .bindings.storage_bindings import StorageServiceBindings
+from .bindings.thread_checkpoint_bindings import ThreadCheckpointServiceBindings
+from .bindings.history_bindings import HistoryServiceBindings
+from .bindings.session_bindings import SessionServiceBindings
+from .bindings.thread_bindings import ThreadServiceBindings
+from .bindings.llm_bindings import LLMServiceBindings
 from .bindings.logger_bindings import (
     register_logger_services,
     register_test_logger_services,
@@ -59,19 +48,14 @@ __all__ = [
     "get_logger_service_config",
     
     # 存储服务绑定
-    "register_all_storage_services",
-    "register_session_storage_only",
-    "register_thread_storage_only",
+    "StorageServiceBindings",
     
     # Thread检查点服务绑定
-    "register_thread_checkpoint_services",
-    "register_thread_checkpoint_services_with_custom_backend",
-    "register_thread_checkpoint_test_services",
-    "get_thread_checkpoint_service_config",
+    "ThreadCheckpointServiceBindings",
     
     # History服务绑定
-    "register_history_services",
-    "register_history_test_services",
-    "get_history_service_config",
-    "validate_history_config",
+    "HistoryServiceBindings",
+    "SessionServiceBindings",
+    "ThreadServiceBindings",
+    "LLMServiceBindings",
 ]

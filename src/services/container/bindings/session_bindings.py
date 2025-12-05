@@ -533,13 +533,3 @@ def _register_session_service(container, config: Dict[str, Any], environment: st
     print(f"[INFO] Session service registered with coordinator", file=sys.stdout)
 
 
-def register_all_session_services(container, config: Dict[str, Any], environment: str = "default") -> None:
-    """注册所有会话相关服务的便捷函数
-    
-    Args:
-        container: 依赖注入容器
-        config: 配置字典
-        environment: 环境名称
-    """
-    bindings = SessionServiceBindings()
-    bindings.register_services(container, config, environment)

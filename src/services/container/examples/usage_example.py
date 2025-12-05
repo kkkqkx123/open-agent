@@ -7,7 +7,7 @@ from typing import Dict, Any
 
 from src.services.container import (
     DependencyContainer,
-    register_all_storage_services,
+    StorageServiceBindings,
 )
 from src.interfaces.sessions import ISessionService
 from src.interfaces.threads import IThreadService
@@ -55,7 +55,8 @@ async def example_basic_usage():
     }
     
     # 注册存储服务
-    register_all_storage_services(container, config)
+    storage_bindings = StorageServiceBindings()
+    storage_bindings.register_services(container, config)
     
     # 从容器获取服务
     session_service = container.get(ISessionService)
@@ -93,7 +94,8 @@ async def example_from_yaml_config():
         }
     
     # 注册存储服务
-    register_all_storage_services(container, config)
+    storage_bindings = StorageServiceBindings()
+    storage_bindings.register_services(container, config)
     
     # 获取服务
     session_service = container.get(ISessionService)
@@ -128,7 +130,8 @@ async def example_custom_backends():
     }
     
     # 注册存储服务
-    register_all_storage_services(container, config)
+    storage_bindings = StorageServiceBindings()
+    storage_bindings.register_services(container, config)
     
     session_service = container.get(ISessionService)
     thread_service = container.get(IThreadService)

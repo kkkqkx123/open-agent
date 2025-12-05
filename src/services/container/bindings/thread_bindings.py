@@ -1,6 +1,9 @@
-"""线程服务依赖注入绑定配置"""
+"""线程服务依赖注入绑定配置
 
-from src.services.logger import get_logger
+使用基础设施层组件，通过继承BaseServiceBindings简化代码。
+"""
+
+import sys
 from typing import Dict, Any, List, Union
 
 from src.adapters.storage.backends import SQLiteThreadBackend, FileThreadBackend
@@ -21,19 +24,121 @@ from src.core.threads.interfaces import IThreadCore
 from src.interfaces.history import IHistoryManager
 from src.interfaces.threads.checkpoint import IThreadCheckpointManager
 from src.interfaces.logger import ILogger
-
-# 导入日志绑定
-from .logger_bindings import register_logger_services
-
-logger = get_logger(__name__)
+from src.interfaces.common_infra import ServiceLifetime
+from src.services.container.core.base_service_bindings import BaseServiceBindings
 
 
-def register_thread_backends(container: Any, config: Dict[str, Any]) -> None:
+class ThreadServiceBindings(BaseServiceBindings):
+    """Thread服务绑定类
+    
+    负责注册所有Thread相关服务，包括：
+    - Thread存储后端
+    - Thread仓储
+    - 各种Thread服务（基础、工作流、协作、分支、快照、状态、历史）
+    - 主Thread服务
+    """
+    
+    def _validate_config(self, config: Dict[str, Any]) -> None:
+        """验证Thread配置"""
+        # Thread服务通常不需要特殊验证
+        pass
+    
+    def _do_register_services(
+        self,
+        container,
+        config: Dict[str, Any],
+        environment: str = "default"
+    ) -> None:
+        """执行Thread服务注册"""
+        _register_thread_backends(container, config, environment)
+        _register_thread_repository(container, config, environment)
+        _register_basic_thread_service(container, config, environment)
+        _register_workflow_thread_service(container, config, environment)
+        _register_collaboration_thread_service(container, config, environment)
+        _register_branch_thread_service(container, config, environment)
+        _register_snapshot_thread_service(container, config, environment)
+        _register_state_thread_service(container, config, environment)
+        _register_history_thread_service(container, config, environment)
+        _register_thread_service(container, config, environment)
+    
+    def _post_register(
+        self,
+        container,
+        config: Dict[str, Any],
+        environment: str = "default"
+    ) -> None:
+        """注册后处理"""
+        # 设置注入层
+        try:
+            # 为Thread服务设置注入层
+            service_types = [
+                IThreadRepository,
+                IThreadService,
+                BasicThreadService,
+                WorkflowThreadService,
+                ThreadCollaborationService,
+                ThreadBranchService,
+                ThreadSnapshotService,
+                ThreadStateService,
+                ThreadHistoryService
+            ]
+            
+            self.setup_injection_layer(container, service_types)
+            
+            # 设置全局实例（向后兼容）
+            from src.services.threads.injection import (
+                set_thread_repository_instance,
+                set_thread_service_instance,
+                set_basic_thread_service_instance,
+                set_workflow_thread_service_instance,
+                set_collaboration_thread_service_instance,
+                set_branch_thread_service_instance,
+                set_snapshot_thread_service_instance,
+                set_state_thread_service_instance,
+                set_history_thread_service_instance
+            )
+            
+            if container.has_service(IThreadRepository):
+                set_thread_repository_instance(container.get(IThreadRepository))
+            
+            if container.has_service(IThreadService):
+                set_thread_service_instance(container.get(IThreadService))
+            
+            if container.has_service(BasicThreadService):
+                set_basic_thread_service_instance(container.get(BasicThreadService))
+            
+            if container.has_service(WorkflowThreadService):
+                set_workflow_thread_service_instance(container.get(WorkflowThreadService))
+            
+            if container.has_service(ThreadCollaborationService):
+                set_collaboration_thread_service_instance(container.get(ThreadCollaborationService))
+            
+            if container.has_service(ThreadBranchService):
+                set_branch_thread_service_instance(container.get(ThreadBranchService))
+            
+            if container.has_service(ThreadSnapshotService):
+                set_snapshot_thread_service_instance(container.get(ThreadSnapshotService))
+            
+            if container.has_service(ThreadStateService):
+                set_state_thread_service_instance(container.get(ThreadStateService))
+            
+            if container.has_service(ThreadHistoryService):
+                set_history_thread_service_instance(container.get(ThreadHistoryService))
+            
+            logger = self.safe_get_service(container, ILogger)
+            if logger:
+                logger.debug(f"已设置Thread服务注入层 (environment: {environment})")
+        except Exception as e:
+            print(f"[WARNING] 设置Thread注入层失败: {e}", file=sys.stderr)
+
+
+def _register_thread_backends(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册线程存储后端
     
     Args:
         container: 依赖注入容器
         config: 配置字典
+        environment: 环境名称
     """
     # 主后端配置
     primary_backend_type = config.get("thread", {}).get("primary_backend", "sqlite")
@@ -61,27 +166,38 @@ def register_thread_backends(container: Any, config: Dict[str, Any]) -> None:
             backend = SQLiteThreadBackend(db_path=db_path)
             secondary_backends.append(backend)
         else:
-            logger.warning(f"Unknown secondary backend type: {backend_type}")
+            print(f"[WARNING] Unknown secondary backend type: {backend_type}", file=sys.stderr)
     
     # 注册主后端为单例
-    container.register_singleton("thread_primary_backend", primary_backend)
+    container.register(
+        "thread_primary_backend",
+        lambda: primary_backend,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
     
     # 注册辅助后端列表
     if secondary_backends:
-        container.register_singleton("thread_secondary_backends", secondary_backends)
+        container.register(
+            "thread_secondary_backends",
+            lambda: secondary_backends,
+            environment=environment,
+            lifetime=ServiceLifetime.SINGLETON
+        )
     
-    logger.info(f"Thread backends registered: primary={primary_backend_type}, secondary={secondary_types}")
+    print(f"[INFO] Thread backends registered: primary={primary_backend_type}, secondary={secondary_types}", file=sys.stdout)
 
 
-def register_thread_repository(container: Any, config: Dict[str, Any]) -> None:
+def _register_thread_repository(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册线程仓储
     
     Args:
         container: 依赖注入容器
         config: 配置字典
+        environment: 环境名称
     """
     # 确保后端已注册
-    register_thread_backends(container, config)
+    _register_thread_backends(container, config, environment)
     
     # 创建仓储工厂函数
     def thread_repository_factory() -> ThreadRepository:
@@ -90,26 +206,34 @@ def register_thread_repository(container: Any, config: Dict[str, Any]) -> None:
         return ThreadRepository(primary_backend, secondary_backends)
     
     # 注册仓储为单例
-    container.register_singleton("thread_repository", thread_repository_factory)
-    
-    # 注册接口
-    container.register_singleton(
-        IThreadRepository,
-        lambda: container.get("thread_repository")
+    container.register(
+        "thread_repository",
+        thread_repository_factory,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
     )
     
-    logger.info("Thread repository registered")
+    # 注册接口
+    container.register(
+        IThreadRepository,
+        lambda: container.get("thread_repository"),
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
+    
+    print(f"[INFO] Thread repository registered", file=sys.stdout)
 
 
-def register_basic_thread_service(container: Any, config: Dict[str, Any]) -> None:
+def _register_basic_thread_service(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册基础线程服务
     
     Args:
         container: 依赖注入容器
         config: 配置字典
+        environment: 环境名称
     """
     # 确保依赖已注册
-    register_thread_repository(container, config)
+    _register_thread_repository(container, config, environment)
     
     # 创建服务工厂函数
     def basic_thread_service_factory() -> BasicThreadService:
@@ -124,20 +248,26 @@ def register_basic_thread_service(container: Any, config: Dict[str, Any]) -> Non
         )
     
     # 注册服务为单例
-    container.register_singleton("basic_thread_service", basic_thread_service_factory)
+    container.register(
+        "basic_thread_service",
+        basic_thread_service_factory,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
     
-    logger.info("Basic thread service registered")
+    print(f"[INFO] Basic thread service registered", file=sys.stdout)
 
 
-def register_workflow_thread_service(container: Any, config: Dict[str, Any]) -> None:
+def _register_workflow_thread_service(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册工作流线程服务
     
     Args:
         container: 依赖注入容器
         config: 配置字典
+        environment: 环境名称
     """
     # 确保依赖已注册
-    register_thread_repository(container, config)
+    _register_thread_repository(container, config, environment)
     
     # 创建服务工厂函数
     def workflow_thread_service_factory() -> WorkflowThreadService:
@@ -148,20 +278,26 @@ def register_workflow_thread_service(container: Any, config: Dict[str, Any]) -> 
         )
     
     # 注册服务为单例
-    container.register_singleton("workflow_thread_service", workflow_thread_service_factory)
+    container.register(
+        "workflow_thread_service",
+        workflow_thread_service_factory,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
     
-    logger.info("Workflow thread service registered")
+    print(f"[INFO] Workflow thread service registered", file=sys.stdout)
 
 
-def register_collaboration_thread_service(container: Any, config: Dict[str, Any]) -> None:
+def _register_collaboration_thread_service(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册协作线程服务
     
     Args:
         container: 依赖注入容器
         config: 配置字典
+        environment: 环境名称
     """
     # 确保依赖已注册
-    register_thread_repository(container, config)
+    _register_thread_repository(container, config, environment)
     
     # 创建服务工厂函数
     def collaboration_thread_service_factory() -> ThreadCollaborationService:
@@ -174,20 +310,26 @@ def register_collaboration_thread_service(container: Any, config: Dict[str, Any]
         )
     
     # 注册服务为单例
-    container.register_singleton("collaboration_thread_service", collaboration_thread_service_factory)
+    container.register(
+        "collaboration_thread_service",
+        collaboration_thread_service_factory,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
     
-    logger.info("Collaboration thread service registered")
+    print(f"[INFO] Collaboration thread service registered", file=sys.stdout)
 
 
-def register_branch_thread_service(container: Any, config: Dict[str, Any]) -> None:
+def _register_branch_thread_service(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册分支线程服务
     
     Args:
         container: 依赖注入容器
         config: 配置字典
+        environment: 环境名称
     """
     # 确保依赖已注册
-    register_thread_repository(container, config)
+    _register_thread_repository(container, config, environment)
     
     # 创建服务工厂函数
     def branch_thread_service_factory() -> ThreadBranchService:
@@ -201,7 +343,7 @@ def register_branch_thread_service(container: Any, config: Dict[str, Any]) -> No
         checkpoint_domain_service = container.get("ThreadCheckpointDomainService", default=None)
         
         if not thread_branch_core or not thread_branch_repository:
-            logger.error("ThreadBranchCore or ThreadBranchRepository not available")
+            print(f"[ERROR] ThreadBranchCore or ThreadBranchRepository not available", file=sys.stderr)
             raise ValueError("Required dependencies for ThreadBranchService are not available")
         
         return ThreadBranchService(
@@ -213,20 +355,26 @@ def register_branch_thread_service(container: Any, config: Dict[str, Any]) -> No
         )
     
     # 注册服务为单例
-    container.register_singleton("branch_thread_service", branch_thread_service_factory)
+    container.register(
+        "branch_thread_service",
+        branch_thread_service_factory,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
     
-    logger.info("Branch thread service registered")
+    print(f"[INFO] Branch thread service registered", file=sys.stdout)
 
 
-def register_snapshot_thread_service(container: Any, config: Dict[str, Any]) -> None:
+def _register_snapshot_thread_service(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册快照线程服务
     
     Args:
         container: 依赖注入容器
         config: 配置字典
+        environment: 环境名称
     """
     # 确保依赖已注册
-    register_thread_repository(container, config)
+    _register_thread_repository(container, config, environment)
     
     # 创建服务工厂函数
     def snapshot_thread_service_factory() -> ThreadSnapshotService:
@@ -239,7 +387,7 @@ def register_snapshot_thread_service(container: Any, config: Dict[str, Any]) -> 
         thread_snapshot_repository = container.get("IThreadSnapshotRepository", default=None)
         
         if not thread_snapshot_core or not thread_snapshot_repository:
-            logger.error("ThreadSnapshotCore or ThreadSnapshotRepository not available")
+            print(f"[ERROR] ThreadSnapshotCore or ThreadSnapshotRepository not available", file=sys.stderr)
             raise ValueError("Required dependencies for ThreadSnapshotService are not available")
         
         return ThreadSnapshotService(
@@ -250,22 +398,28 @@ def register_snapshot_thread_service(container: Any, config: Dict[str, Any]) -> 
         )
     
     # 注册服务为单例
-    container.register_singleton("snapshot_thread_service", snapshot_thread_service_factory)
+    container.register(
+        "snapshot_thread_service",
+        snapshot_thread_service_factory,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
     
-    logger.info("Snapshot thread service registered")
+    print(f"[INFO] Snapshot thread service registered", file=sys.stdout)
 
 
 
 
-def register_state_thread_service(container: Any, config: Dict[str, Any]) -> None:
+def _register_state_thread_service(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册状态线程服务
     
     Args:
         container: 依赖注入容器
         config: 配置字典
+        environment: 环境名称
     """
     # 确保依赖已注册
-    register_thread_repository(container, config)
+    _register_thread_repository(container, config, environment)
     
     # 创建服务工厂函数
     def state_thread_service_factory() -> ThreadStateService:
@@ -276,20 +430,26 @@ def register_state_thread_service(container: Any, config: Dict[str, Any]) -> Non
         )
     
     # 注册服务为单例
-    container.register_singleton("state_thread_service", state_thread_service_factory)
+    container.register(
+        "state_thread_service",
+        state_thread_service_factory,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
     
-    logger.info("State thread service registered")
+    print(f"[INFO] State thread service registered", file=sys.stdout)
 
 
-def register_history_thread_service(container: Any, config: Dict[str, Any]) -> None:
+def _register_history_thread_service(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册历史线程服务
     
     Args:
         container: 依赖注入容器
         config: 配置字典
+        environment: 环境名称
     """
     # 确保依赖已注册
-    register_thread_repository(container, config)
+    _register_thread_repository(container, config, environment)
     
     # 创建服务工厂函数
     def history_thread_service_factory() -> ThreadHistoryService:
@@ -302,26 +462,32 @@ def register_history_thread_service(container: Any, config: Dict[str, Any]) -> N
         )
     
     # 注册服务为单例
-    container.register_singleton("history_thread_service", history_thread_service_factory)
+    container.register(
+        "history_thread_service",
+        history_thread_service_factory,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
     
-    logger.info("History thread service registered")
+    print(f"[INFO] History thread service registered", file=sys.stdout)
 
 
-def register_thread_service(container: Any, config: Dict[str, Any]) -> None:
+def _register_thread_service(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册主线程服务
     
     Args:
         container: 依赖注入容器
         config: 配置字典
+        environment: 环境名称
     """
     # 确保所有子服务已注册
-    register_basic_thread_service(container, config)
-    register_workflow_thread_service(container, config)
-    register_collaboration_thread_service(container, config)
-    register_branch_thread_service(container, config)
-    register_snapshot_thread_service(container, config)
-    register_state_thread_service(container, config)
-    register_history_thread_service(container, config)
+    _register_basic_thread_service(container, config, environment)
+    _register_workflow_thread_service(container, config, environment)
+    _register_collaboration_thread_service(container, config, environment)
+    _register_branch_thread_service(container, config, environment)
+    _register_snapshot_thread_service(container, config, environment)
+    _register_state_thread_service(container, config, environment)
+    _register_history_thread_service(container, config, environment)
     
     # 创建主服务工厂函数
     def thread_service_factory() -> ThreadService:
@@ -354,54 +520,20 @@ def register_thread_service(container: Any, config: Dict[str, Any]) -> None:
         )
     
     # 注册主服务为单例
-    container.register_singleton("thread_service", thread_service_factory)
-    
-    # 注册接口
-    container.register_singleton(
-        IThreadService,
-        lambda: container.get("thread_service")
+    container.register(
+        "thread_service",
+        thread_service_factory,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
     )
     
-    logger.info("Main thread service registered")
+    # 注册接口
+    container.register(
+        IThreadService,
+        lambda: container.get("thread_service"),
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
+    
+    print(f"[INFO] Main thread service registered", file=sys.stdout)
 
-def register_all_thread_services(container: Any, config: Dict[str, Any]) -> None:
-    """注册所有线程相关服务
-    
-    Args:
-        container: 依赖注入容器
-        config: 配置字典
-    """
-    # 首先注册日志服务
-    register_logger_services(container, config)
-    
-    register_thread_backends(container, config)
-    register_thread_repository(container, config)
-    register_thread_service(container, config)
-    logger.info("All thread services registered")
-
-
-# === 模拟服务类 ===
-
-class MockThreadBranchService:
-    """模拟分支服务"""
-    
-    async def create_branch_from_checkpoint(self, source_thread_id: str, checkpoint_id: str, branch_name: str, metadata: Dict[str, Any] | None = None) -> str:
-        import uuid
-        return str(uuid.uuid4())
-    
-    async def list_active_branches(self, thread_id: str) -> List[Dict[str, Any]]:
-        return []
-    
-    async def merge_branch_to_main(self, thread_id: str, branch_id: str, merge_strategy: str = "overwrite") -> bool:
-        return True
-
-
-class MockThreadSnapshotService:
-    """模拟快照服务"""
-    
-    async def create_snapshot_from_thread(self, thread_id: str, snapshot_name: str, description: str | None = None) -> str:
-        import uuid
-        return str(uuid.uuid4())
-    
-    async def restore_thread_from_snapshot(self, thread_id: str, snapshot_id: str) -> bool:
-        return True

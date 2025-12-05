@@ -5,7 +5,7 @@ from datetime import datetime
 
 from interfaces.repository.session import ISessionRepository
 from src.adapters.storage.backends.base import ISessionStorageBackend
-from src.interfaces.common_infra import ILogger
+from src.interfaces.logger import ILogger
 from src.core.common.exceptions import StorageError
 from src.core.sessions import Session
 

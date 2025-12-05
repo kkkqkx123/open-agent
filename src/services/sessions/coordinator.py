@@ -10,7 +10,7 @@ from src.interfaces.sessions.association import (
 )
 from src.interfaces.sessions.service import ISessionService
 from src.interfaces.threads.service import IThreadService
-from src.interfaces.common_infra import ILogger
+from src.interfaces.logger import ILogger
 from src.core.sessions.entities import UserInteractionEntity
 from src.core.common.exceptions import ValidationError, StorageError
 
