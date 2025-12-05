@@ -5,12 +5,14 @@
 
 from .cache_manager import CacheManager
 from .key_generator import (
+    BaseKeySerializer,
     DefaultCacheKeyGenerator,
-    ICacheKeyGenerator
 )
+from src.interfaces.llm import ICacheKeyGenerator
 
 __all__ = [
     "CacheManager",
+    "BaseKeySerializer",
     "DefaultCacheKeyGenerator",
     "ICacheKeyGenerator",
 ]

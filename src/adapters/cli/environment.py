@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple, Union
 from pathlib import Path
 
-from src.core.common.types import CheckResult
+from .check_result import CheckResult
 
 
 class EnvironmentCheckError(Exception):

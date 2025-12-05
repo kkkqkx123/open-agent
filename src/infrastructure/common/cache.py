@@ -621,7 +621,7 @@ def _create_cached_decorator(cache_name: str, default_ttl: Optional[int] = None)
                 bound_args = sig.bind(*args, **kwargs)
                 bound_args.apply_defaults()
                 
-                from .utils.cache_key_generator import CacheKeyGenerator
+                from src.infrastructure.cache.core.key_generator import DefaultCacheKeyGenerator as CacheKeyGenerator
                 cache_key = CacheKeyGenerator.generate_params_key(
                     {"func": func.__name__, "args": bound_args.arguments},
                     algorithm="md5"  # 装饰器使用md5以保持兼容性

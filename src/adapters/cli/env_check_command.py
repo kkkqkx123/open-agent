@@ -11,8 +11,8 @@ from rich.text import Text
 
 from .architecture_command import ArchitectureCommand
 from .environment import IEnvironmentChecker, EnvironmentChecker
+from .check_result import CheckResult
 from typing import Optional
-from src.core.common.types import CheckResult
 
 
 class EnvironmentCheckCommand:

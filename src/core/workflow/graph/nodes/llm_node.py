@@ -154,7 +154,7 @@ class LLMNode(AsyncNode):
     
     def _generate_prompt_cache_key(self, config: Dict[str, Any]) -> str:
         """生成提示词缓存键"""
-        from ....common.utils.cache_key_generator import CacheKeyGenerator
+        from src.infrastructure.cache.core.key_generator import DefaultCacheKeyGenerator as CacheKeyGenerator
         
         # 提取影响提示词的关键配置
         key_config = {

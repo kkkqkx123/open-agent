@@ -7,7 +7,7 @@ from typing import Dict, List, Set, Any, Optional
 from dataclasses import dataclass
 
 from src.core.common.exceptions import CoreError
-from src.core.common.types import CheckResult
+from .check_result import CheckResult
 
 
 class ArchitectureViolationError(CoreError):

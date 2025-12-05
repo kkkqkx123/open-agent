@@ -34,7 +34,7 @@ from src.interfaces.llm import (
     IFallbackLogger
 )
 from src.interfaces.logger import ILogger
-from src.core.common.types import ServiceLifetime
+from src.interfaces.common_infra import ServiceLifetime
 from src.services.container.core.base_service_bindings import BaseServiceBindings
 
 

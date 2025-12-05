@@ -9,8 +9,8 @@ from typing import Any, Optional, List, Dict, Sequence
 from src.interfaces.messages import IBaseMessage
 
 from ..config.cache_config import BaseCacheConfig
-from src.interfaces.llm import ICacheProvider
-from .key_generator import ICacheKeyGenerator, DefaultCacheKeyGenerator
+from src.interfaces.llm import ICacheProvider, ICacheKeyGenerator
+from .key_generator import DefaultCacheKeyGenerator
 from ..providers.memory.memory_provider import MemoryCacheProvider
 
 

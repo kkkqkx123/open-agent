@@ -6,7 +6,7 @@
 from typing import Dict, Any
 
 from src.interfaces.llm import TokenCalculationConfig
-from src.core.common.utils.cache_key_generator import CacheKeyGenerator
+from src.infrastructure.cache.core.key_generator import DefaultCacheKeyGenerator as CacheKeyGenerator
 
 
 def create_config_key(model_type: str, model_name: str) -> str:

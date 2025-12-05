@@ -11,7 +11,7 @@ from functools import wraps
 
 from ...core.state import WorkflowState, StateCacheAdapter
 from ...core.common.cache import CacheManager, CacheEntry
-from ...core.common.utils.cache_key_generator import CacheKeyGenerator
+from ...infrastructure.cache.core.key_generator import DefaultCacheKeyGenerator as CacheKeyGenerator
 from ...interfaces.prompts import IPromptRegistry
 
 logger = get_logger(__name__)

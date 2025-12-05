@@ -10,7 +10,7 @@ from rich.text import Text
 
 from .environment import EnvironmentChecker
 from .architecture_check import ArchitectureChecker
-from src.core.common.types import CheckResult
+from .check_result import CheckResult
 
 
 class ArchitectureCommand:
