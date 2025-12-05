@@ -61,8 +61,62 @@ class LoggerServiceBindings(BaseServiceBindings):
     
     def _validate_config(self, config: Dict[str, Any]) -> None:
         """验证日志配置"""
-        is_valid, errors = validate_logger_config(config)
-        if not is_valid:
+        errors = []
+        
+        # 验证日志级别
+        log_level = config.get("log_level", "INFO")
+        try:
+            LogLevel.from_string(log_level)
+        except ValueError:
+            valid_levels = [level.value for level in LogLevel]
+            errors.append(f"无效的日志级别: {log_level}，有效值: {valid_levels}")
+        
+        # 验证日志输出配置
+        log_outputs = config.get("log_outputs", [])
+        if not isinstance(log_outputs, list):
+            errors.append("log_outputs必须是列表类型")
+        else:
+            for i, output in enumerate(log_outputs):
+                if not isinstance(output, dict):
+                    errors.append(f"log_outputs[{i}]必须是字典类型")
+                    continue
+                
+                # 验证输出类型
+                output_type = output.get("type")
+                if not output_type:
+                    errors.append(f"log_outputs[{i}]缺少type字段")
+                elif output_type not in ["console", "file", "json"]:
+                    errors.append(f"log_outputs[{i}]无效的type: {output_type}")
+                
+                # 验证文件输出配置
+                if output_type == "file" and not output.get("filename"):
+                    errors.append(f"log_outputs[{i}]文件输出缺少filename配置")
+        
+        # 验证脱敏配置
+        redactor_config = config.get("log_redactor", {})
+        if redactor_config and not isinstance(redactor_config, dict):
+            errors.append("log_redactor必须是字典类型")
+        elif redactor_config:
+            patterns = redactor_config.get("patterns")
+            if patterns is not None and not isinstance(patterns, list):
+                errors.append("log_redactor.patterns必须是列表类型")
+        
+        # 验证业务配置
+        business_config = config.get("business_config", {})
+        if business_config and not isinstance(business_config, dict):
+            errors.append("business_config必须是字典类型")
+        elif business_config:
+            # 验证审计关键词
+            audit_keywords = business_config.get("audit_keywords")
+            if audit_keywords is not None and not isinstance(audit_keywords, list):
+                errors.append("business_config.audit_keywords必须是列表类型")
+            
+            # 验证业务规则
+            business_rules = business_config.get("business_rules")
+            if business_rules is not None and not isinstance(business_rules, list):
+                errors.append("business_config.business_rules必须是列表类型")
+        
+        if errors:
             raise ValueError(f"日志配置验证失败: {errors}")
     
     def _do_register_services(
@@ -226,378 +280,3 @@ def _register_logger_service(container: Any, config: Dict[str, Any], environment
         lifetime=ServiceLifetime.SINGLETON
     )
 
-
-def register_logger_services(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
-    """注册日志相关服务的便捷函数
-    
-    Args:
-        container: 依赖注入容器
-        config: 配置字典
-        environment: 环境名称
-    """
-    bindings = LoggerServiceBindings()
-    bindings.register_services(container, config, environment)
-
-
-def register_test_logger_services(
-    container: Any,
-    config: Optional[Dict[str, Any]] = None,
-    isolation_id: Optional[str] = None
-) -> None:
-    """注册测试环境的日志服务
-    
-    Args:
-        container: 依赖注入容器
-        config: 测试配置，如果为None则使用默认测试配置
-        isolation_id: 测试隔离ID，用于创建独立的日志命名空间
-    """
-    test_namespace = f"test_{isolation_id or 'default'}"
-    
-    if config is None:
-        config = {
-            "log_level": "DEBUG",
-            "log_outputs": [
-                {
-                    "type": "console",
-                    "level": "DEBUG",
-                    "formatter": "color"
-                }
-            ],
-            "secret_patterns": [
-                "sk-[a-zA-Z0-9]{20,}",
-                "\\w+@\\w+\\.\\w+"
-            ],
-            "business_config": {
-                "enable_audit": False,
-                "enable_business_filter": False
-            }
-        }
-    
-    register_logger_services(container, config, environment=test_namespace)
-
-
-def register_production_logger_services(container: Any, config: Dict[str, Any]) -> None:
-    """注册生产环境的日志服务
-    
-    Args:
-        container: 依赖注入容器
-        config: 生产环境配置
-    """
-    production_config = config.copy()
-    
-    if "log_level" not in production_config:
-        production_config["log_level"] = "INFO"
-    
-    if "log_outputs" not in production_config:
-        production_config["log_outputs"] = [
-            {
-                "type": "file",
-                "level": "INFO",
-                "formatter": "json",
-                "filename": "logs/production.log",
-                "max_bytes": 52428800,  # 50MB
-                "backup_count": 10
-            }
-        ]
-    
-    if "business_config" not in production_config:
-        production_config["business_config"] = {
-            "enable_audit": True,
-            "audit_keywords": ["login", "logout", "auth", "payment", "admin"],
-            "enable_business_filter": True,
-            "business_rules": [
-                {
-                    "type": "level_filter",
-                    "min_level": "INFO"
-                }
-            ]
-        }
-    
-    register_logger_services(container, production_config, environment="production")
-
-
-def register_development_logger_services(container: Any, config: Dict[str, Any]) -> None:
-    """注册开发环境的日志服务
-    
-    Args:
-        container: 依赖注入容器
-        config: 开发环境配置
-    """
-    development_config = config.copy()
-    
-    if "log_level" not in development_config:
-        development_config["log_level"] = "DEBUG"
-    
-    if "log_outputs" not in development_config:
-        development_config["log_outputs"] = [
-            {
-                "type": "console",
-                "level": "DEBUG",
-                "formatter": "color"
-            }
-        ]
-    
-    if "business_config" not in development_config:
-        development_config["business_config"] = {
-            "enable_audit": True,
-            "audit_keywords": ["login", "logout", "auth"],
-            "enable_business_filter": False
-        }
-    
-    register_logger_services(container, development_config, environment="development")
-
-
-def get_logger_service_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    """获取日志服务配置摘要
-    
-    Args:
-        config: 完整配置字典
-        
-    Returns:
-        Dict[str, Any]: 日志服务配置摘要
-    """
-    return {
-        "log_level": config.get("log_level", "INFO"),
-        "log_outputs_count": len(config.get("log_outputs", [])),
-        "has_secret_patterns": bool(config.get("secret_patterns")),
-        "has_custom_redactor": bool(config.get("log_redactor")),
-        "redactor_hash_sensitive": config.get("log_redactor", {}).get("hash_sensitive", False),
-        "has_business_config": bool(config.get("business_config")),
-        "audit_enabled": config.get("business_config", {}).get("enable_audit", False),
-        "business_filter_enabled": config.get("business_config", {}).get("enable_business_filter", False)
-    }
-
-
-def validate_logger_config(config: Dict[str, Any]) -> tuple[bool, list[str]]:
-    """验证日志服务配置
-    
-    Args:
-        config: 配置字典
-        
-    Returns:
-        tuple[bool, list[str]]: (是否有效, 错误列表)
-    """
-    errors = []
-    
-    # 验证日志级别
-    log_level = config.get("log_level", "INFO")
-    try:
-        LogLevel.from_string(log_level)
-    except ValueError:
-        valid_levels = [level.value for level in LogLevel]
-        errors.append(f"无效的日志级别: {log_level}，有效值: {valid_levels}")
-    
-    # 验证日志输出配置
-    log_outputs = config.get("log_outputs", [])
-    if not isinstance(log_outputs, list):
-        errors.append("log_outputs必须是列表类型")
-    else:
-        for i, output in enumerate(log_outputs):
-            if not isinstance(output, dict):
-                errors.append(f"log_outputs[{i}]必须是字典类型")
-                continue
-            
-            # 验证输出类型
-            output_type = output.get("type")
-            if not output_type:
-                errors.append(f"log_outputs[{i}]缺少type字段")
-            elif output_type not in ["console", "file", "json"]:
-                errors.append(f"log_outputs[{i}]无效的type: {output_type}")
-            
-            # 验证文件输出配置
-            if output_type == "file" and not output.get("filename"):
-                errors.append(f"log_outputs[{i}]文件输出缺少filename配置")
-    
-    # 验证脱敏配置
-    redactor_config = config.get("log_redactor", {})
-    if redactor_config and not isinstance(redactor_config, dict):
-        errors.append("log_redactor必须是字典类型")
-    elif redactor_config:
-        patterns = redactor_config.get("patterns")
-        if patterns is not None and not isinstance(patterns, list):
-            errors.append("log_redactor.patterns必须是列表类型")
-    
-    # 验证业务配置
-    business_config = config.get("business_config", {})
-    if business_config and not isinstance(business_config, dict):
-        errors.append("business_config必须是字典类型")
-    elif business_config:
-        # 验证审计关键词
-        audit_keywords = business_config.get("audit_keywords")
-        if audit_keywords is not None and not isinstance(audit_keywords, list):
-            errors.append("business_config.audit_keywords必须是列表类型")
-        
-        # 验证业务规则
-        business_rules = business_config.get("business_rules")
-        if business_rules is not None and not isinstance(business_rules, list):
-            errors.append("business_config.business_rules必须是列表类型")
-    
-    return len(errors) == 0, errors
-
-
-def setup_global_logger_services(
-    container: Any,
-    config: Dict[str, Any],
-    environment: str = "default"
-) -> None:
-    """设置全局日志服务
-    
-    这是推荐的统一入口，用于在应用启动时注册日志服务。
-    
-    Args:
-        container: 依赖注入容器
-        config: 日志配置字典
-        environment: 环境名称
-        
-    Raises:
-        RuntimeError: 当配置验证失败时
-    """
-    is_valid, errors = validate_logger_config(config)
-    if not is_valid:
-        raise RuntimeError(f"日志配置验证失败: {errors}")
-    
-    register_logger_services(container, config, environment)
-    print(f"[INFO] 全局日志服务注册完成，环境: {environment}", file=sys.stdout)
-
-
-def shutdown_logger_services() -> None:
-    """优雅关闭日志系统
-    
-    应该在应用关闭时调用此函数。
-    """
-    try:
-        _lifecycle_manager.shutdown()
-        print("[INFO] 日志系统已优雅关闭", file=sys.stdout)
-    except Exception as e:
-        print(f"[ERROR] 关闭日志系统时发生错误: {e}", file=sys.stderr)
-
-
-def get_logger_service_status(container: Any) -> Dict[str, Any]:
-    """获取日志服务状态
-    
-    Args:
-        container: 依赖注入容器
-        
-    Returns:
-        日志服务状态信息
-    """
-    status: Dict[str, Any] = {
-        "services_registered": [],
-        "environment": "unknown",
-        "lifecycle_status": "unknown"
-    }
-    
-    try:
-        service_types = [
-            LoggerFactory,
-            ILogRedactor,
-            List[IBaseHandler],
-            ILogger
-        ]
-        
-        for service_type in service_types:
-            if container.has_service(service_type):
-                status["services_registered"].append(service_type.__name__)
-        
-        if hasattr(container, 'get_environment'):
-            status["environment"] = container.get_environment()
-        
-        status["lifecycle_status"] = "shutdown" if _lifecycle_manager._is_shutdown else "active"
-        
-    except Exception as e:
-        status["error"] = str(e)
-    
-    return status
-
-
-def get_logger_lifecycle_manager() -> LoggerLifecycleManager:
-    """获取日志生命周期管理器实例
-    
-    Returns:
-        LoggerLifecycleManager: 全局生命周期管理器实例
-    """
-    return _lifecycle_manager
-
-
-def isolated_test_logger(
-    isolation_id: Optional[str] = None,
-    config: Optional[Dict[str, Any]] = None
-) -> Callable:
-    """创建隔离的测试日志装饰器
-    
-    用于单元测试中隔离日志实例。
-    
-    Args:
-        isolation_id: 隔离ID
-        config: 日志配置
-        
-    Returns:
-        装饰器函数
-    """
-    from functools import wraps
-    from src.services.container import get_global_container
-    
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            container = get_global_container()
-            
-            test_config = config or {
-                "log_level": "DEBUG",
-                "log_outputs": [
-                    {
-                        "type": "console",
-                        "level": "DEBUG",
-                        "formatter": "color"
-                    }
-                ]
-            }
-            
-            # 注册测试日志服务
-            register_test_logger_services(container, test_config, isolation_id)
-            
-            try:
-                return func(*args, **kwargs)
-            finally:
-                # 清理日志服务
-                reset_test_logger_services(container, isolation_id)
-        
-        return wrapper
-    
-    return decorator
-
-
-def reset_test_logger_services(
-    container: Any,
-    isolation_id: Optional[str] = None
-) -> None:
-    """重置测试日志服务
-    
-    清理特定隔离ID对应的日志服务。
-    
-    Args:
-        container: 依赖注入容器
-        isolation_id: 隔离ID
-    """
-    test_namespace = f"test_{isolation_id or 'default'}"
-    
-    # 清除该命名空间下的日志服务
-    service_types = [
-        LoggerFactory,
-        ILogRedactor,
-        List[IBaseHandler],
-        ILogger
-    ]
-    
-    for service_type in service_types:
-        try:
-            if container.has_service(service_type, environment=test_namespace):
-                # 注销服务
-                if hasattr(container, 'unregister'):
-                    container.unregister(service_type, environment=test_namespace)  # type: ignore
-        except Exception as e:
-            print(f"[WARNING] 清理测试日志服务失败 ({service_type.__name__}): {e}", file=sys.stderr)
-
-
-# 自动注册关闭处理器
-atexit.register(shutdown_logger_services)

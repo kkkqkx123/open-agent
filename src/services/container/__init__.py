@@ -11,20 +11,8 @@ from .bindings.history_bindings import HistoryServiceBindings
 from .bindings.session_bindings import SessionServiceBindings
 from .bindings.thread_bindings import ThreadServiceBindings
 from .bindings.llm_bindings import LLMServiceBindings
-from .bindings.logger_bindings import (
-    register_logger_services,
-    register_test_logger_services,
-    register_production_logger_services,
-    register_development_logger_services,
-    setup_global_logger_services,
-    shutdown_logger_services,
-    get_logger_service_status,
-    isolated_test_logger,
-    reset_test_logger_services,
-    get_logger_lifecycle_manager,
-    validate_logger_config,
-    get_logger_service_config
-)
+from .bindings.logger_bindings import LoggerServiceBindings
+from .bindings.config_bindings import ConfigServiceBindings
 
 __all__ = [
     # 核心容器
@@ -33,19 +21,9 @@ __all__ = [
     "get_global_container",
     "reset_global_container",
     
-    # 日志服务绑定（优化后的全局日志依赖注入容器）
-    "register_logger_services",
-    "register_test_logger_services",
-    "register_production_logger_services",
-    "register_development_logger_services",
-    "setup_global_logger_services",
-    "shutdown_logger_services",
-    "get_logger_service_status",
-    "isolated_test_logger",
-    "reset_test_logger_services",
-    "get_logger_lifecycle_manager",
-    "validate_logger_config",
-    "get_logger_service_config",
+    # 日志服务绑定
+    "LoggerServiceBindings",
+    "ConfigServiceBindings",
     
     # 存储服务绑定
     "StorageServiceBindings",
