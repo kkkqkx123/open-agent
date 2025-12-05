@@ -252,6 +252,15 @@ from .configuration import (
     IConfigManager
 )
 
+# 文件系统相关接口
+from .filesystem import (
+    IFileWatcher,
+    IFileWatcherFactory,
+    FileWatcherError,
+    FileWatchPathError,
+    FileWatchCallbackError,
+)
+
 # 导出所有接口的__all__列表
 __all__ = [
     # 工作流接口
@@ -472,4 +481,11 @@ __all__ = [
     "ValidationSeverity",
     "IConfigValidator",
     "IConfigManager",
+    
+    # 文件系统接口
+    "IFileWatcher",
+    "IFileWatcherFactory",
+    "FileWatcherError",
+    "FileWatchPathError",
+    "FileWatchCallbackError",
 ]

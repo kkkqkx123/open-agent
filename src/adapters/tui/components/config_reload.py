@@ -21,7 +21,11 @@ from ..config import TUIConfig, ConfigManager
 
 
 class ConfigFileWatcher:
-    """配置文件监控器"""
+    """TUI配置文件监控器（轮询方式）
+    
+    Note: 这是TUI特定的实现，使用轮询方式监控配置文件变化。
+    通用的文件监听功能应使用 src.infrastructure.filesystem.file_watcher.FileWatcher
+    """
     
     def __init__(self, config_manager: ConfigManager):
         self.config_manager = config_manager

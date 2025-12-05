@@ -9,7 +9,7 @@ from src.services.logger.injection import get_logger
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Type, TypeVar, Callable
 
-from ..common.cache import ConfigCache, get_global_cache_manager, clear_cache
+from src.infrastructure.common.cache import ConfigCache, get_global_cache_manager, clear_cache
 from .config_loader import ConfigLoader
 from .config_processor import ConfigProcessor
 from .base import (
@@ -21,7 +21,7 @@ from src.interfaces.configuration import (
     ConfigurationLoadError as ConfigNotFoundError,
     ConfigurationValidationError as ConfigValidationError
 )
-from .file_watcher import ConfigFileWatcher
+from src.interfaces.filesystem import IFileWatcher, FileWatchPathError
 from .error_recovery import ConfigErrorRecovery, ConfigValidatorWithRecovery
 from .callback_manager import (
     get_global_callback_manager,
@@ -68,7 +68,7 @@ class ConfigManager(IUnifiedConfigManager):
         self._model_cache = ConfigCache()
         
         # 文件监听器
-        self._file_watcher: Optional[ConfigFileWatcher] = None
+        self._file_watcher: Optional[IFileWatcher] = None
         
         # 错误恢复
         self._error_recovery: Optional[ConfigErrorRecovery] = None
@@ -212,7 +212,11 @@ class ConfigManager(IUnifiedConfigManager):
             return model_instance  # type: ignore[return-value]
             
         except Exception as e:
-            raise ConfigValidationError(f"配置模型转换失败: {e}", config_path)
+            raise ConfigValidationError(
+                f"配置模型转换失败: {e}",
+                validation_errors=[str(e)],
+                config_key=config_path
+            )
     
     def load_llm_config(self, config_path: str) -> Any:
         """加载LLM配置"""
@@ -418,32 +422,36 @@ class ConfigManager(IUnifiedConfigManager):
             self.loader.clear_cache()
     
     def validate_config(self, config: Dict[str, Any]) -> ValidationResult:
-         """验证配置数据"""
-         try:
-             # 基础验证
-             if not isinstance(config, dict):
-                 return ValidationResult(
-                     is_valid=False,
-                     errors=["配置必须是字典类型"]
-                 )
-             if not config:
-                 return ValidationResult(
-                     is_valid=False,
-                     errors=["配置不能为空"]
-                 )
-             if "name" not in config:
-                 return ValidationResult(
-                     is_valid=False,
-                     errors=["配置必须包含 'name' 字段"]
-                 )
-             
-             return ValidationResult(is_valid=True, errors=[])
-             
-         except Exception as e:
-             return ValidationResult(
-                 is_valid=False,
-                 errors=[f"配置验证失败: {e}"]
-             )
+        """验证配置数据"""
+        try:
+            # 基础验证
+            if not isinstance(config, dict):
+                return ValidationResult(
+                    is_valid=False,
+                    errors=["配置必须是字典类型"],
+                    warnings=[]
+                )
+            if not config:
+                return ValidationResult(
+                    is_valid=False,
+                    errors=["配置不能为空"],
+                    warnings=[]
+                )
+            if "name" not in config:
+                return ValidationResult(
+                    is_valid=False,
+                    errors=["配置必须包含 'name' 字段"],
+                    warnings=[]
+                )
+            
+            return ValidationResult(is_valid=True, errors=[], warnings=[])
+            
+        except Exception as e:
+            return ValidationResult(
+                is_valid=False,
+                errors=[f"配置验证失败: {e}"],
+                warnings=[]
+            )
     
     def merge_configs(self, *config_paths: str) -> Dict[str, Any]:
         """合并多个配置"""
@@ -479,13 +487,28 @@ class ConfigManager(IUnifiedConfigManager):
             callback: 配置变化回调函数，接收文件路径和配置数据
         """
         if self._file_watcher is None:
-            self._file_watcher = ConfigFileWatcher(self)
+            # 创建基础设施层的文件监听器
+            from src.infrastructure.filesystem.file_watcher import FileWatcher
+            watch_path = str(self.base_path)
+            if not Path(watch_path).exists():
+                raise FileWatchPathError(f"监听路径不存在: {watch_path}")
+            self._file_watcher = FileWatcher(watch_path, patterns=["*.yaml", "*.yml"])
             
         if callback:
-            # 为所有YAML文件添加回调
-            self._file_watcher.add_callback("*.yaml", callback)
-            self._file_watcher.add_callback("*.yml", callback)
+            # 创建包装回调来适配接口差异
+            # IFileWatcher 的回调只接收 file_path，但我们需要提供 config_data
+            def wrapped_callback(file_path: str) -> None:
+                try:
+                    # 尝试重新加载配置
+                    config_data = self.load_config(file_path)
+                    callback(file_path, config_data)
+                except Exception as e:
+                    logger.error(f"配置变化回调执行失败 {file_path}: {e}")
             
+            # 为所有YAML文件添加回调
+            self._file_watcher.add_callback("*.yaml", wrapped_callback)
+            self._file_watcher.add_callback("*.yml", wrapped_callback)
+        
         # 开始监听
         if not self._file_watcher.is_watching():
             self._file_watcher.start()
@@ -767,7 +790,7 @@ class ConfigManager(IUnifiedConfigManager):
         try:
             return validator.validate(config)
         except Exception as e:
-            result = ValidationResult()
+            result = ValidationResult(is_valid=False, errors=[], warnings=[])
             result.add_error(f"验证过程出错: {e}")
             return result
     
@@ -833,7 +856,7 @@ class DefaultConfigValidator(IConfigValidator):
         Returns:
             验证结果
         """
-        result = ValidationResult()
+        result = ValidationResult(is_valid=True, errors=[], warnings=[])
         
         try:
             # 基础验证

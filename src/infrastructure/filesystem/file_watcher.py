@@ -14,8 +14,11 @@ from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 # Import Observer for type hints
 from watchdog.observers.api import BaseObserver
 
+# Import interface
+from src.interfaces.filesystem import IFileWatcher
 
-class FileWatcher:
+
+class FileWatcher(IFileWatcher):
     """文件监听器"""
 
     def __init__(self, watch_path: str, patterns: Optional[List[str]] = None):
@@ -108,10 +111,16 @@ class FileWatcher:
                         try:
                             callback(file_path)
                         except Exception as e:
-                            print(f"文件变化回调执行失败: {e}")
+                            # 记录错误但继续处理其他回调
+                            error_msg = f"文件变化回调执行失败: {e}"
+                            import sys
+                            print(f"[FileWatcherError] {error_msg}", file=sys.stderr)
 
         except Exception as e:
-            print(f"处理文件变化失败: {e}")
+            # 记录处理错误但继续监听
+            error_msg = f"处理文件变化失败: {e}"
+            import sys
+            print(f"[FileWatcherError] {error_msg}", file=sys.stderr)
 
     def is_watching(self) -> bool:
         """检查是否正在监听"""

@@ -8,8 +8,7 @@ The Modular Agent Framework is a Python-based multi-agent system built on LangGr
 - **Multi-model LLM integration** (OpenAI, Gemini, Anthropic, Mock)
 - **Flexible tool system** supporting native, MCP, and built-in tools
 - **Configuration-driven architecture** with YAML-based configs and environment variable injection
-- **LangGraph Studio integration** for visualization and debugging
-- **Flattened architectural layers**: Core + Services + Adapters
+- **Layered architecture with clear separation**: Interfaces + Core + Services + Adapters + Infrastructure
 - **Complete dependency injection** with multi-environment support
 - **Real-time TUI interface** with rich components
 - **RESTful API** for external integration
@@ -23,453 +22,197 @@ The Modular Agent Framework is a Python-based multi-agent system built on LangGr
 - uv (Python package manager) - install single package via `uv add`
 
 ### Environment Setup with uv
-(already complete)
+
 ```bash
-# Create virtual environment
-uv venv
-
 # Activate virtual environment
-#(In VSCode, you can skip this step. IDE can automatically activate virtual environment)
-source .venv/bin/activate  # Linux/Mac
-# or
 .venv\Scripts\activate  # Windows
+or directly use `uv run python <...>`
 
-# Install dependencies
-uv sync
-
+# Install new dependencies
+uv add <package-name>
 ```
 
 ## Development Commands
-When you find environment issues, you can use uv run to execute python commands in the virtual environment, or use .venv\Scripts\activate to activate the virtual environment first.
 
-You can use the following commands to check the code quality:
-mypy <relative path to the file> --follow-imports=silent
-flake8 <relative path to the file>
-Usually mypy is enough. if I didn't ask you to use remaining tools, you can skip them
-If I don't ask you to check whole codebase, always use --follow-imports=silent to avoid check relative files.
+You can use the following commands to check code quality:
+
+```bash
+uv run mypy <relative path to the file> --follow-imports=silent
+uv run flake8 <relative path to the file>
+```
+
+Usually mypy is sufficient. If not asked to use remaining tools, you can skip them.
+If not asked to check whole codebase, always use `--follow-imports=silent` to avoid checking relative files.
+
+**Testing**
+```bash
+uv run pytest <file-path or directory-path>
+```
 
 ## Codebase Architecture
 
-### New Flattened Architecture
+### Layered Architecture
 
-The framework has been redesigned from a traditional 4-layer architecture to a flattened structure that reduces complexity while maintaining functionality:
+The framework uses a balanced layered architecture that reduces complexity while maintaining functionality:
 
-**Previous Architecture**: Domain → Application → Infrastructure → Presentation
-**New Architecture**: Core + Services + Adapters
+**Architecture**: Interfaces + Core + Services + Adapters + Infrastructure
 
-### Directory Structure
-src/
-├── core/                    # 核心模块（Domain + 部分Infrastructure）
-│   ├── config/             # 统一配置系统
-│   │   ├── config_manager.py    # 配置管理器
-│   │   ├── config_loader.py     # 配置加载器
-│   │   ├── config_processor.py  # 配置处理器
-│   │   ├── models.py            # 配置模型定义
-│   │   ├── exceptions.py        # 配置异常
-│   │   └── examples.py          # 使用示例
-│   ├── tools/              # 工具系统核心
-│   │   ├── base.py             # 工具基类
-│   │   ├── interfaces.py       # 工具接口
-│   │   ├── factory.py          # 工具工厂
-│   │   └── types/              # 工具类型实现
-│   │       ├── builtin/        # 内置工具
-│   │       ├── mcp/           # MCP工具
-│   │       └── native/        # 原生工具
-│   ├── llm/                # LLM系统核心
-│   │   ├── base.py             # LLM基类
-│   │   ├── interfaces.py       # LLM接口
-│   │   ├── factory.py          # LLM工厂
-│   │   └── providers/          # LLM提供商实现
-│   │       ├── openai/         # OpenAI实现
-│   │       ├── anthropic/      # Anthropic实现
-│   │       ├── gemini/         # Gemini实现
-│   │       └── mock/           # 模拟实现
-│   ├── workflow/           # 工作流核心
-│   │   ├── base.py             # 工作流基类
-│   │   ├── entities.py         # 工作流实体
-│   │   └── patterns/           # 工作流模式
-│   │       ├── react.py        # ReAct模式
-│   │       └── plan_execute.py # 计划执行模式
-│   ├── state/              # 状态管理核心
-│   │   ├── base.py             # 状态基类
-│   │   ├── interfaces.py       # 状态接口
-│   │   └── storage.py          # 状态存储
-│   ├── sessions/           # 会话管理核心
-│   │   ├── base.py             # 会话基类
-│   │   ├── interfaces.py       # 会话接口
-│   │   └── manager.py          # 会话管理器
-│   ├── threads/            # 线程管理核心
-│   │   ├── base.py             # 线程基类
-│   │   ├── interfaces.py       # 线程接口
-│   │   └── manager.py          # 线程管理器
-│   ├── checkpoints/        # 检查点核心
-│   │   ├── base.py             # 检查点基类
-│   │   ├── interfaces.py       # 检查点接口
-│   │   └── storage.py          # 检查点存储
-│   ├── history/            # 历史管理核心
-│   │   ├── base.py             # 历史基类
-│   │   ├── interfaces.py       # 历史接口
-│   │   └── storage.py          # 历史存储
-│   ├── prompts/            # 提示系统核心
-│   │   ├── base.py             # 提示基类
-│   │   ├── templates.py        # 提示模板
-│   │   └── injection.py        # 提示注入
-│   └── common/             # 通用组件
-│       ├── exceptions.py       # 通用异常
-│       ├── utils.py            # 工具函数
-│       └── types.py            # 通用类型
-├── services/               # 服务层（Application + 部分Infrastructure）
-│   ├── workflow/           # 工作流服务
-│   │   ├── orchestrator.py     # 工作流编排器
-│   │   ├── executor.py         # 工作流执行器
-│   │   └── visualizer.py       # 工作流可视化
-│   ├── session/            # 会话服务
-│   │   ├── manager.py          # 会话管理服务
-│   │   ├── lifecycle.py        # 会话生命周期
-│   │   └── events.py           # 会话事件
-│   ├── thread/             # 线程服务
-│   │   ├── manager.py          # 线程管理服务
-│   │   ├── coordinator.py      # 线程协调器
-│   │   └── branching.py        # 线程分支
-│   ├── checkpoint/         # 检查点服务
-│   │   ├── manager.py          # 检查点管理服务
-│   │   ├── serializer.py       # 检查点序列化
-│   │   └── recovery.py         # 检查点恢复
-│   ├── history/            # 历史服务
-│   │   ├── manager.py          # 历史管理服务
-│   │   ├── tracker.py          # 历史跟踪器
-│   │   └── analyzer.py         # 历史分析器
-│   ├── llm/                # LLM服务
-│   │   ├── manager.py          # LLM管理服务
-│   │   ├── pool.py             # LLM连接池
-│   │   └── fallback.py         # LLM故障转移
-│   ├── tools/              # 工具服务
-│   │   ├── manager.py          # 工具管理服务
-│   │   ├── executor.py         # 工具执行器
-│   │   ├── validator.py        # 工具验证器
-│   │   └── registry.py         # 工具注册表
-│   ├── state/              # 状态服务
-│   │   ├── manager.py          # 状态管理服务
-│   │   ├── persistence.py      # 状态持久化
-│   │   └── snapshots.py        # 状态快照
-│   ├── container/          # 依赖注入容器
-│   │   ├── container.py        # 依赖注入容器
-│   │   ├── registry.py         # 服务注册表
-│   │   └── lifecycle.py        # 生命周期管理
-│   ├── logger/             # 日志服务
-│   │   ├── manager.py          # 日志管理服务
-│   │   ├── formatters.py       # 日志格式化器
-│   │   └── handlers.py         # 日志处理器
-│   └── monitoring/         # 监控服务
-│       ├── metrics.py          # 性能指标
-│       ├── profiler.py         # 性能分析器
-│       └── reporter.py         # 监控报告器
-├── adapters/               # 适配器层（Presentation的部分功能）
-│   ├── storage/            # 存储适配器
-│   │   ├── sqlite.py           # SQLite适配器
-│   │   ├── memory.py           # 内存适配器
-│   │   └── file.py             # 文件适配器
-│   ├── api/                # API适配器
-│   │   ├── fastapi.py          # FastAPI适配器
-│   │   ├── websocket.py        # WebSocket适配器
-│   │   └── auth.py             # 认证适配器
-│   ├── tui/                # TUI适配器
-│   │   ├── blessed.py          # Blessed适配器
-│   │   ├── components.py       # UI组件
-│   │   └── events.py           # UI事件
-│   └── cli/                # CLI适配器
-│       ├── commands.py         # 命令处理器
-│       ├── parser.py           # 参数解析器
-│       └── formatter.py        # 输出格式化器
-└── bootstrap.py            # 应用程序启动入口
+### Layer Descriptions
 
-### Core Infrastructure Components
+**Interfaces Layer** (`src/interfaces/`)
+- Centralized interface definitions serving as the foundation for all other layers
+- Provides contracts for all major components: LLM, storage, workflow, sessions, etc.
+- Contains no implementation details, only abstract definitions
 
-1. **Unified Configuration System** (`src/core/config/`)
-   - 简化的配置管理器，整合加载、处理和验证
-   - 支持配置继承和环境变量解析
-   - 类型安全的配置模型（Pydantic）
-   - 配置缓存和性能优化
-   - 配置导出和模板生成
+**Core Layer** (`src/core/`)
+- Contains domain entities, base classes, and core business logic
+- Implements interfaces from the interfaces layer
+- Includes core modules for configuration, tools, LLM, workflow, state management, sessions, threads, checkpoints, history, prompts, and storage
+- Contains common utilities shared across the application
 
-2. **Dependency Injection Container** (`src/services/container/`)
-   - 管理服务生命周期（单例、瞬态、作用域）
-   - 支持多环境绑定（开发、测试、生产）
-   - 自动依赖解析
-   - 循环依赖检测与预防
-   - 性能监控与缓存
+**Services Layer** (`src/services/`)
+- Provides application services and business logic implementations
+- Depends on core layer and interface layer
+- Includes services for workflow, session, thread, checkpoint, history, LLM, tools, state management
+- Contains dependency injection container, logging, and monitoring services
 
-3. **LLM Module** (`src/core/llm/` + `src/services/llm/`)
-   - 核心接口和实体定义
-   - 支持多提供商：OpenAI, Gemini, Anthropic, Mock
-   - 连接池与可配置池大小
-   - 智能故障转移机制
-   - 基于提供商标记器的标记计数
+**Adapters Layer** (`src/adapters/`)
+- Provides external interface adaptations
+- Depends on core layer, service layer, and interface layer
+- Includes adapters for storage, API, TUI, CLI, and repository implementations
+- Handles integration with external systems and user interfaces
 
-4. **Tool System** (`src/core/tools/` + `src/services/tools/`)
-   - 核心接口和工厂模式
-   - 支持原生Python工具、MCP工具和内置工具
-   - 动态工具发现与注册
-   - 工具执行管理与错误处理
-   - 工具缓存以优化性能
-
-5. **Workflow Engine** (`src/core/workflow/` + `src/services/workflow/`)
-   - 核心工作流实体和模式
-   - LangGraph集成与自定义扩展
-   - 状态管理与序列化能力
-   - 节点注册表用于动态工作流组合
-   - 带检查点持久化的图执行
-
-6. **Session Management** (`src/core/sessions/` + `src/services/session/`)
-   - 核心会话接口和实体
-   - 会话生命周期管理（创建、更新、删除）
-   - 线程管理与元数据跟踪
-   - 检查点持久化与恢复
-   - 会话状态序列化
-
-7. **History Management** (`src/core/history/` + `src/services/history/`)
-   - 核心历史接口和存储
-   - 完整对话历史存储
-   - 基于SQLite后端的检查点管理
-   - 历史回放与分析
-
-8. **State Management** (`src/core/state/` + `src/services/state/`)
-   - 核心状态接口和存储
-   - 带历史和快照的状态管理
-   - SQLite后端持久化
-   - 快照存储与恢复
-
-9. **Thread Management** (`src/core/threads/` + `src/services/thread/`)
-   - 核心线程接口和实体
-   - 线程存储与元数据管理
-   - 分支存储用于线程分支
-   - 快照存储用于线程状态保存
-
-10. **Checkpoint Management** (`src/core/checkpoints/` + `src/services/checkpoint/`)
-    - 核心检查点接口和存储
-    - 检查点存储与管理
-    - 内存和SQLite存储后端
-    - 性能优化
-
-11. **Logging System** (`src/services/logger/`)
-    - 多输出日志（控制台、文件、JSON）
-    - 结构化日志与丰富格式
-    - 敏感信息日志脱敏
-
-12. **TUI Interface** (`src/adapters/tui/`)
-    - 基于blessed的富终端用户界面
-    - 实时工作流可视化
-    - 组件化UI架构
-    - 事件驱动交互模型
-
-13. **API Interface** (`src/adapters/api/`)
-    - 基于FastAPI框架的RESTful API
-    - WebSocket支持实时通信
-    - 认证与授权
-    - 基于DAO模式的数据访问层
-
-14. **Performance Monitoring** (`src/services/monitoring/`)
-    - 统一性能监控系统
-    - 配置驱动的YAML配置
-    - 性能指标收集与报告
+**Infrastructure Layer** (`src/infrastructure/`)
+- Provides concrete implementations of external dependencies
+- **Depends only on interfaces layer** - never depends on core, services, or adapters
+- Includes infrastructure for cache, LLM (HTTP clients, converters), messages, and tools
+- Implements low-level technical concerns
 
 ### Configuration System
 
-配置结构：
-configs/
-├── global.yaml          # 全局设置（日志、密钥、环境）
-├── application.yaml     # 应用特定设置
-├── history.yaml         # 历史和检查点配置
-├── prompts.yaml         # 提示模板和系统消息
-├── threads.yaml         # 线程管理配置
-├── checkpoints/         # 检查点配置
-│   └── _group.yaml      # 检查点组配置
-├── graphs/              # 图和工作流示例配置
-│   ├── react_example.yaml
-│   └── react_with_hooks_example.yaml
-├── hooks/               # 钩子配置
-│   ├── _group.yaml      # 钩子组配置
-│   ├── agent_execution_node_hooks.yaml
-│   ├── global_hooks.yaml
-│   ├── llm_node_hooks.yaml
-│   └── tool_node_hooks.yaml
-├── monitoring.yaml      # 性能监控配置
-├── llms/                # 模型配置
-│   ├── _group.yaml      # 模型组配置
-│   ├── mock.yaml        # 模拟LLM配置
-│   ├── test_no_function_calling.yaml
-│   ├── provider/        # 供应商特定配置
-│   │   ├── anthropic/   # Anthropic模型（Claude）
-│   │   ├── gemini/      # Gemini模型（Gemini Pro）
-│   │   ├── human_relay/ # 人工中继模型
-│   │   └── openai/      # OpenAI模型（GPT-4，GPT-3.5）
-│   └── tokens_counter/  # 标记计数配置
-├── nodes/               # 节点配置
-│   └── _group.yaml
-├── prompts/             # 提示模板和系统消息
-│   ├── rules/           # 提示规则
-│   ├── system/          # 系统提示
-│   └── user_commands/   # 用户命令提示
-├── tool-sets/           # 工具集配置
-│   └── _group.yaml      # 工具集组配置（已改进）
-├── tools/               # 个体工具配置
-│   ├── calculator.yaml  # 计算器工具
-│   ├── database.yaml    # 数据库工具
-│   ├── fetch.yaml       # 获取工具
-│   ├── hash_convert.yaml # 哈希转换工具
-│   ├── sequentialthinking.yaml # 顺序思考工具
-│   └── weather.yaml     # 天气工具
-└── workflows/           # 工作流配置
-    ├── base_workflow.yaml        # 基础工作流模板
-    ├── react_workflow.yaml       # ReAct工作流
-    ├── react_agent_workflow.yaml  # ReAct代理工作流
-    ├── plan_execute.yaml        # 计划执行工作流
-    ├── plan_execute_agent_workflow.yaml # 计划执行代理工作流
-    ├── collaborative.yaml       # 协作工作流
-    ├── human_review.yaml        # 人工审核工作流
-    ├── bad_example_workflow.yaml # 错误示例工作流
-    ├── connectivity_test_workflow.yaml # 连通性测试工作流
-    └── react.yaml              # React配置
+The framework uses a hierarchical YAML-based configuration system with:
+- **Configuration inheritance**: Group configurations with individual overrides
+- **Environment variable injection**: Automatic resolution with `${ENV_VAR:DEFAULT}` format
+- **Type-safe validation**: Strong type validation using Pydantic models
+- **Multi-environment support**: Specific overrides for test, development, and production
+- **Modular structure**: Separate configurations for LLMs, workflows, tools, prompts, etc.
 
-关键特性：
-- **配置继承**：使用`inherits_from`字段进行组配置与个体覆盖
-- **环境变量注入**：`${ENV_VAR:DEFAULT}`格式自动解析
-- **验证**：使用Pydantic模型进行配置验证和类型安全
-- **热重载**：开发环境支持文件监听
-- **多环境**：测试、开发、生产环境具有特定覆盖
-- **模块化结构**：分层配置便于维护
-- **类型安全**：所有配置选项强类型验证
-- **性能**：缓存和懒加载以实现最佳性能
+## Layer Dependency Constraints
 
-## Module Dependencies and Relationships
+### Strict Dependency Rules
 
-### New Architecture Dependencies
+**Interfaces Layer**
+- **Cannot depend on any other layer**
+- Provides contracts that all other layers must implement
+- Contains only abstract definitions and interfaces
 
-模块依赖关系：
-核心层包含所有基础接口、实体和核心逻辑。
-服务层依赖于核心层，提供具体的业务服务实现。
-适配器层依赖于核心层和服务层，提供外部接口适配。
-依赖注入容器为所有层级提供服务解析。
-配置系统为所有层级提供配置支持。
-日志与监控系统贯穿所有层级。
+**Infrastructure Layer**
+- **Can only depend on interfaces layer**
+- Cannot depend on core, services, or adapters layers
+- Implements concrete versions of interfaces for external dependencies
 
-### Simplified Dependency Flow
+**Core Layer**
+- Can depend on interfaces layer
+- **Cannot depend on services layer**
+- Contains domain logic and entity implementations
 
-```
-Adapters (API/TUI/CLI)
-    ↓
-Services (Business Logic)
-    ↓
-Core (Interfaces & Entities)
-    ↓
-Infrastructure (Storage/External)
-```
+**Services Layer**
+- Can depend on interfaces layer and core layer
+- Provides business logic and application services
+- Coordinates between core components
 
-## Development Workflow
+**Adapters Layer**
+- Can depend on interfaces layer, core layer, and services layer
+- Provides external interface implementations
+- Handles integration with external systems
 
-### 1. 新功能开发
-- 遵循扁平化架构约束（Core → Services → Adapters）
-- 在核心层定义接口和实体
-- 在服务层实现业务逻辑
-- 在适配器层提供外部接口
-- 使用适当的生命周期（单例、瞬态、作用域）在依赖容器中注册服务
-- 使用配置文件进行定制，支持继承和环境变量注入
-- 编写单元和集成测试，进行适当的模拟
-- 确保类型注解并遵循Python 3.13+类型提示
-- 对所有服务依赖使用依赖注入
-- 使用自定义异常类型实现适当的错误处理
+### Dependency Flow
 
-### 2. 测试策略
-- **单元测试**：核心层和服务层核心业务逻辑覆盖率≥90%
-- **集成测试**：模块交互和基础设施组件覆盖率≥80%
-- **端到端测试**：完整工作流和用户场景覆盖率≥70%
+Infrastructure depends only on Interfaces. Core depends on Interfaces. Services depend on Interfaces and Core. Adapters depend on Interfaces, Core, and Services. All layers ultimately depend on Interfaces layer.
 
-### 3. 代码质量标准
-- 使用类型注解（由mypy严格模式强制执行）
-- 遵循black格式化（行长度：88，目标Python 3.13+）
-- 使用isort组织导入（black配置文件）
-- 通过flake8全面规则进行linting
-- 编写包含参数和返回类型文档的完整docstring
-- 遵循所有服务实例化的依赖注入模式
-- 对所有外部依赖使用配置驱动方法
+## Development Process
 
-### 4. 配置变更
-- 使用新的配置系统API进行配置管理
-- 更新相应`_group.yaml`文件中的组配置
-- 创建具有继承的特定`.yaml`配置文件
-- 部署前使用环境检查器验证
-- 在配置指南中记录新配置选项
-- 确保环境变量引用使用`${VAR:DEFAULT}`格式
-- 测试配置继承和环境变量解析
-- 添加新选项时更新配置验证模式
+### 1. Feature Development
+- Follow layered architecture constraints strictly
+- Define interfaces in the interfaces layer first
+- Implement entities and core logic in the core layer
+- Implement business logic in the service layer
+- Provide external interfaces in the adapter layer
+- Implement infrastructure components depending only on interfaces
+- Register services in the dependency container with appropriate lifecycle
+- Use configuration files for customization with inheritance support
+- Write unit and integration tests with appropriate mocking
+- Ensure type annotations and follow Python 3.13+ type hints
 
-### 5. 服务注册
-- 在适当的服务模块中注册服务
-- 使用适当的服务生命周期（共享资源使用单例，请求范围使用瞬态）
-- 为所有外部依赖实现服务接口
-- 为所有服务提供测试实现
-- 使用依赖注入容器进行所有服务解析
+### 2. Testing Strategy
+- **Unit tests**: Core layer and service layer core business logic coverage ≥ 90%
+- **Integration tests**: Module interaction and infrastructure component coverage ≥ 80%
+- **Infrastructure tests**: Infrastructure layer implementation coverage ≥ 85%
+- **End-to-end tests**: Complete workflow and user scenario coverage ≥ 70%
 
-### 6. 错误处理
-- 使用来自`src.core.common.exceptions`的特定异常类型
-- 在各层之间实现适当的错误传播
-- 使用适当的上下文和严重性记录错误
-- 为用户提供有意义的错误消息
-- 优雅地处理配置错误并提供备用方案
+### 3. Code Quality Standards
+- Use type annotations (enforced by mypy strict mode)
+- Write complete docstrings with parameter and return type documentation
+- Follow dependency injection pattern for all service instantiation
+- Use configuration-driven approach for all external dependencies
+- Infrastructure components must only depend on interface layer
+- Implement proper abstraction layers to enable seamless replacement
 
-## Error Handling Patterns
+### 4. Configuration Changes
+- Use the configuration system API for configuration management
+- Update group configuration in corresponding `_group.yaml` files
+- Create specific `.yaml` configuration files with inheritance
+- Validate using environment checker before deployment
+- Ensure environment variable references use `${VAR:DEFAULT}` format
+- Test configuration inheritance and environment variable resolution
 
-使用来自`src.core.common.exceptions`的特定异常类型：
-- `CoreError` - 核心异常
-- `ServiceError` - 服务层异常
-- `AdapterError` - 适配器层异常
-- `ConfigurationError` - 配置加载问题
-- `ValidationError` - 验证失败
-- `DependencyError` - 依赖问题
+### 5. Error Handling
+- Use specific exception types from `src.interfaces.<module>.exceptions`
+- Implement proper error propagation between layers
+- Log errors with appropriate context and severity
+- Provide meaningful error messages to users
+- Handle configuration errors gracefully with fallback options
 
-## Testing Utilities
+## Core Components Usage
 
-框架提供了简化的测试工具：
-- 配置系统测试工具
-- 服务容器测试工具
-- 模拟适配器测试工具
+### Container (Dependency Injection)
+- Located in `src/services/container/`
+- Manages service lifecycle: singleton, transient, scoped
+- Use `container.register()` for service registration
+- Resolve services via `container.resolve()`
 
-## Language
-代码和文档中始终使用中文。但在配置文件和与LLM提示相关的代码中，优先使用英文。
+### Logger
+- Infrastructure: `src/infrastructure/logger/`
+- Service: `src/services/logger/`
+- Use structured logging with context
+- Supports console, file, and JSON outputs
+
+### Exceptions
+- Module-specific exceptions in `src/interfaces/<module>/exceptions/`
+- Use specific exception types for error handling
+- Implement proper error propagation between layers
 
 ## Coding Specifications
-必须遵循mypy类型规范。例如，函数必须用类型提示进行注解。
 
-## Migration Notes
+Must follow mypy type specifications. Functions must be annotated with type hints.
 
-### From 4-Layer to Flattened Architecture
+### Interface Definition Location
+- **All interface definitions must be placed in the centralized interface layer** (`src/interfaces/`)
+- Core layer implements interfaces from the interface layer
+- Services layer depends on interfaces from the interface layer
+- Adapters layer implements or depends on interfaces from the interface layer
+- Infrastructure layer implements interfaces from the interface layer only
+- Scattered interface files across layers are not allowed
 
-1. **Domain Layer → Core Layer**
-   - 接口和实体定义移至 `src/core/`
-   - 保持纯业务逻辑，无外部依赖
+### Interface Usage Principles
+1. **Single Source of Truth**: All interface definitions are centralized in `src/interfaces/` directory
+2. **Type Safety**: Use `TYPE_CHECKING` to avoid runtime circular dependencies. For core external dependencies like langchain, type safety is not required.
+3. **Unified Export**: Export all interfaces through `src/interfaces/__init__.py`
+4. **Backward Compatibility**: Each layer can re-export interfaces from the interface layer for compatibility
+5. **Infrastructure Isolation**: Infrastructure components must only depend on interfaces, never on concrete implementations from other layers
 
-2. **Infrastructure Layer → Core + Services**
-   - 核心技术实现移至 `src/core/`
-   - 业务服务实现移至 `src/services/`
+**Note: Sessions service module (Sessions is the top-level module in the service layer, workflow is the module for LangGraph interaction)**
 
-3. **Application Layer → Services**
-   - 用例和编排逻辑移至 `src/services/`
+## Language
 
-4. **Presentation Layer → Adapters**
-   - UI和API接口移至 `src/adapters/`
-
-### Benefits of New Architecture
-
-1. **Reduced Complexity**: 从4层减少到3层，降低跨层级依赖
-2. **Improved Cohesion**: 相关功能集中在同一模块
-3. **Better Testability**: 清晰的依赖关系便于测试
-4. **Enhanced Maintainability**: 简化的结构便于理解和修改
-5. **Performance Optimization**: 减少不必要的抽象层
-
-### Configuration System Improvements
-
-1. **Unified API**: 单一配置管理器入口
-2. **Type Safety**: Pydantic模型验证
-3. **Performance**: 多层缓存机制
-4. **Extensibility**: 易于添加新配置类型
-5. **Developer Experience**: 丰富的工具和示例
+Use Chinese in code and documentation. Use English in LLM-interact-related configuration files and code (mainly about prompts).
