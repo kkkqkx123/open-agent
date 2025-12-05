@@ -2,11 +2,31 @@
 
 统一注册LLM相关的服务，包括Token计算、配置管理等。
 使用基础设施层组件，通过继承BaseServiceBindings简化代码。
+重构后使用接口依赖，避免循环依赖。
 """
 
 import sys
-from typing import Dict, Any
+from typing import Dict, Any, TYPE_CHECKING
 
+if TYPE_CHECKING:
+    # 仅在类型检查时导入，避免运行时循环依赖
+    from src.services.llm.token_calculation_service import TokenCalculationService
+    from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
+    from src.services.llm.config import (
+        ProviderConfigTokenConfigProvider,
+        ProviderConfigTokenCostCalculator
+    )
+    from src.services.llm.retry.retry_manager import RetryManager
+    from src.services.llm.fallback_system.fallback_executor import FallbackExecutor
+    from src.services.llm.retry.strategies import DefaultRetryLogger
+    from src.services.llm.fallback_system.strategies import ConditionalFallback
+    from src.core.config.config_manager import ConfigManager as LLMConfigManager
+    from src.infrastructure.llm.config import ConfigDiscovery
+    from src.infrastructure.llm.retry import RetryConfig
+    from src.infrastructure.llm.fallback import FallbackConfig
+    from src.core.config.config_loader import ConfigLoader
+
+# 接口导入 - 集中化的接口定义
 from src.interfaces.llm import (
     ITokenConfigProvider,
     ITokenCostCalculator,
@@ -14,21 +34,6 @@ from src.interfaces.llm import (
     IFallbackLogger
 )
 from src.interfaces.logger import ILogger
-from src.services.llm.token_calculation_service import TokenCalculationService
-from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
-from src.services.llm.config import (
-    ProviderConfigTokenConfigProvider,
-    ProviderConfigTokenCostCalculator
-)
-from src.services.llm.retry.retry_manager import RetryManager
-from src.services.llm.fallback_system.fallback_executor import FallbackExecutor
-from src.services.llm.retry.strategies import DefaultRetryLogger
-from src.services.llm.fallback_system.strategies import ConditionalFallback
-from src.core.config.config_manager import ConfigManager as LLMConfigManager
-from src.infrastructure.llm.config import ConfigDiscovery
-from src.infrastructure.llm.retry import RetryConfig
-from src.infrastructure.llm.fallback import FallbackConfig
-from src.core.config.config_loader import ConfigLoader
 from src.core.common.types import ServiceLifetime
 from src.services.container.core.base_service_bindings import BaseServiceBindings
 
@@ -100,7 +105,7 @@ class LLMServiceBindings(BaseServiceBindings):
     
     def _do_register_services(
         self,
-        container,
+        container: Any,
         config: Dict[str, Any],
         environment: str = "default"
     ) -> None:
@@ -117,25 +122,32 @@ class LLMServiceBindings(BaseServiceBindings):
     
     def _post_register(
         self,
-        container,
+        container: Any,
         config: Dict[str, Any],
         environment: str = "default"
     ) -> None:
         """注册后处理"""
         # 设置注入层
         try:
-            # 为LLM服务设置注入层
-            service_types = [
-                ITokenConfigProvider,
-                ITokenCostCalculator,
-                IRetryLogger,
-                IFallbackLogger,
-                TokenCalculationService,
-                TokenCalculationDecorator,
-                RetryManager,
-                FallbackExecutor
-            ]
+            # 延迟导入具体实现类，避免循环依赖
+            def get_service_types() -> list:
+                from src.services.llm.token_calculation_service import TokenCalculationService
+                from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
+                from src.services.llm.retry.retry_manager import RetryManager
+                from src.services.llm.fallback_system.fallback_executor import FallbackExecutor
+                
+                return [
+                    ITokenConfigProvider,
+                    ITokenCostCalculator,
+                    IRetryLogger,
+                    IFallbackLogger,
+                    TokenCalculationService,
+                    TokenCalculationDecorator,
+                    RetryManager,
+                    FallbackExecutor
+                ]
             
+            service_types = get_service_types()
             self.setup_injection_layer(container, service_types)
             
             # 设置全局实例（向后兼容）
@@ -149,6 +161,21 @@ class LLMServiceBindings(BaseServiceBindings):
                 set_retry_manager_instance,
                 set_fallback_executor_instance
             )
+            
+            # 延迟导入具体实现类进行类型检查
+            def get_concrete_types() -> tuple:
+                from src.services.llm.token_calculation_service import TokenCalculationService
+                from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
+                from src.services.llm.retry.retry_manager import RetryManager
+                from src.services.llm.fallback_system.fallback_executor import FallbackExecutor
+                return (
+                    TokenCalculationService,
+                    TokenCalculationDecorator,
+                    RetryManager,
+                    FallbackExecutor
+                )
+            
+            TokenCalculationService, TokenCalculationDecorator, RetryManager, FallbackExecutor = get_concrete_types()
             
             if container.has_service(ITokenConfigProvider):
                 set_token_config_provider_instance(container.get(ITokenConfigProvider))
@@ -182,7 +209,7 @@ class LLMServiceBindings(BaseServiceBindings):
 
 
 def register_config_loader(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
@@ -193,9 +220,14 @@ def register_config_loader(
     config_manager_config = llm_config.get("config_manager", {})
     base_path = config_manager_config.get("base_path", "configs/llms")
     
+    # 延迟导入具体实现
+    def create_config_loader() -> 'ConfigLoader':
+        from src.core.config.config_loader import ConfigLoader
+        return ConfigLoader(base_path)
+    
     container.register_factory(
         ConfigLoader,
-        lambda: ConfigLoader(base_path),
+        create_config_loader,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
@@ -204,7 +236,7 @@ def register_config_loader(
 
 
 def register_config_manager(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
@@ -215,11 +247,16 @@ def register_config_manager(
     config_manager_config = llm_config.get("config_manager", {})
     base_path = config_manager_config.get("base_path", "configs/llms")
     
+    # 延迟导入具体实现
+    def create_config_manager() -> 'LLMConfigManager':
+        from src.core.config.config_manager import ConfigManager as LLMConfigManager
+        
+        # ConfigManager 已经实现了 IUnifiedConfigManager 接口的所有方法
+        return LLMConfigManager(base_path=base_path)
+
     container.register_factory(
         LLMConfigManager,
-        lambda: LLMConfigManager(
-            base_path=base_path
-        ),
+        create_config_manager,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
@@ -228,7 +265,7 @@ def register_config_manager(
 
 
 def register_provider_discovery(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
@@ -239,9 +276,14 @@ def register_provider_discovery(
     config_manager_config = llm_config.get("config_manager", {})
     base_path = config_manager_config.get("base_path", "configs/llms")
     
+    # 延迟导入具体实现
+    def create_config_discovery() -> 'ConfigDiscovery':
+        from src.infrastructure.llm.config import ConfigDiscovery
+        return ConfigDiscovery(config_dir=base_path)
+    
     container.register_factory(
         ConfigDiscovery,
-        lambda: ConfigDiscovery(config_dir=base_path),
+        create_config_discovery,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
@@ -250,7 +292,7 @@ def register_provider_discovery(
 
 
 def register_token_config_provider(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
@@ -262,11 +304,16 @@ def register_token_config_provider(
     enable_config_provider = token_calc_config.get("enable_config_provider", True)
     
     if enable_config_provider:
+        # 延迟导入具体实现
+        def create_token_config_provider() -> 'ProviderConfigTokenConfigProvider':
+            from src.services.llm.config import ProviderConfigTokenConfigProvider
+            return ProviderConfigTokenConfigProvider(
+                config_discovery=container.get(ConfigDiscovery)
+            )
+        
         container.register_factory(
             ITokenConfigProvider,
-            lambda: ProviderConfigTokenConfigProvider(
-                config_discovery=container.get(ConfigDiscovery)
-            ),
+            create_token_config_provider,
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -274,9 +321,7 @@ def register_token_config_provider(
         # 同时注册具体实现类
         container.register_factory(
             ProviderConfigTokenConfigProvider,
-            lambda: ProviderConfigTokenConfigProvider(
-                config_discovery=container.get(ConfigDiscovery)
-            ),
+            create_token_config_provider,
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -287,7 +332,7 @@ def register_token_config_provider(
 
 
 def register_token_cost_calculator(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
@@ -299,11 +344,16 @@ def register_token_cost_calculator(
     enable_cost_calculator = token_calc_config.get("enable_cost_calculator", True)
     
     if enable_cost_calculator and container.has_service(ITokenConfigProvider):
+        # 延迟导入具体实现
+        def create_token_cost_calculator() -> 'ProviderConfigTokenCostCalculator':
+            from src.services.llm.config import ProviderConfigTokenCostCalculator
+            return ProviderConfigTokenCostCalculator(
+                config_provider=container.get(ITokenConfigProvider)
+            )
+        
         container.register_factory(
             ITokenCostCalculator,
-            lambda: ProviderConfigTokenCostCalculator(
-                config_provider=container.get(ITokenConfigProvider)
-            ),
+            create_token_cost_calculator,
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -311,9 +361,7 @@ def register_token_cost_calculator(
         # 同时注册具体实现类
         container.register_factory(
             ProviderConfigTokenCostCalculator,
-            lambda: ProviderConfigTokenCostCalculator(
-                config_provider=container.get(ITokenConfigProvider)
-            ),
+            create_token_cost_calculator,
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -324,7 +372,7 @@ def register_token_cost_calculator(
 
 
 def register_token_calculation_service(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
@@ -335,9 +383,14 @@ def register_token_calculation_service(
     token_calc_config = llm_config.get("token_calculation", {})
     default_provider = token_calc_config.get("default_provider", "openai")
     
+    # 延迟导入具体实现
+    def create_token_calculation_service() -> 'TokenCalculationService':
+        from src.services.llm.token_calculation_service import TokenCalculationService
+        return TokenCalculationService(default_provider=default_provider)
+    
     container.register_factory(
         TokenCalculationService,
-        lambda: TokenCalculationService(default_provider=default_provider),
+        create_token_calculation_service,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
@@ -346,14 +399,14 @@ def register_token_calculation_service(
 
 
 def register_token_calculation_decorator(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
     """注册Token计算装饰器"""
     print(f"[INFO] 注册Token计算装饰器...", file=sys.stdout)
     
-    def create_decorator():
+    def create_decorator() -> 'TokenCalculationDecorator':
         base_service = container.get(TokenCalculationService)
         config_provider = container.get(ITokenConfigProvider, default=None)
         cost_calculator = container.get(ITokenCostCalculator, default=None)
@@ -377,7 +430,7 @@ def register_token_calculation_decorator(
 
 
 def register_retry_services(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
@@ -422,7 +475,7 @@ def register_retry_services(
 
 
 def register_fallback_services(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
@@ -434,10 +487,30 @@ def register_fallback_services(
     enable_fallback = fallback_config.get("enabled", True)
     
     if enable_fallback:
+        # 延迟导入具体实现
+        def create_fallback_config() -> 'FallbackConfig':
+            from src.infrastructure.llm.fallback import FallbackConfig
+            return FallbackConfig.from_dict(fallback_config)
+
+        def create_fallback_logger() -> 'DefaultRetryLogger':
+            from src.services.llm.retry.strategies import DefaultRetryLogger
+            return DefaultRetryLogger(fallback_config.get("logging", {}).get("enabled", True))
+
+        def create_fallback_executor() -> 'FallbackExecutor':
+            from src.services.llm.fallback_system.fallback_executor import FallbackExecutor
+            return FallbackExecutor(
+                config=container.get(FallbackConfig),
+                logger=container.get(IFallbackLogger)
+            )
+
+        def create_conditional_fallback() -> 'ConditionalFallback':
+            from src.services.llm.fallback_system.strategies import ConditionalFallback
+            return ConditionalFallback()
+        
         # 注册降级配置
         container.register_factory(
             FallbackConfig,
-            lambda: FallbackConfig.from_dict(fallback_config),
+            create_fallback_config,
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -445,7 +518,7 @@ def register_fallback_services(
         # 注册降级日志记录器
         container.register_factory(
             IFallbackLogger,
-            lambda: DefaultRetryLogger(fallback_config.get("logging", {}).get("enabled", True)),
+            create_fallback_logger,
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -453,10 +526,7 @@ def register_fallback_services(
         # 注册降级执行器
         container.register_factory(
             FallbackExecutor,
-            lambda: FallbackExecutor(
-                config=container.get(FallbackConfig),
-                logger=container.get(IFallbackLogger)
-            ),
+            create_fallback_executor,
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -464,7 +534,7 @@ def register_fallback_services(
         # 注册条件降级工具类
         container.register_instance(
             ConditionalFallback,
-            ConditionalFallback(),
+            create_conditional_fallback(),
             environment=environment
         )
         

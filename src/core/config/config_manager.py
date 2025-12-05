@@ -111,7 +111,7 @@ class ConfigManager(IUnifiedConfigManager):
             cached_config = self._config_cache.get(cache_key)
             if cached_config is not None:
                 logger.debug(f"从缓存加载配置: {config_path}")
-                return cached_config
+                return cached_config  # type: ignore[no-any-return]
             
             # 加载原始配置（带错误恢复）
             try:
@@ -190,18 +190,18 @@ class ConfigManager(IUnifiedConfigManager):
                 try:
                     final_model_class = get_config_model(ConfigType(config_type))
                 except (ValueError, KeyError):
-                    final_model_class = BaseConfig  # type: ignore[assignment]
+                    final_model_class = BaseConfig
             else:
-                final_model_class = BaseConfig  # type: ignore[assignment]
+                final_model_class = BaseConfig
         else:
-            final_model_class = model_class  # type: ignore[assignment]
+            final_model_class = model_class
         
         try:
             # 检查模型缓存
             cache_key = f"{config_path}:{final_model_class.__name__}"
             cached_model = self._model_cache.get(cache_key)
             if cached_model is not None:
-                return cached_model  # type: ignore[return-value]
+                return cached_model  # type: ignore[no-any-return]
             
             # 创建模型实例
             model_instance = final_model_class(**config_data)
@@ -265,6 +265,102 @@ class ConfigManager(IUnifiedConfigManager):
             配置数据
         """
         return self.load_config(config_path, module_type=module_type)
+    
+    def load_config_with_module(self, config_path: str, module_type: str) -> Dict[str, Any]:
+        """加载模块特定配置
+        
+        Args:
+            config_path: 配置文件路径
+            module_type: 模块类型
+            
+        Returns:
+            配置数据
+        """
+        return self.load_config(config_path, module_type=module_type)
+    
+    def save_config(self, config: Dict[str, Any], config_path: str) -> None:
+        """保存配置文件
+        
+        Args:
+            config: 配置数据
+            config_path: 配置文件路径
+        """
+        # 使用加载器保存配置
+        self.loader.save_config(config, config_path)
+        
+        # 清除相关缓存
+        self.invalidate_cache(config_path)
+        
+        logger.info(f"配置已保存: {config_path}")
+    
+    def get_config(self, key: str, default: Any = None) -> Any:
+        """获取配置值
+        
+        Args:
+            key: 配置键（支持点号分隔的嵌套键）
+            default: 默认值
+            
+        Returns:
+            配置值
+        """
+        # 从缓存中获取配置数据
+        cache_manager = self._config_cache._manager
+        config_data: Dict[str, Any] = cache_manager._cache_entries.get("config", {})
+        
+        # 如果没有缓存数据，返回默认值
+        if not config_data:
+            return default
+        
+        # 解析嵌套键
+        parts = key.split('.')
+        current: Any = config_data
+        
+        try:
+            for part in parts:
+                if isinstance(current, dict) and part in current:
+                    current = current[part]
+                else:
+                    return default
+            return current
+        except (KeyError, TypeError):
+            return default
+    
+    def set_config(self, key: str, value: Any) -> None:
+        """设置配置值
+        
+        Args:
+            key: 配置键（支持点号分隔的嵌套键）
+            value: 配置值
+        """
+        # 注意：此方法仅修改内存中的配置，不会持久化到文件
+        # 如需持久化，请使用 save_config 方法
+        
+        # 从缓存中获取配置数据
+        cache_manager = self._config_cache._manager
+        if "config" not in cache_manager._cache_entries:
+            # 初始化配置缓存
+            from collections import OrderedDict
+            cache_manager._cache_entries["config"] = OrderedDict()
+        
+        config_data = cache_manager._cache_entries["config"]
+        
+        # 解析嵌套键并设置值
+        parts = key.split('.')
+        current: Any = config_data
+        
+        try:
+            # 导航到目标位置
+            for part in parts[:-1]:
+                if part not in current:
+                    current[part] = {}
+                current = current[part]
+            
+            # 设置最终值
+            current[parts[-1]] = value
+            logger.debug(f"配置值已设置: {key} = {value}")
+        except (KeyError, TypeError) as e:
+            logger.error(f"设置配置值失败 {key}: {e}")
+            raise
     
     def reload_config(self, config_path: str, module_type: Optional[str] = None) -> Dict[str, Any]:
         """重新加载配置
@@ -359,7 +455,7 @@ class ConfigManager(IUnifiedConfigManager):
         # 使用通用的字典合并器合并多个配置
         from src.core.common.utils.dict_merger import DictMerger
         merger = DictMerger()
-        result = {}
+        result: Dict[str, Any] = {}
         for config in configs:
             result = merger.deep_merge(result, config)
         
@@ -466,7 +562,7 @@ class ConfigManager(IUnifiedConfigManager):
     def _get_llm_model_class(self) -> Type[BaseConfig]:
         """获取LLM模型类"""
         from .models import LLMConfig
-        return LLMConfig  # type: ignore[return-value]
+        return LLMConfig
     
     def _get_tool_model_class(self) -> Type[BaseConfig]:
         """获取工具模型类"""

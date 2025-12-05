@@ -1,22 +1,26 @@
 """线程服务依赖注入绑定配置
 
 使用基础设施层组件，通过继承BaseServiceBindings简化代码。
+重构后使用接口依赖，避免循环依赖。
 """
 
 import sys
-from typing import Dict, Any, List, Union
+from typing import Dict, Any, List, Union, TYPE_CHECKING
 
-from src.adapters.storage.backends import SQLiteThreadBackend, FileThreadBackend
-from src.services.threads.repository import ThreadRepository
-from src.services.threads.basic_service import BasicThreadService
-from src.services.threads.workflow_service import WorkflowThreadService
-from src.services.threads.collaboration_service import ThreadCollaborationService
-from src.services.threads.branch_service import ThreadBranchService
-from src.services.threads.snapshot_service import ThreadSnapshotService
-from src.services.threads.state_service import ThreadStateService
-from src.services.threads.history_service import ThreadHistoryService
-from src.services.threads.service import ThreadService
+if TYPE_CHECKING:
+    # 仅在类型检查时导入，避免运行时循环依赖
+    from src.adapters.storage.backends import SQLiteThreadBackend, FileThreadBackend
+    from src.services.threads.repository import ThreadRepository
+    from src.services.threads.basic_service import BasicThreadService
+    from src.services.threads.workflow_service import WorkflowThreadService
+    from src.services.threads.collaboration_service import ThreadCollaborationService
+    from src.services.threads.branch_service import ThreadBranchService
+    from src.services.threads.snapshot_service import ThreadSnapshotService
+    from src.services.threads.state_service import ThreadStateService
+    from src.services.threads.history_service import ThreadHistoryService
+    from src.services.threads.service import ThreadService
 
+# 接口导入 - 集中化的接口定义
 from src.interfaces.threads import IThreadRepository
 from src.interfaces.threads.service import IThreadService
 from src.interfaces.sessions.service import ISessionService
@@ -45,7 +49,7 @@ class ThreadServiceBindings(BaseServiceBindings):
     
     def _do_register_services(
         self,
-        container,
+        container: Any,
         config: Dict[str, Any],
         environment: str = "default"
     ) -> None:
@@ -63,7 +67,7 @@ class ThreadServiceBindings(BaseServiceBindings):
     
     def _post_register(
         self,
-        container,
+        container: Any,
         config: Dict[str, Any],
         environment: str = "default"
     ) -> None:
@@ -143,44 +147,52 @@ def _register_thread_backends(container: Any, config: Dict[str, Any], environmen
     # 主后端配置
     primary_backend_type = config.get("thread", {}).get("primary_backend", "sqlite")
     
-    if primary_backend_type == "sqlite":
-        sqlite_config = config.get("thread", {}).get("sqlite", {})
-        db_path = sqlite_config.get("db_path", "./data/threads.db")
-        primary_backend = SQLiteThreadBackend(db_path=db_path)
-    else:
-        raise ValueError(f"Unsupported primary backend type: {primary_backend_type}")
-    
-    # 辅助后端配置
-    secondary_backends = []
-    secondary_types = config.get("thread", {}).get("secondary_backends", [])
-    
-    for backend_type in secondary_types:
-        if backend_type == "file":
-            file_config = config.get("thread", {}).get("file", {})
-            base_path = file_config.get("base_path", "./threads_backup")
-            backend: Union[SQLiteThreadBackend, FileThreadBackend] = FileThreadBackend(base_path=base_path)
-            secondary_backends.append(backend)
-        elif backend_type == "sqlite":
-            sqlite_config = config.get("thread", {}).get("sqlite_secondary", {})
-            db_path = sqlite_config.get("db_path", "./data/threads_backup.db")
-            backend = SQLiteThreadBackend(db_path=db_path)
-            secondary_backends.append(backend)
+    # 延迟导入具体实现，避免循环依赖
+    def create_primary_backend() -> 'SQLiteThreadBackend':
+        if primary_backend_type == "sqlite":
+            from src.adapters.storage.backends import SQLiteThreadBackend
+            sqlite_config = config.get("thread", {}).get("sqlite", {})
+            db_path = sqlite_config.get("db_path", "./data/threads.db")
+            return SQLiteThreadBackend(db_path=db_path)
         else:
-            print(f"[WARNING] Unknown secondary backend type: {backend_type}", file=sys.stderr)
+            raise ValueError(f"Unsupported primary backend type: {primary_backend_type}")
+    
+    def create_secondary_backends() -> List[Union['SQLiteThreadBackend', 'FileThreadBackend']]:
+        secondary_backends = []
+        secondary_types = config.get("thread", {}).get("secondary_backends", [])
+        
+        for backend_type in secondary_types:
+            if backend_type == "file":
+                from src.adapters.storage.backends import FileThreadBackend
+                file_config = config.get("thread", {}).get("file", {})
+                base_path = file_config.get("base_path", "./threads_backup")
+                backend: Union[SQLiteThreadBackend, FileThreadBackend] = FileThreadBackend(base_path=base_path)
+                secondary_backends.append(backend)
+            elif backend_type == "sqlite":
+                from src.adapters.storage.backends import SQLiteThreadBackend
+                sqlite_config = config.get("thread", {}).get("sqlite_secondary", {})
+                db_path = sqlite_config.get("db_path", "./data/threads_backup.db")
+                backend = SQLiteThreadBackend(db_path=db_path)
+                secondary_backends.append(backend)
+            else:
+                print(f"[WARNING] Unknown secondary backend type: {backend_type}", file=sys.stderr)
+        
+        return secondary_backends
     
     # 注册主后端为单例
     container.register(
         "thread_primary_backend",
-        lambda: primary_backend,
+        create_primary_backend,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
     
     # 注册辅助后端列表
-    if secondary_backends:
+    secondary_types = config.get("thread", {}).get("secondary_backends", [])
+    if secondary_types:
         container.register(
             "thread_secondary_backends",
-            lambda: secondary_backends,
+            create_secondary_backends,
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -201,6 +213,7 @@ def _register_thread_repository(container: Any, config: Dict[str, Any], environm
     
     # 创建仓储工厂函数
     def thread_repository_factory() -> ThreadRepository:
+        from src.services.threads.repository import ThreadRepository
         primary_backend = container.get("thread_primary_backend")
         secondary_backends = container.get("thread_secondary_backends", default=[])
         return ThreadRepository(primary_backend, secondary_backends)
@@ -237,6 +250,7 @@ def _register_basic_thread_service(container: Any, config: Dict[str, Any], envir
     
     # 创建服务工厂函数
     def basic_thread_service_factory() -> BasicThreadService:
+        from src.services.threads.basic_service import BasicThreadService
         thread_core = container.get(IThreadCore)
         thread_repository = container.get(IThreadRepository)
         checkpoint_domain_service = container.get("ThreadCheckpointDomainService", default=None)
@@ -271,6 +285,7 @@ def _register_workflow_thread_service(container: Any, config: Dict[str, Any], en
     
     # 创建服务工厂函数
     def workflow_thread_service_factory() -> WorkflowThreadService:
+        from src.services.threads.workflow_service import WorkflowThreadService
         thread_repository = container.get(IThreadRepository)
         
         return WorkflowThreadService(
@@ -301,6 +316,7 @@ def _register_collaboration_thread_service(container: Any, config: Dict[str, Any
     
     # 创建服务工厂函数
     def collaboration_thread_service_factory() -> ThreadCollaborationService:
+        from src.services.threads.collaboration_service import ThreadCollaborationService
         thread_repository = container.get(IThreadRepository)
         checkpoint_manager = container.get(IThreadCheckpointManager, default=None)
         
@@ -333,6 +349,7 @@ def _register_branch_thread_service(container: Any, config: Dict[str, Any], envi
     
     # 创建服务工厂函数
     def branch_thread_service_factory() -> ThreadBranchService:
+        from src.services.threads.branch_service import ThreadBranchService
         thread_core = container.get(IThreadCore)
         thread_repository = container.get(IThreadRepository)
         
@@ -378,6 +395,7 @@ def _register_snapshot_thread_service(container: Any, config: Dict[str, Any], en
     
     # 创建服务工厂函数
     def snapshot_thread_service_factory() -> ThreadSnapshotService:
+        from src.services.threads.snapshot_service import ThreadSnapshotService
         thread_core = container.get(IThreadCore)
         thread_repository = container.get(IThreadRepository)
         
@@ -423,6 +441,7 @@ def _register_state_thread_service(container: Any, config: Dict[str, Any], envir
     
     # 创建服务工厂函数
     def state_thread_service_factory() -> ThreadStateService:
+        from src.services.threads.state_service import ThreadStateService
         thread_repository = container.get(IThreadRepository)
         
         return ThreadStateService(
@@ -453,6 +472,7 @@ def _register_history_thread_service(container: Any, config: Dict[str, Any], env
     
     # 创建服务工厂函数
     def history_thread_service_factory() -> ThreadHistoryService:
+        from src.services.threads.history_service import ThreadHistoryService
         thread_repository = container.get(IThreadRepository)
         history_manager = container.get(IHistoryManager, default=None)
         
@@ -491,6 +511,7 @@ def _register_thread_service(container: Any, config: Dict[str, Any], environment
     
     # 创建主服务工厂函数
     def thread_service_factory() -> ThreadService:
+        from src.services.threads.service import ThreadService
         thread_core = container.get(IThreadCore)
         thread_repository = container.get(IThreadRepository)
         basic_service = container.get("basic_thread_service")

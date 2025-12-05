@@ -5,15 +5,11 @@
 """
 
 import sys
-import atexit
 from typing import Dict, Any, Optional, List, Callable
 from contextlib import contextmanager
 
 from src.interfaces.logger import ILogger, IBaseHandler, ILogRedactor, ILoggerFactory, LogLevel
 from src.interfaces.common_infra import ServiceLifetime
-from src.services.logger.logger_service import LoggerService
-from src.infrastructure.logger.core.redactor import LogRedactor, CustomLogRedactor
-from src.infrastructure.logger.factory.logger_factory import LoggerFactory
 from src.services.container.core.base_service_bindings import BaseServiceBindings
 
 
@@ -167,9 +163,14 @@ class LoggerServiceBindings(BaseServiceBindings):
 
 def _register_logger_factory(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册日志工厂"""
+    # 延迟导入具体实现，避免循环依赖
+    def create_logger_factory() -> ILoggerFactory:
+        from src.infrastructure.logger.factory.logger_factory import LoggerFactory
+        return LoggerFactory()
+    
     container.register_factory(
         ILoggerFactory,
-        lambda: LoggerFactory(),
+        create_logger_factory,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
@@ -180,15 +181,20 @@ def _register_log_redactor(container: Any, config: Dict[str, Any], environment: 
     redactor_config = config.get("log_redactor", {})
     
     def redactor_factory() -> ILogRedactor:
+        # 延迟导入具体实现，避免循环依赖
         if redactor_config:
+            from src.infrastructure.logger.core.redactor import CustomLogRedactor
             return CustomLogRedactor(redactor_config)
         
         secret_patterns = config.get("secret_patterns", [])
         if secret_patterns:
+            from src.infrastructure.logger.core.redactor import LogRedactor
             redactor = LogRedactor()
             for pattern in secret_patterns:
                 redactor.add_pattern(pattern)
             return redactor
+        
+        from src.infrastructure.logger.core.redactor import LogRedactor
         return LogRedactor()
     
     container.register_factory(
@@ -261,6 +267,9 @@ def _create_handler_from_config(output_config: Dict[str, Any], logger_factory: I
 def _register_logger_service(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册Logger服务"""
     def logger_factory() -> ILogger:
+        # 延迟导入具体实现，避免循环依赖
+        from src.services.logger.logger_service import LoggerService
+        
         logger_factory_instance = container.get(ILoggerFactory)
         redactor = container.get(ILogRedactor)
         handlers = container.get(List[IBaseHandler])

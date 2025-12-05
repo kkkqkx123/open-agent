@@ -2,22 +2,27 @@
 
 统一注册History管理、统计、追踪、成本计算等服务。
 使用基础设施层组件，通过继承BaseServiceBindings简化代码。
+重构后使用接口依赖，避免循环依赖。
 """
 
 import sys
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 
+if TYPE_CHECKING:
+    # 仅在类型检查时导入，避免运行时循环依赖
+    from src.services.history.manager import HistoryManager
+    from src.services.history.statistics_service import HistoryStatisticsService
+    from src.services.history.cost_calculator import CostCalculator
+    from src.services.history.token_tracker import WorkflowTokenTracker
+    from src.services.history.hooks import HistoryRecordingHook
+    from src.services.llm.token_calculation_service import TokenCalculationService
+    from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
+    from src.adapters.repository.history import SQLiteHistoryRepository, MemoryHistoryRepository
+
+# 接口导入 - 集中化的接口定义
 from src.interfaces.history import IHistoryManager, ICostCalculator
 from src.core.history.interfaces import ITokenTracker
 from src.interfaces.repository.history import IHistoryRepository
-from src.services.history.manager import HistoryManager
-from src.services.history.statistics_service import HistoryStatisticsService
-from src.services.history.cost_calculator import CostCalculator
-from src.services.history.token_tracker import WorkflowTokenTracker
-from src.services.history.hooks import HistoryRecordingHook
-from src.services.llm.token_calculation_service import TokenCalculationService
-from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
-from src.adapters.repository.history import SQLiteHistoryRepository, MemoryHistoryRepository
 from src.interfaces.common_infra import ServiceLifetime
 from src.interfaces.logger import ILogger
 from src.services.container.core.base_service_bindings import BaseServiceBindings
@@ -107,7 +112,7 @@ class HistoryServiceBindings(BaseServiceBindings):
     
     def _do_register_services(
         self,
-        container,
+        container: Any,
         config: Dict[str, Any],
         environment: str = "default"
     ) -> None:
@@ -121,25 +126,32 @@ class HistoryServiceBindings(BaseServiceBindings):
     
     def _post_register(
         self,
-        container,
+        container: Any,
         config: Dict[str, Any],
         environment: str = "default"
     ) -> None:
         """注册后处理"""
         # 设置注入层
         try:
-            # 为History服务设置注入层
-            service_types = [
-                IHistoryManager,
-                ICostCalculator,
-                ITokenTracker,
-                IHistoryRepository,
-                HistoryStatisticsService,
-                HistoryRecordingHook,
-                TokenCalculationService,
-                TokenCalculationDecorator
-            ]
+            # 延迟导入具体实现类，避免循环依赖
+            def get_service_types() -> list:
+                from src.services.history.statistics_service import HistoryStatisticsService
+                from src.services.history.hooks import HistoryRecordingHook
+                from src.services.llm.token_calculation_service import TokenCalculationService
+                from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
+                
+                return [
+                    IHistoryManager,
+                    ICostCalculator,
+                    ITokenTracker,
+                    IHistoryRepository,
+                    HistoryStatisticsService,
+                    HistoryRecordingHook,
+                    TokenCalculationService,
+                    TokenCalculationDecorator
+                ]
             
+            service_types = get_service_types()
             self.setup_injection_layer(container, service_types)
             
             # 设置全局实例（向后兼容）
@@ -153,6 +165,21 @@ class HistoryServiceBindings(BaseServiceBindings):
                 set_token_calculation_service_instance,
                 set_token_calculation_decorator_instance
             )
+            
+            # 延迟导入具体实现类进行类型检查
+            def get_concrete_types() -> tuple:
+                from src.services.history.statistics_service import HistoryStatisticsService
+                from src.services.history.hooks import HistoryRecordingHook
+                from src.services.llm.token_calculation_service import TokenCalculationService
+                from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
+                return (
+                    HistoryStatisticsService,
+                    HistoryRecordingHook,
+                    TokenCalculationService,
+                    TokenCalculationDecorator
+                )
+            
+            HistoryStatisticsService, HistoryRecordingHook, TokenCalculationService, TokenCalculationDecorator = get_concrete_types()
             
             if container.has_service(IHistoryManager):
                 set_history_manager_instance(container.get(IHistoryManager))
@@ -186,7 +213,7 @@ class HistoryServiceBindings(BaseServiceBindings):
 
 
 def _register_history_storage(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
@@ -197,30 +224,41 @@ def _register_history_storage(
     storage_config = history_config.get("storage", {})
     primary_backend = storage_config.get("primary_backend", "sqlite")
     
-    # 注册SQLite存储
-    if primary_backend == "sqlite":
+    # 延迟导入具体实现，避免循环依赖
+    def create_sqlite_repository() -> 'SQLiteHistoryRepository':
+        from src.adapters.repository.history import SQLiteHistoryRepository
         sqlite_config = storage_config.get("sqlite", {})
         db_path = sqlite_config.get("db_path", "./data/history.db")
-        
+        return SQLiteHistoryRepository({"db_path": db_path})
+    
+    def create_memory_repository() -> 'MemoryHistoryRepository':
+        from src.adapters.repository.history import MemoryHistoryRepository
+        memory_config = storage_config.get("memory", {})
+        max_records = memory_config.get("max_records", 10000)
+        return MemoryHistoryRepository({"max_records": max_records})
+    
+    # 注册SQLite存储
+    if primary_backend == "sqlite":
         container.register_factory(
             IHistoryRepository,
-            lambda: SQLiteHistoryRepository({"db_path": db_path}),
+            create_sqlite_repository,
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
         )
+        sqlite_config = storage_config.get("sqlite", {})
+        db_path = sqlite_config.get("db_path", "./data/history.db")
         print(f"[INFO] 注册SQLite History存储: {db_path}", file=sys.stdout)
     
     # 注册内存存储（用于测试）
     elif primary_backend == "memory":
-        memory_config = storage_config.get("memory", {})
-        max_records = memory_config.get("max_records", 10000)
-        
         container.register_factory(
             IHistoryRepository,
-            lambda: MemoryHistoryRepository({"max_records": max_records}),
+            create_memory_repository,
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
         )
+        memory_config = storage_config.get("memory", {})
+        max_records = memory_config.get("max_records", 10000)
         print(f"[INFO] 注册内存History存储: max_records={max_records}", file=sys.stdout)
     
     else:
@@ -228,7 +266,7 @@ def _register_history_storage(
 
 
 def _register_history_manager(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
@@ -242,15 +280,20 @@ def _register_history_manager(
     batch_size = manager_config.get("batch_size", 10)
     batch_timeout = manager_config.get("batch_timeout", 1.0)
     
-    container.register_factory(
-        IHistoryManager,
-        lambda: HistoryManager(
+    # 延迟导入具体实现，通过接口依赖避免循环依赖
+    def create_history_manager() -> 'HistoryManager':
+        from src.services.history.manager import HistoryManager
+        return HistoryManager(
             storage=container.get(IHistoryRepository),
             enable_async_batching=enable_async_batching,
             batch_size=batch_size,
             batch_timeout=batch_timeout,
             logger=container.get(ILogger, default=None)
-        ),
+        )
+    
+    container.register_factory(
+        IHistoryManager,
+        create_history_manager,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
@@ -260,7 +303,7 @@ def _register_history_manager(
 
 
 def _register_cost_calculator(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
@@ -271,9 +314,14 @@ def _register_cost_calculator(
     calculator_config = history_config.get("cost_calculator", {})
     custom_pricing = calculator_config.get("custom_pricing", {})
     
+    # 延迟导入具体实现
+    def create_cost_calculator() -> 'CostCalculator':
+        from src.services.history.cost_calculator import CostCalculator
+        return CostCalculator(pricing_config=custom_pricing)
+    
     container.register_factory(
         ICostCalculator,
-        lambda: CostCalculator(pricing_config=custom_pricing),
+        create_cost_calculator,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
@@ -285,7 +333,7 @@ def _register_cost_calculator(
 
 
 def _register_token_tracker(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
@@ -296,29 +344,37 @@ def _register_token_tracker(
     tracker_config = history_config.get("token_tracker", {})
     cache_ttl = tracker_config.get("cache_ttl", 300)
     
-    # 确保TokenCalculationService已注册
-    if not container.has_service(TokenCalculationService):
-        container.register(
-            TokenCalculationService,
-            TokenCalculationService,
-            environment=environment,
-            lifetime=ServiceLifetime.SINGLETON
-        )
-    
-    # 优先使用装饰器，如果不存在则使用基础服务
-    def get_token_service():
-        if container.has_service(TokenCalculationDecorator):
-            return container.get(TokenCalculationDecorator)
-        else:
-            return container.get(TokenCalculationService)
-    
-    container.register_factory(
-        ITokenTracker,
-        lambda: WorkflowTokenTracker(
+    # 延迟导入具体实现
+    def create_token_tracker() -> 'WorkflowTokenTracker':
+        from src.services.history.token_tracker import WorkflowTokenTracker
+        from src.services.llm.token_calculation_service import TokenCalculationService
+        from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
+        
+        # 确保TokenCalculationService已注册
+        if not container.has_service(TokenCalculationService):
+            container.register(
+                TokenCalculationService,
+                TokenCalculationService,
+                environment=environment,
+                lifetime=ServiceLifetime.SINGLETON
+            )
+
+        # 优先使用装饰器，如果不存在则使用基础服务
+        def get_token_service() -> Any:
+            if container.has_service(TokenCalculationDecorator):
+                return container.get(TokenCalculationDecorator)
+            else:
+                return container.get(TokenCalculationService)
+
+        return WorkflowTokenTracker(
             storage=container.get(IHistoryRepository),
             token_calculation_service=get_token_service(),
             cache_ttl=cache_ttl
-        ),
+        )
+    
+    container.register_factory(
+        ITokenTracker,
+        create_token_tracker,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
@@ -327,19 +383,24 @@ def _register_token_tracker(
 
 
 def _register_statistics_service(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
     """注册统计服务"""
     print(f"[INFO] 注册统计服务...", file=sys.stdout)
     
-    container.register_factory(
-        HistoryStatisticsService,
-        lambda: HistoryStatisticsService(
+    # 延迟导入具体实现
+    def create_statistics_service() -> 'HistoryStatisticsService':
+        from src.services.history.statistics_service import HistoryStatisticsService
+        return HistoryStatisticsService(
             storage=container.get(IHistoryRepository),
             logger=container.get(ILogger, default=None)
-        ),
+        )
+    
+    container.register_factory(
+        HistoryStatisticsService,
+        create_statistics_service,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
@@ -348,7 +409,7 @@ def _register_statistics_service(
 
 
 def _register_history_hooks(
-    container,
+    container: Any,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
@@ -356,14 +417,18 @@ def _register_history_hooks(
     print(f"[INFO] 注册History钩子服务...", file=sys.stdout)
     
     # 注册HistoryRecordingHook工厂
-    def create_history_hook(workflow_context: Optional[Dict[str, Any]] = None):
+    def create_history_hook(workflow_context: Optional[Dict[str, Any]] = None) -> 'HistoryRecordingHook':
+        from src.services.history.hooks import HistoryRecordingHook
+        from src.services.llm.token_calculation_service import TokenCalculationService
+        from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
+
         # 优先使用装饰器，如果不存在则使用基础服务
-        def get_token_service():
+        def get_token_service() -> Any:
             if container.has_service(TokenCalculationDecorator):
                 return container.get(TokenCalculationDecorator)
             else:
                 return container.get(TokenCalculationService)
-        
+
         return HistoryRecordingHook(
             history_manager=container.get(IHistoryManager),
             token_calculation_service=get_token_service(),

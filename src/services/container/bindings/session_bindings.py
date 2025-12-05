@@ -1,24 +1,28 @@
 """会话服务依赖注入绑定配置 - 更新版本
 
 使用基础设施层组件，通过继承BaseServiceBindings简化代码。
+重构后使用接口依赖，避免循环依赖。
 """
 
 import sys
-from typing import Dict, Any
+from typing import Dict, Any, TYPE_CHECKING, Union
 
-from adapters.storage.backends.file_thread_backend import FileThreadBackend
-from adapters.storage.backends.sqlite_thread_backend import SQLiteThreadBackend
-from src.adapters.storage.association_repository import SessionThreadAssociationRepository
-from src.adapters.storage.backends import SQLiteSessionBackend, FileSessionBackend
+if TYPE_CHECKING:
+    # 仅在类型检查时导入，避免运行时循环依赖
+    from src.adapters.storage.backends import SQLiteThreadBackend, FileThreadBackend
+    from src.adapters.storage.association_repository import SessionThreadAssociationRepository
+    from src.adapters.storage.backends import SQLiteSessionBackend, FileSessionBackend
+    from src.services.threads.repository import ThreadRepository
+    from src.services.sessions.repository import SessionRepository
+    from src.services.sessions.service import SessionService
+    from src.services.sessions.coordinator import SessionThreadCoordinator
+    from src.services.sessions.synchronizer import SessionThreadSynchronizer
+    from src.services.sessions.transaction import SessionThreadTransaction
+    from src.adapters.storage.backends.base import ISessionStorageBackend
+    from src.adapters.storage.backends.thread_base import IThreadStorageBackend
 
-from src.services.threads.repository import ThreadRepository
-from src.services.sessions.repository import SessionRepository
-from src.services.sessions.service import SessionService
-from src.services.sessions.coordinator import SessionThreadCoordinator
-from src.services.sessions.synchronizer import SessionThreadSynchronizer
-from src.services.sessions.transaction import SessionThreadTransaction
+# 接口导入 - 集中化的接口定义
 from src.interfaces.sessions import ISessionRepository
-from src.adapters.storage.backends.base import ISessionStorageBackend
 from src.interfaces.sessions.service import ISessionService
 from src.interfaces.sessions.association import (
     ISessionThreadAssociationRepository,
@@ -26,7 +30,6 @@ from src.interfaces.sessions.association import (
     ISessionThreadTransaction
 )
 from src.interfaces.threads import IThreadRepository
-from src.adapters.storage.backends.thread_base import IThreadStorageBackend
 from src.interfaces.threads.service import IThreadService
 from src.core.sessions.interfaces import ISessionCore, ISessionStateTransition, ISessionValidator
 from src.interfaces.logger import ILogger
@@ -53,7 +56,7 @@ class SessionServiceBindings(BaseServiceBindings):
     
     def _do_register_services(
         self,
-        container,
+        container: Any,
         config: Dict[str, Any],
         environment: str = "default"
     ) -> None:
@@ -70,7 +73,7 @@ class SessionServiceBindings(BaseServiceBindings):
     
     def _post_register(
         self,
-        container,
+        container: Any,
         config: Dict[str, Any],
         environment: str = "default"
     ) -> None:
@@ -129,7 +132,7 @@ class SessionServiceBindings(BaseServiceBindings):
             print(f"[WARNING] 设置Session注入层失败: {e}", file=sys.stderr)
 
 
-def _register_session_backends(container, config: Dict[str, Any], environment: str = "default") -> None:
+def _register_session_backends(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册会话存储后端
     
     Args:
@@ -139,45 +142,53 @@ def _register_session_backends(container, config: Dict[str, Any], environment: s
     """
     # 主后端配置
     primary_backend_type = config.get("session", {}).get("primary_backend", "sqlite")
-    
-    if primary_backend_type == "sqlite":
-        sqlite_config = config.get("session", {}).get("sqlite", {})
-        db_path = sqlite_config.get("db_path", "./data/sessions.db")
-        primary_backend = SQLiteSessionBackend(db_path=db_path)
-    else:
-        raise ValueError(f"Unsupported primary backend type: {primary_backend_type}")
-    
-    # 辅助后端配置
-    secondary_backends = []
-    secondary_types = config.get("session", {}).get("secondary_backends", [])
-    
-    for backend_type in secondary_types:
-        if backend_type == "file":
-            file_config = config.get("session", {}).get("file", {})
-            base_path = file_config.get("base_path", "./sessions_backup")
-            backend = FileSessionBackend(base_path=base_path)
-            secondary_backends.append(backend)
-        elif backend_type == "sqlite":
-            sqlite_config = config.get("session", {}).get("sqlite_secondary", {})
-            db_path = sqlite_config.get("db_path", "./data/sessions_backup.db")
-            backend = SQLiteSessionBackend(db_path=db_path)
-            secondary_backends.append(backend)
+
+    # 延迟导入具体实现，避免循环依赖
+    def create_primary_backend() -> 'SQLiteSessionBackend':
+        if primary_backend_type == "sqlite":
+            from src.adapters.storage.backends import SQLiteSessionBackend
+            sqlite_config = config.get("session", {}).get("sqlite", {})
+            db_path = sqlite_config.get("db_path", "./data/sessions.db")
+            return SQLiteSessionBackend(db_path=db_path)
         else:
-            print(f"[WARNING] Unknown secondary backend type: {backend_type}", file=sys.stderr)
+            raise ValueError(f"Unsupported primary backend type: {primary_backend_type}")
+    
+    def create_secondary_backends() -> list:
+        secondary_backends = []
+        secondary_types = config.get("session", {}).get("secondary_backends", [])
+
+        for backend_type in secondary_types:
+            if backend_type == "file":
+                from src.adapters.storage.backends import FileSessionBackend
+                file_config = config.get("session", {}).get("file", {})
+                base_path = file_config.get("base_path", "./sessions_backup")
+                backend: Union['FileSessionBackend', 'SQLiteSessionBackend'] = FileSessionBackend(base_path=base_path)
+                secondary_backends.append(backend)
+            elif backend_type == "sqlite":
+                from src.adapters.storage.backends import SQLiteSessionBackend
+                sqlite_config = config.get("session", {}).get("sqlite_secondary", {})
+                db_path = sqlite_config.get("db_path", "./data/sessions_backup.db")
+                sqlite_backend: Union['FileSessionBackend', 'SQLiteSessionBackend'] = SQLiteSessionBackend(db_path=db_path)
+                secondary_backends.append(sqlite_backend)
+            else:
+                print(f"[WARNING] Unknown secondary backend type: {backend_type}", file=sys.stderr)
+
+        return secondary_backends
     
     # 注册主后端为单例
     container.register(
         "session_primary_backend",
-        lambda: primary_backend,
+        create_primary_backend,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
     
     # 注册辅助后端列表
-    if secondary_backends:
+    secondary_types = config.get("session", {}).get("secondary_backends", [])
+    if secondary_types:
         container.register(
             "session_secondary_backends",
-            lambda: secondary_backends,
+            create_secondary_backends,
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -185,7 +196,7 @@ def _register_session_backends(container, config: Dict[str, Any], environment: s
     print(f"[INFO] Session backends registered: primary={primary_backend_type}, secondary={secondary_types}", file=sys.stdout)
 
 
-def _register_session_repository(container, config: Dict[str, Any], environment: str = "default") -> None:
+def _register_session_repository(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册会话仓储
     
     Args:
@@ -197,7 +208,8 @@ def _register_session_repository(container, config: Dict[str, Any], environment:
     _register_session_backends(container, config, environment)
     
     # 创建仓储工厂函数
-    def session_repository_factory():
+    def session_repository_factory() -> 'SessionRepository':
+        from src.services.sessions.repository import SessionRepository
         primary_backend = container.get("session_primary_backend")
         secondary_backends = container.get("session_secondary_backends", default=[])
         logger = container.get(ILogger, default=None)
@@ -222,7 +234,7 @@ def _register_session_repository(container, config: Dict[str, Any], environment:
     print(f"[INFO] Session repository registered", file=sys.stdout)
 
 
-def _register_thread_backends(container, config: Dict[str, Any], environment: str = "default") -> None:
+def _register_thread_backends(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册线程存储后端
     
     Args:
@@ -233,44 +245,52 @@ def _register_thread_backends(container, config: Dict[str, Any], environment: st
     # 主后端配置
     primary_backend_type = config.get("thread", {}).get("primary_backend", "sqlite")
     
-    if primary_backend_type == "sqlite":
-        sqlite_config = config.get("thread", {}).get("sqlite", {})
-        db_path = sqlite_config.get("db_path", "./data/threads.db")
-        primary_backend = SQLiteThreadBackend(db_path=db_path)
-    else:
-        raise ValueError(f"Unsupported primary backend type: {primary_backend_type}")
-    
-    # 辅助后端配置
-    secondary_backends = []
-    secondary_types = config.get("thread", {}).get("secondary_backends", [])
-    
-    for backend_type in secondary_types:
-        if backend_type == "file":
-            file_config = config.get("thread", {}).get("file", {})
-            base_path = file_config.get("base_path", "./threads_backup")
-            backend = FileThreadBackend(base_path=base_path)
-            secondary_backends.append(backend)
-        elif backend_type == "sqlite":
-            sqlite_config = config.get("thread", {}).get("sqlite_secondary", {})
-            db_path = sqlite_config.get("db_path", "./data/threads_backup.db")
-            backend = SQLiteThreadBackend(db_path=db_path)
-            secondary_backends.append(backend)
+    # 延迟导入具体实现，避免循环依赖
+    def create_primary_backend() -> 'SQLiteThreadBackend':
+        if primary_backend_type == "sqlite":
+            from src.adapters.storage.backends import SQLiteThreadBackend
+            sqlite_config = config.get("thread", {}).get("sqlite", {})
+            db_path = sqlite_config.get("db_path", "./data/threads.db")
+            return SQLiteThreadBackend(db_path=db_path)
         else:
-            print(f"[WARNING] Unknown secondary backend type: {backend_type}", file=sys.stderr)
+            raise ValueError(f"Unsupported primary backend type: {primary_backend_type}")
+    
+    def create_secondary_backends() -> list:
+        secondary_backends = []
+        secondary_types = config.get("thread", {}).get("secondary_backends", [])
+
+        for backend_type in secondary_types:
+            if backend_type == "file":
+                from src.adapters.storage.backends import FileThreadBackend
+                file_config = config.get("thread", {}).get("file", {})
+                base_path = file_config.get("base_path", "./threads_backup")
+                backend: Union['FileThreadBackend', 'SQLiteThreadBackend'] = FileThreadBackend(base_path=base_path)
+                secondary_backends.append(backend)
+            elif backend_type == "sqlite":
+                from src.adapters.storage.backends import SQLiteThreadBackend
+                sqlite_config = config.get("thread", {}).get("sqlite_secondary", {})
+                db_path = sqlite_config.get("db_path", "./data/threads_backup.db")
+                sqlite_backend: Union['FileThreadBackend', 'SQLiteThreadBackend'] = SQLiteThreadBackend(db_path=db_path)
+                secondary_backends.append(sqlite_backend)
+            else:
+                print(f"[WARNING] Unknown secondary backend type: {backend_type}", file=sys.stderr)
+
+        return secondary_backends
     
     # 注册主后端为单例
     container.register(
         "thread_primary_backend",
-        lambda: primary_backend,
+        create_primary_backend,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
     
     # 注册辅助后端列表
-    if secondary_backends:
+    secondary_types = config.get("thread", {}).get("secondary_backends", [])
+    if secondary_types:
         container.register(
             "thread_secondary_backends",
-            lambda: secondary_backends,
+            create_secondary_backends,
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
         )
@@ -278,7 +298,7 @@ def _register_thread_backends(container, config: Dict[str, Any], environment: st
     print(f"[INFO] Thread backends registered: primary={primary_backend_type}, secondary={secondary_types}", file=sys.stdout)
 
 
-def _register_thread_repository(container, config: Dict[str, Any], environment: str = "default") -> None:
+def _register_thread_repository(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册线程仓储
     
     Args:
@@ -290,7 +310,8 @@ def _register_thread_repository(container, config: Dict[str, Any], environment: 
     _register_thread_backends(container, config, environment)
     
     # 创建仓储工厂函数
-    def thread_repository_factory():
+    def thread_repository_factory() -> 'ThreadRepository':
+        from src.services.threads.repository import ThreadRepository
         primary_backend = container.get("thread_primary_backend")
         secondary_backends = container.get("thread_secondary_backends", default=[])
         return ThreadRepository(primary_backend, secondary_backends)
@@ -314,7 +335,7 @@ def _register_thread_repository(container, config: Dict[str, Any], environment: 
     print(f"[INFO] Thread repository registered", file=sys.stdout)
 
 
-def _register_association_repository(container, config: Dict[str, Any], environment: str = "default") -> None:
+def _register_association_repository(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册Session-Thread关联仓储
     
     Args:
@@ -327,7 +348,8 @@ def _register_association_repository(container, config: Dict[str, Any], environm
     _register_thread_backends(container, config, environment)
     
     # 创建关联仓储工厂函数
-    def association_repository_factory():
+    def association_repository_factory() -> 'SessionThreadAssociationRepository':
+        from src.adapters.storage.association_repository import SessionThreadAssociationRepository
         session_backend = container.get("session_primary_backend")
         thread_backend = container.get("thread_primary_backend")
         return SessionThreadAssociationRepository(session_backend, thread_backend)
@@ -351,7 +373,7 @@ def _register_association_repository(container, config: Dict[str, Any], environm
     print(f"[INFO] Session-Thread association repository registered", file=sys.stdout)
 
 
-def _register_synchronizer(container, config: Dict[str, Any], environment: str = "default") -> None:
+def _register_synchronizer(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册数据同步器
     
     Args:
@@ -365,7 +387,8 @@ def _register_synchronizer(container, config: Dict[str, Any], environment: str =
     _register_thread_repository(container, config, environment)
     
     # 创建同步器工厂函数
-    def synchronizer_factory():
+    def synchronizer_factory() -> 'SessionThreadSynchronizer':
+        from src.services.sessions.synchronizer import SessionThreadSynchronizer
         association_repository = container.get(ISessionThreadAssociationRepository)
         session_repository = container.get(ISessionRepository)
         thread_repository = container.get(IThreadRepository)
@@ -394,7 +417,7 @@ def _register_synchronizer(container, config: Dict[str, Any], environment: str =
     print(f"[INFO] Session-Thread synchronizer registered", file=sys.stdout)
 
 
-def _register_transaction_manager(container, config: Dict[str, Any], environment: str = "default") -> None:
+def _register_transaction_manager(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册事务管理器
     
     Args:
@@ -408,7 +431,8 @@ def _register_transaction_manager(container, config: Dict[str, Any], environment
     _register_thread_repository(container, config, environment)
     
     # 创建事务管理器工厂函数
-    def transaction_factory():
+    def transaction_factory() -> 'SessionThreadTransaction':
+        from src.services.sessions.transaction import SessionThreadTransaction
         association_repository = container.get(ISessionThreadAssociationRepository)
         session_repository = container.get(ISessionRepository)
         thread_repository = container.get(IThreadRepository)
@@ -439,7 +463,7 @@ def _register_transaction_manager(container, config: Dict[str, Any], environment
     print(f"[INFO] Session-Thread transaction manager registered", file=sys.stdout)
 
 
-def _register_coordinator(container, config: Dict[str, Any], environment: str = "default") -> None:
+def _register_coordinator(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册协调器
     
     Args:
@@ -452,7 +476,8 @@ def _register_coordinator(container, config: Dict[str, Any], environment: str = 
     _register_transaction_manager(container, config, environment)
     
     # 创建协调器工厂函数
-    def coordinator_factory():
+    def coordinator_factory() -> 'SessionThreadCoordinator':
+        from src.services.sessions.coordinator import SessionThreadCoordinator
         session_service = container.get(ISessionService)
         thread_service = container.get(IThreadService)
         association_repository = container.get(ISessionThreadAssociationRepository)
@@ -479,7 +504,7 @@ def _register_coordinator(container, config: Dict[str, Any], environment: str = 
     print(f"[INFO] Session-Thread coordinator registered", file=sys.stdout)
 
 
-def _register_session_service(container, config: Dict[str, Any], environment: str = "default") -> None:
+def _register_session_service(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册会话服务
     
     Args:
@@ -492,7 +517,8 @@ def _register_session_service(container, config: Dict[str, Any], environment: st
     _register_coordinator(container, config, environment)
     
     # 创建服务工厂函数
-    def session_service_factory():
+    def session_service_factory() -> 'SessionService':
+        from src.services.sessions.service import SessionService
         session_core = container.get(ISessionCore)
         session_repository = container.get(ISessionRepository)
         thread_service = container.get(IThreadService)

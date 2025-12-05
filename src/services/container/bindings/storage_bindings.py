@@ -2,12 +2,12 @@
 
 统一注册 Session 和 Thread 的存储服务。
 使用基础设施层组件，通过继承BaseServiceBindings简化代码。
+重构后使用接口依赖，避免循环依赖。
 """
 
 import sys
 from typing import Dict, Any
 
-from src.services.logger.injection import get_logger
 from src.interfaces.logger import ILogger
 from src.services.container.core.base_service_bindings import BaseServiceBindings
 
@@ -28,7 +28,7 @@ class StorageServiceBindings(BaseServiceBindings):
     
     def _do_register_services(
         self,
-        container,
+        container: Any,
         config: Dict[str, Any],
         environment: str = "default"
     ) -> None:
@@ -45,7 +45,7 @@ class StorageServiceBindings(BaseServiceBindings):
     
     def _post_register(
         self,
-        container,
+        container: Any,
         config: Dict[str, Any],
         environment: str = "default"
     ) -> None:
