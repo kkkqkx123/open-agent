@@ -5,10 +5,7 @@
 
 from src.services.container import (
     get_global_container,
-    setup_global_logger_services,
-    shutdown_logger_services,
-    isolated_test_logger,
-    register_test_logger_services
+    LoggerServiceBindings
 )
 from src.interfaces.logger import ILogger
 
@@ -54,7 +51,8 @@ def example_basic_usage():
     }
     
     # 设置全局日志服务（推荐方式）
-    setup_global_logger_services(container, logger_config, environment="production")
+    logger_bindings = LoggerServiceBindings()
+    logger_bindings.register_services(container, logger_config, environment="production")
     
     # 获取日志服务
     logger = container.get(ILogger)
@@ -81,8 +79,8 @@ def example_environment_specific():
     }
     
     # 使用开发环境配置
-    from src.services.container import register_development_logger_services
-    register_development_logger_services(container, dev_config)
+    logger_bindings = LoggerServiceBindings()
+    logger_bindings.register_services(container, dev_config, environment="development")
     
     logger = container.get(ILogger)
     logger.debug("开发环境调试信息")
@@ -90,8 +88,6 @@ def example_environment_specific():
 
 def example_test_isolation():
     """测试隔离示例"""
-    from src.services.container import register_test_logger_services, reset_test_logger_services
-    
     container = get_global_container()
     
     # 使用隔离的测试日志环境
@@ -100,12 +96,12 @@ def example_test_isolation():
         "log_outputs": [{"type": "console", "level": "DEBUG"}]
     }
     
-    try:
-        register_test_logger_services(container, test_config, isolation_id="example")
-        logger = container.get(ILogger)
-        logger.info("测试环境的日志消息")
-    finally:
-        reset_test_logger_services(container, isolation_id="example")
+    # 使用测试环境注册日志服务
+    logger_bindings = LoggerServiceBindings()
+    logger_bindings.register_services(container, test_config, environment="test_example")
+    
+    logger = container.get(ILogger)
+    logger.info("测试环境的日志消息")
 
 
 def example_manual_test_setup():
@@ -128,41 +124,31 @@ def example_manual_test_setup():
         }
     }
     
-    # 使用隔离ID注册测试服务
-    register_test_logger_services(container, test_config, isolation_id="my_test")
+    # 使用测试环境注册日志服务
+    logger_bindings = LoggerServiceBindings()
+    logger_bindings.register_services(container, test_config, environment="my_test")
     
     logger = container.get(ILogger)
     logger.debug("测试日志消息")
-    
-    # 清理测试环境
-    from src.services.container import reset_test_logger_services
-    reset_test_logger_services(container, "my_test")
 
 
 def example_lifecycle_management():
     """生命周期管理示例"""
-    try:
-        # 设置日志服务
-        container = get_global_container()
-        config = {
-            "log_level": "INFO",
-            "log_outputs": [{"type": "console", "level": "INFO"}]
-        }
-        
-        setup_global_logger_services(container, config)
-        
-        # 应用逻辑
-        logger = container.get(ILogger)
-        logger.info("应用运行中...")
-        
-        # 获取日志服务状态
-        from src.services.container import get_logger_service_status
-        status = get_logger_service_status(container)
-        print(f"日志服务状态: {status}")
-        
-    finally:
-        # 优雅关闭日志系统
-        shutdown_logger_services()
+    # 设置日志服务
+    container = get_global_container()
+    config = {
+        "log_level": "INFO",
+        "log_outputs": [{"type": "console", "level": "INFO"}]
+    }
+    
+    logger_bindings = LoggerServiceBindings()
+    logger_bindings.register_services(container, config)
+    
+    # 应用逻辑
+    logger = container.get(ILogger)
+    logger.info("应用运行中...")
+    
+    print("日志服务已设置并运行")
 
 
 def example_error_handling():
@@ -176,8 +162,9 @@ def example_error_handling():
     }
     
     try:
-        setup_global_logger_services(container, invalid_config)
-    except RuntimeError as e:
+        logger_bindings = LoggerServiceBindings()
+        logger_bindings.register_services(container, invalid_config)
+    except ValueError as e:
         print(f"配置验证失败: {e}")
         
         # 使用默认配置
@@ -185,7 +172,8 @@ def example_error_handling():
             "log_level": "INFO",
             "log_outputs": [{"type": "console", "level": "INFO"}]
         }
-        setup_global_logger_services(container, default_config)
+        logger_bindings = LoggerServiceBindings()
+        logger_bindings.register_services(container, default_config)
 
 
 if __name__ == "__main__":
