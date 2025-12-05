@@ -33,7 +33,7 @@ from src.interfaces.threads import IThreadRepository
 from src.interfaces.threads.service import IThreadService
 from src.core.sessions.interfaces import ISessionCore, ISessionStateTransition, ISessionValidator
 from src.interfaces.logger import ILogger
-from src.interfaces.common_infra import ServiceLifetime
+from src.interfaces.container.core import ServiceLifetime
 from src.services.container.core.base_service_bindings import BaseServiceBindings
 
 

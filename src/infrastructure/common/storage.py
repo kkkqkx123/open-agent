@@ -4,7 +4,7 @@ from abc import ABC
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
-from src.interfaces.common_infra import IStorage
+from src.interfaces.storage.base import IStorage
 from .serialization import Serializer
 from .utils.temporal import TemporalManager
 from .utils.metadata import MetadataManager

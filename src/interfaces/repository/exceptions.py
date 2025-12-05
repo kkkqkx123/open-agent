@@ -1,5 +1,6 @@
-"""
-Repository相关异常定义
+"""Repository异常定义
+
+定义数据访问层相关的异常类型，提供统一的错误处理机制。
 """
 
 from typing import Optional, Dict, Any
@@ -8,8 +9,15 @@ from typing import Optional, Dict, Any
 class RepositoryError(Exception):
     """Repository基础异常"""
     
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self, 
+        message: str, 
+        error_code: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None
+    ):
         super().__init__(message)
+        self.message = message
+        self.error_code = error_code
         self.details = details or {}
 
 
@@ -38,6 +46,16 @@ class RepositoryTransactionError(RepositoryError):
     pass
 
 
+class RepositoryValidationError(RepositoryError):
+    """仓储验证异常"""
+    pass
+
+
+class RepositoryTimeoutError(RepositoryError):
+    """仓储超时异常"""
+    pass
+
+
 __all__ = [
     "RepositoryError",
     "RepositoryNotFoundError",
@@ -45,4 +63,6 @@ __all__ = [
     "RepositoryOperationError",
     "RepositoryConnectionError",
     "RepositoryTransactionError",
+    "RepositoryValidationError",
+    "RepositoryTimeoutError",
 ]

@@ -28,7 +28,7 @@ from src.interfaces.container.testing import (
     DefaultTestIsolationStrategy
 )
 from src.interfaces.configuration import ValidationResult
-from src.interfaces.common_infra import ServiceLifetime
+from src.interfaces.container.core import ServiceLifetime
 
 # 延迟导入logger以避免循环依赖
 def _get_logger() -> Optional[Any]:

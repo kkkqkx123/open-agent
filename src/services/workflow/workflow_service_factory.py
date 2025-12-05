@@ -6,7 +6,8 @@
 from typing import List, Optional, Dict, Any
 
 from src.interfaces.container import IDependencyContainer
-from src.interfaces.common_infra import ServiceLifetime, ILogger
+from src.interfaces.container.core import ServiceLifetime
+from src.interfaces.logger import ILogger
 from src.interfaces.workflow.coordinator import IWorkflowCoordinator
 from src.interfaces.workflow.builders import IWorkflowBuilder
 from src.interfaces.workflow.execution import IWorkflowExecutor

@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 **模式2: 使用ILogger接口 (31个文件)**
 ```python
-from src.interfaces.common_infra import ILogger
+from src.interfaces.logger import ILogger
 # 通过依赖注入获取ILogger实例
 ```
 

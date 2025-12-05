@@ -95,14 +95,16 @@ from .checkpoint import (
     CheckpointValidationError,
 )
 
-# Repository异常
-from .repository import (
+# Repository异常 - 从接口层导入以实现向后兼容
+from src.interfaces.repository import (
     RepositoryError,
     RepositoryNotFoundError,
     RepositoryAlreadyExistsError,
     RepositoryOperationError,
     RepositoryConnectionError,
     RepositoryTransactionError,
+    RepositoryValidationError,
+    RepositoryTimeoutError,
 )
 
 __all__ = [
@@ -162,4 +164,6 @@ __all__ = [
     "RepositoryOperationError",
     "RepositoryConnectionError",
     "RepositoryTransactionError",
+    "RepositoryValidationError",
+    "RepositoryTimeoutError",
 ]

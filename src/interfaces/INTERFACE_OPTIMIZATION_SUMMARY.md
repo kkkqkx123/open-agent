@@ -305,7 +305,8 @@ def get_config(self, key: str, default: Optional[T] = None) -> Optional[T]:
 from src.interfaces.common_infra import ILogger, IConfigLoader
 
 # 新方式（推荐）
-from src.interfaces.common_infra import ILogger, IConfigLoader
+from src.interfaces.logger import ILogger
+from src.interfaces.config.interfaces import IConfigLoader
 from src.interfaces.common_service import OperationResult, IBaseService
 ```
 

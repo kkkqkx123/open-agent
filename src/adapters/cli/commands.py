@@ -6,7 +6,7 @@ from pathlib import Path
 from rich.console import Console
 
 from src.services.container import get_global_container
-from src.interfaces.common_infra import IConfigLoader
+from src.interfaces.config.interfaces import IConfigLoader
 from src.interfaces.sessions.base import ISessionManager
 from src.adapters.cli.env_check_command import EnvironmentCheckCommand
 from src.adapters.cli.architecture_command import ArchitectureCommand

@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, List, Callable
 from contextlib import contextmanager
 
 from src.interfaces.logger import ILogger, IBaseHandler, ILogRedactor, ILoggerFactory, LogLevel
-from src.interfaces.common_infra import ServiceLifetime
+from src.interfaces.container.core import ServiceLifetime
 from src.services.container.core.base_service_bindings import BaseServiceBindings
 
 

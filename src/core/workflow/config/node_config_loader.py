@@ -6,7 +6,7 @@
 from typing import Dict, Any, Optional
 from pathlib import Path
 
-from src.interfaces.common_infra import IConfigLoader
+from src.interfaces.config.interfaces import IConfigLoader
 
 
 class NodeConfigLoader:

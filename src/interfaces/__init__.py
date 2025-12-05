@@ -126,7 +126,15 @@ from .repository import (
     IStateRepository,
     IHistoryRepository,
     ISnapshotRepository,
-    ICheckpointRepository
+    ICheckpointRepository,
+    RepositoryError,
+    RepositoryNotFoundError,
+    RepositoryAlreadyExistsError,
+    RepositoryOperationError,
+    RepositoryConnectionError,
+    RepositoryTransactionError,
+    RepositoryValidationError,
+    RepositoryTimeoutError,
 )
 
 # 容器相关接口
@@ -348,6 +356,14 @@ __all__ = [
     "IHistoryRepository",
     "ISnapshotRepository",
     "ICheckpointRepository",
+    "RepositoryError",
+    "RepositoryNotFoundError",
+    "RepositoryAlreadyExistsError",
+    "RepositoryOperationError",
+    "RepositoryConnectionError",
+    "RepositoryTransactionError",
+    "RepositoryValidationError",
+    "RepositoryTimeoutError",
     
     # 容器接口
     "IDependencyContainer",

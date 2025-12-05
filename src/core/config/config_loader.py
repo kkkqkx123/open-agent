@@ -13,7 +13,7 @@ from src.infrastructure.common.exceptions.config import (
     ConfigFormatError,
     ConfigError
 )
-from src.interfaces.common_infra import IConfigLoader
+from src.interfaces.config.interfaces import IConfigLoader
 from src.interfaces.container import ILifecycleAware
 
 class ConfigLoader(IConfigLoader, ILifecycleAware):

@@ -10,7 +10,7 @@ from types import TracebackType
 
 from src.interfaces.container import IDependencyContainer
 from src.interfaces.logger import ILogger
-from src.interfaces.common_infra import ServiceLifetime
+from src.interfaces.container.core import ServiceLifetime
 
 # 导入日志绑定
 from ..bindings.logger_bindings import register_test_logger_services

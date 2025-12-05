@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 from src.interfaces.history import IHistoryManager, ICostCalculator
 from src.core.history.interfaces import ITokenTracker
 from src.interfaces.repository.history import IHistoryRepository
-from src.interfaces.common_infra import ServiceLifetime
+from src.interfaces.container.core import ServiceLifetime
 from src.interfaces.logger import ILogger
 from src.services.container.core.base_service_bindings import BaseServiceBindings
 

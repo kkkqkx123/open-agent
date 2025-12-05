@@ -28,7 +28,7 @@ from src.core.threads.interfaces import IThreadCore
 from src.interfaces.history import IHistoryManager
 from src.interfaces.threads.checkpoint import IThreadCheckpointManager
 from src.interfaces.logger import ILogger
-from src.interfaces.common_infra import ServiceLifetime
+from src.interfaces.container.core import ServiceLifetime
 from src.services.container.core.base_service_bindings import BaseServiceBindings
 
 

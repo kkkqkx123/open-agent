@@ -19,7 +19,7 @@ from src.interfaces.container import (
 from src.interfaces.container.exceptions import (
     RegistrationError,
 )
-from src.interfaces.common_infra import ServiceLifetime
+from src.interfaces.container.core import ServiceLifetime
 from src.services.container.injection.injection_base import get_global_injection_registry
 
 

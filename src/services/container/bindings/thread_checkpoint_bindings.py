@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 # 接口导入 - 集中化的接口定义
 from src.interfaces.container import IDependencyContainer
 from src.interfaces.threads.checkpoint import IThreadCheckpointManager
-from src.interfaces.common_infra import ServiceLifetime
+from src.interfaces.container.core import ServiceLifetime
 from src.interfaces.logger import ILogger
 from src.services.container.core.base_service_bindings import BaseServiceBindings
 
