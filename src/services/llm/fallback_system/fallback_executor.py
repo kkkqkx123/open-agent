@@ -13,7 +13,7 @@ from src.interfaces.llm import IFallbackStrategy, IClientFactory, IFallbackLogge
 from src.infrastructure.llm.fallback import FallbackConfig, FallbackAttempt, FallbackSession, create_fallback_strategy
 
 # 修复导入路径
-from core.common.exceptions.llm import LLMCallError
+from src.interfaces.llm.exceptions import LLMCallError
 
 
 class FallbackExecutor:

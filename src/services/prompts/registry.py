@@ -16,9 +16,9 @@ from ...interfaces.prompts.models import (
     PromptSearchResult,
     PromptStatus
 )
-from ...core.common.exceptions.prompt import (
+from src.interfaces.prompts.exceptions import (
     PromptNotFoundError,
-    PromptRegistryError as PromptRegistrationError,
+    PromptError as PromptRegistrationError,
     PromptValidationError
 )
 from ...services.logger import get_logger

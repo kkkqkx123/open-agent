@@ -16,10 +16,10 @@ from .base import (
     BaseConfig,
     ConfigType,
 )
-from ..common.exceptions.config import (
+from src.interfaces.configuration import (
     ConfigError,
-    ConfigNotFoundError,
-    ConfigValidationError
+    ConfigurationLoadError as ConfigNotFoundError,
+    ConfigurationValidationError as ConfigValidationError
 )
 from .file_watcher import ConfigFileWatcher
 from .error_recovery import ConfigErrorRecovery, ConfigValidatorWithRecovery

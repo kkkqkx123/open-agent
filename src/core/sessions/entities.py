@@ -8,31 +8,13 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from src.interfaces.sessions.entities import ISession, IUserRequest, IUserInteraction, ISessionContext
+from src.interfaces.common_domain import AbstractSessionData, AbstractSessionStatus
 
-if TYPE_CHECKING:
-    from src.interfaces.common_domain import AbstractSessionData, AbstractSessionStatus
-
-
-# 重新定义会话状态枚举以避免循环导入
-class SessionStatus(str, Enum):
-    """
-    会话状态枚举
-
-    定义会话的可能状态，用于会话生命周期管理。
-
-    状态流转：
-    ACTIVE -> PAUSED -> COMPLETED
-    ACTIVE -> FAILED
-    ACTIVE/PAUSED/COMPLETED/FAILED -> ARCHIVED
-    """
-    ACTIVE = "active"      # 活跃状态，会话正在进行
-    PAUSED = "paused"      # 暂停状态，会话暂时停止
-    COMPLETED = "completed"  # 完成状态，会话正常结束
-    FAILED = "failed"      # 失败状态，会话异常结束
-    ARCHIVED = "archived"  # 归档状态，会话已归档
+# 使用通用领域接口中的会话状态枚举，避免重复定义
+SessionStatus = AbstractSessionStatus
 
 
-class Session(ISession):
+class Session(ISession, AbstractSessionData):
     """会话实体"""
     
     def __init__(
@@ -45,7 +27,8 @@ class Session(ISession):
         updated_at: Optional[datetime] = None,
         metadata: Optional[Dict[str, Any]] = None,
         tags: Optional[List[str]] = None,
-        thread_ids: Optional[List[str]] = None
+        thread_ids: Optional[List[str]] = None,
+        user_id: Optional[str] = None
     ):
         """初始化会话实体"""
         self._session_id = session_id or str(uuid4())
@@ -55,8 +38,16 @@ class Session(ISession):
         self._created_at = created_at or datetime.now()
         self._updated_at = updated_at or datetime.now()
         self.metadata = metadata or {}
+        # 如果提供了user_id，将其存储在metadata中
+        if user_id:
+            self.metadata['user_id'] = user_id
         self.tags = tags or []
-        self.thread_ids = thread_ids or []
+        self._thread_ids = thread_ids or []
+
+    @property
+    def id(self) -> str:
+        """获取会话ID - 实现AbstractSessionData接口"""
+        return self._session_id
 
     @property
     def session_id(self) -> str:
@@ -64,9 +55,9 @@ class Session(ISession):
         return self._session_id
 
     @property
-    def status(self) -> str:
-        """会话状态"""
-        return self._status.value
+    def status(self) -> AbstractSessionStatus:
+        """会话状态 - 实现AbstractSessionData接口"""
+        return self._status
 
     @property
     def created_at(self) -> datetime:
@@ -95,14 +86,20 @@ class Session(ISession):
     @thread_ids.setter
     def thread_ids(self, value: List[str]) -> None:
         self._thread_ids = value
+    
+    @property
+    def user_id(self) -> Optional[str]:
+        """用户ID（从metadata中获取）"""
+        return self.metadata.get('user_id')
 
     def is_active(self) -> bool:
         """检查会话是否活跃"""
         return self._status == SessionStatus.ACTIVE
 
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
+        """转换为字典 - 实现AbstractSessionData接口"""
         return {
+            'id': self._session_id,
             'session_id': self._session_id,
             'status': self._status.value,
             'message_count': self.message_count,
@@ -132,110 +129,32 @@ class Session(ISession):
     def update_timestamp(self) -> None:
         """更新时间戳"""
         self._updated_at = datetime.now()
-
-
-class SessionEntity(ISession):
-    """会话实体"""
     
-    def __init__(
-        self,
-        session_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        thread_ids: Optional[List[str]] = None,
-        status: str = "active",
-        created_at: Optional[datetime] = None,
-        updated_at: Optional[datetime] = None,
-        metadata: Optional[Dict[str, Any]] = None
-    ):
-        """初始化会话实体"""
-        self._session_id = session_id or str(uuid4())
-        self.user_id = user_id
-        self._thread_ids = thread_ids or []
-        self._status = status
-        self._created_at = created_at or datetime.now()
-        self._updated_at = updated_at or datetime.now()
-        self._metadata = metadata or {}
-
-    @property
-    def session_id(self) -> str:
-        """会话ID"""
-        return self._session_id
-
-    @property
-    def status(self) -> str:
-        """会话状态"""
-        return self._status
-
-    @property
-    def created_at(self) -> datetime:
-        """创建时间"""
-        return self._created_at
-
-    @property
-    def updated_at(self) -> datetime:
-        """更新时间"""
-        return self._updated_at
-
-    @property
-    def metadata(self) -> Dict[str, Any]:
-        """元数据"""
-        return self._metadata
-
-    @property
-    def thread_ids(self) -> List[str]:
-        """关联的线程ID列表"""
-        return self._thread_ids
-
     def add_thread(self, thread_id: str) -> None:
         """添加线程ID"""
         if thread_id not in self._thread_ids:
             self._thread_ids.append(thread_id)
-            self._updated_at = datetime.now()
+            self.update_timestamp()
 
     def remove_thread(self, thread_id: str) -> None:
         """移除线程ID"""
         if thread_id in self._thread_ids:
             self._thread_ids.remove(thread_id)
-            self._updated_at = datetime.now()
+            self.update_timestamp()
 
     def update_status(self, status: str) -> None:
         """更新状态"""
-        self._status = status
-        self._updated_at = datetime.now()
+        self._status = SessionStatus(status)
+        self.update_timestamp()
 
     def update_metadata(self, metadata: Dict[str, Any]) -> None:
         """更新元数据"""
-        self._metadata.update(metadata)
-        self._updated_at = datetime.now()
+        self.metadata.update(metadata)
+        self.update_timestamp()
 
-    def is_active(self) -> bool:
-        """检查会话是否活跃"""
-        return self._status == "active"
 
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
-        return {
-            "session_id": self._session_id,
-            "user_id": self.user_id,
-            "thread_ids": self._thread_ids,
-            "status": self._status,
-            "created_at": self._created_at.isoformat(),
-            "updated_at": self._updated_at.isoformat(),
-            "metadata": self._metadata
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'SessionEntity':
-        """从字典创建实体"""
-        return cls(
-            session_id=data.get("session_id"),
-            user_id=data.get("user_id"),
-            thread_ids=data.get("thread_ids", []),
-            status=data.get("status", "active"),
-            created_at=datetime.fromisoformat(data["created_at"]) if "created_at" in data else None,
-            updated_at=datetime.fromisoformat(data["updated_at"]) if "updated_at" in data else None,
-            metadata=data.get("metadata", {})
-        )
+# SessionEntity 类已被删除，功能合并到 Session 类中
+# 如果需要 user_id 功能，请使用 Session 类的 metadata 字段
 
 
 class UserInteractionEntity(IUserInteraction):

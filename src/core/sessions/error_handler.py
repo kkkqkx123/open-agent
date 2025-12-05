@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 import time
 
 from src.services.logger.injection import get_logger
-from src.core.common.error_management import BaseErrorHandler, ErrorCategory, ErrorSeverity
+from src.infrastructure.error_management import BaseErrorHandler, ErrorCategory, ErrorSeverity
 from src.interfaces.sessions.exceptions import (
     SessionThreadException,
     SessionNotFoundError,
@@ -334,7 +334,7 @@ class SessionOperationHandler:
         Raises:
             SessionNotFoundError: 创建失败
         """
-        from src.core.common.error_management import operation_with_retry
+        from src.infrastructure.error_management import operation_with_retry
         
         operation_context = context or {}
         operation_context.update({
@@ -351,7 +351,7 @@ class SessionOperationHandler:
                 context=operation_context
             )
         except Exception as e:
-            from src.core.common.error_management import handle_error
+            from src.infrastructure.error_management import handle_error
             handle_error(e, operation_context)
             raise SessionNotFoundError(f"Session创建失败: {e}") from e
     
@@ -376,7 +376,7 @@ class SessionOperationHandler:
         Raises:
             SessionNotFoundError: Session未找到且无降级策略
         """
-        from src.core.common.error_management import operation_with_fallback
+        from src.infrastructure.error_management import operation_with_fallback
         
         operation_context = context or {}
         operation_context.update({
@@ -400,7 +400,7 @@ class SessionOperationHandler:
                 context=operation_context
             )
         except Exception as e:
-            from src.core.common.error_management import handle_error
+            from src.infrastructure.error_management import handle_error
             handle_error(e, operation_context)
             raise
     
@@ -427,7 +427,7 @@ class SessionOperationHandler:
         Raises:
             AssociationNotFoundError: 关联创建失败
         """
-        from src.core.common.error_management import safe_execution
+        from src.infrastructure.error_management import safe_execution
         
         operation_context = context or {}
         operation_context.update({
@@ -455,7 +455,7 @@ class SessionOperationHandler:
                 context=operation_context
             )
         except Exception as e:
-            from src.core.common.error_management import handle_error
+            from src.infrastructure.error_management import handle_error
             handle_error(e, operation_context)
             raise AssociationNotFoundError(
                 session_id,
@@ -488,7 +488,7 @@ class SessionOperationHandler:
         Raises:
             SessionNotFoundError: Session未找到
         """
-        from src.core.common.error_management import safe_execution
+        from src.infrastructure.error_management import safe_execution
         
         operation_context = context or {}
         operation_context.update({
@@ -507,7 +507,7 @@ class SessionOperationHandler:
                 context=operation_context
             )
         except Exception as e:
-            from src.core.common.error_management import handle_error
+            from src.infrastructure.error_management import handle_error
             handle_error(e, operation_context)
             raise SessionNotFoundError(f"用户交互处理失败: {e}") from e
     
@@ -529,7 +529,7 @@ class SessionOperationHandler:
         Returns:
             更新是否成功
         """
-        from src.core.common.error_management import safe_execution
+        from src.infrastructure.error_management import safe_execution
         
         operation_context = context or {}
         operation_context.update({
@@ -549,6 +549,6 @@ class SessionOperationHandler:
             )
             return result if result is not None else False
         except Exception as e:
-            from src.core.common.error_management import handle_error
+            from src.infrastructure.error_management import handle_error
             handle_error(e, operation_context)
             return False

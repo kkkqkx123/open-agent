@@ -10,8 +10,8 @@ from datetime import datetime
 
 from ..core.base import BaseState
 from src.interfaces.state.interfaces import IState
-from ...common.exceptions.state import StateError, StateValidationError
-from ...common.error_management import handle_error, ErrorCategory, ErrorSeverity
+from src.interfaces.state.exceptions import StateError, StateValidationError
+from src.infrastructure.error_management import handle_error, ErrorCategory, ErrorSeverity
 
 logger = get_logger(__name__)
 

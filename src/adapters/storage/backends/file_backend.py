@@ -15,7 +15,7 @@ from src.interfaces.storage.exceptions import (
     StorageCapacityError,
     StorageValidationError
 )
-from src.core.common.error_management import handle_error, ErrorCategory, ErrorSeverity
+from src.infrastructure.error_management import handle_error, ErrorCategory, ErrorSeverity
 from ..adapters.base import StorageBackend
 from ..utils.common_utils import StorageCommonUtils
 from ..utils.file_utils import FileStorageUtils

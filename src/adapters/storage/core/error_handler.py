@@ -9,7 +9,7 @@ import inspect
 from functools import wraps
 from typing import Any, Callable, Optional, TypeVar, Union
 
-from core.common.exceptions.state import (
+from src.interfaces.storage.exceptions import (
     StorageError, 
     StorageConnectionError, 
     StorageTimeoutError,

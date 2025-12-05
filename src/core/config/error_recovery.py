@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, Callable
 from datetime import datetime
 
-from ..common.exceptions.config import ConfigError, ConfigValidationError
-from ..common.error_management import handle_error, operation_with_retry
+from src.interfaces.configuration import ConfigError, ConfigurationValidationError as ConfigValidationError
+from src.infrastructure.error_management import handle_error, operation_with_retry
 
 
 class ConfigBackupManager:

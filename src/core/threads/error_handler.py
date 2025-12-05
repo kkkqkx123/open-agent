@@ -3,13 +3,10 @@
 为Thread操作提供统一的错误处理机制。
 """
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, Optional
 import time
 
-if TYPE_CHECKING:
-    from src.services.logger.injection import get_logger
-
-from src.core.common.error_management import BaseErrorHandler, ErrorCategory, ErrorSeverity
+from src.infrastructure.error_management import BaseErrorHandler, ErrorCategory, ErrorSeverity
 from src.interfaces.sessions.exceptions import (
     SessionThreadException,
     ThreadCreationError,
@@ -372,7 +369,7 @@ class ThreadOperationHandler:
         Raises:
             ThreadCreationError: 创建失败
         """
-        from src.core.common.error_management import operation_with_retry
+        from src.infrastructure.error_management import operation_with_retry
         
         operation_context = context or {}
         operation_context.update({
@@ -388,7 +385,7 @@ class ThreadOperationHandler:
                 context=operation_context
             )
         except Exception as e:
-            from src.core.common.error_management import handle_error
+            from src.infrastructure.error_management import handle_error
             handle_error(e, operation_context)
             raise ThreadCreationError(
                 session_id="unknown",
@@ -417,7 +414,7 @@ class ThreadOperationHandler:
         Raises:
             ThreadNotFoundError: Thread未找到且无降级策略
         """
-        from src.core.common.error_management import operation_with_fallback
+        from src.infrastructure.error_management import operation_with_fallback
         
         operation_context = context or {}
         operation_context.update({
@@ -441,7 +438,7 @@ class ThreadOperationHandler:
                 context=operation_context
             )
         except Exception as e:
-            from src.core.common.error_management import handle_error
+            from src.infrastructure.error_management import handle_error
             handle_error(e, operation_context)
             raise
     
@@ -468,7 +465,7 @@ class ThreadOperationHandler:
         Raises:
             SynchronizationError: 状态转换失败
         """
-        from src.core.common.error_management import safe_execution
+        from src.infrastructure.error_management import safe_execution
         
         operation_context = context or {}
         operation_context.update({
@@ -489,7 +486,7 @@ class ThreadOperationHandler:
             )
             return result if result is not None else False
         except Exception as e:
-            from src.core.common.error_management import handle_error
+            from src.infrastructure.error_management import handle_error
             handle_error(e, operation_context)
             raise SynchronizationError(
                 session_id="unknown",
@@ -514,7 +511,7 @@ class ThreadOperationHandler:
         Raises:
             TransactionRollbackError: 批处理失败
         """
-        from src.core.common.error_management import safe_execution
+        from src.infrastructure.error_management import safe_execution
         
         operation_context = context or {}
         operation_context.update({
@@ -541,12 +538,12 @@ class ThreadOperationHandler:
                     results[thread_id] = result
             except Exception as e:
                 failed_operations.append(thread_id)
-                from src.core.common.error_management import handle_error
+                from src.infrastructure.error_management import handle_error
                 handle_error(e, thread_context)
         
         if failed_operations:
             error_msg = f"批处理操作失败，失败的Thread: {failed_operations}"
-            from src.core.common.error_management import handle_error
+            from src.infrastructure.error_management import handle_error
             handle_error(Exception(error_msg), operation_context)
             raise TransactionRollbackError(
                 operation_id=operation_context.get("operation", "batch_thread_operation"),

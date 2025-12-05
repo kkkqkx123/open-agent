@@ -10,7 +10,7 @@ from .base import BaseLLMClient
 from src.interfaces.llm import LLMResponse
 from src.infrastructure.llm.models import TokenUsage
 from ..config import GeminiConfig
-from ...common.exceptions.llm import (
+from src.interfaces.llm.exceptions import (
     LLMCallError,
     LLMTimeoutError,
     LLMRateLimitError,

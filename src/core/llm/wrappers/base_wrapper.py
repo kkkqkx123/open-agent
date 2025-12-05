@@ -7,7 +7,7 @@ from src.services.logger.injection import get_logger
 from abc import ABC
 from src.interfaces.llm import LLMResponse
 from src.infrastructure.llm.models import TokenUsage
-from ...common.exceptions.llm import LLMError
+from src.interfaces.llm.exceptions import LLMError
 from src.infrastructure.messages.types import HumanMessage
 
 logger = get_logger(__name__)

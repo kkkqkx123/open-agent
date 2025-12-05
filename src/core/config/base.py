@@ -6,8 +6,8 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, Field, ConfigDict
 from enum import Enum
 
-from ..common.exceptions.config import ConfigError, ConfigValidationError
-from ..common.error_management import handle_error, ErrorCategory, ErrorSeverity
+from src.interfaces.configuration import ConfigError, ConfigurationValidationError as ConfigValidationError
+from src.infrastructure.error_management import handle_error, ErrorCategory, ErrorSeverity
 
 logger = get_logger(__name__)
 

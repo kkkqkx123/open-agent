@@ -5,11 +5,30 @@
 """
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 from enum import Enum
 
 # 从Interface层导入接口定义
 from src.interfaces.state.entities import IStateSnapshot, IStateHistoryEntry
+
+
+class TimestampUtils:
+    """时间戳处理工具类"""
+    
+    @staticmethod
+    def normalize_timestamp(timestamp: Union[str, datetime]) -> str:
+        """标准化时间戳为字符串格式"""
+        if isinstance(timestamp, str):
+            return timestamp
+        elif isinstance(timestamp, datetime):
+            return timestamp.isoformat()
+        else:
+            raise ValueError(f"不支持的时间戳类型: {type(timestamp)}")
+    
+    @staticmethod
+    def parse_timestamp(timestamp_str: str) -> datetime:
+        """解析时间戳字符串为datetime对象"""
+        return datetime.fromisoformat(timestamp_str)
 
 
 @dataclass
@@ -36,7 +55,7 @@ class StateSnapshot(IStateSnapshot):
         self._snapshot_id = snapshot_id
         self._thread_id = thread_id
         self._domain_state = domain_state
-        self._timestamp = timestamp if isinstance(timestamp, str) else timestamp.isoformat()
+        self._timestamp = TimestampUtils.normalize_timestamp(timestamp)
         self._snapshot_name = snapshot_name or f"snapshot_{self._timestamp.replace(':', '').replace('-', '')}"
         self._metadata = metadata or {}
         self.compressed_data = compressed_data
@@ -132,7 +151,7 @@ class StateHistoryEntry(IStateHistoryEntry):
         """初始化历史记录条目"""
         self._history_id = history_id
         self._thread_id = thread_id
-        self._timestamp = timestamp if isinstance(timestamp, str) else timestamp.isoformat()
+        self._timestamp = TimestampUtils.normalize_timestamp(timestamp)
         self._action = action
         self._state_diff = state_diff
         self._metadata = metadata or {}

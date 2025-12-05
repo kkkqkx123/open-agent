@@ -10,7 +10,7 @@ from src.services.logger.injection import get_logger
 import uuid
 
 from src.interfaces.workflow.core import IWorkflow
-from core.common.exceptions.workflow import WorkflowError, WorkflowValidationError
+from src.interfaces.workflow.exceptions import WorkflowError, WorkflowValidationError
 
 logger = get_logger(__name__)
 

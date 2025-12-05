@@ -6,14 +6,14 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .entities import SessionEntity, UserRequestEntity, UserInteractionEntity
+    from .entities import Session, UserRequestEntity, UserInteractionEntity
 
 
 class ISessionCore(ABC):
     """会话核心接口"""
     
     @abstractmethod
-    def create_session(self, user_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> 'SessionEntity':
+    def create_session(self, user_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> 'Session':
         """创建会话实体
         
         Args:

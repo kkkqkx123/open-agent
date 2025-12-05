@@ -42,8 +42,8 @@ from ..implementations.tool_state import ToolState
 from ..implementations.session_state import SessionStateImpl as SessionState
 from ..implementations.thread_state import ThreadState
 from ..implementations.checkpoint_state import CheckpointState
-from ...common.exceptions.state import StateError, StateValidationError
-from ...common.error_management import handle_error, ErrorCategory, ErrorSeverity
+from src.interfaces.state.exceptions import StateError, StateValidationError
+from src.infrastructure.error_management import handle_error, ErrorCategory, ErrorSeverity
 
 logger = get_logger(__name__)
 

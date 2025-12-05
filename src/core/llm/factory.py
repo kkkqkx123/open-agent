@@ -8,7 +8,7 @@ from threading import RLock
 
 from src.interfaces.llm import ILLMClient, ILLMClientFactory
 from .config import LLMClientConfig, LLMModuleConfig
-from ..common.exceptions.llm import LLMClientCreationError, UnsupportedModelTypeError
+from src.interfaces.llm.exceptions import LLMClientCreationError, UnsupportedModelTypeError
 
 
 class LLMFactory(ILLMClientFactory):

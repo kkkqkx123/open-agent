@@ -6,7 +6,7 @@ from datetime import datetime
 from .interfaces import IThreadCore, IThreadBranchCore, IThreadSnapshotCore
 from .entities import Thread, ThreadBranch, ThreadSnapshot, ThreadStatus, ThreadType, ThreadMetadata
 from .error_handler import ThreadOperationHandler
-from src.core.common.error_management import create_error_context, handle_error
+from src.infrastructure.error_management import create_error_context, handle_error
 from src.interfaces.sessions.exceptions import ThreadCreationError
 
 
@@ -111,7 +111,7 @@ class ThreadFactory(IThreadCore):
             return thread.can_transition_to(ThreadStatus(target_status))
         
         try:
-            from src.core.common.error_management import safe_execution
+            from src.infrastructure.error_management import safe_execution
             return safe_execution(_check_transition, default_return=False, context=context)
         except Exception as e:
             handle_error(e, context)
@@ -138,7 +138,7 @@ class ThreadFactory(IThreadCore):
             return True
         
         try:
-            from src.core.common.error_management import safe_execution
+            from src.infrastructure.error_management import safe_execution
             return safe_execution(_validate, default_return=False, context=context)
         except Exception as e:
             handle_error(e, context)
@@ -165,7 +165,7 @@ class ThreadFactory(IThreadCore):
             thread_data.update(thread.to_dict())
         
         try:
-            from src.core.common.error_management import safe_execution
+            from src.infrastructure.error_management import safe_execution
             return safe_execution(_update_state, context=context)
         except Exception as e:
             handle_error(e, context)
@@ -206,7 +206,7 @@ class ThreadBranchFactory(IThreadBranchCore):
             return branch.to_dict()
         
         try:
-            from src.core.common.error_management import safe_execution
+            from src.infrastructure.error_management import safe_execution
             return safe_execution(_create_branch, context=context)
         except Exception as e:
             handle_error(e, context)
@@ -237,7 +237,7 @@ class ThreadBranchFactory(IThreadBranchCore):
             return True
         
         try:
-            from src.core.common.error_management import safe_execution
+            from src.infrastructure.error_management import safe_execution
             return safe_execution(_validate, default_return=False, context=context)
         except Exception as e:
             handle_error(e, context)
@@ -277,7 +277,7 @@ class ThreadSnapshotFactory(IThreadSnapshotCore):
             return snapshot.to_dict()
         
         try:
-            from src.core.common.error_management import safe_execution
+            from src.infrastructure.error_management import safe_execution
             return safe_execution(_create_snapshot, context=context)
         except Exception as e:
             handle_error(e, context)
@@ -308,7 +308,7 @@ class ThreadSnapshotFactory(IThreadSnapshotCore):
             return True
         
         try:
-            from src.core.common.error_management import safe_execution
+            from src.infrastructure.error_management import safe_execution
             return safe_execution(_validate, default_return=False, context=context)
         except Exception as e:
             handle_error(e, context)

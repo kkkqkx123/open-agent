@@ -17,7 +17,7 @@ from src.interfaces.repository.history import IHistoryRepository
 from src.interfaces.logger import ILogger
 from src.core.history.base import BaseHistoryManager
 from src.interfaces.history.exceptions import HistoryError
-from src.core.common.exceptions.storage import StorageError
+from src.interfaces.storage.exceptions import StorageError
 
 
 class HistoryManager(BaseHistoryManager, IHistoryManager):

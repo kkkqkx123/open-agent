@@ -328,7 +328,7 @@ class BaseContext:
 @dataclass
 class ExecutionContext(BaseContext):
     """应用层执行上下文"""
-    operation_id: str
+    operation_id: str = ""
     user_id: Optional[str] = None
     session_id: Optional[str] = None
     request_id: Optional[str] = None
@@ -337,8 +337,8 @@ class ExecutionContext(BaseContext):
 @dataclass
 class WorkflowExecutionContext(BaseContext):
     """工作流执行上下文"""
-    workflow_id: str
-    execution_id: str
+    workflow_id: str = ""
+    execution_id: str = ""
     config: Dict[str, Any] = field(default_factory=dict)
 
 

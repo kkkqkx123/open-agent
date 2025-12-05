@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional, TYPE_CHECKING
 from uuid import uuid4
 
 from .error_handler import SessionOperationHandler
-from src.core.common.error_management import create_error_context, handle_error
+from src.infrastructure.error_management import create_error_context, handle_error
 from src.interfaces.sessions.exceptions import AssociationNotFoundError
 
 if TYPE_CHECKING:
@@ -53,7 +53,7 @@ class SessionThreadAssociation:
                 raise ValueError("thread_name cannot be empty")
         
         try:
-            from src.core.common.error_management import safe_execution
+            from src.infrastructure.error_management import safe_execution
             safe_execution(_validate, context=context)
         except Exception as e:
             handle_error(e, context)

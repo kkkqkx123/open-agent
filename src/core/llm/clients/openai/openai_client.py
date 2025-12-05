@@ -6,7 +6,7 @@ from src.interfaces.messages import IBaseMessage
 
 from ..base import BaseLLMClient
 from src.interfaces.llm import LLMResponse
-from ....common.exceptions.llm import LLMCallError
+from src.interfaces.llm.exceptions import LLMCallError
 from .config import OpenAIConfig
 from .chat_client import ChatClient
 from .responses_client import ResponsesClient

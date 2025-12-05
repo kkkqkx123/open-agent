@@ -15,7 +15,7 @@ from src.interfaces.storage.exceptions import (
     StorageCapacityError,
     StorageValidationError
 )
-from src.core.common.error_management import handle_error, ErrorCategory, ErrorSeverity
+from src.infrastructure.error_management import handle_error, ErrorCategory, ErrorSeverity
 from ..adapters.base import StorageBackend
 from ..utils.common_utils import StorageCommonUtils
 from ..utils.memory_utils import MemoryStorageUtils, MemoryStorageItem
@@ -324,8 +324,10 @@ class MemoryStorageBackend(StorageBackend):
         if self.max_size and len(self._storage) >= self.max_size:
             raise StorageCapacityError(
                 f"Storage capacity exceeded: max_size={self.max_size}",
-                required_size=1,
-                available_size=self.max_size - len(self._storage)
+                details={
+                    "required_size": 1,
+                    "available_size": self.max_size - len(self._storage)
+                }
             )
         
         if self.max_memory_mb:
@@ -334,8 +336,10 @@ class MemoryStorageBackend(StorageBackend):
             if total_size >= max_bytes:
                 raise StorageCapacityError(
                     f"Memory capacity exceeded: max_memory_mb={self.max_memory_mb}",
-                    required_size=1024,
-                    available_size=max_bytes - total_size
+                    details={
+                        "required_size": 1024,
+                        "available_size": max_bytes - total_size
+                    }
                 )
     
     def _calculate_memory_usage(self) -> int:

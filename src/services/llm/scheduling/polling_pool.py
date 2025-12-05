@@ -13,7 +13,7 @@ from .concurrency_controller import ConcurrencyAndRateLimitManager, ConcurrencyL
 from .task_group_manager import TaskGroupManager
 from src.interfaces.llm import IPollingPoolManager
 from src.interfaces.llm import ILLMClient
-from core.common.exceptions.llm import LLMError
+from src.interfaces.llm.exceptions import LLMError
 
 logger = get_logger(__name__)
 

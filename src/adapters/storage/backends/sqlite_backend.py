@@ -11,7 +11,7 @@ from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List, Union, AsyncIterator, AsyncGenerator
 from pathlib import Path
 
-from core.common.exceptions.state import (
+from src.interfaces.storage.exceptions import (
     StorageError,
     StorageConnectionError,
     StorageTransactionError,

@@ -12,8 +12,8 @@ from .adapters import (
     StateConfigAdapter
 )
 from .config_manager import ConfigManager
-from ..common.exceptions.config import ConfigError, ConfigValidationError
-from ..common.error_management import handle_error, ErrorCategory, ErrorSeverity
+from src.interfaces.configuration import ConfigError, ConfigurationValidationError as ConfigValidationError
+from src.infrastructure.error_management import handle_error
 
 logger = get_logger(__name__)
 

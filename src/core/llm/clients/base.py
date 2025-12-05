@@ -10,7 +10,7 @@ from src.interfaces.messages import IBaseMessage
 from src.interfaces.llm import ILLMClient, ILLMCallHook, LLMResponse
 from src.infrastructure.llm.models import TokenUsage, LLMError, ModelInfo
 from ..config import LLMClientConfig
-from ...common.exceptions.llm import (
+from src.interfaces.llm.exceptions import (
     LLMCallError,
     LLMModelNotFoundError,
     LLMInvalidRequestError,

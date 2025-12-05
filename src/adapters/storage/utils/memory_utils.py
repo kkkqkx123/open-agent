@@ -8,7 +8,7 @@ import pickle
 import time
 from typing import Dict, Any, Optional, List, Union
 
-from core.common.exceptions.state import StorageError, StorageCapacityError
+from src.interfaces.storage.exceptions import StorageError, StorageCapacityError
 from .common_utils import StorageCommonUtils
 
 
@@ -188,7 +188,7 @@ class MemoryStorageUtils:
         Raises:
             StorageCapacityError: 超过容量限制时抛出
         """
-        from core.common.exceptions.state import StorageCapacityError
+        from src.interfaces.storage.exceptions import StorageCapacityError
         
         # 检查条目数量限制
         if max_size and len(storage_items) >= max_size:

@@ -342,16 +342,16 @@ def setup_container(config_path: Optional[str] = None) -> None:
     from src.core.sessions.interfaces import ISessionCore
     if not container.has_service(ISessionCore):
         from src.core.sessions.interfaces import ISessionCore
-        from src.core.sessions.entities import SessionEntity, UserRequestEntity, UserInteractionEntity
+        from src.core.sessions.entities import Session, UserRequestEntity, UserInteractionEntity
         from typing import Dict, Any, Optional
         import uuid
         from datetime import datetime
         
         class SimpleSessionCore(ISessionCore):
             """简单的SessionCore实现"""
-            def create_session(self, user_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> SessionEntity:
+            def create_session(self, user_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> Session:
                 session_id = str(uuid.uuid4())
-                return SessionEntity(
+                return Session(
                     session_id=session_id,
                     user_id=user_id,
                     metadata=metadata or {}

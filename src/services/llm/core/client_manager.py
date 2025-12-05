@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from src.services.logger.injection import get_logger
 
 from src.interfaces.llm import ILLMClient
-from core.common.exceptions.llm import LLMError
+from src.interfaces.llm.exceptions import LLMError
 from src.services.llm.state_machine import StateMachine, LLMManagerState
 from src.services.llm.utils.metadata_service import ClientMetadataService
 

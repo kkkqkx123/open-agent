@@ -99,7 +99,7 @@ class WorkflowBuilder(IWorkflowBuilder):
                         node_builder.add_to_graph(node_function, builder, node_config, self.build_context)
                 except Exception as e:
                     logger.error(f"添加节点失败: {node_name}, 错误: {e}")
-                    from core.common.exceptions.workflow import WorkflowConfigError
+                    from src.interfaces.workflow.exceptions import WorkflowConfigError
                     raise WorkflowConfigError(f"添加节点失败: {node_name}") from e
             
             # 添加边
@@ -109,7 +109,7 @@ class WorkflowBuilder(IWorkflowBuilder):
                     edge_builder.add_to_graph(edge_element, builder, edge, self.build_context)
                 except Exception as e:
                     logger.error(f"添加边失败: {edge}, 错误: {e}")
-                    from core.common.exceptions.workflow import WorkflowConfigError
+                    from src.interfaces.workflow.exceptions import WorkflowConfigError
                     raise WorkflowConfigError(f"添加边失败: {edge}") from e
             
             # 设置入口点
@@ -124,9 +124,9 @@ class WorkflowBuilder(IWorkflowBuilder):
             return compiled_graph
             
         except Exception as e:
-            logger.error(f"构建工作流图失败: {workflow.name}, 错误: {e}")
-            from core.common.exceptions.workflow import WorkflowConfigError
-            raise WorkflowConfigError(f"构建图失败: {e}") from e
+           logger.error(f"构建工作流图失败: {workflow.name}, 错误: {e}")
+           from src.interfaces.workflow.exceptions import WorkflowConfigError
+           raise WorkflowConfigError(f"构建图失败: {e}") from e
     
     def build_and_set_graph(self, workflow: IWorkflow) -> None:
         """构建图并设置到工作流实例

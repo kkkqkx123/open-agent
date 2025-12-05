@@ -18,8 +18,8 @@ from .entities import (
 from src.interfaces.history.exceptions import (
      HistoryError, StatisticsError, RecordNotFoundError, TokenCalculationError, CostCalculationError
 )
-from src.core.common.exceptions.storage import StorageError
-from src.core.common.error_management import handle_error, ErrorCategory, ErrorSeverity
+from src.interfaces.storage.exceptions import StorageError
+from src.infrastructure.error_management import handle_error, ErrorCategory, ErrorSeverity
 
 logger = get_logger(__name__)
 

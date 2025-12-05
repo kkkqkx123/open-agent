@@ -8,7 +8,7 @@ import time
 from typing import Dict, Callable, Optional, Any, List
 from enum import Enum
 
-from src.core.common.error_management import (
+from src.infrastructure.error_management import (
     BaseErrorHandler, ErrorCategory, ErrorSeverity,
     ErrorHandlingRegistry, operation_with_retry, operation_with_fallback
 )

@@ -7,8 +7,8 @@ from typing import Any, Dict, Optional, List
 from src.services.logger.injection import get_logger
 import time
 
-from src.core.common.error_management import BaseErrorHandler, ErrorCategory, ErrorSeverity
-from src.core.common.exceptions.storage import (
+from src.infrastructure.error_management import BaseErrorHandler, ErrorCategory, ErrorSeverity
+from src.infrastructure.exceptions.storage import (
     StorageError,
     StorageConnectionError,
     StorageTransactionError,
@@ -372,7 +372,7 @@ class StorageOperationHandler:
         Raises:
             StorageError: 存储操作失败
         """
-        from src.core.common.error_management import operation_with_retry
+        from src.infrastructure.error_management import operation_with_retry
         
         operation_context = context or {}
         operation_context.update({
@@ -395,7 +395,7 @@ class StorageOperationHandler:
                 context=operation_context
             )
         except Exception as e:
-            from src.core.common.error_management import handle_error
+            from src.infrastructure.error_management import handle_error
             handle_error(e, operation_context)
             raise StorageError(f"存储操作失败: {e}") from e
     
@@ -418,7 +418,7 @@ class StorageOperationHandler:
         Raises:
             StorageTransactionError: 批处理失败
         """
-        from src.core.common.error_management import safe_execution
+        from src.infrastructure.error_management import safe_execution
         
         operation_context = context or {}
         operation_context.update({
@@ -449,7 +449,7 @@ class StorageOperationHandler:
                 if batch_results is not None:
                     results.extend(batch_results)
             except Exception as e:
-                from src.core.common.error_management import handle_error
+                from src.infrastructure.error_management import handle_error
                 handle_error(e, batch_context)
                 raise StorageTransactionError(f"批处理操作失败: {e}") from e
         
@@ -489,9 +489,9 @@ class StorageOperationHandler:
                     logger.info("事务回滚成功")
                 except Exception as rollback_error:
                     logger.error(f"事务回滚失败: {rollback_error}")
-                    from src.core.common.error_management import handle_error
+                    from src.infrastructure.error_management import handle_error
                     handle_error(rollback_error, operation_context)
             
-            from src.core.common.error_management import handle_error
+            from src.infrastructure.error_management import handle_error
             handle_error(e, operation_context)
             raise StorageTransactionError(f"事务操作失败: {e}") from e

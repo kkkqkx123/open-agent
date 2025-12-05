@@ -7,7 +7,7 @@
 from typing import Dict, Type, List, Optional as OptionalType
 from src.interfaces.prompts.types import IPromptType, PromptType
 from src.interfaces.prompts import IPromptTypeRegistry
-from src.core.common.exceptions import PromptTypeNotFoundError, PromptTypeRegistrationError
+from src.interfaces.prompts.exceptions import PromptTypeNotFoundError, PromptTypeRegistrationError
 
 
 class PromptTypeRegistry(IPromptTypeRegistry):

@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Union, List, Callable
 
 from src.infrastructure.common.cache import config_cached
-from src.infrastructure.common.exceptions.config import (
-    ConfigNotFoundError,
-    ConfigFormatError,
+from src.interfaces.configuration import (
+    ConfigurationLoadError as ConfigNotFoundError,
+    ConfigurationParseError as ConfigFormatError,
     ConfigError
 )
 from src.interfaces.config.interfaces import IConfigLoader

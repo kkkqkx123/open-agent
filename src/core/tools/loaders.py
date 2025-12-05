@@ -5,6 +5,7 @@
 """
 
 import os
+import logging
 from src.services.logger.injection import get_logger
 from typing import List, Dict, Any, Union, Optional
 from src.interfaces.tool.base import ITool

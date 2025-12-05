@@ -17,7 +17,7 @@ from .fallback_strategy_manager import FallbackStrategyManager
 from .fallback_config_manager import FallbackConfigManager
 
 # 修复导入路径
-from core.common.exceptions.llm import LLMCallError
+from src.interfaces.llm.exceptions import LLMCallError
 
 # Services 层的导入
 from src.interfaces.llm import ITaskGroupManager, IPollingPoolManager

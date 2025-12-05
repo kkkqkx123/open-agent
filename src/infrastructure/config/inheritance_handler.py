@@ -11,7 +11,7 @@ import yaml
 from pydantic import ValidationError
 from abc import abstractmethod
 
-from src.infrastructure.common.exceptions.config import ConfigError as ConfigurationError
+from src.interfaces.configuration import ConfigError as ConfigurationError
 from src.interfaces.config.interfaces import IConfigLoader, IConfigInheritanceHandler
 
 

@@ -15,11 +15,11 @@ from .models import (
     ConfigInheritance,
     ValidationRule,
 )
-from ..common.exceptions.config import (
+from src.interfaces.configuration import (
     ConfigError,
-    ConfigNotFoundError,
-    ConfigValidationError,
-    ConfigInheritanceError
+    ConfigurationLoadError as ConfigNotFoundError,
+    ConfigurationValidationError as ConfigValidationError,
+    ConfigurationInheritanceError as ConfigInheritanceError
 )
 
 __all__ = [

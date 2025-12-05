@@ -280,14 +280,14 @@ class ICostRecord(IBaseHistoryRecord, ABC):
     
     @property
     @abstractmethod
-    def prompt_cost_per_1k(self) -> float:
-        """每1K prompt tokens的成本"""
+    def prompt_cost_per_1m(self) -> float:
+        """每1M prompt tokens的成本"""
         pass
     
     @property
     @abstractmethod
-    def completion_cost_per_1k(self) -> float:
-        """每1K completion tokens的成本"""
+    def completion_cost_per_1m(self) -> float:
+        """每1M completion tokens的成本"""
         pass
 
 

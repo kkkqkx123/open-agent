@@ -7,10 +7,10 @@ from typing import Dict, Any, Optional, List, Sequence
 from datetime import datetime
 
 from .base_wrapper import BaseLLMWrapper
-from ...common.exceptions.llm_wrapper import PollingPoolWrapperError, WrapperExecutionError
+from src.interfaces.llm.exceptions import PollingPoolWrapperError, WrapperExecutionError
 from src.interfaces.llm import IPollingPoolManager, LLMResponse
 from ..models import TokenUsage
-from ...common.exceptions.llm import LLMError
+from src.interfaces.llm.exceptions import LLMError
 
 logger = get_logger(__name__)
 

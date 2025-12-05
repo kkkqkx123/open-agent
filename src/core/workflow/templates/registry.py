@@ -8,7 +8,7 @@ from src.services.logger.injection import get_logger
 
 from src.interfaces.workflow.templates import IWorkflowTemplate
 from src.interfaces.workflow.core import IWorkflow  # noqa: F401
-from ...common.exceptions.workflow import WorkflowTemplateError
+from src.interfaces.workflow.exceptions import WorkflowTemplateError
 
 logger = get_logger(__name__)
 

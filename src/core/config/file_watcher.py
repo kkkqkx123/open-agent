@@ -9,7 +9,7 @@ import threading
 from typing import Callable, Dict, List, Optional, Any, TYPE_CHECKING
 from pathlib import Path
 
-from ..common.exceptions.config import ConfigError
+from src.interfaces.configuration import ConfigError
 
 # 仅在类型检查时导入，避免循环导入
 if TYPE_CHECKING:

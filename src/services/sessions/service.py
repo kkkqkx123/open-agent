@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional, List, AsyncGenerator, Callable, TYPE_CHE
 from datetime import datetime, timedelta
 
 from src.core.sessions.interfaces import ISessionCore, ISessionValidator, ISessionStateTransition
-from src.core.sessions.entities import SessionStatus, SessionEntity, UserRequestEntity, UserInteractionEntity, SessionContext
+from src.core.sessions.entities import SessionStatus, Session, UserRequestEntity, UserInteractionEntity, SessionContext
 from src.interfaces.sessions import ISessionService
 from src.interfaces.sessions.service import ISessionService as ISessionServiceInterface
 from src.interfaces.repository.session import ISessionRepository
@@ -16,7 +16,7 @@ from src.interfaces.threads.service import IThreadService
 from src.interfaces.common_domain import AbstractSessionStatus
 from src.interfaces.logger import ILogger
 from src.core.common.exceptions import ValidationError
-from src.core.common.exceptions.storage import StorageNotFoundError as EntityNotFoundError
+from src.interfaces.storage.exceptions import StorageNotFoundError as EntityNotFoundError
 from src.interfaces.sessions.exceptions import (
     SessionNotFoundError,
     ThreadNotFoundError,
@@ -831,29 +831,30 @@ class SessionService(ISessionService):
             metadata=data.get("metadata", {})
         )
     
-    def _entity_to_session(self, entity: SessionEntity) -> 'Session':
-        """将 SessionEntity 转换为 Session 业务实体
-        
+    def _entity_to_session(self, entity: Session) -> 'Session':
+        """将 Session 实体转换为业务实体
+
         Args:
-            entity: SessionEntity 核心实体
+            entity: Session 核心实体
             
         Returns:
             Session 业务实体
         """
         # 将字符串状态转换为 SessionStatus 枚举
-        status = SessionStatus(entity.status) if isinstance(entity.status, str) else entity.status
+        status_str = entity.status.value if hasattr(entity.status, 'value') else entity.status
         
         # 动态导入避免循环依赖
         from src.core.sessions.entities import Session
         
         return Session(
             session_id=entity.session_id,
-            _status=status,
+            status=status_str,
             message_count=getattr(entity, 'message_count', 0),
             checkpoint_count=getattr(entity, 'checkpoint_count', 0),
-            _created_at=entity.created_at,
-            _updated_at=entity.updated_at,
+            created_at=entity.created_at,
+            updated_at=entity.updated_at,
             metadata=entity.metadata,
             tags=getattr(entity, 'tags', []),
-            thread_ids=entity.thread_ids
+            thread_ids=entity.thread_ids,
+            user_id=entity.metadata.get('user_id') if entity.metadata else None
         )

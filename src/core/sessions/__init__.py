@@ -6,7 +6,6 @@
 from .interfaces import ISessionCore, ISessionValidator, ISessionStateTransition
 from .entities import (
     Session,
-    SessionEntity,
     UserInteractionEntity,
     UserRequestEntity,
     SessionContext
@@ -18,7 +17,7 @@ from .error_handler import SessionErrorHandler, SessionOperationHandler
 # 导出错误处理相关
 def register_session_error_handler():
     """注册Session错误处理器到统一错误处理框架"""
-    from src.core.common.error_management import register_error_handler
+    from src.infrastructure.error_management import register_error_handler
     from src.interfaces.sessions.exceptions import (
         SessionThreadException,
         SessionNotFoundError,
@@ -59,7 +58,6 @@ __all__ = [
     
     # 实体定义
     "Session",
-    "SessionEntity",
     "UserInteractionEntity",
     "UserRequestEntity",
     "SessionContext",

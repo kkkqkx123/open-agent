@@ -6,11 +6,11 @@
 from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional
 
-from ..common.error_management import (
+from src.infrastructure.error_management import (
     BaseErrorHandler, ErrorCategory, ErrorSeverity, 
     register_error_handler, operation_with_retry
 )
-from ..common.exceptions.history import (
+from src.interfaces.history.exceptions import (
     HistoryError, TokenCalculationError, CostCalculationError, 
     StatisticsError, RecordNotFoundError, QuotaExceededError
 )

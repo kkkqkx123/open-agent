@@ -76,7 +76,7 @@ class WorkflowLoader(IWorkflowLoader):
             
         except Exception as e:
             logger.error(f"从文件加载工作流失败: {config_path}, 错误: {e}")
-            from core.common.exceptions.workflow import WorkflowConfigError
+            from src.interfaces.workflow.exceptions import WorkflowConfigError
             raise WorkflowConfigError(f"加载配置文件失败: {e}") from e
     
     def load_from_dict(self, config_dict: Dict[str, Any]) -> Workflow:
@@ -102,9 +102,9 @@ class WorkflowLoader(IWorkflowLoader):
             return workflow
             
         except Exception as e:
-            logger.error(f"从字典加载工作流失败: {e}")
-            from core.common.exceptions.workflow import WorkflowConfigError
-            raise WorkflowConfigError(f"解析配置字典失败: {e}") from e
+           logger.error(f"从字典加载工作流失败: {e}")
+           from src.interfaces.workflow.exceptions import WorkflowConfigError
+           raise WorkflowConfigError(f"解析配置字典失败: {e}") from e
     
     def list_available_workflows(self) -> List[str]:
         """列出可用工作流

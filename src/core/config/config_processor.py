@@ -13,10 +13,10 @@ from .processor.config_processor_chain import (
     ReferenceProcessor
 )
 from .validation import BaseConfigValidator, ValidationResult, ValidationSeverity
-from ..common.exceptions.config import (
-    ConfigInheritanceError,
-    ConfigEnvironmentError,
-    ConfigValidationError
+from src.interfaces.configuration import (
+    ConfigurationInheritanceError as ConfigInheritanceError,
+    ConfigurationEnvironmentError as ConfigEnvironmentError,
+    ConfigurationValidationError as ConfigValidationError
 )
 
 

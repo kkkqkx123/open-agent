@@ -277,7 +277,7 @@ class ChatClient(ChatCompletionClient):
         Returns:
             Exception: 处理后的错误
         """
-        from ....common.exceptions.llm import (
+        from src.interfaces.llm.exceptions import (
             LLMCallError,
             LLMTimeoutError,
             LLMRateLimitError,

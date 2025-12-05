@@ -12,7 +12,7 @@ from .base import BaseLLMClient
 from src.interfaces.llm import LLMResponse
 from src.infrastructure.llm.models import TokenUsage
 from ..config import MockConfig, LLMClientConfig
-from ...common.exceptions.llm import (
+from src.interfaces.llm.exceptions import (
     LLMTimeoutError,
     LLMRateLimitError,
     LLMServiceUnavailableError,

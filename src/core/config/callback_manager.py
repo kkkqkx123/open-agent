@@ -10,8 +10,8 @@ from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
 
-from ..common.exceptions.config import ConfigError
-from ..common.error_management import handle_error, ErrorCategory, ErrorSeverity
+from src.interfaces.configuration import ConfigError
+from src.infrastructure.error_management import handle_error, ErrorCategory, ErrorSeverity
 
 logger = get_logger(__name__)
 

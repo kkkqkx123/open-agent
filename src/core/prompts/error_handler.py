@@ -10,8 +10,8 @@ import os
 from typing import Type, Dict, Callable, Optional, Any, List
 from enum import Enum
 
-from ..common.exceptions import PromptError, PromptLoadError, PromptInjectionError, PromptValidationError, PromptCacheError, PromptNotFoundError
-from ..common.error_management import (
+from src.interfaces.prompts.exceptions import PromptError, PromptLoadError, PromptInjectionError, PromptValidationError, PromptCacheError, PromptNotFoundError
+from src.infrastructure.error_management import (
     BaseErrorHandler, ErrorCategory, ErrorSeverity,
     ErrorHandlingRegistry, operation_with_retry, operation_with_fallback
 )

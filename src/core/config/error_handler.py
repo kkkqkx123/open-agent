@@ -6,13 +6,16 @@
 from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, Callable
 
-from ..common.error_management import (
+from src.infrastructure.error_management import (
     BaseErrorHandler, ErrorCategory, ErrorSeverity,
     register_error_handler
 )
-from ..common.exceptions.config import (
-    ConfigError, ConfigValidationError, ConfigNotFoundError,
-    ConfigInheritanceError, ConfigFormatError, ConfigEnvironmentError
+from src.interfaces.configuration import (
+    ConfigError, ConfigurationValidationError as ConfigValidationError,
+    ConfigurationLoadError as ConfigNotFoundError,
+    ConfigurationInheritanceError as ConfigInheritanceError,
+    ConfigurationParseError as ConfigFormatError,
+    ConfigurationEnvironmentError as ConfigEnvironmentError
 )
 
 logger = get_logger(__name__)

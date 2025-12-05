@@ -6,15 +6,15 @@
 from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional
 
-from ..common.error_management import (
+from src.infrastructure.error_management import (
     BaseErrorHandler, ErrorCategory, ErrorSeverity, 
     register_error_handler, operation_with_retry
 )
-from ..common.exceptions.state import (
+from src.interfaces.state.exceptions import (
     StateError, StateValidationError, StateNotFoundError,
     StateTimeoutError, StateCapacityError
 )
-from ..common.exceptions.history import HistoryError
+from src.interfaces.history.exceptions import HistoryError
 
 logger = get_logger(__name__)
 
