@@ -91,14 +91,17 @@ class StorageErrorHandler(BaseErrorHandler):
         logger.info("常见验证问题: 数据格式、路径有效性、参数范围")
     
     def _handle_capacity_error(self, error: StorageCapacityError, context: Optional[Dict] = None) -> None:
-        """处理容量错误"""
-        logger.error(f"存储容量不足: {error}")
-        
-        # 提供容量管理建议
-        if hasattr(error, 'required_size') and hasattr(error, 'available_size'):
-            logger.info(f"所需大小: {error.required_size}, 可用大小: {error.available_size}")
-        
-        logger.info("建议清理旧数据或扩展存储容量")
+         """处理容量错误"""
+         logger.error(f"存储容量不足: {error}")
+         
+         # 提供容量管理建议 - 从details获取容量信息
+         if hasattr(error, 'details') and error.details:
+             required = error.details.get('required_size')
+             available = error.details.get('available_size')
+             if required is not None and available is not None:
+                 logger.info(f"所需大小: {required}, 可用大小: {available}")
+         
+         logger.info("建议清理旧数据或扩展存储容量")
     
     def _handle_permission_error(self, error: StoragePermissionError, context: Optional[Dict] = None) -> None:
         """处理权限错误"""
@@ -233,9 +236,11 @@ class StorageErrorHandler(BaseErrorHandler):
         
         # 添加容量错误特定信息
         if isinstance(error, StorageCapacityError):
-            if hasattr(error, 'required_size') and hasattr(error, 'available_size'):
-                error_info["required_size"] = error.required_size
-                error_info["available_size"] = error.available_size
+            if hasattr(error, 'details') and error.details:
+                if 'required_size' in error.details:
+                    error_info["required_size"] = error.details['required_size']
+                if 'available_size' in error.details:
+                    error_info["available_size"] = error.details['available_size']
         
         # 根据严重度选择日志级别
         if self.error_severity in [ErrorSeverity.CRITICAL, ErrorSeverity.HIGH]:

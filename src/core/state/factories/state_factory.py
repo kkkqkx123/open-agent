@@ -106,52 +106,52 @@ class StateFactory:
         return WorkflowState(**kwargs)
     
     @classmethod
-    def create_tool_state(cls, **kwargs) -> IToolState:
-        """创建工具状态
-        
-        Args:
-            **kwargs: 工具状态参数
-            
-        Returns:
-            IToolState: 工具状态对象
-        """
-        return ToolState(**kwargs)
+    def create_tool_state(cls, **kwargs) -> IState:
+         """创建工具状态
+         
+         Args:
+             **kwargs: 工具状态参数
+             
+         Returns:
+             IState: 工具状态对象
+         """
+         return ToolState(**kwargs)
     
     @classmethod
-    def create_session_state(cls, **kwargs) -> ISessionState:
-        """创建会话状态
-        
-        Args:
-            **kwargs: 会话状态参数
-            
-        Returns:
-            ISessionState: 会话状态对象
-        """
-        return SessionState(**kwargs)
+    def create_session_state(cls, **kwargs) -> IState:
+         """创建会话状态
+         
+         Args:
+             **kwargs: 会话状态参数
+             
+         Returns:
+             IState: 会话状态对象
+         """
+         return SessionState(**kwargs)  # type: ignore[abstract]
     
     @classmethod
-    def create_thread_state(cls, **kwargs) -> IThreadState:
-        """创建线程状态
-        
-        Args:
-            **kwargs: 线程状态参数
-            
-        Returns:
-            IThreadState: 线程状态对象
-        """
-        return ThreadState(**kwargs)
+    def create_thread_state(cls, **kwargs) -> IState:
+         """创建线程状态
+         
+         Args:
+             **kwargs: 线程状态参数
+             
+         Returns:
+             IState: 线程状态对象
+         """
+         return ThreadState(**kwargs)
     
     @classmethod
-    def create_checkpoint_state(cls, **kwargs) -> ICheckpointState:
-        """创建检查点状态
-        
-        Args:
-            **kwargs: 检查点状态参数
-            
-        Returns:
-            ICheckpointState: 检查点状态对象
-        """
-        return CheckpointState(**kwargs)
+    def create_checkpoint_state(cls, **kwargs) -> IState:
+         """创建检查点状态
+         
+         Args:
+             **kwargs: 检查点状态参数
+             
+         Returns:
+             IState: 检查点状态对象
+         """
+         return CheckpointState(**kwargs)
     
     @classmethod
     def create_state_from_dict(cls, state_type: StateType, data: Dict[str, Any]) -> IState:
@@ -345,49 +345,49 @@ def create_workflow_state(**kwargs) -> IWorkflowState:
     return StateFactory.create_workflow_state(**kwargs)
 
 
-def create_tool_state(**kwargs) -> IToolState:
-    """创建工具状态的便捷函数
-    
-    Args:
-        **kwargs: 工具状态参数
-        
-    Returns:
-        IToolState: 工具状态对象
-    """
-    return StateFactory.create_tool_state(**kwargs)
+def create_tool_state(**kwargs) -> IState:
+     """创建工具状态的便捷函数
+     
+     Args:
+         **kwargs: 工具状态参数
+         
+     Returns:
+         IState: 工具状态对象
+     """
+     return StateFactory.create_tool_state(**kwargs)
 
 
-def create_session_state(**kwargs) -> ISessionState:
-    """创建会话状态的便捷函数
-    
-    Args:
-        **kwargs: 会话状态参数
-        
-    Returns:
-        ISessionState: 会话状态对象
-    """
-    return StateFactory.create_session_state(**kwargs)
+def create_session_state(**kwargs) -> IState:
+     """创建会话状态的便捷函数
+     
+     Args:
+         **kwargs: 会话状态参数
+         
+     Returns:
+         IState: 会话状态对象
+     """
+     return StateFactory.create_session_state(**kwargs)
 
 
-def create_thread_state(**kwargs) -> IThreadState:
-    """创建线程状态的便捷函数
-    
-    Args:
-        **kwargs: 线程状态参数
-        
-    Returns:
-        IThreadState: 线程状态对象
-    """
-    return StateFactory.create_thread_state(**kwargs)
+def create_thread_state(**kwargs) -> IState:
+     """创建线程状态的便捷函数
+     
+     Args:
+         **kwargs: 线程状态参数
+         
+     Returns:
+         IState: 线程状态对象
+     """
+     return StateFactory.create_thread_state(**kwargs)
 
 
-def create_checkpoint_state(**kwargs) -> ICheckpointState:
-    """创建检查点状态的便捷函数
-    
-    Args:
-        **kwargs: 检查点状态参数
-        
-    Returns:
-        ICheckpointState: 检查点状态对象
-    """
-    return StateFactory.create_checkpoint_state(**kwargs)
+def create_checkpoint_state(**kwargs) -> IState:
+     """创建检查点状态的便捷函数
+     
+     Args:
+         **kwargs: 检查点状态参数
+         
+     Returns:
+         IState: 检查点状态对象
+     """
+     return StateFactory.create_checkpoint_state(**kwargs)

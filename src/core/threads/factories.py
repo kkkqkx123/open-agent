@@ -159,10 +159,11 @@ class ThreadFactory(IThreadCore):
         )
         
         def _update_state():
-            thread = Thread.from_dict(thread_data)
-            thread.state = state_data
-            thread.update_timestamp()
-            thread_data.update(thread.to_dict())
+             thread = Thread.from_dict(thread_data)
+             # 使用内部属性直接更新状态，因为state是只读属性
+             thread._state = state_data
+             thread.update_timestamp()
+             thread_data.update(thread.to_dict())
         
         try:
             from src.infrastructure.error_management import safe_execution

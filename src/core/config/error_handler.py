@@ -64,15 +64,15 @@ class ConfigErrorHandler(BaseErrorHandler):
             logger.error(f"配置错误处理器内部错误: {handler_error}")
     
     def _handle_validation_error(self, error: ConfigValidationError, context: Optional[Dict] = None) -> None:
-        """处理配置验证错误"""
-        logger.warning(f"配置验证失败: {error}")
-        
-        # 尝试提供修复建议
-        if hasattr(error, 'field') and error.field:
-            logger.info(f"建议检查配置字段: {error.field}")
-        
-        if context and 'config_path' in context:
-            logger.info(f"建议检查配置文件: {context['config_path']}")
+         """处理配置验证错误"""
+         logger.warning(f"配置验证失败: {error}")
+         
+         # 尝试提供修复建议
+         if hasattr(error, 'config_key') and error.config_key:
+             logger.info(f"建议检查配置字段: {error.config_key}")
+         
+         if context and 'config_path' in context:
+             logger.info(f"建议检查配置文件: {context['config_path']}")
     
     def _handle_not_found_error(self, error: ConfigNotFoundError, context: Optional[Dict] = None) -> None:
         """处理配置未找到错误"""
@@ -89,12 +89,12 @@ class ConfigErrorHandler(BaseErrorHandler):
                 logger.warning("未找到替代配置文件")
     
     def _handle_inheritance_error(self, error: ConfigInheritanceError, context: Optional[Dict] = None) -> None:
-        """处理配置继承错误"""
-        logger.error(f"配置继承失败: {error}")
-        
-        # 检查父配置路径
-        if hasattr(error, 'parent_path') and error.parent_path:
-            logger.info(f"建议检查父配置文件: {error.parent_path}")
+         """处理配置继承错误"""
+         logger.error(f"配置继承失败: {error}")
+         
+         # 检查父配置路径
+         if hasattr(error, 'parent_config') and error.parent_config:
+             logger.info(f"建议检查父配置文件: {error.parent_config}")
     
     def _handle_format_error(self, error: ConfigFormatError, context: Optional[Dict] = None) -> None:
         """处理配置格式错误"""
@@ -106,13 +106,13 @@ class ConfigErrorHandler(BaseErrorHandler):
             logger.info("常见格式问题: YAML缩进、JSON语法、编码问题")
     
     def _handle_environment_error(self, error: ConfigEnvironmentError, context: Optional[Dict] = None) -> None:
-        """处理环境变量错误"""
-        logger.error(f"环境变量解析失败: {error}")
-        
-        # 检查环境变量
-        if hasattr(error, 'env_var') and error.env_var:
-            logger.info(f"建议设置环境变量: {error.env_var}")
-            logger.info(f"示例: export {error.env_var}=your_value")
+         """处理环境变量错误"""
+         logger.error(f"环境变量解析失败: {error}")
+         
+         # 检查环境变量
+         if hasattr(error, 'env_var_name') and error.env_var_name:
+             logger.info(f"建议设置环境变量: {error.env_var_name}")
+             logger.info(f"示例: export {error.env_var_name}=your_value")
     
     def _handle_generic_config_error(self, error: Exception, context: Optional[Dict] = None) -> None:
         """处理通用配置错误"""

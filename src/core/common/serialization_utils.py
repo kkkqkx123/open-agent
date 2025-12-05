@@ -62,7 +62,7 @@ class SerializationUtils:
         return result
     
     @staticmethod
-    def from_dict(cls: Type[T], data: Dict[str, Any],
+    def from_dict(cls_type: Type[T], data: Dict[str, Any],
                   field_mappings: Optional[Dict[str, str]] = None,
                   datetime_fields: Optional[list] = None,
                   enum_fields: Optional[Dict[str, Type[Enum]]] = None) -> T:
@@ -98,7 +98,7 @@ class SerializationUtils:
             else:
                 processed_data[mapped_key] = value
         
-        return cls(**processed_data)
+        return cls_type(**processed_data)
 
 
 class BaseEntity:
