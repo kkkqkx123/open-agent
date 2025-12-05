@@ -7,8 +7,10 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
+from ..common_domain import ISerializable, ITimestamped
 
-class IState(ABC):
+
+class IState(ISerializable, ITimestamped, ABC):
     """基础状态接口
     
     定义状态对象的基本契约，所有状态实现必须遵循此接口。
@@ -79,23 +81,6 @@ class IState(ABC):
         """
         pass
     
-    @abstractmethod
-    def get_created_at(self) -> datetime:
-        """获取创建时间戳
-        
-        Returns:
-            创建时间戳
-        """
-        pass
-    
-    @abstractmethod
-    def get_updated_at(self) -> datetime:
-        """获取最后更新时间戳
-        
-        Returns:
-            最后更新时间戳
-        """
-        pass
     
     @abstractmethod
     def is_complete(self) -> bool:
@@ -111,25 +96,4 @@ class IState(ABC):
         """将状态标记为完成"""
         pass
     
-    @abstractmethod
-    def to_dict(self) -> Dict[str, Any]:
-        """将状态转换为字典表示
-        
-        Returns:
-            状态的字典表示
-        """
-        pass
-    
-    @classmethod
-    @abstractmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'IState':
-        """从字典创建状态实例
-        
-        Args:
-            data: 状态的字典表示
-            
-        Returns:
-            新的状态实例
-        """
-        pass
     

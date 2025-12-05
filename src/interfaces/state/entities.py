@@ -7,8 +7,10 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from datetime import datetime
 
+from ..common_domain import ISerializable
 
-class IStateSnapshot(ABC):
+
+class IStateSnapshot(ISerializable, ABC):
     """状态快照接口
     
     定义状态快照的基本契约。
@@ -44,19 +46,9 @@ class IStateSnapshot(ABC):
         """元数据"""
         pass
     
-    @abstractmethod
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典表示"""
-        pass
-    
-    @classmethod
-    @abstractmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'IStateSnapshot':
-        """从字典创建实例"""
-        pass
 
 
-class IStateHistoryEntry(ABC):
+class IStateHistoryEntry(ISerializable, ABC):
     """状态历史记录接口
     
     定义状态历史记录的基本契约。
@@ -98,19 +90,9 @@ class IStateHistoryEntry(ABC):
         """元数据"""
         pass
     
-    @abstractmethod
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典表示"""
-        pass
-    
-    @classmethod
-    @abstractmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'IStateHistoryEntry':
-        """从字典创建实例"""
-        pass
 
 
-class IStateConflict(ABC):
+class IStateConflict(ISerializable, ABC):
     """状态冲突接口
     
     定义状态冲突的基本契约。
@@ -128,19 +110,11 @@ class IStateConflict(ABC):
         """线程ID"""
         pass
     
-    @abstractmethod
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典表示"""
-        pass
 
 
-class IStateStatistics(ABC):
+class IStateStatistics(ISerializable, ABC):
     """状态统计接口
     
     定义状态统计的基本契约。
     """
     
-    @abstractmethod
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典表示"""
-        pass

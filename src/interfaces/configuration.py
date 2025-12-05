@@ -3,7 +3,8 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional
 from enum import Enum
-from dataclasses import dataclass, field
+
+from .common_domain import ValidationResult
 
 
 class ValidationSeverity(Enum):
@@ -14,28 +15,21 @@ class ValidationSeverity(Enum):
     CRITICAL = "critical"
 
 
-@dataclass
-class ValidationResult:
-    """验证结果数据结构"""
-    is_valid: bool = True
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    info: List[str] = field(default_factory=list)
+class ConfigValidationResult(ValidationResult):
+    """配置验证结果 - 扩展通用验证结果"""
     
-    def add_error(self, message: str) -> None:
-        """添加错误信息"""
-        self.errors.append(message)
-        self.is_valid = False
-    
-    def add_warning(self, message: str) -> None:
-        """添加警告信息"""
-        self.warnings.append(message)
+    def __init__(self, is_valid: bool = True, errors: Optional[List[str]] = None,
+                 warnings: Optional[List[str]] = None, info: Optional[List[str]] = None,
+                 metadata: Optional[Dict[str, Any]] = None):
+        super().__init__(is_valid=is_valid, errors=errors or [],
+                        warnings=warnings or [], metadata=metadata or {})
+        self.info = info or []
     
     def add_info(self, message: str) -> None:
         """添加信息"""
         self.info.append(message)
     
-    def merge(self, other: 'ValidationResult') -> None:
+    def merge(self, other: 'ConfigValidationResult') -> None:
         """合并另一个验证结果"""
         self.errors.extend(other.errors)
         self.warnings.extend(other.warnings)
@@ -68,7 +62,7 @@ class IConfigValidator(ABC):
     """配置验证器接口"""
     
     @abstractmethod
-    def validate(self, config: Dict[str, Any]) -> ValidationResult:
+    def validate(self, config: Dict[str, Any]) -> ConfigValidationResult:
         """验证配置
         
         Args:
@@ -129,7 +123,7 @@ class IConfigManager(ABC):
         pass
     
     @abstractmethod
-    def validate_config(self, config: Dict[str, Any]) -> ValidationResult:
+    def validate_config(self, config: Dict[str, Any]) -> ConfigValidationResult:
         """验证配置
         
         Args:

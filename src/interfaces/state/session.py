@@ -8,21 +8,21 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 
 from .interfaces import IState
+from ..common_domain import AbstractSessionData
 
 
-class ISessionState(IState):
+class ISessionState(IState, AbstractSessionData):
     """会话状态接口
     
     继承自基础状态接口，添加会话特定的功能。
     这个接口专门用于会话生命周期管理和状态持久化。
     """
     
-    # 会话特定属性
+    # 会话特定属性 - 重用 AbstractSessionData 的 id 属性作为 session_id
     @property
-    @abstractmethod
     def session_id(self) -> str:
-        """会话ID"""
-        pass
+        """会话ID - 映射到基础 id 属性"""
+        return self.id
     
     @property
     @abstractmethod
@@ -54,6 +54,8 @@ class ISessionState(IState):
         """关联的线程ID列表"""
         pass
     
+    # 注意：created_at 和 updated_at 已经由 ITimestamped 提供
+    # 这里添加会话特定的最后活动时间
     @property
     @abstractmethod
     def last_activity(self) -> datetime:

@@ -4,9 +4,10 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 from enum import Enum
+from dataclasses import dataclass, field
 
 
 '''
@@ -281,6 +282,64 @@ class ICacheable(ABC):
             int: 缓存生存时间（秒）
         """
         pass
+
+
+'''
+通用数据传输对象
+'''
+
+@dataclass
+class ValidationResult:
+    """统一的验证结果数据类"""
+    is_valid: bool
+    errors: List[str]
+    warnings: List[str]
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def add_error(self, message: str) -> None:
+        """添加错误信息"""
+        self.errors.append(message)
+        self.is_valid = False
+    
+    def add_warning(self, message: str) -> None:
+        """添加警告信息"""
+        self.warnings.append(message)
+    
+    def has_errors(self) -> bool:
+        """检查是否有错误"""
+        return len(self.errors) > 0
+    
+    def has_warnings(self) -> bool:
+        """检查是否有警告"""
+        return len(self.warnings) > 0
+
+
+@dataclass
+class BaseContext:
+    """基础上下文数据类"""
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    timestamp: Optional[datetime] = None
+    
+    def __post_init__(self) -> None:
+        if self.timestamp is None:
+            self.timestamp = datetime.now()
+
+
+@dataclass
+class ExecutionContext(BaseContext):
+    """应用层执行上下文"""
+    operation_id: str
+    user_id: Optional[str] = None
+    session_id: Optional[str] = None
+    request_id: Optional[str] = None
+
+
+@dataclass
+class WorkflowExecutionContext(BaseContext):
+    """工作流执行上下文"""
+    workflow_id: str
+    execution_id: str
+    config: Dict[str, Any] = field(default_factory=dict)
 
 
 class ITimestamped(ABC):

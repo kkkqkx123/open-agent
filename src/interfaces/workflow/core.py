@@ -6,30 +6,13 @@ for workflow implementations without causing circular dependencies.
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
-from dataclasses import dataclass
 
 if TYPE_CHECKING:
     from ..state import IWorkflowState
     from .graph import IGraph, INode, IEdge
     from ...core.workflow.config.config import GraphConfig
 
-
-@dataclass
-class ExecutionContext:
-    """执行上下文"""
-    workflow_id: str
-    execution_id: str
-    metadata: Dict[str, Any]
-    config: Dict[str, Any]
-
-
-@dataclass
-class ValidationResult:
-    """验证结果"""
-    is_valid: bool
-    errors: List[str]
-    warnings: List[str]
-    metadata: Dict[str, Any]
+from ..common_domain import ValidationResult, WorkflowExecutionContext
 
 
 class IWorkflow(ABC):

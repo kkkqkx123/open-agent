@@ -9,6 +9,8 @@ from datetime import datetime
 from dataclasses import dataclass
 from enum import Enum
 
+from .common_domain import ExecutionContext as BaseExecutionContext
+
 # 泛型类型变量
 T = TypeVar('T')
 K = TypeVar('K')
@@ -83,25 +85,8 @@ class PagedResult:
         return (self.total + self.page_size - 1) // self.page_size
 
 
-@dataclass
-class ExecutionContext:
-    """
-    执行上下文数据传输对象
-    
-    封装操作执行时的上下文信息。
-    """
-    operation_id: str
-    user_id: Optional[str] = None
-    session_id: Optional[str] = None
-    request_id: Optional[str] = None
-    timestamp: Optional[datetime] = None
-    metadata: Optional[Dict[str, Any]] = None
-    
-    def __post_init__(self) -> None:
-        if self.timestamp is None:
-            self.timestamp = datetime.now()
-        if self.metadata is None:
-            self.metadata = {}
+# 使用统一的执行上下文，但为了向后兼容保留别名
+ExecutionContext = BaseExecutionContext
 
 
 '''

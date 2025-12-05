@@ -5,9 +5,10 @@ These interfaces define the contract for workflow implementations.
 """
 
 from .core import (
-    IWorkflow,
-    ExecutionContext
+    IWorkflow
 )
+
+from ..common_domain import WorkflowExecutionContext as ExecutionContext
 
 from .execution import (
     IWorkflowExecutor

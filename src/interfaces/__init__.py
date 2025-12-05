@@ -227,7 +227,12 @@ from .common_domain import (
     AbstractSessionData,
     AbstractThreadData,
     AbstractThreadBranchData,
-    AbstractThreadSnapshotData
+    AbstractThreadSnapshotData,
+    # 通用数据传输对象
+    ValidationResult,
+    BaseContext,
+    ExecutionContext,
+    WorkflowExecutionContext
 )
 
 # 消息相关接口
@@ -241,7 +246,7 @@ from .messages import (
 
 # 配置相关接口
 from .configuration import (
-    ValidationResult,
+    ConfigValidationResult,
     ValidationSeverity,
     IConfigValidator,
     IConfigManager
@@ -442,6 +447,12 @@ __all__ = [
     "ILoggerFactory",
     "LogLevel",
     
+    # 通用数据传输对象
+    "ValidationResult",
+    "BaseContext",
+    "ExecutionContext",
+    "WorkflowExecutionContext",
+    
     # 抽象数据类型
     "AbstractSessionStatus",
     "AbstractSessionData",
@@ -457,7 +468,7 @@ __all__ = [
     "IMessageValidator",
     
     # 配置接口
-    "ValidationResult",
+    "ConfigValidationResult",
     "ValidationSeverity",
     "IConfigValidator",
     "IConfigManager",
