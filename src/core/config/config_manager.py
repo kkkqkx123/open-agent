@@ -453,7 +453,7 @@ class ConfigManager(IUnifiedConfigManager):
             configs.append(config)
         
         # 使用通用的字典合并器合并多个配置
-        from src.core.common.utils.dict_merger import DictMerger
+        from src.infrastructure.common.utils.dict_merger import DictMerger
         merger = DictMerger()
         result: Dict[str, Any] = {}
         for config in configs:

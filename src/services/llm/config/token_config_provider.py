@@ -14,7 +14,7 @@ from src.interfaces.llm import (
 )
 from src.infrastructure.llm.config import ConfigDiscovery, ProviderInfo
 from src.services.llm.utils.config_extractor import TokenConfigExtractor, create_config_key
-from src.core.common.cache import ConfigCache
+from src.infrastructure.common.cache import ConfigCache
 
 logger = get_logger(__name__)
 

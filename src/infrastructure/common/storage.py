@@ -62,13 +62,13 @@ class BaseStorage(IStorage):
             data["metadata"] = normalized_metadata
         
         # 保存数据
-        success = await self.save(data)
+        data_id = await self.save(data)
         
         # 缓存数据
-        if success and self.cache and data.get("id"):
-            await self.cache.set(data["id"], data, ttl=ttl)
+        if data_id and self.cache:
+            await self.cache.set(data_id, data, ttl=ttl)
         
-        return success
+        return bool(data_id)
     
     async def load_with_cache(self, id: str) -> Optional[Dict[str, Any]]:
         """加载数据（优先从缓存）
@@ -129,13 +129,13 @@ class BaseStorage(IStorage):
             existing_data["metadata"] = updated_metadata
         
         # 保存更新
-        success = await self.save(existing_data)
+        data_id = await self.save(existing_data)
         
         # 更新缓存
-        if success and self.cache:
+        if data_id and self.cache:
             await self.cache.set(id, existing_data)
         
-        return success
+        return bool(data_id)
     
     async def list_by_metadata(
         self,

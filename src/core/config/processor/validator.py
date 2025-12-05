@@ -5,8 +5,8 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List
-from src.core.common.utils.validator import Validator as UtilsValidator
-from src.core.common.utils.validator import ValidationResult as UtilsValidationResult
+from src.infrastructure.common.utils.validator import Validator as UtilsValidator
+from src.infrastructure.common.utils.validator import ValidationResult as UtilsValidationResult
 
 from ..models.global_config import GlobalConfig
 from ..models.llm_config import LLMConfig

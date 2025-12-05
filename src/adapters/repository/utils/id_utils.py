@@ -6,7 +6,7 @@
 from src.services.logger.injection import get_logger
 from typing import Optional
 
-from src.core.common.utils.id_generator import IDGenerator
+from src.infrastructure.common.utils.id_generator import IDGenerator
 
 logger = get_logger(__name__)
 

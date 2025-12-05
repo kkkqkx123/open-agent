@@ -6,7 +6,7 @@
 from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional
 
-from src.core.common.utils.metadata import MetadataManager
+from src.infrastructure.common.utils.metadata import MetadataManager
 
 logger = get_logger(__name__)
 

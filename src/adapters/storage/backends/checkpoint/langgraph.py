@@ -17,7 +17,7 @@ from src.core.common.exceptions import (
     CheckpointNotFoundError,
     CheckpointStorageError
 )
-from src.core.common.serialization import Serializer
+from src.infrastructure.common.serialization import Serializer
 from src.core.threads.checkpoints.storage.models import (
     ThreadCheckpoint,
     CheckpointStatus,

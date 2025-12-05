@@ -7,8 +7,8 @@ import json
 from pathlib import Path
 from typing import Dict, Any, Optional, Union, List, Callable
 
-from src.core.common.cache import config_cached
-from src.core.common.exceptions.config import (
+from src.infrastructure.common.cache import config_cached
+from src.infrastructure.common.exceptions.config import (
     ConfigNotFoundError,
     ConfigFormatError,
     ConfigError
@@ -226,7 +226,7 @@ class ConfigLoader(IConfigLoader, ILifecycleAware):
     
     def clear_cache(self) -> None:
         """清除所有缓存"""
-        from src.core.common.cache import clear_cache
+        from src.infrastructure.common.cache import clear_cache
         clear_cache("config_func")
     
     # ILifecycleAware 接口方法
@@ -256,7 +256,7 @@ def load_config_file(file_path: Union[str, Path]) -> Dict[str, Any]:
 
 def merge_configs(*configs: Dict[str, Any]) -> Dict[str, Any]:
     """合并多个配置"""
-    from src.core.common.utils.dict_merger import DictMerger
+    from src.infrastructure.common.utils.dict_merger import DictMerger
     merger = DictMerger()
     result = {}
     for config in configs:
