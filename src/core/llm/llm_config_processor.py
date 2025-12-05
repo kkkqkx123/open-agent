@@ -6,7 +6,7 @@
 from typing import Dict, Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.interfaces.common_infra import ILogger
+    from src.interfaces.logger import ILogger
 
 
 class LLMConfigProcessor:

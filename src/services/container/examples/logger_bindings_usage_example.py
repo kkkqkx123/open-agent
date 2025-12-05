@@ -90,14 +90,22 @@ def example_environment_specific():
 
 def example_test_isolation():
     """测试隔离示例"""
+    from src.services.container import register_test_logger_services, reset_test_logger_services
+    
     container = get_global_container()
     
     # 使用隔离的测试日志环境
-    with isolated_test_logger(container) as test_env:
+    test_config = {
+        "log_level": "DEBUG",
+        "log_outputs": [{"type": "console", "level": "DEBUG"}]
+    }
+    
+    try:
+        register_test_logger_services(container, test_config, isolation_id="example")
         logger = container.get(ILogger)
-        logger.info(f"测试环境 {test_env} 的日志消息")
-        
-        # 测试完成后，环境会自动清理
+        logger.info("测试环境的日志消息")
+    finally:
+        reset_test_logger_services(container, isolation_id="example")
 
 
 def example_manual_test_setup():

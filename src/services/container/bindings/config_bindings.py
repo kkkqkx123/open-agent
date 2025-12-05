@@ -5,20 +5,20 @@
 """
 
 import sys
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from src.interfaces.container import IDependencyContainer
 from src.interfaces.common_infra import ServiceLifetime
 from src.interfaces.config.interfaces import IConfigValidator
-from ...core.config.config_manager import ConfigManager, DefaultConfigValidator
-from ...core.config.config_manager_factory import ConfigManagerFactory
-from ...core.config.processor.config_processor_chain import (
+from src.core.config.config_manager import ConfigManager, DefaultConfigValidator
+from src.core.config.config_manager_factory import ConfigManagerFactory
+from src.core.config.processor.config_processor_chain import (
     ConfigProcessorChain,
     InheritanceProcessor,
     EnvironmentVariableProcessor,
     ReferenceProcessor
 )
-from ...core.config.adapter_factory import AdapterFactory
+from src.core.config.adapter_factory import AdapterFactory
 from src.services.container.core.base_service_bindings import BaseServiceBindings
 
 
@@ -117,7 +117,7 @@ class ConfigServiceBindings(BaseServiceBindings):
             print(f"[WARNING] 设置配置注入层失败: {e}", file=sys.stderr)
 
 
-def register_config_services(container: IDependencyContainer, config: Dict[str, Any] = None, environment: str = "default") -> None:
+def register_config_services(container: IDependencyContainer, config: Optional[Dict[str, Any]] = None, environment: str = "default") -> None:
     """注册配置相关服务的便捷函数
     
     Args:
@@ -248,7 +248,7 @@ def _create_adapter_factory() -> AdapterFactory:
         适配器工厂实例
     """
     try:
-        from ...core.config.config_manager import get_default_manager
+        from src.core.config.config_manager import get_default_manager
         config_manager = get_default_manager()
         adapter_factory = AdapterFactory(config_manager)
         print(f"[DEBUG] 适配器工厂创建完成", file=sys.stdout)

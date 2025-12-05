@@ -5,8 +5,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, ContextManager, Type
-from contextlib import contextmanager
+from typing import Dict, Any, Optional, List, ContextManager, Type, Generator
 
 from .core import IDependencyContainer
 
@@ -63,7 +62,6 @@ class ITestContainerManager(ABC):
         pass
     
     @abstractmethod
-    @contextmanager
     def isolated_test_context(
         self, 
         service_configs: Optional[Dict[str, Any]] = None
@@ -198,8 +196,8 @@ class DefaultTestIsolationStrategy(ITestIsolationStrategy):
         isolated_container = DependencyContainer(environment=f"test_{isolation_id}")
         
         # 如果基础容器支持复制注册信息，则复制
-        if hasattr(base_container, 'copy_registrations'):
-            base_container.copy_registrations(isolated_container)
+        if hasattr(base_container, 'copy_registrations') and callable(getattr(base_container, 'copy_registrations')):
+            base_container.copy_registrations(isolated_container)  # type: ignore
         
         return isolated_container
     
@@ -254,21 +252,26 @@ class TestContainerManager(ITestContainerManager):
         self.isolation_strategy.cleanup_isolation_context(container, isolation_id)
         self.mock_registry.clear_mocks(isolation_id)
     
-    @contextmanager
     def isolated_test_context(
         self, 
         service_configs: Optional[Dict[str, Any]] = None
     ) -> ContextManager[IDependencyContainer]:
         """创建隔离的测试上下文"""
-        isolation_id = self._generate_isolation_id()
-        container = self.create_isolated_container(isolation_id)
+        from contextlib import contextmanager
         
-        try:
-            if service_configs:
-                self.register_test_services(container, service_configs, isolation_id)
-            yield container
-        finally:
-            self.reset_test_services(container, isolation_id)
+        @contextmanager
+        def _context_manager() -> Generator[IDependencyContainer, None, None]:
+            isolation_id = self._generate_isolation_id()
+            container = self.create_isolated_container(isolation_id)
+            
+            try:
+                if service_configs:
+                    self.register_test_services(container, service_configs, isolation_id)
+                yield container
+            finally:
+                self.reset_test_services(container, isolation_id)
+        
+        return _context_manager()
     
     def _generate_isolation_id(self) -> str:
         """生成隔离ID"""

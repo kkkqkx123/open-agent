@@ -14,7 +14,7 @@ from src.core.threads.checkpoints.storage import (
     IThreadCheckpointRepository
 )
 from src.core.threads.checkpoints.manager import ThreadCheckpointManager
-from src.core.common.types import ServiceLifetime
+from src.interfaces.common_infra import ServiceLifetime
 from src.services.storage import (
     StorageOrchestrator,
     ThreadStorageService

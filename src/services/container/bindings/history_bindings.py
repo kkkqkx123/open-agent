@@ -1,9 +1,10 @@
 """History相关服务依赖注入绑定配置
 
 统一注册History管理、统计、追踪、成本计算等服务。
+使用基础设施层组件，通过继承BaseServiceBindings简化代码。
 """
 
-from src.services.logger import get_logger
+import sys
 from typing import Dict, Any, Optional
 
 from src.interfaces.history import IHistoryManager, ICostCalculator
@@ -17,13 +18,107 @@ from src.services.history.hooks import HistoryRecordingHook
 from src.services.llm.token_calculation_service import TokenCalculationService
 from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
 from src.adapters.repository.history import SQLiteHistoryRepository, MemoryHistoryRepository
-from src.core.common.types import ServiceLifetime
+from src.interfaces.common_infra import ServiceLifetime
 from src.interfaces.logger import ILogger
+from src.services.container.core.base_service_bindings import BaseServiceBindings
 
-# 导入日志绑定
-from .logger_bindings import register_logger_services
 
-logger = get_logger(__name__)
+class HistoryServiceBindings(BaseServiceBindings):
+    """History服务绑定类
+    
+    负责注册所有History相关服务，包括：
+    - History存储后端
+    - History管理器
+    - 成本计算器
+    - Token追踪器
+    - 统计服务
+    - History钩子
+    """
+    
+    def _validate_config(self, config: Dict[str, Any]) -> None:
+        """验证History配置"""
+        is_valid, errors = validate_history_config(config)
+        if not is_valid:
+            raise ValueError(f"History配置验证失败: {errors}")
+    
+    def _do_register_services(
+        self,
+        container,
+        config: Dict[str, Any],
+        environment: str = "default"
+    ) -> None:
+        """执行History服务注册"""
+        _register_history_storage(container, config, environment)
+        _register_history_manager(container, config, environment)
+        _register_cost_calculator(container, config, environment)
+        _register_token_tracker(container, config, environment)
+        _register_statistics_service(container, config, environment)
+        _register_history_hooks(container, config, environment)
+    
+    def _post_register(
+        self,
+        container,
+        config: Dict[str, Any],
+        environment: str = "default"
+    ) -> None:
+        """注册后处理"""
+        # 设置注入层
+        try:
+            # 为History服务设置注入层
+            service_types = [
+                IHistoryManager,
+                ICostCalculator,
+                ITokenTracker,
+                IHistoryRepository,
+                HistoryStatisticsService,
+                HistoryRecordingHook,
+                TokenCalculationService,
+                TokenCalculationDecorator
+            ]
+            
+            self.setup_injection_layer(container, service_types)
+            
+            # 设置全局实例（向后兼容）
+            from src.services.history.injection import (
+                set_history_manager_instance,
+                set_cost_calculator_instance,
+                set_token_tracker_instance,
+                set_history_repository_instance,
+                set_statistics_service_instance,
+                set_history_hooks_instance,
+                set_token_calculation_service_instance,
+                set_token_calculation_decorator_instance
+            )
+            
+            if container.has_service(IHistoryManager):
+                set_history_manager_instance(container.get(IHistoryManager))
+            
+            if container.has_service(ICostCalculator):
+                set_cost_calculator_instance(container.get(ICostCalculator))
+            
+            if container.has_service(ITokenTracker):
+                set_token_tracker_instance(container.get(ITokenTracker))
+            
+            if container.has_service(IHistoryRepository):
+                set_history_repository_instance(container.get(IHistoryRepository))
+            
+            if container.has_service(HistoryStatisticsService):
+                set_statistics_service_instance(container.get(HistoryStatisticsService))
+            
+            if container.has_service(HistoryRecordingHook):
+                set_history_hooks_instance(container.get(HistoryRecordingHook))
+            
+            if container.has_service(TokenCalculationService):
+                set_token_calculation_service_instance(container.get(TokenCalculationService))
+            
+            if container.has_service(TokenCalculationDecorator):
+                set_token_calculation_decorator_instance(container.get(TokenCalculationDecorator))
+            
+            logger = self.safe_get_service(container, ILogger)
+            if logger:
+                logger.debug(f"已设置History服务注入层 (environment: {environment})")
+        except Exception as e:
+            print(f"[WARNING] 设置History注入层失败: {e}", file=sys.stderr)
 
 
 def register_history_services(
@@ -31,7 +126,7 @@ def register_history_services(
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
-    """注册所有History相关服务
+    """注册所有History相关服务的便捷函数
     
     Args:
         container: 依赖注入容器
@@ -65,38 +160,17 @@ def register_history_services(
         cache_ttl: 300
     ```
     """
-    logger.info("开始注册History服务...")
-    
-    try:
-        # 首先注册日志服务
-        register_logger_services(container, config, environment)
-        
-        # 注册存储后端
-        register_history_storage(container, config, environment)
-        
-        # 注册核心服务
-        register_history_manager(container, config, environment)
-        register_cost_calculator(container, config, environment)
-        register_token_tracker(container, config, environment)
-        register_statistics_service(container, config, environment)
-        
-        # 注册钩子服务
-        register_history_hooks(container, config, environment)
-        
-        logger.info("History服务注册完成")
-        
-    except Exception as e:
-        logger.error(f"注册History服务失败: {e}")
-        raise
+    bindings = HistoryServiceBindings()
+    bindings.register_services(container, config, environment)
 
 
-def register_history_storage(
+def _register_history_storage(
     container,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
     """注册History存储服务"""
-    logger.info("注册History存储服务...")
+    print(f"[INFO] 注册History存储服务...", file=sys.stdout)
     
     history_config = config.get("history", {})
     storage_config = history_config.get("storage", {})
@@ -113,7 +187,7 @@ def register_history_storage(
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
         )
-        logger.info(f"注册SQLite History存储: {db_path}")
+        print(f"[INFO] 注册SQLite History存储: {db_path}", file=sys.stdout)
     
     # 注册内存存储（用于测试）
     elif primary_backend == "memory":
@@ -126,19 +200,19 @@ def register_history_storage(
             environment=environment,
             lifetime=ServiceLifetime.SINGLETON
         )
-        logger.info(f"注册内存History存储: max_records={max_records}")
+        print(f"[INFO] 注册内存History存储: max_records={max_records}", file=sys.stdout)
     
     else:
         raise ValueError(f"不支持的History存储后端: {primary_backend}")
 
 
-def register_history_manager(
+def _register_history_manager(
     container,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
     """注册History管理器"""
-    logger.info("注册History管理器...")
+    print(f"[INFO] 注册History管理器...", file=sys.stdout)
     
     history_config = config.get("history", {})
     manager_config = history_config.get("manager", {})
@@ -160,17 +234,17 @@ def register_history_manager(
         lifetime=ServiceLifetime.SINGLETON
     )
     
-    logger.info(f"注册History管理器: async_batching={enable_async_batching}, "
-                f"batch_size={batch_size}, timeout={batch_timeout}")
+    print(f"[INFO] 注册History管理器: async_batching={enable_async_batching}, "
+          f"batch_size={batch_size}, timeout={batch_timeout}", file=sys.stdout)
 
 
-def register_cost_calculator(
+def _register_cost_calculator(
     container,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
     """注册成本计算器"""
-    logger.info("注册成本计算器...")
+    print(f"[INFO] 注册成本计算器...", file=sys.stdout)
     
     history_config = config.get("history", {})
     calculator_config = history_config.get("cost_calculator", {})
@@ -184,18 +258,18 @@ def register_cost_calculator(
     )
     
     if custom_pricing:
-        logger.info(f"注册成本计算器，自定义定价模型数量: {len(custom_pricing)}")
+        print(f"[INFO] 注册成本计算器，自定义定价模型数量: {len(custom_pricing)}", file=sys.stdout)
     else:
-        logger.info("注册成本计算器，使用默认定价")
+        print(f"[INFO] 注册成本计算器，使用默认定价", file=sys.stdout)
 
 
-def register_token_tracker(
+def _register_token_tracker(
     container,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
     """注册Token追踪器"""
-    logger.info("注册Token追踪器...")
+    print(f"[INFO] 注册Token追踪器...", file=sys.stdout)
     
     history_config = config.get("history", {})
     tracker_config = history_config.get("token_tracker", {})
@@ -228,16 +302,16 @@ def register_token_tracker(
         lifetime=ServiceLifetime.SINGLETON
     )
     
-    logger.info(f"注册Token追踪器: cache_ttl={cache_ttl}s")
+    print(f"[INFO] 注册Token追踪器: cache_ttl={cache_ttl}s", file=sys.stdout)
 
 
-def register_statistics_service(
+def _register_statistics_service(
     container,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
     """注册统计服务"""
-    logger.info("注册统计服务...")
+    print(f"[INFO] 注册统计服务...", file=sys.stdout)
     
     container.register_factory(
         HistoryStatisticsService,
@@ -249,16 +323,16 @@ def register_statistics_service(
         lifetime=ServiceLifetime.SINGLETON
     )
     
-    logger.info("注册统计服务完成")
+    print(f"[INFO] 注册统计服务完成", file=sys.stdout)
 
 
-def register_history_hooks(
+def _register_history_hooks(
     container,
     config: Dict[str, Any],
     environment: str = "default"
 ) -> None:
     """注册History钩子服务"""
-    logger.info("注册History钩子服务...")
+    print(f"[INFO] 注册History钩子服务...", file=sys.stdout)
     
     # 注册HistoryRecordingHook工厂
     def create_history_hook(workflow_context: Optional[Dict[str, Any]] = None):
@@ -283,7 +357,7 @@ def register_history_hooks(
         lifetime=ServiceLifetime.TRANSIENT  # 钩子通常是瞬态的
     )
     
-    logger.info("注册History钩子服务完成")
+    print(f"[INFO] 注册History钩子服务完成", file=sys.stdout)
 
 
 def register_history_test_services(
@@ -291,7 +365,7 @@ def register_history_test_services(
     environment: str = "test"
 ) -> None:
     """注册测试环境的History服务"""
-    logger.info("注册测试环境History服务...")
+    print(f"[INFO] 注册测试环境History服务...", file=sys.stdout)
     
     test_config = {
         "history": {
@@ -313,7 +387,7 @@ def register_history_test_services(
     }
     
     register_history_services(container, test_config, environment)
-    logger.info("测试环境History服务注册完成")
+    print(f"[INFO] 测试环境History服务注册完成", file=sys.stdout)
 
 
 def get_history_service_config(config: Dict[str, Any]) -> Dict[str, Any]:

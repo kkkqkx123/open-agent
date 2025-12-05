@@ -5,24 +5,24 @@
 
 from .core.container import DependencyContainer, get_global_container, reset_global_container
 
-from .storage_bindings import (
+from .bindings.storage_bindings import (
     register_all_storage_services,
     register_session_storage_only,
     register_thread_storage_only
 )
-from .thread_checkpoint_bindings import (
+from .bindings.thread_checkpoint_bindings import (
     register_thread_checkpoint_services,
     register_thread_checkpoint_services_with_custom_backend,
     register_thread_checkpoint_test_services,
     get_thread_checkpoint_service_config
 )
-from .history_bindings import (
+from .bindings.history_bindings import (
     register_history_services,
     register_history_test_services,
     get_history_service_config,
     validate_history_config
 )
-from .logger_bindings import (
+from .bindings.logger_bindings import (
     register_logger_services,
     register_test_logger_services,
     register_production_logger_services,

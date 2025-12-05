@@ -7,6 +7,7 @@
 import sys
 import atexit
 from typing import Dict, Any, Optional, List, Callable
+from contextlib import contextmanager
 
 from src.interfaces.logger import ILogger, IBaseHandler, ILogRedactor, LogLevel
 from src.interfaces.common_infra import ServiceLifetime
@@ -507,6 +508,95 @@ def get_logger_service_status(container: Any) -> Dict[str, Any]:
         status["error"] = str(e)
     
     return status
+
+
+def get_logger_lifecycle_manager() -> LoggerLifecycleManager:
+    """获取日志生命周期管理器实例
+    
+    Returns:
+        LoggerLifecycleManager: 全局生命周期管理器实例
+    """
+    return _lifecycle_manager
+
+
+def isolated_test_logger(
+    isolation_id: Optional[str] = None,
+    config: Optional[Dict[str, Any]] = None
+) -> Callable:
+    """创建隔离的测试日志装饰器
+    
+    用于单元测试中隔离日志实例。
+    
+    Args:
+        isolation_id: 隔离ID
+        config: 日志配置
+        
+    Returns:
+        装饰器函数
+    """
+    from functools import wraps
+    from src.services.container import get_global_container
+    
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            container = get_global_container()
+            
+            test_config = config or {
+                "log_level": "DEBUG",
+                "log_outputs": [
+                    {
+                        "type": "console",
+                        "level": "DEBUG",
+                        "formatter": "color"
+                    }
+                ]
+            }
+            
+            # 注册测试日志服务
+            register_test_logger_services(container, test_config, isolation_id)
+            
+            try:
+                return func(*args, **kwargs)
+            finally:
+                # 清理日志服务
+                reset_test_logger_services(container, isolation_id)
+        
+        return wrapper
+    
+    return decorator
+
+
+def reset_test_logger_services(
+    container: Any,
+    isolation_id: Optional[str] = None
+) -> None:
+    """重置测试日志服务
+    
+    清理特定隔离ID对应的日志服务。
+    
+    Args:
+        container: 依赖注入容器
+        isolation_id: 隔离ID
+    """
+    test_namespace = f"test_{isolation_id or 'default'}"
+    
+    # 清除该命名空间下的日志服务
+    service_types = [
+        LoggerFactory,
+        ILogRedactor,
+        List[IBaseHandler],
+        ILogger
+    ]
+    
+    for service_type in service_types:
+        try:
+            if container.has_service(service_type, environment=test_namespace):
+                # 注销服务
+                if hasattr(container, 'unregister'):
+                    container.unregister(service_type, environment=test_namespace)  # type: ignore
+        except Exception as e:
+            print(f"[WARNING] 清理测试日志服务失败 ({service_type.__name__}): {e}", file=sys.stderr)
 
 
 # 自动注册关闭处理器

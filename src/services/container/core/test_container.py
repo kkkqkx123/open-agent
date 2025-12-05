@@ -9,10 +9,11 @@ from contextlib import contextmanager
 from types import TracebackType
 
 from src.interfaces.container import IDependencyContainer
-from src.interfaces.logger import ILogger, ServiceLifetime
+from src.interfaces.logger import ILogger
+from src.interfaces.common_infra import ServiceLifetime
 
 # 导入日志绑定
-from ..logger_bindings import register_test_logger_services
+from ..bindings.logger_bindings import register_test_logger_services
 
 # 泛型类型变量
 _ServiceT = TypeVar("_ServiceT")
@@ -98,6 +99,23 @@ class TestContainer(ContextManager["TestContainer"]):
             ) -> None:
                 self._services[interface] = instance
             
+            def register_factory_with_delayed_resolution(
+                self,
+                interface: Type[Any],
+                factory_factory: Callable[[], Callable[..., Any]],
+                environment: str = "default",
+                lifetime: ServiceLifetime = ServiceLifetime.SINGLETON,
+                metadata: Optional[Dict[str, Any]] = None
+            ) -> None:
+                factory = factory_factory()
+                self._services[interface] = factory
+            
+            def resolve_dependencies(self, service_types: List[Type[Any]]) -> Dict[Type[Any], Any]:
+                result: Dict[Type[Any], Any] = {}
+                for service_type in service_types:
+                    result[service_type] = self.get(service_type)
+                return result
+            
             def get(self, service_type: Type[_ServiceT]) -> _ServiceT:
                 if service_type in self._services:
                     service = self._services[service_type]
@@ -135,6 +153,18 @@ class TestContainer(ContextManager["TestContainer"]):
             
             def get_registered_services(self) -> List[Type]:
                 return list(self._services.keys())
+            
+            def create_test_isolation(self, isolation_id: Optional[str] = None) -> IDependencyContainer:
+                # 为测试隔离创建新容器
+                isolated_container = MockContainer()
+                isolated_container.set_environment(f"test_{isolation_id or 'default'}")
+                return isolated_container
+            
+            def reset_test_state(self, isolation_id: Optional[str] = None) -> None:
+                # 重置测试状态
+                test_env = f"test_{isolation_id or 'default'}"
+                if self.get_environment() == test_env:
+                    self.clear()
         
         return MockContainer()
 
