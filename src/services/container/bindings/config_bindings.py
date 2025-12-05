@@ -5,7 +5,7 @@
 """
 
 import sys
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from src.interfaces.container import IDependencyContainer
 from src.interfaces.common_infra import ServiceLifetime

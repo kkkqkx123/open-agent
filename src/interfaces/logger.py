@@ -185,6 +185,79 @@ class ILoggerFactory(ABC):
             日志记录器实例
         """
         pass
+    
+    @abstractmethod
+    def create_console_handler(
+        self,
+        level: "LogLevel | None" = None,
+        formatter_name: str = "color",
+        use_colors: Any = None,
+    ) -> IBaseHandler:
+        """创建控制台处理器
+        
+        Args:
+            level: 日志级别
+            formatter_name: 格式化器名称
+            use_colors: 是否使用颜色
+            
+        Returns:
+            控制台处理器
+        """
+        pass
+    
+    @abstractmethod
+    def create_file_handler(
+        self,
+        filename: str,
+        level: "LogLevel | None" = None,
+        formatter_name: str = "text",
+        encoding: str = "utf-8",
+        max_bytes: Any = None,
+        backup_count: int = 0,
+    ) -> IBaseHandler:
+        """创建文件处理器
+        
+        Args:
+            filename: 日志文件名
+            level: 日志级别
+            formatter_name: 格式化器名称
+            encoding: 文件编码
+            max_bytes: 最大文件字节数
+            backup_count: 备份文件数量
+            
+        Returns:
+            文件处理器
+        """
+        pass
+    
+    @abstractmethod
+    def create_json_handler(
+        self,
+        filename: str,
+        level: "LogLevel | None" = None,
+        encoding: str = "utf-8",
+        max_bytes: Any = None,
+        backup_count: int = 0,
+        ensure_ascii: bool = False,
+        indent: Any = None,
+        sort_keys: bool = False,
+    ) -> IBaseHandler:
+        """创建JSON处理器
+        
+        Args:
+            filename: 日志文件名
+            level: 日志级别
+            encoding: 文件编码
+            max_bytes: 最大文件字节数
+            backup_count: 备份文件数量
+            ensure_ascii: 是否确保ASCII编码
+            indent: 缩进空格数
+            sort_keys: 是否排序键
+            
+        Returns:
+            JSON处理器
+        """
+        pass
 
 
 # 为了向后兼容，重新导出LogLevel

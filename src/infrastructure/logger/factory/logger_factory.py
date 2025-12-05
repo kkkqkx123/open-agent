@@ -215,20 +215,22 @@ class LoggerFactory(ILoggerFactory):
     
     def create_console_handler(
         self,
-        level: LogLevel = LogLevel.INFO,
+        level: LogLevel | None = None,
         formatter_name: str = "color",
         use_colors: Optional[bool] = None,
     ) -> ConsoleHandler:
         """创建控制台处理器
         
         Args:
-            level: 日志级别
+             level: 日志级别
             formatter_name: 格式化器名称
             use_colors: 是否使用颜色
             
         Returns:
             控制台处理器
         """
+        if level is None:
+            level = LogLevel.INFO
         formatter = self.get_formatter(formatter_name)
         if formatter_name == "color" and isinstance(formatter, ColorFormatter):
             return ConsoleHandler(level, formatter, use_colors=use_colors)
@@ -238,7 +240,7 @@ class LoggerFactory(ILoggerFactory):
     def create_file_handler(
         self,
         filename: str,
-        level: LogLevel = LogLevel.INFO,
+        level: LogLevel | None = None,
         formatter_name: str = "text",
         encoding: str = "utf-8",
         max_bytes: Optional[int] = None,
@@ -257,6 +259,8 @@ class LoggerFactory(ILoggerFactory):
         Returns:
             文件处理器
         """
+        if level is None:
+            level = LogLevel.INFO
         formatter = self.get_formatter(formatter_name)
         return FileHandler(
             filename=filename,
@@ -270,7 +274,7 @@ class LoggerFactory(ILoggerFactory):
     def create_json_handler(
         self,
         filename: str,
-        level: LogLevel = LogLevel.INFO,
+        level: LogLevel | None = None,
         encoding: str = "utf-8",
         max_bytes: Optional[int] = None,
         backup_count: int = 0,
@@ -293,6 +297,8 @@ class LoggerFactory(ILoggerFactory):
         Returns:
             JSON处理器
         """
+        if level is None:
+            level = LogLevel.INFO
         return JsonHandler(
             filename=filename,
             level=level,
