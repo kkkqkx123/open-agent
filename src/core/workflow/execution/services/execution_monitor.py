@@ -3,7 +3,7 @@
 提供工作流执行的监控和性能分析服务。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import time
 import threading
 from typing import Dict, Any, Optional, List, Callable, TYPE_CHECKING

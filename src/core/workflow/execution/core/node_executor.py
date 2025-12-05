@@ -3,7 +3,7 @@
 提供节点的核心执行功能。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import time
 from typing import Dict, Any, Optional, TYPE_CHECKING
 from abc import ABC, abstractmethod

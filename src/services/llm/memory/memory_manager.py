@@ -3,7 +3,7 @@ import psutil
 import asyncio
 from typing import Dict, Any, Optional, Callable
 from pathlib import Path
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from datetime import datetime
 
 from ..core.base_factory import BaseFactory

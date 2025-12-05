@@ -167,6 +167,26 @@ class ILogger(ABC):
         pass
 
 
+class ILoggerFactory(ABC):
+    """日志工厂接口
+    
+    定义日志创建工厂的基础契约，避免接口层对具体实现的依赖。
+    """
+    
+    @abstractmethod
+    def create_logger(self, name: str, **kwargs: Any) -> ILogger:
+        """创建日志记录器
+        
+        Args:
+            name: 日志记录器名称
+            **kwargs: 额外参数
+            
+        Returns:
+            日志记录器实例
+        """
+        pass
+
+
 # 为了向后兼容，重新导出LogLevel
 from typing import TYPE_CHECKING
 
@@ -216,7 +236,8 @@ else:
 
 __all__ = [
     "IBaseHandler",
-    "ILogRedactor", 
+    "ILogRedactor",
     "ILogger",
+    "ILoggerFactory",
     "LogLevel",
 ]

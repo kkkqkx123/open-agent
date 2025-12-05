@@ -1,6 +1,6 @@
 """Git服务实现 - 用于会话版本控制"""
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path

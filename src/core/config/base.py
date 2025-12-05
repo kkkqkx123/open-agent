@@ -1,6 +1,6 @@
 """基础配置模型"""
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from abc import ABC
 from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, Field, ConfigDict

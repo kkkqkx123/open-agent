@@ -4,7 +4,7 @@
 提供分层错误处理和恢复策略，集成到统一错误处理框架中。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import time
 import os
 from typing import Type, Dict, Callable, Optional, Any, List

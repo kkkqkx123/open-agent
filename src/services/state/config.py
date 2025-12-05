@@ -3,7 +3,7 @@
 提供状态管理服务的配置获取、验证和服务配置功能。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, List, Optional
 
 logger = get_logger(__name__)

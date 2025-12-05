@@ -6,7 +6,7 @@
 from typing import Dict, Any, Optional, Type
 import yaml
 from pathlib import Path
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from .state_machine_workflow import StateMachineWorkflow, StateMachineConfig, StateDefinition, Transition, StateType
 from .state_machine_workflow_factory import StateMachineWorkflowFactory

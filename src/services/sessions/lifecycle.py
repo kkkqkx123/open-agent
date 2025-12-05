@@ -1,6 +1,6 @@
 """Session生命周期管理器 - 简化实现"""
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List, Callable, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum

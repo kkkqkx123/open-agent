@@ -1,7 +1,7 @@
 """工作流执行服务"""
 
 from typing import AsyncGenerator, Dict, Any, Optional, List
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from datetime import datetime
 
 from interfaces.state import IWorkflowState as WorkflowState

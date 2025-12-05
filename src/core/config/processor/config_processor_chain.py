@@ -3,7 +3,7 @@
 提供可组合的配置处理功能，支持继承、环境变量替换和引用解析。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, List, Optional, Set
 from pathlib import Path
 

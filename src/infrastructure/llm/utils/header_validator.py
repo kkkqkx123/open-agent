@@ -3,7 +3,7 @@
 import re
 import os
 from typing import Dict, List, Optional, Tuple
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 logger = get_logger(__name__)
 

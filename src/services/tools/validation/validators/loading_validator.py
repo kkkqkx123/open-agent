@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, List
-from src.interfaces.common_infra import ILogger
+from src.interfaces.logger import ILogger
 from src.interfaces.tool.base import IToolManager
 from ..interfaces import IToolValidator
 from ..models import ValidationResult, ValidationStatus

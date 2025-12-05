@@ -4,10 +4,9 @@
 提供业务逻辑服务实现。
 """
 
-from .tools.manager import ToolManager
-from .llm.manager import LLMManager
+# 注意：避免在模块级别导入具体实现以防止循环依赖
+# 如需使用具体服务，请直接从对应模块导入
 
 __all__ = [
-    "ToolManager",
-    "LLMManager",
+    # 不再导出具体实现，避免循环依赖
 ]

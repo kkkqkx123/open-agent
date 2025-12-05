@@ -1,7 +1,7 @@
 """任务组LLM包装器"""
 
 import asyncio
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import time
 from typing import Dict, Any, Optional, List, Sequence
 from datetime import datetime

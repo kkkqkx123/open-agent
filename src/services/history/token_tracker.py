@@ -3,7 +3,7 @@
 提供基于LLM模块的精确Token追踪功能，支持工作流和模型维度统计。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 from dataclasses import asdict

@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, Optional, List
 import time
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from .registry import node
 from .sync_node import SyncNode
@@ -210,7 +210,7 @@ class ToolNode(SyncNode):
             List[ToolCall]: 工具调用列表
         """
         tool_calls: List[ToolCall] = []
-        from src.services.logger import get_logger
+        from src.services.logger.injection import get_logger
         logger = get_logger(__name__)
 
         # 从最后一条消息中提取工具调用
@@ -311,7 +311,7 @@ class ToolNode(SyncNode):
         Returns:
             List[ToolCall]: 工具调用列表
         """
-        from src.services.logger import get_logger
+        from src.services.logger.injection import get_logger
         import json
         import re
         logger = get_logger(__name__)

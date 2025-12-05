@@ -5,7 +5,7 @@
 
 from abc import ABC
 from typing import Dict, Any, List, Optional
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from src.interfaces.workflow.templates import IWorkflowTemplate
 from src.interfaces.workflow.core import IWorkflow

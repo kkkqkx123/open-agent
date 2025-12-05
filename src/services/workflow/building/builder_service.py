@@ -5,7 +5,7 @@
 """
 
 from typing import Dict, Any, List, TYPE_CHECKING, Optional
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import asyncio
 
 if TYPE_CHECKING:

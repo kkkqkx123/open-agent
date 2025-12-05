@@ -38,7 +38,7 @@ def node(node_type: str) -> Callable:
 
         # 注意：全局注册表已被移除，装饰器不再自动注册
         # 推荐使用依赖注入方式注册节点
-        from src.services.logger import get_logger
+        from src.services.logger.injection import get_logger
         logger = get_logger(__name__)
         logger.warning(f"节点装饰器已使用，但不再自动注册到全局注册表。请使用依赖注入方式注册节点类型: {node_type}")
 

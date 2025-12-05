@@ -3,7 +3,7 @@
 提供工作流的批量执行策略实现。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import asyncio
 import concurrent.futures
 from typing import TYPE_CHECKING, Dict, Any, Optional, List, Callable, Union

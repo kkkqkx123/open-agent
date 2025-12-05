@@ -7,7 +7,7 @@ import json
 import hashlib
 import time
 from typing import Dict, Any, List, Optional, Union, Callable
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 
 class CommonUtils:

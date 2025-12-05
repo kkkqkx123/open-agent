@@ -12,7 +12,7 @@ from src.infrastructure.llm.http_client.openai_http_client import OpenAIHttpClie
 from src.infrastructure.llm.http_client.gemini_http_client import GeminiHttpClient
 from src.infrastructure.llm.http_client.anthropic_http_client import AnthropicHttpClient
 from src.infrastructure.llm.config.config_discovery import ConfigDiscovery
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 
 class HttpClientFactory:

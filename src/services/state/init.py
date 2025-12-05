@@ -3,7 +3,7 @@
 提供状态管理服务的初始化和配置功能，使用简化的架构。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, TYPE_CHECKING
 
 from src.core.config.config_manager import ConfigManager

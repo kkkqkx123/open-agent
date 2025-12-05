@@ -3,7 +3,7 @@
 提供会话状态的具体实现，继承自基础状态并实现会话特定功能。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 

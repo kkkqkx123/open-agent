@@ -1,7 +1,7 @@
 """文件系统线程存储后端实现"""
 
 import json
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 

@@ -3,7 +3,7 @@
 管理插件的注册、获取和查询功能。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Any, Dict, List, Optional, Type, cast
 from src.interfaces.workflow.plugins import IPlugin, PluginType, PluginStatus
 

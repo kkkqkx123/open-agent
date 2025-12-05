@@ -3,7 +3,7 @@
 提供纯异步的状态存储适配器实现。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, List, Optional, Sequence
 
 from src.interfaces.state.storage.adapter import IStateStorageAdapter

@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, List
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from .base import BaseWorkflowTemplate
 from src.interfaces.workflow.core import IWorkflow

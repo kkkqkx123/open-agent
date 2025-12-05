@@ -2,7 +2,7 @@
 
 from typing import Any, Optional, List, Dict
 from datetime import datetime
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 # 导入服务器端缓存接口
 from src.infrastructure.cache.interfaces.server_cache_provider import IServerCacheProvider

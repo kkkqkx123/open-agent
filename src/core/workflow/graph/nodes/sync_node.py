@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from src.interfaces.workflow.graph import NodeExecutionResult
 from src.interfaces.state.interfaces import IState

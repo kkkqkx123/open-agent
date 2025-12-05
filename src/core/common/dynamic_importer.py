@@ -6,7 +6,7 @@
 from typing import Type, Any, Optional, Dict, Callable
 import importlib
 import inspect
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from pathlib import Path
 
 logger = get_logger(__name__)

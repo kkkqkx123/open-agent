@@ -1,14 +1,12 @@
 """日志依赖注入便利层
 
-使用通用依赖注入框架提供简洁的日志获取方式。
+简化实现避免循环依赖，提供基本的日志获取方式。
 """
 
 import sys
 from typing import Optional
 
 from src.interfaces.logger import ILogger
-from src.services.container.injection.injection_base import get_global_injection_registry
-from src.services.container.injection.injection_decorators import injectable
 
 
 class _StubLogger(ILogger):
@@ -55,23 +53,14 @@ class _StubLogger(ILogger):
         pass
 
 
-def _create_fallback_logger() -> ILogger:
-    """创建fallback logger"""
-    return _StubLogger()
+# 全局日志实例（简化实现）
+_global_logger: Optional[ILogger] = None
 
 
-# 注册日志注入
-_logger_injection = get_global_injection_registry().register(ILogger, _create_fallback_logger)
-
-
-@injectable(ILogger, _create_fallback_logger)
 def get_logger(module_name: str | None = None) -> ILogger:
     """获取日志记录器实例
     
-    获取策略（按优先级）：
-    1. 使用全局 logger 实例（由容器设置）
-    2. 尝试从容器获取
-    3. 降级到临时实现（防止崩溃）
+    简化实现：直接返回全局实例或临时实现
     
     Args:
         module_name: 模块名称，用于标识日志来源（当前版本中未使用，保留兼容性）
@@ -88,7 +77,12 @@ def get_logger(module_name: str | None = None) -> ILogger:
         logger.error("发生错误", exc_info=True)
         ```
     """
-    return _logger_injection.get_instance()
+    global _global_logger
+    if _global_logger is not None:
+        return _global_logger
+    
+    # 返回临时实现
+    return _StubLogger()
 
 
 def set_logger_instance(logger: ILogger) -> None:
@@ -106,7 +100,8 @@ def set_logger_instance(logger: ILogger) -> None:
         set_logger_instance(logger_instance)
         ```
     """
-    _logger_injection.set_instance(logger)
+    global _global_logger
+    _global_logger = logger
 
 
 def clear_logger_instance() -> None:
@@ -121,7 +116,8 @@ def clear_logger_instance() -> None:
             clear_logger_instance()
         ```
     """
-    _logger_injection.clear_instance()
+    global _global_logger
+    _global_logger = None
 
 
 def get_logger_status() -> dict:
@@ -130,17 +126,10 @@ def get_logger_status() -> dict:
     Returns:
         状态信息字典
     """
-    return _logger_injection.get_status()
-
-
-def disable_container_fallback() -> None:
-    """禁用容器降级（主要用于测试）"""
-    _logger_injection.disable_container_fallback()
-
-
-def enable_container_fallback() -> None:
-    """启用容器降级"""
-    _logger_injection.enable_container_fallback()
+    return {
+        "has_global_logger": _global_logger is not None,
+        "logger_type": type(_global_logger).__name__ if _global_logger else None
+    }
 
 
 # 导出的公共接口
@@ -149,6 +138,4 @@ __all__ = [
     "set_logger_instance",
     "clear_logger_instance",
     "get_logger_status",
-    "disable_container_fallback",
-    "enable_container_fallback",
 ]

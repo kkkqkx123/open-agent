@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from src.interfaces.messages import IBaseMessage
 
 from src.infrastructure.messages import AIMessage, SystemMessage, HumanMessage
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from .registry import node
 from .async_node import AsyncNode

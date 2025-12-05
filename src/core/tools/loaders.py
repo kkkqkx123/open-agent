@@ -5,7 +5,7 @@
 """
 
 import os
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import List, Dict, Any, Union, Optional
 from src.interfaces.tool.base import ITool
 from src.core.tools.config import ToolConfig, RestToolConfig, MCPToolConfig, NativeToolConfig

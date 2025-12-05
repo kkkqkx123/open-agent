@@ -6,7 +6,7 @@
 from typing import Dict, Any, List, Optional, Tuple
 import json
 import yaml
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from pathlib import Path
 
 from .config_adapter import StateMachineConfigAdapter

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from dataclasses import asdict
 
 from src.interfaces.repository.history import IHistoryRepository
-from src.interfaces.common_infra import ILogger
+from src.interfaces.logger import ILogger
 from src.core.history.entities import (
     WorkflowTokenStatistics, WorkflowTokenSummary, TokenUsageRecord,
     CostRecord, RecordType

@@ -4,7 +4,7 @@
 """
 
 import time
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, Union
 
 from .registry import node

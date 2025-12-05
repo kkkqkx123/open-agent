@@ -9,7 +9,7 @@ import yaml
 from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass
 from enum import Enum
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from src.core.workflow.config.config import GraphConfig, EdgeConfig, EdgeType
 

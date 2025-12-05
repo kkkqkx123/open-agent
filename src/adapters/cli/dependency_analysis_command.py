@@ -1,7 +1,7 @@
 """依赖分析命令 - CLI接口"""
 
 import json
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from abc import ABC, abstractmethod

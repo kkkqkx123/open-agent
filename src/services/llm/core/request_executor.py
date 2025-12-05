@@ -4,7 +4,7 @@
 """
 
 from typing import Any, Dict, List, Optional, Sequence, AsyncGenerator
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from src.infrastructure.messages.base import BaseMessage
 
 from src.interfaces.llm import ILLMClient, IFallbackManager, ITaskGroupManager, LLMResponse

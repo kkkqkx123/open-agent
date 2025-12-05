@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 # 延迟获取logger实例，避免循环依赖
 def _get_logger() -> ILogger:
-    from src.services.logger import get_logger
+    from src.services.logger.injection import get_logger
     return get_logger(__name__)
 
 

@@ -14,7 +14,7 @@ from src.core.history.entities import (
     RecordType
 )
 from src.interfaces.repository.history import IHistoryRepository
-from src.interfaces.common_infra import ILogger
+from src.interfaces.logger import ILogger
 from src.core.history.base import BaseHistoryManager
 from src.core.common.exceptions.history import HistoryError
 from src.core.common.exceptions.storage import StorageError

@@ -8,7 +8,7 @@ from enum import Enum
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Union, Tuple, Callable, Type
 from datetime import datetime
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import re
 import yaml
 import json

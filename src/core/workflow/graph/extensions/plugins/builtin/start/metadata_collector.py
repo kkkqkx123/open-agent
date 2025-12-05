@@ -7,7 +7,7 @@ import os
 import sys
 import platform
 import getpass
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any
 from datetime import datetime
 

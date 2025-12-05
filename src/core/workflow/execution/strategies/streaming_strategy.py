@@ -3,7 +3,7 @@
 提供工作流的流式执行策略实现。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import asyncio
 from typing import Dict, Any, Optional, List, AsyncIterator, Iterator, TYPE_CHECKING, cast
 from dataclasses import dataclass, field

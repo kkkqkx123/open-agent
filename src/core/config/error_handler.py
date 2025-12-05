@@ -3,7 +3,7 @@
 为配置系统提供专门的错误处理和分类策略。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, Callable
 
 from ..common.error_management import (

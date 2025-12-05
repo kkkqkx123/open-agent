@@ -3,7 +3,7 @@
 提供工作流执行的调度和资源管理服务。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import time
 import threading
 import queue

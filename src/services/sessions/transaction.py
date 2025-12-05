@@ -1,6 +1,6 @@
 """Session-Thread事务管理实现"""
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import uuid
 from typing import Dict, Any, Optional
 from datetime import datetime

@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, Callable, Optional, List
 from pathlib import Path
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from .registry import NodeFunctionRegistry, get_global_node_function_registry
 from .loader import NodeFunctionLoader

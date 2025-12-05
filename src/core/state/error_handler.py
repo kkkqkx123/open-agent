@@ -3,7 +3,7 @@
 为状态管理系统提供专门的错误处理和恢复策略。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional
 
 from ..common.error_management import (

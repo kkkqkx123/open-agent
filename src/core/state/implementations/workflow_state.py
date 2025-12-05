@@ -3,7 +3,7 @@
 提供工作流状态的具体实现，继承自基础状态并实现工作流特定功能。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
 

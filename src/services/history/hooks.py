@@ -4,7 +4,7 @@
 """
 
 import asyncio
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, Sequence, List
 from datetime import datetime
 from src.infrastructure.messages.base import BaseMessage

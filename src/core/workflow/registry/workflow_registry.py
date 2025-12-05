@@ -3,9 +3,9 @@
 实现工作流相关组件的注册表，支持依赖注入。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, List, Type, Optional
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from src.interfaces.workflow.registry import (
     IComponentRegistry, 

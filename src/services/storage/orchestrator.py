@@ -3,7 +3,7 @@
 提供存储相关的业务编排功能，协调多个领域服务。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 

@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Sequence, TYPE_CHECKING
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 if TYPE_CHECKING:
     from src.interfaces.messages import IBaseMessage

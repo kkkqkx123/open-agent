@@ -6,7 +6,7 @@
 from typing import Dict, List, Any, Optional, Union
 from pathlib import Path
 import yaml
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from copy import deepcopy
 
 logger = get_logger(__name__)

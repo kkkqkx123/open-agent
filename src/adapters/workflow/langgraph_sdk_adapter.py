@@ -3,7 +3,7 @@
 from typing import Dict, Any, Optional, List, AsyncGenerator
 import asyncio
 from datetime import datetime
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from src.services.checkpoint.manager import CheckpointManager
 from src.interfaces.sessions.base import ISessionManager

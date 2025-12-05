@@ -9,7 +9,7 @@ import atexit
 from typing import Dict, Any, Optional, List, Callable
 from contextlib import contextmanager
 
-from src.interfaces.logger import ILogger, IBaseHandler, ILogRedactor, LogLevel
+from src.interfaces.logger import ILogger, IBaseHandler, ILogRedactor, ILoggerFactory, LogLevel
 from src.interfaces.common_infra import ServiceLifetime
 from src.services.logger.logger_service import LoggerService
 from src.infrastructure.logger.core.redactor import LogRedactor, CustomLogRedactor
@@ -53,10 +53,12 @@ class LoggerServiceBindings(BaseServiceBindings):
     """日志服务绑定类
     
     负责注册所有日志相关服务，包括：
-    - LoggerFactory
+    - ILoggerFactory
     - ILogRedactor
     - IBaseHandler列表
     - ILogger服务
+    
+    重构后使用接口依赖，避免循环依赖。
     """
     
     def _validate_config(self, config: Dict[str, Any]) -> None:
@@ -166,7 +168,7 @@ class LoggerServiceBindings(BaseServiceBindings):
 def _register_logger_factory(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册日志工厂"""
     container.register_factory(
-        LoggerFactory,
+        ILoggerFactory,
         lambda: LoggerFactory(),
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
@@ -200,7 +202,7 @@ def _register_log_redactor(container: Any, config: Dict[str, Any], environment: 
 def _register_handlers(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册日志处理器"""
     def handlers_factory() -> List[IBaseHandler]:
-        logger_factory = container.get(LoggerFactory)
+        logger_factory = container.get(ILoggerFactory)
         handlers: List[IBaseHandler] = []
         log_outputs = config.get("log_outputs", [{"type": "console"}])
         
@@ -219,7 +221,7 @@ def _register_handlers(container: Any, config: Dict[str, Any], environment: str 
     )
 
 
-def _create_handler_from_config(output_config: Dict[str, Any], logger_factory: LoggerFactory) -> Optional[IBaseHandler]:
+def _create_handler_from_config(output_config: Dict[str, Any], logger_factory: ILoggerFactory) -> Optional[IBaseHandler]:
     """根据配置创建处理器"""
     handler_type = output_config.get("type", "console")
     handler_level_str = output_config.get("level", "INFO")
@@ -259,7 +261,7 @@ def _create_handler_from_config(output_config: Dict[str, Any], logger_factory: L
 def _register_logger_service(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册Logger服务"""
     def logger_factory() -> ILogger:
-        logger_factory_instance = container.get(LoggerFactory)
+        logger_factory_instance = container.get(ILoggerFactory)
         redactor = container.get(ILogRedactor)
         handlers = container.get(List[IBaseHandler])
         
@@ -267,6 +269,7 @@ def _register_logger_service(container: Any, config: Dict[str, Any], environment
         infra_logger = logger_factory_instance.create_logger(
             name=logger_name,
             handlers=handlers,
+            redactor=redactor,
             config=config
         )
         

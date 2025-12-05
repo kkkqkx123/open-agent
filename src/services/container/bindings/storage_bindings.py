@@ -7,7 +7,7 @@
 import sys
 from typing import Dict, Any
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from src.interfaces.logger import ILogger
 from src.services.container.core.base_service_bindings import BaseServiceBindings
 

@@ -189,7 +189,7 @@ def node_function(name: str):
     def decorator(func: Callable) -> Callable:
         # 注意：全局注册表已被移除，请使用依赖注入方式注册
         # 这里保留装饰器功能但不再自动注册到全局注册表
-        from src.services.logger import get_logger
+        from src.services.logger.injection import get_logger
         logger = get_logger(__name__)
         logger.warning(f"节点函数 {name} 装饰器已使用，但全局注册表已被移除。请使用依赖注入方式注册。")
         
@@ -210,7 +210,7 @@ def route_function(name: str):
     def decorator(func: Callable) -> Callable:
         # 注意：全局注册表已被移除，请使用依赖注入方式注册
         # 这里保留装饰器功能但不再自动注册到全局注册表
-        from src.services.logger import get_logger
+        from src.services.logger.injection import get_logger
         logger = get_logger(__name__)
         logger.warning(f"路由函数 {name} 装饰器已使用，但全局注册表已被移除。请使用依赖注入方式注册。")
         

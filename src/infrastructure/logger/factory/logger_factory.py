@@ -3,7 +3,7 @@
 import threading
 from typing import Any, Dict, List, Optional, Type, Union
 
-from ....interfaces.logger import ILogger, IBaseHandler, ILogRedactor, LogLevel
+from ....interfaces.logger import ILogger, IBaseHandler, ILogRedactor, ILoggerFactory, LogLevel
 from ..core.log_level import LogLevel
 from ..core.redactor import LogRedactor, CustomLogRedactor
 from ..handlers.base_handler import BaseHandler
@@ -15,7 +15,7 @@ from ..formatters.color_formatter import ColorFormatter
 from ..formatters.json_formatter import JsonFormatter
 
 
-class LoggerFactory:
+class LoggerFactory(ILoggerFactory):
     """日志工厂 - 基础设施层实现
     
     负责创建和配置日志系统的各种组件，包括：
@@ -46,26 +46,26 @@ class LoggerFactory:
         # 注册默认脱敏器
         self.register_redactor("default", LogRedactor())
     
-    def create_logger(
-        self,
-        name: str,
-        handlers: Optional[List[IBaseHandler]] = None,
-        level: LogLevel = LogLevel.INFO,
-        redactor: Optional[ILogRedactor] = None,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> ILogger:
+    def create_logger(self, name: str, **kwargs: Any) -> ILogger:
         """创建日志记录器实例
         
         Args:
             name: 日志记录器名称
-            handlers: 日志处理器列表
-            level: 日志级别
-            redactor: 日志脱敏器
-            config: 配置字典
+            **kwargs: 额外参数，包括：
+                - handlers: 日志处理器列表
+                - level: 日志级别
+                - redactor: 日志脱敏器
+                - config: 配置字典
             
         Returns:
             日志记录器实例
         """
+        # 提取参数
+        handlers: Optional[List[IBaseHandler]] = kwargs.get("handlers")
+        level = kwargs.get("level", LogLevel.INFO)
+        redactor = kwargs.get("redactor")
+        config = kwargs.get("config")
+        
         # 从配置创建处理器
         if handlers is None and config:
             handlers = self._create_handlers_from_config(config)
@@ -209,7 +209,7 @@ class LoggerFactory:
         with self._lock:
             if name not in self._loggers:
                 self._loggers[name] = self.create_logger(
-                    name, handlers, level, redactor, config
+                    name, handlers=handlers, level=level, redactor=redactor, config=config
                 )
             return self._loggers[name]
     
@@ -420,34 +420,5 @@ class LoggerFactory:
             self._loggers.clear()
 
 
-# 全局工厂实例
-_global_factory: Optional[LoggerFactory] = None
-
-
-def get_logger_factory() -> LoggerFactory:
-    """获取全局日志工厂
-    
-    Returns:
-        日志工厂实例
-    """
-    global _global_factory
-    if _global_factory is None:
-        _global_factory = LoggerFactory()
-    return _global_factory
-
-
-def create_logger(
-    name: str,
-    config: Optional[Dict[str, Any]] = None,
-) -> ILogger:
-    """创建日志记录器的便捷函数
-    
-    Args:
-        name: 日志记录器名称
-        config: 配置
-        
-    Returns:
-        日志记录器实例
-    """
-    factory = get_logger_factory()
-    return factory.get_logger(name, config=config)
+# 注意：已移除全局便利函数，推荐通过依赖注入容器获取ILoggerFactory和ILogger实例
+# 这样可以避免循环依赖并提高架构清晰度

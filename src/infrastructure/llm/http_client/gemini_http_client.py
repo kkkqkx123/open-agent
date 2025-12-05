@@ -11,7 +11,7 @@ from src.interfaces.llm.http_client import ILLMHttpClient
 from src.infrastructure.llm.http_client.base_http_client import BaseHttpClient
 from src.infrastructure.llm.converters.gemini.gemini_format_utils import GeminiFormatUtils
 from src.infrastructure.llm.models import LLMResponse, TokenUsage
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 # 使用 TYPE_CHECKING 避免循环导入
 from typing import TYPE_CHECKING

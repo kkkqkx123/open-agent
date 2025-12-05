@@ -6,7 +6,7 @@ import threading
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 from enum import Enum
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 logger = get_logger(__name__)
 

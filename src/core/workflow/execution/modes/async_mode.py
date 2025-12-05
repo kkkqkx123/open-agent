@@ -3,7 +3,7 @@
 提供工作流的异步执行模式实现。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import time
 from typing import Dict, Any, Optional, TYPE_CHECKING
 

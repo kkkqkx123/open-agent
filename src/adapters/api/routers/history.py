@@ -4,7 +4,7 @@ from fastapi.responses import StreamingResponse
 from typing import Optional, List
 from datetime import datetime
 import io
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from ..models.requests import BookmarkCreateRequest
 from ..models.responses import HistoryResponse, SearchResponse, BookmarkResponse, ApiResponse

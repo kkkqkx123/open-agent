@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, List, Optional
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from pathlib import Path
 
 from .node_config_loader import get_node_config_loader

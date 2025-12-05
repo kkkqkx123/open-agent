@@ -6,7 +6,7 @@
 import os
 import shutil
 import glob
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
 

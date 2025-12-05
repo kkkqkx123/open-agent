@@ -3,7 +3,7 @@
 复用现有的通用缓存系统来为状态管理提供缓存功能。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import asyncio
 from typing import Any, Dict, List, Optional
 

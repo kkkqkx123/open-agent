@@ -8,7 +8,7 @@
 """
 
 from typing import Dict, Any, List, Optional, Union, Sequence
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from datetime import datetime
 
 from typing import TYPE_CHECKING

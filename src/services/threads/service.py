@@ -14,7 +14,7 @@ from src.interfaces.threads.service import IThreadService
 from src.interfaces.sessions.service import ISessionService
 from src.core.threads.interfaces import IThreadCore
 from src.interfaces.threads.storage import IThreadRepository
-from src.interfaces.common_infra import ILogger
+from src.interfaces.logger import ILogger
 
 from .basic_service import BasicThreadService
 from .workflow_service import WorkflowThreadService

@@ -7,7 +7,7 @@ import asyncio
 import threading
 from typing import Optional, Any, Coroutine
 from functools import wraps
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import concurrent.futures
 
 logger = get_logger(__name__)

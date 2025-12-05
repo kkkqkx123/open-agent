@@ -3,7 +3,7 @@
 提供Thread检查点的高级管理功能，协调多个领域服务。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 

@@ -32,7 +32,7 @@ from src.interfaces.configuration import ValidationResult
 # 延迟导入logger以避免循环依赖
 def _get_logger() -> Optional[Any]:
     try:
-        from src.services.logger import get_logger
+        from src.services.logger.injection import get_logger
         return get_logger(__name__)
     except:
         # 如果logger不可用，返回None

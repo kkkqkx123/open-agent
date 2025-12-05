@@ -3,7 +3,7 @@
 提供LLM调用的成本计算功能，支持多模型定价。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from dataclasses import dataclass

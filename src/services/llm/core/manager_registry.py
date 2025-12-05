@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, Optional, List, Callable
 from enum import Enum
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from dataclasses import dataclass
 from datetime import datetime
 

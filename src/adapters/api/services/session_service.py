@@ -5,7 +5,7 @@ from src.interfaces.sessions.service import ISessionService
 from src.core.state import WorkflowState
 from src.core.sessions.entities import UserRequestEntity
 from ..data_access.session_dao import SessionDAO
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from ..data_access.history_dao import HistoryDAO
 from ..cache.memory_cache import MemoryCache

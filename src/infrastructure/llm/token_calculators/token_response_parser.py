@@ -7,7 +7,7 @@ Token响应解析器
 from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from ..models import TokenUsage
 
 logger = get_logger(__name__)

@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, Optional, List, Callable
 from dataclasses import dataclass
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from src.core.workflow.graph.route_functions import RouteFunctionManager
 from typing import TYPE_CHECKING

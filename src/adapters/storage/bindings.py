@@ -5,7 +5,7 @@
 这个文件应该由bootstrap或其他引导代码调用，以完成依赖注入的配置。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any
 
 from .interfaces import (

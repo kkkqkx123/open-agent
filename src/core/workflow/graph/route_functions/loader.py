@@ -8,7 +8,7 @@ import importlib
 import inspect
 from pathlib import Path
 from typing import Dict, Any, Callable, Optional
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from .registry import RouteFunctionRegistry, RouteFunctionConfig
 

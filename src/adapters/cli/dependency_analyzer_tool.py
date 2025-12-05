@@ -1,6 +1,6 @@
 """依赖分析CLI工具 - 用于静态分析DI容器依赖关系"""
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import inspect
 from typing import Type, TypeVar, Dict, Any, Set, List, Optional
 from collections import defaultdict, deque

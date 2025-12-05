@@ -1,7 +1,7 @@
 """生命周期管理器实现"""
 
 import asyncio
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import threading
 from typing import Dict, Any, List, Optional, Callable, Set
 from collections import defaultdict

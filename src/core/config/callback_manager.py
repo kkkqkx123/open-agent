@@ -3,7 +3,7 @@
 为配置系统提供回调管理功能，支持配置变化事件通知。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import threading
 from typing import Dict, Any, List, Callable, Optional
 from enum import Enum

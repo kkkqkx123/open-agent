@@ -3,7 +3,7 @@
 专门负责Hook插件的执行逻辑，从PluginManager中分离出来。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import time
 from typing import Dict, Any, List, Optional, Callable, TYPE_CHECKING
 from collections import defaultdict

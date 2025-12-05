@@ -3,8 +3,7 @@
 import threading
 from typing import Any, Dict, List, Optional
 
-from ...interfaces.logger import ILogger, IBaseHandler, ILogRedactor, LogLevel
-from ...infrastructure.logger.factory.logger_factory import LoggerFactory
+from ...interfaces.logger import ILogger, IBaseHandler, ILogRedactor, ILoggerFactory, LogLevel
 
 
 class LoggerService(ILogger):
@@ -278,20 +277,57 @@ class LoggerService(ILogger):
             self._business_rules = config.get("business_rules", self._business_rules)
 
 
-# 便捷函数，使用基础设施层工厂
+# 便捷函数，通过依赖注入创建
 def create_logger_service(
     name: str,
+    infrastructure_logger: Optional[ILogger] = None,
     config: Optional[Dict[str, Any]] = None,
 ) -> LoggerService:
     """创建日志服务的便捷函数
     
+    注意：此函数主要用于测试和特殊情况，推荐通过依赖注入容器获取LoggerService。
+    
     Args:
         name: 日志记录器名称
+        infrastructure_logger: 基础设施层日志记录器（可选，如果未提供则创建简单实现）
         config: 配置
         
     Returns:
         日志服务实例
     """
-    factory = LoggerFactory()
-    infra_logger = factory.create_logger(name, config=config)
-    return LoggerService(name, infra_logger, config)
+    if infrastructure_logger is None:
+        # 创建简单的基础设施层日志记录器用于测试
+        class SimpleInfraLogger(ILogger):
+            def __init__(self, name: str):
+                self.name = name
+                
+            def debug(self, message: str, **kwargs: Any) -> None:
+                print(f"[DEBUG] {message}")
+                
+            def info(self, message: str, **kwargs: Any) -> None:
+                print(f"[INFO] {message}")
+                
+            def warning(self, message: str, **kwargs: Any) -> None:
+                print(f"[WARNING] {message}")
+                
+            def error(self, message: str, **kwargs: Any) -> None:
+                print(f"[ERROR] {message}")
+                
+            def critical(self, message: str, **kwargs: Any) -> None:
+                print(f"[CRITICAL] {message}")
+                
+            def set_level(self, level: LogLevel) -> None:
+                pass
+                
+            def add_handler(self, handler: IBaseHandler) -> None:
+                pass
+                
+            def remove_handler(self, handler: IBaseHandler) -> None:
+                pass
+                
+            def set_redactor(self, redactor: ILogRedactor) -> None:
+                pass
+        
+        infrastructure_logger = SimpleInfraLogger(name)
+    
+    return LoggerService(name, infrastructure_logger, config)

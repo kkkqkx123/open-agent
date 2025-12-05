@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from starlette.types import ASGIApp
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.base import RequestResponseEndpoint
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 logger = get_logger(__name__)
 
@@ -103,7 +103,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             )
             
             # 返回标准错误响应
-            from src.interfaces.common_infra import LogLevel
+            from src.interfaces.logger import LogLevel
             return JSONResponse(
                 status_code=500,
                 content={

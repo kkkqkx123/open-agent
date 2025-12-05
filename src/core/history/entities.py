@@ -3,7 +3,7 @@
 定义所有历史记录相关的数据结构和枚举类型。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Any, Optional, List

@@ -153,7 +153,7 @@ def edge(edge_type: str):
         
         # 注意：全局注册表已被移除，请使用依赖注入方式注册
         # 这里保留装饰器功能但不再自动注册到全局注册表
-        from src.services.logger import get_logger
+        from src.services.logger.injection import get_logger
         logger = get_logger(__name__)
         logger.warning(f"边类型 {edge_type} 装饰器已使用，但全局注册表已被移除。请使用依赖注入方式注册。")
         

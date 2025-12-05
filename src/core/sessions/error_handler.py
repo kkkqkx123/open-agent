@@ -6,7 +6,7 @@
 from typing import Any, Dict, Optional
 import time
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from src.core.common.error_management import BaseErrorHandler, ErrorCategory, ErrorSeverity
 from src.core.common.exceptions.session_thread import (
     SessionThreadException,

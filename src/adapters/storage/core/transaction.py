@@ -4,7 +4,7 @@
 """
 
 import asyncio
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import threading
 from typing import Optional, List, Protocol, Any
 from contextlib import contextmanager

@@ -3,7 +3,7 @@
 提供工作流的混合执行模式实现，可以根据节点特性自动选择同步或异步执行。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 
 from .mode_base import BaseMode, IExecutionMode

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from .config_discovery import ConfigDiscovery, get_config_discovery
 
 logger = get_logger(__name__)

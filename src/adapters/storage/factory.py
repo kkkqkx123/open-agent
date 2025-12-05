@@ -3,7 +3,7 @@
 提供创建异步存储适配器的工厂实现。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List
 
 from src.interfaces.state.storage.adapter import (

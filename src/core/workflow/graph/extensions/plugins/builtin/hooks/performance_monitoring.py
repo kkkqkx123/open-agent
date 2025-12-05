@@ -4,7 +4,7 @@
 已更新：使用新的Hook插件接口。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import time
 from typing import Dict, Any, List, Optional
 

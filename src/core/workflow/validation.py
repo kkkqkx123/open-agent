@@ -3,9 +3,9 @@
 基于新架构原则，提供统一的工作流管理和验证功能。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, List, Any, Optional
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from datetime import datetime
 
 from src.core.workflow.config.config import GraphConfig

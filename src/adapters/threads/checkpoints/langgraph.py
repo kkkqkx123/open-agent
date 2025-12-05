@@ -3,7 +3,7 @@
 实现Thread检查点的LangGraph适配器，作为反防腐层。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 

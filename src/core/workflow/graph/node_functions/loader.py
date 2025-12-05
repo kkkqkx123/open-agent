@@ -8,7 +8,7 @@ import importlib
 import inspect
 from pathlib import Path
 from typing import Dict, Any, Callable, Optional, List
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from .registry import NodeFunctionRegistry, get_global_node_function_registry
 from .config import NodeFunctionConfig, NodeCompositionConfig, NodeFunctionConfigLoader

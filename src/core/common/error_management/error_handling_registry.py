@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, Optional, Type, TYPE_CHECKING
 from functools import wraps
 
 if TYPE_CHECKING:
-    from src.services.logger import get_logger
+    from src.services.logger.injection import get_logger
 
 from .error_handler import IErrorHandler, BaseErrorHandler
 from .error_category import ErrorCategory
@@ -18,7 +18,7 @@ logger = None
 def _get_logger():
     global logger
     if logger is None:
-        from src.services.logger import get_logger
+        from src.services.logger.injection import get_logger
         logger = get_logger(__name__)
     return logger
 

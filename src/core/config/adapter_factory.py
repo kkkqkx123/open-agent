@@ -2,7 +2,7 @@
 适配器工厂 - 负责创建和管理模块特定配置适配器
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Type, Any
 from .adapters import (
     BaseConfigAdapter,

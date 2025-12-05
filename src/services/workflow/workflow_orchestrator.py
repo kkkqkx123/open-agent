@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional, List
 from src.interfaces.workflow.coordinator import IWorkflowCoordinator
 from src.interfaces.workflow.core import IWorkflow
 from src.interfaces.state.workflow import IWorkflowState
-from src.interfaces.common_infra import ILogger
+from src.interfaces.logger import ILogger
 from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.workflow import Workflow
 

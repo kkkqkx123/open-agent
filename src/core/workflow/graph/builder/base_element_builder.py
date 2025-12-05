@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Union, Callable
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from src.interfaces.workflow.element_builder import (
     IElementBuilder, INodeBuilder, IEdgeBuilder, 

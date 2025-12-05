@@ -6,7 +6,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 import uuid
 
 from src.interfaces.workflow.core import IWorkflow

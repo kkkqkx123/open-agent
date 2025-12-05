@@ -4,7 +4,7 @@
 Adapters层的工厂实现，负责创建具体的存储后端实例。
 """
 
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 from typing import Dict, Any, List
 
 from .interfaces import (

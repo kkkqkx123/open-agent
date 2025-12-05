@@ -12,7 +12,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 
 from cachetools import TTLCache, LRUCache, cached
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 if TYPE_CHECKING:
     from .serialization import Serializer

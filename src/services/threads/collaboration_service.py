@@ -3,7 +3,7 @@
 import uuid
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-from src.services.logger import get_logger
+from src.services.logger.injection import get_logger
 
 from src.interfaces.threads.storage import IThreadRepository
 from src.interfaces.threads.collaboration import IThreadCollaborationService
