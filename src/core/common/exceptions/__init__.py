@@ -8,9 +8,6 @@
 from typing import Optional, Dict, Any
 from pydantic import ValidationError
 
-# 导入配置异常
-from .config import ConfigError
-
 # 基础异常
 class CoreError(Exception):
     """核心模块基础异常"""
@@ -25,44 +22,134 @@ class ServiceError(CoreError):
     pass
 
 
-class ConfigurationError(ConfigError):
-    """配置错误异常"""
-    
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None, config_path: Optional[str] = None):
-        super().__init__(message, config_path, details)
-
-
 class DependencyError(CoreError):
     """依赖错误异常"""
     pass
 
 
-# 工具异常
-from .tool import (
+# 从接口层导入配置异常
+from src.interfaces.configuration import (
+    ConfigError,
+    ConfigurationValidationError,
+    ConfigurationLoadError,
+    ConfigurationEnvironmentError,
+    ConfigurationParseError,
+    ConfigurationMergeError,
+    ConfigurationSchemaError,
+    ConfigurationInheritanceError,
+)
+
+# 为了向后兼容，保留ConfigurationError别名
+class ConfigurationError(ConfigError):
+    """配置错误异常（向后兼容）"""
+    
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None, config_path: Optional[str] = None):
+        super().__init__(message, config_path, details)
+
+
+# 从接口层导入Workflow异常
+from src.interfaces.workflow.exceptions import (
+    WorkflowError,
+    WorkflowValidationError,
+    WorkflowExecutionError,
+    WorkflowStepError,
+    WorkflowTransitionError,
+    WorkflowRuleError,
+    WorkflowTimeoutError,
+    WorkflowStateError,
+    WorkflowConfigError,
+    WorkflowDependencyError,
+    WorkflowPermissionError,
+    WorkflowConcurrencyError,
+    WorkflowResourceError,
+    WorkflowIntegrationError,
+    WorkflowTemplateError,
+    WorkflowVersionError,
+    WORKFLOW_EXCEPTION_MAP,
+    create_workflow_exception,
+    handle_workflow_exception,
+)
+
+# 从接口层导入Tool异常
+from src.interfaces.tool.exceptions import (
     ToolError,
     ToolRegistrationError,
     ToolExecutionError,
+    ToolValidationError,
+    ToolNotFoundError,
+    ToolConfigurationError,
+    ToolTimeoutError,
+    ToolPermissionError,
+    ToolDependencyError,
+    ToolResourceError,
 )
 
-# 存储异常
-from .storage import (
-    StorageError,
-    StorageConnectionError,
-    StorageTransactionError,
-    StorageValidationError,
-    StorageNotFoundError,
-    StoragePermissionError,
-    StorageTimeoutError,
-    StorageCapacityError,
-    StorageIntegrityError,
-    StorageConfigurationError,
-    StorageMigrationError,
-    create_storage_error,
-    EXCEPTION_MAP,
+# 从接口层导入LLM异常
+from src.interfaces.llm.exceptions import (
+    LLMError,
+    LLMClientCreationError,
+    UnsupportedModelTypeError,
+    LLMCallError,
+    LLMTimeoutError,
+    LLMRateLimitError,
+    LLMAuthenticationError,
+    LLMModelNotFoundError,
+    LLMTokenLimitError,
+    LLMContentFilterError,
+    LLMServiceUnavailableError,
+    LLMInvalidRequestError,
+    LLMConfigurationError,
+    LLMFallbackError,
+    # LLM Wrapper异常
+    LLMWrapperError,
+    TaskGroupWrapperError,
+    PollingPoolWrapperError,
+    WrapperFactoryError,
+    WrapperConfigError,
+    WrapperExecutionError,
 )
 
-# 提示词异常
-from .prompt import (
+# 从接口层导入State异常
+from src.interfaces.state.exceptions import (
+    StateError,
+    StateValidationError,
+    StateNotFoundError,
+    StateTimeoutError,
+    StateCapacityError,
+    StateTransitionError,
+    StateConsistencyError,
+    StateSerializationError,
+    StateDeserializationError,
+    StateLockError,
+    StateVersionError,
+)
+
+# 从接口层导入History异常
+from src.interfaces.history.exceptions import (
+    HistoryError,
+    TokenCalculationError,
+    CostCalculationError,
+    StatisticsError,
+    RecordNotFoundError,
+    QuotaExceededError,
+    HistoryQueryError,
+    HistoryStorageError,
+    HistoryValidationError,
+)
+
+# 从接口层导入Checkpoint异常
+from src.interfaces.checkpoint import (
+    CheckpointError,
+    CheckpointNotFoundError,
+    CheckpointStorageError,
+    CheckpointValidationError,
+    CheckpointSerializationError,
+    CheckpointTimeoutError,
+    CheckpointVersionError,
+)
+
+# 从接口层导入Prompt异常
+from src.interfaces.prompts.exceptions import (
     PromptError,
     PromptRegistryError,
     PromptLoadError,
@@ -75,24 +162,28 @@ from .prompt import (
     PromptTypeRegistrationError,
     PromptReferenceError,
     PromptCircularReferenceError,
+    PromptTemplateError,
+    PromptRenderingError,
 )
 
-# 历史异常
-from .history import (
-    HistoryError,
-    TokenCalculationError,
-    CostCalculationError,
-    StatisticsError,
-    RecordNotFoundError,
-    QuotaExceededError,
-)
-
-# Checkpoint异常
-from .checkpoint import (
-    CheckpointError,
-    CheckpointNotFoundError,
-    CheckpointStorageError,
-    CheckpointValidationError,
+# 从接口层导入Session异常
+from src.interfaces.sessions.exceptions import (
+    SessionThreadException,
+    ThreadCreationError,
+    ThreadRemovalError,
+    ThreadTransferError,
+    SessionThreadInconsistencyError,
+    AssociationNotFoundError,
+    DuplicateThreadNameError,
+    ThreadNotFoundError,
+    SessionNotFoundError,
+    TransactionRollbackError,
+    WorkflowExecutionError,
+    SynchronizationError,
+    ConfigurationValidationError as SessionConfigurationValidationError,
+    SessionTimeoutError,
+    SessionCapacityError,
+    SessionPermissionError,
 )
 
 # Repository异常 - 从接口层导入以实现向后兼容
@@ -114,25 +205,99 @@ __all__ = [
     "ValidationError",
     "ConfigurationError",
     "DependencyError",
-    # 工具异常
+    # 配置异常
+    "ConfigError",
+    "ConfigurationValidationError",
+    "ConfigurationLoadError",
+    "ConfigurationEnvironmentError",
+    "ConfigurationParseError",
+    "ConfigurationMergeError",
+    "ConfigurationSchemaError",
+    "ConfigurationInheritanceError",
+    # Workflow异常
+    "WorkflowError",
+    "WorkflowValidationError",
+    "WorkflowExecutionError",
+    "WorkflowStepError",
+    "WorkflowTransitionError",
+    "WorkflowRuleError",
+    "WorkflowTimeoutError",
+    "WorkflowStateError",
+    "WorkflowConfigError",
+    "WorkflowDependencyError",
+    "WorkflowPermissionError",
+    "WorkflowConcurrencyError",
+    "WorkflowResourceError",
+    "WorkflowIntegrationError",
+    "WorkflowTemplateError",
+    "WorkflowVersionError",
+    "WORKFLOW_EXCEPTION_MAP",
+    "create_workflow_exception",
+    "handle_workflow_exception",
+    # Tool异常
     "ToolError",
     "ToolRegistrationError",
     "ToolExecutionError",
-    # 存储异常
-    "StorageError",
-    "StorageConnectionError",
-    "StorageTransactionError",
-    "StorageValidationError",
-    "StorageNotFoundError",
-    "StoragePermissionError",
-    "StorageTimeoutError",
-    "StorageCapacityError",
-    "StorageIntegrityError",
-    "StorageConfigurationError",
-    "StorageMigrationError",
-    "create_storage_error",
-    "EXCEPTION_MAP",
-    # 提示词异常
+    "ToolValidationError",
+    "ToolNotFoundError",
+    "ToolConfigurationError",
+    "ToolTimeoutError",
+    "ToolPermissionError",
+    "ToolDependencyError",
+    "ToolResourceError",
+    # LLM异常
+    "LLMError",
+    "LLMClientCreationError",
+    "UnsupportedModelTypeError",
+    "LLMCallError",
+    "LLMTimeoutError",
+    "LLMRateLimitError",
+    "LLMAuthenticationError",
+    "LLMModelNotFoundError",
+    "LLMTokenLimitError",
+    "LLMContentFilterError",
+    "LLMServiceUnavailableError",
+    "LLMInvalidRequestError",
+    "LLMConfigurationError",
+    "LLMFallbackError",
+    # LLM Wrapper异常
+    "LLMWrapperError",
+    "TaskGroupWrapperError",
+    "PollingPoolWrapperError",
+    "WrapperFactoryError",
+    "WrapperConfigError",
+    "WrapperExecutionError",
+    # State异常
+    "StateError",
+    "StateValidationError",
+    "StateNotFoundError",
+    "StateTimeoutError",
+    "StateCapacityError",
+    "StateTransitionError",
+    "StateConsistencyError",
+    "StateSerializationError",
+    "StateDeserializationError",
+    "StateLockError",
+    "StateVersionError",
+    # History异常
+    "HistoryError",
+    "TokenCalculationError",
+    "CostCalculationError",
+    "StatisticsError",
+    "RecordNotFoundError",
+    "QuotaExceededError",
+    "HistoryQueryError",
+    "HistoryStorageError",
+    "HistoryValidationError",
+    # Checkpoint异常
+    "CheckpointError",
+    "CheckpointNotFoundError",
+    "CheckpointStorageError",
+    "CheckpointValidationError",
+    "CheckpointSerializationError",
+    "CheckpointTimeoutError",
+    "CheckpointVersionError",
+    # Prompt异常
     "PromptError",
     "PromptRegistryError",
     "PromptLoadError",
@@ -145,19 +310,26 @@ __all__ = [
     "PromptTypeRegistrationError",
     "PromptReferenceError",
     "PromptCircularReferenceError",
-    # 历史异常
-    "HistoryError",
-    "TokenCalculationError",
-    "CostCalculationError",
-    "StatisticsError",
-    "RecordNotFoundError",
-    "QuotaExceededError",
-    # Checkpoint异常
-    "CheckpointError",
-    "CheckpointNotFoundError",
-    "CheckpointStorageError",
-    "CheckpointValidationError",
-    # Repository异常
+    "PromptTemplateError",
+    "PromptRenderingError",
+    # Session异常
+    "SessionThreadException",
+    "ThreadCreationError",
+    "ThreadRemovalError",
+    "ThreadTransferError",
+    "SessionThreadInconsistencyError",
+    "AssociationNotFoundError",
+    "DuplicateThreadNameError",
+    "ThreadNotFoundError",
+    "SessionNotFoundError",
+    "TransactionRollbackError",
+    "WorkflowExecutionError",
+    "SynchronizationError",
+    "SessionConfigurationValidationError",
+    "SessionTimeoutError",
+    "SessionCapacityError",
+    "SessionPermissionError",
+    # Repository异常（从接口层导入）
     "RepositoryError",
     "RepositoryNotFoundError",
     "RepositoryAlreadyExistsError",

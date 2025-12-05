@@ -19,7 +19,7 @@ from src.core.workflow.execution.executor import WorkflowExecutor
 from src.core.workflow.validation import WorkflowValidator
 from src.core.workflow.management.lifecycle import WorkflowLifecycleManager
 from src.core.common.error_management import handle_error, ErrorCategory, ErrorSeverity
-from src.core.common.exceptions.workflow import WorkflowError
+from src.interfaces.workflow.exceptions import WorkflowError
 from src.core.workflow.registry import create_workflow_registry
 from src.core.workflow.graph.service import create_graph_service
 

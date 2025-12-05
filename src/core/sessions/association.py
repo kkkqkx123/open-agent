@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from .error_handler import SessionOperationHandler
 from src.core.common.error_management import create_error_context, handle_error
-from src.core.common.exceptions.session_thread import AssociationNotFoundError
+from src.interfaces.sessions.exceptions import AssociationNotFoundError
 
 if TYPE_CHECKING:
     from src.interfaces.sessions.association import ISessionThreadAssociation

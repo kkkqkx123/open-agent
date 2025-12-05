@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from src.core.common.exceptions.llm import (
+from src.interfaces.llm.exceptions import (
     LLMCallError,
     LLMTimeoutError,
     LLMRateLimitError,

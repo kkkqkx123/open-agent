@@ -8,7 +8,7 @@ import time
 
 from src.services.logger.injection import get_logger
 from src.core.common.error_management import BaseErrorHandler, ErrorCategory, ErrorSeverity
-from src.core.common.exceptions.session_thread import (
+from src.interfaces.sessions.exceptions import (
     SessionThreadException,
     SessionNotFoundError,
     ThreadNotFoundError,

@@ -12,7 +12,7 @@ from src.core.common.error_management import (
     BaseErrorHandler, ErrorCategory, ErrorSeverity,
     ErrorHandlingRegistry, operation_with_retry, operation_with_fallback
 )
-from src.core.common.exceptions.workflow import (
+from src.interfaces.workflow.exceptions import (
     WorkflowError, WorkflowValidationError, WorkflowExecutionError,
     WorkflowStepError, WorkflowTimeoutError, WorkflowStateError,
     WorkflowConfigError, WorkflowDependencyError

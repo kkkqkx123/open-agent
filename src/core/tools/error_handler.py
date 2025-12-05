@@ -13,7 +13,7 @@ from src.core.common.error_management import (
     BaseErrorHandler, ErrorCategory, ErrorSeverity,
     ErrorHandlingRegistry, operation_with_retry
 )
-from src.core.common.exceptions.tool import ToolError, ToolExecutionError, ToolRegistrationError
+from src.interfaces.tool.exceptions import ToolError, ToolExecutionError, ToolRegistrationError
 from src.interfaces.tool.base import ToolCall, ToolResult
 
 logger = get_logger(__name__)

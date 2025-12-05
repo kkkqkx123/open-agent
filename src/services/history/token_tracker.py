@@ -16,7 +16,7 @@ from src.core.history.entities import (
 )
 from src.core.history.base import BaseTokenTracker
 from src.services.llm.token_calculation_service import TokenCalculationService
-from src.core.common.exceptions.history import StatisticsError
+from src.interfaces.history.exceptions import StatisticsError
 from src.core.common.exceptions import ValidationError
 
 

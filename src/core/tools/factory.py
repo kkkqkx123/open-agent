@@ -15,7 +15,7 @@ from .types.builtin_tool import BuiltinTool
 from .types.native_tool import NativeTool
 from .types.rest_tool import RestTool
 from .types.mcp_tool import MCPTool
-from src.core.common.exceptions.tool import ToolError, ToolRegistrationError
+from src.interfaces.tool.exceptions import ToolError, ToolRegistrationError
 from src.core.tools.error_handler import handle_tool_error, create_tool_error_context
 
 logger = get_logger(__name__)

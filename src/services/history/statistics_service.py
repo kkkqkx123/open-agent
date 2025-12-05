@@ -13,7 +13,7 @@ from src.core.history.entities import (
     WorkflowTokenStatistics, WorkflowTokenSummary, TokenUsageRecord,
     CostRecord, RecordType
 )
-from src.core.common.exceptions.history import StatisticsError
+from src.interfaces.history.exceptions import StatisticsError
 from src.core.common.exceptions import ValidationError
 
 

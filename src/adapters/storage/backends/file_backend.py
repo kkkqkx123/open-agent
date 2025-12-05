@@ -9,7 +9,7 @@ from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List, Union
 from pathlib import Path
 
-from src.core.common.exceptions.state import (
+from src.interfaces.storage.exceptions import (
     StorageError,
     StorageConnectionError,
     StorageCapacityError,

@@ -1,402 +1,196 @@
-"""Checkpoint领域接口定义
+"""Checkpoint接口定义
 
-定义checkpoint存储和管理的核心接口。
+包含Checkpoint接口和异常定义。
 """
 
+from typing import Optional, Dict, Any, List
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
 
 
-class ICheckpointStore(ABC):
-    """Checkpoint存储接口
+class CheckpointError(Exception):
+    """Checkpoint操作基础异常"""
     
-    负责checkpoint数据的持久化存储和检索。
-    """
-    
-    @abstractmethod
-    async def save(self, data: Dict[str, Any]) -> str:
-        """保存checkpoint数据
-        
-        Args:
-            data: checkpoint数据字典
-            
-        Returns:
-            str: 保存的数据ID
-        """
-        pass
-    
-    @abstractmethod
-    async def list_by_thread(self, thread_id: str) -> List[Dict[str, Any]]:
-        """列出thread的所有checkpoint
-        
-        Args:
-            thread_id: thread ID
-            
-        Returns:
-            List[Dict[str, Any]]: checkpoint列表，按创建时间倒序排列
-        """
-        pass
-    
-    @abstractmethod
-    async def load_by_thread(self, thread_id: str, checkpoint_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """根据thread ID加载checkpoint
-        
-        Args:
-            thread_id: thread ID
-            checkpoint_id: 可选的checkpoint ID
-            
-        Returns:
-            Optional[Dict[str, Any]]: checkpoint数据，如果不存在则返回None
-        """
-        pass
-    
-    @abstractmethod
-    async def delete_by_thread(self, thread_id: str, checkpoint_id: Optional[str] = None) -> bool:
-        """根据thread ID删除checkpoint
-        
-        Args:
-            thread_id: thread ID
-            checkpoint_id: 可选的checkpoint ID，如果为None则删除所有
-            
-        Returns:
-            bool: 是否删除成功
-        """
-        pass
-    
-    @abstractmethod
-    async def get_latest(self, thread_id: str) -> Optional[Dict[str, Any]]:
-        """获取thread的最新checkpoint
-        
-        Args:
-            thread_id: thread ID
-            
-        Returns:
-            Optional[Dict[str, Any]]: 最新的checkpoint数据，如果不存在则返回None
-        """
-        pass
-    
-    @abstractmethod
-    async def cleanup_old_checkpoints(self, thread_id: str, max_count: int) -> int:
-        """清理旧的checkpoint，保留最新的max_count个
-        
-        Args:
-            thread_id: thread ID
-            max_count: 保留的最大数量
-            
-        Returns:
-            int: 删除的checkpoint数量
-        """
-        pass
-    
-    @abstractmethod
-    async def get_checkpoints_by_workflow(self, thread_id: str, workflow_id: str) -> List[Dict[str, Any]]:
-        """获取指定工作流的所有checkpoint
-        
-        Args:
-            thread_id: thread ID
-            workflow_id: 工作流ID
-            
-        Returns:
-            List[Dict[str, Any]]: checkpoint列表，按创建时间倒序排列
-        """
-        pass
-
-
-class ICheckpointSerializer(ABC):
-    """Checkpoint序列化接口
-    
-    负责工作流状态的序列化和反序列化，遵循依赖倒置原则。
-    """
-    
-    @abstractmethod
-    def serialize_workflow_state(self, state: Any) -> str:
-        """序列化工作流状态到字符串格式
-        
-        Args:
-            state: 工作流状态对象
-            
-        Returns:
-            str: 序列化后的状态字符串
-        """
-        pass
-    
-    @abstractmethod
-    def deserialize_workflow_state(self, data: str) -> Any:
-        """从字符串格式反序列化工作流状态
-        
-        Args:
-            data: 序列化的状态字符串
-            
-        Returns:
-            Any: 反序列化后的工作流状态对象
-        """
-        pass
-    
-    @abstractmethod
-    def serialize_messages(self, messages: list) -> str:
-        """序列化消息列表到字符串格式
-        
-        Args:
-            messages: 要序列化的消息列表
-            
-        Returns:
-            str: 序列化后的消息字符串
-        """
-        pass
-    
-    @abstractmethod
-    def deserialize_messages(self, data: str) -> list:
-        """从字符串格式反序列化消息
-        
-        Args:
-            data: 序列化的消息字符串
-            
-        Returns:
-            list: 反序列化后的消息列表
-        """
-        pass
-    
-    @abstractmethod
-    def serialize_tool_results(self, tool_results: Dict[str, Any]) -> str:
-        """序列化工具结果到字符串格式
-        
-        Args:
-            tool_results: 要序列化的工具结果字典
-            
-        Returns:
-            str: 序列化后的工具结果字符串
-        """
-        pass
-    
-    @abstractmethod
-    def deserialize_tool_results(self, data: str) -> Dict[str, Any]:
-        """从字符串格式反序列化工具结果
-        
-        Args:
-            data: 序列化的工具结果字符串
-            
-        Returns:
-            Dict[str, Any]: 反序列化后的工具结果字典
-        """
-        pass
-    
-    # 向后兼容的方法（可选）
-    @abstractmethod
-    def serialize(self, state: Any) -> Dict[str, Any]:
-        """序列化工作流状态（向后兼容）
-        
-        Args:
-            state: 工作流状态对象
-            
-        Returns:
-            Dict[str, Any]: 序列化后的状态数据
-        """
-        pass
-    
-    @abstractmethod
-    def deserialize(self, state_data: Dict[str, Any]) -> Any:
-        """反序列化工作流状态（向后兼容）
-        
-        Args:
-            state_data: 序列化的状态数据
-            
-        Returns:
-            Any: 反序列化后的工作流状态对象
-        """
-        pass
-
-
-class ICheckpointManager(ABC):
-    """Checkpoint管理器接口
-    
-    负责checkpoint的创建、保存、恢复和管理。
-    """
-    
-    @abstractmethod
-    async def create_checkpoint(
+    def __init__(
         self, 
-        thread_id: str, 
-        workflow_id: str, 
-        state: Any,
+        message: str, 
+        error_code: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None
+    ):
+        super().__init__(message)
+        self.message = message
+        self.error_code = error_code
+        self.details = details or {}
+
+
+class CheckpointNotFoundError(CheckpointError):
+    """Checkpoint未找到异常"""
+    
+    def __init__(
+        self, 
+        message: str, 
+        checkpoint_id: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        **kwargs: Any
+    ):
+        super().__init__(message, "CHECKPOINT_NOT_FOUND_ERROR", kwargs)
+        self.checkpoint_id = checkpoint_id
+        self.thread_id = thread_id
+        
+        if checkpoint_id:
+            self.details["checkpoint_id"] = checkpoint_id
+        if thread_id:
+            self.details["thread_id"] = thread_id
+
+
+class CheckpointStorageError(CheckpointError):
+    """Checkpoint存储异常"""
+    
+    def __init__(
+        self, 
+        message: str, 
+        storage_operation: Optional[str] = None,
+        storage_backend: Optional[str] = None,
+        **kwargs: Any
+    ):
+        super().__init__(message, "CHECKPOINT_STORAGE_ERROR", kwargs)
+        self.storage_operation = storage_operation
+        self.storage_backend = storage_backend
+        
+        if storage_operation:
+            self.details["storage_operation"] = storage_operation
+        if storage_backend:
+            self.details["storage_backend"] = storage_backend
+
+
+class CheckpointValidationError(CheckpointError):
+    """Checkpoint验证异常"""
+    
+    def __init__(
+        self, 
+        message: str, 
+        validation_errors: Optional[List[str]] = None,
+        checkpoint_data: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
+    ):
+        super().__init__(message, "CHECKPOINT_VALIDATION_ERROR", kwargs)
+        self.validation_errors = validation_errors or []
+        self.checkpoint_data = checkpoint_data or {}
+        
+        if validation_errors:
+            self.details["validation_errors"] = validation_errors
+        if checkpoint_data:
+            self.details["checkpoint_data"] = checkpoint_data
+
+
+class CheckpointSerializationError(CheckpointError):
+    """Checkpoint序列化异常"""
+    
+    def __init__(
+        self, 
+        message: str, 
+        serialization_format: Optional[str] = None,
+        data_type: Optional[str] = None,
+        **kwargs: Any
+    ):
+        super().__init__(message, "CHECKPOINT_SERIALIZATION_ERROR", kwargs)
+        self.serialization_format = serialization_format
+        self.data_type = data_type
+        
+        if serialization_format:
+            self.details["serialization_format"] = serialization_format
+        if data_type:
+            self.details["data_type"] = data_type
+
+
+class CheckpointTimeoutError(CheckpointError):
+    """Checkpoint操作超时异常"""
+    
+    def __init__(
+        self, 
+        message: str, 
+        operation: Optional[str] = None,
+        timeout_seconds: Optional[int] = None,
+        **kwargs: Any
+    ):
+        super().__init__(message, "CHECKPOINT_TIMEOUT_ERROR", kwargs)
+        self.operation = operation
+        self.timeout_seconds = timeout_seconds
+        
+        if operation:
+            self.details["operation"] = operation
+        if timeout_seconds:
+            self.details["timeout_seconds"] = timeout_seconds
+
+
+class CheckpointVersionError(CheckpointError):
+    """Checkpoint版本错误异常"""
+    
+    def __init__(
+        self, 
+        message: str, 
+        current_version: Optional[str] = None,
+        expected_version: Optional[str] = None,
+        **kwargs: Any
+    ):
+        super().__init__(message, "CHECKPOINT_VERSION_ERROR", kwargs)
+        self.current_version = current_version
+        self.expected_version = expected_version
+        
+        if current_version:
+            self.details["current_version"] = current_version
+        if expected_version:
+            self.details["expected_version"] = expected_version
+
+
+# Checkpoint接口定义
+class CheckpointInterface(ABC):
+    """Checkpoint接口定义"""
+    
+    @abstractmethod
+    def save(
+        self, 
+        checkpoint_id: str, 
+        data: Dict[str, Any], 
         metadata: Optional[Dict[str, Any]] = None
-    ) -> str:
-        """创建checkpoint
-        
-        Args:
-            thread_id: thread ID
-            workflow_id: 工作流ID
-            state: 工作流状态
-            metadata: 可选的元数据
-            
-        Returns:
-            str: checkpoint ID
-        """
+    ) -> bool:
+        """保存checkpoint数据"""
         pass
     
     @abstractmethod
-    async def get_checkpoint(self, thread_id: str, checkpoint_id: str) -> Optional[Dict[str, Any]]:
-        """获取checkpoint
-        
-        Args:
-            thread_id: thread ID
-            checkpoint_id: checkpoint ID
-            
-        Returns:
-            Optional[Dict[str, Any]]: checkpoint数据，如果不存在则返回None
-        """
+    def load(self, checkpoint_id: str) -> Dict[str, Any]:
+        """加载checkpoint数据"""
         pass
     
     @abstractmethod
-    async def list_checkpoints(self, thread_id: str) -> List[Dict[str, Any]]:
-        """列出thread的所有checkpoint
-        
-        Args:
-            thread_id: thread ID
-            
-        Returns:
-            List[Dict[str, Any]]: checkpoint列表，按创建时间倒序排列
-        """
+    def delete(self, checkpoint_id: str) -> bool:
+        """删除checkpoint"""
         pass
     
     @abstractmethod
-    async def delete_checkpoint(self, thread_id: str, checkpoint_id: str) -> bool:
-        """删除checkpoint
-        
-        Args:
-            thread_id: thread ID
-            checkpoint_id: checkpoint ID
-            
-        Returns:
-            bool: 是否删除成功
-        """
-        pass
-    
-    @abstractmethod
-    async def get_latest_checkpoint(self, thread_id: str) -> Optional[Dict[str, Any]]:
-        """获取thread的最新checkpoint
-        
-        Args:
-            thread_id: thread ID
-            
-        Returns:
-            Optional[Dict[str, Any]]: 最新的checkpoint数据，如果不存在则返回None
-        """
-        pass
-    
-    @abstractmethod
-    async def restore_from_checkpoint(
+    def list_checkpoints(
         self, 
-        thread_id: str, 
-        checkpoint_id: str
-    ) -> Optional[Any]:
-        """从checkpoint恢复状态
-        
-        Args:
-            thread_id: thread ID
-            checkpoint_id: checkpoint ID
-            
-        Returns:
-            Optional[Any]: 恢复的工作流状态，如果失败则返回None
-        """
+        thread_id: Optional[str] = None,
+        limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """列出checkpoint"""
         pass
     
     @abstractmethod
-    async def auto_save_checkpoint(
-        self, 
-        thread_id: str, 
-        workflow_id: str, 
-        state: Any,
-        trigger_reason: str
-    ) -> Optional[str]:
-        """自动保存checkpoint
-        
-        Args:
-            thread_id: thread ID
-            workflow_id: 工作流ID
-            state: 工作流状态
-            trigger_reason: 触发原因
-            
-        Returns:
-            Optional[str]: checkpoint ID，如果保存失败则返回None
-        """
-        pass
-    
-    @abstractmethod
-    async def cleanup_checkpoints(self, thread_id: str, max_count: int) -> int:
-        """清理旧的checkpoint
-        
-        Args:
-            thread_id: thread ID
-            max_count: 保留的最大数量
-            
-        Returns:
-            int: 删除的checkpoint数量
-        """
-        pass
-
-    @abstractmethod
-    async def copy_checkpoint(
-        self,
-        source_thread_id: str,
-        source_checkpoint_id: str,
-        target_thread_id: str
-    ) -> str:
-        """复制checkpoint到另一个thread"""
-        pass
-
-    @abstractmethod
-    async def export_checkpoint(
-        self,
-        thread_id: str,
-        checkpoint_id: str
-    ) -> Dict[str, Any]:
-        """导出checkpoint数据"""
-        pass
-
-    @abstractmethod
-    async def import_checkpoint(
-        self,
-        thread_id: str,
-        checkpoint_data: Dict[str, Any]
-    ) -> str:
-        """导入checkpoint数据"""
+    def exists(self, checkpoint_id: str) -> bool:
+        """检查checkpoint是否存在"""
         pass
 
 
-class ICheckpointPolicy(ABC):
-    """Checkpoint策略接口
-    
-    定义何时以及如何保存checkpoint的策略。
-    """
-    
-    @abstractmethod
-    def should_save_checkpoint(self, thread_id: str, workflow_id: str, 
-                              state: Any, context: Dict[str, Any]) -> bool:
-        """判断是否应该保存checkpoint
-        
-        Args:
-            thread_id: thread ID
-            workflow_id: 工作流ID
-            state: 工作流状态
-            context: 上下文信息
-            
-        Returns:
-            bool: 是否应该保存checkpoint
-        """
-        pass
-    
-    @abstractmethod
-    def get_checkpoint_metadata(self, thread_id: str, workflow_id: str,
-                               state: Any, context: Dict[str, Any]) -> Dict[str, Any]:
-        """获取checkpoint元数据
-        
-        Args:
-            thread_id: thread ID
-            workflow_id: 工作流ID
-            state: 工作流状态
-            context: 上下文信息
-            
-        Returns:
-            Dict[str, Any]: checkpoint元数据
-        """
-        pass
+# 导出所有异常和接口
+__all__ = [
+    # 异常类
+    "CheckpointError",
+    "CheckpointNotFoundError",
+    "CheckpointStorageError",
+    "CheckpointValidationError",
+    "CheckpointSerializationError",
+    "CheckpointTimeoutError",
+    "CheckpointVersionError",
+    # 接口类
+    "CheckpointInterface",
+]

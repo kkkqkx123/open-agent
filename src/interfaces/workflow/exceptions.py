@@ -214,3 +214,27 @@ def handle_workflow_exception(func: Callable) -> Callable:
             raise WorkflowError(f"工作流操作失败: {str(e)}", "WORKFLOW_UNKNOWN_ERROR")
     
     return wrapper
+
+
+# 导出所有异常
+__all__ = [
+    "WorkflowError",
+    "WorkflowValidationError",
+    "WorkflowExecutionError",
+    "WorkflowStepError",
+    "WorkflowTransitionError",
+    "WorkflowRuleError",
+    "WorkflowTimeoutError",
+    "WorkflowStateError",
+    "WorkflowConfigError",
+    "WorkflowDependencyError",
+    "WorkflowPermissionError",
+    "WorkflowConcurrencyError",
+    "WorkflowResourceError",
+    "WorkflowIntegrationError",
+    "WorkflowTemplateError",
+    "WorkflowVersionError",
+    "WORKFLOW_EXCEPTION_MAP",
+    "create_workflow_exception",
+    "handle_workflow_exception",
+]

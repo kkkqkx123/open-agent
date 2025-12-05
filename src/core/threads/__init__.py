@@ -13,7 +13,7 @@ from .error_handler import ThreadErrorHandler, ThreadOperationHandler
 def register_thread_error_handler():
     """注册Thread错误处理器到统一错误处理框架"""
     from src.core.common.error_management import register_error_handler
-    from src.core.common.exceptions.session_thread import (
+    from src.interfaces.sessions.exceptions import (
         SessionThreadException,
         ThreadCreationError,
         ThreadRemovalError,

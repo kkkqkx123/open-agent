@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from src.interfaces.tool.base import ITool, IToolManager, IToolFactory
 from .factory import OptimizedToolFactory
-from src.core.common.exceptions.tool import ToolError, ToolRegistrationError
+from src.interfaces.tool.exceptions import ToolError, ToolRegistrationError
 from src.core.tools.error_handler import (
     handle_tool_error, create_tool_error_context, ToolExecutionValidator
 )

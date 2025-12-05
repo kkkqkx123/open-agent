@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 from enum import Enum
 
-from src.core.common.exceptions.history import (
+from src.interfaces.history.exceptions import (
     HistoryError, TokenCalculationError, CostCalculationError, StatisticsError
 )
 from src.core.common.error_management import handle_error, ErrorCategory, ErrorSeverity

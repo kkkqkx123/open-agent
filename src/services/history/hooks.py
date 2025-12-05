@@ -17,7 +17,7 @@ from src.core.history.entities import (
 )
 from src.services.history.cost_calculator import CostCalculator
 from src.services.llm.token_calculation_service import TokenCalculationService
-from src.core.common.exceptions.history import HistoryError
+from src.interfaces.history.exceptions import HistoryError
 from src.core.common.exceptions import ValidationError
 
 

@@ -19,7 +19,7 @@ from .error_handler import SessionErrorHandler, SessionOperationHandler
 def register_session_error_handler():
     """注册Session错误处理器到统一错误处理框架"""
     from src.core.common.error_management import register_error_handler
-    from src.core.common.exceptions.session_thread import (
+    from src.interfaces.sessions.exceptions import (
         SessionThreadException,
         SessionNotFoundError,
         ThreadNotFoundError,

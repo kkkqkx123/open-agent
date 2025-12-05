@@ -7,7 +7,7 @@ from .interfaces import IThreadCore, IThreadBranchCore, IThreadSnapshotCore
 from .entities import Thread, ThreadBranch, ThreadSnapshot, ThreadStatus, ThreadType, ThreadMetadata
 from .error_handler import ThreadOperationHandler
 from src.core.common.error_management import create_error_context, handle_error
-from src.core.common.exceptions.session_thread import ThreadCreationError
+from src.interfaces.sessions.exceptions import ThreadCreationError
 
 
 class ThreadFactory(IThreadCore):

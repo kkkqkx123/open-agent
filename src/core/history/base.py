@@ -15,7 +15,7 @@ from .entities import (
     TokenUsageRecord, CostRecord, WorkflowTokenStatistics,
     RecordType, TokenSource
 )
-from src.core.common.exceptions.history import (
+from src.interfaces.history.exceptions import (
      HistoryError, StatisticsError, RecordNotFoundError, TokenCalculationError, CostCalculationError
 )
 from src.core.common.exceptions.storage import StorageError

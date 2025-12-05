@@ -87,7 +87,7 @@ class ThreadTransferError(SessionThreadException):
         cause: Optional[Exception] = None
     ):
         super().__init__(
-            message=f"Failed to transfer thread {thread_id} from session {from_session_id} to {to_session_id}: {cause}",
+            message=f"Failed to transfer thread {thread_id} from session {from_session_id} to session {to_session_id}: {cause}",
             session_id=to_session_id,
             thread_id=thread_id,
             details={
@@ -266,6 +266,81 @@ class ConfigurationValidationError(SessionThreadException):
         self.validation_errors = validation_errors
 
 
+class SessionTimeoutError(SessionThreadException):
+    """Session超时异常"""
+    
+    def __init__(
+        self,
+        session_id: str,
+        timeout_type: str,
+        timeout_seconds: Optional[int] = None,
+        cause: Optional[Exception] = None
+    ):
+        super().__init__(
+            message=f"Session {session_id} timeout: {timeout_type}",
+            session_id=session_id,
+            details={
+                "timeout_type": timeout_type,
+                "timeout_seconds": timeout_seconds
+            },
+            cause=cause
+        )
+        self.timeout_type = timeout_type
+        self.timeout_seconds = timeout_seconds
+
+
+class SessionCapacityError(SessionThreadException):
+    """Session容量超限异常"""
+    
+    def __init__(
+        self,
+        session_id: str,
+        capacity_type: str,
+        current_usage: int,
+        capacity_limit: int,
+        cause: Optional[Exception] = None
+    ):
+        super().__init__(
+            message=f"Session {session_id} capacity exceeded for {capacity_type}: {current_usage}/{capacity_limit}",
+            session_id=session_id,
+            details={
+                "capacity_type": capacity_type,
+                "current_usage": current_usage,
+                "capacity_limit": capacity_limit
+            },
+            cause=cause
+        )
+        self.capacity_type = capacity_type
+        self.current_usage = current_usage
+        self.capacity_limit = capacity_limit
+
+
+class SessionPermissionError(SessionThreadException):
+    """Session权限错误异常"""
+    
+    def __init__(
+        self,
+        session_id: str,
+        user_id: str,
+        required_permission: str,
+        operation: str,
+        cause: Optional[Exception] = None
+    ):
+        super().__init__(
+            message=f"Permission denied for user {user_id} on session {session_id}: {operation} requires {required_permission}",
+            session_id=session_id,
+            details={
+                "user_id": user_id,
+                "required_permission": required_permission,
+                "operation": operation
+            },
+            cause=cause
+        )
+        self.user_id = user_id
+        self.required_permission = required_permission
+        self.operation = operation
+
+
 # 导出所有异常
 __all__ = [
     "SessionThreadException",
@@ -280,5 +355,8 @@ __all__ = [
     "TransactionRollbackError",
     "WorkflowExecutionError",
     "SynchronizationError",
-    "ConfigurationValidationError"
+    "ConfigurationValidationError",
+    "SessionTimeoutError",
+    "SessionCapacityError",
+    "SessionPermissionError",
 ]

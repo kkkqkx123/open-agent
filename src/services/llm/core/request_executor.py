@@ -8,7 +8,7 @@ from src.services.logger.injection import get_logger
 from src.infrastructure.messages.base import BaseMessage
 
 from src.interfaces.llm import ILLMClient, IFallbackManager, ITaskGroupManager, LLMResponse
-from src.core.common.exceptions.llm import LLMError
+from src.interfaces.llm.exceptions import LLMError
 
 logger = get_logger(__name__)
 

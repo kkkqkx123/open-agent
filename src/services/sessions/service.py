@@ -17,7 +17,7 @@ from src.interfaces.common_domain import AbstractSessionStatus
 from src.interfaces.logger import ILogger
 from src.core.common.exceptions import ValidationError
 from src.core.common.exceptions.storage import StorageNotFoundError as EntityNotFoundError
-from src.core.common.exceptions.session_thread import (
+from src.interfaces.sessions.exceptions import (
     SessionNotFoundError,
     ThreadNotFoundError,
     WorkflowExecutionError

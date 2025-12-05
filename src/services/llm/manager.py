@@ -11,7 +11,7 @@ from src.interfaces.llm import ILLMClient, ILLMManager, IFallbackManager, ITaskG
 from src.interfaces.messages import IBaseMessage
 from src.core.llm.factory import LLMFactory
 from src.core.llm.config import LLMClientConfig
-from src.core.common.exceptions.llm import LLMError
+from src.interfaces.llm.exceptions import LLMError
 from src.services.llm.state_machine import StateMachine, LLMManagerState
 from src.services.llm.utils.metadata_service import ClientMetadataService
 from src.core.config.config_manager import ConfigManager

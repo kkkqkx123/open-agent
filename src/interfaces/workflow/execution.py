@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from .core import IWorkflow
     from ..state import IWorkflowState
     from src.core.workflow.error_handler import WorkflowValidator
-from src.core.common.exceptions.workflow import WorkflowError
+from src.interfaces.workflow.exceptions import WorkflowError
 # 延迟导入以避免循环导入
 def _get_error_handler_functions():
     from src.core.workflow.error_handler import handle_workflow_error, create_workflow_error_context

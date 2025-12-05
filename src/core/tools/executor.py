@@ -13,7 +13,7 @@ from src.services.logger.injection import get_logger
 from src.interfaces.logger import ILogger
 from src.interfaces.tool.base import ITool, ToolCall, ToolResult
 from core.common.async_utils import AsyncLock, AsyncContextManager
-from src.core.common.exceptions.tool import ToolError, ToolExecutionError
+from src.interfaces.tool.exceptions import ToolError, ToolExecutionError
 from src.core.tools.error_handler import (
     ToolErrorHandler, ToolExecutionValidator, ToolErrorRecoveryManager,
     handle_tool_error, create_tool_error_context, register_tool_error_handler
