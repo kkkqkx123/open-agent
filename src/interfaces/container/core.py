@@ -9,7 +9,6 @@ from typing import List, Type, TypeVar, Dict, Any, Optional, Set, Callable
 from enum import Enum
 from dataclasses import dataclass
 
-from ..common_infra import ServiceLifetime
 from ..configuration import ValidationResult
 
 # 泛型类型变量
@@ -19,6 +18,16 @@ _ServiceT = TypeVar("_ServiceT")
 '''
 基础枚举和数据类型
 '''
+
+class ServiceLifetime(str, Enum):
+    """
+    服务生命周期枚举
+    
+    定义依赖注入容器中服务的生命周期类型。
+    """
+    SINGLETON = "singleton"  # 单例模式，整个应用生命周期内只有一个实例
+    TRANSIENT = "transient"  # 瞬态模式，每次请求都创建新实例
+    SCOPED = "scoped"       # 作用域模式，在特定作用域内是单例
 
 class ServiceStatus(Enum):
     """

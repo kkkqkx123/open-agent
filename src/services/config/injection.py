@@ -3,8 +3,6 @@
 使用通用依赖注入框架提供简洁的Config服务获取方式。
 """
 
-from typing import Optional
-
 from src.core.config.config_manager import ConfigManager
 from src.core.config.config_manager_factory import ConfigManagerFactory
 from src.core.config.processor.config_processor_chain import (

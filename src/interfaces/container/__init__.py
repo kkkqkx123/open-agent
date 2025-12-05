@@ -10,6 +10,7 @@ from .core import (
     ServiceRegistration,
     DependencyChain,
     ServiceStatus,
+    ServiceLifetime,
 )
 
 # 生命周期管理接口
@@ -73,6 +74,7 @@ __all__ = [
     "ServiceRegistration",
     "DependencyChain",
     "ServiceStatus",
+    "ServiceLifetime",
     
     # 生命周期管理
     "ILifecycleAware",
