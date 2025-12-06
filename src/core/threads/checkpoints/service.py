@@ -2,9 +2,10 @@
 Thread检查点服务
 
 整合Thread特定的业务逻辑和管理功能，基于统一的checkpoint模型。
+与通用的CheckpointService协作，提供Thread特定的业务逻辑。
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from datetime import datetime, timedelta
 
 from src.services.logger.injection import get_logger
@@ -12,6 +13,10 @@ from src.core.checkpoint.models import Checkpoint, CheckpointType, CheckpointSta
 from src.core.checkpoint.factory import CheckpointFactory
 from src.core.checkpoint.validators import CheckpointValidator
 from src.core.checkpoint.interfaces import ICheckpointRepository
+from src.services.checkpoint.service import CheckpointService
+
+if TYPE_CHECKING:
+    from src.interfaces.repository.checkpoint import ICheckpointRepository as ICheckpointRepositoryInterface
 
 from .extensions import ThreadCheckpointExtension
 from .adapters import ThreadCheckpointRepositoryAdapter
@@ -24,6 +29,7 @@ class ThreadCheckpointService:
     """Thread检查点服务
     
     整合Thread特定的业务逻辑和管理功能。
+    依赖于通用的CheckpointService进行底层checkpoint操作。
     """
     
     # 业务规则常量
@@ -35,6 +41,7 @@ class ThreadCheckpointService:
     def __init__(
         self,
         repository: ICheckpointRepository,
+        checkpoint_service: Optional[CheckpointService] = None,
         checkpoint_factory: Optional[CheckpointFactory] = None,
         validator: Optional[CheckpointValidator] = None
     ):
@@ -42,10 +49,12 @@ class ThreadCheckpointService:
         
         Args:
             repository: 检查点仓储
+            checkpoint_service: 通用的检查点服务
             checkpoint_factory: 检查点工厂
             validator: 检查点验证器
         """
         self._repository = ThreadCheckpointRepositoryAdapter(repository)
+        self._checkpoint_service = checkpoint_service or CheckpointService(repository)  # type: ignore[arg-type]
         self._factory = checkpoint_factory or CheckpointFactory()
         self._validator = validator or CheckpointValidator()
         logger.info("ThreadCheckpointService initialized")
@@ -92,9 +101,20 @@ class ThreadCheckpointService:
             # 验证检查点
             self._validator.validate_checkpoint(checkpoint)
             
-            # 保存检查点
-            success = await self._repository.save(checkpoint)
-            if not success:
+            # 使用通用服务保存检查点
+            config = CheckpointFactory.create_config(
+                thread_id=thread_id,
+                checkpoint_ns="thread",
+                checkpoint_id=checkpoint.id
+            )
+            
+            checkpoint_id = await self._checkpoint_service.save_checkpoint(
+                config=config,
+                checkpoint=checkpoint,
+                metadata=checkpoint.metadata.to_dict()
+            )
+            
+            if not checkpoint_id:
                 raise ValueError("Failed to save checkpoint")
             
             logger.info(f"Created checkpoint {checkpoint.id} for thread {thread_id}")
@@ -129,7 +149,18 @@ class ThreadCheckpointService:
             
             # 标记为已恢复
             checkpoint.mark_restored()
-            await self._repository.update(checkpoint)
+            
+            # 使用通用服务更新检查点
+            config = CheckpointFactory.create_config(
+                thread_id=checkpoint.thread_id or "",
+                checkpoint_ns="thread",
+                checkpoint_id=checkpoint.id
+            )
+            
+            await self._checkpoint_service.update_checkpoint_metadata(
+                checkpoint_id=checkpoint_id,
+                metadata=checkpoint.metadata.to_dict()
+            )
             
             logger.info(f"Restored from checkpoint {checkpoint_id}")
             return checkpoint.state_data
@@ -230,14 +261,14 @@ class ThreadCheckpointService:
             expiration_hours=168  # 里程碑检查点保留7天
         )
     
-    async def create_backup(self, checkpoint_id: str) -> str:
+    async def create_backup(self, checkpoint_id: str) -> Checkpoint:
         """创建检查点备份
         
         Args:
             checkpoint_id: 检查点ID
             
         Returns:
-            备份ID
+            备份检查点
         """
         try:
             # 获取原检查点
@@ -248,13 +279,24 @@ class ThreadCheckpointService:
             # 创建备份检查点
             backup_checkpoint = ThreadCheckpointExtension.create_backup_checkpoint(checkpoint)
             
-            # 保存备份
-            success = await self._repository.save(backup_checkpoint)
-            if not success:
+            # 使用通用服务保存备份
+            config = CheckpointFactory.create_config(
+                thread_id=checkpoint.thread_id or "",
+                checkpoint_ns="thread",
+                checkpoint_id=backup_checkpoint.id
+            )
+            
+            backup_id = await self._checkpoint_service.save_checkpoint(
+                config=config,
+                checkpoint=backup_checkpoint,
+                metadata=backup_checkpoint.metadata.to_dict()
+            )
+            
+            if not backup_id:
                 raise ValueError("Failed to save backup checkpoint")
             
             logger.info(f"Created backup {backup_checkpoint.id} for checkpoint {checkpoint_id}")
-            return backup_checkpoint.id
+            return backup_checkpoint
             
         except Exception as e:
             logger.error(f"Failed to create backup for checkpoint {checkpoint_id}: {e}")
@@ -296,7 +338,13 @@ class ThreadCheckpointService:
             deleted_count = 0
             for checkpoint in expired_checkpoints:
                 try:
-                    if await self._repository.delete(checkpoint.id):
+                    config = CheckpointFactory.create_config(
+                         thread_id=checkpoint.thread_id or "",
+                         checkpoint_ns="thread",
+                         checkpoint_id=checkpoint.id
+                     )
+                    
+                    if await self._checkpoint_service.delete_checkpoint(config):
                         deleted_count += 1
                         logger.debug(f"Deleted expired checkpoint {checkpoint.id}")
                 except Exception as e:
@@ -372,8 +420,19 @@ class ThreadCheckpointService:
                     checkpoint.checkpoint_type != CheckpointType.MANUAL):  # 不归档手动检查点
                     
                     checkpoint.mark_archived()
-                    if await self._repository.update(checkpoint):
-                        archived_count += 1
+                    
+                    # 使用通用服务更新检查点
+                    config = CheckpointFactory.create_config(
+                        thread_id=checkpoint.thread_id or "",
+                        checkpoint_ns="thread",
+                        checkpoint_id=checkpoint.id
+                    )
+                    
+                    await self._checkpoint_service.update_checkpoint_metadata(
+                        checkpoint_id=checkpoint.id,
+                        metadata=checkpoint.metadata.to_dict()
+                    )
+                    archived_count += 1
             
             logger.info(f"Archived {archived_count} old checkpoints for thread {thread_id}")
             return archived_count
@@ -402,7 +461,20 @@ class ThreadCheckpointService:
                 return False
             
             checkpoint.extend_expiration(hours)
-            return await self._repository.update(checkpoint)
+            
+            # 使用通用服务更新检查点
+            config = CheckpointFactory.create_config(
+                thread_id=checkpoint.thread_id or "",
+                checkpoint_ns="thread",
+                checkpoint_id=checkpoint.id
+            )
+            
+            await self._checkpoint_service.update_checkpoint_metadata(
+                checkpoint_id=checkpoint.id,
+                metadata=checkpoint.metadata.to_dict()
+            )
+            
+            return True
             
         except Exception as e:
             logger.error(f"Failed to extend expiration for checkpoint {checkpoint_id}: {e}")
@@ -431,14 +503,20 @@ class ThreadCheckpointService:
                 chain_metadata=chain_metadata
             )
             
-            # 保存所有检查点
-            checkpoint_ids = []
+            # 使用通用服务批量保存检查点
+            configs = []
             for checkpoint in checkpoints:
-                success = await self._repository.save(checkpoint)
-                if success:
-                    checkpoint_ids.append(checkpoint.id)
-                else:
-                    logger.warning(f"Failed to save checkpoint {checkpoint.id}")
+                config = CheckpointFactory.create_config(
+                    thread_id=thread_id,
+                    checkpoint_ns="thread",
+                    checkpoint_id=checkpoint.id
+                )
+                configs.append(config)
+            
+            checkpoint_ids = await self._checkpoint_service.batch_save_checkpoints(
+                checkpoints=checkpoints,
+                configs=configs
+            )
             
             logger.info(f"Created checkpoint chain with {len(checkpoint_ids)} checkpoints for thread {thread_id}")
             return checkpoint_ids
@@ -599,7 +677,13 @@ class ThreadCheckpointService:
             # 删除超过50个的旧检查点（保留手动和里程碑检查点）
             for checkpoint in checkpoints[50:]:
                 if checkpoint.checkpoint_type in [CheckpointType.AUTO, CheckpointType.ERROR]:
-                    await self._repository.delete(checkpoint.id)
+                    config = CheckpointFactory.create_config(
+                        thread_id=checkpoint.thread_id or "",
+                        checkpoint_ns="thread",
+                        checkpoint_id=checkpoint.id
+                    )
+                   
+                    await self._checkpoint_service.delete_checkpoint(config)
                     logger.debug(f"Deleted old checkpoint {checkpoint.id}")
                     
         except Exception as e:
@@ -623,7 +707,13 @@ class ThreadCheckpointService:
             
             # 删除最旧的10个自动检查点
             for checkpoint in auto_checkpoints[:10]:
-                await self._repository.delete(checkpoint.id)
+                config = CheckpointFactory.create_config(
+                    thread_id=checkpoint.thread_id or "",
+                    checkpoint_ns="thread",
+                    checkpoint_id=checkpoint.id
+                )
+                
+                await self._checkpoint_service.delete_checkpoint(config)
                 logger.debug(f"Deleted oldest auto checkpoint {checkpoint.id}")
                 
         except Exception as e:

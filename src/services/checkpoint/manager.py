@@ -1,13 +1,13 @@
 """
 检查点管理器
 
-提供检查点的业务逻辑管理，包括生命周期管理、Hook集成等。
+提供检查点的核心业务逻辑管理，包括生命周期管理、Hook集成等。
+专注于通用的checkpoint管理功能，不包含Thread特定的业务逻辑。
 """
 
 from typing import Any, Dict, List, Optional
 import logging
 
-from src.interfaces.checkpoint.service import ICheckpointService
 from src.interfaces.repository.checkpoint import ICheckpointRepository
 from src.core.checkpoint.models import Checkpoint, CheckpointMetadata, CheckpointTuple
 from src.core.checkpoint.factory import CheckpointFactory
@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 class CheckpointManager:
     """检查点管理器
     
-    提供检查点的业务逻辑管理，包括缓存、Hook集成、资源管理等。
+    提供检查点的核心业务逻辑管理，包括缓存、Hook集成、资源管理等。
+    专注于通用的checkpoint管理功能，Thread特定的业务逻辑由ThreadCheckpointService处理。
     """
     
     def __init__(
@@ -203,19 +204,14 @@ class CheckpointManager:
         Returns:
             检查点元组列表
         """
-        # 构建过滤条件
-        filters = {}
+        # 提取thread_id，如果未提供则使用空字符串获取所有检查点
+        thread_id = ""
         if config:
-            thread_id = CheckpointFactory.extract_thread_id(config)
-            if thread_id:
-                filters["thread_id"] = thread_id
-        
-        if filter:
-            filters.update(filter)
+            thread_id = CheckpointFactory.extract_thread_id(config) or ""
         
         # 从仓库获取检查点列表
         checkpoint_list = await self.repository.list_checkpoints(
-            thread_id=filters.get("thread_id", ""),
+            thread_id=thread_id,
             limit=limit
         )
         
@@ -224,7 +220,6 @@ class CheckpointManager:
         for checkpoint_data in checkpoint_list:
             checkpoint = Checkpoint.from_dict(checkpoint_data)
             metadata_data = checkpoint_data.get("metadata", {})
-            metadata = CheckpointMetadata(**metadata_data)
             
             # 创建配置
             tuple_config = CheckpointFactory.create_config(
@@ -267,11 +262,12 @@ class CheckpointManager:
         
         return success
     
-    async def cleanup_old_checkpoints(self, max_age_days: int = 30) -> int:
+    async def cleanup_old_checkpoints(self, max_age_days: int = 30, thread_id: Optional[str] = None) -> int:
         """清理旧检查点
         
         Args:
             max_age_days: 最大保留天数
+            thread_id: 可选的线程ID，用于特定线程的清理
             
         Returns:
             清理的检查点数量
@@ -280,9 +276,9 @@ class CheckpointManager:
         cache_cleanup_count = self.cache.cleanup_expired()
         
         # 清理仓库中的旧检查点
-        thread_id = ""  # 可以根据需要指定线程ID
         repository_cleanup_count = await self.repository.cleanup_old_checkpoints(
-            thread_id, max_count=1000  # 可以根据需要调整
+            thread_id=thread_id or "",
+            max_count=1000  # 可以根据需要调整
         )
         
         total_cleanup = cache_cleanup_count + repository_cleanup_count
@@ -290,14 +286,25 @@ class CheckpointManager:
         
         return total_cleanup
     
-    async def get_checkpoint_stats(self) -> Dict[str, Any]:
+    async def get_checkpoint_stats(self, thread_id: Optional[str] = None) -> Dict[str, Any]:
         """获取检查点统计信息
         
+        Args:
+            thread_id: 可选的线程ID，用于特定线程的统计
+            
         Returns:
             统计信息字典
         """
         # 获取仓库统计
         repository_stats = await self.repository.get_checkpoint_statistics()
+        
+        # 如果指定了thread_id，添加特定线程的统计
+        if thread_id:
+            thread_checkpoints = await self.repository.list_checkpoints(thread_id)
+            repository_stats["thread_specific"] = {
+                "thread_id": thread_id,
+                "checkpoint_count": len(thread_checkpoints)
+            }
         
         # 获取缓存统计
         cache_stats = self.cache.get_stats()
@@ -369,6 +376,46 @@ class CheckpointManager:
         """
         self.cache.set_max_size(max_size)
         logger.info(f"检查点缓存最大大小设置为: {max_size}")
+    
+    async def batch_save_checkpoints(
+        self,
+        checkpoints: List[Checkpoint],
+        configs: List[Dict[str, Any]]
+    ) -> List[str]:
+        """批量保存检查点
+        
+        Args:
+            checkpoints: 检查点列表
+            configs: 配置列表
+            
+        Returns:
+            检查点ID列表
+        """
+        checkpoint_ids = []
+        for checkpoint, config in zip(checkpoints, configs):
+            checkpoint_id = await self.save_checkpoint(config, checkpoint, checkpoint.metadata)
+            checkpoint_ids.append(checkpoint_id)
+        
+        return checkpoint_ids
+    
+    async def batch_delete_checkpoints(
+        self,
+        configs: List[Dict[str, Any]]
+    ) -> int:
+        """批量删除检查点
+        
+        Args:
+            configs: 配置列表
+            
+        Returns:
+            删除成功的检查点数量
+        """
+        deleted_count = 0
+        for config in configs:
+            if await self.delete_checkpoint(config):
+                deleted_count += 1
+        
+        return deleted_count
     
     async def _execute_hooks(self, hook_point: str, context: Dict[str, Any]) -> None:
         """执行Hook

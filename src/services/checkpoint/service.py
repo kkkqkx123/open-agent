@@ -1,7 +1,7 @@
 """
 检查点服务实现
 
-实现检查点服务的核心业务逻辑，提供统一的检查点管理接口。
+实现检查点服务的核心业务逻辑，提供通用的检查点管理接口。
 """
 
 from typing import Any, Dict, List, Optional
@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 class CheckpointService(ICheckpointService):
     """检查点服务实现
     
-    提供检查点的完整业务逻辑实现，包括保存、加载、列表和清理等功能。
+    提供通用的检查点管理功能，专注于基础设施层面的checkpoint操作。
+    Thread特定的业务逻辑由ThreadCheckpointService处理。
     """
     
     def __init__(
@@ -254,68 +255,108 @@ class CheckpointService(ICheckpointService):
             metadata
         )
     
-    async def get_latest_checkpoint(self, thread_id: str) -> Optional[Dict[str, Any]]:
-        """获取线程的最新检查点
+    async def batch_save_checkpoints(
+        self,
+        checkpoints: List[Checkpoint],
+        configs: List[Dict[str, Any]]
+    ) -> List[str]:
+        """批量保存检查点
         
         Args:
-            thread_id: 线程ID
+            checkpoints: 检查点列表
+            configs: 配置列表
             
         Returns:
-            最新检查点数据，如果不存在则返回None
+            检查点ID列表
+            
+        Raises:
+            CheckpointValidationError: 验证失败时抛出
         """
-        checkpoint_data = await self.repository.get_latest_checkpoint(thread_id)
+        if len(checkpoints) != len(configs):
+            raise CheckpointValidationError("检查点数量与配置数量不匹配")
+        
+        checkpoint_ids = []
+        for checkpoint, config in zip(checkpoints, configs):
+            checkpoint_id = await self.save_checkpoint(config, checkpoint)
+            checkpoint_ids.append(checkpoint_id)
+        
+        return checkpoint_ids
+    
+    async def batch_delete_checkpoints(
+        self,
+        configs: List[Dict[str, Any]]
+    ) -> int:
+        """批量删除检查点
+        
+        Args:
+            configs: 配置列表
+            
+        Returns:
+            删除成功的检查点数量
+        """
+        deleted_count = 0
+        for config in configs:
+            if await self.delete_checkpoint(config):
+                deleted_count += 1
+        
+        return deleted_count
+    
+    async def get_checkpoint_by_id(
+        self,
+        checkpoint_id: str
+    ) -> Optional[Checkpoint]:
+        """根据ID获取检查点
+        
+        Args:
+            checkpoint_id: 检查点ID
+            
+        Returns:
+            检查点对象，如果不存在则返回None
+        """
+        checkpoint_data = await self.repository.load_checkpoint(checkpoint_id)
         if checkpoint_data:
-            return checkpoint_data
+            return Checkpoint.from_dict(checkpoint_data)
         return None
     
-    async def get_checkpoints_by_workflow(
-        self, 
-        thread_id: str, 
-        workflow_id: str
-    ) -> List[Dict[str, Any]]:
-        """获取指定工作流的所有检查点
+    async def update_checkpoint_metadata(
+        self,
+        checkpoint_id: str,
+        metadata: Dict[str, Any]
+    ) -> bool:
+        """更新检查点元数据
         
         Args:
-            thread_id: 线程ID
-            workflow_id: 工作流ID
+            checkpoint_id: 检查点ID
+            metadata: 新的元数据
             
         Returns:
-            检查点列表
+            是否更新成功
         """
-        return await self.repository.get_checkpoints_by_workflow(thread_id, workflow_id)
-    
-    async def search_checkpoints(
-        self, 
-        thread_id: str, 
-        query: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
-        """搜索检查点
-        
-        Args:
-            thread_id: 线程ID
-            query: 搜索条件
+        try:
+            # 加载现有检查点
+            checkpoint_data = await self.repository.load_checkpoint(checkpoint_id)
+            if not checkpoint_data:
+                return False
             
-        Returns:
-            符合条件的检查点列表
-        """
-        return await self.repository.search_checkpoints(thread_id, query)
-    
-    async def get_checkpoints_by_timerange(
-        self, 
-        thread_id: str, 
-        start_time: datetime, 
-        end_time: datetime
-    ) -> List[Dict[str, Any]]:
-        """按时间范围获取检查点
-        
-        Args:
-            thread_id: 线程ID
-            start_time: 开始时间
-            end_time: 结束时间
+            checkpoint = Checkpoint.from_dict(checkpoint_data)
             
-        Returns:
-            检查点列表
-        """
-        return await self.repository.get_checkpoints_by_timerange(
-            thread_id, start_time, end_time
-        )
+            # 更新元数据
+            if isinstance(metadata, CheckpointMetadata):
+                checkpoint.metadata = metadata
+            else:
+                checkpoint.metadata = CheckpointMetadata(**metadata)
+            
+            # 保存更新
+            await self.repository.save_checkpoint({
+                **checkpoint.to_dict(),
+                **checkpoint.metadata.to_dict()
+            })
+            
+            # 更新缓存
+            self.cache.set(checkpoint_id, checkpoint)
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"更新检查点元数据失败: {checkpoint_id}, 错误: {e}")
+            return False
