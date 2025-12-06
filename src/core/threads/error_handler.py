@@ -19,9 +19,9 @@ from src.interfaces.sessions.exceptions import (
     SessionNotFoundError,
     TransactionRollbackError,
     WorkflowExecutionError,
-    SynchronizationError,
-    ConfigurationValidationError
+    SynchronizationError
 )
+from src.interfaces.configuration import ConfigurationValidationError
 
 # 延迟初始化logger以避免循环导入
 logger = None

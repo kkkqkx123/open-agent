@@ -10,7 +10,7 @@ from src.services.logger.injection import get_logger
 import yaml
 
 from ...interfaces import IPromptLoader, IPromptRegistry
-from ...core.common.exceptions import PromptLoadError
+from src.interfaces.prompts.exceptions import PromptLoadError
 
 logger = get_logger(__name__)
 

@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 
 from src.interfaces.state.session import ISessionState
 from src.interfaces.state.interfaces import IState
+from src.interfaces.common_domain import AbstractSessionStatus
 from ..implementations.base_state import BaseStateImpl
 
 
@@ -34,9 +35,31 @@ class SessionStateImpl(BaseStateImpl, ISessionState, IState):
         self._thread_ids = set(kwargs.get('thread_ids', []))
         self._last_activity = kwargs.get('last_activity', datetime.now())
         self._created_at = kwargs.get('created_at', datetime.now())
+        self._session_status = kwargs.get('session_status', AbstractSessionStatus.ACTIVE)
         
         # 会话元数据
         self._session_metadata = kwargs.get('session_metadata', {})
+    
+    # AbstractSessionData 接口实现
+    @property
+    def id(self) -> str:
+        """会话ID - 实现 AbstractSessionData 的 id 属性"""
+        return self._session_id
+    
+    @property
+    def status(self) -> AbstractSessionStatus:
+        """会话状态 - 实现 AbstractSessionData 的 status 属性"""
+        return self._session_status
+    
+    @property
+    def created_at(self) -> datetime:
+        """创建时间 - 实现 AbstractSessionData 的 created_at 属性"""
+        return self._created_at
+    
+    @property
+    def updated_at(self) -> datetime:
+        """更新时间 - 实现 AbstractSessionData 的 updated_at 属性"""
+        return self._updated_at
     
     # ISessionState 接口实现
     @property

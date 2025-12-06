@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from src.core.state.entities import StateSnapshot, StateHistoryEntry
-from src.core.common.exceptions import StorageError, StorageConnectionError
+from src.interfaces.storage.exceptions import StorageError, StorageConnectionError
 from src.core.storage import (
     StorageConfig,
     StorageBackendType

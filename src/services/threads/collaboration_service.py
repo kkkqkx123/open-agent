@@ -362,11 +362,13 @@ class ThreadCollaborationService(BaseThreadService, IThreadCollaborationService)
             target_thread.update_timestamp()
             
             # 添加共享元数据
-            target_thread.metadata.custom_data['shared_from'] = {
+            metadata_obj = target_thread.get_metadata_object()
+            metadata_obj.custom_data['shared_from'] = {
                 'source_thread_id': source_thread_id,
                 'checkpoint_id': checkpoint_id,
                 'shared_at': datetime.now().isoformat()
             }
+            target_thread.set_metadata_object(metadata_obj)
             
             await self._thread_repository.update(target_thread)
             
@@ -395,6 +397,6 @@ class ThreadCollaborationService(BaseThreadService, IThreadCollaborationService)
             "checkpoint_id": checkpoint_id,
             "state": checkpoint_data.get("state", {}),
             "config": thread.config if thread else {},
-            "metadata": thread.metadata.model_dump() if thread else {},
+            "metadata": thread.metadata if thread else {},
             "timestamp": checkpoint_data.get("created_at", datetime.now().isoformat())
         }

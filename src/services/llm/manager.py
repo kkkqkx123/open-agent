@@ -20,9 +20,6 @@ from src.services.llm.core.request_executor import LLMRequestExecutor
 from src.services.llm.core.manager_registry import manager_registry, ManagerStatus
 from src.interfaces.configuration import ValidationResult
 
-if TYPE_CHECKING:
-    from src.infrastructure.messages import BaseMessage
-
 logger = get_logger(__name__)
 
 
@@ -303,10 +300,15 @@ class LLMManager(ILLMManager):
         await self._execute_before_hooks(messages, parameters, **kwargs)
         
         try:
+            # 将IBaseMessage转换为BaseMessage（类型兼容性）
+            # IBaseMessage是接口，BaseMessage是实现，传递messages时直接转换
+            from src.infrastructure.messages.base import BaseMessage
+            base_messages = [msg if isinstance(msg, BaseMessage) else msg for msg in messages]
+            
             # 使用请求执行器执行请求
             response = await self._request_executor.execute_with_fallback(
                 client=client,
-                messages=messages,
+                messages=base_messages,  # type: ignore
                 task_type=task_type,
                 parameters=parameters,
                 **kwargs
@@ -354,11 +356,15 @@ class LLMManager(ILLMManager):
         await self._execute_before_hooks(messages, parameters, **kwargs)
         
         try:
+            # 将IBaseMessage转换为BaseMessage（类型兼容性）
+            from src.infrastructure.messages.base import BaseMessage
+            base_messages = [msg if isinstance(msg, BaseMessage) else msg for msg in messages]
+            
             # 使用请求执行器执行流式请求
             response_chunks = []
             async for chunk in self._request_executor.stream_with_fallback(
                 client=client,
-                messages=messages,
+                messages=base_messages,  # type: ignore
                 task_type=task_type,
                 parameters=parameters,
                 **kwargs

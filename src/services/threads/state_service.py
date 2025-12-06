@@ -7,7 +7,7 @@ from enum import Enum
 
 from src.interfaces.threads.storage import IThreadRepository
 from src.core.threads.entities import Thread
-from src.core.common.exceptions import ValidationError
+from src.interfaces.storage.exceptions import StorageValidationError as ValidationError
 from .base_service import BaseThreadService
 
 logger = get_logger(__name__)
@@ -83,10 +83,10 @@ class ThreadStateService(BaseThreadService):
             
             return {
                 "thread_id": thread.id,
-                "status": thread.status.value,
+                "status": thread.status,
                 "state": thread.state.copy(),
                 "config": thread.config.copy(),
-                "metadata": thread.metadata.model_dump(),
+                "metadata": thread.metadata,
                 "updated_at": thread.updated_at.isoformat(),
                 "message_count": thread.message_count,
                 "checkpoint_count": thread.checkpoint_count,
@@ -199,11 +199,13 @@ class ThreadStateService(BaseThreadService):
                     result.synced_thread_ids.append(thread.id)
                     
                     # 记录同步信息
-                    thread.metadata.custom_data['last_sync'] = {
+                    metadata_obj = thread.get_metadata_object()
+                    metadata_obj.custom_data['last_sync'] = {
                         "synced_from": source_thread.id,
                         "synced_at": source_state.get("updated_at", ""),
                         "strategy": SyncStrategy.UNIDIRECTIONAL.value
                     }
+                    thread.set_metadata_object(metadata_obj)
                     thread.update_timestamp()
                     await self._thread_repository.update(thread)
                 else:
@@ -235,11 +237,13 @@ class ThreadStateService(BaseThreadService):
                     result.synced_thread_ids.append(thread.id)
                     
                     # 记录同步信息
-                    thread.metadata.custom_data['last_sync'] = {
+                    metadata_obj = thread.get_metadata_object()
+                    metadata_obj.custom_data['last_sync'] = {
                         "synced_with": [t.id for t in threads if t.id != thread.id],
                         "synced_at": datetime.now().isoformat(),
                         "strategy": SyncStrategy.BIDIRECTIONAL.value
                     }
+                    thread.set_metadata_object(metadata_obj)
                     thread.update_timestamp()
                     await self._thread_repository.update(thread)
                 else:
@@ -279,12 +283,14 @@ class ThreadStateService(BaseThreadService):
                     result.synced_thread_ids.append(thread.id)
                     
                     # 记录同步信息
-                    thread.metadata.custom_data['last_sync'] = {
+                    metadata_obj = thread.get_metadata_object()
+                    metadata_obj.custom_data['last_sync'] = {
                         "synced_with": [t.id for t in threads if t.id != thread.id],
                         "synced_at": datetime.now().isoformat(),
                         "strategy": SyncStrategy.MERGE.value,
                         "sources": sync_sources
                     }
+                    thread.set_metadata_object(metadata_obj)
                     thread.update_timestamp()
                     await self._thread_repository.update(thread)
                 else:
@@ -359,7 +365,7 @@ class ThreadStateService(BaseThreadService):
                 return False
             
             # 基本状态验证
-            if thread.status.value not in ["active", "paused", "completed", "error"]:
+            if thread.status not in ["active", "paused", "completed", "error"]:
                 return False
             
             # 计数器验证

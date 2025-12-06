@@ -9,8 +9,8 @@ import os
 
 from src.interfaces.config.interfaces import IConfigLoader
 from src.interfaces.logger import ILogger
-from src.services.tools.manager import ToolManager
 from src.interfaces.tool.base import IToolManager
+from src.core.config.config_manager import ConfigManager, get_default_manager
 
 from .interfaces import IToolValidator
 from .models import ValidationResult
@@ -40,13 +40,15 @@ class ToolValidationManager:
         self.config_loader = config_loader
         self.logger = logger
         self.tool_manager: Optional[IToolManager] = tool_manager
+        # 获取ConfigManager实例用于验证器
+        self.config_manager: ConfigManager = get_default_manager()
         self.validators: Dict[str, IToolValidator] = {}
         self._register_validators()
     
     def _register_validators(self) -> None:
         """注册验证器"""
-        if self.config_loader and self.logger:
-            self.validators["config"] = ConfigValidator(self.config_loader, self.logger)
+        if self.logger:
+            self.validators["config"] = ConfigValidator(self.config_manager, self.logger)
         if self.tool_manager and self.logger:
             self.validators["loading"] = LoadingValidator(self.tool_manager, self.logger)
         if self.logger:

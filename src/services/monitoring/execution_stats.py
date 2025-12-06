@@ -13,12 +13,24 @@ import time
 import json
 from pathlib import Path
 
-from src.core.workflow.execution import BatchExecutionResult, ExecutionResult as WorkflowExecutionResult
-
 logger = get_logger(__name__)
 
 # 定义支持比较的类型变量
 T = TypeVar('T', bound=Union[int, float])
+
+
+@dataclass
+class WorkflowExecutionResult:
+    """工作流执行结果数据类
+    
+    用于统计执行信息的数据模型，包含执行时间、成功状态等信息。
+    """
+    workflow_name: Optional[str] = None
+    success: bool = False
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    execution_time: Optional[float] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class StatisticPeriod(Enum):
@@ -272,13 +284,13 @@ class ExecutionStatsCollector:
         
         logger.debug(f"记录执行结果: {result.workflow_name or 'unknown'}, 成功: {result.success}")
     
-    def record_batch_execution(self, result: BatchExecutionResult) -> None:
+    def record_batch_execution(self, results: List[WorkflowExecutionResult]) -> None:
         """记录批量执行结果
         
         Args:
-            result: 批量执行结果
+            results: 批量执行结果列表
         """
-        for workflow_result in result.results:
+        for workflow_result in results:
             self.record_execution(workflow_result)
     
     def get_global_statistics(self) -> GlobalStatistics:
@@ -588,11 +600,11 @@ def record_execution(result: WorkflowExecutionResult) -> None:
     collector.record_execution(result)
 
 
-def record_batch_execution(result: BatchExecutionResult) -> None:
+def record_batch_execution(results: List[WorkflowExecutionResult]) -> None:
     """记录批量执行结果（便捷函数）
     
     Args:
-        result: 批量执行结果
+        results: 批量执行结果列表
     """
     collector = get_global_stats_collector()
-    collector.record_batch_execution(result)
+    collector.record_batch_execution(results)

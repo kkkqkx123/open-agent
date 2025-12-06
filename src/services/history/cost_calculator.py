@@ -9,7 +9,8 @@ from datetime import datetime
 from dataclasses import dataclass
 
 from src.interfaces.history import ICostCalculator
-from src.core.common.exceptions import CostCalculationError, ValidationError
+from src.interfaces.history.exceptions import CostCalculationError
+from src.interfaces.container.exceptions import ValidationError
 
 from src.core.history.entities import TokenUsageRecord, CostRecord
 

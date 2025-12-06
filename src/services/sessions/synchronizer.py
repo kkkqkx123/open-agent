@@ -11,7 +11,8 @@ from src.interfaces.sessions.association import (
 from interfaces.repository.session import ISessionRepository
 from src.interfaces.threads.storage import IThreadRepository
 from src.core.sessions.association import SessionThreadAssociation
-from src.core.common.exceptions import StorageError, ValidationError
+from src.interfaces.storage.exceptions import StorageError
+from src.interfaces.container.exceptions import ValidationError
 
 logger = get_logger(__name__)
 

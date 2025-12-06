@@ -6,7 +6,7 @@ from typing import Optional
 
 from src.core.threads.entities import Thread
 from src.interfaces.threads.storage import IThreadRepository
-from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
+from src.interfaces.storage.exceptions import StorageValidationError as ValidationError, StorageNotFoundError as EntityNotFoundError
 
 logger = get_logger(__name__)
 

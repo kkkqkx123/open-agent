@@ -3,7 +3,7 @@
 使用通用依赖注入框架提供简洁的ThreadCheckpoint服务获取方式。
 """
 
-from typing import Optional
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
 
 from src.core.threads.checkpoints.storage import (
     ThreadCheckpointDomainService,
@@ -18,39 +18,101 @@ from src.services.storage import (
 )
 from src.core.storage import StorageConfigManager
 from src.services.container.injection.injection_base import get_global_injection_registry
-from src.services.container.injection.injection_decorators import injectable
+
+if TYPE_CHECKING:
+    from src.core.threads.checkpoints.storage.models import ThreadCheckpoint, CheckpointStatus, CheckpointType, CheckpointStatistics
+    from datetime import datetime
 
 
 class _StubCheckpointRepository(IThreadCheckpointRepository):
     """临时 CheckpointRepository 实现（用于极端情况）"""
     
-    def save_checkpoint(self, thread_id: str, checkpoint_data: dict) -> str:
+    async def save(self, checkpoint: "ThreadCheckpoint") -> bool:
         """保存检查点"""
-        return "stub_checkpoint_id"
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
     
-    def load_checkpoint(self, checkpoint_id: str) -> Optional[dict]:
-        """加载检查点"""
-        return None
+    async def find_by_id(self, checkpoint_id: str) -> Optional["ThreadCheckpoint"]:
+        """根据ID查找检查点"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
     
-    def delete_checkpoint(self, checkpoint_id: str) -> bool:
+    async def find_by_thread(self, thread_id: str) -> List["ThreadCheckpoint"]:
+        """查找Thread的所有检查点"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
+    
+    async def find_active_by_thread(self, thread_id: str) -> List["ThreadCheckpoint"]:
+        """查找Thread的所有活跃检查点"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
+    
+    async def find_by_status(self, status: "CheckpointStatus") -> List["ThreadCheckpoint"]:
+        """根据状态查找检查点"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
+    
+    async def find_by_type(self, checkpoint_type: "CheckpointType") -> List["ThreadCheckpoint"]:
+        """根据类型查找检查点"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
+    
+    async def find_expired(self, before_time: Optional["datetime"] = None) -> List["ThreadCheckpoint"]:
+        """查找过期的检查点"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
+    
+    async def update(self, checkpoint: "ThreadCheckpoint") -> bool:
+        """更新检查点"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
+    
+    async def delete(self, checkpoint_id: str) -> bool:
         """删除检查点"""
-        return False
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
     
-    def list_checkpoints(self, thread_id: str) -> list:
-        """列出检查点"""
-        return []
+    async def delete_by_thread(self, thread_id: str) -> int:
+        """删除Thread的所有检查点"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
+    
+    async def delete_expired(self, before_time: Optional["datetime"] = None) -> int:
+        """删除过期的检查点"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
+    
+    async def count_by_thread(self, thread_id: str) -> int:
+        """统计Thread的检查点数量"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
+    
+    async def count_by_status(self, status: "CheckpointStatus") -> int:
+        """根据状态统计检查点数量"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
+    
+    async def get_statistics(self, thread_id: Optional[str] = None) -> "CheckpointStatistics":
+        """获取检查点统计信息"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
+    
+    async def exists(self, checkpoint_id: str) -> bool:
+        """检查检查点是否存在"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
+    
+    async def find_latest_by_thread(self, thread_id: str) -> Optional["ThreadCheckpoint"]:
+        """查找Thread的最新检查点"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
+    
+    async def find_oldest_by_thread(self, thread_id: str) -> Optional["ThreadCheckpoint"]:
+        """查找Thread的最旧检查点"""
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointRepository")
 
 
 class _StubCheckpointDomainService(ThreadCheckpointDomainService):
     """临时 CheckpointDomainService 实现（用于极端情况）"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         # 不调用父类初始化，避免依赖问题
         pass
     
-    def create_checkpoint(self, thread_id: str, checkpoint_data: dict) -> str:
+    async def create_checkpoint(
+        self,
+        thread_id: str,
+        state_data: Dict[str, Any],
+        checkpoint_type: Optional["CheckpointType"] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        expiration_hours: Optional[int] = None
+    ) -> "ThreadCheckpoint":
         """创建检查点"""
-        return "stub_checkpoint_id"
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointDomainService")
     
     def get_checkpoint(self, checkpoint_id: str) -> Optional[dict]:
         """获取检查点"""
@@ -60,81 +122,81 @@ class _StubCheckpointDomainService(ThreadCheckpointDomainService):
 class _StubCheckpointManager(CheckpointManager):
     """临时 CheckpointManager 实现（用于极端情况）"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         # 不调用父类初始化，避免依赖问题
         pass
     
     def manage_checkpoint(self, thread_id: str, checkpoint_data: dict) -> str:
         """管理检查点"""
-        return "stub_checkpoint_id"
+        raise NotImplementedError("使用的是Stub实现，请配置真实的CheckpointManager")
     
     def restore_checkpoint(self, checkpoint_id: str) -> Optional[dict]:
         """恢复检查点"""
-        return None
+        raise NotImplementedError("使用的是Stub实现，请配置真实的CheckpointManager")
 
 
 class _StubThreadCheckpointManager(ThreadCheckpointManager):
     """临时 ThreadCheckpointManager 实现（用于极端情况）"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         # 不调用父类初始化，避免依赖问题
         pass
     
     def create_thread_checkpoint(self, thread_id: str, checkpoint_data: dict) -> str:
         """创建线程检查点"""
-        return "stub_checkpoint_id"
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointManager")
     
     def restore_thread_checkpoint(self, checkpoint_id: str) -> Optional[dict]:
         """恢复线程检查点"""
-        return None
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadCheckpointManager")
 
 
 class _StubStorageOrchestrator(StorageOrchestrator):
     """临时 StorageOrchestrator 实现（用于极端情况）"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         # 不调用父类初始化，避免依赖问题
         pass
     
     def orchestrate_storage(self, thread_id: str, data: dict) -> str:
         """编排存储"""
-        return "stub_storage_id"
+        raise NotImplementedError("使用的是Stub实现，请配置真实的StorageOrchestrator")
     
     def retrieve_storage(self, storage_id: str) -> Optional[dict]:
         """检索存储"""
-        return None
+        raise NotImplementedError("使用的是Stub实现，请配置真实的StorageOrchestrator")
 
 
 class _StubThreadStorageService(ThreadStorageService):
     """临时 ThreadStorageService 实现（用于极端情况）"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         # 不调用父类初始化，避免依赖问题
         pass
     
     def store_thread_data(self, thread_id: str, data: dict) -> str:
         """存储线程数据"""
-        return "stub_storage_id"
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadStorageService")
     
     def retrieve_thread_data(self, storage_id: str) -> Optional[dict]:
         """检索线程数据"""
-        return None
+        raise NotImplementedError("使用的是Stub实现，请配置真实的ThreadStorageService")
 
 
 class _StubStorageConfigManager(StorageConfigManager):
     """临时 StorageConfigManager 实现（用于极端情况）"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         # 不调用父类初始化，避免依赖问题
         pass
     
     def get_storage_config(self, config_name: str) -> Optional[dict]:
         """获取存储配置"""
-        return None
+        raise NotImplementedError("使用的是Stub实现，请配置真实的StorageConfigManager")
     
     def set_storage_config(self, config_name: str, config_data: dict) -> bool:
         """设置存储配置"""
-        return True
+        raise NotImplementedError("使用的是Stub实现，请配置真实的StorageConfigManager")
 
 
 def _create_fallback_checkpoint_repository() -> IThreadCheckpointRepository:
@@ -174,7 +236,7 @@ def _create_fallback_storage_config_manager() -> StorageConfigManager:
 
 # 注册ThreadCheckpoint注入
 _checkpoint_repository_injection = get_global_injection_registry().register(
-    IThreadCheckpointRepository, _create_fallback_checkpoint_repository
+    IThreadCheckpointRepository, _create_fallback_checkpoint_repository  # type: ignore
 )
 _checkpoint_domain_service_injection = get_global_injection_registry().register(
     ThreadCheckpointDomainService, _create_fallback_checkpoint_domain_service
@@ -196,7 +258,6 @@ _storage_config_manager_injection = get_global_injection_registry().register(
 )
 
 
-@injectable(IThreadCheckpointRepository, _create_fallback_checkpoint_repository)
 def get_checkpoint_repository() -> IThreadCheckpointRepository:
     """获取检查点仓储实例
     
@@ -206,7 +267,6 @@ def get_checkpoint_repository() -> IThreadCheckpointRepository:
     return _checkpoint_repository_injection.get_instance()
 
 
-@injectable(ThreadCheckpointDomainService, _create_fallback_checkpoint_domain_service)
 def get_checkpoint_domain_service() -> ThreadCheckpointDomainService:
     """获取检查点领域服务实例
     
@@ -216,7 +276,6 @@ def get_checkpoint_domain_service() -> ThreadCheckpointDomainService:
     return _checkpoint_domain_service_injection.get_instance()
 
 
-@injectable(CheckpointManager, _create_fallback_checkpoint_manager)
 def get_checkpoint_manager() -> CheckpointManager:
     """获取检查点管理器实例
     
@@ -226,7 +285,6 @@ def get_checkpoint_manager() -> CheckpointManager:
     return _checkpoint_manager_injection.get_instance()
 
 
-@injectable(ThreadCheckpointManager, _create_fallback_thread_checkpoint_manager)
 def get_thread_checkpoint_manager() -> ThreadCheckpointManager:
     """获取线程检查点管理器实例
     
@@ -236,7 +294,6 @@ def get_thread_checkpoint_manager() -> ThreadCheckpointManager:
     return _thread_checkpoint_manager_injection.get_instance()
 
 
-@injectable(StorageOrchestrator, _create_fallback_storage_orchestrator)
 def get_storage_orchestrator() -> StorageOrchestrator:
     """获取存储编排器实例
     
@@ -246,7 +303,6 @@ def get_storage_orchestrator() -> StorageOrchestrator:
     return _storage_orchestrator_injection.get_instance()
 
 
-@injectable(ThreadStorageService, _create_fallback_thread_storage_service)
 def get_thread_storage_service() -> ThreadStorageService:
     """获取线程存储服务实例
     
@@ -256,7 +312,6 @@ def get_thread_storage_service() -> ThreadStorageService:
     return _thread_storage_service_injection.get_instance()
 
 
-@injectable(StorageConfigManager, _create_fallback_storage_config_manager)
 def get_storage_config_manager() -> StorageConfigManager:
     """获取存储配置管理器实例
     

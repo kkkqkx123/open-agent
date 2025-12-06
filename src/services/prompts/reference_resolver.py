@@ -11,7 +11,7 @@ from pathlib import Path
 from src.services.logger.injection import get_logger
 
 from ...interfaces import IPromptRegistry, PromptMeta, PromptConfig
-from ...core.common.exceptions import (
+from src.interfaces.prompts.exceptions import (
     PromptReferenceError,
     PromptNotFoundError,
     PromptCircularReferenceError

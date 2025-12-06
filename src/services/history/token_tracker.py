@@ -17,7 +17,7 @@ from src.core.history.entities import (
 from src.core.history.base import BaseTokenTracker
 from src.services.llm.token_calculation_service import TokenCalculationService
 from src.interfaces.history.exceptions import StatisticsError
-from src.core.common.exceptions import ValidationError
+from src.interfaces.container.exceptions import ValidationError
 
 
 logger = get_logger(__name__)

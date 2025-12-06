@@ -9,7 +9,7 @@ from src.core.threads.interfaces import IThreadCore, IThreadSnapshotCore
 from src.core.threads.entities import Thread, ThreadMetadata, ThreadSnapshot, ThreadStatus
 from src.interfaces.threads import IThreadRepository, IThreadSnapshotRepository
 from src.interfaces.repository import ISnapshotRepository
-from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
+from src.interfaces.storage.exceptions import StorageValidationError as ValidationError, StorageNotFoundError as EntityNotFoundError
 
 
 class ThreadSnapshotService:
@@ -46,14 +46,15 @@ class ThreadSnapshotService:
             checkpoint_id = f"checkpoint_{datetime.now().timestamp()}"
             
             # 准备快照数据
+            metadata = thread.metadata
             snapshot_data = {
                 "thread_id": thread_id,
-                "thread_status": thread.status.value,
+                "thread_status": thread.status,
                 "message_count": thread.message_count,
                 "checkpoint_count": thread.checkpoint_count,
                 "branch_count": thread.branch_count,
-                "tags": thread.metadata.tags,
-                "metadata": thread.metadata.model_dump() if include_metadata else {},
+                "tags": metadata.get("tags", []) if isinstance(metadata, dict) else [],
+                "metadata": metadata if include_metadata else {},
                 "created_at": thread.created_at.isoformat(),
                 "updated_at": thread.updated_at.isoformat()
             }
@@ -69,9 +70,9 @@ class ThreadSnapshotService:
             
             # 保存快照
             snapshot = ThreadSnapshot.from_dict(snapshot_data_dict)
-            snapshot.snapshot_name = snapshot_name
+            snapshot._snapshot_name = snapshot_name
             if description:
-                snapshot.description = description
+                snapshot._description = description
             await self._thread_snapshot_repository.create(snapshot)
             
             # 更新线程的检查点计数
@@ -103,17 +104,18 @@ class ThreadSnapshotService:
             if restore_strategy == "full":
                 # 完全恢复
                 snapshot_data = snapshot.state_snapshot
-                thread.status = ThreadStatus(snapshot_data.get("thread_status", thread.status.value))
-                thread.message_count = snapshot_data.get("message_count", thread.message_count)
-                thread.checkpoint_count = snapshot_data.get("checkpoint_count", thread.checkpoint_count)
-                thread.branch_count = snapshot_data.get("branch_count", thread.branch_count)
+                thread._status = ThreadStatus(snapshot_data.get("thread_status", thread.status))
+                thread._message_count = snapshot_data.get("message_count", thread.message_count)
+                thread._checkpoint_count = snapshot_data.get("checkpoint_count", thread.checkpoint_count)
+                thread._branch_count = snapshot_data.get("branch_count", thread.branch_count)
                 # 更新元数据
                 metadata_update = snapshot_data.get("metadata", {})
                 if metadata_update:
-                    current_metadata = thread.metadata.model_dump()
-                    current_metadata.update(metadata_update)
-                    thread.metadata = ThreadMetadata(**current_metadata)
-                thread.updated_at = datetime.now()
+                    current_metadata = thread.metadata
+                    if isinstance(current_metadata, dict):
+                        current_metadata.update(metadata_update)
+                        thread.metadata = ThreadMetadata(**current_metadata)
+                thread.update_timestamp()
                 
                 await self._thread_repository.update(thread)
                 
@@ -122,10 +124,11 @@ class ThreadSnapshotService:
                 snapshot_data = snapshot.state_snapshot
                 metadata_update = snapshot_data.get("metadata", {})
                 if metadata_update:
-                    current_metadata = thread.metadata.model_dump()
-                    current_metadata.update(metadata_update)
-                    thread.metadata = ThreadMetadata(**current_metadata)
-                thread.updated_at = datetime.now()
+                    current_metadata = thread.metadata
+                    if isinstance(current_metadata, dict):
+                        current_metadata.update(metadata_update)
+                        thread.metadata = ThreadMetadata(**current_metadata)
+                thread.update_timestamp()
                 
                 await self._thread_repository.update(thread)
                 

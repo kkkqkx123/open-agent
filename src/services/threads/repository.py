@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from src.interfaces.threads.storage import IThreadRepository
 from src.adapters.storage.backends.thread_base import IThreadStorageBackend
 from src.core.threads.entities import Thread, ThreadStatus, ThreadType
-from src.core.common.exceptions import StorageError
+from src.interfaces.storage.exceptions import StorageError
 
 logger = get_logger(__name__)
 
@@ -298,7 +298,7 @@ class ThreadRepository(IThreadRepository):
                 thread = await self.get(thread_id)
                 if thread:
                     # 只清理已完成或失败的旧线程
-                    is_terminal = thread.status.value in ['completed', 'failed']
+                    is_terminal = thread.status in ['completed', 'failed']
                     is_old = thread.updated_at < cutoff_date
                     
                     if is_terminal and is_old:
@@ -379,11 +379,11 @@ class ThreadRepository(IThreadRepository):
                 thread = await self.get(thread_id)
                 if thread:
                     # 按状态统计
-                    status_key = thread.status.value
+                    status_key = thread.status
                     stats["by_status"][status_key] = stats["by_status"].get(status_key, 0) + 1
                     
                     # 按类型统计
-                    type_key = thread.type.value
+                    type_key = thread.type
                     stats["by_type"][type_key] = stats["by_type"].get(type_key, 0) + 1
                     
                     # 累计统计
@@ -441,19 +441,19 @@ class ThreadRepository(IThreadRepository):
                 # 状态过滤
                 if "status" in filters:
                     if isinstance(filters["status"], str):
-                        if thread.status.value != filters["status"]:
+                        if thread.status != filters["status"]:
                             matches = False
                     elif isinstance(filters["status"], list):
-                        if thread.status.value not in filters["status"]:
+                        if thread.status not in filters["status"]:
                             matches = False
                 
                 # 类型过滤
                 if "type" in filters and matches:
                     if isinstance(filters["type"], str):
-                        if thread.type.value != filters["type"]:
+                        if thread.type != filters["type"]:
                             matches = False
                     elif isinstance(filters["type"], list):
-                        if thread.type.value not in filters["type"]:
+                        if thread.type not in filters["type"]:
                             matches = False
                 
                 # 会话ID过滤
@@ -472,7 +472,8 @@ class ThreadRepository(IThreadRepository):
                     if isinstance(required_tags, str):
                         required_tags = [required_tags]
                     
-                    thread_tags = thread.metadata.tags if hasattr(thread.metadata, 'tags') else []
+                    metadata = thread.metadata
+                    thread_tags = metadata.get("tags", []) if isinstance(metadata, dict) else []
                     if not any(tag in thread_tags for tag in required_tags):
                         matches = False
                 
@@ -535,14 +536,14 @@ class ThreadRepository(IThreadRepository):
         """
         return {
             "id": thread.id,
-            "status": thread.status.value,
-            "type": thread.type.value,
+            "status": thread.status,
+            "type": thread.type,
             "graph_id": thread.graph_id,
             "parent_thread_id": thread.parent_thread_id,
             "source_checkpoint_id": thread.source_checkpoint_id,
             "created_at": thread.created_at.isoformat(),
             "updated_at": thread.updated_at.isoformat(),
-            "metadata": thread.metadata.model_dump() if hasattr(thread.metadata, 'model_dump') else thread.metadata,
+            "metadata": thread.metadata,
             "config": thread.config,
             "state": thread.state,
             "message_count": thread.message_count,

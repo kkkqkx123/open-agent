@@ -11,7 +11,7 @@ from src.interfaces.tool.base import ITool, IToolRegistry, IToolManager
 from src.interfaces.tool.config import ToolConfig as InterfaceToolConfig
 from src.core.tools.factory import OptimizedToolFactory as ToolFactory
 from src.core.tools.config import ToolRegistryConfig
-from src.core.common.exceptions import ToolError
+from src.interfaces.tool.exceptions import ToolError
 
 if TYPE_CHECKING:
     from src.interfaces.tool.config import ToolConfig

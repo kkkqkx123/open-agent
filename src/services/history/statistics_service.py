@@ -14,7 +14,7 @@ from src.core.history.entities import (
     CostRecord, RecordType
 )
 from src.interfaces.history.exceptions import StatisticsError
-from src.core.common.exceptions import ValidationError
+from src.interfaces.container.exceptions import ValidationError
 
 
 class HistoryStatisticsService:

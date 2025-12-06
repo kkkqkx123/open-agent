@@ -7,8 +7,7 @@
 from abc import ABC, abstractmethod
 from typing import Type, Dict, Any, Optional, List, Callable
 
-from .core import ServiceRegistration
-from ..common_infra import ServiceLifetime
+from .core import ServiceRegistration, ServiceLifetime
 
 
 '''

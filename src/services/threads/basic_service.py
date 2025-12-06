@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from src.core.threads.interfaces import IThreadCore
 from src.core.threads.entities import Thread, ThreadStatus, ThreadType, ThreadMetadata
 from src.interfaces.threads.storage import IThreadRepository
-from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
+from src.interfaces.storage.exceptions import StorageValidationError as ValidationError, StorageNotFoundError as EntityNotFoundError
 from .base_service import BaseThreadService
 
 if TYPE_CHECKING:
@@ -104,7 +104,7 @@ class BasicThreadService(BaseThreadService):
             # 更新线程配置
             thread = await self._thread_repository.get(thread_id)
             if thread:
-                thread.config = config
+                thread._config = config
                 thread.update_timestamp()
                 await self._thread_repository.update(thread)
             
@@ -135,14 +135,14 @@ class BasicThreadService(BaseThreadService):
             
             return {
                 "id": thread.id,
-                "status": thread.status.value,
-                "type": thread.type.value,
+                "status": thread.status,
+                "type": thread.type,
                 "graph_id": thread.graph_id,
                 "parent_thread_id": thread.parent_thread_id,
                 "source_checkpoint_id": thread.source_checkpoint_id,
                 "created_at": thread.created_at.isoformat(),
                 "updated_at": thread.updated_at.isoformat(),
-                "metadata": thread.metadata.model_dump(),
+                "metadata": thread.metadata,
                 "config": thread.config,
                 "message_count": thread.message_count,
                 "checkpoint_count": thread.checkpoint_count,
@@ -176,7 +176,7 @@ class BasicThreadService(BaseThreadService):
             
             # 检查状态转换是否有效
             if not thread.can_transition_to(new_status):
-                raise ValidationError(f"Cannot transition from {thread.status.value} to {status}")
+                raise ValidationError(f"Cannot transition from {thread.status} to {status}")
             
             # 更新状态
             thread.transition_to(new_status)
@@ -235,8 +235,8 @@ class BasicThreadService(BaseThreadService):
             for thread in threads:
                 thread_info: Dict[str, Any] = {
                     "id": thread.id,
-                    "status": thread.status.value,
-                    "type": thread.type.value,
+                    "status": thread.status,
+                    "type": thread.type,
                     "graph_id": thread.graph_id,
                     "created_at": thread.created_at.isoformat(),
                     "updated_at": thread.updated_at.isoformat(),
@@ -246,10 +246,11 @@ class BasicThreadService(BaseThreadService):
                 }
                 
                 # 添加元数据信息
-                if hasattr(thread.metadata, 'title') and thread.metadata.title:
-                    thread_info["title"] = thread.metadata.title
-                if hasattr(thread.metadata, 'tags') and thread.metadata.tags:
-                    thread_info["tags"] = thread.metadata.tags
+                metadata = thread.metadata
+                if metadata.get("title"):
+                    thread_info["title"] = metadata["title"]
+                if metadata.get("tags"):
+                    thread_info["tags"] = metadata["tags"]
                 
                 result.append(thread_info)
             
@@ -365,8 +366,8 @@ class BasicThreadService(BaseThreadService):
             for thread in threads:
                 thread_info = {
                     "id": thread.id,
-                    "status": thread.status.value,
-                    "type": thread.type.value,
+                    "status": thread.status,
+                    "type": thread.type,
                     "graph_id": thread.graph_id,
                     "created_at": thread.created_at.isoformat(),
                     "updated_at": thread.updated_at.isoformat(),
@@ -404,8 +405,8 @@ class BasicThreadService(BaseThreadService):
             for thread in threads:
                 thread_info = {
                     "id": thread.id,
-                    "status": thread.status.value,
-                    "type": thread.type.value,
+                    "status": thread.status,
+                    "type": thread.type,
                     "graph_id": thread.graph_id,
                     "created_at": thread.created_at.isoformat(),
                     "updated_at": thread.updated_at.isoformat(),

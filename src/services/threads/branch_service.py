@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from src.core.threads.interfaces import IThreadCore, IThreadBranchCore
 from src.core.threads.entities import ThreadBranch
 from src.interfaces.threads import IThreadBranchService, IThreadRepository, IThreadBranchRepository
-from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
+from src.interfaces.storage.exceptions import StorageValidationError as ValidationError, StorageNotFoundError as EntityNotFoundError
 from .base_service import BaseThreadService
 
 if TYPE_CHECKING:
@@ -237,7 +237,7 @@ class ThreadBranchService(BaseThreadService, IThreadBranchService):
                         thread = await self._thread_repository.get(thread_id)
                         if thread:
                             thread.branch_count = max(0, thread.branch_count - 1)
-                            thread.updated_at = datetime.now()
+                            thread.update_timestamp()
                             await self._thread_repository.update(thread)
             
             return cleaned_count

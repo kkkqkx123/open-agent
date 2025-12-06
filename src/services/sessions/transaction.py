@@ -13,7 +13,8 @@ from interfaces.repository.session import ISessionRepository
 from src.interfaces.threads.storage import IThreadRepository
 from src.interfaces.threads.service import IThreadService
 from src.core.sessions.association import SessionThreadAssociation
-from src.core.common.exceptions import ValidationError, StorageError
+from src.interfaces.container.exceptions import ValidationError
+from src.interfaces.storage.exceptions import StorageError
 
 logger = get_logger(__name__)
 

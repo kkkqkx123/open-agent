@@ -135,6 +135,8 @@ class RestToolConfig(ToolConfig):
     headers: Dict[str, str] = field(default_factory=dict)  # 请求头
     auth_method: Optional[str] = None  # 认证方法
     api_key: Optional[str] = None  # API密钥
+    retry_count: int = 3  # 重试次数
+    retry_delay: float = 1.0  # 重试延迟（秒）
     state_config: StateManagerConfig = field(default_factory=StateManagerConfig)
 
 
@@ -144,6 +146,7 @@ class MCPToolConfig(ToolConfig):
     mcp_server_url: str  # MCP服务器URL
     tool_type: str = "mcp"
     dynamic_schema: bool = False # 是否动态获取Schema
+    refresh_interval: Optional[int] = None  # 刷新间隔（秒）
     state_config: StateManagerConfig = field(default_factory=StateManagerConfig)
 
 

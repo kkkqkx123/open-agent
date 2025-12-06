@@ -7,7 +7,7 @@ from datetime import datetime
 from interfaces.state import IWorkflowState as WorkflowState
 from src.interfaces.threads.storage import IThreadRepository
 from src.core.threads.entities import Thread, ThreadStatus
-from src.core.common.exceptions import ValidationError, StorageNotFoundError as EntityNotFoundError
+from src.interfaces.storage.exceptions import StorageValidationError as ValidationError, StorageNotFoundError as EntityNotFoundError
 from src.core.state.implementations.workflow_state import WorkflowState as WorkflowStateImpl
 
 logger = get_logger(__name__)
@@ -50,8 +50,8 @@ class WorkflowThreadService:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
             # 验证线程状态
-            if thread.status not in [ThreadStatus.ACTIVE, ThreadStatus.PAUSED]:
-                raise ValidationError(f"Cannot execute workflow on thread with status {thread.status.value}")
+            if thread.status not in [ThreadStatus.ACTIVE.value, ThreadStatus.PAUSED.value]:
+                raise ValidationError(f"Cannot execute workflow on thread with status {thread.status}")
             
             # 更新线程状态为执行中（如果需要）
             # 这里简化处理，实际应该有执行中状态
@@ -110,8 +110,8 @@ class WorkflowThreadService:
                 raise EntityNotFoundError(f"Thread {thread_id} not found")
             
             # 验证线程状态
-            if thread.status not in [ThreadStatus.ACTIVE, ThreadStatus.PAUSED]:
-                raise ValidationError(f"Cannot stream workflow on thread with status {thread.status.value}")
+            if thread.status not in [ThreadStatus.ACTIVE.value, ThreadStatus.PAUSED.value]:
+                raise ValidationError(f"Cannot stream workflow on thread with status {thread.status}")
             
             logger.info(f"Starting workflow streaming for thread {thread_id}")
             
