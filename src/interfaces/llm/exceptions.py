@@ -98,8 +98,9 @@ class LLMCallError(LLMError):
         self.is_retryable = is_retryable
         self.retry_after = retry_after
         self.original_error = original_error
+        self.error_context = error_context
         self.model_name = model_name
-        
+
         if model_name:
             self.details["model_name"] = model_name
         if is_retryable:
@@ -288,106 +289,113 @@ class LLMFallbackError(LLMError):
 # LLM Wrapper相关异常（整合自llm_wrapper.py）
 class LLMWrapperError(LLMError):
     """LLM包装器错误基类"""
-    
+
     def __init__(
-        self, 
-        message: str, 
+        self,
+        message: str,
+        error_code: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
         wrapper_type: Optional[str] = None,
-        **kwargs: Any
     ):
-        super().__init__(message, "LLM_WRAPPER_ERROR", kwargs)
+        super().__init__(message, error_code or "LLM_WRAPPER_ERROR", details)
         self.wrapper_type = wrapper_type
-        
+
         if wrapper_type:
             self.details["wrapper_type"] = wrapper_type
 
 
 class TaskGroupWrapperError(LLMWrapperError):
     """任务组包装器错误"""
-    
+
     def __init__(
-        self, 
-        message: str, 
+        self,
+        message: str,
         task_id: Optional[str] = None,
         group_id: Optional[str] = None,
         **kwargs: Any
     ):
-        super().__init__(message, "TASK_GROUP_WRAPPER_ERROR", {"wrapper_type": "TaskGroup"}, **kwargs)
+        details = {"wrapper_type": "TaskGroup"}
+        details.update(kwargs)
+        if task_id:
+            details["task_id"] = task_id
+        if group_id:
+            details["group_id"] = group_id
+        super().__init__(message, "TASK_GROUP_WRAPPER_ERROR", details, "TaskGroup")
         self.task_id = task_id
         self.group_id = group_id
-        
-        if task_id:
-            self.details["task_id"] = task_id
-        if group_id:
-            self.details["group_id"] = group_id
 
 
 class PollingPoolWrapperError(LLMWrapperError):
     """轮询池包装器错误"""
-    
+
     def __init__(
-        self, 
-        message: str, 
+        self,
+        message: str,
         pool_id: Optional[str] = None,
         **kwargs: Any
     ):
-        super().__init__(message, "POLLING_POOL_WRAPPER_ERROR", {"wrapper_type": "PollingPool"}, **kwargs)
-        self.pool_id = pool_id
-        
+        details = {"wrapper_type": "PollingPool"}
+        details.update(kwargs)
         if pool_id:
-            self.details["pool_id"] = pool_id
+            details["pool_id"] = pool_id
+        super().__init__(message, "POLLING_POOL_WRAPPER_ERROR", details, "PollingPool")
+        self.pool_id = pool_id
 
 
 class WrapperFactoryError(LLMWrapperError):
     """包装器工厂错误"""
-    
+
     def __init__(
-        self, 
-        message: str, 
+        self,
+        message: str,
         factory_type: Optional[str] = None,
         **kwargs: Any
     ):
-        super().__init__(message, "WRAPPER_FACTORY_ERROR", {"wrapper_type": "Factory"}, **kwargs)
-        self.factory_type = factory_type
-        
+        details = {"wrapper_type": "Factory"}
+        details.update(kwargs)
         if factory_type:
-            self.details["factory_type"] = factory_type
+            details["factory_type"] = factory_type
+        super().__init__(message, "WRAPPER_FACTORY_ERROR", details, "Factory")
+        self.factory_type = factory_type
 
 
 class WrapperConfigError(LLMWrapperError):
     """包装器配置错误"""
-    
+
     def __init__(
-        self, 
-        message: str, 
+        self,
+        message: str,
         config_key: Optional[str] = None,
         config_value: Optional[Any] = None,
         **kwargs: Any
     ):
-        super().__init__(message, "WRAPPER_CONFIG_ERROR", {"wrapper_type": "Config"}, **kwargs)
+        details = {"wrapper_type": "Config"}
+        details.update(kwargs)
+        if config_key:
+            details["config_key"] = config_key
+        if config_value is not None:
+            details["config_value"] = config_value
+        super().__init__(message, "WRAPPER_CONFIG_ERROR", details, "Config")
         self.config_key = config_key
         self.config_value = config_value
-        
-        if config_key:
-            self.details["config_key"] = config_key
-        if config_value is not None:
-            self.details["config_value"] = config_value
 
 
 class WrapperExecutionError(LLMWrapperError):
     """包装器执行错误"""
-    
+
     def __init__(
-        self, 
-        message: str, 
+        self,
+        message: str,
         execution_context: Optional[Dict[str, Any]] = None,
         **kwargs: Any
     ):
-        super().__init__(message, "WRAPPER_EXECUTION_ERROR", {"wrapper_type": "Execution"}, **kwargs)
-        self.execution_context = execution_context or {}
-        
+        # 初始化details字典，确保类型正确
+        details: Dict[str, Any] = {"wrapper_type": "Execution"}
+        details.update(kwargs)
         if execution_context:
-            self.details["execution_context"] = execution_context
+            details["execution_context"] = execution_context
+        super().__init__(message, "WRAPPER_EXECUTION_ERROR", details, "Execution")
+        self.execution_context = execution_context or {}
 
 
 # 导出所有异常
