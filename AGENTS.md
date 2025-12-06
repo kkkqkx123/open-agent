@@ -47,6 +47,8 @@ If not asked to check whole codebase, always use `--follow-imports=silent` to av
 **Testing**
 ```bash
 uv run pytest <file-path or directory-path>
+
+When test can't run, first you just need to test dependencies import. Usually you can use `from typing import TYPE_CHECKING` to avoid circular dependencies.
 ```
 
 ## Codebase Architecture
