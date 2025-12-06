@@ -6,7 +6,6 @@
 from src.services.logger.injection import get_logger
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
-import uuid
 
 from .models import ThreadCheckpoint, CheckpointStatistics, CheckpointStatus, CheckpointType
 from .repository import IThreadCheckpointRepository, RepositoryError

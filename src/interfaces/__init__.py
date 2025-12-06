@@ -247,6 +247,15 @@ from .messages import (
     IMessageValidator
 )
 
+# UI消息相关接口
+from .ui import (
+    IUIMessage,
+    IUIMessageRenderer,
+    IUIMessageAdapter,
+    IUIMessageManager,
+    IUIMessageController
+)
+
 # 配置相关接口
 from .configuration import (
     ConfigValidationResult,
@@ -481,6 +490,13 @@ __all__ = [
     "IMessageFactory",
     "IMessageSerializer",
     "IMessageValidator",
+    
+    # UI消息接口
+    "IUIMessage",
+    "IUIMessageRenderer",
+    "IUIMessageAdapter",
+    "IUIMessageManager",
+    "IUIMessageController",
     
     # 配置接口
     "ConfigValidationResult",

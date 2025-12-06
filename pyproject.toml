@@ -87,9 +87,11 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
-addopts = ""
+addopts = "--import-mode=importlib"
 # addopts = "--cov=src --cov-report=html:cov_html --cov-report=term"用于启用覆盖率测试
 asyncio_mode = "auto"
+# 确保src目录在Python路径中
+pythonpath = ["."]
 
 [tool.coverage.run]
 source = ["src"]
