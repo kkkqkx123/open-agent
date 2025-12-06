@@ -374,6 +374,28 @@ def get_workflow_error_handler() -> WorkflowErrorHandler:
 
 
 # 便捷函数
+def register_workflow_error_handler() -> None:
+    """注册工作流错误处理器到统一错误处理框架"""
+    from src.infrastructure.error_management import register_error_handler
+    
+    handler = WorkflowErrorHandler()
+    
+    # 注册所有工作流相关异常
+    workflow_exceptions = [
+        WorkflowError,
+        WorkflowValidationError,
+        WorkflowExecutionError,
+        WorkflowStepError,
+        WorkflowTimeoutError,
+        WorkflowStateError,
+        WorkflowConfigError,
+        WorkflowDependencyError
+    ]
+    
+    for exception_type in workflow_exceptions:
+        register_error_handler(exception_type, handler)
+
+
 def handle_workflow_error(error: Exception, context: Optional[Dict[str, Any]] = None) -> None:
     """处理工作流错误的便捷函数"""
     registry = ErrorHandlingRegistry()

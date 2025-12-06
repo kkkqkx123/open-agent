@@ -242,6 +242,24 @@ class SynchronizationError(SessionThreadException):
         self.sync_operation = sync_operation
 
 
+class ConfigurationValidationError(SessionThreadException):
+    """配置验证失败异常"""
+    
+    def __init__(
+        self,
+        message: str,
+        config_key: Optional[str] = None,
+        session_id: Optional[str] = None,
+        cause: Optional[Exception] = None
+    ):
+        super().__init__(
+            message=message,
+            session_id=session_id,
+            details={"config_key": config_key} if config_key else {},
+            cause=cause
+        )
+        self.config_key = config_key
+
 
 class SessionTimeoutError(SessionThreadException):
     """Session超时异常"""

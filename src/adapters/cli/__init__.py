@@ -8,7 +8,7 @@ from .architecture_command import ArchitectureCommand
 from .environment import EnvironmentChecker, IEnvironmentChecker
 from .architecture_check import ArchitectureChecker
 from .commands import cli
-from src.infrastructure.error_management.impl.cli import (
+from .error_handling import (
     CLIErrorHandler,
     handle_cli_error,
     handle_cli_warning,

@@ -259,6 +259,56 @@ class StorageBackend(IStorage, IStorageBackend, ABC):
                 raise
             raise StorageError(f"Failed to check existence of data {id}: {e}")
     
+    async def query(self, query: str, params: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """执行查询"""
+        try:
+            result = await self.query_impl(query, params)
+            self._update_stats("query")
+            return result
+            
+        except Exception as e:
+            if isinstance(e, StorageError):
+                raise
+            raise StorageError(f"Failed to query data: {e}")
+    
+    async def transaction(self, operations: List[Dict[str, Any]]) -> bool:
+        """执行事务"""
+        try:
+            result = await self.transaction_impl(operations)
+            if result:
+                self._update_stats("transaction")
+            return result
+            
+        except Exception as e:
+            if isinstance(e, StorageError):
+                raise
+            raise StorageError(f"Failed to execute transaction: {e}")
+    
+    async def batch_save(self, data_list: List[Dict[str, Any]]) -> List[str]:
+        """批量保存"""
+        try:
+            ids = await self.batch_save_impl(data_list)
+            self._update_stats("batch_save")
+            return ids
+            
+        except Exception as e:
+            if isinstance(e, StorageError):
+                raise
+            raise StorageError(f"Failed to batch save data: {e}")
+    
+    async def batch_delete(self, ids: List[str]) -> int:
+        """批量删除"""
+        try:
+            count = await self.batch_delete_impl(ids)
+            if count > 0:
+                self._update_stats("batch_delete")
+            return count
+            
+        except Exception as e:
+            if isinstance(e, StorageError):
+                raise
+            raise StorageError(f"Failed to batch delete data: {e}")
+    
     async def cleanup_old_data(self, retention_days: int) -> int:
         """清理旧数据"""
         try:
