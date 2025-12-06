@@ -1,6 +1,7 @@
 """轮询池LLM包装器"""
 
 import asyncio
+from src.infrastructure.llm.models import TokenUsage
 from src.services.logger.injection import get_logger
 import time
 from typing import Dict, Any, Optional, List, Sequence
@@ -9,8 +10,6 @@ from datetime import datetime
 from .base_wrapper import BaseLLMWrapper
 from src.interfaces.llm.exceptions import PollingPoolWrapperError, WrapperExecutionError
 from src.interfaces.llm import IPollingPoolManager, LLMResponse
-from ..models import TokenUsage
-from src.interfaces.llm.exceptions import LLMError
 
 logger = get_logger(__name__)
 
@@ -34,7 +33,8 @@ class PollingPoolWrapper(BaseLLMWrapper):
         self.polling_pool_manager = polling_pool_manager
         self._pool = None
         self._attempt_count = 0
-        self._rotation_history = []
+        self._rotation_history: List[Dict[str, Any]] = []
+        self._client_cache: Dict[str, Any] = {}  # 缓存LLM客户端实例
         
         # 更新元数据
         self._metadata.update({
@@ -145,15 +145,16 @@ class PollingPoolWrapper(BaseLLMWrapper):
         return self._pool
     
     async def _call_with_simple_fallback(
-        self, 
-        pool: Any, 
-        prompt: str, 
-        parameters: Optional[Dict[str, Any]], 
-        **kwargs
+        self,
+        pool: Any,
+        prompt: str,
+        parameters: Optional[Dict[str, Any]],
+        **kwargs: Any
     ) -> Any:
         """使用简单降级策略调用"""
         max_attempts = self.config.get("max_instance_attempts", 2)
         instance = None
+        last_error = None
         
         for attempt in range(max_attempts):
             try:
@@ -170,8 +171,7 @@ class PollingPoolWrapper(BaseLLMWrapper):
                 })
                 
                 # 调用实例
-                # TODO: 这里需要实际的LLM客户端调用
-                result = await self._call_instance(instance, prompt, parameters, **kwargs)
+                response = await self._call_instance(instance, prompt, parameters, **kwargs)
                 
                 # 更新统计
                 try:
@@ -183,9 +183,10 @@ class PollingPoolWrapper(BaseLLMWrapper):
                 # 释放实例
                 pool.release_instance(instance)
                 
-                return result
+                return response
                 
             except Exception as e:
+                last_error = e
                 if instance is not None:
                     logger.warning(f"实例调用失败: {instance.instance_id}, 错误: {e}")
                     try:
@@ -203,20 +204,100 @@ class PollingPoolWrapper(BaseLLMWrapper):
                 
                 continue
         
-        raise PollingPoolWrapperError(f"轮询池所有实例尝试失败，尝试次数: {max_attempts}")
+        raise PollingPoolWrapperError(f"轮询池所有实例尝试失败，尝试次数: {max_attempts}。最后错误: {last_error}")
     
     async def _call_instance(
-        self, 
-        instance, 
-        prompt: str, 
-        parameters: Optional[Dict[str, Any]], 
-        **kwargs
+        self,
+        instance: Any,
+        prompt: str,
+        parameters: Optional[Dict[str, Any]],
+        **kwargs: Any
     ) -> Any:
         """调用具体实例"""
-        # TODO: 实现实际的LLM调用逻辑
-        # 这里应该根据instance.client调用实际的LLM
-        await asyncio.sleep(0.1)  # 模拟调用延迟
-        return f"轮询池响应 from {instance.instance_id}: {prompt[:50]}..."
+        try:
+            # 获取或创建实例的LLM客户端
+            client = await self._get_or_create_client_for_instance(instance)
+            
+            if client is None:
+                raise PollingPoolWrapperError(f"无法为实例 {instance.instance_id} 创建LLM客户端")
+            
+            # 将prompt转换为消息格式
+            messages = self._prompt_to_messages(prompt)
+            
+            # 调用LLM客户端
+            response = await client.generate(messages, parameters, **kwargs)
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"调用实例 {instance.instance_id} 失败: {e}")
+            raise e
+    
+    async def _get_or_create_client_for_instance(self, instance: Any) -> Any:
+        """获取或为实例创建LLM客户端"""
+        instance_id = getattr(instance, 'instance_id', str(id(instance)))
+        
+        # 首先尝试从缓存获取
+        if instance_id in self._client_cache:
+            return self._client_cache[instance_id]
+        
+        # 尝试从实例获取已存在的客户端
+        client = getattr(instance, 'client', None)
+        if client is not None:
+            self._client_cache[instance_id] = client
+            return client
+        
+        # 创建新的客户端
+        client = await self._create_client_for_instance(instance)
+        if client is not None:
+            self._client_cache[instance_id] = client
+            # 同时缓存到实例
+            instance.client = client
+        
+        return client
+    
+    async def _create_client_for_instance(self, instance: Any) -> Any:
+        """为实例创建LLM客户端"""
+        try:
+            # 获取实例配置
+            instance_config = getattr(instance, 'config', {})
+            if not instance_config:
+                logger.warning(f"实例 {instance.instance_id} 没有配置信息")
+                return None
+            
+            # 导入LLM工厂
+            from ..factory import get_global_factory
+            
+            # 创建客户端配置
+            client_config = {
+                "model_type": instance_config.get("model_type", "openai"),
+                "model_name": instance_config.get("model_name", "gpt-3.5-turbo"),
+                "api_key": instance_config.get("api_key"),
+                "base_url": instance_config.get("base_url"),
+                "temperature": instance_config.get("temperature", 0.7),
+                "max_tokens": instance_config.get("max_tokens"),
+                "timeout": instance_config.get("timeout", 30),
+                "max_retries": instance_config.get("max_retries", 3)
+            }
+            
+            # 使用工厂创建客户端
+            factory = get_global_factory()
+            client = factory.create_client(client_config)
+            
+            return client
+            
+        except Exception as e:
+            logger.error(f"为实例 {instance.instance_id} 创建客户端失败: {e}")
+            return None
+    
+    def _prompt_to_messages(self, prompt: str) -> Sequence:
+        """将提示词转换为消息格式"""
+        try:
+            from src.infrastructure.messages.types import HumanMessage
+            return [HumanMessage(content=prompt)]
+        except ImportError:
+            # 如果无法导入消息类型，返回简单格式
+            return [{"role": "user", "content": prompt}]
     
     def _create_llm_response(
         self,
@@ -227,16 +308,9 @@ class PollingPoolWrapper(BaseLLMWrapper):
         metadata: Optional[Dict[str, Any]] = None
     ) -> LLMResponse:
         """创建LLM响应"""
-        # 估算token使用量
+        # 如果没有提供token使用量，尝试从响应中提取或计算
         if token_usage is None:
-            # 使用简单估算：字符数除以4
-            prompt_tokens = max(1, len(content) // 4)
-            completion_tokens = prompt_tokens // 2  # 简单估算
-            token_usage = TokenUsage(
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=prompt_tokens + completion_tokens
-            )
+            token_usage = self._extract_or_calculate_tokens(content, message)
         
         # 合并元数据
         response_metadata = metadata or {}
@@ -254,6 +328,64 @@ class PollingPoolWrapper(BaseLLMWrapper):
             metadata=response_metadata
         )
     
+    def _extract_or_calculate_tokens(self, content: str, message: Optional[Any] = None) -> TokenUsage:
+        """从响应中提取token使用量或计算token"""
+        # 尝试从消息中提取token使用量
+        if message and hasattr(message, 'token_usage'):
+            return message.token_usage
+        
+        # 尝试从响应元数据中提取token使用量
+        if message and hasattr(message, 'metadata') and message.metadata:
+            if 'token_usage' in message.metadata:
+                return TokenUsage(**message.metadata['token_usage'])
+            elif 'usage' in message.metadata:
+                usage = message.metadata['usage']
+                return TokenUsage(
+                    prompt_tokens=usage.get('prompt_tokens', 0),
+                    completion_tokens=usage.get('completion_tokens', 0),
+                    total_tokens=usage.get('total_tokens', 0)
+                )
+        
+        # 如果无法提取，使用更准确的计算方法
+        return self._calculate_tokens_accurate(content)
+    
+    def _calculate_tokens_accurate(self, content: str) -> TokenUsage:
+        """使用TokenCalculationService进行准确的token计算"""
+        try:
+            # 导入TokenCalculationService
+            from src.services.llm.token_calculation_service import TokenCalculationService
+            
+            # 创建token计算服务实例
+            token_service = TokenCalculationService()
+            
+            # 使用默认模型类型进行计算
+            model_type = "openai"  # 默认使用openai类型
+            model_name = "gpt-3.5-turbo"  # 默认模型
+            
+            # 计算completion tokens
+            completion_tokens = token_service.calculate_tokens(content, model_type, model_name)
+            
+            # 估算prompt tokens（假设输入和输出长度相似）
+            prompt_tokens = max(completion_tokens, 10)
+            
+            return TokenUsage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens
+            )
+            
+        except Exception as e:
+            logger.error(f"Token计算服务调用失败: {e}，使用简单估算")
+            # 回退到最简单的估算
+            content_tokens = max(1, len(content) // 4)
+            prompt_tokens = max(content_tokens, 10)
+            
+            return TokenUsage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=content_tokens,
+                total_tokens=prompt_tokens + content_tokens
+            )
+    
     def get_rotation_history(self, limit: int = 10) -> List[Dict[str, Any]]:
         """获取旋转历史"""
         return self._rotation_history[-limit:]
@@ -267,7 +399,7 @@ class PollingPoolWrapper(BaseLLMWrapper):
         """获取轮询池状态"""
         pool = self._get_pool()
         if pool:
-            return pool.get_status()
+            return pool.get_status()  # type: ignore
         return None
     
     def supports_function_calling(self) -> bool:
