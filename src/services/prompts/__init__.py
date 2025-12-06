@@ -7,6 +7,7 @@ from .registry import PromptRegistry
 from .loader import PromptLoader
 from .injector import PromptInjector
 from .config import PromptConfigManager, get_global_config_manager
+from .type_registry import PromptTypeRegistry, get_global_registry
 
 # 重新导出提示词工厂的便捷函数
 from .prompt_factory import (
@@ -24,6 +25,10 @@ __all__ = [
     "PromptInjector",
     "PromptConfigManager",
     "get_global_config_manager",
+    
+    # 类型注册表
+    "PromptTypeRegistry",
+    "get_global_registry",
     
     # 提示词工厂
     "PromptSystemFactory",

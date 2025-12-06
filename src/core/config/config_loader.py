@@ -109,7 +109,7 @@ class ConfigLoader(IConfigLoader, ILifecycleAware):
     def invalidate_cache(self, config_path: str) -> None:
         """清除指定配置的缓存"""
         # 通过清除全局缓存来实现
-        from ..common.cache import clear_cache
+        from src.infrastructure.common.cache import clear_cache
         clear_cache("config_func")
     
     def load_config(self, config_path: str, config_type: Optional[str] = None) -> Dict[str, Any]:

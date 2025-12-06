@@ -1,17 +1,20 @@
 """
 提示词错误处理器
 
-提供分层错误处理和恢复策略，集成到统一错误处理框架中。
+提供提示词系统的错误处理，适配统一错误处理框架。
 """
 
-from src.services.logger.injection import get_logger
 import time
 import os
-from typing import Type, Dict, Callable, Optional, Any, List
+from typing import Dict, Any, List, Optional, Callable
 from enum import Enum
 
-from src.interfaces.prompts.exceptions import PromptError, PromptLoadError, PromptInjectionError, PromptValidationError, PromptCacheError, PromptNotFoundError
-from src.infrastructure.error_management import (
+from src.services.logger.injection import get_logger
+from src.interfaces.prompts.exceptions import (
+    PromptError, PromptLoadError, PromptInjectionError, 
+    PromptValidationError, PromptCacheError, PromptNotFoundError
+)
+from ..error_management import (
     BaseErrorHandler, ErrorCategory, ErrorSeverity,
     ErrorHandlingRegistry, operation_with_retry, operation_with_fallback
 )
@@ -34,43 +37,18 @@ class PromptErrorType(Enum):
 
 
 class PromptErrorHandler(BaseErrorHandler):
-    """增强的提示词错误处理器"""
+    """提示词错误处理器
+    
+    适配统一错误处理框架，提供提示词特定的错误处理逻辑。
+    """
     
     def __init__(self):
         super().__init__(ErrorCategory.PROMPT, ErrorSeverity.MEDIUM)
         self._retry_strategies: Dict[PromptErrorType, Callable] = {}
         self._fallback_strategies: Dict[PromptErrorType, Callable] = {}
-        self._recovery_history: Dict[str, List[Dict[str, Any]]] = {}
         
         # 注册默认策略
         self._register_default_strategies()
-        
-        # 注册到全局注册表
-        self._register_to_global_registry()
-    
-    def _register_to_global_registry(self):
-        """注册到全局错误处理注册表"""
-        registry = ErrorHandlingRegistry()
-        registry.register_handler(PromptError, self)
-        registry.register_handler(PromptLoadError, self)
-        registry.register_handler(PromptInjectionError, self)
-        registry.register_handler(PromptValidationError, self)
-        registry.register_handler(PromptCacheError, self)
-        registry.register_handler(PromptNotFoundError, self)
-    
-    def _register_default_strategies(self):
-        """注册默认的错误处理策略"""
-        # 注册重试策略
-        self._retry_strategies[PromptErrorType.LOAD] = self._retry_load
-        self._retry_strategies[PromptErrorType.CACHE] = self._retry_cache
-        self._retry_strategies[PromptErrorType.REFERENCE] = self._retry_reference
-        
-        # 注册降级策略
-        self._fallback_strategies[PromptErrorType.LOAD] = self._fallback_load
-        self._fallback_strategies[PromptErrorType.INJECTION] = self._fallback_injection
-        self._fallback_strategies[PromptErrorType.VALIDATION] = self._fallback_validation
-        self._fallback_strategies[PromptErrorType.NOT_FOUND] = self._fallback_not_found
-    
     
     def can_handle(self, error: Exception) -> bool:
         """判断是否可以处理该错误"""
@@ -102,6 +80,9 @@ class PromptErrorHandler(BaseErrorHandler):
             logger.info(f"提示词错误已恢复: {error_type.value}")
         else:
             logger.warning(f"提示词错误无法恢复: {error_type.value}")
+            
+        # 调用基类处理
+        super().handle(error, context)
     
     def _classify_error(self, error: PromptError, context: Dict[str, Any]) -> PromptErrorType:
         """分类提示词错误"""
@@ -154,6 +135,18 @@ class PromptErrorHandler(BaseErrorHandler):
         
         return None
     
+    def _register_default_strategies(self):
+        """注册默认的错误处理策略"""
+        # 注册重试策略
+        self._retry_strategies[PromptErrorType.LOAD] = self._retry_load
+        self._retry_strategies[PromptErrorType.CACHE] = self._retry_cache
+        self._retry_strategies[PromptErrorType.REFERENCE] = self._retry_reference
+        
+        # 注册降级策略
+        self._fallback_strategies[PromptErrorType.LOAD] = self._fallback_load
+        self._fallback_strategies[PromptErrorType.INJECTION] = self._fallback_injection
+        self._fallback_strategies[PromptErrorType.VALIDATION] = self._fallback_validation
+        self._fallback_strategies[PromptErrorType.NOT_FOUND] = self._fallback_not_found
     
     def _retry_load(self, error: PromptLoadError, context: Dict[str, Any]) -> Optional[Any]:
         """加载错误重试策略"""
@@ -298,148 +291,19 @@ class PromptErrorHandler(BaseErrorHandler):
     def _get_generic_prompt_content(self) -> str:
         """获取通用提示词内容"""
         return "你是一个AI助手，请根据用户需求提供帮助。"
-    
 
 
-def create_default_error_handler() -> PromptErrorHandler:
-    """创建默认错误处理器"""
-    return PromptErrorHandler()
-
-
-def handle_prompt_error(error: Exception, context: Optional[Dict[str, Any]] = None) -> Optional[Exception]:
-    """处理提示词错误的便捷函数"""
-    if isinstance(error, PromptError):
-        # 使用统一错误处理框架
-        error_context = create_prompt_error_context()
-        if context:
-            error_context.update(context)
-        
-        registry = ErrorHandlingRegistry()
-        registry.handle_error(error, error_context)
-        
-        # 使用统一框架的恢复机制
-        handler = create_default_error_handler()
-        error_type = handler._classify_error(error, error_context)
-        recovery_result = handler._attempt_recovery(error, error_type, error_context)
-        if recovery_result:
-            return None
-        
-        return error
-    
-    # 非提示词错误直接返回
-    return error
-
-
-def should_retry_prompt_error(error: Exception) -> bool:
-    """判断提示词错误是否应该重试"""
-    if isinstance(error, PromptCacheError):
-        return True
-    
-    if isinstance(error, PromptLoadError):
-        return True
-    
-    return False
-
-
-def log_prompt_error(error: Exception, level: str = "error") -> None:
-    """记录提示词错误"""
-    if isinstance(error, PromptError):
-        error_details = {
-            "error_code": getattr(error, "error_code", "UNKNOWN"),
-            "message": getattr(error, "message", str(error)),
-            "details": getattr(error, "details", {})
-        }
-        
-        # 添加验证错误信息
-        if hasattr(error, 'validation_errors'):
-            error_details["validation_errors"] = getattr(error, 'validation_errors', [])
-        
-        # 添加路径信息
-        if hasattr(error, 'prompt_path'):
-            error_details["prompt_path"] = getattr(error, 'prompt_path', None)
-        
-        if level == "error":
-            logger.error(f"提示词错误: {error_details}")
-        elif level == "warning":
-            logger.warning(f"提示词警告: {error_details}")
-        else:
-            logger.info(f"提示词信息: {error_details}")
-    else:
-        logger.error(f"非提示词错误: {error}")
-
-
-def validate_prompt_content(content: str) -> List[str]:
-    """验证提示词内容的便捷函数"""
-    return PromptValidator.validate_prompt_content(content)
-
-
-def validate_prompt_config(config: Dict[str, Any]) -> List[str]:
-    """验证提示词配置的便捷函数"""
-    return PromptValidator.validate_prompt_config(config)
-
-
-# 注册提示词错误处理器到全局注册表
 def register_prompt_error_handler():
-    """注册提示词错误处理器到全局注册表"""
+    """注册提示词错误处理器到统一错误处理框架"""
     registry = ErrorHandlingRegistry()
     prompt_handler = PromptErrorHandler()
     
-    logger.info("提示词错误处理器已注册到全局注册表")
-
-
-def create_prompt_error_context(
-    prompt_name: Optional[str] = None,
-    prompt_path: Optional[str] = None,
-    cache_key: Optional[str] = None,
-    **kwargs: Any
-) -> Dict[str, Any]:
-    """创建提示词错误上下文"""
-    context: Dict[str, Any] = {
-        "timestamp": time.time()
-    }
+    # 注册各种提示词异常类型
+    registry.register_handler(PromptError, prompt_handler)
+    registry.register_handler(PromptLoadError, prompt_handler)
+    registry.register_handler(PromptInjectionError, prompt_handler)
+    registry.register_handler(PromptValidationError, prompt_handler)
+    registry.register_handler(PromptCacheError, prompt_handler)
+    registry.register_handler(PromptNotFoundError, prompt_handler)
     
-    if prompt_name:
-        context["prompt_name"] = prompt_name
-    
-    if prompt_path:
-        context["prompt_path"] = prompt_path
-    
-    if cache_key:
-        context["cache_key"] = cache_key
-    
-    context.update(kwargs)
-    return context
-
-
-class PromptValidator:
-    """提示词验证器"""
-    
-    @staticmethod
-    def validate_prompt_content(content: str) -> List[str]:
-        """验证提示词内容"""
-        errors = []
-        
-        if not content:
-            errors.append("提示词内容不能为空")
-        
-        if isinstance(content, str) and len(content) > 100000:
-            errors.append("提示词内容过长（最大100000字符）")
-        
-        return errors
-    
-    @staticmethod
-    def validate_prompt_config(config: Dict[str, Any]) -> List[str]:
-        """验证提示词配置"""
-        errors = []
-        
-        if not isinstance(config, dict):
-            errors.append("提示词配置必须是字典类型")
-            return errors
-        
-        if "name" in config and not config["name"]:
-            errors.append("提示词名称不能为空")
-        
-        if "content" in config and not config["content"]:
-            errors.append("提示词内容不能为空")
-        
-        return errors
+    logger.info("提示词错误处理器已注册到统一错误处理框架")

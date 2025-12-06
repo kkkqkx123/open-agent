@@ -111,11 +111,16 @@ def get_global_registry() -> PromptTypeRegistry:
 
 def _register_default_types(registry: PromptTypeRegistry) -> None:
     """注册默认的提示词类型"""
-    from .types.system_prompt import SystemPromptType
-    from .types.rules_prompt import RulesPromptType
-    from .types.user_command_prompt import UserCommandPromptType
-    
-    # 注册核心提示词类型
-    registry.register_class(SystemPromptType)
-    registry.register_class(RulesPromptType)
-    registry.register_class(UserCommandPromptType)
+    try:
+        from ...core.prompts.types.system_prompt import SystemPromptType
+        from ...core.prompts.types.rules_prompt import RulesPromptType
+        from ...core.prompts.types.user_command_prompt import UserCommandPromptType
+        
+        # 注册核心提示词类型（使用默认的消息工厂）
+        registry.register(SystemPromptType())
+        registry.register(RulesPromptType())
+        registry.register(UserCommandPromptType())
+    except ImportError as e:
+        # 如果导入失败，记录警告但不中断程序
+        import warnings
+        warnings.warn(f"无法导入提示词类型: {e}")

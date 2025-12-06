@@ -4,12 +4,21 @@
 提供用户命令提示词的处理和消息创建功能
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from ....interfaces.prompts.types import IPromptType, PromptType
+from src.interfaces.messages import IMessageFactory
 
 
 class UserCommandPromptType(IPromptType):
     """用户命令提示词类型"""
+    
+    def __init__(self, message_factory: Optional[IMessageFactory] = None):
+        """初始化用户命令提示词类型
+        
+        Args:
+            message_factory: 消息工厂接口，用于创建消息对象
+        """
+        self._message_factory = message_factory
     
     @property
     def type_name(self) -> str:
@@ -42,8 +51,13 @@ class UserCommandPromptType(IPromptType):
     
     def create_message(self, content: str) -> Any:
         """创建用户消息"""
-        from src.infrastructure.messages.types import HumanMessage
-        return HumanMessage(content=content)
+        if self._message_factory:
+            return self._message_factory.create_human_message(content)
+        else:
+            # 降级处理：如果没有提供消息工厂，使用默认实现
+            from src.infrastructure.messages.factory import get_message_factory
+            factory = get_message_factory()
+            return factory.create_human_message(content)
     
     def validate_content(self, content: str) -> List[str]:
         """验证用户命令提示词内容"""

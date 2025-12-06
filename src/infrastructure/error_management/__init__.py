@@ -28,7 +28,7 @@ except (ImportError, ModuleNotFoundError):
         pass
 
 try:
-    from ...prompts.error_handler import register_prompt_error_handler
+    from ..prompts.error_handler import register_prompt_error_handler
 except (ImportError, ModuleNotFoundError):
     # 如果提示词模块不存在，创建一个空的注册函数
     def register_prompt_error_handler():
