@@ -7,14 +7,15 @@ import asyncio
 import sqlite3
 import threading
 import time
+import uuid
 from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List, Union, cast
 from pathlib import Path
 
-from src.interfaces.checkpoint import ICheckpointStore
+from src.interfaces.checkpoint import CheckpointValidationError, ICheckpointStore
 from src.interfaces.threads.checkpoint import IThreadCheckpointStorage
 from src.adapters.storage.adapters.base import ConnectionPooledStorageBackend
-from src.core.common.exceptions import (
+from src.interfaces.common.exceptions import (
     CheckpointNotFoundError,
     CheckpointStorageError
 )
@@ -29,7 +30,7 @@ from src.core.threads.checkpoints.storage.models import (
 logger = get_logger(__name__)
 
 
-class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, IThreadCheckpointStorage):
+class CheckpointSqliteBackend(ConnectionPooledStorageBackend, IThreadCheckpointStorage, ICheckpointSaver):
     """Checkpoint SQLite存储后端实现
     
     提供基于SQLite的checkpoint存储功能，实现ICheckpointStore和IThreadCheckpointStorage接口。
@@ -264,7 +265,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             
         except Exception as e:
             logger.error(f"Failed to save checkpoint: {e}")
-            raise CheckpointStorageError(f"保存checkpoint失败: {e}") from e
+            raise CheckpointValidationError(f"保存checkpoint失败: {e}") from e
         finally:
             if conn:
                 self._return_connection(conn)
@@ -326,7 +327,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             
         except Exception as e:
             logger.error(f"Failed to list checkpoints for thread {thread_id}: {e}")
-            raise CheckpointStorageError(f"列出checkpoint失败: {e}") from e
+            raise CheckpointValidationError(f"列出checkpoint失败: {e}") from e
         finally:
             if conn:
                 self._return_connection(conn)
@@ -383,7 +384,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
                 
         except Exception as e:
             logger.error(f"Failed to load checkpoint for thread {thread_id}: {e}")
-            raise CheckpointStorageError(f"加载checkpoint失败: {e}") from e
+            raise CheckpointValidationError(f"加载checkpoint失败: {e}") from e
         finally:
             if conn:
                 self._return_connection(conn)
@@ -419,7 +420,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             
         except Exception as e:
             logger.error(f"Failed to delete checkpoints for thread {thread_id}: {e}")
-            raise CheckpointStorageError(f"删除checkpoint失败: {e}") from e
+            raise CheckpointValidationError(f"删除checkpoint失败: {e}") from e
         finally:
             if conn:
                 self._return_connection(conn)
@@ -440,7 +441,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             
         except Exception as e:
             logger.error(f"Failed to get latest checkpoint for thread {thread_id}: {e}")
-            raise CheckpointStorageError(f"获取最新checkpoint失败: {e}") from e
+            raise CheckpointValidationError(f"获取最新checkpoint失败: {e}") from e
     
     async def cleanup_old_checkpoints(self, thread_id: str, max_count: int) -> int:
         """清理旧的checkpoint，保留最新的max_count个
@@ -488,7 +489,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             
         except Exception as e:
             logger.error(f"Failed to cleanup old checkpoints for thread {thread_id}: {e}")
-            raise CheckpointStorageError(f"清理旧checkpoint失败: {e}") from e
+            raise CheckpointValidationError(f"清理旧checkpoint失败: {e}") from e
         finally:
             if conn:
                 self._return_connection(conn)
@@ -543,12 +544,12 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
                 
                 return item_id
             else:
-                raise CheckpointStorageError(f"Expected dict for data, got {type(data)}")
+                raise CheckpointValidationError(f"Expected dict for data, got {type(data)}")
                 
         except Exception as e:
-            if isinstance(e, CheckpointStorageError):
+            if isinstance(e, CheckpointValidationError):
                 raise
-            raise CheckpointStorageError(f"Failed to save data: {e}")
+            raise CheckpointValidationError(f"Failed to save data: {e}")
         finally:
             if conn:
                 self._return_connection(conn)
@@ -585,9 +586,9 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             return data
             
         except Exception as e:
-            if isinstance(e, CheckpointStorageError):
+            if isinstance(e, CheckpointValidationError):
                 raise
-            raise CheckpointStorageError(f"Failed to load data {id}: {e}")
+            raise CheckpointValidationError(f"Failed to load data {id}: {e}")
         finally:
             if conn:
                 self._return_connection(conn)
@@ -609,9 +610,9 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             return affected_rows > 0
             
         except Exception as e:
-            if isinstance(e, CheckpointStorageError):
+            if isinstance(e, CheckpointValidationError):
                 raise
-            raise CheckpointStorageError(f"Failed to delete data {id}: {e}")
+            raise CheckpointValidationError(f"Failed to delete data {id}: {e}")
         finally:
             if conn:
                 self._return_connection(conn)
@@ -662,9 +663,9 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             return processed_results
             
         except Exception as e:
-            if isinstance(e, CheckpointStorageError):
+            if isinstance(e, CheckpointValidationError):
                 raise
-            raise CheckpointStorageError(f"Failed to list data: {e}")
+            raise CheckpointValidationError(f"Failed to list data: {e}")
         finally:
             if conn:
                 self._return_connection(conn)
@@ -706,7 +707,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             }
             
         except Exception as e:
-            raise CheckpointStorageError(f"Health check failed: {e}")
+            raise CheckpointValidationError(f"Health check failed: {e}")
         finally:
             if conn:
                 self._return_connection(conn)
@@ -739,7 +740,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
                 return None
                 
         except Exception as e:
-            raise CheckpointStorageError(f"Failed to execute query: {e}")
+            raise CheckpointValidationError(f"Failed to execute query: {e}")
     
     def _execute_update(
         self,
@@ -761,7 +762,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             
         except Exception as e:
             conn.rollback()
-            raise CheckpointStorageError(f"Failed to execute update: {e}")
+            raise CheckpointValidationError(f"Failed to execute update: {e}")
     
     def _build_where_clause(self, filters: Dict[str, Any]) -> tuple:
         """构建WHERE子句"""
@@ -834,7 +835,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             }
             
         except Exception as e:
-            raise CheckpointStorageError(f"Failed to get database info: {e}")
+            raise CheckpointValidationError(f"Failed to get database info: {e}")
     
     def _cleanup_expired_records(self, conn: sqlite3.Connection) -> int:
         """清理过期记录"""
@@ -844,7 +845,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             return self._execute_update(conn, query, [current_time])
             
         except Exception as e:
-            raise CheckpointStorageError(f"Failed to cleanup expired records: {e}")
+            raise CheckpointValidationError(f"Failed to cleanup expired records: {e}")
     
     async def cleanup_old_data_impl(self, retention_days: int) -> int:
         """实际清理旧数据实现"""
@@ -863,9 +864,9 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             return affected_rows
             
         except Exception as e:
-            if isinstance(e, CheckpointStorageError):
+            if isinstance(e, CheckpointValidationError):
                 raise
-            raise CheckpointStorageError(f"Failed to cleanup old data: {e}")
+            raise CheckpointValidationError(f"Failed to cleanup old data: {e}")
         finally:
             if conn:
                 self._return_connection(conn)
@@ -885,7 +886,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             
         except Exception as e:
             logger.error(f"Failed to save thread checkpoint: {e}")
-            raise CheckpointStorageError(f"保存Thread检查点失败: {e}") from e
+            raise CheckpointValidationError(f"保存Thread检查点失败: {e}") from e
     
     async def load_checkpoint(self, thread_id: str, checkpoint_id: str) -> Optional[ThreadCheckpoint]:
         """加载Thread检查点"""
@@ -897,7 +898,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             
         except Exception as e:
             logger.error(f"Failed to load thread checkpoint: {e}")
-            raise CheckpointStorageError(f"加载Thread检查点失败: {e}") from e
+            raise CheckpointValidationError(f"加载Thread检查点失败: {e}") from e
     
     async def list_checkpoints(self, thread_id: str, status: Optional[CheckpointStatus] = None) -> List[ThreadCheckpoint]:
         """列出Thread的所有检查点"""
@@ -960,7 +961,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             
         except Exception as e:
             logger.error(f"Failed to list thread checkpoints: {e}")
-            raise CheckpointStorageError(f"列出Thread检查点失败: {e}") from e
+            raise CheckpointValidationError(f"列出Thread检查点失败: {e}") from e
         finally:
             if conn:
                 self._return_connection(conn)
@@ -972,7 +973,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             
         except Exception as e:
             logger.error(f"Failed to delete thread checkpoint: {e}")
-            raise CheckpointStorageError(f"删除Thread检查点失败: {e}") from e
+            raise CheckpointValidationError(f"删除Thread检查点失败: {e}") from e
     
     async def get_latest_checkpoint(self, thread_id: str) -> Optional[ThreadCheckpoint]:
         """获取Thread的最新检查点"""
@@ -984,7 +985,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             
         except Exception as e:
             logger.error(f"Failed to get latest thread checkpoint: {e}")
-            raise CheckpointStorageError(f"获取最新Thread检查点失败: {e}") from e
+            raise CheckpointValidationError(f"获取最新Thread检查点失败: {e}") from e
     
     async def cleanup_old_thread_checkpoints(self, thread_id: str, max_count: int) -> int:
         """清理旧的Thread检查点"""
@@ -993,7 +994,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             
         except Exception as e:
             logger.error(f"Failed to cleanup old thread checkpoints: {e}")
-            raise CheckpointStorageError(f"清理旧Thread检查点失败: {e}") from e
+            raise CheckpointValidationError(f"清理旧Thread检查点失败: {e}") from e
     
     async def get_checkpoint_statistics(self, thread_id: str) -> CheckpointStatistics:
         """获取Thread检查点统计信息"""
@@ -1063,7 +1064,7 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
             
         except Exception as e:
             logger.error(f"Failed to get thread checkpoint statistics: {e}")
-            raise CheckpointStorageError(f"获取Thread检查点统计失败: {e}") from e
+            raise CheckpointValidationError(f"获取Thread检查点统计失败: {e}") from e
         finally:
             if conn:
                 self._return_connection(conn)
@@ -1089,3 +1090,268 @@ class CheckpointSqliteBackend(ConnectionPooledStorageBackend, ICheckpointStore, 
         finally:
             if conn:
                 self._return_connection(conn)
+    
+    # === ICheckpointSaver 接口实现 ===
+    
+    def get(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """使用给定配置获取检查点"""
+        try:
+            thread_id = config["configurable"]["thread_id"]
+            checkpoint_ns = config["configurable"].get("checkpoint_ns", "")
+            checkpoint_id = config["configurable"].get("checkpoint_id")
+            
+            conn = None
+            try:
+                conn = self._get_connection()
+                
+                if checkpoint_id:
+                    # 获取特定检查点
+                    query = """
+                        SELECT * FROM checkpoint_storage
+                        WHERE id = ? AND thread_id = ?
+                    """
+                    result = self._execute_query(conn, query, [checkpoint_id, thread_id], fetch_one=True)
+                    
+                    if result and isinstance(result, dict):
+                        return self._convert_checkpoint_data(result)
+                else:
+                    # 获取最新检查点
+                    query = """
+                        SELECT * FROM checkpoint_storage
+                        WHERE thread_id = ? AND checkpoint_ns = ?
+                        ORDER BY created_at DESC
+                        LIMIT 1
+                    """
+                    result = self._execute_query(conn, query, [thread_id, checkpoint_ns], fetch_one=True)
+                    
+                    if result and isinstance(result, dict):
+                        return self._convert_checkpoint_data(result)
+                
+                return None
+                
+            finally:
+                if conn:
+                    self._return_connection(conn)
+                    
+        except Exception as e:
+            logger.error(f"Failed to get checkpoint: {e}")
+            return None
+    
+    def get_tuple(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """使用给定配置获取检查点元组"""
+        try:
+            checkpoint_data = self.get(config)
+            if not checkpoint_data:
+                return None
+            
+            # 获取写入数据
+            thread_id = config["configurable"]["thread_id"]
+            checkpoint_ns = config["configurable"].get("checkpoint_ns", "")
+            checkpoint_id = checkpoint_data.get("id")
+            
+            # 简化实现，实际应该从writes表获取
+            pending_writes = []
+            
+            # 创建检查点元组
+            checkpoint = Checkpoint.from_dict(checkpoint_data)
+            metadata = CheckpointMetadata(**checkpoint_data.get("metadata", {}))
+            
+            tuple_obj = CheckpointFactory.create_tuple(
+                config=config,
+                checkpoint=checkpoint,
+                metadata=metadata,
+                pending_writes=pending_writes
+            )
+            
+            return tuple_obj.to_dict()
+            
+        except Exception as e:
+            logger.error(f"Failed to get checkpoint tuple: {e}")
+            return None
+    
+    def list(
+        self,
+        config: Optional[Dict[str, Any]],
+        *,
+        filter: Optional[Dict[str, Any]] = None,
+        before: Optional[Dict[str, Any]] = None,
+        limit: Optional[int] = None,
+    ):
+        """列出匹配给定条件的检查点"""
+        try:
+            conn = None
+            try:
+                conn = self._get_connection()
+                
+                # 构建查询
+                query = "SELECT * FROM checkpoint_storage"
+                params = []
+                
+                if config:
+                    thread_id = config.get("configurable", {}).get("thread_id")
+                    if thread_id:
+                        query += " WHERE thread_id = ?"
+                        params.append(thread_id)
+                
+                query += " ORDER BY created_at DESC"
+                
+                if limit:
+                    query += f" LIMIT {limit}"
+                
+                # 执行查询
+                results = self._execute_query(conn, query, params)
+                
+                # 转换为元组格式
+                result = []
+                if results and isinstance(results, list):
+                    for row in results:
+                        if not isinstance(row, dict):
+                            continue
+                        
+                        checkpoint_data = self._convert_checkpoint_data(row)
+                        if not checkpoint_data:
+                            continue
+                        
+                        checkpoint = Checkpoint.from_dict(checkpoint_data)
+                        metadata = CheckpointMetadata(**checkpoint_data.get("metadata", {}))
+                        
+                        tuple_config = CheckpointFactory.create_config(
+                            thread_id=checkpoint_data.get("thread_id", ""),
+                            checkpoint_ns=checkpoint_data.get("checkpoint_ns", ""),
+                            checkpoint_id=checkpoint_data.get("id")
+                        )
+                        
+                        tuple_obj = CheckpointFactory.create_tuple(
+                            config=tuple_config,
+                            checkpoint=checkpoint,
+                            metadata=metadata
+                        )
+                        
+                        result.append(tuple_obj.to_dict())
+                
+                return iter(result)
+                
+            finally:
+                if conn:
+                    self._return_connection(conn)
+                    
+        except Exception as e:
+            logger.error(f"Failed to list checkpoints: {e}")
+            return iter([])
+    
+    def put(
+        self,
+        config: Dict[str, Any],
+        checkpoint: Dict[str, Any],
+        metadata: Dict[str, Any],
+        new_versions: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """存储带有其配置和元数据的检查点"""
+        conn = None
+        try:
+            thread_id = config["configurable"]["thread_id"]
+            checkpoint_ns = config["configurable"]["checkpoint_ns"]
+            checkpoint_id = checkpoint.get("id", str(uuid.uuid4()))
+            
+            # 准备检查点数据
+            checkpoint_data = {
+                "id": checkpoint_id,
+                "thread_id": thread_id,
+                "checkpoint_ns": checkpoint_ns,
+                "channel_values": checkpoint.get("channel_values", {}),
+                "channel_versions": checkpoint.get("channel_versions", {}),
+                "versions_seen": checkpoint.get("versions_seen", {}),
+                "ts": checkpoint.get("ts", time.time()),
+                "metadata": metadata,
+                "created_at": time.time(),
+                "updated_at": time.time()
+            }
+            
+            # 获取连接
+            conn = self._get_connection()
+            
+            # 插入或更新记录
+            query = """
+                INSERT OR REPLACE INTO checkpoint_storage
+                (id, thread_id, checkpoint_ns, state_data, metadata, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """
+            
+            params = [
+                checkpoint_id,
+                thread_id,
+                checkpoint_ns,
+                StorageCommonUtils.serialize_data(checkpoint_data),
+                StorageCommonUtils.serialize_data(metadata),
+                checkpoint_data["created_at"],
+                checkpoint_data["updated_at"]
+            ]
+            
+            self._execute_update(conn, query, params)
+            
+            # 返回更新后的配置
+            updated_config = config.copy()
+            updated_config["configurable"] = updated_config["configurable"].copy()
+            updated_config["configurable"]["checkpoint_id"] = checkpoint_id
+            
+            return updated_config
+            
+        except Exception as e:
+            logger.error(f"Failed to put checkpoint: {e}")
+            raise CheckpointValidationError(f"保存检查点失败: {e}") from e
+        finally:
+            if conn:
+                self._return_connection(conn)
+    
+    def put_writes(
+        self,
+        config: Dict[str, Any],
+        writes: List[tuple[str, Any]],
+        task_id: str,
+        task_path: str = "",
+    ) -> None:
+        """存储与检查点关联的中间写入"""
+        conn = None
+        try:
+            thread_id = config["configurable"]["thread_id"]
+            checkpoint_ns = config["configurable"]["checkpoint_ns"]
+            checkpoint_id = config["configurable"]["checkpoint_id"]
+            
+            # 获取连接
+            conn = self._get_connection()
+            
+            # 简化实现，实际应该写入writes表
+            # 这里暂时忽略写入数据的存储
+            
+        except Exception as e:
+            logger.error(f"Failed to put writes: {e}")
+            raise CheckpointValidationError(f"保存写入失败: {e}") from e
+        finally:
+            if conn:
+                self._return_connection(conn)
+    
+    def _convert_checkpoint_data(self, row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """转换数据库行数据为检查点数据"""
+        try:
+            if not isinstance(row, dict):
+                return None
+            
+            # 检查是否过期
+            expires_at = row.get("expires_at")
+            if expires_at and isinstance(expires_at, (int, float)) and expires_at < time.time():
+                return None
+            
+            # 反序列化数据
+            state_data = row.get("state_data")
+            if not isinstance(state_data, str):
+                return None
+            
+            checkpoint_data = StorageCommonUtils.deserialize_data(state_data)
+            if not isinstance(checkpoint_data, dict):
+                return None
+            
+            return checkpoint_data
+            
+        except Exception as e:
+            logger.error(f"Failed to convert checkpoint data: {e}")
+            return None

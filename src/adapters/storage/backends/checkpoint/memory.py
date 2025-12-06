@@ -9,25 +9,26 @@ import threading
 from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List, Union, cast
 
-from src.interfaces.checkpoint import ICheckpointStore
+from src.interfaces.checkpoint.saver import ICheckpointSaver
 from src.interfaces.threads.checkpoint import IThreadCheckpointStorage
 from src.adapters.storage.adapters.base import StorageBackend
-from src.core.common.exceptions import (
-    CheckpointNotFoundError,
-    CheckpointStorageError
-)
+from src.core.checkpoint.validators import CheckpointValidationError
 from src.adapters.storage.utils.common_utils import StorageCommonUtils
 from src.core.threads.checkpoints.storage.models import (
     ThreadCheckpoint,
     CheckpointStatus,
     CheckpointStatistics
 )
+# 新增导入
+from src.interfaces.checkpoint.saver import ICheckpointSaver
+from src.core.checkpoint.models import Checkpoint, CheckpointMetadata, CheckpointTuple
+from src.core.checkpoint.factory import CheckpointFactory
 
 
 logger = get_logger(__name__)
 
 
-class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpointStorage):
+class CheckpointMemoryBackend(StorageBackend, IThreadCheckpointStorage, ICheckpointSaver):
     """Checkpoint内存存储后端实现
     
     提供基于内存的checkpoint存储功能，实现ICheckpointStore和IThreadCheckpointStorage接口。
@@ -40,6 +41,9 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
         
         # 存储checkpoint数据
         self._checkpoints: Dict[str, Dict[str, Any]] = {}
+        
+        # 存储写入数据
+        self._writes: Dict[tuple[str, str, str], Dict[str, Any]] = {}
         
         # 线程安全锁
         self._storage_lock = threading.RLock()
@@ -64,7 +68,7 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
             thread_id = data.get("thread_id", "")
             
             if not thread_id:
-                raise CheckpointStorageError("checkpoint_data必须包含'thread_id'")
+                raise CheckpointValidationError("checkpoint_data必须包含'thread_id'")
             
             # 添加时间戳
             current_time = time.time()
@@ -80,7 +84,7 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
             
         except Exception as e:
             logger.error(f"Failed to save checkpoint: {e}")
-            raise CheckpointStorageError(f"保存checkpoint失败: {e}") from e
+            raise CheckpointValidationError(f"保存checkpoint失败: {e}") from e
     
     async def list_by_thread(self, thread_id: str) -> List[Dict[str, Any]]:
         """列出thread的所有checkpoint
@@ -111,7 +115,7 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
             
         except Exception as e:
             logger.error(f"Failed to list checkpoints for thread {thread_id}: {e}")
-            raise CheckpointStorageError(f"列出checkpoint失败: {e}") from e
+            raise CheckpointValidationError(f"列出checkpoint失败: {e}") from e
     
     async def load_by_thread(self, thread_id: str, checkpoint_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """根据thread ID加载checkpoint
@@ -143,7 +147,7 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
                 
         except Exception as e:
             logger.error(f"Failed to load checkpoint for thread {thread_id}: {e}")
-            raise CheckpointStorageError(f"加载checkpoint失败: {e}") from e
+            raise CheckpointValidationError(f"加载checkpoint失败: {e}") from e
     
     async def delete_by_thread(self, thread_id: str, checkpoint_id: Optional[str] = None) -> bool:
         """根据thread ID删除checkpoint
@@ -180,7 +184,7 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
             
         except Exception as e:
             logger.error(f"Failed to delete checkpoints for thread {thread_id}: {e}")
-            raise CheckpointStorageError(f"删除checkpoint失败: {e}") from e
+            raise CheckpointValidationError(f"删除checkpoint失败: {e}") from e
     
     async def get_latest(self, thread_id: str) -> Optional[Dict[str, Any]]:
         """获取thread的最新checkpoint
@@ -203,7 +207,7 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
                 
         except Exception as e:
             logger.error(f"Failed to get latest checkpoint for thread {thread_id}: {e}")
-            raise CheckpointStorageError(f"获取最新checkpoint失败: {e}") from e
+            raise CheckpointValidationError(f"获取最新checkpoint失败: {e}") from e
     
     async def _cleanup_old_checkpoints_impl(self, thread_id: str, max_count: int) -> int:
          """清理旧的checkpoint，保留最新的max_count个（内部实现）
@@ -240,7 +244,7 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
              
          except Exception as e:
              logger.error(f"Failed to cleanup old checkpoints for thread {thread_id}: {e}")
-             raise CheckpointStorageError(f"清理旧checkpoint失败: {e}") from e
+             raise CheckpointValidationError(f"清理旧checkpoint失败: {e}") from e
     
     def _is_expired(self, checkpoint_data: Dict[str, Any]) -> bool:
         """检查checkpoint是否过期
@@ -349,7 +353,7 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
             
         except Exception as e:
             logger.error(f"Failed to save thread checkpoint: {e}")
-            raise CheckpointStorageError(f"保存Thread检查点失败: {e}") from e
+            raise CheckpointValidationError(f"保存Thread检查点失败: {e}") from e
     
     async def load_checkpoint(self, thread_id: str, checkpoint_id: str) -> Optional[ThreadCheckpoint]:
         """加载Thread检查点"""
@@ -361,7 +365,7 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
             
         except Exception as e:
             logger.error(f"Failed to load thread checkpoint: {e}")
-            raise CheckpointStorageError(f"加载Thread检查点失败: {e}") from e
+            raise CheckpointValidationError(f"加载Thread检查点失败: {e}") from e
     
     async def list_checkpoints(self, thread_id: str, status: Optional[CheckpointStatus] = None) -> List[ThreadCheckpoint]:
         """列出Thread的所有检查点"""
@@ -379,7 +383,7 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
             
         except Exception as e:
             logger.error(f"Failed to list thread checkpoints: {e}")
-            raise CheckpointStorageError(f"列出Thread检查点失败: {e}") from e
+            raise CheckpointValidationError(f"列出Thread检查点失败: {e}") from e
     
     async def delete_checkpoint(self, thread_id: str, checkpoint_id: str) -> bool:
         """删除Thread检查点"""
@@ -388,7 +392,7 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
             
         except Exception as e:
             logger.error(f"Failed to delete thread checkpoint: {e}")
-            raise CheckpointStorageError(f"删除Thread检查点失败: {e}") from e
+            raise CheckpointValidationError(f"删除Thread检查点失败: {e}") from e
     
     async def get_latest_checkpoint(self, thread_id: str) -> Optional[ThreadCheckpoint]:
         """获取Thread的最新检查点"""
@@ -400,7 +404,7 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
             
         except Exception as e:
             logger.error(f"Failed to get latest thread checkpoint: {e}")
-            raise CheckpointStorageError(f"获取最新Thread检查点失败: {e}") from e
+            raise CheckpointValidationError(f"获取最新Thread检查点失败: {e}") from e
     
     async def cleanup_old_checkpoints(self, thread_id: str, max_count: int) -> int:
         """清理旧的检查点"""
@@ -409,7 +413,7 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
             
         except Exception as e:
             logger.error(f"Failed to cleanup old thread checkpoints: {e}")
-            raise CheckpointStorageError(f"清理旧Thread检查点失败: {e}") from e
+            raise CheckpointValidationError(f"清理旧Thread检查点失败: {e}") from e
     
     async def get_checkpoint_statistics(self, thread_id: str) -> CheckpointStatistics:
         """获取Thread检查点统计信息"""
@@ -459,4 +463,199 @@ class CheckpointMemoryBackend(StorageBackend, ICheckpointStore, IThreadCheckpoin
             
         except Exception as e:
             logger.error(f"Failed to get thread checkpoint statistics: {e}")
-            raise CheckpointStorageError(f"获取Thread检查点统计失败: {e}") from e
+            raise CheckpointValidationError(f"获取Thread检查点统计失败: {e}") from e
+    
+    # === ICheckpointSaver 接口实现 ===
+    
+    def get(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """使用给定配置获取检查点"""
+        try:
+            thread_id = config["configurable"]["thread_id"]
+            checkpoint_ns = config["configurable"].get("checkpoint_ns", "")
+            checkpoint_id = config["configurable"].get("checkpoint_id")
+            
+            with self._storage_lock:
+                if checkpoint_id:
+                    # 获取特定检查点
+                    checkpoint_data = self._checkpoints.get(checkpoint_id)
+                    if checkpoint_data and checkpoint_data.get("thread_id") == thread_id:
+                        return checkpoint_data
+                else:
+                    # 获取最新检查点
+                    checkpoints = [
+                        cp for cp in self._checkpoints.values()
+                        if cp.get("thread_id") == thread_id and cp.get("checkpoint_ns") == checkpoint_ns
+                    ]
+                    if checkpoints:
+                        # 按时间排序，返回最新的
+                        checkpoints.sort(key=lambda x: x.get("created_at", 0), reverse=True)
+                        return checkpoints[0]
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to get checkpoint: {e}")
+            return None
+    
+    def get_tuple(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """使用给定配置获取检查点元组"""
+        try:
+            checkpoint_data = self.get(config)
+            if not checkpoint_data:
+                return None
+            
+            # 获取写入数据
+            thread_id = config["configurable"]["thread_id"]
+            checkpoint_ns = config["configurable"].get("checkpoint_ns", "")
+            checkpoint_id = checkpoint_data.get("id")
+            
+            with self._storage_lock:
+                writes = self._writes.get((thread_id, checkpoint_ns, checkpoint_id or ""), {})
+                pending_writes = list(writes.items())
+            
+            # 创建检查点元组
+            checkpoint = Checkpoint.from_dict(checkpoint_data)
+            metadata = CheckpointMetadata(**checkpoint_data.get("metadata", {}))
+            
+            tuple_obj = CheckpointFactory.create_tuple(
+                config=config,
+                checkpoint=checkpoint,
+                metadata=metadata,
+                pending_writes=pending_writes
+            )
+            
+            return tuple_obj.to_dict()
+            
+        except Exception as e:
+            logger.error(f"Failed to get checkpoint tuple: {e}")
+            return None
+    
+    def list(
+        self,
+        config: Optional[Dict[str, Any]],
+        *,
+        filter: Optional[Dict[str, Any]] = None,
+        before: Optional[Dict[str, Any]] = None,
+        limit: Optional[int] = None,
+    ):
+        """列出匹配给定条件的检查点"""
+        try:
+            checkpoints = []
+            
+            with self._storage_lock:
+                for checkpoint_data in self._checkpoints.values():
+                    # 应用过滤条件
+                    if config:
+                        thread_id = config.get("configurable", {}).get("thread_id")
+                        if thread_id and checkpoint_data.get("thread_id") != thread_id:
+                            continue
+                    
+                    if filter:
+                        match = True
+                        for key, value in filter.items():
+                            if checkpoint_data.get(key) != value:
+                                match = False
+                                break
+                        if not match:
+                            continue
+                    
+                    checkpoints.append(checkpoint_data)
+                    
+                    if limit and len(checkpoints) >= limit:
+                        break
+            
+            # 按时间倒序排序
+            checkpoints.sort(key=lambda x: x.get("created_at", 0), reverse=True)
+            
+            # 转换为元组格式
+            result = []
+            for checkpoint_data in checkpoints:
+                checkpoint = Checkpoint.from_dict(checkpoint_data)
+                metadata = CheckpointMetadata(**checkpoint_data.get("metadata", {}))
+                
+                tuple_config = CheckpointFactory.create_config(
+                    thread_id=checkpoint_data.get("thread_id", ""),
+                    checkpoint_ns=checkpoint_data.get("checkpoint_ns", ""),
+                    checkpoint_id=checkpoint_data.get("id")
+                )
+                
+                tuple_obj = CheckpointFactory.create_tuple(
+                    config=tuple_config,
+                    checkpoint=checkpoint,
+                    metadata=metadata
+                )
+                
+                result.append(tuple_obj.to_dict())
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Failed to list checkpoints: {e}")
+            return []
+    
+    def put(
+        self,
+        config: Dict[str, Any],
+        checkpoint: Dict[str, Any],
+        metadata: Dict[str, Any],
+        new_versions: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """存储带有其配置和元数据的检查点"""
+        try:
+            thread_id = config["configurable"]["thread_id"]
+            checkpoint_ns = config["configurable"]["checkpoint_ns"]
+            checkpoint_id = checkpoint.get("id", str(uuid.uuid4()))
+            
+            # 准备检查点数据
+            checkpoint_data = {
+                "id": checkpoint_id,
+                "thread_id": thread_id,
+                "checkpoint_ns": checkpoint_ns,
+                "channel_values": checkpoint.get("channel_values", {}),
+                "channel_versions": checkpoint.get("channel_versions", {}),
+                "versions_seen": checkpoint.get("versions_seen", {}),
+                "ts": checkpoint.get("ts", time.time()),
+                "metadata": metadata,
+                "created_at": time.time(),
+                "updated_at": time.time()
+            }
+            
+            # 保存检查点
+            with self._storage_lock:
+                self._checkpoints[checkpoint_id] = checkpoint_data
+            
+            # 返回更新后的配置
+            updated_config = config.copy()
+            updated_config["configurable"] = updated_config["configurable"].copy()
+            updated_config["configurable"]["checkpoint_id"] = checkpoint_id
+            
+            return updated_config
+            
+        except Exception as e:
+            logger.error(f"Failed to put checkpoint: {e}")
+            raise CheckpointValidationError(f"保存检查点失败: {e}") from e
+    
+    def put_writes(
+        self,
+        config: Dict[str, Any],
+        writes: List[tuple[str, Any]],
+        task_id: str,
+        task_path: str = "",
+    ) -> None:
+        """存储与检查点关联的中间写入"""
+        try:
+            thread_id = config["configurable"]["thread_id"]
+            checkpoint_ns = config["configurable"]["checkpoint_ns"]
+            checkpoint_id = config["configurable"]["checkpoint_id"]
+            
+            with self._storage_lock:
+                key = (thread_id, checkpoint_ns, checkpoint_id or "")
+                if key not in self._writes:
+                    self._writes[key] = {}
+                
+                for channel, value in writes:
+                    self._writes[key][channel] = value
+            
+        except Exception as e:
+            logger.error(f"Failed to put writes: {e}")
+            raise CheckpointValidationError(f"保存写入失败: {e}") from e

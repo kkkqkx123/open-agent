@@ -39,11 +39,16 @@ class ICheckpointRepository(ABC):
         pass
     
     @abstractmethod
-    async def list_checkpoints(self, thread_id: str) -> List[Dict[str, Any]]:
+    async def list_checkpoints(
+        self, 
+        thread_id: str,
+        limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """列出指定线程的所有检查点
         
         Args:
             thread_id: 线程ID
+            limit: 要返回的最大检查点数
             
         Returns:
             检查点列表，按创建时间倒序排列
@@ -142,5 +147,23 @@ class ICheckpointRepository(ABC):
             
         Returns:
             符合条件的检查点列表
+        """
+        pass
+    
+    @abstractmethod
+    async def save_writes(
+        self,
+        checkpoint_id: str,
+        writes: List[tuple[str, Any]],
+        task_id: str,
+        task_path: str = ""
+    ) -> None:
+        """保存与检查点关联的中间写入
+        
+        Args:
+            checkpoint_id: 检查点ID
+            writes: 要存储的写入列表，每个为(通道, 值)对
+            task_id: 创建写入的任务的标识符
+            task_path: 创建写入的任务的路径
         """
         pass

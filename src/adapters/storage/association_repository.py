@@ -9,7 +9,7 @@ from src.interfaces.sessions.association import ISessionThreadAssociationReposit
 from .backends.base import ISessionStorageBackend
 from .backends.thread_base import IThreadStorageBackend
 from src.core.sessions.association import SessionThreadAssociation
-from src.core.common.exceptions import StorageError
+from src.interfaces.storage.exceptions import StorageError
 
 logger = get_logger(__name__)
 
