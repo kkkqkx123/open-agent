@@ -7,7 +7,7 @@ from .interfaces import IThreadCore, IThreadBranchCore, IThreadSnapshotCore
 from .entities import Thread, ThreadBranch, ThreadSnapshot, ThreadStatus, ThreadType, ThreadMetadata
 from .base import ThreadBase
 from .factories import ThreadFactory, ThreadBranchFactory, ThreadSnapshotFactory
-from .error_handler import ThreadErrorHandler, ThreadOperationHandler
+from src.infrastructure.error_management.impl.threads import ThreadErrorHandler, ThreadOperationHandler
 
 # 导出错误处理相关
 def register_thread_error_handler():

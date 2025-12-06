@@ -12,7 +12,7 @@ from .entities import (
 )
 from .base import SessionBase
 from .association import SessionThreadAssociation
-from .error_handler import SessionErrorHandler, SessionOperationHandler
+from src.infrastructure.error_management.impl.sessions import SessionErrorHandler, SessionOperationHandler
 
 # 导出错误处理相关
 def register_session_error_handler():

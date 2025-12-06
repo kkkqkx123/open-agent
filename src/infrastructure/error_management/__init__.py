@@ -21,21 +21,21 @@ from .error_handling_registry import (
 
 # 导入各模块的错误处理器
 try:
-    from ...tools.error_handler import register_tool_error_handler
+    from .impl.tools import register_tool_error_handler
 except (ImportError, ModuleNotFoundError):
     # 如果工具模块不存在，创建一个空的注册函数
     def register_tool_error_handler():
         pass
 
 try:
-    from ..prompts.error_handler import register_prompt_error_handler
+    from .impl.prompts import register_prompt_error_handler
 except (ImportError, ModuleNotFoundError):
     # 如果提示词模块不存在，创建一个空的注册函数
     def register_prompt_error_handler():
         pass
 
 try:
-    from ...workflow.error_handler import register_workflow_error_handler
+    from .impl.workflow import register_workflow_error_handler
 except (ImportError, ModuleNotFoundError):
     # 如果工作流模块不存在，创建一个空的注册函数
     def register_workflow_error_handler():
@@ -43,25 +43,37 @@ except (ImportError, ModuleNotFoundError):
 
 # 导入核心模块的错误处理器
 try:
-    from ...checkpoints import register_checkpoint_error_handler
+    from .impl.state import register_state_error_handler
 except (ImportError, ModuleNotFoundError):
-    def register_checkpoint_error_handler():
+    def register_state_error_handler():
         pass
 
 try:
-    from ...storage import register_storage_error_handler
+    from .impl.config import register_config_error_handler
+except (ImportError, ModuleNotFoundError):
+    def register_config_error_handler():
+        pass
+
+try:
+    from .impl.history import register_history_error_handler
+except (ImportError, ModuleNotFoundError):
+    def register_history_error_handler():
+        pass
+
+try:
+    from .impl.storage_adapter import register_storage_error_handler
 except (ImportError, ModuleNotFoundError):
     def register_storage_error_handler():
         pass
 
 try:
-    from ...threads import register_thread_error_handler
+    from .impl.threads import register_thread_error_handler
 except (ImportError, ModuleNotFoundError):
     def register_thread_error_handler():
         pass
 
 try:
-    from ...sessions import register_session_error_handler
+    from .impl.sessions import register_session_error_handler
 except (ImportError, ModuleNotFoundError):
     def register_session_error_handler():
         pass
@@ -83,7 +95,9 @@ def initialize_error_handling():
         register_workflow_error_handler()
         
         # 注册核心模块错误处理器
-        register_checkpoint_error_handler()
+        register_state_error_handler()
+        register_config_error_handler()
+        register_history_error_handler()
         register_storage_error_handler()
         register_thread_error_handler()
         register_session_error_handler()
@@ -180,7 +194,9 @@ __all__ = [
     "register_tool_error_handler",
     "register_prompt_error_handler",
     "register_workflow_error_handler",
-    "register_checkpoint_error_handler",
+    "register_state_error_handler",
+    "register_config_error_handler",
+    "register_history_error_handler",
     "register_storage_error_handler",
     "register_thread_error_handler",
     "register_session_error_handler"

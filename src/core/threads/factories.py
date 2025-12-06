@@ -5,7 +5,7 @@ from datetime import datetime
 
 from .interfaces import IThreadCore, IThreadBranchCore, IThreadSnapshotCore
 from .entities import Thread, ThreadBranch, ThreadSnapshot, ThreadStatus, ThreadType, ThreadMetadata
-from .error_handler import ThreadOperationHandler
+from src.infrastructure.error_management.impl.threads import ThreadOperationHandler
 from src.infrastructure.error_management import create_error_context, handle_error
 from src.interfaces.sessions.exceptions import ThreadCreationError
 

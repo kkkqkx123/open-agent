@@ -1,12 +1,13 @@
 """文件系统会话存储后端实现"""
 
 import json
+from src.interfaces.storage.exceptions import StorageError
 from src.services.logger.injection import get_logger
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
 from .base import ISessionStorageBackend
-from src.core.common.exceptions import StorageError
+
 
 logger = get_logger(__name__)
 

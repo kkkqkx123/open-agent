@@ -11,7 +11,7 @@ from src.interfaces.sessions.base import ISessionManager
 from src.adapters.cli.env_check_command import EnvironmentCheckCommand
 from src.adapters.cli.architecture_command import ArchitectureCommand
 from src.adapters.cli.dependency_analysis_command import DependencyAnalysisCommand
-from .error_handler import handle_cli_error, handle_cli_warning, handle_cli_success, handle_cli_info
+from src.infrastructure.error_management.impl.cli import handle_cli_error, handle_cli_warning, handle_cli_success, handle_cli_info
 from .help import HelpManager
 
 

@@ -12,7 +12,7 @@ from src.interfaces.state.entities import IStateSnapshot, IStateHistoryEntry
 from src.interfaces.state.storage.backend import IStorageBackend
 from ..core.metrics import StorageMetrics, MetricsContext
 from ..core.transaction import TransactionManager, TransactionContext
-from ..core.error_handler import with_error_handling
+from src.adapters.storage.core.error_handler import with_error_handling
 
 logger = get_logger(__name__)
 

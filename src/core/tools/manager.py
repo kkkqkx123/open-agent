@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from src.interfaces.tool.base import ITool, IToolManager, IToolFactory
 from .factory import OptimizedToolFactory
 from src.interfaces.tool.exceptions import ToolError, ToolRegistrationError
-from src.core.tools.error_handler import (
+from src.infrastructure.error_management.impl.tools import (
     handle_tool_error, create_tool_error_context, ToolExecutionValidator
 )
 

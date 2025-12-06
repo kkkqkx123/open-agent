@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, TYPE_CHECKING
 from uuid import uuid4
 
-from .error_handler import SessionOperationHandler
+from src.infrastructure.error_management.impl.sessions import SessionOperationHandler
 from src.infrastructure.error_management import create_error_context, handle_error
 from src.interfaces.sessions.exceptions import AssociationNotFoundError
 

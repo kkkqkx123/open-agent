@@ -2,12 +2,12 @@
 
 import json
 import sqlite3
+from src.interfaces.storage.exceptions import StorageError
 from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
 from .base import ISessionStorageBackend
-from src.core.common.exceptions import StorageError
 
 logger = get_logger(__name__)
 

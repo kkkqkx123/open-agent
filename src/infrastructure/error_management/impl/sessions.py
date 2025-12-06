@@ -16,9 +16,9 @@ from src.interfaces.sessions.exceptions import (
     SessionThreadInconsistencyError,
     TransactionRollbackError,
     WorkflowExecutionError,
-    SynchronizationError,
-    ConfigurationValidationError
+    SynchronizationError
 )
+from src.interfaces.configuration import ConfigurationValidationError
 
 logger = get_logger(__name__)
 
@@ -552,3 +552,29 @@ class SessionOperationHandler:
             from src.infrastructure.error_management import handle_error
             handle_error(e, operation_context)
             return False
+
+
+# 注册会话错误处理器
+def register_session_error_handler():
+    """注册会话错误处理器到统一错误处理框架"""
+    from src.infrastructure.error_management import register_error_handler
+    session_handler = SessionErrorHandler()
+    
+    # 注册各种会话异常的处理器
+    session_exceptions = [
+        SessionThreadException,
+        SessionNotFoundError,
+        ThreadNotFoundError,
+        AssociationNotFoundError,
+        SessionThreadInconsistencyError,
+        TransactionRollbackError,
+        WorkflowExecutionError,
+        SynchronizationError,
+        ConfigurationValidationError,
+        ValueError
+    ]
+    
+    for exception_type in session_exceptions:
+        register_error_handler(exception_type, session_handler)
+    
+    logger.info("会话错误处理器已注册到统一错误处理框架")

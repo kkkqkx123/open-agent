@@ -551,3 +551,33 @@ class ThreadOperationHandler:
             )
         
         return results
+
+
+# 注册线程错误处理器
+def register_thread_error_handler():
+    """注册线程错误处理器到统一错误处理框架"""
+    from src.infrastructure.error_management import register_error_handler
+    thread_handler = ThreadErrorHandler()
+    
+    # 定义线程异常类型
+    thread_exceptions = [
+        SessionThreadException,
+        ThreadCreationError,
+        ThreadRemovalError,
+        ThreadTransferError,
+        SessionThreadInconsistencyError,
+        AssociationNotFoundError,
+        DuplicateThreadNameError,
+        ThreadNotFoundError,
+        SessionNotFoundError,
+        TransactionRollbackError,
+        WorkflowExecutionError,
+        SynchronizationError,
+        ConfigurationValidationError
+    ]
+    
+    # 注册各种线程异常的处理器
+    for exception_type in thread_exceptions:
+        register_error_handler(exception_type, thread_handler)
+    
+    _get_logger().info("线程错误处理器已注册到统一错误处理框架")

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     # 仅在类型检查时导入，避免运行时循环依赖
     from src.interfaces.messages import IMessageFactory
     from src.services.prompts.type_registry import PromptTypeRegistry
-    from src.infrastructure.prompts.error_handler import PromptErrorHandler
+    from src.infrastructure.error_management.impl.prompts import PromptErrorHandler
 
 # 接口导入 - 集中化的接口定义
 from src.interfaces.messages import IMessageFactory
@@ -57,7 +57,7 @@ class PromptsServiceBindings(BaseServiceBindings):
             # 延迟导入具体实现类，避免循环依赖
             def get_service_types() -> list:
                 from src.services.prompts.type_registry import PromptTypeRegistry
-                from src.infrastructure.prompts.error_handler import PromptErrorHandler
+                from src.infrastructure.error_management.impl.prompts import PromptErrorHandler
                 
                 return [
                     IMessageFactory,
@@ -78,7 +78,7 @@ class PromptsServiceBindings(BaseServiceBindings):
             # 延迟导入具体实现类进行类型检查
             def get_concrete_types() -> tuple:
                 from src.services.prompts.type_registry import PromptTypeRegistry
-                from src.infrastructure.prompts.error_handler import PromptErrorHandler
+                from src.infrastructure.error_management.impl.prompts import PromptErrorHandler
                 return (
                     PromptTypeRegistry,
                     PromptErrorHandler
@@ -144,7 +144,7 @@ def _register_prompt_error_handler(container: Any, config: Dict[str, Any], envir
     
     # 延迟导入具体实现
     def create_prompt_error_handler() -> 'PromptErrorHandler':
-        from src.infrastructure.prompts.error_handler import PromptErrorHandler
+        from src.infrastructure.error_management.impl.prompts import PromptErrorHandler
         return PromptErrorHandler()
     
     container.register_factory(

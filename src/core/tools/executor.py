@@ -14,7 +14,7 @@ from src.interfaces.logger import ILogger
 from src.interfaces.tool.base import ITool, ToolCall, ToolResult
 from src.infrastructure.async_utils import AsyncLock, AsyncContextManager
 from src.interfaces.tool.exceptions import ToolError, ToolExecutionError
-from src.core.tools.error_handler import (
+from src.infrastructure.error_management.impl.tools import (
     ToolErrorHandler, ToolExecutionValidator, ToolErrorRecoveryManager,
     handle_tool_error, create_tool_error_context, register_tool_error_handler
 )

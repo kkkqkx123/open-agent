@@ -14,7 +14,7 @@ from src.interfaces.prompts.exceptions import (
     PromptError, PromptLoadError, PromptInjectionError, 
     PromptValidationError, PromptCacheError, PromptNotFoundError
 )
-from ..error_management import (
+from .. import (
     BaseErrorHandler, ErrorCategory, ErrorSeverity,
     ErrorHandlingRegistry, operation_with_retry, operation_with_fallback
 )

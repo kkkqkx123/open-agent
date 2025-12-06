@@ -7,7 +7,7 @@ import asyncio
 from src.services.logger.injection import get_logger
 import inspect
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import Any, Callable, Optional, TypeVar
 
 from src.interfaces.storage.exceptions import (
     StorageError, 

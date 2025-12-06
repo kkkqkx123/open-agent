@@ -9,11 +9,11 @@ from typing import Dict, Any, List, Optional, AsyncIterator, TYPE_CHECKING
 if TYPE_CHECKING:
     from .core import IWorkflow
     from ..state import IWorkflowState
-    from src.core.workflow.error_handler import WorkflowValidator
+    from src.infrastructure.error_management.impl.workflow import WorkflowValidator
 from src.interfaces.workflow.exceptions import WorkflowError
 # 延迟导入以避免循环导入
 def _get_error_handler_functions():
-    from src.core.workflow.error_handler import handle_workflow_error, create_workflow_error_context
+    from src.infrastructure.error_management.impl.workflow import handle_workflow_error, create_workflow_error_context
     return handle_workflow_error, create_workflow_error_context
 
 

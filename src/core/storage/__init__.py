@@ -67,7 +67,7 @@ from .models import (
     StorageBackendInfo
 )
 
-from .error_handler import StorageErrorHandler
+from src.infrastructure.error_management.impl.storage import StorageErrorHandler
 
 from .config import (
     StorageType,
