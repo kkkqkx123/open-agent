@@ -220,19 +220,22 @@ from .logger import (
 )
 from .common_domain import (
     ISerializable,
-    ICacheable,
     ITimestamped,
     # 抽象数据类型
     AbstractSessionStatus,
     AbstractSessionData,
-    AbstractThreadData,
-    AbstractThreadBranchData,
-    AbstractThreadSnapshotData,
     # 通用数据传输对象
     ValidationResult,
     BaseContext,
     ExecutionContext,
     WorkflowExecutionContext
+)
+from .common_types import (
+    BaseStatus,
+    BasePriority,
+    BaseNumericPriority,
+    OperationResult,
+    PagedResult
 )
 
 # 消息相关接口
@@ -447,7 +450,6 @@ __all__ = [
     
     # 通用接口
     "ISerializable",
-    "ICacheable",
     "ITimestamped",
     "IStorage",
     "ILogger",
@@ -461,13 +463,17 @@ __all__ = [
     "BaseContext",
     "ExecutionContext",
     "WorkflowExecutionContext",
+    "OperationResult",
+    "PagedResult",
+    
+    # 通用枚举类型
+    "BaseStatus",
+    "BasePriority",
+    "BaseNumericPriority",
     
     # 抽象数据类型
     "AbstractSessionStatus",
     "AbstractSessionData",
-    "AbstractThreadData",
-    "AbstractThreadBranchData",
-    "AbstractThreadSnapshotData",
     
     # 消息接口
     "IBaseMessage",

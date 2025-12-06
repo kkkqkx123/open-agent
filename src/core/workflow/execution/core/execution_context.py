@@ -8,36 +8,31 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from enum import Enum
 
+from src.interfaces.common_domain import WorkflowExecutionContext
+from src.interfaces.common_types import BaseStatus
+
 if TYPE_CHECKING:
     from src.interfaces.state import IWorkflowState
     from ...workflow import Workflow
 
-class ExecutionStatus(Enum):
-    """执行状态枚举"""
-    PENDING = "pending"        # 等待中
-    RUNNING = "running"        # 运行中
-    COMPLETED = "completed"    # 已完成
-    FAILED = "failed"          # 失败
-    CANCELLED = "cancelled"    # 已取消
+class ExecutionStatus(BaseStatus):
+    """执行状态枚举 - 继承自基础状态"""
     PAUSED = "paused"          # 已暂停
 
 
 @dataclass
-class ExecutionContext:
-    """执行上下文
+class ExecutionContext(WorkflowExecutionContext):
+    """工作流执行上下文 - 继承自通用执行上下文
     
-    包含执行过程中的所有上下文信息。
+    扩展了基础执行上下文，添加工作流特定的功能。
     """
-    workflow_id: str
-    execution_id: str
-    config: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     status: ExecutionStatus = ExecutionStatus.PENDING
     
     def __post_init__(self):
         """初始化后处理"""
+        super().__post_init__()
         if self.start_time is None:
             self.start_time = datetime.now()
     
@@ -109,6 +104,10 @@ class ExecutionContext:
         """标记为取消"""
         self.status = ExecutionStatus.CANCELLED
         self.end_time = datetime.now()
+    
+    def mark_paused(self) -> None:
+        """标记为暂停"""
+        self.status = ExecutionStatus.PAUSED
 
 
 @dataclass

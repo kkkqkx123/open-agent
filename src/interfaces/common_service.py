@@ -1,103 +1,37 @@
 """通用应用层接口定义
 
 提供应用层的通用接口，包括业务服务、协调器和横切关注点。
+注意：此文件中的接口大多未实现，建议根据实际需求选择性使用。
 """
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Callable, TypeVar, Generic, AsyncIterator
-from datetime import datetime
-from dataclasses import dataclass
-from enum import Enum
 
-from .common_domain import ExecutionContext as BaseExecutionContext
+from .common_domain import ExecutionContext
+from .common_types import OperationResult, PagedResult, BaseStatus, BasePriority
 
 # 泛型类型变量
 T = TypeVar('T')
 K = TypeVar('K')
 R = TypeVar('R')
 
-'''
-应用层枚举定义
-'''
+# 直接使用统一的枚举类型
+OperationStatus = BaseStatus
+Priority = BasePriority
 
-class OperationStatus(str, Enum):
-    """
-    操作状态枚举
-    
-    定义应用层操作的执行状态。
-    """
-    PENDING = "pending"      # 等待执行
-    RUNNING = "running"      # 正在执行
-    COMPLETED = "completed"  # 执行完成
-    FAILED = "failed"        # 执行失败
-    CANCELLED = "cancelled"  # 已取消
-
-
-class Priority(str, Enum):
-    """
-    优先级枚举
-    
-    定义操作的优先级。
-    """
-    LOW = "low"
-    NORMAL = "normal"
-    HIGH = "high"
-    URGENT = "urgent"
-
-'''
-应用层数据传输对象
-'''
-
-@dataclass
-class OperationResult:
-    """
-    操作结果数据传输对象
-    
-    封装应用层操作的执行结果，提供统一的返回格式。
-    """
-    success: bool
-    data: Optional[Any] = None
-    error: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
-    
-    def __post_init__(self) -> None:
-        if self.metadata is None:
-            self.metadata = {}
-
-
-@dataclass
-class PagedResult:
-    """
-    分页结果数据传输对象
-    
-    封装分页查询的结果，提供统一的分页信息。
-    """
-    items: List[Any]
-    total: int
-    page: int
-    page_size: int
-    has_next: bool
-    has_prev: bool
-    
-    @property
-    def total_pages(self) -> int:
-        """计算总页数"""
-        return (self.total + self.page_size - 1) // self.page_size
-
-
-# 使用统一的执行上下文，但为了向后兼容保留别名
-ExecutionContext = BaseExecutionContext
-
-
-'''
+"""
 应用层基础服务接口
-'''
+
+注意：以下接口目前没有具体实现，请谨慎使用。
+"""
 
 class IBaseService(ABC):
     """
     基础服务接口
     
     定义应用层服务的通用契约，所有业务服务应实现此接口。
+    
+    注意：此接口目前没有具体实现。
     """
     
     @abstractmethod
@@ -144,6 +78,8 @@ class ICrudService(Generic[T, K], ABC):
     CRUD服务接口
     
     提供标准的创建、读取、更新、删除操作的服务接口。
+    
+    注意：此接口目前没有具体实现。
     """
     
     @abstractmethod
@@ -240,6 +176,8 @@ class IQueryService(Generic[T], ABC):
     查询服务接口
     
     提供复杂查询功能的服务接口。
+    
+    注意：此接口目前没有具体实现。
     """
     
     @abstractmethod
@@ -292,15 +230,13 @@ class IQueryService(Generic[T], ABC):
         pass
 
 
-'''
-应用层协调器接口
-'''
-
 class ICoordinator(ABC):
     """
     协调器接口
     
     负责协调多个服务的执行，处理跨服务的业务逻辑。
+    
+    注意：此接口目前没有具体实现。
     """
     
     @abstractmethod
@@ -344,15 +280,13 @@ class ICoordinator(ABC):
         pass
 
 
-'''
-应用层事件接口
-'''
-
 class IEventPublisher(ABC):
     """
     事件发布器接口
     
     负责发布领域事件，支持事件驱动架构。
+    
+    注意：此接口目前没有具体实现。
     """
     
     @abstractmethod
@@ -393,6 +327,8 @@ class IEventHandler(ABC):
     事件处理器接口
     
     定义事件处理的契约。
+    
+    注意：此接口目前没有具体实现。
     """
     
     @abstractmethod
@@ -426,15 +362,13 @@ class IEventHandler(ABC):
         pass
 
 
-'''
-应用层任务接口
-'''
-
 class ITaskScheduler(ABC):
     """
     任务调度器接口
     
     负责调度和执行异步任务。
+    
+    注意：此接口目前没有具体实现。
     """
     
     @abstractmethod
@@ -506,15 +440,13 @@ class ITaskScheduler(ABC):
         pass
 
 
-'''
-应用层监控接口
-'''
-
 class IMetricsCollector(ABC):
     """
     指标收集器接口
     
     负责收集和报告应用层指标。
+    
+    注意：此接口目前没有具体实现。
     """
     
     @abstractmethod
