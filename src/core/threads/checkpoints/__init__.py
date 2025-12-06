@@ -1,76 +1,41 @@
 """Thread检查点模块
 
-提供Thread检查点的完整领域实现。
+提供Thread检查点的完整领域实现，基于统一的checkpoint模型。
 """
 
-from .storage import (
-    # 模型类
-    ThreadCheckpoint,
+from .service import ThreadCheckpointService
+from .extensions import ThreadCheckpointExtension
+from .adapters import ThreadCheckpointRepositoryAdapter
+
+# 重新导出核心模型
+from src.core.checkpoint.models import (
+    Checkpoint,
     CheckpointStatus,
     CheckpointType,
     CheckpointMetadata,
-    CheckpointStatistics,
-    
-    # 仓储类
-    IThreadCheckpointRepository,
-    ThreadCheckpointRepository,
-    RepositoryError,
-    
-    # 服务类
-    ThreadCheckpointDomainService,
-    CheckpointManager,
-    
-    # 异常类
-    CheckpointDomainError,
-    CheckpointNotFoundError,
-    CheckpointValidationError,
-    CheckpointRestoreError,
-    CheckpointStorageError,
-    CheckpointLimitExceededError,
-    CheckpointSizeExceededError,
-    CheckpointExpiredError,
-    CheckpointCorruptedError,
-    CheckpointBackupError,
-    CheckpointChainError,
-    ThreadNotFoundError,
-    ThreadStateError,
-    CheckpointConcurrencyError,
-    CheckpointPermissionError,
-    CheckpointConfigurationError,
+    CheckpointStatistics
 )
 
+# 重新导出接口
+from src.core.threads.interfaces import IThreadCheckpointService
+
 __all__ = [
-    # 模型类
-    "ThreadCheckpoint",
+    # 服务类
+    "ThreadCheckpointService",
+    
+    # 扩展功能
+    "ThreadCheckpointExtension",
+    
+    # 适配器
+    "ThreadCheckpointRepositoryAdapter",
+    
+    # 接口
+    "IThreadCheckpointService",
+    
+    # 核心模型
+    "Checkpoint",
     "CheckpointStatus",
     "CheckpointType",
     "CheckpointMetadata",
     "CheckpointStatistics",
-    
-    # 仓储类
-    "IThreadCheckpointRepository",
-    "ThreadCheckpointRepository",
-    "RepositoryError",
-    
-    # 服务类
-    "ThreadCheckpointDomainService",
-    "CheckpointManager",
-    
-    # 异常类
-    "CheckpointDomainError",
-    "CheckpointNotFoundError",
-    "CheckpointValidationError",
-    "CheckpointRestoreError",
-    "CheckpointStorageError",
-    "CheckpointLimitExceededError",
-    "CheckpointSizeExceededError",
-    "CheckpointExpiredError",
-    "CheckpointCorruptedError",
-    "CheckpointBackupError",
-    "CheckpointChainError",
-    "ThreadNotFoundError",
-    "ThreadStateError",
-    "CheckpointConcurrencyError",
-    "CheckpointPermissionError",
-    "CheckpointConfigurationError",
 ]

@@ -99,7 +99,7 @@ class CheckpointManager:
             
             checkpoint_id = await self.repository.save_checkpoint({
                 **checkpoint_data,
-                "metadata": metadata_data,
+                **metadata_data,
                 "config": config
             })
             
@@ -175,15 +175,14 @@ class CheckpointManager:
         if not checkpoint:
             return None
         
-        # 创建元数据（简化实现）
-        metadata = CheckpointFactory.create_metadata()
-        
         # 创建元组
-        return CheckpointFactory.create_tuple(
+        tuple_obj = CheckpointFactory.create_tuple(
             config=config,
             checkpoint=checkpoint,
-            metadata=metadata
+            parent_config=None
         )
+        # 元数据已经在 Checkpoint 中，CheckpointTuple 会自动使用
+        return tuple_obj
     
     async def list_checkpoints(
         self,
@@ -237,8 +236,11 @@ class CheckpointManager:
             tuple_data = CheckpointFactory.create_tuple(
                 config=tuple_config,
                 checkpoint=checkpoint,
-                metadata=metadata
+                parent_config=None
             )
+            # 设置元数据
+            if metadata_data:
+                tuple_data.metadata = CheckpointMetadata(**metadata_data)
             tuples.append(tuple_data)
         
         return tuples

@@ -349,3 +349,48 @@ class CheckpointFactory:
         checkpoint.set_expiration(168)
         
         return checkpoint
+    
+    @staticmethod
+    def create_from_state(
+        state: Dict[str, Any],
+        config: Dict[str, Any],
+        source: Optional[str] = None,
+        step: Optional[int] = None
+    ) -> CheckpointTuple:
+        """从状态数据创建检查点
+        
+        Args:
+            state: 状态数据
+            config: 运行配置
+            source: 检查点来源
+            step: 检查点步数
+            
+        Returns:
+            检查点元组
+        """
+        # 提取线程ID
+        thread_id = CheckpointFactory.extract_thread_id(config)
+        
+        # 创建检查点
+        checkpoint = Checkpoint(
+            thread_id=thread_id,
+            state_data=state,
+            checkpoint_type=CheckpointType.AUTO,
+            channel_values=state
+        )
+        
+        # 创建元数据
+        metadata = CheckpointMetadata(
+            source=source,
+            step=step,
+            thread_id=thread_id,
+            created_at=datetime.now()
+        )
+        checkpoint.metadata = metadata
+        
+        # 创建元组
+        return CheckpointTuple(
+            config=config,
+            checkpoint=checkpoint,
+            metadata=metadata
+        )

@@ -1,11 +1,15 @@
 """Thread实体定义"""
 
 from enum import Enum
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from datetime import datetime
 from dataclasses import dataclass, field
 
 from src.interfaces.threads.entities import IThread, IThreadBranch, IThreadSnapshot
+from src.core.checkpoint.models import Checkpoint, CheckpointType, CheckpointStatistics
+
+if TYPE_CHECKING:
+    from src.core.threads.interfaces import IThreadCheckpointService
 
 
 class ThreadStatus(str, Enum):
@@ -70,6 +74,7 @@ class Thread(IThread):
         self._message_count = message_count
         self._checkpoint_count = checkpoint_count
         self._branch_count = branch_count
+        self._checkpoint_service: Optional["IThreadCheckpointService"] = None
 
     # 实现IThread接口的属性
     @property
@@ -281,6 +286,202 @@ class Thread(IThread):
         """增加分支计数"""
         self._branch_count += 1
         self.update_timestamp()
+    
+    # Checkpoint相关方法
+    def set_checkpoint_service(self, service: "IThreadCheckpointService") -> None:
+        """设置检查点服务
+        
+        Args:
+            service: 检查点服务
+        """
+        self._checkpoint_service = service
+    
+    def get_checkpoint_service(self) -> Optional["IThreadCheckpointService"]:
+        """获取检查点服务
+        
+        Returns:
+            检查点服务
+        """
+        return self._checkpoint_service
+    
+    async def create_checkpoint(
+        self,
+        state_data: Dict[str, Any],
+        checkpoint_type: CheckpointType = CheckpointType.AUTO,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Checkpoint:
+        """创建检查点
+        
+        Args:
+            state_data: 状态数据
+            checkpoint_type: 检查点类型
+            metadata: 元数据
+            
+        Returns:
+            创建的检查点
+            
+        Raises:
+            ValueError: 检查点服务未设置
+        """
+        if self._checkpoint_service is None:
+            raise ValueError("Checkpoint service not set")
+        
+        checkpoint = await self._checkpoint_service.create_checkpoint(
+            thread_id=self._id,
+            state_data=state_data,
+            checkpoint_type=checkpoint_type,
+            metadata=metadata
+        )
+        
+        # 更新检查点计数
+        self.increment_checkpoint_count()
+        return checkpoint
+    
+    async def create_manual_checkpoint(
+        self,
+        state_data: Dict[str, Any],
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        tags: Optional[List[str]] = None
+    ) -> Checkpoint:
+        """创建手动检查点
+        
+        Args:
+            state_data: 状态数据
+            title: 标题
+            description: 描述
+            tags: 标签列表
+            
+        Returns:
+            创建的检查点
+        """
+        if self._checkpoint_service is None:
+            raise ValueError("Checkpoint service not set")
+        
+        checkpoint = await self._checkpoint_service.create_manual_checkpoint(
+            thread_id=self._id,
+            state_data=state_data,
+            title=title,
+            description=description,
+            tags=tags
+        )
+        
+        # 更新检查点计数
+        self.increment_checkpoint_count()
+        return checkpoint
+    
+    async def create_error_checkpoint(
+        self,
+        state_data: Dict[str, Any],
+        error_message: str,
+        error_type: Optional[str] = None
+    ) -> Checkpoint:
+        """创建错误检查点
+        
+        Args:
+            state_data: 状态数据
+            error_message: 错误消息
+            error_type: 错误类型
+            
+        Returns:
+            创建的检查点
+        """
+        if self._checkpoint_service is None:
+            raise ValueError("Checkpoint service not set")
+        
+        checkpoint = await self._checkpoint_service.create_error_checkpoint(
+            thread_id=self._id,
+            state_data=state_data,
+            error_message=error_message,
+            error_type=error_type
+        )
+        
+        # 更新检查点计数
+        self.increment_checkpoint_count()
+        return checkpoint
+    
+    async def create_milestone_checkpoint(
+        self,
+        state_data: Dict[str, Any],
+        milestone_name: str,
+        description: Optional[str] = None
+    ) -> Checkpoint:
+        """创建里程碑检查点
+        
+        Args:
+            state_data: 状态数据
+            milestone_name: 里程碑名称
+            description: 描述
+            
+        Returns:
+            创建的检查点
+        """
+        if self._checkpoint_service is None:
+            raise ValueError("Checkpoint service not set")
+        
+        checkpoint = await self._checkpoint_service.create_milestone_checkpoint(
+            thread_id=self._id,
+            state_data=state_data,
+            milestone_name=milestone_name,
+            description=description
+        )
+        
+        # 更新检查点计数
+        self.increment_checkpoint_count()
+        return checkpoint
+    
+    async def restore_from_checkpoint(self, checkpoint_id: str) -> Optional[Dict[str, Any]]:
+        """从检查点恢复
+        
+        Args:
+            checkpoint_id: 检查点ID
+            
+        Returns:
+            恢复的状态数据
+        """
+        if self._checkpoint_service is None:
+            raise ValueError("Checkpoint service not set")
+        
+        return await self._checkpoint_service.restore_from_checkpoint(checkpoint_id)
+    
+    async def get_checkpoint_history(self, limit: int = 50) -> List[Checkpoint]:
+        """获取检查点历史
+        
+        Args:
+            limit: 返回数量限制
+            
+        Returns:
+            检查点历史列表
+        """
+        if self._checkpoint_service is None:
+            raise ValueError("Checkpoint service not set")
+        
+        return await self._checkpoint_service.get_thread_checkpoint_history(
+            thread_id=self._id,
+            limit=limit
+        )
+    
+    async def get_checkpoint_statistics(self) -> CheckpointStatistics:
+        """获取检查点统计信息
+        
+        Returns:
+            统计信息
+        """
+        if self._checkpoint_service is None:
+            raise ValueError("Checkpoint service not set")
+        
+        return await self._checkpoint_service.get_checkpoint_statistics(thread_id=self._id)
+    
+    async def cleanup_expired_checkpoints(self) -> int:
+        """清理过期检查点
+        
+        Returns:
+            清理的检查点数量
+        """
+        if self._checkpoint_service is None:
+            raise ValueError("Checkpoint service not set")
+        
+        return await self._checkpoint_service.cleanup_expired_checkpoints(thread_id=self._id)
 
 
 class ThreadBranch(IThreadBranch):

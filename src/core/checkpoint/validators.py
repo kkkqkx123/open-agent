@@ -112,7 +112,8 @@ class CheckpointValidator:
         CheckpointValidator.validate_checkpoint(checkpoint_tuple.checkpoint)
         
         # 验证元数据
-        CheckpointValidator.validate_metadata(checkpoint_tuple.metadata)
+        if checkpoint_tuple.metadata is not None:
+            CheckpointValidator.validate_metadata(checkpoint_tuple.metadata)
         
         # 验证父配置
         if checkpoint_tuple.parent_config is not None:

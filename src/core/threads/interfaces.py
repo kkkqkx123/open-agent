@@ -3,6 +3,8 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 
+from src.core.checkpoint.models import Checkpoint, CheckpointType, CheckpointStatistics
+
 
 class IThreadCore(ABC):
     """Thread核心接口 - 定义Thread实体的基础行为"""
@@ -87,6 +89,152 @@ class IThreadCore(ABC):
         Args:
             thread_data: 线程数据
             state_data: 新的状态数据
+        """
+        pass
+
+
+class IThreadCheckpointService(ABC):
+    """Thread检查点服务接口"""
+    
+    @abstractmethod
+    async def create_checkpoint(
+        self,
+        thread_id: str,
+        state_data: Dict[str, Any],
+        checkpoint_type: CheckpointType = CheckpointType.AUTO,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Checkpoint:
+        """创建Thread检查点
+        
+        Args:
+            thread_id: 线程ID
+            state_data: 状态数据
+            checkpoint_type: 检查点类型
+            metadata: 元数据
+            
+        Returns:
+            创建的检查点
+        """
+        pass
+    
+    @abstractmethod
+    async def restore_from_checkpoint(self, checkpoint_id: str) -> Optional[Dict[str, Any]]:
+        """从检查点恢复
+        
+        Args:
+            checkpoint_id: 检查点ID
+            
+        Returns:
+            恢复的状态数据
+        """
+        pass
+    
+    @abstractmethod
+    async def create_manual_checkpoint(
+        self,
+        thread_id: str,
+        state_data: Dict[str, Any],
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        tags: Optional[List[str]] = None
+    ) -> Checkpoint:
+        """创建手动检查点
+        
+        Args:
+            thread_id: 线程ID
+            state_data: 状态数据
+            title: 标题
+            description: 描述
+            tags: 标签列表
+            
+        Returns:
+            创建的检查点
+        """
+        pass
+    
+    @abstractmethod
+    async def create_error_checkpoint(
+        self,
+        thread_id: str,
+        state_data: Dict[str, Any],
+        error_message: str,
+        error_type: Optional[str] = None
+    ) -> Checkpoint:
+        """创建错误检查点
+        
+        Args:
+            thread_id: 线程ID
+            state_data: 状态数据
+            error_message: 错误消息
+            error_type: 错误类型
+            
+        Returns:
+            创建的检查点
+        """
+        pass
+    
+    @abstractmethod
+    async def create_milestone_checkpoint(
+        self,
+        thread_id: str,
+        state_data: Dict[str, Any],
+        milestone_name: str,
+        description: Optional[str] = None
+    ) -> Checkpoint:
+        """创建里程碑检查点
+        
+        Args:
+            thread_id: 线程ID
+            state_data: 状态数据
+            milestone_name: 里程碑名称
+            description: 描述
+            
+        Returns:
+            创建的检查点
+        """
+        pass
+    
+    @abstractmethod
+    async def get_thread_checkpoint_history(
+        self,
+        thread_id: str,
+        limit: int = 50
+    ) -> List[Checkpoint]:
+        """获取线程检查点历史
+        
+        Args:
+            thread_id: 线程ID
+            limit: 返回数量限制
+            
+        Returns:
+            检查点历史列表
+        """
+        pass
+    
+    @abstractmethod
+    async def get_checkpoint_statistics(
+        self,
+        thread_id: Optional[str] = None
+    ) -> CheckpointStatistics:
+        """获取检查点统计信息
+        
+        Args:
+            thread_id: 线程ID，None表示全局统计
+            
+        Returns:
+            统计信息
+        """
+        pass
+    
+    @abstractmethod
+    async def cleanup_expired_checkpoints(self, thread_id: Optional[str] = None) -> int:
+        """清理过期检查点
+        
+        Args:
+            thread_id: 线程ID，None表示清理所有线程的过期检查点
+            
+        Returns:
+            清理的检查点数量
         """
         pass
 

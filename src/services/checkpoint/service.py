@@ -67,6 +67,8 @@ class CheckpointService(ICheckpointService):
         metadata_obj: CheckpointMetadata
         if metadata is None:
             metadata_obj = checkpoint.metadata
+        elif isinstance(metadata, CheckpointMetadata):
+            metadata_obj = metadata
         else:
             metadata_obj = CheckpointMetadata(**metadata)
         
@@ -245,10 +247,11 @@ class CheckpointService(ICheckpointService):
         tuple_obj = CheckpointFactory.create_from_state(state, config, source, step)
         
         # 保存检查点
+        metadata = tuple_obj.metadata or tuple_obj.checkpoint.metadata
         return await self.manager.save_checkpoint(
             config, 
             tuple_obj.checkpoint, 
-            tuple_obj.metadata
+            metadata
         )
     
     async def get_latest_checkpoint(self, thread_id: str) -> Optional[Dict[str, Any]]:
