@@ -13,8 +13,7 @@ from langchain_core.runnables.config import RunnableConfig
 
 from src.interfaces.checkpoint import ICheckpointStore
 from src.interfaces.threads.checkpoint import IThreadCheckpointStorage
-from src.core.common.exceptions import (
-    CheckpointNotFoundError,
+from src.interfaces.storage.exceptions import (
     CheckpointStorageError
 )
 from src.infrastructure.common.serialization import Serializer

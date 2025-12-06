@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime
 
 from .thread_base import IThreadStorageBackend
-from src.core.common.exceptions import StorageError
+from src.interfaces.storage.exceptions import StorageError
 
 logger = get_logger(__name__)
 

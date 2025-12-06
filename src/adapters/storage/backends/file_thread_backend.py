@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 
 from .thread_base import IThreadStorageBackend
-from src.core.common.exceptions import StorageError
+from src.interfaces.storage.exceptions import StorageError
 
 logger = get_logger(__name__)
 
