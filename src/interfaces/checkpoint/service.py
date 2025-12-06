@@ -8,6 +8,8 @@ from abc import ABC, abstractmethod
 from typing import Optional, List, Dict, Any
 from collections.abc import AsyncIterator
 
+from src.core.checkpoint.models import Checkpoint, CheckpointTuple
+
 
 class ICheckpointService(ABC):
     """检查点服务接口
@@ -19,15 +21,15 @@ class ICheckpointService(ABC):
     async def save_checkpoint(
         self, 
         config: Dict[str, Any], 
-        checkpoint: Dict[str, Any], 
-        metadata: Dict[str, Any]
+        checkpoint: Checkpoint,
+        metadata: Optional[Dict[str, Any]] = None
     ) -> str:
         """保存检查点
         
         Args:
             config: 可运行配置
-            checkpoint: 检查点数据
-            metadata: 检查点元数据
+            checkpoint: 检查点对象
+            metadata: 检查点元数据（可选）
             
         Returns:
             检查点ID
@@ -38,14 +40,14 @@ class ICheckpointService(ABC):
         pass
     
     @abstractmethod
-    async def load_checkpoint(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def load_checkpoint(self, config: Dict[str, Any]) -> Optional[Checkpoint]:
         """加载检查点
         
         Args:
             config: 可运行配置
             
         Returns:
-            检查点数据，如果不存在则返回None
+            检查点对象，如果不存在则返回None
             
         Raises:
             CheckpointError: 加载失败时抛出
@@ -53,7 +55,7 @@ class ICheckpointService(ABC):
         pass
     
     @abstractmethod
-    async def load_checkpoint_tuple(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def load_checkpoint_tuple(self, config: Dict[str, Any]) -> Optional[CheckpointTuple]:
         """加载检查点元组
         
         Args:
@@ -75,7 +77,7 @@ class ICheckpointService(ABC):
         filter: Optional[Dict[str, Any]] = None,
         before: Optional[Dict[str, Any]] = None,
         limit: Optional[int] = None
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[CheckpointTuple]:
         """列出检查点
         
         Args:

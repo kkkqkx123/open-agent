@@ -42,7 +42,12 @@ class CheckpointValidator:
         
         # 验证时间戳格式
         try:
-            datetime.fromisoformat(checkpoint.ts)
+            if isinstance(checkpoint.ts, str):
+                datetime.fromisoformat(checkpoint.ts)
+            elif isinstance(checkpoint.ts, datetime):
+                pass
+            else:
+                raise CheckpointValidationError("时间戳必须是字符串或datetime对象")
         except ValueError as e:
             raise CheckpointValidationError(f"无效的时间戳格式: {e}")
         

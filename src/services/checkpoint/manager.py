@@ -145,6 +145,9 @@ class CheckpointManager:
                 return cached_checkpoint
         
         # 从仓库加载
+        if not checkpoint_id:
+            return None
+        
         checkpoint_data = await self.repository.load_checkpoint(checkpoint_id)
         if not checkpoint_data:
             return None

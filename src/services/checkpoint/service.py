@@ -47,14 +47,14 @@ class CheckpointService(ICheckpointService):
     async def save_checkpoint(
         self, 
         config: Dict[str, Any], 
-        checkpoint: Dict[str, Any], 
-        metadata: Dict[str, Any]
+        checkpoint: Checkpoint,
+        metadata: Optional[Dict[str, Any]] = None
     ) -> str:
         """保存检查点
         
         Args:
             config: 可运行配置
-            checkpoint: 检查点数据
+            checkpoint: 检查点对象
             metadata: 检查点元数据
             
         Returns:
@@ -63,28 +63,28 @@ class CheckpointService(ICheckpointService):
         Raises:
             CheckpointValidationError: 验证失败时抛出
         """
-        # 转换为对象
-        checkpoint_obj = Checkpoint.from_dict(checkpoint)
-        metadata_obj = CheckpointMetadata(**metadata)
+        # 转换元数据
+        metadata_obj: CheckpointMetadata
+        if metadata is None:
+            metadata_obj = checkpoint.metadata
+        else:
+            metadata_obj = CheckpointMetadata(**metadata)
         
         # 使用管理器保存
-        return await self.manager.save_checkpoint(config, checkpoint_obj, metadata_obj)
+        return await self.manager.save_checkpoint(config, checkpoint, metadata_obj)
     
-    async def load_checkpoint(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def load_checkpoint(self, config: Dict[str, Any]) -> Optional[Checkpoint]:
         """加载检查点
         
         Args:
             config: 可运行配置
             
         Returns:
-            检查点数据，如果不存在则返回None
+            检查点对象，如果不存在则返回None
         """
-        checkpoint = await self.manager.load_checkpoint(config)
-        if checkpoint:
-            return checkpoint.to_dict()
-        return None
+        return await self.manager.load_checkpoint(config)
     
-    async def load_checkpoint_tuple(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def load_checkpoint_tuple(self, config: Dict[str, Any]) -> Optional[CheckpointTuple]:
         """加载检查点元组
         
         Args:
@@ -93,10 +93,7 @@ class CheckpointService(ICheckpointService):
         Returns:
             检查点元组，如果不存在则返回None
         """
-        tuple_obj = await self.manager.load_checkpoint_tuple(config)
-        if tuple_obj:
-            return tuple_obj.to_dict()
-        return None
+        return await self.manager.load_checkpoint_tuple(config)
     
     def list_checkpoints(
         self, 
@@ -105,7 +102,7 @@ class CheckpointService(ICheckpointService):
         filter: Optional[Dict[str, Any]] = None,
         before: Optional[Dict[str, Any]] = None,
         limit: Optional[int] = None
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[CheckpointTuple]:
         """列出检查点
         
         Args:
@@ -125,12 +122,12 @@ class CheckpointService(ICheckpointService):
         filter: Optional[Dict[str, Any]],
         before: Optional[Dict[str, Any]],
         limit: Optional[int]
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[CheckpointTuple]:
         """异步列表实现"""
         tuples = await self.manager.list_checkpoints(config, filter=filter, before=before, limit=limit)
         
         for tuple_obj in tuples:
-            yield tuple_obj.to_dict()
+            yield tuple_obj
     
     async def put_writes(
         self,
