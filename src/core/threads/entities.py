@@ -121,6 +121,31 @@ class Thread(IThread):
             "tags": self._metadata.tags,
             "custom_data": self._metadata.custom_data
         }
+    
+    @metadata.setter
+    def metadata(self, value: ThreadMetadata) -> None:
+        """设置线程元数据"""
+        if isinstance(value, ThreadMetadata):
+            self._metadata = value
+        elif isinstance(value, dict):
+            self._metadata = ThreadMetadata(
+                title=value.get("title"),
+                description=value.get("description"),
+                tags=value.get("tags", []),
+                custom_data=value.get("custom_data", {})
+            )
+        else:
+            raise TypeError(f"Expected ThreadMetadata or dict, got {type(value)}")
+    
+    def get_metadata_object(self) -> ThreadMetadata:
+        """获取线程元数据对象（用于修改）"""
+        return self._metadata
+    
+    def set_metadata_object(self, metadata: ThreadMetadata) -> None:
+        """设置线程元数据对象"""
+        if not isinstance(metadata, ThreadMetadata):
+            raise TypeError(f"Expected ThreadMetadata, got {type(metadata)}")
+        self._metadata = metadata
 
     @property
     def config(self) -> Dict[str, Any]:
@@ -141,11 +166,21 @@ class Thread(IThread):
     def checkpoint_count(self) -> int:
         """检查点数量"""
         return self._checkpoint_count
+    
+    @checkpoint_count.setter
+    def checkpoint_count(self, value: int) -> None:
+        """设置检查点数量"""
+        self._checkpoint_count = value
 
     @property
     def branch_count(self) -> int:
         """分支数量"""
         return self._branch_count
+    
+    @branch_count.setter
+    def branch_count(self, value: int) -> None:
+        """设置分支数量"""
+        self._branch_count = value
 
     # 实现IThread接口的抽象方法
     def can_transition_to(self, new_status: str) -> bool:

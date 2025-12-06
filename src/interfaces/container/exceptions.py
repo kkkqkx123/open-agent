@@ -55,14 +55,16 @@ class CircularDependencyError(ContainerException):
 class ValidationError(ContainerException):
     """验证错误"""
     
-    def __init__(self, message: str, validation_errors: List[str]):
+    def __init__(self, message: str, validation_errors: Optional[List[str]] = None):
         super().__init__(message)
-        self.validation_errors = validation_errors
+        self.validation_errors = validation_errors or []
     
     def __str__(self) -> str:
         base_msg = super().__str__()
-        errors_str = "\n".join(f"  - {error}" for error in self.validation_errors)
-        return f"{base_msg}\n验证错误:\n{errors_str}"
+        if self.validation_errors:
+            errors_str = "\n".join(f"  - {error}" for error in self.validation_errors)
+            return f"{base_msg}\n验证错误:\n{errors_str}"
+        return base_msg
 
 
 class IExceptionHandler(ABC):

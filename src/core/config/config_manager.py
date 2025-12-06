@@ -214,7 +214,6 @@ class ConfigManager(IUnifiedConfigManager):
         except Exception as e:
             raise ConfigValidationError(
                 f"配置模型转换失败: {e}",
-                validation_errors=[str(e)],
                 config_key=config_path
             )
     

@@ -1,15 +1,11 @@
 """线程管理服务实现 - 主服务门面"""
 
 from datetime import datetime
-from typing import AsyncGenerator, Dict, Any, Optional, List, Coroutine, cast, TYPE_CHECKING
+from typing import AsyncGenerator, Dict, Any, Optional, List, cast, TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from interfaces.state import IWorkflowState as WorkflowState
-    from interfaces.state.workflow import IWorkflowState
-    from src.interfaces.history import IHistoryManager
-else:
-    IWorkflowState = Any
-    IHistoryManager = Any
+
+from interfaces.state.workflow import IWorkflowState
+from src.interfaces.history import IHistoryManager
 from src.interfaces.threads.service import IThreadService
 from src.interfaces.sessions.service import ISessionService
 from src.core.threads.interfaces import IThreadCore
@@ -24,7 +20,7 @@ from .snapshot_service import ThreadSnapshotService
 from .state_service import ThreadStateService
 from .history_service import ThreadHistoryService
 
-from src.core.common.exceptions import ValidationError
+from src.interfaces.container.exceptions import ValidationError
 
 
 class ThreadService(IThreadService):
@@ -317,7 +313,8 @@ class ThreadService(IThreadService):
             
             if success:
                 # 在目标线程元数据中记录共享信息
-                target_thread.metadata.custom_data['shared_state'] = share_metadata
+                target_metadata = target_thread.get_metadata_object()
+                target_metadata.custom_data['shared_state'] = share_metadata
                 target_thread.update_timestamp()
                 await self._thread_repository.update(target_thread)
                 
@@ -385,13 +382,14 @@ class ThreadService(IThreadService):
                 thread = await self._thread_repository.get(thread_id)
                 if thread:
                     # 使用ThreadMetadata的custom_data字段来存储共享会话
-                    if 'shared_sessions' not in thread.metadata.custom_data:
-                        thread.metadata.custom_data['shared_sessions'] = []
+                    thread_metadata = thread.get_metadata_object()
+                    if 'shared_sessions' not in thread_metadata.custom_data:
+                        thread_metadata.custom_data['shared_sessions'] = []
                     
                     # 检查是否已经存在相同的共享会话
-                    existing_sessions = thread.metadata.custom_data['shared_sessions']
+                    existing_sessions = thread_metadata.custom_data['shared_sessions']
                     if not any(session.get('session_id') == shared_session_id for session in existing_sessions):
-                        thread.metadata.custom_data['shared_sessions'].append(shared_session_info)
+                        thread_metadata.custom_data['shared_sessions'].append(shared_session_info)
                     
                     thread.update_timestamp()
                     await self._thread_repository.update(thread)
@@ -466,7 +464,8 @@ class ThreadService(IThreadService):
                         return False
                     
                     # 记录同步信息
-                    thread.metadata.custom_data['last_sync'] = {
+                    thread_metadata = thread.get_metadata_object()
+                    thread_metadata.custom_data['last_sync'] = {
                         "synced_from": source_thread.id,
                         "synced_at": source_state.get("updated_at", ""),
                         "strategy": sync_strategy
@@ -493,7 +492,8 @@ class ThreadService(IThreadService):
                         return False
                     
                     # 记录同步信息
-                    thread.metadata.custom_data['last_sync'] = {
+                    thread_metadata = thread.get_metadata_object()
+                    thread_metadata.custom_data['last_sync'] = {
                         "synced_with": [t.id for t in valid_threads if t.id != thread.id],
                         "synced_at": datetime.now().isoformat(),
                         "strategy": sync_strategy
@@ -529,7 +529,8 @@ class ThreadService(IThreadService):
                         return False
                     
                     # 记录同步信息
-                    thread.metadata.custom_data['last_sync'] = {
+                    thread_metadata = thread.get_metadata_object()
+                    thread_metadata.custom_data['last_sync'] = {
                         "synced_with": [t.id for t in valid_threads if t.id != thread.id],
                         "synced_at": datetime.now().isoformat(),
                         "strategy": sync_strategy,
@@ -663,7 +664,8 @@ class ThreadService(IThreadService):
                     await self._thread_repository.update(target_thread)
                 
                 # 在目标线程元数据中记录合并信息
-                target_thread.metadata.custom_data['last_merge'] = {
+                target_metadata = target_thread.get_metadata_object()
+                target_metadata.custom_data['last_merge'] = {
                     "merged_from": source_thread_id,
                     "merge_strategy": merge_strategy,
                     "merged_at": datetime.now().isoformat()

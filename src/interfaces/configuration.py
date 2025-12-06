@@ -157,16 +157,12 @@ class ConfigurationValidationError(ConfigError):
     def __init__(
         self,
         message: str,
-        validation_errors: Optional[List[str]] = None,
         config_key: Optional[str] = None,
         **kwargs: Any
     ):
         super().__init__(message, details=kwargs)
-        self.validation_errors = validation_errors or []
         self.config_key = config_key
         
-        if validation_errors:
-            self.details["validation_errors"] = validation_errors
         if config_key:
             self.details["config_key"] = config_key
 

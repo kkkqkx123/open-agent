@@ -6,11 +6,11 @@ from pathlib import Path
 from typing import Dict, List, Set, Any, Optional
 from dataclasses import dataclass
 
-from src.core.common.exceptions import CoreError
+from src.interfaces.container.exceptions import ContainerException
 from .check_result import CheckResult
 
 
-class ArchitectureViolationError(CoreError):
+class ArchitectureViolationError(ContainerException):
     """架构违规异常"""
     pass
 

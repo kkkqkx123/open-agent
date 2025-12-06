@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from src.interfaces.threads.storage import IThreadRepository
 from src.interfaces.history import IHistoryManager
 from src.core.history.entities import RecordType
-from src.core.common.exceptions import ValidationError
 from .base_service import BaseThreadService
 
 logger = get_logger(__name__)
@@ -244,7 +243,7 @@ class ThreadHistoryService(BaseThreadService):
                 "message_count": thread.message_count,
                 "checkpoint_count": thread.checkpoint_count,
                 "branch_count": thread.branch_count,
-                "status": thread.status.value
+                "status": thread.status
             }
             
             # 操作统计
