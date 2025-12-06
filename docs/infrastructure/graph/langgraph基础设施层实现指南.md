@@ -2,7 +2,7 @@
 
 ## 概述
 
-本文档提供LangGraph功能在基础设施层的详细实现指南，包括核心组件的设计、接口定义和实现要点。
+本文档提供LangGraph功能在基础设施层的详细实现指南，包括核心组件的设计、接口定义和实现要点，以及架构优化的具体实现方案。
 
 ## 基础设施层架构
 
@@ -35,12 +35,29 @@ src/infrastructure/graph/
 │   ├── last_value.py       # LastValueChannel
 │   ├── topic.py            # TopicChannel
 │   └── binop.py            # BinaryOperatorChannel
-└── types/
+├── types/
+│   ├── __init__.py
+│   ├── command.py          # Command
+│   ├── send.py             # Send
+│   ├── snapshot.py         # StateSnapshot
+│   └── errors.py           # ErrorTypes
+├── hooks/
+│   ├── __init__.py
+│   ├── hook_system.py      # HookSystem
+│   ├── hook_points.py      # HookPoints
+│   ├── conditional_hooks.py # ConditionalHooks
+│   └── hook_chains.py      # HookChains
+├── optimization/
+│   ├── __init__.py
+│   ├── dynamic_compiler.py # DynamicCompiler
+│   ├── resource_manager.py # ResourceManager
+│   ├── message_router.py   # MessageRouter
+│   └── global_check_nodes.py # GlobalCheckNodes
+└── messaging/
     ├── __init__.py
-    ├── command.py          # Command
-    ├── send.py             # Send
-    ├── snapshot.py         # StateSnapshot
-    └── errors.py           # ErrorTypes
+    ├── message_processor.py # MessageProcessor
+    ├── message_reliability.py # MessageReliability
+    └── passing_modes.py    # PassingModes
 ```
 
 ## 核心组件实现
@@ -53,6 +70,7 @@ src/infrastructure/graph/
 - 支持节点和边的定义
 - 支持条件边
 - 提供简化的编译过程
+- 集成Hook系统
 
 #### 核心接口
 
@@ -72,6 +90,9 @@ class StateGraphEngine(Generic[StateT]):
         
     def compile(self, checkpointer: Optional[BaseCheckpointSaver] = None) -> CompiledGraph:
         """编译图"""
+        
+    def set_hook_system(self, hook_system: HookSystem) -> None:
+        """设置Hook系统"""
 ```
 
 #### 实现要点
@@ -90,6 +111,12 @@ class StateGraphEngine(Generic[StateT]):
    - 创建CompiledGraph实例
    - 验证图结构
    - 设置检查点保存器
+   - 执行编译前后的Hook
+
+4. **Hook集成**：
+   - 在关键节点调用Hook
+   - 支持条件Hook执行
+   - 提供Hook上下文信息
 
 ### 2. ExecutionEngine（执行引擎）
 
@@ -99,6 +126,7 @@ class StateGraphEngine(Generic[StateT]):
 - 任务调度和执行
 - 状态管理
 - 流式处理支持
+- 集成优化调度
 
 #### 核心接口
 
@@ -115,24 +143,37 @@ class ExecutionEngine(Generic[StateT]):
         
     async def stream(self, input_data: Dict[str, Any], config: Optional[RunnableConfig] = None) -> AsyncIterator[Dict[str, Any]]:
         """流式执行图"""
+        
+    def set_message_router(self, router: MessageRouter) -> None:
+        """设置消息路由器"""
+        
+    def set_task_scheduler(self, scheduler: TaskScheduler) -> None:
+        """设置任务调度器"""
 ```
 
 #### 实现要点
 
 1. **任务调度**：
-   - 实现简单的任务队列
+   - 实现智能任务队列
    - 支持并发执行
    - 处理任务依赖关系
+   - 优化调度算法
 
 2. **状态管理**：
    - 维护执行状态
    - 处理状态更新
    - 支持状态回滚
+   - 实现状态隔离
 
 3. **流式处理**：
    - 实现异步生成器
    - 支持中间结果输出
    - 处理中断和恢复
+
+4. **消息传递优化**：
+   - 集成多种消息传递模式
+   - 支持消息路由和过滤
+   - 提供可靠性保证
 
 ### 3. CheckpointManager（检查点管理器）
 
@@ -141,12 +182,13 @@ class ExecutionEngine(Generic[StateT]):
 - 统一的检查点管理
 - 支持多种存储后端
 - 简化的序列化机制
+- 集成资源管理
 
 #### 核心接口
 
 ```python
 class CheckpointManager:
-    def __init__(self, saver: BaseCheckpointSaver) -> None:
+    def __init__(self, saver: BaseCheckpointSaver, resource_manager: Optional[ResourceManager] = None) -> None:
         """初始化检查点管理器"""
         
     async def save_checkpoint(self, config: RunnableConfig, checkpoint: Checkpoint, metadata: Dict) -> str:
@@ -157,6 +199,9 @@ class CheckpointManager:
         
     async def list_checkpoints(self, config: RunnableConfig) -> List[CheckpointTuple]:
         """列出检查点"""
+        
+    def set_resource_manager(self, manager: ResourceManager) -> None:
+        """设置资源管理器"""
 ```
 
 #### 实现要点
@@ -176,99 +221,229 @@ class CheckpointManager:
    - 处理版本兼容性
    - 支持检查点清理
 
-### 4. Channel System（通道系统）
+4. **资源管理集成**：
+   - 监控检查点资源使用
+   - 实现资源限制
+   - 支持资源清理
 
-#### 功能职责
+## 架构优化组件实现
 
-- 替代LangGraph的通道机制
-- 支持多种通道类型
-- 处理数据传递
+### 1. Hook系统
 
-#### 核心通道类型
+#### HookSystem实现
 
-1. **BaseChannel**：
-   - 通道基类
-   - 定义通用接口
-   - 支持序列化
+```python
+class HookSystem:
+    def __init__(self) -> None:
+        self.hooks: Dict[HookPoint, List[HookRegistration]] = {}
+        self.conditional_hooks: List[ConditionalHook] = []
+        self.hook_chains: Dict[str, HookChain] = {}
+    
+    def register_hook(self, hook_point: HookPoint, hook: IHookPlugin, priority: int = 50) -> None:
+        """注册Hook"""
+        
+    def register_conditional_hook(self, conditional_hook: ConditionalHook) -> None:
+        """注册条件Hook"""
+        
+    def create_hook_chain(self, name: str, hooks: List[IHookPlugin], mode: ExecutionMode) -> HookChain:
+        """创建Hook链"""
+        
+    async def execute_hooks(self, hook_point: HookPoint, context: HookContext) -> HookExecutionResult:
+        """执行Hook"""
+```
 
-2. **LastValueChannel**：
-   - 存储最后值
-   - 支持单值更新
-   - 最常用的通道类型
+#### HookPoints定义
 
-3. **TopicChannel**：
-   - 支持多值累积
-   - 可配置累积策略
-   - 适合事件流
+```python
+class HookPoint(Enum):
+    # 图级别Hook
+    BEFORE_COMPILE = "before_compile"
+    AFTER_COMPILE = "after_compile"
+    BEFORE_EXECUTION = "before_execution"
+    AFTER_EXECUTION = "after_execution"
+    BEFORE_DESTROY = "before_destroy"
+    
+    # 步骤级别Hook
+    ON_STEP_START = "on_step_start"
+    ON_STEP_END = "on_step_end"
+    
+    # 节点级别Hook
+    BEFORE_NODE_EXECUTE = "before_node_execute"
+    AFTER_NODE_EXECUTE = "after_node_execute"
+    ON_NODE_ERROR = "on_node_error"
+```
 
-4. **BinaryOperatorChannel**：
-   - 支持聚合操作
-   - 可自定义聚合函数
-   - 适合数值计算
+#### ConditionalHook实现
 
-#### 实现要点
+```python
+class ConditionalHook:
+    def __init__(self, condition: str, hook_point: HookPoint, hook_plugin: IHookPlugin, priority: int = 50):
+        self.condition = condition
+        self.hook_point = hook_point
+        self.hook_plugin = hook_plugin
+        self.priority = priority
+    
+    def should_execute(self, context: HookContext) -> bool:
+        """基于上下文评估条件"""
+        # 实现条件评估逻辑
+        pass
+```
 
-1. **类型安全**：
-   - 使用泛型确保类型安全
-   - 支持类型检查
-   - 处理类型转换
+### 2. 动态编译器
 
-2. **性能优化**：
-   - 减少不必要的复制
-   - 优化内存使用
-   - 支持批量操作
+#### DynamicCompiler实现
 
-3. **错误处理**：
-   - 处理空通道异常
-   - 验证更新数据
-   - 提供错误恢复
+```python
+class DynamicCompiler:
+    def __init__(self, cache_manager: Optional[CacheManager] = None):
+        self.cache_manager = cache_manager
+        self.compilation_cache: Dict[str, CompiledGraph] = {}
+    
+    def recompile(self, graph: StateGraph, changes: GraphChanges) -> CompiledGraph:
+        """增量编译图"""
+        
+    def hot_swap_node(self, compiled_graph: CompiledGraph, node_id: str, new_node: PregelNode) -> None:
+        """热替换节点"""
+        
+    def add_edge_runtime(self, compiled_graph: CompiledGraph, edge: EdgeConfig) -> None:
+        """运行时添加边"""
+        
+    def optimize_graph(self, graph: StateGraph) -> OptimizedGraph:
+        """优化图结构"""
+```
 
-### 5. Type System（类型系统）
+#### ResourceManager实现
 
-#### 功能职责
+```python
+class ResourceManager:
+    def __init__(self, resource_limits: ResourceLimits):
+        self.active_graphs: Dict[str, GraphResource] = {}
+        self.resource_limits = resource_limits
+        self.usage_monitor = ResourceUsageMonitor()
+    
+    def register_graph(self, graph_id: str, graph: CompiledGraph) -> None:
+        """注册图资源"""
+        
+    def destroy_graph(self, graph_id: str) -> None:
+        """彻底清理图资源"""
+        
+    def monitor_resources(self) -> ResourceUsage:
+        """监控资源使用情况"""
+        
+    def enforce_limits(self) -> None:
+        """强制执行资源限制"""
+```
 
-- 定义核心类型
-- 确保类型兼容性
-- 提供类型工具
+### 3. 消息传递扩展
 
-#### 核心类型
+#### MessageRouter实现
 
-1. **Command**：
-   - 命令控制类型
-   - 支持状态更新
-   - 支持跳转控制
+```python
+class MessageRouter:
+    def __init__(self):
+        self.routing_table: Dict[str, List[str]] = {}
+        self.filters: List[MessageFilter] = []
+        self.message_processors: List[MessageProcessor] = []
+    
+    def register_route(self, message_type: str, targets: List[str]) -> None:
+        """注册消息路由"""
+        
+    def add_filter(self, filter: MessageFilter) -> None:
+        """添加消息过滤器"""
+        
+    def route_message(self, message: Message) -> List[str]:
+        """消息路由逻辑"""
+        
+    def process_message(self, message: Message) -> Optional[Message]:
+        """处理消息"""
+```
 
-2. **Send**：
-   - 消息发送类型
-   - 支持动态路由
-   - 支持并行执行
+#### MessageReliability实现
 
-3. **StateSnapshot**：
-   - 状态快照类型
-   - 包含完整状态信息
-   - 支持状态恢复
+```python
+class MessageReliability:
+    def __init__(self, delivery_mode: DeliveryMode, retry_policy: RetryPolicy):
+        self.delivery_mode = delivery_mode
+        self.retry_policy = retry_policy
+        self.deduplication = True
+        self.delivery_tracker = DeliveryTracker()
+    
+    async def ensure_delivery(self, message: Message, targets: List[str]) -> bool:
+        """确保消息传递"""
+        
+    def handle_delivery_failure(self, message: Message, error: Exception) -> None:
+        """处理传递失败"""
+        
+    def deduplicate_message(self, message: Message) -> bool:
+        """消息去重"""
+```
 
-4. **ErrorTypes**：
-   - 错误类型定义
-   - 继承标准异常
-   - 提供错误上下文
+### 4. 全局检查节点管理
 
-#### 实现要点
+#### GlobalCheckNodeManager实现
 
-1. **兼容性**：
-   - 保持与LangGraph类型兼容
-   - 支持类型转换
-   - 处理版本差异
+```python
+class GlobalCheckNodeManager:
+    def __init__(self):
+        self.check_nodes: Dict[str, GlobalCheckNode] = {}
+        self.injection_rules: List[InjectionRule] = {}
+        self.conditional_injections: List[ConditionalInjection] = []
+    
+    def register_check_node(self, node: GlobalCheckNode) -> None:
+        """注册检查节点"""
+        
+    def inject_into_graph(self, graph: StateGraph) -> StateGraph:
+        """注入检查节点到图"""
+        
+    def update_check_node(self, name: str, updates: Dict[str, Any]) -> None:
+        """更新检查节点"""
+        
+    def should_inject(self, node: GlobalCheckNode, graph: StateGraph, context: InjectionContext) -> bool:
+        """评估是否应该注入"""
+```
 
-2. **扩展性**：
-   - 支持自定义类型
-   - 提供类型注册机制
-   - 支持类型验证
+#### GlobalCheckNode实现
 
-3. **序列化**：
-   - 支持JSON序列化
-   - 处理循环引用
-   - 优化序列化性能
+```python
+class GlobalCheckNode:
+    def __init__(self, name: str, check_function: Callable, injection_points: List[InjectionPoint], priority: int = 50):
+        self.name = name
+        self.check_function = check_function
+        self.injection_points = injection_points
+        self.priority = priority
+        self.conditions: List[str] = []
+        self.enabled = True
+    
+    def should_inject(self, graph: StateGraph) -> bool:
+        """判断是否应该注入"""
+        
+    def create_node_config(self) -> NodeConfig:
+        """创建节点配置"""
+```
+
+## 子图状态继承优化
+
+### StateInheritanceManager实现
+
+```python
+class StateInheritanceManager:
+    def __init__(self):
+        self.inheritance_strategies: Dict[str, StateInheritanceStrategy] = {}
+        self.isolation_levels: Dict[str, StateIsolationLevel] = {}
+        self.sync_mechanisms: Dict[str, StateSynchronization] = {}
+    
+    def configure_inheritance(self, subgraph_id: str, config: StateInheritanceConfig) -> None:
+        """配置状态继承"""
+        
+    def set_isolation_level(self, subgraph_id: str, level: StateIsolationLevel) -> None:
+        """设置隔离级别"""
+        
+    def sync_states(self, parent_state: StateSnapshot, child_state: StateSnapshot, strategy: StateInheritanceStrategy) -> None:
+        """同步状态"""
+        
+    def apply_access_control(self, state: StateSnapshot, access_control: StateAccessControl) -> StateSnapshot:
+        """应用访问控制"""
+```
 
 ## 集成指南
 
@@ -320,22 +495,28 @@ class CheckpointManager:
    - 验证数据流
    - 测试错误处理
 
-3. **性能测试**：
-   - 基准测试
-   - 压力测试
-   - 内存使用测试
+3. **优化功能测试**：
+   - Hook系统测试
+   - 动态编译测试
+   - 消息传递测试
+   - 全局检查节点测试
 
-### 兼容性测试
+### 性能测试
 
-1. **接口兼容**：
-   - 验证接口一致性
-   - 测试参数传递
-   - 验证返回值
+1. **基准测试**：
+   - 建立性能基准
+   - 对比关键指标
+   - 验证改进效果
 
-2. **行为兼容**：
-   - 对比执行结果
-   - 测试边界情况
-   - 验证错误处理
+2. **压力测试**：
+   - 高并发场景测试
+   - 长时间运行测试
+   - 资源使用监控
+
+3. **优化效果测试**：
+   - Hook性能影响测试
+   - 动态编译性能测试
+   - 消息传递性能测试
 
 ## 部署指南
 
@@ -374,8 +555,13 @@ class CheckpointManager:
    - 检查点使用情况
    - 用户体验指标
 
+3. **优化功能监控**：
+   - Hook执行性能
+   - 动态编译效果
+   - 消息传递可靠性
+
 ---
 
-*文档版本: V1.0*  
+*文档版本: V2.0*  
 *创建日期: 2025-01-20*  
 *作者: 架构团队*
