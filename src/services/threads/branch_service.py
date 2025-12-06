@@ -12,7 +12,7 @@ from src.interfaces.storage.exceptions import StorageValidationError as Validati
 from .base_service import BaseThreadService
 
 if TYPE_CHECKING:
-    from src.core.threads.checkpoints.storage.service import ThreadCheckpointDomainService
+    from src.core.threads.checkpoints.domain_service import ThreadCheckpointDomainService
 
 
 class ThreadBranchService(BaseThreadService, IThreadBranchService):

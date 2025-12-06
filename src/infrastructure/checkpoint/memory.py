@@ -9,8 +9,8 @@ from typing import Dict, Any, Optional, List
 from collections import defaultdict
 
 from src.services.logger.injection import get_logger
-from src.core.checkpoint.models import Checkpoint, CheckpointStatus, CheckpointType
-from src.core.checkpoint.interfaces import ICheckpointRepository
+from src.core.threads.checkpoints.models import ThreadCheckpoint as Checkpoint, CheckpointStatus, CheckpointType
+from src.infrastructure.threads.checkpoint_repository import ThreadCheckpointRepository
 from .base import BaseCheckpointBackend
 
 
@@ -145,7 +145,7 @@ class MemoryCheckpointBackend(BaseCheckpointBackend):
                 checkpoints.append(checkpoint)
         
         # 按创建时间排序
-        checkpoints.sort(key=lambda c: c.ts, reverse=True)
+        checkpoints.sort(key=lambda c: c.created_at, reverse=True)
         
         # 应用限制
         if limit:
@@ -221,8 +221,8 @@ class MemoryCheckpointBackend(BaseCheckpointBackend):
             type_counts[cp_type] = type_counts.get(cp_type, 0) + 1
             
             # 大小和恢复统计
-            total_size += checkpoint.metadata.size_bytes
-            total_restores += checkpoint.metadata.restore_count
+            total_size += checkpoint.size_bytes
+            total_restores += checkpoint.restore_count
             
             # 年龄统计
             age_hours = checkpoint.get_age_hours()
@@ -284,7 +284,7 @@ class MemoryCheckpointBackend(BaseCheckpointBackend):
         # 按创建时间排序
         sorted_checkpoints = sorted(
             self._checkpoints.values(),
-            key=lambda c: c.ts
+            key=lambda c: c.created_at
         )
         
         # 删除最旧的10%

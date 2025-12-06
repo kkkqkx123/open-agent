@@ -4,7 +4,6 @@
 导出所有检查点相关的接口定义。
 """
 
-from .service import ICheckpointService
 from .saver import ICheckpointSaver
 from .exceptions import (
     CheckpointError,
@@ -26,7 +25,6 @@ from .exceptions import (
 from src.interfaces.repository.checkpoint import ICheckpointRepository
 
 __all__ = [
-    "ICheckpointService",
     "ICheckpointRepository",
     "ICheckpointSaver",
     "CheckpointError",

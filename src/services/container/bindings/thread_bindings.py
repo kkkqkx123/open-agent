@@ -26,7 +26,14 @@ from src.interfaces.threads.service import IThreadService
 from src.interfaces.sessions.service import ISessionService
 from src.core.threads.interfaces import IThreadCore
 from src.interfaces.history import IHistoryManager
-from src.interfaces.threads.checkpoint import IThreadCheckpointManager
+# 移除已删除的checkpoint接口引用
+from src.core.threads.checkpoints.service import ThreadCheckpointService
+from src.adapters.threads.checkpoint_adapter import ThreadCheckpointAdapter
+from src.infrastructure.threads.checkpoint_repository import ThreadCheckpointRepository
+from src.infrastructure.threads.langgraph_adapter import (
+    LangGraphCheckpointAdapter,
+    ThreadCheckpointLangGraphManager
+)
 from src.interfaces.logger import ILogger
 from src.interfaces.container.core import ServiceLifetime
 from src.services.container.core.base_service_bindings import BaseServiceBindings
@@ -56,6 +63,7 @@ class ThreadServiceBindings(BaseServiceBindings):
         """执行Thread服务注册"""
         _register_thread_backends(container, config, environment)
         _register_thread_repository(container, config, environment)
+        _register_checkpoint_services(container, config, environment)
         _register_basic_thread_service(container, config, environment)
         _register_workflow_thread_service(container, config, environment)
         _register_collaboration_thread_service(container, config, environment)
@@ -237,6 +245,73 @@ def _register_thread_repository(container: Any, config: Dict[str, Any], environm
     print(f"[INFO] Thread repository registered", file=sys.stdout)
 
 
+def _register_checkpoint_services(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
+    """注册Thread检查点服务
+    
+    Args:
+        container: 依赖注入容器
+        config: 配置字典
+        environment: 环境名称
+    """
+    checkpoint_config = config.get("checkpoints", {})
+    storage_type = checkpoint_config.get("storage_type", "memory")
+    
+    # 注册仓储
+    if storage_type == "memory":
+        container.register_singleton(
+            ThreadCheckpointRepository
+        )
+    elif storage_type == "database":
+        def create_database_repository():
+            db_connection = container.get("database_connection")
+            return ThreadCheckpointRepository()  # 简化处理
+        
+        container.register_singleton(
+            create_database_repository
+        )
+    
+    # 注册统一的ThreadCheckpointService
+    def create_checkpoint_service():
+        repository = container.get(ThreadCheckpointRepository)
+        return ThreadCheckpointService(repository)
+    
+    container.register_singleton(
+        ThreadCheckpointService,
+        create_checkpoint_service
+    )
+    
+    # 注册适配器
+    def create_checkpoint_adapter():
+        checkpoint_service = container.get(ThreadCheckpointService)
+        return ThreadCheckpointAdapter(checkpoint_service)
+    
+    container.register_singleton(
+        ThreadCheckpointAdapter,
+        create_checkpoint_adapter
+    )
+    
+    # 注册LangGraph集成
+    def create_langgraph_adapter():
+        repository = container.get(ThreadCheckpointRepository)
+        return LangGraphCheckpointAdapter(repository)
+    
+    container.register_singleton(
+        LangGraphCheckpointAdapter,
+        create_langgraph_adapter
+    )
+    
+    def create_langgraph_manager():
+        repository = container.get(ThreadCheckpointRepository)
+        return ThreadCheckpointLangGraphManager(repository)
+    
+    container.register_singleton(
+        ThreadCheckpointLangGraphManager,
+        create_langgraph_manager
+    )
+    
+    print(f"[INFO] Thread checkpoint services registered (storage: {storage_type})", file=sys.stdout)
+
+
 def _register_basic_thread_service(container: Any, config: Dict[str, Any], environment: str = "default") -> None:
     """注册基础线程服务
     
@@ -253,12 +328,12 @@ def _register_basic_thread_service(container: Any, config: Dict[str, Any], envir
         from src.services.threads.basic_service import BasicThreadService
         thread_core = container.get(IThreadCore)
         thread_repository = container.get(IThreadRepository)
-        checkpoint_domain_service = container.get("ThreadCheckpointDomainService", default=None)
+        checkpoint_service = container.get(ThreadCheckpointService, default=None)
         
         return BasicThreadService(
             thread_core=thread_core,
             thread_repository=thread_repository,
-            checkpoint_domain_service=checkpoint_domain_service
+            checkpoint_service=checkpoint_service
         )
     
     # 注册服务为单例
@@ -318,11 +393,11 @@ def _register_collaboration_thread_service(container: Any, config: Dict[str, Any
     def collaboration_thread_service_factory() -> ThreadCollaborationService:
         from src.services.threads.collaboration_service import ThreadCollaborationService
         thread_repository = container.get(IThreadRepository)
-        checkpoint_manager = container.get(IThreadCheckpointManager, default=None)
+        checkpoint_service = container.get(ThreadCheckpointService, default=None)
         
         return ThreadCollaborationService(
             thread_repository=thread_repository,
-            checkpoint_manager=checkpoint_manager
+            checkpoint_service=checkpoint_service
         )
     
     # 注册服务为单例
@@ -357,7 +432,7 @@ def _register_branch_thread_service(container: Any, config: Dict[str, Any], envi
         # 这里简化处理，假设它们已经注册
         thread_branch_core = container.get("IThreadBranchCore", default=None)
         thread_branch_repository = container.get("IThreadBranchRepository", default=None)
-        checkpoint_domain_service = container.get("ThreadCheckpointDomainService", default=None)
+        checkpoint_service = container.get(ThreadCheckpointService, default=None)
         
         if not thread_branch_core or not thread_branch_repository:
             print(f"[ERROR] ThreadBranchCore or ThreadBranchRepository not available", file=sys.stderr)
@@ -368,7 +443,7 @@ def _register_branch_thread_service(container: Any, config: Dict[str, Any], envi
             thread_branch_core=thread_branch_core,
             thread_repository=thread_repository,
             thread_branch_repository=thread_branch_repository,
-            checkpoint_domain_service=checkpoint_domain_service
+            checkpoint_service=checkpoint_service
         )
     
     # 注册服务为单例

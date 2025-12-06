@@ -9,8 +9,8 @@ from typing import Dict, Any, Optional, List, Union, cast, Sequence, Iterator
 from datetime import datetime
 from collections import defaultdict
 
-from src.core.checkpoint.factory import CheckpointFactory
-from src.core.checkpoint.models import Checkpoint, CheckpointMetadata
+from src.core.threads.checkpoints.models import ThreadCheckpoint, CheckpointMetadata
+from src.core.threads.checkpoints.extensions import ThreadCheckpointExtension
 from src.interfaces.checkpoint.saver import ICheckpointSaver
 from src.services.logger.injection import get_logger
 from src.interfaces.checkpoint import (
@@ -18,8 +18,8 @@ from src.interfaces.checkpoint import (
     CheckpointNotFoundError,
     CheckpointStorageError,
 )
-from src.interfaces.threads.checkpoint import IThreadCheckpointStorage
-from src.core.threads.checkpoints.storage.models import (
+# 移除已删除的接口引用
+from src.core.threads.checkpoints.models import (
     ThreadCheckpoint,
     CheckpointStatus,
     CheckpointStatistics
@@ -29,7 +29,7 @@ from src.core.threads.checkpoints.storage.models import (
 logger = get_logger(__name__)
 
 
-class CheckpointMemoryBackend(IThreadCheckpointStorage, ICheckpointSaver):
+class CheckpointMemoryBackend(ICheckpointSaver):
     """Checkpoint内存存储后端实现
     
     提供基于内存的checkpoint存储功能，实现ICheckpointStore和IThreadCheckpointStorage接口。

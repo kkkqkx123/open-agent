@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 
-from src.core.checkpoint.models import Checkpoint, CheckpointType, CheckpointStatistics
+from src.core.threads.checkpoints.models import ThreadCheckpoint, CheckpointType, CheckpointStatistics
 
 
 class IThreadCore(ABC):
@@ -103,7 +103,7 @@ class IThreadCheckpointService(ABC):
         state_data: Dict[str, Any],
         checkpoint_type: CheckpointType = CheckpointType.AUTO,
         metadata: Optional[Dict[str, Any]] = None
-    ) -> Checkpoint:
+    ) -> ThreadCheckpoint:
         """创建Thread检查点
         
         Args:
@@ -137,7 +137,7 @@ class IThreadCheckpointService(ABC):
         title: Optional[str] = None,
         description: Optional[str] = None,
         tags: Optional[List[str]] = None
-    ) -> Checkpoint:
+    ) -> ThreadCheckpoint:
         """创建手动检查点
         
         Args:
@@ -159,7 +159,7 @@ class IThreadCheckpointService(ABC):
         state_data: Dict[str, Any],
         error_message: str,
         error_type: Optional[str] = None
-    ) -> Checkpoint:
+    ) -> ThreadCheckpoint:
         """创建错误检查点
         
         Args:
@@ -180,7 +180,7 @@ class IThreadCheckpointService(ABC):
         state_data: Dict[str, Any],
         milestone_name: str,
         description: Optional[str] = None
-    ) -> Checkpoint:
+    ) -> ThreadCheckpoint:
         """创建里程碑检查点
         
         Args:
@@ -199,7 +199,7 @@ class IThreadCheckpointService(ABC):
         self,
         thread_id: str,
         limit: int = 50
-    ) -> List[Checkpoint]:
+    ) -> List[ThreadCheckpoint]:
         """获取线程检查点历史
         
         Args:
