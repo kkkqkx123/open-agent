@@ -441,8 +441,8 @@ class SQLiteStorageBackend(ConnectionPooledStorageBackend):
                 cursor.execute(query)
             
             # 流式处理结果
-            batch = []
-            memory_usage = 0
+            batch: List[Dict[str, Any]] = []
+            memory_usage: float = 0.0
             current_batch_size = batch_size
             record_count = 0
             
@@ -531,13 +531,15 @@ class SQLiteStorageBackend(ConnectionPooledStorageBackend):
             
             # 使用健康检查助手准备响应
             from src.core.state.statistics import DatabaseStorageStatistics, HealthCheckHelper
+            import time as time_module
             stats = DatabaseStorageStatistics(
                 status="healthy",
+                timestamp=time_module.time(),
                 total_size_bytes=self._stats["database_size_bytes"],
                 total_size_mb=round(self._stats["database_size_bytes"] / (1024 * 1024), 2),
                 total_records=self._stats["total_records"],
                 database_path=self.db_path,
-                page_count=db_info.get("total_records", 0),
+                page_count=db_info.get("page_count", 0),
                 page_size=4096,
             )
             return HealthCheckHelper.prepare_health_check_response(

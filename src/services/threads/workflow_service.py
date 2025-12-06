@@ -6,7 +6,7 @@ from datetime import datetime
 
 from interfaces.state import IWorkflowState as WorkflowState
 from src.interfaces.threads.storage import IThreadRepository
-from src.core.threads.entities import Thread, ThreadStatus
+from src.core.threads.entities import ThreadStatus
 from src.interfaces.storage.exceptions import StorageValidationError as ValidationError, StorageNotFoundError as EntityNotFoundError
 from src.core.state.implementations.workflow_state import WorkflowState as WorkflowStateImpl
 
