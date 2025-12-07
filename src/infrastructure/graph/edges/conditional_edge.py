@@ -6,10 +6,9 @@
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from dataclasses import dataclass
 
-from src.core.workflow.config import EdgeConfig
+from src.interfaces.workflow.config import IEdgeConfig
 if TYPE_CHECKING:
-    from src.core.state import WorkflowState
-    from src.infrastructure.graph.conditions import ConditionType, ConditionEvaluator
+    from src.interfaces.state import IWorkflowState
 
 
 @dataclass
@@ -22,16 +21,23 @@ class ConditionalEdge:
     from_node: str
     to_node: str
     condition: str
-    condition_type: ConditionType
+    condition_type: Any
     condition_parameters: Dict[str, Any]
     description: Optional[str] = None
     
     def __post_init__(self) -> None:
         """初始化后处理"""
-        self._evaluator = ConditionEvaluator()
+        self._evaluator = None  # 延迟初始化
+    
+    def _get_evaluator(self) -> Any:
+        """获取条件评估器"""
+        if self._evaluator is None:
+            from src.infrastructure.graph.conditions import ConditionEvaluator
+            self._evaluator = ConditionEvaluator()
+        return self._evaluator
     
     @classmethod
-    def from_config(cls, config: EdgeConfig) -> "ConditionalEdge":
+    def from_config(cls, config: IEdgeConfig) -> "ConditionalEdge":
         """从配置创建条件边
         
         Args:
@@ -58,22 +64,22 @@ class ConditionalEdge:
             description=config.description
         )
     
-    def to_config(self) -> EdgeConfig:
+    def to_config(self) -> IEdgeConfig:
         """转换为配置
         
         Returns:
-            EdgeConfig: 边配置
+            IEdgeConfig: 边配置
         """
-        from src.core.workflow.config import EdgeType
+        from src.core.workflow.config import EdgeConfig, EdgeType
         return EdgeConfig(
             from_node=self.from_node,
             to_node=self.to_node,
-            type=EdgeType.CONDITIONAL,
+            type=EdgeType(EdgeType.CONDITIONAL.value),
             condition=self.condition,
             description=self.description
         )
     
-    def evaluate(self, state: "WorkflowState") -> bool:
+    def evaluate(self, state: "IWorkflowState") -> bool:
         """评估条件是否满足
         
         Args:
@@ -82,7 +88,8 @@ class ConditionalEdge:
         Returns:
             bool: 条件是否满足
         """
-        return self._evaluator.evaluate(
+        evaluator = self._get_evaluator()
+        return evaluator.evaluate(
             self.condition_type,
             state,
             self.condition_parameters,
@@ -110,6 +117,7 @@ class ConditionalEdge:
             errors.append("不允许节点自循环")
         
         # 验证条件参数
+        from src.infrastructure.graph.conditions import ConditionType
         if self.condition_type == ConditionType.MESSAGE_CONTAINS:
             if "text" not in self.condition_parameters:
                 errors.append("message_contains 条件需要指定 text 参数")
@@ -120,15 +128,17 @@ class ConditionalEdge:
         return errors
     
     @classmethod
-    def _parse_condition(cls, condition_str: str) -> tuple[ConditionType, Dict[str, Any]]:
+    def _parse_condition(cls, condition_str: str) -> tuple[Any, Dict[str, Any]]:
         """解析条件字符串
         
         Args:
             condition_str: 条件字符串
             
         Returns:
-            tuple[ConditionType, Dict[str, Any]]: 条件类型和参数
+            tuple[Any, Dict[str, Any]]: 条件类型和参数
         """
+        from src.infrastructure.graph.conditions import ConditionType
+        
         # 内置条件映射
         condition_mapping = {
             "has_tool_call": ConditionType.HAS_TOOL_CALLS,

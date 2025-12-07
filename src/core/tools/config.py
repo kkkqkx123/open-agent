@@ -12,7 +12,7 @@ class ToolType(Enum):
     """工具类型枚举"""
     BUILTIN = "builtin"      # 无状态内置工具
     NATIVE = "native"        # 有状态原生工具
-    REST = "rest"           # 有状态REST工具
+    REST = "rest"           # REST工具（业务逻辑上无状态，技术上使用状态管理器）
     MCP = "mcp"            # 有状态MCP工具
 
 
@@ -128,7 +128,7 @@ class NativeToolConfig(ToolConfig):
 
 @dataclass(kw_only=True)
 class RestToolConfig(ToolConfig):
-    """有状态REST工具配置"""
+    """REST工具配置（业务逻辑上无状态，但技术上使用状态管理器进行连接复用等）"""
     api_url: str  # API端点URL
     tool_type: str = "rest"
     method: str = "GET"  # HTTP方法

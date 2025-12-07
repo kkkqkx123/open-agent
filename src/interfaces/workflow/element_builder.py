@@ -4,10 +4,11 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union, Callable
+from typing import Any, Dict, List, Optional, Union, Callable, TYPE_CHECKING
 from enum import Enum
 
-from src.core.workflow.config.config import NodeConfig, EdgeConfig
+if TYPE_CHECKING:
+    from .config import INodeConfig, IEdgeConfig
 
 
 class BuildResult(Enum):
@@ -100,11 +101,11 @@ class IElementBuilder(ABC):
         pass
     
     @abstractmethod
-    def can_build(self, config: Union[NodeConfig, EdgeConfig]) -> bool:
+    def can_build(self, config: Any) -> bool:
         """检查是否可以构建指定配置的元素
         
         Args:
-            config: 元素配置
+            config: 元素配置 (INodeConfig | IEdgeConfig)
             
         Returns:
             bool: 是否可以构建
@@ -112,11 +113,11 @@ class IElementBuilder(ABC):
         pass
     
     @abstractmethod
-    def validate_config(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> List[str]:
+    def validate_config(self, config: Any, context: BuildContext) -> List[str]:
         """验证元素配置
         
         Args:
-            config: 元素配置
+            config: 元素配置 (INodeConfig | IEdgeConfig)
             context: 构建上下文
             
         Returns:
@@ -127,13 +128,13 @@ class IElementBuilder(ABC):
     @abstractmethod
     def build_element(
         self, 
-        config: Union[NodeConfig, EdgeConfig], 
+        config: Any, 
         context: BuildContext
     ) -> Any:
         """构建元素
         
         Args:
-            config: 元素配置
+            config: 元素配置 (INodeConfig | IEdgeConfig)
             context: 构建上下文
             
         Returns:
@@ -149,7 +150,7 @@ class IElementBuilder(ABC):
         self, 
         element: Any, 
         builder: Any, 
-        config: Union[NodeConfig, EdgeConfig],
+        config: Any,
         context: BuildContext
     ) -> None:
         """将元素添加到图中
@@ -157,7 +158,7 @@ class IElementBuilder(ABC):
         Args:
             element: 构建的元素实例
             builder: LangGraph构建器
-            config: 元素配置
+            config: 元素配置 (INodeConfig | IEdgeConfig)
             context: 构建上下文
         """
         pass
@@ -168,7 +169,7 @@ class IElementBuilder(ABC):
         Returns:
             List[type]: 支持的配置类型列表
         """
-        return [NodeConfig, EdgeConfig]
+        return [object]
     
     def get_build_priority(self) -> int:
         """获取构建优先级
@@ -180,11 +181,11 @@ class IElementBuilder(ABC):
         """
         return 100
     
-    def should_cache(self, config: Union[NodeConfig, EdgeConfig]) -> bool:
+    def should_cache(self, config: Any) -> bool:
         """检查是否应该缓存构建结果
         
         Args:
-            config: 元素配置
+            config: 元素配置 (INodeConfig | IEdgeConfig)
             
         Returns:
             bool: 是否应该缓存
@@ -198,13 +199,13 @@ class INodeBuilder(IElementBuilder):
     @abstractmethod
     def get_node_function(
         self, 
-        config: NodeConfig, 
+        config: Any, 
         context: BuildContext
     ) -> Optional[Callable]:
         """获取节点函数
         
         Args:
-            config: 节点配置
+            config: 节点配置 (INodeConfig)
             context: 构建上下文
             
         Returns:
@@ -215,7 +216,7 @@ class INodeBuilder(IElementBuilder):
     def wrap_node_function(
         self, 
         function: Callable, 
-        config: NodeConfig,
+        config: Any,
         context: BuildContext
     ) -> Callable:
         """包装节点函数
@@ -224,7 +225,7 @@ class INodeBuilder(IElementBuilder):
         
         Args:
             function: 原始节点函数
-            config: 节点配置
+            config: 节点配置 (INodeConfig)
             context: 构建上下文
             
         Returns:
@@ -239,13 +240,13 @@ class IEdgeBuilder(IElementBuilder):
     @abstractmethod
     def get_edge_function(
         self, 
-        config: EdgeConfig, 
+        config: Any, 
         context: BuildContext
     ) -> Optional[Callable]:
         """获取边函数（主要用于条件边）
         
         Args:
-            config: 边配置
+            config: 边配置 (IEdgeConfig)
             context: 构建上下文
             
         Returns:
@@ -253,11 +254,11 @@ class IEdgeBuilder(IElementBuilder):
         """
         pass
     
-    def get_path_map(self, config: EdgeConfig, context: BuildContext) -> Optional[Dict[str, Any]]:
+    def get_path_map(self, config: Any, context: BuildContext) -> Optional[Dict[str, Any]]:
         """获取路径映射（主要用于条件边）
         
         Args:
-            config: 边配置
+            config: 边配置 (IEdgeConfig)
             context: 构建上下文
             
         Returns:
@@ -306,11 +307,11 @@ class IBuildStrategy(ABC):
     """构建策略接口"""
     
     @abstractmethod
-    def can_handle(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> bool:
+    def can_handle(self, config: Any, context: BuildContext) -> bool:
         """检查是否可以处理指定配置
         
         Args:
-            config: 元素配置
+            config: 元素配置 (INodeConfig | IEdgeConfig)
             context: 构建上下文
             
         Returns:
@@ -321,14 +322,14 @@ class IBuildStrategy(ABC):
     @abstractmethod
     def execute(
         self, 
-        config: Union[NodeConfig, EdgeConfig], 
+        config: Any, 
         context: BuildContext,
         builder: IElementBuilder
     ) -> Any:
         """执行构建策略
         
         Args:
-            config: 元素配置
+            config: 元素配置 (INodeConfig | IEdgeConfig)
             context: 构建上下文
             builder: 元素构建器
             
@@ -352,13 +353,13 @@ class IValidationRule(ABC):
     @abstractmethod
     def validate(
         self, 
-        config: Union[NodeConfig, EdgeConfig], 
+        config: Any, 
         context: BuildContext
     ) -> List[str]:
         """执行验证
         
         Args:
-            config: 元素配置
+            config: 元素配置 (INodeConfig | IEdgeConfig)
             context: 构建上下文
             
         Returns:

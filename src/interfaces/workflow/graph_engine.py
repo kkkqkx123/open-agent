@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, AsyncIterator
+from typing import Dict, Any, List, Optional, AsyncIterator, Awaitable
 
 from .graph import IGraph, INode, IEdge
 
@@ -40,7 +40,7 @@ class IGraphEngine(ABC):
         pass
     
     @abstractmethod
-    async def stream(self, input_data: Dict[str, Any]) -> AsyncIterator[Dict[str, Any]]:
+    def stream(self, input_data: Dict[str, Any]) -> AsyncIterator[Dict[str, Any]]:
         """流式执行图
         
         Args:

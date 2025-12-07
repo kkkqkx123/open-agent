@@ -71,6 +71,15 @@ from .graph_engine import (
     IGraphBuilder
 )
 
+from .config import (
+    INodeConfig,
+    IEdgeConfig,
+    IStateFieldConfig,
+    IGraphStateConfig,
+    IGraphConfig,
+    EdgeType
+)
+
 __all__ = [
     # Core interfaces
     "IWorkflow",
@@ -127,4 +136,12 @@ __all__ = [
     # Graph engine interfaces
     "IGraphEngine",
     "IGraphBuilder",
+    
+    # Config interfaces
+    "INodeConfig",
+    "IEdgeConfig",
+    "IStateFieldConfig",
+    "IGraphStateConfig",
+    "IGraphConfig",
+    "EdgeType",
 ]

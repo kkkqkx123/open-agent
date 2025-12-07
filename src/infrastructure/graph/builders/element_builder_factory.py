@@ -4,14 +4,14 @@
 """
 
 from typing import Any, Dict, List, Optional, Type
-from src.services.logger.injection import get_logger
+import logging
 
 from src.interfaces.workflow.element_builder import (
     IElementBuilder, INodeBuilder, IEdgeBuilder,
     IElementBuilderFactory, BuildContext
 )
-from src.core.workflow.config.config import NodeConfig, EdgeConfig
-from .base_element_builder import BaseNodeBuilder, BaseEdgeBuilder, BaseElementBuilder
+from src.interfaces.workflow.config import INodeConfig, IEdgeConfig
+from .base_builder import BaseNodeBuilder, BaseEdgeBuilder, BaseElementBuilder
 from .validation_rules import get_validation_registry
 from .build_strategies import get_strategy_registry
 
@@ -28,7 +28,13 @@ class ElementBuilderFactory(IElementBuilderFactory):
         Args:
             logger: 日志记录器
         """
-        self.logger = logger or get_logger(self.__class__.__name__)
+        # 使用基础设施层的日志服务
+        if logger is None:
+            from src.services.logger.injection import get_logger
+            self.logger = get_logger(self.__class__.__name__)
+        else:
+            self.logger = logger
+            
         self._builder_classes: Dict[str, Type[IElementBuilder]] = {}
         self._builder_instances: Dict[str, IElementBuilder] = {}
         self._node_builder_classes: Dict[str, Type[INodeBuilder]] = {}
@@ -359,7 +365,13 @@ class ElementBuilderManager:
         Args:
             logger: 日志记录器
         """
-        self.logger = logger or get_logger(self.__class__.__name__)
+        # 使用基础设施层的日志服务
+        if logger is None:
+            from src.services.logger.injection import get_logger
+            self.logger = get_logger(self.__class__.__name__)
+        else:
+            self.logger = logger
+            
         self._factories: Dict[str, ElementBuilderFactory] = {}
         self._default_factory_name = "default"
         

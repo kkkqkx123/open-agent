@@ -9,7 +9,7 @@ from .registry import node
 from .sync_node import SyncNode
 from src.interfaces.state.interfaces import IState
 from src.interfaces.workflow.graph import NodeExecutionResult
-from ..edges.conditions import ConditionType, ConditionEvaluator #作为临时实现，后续需要单独实现
+from src.infrastructure.graph.conditions import ConditionType, ConditionEvaluator
 
 
 @node("condition_node")

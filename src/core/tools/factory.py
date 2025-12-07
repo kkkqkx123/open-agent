@@ -25,7 +25,7 @@ class ToolType(Enum):
     """工具类型枚举"""
     BUILTIN = "builtin"      # 无状态内置工具
     NATIVE = "native"        # 有状态原生工具
-    REST = "rest"           # 有状态REST工具
+    REST = "rest"           # REST工具（业务逻辑上无状态，技术上使用状态管理器）
     MCP = "mcp"            # 有状态MCP工具
 
 
@@ -185,7 +185,7 @@ class OptimizedToolFactory(IToolFactory):
                 raise ToolRegistrationError(f"创建原生工具失败: {str(e)}") from e
     
     def _create_rest_tool(self, config: Dict[str, Any]) -> RestTool:
-        """创建有状态REST工具"""
+        """创建REST工具（业务逻辑上无状态，但技术上使用状态管理器进行连接复用等）"""
         try:
             # 验证REST工具特定配置
             if 'api_url' not in config:
@@ -193,7 +193,7 @@ class OptimizedToolFactory(IToolFactory):
             
             if not self.state_manager:
                 raise ToolRegistrationError(
-                    "创建有状态工具(rest)需要状态管理器。"
+                    "创建REST工具需要状态管理器（用于连接复用等技术性功能）。"
                     "请在工厂初始化时通过 state_manager 参数提供。"
                 )
             

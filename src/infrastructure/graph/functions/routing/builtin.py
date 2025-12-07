@@ -8,14 +8,14 @@ from typing import Dict, Any
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.core.state import WorkflowState
+    from src.interfaces.state import IWorkflowState
 
 
 class BuiltinRouteFunctions:
     """内置路由函数集合"""
     
     @staticmethod
-    def has_tool_calls(state: WorkflowState) -> str:
+    def has_tool_calls(state: "IWorkflowState") -> str:
         """检查是否有工具调用
         
         Args:
@@ -35,7 +35,7 @@ class BuiltinRouteFunctions:
         return "end"
     
     @staticmethod
-    def no_tool_calls(state: WorkflowState) -> str:
+    def no_tool_calls(state: "IWorkflowState") -> str:
         """检查是否没有工具调用
         
         Args:
@@ -47,7 +47,7 @@ class BuiltinRouteFunctions:
         return "continue" if BuiltinRouteFunctions.has_tool_calls(state) == "end" else "end"
     
     @staticmethod
-    def has_tool_results(state: WorkflowState) -> str:
+    def has_tool_results(state: "IWorkflowState") -> str:
         """检查是否有工具结果
         
         Args:
@@ -59,7 +59,7 @@ class BuiltinRouteFunctions:
         return "continue" if len(state.get("tool_results", [])) > 0 else "end"
     
     @staticmethod
-    def max_iterations_reached(state: WorkflowState) -> str:
+    def max_iterations_reached(state: "IWorkflowState") -> str:
         """检查是否达到最大迭代次数
         
         Args:
@@ -73,7 +73,7 @@ class BuiltinRouteFunctions:
         return "end" if iteration_count >= max_iterations else "continue"
     
     @staticmethod
-    def has_errors(state: WorkflowState) -> str:
+    def has_errors(state: "IWorkflowState") -> str:
         """检查是否有错误
         
         Args:
@@ -88,7 +88,7 @@ class BuiltinRouteFunctions:
         return "continue"
     
     @staticmethod
-    def no_errors(state: WorkflowState) -> str:
+    def no_errors(state: "IWorkflowState") -> str:
         """检查是否没有错误
         
         Args:
@@ -100,7 +100,7 @@ class BuiltinRouteFunctions:
         return "continue" if BuiltinRouteFunctions.has_errors(state) == "continue" else "error"
     
     @staticmethod
-    def tool_call_count(state: WorkflowState) -> str:
+    def tool_call_count(state: "IWorkflowState") -> str:
         """基于工具调用数量的路由
         
         Args:
@@ -124,7 +124,7 @@ class BuiltinRouteFunctions:
         return "none"
     
     @staticmethod
-    def message_contains_error(state: WorkflowState) -> str:
+    def message_contains_error(state: "IWorkflowState") -> str:
         """检查消息是否包含错误关键词
         
         Args:
@@ -148,7 +148,7 @@ class BuiltinRouteFunctions:
         return "no_error"
     
     @staticmethod
-    def iteration_count_equals(state: WorkflowState) -> str:
+    def iteration_count_equals(state: "IWorkflowState") -> str:
         """检查迭代次数是否等于指定值
         
         Args:
@@ -164,7 +164,7 @@ class BuiltinRouteFunctions:
         return "equals" if iteration_count == target_count else "not_equals"
     
     @staticmethod
-    def iteration_count_greater_than(state: WorkflowState) -> str:
+    def iteration_count_greater_than(state: "IWorkflowState") -> str:
         """检查迭代次数是否大于指定值
         
         Args:
@@ -180,7 +180,7 @@ class BuiltinRouteFunctions:
         return "greater" if iteration_count > threshold else "not_greater"
     
     @staticmethod
-    def status_check(state: WorkflowState) -> str:
+    def status_check(state: "IWorkflowState") -> str:
         """基于状态值的路由
         
         Args:
@@ -198,7 +198,7 @@ class BuiltinRouteFunctions:
         return value_mapping.get(str(state_value), default_route)
     
     @staticmethod
-    def keyword_match(state: WorkflowState) -> str:
+    def keyword_match(state: "IWorkflowState") -> str:
         """基于关键词匹配的路由
         
         Args:
@@ -238,7 +238,7 @@ class BuiltinRouteFunctions:
         return "not_matched"
     
     @staticmethod
-    def threshold_check(state: WorkflowState) -> str:
+    def threshold_check(state: "IWorkflowState") -> str:
         """基于阈值的路由
         
         Args:

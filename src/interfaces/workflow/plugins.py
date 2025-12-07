@@ -34,6 +34,8 @@ class HookPoint(Enum):
     BEFORE_EXECUTE = "before_execute"
     AFTER_EXECUTE = "after_execute"
     ON_ERROR = "on_error"
+    BEFORE_COMPILE = "before_compile"
+    AFTER_COMPILE = "after_compile"
 
 
 @dataclass
@@ -94,13 +96,14 @@ class PluginExecutionResult:
 @dataclass
 class HookContext:
     """Hook执行上下文"""
-    node_type: str
-    state: 'IWorkflowState'
-    config: Dict[str, Any]
     hook_point: HookPoint
+    config: Dict[str, Any]
+    node_type: Optional[str] = None
+    state: Optional['IWorkflowState'] = None
     error: Optional[Exception] = None
     execution_result: Optional['NodeExecutionResult'] = None
     metadata: Optional[Dict[str, Any]] = None
+    graph_id: Optional[str] = None
 
 
 class HookExecutionResult:

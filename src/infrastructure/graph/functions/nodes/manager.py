@@ -5,14 +5,9 @@
 
 from typing import Dict, Any, Callable, Optional, List
 from pathlib import Path
-from src.services.logger.injection import get_logger
 
 from .registry import NodeFunctionRegistry, get_global_node_function_registry
-from .loader import NodeFunctionLoader
-from .config import NodeFunctionConfig, NodeCompositionConfig
-from .executor import NodeFunctionExecutor
-
-logger = get_logger(__name__)
+from src.interfaces.workflow.graph import INodeFunctionConfig, INodeCompositionConfig
 
 
 class NodeFunctionManager:
@@ -32,9 +27,11 @@ class NodeFunctionManager:
             registry: 节点函数注册表
             config_dir: 配置目录路径
         """
-        self.registry = registry or get_global_node_function_registry()
-        self.loader = NodeFunctionLoader(self.registry)
-        self.executor = NodeFunctionExecutor(self.registry)
+        # 使用基础设施层的日志服务
+        from src.services.logger.injection import get_logger
+        self.logger = get_logger(self.__class__.__name__)
+        
+        self.registry = registry or NodeFunctionRegistry()
         
         # 如果提供了配置目录，加载配置
         if config_dir:
@@ -46,14 +43,15 @@ class NodeFunctionManager:
         Args:
             config_dir: 配置目录路径
         """
-        self.loader.load_from_config_directory(config_dir)
-        logger.info(f"从目录加载节点函数配置: {config_dir}")
+        # 这里可以实现从配置文件加载节点函数的逻辑
+        # 暂时留空，可以根据需要实现
+        self.logger.info(f"从目录加载节点函数配置: {config_dir}")
     
     def register_function(
         self, 
         name: str, 
         function: Callable, 
-        config: NodeFunctionConfig,
+        config: INodeFunctionConfig,
         is_rest: bool = False
     ) -> None:
         """注册节点函数
@@ -77,18 +75,18 @@ class NodeFunctionManager:
         """
         return self.registry.get_function(name)
     
-    def get_function_config(self, name: str) -> Optional[NodeFunctionConfig]:
+    def get_function_config(self, name: str) -> Optional[INodeFunctionConfig]:
         """获取节点函数配置
         
         Args:
             name: 函数名称
             
         Returns:
-            Optional[NodeFunctionConfig]: 函数配置，如果不存在返回None
+            Optional[INodeFunctionConfig]: 函数配置，如果不存在返回None
         """
         return self.registry.get_function_config(name)
     
-    def register_composition(self, config: NodeCompositionConfig) -> None:
+    def register_composition(self, config: INodeCompositionConfig) -> None:
         """注册节点组合配置
         
         Args:
@@ -96,14 +94,14 @@ class NodeFunctionManager:
         """
         self.registry.register_composition(config)
     
-    def get_composition(self, name: str) -> Optional[NodeCompositionConfig]:
+    def get_composition(self, name: str) -> Optional[INodeCompositionConfig]:
         """获取节点组合配置
         
         Args:
             name: 组合名称
             
         Returns:
-            Optional[NodeCompositionConfig]: 节点组合配置，如果不存在返回None
+            Optional[INodeCompositionConfig]: 节点组合配置，如果不存在返回None
         """
         return self.registry.get_composition(name)
     
@@ -123,7 +121,20 @@ class NodeFunctionManager:
         Returns:
             Dict[str, Any]: 更新后的状态
         """
-        return self.executor.execute_function(name, state, **kwargs)
+        function = self.get_function(name)
+        if not function:
+            raise ValueError(f"节点函数不存在: {name}")
+        
+        try:
+            result = function(state, **kwargs)
+            if isinstance(result, dict):
+                return result
+            else:
+                # 如果函数返回的不是字典，将其包装到状态中
+                return {"result": result}
+        except Exception as e:
+            self.logger.error(f"执行节点函数失败 {name}: {e}")
+            raise
     
     def execute_composition(
         self, 
@@ -141,7 +152,17 @@ class NodeFunctionManager:
         Returns:
             Dict[str, Any]: 更新后的状态
         """
-        return self.executor.execute_composition(name, state, **kwargs)
+        composition = self.get_composition(name)
+        if not composition:
+            raise ValueError(f"节点组合不存在: {name}")
+        
+        current_state = state
+        
+        # 执行组合中的每个函数
+        for func_name in composition.function_sequence:
+            current_state = self.execute_function(func_name, current_state, **kwargs)
+        
+        return current_state
     
     def list_functions(self) -> List[str]:
         """列出所有函数名称

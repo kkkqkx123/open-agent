@@ -13,7 +13,7 @@ from src.infrastructure.messages import AIMessage, SystemMessage, HumanMessage
 from src.services.logger.injection import get_logger
 
 from .registry import node
-from .async_node import AsyncNode
+from src.infrastructure.graph.nodes import AsyncNode
 from src.interfaces.workflow.graph import NodeExecutionResult
 from src.interfaces.state.interfaces import IState
 from src.interfaces.llm import ILLMClient

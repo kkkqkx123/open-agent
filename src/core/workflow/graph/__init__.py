@@ -18,22 +18,31 @@ from .decorators import node
 from .registry import (
     FunctionRegistry
 )
+
 # 从基础设施层导入基础组件
 from src.infrastructure.graph.registry import (
     NodeRegistry,
     EdgeRegistry
 )
+
+# 从基础设施层导入节点
 from src.infrastructure.graph.nodes import (
     BaseNode,
     SimpleNode,
     AsyncNode,
-    StartNode as InfraStartNode,
-    EndNode as InfraEndNode
+    StartNode,
+    EndNode
 )
+
+# 从基础设施层导入边
 from src.infrastructure.graph.edges import (
     BaseEdge,
-    SimpleEdge
+    SimpleEdge,
+    ConditionalEdge,
+    FlexibleConditionalEdge
 )
+
+# 核心层图引擎
 from src.infrastructure.graph.core import Graph as InfraGraph
 
 # 核心层特有的业务节点
@@ -41,15 +50,10 @@ from .nodes import (
     LLMNode,
     ToolNode,
     ConditionNode,
-    WaitNode,
-    # StartNode 和 EndNode 保留在核心层，但继承自基础设施层
-    StartNode,
-    EndNode
+    WaitNode
 )
-from .edges import (
-    ConditionalEdge,
-    FlexibleConditionalEdge
-)
+
+# 核心层服务
 from .service import GraphService, create_graph_service, IGraphService
 
 __all__ = [
@@ -80,8 +84,6 @@ __all__ = [
     "BaseNode",
     "SimpleNode",
     "AsyncNode",
-    "InfraStartNode",
-    "InfraEndNode",
     
     # Infrastructure Edges (re-exported)
     "BaseEdge",

@@ -4,13 +4,9 @@
 """
 
 from typing import Dict, Any, Callable, Optional, List
-from src.services.logger.injection import get_logger
 
 from .registry import RouteFunctionRegistry, RouteFunctionConfig
-from .loader import RouteFunctionLoader
 from .builtin import BuiltinRouteFunctions
-
-logger = get_logger(__name__)
 
 
 class RouteFunctionManager:
@@ -25,15 +21,18 @@ class RouteFunctionManager:
         Args:
             config_dir: 配置目录路径
         """
+        # 使用基础设施层的日志服务
+        from src.services.logger.injection import get_logger
+        self.logger = get_logger(self.__class__.__name__)
+        
         self.registry = RouteFunctionRegistry()
-        self.loader = RouteFunctionLoader(self.registry)
         
         # 注册内置函数
         self._register_builtin_functions()
         
         # 从配置目录加载
         if config_dir:
-            self.loader.load_from_config_directory(config_dir)
+            self._load_from_config_directory(config_dir)
     
     def _register_builtin_functions(self) -> None:
         """注册内置函数"""
@@ -51,9 +50,16 @@ class RouteFunctionManager:
             )
             
             self.registry.register_route_function(name, func, config)
+    
+    def _load_from_config_directory(self, config_dir: str) -> None:
+        """从配置目录加载路由函数
         
-        # 注册到加载器
-        self.loader.register_builtin_functions(builtin_functions)
+        Args:
+            config_dir: 配置目录路径
+        """
+        # 这里可以实现从配置文件加载路由函数的逻辑
+        # 暂时留空，可以根据需要实现
+        self.logger.debug(f"从配置目录加载路由函数: {config_dir}")
     
     def get_route_function(self, name: str) -> Optional[Callable]:
         """获取路由函数
@@ -219,7 +225,7 @@ class RouteFunctionManager:
             self.registry.unregister(func_name)
         
         # 重新加载配置
-        self.loader.load_from_config_directory(config_dir)
+        self._load_from_config_directory(config_dir)
     
     def validate_all_functions(self) -> Dict[str, List[str]]:
         """验证所有注册的路由函数

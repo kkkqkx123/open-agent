@@ -185,23 +185,23 @@ class GraphService(IGraphService):
         
         try:
             # 检查图是否有引擎
-            if hasattr(graph, 'get_engine'):
-                engine = graph.get_engine()
-                if engine:
-                    # 使用基础设施层的图引擎执行
-                    input_data = initial_state.to_dict() if hasattr(initial_state, 'to_dict') else {}
-                    result = await engine.execute(input_data)
-                    
-                    # 将结果转换回NodeExecutionResult
-                    if hasattr(initial_state, 'from_dict'):
-                        final_state = initial_state.__class__.from_dict(result)
-                    else:
-                        final_state = initial_state
-                    
-                    # 执行结束插件
-                    self._execute_end_plugins(final_state)
-                    
-                    return NodeExecutionResult(state=final_state)
+            engine = graph.get_engine()
+            if engine:
+                # 使用基础设施层的图引擎执行
+                input_data = initial_state.to_dict() if hasattr(initial_state, 'to_dict') else {}
+                result = await engine.execute(input_data)
+                
+                # 将结果转换回状态对象
+                final_state: IWorkflowState
+                if hasattr(initial_state, 'from_dict'):
+                    final_state = cast(IWorkflowState, initial_state.__class__.from_dict(result))
+                else:
+                    final_state = initial_state
+                
+                # 执行结束插件
+                self._execute_end_plugins(final_state)
+                
+                return NodeExecutionResult(state=final_state)
             
             # 回退到原有的执行逻辑
             # 获取入口节点

@@ -4,12 +4,11 @@
 """
 
 from typing import Dict, Any, Callable, Optional, List
-from src.services.logger.injection import get_logger
 
-logger = get_logger(__name__)
+from src.interfaces.workflow.graph import IRouteFunctionConfig
 
 
-class RouteFunctionConfig:
+class RouteFunctionConfig(IRouteFunctionConfig):
     """路由函数配置"""
     
     def __init__(
@@ -49,6 +48,10 @@ class RouteFunctionRegistry:
     """
     
     def __init__(self) -> None:
+        # 使用基础设施层的日志服务
+        from src.services.logger.injection import get_logger
+        self.logger = get_logger(self.__class__.__name__)
+        
         self._route_functions: Dict[str, Callable] = {}
         self._route_configs: Dict[str, RouteFunctionConfig] = {}
         self._categories: Dict[str, List[str]] = {}
@@ -75,7 +78,7 @@ class RouteFunctionRegistry:
         if name not in self._categories[config.category]:
             self._categories[config.category].append(name)
         
-        logger.debug(f"注册路由函数: {name} (分类: {config.category})")
+        self.logger.debug(f"注册路由函数: {name} (分类: {config.category})")
     
     def get_route_function(self, name: str) -> Optional[Callable]:
         """获取路由函数
@@ -144,7 +147,7 @@ class RouteFunctionRegistry:
             del self._route_functions[name]
             del self._route_configs[name]
             
-            logger.debug(f"注销路由函数: {name}")
+            self.logger.debug(f"注销路由函数: {name}")
             return True
         return False
     
@@ -205,7 +208,7 @@ class RouteFunctionRegistry:
         self._route_functions.clear()
         self._route_configs.clear()
         self._categories.clear()
-        logger.debug("清除所有路由函数")
+        self.logger.debug("清除所有路由函数")
     
     def size(self) -> int:
         """获取注册的路由函数数量

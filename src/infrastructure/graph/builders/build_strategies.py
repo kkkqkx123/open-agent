@@ -6,19 +6,19 @@
 from typing import Any, Dict, List, Optional, Union, Callable, cast
 
 from src.interfaces.workflow.element_builder import IBuildStrategy, BuildContext, IElementBuilder, INodeBuilder, IEdgeBuilder
-from src.core.workflow.config.config import NodeConfig, EdgeConfig
+from src.interfaces.workflow.config import INodeConfig, IEdgeConfig
 
 
 class DefaultBuildStrategy(IBuildStrategy):
     """默认构建策略"""
     
-    def can_handle(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> bool:
+    def can_handle(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> bool:
         """默认策略可以处理所有配置"""
         return True
     
     def execute(
         self, 
-        config: Union[NodeConfig, EdgeConfig], 
+        config: Union[INodeConfig, IEdgeConfig], 
         context: BuildContext,
         builder: IElementBuilder
     ) -> Any:
@@ -40,13 +40,13 @@ class CachedBuildStrategy(IBuildStrategy):
         """
         self.cache_key_func = cache_key_func
     
-    def can_handle(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> bool:
+    def can_handle(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> bool:
         """检查是否可以使用缓存策略"""
         return True
     
     def execute(
         self, 
-        config: Union[NodeConfig, EdgeConfig], 
+        config: Union[INodeConfig, IEdgeConfig], 
         context: BuildContext,
         builder: IElementBuilder
     ) -> Any:
@@ -72,11 +72,11 @@ class CachedBuildStrategy(IBuildStrategy):
         
         return result
     
-    def _get_element_name(self, config: Union[NodeConfig, EdgeConfig]) -> str:
+    def _get_element_name(self, config: Union[INodeConfig, IEdgeConfig]) -> str:
         """获取元素名称"""
-        if isinstance(config, NodeConfig):
+        if isinstance(config, INodeConfig):
             return config.name
-        elif isinstance(config, EdgeConfig):
+        elif isinstance(config, IEdgeConfig):
             return f"{config.from_node}->{config.to_node}"
         else:
             return str(config)
@@ -85,7 +85,7 @@ class CachedBuildStrategy(IBuildStrategy):
         self, 
         element_type: str, 
         element_name: str, 
-        config: Union[NodeConfig, EdgeConfig],
+        config: Union[INodeConfig, IEdgeConfig],
         context: BuildContext
     ) -> str:
         """生成缓存键"""
@@ -102,30 +102,30 @@ class CachedBuildStrategy(IBuildStrategy):
 class FunctionResolutionBuildStrategy(IBuildStrategy):
     """函数解析构建策略"""
     
-    def can_handle(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> bool:
+    def can_handle(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> bool:
         """检查是否可以使用函数解析策略"""
         return (
-            isinstance(config, NodeConfig) or 
-            (isinstance(config, EdgeConfig) and config.type.value == "conditional")
+            isinstance(config, INodeConfig) or 
+            (isinstance(config, IEdgeConfig) and config.type.value == "conditional")
         ) and context.function_resolver is not None
     
     def execute(
         self, 
-        config: Union[NodeConfig, EdgeConfig], 
+        config: Union[INodeConfig, IEdgeConfig], 
         context: BuildContext,
         builder: IElementBuilder
     ) -> Any:
         """执行函数解析构建逻辑"""
-        if isinstance(config, NodeConfig):
+        if isinstance(config, INodeConfig):
             return self._build_node_with_function_resolution(config, context, builder)
-        elif isinstance(config, EdgeConfig):
+        elif isinstance(config, IEdgeConfig):
             return self._build_edge_with_function_resolution(config, context, builder)
         else:
             raise ValueError(f"不支持的配置类型: {type(config)}")
     
     def _build_node_with_function_resolution(
         self, 
-        config: NodeConfig, 
+        config: INodeConfig, 
         context: BuildContext,
         builder: IElementBuilder
     ) -> Callable:
@@ -140,7 +140,7 @@ class FunctionResolutionBuildStrategy(IBuildStrategy):
     
     def _build_edge_with_function_resolution(
         self, 
-        config: EdgeConfig, 
+        config: IEdgeConfig, 
         context: BuildContext,
         builder: IElementBuilder
     ) -> Dict[str, Any]:
@@ -165,23 +165,23 @@ class FunctionResolutionBuildStrategy(IBuildStrategy):
 class CompositionBuildStrategy(IBuildStrategy):
     """组合构建策略"""
     
-    def can_handle(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> bool:
+    def can_handle(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> bool:
         """检查是否可以使用组合策略"""
         return (
-            isinstance(config, NodeConfig) and 
+            isinstance(config, INodeConfig) and 
             hasattr(config, 'composition_name') and 
             bool(config.composition_name)
         )
     
     def execute(
         self, 
-        config: Union[NodeConfig, EdgeConfig], 
+        config: Union[INodeConfig, IEdgeConfig], 
         context: BuildContext,
         builder: IElementBuilder
     ) -> Callable:
         """执行组合构建逻辑"""
-        if not isinstance(config, NodeConfig):
-            raise ValueError("CompositionBuildStrategy只支持NodeConfig")
+        if not isinstance(config, INodeConfig):
+            raise ValueError("CompositionBuildStrategy只支持INodeConfig")
         
         composition_name = config.composition_name
         
@@ -199,7 +199,7 @@ class CompositionBuildStrategy(IBuildStrategy):
     def _create_composition_function(
         self, 
         composition_name: str, 
-        config: NodeConfig,
+        config: INodeConfig,
         context: BuildContext
     ) -> Callable:
         """创建组合函数"""
@@ -217,7 +217,7 @@ class CompositionBuildStrategy(IBuildStrategy):
     
     def _create_function_sequence_composition(
         self, 
-        config: NodeConfig,
+        config: INodeConfig,
         context: BuildContext
     ) -> Callable:
         """创建函数序列组合"""
@@ -247,19 +247,19 @@ class CompositionBuildStrategy(IBuildStrategy):
 class ConditionalEdgeBuildStrategy(IBuildStrategy):
     """条件边构建策略"""
     
-    def can_handle(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> bool:
+    def can_handle(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> bool:
         """检查是否可以使用条件边策略"""
-        return isinstance(config, EdgeConfig) and config.type.value == "conditional"
+        return isinstance(config, IEdgeConfig) and config.type.value == "conditional"
     
     def execute(
         self, 
-        config: Union[NodeConfig, EdgeConfig], 
+        config: Union[INodeConfig, IEdgeConfig], 
         context: BuildContext,
         builder: IElementBuilder
     ) -> Dict[str, Any]:
         """执行条件边构建逻辑"""
-        if not isinstance(config, EdgeConfig):
-            raise ValueError("ConditionalEdgeBuildStrategy只支持EdgeConfig")
+        if not isinstance(config, IEdgeConfig):
+            raise ValueError("ConditionalEdgeBuildStrategy只支持IEdgeConfig")
         
         # 检查是否为灵活条件边
         if hasattr(config, 'is_flexible_conditional') and config.is_flexible_conditional():
@@ -269,7 +269,7 @@ class ConditionalEdgeBuildStrategy(IBuildStrategy):
     
     def _build_flexible_conditional_edge(
         self, 
-        config: EdgeConfig, 
+        config: IEdgeConfig, 
         context: BuildContext,
         builder: IElementBuilder
     ) -> Dict[str, Any]:
@@ -290,7 +290,7 @@ class ConditionalEdgeBuildStrategy(IBuildStrategy):
     
     def _build_legacy_conditional_edge(
         self, 
-        config: EdgeConfig, 
+        config: IEdgeConfig, 
         context: BuildContext,
         builder: IElementBuilder
     ) -> Dict[str, Any]:
@@ -324,13 +324,13 @@ class RetryBuildStrategy(IBuildStrategy):
         self.max_retries = max_retries
         self.retry_delay = retry_delay
     
-    def can_handle(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> bool:
+    def can_handle(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> bool:
         """重试策略可以处理所有配置，但通常作为包装策略使用"""
         return True
     
     def execute(
         self, 
-        config: Union[NodeConfig, EdgeConfig], 
+        config: Union[INodeConfig, IEdgeConfig], 
         context: BuildContext,
         builder: IElementBuilder
     ) -> Any:
@@ -381,7 +381,7 @@ class BuildStrategyRegistry:
     
     def get_applicable_strategies(
         self, 
-        config: Union[NodeConfig, EdgeConfig], 
+        config: Union[INodeConfig, IEdgeConfig], 
         context: BuildContext
     ) -> List[IBuildStrategy]:
         """获取适用的构建策略"""

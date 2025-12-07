@@ -5,11 +5,8 @@
 
 from typing import Dict, Any, Callable, Optional, List
 from dataclasses import dataclass
-from src.services.logger.injection import get_logger
 
-from .config import NodeFunctionConfig, NodeCompositionConfig
-
-logger = get_logger(__name__)
+from src.interfaces.workflow.graph import INodeFunctionConfig, INodeCompositionConfig
 
 
 @dataclass
@@ -17,7 +14,7 @@ class RegisteredNodeFunction:
     """已注册的节点函数"""
     name: str
     function: Callable
-    config: NodeFunctionConfig
+    config: INodeFunctionConfig
     is_rest: bool = False
 
 
@@ -25,8 +22,12 @@ class NodeFunctionRegistry:
     """节点函数注册表"""
     
     def __init__(self) -> None:
+        # 使用基础设施层的日志服务
+        from src.services.logger.injection import get_logger
+        self.logger = get_logger(self.__class__.__name__)
+        
         self._functions: Dict[str, RegisteredNodeFunction] = {}
-        self._compositions: Dict[str, NodeCompositionConfig] = {}
+        self._compositions: Dict[str, INodeCompositionConfig] = {}
         self._categories: Dict[str, List[str]] = {
             "llm": [],
             "tool": [],
@@ -39,7 +40,7 @@ class NodeFunctionRegistry:
         self, 
         name: str, 
         function: Callable, 
-        config: NodeFunctionConfig,
+        config: INodeFunctionConfig,
         is_rest: bool = False
     ) -> None:
         """注册节点函数
@@ -66,7 +67,7 @@ class NodeFunctionRegistry:
         else:
             self._categories["custom"].append(name)
         
-        logger.debug(f"注册节点函数: {name} (类型: {func_type})")
+        self.logger.debug(f"注册节点函数: {name} (类型: {func_type})")
     
     def get_function(self, name: str) -> Optional[Callable]:
         """获取节点函数
@@ -80,35 +81,35 @@ class NodeFunctionRegistry:
         registered_func = self._functions.get(name)
         return registered_func.function if registered_func else None
     
-    def get_function_config(self, name: str) -> Optional[NodeFunctionConfig]:
+    def get_function_config(self, name: str) -> Optional[INodeFunctionConfig]:
         """获取节点函数配置
         
         Args:
             name: 函数名称
             
         Returns:
-            Optional[NodeFunctionConfig]: 函数配置，如果不存在返回None
+            Optional[INodeFunctionConfig]: 函数配置，如果不存在返回None
         """
         registered_func = self._functions.get(name)
         return registered_func.config if registered_func else None
     
-    def register_composition(self, config: NodeCompositionConfig) -> None:
+    def register_composition(self, config: INodeCompositionConfig) -> None:
         """注册节点组合配置
         
         Args:
             config: 节点组合配置
         """
         self._compositions[config.name] = config
-        logger.debug(f"注册节点组合: {config.name}")
+        self.logger.debug(f"注册节点组合: {config.name}")
     
-    def get_composition(self, name: str) -> Optional[NodeCompositionConfig]:
+    def get_composition(self, name: str) -> Optional[INodeCompositionConfig]:
         """获取节点组合配置
         
         Args:
             name: 组合名称
             
         Returns:
-            Optional[NodeCompositionConfig]: 节点组合配置，如果不存在返回None
+            Optional[INodeCompositionConfig]: 节点组合配置，如果不存在返回None
         """
         return self._compositions.get(name)
     

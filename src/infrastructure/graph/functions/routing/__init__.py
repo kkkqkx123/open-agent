@@ -1,19 +1,17 @@
-"""路由函数模块
+"""Infrastructure layer routing functions.
 
-提供灵活的条件边路由功能，支持配置驱动的路由函数管理。
+This module provides routing function implementations for graph components in the infrastructure layer.
 """
 
+from .builtin import BuiltinRouteFunctions
 from .registry import RouteFunctionRegistry, RouteFunctionConfig
 from .manager import RouteFunctionManager, get_route_function_manager, reset_route_function_manager
-from .loader import RouteFunctionLoader
-from .builtin import BuiltinRouteFunctions
 
 __all__ = [
-    "RouteFunctionRegistry",
-    "RouteFunctionConfig", 
-    "RouteFunctionManager",
-    "RouteFunctionLoader",
     "BuiltinRouteFunctions",
+    "RouteFunctionRegistry",
+    "RouteFunctionConfig",
+    "RouteFunctionManager",
     "get_route_function_manager",
     "reset_route_function_manager",
 ]

@@ -226,6 +226,16 @@ class IEdge(ABC):
         return self.get_next_nodes(state, config)
 
     @abstractmethod
+    def get_config_schema(self) -> Dict[str, Any]:
+        """获取边配置Schema"""
+        pass
+
+    @abstractmethod
+    def validate_config(self, config: Dict[str, Any]) -> List[str]:
+        """验证边配置"""
+        pass
+
+    @abstractmethod
     def validate(self) -> List[str]:
         """验证边配置"""
         pass
@@ -283,6 +293,11 @@ class IGraph(ABC):
     @abstractmethod
     def get_exit_points(self) -> List[str]:
         """获取出口节点列表"""
+        pass
+
+    @abstractmethod
+    def get_engine(self) -> Any:
+        """获取图引擎"""
         pass
 
 

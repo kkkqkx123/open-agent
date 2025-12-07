@@ -7,13 +7,13 @@ from typing import Dict, List, Optional, Union, Callable
 import re
 
 from src.interfaces.workflow.element_builder import IValidationRule, BuildContext
-from src.core.workflow.config.config import NodeConfig, EdgeConfig
+from src.interfaces.workflow.config import INodeConfig, IEdgeConfig
 
 
 class BasicConfigValidationRule(IValidationRule):
     """基础配置验证规则"""
     
-    def validate(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> List[str]:
+    def validate(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> List[str]:
         """验证基础配置"""
         errors = []
         
@@ -22,10 +22,10 @@ class BasicConfigValidationRule(IValidationRule):
             return errors
         
         # 验证配置对象的基本属性
-        if isinstance(config, NodeConfig) and not config.name:
+        if isinstance(config, INodeConfig) and not config.name:
             errors.append("名称不能为空")
         
-        if isinstance(config, EdgeConfig) and not config.from_node:
+        if isinstance(config, IEdgeConfig) and not config.from_node:
             errors.append("起始节点不能为空")
         
         return errors
@@ -40,11 +40,11 @@ class BasicConfigValidationRule(IValidationRule):
 class NodeExistenceValidationRule(IValidationRule):
     """节点存在性验证规则"""
     
-    def validate(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> List[str]:
+    def validate(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> List[str]:
         """验证节点是否存在"""
         errors = []
         
-        if isinstance(config, EdgeConfig):
+        if isinstance(config, IEdgeConfig):
             node_names = set(context.graph_config.nodes.keys())
             
             if config.from_node not in node_names and config.from_node not in ["__start__"]:
@@ -65,17 +65,17 @@ class NodeExistenceValidationRule(IValidationRule):
 class FunctionNameValidationRule(IValidationRule):
     """函数名称验证规则"""
     
-    def validate(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> List[str]:
+    def validate(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> List[str]:
         """验证函数名称"""
         errors = []
         
-        if isinstance(config, NodeConfig):
+        if isinstance(config, INodeConfig):
             if not config.function_name:
                 errors.append("节点函数名称不能为空")
             elif not self._is_valid_function_name(config.function_name):
                 errors.append(f"无效的函数名称: {config.function_name}")
         
-        elif isinstance(config, EdgeConfig) and config.type.value == "conditional":
+        elif isinstance(config, IEdgeConfig) and config.type.value == "conditional":
             if config.condition and not self._is_valid_function_name(config.condition):
                 errors.append(f"无效的条件函数名称: {config.condition}")
         
@@ -100,11 +100,11 @@ class FunctionNameValidationRule(IValidationRule):
 class ConditionalEdgeValidationRule(IValidationRule):
     """条件边验证规则"""
     
-    def validate(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> List[str]:
+    def validate(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> List[str]:
         """验证条件边配置"""
         errors = []
         
-        if isinstance(config, EdgeConfig) and config.type.value == "conditional":
+        if isinstance(config, IEdgeConfig) and config.type.value == "conditional":
             # 检查是否为灵活条件边
             if hasattr(config, 'is_flexible_conditional') and config.is_flexible_conditional():
                 if not hasattr(config, 'route_function') or not config.route_function:
@@ -126,11 +126,11 @@ class ConditionalEdgeValidationRule(IValidationRule):
 class SelfLoopValidationRule(IValidationRule):
     """自循环验证规则"""
     
-    def validate(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> List[str]:
+    def validate(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> List[str]:
         """验证是否存在自循环"""
         errors = []
         
-        if isinstance(config, EdgeConfig):
+        if isinstance(config, IEdgeConfig):
             if config.from_node == config.to_node:
                 errors.append("不允许节点自循环")
         
@@ -146,7 +146,7 @@ class SelfLoopValidationRule(IValidationRule):
 class EntryPointValidationRule(IValidationRule):
     """入口点验证规则"""
     
-    def validate(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> List[str]:
+    def validate(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> List[str]:
         """验证入口点配置"""
         errors = []
         
@@ -168,11 +168,11 @@ class EntryPointValidationRule(IValidationRule):
 class PathMapValidationRule(IValidationRule):
     """路径映射验证规则"""
     
-    def validate(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> List[str]:
+    def validate(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> List[str]:
         """验证路径映射配置"""
         errors = []
         
-        if isinstance(config, EdgeConfig) and config.path_map:
+        if isinstance(config, IEdgeConfig) and config.path_map:
             node_names = set(context.graph_config.nodes.keys())
             
             for target_node in config.path_map.values():
@@ -191,11 +191,11 @@ class PathMapValidationRule(IValidationRule):
 class CompositionValidationRule(IValidationRule):
     """组合验证规则"""
     
-    def validate(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> List[str]:
+    def validate(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> List[str]:
         """验证节点组合配置"""
         errors = []
         
-        if isinstance(config, NodeConfig):
+        if isinstance(config, INodeConfig):
             # 检查组合名称和函数序列的一致性
             if hasattr(config, 'composition_name') and config.composition_name:
                 if not hasattr(config, 'function_sequence') or not config.function_sequence:
@@ -241,7 +241,7 @@ class CustomParameterValidationRule(IValidationRule):
         self.error_message = error_message
         self._priority = priority
     
-    def validate(self, config: Union[NodeConfig, EdgeConfig], context: BuildContext) -> List[str]:
+    def validate(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> List[str]:
         """验证自定义参数"""
         errors = []
         

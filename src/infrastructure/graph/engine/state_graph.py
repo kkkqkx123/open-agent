@@ -361,6 +361,7 @@ class StateGraphEngine(IGraphEngine):
         if self.hook_system:
             context = HookContext(
                 hook_point=HookPoint.ON_ERROR,  # 使用现有的Hook点
+                config={},
                 graph_id=str(id(self))
             )
             await self.hook_system.execute_hooks(HookPoint.ON_ERROR, context)

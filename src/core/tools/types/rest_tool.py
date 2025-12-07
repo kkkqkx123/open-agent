@@ -28,6 +28,8 @@ class RestTool(StatefulBaseTool):
     """REST工具
 
     用于调用外部REST API的工具，支持多种HTTP方法和认证方式。
+    注意：虽然技术上使用状态管理器来维护HTTP会话连接和速率限制等，
+    但业务逻辑上是无状态的，每次调用不依赖于之前的调用结果。
     """
 
     def __init__(self, config: Any, state_manager):

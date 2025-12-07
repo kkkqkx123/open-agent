@@ -7,6 +7,11 @@ from typing import Dict, Any, Optional, List, Type
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 
+from src.interfaces.workflow.config import (
+    INodeConfig, IEdgeConfig, IStateFieldConfig, IGraphStateConfig, IGraphConfig,
+    EdgeType as InterfaceEdgeType
+)
+
 
 @dataclass
 class WorkflowConfig:
@@ -36,15 +41,17 @@ class WorkflowConfig:
         return asdict(self)
 
 
-class EdgeType(Enum):
-    """边类型枚举"""
-    SIMPLE = "simple"
-    CONDITIONAL = "conditional"
+class EdgeType(InterfaceEdgeType):
+    """边类型枚举 - 继承自接口层定义"""
+    pass
 
 
 @dataclass
-class EdgeConfig:
-    """边配置 - 符合LangGraph边模式"""
+class EdgeConfig(IEdgeConfig):
+    """边配置 - 符合LangGraph边模式
+    
+    实现IEdgeConfig接口。
+    """
     from_node: str
     to_node: str
     type: EdgeType
@@ -129,8 +136,11 @@ class EdgeConfig:
 
 
 @dataclass
-class StateFieldConfig:
-    """状态字段配置"""
+class StateFieldConfig(IStateFieldConfig):
+    """状态字段配置
+    
+    实现IStateFieldConfig接口。
+    """
     name: str
     type: str
     default: Any = None
@@ -139,15 +149,21 @@ class StateFieldConfig:
 
 
 @dataclass
-class GraphStateConfig:
-    """图状态配置"""
+class GraphStateConfig(IGraphStateConfig):
+    """图状态配置
+    
+    实现IGraphStateConfig接口。
+    """
     name: str
     fields: Dict[str, StateFieldConfig] = field(default_factory=dict)
 
 
 @dataclass
-class NodeConfig:
-    """节点配置"""
+class NodeConfig(INodeConfig):
+    """节点配置
+    
+    实现INodeConfig接口。
+    """
     name: str
     function_name: str
     description: Optional[str] = None
@@ -187,8 +203,11 @@ class NodeConfig:
 
 
 @dataclass
-class GraphConfig:
-    """图配置 - 符合LangGraph StateGraph模式"""
+class GraphConfig(IGraphConfig):
+    """图配置 - 符合LangGraph StateGraph模式
+    
+    实现IGraphConfig接口。
+    """
     name: str
     id: str = ""  # 添加 id 属性
     description: str = ""

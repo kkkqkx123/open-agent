@@ -3,18 +3,12 @@
 实现基于路由函数的条件边，支持条件逻辑与路由目标的解耦。
 """
 
-from typing import Dict, Any, Optional, List, Callable
+from typing import Dict, Any, Optional, List, Callable, TYPE_CHECKING
 from dataclasses import dataclass
-from src.services.logger.injection import get_logger
-
-from src.core.workflow.graph.route_functions import RouteFunctionManager
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.core.state import WorkflowState
-from src.core.workflow.config.config import EdgeConfig, EdgeType
-
-logger = get_logger(__name__)
+    from src.interfaces.state import IWorkflowState
+    from src.interfaces.workflow.config import IEdgeConfig
 
 
 @dataclass
@@ -30,10 +24,10 @@ class FlexibleConditionalEdge:
     
     def __post_init__(self) -> None:
         """初始化后处理"""
-        self._route_function_manager: Optional[RouteFunctionManager] = None
+        self._route_function_manager: Optional[Any] = None
         self._cached_route_function: Optional[Callable] = None
     
-    def set_route_function_manager(self, manager: RouteFunctionManager) -> None:
+    def set_route_function_manager(self, manager: Any) -> None:
         """设置路由函数管理器
         
         Args:
@@ -43,7 +37,7 @@ class FlexibleConditionalEdge:
         # 清除缓存，因为管理器可能已更改
         self._cached_route_function = None
     
-    def validate(self, route_function_manager: Optional[RouteFunctionManager] = None) -> List[str]:
+    def validate(self, route_function_manager: Optional[Any] = None) -> List[str]:
         """验证边配置
         
         Args:
@@ -72,7 +66,7 @@ class FlexibleConditionalEdge:
         
         return errors
     
-    def create_route_function(self, route_function_manager: Optional[RouteFunctionManager] = None) -> Callable:
+    def create_route_function(self, route_function_manager: Optional[Any] = None) -> Callable:
         """创建实际的路由函数
         
         Args:
@@ -97,7 +91,7 @@ class FlexibleConditionalEdge:
             raise ValueError(f"路由函数不存在: {self.route_function}")
         
         # 创建包装函数，注入参数
-        def wrapped_route_function(state: WorkflowState) -> str:
+        def wrapped_route_function(state: "IWorkflowState") -> str:
             # 将路由参数注入到状态中
             state_dict = dict(state) if isinstance(state, dict) else state.__dict__
             enhanced_state = {
@@ -111,7 +105,7 @@ class FlexibleConditionalEdge:
         return wrapped_route_function
     
     @classmethod
-    def from_config(cls, config: EdgeConfig, route_function_manager: Optional[RouteFunctionManager] = None) -> "FlexibleConditionalEdge":
+    def from_config(cls, config: Any, route_function_manager: Optional[Any] = None) -> "FlexibleConditionalEdge":
         """从配置创建灵活条件边
         
         Args:
@@ -124,6 +118,7 @@ class FlexibleConditionalEdge:
         Raises:
             ValueError: 配置类型不匹配或缺少必要字段
         """
+        from src.core.workflow.config import EdgeType
         
         if config.type != EdgeType.CONDITIONAL:
             raise ValueError(f"配置类型不匹配，期望 conditional，实际 {config.type.value}")
@@ -151,16 +146,17 @@ class FlexibleConditionalEdge:
         
         return edge
     
-    def to_config(self) -> EdgeConfig:
+    def to_config(self) -> "IEdgeConfig":
         """转换为配置
         
         Returns:
-            EdgeConfig: 边配置
+            IEdgeConfig: 边配置
         """
+        from src.core.workflow.config import EdgeConfig, EdgeType
         return EdgeConfig(
             from_node=self.from_node,
             to_node="",  # 灵活条件边不指定目标节点
-            type=EdgeType.CONDITIONAL,
+            type=EdgeType(EdgeType.CONDITIONAL.value),
             condition="",  # 使用路由函数替代条件表达式
             description=self.description,
             path_map=None  # 路径映射在工作流中定义
@@ -220,7 +216,7 @@ class FlexibleConditionalEdge:
         # 默认为自定义条件
         return "custom_condition", {"expression": condition_str}
     
-    def get_route_info(self, route_function_manager: Optional[RouteFunctionManager] = None) -> Optional[Dict[str, Any]]:
+    def get_route_info(self, route_function_manager: Optional[Any] = None) -> Optional[Dict[str, Any]]:
         """获取路由函数信息
         
         Args:
@@ -252,7 +248,7 @@ class FlexibleConditionalEdgeFactory:
     提供创建灵活条件边的工厂方法。
     """
     
-    def __init__(self, route_function_manager: RouteFunctionManager):
+    def __init__(self, route_function_manager: Any):
         self.route_function_manager = route_function_manager
     
     def create_edge(
@@ -288,7 +284,7 @@ class FlexibleConditionalEdgeFactory:
         
         return edge
     
-    def create_from_config(self, config: EdgeConfig) -> FlexibleConditionalEdge:
+    def create_from_config(self, config: "IEdgeConfig") -> FlexibleConditionalEdge:
         """从配置创建灵活条件边
         
         Args:
@@ -299,7 +295,7 @@ class FlexibleConditionalEdgeFactory:
         """
         return FlexibleConditionalEdge.from_config(config, self.route_function_manager)
     
-    def create_batch(self, edge_configs: List[EdgeConfig]) -> List[FlexibleConditionalEdge]:
+    def create_batch(self, edge_configs: List["IEdgeConfig"]) -> List[FlexibleConditionalEdge]:
         """批量创建灵活条件边
         
         Args:
