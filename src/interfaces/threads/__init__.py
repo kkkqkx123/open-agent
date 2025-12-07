@@ -7,7 +7,21 @@ from .checkpoint import (
     IThreadCheckpointStorage,
     IThreadCheckpointManager,
     IThreadCheckpointSerializer,
-    IThreadCheckpointPolicy
+    IThreadCheckpointPolicy,
+    # 异常定义
+    CheckpointError,
+    CheckpointValidationError,
+    CheckpointNotFoundError,
+    CheckpointStorageError,
+    CheckpointConflictError,
+    CheckpointTimeoutError,
+    CheckpointQuotaExceededError,
+    CheckpointCorruptionError,
+    CheckpointVersionError,
+    CheckpointConfigurationError,
+    CheckpointHookError,
+    CheckpointCacheError,
+    CheckpointResourceError,
 )
 from .entities import IThread, IThreadBranch, IThreadSnapshot
 
@@ -25,4 +39,18 @@ __all__ = [
     "IThread",
     "IThreadBranch",
     "IThreadSnapshot",
+    # 异常类型
+    "CheckpointError",
+    "CheckpointValidationError",
+    "CheckpointNotFoundError",
+    "CheckpointStorageError",
+    "CheckpointConflictError",
+    "CheckpointTimeoutError",
+    "CheckpointQuotaExceededError",
+    "CheckpointCorruptionError",
+    "CheckpointVersionError",
+    "CheckpointConfigurationError",
+    "CheckpointHookError",
+    "CheckpointCacheError",
+    "CheckpointResourceError",
 ]

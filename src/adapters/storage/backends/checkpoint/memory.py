@@ -1,6 +1,6 @@
 """Checkpoint内存存储后端
 
-提供基于内存的checkpoint存储实现，实现ICheckpointStore和IThreadCheckpointStorage接口。
+提供基于内存的checkpoint存储实现，实现IThreadCheckpointStorage接口。
 """
 
 import time
@@ -11,14 +11,14 @@ from collections import defaultdict
 
 from src.core.threads.checkpoints.models import ThreadCheckpoint, CheckpointMetadata
 from src.core.threads.checkpoints.extensions import ThreadCheckpointExtension
-from src.interfaces.checkpoint.saver import ICheckpointSaver
+from src.interfaces.threads.checkpoint import IThreadCheckpointStorage
 from src.services.logger.injection import get_logger
-from src.interfaces.checkpoint import (
+from src.interfaces.threads.checkpoint import (
     CheckpointValidationError,
     CheckpointNotFoundError,
     CheckpointStorageError,
 )
-# 移除已删除的接口引用
+
 from src.core.threads.checkpoints.models import (
     ThreadCheckpoint,
     CheckpointStatus,
@@ -29,10 +29,10 @@ from src.core.threads.checkpoints.models import (
 logger = get_logger(__name__)
 
 
-class CheckpointMemoryBackend(ICheckpointSaver):
+class CheckpointMemoryBackend(IThreadCheckpointStorage):
     """Checkpoint内存存储后端实现
-    
-    提供基于内存的checkpoint存储功能，实现ICheckpointStore和IThreadCheckpointStorage接口。
+
+    提供基于内存的checkpoint存储功能，实现IThreadCheckpointStorage接口。
     """
     
     def __init__(self, **config: Any) -> None:

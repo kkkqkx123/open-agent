@@ -105,16 +105,21 @@ from .history import (
     ICostCalculator
 )
 
-# 检查点相关接口（所有接口和异常）
-from .checkpoint import (
-    CheckpointInterface,
+# 检查点相关接口（已合并到threads模块）
+from .threads.checkpoint import (
     CheckpointError,
+    CheckpointValidationError,
     CheckpointNotFoundError,
     CheckpointStorageError,
-    CheckpointValidationError,
-    CheckpointSerializationError,
+    CheckpointConflictError,
     CheckpointTimeoutError,
+    CheckpointQuotaExceededError,
+    CheckpointCorruptionError,
     CheckpointVersionError,
+    CheckpointConfigurationError,
+    CheckpointHookError,
+    CheckpointCacheError,
+    CheckpointResourceError,
 )
 
 # Thread检查点相关接口
@@ -362,15 +367,20 @@ __all__ = [
     "IHistoryManager",
     "ICostCalculator",
     
-    # 检查点接口
-    "CheckpointInterface",
+    # 检查点接口（已合并到threads模块）
     "CheckpointError",
+    "CheckpointValidationError",
     "CheckpointNotFoundError",
     "CheckpointStorageError",
-    "CheckpointValidationError",
-    "CheckpointSerializationError",
+    "CheckpointConflictError",
     "CheckpointTimeoutError",
+    "CheckpointQuotaExceededError",
+    "CheckpointCorruptionError",
     "CheckpointVersionError",
+    "CheckpointConfigurationError",
+    "CheckpointHookError",
+    "CheckpointCacheError",
+    "CheckpointResourceError",
     
     # Thread检查点接口
     "IThreadCheckpointStorage",

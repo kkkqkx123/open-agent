@@ -6,7 +6,7 @@ from datetime import datetime
 from dataclasses import dataclass, field
 
 from src.interfaces.threads.entities import IThread, IThreadBranch, IThreadSnapshot
-from src.core.checkpoint.models import Checkpoint, CheckpointType, CheckpointStatistics
+from src.core.threads.checkpoints.models import ThreadCheckpoint as Checkpoint, CheckpointType, CheckpointStatistics
 
 if TYPE_CHECKING:
     from src.core.threads.interfaces import IThreadCheckpointService

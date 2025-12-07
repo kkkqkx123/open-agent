@@ -8,7 +8,6 @@ from ..models.responses import ThreadResponse, ThreadListResponse, OperationResp
 from ..models.requests import ThreadCreateRequest, ThreadForkRequest, ThreadRollbackRequest, ThreadSnapshotRequest
 from ..services.session_service import SessionService
 from src.interfaces.threads.service import IThreadService
-from src.interfaces.checkpoint import ICheckpointStore
 # 移除已删除的Thread checkpoint接口引用
 
 router = APIRouter(prefix="/api/threads", tags=["threads"])
@@ -21,7 +20,7 @@ def get_thread_service() -> IThreadService:
     raise NotImplementedError("Thread service must be provided via dependency injection")
 
 
-def get_checkpoint_store() -> ICheckpointStore:
+def get_checkpoint_store() -> IThreadCheckpointStorage:
     """获取Checkpoint存储器"""
     # TODO: 从依赖注入容器获取真实实现
     raise NotImplementedError("Checkpoint store must be provided via dependency injection")
@@ -41,7 +40,7 @@ async def fork_thread(
     thread_id: str = Path(..., description="Thread ID"),
     request: ThreadForkRequest = Body(...),
     thread_service: IThreadService = Depends(get_thread_service),
-    checkpoint_store: ICheckpointStore = Depends(get_checkpoint_store),
+    checkpoint_store: IThreadCheckpointStorage = Depends(get_checkpoint_store),
     thread_checkpoint_storage = Depends(get_thread_checkpoint_storage)
 ) -> ThreadResponse:
     """创建thread分支"""
