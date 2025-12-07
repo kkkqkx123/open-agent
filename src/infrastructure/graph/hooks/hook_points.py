@@ -3,10 +3,8 @@
 定义图执行过程中的关键Hook点。
 """
 
-from enum import Enum
-
 # 从接口层导入HookPoint，保持一致性
-from src.interfaces.workflow.plugins import HookPoint
+from src.interfaces.workflow.hooks import HookPoint
 
 __all__ = ("HookPoint",)
 

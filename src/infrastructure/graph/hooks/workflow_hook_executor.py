@@ -1,6 +1,6 @@
 """工作流Hook执行器实现
 
-从核心层迁移过来的Hook执行器，专门负责Hook插件的执行逻辑。
+从核心层迁移过来的Hook执行器，专门负责Hook的执行逻辑。
 """
 
 from src.services.logger.injection import get_logger
@@ -8,15 +8,14 @@ import time
 from typing import Dict, Any, List, Optional, Callable, TYPE_CHECKING
 from collections import defaultdict
 
-from src.interfaces.workflow.hooks import IHookExecutor
-from src.interfaces.workflow.plugins import IHookPlugin, HookPoint, HookContext, HookExecutionResult
+from src.interfaces.workflow.hooks import IHookExecutor, IHook, HookPoint, HookContext, HookExecutionResult
 from src.interfaces.state import IWorkflowState
 from src.interfaces.workflow.graph import NodeExecutionResult
 
 # 延迟导入以避免循环依赖
-def _get_plugin_registry():
-    from src.core.workflow.graph.extensions.plugins.registry import PluginRegistry
-    return PluginRegistry
+def _get_hook_registry():
+    from src.core.workflow.graph.extensions.hooks.registry import HookRegistry
+    return HookRegistry
 
 if TYPE_CHECKING:
     from src.core.state import WorkflowState
@@ -28,26 +27,26 @@ logger = get_logger(__name__)
 class WorkflowHookExecutor(IHookExecutor):
     """工作流Hook执行器
     
-    从核心层迁移过来的Hook执行器，专门负责Hook插件的执行逻辑，包括：
-    - Hook插件的获取和过滤
+    专门负责Hook的执行逻辑，包括：
+    - Hook的获取和过滤
     - Hook点的执行
     - 统一的Hook执行接口（execute_with_hooks）
     - 性能统计和错误处理
     """
     
-    def __init__(self, plugin_registry: Optional[Any] = None):
+    def __init__(self, hook_registry: Optional[Any] = None):
         """初始化Hook执行器
         
         Args:
-            plugin_registry: 插件注册表，如果为None则创建新的
+            hook_registry: Hook注册表，如果为None则创建新的
         """
-        if plugin_registry is None:
-            # 动态获取PluginRegistry类
-            PluginRegistry = _get_plugin_registry()
-            plugin_registry = PluginRegistry()
+        if hook_registry is None:
+            # 动态获取HookRegistry类
+            HookRegistry = _get_hook_registry()
+            hook_registry = HookRegistry()
         
-        self.registry = plugin_registry
-        self._hook_plugins_cache: Dict[str, List[IHookPlugin]] = defaultdict(list)
+        self.registry = hook_registry
+        self._hooks_cache: Dict[str, List[IHook]] = defaultdict(list)
         self._execution_counters: Dict[str, int] = defaultdict(int)
         self._performance_stats: Dict[str, Dict[str, Any]] = defaultdict(dict)
         self._hook_configs: Dict[str, Any] = {}
@@ -65,92 +64,90 @@ class WorkflowHookExecutor(IHookExecutor):
         """
         self._hook_configs = configs
         # 清空缓存，因为配置可能已更改
-        self._hook_plugins_cache.clear()
+        self._hooks_cache.clear()
     
-    def get_enabled_hook_plugins(self, node_type: Optional[str]) -> List[IHookPlugin]:
-        """获取指定节点的Hook插件列表
+    def get_enabled_hooks(self, node_type: Optional[str]) -> List[IHook]:
+        """获取指定节点的Hook列表
         
         Args:
             node_type: 节点类型
             
         Returns:
-            List[IHookPlugin]: Hook插件列表
+            List[IHook]: Hook列表
         """
         # 处理None值
         if node_type is None:
             node_type = "default"
         
         # 从缓存获取
-        if node_type in self._hook_plugins_cache:
-            return self._hook_plugins_cache[node_type]
+        if node_type in self._hooks_cache:
+            return self._hooks_cache[node_type]
         
-        plugins = []
+        hooks = []
         
-        # 获取Hook插件配置
-        hook_configs = self._hook_configs.get('hook_plugins', {})
+        # 获取Hook配置
+        hook_configs = self._hook_configs.get('hooks', {})
         
-        # 处理全局Hook插件
-        global_configs = {c['name']: c for c in hook_configs.get('global', [])}
+        # 处理全局Hook
+        global_configs = {c['id']: c for c in hook_configs.get('global', [])}
         for config in global_configs.values():
             if config.get('enabled', False):
-                plugin = self.registry.get_plugin(config['name'])
-                if plugin and isinstance(plugin, IHookPlugin):
-                    # 初始化插件
-                    if self._initialize_plugin(plugin, config.get('config', {})):
-                        plugins.append((plugin, config.get('priority', 50)))
+                hook = self.registry.get_hook(config['id'])
+                if hook and isinstance(hook, IHook):
+                    # 初始化Hook
+                    if self._initialize_hook(hook, config.get('config', {})):
+                        hooks.append((hook, config.get('priority', 50)))
         
-        # 处理节点特定Hook插件
+        # 处理节点特定Hook
         node_configs = hook_configs.get('node_specific', {}).get(node_type, [])
         for config in node_configs:
             if config.get('enabled', False):
-                plugin = self.registry.get_plugin(config['name'])
-                if plugin and isinstance(plugin, IHookPlugin):
-                    # 初始化插件
-                    if self._initialize_plugin(plugin, config.get('config', {})):
-                        plugins.append((plugin, config.get('priority', 50)))
+                hook = self.registry.get_hook(config['id'])
+                if hook and isinstance(hook, IHook):
+                    # 初始化Hook
+                    if self._initialize_hook(hook, config.get('config', {})):
+                        hooks.append((hook, config.get('priority', 50)))
         
         # 按优先级排序
-        plugins.sort(key=lambda x: x[1])
-        hook_plugins = [plugin for plugin, _ in plugins]
+        hooks.sort(key=lambda x: x[1])
+        enabled_hooks = [hook for hook, _ in hooks]
         
         # 缓存结果
-        self._hook_plugins_cache[node_type] = hook_plugins
+        self._hooks_cache[node_type] = enabled_hooks
         
-        return hook_plugins
+        return enabled_hooks
     
-    def _initialize_plugin(self, plugin: IHookPlugin, config: Dict[str, Any]) -> bool:
-        """初始化插件
+    def _initialize_hook(self, hook: IHook, config: Dict[str, Any]) -> bool:
+        """初始化Hook
         
         Args:
-            plugin: 插件实例
-            config: 插件配置
+            hook: Hook实例
+            config: Hook配置
             
         Returns:
             bool: 初始化是否成功
         """
         try:
             # 验证配置
-            errors = plugin.validate_config(config)
+            errors = hook.validate_config(config)
             if errors:
-                logger.error(f"插件 {plugin.metadata.name} 配置验证失败: {errors}")
+                logger.error(f"Hook {hook.name} 配置验证失败: {errors}")
                 return False
             
-            # 初始化插件
-            if plugin.initialize(config):
-                # 为Hook插件设置执行服务
-                plugin.set_execution_service(self)
-                logger.debug(f"插件 {plugin.metadata.name} 初始化成功")
+            # 初始化Hook
+            if hook.initialize(config):
+                logger.debug(f"Hook {hook.name} 初始化成功")
                 return True
             else:
-                logger.error(f"插件 {plugin.metadata.name} 初始化失败")
+                logger.error(f"Hook {hook.name} 初始化失败")
                 return False
                 
         except Exception as e:
-            logger.error(f"初始化插件失败 {plugin.metadata.name}: {e}")
+            logger.error(f"初始化Hook失败 {hook.name}: {e}")
             return False
     
     def execute_hooks(self, hook_point: HookPoint, context: HookContext) -> HookExecutionResult:
-        """执行指定Hook点的所有Hook插件
+        """执行指定Hook点的所有Hook
         
         Args:
             hook_point: Hook执行点
@@ -159,37 +156,41 @@ class WorkflowHookExecutor(IHookExecutor):
         Returns:
             HookExecutionResult: 合并后的Hook执行结果
         """
-        hook_plugins = self.get_enabled_hook_plugins(context.node_type)
+        hooks = self.get_enabled_hooks(context.node_type)
         
-        # 过滤支持当前Hook点的插件
-        applicable_plugins = [
-            plugin for plugin in hook_plugins 
-            if hook_point in plugin.get_supported_hook_points()
+        # 过滤支持当前Hook点的Hook
+        applicable_hooks = [
+            hook for hook in hooks 
+            if hook_point in hook.get_supported_hook_points()
         ]
         
-        if not applicable_plugins:
+        if not applicable_hooks:
             return HookExecutionResult(should_continue=True)
         
-        logger.debug(f"开始执行 {len(applicable_plugins)} 个 {hook_point.value} Hook插件")
+        logger.debug(f"开始执行 {len(applicable_hooks)} 个 {hook_point.value} Hook")
         
-        # 执行Hook插件
+        # 执行Hook
         modified_state = context.state
         modified_result = context.execution_result
         force_next_node = None
         should_continue = True
         metadata: Dict[str, Any] = {"executed_hooks": []}
         
-        for plugin in applicable_plugins:
+        for hook in applicable_hooks:
             try:
                 hook_start_time = time.time()
                 
                 # 根据Hook点调用相应方法
                 if hook_point == HookPoint.BEFORE_EXECUTE:
-                    result = plugin.before_execute(context)
+                    result = hook.before_execute(context)
                 elif hook_point == HookPoint.AFTER_EXECUTE:
-                    result = plugin.after_execute(context)
+                    result = hook.after_execute(context)
                 elif hook_point == HookPoint.ON_ERROR:
-                    result = plugin.on_error(context)
+                    result = hook.on_error(context)
+                elif hook_point == HookPoint.BEFORE_COMPILE:
+                    result = hook.before_compile(context)
+                elif hook_point == HookPoint.AFTER_COMPILE:
+                    result = hook.after_compile(context)
                 else:
                     continue
                 
@@ -197,7 +198,7 @@ class WorkflowHookExecutor(IHookExecutor):
                 
                 # 记录Hook执行信息
                 metadata["executed_hooks"].append({
-                    "plugin_name": plugin.metadata.name,
+                    "hook_name": hook.name,
                     "execution_time": hook_execution_time,
                     "success": True
                 })
@@ -221,13 +222,13 @@ class WorkflowHookExecutor(IHookExecutor):
                 
                 # 如果Hook要求停止执行，则中断后续Hook
                 if not should_continue:
-                    logger.debug(f"Hook {plugin.metadata.name} 要求停止执行")
+                    logger.debug(f"Hook {hook.name} 要求停止执行")
                     break
                     
             except Exception as e:
-                logger.error(f"执行Hook {plugin.metadata.name} 时发生错误: {e}")
+                logger.error(f"执行Hook {hook.name} 时发生错误: {e}")
                 metadata["executed_hooks"].append({
-                    "plugin_name": plugin.metadata.name,
+                    "hook_name": hook.name,
                     "success": False,
                     "error": str(e)
                 })
@@ -264,10 +265,10 @@ class WorkflowHookExecutor(IHookExecutor):
         
         # 创建前置Hook上下文
         before_context = HookContext(
-            node_type=node_type,
-            state=state,
+            hook_point=HookPoint.BEFORE_EXECUTE,
             config=config,
-            hook_point=HookPoint.BEFORE_EXECUTE
+            node_type=node_type,
+            state=state
         )
         
         # 执行前置Hook
@@ -321,10 +322,10 @@ class WorkflowHookExecutor(IHookExecutor):
             final_state = result.state if isinstance(result.state, IWorkflowState) else state
             
             after_context = HookContext(
+                hook_point=HookPoint.AFTER_EXECUTE,
+                config=config,
                 node_type=node_type,
                 state=final_state,
-                config=config,
-                hook_point=HookPoint.AFTER_EXECUTE,
                 execution_result=interface_result
             )
             
@@ -356,10 +357,10 @@ class WorkflowHookExecutor(IHookExecutor):
             
             # 创建错误Hook上下文
             error_context = HookContext(
+                hook_point=HookPoint.ON_ERROR,
+                config=config,
                 node_type=node_type,
                 state=state,
-                config=config,
-                hook_point=HookPoint.ON_ERROR,
                 error=e
             )
             
@@ -454,8 +455,8 @@ class WorkflowHookExecutor(IHookExecutor):
         return dict(self._performance_stats)
     
     def clear_cache(self) -> None:
-        """清空Hook插件缓存"""
-        self._hook_plugins_cache.clear()
+        """清空Hook缓存"""
+        self._hooks_cache.clear()
     
     def cleanup(self) -> None:
         """清理Hook执行器资源"""

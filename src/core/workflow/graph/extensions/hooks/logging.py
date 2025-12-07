@@ -1,4 +1,4 @@
-"""日志插件
+"""日志Hook
 
 提供节点执行过程中的日志记录功能。
 """
@@ -8,98 +8,39 @@ import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from src.interfaces.workflow.plugins import IHookPlugin, PluginMetadata, PluginContext, HookContext, HookPoint, HookExecutionResult, PluginType
-
+from src.interfaces.workflow.hooks import HookPoint, HookContext, HookExecutionResult
+from .base import ConfigurableHook
 
 logger = get_logger(__name__)
 
 
-class LoggingPlugin(IHookPlugin):
-    """日志插件
+class LoggingHook(ConfigurableHook):
+    """日志Hook
     
     提供节点执行过程中的日志记录功能，支持结构化日志和多种格式。
     """
     
     def __init__(self):
-        """初始化日志插件"""
-        self._config = {}
-    
-    @property
-    def metadata(self) -> PluginMetadata:
-        """获取插件元数据"""
-        return PluginMetadata(
-            name="logging",
-            version="1.0.0",
+        """初始化日志Hook"""
+        super().__init__(
+            hook_id="logging",
+            name="日志Hook",
             description="提供节点执行过程中的日志记录功能，支持结构化日志和多种格式",
-            author="system",
-            plugin_type=PluginType.HOOK,
-            supported_hook_points=[HookPoint.BEFORE_EXECUTE, HookPoint.AFTER_EXECUTE, HookPoint.ON_ERROR],
-            config_schema={
-                "type": "object",
-                "properties": {
-                    "log_level": {
-                        "type": "string",
-                        "description": "日志级别",
-                        "enum": ["DEBUG", "INFO", "WARNING", "ERROR"],
-                        "default": "INFO"
-                    },
-                    "structured_logging": {
-                        "type": "boolean",
-                        "description": "是否使用结构化日志",
-                        "default": True
-                    },
-                    "log_execution_time": {
-                        "type": "boolean",
-                        "description": "是否记录执行时间",
-                        "default": True
-                    },
-                    "log_state_changes": {
-                        "type": "boolean",
-                        "description": "是否记录状态变化",
-                        "default": False
-                    },
-                    "log_format": {
-                        "type": "string",
-                        "description": "日志格式",
-                        "enum": ["json", "key_value"],
-                        "default": "json"
-                    }
-                },
-                "required": []
-            }
+            version="1.0.0"
         )
+        
+        # 设置默认配置
+        self.set_default_config({
+            "log_level": "INFO",
+            "structured_logging": True,
+            "log_execution_time": True,
+            "log_state_changes": False,
+            "log_format": "json"
+        })
     
-    def initialize(self, config: Dict[str, Any]) -> bool:
-        """初始化插件
-        
-        Args:
-            config: 插件配置
-            
-        Returns:
-            bool: 初始化是否成功
-        """
-        self._config = {
-            "log_level": config.get("log_level", "INFO"),
-            "structured_logging": config.get("structured_logging", True),
-            "log_execution_time": config.get("log_execution_time", True),
-            "log_state_changes": config.get("log_state_changes", False),
-            "log_format": config.get("log_format", "json")
-        }
-        
-        logger.debug("日志插件初始化完成")
-        return True
-    
-    def execute(self, state: Dict[str, Any], context: PluginContext) -> Dict[str, Any]:
-        """执行插件逻辑（Hook插件通常不使用此方法）
-        
-        Args:
-            state: 当前工作流状态
-            context: 执行上下文
-            
-        Returns:
-            Dict[str, Any]: 更新后的状态
-        """
-        return state
+    def get_supported_hook_points(self) -> List[HookPoint]:
+        """获取支持的Hook执行点"""
+        return [HookPoint.BEFORE_EXECUTE, HookPoint.AFTER_EXECUTE, HookPoint.ON_ERROR]
     
     def before_execute(self, context: HookContext) -> HookExecutionResult:
         """记录节点执行开始日志"""
@@ -109,11 +50,12 @@ class LoggingPlugin(IHookPlugin):
             "timestamp": datetime.utcnow().isoformat()
         }
 
-        if self._config["log_state_changes"]:
+        if self.get_config_value("log_state_changes"):
             log_data["state_summary"] = self._get_state_summary(context.state)
         
         self._log(log_data)
         
+        self._log_execution(HookPoint.BEFORE_EXECUTE)
         return HookExecutionResult(should_continue=True)
     
     def after_execute(self, context: HookContext) -> HookExecutionResult:
@@ -124,7 +66,7 @@ class LoggingPlugin(IHookPlugin):
             "timestamp": datetime.utcnow().isoformat()
         }
 
-        if self._config["log_execution_time"] and context.metadata:
+        if self.get_config_value("log_execution_time") and context.metadata:
             execution_time = context.metadata.get("execution_time")
             if execution_time:
                 log_data["execution_time"] = execution_time
@@ -132,11 +74,12 @@ class LoggingPlugin(IHookPlugin):
         if context.execution_result and context.execution_result.next_node:
             log_data["next_node"] = context.execution_result.next_node
 
-        if self._config["log_state_changes"]:
+        if self.get_config_value("log_state_changes"):
             log_data["state_summary"] = self._get_state_summary(context.state)
         
         self._log(log_data)
         
+        self._log_execution(HookPoint.AFTER_EXECUTE)
         return HookExecutionResult(should_continue=True)
     
     def on_error(self, context: HookContext) -> HookExecutionResult:
@@ -149,14 +92,15 @@ class LoggingPlugin(IHookPlugin):
             "error_type": context.error.__class__.__name__ if context.error else "Unknown"
         }
 
-        if self._config["log_state_changes"]:
+        if self.get_config_value("log_state_changes"):
             log_data["state_summary"] = self._get_state_summary(context.state)
         
         self._log(log_data, level="ERROR")
         
+        self._log_execution(HookPoint.ON_ERROR, error=context.error)
         return HookExecutionResult(should_continue=True)
     
-    def _get_state_summary(self, state) -> Dict[str, Any]:
+    def _get_state_summary(self, state: Any) -> Dict[str, Any]:
         """获取状态摘要"""
         try:
             summary = {
@@ -174,10 +118,10 @@ class LoggingPlugin(IHookPlugin):
     
     def _log(self, log_data: Dict[str, Any], level: Optional[str] = None) -> None:
         """记录日志"""
-        log_level = level or self._config["log_level"]
+        log_level = level or self.get_config_value("log_level", "INFO")
         
-        if self._config["structured_logging"]:
-            if self._config["log_format"] == "json":
+        if self.get_config_value("structured_logging", True):
+            if self.get_config_value("log_format", "json") == "json":
                 message = json.dumps(log_data, ensure_ascii=False)
             else:
                 message = " | ".join([f"{k}={v}" for k, v in log_data.items()])
@@ -195,19 +139,18 @@ class LoggingPlugin(IHookPlugin):
         else:
             logger.info(message)
     
-    def cleanup(self) -> bool:
-        """清理插件资源
+    def validate_config(self, config: Dict[str, Any]) -> List[str]:
+        """验证Hook配置"""
+        errors = super().validate_config(config)
         
-        Returns:
-            bool: 清理是否成功
-        """
-        self._config.clear()
-        return True
-    
-    def set_execution_service(self, service) -> None:
-        """设置执行服务
+        # 验证log_level
+        log_level = config.get("log_level")
+        if log_level is not None and log_level not in ["DEBUG", "INFO", "WARNING", "ERROR"]:
+            errors.append("log_level必须是DEBUG、INFO、WARNING或ERROR之一")
         
-        Args:
-            service: Hook执行服务实例
-        """
-        pass  # Logging插件不需要执行服务
+        # 验证log_format
+        log_format = config.get("log_format")
+        if log_format is not None and log_format not in ["json", "key_value"]:
+            errors.append("log_format必须是json或key_value之一")
+        
+        return errors

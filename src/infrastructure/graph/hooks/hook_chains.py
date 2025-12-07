@@ -11,7 +11,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
 # 从接口层导入，保持一致性
-from src.interfaces.workflow.plugins import HookPoint, HookContext, HookExecutionResult, IHookPlugin
+from src.interfaces.workflow.hooks import HookPoint, HookContext, HookExecutionResult, IHook as IHookPlugin
 
 __all__ = (
     "ExecutionMode",
@@ -46,7 +46,7 @@ class HookChain:
         mode: ExecutionMode = ExecutionMode.SEQUENCE
     ):
         self.name = name
-        self.hooks = sorted(hooks, key=lambda h: getattr(h.metadata, 'name', str(h)))
+        self.hooks = sorted(hooks, key=lambda h: h.name)
         self.mode = mode
     
     async def execute(self, context: HookContext) -> HookExecutionResult:
@@ -254,19 +254,19 @@ class HookChain:
     def add_hook(self, hook: IHookPlugin) -> None:
         """添加Hook到链中。"""
         self.hooks.append(hook)
-        self.hooks.sort(key=lambda h: getattr(h.metadata, 'name', str(h)))
+        self.hooks.sort(key=lambda h: h.name)
     
     def remove_hook(self, hook_name: str) -> bool:
         """从链中移除Hook。
-        
+         
         Args:
-            hook_name: Hook名称
-            
+             hook_name: Hook名称
+             
         Returns:
-            是否成功移除
+             是否成功移除
         """
         for i, hook in enumerate(self.hooks):
-            if getattr(hook.metadata, 'name', str(hook)) == hook_name:
+            if hook.name == hook_name:
                 self.hooks.pop(i)
                 return True
         return False

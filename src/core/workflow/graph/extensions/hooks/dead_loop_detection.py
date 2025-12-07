@@ -1,167 +1,187 @@
-"""死循环检测插件
+"""死循环检测Hook
 
-检测节点执行过程中的死循环情况。
+检测和防止工作流中的死循环。
 """
 
 from src.services.logger.injection import get_logger
 from typing import Dict, Any, List, Optional
 
-from src.interfaces.workflow.plugins import IHookPlugin, PluginMetadata, PluginContext, HookContext, HookPoint, HookExecutionResult, PluginType
-
+from src.interfaces.workflow.hooks import HookPoint, HookContext, HookExecutionResult
+from .base import ConfigurableHook
 
 logger = get_logger(__name__)
 
 
-class DeadLoopDetectionPlugin(IHookPlugin):
-    """死循环检测插件
+class DeadLoopDetectionHook(ConfigurableHook):
+    """死循环检测Hook
     
-    检测节点执行过程中的死循环情况，防止无限循环。
+    检测和防止工作流中的死循环，通过跟踪节点执行次数和状态变化。
     """
     
     def __init__(self):
-        """初始化死循环检测插件"""
-        self._config = {}
-        self._execution_service = None
-    
-    @property
-    def metadata(self) -> PluginMetadata:
-        """获取插件元数据"""
-        return PluginMetadata(
-            name="dead_loop_detection",
-            version="1.0.0",
-            description="检测节点执行过程中的死循环情况，防止无限循环",
-            author="system",
-            plugin_type=PluginType.HOOK,
-            supported_hook_points=[HookPoint.BEFORE_EXECUTE, HookPoint.AFTER_EXECUTE, HookPoint.ON_ERROR],
-            config_schema={
-                "type": "object",
-                "properties": {
-                    "max_iterations": {
-                        "type": "integer",
-                        "description": "最大迭代次数",
-                        "default": 20,
-                        "minimum": 1
-                    },
-                    "fallback_node": {
-                        "type": "string",
-                        "description": "回退节点名称",
-                        "default": "dead_loop_check"
-                    },
-                    "log_level": {
-                        "type": "string",
-                        "description": "日志级别",
-                        "enum": ["DEBUG", "INFO", "WARNING", "ERROR"],
-                        "default": "WARNING"
-                    },
-                    "check_interval": {
-                        "type": "integer",
-                        "description": "检查间隔",
-                        "default": 1,
-                        "minimum": 1
-                    },
-                    "reset_on_success": {
-                        "type": "boolean",
-                        "description": "成功时重置计数",
-                        "default": True
-                    }
-                },
-                "required": []
-            }
+        """初始化死循环检测Hook"""
+        super().__init__(
+            hook_id="dead_loop_detection",
+            name="死循环检测Hook",
+            description="检测和防止工作流中的死循环，通过跟踪节点执行次数和状态变化",
+            version="1.0.0"
         )
+        
+        # 设置默认配置
+        self.set_default_config({
+            "max_execution_count": 100,
+            "max_state_repeats": 10,
+            "enable_state_hashing": True,
+            "detection_window": 50
+        })
+        
+        self._execution_counts: Dict[str, int] = {}
+        self._state_history: List[str] = []
+        self._state_hashes: Dict[str, int] = {}
     
-    def initialize(self, config: Dict[str, Any]) -> bool:
-        """初始化插件
-        
-        Args:
-            config: 插件配置
-            
-        Returns:
-            bool: 初始化是否成功
-        """
-        self._config = {
-            "max_iterations": config.get("max_iterations", 20),
-            "fallback_node": config.get("fallback_node", "dead_loop_check"),
-            "log_level": config.get("log_level", "WARNING"),
-            "check_interval": config.get("check_interval", 1),
-            "reset_on_success": config.get("reset_on_success", True)
-        }
-        
-        logger.debug("死循环检测插件初始化完成")
-        return True
-    
-    def execute(self, state: Dict[str, Any], context: PluginContext) -> Dict[str, Any]:
-        """执行插件逻辑（Hook插件通常不使用此方法）
-        
-        Args:
-            state: 当前工作流状态
-            context: 执行上下文
-            
-        Returns:
-            Dict[str, Any]: 更新后的状态
-        """
-        return state
+    def get_supported_hook_points(self) -> List[HookPoint]:
+        """获取支持的Hook执行点"""
+        return [HookPoint.BEFORE_EXECUTE, HookPoint.AFTER_EXECUTE]
     
     def before_execute(self, context: HookContext) -> HookExecutionResult:
-        """节点执行前检查死循环"""
-        # 获取执行服务中的执行计数
-        if not self._execution_service:
+        """执行前检测死循环"""
+        node_type = context.node_type
+        if not node_type:
             return HookExecutionResult(should_continue=True)
-
-        execution_count = self._execution_service.get_execution_count(context.node_type)
         
-        # 每隔一定间隔检查一次
-        if execution_count % self._config["check_interval"] == 0 and execution_count > 0:
-            if execution_count >= self._config["max_iterations"]:
-                log_message = (
-                    f"节点 {context.node_type} 可能陷入死循环，"
-                    f"执行次数: {execution_count}, 最大允许: {self._config['max_iterations']}"
-                )
-                
-                log_level = self._config["log_level"]
-                if log_level == "WARNING":
-                    logger.warning(log_message)
-                elif log_level == "ERROR":
-                    logger.error(log_message)
-                else:
-                    logger.info(log_message)
-                
-                # 强制切换到回退节点
-                return HookExecutionResult(
-                    should_continue=False,
-                    force_next_node=self._config["fallback_node"],
-                    metadata={
-                        "dead_loop_detected": True,
-                        "execution_count": execution_count,
-                        "max_iterations": self._config["max_iterations"]
-                    }
-                )
+        # 检查执行次数
+        current_count = self._execution_counts.get(node_type, 0) + 1
+        max_count = self.get_config_value("max_execution_count", 100)
         
+        if current_count > max_count:
+            logger.warning(f"检测到可能的死循环：节点 {node_type} 执行次数超过限制 ({current_count} > {max_count})")
+            return HookExecutionResult(
+                should_continue=False,
+                force_next_node="error_handler",
+                metadata={
+                    "dead_loop_detected": True,
+                    "node_type": node_type,
+                    "execution_count": current_count,
+                    "max_count": max_count
+                }
+            )
+        
+        # 检查状态重复
+        if self.get_config_value("enable_state_hashing", True):
+            state_hash = self._calculate_state_hash(context.state)
+            if state_hash:
+                repeat_count = self._state_hashes.get(state_hash, 0) + 1
+                max_repeats = self.get_config_value("max_state_repeats", 10)
+                
+                if repeat_count > max_repeats:
+                    logger.warning(f"检测到可能的死循环：状态重复次数超过限制 ({repeat_count} > {max_repeats})")
+                    return HookExecutionResult(
+                        should_continue=False,
+                        force_next_node="error_handler",
+                        metadata={
+                            "dead_loop_detected": True,
+                            "reason": "state_repeat",
+                            "state_hash": state_hash,
+                            "repeat_count": repeat_count,
+                            "max_repeats": max_repeats
+                        }
+                    )
+                
+                self._state_hashes[state_hash] = repeat_count
+        
+        self._log_execution(HookPoint.BEFORE_EXECUTE)
         return HookExecutionResult(should_continue=True)
     
     def after_execute(self, context: HookContext) -> HookExecutionResult:
-        """节点执行后更新计数"""
-        if self._execution_service:
-            self._execution_service.increment_execution_count(context.node_type)
+        """执行后更新统计信息"""
+        node_type = context.node_type
+        if node_type:
+            self._execution_counts[node_type] = self._execution_counts.get(node_type, 0) + 1
         
+        # 更新状态历史
+        if self.get_config_value("enable_state_hashing", True):
+            state_hash = self._calculate_state_hash(context.state)
+            if state_hash:
+                self._state_history.append(state_hash)
+                
+                # 限制历史记录长度
+                window_size = self.get_config_value("detection_window", 50)
+                if len(self._state_history) > window_size:
+                    # 移除最旧的记录
+                    old_hash = self._state_history.pop(0)
+                    self._state_hashes[old_hash] = self._state_hashes.get(old_hash, 1) - 1
+                    if self._state_hashes[old_hash] <= 0:
+                        del self._state_hashes[old_hash]
+        
+        self._log_execution(HookPoint.AFTER_EXECUTE)
         return HookExecutionResult(should_continue=True)
     
-    def on_error(self, context: HookContext) -> HookExecutionResult:
-        """错误时不重置计数"""
-        return HookExecutionResult(should_continue=True)
-    
-    def cleanup(self) -> bool:
-        """清理插件资源
-        
-        Returns:
-            bool: 清理是否成功
-        """
-        self._config.clear()
-        return True
-    
-    def set_execution_service(self, service) -> None:
-        """设置执行服务
+    def _calculate_state_hash(self, state: Any) -> Optional[str]:
+        """计算状态哈希
         
         Args:
-            service: Hook执行服务实例
+            state: 状态对象
+            
+        Returns:
+            Optional[str]: 状态哈希，如果无法计算则返回None
         """
-        self._execution_service = service
+        try:
+            import hashlib
+            
+            if state is None:
+                return None
+            
+            # 尝试获取状态的字符串表示
+            if hasattr(state, 'to_dict'):
+                state_str = str(state.to_dict())
+            elif hasattr(state, '__dict__'):
+                state_str = str(state.__dict__)
+            else:
+                state_str = str(state)
+            
+            # 计算MD5哈希
+            return hashlib.md5(state_str.encode()).hexdigest()[:16]
+            
+        except Exception as e:
+            logger.error(f"计算状态哈希失败: {e}")
+            return None
+    
+    def get_execution_stats(self) -> Dict[str, Any]:
+        """获取执行统计信息
+        
+        Returns:
+            Dict[str, Any]: 统计信息
+        """
+        return {
+            "execution_counts": self._execution_counts.copy(),
+            "state_history_length": len(self._state_history),
+            "unique_state_hashes": len(self._state_hashes),
+            "most_executed_node": max(self._execution_counts.items(), key=lambda x: x[1])[0] if self._execution_counts else None
+        }
+    
+    def reset_stats(self) -> None:
+        """重置统计信息"""
+        self._execution_counts.clear()
+        self._state_history.clear()
+        self._state_hashes.clear()
+    
+    def validate_config(self, config: Dict[str, Any]) -> List[str]:
+        """验证Hook配置"""
+        errors = super().validate_config(config)
+        
+        # 验证max_execution_count
+        max_count = config.get("max_execution_count")
+        if max_count is not None and (not isinstance(max_count, int) or max_count < 1):
+            errors.append("max_execution_count必须是大于0的整数")
+        
+        # 验证max_state_repeats
+        max_repeats = config.get("max_state_repeats")
+        if max_repeats is not None and (not isinstance(max_repeats, int) or max_repeats < 1):
+            errors.append("max_state_repeats必须是大于0的整数")
+        
+        # 验证detection_window
+        window = config.get("detection_window")
+        if window is not None and (not isinstance(window, int) or window < 1):
+            errors.append("detection_window必须是大于0的整数")
+        
+        return errors

@@ -10,7 +10,7 @@ from .hook_chains import HookChain, ExecutionMode
 from .workflow_hook_executor import WorkflowHookExecutor
 
 # 从接口层导入，保持一致性
-from src.interfaces.workflow.plugins import HookContext, HookExecutionResult, IHookPlugin
+from src.interfaces.workflow.hooks import HookContext, HookExecutionResult, IHook
 
 __all__ = [
     "HookSystem",
@@ -20,6 +20,6 @@ __all__ = [
     "HookContext",
     "HookExecutionResult",
     "ExecutionMode",
-    "IHookPlugin",
+    "IHook",
     "WorkflowHookExecutor",
 ]

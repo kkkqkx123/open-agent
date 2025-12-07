@@ -5,8 +5,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from src.interfaces.workflow.hooks import IHookSystem
-from src.interfaces.workflow.plugins import HookPoint, HookContext, HookExecutionResult, IHookPlugin
+from src.interfaces.workflow.hooks import IHookSystem, HookPoint, HookContext, HookExecutionResult, IHook
 from .conditional_hooks import ConditionalHook
 
 __all__ = ("HookSystem",)
@@ -24,14 +23,14 @@ class HookSystem(IHookSystem):
     def register_hook(
         self,
         hook_point: HookPoint,
-        hook: IHookPlugin,
+        hook: IHook,
         priority: int = 50
     ) -> None:
         """注册Hook。
         
         Args:
             hook_point: Hook点
-            hook: Hook插件
+            hook: Hook实例
             priority: 优先级，数值越小优先级越高
         """
         if hook_point not in self.hooks:
@@ -46,13 +45,13 @@ class HookSystem(IHookSystem):
     def unregister_hook(
         self,
         hook_point: HookPoint,
-        hook_name: str
+        hook_id: str
     ) -> bool:
         """注销Hook。
         
         Args:
             hook_point: Hook点
-            hook_name: Hook名称
+            hook_id: Hook ID
             
         Returns:
             是否成功注销
@@ -61,7 +60,7 @@ class HookSystem(IHookSystem):
             return False
         
         for i, registration in enumerate(self.hooks[hook_point]):
-            if registration.hook.metadata.name == hook_name:
+            if registration.hook.hook_id == hook_id:
                 self.hooks[hook_point].pop(i)
                 return True
         
@@ -103,6 +102,10 @@ class HookSystem(IHookSystem):
                         result = registration.hook.after_execute(context)
                     elif hook_point == HookPoint.ON_ERROR:
                         result = registration.hook.on_error(context)
+                    elif hook_point == HookPoint.BEFORE_COMPILE:
+                        result = registration.hook.before_compile(context)
+                    elif hook_point == HookPoint.AFTER_COMPILE:
+                        result = registration.hook.after_compile(context)
                     else:
                         continue
                     results.append(result)
@@ -121,6 +124,10 @@ class HookSystem(IHookSystem):
                             result = conditional_hook.hook_plugin.after_execute(context)
                         elif hook_point == HookPoint.ON_ERROR:
                             result = conditional_hook.hook_plugin.on_error(context)
+                        elif hook_point == HookPoint.BEFORE_COMPILE:
+                            result = conditional_hook.hook_plugin.before_compile(context)
+                        elif hook_point == HookPoint.AFTER_COMPILE:
+                            result = conditional_hook.hook_plugin.after_compile(context)
                         else:
                             continue
                         results.append(result)
@@ -175,7 +182,7 @@ class HookSystem(IHookSystem):
         # 简化实现，直接执行所有Hook
         return await self.execute_hooks(context.hook_point, context)
     
-    def get_hooks_for_point(self, hook_point: HookPoint) -> List[IHookPlugin]:
+    def get_hooks_for_point(self, hook_point: HookPoint) -> List[IHook]:
         """获取指定Hook点的所有Hook。
         
         Args:
@@ -234,6 +241,6 @@ class HookSystem(IHookSystem):
 class HookRegistration:
     """Hook注册信息。"""
     
-    def __init__(self, hook: IHookPlugin, priority: int):
+    def __init__(self, hook: IHook, priority: int):
         self.hook = hook
         self.priority = priority

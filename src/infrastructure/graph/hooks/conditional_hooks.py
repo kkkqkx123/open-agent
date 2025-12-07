@@ -5,7 +5,7 @@
 
 from typing import Any, Dict, Optional
 
-from src.interfaces.workflow.plugins import HookPoint, HookContext, HookExecutionResult, IHookPlugin
+from src.interfaces.workflow.hooks import HookPoint, HookContext, HookExecutionResult, IHook
 
 __all__ = ("ConditionalHook",)
 
@@ -17,7 +17,7 @@ class ConditionalHook:
         self,
         condition: str,
         hook_point: HookPoint,
-        hook_plugin: IHookPlugin,
+        hook_plugin: IHook,
         priority: int = 50
     ):
         """
@@ -26,7 +26,7 @@ class ConditionalHook:
         Args:
             condition: 条件表达式
             hook_point: Hook点
-            hook_plugin: Hook插件
+            hook_plugin: Hook实例
             priority: 优先级
         """
         self.condition = condition
@@ -134,7 +134,7 @@ class ConditionalHook:
             return False
     
     async def execute(self, context: HookContext) -> HookExecutionResult:
-        """执行Hook插件。
+        """执行Hook。
         
         Args:
             context: Hook执行上下文
@@ -149,5 +149,9 @@ class ConditionalHook:
             return self.hook_plugin.after_execute(context)
         elif self.hook_point == HookPoint.ON_ERROR:
             return self.hook_plugin.on_error(context)
+        elif self.hook_point == HookPoint.BEFORE_COMPILE:
+            return self.hook_plugin.before_compile(context)
+        elif self.hook_point == HookPoint.AFTER_COMPILE:
+            return self.hook_plugin.after_compile(context)
         else:
             return HookExecutionResult(should_continue=True)
