@@ -1,176 +1,172 @@
 """文件检查点Repository实现"""
 
-import asyncio
+import json
+import time
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 from src.interfaces.repository import ICheckpointRepository
-from ..file_base import FileBaseRepository
-from ..utils import TimeUtils, IdUtils, FileUtils
+from src.services.logger.injection import get_logger
 
 
-class FileCheckpointRepository(FileBaseRepository, ICheckpointRepository):
-    """文件检查点Repository实现"""
+logger = get_logger(__name__)
+
+
+class FileCheckpointRepository(ICheckpointRepository):
+    """文件检查点Repository实现 - 直接使用文件系统"""
     
     def __init__(self, config: Dict[str, Any]):
         """初始化文件检查点Repository"""
-        super().__init__(config)
+        self.base_path = Path(config.get("base_path", "./checkpoints"))
+        self.base_path.mkdir(parents=True, exist_ok=True)
     
     async def save_checkpoint(self, checkpoint_data: Dict[str, Any]) -> str:
         """保存checkpoint数据"""
         try:
-            def _save():
-                checkpoint_id = IdUtils.get_or_generate_id(
-                    checkpoint_data, "checkpoint_id", IdUtils.generate_checkpoint_id
-                )
-                
-                full_checkpoint = TimeUtils.add_timestamp({
-                    "checkpoint_id": checkpoint_id,
-                    **checkpoint_data
-                })
-                
-                # 保存到文件
-                self._save_item(checkpoint_data["thread_id"], checkpoint_id, full_checkpoint)
-                
-                self._log_operation("文件检查点保存", True, checkpoint_id)
-                return checkpoint_id
+            checkpoint_id = checkpoint_data.get("checkpoint_id")
+            if not checkpoint_id:
+                import uuid
+                checkpoint_id = str(uuid.uuid4())
             
-            return await asyncio.get_event_loop().run_in_executor(None, _save)
+            # 添加时间戳
+            current_time = time.time()
+            full_checkpoint = {
+                "checkpoint_id": checkpoint_id,
+                "created_at": current_time,
+                "updated_at": current_time,
+                **checkpoint_data
+            }
+            
+            # 创建线程目录
+            thread_dir = self.base_path / checkpoint_data["thread_id"]
+            thread_dir.mkdir(exist_ok=True)
+            
+            # 保存到文件
+            checkpoint_file = thread_dir / f"{checkpoint_id}.json"
+            with open(checkpoint_file, 'w', encoding='utf-8') as f:
+                json.dump(full_checkpoint, f, indent=2, ensure_ascii=False)
+            
+            logger.debug(f"File checkpoint saved: {checkpoint_id}")
+            return checkpoint_id
             
         except Exception as e:
-            self._handle_exception("保存文件检查点", e)
-            raise # 重新抛出异常
+            logger.error(f"Failed to save file checkpoint: {e}")
+            raise
     
     async def load_checkpoint(self, checkpoint_id: str) -> Optional[Dict[str, Any]]:
         """加载checkpoint数据"""
         try:
-            def _load():
-                # 在所有thread目录中查找checkpoint
-                from pathlib import Path
-                base_path = Path(self.base_path)
-                
-                for thread_dir in base_path.iterdir():
-                    if thread_dir.is_dir():
-                        checkpoint = self._load_item(thread_dir.name, checkpoint_id)
-                        if checkpoint:
-                            self._log_operation("文件检查点加载", True, checkpoint_id)
+            # 在所有thread目录中查找checkpoint
+            for thread_dir in self.base_path.iterdir():
+                if thread_dir.is_dir():
+                    checkpoint_file = thread_dir / f"{checkpoint_id}.json"
+                    if checkpoint_file.exists():
+                        with open(checkpoint_file, 'r', encoding='utf-8') as f:
+                            checkpoint = json.load(f)
+                            logger.debug(f"File checkpoint loaded: {checkpoint_id}")
                             return checkpoint
-                return None
-            
-            return await asyncio.get_event_loop().run_in_executor(None, _load)
+            return None
             
         except Exception as e:
-            self._handle_exception("加载文件检查点", e)
-            raise # 重新抛出异常
+            logger.error(f"Failed to load file checkpoint {checkpoint_id}: {e}")
+            raise
     
     async def list_checkpoints(self, thread_id: str) -> List[Dict[str, Any]]:
         """列出指定thread的所有checkpoint"""
         try:
-            def _list():
-                checkpoints = self._list_items(thread_id)
-                
-                # 按创建时间倒序排序
-                checkpoints = TimeUtils.sort_by_time(checkpoints, "created_at", True)
-                
-                self._log_operation("列出文件检查点", True, f"{thread_id}, 共{len(checkpoints)}条")
-                return checkpoints
+            thread_dir = self.base_path / thread_id
+            if not thread_dir.exists():
+                return []
             
-            return await asyncio.get_event_loop().run_in_executor(None, _list)
+            checkpoints = []
+            for checkpoint_file in thread_dir.glob("*.json"):
+                try:
+                    with open(checkpoint_file, 'r', encoding='utf-8') as f:
+                        checkpoint = json.load(f)
+                        checkpoints.append(checkpoint)
+                except Exception as e:
+                    logger.warning(f"Failed to load checkpoint file {checkpoint_file}: {e}")
+                    continue
+            
+            # 按创建时间倒序排序
+            checkpoints.sort(key=lambda x: x.get("created_at", 0), reverse=True)
+            
+            logger.debug(f"Listed file checkpoints for {thread_id}: {len(checkpoints)} items")
+            return checkpoints
             
         except Exception as e:
-            self._handle_exception("列出文件检查点", e)
-            raise # 重新抛出异常
+            logger.error(f"Failed to list file checkpoints for {thread_id}: {e}")
+            raise
     
     async def delete_checkpoint(self, checkpoint_id: str) -> bool:
         """删除指定的checkpoint"""
         try:
-            def _delete():
-                # 在所有thread目录中查找并删除checkpoint
-                from pathlib import Path
-                base_path = Path(self.base_path)
-                
-                for thread_dir in base_path.iterdir():
-                    if thread_dir.is_dir():
-                        deleted = self._delete_item(thread_dir.name, checkpoint_id)
-                        if deleted:
-                            self._log_operation("文件检查点删除", True, checkpoint_id)
-                            return True
-                return False
-            
-            return await asyncio.get_event_loop().run_in_executor(None, _delete)
+            # 在所有thread目录中查找并删除checkpoint
+            for thread_dir in self.base_path.iterdir():
+                if thread_dir.is_dir():
+                    checkpoint_file = thread_dir / f"{checkpoint_id}.json"
+                    if checkpoint_file.exists():
+                        checkpoint_file.unlink()
+                        logger.debug(f"File checkpoint deleted: {checkpoint_id}")
+                        return True
+            return False
             
         except Exception as e:
-            self._handle_exception("删除文件检查点", e)
-            raise # 重新抛出异常
+            logger.error(f"Failed to delete file checkpoint {checkpoint_id}: {e}")
+            raise
     
     async def get_latest_checkpoint(self, thread_id: str) -> Optional[Dict[str, Any]]:
         """获取thread的最新checkpoint"""
         try:
-            def _get_latest():
-                checkpoints = self._list_items(thread_id)
-                
-                # 按创建时间倒序排序
-                checkpoints = TimeUtils.sort_by_time(checkpoints, "created_at", True)
-                
-                return checkpoints[0] if checkpoints else None
-            
-            return await asyncio.get_event_loop().run_in_executor(None, _get_latest)
+            checkpoints = await self.list_checkpoints(thread_id)
+            return checkpoints[0] if checkpoints else None
             
         except Exception as e:
-            self._handle_exception("获取最新文件检查点", e)
-            raise # 重新抛出异常
+            logger.error(f"Failed to get latest file checkpoint for {thread_id}: {e}")
+            raise
     
     async def get_checkpoints_by_workflow(self, thread_id: str, workflow_id: str) -> List[Dict[str, Any]]:
         """获取指定工作流的所有checkpoint"""
         try:
-            def _get_by_workflow():
-                checkpoints = self._list_items(thread_id)
-                
-                # 按创建时间倒序排序
-                checkpoints = TimeUtils.sort_by_time(checkpoints, "created_at", True)
-                
-                # 过滤指定工作流的检查点
-                workflow_checkpoints = [
-                    cp for cp in checkpoints
-                    if cp.get("workflow_id") == workflow_id
-                ]
-                
-                self._log_operation("获取工作流文件检查点", True, f"{thread_id}/{workflow_id}, 共{len(workflow_checkpoints)}条")
-                return workflow_checkpoints
+            checkpoints = await self.list_checkpoints(thread_id)
             
-            return await asyncio.get_event_loop().run_in_executor(None, _get_by_workflow)
+            # 过滤指定工作流的检查点
+            workflow_checkpoints = [
+                cp for cp in checkpoints
+                if cp.get("workflow_id") == workflow_id
+            ]
+            
+            logger.debug(f"Got workflow checkpoints for {thread_id}/{workflow_id}: {len(workflow_checkpoints)} items")
+            return workflow_checkpoints
             
         except Exception as e:
-            self._handle_exception("获取工作流文件检查点", e)
-            raise # 重新抛出异常
+            logger.error(f"Failed to get workflow file checkpoints for {thread_id}/{workflow_id}: {e}")
+            raise
     
     async def cleanup_old_checkpoints(self, thread_id: str, max_count: int) -> int:
         """清理旧的checkpoint，保留最新的max_count个"""
         try:
-            def _cleanup():
-                checkpoints = self._list_items(thread_id)
-                
-                # 按创建时间倒序排序
-                checkpoints = TimeUtils.sort_by_time(checkpoints, "created_at", True)
-                
-                if len(checkpoints) <= max_count:
-                    return 0
-                
-                # 需要删除的checkpoint
-                to_delete = checkpoints[max_count:]
-                
-                # 删除旧checkpoint
-                deleted_count = 0
-                for checkpoint in to_delete:
-                    checkpoint_id = checkpoint["checkpoint_id"]
-                    deleted = self._delete_item(thread_id, checkpoint_id)
-                    if deleted:
-                        deleted_count += 1
-                
-                self._log_operation("清理文件旧检查点", True, f"{thread_id}, 删除{deleted_count}条")
-                return deleted_count
+            checkpoints = await self.list_checkpoints(thread_id)
             
-            return await asyncio.get_event_loop().run_in_executor(None, _cleanup)
+            if len(checkpoints) <= max_count:
+                return 0
+            
+            # 需要删除的checkpoint
+            to_delete = checkpoints[max_count:]
+            
+            # 删除旧checkpoint
+            deleted_count = 0
+            thread_dir = self.base_path / thread_id
+            for checkpoint in to_delete:
+                checkpoint_id = checkpoint["checkpoint_id"]
+                checkpoint_file = thread_dir / f"{checkpoint_id}.json"
+                if checkpoint_file.exists():
+                    checkpoint_file.unlink()
+                    deleted_count += 1
+            
+            logger.debug(f"Cleaned up old file checkpoints for {thread_id}: deleted {deleted_count} items")
+            return deleted_count
             
         except Exception as e:
-            self._handle_exception("清理文件旧检查点", e)
-            raise # 重新抛出异常
+            logger.error(f"Failed to cleanup old file checkpoints for {thread_id}: {e}")
+            raise

@@ -12,10 +12,10 @@ logger = get_logger(__name__)
 
 
 class FileThreadBackend(IThreadStorageBackend):
-    """文件系统线程存储后端"""
+    """文件系统线程存储后端 - 专注于线程数据存储"""
     
     def __init__(self, base_path: str = "./threads"):
-        """初始化文件系统后端
+        """初始化文件系统线程后端
         
         Args:
             base_path: 线程存储基础路径
@@ -138,4 +138,4 @@ class FileThreadBackend(IThreadStorageBackend):
     
     async def close(self) -> None:
         """关闭后端连接"""
-        logger.debug("File backend connection closed")
+        logger.debug("File thread backend connection closed")

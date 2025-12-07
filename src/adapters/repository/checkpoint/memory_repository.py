@@ -1,187 +1,169 @@
 """内存检查点Repository实现"""
 
-import asyncio
+import time
+import uuid
 from typing import Dict, Any, List, Optional
 
 from src.interfaces.repository import ICheckpointRepository
-from ..memory_base import MemoryBaseRepository
-from ..utils import TimeUtils, IdUtils
+from src.services.logger.injection import get_logger
 
 
-class MemoryCheckpointRepository(MemoryBaseRepository, ICheckpointRepository):
-    """内存检查点Repository实现"""
+logger = get_logger(__name__)
+
+
+class MemoryCheckpointRepository(ICheckpointRepository):
+    """内存检查点Repository实现 - 直接使用内存存储"""
     
     def __init__(self, config: Dict[str, Any]):
         """初始化内存检查点Repository"""
-        super().__init__(config)
+        self._storage: Dict[str, Dict[str, Any]] = {}
+        self._thread_index: Dict[str, List[str]] = {}
+        self._workflow_index: Dict[str, List[str]] = {}
     
     async def save_checkpoint(self, checkpoint_data: Dict[str, Any]) -> str:
         """保存checkpoint数据"""
         try:
-            def _save():
-                checkpoint_id = IdUtils.get_or_generate_id(
-                    checkpoint_data, "checkpoint_id", IdUtils.generate_checkpoint_id
-                )
-                
-                full_checkpoint = TimeUtils.add_timestamp({
-                    "checkpoint_id": checkpoint_id,
-                    **checkpoint_data
-                })
-                
-                # 保存到存储
-                self._save_item(checkpoint_id, full_checkpoint)
-                
-                # 更新索引
-                self._add_to_index("thread", checkpoint_data["thread_id"], checkpoint_id)
-                if "workflow_id" in checkpoint_data:
-                    self._add_to_index("workflow", checkpoint_data["workflow_id"], checkpoint_id)
-                
-                self._log_operation("内存检查点保存", True, checkpoint_id)
-                return checkpoint_id
+            checkpoint_id = checkpoint_data.get("checkpoint_id")
+            if not checkpoint_id:
+                checkpoint_id = str(uuid.uuid4())
             
-            return await asyncio.get_event_loop().run_in_executor(None, _save)
+            # 添加时间戳
+            current_time = time.time()
+            full_checkpoint = {
+                "checkpoint_id": checkpoint_id,
+                "created_at": current_time,
+                "updated_at": current_time,
+                **checkpoint_data
+            }
+            
+            # 保存到存储
+            self._storage[checkpoint_id] = full_checkpoint
+            
+            # 更新索引
+            thread_id = checkpoint_data["thread_id"]
+            if thread_id not in self._thread_index:
+                self._thread_index[thread_id] = []
+            if checkpoint_id not in self._thread_index[thread_id]:
+                self._thread_index[thread_id].append(checkpoint_id)
+            
+            if "workflow_id" in checkpoint_data:
+                workflow_id = checkpoint_data["workflow_id"]
+                if workflow_id not in self._workflow_index:
+                    self._workflow_index[workflow_id] = []
+                if checkpoint_id not in self._workflow_index[workflow_id]:
+                    self._workflow_index[workflow_id].append(checkpoint_id)
+            
+            logger.debug(f"Memory checkpoint saved: {checkpoint_id}")
+            return checkpoint_id
             
         except Exception as e:
-            self._handle_exception("保存内存检查点", e)
-            raise # 重新抛出异常
+            logger.error(f"Failed to save memory checkpoint: {e}")
+            raise
     
     async def load_checkpoint(self, checkpoint_id: str) -> Optional[Dict[str, Any]]:
         """加载checkpoint数据"""
         try:
-            def _load():
-                checkpoint = self._load_item(checkpoint_id)
-                if checkpoint:
-                    self._log_operation("内存检查点加载", True, checkpoint_id)
-                    return checkpoint
-                return None
-            
-            return await asyncio.get_event_loop().run_in_executor(None, _load)
+            checkpoint = self._storage.get(checkpoint_id)
+            if checkpoint:
+                logger.debug(f"Memory checkpoint loaded: {checkpoint_id}")
+            return checkpoint
             
         except Exception as e:
-            self._handle_exception("加载内存检查点", e)
-            raise # 重新抛出异常
+            logger.error(f"Failed to load memory checkpoint {checkpoint_id}: {e}")
+            raise
     
     async def list_checkpoints(self, thread_id: str) -> List[Dict[str, Any]]:
         """列出指定thread的所有checkpoint"""
         try:
-            def _list():
-                checkpoint_ids = self._get_from_index("thread", thread_id)
-                # 过滤掉None值，确保只返回有效的检查点
-                checkpoints = [item for cid in checkpoint_ids if (item := self._load_item(cid)) is not None]
-                
-                # 按创建时间倒序排序
-                checkpoints = TimeUtils.sort_by_time(checkpoints, "created_at", True)
-                
-                self._log_operation("列出内存检查点", True, f"{thread_id}, 共{len(checkpoints)}条")
-                return checkpoints
+            checkpoint_ids = self._thread_index.get(thread_id, [])
+            checkpoints = [self._storage[cid] for cid in checkpoint_ids if cid in self._storage]
             
-            return await asyncio.get_event_loop().run_in_executor(None, _list)
+            # 按创建时间倒序排序
+            checkpoints.sort(key=lambda x: x.get("created_at", 0), reverse=True)
+            
+            logger.debug(f"Listed memory checkpoints for {thread_id}: {len(checkpoints)} items")
+            return checkpoints
             
         except Exception as e:
-            self._handle_exception("列出内存检查点", e)
-            raise # 重新抛出异常
+            logger.error(f"Failed to list memory checkpoints for {thread_id}: {e}")
+            raise
     
     async def delete_checkpoint(self, checkpoint_id: str) -> bool:
         """删除指定的checkpoint"""
         try:
-            def _delete():
-                checkpoint = self._load_item(checkpoint_id)
-                if not checkpoint:
-                    return False
-                
-                # 从索引中移除
-                self._remove_from_index("thread", checkpoint["thread_id"], checkpoint_id)
-                if "workflow_id" in checkpoint:
-                    self._remove_from_index("workflow", checkpoint["workflow_id"], checkpoint_id)
-                
-                # 从存储中删除
-                deleted = self._delete_item(checkpoint_id)
-                self._log_operation("内存检查点删除", deleted, checkpoint_id)
-                return deleted
+            checkpoint = self._storage.get(checkpoint_id)
+            if not checkpoint:
+                return False
             
-            return await asyncio.get_event_loop().run_in_executor(None, _delete)
+            # 从索引中移除
+            thread_id = checkpoint["thread_id"]
+            if thread_id in self._thread_index and checkpoint_id in self._thread_index[thread_id]:
+                self._thread_index[thread_id].remove(checkpoint_id)
+            
+            if "workflow_id" in checkpoint:
+                workflow_id = checkpoint["workflow_id"]
+                if workflow_id in self._workflow_index and checkpoint_id in self._workflow_index[workflow_id]:
+                    self._workflow_index[workflow_id].remove(checkpoint_id)
+            
+            # 从存储中删除
+            del self._storage[checkpoint_id]
+            logger.debug(f"Memory checkpoint deleted: {checkpoint_id}")
+            return True
             
         except Exception as e:
-            self._handle_exception("删除内存检查点", e)
-            raise # 重新抛出异常
+            logger.error(f"Failed to delete memory checkpoint {checkpoint_id}: {e}")
+            raise
     
     async def get_latest_checkpoint(self, thread_id: str) -> Optional[Dict[str, Any]]:
         """获取thread的最新checkpoint"""
         try:
-            def _get_latest():
-                checkpoint_ids = self._get_from_index("thread", thread_id)
-                # 过滤掉None值，确保只返回有效的检查点
-                checkpoints = [item for cid in checkpoint_ids if (item := self._load_item(cid)) is not None]
-                
-                # 按创建时间倒序排序
-                checkpoints = TimeUtils.sort_by_time(checkpoints, "created_at", True)
-                
-                return checkpoints[0] if checkpoints else None
-            
-            return await asyncio.get_event_loop().run_in_executor(None, _get_latest)
+            checkpoints = await self.list_checkpoints(thread_id)
+            return checkpoints[0] if checkpoints else None
             
         except Exception as e:
-            self._handle_exception("获取最新内存检查点", e)
-            raise # 重新抛出异常
+            logger.error(f"Failed to get latest memory checkpoint for {thread_id}: {e}")
+            raise
     
     async def get_checkpoints_by_workflow(self, thread_id: str, workflow_id: str) -> List[Dict[str, Any]]:
         """获取指定工作流的所有checkpoint"""
         try:
-            def _get_by_workflow():
-                checkpoint_ids = self._get_from_index("workflow", workflow_id)
-                # 过滤掉None值，确保只返回有效的检查点
-                checkpoints = [item for cid in checkpoint_ids if (item := self._load_item(cid)) is not None]
-                
-                # 过滤指定thread的检查点
-                checkpoints = [cp for cp in checkpoints if cp.get("thread_id") == thread_id]
-                
-                # 按创建时间倒序排序
-                checkpoints = TimeUtils.sort_by_time(checkpoints, "created_at", True)
-                
-                self._log_operation("获取工作流内存检查点", True, f"{thread_id}/{workflow_id}, 共{len(checkpoints)}条")
-                return checkpoints
+            checkpoint_ids = self._workflow_index.get(workflow_id, [])
+            checkpoints = [self._storage[cid] for cid in checkpoint_ids if cid in self._storage]
             
-            return await asyncio.get_event_loop().run_in_executor(None, _get_by_workflow)
+            # 过滤指定thread的检查点
+            checkpoints = [cp for cp in checkpoints if cp.get("thread_id") == thread_id]
+            
+            # 按创建时间倒序排序
+            checkpoints.sort(key=lambda x: x.get("created_at", 0), reverse=True)
+            
+            logger.debug(f"Got workflow memory checkpoints for {thread_id}/{workflow_id}: {len(checkpoints)} items")
+            return checkpoints
             
         except Exception as e:
-            self._handle_exception("获取工作流内存检查点", e)
-            raise # 重新抛出异常
+            logger.error(f"Failed to get workflow memory checkpoints for {thread_id}/{workflow_id}: {e}")
+            raise
     
     async def cleanup_old_checkpoints(self, thread_id: str, max_count: int) -> int:
         """清理旧的checkpoint，保留最新的max_count个"""
         try:
-            def _cleanup():
-                checkpoint_ids = self._get_from_index("thread", thread_id)
-                # 过滤掉None值，确保只返回有效的检查点
-                checkpoints = [item for cid in checkpoint_ids if (item := self._load_item(cid)) is not None]
-                
-                # 按创建时间倒序排序
-                checkpoints = TimeUtils.sort_by_time(checkpoints, "created_at", True)
-                
-                if len(checkpoints) <= max_count:
-                    return 0
-                
-                # 需要删除的checkpoint
-                to_delete = checkpoints[max_count:]
-                
-                # 删除旧checkpoint
-                deleted_count = 0
-                for checkpoint in to_delete:
-                    checkpoint_id = checkpoint["checkpoint_id"]
-                    # 从索引中移除
-                    self._remove_from_index("thread", checkpoint["thread_id"], checkpoint_id)
-                    if "workflow_id" in checkpoint:
-                        self._remove_from_index("workflow", checkpoint["workflow_id"], checkpoint_id)
-                    
-                    # 从存储中删除
-                    if self._delete_item(checkpoint_id):
-                        deleted_count += 1
-                
-                self._log_operation("清理内存旧检查点", True, f"{thread_id}, 删除{deleted_count}条")
-                return deleted_count
+            checkpoints = await self.list_checkpoints(thread_id)
             
-            return await asyncio.get_event_loop().run_in_executor(None, _cleanup)
+            if len(checkpoints) <= max_count:
+                return 0
+            
+            # 需要删除的checkpoint
+            to_delete = checkpoints[max_count:]
+            
+            # 删除旧checkpoint
+            deleted_count = 0
+            for checkpoint in to_delete:
+                checkpoint_id = checkpoint["checkpoint_id"]
+                if await self.delete_checkpoint(checkpoint_id):
+                    deleted_count += 1
+            
+            logger.debug(f"Cleaned up old memory checkpoints for {thread_id}: deleted {deleted_count} items")
+            return deleted_count
             
         except Exception as e:
-            self._handle_exception("清理内存旧检查点", e)
-            raise # 重新抛出异常
+            logger.error(f"Failed to cleanup old memory checkpoints for {thread_id}: {e}")
+            raise

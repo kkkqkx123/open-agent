@@ -5,7 +5,9 @@ from typing import Dict, Any, Optional, List
 
 
 class IThreadStorageBackend(ABC):
-    """线程存储后端接口 - 单一存储实现"""
+    """线程存储后端接口 - 专注于线程数据存储"""
+    
+    # === 基础线程存储方法 ===
     
     @abstractmethod
     async def save(self, thread_id: str, data: Dict[str, Any]) -> bool:

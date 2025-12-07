@@ -5,7 +5,6 @@ import sqlite3
 from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List
 from pathlib import Path
-from datetime import datetime
 
 from .thread_base import IThreadStorageBackend
 from src.interfaces.storage.exceptions import StorageError
@@ -14,10 +13,10 @@ logger = get_logger(__name__)
 
 
 class SQLiteThreadBackend(IThreadStorageBackend):
-    """SQLite 线程存储后端"""
+    """SQLite 线程存储后端 - 专注于线程数据存储"""
     
     def __init__(self, db_path: str = "./data/threads.db"):
-        """初始化 SQLite 后端
+        """初始化 SQLite 线程后端
         
         Args:
             db_path: 数据库文件路径
@@ -30,12 +29,12 @@ class SQLiteThreadBackend(IThreadStorageBackend):
         """初始化数据库表"""
         try:
             with sqlite3.connect(self.db_path) as conn:
+                # 创建线程表
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS threads (
                         thread_id TEXT PRIMARY KEY,
                         session_id TEXT NOT NULL,
                         status TEXT NOT NULL,
-                        current_checkpoint_id TEXT,
                         created_at TIMESTAMP NOT NULL,
                         updated_at TIMESTAMP NOT NULL,
                         metadata TEXT,
@@ -55,8 +54,9 @@ class SQLiteThreadBackend(IThreadStorageBackend):
                 conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_threads_updated_at ON threads(updated_at)"
                 )
+                
                 conn.commit()
-                logger.debug("SQLite threads table initialized")
+                logger.debug("SQLite thread storage tables initialized")
         except Exception as e:
             raise StorageError(f"Failed to initialize database: {e}")
     
@@ -74,14 +74,13 @@ class SQLiteThreadBackend(IThreadStorageBackend):
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute("""
                     INSERT OR REPLACE INTO threads 
-                    (thread_id, session_id, status, current_checkpoint_id, 
+                    (thread_id, session_id, status, 
                      created_at, updated_at, metadata, tags, branch_ids)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     data["thread_id"],
                     data["session_id"],
                     data["status"],
-                    data.get("current_checkpoint_id"),
                     data["created_at"],
                     data["updated_at"],
                     json.dumps(data.get("metadata", {})),
@@ -118,12 +117,11 @@ class SQLiteThreadBackend(IThreadStorageBackend):
                     "thread_id": row[0],
                     "session_id": row[1],
                     "status": row[2],
-                    "current_checkpoint_id": row[3],
-                    "created_at": row[4],
-                    "updated_at": row[5],
-                    "metadata": json.loads(row[6]) if row[6] else {},
-                    "tags": json.loads(row[7]) if row[7] else [],
-                    "branch_ids": json.loads(row[8]) if row[8] else []
+                    "created_at": row[3],
+                    "updated_at": row[4],
+                    "metadata": json.loads(row[5]) if row[5] else {},
+                    "tags": json.loads(row[6]) if row[6] else [],
+                    "branch_ids": json.loads(row[7]) if row[7] else []
                 }
         except Exception as e:
             logger.error(f"Failed to load thread {thread_id}: {e}")
@@ -199,4 +197,4 @@ class SQLiteThreadBackend(IThreadStorageBackend):
     
     async def close(self) -> None:
         """关闭后端连接"""
-        logger.debug("SQLite backend connection closed")
+        logger.debug("SQLite thread backend connection closed")

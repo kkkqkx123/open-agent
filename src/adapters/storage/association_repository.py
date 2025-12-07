@@ -1,7 +1,6 @@
 """Session-Thread关联仓储实现"""
 
 from src.services.logger.injection import get_logger
-import json
 from typing import Dict, Any, Optional, List, Union, cast, Sequence
 from datetime import datetime
 

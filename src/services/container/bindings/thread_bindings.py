@@ -161,7 +161,13 @@ def _register_thread_backends(container: Any, config: Dict[str, Any], environmen
             from src.adapters.storage.backends import SQLiteThreadBackend
             sqlite_config = config.get("thread", {}).get("sqlite", {})
             db_path = sqlite_config.get("db_path", "./data/threads.db")
-            return SQLiteThreadBackend(db_path=db_path)
+            enable_checkpoints = sqlite_config.get("enable_checkpoints", True)
+            checkpoint_config = sqlite_config.get("checkpoint_config", {})
+            return SQLiteThreadBackend(
+                db_path=db_path,
+                enable_checkpoints=enable_checkpoints,
+                checkpoint_config=checkpoint_config
+            )
         else:
             raise ValueError(f"Unsupported primary backend type: {primary_backend_type}")
     
@@ -174,13 +180,25 @@ def _register_thread_backends(container: Any, config: Dict[str, Any], environmen
                 from src.adapters.storage.backends import FileThreadBackend
                 file_config = config.get("thread", {}).get("file", {})
                 base_path = file_config.get("base_path", "./threads_backup")
-                backend: Union[SQLiteThreadBackend, FileThreadBackend] = FileThreadBackend(base_path=base_path)
+                enable_checkpoints = file_config.get("enable_checkpoints", True)
+                checkpoint_config = file_config.get("checkpoint_config", {})
+                backend: Union[SQLiteThreadBackend, FileThreadBackend] = FileThreadBackend(
+                    base_path=base_path,
+                    enable_checkpoints=enable_checkpoints,
+                    checkpoint_config=checkpoint_config
+                )
                 secondary_backends.append(backend)
             elif backend_type == "sqlite":
                 from src.adapters.storage.backends import SQLiteThreadBackend
                 sqlite_config = config.get("thread", {}).get("sqlite_secondary", {})
                 db_path = sqlite_config.get("db_path", "./data/threads_backup.db")
-                backend = SQLiteThreadBackend(db_path=db_path)
+                enable_checkpoints = sqlite_config.get("enable_checkpoints", True)
+                checkpoint_config = sqlite_config.get("checkpoint_config", {})
+                backend = SQLiteThreadBackend(
+                    db_path=db_path,
+                    enable_checkpoints=enable_checkpoints,
+                    checkpoint_config=checkpoint_config
+                )
                 secondary_backends.append(backend)
             else:
                 print(f"[WARNING] Unknown secondary backend type: {backend_type}", file=sys.stderr)
