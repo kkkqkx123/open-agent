@@ -9,7 +9,7 @@ from src.interfaces.state.interfaces import IState
 from src.core.state.entities import StateSnapshot, StateHistoryEntry, StateDiff
 from ..base import BaseRepository
 from ...storage.adapter import StateDataTransformer
-from ...storage.adapter.config_manager import get_global_config_manager
+from src.core.storage.config import StorageConfigManager
 
 
 class SQLiteStateRepository(BaseRepository, IStateRepository):
@@ -28,7 +28,7 @@ class SQLiteStateRepository(BaseRepository, IStateRepository):
         )
         
         # 获取配置管理器
-        self.config_manager = get_global_config_manager()
+        self.config_manager = StorageConfigManager()
     
     def _create_additional_tables(self, snapshots_sql: str, history_sql: str) -> None:
         """创建额外的表"""

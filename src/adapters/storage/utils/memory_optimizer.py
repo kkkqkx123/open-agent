@@ -8,7 +8,7 @@ import os
 import psutil
 import threading
 import time
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional
 
 
 class MemoryOptimizer:

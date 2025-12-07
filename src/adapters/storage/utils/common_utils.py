@@ -16,7 +16,7 @@ from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional
 from pathlib import Path
 
-from src.core.common.exceptions import StorageError
+from src.interfaces.storage.exceptions import StorageError
 from src.core.state.filters import MemoryFilterBuilder, FilterValidator
 from src.core.state.expiration import ExpirationManager
 

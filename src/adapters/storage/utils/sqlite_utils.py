@@ -3,20 +3,14 @@
 提供SQLite存储相关的静态工具方法。
 """
 
-import json
 import sqlite3
-import threading
 import time
 from src.services.logger.injection import get_logger
 from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
 
-from src.core.common.exceptions import StorageError, StorageConnectionError
+from src.interfaces.storage.exceptions import StorageError, StorageConnectionError
 from src.core.state.filters import SQLiteFilterBuilder
-from src.core.state.expiration import ExpirationManager
-from src.core.state.backup_policy import DatabaseBackupStrategy, BackupManager
-from .common_utils import StorageCommonUtils
-
 
 logger = get_logger(__name__)
 

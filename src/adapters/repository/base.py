@@ -11,7 +11,7 @@ from src.interfaces.repository import RepositoryError
 from src.interfaces.storage.adapter import IStorageAdapter, IDataTransformer
 from src.adapters.storage.adapter.storage_adapter import StorageAdapter
 from src.adapters.storage.adapter.data_transformer import DefaultDataTransformer
-from src.adapters.storage.adapter.config_manager import get_global_config_manager
+from src.core.storage.config import StorageConfigManager, StorageType
 from src.infrastructure.error_management.impl.storage_adapter import StorageAdapterErrorHandler
 
 logger = get_logger(__name__)
@@ -59,19 +59,24 @@ class BaseRepository(ABC):
         """
         try:
             # 获取配置管理器
-            config_manager = get_global_config_manager()
+            config_manager = StorageConfigManager()
             
-            # 获取仓库配置
-            repo_config = config_manager.get_repository_config(self.repository_type)
+            # 根据仓库类型确定存储类型
+            storage_type = self._get_storage_type_for_repository()
             
-            # 获取后端类型
-            backend_type = repo_config.get("backend_type", "sqlite")
+            # 获取存储配置
+            storage_config = config_manager.get_config(f"{self.repository_type}_default")
+            if storage_config is None:
+                # 使用默认配置
+                storage_config = config_manager.get_default_config()
+                if storage_config is None:
+                    raise RepositoryError(f"无法找到 {self.repository_type} 的存储配置")
             
             # 获取后端配置
-            backend_config = config_manager.get_backend_config(backend_type)
+            backend_config = storage_config.config
             
             # 创建存储后端
-            storage_backend = self._create_storage_backend(backend_type, backend_config)
+            storage_backend = self._create_storage_backend(storage_type.value, backend_config)
             
             # 创建错误处理器
             error_handler = StorageAdapterErrorHandler()
@@ -86,6 +91,22 @@ class BaseRepository(ABC):
         except Exception as e:
             self.logger.error(f"创建默认存储适配器失败: {e}")
             raise RepositoryError(f"创建存储适配器失败: {e}") from e
+    
+    def _get_storage_type_for_repository(self) -> StorageType:
+        """根据仓库类型获取存储类型
+        
+        Returns:
+            存储类型
+        """
+        # 默认映射关系
+        repository_storage_mapping = {
+            "state": StorageType.SQLITE,
+            "history": StorageType.SQLITE,
+            "snapshot": StorageType.FILE,
+            "checkpoint": StorageType.SQLITE
+        }
+        
+        return repository_storage_mapping.get(self.repository_type, StorageType.SQLITE)
     
     def _create_storage_backend(self, backend_type: str, config: Dict[str, Any]):
         """创建存储后端

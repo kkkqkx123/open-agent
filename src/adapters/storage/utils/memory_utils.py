@@ -8,9 +8,7 @@ import pickle
 import time
 from typing import Dict, Any, Optional, List, Union
 
-from src.interfaces.storage.exceptions import StorageError, StorageCapacityError
-from .common_utils import StorageCommonUtils
-
+from src.interfaces.storage.exceptions import StorageError
 
 class MemoryStorageItem:
     """内存存储项
@@ -194,8 +192,10 @@ class MemoryStorageUtils:
         if max_size and len(storage_items) >= max_size:
             raise StorageCapacityError(
                 f"Storage capacity exceeded: max_size={max_size}",
-                required_size=1,
-                available_size=max_size - len(storage_items)
+                details={
+                    "required_size": 1,
+                    "available_size": max_size - len(storage_items)
+                }
             )
         
         # 检查内存使用限制
@@ -205,8 +205,10 @@ class MemoryStorageUtils:
             if total_size >= max_bytes:
                 raise StorageCapacityError(
                     f"Memory capacity exceeded: max_memory_mb={max_memory_mb}",
-                    required_size=1024,  # 估算1KB
-                    available_size=max_bytes - total_size
+                    details={
+                        "required_size": 1024,  # 估算1KB
+                        "available_size": max_bytes - total_size
+                    }
                 )
     
     @staticmethod
