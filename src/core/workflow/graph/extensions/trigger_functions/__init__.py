@@ -3,11 +3,11 @@
 提供灵活的触发器函数管理功能，支持配置驱动的触发器函数管理。
 """
 
-from .registry import TriggerFunctionRegistry, TriggerFunctionConfig
 from .manager import TriggerFunctionManager, get_trigger_function_manager
 from .loader import TriggerFunctionLoader
 from .builtin import BuiltinTriggerFunctions
 from .config import TriggerCompositionConfig, TriggerFunctionConfigLoader
+from src.core.workflow.registry import TriggerRegistry, TriggerConfig
 from .impl import (
     TimeTriggerImplementation,
     StateTriggerImplementation,
@@ -17,8 +17,8 @@ from .impl import (
 )
 
 __all__ = [
-    "TriggerFunctionRegistry",
-    "TriggerFunctionConfig",
+    "TriggerRegistry",
+    "TriggerConfig",
     "TriggerFunctionManager",
     "TriggerFunctionLoader",
     "BuiltinTriggerFunctions",

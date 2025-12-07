@@ -14,7 +14,7 @@ from src.interfaces.workflow.graph import NodeExecutionResult
 
 # 延迟导入以避免循环依赖
 def _get_hook_registry():
-    from src.core.workflow.graph.extensions.hooks.registry import HookRegistry
+    from src.core.workflow.registry import HookRegistry
     return HookRegistry
 
 if TYPE_CHECKING:

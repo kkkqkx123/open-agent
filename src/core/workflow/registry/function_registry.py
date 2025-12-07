@@ -1,15 +1,18 @@
-"""函数注册表
+"""统一函数注册表
 
-提供统一的节点函数和条件函数注册、发现和管理功能。
+提供统一的节点函数、条件函数和触发器函数的注册、发现和管理功能。
 """
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, Callable, Union, TYPE_CHECKING
 from enum import Enum
+from dataclasses import dataclass
 from src.services.logger.injection import get_logger
 import importlib
 import inspect
 from pathlib import Path
+
+from .base_registry import BaseRegistry, TypedRegistry
 
 if TYPE_CHECKING:
     from src.core.workflow.entities import WorkflowState
@@ -21,6 +24,27 @@ class FunctionType(Enum):
     """函数类型枚举"""
     NODE_FUNCTION = "node_function"
     CONDITION_FUNCTION = "condition_function"
+    TRIGGER_FUNCTION = "trigger_function"
+
+
+@dataclass
+class FunctionConfig:
+    """函数配置"""
+    name: str
+    function_type: str
+    description: Optional[str] = None
+    parameters: Optional[Dict[str, Any]] = None
+    is_async: bool = False
+    category: Optional[str] = None
+
+
+@dataclass
+class RegisteredFunction:
+    """已注册的函数"""
+    name: str
+    function: Callable
+    config: FunctionConfig
+    is_builtin: bool = False
 
 
 class FunctionRegistrationError(Exception):
@@ -37,8 +61,18 @@ class IFunctionRegistry(ABC):
     """函数注册表接口"""
     
     @abstractmethod
-    def register(self, name: str, function: Callable, function_type: FunctionType) -> None:
-        """注册函数"""
+    def register_node_function(self, name: str, function: Callable) -> None:
+        """注册节点函数"""
+        pass
+    
+    @abstractmethod
+    def register_condition_function(self, name: str, function: Callable) -> None:
+        """注册条件函数"""
+        pass
+    
+    @abstractmethod
+    def register_trigger_function(self, name: str, function: Callable, config: FunctionConfig) -> None:
+        """注册触发器函数"""
         pass
     
     @abstractmethod
@@ -52,25 +86,35 @@ class IFunctionRegistry(ABC):
         pass
     
     @abstractmethod
-    def unregister(self, name: str, function_type: FunctionType) -> bool:
-        """注销函数"""
+    def get_trigger_function(self, name: str) -> Optional[Callable]:
+        """获取触发器函数"""
+        pass
+    
+    @abstractmethod
+    def list_node_functions(self) -> List[str]:
+        """列出所有节点函数"""
+        pass
+    
+    @abstractmethod
+    def list_condition_functions(self) -> List[str]:
+        """列出所有条件函数"""
+        pass
+    
+    @abstractmethod
+    def list_trigger_functions(self) -> List[str]:
+        """列出所有触发器函数"""
         pass
     
     @abstractmethod
     def discover_functions(self, module_paths: Optional[List[str]] = None) -> Dict[str, List[str]]:
         """自动发现并注册函数"""
         pass
-    
-    @abstractmethod
-    def list_functions(self, function_type: Optional[FunctionType] = None) -> Dict[str, List[str]]:
-        """列出已注册的函数"""
-        pass
 
 
-class FunctionRegistry(IFunctionRegistry):
-    """函数注册表
+class FunctionRegistry(BaseRegistry, IFunctionRegistry):
+    """统一函数注册表
     
-    统一管理节点函数和条件函数的注册、发现和获取。
+    管理节点函数、条件函数和触发器函数的注册、发现和获取。
     """
     
     def __init__(self, enable_auto_discovery: bool = False):
@@ -79,48 +123,74 @@ class FunctionRegistry(IFunctionRegistry):
         Args:
             enable_auto_discovery: 是否启用自动发现功能
         """
+        super().__init__("function")
         self._node_functions: Dict[str, Callable] = {}
         self._condition_functions: Dict[str, Callable] = {}
+        self._trigger_functions: Dict[str, RegisteredFunction] = {}
         self._enable_auto_discovery = enable_auto_discovery
         self._discovery_cache: Dict[str, Dict[str, List[str]]] = {}
         
         # 注册内置函数
         self._register_builtin_functions()
     
-    def register(self, name: str, function: Callable, function_type: FunctionType) -> None:
-        """注册函数
+    def register_node_function(self, name: str, function: Callable) -> None:
+        """注册节点函数
         
         Args:
-            name: 函数名称（配置文件中使用的名称）
+            name: 函数名称
             function: 函数对象
-            function_type: 函数类型
             
         Raises:
-            FunctionRegistrationError: 函数名称已存在或函数类型无效
+            FunctionRegistrationError: 函数注册失败
         """
-        if not name or not isinstance(name, str):
-            raise FunctionRegistrationError("函数名称必须是非空字符串")
+        self._validate_function_registration(name, function, FunctionType.NODE_FUNCTION)
         
-        if not callable(function):
-            raise FunctionRegistrationError("注册的对象必须是可调用的")
+        if name in self._node_functions:
+            self._logger.warning(f"节点函数 '{name}' 已存在，将被覆盖")
         
-        if not isinstance(function_type, FunctionType):
-            raise FunctionRegistrationError("函数类型必须是 FunctionType 枚举值")
+        self._node_functions[name] = function
+        self._logger.debug(f"注册节点函数: {name}")
+    
+    def register_condition_function(self, name: str, function: Callable) -> None:
+        """注册条件函数
         
-        # 检查函数签名
-        self._validate_function_signature(function, function_type)
-        
-        if function_type == FunctionType.NODE_FUNCTION:
-            if name in self._node_functions:
-                logger.warning(f"节点函数 '{name}' 已存在，将被覆盖")
-            self._node_functions[name] = function
-            logger.debug(f"注册节点函数: {name}")
+        Args:
+            name: 函数名称
+            function: 函数对象
             
-        elif function_type == FunctionType.CONDITION_FUNCTION:
-            if name in self._condition_functions:
-                logger.warning(f"条件函数 '{name}' 已存在，将被覆盖")
-            self._condition_functions[name] = function
-            logger.debug(f"注册条件函数: {name}")
+        Raises:
+            FunctionRegistrationError: 函数注册失败
+        """
+        self._validate_function_registration(name, function, FunctionType.CONDITION_FUNCTION)
+        
+        if name in self._condition_functions:
+            self._logger.warning(f"条件函数 '{name}' 已存在，将被覆盖")
+        
+        self._condition_functions[name] = function
+        self._logger.debug(f"注册条件函数: {name}")
+    
+    def register_trigger_function(self, name: str, function: Callable, config: FunctionConfig) -> None:
+        """注册触发器函数
+        
+        Args:
+            name: 函数名称
+            function: 函数对象
+            config: 函数配置
+            
+        Raises:
+            FunctionRegistrationError: 函数注册失败
+        """
+        self._validate_function_registration(name, function, FunctionType.TRIGGER_FUNCTION)
+        
+        registered_func = RegisteredFunction(
+            name=name,
+            function=function,
+            config=config,
+            is_builtin=False
+        )
+        
+        self._trigger_functions[name] = registered_func
+        self._logger.debug(f"注册触发器函数: {name} (类型: {config.function_type})")
     
     def get_node_function(self, name: str) -> Optional[Callable]:
         """获取节点函数
@@ -144,68 +214,53 @@ class FunctionRegistry(IFunctionRegistry):
         """
         return self._condition_functions.get(name)
     
-    def unregister(self, name: str, function_type: FunctionType) -> bool:
-        """注销函数
+    def get_trigger_function(self, name: str) -> Optional[Callable]:
+        """获取触发器函数
         
         Args:
             name: 函数名称
-            function_type: 函数类型
             
         Returns:
-            bool: 是否成功注销
+            Optional[Callable]: 触发器函数，如果不存在返回None
         """
-        if function_type == FunctionType.NODE_FUNCTION:
-            if name in self._node_functions:
-                del self._node_functions[name]
-                logger.debug(f"注销节点函数: {name}")
-                return True
-                
-        elif function_type == FunctionType.CONDITION_FUNCTION:
-            if name in self._condition_functions:
-                del self._condition_functions[name]
-                logger.debug(f"注销条件函数: {name}")
-                return True
-        
-        return False
+        registered_func = self._trigger_functions.get(name)
+        return registered_func.function if registered_func else None
     
-    def discover_functions(self, module_paths: Optional[List[str]] = None) -> Dict[str, List[str]]:
-        """自动发现并注册函数
+    def get_trigger_function_config(self, name: str) -> Optional[FunctionConfig]:
+        """获取触发器函数配置
         
         Args:
-            module_paths: 要扫描的模块路径列表，如果为None则使用默认路径
+            name: 函数名称
             
         Returns:
-            Dict[str, List[str]]: 发现的函数统计信息
-            
-        Raises:
-            FunctionDiscoveryError: 函数发现失败
+            Optional[FunctionConfig]: 函数配置，如果不存在返回None
         """
-        if not self._enable_auto_discovery:
-            logger.warning("自动发现功能未启用")
-            return {"nodes": [], "conditions": []}
+        registered_func = self._trigger_functions.get(name)
+        return registered_func.config if registered_func else None
+    
+    def list_node_functions(self) -> List[str]:
+        """列出所有节点函数
         
-        if module_paths is None:
-            module_paths = [
-                "src.workflow.nodes",
-                "src.workflow.conditions",
-                "src.infrastructure.graph.builtin_functions"
-            ]
+        Returns:
+            List[str]: 节点函数名称列表
+        """
+        return list(self._node_functions.keys())
+    
+    def list_condition_functions(self) -> List[str]:
+        """列出所有条件函数
         
-        discovered: Dict[str, List[str]] = {"nodes": [], "conditions": []}
+        Returns:
+            List[str]: 条件函数名称列表
+        """
+        return list(self._condition_functions.keys())
+    
+    def list_trigger_functions(self) -> List[str]:
+        """列出所有触发器函数
         
-        for module_path in module_paths:
-            try:
-                module_functions = self._discover_from_module(module_path)
-                discovered["nodes"].extend(module_functions["nodes"])
-                discovered["conditions"].extend(module_functions["conditions"])
-                
-            except Exception as e:
-                logger.error(f"从模块 '{module_path}' 发现函数失败: {e}")
-                # 继续处理其他模块
-                continue
-        
-        logger.info(f"自动发现完成: 节点函数 {len(discovered['nodes'])} 个, 条件函数 {len(discovered['conditions'])} 个")
-        return discovered
+        Returns:
+            List[str]: 触发器函数名称列表
+        """
+        return list(self._trigger_functions.keys())
     
     def list_functions(self, function_type: Optional[FunctionType] = None) -> Dict[str, List[str]]:
         """列出已注册的函数
@@ -219,12 +274,60 @@ class FunctionRegistry(IFunctionRegistry):
         result = {}
         
         if function_type is None or function_type == FunctionType.NODE_FUNCTION:
-            result["nodes"] = list(self._node_functions.keys())
+            result["nodes"] = self.list_node_functions()
         
         if function_type is None or function_type == FunctionType.CONDITION_FUNCTION:
-            result["conditions"] = list(self._condition_functions.keys())
+            result["conditions"] = self.list_condition_functions()
+        
+        if function_type is None or function_type == FunctionType.TRIGGER_FUNCTION:
+            result["triggers"] = self.list_trigger_functions()
         
         return result
+    
+    def unregister_node_function(self, name: str) -> bool:
+        """注销节点函数
+        
+        Args:
+            name: 函数名称
+            
+        Returns:
+            bool: 是否成功注销
+        """
+        if name in self._node_functions:
+            del self._node_functions[name]
+            self._logger.debug(f"注销节点函数: {name}")
+            return True
+        return False
+    
+    def unregister_condition_function(self, name: str) -> bool:
+        """注销条件函数
+        
+        Args:
+            name: 函数名称
+            
+        Returns:
+            bool: 是否成功注销
+        """
+        if name in self._condition_functions:
+            del self._condition_functions[name]
+            self._logger.debug(f"注销条件函数: {name}")
+            return True
+        return False
+    
+    def unregister_trigger_function(self, name: str) -> bool:
+        """注销触发器函数
+        
+        Args:
+            name: 函数名称
+            
+        Returns:
+            bool: 是否成功注销
+        """
+        if name in self._trigger_functions:
+            del self._trigger_functions[name]
+            self._logger.debug(f"注销触发器函数: {name}")
+            return True
+        return False
     
     def clear(self, function_type: Optional[FunctionType] = None) -> None:
         """清除注册的函数
@@ -234,11 +337,17 @@ class FunctionRegistry(IFunctionRegistry):
         """
         if function_type is None or function_type == FunctionType.NODE_FUNCTION:
             self._node_functions.clear()
-            logger.debug("清除所有节点函数")
+            self._logger.debug("清除所有节点函数")
         
         if function_type is None or function_type == FunctionType.CONDITION_FUNCTION:
             self._condition_functions.clear()
-            logger.debug("清除所有条件函数")
+            self._logger.debug("清除所有条件函数")
+        
+        if function_type is None or function_type == FunctionType.TRIGGER_FUNCTION:
+            self._trigger_functions.clear()
+            self._logger.debug("清除所有触发器函数")
+        
+        super().clear()
     
     def validate_function_exists(self, name: str, function_type: FunctionType) -> bool:
         """验证函数是否存在
@@ -254,6 +363,8 @@ class FunctionRegistry(IFunctionRegistry):
             return name in self._node_functions
         elif function_type == FunctionType.CONDITION_FUNCTION:
             return name in self._condition_functions
+        elif function_type == FunctionType.TRIGGER_FUNCTION:
+            return name in self._trigger_functions
         return False
     
     def get_function_info(self, name: str, function_type: FunctionType) -> Optional[Dict[str, Any]]:
@@ -270,6 +381,9 @@ class FunctionRegistry(IFunctionRegistry):
             function = self._node_functions.get(name)
         elif function_type == FunctionType.CONDITION_FUNCTION:
             function = self._condition_functions.get(name)
+        elif function_type == FunctionType.TRIGGER_FUNCTION:
+            registered_func = self._trigger_functions.get(name)
+            function = registered_func.function if registered_func else None
         else:
             return None
         
@@ -280,21 +394,105 @@ class FunctionRegistry(IFunctionRegistry):
             sig = inspect.signature(function)
             doc = inspect.getdoc(function) or ""
             
-            return {
+            info = {
                 "name": name,
                 "type": function_type.value,
                 "signature": str(sig),
                 "doc": doc,
                 "module": function.__module__,
-                "file": inspect.getfile(function) if hasattr(function, '__file__') else None
+                "is_async": inspect.iscoroutinefunction(function)
             }
+            
+            # 添加触发器函数特有信息
+            if function_type == FunctionType.TRIGGER_FUNCTION and name in self._trigger_functions:
+                registered_func = self._trigger_functions[name]
+                info["config"] = registered_func.config
+                info["is_builtin"] = registered_func.is_builtin
+            
+            return info
         except Exception as e:
-            logger.warning(f"获取函数 '{name}' 信息失败: {e}")
+            self._logger.warning(f"获取函数 '{name}' 信息失败: {e}")
             return {
                 "name": name,
                 "type": function_type.value,
                 "error": str(e)
             }
+    
+    def discover_functions(self, module_paths: Optional[List[str]] = None) -> Dict[str, List[str]]:
+        """自动发现并注册函数
+        
+        Args:
+            module_paths: 要扫描的模块路径列表，如果为None则使用默认路径
+            
+        Returns:
+            Dict[str, List[str]]: 发现的函数统计信息
+            
+        Raises:
+            FunctionDiscoveryError: 函数发现失败
+        """
+        if not self._enable_auto_discovery:
+            self._logger.warning("自动发现功能未启用")
+            return {"nodes": [], "conditions": [], "triggers": []}
+        
+        if module_paths is None:
+            module_paths = [
+                "src.workflow.nodes",
+                "src.workflow.conditions",
+                "src.infrastructure.graph.builtin_functions"
+            ]
+        
+        discovered: Dict[str, List[str]] = {"nodes": [], "conditions": [], "triggers": []}
+        
+        for module_path in module_paths:
+            try:
+                module_functions = self._discover_from_module(module_path)
+                discovered["nodes"].extend(module_functions["nodes"])
+                discovered["conditions"].extend(module_functions["conditions"])
+                discovered["triggers"].extend(module_functions["triggers"])
+                
+            except Exception as e:
+                self._logger.error(f"从模块 '{module_path}' 发现函数失败: {e}")
+                # 继续处理其他模块
+                continue
+        
+        self._logger.info(f"自动发现完成: 节点函数 {len(discovered['nodes'])} 个, 条件函数 {len(discovered['conditions'])} 个, 触发器函数 {len(discovered['triggers'])} 个")
+        return discovered
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """获取统计信息
+        
+        Returns:
+            Dict[str, Any]: 统计信息
+        """
+        stats = super().get_stats()
+        stats.update({
+            "node_functions": len(self._node_functions),
+            "condition_functions": len(self._condition_functions),
+            "trigger_functions": len(self._trigger_functions),
+            "total_functions": len(self._node_functions) + len(self._condition_functions) + len(self._trigger_functions),
+            "auto_discovery_enabled": self._enable_auto_discovery
+        })
+        return stats
+    
+    def _validate_function_registration(self, name: str, function: Callable, function_type: FunctionType) -> None:
+        """验证函数注册
+        
+        Args:
+            name: 函数名称
+            function: 函数对象
+            function_type: 函数类型
+            
+        Raises:
+            FunctionRegistrationError: 函数注册失败
+        """
+        if not name or not isinstance(name, str):
+            raise FunctionRegistrationError("函数名称必须是非空字符串")
+        
+        if not callable(function):
+            raise FunctionRegistrationError("注册的对象必须是可调用的")
+        
+        # 检查函数签名
+        self._validate_function_signature(function, function_type)
     
     def _validate_function_signature(self, function: Callable, function_type: FunctionType) -> None:
         """验证函数签名
@@ -310,16 +508,11 @@ class FunctionRegistry(IFunctionRegistry):
             sig = inspect.signature(function)
             params = list(sig.parameters.keys())
             
-            if function_type == FunctionType.NODE_FUNCTION:
-                # 节点函数应该至少接受一个参数（state）
+            if function_type in [FunctionType.NODE_FUNCTION, FunctionType.CONDITION_FUNCTION]:
+                # 节点函数和条件函数应该至少接受一个参数（state）
                 if len(params) < 1:
-                    raise FunctionRegistrationError("节点函数必须至少接受一个参数（state）")
-                
-            elif function_type == FunctionType.CONDITION_FUNCTION:
-                # 条件函数应该至少接受一个参数（state）
-                if len(params) < 1:
-                    raise FunctionRegistrationError("条件函数必须至少接受一个参数（state）")
-        
+                    raise FunctionRegistrationError("函数必须至少接受一个参数（state）")
+            
         except Exception as e:
             raise FunctionRegistrationError(f"函数签名验证失败: {e}")
     
@@ -339,7 +532,7 @@ class FunctionRegistry(IFunctionRegistry):
         if module_path in self._discovery_cache:
             return self._discovery_cache[module_path]
         
-        discovered: Dict[str, List[str]] = {"nodes": [], "conditions": []}
+        discovered: Dict[str, List[str]] = {"nodes": [], "conditions": [], "triggers": []}
         
         try:
             module = importlib.import_module(module_path)
@@ -353,14 +546,23 @@ class FunctionRegistry(IFunctionRegistry):
                 if inspect.isfunction(obj):
                     # 根据函数名称推断类型
                     if name.endswith('_node') or name.endswith('_function'):
-                        self.register(name, obj, FunctionType.NODE_FUNCTION)
+                        self.register_node_function(name, obj)
                         discovered["nodes"].append(name)
                     elif name.endswith('_condition') or name.endswith('_router'):
-                        self.register(name, obj, FunctionType.CONDITION_FUNCTION)
+                        self.register_condition_function(name, obj)
                         discovered["conditions"].append(name)
+                    elif name.endswith('_trigger'):
+                        # 为触发器函数创建默认配置
+                        config = FunctionConfig(
+                            name=name,
+                            function_type="custom",
+                            description=f"自动发现的触发器函数: {name}"
+                        )
+                        self.register_trigger_function(name, obj, config)
+                        discovered["triggers"].append(name)
                     else:
                         # 默认作为节点函数
-                        self.register(name, obj, FunctionType.NODE_FUNCTION)
+                        self.register_node_function(name, obj)
                         discovered["nodes"].append(name)
         
         except ImportError as e:
@@ -379,25 +581,30 @@ class FunctionRegistry(IFunctionRegistry):
             from . import builtin_functions  # type: ignore[import-not-found]
             
             # 注册内置节点函数
-            rest_nodes = getattr(builtin_functions, 'BUILTIN_NODE_FUNCTIONS', {})
-            for name, func in rest_nodes.items():
-                self.register(name, func, FunctionType.NODE_FUNCTION)
+            builtin_nodes = getattr(builtin_functions, 'BUILTIN_NODE_FUNCTIONS', {})
+            for name, func in builtin_nodes.items():
+                self.register_node_function(name, func)
             
             # 注册内置条件函数
-            rest_conditions = getattr(builtin_functions, 'BUILTIN_CONDITION_FUNCTIONS', {})
-            for name, func in rest_conditions.items():
-                self.register(name, func, FunctionType.CONDITION_FUNCTION)
+            builtin_conditions = getattr(builtin_functions, 'BUILTIN_CONDITION_FUNCTIONS', {})
+            for name, func in builtin_conditions.items():
+                self.register_condition_function(name, func)
             
-            logger.debug("内置函数注册完成")
+            # 注册内置触发器函数
+            builtin_triggers = getattr(builtin_functions, 'BUILTIN_TRIGGER_FUNCTIONS', {})
+            for name, (func, config) in builtin_triggers.items():
+                self.register_trigger_function(name, func, config)
+            
+            self._logger.debug("内置函数注册完成")
             
         except (ImportError, ModuleNotFoundError):
-            logger.debug("内置函数模块不存在，跳过内置函数注册")
+            self._logger.debug("内置函数模块不存在，跳过内置函数注册")
         except Exception as e:
-            logger.warning(f"注册内置函数失败: {e}")
+            self._logger.warning(f"注册内置函数失败: {e}")
 
 
 # 全局函数注册表实例
-_global_registry: Optional[FunctionRegistry] = None
+_global_function_registry: Optional[FunctionRegistry] = None
 
 
 def get_global_function_registry() -> FunctionRegistry:
@@ -406,87 +613,13 @@ def get_global_function_registry() -> FunctionRegistry:
     Returns:
         FunctionRegistry: 全局函数注册表
     """
-    global _global_registry
-    if _global_registry is None:
-        _global_registry = FunctionRegistry()
-    return _global_registry
+    global _global_function_registry
+    if _global_function_registry is None:
+        _global_function_registry = FunctionRegistry()
+    return _global_function_registry
 
 
-def register_node_function(name: str, function: Callable) -> None:
-    """注册节点函数到全局注册表（已弃用）
-    
-    Args:
-        name: 函数名称
-        function: 函数对象
-        
-    Raises:
-        DeprecationWarning: 此函数已被弃用，请使用依赖注入方式
-    """
-    import warnings
-    warnings.warn(
-        "register_node_function 已被弃用，请使用依赖注入方式注册节点函数",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    get_global_function_registry().register(name, function, FunctionType.NODE_FUNCTION)
-
-
-def register_condition_function(name: str, function: Callable) -> None:
-    """注册条件函数到全局注册表（已弃用）
-    
-    Args:
-        name: 函数名称
-        function: 函数对象
-        
-    Raises:
-        DeprecationWarning: 此函数已被弃用，请使用依赖注入方式
-    """
-    import warnings
-    warnings.warn(
-        "register_condition_function 已被弃用，请使用依赖注入方式注册条件函数",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    get_global_function_registry().register(name, function, FunctionType.CONDITION_FUNCTION)
-
-
-def get_node_function(name: str) -> Optional[Callable]:
-    """从全局注册表获取节点函数（已弃用）
-    
-    Args:
-        name: 函数名称
-        
-    Returns:
-        Optional[Callable]: 节点函数
-        
-    Raises:
-        DeprecationWarning: 此函数已被弃用，请使用依赖注入方式
-    """
-    import warnings
-    warnings.warn(
-        "get_node_function 已被弃用，请使用依赖注入方式获取节点函数",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    return get_global_function_registry().get_node_function(name)
-
-
-def get_condition_function(name: str) -> Optional[Callable]:
-    """从全局注册表获取条件函数（已弃用）
-    
-    Args:
-        name: 函数名称
-        
-    Returns:
-        Optional[Callable]: 条件函数
-        
-    Raises:
-        DeprecationWarning: 此函数已被弃用，请使用依赖注入方式
-    """
-    import warnings
-    warnings.warn(
-        "get_condition_function 已被弃用，请使用依赖注入方式获取条件函数",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    return get_global_function_registry().get_condition_function(name)
+def reset_global_function_registry() -> None:
+    """重置全局函数注册表（用于测试）"""
+    global _global_function_registry
+    _global_function_registry = None

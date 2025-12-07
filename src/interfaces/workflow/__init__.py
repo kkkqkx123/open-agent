@@ -53,15 +53,21 @@ from .hooks import (
 
 from .plugins import (
     IPlugin,
-    IHookPlugin,
     IStartPlugin,
     IEndPlugin,
     PluginType,
     PluginStatus,
-    HookPoint,
     PluginMetadata,
     PluginContext,
-    PluginExecutionResult,
+    PluginExecutionResult
+)
+
+from .hooks import (
+    IHook,
+    IHookRegistry,
+    IHookExecutor,
+    IHookSystem,
+    HookPoint,
     HookContext,
     HookExecutionResult
 )
@@ -121,15 +127,20 @@ __all__ = [
     
     # Plugin interfaces
     "IPlugin",
-    "IHookPlugin",
     "IStartPlugin",
     "IEndPlugin",
     "PluginType",
     "PluginStatus",
-    "HookPoint",
     "PluginMetadata",
     "PluginContext",
     "PluginExecutionResult",
+    
+    # Hook interfaces
+    "IHook",
+    "IHookRegistry",
+    "IHookExecutor",
+    "IHookSystem",
+    "HookPoint",
     "HookContext",
     "HookExecutionResult",
     

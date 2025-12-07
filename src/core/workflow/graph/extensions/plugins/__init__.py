@@ -17,8 +17,8 @@ from src.interfaces.workflow.plugins import (
     HookExecutionResult
 )
 from .base import BasePlugin
-from .registry import PluginRegistry
 from .manager import PluginManager
+from src.core.workflow.registry import PluginRegistry
 
 # Built-in plugins
 from .builtin.start import (

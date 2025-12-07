@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, List
 import time
 from src.services.logger.injection import get_logger
 
-from .registry import node
+from src.core.workflow.graph.decorators import node
 from .sync_node import SyncNode
 from src.interfaces.workflow.graph import NodeExecutionResult
 from src.interfaces.state.interfaces import IState

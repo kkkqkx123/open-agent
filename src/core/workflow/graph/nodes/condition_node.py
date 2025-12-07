@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, Optional, List, Callable
 
-from .registry import node
+from src.core.workflow.graph.decorators import node
 from .sync_node import SyncNode
 from src.interfaces.state.interfaces import IState
 from src.interfaces.workflow.graph import NodeExecutionResult

@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional, List, Callable, cast, Union
 from dataclasses import dataclass
 from enum import Enum
 
-from .registry import node
+from src.core.workflow.graph.decorators import node
 from .sync_node import SyncNode
 from src.interfaces.workflow.graph import NodeExecutionResult
 from src.interfaces.state.interfaces import IState
@@ -430,7 +430,14 @@ class WaitNode(SyncNode):
 
     def validate_config(self, config: Dict[str, Any]) -> List[str]:
         """验证节点配置"""
-        errors = super().validate_config(config)
+        errors: List[str] = []
+        
+        # 基础配置验证（来自schema）
+        schema = self.get_config_schema()
+        required_fields = schema.get("required", [])
+        for field in required_fields:
+            if field not in config:
+                errors.append(f"缺少必需字段: {field}")
         
         # 验证超时策略
         strategy = config.get("timeout_strategy", "continue_waiting")

@@ -4,8 +4,8 @@
 """
 
 from .base import BaseHook, ConfigurableHook
-from .registry import HookRegistry
 from .manager import HookManager
+from src.core.workflow.registry import HookRegistry
 
 # 内置Hook
 from .metrics_collection import MetricsCollectionHook

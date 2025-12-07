@@ -3,15 +3,15 @@
 管理插件的注册、获取和查询功能。
 """
 
-from src.services.logger.injection import get_logger
 from typing import Any, Dict, List, Optional, Type, cast
+from src.services.logger.injection import get_logger
 from src.interfaces.workflow.plugins import IPlugin, PluginType, PluginStatus
-
+from .base_registry import BaseRegistry, TypedRegistry
 
 logger = get_logger(__name__)
 
 
-class PluginRegistry:
+class PluginRegistry(TypedRegistry):
     """插件注册表
     
     负责管理所有已注册的插件实例。
@@ -19,13 +19,10 @@ class PluginRegistry:
     
     def __init__(self) -> None:
         """初始化插件注册表"""
-        self._plugins: Dict[str, IPlugin] = {}
-        self._plugins_by_type: Dict[PluginType, List[str]] = {
-            PluginType.START: [],
-            PluginType.END: [],
-            PluginType.GENERIC: [],
-            PluginType.HOOK: []  # 新增Hook类型
-        }
+        super().__init__(
+            "plugin",
+            [plugin_type.value for plugin_type in PluginType]
+        )
         self._plugin_statuses: Dict[str, PluginStatus] = {}
     
     def register_plugin(self, plugin: Optional[IPlugin]) -> bool:
@@ -38,30 +35,30 @@ class PluginRegistry:
             bool: 注册是否成功
         """
         if plugin is None:
-            logger.error("插件实例不能为None")
+            self._logger.error("插件实例不能为None")
             return False
         
         try:
             plugin_name = plugin.metadata.name
             
             # 检查是否已注册
-            if plugin_name in self._plugins:
-                logger.warning(f"插件 {plugin_name} 已存在，将被覆盖")
+            if plugin_name in self._items:
+                self._logger.warning(f"插件 {plugin_name} 已存在，将被覆盖")
             
             # 注册插件
-            self._plugins[plugin_name] = plugin
+            self.register(plugin_name, plugin)
             self._plugin_statuses[plugin_name] = PluginStatus.ENABLED
             
             # 按类型分类
             plugin_type = plugin.metadata.plugin_type
-            if plugin_name not in self._plugins_by_type[plugin_type]:
-                self._plugins_by_type[plugin_type].append(plugin_name)
+            if plugin_name not in self._items_by_type[plugin_type.value]:
+                self._items_by_type[plugin_type.value].append(plugin_name)
             
-            logger.info(f"成功注册插件: {plugin_name} (类型: {plugin_type.value})")
+            self._logger.info(f"成功注册插件: {plugin_name} (类型: {plugin_type.value})")
             return True
             
         except Exception as e:
-            logger.error(f"注册插件失败: {e}")
+            self._logger.error(f"注册插件失败: {e}")
             return False
     
     def unregister_plugin(self, plugin_name: str) -> bool:
@@ -73,30 +70,30 @@ class PluginRegistry:
         Returns:
             bool: 注销是否成功
         """
-        if plugin_name not in self._plugins:
-            logger.warning(f"插件 {plugin_name} 不存在")
+        if plugin_name not in self._items:
+            self._logger.warning(f"插件 {plugin_name} 不存在")
             return False
         
         try:
-            plugin = self._plugins[plugin_name]
+            plugin = self._items[plugin_name]
             plugin_type = plugin.metadata.plugin_type
             
             # 清理插件资源
             plugin.cleanup()
             
             # 从注册表中移除
-            del self._plugins[plugin_name]
+            self.unregister(plugin_name)
             del self._plugin_statuses[plugin_name]
             
             # 从类型列表中移除
-            if plugin_name in self._plugins_by_type[plugin_type]:
-                self._plugins_by_type[plugin_type].remove(plugin_name)
+            if plugin_name in self._items_by_type[plugin_type.value]:
+                self._items_by_type[plugin_type.value].remove(plugin_name)
             
-            logger.info(f"成功注销插件: {plugin_name}")
+            self._logger.info(f"成功注销插件: {plugin_name}")
             return True
             
         except Exception as e:
-            logger.error(f"注销插件失败 {plugin_name}: {e}")
+            self._logger.error(f"注销插件失败 {plugin_name}: {e}")
             return False
     
     def get_plugin(self, plugin_name: str) -> Optional[IPlugin]:
@@ -106,9 +103,9 @@ class PluginRegistry:
             plugin_name: 插件名称
             
         Returns:
-            Optional[IPlugin]: 插件实例，如果不存在则返回None
+            Optional[IPlugin]: 插件实例，如果不存在返回None
         """
-        return self._plugins.get(plugin_name)
+        return self.get(plugin_name)
     
     def get_plugins_by_type(self, plugin_type: PluginType) -> List[IPlugin]:
         """根据类型获取插件列表
@@ -119,8 +116,8 @@ class PluginRegistry:
         Returns:
             List[IPlugin]: 插件列表
         """
-        plugin_names = self._plugins_by_type.get(plugin_type, [])
-        return [self._plugins[name] for name in plugin_names if name in self._plugins]
+        plugin_names = self._items_by_type.get(plugin_type.value, [])
+        return [self.get(name) for name in plugin_names if self.has_item(name)]
     
     def list_plugins(self, plugin_type: Optional[PluginType] = None, 
                     status: Optional[PluginStatus] = None) -> List[str]:
@@ -133,13 +130,13 @@ class PluginRegistry:
         Returns:
             List[str]: 插件名称列表
         """
-        plugin_names = list(self._plugins.keys())
+        plugin_names = list(self._items.keys())
         
         # 按类型过滤
         if plugin_type is not None:
             plugin_names = [
                 name for name in plugin_names
-                if self._plugins[name].metadata.plugin_type == plugin_type
+                if self._items[name].metadata.plugin_type == plugin_type
             ]
         
         # 按状态过滤
@@ -172,14 +169,14 @@ class PluginRegistry:
         Returns:
             bool: 设置是否成功
         """
-        if plugin_name not in self._plugins:
-            logger.error(f"插件 {plugin_name} 不存在")
+        if plugin_name not in self._items:
+            self._logger.error(f"插件 {plugin_name} 不存在")
             return False
         
         old_status = self._plugin_statuses[plugin_name]
         self._plugin_statuses[plugin_name] = status
         
-        logger.info(f"插件 {plugin_name} 状态从 {old_status.value} 更改为 {status.value}")
+        self._logger.info(f"插件 {plugin_name} 状态从 {old_status.value} 更改为 {status.value}")
         return True
     
     def enable_plugin(self, plugin_name: str) -> bool:
@@ -211,7 +208,7 @@ class PluginRegistry:
             plugin_name: 插件名称
             
         Returns:
-            Optional[Dict[str, any]]: 插件信息，如果不存在则返回None
+            Optional[Dict[str, any]]: 插件信息，如果不存在返回None
         """
         plugin = self.get_plugin(plugin_name)
         if plugin is None:
@@ -245,7 +242,7 @@ class PluginRegistry:
         
         missing_deps = []
         for dep in plugin.metadata.dependencies or []:
-            if dep not in self._plugins:
+            if dep not in self._items:
                 missing_deps.append(dep)
         
         return missing_deps
@@ -284,41 +281,109 @@ class PluginRegistry:
         
         return ordered
     
+    def get_enabled_plugins(self) -> List[IPlugin]:
+        """获取所有启用的插件
+        
+        Returns:
+            List[IPlugin]: 启用的插件列表
+        """
+        enabled_plugins = []
+        for plugin_name, status in self._plugin_statuses.items():
+            if status == PluginStatus.ENABLED:
+                plugin = self.get_plugin(plugin_name)
+                if plugin:
+                    enabled_plugins.append(plugin)
+        return enabled_plugins
+    
+    def get_plugins_by_hook_point(self, hook_point: str) -> List[IPlugin]:
+        """根据Hook点获取支持该点的插件
+        
+        Args:
+            hook_point: Hook点
+            
+        Returns:
+            List[IPlugin]: 支持该Hook点的插件列表
+        """
+        supporting_plugins = []
+        for plugin in self.get_enabled_plugins():
+            if plugin.metadata.supported_hook_points:
+                for point in plugin.metadata.supported_hook_points:
+                    if point.value == hook_point:
+                        supporting_plugins.append(plugin)
+                        break
+        return supporting_plugins
+    
+    def validate_all_dependencies(self) -> Dict[str, List[str]]:
+        """验证所有插件的依赖关系
+        
+        Returns:
+            Dict[str, List[str]]: 每个插件的缺失依赖列表
+        """
+        dependency_issues = {}
+        for plugin_name in self.list_items():
+            missing_deps = self.validate_dependencies(plugin_name)
+            if missing_deps:
+                dependency_issues[plugin_name] = missing_deps
+        return dependency_issues
+    
     def clear(self) -> None:
         """清除所有插件"""
         # 清理所有插件资源
-        for plugin in self._plugins.values():
+        for plugin in self._items.values():
             try:
                 plugin.cleanup()
             except Exception as e:
-                logger.error(f"清理插件资源失败 {plugin.metadata.name}: {e}")
+                self._logger.error(f"清理插件资源失败 {plugin.metadata.name}: {e}")
         
         # 清空注册表
-        self._plugins.clear()
-        self._plugins_by_type = {plugin_type: [] for plugin_type in PluginType}
+        super().clear()
         self._plugin_statuses.clear()
         
-        logger.info("已清除所有插件")
+        self._logger.info("已清除所有插件")
     
-    def get_registry_stats(self) -> Dict[str, Any]:
-        """获取注册表统计信息
+    def get_stats(self) -> Dict[str, Any]:
+        """获取统计信息
         
         Returns:
             Dict[str, any]: 统计信息
         """
-        stats = {
-            "total_plugins": len(self._plugins),
-            "by_type": cast(Dict[str, int], {}),
-            "by_status": cast(Dict[str, int], {})
-        }
-        
-        # 按类型统计
-        for plugin_type in PluginType:
-            stats["by_type"][plugin_type.value] = len(self._plugins_by_type[plugin_type])  # type: ignore
+        stats = super().get_stats()
         
         # 按状态统计
+        status_stats = {}
         for status in PluginStatus:
             count = sum(1 for s in self._plugin_statuses.values() if s == status)
-            stats["by_status"][status.value] = count  # type: ignore
+            status_stats[status.value] = count
+        
+        stats.update({
+            "total_plugins": len(self._items),
+            "by_status": status_stats,
+            "enabled_plugins": len(self.get_enabled_plugins()),
+            "dependency_issues": len(self.validate_all_dependencies())
+        })
         
         return stats
+    
+    def validate_item(self, name: str, item: Any) -> None:
+        """验证项目
+        
+        Args:
+            name: 项目名称
+            item: 项目对象
+            
+        Raises:
+            ValueError: 项目验证失败
+        """
+        super().validate_item(name, item)
+        
+        if not isinstance(item, IPlugin):
+            raise ValueError("项目必须实现 IPlugin 接口")
+        
+        if not hasattr(item, 'metadata') or not item.metadata:
+            raise ValueError("插件必须具有有效的metadata属性")
+        
+        if not hasattr(item.metadata, 'name') or not item.metadata.name:
+            raise ValueError("插件metadata必须具有有效的name属性")
+        
+        if not hasattr(item, 'cleanup') or not callable(item.cleanup):
+            raise ValueError("插件必须实现cleanup方法")

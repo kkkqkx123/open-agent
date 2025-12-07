@@ -6,8 +6,8 @@
 from typing import Dict, Any, Optional, cast
 from src.services.logger.injection import get_logger
 
-from ..registry import node
-from ..async_node import AsyncNode
+from src.core.workflow.graph.decorators import node
+from src.infrastructure.graph.nodes.async_node import AsyncNode
 from src.interfaces.workflow.graph import NodeExecutionResult
 from src.interfaces.state.interfaces import IState
 from src.interfaces.workflow.core import IWorkflow

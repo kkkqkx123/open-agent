@@ -16,7 +16,7 @@ from src.interfaces.workflow.plugins import (
     IPlugin, IStartPlugin, IEndPlugin, PluginType, PluginStatus,
     PluginContext, PluginError, PluginInitializationError, PluginExecutionError
 )
-from .registry import PluginRegistry
+from src.core.workflow.registry import PluginRegistry
 
 
 logger = get_logger(__name__)

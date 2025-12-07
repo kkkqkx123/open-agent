@@ -20,7 +20,7 @@ from src.core.workflow.validation import WorkflowValidator
 from src.core.workflow.management.lifecycle import WorkflowLifecycleManager
 from src.infrastructure.error_management import handle_error, ErrorCategory, ErrorSeverity
 from src.interfaces.workflow.exceptions import WorkflowError
-from src.core.workflow.registry import create_workflow_registry
+from src.core.workflow.registry import create_unified_registry
 from src.core.workflow.graph.service import create_graph_service
 
 
@@ -92,7 +92,7 @@ class WorkflowServiceFactory:
             IWorkflowRegistry: 工作流注册表实例
         """
         try:
-            registry = create_workflow_registry()
+            registry = create_unified_registry()
             self._logger.debug("工作流注册表创建成功")
             return registry
         except Exception as e:
@@ -210,8 +210,9 @@ class WorkflowServiceFactory:
             # 验证工作流注册表依赖
             if self._container.has_service(IWorkflowRegistry):
                 registry = self._container.get(IWorkflowRegistry)
-                dependency_errors = registry.validate_dependencies()
-                errors.extend(dependency_errors)
+                if hasattr(registry, 'validate_dependencies'):
+                    dependency_errors = registry.validate_dependencies()
+                    errors.extend(dependency_errors)
             
         except Exception as e:
             if self._logger:
@@ -234,7 +235,8 @@ class WorkflowServiceFactory:
         # 添加工作流注册表统计
         if self._container.has_service(IWorkflowRegistry):
             registry = self._container.get(IWorkflowRegistry)
-            stats["workflow_registry"] = registry.get_registry_stats()
+            if hasattr(registry, 'get_registry_stats'):
+                stats["workflow_registry"] = registry.get_registry_stats()
         
         return stats
 
