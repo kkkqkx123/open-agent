@@ -4,12 +4,13 @@
 """
 
 from src.services.logger.injection import get_logger
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, cast
 
 from src.interfaces.workflow.coordinator import IWorkflowCoordinator
 from src.interfaces.workflow.core import IWorkflow
-from src.interfaces.workflow.execution import IWorkflowValidator, IWorkflowExecutor
-from src.interfaces.workflow.builders import IWorkflowBuilder
+from src.interfaces.workflow.execution import IWorkflowExecutor
+from src.core.workflow.core.builder import IWorkflowBuilder
+from src.interfaces.workflow.core import IWorkflowValidator
 from src.interfaces.state.workflow import IWorkflowState
 from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.workflow import Workflow
@@ -89,13 +90,9 @@ class WorkflowCoordinator(IWorkflowCoordinator):
         Returns:
             IWorkflowState: 执行后的状态
         """
-        execution_context = None
         try:
-            # 创建执行上下文
-            execution_context = self._lifecycle_manager.create_execution_context(workflow)
-            
             # 执行工作流
-            result = self._executor.execute(workflow, initial_state, execution_context)
+            result = self._executor.execute(workflow, initial_state, None)
             
             self._logger.info(f"工作流执行完成: {workflow.name}")
             return result
@@ -103,13 +100,6 @@ class WorkflowCoordinator(IWorkflowCoordinator):
         except Exception as e:
             self._logger.error(f"工作流执行失败: {workflow.name}, 错误: {e}")
             raise
-        finally:
-            # 清理执行上下文
-            if execution_context:
-                try:
-                    self._lifecycle_manager.cleanup_execution_context(execution_context)
-                except Exception as e:
-                    self._logger.warning(f"清理执行上下文失败: {e}")
     
     def validate_workflow_config(self, config: GraphConfig) -> List[str]:
         """验证工作流配置
@@ -133,8 +123,11 @@ class WorkflowCoordinator(IWorkflowCoordinator):
             
             # 验证构建要求
             if self._builder and hasattr(self._builder, 'validate_build_requirements'):
-                build_errors = self._builder.validate_build_requirements(temp_workflow)
-                errors.extend(build_errors)
+                # 安全类型转换到 WorkflowBuilder
+                from src.core.workflow.core.builder import WorkflowBuilder
+                if isinstance(self._builder, WorkflowBuilder):
+                    build_errors = self._builder.validate_build_requirements(temp_workflow)
+                    errors.extend(build_errors)
             
         except Exception as e:
             self._logger.error(f"配置验证过程中发生错误: {e}")
@@ -159,7 +152,7 @@ class WorkflowCoordinator(IWorkflowCoordinator):
             "node_count": len(workflow.get_nodes()),
             "edge_count": len(workflow.get_edges()),
             "entry_point": workflow.entry_point,
-            "created_at": workflow.created_at.isoformat() if hasattr(workflow, 'created_at') else None,
+            "created_at": None,  # IWorkflow 接口没有 created_at 属性
         }
         
         # 添加图服务统计
@@ -167,8 +160,8 @@ class WorkflowCoordinator(IWorkflowCoordinator):
             stats["graph_service"] = self._graph_service.get_service_stats()
         
         # 添加生命周期管理器统计
-        if hasattr(self._lifecycle_manager, 'get_stats'):
-            stats["lifecycle_manager"] = self._lifecycle_manager.get_stats()
+        if hasattr(self._lifecycle_manager, 'get_iteration_stats'):
+            stats["lifecycle_manager"] = self._lifecycle_manager.get_iteration_stats(None)  # type: ignore
         
         return stats
 

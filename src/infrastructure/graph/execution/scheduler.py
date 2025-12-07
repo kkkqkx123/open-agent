@@ -6,7 +6,7 @@
 import asyncio
 from typing import Any, Dict, List, Optional, Set
 
-from ..types import PregelExecutableTask
+from ..types import ExecutableTask
 
 __all__ = ("TaskScheduler",)
 
@@ -16,7 +16,7 @@ class TaskScheduler:
     
     def __init__(self):
         """初始化任务调度器。"""
-        self.task_queue: List[PregelExecutableTask] = []
+        self.task_queue: List[ExecutableTask] = []
         self.running_tasks: Set[str] = set()
         self.completed_tasks: Set[str] = set()
         self.max_concurrent_tasks = 10
@@ -30,7 +30,7 @@ class TaskScheduler:
         """
         self.max_concurrent_tasks = max_tasks
     
-    def add_task(self, task: PregelExecutableTask) -> None:
+    def add_task(self, task: ExecutableTask) -> None:
         """添加任务到调度队列。
         
         Args:
@@ -38,7 +38,7 @@ class TaskScheduler:
         """
         self.task_queue.append(task)
     
-    def add_tasks(self, tasks: List[PregelExecutableTask]) -> None:
+    def add_tasks(self, tasks: List[ExecutableTask]) -> None:
         """添加多个任务到调度队列。
         
         Args:
@@ -89,7 +89,7 @@ class TaskScheduler:
         
         return results
     
-    def _get_ready_tasks(self) -> List[PregelExecutableTask]:
+    def _get_ready_tasks(self) -> List[ExecutableTask]:
         """获取准备执行的任务。
         
         Returns:
@@ -122,7 +122,7 @@ class TaskScheduler:
         dependencies = self.task_dependencies.get(task_id, [])
         return all(dep_id in self.completed_tasks for dep_id in dependencies)
     
-    async def _execute_task(self, task: PregelExecutableTask) -> Any:
+    async def _execute_task(self, task: ExecutableTask) -> Any:
         """执行单个任务。
         
         Args:

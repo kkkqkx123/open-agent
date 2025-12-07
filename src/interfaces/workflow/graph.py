@@ -301,6 +301,78 @@ class IGraph(ABC):
         pass
 
 
+class INodeFunctionConfig(ABC):
+    """节点函数配置接口"""
+    
+    @property
+    @abstractmethod
+    def function_type(self) -> str:
+        """函数类型（llm, tool, analysis, condition, custom）"""
+        pass
+    
+    @property
+    @abstractmethod
+    def parameters(self) -> Dict[str, Any]:
+        """函数参数配置"""
+        pass
+    
+    @property
+    @abstractmethod
+    def return_type(self) -> str:
+        """返回值类型"""
+        pass
+
+
+class INodeCompositionConfig(ABC):
+    """节点组合配置接口"""
+    
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """组合名称"""
+        pass
+    
+    @property
+    @abstractmethod
+    def function_sequence(self) -> List[str]:
+        """函数执行序列"""
+        pass
+    
+    @property
+    @abstractmethod
+    def description(self) -> str:
+        """组合描述"""
+        pass
+
+
+class IRouteFunctionConfig(ABC):
+    """路由函数配置接口"""
+    
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """路由函数名称"""
+        pass
+    
+    @property
+    @abstractmethod
+    def description(self) -> str:
+        """路由函数描述"""
+        pass
+    
+    @property
+    @abstractmethod
+    def return_values(self) -> List[str]:
+        """可能的返回值列表"""
+        pass
+    
+    @property
+    @abstractmethod
+    def category(self) -> str:
+        """路由函数分类"""
+        pass
+
+
 # 保持向后兼容性
 __all__ = [
     "INode",
@@ -310,5 +382,8 @@ __all__ = [
     "IGraphBuilder",
     "INodeRegistry",
     "IRoutingFunction",
-    "IRoutingRegistry"
+    "IRoutingRegistry",
+    "INodeFunctionConfig",
+    "INodeCompositionConfig",
+    "IRouteFunctionConfig"
 ]

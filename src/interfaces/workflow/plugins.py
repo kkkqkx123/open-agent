@@ -99,7 +99,7 @@ class HookContext:
     hook_point: HookPoint
     config: Dict[str, Any]
     node_type: Optional[str] = None
-    state: Optional['IWorkflowState'] = None
+    state: Optional[Any] = None  # Can be IWorkflowState or Dict[str, Any]
     error: Optional[Exception] = None
     execution_result: Optional['NodeExecutionResult'] = None
     metadata: Optional[Dict[str, Any]] = None

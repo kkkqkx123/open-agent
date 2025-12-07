@@ -194,7 +194,7 @@ class WorkflowBuilderService(IWorkflowBuilderService):
             # 延迟导入验证器避免循环依赖
             if self._validator is None:
                 try:
-                    from src.core.workflow.graph.builder.validation_rules import get_validation_registry
+                    from src.infrastructure.graph.builders.validation_rules import get_validation_registry
                     self._validator = get_validation_registry()
                 except ImportError:
                     # 如果验证规则模块不存在，使用None

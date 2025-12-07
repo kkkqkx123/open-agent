@@ -10,7 +10,9 @@ from typing import Any, Generic
 
 from typing_extensions import Self
 
-from ..types.errors import EmptyChannelError, ErrorCode, InvalidUpdateError, create_error_message
+from langgraph.errors import ErrorCode, InvalidUpdateError, create_error_message
+
+from ..types.errors import EmptyChannelError
 from .base import BaseChannel, Value
 
 __all__ = ("LastValue", "LastValueAfterFinish")

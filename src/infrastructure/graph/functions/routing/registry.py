@@ -32,13 +32,43 @@ class RouteFunctionConfig(IRouteFunctionConfig):
             implementation: 实现方式：builtin, config, custom
             metadata: 元数据
         """
-        self.name = name  # 路由函数名称
-        self.description = description  # 路由函数描述
-        self.parameters = parameters if parameters is not None else {}  # 参数配置
-        self.return_values = return_values if return_values is not None else []  # 可能的返回值列表
-        self.category = category  # 路由函数分类
+        self._name = name  # 路由函数名称
+        self._description = description  # 路由函数描述
+        self._parameters = parameters if parameters is not None else {}  # 参数配置
+        self._return_values = return_values if return_values is not None else []  # 可能的返回值列表
+        self._category = category  # 路由函数分类
         self.implementation = implementation  # 实现方式：builtin, config, custom
-        self.metadata = metadata if metadata is not None else {}  # 元数据
+        self._metadata = metadata if metadata is not None else {}  # 元数据
+    
+    @property
+    def name(self) -> str:
+        """路由函数名称"""
+        return self._name
+    
+    @property
+    def description(self) -> str:
+        """路由函数描述"""
+        return self._description
+    
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        """参数配置"""
+        return self._parameters
+    
+    @property
+    def return_values(self) -> List[str]:
+        """可能的返回值列表"""
+        return self._return_values
+    
+    @property
+    def category(self) -> str:
+        """路由函数分类"""
+        return self._category
+    
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        """元数据"""
+        return self._metadata
 
 
 class RouteFunctionRegistry:

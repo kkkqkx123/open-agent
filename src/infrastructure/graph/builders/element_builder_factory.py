@@ -3,7 +3,7 @@
 提供统一的元素构建器创建和管理功能。
 """
 
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type, Union
 import logging
 
 from src.interfaces.workflow.element_builder import (
@@ -11,6 +11,7 @@ from src.interfaces.workflow.element_builder import (
     IElementBuilderFactory, BuildContext
 )
 from src.interfaces.workflow.config import INodeConfig, IEdgeConfig
+from src.interfaces.logger import ILogger
 from .base_builder import BaseNodeBuilder, BaseEdgeBuilder, BaseElementBuilder
 from .validation_rules import get_validation_registry
 from .build_strategies import get_strategy_registry
@@ -22,7 +23,7 @@ class ElementBuilderFactory(IElementBuilderFactory):
     负责创建和管理所有类型的元素构建器。
     """
     
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(self, logger: Optional[Union[logging.Logger, ILogger]] = None):
         """初始化元素构建器工厂
         
         Args:
@@ -277,7 +278,7 @@ class ConfigurableElementBuilderFactory(ElementBuilderFactory):
     def __init__(
         self, 
         config: Optional[Dict[str, Any]] = None,
-        logger: Optional[logging.Logger] = None
+        logger: Optional[Union[logging.Logger, ILogger]] = None
     ):
         """初始化可配置元素构建器工厂
         
@@ -359,7 +360,7 @@ class ElementBuilderManager:
     管理多个构建器工厂实例，支持多环境配置。
     """
     
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(self, logger: Optional[Union[logging.Logger, ILogger]] = None):
         """初始化元素构建器管理器
         
         Args:

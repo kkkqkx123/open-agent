@@ -35,13 +35,18 @@ class WorkflowHookExecutor(IHookExecutor):
     - 性能统计和错误处理
     """
     
-    def __init__(self, plugin_registry: Optional[PluginRegistry] = None):
+    def __init__(self, plugin_registry: Optional[Any] = None):
         """初始化Hook执行器
         
         Args:
             plugin_registry: 插件注册表，如果为None则创建新的
         """
-        self.registry = plugin_registry or _get_plugin_registry()()
+        if plugin_registry is None:
+            # 动态获取PluginRegistry类
+            PluginRegistry = _get_plugin_registry()
+            plugin_registry = PluginRegistry()
+        
+        self.registry = plugin_registry
         self._hook_plugins_cache: Dict[str, List[IHookPlugin]] = defaultdict(list)
         self._execution_counters: Dict[str, int] = defaultdict(int)
         self._performance_stats: Dict[str, Dict[str, Any]] = defaultdict(dict)
@@ -62,7 +67,7 @@ class WorkflowHookExecutor(IHookExecutor):
         # 清空缓存，因为配置可能已更改
         self._hook_plugins_cache.clear()
     
-    def get_enabled_hook_plugins(self, node_type: str) -> List[IHookPlugin]:
+    def get_enabled_hook_plugins(self, node_type: Optional[str]) -> List[IHookPlugin]:
         """获取指定节点的Hook插件列表
         
         Args:
@@ -71,6 +76,10 @@ class WorkflowHookExecutor(IHookExecutor):
         Returns:
             List[IHookPlugin]: Hook插件列表
         """
+        # 处理None值
+        if node_type is None:
+            node_type = "default"
+        
         # 从缓存获取
         if node_type in self._hook_plugins_cache:
             return self._hook_plugins_cache[node_type]

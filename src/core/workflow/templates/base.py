@@ -4,12 +4,12 @@
 """
 
 from abc import ABC
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, cast
 from src.services.logger.injection import get_logger
 
 from src.interfaces.workflow.templates import IWorkflowTemplate
 from src.interfaces.workflow.core import IWorkflow
-from ..workflow_instance import Workflow
+from ..entities import Workflow
 from ..value_objects import WorkflowStep, WorkflowTransition, WorkflowRule, StepType, TransitionType
 
 logger = get_logger(__name__)
@@ -63,18 +63,21 @@ class BaseWorkflowTemplate(IWorkflowTemplate, ABC):
             raise ValueError(f"参数验证失败: {'; '.join(errors)}")
         
         # 创建工作流
-        workflow = Workflow(
+        workflow_instance = Workflow(
             workflow_id=f"{self.name}_{name}",
             name=name,
             description=description
         )
         
         # 设置元数据
-        workflow.metadata = {
+        workflow_instance.metadata = {
             "template": self.name,
             "template_version": self.version,
             "config": config
         }
+        
+        # 转换为接口类型
+        workflow: IWorkflow = cast(IWorkflow, workflow_instance)
         
         # 构建工作流结构
         self._build_workflow_structure(workflow, config)

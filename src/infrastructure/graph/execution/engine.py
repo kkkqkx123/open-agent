@@ -27,7 +27,7 @@ class ExecutionEngine:
     提供图工作流执行引擎，集成优化调度和消息传递。
     """
     
-    def __init__(self, graph: CompiledGraph) -> None:
+    def __init__(self, graph: 'CompiledGraph') -> None:
         """初始化执行引擎。
         
         Args:
@@ -129,11 +129,11 @@ class ExecutionEngine:
         # 执行前Hook
         if self.hook_system:
             context = HookContext(
-                hook_point=HookPoint.BEFORE_EXECUTION,
-                graph_id=self.graph.graph_id,
-                config=config
+                hook_point=HookPoint.BEFORE_EXECUTE,
+                config=config or {},
+                graph_id=self.graph.graph_id
             )
-            await self.hook_system.execute_hooks(HookPoint.BEFORE_EXECUTION, context)
+            await self.hook_system.execute_hooks(HookPoint.BEFORE_EXECUTE, context)
         
         try:
             # 初始化状态
@@ -143,31 +143,18 @@ class ExecutionEngine:
             # 执行图
             step = 0
             while current_node and current_node != END:
-                # 执行步骤开始Hook
-                if self.hook_system:
-                    context = HookContext(
-                        hook_point=HookPoint.ON_STEP_START,
-                        graph_id=self.graph.graph_id,
-                        node_id=current_node,
-                        step=step,
-                        state=current_state,
-                        config=config
-                    )
-                    await self.hook_system.execute_hooks(HookPoint.ON_STEP_START, context)
-                
                 # 执行节点
                 try:
                     # 执行节点前Hook
                     if self.hook_system:
                         context = HookContext(
-                            hook_point=HookPoint.BEFORE_NODE_EXECUTE,
+                            hook_point=HookPoint.BEFORE_EXECUTE,
                             graph_id=self.graph.graph_id,
-                            node_id=current_node,
-                            step=step,
                             state=current_state,
-                            config=config
+                            config=config or {},
+                            metadata={"node": current_node, "step": step}
                         )
-                        await self.hook_system.execute_hooks(HookPoint.BEFORE_NODE_EXECUTE, context)
+                        await self.hook_system.execute_hooks(HookPoint.BEFORE_EXECUTE, context)
                     
                     # 获取节点函数
                     node_config = self.graph.get_node(current_node)
@@ -185,14 +172,13 @@ class ExecutionEngine:
                     # 执行节点后Hook
                     if self.hook_system:
                         context = HookContext(
-                            hook_point=HookPoint.AFTER_NODE_EXECUTE,
+                            hook_point=HookPoint.AFTER_EXECUTE,
                             graph_id=self.graph.graph_id,
-                            node_id=current_node,
-                            step=step,
                             state=current_state,
-                            config=config
+                            config=config or {},
+                            metadata={"node": current_node, "step": step}
                         )
-                        await self.hook_system.execute_hooks(HookPoint.AFTER_NODE_EXECUTE, context)
+                        await self.hook_system.execute_hooks(HookPoint.AFTER_EXECUTE, context)
                     
                     # 获取下一个节点
                     next_nodes = self.graph.get_next_nodes(current_node, current_state)
@@ -208,38 +194,25 @@ class ExecutionEngine:
                     # 执行节点错误Hook
                     if self.hook_system:
                         context = HookContext(
-                            hook_point=HookPoint.ON_NODE_ERROR,
+                            hook_point=HookPoint.ON_ERROR,
                             graph_id=self.graph.graph_id,
-                            node_id=current_node,
-                            step=step,
                             state=current_state,
-                            config=config,
-                            error=e
+                            config=config or {},
+                            error=e,
+                            metadata={"node": current_node, "step": step}
                         )
-                        await self.hook_system.execute_hooks(HookPoint.ON_NODE_ERROR, context)
+                        await self.hook_system.execute_hooks(HookPoint.ON_ERROR, context)
                     raise
-                
-                # 执行步骤结束Hook
-                if self.hook_system:
-                    context = HookContext(
-                        hook_point=HookPoint.ON_STEP_END,
-                        graph_id=self.graph.graph_id,
-                        node_id=current_node,
-                        step=step,
-                        state=current_state,
-                        config=config
-                    )
-                    await self.hook_system.execute_hooks(HookPoint.ON_STEP_END, context)
             
             # 执行后Hook
             if self.hook_system:
                 context = HookContext(
-                    hook_point=HookPoint.AFTER_EXECUTION,
+                    hook_point=HookPoint.AFTER_EXECUTE,
                     graph_id=self.graph.graph_id,
                     state=current_state,
-                    config=config
+                    config=config or {}
                 )
-                await self.hook_system.execute_hooks(HookPoint.AFTER_EXECUTION, context)
+                await self.hook_system.execute_hooks(HookPoint.AFTER_EXECUTE, context)
             
             return current_state
             
@@ -247,12 +220,12 @@ class ExecutionEngine:
             # 错误处理
             if self.hook_system:
                 context = HookContext(
-                    hook_point=HookPoint.AFTER_EXECUTION,
+                    hook_point=HookPoint.ON_ERROR,
                     graph_id=self.graph.graph_id,
-                    config=config,
+                    config=config or {},
                     error=e
                 )
-                await self.hook_system.execute_hooks(HookPoint.AFTER_EXECUTION, context)
+                await self.hook_system.execute_hooks(HookPoint.ON_ERROR, context)
             raise
     
     async def _execute_graph_stream(
@@ -269,41 +242,73 @@ class ExecutionEngine:
         Yields:
             流式输出结果
         """
-        # 初始化状态
-        current_state = await self.state_manager.initialize_state(input_data)
-        current_node = self.graph.entry_point
+        # 执行前Hook
+        if self.hook_system:
+            context = HookContext(
+                hook_point=HookPoint.BEFORE_EXECUTE,
+                config=config or {},
+                graph_id=self.graph.graph_id
+            )
+            await self.hook_system.execute_hooks(HookPoint.BEFORE_EXECUTE, context)
         
-        # 执行图并流式输出
-        step = 0
-        while current_node and current_node != END:
-            # 执行节点
-            node_config = self.graph.get_node(current_node)
-            if not node_config:
-                raise ValueError(f"节点 '{current_node}' 不存在")
+        try:
+            # 初始化状态
+            current_state = await self.state_manager.initialize_state(input_data)
+            current_node = self.graph.entry_point
             
-            node_func = node_config["func"]
-            
-            # 流式执行节点
-            async for node_result in self._execute_node_stream(node_func, current_state, config):
-                # 更新状态
-                current_state = await self.state_manager.update_state(current_state, node_result)
+            # 执行图并流式输出
+            step = 0
+            while current_node and current_node != END:
+                # 执行节点
+                node_config = self.graph.get_node(current_node)
+                if not node_config:
+                    raise ValueError(f"节点 '{current_node}' 不存在")
                 
-                # 流式输出
-                yield {
-                    "node": current_node,
-                    "step": step,
-                    "state": current_state,
-                    "result": node_result
-                }
+                node_func = node_config["func"]
+                
+                # 流式执行节点
+                async for node_result in self._execute_node_stream(node_func, current_state, config):
+                    # 更新状态
+                    current_state = await self.state_manager.update_state(current_state, node_result)
+                    
+                    # 流式输出
+                    yield {
+                        "node": current_node,
+                        "step": step,
+                        "state": current_state,
+                        "result": node_result
+                    }
+                
+                # 获取下一个节点
+                next_nodes = self.graph.get_next_nodes(current_node, current_state)
+                if not next_nodes:
+                    current_node = END
+                else:
+                    current_node = next_nodes[0]
+                
+                step += 1
             
-            # 获取下一个节点
-            next_nodes = self.graph.get_next_nodes(current_node, current_state)
-            if not next_nodes:
-                current_node = END
-            else:
-                current_node = next_nodes[0]
-            
-            step += 1
+            # 执行后Hook
+            if self.hook_system:
+                context = HookContext(
+                    hook_point=HookPoint.AFTER_EXECUTE,
+                    graph_id=self.graph.graph_id,
+                    state=current_state,
+                    config=config or {}
+                )
+                await self.hook_system.execute_hooks(HookPoint.AFTER_EXECUTE, context)
+        
+        except Exception as e:
+            # 错误处理
+            if self.hook_system:
+                context = HookContext(
+                    hook_point=HookPoint.ON_ERROR,
+                    graph_id=self.graph.graph_id,
+                    config=config or {},
+                    error=e
+                )
+                await self.hook_system.execute_hooks(HookPoint.ON_ERROR, context)
+            raise
     
     async def _execute_node(
         self,

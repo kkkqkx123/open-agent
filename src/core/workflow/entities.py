@@ -71,6 +71,12 @@ class Workflow(IWorkflow):
     def metadata(self) -> Dict[str, Any]:
         """元数据"""
         return self._metadata
+    
+    @metadata.setter
+    def metadata(self, value: Dict[str, Any]) -> None:
+        """设置元数据"""
+        self._metadata = value
+        self._updated_at = datetime.now()
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""

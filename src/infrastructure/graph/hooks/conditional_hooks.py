@@ -51,7 +51,7 @@ class ConditionalHook:
             }
             
             # 添加状态变量
-            if hasattr(context.state, 'to_dict'):
+            if context.state is not None and hasattr(context.state, 'to_dict'):
                 variables.update(context.state.to_dict())
             
             # 添加配置变量

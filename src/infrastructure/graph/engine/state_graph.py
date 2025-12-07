@@ -5,11 +5,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union, AsyncIterator
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union, AsyncIterator, Literal
 
 from src.interfaces.workflow.graph_engine import IGraphEngine
 from ..hooks import HookPoint, HookSystem, HookContext
-from ..types import START, END
+from ..types import START, END  # These are string constants from sys.intern()
 from .compiler import GraphCompiler
 from .node_builder import NodeBuilder
 from .edge_builder import EdgeBuilder
@@ -131,7 +131,7 @@ class StateGraphEngine(IGraphEngine):
         """
         self.hook_system = hook_system
     
-    async def compile(self, config: Dict[str, Any]) -> Any:
+    async def compile(self, config: Optional[Dict[str, Any]] = None) -> Any:
         """编译图。
         
         Args:
@@ -140,6 +140,8 @@ class StateGraphEngine(IGraphEngine):
         Returns:
             编译后的图
         """
+        if config is None:
+            config = {}
         checkpointer = config.get('checkpointer')
         # 执行编译前Hook
         if self.hook_system:

@@ -3,7 +3,7 @@
 提供节点和边构建器的基础实现。
 """
 
-from typing import Any, Dict, List, Optional, Union, Callable
+from typing import Any, Dict, List, Optional, Union, Callable, overload, TypeVar
 import logging
 
 from src.interfaces.workflow.element_builder import (
@@ -11,6 +11,9 @@ from src.interfaces.workflow.element_builder import (
     IValidationRule, IBuildStrategy, BuildContext
 )
 from src.interfaces.workflow.config import INodeConfig, IEdgeConfig
+
+# Type variable for generic config
+ConfigType = TypeVar('ConfigType', INodeConfig, IEdgeConfig, Union[INodeConfig, IEdgeConfig])
 
 
 class BaseElementBuilder(IElementBuilder):
@@ -192,18 +195,21 @@ class BaseNodeBuilder(BaseElementBuilder, INodeBuilder):
             )
         return None
     
-    def _build_element_impl(self, config: INodeConfig, context: BuildContext) -> Callable:
+    def _build_element_impl(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> Callable:  # type: ignore
         """构建节点的具体实现
         
         Args:
-            config: 节点配置
+            config: 节点配置（从Union中接受INodeConfig部分）
             context: 构建上下文
             
         Returns:
             Callable: 节点函数
         """
+        if not isinstance(config, INodeConfig):
+            raise TypeError(f"Expected INodeConfig, got {type(config)}")
+        
         # 尝试获取节点函数
-        node_function = self.get_node_function(config, context)
+        node_function = self.get_node_function(config, context)  # type: ignore
         if node_function:
             return node_function
         
@@ -241,19 +247,22 @@ class BaseEdgeBuilder(BaseElementBuilder, IEdgeBuilder):
             return context.function_resolver.get_condition_function(config.condition)
         return None
     
-    def _build_element_impl(self, config: IEdgeConfig, context: BuildContext) -> Dict[str, Any]:
+    def _build_element_impl(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> Dict[str, Any]:  # type: ignore
         """构建边的具体实现
         
         Args:
-            config: 边配置
+            config: 边配置（从Union中接受IEdgeConfig部分）
             context: 构建上下文
             
         Returns:
             Dict[str, Any]: 边数据
         """
+        if not isinstance(config, IEdgeConfig):
+            raise TypeError(f"Expected IEdgeConfig, got {type(config)}")
+        
         edge_data = {
             "config": config,
-            "condition_function": self.get_edge_function(config, context),
+            "condition_function": self.get_edge_function(config, context),  # type: ignore
             "path_map": config.path_map
         }
         
@@ -336,16 +345,19 @@ class FlexibleConditionalEdgeBuilder(BaseEdgeBuilder):
         """获取元素类型"""
         return "flexible_conditional_edge"
     
-    def _build_element_impl(self, config: IEdgeConfig, context: BuildContext) -> Dict[str, Any]:
+    def _build_element_impl(self, config: Union[INodeConfig, IEdgeConfig], context: BuildContext) -> Dict[str, Any]:  # type: ignore
         """构建灵活条件边的具体实现
         
         Args:
-            config: 边配置
+            config: 边配置（从Union中接受IEdgeConfig部分）
             context: 构建上下文
             
         Returns:
             Dict[str, Any]: 边数据
         """
+        if not isinstance(config, IEdgeConfig):
+            raise TypeError(f"Expected IEdgeConfig, got {type(config)}")
+        
         # 检查是否有灵活条件边工厂
         if not hasattr(context, 'flexible_edge_factory') or not context.flexible_edge_factory:
             raise ValueError("灵活条件边工厂未设置")
