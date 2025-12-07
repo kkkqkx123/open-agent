@@ -16,26 +16,41 @@ from src.interfaces.workflow.graph import (
 )
 from .decorators import node
 from .registry import (
-    NodeRegistry,
-    EdgeRegistry,
     FunctionRegistry
 )
+# 从基础设施层导入基础组件
+from src.infrastructure.graph.registry import (
+    NodeRegistry,
+    EdgeRegistry
+)
+from src.infrastructure.graph.nodes import (
+    BaseNode,
+    SimpleNode,
+    AsyncNode,
+    StartNode as InfraStartNode,
+    EndNode as InfraEndNode
+)
+from src.infrastructure.graph.edges import (
+    BaseEdge,
+    SimpleEdge
+)
+from src.infrastructure.graph.core import Graph as InfraGraph
+
+# 核心层特有的业务节点
 from .nodes import (
     LLMNode,
     ToolNode,
     ConditionNode,
     WaitNode,
+    # StartNode 和 EndNode 保留在核心层，但继承自基础设施层
     StartNode,
     EndNode
 )
 from .edges import (
-    BaseEdge,
-    SimpleEdge,
     ConditionalEdge,
     FlexibleConditionalEdge
 )
 from .service import GraphService, create_graph_service, IGraphService
-from .graph import Graph
 
 __all__ = [
     # Service
@@ -43,7 +58,7 @@ __all__ = [
     "GraphService",
     "create_graph_service",
     # Graph
-    "Graph",
+    "InfraGraph",
     # Interfaces
     "IGraph",
     "INode",
@@ -61,7 +76,18 @@ __all__ = [
     "EdgeRegistry",
     "FunctionRegistry",
     
-    # Nodes
+    # Infrastructure Nodes (re-exported)
+    "BaseNode",
+    "SimpleNode",
+    "AsyncNode",
+    "InfraStartNode",
+    "InfraEndNode",
+    
+    # Infrastructure Edges (re-exported)
+    "BaseEdge",
+    "SimpleEdge",
+    
+    # Core Business Nodes
     "LLMNode",
     "ToolNode",
     "ConditionNode",
@@ -69,9 +95,7 @@ __all__ = [
     "StartNode",
     "EndNode",
     
-    # Edges
-    "BaseEdge",
-    "SimpleEdge",
+    # Core Business Edges
     "ConditionalEdge",
     "FlexibleConditionalEdge",
 ]

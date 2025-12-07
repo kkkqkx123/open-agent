@@ -4,15 +4,15 @@
 """
 
 import asyncio
-from src.services.logger.injection import get_logger
-from typing import Dict, Any
+from abc import abstractmethod
+from typing import Dict, Any, TYPE_CHECKING
 
-from src.interfaces.workflow.graph import NodeExecutionResult
-from src.interfaces.state.interfaces import IState
-from src.interfaces.state.workflow import IWorkflowState
-from .base import BaseNode
+from src.infrastructure.graph.nodes.base import BaseNode
 
-logger = get_logger(__name__)
+if TYPE_CHECKING:
+    from src.interfaces.workflow.graph import NodeExecutionResult
+    from src.interfaces.state.interfaces import IState
+    from src.interfaces.state.workflow import IWorkflowState
 
 
 class AsyncNode(BaseNode):
@@ -51,11 +51,24 @@ class AsyncNode(BaseNode):
     推荐：在异步上下文中使用AsyncMode调用execute_async()
     """
     
+    def __init__(self, node_id: str = "", name: str = "", node_type: str = "async",
+                 description: str = "", config: Dict[str, Any] | None = None):
+        """初始化节点
+        
+        Args:
+            node_id: 节点ID
+            name: 节点名称
+            node_type: 节点类型
+            description: 节点描述
+            config: 节点配置
+        """
+        super().__init__(node_id, name, node_type, description, config)
+    
     def execute(
         self, 
-        state: IWorkflowState, 
+        state: 'IWorkflowState', 
         config: Dict[str, Any]
-    ) -> NodeExecutionResult:
+    ) -> 'NodeExecutionResult':
         """同步执行节点（创建新事件循环）
         
         警告：
@@ -88,8 +101,9 @@ class AsyncNode(BaseNode):
                 raise
             
             # 没有运行的循环，创建新循环
-            logger.warning(
-                f"AsyncNode '{self.node_id}' executing synchronously. "
+            # 注意：这里避免依赖服务层的logger，使用简单的print
+            print(
+                f"Warning: AsyncNode '{self.node_id}' executing synchronously. "
                 f"This creates a new event loop (~5-10ms overhead). "
                 f"Consider using execute_async() in async context."
             )
@@ -100,3 +114,29 @@ class AsyncNode(BaseNode):
                 return loop.run_until_complete(self.execute_async(state, config))
             finally:
                 loop.close()
+    
+    @abstractmethod
+    async def execute_async(self, state: 'IWorkflowState', config: Dict[str, Any]) -> 'NodeExecutionResult':
+        """异步执行节点（子类必须实现）
+        
+        Args:
+            state: 工作流状态
+            config: 节点配置
+            
+        Returns:
+            NodeExecutionResult: 执行结果
+        """
+        pass
+    
+    def get_config_schema(self) -> Dict[str, Any]:
+        """获取节点配置Schema"""
+        return {
+            "type": "object",
+            "properties": {
+                "timeout": {
+                    "type": "number",
+                    "description": "异步操作超时时间（秒）"
+                }
+            },
+            "required": []
+        }

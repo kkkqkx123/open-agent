@@ -3,15 +3,19 @@
 提供一个简单的节点实现，用于在工作流模板中创建节点。
 """
 
-from typing import Dict, Any, List
-from src.interfaces.workflow.graph import INode, NodeExecutionResult
-from src.interfaces.state.interfaces import IState
+from typing import Dict, Any, List, TYPE_CHECKING
+
+from src.infrastructure.graph.nodes.base import BaseNode
+
+if TYPE_CHECKING:
+    from src.interfaces.workflow.graph import NodeExecutionResult
+    from src.interfaces.state.interfaces import IState
 
 
-class SimpleNode(INode):
+class SimpleNode(BaseNode):
     """简单节点实现"""
     
-    def __init__(self, node_id: str, name: str, node_type: str,
+    def __init__(self, node_id: str = "", name: str = "", node_type: str = "simple",
                  description: str = "", config: Dict[str, Any] | None = None):
         """初始化节点
         
@@ -22,30 +26,18 @@ class SimpleNode(INode):
             description: 节点描述
             config: 节点配置
         """
-        self._node_id = node_id
-        self.name = name
-        self._node_type = node_type
-        self.description = description
-        self.config = config or {}
+        super().__init__(node_id, name, node_type, description, config)
     
-    @property
-    def node_id(self) -> str:
-        """节点ID"""
-        return self._node_id
-    
-    @property
-    def node_type(self) -> str:
-        """节点类型"""
-        return self._node_type
-    
-    def execute(self, state: IState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: 'IState', config: Dict[str, Any]) -> 'NodeExecutionResult':
         """执行节点逻辑"""
         # 简单实现：返回当前状态
+        from src.interfaces.workflow.graph import NodeExecutionResult
         return NodeExecutionResult(state=state)
     
-    async def execute_async(self, state: IState, config: Dict[str, Any]) -> NodeExecutionResult:
+    async def execute_async(self, state: 'IState', config: Dict[str, Any]) -> 'NodeExecutionResult':
         """异步执行节点逻辑"""
         # 简单实现：返回当前状态
+        from src.interfaces.workflow.graph import NodeExecutionResult
         return NodeExecutionResult(state=state)
     
     def get_config_schema(self) -> Dict[str, Any]:

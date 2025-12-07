@@ -91,7 +91,7 @@ class GraphService(IGraphService):
         Raises:
             ValueError: 配置无效或图构建失败
         """
-        from .graph import Graph
+        from src.infrastructure.graph.core import Graph
         
         # 创建图
         graph_id = config.get("graph_id")

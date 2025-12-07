@@ -4,14 +4,15 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 
-from src.interfaces.workflow.graph import INode, NodeExecutionResult
-from src.interfaces.state.interfaces import IState
-from src.interfaces.state.workflow import IWorkflowState
+if TYPE_CHECKING:
+    from src.interfaces.workflow.graph import NodeExecutionResult
+    from src.interfaces.state.interfaces import IState
+    from src.interfaces.state.workflow import IWorkflowState
 
 
-class BaseNode(INode, ABC):
+class BaseNode(ABC):
     """节点基类"""
     
     def __init__(self, node_id: str, name: str, node_type: str,
@@ -58,16 +59,14 @@ class BaseNode(INode, ABC):
         Returns:
             合并后的配置
         """
-        from ...config.node_config_loader import get_node_config_loader
-        
-        # 获取节点配置加载器
-        config_loader = get_node_config_loader()
-        
-        # 获取默认配置并合并
-        return config_loader.merge_configs(self.node_type, runtime_config)
+        # 注意：这里需要避免依赖核心层的配置加载器
+        # 暂时使用简单的合并逻辑，后续可以通过依赖注入解决
+        merged_config = self.config.copy()
+        merged_config.update(runtime_config)
+        return merged_config
     
     @abstractmethod
-    def execute(self, state: IWorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+    def execute(self, state: 'IWorkflowState', config: Dict[str, Any]) -> 'NodeExecutionResult':
         """执行节点
         
         Args:
@@ -80,7 +79,7 @@ class BaseNode(INode, ABC):
         pass
     
     @abstractmethod
-    async def execute_async(self, state: IWorkflowState, config: Dict[str, Any]) -> NodeExecutionResult:
+    async def execute_async(self, state: 'IWorkflowState', config: Dict[str, Any]) -> 'NodeExecutionResult':
         """异步执行节点
         
         Args:

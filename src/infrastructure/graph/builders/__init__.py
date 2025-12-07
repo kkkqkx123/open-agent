@@ -1,12 +1,6 @@
-"""基础设施层构建器系统
+"""Infrastructure layer graph builders.
 
-提供图元素的基础构建功能。
+This module provides builder implementations for graph components in the infrastructure layer.
 """
 
-from .base_builder import BaseElementBuilder, BaseNodeBuilder, BaseEdgeBuilder
-
-__all__ = [
-    "BaseElementBuilder",
-    "BaseNodeBuilder", 
-    "BaseEdgeBuilder",
-]
+__all__ = []

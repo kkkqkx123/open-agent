@@ -3,11 +3,14 @@
 提供图的核心功能实现，包括节点和边的管理。
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
 from uuid import uuid4
 
-from src.interfaces.workflow.graph import IGraph, INode, IEdge
-from src.infrastructure.graph.engine.state_graph import StateGraphEngine
+if TYPE_CHECKING:
+    from src.interfaces.workflow.graph import INode, IEdge
+    from src.infrastructure.graph.engine.state_graph import StateGraphEngine
+
+from src.interfaces.workflow.graph import IGraph
 
 
 class Graph(IGraph):
@@ -20,16 +23,16 @@ class Graph(IGraph):
             graph_id: 图ID，如果为None则自动生成
         """
         self._graph_id = graph_id or str(uuid4())
-        self._nodes: Dict[str, INode] = {}
-        self._edges: Dict[str, IEdge] = {}
-        self._engine: Optional[StateGraphEngine] = None
+        self._nodes: Dict[str, 'INode'] = {}
+        self._edges: Dict[str, 'IEdge'] = {}
+        self._engine: Optional['StateGraphEngine'] = None
     
     @property
     def graph_id(self) -> str:
         """图ID"""
         return self._graph_id
     
-    def add_node(self, node: INode) -> None:
+    def add_node(self, node: 'INode') -> None:
         """添加节点
         
         Args:
@@ -42,7 +45,7 @@ class Graph(IGraph):
             raise ValueError(f"节点 {node.node_id} 已存在")
         self._nodes[node.node_id] = node
     
-    def add_edge(self, edge: IEdge) -> None:
+    def add_edge(self, edge: 'IEdge') -> None:
         """添加边
         
         Args:
@@ -62,7 +65,7 @@ class Graph(IGraph):
         
         self._edges[edge.edge_id] = edge
     
-    def get_node(self, node_id: str) -> Optional[INode]:
+    def get_node(self, node_id: str) -> Optional['INode']:
         """获取节点
         
         Args:
@@ -73,7 +76,7 @@ class Graph(IGraph):
         """
         return self._nodes.get(node_id)
     
-    def get_edge(self, edge_id: str) -> Optional[IEdge]:
+    def get_edge(self, edge_id: str) -> Optional['IEdge']:
         """获取边
         
         Args:
@@ -84,7 +87,7 @@ class Graph(IGraph):
         """
         return self._edges.get(edge_id)
     
-    def get_nodes(self) -> Dict[str, INode]:
+    def get_nodes(self) -> Dict[str, 'INode']:
         """获取所有节点
         
         Returns:
@@ -92,7 +95,7 @@ class Graph(IGraph):
         """
         return self._nodes.copy()
     
-    def get_edges(self) -> Dict[str, IEdge]:
+    def get_edges(self) -> Dict[str, 'IEdge']:
         """获取所有边
         
         Returns:
@@ -177,7 +180,7 @@ class Graph(IGraph):
         # 如果没有找到出口点，返回最后一个节点
         return exit_points if exit_points else list(self._nodes.keys())[-1:]
     
-    def get_engine(self) -> Optional[StateGraphEngine]:
+    def get_engine(self) -> Optional['StateGraphEngine']:
         """获取图引擎
         
         Returns:
@@ -185,13 +188,17 @@ class Graph(IGraph):
         """
         if self._engine is None:
             # 创建图引擎
+            from src.infrastructure.graph.engine.state_graph import StateGraphEngine
             self._engine = StateGraphEngine(dict)  # 使用简单的字典作为状态模式
+            
             # 添加节点
             for node_id, node in self._nodes.items():
                 self._engine.add_node(node_id, node.execute)
+            
             # 添加边
             for edge in self._edges.values():
                 self._engine.add_edge(edge.source_node, edge.target_node)
+            
             # 设置入口点
             entry_points = self.get_entry_points()
             if entry_points:

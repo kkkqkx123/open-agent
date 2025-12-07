@@ -3,8 +3,10 @@
 提供边的注册和管理功能。
 """
 
-from typing import Dict, Type, Optional, List, Any
-from src.interfaces.workflow.graph import IEdge
+from typing import Dict, Type, Optional, List, Any, Callable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.interfaces.workflow.graph import IEdge
 
 
 class EdgeRegistry:
@@ -12,10 +14,10 @@ class EdgeRegistry:
     
     def __init__(self) -> None:
         """初始化边注册表"""
-        self._edge_classes: Dict[str, Type[IEdge]] = {}
-        self._edge_instances: Dict[str, IEdge] = {}
+        self._edge_classes: Dict[str, Type['IEdge']] = {}
+        self._edge_instances: Dict[str, 'IEdge'] = {}
     
-    def register_edge(self, edge_type: str, edge_class: Type[IEdge]) -> None:
+    def register_edge(self, edge_type: str, edge_class: Type['IEdge']) -> None:
         """注册边类型
         
         Args:
@@ -29,7 +31,7 @@ class EdgeRegistry:
             raise ValueError(f"边类型 '{edge_type}' 已存在")
         self._edge_classes[edge_type] = edge_class
     
-    def register_edge_instance(self, edge: IEdge) -> None:
+    def register_edge_instance(self, edge: 'IEdge') -> None:
         """注册边实例
         
         Args:
@@ -43,7 +45,7 @@ class EdgeRegistry:
             raise ValueError(f"边实例 '{edge_id}' 已存在")
         self._edge_instances[edge_id] = edge
     
-    def get_edge_class(self, edge_type: str) -> Type[IEdge]:
+    def get_edge_class(self, edge_type: str) -> Type['IEdge']:
         """获取边类型
         
         Args:
@@ -59,7 +61,7 @@ class EdgeRegistry:
             raise ValueError(f"未知的边类型: {edge_type}")
         return self._edge_classes[edge_type]
     
-    def get_edge_instance(self, edge_type: str) -> IEdge:
+    def get_edge_instance(self, edge_type: str) -> 'IEdge':
         """获取边实例
         
         Args:
@@ -138,7 +140,7 @@ class EdgeRegistry:
 
 
 # 装饰器版本，用于自动注册边
-def edge(edge_type: str):
+def edge(edge_type: str) -> Callable:
     """边注册装饰器
 
     Args:
@@ -147,15 +149,13 @@ def edge(edge_type: str):
     Returns:
         装饰器函数
     """
-    def decorator(edge_class: Type[IEdge]) -> Type[IEdge]:
+    def decorator(edge_class: Type['IEdge']) -> Type['IEdge']:
         # 为类添加边类型属性
         setattr(edge_class, '_decorator_edge_type', edge_type)
         
-        # 注意：全局注册表已被移除，请使用依赖注入方式注册
+        # 注意：基础设施层不依赖服务层，避免使用logger
         # 这里保留装饰器功能但不再自动注册到全局注册表
-        from src.services.logger.injection import get_logger
-        logger = get_logger(__name__)
-        logger.warning(f"边类型 {edge_type} 装饰器已使用，但全局注册表已被移除。请使用依赖注入方式注册。")
+        print(f"Warning: 边类型 {edge_type} 装饰器已使用，但基础设施层不提供全局注册表。请使用依赖注入方式注册。")
         
         return edge_class
     

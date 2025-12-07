@@ -3,9 +3,12 @@
 合并了原有的两个节点注册表实现，提供统一的节点注册和管理功能。
 """
 
-from typing import Dict, Type, Optional, List, Callable, Any
-from src.interfaces.workflow.graph import INode, INodeRegistry
-from src.interfaces.state.interfaces import IState
+from typing import Dict, Type, Optional, List, Callable, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.interfaces.workflow.graph import INode
+
+from src.interfaces.workflow.graph import INodeRegistry
 
 
 class NodeRegistry(INodeRegistry):
@@ -13,17 +16,17 @@ class NodeRegistry(INodeRegistry):
     
     def __init__(self) -> None:
         """初始化节点注册表"""
-        self._node_classes: Dict[str, Type[INode]] = {}
-        self._node_instances: Dict[str, INode] = {}
+        self._node_classes: Dict[str, Type['INode']] = {}
+        self._node_instances: Dict[str, 'INode'] = {}
     
     # 实现 INodeRegistry 接口
-    def register(self, node_type: str, node_class: Type[INode]) -> None:
+    def register(self, node_type: str, node_class: Type['INode']) -> None:
         """注册节点类型（实现接口方法）"""
         if node_type in self._node_classes:
             raise ValueError(f"节点类型 '{node_type}' 已存在")
         self._node_classes[node_type] = node_class
     
-    def get(self, node_type: str) -> Optional[Type[INode]]:
+    def get(self, node_type: str) -> Optional[Type['INode']]:
         """获取节点类型（实现接口方法）"""
         return self._node_classes.get(node_type)
     
@@ -32,7 +35,7 @@ class NodeRegistry(INodeRegistry):
         return list(self._node_classes.keys())
     
     # 扩展功能
-    def register_node(self, node_class: Type[INode]) -> None:
+    def register_node(self, node_class: Type['INode']) -> None:
         """注册节点类型（兼容旧方法）
         
         Args:
@@ -46,7 +49,7 @@ class NodeRegistry(INodeRegistry):
         
         self.register(node_type, node_class)
     
-    def register_node_instance(self, node: INode) -> None:
+    def register_node_instance(self, node: 'INode') -> None:
         """注册节点实例
         
         Args:
@@ -57,7 +60,7 @@ class NodeRegistry(INodeRegistry):
             raise ValueError(f"节点实例 '{node_id}' 已存在")
         self._node_instances[node_id] = node
     
-    def get_node_class(self, node_type: str) -> Type[INode]:
+    def get_node_class(self, node_type: str) -> Type['INode']:
         """获取节点类型
         
         Args:
@@ -73,7 +76,7 @@ class NodeRegistry(INodeRegistry):
             raise ValueError(f"未知的节点类型: {node_type}")
         return self._node_classes[node_type]
     
-    def get_node_instance(self, node_type: str) -> INode:
+    def get_node_instance(self, node_type: str) -> 'INode':
         """获取节点实例
         
         Args:
@@ -157,7 +160,7 @@ def node(node_type: str) -> Callable:
     Returns:
         Callable: 装饰器函数
     """
-    def decorator(node_class: Type[INode]) -> Type[INode]:
+    def decorator(node_class: Type['INode']) -> Type['INode']:
         # 创建一个新的类，覆盖 node_type 属性
         class WrappedNode(node_class):  # type: ignore
             @property
@@ -177,11 +180,9 @@ def node(node_type: str) -> Callable:
         # 为包装类添加 node_type 属性，以便注册系统能够获取
         setattr(WrappedNode, '_decorator_node_type', node_type)
         
-        # 注意：全局注册表已被移除，请使用依赖注入方式注册
+        # 注意：基础设施层不依赖服务层，避免使用logger
         # 这里保留装饰器功能但不再自动注册到全局注册表
-        from src.services.logger.injection import get_logger
-        logger = get_logger(__name__)
-        logger.warning(f"节点类型 {node_type} 装饰器已使用，但全局注册表已被移除。请使用依赖注入方式注册。")
+        print(f"Warning: 节点类型 {node_type} 装饰器已使用，但基础设施层不提供全局注册表。请使用依赖注入方式注册。")
         
         return WrappedNode
     
