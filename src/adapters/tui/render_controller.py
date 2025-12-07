@@ -230,7 +230,7 @@ class RenderController:
             self._update_sidebar()
             self._update_main_content()
             self._update_input_area()
-            self._update_langgraph_panel()
+            self._update_workflow_panel()
             self._update_status_bar(state_manager)
             self._update_navigation_bar(state_manager)
             
@@ -485,8 +485,8 @@ class RenderController:
                 self._needs_refresh = True
                 self.tui_logger.debug_render_operation("input_area", "content_updated", hash=content_hash[:8])
     
-    def _update_langgraph_panel(self) -> None:
-        """更新LangGraph面板"""
+    def _update_workflow_panel(self) -> None:
+        """更新工作流面板"""
         # 优先显示工作流控制面板
         if self.workflow_control_panel:
             workflow_panel = self.workflow_control_panel.render()
@@ -494,9 +494,9 @@ class RenderController:
             import hashlib
             content_hash = hashlib.md5(str(workflow_panel).encode() if workflow_panel else b'').hexdigest()
             
-            if self._last_render_state.get('langgraph_content_hash') != content_hash:
+            if self._last_render_state.get('workflow_content_hash') != content_hash:
                 self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, workflow_panel)
-                self._last_render_state['langgraph_content_hash'] = content_hash
+                self._last_render_state['workflow_content_hash'] = content_hash
                 self._needs_refresh = True
     
     def _update_status_bar(self, state_manager: Any) -> None:

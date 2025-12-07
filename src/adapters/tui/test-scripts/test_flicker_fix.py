@@ -21,7 +21,7 @@ class FlickerTestHelper:
         """创建模拟组件"""
         return {
             "sidebar": Mock(),
-            "langgraph": Mock(),
+            "workflow": Mock(),
             "main_content": Mock(),
             "input": Mock(),
             "session_dialog": Mock(),

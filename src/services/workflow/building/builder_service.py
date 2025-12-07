@@ -27,28 +27,29 @@ class WorkflowBuilderService(IWorkflowBuilderService):
     def __init__(self,
                  node_registry=None,
                  function_registry=None,
-                 langgraph_adapter=None,
+                 graph_engine=None,
                  graph_cache=None):
         """初始化工作流构建服务。
         
         Args:
             node_registry: 节点注册表（可选）
             function_registry: 函数注册表（可选）
+            graph_engine: 图引擎类（可选）
             graph_cache: 图缓存实例（可选）
         """
         # 延迟导入避免循环依赖
         self._validator = None
         
-        # 初始化LangGraph适配器
-        if langgraph_adapter:
-            self._langgraph_adapter = langgraph_adapter
+        # 保存函数注册表引用
+        self._function_registry = function_registry
+        
+        # 初始化图引擎类
+        if graph_engine:
+            self._graph_engine_class = graph_engine
         else:
-            # 延迟导入避免循环依赖
-            from src.adapters.workflow.langgraph_adapter import LangGraphAdapter
-            self._langgraph_adapter = LangGraphAdapter(
-                node_registry=node_registry,
-                function_registry=function_registry
-            )
+            # 使用基础设施层的图引擎
+            from src.infrastructure.graph.engine.state_graph import StateGraphEngine
+            self._graph_engine_class = StateGraphEngine
         
         # 初始化图缓存
         if graph_cache:
@@ -63,7 +64,7 @@ class WorkflowBuilderService(IWorkflowBuilderService):
         # 初始化提示词服务
         self._prompt_service = self._init_prompt_service()
         
-        logger.info("工作流构建服务初始化完成（集成LangGraphAdapter和图缓存）")
+        logger.info("工作流构建服务初始化完成（集成StateGraphEngine和图缓存）")
     
     def _init_prompt_service(self):
         """初始化提示词服务"""
@@ -118,10 +119,38 @@ class WorkflowBuilderService(IWorkflowBuilderService):
                 logger.info(f"使用缓存图: {workflow_id}")
                 graph = cached_graph
             else:
-                # 使用LangGraphAdapter创建图（同步方式）
+                # 使用基础设施层图引擎创建图
                 from src.core.workflow.config.config import GraphConfig
                 graph_config = GraphConfig.from_dict(config)
-                graph = self._langgraph_adapter.create_graph_sync(graph_config)
+                
+                # 创建状态模式
+                state_schema_class = graph_config.get_state_class()
+                
+                # 创建图引擎实例
+                graph = self._graph_engine_class(state_schema_class)
+                
+                # 添加节点
+                for node_name, node_config in graph_config.nodes.items():
+                    # 从函数注册表获取函数
+                    if self._function_registry and node_config.function_name:
+                        node_func = self._function_registry.get(node_config.function_name)
+                        if node_func:
+                            graph.add_node(node_name, node_func)
+                
+                # 添加边
+                for edge in graph_config.edges:
+                    if edge.type.value == "simple":
+                        graph.add_edge(edge.from_node, edge.to_node)
+                    elif edge.type.value == "conditional" and edge.condition:
+                        # 对于条件边，需要从函数注册表获取条件函数
+                        if self._function_registry and edge.condition:
+                            condition_func = self._function_registry.get(edge.condition)
+                            if condition_func:
+                                graph.add_conditional_edges(edge.from_node, condition_func, edge.path_map)
+                
+                # 设置入口点
+                if graph_config.entry_point:
+                    graph.set_entry_point(graph_config.entry_point)
                 
                 # 缓存图
                 self._graph_cache.cache_graph(config_hash, graph, config)
@@ -164,8 +193,12 @@ class WorkflowBuilderService(IWorkflowBuilderService):
             
             # 延迟导入验证器避免循环依赖
             if self._validator is None:
-                from src.core.workflow.graph.builder.validation_rules import get_validation_registry
-                self._validator = get_validation_registry()
+                try:
+                    from src.core.workflow.graph.builder.validation_rules import get_validation_registry
+                    self._validator = get_validation_registry()
+                except ImportError:
+                    # 如果验证规则模块不存在，使用None
+                    self._validator = None
             
             # 使用新的验证规则系统进行基础验证
             validation_errors = []
@@ -283,11 +316,11 @@ class WorkflowBuilderService(IWorkflowBuilderService):
         logger.info(f"按模式 {pattern} 失效了 {count} 个缓存条目")
         return count
     
-    def get_langgraph_adapter(self):
-        """获取LangGraph适配器实例
+    def get_graph_engine(self):
+        """获取图引擎类
         
         Returns:
-            LangGraph适配器实例
+            图引擎类
         """
-        return self._langgraph_adapter
+        return self._graph_engine_class
     

@@ -1,6 +1,6 @@
 """Studio服务器管理器组件
 
-包含LangGraph Studio服务器启动、停止、监控和端口管理功能
+包含工作流Studio服务器启动、停止、监控和端口管理功能
 """
 
 from typing import Optional, Dict, Any, List, Callable
@@ -208,9 +208,9 @@ class StudioServerManager:
                 self._set_error(f"端口 {self.config.port} 已被占用")
                 return False
             
-            # 启动LangGraph Studio服务器
+            # 启动工作流Studio服务器
             cmd = [
-                "python", "-m", "langgraph.studio",
+                "python", "-m", "workflow.studio",
                 "--host", self.config.host,
                 "--port", str(self.config.port)
             ]
@@ -504,7 +504,7 @@ class StudioManagerPanel:
         
         return Panel(
             content,
-            title="LangGraph Studio管理器",
+            title="工作流Studio管理器",
             border_style="cyan",
             padding=(1, 1)
         )

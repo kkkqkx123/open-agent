@@ -132,8 +132,8 @@ class StorageAdapterFactory(IStorageAdapterFactory):
         elif storage_type in ['file']:
             if 'base_path' not in config and 'storage_path' not in config:
                 errors.append("base_path or storage_path is required for file storage")
-        elif storage_type in ['checkpoint_memory', 'langgraph']:
-            # checkpoint内存存储和langgraph不需要特殊配置验证
+        elif storage_type in ['checkpoint_memory']:
+            # checkpoint内存存储不需要特殊配置验证
             pass
         
         return errors

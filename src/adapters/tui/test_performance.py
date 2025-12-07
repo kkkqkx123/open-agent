@@ -64,7 +64,7 @@ def test_memory_usage():
     app = TUIApp()
     
     # 加载多个子界面
-    subviews = ["analytics", "visualization", "system", "errors", "status_overview", "langgraph"]
+    subviews = ["analytics", "visualization", "system", "errors", "status_overview", "workflow"]
     
     for subview in subviews:
         app._switch_to_subview(subview)
@@ -84,7 +84,7 @@ def test_response_time():
     app = TUIApp()
     
     # 测试子界面切换响应时间
-    subviews = ["analytics", "visualization", "system", "errors", "status_overview", "langgraph"]
+    subviews = ["analytics", "visualization", "system", "errors", "status_overview", "workflow"]
     
     total_switch_time = 0
     total_update_time = 0

@@ -21,7 +21,7 @@ class LayoutRegion(Enum):
     SIDEBAR = "sidebar"
     MAIN = "main"
     INPUT = "input"
-    LANGGRAPH = "langgraph"
+    WORKFLOW = "workflow"
     STATUS = "status"
     NAVIGATION = "navigation"
 
@@ -53,7 +53,7 @@ class LayoutConfig:
     resize_threshold: Tuple[int, int] = (6, 3)  # (width, height) 变化阈值
     resize_throttle_ms: int = 30  # resize 事件节流时间
     sidebar_width_range: Tuple[int, int] = (20, 40)  # 侧边栏宽度范围
-    langgraph_width_range: Tuple[int, int] = (15, 30)  # LangGraph 区域宽度范围
+    workflow_width_range: Tuple[int, int] = (15, 30)  # 工作流区域宽度范围
     
     def __post_init__(self) -> None:
         if self.responsive_breakpoints is None:
@@ -181,8 +181,8 @@ class LayoutManager(ILayoutManager):
                 min_height=3,
                 max_height=5
             ),
-            LayoutRegion.LANGGRAPH: RegionConfig(
-                name="LangGraph面板",
+            LayoutRegion.WORKFLOW: RegionConfig(
+                name="工作流面板",
                 min_size=15,
                 max_size=30,
                 ratio=1,
@@ -348,13 +348,13 @@ class LayoutManager(ILayoutManager):
             else:
                 self.layout["input"].update(self._create_default_input())
         
-        # 更新LangGraph面板
-        if self.layout is not None and self._has_region("langgraph"):
-            langgraph_content = self.region_contents.get(LayoutRegion.LANGGRAPH)
-            if langgraph_content:
-                self.layout["langgraph"].update(langgraph_content)
+        # 更新工作流面板
+        if self.layout is not None and self._has_region("workflow"):
+            workflow_content = self.region_contents.get(LayoutRegion.WORKFLOW)
+            if workflow_content:
+                self.layout["workflow"].update(workflow_content)
             else:
-                self.layout["langgraph"].update(self._create_default_langgraph())
+                self.layout["workflow"].update(self._create_default_workflow())
         
         # 更新状态栏
         if self.layout is not None and self._has_region("status"):
@@ -426,9 +426,9 @@ class LayoutManager(ILayoutManager):
             border_style="green"
         )
     
-    def _create_default_langgraph(self) -> Panel:
-        """创建默认LangGraph面板"""
-        content = Text("LangGraph状态面板\n\n", style="bold")
+    def _create_default_workflow(self) -> Panel:
+        """创建默认工作流面板"""
+        content = Text("工作流状态面板\n\n", style="bold")
         content.append("当前节点: 未运行\n", style="dim")
         content.append("执行路径: 无历史\n", style="dim")
         content.append("状态快照: 无快照\n\n", style="dim")
@@ -436,7 +436,7 @@ class LayoutManager(ILayoutManager):
         
         return Panel(
             content,
-            title="LangGraph状态",
+            title="工作流状态",
             border_style="cyan"
         )
     
@@ -684,7 +684,7 @@ class LayoutManager(ILayoutManager):
                     "status": status_size,
                     "navigation": navigation_size,
                     "sidebar": None,
-                    "langgraph": None
+                    "workflow": None
                 }
             else:
                 # 中等屏幕：侧边栏在右侧
@@ -703,7 +703,7 @@ class LayoutManager(ILayoutManager):
                     "input": input_size,
                     "status": status_size,
                     "navigation": navigation_size,
-                    "langgraph": None
+                    "workflow": None
                 }
         else:
             # 完整布局
@@ -714,23 +714,23 @@ class LayoutManager(ILayoutManager):
                 self.config.sidebar_width_range[1]
             )
             
-            # 检查是否需要显示LangGraph面板
-            langgraph_width = None
-            if self.config.regions[LayoutRegion.LANGGRAPH].visible:
-                langgraph_width = self._clamp_width(
+            # 检查是否需要显示工作流面板
+            workflow_width = None
+            if self.config.regions[LayoutRegion.WORKFLOW].visible:
+                workflow_width = self._clamp_width(
                     int(width * 0.18),  # 18% 的宽度
-                    self.config.langgraph_width_range[0],
-                    self.config.langgraph_width_range[1]
+                    self.config.workflow_width_range[0],
+                    self.config.workflow_width_range[1]
                 )
             
             # 主区域宽度 = 总宽 - 左右栏占用
-            main_width = width - sidebar_width - (langgraph_width or 0)
+            main_width = width - sidebar_width - (workflow_width or 0)
             
             return {
                 "header": header_size,
                 "sidebar": sidebar_width,
                 "main": available_height,
-                "langgraph": langgraph_width,
+                "workflow": workflow_width,
                 "input": input_size,
                 "status": status_size,
                 "navigation": navigation_size
@@ -761,7 +761,7 @@ class LayoutManager(ILayoutManager):
             else:
                 # 水平布局：区域宽度为设定值，高度为父容器高度
                 # 需要计算父容器的可用高度
-                if region_name in ["sidebar", "main", "langgraph"]:
+                if region_name in ["sidebar", "main", "workflow"]:
                     # 这些区域在body或content中，需要减去header、input、status的高度
                     available_height = self.terminal_size[1] - 3 - 3 - 1  # header + input + status
                     return (region_layout.size, available_height)
@@ -782,7 +782,7 @@ class LayoutManager(ILayoutManager):
                 return (self.terminal_size[0], size)
             else:
                 # 水平布局：区域宽度为设定值，高度为父容器高度
-                if region_name in ["sidebar", "main", "langgraph"]:
+                if region_name in ["sidebar", "main", "workflow"]:
                     available_height = self.terminal_size[1] - 3 - 3 - 1  # header + input + status
                     return (size, available_height)
                 else:
@@ -812,8 +812,8 @@ class LayoutManager(ILayoutManager):
             region = LayoutRegion(region_name)
             self.config.regions[region].visible = visible
             
-            # 如果是LangGraph区域且当前是大屏布局，需要重建布局
-            if region == LayoutRegion.LANGGRAPH and self.current_breakpoint in ["large", "xlarge"]:
+            # 如果是工作流区域且当前是大屏布局，需要重建布局
+            if region == LayoutRegion.WORKFLOW and self.current_breakpoint in ["large", "xlarge"]:
                 self._cache_region_contents()
                 self.layout = self._create_layout_structure(self.current_breakpoint)
                 self._restore_region_contents()

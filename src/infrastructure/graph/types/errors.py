@@ -51,8 +51,7 @@ class ErrorCode(Enum):
 def create_error_message(*, message: str, error_code: ErrorCode) -> str:
     return (
         f"{message}\n"
-        "For troubleshooting, visit: https://python.langchain.com/docs/"
-        f"troubleshooting/errors/{error_code.value}"
+        "For troubleshooting, please refer to the documentation."
     )
 
 
@@ -64,7 +63,7 @@ class GraphRecursionError(RecursionError):
 
     故障排除指南：
 
-    - [`GRAPH_RECURSION_LIMIT`](https://docs.langchain.com/oss/python/langgraph/GRAPH_RECURSION_LIMIT)
+    - 图递归限制错误
 
     示例：
 
@@ -84,8 +83,8 @@ class InvalidUpdateError(Exception):
 
     故障排除指南：
 
-    - [`INVALID_CONCURRENT_GRAPH_UPDATE`](https://docs.langchain.com/oss/python/langgraph/INVALID_CONCURRENT_GRAPH_UPDATE)
-    - [`INVALID_GRAPH_NODE_RETURN_VALUE`](https://docs.langchain.com/oss/python/langgraph/INVALID_GRAPH_NODE_RETURN_VALUE)
+    - 并发图更新无效错误
+    - 图节点返回值无效错误
     """
 
     pass
@@ -104,7 +103,7 @@ class GraphInterrupt(GraphBubbleUp):
 
 
 @deprecated(
-    "NodeInterrupt is deprecated. Please use [`interrupt`][langgraph.types.interrupt] instead.",
+    "NodeInterrupt is deprecated. Please use `interrupt` instead.",
     category=None,
 )
 class NodeInterrupt(GraphInterrupt):

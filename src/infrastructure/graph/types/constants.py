@@ -1,6 +1,6 @@
 """基础设施层图常量定义
 
-提供LangGraph兼容的常量定义，包括保留键、配置键等。
+提供图引擎兼容的常量定义，包括保留键、配置键等。
 """
 
 import sys
@@ -130,7 +130,7 @@ CONF = cast(Literal["configurable"], sys.intern("configurable"))
 NULL_TASK_ID = sys.intern("00000000-0000-0000-0000-000000000000")
 # 用于不与任务关联的写入的task_id
 
-# 重新定义以避免与langgraph.constants的循环导入
+# 重新定义以避免循环导入
 _TAG_HIDDEN = sys.intern("langsmith:hidden")
 
 RESERVED = {

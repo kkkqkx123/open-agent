@@ -256,13 +256,6 @@ class StorageRegistry:
                 {'description': 'Checkpoint SQLite storage backend'}
             )
             
-            # 注册LangGraph checkpoint适配器
-            self._register_from_module(
-                'langgraph',
-                'src.adapters.storage.backends.checkpoint.langgraph',
-                {'description': 'LangGraph checkpoint adapter'}
-            )
-            
             self._auto_loaded = True
             logger.info("Loaded builtin storage types")
             

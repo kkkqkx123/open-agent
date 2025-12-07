@@ -1,6 +1,6 @@
 """基础设施层图类型定义
 
-提供LangGraph兼容的类型定义，支持状态图、检查点、命令等核心概念。
+提供图引擎兼容的类型定义，支持状态图、检查点、命令等核心概念。
 """
 
 from __future__ import annotations
@@ -451,7 +451,7 @@ class Command(Generic[N]):
             - `None`: 当前图
             - `Command.PARENT`: 最近的父图
         update: 应用于图状态的更新。
-        resume: 用于恢复执行的值。与[`interrupt()`][langgraph.types.interrupt]一起使用。
+        resume: 用于恢复执行的值。与`interrupt()`一起使用。
             可以是以下之一：
 
             - 中断ID到恢复值的映射
@@ -502,11 +502,11 @@ def interrupt(value: Any) -> Any:
     在给定节点中，此函数的第一次调用引发GraphInterrupt异常，停止执行。
     提供的值包含在异常中并发送给执行图的客户端。
 
-    恢复图的客户端必须使用[`Command`][langgraph.types.Command]原语
+    恢复图的客户端必须使用`Command`原语
     指定中断的值并继续执行。
     图从节点的开始恢复，**重新执行**所有逻辑。
 
-    如果节点包含多个interrupt调用，LangGraph根据节点中的顺序将恢复值与中断匹配。
+    如果节点包含多个interrupt调用，图引擎根据节点中的顺序将恢复值与中断匹配。
     此恢复值列表特定于执行节点的任务，不在任务间共享。
 
     要使用中断，必须启用检查点，因为该功能依赖于持久化图状态。
