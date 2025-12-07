@@ -4,10 +4,11 @@
 """
 
 from src.services.logger.injection import get_logger
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable
+import asyncio
 
 from src.infrastructure.error_management import (
-     BaseErrorHandler, ErrorCategory, ErrorSeverity, 
+     BaseErrorHandler, ErrorCategory, ErrorSeverity,
      register_error_handler, operation_with_retry
 )
 from src.interfaces.storage.exceptions import (
@@ -18,6 +19,7 @@ from src.interfaces.storage.exceptions import (
      StorageEncryptionError, StorageIndexError, StorageBackupError, StorageLockError,
      StorageQueryError, StorageHealthError
 )
+from src.interfaces.storage.adapter import IStorageErrorHandler
 
 logger = get_logger(__name__)
 
@@ -394,6 +396,136 @@ def register_storage_error_handler():
     register_error_handler(StorageHealthError, storage_handler)
     
     logger.info("存储错误处理器已注册到全局注册表")
+
+
+class StorageAdapterErrorHandler(IStorageErrorHandler):
+    """存储适配器错误处理器
+    
+    实现IStorageErrorHandler接口，为存储适配器提供统一的错误处理。
+    """
+    
+    def __init__(self, max_retries: int = 3):
+        """初始化适配器错误处理器
+        
+        Args:
+            max_retries: 最大重试次数
+        """
+        self.max_retries = max_retries
+        self.logger = get_logger(self.__class__.__name__)
+        self.storage_error_handler = StorageErrorHandler()
+    
+    async def handle(self, operation: str, operation_func: Callable) -> Any:
+        """处理操作并统一异常
+        
+        Args:
+            operation: 操作名称
+            operation_func: 操作函数
+            
+        Returns:
+            操作结果
+            
+        Raises:
+            StorageError: 操作失败时抛出
+        """
+        context = {
+            "operation": operation,
+            "component": "storage_adapter",
+            "max_retries": self.max_retries
+        }
+        
+        # 定义可重试的异常类型
+        retryable_exceptions = (
+            StorageConnectionError,
+            StorageTimeoutError,
+            StorageLockError
+        )
+        
+        try:
+            # 使用重试机制执行操作
+            if asyncio.iscoroutinefunction(operation_func):
+                return await self._async_operation_with_retry(
+                    operation_func, retryable_exceptions, context
+                )
+            else:
+                return self._sync_operation_with_retry(
+                    operation_func, retryable_exceptions, context
+                )
+        except Exception as e:
+            # 使用存储错误处理器处理异常
+            if isinstance(e, StorageError):
+                self.storage_error_handler.handle(e, context)
+            else:
+                # 将非存储异常转换为存储异常
+                storage_error = StorageError(f"适配器操作失败: {e}")
+                self.storage_error_handler.handle(storage_error, context)
+                raise storage_error from e
+            raise
+    
+    async def _async_operation_with_retry(
+        self,
+        operation_func: Callable,
+        retryable_exceptions: tuple,
+        context: Dict[str, Any]
+    ) -> Any:
+        """异步操作重试实现"""
+        last_exception = None
+        
+        for attempt in range(self.max_retries + 1):
+            try:
+                return await operation_func()
+            except retryable_exceptions as e:
+                last_exception = e
+                if attempt < self.max_retries:
+                    wait_time = 2 ** attempt  # 指数退避
+                    self.logger.warning(
+                        f"操作 {context['operation']} 失败，{wait_time}秒后重试 (尝试 {attempt + 1}/{self.max_retries + 1}): {e}"
+                    )
+                    await asyncio.sleep(wait_time)
+                else:
+                    self.logger.error(
+                        f"操作 {context['operation']} 重试 {self.max_retries} 次后仍然失败: {e}"
+                    )
+            except Exception as e:
+                # 非重试异常直接抛出
+                raise
+        
+        # 重试次数用完，抛出最后一个异常
+        if last_exception is not None:
+            raise last_exception
+        else:
+            raise StorageError(f"操作 {context['operation']} 重试 {self.max_retries} 次后失败")
+    
+    def _sync_operation_with_retry(
+        self,
+        operation_func: Callable,
+        retryable_exceptions: tuple,
+        context: Dict[str, Any]
+    ) -> Any:
+        """同步操作重试实现"""
+        last_exception = None
+        
+        for attempt in range(self.max_retries + 1):
+            try:
+                return operation_func()
+            except retryable_exceptions as e:
+                last_exception = e
+                if attempt < self.max_retries:
+                    self.logger.warning(
+                        f"操作 {context['operation']} 失败，即将重试 (尝试 {attempt + 1}/{self.max_retries + 1}): {e}"
+                    )
+                else:
+                    self.logger.error(
+                        f"操作 {context['operation']} 重试 {self.max_retries} 次后仍然失败: {e}"
+                    )
+            except Exception as e:
+                # 非重试异常直接抛出
+                raise
+        
+        # 重试次数用完，抛出最后一个异常
+        if last_exception is not None:
+            raise last_exception
+        else:
+            raise StorageError(f"操作 {context['operation']} 重试 {self.max_retries} 次后失败")
 
 
 # 自动注册

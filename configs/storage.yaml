@@ -1,183 +1,77 @@
 # 存储配置文件
+# 定义存储后端和仓库的配置
 
-# 存储适配器配置
-adapters:
-  # 内存存储适配器
-  memory:
-    type: "memory"
-    enabled: true
-    is_default: false
-    config:
-      max_size: 10000
-      max_memory_mb: 100
-      enable_ttl: false
-      default_ttl_seconds: 3600
-      cleanup_interval_seconds: 300
-      enable_compression: false
-      compression_threshold: 1024
-      enable_metrics: true
-      enable_persistence: false
-      persistence_path: "${STORAGE_MEMORY_PERSISTENCE_PATH:}"
-      persistence_interval_seconds: 600
-    description: "内存存储适配器，适用于临时数据和测试环境"
-    tags: ["memory", "temp", "test"]
-
-  # SQLite存储适配器
+# 存储后端配置
+backends:
+  # SQLite后端配置
   sqlite:
-    type: "sqlite"
-    enabled: true
-    is_default: true
-    config:
-      db_path: "${STORAGE_SQLITE_DB_PATH:storage.db}"
-      timeout: 30.0
-      enable_wal_mode: true
-      enable_foreign_keys: true
-      connection_pool_size: 5
-      enable_auto_vacuum: false
-      cache_size: 2000
-      temp_store: "memory"
-      synchronous_mode: "NORMAL"
-      journal_mode: "WAL"
-      enable_backup: true
-      backup_interval_hours: 24
-      backup_path: "${STORAGE_SQLITE_BACKUP_PATH:backups/sqlite}"
-      max_backup_files: 7
-    description: "SQLite存储适配器，适用于生产环境"
-    tags: ["sqlite", "persistent", "production"]
-
-  # 文件存储适配器
-  file:
-    type: "file"
-    enabled: true
-    is_default: false
-    config:
-      base_path: "${STORAGE_FILE_BASE_PATH:file_storage}"
-      enable_compression: false
-      compression_threshold: 1024
-      enable_ttl: false
-      default_ttl_seconds: 3600
-      cleanup_interval_seconds: 300
-      enable_backup: true
-      backup_interval_hours: 24
-      backup_path: "${STORAGE_FILE_BACKUP_PATH:backups/file}"
-      max_backup_files: 7
-      directory_structure: "flat"
-      file_extension: "json"
-      enable_metadata: true
-      max_directory_size: "${STORAGE_FILE_MAX_SIZE:}"
-      max_files_per_directory: 1000
-    description: "文件存储适配器，适用于大量数据存储"
-    tags: ["file", "persistent", "large-data"]
-
-# 存储管理器配置
-manager:
-  # 默认适配器
-  default_adapter: "sqlite"
+    db_path: "${STORAGE_DB_PATH:storage.db}"
+    connection_pool_size: "${STORAGE_POOL_SIZE:5}"
+    timeout: "${STORAGE_TIMEOUT:30.0}"
+    enable_wal_mode: "${STORAGE_WAL_MODE:true}"
+    enable_foreign_keys: "${STORAGE_FOREIGN_KEYS:true}"
+    enable_auto_vacuum: "${STORAGE_AUTO_VACUUM:false}"
+    cache_size: "${STORAGE_CACHE_SIZE:2000}"
+    temp_store: "${STORAGE_TEMP_STORE:memory}"
+    synchronous_mode: "${STORAGE_SYNC_MODE:NORMAL}"
+    journal_mode: "${STORAGE_JOURNAL_MODE:WAL}"
+    backup_path: "${STORAGE_BACKUP_PATH:backups}"
+    enable_compression: "${STORAGE_COMPRESSION:false}"
+    compression_threshold: "${STORAGE_COMPRESSION_THRESHOLD:1024}"
+    enable_ttl: "${STORAGE_TTL:false}"
+    default_ttl_seconds: "${STORAGE_TTL_SECONDS:3600}"
+    cleanup_interval_seconds: "${STORAGE_CLEANUP_INTERVAL:300}"
+    enable_backup: "${STORAGE_BACKUP:false}"
+    backup_interval_hours: "${STORAGE_BACKUP_INTERVAL:24}"
+    max_backup_files: "${STORAGE_MAX_BACKUPS:7}"
   
-  # 健康检查配置
-  health_check:
-    enabled: true
-    interval_seconds: 60
-    
-  # 清理配置
-  cleanup:
-    enabled: true
-    interval_seconds: 3600
-    retention_days: 30
-    
-  # 备份配置
-  backup:
-    enabled: true
-    interval_hours: 24
-    backup_path: "backups/storage"
-    max_backup_files: 7
+  # 内存后端配置
+  memory:
+    max_items: "${MEMORY_MAX_ITEMS:10000}"
+    enable_compression: "${MEMORY_COMPRESSION:false}"
+    compression_threshold: "${MEMORY_COMPRESSION_THRESHOLD:1024}"
+    enable_ttl: "${MEMORY_TTL:false}"
+    default_ttl_seconds: "${MEMORY_TTL_SECONDS:3600}"
+    cleanup_interval_seconds: "${MEMORY_CLEANUP_INTERVAL:300}"
+  
+  # 文件后端配置
+  file:
+    base_path: "${FILE_BASE_PATH:data/storage}"
+    enable_compression: "${FILE_COMPRESSION:false}"
+    compression_threshold: "${FILE_COMPRESSION_THRESHOLD:1024}"
+    enable_ttl: "${FILE_TTL:false}"
+    default_ttl_seconds: "${FILE_TTL_SECONDS:3600}"
+    cleanup_interval_seconds: "${FILE_CLEANUP_INTERVAL:300}"
+    enable_backup: "${FILE_BACKUP:false}"
+    backup_interval_hours: "${FILE_BACKUP_INTERVAL:24}"
+    max_backup_files: "${FILE_MAX_BACKUPS:7}"
 
-# 存储迁移服务配置
-migration:
-  # 默认迁移选项
-  default_options:
-    batch_size: 100
-    validate_data: true
-    migrate_history: true
-    migrate_snapshots: true
-    
-  # 任务管理
-  task_management:
-    max_concurrent_tasks: 3
-    task_timeout_hours: 24
-    cleanup_completed_tasks: true
-    max_task_age_hours: 72
-
-# 存储配置管理器配置
-config_manager:
-  # 配置验证
-  validation:
-    enabled: true
-    strict_mode: false
-    
-  # 环境变量处理
-  environment_variables:
-    enabled: true
-    prefix: "STORAGE_"
-    
-  # 配置模板
-  templates:
-    development:
-      memory:
-        enabled: true
-        is_default: true
-        config:
-          max_size: 1000
-          enable_metrics: true
-          
-    production:
-      sqlite:
-        enabled: true
-        is_default: true
-        config:
-          connection_pool_size: 10
-          enable_backup: true
-          backup_interval_hours: 6
-          
-    testing:
-      memory:
-        enabled: true
-        is_default: true
-        config:
-          max_size: 100
-          enable_persistence: false
-
-# 性能监控配置
-monitoring:
-  # 指标收集
-  metrics:
-    enabled: true
-    collection_interval_seconds: 30
-    
-  # 性能阈值
-  thresholds:
-    memory_usage_percent: 80
-    disk_usage_percent: 85
-    response_time_ms: 1000
-    
-  # 告警配置
-  alerts:
-    enabled: false
-    webhook_url: "${STORAGE_ALERT_WEBHOOK_URL:}"
-    email_recipients: "${STORAGE_ALERT_EMAILS:}"
-
-# 安全配置
-security:
-  # 数据加密
-  encryption:
-    enabled: false
-    algorithm: "AES-256-GCM"
-    key_path: "${STORAGE_ENCRYPTION_KEY_PATH:}"
-    
-  # 访问控制
-  access_control:
-    enabled: false
-    roles:
-      - "admin"
-      - "user"
-      - "readonly"
+# 仓库配置
+repositories:
+  # 状态仓库配置
+  state:
+    backend_type: "${STATE_BACKEND_TYPE:sqlite}"
+    enable_cache: "${STATE_CACHE:true}"
+    cache_size: "${STATE_CACHE_SIZE:1000}"
+    cache_ttl: "${STATE_CACHE_TTL:300}"
+  
+  # 历史仓库配置
+  history:
+    backend_type: "${HISTORY_BACKEND_TYPE:sqlite}"
+    enable_cache: "${HISTORY_CACHE:true}"
+    cache_size: "${HISTORY_CACHE_SIZE:500}"
+    cache_ttl: "${HISTORY_CACHE_TTL:600}"
+  
+  # 快照仓库配置
+  snapshot:
+    backend_type: "${SNAPSHOT_BACKEND_TYPE:file}"
+    enable_cache: "${SNAPSHOT_CACHE:true}"
+    cache_size: "${SNAPSHOT_CACHE_SIZE:100}"
+    cache_ttl: "${SNAPSHOT_CACHE_TTL:1800}"
+  
+  # 检查点仓库配置
+  checkpoint:
+    backend_type: "${CHECKPOINT_BACKEND_TYPE:sqlite}"
+    enable_cache: "${CHECKPOINT_CACHE:true}"
+    cache_size: "${CHECKPOINT_CACHE_SIZE:200}"
+    cache_ttl: "${CHECKPOINT_CACHE_TTL:900}"
