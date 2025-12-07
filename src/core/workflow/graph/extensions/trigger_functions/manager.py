@@ -426,7 +426,7 @@ class TriggerFunctionManager:
         
         # 创建触发器
         try:
-            from ..graph.extensions.triggers.builtin_triggers import CustomTrigger
+            from ...extensions.triggers.builtin_triggers import CustomTrigger
             
             return CustomTrigger(
                 trigger_id=trigger_id,

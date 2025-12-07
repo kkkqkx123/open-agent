@@ -157,6 +157,9 @@ class MetricsCollectionPlugin(IHookPlugin):
         """收集业务指标"""
         state = context.state
         
+        if state is None:
+            return
+        
         # 消息数量
         if hasattr(state, 'messages'):
             message_key = f"business.{context.node_type}.message_count"

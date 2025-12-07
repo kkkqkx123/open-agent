@@ -5,6 +5,7 @@
 
 from .triggers import *
 from .plugins import *
+from .trigger_functions import *
 
 __all__ = [
     # 触发器相关

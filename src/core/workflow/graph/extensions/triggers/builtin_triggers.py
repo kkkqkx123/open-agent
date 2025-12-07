@@ -3,11 +3,16 @@
 提供常用的触发器实现。
 """
 
+import re
 from typing import Dict, Any, Optional, Callable
 from datetime import datetime, timedelta
-import re
 
 from .base import BaseTrigger, TriggerType
+from ..trigger_functions.impl.time_impl import TimeTriggerImplementation
+from ..trigger_functions.impl.state_impl import StateTriggerImplementation
+from ..trigger_functions.impl.event_impl import EventTriggerImplementation
+from ..trigger_functions.impl.tool_error_impl import ToolErrorTriggerImplementation
+from ..trigger_functions.impl.iteration_impl import IterationLimitTriggerImplementation
 
 from src.interfaces.state.workflow import IWorkflowState
 
@@ -42,28 +47,32 @@ class TimeTrigger(BaseTrigger):
         if not self.can_trigger():
             return False
 
-        now = datetime.now()
+        # 更新上下文中的触发器配置
+        trigger_config = context.get("trigger_config", {})
+        trigger_config["trigger_time"] = self._trigger_time
+        context["trigger_config"] = trigger_config
         
-        # 检查是否到了触发时间
-        if self._next_trigger and now >= self._next_trigger:
-            # 计算下一次触发时间
-            self._calculate_next_trigger()
-            return True
-        
-        return False
+        # 使用实现类进行评估
+        return TimeTriggerImplementation.evaluate(state, context)
 
     def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作"""
         self._update_trigger_info()
+        
+        # 更新上下文中的触发器配置
+        trigger_config = context.get("trigger_config", {})
+        trigger_config["trigger_time"] = self._trigger_time
+        context["trigger_config"] = trigger_config
+        
+        # 使用实现类进行执行
+        result = TimeTriggerImplementation.execute(state, context)
+        result["trigger_id"] = self.trigger_id
+        
         # 对于间隔时间触发器，需要计算下一次触发时间
         if self._trigger_time.isdigit():
             self._calculate_next_trigger()
         
-        return {
-            "trigger_time": self._trigger_time,
-            "executed_at": datetime.now().isoformat(),
-            "message": f"时间触发器 {self.trigger_id} 执行"
-        }
+        return result
 
     def get_config(self) -> Dict[str, Any]:
         """获取触发器配置"""
@@ -127,50 +136,28 @@ class StateTrigger(BaseTrigger):
         if not self.can_trigger():
             return False
 
-        try:
-            # 创建安全的执行环境
-            safe_globals = {
-                "__rests__": {
-                    "len": len,
-                    "str": str,
-                    "int": int,
-                    "float": float,
-                    "bool": bool,
-                    "list": list,
-                    "dict": dict,
-                    "any": any,
-                    "all": all,
-                    "abs": abs,
-                    "min": min,
-                    "max": max,
-                    "sum": sum,
-                },
-                "state": state,
-                "context": context,
-            }
-            
-            # 执行条件表达式
-            result = eval(self._condition, safe_globals)
-            return bool(result)
-            
-        except Exception:
-            return False
+        # 更新上下文中的触发器配置
+        trigger_config = context.get("trigger_config", {})
+        trigger_config["condition"] = self._condition
+        context["trigger_config"] = trigger_config
+        
+        # 使用实现类进行评估
+        return StateTriggerImplementation.evaluate(state, context)
 
     def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作"""
         self._update_trigger_info()
         
-        return {
-            "condition": self._condition,
-            "executed_at": datetime.now().isoformat(),
-            "state_summary": {
-                "messages_count": len(state.get("messages", [])),
-                "tool_results_count": len(state.get("tool_results", [])),
-                "current_step": state.get("current_step", ""),
-                "iteration_count": state.get("iteration_count", 0)
-            },
-            "message": f"状态触发器 {self.trigger_id} 执行"
-        }
+        # 更新上下文中的触发器配置
+        trigger_config = context.get("trigger_config", {})
+        trigger_config["condition"] = self._condition
+        context["trigger_config"] = trigger_config
+        
+        # 使用实现类进行执行
+        result = StateTriggerImplementation.execute(state, context)
+        result["trigger_id"] = self.trigger_id
+        
+        return result
 
     def get_config(self) -> Dict[str, Any]:
         """获取触发器配置"""
@@ -211,46 +198,30 @@ class EventTrigger(BaseTrigger):
         if not self.can_trigger():
             return False
 
-        # 检查上下文中是否有匹配的事件
-        events = context.get("events", [])
+        # 更新上下文中的触发器配置
+        trigger_config = context.get("trigger_config", {})
+        trigger_config["event_type"] = self._event_type
+        trigger_config["event_pattern"] = self._event_pattern
+        context["trigger_config"] = trigger_config
         
-        for event in events:
-            if event.get("type") == self._event_type:
-                if self._event_pattern:
-                    # 检查事件内容是否匹配模式
-                    event_data = str(event.get("data", ""))
-                    if self._compiled_pattern and self._compiled_pattern.search(event_data):
-                        return True
-                else:
-                    # 没有模式，只要事件类型匹配就触发
-                    return True
-        
-        return False
+        # 使用实现类进行评估
+        return EventTriggerImplementation.evaluate(state, context)
 
     def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作"""
         self._update_trigger_info()
         
-        # 查找匹配的事件
-        matching_events = []
-        events = context.get("events", [])
+        # 更新上下文中的触发器配置
+        trigger_config = context.get("trigger_config", {})
+        trigger_config["event_type"] = self._event_type
+        trigger_config["event_pattern"] = self._event_pattern
+        context["trigger_config"] = trigger_config
         
-        for event in events:
-            if event.get("type") == self._event_type:
-                if self._event_pattern:
-                    event_data = str(event.get("data", ""))
-                    if self._compiled_pattern and self._compiled_pattern.search(event_data):
-                        matching_events.append(event)
-                else:
-                    matching_events.append(event)
+        # 使用实现类进行执行
+        result = EventTriggerImplementation.execute(state, context)
+        result["trigger_id"] = self.trigger_id
         
-        return {
-            "event_type": self._event_type,
-            "event_pattern": self._event_pattern,
-            "matching_events": matching_events,
-            "executed_at": datetime.now().isoformat(),
-            "message": f"事件触发器 {self.trigger_id} 执行"
-        }
+        return result
 
     def get_config(self) -> Dict[str, Any]:
         """获取触发器配置"""
@@ -342,34 +313,28 @@ class ToolErrorTrigger(BaseTrigger):
         if not self.can_trigger():
             return False
 
-        # 计算工具错误数量
-        tool_results = state.get("tool_results", [])
-        error_count = sum(1 for result in tool_results if not result.get("success", True))
-        return error_count >= self._error_threshold
+        # 更新上下文中的触发器配置
+        trigger_config = context.get("trigger_config", {})
+        trigger_config["error_threshold"] = self._error_threshold
+        context["trigger_config"] = trigger_config
+        
+        # 使用实现类进行评估
+        return ToolErrorTriggerImplementation.evaluate(state, context)
 
     def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作"""
         self._update_trigger_info()
         
-        # 统计错误信息
-        tool_results = state.get("tool_results", [])
-        error_results = [result for result in tool_results if not result.get("success", True)]
-        error_summary = {}
+        # 更新上下文中的触发器配置
+        trigger_config = context.get("trigger_config", {})
+        trigger_config["error_threshold"] = self._error_threshold
+        context["trigger_config"] = trigger_config
         
-        for result in error_results:
-            tool_name = result.get("tool_name", "unknown")
-            if tool_name not in error_summary:
-                error_summary[tool_name] = {"count": 0, "errors": []}
-            error_summary[tool_name]["count"] += 1
-            error_summary[tool_name]["errors"].append(result.get("error", "Unknown error"))
+        # 使用实现类进行执行
+        result = ToolErrorTriggerImplementation.execute(state, context)
+        result["trigger_id"] = self.trigger_id
         
-        return {
-            "error_threshold": self._error_threshold,
-            "error_count": len(error_results),
-            "error_summary": error_summary,
-            "executed_at": datetime.now().isoformat(),
-            "message": f"工具错误触发器 {self.trigger_id} 执行"
-        }
+        return result
 
     def get_config(self) -> Dict[str, Any]:
         """获取触发器配置"""
@@ -406,21 +371,28 @@ class IterationLimitTrigger(BaseTrigger):
         if not self.can_trigger():
             return False
 
-        iteration_count = state.get("iteration_count", 0)
-        return iteration_count >= self._max_iterations
+        # 更新上下文中的触发器配置
+        trigger_config = context.get("trigger_config", {})
+        trigger_config["max_iterations"] = self._max_iterations
+        context["trigger_config"] = trigger_config
+        
+        # 使用实现类进行评估
+        return IterationLimitTriggerImplementation.evaluate(state, context)
 
     def execute(self, state: "IWorkflowState", context: Dict[str, Any]) -> Dict[str, Any]:
         """执行触发器动作"""
         self._update_trigger_info()
         
-        iteration_count = state.get("iteration_count", 0)
+        # 更新上下文中的触发器配置
+        trigger_config = context.get("trigger_config", {})
+        trigger_config["max_iterations"] = self._max_iterations
+        context["trigger_config"] = trigger_config
         
-        return {
-            "max_iterations": self._max_iterations,
-            "current_iterations": iteration_count,
-            "executed_at": datetime.now().isoformat(),
-            "message": f"迭代限制触发器 {self.trigger_id} 执行"
-        }
+        # 使用实现类进行执行
+        result = IterationLimitTriggerImplementation.execute(state, context)
+        result["trigger_id"] = self.trigger_id
+        
+        return result
 
     def get_config(self) -> Dict[str, Any]:
         """获取触发器配置"""

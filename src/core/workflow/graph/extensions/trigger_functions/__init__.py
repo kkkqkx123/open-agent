@@ -6,16 +6,29 @@
 from .registry import TriggerFunctionRegistry, TriggerFunctionConfig
 from .manager import TriggerFunctionManager, get_trigger_function_manager
 from .loader import TriggerFunctionLoader
-# from .rest import BuiltinTriggerFunctions  # 模块不存在，已注释
+from .builtin import BuiltinTriggerFunctions
 from .config import TriggerCompositionConfig, TriggerFunctionConfigLoader
+from .impl import (
+    TimeTriggerImplementation,
+    StateTriggerImplementation,
+    EventTriggerImplementation,
+    ToolErrorTriggerImplementation,
+    IterationLimitTriggerImplementation,
+)
 
 __all__ = [
     "TriggerFunctionRegistry",
-    "TriggerFunctionConfig", 
+    "TriggerFunctionConfig",
     "TriggerFunctionManager",
     "TriggerFunctionLoader",
-    # "BuiltinTriggerFunctions",  # 模块不存在，已移除
+    "BuiltinTriggerFunctions",
     "TriggerCompositionConfig",
     "TriggerFunctionConfigLoader",
     "get_trigger_function_manager",
+    # 实现类
+    "TimeTriggerImplementation",
+    "StateTriggerImplementation",
+    "EventTriggerImplementation",
+    "ToolErrorTriggerImplementation",
+    "IterationLimitTriggerImplementation",
 ]

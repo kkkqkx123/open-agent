@@ -5,18 +5,25 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, Any, Optional, List, TYPE_CHECKING
+from typing import Dict, Any, Optional, List, TYPE_CHECKING, Literal
 from enum import Enum
 
 from src.interfaces.common_domain import WorkflowExecutionContext
-from src.interfaces.common_types import BaseStatus
 
 if TYPE_CHECKING:
     from src.interfaces.state import IWorkflowState
     from ...workflow import Workflow
 
-class ExecutionStatus(BaseStatus):
-    """执行状态枚举 - 继承自基础状态"""
+class ExecutionStatus(str, Enum):
+    """执行状态枚举
+    
+    定义工作流执行过程中的各种状态。
+    """
+    PENDING = "pending"        # 等待中
+    RUNNING = "running"        # 运行中
+    COMPLETED = "completed"    # 已完成
+    FAILED = "failed"          # 失败
+    CANCELLED = "cancelled"    # 已取消
     PAUSED = "paused"          # 已暂停
 
 
