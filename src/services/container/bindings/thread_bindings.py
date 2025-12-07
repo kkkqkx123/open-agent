@@ -30,10 +30,11 @@ from src.interfaces.history import IHistoryManager
 from src.core.threads.checkpoints.service import ThreadCheckpointService
 from src.adapters.threads.checkpoint_adapter import ThreadCheckpointAdapter
 from src.infrastructure.threads.checkpoint_repository import ThreadCheckpointRepository
-from src.infrastructure.threads.langgraph_adapter import (
-    LangGraphCheckpointAdapter,
-    ThreadCheckpointLangGraphManager
-)
+# LangGraph adapter 导入已注释，因为模块不存在
+# from src.infrastructure.threads.langgraph_adapter import (
+#     LangGraphCheckpointAdapter,
+#     ThreadCheckpointLangGraphManager
+# )
 from src.interfaces.logger import ILogger
 from src.interfaces.container.core import ServiceLifetime
 from src.services.container.core.base_service_bindings import BaseServiceBindings
@@ -161,13 +162,7 @@ def _register_thread_backends(container: Any, config: Dict[str, Any], environmen
             from src.adapters.storage.backends import SQLiteThreadBackend
             sqlite_config = config.get("thread", {}).get("sqlite", {})
             db_path = sqlite_config.get("db_path", "./data/threads.db")
-            enable_checkpoints = sqlite_config.get("enable_checkpoints", True)
-            checkpoint_config = sqlite_config.get("checkpoint_config", {})
-            return SQLiteThreadBackend(
-                db_path=db_path,
-                enable_checkpoints=enable_checkpoints,
-                checkpoint_config=checkpoint_config
-            )
+            return SQLiteThreadBackend(db_path=db_path)
         else:
             raise ValueError(f"Unsupported primary backend type: {primary_backend_type}")
     
@@ -180,25 +175,15 @@ def _register_thread_backends(container: Any, config: Dict[str, Any], environmen
                 from src.adapters.storage.backends import FileThreadBackend
                 file_config = config.get("thread", {}).get("file", {})
                 base_path = file_config.get("base_path", "./threads_backup")
-                enable_checkpoints = file_config.get("enable_checkpoints", True)
-                checkpoint_config = file_config.get("checkpoint_config", {})
                 backend: Union[SQLiteThreadBackend, FileThreadBackend] = FileThreadBackend(
-                    base_path=base_path,
-                    enable_checkpoints=enable_checkpoints,
-                    checkpoint_config=checkpoint_config
+                    base_path=base_path
                 )
                 secondary_backends.append(backend)
             elif backend_type == "sqlite":
                 from src.adapters.storage.backends import SQLiteThreadBackend
                 sqlite_config = config.get("thread", {}).get("sqlite_secondary", {})
                 db_path = sqlite_config.get("db_path", "./data/threads_backup.db")
-                enable_checkpoints = sqlite_config.get("enable_checkpoints", True)
-                checkpoint_config = sqlite_config.get("checkpoint_config", {})
-                backend = SQLiteThreadBackend(
-                    db_path=db_path,
-                    enable_checkpoints=enable_checkpoints,
-                    checkpoint_config=checkpoint_config
-                )
+                backend = SQLiteThreadBackend(db_path=db_path)
                 secondary_backends.append(backend)
             else:
                 print(f"[WARNING] Unknown secondary backend type: {backend_type}", file=sys.stderr)
@@ -309,23 +294,24 @@ def _register_checkpoint_services(container: Any, config: Dict[str, Any], enviro
     )
     
     # 注册LangGraph集成
-    def create_langgraph_adapter():
-        repository = container.get(ThreadCheckpointRepository)
-        return LangGraphCheckpointAdapter(repository)
-    
-    container.register_singleton(
-        LangGraphCheckpointAdapter,
-        create_langgraph_adapter
-    )
-    
-    def create_langgraph_manager():
-        repository = container.get(ThreadCheckpointRepository)
-        return ThreadCheckpointLangGraphManager(repository)
-    
-    container.register_singleton(
-        ThreadCheckpointLangGraphManager,
-        create_langgraph_manager
-    )
+    # (注释：LangGraph适配器模块不存在)
+    # def create_langgraph_adapter():
+    #     repository = container.get(ThreadCheckpointRepository)
+    #     return LangGraphCheckpointAdapter(repository)
+    # 
+    # container.register_singleton(
+    #     LangGraphCheckpointAdapter,
+    #     create_langgraph_adapter
+    # )
+    # 
+    # def create_langgraph_manager():
+    #     repository = container.get(ThreadCheckpointRepository)
+    #     return ThreadCheckpointLangGraphManager(repository)
+    # 
+    # container.register_singleton(
+    #     ThreadCheckpointLangGraphManager,
+    #     create_langgraph_manager
+    # )
     
     print(f"[INFO] Thread checkpoint services registered (storage: {storage_type})", file=sys.stdout)
 
@@ -346,12 +332,12 @@ def _register_basic_thread_service(container: Any, config: Dict[str, Any], envir
         from src.services.threads.basic_service import BasicThreadService
         thread_core = container.get(IThreadCore)
         thread_repository = container.get(IThreadRepository)
-        checkpoint_service = container.get(ThreadCheckpointService, default=None)
+        checkpoint_domain_service = container.get(ThreadCheckpointService, default=None)
         
         return BasicThreadService(
             thread_core=thread_core,
             thread_repository=thread_repository,
-            checkpoint_service=checkpoint_service
+            checkpoint_domain_service=checkpoint_domain_service
         )
     
     # 注册服务为单例
@@ -412,10 +398,12 @@ def _register_collaboration_thread_service(container: Any, config: Dict[str, Any
         from src.services.threads.collaboration_service import ThreadCollaborationService
         thread_repository = container.get(IThreadRepository)
         checkpoint_service = container.get(ThreadCheckpointService, default=None)
+        history_manager = container.get(IHistoryManager, default=None)
         
         return ThreadCollaborationService(
             thread_repository=thread_repository,
-            checkpoint_service=checkpoint_service
+            checkpoint_service=checkpoint_service,
+            history_manager=history_manager
         )
     
     # 注册服务为单例
@@ -450,7 +438,6 @@ def _register_branch_thread_service(container: Any, config: Dict[str, Any], envi
         # 这里简化处理，假设它们已经注册
         thread_branch_core = container.get("IThreadBranchCore", default=None)
         thread_branch_repository = container.get("IThreadBranchRepository", default=None)
-        checkpoint_service = container.get(ThreadCheckpointService, default=None)
         
         if not thread_branch_core or not thread_branch_repository:
             print(f"[ERROR] ThreadBranchCore or ThreadBranchRepository not available", file=sys.stderr)
@@ -460,8 +447,7 @@ def _register_branch_thread_service(container: Any, config: Dict[str, Any], envi
             thread_core=thread_core,
             thread_branch_core=thread_branch_core,
             thread_repository=thread_repository,
-            thread_branch_repository=thread_branch_repository,
-            checkpoint_service=checkpoint_service
+            thread_branch_repository=thread_branch_repository
         )
     
     # 注册服务为单例

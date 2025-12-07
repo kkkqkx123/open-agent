@@ -71,7 +71,11 @@ class FileCheckpointRepository(ICheckpointRepository):
             logger.error(f"Failed to load file checkpoint {checkpoint_id}: {e}")
             raise
     
-    async def list_checkpoints(self, thread_id: str) -> List[Dict[str, Any]]:
+    async def list_checkpoints(
+        self, 
+        thread_id: str,
+        limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """列出指定thread的所有checkpoint"""
         try:
             thread_dir = self.base_path / thread_id
@@ -90,6 +94,10 @@ class FileCheckpointRepository(ICheckpointRepository):
             
             # 按创建时间倒序排序
             checkpoints.sort(key=lambda x: x.get("created_at", 0), reverse=True)
+            
+            # 应用limit限制
+            if limit is not None:
+                checkpoints = checkpoints[:limit]
             
             logger.debug(f"Listed file checkpoints for {thread_id}: {len(checkpoints)} items")
             return checkpoints

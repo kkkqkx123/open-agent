@@ -7,7 +7,7 @@ from src.services.logger.injection import get_logger
 from abc import ABC
 from typing import Dict, Any, Optional
 
-from src.core.common.exceptions import RepositoryError
+from src.interfaces.repository import RepositoryError
 
 logger = get_logger(__name__)
 

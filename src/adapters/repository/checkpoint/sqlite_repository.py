@@ -111,17 +111,33 @@ class SQLiteCheckpointRepository(ICheckpointRepository):
             logger.error(f"Failed to load SQLite checkpoint {checkpoint_id}: {e}")
             raise
     
-    async def list_checkpoints(self, thread_id: str) -> List[Dict[str, Any]]:
+    async def list_checkpoints(
+        self,
+        thread_id: str,
+        limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """列出指定thread的所有checkpoint"""
         try:
             with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("""
-                    SELECT checkpoint_id, thread_id, workflow_id, checkpoint_data,
-                           metadata, created_at, updated_at
-                    FROM checkpoints
-                    WHERE thread_id = ?
-                    ORDER BY created_at DESC
-                """, (thread_id,))
+                if limit is not None:
+                    query = """
+                        SELECT checkpoint_id, thread_id, workflow_id, checkpoint_data,
+                               metadata, created_at, updated_at
+                        FROM checkpoints
+                        WHERE thread_id = ?
+                        ORDER BY created_at DESC
+                        LIMIT ?
+                    """
+                    cursor = conn.execute(query, (thread_id, limit))
+                else:
+                    query = """
+                        SELECT checkpoint_id, thread_id, workflow_id, checkpoint_data,
+                               metadata, created_at, updated_at
+                        FROM checkpoints
+                        WHERE thread_id = ?
+                        ORDER BY created_at DESC
+                    """
+                    cursor = conn.execute(query, (thread_id,))
                 
                 checkpoints = []
                 for row in cursor.fetchall():

@@ -34,7 +34,7 @@ class CheckpointPerformanceOptimizer:
         self._batch_size = batch_size
         
         # 内存缓存
-        self._checkpoint_cache: Dict[str, ThreadCheckpoint] = {}
+        self._checkpoint_cache: Dict[str, Any] = {}
         self._cache_timestamps: Dict[str, datetime] = {}
         self._cache_ttl = timedelta(minutes=30)
         
@@ -116,12 +116,12 @@ class CheckpointPerformanceOptimizer:
         
         return checkpoint_id
     
-    async def _update_cache(self, checkpoint_id: str, checkpoint: ThreadCheckpoint) -> None:
+    async def _update_cache(self, cache_key: str, checkpoint: Any) -> None:
         """更新缓存
         
         Args:
-            checkpoint_id: 检查点ID
-            checkpoint: 检查点实体
+            cache_key: 缓存键
+            checkpoint: 检查点实体或检查点列表
         """
         # 检查缓存大小
         if len(self._checkpoint_cache) >= self._cache_size:
@@ -132,8 +132,8 @@ class CheckpointPerformanceOptimizer:
             del self._cache_timestamps[oldest_key]
         
         # 添加到缓存
-        self._checkpoint_cache[checkpoint_id] = checkpoint
-        self._cache_timestamps[checkpoint_id] = datetime.now()
+        self._checkpoint_cache[cache_key] = checkpoint
+        self._cache_timestamps[cache_key] = datetime.now()
     
     async def get_thread_checkpoints_optimized(
         self, 
@@ -164,14 +164,8 @@ class CheckpointPerformanceOptimizer:
         
         # 更新缓存
         if checkpoints:
-            # 创建缓存对象
-            cache_obj = type('CachedCheckpoints', (), {
-                '__iter__': lambda: iter(checkpoints),
-                '__len__': lambda: len(checkpoints),
-                '__getitem__': lambda i: checkpoints[i]
-            })()
-            
-            await self._update_cache(cache_key, cache_obj)
+            # 使用缓存键作为列表的代理，而不是创建代理对象
+            await self._update_cache(cache_key, checkpoints)
         
         return checkpoints
     
