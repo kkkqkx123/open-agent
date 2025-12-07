@@ -10,7 +10,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from .hook_points import HookPoint
+# 从接口层导入，保持一致性
+from src.interfaces.workflow.plugins import HookPoint, HookContext, HookExecutionResult, IHookPlugin
 
 __all__ = (
     "ExecutionMode",
@@ -31,114 +32,8 @@ class ExecutionMode(Enum):
     """条件执行"""
 
 
-class IHookPlugin(ABC):
-    """Hook插件接口。"""
-    
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Hook插件名称。"""
-        pass
-    
-    @abstractmethod
-    async def execute(self, context: HookContext) -> Any:
-        """执行Hook逻辑。
-        
-        Args:
-            context: Hook执行上下文
-            
-        Returns:
-            Hook执行结果
-        """
-        pass
-    
-    @property
-    def priority(self) -> int:
-        """Hook优先级，数值越小优先级越高。"""
-        return 50
-
-
-@dataclass
-class HookContext:
-    """Hook执行上下文。"""
-    hook_point: HookPoint
-    """Hook点"""
-    graph_id: str
-    """图ID"""
-    node_id: Optional[str] = None
-    """节点ID（如果适用）"""
-    step: Optional[int] = None
-    """步骤号（如果适用）"""
-    state: Optional[Dict[str, Any]] = None
-    """当前状态（如果适用）"""
-    config: Optional[Dict[str, Any]] = None
-    """配置信息"""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    """额外元数据"""
-    error: Optional[Exception] = None
-    """错误信息（如果适用）"""
-    
-    def with_node(self, node_id: str) -> HookContext:
-        """创建带有节点ID的上下文副本。"""
-        return HookContext(
-            hook_point=self.hook_point,
-            graph_id=self.graph_id,
-            node_id=node_id,
-            step=self.step,
-            state=self.state,
-            config=self.config,
-            metadata=self.metadata.copy(),
-            error=self.error,
-        )
-    
-    def with_step(self, step: int) -> HookContext:
-        """创建带有步骤号的上下文副本。"""
-        return HookContext(
-            hook_point=self.hook_point,
-            graph_id=self.graph_id,
-            node_id=self.node_id,
-            step=step,
-            state=self.state,
-            config=self.config,
-            metadata=self.metadata.copy(),
-            error=self.error,
-        )
-    
-    def with_error(self, error: Exception) -> HookContext:
-        """创建带有错误信息的上下文副本。"""
-        return HookContext(
-            hook_point=self.hook_point,
-            graph_id=self.graph_id,
-            node_id=self.node_id,
-            step=self.step,
-            state=self.state,
-            config=self.config,
-            metadata=self.metadata.copy(),
-            error=error,
-        )
-
-
-@dataclass
-class HookExecutionResult:
-    """Hook执行结果。"""
-    success: bool
-    """是否成功"""
-    results: List[Any] = field(default_factory=list)
-    """Hook执行结果列表"""
-    errors: List[Exception] = field(default_factory=list)
-    """错误列表"""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    """额外元数据"""
-    
-    @classmethod
-    def success_result(cls, results: Optional[List[Any]] = None) -> HookExecutionResult:
-        """创建成功结果。"""
-        return cls(success=True, results=results or [])
-    
-    @classmethod
-    def failure_result(cls, errors: Optional[List[Exception]] = None) -> HookExecutionResult:
-        """创建失败结果。"""
-        return cls(success=False, errors=errors or [])
+# 重新导出接口层的类型，确保一致性
+# 这样可以避免类型冲突
 
 
 class HookChain:
@@ -151,7 +46,7 @@ class HookChain:
         mode: ExecutionMode = ExecutionMode.SEQUENCE
     ):
         self.name = name
-        self.hooks = sorted(hooks, key=lambda h: h.priority)
+        self.hooks = sorted(hooks, key=lambda h: getattr(h.metadata, 'name', str(h)))
         self.mode = mode
     
     async def execute(self, context: HookContext) -> HookExecutionResult:
@@ -179,24 +74,69 @@ class HookChain:
         
         for hook in self.hooks:
             try:
-                result = await hook.execute(context)
+                # 根据Hook点调用相应方法
+                if context.hook_point == HookPoint.BEFORE_EXECUTE:
+                    result = hook.before_execute(context)
+                elif context.hook_point == HookPoint.AFTER_EXECUTE:
+                    result = hook.after_execute(context)
+                elif context.hook_point == HookPoint.ON_ERROR:
+                    result = hook.on_error(context)
+                else:
+                    continue
                 results.append(result)
             except Exception as e:
                 errors.append(e)
                 # 在顺序模式下，遇到错误就停止执行
                 break
         
+        # 合并结果
+        should_continue = True
+        modified_state = context.state
+        modified_result = context.execution_result
+        force_next_node = None
+        metadata = {"executed_hooks": []}
+        
+        for result in results:
+            if not result.should_continue:
+                should_continue = False
+            
+            if result.modified_state:
+                modified_state = result.modified_state
+            
+            if result.modified_result:
+                modified_result = result.modified_result
+            
+            if result.force_next_node:
+                force_next_node = result.force_next_node
+            
+            if result.metadata:
+                metadata.update(result.metadata)
+        
         return HookExecutionResult(
-            success=len(errors) == 0,
-            results=results,
-            errors=errors
+            should_continue=should_continue,
+            modified_state=modified_state,
+            modified_result=modified_result,
+            force_next_node=force_next_node,
+            metadata=metadata
         )
     
     async def _execute_parallel(self, context: HookContext) -> HookExecutionResult:
         """并行执行Hook。"""
         import asyncio
         
-        tasks = [hook.execute(context) for hook in self.hooks]
+        tasks = []
+        for hook in self.hooks:
+            # 根据Hook点创建相应的任务
+            if context.hook_point == HookPoint.BEFORE_EXECUTE:
+                task = asyncio.create_task(self._execute_hook_safe(hook.before_execute, context))
+            elif context.hook_point == HookPoint.AFTER_EXECUTE:
+                task = asyncio.create_task(self._execute_hook_safe(hook.after_execute, context))
+            elif context.hook_point == HookPoint.ON_ERROR:
+                task = asyncio.create_task(self._execute_hook_safe(hook.on_error, context))
+            else:
+                continue
+            tasks.append(task)
+        
         results = []
         errors = []
         
@@ -209,10 +149,35 @@ class HookChain:
             else:
                 results.append(task_result)
         
+        # 合并结果
+        should_continue = True
+        modified_state = context.state
+        modified_result = context.execution_result
+        force_next_node = None
+        metadata = {"executed_hooks": []}
+        
+        for result in results:
+            if not result.should_continue:
+                should_continue = False
+            
+            if result.modified_state:
+                modified_state = result.modified_state
+            
+            if result.modified_result:
+                modified_result = result.modified_result
+            
+            if result.force_next_node:
+                force_next_node = result.force_next_node
+            
+            if result.metadata:
+                metadata.update(result.metadata)
+        
         return HookExecutionResult(
-            success=len(errors) == 0,
-            results=results,
-            errors=errors
+            should_continue=should_continue,
+            modified_state=modified_state,
+            modified_result=modified_result,
+            force_next_node=force_next_node,
+            metadata=metadata
         )
     
     async def _execute_conditional(self, context: HookContext) -> HookExecutionResult:
@@ -224,16 +189,60 @@ class HookChain:
             try:
                 # 检查是否应该执行此Hook
                 if await self._should_execute_hook(hook, context):
-                    result = await hook.execute(context)
+                    # 根据Hook点调用相应方法
+                    if context.hook_point == HookPoint.BEFORE_EXECUTE:
+                        result = hook.before_execute(context)
+                    elif context.hook_point == HookPoint.AFTER_EXECUTE:
+                        result = hook.after_execute(context)
+                    elif context.hook_point == HookPoint.ON_ERROR:
+                        result = hook.on_error(context)
+                    else:
+                        continue
                     results.append(result)
             except Exception as e:
                 errors.append(e)
         
+        # 合并结果
+        should_continue = True
+        modified_state = context.state
+        modified_result = context.execution_result
+        force_next_node = None
+        metadata = {"executed_hooks": []}
+        
+        for result in results:
+            if not result.should_continue:
+                should_continue = False
+            
+            if result.modified_state:
+                modified_state = result.modified_state
+            
+            if result.modified_result:
+                modified_result = result.modified_result
+            
+            if result.force_next_node:
+                force_next_node = result.force_next_node
+            
+            if result.metadata:
+                metadata.update(result.metadata)
+        
         return HookExecutionResult(
-            success=len(errors) == 0,
-            results=results,
-            errors=errors
+            should_continue=should_continue,
+            modified_state=modified_state,
+            modified_result=modified_result,
+            force_next_node=force_next_node,
+            metadata=metadata
         )
+    
+    async def _execute_hook_safe(self, hook_func, context: HookContext) -> HookExecutionResult:
+        """安全执行Hook函数"""
+        try:
+            return hook_func(context)
+        except Exception as e:
+            # 返回一个错误结果
+            return HookExecutionResult(
+                should_continue=True,
+                metadata={"error": str(e)}
+            )
     
     async def _should_execute_hook(self, hook: IHookPlugin, context: HookContext) -> bool:
         """判断是否应该执行Hook。
@@ -245,7 +254,7 @@ class HookChain:
     def add_hook(self, hook: IHookPlugin) -> None:
         """添加Hook到链中。"""
         self.hooks.append(hook)
-        self.hooks.sort(key=lambda h: h.priority)
+        self.hooks.sort(key=lambda h: getattr(h.metadata, 'name', str(h)))
     
     def remove_hook(self, hook_name: str) -> bool:
         """从链中移除Hook。
@@ -257,7 +266,7 @@ class HookChain:
             是否成功移除
         """
         for i, hook in enumerate(self.hooks):
-            if hook.name == hook_name:
+            if getattr(hook.metadata, 'name', str(hook)) == hook_name:
                 self.hooks.pop(i)
                 return True
         return False

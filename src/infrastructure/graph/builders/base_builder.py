@@ -5,6 +5,8 @@
 
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Union, Callable
+import logging
+
 from src.services.logger.injection import get_logger
 
 from src.interfaces.workflow.element_builder import (
@@ -139,7 +141,7 @@ class BaseElementBuilder(IElementBuilder, ABC):
         
         Args:
             element: 构建的元素实例
-            builder: LangGraph构建器
+            builder: 图构建器
             config: 元素配置
             context: 构建上下文
         """
@@ -259,7 +261,7 @@ class BaseElementBuilder(IElementBuilder, ABC):
         
         Args:
             element: 构建的元素实例
-            builder: LangGraph构建器
+            builder: 图构建器
             config: 元素配置
             context: 构建上下文
         """
@@ -411,7 +413,7 @@ class BaseNodeBuilder(BaseElementBuilder, INodeBuilder):
         
         Args:
             element: 节点函数
-            builder: LangGraph构建器
+            builder: 图构建器
             config: 节点配置
             context: 构建上下文
         """
@@ -487,7 +489,7 @@ class BaseEdgeBuilder(BaseElementBuilder, IEdgeBuilder):
         
         Args:
             element: 边函数
-            builder: LangGraph构建器
+            builder: 图构建器
             config: 边配置
             context: 构建上下文
         """

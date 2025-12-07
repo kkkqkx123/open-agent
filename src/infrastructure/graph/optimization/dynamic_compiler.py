@@ -126,13 +126,15 @@ class DynamicCompiler:
     async def recompile(
         self, 
         graph: StateGraphEngine, 
-        changes: GraphChanges
+        changes: GraphChanges,
+        config: Optional[Dict[str, Any]] = None
     ) -> CompiledGraph:
         """增量编译图
         
         Args:
             graph: 状态图引擎
             changes: 图变更
+            config: 编译配置
             
         Returns:
             编译后的图
@@ -148,7 +150,8 @@ class DynamicCompiler:
             return self.compilation_cache[graph_hash]
         
         # 编译图
-        compiled_graph = await graph.compile()
+        compile_config = config or {}
+        compiled_graph = await graph.compile(compile_config)
         
         # 缓存编译结果
         self._manage_cache(graph_hash, compiled_graph)
@@ -248,11 +251,12 @@ class DynamicCompiler:
         
         compiled_graph.edges.append(edge_data)
     
-    async def optimize_graph(self, graph: StateGraphEngine) -> OptimizedGraph:
+    async def optimize_graph(self, graph: StateGraphEngine, config: Optional[Dict[str, Any]] = None) -> OptimizedGraph:
         """优化图结构
         
         Args:
             graph: 状态图引擎
+            config: 编译配置
             
         Returns:
             优化后的图
@@ -268,7 +272,8 @@ class DynamicCompiler:
                 performance_metrics.update(result.get("metrics", {}))
         
         # 编译优化后的图
-        compiled_graph = await graph.compile()
+        compile_config = config or {}
+        compiled_graph = await graph.compile(compile_config)
         
         return OptimizedGraph(
             compiled_graph=compiled_graph,

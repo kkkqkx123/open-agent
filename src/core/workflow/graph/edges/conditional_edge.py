@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from src.core.workflow.config import EdgeConfig
 if TYPE_CHECKING:
     from src.core.state import WorkflowState
-from src.core.workflow.graph.edges.conditions import ConditionType, ConditionEvaluator
+    from src.infrastructure.graph.conditions import ConditionType, ConditionEvaluator
 
 
 @dataclass

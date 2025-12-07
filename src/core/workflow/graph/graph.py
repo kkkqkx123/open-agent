@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 from uuid import uuid4
 
 from src.interfaces.workflow.graph import IGraph, INode, IEdge
+from src.infrastructure.graph.engine.state_graph import StateGraphEngine
 
 
 class Graph(IGraph):
@@ -21,6 +22,7 @@ class Graph(IGraph):
         self._graph_id = graph_id or str(uuid4())
         self._nodes: Dict[str, INode] = {}
         self._edges: Dict[str, IEdge] = {}
+        self._engine: Optional[StateGraphEngine] = None
     
     @property
     def graph_id(self) -> str:
@@ -174,3 +176,55 @@ class Graph(IGraph):
         
         # 如果没有找到出口点，返回最后一个节点
         return exit_points if exit_points else list(self._nodes.keys())[-1:]
+    
+    def get_engine(self) -> Optional[StateGraphEngine]:
+        """获取图引擎
+        
+        Returns:
+            StateGraphEngine: 图引擎实例
+        """
+        if self._engine is None:
+            # 创建图引擎
+            self._engine = StateGraphEngine(dict)  # 使用简单的字典作为状态模式
+            # 添加节点
+            for node_id, node in self._nodes.items():
+                self._engine.add_node(node_id, node.execute)
+            # 添加边
+            for edge in self._edges.values():
+                self._engine.add_edge(edge.source_node, edge.target_node)
+            # 设置入口点
+            entry_points = self.get_entry_points()
+            if entry_points:
+                self._engine.set_entry_point(entry_points[0])
+        
+        return self._engine
+    
+    async def compile(self, config: Optional[Dict[str, Any]] = None) -> Any:
+        """编译图
+        
+        Args:
+            config: 编译配置
+            
+        Returns:
+            编译后的图
+        """
+        engine = self.get_engine()
+        if engine is None:
+            raise RuntimeError("无法创建图引擎")
+        
+        return await engine.compile(config or {})
+    
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """执行图
+        
+        Args:
+            input_data: 输入数据
+            
+        Returns:
+            执行结果
+        """
+        engine = self.get_engine()
+        if engine is None:
+            raise RuntimeError("无法创建图引擎")
+        
+        return await engine.execute(input_data)

@@ -5,8 +5,7 @@
 
 from typing import Any, Dict, Optional
 
-from .hook_chains import HookContext, IHookPlugin
-from .hook_points import HookPoint
+from src.interfaces.workflow.plugins import HookPoint, HookContext, HookExecutionResult, IHookPlugin
 
 __all__ = ("ConditionalHook",)
 
@@ -46,23 +45,22 @@ class ConditionalHook:
         """
         try:
             # 简单的条件评估实现
-            # 支持的变量：graph_id, node_id, step, state中的键
+            # 支持的变量：node_type, state中的键, config中的键
             variables = {
-                "graph_id": context.graph_id,
-                "node_id": context.node_id,
-                "step": context.step,
+                "node_type": context.node_type,
             }
             
             # 添加状态变量
-            if context.state:
-                variables.update(context.state)
+            if hasattr(context.state, 'to_dict'):
+                variables.update(context.state.to_dict())
             
             # 添加配置变量
             if context.config:
                 variables.update(context.config)
             
             # 添加元数据变量
-            variables.update(context.metadata)
+            if context.metadata:
+                variables.update(context.metadata)
             
             # 评估条件
             return self._evaluate_condition(self.condition, variables)
@@ -135,7 +133,7 @@ class ConditionalHook:
         except Exception:
             return False
     
-    async def execute(self, context: HookContext) -> Any:
+    async def execute(self, context: HookContext) -> HookExecutionResult:
         """执行Hook插件。
         
         Args:
@@ -144,4 +142,12 @@ class ConditionalHook:
         Returns:
             Hook执行结果
         """
-        return await self.hook_plugin.execute(context)
+        # 根据Hook点调用相应方法
+        if self.hook_point == HookPoint.BEFORE_EXECUTE:
+            return self.hook_plugin.before_execute(context)
+        elif self.hook_point == HookPoint.AFTER_EXECUTE:
+            return self.hook_plugin.after_execute(context)
+        elif self.hook_point == HookPoint.ON_ERROR:
+            return self.hook_plugin.on_error(context)
+        else:
+            return HookExecutionResult(should_continue=True)

@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, Callable, Optional
-from .condition_types import ConditionType
+from .types import ConditionType
 from src.interfaces.state.interfaces import IState
 from src.interfaces.state.workflow import IWorkflowState
 
@@ -188,7 +188,7 @@ class ConditionEvaluator:
         return bool(iteration_count == count)
 
     def _iteration_count_greater_than(self, state: IState, parameters: Dict[str, Any], 
-                                     config: Dict[str, Any]) -> bool:
+                                    config: Dict[str, Any]) -> bool:
         """检查迭代次数是否大于指定值"""
         if "count" not in parameters:
             return False

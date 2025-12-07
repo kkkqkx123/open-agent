@@ -5,7 +5,7 @@
 
 import time
 from src.services.logger.injection import get_logger
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, cast, Union
 
 from .registry import node
 from .sync_node import SyncNode
@@ -13,7 +13,7 @@ from src.interfaces.workflow.graph import NodeExecutionResult
 from src.interfaces.state.interfaces import IState
 from src.interfaces.state.workflow import IWorkflowState
 from src.core.workflow.graph.extensions.plugins.manager import PluginManager
-from src.core.workflow.graph.extensions.plugins.hooks.executor import HookExecutor
+from src.infrastructure.graph.hooks import WorkflowHookExecutor
 from src.interfaces.workflow.plugins import PluginType, PluginContext
 
 logger = get_logger(__name__)
@@ -39,7 +39,7 @@ class EndNode(SyncNode):
         # 保留原有的PluginManager用于END插件
         self.plugin_manager = PluginManager(plugin_config_path)
         # 新增HookExecutor用于Hook插件
-        self.node_hook_manager = HookExecutor()
+        self.node_hook_manager = WorkflowHookExecutor()
         self._initialized = False
     
     @property
@@ -109,7 +109,7 @@ class EndNode(SyncNode):
                 # 添加执行元数据
                 execution_time = time.time() - start_time
                 if isinstance(updated_state, dict):
-                    updated_state['end_metadata'] = updated_state.get_data('end_metadata', {})
+                    updated_state['end_metadata'] = updated_state.get('end_metadata', {})
                     updated_state['end_metadata'].update({
                         'execution_time': execution_time,
                         'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
@@ -119,15 +119,17 @@ class EndNode(SyncNode):
                     })
                 else:
                     # WorkflowState对象
-                    end_metadata = updated_state.get_metadata('end_metadata', {})
-                    end_metadata.update({
-                        'execution_time': execution_time,
-                        'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
-                        'timestamp': time.time(),
-                        'node_type': self.node_type,
-                        'success': True
-                    })
-                    updated_state.set_metadata('end_metadata', end_metadata)
+                    if hasattr(updated_state, 'get_metadata') and hasattr(updated_state, 'set_metadata'):
+                        state_obj = cast(IWorkflowState, updated_state)
+                        end_metadata = state_obj.get_metadata('end_metadata', {})
+                        end_metadata.update({
+                            'execution_time': execution_time,
+                            'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
+                            'timestamp': time.time(),
+                            'node_type': self.node_type,
+                            'success': True
+                        })
+                        state_obj.set_metadata('end_metadata', end_metadata)
                 
                 # 计算总执行时间
                 if context.execution_start_time:
@@ -135,11 +137,12 @@ class EndNode(SyncNode):
                     if isinstance(updated_state, dict):
                         updated_state['end_metadata']['total_execution_time'] = total_execution_time
                         updated_state['end_metadata']['total_execution_time_formatted'] = self._format_duration(total_execution_time)
-                    else:
-                        end_metadata = updated_state.get_metadata('end_metadata', {})
+                    elif hasattr(updated_state, 'get_metadata') and hasattr(updated_state, 'set_metadata'):
+                        state_obj = cast(IWorkflowState, updated_state)
+                        end_metadata = state_obj.get_metadata('end_metadata', {})
                         end_metadata['total_execution_time'] = total_execution_time
                         end_metadata['total_execution_time_formatted'] = self._format_duration(total_execution_time)
-                        updated_state.set_metadata('end_metadata', end_metadata)
+                        state_obj.set_metadata('end_metadata', end_metadata)
                 
                 logger.info(f"END节点执行完成，耗时 {execution_time:.2f}s")
                 
@@ -147,9 +150,10 @@ class EndNode(SyncNode):
                 if isinstance(updated_state, dict):
                     updated_state['workflow_completed'] = True
                     updated_state['completion_timestamp'] = time.time()
-                else:
-                    updated_state.set_data('workflow_completed', True)
-                    updated_state.set_data('completion_timestamp', time.time())
+                elif hasattr(updated_state, 'set_data'):
+                    state_obj = cast(IState, updated_state)
+                    state_obj.set_data('workflow_completed', True)
+                    state_obj.set_data('completion_timestamp', time.time())
                 
                 # 确保 updated_state 是 IState 类型
                 if isinstance(updated_state, dict):
@@ -157,10 +161,19 @@ class EndNode(SyncNode):
                     if hasattr(state, 'from_dict'):
                         updated_state = state.__class__.from_dict(updated_state)
                 
+                # 获取end_metadata
+                end_metadata = {}
+                final_state: IState = cast(IState, updated_state)
+                if isinstance(updated_state, dict):
+                    end_metadata = updated_state.get('end_metadata', {})
+                elif hasattr(updated_state, 'get_data'):
+                    state_obj = cast(IState, updated_state)
+                    end_metadata = state_obj.get_data('end_metadata', {})
+                
                 return NodeExecutionResult(
-                    state=updated_state,
+                    state=final_state,
                     next_node=None,  # END节点没有下一个节点
-                    metadata=updated_state.get_data('end_metadata', {}) if hasattr(updated_state, 'get') else updated_state.get_data('end_metadata', {})
+                    metadata=end_metadata
                 )
                 
             except Exception as e:
@@ -169,7 +182,7 @@ class EndNode(SyncNode):
                 
                 # 添加错误信息到状态
                 if isinstance(state, dict):
-                    state['end_metadata'] = state.get_data('end_metadata', {})
+                    state['end_metadata'] = state.get('end_metadata', {})
                     state['end_metadata'].update({
                         'execution_time': execution_time,
                         'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
@@ -183,9 +196,10 @@ class EndNode(SyncNode):
                     state['workflow_completed'] = True
                     state['completion_timestamp'] = time.time()
                     state['workflow_failed'] = True
-                else:
+                elif hasattr(state, 'get_metadata') and hasattr(state, 'set_metadata') and hasattr(state, 'set_data'):
                     # WorkflowState对象
-                    end_metadata = state.get_metadata('end_metadata', {})
+                    state_obj = cast(IWorkflowState, state)
+                    end_metadata = state_obj.get_metadata('end_metadata', {})
                     end_metadata.update({
                         'execution_time': execution_time,
                         'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.END)),
@@ -194,12 +208,12 @@ class EndNode(SyncNode):
                         'success': False,
                         'error': str(e)
                     })
-                    state.set_metadata('end_metadata', end_metadata)
+                    state_obj.set_metadata('end_metadata', end_metadata)
                     
                     # 即使出错也标记工作流完成
-                    state.set_data('workflow_completed', True)
-                    state.set_data('completion_timestamp', time.time())
-                    state.set_data('workflow_failed', True)
+                    state_obj.set_data('workflow_completed', True)
+                    state_obj.set_data('completion_timestamp', time.time())
+                    state_obj.set_data('workflow_failed', True)
                 
                 return NodeExecutionResult(
                     state=state,  # 确保传递WorkflowState类型

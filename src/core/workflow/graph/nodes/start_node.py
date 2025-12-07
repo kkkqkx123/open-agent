@@ -5,7 +5,7 @@
 
 import time
 from src.services.logger.injection import get_logger
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, cast
 
 from .registry import node
 from .sync_node import SyncNode
@@ -13,7 +13,7 @@ from src.interfaces.workflow.graph import NodeExecutionResult
 from src.interfaces.state.interfaces import IState
 from src.interfaces.state.workflow import IWorkflowState
 from src.core.workflow.graph.extensions.plugins.manager import PluginManager
-from src.core.workflow.graph.extensions.plugins.hooks.executor import HookExecutor
+from src.infrastructure.graph.hooks import WorkflowHookExecutor
 from src.interfaces.workflow.plugins import PluginType, PluginContext
 
 
@@ -40,7 +40,7 @@ class StartNode(SyncNode):
         # 保留原有的PluginManager用于START插件
         self.plugin_manager = PluginManager(plugin_config_path)
         # 新增NodeHookManager用于Hook插件
-        self.node_hook_manager = HookExecutor()
+        self.node_hook_manager = WorkflowHookExecutor()
         self._initialized = False
     
     @property
@@ -110,7 +110,7 @@ class StartNode(SyncNode):
                 # 添加执行元数据
                 execution_time = time.time() - start_time
                 if isinstance(updated_state, dict):
-                    updated_state['start_metadata'] = updated_state.get_data('start_metadata', {})
+                    updated_state['start_metadata'] = updated_state.get('start_metadata', {})
                     updated_state['start_metadata'].update({
                         'execution_time': execution_time,
                         'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.START)),
@@ -120,7 +120,8 @@ class StartNode(SyncNode):
                     })
                 else:
                     # WorkflowState对象
-                    start_metadata = updated_state.get_metadata('start_metadata', {})
+                    state_obj = cast(IState, updated_state)
+                    start_metadata = state_obj.get_metadata('start_metadata', {})
                     start_metadata.update({
                         'execution_time': execution_time,
                         'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.START)),
@@ -128,14 +129,21 @@ class StartNode(SyncNode):
                         'node_type': self.node_type,
                         'success': True
                     })
-                    updated_state.set_metadata('start_metadata', start_metadata)
+                    state_obj.set_metadata('start_metadata', start_metadata)
                 
                 logger.info(f"START节点执行完成，耗时 {execution_time:.2f}s")
                 
+                # 提取元数据
+                if isinstance(updated_state, dict):
+                    metadata = updated_state.get('start_metadata', {})
+                else:
+                    state_obj = cast(IState, updated_state)
+                    metadata = state_obj.get_metadata('start_metadata', {})
+                
                 return NodeExecutionResult(
-                    state=updated_state,  # 确保传递WorkflowState类型
+                    state=cast(IState, updated_state),
                     next_node=config.get('next_node'),
-                    metadata=updated_state.get_data('start_metadata', {}) if not isinstance(updated_state, dict) else updated_state.get_data('start_metadata', {})
+                    metadata=metadata
                 )
                 
             except Exception as e:
@@ -144,7 +152,7 @@ class StartNode(SyncNode):
                 
                 # 添加错误信息到状态
                 if isinstance(state, dict):
-                    state['start_metadata'] = state.get_data('start_metadata', {})
+                    state['start_metadata'] = state.get('start_metadata', {})
                     state['start_metadata'].update({
                         'execution_time': execution_time,
                         'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.START)),
@@ -155,7 +163,8 @@ class StartNode(SyncNode):
                     })
                 else:
                     # WorkflowState对象
-                    start_metadata = state.get_metadata('start_metadata', {})
+                    state_obj = cast(IState, state)
+                    start_metadata = state_obj.get_metadata('start_metadata', {})
                     start_metadata.update({
                         'execution_time': execution_time,
                         'plugins_executed': len(self.plugin_manager.get_enabled_plugins(PluginType.START)),
@@ -164,10 +173,10 @@ class StartNode(SyncNode):
                         'success': False,
                         'error': str(e)
                     })
-                    state.set_metadata('start_metadata', start_metadata)
+                    state_obj.set_metadata('start_metadata', start_metadata)
                 
                 return NodeExecutionResult(
-                    state=state,  # 确保传递WorkflowState类型
+                    state=cast(IState, state),
                     next_node=config.get('error_next_node', 'error_handler'),
                     metadata={
                         'error': str(e),

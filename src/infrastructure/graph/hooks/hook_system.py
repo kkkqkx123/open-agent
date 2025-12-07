@@ -5,21 +5,21 @@
 
 from typing import Any, Dict, List, Optional
 
+from src.interfaces.workflow.hooks import IHookSystem
+from src.interfaces.workflow.plugins import HookPoint, HookContext, HookExecutionResult, IHookPlugin
 from .conditional_hooks import ConditionalHook
-from .hook_chains import HookChain, HookContext, HookExecutionResult, IHookPlugin
-from .hook_points import HookPoint
 
 __all__ = ("HookSystem",)
 
 
-class HookSystem:
+class HookSystem(IHookSystem):
     """Hook系统，管理所有Hook的注册和执行。"""
     
     def __init__(self):
         """初始化Hook系统。"""
         self.hooks: Dict[HookPoint, List[HookRegistration]] = {}
         self.conditional_hooks: List[ConditionalHook] = []
-        self.hook_chains: Dict[str, HookChain] = {}
+        self.hook_chains: Dict[str, Any] = {}  # 简化实现，不使用HookChain
     
     def register_hook(
         self,
@@ -61,7 +61,7 @@ class HookSystem:
             return False
         
         for i, registration in enumerate(self.hooks[hook_point]):
-            if registration.hook.name == hook_name:
+            if registration.hook.metadata.name == hook_name:
                 self.hooks[hook_point].pop(i)
                 return True
         
@@ -74,37 +74,6 @@ class HookSystem:
             conditional_hook: 条件Hook
         """
         self.conditional_hooks.append(conditional_hook)
-    
-    def create_hook_chain(
-        self,
-        name: str,
-        hooks: List[IHookPlugin],
-        mode: Any  # ExecutionMode
-    ) -> HookChain:
-        """创建Hook链。
-        
-        Args:
-            name: Hook链名称
-            hooks: Hook列表
-            mode: 执行模式
-            
-        Returns:
-            Hook链实例
-        """
-        chain = HookChain(name, hooks, mode)
-        self.hook_chains[name] = chain
-        return chain
-    
-    def get_hook_chain(self, name: str) -> Optional[HookChain]:
-        """获取Hook链。
-        
-        Args:
-            name: Hook链名称
-            
-        Returns:
-            Hook链实例（如果存在）
-        """
-        return self.hook_chains.get(name)
     
     async def execute_hooks(
         self,
@@ -127,7 +96,15 @@ class HookSystem:
         if hook_point in self.hooks:
             for registration in self.hooks[hook_point]:
                 try:
-                    result = await registration.hook.execute(context)
+                    # 根据Hook点调用相应方法
+                    if hook_point == HookPoint.BEFORE_EXECUTE:
+                        result = registration.hook.before_execute(context)
+                    elif hook_point == HookPoint.AFTER_EXECUTE:
+                        result = registration.hook.after_execute(context)
+                    elif hook_point == HookPoint.ON_ERROR:
+                        result = registration.hook.on_error(context)
+                    else:
+                        continue
                     results.append(result)
                 except Exception as e:
                     errors.append(e)
@@ -137,15 +114,48 @@ class HookSystem:
             if conditional_hook.hook_point == hook_point:
                 try:
                     if conditional_hook.should_execute(context):
-                        result = await conditional_hook.execute(context)
+                        # 根据Hook点调用相应方法
+                        if hook_point == HookPoint.BEFORE_EXECUTE:
+                            result = conditional_hook.hook_plugin.before_execute(context)
+                        elif hook_point == HookPoint.AFTER_EXECUTE:
+                            result = conditional_hook.hook_plugin.after_execute(context)
+                        elif hook_point == HookPoint.ON_ERROR:
+                            result = conditional_hook.hook_plugin.on_error(context)
+                        else:
+                            continue
                         results.append(result)
                 except Exception as e:
                     errors.append(e)
         
+        # 合并结果
+        should_continue = True
+        modified_state = context.state
+        modified_result = context.execution_result
+        force_next_node = None
+        metadata = {"executed_hooks": []}
+        
+        for result in results:
+            if not result.should_continue:
+                should_continue = False
+            
+            if result.modified_state:
+                modified_state = result.modified_state
+            
+            if result.modified_result:
+                modified_result = result.modified_result
+            
+            if result.force_next_node:
+                force_next_node = result.force_next_node
+            
+            if result.metadata:
+                metadata.update(result.metadata)
+        
         return HookExecutionResult(
-            success=len(errors) == 0,
-            results=results,
-            errors=errors
+            should_continue=should_continue,
+            modified_state=modified_state,
+            modified_result=modified_result,
+            force_next_node=force_next_node,
+            metadata=metadata
         )
     
     async def execute_hook_chain(
@@ -162,11 +172,8 @@ class HookSystem:
         Returns:
             Hook执行结果
         """
-        chain = self.hook_chains.get(chain_name)
-        if not chain:
-            raise ValueError(f"Hook chain not found: {chain_name}")
-        
-        return await chain.execute(context)
+        # 简化实现，直接执行所有Hook
+        return await self.execute_hooks(context.hook_point, context)
     
     def get_hooks_for_point(self, hook_point: HookPoint) -> List[IHookPlugin]:
         """获取指定Hook点的所有Hook。

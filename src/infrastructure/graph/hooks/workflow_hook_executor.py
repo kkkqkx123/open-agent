@@ -1,6 +1,6 @@
-"""Hook执行器
+"""工作流Hook执行器实现
 
-专门负责Hook插件的执行逻辑，从PluginManager中分离出来。
+从核心层迁移过来的Hook执行器，专门负责Hook插件的执行逻辑。
 """
 
 from src.services.logger.injection import get_logger
@@ -8,10 +8,16 @@ import time
 from typing import Dict, Any, List, Optional, Callable, TYPE_CHECKING
 from collections import defaultdict
 
+from src.interfaces.workflow.hooks import IHookExecutor
 from src.interfaces.workflow.plugins import IHookPlugin, HookPoint, HookContext, HookExecutionResult
-from src.core.workflow.graph.extensions.plugins.registry import PluginRegistry
 from src.interfaces.state import IWorkflowState
 from src.interfaces.workflow.graph import NodeExecutionResult
+
+# 延迟导入以避免循环依赖
+def _get_plugin_registry():
+    from src.core.workflow.graph.extensions.plugins.registry import PluginRegistry
+    return PluginRegistry
+
 if TYPE_CHECKING:
     from src.core.state import WorkflowState
 
@@ -19,10 +25,10 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class HookExecutor:
-    """Hook执行器
+class WorkflowHookExecutor(IHookExecutor):
+    """工作流Hook执行器
     
-    专门负责Hook插件的执行逻辑，包括：
+    从核心层迁移过来的Hook执行器，专门负责Hook插件的执行逻辑，包括：
     - Hook插件的获取和过滤
     - Hook点的执行
     - 统一的Hook执行接口（execute_with_hooks）
@@ -35,7 +41,7 @@ class HookExecutor:
         Args:
             plugin_registry: 插件注册表，如果为None则创建新的
         """
-        self.registry = plugin_registry or PluginRegistry()
+        self.registry = plugin_registry or _get_plugin_registry()()
         self._hook_plugins_cache: Dict[str, List[IHookPlugin]] = defaultdict(list)
         self._execution_counters: Dict[str, int] = defaultdict(int)
         self._performance_stats: Dict[str, Dict[str, Any]] = defaultdict(dict)
@@ -372,7 +378,6 @@ class HookExecutor:
             # 如果Hook没有处理错误，重新抛出异常
             raise e
     
-    # Hook执行服务接口实现
     def get_execution_count(self, node_type: str) -> int:
         """获取节点执行次数
         

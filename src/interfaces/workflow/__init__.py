@@ -46,6 +46,31 @@ from .entities import (
     IWorkflowMetadata
 )
 
+from .hooks import (
+    IHookExecutor,
+    IHookSystem
+)
+
+from .plugins import (
+    IPlugin,
+    IHookPlugin,
+    IStartPlugin,
+    IEndPlugin,
+    PluginType,
+    PluginStatus,
+    HookPoint,
+    PluginMetadata,
+    PluginContext,
+    PluginExecutionResult,
+    HookContext,
+    HookExecutionResult
+)
+
+from .graph_engine import (
+    IGraphEngine,
+    IGraphBuilder
+)
+
 __all__ = [
     # Core interfaces
     "IWorkflow",
@@ -80,4 +105,26 @@ __all__ = [
     "IWorkflowExecution",
     "INodeExecution",
     "IWorkflowMetadata",
+    
+    # Hook interfaces
+    "IHookExecutor",
+    "IHookSystem",
+    
+    # Plugin interfaces
+    "IPlugin",
+    "IHookPlugin",
+    "IStartPlugin",
+    "IEndPlugin",
+    "PluginType",
+    "PluginStatus",
+    "HookPoint",
+    "PluginMetadata",
+    "PluginContext",
+    "PluginExecutionResult",
+    "HookContext",
+    "HookExecutionResult",
+    
+    # Graph engine interfaces
+    "IGraphEngine",
+    "IGraphBuilder",
 ]

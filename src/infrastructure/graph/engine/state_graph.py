@@ -5,8 +5,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union, AsyncIterator
 
+from src.interfaces.workflow.graph_engine import IGraphEngine
 from ..hooks import HookPoint, HookSystem, HookContext
 from ..types import START, END
 from .compiler import GraphCompiler
@@ -18,7 +19,7 @@ StateT = TypeVar("StateT")
 __all__ = ("StateGraphEngine",)
 
 
-class StateGraphEngine:
+class StateGraphEngine(IGraphEngine):
     """状态图引擎，替代LangGraph的StateGraph。
     
     支持节点和边的定义、条件边和编译过程，集成Hook系统。
@@ -130,15 +131,16 @@ class StateGraphEngine:
         """
         self.hook_system = hook_system
     
-    async def compile(self, checkpointer: Optional[Any] = None) -> Any:
+    async def compile(self, config: Dict[str, Any]) -> Any:
         """编译图。
         
         Args:
-            checkpointer: 检查点保存器
+            config: 编译配置，包含checkpointer等参数
             
         Returns:
             编译后的图
         """
+        checkpointer = config.get('checkpointer')
         # 执行编译前Hook
         if self.hook_system:
             context = HookContext(
@@ -173,12 +175,108 @@ class StateGraphEngine:
             # 错误处理
             if self.hook_system:
                 context = HookContext(
-                    hook_point=HookPoint.BEFORE_COMPILE,
+                    hook_point=HookPoint.ON_ERROR,
                     graph_id=str(id(self)),
                     config={"checkpointer": checkpointer},
                     error=e
                 )
-                await self.hook_system.execute_hooks(HookPoint.BEFORE_COMPILE, context)
+                await self.hook_system.execute_hooks(HookPoint.ON_ERROR, context)
+            raise
+    
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """执行图
+        
+        Args:
+            input_data: 输入数据
+            
+        Returns:
+            执行结果
+        """
+        if not self.compiled_graph:
+            raise RuntimeError("图未编译，请先调用compile方法")
+        
+        # 执行编译前Hook
+        if self.hook_system:
+            context = HookContext(
+                hook_point=HookPoint.BEFORE_EXECUTE,
+                graph_id=str(id(self)),
+                config=input_data
+            )
+            await self.hook_system.execute_hooks(HookPoint.BEFORE_EXECUTE, context)
+        
+        try:
+            # 执行图
+            result = await self.compiled_graph.ainvoke(input_data)
+            
+            # 执行编译后Hook
+            if self.hook_system:
+                context = HookContext(
+                    hook_point=HookPoint.AFTER_EXECUTE,
+                    graph_id=str(id(self)),
+                    config=input_data
+                )
+                await self.hook_system.execute_hooks(HookPoint.AFTER_EXECUTE, context)
+            
+            return result
+            
+        except Exception as e:
+            # 错误处理
+            if self.hook_system:
+                context = HookContext(
+                    hook_point=HookPoint.ON_ERROR,
+                    graph_id=str(id(self)),
+                    config=input_data,
+                    error=e
+                )
+                await self.hook_system.execute_hooks(HookPoint.ON_ERROR, context)
+            raise
+    
+    async def stream(self, input_data: Dict[str, Any]) -> AsyncIterator[Dict[str, Any]]:
+        """流式执行图
+        
+        Args:
+            input_data: 输入数据
+            
+        Yields:
+            执行事件
+        """
+        if not self.compiled_graph:
+            raise RuntimeError("图未编译，请先调用compile方法")
+        
+        # 执行编译前Hook
+        if self.hook_system:
+            context = HookContext(
+                hook_point=HookPoint.BEFORE_EXECUTE,
+                graph_id=str(id(self)),
+                config=input_data
+            )
+            await self.hook_system.execute_hooks(HookPoint.BEFORE_EXECUTE, context)
+        
+        try:
+            # 流式执行图
+            async for event in self.compiled_graph.astream(input_data):
+                # 执行事件Hook
+                if self.hook_system:
+                    context = HookContext(
+                        hook_point=HookPoint.AFTER_EXECUTE,
+                        graph_id=str(id(self)),
+                        config=input_data,
+                        metadata={"event": event}
+                    )
+                    await self.hook_system.execute_hooks(HookPoint.AFTER_EXECUTE, context)
+                
+                yield event
+                
+        except Exception as e:
+            # 错误处理
+            if self.hook_system:
+                context = HookContext(
+                    hook_point=HookPoint.ON_ERROR,
+                    graph_id=str(id(self)),
+                    config=input_data,
+                    error=e
+                )
+                await self.hook_system.execute_hooks(HookPoint.ON_ERROR, context)
             raise
     
     def _validate_graph(self) -> None:
@@ -262,10 +360,10 @@ class StateGraphEngine:
         # 执行销毁前Hook
         if self.hook_system:
             context = HookContext(
-                hook_point=HookPoint.BEFORE_DESTROY,
+                hook_point=HookPoint.ON_ERROR,  # 使用现有的Hook点
                 graph_id=str(id(self))
             )
-            await self.hook_system.execute_hooks(HookPoint.BEFORE_DESTROY, context)
+            await self.hook_system.execute_hooks(HookPoint.ON_ERROR, context)
         
         # 清理资源
         self.nodes.clear()

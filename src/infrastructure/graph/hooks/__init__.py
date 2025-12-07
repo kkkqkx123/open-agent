@@ -6,7 +6,11 @@
 from .hook_system import HookSystem
 from .hook_points import HookPoint
 from .conditional_hooks import ConditionalHook
-from .hook_chains import HookChain, HookContext, HookExecutionResult, ExecutionMode, IHookPlugin
+from .hook_chains import HookChain, ExecutionMode
+from .workflow_hook_executor import WorkflowHookExecutor
+
+# 从接口层导入，保持一致性
+from src.interfaces.workflow.plugins import HookContext, HookExecutionResult, IHookPlugin
 
 __all__ = [
     "HookSystem",
@@ -17,4 +21,5 @@ __all__ = [
     "HookExecutionResult",
     "ExecutionMode",
     "IHookPlugin",
+    "WorkflowHookExecutor",
 ]
